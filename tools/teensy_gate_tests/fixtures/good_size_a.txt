@@ -1,0 +1,10 @@
+holosphere.elf  :
+section                   size         addr
+.text.itcm              0xf320          0x0
+.text.progmem          0x2cc00     0x60000000
+.text.code              0x2a00         0x10000
+.data                   0x1a00     0x20000000
+.bss                   0x53c00     0x20000040
+.bss.dma               0x79900     0x20200000
+.ARM.exidx                 0x8     0x60040000
+Total                  0xfe22c

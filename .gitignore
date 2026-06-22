@@ -31,6 +31,15 @@ __vm/
 *.vcxproj.user
 .clangd
 
+# PlatformIO build tree (Teensy CI gate). Lives at the repo root because the
+# gate uses src_dir = . to reach sources in core/ and targets/. VMicro never
+# writes here and PlatformIO never writes into __vm/, so the two coexist.
+/.pio/
+# PlatformIO converts the selected sketch to <name>.ino.cpp next to the .ino
+# during a build (normally deleted on exit). Ignore it so an interrupted build
+# can't leave it tracked — and so VMicro never sees a stray duplicate of setup()/loop().
+*.ino.cpp
+
 # Python bytecode cache
 __pycache__/
 *.pyc

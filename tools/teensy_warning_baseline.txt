@@ -1,0 +1,6 @@
+# Teensy firmware first-party warning baseline (tools/teensy_warnings.py).
+# Sorted, deduplicated, normalized (path:line:col stripped). The ratchet
+# fails only on warnings NOT listed here. Regenerate with --update-baseline
+# in the SAME PR as the change that legitimately alters the set (§7.2).
+
+core/platform.h: warning: zero-length gnu_printf format string [-Wformat-zero-length]

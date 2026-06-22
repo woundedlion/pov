@@ -424,3 +424,71 @@ jobs:
             echo "All ${#TESTS[@]} registered tests are covered by exactly one shard."
           fi
           exit "$fail"
+
+  teensy-gate-tests:
+    name: Teensy gate parser + layout self-tests
+    # The Teensy size/layout gate must gate itself: a check that can never fail
+    # is worse than none. These host-Python tests prove every layout invariant
+    # and region ceiling FAILS on a deliberately-broken fixture and PASSES on the
+    # good one (docs/teensy_ci_gate_spec.md §9.1). No ARM toolchain, no
+    # PlatformIO — fast, and independent of the heavy build job below, so it runs
+    # on every push regardless of whether the firmware build is enabled yet.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      - name: Run gate parser/layout/warning self-tests
+        run: python -m unittest discover -s tools/teensy_gate_tests -v
+
+  teensy-size:
+    name: Teensy 4 firmware (build + size + layout)
+    # ─── REPORT-ONLY, GATED OFF BY DEFAULT ─────────────────────────────────────
+    # Builds both Teensy 4.0 images headlessly and enforces the per-region budgets
+    # + layout invariants (spec §10). Gated on a repo variable so it does not run
+    # until it can actually go green: set TEENSY_GATE_ENABLED=true to enable.
+    # Phase-0 spike status (2026-06): TOOLCHAIN resolved + pinned (teensy@5.0.0 =
+    # Teensyduino 1.59 / arm-gcc 11.3.1, platformio==6.1.19, FastLED 3.4.0). The
+    # device-only bit-rot the build surfaced is FIXED (spec §16), so HOLOSPHERE now
+    # builds GREEN and PASSES the gate end-to-end on the real ELF. STILL BLOCKING
+    # this job: PHANTASM compiles + links but OVERFLOWS RAM1 by ~243 KB (all effects
+    # → ~381 KB ITCM + ~380 KB DTCM ≫ 512 KB) — `pio run -e holosphere -e phantasm`
+    # therefore fails on phantasm. Enable (TEENSY_GATE_ENABLED=true) once phantasm
+    # fits (-Os / FLASHMEM / fewer effects / smaller arena — owner's call), then flip
+    # to a REQUIRED check (tolerating a path-skipped run as success — spec §10 Notes).
+    if: ${{ vars.TEENSY_GATE_ENABLED == 'true' }}
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5        # PlatformIO is a Python package
+        with:
+          python-version: '3.x'
+      - name: Cache PlatformIO toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          # Target-agnostic (one toolchain serves both envs); rotates on any pin
+          # bump via platformio.ini's hash so a stale cache can't mask a change.
+          key: pio-teensy-${{ hashFiles('platformio.ini') }}
+      - name: Cache build objects               # mirrors ci.yml's ccache discipline
+        uses: actions/cache@v4
+        with:
+          # build_cache_dir from platformio.ini — without this the 7,685-line
+          # reaction_graph.cpp + FastLED recompile from scratch every run, ×2 envs.
+          path: .pio/build_cache
+          key: pio-objs-${{ hashFiles('platformio.ini') }}-${{ github.sha }}
+          restore-keys: pio-objs-${{ hashFiles('platformio.ini') }}-
+      - name: Install pinned PlatformIO
+        run: pip install 'platformio==6.1.19'   # Phase-0 spike resolved this version
+      - name: Build + size + layout gate (both targets)
+        # The extra_script (tools/teensy_gate_extra.py) enforces per-env budgets
+        # and sets a non-zero exit on any violation, emitting ::error:: annotations.
+        run: pio run -e holosphere -e phantasm
+      - name: Upload firmware artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: teensy-firmware
+          path: .pio/build/*/firmware.*
+          if-no-files-found: warn

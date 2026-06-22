@@ -1,0 +1,17 @@
+.pio/build/phantasm/firmware.elf  :
+section              size         addr
+.text.headers        5120   1610612736
+.text.code          10688   1610617856
+.text.progmem      158472   1610628544
+.text.itcm         380896            0
+.fini                   4       380896
+.ARM.exidx            568       380900
+.data               27328    536870912
+.bss               352640    536898240
+.bss.dma           518272    538968064
+.text.csf            3676   1611195812
+.ARM.attributes        46            0
+.comment               51            0
+Total             1457761
+
+

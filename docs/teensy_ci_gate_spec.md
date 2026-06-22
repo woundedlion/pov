@@ -1,6 +1,33 @@
 # Design Spec: Teensy 4 CI Gate — Build, Warning Hygiene, Image Size & Memory Layout
 
-**Status:** Draft / design only (no implementation)
+**Status:** Phase-0 scaffold + toolchain spike done. Landed & self-tested (report-only):
+`platformio.ini` + the `tools/teensy_pre.py` sketch-placement hook, the post-build gate
+(`tools/teensy_gate.py` + `tools/teensy_gate_extra.py`), budgets (`tools/teensy_budgets.json`), the
+warning ratchet (`tools/teensy_warnings.py` + baseline), the host self-tests
+(`tools/teensy_gate_tests/`, green), the `teensy-gate-tests` CI job, the `just teensy-size` recipe,
+and the Teensy-4.0 doc reconciliation (§14.5).
+
+**Phase-0 spike results (2026-06) — see §16:** the toolchain question is resolved favourably
+(branch 1, exact bench parity): `platform = teensy@5.0.0` natively delivers Teensyduino 1.59.0 +
+arm-none-eabi-gcc 11.3.1, `platformio==6.1.19`, `FastLED@3.10.3`. Two config corrections the real
+build forced: (a) the Teensy core default `-std=gnu++17` must be `build_unflags`'d so the engine's
+C++20 compiles; (b) PlatformIO's sketch discovery globs `$PROJECT_SRC_DIR/*.ino` and ignores
+`build_src_filter`, so the spec's filter-only plan (§5/§6) can't place the `.ino` — a pre-script
+selects it instead. The build now compiles `core/*.cpp` + the converted sketch cleanly.
+
+**The gate earned its keep, then went green (2026-06).** The first headless device build surfaced
+**real device-only breakage** invisible to the WASM/native CI; all of it is now FIXED (§16):
+Arduino `TWO_PI` macro collisions (renamed to `kTwoPi` in `effects/{Flyby,Liquid2D,Raymarch}.h`),
+the wrong FastLED pin (3.10.3 → the bench's **3.4.0**, which moved types into `namespace fl`),
+`effects_legacy.h` `Pixel16`→`CRGB` explicit-conversion bit-rot, an ambiguous `pov` vs the `namespace
+pov` (sketch var → `g_pov`), and a `color.h` include collision with FastLED's own `color.h`
+(`hardware/` now uses `"core/color.h"`). **Result:** **Holosphere builds GREEN and PASSES the gate
+end-to-end** on the real ELF (calibrated budgets + the real `_ZL18global_arena_block` mangled arena
+symbol). **Phantasm compiles + links but OVERFLOWS RAM1 by ~243 KB** (all effects → ~381 KB ITCM +
+~380 KB DTCM ≫ 512 KB) — the gate correctly fails it; shrinking it (-Os / FLASHMEM / fewer effects /
+smaller arena) is owner-scope (§4.1 relief valve). The warning baseline is captured (1 first-party
+warning — 55 `HS_CHECK` sites dedupe to one). Remaining: enable the `teensy-size` CI job
+(`vars.TEENSY_GATE_ENABLED`) once Phantasm fits.
 **Scope:** Add an automated gate that compiles the Teensy 4 firmware images, then validates
 build success, warning hygiene, image size, and memory-region layout against checked-in budgets.
 **Out of scope:** On-device flashing/running, hardware-in-the-loop tests, the WASM/native-test
@@ -139,7 +166,7 @@ Read from the committed Holosphere VMicro project — `targets/Holosphere/Holosp
 | Exceptions / RTTI | **OFF** — `-fno-exceptions -fno-rtti` | vmps default **and** explicit user flag | confirm parity (matters for the `std::nothrow` OOM path in `Phantasm.ino`) |
 | Extra user C++ flags | `-fno-threadsafe-statics -fno-unwind-tables -fno-asynchronous-unwind-tables -fno-use-cxa-atexit` | vcxproj `VM_ADDITIONAL_COMPILER_CPP_FLAGS` | add verbatim to `build_flags` — they shrink code and must match |
 | Warning suppressions | **`-Wno-psabi -Wno-deprecated -Wno-attributes`** | vcxproj `VM_ADDITIONAL_COMPILER_CPP_FLAGS` | add to `build_flags`; feeds §7.2 (these are already-tolerated warnings) |
-| Include dirs | **`core/`, `effects/`, `hardware/`** (+ sketch dir + repo root via `-I …/../../`) | vcxproj `IncludePath`; user flag `-I{build.source.path}/../../` | `-I core -I effects -I hardware` — **note `effects/` is required**, see §6 |
+| Include dirs | **`core/`, `effects/`, `hardware/`** (+ sketch dir + repo root via `-I …/../../`) | vcxproj `IncludePath`; user flag `-I{build.source.path}/../../` | `-I core -I effects -I hardware` — **`effects/` is parity; the repo root (via `src_dir=.`) is the real requirement**, see §6 |
 | Core/lib optimization | `OptimiseLibs=True`, `OptimiseCore=True` | vmps `Compile` attrs | PlatformIO optimizes core/libs with the env flags by default |
 | Linker script / FlexRAM split | Teensy core's `.ld` (ITCM↔DTCM FlexRAM bank config) | from `board = teensy40` + core 1.59 | **automatic** (same core ⇒ same `.ld`); see note below — load-bearing for the DTCM/RAM1 budget |
 
@@ -166,9 +193,16 @@ is breached), but explains why that floor can move in 32 KiB increments rather t
    - **Relief valve:** if Phase-0 calibration shows the `-O3` image doesn't fit (flash or OCRAM),
      dropping the bench to `-Os` is the obvious shrink — but that's an owner build-config change,
      mirrored in `platformio.ini`, not something the gate decides. For now the gate targets `-O3`.
-2. **`effects/` must be on the include path** — VMicro includes `../../effects` (vcxproj line 67),
-   which the original `-I core -I hardware` plan (and README §11) omitted. `effects.h` pulls effect
-   headers from `effects/` by bare name, so the firmware build needs `-I effects` too (§6).
+2. **The repo root must be on the include path; `effects/` is kept for VMicro parity.** Correction
+   to earlier drafts: the effect headers are *not* included by bare name — `core/effects.h` pulls
+   them PATH-PREFIXED (`#include "effects/BZReactionDiffusion.h"`), and those headers in turn include
+   `core/...` and `effects/...` siblings the same way. Those path-prefixed includes resolve from the
+   **repo root**, which PlatformIO puts on the include path automatically via `src_dir = .` — *that*
+   is the load-bearing requirement, not `-I effects`. `-I core` / `-I hardware` are still needed for
+   the BARE `effects.h` / `effects_legacy.h` / `pov_single.h` includes in the `.ino`. `-I effects` is
+   retained to mirror VMicro's `../../effects` (vcxproj line 67) and guard a future bare-name include,
+   but the current tree does not require it (§6). README §11's include-dir hint is updated to add
+   `../../effects` for VMicro parity regardless.
 
 > **Scope of the capture.** Only **Holosphere** has a committed VMicro/VS project; **Phantasm has
 > none** to read. The table above is therefore Holosphere's actual config; Phantasm is assumed to
@@ -268,7 +302,7 @@ build_unflags = -Os                   # drop PlatformIO/Teensy default so the -O
 build_flags =
     -O3                               # owner-confirmed "Fastest" (o3std), no LTO (§4.1)
     -I core
-    -I effects                        # REQUIRED — effects.h pulls effect headers by bare name (§4.1)
+    -I effects                        # VMicro parity; repo-root (src_dir=.) resolves effects/*.h (§4.1)
     -I hardware
     -D USB_SERIAL                     # USB type (§4.1)
     -D LAYOUT_US_ENGLISH              # keyboard layout (§4.1)
@@ -804,8 +838,9 @@ All five prior open questions have been decided; the spec body reflects them.
    README §1 must be reconciled to 4.0 **before** the flash budget is locked — the board fixes the
    flash ceiling (2 MB vs 8 MB), so an unambiguous tree is a prerequisite, not downstream tidy-up
    (§5 board note, Phase 0 in §13). The `Holosphere.ino` 288×144-vs-96×20 resolution mismatch is a
-   parallel cleanup; the gate budgets the committed image regardless. Still **not implemented yet**
-   (spec-only).
+   parallel cleanup; the gate budgets the committed image regardless. The board lines **have now
+   been reconciled to 4.0** (`Phantasm.ino:7`, README §1 and §11); the `Holosphere.ino` resolution
+   mismatch remains the parallel cleanup.
 
 ---
 
@@ -853,3 +888,60 @@ All five prior open questions have been decided; the spec body reflects them.
   the host device-value tests respectively (divergence ledger). Stated as a non-goal (§2) so the
   gate isn't mistaken for hardware validation.
 ```
+
+---
+
+## 16. Phase-0 spike log (2026-06)
+
+The go/no-go toolchain spike (§6) was run with a real PlatformIO build. Outcome and the concrete
+values now pinned:
+
+**Toolchain — branch 1 (exact bench parity), no override needed.** `platform = teensy@5.0.0`
+natively installs, for Teensy 4, the *same* PJRC toolchain Teensyduino/VMicro use:
+`framework-arduinoteensy @ 1.159.0` (Teensyduino 1.59.0) and `toolchain-gccarmnoneeabi-teensy @
+1.110301.0` (arm-none-eabi-gcc 11.3.1). The `toolchain-gccarmnoneeabi @ ~1.80201.0` (gcc 8.2.1) in
+`platform.json` is for the older Teensy 3.x/LC boards, not Teensy 4 — an earlier draft misread it.
+Pinned: `platform = teensy@5.0.0`, `platformio == 6.1.19`, `fastled/FastLED @ 3.10.3`. CI thus
+*mirrors* the bench compiler. (Pin remains a version tag; a future SHA pin is optional hardening.)
+
+**Two config corrections the build forced (now in `platformio.ini` / `tools/teensy_pre.py`):**
+1. **`-std=gnu++17` must be unflagged.** The Teensy core appends `-std=gnu++17` after our flags, so
+   `-std=gnu++20` lost and the engine's C++20 `concept` (memory.h) failed. Fixed via
+   `build_unflags = ... -std=gnu++17`.
+2. **Sketch discovery ignores `build_src_filter`.** PlatformIO finds the sketch only by globbing
+   `$PROJECT_SRC_DIR/*.ino` (top level; `pioino.FindInoNodes`). With `src_dir = .` that finds no
+   `.ino`, so `setup`/`loop` don't link. The spec's filter-only plan (§5/§6) cannot place the
+   sketch. Fix: keep `src_dir = .` (so `core/*.cpp` build as project sources with full LDF include
+   paths — FastLED, framework SPI) and override `FindInoNodes` per-env in `tools/teensy_pre.py`;
+   `build_src_filter` then adds the converted `targets/<X>/<X>.ino.cpp`. Verified: `core/memory.cpp`,
+   `core/reaction_graph.cpp`, and the converted sketch all compile.
+
+**Headline finding (now resolved) — the gate surfaced real device-only bit-rot the WASM/native CI
+cannot see.** Each was fixed; the device build is the first thing to compile this code under
+`Arduino.h` + arm-gcc:
+- **Arduino `TWO_PI` macro collision** — `effects/{Flyby,Liquid2D,Raymarch}.h` declared a local
+  `constexpr float TWO_PI`, colliding with `wiring.h`'s `#define TWO_PI`. **Fixed:** renamed → `kTwoPi`.
+- **Wrong FastLED pin** — I first pinned 3.10.3; the bench/Teensyduino 1.59 bundles **FastLED 3.4.0**,
+  and 3.7+ moved `CHSVPalette16`/`HUE_RED`/`CEveryNMillis` and `CRGB`/`CHSV` into `namespace fl`.
+  **Fixed:** pinned `FastLED@3.4.0` (§4.1 parity) — cleared a whole error class at once.
+- **`effects_legacy.h` `Pixel16`→`CRGB`** (lines 25, 42, 100–112, 517, 743): `operator CRGB()` was made
+  `explicit`, so the legacy effects no longer convert implicitly. **Fixed:** explicit `static_cast<CRGB>`.
+- **Ambiguous `pov`** — the sketch var collided with the hardware `namespace pov` (pov_segment_map.h).
+  **Fixed:** sketch var → `g_pov` in both `.ino`s.
+- **`color.h` include collision** — FastLED ships its own `src/color.h`; the device `-I` order made
+  `hardware/{dma_led,hd107s_frame}.h`'s bare `"color.h"` resolve to FastLED's (no `Pixel16`/LUTs),
+  while host builds got the engine's. **Fixed:** those two now `#include "core/color.h"`.
+
+**Result — Holosphere builds GREEN and the gate PASSES end-to-end on the real ELF.** Real calibrated
+budgets (FLASH 154,620 / RAM1 459,072 free 65,216 / RAM2 518,272 free 6,016) and the **real** mangled
+arena symbol `_ZL18global_arena_block` (the source spelling would never have matched — §7.4 vindicated).
+The layout invariants are confirmed on real ELFs: arena→DTCM (343,040 B), framebuffers→OCRAM, and (on
+a Phantasm ELF) reaction_graph→FLASH (`0x60003dc0`, 92,160 B). Parser quirks the real output exposed,
+now handled: `teensy_size` prints to **stderr**, and `readelf` prints large sizes in **hex**. The
+warning baseline is captured: **1** first-party warning (55 `HS_CHECK` call sites dedupe to one —
+the set-based ratchet working as designed; and the object cache was observed blinding it, §7.2).
+
+**Phantasm OVERFLOWS RAM1 by ~243 KB** (all effects via `HS_EFFECT_LIST` → ~381 KB ITCM + ~380 KB
+DTCM). Its ELF was captured for symbol analysis by temporarily neutralizing `teensy_size`'s overflow
+exit (reverted). RAM2 is ~518 KB / 524 KB for **both** targets — the structural OCRAM tightness the
+spec predicted (§8). Shrinking Phantasm (-Os / FLASHMEM / fewer effects / smaller arena) is owner-scope.

@@ -1,0 +1,62 @@
+{
+  // ==========================================================================
+  // Teensy 4 firmware size + layout budgets — consumed by tools/teensy_gate.py
+  // (docs/teensy_ci_gate_spec.md §8). JSONC: // and /* */ comments are stripped.
+  //
+  // CALIBRATED FROM A REAL -O3 BUILD (Phase-0 spike, 2026-06): teensy@5.0.0
+  // (Teensyduino 1.59.0 / arm-gcc 11.3.1), FastLED 3.4.0. Holosphere builds GREEN
+  // and FITS; its numbers below are real + headroom'd. PHANTASM currently
+  // OVERFLOWS RAM1 (all effects via HS_EFFECT_LIST: ~381 KB ITCM code + ~380 KB
+  // DTCM ≫ 512 KB) — its budgets are the T4.0 ceilings so the gate correctly FAILS
+  // it until the image is shrunk (-Os / more FLASHMEM / fewer effects / smaller
+  // arena — owner's call, §4.1 relief valve). RAM2 is structurally ~518 KB / 524 KB
+  // for BOTH targets (the two 243 KiB framebuffers), ~6 KB free — exactly the OCRAM
+  // tightness the spec predicted (§8).
+  //
+  // Symbol names are the REAL linkage names from `readelf -s` (§7.4): the arena is
+  // file-scope static, so it mangles to `_ZL18global_arena_block` (NOT the source
+  // spelling). A renamed/missing layout symbol is a hard failure, never a silent
+  // pass. Raising a ceiling is a reviewed one-line edit landed with the change that
+  // needs it (§8).
+  // ==========================================================================
+
+  "holosphere": {
+    "board": "teensy40",
+    "regions": {
+      // Real used: FLASH 154,620 / RAM1 459,072 (free 65,216) / RAM2 518,272 (free 6,016).
+      "flash": { "max_bytes": 1900000 },                        // < 2 MiB; wide headroom (committed .ino only runs RingSpin)
+      "ram1":  { "max_bytes": 490000, "free_min_bytes": 32768 }, // used 459,072; ~31 KB headroom to the 512 KiB wall
+      "ram2":  { "max_bytes": 524288 }                          // OCRAM is structurally full (~6 KB free); cap at the wall
+    },
+    "symbols": {
+      "arena":         { "name": "_ZL18global_arena_block", "region": "DTCM", "min_bytes": 327680, "max_bytes": 360448 }, // 343,040 B
+      "framebuffer_a": { "name": "_ZN6Effect8buffer_aE",    "region": "OCRAM" },
+      "framebuffer_b": { "name": "_ZN6Effect8buffer_bE",    "region": "OCRAM" }
+      // NOTE: reaction_graph (ReactionGraph::neighbors) is GC'd out of Holosphere
+      // — RingSpin uses no reaction-diffusion effect — so it is intentionally NOT
+      // a layout symbol here. It IS checked for Phantasm (below).
+    }
+  },
+
+  "phantasm": {
+    "board": "teensy40",
+    "regions": {
+      // OVERFLOWS today: real used RAM1 773,184 (≫ 524,288), FLASH 586,748, RAM2 518,272.
+      "flash": { "max_bytes": 1900000 },
+      "ram1":  { "max_bytes": 490000, "free_min_bytes": 32768 }, // target; current image is ~283 KB over (gate fails — correct)
+      "ram2":  { "max_bytes": 524288 }
+    },
+    "symbols": {
+      "arena":          { "name": "_ZL18global_arena_block",        "region": "DTCM", "min_bytes": 327680, "max_bytes": 360448 },
+      "framebuffer_a":  { "name": "_ZN6Effect8buffer_aE",          "region": "OCRAM" },
+      "framebuffer_b":  { "name": "_ZN6Effect8buffer_bE",          "region": "OCRAM" },
+      // Phantasm instantiates all effects (incl. reaction-diffusion), so the K-NN
+      // table is present and must stay in flash. UNVERIFIED on a real ELF yet — the
+      // overflowing build is discarded before it can be inspected; confirm once the
+      // image fits. (Const => flash/.rodata; §7.4 #3.)
+      "reaction_graph": { "name": "_ZN13ReactionGraph9neighborsE", "region": "FLASH" }
+      // PHASE-1: add the DMALEDController eDMA TX-buffer invariant once its mangled
+      // symbol is captured from a fitting Phantasm build (must stay OCRAM, §5/§8).
+    }
+  }
+}

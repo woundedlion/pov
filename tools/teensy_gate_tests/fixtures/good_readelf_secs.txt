@@ -1,0 +1,12 @@
+There are 8 section headers, starting at offset 0x90000:
+
+Section Headers:
+  [Nr] Name              Type            Addr     Off    Size   ES Flg Lk Inf Al
+  [ 0]                   NULL            00000000 000000 000000 00      0   0  0
+  [ 1] .text.itcm        PROGBITS        00000000 010000 00f320 00  AX  0   0 16
+  [ 2] .text.progmem     PROGBITS        60000000 020000 02cc00 00  AX  0   0 16
+  [ 3] .text.code        PROGBITS        00010000 04d000 002a00 00  AX  0   0 16
+  [ 4] .data             PROGBITS        20000000 050000 001a00 00  WA  0   0  8
+  [ 5] .bss              NOBITS          20000040 051a00 053c00 00  WA  0   0  8
+  [ 6] .bss.dma          NOBITS          20200000 060000 079900 00  WA  0   0 32
+  [ 7] .ARM.exidx        ARM_EXIDX       60040000 04c000 000008 00  AL  1   0  4

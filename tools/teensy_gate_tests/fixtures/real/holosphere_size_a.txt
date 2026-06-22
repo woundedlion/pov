@@ -1,0 +1,16 @@
+.pio/build/holosphere/firmware.elf  :
+section              size         addr
+.text.headers        5120   1610612736
+.text.code           1792   1610617856
+.text.progmem       66312   1610619648
+.text.itcm          68864            0
+.fini                   4        68864
+.data                8896    536870912
+.bss               351872    536879808
+.bss.dma           518272    538968064
+.text.csf            3636   1610763724
+.ARM.attributes        46            0
+.comment               51            0
+Total             1024865
+
+
