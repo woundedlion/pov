@@ -131,39 +131,40 @@ public:
     // is no O(log k) push / O(1) peek-max invariant to rely on.
     StaticCircularBuffer<Candidate, MAX_K> best;
 
-    // Offer a candidate to the k-best set: append while under k, otherwise
-    // displace the current worst entry if this one is closer.
-    auto offer_candidate = [&](float d_sq, int idx) {
-      if (best.size() < static_cast<size_t>(k)) {
-        best.push_back({d_sq, idx});
-      } else {
-        // Full: replace the current worst candidate only if d_sq beats it.
-        float max_d = -1.0f;
-        int max_i = -1;
-        for (size_t i = 0; i < best.size(); ++i) {
-          if (best[i].d_sq > max_d) {
-            max_d = best[i].d_sq;
-            max_i = i;
-          }
-        }
-        if (d_sq < max_d) {
-          best[max_i] = {d_sq, idx};
+    // Cached pruning bound: the largest squared distance currently in `best` and
+    // its slot. FLT_MAX (worst_i = -1) until the set fills to k, matching the
+    // "don't prune before full" rule. Recomputed only when `best` actually
+    // changes (a fill that reaches k, or a displacement) — so the per-node prune
+    // test get_worst_dist() is O(1), not an O(k) rescan on every visited node.
+    float worst_d_sq = FLT_MAX;
+    int worst_i = -1;
+    auto recompute_worst = [&]() {
+      worst_d_sq = -1.0f;
+      worst_i = -1;
+      for (size_t i = 0; i < best.size(); ++i) {
+        if (best[i].d_sq > worst_d_sq) {
+          worst_d_sq = best[i].d_sq;
+          worst_i = i;
         }
       }
     };
 
-    // Pruning bound: largest squared distance currently held. Returns FLT_MAX
-    // until the set holds k entries so nothing is pruned before it fills.
-    auto get_worst_dist = [&]() -> float {
-      if (best.size() < static_cast<size_t>(k))
-        return FLT_MAX;
-      float max_d = -1.0f;
-      for (size_t i = 0; i < best.size(); ++i) {
-        if (best[i].d_sq > max_d)
-          max_d = best[i].d_sq;
+    // Offer a candidate to the k-best set: append while under k, otherwise
+    // displace the cached worst entry if this one is closer.
+    auto offer_candidate = [&](float d_sq, int idx) {
+      if (best.size() < static_cast<size_t>(k)) {
+        best.push_back({d_sq, idx});
+        if (best.size() == static_cast<size_t>(k))
+          recompute_worst(); // set just filled: cache its worst for pruning
+      } else if (d_sq < worst_d_sq) {
+        best[worst_i] = {d_sq, idx};
+        recompute_worst(); // worst displaced: refresh the cache
       }
-      return max_d;
     };
+
+    // Pruning bound: the cached largest squared distance held (FLT_MAX until the
+    // set holds k entries, so nothing is pruned before it fills).
+    auto get_worst_dist = [&]() -> float { return worst_d_sq; };
 
     search_k(root_index, target, offer_candidate, get_worst_dist);
 
