@@ -83,6 +83,8 @@ public:
                                                                         S);
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
+    FastLED.setBrightness(255);  // explicit (FastLED defaults to 255), so both
+                                 // branches set correction+temperature+brightness
   #endif
   }
 
