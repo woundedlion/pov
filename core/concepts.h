@@ -18,7 +18,8 @@
 //                      Must NOT outlive the referenced callable.
 //
 //   Fn<Sig, Cap>       Owning, inline storage (teensy::inplace_function on
-//                      Teensy, std::function on WASM). Use for stored
+//                      Teensy, hs::inplace_function on host/WASM — both
+//                      heap-free). Use for stored
 //                      callbacks that must persist beyond the creating scope
 //                      (e.g. registered timers, sprite functions).
 // ---------------------------------------------------------------------------
