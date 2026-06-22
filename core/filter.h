@@ -1683,12 +1683,16 @@ public:
     b_col.r = 0;
     b_col.g = 0;
 
-    pass(static_cast<float>(wrap(static_cast<int>(x) + 1, W)), y, r_col, age,
-         alpha);
-    pass(static_cast<float>(wrap(static_cast<int>(x) + 2, W)), y, g_col, age,
-         alpha);
-    pass(static_cast<float>(wrap(static_cast<int>(x) + 3, W)), y, b_col, age,
-         alpha);
+    // Normalize the base column into [0, W) with the family's single-step
+    // fast_wrap (the Pixel-domain producer contract guarantees x in [-W, 2W)),
+    // then offset and fast_wrap again. Each offset is at most +3, so xi+offset
+    // stays inside fast_wrap's [-W, 2W) window for any W > 2. This matches
+    // AntiAlias and the sink rather than the full wrap() this used to call, so
+    // an out-of-window x now trips the same debug assert its siblings rely on.
+    int xi = fast_wrap(static_cast<int>(x), W);
+    pass(static_cast<float>(fast_wrap(xi + 1, W)), y, r_col, age, alpha);
+    pass(static_cast<float>(fast_wrap(xi + 2, W)), y, g_col, age, alpha);
+    pass(static_cast<float>(fast_wrap(xi + 3, W)), y, b_col, age, alpha);
   }
 };
 
