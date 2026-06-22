@@ -27,6 +27,7 @@
 #include <cmath>
 #include <cstdint>
 #include "core/mesh.h"
+#include "core/palettes.h"
 #include "core/solids.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_harness.h"
@@ -373,6 +374,107 @@ inline void test_islamic_recipes_fit_islamicstars_budget() {
 }
 
 // ---------------------------------------------------------------------------
+// Persistent-budget regression for the IslamicStars carousel.
+//
+// The scratch sweep above guards GENERATION (the two 120 KB pools). This guards
+// the OTHER half of IslamicStars' split: the persistent arena holding the baked
+// palette bank plus the double-buffered carousel of COMPILED meshes. init()
+// calls configure_arenas(GLOBAL_ARENA_SIZE - (120+120)*1024, 120 KB, 120 KB); on
+// the device GLOBAL_ARENA_SIZE is 335 KB, leaving ~95 KB persistent. The native
+// suite builds with an 8 MB GLOBAL_ARENA_SIZE, so a device persistent overflow
+// can NOT surface by running the effect here, and the effect smoke test never
+// cycles through every Islamic shape — so the worst-case recipe's compiled
+// footprint goes unmeasured against the real device budget. Measure it.
+//
+// Peak persistent residents during a cross-fade swap: one re-baked palette bank
+// plus exactly two carousel slots — the outgoing FRONT (shape i) and the freshly
+// generated BACK (shape i+1) coexist until the swap, each a compiled mesh plus
+// its per-face topology array. spawn_shape cycles solid_idx = (solid_idx+1) % N,
+// so the coexisting pair is always two registry-ADJACENT shapes (wrapping at the
+// end); the peak is the largest adjacent-pair sum, not twice the single largest.
+// The host figure is a conservative upper bound on the device figure for the
+// same reason check_high_water_for_recipe documents (flat POD arrays whose only
+// host/device delta — 64-bit pointers — can only make the host larger), so
+// passing here guarantees the device fits.
+// ---------------------------------------------------------------------------
+
+constexpr size_t kIslamicPersistentBudget =
+    335 * 1024 - 2 * (120 * 1024); /**< Device GLOBAL_ARENA_SIZE minus the two
+                                      120 KB scratch pools = IslamicStars'
+                                      persistent split (~95 KB). */
+
+/**
+ * @brief Verifies the worst adjacent pair of Islamic shapes, plus the palette
+ *        bank, fits IslamicStars' ~95 KB persistent carousel split.
+ * @details Compiles + classifies every Islamic solid into a fresh arena exactly
+ *          as spawn_shape does, records each slot's footprint, then asserts the
+ *          largest registry-adjacent pair (the carousel's worst cross-fade
+ *          coexistence) plus one palette bank stays within the device budget.
+ */
+inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
+  // One resident palette bank (re-baked into the fresh arena each shape cycle).
+  size_t palette_bytes;
+  {
+    Arena pal(solids_geom_b, sizeof(solids_geom_b));
+    MeshPaletteBank bank;
+    bank.bake_all(pal);
+    palette_bytes = pal.get_high_water_mark();
+  }
+
+  const size_t base = Solids::Collections::get_simple_solids().size() +
+                      Solids::Collections::get_catalan_solids().size();
+  const auto islamic = Solids::Collections::get_islamic_solids();
+  const size_t N = islamic.size();
+
+  // Per-slot persistent footprint (compiled mesh + topology array) for each
+  // Islamic shape, in registry/cycle order.
+  size_t slot_bytes[Solids::NUM_ENTRIES];
+  size_t worst_slot = 0, worst_v = 0, worst_f = 0, worst_k = 0;
+  for (size_t k = 0; k < N; ++k) {
+    Arena geom(solids_geom_a, sizeof(solids_geom_a));
+    PolyMesh raw = build_index(base + k, geom);
+
+    // Compile + classify into one fresh persistent arena, as spawn_shape does,
+    // and measure the bytes a single carousel slot consumes. The three arenas
+    // are distinct backing buffers (no aliasing with geom, which holds raw).
+    Arena slot_arena(solids_scratch_a, sizeof(solids_scratch_a));
+    Arena sa(solids_scratch_b, sizeof(solids_scratch_b));
+    Arena sb(solids_geom_b, sizeof(solids_geom_b));
+    MeshState slot;
+    MeshOps::compile(raw, slot, slot_arena);
+    MeshOps::classify_faces_by_topology(slot, sa, sb, slot_arena);
+
+    slot_bytes[k] = slot_arena.get_high_water_mark();
+    if (slot_bytes[k] > worst_slot) {
+      worst_slot = slot_bytes[k];
+      worst_v = slot.vertices.size();
+      worst_f = slot.face_counts.size();
+      worst_k = k;
+    }
+  }
+
+  // Worst cross-fade coexistence = the largest registry-adjacent pair, with the
+  // (N-1, 0) wrap (the cycle loops, so that pair occurs too).
+  size_t worst_pair = 0, worst_pair_i = 0;
+  for (size_t i = 0; i < N; ++i) {
+    size_t pair = slot_bytes[i] + slot_bytes[(i + 1) % N];
+    if (pair > worst_pair) {
+      worst_pair = pair;
+      worst_pair_i = i;
+    }
+  }
+
+  const size_t peak = palette_bytes + worst_pair;
+  std::printf("  [islamic persistent] palette=%zu B, worst slot=%zu B (idx %zu, "
+              "V=%zu F=%zu), worst adj pair=%zu B (idx %zu+%zu), peak=%zu B / "
+              "budget=%zu B\n",
+              palette_bytes, worst_slot, worst_k, worst_v, worst_f, worst_pair,
+              worst_pair_i, (worst_pair_i + 1) % N, peak,
+              (size_t)kIslamicPersistentBudget);
+  HS_EXPECT_LE(peak, (size_t)kIslamicPersistentBudget);
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -399,6 +501,7 @@ inline int run_solids_tests() {
   test_determinism_complex_islamic();
 
   test_islamic_recipes_fit_islamicstars_budget();
+  test_islamic_solids_fit_islamicstars_persistent_budget();
 
   return hs_test::end_module(scope);
 }
