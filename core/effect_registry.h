@@ -66,7 +66,22 @@ public:
    * @return Reference to the singleton vector of registrations.
    */
   static std::vector<EffectRegistration>& entries() {
-    static std::vector<EffectRegistration> s;
+    static std::vector<EffectRegistration> s = [] {
+      std::vector<EffectRegistration> v;
+      // Reserve once up front so the self-registration push_back()s below grow
+      // the vector a single time instead of reallocating incrementally as each
+      // TU registers. The literal 64 is a generous fixed hint, not the exact
+      // count: this header cannot see HS_EFFECT_COUNT (effects.h includes every
+      // effect header, which include this file — a cycle), so vs the ~30
+      // shipping effects over-reserving is harmless and an under-reserve simply
+      // falls back to the old incremental growth. This whole class is
+      // __EMSCRIPTEN__-only; on the WASM
+      // host an allocation failure here happens pre-main and is unrecoverable by
+      // design (no located HS_CHECK trap can run before static init completes),
+      // so a std::terminate on OOM is the accepted, bounded exemption.
+      v.reserve(64);
+      return v;
+    }();
     return s;
   }
   /**

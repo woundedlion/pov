@@ -141,7 +141,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 17. ✅ `core/util.h:37-48` — `wrap<T,U>` propagates NaN silently under `NDEBUG` if `m <= 0` (the `assert` is stripped; both range guards are false for NaN), feeding NaN into pixel coordinates. Latent — every documented caller passes a compile-time-positive `m`. → Floor `m` or promote to `HS_CHECK` (cold helper, not the per-pixel loop).
 
-18. `core/effect_registry.h:68-80` — `EffectRegistry::add` calls `std::vector::push_back`; a `bad_alloc` propagates through a static initializer (terminate, no breadcrumb), contradicting the engine's located-trap doctrine. WASM-host only, growth is tiny. → `reserve(HS_EFFECT_COUNT)` once, or document the host-only exemption.
+18. ✅ `core/effect_registry.h:68-80` — `EffectRegistry::add` calls `std::vector::push_back`; a `bad_alloc` propagates through a static initializer (terminate, no breadcrumb), contradicting the engine's located-trap doctrine. WASM-host only, growth is tiny. → `reserve(HS_EFFECT_COUNT)` once, or document the host-only exemption.
 
 19. `effects/SphericalHarmonics.h:301,333-338` — the positive/negative crossfade `pos.lerp(neg, 1.0f - blend_t)` reads as inverted (correct but uncommented in a file where every other crossfade is documented), and the "low modes 1..23" comment conflates flat SH indices with modes. → Add the inversion rationale; fix the comment.
 
