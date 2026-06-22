@@ -7,6 +7,8 @@
 #include <array>
 #include <span>
 
+#include "platform.h" // HS_CHECK
+
 /**
  * @brief Standalone entry wrapping a single Params preset.
  * @tparam Params The preset parameter type stored in each entry.
@@ -37,7 +39,14 @@ public:
    * @brief Returns the params of the currently selected entry.
    * @return Const reference to the current entry's params.
    */
-  const Params &get() const { return entries[current_idx].params; }
+  const Params &get() const {
+    // current_idx is a public mutable int; next()/prev() keep it in [0, Size) via
+    // their `% Size` discipline, but a direct external write can put it OOB. Trap
+    // a bad index here rather than indexing the array out of bounds.
+    HS_CHECK(current_idx >= 0 && static_cast<size_t>(current_idx) < Size,
+             "Presets::get: current_idx out of range");
+    return entries[current_idx].params;
+  }
 
   /**
    * @brief Advances to the next entry, wrapping past the end.
@@ -83,7 +92,11 @@ public:
    * @brief Returns the params of the entry active before the last move.
    * @return Const reference to the previous entry's params; for crossfades.
    */
-  const Params &prev_get() const { return entries[prev_idx].params; }
+  const Params &prev_get() const {
+    HS_CHECK(prev_idx >= 0 && static_cast<size_t>(prev_idx) < Size,
+             "Presets::prev_get: prev_idx out of range");
+    return entries[prev_idx].params;
+  }
 };
 
 /**
