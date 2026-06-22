@@ -1553,6 +1553,80 @@ inline void test_sim_rev_resync() {
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
 }
 
+// ── Scenario: same-tick EPOCH burst + boundary fold (§6.3.1 j-inference) ─────
+
+/**
+ * @brief Verifies §6.3.1 j-inference stays correct when an EPOCH burst is
+ *        consumed in the SAME tick() its boundary is folded.
+ * @details on_epoch_symbol infers j = rev_in_effect − revs_per_effect, so it
+ *          MUST observe the POST-fold rev. handle_burst guarantees this: its
+ *          backstop apply_flip(ZERO) folds rev_in_effect (via on_zero_crossing)
+ *          before the ZERO_EPOCH branch, and tick()'s later fold loop — which
+ *          runs after handle_burst — is deduped by the flip gate. This pins the
+ *          ordering directly on the content tracker: driving the exact
+ *          fold-then-infer sequence handle_burst uses, every copy j of the train
+ *          must commit at the same absolute B+R+K boundary whether the fold was
+ *          deferred into the burst's tick or already applied a tick earlier. A
+ *          closing assertion pins the precondition the backstop satisfies — the
+ *          un-folded (pre-fold) rev mis-infers a repeat copy one short.
+ */
+inline void test_epoch_same_tick_burst_fold() {
+  const Config cfg = test_config();
+  const uint32_t RPE = cfg.revs_per_effect;
+  const uint32_t R = static_cast<uint32_t>(cfg.epoch_repeats);
+  const uint32_t K = cfg.commit_revs;
+
+  // Drives a content tracker that hears copy j of the train, then counts ZERO
+  // crossings to the commit and returns the ABSOLUTE rev at which it fired
+  // (on_zero_crossing zeroes rev_in_effect on commit, so it is computed, not
+  // read back). same_tick=true models the fold deferred into the burst's tick
+  // (the backstop folds first); same_tick=false models the fold already applied
+  // a tick earlier (the backstop is deduped — modeled by not folding again).
+  auto commit_rev_for = [&](uint32_t j, bool same_tick) -> uint32_t {
+    ContentTracker c;
+    c.identity_known = true;
+    c.effect_index = 0;
+    if (same_tick) {
+      c.rev_in_effect = RPE + j - 1;       // B+j fold still pending…
+      HS_EXPECT_FALSE(c.on_zero_crossing(cfg)); // …backstop apply_flip folds it
+    } else {
+      c.rev_in_effect = RPE + j;           // already folded a tick earlier
+    }
+    const uint32_t base_rev = c.rev_in_effect; // == RPE + j either way
+    HS_EXPECT_EQ(base_rev, RPE + j);
+    HS_EXPECT_TRUE(c.on_epoch_symbol(cfg));  // opens the commit window
+    HS_EXPECT_EQ(c.commit_in_revs, K + R - j);
+    uint32_t count = 0;
+    while (count <= RPE) {
+      const bool committed = c.on_zero_crossing(cfg);
+      ++count;
+      if (committed)
+        break;
+    }
+    return base_rev + count;
+  };
+
+  // Every copy commits at the absolute B+R+K boundary, independent of j and of
+  // whether the burst shared its tick with the fold — the lockstep §6.3.1
+  // promises.
+  for (uint32_t j = 0; j <= R; ++j) {
+    HS_EXPECT_EQ(commit_rev_for(j, /*same_tick=*/true), RPE + R + K);
+    HS_EXPECT_EQ(commit_rev_for(j, /*same_tick=*/false), RPE + R + K);
+  }
+
+  // Why the backstop fold is load-bearing: on_epoch_symbol on the PRE-fold rev
+  // infers a repeat copy one short (j−1), scheduling commit_in_revs a revolution
+  // too large — exactly the late commit handle_burst's apply_flip(ZERO) prevents
+  // by folding first.
+  for (uint32_t j = 1; j <= R; ++j) {
+    ContentTracker pre;
+    pre.identity_known = true;
+    pre.rev_in_effect = RPE + j - 1; // fold NOT applied before the inference
+    HS_EXPECT_TRUE(pre.on_epoch_symbol(cfg));
+    HS_EXPECT_EQ(pre.commit_in_revs, K + R - (j - 1)); // one too large
+  }
+}
+
 // ── §9.1 failure-mode budget: artifact bounds and recovery times ────────────
 //
 // One scenario per spec §9.1 budget row that the tests above do not already
@@ -1900,6 +1974,7 @@ inline int run_pov_sync_tests() {
   test_sim_forged_burst();
   test_sim_epoch_repeat_lockstep();
   test_sim_rev_resync();
+  test_epoch_same_tick_burst_fold();
 
   test_budget_lost_symbol();
   test_budget_emi_accepted_seam();

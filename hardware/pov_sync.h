@@ -1397,7 +1397,15 @@ private:
     if (!was_locked)
       ++telemetry_.lock_transitions;
     halves_since_snap_ = 0;
-    apply_flip(b, a); // backstop flip; deduped if the crossing already fired
+    // Backstop flip; deduped if the local crossing already fired. This MUST
+    // precede on_epoch_symbol: for a ZERO_EPOCH it folds rev_in_effect (via
+    // on_zero_crossing) so the j-inference below reads the post-fold rev. Were
+    // the boundary fold left to tick()'s fold loop — which runs after
+    // handle_burst — a burst landing in the same tick as its fold would infer j
+    // one short on a repeat copy and commit a revolution late (§6.3.1). The
+    // later fold-loop apply_flip is then the deduped one. See
+    // test_epoch_same_tick_burst_fold.
+    apply_flip(b, a);
     if (sym == Symbol::ZERO_EPOCH && content_.identity_known) {
       if (content_.on_epoch_symbol(cfg_)) {
         // Construction normally starts at a later crossing (apply_flip);
