@@ -1490,13 +1490,17 @@ private:
       }
       if (epoch_emits_left_ > 0) {
         sym = Symbol::ZERO_EPOCH;
-        --epoch_emits_left_;
       } else {
         sym = Symbol::ZERO;
       }
     }
+    // Spend the epoch-train redundancy budget only on a symbol that actually
+    // reaches the wire: a censored ZERO_EPOCH never propagated, so decrementing
+    // for it would silently burn a repeat exactly when the wire is degraded.
     if (!emitter_.schedule_boundary(sym, c.at_cycles, now, cfg_))
       ++telemetry_.emit_censored;
+    else if (sym == Symbol::ZERO_EPOCH)
+      --epoch_emits_left_;
   }
 
   /**
