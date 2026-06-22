@@ -294,13 +294,17 @@ public:
                 pos.color.r),
           pos.alpha);
 
-      // Quintic-smoothed crossfade across the zero-crossing boundary. blend_t
-      // rides 0..1 with the field's *positiveness* (0 deep in the negative lobe,
-      // 1 deep in the positive lobe). lerp(other, t) returns `this` (pos) at
-      // t=0 and `other` (neg) at t=1, so invert with 1 - blend_t to map a
-      // positive field to the positive palette and a negative field to neg —
-      // the blend is otherwise symmetric, so this inversion is the only thing
-      // keeping the lobes from swapping colors.
+      // Narrow quintic-smoothed seam at the zero-crossing boundary. This is NOT a
+      // wide crossfade: `transition` is the half-width (in field units) of the
+      // anti-aliasing band, and at 0.03 only |val| < 0.03 lies on the ramp — the
+      // field saturates blend_t to 0/1 everywhere else, so the two lobes meet at a
+      // crisp boundary with just a thin smoothed seam (intended; widening it would
+      // blur the lobe edge). blend_t rides 0..1 with the field's *positiveness*
+      // (0 deep in the negative lobe, 1 deep in the positive lobe). lerp(other, t)
+      // returns `this` (pos) at t=0 and `other` (neg) at t=1, so invert with
+      // 1 - blend_t to map a positive field to the positive palette and a negative
+      // field to neg — the blend is otherwise symmetric, so this inversion is the
+      // only thing keeping the lobes from swapping colors.
       constexpr float transition = 0.03f;
       float blend_t =
           quintic_kernel(hs::clamp(val / transition * 0.5f + 0.5f, 0.0f, 1.0f));
