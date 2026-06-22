@@ -576,11 +576,15 @@ public:
    * @param pos Initial position.
    * @param vel Initial velocity.
    * @param seed Color seed for palette offset.
+   * @details A full pool is a designed, non-fatal condition (drop the spawn, keep
+   * rendering); log it like Timeline::add rather than dropping it silently.
    */
   void spawn(const Vector &pos, const Vector &vel, uint16_t seed) {
     if (!pool.is_bound()) return;
     if (active_count < pool.capacity()) {
       pool[active_count++].init(pos, vel, seed, max_life);
+    } else {
+      hs::log("ParticleSystem pool full, dropping spawn");
     }
   }
 
