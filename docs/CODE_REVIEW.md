@@ -127,7 +127,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 ### Low
 
-11. `core/3dmath.h:400,406` — `Quaternion(float,float,float,float)` and `Quaternion(float, const Vector&)` are not `explicit`, breaking the file's otherwise-rigorous `explicit` discipline (a brace-init `{scalar, vector}` is silently accepted where a `Quaternion` is expected). → Mark `explicit`.
+11. ✅ `core/3dmath.h:400,406` — `Quaternion(float,float,float,float)` and `Quaternion(float, const Vector&)` are not `explicit`, breaking the file's otherwise-rigorous `explicit` discipline (a brace-init `{scalar, vector}` is silently accepted where a `Quaternion` is expected). → Mark `explicit`.
 
 12. `core/color.h:251` — `Color4(uint8_t,uint8_t,uint8_t,float)` is an implicit sRGB-input ctor coexisting with `Color4(Pixel, float)`; `Color4(255,0,0)` silently takes the sRGB→linear path, surprising a caller who models `Color4` as already-linear. → Mark `explicit`, or note the sRGB-input convention at the declaration.
 

@@ -397,13 +397,14 @@ struct Quaternion {
    * @param c Y imaginary component (j).
    * @param d Z imaginary component (k).
    */
-  constexpr Quaternion(float a, float b, float c, float d) : r(a), v(b, c, d) {}
+  constexpr explicit Quaternion(float a, float b, float c, float d)
+      : r(a), v(b, c, d) {}
   /**
    * @brief Constructs a quaternion from a scalar and a Vector part.
    * @param a Real component (r).
    * @param v Vector part (x, y, z).
    */
-  constexpr Quaternion(float a, const Vector &v) : r(a), v(v) {}
+  constexpr explicit Quaternion(float a, const Vector &v) : r(a), v(v) {}
 
   /**
    * @brief Assignment operator.
