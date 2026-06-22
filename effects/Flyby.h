@@ -14,14 +14,10 @@
  * @details Projects a noise-warped Cartesian grid onto a sphere, rotating
  * around Y, blending continuously between camera/warp presets.
  * @note `Liquid2D` is the sibling stereographic effect. Both build on the same
- *       core primitives — `stereo()`, `stereo_noise_warp()`, `pole_attenuation()`
- *       — but the per-effect `project()`, the `sample()` pattern, and
- *       `Params::lerp` are intentionally different (here: single orientation, a
- *       plain grid pattern, a parallel lerp, plus a per-pixel hue rotation).
- *       They are independent effects, NOT hand-synced copies of one shader: a
- *       change here is not expected to propagate to Liquid2D. The only genuinely
- *       common per-pixel code is the `STEREO_PATTERN_ARG_LIMIT` clamp guarding
- *       fast_sinf range reduction; the shared math already lives in core.
+ *       core primitives (`stereo()`, `stereo_noise_warp()`, `pole_attenuation()`),
+ *       but `project()`, the `sample()` pattern, and `Params::lerp` are
+ *       intentionally different — they are independent effects, NOT hand-synced
+ *       copies, so a change here is not expected to propagate to Liquid2D.
  */
 template <int W, int H> class Flyby : public Effect {
 public:

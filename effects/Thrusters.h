@@ -71,13 +71,10 @@ public:
    *          then advances and draws each live thruster.
    */
   void draw_frame() override {
-    // Advance the frame counter first, before anything reads it. Its consumers
-    // (on_fire_thruster and draw_ring, both driven from the timeline stepped
-    // just below) then see this frame's counter rather than the previous
-    // frame's. The absolute value has no external reference (it only drives a
-    // periodic temporal wave in ring_fn), so the one-frame phase shift versus
-    // the old end-of-frame increment is invisible; doing it here removes the
-    // foot-gun of a future top-of-frame consumer reading a stale counter.
+    // Advance first so this frame's consumers (on_fire_thruster, draw_ring, via
+    // the timeline below) read this frame's counter, not the previous frame's.
+    // Only drives a periodic wave in ring_fn with no external reference, so the
+    // one-frame phase shift versus an end-of-frame increment is invisible.
     t_global++;
 
     Canvas canvas(*this);

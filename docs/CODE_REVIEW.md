@@ -203,7 +203,7 @@ data-loss defect was found anywhere in scope.*
 59. `daydream/vendor-importmap.js:29` — depends on `document.currentScript` (null inside ES modules) with no guard, so a future `type="module"` load throws an opaque "Cannot read 'src' of null" rather than a named error (unlike `shared.js`/`slider.js`). → Add a friendly guard.
 60. `daydream/gui.js:227-229` — boolean URL hydration `val = (val === 'true')` silently treats `'1'`/`'TRUE'` as `false` with no warn path (unlike the numeric/enum branches). → Accept the common truthy spellings or warn.
 61. `effects/ShapeShifter.h:48-51` — **(carry-over, prior #89/#9)** `Count` up to 128 dispatches ~256 SDF rasterizations/frame (a Plot *and* a Scan pass per layer) with no per-frame budget cap (author-flagged). → Gate `Count` by resolution or clamp the effective loop against a pixel budget before it ships to a device.
-62. **Cross-cutting (effects) — comment volume:** several files carry multi-paragraph rationale blocks larger than the code they annotate (`RingSpin:144-159`, `Dynamo:415-466`, `Thrusters:74-80`), hurting scannability. → Tighten the longest essays.
+62. ✅ **Cross-cutting (effects) — comment volume:** several files carry multi-paragraph rationale blocks larger than the code they annotate (`RingSpin:144-159`, `Dynamo:415-466`, `Thrusters:74-80`), hurting scannability. → Tighten the longest essays. *(Compressed the prose across RingSpin, Thrusters, Dynamo, HankinSolids, ChaoticStrings, DreamBalls, Liquid2D, SphericalHarmonics, GSReactionDiffusion, MindSplatter, Comets, Flyby, HopfFibration, IslamicStars while preserving every load-bearing fact.)*
 
 ### Rejected (preserved from prior reviews — do not re-raise)
 

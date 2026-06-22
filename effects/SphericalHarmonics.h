@@ -196,17 +196,12 @@ public:
       float theta = fast_atan2(local.z, local.x);
       if (theta < 0)
         theta += 2 * PI_F;
-      // local.y IS cos(phi) — skip the fast_acos + cosf roundtrip.
-      //
-      // NOTE: `cos_phi` is the LOCAL-frame latitude (after rotating the world
-      // sample point into the shape's frame), NOT the screen-row latitude. The
-      // shape spins about an arbitrary axis (0.5, 1, 0.2), so the conjugate
-      // rotation mixes the world x/z into local.y; `cos_phi` therefore varies
-      // across a screen row even though the WORLD latitude is row-constant.
-      // Hoisting the associatedLegendre(cos_phi) term to a per-row precompute is
-      // thus invalid here — it would evaluate the Legendre polynomial at the
-      // wrong latitude for every pixel but one. (Only a pure-Y spin, where
-      // local.y == world.y, would make a per-row cache correct.)
+      // local.y IS cos(phi) — skip the fast_acos + cosf roundtrip. Note it's the
+      // LOCAL-frame latitude: the shape spins about an arbitrary axis, so the
+      // conjugate rotation mixes world x/z into local.y and cos_phi varies across
+      // a screen row even though the WORLD latitude is row-constant. Hoisting the
+      // associatedLegendre(cos_phi) term to a per-row precompute is therefore
+      // invalid (correct only for a pure-Y spin where local.y == world.y).
       float cos_phi = hs::clamp(local.y, -1.0f, 1.0f);
 
       float val = SHMath::sphericalHarmonic(l1, m1, theta, cos_phi, N1);

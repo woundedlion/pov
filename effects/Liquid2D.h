@@ -122,13 +122,10 @@ public:
     prev_time = t;
     sin_phase = fmodf(sin_phase + dt, kTwoPi);
     cos_phase = fmodf(cos_phase + 0.8f * dt, kTwoPi);
-    // cycle_phase feeds BreatheModifier's fast_sinf with coefficient 1; its only
-    // producer is the additive Driver and its only consumer that 2pi-periodic
-    // sin, so wrapping it in place is exact and invisible. Done by hand (Driver
-    // wrap=false) rather than via the Driver's own wrap flag: that flag
-    // normalizes to [0,1), which would push a x2pi onto the consumer; this 2pi
-    // fmodf keeps cycle_phase in the radians domain and co-locates it with the
-    // sin/cos phase wraps just above.
+    // cycle_phase feeds BreatheModifier's fast_sinf (coefficient 1), so wrapping
+    // it to 2pi in place is exact and invisible. Done by hand (Driver wrap=false)
+    // rather than the Driver's wrap flag, which normalizes to [0,1) — wrong domain
+    // for a radians consumer — and co-located with the sin/cos wraps above.
     cycle_phase = fmodf(cycle_phase, kTwoPi);
 
     auto shader = [&](const Vector &v) -> Color4 {

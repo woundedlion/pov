@@ -147,15 +147,11 @@ private:
    * @param normal Unit normal of the new ring's great-circle plane.
    * @param palette Baked palette used to color the new ring's trail.
    * @details Adds the ring to the timeline with an energetic random-walk
-   * orientation; no-op once NUM_RINGS rings are already live.
-   *
-   * `num_rings` and the `>= NUM_RINGS` guard are incremental-spawn
-   * infrastructure: this is an append-one primitive, so it tracks the live
-   * count and bounds it against the pool. init() currently calls it exactly
-   * NUM_RINGS times up front, so the guard never fires today — it exists to
-   * support spawning rings at runtime (e.g. from a future slider/event) without
-   * overrunning `rings`. Kept rather than folded into a loop index for that
-   * reason.
+   * orientation; no-op once NUM_RINGS rings are already live. Append-one
+   * primitive: `num_rings` tracks the live count and the `>= NUM_RINGS` guard
+   * bounds it against the pool. init() spawns all NUM_RINGS up front so the
+   * guard never fires today — it exists to support runtime spawning (a future
+   * slider/event) without overrunning `rings`.
    */
   void spawn_ring(const Vector &normal, BakedPalette *palette) {
     if (num_rings >= NUM_RINGS)

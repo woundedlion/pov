@@ -14,24 +14,18 @@
  * @tparam H Canvas height in pixels.
  * @details A single node random-walks and follows a Lissajous path while a
  *          noise transformer warps its trail each frame.
- * @note Sibling trail effects — `Comets` and `RingSpin` — share the same
- *       scaffolding (orientation random-walk → motion-blur/fading trail →
- *       position-colored multiline). Only the record + deep_tween skeleton is
- *       genuinely common, and it already lives in the engine
- *       (`OrientationTrail::record` + the `deep_tween` free function); the
- *       per-effect bodies diverge in draw primitive, transform chain, color/fade,
- *       and accumulate-vs-draw model, so a unifying base would have to
- *       parameterize all of those — a worse abstraction than the two-line idiom
- *       and a fresh coupling across three independently-tuned effects. Each
- *       therefore renders independently; propagate trail-rendering fixes by
- *       hand across all three. Per-effect differences:
- *         - `RingSpin` renders without the `Screen::AntiAlias` filter that this
- *           effect and `Comets` apply.
- *         - `RingSpin` uses `Orientation<>` (CAP 4) where this effect and
- *           `Comets` use `Orientation<16>` (up to 4 motion-blur sub-frames versus
- *           16). Intentional: its full great-circle rings overlap heavily
- *           frame-to-frame, so 4 sub-frames read identically to 16, while a
- *           single fast-moving point/string needs the finer fidelity.
+ * @note Sibling trail effects `Comets` and `RingSpin` share the scaffolding
+ *       (orientation random-walk → fading trail → position-colored multiline),
+ *       but only the common record + deep_tween skeleton lives in the engine
+ *       (`OrientationTrail::record`, the `deep_tween` free function). The bodies
+ *       diverge in draw primitive, transform chain, color/fade, and
+ *       accumulate-vs-draw model, so a unifying base would be a worse abstraction
+ *       than the two-line idiom — each renders independently; propagate
+ *       trail-rendering fixes by hand. Intentional per-effect differences:
+ *       `RingSpin` skips the `Screen::AntiAlias` filter the other two apply, and
+ *       uses `Orientation<>` (CAP 4) vs `Orientation<16>` — its great-circle
+ *       rings overlap heavily so 4 sub-frames read like 16, while a single
+ *       fast-moving point needs the finer fidelity.
  */
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
@@ -97,14 +91,11 @@ public:
    */
   void init() override {
 
-    // Hand the whole block to persistent + scratch A; this effect never uses
-    // scratch B, so it is carved to 0. configure_arenas() fully repartitions
-    // the single global block on every call, so this 0 also zeroes scratch B
-    // globally for the duration of this effect. That is safe because every
-    // effect-construction site (wasm.cpp, pov_single, pov_segmented, Phantasm)
-    // calls configure_arenas_default() before the next effect's init(), which
-    // restores the full default scratch-B size before it can be touched — the
-    // 0 here never leaks across the effect switch.
+    // This effect never uses scratch B, so carve it to 0 and give the rest to
+    // persistent + scratch A. The 0 zeroes scratch B globally for this effect's
+    // duration, but never leaks across an effect switch: every construction site
+    // calls configure_arenas_default() before the next effect's init(), restoring
+    // the default scratch-B size before anything touches it.
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     node = static_cast<Node *>(
@@ -169,11 +160,10 @@ public:
     ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
     timeline.step(canvas);
 
-    // Each entity holds its own value copy of the noise params (sliders bind to
-    // this effect's `params`, not to the spawned entities), so the live values
-    // must be pushed in by hand here. Only the embedded-FastNoiseLite re-sync is
-    // NOT hand-rolled: it is left to prepare_frame() below, which calls
-    // NoiseParams::sync() on every active entity after this push.
+    // Each entity holds its own copy of the noise params (sliders bind to this
+    // effect's `params`, not the spawned entities), so push the live values in by
+    // hand. The embedded-FastNoiseLite re-sync is left to prepare_frame() below,
+    // which calls NoiseParams::sync() on every active entity after this push.
     for (auto &e : noise_xform.entities) {
       if (e.active) {
         e.params.frequency = params.noiseFreq;

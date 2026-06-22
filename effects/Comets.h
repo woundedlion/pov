@@ -206,14 +206,10 @@ private:
    */
   void update_path() {
     LissajousParams config = functions[cur_function_idx];
-    // Snap the traversal length so the curve closes exactly (closing_domain
-    // carries the geometry). Motion advances the head from path_fn(0) and then
-    // hard-resets to the start anchor every cycle (drift correction); when the
-    // endpoint doesn't coincide with the start, that reset teleports the head by
-    // the gap — a small jump that reads as a path discontinuity, most visibly
-    // right when the function switches. The snap makes path_fn(domain) ==
-    // path_fn(0) so the reset is a no-op and the trace stays continuous across
-    // loops and switches.
+    // Snap the traversal length so path_fn(domain) == path_fn(0). Motion
+    // hard-resets the head to the start anchor each cycle (drift correction); if
+    // the endpoint didn't coincide with the start, that reset would teleport the
+    // head by the gap — a visible discontinuity, worst at a function switch.
     float closed_domain = closing_domain(config);
     // Capture only the three scalars lissajous() needs plus closed_domain (16 B
     // total). Capturing the whole LissajousParams (16 B) + closed_domain (4 B)

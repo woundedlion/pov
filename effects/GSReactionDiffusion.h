@@ -60,14 +60,11 @@ public:
    * and seeds the A/B state, and builds the cubemap LUT and lattice nodes once.
    */
   void init() override {
-    // 170KB holds the 48KB Cubemap LUT + 30KB State + 90KB node positions. The
-    // node array (7680 × Vector) is the fixed Fibonacci lattice — queries are
-    // un-oriented onto it (not the reverse), so it does not depend on the
-    // per-frame view orientation and is built ONCE here instead of every frame.
-    //
-    // Derive the requirement from sizeof so a future type-size change (the Q16
-    // state element, Vector, RD_N, or the LUT resolution) trips a compile-time
-    // static_assert here rather than the runtime init trap on an undersize.
+    // 170KB holds the Cubemap LUT + A/B State + node positions. The node array is
+    // the fixed Fibonacci lattice (queries are un-oriented onto it, not the
+    // reverse), so it's view-independent and built ONCE here, not per frame. The
+    // requirement is derived from sizeof below so a future type-size change trips
+    // a compile-time static_assert rather than the runtime init trap.
     constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
                                      ReactionGraph::CubemapLUT::RES *
                                      sizeof(uint16_t); // cube_lut.build

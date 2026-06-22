@@ -43,11 +43,9 @@ public:
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Fade", &params.fade, 0.0f, 96.0f);
-    // Burst and Ripp Dur ranges are clamped to what the 8-slot ripple pool can
-    // hold. Each burst reserves Burst slots (staggered 16 frames) and holds
-    // them for Ripp Dur; bursts fire every 96 frames. With Burst <= 4 and
-    // Ripp Dur <= 144 the current burst (4) plus the still-live previous burst
-    // (4) peaks at exactly 8, so no spawns are silently dropped.
+    // Burst and Ripp Dur ranges are clamped to the 8-slot ripple pool: with
+    // Burst <= 4 and Ripp Dur <= 144, the current burst (4) plus the still-live
+    // previous burst (4) peaks at exactly 8, so no spawns are dropped.
     registerParam("Burst", &params.burst_size, 1.0f, 4.0f);
     registerParam("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f, 1.0f);
     registerParam("Ripp Width", &ripple_gen.template_params.thickness, 0.1f, 1.0f);

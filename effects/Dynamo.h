@@ -134,21 +134,13 @@ public:
     rebake_active_palettes();
 
     // On completion, stamp THIS wipe's own boundary slot with the WIPE_COMPLETE
-    // sentinel rather than popping the back here. Overlapping wipes can have
-    // different durations (the slider may change between them), so transitions
-    // can finish out of order; an unconditional pop_back would evict the oldest,
-    // still-animating boundary instead of this one. The slot address is stable
-    // (circular-buffer storage never moves and a live slot is never reused), so
-    // reap_completed_wipes() collapses finished wipes from the back in FIFO
-    // order without ever touching a live boundary.
-    //
-    // "A live slot is never reused" rests on the palettes.is_full() guard above:
-    // palette_boundaries' capacity is MAX_PALETTES-1 (one fewer than palettes),
-    // and the invariant palettes.size() == palette_boundaries.size()+1 holds
-    // because each wipe pushes one of each together. The guard drops a wipe once
-    // palettes hits MAX_PALETTES, so palette_boundaries tops out at exactly its
-    // capacity and the circular buffer never wraps to overwrite a front (live)
-    // slot the captured pointer below still aliases. Loosen that guard and this
+    // sentinel rather than pop_back here: overlapping wipes can have different
+    // durations and finish out of order, so a pop_back would evict the oldest
+    // still-animating boundary. reap_completed_wipes() then collapses finished
+    // wipes from the back in FIFO order without touching a live one. The slot
+    // address stays valid because the palettes.is_full() guard above caps
+    // palette_boundaries at its capacity, so the ring never wraps to overwrite a
+    // live front slot the captured pointer aliases — loosen that guard and this
     // capture becomes a dangling write.
     float *boundary_slot = &palette_boundaries.front();
     timeline.add(0, Animation::Transition(palette_boundaries.front(), PI_F,
@@ -206,26 +198,18 @@ public:
     constexpr float NO_NEXT_BOUNDARY = 100.0f;
     float a = angle_between(v, palette_normal);
 
-    // palettes[i+1] below is always in range. Invariant: palettes.size() ==
-    // palette_boundaries.size() + 1, held because color_wipe() pushes one of
-    // each together (guarded by palettes.is_full()) and the reap pops one of
-    // each together. Independently, palette_boundaries' capacity is
-    // MAX_PALETTES-1, so i+1 <= MAX_PALETTES-1 < palettes capacity even if that
-    // invariant were ever violated — this smaller boundary capacity is the
-    // second guard against the OOB and must stay below MAX_PALETTES.
+    // palettes[i+1] stays in range via the invariant palettes.size() ==
+    // palette_boundaries.size()+1 (color_wipe and the reap push/pop one of each
+    // together). As a second guard, palette_boundaries' capacity is
+    // MAX_PALETTES-1, so i+1 < palettes capacity even if that invariant broke;
+    // it must stay below MAX_PALETTES.
     //
-    // Ordering assumption: this scan treats palette_boundaries as monotonically
-    // non-decreasing in index — each color_wipe() push_fronts a fresh boundary
-    // at 0 (index 0 = newest) and animates it up to PI, so in steady state the
-    // newest wipe at the front has the smallest angle and older wipes trail with
-    // larger ones. The "a < lower_edge -> palette[i]" short-circuit and the
-    // next_boundary_lower_edge gap test both rely on that order. A live Wipe-Dur
-    // change between overlapping wipes can break it: a newer (lower-index) wipe
-    // given a shorter duration advances faster and its boundary overtakes an
-    // older one's, transiently inverting the band order in the overlap region.
-    // This is purely cosmetic and self-heals as the wipes complete and drain
-    // (reap_completed_wipes); every index access stays in bounds regardless, per
-    // the size invariant above.
+    // This scan assumes palette_boundaries is monotonically non-decreasing in
+    // index (newest wipe at front=0 with the smallest angle, animating up to PI);
+    // both the short-circuit and the gap test rely on it. A live Wipe-Dur change
+    // can transiently invert the order when a newer, shorter wipe overtakes an
+    // older one — purely cosmetic, self-heals as wipes drain, and stays in bounds
+    // regardless.
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
       float boundary = palette_boundaries[i];
       auto lower_edge = boundary - blend_width;
@@ -398,14 +382,11 @@ private:
    * @brief Computes the unit travel direction for a signed speed.
    * @param speed Signed speed value.
    * @return -1 for negative speed, otherwise +1.
-   * @note `speed == 0` maps to +1 (the `< 0` test treats zero as forward), not
-   *       to a zero "stand still" direction. This is unobservable as used: the
-   *       sole caller, pull(), runs only on frames with at least one whole step
-   *       to take (|effective_speed| accumulated to >= 1), so a zero effective
-   *       speed re-emits the strand in place and never reaches dir(). The +1
-   *       tie-break is therefore a harmless default, not an intended behavior —
-   *       a future caller that passes exactly 0 should decide its own
-   *       stationary handling rather than rely on this.
+   * @note `speed == 0` maps to +1, not a "stand still" direction, but this is
+   *       unobservable: the sole caller pull() only runs dir() on frames with a
+   *       whole step to take (|effective_speed| >= 1). The +1 tie-break is a
+   *       harmless default; a future caller passing exactly 0 should handle its
+   *       own stationary case rather than rely on it.
    */
   int dir(float speed) const { return speed < 0 ? -1 : 1; }
 
@@ -423,34 +404,18 @@ private:
   static constexpr size_t NUM_NODES = H_VIRT; /**< Strand node count. */
   /**
    * @brief Compile-time Trails storage capacity (max buffered trail points).
-   * @details The active trail length is the runtime "Trail Len" slider, pushed
-   *          into the Trails filter each frame via set_lifetime() in
-   *          draw_frame(); this bound is only the fixed upper limit on buffered
-   *          points.
-   *
-   *          DELIBERATE MEMORY-BUDGET CAP (not sized to the worst case, by
-   *          design). The strict worst-case live-point count is far larger than
-   *          this and is NOT bounded by a small compile-time constant the way a
-   *          sibling like ChaoticStrings (TRAIL_LENGTH * ORIENTATION_SUBSTEPS)
-   *          is: emission is driven by runtime sliders. Each frame runs up to
-   *          floor(|Speed|) sub-steps (Speed tops out at 10), each plots the
-   *          full strand — one head point plus NUM_NODES-1 geodesic lines — and
-   *          Plot::Line rasterizes every line at ~one-pixel-column density (up to
-   *          ~Gap columns, hard-capped at 2*W substeps per segment in
-   *          scan/plot.h). Every emitted point is stored with ttl = Trail Len
-   *          (up to 100 frames) and accumulates across that many frames, so the
-   *          aggressive-slider steady state reaches hundreds of thousands of
-   *          points — orders of magnitude past anything the 335 KB arena budget
-   *          could hold (10000 Items * 8 B already = 80 KB).
-   *
-   *          Over-budget is handled gracefully and is memory-safe: World::Trails'
-   *          ring (filter.h push_back) drops the OLDEST point when full, so an
-   *          overrun only shortens the visible trail (the oldest tail fades a few
-   *          frames early) — it never traps, overruns the arena, or corrupts a
-   *          frame. 10000 is tuned to hold the trail at typical Speed/Gap/Trail
-   *          Len settings; the extreme-slider truncation is an accepted visual
-   *          trade, not a defect. A static_assert tying this to a worst case is
-   *          intentionally omitted because no truthful small bound exists.
+   * @details DELIBERATE MEMORY-BUDGET CAP, not sized to the worst case. The
+   *          active trail length is the runtime "Trail Len" slider; emission is
+   *          slider-driven (up to floor(|Speed|) full-strand plots per frame,
+   *          each point stored for up to 100 frames), so the true worst case
+   *          reaches hundreds of thousands of points and has no honest small
+   *          compile-time bound — unlike ChaoticStrings (TRAIL_LENGTH *
+   *          ORIENTATION_SUBSTEPS). Over-budget is graceful and memory-safe:
+   *          World::Trails' ring (filter.h push_back) drops the OLDEST point
+   *          when full, only shortening the visible tail — it never traps,
+   *          overruns the arena, or corrupts a frame. 10000 holds the trail at
+   *          typical settings; a static_assert is intentionally omitted as no
+   *          truthful worst-case bound exists.
    */
   static constexpr int TRAIL_CAPACITY = 10000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes; /**< Live palettes. */

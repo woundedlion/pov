@@ -30,16 +30,12 @@ public:
    */
   void init() override {
     // Arena split: persistent = GLOBAL - 16 KB (scratch_a) - 32 KB (scratch_b).
-    // scratch_b carries TWO non-overlapping peaks (each in its own ScratchScope,
-    // at a different time); the 32 KB must cover the LARGER of:
-    //   (1) generation — generate_base_solid()'s Conway-operator intermediates
-    //       (the solid's .generate(a,b) writes its `b` chain here) plus
-    //       classify_faces_by_topology()'s pairing scratch.
-    //   (2) compaction — the morph-cycle Persist set: CompiledHankin (~10 KB) +
-    //       MeshPaletteBank (~15 KB) ≈ 25 KB.
-    // The ~25 KB compaction set is the documented driver, leaving ~7 KB headroom
-    // for the generation workspace. Device-only path: the H=144 high-water is not
-    // exercised in CI (no automated Teensy build) — confirm the peak on hardware.
+    // scratch_b holds two non-overlapping peaks (each its own ScratchScope); the
+    // 32 KB must cover the LARGER of (1) generation — Conway-operator and
+    // face-pairing intermediates, or (2) compaction — the morph-cycle Persist set
+    // (CompiledHankin ~10 KB + MeshPaletteBank ~15 KB ≈ 25 KB, the driver, ~7 KB
+    // headroom). The H=144 device high-water isn't exercised in CI (no automated
+    // Teensy build) — confirm the peak on hardware.
     configure_arenas(GLOBAL_ARENA_SIZE - 16 * 1024 - 32 * 1024, 16 * 1024,
                      32 * 1024);
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
@@ -216,20 +212,17 @@ private:
         0, Animation::Sprite(
                [this, front](Canvas &c, float opacity) {
                  // Per-frame persistent-bind invariant: update_hankin re-binds
-                 // carousel.slot(front)'s vectors against persistent_arena every
-                 // frame, but the angle never changes the vertex/face COUNTS
-                 // within a shape, so after the first frame ArenaVector::bind
-                 // reuses the already-allocated blocks in place (size reset, no
-                 // new allocation) instead of growing the arena. The same-arena/
-                 // same-generation requirement that makes that reuse sound is
-                 // itself enforced by ArenaVector::bind's debug contract assert.
+                 // the slot's vectors against persistent_arena every frame, but
+                 // the angle never changes vertex/face COUNTS, so ArenaVector::bind
+                 // reuses the allocated blocks in place (size reset, no growth).
+                 // Its same-arena/same-generation soundness is enforced by bind's
+                 // debug contract assert.
                  MeshOps::update_hankin(compiled_hankin, carousel.slot(front),
                                         persistent_arena, params.hankin_angle);
-                 // That ArenaVector::bind contract is debug-only (NDEBUG strips
-                 // it on the device), so back it with an always-on guard: if the
-                 // counts ever grew, the re-bind would silently consume more of
-                 // persistent_arena every frame, leaking it unboundedly on a
-                 // permanent install. Trap instead.
+                 // That contract is debug-only (NDEBUG strips it on device), so
+                 // back it with an always-on guard: if the counts grew, the
+                 // re-bind would leak persistent_arena every frame on a permanent
+                 // install. Trap instead.
                  const MeshState &s = carousel.slot(front);
                  HS_CHECK(s.vertices.size() == hankin_vertex_count_ &&
                               s.face_counts.size() == hankin_face_count_,
