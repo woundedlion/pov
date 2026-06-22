@@ -107,7 +107,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 ### Medium
 
-2. `core/3dmath.h:1207` — **`slerp` `long_way` does not flip on `d == 0`.** The branch `(long_way && d > 0) || (!long_way && d < 0)` leaves exactly-orthogonal endpoints (`d==0`, 90° apart) unflipped in *both* modes, so `long_way=true` silently takes the short 90° arc instead of the 270° one. → Use `d >= 0`/`d <= 0` (pick the boundary side deliberately and document it), matching how the short-path branch already owns `d==0`.
+2. ✅ `core/3dmath.h:1207` — **`slerp` `long_way` does not flip on `d == 0`.** The branch `(long_way && d > 0) || (!long_way && d < 0)` leaves exactly-orthogonal endpoints (`d==0`, 90° apart) unflipped in *both* modes, so `long_way=true` silently takes the short 90° arc instead of the 270° one. → Use `d >= 0`/`d <= 0` (pick the boundary side deliberately and document it), matching how the short-path branch already owns `d==0`.
 
 3. `effects/MeshFeedback.h:201` (and `effects/ShapeShifter.h:68-72`) — **Pause semantics are inconsistent across an effect's own timers.** Beyond Finding 1, `ShapeShifter` advances its shape type off a private `frame_count_ % 48` that ignores `anims_paused_`, while its twist/rotation animations honor the pause flag — so "Pause" freezes some motion but not the shape cycle. → Gate the shape advance on the pause flag (or move it into a pausable timeline timer).
 

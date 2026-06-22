@@ -1204,7 +1204,13 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
   Quaternion p(q1);
   Quaternion q(q2);
 
-  if ((long_way && d > 0) || (!long_way && d < 0)) {
+  // Boundary at exactly-orthogonal endpoints (d == 0, the 90°/270° pair) is
+  // owned deliberately and split between the two modes so each takes the arc its
+  // name promises: long_way flips on d >= 0 (so d == 0 takes the 270° arc),
+  // short-path flips on d < 0 (so d == 0 keeps the 90° arc). A plain d > 0 here
+  // would leave d == 0 unflipped in both modes, silently giving long_way the
+  // short 90° arc.
+  if ((long_way && d >= 0) || (!long_way && d < 0)) {
     p = -p;
     d = -d;
   }
