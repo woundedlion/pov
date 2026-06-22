@@ -24,10 +24,22 @@ rounding boundary.
 
 Usage:
   python scripts/generate_luts.py > core/color_luts.h
-  clang-format -i core/color_luts.h   # normalize array layout to repo style
+
+The generator self-formats: it pipes its output through clang-format (using the
+repo .clang-format) so the result is already in committed style — no separate
+manual format step to forget. If clang-format is not on PATH (set CLANG_FORMAT
+to override), it emits UNFORMATTED output and prints a loud warning to stderr,
+so the missing step can never pass silently. The numeric LUT data is identical
+either way (clang-format only reflows whitespace), which is all the CI token
+diff checks.
 """
 
+import os
+import shutil
+import subprocess
 import sys
+from io import StringIO
+from pathlib import Path
 
 
 def srgb_to_linear(s):
@@ -58,8 +70,7 @@ def emit_array(out, decl, values, per_row):
     out.write("};\n")
 
 
-def main():
-    out = sys.stdout
+def render(out):
     out.write("#pragma once\n")
     out.write('#include "platform.h"\n')
     out.write("// Generated LUTs for color conversion\n")
@@ -72,6 +83,44 @@ def main():
     out.write("// Linear (0-65535) -> sRGB (0-255)\n")
     emit_array(out, "inline const uint8_t linear_to_srgb_lut[65536] PROGMEM",
                linear_to_srgb_lut(), 15)
+
+
+def clang_format(text):
+    """Format the generated header through clang-format using the repo style.
+
+    Returns the formatted text, or None if clang-format is unavailable. Exits
+    non-zero if clang-format is present but fails. --assume-filename points at
+    the real header path so clang-format locates the repo .clang-format and
+    selects the C++ language.
+    """
+    cf = os.environ.get("CLANG_FORMAT") or shutil.which("clang-format")
+    if not cf:
+        return None
+    header = Path(__file__).resolve().parent.parent / "core" / "color_luts.h"
+    result = subprocess.run(
+        [cf, "--assume-filename=" + str(header)],
+        input=text, capture_output=True, text=True)
+    if result.returncode != 0:
+        sys.stderr.write("generate_luts: clang-format failed:\n" + result.stderr)
+        sys.exit(1)
+    return result.stdout
+
+
+def main():
+    buf = StringIO()
+    render(buf)
+    text = buf.getvalue()
+    formatted = clang_format(text)
+    if formatted is None:
+        # No clang-format: emit raw and warn loudly so the layout-normalize step
+        # is never skipped silently. The numeric data is correct regardless.
+        sys.stderr.write(
+            "generate_luts: WARNING - clang-format not found; emitting "
+            "UNFORMATTED output. Run `clang-format -i core/color_luts.h` before "
+            "committing, or set CLANG_FORMAT to the binary path.\n")
+        sys.stdout.write(text)
+    else:
+        sys.stdout.write(formatted)
 
 
 if __name__ == "__main__":
