@@ -461,16 +461,29 @@ struct Ring {
     if (std::abs(denom) < INTERVAL_DENOM_EPS)
       return false;
 
-    float C_target = (cos_target - ny * cos_phi) / denom;
+    float ny_cos_phi = ny * cos_phi;
+    float C_target = (cos_target - ny_cos_phi) / denom;
     float scale = W / (2.0f * PI_F);
+
+    // Pole-wrap guard: emit_annular_band merges its two arcs into one span when
+    // a band edge arc collapses to within one column (2π/W) of a pole. The
+    // centerline fast path below always emits two *unmerged* arcs, so on such a
+    // row it would leave a one-band gap at the seam. Detect the wrap from the
+    // band edges (cos decreases with angle, so the near edge cos_max gives the
+    // smaller angle) and route to the annular fallback, not just on the
+    // centerline clamp below.
+    float C_band_near = (cos_max - ny_cos_phi) / denom;
+    float C_band_far = (cos_min - ny_cos_phi) / denom;
+    float cos_pole = cosf(2.0f * PI_F / W);
+    bool pole_wrap = C_band_near >= cos_pole || C_band_far <= -cos_pole;
 
     // Centerline-crossing: fast path when the annular band edges won't be
     // clamped to [-1,1]. Past the clamp boundary the first-order formula
     // over-estimates width (spikes), so we fall back to the exact annular
     // band arcs there.
     float clamp_bound = 1.0f - sin_target * thickness / denom;
-    if (clamp_bound < 1.0f && C_target > -clamp_bound && C_target < clamp_bound &&
-        sin_target > 1e-3f) {
+    if (!pole_wrap && clamp_bound < 1.0f && C_target > -clamp_bound &&
+        C_target < clamp_bound && sin_target > 1e-3f) {
       // Floor the radicand: at the upper edge of the guard band C_target nears 1
       // and 1-C^2 nears 0 (and can go slightly negative under -ffast-math, which
       // would yield sqrtf(NaN)). The floor both kills the NaN and caps half_width

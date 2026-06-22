@@ -1051,6 +1051,42 @@ inline void test_line_arc_bulge_cull_covers_interior() {
   HS_EXPECT_GT(interior, 0);
 }
 
+/**
+ * @brief Verifies the Ring interval cull covers interior pixels for thin rings
+ *        whose band wraps a pole while the centerline still takes the fast path.
+ * @details Regression for the centerline fast path emitting two *unmerged* arcs
+ *   on a pole-wrap row, leaving a one-band seam gap. The axis is tilted just off
+ *   the canvas pole so r_val clears MIN_HORIZONTAL_PROJ (the fast path is
+ *   eligible) yet the thin band encircles the pole, where emit_annular_band
+ *   merges its two arcs into one span. Sweeps a small near-pole tilt/radius/
+ *   thickness grid (both poles); expect_cull_covers_interior asserts no interior
+ *   pixel is dropped.
+ */
+inline void test_ring_pole_wrap_cull_covers_interior() {
+  // 256x128 — at coarser resolutions the gap can fall below one pixel. The
+  // (tilt, radius, thickness) triples below were found by differential search
+  // to drop 1-4 interior pixels at the pole seam on the pre-fix two-arc fast
+  // path and zero with the annular-merge route, so this regresses the fix
+  // without tripping the unrelated sub-pixel annular boundary rounding.
+  constexpr int W = 256, H = 128;
+  struct Cfg { float tilt, radius, thickness; };
+  const Cfg cfgs[] = {
+      {0.15f, 0.22f, 0.13f}, {0.16f, 0.25f, 0.14f},
+      {0.16f, 0.33f, 0.15f}, {0.16f, 0.39f, 0.15f},
+  };
+  int total_interior = 0;
+  for (const Cfg &c : cfgs) {
+    Basis basis_n = make_basis(Quaternion(), Vector(c.tilt, 1.0f, 0.0f));
+    SDF::Ring ring_n(basis_n, c.radius, c.thickness);
+    total_interior += expect_cull_covers_interior<W, H>(ring_n);
+
+    Basis basis_s = make_basis(Quaternion(), Vector(c.tilt, -1.0f, 0.0f));
+    SDF::Ring ring_s(basis_s, c.radius, c.thickness);
+    total_interior += expect_cull_covers_interior<W, H>(ring_s);
+  }
+  HS_EXPECT_GT(total_interior, 1000);
+}
+
 // ============================================================================
 // Face distance LUT vs exact  (LUT bilinear vs an independent exact oracle)
 //
@@ -1274,6 +1310,7 @@ inline int run_sdf_tests() {
   test_cull_covers_interior_over_orientation_grid();
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_line_arc_bulge_cull_covers_interior();
+  test_ring_pole_wrap_cull_covers_interior();
   test_face_lut_matches_exact_within_cell_diagonal();
 
   return hs_test::end_module(scope);
