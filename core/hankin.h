@@ -297,6 +297,18 @@ template <typename MeshT>
 inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
                           Arena &target_arena, float angle) {
 
+  // Owned-mode output: the owned vertex/face vectors are bound below. If the
+  // output type carries borrowed-mode view spans (a reused MeshState left bound
+  // from a prior borrowed life), clear them so the owned topology is
+  // unambiguous on reuse — mirroring MeshOps::transform's unbind. Safe today
+  // because the accessors discriminate on the owned vector's is_bound(), but
+  // defense-in-depth keeps the two mesh-writing paths symmetric.
+  if constexpr (requires { out_mesh.face_counts_view; }) {
+    out_mesh.face_counts_view = {};
+    out_mesh.faces_view = {};
+    out_mesh.face_offsets_view = {};
+  }
+
   bool is_flat = std::abs(angle) < math::TOLERANCE;
 
   // Precompute half-angle trig: one cosf + sinf instead of 2N
