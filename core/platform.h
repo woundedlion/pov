@@ -593,8 +593,15 @@ struct SerialMock {
   /**
    * @brief Formats and writes a printf-style message (Arduino Serial.printf).
    * @param fmt printf-style format string.
-   * @details Expands into a fixed 256-byte stack buffer (no heap) and emits,
-   *          mirroring hs::log's vsnprintf path.
+   * @details Expands into a fixed 256-byte stack buffer (no heap) and emits.
+   * @warning Host/device divergence (mirrors the note on hs::log and check_fail):
+   *          this host mock uses full vsnprintf, so `%f`/`%g` format here. The
+   *          device hs::log/check_fail use integer-only vsniprintf to keep
+   *          newlib's float formatter out of ITCM, so a float conversion that
+   *          works in the simulator silently drops on hardware. vsniprintf is a
+   *          newlib extension and does not exist on the host, so the host cannot
+   *          simply match it — avoid `%f`/`%g` in any message destined for the
+   *          device path.
    */
   void printf(const char *fmt, ...) {
     char buf[256];
