@@ -4,7 +4,7 @@
  *
  * Phantasm — Multi-Teensy segmented POV display (288×144)
  *
- * Target: 4× Teensy 4.1
+ * Target: 4× Teensy 4.0
  * Total physical LEDs: 288 (72 per segment, 144 per arm)
  * Virtual canvas: 288×144
  *
@@ -45,7 +45,7 @@ static constexpr unsigned int RPM = 480;
 using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 
 namespace {
-POV *pov;
+POV *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
 
 // Foreground effect constructor for one roster entry: LUTs, arenas, init —
 // the same sequence the old per-effect show<E>() performed. Called from the
@@ -81,14 +81,14 @@ void setup() {
   // the project's crash-on-violation rule (see HS_CHECK on the wasm tooling
   // malloc and the arena OOM traps). nothrow new is used so the guard fires
   // regardless of whether the build compiles exceptions: a thrown bad_alloc has
-  // no handler on Teensy, and a silently-null pov would be dereferenced by the
+  // no handler on Teensy, and a silently-null g_pov would be dereferenced by the
   // first run_show() call below — a null deref away from the violation site.
-  pov = new (std::nothrow) POV();
-  HS_CHECK(pov != nullptr, "POV allocation failed (OOM)");
+  g_pov = new (std::nothrow) POV();
+  HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
 }
 
 void loop() {
   // Never returns: the driver runs the epoch-synchronized show forever
   // (every effect plays for the same 960 revolutions = 120 s).
-  pov->run_show(kEffectFactories, HS_EFFECT_COUNT);
+  g_pov->run_show(kEffectFactories, HS_EFFECT_COUNT);
 }

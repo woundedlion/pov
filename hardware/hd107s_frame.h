@@ -21,7 +21,8 @@
 #include <cstdint>
 #include <cstring>
 
-#include "color.h" // Pixel16, CRGB, srgb_to_linear_lut / linear_to_srgb_lut
+
+#include "core/color.h" // Pixel16, CRGB, srgb_to_linear_lut / linear_to_srgb_lut
 
 // arm_dcache_flush is a Teensy cache intrinsic (Arduino.h) that cleans (writes
 // back) dirty D-cache lines without invalidating them. That is exactly what a

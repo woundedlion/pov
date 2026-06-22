@@ -22,7 +22,7 @@
  */
 void trail_rainbow(Pixel &c, uint8_t hue_falloff = 32,
                    uint8_t dim_falloff = 32) {
-  auto p = rgb2hsv_approximate(c);
+  auto p = rgb2hsv_approximate(static_cast<CRGB>(c));
   p.s = 255;
   p.h += hue_falloff;
   p.v = qsub8(p.v, dim_falloff);
@@ -39,7 +39,7 @@ void trail_rainbow(Pixel &c, uint8_t hue_falloff = 32,
  */
 void trail_rainbow_lin(Pixel &c, uint8_t hue_falloff = 32,
                        uint8_t dim_falloff = 32) {
-  auto p = rgb2hsv_approximate(c);
+  auto p = rgb2hsv_approximate(static_cast<CRGB>(c));
   p.s = 255;
   if (p.v < 128) {
     p.h += hue_falloff / 2;
@@ -71,7 +71,8 @@ void disintegrate(CHSV &p, int prob) {
  * (1-a) and a respectively, saturating each channel.
  */
 auto blend(float a) {
-  return [a](const CRGB &c1, const CRGB &c2) {
+  return [a](const Pixel &src, const CRGB &c2) {
+    const CRGB c1 = static_cast<CRGB>(src);
     return CRGB(qadd8(c1.r * (1 - a), c2.r * a),
                 qadd8(c1.g * (1 - a), c2.g * a),
                 qadd8(c1.b * (1 - a), c2.b * a));
@@ -514,7 +515,7 @@ private:
    */
   void decay(Pixel &p) {
     if (p == seed_) {
-      auto c = rgb2hsv_approximate(p);
+      auto c = rgb2hsv_approximate(static_cast<CRGB>(p));
       c.h = seed_.h - 8;
       c.s = 255;
       c.v = qsub8(seed_.v, 24);
@@ -740,7 +741,7 @@ public:
     for (int x = 0; x < W; ++x) {
       for (int y = 0; y < H; ++y) {
         trail_rainbow_lin(c(x, y), 0, 32);
-        CHSV h = rgb2hsv_approximate(c(x, y));
+        CHSV h = rgb2hsv_approximate(static_cast<CRGB>(c(x, y)));
         h.h = palette_[h.v].h;
         c(x, y) = h;
       }

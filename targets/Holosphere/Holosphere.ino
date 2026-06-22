@@ -19,18 +19,18 @@ static constexpr int NUM_PIXELS = 288;
 static constexpr unsigned int RPM = 480;
 
 namespace {
-POVDisplay<NUM_PIXELS, RPM> *pov;
+POVDisplay<NUM_PIXELS, RPM> *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
 }
 
 void setup() {
   Serial.begin(9600);
   delay(1000);
   Serial.println("Hello");
-  pov = new POVDisplay<NUM_PIXELS, RPM>();
+  g_pov = new POVDisplay<NUM_PIXELS, RPM>();
 }
 
 FLASHMEM static void run_show_sequence() {
-  pov->show<RingSpin<288, 144>>(120); // 140
+  g_pov->show<RingSpin<288, 144>>(120); // 140
 
   //  pov->show<IslamicStars<288, 144>>(120);
 

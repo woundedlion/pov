@@ -112,9 +112,9 @@ public:
     // reduction over multi-hour runs. Each tracks its own time coefficient so
     // the wrap stays invisible (the pattern uses +t in sin and -drift*t in cos);
     // for the shipped presets drift == 0, so drift_phase stays 0.
-    constexpr float TWO_PI = 2.0f * PI_F;
-    sin_phase = fmodf(sin_phase + params.speed, TWO_PI);
-    drift_phase = fmodf(drift_phase + params.speed * params.drift, TWO_PI);
+    constexpr float kTwoPi = 2.0f * PI_F;
+    sin_phase = fmodf(sin_phase + params.speed, kTwoPi);
+    drift_phase = fmodf(drift_phase + params.speed * params.drift, kTwoPi);
 
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);

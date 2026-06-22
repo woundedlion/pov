@@ -114,15 +114,15 @@ public:
     // The pattern's inner fast_sinf/fast_cosf are the range-reduction hazard, so
     // their time terms ride phases wrapped to 2pi. Each advances by this frame's
     // delta of t (scaled by the term's coefficient), so the wrap is exact.
-    constexpr float TWO_PI = 2.0f * PI_F;
+    constexpr float kTwoPi = 2.0f * PI_F;
     float dt = t - prev_time;
     prev_time = t;
-    sin_phase = fmodf(sin_phase + dt, TWO_PI);
-    cos_phase = fmodf(cos_phase + 0.8f * dt, TWO_PI);
+    sin_phase = fmodf(sin_phase + dt, kTwoPi);
+    cos_phase = fmodf(cos_phase + 0.8f * dt, kTwoPi);
     // cycle_phase feeds BreatheModifier's fast_sinf with coefficient 1; its only
     // producer is the additive Driver and its only consumer that 2pi-periodic
     // sin, so wrapping it in place is exact and invisible.
-    cycle_phase = fmodf(cycle_phase, TWO_PI);
+    cycle_phase = fmodf(cycle_phase, kTwoPi);
 
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);

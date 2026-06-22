@@ -56,9 +56,9 @@ public:
     // reproduce the prior per-animation-second increments (1.5 rad of spin and
     // 0.05 cycle of palette scroll at 60 fps); spin_phase is scaled to radians
     // by *2pi where it is consumed.
-    constexpr float TWO_PI = 2.0f * PI_F;
+    constexpr float kTwoPi = 2.0f * PI_F;
     timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
-                                      1.5f / (60.0f * TWO_PI), true));
+                                      1.5f / (60.0f * kTwoPi), true));
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
                                       0.05f / 60.0f, true));
 
@@ -147,7 +147,7 @@ private:
    *                color.
    */
   void drawFn(Canvas &canvas, float opacity) {
-    constexpr float TWO_PI = 2.0f * PI_F;
+    constexpr float kTwoPi = 2.0f * PI_F;
 
     float major_r = params.core_size * 0.45f;
     float minor_r = params.core_size * 0.14f;
@@ -165,7 +165,7 @@ private:
 
     // Tumble rotation around local X-axis (tangent). spin_phase rides in [0,1);
     // scale to radians for make_rotation (2pi-periodic, so the wrap is exact).
-    float spin_angle = spin_phase * TWO_PI;
+    float spin_angle = spin_phase * kTwoPi;
     Quaternion spin_q = make_rotation(X_AXIS, spin_angle);
 
     // Per-frame cost is O(NUM_VERTS * max_steps * W * H): one volumetric
