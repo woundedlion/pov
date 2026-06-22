@@ -410,26 +410,29 @@ private:
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
     pinMode(PIN_ID1, INPUT_PULLUP);
-    // The 10 ms / 2 ms settle delays are heuristic, not derived: they assume the
-    // strap RC time constant (internal ~? kohm pull-up x the trace+pin
-    // capacitance) settles well within 10 ms, and that a bouncing/floating pin
-    // changes state within the 2 ms re-sample gap. Generous margins for the
-    // expected sub-millisecond RC; widen them if a future board adds long strap
-    // traces or external caps.
+    // Settle the pull-ups, then debounce by sampling three times spread across a
+    // ~10 ms window and requiring all three to agree. The heuristic 10 ms settle
+    // assumes the strap RC (internal pull-up x trace+pin capacitance) resolves
+    // well within it; the resampling guards against reading a strap mid-
+    // transition.
     //
-    // Residual risk: the resample only catches bounces whose period is shorter
-    // than the 2 ms gap. A strap that settles slower than 2 ms (long traces /
-    // added caps) could read identically at raw0 and raw1 and pass the check
-    // while still mid-transition, mis-ID'ing the board into bus contention. The
-    // current hardware's sub-ms RC keeps this comfortably out of range; if that
-    // ever changes, derive the delays from the worst-case RC or sample three
-    // times spread over a longer window.
+    // Why three samples over ~10 ms, not one re-sample at 2 ms: a single 2 ms
+    // re-sample only catches bounces shorter than that gap. A strap that settles
+    // slower than 2 ms (long traces / added caps) could read identically at both
+    // samples while still mid-transition and pass — mis-ID'ing the board into a
+    // *second* master and driving the push-pull sync wire into bus contention, a
+    // fault no single board can detect (see the class note on the absent peer
+    // cross-check). Three samples spaced ~5 ms widen the debounce window an order
+    // of magnitude past the expected sub-ms RC for a one-time ~20 ms boot cost.
+    // Widen the spacing further if a future board adds long strap traces or caps.
     delay(10);  // settle time for pull-ups
 
     const int raw0 = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
-    delay(2);  // re-sample after a brief gap to reject a bouncing/floating pin
-    const int raw1 = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
-    HS_CHECK(raw0 == raw1);  // unstable strap → mis-ID → bus contention
+    for (int i = 0; i < 2; ++i) {
+      delay(5);  // spread the resamples across the ~10 ms debounce window
+      const int rawN = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
+      HS_CHECK(rawN == raw0);  // unstable strap → mis-ID → bus contention
+    }
 
     // ~ binds tighter than &: invert the 2-bit reading (so all-floating
     // pull-ups => ID 0), then mask off the inverted high bits with & (N-1).
