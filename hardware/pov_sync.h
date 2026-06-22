@@ -223,7 +223,16 @@ struct Config {
            refractory_revs >
                commit_revs + static_cast<uint32_t>(epoch_repeats) &&
            revs_per_effect > refractory_revs &&
-           beacon_period_revs > commit_revs && join_grid_revs > 0 &&
+           beacon_period_revs > commit_revs &&
+           // The beacon carries rev mod 64 (6 bits); the receiver resyncs a
+           // slipped schedule counter via the signed mod-64 difference
+           // (handle_beacon_burst), which recovers a slip only in (-32, +32) —
+           // a larger slip aliases to the wrong sign and resyncs backwards. The
+           // counter is corrected on EVERY beacon, so the slip seen at a
+           // cross-check cannot outgrow the beacon spacing; bounding the period
+           // below the half-window keeps the resync precondition enforced rather
+           // than assumed.
+           beacon_period_revs < 32 && join_grid_revs > 0 &&
            (64u % join_grid_revs) == 0;
   }
 };

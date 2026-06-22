@@ -91,6 +91,16 @@ inline void test_helpers() {
   HS_EXPECT_EQ(c.cycles_per_half_rev, kPeriod); // 600e6·30/480, exact
   HS_EXPECT_EQ(c.cycles_per_column(), kCol);
   HS_EXPECT_EQ(c.glitch_filter_cycles, 60000u); // 100 µs
+
+  // The beacon's 6-bit rev field resyncs a slip only in (-32, +32), so the
+  // beacon period must stay below the half-window: a period >= 32 leaves the
+  // resync precondition unenforced. Boundary is exclusive (32 is rejected, 31
+  // accepted).
+  Config bp = test_config();
+  bp.beacon_period_revs = 32;
+  HS_EXPECT_FALSE(bp.valid());
+  bp.beacon_period_revs = 31;
+  HS_EXPECT_TRUE(bp.valid());
 }
 
 /**
