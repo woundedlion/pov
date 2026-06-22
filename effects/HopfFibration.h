@@ -126,9 +126,13 @@ private:
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
 
-  // Stereographic-projection guard: the denominator is (1 + eps) - q3, so the
-  // projection pole (q3 == 1) maps to a finite 1/eps instead of dividing by
-  // zero. normalized_or() then absorbs the degenerate direction.
+  // Stereographic-projection guard: the denominator is (1 + eps) - q3, so at
+  // the projection pole (q3 == 1) it stays a small positive number instead of
+  // 0. The resulting 1/eps magnitude is irrelevant — at a fiber pole the
+  // projected components are themselves ~0, so normalized_or() discards the
+  // magnitude and substitutes its fallback axis. eps's only job is to keep the
+  // pre-normalize direction well-defined (no 0/0 NaN that would poison
+  // normalized_or's length test).
   static constexpr float STEREO_POLE_EPSILON = 0.001f;
 
   // Phases accumulate as wrapped fractions of their natural period ("turns")
