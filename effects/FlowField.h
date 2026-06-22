@@ -155,7 +155,17 @@ public:
   }
 
 private:
-  static constexpr int k_num_particles = 600; /**< Particle pool capacity. */
+  /**
+   * @brief Particle pool capacity.
+   * @details Sets the per-frame force-loop cost: each active particle samples the
+   * noise field 3x per frame (one OpenSimplex2 call per force component), so the
+   * loop is a fixed ~k_num_particles*3 (~1800) noise evaluations/frame. Unlike
+   * Raymarch's per-pixel marching this cost is independent of W*H -- it does not
+   * scale with the pixel/column budget -- so it carries no resolution cost cliff
+   * and fits the device frame budget at any supported resolution. Lower this if a
+   * future device target needs more margin.
+   */
+  static constexpr int k_num_particles = 600;
   static constexpr int k_trail_length = 14; /**< Per-particle trail length. */
   /**
    * @brief Wrap period for the noise-time accumulator (see draw_frame).
