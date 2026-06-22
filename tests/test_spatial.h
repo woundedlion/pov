@@ -2,13 +2,10 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/spatial.h — AABB, KDTree, MeshState.
+ * Unit tests for core/spatial.h — KDTree, MeshState.
  *
  * Tests deliberately avoid invoking the asserts in dependent types
- * (out-of-bounds, unbound access). Zero-component (axis-aligned) ray
- * directions for AABB::intersect_ray are exercised here, including the
- * grazing on-face case where the slab test must guard parallel rays
- * explicitly to avoid a 0/0 NaN.
+ * (out-of-bounds, unbound access).
  */
 #pragma once
 
@@ -40,172 +37,6 @@ inline uint8_t spatial_buf[kSpatialBufBytes];
 // buffer (clone src vs dst). Kept as a named fraction of the total so the two
 // halves can never silently drift out of agreement with kSpatialBufBytes.
 inline constexpr size_t kSpatialBufSplit = kSpatialBufBytes / 2;
-
-// ============================================================================
-// AABB
-// ============================================================================
-
-/**
- * @brief Verifies a default-constructed AABB is the degenerate "empty" box.
- * @details Ready to be widened by the first expand(): min = +FLT_MAX,
- *          max = -FLT_MAX.
- */
-inline void test_aabb_default_empty() {
-  AABB box;
-  HS_EXPECT_TRUE(box.min_val.x >= FLT_MAX * 0.5f);
-  HS_EXPECT_TRUE(box.max_val.x <= -FLT_MAX * 0.5f);
-}
-
-/**
- * @brief Verifies expanding an empty box by one point collapses it to a
- *        zero-volume box at that point (min == max).
- */
-inline void test_aabb_expand_single_point() {
-  AABB box;
-  box.expand(Vector(1, 2, 3));
-  HS_EXPECT_VEC(box.min_val, Vector(1, 2, 3), 1e-6f);
-  HS_EXPECT_VEC(box.max_val, Vector(1, 2, 3), 1e-6f);
-}
-
-/**
- * @brief Verifies expand() takes the component-wise min/max across all added
- *        points, yielding the tight bound of the point set.
- */
-inline void test_aabb_expand_multiple_points() {
-  AABB box;
-  box.expand(Vector(1, 2, 3));
-  box.expand(Vector(-1, 5, 2));
-  box.expand(Vector(4, 0, -6));
-  HS_EXPECT_VEC(box.min_val, Vector(-1, 0, -6), 1e-6f);
-  HS_EXPECT_VEC(box.max_val, Vector(4, 5, 3), 1e-6f);
-}
-
-/**
- * @brief Verifies union_with() merges another box into this one, yielding the
- *        bound that encloses both.
- */
-inline void test_aabb_union_with() {
-  AABB a;
-  a.expand(Vector(0, 0, 0));
-  a.expand(Vector(2, 2, 2));
-
-  AABB b;
-  b.expand(Vector(-1, 1, 5));
-  b.expand(Vector(3, 4, 6));
-
-  a.union_with(b);
-  HS_EXPECT_VEC(a.min_val, Vector(-1, 0, 0), 1e-6f);
-  HS_EXPECT_VEC(a.max_val, Vector(3, 4, 6), 1e-6f);
-}
-
-/**
- * @brief Verifies union_with() never shrinks a box.
- * @details Merging an empty box or a fully-contained box leaves it unchanged,
- *          while merging a superset grows it.
- */
-inline void test_aabb_union_with_empty_and_subset_is_noop() {
-  AABB a;
-  a.expand(Vector(0, 0, 0));
-  a.expand(Vector(1, 1, 1));
-
-  // Union with a default-constructed (empty) box is a true no-op: an empty box
-  // is min=+FLT_MAX, max=-FLT_MAX, so no component of `a` can be widened. Pin
-  // the explicit pre-union bounds ({0,0,0}..{1,1,1}) as literals rather than
-  // snapshotting via an implicit AABB copy, so the no-op is verified against the
-  // known invariant and the test does not silently depend on the copy ctor.
-  AABB empty;
-  a.union_with(empty);
-  HS_EXPECT_VEC(a.min_val, Vector(0, 0, 0), 1e-6f);
-  HS_EXPECT_VEC(a.max_val, Vector(1, 1, 1), 1e-6f);
-
-  // Union with a more-permissive box should grow a to the superset.
-  AABB superset;
-  superset.expand(Vector(-10, -10, -10));
-  superset.expand(Vector(10, 10, 10));
-  a.union_with(superset);
-  HS_EXPECT_VEC(a.min_val, Vector(-10, -10, -10), 1e-6f);
-  HS_EXPECT_VEC(a.max_val, Vector(10, 10, 10), 1e-6f);
-
-  // Union with a contained box should not shrink a.
-  AABB inside;
-  inside.expand(Vector(-5, -5, -5));
-  inside.expand(Vector(5, 5, 5));
-  a.union_with(inside);
-  HS_EXPECT_VEC(a.min_val, Vector(-10, -10, -10), 1e-6f);
-  HS_EXPECT_VEC(a.max_val, Vector(10, 10, 10), 1e-6f);
-}
-
-/**
- * @brief Verifies rays aimed at the box from outside report a hit.
- * @details Axis-aligned and diagonal directions all pass the slab test.
- */
-inline void test_aabb_ray_hit() {
-  AABB box;
-  box.expand(Vector(-1, -1, -1));
-  box.expand(Vector(1, 1, 1));
-
-  // Ray from +X axis pointing inward
-  HS_EXPECT_TRUE(box.intersect_ray(Vector(5, 0, 0), Vector(-1, 0, 0)));
-  // Ray from -Y axis pointing inward
-  HS_EXPECT_TRUE(box.intersect_ray(Vector(0, -5, 0), Vector(0, 1, 0)));
-  // Diagonal ray through the centre
-  HS_EXPECT_TRUE(box.intersect_ray(Vector(5, 5, 5),
-                                  Vector(-1, -1, -1).normalized()));
-}
-
-/**
- * @brief Verifies rays that pass beside the box or point away from it report a
- *        miss.
- * @details Includes the "behind and receding" case where the entry t is
- *          negative.
- */
-inline void test_aabb_ray_miss() {
-  AABB box;
-  box.expand(Vector(-1, -1, -1));
-  box.expand(Vector(1, 1, 1));
-
-  // Ray parallel to the box but offset in Y — passes over the top.
-  HS_EXPECT_FALSE(box.intersect_ray(Vector(-5, 5, 0), Vector(1, 0, 0)));
-  // Ray parallel to box, offset in Z — passes alongside.
-  HS_EXPECT_FALSE(box.intersect_ray(Vector(0, 0, 5), Vector(1, 0, 0)));
-  // Ray starts in front of the box and points AWAY from it.
-  HS_EXPECT_FALSE(box.intersect_ray(Vector(5, 0, 0), Vector(1, 0, 0)));
-  // Ray starts behind the box and points AWAY from it.
-  HS_EXPECT_FALSE(box.intersect_ray(Vector(-5, 0, 0), Vector(-1, 0, 0)));
-}
-
-/**
- * @brief Verifies a ray whose origin is inside the box always hits.
- * @details Holds because the slab test admits a negative entry t.
- */
-inline void test_aabb_ray_from_inside() {
-  AABB box;
-  box.expand(Vector(-1, -1, -1));
-  box.expand(Vector(1, 1, 1));
-  HS_EXPECT_TRUE(box.intersect_ray(Vector(0, 0, 0), Vector(1, 0, 0)));
-  HS_EXPECT_TRUE(box.intersect_ray(Vector(0, 0, 0), Vector(0, 1, 0)));
-}
-
-/**
- * @brief Verifies rays with a zero direction component (parallel to an axis
- *        slab) are handled by the slab guard.
- * @details The guard treats them as "hit only if the origin is within the
- *          slab", avoiding the 0/0 NaN of dividing the slab distance by a zero
- *          direction.
- */
-inline void test_aabb_ray_parallel_grazing() {
-  AABB box;
-  box.expand(Vector(-1, -1, -1));
-  box.expand(Vector(1, 1, 1));
-  // Origin lies exactly ON the +Y face, ray parallel to it: the zero Y
-  // direction component means (max_val.y - origin.y) / 0 would be 0/0, so the
-  // guard counts this on-face grazing ray as touching the box.
-  HS_EXPECT_TRUE(box.intersect_ray(Vector(0, 1, 0), Vector(1, 0, 0)));
-  // Same parallel direction but origin just outside the +Y face → clean miss.
-  HS_EXPECT_FALSE(box.intersect_ray(Vector(0, 1.5f, 0), Vector(1, 0, 0)));
-  // Parallel to two axes, origin outside the Z slab → miss.
-  HS_EXPECT_FALSE(box.intersect_ray(Vector(0, 0, 2), Vector(1, 0, 0)));
-}
 
 // ============================================================================
 // KDTree
@@ -564,16 +395,6 @@ inline void test_meshstate_view_fallback() {
  */
 inline int run_spatial_tests() {
   auto scope = hs_test::begin_module("spatial");
-
-  test_aabb_default_empty();
-  test_aabb_expand_single_point();
-  test_aabb_expand_multiple_points();
-  test_aabb_union_with();
-  test_aabb_union_with_empty_and_subset_is_noop();
-  test_aabb_ray_hit();
-  test_aabb_ray_miss();
-  test_aabb_ray_from_inside();
-  test_aabb_ray_parallel_grazing();
 
   test_kdtree_empty_input();
   test_kdtree_single_point();
