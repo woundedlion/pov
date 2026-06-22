@@ -43,11 +43,10 @@ public:
    */
   void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    // Count tops out at 128; each shape can dispatch up to two rasterizations
-    // per frame, so the worst case is ~256 SDF rasterizations/frame — left
-    // unbudgeted (no per-frame cap against device resolution). Acceptable on the
-    // WASM sim; if a device target ever runs this effect, cap Count by W*H or
-    // add a frame-time budget here.
+    // Count's slider tops out at 128, but the effective ring count is gated
+    // against the canvas resolution in drawAll() (capped at H) so a low-res
+    // device can't be driven into ~256 SDF rasterizations/frame; see the clamp
+    // there for the rationale.
     registerParam("Count", &params.num_shapes, 1.0f, 128.0f);
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
@@ -129,6 +128,17 @@ public:
     int count = static_cast<int>(params.num_shapes);
     if (count < 1)
       count = 1;
+    // Resolution-gate the ring count. Each ring dispatches a Plot AND a Scan SDF
+    // rasterization, so the unclamped slider max (128) is ~256 rasterizations a
+    // frame — fine on the WASM sim but able to blow a low-resolution device's
+    // frame budget. Cap the effective count at H, the canvas's radial/latitude
+    // resolution: concentric rings spaced finer than one row apart can't be
+    // resolved, so the clamp costs no visible fidelity. High-res targets
+    // (Phantasm, H=144) keep the full 128; low-res targets (Holosphere, H=20)
+    // clamp to a count the device can actually paint, well above the default 7.
+    constexpr int kMaxRings = H > 1 ? H : 1;
+    if (count > kMaxRings)
+      count = kMaxRings;
 
     // Basis is identical across all rings of a mode (shared orientation + fixed
     // normal), so compute each once per frame instead of once per ring.
