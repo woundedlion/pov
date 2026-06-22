@@ -488,17 +488,17 @@ FLASHMEM static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
       // garbage geometry. Trap it up front (fail-fast), matching the builder.
       HS_CHECK(count > 0, "kis: zero-vertex face");
       Vector centroid(0, 0, 0);
-      for (int i = 0; i < count; ++i) {
-        centroid = centroid + mesh.vertices[faces[offset + i]];
+      for (int k = 0; k < count; ++k) {
+        centroid = centroid + mesh.vertices[faces[offset + k]];
       }
       centroid = centroid / static_cast<float>(count);
 
       out_mesh.vertices.push_back(centroid);
       int center_idx = narrow_index(out_mesh.vertices.size() - 1);
 
-      for (int i = 0; i < count; ++i) {
-        uint16_t vi = faces[offset + i];
-        uint16_t vj = faces[offset + (i + 1) % count];
+      for (int k = 0; k < count; ++k) {
+        uint16_t vi = faces[offset + k];
+        uint16_t vj = faces[offset + (k + 1) % count];
         out_mesh.face_counts.push_back(3);
         out_mesh.faces.push_back(vi);
         out_mesh.faces.push_back(vj);
