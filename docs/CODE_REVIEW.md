@@ -161,7 +161,7 @@ data-loss defect was found anywhere in scope.*
 
 ### Low
 
-20. `core/color.h:317` — `Color4::operator CRGB()` is **implicit**, contradicting the deliberately `explicit` `Pixel16::operator CRGB()` whose doc says explicitness exists to block silent 8-bit gamma round-trips; this path reintroduces that footgun and has no core-sink caller. → Make it `explicit`.
+20. ✅ `core/color.h:317` — `Color4::operator CRGB()` is **implicit**, contradicting the deliberately `explicit` `Pixel16::operator CRGB()` whose doc says explicitness exists to block silent 8-bit gamma round-trips; this path reintroduces that footgun and has no core-sink caller. → Make it `explicit`.
 21. `core/color.h:2311` / `palettes.h:112` — `MeshPaletteBank::N` (5) is duplicated against `BakedPaletteBank::N` and the hardcoded 5-pointer `sources()` list with no `static_assert` tying `sources().size()` to `N`; a future edit to either side silently desyncs. → Add a `static_assert(sources().size() == N)`.
 22. `core/3dmath.h:495,1057,1186` — three different "is-unit"/"is-degenerate" tolerances coexist (`0.01f` in `unit_inverse`, `0.02f` in `make_basis`/`make_rotation`, raw `0.9999f`/`PI_F-0.0001f` in `slerp`), defeating the centralized `math::EPS_*` block intended to unify them. → Promote to named `EPS_UNIT_SQ`/length-epsilon constants.
 23. `core/geometry.h:466,788` — `vector_to_pixel` and `make_basis` document but do not enforce their unit-/non-zero-vector preconditions on public templated functions; a non-unit `v` yields a silently-wrong `fast_acos(v.y)` phi, and a zero `normal` traps in `make_basis` without the graceful path its `normalized_or` siblings offer. → Add a cold `HS_CHECK` or a `normalized_or` fallback at each.

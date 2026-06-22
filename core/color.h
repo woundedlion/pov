@@ -313,8 +313,10 @@ struct Color4 {
   /**
    * @brief Converts to 8-bit sRGB CRGB, discarding alpha.
    * @return The pixel downcast to CRGB.
+   * @details Explicit (like Pixel16::operator CRGB()) so a Color4 never silently
+   * round-trips through 8-bit gamma; callers must opt in with an explicit cast.
    */
-  operator CRGB() const { return static_cast<CRGB>(color); }
+  explicit operator CRGB() const { return static_cast<CRGB>(color); }
 };
 
 /**
