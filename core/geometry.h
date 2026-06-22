@@ -438,7 +438,13 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
  * @tparam W Width.
  * @tparam H Height.
  * @param x Fractional X coordinate (column).
- * @param y Fractional Y coordinate (row).
+ * @param y Fractional Y coordinate (row); the analytic branch passes it straight
+ *   to `y_to_phi<H>` with NO clamp. Unlike the integer overload (which traps on
+ *   an out-of-range row), a sub-pixel `y` outside [0, H_VIRT-1] extrapolates phi
+ *   past [0, pi] by analytic continuity. This is the intended contract for valid
+ *   in-canvas sub-pixel sampling; callers must keep `y` in range. Left unclamped
+ *   on purpose — this is a per-pixel reconstruction path, so a clamp would tax
+ *   the hot loop for an out-of-range input the rasterizer never produces.
  * @return Unit vector on the sphere.
  * @details Snaps to the integer LUT path when both coordinates are
  * near-integer; otherwise builds the vector analytically from spherical angles.
@@ -449,6 +455,8 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
     return pixel_to_vector<W, H>(static_cast<int>(x), static_cast<int>(y));
   }
   // y_to_phi<H> already accounts for H_OFFSET internally; pass H, not H_VIRT.
+  // y is intentionally not clamped here (see the @param note: unchecked sub-pixel
+  // contract, kept off the hot path).
   return Vector(Spherical((x * 2 * PI_F) / W, y_to_phi<H>(y)));
 }
 
