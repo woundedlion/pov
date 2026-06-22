@@ -117,7 +117,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 6. ✅ `core/animation.h:1767` (`MobiusFlow::step`) — **`progress = t/duration` is not clamped, unlike every sibling animation** (`Transition`/`Mutation`/`MobiusWarp` all clamp). Bounded in practice only by the default `repeat=true` rewind; a non-repeating or overshooting `duration` feeds out-of-range values to the warp. → Clamp `progress` to `[0,1]` for consistency.
 
-7. `core/mesh.h` / `core/conway.h:275-313` — **`MeshOps::transform` silently produces topology-less output if fed a borrowed-mode `MeshState`.** It builds the output views from the *owned* `face_counts` directly; a borrowed input's owned vector is empty, so the result renders nothing. Unreachable today (all call sites pass owned compiled meshes) but unguarded. → Read the source through the unified accessors, or `HS_CHECK(is_bound())` at entry.
+7. ✅ `core/mesh.h` / `core/conway.h:275-313` — **`MeshOps::transform` silently produces topology-less output if fed a borrowed-mode `MeshState`.** It builds the output views from the *owned* `face_counts` directly; a borrowed input's owned vector is empty, so the result renders nothing. Unreachable today (all call sites pass owned compiled meshes) but unguarded. → Read the source through the unified accessors, or `HS_CHECK(is_bound())` at entry.
 
 8. `effects/IslamicStars.h:32-33` — **The device arena budget (`configure_arenas(..., 120K, 120K)` → ~95 KB persistent) is not validated against the worst-case Islamic recipe.** An over-budget shape traps via `HS_CHECK` at runtime on device rather than at compile time. → Measure max V/F over `get_islamic_solids()` and confirm it fits, or rebalance persistent vs the generously-sized scratch pools.
 

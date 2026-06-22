@@ -262,6 +262,13 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
  */
 inline void transform(const MeshState &local_state, MeshState &world_state,
                       Arena& arena) {
+  // The output views below borrow from the source's OWNED topology vectors, so
+  // a borrowed-mode source (owned vectors empty, topology in its *_view spans)
+  // would silently yield a topology-less output that renders nothing. Require
+  // owned-mode input. Unreachable today (all call sites pass owned compiled
+  // meshes) but trap loudly if that ever changes.
+  HS_CHECK(local_state.face_counts.is_bound(),
+           "MeshOps::transform: source mesh must be owned-mode");
   // transform() produces a BORROWED-mode mesh: vertices are owned (rebuilt
   // below) but topology is shared through the *_view spans. The per-member
   // accessors discriminate owned-vs-borrowed on each owned vector's is_bound()
@@ -302,6 +309,10 @@ template <typename T1, typename... Transformers>
 inline void transform(const MeshState &mesh, MeshState &transformed, Arena& arena,
                       const T1 &first_transformer,
                       const Transformers &...transformers) {
+  // The output views borrow from the source's owned topology, so a borrowed-mode
+  // source would silently produce a topology-less output (see the base overload).
+  HS_CHECK(mesh.face_counts.is_bound(),
+           "MeshOps::transform: source mesh must be owned-mode");
   // Borrowed-mode output: unbind any stale owned topology so the views set
   // below are not shadowed on a reused destination (see the base overload).
   transformed.face_counts = {};
