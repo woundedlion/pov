@@ -8,10 +8,11 @@
  * K-NN adjacency array; scripts/generate_reaction_graph.py is its generator of
  * record and CI (reaction-graph-provenance) diffs the two, so regeneration is
  * checked. These tests additionally guard the in-tree table's content:
- * structural invariants (range, no self-loops, no
- * duplicate rows), geometric sanity (listed neighbors are actually nearby), an
- * edge-reciprocity measurement (gross-corruption tripwire — a raw K-NN graph is
- * not required to be perfectly symmetric), and the analytic node() generator.
+ * shape/population vs the RD_N/RD_K constants, structural invariants (range, no
+ * self-loops, no duplicate rows), geometric sanity (listed neighbors are
+ * actually nearby), an edge-reciprocity measurement (gross-corruption tripwire —
+ * a raw K-NN graph is not required to be perfectly symmetric), and the analytic
+ * node() generator.
  * Also exercises CubemapLUT round-trip (direction -> nearest node).
  */
 #pragma once
@@ -93,6 +94,38 @@ inline void test_node_deterministic_and_distinct() {
 inline void test_d_avg_matches_rd_n() {
   float expected = static_cast<float>(std::sqrt(4.0 * PI / RD_N));
   HS_EXPECT_NEAR(D_AVG, expected, 1e-4f);
+}
+
+/**
+ * @brief Verifies the neighbor table's shape and population match RD_N / RD_K.
+ * @details The whole suite (and every consumer) iterates the table with the
+ *          RD_N/RD_K constants; nothing pinned that the declared array shape, or
+ *          the generated data, actually spans RD_N rows. The static_asserts lock
+ *          the declared shape to the constants. sizeof only sees the *declared*
+ *          shape, though — a generator that emitted fewer than RD_N rows would
+ *          zero-pad the tail (every entry -> node 0) and still compile, so the
+ *          runtime half asserts the south-pole row (the farthest possible row
+ *          from node 0) holds real, local neighbors, proving the data reaches
+ *          the last row rather than degenerating into a zero pad.
+ */
+inline void test_table_shape_matches_constants() {
+  static_assert(sizeof(neighbors) / sizeof(neighbors[0]) == RD_N,
+                "neighbors row count must equal RD_N");
+  static_assert(sizeof(neighbors[0]) / sizeof(neighbors[0][0]) == RD_K,
+                "neighbors column count must equal RD_K");
+
+  const Vector last = node(RD_N - 1);
+  int valid = 0;
+  for (int k = 0; k < RD_K; ++k) {
+    int16_t ni = neighbors[RD_N - 1][k];
+    HS_EXPECT_TRUE(ni == -1 || (ni >= 0 && ni < RD_N));
+    if (ni < 0) continue;
+    ++valid;
+    // A zero-padded row points every slot at node 0 (the north pole), ~chord^2 4
+    // from this south-pole row; a real neighbor is within ~11 deg (chord^2<0.037).
+    HS_EXPECT_LT(chord2(last, node(ni)), 0.037f);
+  }
+  HS_EXPECT_GT(valid, 0); // populated, not an all-sentinel / zero-pad row
 }
 
 // ---------------------------------------------------------------------------
@@ -233,9 +266,9 @@ inline void test_neighbors_closer_than_far_point() {
 /**
  * @brief Verifies the fraction of reciprocated directed edges stays high.
  * @details Measures what fraction of directed edges i->ni have a return edge
- *          ni->i. A clean Fibonacci-lattice K-NN graph reciprocates the large
- *          majority of edges; the >50% threshold is a conservative tripwire that
- *          tolerates legitimate K-NN asymmetry while catching a scrambled table.
+ *          ni->i. The shipped table reciprocates ~98.9% (legitimate K-NN
+ *          asymmetry ~1%); the >95% threshold trips on a scrambled table while
+ *          still clearing the real asymmetry by a wide margin.
  */
 inline void test_edge_reciprocity_high() {
   long total = 0, reciprocated = 0;
@@ -250,12 +283,14 @@ inline void test_edge_reciprocity_high() {
     }
   }
   HS_EXPECT_GT(total, 0L);
-  // A clean Fibonacci-lattice K-NN graph reciprocates the large majority of
-  // edges. Require >50% as a conservative tripwire that tolerates legitimate
-  // K-NN asymmetry while catching a scrambled table.
+  // The shipped Fibonacci-lattice 6-NN table reciprocates ~98.9% of directed
+  // edges (legitimate K-NN asymmetry is only ~1%). The old >50% bound was far
+  // too slack to notice a half-scrambled table; require >95%, which still clears
+  // the real ~1% asymmetry by a wide margin but trips long before a corruption
+  // could halve the graph.
   float rate = total ? static_cast<float>(reciprocated) / total : 0.0f;
   std::printf("  [info] reaction_graph edge reciprocity: %.1f%%\n", rate * 100.0f);
-  HS_EXPECT_GT(rate, 0.5f);
+  HS_EXPECT_GT(rate, 0.95f);
 }
 
 // ---------------------------------------------------------------------------
@@ -288,9 +323,13 @@ inline void test_cubemap_lut_roundtrip() {
       if (neighbors[i][k] == found) { adjacent = true; break; }
     if (adjacent) ++near; else ++miss;
   }
-  // The overwhelming majority must be exact or an immediate neighbor.
+  std::printf("  [info] cubemap roundtrip: %d exact, %d neighbor, %d miss\n",
+              exact, near, miss);
+  // Seeded at exact lattice points, the LUT resolves every probe to its own node
+  // or a direct neighbor with zero misses, so allow at most 5% (was 25%, which a
+  // badly mis-built LUT could slip under).
   HS_EXPECT_GT(exact + near, 0);
-  HS_EXPECT_LE(miss, (exact + near) / 4);
+  HS_EXPECT_LE(miss, (exact + near) / 20);
 }
 
 /**
@@ -345,8 +384,11 @@ inline void test_cubemap_lut_offlattice() {
   }
   std::printf("  [info] cubemap off-lattice: %d exact, %d neighbor, %d miss / %d\n",
               exact, near, miss, kSamples);
+  // The shipped LUT returns the true nearest node or a direct neighbor for every
+  // one of the 400 fixed-seed off-lattice probes (0 misses), so allow at most 5%
+  // (was 25%) — tight enough to catch a face-boundary or long-hop regression.
   HS_EXPECT_GT(exact + near, 0);
-  HS_EXPECT_LE(miss, kSamples / 4);
+  HS_EXPECT_LE(miss, kSamples / 20);
 }
 
 // ---------------------------------------------------------------------------
@@ -363,6 +405,7 @@ inline int run_reaction_graph_tests() {
   test_nodes_on_unit_sphere();
   test_node_deterministic_and_distinct();
   test_d_avg_matches_rd_n();
+  test_table_shape_matches_constants();
 
   test_indices_in_range();
   test_no_self_loops();
