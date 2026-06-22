@@ -4,9 +4,12 @@
  *
  * Unit tests for core/transformers.h — the pure geometry transform functions
  * and the adapter/manager wrappers:
- *   - OrientTransformer       : identity orientation is a no-op.
- *   - mobius_transform        : identity Mobius round-trips through stereo.
- *   - gnomonic_mobius_transform: identity round-trips through gnomonic.
+ *   - OrientTransformer       : identity orientation is a no-op; a known 90°
+ *                               rotation maps to its hand-computed image.
+ *   - mobius_transform        : identity Mobius round-trips through stereo; the
+ *                               1/z map realizes a 180° rotation about x.
+ *   - gnomonic_mobius_transform: identity round-trips through gnomonic; the -z
+ *                               map realizes a 180° rotation about y.
  *   - ripple_transform        : amplitude 0 and center-point degeneracies are
  *                               no-ops; an active ripple rotates on-sphere; the
  *                               prepared-threshold fast-reject band applies
@@ -53,6 +56,29 @@ inline void test_orient_transformer_identity() {
   }
 }
 
+/**
+ * @brief Verifies a non-identity orientation rotates by exactly the quaternion
+ *        it was built from, catching a transform that ignored its rotation.
+ * @details The orientation is a +90° rotation about the +y axis. By the
+ *          right-hand rule that maps (x, y, z) → (z, y, -x) — an oracle computed
+ *          independently of the quaternion-rotation code under test. The
+ *          identity-only case (test_orient_transformer_identity) passes even for
+ *          a no-op transform; this case fails unless the rotation is applied.
+ */
+inline void test_orient_transformer_known_rotation() {
+  Orientation<> ori(make_rotation(Vector(0, 1, 0), PI_F * 0.5f)); // +90° about y
+  OrientTransformer<32> ot(ori);
+
+  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1),
+                            Vector(0.5f, 0.1f, 0.3f).normalized()};
+  for (const Vector &v : samples) {
+    Vector r = ot(v);
+    HS_EXPECT_NEAR(r.x, v.z, 1e-5f);
+    HS_EXPECT_NEAR(r.y, v.y, 1e-5f);
+    HS_EXPECT_NEAR(r.z, -v.x, 1e-5f);
+  }
+}
+
 // ============================================================================
 // mobius_transform / gnomonic_mobius_transform — identity round-trips
 // ============================================================================
@@ -73,6 +99,27 @@ inline void test_mobius_identity_roundtrip() {
 }
 
 /**
+ * @brief Verifies a non-identity Mobius map produces its hand-computed image,
+ *        catching a transform that ignored its coefficients.
+ * @details The map f(z) = 1/z (a=0, b=1, c=1, d=0) is, under this file's
+ *          stereographic convention (origin↔south pole, ∞↔north pole), a 180°
+ *          rotation of the sphere about the x-axis: (x, y, z) → (x, -y, -z).
+ *          That image is derived analytically, not from the stereo/mobius code
+ *          under test, so a coefficient-ignoring (identity) implementation —
+ *          which the existing round-trip case cannot distinguish — fails here.
+ */
+inline void test_mobius_known_rotation() {
+  MobiusParams inv(0, 0, 1, 0, 1, 0, 0, 0); // f(z) = 1/z
+  Vector v = Vector(0.5f, 0.1f, 0.3f).normalized();
+  Vector r = mobius_transform(v, inv);
+  HS_EXPECT_TRUE(finite_vec(r));
+  HS_EXPECT_NEAR(r.x, v.x, 1e-3f);
+  HS_EXPECT_NEAR(r.y, -v.y, 1e-3f);
+  HS_EXPECT_NEAR(r.z, -v.z, 1e-3f);
+  HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
+}
+
+/**
  * @brief Verifies the identity Mobius map round-trips a point through
  *        gnomonic projection back to itself.
  */
@@ -84,6 +131,26 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
   HS_EXPECT_NEAR(r.x, v.x, 2e-3f);
   HS_EXPECT_NEAR(r.y, v.y, 2e-3f);
   HS_EXPECT_NEAR(r.z, v.z, 2e-3f);
+}
+
+/**
+ * @brief Verifies a non-identity gnomonic Mobius map produces its hand-computed
+ *        image, catching a transform that ignored its coefficients.
+ * @details The map f(z) = -z (a=-1, b=0, c=0, d=1) is, under the gnomonic
+ *          projection (tangent at the north pole, hemisphere restored from the
+ *          sign of v.y), a 180° rotation about the y-axis: for an upper-
+ *          hemisphere point, (x, y, z) → (-x, y, -z). The image is derived
+ *          analytically (inv_len = v.y collapses the projection algebra), so an
+ *          identity implementation that the round-trip case admits fails here.
+ */
+inline void test_gnomonic_mobius_known_rotation() {
+  MobiusParams neg(-1, 0, 0, 0, 0, 0, 1, 0); // f(z) = -z
+  Vector v = Vector(0.3f, 0.7f, 0.2f).normalized(); // upper hemisphere (v.y>0)
+  Vector r = gnomonic_mobius_transform(v, neg);
+  HS_EXPECT_TRUE(finite_vec(r));
+  HS_EXPECT_NEAR(r.x, -v.x, 1e-3f);
+  HS_EXPECT_NEAR(r.y, v.y, 1e-3f);
+  HS_EXPECT_NEAR(r.z, -v.z, 1e-3f);
 }
 
 // ============================================================================
@@ -336,8 +403,11 @@ inline int run_transformers_tests() {
   auto scope = hs_test::begin_module("transformers");
 
   test_orient_transformer_identity();
+  test_orient_transformer_known_rotation();
   test_mobius_identity_roundtrip();
+  test_mobius_known_rotation();
   test_gnomonic_mobius_identity_roundtrip();
+  test_gnomonic_mobius_known_rotation();
   test_ripple_zero_amplitude_is_identity();
   test_ripple_center_point_is_identity();
   test_ripple_active_rotates_on_sphere();
