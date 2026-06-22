@@ -1067,6 +1067,58 @@ struct MeshOpsWrapper {
 };
 
 /**
+ * @brief WASM bridge that bakes a GenerativePalette LUT for the daydream palette
+ *        tool, so the tool previews the engine's exact perceptual color math
+ *        rather than a hand-ported JS reimplementation that can silently drift.
+ * @details The tool owns its own deterministic profile randomization (its stable
+ *          PRNG keeps the hue slider from reshuffling structure, and the engine's
+ *          global-RNG draws cannot be reproduced anyway), so it resolves the
+ *          three (h,s,v) key triples itself and asks here only for the
+ *          deterministic OKLCH authoring + gradient evaluation. No global RNG is
+ *          touched, so calling this never perturbs a live engine's render stream.
+ */
+struct PaletteOps {
+  // 256 sRGB entries (R,G,B) backing the typed_memory_view bakeLut returns.
+  // Sized once at construction so the view's ArrayBuffer never reallocates
+  // between calls (same contract as HolosphereEngine::getPixels): JS must read
+  // the result before the next bakeLut call.
+  std::vector<uint8_t> lut;
+
+  PaletteOps() : lut(256 * 3, 0) {}
+
+  /**
+   * @brief Bakes a 256-entry sRGB LUT for a generative palette.
+   * @param gradientShape GradientShape as an int (STRAIGHT=0, CIRCULAR=1,
+   *        VIGNETTE=2, FALLOFF=3).
+   * @param h1 First key hue in [0,255]; s1/v1 its saturation/value.
+   * @param s1 First key saturation in [0,255].
+   * @param v1 First key value in [0,255].
+   * @param h2 Second key hue; s2/v2 its saturation/value.
+   * @param s2 Second key saturation.
+   * @param v2 Second key value.
+   * @param h3 Third key hue; s3/v3 its saturation/value.
+   * @param s3 Third key saturation.
+   * @param v3 Third key value.
+   * @return JS Uint8Array view over 256*3 sRGB bytes; entry i is the palette
+   *         sampled at t = i/255.
+   */
+  val bakeLut(int gradientShape, int h1, int s1, int v1, int h2, int s2, int v2,
+              int h3, int s3, int v3) {
+    GenerativePalette pal = GenerativePalette::from_hsv_keys(
+        static_cast<GradientShape>(gradientShape), (uint8_t)h1, (uint8_t)s1,
+        (uint8_t)v1, (uint8_t)h2, (uint8_t)s2, (uint8_t)v2, (uint8_t)h3,
+        (uint8_t)s3, (uint8_t)v3);
+    for (int i = 0; i < 256; ++i) {
+      CRGB c = static_cast<CRGB>(pal.get(i / 255.0f));
+      lut[3 * i + 0] = c.r;
+      lut[3 * i + 1] = c.g;
+      lut[3 * i + 2] = c.b;
+    }
+    return val(typed_memory_view(lut.size(), lut.data()));
+  }
+};
+
+/**
  * @brief Packs a Vector into a JS {x,y,z} object for the spline exports.
  */
 static val vector_to_xyz(const Vector &r) {
@@ -1144,6 +1196,10 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("zip", &MeshOpsWrapper::zip)
       .function("bevel", &MeshOpsWrapper::bevel)
       .function("relax", &MeshOpsWrapper::relax);
+
+  class_<PaletteOps>("PaletteOps")
+      .constructor<>()
+      .function("bakeLut", &PaletteOps::bakeLut);
 
   // Spline evaluation — thin wrappers returning val {x,y,z}.
   /**

@@ -1060,6 +1060,25 @@ public:
                           BrightnessProfile::FLAT) {}
 
   /**
+   * @brief Builds a palette from three pre-authored sRGB key colors.
+   * @param gradient_shape Shape/distribution of colors across the domain.
+   * @param ka First key color (stop a).
+   * @param kb Second key color (stop b).
+   * @param kc Third key color (stop c).
+   * @details RNG-free: the keys are supplied directly rather than sampled from
+   *          profiles. Used by from_hsv_keys (the tooling bridge) and any caller
+   *          that already holds the three keys.
+   */
+  GenerativePalette(GradientShape gradient_shape, const CPixel &ka,
+                    const CPixel &kb, const CPixel &kc)
+      : gradient_shape(gradient_shape) {
+    a = ka;
+    b = kb;
+    c = kc;
+    update_stops();
+  }
+
+  /**
    * @brief Builds a 3-key palette from a base hue, harmony, and profiles.
    * @param gradient_shape Shape/distribution of colors across the domain.
    * @param harmony_type Harmony rule deriving the two companion hues.
@@ -1136,38 +1155,78 @@ public:
       break;
     }
 
-    // Author the three keys directly in OKLCH so each profile means what its
-    // name says perceptually. HSV "value" is not perceptual lightness (a V=255
-    // yellow blazes while a V=255 blue sinks), so the old CHSV keys made FLAT
-    // non-isoluminant and BELL a non-uniform lightness arc even though the
-    // downstream interpolation already runs in OKLCH. The (h,s,v) integer draws
-    // above are kept untouched -- the global RNG stream, and every other
-    // effect's randomness, are unperturbed -- and only reinterpreted as OKLCH
-    // coordinates here, then baked to the 8-bit sRGB key (gamut-mapped) to
-    // preserve the 9-byte snapshot and the existing lerp machinery.
-    auto key_oklch = [](uint8_t hue, uint8_t sat, uint8_t val) -> OKLCH {
-      // Hue: even perceptual spacing -- the integer harmony offsets from
-      // calc_hues become true OKLCH-hue offsets (triadic is a real 120deg).
-      float h = (hue / 256.0f) * (2.0f * PI_F);
-      // Chroma: scale into OKLCH C. The cusp varies per hue/lightness, so
-      // oklch_to_cpixel's gamut map pulls each key to its in-gamut maximum --
-      // VIBRANT authors at the boundary, PASTEL stays comfortably inside.
-      float C = (sat / 255.0f) * 0.20f;
-      // Lightness: compress HSV value into a perceptual L band. The ceiling is
-      // deliberately well below L=1: perceptual lightness near white starves the
-      // sRGB gamut of chroma, so a high-value key (e.g. FLAT, v=255) would clip
-      // to a washed-out pastel. Mapping [0,255] into [0.12, 0.67] lands full
-      // value in the chroma-rich mid-high zone where the gamut bulges -- keys
-      // stay saturated rather than bright-and-gray -- while the floor keeps dark
-      // stops off pure black. FLAT is still a genuinely isoluminant shimmer, now
-      // at a lightness the LEDs can actually render with saturation.
-      return {0.12f + (val / 255.0f) * 0.55f, C, h};
-    };
-    a = oklch_to_cpixel(key_oklch(h1, s1, v1));
-    b = oklch_to_cpixel(key_oklch(h2, s2, v2));
-    c = oklch_to_cpixel(key_oklch(h3, s3, v3));
+    // Author the three keys directly in OKLCH (see author_key / key_oklch). The
+    // (h,s,v) integer draws above are kept untouched -- the global RNG stream,
+    // and every other effect's randomness, are unperturbed -- and only
+    // reinterpreted as OKLCH coordinates, then baked to the 8-bit sRGB key
+    // (gamut-mapped) to preserve the 9-byte snapshot and the lerp machinery.
+    a = author_key(h1, s1, v1);
+    b = author_key(h2, s2, v2);
+    c = author_key(h3, s3, v3);
 
     update_stops();
+  }
+
+  /**
+   * @brief Builds a palette from three explicit, fully-resolved HSV key triples
+   *        with NO RNG draws.
+   * @param gradient_shape Shape/distribution of colors across the domain.
+   * @param h1 First key hue in [0,255]; s1/v1 its saturation/value.
+   * @param h2 Second key hue; s2/v2 its saturation/value.
+   * @param h3 Third key hue; s3/v3 its saturation/value.
+   * @return A palette whose keys are the OKLCH-authored (h,s,v) triples.
+   * @details Mirrors the profile constructor's key authoring and stop layout
+   *          exactly, but takes the (h,s,v) values as parameters instead of
+   *          sampling them from the global RNG. This is the entry point the
+   *          daydream palette tool's WASM bridge (PaletteOps) uses: the tool owns
+   *          its own deterministic profile randomization and asks the engine only
+   *          for the exact perceptual color math, so the two never drift.
+   */
+  static GenerativePalette from_hsv_keys(GradientShape gradient_shape,
+                                         uint8_t h1, uint8_t s1, uint8_t v1,
+                                         uint8_t h2, uint8_t s2, uint8_t v2,
+                                         uint8_t h3, uint8_t s3, uint8_t v3) {
+    return GenerativePalette(gradient_shape, author_key(h1, s1, v1),
+                             author_key(h2, s2, v2), author_key(h3, s3, v3));
+  }
+
+  /**
+   * @brief OKLCH coordinates for one HSV-authored key. Single source of truth
+   *        for the perceptual key placement.
+   * @param hue Key hue in [0,255]; reinterpreted as an OKLCH hue angle.
+   * @param sat Key saturation in [0,255]; scaled into OKLCH chroma.
+   * @param val Key value in [0,255]; mapped into a perceptual lightness band.
+   * @return The key's OKLCH coordinates (before the gamut-mapped sRGB bake).
+   */
+  static OKLCH key_oklch(uint8_t hue, uint8_t sat, uint8_t val) {
+    // Hue: even perceptual spacing -- the integer harmony offsets from
+    // calc_hues become true OKLCH-hue offsets (triadic is a real 120deg).
+    float h = (hue / 256.0f) * (2.0f * PI_F);
+    // Chroma: scale into OKLCH C. The cusp varies per hue/lightness, so
+    // oklch_to_cpixel's gamut map pulls each key to its in-gamut maximum --
+    // VIBRANT authors at the boundary, PASTEL stays comfortably inside.
+    float C = (sat / 255.0f) * 0.20f;
+    // Lightness: compress HSV value into a perceptual L band. The ceiling is
+    // deliberately well below L=1: perceptual lightness near white starves the
+    // sRGB gamut of chroma, so a high-value key (e.g. FLAT, v=255) would clip to
+    // a washed-out pastel. Mapping [0,255] into [0.12, 0.67] lands full value in
+    // the chroma-rich mid-high zone where the gamut bulges -- keys stay
+    // saturated rather than bright-and-gray -- while the floor keeps dark stops
+    // off pure black. FLAT is still a genuinely isoluminant shimmer, now at a
+    // lightness the LEDs can actually render with saturation.
+    return {0.12f + (val / 255.0f) * 0.55f, C, h};
+  }
+
+  /**
+   * @brief Authors one key: OKLCH placement baked to a gamut-mapped 8-bit sRGB
+   *        CPixel.
+   * @param hue Key hue in [0,255].
+   * @param sat Key saturation in [0,255].
+   * @param val Key value in [0,255].
+   * @return The authored key as an 8-bit sRGB CPixel.
+   */
+  static CPixel author_key(uint8_t hue, uint8_t sat, uint8_t val) {
+    return oklch_to_cpixel(key_oklch(hue, sat, val));
   }
 
   /**
