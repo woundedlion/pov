@@ -1190,6 +1190,12 @@ public:
                              author_key(h2, s2, v2), author_key(h3, s3, v3));
   }
 
+  // Peak OKLCH chroma at mid-lightness. The saturation profile scales this and a
+  // sin(pi*L) envelope (key_oklch / get()) tapers it toward the lightness
+  // extremes where the sRGB gamut narrows. Tuned so a key at L~0.67 (FLAT) keeps
+  // ~its pre-envelope chroma ((s/255)*0.23*sin(0.67pi) ~= (s/255)*0.20).
+  static constexpr float kChromaPeak = 0.23f;
+
   /**
    * @brief OKLCH coordinates for one HSV-authored key. Single source of truth
    *        for the perceptual key placement.
@@ -1202,10 +1208,6 @@ public:
     // Hue: even perceptual spacing -- the integer harmony offsets from
     // calc_hues become true OKLCH-hue offsets (triadic is a real 120deg).
     float h = (hue / 256.0f) * (2.0f * PI_F);
-    // Chroma: scale into OKLCH C. The cusp varies per hue/lightness, so
-    // oklch_to_cpixel's gamut map pulls each key to its in-gamut maximum --
-    // VIBRANT authors at the boundary, PASTEL stays comfortably inside.
-    float C = (sat / 255.0f) * 0.20f;
     // Lightness: compress HSV value into a perceptual L band. The ceiling is
     // deliberately well below L=1: perceptual lightness near white starves the
     // sRGB gamut of chroma, so a high-value key (e.g. FLAT, v=255) would clip to
@@ -1214,7 +1216,16 @@ public:
     // saturated rather than bright-and-gray -- while the floor keeps dark stops
     // off pure black. FLAT is still a genuinely isoluminant shimmer, now at a
     // lightness the LEDs can actually render with saturation.
-    return {0.12f + (val / 255.0f) * 0.55f, C, h};
+    float L = 0.12f + (val / 255.0f) * 0.55f;
+    // Chroma co-varies with lightness: the saturation profile sets the ceiling
+    // (kChromaPeak), and a sin(pi*L) envelope tapers it toward both ends, where
+    // the gamut narrows. So a dark or near-white key can't also be fully
+    // saturated -- the garish dark+saturated failure mode -- and chroma peaks at
+    // mid-L where the gamut bulges. kChromaPeak is tuned so a typical key (FLAT
+    // sits at L=0.67) keeps roughly its previous chroma. get() re-applies the
+    // same envelope at the interpolated L so midpoints stay on this curve.
+    float C = (sat / 255.0f) * kChromaPeak * sinf(PI_F * L);
+    return {L, C, h};
   }
 
   /**
@@ -1258,8 +1269,16 @@ public:
       size = 5;
       break;
     }
-    for (int i = 0; i < size; ++i)
+    for (int i = 0; i < size; ++i) {
       colors_oklch[i] = srgb_to_oklch(colors[i].r, colors[i].g, colors[i].b);
+      // Recover the stop's chroma ceiling from its authored (L, C): the key was
+      // built as C = cmax * sin(pi*L), so cmax = C / sin(pi*L). get() re-applies
+      // the envelope at the interpolated L. Guard the divisor at the L extremes
+      // (black vignette stops sit at L~0, sin~0) -- there C~0, so cmax is ~0
+      // anyway and the stop stays achromatic.
+      float env = sinf(PI_F * colors_oklch[i].L);
+      colors_cmax[i] = (env > 1e-3f) ? colors_oklch[i].C / env : 0.0f;
+    }
   }
 
   /**
@@ -1341,8 +1360,17 @@ public:
     // Interpolate in OKLCH for perceptually uniform gradients. Stops are
     // pre-converted in update_stops(), so this avoids the per-sample
     // sRGB->OKLCH cost (load-bearing on GSReactionDiffusion's 4x-SSAA path).
-    return Color4(oklch_to_pixel(lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p)),
-                  1.0f);
+    OKLCH blended = lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p);
+    // Chroma rides the lightness envelope at the *interpolated* L: interpolate
+    // the two stops' chroma ceilings, then C = cmax * sin(pi*L). This keeps a
+    // segment that spans a lightness change on the sin curve rather than the
+    // straight chord lerp_oklch produces -- no chroma dip where the gradient
+    // brightens through mid-L. fast_sinf: get() is per-sample on the non-baked
+    // palette path (the +1.86% near-zero error is negligible -- chroma is ~0
+    // there). lerp_oklch still owns the L and shortest-arc hue; only C changes.
+    float cmax = colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
+    blended.C = cmax * fast_sinf(PI_F * blended.L);
+    return Color4(oklch_to_pixel(blended), 1.0f);
   }
 
 private:
@@ -1413,6 +1441,14 @@ private:
    * this stays in sync.
    */
   std::array<OKLCH, 5> colors_oklch;
+  /**
+   * @brief Per-stop chroma ceiling, cached by update_stops().
+   * @details Each stop's chroma is authored as C = cmax * sin(pi*L) (the
+   * lightness-coupled envelope, see key_oklch). This recovers cmax = C/sin(pi*L)
+   * so get() can re-apply the envelope at the interpolated L, keeping midpoints
+   * on the sin curve rather than the straight chroma chord a plain lerp gives.
+   */
+  std::array<float, 5> colors_cmax{};
   int size = 0;
 
 public:
