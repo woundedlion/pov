@@ -1714,8 +1714,15 @@ struct Mesh {
                    VertexShaderRef vertex_shader) {
     int edge_index = 0;
 
-    // O(1) edge dedup in 1016 bytes (triangular bit matrix over 128 vertices)
-    TriangularBitset<kDedupCapacity> visited;
+    // O(1) edge dedup in a 1016-byte triangular bit matrix over 128 vertices,
+    // arena-allocated rather than stack-resident: this is on the deep mesh
+    // render chain and Phantasm's DTCM stack is tight. Held in scratch_arena_b
+    // for the whole call; the per-edge scratch_arena_a scopes below are
+    // independent, so the heavily-used render scratch keeps its full headroom.
+    ScratchScope _visited(scratch_arena_b);
+    auto &visited = *new (scratch_arena_b.allocate(
+        sizeof(TriangularBitset<kDedupCapacity>),
+        alignof(TriangularBitset<kDedupCapacity>))) TriangularBitset<kDedupCapacity>();
     visited.clear();
 
     auto process_edge = [&](int u, int v) {
@@ -1819,7 +1826,13 @@ struct Mesh {
    */
   template <typename MeshT>
   static void extract_edges(const MeshT &mesh, ArenaVector<Edge> &edges) {
-    TriangularBitset<kDedupCapacity> visited;
+    // Dedup bitset (1016 B) in the arena, not on the stack: this runs at setup
+    // on the deep mesh-build chain. The output `edges` lives in a separate arena
+    // (persistent), so scratch_arena_b here cannot disturb it.
+    ScratchScope _visited(scratch_arena_b);
+    auto &visited = *new (scratch_arena_b.allocate(
+        sizeof(TriangularBitset<kDedupCapacity>),
+        alignof(TriangularBitset<kDedupCapacity>))) TriangularBitset<kDedupCapacity>();
     visited.clear();
 
     const uint8_t *fc = mesh.get_face_counts_data();
