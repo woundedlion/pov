@@ -269,7 +269,7 @@ struct Color4 {
    */
   Color4 lerp(const Color4 &other, float t) const {
     const float ct = hs::clamp(t, 0.0f, 1.0f);
-    uint16_t frac = static_cast<uint16_t>(ct * 65535.0f);
+    uint16_t frac = static_cast<uint16_t>(ct * 65535.0f + 0.5f);
     Pixel blended = color.lerp16(other.color, frac);
     float blended_a = alpha + (other.alpha - alpha) * ct;
     return Color4(blended, blended_a);
