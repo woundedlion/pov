@@ -113,6 +113,16 @@ inline int smoke_frames() {
  */
 inline void lint_dead_sliders(Effect &effect, const char *name);
 
+// Sweep-wide "something lit up" counter. smoke_one() can't assert acc > 0 per
+// effect — a few effects legitimately render black at smoke_frames() (e.g.
+// RingShower sums to 0 this early), so a per-effect non-black check would be a
+// false positive on them. But a TOTAL regression-to-black (a broken Canvas/blit
+// zeroing every effect's buffer) leaves the whole roster dark, which the
+// per-effect pure-accessor check cannot see. smoke_one() bumps this whenever its
+// frame sum is non-zero; run_effects_tests() resets it before each full roster
+// pass and asserts it ended positive, so at least one effect must have lit up.
+inline int g_nonblack_effects = 0;
+
 /**
  * @brief Drives one effect type through construct -> init -> render -> read-back.
  * @tparam E Effect class template, instantiated as E<W, H>.
@@ -173,6 +183,12 @@ inline void smoke_one(const char *name) {
   // count). Reaching this point also proves the effect constructed, init'd,
   // rendered, and read back without tripping an assert / OOB / hang.
   HS_EXPECT_EQ(acc, sum_buffer());
+
+  // Feed the sweep-wide non-black tracker: a single effect lighting up can't be
+  // required here (some are legitimately black this early), but the roster-level
+  // assertion in run_effects_tests() catches a total regression-to-black.
+  if (acc > 0)
+    ++g_nonblack_effects;
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
               frames, W, H, static_cast<unsigned long long>(acc));
 
@@ -780,9 +796,15 @@ inline int run_effects_tests() {
   // (and one in the roster but not #included is a compile error). The matching
   // WASM-registry count is checked against HS_EFFECT_COUNT at engine startup
   // (targets/wasm/wasm.cpp).
+  g_nonblack_effects = 0;
 #define HS_SMOKE_ONE(name) smoke_one<name>(#name);
   HS_EFFECT_LIST(HS_SMOKE_ONE)
 #undef HS_SMOKE_ONE
+  // A total regression-to-black (a broken blit/Canvas zeroing the buffer) would
+  // leave every effect dark — invisible to the per-effect pure-accessor check,
+  // which only pins get_pixel's stability. At least one effect in the full
+  // production-resolution roster must render a non-trivial (non-black) frame.
+  HS_EXPECT_GT(g_nonblack_effects, 0);
 
   // Second pass: cross-run determinism under the injected clock. Same roster,
   // so a new effect is automatically held to byte-exact reproducibility too.
@@ -793,9 +815,14 @@ inline int run_effects_tests() {
   // Repeat both passes at the Holosphere device resolution <96,20>, the only
   // place that specialization runs under native asserts (see kDeviceW/kDeviceH).
   std::printf("  -- device resolution %dx%d --\n", kDeviceW, kDeviceH);
+  g_nonblack_effects = 0;
 #define HS_SMOKE_ONE_DEV(name) smoke_one<name, kDeviceW, kDeviceH>(#name);
   HS_EFFECT_LIST(HS_SMOKE_ONE_DEV)
 #undef HS_SMOKE_ONE_DEV
+  // The device <96,20> specialization is a distinct codepath; require it lights
+  // up too, so a regression that only blacks out the small-resolution blit is
+  // caught here rather than slipping through the production-resolution pass.
+  HS_EXPECT_GT(g_nonblack_effects, 0);
 #define HS_DET_ONE_DEV(name) determinism_one<name, kDeviceW, kDeviceH>(#name);
   HS_EFFECT_LIST(HS_DET_ONE_DEV)
 #undef HS_DET_ONE_DEV
