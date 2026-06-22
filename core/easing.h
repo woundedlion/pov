@@ -10,6 +10,14 @@
 #include <cmath>
 #include "3dmath.h"
 
+// Convention for every easing below: t is the normalized time factor in [0, 1]
+// and the functions are UNCLAMPED by design (matching the easings.net reference
+// they mirror). They neither clamp the input nor bound the output, so an
+// out-of-[0,1] t extrapolates the curve — the cubic/back/elastic variants in
+// particular can return values outside [0, 1]. Callers that feed an unbounded
+// drive (or index a fixed table with the result) must clamp t, or the output,
+// themselves.
+
 /**
  * @brief Easing function: Cubic Interpolation (In-Out).
  * @param t The time factor (0.0 to 1.0).
