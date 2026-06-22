@@ -1194,6 +1194,15 @@ struct Volume {
             // preconditions are HS_CHECKed once per draw at the top of this
             // function; a scaling transform or off-center bounds_center traps
             // there rather than silently mis-culling here.
+            //
+            // Breaking here WITHOUT sampling shape.distance(local_p) is
+            // deliberate: local_p has just passed the back of the bounding sphere,
+            // so its signed distance is large and positive and could never improve
+            // (lower) the running closest_d. Re-evaluating at the exit point would
+            // only burn a shape.distance() call to record a value the min ignores.
+            // The occlusion probe below correctly seeds from closest_local (the
+            // closest approach), NOT this terminal local_p, so the unrecorded exit
+            // sample does not weaken the halo cull either.
             if (local_p.x * local_vd.x + local_p.y * local_vd.y +
                     local_p.z * local_vd.z >
                 bounds_radius)
