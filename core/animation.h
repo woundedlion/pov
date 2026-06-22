@@ -1658,7 +1658,13 @@ public:
     angular_velocity = angular_velocity * options.smoothing +
                        target_pivot * (1.0f - options.smoothing);
     direction = rotate(direction, make_rotation(v, angular_velocity)).normalized();
-    Vector walk_axis = cross(v, direction).normalized();
+    // If v and direction drift near-parallel the cross collapses to zero; fall
+    // back to a deterministic perpendicular of v (the ctor's basis choice)
+    // rather than normalizing a zero-length axis into NaN.
+    const Vector axis_seed =
+        std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL ? Y_AXIS : X_AXIS;
+    Vector walk_axis =
+        normalized_or(cross(v, direction), cross(v, axis_seed).normalized());
     v = rotate(v, make_rotation(walk_axis, options.speed)).normalized();
     direction =
         rotate(direction, make_rotation(walk_axis, options.speed)).normalized();
