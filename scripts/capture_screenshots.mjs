@@ -155,6 +155,22 @@ for (const effect of targets) {
 
 await browser.close();
 
+// resolveResolution() returned null, so the per-capture URLs omitted the
+// resolution param and the WHOLE gallery was captured at whatever the app
+// defaulted to — not a pinned resolution. resolveResolution deliberately
+// degrades rather than aborting the run, but its per-failure console.warn fires
+// up front and scrolls away in a long capture, so restate it loudly in the
+// summary the caller actually reads: a gallery shipped at the wrong resolution
+// must not look like a clean success.
+if (RESOLUTION === null) {
+  console.warn('========================================================');
+  console.warn('capture_screenshots: WARNING — resolution was NOT resolved;');
+  console.warn('the entire gallery was captured at the APP DEFAULT resolution');
+  console.warn('(unverified). Re-run once the page resolution selector is');
+  console.warn('reachable to capture at a pinned resolution.');
+  console.warn('========================================================');
+}
+
 // A failed capture leaves the previous (stale) PNG in place, and that gallery is
 // installed into daydream and served live, so a silent exit-0 would ship stale
 // screenshots. Surface any failure to the caller (mirrors wasm_smoke.mjs).
