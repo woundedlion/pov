@@ -102,7 +102,11 @@ struct CubemapLUT {
   /**
    * @brief O(1) cubemap lookup projecting a unit vector to an approximately
    *        nearest lattice node.
-   * @param p Query direction (expected unit-length) on the sphere.
+   * @param p Query direction; MUST be unit-length. This precondition is
+   *        load-bearing for the divide below: the dominant-axis magnitude is
+   *        used as the divisor with no zero-guard, and only a unit `p`
+   *        guarantees that axis is `>= 1/sqrt(3)` (~0.577), so the reciprocal
+   *        never blows up. A zero or denormal `p` would divide by ~0.
    * @return A seed lattice node index in [0, RD_N) close to p — the texel's
    *         precomputed node. Two approximations stack: the table is built from
    *         find_nearest_node (a hill-climb local minimum, not a global argmin)
