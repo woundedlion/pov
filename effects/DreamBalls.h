@@ -180,16 +180,15 @@ private:
   PaletteFacade<decltype(bloodStreamComposition)> bloodStreamFalloff{
       &bloodStreamComposition};
 
-  Presets<Params, 4> preset_manager = {
-      .entries = {{{{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
-                     &bloodStreamFalloff, 0.7f}},
-                   {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
-                     &bloodStreamFalloff, 0.7f}},
-                   {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
-                     &Palettes::richSunset, 0.3f}},
-                   {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
-                     &Palettes::lavenderLake, 0.3f}}}},
-      .current_idx = 0};
+  Presets<Params, 4> preset_manager{std::array<PresetEntry<Params>, 4>{{
+      {{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
+        &bloodStreamFalloff, 0.7f}},
+      {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
+        &bloodStreamFalloff, 0.7f}},
+      {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
+        &Palettes::richSunset, 0.3f}},
+      {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
+        &Palettes::lavenderLake, 0.3f}}}}};
 
   /**
    * @brief Generates each preset's solid and bakes its geometry into the

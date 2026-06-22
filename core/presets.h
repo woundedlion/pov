@@ -36,13 +36,23 @@ public:
   using Entry = PresetEntry<Params>;
 
   /**
+   * @brief Builds a selector over the given entries, starting at index 0.
+   * @param e The preset entries; copied into the container.
+   * @details Non-explicit so brace-init (`Presets p = {{...}}`) and the CTAD
+   * guide below keep working. The indices are deliberately NOT constructor
+   * inputs — they start at 0 and only next()/prev() ever move them, which is
+   * what keeps them in [0, Size) (see the private section).
+   */
+  constexpr Presets(std::array<Entry, Size> e) : entries(e) {}
+
+  /**
    * @brief Returns the params of the currently selected entry.
    * @return Const reference to the current entry's params.
    */
   const Params &get() const {
-    // current_idx is a public mutable int; next()/prev() keep it in [0, Size) via
-    // their `% Size` discipline, but a direct external write can put it OOB. Trap
-    // a bad index here rather than indexing the array out of bounds.
+    // current_idx is private and only next()/prev() mutate it, holding it in
+    // [0, Size) via their `% Size` discipline; no external write can reach it.
+    // This trap is cheap insurance that the invariant holds before indexing.
     HS_CHECK(current_idx >= 0 && static_cast<size_t>(current_idx) < Size,
              "Presets::get: current_idx out of range");
     return entries[current_idx].params;
@@ -80,13 +90,10 @@ public:
     return std::span<const Entry>(entries);
   }
 
-  std::array<Entry, Size> entries; /**< The backing store of preset entries. */
-  // Indices are int by design: Size is a compile-time entry count (a small
-  // registry, never near INT_MAX), so both indices always fit. The `% Size` and
-  // `- 1 + Size` arithmetic promotes int to size_t cleanly because the values
-  // stay in [0, Size).
-  int current_idx = 0;             /**< Index of the currently selected entry. */
-  int prev_idx = 0; /**< Index active before the last next()/prev(); for crossfades. */
+  /** @brief Index of the currently selected entry; always in [0, Size). */
+  int current_index() const { return current_idx; }
+  /** @brief Index active before the last next()/prev(); always in [0, Size). */
+  int prev_index() const { return prev_idx; }
 
   /**
    * @brief Returns the params of the entry active before the last move.
@@ -97,6 +104,18 @@ public:
              "Presets::prev_get: prev_idx out of range");
     return entries[prev_idx].params;
   }
+
+  std::array<Entry, Size> entries; /**< The backing store of preset entries. */
+
+private:
+  // Indices are private so next()/prev() are the only mutators; both keep them
+  // in [0, Size) via their `% Size` discipline, so get()/prev_get() can never be
+  // handed an out-of-range index from outside. int by design: Size is a
+  // compile-time entry count (a small registry, never near INT_MAX), so both
+  // fit; the `% Size` / `- 1 + Size` arithmetic promotes int to size_t cleanly
+  // because the values stay in [0, Size).
+  int current_idx = 0; /**< Index of the currently selected entry. */
+  int prev_idx = 0;    /**< Index active before the last next()/prev(); for crossfades. */
 };
 
 /**
@@ -107,19 +126,3 @@ public:
  */
 template <typename Params, size_t N>
 Presets(std::array<PresetEntry<Params>, N>) -> Presets<Params, N>;
-
-/**
- * @brief CTAD guide deducing Size when an extra index argument is supplied.
- * @tparam Params The preset parameter type held by each entry.
- * @tparam N The deduced number of entries.
- */
-template <typename Params, size_t N>
-Presets(std::array<PresetEntry<Params>, N>, int) -> Presets<Params, N>;
-
-/**
- * @brief CTAD guide deducing Size when two extra index arguments are supplied.
- * @tparam Params The preset parameter type held by each entry.
- * @tparam N The deduced number of entries.
- */
-template <typename Params, size_t N>
-Presets(std::array<PresetEntry<Params>, N>, int, int) -> Presets<Params, N>;

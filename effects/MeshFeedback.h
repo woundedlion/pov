@@ -234,15 +234,14 @@ private:
 
   Style style;
 
-  Presets<Style, 8> presets = {.entries = {{{Style::SlowTwist()},
-                                            {Style::Melting()},
-                                            {Style::Swirling()},
-                                            {Style::Churn()},
-                                            {Style::Smoke()},
-                                            {Style::Frozen()},
-                                            {Style::Shatter()},
-                                            {Style::Drift()}}},
-                               .current_idx = 0};
+  Presets<Style, 8> presets{std::array<PresetEntry<Style>, 8>{{{Style::SlowTwist()},
+                                                               {Style::Melting()},
+                                                               {Style::Swirling()},
+                                                               {Style::Churn()},
+                                                               {Style::Smoke()},
+                                                               {Style::Frozen()},
+                                                               {Style::Shatter()},
+                                                               {Style::Drift()}}}};
   bool feedback_enabled = true;
   NoiseParams noise_params;
 

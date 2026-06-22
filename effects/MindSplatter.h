@@ -26,7 +26,7 @@ public:
         // name the columns so the magic numbers can't be silently scrambled by a
         // Params field reorder. active_count is engine-written telemetry and is
         // left at its default (not part of a preset).
-        presets{.entries = {{
+        presets{std::array<PresetEntry<Params>, 5>{{
                     {{.friction = 0.85f, .well_strength = 1.0f, .initial_speed = 0.025f, .angular_speed = 0.2f}},
                     {{.friction = 0.85f, .well_strength = 1.0f, .initial_speed = 0.025f, .angular_speed = 0.52f}},
                     {{.friction = 0.85f, .well_strength = 1.0f, .initial_speed = 0.025f, .angular_speed = 0.92f}},
