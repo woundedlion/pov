@@ -209,8 +209,8 @@ public:
   /**
    * @brief Total DMA frames dropped on overrun since boot.
    *
-   * The flywheel ISR drops a frame (rather than blocking on waitComplete)
-   * when a prior DMA transfer is still in flight, so a nonzero — and
+   * The flywheel ISR drops a frame (rather than blocking) when a prior DMA
+   * transfer is still in flight, so a nonzero — and
    * especially a rising — value means the per-column ISR/transfer budget is
    * being exceeded. Always 0 on the FastLED build, which has no DMA
    * controller.

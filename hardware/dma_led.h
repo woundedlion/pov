@@ -102,8 +102,18 @@ public:
    * @param len  Number of bytes to transmit.
    */
   void transmitAsync(const uint8_t* data, size_t len) {
+    // submitFrame() guarantees the previous transfer has completed before it
+    // calls us (it overrun-drops via isComplete() otherwise), so a transfer
+    // still in flight here is a contract violation, not a wait condition. Trap
+    // rather than spin: transmitAsync runs in the column ISR, where spinning
+    // would deadlock — the DMA-completion ISR that clears transferComplete_
+    // cannot preempt an equal/lower-priority ISR. Name the site on Serial (the
+    // trap is a bare illegal instruction) then halt. A genuinely wedged channel
+    // is surfaced separately by checkStaleTransfer() on the overrun-drop path.
     if (!transferComplete_.load(std::memory_order_relaxed)) {
-      waitComplete();
+      hs::log("FATAL: transmitAsync entered with a transfer still in flight — "
+              "submitFrame() must guard with isComplete()");
+      __builtin_trap();
     }
     transferComplete_.store(false, std::memory_order_relaxed);
     // Stamp when this transfer goes in-flight so the overrun-drop path (see
@@ -124,18 +134,18 @@ public:
   /**
    * @brief Surfaces a permanently wedged DMA channel from the overrun-drop path.
    *
-   * waitComplete()'s spin-watchdog is effectively unreachable in normal
-   * operation: its only caller (transmitAsync) is in turn only reached from
-   * DMALEDController::submitFrame(), which guards with isComplete() and *drops*
-   * on overrun rather than spinning. So a channel whose completion ISR never
-   * fires would otherwise be masked forever — isComplete() stays false, every
-   * submitFrame() drops and bumps overrunCount, and the dark strip the
-   * fail-fast doctrine exists to surface never traps. Called from submitFrame's
-   * overrun branch, this traps once the in-flight transfer has outlived the
-   * same bound waitComplete() uses (healthy transfers finish in single-digit
-   * ms; 100 ms means wedged). Cheap enough for the drop path: one micros() read
-   * and a compare, and the drop path runs at most once per column. No-op while
-   * a transfer is legitimately still completing.
+   * This is the only place a wedged channel is surfaced. Its caller,
+   * DMALEDController::submitFrame(), guards with isComplete() and *drops* on
+   * overrun rather than spinning (never entering transmitAsync while a transfer
+   * is in flight — transmitAsync traps if it ever is). So a channel whose
+   * completion ISR never fires would otherwise be masked forever — isComplete()
+   * stays false, every submitFrame() drops and bumps overrunCount, and the dark
+   * strip the fail-fast doctrine exists to surface never traps. Called from
+   * submitFrame's overrun branch, this traps once the in-flight transfer has
+   * outlived the watchdog bound (healthy transfers finish in single-digit ms;
+   * 100 ms means wedged). Cheap enough for the drop path: one micros() read and
+   * a compare, and the drop path runs at most once per column. No-op while a
+   * transfer is legitimately still completing.
    */
   void checkStaleTransfer() {
     if (transferComplete_.load(std::memory_order_relaxed)) return;
@@ -146,33 +156,9 @@ public:
     }
   }
 
-  /**
-   * @brief Spins until the in-flight transfer completes, trapping if it wedges.
-   */
-  void waitComplete() {
-    if (transferComplete_.load(std::memory_order_relaxed)) return;
-    // Watchdog: a healthy frame clocks out in well under a millisecond at
-    // 12 MHz SPI (the largest strips are still single-digit ms). An unbounded
-    // spin means the DMA completion ISR never fired — a wedged channel — which
-    // a fail-fast headless device must surface, not freeze on. The bound is
-    // ~2 orders of magnitude above the worst real transfer. On timeout, name
-    // the site on Serial (the trap is a bare illegal instruction with no
-    // message) then trap; a truncated Serial write is harmless since we halt
-    // immediately, and that holds even in the column-ISR context submitFrame()
-    // runs in (in normal operation submitFrame() overrun-drops instead of
-    // entering this spin — see submitFrame()).
-    const unsigned long wait_start = micros();
-    while (!transferComplete_.load(std::memory_order_relaxed)) {
-      if (micros() - wait_start >= kTransferWatchdogUs) {
-        hs::log("FATAL: DMA transfer watchdog timeout — completion ISR never fired");
-        __builtin_trap();
-      }
-    }
-  }
-
 private:
   /**
-   * @brief Watchdog bound for waitComplete() and checkStaleTransfer(), in µs.
+   * @brief Watchdog bound for checkStaleTransfer(), in µs.
    * @details A full-frame DMA is single-digit ms even for the largest strips at
    *          12 MHz; 100 ms is far above any real transfer, so only a wedged DMA
    *          channel trips it.
@@ -293,16 +279,16 @@ public:
    */
   [[nodiscard]] bool submitFrame(bool withBg = false) {
     if (!spi_.isComplete()) {
-      // Drop on overrun — never enter transmitAsync()'s waitComplete() spin from
-      // the column ISR. That spin can deadlock: transferComplete_ is only set by
-      // the DMA-completion ISR, which cannot preempt an equal/lower-priority ISR,
-      // so at best it extends the ISR past the next column tick. A dropped frame
-      // is a transient (platform.h), not an invariant violation: the in-flight
-      // DMA keeps the previous column; the already-packed back buffer is simply
-      // discarded and the next column repacks. But a transfer that NEVER
-      // completes is a wedged channel, not a transient: surface it here rather
-      // than dropping forever, since this drop path — not waitComplete()'s
-      // unreachable spin — is where a wedge actually manifests.
+      // Drop on overrun — never call transmitAsync() while a transfer is still
+      // in flight from the column ISR (transmitAsync traps if entered then,
+      // precisely because spinning there could deadlock: transferComplete_ is
+      // only set by the DMA-completion ISR, which cannot preempt an
+      // equal/lower-priority ISR). A dropped frame is a transient (platform.h),
+      // not an invariant violation: the in-flight DMA keeps the previous column;
+      // the already-packed back buffer is simply discarded and the next column
+      // repacks. But a transfer that NEVER completes is a wedged channel, not a
+      // transient: surface it here rather than dropping forever, since this drop
+      // path is where a wedge actually manifests.
       spi_.checkStaleTransfer();
       overrunCount_.fetch_add(1, std::memory_order_relaxed);
       return false;
