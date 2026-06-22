@@ -67,6 +67,11 @@ if(EMSCRIPTEN)
     # finite semantics (filter.h: a NaN coord must not silently UB-cast and
     # bypass the clip/wrap guards). We keep the rest of -ffast-math (reassoc,
     # FMA, reciprocal, -fno-math-errno) for the SIMD float throughput.
+    # The device firmware build carries the SAME -ffast-math -fno-finite-math-only
+    # pair (platformio.ini, shared [env].build_flags) so both targets share float
+    # reassoc/FMA semantics. Note this does NOT make float results bit-identical
+    # across ARM and WASM (different ISA/libm/FMA contraction) — the sim/device
+    # parity contract is the integer wrap guards, not floats.
     message(STATUS "WASM Release build (-O3 -ffast-math -fno-finite-math-only -msimd128 -flto)")
     target_compile_options(${TARGET_NAME} PRIVATE "-O3" "-ffast-math" "-fno-finite-math-only" "-msimd128" "-flto")
     target_link_options(${TARGET_NAME} PRIVATE "-O3" "-msimd128" "-flto")
