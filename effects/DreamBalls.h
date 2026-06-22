@@ -237,9 +237,15 @@ private:
         data.tangents.push_back({u, frame_v});
       }
 
-      // Precompute unique edge list (topology is static)
-      size_t max_edges = data.mesh_state.faces.size(); // upper bound
-      data.edges.bind(persistent_arena, max_edges);
+      // Precompute unique edge list (topology is static). For a closed
+      // 2-manifold every edge is shared by exactly two faces, so the flattened
+      // corner count (faces.size() = Σ face degrees) is exactly 2·E — size to E.
+      // These presets are all closed Solids:: polyhedra; a non-manifold/open
+      // mesh would under-size and trap loudly in push_back (and extract_edges
+      // already HS_CHECKs vertex indices), matching the engine's fail-fast
+      // contract rather than carrying a standing 2× persistent over-allocation.
+      size_t edge_count = data.mesh_state.faces.size() / 2;
+      data.edges.bind(persistent_arena, edge_count);
       Plot::Mesh::extract_edges(data.mesh_state, data.edges);
 
       preset_idx++;
