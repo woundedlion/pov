@@ -76,6 +76,9 @@ const POV::EffectFactory kEffectFactories[] = {
 
 void setup() {
   Serial.begin(9600);
+  // USB-CDC enumeration settle: gives the host time to attach so the early
+  // HS_CHECK OOM message below (and other startup output) isn't lost. The
+  // 1s value is empirical; the serial console is used for on-hardware debug.
   delay(1000);
   // Fail fast at the allocation site if the heap can't hold the driver, matching
   // the project's crash-on-violation rule (see HS_CHECK on the wasm tooling
