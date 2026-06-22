@@ -767,18 +767,26 @@ template <typename A, typename B> struct Union {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     MergedIntervalBuffer merged;
 
+    // Both children push into `merged` BEFORE the fallback decision below, so the
+    // accumulator must hold both contributions even on a row that ultimately
+    // falls back to full scan. That is safe by construction: each child's own
+    // IntervalBuffer caps at kIntervalSpanCap spans, and MergedIntervalBuffer is
+    // sized 2 * kIntervalSpanCap (see the type's declaration), so two full
+    // children fit exactly and push_interval's overflow trap cannot fire here.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
 
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
 
-    // If neither shape provides intervals, fall back to full scan
+    // If neither shape provides intervals, fall back to full scan. (The spans
+    // already pushed into `merged` are simply discarded — `merged` is a local.)
     if (!has_a && !has_b)
       return false;
 
-    // If only one shape returned intervals and the other fell back,
-    // we must do full scan (the fallback shape needs all pixels)
+    // If only one shape returned intervals and the other fell back, we must do
+    // full scan (the fallback shape needs all pixels). Returning false requests
+    // that full-width scan, equivalent to but cheaper than emitting [0,W).
     if (!has_a || !has_b)
       return false;
 
@@ -875,6 +883,11 @@ template <typename A, typename B> struct SmoothUnion {
     MergedIntervalBuffer merged;
     float pad_px = k * W / (2 * PI_F);
 
+    // As in Union: both children push into `merged` before the fallback check, so
+    // the accumulator holds both contributions even on a row that falls back. Safe
+    // because each child caps at kIntervalSpanCap and MergedIntervalBuffer is sized
+    // 2 * kIntervalSpanCap; the k-pad only widens each span, never adds spans, so
+    // the count is unchanged and push_interval's overflow trap cannot fire here.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
           push_interval(merged, start - pad_px, end + pad_px);
@@ -885,7 +898,9 @@ template <typename A, typename B> struct SmoothUnion {
           push_interval(merged, start - pad_px, end + pad_px);
         });
 
-    // If either child falls back to full-width, so must the blend
+    // If either child falls back to full-width, so must the blend. (Returning
+    // false requests the full-width scan, equivalent to but cheaper than [0,W);
+    // the spans already in the local `merged` are discarded.)
     if (!has_a || !has_b)
       return false;
 
