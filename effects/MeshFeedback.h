@@ -119,10 +119,17 @@ public:
                         },
                         true));
 
-    // Shape cycling
+    // Shape cycling — gated by the same "Pause Animation" flag as the preset
+    // timer above, so pausing halts the shape carousel as well as preset cuts.
     timeline.add(
         0, Animation::PeriodicTimer(
-               NO_MORPH_FRAMES, [this](Canvas &) { start_morph(); }, false));
+               NO_MORPH_FRAMES,
+               [this](Canvas &) {
+                 if (animationsPaused())
+                   return;
+                 start_morph();
+               },
+               false));
   }
 
   /**
