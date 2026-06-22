@@ -330,7 +330,12 @@ private:
 
   /**
    * @brief Removes the back element without an emptiness check.
-   * @details Caller must ensure the buffer is non-empty.
+   * @details Caller-guaranteed contract: the buffer must be non-empty. No
+   * HS_CHECK guards count here because every caller gates first — pop_back() on
+   * is_empty(), and the push_front/emplace_front eviction paths on is_full(). On
+   * an empty buffer this would decrement count past 0, wrapping it to a huge
+   * value (count is uint32_t) and corrupting size(); the caller gating is
+   * therefore load-bearing, not optional.
    */
   void pop_back_internal() {
     tail = (tail + N - 1) % N; // + N first: never underflows (tail is uint32_t)
@@ -339,7 +344,12 @@ private:
 
   /**
    * @brief Removes the front element without an emptiness check.
-   * @details Caller must ensure the buffer is non-empty.
+   * @details Caller-guaranteed contract: the buffer must be non-empty. No
+   * HS_CHECK guards count here because every caller gates first — pop()/clear()
+   * on is_empty(), and the push_back/emplace_back/push eviction paths on
+   * is_full(). On an empty buffer this would decrement count past 0, wrapping it
+   * to a huge value (count is uint32_t) and corrupting size(); the caller gating
+   * is therefore load-bearing, not optional.
    */
   void pop_front_internal() {
     head = (head + 1) % N;
