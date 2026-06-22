@@ -37,14 +37,21 @@ template <typename T, typename U>
 inline std::common_type_t<T, U> wrap(T x, U m) {
   using R = std::common_type_t<T, U>;
   // Precondition: m > 0. A non-positive modulo base is a caller bug (the [0, m)
-  // result is undefined); trap it debug-only — stripped under NDEBUG on device
-  // (zero cost), fires in the native tests / WASM-debug.
+  // result is undefined); the assert is the debug breadcrumb. Under NDEBUG the
+  // assert is stripped, so floor m to the smallest positive value FIRST: this is
+  // a single branchless std::fmax (wrap() runs per-pixel in the SDF angular-
+  // repeat path, so no branch may land on the hot loop), and because
+  // fmax(NaN, y) == y it also keeps a NaN base from silently propagating into
+  // pixel coordinates. For every real caller — m a positive constant or a
+  // positive sector angle — fmax returns m unchanged, so the result stays
+  // bit-identical between sim and device.
   assert(m > 0);
-  R r = std::fmod(static_cast<R>(x), static_cast<R>(m));
+  const R mm = std::fmax(static_cast<R>(m), std::numeric_limits<R>::min());
+  R r = std::fmod(static_cast<R>(x), mm);
   if (r < 0) {
-    r += m;
+    r += mm;
   }
-  return (r >= static_cast<R>(m)) ? R{0} : r;
+  return (r >= mm) ? R{0} : r;
 }
 
 /**

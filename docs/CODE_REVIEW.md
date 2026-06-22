@@ -139,7 +139,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 16. ✅ `core/filter.h:1686-1691` — `ChromaticShift::plot` uses full `wrap()` while every sibling filter uses single-step `fast_wrap()` and documents the `[-W,2W)` producer contract; the divergence silently tolerates an out-of-window `x` that would trip the debug assert elsewhere. → Use `fast_wrap`, or document why this filter differs.
 
-17. `core/util.h:37-48` — `wrap<T,U>` propagates NaN silently under `NDEBUG` if `m <= 0` (the `assert` is stripped; both range guards are false for NaN), feeding NaN into pixel coordinates. Latent — every documented caller passes a compile-time-positive `m`. → Floor `m` or promote to `HS_CHECK` (cold helper, not the per-pixel loop).
+17. ✅ `core/util.h:37-48` — `wrap<T,U>` propagates NaN silently under `NDEBUG` if `m <= 0` (the `assert` is stripped; both range guards are false for NaN), feeding NaN into pixel coordinates. Latent — every documented caller passes a compile-time-positive `m`. → Floor `m` or promote to `HS_CHECK` (cold helper, not the per-pixel loop).
 
 18. `core/effect_registry.h:68-80` — `EffectRegistry::add` calls `std::vector::push_back`; a `bad_alloc` propagates through a static initializer (terminate, no breadcrumb), contradicting the engine's located-trap doctrine. WASM-host only, growth is tiny. → `reserve(HS_EFFECT_COUNT)` once, or document the host-only exemption.
 
