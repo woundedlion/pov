@@ -149,7 +149,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 21. ✅ `hardware/pov_segmented.h:412-415` — `read_id()` does `delay()`/`pinMode`/`Serial`/DWT-enable in the constructor; safe only because the singleton is instantiated in `setup()`, but `dma_led.h` explicitly warns against constructor-time hardware I/O. → Move hardware touches into an explicit `begin()` mirroring `TeensySPIDMA`, or document the "construct only in setup()" contract on the class.
 
-22. `effects/HankinSolids.h:153,215` (and `MeshFeedback`-adjacent) — stray `\`-instead-of-`//` line-comment typos sit on the mesh `transform`/`update_hankin` path; they compile only by luck of the following line. → Fix to `//`.
+22. ✅ `effects/HankinSolids.h:153,215` (and `MeshFeedback`-adjacent) — stray `\`-instead-of-`//` line-comment typos sit on the mesh `transform`/`update_hankin` path; they compile only by luck of the following line. → Fix to `//`. *(Verified FALSE POSITIVE: the file contains no `\` characters at all — every comment on the `transform`/`update_hankin` path, including lines 153 and 215, already uses `//`. No change needed.)*
 
 23. `targets/wasm/wasm.cpp:455-503,531` — when `currentEffect` is null (e.g. after `setResolution`), `drawFrame()` early-returns leaving `pixelBuffer` stale, and `getPixels()` hands JS the prior frame sized to the new resolution; `getRenderUs()` additionally always reads 0 for effects that bypass the scan/plot instrumentation (Raymarch/Liquid2D/Flyby). → Clear the active prefix when no effect is set; wrap full-screen shaders in a `ScopedRenderTimer` (or document the 0).
 
