@@ -575,8 +575,18 @@ public:
    * @brief Updates one named effect parameter.
    * @param name Parameter name to update.
    * @param value New parameter value, in the parameter's native units.
-   * @return true on success; false if no effect is set or the name is unknown to
-   *         the effect.
+   * @return true if the write was accepted; false otherwise.
+   * @details Like setClip()/setResolution(), the boolean is intentionally
+   *          coarse — it does NOT let JS distinguish the rejection reasons. A
+   *          false collapses four distinct cases: no effect is set, the name is
+   *          unknown to the effect, the parameter is readonly (engine-written
+   *          telemetry the GUI must not poke), or the value is non-finite
+   *          (rejected before it can poison render math; see
+   *          Canvas::updateParameter). A true means the value was applied, but
+   *          note an accepted float is silently clamped to the parameter's
+   *          registered [min,max] — true does NOT imply the stored value equals
+   *          the requested one. A consumer that needs the effective value should
+   *          read it back via getParamValues() rather than trust this flag.
    */
   bool setParameter(std::string name, float value) {
     if (!currentEffect)
