@@ -145,7 +145,7 @@ Every actionable defect found this pass, grouped by severity, numbered sequentia
 
 19. ✅ `effects/SphericalHarmonics.h:301,333-338` — the positive/negative crossfade `pos.lerp(neg, 1.0f - blend_t)` reads as inverted (correct but uncommented in a file where every other crossfade is documented), and the "low modes 1..23" comment conflates flat SH indices with modes. → Add the inversion rationale; fix the comment.
 
-20. `hardware/pov_segmented.h:710-713` — `release_req_`/`release_ack_`/`pending_gen_`/`consumed_gen_` are bare `volatile` cross-context counters; the file's own `dma_led.h` rule (`:390-395`) argues `volatile` makes neither the RMW nor the cross-context read well-defined and uses `std::atomic` for the overrun counters. Safe here only because each is single-writer. → Promote to `std::atomic<uint32_t>` (relaxed), or document the single-writer-each invariant explicitly.
+20. ✅ `hardware/pov_segmented.h:710-713` — `release_req_`/`release_ack_`/`pending_gen_`/`consumed_gen_` are bare `volatile` cross-context counters; the file's own `dma_led.h` rule (`:390-395`) argues `volatile` makes neither the RMW nor the cross-context read well-defined and uses `std::atomic` for the overrun counters. Safe here only because each is single-writer. → Promote to `std::atomic<uint32_t>` (relaxed), or document the single-writer-each invariant explicitly.
 
 21. `hardware/pov_segmented.h:412-415` — `read_id()` does `delay()`/`pinMode`/`Serial`/DWT-enable in the constructor; safe only because the singleton is instantiated in `setup()`, but `dma_led.h` explicitly warns against constructor-time hardware I/O. → Move hardware touches into an explicit `begin()` mirroring `TeensySPIDMA`, or document the "construct only in setup()" contract on the class.
 

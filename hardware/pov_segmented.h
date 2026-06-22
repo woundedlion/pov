@@ -275,9 +275,10 @@ public:
       if (gen != built_gen) {
         // The ISR owns the live-effect pointer; ask it to let go before the
         // old instance is destroyed (it acknowledges within one wake-up).
-        ++release_req_;
+        release_req_.fetch_add(1, std::memory_order_relaxed);
         const unsigned long t0 = micros();
-        while (release_ack_ != release_req_) {
+        while (release_ack_.load(std::memory_order_relaxed) !=
+               release_req_.load(std::memory_order_relaxed)) {
           // 100 ms is a deliberately loose liveness bound, not a tight timing
           // budget: the flywheel ISR acks within one wake interval
           // (kColumnUs / kOversample ≈ 54 µs at 480 RPM × 288), so 100 ms is
@@ -311,7 +312,7 @@ public:
         // Release store last so it publishes both the new generation and every
         // constructor/draw_frame() write into *cur; the bracket keeps the
         // (effect, gen) pair atomic against the ISR.
-        pending_gen_ = gen;
+        pending_gen_.store(gen, std::memory_order_relaxed);
         pending_effect_.store(cur, std::memory_order_release);
         hs::enable_interrupts();
         built_gen = gen;
@@ -320,7 +321,7 @@ public:
       // Render only once the ISR has taken this instance live; before that
       // the queued frame 0 is waiting for the commit/join boundary. The
       // Canvas buffer_free() gate paces this to exactly one step() per flip.
-      if (cur && consumed_gen_ == built_gen) {
+      if (cur && consumed_gen_.load(std::memory_order_relaxed) == built_gen) {
         const unsigned long f0 = micros();
         cur->draw_frame();
         if (hs::debug) {
@@ -511,9 +512,11 @@ private:
 
     // Release handshake: the foreground wants the live pointer dropped so it
     // can destroy the instance (epoch teardown / beacon rebuild).
-    if (release_ack_ != release_req_) {
+    if (release_ack_.load(std::memory_order_relaxed) !=
+        release_req_.load(std::memory_order_relaxed)) {
       live_effect_ = nullptr;
-      release_ack_ = release_req_;
+      release_ack_.store(release_req_.load(std::memory_order_relaxed),
+                         std::memory_order_relaxed);
     }
 
     // Swap in the foreground-constructed pending effect, only ever at a ZERO
@@ -538,11 +541,12 @@ private:
       // epoch publish on !commit_pending. So a mismatch here means only the
       // genuine fault in the message — init outran the K-revolution window — and
       // never a mid-window generation bump from a beacon correction.
-      HS_CHECK(p && pending_gen_ ==
+      HS_CHECK(p && pending_gen_.load(std::memory_order_relaxed) ==
                         pov::sync::SyncBoard::build_gen_of(sync_.build_word()),
                "epoch commit: effect init exceeded the K-revolution window");
       live_effect_ = p;
-      consumed_gen_ = pending_gen_;
+      consumed_gen_.store(pending_gen_.load(std::memory_order_relaxed),
+                          std::memory_order_relaxed);
     } else if (a.join_boundary && !a.dark && live_effect_ == nullptr) {
       // Re-read pending_gen_ against the current build_word() so a late joiner
       // only adopts an effect still matching the sync wire's advertised
@@ -551,11 +555,11 @@ private:
       // and skip the join — benign: join_boundary recurs on the next grid
       // boundary, so the board simply joins one grid step later.
       Effect *p = pending_effect_.load(std::memory_order_acquire);
-      const uint32_t pg = pending_gen_;
-      if (p && pg != consumed_gen_ &&
+      const uint32_t pg = pending_gen_.load(std::memory_order_relaxed);
+      if (p && pg != consumed_gen_.load(std::memory_order_relaxed) &&
           pg == pov::sync::SyncBoard::build_gen_of(sync_.build_word())) {
         live_effect_ = p;
-        consumed_gen_ = pg;
+        consumed_gen_.store(pg, std::memory_order_relaxed);
       }
     }
 
@@ -707,10 +711,19 @@ private:
    */
   static Effect *live_effect_;             /**< Effect the ISR renders; ISR-owned.       */
   static std::atomic<Effect *> pending_effect_; /**< Next effect awaiting commit; foreground-written (release), ISR-read (acquire). */
-  static volatile uint32_t pending_gen_;   /**< Build generation of pending_effect_; foreground-owned. */
-  static volatile uint32_t consumed_gen_;  /**< Build generation taken live; ISR-owned.  */
-  static volatile uint32_t release_req_;   /**< Teardown request counter; foreground-owned. */
-  static volatile uint32_t release_ack_;   /**< Teardown acknowledge counter; ISR-owned.  */
+  // Cross-context counters as std::atomic (relaxed), not bare volatile: each
+  // has a single writer (named below) but is read from the other context, so a
+  // plain volatile RMW/read is a formal data race the way dma_led.h's overrun
+  // counters were before they moved to std::atomic (:388-396). Relaxed ordering
+  // adds no fence on the single-core Cortex-M — these carry no happens-before of
+  // their own (the (effect, gen) handoff is ordered by pending_effect_'s
+  // release/acquire), so they compile to the same load/store the volatile did,
+  // now well-defined. Completes the volatile->atomic migration pending_effect_
+  // already made.
+  static std::atomic<uint32_t> pending_gen_;   /**< Build generation of pending_effect_; foreground-written. */
+  static std::atomic<uint32_t> consumed_gen_;  /**< Build generation taken live; ISR-written.  */
+  static std::atomic<uint32_t> release_req_;   /**< Teardown request counter; foreground-written. */
+  static std::atomic<uint32_t> release_ack_;   /**< Teardown acknowledge counter; ISR-written.  */
   static bool dark_latched_;               /**< True once the black frame has latched; ISR-owned. */
   static bool sync_low_pending_;           /**< ISR-owned: dark-path pulse drop deferred to next wake. */
 
@@ -742,16 +755,16 @@ template <int S, int N, int RPM>
 std::atomic<Effect *> POVSegmented<S, N, RPM>::pending_effect_{nullptr};
 
 template <int S, int N, int RPM>
-volatile uint32_t POVSegmented<S, N, RPM>::pending_gen_ = 0;
+std::atomic<uint32_t> POVSegmented<S, N, RPM>::pending_gen_{0};
 
 template <int S, int N, int RPM>
-volatile uint32_t POVSegmented<S, N, RPM>::consumed_gen_ = 0;
+std::atomic<uint32_t> POVSegmented<S, N, RPM>::consumed_gen_{0};
 
 template <int S, int N, int RPM>
-volatile uint32_t POVSegmented<S, N, RPM>::release_req_ = 0;
+std::atomic<uint32_t> POVSegmented<S, N, RPM>::release_req_{0};
 
 template <int S, int N, int RPM>
-volatile uint32_t POVSegmented<S, N, RPM>::release_ack_ = 0;
+std::atomic<uint32_t> POVSegmented<S, N, RPM>::release_ack_{0};
 
 template <int S, int N, int RPM>
 bool POVSegmented<S, N, RPM>::dark_latched_ = false;
