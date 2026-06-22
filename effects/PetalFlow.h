@@ -259,19 +259,15 @@ private:
       fragments.push_back(f);
     }
 
-    // Close the loop: duplicate the first sample with v0=1.0 so the strip wraps
-    // seamlessly back to the start.
-    if (!fragments.is_empty()) {
-      Fragment f = fragments[0];
-      f.v0 = 1.0f;
-      fragments.push_back(f);
-    }
-
     // Flat-shade every fragment with the ring's distance-faded palette color.
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       f.color = base_col;
     };
 
+    // close_loop=true reconnects the last fragment to the first, closing the
+    // ring; no manual first-sample duplicate is needed (it only added a
+    // redundant zero-length closing segment, and the flat shader above ignores
+    // v0 so the duplicate's v0=1.0 had no visible effect).
     Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
   }
 };
