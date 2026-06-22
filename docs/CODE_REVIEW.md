@@ -133,7 +133,7 @@ data-loss defect was found anywhere in scope.*
 
 ### Medium
 
-8. `core/platform.h:771,789,818` — `beatsin8`/`beatsin16`/`map8` compute `highest - lowest` as an unsigned subtraction with no guard, so a caller passing `lowest > highest` underflows and escapes the `[lowest, highest]` range their docstrings promise. → Document the precondition or clamp.
+8. ✅ `core/platform.h:771,789,818` — `beatsin8`/`beatsin16`/`map8` compute `highest - lowest` as an unsigned subtraction with no guard, so a caller passing `lowest > highest` underflows and escapes the `[lowest, highest]` range their docstrings promise. → Document the precondition or clamp. *(Documented the `lowest <= highest` precondition on all three host mocks. Not clamped: real device `<FastLED.h>` subtracts identically and is unguarded, so clamping only on the host would break the sim/device parity contract.)*
 9. `core/platform.h:1305,1347` — profiling accumulates `uint32_t` cycle deltas with no handling for the 600 MHz `CYCCNT` ~7 s wrap; a scope spanning a wrap underflows to a huge delta and `pct` can exceed 100 (cold path). → Accumulate in `uint64` or document that a scope must not span a counter wrap.
 10. `core/platform.h:599` — `SerialMock::printf` uses `vsnprintf` (full float formatting) while the device path uses integer-only `vsniprintf`; a `%f` works on host but silently drops on device. → Flag the divergence as is already done for `check_fail`.
 11. `core/concepts.h:22` — stale comment claims `std::function` is the WASM callable backend; the WASM path now uses `hs::inplace_function`. → Update.

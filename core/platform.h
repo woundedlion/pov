@@ -763,6 +763,10 @@ inline uint8_t beat8(uint16_t bpm, uint32_t timebase = 0) {
  * @param timebase Millisecond offset for the zero of time.
  * @param phase_offset Phase shift added to the wave, in [0, 255].
  * @return An 8-bit value oscillating within [lowest, highest].
+ * @pre lowest <= highest. The `highest - lowest` span is an unsigned subtraction,
+ *      so passing lowest > highest underflows and escapes the documented range.
+ *      This matches device <FastLED.h>, which subtracts identically and is not
+ *      guarded either — clamping here would diverge the host from the device.
  * @details The parameter order and LUT match <FastLED.h>, and the scale8 range
  *          fit keeps the result within [lowest, highest].
  */
@@ -780,6 +784,9 @@ inline uint8_t beatsin8(uint16_t bpm, uint8_t lowest = 0, uint8_t highest = 255,
  * @param timebase Millisecond offset for the zero of time.
  * @param phase_offset Phase shift added to the wave, in [0, 65535].
  * @return A 16-bit value oscillating within [lowest, highest].
+ * @pre lowest <= highest. The `highest - lowest` span is an unsigned subtraction,
+ *      so passing lowest > highest underflows and escapes the documented range,
+ *      matching the unguarded device <FastLED.h> (see beatsin8).
  */
 inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
                           uint16_t highest = 65535, uint32_t timebase = 0,
@@ -812,6 +819,9 @@ inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) {
  * @param rangeStart Lower bound of the output range.
  * @param rangeEnd Upper bound of the output range.
  * @return in scaled via scale8 onto [rangeStart, rangeEnd].
+ * @pre rangeStart <= rangeEnd. The `rangeEnd - rangeStart` span is an unsigned
+ *      subtraction, so passing rangeStart > rangeEnd underflows and escapes the
+ *      documented range, matching the unguarded device <FastLED.h> (see beatsin8).
  * @details Maps the fixed 0..255 input, not a remap of an arbitrary input range.
  */
 inline uint8_t map8(uint8_t in, uint8_t rangeStart, uint8_t rangeEnd) {
