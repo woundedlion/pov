@@ -43,15 +43,18 @@ public:
    * mutation animations to the timeline.
    */
   void init() override {
-    // One pixel of azimuth in ring-space. Default stroke is 4 px and the
-    // Thickness slider floor is 2 px, both scaled by resolution so the default
-    // stays within slider range at any W.
+    // One pixel of azimuth in ring-space. Default stroke is 4 px, the Thickness
+    // slider floor is 2 px and its cap is 12 px — all scaled by resolution so
+    // the slider's pixel meaning (and the default's place within range) is the
+    // same at any W. 12 px ≈ the prior fixed 0.75 rad cap at the canonical
+    // Holosphere <96,20> device (12·2π/96 ≈ 0.785 rad), now consistent across
+    // resolutions instead of a fixed angle whose pixel width grew with W.
     const float px = 2.0f * PI_F / W;
     params.thickness = 4.0f * px;
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("MaxAmplitude", &params.max_amplitude, 0.0f, 2.0f);
-    registerParam("Thickness", &params.thickness, 2.0f * px, 0.75f);
+    registerParam("Thickness", &params.thickness, 2.0f * px, 12.0f * px);
     registerParam("Rings", &params.num_rings, 1.0f, 10.0f);
     registerParam("Show Bounding", &params.debug_bb);
 
