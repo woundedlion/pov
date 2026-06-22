@@ -1329,6 +1329,11 @@ template <typename Shape> struct AngularRepeat {
     // them silently. Fall back to the full canvas there — conservative, and the
     // common Y-axis path keeps its tight bound. (axis is unit length, as the
     // distance() projection basis requires, so axis.y near ±1 is the Y fold.)
+    //
+    // PERF CLIFF: a tilted (non-Y) fold axis therefore disables vertical
+    // culling entirely — every row is scanned for the repeat. A tighter bound is
+    // possible (the union of the child's band swept around the axis) but is not
+    // computed here; tilted AngularRepeats pay the full-canvas scan.
     if (fabsf(axis.y) < 1.0f - TOLERANCE)
       return {0, H - 1};
     return shape.template get_vertical_bounds<H>();
