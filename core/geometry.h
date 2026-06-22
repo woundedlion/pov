@@ -299,7 +299,12 @@ template <int H> inline float y_to_phi(int y) {
  * @param y Fractional pixel row.
  * @return The spherical phi angle in radians.
  * @details Snaps to the LUT for near-integer y; otherwise computes the angle
- * analytically.
+ * analytically. Unchecked by design: unlike the integer `y_to_phi<H>(int)`
+ * overload (which HS_CHECKs y in [0, H_VIRT)), this fractional overload does NOT
+ * clamp or trap an out-of-range y — only the in-bounds near-integer case takes
+ * the LUT, and any other y (fractional, or outside the row range) falls through
+ * to the analytic formula, which extrapolates linearly. Callers feed sub-pixel
+ * rows here intentionally; an out-of-range row is the caller's responsibility.
  */
 template <int H> inline float y_to_phi(float y) {
   if (std::abs(y - std::floor(y)) < TOLERANCE) {
