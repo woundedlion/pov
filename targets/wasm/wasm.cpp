@@ -349,6 +349,10 @@ public:
     // Re-create current effect if exists
     if (currentEffect) {
       currentEffect = nullptr;
+      // The param set is now empty until the next setEffect(); bump so a
+      // consumer holding the prior effect's cached definitions detects the
+      // change (see paramGeneration_).
+      ++paramGeneration_;
     }
     return true;
   }
@@ -406,6 +410,10 @@ public:
       return false;
     }
     currentEffect->init();
+    // A new effect means a new param set (names/count/order); bump so a consumer
+    // re-fetches the definitions before reading the value stream (see
+    // paramGeneration_).
+    ++paramGeneration_;
     // Log init stack HWM, then repaint to isolate render HWM. Pass the value as
     // a printf arg, not via a prebuilt buffer as the format string (see above).
     hs::log("WASM: init stack HWM = %u bytes", (unsigned)stack_high_water_mark());
@@ -584,7 +592,23 @@ public:
    * @return JS array with one {name, value, animated, readonly, (+min/max for
    *         floats)} object per param in the effect's declaration order; empty
    *         array when no effect is set.
+   * @details Pair this with getParamGeneration() — cache that counter alongside
+   *          the returned array and re-fetch when it changes, so the cached
+   *          descriptors never mis-describe a later getParamValues() stream.
    */
+  /**
+   * @brief Returns the current param-set generation.
+   * @return A monotonic counter bumped whenever the parameter *set*
+   *         (names/count/order) changes — i.e. on setEffect()/setResolution().
+   * @details Re-fetch contract: getParameterDefinitions() and getParamValues()
+   *          are separate calls, so a cached definitions array could outlive the
+   *          set it described. A consumer records this value when it caches the
+   *          definitions and re-fetches them whenever it changes before trusting
+   *          a later value stream. setParameter() does not bump it (values, not
+   *          set).
+   */
+  uint32_t getParamGeneration() { return paramGeneration_; }
+
   val getParameterDefinitions() {
     if (!currentEffect)
       return val::array();
@@ -624,7 +648,9 @@ public:
    * @brief Streams the current param values to the GUI per frame.
    * @return Zero-copy Float32Array view over the current param values, in the
    *         same order as getParameterDefinitions(); empty array if no effect is
-   *         set.
+   *         set. The descriptors for these values are valid only while
+   *         getParamGeneration() is unchanged since they were fetched (see the
+   *         re-fetch contract there).
    * @details Same memory-view contract as getPixels(): the view aliases WASM
    *          memory and must be consumed before the next allocation. paramValues
    *          never reallocates here (size <= MAX_PARAMS), so emitting it triggers
@@ -723,6 +749,19 @@ private:
   std::vector<uint16_t> pixelBuffer; /**< 16-bit linear RGB readback buffer. */
   std::vector<float> paramValues;    /**< Backing store for getParamValues. */
   std::vector<hs_wasm::ParamView> paramViews; /**< Scratch for getParameterDefinitions. */
+  /**
+   * Monotonic param-set generation. Bumped on every transition that can change
+   * the parameter *set* (its names/count/order) — i.e. installing a new effect
+   * (setEffect) and tearing the current one down (setResolution). The value
+   * stream from getParamValues() and the descriptors from
+   * getParameterDefinitions() are two separate JS calls; a consumer that caches
+   * the definitions array reads this counter via getParamGeneration() at cache
+   * time and re-fetches the definitions whenever it differs before trusting a
+   * later value stream, so a stale descriptor array can never mis-describe the
+   * values. Per-value edits (setParameter) do NOT bump it — they change values,
+   * not the set.
+   */
+  uint32_t paramGeneration_ = 0;
   int pixel_width = 0;  /**< Active canvas width in pixels. */
   int pixel_height = 0; /**< Active canvas height in pixels. */
 };
@@ -1179,6 +1218,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getParameterDefinitions",
                 &HolosphereEngine::getParameterDefinitions)
       .function("getParamValues", &HolosphereEngine::getParamValues)
+      .function("getParamGeneration", &HolosphereEngine::getParamGeneration)
       .function("getArenaMetrics", &HolosphereEngine::getArenaMetrics)
       .function("getEffectSizes", &HolosphereEngine::getEffectSizes)
       .class_function("getSupportedResolutions",
