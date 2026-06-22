@@ -133,11 +133,17 @@ private:
              "POVDisplay: effect canvas height must equal S/2");
     x_ = 0;
     IntervalTimer timer;
+    // One column sweep period (µs), rounded. A pathological RPM/width could floor
+    // this to 0 µs, which gives IntervalTimer::begin an undefined period — trap
+    // the degenerate timing here, beside the no-PIT-channel guard.
+    const unsigned long interval_us = static_cast<unsigned long>(
+        1000000.0f / (RPM / 60.0f) / effect_->width() + 0.5f);
+    HS_CHECK(interval_us >= 1,
+        "column interval rounded to 0 µs (RPM/width too high)");
     // sweep the width once per rotation; begin() returns false if no PIT
     // channel is free — an unstarted timer means the column ISR never fires
     // and the strip stays dark, so trap rather than render to a dead timer.
-    HS_CHECK(timer.begin(show_col,
-        static_cast<unsigned long>(1000000.0f / (RPM / 60.0f) / effect_->width() + 0.5f)),
+    HS_CHECK(timer.begin(show_col, interval_us),
         "column IntervalTimer failed to start (no PIT channel)");
     while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
