@@ -146,9 +146,11 @@ private:
       c.alpha *= params.alpha;
       f.color = c;
     };
-    // i runs 0..count inclusive on purpose: the i == count ring closes the
-    // pattern at r == 2.0 (the full radius), giving count+1 concentric rings.
-    for (int i = 0; i <= count; ++i) {
+    // i runs 1..count inclusive: i == count closes the pattern at r == 2.0 (the
+    // full radius), giving count concentric rings. Start at 1, not 0 — an r == 0
+    // ring is a degenerate point (and a degenerate basis sample) that wastes one
+    // rasterization per layer every frame.
+    for (int i = 1; i <= count; ++i) {
       float r = static_cast<float>(i) / count * 2.0f;
 
       Plot::DistortedRing::draw<W, H>(
