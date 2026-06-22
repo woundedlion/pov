@@ -32,15 +32,26 @@ struct FactoryEntry {
   size_t size;                                    /**< sizeof the effect at this resolution, in bytes. */
 };
 
+// Single source of truth for the supported render resolutions. Adding a
+// resolution is now ONE edit here: the EffectRegistration fields, the
+// get_fill_fn dispatch, and the REGISTER_EFFECT fill-pointer list below all
+// expand from this X-macro, so they can no longer drift out of sync (a missing
+// field used to value-init to a null FillFn that only faulted at table build).
+#define HS_RESOLUTIONS(X)                                                      \
+  X(96, 20)                                                                    \
+  X(288, 144)
+
 /**
  * @brief Resolution-specific fill functions for one registered effect.
  * @details Fill functions are templated per <W,H> but stored as concrete
- *          function pointers, one field per supported resolution.
+ *          function pointers, one field per supported resolution — generated
+ *          from HS_RESOLUTIONS as `fill_<W>_<H>` (e.g. `fill_96_20`).
  */
 struct EffectRegistration {
   using FillFn = void(*)(FactoryEntry&); /**< Populates a FactoryEntry for a given resolution. */
-  FillFn fill_96_20;   /**< Fill function for the 96x20 resolution. */
-  FillFn fill_288_144; /**< Fill function for the 288x144 resolution. */
+#define HS_REG_FILL_FIELD(W, H) FillFn fill_##W##_##H;
+  HS_RESOLUTIONS(HS_REG_FILL_FIELD)
+#undef HS_REG_FILL_FIELD
 };
 
 /**
@@ -75,10 +86,10 @@ public:
  * @tparam H Frame height in pixels.
  * @param reg Registration holding one fill pointer per supported resolution.
  * @return The fill function pointer for <W,H>.
- * @details Resolutions are enumerated explicitly: a new resolution requires a
- *          new field on EffectRegistration AND a branch here. The static_assert
- *          turns that coupling into a COMPILE error instead of silently
- *          mis-instantiating an unrecognised <W,H>.
+ * @details Resolutions are enumerated from HS_RESOLUTIONS: each generates one
+ *          `if constexpr` branch below, and the trailing static_assert turns an
+ *          unlisted <W,H> into a COMPILE error instead of silently
+ *          mis-instantiating an unrecognised resolution.
  */
 // Dependent-false constant so a static_assert in a discarded `if constexpr`
 // branch only fires when that branch is actually instantiated. A bare
@@ -87,15 +98,16 @@ template <int> constexpr bool unsupported_resolution = false;
 
 template <int W, int H>
 constexpr auto get_fill_fn(const EffectRegistration& reg) {
-  if constexpr (W == 96 && H == 20) return reg.fill_96_20;
-  else if constexpr (W == 288 && H == 144) return reg.fill_288_144;
-  else {
-    // Reached only for an <W,H> with no branch above — the predicate reads as
-    // "this resolution is unsupported", not as a check for a specific size.
+#define HS_REG_FILL_BRANCH(w, h) \
+  if constexpr (W == (w) && H == (h)) return reg.fill_##w##_##h; else
+  HS_RESOLUTIONS(HS_REG_FILL_BRANCH)
+#undef HS_REG_FILL_BRANCH
+  {
+    // Reached only for an <W,H> not listed in HS_RESOLUTIONS — the predicate
+    // reads as "this resolution is unsupported", not a check for a specific size.
     static_assert(unsupported_resolution<W>,
-                  "get_fill_fn: unsupported <W,H> — add a fill_* field to "
-                  "EffectRegistration and a branch here");
-    return reg.fill_288_144; // unreachable (static_assert fires)
+                  "get_fill_fn: unsupported <W,H> — add it to HS_RESOLUTIONS");
+    return EffectRegistration::FillFn{}; // unreachable (static_assert fires)
   }
 }
 
@@ -127,11 +139,16 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
      * survives an ELF linker's --gc-sections. */                             \
     __attribute__((used, retain))                                            \
     static inline int _reg = EffectRegistry::add({                     \
-      &fill<96, 20>,                                                   \
-      &fill<288, 144>                                                  \
+      HS_RESOLUTIONS(HS_REG_FILL_PTR)                                  \
     });                                                                \
   };                                                                   \
   }
+
+// Emits one `&fill<W, H>,` per resolution for the REGISTER_EFFECT initializer
+// above. Defined outside the macro (preprocessor directives can't live inside a
+// macro body) and left defined because REGISTER_EFFECT expands it in every
+// effect translation unit. The trailing comma is harmless in a braced-init list.
+#define HS_REG_FILL_PTR(W, H) &fill<W, H>,
 
 #else
 // Non-WASM targets (Teensy): no-op, so effect registration pulls in no
