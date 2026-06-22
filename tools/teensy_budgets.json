@@ -41,9 +41,17 @@
   "phantasm": {
     "board": "teensy40",
     "regions": {
-      // OVERFLOWS today: real used RAM1 773,184 (≫ 524,288), FLASH 586,748, RAM2 518,272.
+      // After -Os + nano + the flash routing (custom ld script): RAM1 used
+      // 519,200 — it now fits the 512 KiB address space but is over the ceiling
+      // below and leaves only ~5 KB stack, so the gate still (correctly) fails
+      // until the arena is trimmed. RAM2 518,272.
       "flash": { "max_bytes": 1900000 },
-      "ram1":  { "max_bytes": 490000, "free_min_bytes": 32768 }, // target; current image is ~283 KB over (gate fails — correct)
+      // free_min_bytes is the DTCM stack reservation. The host stack-painting
+      // gate (tests/stack_measure.cpp) measures a worst-effect peak of ~9 KB;
+      // 16 KiB covers that plus the host->device pointer delta and the ISR
+      // allowance. max_bytes = 524288 - 16384, so the 16 KiB stack floor is the
+      // binding RAM1 constraint (was 32 KiB — measured down to a real value).
+      "ram1":  { "max_bytes": 507904, "free_min_bytes": 16384 },
       "ram2":  { "max_bytes": 524288 }
     },
     "symbols": {

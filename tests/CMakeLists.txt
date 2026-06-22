@@ -146,3 +146,18 @@ target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/c
 # many static helpers would trip -Wunused-function. Engine-header hygiene is
 # enforced by the main run_tests target, which compiles the same headers -Werror.
 add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
+
+# Host stack high-water-mark gate across every effect. Built -Os + the device
+# math flags so codegen frame sizes track the Phantasm size build as closely as a
+# host compiler can; x86-64 frames (8-byte pointers) make it a conservative upper
+# bound for the 4-byte-pointer device render/init path (see stack_measure.cpp).
+# Run as a CTest: it exits non-zero if the worst effect exceeds its stack budget,
+# catching a regression before it can overflow the device's MPU-guarded stack.
+add_executable(stack_measure
+  ${CMAKE_CURRENT_SOURCE_DIR}/stack_measure.cpp
+  ${HS_ROOT}/core/memory.cpp
+  ${HS_ROOT}/core/reaction_graph.cpp)
+target_compile_definitions(stack_measure PRIVATE HS_TEST_BUILD)
+target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
+add_test(NAME unit_stack_budget COMMAND stack_measure)
