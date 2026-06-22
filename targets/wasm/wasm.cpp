@@ -913,8 +913,16 @@ struct MeshOpsWrapper {
 
   /**
    * @brief Classifies faces by topology and returns the per-face codes.
-   * @return JS Int32Array view over the mesh's now-populated topology buffer,
-   *         one topology code per face.
+   * @return JS Int32Array of one topology code per face, copied out of the
+   *         mesh's now-populated topology buffer.
+   * @details Same tooling-arena lifetime contract as getVertices(): the
+   *          `topology` buffer lives in tooling_arena and is invalidated by the
+   *          next mesh op / arena reset. The `.new_(Int32Array)(view)` form
+   *          *copies* the typed_memory_view into a fresh JS array (it does not
+   *          alias WASM memory), so the result is safe to hold across later
+   *          calls — but if this is ever changed to return the view directly
+   *          (as getPixels/bakeLut do), it MUST then be read before the next
+   *          allocation, per that memory-view contract.
    */
   val classifyFaces() {
     check_live();
@@ -923,6 +931,7 @@ struct MeshOpsWrapper {
     tooling_scratch_b.reset();
     MeshOps::classify_faces_by_topology(mesh, tooling_scratch_a,
                                         tooling_scratch_b, tooling_arena);
+    // Copies (see the contract note above); does not alias WASM memory.
     return val::global("Int32Array")
         .new_(
             val(typed_memory_view(mesh.topology.size(), mesh.topology.data())));
