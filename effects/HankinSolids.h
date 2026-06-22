@@ -158,7 +158,7 @@ private:
     MeshState rotated_mesh;
     // Single-pass clone + camera rotation via OrientTransformer: orient(v) ==
     // rotate(v, orientation.get()).
-    OrientTransformer<W> camera(orientation);
+    OrientTransformer camera(orientation);
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
 
     // Color each fragment by its face's topology class, shaded by edge distance

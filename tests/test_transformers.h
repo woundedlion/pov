@@ -44,7 +44,7 @@ inline bool finite_vec(const Vector &v) {
  */
 inline void test_orient_transformer_identity() {
   Orientation<> ori; // default = identity quaternion
-  OrientTransformer<32> ot(ori);
+  OrientTransformer ot(ori);
 
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1),
                             Vector(0.5f, 0.1f, 0.3f).normalized()};
@@ -67,7 +67,7 @@ inline void test_orient_transformer_identity() {
  */
 inline void test_orient_transformer_known_rotation() {
   Orientation<> ori(make_rotation(Vector(0, 1, 0), PI_F * 0.5f)); // +90° about y
-  OrientTransformer<32> ot(ori);
+  OrientTransformer ot(ori);
 
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1),
                             Vector(0.5f, 0.1f, 0.3f).normalized()};

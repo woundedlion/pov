@@ -236,9 +236,8 @@ public:
 
 /**
  * @brief A transformer adapter for an Orientation object.
- * @tparam W Unused width tag carried for interface symmetry with other transformers.
  */
-template <int W> struct OrientTransformer {
+struct OrientTransformer {
   const Orientation<> &orientation; /**< Orientation applied by each transform; retained by reference. */
 
   /**

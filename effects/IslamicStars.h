@@ -126,7 +126,7 @@ private:
       return;
     ScratchScope _a(scratch_arena_a);
     MeshState transformed_state;
-    OrientTransformer<W> camera(orientation);
+    OrientTransformer camera(orientation);
     MeshOps::transform(base_state, transformed_state, scratch_arena_a,
                        ripple_gen, camera);
 
