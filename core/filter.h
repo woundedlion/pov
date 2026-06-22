@@ -1596,7 +1596,8 @@ private:
   /**
    * @brief Bilinearly samples the Canvas front buffer (previous frame).
    * @param cv Canvas whose previous-frame buffer is sampled.
-   * @param bx Fractional column; wrapped across the longitude seam.
+   * @param bx Fractional column in [-W, 2W) (producer contract); wrapped across
+   *   the longitude seam by the family's single-step fast_wrap.
    * @param by Fractional row; out-of-range rows contribute black.
    * @return Bilinearly interpolated pixel color, round-to-nearest per channel.
    */
@@ -1611,10 +1612,14 @@ private:
     float fy = by - fy0;
     int x1 = x0 + 1;
 
-    if (x0 < 0)       x0 = W - 1 - ((-x0 - 1) % W);
-    else if (x0 >= W) x0 %= W;
-    if (x1 < 0)       x1 = W - 1 - ((-x1 - 1) % W);
-    else if (x1 >= W) x1 %= W;
+    // Wrap with the family's single-step fast_wrap, matching the AntiAlias
+    // bilerp above and the Pixel-domain sinks. The producer must keep bx in
+    // [-W, 2W): the sole producer (Feedback) seam-wraps its warp deltas to
+    // [-W/2, W/2], so bx = x + ddx stays in (-W, 2W) and both taps land in the
+    // window. An out-of-window coord trips fast_wrap's debug assert at the bench
+    // rather than being silently full-modulo wrapped.
+    x0 = fast_wrap(x0, W);
+    x1 = fast_wrap(x1, W);
 
     ::Pixel p00 = (y0 >= 0 && y0 < H) ? cv.prev(x0, y0) : ::Pixel(0, 0, 0);
     ::Pixel p10 = (y0 >= 0 && y0 < H) ? cv.prev(x1, y0) : ::Pixel(0, 0, 0);
