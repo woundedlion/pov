@@ -1544,6 +1544,17 @@ private:
     // stale identity just as everyone else switches.
     if (content_.commit_pending)
       return;
+    // Beacon-start budget (why the frame can't encroach the HALF boundary):
+    // the start is gated to position >= W/4 (col 72 at W=288) and the worst-case
+    // 5-digit frame spans Σ(digit·beacon_pitch_cols + (gap_timeout_cols+1)) cols
+    // — with base-8 digits ≤7, pitch 1 and gap 4 that is ≤ 5·(7+5) = 60 cols
+    // (~26 ms at 480 RPM). So even a frame starting exactly at W/4 ends by
+    // ~col 132, ~12 cols (~5 ms) short of HALF (col 144). A masked window can
+    // only push the *start* later toward W/2; that ~12-col slack is the margin
+    // absorbing it (and schedule_beacon's defensive guard plus the per-pulse
+    // late_censor in emitter_.tick handle any pulse that itself slips). There is
+    // deliberately no separate beacon-start late-bound: the span budget above is
+    // the guarantee, documented here rather than re-enforced.
     if (fly_.position(now) < cfg_.W / 4)
       return;
     beacon_done_this_rev_ = true;
