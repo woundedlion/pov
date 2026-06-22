@@ -1196,6 +1196,13 @@ public:
   // ~its pre-envelope chroma ((s/255)*0.23*sin(0.67pi) ~= (s/255)*0.20).
   static constexpr float kChromaPeak = 0.23f;
 
+  // Hue torsion: radians of hue rotation per unit lightness, applied in get() as
+  // h += kHueTorsion * (L - 0.5). Couples a small hue drift to lightness so
+  // shadows and highlights shift along the ramp -- the painterly "lit from
+  // within" look -- instead of every stop holding one fixed hue. 0.35 rad/L is
+  // ~+/-10deg across the [0,1] lightness range (less within the authored band).
+  static constexpr float kHueTorsion = 0.35f;
+
   /**
    * @brief OKLCH coordinates for one HSV-authored key. Single source of truth
    *        for the perceptual key placement.
@@ -1370,6 +1377,10 @@ public:
     // there). lerp_oklch still owns the L and shortest-arc hue; only C changes.
     float cmax = colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
     blended.C = cmax * fast_sinf(PI_F * blended.L);
+    // Hue torsion: drift hue with lightness (centered at L=0.5) so the ramp
+    // reads as "lit from within" rather than a constant-hue lerp. One multiply-
+    // add; oklch_to_oklab takes cos/sin of the angle, so no explicit wrap needed.
+    blended.h += kHueTorsion * (blended.L - 0.5f);
     return Color4(oklch_to_pixel(blended), 1.0f);
   }
 
