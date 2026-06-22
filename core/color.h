@@ -444,13 +444,16 @@ inline Pixel16 pixel16_blend_add_packed(const Pixel16 &c1, const Pixel16 &c2) {
  * @brief Returns a blend functor that lerps c1->c2 by alpha.
  * @param a Blend weight in [0, 1]; NaN maps to the hi bound.
  * @return A functor taking (c1, c2) Pixels and returning the lerped Pixel.
- * @details Clamps in float before the cast, mirroring Pixel16::operator*:
- * casting an unclamped a*65535 to int is UB when a is NaN or overflows int.
- * Truncation (no rounding bias) is intentional here.
+ * @details Rounds to nearest (+0.5f) and clamps in float before the cast,
+ * mirroring Pixel16::operator* and the +0.5f weight conversion in Color4::lerp
+ * / Gradient::get: casting an unclamped a*65535 to int is UB when a is NaN or
+ * overflows int, and rounding keeps the [0,1]->[0,65535] map consistent with
+ * the rest of the file. The +0.5f sits inside the clamp so a == 1 still maps
+ * exactly to 65535 (no saturation past the hi bound).
  */
 inline auto blend_alpha(float a) {
   // hs::clamp is a hardware min/max that also maps NaN to the hi bound.
-  uint16_t ai = (uint16_t)hs::clamp(a * 65535.0f, 0.0f, 65535.0f);
+  uint16_t ai = (uint16_t)hs::clamp(a * 65535.0f + 0.5f, 0.0f, 65535.0f);
   return [ai](const Pixel &c1, const Pixel &c2) { return c1.lerp16(c2, ai); };
 }
 

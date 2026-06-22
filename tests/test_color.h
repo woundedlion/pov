@@ -322,9 +322,9 @@ inline void test_blend_max_with_black_identity() {
 
 /**
  * @brief Verifies blend_alpha clamps its alpha to [0,1] before the float->int cast.
- * @details In-range values interpolate (truncating quantization) and
- *          out-of-range/overflowing/NaN alphas saturate to an endpoint instead
- *          of invoking cast UB.
+ * @details In-range values interpolate with round-to-nearest (+0.5f) weight
+ *          quantization and out-of-range/overflowing/NaN alphas saturate to an
+ *          endpoint instead of invoking cast UB.
  */
 inline void test_blend_alpha_clamps_before_cast() {
   Pixel16 a(0, 0, 0);
@@ -332,6 +332,11 @@ inline void test_blend_alpha_clamps_before_cast() {
 
   HS_EXPECT_TRUE(blend_alpha(0.0f)(a, b) == a); // fully a
   HS_EXPECT_TRUE(blend_alpha(1.0f)(a, b) == b); // fully b
+
+  // The float alpha rounds to nearest (+0.5f): 0.5 -> weight 32768, not the
+  // truncated 32767. The two weights produce different output for this pixel
+  // pair, so this fails under the old truncating conversion.
+  HS_EXPECT_TRUE(blend_alpha(0.5f)(a, b) == a.lerp16(b, 32768));
 
   // Out-of-range alpha saturates: a >= 1 -> full b; a <= 0 -> full a.
   HS_EXPECT_TRUE(blend_alpha(1000.0f)(a, b) == b);
