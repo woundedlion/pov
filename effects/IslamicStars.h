@@ -92,7 +92,11 @@ private:
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
-  std::array<int, NUM_PALETTES> palettes_slots[2] = {}; // value-init: every path must shuffle before draw
+  // Per-slot palette indices; value-init so a missed shuffle reads palette 0,
+  // not garbage. The shuffle-before-draw rule is a convention (each spawn_shape
+  // shuffles the back slot), enforced the same way as HankinSolids' identical
+  // palettes_slots — not by a runtime guard.
+  std::array<int, NUM_PALETTES> palettes_slots[2] = {};
 
   /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
