@@ -22,6 +22,9 @@
 #include <cstring>
 
 
+#include "core/platform.h" // HS_CHECK, hs::log, FASTRUN — used directly below;
+                           // included explicitly rather than relying on color.h
+                           // pulling it (this header is independently host-tested)
 #include "core/color.h" // Pixel16, CRGB, srgb_to_linear_lut / linear_to_srgb_lut
 
 // arm_dcache_flush is a Teensy cache intrinsic (Arduino.h) that cleans (writes
