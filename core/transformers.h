@@ -33,7 +33,7 @@ public:
     bool active = false;    /**< Whether this slot currently holds a live animation. */
   };
 
-  ParamsT params;                       /**< Template params copied into each new entity on spawn. */
+  ParamsT template_params;              /**< Template params copied into each new entity on spawn. */
   std::array<Entity, CAPACITY> entities; /**< Fixed-capacity pool of transformation slots. */
   Timeline &timeline;                   /**< Timeline that schedules and steps the spawned animations. */
 
@@ -134,7 +134,7 @@ private:
     for (int idx = 0; idx < CAPACITY; ++idx) {
       Entity &e = entities[idx];
       if (!e.active) {
-        e.params = params;
+        e.params = template_params;
         e.active = true;
         add_active(idx);
         // Create animation with reference to the stable entity params. The

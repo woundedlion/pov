@@ -37,9 +37,9 @@ public:
     // Set ripple defaults BEFORE registering their pointers: registerParam
     // snaps *ptr as the slider default, so these must already hold the intended
     // runtime values.
-    ripple_gen.params.amplitude = 0.4f;
-    ripple_gen.params.thickness = 0.7f;
-    ripple_gen.params.decay = 0.1f;
+    ripple_gen.template_params.amplitude = 0.4f;
+    ripple_gen.template_params.thickness = 0.7f;
+    ripple_gen.template_params.decay = 0.1f;
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Fade", &params.fade, 0.0f, 96.0f);
@@ -49,9 +49,9 @@ public:
     // Ripp Dur <= 144 the current burst (4) plus the still-live previous burst
     // (4) peaks at exactly 8, so no spawns are silently dropped.
     registerParam("Burst", &params.burst_size, 1.0f, 4.0f);
-    registerParam("Ripp Amp", &ripple_gen.params.amplitude, 0.0f, 1.0f);
-    registerParam("Ripp Width", &ripple_gen.params.thickness, 0.1f, 1.0f);
-    registerParam("Ripp Decay", &ripple_gen.params.decay, 0.0f, 5.0f);
+    registerParam("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f, 1.0f);
+    registerParam("Ripp Width", &ripple_gen.template_params.thickness, 0.1f, 1.0f);
+    registerParam("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
     registerParam("Ripp Dur", &ripple_duration, 30.0f, 144.0f);
     registerParam("Debug BB", &params.debug_bb);
 

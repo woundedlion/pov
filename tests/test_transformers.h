@@ -272,10 +272,10 @@ inline void test_transformer_spawn_applies_and_composes() {
   Timeline tl;
   global_timeline_t = 0;
   NoiseTransformer<4> nt(tl);
-  nt.params.amplitude = 0.6f;
-  nt.params.scale = 4.0f;
-  nt.params.time = 1.0f;
-  nt.params.sync();
+  nt.template_params.amplitude = 0.6f;
+  nt.template_params.scale = 4.0f;
+  nt.template_params.time = 1.0f;
+  nt.template_params.sync();
 
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
                             Vector(0.4f, 0.6f, 0.7f).normalized()};

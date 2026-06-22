@@ -125,10 +125,10 @@ public:
     registerParam("Cycle Speed", &params.cycleSpeed, 0.0f, 1.0f);
 
     // Initialize noise params
-    noise_xform.params.amplitude = params.jitterAmp;
-    noise_xform.params.frequency = params.noiseFreq;
-    noise_xform.params.speed = params.speed;
-    noise_xform.params.sync();
+    noise_xform.template_params.amplitude = params.jitterAmp;
+    noise_xform.template_params.frequency = params.noiseFreq;
+    noise_xform.template_params.speed = params.speed;
+    noise_xform.template_params.sync();
 
     // Build the initial Lissajous path and start the noise transformer
     update_path();
