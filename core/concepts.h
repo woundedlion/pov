@@ -294,6 +294,11 @@ using PlotFn = Fn<Vector(float), 16>;
 // spawn_sprite()), and 12 B never fit 8; the historical "8" predates them.
 using SpriteFn = Fn<void(Canvas &, float), 16>;
 using TimerFn = Fn<void(Canvas &), 16>;
+// 32, not 16 like the closures above: ScalarFn holds the wave/shift builders'
+// captures, which run larger than a sprite's [this, idx, slot]. sin_wave & the
+// other oscillators capture from/to/freq/phase (4 floats), and the DistortedRing
+// shift_fn / Animation::Mutation closures carry a few params more — all past the
+// 16-byte budget. 32 covers them with headroom.
 using ScalarFn = Fn<float(float), 32>;
 using EasingFn = float (*)(float);
 
