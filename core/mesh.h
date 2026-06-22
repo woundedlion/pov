@@ -397,10 +397,8 @@ FLASHMEM static inline void compile(const PolyMesh &src, MeshState &dst,
     }
   }
 
-  dst.vertices.bind(geom_arena, src.vertices.size());
-  for (size_t i = 0; i < src.vertices.size(); ++i) {
-    dst.vertices.push_back(src.vertices[i]);
-  }
+  copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(),
+              geom_arena);
 
   dst.face_counts.bind(geom_arena, valid_faces);
   dst.faces.bind(geom_arena, valid_indices);
@@ -445,39 +443,18 @@ inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {
     MeshState::clone(src, dst, arena);
     return;
   }
-  dst.vertices.bind(arena, src.vertices.size());
-  for (size_t i = 0; i < src.vertices.size(); ++i) {
-    dst.vertices.push_back(src.vertices[i]);
-  }
-
-  size_t fc_size = src.get_face_counts_size();
-  const uint8_t *fc_data = src.get_face_counts_data();
-  dst.face_counts.bind(arena, fc_size);
-  for (size_t i = 0; i < fc_size; ++i) {
-    dst.face_counts.push_back(fc_data[i]);
-  }
-
-  size_t f_size = src.get_faces_size();
-  const uint16_t *f_data = src.get_faces_data();
-  dst.faces.bind(arena, f_size);
-  for (size_t i = 0; i < f_size; ++i) {
-    dst.faces.push_back(f_data[i]);
-  }
+  copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
+  copy_vector(dst.face_counts, src.get_face_counts_data(),
+              src.get_face_counts_size(), arena);
+  copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(), arena);
 
   if constexpr (requires { dst.face_offsets; }) {
-    size_t fo_size = src.get_face_offsets_size();
-    const uint16_t *fo_data = src.get_face_offsets_data();
-    dst.face_offsets.bind(arena, fo_size);
-    for (size_t i = 0; i < fo_size; ++i) {
-      dst.face_offsets.push_back(fo_data[i]);
-    }
+    copy_vector(dst.face_offsets, src.get_face_offsets_data(),
+                src.get_face_offsets_size(), arena);
   }
 
   if constexpr (requires { dst.topology; }) {
-    dst.topology.bind(arena, src.topology.size());
-    for (size_t i = 0; i < src.topology.size(); ++i) {
-      dst.topology.push_back(src.topology[i]);
-    }
+    copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
   }
 }
 

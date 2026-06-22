@@ -390,6 +390,25 @@ private:
 };
 
 /**
+ * @brief Deep-copies n contiguous elements into a freshly-bound ArenaVector.
+ * @tparam T Element type.
+ * @param dst Destination vector, bound to exactly n elements from arena.
+ * @param src Pointer to the first source element (ignored when n == 0).
+ * @param n Number of elements to copy.
+ * @param arena Arena supplying storage for dst.
+ * @details Shared by MeshState::clone and MeshOps::clone/compile so the
+ * arena deep-copy loops cannot drift. Per-element push_back preserves the exact
+ * semantics of the loops it replaces.
+ */
+template <typename T>
+inline void copy_vector(ArenaVector<T> &dst, const T *src, size_t n,
+                        Arena &arena) {
+  dst.bind(arena, n);
+  for (size_t i = 0; i < n; ++i)
+    dst.push_back(src[i]);
+}
+
+/**
  * @brief Represents the state of a mesh using arena storage to avoid heap
  * allocations.
  */
@@ -541,34 +560,16 @@ struct MeshState {
    * @details Required by Cloneable.
    */
   static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
-    dst.vertices.bind(arena, src.vertices.size());
-    for (size_t i = 0; i < src.vertices.size(); ++i)
-      dst.vertices.push_back(src.vertices[i]);
-
-    size_t fc_size = src.get_face_counts_size();
-    const uint8_t *fc_data = src.get_face_counts_data();
-    dst.face_counts.bind(arena, fc_size);
-    for (size_t i = 0; i < fc_size; ++i)
-      dst.face_counts.push_back(fc_data[i]);
-
-    size_t f_size = src.get_faces_size();
-    const uint16_t *f_data = src.get_faces_data();
-    dst.faces.bind(arena, f_size);
-    for (size_t i = 0; i < f_size; ++i)
-      dst.faces.push_back(f_data[i]);
+    copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
+    copy_vector(dst.face_counts, src.get_face_counts_data(),
+                src.get_face_counts_size(), arena);
+    copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(), arena);
 
     size_t fo_size = src.get_face_offsets_size();
-    if (fo_size > 0) {
-      const uint16_t *fo_data = src.get_face_offsets_data();
-      dst.face_offsets.bind(arena, fo_size);
-      for (size_t i = 0; i < fo_size; ++i)
-        dst.face_offsets.push_back(fo_data[i]);
-    }
+    if (fo_size > 0)
+      copy_vector(dst.face_offsets, src.get_face_offsets_data(), fo_size, arena);
 
-    if (!src.topology.is_empty()) {
-      dst.topology.bind(arena, src.topology.size());
-      for (size_t i = 0; i < src.topology.size(); ++i)
-        dst.topology.push_back(src.topology[i]);
-    }
+    if (!src.topology.is_empty())
+      copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
   }
 };
