@@ -314,6 +314,9 @@ private:
   // (see memory.h:15-22). On the device size_t IS uint32_t, so this is a
   // host-only narrowing with identical codegen and behavior on hardware.
   static_assert(N <= 0xFFFFFFFFu, "StaticCircularBuffer capacity exceeds uint32_t");
+  // N == 0 would make every `% N` index update a division-by-zero (UB); all
+  // instantiations use N >= 1, so trap a zero-capacity buffer at compile time.
+  static_assert(N > 0, "StaticCircularBuffer requires N >= 1");
   std::array<T, N> buffer; /**< Backing storage; every slot is a live object. */
   uint32_t head;           /**< Index of the front (oldest) element. */
   uint32_t tail;           /**< Index of the next free back slot. */

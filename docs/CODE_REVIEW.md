@@ -137,7 +137,7 @@ Every defect found this pass, grouped by severity, numbered sequentially. Each e
 
 ### Low
 
-10. `core/static_circular_buffer.h:316` — no `static_assert(N > 0)`; a `StaticCircularBuffer<T,0>` makes every `% N` index update division-by-zero UB (latent — all instantiations use N ≥ 1). → add `static_assert(N > 0, "requires N >= 1")`.
+10. ✅ `core/static_circular_buffer.h:316` — no `static_assert(N > 0)`; a `StaticCircularBuffer<T,0>` makes every `% N` index update division-by-zero UB (latent — all instantiations use N ≥ 1). → add `static_assert(N > 0, "requires N >= 1")`.
 11. `core/canvas.h:455` — `registerParam` never validates `min <= max`; an inverted range feeds `hs::clamp(value, min, max)` with `lo > hi` (implementation-defined), pinning the slider to garbage — inconsistent with the duplicate-name/capacity guards beside it. → `HS_CHECK(min <= max)`.
 12. `core/presets.h:74` — `current_idx`/`prev_idx` are public mutable ints; an external write out of `[0, Size)` makes `get()`/`prev_get()` index OOB (the `% Size` discipline guards only `next()`/`prev()`). → make the indices private with accessors, or assert range in `get()`/`prev_get()`.
 13. `core/effect_registry.h:42` — adding a resolution requires three coupled edits (struct field, `REGISTER_EFFECT` initializer, `get_fill_fn` branch); a missing field value-inits to a null `FillFn` that only faults at table build. → drive the field list from one X-macro over resolutions, mirroring `HS_EFFECT_LIST`.
