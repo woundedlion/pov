@@ -283,6 +283,11 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
  * @return The displaced vector.
  */
 inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
+  // Between ripples the envelope drives amplitude to 0; skip the whole
+  // per-pixel wavelet (fast_acos + two expf) when there is nothing to displace.
+  if (params.amplitude <= 0.001f)
+    return v;
+
   // fast reject
   float cos_d = dot(v, params.center);
   if (cos_d > params.cos_threshold_min || cos_d < params.cos_threshold_max) {

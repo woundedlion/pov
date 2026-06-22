@@ -203,7 +203,7 @@ data-loss defect was found anywhere in scope.*
 72. `core/animation.h:982-1003` — `Driver` re-reads `*speed_src_` every frame with no finite guard; a slider momentarily producing NaN permanently poisons the driven param via `wrap_t(NaN)`. → Guard with `std::isfinite`.
 73. `core/filter.h:1182-1186` — `Screen::Trails::DecayPixel` array is named `ttls_` but holds position+ttl. → Rename to `points_` to match `World::Trails::items_`.
 74. `core/transformers.h:36,137` — the template-level `params` member shares its name with `Entity::params`. → Rename to `template_params`/`default_params` to end the shadowing.
-75. `core/transformers.h:288` — `ripple_transform` runs the full per-pixel `fast_acos`+`expf` even when amplitude is ~0 (between ripples). → Short-circuit on amplitude as `noise_transform` does.
+75. ✅ `core/transformers.h:288` — `ripple_transform` runs the full per-pixel `fast_acos`+`expf` even when amplitude is ~0 (between ripples). → Short-circuit on amplitude as `noise_transform` does.
 76. `core/animation.h:2266` — the `Noise` 2²⁴-frame precision-freeze comment assumes `speed==1`. → Note the limit scales inversely with `speed`.
 77. `core/filter.h:1614-1617` — `sample_bilinear_prev` hand-rolls a negative-x wrap instead of `fast_wrap` (correct, since `bx` can exceed the `fast_wrap` window). → Add a one-line note on why `fast_wrap` is inapplicable.
 78. `hardware/pov_sync.h:1576` — `build_word_` is documented "written by ISR" but `seed()` also writes it once from the foreground at boot (benign, pre-attach). → Note the boot write.
