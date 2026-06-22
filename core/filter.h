@@ -1079,7 +1079,7 @@ public:
    * @param arena Persistent arena supplying MAX_PIXELS DecayPixel slots.
    */
   void init_storage(Arena &arena) {
-    ttls_ = static_cast<DecayPixel *>(
+    points_ = static_cast<DecayPixel *>(
         arena.allocate(MAX_PIXELS * sizeof(DecayPixel), alignof(DecayPixel)));
     num_pixels = 0;
   }
@@ -1114,8 +1114,8 @@ public:
     // MAX_PIXELS=1024 budget is a transient edge regime that clears within a few
     // frames as points decay; paying a per-point scan to reshape it is not worth
     // it. A saturated buffer briefly favors its existing trail over new seeds.
-    if (ttl > 0.0f && ttls_ && num_pixels < MAX_PIXELS) {
-      ttls_[num_pixels++] = {x, y, ttl};
+    if (ttl > 0.0f && points_ && num_pixels < MAX_PIXELS) {
+      points_[num_pixels++] = {x, y, ttl};
     }
   }
 
@@ -1136,13 +1136,13 @@ public:
       // fade progress in [0,1] (it may index a palette/gradient) and the age
       // channel is contracted non-negative, so clamp both for parity — the plot()
       // seed gate keeps t in range for any non-negative age, this guards the rest.
-      float t = hs::clamp(1.0f - (ttls_[i].ttl / lifetime), 0.0f, 1.0f);
-      Color4 color = trailFn(ttls_[i].x, ttls_[i].y, t);
+      float t = hs::clamp(1.0f - (points_[i].ttl / lifetime), 0.0f, 1.0f);
+      Color4 color = trailFn(points_[i].x, points_[i].y, t);
       if (color.alpha > 0.001f) {
-        float age = lifetime - ttls_[i].ttl;
+        float age = lifetime - points_[i].ttl;
         if (age < 0.0f)
           age = 0.0f;
-        pass(ttls_[i].x, ttls_[i].y, color.color, age, alpha * color.alpha);
+        pass(points_[i].x, points_[i].y, color.color, age, alpha * color.alpha);
       }
     }
     decay();
@@ -1164,8 +1164,8 @@ public:
    */
   void decay() {
     for (int i = 0; i < num_pixels; ++i) {
-      if (--ttls_[i].ttl <= 0.0f) {
-        ttls_[i] = ttls_[--num_pixels];
+      if (--points_[i].ttl <= 0.0f) {
+        points_[i] = points_[--num_pixels];
         i--;
       }
     }
@@ -1182,8 +1182,8 @@ private:
     float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */
   };
   int lifetime;               /**< Per-frame fade divisor in frames. */
-  DecayPixel *ttls_ = nullptr; /**< Arena-owned array of live trail points. */
-  int num_pixels = 0;          /**< Number of live points in ttls_. */
+  DecayPixel *points_ = nullptr; /**< Arena-owned array of live trail points. */
+  int num_pixels = 0;          /**< Number of live points in points_. */
 };
 
 /**
