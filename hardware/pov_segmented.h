@@ -352,22 +352,26 @@ public:
         last_report = millis();
         const pov::sync::Telemetry tm = sync_.telemetry();
         if (memcmp(&tm, &last_tm, sizeof tm) != 0) {
-          Serial.printf("sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu "
-                        "bok=%lu brej=%lu fix=%lu rmis=%lu lock=%lu "
-                        "flip=%lu coast=%lu epi=%lu\r\n",
-                        (unsigned long)tm.symbols_accepted,
-                        (unsigned long)tm.symbols_rejected_gate,
-                        (unsigned long)tm.symbols_discarded_invalid,
-                        (unsigned long)tm.emit_censored,
-                        (unsigned long)tm.emit_aborted,
-                        (unsigned long)tm.beacons_ok,
-                        (unsigned long)tm.beacons_rejected,
-                        (unsigned long)tm.beacon_index_corrections,
-                        (unsigned long)tm.beacon_rev_mismatches,
-                        (unsigned long)tm.lock_transitions,
-                        (unsigned long)tm.flips,
-                        (unsigned long)tm.max_coast_halves,
-                        (unsigned long)tm.epochs_refractory_ignored);
+          // hs::log (integer-only vsniprintf + Serial.println) rather than
+          // Serial.printf: Teensy's Print::printf routes through vdprintf, which
+          // unconditionally drags newlib's float formatter (_dtoa_r + bignum
+          // helpers, ~5 KB of ITCM) into the image. These counters are all %lu.
+          hs::log("sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu "
+                  "bok=%lu brej=%lu fix=%lu rmis=%lu lock=%lu "
+                  "flip=%lu coast=%lu epi=%lu",
+                  (unsigned long)tm.symbols_accepted,
+                  (unsigned long)tm.symbols_rejected_gate,
+                  (unsigned long)tm.symbols_discarded_invalid,
+                  (unsigned long)tm.emit_censored,
+                  (unsigned long)tm.emit_aborted,
+                  (unsigned long)tm.beacons_ok,
+                  (unsigned long)tm.beacons_rejected,
+                  (unsigned long)tm.beacon_index_corrections,
+                  (unsigned long)tm.beacon_rev_mismatches,
+                  (unsigned long)tm.lock_transitions,
+                  (unsigned long)tm.flips,
+                  (unsigned long)tm.max_coast_halves,
+                  (unsigned long)tm.epochs_refractory_ignored);
           last_tm = tm;
         }
 #if defined(USE_DMA_LEDS)

@@ -62,17 +62,19 @@ namespace hs {
 /**
  * @brief Logs one formatted line to Serial on the device.
  * @param msg printf-style format string; trailing args supply the values.
- * @details Formats into a fixed 256-byte stack buffer with vsnprintf (no heap),
+ * @details Formats into a fixed 256-byte stack buffer with vsniprintf (no heap),
  *          then writes one line. Sized to hold a full check_fail() breadcrumb
  *          ("HS_CHECK failed: file:line: (cond) msg") without truncating the
- *          message tail.
+ *          message tail. The integer-only vsniprintf is deliberate: it keeps
+ *          newlib's float formatter (_dtoa_r + the %f/%g bignum helpers, ~5 KB)
+ *          out of ITCM. The device never logs a float, so this costs nothing.
  */
 inline void log(const char *msg, ...) __attribute__((format(printf, 1, 2)));
 inline void log(const char *msg, ...) {
   va_list args;
   va_start(args, msg);
   char buf[256];
-  vsnprintf(buf, sizeof(buf), msg, args);
+  vsniprintf(buf, sizeof(buf), msg, args);
   va_end(args);
   Serial.println(buf);
 }
@@ -1024,7 +1026,14 @@ inline int rand_int(int min, int max) {
   char msg[96];
   va_list args;
   va_start(args, fmt);
+#ifdef ARDUINO
+  // Integer-only formatter: keeps newlib's float path (_dtoa_r + the bignum
+  // helpers behind %f/%g) out of ITCM, matching hs::log. Nothing reaches an
+  // HS_CHECK with a float argument, so the device loses no diagnostics.
+  vsniprintf(msg, sizeof(msg), fmt, args);
+#else
   vsnprintf(msg, sizeof(msg), fmt, args);
+#endif
   va_end(args);
   // Strip the directory from __FILE__: the compiler bakes in an absolute build
   // path that can be far longer than the basename, and on the bounded log buffer
