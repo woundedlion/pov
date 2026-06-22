@@ -125,18 +125,23 @@ struct Pixel16 {
    * @brief Scales every channel by a float factor (saturated).
    * @param s Scale factor; may be any finite float (NaN maps to the hi bound).
    * @return A new pixel with each channel clamped to [0, 65535].
-   * @details Clamps in float before the cast because r*s can exceed INT_MAX,
-   * and float->int conversion is UB out of range; hs::clamp also maps a NaN
-   * scale to the hi bound instead of letting NaN reach the cast.
+   * @details Rounds to nearest (+0.5f) rather than truncating, matching the
+   * +0.5f / +32768 round-to-nearest parity used by the rest of this file (this
+   * is the per-frame fade multiply, so truncation would systematically bias
+   * every faded channel down each frame). Clamps in float before the cast
+   * because r*s can exceed INT_MAX and float->int conversion is UB out of
+   * range; hs::clamp also maps a NaN scale to the hi bound instead of letting
+   * NaN reach the cast. The +0.5f sits inside the clamp so the saturating hi
+   * bound stays exactly 65535.
    */
   Pixel16 operator*(float s) const {
-    // Clamp in float before the cast: r*s can exceed INT_MAX for large s, and
-    // float->int conversion is UB out of range, so an int clamp would fire too
-    // late. hs::clamp (not std::clamp) also maps a NaN scale to the hi bound
-    // instead of letting NaN reach the cast.
-    return Pixel16((uint16_t)hs::clamp(r * s, 0.0f, 65535.0f),
-                   (uint16_t)hs::clamp(g * s, 0.0f, 65535.0f),
-                   (uint16_t)hs::clamp(b * s, 0.0f, 65535.0f));
+    // Round (+0.5f) and clamp in float before the cast: r*s can exceed INT_MAX
+    // for large s, and float->int conversion is UB out of range, so an int
+    // clamp would fire too late. hs::clamp (not std::clamp) also maps a NaN
+    // scale to the hi bound instead of letting NaN reach the cast.
+    return Pixel16((uint16_t)hs::clamp(r * s + 0.5f, 0.0f, 65535.0f),
+                   (uint16_t)hs::clamp(g * s + 0.5f, 0.0f, 65535.0f),
+                   (uint16_t)hs::clamp(b * s + 0.5f, 0.0f, 65535.0f));
   }
 
   /**

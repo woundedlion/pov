@@ -352,10 +352,16 @@ inline void test_blend_alpha_clamps_before_cast() {
 inline void test_pixel16_scale_clamps_before_cast() {
   Pixel16 c(100, 2000, 30000);
 
-  // In-range scales interpolate with truncating quantization.
+  // In-range scales quantize round-to-nearest (+0.5f); integer multiples are
+  // exact under either rounding rule.
   HS_EXPECT_TRUE(c * 0.0f == Pixel16(0, 0, 0));
   HS_EXPECT_TRUE(c * 1.0f == c);
   HS_EXPECT_TRUE(c * 2.0f == Pixel16(200, 4000, 60000));
+
+  // Half-LSB results round up, not down: odd channels * 0.5 land on .5 exactly
+  // (0.5 is exactly representable), and round-to-nearest carries them up. Under
+  // the old truncation this would yield (1, 2, 3).
+  HS_EXPECT_TRUE(Pixel16(3, 5, 7) * 0.5f == Pixel16(2, 3, 4));
 
   // A scale large enough to overflow each channel saturates at 65535 rather
   // than wrapping or invoking UB in the float->int cast.
