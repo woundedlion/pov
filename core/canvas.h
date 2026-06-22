@@ -294,6 +294,17 @@ public:
    * memory-view invariant; capacity 32 is enforced at registration time.
    */
   struct ParamList {
+    // Effect is the sole trusted mutator. registerParam fills the array and
+    // markAnimated/markReadonly/updateParameter reach the writable handles in the
+    // private section below; befriending Effect keeps those engine methods able
+    // to mutate. Every OTHER caller — effect subclasses, and the WASM bridge via
+    // the const getParameters() — sees only the public const overloads and so
+    // gets a read-only ParamDef. A const handle cannot call the non-const
+    // ParamDef::set(), so updateParameter (with its readonly/finite/[min,max]
+    // gate) stays the single value-write path: the mutable bypass handle is no
+    // longer reachable from outside the engine's own trusted methods.
+    friend class Effect;
+
     std::array<ParamDef, 32> elements; /**< Fixed-capacity backing storage. */
     size_t count = 0;                  /**< Number of registered parameters. */
 
@@ -308,36 +319,8 @@ public:
      */
     const ParamDef *end() const { return elements.data() + count; }
     /**
-     * @brief Mutable iterator to the first registered parameter.
-     * @return Pointer to the first element.
-     */
-    ParamDef *begin() { return elements.data(); }
-    /**
-     * @brief Mutable one-past-the-end iterator over registered parameters.
-     * @return Pointer just past the last registered element.
-     */
-    ParamDef *end() { return elements.data() + count; }
-
-    /**
-     * @brief Looks up a registered parameter by name.
-     * @param name Parameter name to match (exact string compare).
-     * @return Pointer to the matching parameter, or nullptr if not found.
-     * @warning Returns a mutable handle that bypasses Effect::updateParameter's
-     * write gate (readonly-reject / non-finite-reject / [min,max] clamp).
-     * Intended only for trusted cold setup that flips ParamDef flags
-     * (markAnimated/markReadonly). Do not use it to write a param value from a
-     * UI or animation source — go through updateParameter so the value contract
-     * stays single-sourced. See ParamDef::set().
-     */
-    ParamDef *find(const char *name) {
-      for (size_t i = 0; i < count; ++i) {
-        if (std::strcmp(elements[i].name, name) == 0)
-          return &elements[i];
-      }
-      return nullptr;
-    }
-    /**
-     * @brief Looks up a registered parameter by name (const overload).
+     * @brief Looks up a registered parameter by name (the public, read-only
+     * lookup).
      * @param name Parameter name to match (exact string compare).
      * @return Const pointer to the matching parameter, or nullptr if not found.
      */
@@ -353,6 +336,24 @@ public:
      * @return The count of registered parameters.
      */
     size_t size() const { return count; }
+
+  private:
+    // Writable accessors — reachable only by the friended Effect (see the note at
+    // the top of the struct). They bypass updateParameter's write gate by design:
+    // registerParam builds the list through `elements`/`count` and
+    // markAnimated/markReadonly flip flags via the mutable find(). Kept private so
+    // a UI/animation value write cannot reach a writable handle here and must
+    // route through updateParameter, keeping the value contract single-sourced.
+    // See ParamDef::set().
+    ParamDef *begin() { return elements.data(); }
+    ParamDef *end() { return elements.data() + count; }
+    ParamDef *find(const char *name) {
+      for (size_t i = 0; i < count; ++i) {
+        if (std::strcmp(elements[i].name, name) == 0)
+          return &elements[i];
+      }
+      return nullptr;
+    }
   };
 
   // Parameter System
