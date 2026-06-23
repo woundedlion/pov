@@ -175,7 +175,7 @@ device's shipped behavior:
 ### Low
 
 53. ✅ core/3dmath.h:1073-1086 — `make_rotation(from,to)` snaps near-parallel inputs to identity, silently dropping sub-0.8° rotations; doc note warranted. → **Fixed:** added a `@details` note to the `make_rotation(from,to)` overload spelling out the near-parallel snap-to-identity (d > 1 - TOLERANCE ⇒ angle < ~0.81°, so sub-0.81° rotations are silently dropped) and the antiparallel π-rotation path, with the caveat that callers needing exact tiny rotations must not route them through this overload. Doc-only; no behavior change.
-54. core/3dmath.h:1140 — `quaternion_from_basis` traps (via `normalized()`) on a near-singular basis, contradicting its "silently yields a non-rotation" doc.
+54. ✅ core/3dmath.h:1140 — `quaternion_from_basis` traps (via `normalized()`) on a near-singular basis, contradicting its "silently yields a non-rotation" doc. → **Fixed:** reconciled the doc to distinguish the two regimes — a mildly skewed (non-degenerate) basis silently yields a non-rotation (the trailing `normalized()` still succeeds), while a near-singular basis drives the Shepperd divisor and `q` toward zero magnitude so `normalized()` traps (fail-fast). Doc-only; no behavior change.
 55. core/3dmath.h:323 — `fast_atan2`'s additive `1e-10` epsilon is a precision cliff for legitimately tiny `y` (order-1 relative error).
 56. core/3dmath.h:1218 / geometry.h:539,785 — redundant `.normalized()` after unit-by-construction builds (`fib_spiral`, `lissajous`); `logPolarToVector` proves-and-omits — apply consistently.
 57. core/geometry.h:481 — pole round-trip `vector→pixel` can yield `y > H_VIRT-1` from `fast_acos` error; undocumented at this end.

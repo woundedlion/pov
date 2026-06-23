@@ -1114,8 +1114,14 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
  * the divisor is never near zero. Unlike composing two shortest-arc rotations,
  * this is singular-free for every orientation — there is no antipodal axis to
  * guard. An orientation-level op (per object per frame, never per pixel), so the
- * one sqrt + branch is immaterial. Inputs are assumed orthonormal; a skewed
- * basis silently yields a non-rotation, so callers must hand it a true frame.
+ * one sqrt + branch is immaterial. Inputs are assumed orthonormal. A mildly
+ * skewed basis silently yields a non-rotation (the trailing `normalized()` still
+ * succeeds, but `q` no longer reproduces the intended frame), so callers must
+ * hand it a true frame. A *near-singular* basis (collinear/degenerate axes)
+ * drives the chosen Shepperd divisor — and hence `q` — toward zero magnitude, at
+ * which point the final `normalized()` traps (fail-fast). The two regimes are not
+ * a contradiction: the silent path is the skewed-but-nondegenerate one; the trap
+ * is reserved for a basis too degenerate to normalize at all.
  */
 inline Quaternion quaternion_from_basis(const Vector &cx, const Vector &cy,
                                         const Vector &cz) {
