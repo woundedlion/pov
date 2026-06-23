@@ -385,8 +385,8 @@ private:
    *
    * A floating or cold-soldered strap reads HIGH, which inverts toward ID 0 —
    * silently promoting the board to a second master and driving the shared
-   * sync wire into contention. To catch unstable straps we sample twice and
-   * trap on disagreement: a stable strap is an invariant.
+   * sync wire into contention. To catch unstable straps we sample three
+   * times and trap on disagreement: a stable strap is an invariant.
    *
    * Note: this validates *this* board's strap only. It cannot detect a *peer*
    * holding the same ID — the sync wire is push-pull, so a duplicate master

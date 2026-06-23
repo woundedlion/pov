@@ -118,7 +118,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 ### Low Priority — polish, stale comments, consistency
 
-16. **`read_id()` brief says "sample twice" but the body samples three times** — `hardware/pov_segmented.h:389` (brief) vs `:417-422` (body) and `:400-414` (correct detailed comment). Behavior is the more-robust three-sample debounce; only the one-line brief is stale.
+16. ✅ **`read_id()` brief says "sample twice" but the body samples three times** — `hardware/pov_segmented.h:389` (brief) vs `:417-422` (body) and `:400-414` (correct detailed comment). Behavior is the more-robust three-sample debounce; only the one-line brief is stale.
 
 17. **Source comment cites a review-finding number** — `tests/fastmath_clamp_check.cpp:1` ("Finding 369"). Violates the project's own "no finding refs in comments" rule; finding numbers belong in commit subjects + this doc only.
 
