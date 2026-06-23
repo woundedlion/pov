@@ -1011,11 +1011,12 @@ struct MeshOpsWrapper {
  *          methods (below), and with MESHOP_BIND to generate the embind
  *          .function() bindings (in EMSCRIPTEN_BINDINGS), so an operator cannot
  *          be added to one site and silently left unreachable from the other.
- *          relax and hankin are bound explicitly — their signatures fit neither
- *          generator — so they stay out of this list.
+ *          relax, hankin, and snub are bound explicitly — their signatures fit
+ *          neither generator (snub takes two float controls) — so they stay out
+ *          of this list.
  */
 #define MESHOP_LIST(_OP0, _OP1F)                                                \
-  _OP0(kis) _OP0(ambo) _OP0(gyro) _OP0(snub) _OP0(dual) _OP0(meta)              \
+  _OP0(kis) _OP0(ambo) _OP0(gyro) _OP0(dual) _OP0(meta)                         \
   _OP0(needle) _OP0(zip)                                                        \
   _OP1F(truncate) _OP1F(expand) _OP1F(chamfer) _OP1F(bevel)
 
@@ -1063,6 +1064,25 @@ struct MeshOpsWrapper {
       return nullptr;
     return apply([radians](const PolyMesh &m, Arena &a, Arena &b) {
       return MeshOps::hankin(m, a, b, radians);
+    });
+  }
+
+  /**
+   * @brief Applies the chiral snub operator with explicit inset and twist.
+   * @param t Inset factor of each face toward its centroid, in [0, 1].
+   * @param twist Per-face rotation about the face normal, in radians (0 = none).
+   * @return Owning pointer to a new wrapper, or null if either arg is non-finite.
+   * @details Explicit (not a MESHOP_* macro) because MeshOps::snub takes TWO
+   *          float controls, which neither the zero-arg nor the one-float
+   *          generator can express. Binding it via MESHOP_0 (as it was) hardcodes
+   *          the (0.5, 0.0) defaults and leaves both controls unreachable from JS;
+   *          this 2-arg form exposes them to the solids editor.
+   */
+  std::unique_ptr<MeshOpsWrapper> snub(float t, float twist) const {
+    if (!finite_arg(t, "snub") || !finite_arg(twist, "snub"))
+      return nullptr;
+    return apply([t, twist](const PolyMesh &m, Arena &a, Arena &b) {
+      return MeshOps::snub(m, a, b, t, twist);
     });
   }
   /**
@@ -1295,6 +1315,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
 #define MESHOP_BIND(name) .function(#name, &MeshOpsWrapper::name)
       MESHOP_LIST(MESHOP_BIND, MESHOP_BIND)
 #undef MESHOP_BIND
+      .function("snub", &MeshOpsWrapper::snub)
       .function("hankin", &MeshOpsWrapper::hankin)
       .function("relax", &MeshOpsWrapper::relax);
 #undef MESHOP_LIST
