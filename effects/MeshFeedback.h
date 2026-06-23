@@ -134,6 +134,18 @@ public:
   bool show_bg() const override { return false; }
 
   /**
+   * @brief Forces full-canvas rendering per simulator worker.
+   * @return True — the Feedback stage reads `cv.prev` at unbounded warp offsets,
+   *         so a band-clipped worker would drop cross-band trails (see
+   *         docs/segmented_stateful_effects_spec.md). Derived from the pipeline's
+   *         compile-time trait so a future filter change can't silently regress
+   *         the gate.
+   */
+  bool needs_full_frame() const override {
+    return decltype(filters)::any_crosses_segments;
+  }
+
+  /**
    * @brief Renders one frame.
    * @details Applies params, runs the feedback decay flush, draws the current
    * mesh (skipped while morphing — the morph animation draws instead), then

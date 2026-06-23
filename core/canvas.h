@@ -86,6 +86,23 @@ public:
    */
   virtual bool show_bg() const = 0;
 
+  /**
+   * @brief Whether this effect must render the FULL canvas per simulator worker
+   *        rather than be clipped to a segment band.
+   * @return True for a cross-segment stateful effect (its per-frame state reads
+   *         pixels outside the band — e.g. MeshFeedback's unbounded warp);
+   *         false (the default) for every effect whose output in a band depends
+   *         only on that band, which keeps segmented rendering's clipping win.
+   * @details Read by the WASM segment driver (targets/wasm/wasm.cpp setClip) to
+   *          leave the clip at full canvas for stateful effects. The device path
+   *          already renders full-frame per board, so this is simulator-only.
+   *          An effect derives the answer from its filter pipeline's compile-time
+   *          `any_crosses_segments` fold (see core/filter.h and
+   *          docs/segmented_stateful_effects_spec.md). The base default is false;
+   *          only effects with a cross-segment filter override it.
+   */
+  [[nodiscard]] virtual bool needs_full_frame() const { return false; }
+
   /** @brief Segment clip region (display + render margin). */
   ClipRegion clip;
 

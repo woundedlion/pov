@@ -440,11 +440,15 @@ public:
    * @param y1 Exclusive bottom row of the clip band, with y0 <= y1 <= pixel_height.
    * @param x0 Inclusive left column of the clip band in [0, pixel_width].
    * @param x1 Exclusive right column, with x0 <= x1 <= pixel_width.
-   * @return true if the clip was applied; false if no effect is set or the
-   *         bounds are malformed/out of range (then ignored).
+   * @return true if the bounds were accepted (band applied, OR intentionally
+   *         ignored for a full-frame stateful effect); false if no effect is set
+   *         or the bounds are malformed/out of range (then ignored).
    * @details Rejects malformed input at the untyped JS boundary rather than
    *          trapping, since a trap there aborts the whole WASM module. Segment
-   *          workers always pass valid, ordered, in-range bounds.
+   *          workers always pass valid, ordered, in-range bounds. A cross-segment
+   *          stateful effect (Effect::needs_full_frame()) keeps the full-canvas
+   *          clip instead of narrowing to the band — see
+   *          docs/segmented_stateful_effects_spec.md.
    */
   bool setClip(int y0, int y1, int x0, int x1) {
     if (!currentEffect)
@@ -462,6 +466,18 @@ public:
               y1, x0, x1);
       return false;
     }
+    // Cross-segment stateful effects (MeshFeedback's unbounded feedback warp)
+    // must render the FULL canvas in every worker: a band-clipped worker has
+    // stale/zero cv.prev outside its band, so cross-band trails read as black
+    // and seams appear. The Effect ctor reset the clip to the full W x H canvas
+    // and this fires before any narrowing, so returning here preserves that full
+    // clip rather than resetting a stale band. Each worker then computes the
+    // bit-identical full frame and segment_worker.js slices its quadrant out of
+    // the full readback — matching the device, where every board independently
+    // renders the whole canvas. Non-stateful effects fall through and keep the
+    // band (and the clipping win). See docs/segmented_stateful_effects_spec.md.
+    if (currentEffect->needs_full_frame())
+      return true;
     currentEffect->set_clip(y0, y1, x0, x1);
     return true;
   }

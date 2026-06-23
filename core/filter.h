@@ -45,6 +45,18 @@ using PassFn3D =
  * `emits_nonunit_world` stage precedes a `requires_unit_world_input` stage —
  * the intra-World analogue of the World-before-Screen ordering rule. Both
  * default false; only the few stages above flip them.
+ *
+ * `crosses_segments` marks a stateful stage whose per-frame state depends on
+ * pixels OUTSIDE the segment band the simulator clips a worker to — feedback
+ * warps that sample `cv.prev` at unbounded offsets (Pixel::Feedback), reprojected
+ * trails (World::Trails). Such an effect must render the FULL canvas per worker
+ * (not just the band), or cross-band trails read as black and seams appear. It
+ * defaults to `has_history` (fail-safe: a new history filter is assumed
+ * cross-segment until proven bounded); reach-0 in-place history (Screen::Trails,
+ * which redraws at the same screen coordinate) overrides it to false. The
+ * Pipeline OR-folds it into `any_crosses_segments`, which the WASM driver reads
+ * to keep a stateful effect's clip full-canvas (see Effect::needs_full_frame and
+ * docs/segmented_stateful_effects_spec.md).
  */
 struct Is2D {
   static constexpr bool is_2d = true;
@@ -52,6 +64,7 @@ struct Is2D {
   static constexpr bool is_terminal = false;
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
+  static constexpr bool crosses_segments = has_history;
 };
 /** @brief Trait indicating a filter operates in 3D world space. */
 struct Is3D {
@@ -60,6 +73,7 @@ struct Is3D {
   static constexpr bool is_terminal = false;
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
+  static constexpr bool crosses_segments = has_history;
 };
 
 /** @brief Trait indicating a 2D filter that maintains state/history. */
@@ -69,6 +83,7 @@ struct Is2DWithHistory {
   static constexpr bool is_terminal = false;
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
+  static constexpr bool crosses_segments = has_history;
 };
 
 /** @brief Trait indicating a 3D filter that maintains state/history. */
@@ -78,6 +93,7 @@ struct Is3DWithHistory {
   static constexpr bool is_terminal = false;
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
+  static constexpr bool crosses_segments = has_history;
 };
 
 /**
@@ -110,6 +126,9 @@ inline void plot_virtual(Canvas &canvas, int x, int y, const Pixel &c) {
  */
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
+  // OR-fold base case: an empty pipeline reaches no other segment. The recursive
+  // node ORs each stage's crosses_segments into this; see the trait doc above.
+  static constexpr bool any_crosses_segments = false;
 
   /**
    * @brief Type-safe filter accessor (base case: T not found).
@@ -222,6 +241,14 @@ template <int W, int H, typename Head, typename... Tail>
 struct Pipeline<W, H, Head, Tail...> : public Head {
   using Next = Pipeline<W, H, Tail...>;
   Next next;
+
+  // Recursive OR-fold of every stage's crosses_segments trait, terminating in
+  // the empty-pipeline `false` base case. The WASM driver reads this (via
+  // Effect::needs_full_frame) to decide whether a stateful effect's clip must
+  // stay full-canvas rather than be narrowed to a worker's band. See the trait
+  // doc above and docs/segmented_stateful_effects_spec.md.
+  static constexpr bool any_crosses_segments =
+      Head::crosses_segments || Next::any_crosses_segments;
 
   /**
    * @brief Forwarding-reference constructor: builds Head and the Tail in place.
@@ -721,6 +748,11 @@ public:
   // therefore precede any World filter that assumes unit-length input; the
   // Pipeline static_assert enforces it.
   static constexpr bool emits_nonunit_world = true;
+  // crosses_segments stays true via the has_history default: trail samples are
+  // reprojected under rotation and so move across segment bands. Left as the
+  // fail-safe default (not an explicit override) — whether band clipping would
+  // actually corrupt the plot()-time store depends on rasterizer cull ordering,
+  // and full-frame is the safe choice without relying on that analysis.
   /** @brief One quantized trail sample: unit vector plus remaining lifetime. */
   struct Item {
     int16_t x, y, z; /**< Quantized unit vector components (6 bytes). */
@@ -1072,6 +1104,14 @@ public:
  */
 template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
+  // Reach 0: a screen trail decays in place and redraws each point at the SAME
+  // screen coordinate it was seeded — its per-frame state never moves across a
+  // segment band, so band clipping is correct and the worker need not render
+  // full-frame. This is the ONE non-fail-safe override of the has_history
+  // default (Pixel::Feedback / World::Trails stay true); the reach-0 assumption
+  // is proven by a banded-vs-full bit-identity test (see test_filter.h).
+  static constexpr bool crosses_segments = false;
+
   /**
    * @brief Constructs a screen trail buffer with the given fade lifetime.
    * @param lifetime Per-frame fade divisor in frames; must be positive.
