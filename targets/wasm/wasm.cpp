@@ -1003,18 +1003,23 @@ struct MeshOpsWrapper {
     });                                                                        \
   }
 
-  MESHOP_0(kis)
-  MESHOP_0(ambo)
-  MESHOP_0(gyro)
-  MESHOP_0(snub)
-  MESHOP_0(dual)
-  MESHOP_0(meta)
-  MESHOP_0(needle)
-  MESHOP_0(zip)
-  MESHOP_1F(truncate)
-  MESHOP_1F(expand)
-  MESHOP_1F(chamfer)
-  MESHOP_1F(bevel)
+/**
+ * @brief Single source of truth for the Conway/Goldberg operator roster.
+ * @param _OP0  Macro applied to each zero-argument operator name.
+ * @param _OP1F Macro applied to each one-float-argument operator name.
+ * @details Expanded twice: with MESHOP_0/MESHOP_1F to generate the wrapper
+ *          methods (below), and with MESHOP_BIND to generate the embind
+ *          .function() bindings (in EMSCRIPTEN_BINDINGS), so an operator cannot
+ *          be added to one site and silently left unreachable from the other.
+ *          relax and hankin are bound explicitly — their signatures fit neither
+ *          generator — so they stay out of this list.
+ */
+#define MESHOP_LIST(_OP0, _OP1F)                                                \
+  _OP0(kis) _OP0(ambo) _OP0(gyro) _OP0(snub) _OP0(dual) _OP0(meta)              \
+  _OP0(needle) _OP0(zip)                                                        \
+  _OP1F(truncate) _OP1F(expand) _OP1F(chamfer) _OP1F(bevel)
+
+  MESHOP_LIST(MESHOP_0, MESHOP_1F)
 
 #undef MESHOP_0
 #undef MESHOP_1F
@@ -1284,20 +1289,15 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getVertices", &MeshOpsWrapper::getVertices)
       .function("getFaces", &MeshOpsWrapper::getFaces)
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
-      .function("kis", &MeshOpsWrapper::kis)
-      .function("ambo", &MeshOpsWrapper::ambo)
-      .function("gyro", &MeshOpsWrapper::gyro)
-      .function("snub", &MeshOpsWrapper::snub)
-      .function("dual", &MeshOpsWrapper::dual)
-      .function("truncate", &MeshOpsWrapper::truncate)
-      .function("chamfer", &MeshOpsWrapper::chamfer)
-      .function("expand", &MeshOpsWrapper::expand)
+      // Conway/Goldberg operators, bound from the same MESHOP_LIST that
+      // generates their wrapper methods so a new operator cannot compile yet be
+      // unreachable from JS.
+#define MESHOP_BIND(name) .function(#name, &MeshOpsWrapper::name)
+      MESHOP_LIST(MESHOP_BIND, MESHOP_BIND)
+#undef MESHOP_BIND
       .function("hankin", &MeshOpsWrapper::hankin)
-      .function("meta", &MeshOpsWrapper::meta)
-      .function("needle", &MeshOpsWrapper::needle)
-      .function("zip", &MeshOpsWrapper::zip)
-      .function("bevel", &MeshOpsWrapper::bevel)
       .function("relax", &MeshOpsWrapper::relax);
+#undef MESHOP_LIST
 
   class_<PaletteOps>("PaletteOps")
       .constructor<>()
