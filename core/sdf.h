@@ -130,15 +130,21 @@ merge_intervals(StaticCircularBuffer<std::pair<float, float>, N> &merged,
 }
 
 /**
- * @brief Fold an angle into [0, π], equivalent to acosf(cosf(x)) without trig.
- * @param x Angle in radians.
+ * @brief Fold any real angle into [0, π], equivalent to acosf(cosf(x)) without
+ *        trig.
+ * @param x Angle in radians (any finite value).
  * @return Folded angle in [0, π].
+ * @details cos is even and 2π-periodic, so fold the sign, reduce mod 2π, then
+ *          reflect the upper half-period across the south pole. The single-
+ *          reflection short form is only correct on [-π, 2π]; this full fold is
+ *          what makes the "acosf(cosf(x))" equivalence hold for any input (e.g. a
+ *          Ring radius > 2 driving center_phi ± target_angle past that range).
  */
 inline float clamp_phi(float x) {
-  if (x < 0.0f)
-    return -x;
+  x = fabsf(x);             // cos(-x) = cos(x): fold negatives
+  x = fmodf(x, 2.0f * PI_F); // 2π-periodic -> [0, 2π)
   if (x > PI_F)
-    return 2.0f * PI_F - x;
+    x = 2.0f * PI_F - x; // reflect (π, 2π) across the south pole -> (0, π)
   return x;
 }
 

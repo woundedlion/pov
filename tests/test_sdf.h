@@ -61,6 +61,20 @@ inline void test_clamp_phi_above_pi_reflects() {
   HS_EXPECT_NEAR(SDF::clamp_phi(2.0f * PI_F), 0.0f, 1e-5f);
 }
 
+/**
+ * @brief Verifies inputs outside [-π, 2π] still fold into [0, π] (full-range
+ *        acosf(cosf(x)) equivalence), not the out-of-range values the old
+ *        single-reflection body returned.
+ */
+inline void test_clamp_phi_full_range() {
+  // 2π + 0.2 used to return -0.2 (out of range); folds to 0.2.
+  HS_EXPECT_NEAR(SDF::clamp_phi(2.0f * PI_F + 0.2f), 0.2f, 1e-5f);
+  // 3π used to return -π; acosf(cosf(3π)) = π.
+  HS_EXPECT_NEAR(SDF::clamp_phi(3.0f * PI_F), PI_F, 1e-5f);
+  // -1.5π used to return 1.5π (> π); folds to 0.5π.
+  HS_EXPECT_NEAR(SDF::clamp_phi(-1.5f * PI_F), 0.5f * PI_F, 1e-5f);
+}
+
 // ============================================================================
 // Ring
 // ============================================================================
@@ -1319,6 +1333,7 @@ inline int run_sdf_tests() {
   test_clamp_phi_in_range();
   test_clamp_phi_negative_reflects();
   test_clamp_phi_above_pi_reflects();
+  test_clamp_phi_full_range();
 
   test_ring_on_centerline();
   test_ring_inside_band();
