@@ -627,8 +627,9 @@ private:
    * than one column per frame (trail/motion-blur aliasing).
    * @return True once the particle is dead AND its trail has fully drained (so
    * the caller can remove it).
-   * @details Ages it, applies attractor gravity/steering and drag, rotates
-   * position+velocity along the surface, and updates its trail.
+   * @details Ages it, drags the carried velocity, applies attractor
+   * gravity/steering, rotates position+velocity along the surface, and updates
+   * its trail.
    *
    * Integration is forward Euler with an implicit dt = 1 (one step == one
    * frame): forces and the rotation step are applied per-frame with no dt
@@ -637,14 +638,14 @@ private:
    * intentional for a fixed-cadence display driver; it is NOT a wall-clock
    * physics sim.
    *
-   * Ordering note: `friction` is applied to velocity AFTER the per-frame gravity
-   * impulse (below), so an impulse added this frame is also damped this frame.
-   * That under-counts the freshest impulse by one `friction` factor relative to
-   * a friction-then-impulse scheme, biasing orbits very slightly inward. The
-   * order is deliberate and left as-is: it keeps the shipped visual behavior of
-   * every ParticleSystem effect stable, and at typical `friction` (~0.85–0.99)
-   * the one-frame difference is cosmetic. Do not reorder without re-tuning the
-   * effects that depend on the current feel.
+   * Ordering: `friction` damps the velocity CARRIED IN from previous frames
+   * BEFORE this frame's attractor impulse is added (v <- friction*v + impulse),
+   * so a force applied this frame is not also damped the same frame; the drag
+   * still precedes the move, which uses the post-impulse velocity. Per-frame
+   * impulse magnitude therefore scales with the attractor `strength` alone, no
+   * longer with `friction`. Effect presets carry the matching strength (e.g.
+   * MindSplatter's Well Str is pre-scaled by its friction) so the shipped look
+   * is preserved across this correction.
    */
   bool step_particle(Particle<TRAIL_LEN> &p, float max_delta) {
     bool active = p.life > 0;
@@ -656,6 +657,13 @@ private:
     // Physics
     if (active) {
       Vector pos = p.position;
+
+      // Drag first: damp the velocity carried in from previous frames BEFORE
+      // this frame's attractor forces, so a fresh impulse is not also damped
+      // this frame (forward Euler: v <- friction*v + impulse). Applied to the
+      // carried velocity even if an attractor kills the particle below — a
+      // killed particle's velocity is discarded, so the order is harmless there.
+      p.velocity *= friction;
 
       for (size_t k = 0; k < attractors.size(); ++k) {
         const auto &attr = attractors[k];
@@ -684,9 +692,6 @@ private:
       }
 
       if (active) {
-        // Drag
-        p.velocity *= friction;
-
         // Move. The surface-rotation axis is cross(pos, velocity); it vanishes
         // when the velocity is purely radial (parallel to pos) even though
         // speed is non-zero — e.g. once a non-tangent external force (the flow-
