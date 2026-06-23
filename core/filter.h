@@ -1410,8 +1410,9 @@ public:
     // seam-wrapping right neighbour cx1; mark exactly those (the clip test
     // mirrors step 2's below). Unmarked columns are never sampled, so leaving
     // their dx/dy uninitialized is safe. Sized to W (>= hw, since ds >= 1) and
-    // zero-initialized so the :1378 read is safe on every path — not only by
-    // the short-circuit that currently skips it whenever xc is inactive. A
+    // zero-initialized so the col_used read in the sampling loop below is safe on
+    // every path — not only by the short-circuit that currently skips it
+    // whenever xc is inactive. A
     // std::bitset (W bits, default-zeroed) rather than bool[W] keeps this the
     // smallest possible per-flush stack footprint (W/8 bytes, not W).
     std::bitset<W> col_used;
