@@ -36,6 +36,8 @@
 
 #include <cstdint>
 
+#include "core/platform.h" // HS_CHECK used in Flywheel's constructor guard
+
 // Forward declaration of the unit-test accessor that reaches EdgeMailbox's
 // private split consumer path (burst_complete()/claim()); see EdgeMailbox.
 namespace hs_test {
@@ -581,7 +583,24 @@ public:
    */
   explicit Flywheel(const Config &cfg)
       : period_(cfg.cycles_per_half_rev), w_(cfg.W), gate_cols_(cfg.gate_cols),
-        reject_fallback_(cfg.reject_fallback) {}
+        reject_fallback_(cfg.reject_fallback) {
+    // position() reinterprets (at - epoch_cycles_) as int32 (modular -> signed),
+    // so the elapsed term must never reach 2^31 cycles. The rebase rule folds
+    // the epoch forward by one half-rev (period_ cycles) at every boundary
+    // crossing, so in steady state |elapsed| stays within ~one half-rev plus the
+    // masked-window coast. Pin that safety to a guard instead of leaving it to
+    // the rebase invariant alone: require at least kMinSafeHalfRevs half-revs of
+    // coast to fit inside the int32 window. At the default 37.5M cycles/half-rev
+    // this leaves ~57 half-revs (~3.5 s at 600 MHz); the floor below trips only a
+    // grossly slow (≈<134 rpm-equivalent) misconfiguration. Raise kMinSafeHalfRevs
+    // if the rotor can legitimately coast longer than this without a snap; raise
+    // it far enough and a slow period would (correctly) fail this check at boot.
+    constexpr uint32_t kMinSafeHalfRevs = 16;
+    HS_CHECK(period_ > 0 &&
+                 period_ <= static_cast<uint32_t>(INT32_MAX) / kMinSafeHalfRevs,
+             "Flywheel: cycles_per_half_rev too large — position()'s int32 "
+             "elapsed window would overflow before kMinSafeHalfRevs of coast");
+  }
 
   /**
    * @brief Boot seeding (spec §8.5): epoch = now, boundary ZERO, ACQUIRE.
@@ -609,6 +628,8 @@ public:
    * evaluation may look slightly into the past).
    */
   int32_t position(uint32_t at) const {
+    // The int32 reinterpretation is safe within the window the constructor's
+    // kMinSafeHalfRevs guard reserves against INT32_MAX (see Flywheel ctor).
     const int64_t delta =
         static_cast<int32_t>(at - epoch_cycles_); // modular → signed
     const int64_t cols = floor_div(delta * (w_ / 2), period_);
