@@ -22,6 +22,9 @@
 #include "core/transformers.h"
 #include "tests/test_harness.h"
 
+#include <cstdint>
+#include <cstring>
+
 namespace hs_test {
 namespace transformers_tests {
 
@@ -32,6 +35,24 @@ namespace transformers_tests {
  */
 inline bool finite_vec(const Vector &v) {
   return std::isfinite(v.x) && std::isfinite(v.y) && std::isfinite(v.z);
+}
+
+/**
+ * @brief Tests whether two vectors are bit-for-bit identical.
+ * @param a,b Vectors to compare.
+ * @return True when every component shares the exact IEEE-754 bit pattern.
+ * @details Used to prove an identity short-circuit returned its input VERBATIM,
+ * not merely a (possibly different) non-finite value. A NaN component compares
+ * unequal to itself under ==, so the raw bits are compared instead.
+ */
+inline bool vec_bits_equal(const Vector &a, const Vector &b) {
+  auto bits = [](float f) {
+    uint32_t u;
+    std::memcpy(&u, &f, sizeof u);
+    return u;
+  };
+  return bits(a.x) == bits(b.x) && bits(a.y) == bits(b.y) &&
+         bits(a.z) == bits(b.z);
 }
 
 // ============================================================================
@@ -364,15 +385,19 @@ inline void test_transforms_nonfinite_passes_through_identity() {
                         Vector(inf, nan, -inf)};
 
   for (const Vector &v : bad) {
+    // Assert the input passes through VERBATIM (bit-identical), not merely that
+    // the result stays non-finite: a buggy short-circuit returning all-NaN for
+    // any input would satisfy the weaker finiteness check while violating the
+    // documented "passes through identity" contract.
     RippleParams rp;
     rp.amplitude = 0.0f; // zero-amplitude short circuit → returns v unchanged
-    HS_EXPECT_FALSE(finite_vec(ripple_transform(v, rp)));
+    HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, rp), v));
     NoiseParams np;
     np.amplitude = 0.0f; // zero-amplitude short circuit → returns v unchanged
-    HS_EXPECT_FALSE(finite_vec(noise_transform(v, np)));
+    HS_EXPECT_TRUE(vec_bits_equal(noise_transform(v, np), v));
     Timeline tl;
     RippleTransformer<4> rt(tl);
-    HS_EXPECT_FALSE(finite_vec(rt.transform(v))); // no entities → identity
+    HS_EXPECT_TRUE(vec_bits_equal(rt.transform(v), v)); // no entities → identity
   }
 }
 
