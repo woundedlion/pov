@@ -508,6 +508,180 @@ inline void test_gs_evolution_stays_bounded() {
 }
 
 // ---------------------------------------------------------------------------
+// Belousov-Zhabotinsky reaction-diffusion: white-box dynamics coverage
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief White-box accessor for BZReactionDiffusion's private fixed-point and
+ *        physics internals (befriended in effects/BZReactionDiffusion.h).
+ * @details The matching seam to GSWhiteBox: the smoke/determinism harness cannot
+ *          see a Q8 round-trip error, a sign/clamp slip in the Lotka-Volterra
+ *          update, or a perturbation that wraps past the Q8 rail, so the
+ *          conversions, one species step, the perturbation, and one fused physics
+ *          substep are pinned directly. The lattice is the same fixed 7680-node
+ *          graph as GS, independent of <W,H>, so the device resolution is used
+ *          arbitrarily.
+ */
+struct BZWhiteBox {
+  using BZ = BZReactionDiffusion<kDeviceW, kDeviceH>;
+  static constexpr int N = BZ::RD_N;
+
+  static uint8_t to_q8(float v) { return BZ::to_q8(v); }
+  static float from_q8(uint8_t v) { return BZ::from_q8(v); }
+  static void set_params(BZ &bz, float alpha, float D, float dt) {
+    bz.params.alpha = alpha;
+    bz.params.D = D;
+    bz.params.dt = dt;
+  }
+  static uint8_t advance_species(const BZ &bz, float conc, float predator,
+                                 float laplacian) {
+    return bz.advance_species(conc, predator, laplacian);
+  }
+  static void perturb(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
+    BZ::perturb_state(nA, nB, nC);
+  }
+  static void step(BZ &bz, const uint8_t *cA, const uint8_t *cB,
+                   const uint8_t *cC, uint8_t *nA, uint8_t *nB, uint8_t *nC) {
+    bz.step_physics(cA, cB, cC, nA, nB, nC);
+  }
+};
+
+/**
+ * @brief Verifies the Q8 fixed-point round-trip and the +0.5 rounding/clamp
+ *        boundaries.
+ * @details to_q8(from_q8(v)) must be the identity over every byte value, and
+ *          to_q8 must clamp out-of-range floats and round to nearest (so 1.0 tops
+ *          out at 255 with no overflow). A truncating or unclamped regression —
+ *          which would bias the RD dynamics downward — fails here.
+ */
+inline void test_bz_q8_roundtrip() {
+  HS_EXPECT_EQ(BZWhiteBox::to_q8(0.0f), (uint8_t)0);
+  HS_EXPECT_EQ(BZWhiteBox::to_q8(1.0f), (uint8_t)255);
+  HS_EXPECT_EQ(BZWhiteBox::to_q8(2.0f), (uint8_t)255);   // clamp high
+  HS_EXPECT_EQ(BZWhiteBox::to_q8(-0.5f), (uint8_t)0);    // clamp low
+  HS_EXPECT_NEAR(BZWhiteBox::from_q8(0), 0.0f, 1e-9f);
+  HS_EXPECT_NEAR(BZWhiteBox::from_q8(255), 1.0f, 1e-9f);
+  int bad = 0;
+  for (int v = 0; v <= 255; ++v)
+    if (BZWhiteBox::to_q8(BZWhiteBox::from_q8((uint8_t)v)) != (uint8_t)v)
+      ++bad;
+  HS_EXPECT_EQ(bad, 0);
+}
+
+/**
+ * @brief Verifies advance_species has the right reaction/diffusion signs and
+ *        that the Q8 clamp backstop holds even past the Euler stability bound.
+ * @details advance_species is the single-species core of the BZ update:
+ *          conc + (D·laplacian + conc·(1 − conc − α·predator))·dt, mapped through
+ *          to_q8. Checks: an empty rest cell stays empty (no spurious growth);
+ *          diffusion from higher neighbors grows an empty cell; logistic growth
+ *          lifts a half-filled, predator-free cell; predation underflow clamps to
+ *          0 (not a uint8 wrap to 255); and extreme over-/under-shoots — the
+ *          documented to_q8 backstop the comment in the effect promises — clamp
+ *          to the [0, 255] rails rather than wrapping.
+ */
+inline void test_bz_advance_species_signs_and_clamp() {
+  BZWhiteBox::BZ bz;
+  BZWhiteBox::set_params(bz, /*alpha*/ 3.0f, /*D*/ 0.05f, /*dt*/ 0.35f);
+
+  // Empty rest cell: no diffusion, no reaction -> stays 0.
+  HS_EXPECT_EQ((int)BZWhiteBox::advance_species(bz, 0.0f, 0.0f, 0.0f), 0);
+
+  // Diffusion from higher neighbors lifts an empty cell above 0.
+  HS_EXPECT_GT((int)BZWhiteBox::advance_species(bz, 0.0f, 0.0f, /*lap*/ 6.0f), 0);
+
+  // Logistic growth: a half-filled, predator-free cell grows above its start.
+  HS_EXPECT_GT((int)BZWhiteBox::advance_species(bz, 0.5f, 0.0f, 0.0f),
+               (int)BZWhiteBox::to_q8(0.5f));
+
+  // Predation drives a saturated cell negative; it must clamp to 0, not wrap.
+  HS_EXPECT_EQ((int)BZWhiteBox::advance_species(bz, 1.0f, /*predator*/ 1.0f, 0.0f),
+               0);
+
+  // Backstop past the Euler bound: a huge positive laplacian clamps to 255, a
+  // huge predation clamps to 0 — to_q8 keeps every written state in range.
+  HS_EXPECT_EQ((int)BZWhiteBox::advance_species(bz, 1.0f, 0.0f, /*lap*/ 1000.0f),
+               255);
+  HS_EXPECT_EQ(
+      (int)BZWhiteBox::advance_species(bz, 1.0f, /*predator*/ 1000.0f, 0.0f), 0);
+}
+
+/**
+ * @brief Verifies perturb_state nudges nodes by a fixed Q8 amount and saturates
+ *        at the 255 rail without wrapping.
+ * @details Two RNG-agnostic invariants. (1) A fully-saturated field stays fully
+ *          saturated: every nudge is a +PERTURB_AMOUNT saturating add, so a node
+ *          already at 255 cannot wrap to a low value. (2) On a zero field, each
+ *          touched entry is a small positive multiple of the nudge step and stays
+ *          within [0, 255], and at least one entry is touched — whichever nodes
+ *          the deterministic RNG happens to select.
+ */
+inline void test_bz_perturb_state_saturates_and_nudges() {
+  // (1) Saturation / no-wrap: all rails stay at the rail.
+  {
+    std::vector<uint8_t> a(BZWhiteBox::N, 255), b(BZWhiteBox::N, 255),
+        c(BZWhiteBox::N, 255);
+    BZWhiteBox::perturb(a.data(), b.data(), c.data());
+    int wrapped = 0;
+    for (int i = 0; i < BZWhiteBox::N; ++i)
+      if (a[i] != 255 || b[i] != 255 || c[i] != 255)
+        ++wrapped;
+    HS_EXPECT_EQ(wrapped, 0);
+  }
+  // (2) Zero field: touched entries are small positive multiples of the step.
+  {
+    std::vector<uint8_t> a(BZWhiteBox::N, 0), b(BZWhiteBox::N, 0),
+        c(BZWhiteBox::N, 0);
+    BZWhiteBox::perturb(a.data(), b.data(), c.data());
+    int touched = 0, malformed = 0;
+    for (int i = 0; i < BZWhiteBox::N; ++i)
+      for (uint8_t v : {a[i], b[i], c[i]}) {
+        if (v == 0)
+          continue;
+        ++touched;
+        if (v % 3 != 0) // PERTURB_AMOUNT == 3; accumulations stay multiples of 3
+          ++malformed;
+      }
+    HS_EXPECT_GT(touched, 0);
+    HS_EXPECT_EQ(malformed, 0);
+  }
+}
+
+/**
+ * @brief Verifies one fused physics substep diffuses a seeded species into its
+ *        neighborhood with the right sign.
+ * @details Seed species A fully at one interior node on an otherwise-empty field
+ *          and run a single step. The seed's neighbors start empty but border a
+ *          saturated node, so their graph-Laplacian is positive and A must
+ *          diffuse into at least one of them; the seed node itself stays lit
+ *          (it decays but does not vanish or wrap in one step). The stochastic
+ *          perturbation runs too, but the seed-neighbor diffusion is independent
+ *          of which nodes it nudges.
+ */
+inline void test_bz_substep_diffuses() {
+  std::vector<uint8_t> cA(BZWhiteBox::N, 0), cB(BZWhiteBox::N, 0),
+      cC(BZWhiteBox::N, 0);
+  std::vector<uint8_t> nA(BZWhiteBox::N, 0), nB(BZWhiteBox::N, 0),
+      nC(BZWhiteBox::N, 0);
+  const int seed = 4000; // interior lattice node with a full neighbor ring
+  cA[seed] = 255;
+
+  BZWhiteBox::BZ bz;
+  BZWhiteBox::set_params(bz, 3.0f, 0.05f, 0.35f);
+  BZWhiteBox::step(bz, cA.data(), cB.data(), cC.data(), nA.data(), nB.data(),
+                   nC.data());
+
+  HS_EXPECT_GT((int)nA[seed], 0); // the seed decays but does not vanish/wrap
+  int spread = 0;
+  for (int k = 0; k < ReactionGraph::RD_K; ++k) {
+    int nb = ReactionGraph::neighbors[seed][k];
+    if (nb >= 0 && nA[nb] > 0)
+      ++spread;
+  }
+  HS_EXPECT_GT(spread, 0); // A diffused into at least one empty neighbor
+}
+
+// ---------------------------------------------------------------------------
 // DreamBalls: preset-cycle / re-spawn white-box coverage
 // ---------------------------------------------------------------------------
 
@@ -824,6 +998,10 @@ inline int run_effects_tests() {
   test_gs_rest_state_is_fixed_point();
   test_gs_substep_signs_and_clamp();
   test_gs_evolution_stays_bounded();
+  test_bz_q8_roundtrip();
+  test_bz_advance_species_signs_and_clamp();
+  test_bz_perturb_state_saturates_and_nudges();
+  test_bz_substep_diffuses();
   test_dreamballs_preset_cycle_bookkeeping();
   test_dreamballs_respawn_fires_and_honors_pause();
   CometsWhiteBox::check_paths_close();

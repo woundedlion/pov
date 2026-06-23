@@ -10,6 +10,18 @@
 #include "core/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
+// Forward declaration of the unit-test accessor (tests/test_effects.h) that
+// reaches the private Q8 conversions, advance_species, perturb_state, and one
+// physics substep. The smoke/determinism harness cannot see a fixed-point
+// round-trip error, a sign/clamp slip in the reaction-diffusion update, or a
+// perturbation wrap, so the dynamics are pinned directly through this seam.
+// Mirrors GSReactionDiffusion's GSWhiteBox.
+namespace hs_test {
+namespace effects_tests {
+struct BZWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Belousov-Zhabotinsky reaction-diffusion on a Fibonacci lattice sphere.
  *
@@ -106,6 +118,11 @@ public:
   }
 
 private:
+  // Test seam: lets the unit tests reach to_q8/from_q8, advance_species,
+  // perturb_state, step_physics, and params without exposing them to production
+  // callers (zero runtime cost). Mirrors GSReactionDiffusion's GSWhiteBox.
+  friend struct ::hs_test::effects_tests::BZWhiteBox;
+
   // ---------------------------------------------------------------------------
   // Q8 fixed-point helpers
   // ---------------------------------------------------------------------------

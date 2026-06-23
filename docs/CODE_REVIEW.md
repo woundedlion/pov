@@ -164,7 +164,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 37. ✅ **No focused test for `concepts.h`** — `FunctionRef`/`StoredFunctionRef` overload resolution (non-const lvalue → non-const ctor; rvalue → const ctor; `StoredFunctionRef` rejects rvalues) and `inplace_function` copy/move/empty-trap semantics are exercised only incidentally and would silently regress under a refactor. Add `tests/test_concepts.h`.
 
-38. **`BZReactionDiffusion` lacks a white-box test seam** — `GSReactionDiffusion` has `GSWhiteBox` reaching its fixed-point round-trip and step; BZ has identical fixed-point/stability concerns (`to_q8`/`advance_species`/`perturb_state`) with no isolation seam. Add a matching friend.
+38. ✅ **`BZReactionDiffusion` lacks a white-box test seam** — `GSReactionDiffusion` has `GSWhiteBox` reaching its fixed-point round-trip and step; BZ has identical fixed-point/stability concerns (`to_q8`/`advance_species`/`perturb_state`) with no isolation seam. Add a matching friend.
 
 39. **Conway composition polarity is not directly unit-tested** — the most error-prone, explicitly-load-bearing invariant in `conway.h` (composed ops return output in `temp`) is exercised only transitively via `SolidBuilder` recipes. Add a focused test asserting `gyro`/`meta`/`needle`/`zip`/`bevel` land output in the expected arena.
 
