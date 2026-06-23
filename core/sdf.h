@@ -1769,6 +1769,16 @@ struct Face {
    * @details Finds the largest angular gap between vertices; if it exceeds pi the
    * face does not wrap, so the complementary horizontal interval(s) are emitted.
    * Otherwise the face spans the full width.
+   *
+   * Note this is intentionally coarse: the test is binary on the *single* largest
+   * gap, so the only tightening it can produce is excising that one gap. A face
+   * whose largest inter-vertex gap is <= pi is treated as full-width even when its
+   * actual azimuth coverage is well under 2*pi (e.g. a face spanning ~0.6*2*pi
+   * with no gap wider than pi scans the full row width every row). Unlike the
+   * ring/polygon vertical-bounds paths, there is no intermediate between "excise
+   * the one big gap" and "full width" — the per-row scan simply over-covers in
+   * that band. This is a deliberate cost/precision trade (one sort + one pass,
+   * no multi-gap interval union) on a hot bounds path, not an oversight.
    */
   __attribute__((always_inline)) void
   compute_azimuth_intervals(FaceScratchBuffer &scratch) {
