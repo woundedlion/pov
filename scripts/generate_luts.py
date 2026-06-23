@@ -50,16 +50,27 @@ def linear_to_srgb(l):
     return l * 12.92 if l <= 0.0031308 else 1.055 * l ** (1.0 / 2.4) - 0.055
 
 
+# Axis sizes / quantization maxima. The 8-bit sRGB byte axis has 256 levels
+# (max code 255); the 16-bit linear axis has 65536 levels (max code 65535).
+# Naming them keeps the range() count, the i/<max> input normalization, the
+# quantize() output ceiling, and the emitted C array bound from drifting out
+# of agreement — each size otherwise appears literally in four places.
+SRGB_LEVELS = 256
+LINEAR_LEVELS = 65536
+SRGB_MAX = SRGB_LEVELS - 1
+LINEAR_MAX = LINEAR_LEVELS - 1
+
+
 def quantize(v, max_val):
     return int(min(max(v, 0.0), 1.0) * max_val + 0.5)
 
 
 def srgb_to_linear_lut():
-    return [quantize(srgb_to_linear(i / 255.0), 65535) for i in range(256)]
+    return [quantize(srgb_to_linear(i / SRGB_MAX), LINEAR_MAX) for i in range(SRGB_LEVELS)]
 
 
 def linear_to_srgb_lut():
-    return [quantize(linear_to_srgb(i / 65535.0), 255) for i in range(65536)]
+    return [quantize(linear_to_srgb(i / LINEAR_MAX), SRGB_MAX) for i in range(LINEAR_LEVELS)]
 
 
 def emit_array(out, decl, values, per_row):
@@ -77,11 +88,15 @@ def render(out):
     out.write("// Source: scripts/generate_luts.py (Precise sRGB Transfer Function)\n")
     out.write("\n")
     out.write("// sRGB (0-255) -> Linear (0-65535)\n")
-    emit_array(out, "inline const uint16_t srgb_to_linear_lut[256] PROGMEM",
+    # The per_row counts (11 u16 / 15 u8) only shape the *unformatted* fallback
+    # layout: when clang-format is present it repacks each row to the column
+    # limit, so these values never reach committed output. They are chosen to
+    # keep the no-clang-format fallback readable (~one terminal line per row).
+    emit_array(out, f"inline const uint16_t srgb_to_linear_lut[{SRGB_LEVELS}] PROGMEM",
                srgb_to_linear_lut(), 11)
     out.write("\n")
     out.write("// Linear (0-65535) -> sRGB (0-255)\n")
-    emit_array(out, "inline const uint8_t linear_to_srgb_lut[65536] PROGMEM",
+    emit_array(out, f"inline const uint8_t linear_to_srgb_lut[{LINEAR_LEVELS}] PROGMEM",
                linear_to_srgb_lut(), 15)
 
 
