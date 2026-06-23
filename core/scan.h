@@ -142,6 +142,14 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
  * @param pixel_fn (int wx, int y, const Vector &p) -> void, called per pixel.
  * @details Iterates y in [y_min, y_max], collects float intervals per row via
  * get_intervals, wraps x coordinates, and calls pixel_fn(wx, y, p) per pixel.
+ *
+ * Producer contract: emitted endpoints are in fractional column units and need
+ * NOT lie in [0,W) — a start may be negative or a span may straddle θ=0 (this
+ * is the single point that wraps and seam-splits them into range). Each interval
+ * MUST have length <= W, though: a span longer than the full circle is a
+ * full-row scan, and the seam-split norm buffer is sized for exactly one split
+ * per input span. CSG shapes satisfy this by construction; BoundingSphere does
+ * so via its min(W/2, ...) half-width clamp.
  */
 template <int W, int H, typename IntervalFn, typename PixelFn>
 inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
@@ -250,6 +258,12 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
           // would double-process / double-alpha), not a lost distinct column.
           if (x1 == x2)
             x2++;
+          // Finalize to canvas columns. After the [0,W) wrap/split above, start
+          // is >= 0 and end is <= W, so x2 > W arises only from the x1 == x2
+          // widening landing exactly on the right edge (ceilf(W) == W, then ++),
+          // which this clamps back; x1 < 0 cannot occur for the current
+          // producers and is a defensive floor. The last_x2 clamp then enforces
+          // the monotone, non-overlapping integer sweep (see the comment above).
           if (x1 < 0)
             x1 = 0;
           if (x2 > W)
@@ -334,6 +348,15 @@ template <int W, int H> struct BoundingSphere {
     // sphere actually touches. The extra column is a conservative margin on this
     // coarse cull bound — the per-pixel ray-sphere test downstream rejects any
     // genuinely-outside column it admits.
+    //
+    // The min(W/2, ...) clamp also upholds scan_region's producer contract: the
+    // emitted span is center_theta ± x_half, so its length 2*x_half is capped at
+    // W. scan_region requires every interval to have length <= W (one span can
+    // cross the θ=0 seam into at most two, which its norm buffer is sized 2× to
+    // hold). This is the small-circle half of the two-step — the near-pole
+    // branch above instead returns the full width (theta_span = W) directly. The
+    // emitted endpoints are intentionally NOT clamped to [0,W); scan_region
+    // wraps them into range.
     int x_half = std::min(W / 2, static_cast<int>(ceilf(theta_span)) + 1);
     out(center_theta - x_half, center_theta + x_half);
     return true;
