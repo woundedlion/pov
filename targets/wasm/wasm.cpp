@@ -702,8 +702,16 @@ public:
    *          no heap growth that could detach other outstanding views.
    */
   val getParamValues() {
-    if (!currentEffect)
-      return val::array();
+    if (!currentEffect) {
+      // Return an empty Float32Array (not a JS Array) so callers get a
+      // consistent typed-view type whether or not an effect is set — calling a
+      // typed-array method on the no-effect result is then not a footgun.
+      // data() is valid (capacity reserved in the ctor); length 0 exposes
+      // nothing. (getParameterDefinitions() returns a JS array of objects in
+      // both states, so it has no analogous discontinuity.)
+      paramValues.clear();
+      return val(typed_memory_view(paramValues.size(), paramValues.data()));
+    }
 
     // Same definition order as getParameterDefinitions(); clears but retains the
     // MAX_PARAMS capacity reserved in the ctor, so no reallocation occurs here.
