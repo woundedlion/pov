@@ -181,12 +181,6 @@ struct Bounds {
   int y_min, y_max; /**< Inclusive first/last row covered. */
 };
 /**
- * @brief Horizontal scanline interval (start/end column index).
- */
-struct Interval {
-  int start, end; /**< Half-open column range [start, end). */
-};
-/**
  * @brief Result of a signed distance query.
  *
  * `dist` and `size` have fixed meanings, but `t`, `raw_dist` and `aux` are
