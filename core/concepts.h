@@ -192,6 +192,14 @@ public:
   StoredFunctionRef(Callable &&) = delete;
 };
 
+// These aliases are plain (borrow-only) FunctionRefs: they accept a temporary
+// so call-scoped parameters stay ergonomic, and the codebase uses them only as
+// by-value/by-const-ref function parameters borrowed for the duration of the
+// call. Enforcement of borrow-vs-store is by convention, not the type system —
+// a class member that keeps a callable alive across calls (frames) must instead
+// be typed StoredFunctionRef<Signature>, which `= delete`s the rvalue overload
+// so a dangling bind to a temporary fails to compile (see the Timeline's tween
+// members in animation.h for the canonical storing site).
 using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
 using WorldTrailFn = FunctionRef<Color4(const Vector &, float)>;
 using TransformFn = FunctionRef<Vector(const Vector &)>;
