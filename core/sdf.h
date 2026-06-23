@@ -1671,6 +1671,11 @@ struct Face {
       if (d_line < min_edge_dist)
         min_edge_dist = d_line;
     }
+    // The > 1e8f test only catches the count == 0 case, where the loop never ran
+    // and min_edge_dist keeps its 1e9f seed: it falls back to size 1.0f rather
+    // than emitting the sentinel. For any real face (count >= 1) every d_line is
+    // a small bounded magnitude, so the seed is always overwritten and this
+    // branch is effectively dead — kept as a defensive floor for the empty face.
     size = (min_edge_dist > 1e8f) ? 1.0f : min_edge_dist;
 
     if (size < radius * MIN_SIZE_RADIUS_RATIO)
