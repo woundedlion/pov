@@ -749,10 +749,10 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
 
   // OKLab -> linear RGB (exact inverse) -> 16-bit linear. Off the hot path
   // (only the rare pixel that leaves gamut), reduce chroma to hold hue and L
-  // instead of letting the per-channel clamp below twist the hue — this is what
-  // keeps the hue-rotate feedback loop from drifting saturated colors frame over
-  // frame. In-gamut pixels (the common case) skip the search and fall straight
-  // through to the clamp.
+  // instead of letting float_to_pixel16's per-channel [0,1] clamp (below) twist
+  // the hue — this is what keeps the hue-rotate feedback loop from drifting
+  // saturated colors frame over frame. In-gamut pixels (the common case) skip
+  // the search and fall straight through to that clamp.
   float nr, ng, nb;
   oklab_to_linear_rgb_gamut({L, A2, B2}, nr, ng, nb);
 

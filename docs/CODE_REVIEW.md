@@ -130,7 +130,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 21. ✅ **`Noise` with a finite duration sawtooths the time axis** — `core/animation.h:2302-2324` is constructed `repeat = true`; a finite duration rewinds `t` to 0 each cycle and snaps `params.time` backward, the opposite of the smooth-flow intent. Fix: force duration −1 or document finite durations as unsupported.
 
-22. **Stale comment: `hue_rotate` references a "per-channel clamp below" that no longer exists** — `core/color.h:751-755`. The clamp is now inside `float_to_pixel16`; the spatial reference misleads.
+22. ✅ **Stale comment: `hue_rotate` references a "per-channel clamp below" that no longer exists** — `core/color.h:751-755`. The clamp is now inside `float_to_pixel16`; the spatial reference misleads.
 
 23. **Stale comment: `Particle::init` cites `std::min`, code uses `hs::clamp`** — `core/animation.h:466-467` and `:543`. Rename-history drift.
 
