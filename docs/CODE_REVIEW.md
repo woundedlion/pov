@@ -181,7 +181,7 @@ device's shipped behavior:
 57. core/geometry.h:481 — pole round-trip `vector→pixel` can yield `y > H_VIRT-1` from `fast_acos` error; undocumented at this end.
 58. core/geometry.h:67,517-520 — bare magic tolerances/sentinels (`0.0001f`, `0.00001f`, `±10.0f`) instead of the centralized `math::EPS_*`/`STEREO_*` constants.
 59. core/geometry.h:142-154 — canonical axis constants live in geometry.h, split from `Vector` in 3dmath.h.
-60. core/util.h:61 / waves.h:45,73 — `wrap` template and `wrap_t` duplicate the boundary policy; `tri_wave`/`square_wave` use the heavier `fmod` `wrap` on a per-sample path.
+60. ✅ core/util.h:61 / waves.h:45,73 — `wrap` template and `wrap_t` duplicate the boundary policy; `tri_wave`/`square_wave` use the heavier `fmod` `wrap` on a per-sample path.
 61. core/easing.h:98,131 — `ease_out_expo`/`ease_out_elastic` have no lower guard for `t<0`, returning wildly out-of-range values (siblings guard their radicand).
 62. core/color.h:528 — `CPixel(uint32_t hex)` is non-explicit (the one hole in an otherwise explicit-cast policy); a stray int silently becomes a color.
 63. core/color.h:1116 — golden-ratio hue step truncates (157) instead of rounding (158); comment inaccurately says "rounded."

@@ -41,7 +41,10 @@ inline auto sin_wave(float from, float to, float freq, float phase) {
  */
 inline auto tri_wave(float from, float to, float freq, float phase) {
   return [=](float t) -> float {
-    float w = wrap(t * freq + phase, 1.0f);
+    // wrap_t (the [0,1)-specialized floor wrap), not the heavier fmod-based
+    // wrap() template: this lambda runs per sample. wrap_t folds a negative
+    // phase into [0,1) the same way, so the triangle stays continuous.
+    float w = wrap_t(t * freq + phase);
     if (w < 0.5f) {
       w = 2.0f * w;
     } else {
@@ -67,10 +70,12 @@ inline auto square_wave(float from, float to, float freq, float dutyCycle,
   HS_CHECK(dutyCycle >= 0.0f && dutyCycle <= 1.0f,
            "square_wave: dutyCycle must be in [0,1]");
   return [=](float t) -> float {
-    // wrap() (not raw fmod) so a negative t*freq+phase folds into [0,1) like
-    // tri_wave; fmod keeps the dividend's sign, leaving a negative phase always
-    // < dutyCycle and wrongly latching the wave "on".
-    if (wrap(t * freq + phase, 1.0f) < dutyCycle) {
+    // wrap_t (the [0,1)-specialized floor wrap), not raw fmod, so a negative
+    // t*freq+phase folds into [0,1) like tri_wave; fmod keeps the dividend's
+    // sign, leaving a negative phase always < dutyCycle and wrongly latching the
+    // wave "on". wrap_t is also lighter than the fmod-based wrap() template on
+    // this per-sample path.
+    if (wrap_t(t * freq + phase) < dutyCycle) {
       return to;
     }
     return from;
