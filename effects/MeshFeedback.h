@@ -67,11 +67,15 @@ public:
     for (auto &e : presets.entries) {
       e.params.noise = &noise_params;
     }
-    style = presets.get();
-    apply_params();
 
+    // Configure the noise type before apply_params(): apply_params() calls
+    // style.sync_noise(), which would otherwise propagate the default (not-yet-
+    // configured) noise type on the first frame.
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_params.sync();
+
+    style = presets.get();
+    apply_params();
 
     // Load first shape
     solid_idx = 0;

@@ -140,7 +140,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 26. ✅ **IslamicStars redundant scratch reset diverges from the HankinSolids idiom** — `effects/IslamicStars.h:182-185` does a bare `reset()` (already done by `generate()`) before `classify_faces_by_topology`, whereas HankinSolids uses `ScratchScope` for the same operation (`HankinSolids.h:102-113`). Pick one convention.
 
-27. **MeshFeedback `apply_params()` runs before the noise type is configured** — `effects/MeshFeedback.h:71` vs `:73-74`. The first `sync_noise()` propagates a not-yet-configured noise type; benign (re-applied per frame) but backwards from intent.
+27. ✅ **MeshFeedback `apply_params()` runs before the noise type is configured** — `effects/MeshFeedback.h:71` vs `:73-74`. The first `sync_noise()` propagates a not-yet-configured noise type; benign (re-applied per frame) but backwards from intent.
 
 28. **WASM empty-state getters return `val::array()` instead of a typed view** — `targets/wasm/wasm.cpp:704-716` (`getParamValues`) and the definitions getter. The return type discontinuity (JS Array vs Float32Array) is a latent footgun for a consumer calling typed-array methods on the empty result. Consider returning an empty `typed_memory_view`.
 
