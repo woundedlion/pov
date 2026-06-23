@@ -153,7 +153,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 32. ✅ **Thrusters draw-color premultiply asymmetry is undocumented** — `effects/Thrusters.h:284` (RGB×opacity *and* alpha) vs `:304` (alpha only). Presumably an intentional additive-glow double-darkening; add a one-line comment.
 
-33. **Moire density default `10.0` is dead** — `effects/Moire.h:62,168` overwrites it in `init()` before registration; a future editor of the `= 10.0f` member default will see no effect at 288×144 (honestly noted in-comment already).
+33. ✅ **Moire density default `10.0` is dead** — `effects/Moire.h:62,168` overwrites it in `init()` before registration; a future editor of the `= 10.0f` member default will see no effect at 288×144 (honestly noted in-comment already). *Validated — no change: the in-comment note at `Moire.h:168` already documents that `init()` overrides this per resolution, which is exactly the guard this finding asks for.*
 
 34. **DistortedRing `amplitude_mut` is a dead template-copy member** — `effects/DistortedRing.h:32-38,69`. Constructed only to be copied into the timeline; correct (the copy retains the `reference_wrapper` binding) but an unusual, slightly wasteful idiom.
 
