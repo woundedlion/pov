@@ -20,6 +20,7 @@
 #include "targets/wasm/param_marshal.h"
 #include "tests/test_harness.h"
 
+#include <string_view>
 #include <vector>
 
 namespace hs_test {
@@ -179,8 +180,50 @@ inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
  *        across the whole roster, then the cross-effect memory-stability check.
  * @return The module's failure count.
  */
+/**
+ * @brief Freezes the effect roster ORDER, not just its count.
+ * @details HS_EFFECT_LIST is the single source of truth for the effect ordinal
+ *   the WASM factory enumerates and the JS app surfaces (effect-list order, plus
+ *   any index-keyed consumer). The startup check (wasm.cpp) and the per-effect
+ *   marshaling below both only guarantee the COUNT and within-effect index
+ *   alignment; neither notices a reorder. This independent golden list turns any
+ *   reorder/insertion/removal into a deliberate, reviewable diff — if it fires,
+ *   update kGoldenRoster on purpose to match the new HS_EFFECT_LIST order.
+ *   (Sliders bind by parameter name, so a reorder does not mis-bind a slider; it
+ *   shifts the effect ordinal, which is what this pins.)
+ */
+inline void check_roster_order_pinned() {
+  // Independent hand-maintained copy of the intended roster order. Must NOT be
+  // generated from HS_EFFECT_LIST, or the comparison becomes a tautology.
+  static const char *const kGoldenRoster[] = {
+      "BZReactionDiffusion", "ChaoticStrings",     "Comets",
+      "DistortedRing",       "DreamBalls",         "Dynamo",
+      "FlowField",           "Flyby",              "GnomonicStars",
+      "GSReactionDiffusion", "HankinSolids",       "HopfFibration",
+      "IslamicStars",        "Liquid2D",           "MeshFeedback",
+      "MindSplatter",        "MobiusGrid",         "Moire",
+      "PetalFlow",           "Raymarch",           "RingShower",
+      "RingSpin",            "ShapeShifter",       "SphericalHarmonics",
+      "SplineFlow",          "Thrusters",          "Voronoi"};
+  // Actual roster, expanded straight from the X-macro source of truth.
+  static const char *const kActualRoster[] = {
+#define HS_EFFECT_NAME(name) #name,
+      HS_EFFECT_LIST(HS_EFFECT_NAME)
+#undef HS_EFFECT_NAME
+  };
+  constexpr size_t kGoldenN = sizeof(kGoldenRoster) / sizeof(kGoldenRoster[0]);
+  constexpr size_t kActualN = sizeof(kActualRoster) / sizeof(kActualRoster[0]);
+  HS_EXPECT_EQ(kActualN, kGoldenN);
+  HS_EXPECT_EQ(static_cast<int>(kActualN), HS_EFFECT_COUNT);
+  const size_t n = kActualN < kGoldenN ? kActualN : kGoldenN;
+  for (size_t i = 0; i < n; ++i)
+    HS_EXPECT_TRUE(std::string_view(kActualRoster[i]) ==
+                   std::string_view(kGoldenRoster[i]));
+}
+
 inline int run_param_marshal_tests() {
   auto scope = hs_test::begin_module("param_marshal");
+  check_roster_order_pinned();
 #define HS_PARAM_ONE(name) check_one<name>(#name);
   HS_EFFECT_LIST(HS_PARAM_ONE)
 #undef HS_PARAM_ONE
