@@ -485,9 +485,15 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.platformio
-          # Target-agnostic (one toolchain serves both envs); rotates on any pin
-          # bump via platformio.ini's hash so a stale cache can't mask a change.
+          # Target-agnostic (one toolchain serves both envs). The exact key
+          # rotates on any platformio.ini pin bump; restore-keys then seeds the
+          # restore from the newest prior toolchain cache so a pin bump pays only
+          # for the changed packages, not a full multi-hundred-MB re-download
+          # (mirrors the build-objects cache below). This can't mask a pin change:
+          # `pio run` installs exactly the versions platformio.ini pins on top of
+          # whatever the restore seeded, and the new exact key re-saves the result.
           key: pio-teensy-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-teensy-
       - name: Cache build objects               # mirrors ci.yml's ccache discipline
         uses: actions/cache@v4
         with:
