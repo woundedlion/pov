@@ -444,20 +444,15 @@ jobs:
 
   teensy-size:
     name: Teensy 4 firmware (build + size + layout)
-    # ─── REPORT-ONLY, GATED OFF BY DEFAULT ─────────────────────────────────────
+    # ─── ACTIVE GATE ───────────────────────────────────────────────────────────
     # Builds both Teensy 4.0 images headlessly and enforces the per-region budgets
-    # + layout invariants (spec §10). Gated on a repo variable so it does not run
-    # until it can actually go green: set TEENSY_GATE_ENABLED=true to enable.
-    # Phase-0 spike status (2026-06): TOOLCHAIN resolved + pinned (teensy@5.0.0 =
-    # Teensyduino 1.59 / arm-gcc 11.3.1, platformio==6.1.19, FastLED 3.4.0). The
-    # device-only bit-rot the build surfaced is FIXED (spec §16), so HOLOSPHERE now
-    # builds GREEN and PASSES the gate end-to-end on the real ELF. STILL BLOCKING
-    # this job: PHANTASM compiles + links but OVERFLOWS RAM1 by ~243 KB (all effects
-    # → ~381 KB ITCM + ~380 KB DTCM ≫ 512 KB) — `pio run -e holosphere -e phantasm`
-    # therefore fails on phantasm. Enable (TEENSY_GATE_ENABLED=true) once phantasm
-    # fits (-Os / FLASHMEM / fewer effects / smaller arena — owner's call), then flip
-    # to a REQUIRED check (tolerating a path-skipped run as success — spec §10 Notes).
-    if: ${{ vars.TEENSY_GATE_ENABLED == 'true' }}
+    # + layout invariants (spec §10) via the post-build extra_script. Both images
+    # now build GREEN and PASS end-to-end on the real ELF: HOLOSPHERE fits with
+    # wide headroom and PHANTASM (all effects) fits RAM1 after the ITCM-bank
+    # reclamation, the RNG/cos_theta DTCM trims, and the arena right-size (335 ->
+    # 330 KiB) — free-for-locals ~13.6 KB over a measured 12 KiB floor. The former
+    # TEENSY_GATE_ENABLED repo-variable guard is removed now that it goes green;
+    # promoting this to a REQUIRED check in branch protection is the follow-up.
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4

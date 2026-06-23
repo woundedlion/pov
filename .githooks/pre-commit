@@ -47,8 +47,20 @@ fi
 # justfile / .github/workflows/ci.yml / .githooks cases are intentionally left to
 # CI (which rebuilds from the committed tree and is the authoritative gate).
 CHANGED="$(git diff --cached --name-only --diff-filter=ACMRD)"
-if ! printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$'; then
-  echo "[pre-commit] No C++/build changes staged — skipping unit tests."
+
+# Two gates key off the staged paths. NATIVE: the host unit suite (C++/CMake).
+# TEENSY: the Teensy 4 size/layout gate, which any C++ change can move, plus the
+# build/budget/ldscript files that drive the firmware image.
+NATIVE=
+TEENSY=
+if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl)$|(^|/)CMakeLists\.txt$|(^|/)CMakePresets\.json$|(^|/)cmake/|(^|/)tests/ubsan-ignorelist\.txt$'; then
+  NATIVE=1
+fi
+if printf '%s\n' "$CHANGED" | grep -qE '\.(h|hpp|cpp|cc|inl|ino)$|(^|/)platformio\.ini$|(^|/)tools/teensy_[A-Za-z_]*\.py$|(^|/)tools/teensy_budgets\.json$|(^|/)tools/phantasm\.ld$'; then
+  TEENSY=1
+fi
+if [ -z "$NATIVE" ] && [ -z "$TEENSY" ]; then
+  echo "[pre-commit] No C++/build changes staged — skipping unit tests + Teensy gate."
   exit 0
 fi
 
@@ -58,12 +70,35 @@ fi
 # here. An embind signature typo passes this gate and fails only in CI's wasm
 # job. Catching it locally would require an `emcc` syntax pass (EMSDK-gated),
 # deliberately omitted to keep the per-commit hook fast.
-echo "[pre-commit] Building + running unit tests (cmake --preset tests)..."
-if ! { cmake --preset tests && cmake --build --preset tests && ctest --preset tests --output-on-failure; }; then
-  echo "[pre-commit] Unit tests FAILED — commit aborted."
-  echo "[pre-commit] (fix the tests, or bypass once with: HS_SKIP_TESTS=1 git commit  /  --no-verify)"
-  exit 1
+if [ -n "$NATIVE" ]; then
+  echo "[pre-commit] Building + running unit tests (cmake --preset tests)..."
+  if ! { cmake --preset tests && cmake --build --preset tests && ctest --preset tests --output-on-failure; }; then
+    echo "[pre-commit] Unit tests FAILED — commit aborted."
+    echo "[pre-commit] (fix the tests, or bypass once with: HS_SKIP_TESTS=1 git commit  /  --no-verify)"
+    exit 1
+  fi
+  echo "[pre-commit] Unit tests passed."
 fi
 
-echo "[pre-commit] Unit tests passed."
+# ─── Teensy 4 size/layout gate (Phantasm = the RAM1-constrained image) ──────
+# Build the all-effects image and let the post-build extra_script
+# (tools/teensy_gate_extra.py) enforce the per-region budgets in
+# tools/teensy_budgets.json — a non-zero exit aborts the commit. Phantasm is the
+# binding RAM1 image; CI's teensy-size job builds BOTH holosphere + phantasm and
+# stays the authoritative gate. Skipped if PlatformIO is absent (a contributor
+# without the ARM toolchain still commits — CI catches it) or via HS_SKIP_TEENSY=1.
+if [ -n "$TEENSY" ] && [ -z "$HS_SKIP_TEENSY" ]; then
+  if command -v pio >/dev/null 2>&1; then
+    echo "[pre-commit] Teensy size/layout gate (pio run -e phantasm)..."
+    if ! pio run -e phantasm; then
+      echo "[pre-commit] Teensy size/layout gate FAILED — commit aborted."
+      echo "[pre-commit] (bypass once with: HS_SKIP_TEENSY=1 git commit  /  --no-verify)"
+      exit 1
+    fi
+    echo "[pre-commit] Teensy gate passed."
+  else
+    echo "[pre-commit] PlatformIO (pio) not found — skipping Teensy gate (CI enforces it)."
+  fi
+fi
+
 exit 0
