@@ -770,10 +770,13 @@ template <typename A, typename B> struct Union {
 
     // Both children push into `merged` BEFORE the fallback decision below, so the
     // accumulator must hold both contributions even on a row that ultimately
-    // falls back to full scan. That is safe by construction: each child's own
-    // IntervalBuffer caps at kIntervalSpanCap spans, and MergedIntervalBuffer is
-    // sized 2 * kIntervalSpanCap (see the type's declaration), so two full
-    // children fit exactly and push_interval's overflow trap cannot fire here.
+    // falls back to full scan. MergedIntervalBuffer is sized 2 * kIntervalSpanCap,
+    // so two *leaf* children (each capped at kIntervalSpanCap spans) always fit.
+    // A nested-CSG child is different: its own merge can emit up to its full
+    // 2 * kIntervalSpanCap merged spans, so two such children can exceed this
+    // accumulator. That is not silent corruption — push_interval traps (HS_CHECK)
+    // on overflow, so a pathologically deep union fails fast at the violation
+    // site rather than dropping geometry. Real scenes stay well under the cap.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
 
@@ -885,10 +888,12 @@ template <typename A, typename B> struct SmoothUnion {
     float pad_px = k * W / (2 * PI_F);
 
     // As in Union: both children push into `merged` before the fallback check, so
-    // the accumulator holds both contributions even on a row that falls back. Safe
-    // because each child caps at kIntervalSpanCap and MergedIntervalBuffer is sized
-    // 2 * kIntervalSpanCap; the k-pad only widens each span, never adds spans, so
-    // the count is unchanged and push_interval's overflow trap cannot fire here.
+    // the accumulator holds both contributions even on a row that falls back. The
+    // k-pad only widens each span, never adds spans, so the count matches Union's:
+    // two leaf children (each <= kIntervalSpanCap) fit the 2 * kIntervalSpanCap
+    // buffer, but two nested-CSG children (each up to 2 * kIntervalSpanCap merged
+    // spans) can exceed it. push_interval then traps (HS_CHECK) — fail-fast at the
+    // violation site, not silent geometry loss. Real scenes stay under the cap.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
           push_interval(merged, start - pad_px, end + pad_px);
