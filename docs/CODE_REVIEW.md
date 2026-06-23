@@ -265,7 +265,7 @@ device's shipped behavior:
 141. tests/test_transformers.h — `Ripple` decay parameter never exercised (all tests max-strength); threshold reject-band tested off-boundary only; no NaN/Inf into the transformer wrappers.
 142. tests/test_mesh.h — `clone_meshstate_deep_copies` skips the element-wise comparison on a size mismatch instead of failing; `face_loop_closes` uses an arbitrary `>100` break without asserting the expected loop length.
 143. tests/test_animation.h — `ParticleSystem` capacity test never `step()`s or verifies spawned-particle init; attractor kill tested only at distance 0 (no `==kill_radius` boundary).
-144. tests/test_hankin.h — verifies array sizes/unit-length but not that static vertices are the actual edge midpoints; flat-vs-twisted threshold (`1e-3`) is an unmotivated magic number.
+144. ✅ tests/test_hankin.h — verifies array sizes/unit-length but not that static vertices are the actual edge midpoints; flat-vs-twisted threshold (`1e-3`) is an unmotivated magic number.
 145. tests/test_color.h — `hue_rotate` gray-preservation/identity tolerances are very loose (48/64 of 255), smoke-grade not precision.
 146. tests/test_harness.h — `HS_EXPECT_NEAR` always widens to `double`, masking float-resolution precision-loss in mixed expressions.
 147. tests (structural) — no host-vs-device numerical parity for the ARM `lerp16`/`uqadd16` asm beyond the software reference; documented limitation (no device build in CI), not a fixable gap.

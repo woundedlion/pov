@@ -112,6 +112,49 @@ inline void test_compile_hankin_instruction_indices_in_range() {
 }
 
 /**
+ * @brief Verifies each static vertex is the normalised midpoint of the input
+ *        edge it represents, not merely some unit-length point.
+ * @details The size and unit-length checks above accept any twelve points on the
+ *          sphere; this pins their geometry. Every dynamic instruction names a
+ *          corner and its two flanking edges (idx_m1 = edge v_prev–v_corner,
+ *          idx_m2 = edge v_corner–v_next), so recompute each edge's normalised
+ *          midpoint straight from base_vertices and require the referenced static
+ *          vertex to match. Walking all instructions touches every edge midpoint.
+ */
+inline void test_compile_hankin_static_vertices_are_edge_midpoints() {
+  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(cube, compiled, target, temp);
+
+  HS_EXPECT_TRUE(compiled.dynamic_instructions.size() > 0);
+  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
+    const auto &ins = compiled.dynamic_instructions[i];
+
+    const Vector p_corner = compiled.base_vertices[ins.v_corner];
+    const Vector p_prev = compiled.base_vertices[ins.v_prev];
+    const Vector p_next = compiled.base_vertices[ins.v_next];
+
+    const Vector exp_m1 = ((p_prev + p_corner) * 0.5f).normalized();
+    const Vector exp_m2 = ((p_corner + p_next) * 0.5f).normalized();
+
+    const Vector got_m1 = compiled.static_vertices[ins.idx_m1];
+    const Vector got_m2 = compiled.static_vertices[ins.idx_m2];
+
+    HS_EXPECT_NEAR(got_m1.x, exp_m1.x, 1e-5f);
+    HS_EXPECT_NEAR(got_m1.y, exp_m1.y, 1e-5f);
+    HS_EXPECT_NEAR(got_m1.z, exp_m1.z, 1e-5f);
+    HS_EXPECT_NEAR(got_m2.x, exp_m2.x, 1e-5f);
+    HS_EXPECT_NEAR(got_m2.y, exp_m2.y, 1e-5f);
+    HS_EXPECT_NEAR(got_m2.z, exp_m2.z, 1e-5f);
+  }
+}
+
+/**
  * @brief Exercises compile_hankin on the icosahedron (triangular faces,
  *        5-valent vertices) so the star-face and rosette-orbit arithmetic is
  *        covered on non-quad geometry, not just the cube's 4-valent faces.
@@ -315,29 +358,44 @@ inline void test_hankin_flat_and_twisted_differ() {
                  sizeof(hankin_target_buf) / 2);
   Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
 
-  PolyMesh cube_a;
-  build_solid<Solids::Cube>(cube_a, temp);
-  PolyMesh flat = MeshOps::hankin(cube_a, target_a, temp, 0.0f);
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
 
-  PolyMesh cube_b;
-  build_solid<Solids::Cube>(cube_b, temp);
-  PolyMesh twisted = MeshOps::hankin(cube_b, target_b, temp, 0.6f);
+  // Compile once, then update the same topology at two angles so the static /
+  // dynamic split is known: output indices [0, static_count) are the
+  // angle-independent edge midpoints, the remainder the angle-dependent star
+  // points.
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(cube, compiled, target_a, temp);
+  const size_t static_count = compiled.static_vertices.size();
 
-  // Same topology, possibly different geometry.
+  PolyMesh flat;
+  MeshOps::update_hankin(compiled, flat, target_a, 0.0f);
+  PolyMesh twisted;
+  MeshOps::update_hankin(compiled, twisted, target_b, 0.6f);
+
+  // Same topology at both angles.
   HS_EXPECT_EQ(flat.vertices.size(), twisted.vertices.size());
   HS_EXPECT_EQ(flat.face_counts.size(), twisted.face_counts.size());
 
-  // The dynamic vertices should differ — find at least one with a
-  // non-trivial delta. Static vertices (midpoints) are angle-independent.
-  bool found_diff = false;
-  for (size_t i = 0; i < flat.vertices.size(); ++i) {
-    Vector d = flat.vertices[i] - twisted.vertices[i];
-    if (d.length() > 1e-3f) {
-      found_diff = true;
-      break;
-    }
+  // Static vertices are edge midpoints with no angle dependence, so they must be
+  // identical at the 1e-6 build-noise floor — any later difference can only come
+  // from the dynamic star points.
+  for (size_t i = 0; i < static_count; ++i)
+    HS_EXPECT_NEAR((flat.vertices[i] - twisted.vertices[i]).length(), 0.0f,
+                   1e-6f);
+
+  // The dynamic star points must move by a geometrically real amount. A 0.6 rad
+  // contact twist displaces them substantially; require the largest delta to
+  // clear 1e-2 — four orders of magnitude above the 1e-6 noise floor, so the
+  // check can only pass on an actual twist and never on rounding.
+  float max_dynamic_delta = 0.0f;
+  for (size_t i = static_count; i < flat.vertices.size(); ++i) {
+    const float d = (flat.vertices[i] - twisted.vertices[i]).length();
+    if (d > max_dynamic_delta)
+      max_dynamic_delta = d;
   }
-  HS_EXPECT_TRUE(found_diff);
+  HS_EXPECT_TRUE(max_dynamic_delta > 1e-2f);
 }
 
 // ---------------------------------------------------------------------------
@@ -422,6 +480,7 @@ inline int run_hankin_tests() {
 
   test_compile_hankin_populates_arrays();
   test_compile_hankin_instruction_indices_in_range();
+  test_compile_hankin_static_vertices_are_edge_midpoints();
   test_compile_hankin_icosahedron_triangular_faces();
 
   test_update_hankin_flat_collapses_to_corners();
