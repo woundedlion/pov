@@ -1146,8 +1146,13 @@ struct ScanMetrics {
   /** @brief Zeroes every counter. */
   void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = lut_hits = exact_hits = 0; }
 };
-/** @brief Global scanline profiling counters. */
+/** @brief Global scanline profiling counters. Compiled in only when
+ *  HS_SCAN_METRICS is defined — every reader goes through HS_SCAN_METRIC(...),
+ *  which expands to nothing in the release build, so the global would otherwise
+ *  be dead storage there. */
+#ifdef HS_SCAN_METRICS
 inline ScanMetrics g_scan_metrics;
+#endif
 
 } // namespace hs
 
@@ -1328,6 +1333,10 @@ namespace hs {
  *        walk every counter without a central registry. Counters nest: a
  *        CycleScope sets `parent` to whichever counter was active when this one
  *        started, giving log_all() a call tree with per-parent percentages.
+ * @warning REENTRANCY: the registry head and the `active_` nesting pointer are
+ *        non-atomic statics (like hs::random()'s generator), so construction and
+ *        CycleScope enter/exit are main-loop-only — driving a CycleScope from an
+ *        ISR would race the list/active pointer and corrupt the call tree.
  */
 struct CycleCounter {
   static constexpr uint32_t CYCLES_PER_US = 600; /**< Core clock: Teensy 4 @ 600 MHz. */
