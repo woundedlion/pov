@@ -247,6 +247,24 @@ struct Style {
   }
 };
 
+// Compile-time anchor for the presets' positional brace-init. The preset
+// initializers (and the "Params:" comment above SlowTwist) list the fields by
+// position; reordering the same-typed scalar members of Style would silently
+// reassign those literals to the wrong fields. Pin SlowTwist's resolved fields
+// by name so such a reorder fails to compile here instead of mis-tuning every
+// preset at runtime. (A scalar<->pointer reorder is already a type error in the
+// aggregate init; this catches the float-vs-float case the type system can't.)
+static_assert(Style::SlowTwist().fade == 0.8158f &&
+                  Style::SlowTwist().hue_shift == 0.041f &&
+                  Style::SlowTwist().amplitude == 6.36f &&
+                  Style::SlowTwist().frequency == 0.21f &&
+                  Style::SlowTwist().speed == 0.0f &&
+                  Style::SlowTwist().scale == 2.1459f &&
+                  Style::SlowTwist().space_fn == &noise_warp &&
+                  Style::SlowTwist().color_fn == &hue_fade,
+              "Style preset field order drifted from the positional brace-init "
+              "in the *() presets; update the initializers or this anchor.");
+
 // --- Deferred inline definitions (Style is now complete) ----------------------
 
 // Returns v unchanged when no noise is bound.

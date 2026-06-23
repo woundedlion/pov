@@ -1233,6 +1233,15 @@ public:
   // ~+/-10deg across the [0,1] lightness range (less within the authored band).
   static constexpr float kHueTorsion = 0.35f;
 
+  // Perceptual lightness band a key's HSV value maps into: L = kLightnessFloor +
+  // (val/255) * kLightnessSpan, i.e. [0.12, 0.67]. The floor keeps dark stops off
+  // pure black; the ceiling sits well below L=1 because perceptual lightness near
+  // white starves the sRGB gamut of chroma (see key_oklch). Named (vs bare
+  // literals) to match kChromaPeak/kHueTorsion and so the two halves of the band
+  // can't drift apart silently.
+  static constexpr float kLightnessFloor = 0.12f;
+  static constexpr float kLightnessSpan = 0.55f;
+
   /**
    * @brief OKLCH coordinates for one HSV-authored key. Single source of truth
    *        for the perceptual key placement.
@@ -1253,7 +1262,7 @@ public:
     // saturated rather than bright-and-gray -- while the floor keeps dark stops
     // off pure black. FLAT is still a genuinely isoluminant shimmer, now at a
     // lightness the LEDs can actually render with saturation.
-    float L = 0.12f + (val / 255.0f) * 0.55f;
+    float L = kLightnessFloor + (val / 255.0f) * kLightnessSpan;
     // Chroma co-varies with lightness: the saturation profile sets the ceiling
     // (kChromaPeak), and a sin(pi*L) envelope tapers it toward both ends, where
     // the gamut narrows. So a dark or near-white key can't also be fully
