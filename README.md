@@ -1589,6 +1589,8 @@ Two counter-rotating families of concentric rings that beat against each other i
 
 FastNoiseLite-driven flow field. Three independently offset 3D-noise channels form a per-particle force vector that is added to each particle's velocity (not curl noise, not a scalar gradient).
 
+**Parameters**: Scale, Force, Max Spd, Alpha, Time Spd
+
 </td></tr></table>
 
 <table border="0"><tr>
