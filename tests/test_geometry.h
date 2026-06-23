@@ -384,6 +384,64 @@ inline void test_random_vector_unit_length() {
   }
 }
 
+/**
+ * @brief random_vector is a pure function of the shared RNG stream: reseeding
+ *        the generator reproduces the exact same sequence bit-for-bit.
+ * @details The unit-length test alone would also pass if random_vector pulled
+ *          from a nondeterministic source (time/entropy). Pinning reproducibility
+ *          guards the sim↔device determinism contract documented on hs::random().
+ *          The global generator is saved and restored so this test can't perturb
+ *          the stream position other RNG-touching tests observe.
+ */
+inline void test_random_vector_deterministic() {
+  std::mt19937 saved = hs::random();
+  constexpr int N = 16;
+  Vector first[N];
+  hs::random().seed(1337);
+  for (int i = 0; i < N; ++i) first[i] = random_vector();
+  hs::random().seed(1337);
+  for (int i = 0; i < N; ++i) {
+    Vector v = random_vector();
+    HS_EXPECT_VEC(v, first[i], 0.0f); // exact reproduction, not approximate
+  }
+  hs::random() = saved;
+}
+
+/**
+ * @brief random_vector is approximately uniform on the sphere — not biased
+ *        toward an axis or hemisphere.
+ * @details A degenerate generator that always returned the same direction (or a
+ *          biased one) would still pass the unit-length check. Over many samples
+ *          the per-axis means must sit near zero and each axis must split roughly
+ *          evenly across its sign. Bounds are deliberately loose (the per-axis
+ *          mean's standard error at N=4000 is ~0.009, so ±0.08 is ~9σ; the sign
+ *          split's σ is ~32 counts, so ±400 is ~12σ) — a true uniform generator
+ *          passes with vast margin while a stuck/biased one fails. Seeded for
+ *          reproducibility; the generator is saved and restored.
+ */
+inline void test_random_vector_distribution() {
+  std::mt19937 saved = hs::random();
+  hs::random().seed(0xC0FFEEu);
+  constexpr int N = 4000;
+  float sx = 0.0f, sy = 0.0f, sz = 0.0f;
+  int posx = 0, posy = 0, posz = 0;
+  for (int i = 0; i < N; ++i) {
+    Vector v = random_vector();
+    HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
+    sx += v.x; sy += v.y; sz += v.z;
+    if (v.x > 0.0f) ++posx;
+    if (v.y > 0.0f) ++posy;
+    if (v.z > 0.0f) ++posz;
+  }
+  HS_EXPECT_NEAR(sx / N, 0.0f, 0.08f);
+  HS_EXPECT_NEAR(sy / N, 0.0f, 0.08f);
+  HS_EXPECT_NEAR(sz / N, 0.0f, 0.08f);
+  HS_EXPECT_TRUE(posx > N * 4 / 10 && posx < N * 6 / 10);
+  HS_EXPECT_TRUE(posy > N * 4 / 10 && posy < N * 6 / 10);
+  HS_EXPECT_TRUE(posz > N * 4 / 10 && posz < N * 6 / 10);
+  hs::random() = saved;
+}
+
 // ============================================================================
 // Basis: make_basis / get_antipode
 // ============================================================================
@@ -594,6 +652,8 @@ inline int run_geometry_tests() {
   test_lissajous_unit_length();
   test_lissajous_phase_is_radians();
   test_random_vector_unit_length();
+  test_random_vector_deterministic();
+  test_random_vector_distribution();
 
   test_make_basis_orthonormal();
   test_make_basis_alternate_normals();
