@@ -251,10 +251,11 @@ public:
 
   /**
    * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
+   * @return true; the strip blanks to black immediately after each column is
+   *         shown, so every column reads as a sharp slice with dark gaps
+   *         between columns rather than persisting across the sweep.
    */
-  bool strobe_columns() const override { return false; }
+  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Render one frame of the morphing harmonic.

@@ -21,36 +21,41 @@ strobe or persist on the strip.
 
 ## Audit — active effects
 
-| Effect | `strobe_columns()` | Nature / plausibility |
-|---|---|---|
-| ChaoticStrings | `false` | trail strokes on black — persist for brightness |
-| Comets | `false` | trailed sprites — persist |
-| DistortedRing | `false` | ring over prior frame — persist |
-| DreamBalls | `false` | fading sprites — persist |
-| Dynamo | `false` | trail-based — persist |
-| FlowField | `false` | trails fill the frame — persist |
-| **Flyby** | **`true`** | bright stereographic field; documented — crisp slices vs smearing across revolutions |
-| **GnomonicStars** | **`true`** | sparse star field — strobe keeps star points crisp against black |
-| HankinSolids | `false` | manages its own backdrop — persist |
-| HopfFibration | `false` | trails over cleared frame — persist |
-| IslamicStars | `false` | mesh supplies all color — persist |
-| **Liquid2D** | **`true`** | full-frame shader — strobe (crisp, accepts dimming) |
-| MeshFeedback | `false` | feedback flush owns the frame — persist |
-| MindSplatter | `false` | manages own canvas — persist |
-| Moire | `false` | rings over transparent — persist |
-| MobiusGrid | `false` | no background — persist |
-| PetalFlow | `false` | paints over cleared frame — persist |
-| Raymarch | `false` | ray march fills the frame — persist |
-| **ReactionDiffusionBase** | **`true`** | full reaction field — strobe (base class) |
-| &nbsp;&nbsp;├ BZReactionDiffusion | **`true`** | inherited from base |
-| &nbsp;&nbsp;└ GSReactionDiffusion | **`true`** | inherited from base |
-| RingShower | `false` | rings accumulate — persist |
-| RingSpin | `false` | clear background — persist |
-| ShapeShifter | `false` | rings over cleared frame — persist |
-| SphericalHarmonics | `false` | sphere painted directly — persist |
-| SplineFlow | `false` | trails accumulate — persist |
-| Thrusters | `false` | draws over persistent ring — persist |
-| Voronoi | `false` | opaque, fills every pixel — persist |
+All non-legacy effects now **strobe** (`strobe_columns() == true`): each column
+blanks to black after it is shown rather than persisting into the next. The four
+that already strobed (Flyby, GnomonicStars, Liquid2D, ReactionDiffusion) are
+unchanged; the remaining 22 were flipped from `false` to `true`.
+
+| Effect | `strobe_columns()` |
+|---|---|
+| ChaoticStrings | `true` |
+| Comets | `true` |
+| DistortedRing | `true` |
+| DreamBalls | `true` |
+| Dynamo | `true` |
+| FlowField | `true` |
+| Flyby | `true` |
+| GnomonicStars | `true` |
+| HankinSolids | `true` |
+| HopfFibration | `true` |
+| IslamicStars | `true` |
+| Liquid2D | `true` |
+| MeshFeedback | `true` |
+| MindSplatter | `true` |
+| Moire | `true` |
+| MobiusGrid | `true` |
+| PetalFlow | `true` |
+| Raymarch | `true` |
+| ReactionDiffusionBase | `true` |
+| &nbsp;&nbsp;├ BZReactionDiffusion | `true` (inherited) |
+| &nbsp;&nbsp;└ GSReactionDiffusion | `true` (inherited) |
+| RingShower | `true` |
+| RingSpin | `true` |
+| ShapeShifter | `true` |
+| SphericalHarmonics | `true` |
+| SplineFlow | `true` |
+| Thrusters | `true` |
+| Voronoi | `true` |
 
 ## Audit — legacy effects ([core/effects_legacy.h](../core/effects_legacy.h))
 
@@ -71,14 +76,11 @@ strobe or persist on the strip.
 | DotTrails | `false` |
 | Spinner | `false` |
 
-**Pattern:** trail / accumulation effects choose `false` (persist → columns
-smear horizontally into a continuous, gap-free sweep); sparse or full-frame
-"crisp" effects (star fields, the Matrix rain, reaction fields, Flyby's
-stereographic projection) choose `true` (strobe → sharp slices with dark gaps
-between columns). The values look internally consistent; the spinning hardware
-is the final arbiter for any borderline case (e.g. whether the full-frame
-shaders Liquid2D / ReactionDiffusion truly read better as gapped slices than as
-a smeared band).
+**Pattern:** the active roster is now uniformly strobe — every non-legacy effect
+renders as sharp slices with dark gaps between columns rather than smearing into
+a continuous band. The legacy effects above keep their original mix: trail /
+accumulation effects persist (`false`) while sparse or full-frame "crisp" effects
+(the Matrix rain, StarsFade, Spiral, Burnout) strobe (`true`).
 
 ## The simulator reproduces `strobe_columns() == true`, not `false`
 
