@@ -1757,8 +1757,14 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
-    if (t == 0) {
+    // Snapshot the start palette once, on the first step — not every time t hits
+    // 0. Mirrors Transition's `captured` flag: a rewound (e.g. requeued) wipe
+    // returns to t == 0 with the palette already at the target, so re-snapshot
+    // would freeze from_snap == to_snap. Capturing here rather than in the ctor
+    // still picks up a palette mutated between construction and the first step.
+    if (!captured) {
       from_snap = cur_palette.get().snapshot();
+      captured = true;
     }
     AnimationBase::step(canvas);
     float amount = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
@@ -1771,6 +1777,7 @@ private:
       cur_palette;                     /**< The palette being animated. */
   GenerativePalette::Snapshot to_snap; /**< Snapshot of target colors. */
   EasingFn easing_fn;                  /**< Easing curve. */
+  bool captured = false; /**< Whether from_snap was taken on the first step. */
 };
 
 /**
