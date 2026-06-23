@@ -116,8 +116,11 @@ public:
 
   /**
    * @brief Wraps a const lvalue callable (functor or lambda).
-   * @tparam Callable Type of the callable; must be invocable with Args... and
-   * not itself a FunctionRef.
+   * @tparam Callable Type of the callable; must be *const*-invocable with
+   * Args... (the constraint mirrors the thunk, which invokes it through a
+   * `const Callable*`, so a non-const-only callable — e.g. a `mutable` lambda —
+   * is cleanly rejected here rather than failing inside the thunk) and not
+   * itself a FunctionRef.
    * @param callable Const callable whose address is stored; must outlive this
    * ref. The const is cast away into ctx_ and restored in the thunk.
    * @details This overload deliberately binds rvalues (temporary lambdas) too,
@@ -128,7 +131,7 @@ public:
    * misuse, which the class-level lifetime contract already documents.
    */
   template <typename Callable>
-    requires std::invocable<Callable, Args...> &&
+    requires std::invocable<const Callable &, Args...> &&
              (!std::same_as<std::decay_t<Callable>, FunctionRef>)
   FunctionRef(const Callable &callable) noexcept
       : ctx_(const_cast<void *>(
