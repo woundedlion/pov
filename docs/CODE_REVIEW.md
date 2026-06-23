@@ -144,7 +144,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 28. ✅ **WASM empty-state getters return `val::array()` instead of a typed view** — `targets/wasm/wasm.cpp:704-716` (`getParamValues`) and the definitions getter. The return type discontinuity (JS Array vs Float32Array) is a latent footgun for a consumer calling typed-array methods on the empty result. Consider returning an empty `typed_memory_view`.
 
-29. **`Persist` post-restore watermark comment oversells the guarantee** — `core/memory.h:1018-1036`. The single-inequality watermark catches the common single-`Persist` forgot-to-reset but not all stacked cases; soften the comment to match.
+29. ✅ **`Persist` post-restore watermark comment oversells the guarantee** — `core/memory.h:1018-1036`. The single-inequality watermark catches the common single-`Persist` forgot-to-reset but not all stacked cases; soften the comment to match.
 
 30. **Vestigial `<functional>` include** — `core/concepts.h:8`. `Fn` is now `inplace_function`, not `std::function`; verify and drop if unused.
 

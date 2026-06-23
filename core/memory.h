@@ -1029,6 +1029,12 @@ public:
    * is only meaningful against the entry watermark, post-clone. A forgot-to-
    * reset restore instead appends beyond the live original, pushing the offset
    * past the watermark — exactly what this traps.
+   *
+   * Scope of the guarantee: this is a backstop, not a proof. It reliably catches
+   * the common single-Persist forgot-to-reset (the offset clears the watermark).
+   * In a stack it can miss a per-Persist mistake whose growth happens to land at
+   * or below the entry watermark — e.g. a later restore that compacts below it
+   * masks an earlier one's overrun. It bounds the aggregate, not each restore.
    */
   ~Persist() {
     target_ = T();
