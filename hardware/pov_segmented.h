@@ -127,9 +127,15 @@ class POVSegmented {
    * k at its first wake after k's instant, and the master emits a symbol's
    * first pulse at its first wake after the boundary instant. The timer grid
    * is not phase-locked to the flywheel, so at 1 wake per column both lags
-   * reach a full column. Waking 8× per column bounds both to ⅛ column — far
-   * inside the §5.2 self-censor budget and below any visible seam — for
-   * ~18 kHz of near-empty ISR entries (a position computation and compare).
+   * reach a full column. Waking 8× per column drops the lag to ⅛ column on the
+   * cheap position-only wakes. The bound is looser on the wakes that actually
+   * render or emit: a column render (~96 µs, README:1265) overruns the ~54 µs
+   * wake grid and the PIT ISR cannot re-enter, so the next 1–2 grid slots
+   * coalesce onto it and that column's lag is closer to ~2/8 column. Still far
+   * inside the §5.2 self-censor budget and below any visible seam, and the
+   * design is unaffected — position is time-derived and tick() is idempotent /
+   * skip-tolerant. The remaining ~18 kHz of wakes are near-empty (a position
+   * computation and compare).
    */
   static constexpr int kOversample = 8;
 
