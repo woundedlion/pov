@@ -127,6 +127,19 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
   }
 }
 
+// Anchor attribute for the self-registration object. `used` (always available
+// on this WASM clang) keeps the compiler from eliding the unreferenced static
+// and roots it for wasm-ld via llvm.used; `retain` additionally survives an ELF
+// linker's --gc-sections. `retain` is newer (Clang 13+ / GCC 11+), so guard it
+// behind __has_attribute and fall back to `used` alone — wasm-ld is not an ELF
+// linker, so `used` is what actually anchors the registrar here and the fallback
+// stays correct on any toolchain that predates `retain`.
+#if defined(__has_attribute) && __has_attribute(retain)
+#define HS_REGISTRAR_ANCHOR __attribute__((used, retain))
+#else
+#define HS_REGISTRAR_ANCHOR __attribute__((used))
+#endif
+
 /**
  * @brief Self-registers an effect class with the global EffectRegistry.
  * @param ClassName Effect class template (instantiated per supported <W,H>).
@@ -147,13 +160,12 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
       };                                                               \
       e.size = sizeof(ClassName<W, H>);                                \
     }                                                                  \
-    /* used+retain anchor the registrar: nothing references _reg, so under   \
-     * LTO / --gc-sections the dynamic initializer (and thus the whole        \
-     * registration side effect) could be discarded, silently dropping the    \
-     * effect from the registry. `used` keeps the compiler from eliding it    \
-     * (and roots it for wasm-ld via llvm.used); `retain` additionally        \
-     * survives an ELF linker's --gc-sections. */                             \
-    __attribute__((used, retain))                                            \
+    /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references _reg, so  \
+     * under LTO / --gc-sections the dynamic initializer (and thus the whole   \
+     * registration side effect) could be discarded, silently dropping the     \
+     * effect from the registry. See the macro definition above for the        \
+     * used / retain rationale and the pre-`retain` fallback. */               \
+    HS_REGISTRAR_ANCHOR                                                       \
     static inline int _reg = EffectRegistry::add({                     \
       HS_RESOLUTIONS(HS_REG_FILL_PTR)                                  \
     });                                                                \
