@@ -27,7 +27,7 @@ public:
     float points = 600.0f;    /**< Number of stars scattered on the spiral. */
     float star_radius = 0.02f; /**< Per-star radius in normalized sphere units. */
     float star_sides = 4.0f;  /**< Polygon side count per star. */
-    float warp_speed = 0.5f;  /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
+    float warp_speed = 0.035f; /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
     bool debug_bb = false;    /**< When true, draws each star's bounding box. */
   } params;
 
@@ -65,7 +65,12 @@ public:
     // before any other timeline event, so pinning it is the safe retained-handle
     // path: if a future edit ever inserts a finite event ahead of it, compaction
     // traps loudly rather than dangling this pointer.
-    warp_ = transformer.spawn_pinned(0, params.warp_speed, 0.035f);
+    //
+    // Arg order is (scale, speed): scale is the fixed 0.5 modulation magnitude;
+    // speed is the slider-controlled evolution rate. params.warp_speed feeds the
+    // *speed* slot only — routing it into scale (and defaulting it to scale's
+    // 0.5) is what spun the field ~14x too fast.
+    warp_ = transformer.spawn_pinned(0, 0.5f, params.warp_speed);
     // A pinned spawn into a fresh transformer always has a free slot, so a null
     // here is a structural bug, not a runtime condition. Trap rather than
     // silently drop the "Warp Speed" slider.
