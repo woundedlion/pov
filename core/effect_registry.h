@@ -89,6 +89,15 @@ public:
    * @brief Appends a registration to the global table.
    * @param reg Registration record to append.
    * @return Dummy 0, so this can be used as a static-init expression.
+   * @warning The append order here is the static-init order of the
+   *          REGISTER_EFFECT objects, which is link/translation-unit-order
+   *          dependent and therefore NOT stable across builds, toolchains, or a
+   *          reordered link line. The index of an entry in `entries()` carries
+   *          no meaning. Today this is safe — dispatch is by name and the
+   *          rosters use the `HS_EFFECT_LIST` X-macro as the single source of
+   *          truth — but do NOT introduce a positional, persisted, or
+   *          transmitted index over this table: drive any stable ordering from
+   *          `HS_EFFECT_LIST` instead, or sort `entries()` by name at use.
    */
   static int add(EffectRegistration reg) {
     entries().push_back(reg);
