@@ -252,8 +252,14 @@ public:
     HS_CHECK(c != prev_.load(std::memory_order_relaxed));
     cur_.store(c, std::memory_order_relaxed);
     if (persist_pixels) {
-      memcpy(bufs_[c], bufs_[prev_.load(std::memory_order_relaxed)],
-             sizeof(Pixel) * width_ * height_);
+      // The trail base is the last COMPLETED frame (next_), not the one the ISR
+      // is currently displaying (prev_). The buffer_free() gate that must precede
+      // every advance forces prev_ == next_, so the two coincide here — copy from
+      // next_ and assert the equality, rather than read prev_ and depend on the
+      // gate silently across methods.
+      int last = next_.load(std::memory_order_relaxed);
+      HS_CHECK(last == prev_.load(std::memory_order_relaxed));
+      memcpy(bufs_[c], bufs_[last], sizeof(Pixel) * width_ * height_);
     }
   }
 
