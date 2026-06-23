@@ -149,7 +149,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 30. ✅ **Vestigial `<functional>` include** — `core/concepts.h:8`. `Fn` is now `inplace_function`, not `std::function`; verify and drop if unused.
 
-31. **GnomonicStars is the lone `show_bg() == true` effect without a comment** — `effects/GnomonicStars.h:84`. Legitimate (sparse star field), but every other effect's `false` is commented; note the divergence.
+31. ✅ **GnomonicStars is the lone `show_bg() == true` effect without a comment** — `effects/GnomonicStars.h:84`. Legitimate (sparse star field), but every other effect's `false` is commented; note the divergence.
 
 32. **Thrusters draw-color premultiply asymmetry is undocumented** — `effects/Thrusters.h:284` (RGB×opacity *and* alpha) vs `:304` (alpha only). Presumably an intentional additive-glow double-darkening; add a one-line comment.
 

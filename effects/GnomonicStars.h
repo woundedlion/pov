@@ -79,7 +79,9 @@ public:
 
   /**
    * @brief Reports whether the effect wants the background drawn.
-   * @return Always true; this effect renders over a background.
+   * @return Always true. Divergence from the roster default (most effects
+   *   return false): this is a sparse star field, so it composites over the
+   *   background gradient rather than clearing the frame to black.
    */
   bool show_bg() const override { return true; }
 
