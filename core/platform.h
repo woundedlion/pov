@@ -48,6 +48,7 @@
   } while (0)
 
 #include <random>
+#include <type_traits>
 
 #ifdef ARDUINO
 #ifndef NDEBUG
@@ -1041,6 +1042,14 @@ inline float random_to_unit(uint32_t value, uint32_t max) {
  * @return A random float in the half-open range [0.0, 1.0).
  */
 inline float rand_f() {
+  // The uint32_t casts below — and random_to_unit's 2^32-1 divisor — are exact
+  // only while the global RNG draws fill the full 32-bit range. Trap a future
+  // generator swap (e.g. to a 64-bit engine) that would silently truncate both
+  // the draw and max() to uint32_t and break the [0,1) guarantee.
+  using Rng = std::remove_reference_t<decltype(hs::random())>;
+  static_assert(Rng::max() == 0xFFFFFFFFu,
+                "rand_f()/random_to_unit assume a 32-bit-range RNG; update them "
+                "if the global generator changes.");
   return random_to_unit(static_cast<uint32_t>(hs::random()()),
                         static_cast<uint32_t>(hs::random().max()));
 }
