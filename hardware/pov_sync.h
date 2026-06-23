@@ -738,6 +738,25 @@ constexpr void encode_beacon_digits(int32_t effect_index, uint32_t rev_count,
 }
 
 /**
+ * @brief Smallest signed revolution slip that maps @p current's 6-bit residue
+ * onto a beacon's @p beacon_rev_count (spec §6.4 rev cross-check).
+ * @param beacon_rev_count The beacon's rev_count digit pair (0–63).
+ * @param current The board's current rev_in_effect (any magnitude).
+ * @return A delta in [-32, 31]. The `+96 %64 -32` fold resolves the 63↔0 mod-64
+ * seam, so a small slip across the wrap reads as a small *signed* delta (e.g.
+ * current residue 62 vs beacon 0 → +2) rather than a ~64-rev jump. Slips of
+ * magnitude ≥ 32 are aliased by the mod-64 (the protocol guarantees agreement
+ * within 32 revs), so the caller treats them as the nearest-residue correction.
+ */
+constexpr int32_t beacon_rev_resync_delta(uint32_t beacon_rev_count,
+                                          uint32_t current) {
+  return ((static_cast<int32_t>(beacon_rev_count & 63u) -
+           static_cast<int32_t>(current & 63u) + 96) %
+          64) -
+         32;
+}
+
+/**
  * @brief Assembles data bursts into beacon frames. Integrity by rejection
  * (spec §6.4): any out-of-range digit, stale partial frame, or checksum
  * mismatch drops the whole frame — the next beacon is ≤ 2 s away.
@@ -1480,10 +1499,7 @@ private:
       // commit.)
       ++telemetry_.beacon_rev_mismatches;
       const int32_t d =
-          ((static_cast<int32_t>(f.rev_count) -
-            static_cast<int32_t>(content_.rev_in_effect & 63u) + 96) %
-           64) -
-          32;
+          beacon_rev_resync_delta(f.rev_count, content_.rev_in_effect);
       const int64_t fixed = static_cast<int64_t>(content_.rev_in_effect) + d;
       content_.rev_in_effect =
           fixed >= 0 ? static_cast<uint32_t>(fixed) : f.rev_count;

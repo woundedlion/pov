@@ -366,6 +366,49 @@ inline void test_beacon_codec() {
   }
 }
 
+/**
+ * @brief Verifies the §6.4 rev cross-check fold (beacon_rev_resync_delta)
+ *        resolves the 63↔0 mod-64 seam.
+ * @details Production effects span 960 revs and the sim configs span 40, so
+ *          rev_in_effect routinely exceeds 63 and its 6-bit residue wraps —
+ *          but test_sim_rev_resync only ever slips a board by +2 at rev 5, far
+ *          from the wrap, leaving the fold's `+96 %64 -32` seam arithmetic
+ *          unexercised. Drive it directly: the fold maps a beacon residue and
+ *          the board's current rev_in_effect to the smallest signed slip in
+ *          [-32, 31], so applying it as `rev_in_effect + delta` restores the
+ *          exact residue across the wrap, in either direction.
+ */
+inline void test_rev_resync_fold() {
+  // Same-side residues subtract directly (no wrap).
+  HS_EXPECT_EQ(beacon_rev_resync_delta(5, 5), 0);
+  HS_EXPECT_EQ(beacon_rev_resync_delta(7, 5), 2);
+  HS_EXPECT_EQ(beacon_rev_resync_delta(5, 7), -2);
+
+  // Across the 63↔0 seam a small slip stays a small SIGNED delta, not a ~64 jump.
+  HS_EXPECT_EQ(beacon_rev_resync_delta(0, 62), 2);  // residue 62, beacon 0: +2
+  HS_EXPECT_EQ(beacon_rev_resync_delta(63, 1), -2); // residue 1,  beacon 63: -2
+  HS_EXPECT_EQ(beacon_rev_resync_delta(2, 63), 3);  // residue 63, beacon 2:  +3
+
+  // Only the low 6 bits of `current` matter (rev_in_effect carries the absolute
+  // count): magnitude-130 and -66 boards fold identically to their residues.
+  HS_EXPECT_EQ(beacon_rev_resync_delta(0, 130), -2); // residue 2, beacon 0: -2
+  HS_EXPECT_EQ(beacon_rev_resync_delta(8, 66), 6);   // residue 2, beacon 8: +6
+
+  // Endpoints of the correctable window: the fold spans exactly [-32, 31].
+  HS_EXPECT_EQ(beacon_rev_resync_delta(31, 0), 31);  // max
+  HS_EXPECT_EQ(beacon_rev_resync_delta(0, 32), -32); // min (32 ahead ≡ 32 behind)
+
+  // The applied fold lands on the beacon's residue across the seam, exactly as
+  // handle_beacon_burst uses it (rev_in_effect + delta, then re-read mod 64).
+  for (uint32_t cur : {62u, 63u, 64u, 65u, 130u, 131u}) {
+    for (uint32_t beacon = 0; beacon < 64u; ++beacon) {
+      const int32_t d = beacon_rev_resync_delta(beacon, cur);
+      HS_EXPECT_TRUE(d >= -32 && d <= 31);
+      HS_EXPECT_EQ((static_cast<int64_t>(cur) + d) & 63, static_cast<int64_t>(beacon));
+    }
+  }
+}
+
 // ── Flywheel position math (§4.1): 64-bit, rebase rule, wrap, trim ─────────
 
 /**
@@ -1960,6 +2003,7 @@ inline int run_pov_sync_tests() {
   test_mailbox_prior_staleness();
   test_seed_clears_mailbox();
   test_beacon_codec();
+  test_rev_resync_fold();
   test_flywheel_position();
   test_snap_gate();
   test_emitter();
