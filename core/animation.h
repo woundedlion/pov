@@ -1481,7 +1481,10 @@ public:
   /**
    * @brief Constructs a Rotation animation.
    * @param orientation The Orientation object to update.
-   * @param axis The rotation axis (unit vector).
+   * @param axis The rotation axis; normalized here so a non-unit axis cannot
+   *        silently skew the angle (make_rotation's trailing normalize folds a
+   *        length-L axis into tan(φ/2) = L·tan(θ/2), rotating by the wrong
+   *        amount with no visual tell). A zero axis traps in normalized().
    * @param angle The total rotation angle in radians.
    * @param duration The duration in frames.
    * @param easing_fn The easing function to use.
@@ -1492,7 +1495,7 @@ public:
            int duration, EasingFn easing_fn, bool repeat = false,
            Space space = Space::World)
       : AnimationBase<Rotation<W, CAP>>(duration, repeat),
-        orientation(&orientation), axis(axis), total_angle(angle),
+        orientation(&orientation), axis(axis.normalized()), total_angle(angle),
         easing_fn(std::move(easing_fn)), last_angle(0), space(space) {}
 
   /**
