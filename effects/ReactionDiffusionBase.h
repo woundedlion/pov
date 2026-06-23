@@ -130,6 +130,23 @@ protected:
   }
 
   /**
+   * @brief Reserves and fills the shared lattice, then arms the view animation.
+   * @details The three steps every derived `init()` must perform together —
+   * reserve the RD_N node array in the persistent arena, fill it with the static
+   * Fibonacci lattice, and install the orientation random-walk. Bundled into one
+   * call so a derived class cannot perform a subset and silently ship a frozen or
+   * empty view (the original footgun: each derived re-listed all three). MUST be
+   * called after configure_arenas() and after the derived class's own persistent
+   * allocations, since the node array shares the persistent arena.
+   */
+  void init_lattice() {
+    nodes = static_cast<Vector *>(
+        persistent_arena.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+    build_nodes(nodes);
+    init_orientation_animation();
+  }
+
+  /**
    * @brief Invokes `fn(ni)` for each valid K-NN neighbor index of `node`.
    * @tparam Fn Callable accepting a neighbor node id.
    * @param node Center node id whose neighbors are visited.
@@ -186,4 +203,5 @@ protected:
   FastNoiseLite noise;              /**< Noise source driving the orientation walk. */
   ReactionGraph::CubemapLUT cube_lut; /**< Cubemap LUT for fast nearest-node seeding. */
   Timeline timeline;                /**< Animation timeline advancing the orientation. */
+  Vector *nodes = nullptr; /**< Fixed Fibonacci-lattice node positions (RD_N), built once by init_lattice() and shared by both systems. */
 };

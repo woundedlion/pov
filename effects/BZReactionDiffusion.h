@@ -42,11 +42,11 @@ class BZReactionDiffusion
   friend Base; // draw_frame() forwards to render()
 
   // Bring dependent-base names into scope (template base requires this).
-  using Base::build_nodes;
   using Base::cube_lut;
   using Base::for_each_neighbor;
-  using Base::init_orientation_animation;
+  using Base::init_lattice;
   using Base::kernel_accumulate;
+  using Base::nodes;
   using Base::orientation;
   using Base::RD_N;
   using Base::refine_nearest_node;
@@ -99,11 +99,10 @@ public:
 
     allocate_state();
     cube_lut.build(persistent_arena);
-    nodes = static_cast<Vector *>(
-        persistent_arena.allocate(RD_N * sizeof(Vector), alignof(Vector)));
-    build_nodes(nodes);
+    // Reserve + build the lattice and arm the orientation walk in one call (must
+    // follow the persistent allocations above, which it shares the arena with).
+    init_lattice();
     seed_spiral_nuclei();
-    init_orientation_animation();
   }
 
 private:
@@ -438,13 +437,6 @@ private:
   struct {
     uint8_t *A = nullptr, *B = nullptr, *C = nullptr;
   } state;
-
-  /**
-   * @brief Fixed Fibonacci-lattice node positions, built once in init().
-   * @details Lives in the persistent arena; independent of the per-frame view
-   *          orientation.
-   */
-  Vector *nodes = nullptr;
 
   /** @brief Triadic generative palette mapping species concentration to color. */
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::TRIADIC,
