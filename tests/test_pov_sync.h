@@ -97,10 +97,22 @@ inline void test_helpers() {
   // resync precondition unenforced. Boundary is exclusive (32 is rejected, 31
   // accepted).
   Config bp = test_config();
+  bp.rejoin_budget_revs = 64; // relax the budget so this isolates the resync bound
   bp.beacon_period_revs = 32;
   HS_EXPECT_FALSE(bp.valid());
   bp.beacon_period_revs = 31;
   HS_EXPECT_TRUE(bp.valid());
+
+  // §9.1 rejoin budget: the beacon cadence must not exceed the budget, so a
+  // board joining just after a beacon hears its identity within it. Boundary is
+  // inclusive (period == budget accepted, period > budget rejected). Probed at
+  // beacon_period_revs <= 17, where the resync half-window bound stays slack.
+  Config rb = test_config();
+  rb.rejoin_budget_revs = 16;
+  rb.beacon_period_revs = 16;
+  HS_EXPECT_TRUE(rb.valid());
+  rb.beacon_period_revs = 17;
+  HS_EXPECT_FALSE(rb.valid());
 }
 
 /**

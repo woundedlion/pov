@@ -139,6 +139,17 @@ struct Config {
   uint32_t join_grid_revs = 4;
 
   /**
+   * @brief Rejoin budget: the most revolutions a mid-show board may wait to
+   * hear its identity beacon (spec §9.1).
+   * @details A board that joins just after a beacon waits up to
+   * beacon_period_revs revs for the next one, so the beacon cadence must not
+   * exceed this budget — enforced in valid() rather than left to prose.
+   * Expressed in revolutions so the bound is rotation-rate independent; the
+   * spec's "~2 s" reading is this budget at the nominal 480 RPM (16 revs).
+   */
+  uint32_t rejoin_budget_revs = 16;
+
+  /**
    * @brief Cycles per column of rotation.
    * @return Cycle-counter cycles spanning one column.
    * @details Truncates (~2.6 ppm); used only for pitches/thresholds — position
@@ -232,7 +243,12 @@ struct Config {
            // cross-check cannot outgrow the beacon spacing; bounding the period
            // below the half-window keeps the resync precondition enforced rather
            // than assumed.
-           beacon_period_revs < 32 && join_grid_revs > 0 &&
+           beacon_period_revs < 32 &&
+           // §9.1 rejoin budget: a board joining just after a beacon waits up
+           // to beacon_period_revs revs for the next identity, so the cadence
+           // must stay within the budget (≤16 revs ≈ 2 s at 480 RPM). Ties the
+           // two previously-independent tunables; the budget was prose-only.
+           beacon_period_revs <= rejoin_budget_revs && join_grid_revs > 0 &&
            (64u % join_grid_revs) == 0;
   }
 };
