@@ -1945,6 +1945,14 @@ struct Face {
           (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
       Vector normal = cross(v1, v2);
       float len_sq = dot(normal, normal);
+      // planes[] is COMPACTED: a degenerate edge (zero-length normal) pushes no
+      // plane, so planes_count advances independently of the edge index `i`.
+      // This means planes[k] does NOT correspond to edge k, unlike the per-edge
+      // arrays above (edge_vectors/edge_lengths_sq/inv_*/thetas), which are all
+      // indexed by `i`. Downstream consumers (the np/sp-containment loop below,
+      // and the caller's distance fallback) treat planes[] as a standalone set
+      // and never index it by edge — keep it that way: correlating planes[k]
+      // with per-edge data[k] would silently mis-pair after any degenerate edge.
       if (len_sq > 1e-12f)
         scratch.planes[planes_count++] = normal.normalized();
       float phi_val = fast_acos(hs::clamp(v1.y, -1.0f, 1.0f));
