@@ -147,7 +147,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 29. ✅ **`Persist` post-restore watermark comment oversells the guarantee** — `core/memory.h:1018-1036`. The single-inequality watermark catches the common single-`Persist` forgot-to-reset but not all stacked cases; soften the comment to match.
 
-30. **Vestigial `<functional>` include** — `core/concepts.h:8`. `Fn` is now `inplace_function`, not `std::function`; verify and drop if unused.
+30. ✅ **Vestigial `<functional>` include** — `core/concepts.h:8`. `Fn` is now `inplace_function`, not `std::function`; verify and drop if unused.
 
 31. **GnomonicStars is the lone `show_bg() == true` effect without a comment** — `effects/GnomonicStars.h:84`. Legitimate (sparse star field), but every other effect's `false` is commented; note the divergence.
 

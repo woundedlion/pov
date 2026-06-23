@@ -5,7 +5,6 @@
 
 #pragma once
 #include <concepts>
-#include <functional>
 #include "3dmath.h"
 #include "canvas.h"
 
