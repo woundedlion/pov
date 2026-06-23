@@ -372,6 +372,28 @@ jobs:
           fi
           echo "Reaction-graph numeric tokens match the generator."
 
+  screenshot-gallery:
+    name: Screenshot gallery is valid and covers every effect
+    # The docs/screenshots gallery is installed into daydream and served live,
+    # but a full headless re-capture per build is far too slow to gate on. This
+    # job is the cheap freshness check instead: it (1) syntax-checks the capture
+    # script so it can't silently break, and (2) asserts the committed PNG set
+    # matches the HS_EFFECT_LIST roster exactly (every effect has a PNG, no
+    # orphans) — catching roster drift like an added/renamed effect whose
+    # screenshot was never captured. It cannot detect a visually-stale PNG; that
+    # still relies on a manual `npm run screenshots` re-capture.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node is preinstalled on the runner; the scripts have no runtime deps
+      # (the freshness gate never launches a browser).
+      - name: Syntax-check the capture script
+        run: node --check scripts/capture_screenshots.mjs
+
+      - name: Gallery covers every registered effect
+        run: node scripts/check_screenshots.mjs
+
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)
     # Guards finding 404: the tests/sanitizers jobs run subsets of the suite via
