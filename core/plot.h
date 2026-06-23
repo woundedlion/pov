@@ -518,9 +518,18 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       return;
     }
 
-    // FAST PATH: sub-pixel segment — skip simulation, just plot start
+    // Sub-step length at the segment start (also the first simulation step).
     const float base_step = (2.0f * PI_F) / W;
-    if (total_dist < base_step) {
+    SamplePT smp = sample(0.0f);
+    float first_step = screen_step<W, H>(smp.pos, smp.tan, base_step);
+
+    // FAST PATH: the whole segment spans ≤ one screen step (~SCREEN_STEP_PX px),
+    // so a single dot covers it — skip the simulation. Keyed on SCREEN length
+    // (via screen_step), NOT arc length: a base_step arc can still cross several
+    // pixels on a steep or near-polar segment, where an arc-length test (the old
+    // `total_dist < base_step`) would skip the sub-stepping the curve needs and
+    // render it as a beaded line.
+    if (total_dist <= first_step) {
       Fragment f = curr;
       f.color = Color4(0, 0, 0, 0);
       fragment_shader(curr.pos, f);
@@ -540,10 +549,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // unit tangent at the step's start. This tracks the true 2-D screen speed
     // rather than the old sin(φ) longitudinal-only proxy, so the curve is
     // sampled ~one pixel per step everywhere instead of unevenly (see
-    // screen_step's note).
+    // screen_step's note). `smp`/`first_step` above seed the first iteration.
     _steps_cache.clear();
     float sim_dist = 0.0f;
-    SamplePT smp = sample(0.0f);
 
     while (sim_dist < total_dist) {
       float step = screen_step<W, H>(smp.pos, smp.tan, base_step);
