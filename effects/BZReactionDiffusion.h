@@ -290,7 +290,7 @@ private:
    * @param ca Palette color for species A.
    * @param cb Palette color for species B.
    * @param cc Palette color for species C.
-   * @return Composited RGB pixel (16-bit channels clamped to [0, 65535]).
+   * @return Composited RGB pixel; the convex blend keeps each 16-bit channel in [0, 65535] without clamping.
    * @details Concentration-weighted average of the three species colors:
    *          (ca·a + cb·b + cc·c) / (a + b + c). Each species contributes in
    *          proportion to its local concentration with no order bias — unlike
@@ -309,9 +309,13 @@ private:
     float g = (ca.color.g * a + cb.color.g * b + cc.color.g * c) * inv;
     float bl = (ca.color.b * a + cb.color.b * b + cc.color.b * c) * inv;
 
-    return Pixel(static_cast<uint16_t>(hs::clamp(r, 0.0f, 65535.0f)),
-                 static_cast<uint16_t>(hs::clamp(g, 0.0f, 65535.0f)),
-                 static_cast<uint16_t>(hs::clamp(bl, 0.0f, 65535.0f)));
+    // No clamp: a, b, c are >= 0 and wsum > 0, so each channel is a convex
+    // combination (weights a/wsum, b/wsum, c/wsum sum to 1) of the palette
+    // channels, which are uint16 in [0, 65535]. The result is therefore bounded
+    // by that range — FP rounding stays far under one count of 65536 — so the
+    // cast cannot overflow and a defensive clamp would be dead.
+    return Pixel(static_cast<uint16_t>(r), static_cast<uint16_t>(g),
+                 static_cast<uint16_t>(bl));
   }
 
   /**
