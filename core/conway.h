@@ -413,7 +413,7 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
  * @return Fresh dual PolyMesh allocated in `target`.
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -461,7 +461,7 @@ FLASHMEM static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
  * @return Fresh kis PolyMesh allocated in `target`.
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -540,7 +540,7 @@ static void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * @return Fresh ambo PolyMesh allocated in `target`.
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -656,7 +656,7 @@ inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
  *   when t == 0.5).
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
                                   float t = 0.25f) {
   HS_CHECK(t >= 0.0f && t <= 1.0f);
   if (std::abs(t - 0.5f) < math::TOLERANCE) {
@@ -761,7 +761,7 @@ FLASHMEM static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
  * @return Fresh expanded PolyMesh allocated in `target`.
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
                                 float t = 2.0f - sqrtf(2.0f)) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -857,7 +857,7 @@ FLASHMEM static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
  * @return Fresh chamfered PolyMesh allocated in `target`.
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
                                  float t = 0.5f) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -956,7 +956,7 @@ FLASHMEM static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
  * @return Fresh relaxed PolyMesh allocated in `target`.
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
                                int iterations = 8) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -1084,7 +1084,7 @@ FLASHMEM static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
  *   the unit sphere and to collinear vertex triplets.
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
                               float t = 0.5f, float twist = 0.0f) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -1202,7 +1202,7 @@ FLASHMEM static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
  *   COMPOSITION POLARITY at the top of the operator block).
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
   return dual(snub(mesh, target, temp), temp, target);
 }
 
@@ -1230,7 +1230,7 @@ FLASHMEM static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
  *   POLARITY at the top of the operator block).
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh meta(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh meta(const MeshT &mesh, Arena &target, Arena &temp) {
   return kis(ambo(mesh, target, temp), temp, target);
 }
 
@@ -1244,7 +1244,7 @@ FLASHMEM static PolyMesh meta(const MeshT &mesh, Arena &target, Arena &temp) {
  *   POLARITY at the top of the operator block).
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh needle(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh needle(const MeshT &mesh, Arena &target, Arena &temp) {
   return kis(dual(mesh, target, temp), temp, target);
 }
 
@@ -1258,7 +1258,7 @@ FLASHMEM static PolyMesh needle(const MeshT &mesh, Arena &target, Arena &temp) {
  *   POLARITY at the top of the operator block).
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh zip(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh zip(const MeshT &mesh, Arena &target, Arena &temp) {
   return dual(kis(mesh, target, temp), temp, target);
 }
 
@@ -1273,7 +1273,7 @@ FLASHMEM static PolyMesh zip(const MeshT &mesh, Arena &target, Arena &temp) {
  *   POLARITY at the top of the operator block).
  */
 template <typename MeshT>
-FLASHMEM static PolyMesh bevel(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh bevel(const MeshT &mesh, Arena &target, Arena &temp,
                                float t = 0.25f) {
   return truncate(ambo(mesh, target, temp), temp, target, t);
 }

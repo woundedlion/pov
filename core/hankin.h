@@ -95,7 +95,7 @@ namespace MeshOps {
  * records the star and rosette faces.
  */
 template <typename MeshT>
-FLASHMEM static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
+HS_COLD static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
                                     Arena &target_arena, Arena &temp_arena) {
   // Topology counts must come through the unified accessors, like every
   // conway.h operator: a borrowed-mode MeshState serves face_counts/faces via
@@ -407,7 +407,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
  * @details Convenience wrapper for callers that do not vary the angle. To
  * animate the angle, keep a CompiledHankin and call update_hankin repeatedly.
  */
-FLASHMEM static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
                                 float angle) {
   PolyMesh out;
 

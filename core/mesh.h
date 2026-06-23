@@ -383,7 +383,7 @@ inline uint8_t narrow_face_count(int count) {
  * @details Removes degenerate faces (faces with < 3 vertices) during the
  * process. Traps if the cumulative face offset exceeds the 16-bit range.
  */
-FLASHMEM static inline void compile(const PolyMesh &src, MeshState &dst,
+HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
                                     Arena &geom_arena) {
   dst.clear();
 
@@ -495,7 +495,7 @@ static inline void hash_combine(uint32_t &seed, uint32_t v) {
  * the 16-bit index range.
  */
 template <typename MeshT>
-FLASHMEM __attribute__((noinline)) static void
+HS_COLD static void
 classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
                            Arena &persistent) {
   ScratchScope _(scratch_a);

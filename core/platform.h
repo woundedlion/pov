@@ -1011,6 +1011,27 @@ inline unsigned long micros() { return hs::micros(); }
 #endif
 
 // ---------------------------------------------------------------------------
+// Keep a setup-only function off the fast ITCM FlexRAM banks (RAM1). It carries
+// FLASHMEM (the ldscript routes .flashmem to FLASH) plus noinline + noclone, and
+// the latter two do the real work for cold operators that the optimizer would
+// otherwise replicate across ITCM: noinline collapses the per-call-site inline
+// copies a hot caller would stamp out (every solid factory inlining the same
+// Conway operator), and noclone blocks the .constprop / .isra IPA clones — which
+// drop the section attribute and so land in ITCM regardless, as
+// classify_faces_by_topology did with FLASHMEM + noinline alone. Apply ONLY to
+// internal-linkage (`static`) free functions on cold paths (mesh/solid
+// construction): a section attribute on a COMDAT (inline/template member)
+// function is a section-type conflict, and the per-frame render path must never
+// pay flash latency. Off-device FLASHMEM is empty and noclone is GCC-only, so
+// the macro degrades to a no-op for the host/simulator build.
+// ---------------------------------------------------------------------------
+#if defined(__GNUC__) && !defined(__clang__)
+#define HS_COLD FLASHMEM __attribute__((noinline, noclone))
+#else
+#define HS_COLD FLASHMEM
+#endif
+
+// ---------------------------------------------------------------------------
 // Platform-agnostic hs:: helpers (defined once; both branches above provide
 // hs::random()). Hoisted out of the per-platform #if to remove duplication.
 // ---------------------------------------------------------------------------
