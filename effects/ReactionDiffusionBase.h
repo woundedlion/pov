@@ -38,10 +38,12 @@ public:
   ReactionDiffusionBase() : Effect(W, H) { persist_pixels = false; }
 
   /**
-   * @brief Reports whether the effect composites over the framebuffer background.
-   * @return Always true; both systems composite over the background.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return true; the strip blanks to black immediately after each column is
+   *         shown, so every column reads as a sharp slice with dark gaps
+   *         between columns rather than persisting across the sweep.
    */
-  bool show_bg() const override { return true; }
+  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances one animation frame and dispatches to the derived renderer.

@@ -125,11 +125,11 @@ public:
   }
 
   /**
-   * @brief Reports whether a background fill is drawn behind the effect.
-   * @return False; trails fully render the frame, so no background fill is
-   *         needed behind them.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Advances the simulation and plots the particle trails for one frame.

@@ -196,7 +196,7 @@ private:
     }
     // Steady-state column path intentionally drops the accept/overrun result:
     // a dropped image column self-heals next tick (see submitFrame's doc).
-    (void)ledController_.submitFrame(effect_->show_bg());
+    (void)ledController_.submitFrame(effect_->strobe_columns());
 #else
     for (int y = 0; y < S / 2; ++y) {
       leds_[pov::strip_top_led(y, S)] = static_cast<CRGB>(
@@ -205,7 +205,7 @@ private:
           slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
     FastLED.show();
-    if (effect_->show_bg()) {
+    if (effect_->strobe_columns()) {
       FastLED.showColor(CRGB(0, 0, 0));
     }
 #endif

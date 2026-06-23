@@ -250,10 +250,11 @@ public:
   }
 
   /**
-   * @brief Whether the effect draws a background.
-   * @return Always false; the sphere is painted directly.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Render one frame of the morphing harmonic.

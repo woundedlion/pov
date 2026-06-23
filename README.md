@@ -348,7 +348,7 @@ POVDisplay<S,RPM>::show<Effect>()
       ↓                                    leds[S/2 + y]     = get_pixel(x±W/2, y)
     [effect renders to bufs_[cur_]]
       ↓                                  FastLED.show()
-    ~Canvas():                           if show_bg(): FastLED.showColor(black)
+    ~Canvas():                           if strobe_columns(): FastLED.showColor(black)
       queue_frame()                      x = (x+1) % width
       ↓ next_ = cur_ (interrupt-safe)    if x==0 || x==width/2:
                                            advance_display()  (prev_ = next_)
@@ -1446,7 +1446,7 @@ public:
         persist_pixels = false;   // clear buffer each frame (this is the default)
     }
 
-    bool show_bg() const override { return false; }
+    bool strobe_columns() const override { return false; }
 
     void draw_frame() override {
         Canvas canvas(*this);       // acquire write buffer

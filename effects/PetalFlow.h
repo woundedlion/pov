@@ -63,10 +63,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should draw its background first.
-   * @return false; this effect paints over a cleared frame.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Steps the timeline (rotation + spawner), then advances and renders

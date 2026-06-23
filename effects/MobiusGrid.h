@@ -37,10 +37,11 @@ public:
                 Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
-   * @brief Reports whether the effect wants a background pass.
-   * @return Always false; this effect draws no background.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Sizes the arenas, exposes the user params, and arms the timeline

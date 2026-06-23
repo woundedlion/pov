@@ -312,7 +312,7 @@ inline void case_timeline_handled_completion() {
   struct DeathEffect : public Effect {
     DeathEffect() : Effect(8, 8) {}
     void draw_frame() override {}
-    bool show_bg() const override { return false; }
+    bool strobe_columns() const override { return false; }
   };
   static DeathEffect fx;
   static Canvas canvas(fx);
@@ -477,7 +477,7 @@ struct DeathEffect : public Effect {
    * @brief Reports whether the effect paints a background.
    * @return Always false; no background is drawn.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
   /**
    * @brief Registers a parameter over the unit range, exposing registerParam.
    * @param n Parameter name.

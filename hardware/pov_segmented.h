@@ -654,7 +654,7 @@ private:
     // Steady-state column path intentionally drops the accept/overrun result:
     // a dropped image column self-heals next tick (see submitFrame's doc and
     // render_black, which DOES gate on the return for the fail-dark latch).
-    (void)ledController_.submitFrame(e->show_bg());
+    (void)ledController_.submitFrame(e->strobe_columns());
   }
 
   /**

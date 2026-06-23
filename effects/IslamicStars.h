@@ -64,10 +64,11 @@ public:
   }
 
   /**
-   * @brief Reports that the effect draws on a transparent background.
-   * @return Always false; the mesh supplies all the color.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Advances ripple state once and runs the timeline for this frame.

@@ -33,10 +33,11 @@ public:
       : Effect(W, H), current_shape(ShapeType::PlanarPolygon) {}
 
   /**
-   * @brief Reports whether the effect needs a background pass.
-   * @return Always false; rings are drawn over a cleared frame.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Registers tunable params and builds the animation timeline.

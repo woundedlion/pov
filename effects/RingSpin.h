@@ -102,10 +102,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the effect draws over a background.
-   * @return false; the effect renders on a clear background.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Advances the timeline and draws each ring's trail.

@@ -122,10 +122,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear to the background each frame.
-   * @return Always false; this effect manages its own framebuffer contents.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Advances and renders one frame of the comet.

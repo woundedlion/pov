@@ -70,10 +70,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return false; rings draw over the prior frame with no background clear.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Advances and renders the timeline for one frame.

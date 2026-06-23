@@ -45,7 +45,7 @@ struct TestEffect : public Effect {
    * @brief Whether the effect requests a background fill.
    * @return Always false (tests drive buffers directly).
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Toggles frame-to-frame pixel persistence.

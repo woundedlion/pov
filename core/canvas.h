@@ -81,10 +81,23 @@ public:
    */
   virtual void draw_frame() = 0;
   /**
-   * @brief Indicates whether the display should show black between POV sweeps.
-   * @return True if the background should be shown (often black).
+   * @brief POV-display strobe control: whether each LED column is blanked to
+   *        black immediately after it is shown, instead of persisting on the
+   *        strip until the next column is drawn.
+   *
+   * Read ONLY on the hardware column-draw path (hardware/pov_single.h,
+   * hardware/pov_segmented.h), once per swept column. It governs inter-column
+   * behavior on the spinning strip, NOT framebuffer contents: it never clears
+   * or persists the canvas — that is `persist_pixels` (see advance_buffer),
+   * an orthogonal mechanism the two were historically conflated with.
+   *
+   * @return true  to strobe: after a column is lit the strip is re-shown black
+   *               (FastLED.showColor / a trailing all-black DMA frame), so each
+   *               column reads as a sharp slice with dark inter-column gaps.
+   * @return false to persist: the lit column is held on the strip until the
+   *               next column overwrites it, filling its full angular cell.
    */
-  virtual bool show_bg() const = 0;
+  virtual bool strobe_columns() const = 0;
 
   /**
    * @brief Whether this effect must render the FULL canvas per simulator worker

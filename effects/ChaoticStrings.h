@@ -142,10 +142,11 @@ public:
   }
 
   /**
-   * @brief Skips the engine's background fill so the trail draws on black.
-   * @return Always false to suppress the background.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Advances and renders one frame of the effect.

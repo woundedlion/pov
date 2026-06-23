@@ -44,7 +44,7 @@ struct ScanFx : public Effect {
    * @brief Reports whether the effect renders a background.
    * @return Always false, so the canvas starts black.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 };
 
 /**

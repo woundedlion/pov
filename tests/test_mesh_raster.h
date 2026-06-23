@@ -62,7 +62,7 @@ struct MeshFx : public Effect {
    * @brief Reports whether the effect paints a background.
    * @return Always false, so only the mesh draw produces lit pixels.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 };
 
 /**

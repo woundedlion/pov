@@ -93,11 +93,12 @@ public:
   }
 
   /**
-   * @brief Reports that the effect fills every pixel via the background pass.
-   * @return Always true; the shader fills every pixel, so the background pass is
-   * requested.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return true; the strip blanks to black immediately after each column is
+   *         shown, so every column reads as a sharp slice with dark gaps
+   *         between columns rather than persisting across the sweep.
    */
-  bool show_bg() const override { return true; }
+  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances the timeline and shades every pixel for one frame.

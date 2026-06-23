@@ -131,11 +131,11 @@ public:
   }
 
   /**
-   * @brief Suppresses the engine background clear; the feedback flush owns the
-   * frame.
-   * @return Always false to disable the background clear.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Forces full-canvas rendering per simulator worker.

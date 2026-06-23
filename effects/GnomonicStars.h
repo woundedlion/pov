@@ -83,12 +83,12 @@ public:
   }
 
   /**
-   * @brief Reports whether the effect wants the background drawn.
-   * @return Always true. Divergence from the roster default (most effects
-   *   return false): this is a sparse star field, so it composites over the
-   *   background gradient rather than clearing the frame to black.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return true; the strip blanks to black immediately after each column is
+   *         shown, so every column reads as a sharp slice with dark gaps
+   *         between columns rather than persisting across the sweep.
    */
-  bool show_bg() const override { return true; }
+  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances the timeline and renders the warped star field.

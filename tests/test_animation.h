@@ -90,7 +90,7 @@ struct FakeEffect : public Effect {
    * @brief Reports that no background is drawn.
    * @return Always false.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 };
 
 /**

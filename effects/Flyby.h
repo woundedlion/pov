@@ -78,16 +78,17 @@ public:
   }
 
   /**
-   * @brief Requests a trailing black display frame (a hardware POV-background
-   * frame), not a software alpha-composite over a background buffer.
-   * @return true; the driver emits a black frame after this effect's image so
-   * the bright stereographic pattern stands against a dark POV background
+   * @brief POV column-strobe flag — see Effect::strobe_columns. Requests a
+   * trailing black display frame after each column, not a software
+   * alpha-composite over a background buffer.
+   * @return true; the strip blanks to black after each column is shown so the
+   * bright stereographic pattern stands as sharp slices against a dark sweep
    * instead of smearing over the previous revolution. The shader itself
    * OVERWRITES every pixel — `Scan::Shader::draw` writes `color * alpha`, and
    * `c.alpha *= (1 - value)` only darkens toward black; no persistent background
    * buffer is blended in or revealed.
    */
-  bool show_bg() const override { return true; }
+  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances animation phases and shades every pixel for one frame.

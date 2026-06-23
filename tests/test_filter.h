@@ -806,7 +806,7 @@ struct PipeFx : public Effect {
    * @brief Reports whether the effect paints a background.
    * @return Always false (tests rely on a black backdrop).
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 };
 
 /**

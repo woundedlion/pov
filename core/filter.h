@@ -1577,10 +1577,12 @@ public:
           ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
           ::Pixel p = style_->color_fn(sample, fade, *style_);
 
-          // Write unconditionally — including black. The sole Feedback user,
-          // MeshFeedback, sets show_bg()=false, so this flush OWNS the frame:
-          // the draw buffer is never cleared and, under double-buffering, still
-          // holds the frame-before-last's pixels. The old `if (p.r|p.g|p.b)`
+          // Write unconditionally — including black. This Feedback flush OWNS
+          // the frame: it rewrites every pixel from the warped previous-frame
+          // sample, and under double-buffering the draw buffer still holds an
+          // earlier frame's pixels, so they must be fully overwritten here.
+          // (This is buffer persistence, not the strobe_columns POV flag — the
+          // two are unrelated.) The old `if (p.r|p.g|p.b)`
           // guard skipped the write where the warped sample decayed to black,
           // leaving those stale two-frame-old pixels intact — so dark trail gaps
           // showed a flickering ghost of an earlier frame: "pixels from

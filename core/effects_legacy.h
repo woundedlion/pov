@@ -264,10 +264,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return False; this effect persists its own pixels.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const { return false; }
+  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the chained-bead animation.
@@ -460,10 +461,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return False; this effect persists its own pixels.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const { return false; }
+  bool strobe_columns() const { return false; }
 
   /**
    * @brief Samples a pixel with each row scrolled by its own offset.
@@ -653,10 +655,12 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return True; the effect renders against a cleared background.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return true; the strip blanks to black immediately after each column is
+   *         shown, so every column reads as a sharp slice with dark gaps
+   *         between columns rather than persisting across the sweep.
    */
-  bool show_bg() const { return true; }
+  bool strobe_columns() const { return true; }
 
   /**
    * @brief Renders one frame of digital rain.
@@ -726,10 +730,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return False; this effect persists its own pixels.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const { return false; }
+  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of mirrored sweeping strokes.
@@ -801,10 +806,12 @@ public:
   FLASHMEM StarsFade() : Effect(W, H), hue_(0) { persist_pixels = true; }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return True; the effect renders against a cleared background.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return true; the strip blanks to black immediately after each column is
+   *         shown, so every column reads as a sharp slice with dark gaps
+   *         between columns rather than persisting across the sweep.
    */
-  bool show_bg() const { return true; }
+  bool strobe_columns() const { return true; }
 
   /**
    * @brief Renders one frame of fading stars.
@@ -848,10 +855,12 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return True; the effect renders against a cleared background.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return true; the strip blanks to black immediately after each column is
+   *         shown, so every column reads as a sharp slice with dark gaps
+   *         between columns rather than persisting across the sweep.
    */
-  bool show_bg() const { return true; }
+  bool strobe_columns() const { return true; }
 
   /**
    * @brief Paints the diagonal spiral pattern.
@@ -886,10 +895,11 @@ public:
   FLASHMEM WaveTrails() : Effect(W, H) { persist_pixels = true; }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return False; this effect persists its own pixels.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const { return false; }
+  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the three wave trails.
@@ -938,10 +948,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return False; this effect persists its own pixels.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const { return false; }
+  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the tumbling ring.
@@ -1002,10 +1013,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return False; this effect persists its own pixels.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const { return false; }
+  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the kaleidoscope.
@@ -1075,10 +1087,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return False; the effect clears the canvas itself.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const { return false; }
+  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the three tumbling rings.
@@ -1192,10 +1205,12 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return True; the effect renders against a cleared background.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return true; the strip blanks to black immediately after each column is
+   *         shown, so every column reads as a sharp slice with dark gaps
+   *         between columns rather than persisting across the sweep.
    */
-  bool show_bg() const { return true; }
+  bool strobe_columns() const { return true; }
 
 private:
   /**
@@ -1286,10 +1301,11 @@ public:
   FLASHMEM Fire() : Effect(W, H) { random16_add_entropy(random()); }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return False; the effect renders its full heat map each update.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const { return false; }
+  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of fire.
@@ -1372,10 +1388,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return False; this effect persists its own pixels.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const { return false; }
+  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the circling dots.
@@ -1475,10 +1492,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the engine should clear the background each frame.
-   * @return False; the effect fills every pixel each frame.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const { return false; }
+  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the scrolling bands.

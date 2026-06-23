@@ -77,7 +77,7 @@ public:
   static constexpr int END_FRAME_BYTES = (N + 15) / 16;
   /** Single-frame buffer size in bytes. */
   static constexpr int BUFFER_SIZE = 4 + (N * 4) + END_FRAME_BYTES;
-  /** Composite size: image frame + trailing black frame (for show_bg). */
+  /** Composite size: image frame + trailing black frame (for strobe_columns). */
   static constexpr int COMPOSITE_SIZE = BUFFER_SIZE * 2;
 
   // The whole composite buffer can be handed to a single DMA transfer
@@ -252,7 +252,7 @@ public:
   constexpr size_t size() const { return BUFFER_SIZE; }
   /**
    * @brief Returns the composite size including the trailing black frame.
-   * @return Composite size in bytes (image frame + black frame, for show_bg DMA).
+   * @return Composite size in bytes (image frame + black frame, for strobe_columns DMA).
    */
   constexpr size_t sizeWithBg() const { return COMPOSITE_SIZE; }
 

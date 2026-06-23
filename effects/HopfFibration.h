@@ -80,10 +80,11 @@ public:
   }
 
   /**
-   * @brief Reports whether the effect wants the background drawn.
-   * @return Always false; trails are drawn over a cleared frame.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Advances one frame: steps animations, records and renders trails.

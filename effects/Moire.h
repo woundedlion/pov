@@ -39,10 +39,11 @@ public:
                 Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
-   * @brief Reports whether the effect draws an opaque background.
-   * @return false; the rings are drawn over a transparent background.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return false; each lit column persists in the POV sweep until the next
+   *         column overwrites it, with no black strobe between columns.
    */
-  bool show_bg() const override { return false; }
+  bool strobe_columns() const override { return false; }
 
   /**
    * @brief One-time setup of arenas, palette LUTs, params, and animations.
