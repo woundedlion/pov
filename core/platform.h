@@ -669,7 +669,7 @@ struct SerialMock {
 inline SerialMock Serial;
 
 // --- FastLED Mocks ---
-// NOTE: these route through hs::random() (mt19937) only to give the host a
+// NOTE: these route through hs::random() (Pcg32) only to give the host a
 // reproducible stream — they do NOT match the device, where random8/random16
 // are FastLED's LCG. This path is therefore per-platform and used only by
 // legacy effects; modern effects use hs::rand_* (see the determinism contract
