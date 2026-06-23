@@ -196,6 +196,14 @@ private:
    *          change alters the emission rate going forward only.
    */
   std::array<float, EmitSolid::NUM_VERTS> emit_phases;
+  /**
+   * @brief Per-emitter tangent-plane basis, built once in init().
+   * @details Each basis depends only on its fixed emitter axis, so it is cached
+   *          here rather than rebuilt inside the per-frame emitter callback. The
+   *          callback is stored in a 32-byte EmitterFn, too small to also
+   *          capture a 36-byte Basis, so the array is indexed by the captured i.
+   */
+  std::array<Basis, EmitSolid::NUM_VERTS> emitter_basis_;
 
   MobiusParams mobius;      /**< Current Mobius warp parameters. */
   float warp_scale = 0.6f;  /**< Magnitude of each warp animation. */
@@ -220,9 +228,11 @@ private:
     emit_phases.fill(0.0f);
 
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
-      Vector axis = EmitSolid::vertices[i];
+      // The tangent-plane basis depends only on the (fixed) emitter axis, so
+      // build it once here instead of rebuilding it inside the per-frame emitter.
+      emitter_basis_[i] = make_basis(Quaternion(), EmitSolid::vertices[i]);
 
-      particle_system.add_emitter([this, i, axis](ParticleSystem &) {
+      particle_system.add_emitter([this, i](ParticleSystem &) {
         // Integrate Ang Spd into a wrapped per-emitter phase so a live speed
         // change affects only the rate going forward; the [0,2pi) wrap keeps
         // cos/sin precise over long runs.
@@ -231,8 +241,8 @@ private:
             fmodf(emit_phases[i] + params.angular_speed, 2.0f * PI_F);
 
         // Velocity in the emitter's tangent plane, rotated by the phase angle.
-        auto basis = make_basis(Quaternion(), axis);
-        Vector vel = (basis.u * cosf(angle) + basis.w * sinf(angle)) *
+        const Basis &basis = emitter_basis_[i];
+        Vector vel = (basis.u * fast_cosf(angle) + basis.w * fast_sinf(angle)) *
                      params.initial_speed;
 
         // Advance hue by the golden ratio for an even spread across emissions.
@@ -240,7 +250,7 @@ private:
 
         if (particle_system.active_count < particle_system.pool.capacity()) {
           uint16_t seed_u16 = static_cast<uint16_t>(emitter_hues[i] * 65535.0f);
-          particle_system.spawn(axis, vel, seed_u16);
+          particle_system.spawn(EmitSolid::vertices[i], vel, seed_u16);
         }
       });
     }
