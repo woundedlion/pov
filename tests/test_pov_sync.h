@@ -1596,6 +1596,90 @@ inline void test_sim_rev_resync() {
     HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
 }
 
+// ── Scenario: 6-bit rev counter wraps WITHIN one effect (§6.4 mod-64) ────────
+
+/**
+ * @brief Verifies normal play stays in lockstep — and the epoch still commits
+ *        correctly — as rev_in_effect rolls through its 6-bit (mod-64) residue
+ *        within a single effect.
+ * @details The beacon carries rev mod 64; the cross-check compares
+ *          f.rev_count against `content_.rev_in_effect & 63`, and the
+ *          beacon_period_revs < 32 rule (Config::valid) exists precisely so the
+ *          resulting signed-mod-64 resync is unambiguous as the residue wraps.
+ *          The 40-rev sim configs (and the 5-rev slip in test_sim_rev_resync)
+ *          never reach rev 64, so this dynamic wrap shipped unverified; here a
+ *          90-rev effect crosses rev 64 mid-show. A dropped `& 63` would, via
+ *          handle_beacon_burst's fold, "resync" a rev-64 board's counter
+ *          backwards (64→32) against a beacon rev_count of 0 — corrupting both
+ *          phase lockstep and the j = rev_in_effect − revs_per_effect inference
+ *          the next epoch train depends on. This pins both staying correct.
+ */
+inline void test_sim_rev_wrap_within_effect() {
+  Config cfg = test_config();
+  cfg.revs_per_effect = 90; // > 64: rev_in_effect wraps its 6-bit residue mid-effect
+  const int32_t ppm[4] = {0, 20, -20, 10};
+  Sim sim(cfg, 4, ppm);
+
+  // Boot: all four boards live on effect 0.
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        for (auto &b : s.boards)
+          if (!b.live)
+            return false;
+        return true;
+      },
+      double(cfg.join_grid_revs) + 2));
+  for (int i = 0; i < 4; ++i)
+    HS_EXPECT_EQ(sim.boards[i].live_index, 0);
+
+  // Advance ACROSS the 63→0 seam and hold past it, sampling lockstep at stable
+  // mid-half instants (master ~x=72). A broken &63 cross-check corrupts
+  // rev_in_effect at rev 64 and would break phase / frame-counter lockstep here.
+  bool crossed_seam = false;
+  for (;;) {
+    sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+    const uint32_t rev = sim.boards[0].board.content().rev_in_effect;
+    HS_EXPECT_LE(sim.max_phase_err(), 2);
+    for (int i = 0; i < 4; ++i) {
+      HS_EXPECT_EQ(sim.boards[i].live_index, 0);
+      HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
+      HS_EXPECT_FALSE(sim.boards[i].trapped);
+      // The schedule counter tracks the master's exactly through the wrap, and
+      // the &63 cross-check raises no spurious rev mismatch. A dropped mask on
+      // the comparison reads a rev≥64 board's full counter as differing from the
+      // wrapped beacon rev_count and resyncs every beacon (climbing
+      // beacon_rev_mismatches); a dropped mask in the fold itself diverges the
+      // counter from the master. Phase/frame lockstep alone catches neither —
+      // those derive from the flywheel, not rev_in_effect.
+      HS_EXPECT_EQ(sim.boards[i].board.content().rev_in_effect, rev);
+      HS_EXPECT_EQ(sim.boards[i].board.telemetry().beacon_rev_mismatches, 0u);
+    }
+    if (rev >= 64)
+      crossed_seam = true;
+    if (rev >= 80)
+      break;
+    sim.run_revs(3.0);
+  }
+  HS_EXPECT_TRUE(crossed_seam); // the run actually exercised rev_in_effect ≥ 64
+
+  // The epoch still commits in lockstep at the post-seam effect boundary:
+  // on_epoch_symbol infers j from a rev whose 6-bit residue has wrapped.
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        for (auto &b : s.boards)
+          if (b.live_index != 1)
+            return false;
+        return true;
+      },
+      double(cfg.revs_per_effect) + 8));
+  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  for (int i = 1; i < 4; ++i) {
+    HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
+    HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
+    HS_EXPECT_FALSE(sim.boards[i].trapped);
+  }
+}
+
 // ── Scenario: same-tick EPOCH burst + boundary fold (§6.3.1 j-inference) ─────
 
 /**
@@ -2018,6 +2102,7 @@ inline int run_pov_sync_tests() {
   test_sim_forged_burst();
   test_sim_epoch_repeat_lockstep();
   test_sim_rev_resync();
+  test_sim_rev_wrap_within_effect();
   test_epoch_same_tick_burst_fold();
 
   test_budget_lost_symbol();
