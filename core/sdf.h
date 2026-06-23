@@ -2863,6 +2863,15 @@ struct Line {
     // fast_acos here matches every other scanline path (Ring/DistortedRing/
     // Flower); C_min is already clamped to [-1,1] by the guards above, and the
     // ~1.3e-4 rad approximation error is far under the floor/ceil pad below.
+    //
+    // This cap-interval math mirrors emit_cap_interval() but is deliberately NOT
+    // routed through it: emit_cap_interval folds the scale into a precomputed
+    // `scale = W / (2π)` and evaluates `(alpha ± d_alpha) * scale`, whereas this
+    // path evaluates `(alpha ± d_alpha) * W / (2π)`. Those two float orderings
+    // are not bit-identical, so merging them would shift this shape's rasterized
+    // column by up to ±1 px and break bit-exact goldens. Kept separate on
+    // purpose; the boolean return polarity matches (true = handled incl. the
+    // outside/empty case, false = request a full-width scan).
     float d_alpha = fast_acos(C_min);
     float f_x1 = (mid_alpha - d_alpha) * W / (2 * PI_F);
     float f_x2 = (mid_alpha + d_alpha) * W / (2 * PI_F);
