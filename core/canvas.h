@@ -265,6 +265,19 @@ public:
 
   /**
    * @brief Queues the newly drawn frame to be displayed.
+   * @details Publishes `cur_` as the new `next_` so the ISR picks it up at the
+   * next frame boundary. The stores are RELAXED on purpose, and correctness does
+   * NOT come from the atomics — it comes from `hs::disable_interrupts()`. The
+   * load-bearing requirement is that every pixel-payload write into `bufs_[cur_]`
+   * (the just-drawn frame) is visible to the ISR before `next_` flips to point at
+   * it. On the single-core target there is no inter-core reordering to fence;
+   * what we need is that the compiler not sink a buffer write past this
+   * publication. `disable_interrupts()` is a compiler barrier (and momentarily
+   * masks the display ISR), so the buffer is fully written before the flip is
+   * observable. This is a deliberate dependency on `platform.h`'s
+   * `disable_interrupts()` being a barrier — if that ever becomes a no-op, or
+   * this is ported to a multi-core target, these stores must become release/
+   * acquire (or carry an explicit barrier) instead.
    */
   inline void queue_frame() {
     hs::disable_interrupts();
