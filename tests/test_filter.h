@@ -113,6 +113,59 @@ inline void test_filter_trait_inheritance() {
                 "Feedback keeps history");
 }
 
+/**
+ * @brief Verifies the `crosses_segments` per-filter trait and the Pipeline
+ *        `any_crosses_segments` OR-fold the segment driver gates on.
+ * @details This is the regression guard for the gate: it pins which filters are
+ *          cross-segment (so a future filter addition can't silently turn a
+ *          stateful effect's full-frame rendering off), and it locks the ONE
+ *          non-fail-safe override — Screen::Trails::crosses_segments == false —
+ *          which the banded-vs-full bit-identity test below proves is safe.
+ */
+inline void test_crosses_segments_trait_and_fold() {
+  constexpr int W = 32, H = 16;
+
+  // Per-filter trait. Non-stateful stages never cross a band; the fail-safe
+  // default ties crosses_segments to has_history.
+  HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::crosses_segments));
+  HS_EXPECT_FALSE((Filter::World::Replicate<W>::crosses_segments));
+  HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::crosses_segments)); // load-bearing
+  HS_EXPECT_TRUE((Filter::World::Trails<W, 16>::crosses_segments));   // fail-safe default
+  // The sole non-fail-safe override: reach-0 in-place decay stays band-clippable.
+  HS_EXPECT_FALSE((Filter::Screen::Trails<W>::crosses_segments));
+
+  // crosses_segments tracks reach, NOT has_history: Screen::Trails keeps history
+  // yet does not cross segments. Pin that they can disagree.
+  HS_EXPECT_TRUE((Filter::Screen::Trails<W>::has_history));
+  HS_EXPECT_FALSE((Filter::Screen::Trails<W>::crosses_segments));
+
+  // Pipeline OR-fold. Empty base case reaches no other segment.
+  HS_EXPECT_FALSE((Pipeline<W, H>::any_crosses_segments));
+
+  // The MeshFeedback stack (World::Orient, Screen::AntiAlias, Pixel::Feedback)
+  // trips the fold via its terminal Feedback stage.
+  using MeshStack = Pipeline<W, H, Filter::World::Orient<W>,
+                             Filter::Screen::AntiAlias<W, H>,
+                             Filter::Pixel::Feedback<W, H>>;
+  HS_EXPECT_TRUE(MeshStack::any_crosses_segments);
+
+  // A non-stateful stack does not — it keeps the segmented clipping win.
+  using PlainStack =
+      Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>;
+  HS_EXPECT_FALSE(PlainStack::any_crosses_segments);
+
+  // A Screen::Trails-only stack does NOT trip the fold despite has_history —
+  // exactly the override the bit-identity test validates.
+  HS_EXPECT_FALSE((Pipeline<W, H, Filter::Screen::Trails<W>>::any_crosses_segments));
+
+  // Compile-time form: the gate must hold at constant-evaluation, since the
+  // driver reads it through Effect::needs_full_frame's constexpr trait access.
+  static_assert(MeshStack::any_crosses_segments,
+                "MeshFeedback pipeline must render full-frame per worker");
+  static_assert(!PlainStack::any_crosses_segments,
+                "non-stateful pipeline must keep the segment clipping win");
+}
+
 // ============================================================================
 // Pipeline sink + get<T>()
 // ============================================================================
@@ -1364,6 +1417,186 @@ inline void test_screen_trails_forwards_aged_emission() {
 }
 
 // ============================================================================
+// Segmented-mode rendering bound (docs/segmented_stateful_effects_spec.md)
+// ============================================================================
+
+/**
+ * @brief The base Effect::needs_full_frame() defaults to false.
+ * @details A plain effect with no cross-segment filter keeps the segmented
+ *          clipping win; only an effect that overrides the query (MeshFeedback,
+ *          covered in test_effects.h) forces full-frame rendering.
+ */
+inline void test_effect_needs_full_frame_default_false() {
+  constexpr int W = 8, H = 8;
+  PipeFx fx(W, H);
+  HS_EXPECT_FALSE(fx.needs_full_frame());
+}
+
+/**
+ * @brief Proves Screen::Trails (crosses_segments = false) renders bit-identically
+ *        whether full-frame or split into N banded workers.
+ * @details This is the load-bearing test for the ONE non-fail-safe trait
+ *          override: Screen::Trails keeps band clipping ON for a history filter,
+ *          justified solely by its reach 0 (decays and redraws each point at the
+ *          same screen coordinate). If that reasoning were wrong, band clipping
+ *          would drop pixels — so it is proven here, not merely asserted. The
+ *          same multi-frame seed sequence is driven through one full-canvas
+ *          instance and two band-clipped instances ([0,H/2) and [H/2,H)); the
+ *          stitched banded output must equal the full output byte-for-byte.
+ */
+inline void test_screen_trails_banded_matches_full() {
+  constexpr int W = 32, H = 16, MAXP = 512;
+  using Trails = Filter::Screen::Trails<W, MAXP>;
+  constexpr int K = 4;        // frames driven
+  constexpr int lifetime = 4; // trail fade length (frames)
+  constexpr int MID = H / 2;
+
+  // A fixed set of seed points spanning every row, with one point that sweeps
+  // rows across frames so the trail buffer holds live points in both bands.
+  struct Seed { int x, y; Pixel c; };
+  auto frame_seeds = [](int f) {
+    return std::array<Seed, 6>{{
+        {3, 1, Pixel(10000, 0, 0)},
+        {12, 4, Pixel(0, 20000, 0)},
+        {20, 7, Pixel(0, 0, 30000)},
+        {7, 10, Pixel(15000, 15000, 0)},
+        {25, 13, Pixel(0, 25000, 25000)},
+        {17, (f * 3) % H, Pixel(40000, 40000, 40000)},
+    }};
+  };
+  auto trail = [](float, float, float t) {
+    // Brightness tracks remaining lifetime so the decay path is exercised, not
+    // just a constant emission.
+    uint16_t v = static_cast<uint16_t>((1.0f - t) * 50000.0f);
+    return Color4(Pixel(v, v, v), 1.0f);
+  };
+
+  // One run = a fresh trail buffer + effect driven K frames under the given clip,
+  // capturing the final displayed frame. PipeFx instances alias the same static
+  // double buffer (single-live guard), so each run is scoped closed before the
+  // next; the arena is reset per run so trail storage starts empty.
+  auto run = [&](int cy0, int cy1, Pixel out[H][W]) {
+    static uint8_t buf[MAXP * 32];
+    Arena arena(buf, sizeof(buf));
+    Pipeline<W, H, Trails> pipe{Trails(lifetime)};
+    pipe.get<Trails>().init_storage(arena);
+
+    PipeFx fx(W, H);
+    fx.set_clip(cy0, cy1, 0, W);
+    for (int f = 0; f < K; ++f) {
+      {
+        Canvas c(fx);
+        for (const auto &s : frame_seeds(f))
+          pipe.plot(c, s.x, s.y, s.c, 0.0f, 1.0f);
+        pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+      }
+      fx.advance_display();
+    }
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        out[y][x] = fx.get_pixel(x, y);
+  };
+
+  static Pixel full[H][W], band_top[H][W], band_bot[H][W];
+  run(0, H, full);        // single full-canvas instance
+  run(0, MID, band_top);  // worker A: top band
+  run(MID, H, band_bot);  // worker B: bottom band
+
+  // Stitch each worker's DISPLAY band and require byte-identity with the full
+  // instance: reach 0 => band clipping drops nothing.
+  bool identical = true;
+  int lit = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &want = full[y][x];
+      const Pixel &got = (y < MID) ? band_top[y][x] : band_bot[y][x];
+      if (!(got.r == want.r && got.g == want.g && got.b == want.b))
+        identical = false;
+      if (want.r | want.g | want.b) ++lit;
+    }
+  HS_EXPECT_TRUE(identical);
+  HS_EXPECT_GT(lit, 0); // else the bit-identity is vacuous
+}
+
+/**
+ * @brief Proves a band-clipped feedback effect DIVERGES from the full-frame
+ *        render — i.e. why crosses_segments forces full-frame for Pixel::Feedback.
+ * @details Feedback reads cv.prev at unbounded warp offsets. A melt warp drips
+ *          content south across the segment boundary, so the bottom band's output
+ *          depends on source rows in the top half. The full-frame instance (what
+ *          the needs_full_frame() gate produces in every worker) carries that
+ *          cross-band content; a worker clipped to the bottom band never seeded
+ *          those northern rows, so its bottom-band output differs — the dropped-
+ *          pixel failure the gate prevents. The companion full-vs-banded test is
+ *          the reach-0 case above; for unbounded reach the only correct bound is
+ *          full-frame, so here we assert the band-clipped path is NOT equivalent.
+ */
+inline void test_feedback_banded_diverges_from_full() {
+  constexpr int W = 64, H = 64; // divisible by the downsample (4)
+  using FB = Filter::Pixel::Feedback<W, H>;
+  constexpr int K = 3;
+  constexpr int MID = H / 2;
+
+  auto run = [&](int cy0, int cy1, Pixel out[H][W]) {
+    // melt_warp + plain_fade, noise disabled => fully deterministic southward
+    // drip; speed 6 -> drip 0.24 gives a multi-row cross-band displacement.
+    ::Feedback::Style style{};
+    style.space_fn = &::Feedback::melt_warp;
+    style.color_fn = &::Feedback::plain_fade;
+    style.noise = nullptr;
+    style.speed = 6.0f;
+    style.fade = 0.9f;
+    style.downsample = 4;
+    Pipeline<W, H, FB> pipe{FB(style)};
+
+    PipeFx fx(W, H);
+    fx.set_clip(cy0, cy1, 0, W);
+    auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+    // Frame 0: seed a bright band straddling the boundary, THROUGH the clipped
+    // pipeline, so a band-clipped worker only seeds rows inside its band.
+    {
+      Canvas c(fx);
+      for (int y = MID - 4; y < MID + 4; ++y)
+        for (int x = 0; x < W; ++x)
+          pipe.plot(c, x, y, Pixel(40000, 40000, 40000), 0.0f, 1.0f);
+    }
+    fx.advance_display();
+
+    for (int f = 0; f < K; ++f) {
+      {
+        Canvas c(fx);
+        pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+      }
+      fx.advance_display();
+    }
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        out[y][x] = fx.get_pixel(x, y);
+  };
+
+  static Pixel full[H][W], band_bot[H][W];
+  run(0, H, full);      // full-frame: what needs_full_frame() yields per worker
+  run(MID, H, band_bot); // a band-clipped worker (the un-gated path)
+
+  // The bottom band must DIFFER between the two: the full render pulled warped
+  // content down from the (lit) northern rows the banded worker never had, while
+  // the full frame itself lit up its bottom band (so the difference is real, not
+  // both-black).
+  bool differs = false;
+  int full_bot_lit = 0;
+  for (int y = MID; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &a = full[y][x];
+      const Pixel &b = band_bot[y][x];
+      if (a.r != b.r || a.g != b.g || a.b != b.b) differs = true;
+      if (a.r | a.g | a.b) ++full_bot_lit;
+    }
+  HS_EXPECT_TRUE(differs);
+  HS_EXPECT_GT(full_bot_lit, 0);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -1376,6 +1609,7 @@ inline int run_filter_tests() {
 
   test_trait_member_values();
   test_filter_trait_inheritance();
+  test_crosses_segments_trait_and_fold();
 
   test_pipeline_sink_is_2d();
   test_pipeline_get_returns_correct_filter();
@@ -1418,6 +1652,10 @@ inline int run_filter_tests() {
   test_world_trails_set_lifetime_shrink_clamps_t();
   test_screen_trails_store_emit_decay();
   test_screen_trails_forwards_aged_emission();
+
+  test_effect_needs_full_frame_default_false();
+  test_screen_trails_banded_matches_full();
+  test_feedback_banded_diverges_from_full();
 
   return hs_test::end_module(scope);
 }

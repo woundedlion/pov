@@ -129,8 +129,21 @@ bool needs_full_frame() const override {
 }
 ```
 
-Only `MeshFeedback` needs it today (→ `true`). Everything else stays `false`
-by default.
+The override's *value* is fully trait-derived (no per-effect judgment): it reads
+the pipeline's compile-time `any_crosses_segments` fold, so adding or removing a
+filter updates the answer automatically. Only the one-line bridge is manual,
+because `Effect` is type-erased — the driver holds an `Effect*` and the compile-
+time fold lives only in the derived effect's `filters` member, so a base virtual
+cannot read it without the derived type surfacing it. Going fully implicit would
+mean reparenting every filtered effect onto a CRTP base that reads
+`Derived::filters`, which also has to reach each effect's (private) `filters` —
+strictly more intrusive than the one-liner, so it is not done.
+
+Every effect whose pipeline crosses segments carries the identical override:
+`MeshFeedback` (`Pixel::Feedback`) and the two `World::Trails` effects `Dynamo`
+and `SplineFlow` (→ `true`). Everything else stays `false` by default. The
+roster test (§8) pins exactly this set so a new cross-segment effect that forgets
+the override is caught.
 
 ### 4.3 Honor it at the driver boundary (the only behavioral change)
 
@@ -221,19 +234,31 @@ topological fidelity.
 
 ## 8. Test plan
 
-- A host unit test rendering `MeshFeedback` full-frame vs as N banded
-  instances and asserting the stitched output is **bit-identical** (the same
-  property the device relies on; see `tests/test_pov_segmented.h` for the
-  partitioning fixtures).
-- A trait test asserting `any_crosses_segments` is `true` for the
-  `MeshFeedback` pipeline and `false` for a representative non-stateful
-  effect, so a future filter addition can't silently regress the gate.
-- **A `Screen::Trails` banded-vs-full bit-identity test.** `crosses_segments
-  = false` on `Screen::Trails` is the only non-fail-safe override — it keeps
-  band clipping *on* for a history filter — so the reach-0 assumption must be
-  proven, not asserted. Render a `Screen::Trails` effect full-frame vs as N
-  banded instances and require the stitched output to be bit-identical. This
-  is the override that drops pixels if wrong; the non-stateful trait test
-  above does not exercise it.
-- A `setClip` test asserting the clip stays full-canvas when
-  `needs_full_frame()` and bands otherwise.
+Implemented in `tests/test_filter.h` and `tests/test_effects.h`:
+
+- **Trait fold** (`test_crosses_segments_trait_and_fold`, test_filter.h): pins
+  the per-filter `crosses_segments` values (incl. the `Screen::Trails == false`
+  override) and the `Pipeline::any_crosses_segments` OR-fold — `true` for the
+  MeshFeedback stack, `false` for a non-stateful stack and a `Screen::Trails`
+  stack — so a future filter addition can't silently regress the gate.
+- **Roster gate** (`test_needs_full_frame_gate`, test_effects.h): constructs the
+  real effects and asserts `needs_full_frame()` is `true` for exactly the
+  cross-segment set (`MeshFeedback`, `Dynamo`, `SplineFlow`) and `false` for
+  representative non-stateful effects. This is the end-to-end equivalent of a
+  `setClip` test — the WASM driver reads exactly this query, and `setClip` itself
+  lives in the Emscripten-only TU, which the native suite cannot link. A new
+  cross-segment effect that forgets the override is caught here.
+- **`Screen::Trails` banded-vs-full bit-identity**
+  (`test_screen_trails_banded_matches_full`, test_filter.h): the load-bearing
+  proof of the one non-fail-safe override. The same multi-frame seed sequence is
+  driven through one full-canvas instance and two band-clipped instances; the
+  stitched banded output must equal the full output byte-for-byte. This is the
+  override that drops pixels if the reach-0 reasoning is wrong.
+- **Feedback band-clip divergence**
+  (`test_feedback_banded_diverges_from_full`, test_filter.h): the inverse for an
+  unbounded-reach filter — a melt warp drips content across the segment boundary,
+  so a band-clipped `Pixel::Feedback` worker's bottom band differs from the
+  full-frame render. Demonstrates *why* full-frame is required: band clipping
+  here is not equivalent, so the gate is load-bearing, not cosmetic.
+- `test_effect_needs_full_frame_default_false` (test_filter.h) pins the base
+  `Effect::needs_full_frame()` default.

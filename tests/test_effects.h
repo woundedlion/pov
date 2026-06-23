@@ -770,6 +770,46 @@ struct DynamoWhiteBox {
 };
 
 /**
+ * @brief Verifies the segmented-mode full-frame gate on the real effect roster.
+ * @details Effect::needs_full_frame() must report true for exactly the effects
+ *          whose filter pipeline crosses segment bands (its trait-derived
+ *          override surfaces the compile-time any_crosses_segments fold), and
+ *          false otherwise so non-stateful effects keep the segment clipping
+ *          win. Cross-segment today: MeshFeedback (Pixel::Feedback) and the two
+ *          World::Trails effects (Dynamo, SplineFlow). This pins the gate end to
+ *          end on constructed effects — the WASM driver reads exactly this query
+ *          (targets/wasm/wasm.cpp setClip). See
+ *          docs/segmented_stateful_effects_spec.md.
+ */
+inline void test_needs_full_frame_gate() {
+  // Each effect aliases the same static double buffer (single-live guard) and
+  // reconfigures the shared arenas/timeline in init(), so construct one at a
+  // time with the same fresh setup smoke_one uses.
+  auto reset = [] {
+    hs::random().seed(1337u);
+    configure_arenas_default();
+    Timeline().clear();
+    global_timeline_t = 0;
+  };
+  auto check = [&](Effect &fx, bool expected, const char *name) {
+    fx.init();
+    if (fx.needs_full_frame() != expected)
+      std::printf("  [FAIL] %s needs_full_frame()=%d expected=%d\n", name,
+                  fx.needs_full_frame(), expected);
+    HS_EXPECT_EQ(fx.needs_full_frame(), expected);
+  };
+
+  // Cross-segment stateful effects -> full-frame.
+  { reset(); MeshFeedback<kW, kH> fx; check(fx, true, "MeshFeedback"); }
+  { reset(); Dynamo<kW, kH> fx;       check(fx, true, "Dynamo"); }
+  { reset(); SplineFlow<kW, kH> fx;   check(fx, true, "SplineFlow"); }
+
+  // Representative non-stateful effects -> keep band clipping (default false).
+  { reset(); Voronoi<kW, kH> fx;  check(fx, false, "Voronoi"); }
+  { reset(); RingSpin<kW, kH> fx; check(fx, false, "RingSpin"); }
+}
+
+/**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Runs the SH-decode check, then both smoke and determinism passes over
@@ -778,6 +818,7 @@ struct DynamoWhiteBox {
 inline int run_effects_tests() {
   auto scope = hs_test::begin_module("effects");
 
+  test_needs_full_frame_gate();
   test_sh_decode_lm_valid_order();
   test_gs_q16_roundtrip();
   test_gs_rest_state_is_fixed_point();

@@ -73,6 +73,18 @@ public:
   bool show_bg() const override { return false; }
 
   /**
+   * @brief Forces full-canvas rendering per simulator worker.
+   * @return decltype(filters)::any_crosses_segments — true, because the
+   *         World::Trails stage reprojects trail samples under rotation and so
+   *         moves state across segment bands; a band-clipped worker would drop
+   *         cross-band trails. Trait-derived, so adding/removing a filter keeps
+   *         the gate correct. See docs/segmented_stateful_effects_spec.md.
+   */
+  bool needs_full_frame() const override {
+    return decltype(filters)::any_crosses_segments;
+  }
+
+  /**
    * @brief Registers sliders, seeds node rows, primes the baked-palette LUT
    *        pool, and schedules the random reverse/wipe/rotate timers.
    */
