@@ -1430,9 +1430,8 @@ public:
     Vector travel = ahead - point;
     Vector tangent = travel - dot(travel, point) * point;
     // Fallback when the tangent vanishes: a cross with the body axis least
-    // parallel to the point (mirrors make_rotation/RandomWalk's reference pick).
-    Vector seed =
-        std::abs(dot(point, X_AXIS)) < math::COS_AXIS_PARALLEL ? X_AXIS : Y_AXIS;
+    // parallel to the point (shared with RandomWalk's reference pick).
+    Vector seed = least_parallel_axis(point);
     Vector b1 = normalized_or(tangent, cross(seed, point).normalized());
     Vector b2 = cross(point, b1);
     return quaternion_from_basis(point, b1, b2);
@@ -1655,10 +1654,7 @@ public:
       : AnimationBase<RandomWalk<W, CAP>>(-1, false), orientation(orientation),
         v(Vector(v_start).normalized()), options(options),
         noiseGenerator(noise) {
-    Vector u = X_AXIS;
-    if (std::abs(dot(v, u)) > math::COS_AXIS_PARALLEL) {
-      u = Y_AXIS;
-    }
+    Vector u = least_parallel_axis(v);
     direction = cross(v, u).normalized();
     noiseGenerator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noiseGenerator.get().SetFrequency(options.noise_scale);
@@ -1712,8 +1708,7 @@ public:
     // If v and direction drift near-parallel the cross collapses to zero; fall
     // back to a deterministic perpendicular of v (the ctor's basis choice)
     // rather than normalizing a zero-length axis into NaN.
-    const Vector axis_seed =
-        std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL ? Y_AXIS : X_AXIS;
+    const Vector axis_seed = least_parallel_axis(v);
     Vector walk_axis =
         normalized_or(cross(v, direction), cross(v, axis_seed).normalized());
     v = rotate(v, make_rotation(walk_axis, options.speed)).normalized();
