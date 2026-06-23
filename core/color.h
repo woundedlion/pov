@@ -976,7 +976,10 @@ public:
     // srgb_to_linear() LUT, so a stop's flat-region entry is bit-identical to
     // the value an adjacent interpolated segment computes at that stop — no
     // ~1-LSB precision seam at flat/interpolated boundaries. Cold path.
-    int firstStop = static_cast<int>(prevPos * 255);
+    // Quantize stop positions round-to-nearest (+0.5 before truncating; pos is
+    // in [0,1] so it stays non-negative), matching the file's round-to-nearest
+    // discipline: a plain floor biases every authored centroid up to ~1/255 low.
+    int firstStop = static_cast<int>(prevPos * 255.0f + 0.5f);
     Pixel prevLinear(float_to_pixel16(srgb_to_linear_float(prevColor.r / 255.0f)),
                      float_to_pixel16(srgb_to_linear_float(prevColor.g / 255.0f)),
                      float_to_pixel16(srgb_to_linear_float(prevColor.b / 255.0f)));
@@ -988,8 +991,8 @@ public:
       float nextPos = it->first;
       CPixel nextColor = it->second;
 
-      int start = static_cast<int>(prevPos * 255);
-      int end = static_cast<int>(nextPos * 255);
+      int start = static_cast<int>(prevPos * 255.0f + 0.5f);
+      int end = static_cast<int>(nextPos * 255.0f + 0.5f);
 
       // Two stops that quantize to the same index (equal or near-equal
       // positions) leave end == start and skip this segment: the later stop's
@@ -1023,7 +1026,7 @@ public:
 
     // Fill end. Same float conversion path as the start-fill and segment body
     // (see the start-fill note) for bit-identical flat/interpolated parity.
-    int lastStop = static_cast<int>(prevPos * 255);
+    int lastStop = static_cast<int>(prevPos * 255.0f + 0.5f);
     Pixel lastLinear(float_to_pixel16(srgb_to_linear_float(prevColor.r / 255.0f)),
                      float_to_pixel16(srgb_to_linear_float(prevColor.g / 255.0f)),
                      float_to_pixel16(srgb_to_linear_float(prevColor.b / 255.0f)));

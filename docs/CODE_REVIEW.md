@@ -185,7 +185,7 @@ device's shipped behavior:
 61. ✅ core/easing.h:98,131 — `ease_out_expo`/`ease_out_elastic` have no lower guard for `t<0`, returning wildly out-of-range values (siblings guard their radicand).
 62. ✅ core/color.h:528 — `CPixel(uint32_t hex)` is non-explicit (the one hole in an otherwise explicit-cast policy); a stray int silently becomes a color.
 63. ✅ core/color.h:1116 — golden-ratio hue step truncates (157) instead of rounding (158); comment inaccurately says "rounded." (Fixed by correcting the comment: 158 is even, not coprime with 256, so it would short-cycle — 157 truncation is load-bearing and must stay; only the wording was wrong.)
-64. core/color.h:976-1023 — `Gradient` stop positions are floor-quantized `(int)(pos*255)`, drifting authored centroids up to ~1/255 below intent (deviates from the file's round-to-nearest discipline).
+64. ✅ core/color.h:976-1023 — `Gradient` stop positions are floor-quantized `(int)(pos*255)`, drifting authored centroids up to ~1/255 below intent (deviates from the file's round-to-nearest discipline).
 65. core/color.h:1404 vs 1259-1311 — chroma envelope uses `fast_sinf` on sampling but exact `sinf` on authoring, so a stop's reproduced chroma isn't bit-identical to its authored value.
 66. core/color.h:838-862 — `lerp_oklch` achromatic-start blend adopts the target hue instantly at `t≈0⁺`; correct but undocumented.
 67. core/color.h:1242 / styles.h:189-247 — tuning constants (`kChromaPeak`, `kHueTorsion`, `0.12/0.55` L-band) and positional 8-field preset brace-init have no compile-time anchor; a reorder or LUT change silently mis-tunes.
