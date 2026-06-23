@@ -229,6 +229,16 @@ inline int end_module(const ModuleScope &m) {
     }                                                                          \
   } while (0)
 
+// Near-equality with an absolute tolerance. Both operands are captured as double
+// on purpose, and that is the more sensitive choice, not a precision-masking one:
+// every float (and every integer up to 2^53) widens to double exactly, so a
+// float-domain difference is preserved bit-for-bit rather than hidden, while a
+// genuinely double-valued operand is then compared at full precision instead of
+// being rounded to ~1e-7 float resolution (the regression the approx(double,...)
+// overload guards against). Widening therefore can only ever surface a delta a
+// float-domain compare would have shown, never swallow one. Call sites that
+// deliberately want a float-domain compare (e.g. component helpers in
+// test_3dmath.h) invoke hs_test::approx(float,float,float) directly.
 #define HS_EXPECT_NEAR(a, b, tol)                                             \
   do {                                                                        \
     double _hs_a = (a);                                                       \

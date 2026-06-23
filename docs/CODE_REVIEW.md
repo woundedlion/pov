@@ -267,7 +267,7 @@ device's shipped behavior:
 143. tests/test_animation.h — `ParticleSystem` capacity test never `step()`s or verifies spawned-particle init; attractor kill tested only at distance 0 (no `==kill_radius` boundary).
 144. ✅ tests/test_hankin.h — verifies array sizes/unit-length but not that static vertices are the actual edge midpoints; flat-vs-twisted threshold (`1e-3`) is an unmotivated magic number.
 145. ✅ tests/test_color.h — `hue_rotate` gray-preservation/identity tolerances are very loose (48/64 of 255), smoke-grade not precision.
-146. tests/test_harness.h — `HS_EXPECT_NEAR` always widens to `double`, masking float-resolution precision-loss in mixed expressions.
+146. ✅ tests/test_harness.h — `HS_EXPECT_NEAR` always widens to `double`, masking float-resolution precision-loss in mixed expressions. *(Non-issue: float→double widening is lossless and integers widen exactly to 2^53, so the double compare is strictly more sensitive than a float one — it preserves any float-domain delta and compares double operands at full precision rather than rounding both to ~1e-7. Documented the invariant on the macro; the float `approx` overload remains for explicit float-domain call sites.)*
 147. tests (structural) — no host-vs-device numerical parity for the ARM `lerp16`/`uqadd16` asm beyond the software reference; documented limitation (no device build in CI), not a fixable gap.
 148. daydream/tests/color_parity_wasm.test.js:124 — only the palette path has absolute goldens; `oklab`/`lissajous` parity is WASM-vs-JS only, so a coordinated shared drift passes.
 149. daydream/tests/segment_controller.test.js:43 — `onmessageerror` is wired into the FakeWorker but never delivered/asserted; out-of-order frames within a generation are untested.
