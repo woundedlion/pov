@@ -867,12 +867,21 @@ inline uint8_t triwave8(uint8_t in) {
 /**
  * @brief Executes the guarded block at most once every N milliseconds.
  * @param N Interval in milliseconds.
+ * @details Expands to a static throttle object plus one `if`, the SAME two-token
+ * shape as the device's class-based FastLED macro (`static CEveryNMillis o(N);
+ * if (o)`). The previous host mock expanded to THREE statements — a `static`
+ * decl, an extra non-static local `__now`, then the `if` — so its body did not
+ * line up statement-for-statement with the device's, the divergence this closes
+ * (`EVERY_N_MILLIS host-mock parity`). As on the device, the trailing `if` is
+ * what the following braced block attaches to; like FastLED's, this still cannot
+ * serve as the *unbraced* body of an outer control statement (a leading `static`
+ * decl is not a valid lone substatement) — that constraint now matches the
+ * device instead of being a third host-only failure mode. See hs::EveryNMillis
+ * for the preserved timing semantics.
  */
 #define EVERY_N_MILLIS(N)                                                      \
-  static unsigned long HS_CONCAT(__last_, __LINE__) = 0;                       \
-  unsigned long HS_CONCAT(__now_, __LINE__) = hs::millis();                     \
-  if (HS_CONCAT(__now_, __LINE__) - HS_CONCAT(__last_, __LINE__) >= (N) &&      \
-      (HS_CONCAT(__last_, __LINE__) = HS_CONCAT(__now_, __LINE__)))
+  static hs::EveryNMillis HS_CONCAT(__every_, __LINE__)((N));                  \
+  if (HS_CONCAT(__every_, __LINE__))
 
 /**
  * @brief Executes the guarded block at most once every N seconds.
@@ -901,6 +910,41 @@ inline unsigned long millis() {
   return duration_cast<milliseconds>(steady_clock::now().time_since_epoch())
       .count();
 }
+
+/**
+ * @brief Host throttle backing EVERY_N_MILLIS, mirroring FastLED's CEveryNMillis.
+ * @details Class-based like the device's FastLED macro so EVERY_N_MILLIS can
+ * expand to a single guarded statement (`static EveryNMillis o(N); if (o)`)
+ * instead of a multi-statement sequence, keeping the host structurally in step
+ * with the device and nesting correctly in control flow.
+ *
+ * Timing is preserved exactly from the prior mock: `last_` starts at 0 so the
+ * first evaluation fires (`now - 0 >= period`), and the trigger stamp is never
+ * reset across effect switches (the object is a function-local `static`). The
+ * period is captured at construction, matching the device's FastLED object
+ * (which likewise fixes its period when the static is built).
+ */
+class EveryNMillis {
+public:
+  explicit EveryNMillis(unsigned long period) : last_(0), period_(period) {}
+
+  /** @brief True at most once per `period_` ms; stamps the trigger when it fires. */
+  bool ready() {
+    unsigned long now = millis();
+    if (now - last_ >= period_) {
+      last_ = now;
+      return true;
+    }
+    return false;
+  }
+
+  /** @brief Contextual-bool form so `if (obj)` reads as the throttle gate. */
+  explicit operator bool() { return ready(); }
+
+private:
+  unsigned long last_;
+  unsigned long period_;
+};
 /**
  * @brief Returns microseconds since an arbitrary epoch (host micros()).
  * @return Monotonic microsecond count, or the injected mock time when enabled.
