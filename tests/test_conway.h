@@ -664,6 +664,80 @@ inline void test_bevel_cube() {
 }
 
 // ---------------------------------------------------------------------------
+// COMPOSITION POLARITY — the load-bearing arena invariant in conway.h: a
+// PRIMITIVE operator returns its output mesh in `target`, but a two-op COMPOSED
+// operator (gyro/meta/needle/zip/bevel), written as op2(op1(m,target,temp),
+// temp,target), reuses the same ping-pong and lands its output in `temp`, the
+// OPPOSITE arena. SolidBuilder's recipe scheduling depends on this exact
+// polarity, yet it was only exercised transitively via the recipes. Pin it
+// directly by locating which arena the returned mesh's storage falls in.
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Reports whether a pointer lands inside a byte buffer's address range.
+ * @param p Pointer to test (e.g. the address of an output mesh's first vertex).
+ * @param buf Base of the arena's backing byte buffer.
+ * @param n Size of the buffer in bytes.
+ * @return True iff p lies within [buf, buf + n).
+ * @details Compares via uintptr_t so the cross-object pointer test is fully
+ *          defined (no unspecified relational pointer comparison under UBSan).
+ */
+inline bool ptr_in_buffer(const void *p, const uint8_t *buf, size_t n) {
+  auto addr = reinterpret_cast<uintptr_t>(p);
+  auto base = reinterpret_cast<uintptr_t>(buf);
+  return addr >= base && addr < base + n;
+}
+
+/**
+ * @brief Verifies the primitive-vs-composed arena polarity in conway.h.
+ * @details A primitive (dual) must return its output in `target`; each composed
+ *          operator (gyro/meta/needle/zip/bevel) must return its output in
+ *          `temp`. The seed is built in `temp` for every case, matching the
+ *          per-operator tests and SolidBuilder's calling convention. Each output
+ *          also satisfies the basic structural invariants, so the polarity check
+ *          is asserted on a genuinely valid mesh.
+ */
+inline void test_conway_composition_polarity() {
+  const uint8_t *tgt = conway_target_buf;
+  const uint8_t *tmp = conway_temp_buf;
+  const size_t tgt_n = sizeof(conway_target_buf);
+  const size_t tmp_n = sizeof(conway_temp_buf);
+
+  // Sanity baseline: a PRIMITIVE returns in `target` (confirms the buffers and
+  // the locator are wired correctly before testing the compositions).
+  {
+    Arena target(conway_target_buf, sizeof(conway_target_buf));
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, temp);
+    PolyMesh d = MeshOps::dual(cube, target, temp);
+    check_basic_invariants(d);
+    HS_EXPECT_TRUE(ptr_in_buffer(&d.vertices[0], tgt, tgt_n));
+    HS_EXPECT_FALSE(ptr_in_buffer(&d.vertices[0], tmp, tmp_n));
+  }
+
+  // Each COMPOSED operator returns in `temp`, the opposite arena.
+#define HS_POLARITY_COMPOSED(CALL)                                             \
+  do {                                                                         \
+    Arena target(conway_target_buf, sizeof(conway_target_buf));               \
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));                      \
+    PolyMesh seed;                                                             \
+    build_solid<Solids::Cube>(seed, temp);                                     \
+    PolyMesh out = MeshOps::CALL;                                              \
+    check_basic_invariants(out);                                              \
+    HS_EXPECT_TRUE(ptr_in_buffer(&out.vertices[0], tmp, tmp_n));              \
+    HS_EXPECT_FALSE(ptr_in_buffer(&out.vertices[0], tgt, tgt_n));             \
+  } while (0)
+
+  HS_POLARITY_COMPOSED(gyro(seed, target, temp));
+  HS_POLARITY_COMPOSED(meta(seed, target, temp));
+  HS_POLARITY_COMPOSED(needle(seed, target, temp));
+  HS_POLARITY_COMPOSED(zip(seed, target, temp));
+  HS_POLARITY_COMPOSED(bevel(seed, target, temp));
+#undef HS_POLARITY_COMPOSED
+}
+
+// ---------------------------------------------------------------------------
 // snub(cube) — chiral operator; structural sanity only.
 // ---------------------------------------------------------------------------
 
@@ -886,6 +960,7 @@ inline int run_conway_tests() {
   test_needle_cube();
   test_zip_cube();
   test_bevel_cube();
+  test_conway_composition_polarity();
   test_snub_cube_is_well_formed();
   test_conway_ops_preserve_euler_characteristic();
   test_conway_ops_drop_degenerate_primary_faces();

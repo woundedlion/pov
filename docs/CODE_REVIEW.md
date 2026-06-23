@@ -166,7 +166,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 38. ✅ **`BZReactionDiffusion` lacks a white-box test seam** — `GSReactionDiffusion` has `GSWhiteBox` reaching its fixed-point round-trip and step; BZ has identical fixed-point/stability concerns (`to_q8`/`advance_species`/`perturb_state`) with no isolation seam. Add a matching friend.
 
-39. **Conway composition polarity is not directly unit-tested** — the most error-prone, explicitly-load-bearing invariant in `conway.h` (composed ops return output in `temp`) is exercised only transitively via `SolidBuilder` recipes. Add a focused test asserting `gyro`/`meta`/`needle`/`zip`/`bevel` land output in the expected arena.
+39. ✅ **Conway composition polarity is not directly unit-tested** — the most error-prone, explicitly-load-bearing invariant in `conway.h` (composed ops return output in `temp`) is exercised only transitively via `SolidBuilder` recipes. Add a focused test asserting `gyro`/`meta`/`needle`/`zip`/`bevel` land output in the expected arena.
 
 40. **Per-effect rendering correctness is smoke-only** — `tests/test_effects.h` asserts `get_pixel` stability + non-black + cross-run determinism, but not *which* pixels are lit, so a regression that changes the image while staying non-black and deterministic would pass. This is a documented, defensible trade-off (golden frames at two resolutions are costly); noted as the one real coverage soft-spot, partially mitigated by per-effect white-box numeric invariants.
 
