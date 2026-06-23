@@ -85,7 +85,10 @@ public:
     // The padding math `(align - current % align) % align` is only correct for a
     // power-of-two alignment (and `current % align` is UB for align == 0). Every
     // caller passes `alignof(T)`, so this is a latent guard against a future
-    // explicit-align caller, placed on the cold allocation path.
+    // explicit-align caller, placed on the cold allocation path. Power-of-two is
+    // the *only* requirement: an over-aligned request (align > max_align_t) is
+    // honored exactly because the padding below is derived from the true address,
+    // not from any assumption about the buffer's base alignment.
     HS_CHECK(align != 0 && (align & (align - 1)) == 0);
     // `padding` is a byte count derived from the TRUE address (buffer+offset),
     // which is the robust form (correct for any base alignment, including the
@@ -539,6 +542,12 @@ public:
     // An empty append must not reach memcpy: a null src (e.g. an empty source
     // vector's data()) with count 0 is formal UB that UBSan flags, even though
     // real libc treats it as a no-op. Bail after the invariant checks.
+    //
+    // This early-out is also what makes a null *destination* safe: a zero-size
+    // bind() leaves data_ == nullptr with capacity_ == 0, so the capacity guard
+    // above (count <= capacity_ - size_ == 0) forces count == 0 and we return
+    // here — the memcpy below never dereferences a null data_. The non-null
+    // destination invariant is therefore enforced, not merely assumed.
     if (count == 0)
       return;
     memcpy(static_cast<void*>(data_ + size_), src, count * sizeof(T));
