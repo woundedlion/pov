@@ -49,6 +49,59 @@
 
 #include <random>
 #include <type_traits>
+#include <cstdint>
+
+namespace hs {
+/**
+ * @brief Small deterministic PRNG (PCG XSH-RR 64/32) — the process-wide RNG.
+ * @details Replaces std::mt19937 as the engine behind hs::random(): it cuts the
+ *          global generator state from ~2,500 B to 16 B of DTCM (RAM1) and has a
+ *          shorter critical path. Models a UniformRandomBitGenerator (result_type
+ *          / min() / max() / operator()), so std::shuffle and hs::rand_* consume
+ *          it unchanged.
+ *
+ *          DETERMINISM CONTRACT: device and host both instantiate this identical
+ *          type seeded with 1337, so the draw stream stays bit-identical across
+ *          the two builds — the sim/device parity invariant is preserved. Only
+ *          the algorithm changed, so the sequence differs from the former
+ *          mt19937; nothing may depend on the specific values, only on
+ *          reproducibility. Reference implementation by Melissa O'Neill (pcg32).
+ */
+class Pcg32 {
+public:
+  using result_type = uint32_t;
+  static constexpr result_type min() { return 0u; }
+  static constexpr result_type max() { return 0xFFFFFFFFu; }
+
+  explicit Pcg32(uint64_t seed = 1337u) { this->seed(seed); }
+
+  /**
+   * @brief Re-initializes the generator to the deterministic state for `s`.
+   * @param s Seed value (mirrors std::mt19937::seed so callers pinning a known
+   *          stream — the determinism tests — work unchanged).
+   */
+  void seed(uint64_t s) {
+    state_ = 0u;
+    inc_ = (kStreamSeq << 1u) | 1u; // stream id must be odd
+    (*this)();
+    state_ += s;
+    (*this)();
+  }
+
+  result_type operator()() {
+    uint64_t old = state_;
+    state_ = old * 6364136223846793005ULL + inc_;
+    uint32_t xorshifted = static_cast<uint32_t>(((old >> 18u) ^ old) >> 27u);
+    uint32_t rot = static_cast<uint32_t>(old >> 59u);
+    return (xorshifted >> rot) | (xorshifted << ((0u - rot) & 31u));
+  }
+
+private:
+  uint64_t state_ = 0u;
+  uint64_t inc_ = 0u;
+  static constexpr uint64_t kStreamSeq = 0x14057b7ef767814fULL;
+};
+} // namespace hs
 
 #ifdef ARDUINO
 #ifndef NDEBUG
@@ -85,10 +138,10 @@ inline void flush_log() { Serial.flush(); }
 
 /**
  * @brief Returns the global deterministic random number generator.
- * @return Reference to the process-wide mt19937 seeded with 1337.
- * @details DETERMINISM CONTRACT: this `mt19937(1337)` is the only RNG that is
+ * @return Reference to the process-wide Pcg32 seeded with 1337.
+ * @details DETERMINISM CONTRACT: this `Pcg32(1337)` is the only RNG that is
  *          bit-identical device-vs-simulator — the host build (see the `#else`
- *          branch below) returns the same seeded `mt19937`. Effects that must
+ *          branch below) returns the same seeded `Pcg32`. Effects that must
  *          render identically on hardware and in the byte-deterministic
  *          simulator therefore draw through this generator: `hs::random()`,
  *          `hs::rand_f`, `hs::rand_int`.
@@ -96,24 +149,24 @@ inline void flush_log() { Serial.flush(); }
  *          The bare FastLED `random8()`/`random16()`/Arduino `random()` are NOT
  *          covered by this contract: on device they resolve to FastLED's LCG
  *          (seeded by `randomSeed(1337)` in pov_single.h), but the host mocks
- *          route them through this `mt19937` — a different algorithm, so the two
+ *          route them through this `Pcg32` — a different algorithm, so the two
  *          diverge. Only legacy effects (`effects_legacy.h`) use that path;
  *          modern effects must not, and the cheap LCG is deliberately not
  *          adopted on the hot path because it would break this contract for no
- *          measurable gain (RNG is spawn/setup-time, never per-pixel). A future
- *          per-pixel RNG need should add a fast deterministic PRNG here
- *          (xorshift/PCG), not reach for the platform LCG.
+ *          measurable gain (RNG is spawn/setup-time, never per-pixel). Pcg32 is
+ *          itself a fast deterministic PRNG, so a future per-pixel RNG need can
+ *          draw from here rather than reaching for the platform LCG.
  *
  *          REENTRANCY CONTRACT: the generator is a function-local `static`, so
  *          advancing it mutates shared state with no lock. It is therefore
  *          main-loop-only — never call `hs::random()`/`rand_f`/`rand_int` from an
  *          ISR or any preemptive context. Interleaving a draw from an interrupt
- *          would both corrupt the mt19937 internal state (a torn multi-word
+ *          would both corrupt the generator's internal state (a torn multi-word
  *          update) and desync the deterministic stream from the simulator. Safe
  *          today only because every caller runs on the render/setup path.
  */
-inline std::mt19937& random() {
-  static std::mt19937 gen(1337);
+inline Pcg32& random() {
+  static Pcg32 gen(1337);
   return gen;
 }
 /**
@@ -432,14 +485,14 @@ inline void flush_log() { fflush(stdout); }
 
 /**
  * @brief Returns the global deterministic random number generator.
- * @return Reference to the process-wide mt19937 seeded with 1337.
- * @details Mirrors the device `mt19937(1337)` so that `hs::random()`/`hs::rand_*`
+ * @return Reference to the process-wide Pcg32 seeded with 1337.
+ * @details Mirrors the device `Pcg32(1337)` so that `hs::random()`/`hs::rand_*`
  *          reproduce hardware bit-for-bit — see the determinism contract on the
  *          ARDUINO branch's `hs::random()` for which paths are (and are not)
  *          covered.
  */
-inline std::mt19937& random() {
-  static std::mt19937 gen(1337);
+inline Pcg32& random() {
+  static Pcg32 gen(1337);
   return gen;
 }
 } // namespace hs

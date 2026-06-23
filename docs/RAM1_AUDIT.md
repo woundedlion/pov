@@ -166,7 +166,7 @@ Target: ITCM ≤ 163,840 (cut ≥ 10,088). Moving the list above (~9–10 KB) pl
 
 ### P1 — DTCM data, perf-neutral or **faster**
 
-**R2 — Replace `std::mt19937` with a small PRNG.** *(−2,470 B DTCM, and faster.)*
+**R2 — ✅ Replace `std::mt19937` with a small PRNG.** *(DONE: DTCM variables 355,360 → 352,864 B, −2,496 B; stack +5,088 → +7,584 B. Added `hs::Pcg32` (PCG XSH-RR 64/32, 16 B state) behind `hs::random()`; device + host use the identical seeded type so parity holds; all 35 native tests pass.)* *(−2,470 B DTCM, and faster.)*
 `hs::random()` is a process-wide `mt19937(1337)` whose 624-word state is the 2,500-byte DTCM symbol. A `pcg32` or `xoshiro128**` has 16–32 B of state and a shorter critical path. ⚠ **Parity caveat:** `platform.h` documents this generator as the *single* determinism source shared by sim and device; swap **both** sides to the identical new PRNG in one change and re-tune any sequence-sensitive effect. Net: −~2,470 B RAM1, +throughput.
 
 **R3 — Move the trig lookup tables to flash.** *(−4,068 B DTCM, marginal perf.)*

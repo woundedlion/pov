@@ -254,7 +254,7 @@ inline void test_serial_printf_formats_varargs() {
  *          unchanged.
  */
 inline void test_rand_f_half_open() {
-  constexpr uint32_t kMax = 0xFFFFFFFFu; // std::mt19937::max()
+  constexpr uint32_t kMax = 0xFFFFFFFFu; // hs::Pcg32::max()
   // The boundary case: the naive ratio is 1.0f, the clamp pulls it to the float
   // just below.
   HS_EXPECT_LT(hs::random_to_unit(kMax, kMax), 1.0f);

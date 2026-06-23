@@ -394,7 +394,7 @@ inline void test_random_vector_unit_length() {
  *          the stream position other RNG-touching tests observe.
  */
 inline void test_random_vector_deterministic() {
-  std::mt19937 saved = hs::random();
+  auto saved = hs::random(); // copy of the global Pcg32
   constexpr int N = 16;
   Vector first[N];
   hs::random().seed(1337);
@@ -420,7 +420,7 @@ inline void test_random_vector_deterministic() {
  *          reproducibility; the generator is saved and restored.
  */
 inline void test_random_vector_distribution() {
-  std::mt19937 saved = hs::random();
+  auto saved = hs::random(); // copy of the global Pcg32
   hs::random().seed(0xC0FFEEu);
   constexpr int N = 4000;
   float sx = 0.0f, sy = 0.0f, sz = 0.0f;
