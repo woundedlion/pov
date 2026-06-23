@@ -124,16 +124,21 @@ inline void test_half_edge_mesh_face_loop_closes() {
   build_solid<Solids::Cube>(cube, arena);
   HalfEdgeMesh he(arena, cube);
 
+  // A valid ring visits each half-edge at most once, so any traversal longer
+  // than the total half-edge count cannot close — a mesh-derived bound, not a
+  // magic constant. The exact expected length is asserted per face below.
+  const int max_steps = static_cast<int>(he.half_edges.size()) + 1;
   for (size_t fi = 0; fi < he.faces.size(); ++fi) {
     uint16_t start = he.faces[fi].half_edge;
     uint16_t curr = start;
     int steps = 0;
     do {
       HS_EXPECT_TRUE(curr != HE_NONE);
+      if (curr == HE_NONE) break; // don't index half_edges with the sentinel
       HS_EXPECT_EQ(he.half_edges[curr].face, (uint16_t)fi);
       curr = he.half_edges[curr].next;
       steps++;
-      if (steps > 100) break; // safety
+      if (steps > max_steps) break; // ring failed to close (bounded by mesh size)
     } while (curr != start);
     HS_EXPECT_EQ(steps, (int)cube.face_counts[fi]);
   }
@@ -363,13 +368,26 @@ inline void test_clone_meshstate_deep_copies() {
 
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
 
-  for (size_t i = 0; i < src.vertices.size(); ++i) {
+  // Compare every array element-wise. A size mismatch is already a failure
+  // (the asserts above), so the loops run over the COMMON length: a clone that
+  // dropped elements still fails loudly via the size assert, while the bounded
+  // loop refuses to index past the shorter array (the previous src-sized loops
+  // would read out of bounds on a short dst instead of comparing what exists).
+  const size_t vn = std::min(dst.vertices.size(), src.vertices.size());
+  for (size_t i = 0; i < vn; ++i) {
     HS_EXPECT_NEAR(dst.vertices[i].x, src.vertices[i].x, 1e-6f);
     HS_EXPECT_NEAR(dst.vertices[i].y, src.vertices[i].y, 1e-6f);
     HS_EXPECT_NEAR(dst.vertices[i].z, src.vertices[i].z, 1e-6f);
   }
-  for (size_t i = 0; i < src.faces.size(); ++i)
+  const size_t fcn = std::min(dst.face_counts.size(), src.face_counts.size());
+  for (size_t i = 0; i < fcn; ++i)
+    HS_EXPECT_EQ(dst.face_counts[i], src.face_counts[i]);
+  const size_t fn = std::min(dst.faces.size(), src.faces.size());
+  for (size_t i = 0; i < fn; ++i)
     HS_EXPECT_EQ(dst.faces[i], src.faces[i]);
+  const size_t fon = std::min(dst.face_offsets.size(), src.face_offsets.size());
+  for (size_t i = 0; i < fon; ++i)
+    HS_EXPECT_EQ(dst.face_offsets[i], src.face_offsets[i]);
 }
 
 /**
