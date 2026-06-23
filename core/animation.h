@@ -2032,7 +2032,15 @@ public:
     }
     Quaternion twist = make_rotation(twist_axis, 0.05f);
 
-    // Build nearest-vertex correspondence
+    // Build nearest-vertex correspondence. This is an O(V_dest * V_source)
+    // brute-force double loop, run once at construction (effect-spawn), not per
+    // frame — a high-poly morph can briefly hitch the spawning effect on Teensy.
+    // The KDTree in spatial.h would cut this to O(V_dest * log V_source), but it
+    // resolves nearest by Euclidean distance, whereas the match here is greatest
+    // dot product against the twist-biased dest vertex (the twist breaks the
+    // degenerate ties that arise on symmetric meshes). Kept brute-force so the
+    // tie-breaking bias is exact; revisit with the KDTree only if spawn latency
+    // on the largest meshes becomes a problem.
     for (size_t i = 0; i < dest.vertices.size(); ++i) {
       Vector v_biased = rotate(dest.vertices[i], twist);
       int best_idx = 0;

@@ -108,7 +108,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 11. ✅ **Segmented-ISR oversampling comment over-promises the ⅛-column bound** — `hardware/pov_segmented.h:130-133`. With `kOversample=8` the wake grid is ~54 µs but a column-render wake can take ~96 µs (README:1265), and a PIT ISR cannot re-enter, so 1–2 wakes coalesce on exactly the render/emit wakes. The design is *safe* (position is time-derived, `tick()` is idempotent/skip-tolerant), but the "⅛ column" guarantee does not hold on busy wakes. Fix: correct the comment (and ideally measure real emission jitter on-device, since device code is not built in CI).
 
-12. **`MeshMorph` correspondence is O(dest × source) with no cap** — `core/animation.h:2033-2046`. A brute-force nearest-vertex double loop at construction; high-poly morphs can hitch on Teensy at effect-spawn. A KDTree exists in `spatial.h`. Fix: use the KDTree, or at minimum document the bound.
+12. ✅ **`MeshMorph` correspondence is O(dest × source) with no cap** — `core/animation.h:2033-2046`. A brute-force nearest-vertex double loop at construction; high-poly morphs can hitch on Teensy at effect-spawn. A KDTree exists in `spatial.h`. Fix: use the KDTree, or at minimum document the bound.
 
 13. **`World::Trails` mid-buffer-expired items erode effective capacity** — `core/filter.h:842-854`. Only front-contiguous dead items are popped; with heterogeneous TTLs (e.g. after `set_lifetime` shrink) dead items linger behind younger live ones, forcing premature eviction of the oldest live point. Documented as intentional, but the capacity-erosion consequence is uncalled-out and untested. Fix: note it, and add a test.
 
