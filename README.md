@@ -659,7 +659,7 @@ struct DistanceResult {
 | `v2` | Vertex index (integer cast to float) |
 | `v3` | Inherited from control-point Fragment (user-defined) |
 
-Plot primitives interpolate registers between control-point Fragments via `Fragment::lerp()`. The vertex shader, if provided, runs once per control point before rasterization.
+Plot primitives interpolate registers between control-point Fragments via `Fragment::lerp()`. The vertex shader, if provided, runs once per control point before rasterization. For the always-planar primitives (`Plot::PlanarPolygon`, `Plot::Star`, `Plot::Flower`) the rasterizer re-derives `v0`/`v1` from the rendered azimuthal-equidistant arc — which bows longer than the great-circle chord between vertices — so both stay consistent with the drawn position.
 
 **Full-Screen Shader Path** (`Scan::Shader`):
 

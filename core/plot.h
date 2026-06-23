@@ -255,6 +255,34 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
 }
 
 /**
+ * @brief On-sphere arc length (radians) of the azimuthal-equidistant straight
+ *        edge a->b — the length actually rendered under planar interpolation.
+ * @details Mirrors the cumulative-arc summation inside rasterize_planar_strategy
+ * (same LEN_SAMPLES, same unprojection), so rasterize()'s perimeter pre-pass and
+ * per-segment arc accumulator sum exactly the lengths the draw phase walks. The
+ * planar edge bows away from the great-circle chord, so this exceeds
+ * angle_between(a, b). Keep in sync with rasterize_planar_strategy.
+ */
+static inline float planar_arc_length(const Vector &a, const Vector &b,
+                                      const Basis &planar_basis) {
+  auto p1 = azimuthal_project(a, planar_basis);
+  auto p2 = azimuthal_project(b, planar_basis);
+  float dx = p2.first - p1.first;
+  float dy = p2.second - p1.second;
+  constexpr int LEN_SAMPLES = 4;
+  Vector prev = azimuthal_unproject(p1.first, p1.second, planar_basis);
+  float len = 0.0f;
+  for (int k = 1; k <= LEN_SAMPLES; ++k) {
+    float p = static_cast<float>(k) / LEN_SAMPLES;
+    Vector cur = azimuthal_unproject(p1.first + dx * p, p1.second + dy * p,
+                                     planar_basis);
+    len += angle_between(prev, cur);
+    prev = cur;
+  }
+  return len;
+}
+
+/**
  * @brief Geodesic interpolation strategy: builds a great-circle sampler for one edge.
  * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
  * @param curr Start fragment of the edge.
@@ -492,6 +520,31 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   size_t max_cache = std::max((size_t)64, (size_t)(2 * W));
   _steps_cache.bind(scratch_arena_a, max_cache);
 
+  // PLANAR ARC REGISTERS (v0/v1). The sample functions store v0 as a vertex
+  // fraction and v1 as the GEODESIC chord cumulant. Under planar (azimuthal-
+  // equidistant) interpolation the rendered edge bows LONGER than that chord, so
+  // the stored values disagree with the drawn position. When a planar basis is in
+  // force, re-derive v0/v1 from the TRUE rendered arc: `cumul` tracks the rendered
+  // arc reached so far, `seg_base` snapshots a segment's start for the draw
+  // lambda, and `total_arc` (one cold pre-pass over the segments, matching the
+  // per-segment strategy the draw loop picks) normalizes v0 to [0,1]. Geodesic
+  // polylines already carry the rendered arc, so this is skipped for them.
+  const bool override_uv = (planar_basis != nullptr);
+  float total_arc = 0.0f;
+  if (override_uv) {
+    const Vector &pcenter = planar_basis->v;
+    for (size_t i = 0; i < count; i++) {
+      const Vector &a = points[i].pos;
+      const Vector &b = points[(i + 1) % len].pos;
+      const bool seam = dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
+                        dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
+      total_arc += seam ? angle_between(a, b)
+                        : planar_arc_length(a, b, *planar_basis);
+    }
+  }
+  float cumul = 0.0f;    // rendered arc reached so far (planar polylines only)
+  float seg_base = 0.0f; // rendered arc at the in-flight segment's start
+
   // Adaptively sub-step and plot one segment. `sample(t)` returns the sphere
   // point AND unit tangent at arc fraction t in [0,1] under the chosen strategy;
   // `total_dist` is the segment's on-sphere length (radians). Endpoints are
@@ -499,6 +552,17 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   auto process_segment = [&](auto &&sample, const Fragment &curr,
                              const Fragment &next, float total_dist,
                              bool isLastSegment) {
+    // Rewrite the arc registers from the rendered arc when a planar basis is in
+    // force (see the pre-pass above): `d` is the arc drawn so far within this
+    // segment, `seg_base` the arc at its start. No-op for geodesic polylines.
+    auto set_arc_uv = [&](Fragment &f, float d) {
+      if (!override_uv)
+        return;
+      float arc = seg_base + d;
+      f.v1 = arc;
+      if (total_arc > math::EPS_GEOMETRIC)
+        f.v0 = arc / total_arc;
+    };
     // The degenerate and fast paths below plot curr.pos/next.pos directly, without
     // the renormalize the DRAWING PHASE applies further down: these are the
     // original sampled vertices (already unit), not the fast_sinf/cosf-interpolated
@@ -510,6 +574,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       if (!shouldOmit) {
         Fragment f_copy = curr;
         f_copy.color = Color4(0, 0, 0, 0);
+        set_arc_uv(f_copy, 0.0f);
 
         fragment_shader(curr.pos, f_copy);
         pipeline.plot(canvas, curr.pos, f_copy.color.color, f_copy.age,
@@ -532,11 +597,13 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     if (total_dist <= first_step) {
       Fragment f = curr;
       f.color = Color4(0, 0, 0, 0);
+      set_arc_uv(f, 0.0f);
       fragment_shader(curr.pos, f);
       pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
       if (!close_loop && isLastSegment) {
         Fragment fl = next;
         fl.color = Color4(0, 0, 0, 0);
+        set_arc_uv(fl, total_dist);
         fragment_shader(next.pos, fl);
         pipeline.plot(canvas, next.pos, fl.color.color, fl.age,
                       fl.color.alpha);
@@ -598,6 +665,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       Fragment f = Fragment::lerp(curr, next, 0.0f);
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
+      set_arc_uv(f, 0.0f);
 
       fragment_shader(start_pos, f);
       pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha);
@@ -614,24 +682,17 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       float t = (total_dist > 0.0f) ? (current_dist / total_dist) : 1.0f;
 
       // `t` (hence the drawn POSITION) is parameterized by the RENDERED arc
-      // length — geodesic or planar, whichever this segment uses. The fragment
-      // registers, however, are linearly interpolated from the control points'
-      // values; for v1 (cumulative arc length) those were computed from geodesic
-      // chords, so under planar interpolation the interpolated v1 follows the
-      // chord polygon, not the longer rendered planar arc.
-      //
-      // Consequence beyond the absolute under-count: the mismatch is also
-      // NONLINEAR within a segment, because position advances by the planar arc
-      // while the v0/v1 registers advance by the geodesic-chord lerp. Any shader
-      // driven by a register as a progress/arc-length proxy — gradients keyed on
-      // v1, dashes/ticks spaced in v0 — therefore drifts against the drawn
-      // position mid-segment (not just a constant scale), most visibly where the
-      // planar arc bows farthest from its chord. Geodesic segments don't drift
-      // (position and the registers share the same arc metric).
+      // length. The registers are lerped from the control points; under a planar
+      // basis set_arc_uv then rewrites v0/v1 from the true rendered arc (current_dist
+      // is the planar arc walked so far, since the planar sampler is arc-uniform),
+      // so a shader keying off v1/v0 as an arc-length proxy tracks the drawn
+      // position even across the planar edge's bow away from the great-circle
+      // chord. Geodesic edges keep the lerped registers (already the rendered arc).
       Vector p = sample(t).pos.normalized();
       Fragment f = Fragment::lerp(curr, next, t);
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
+      set_arc_uv(f, current_dist);
 
       fragment_shader(p, f);
       pipeline.plot(canvas, p, f.color.color, f.age, f.color.alpha);
@@ -659,6 +720,17 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
         pc && (dot(curr.pos, *pc) < -COS_PLANAR_ANTIPODE ||
                dot(next.pos, *pc) < -COS_PLANAR_ANTIPODE);
     const bool use_planar = planar_basis && !antipodal_seam;
+
+    // Advance the rendered-arc accumulator for EVERY segment (drawn or culled) so
+    // v0/v1 stay a true full-curve parameterization; seg_base snapshots the start
+    // for the draw lambda. seg_arc mirrors whichever strategy the branch below
+    // picks, matching total_arc's pre-pass. Skipped for geodesic polylines.
+    if (override_uv) {
+      seg_base = cumul;
+      cumul += use_planar
+                   ? planar_arc_length(curr.pos, next.pos, *planar_basis)
+                   : angle_between(curr.pos, next.pos);
+    }
 
     // Tier 3: Segment culling — skip if the edge's full screen-row span (arc
     // latitude bulge included) lies outside the clip band.
@@ -854,16 +926,14 @@ struct Vertices {
  * @brief Multiline primitive (Polyline).
  * Registers:
  *  v0: Path Progress (0.0 -> 1.0)
- *  v1: Cumulative Arc Length (radians) — GEODESIC chord-polygon length
+ *  v1: Cumulative Arc Length (radians) — geodesic chord-polygon length
  *  v2: Vertex Index
  * @note v0/v1 accumulate the GEODESIC (great-circle) distance between
- *       consecutive control points — the chord-polygon parameterization. That
- *       equals the rendered arc length only under geodesic edge interpolation.
- *       Under PLANAR interpolation (a `planar_basis` passed to the draw call)
- *       the rendered edge is an azimuthal-equidistant straight line that is
- *       LONGER than the great-circle chord, so v1 under-counts the actual drawn
- *       arc length. A shader that needs an exact planar-arc parameterization must
- *       not rely on v1 in planar mode.
+ *       consecutive control points — the chord-polygon parameterization, which is
+ *       the rendered arc under Multiline's geodesic edges. If a `planar_basis` is
+ *       passed to the draw call, the rasterizer re-derives v0/v1 from the longer
+ *       azimuthal-equidistant arc it actually draws, so the registers track the
+ *       rendered position in either mode.
  */
 struct Multiline {
   /**
@@ -994,7 +1064,9 @@ struct Multiline {
  * v2 = num_verts, so a `close_loop` rasterize draws the final edge back to the
  * start without a UV seam. This is the shared skeleton for the accumulated-arc
  * closed rings (Star, Flower, DistortedRing); Ring itself uses an analytic arc
- * length and keeps its own loop.
+ * length and keeps its own loop. For the PLANAR callers (Star, Flower) the
+ * rasterizer overrides v0/v1 with the true rendered azimuthal arc, so these
+ * stored geodesic values then seed only the optional vertex shader.
  */
 template <typename PosFn>
 inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
@@ -1205,13 +1277,13 @@ struct Ring {
  * @brief Planar Polygon.
  * Registers:
  *  v0: Perimeter progress (0.0 -> 1.0)
- *  v1: Arc Length (radians) — GEODESIC chord length
+ *  v1: Arc Length (radians) — cumulative rendered planar arc
  *  v2: Vertex index
- * @note v1 accumulates the GEODESIC (great-circle) distance between vertices, but
- *       this shape always renders with PLANAR (azimuthal-equidistant) edges, which
- *       are LONGER than the great-circle chord — so v1 under-counts the actual drawn
- *       arc length. A shader needing an exact planar-arc parameterization must not
- *       rely on v1. (Same hazard Multiline documents.)
+ * @note This shape always renders with PLANAR (azimuthal-equidistant) edges, which
+ *       bow LONGER than the great-circle chord between vertices. The rasterizer
+ *       re-derives v0/v1 from that true rendered arc (v0 the [0,1] fraction of the
+ *       planar perimeter, v1 the cumulative planar arc in radians), so both track
+ *       the drawn position rather than the shorter chord polygon.
  */
 struct PlanarPolygon {
   /**
@@ -1585,13 +1657,13 @@ struct Spiral {
  * @brief Star shape.
  * Registers:
  *  v0: Perimeter progress (0.0 -> 1.0)
- *  v1: Arc Length (radians) — GEODESIC chord length
+ *  v1: Arc Length (radians) — cumulative rendered planar arc
  *  v2: Vertex index
- * @note v1 accumulates the GEODESIC (great-circle) distance between vertices, but
- *       this shape always renders with PLANAR (azimuthal-equidistant) edges, which
- *       are LONGER than the great-circle chord — so v1 under-counts the actual drawn
- *       arc length. A shader needing an exact planar-arc parameterization must not
- *       rely on v1. (Same hazard Multiline documents.)
+ * @note This shape always renders with PLANAR (azimuthal-equidistant) edges, which
+ *       bow LONGER than the great-circle chord between vertices. The rasterizer
+ *       re-derives v0/v1 from that true rendered arc (v0 the [0,1] fraction of the
+ *       planar perimeter, v1 the cumulative planar arc in radians), so both track
+ *       the drawn position rather than the shorter chord polygon.
  */
 struct Star {
   /**
@@ -1691,13 +1763,13 @@ struct Star {
  * @brief Flower shape.
  * Registers:
  *  v0: Perimeter progress (0.0 -> 1.0)
- *  v1: Arc Length (radians) — GEODESIC chord length
+ *  v1: Arc Length (radians) — cumulative rendered planar arc
  *  v2: Vertex index
- * @note v1 accumulates the GEODESIC (great-circle) distance between vertices, but
- *       this shape always renders with PLANAR (azimuthal-equidistant) edges, which
- *       are LONGER than the great-circle chord — so v1 under-counts the actual drawn
- *       arc length. A shader needing an exact planar-arc parameterization must not
- *       rely on v1. (Same hazard Multiline documents.)
+ * @note This shape always renders with PLANAR (azimuthal-equidistant) edges, which
+ *       bow LONGER than the great-circle chord between vertices. The rasterizer
+ *       re-derives v0/v1 from that true rendered arc (v0 the [0,1] fraction of the
+ *       planar perimeter, v1 the cumulative planar arc in radians), so both track
+ *       the drawn position rather than the shorter chord polygon.
  */
 struct Flower {
   /**

@@ -1070,6 +1070,73 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
 }
 
+/**
+ * @brief A planar segment's v0/v1 registers measure the RENDERED azimuthal arc,
+ *        not the geodesic chord: v1 rises monotonically to the planar arc length
+ *        (strictly longer than the endpoints' great-circle distance) and v0 spans
+ *        0..1 over that same arc. Locks in the rasterizer's arc-register
+ *        re-derivation for the always-planar primitives (PlanarPolygon / Star /
+ *        Flower), which the sample()-level tests cannot observe.
+ */
+inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
+  constexpr int W = 128, H = 64;
+  RasterFx fx(W, H);
+  ScratchScope sc(plot_arena());
+  Fragments points;
+  points.bind(plot_arena(), 4);
+
+  // Same non-seam planar disk edge as the gap-free test: colatitude 0.3 -> 1.3
+  // across azimuths, so the rendered edge bows well clear of its chord.
+  Basis basis = basis_from_normal(Vector(0, 1, 0));
+  auto on_disk = [&](float colat, float az) {
+    Vector dir = basis.u * cosf(az) + basis.w * sinf(az);
+    return (basis.v * cosf(colat) + dir * sinf(colat)).normalized();
+  };
+  Fragment a, b;
+  a.pos = on_disk(0.3f, 0.0f);
+  b.pos = on_disk(1.3f, 1.0f);
+  HS_EXPECT_GT(dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  HS_EXPECT_GT(dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
+  // Bare control points keep v0/v1 at their default 0, so a geodesic-chord lerp
+  // would pin v1 at 0 for the whole edge — any nonzero arc below is produced
+  // solely by the rasterizer's rendered-arc override.
+  points.push_back(a);
+  points.push_back(b);
+
+  CapturePipeline pipe;
+  std::vector<float> v0s, v1s;
+  auto capture = [&](const Vector &, Fragment &f) {
+    v0s.push_back(f.v0);
+    v1s.push_back(f.v1);
+  };
+  {
+    Canvas c(fx);
+    Plot::rasterize<W, H>(pipe, c, points, capture, /*close_loop=*/false, &basis);
+  }
+  fx.advance_display();
+
+  HS_EXPECT_GT(v1s.size(), (size_t)10);
+
+  // Both registers rise monotonically along the drawn arc.
+  for (size_t i = 1; i < v1s.size(); ++i) {
+    HS_EXPECT_GE(v1s[i], v1s[i - 1] - 1e-6f);
+    HS_EXPECT_GE(v0s[i], v0s[i - 1] - 1e-6f);
+  }
+
+  const float geo = angle_between(a.pos, b.pos);
+  const float planar = Plot::planar_arc_length(a.pos, b.pos, basis);
+  // The rendered planar edge bows strictly longer than the geodesic chord...
+  HS_EXPECT_GT(planar, geo);
+  // ...and v1 tracks that rendered arc (start ~0, end ~planar length, > chord).
+  HS_EXPECT_NEAR(v1s.front(), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(v1s.back(), planar, 2e-2f);
+  HS_EXPECT_GT(v1s.back(), geo);
+
+  // v0 is v1 normalized by the single-segment total arc: 0 at the start, ~1 end.
+  HS_EXPECT_NEAR(v0s.front(), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(v0s.back(), 1.0f, 2e-2f);
+}
+
 // ============================================================================
 // Plot::SplineChain / Plot::ParticleSystem — chain + trail rasterization
 // ============================================================================
@@ -1336,6 +1403,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_closed_loop_gap_free_no_dup();
   test_rasterize_antipodal_seam_planar_falls_back_geodesic();
   test_rasterize_planar_segment_gap_free_arclength();
+  test_rasterize_planar_arc_registers_track_drawn_arc();
 
   test_spline_chain_passes_through_control_points();
   test_spline_chain_tension_deflects();
