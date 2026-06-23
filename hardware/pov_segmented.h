@@ -155,7 +155,7 @@ public:
    * @details CONTRACT — construct only from setup(), never as a file-scope
    *          global. This constructor performs hardware I/O directly: read_id()
    *          does pinMode/delay/Serial/DWT-enable, and the body then brings up
-   *          the DMA/FastLED driver — all valid only once the Arduino core is
+   *          the DMA LED driver — all valid only once the Arduino core is
    *          initialized. dma_led.h deliberately keeps hardware bring-up out of
    *          its constructor (an explicit begin()) and warns against
    *          constructor-time I/O; this class diverges on purpose because its
@@ -167,17 +167,10 @@ public:
     read_id();
     configure_segment();
 
-#ifdef USE_DMA_LEDS
     ledController_.begin();
     ledController_.setCorrection(255, 176, 240);   // TypicalLEDStrip
     ledController_.setTemperature(255, 147, 41);    // Candle
     ledController_.setBrightness(255);
-#else
-    FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(
-        leds_, PPS);
-    FastLED.setCorrection(TypicalLEDStrip);
-    FastLED.setTemperature(Candle);
-#endif
 
     // SysTick (millis) runs at NVIC priority 32 — the Teensy 4 boot default —
     // and so may briefly preempt the flywheel ISR, whose IntervalTimer sits
@@ -212,18 +205,10 @@ public:
    * The flywheel ISR drops a frame (rather than blocking) when a prior DMA
    * transfer is still in flight, so a nonzero — and
    * especially a rising — value means the per-column ISR/transfer budget is
-   * being exceeded. Always 0 on the FastLED build, which has no DMA
-   * controller.
-   * @return Cumulative count of DMA frames dropped on overrun since boot; 0 on
-   *         the FastLED build.
+   * being exceeded.
+   * @return Cumulative count of DMA frames dropped on overrun since boot.
    */
-  uint32_t overrun_count() const {
-#if defined(USE_DMA_LEDS)
-    return ledController_.getOverrunCount();
-#else
-    return 0;
-#endif
-  }
+  uint32_t overrun_count() const { return ledController_.getOverrunCount(); }
 
   /**
    * @brief Runs the synchronized show forever (spec §6).
@@ -655,7 +640,6 @@ private:
     // effect that does is out of scope here and never runs on this path).
     const Pixel *buf = e->display_buffer();
 
-#if defined(USE_DMA_LEDS)
     auto &frame = ledController_.backFrame();
     int y = y_base_;
     for (int i = 0; i < PPS; ++i, y += y_step_) {
@@ -665,16 +649,6 @@ private:
     // a dropped image column self-heals next tick (see submitFrame's doc and
     // render_black, which DOES gate on the return for the fail-dark latch).
     (void)ledController_.submitFrame(e->show_bg());
-#else
-    int y = y_base_;
-    for (int i = 0; i < PPS; ++i, y += y_step_) {
-      leds_[i] = static_cast<CRGB>(buf[y * w + x_col]);
-    }
-    FastLED.show();
-    if (e->show_bg()) {
-      FastLED.showColor(CRGB(0, 0, 0));
-    }
-#endif
   }
 
   /**
@@ -683,23 +657,14 @@ private:
    *         if it was dropped on a DMA overrun (caller must retry, not latch).
    */
   static FASTRUN bool render_black() {
-#if defined(USE_DMA_LEDS)
     auto &frame = ledController_.backFrame();
     for (int i = 0; i < PPS; ++i) {
       frame.packPixel(i, Pixel(0, 0, 0));
     }
     return ledController_.submitFrame(false);
-#else
-    FastLED.showColor(CRGB(0, 0, 0));
-    return true; // synchronous path always lands
-#endif
   }
 
   // ── Static state ────────────────────────────────────────────────────
-
-#ifndef USE_DMA_LEDS
-  static CRGB leds_[PPS]; /**< FastLED output buffer, one CRGB per segment pixel. */
-#endif
 
   /**
    * @brief The sync engine: sole owner of all sync/flywheel state.
@@ -805,11 +770,6 @@ int POVSegmented<S, N, RPM>::y_base_ = 0;
 
 template <int S, int N, int RPM>
 int POVSegmented<S, N, RPM>::y_step_ = 1;
-
-#ifndef USE_DMA_LEDS
-template <int S, int N, int RPM>
-CRGB POVSegmented<S, N, RPM>::leds_[POVSegmented<S, N, RPM>::PPS];
-#endif
 
 #if defined(USE_DMA_LEDS)
 // DMAMEM (OCRAM): the controller's HD107SFrame buffers are the actual eDMA TX
