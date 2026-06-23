@@ -117,9 +117,19 @@ public:
     // The pattern's inner fast_sinf/fast_cosf are the range-reduction hazard, so
     // their time terms ride phases wrapped to 2pi. Each advances by this frame's
     // delta of t (scaled by the term's coefficient), so the wrap is exact.
+    //
+    // dt is read straight from the live Time Speed slider rather than as
+    // (t - prev_time). The accumulated_time Driver's scale is 1.0 and it adds
+    // the freshly-read speed each step, so this slider value IS this frame's
+    // advance of t — but differencing the *unbounded* accumulator loses that
+    // increment to float ULP after multi-day continuous uptime (t - prev_time
+    // quantizes to 0 and the field freezes). A direct read never degrades.
+    // Guard a non-finite slider to 0, matching the Driver, which never seeds a
+    // non-finite speed.
     constexpr float kTwoPi = 2.0f * PI_F;
-    float dt = t - prev_time;
-    prev_time = t;
+    float dt = params.time_speed;
+    if (!std::isfinite(dt))
+      dt = 0.0f;
     sin_phase = fmodf(sin_phase + dt, kTwoPi);
     cos_phase = fmodf(cos_phase + 0.8f * dt, kTwoPi);
     // cycle_phase feeds BreatheModifier's fast_sinf (coefficient 1), so wrapping
@@ -297,7 +307,6 @@ private:
   Params params; /**< Live per-frame parameters, lerped between presets. */
   float accumulated_time = 0.0f; /**< Unbounded noise-time axis (see draw_frame). */
   float cycle_phase = 0.0f;      /**< Wrapped to [0, 2pi) each frame for breathe. */
-  float prev_time = 0.0f;   /**< Last frame's accumulated_time (for the trig phases). */
   float sin_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's +t term. */
   float cos_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's 0.8*t term. */
 
