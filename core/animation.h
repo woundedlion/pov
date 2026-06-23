@@ -462,13 +462,15 @@ template <int TRAIL_LEN = 8> struct Particle {
    * @param p Initial world-space position.
    * @param v Initial velocity vector.
    * @param seed Hue seed for palette offset.
-   * @param l Life in frames; clamped into uint16_t range.
+   * @param l Life in frames; clamped into [0, 65535]. The low clamp matters: a
+   *   negative l would otherwise narrow to a huge uint16_t (a near-immortal
+   *   particle) rather than a dead one.
    */
   void init(const Vector &p, const Vector &v, uint16_t seed, float l) {
     position = p;
     velocity = v;
     color_seed = seed;
-    life = static_cast<uint16_t>(std::min(l, 65535.0f));
+    life = static_cast<uint16_t>(hs::clamp(l, 0.0f, 65535.0f));
     history.clear();
   }
 
