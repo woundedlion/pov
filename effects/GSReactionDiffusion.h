@@ -183,9 +183,7 @@ private:
     for (int i = 0; i < NUM_SEED_CLUSTERS; i++) {
       int idx = hs::rand_int(0, RD_N);
       state.B[idx] = 65535;
-      for (int nb : ReactionGraph::neighbors[idx])
-        if (nb >= 0)
-          state.B[nb] = 65535;
+      for_each_neighbor(idx, [&](int nb) { state.B[nb] = 65535; });
     }
   }
 

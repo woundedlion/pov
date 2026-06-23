@@ -185,9 +185,7 @@ private:
       for (int k = 0; k < CLUSTERS_PER_SPECIES; k++) {
         int center = hs::rand_int(0, RD_N);
         species[s][center] = 255;
-        for (int nb : ReactionGraph::neighbors[center])
-          if (nb >= 0)
-            species[s][nb] = 255;
+        for_each_neighbor(center, [&](int nb) { species[s][nb] = 255; });
       }
     }
   }

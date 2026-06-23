@@ -124,7 +124,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 18. ✅ **README §7.0 `v2` register row vs `sdf.h` "always 0"** — `README.md:637` says `v2` = "Face index for `Scan::Mesh` (0 otherwise)" (the rasterizer injects it via a wrapper in `scan.h:805-808`), while `sdf.h:196` says `v2` is "reserved and always 0" (true at the `process_pixel` layer, `scan.h:110`). Both are correct for their layer; add a cross-reference so a reader wiring a new SDF shape isn't confused about where `v2` originates.
 
-19. **Reaction-diffusion seeders duplicate the neighbor sentinel skip** — `effects/BZReactionDiffusion.h:188-190` and `effects/GSReactionDiffusion.h:186-188` hand-roll the `nb >= 0` skip that `ReactionDiffusionBase::for_each_neighbor` (`ReactionDiffusionBase.h:171`) exists to centralize. Add a base seed helper.
+19. ✅ **Reaction-diffusion seeders duplicate the neighbor sentinel skip** — `effects/BZReactionDiffusion.h:188-190` and `effects/GSReactionDiffusion.h:186-188` hand-roll the `nb >= 0` skip that `ReactionDiffusionBase::for_each_neighbor` (`ReactionDiffusionBase.h:171`) exists to centralize. Add a base seed helper.
 
 20. **`MobiusWarpEvolving` is perpetual; its `.then()` never fires, undocumented** — `core/animation.h:2117-2120` delegates to the default `AnimationBase()` (duration −1), so it never reaches `done()`. The identical RandomWalk hazard is documented at `:1606-1614`; mirror that note here (and for any code relying on its Transformer slot-recycle callback).
 
