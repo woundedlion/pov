@@ -122,6 +122,13 @@ public:
       Ring &ring = rings[i];
       ring.trail.record(ring.orientation);
       deep_tween(ring.trail, [&](const Quaternion &q, float t) {
+        // The trail's length-fade is supplied ENTIRELY by the palette: sampling
+        // at 1-t walks a transparent-vignette palette whose alpha tapers to ~0
+        // toward the tail, so there is deliberately no quintic_kernel(t)/t fade
+        // in this draw loop (unlike sibling Comets). This is a load-bearing
+        // dependency on the palette's alpha shape — swap in an opaque palette and
+        // the whole trail renders at full alpha with no taper. Keep the alpha
+        // vignette, or reinstate an explicit t-fade here, if the palette changes.
         Color4 c = ring.palette->get(1.0f - t);
         c.alpha = c.alpha * params.alpha;
         if (c.alpha <= 0.001f) return;
