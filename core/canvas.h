@@ -89,8 +89,13 @@ public:
   /** @brief Segment clip region (display + render margin). */
   ClipRegion clip;
 
-  /** @brief Accumulated rasterization time for the current frame (µs, WASM only). */
+  /** @brief Accumulated rasterization time for the current frame (µs).
+   *  WASM-only telemetry: only emscripten builds stamp and read it (the
+   *  ScopedRenderTimer and wasm bridge), so the field and its accessors below
+   *  are compiled out on the device rather than carried as dead storage. */
+#ifdef __EMSCRIPTEN__
   double render_us = 0.0;
+#endif
 
   /**
    * @brief Driver sets display bounds (which segment this Teensy owns).
@@ -647,6 +652,11 @@ public:
    * @param x The horizontal coordinate.
    * @param y The vertical coordinate.
    * @return Copy of the Pixel from the previous frame.
+   * @details Returns by value, unlike `operator()`'s by-reference access to the
+   *          current buffer: the previous frame is read-only (the next frame is
+   *          composed in the current buffer), so handing out a reference into it
+   *          would invite an accidental write to a buffer that is about to be
+   *          recycled. A Pixel is small enough that the copy is free.
    */
   inline Pixel prev(int x, int y) const {
     assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);
@@ -689,6 +699,9 @@ public:
    */
   [[nodiscard]] inline const ClipRegion &clip() const { return effect_.clip; }
 
+#ifdef __EMSCRIPTEN__
+  // WASM-only render-time telemetry (see Effect::render_us). Compiled out on the
+  // device, where there is no JS perf clock and nothing reads the counter.
   /**
    * @brief Resets the accumulated rasterization time for the current frame.
    */
@@ -703,6 +716,7 @@ public:
    * @return The accumulated render time, in microseconds.
    */
   [[nodiscard]] inline double get_render_us() const { return effect_.render_us; }
+#endif
   /**
    * @brief Checks if debug visuals are enabled.
    * @return True if debugging is active.
