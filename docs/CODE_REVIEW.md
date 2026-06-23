@@ -130,7 +130,7 @@ device's shipped behavior:
 
 ### Medium
 
-12. core/geometry.h:726-727 — `Orientation::upsample`'s `count>=2` invariant rests on three separate facts (`CAPACITY>=1`, the early-return, ctor-runs-`set`); a future code path bypassing `set()` hits `0/0`. Add a single guard.
+12. ✅ core/geometry.h:726-727 — `Orientation::upsample`'s `count>=2` invariant rests on three separate facts (`CAPACITY>=1`, the early-return, ctor-runs-`set`); a future code path bypassing `set()` hits `0/0`. Add a single guard. → **Fixed:** added an explicit `if (count < 2) return;` guard immediately before the interpolation loop, so the `count-1` divisor is structurally guaranteed `>= 1` regardless of `num_frames`. No behavior change on any currently-reachable path (`count==1` already early-returned via `num_frames >= count`).
 13. core/3dmath.h:1042 — public `make_rotation(axis, θ)` traps on `(zero-axis, π)` via the trailing `normalized()`; the doc implies a softer contract. Document the non-zero precondition or route through `normalized_or`.
 14. core/memory.h:993 — `Persist::~Persist` requires `T` default-constructible and assignable, but the `Cloneable` concept only requires `clone`; a `Cloneable`-but-not-default-constructible `T` fails with an opaque in-destructor error. Tighten/​document the concept.
 15. core/concepts.h:130-139,185-189 — plain `FunctionRef` stored as a member silently dangles on a temporary; only `StoredFunctionRef` rejects rvalues, and nothing forces storing sites to use it. Enforcement is by convention only.

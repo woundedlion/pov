@@ -706,15 +706,21 @@ public:
    * the affected `Orientation` rather than reintroducing a trap.
    */
   void upsample(int count) {
-    // A history must hold at least one frame; count < 1 is a caller bug. This
-    // also forecloses the 0/0 in t = i/(count-1) below: num_frames is always
-    // >= 1 (every constructor routes through set()), so the early return makes
-    // the interpolation loop reachable only when count >= 2 (i.e. count-1 >= 1).
+    // A history must hold at least one frame; count < 1 is a caller bug.
     HS_CHECK(count >= 1);
     if (num_frames >= count)
       return;
     if (count > CAPACITY) // soft-degrade past capacity — see @note above
       count = CAPACITY;
+
+    // Foreclose the 0/0 in t = i/(count-1) below with a single explicit guard
+    // rather than resting on the conjunction of three facts (CAPACITY>=1, the
+    // early return, and every ctor routing through set() so num_frames>=1).
+    // count==1 holds a single frame with nothing to interpolate; returning also
+    // keeps the loop reachable only when count>=2 (count-1>=1) even if a future
+    // code path leaves num_frames==0 and slips past the early return above.
+    if (count < 2)
+      return;
 
     std::array<Quaternion, CAPACITY> old_orientations;
     std::copy(orientations.begin(), orientations.begin() + num_frames,
