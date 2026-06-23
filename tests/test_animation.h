@@ -1153,6 +1153,78 @@ inline void test_particle_system_attractor_kills_within_radius() {
   HS_EXPECT_EQ(static_cast<int>(ps.active_count), 0);
 }
 
+/**
+ * @brief Verifies spawn() initializes a particle's fields and that one step
+ * advances it (life decrements, trail records) without dropping it.
+ * @details The capacity test only inspects active_count, so a spawn that left
+ *          the position/velocity/seed/life unset — or a step that mis-managed a
+ *          freshly spawned particle — would pass it. Here the spawned particle
+ *          is checked field-by-field (it carries the requested position,
+ *          velocity, and seed, the system's max_life, and an empty trail), then
+ *          a single step is asserted to keep it alive, decrement its life by
+ *          one, and record its first trail point.
+ */
+inline void test_particle_system_spawn_initializes_and_steps() {
+  static uint8_t buf[256 * 1024];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 4> ps;
+  // gravity 0 and no attractor → the only state change is the step's own
+  // bookkeeping (life--, trail record), so the assertions below are exact.
+  ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/120.0f);
+
+  const Vector pos(0.6f, 0.0f, 0.8f);
+  const Vector vel(0.0f, 0.01f, 0.0f);
+  ps.spawn(pos, vel, /*seed=*/42);
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
+
+  const auto &p = ps.pool[0];
+  HS_EXPECT_NEAR(p.position.x, pos.x, 0.0f);
+  HS_EXPECT_NEAR(p.position.y, pos.y, 0.0f);
+  HS_EXPECT_NEAR(p.position.z, pos.z, 0.0f);
+  HS_EXPECT_NEAR(p.velocity.x, vel.x, 0.0f);
+  HS_EXPECT_NEAR(p.velocity.y, vel.y, 0.0f);
+  HS_EXPECT_NEAR(p.velocity.z, vel.z, 0.0f);
+  HS_EXPECT_EQ(static_cast<int>(p.color_seed), 42);
+  HS_EXPECT_EQ(static_cast<int>(p.life), 120);       // == system max_life
+  HS_EXPECT_EQ(static_cast<int>(p.history_length()), 0); // trail freshly cleared
+
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);          // still alive
+  HS_EXPECT_EQ(static_cast<int>(ps.pool[0].life), 119);        // life-- per step
+  HS_EXPECT_GT(static_cast<int>(ps.pool[0].history_length()), 0); // trail recorded
+}
+
+/**
+ * @brief Pins the attractor kill check at its radius boundary, not just at
+ * distance 0.
+ * @details The kill test places the attractor on top of the particle (distance
+ *          0), so it can't tell `dist < kill_radius` from `dist <= kill_radius`.
+ *          Here a particle at (1,0,0) faces an attractor placed an exact
+ *          distance away along +x: just inside the radius it is killed, exactly
+ *          at the radius it survives (the check is strict `<`), and just outside
+ *          it survives. The kill check reads the start-of-step position, so one
+ *          step suffices and the distance is the spawn distance.
+ */
+inline void test_particle_system_attractor_kill_radius_boundary() {
+  static uint8_t buf[256 * 1024];
+  constexpr float kr = 0.5f;
+
+  auto survives = [&](float dist) {
+    Arena arena(buf, sizeof(buf));
+    Animation::ParticleSystem<32, 4> ps;
+    ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.001f, /*max_life=*/600.0f);
+    ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
+    ps.add_attractor(Vector(1.0f + dist, 0, 0), /*strength=*/1.0f,
+                     /*kill_radius=*/kr, /*event_horizon=*/0.0f);
+    ps.step(fake_canvas());
+    return ps.active_count == 1;
+  };
+
+  HS_EXPECT_FALSE(survives(kr - 0.01f)); // inside the radius → killed
+  HS_EXPECT_TRUE(survives(kr));          // exactly at the radius → survives (<)
+  HS_EXPECT_TRUE(survives(kr + 0.01f));  // outside the radius → survives
+}
+
 // ============================================================================
 // Sprite (opacity envelope + paused-hold)
 // ----------------------------------------------------------------------------
@@ -1512,8 +1584,10 @@ inline int run_animation_tests() {
   test_motion_codriven_survives_repeat_seam();
 
   test_particle_system_spawn_and_capacity_guard();
+  test_particle_system_spawn_initializes_and_steps();
   test_particle_system_expires_after_life_and_trail_drain();
   test_particle_system_attractor_kills_within_radius();
+  test_particle_system_attractor_kill_radius_boundary();
 
   test_sprite_fade_in_plateau_fade_out_envelope();
   test_sprite_overlapping_fades_stay_continuous();
