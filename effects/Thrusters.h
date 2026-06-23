@@ -280,6 +280,10 @@ private:
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
     auto fragment_shader = [this, opacity](const Vector &, Fragment &f) {
       f.color = Color4(CRGB(255, 255, 255));
+      // Premultiply RGB by opacity *and* fold it into alpha (unlike draw_ring,
+      // which scales alpha only): the thruster glow is an additive flare, so the
+      // intended quadratic falloff at the edges comes from applying opacity to
+      // both the color and the coverage.
       f.color.color = f.color.color * opacity;
       f.color.alpha = opacity * params.alpha;
     };

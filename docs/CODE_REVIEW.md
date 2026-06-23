@@ -151,7 +151,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 31. ✅ **GnomonicStars is the lone `show_bg() == true` effect without a comment** — `effects/GnomonicStars.h:84`. Legitimate (sparse star field), but every other effect's `false` is commented; note the divergence.
 
-32. **Thrusters draw-color premultiply asymmetry is undocumented** — `effects/Thrusters.h:284` (RGB×opacity *and* alpha) vs `:304` (alpha only). Presumably an intentional additive-glow double-darkening; add a one-line comment.
+32. ✅ **Thrusters draw-color premultiply asymmetry is undocumented** — `effects/Thrusters.h:284` (RGB×opacity *and* alpha) vs `:304` (alpha only). Presumably an intentional additive-glow double-darkening; add a one-line comment.
 
 33. **Moire density default `10.0` is dead** — `effects/Moire.h:62,168` overwrites it in `init()` before registration; a future editor of the `= 10.0f` member default will see no effect at 288×144 (honestly noted in-comment already).
 
