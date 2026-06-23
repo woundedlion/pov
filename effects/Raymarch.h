@@ -57,11 +57,18 @@ public:
     // 0.05 cycle of palette scroll at 60 fps); spin_phase is scaled to radians
     // by *2pi where it is consumed.
     constexpr float kTwoPi = 2.0f * PI_F;
+    // Gate both phase Drivers on the pause flag so "Pause Animation" actually
+    // freezes the spin and palette scroll, matching HopfFibration/Liquid2D.
     timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
-                                      1.5f / (60.0f * kTwoPi), true));
+                                      1.5f / (60.0f * kTwoPi), true,
+                                      &anims_paused_));
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
-                                      0.05f / 60.0f, true));
+                                      0.05f / 60.0f, true, &anims_paused_));
 
+    // The render Sprite needs no pause gate: it is perpetual (duration -1) and
+    // its image is driven entirely by the two phase accumulators above, which
+    // are now frozen while paused — so the frame holds without gating the
+    // sprite's own (unused) timer.
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float opacity) {
                           this->drawFn(canvas, opacity);
