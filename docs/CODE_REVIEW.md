@@ -94,7 +94,8 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 ### Medium Priority — latent correctness, robustness, and user-visible inconsistencies
 
-5. **README/comment claims 288×144 on a single Teensy, which the hardware cannot do** — `hardware/pov_single.h:40`. Holosphere is `POVDisplay<40,480>` → `S/2 = 20` rows, and the ISR enforces `HS_CHECK(effect_->height() == S/2)` at `:134`; a 144-row effect would trap, and 144 physical LEDs/half-arm is the Phantasm rig, not a 40-LED board. Fix: drop the "288×144 with one Teensy" phrase.
+5. ❌ **REFUTED — README/comment claims 288×144 on a single Teensy, which the hardware cannot do** — `hardware/pov_single.h:40`. Holosphere is `POVDisplay<40,480>` → `S/2 = 20` rows, and the ISR enforces `HS_CHECK(effect_->height() == S/2)` at `:134`; a 144-row effect would trap, and 144 physical LEDs/half-arm is the Phantasm rig, not a 40-LED board. Fix: drop the "288×144 with one Teensy" phrase.
+   - **Validation:** the premise is wrong. `targets/Holosphere/Holosphere.ino` instantiates `POVDisplay<288, 480>` (`NUM_PIXELS = 288`; header: "Single-Teensy POV display / Physical LEDs: 288 (144 per arm × 2 sides) / Virtual canvas: 288×144"), so `S/2 = 144` and a 144-row effect is exactly what the ISR check expects. The single Teensy genuinely drives 288×144; the `pov_single.h:40` comment is correct. No change.
 
 6. ✅ **`ArenaVector::begin()/end()` compute `nullptr + 0` on an unbound/empty vector** — `core/memory.h:691-694`, `:707-710`. Formal UB ([expr.add]/4), UBSan-flagged, reachable via a range-for over a default-constructed vector. The sibling `append_bulk` (`:553-563`) was already hardened against this exact hazard. Fix: guard with `return data_ ? data_ + size_ : nullptr;`.
 
@@ -112,7 +113,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 13. ✅ **`World::Trails` mid-buffer-expired items erode effective capacity** — `core/filter.h:842-854`. Only front-contiguous dead items are popped; with heterogeneous TTLs (e.g. after `set_lifetime` shrink) dead items linger behind younger live ones, forcing premature eviction of the oldest live point. Documented as intentional, but the capacity-erosion consequence is uncalled-out and untested. Fix: note it, and add a test.
 
-14. **Daydream module-worker load failure recovery relies on a 20 s watchdog** — `daydream/segment_controller.js:202` (module worker), `:303-311` (`INIT_WATCHDOG_MS = 20000`). A failed module-worker top-level fetch (e.g. a renamed `holosphere_wasm.js`) may fire `onerror` with an empty message or not at all in some browsers, so the only backstop for the most common deploy breakage is a 20 s delay before the fault overlay. Handled, but slow. Fix: add a faster readiness probe.
+14. ✅ **Daydream module-worker load failure recovery relies on a 20 s watchdog** — `daydream/segment_controller.js:202` (module worker), `:303-311` (`INIT_WATCHDOG_MS = 20000`). A failed module-worker top-level fetch (e.g. a renamed `holosphere_wasm.js`) may fire `onerror` with an empty message or not at all in some browsers, so the only backstop for the most common deploy breakage is a 20 s delay before the fault overlay. Handled, but slow. Fix: add a faster readiness probe.
 
 15. ✅ **`beat16(bpm)` truncates `bpm ≥ 256` with no documented ceiling** — `core/platform.h:806-808`. `static_cast<uint16_t>(bpm << 8)` discards the high byte, so `beat16(300)` behaves as `beat16(44)`. This is **parity-faithful to FastLED's own `beat16`** (not a divergence), and >255 BPM is musically nonsensical, so this is doc-only. Fix: add a `@pre bpm <= 255` note, matching the other FastLED mocks.
 
