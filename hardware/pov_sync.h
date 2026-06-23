@@ -80,6 +80,12 @@ constexpr int32_t floor_mod(int64_t a, int32_t m) {
  * @return Shortest distance around the ring, in columns, in [0, w/2].
  */
 constexpr int32_t circ_dist(int32_t a, int32_t b, int32_t w) {
+  // The single `+= w` fully normalizes for ANY a, b — it does not rely on the
+  // inputs being pre-reduced to [0, w). C++ truncated division gives a remainder
+  // strictly in (-w, w) for any dividend, so `(a - b) % w` is already within one
+  // `w` of [0, w); one conditional add lands it in [0, w). The only real
+  // preconditions are w > 0 and that `a - b` not overflow int32 (always true for
+  // column indices, which are bounded by the ring width).
   int32_t d = (a - b) % w;
   if (d < 0)
     d += w;
