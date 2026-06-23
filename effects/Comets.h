@@ -206,10 +206,11 @@ private:
    */
   void update_path() {
     LissajousParams config = functions[cur_function_idx];
-    // Snap the traversal length so path_fn(domain) == path_fn(0). Motion
-    // hard-resets the head to the start anchor each cycle (drift correction); if
-    // the endpoint didn't coincide with the start, that reset would teleport the
-    // head by the gap — a visible discontinuity, worst at a function switch.
+    // Snap the traversal length so path_fn(domain) == path_fn(0). Motion drives
+    // the head by RELATIVE frame deltas off its carried baseline, so for a closed
+    // path the repeat seam's delta is the (near-)identity start->end frame and the
+    // loop re-traces seamlessly; an unclosed endpoint would leave the curve
+    // pinching to a stray point each cycle.
     float closed_domain = closing_domain(config);
     // Capture only the three scalars lissajous() needs plus closed_domain (16 B
     // total). Capturing the whole LissajousParams (16 B) + closed_domain (4 B)
@@ -220,6 +221,14 @@ private:
     path.f = [m1, m2, a, closed_domain](float t) {
       return lissajous(m1, m2, a, t * closed_domain);
     };
+    // Re-anchor Motion's baseline to the freshly-swapped path. Both the old and
+    // new curves pass through (0,1,0) at the seam, but their travel-tangent frames
+    // there differ, so without this the first post-switch delta is the old->new
+    // frame gap — a one-frame teleport that makes the head jump and the trail
+    // sweep a long arc between shapes. Skipped on the init() call (motion_ not yet
+    // built); the timer-driven switches are the ones that need it.
+    if (motion_)
+      motion_->reanchor();
   }
 
   /**

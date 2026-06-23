@@ -1343,6 +1343,23 @@ public:
   void set_duration(int frames) { this->duration = (frames == 0 ? 1 : frames); }
 
   /**
+   * @brief Discards the carried baseline frame so the next step re-seeds it from
+   * the current path.
+   * @details step() integrates the path as RELATIVE deltas off `prev_frame_`,
+   * the frame it last drove to. That is seamless across a repeat seam because the
+   * loop reuses the same path. But when the borrowed path FUNCTION is swapped out
+   * from under the animation (the path is held by reference; its body changes),
+   * `prev_frame_` still holds the OLD function's frame, so the first post-swap
+   * delta is `frame_new(s) * frame_old(s)^-1` — a one-frame jump that teleports
+   * the bound Orientation by the gap between the two shapes' frames. Calling this
+   * right after the swap forces the next step to re-seed the baseline from the new
+   * path, making that first delta incremental: the head continues from where it
+   * is and flows into the new shape instead of jumping. Costs nothing — a single
+   * bool clear, no per-pixel/per-frame work.
+   */
+  void reanchor() { have_prev_frame_ = false; }
+
+  /**
    * @brief Steps the animation, calculates intermediate rotation steps along
    * the path, and pushes them to the Orientation.
    * @param canvas The canvas buffer (forwarded to the base step).
