@@ -2863,33 +2863,14 @@ struct Line {
     float cos_phi = TrigLUT<W, H>::cos_phi[y];
     float sin_phi = TrigLUT<W, H>::sin_phi[y];
 
-    float denom = mid_r * sin_phi;
-    if (std::abs(denom) < INTERVAL_DENOM_EPS)
-      return false;
-
-    float C_min = (cap_D_min - mid_ny * cos_phi) / denom;
-    if (C_min > 1.0f)
-      return true; // Row is outside the bounding cap
-    if (C_min < -1.0f)
-      return false; // Cap covers full width
-
-    // fast_acos here matches every other scanline path (Ring/DistortedRing/
-    // Flower); C_min is already clamped to [-1,1] by the guards above, and the
-    // ~1.3e-4 rad approximation error is far under the floor/ceil pad below.
-    //
-    // This cap-interval math mirrors emit_cap_interval() but is deliberately NOT
-    // routed through it: emit_cap_interval folds the scale into a precomputed
-    // `scale = W / (2π)` and evaluates `(alpha ± d_alpha) * scale`, whereas this
-    // path evaluates `(alpha ± d_alpha) * W / (2π)`. Those two float orderings
-    // are not bit-identical, so merging them would shift this shape's rasterized
-    // column by up to ±1 px and break bit-exact goldens. Kept separate on
-    // purpose; the boolean return polarity matches (true = handled incl. the
-    // outside/empty case, false = request a full-width scan).
-    float d_alpha = fast_acos(C_min);
-    float f_x1 = (mid_alpha - d_alpha) * W / (2 * PI_F);
-    float f_x2 = (mid_alpha + d_alpha) * W / (2 * PI_F);
-    out(floorf(f_x1), ceilf(f_x2));
-    return true;
+    // The bounding cap is a great-circle cap like every polygon/Star cap, so
+    // emit it through the shared helper rather than re-deriving the same denom/
+    // C_min/d_alpha math. The cap_horiz_valid early-out above already covers
+    // emit_cap_interval's R_val < MIN_HORIZONTAL_PROJ guard (cap_horiz_valid is
+    // exactly mid_r >= MIN_HORIZONTAL_PROJ), so by here that guard is satisfied;
+    // Line never rejects a full-width span, so reject_full_width is false.
+    return emit_cap_interval<W>(cap_D_min, mid_ny, mid_r, mid_alpha, cos_phi,
+                                sin_phi, /*reject_full_width=*/false, out);
   }
 };
 
