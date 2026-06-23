@@ -828,29 +828,51 @@ inline constexpr int kTrapStatus = static_cast<int>(0xC000001D);
 #endif
 
 /**
- * @brief Tests whether a std::system() status means the child died by the trap.
- * @param rc The raw std::system() return value to interpret.
- * @return True iff the child died by the specific illegal-instruction trap.
+ * @brief How this shell relays a child's illegal-instruction trap.
  * @details clang lowers __builtin_trap() to an illegal instruction, so a fired
  *          HS_CHECK kills the child with SIGILL (POSIX) /
- *          STATUS_ILLEGAL_INSTRUCTION (Windows). Requiring that exact status,
- *          rather than any nonzero exit, prevents an unrelated crash or an
- *          ordinary nonzero return from being misread as a passing death test.
+ *          STATUS_ILLEGAL_INSTRUCTION (Windows). Most /bin/sh exec-optimize the
+ *          single child command, so SIGILL propagates directly (TrapSignal); a
+ *          shell that instead forks and waits relays the death as an ordinary
+ *          exit with status 128+SIGILL (TrapExit128). The two are
+ *          indistinguishable from a raw `exit(128+SIGILL)` at the std::system()
+ *          status level, so accepting BOTH unconditionally would let a child
+ *          that genuinely exit(132)s read as a passing death test. The harness
+ *          therefore probes which shape THIS shell uses once (run_death_tests)
+ *          and then requires exactly that shape per case.
  */
-inline bool child_trapped(int rc) {
+enum class TrapShape { None, Signal, Exit128 };
+
+/**
+ * @brief Classifies a std::system() status into the trap relay shape, if any.
+ * @param rc The raw std::system() return value to interpret.
+ * @return The TrapShape the status represents, or TrapShape::None.
+ */
+inline TrapShape classify_trap(int rc) {
 #if defined(_WIN32)
-  return rc == kTrapStatus;
+  return rc == kTrapStatus ? TrapShape::Signal : TrapShape::None;
 #else
-  // Normally /bin/sh exec-optimizes the single child command, so SIGILL
-  // propagates directly and WIFSIGNALED holds. A shell that instead forks and
-  // waits relays the death as an ordinary exit with status 128+SIGILL; accept
-  // that shape too so the death tests don't all fail under such a shell.
   if (rc == -1)
-    return false;
+    return TrapShape::None;
   if (WIFSIGNALED(rc) && WTERMSIG(rc) == SIGILL)
-    return true;
-  return WIFEXITED(rc) && WEXITSTATUS(rc) == 128 + SIGILL;
+    return TrapShape::Signal;
+  if (WIFEXITED(rc) && WEXITSTATUS(rc) == 128 + SIGILL)
+    return TrapShape::Exit128;
+  return TrapShape::None;
 #endif
+}
+
+/**
+ * @brief Tests whether a child died by the trap in the shell's probed shape.
+ * @param rc The raw std::system() return value to interpret.
+ * @param expected The TrapShape this shell was probed to use (never None).
+ * @return True iff the child died by exactly that illegal-instruction relay.
+ * @details Requiring the single probed shape — not "either signal OR 128+sig" —
+ *          keeps the guarantee tight: under a normal direct-relay shell a child
+ *          that exit(128+SIGILL)s no longer counts as a trap.
+ */
+inline bool child_trapped(int rc, TrapShape expected) {
+  return expected != TrapShape::None && classify_trap(rc) == expected;
 }
 
 /**
@@ -922,9 +944,25 @@ inline int run_death_tests() {
 
   int n;
   const Case *cs = all_cases(n);
+
+  // Probe how THIS shell relays a trap (direct SIGILL vs forked exit 128+SIGILL)
+  // by spawning one case known to trap, then require exactly that shape for
+  // every case below. This replaces a permanent accept-both — which would let a
+  // child that genuinely exit(128+SIGILL)s pass — with the single relay shape
+  // the shell actually uses. If the probe doesn't trap at all, the harness can't
+  // interpret results, so skip (or FAIL under CI) rather than emit false passes.
+  TrapShape shape = classify_trap(spawn_child(cs[0].name));
+  if (shape == TrapShape::None) {
+    report_unrunnable("trap probe child did not die by the illegal-instruction "
+                      "trap; cannot classify trap status",
+                      0);
+    set_case_env("");
+    return hs_test::end_module(scope);
+  }
+
   for (int i = 0; i < n; ++i) {
     int rc = spawn_child(cs[i].name);
-    bool trapped = child_trapped(rc);
+    bool trapped = child_trapped(rc, shape);
     HS_EXPECT_TRUE(trapped);
     std::printf("  [%s] trap fires: %-26s (child rc=%d)\n",
                 trapped ? "ok" : "FAIL", cs[i].name, rc);
