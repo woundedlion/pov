@@ -20,6 +20,7 @@
 #include "targets/wasm/param_marshal.h"
 #include "tests/test_harness.h"
 
+#include <cstdio>
 #include <string_view>
 #include <vector>
 
@@ -40,7 +41,7 @@ constexpr int kH = 144;
  *          order. This is the core correctness check per effect.
  */
 template <template <int, int> class E>
-inline void check_one(const char *) {
+inline bool check_one(const char *) {
   configure_arenas_default();
   Timeline().clear();
   global_timeline_t = 0;
@@ -76,8 +77,10 @@ inline void check_one(const char *) {
 
   // Write an editable float param BY NAME and confirm it reappears at the same
   // index with the rest of the order untouched — guards against a value pushed
-  // back through setParameter landing on the wrong slider. Skip effects with no
-  // editable float param.
+  // back through setParameter landing on the wrong slider. Effects with no
+  // editable float param have nothing to round-trip; the caller tallies the
+  // skip (return false) so roster drift toward such effects is visible, not
+  // silent.
   int target = -1;
   for (size_t k = 0; k < views.size(); ++k) {
     const auto &v = views[k];
@@ -86,22 +89,24 @@ inline void check_one(const char *) {
       break;
     }
   }
-  if (target >= 0) {
-    const float lo = views[target].min, hi = views[target].max;
-    float newv = lo + 0.5f * (hi - lo);
-    if (newv == views[target].value)
-      newv = lo + 0.25f * (hi - lo);
+  if (target < 0)
+    return false; // no editable float param to round-trip
 
-    HS_EXPECT(effect.updateParameter(views[target].name, newv),
-              "updateParameter by name succeeds for an editable param");
+  const float lo = views[target].min, hi = views[target].max;
+  float newv = lo + 0.5f * (hi - lo);
+  if (newv == views[target].value)
+    newv = lo + 0.25f * (hi - lo);
 
-    std::vector<hs_wasm::ParamView> views2;
-    hs_wasm::collect_param_views(effect, views2);
-    HS_EXPECT_EQ(views2.size(), views.size());
-    HS_EXPECT_NEAR(views2[target].value, newv, 1e-3f);
-    for (size_t k = 0; k < views2.size(); ++k)
-      HS_EXPECT_EQ(views2[k].name, views[k].name); // order/names stable
-  }
+  HS_EXPECT(effect.updateParameter(views[target].name, newv),
+            "updateParameter by name succeeds for an editable param");
+
+  std::vector<hs_wasm::ParamView> views2;
+  hs_wasm::collect_param_views(effect, views2);
+  HS_EXPECT_EQ(views2.size(), views.size());
+  HS_EXPECT_NEAR(views2[target].value, newv, 1e-3f);
+  for (size_t k = 0; k < views2.size(); ++k)
+    HS_EXPECT_EQ(views2[k].name, views[k].name); // order/names stable
+  return true;
 }
 
 /**
@@ -224,9 +229,25 @@ inline void check_roster_order_pinned() {
 inline int run_param_marshal_tests() {
   auto scope = hs_test::begin_module("param_marshal");
   check_roster_order_pinned();
-#define HS_PARAM_ONE(name) check_one<name>(#name);
+  // Tally how many effects actually exercised the by-name round-trip. The check
+  // is silently skipped for an effect with no editable float param; without this
+  // counter, the roster drifting toward such effects would erode coverage
+  // invisibly. Surface the split and fail loudly if it ever reaches zero.
+  int rt_covered = 0, rt_total = 0;
+#define HS_PARAM_ONE(name)                                                     \
+  do {                                                                         \
+    ++rt_total;                                                                \
+    if (check_one<name>(#name))                                               \
+      ++rt_covered;                                                            \
+  } while (0);
   HS_EFFECT_LIST(HS_PARAM_ONE)
 #undef HS_PARAM_ONE
+  std::printf("  param-marshal by-name round-trip exercised on %d/%d effects "
+              "(%d skipped: no editable float param)\n",
+              rt_covered, rt_total, rt_total - rt_covered);
+  HS_EXPECT(rt_covered > 0,
+            "by-name round-trip must run on at least one effect — the roster "
+            "drifted to all-non-editable params and the check covers nothing");
 
   // Size a single pair of vectors to the roster's largest parameter set, then
   // marshal every effect through them in turn (the effect-switch path) and
