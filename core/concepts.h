@@ -87,12 +87,20 @@ public:
    * (native tests), and wasm32 all use a single pointer width. The static_assert
    * turns any future target where that stops being true into a compile error
    * instead of silent corruption.
+   *
+   * A null `func` produces an *empty* ref (thunk_ stays null), matching a
+   * default-constructed FunctionRef: `operator bool` reads false and the
+   * operator() null-check catches the misuse. Without this guard a null func
+   * would install a non-null thunk that dereferences null on the first call.
+   * The branch is on the cold construction path, not the per-call hot path.
    */
   FunctionRef(Ret (*func)(Args...)) noexcept
       : ctx_(reinterpret_cast<void *>(func)) {
     static_assert(sizeof(func) == sizeof(void *),
                   "FunctionRef requires function and object pointers to share a "
                   "width (true on all supported targets)");
+    if (func == nullptr)
+      return;
     thunk_ = [](void *ptr, Args... args) -> Ret {
       return (reinterpret_cast<Ret (*)(Args...)>(ptr))(
           std::forward<Args>(args)...);
