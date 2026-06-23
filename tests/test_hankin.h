@@ -344,7 +344,13 @@ inline void test_hankin_one_shot_produces_valid_mesh() {
   check_face_counts_consistent(out);
   check_indices_in_range(out);
 
-  // Static + dynamic vertices live on (or very near) the unit sphere.
+  // Static + dynamic vertices live on (or very near) the unit sphere. The 1e-2
+  // tolerance is intentionally looser than compile_hankin's 1e-3: that check
+  // covers only static_vertices (edge midpoints, re-normalized exactly onto the
+  // sphere), whereas the one-shot output also contains the dynamic vertices —
+  // ray/segment intersections at the build angle that land slightly off the unit
+  // sphere by construction. They are the same vertices the engine draws, so 1e-2
+  // is the honest bound on the full output set, not a weakened version of 1e-3.
   check_all_unit_vertices(out, 1e-2f);
 }
 

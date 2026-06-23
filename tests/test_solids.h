@@ -231,6 +231,30 @@ inline void test_euler_platonic_solids() {
     check_euler_for_index(i, kPlatonic[i].v, kPlatonic[i].e, kPlatonic[i].f);
 }
 
+/**
+ * @brief Verifies every Islamic-pattern entry is a closed 2-manifold (V-E+F==2).
+ * @details Stronger than test_islamic_registry_solids_are_valid's check_basic
+ *          (finite / consistent / in-range), which a wrong-but-self-consistent
+ *          generator still passes. Despite the cautious "may yield open meshes"
+ *          note on the structural test above, every entry currently in the
+ *          registry closes (verified across all of them), so the Euler oracle is
+ *          enforceable and catches a generator regression that opens a seam,
+ *          drops a face, or duplicates geometry — the topological equivalent of
+ *          the exact V/E/F oracle the Platonic solids get. Exact per-entry counts
+ *          are deliberately NOT pinned: the pattern generators are actively
+ *          tuned, so a golden count would invert the signal (every intentional
+ *          retune reds the test) the way test_effects.h rejects golden-frame
+ *          hashing; the Euler invariant is the stable altitude. If a future entry
+ *          is intentionally open, exclude it here with a comment rather than
+ *          weakening the check for all.
+ */
+inline void test_islamic_registry_solids_are_closed() {
+  const size_t base = Solids::Collections::get_simple_solids().size() +
+                      Solids::Collections::get_catalan_solids().size();
+  for (size_t k = 0; k < Solids::Collections::get_islamic_solids().size(); ++k)
+    check_euler_for_index(base + k);
+}
+
 // ---------------------------------------------------------------------------
 // Fallbacks (read directly from solids.h).
 // ---------------------------------------------------------------------------
@@ -519,6 +543,7 @@ inline int run_solids_tests() {
   test_islamic_registry_solids_are_valid();
 
   test_euler_platonic_solids();
+  test_islamic_registry_solids_are_closed();
 
   test_get_entry_last_valid_index_builds();
   test_get_by_name_known_returns_that_solid();
