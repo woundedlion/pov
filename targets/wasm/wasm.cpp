@@ -611,15 +611,6 @@ public:
   }
 
   /**
-   * @brief Builds the GUI's parameter descriptor list.
-   * @return JS array with one {name, value, animated, readonly, (+min/max for
-   *         floats)} object per param in the effect's declaration order; empty
-   *         array when no effect is set.
-   * @details Pair this with getParamGeneration() — cache that counter alongside
-   *          the returned array and re-fetch when it changes, so the cached
-   *          descriptors never mis-describe a later getParamValues() stream.
-   */
-  /**
    * @brief Returns the current param-set generation.
    * @return A monotonic counter bumped whenever the parameter *set*
    *         (names/count/order) changes — i.e. on setEffect()/setResolution().
@@ -632,6 +623,15 @@ public:
    */
   uint32_t getParamGeneration() { return paramGeneration_; }
 
+  /**
+   * @brief Builds the GUI's parameter descriptor list.
+   * @return JS array with one {name, value, animated, readonly, (+min/max for
+   *         floats)} object per param in the effect's declaration order; empty
+   *         array when no effect is set.
+   * @details Pair this with getParamGeneration() — cache that counter alongside
+   *          the returned array and re-fetch when it changes, so the cached
+   *          descriptors never mis-describe a later getParamValues() stream.
+   */
   val getParameterDefinitions() {
     if (!currentEffect)
       return val::array();
