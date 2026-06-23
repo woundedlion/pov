@@ -34,7 +34,7 @@ paths diverge:
 
 - **Simulator (`segment_worker.js` → `targets/wasm/wasm.cpp`).** Daydream
   reproduces the *partitioning* in software: one isolated WASM module instance
-  per segment, each calling `setClip(y0, y1, x0, x1)` (wasm.cpp:465) so the
+  per segment, each calling `setClip(x0, x1, y0, y1)` (wasm.cpp:465) so the
   rasterizer's scanline culling skips out-of-clip rows/columns. The readback
   copies the full canvas; `segment_worker.js` then extracts just the quadrant
   rectangle (`blitSegmentRect`) before transfer (README §10.7).

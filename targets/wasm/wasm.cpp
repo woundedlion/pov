@@ -437,21 +437,23 @@ public:
 
   /**
    * @brief Restricts rendering to a clip band for the current effect.
-   * @param y0 Inclusive top row of the clip band in [0, pixel_height].
-   * @param y1 Exclusive bottom row of the clip band, with y0 <= y1 <= pixel_height.
    * @param x0 Inclusive left column of the clip band in [0, pixel_width].
    * @param x1 Exclusive right column, with x0 <= x1 <= pixel_width.
+   * @param y0 Inclusive top row of the clip band in [0, pixel_height].
+   * @param y1 Exclusive bottom row of the clip band, with y0 <= y1 <= pixel_height.
    * @return true if the bounds were accepted (band applied, OR intentionally
    *         ignored for a full-frame stateful effect); false if no effect is set
    *         or the bounds are malformed/out of range (then ignored).
-   * @details Rejects malformed input at the untyped JS boundary rather than
-   *          trapping, since a trap there aborts the whole WASM module. Segment
-   *          workers always pass valid, ordered, in-range bounds. A cross-segment
-   *          stateful effect (Effect::needs_full_frame()) keeps the full-canvas
-   *          clip instead of narrowing to the band — see
-   *          docs/segmented_stateful_effects_spec.md.
+   * @details Args are x-pair-first to match the (x, y) convention: embind binds
+   *          positionally, so a y-first order would let a transposed JS call pass
+   *          the range check and silently clip the wrong axis. Rejects malformed
+   *          input at the untyped JS boundary rather than trapping, since a trap
+   *          there aborts the whole WASM module. Segment workers always pass
+   *          valid, ordered, in-range bounds. A cross-segment stateful effect
+   *          (Effect::needs_full_frame()) keeps the full-canvas clip instead of
+   *          narrowing to the band — see docs/segmented_stateful_effects_spec.md.
    */
-  bool setClip(int y0, int y1, int x0, int x1) {
+  bool setClip(int x0, int x1, int y0, int y1) {
     if (!currentEffect)
       return false;
     // Clip bounds cross the untyped JS boundary. Reject malformed input that
@@ -463,8 +465,9 @@ public:
     // malformed external calls.
     if (!(x0 >= 0 && y0 >= 0 && x0 <= x1 && x1 <= pixel_width && y0 <= y1 &&
           y1 <= pixel_height)) {
-      hs::log("WASM: setClip bounds out of range (%d,%d,%d,%d) — ignored", y0,
-              y1, x0, x1);
+      hs::log("WASM: setClip bounds out of range (x0=%d,x1=%d,y0=%d,y1=%d) — "
+              "ignored",
+              x0, x1, y0, y1);
       return false;
     }
     // Cross-segment stateful effects (MeshFeedback's unbounded feedback warp)
