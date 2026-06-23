@@ -75,6 +75,9 @@ const POV::EffectFactory kEffectFactories[] = {
 } // namespace
 
 void setup() {
+  // The 9600 is inert on Teensy: USB-CDC runs at native USB speed and ignores
+  // the baud argument. The call is kept only to initialize the Serial object
+  // (and to read as the conventional Arduino setup); it sets no real baud rate.
   Serial.begin(9600);
   // USB-CDC enumeration settle: gives the host time to attach so the early
   // HS_CHECK OOM message below (and other startup output) isn't lost. The
