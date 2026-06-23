@@ -15,6 +15,7 @@
 #include <cstring>
 #include <cstdlib> // std::malloc for the lazily-allocated tooling arenas
 #include <cmath>   // std::isfinite — validate MeshOps args at the JS boundary
+#include <initializer_list> // all_finite() variadic-arg gate for free exports
 
 // ---- Stack canary painting for high water mark tracking ----
 static constexpr uint8_t STACK_CANARY = 0xCD;
@@ -1304,6 +1305,23 @@ static val vector_to_xyz(const Vector &r) {
 }
 
 /**
+ * @brief True iff every argument is finite (no NaN/Inf).
+ * @details The exported free functions below take raw JS floats straight into
+ *          engine math, unlike the class methods (which gate via finite_arg). A
+ *          non-finite value can trip an HS_CHECK deep inside the engine (e.g.
+ *          Vector::normalized() on the slerp spline path) and abort the *entire*
+ *          WASM module — the exact JS-boundary trap the rest of the bridge
+ *          avoids. Gate the free functions the same way: reject non-finite input
+ *          and return a benign zero result instead of trapping.
+ */
+static bool all_finite(std::initializer_list<float> args) {
+  for (float a : args)
+    if (!std::isfinite(a))
+      return false;
+  return true;
+}
+
+/**
  * @brief Evaluates a four-control-point cubic spline (cubic_fast/cubic_slerp)
  *        from the 13 flat floats Embind passes, returning the point as {x,y,z}.
  *
@@ -1316,6 +1334,11 @@ static val eval_cubic_spline(Vector (*fn)(const Vector &, const Vector &,
                              float p1y, float p1z, float p2x, float p2y,
                              float p2z, float p3x, float p3y, float p3z,
                              float t) {
+  // Non-finite control points/parameter would flow into the slerp normalize and
+  // abort the module; reject at the boundary and return the zero vector.
+  if (!all_finite({p0x, p0y, p0z, p1x, p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z,
+                   t}))
+    return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
   return vector_to_xyz(fn({p0x, p0y, p0z}, {p1x, p1y, p1z}, {p2x, p2y, p2z},
                           {p3x, p3y, p3z}, t));
 }
@@ -1410,6 +1433,13 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                                 float startx, float starty, float startz,
                                 float endx, float endy, float endz, float nextx,
                                 float nexty, float nextz, float tension) -> val {
+             if (!all_finite({prevx, prevy, prevz, startx, starty, startz, endx,
+                              endy, endz, nextx, nexty, nextz, tension})) {
+               val v = val::object();
+               v.set("cp1", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
+               v.set("cp2", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
+               return v;
+             }
              Vector cp1, cp2;
              Spline::catmull_rom_tangents({prevx, prevy, prevz},
                                           {startx, starty, startz},
@@ -1432,20 +1462,34 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
 
   // sRGB transfer function (color.js srgbToLinearFloat / linearToSrgbFloat).
   function("srgb_to_linear_float",
-           optional_override([](float s) -> float { return srgb_to_linear_float(s); }));
+           optional_override([](float s) -> float {
+             return all_finite({s}) ? srgb_to_linear_float(s) : 0.0f;
+           }));
   function("linear_to_srgb_float",
-           optional_override([](float l) -> float { return linear_to_srgb_float(l); }));
+           optional_override([](float l) -> float {
+             return all_finite({l}) ? linear_to_srgb_float(l) : 0.0f;
+           }));
 
   // The interpolated sRGB->16-bit-linear LUT the cosine palette path uses, so a
-  // JS test can reproduce ProceduralPalette::get's exact quantization.
+  // JS test can reproduce ProceduralPalette::get's exact quantization. A
+  // non-finite s would cast to an out-of-range LUT index, so gate it.
   function("srgb_to_linear_interp",
            optional_override([](float s) -> int {
+             if (!all_finite({s}))
+               return 0;
              return static_cast<int>(srgb_to_linear_interp(s));
            }));
 
   // OKLab matrices (color.js linearRgbToOklab / oklabToLinearRgb).
   function("linear_rgb_to_oklab",
            optional_override([](float r, float g, float b) -> val {
+             if (!all_finite({r, g, b})) {
+               val v = val::object();
+               v.set("L", 0.0f);
+               v.set("a", 0.0f);
+               v.set("b", 0.0f);
+               return v;
+             }
              OKLab lab = linear_rgb_to_oklab(r, g, b);
              val v = val::object();
              v.set("L", lab.L);
@@ -1455,6 +1499,13 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
            }));
   function("oklab_to_linear_rgb",
            optional_override([](float L, float a, float b) -> val {
+             if (!all_finite({L, a, b})) {
+               val v = val::object();
+               v.set("r", 0.0f);
+               v.set("g", 0.0f);
+               v.set("b", 0.0f);
+               return v;
+             }
              float r, g, bb;
              oklab_to_linear_rgb({L, a, b}, r, g, bb);
              val v = val::object();
@@ -1484,6 +1535,14 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
            optional_override([](float a0, float a1, float a2, float b0, float b1,
                                 float b2, float c0, float c1, float c2, float d0,
                                 float d1, float d2, float t) -> val {
+             if (!all_finite({a0, a1, a2, b0, b1, b2, c0, c1, c2, d0, d1, d2,
+                              t})) {
+               val o = val::object();
+               o.set("r", 0);
+               o.set("g", 0);
+               o.set("b", 0);
+               return o;
+             }
              ProceduralPalette pal({a0, a1, a2}, {b0, b1, b2}, {c0, c1, c2},
                                    {d0, d1, d2});
              Color4 col = pal.get(t);
@@ -1497,6 +1556,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   // Lissajous curve (lissajous_math.js lissajous), via geometry.h.
   function("lissajous",
            optional_override([](float m1, float m2, float a, float t) -> val {
+             if (!all_finite({m1, m2, a, t}))
+               return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
              return vector_to_xyz(lissajous(m1, m2, a, t));
            }));
 }
