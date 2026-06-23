@@ -520,8 +520,10 @@ public:
         v.x * axis.x + v.y * axis.y + v.z * axis.z; // dot product
     float dot_val = std::max(-1.0f, std::min(1.0f, projection));
     // fast_acos can overshoot [0,π] slightly even for in-range input, so t can
-    // land just outside [0,1]; clamp before the floor/size_t cast so a negative
-    // t never wraps to a huge index (the >= count guard below catches t == 1).
+    // land just outside [0,1]. Clamp so a tiny negative overshoot selects the
+    // first orientation (bucket 0) instead of wrapping through size_t to the
+    // last one; bounds safety itself is the >= count guard below, which also
+    // folds the t == 1 top edge into the last bucket.
     float t = hs::clamp(1.0f - fast_acos(dot_val) / PI_F, 0.0f, 1.0f);
 
     size_t count = orientations.size();
@@ -781,7 +783,10 @@ public:
     // us a fractional age, and bare truncation collapses every fraction within a
     // frame onto the same TTL bucket (1.0 and 1.9 both lose a full frame). age is
     // non-negative by contract, so +0.5f is a correct round-to-nearest; ttl <= 0
-    // is dropped below regardless.
+    // is dropped below regardless. NOTE: this rounds because ttl is an integer
+    // byte here; Screen::Trails stores ttl as a float and keeps the fraction, so
+    // for the same fractional age the two backends differ by up to one frame in
+    // when a trail point first appears — a deliberate, benign divergence.
     int ttl = lifetime - static_cast<int>(age + 0.5f);
     if (ttl > 0 && items_) {
       push_back(encode(v, static_cast<uint8_t>(ttl)));
@@ -1106,6 +1111,12 @@ public:
     // of trailFn's range and the re-emitted age past lifetime. The ttl>0 gate
     // mirrors World::Trails and gates only the seed, not the forward above, so an
     // already-aged emission still paints this frame.
+    //
+    // ttl keeps the full fractional age (no +0.5f round, unlike World::Trails):
+    // it is stored as a float and decremented by 1 per frame, so a point lives
+    // ceil(ttl) frames. World rounds because its ttl is a byte; the result is a
+    // sub-frame, deliberate divergence in fade-in timing between the two
+    // backends — see the World::Trails seed.
     float ttl = static_cast<float>(lifetime) - age;
     // At capacity this drops the NEWEST point — the opposite of World::Trails,
     // whose ring buffer evicts the oldest so the freshest motion stays visible.
