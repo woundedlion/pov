@@ -676,8 +676,12 @@ inline void test_fast_cbrt_accuracy() {
 
 /**
  * @brief Verifies a perceptual hue rotation leaves a gray unchanged.
- * @details A gray (achromatic) color has zero chroma in OKLab, so a hue rotation
- *          must leave it unchanged for any amount and preserve alpha.
+ * @details A gray (achromatic) color has zero chroma in OKLab, so rotating the
+ *          (a,b) plane is a no-op and the color must come back unchanged for any
+ *          amount, with alpha preserved. The OKLab matrices round-trip a gray
+ *          channel exactly here (measured delta 0 of 65535), so the tolerance is
+ *          1 LSB of the 16-bit linear channel — precision-grade, not the former
+ *          48-LSB smoke band — leaving room only for a stray rounding ULP.
  */
 inline void test_hue_rotate_preserves_gray() {
   Color4 gray(128, 128, 128, 0.5f);
@@ -685,29 +689,34 @@ inline void test_hue_rotate_preserves_gray() {
     Color4 out = hue_rotate(gray, amt);
     // Output stays gray (channels track each other) and near the input.
     HS_EXPECT_NEAR(static_cast<float>(out.color.r),
-                   static_cast<float>(gray.color.r), 48.0f);
+                   static_cast<float>(gray.color.r), 1.0f);
     HS_EXPECT_NEAR(static_cast<float>(out.color.g),
-                   static_cast<float>(out.color.r), 48.0f);
+                   static_cast<float>(out.color.r), 1.0f);
     HS_EXPECT_NEAR(static_cast<float>(out.color.b),
-                   static_cast<float>(out.color.r), 48.0f);
+                   static_cast<float>(out.color.r), 1.0f);
     HS_EXPECT_NEAR(out.alpha, 0.5f, 1e-5f);
   }
 }
 
 /**
  * @brief Verifies a full-turn rotation returns to the original color.
- * @details A full-turn rotation (amount = 1.0) returns to the original color
- *          within the fast_cbrt round-trip error.
+ * @details A full-turn rotation (amount = 1.0) should be the identity. The
+ *          residual is the combined error of fast_cosf/fast_sinf at 2*PI (the
+ *          turn never lands on an exact cos=1, sin=0) and the fast_cbrt OKLab
+ *          round-trip: measured at most 4 LSB of the 16-bit linear channel on
+ *          this saturated sample. The tolerance is 12 LSB — a ~3x margin over
+ *          that measured error, so it stays precision-grade (vs the former
+ *          64-LSB smoke band) while tolerating minor float-rounding drift.
  */
 inline void test_hue_rotate_full_turn_identity() {
   Color4 c(200, 60, 30, 1.0f);
   Color4 out = hue_rotate(c, 1.0f);
   HS_EXPECT_NEAR(static_cast<float>(out.color.r),
-                 static_cast<float>(c.color.r), 64.0f);
+                 static_cast<float>(c.color.r), 12.0f);
   HS_EXPECT_NEAR(static_cast<float>(out.color.g),
-                 static_cast<float>(c.color.g), 64.0f);
+                 static_cast<float>(c.color.g), 12.0f);
   HS_EXPECT_NEAR(static_cast<float>(out.color.b),
-                 static_cast<float>(c.color.b), 64.0f);
+                 static_cast<float>(c.color.b), 12.0f);
 }
 
 // ============================================================================
