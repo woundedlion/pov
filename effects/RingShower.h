@@ -90,6 +90,12 @@ private:
   struct Ring {
     static constexpr int FADE_IN_FRAMES = 4; /**< Frames spent fading in from 0 to full opacity; opacity then holds (no fade-out). */
     static constexpr float RADIUS_MAX = 2.0f; /**< Maximum radius; the ring grows from 0 to this over its whole life. */
+    // Lifetime is drawn uniformly from [LIFE_MIN, LIFE_MIN + LIFE_SPAN) frames.
+    // LIFE_MIN is strictly positive *by design*: it is the sole guarantee that
+    // radius_at()'s `/ life` divisor is never zero (spawn_ring() is the only
+    // writer of life). Keep LIFE_MIN >= 1 if these are ever retuned.
+    static constexpr int LIFE_MIN = 8;   /**< Minimum lifetime in frames (>0: guards the radius_at divisor). */
+    static constexpr int LIFE_SPAN = 72; /**< Width of the random lifetime range, in frames. */
 
     Vector normal; /**< Plane normal fixing the ring's orientation. */
     /**
@@ -116,6 +122,8 @@ private:
      *          final visible frame (age + 1 == life).
      */
     float radius_at() const {
+      // `/ life` is divisor-safe because spawn_ring() always sets life >= LIFE_MIN
+      // (> 0); a slot is never drawn before being spawned (age >= life marks it free).
       float t = hs::clamp(static_cast<float>(age + 1) / life, 0.0f, 1.0f);
       return RADIUS_MAX * ease_linear(t);
     }
@@ -148,7 +156,8 @@ private:
    *        and palette.
    * @details Scans for a slot whose age has reached its life; if none is free,
    *          the spawn is silently dropped. life is drawn uniformly in
-   *          [8, 80) frames. With MAX_RINGS slots, lives up to 80 frames, and a
+   *          [LIFE_MIN, LIFE_MIN + LIFE_SPAN) = [8, 80) frames. With MAX_RINGS
+   *          slots, lives up to 80 frames, and a
    *          4-48 frame spawn cadence the pool can briefly fill, so a dropped
    *          spawn is an EXPECTED transient (bounded soft handling — a missed
    *          ring is invisible against the shower), NOT an invariant violation:
@@ -160,7 +169,8 @@ private:
       if (rings[i].age >= rings[i].life) { // free slot
         Ring &ring = rings[i];
         ring.normal = random_vector();
-        ring.life = static_cast<int>(hs::rand_f() * 72.0f + 8.0f);
+        ring.life = static_cast<int>(hs::rand_f() * Ring::LIFE_SPAN +
+                                     Ring::LIFE_MIN);
         ring.age = 0;
         ring.palette.rebake(make_palette());
         return;
