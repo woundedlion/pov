@@ -847,7 +847,10 @@ public:
    */
   const T *end() const {
     check_alive();
-    return data_ + size_;
+    // data_ + size_ is nullptr + 0 on a default-constructed/empty span — formal
+    // UB ([expr.add]/4), UBSan-flagged, and reachable via a range-for over a
+    // default-constructed span. Mirror ArenaVector::end()'s guard.
+    return data_ ? data_ + size_ : nullptr;
   }
 };
 
