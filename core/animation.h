@@ -2308,7 +2308,10 @@ public:
   /**
    * @brief Constructs a Noise animation.
    * @param params Reference to the NoiseParams to animate.
-   * @param duration Duration in frames (-1 for indefinite).
+   * @param duration Duration in frames (-1 for indefinite). Finite durations
+   *   are not recommended: this animation repeats, so a finite duration rewinds
+   *   t to 0 each cycle and snaps params.time backward — a sawtooth that breaks
+   *   the smooth forward flow the time axis exists for. Use -1 (the default).
    */
   Noise(NoiseParams &params, int duration = -1)
       : AnimationBase(duration, true), params(params) {}

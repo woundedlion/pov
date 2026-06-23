@@ -128,7 +128,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 20. ✅ **`MobiusWarpEvolving` is perpetual; its `.then()` never fires, undocumented** — `core/animation.h:2117-2120` delegates to the default `AnimationBase()` (duration −1), so it never reaches `done()`. The identical RandomWalk hazard is documented at `:1606-1614`; mirror that note here (and for any code relying on its Transformer slot-recycle callback).
 
-21. **`Noise` with a finite duration sawtooths the time axis** — `core/animation.h:2302-2324` is constructed `repeat = true`; a finite duration rewinds `t` to 0 each cycle and snaps `params.time` backward, the opposite of the smooth-flow intent. Fix: force duration −1 or document finite durations as unsupported.
+21. ✅ **`Noise` with a finite duration sawtooths the time axis** — `core/animation.h:2302-2324` is constructed `repeat = true`; a finite duration rewinds `t` to 0 each cycle and snaps `params.time` backward, the opposite of the smooth-flow intent. Fix: force duration −1 or document finite durations as unsupported.
 
 22. **Stale comment: `hue_rotate` references a "per-channel clamp below" that no longer exists** — `core/color.h:751-755`. The clamp is now inside `float_to_pixel16`; the spatial reference misleads.
 
