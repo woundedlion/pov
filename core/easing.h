@@ -92,10 +92,13 @@ inline float ease_linear(float t) {
  * @return The eased factor.
  */
 inline float ease_out_expo(float t) {
-  // Exact-endpoint guard (callers pass exactly 1.0f at sequence end): without it
-  // the formula returns 1 - 2^-10 ~= 0.999 there. The compare is float-typed so
-  // t is not promoted to double.
-  return t == 1.0f ? 1.0f : 1.0f - powf(2.0f, -10.0f * t);
+  // Endpoint guards (callers pass exactly 0.0f / 1.0f at sequence ends). The
+  // upper guard pins 1.0f, which the formula otherwise approaches as 1 - 2^-10
+  // ~= 0.999. The lower guard floors at 0: 2^(-10t) grows without bound for
+  // t < 0, so an out-of-range t would otherwise return a wildly negative value
+  // (the radicand-clamped siblings -- ease_*_circ -- bound their out-of-range
+  // ends the same way). Compares are float-typed so t is not promoted to double.
+  return t <= 0.0f ? 0.0f : t == 1.0f ? 1.0f : 1.0f - powf(2.0f, -10.0f * t);
 }
 
 /**
@@ -124,9 +127,12 @@ inline float ease_out_cubic(float t) {
  */
 inline float ease_out_elastic(float x) {
   const float c4 = (2 * PI_F) / 3;
-  // Exact-endpoint guards (callers pass exactly 0.0f / 1.0f at the ends); the
-  // float-typed compares keep x in float.
-  return x == 0.0f ?
+  // Endpoint guards (callers pass exactly 0.0f / 1.0f at the ends). The lower
+  // guard floors at 0 for all x <= 0, not just x == 0: 2^(-10x) grows without
+  // bound for x < 0, so an out-of-range x would otherwise scale the sine into a
+  // wildly out-of-range value (the radicand-clamped siblings bound their ends
+  // the same way). Float-typed compares keep x in float.
+  return x <= 0.0f ?
     0.0f : x == 1.0f ?
     1.0f : powf(2.0f, -10.0f * x) * sinf((x * 10.0f - 0.75f) * c4) + 1.0f;
 }
