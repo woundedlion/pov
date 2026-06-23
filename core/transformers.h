@@ -449,6 +449,15 @@ using MobiusWarpTransformer =
  * @brief Performs circular Mobius warps that stay warped throughout, suitable
  * for repeating animations.
  * @tparam CAPACITY Maximum number of concurrent circular Mobius warps.
+ * @warning This variant deliberately never returns to identity — unlike
+ * MobiusWarpTransformer (which uses the same `mobius_transform` but an animation
+ * that eases back to identity), `Animation::MobiusWarpCircular` traces a closed
+ * loop in parameter space that holds the warp at full strength. That makes it
+ * correct ONLY in a repeating slot, where the loop re-enters seamlessly. In a
+ * non-repeating slot it freezes off-identity on the final composed frame, so the
+ * teardown is a one-frame discontinuity (the warp snaps away when the slot ends)
+ * rather than a smooth relax-to-identity. Use MobiusWarpTransformer for one-shot
+ * slots that must land back on the unwarped sphere.
  */
 template <int CAPACITY>
 using MobiusWarpCircularTransformer =
