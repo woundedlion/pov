@@ -141,6 +141,39 @@ inline float clamp_phi(float x) {
     return 2.0f * PI_F - x;
   return x;
 }
+
+/** @brief A colatitude band as inclusive [phi_min, phi_max] bounds in [0, π]. */
+struct PhiBand {
+  float phi_min, phi_max;
+};
+
+/**
+ * @brief Folds a `center ± half-angle` colatitude band into clamped [0, π].
+ * @param center_phi Band-center colatitude (radians).
+ * @param target_angle Half-width of the band (radians).
+ * @return {phi_min, phi_max}: the band's folded extent. An edge that runs past a
+ *         pole pins that side to the pole (0 or π); a fully in-range band returns
+ *         its folded endpoints.
+ * @details Single source for the Ring/DistortedRing get_vertical_bounds latitude
+ *          fold so the two cannot drift apart.
+ */
+inline PhiBand clamp_phi_band(float center_phi, float target_angle) {
+  float a1 = center_phi - target_angle;
+  float a2 = center_phi + target_angle;
+  float phi_min = 0, phi_max = PI_F;
+
+  if (a1 > 0) {
+    float p1 = clamp_phi(a1);
+    float p2 = clamp_phi(a2);
+    phi_min = std::min(p1, p2);
+  }
+  if (a2 < PI_F) {
+    float p1 = clamp_phi(a1);
+    float p2 = clamp_phi(a2);
+    phi_max = std::max(p1, p2);
+  }
+  return {phi_min, phi_max};
+}
 /**
  * @brief Vertical scanline bounds (inclusive min/max row index).
  */
@@ -415,24 +448,11 @@ struct Ring {
    * @return Row bounds covering the ring plus its AA falloff.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    float a1 = center_phi - target_angle;
-    float a2 = center_phi + target_angle;
-    float phi_min = 0, phi_max = PI_F;
-
-    if (a1 > 0) {
-      float p1 = clamp_phi(a1);
-      float p2 = clamp_phi(a2);
-      phi_min = std::min(p1, p2);
-    }
-    if (a2 < PI_F) {
-      float p1 = clamp_phi(a1);
-      float p2 = clamp_phi(a2);
-      phi_max = std::max(p1, p2);
-    }
+    PhiBand band = clamp_phi_band(center_phi, target_angle);
 
     float eff_th = 0.95f * thickness; // quintic_kernel(0.05) ≈ 0.001
-    float f_phi_min = std::max(0.0f, phi_min - eff_th);
-    float f_phi_max = std::min(PI_F, phi_max + eff_th);
+    float f_phi_min = std::max(0.0f, band.phi_min - eff_th);
+    float f_phi_max = std::min(PI_F, band.phi_max + eff_th);
 
     return phi_bounds_to_rows<H>(f_phi_min, f_phi_max);
   }
@@ -621,24 +641,11 @@ struct DistortedRing {
    * @return Inclusive row bounds covering the ring plus distortion margin.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    float a1 = center_phi - target_angle;
-    float a2 = center_phi + target_angle;
-    float phi_min = 0, phi_max = PI_F;
-
-    if (a1 > 0) {
-      float p1 = clamp_phi(a1);
-      float p2 = clamp_phi(a2);
-      phi_min = std::min(p1, p2);
-    }
-    if (a2 < PI_F) {
-      float p1 = clamp_phi(a1);
-      float p2 = clamp_phi(a2);
-      phi_max = std::max(p1, p2);
-    }
+    PhiBand band = clamp_phi_band(center_phi, target_angle);
 
     float margin = max_thickness + BOUNDS_MARGIN_WIDE;
-    float f_phi_min = std::max(0.0f, phi_min - margin);
-    float f_phi_max = std::min(PI_F, phi_max + margin);
+    float f_phi_min = std::max(0.0f, band.phi_min - margin);
+    float f_phi_max = std::min(PI_F, band.phi_max + margin);
 
     return phi_bounds_to_rows<H>(f_phi_min, f_phi_max);
   }
