@@ -144,7 +144,7 @@ private:
    *          [0, 255], so +0.5f tops out at 255.5 -> 255 with no overflow.
    */
   static inline uint8_t to_q8(float v) {
-    return static_cast<uint8_t>(hs::clamp(v, 0.0f, 1.0f) * 255.0f + 0.5f);
+    return static_cast<uint8_t>(hs::clamp(v, 0.0f, 1.0f) * Q8_SCALE + 0.5f);
   }
 
   // Simulation tuning.

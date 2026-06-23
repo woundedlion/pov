@@ -134,7 +134,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 23. ✅ **Stale comment: `Particle::init` cites `std::min`, code uses `hs::clamp`** — `core/animation.h:466-467` and `:543`. Rename-history drift.
 
-24. **`BZ::to_q8` open-codes `255.0f` instead of `Q8_SCALE`** — `effects/BZReactionDiffusion.h:147` vs the constant at `:117`; `GS::to_q16` correctly uses `Q16_SCALE`. Cosmetic symmetry.
+24. ✅ **`BZ::to_q8` open-codes `255.0f` instead of `Q8_SCALE`** — `effects/BZReactionDiffusion.h:147` vs the constant at `:117`; `GS::to_q16` correctly uses `Q16_SCALE`. Cosmetic symmetry.
 
 25. **Voronoi dead zero-sites guard** — `effects/Voronoi.h:106-107`. `active_site_count()` clamps to `[1, MAX_SITES]` and the slider min is 1, so `sites_buffer` can never be empty; the guard and its comment describe an unreachable state.
 
