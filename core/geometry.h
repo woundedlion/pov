@@ -65,7 +65,9 @@ struct Fragment {
  * both gradient-map this depth.
  */
 inline float fragment_edge_dist(const Fragment &f) {
-  return (f.size > 0.0001f) ? (-f.v1 / f.size) : 0.0f;
+  // math::TOLERANCE (1e-4) is the generic small-positive guard; here it rejects a
+  // degenerate (near-zero-size) face before the divide.
+  return (f.size > math::TOLERANCE) ? (-f.v1 / f.size) : 0.0f;
 }
 
 /**
@@ -205,6 +207,14 @@ struct LogPolar {
   float rho;   /**< Log-radius (natural log of the complex-plane radius). */
   float theta; /**< Angle in radians. */
 };
+
+/**
+ * @brief Finite stand-in for the infinite log-radius at a stereographic pole.
+ * @details `rho = 0.5*log((1+y)/(1-y))` tends to ±inf at the poles (v.y → ±1);
+ * `vectorToLogPolar` clamps each pole to ±this sentinel so no non-finite rho
+ * leaks into downstream arithmetic.
+ */
+static constexpr float LOGPOLAR_RHO_SENTINEL = 10.0f;
 
 /**
  * @brief Converts a pixel y-coordinate to a spherical phi angle.
@@ -520,11 +530,11 @@ inline LogPolar vectorToLogPolar(const Vector &v) {
   // into downstream arithmetic.
   const float numer = 1.0f + v.y;
   const float denom = 1.0f - v.y;
-  if (std::abs(denom) < 0.00001f) {
-    return {10.0f, 0.0f}; // North pole sentinel (rho -> +inf)
+  if (std::abs(denom) < math::EPS_GEOMETRIC) {
+    return {LOGPOLAR_RHO_SENTINEL, 0.0f}; // North pole sentinel (rho -> +inf)
   }
-  if (std::abs(numer) < 0.00001f) {
-    return {-10.0f, 0.0f}; // South pole sentinel (rho -> -inf)
+  if (std::abs(numer) < math::EPS_GEOMETRIC) {
+    return {-LOGPOLAR_RHO_SENTINEL, 0.0f}; // South pole sentinel (rho -> -inf)
   }
   const float rho = 0.5f * logf(numer / denom);
   const float theta = fast_atan2(v.z, v.x);
