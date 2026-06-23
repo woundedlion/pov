@@ -51,8 +51,14 @@ static inline void arm_dcache_flush(void *, size_t) {}
  *   Per pixel   : [0xFF] [B] [G] [R]   (brightness byte fixed at max)
  *   End frame   : ceil(N/16) bytes of 0x00. Each LED re-clocks the data one
  *                 half-cycle later, so the last pixel needs ceil(N/2) extra
- *                 clocks to latch; at 8 clocks/byte that is ceil(N/16) =
- *                 (N+15)/16 bytes. 0x00 (not 0xFF) per the SK9822/HD107S latch.
+ *                 clocks to latch. At 8 clocks/byte that is ceil(ceil(N/2)/8)
+ *                 bytes, which equals ceil(N/16) = (N+15)/16 *exactly* by the
+ *                 nested-ceiling identity ceil(ceil(x/a)/b) = ceil(x/(a·b)) for
+ *                 integer a,b>0 — not a coincidence of the two ceilings. The only
+ *                 slack is byte granularity: a whole-byte end frame can carry up
+ *                 to 7 more zero clocks than the ceil(N/2) minimum at small N,
+ *                 which is harmless (extra 0x00 clocks just keep latching zeros).
+ *                 0x00 (not 0xFF) per the SK9822/HD107S latch.
  *
  * Color correction pipeline (all in linear 16-bit space):
  *   1. sRGB 8-bit → linear 16-bit   (srgb_to_linear_lut, PROGMEM)
@@ -64,8 +70,10 @@ static inline void arm_dcache_flush(void *, size_t) {}
 template <int N>
 class HD107SFrame {
 public:
-  /** End-frame latch per the SK9822/HD107S spec: ceil(N/2) extra clocks to
-       push data through the chain → ceil(N/16) = (N+15)/16 bytes of 0x00. */
+  /** End-frame latch per the SK9822/HD107S spec: ceil(N/2) extra clocks to push
+       data through the chain, packed 8 clocks/byte → ceil(ceil(N/2)/8) =
+       ceil(N/16) = (N+15)/16 bytes of 0x00 (exact via the nested-ceiling
+       identity; see the layout note above for the byte-granularity slack). */
   static constexpr int END_FRAME_BYTES = (N + 15) / 16;
   /** Single-frame buffer size in bytes. */
   static constexpr int BUFFER_SIZE = 4 + (N * 4) + END_FRAME_BYTES;
