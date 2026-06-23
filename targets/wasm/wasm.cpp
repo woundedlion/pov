@@ -304,7 +304,7 @@ public:
     // exposed to JS must be stable for the lifetime of the engine. pixelBuffer
     // (getPixels) and paramValues (getParamValues) are both returned AS views,
     // so they are bound by that contract.
-    pixelBuffer.assign(MAX_W * MAX_H * 3, 0); // 16-bit linear RGB; never resized
+    pixelBuffer.assign(MAX_W * MAX_H * kChannels, 0); // 16-bit linear RGB; never resized
     paramValues.reserve(MAX_PARAMS);          // view-backed: never reallocated past this
     // paramViews is NOT view-backed: getParameterDefinitions() iterates it to
     // build a fresh val::array (no typed_memory_view aliases its storage), so
@@ -481,7 +481,7 @@ public:
       // frame still laid out for the old one (wrong aspect / stale content).
       // pixelBuffer is pre-sized to MAX_W*MAX_H*3 and never resized, so writing
       // the active prefix is always in-bounds.
-      const int count = pixel_width * pixel_height * 3;
+      const int count = pixel_width * pixel_height * kChannels;
       for (int i = 0; i < count; i++)
         pixelBuffer[i] = 0;
       return;
@@ -565,7 +565,7 @@ public:
   val getPixels() {
     // View spans only the active resolution's pixels (R,G,B per pixel) within
     // the stable MAX_W*MAX_H*3 backing buffer.
-    return val(typed_memory_view(pixel_width * pixel_height * 3,
+    return val(typed_memory_view(pixel_width * pixel_height * kChannels,
                                  pixelBuffer.data()));
   }
 
@@ -574,7 +574,7 @@ public:
    * @return Number of uint16 elements in the active view (pixel_width *
    *         pixel_height * 3, three channels per pixel).
    */
-  int getBufferLength() { return pixel_width * pixel_height * 3; }
+  int getBufferLength() { return pixel_width * pixel_height * kChannels; }
 
   /**
    * @brief Updates one named effect parameter.
@@ -596,6 +596,12 @@ public:
   bool setParameter(std::string name, float value) {
     if (!currentEffect)
       return false;
+    // Finiteness is NOT re-checked at this boundary on purpose: unlike the
+    // MeshOps wrappers (which own their finite_arg gate), the NaN/inf reject for
+    // params is single-sourced in Canvas::updateParameter (a non-finite value is
+    // dropped there before it can reach render math), so duplicating the check
+    // here would diverge from that one contract point. updateParameter returning
+    // false collapses the non-finite case with name-unknown / readonly (see doc).
     return currentEffect->updateParameter(name.c_str(), value);
   }
 
@@ -768,6 +774,9 @@ public:
   }
 
 private:
+  /** Channels per pixel in the readback buffer (linear RGB triples). */
+  static constexpr int kChannels = 3;
+
   std::unique_ptr<Effect> currentEffect; /**< Currently active effect, or null. */
   std::vector<uint16_t> pixelBuffer; /**< 16-bit linear RGB readback buffer. */
   std::vector<float> paramValues;    /**< Backing store for getParamValues. */
