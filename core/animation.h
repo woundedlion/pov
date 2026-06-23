@@ -1291,6 +1291,13 @@ public:
    * @param repeat If true, the motion repeats.
    * @param space Coordinate space for the applied rotations.
    */
+  // By design, an empty or origin-crossing path is not a legitimate animation
+  // state and is trapped fail-fast — but downstream of here: the first update()
+  // feeds path_fn(s) into angle_between()/normalized(), which HS_CHECK a
+  // zero-length vector (Path::get_point returns the origin for an empty path).
+  // No earlier ctor guard: P is generic (Path has is_empty(), ProceduralPath
+  // does not and is never "empty"), so there is no portable emptiness test to
+  // assert here. This note records where the trap actually fires.
   template <typename P>
   Motion(Orientation<CAP> &orientation, const P &path_obj, int duration,
          bool repeat = false, Space space = Space::World)
