@@ -20,6 +20,19 @@ build-debug:
     cmake --preset wasm-debug
     cmake --build --preset wasm-debug
 
+# Headless smoke test of the shipped WASM module (instantiates the built
+# module and drives every effect; asserts arena/stack high-water marks). This
+# is the CI `wasm` job's runtime gate — run it locally so `just build` is not
+# shipping an un-exercised module. Builds first so it runs against fresh output.
+smoke: build
+    node scripts/wasm_smoke.mjs
+
+# Capture the WebGL effect gallery to docs/screenshots/ (Playwright, headless).
+# Needs the sibling daydream checkout served (see README) and the chromium
+# browser installed once via `npx playwright install chromium`.
+screenshots:
+    npm run screenshots
+
 # Native unit-test suite (Clang) + CTest.
 test:
     cmake --preset tests

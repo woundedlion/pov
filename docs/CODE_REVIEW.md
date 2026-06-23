@@ -237,7 +237,7 @@ device's shipped behavior:
 113. targets/wasm/wasm.cpp:1087 — `snub` is bound as a 0-arg operator, so its `t`/`twist` controls are unreachable from JS (mis-bucketed).
 114. targets/wasm/wasm.cpp:596,484 — `setParameter` delegates finiteness validation one layer down (inconsistent with the file's reject-at-boundary pattern); the `*3` channel count is a bare literal repeated ~6×.
 115. CMakeLists.txt:79-82 — `-ffast-math -fno-finite-math-only` are compile-only while LTO defers codegen to link; correct today but the asymmetry is undocumented (a link-time math pass could silently re-enable finite-math).
-116. justfile — no recipe invokes `wasm_smoke.mjs`/`capture_screenshots.mjs`; the stated regression gates are CI-only, so `just build` ships an un-smoke-tested module.
+116. ✅ justfile — no recipe invokes `wasm_smoke.mjs`/`capture_screenshots.mjs`; the stated regression gates are CI-only, so `just build` ships an un-smoke-tested module. → **Fixed:** added a `smoke` recipe (`build` dependency + `node scripts/wasm_smoke.mjs`) so the WASM module's runtime gate — the same one the CI `wasm` job runs — is one command away locally, and a `screenshots` recipe wrapping `npm run screenshots`. `just build` still only builds, but the smoke gate is no longer CI-exclusive.
 117. scripts/generate_luts.py:62,84 — `65536`/`256` sizes duplicated across docstring/`range`/C decl; `per_row` magic numbers unexplained.
 118. scripts/wasm_smoke.mjs:240 — `relax(1e9)` proves the C++-side clamp but not embind's int coercion near INT32 overflow (the test asserts less than its comment claims).
 119. targets/Phantasm/Phantasm.ino:78 — `Serial.begin(9600)` is dead config on Teensy USB-CDC (baud ignored); reads as meaningful when it isn't.
