@@ -305,6 +305,16 @@ private:
     return f == 0 ? 0u : static_cast<uint16_t>(f) + 1u;
   }
 
+  // LUT-index safety for correct(): every (v * f) >> 8 stage must leave v within
+  // its 16-bit range, or the chained result over-reads the 65536-entry
+  // linear_to_srgb_lut. That holds iff factor() never exceeds unity (256), and
+  // factor() is monotonic so its maximum is at f == 255. Pin it here so widening
+  // factor()'s domain (e.g. a future >1.0 gain) fails at compile time instead of
+  // silently over-reading the LUT on the ISR hot path.
+  static_assert(factor(255) <= 256u,
+                "factor() must cap at unity (256) so correct()'s (v*f)>>8 stages "
+                "cannot grow v past 16 bits and over-read linear_to_srgb_lut");
+
   // Shared correction state — internal multipliers (256 = ×1.0, 0 = off).
   static uint16_t tempR_, tempG_, tempB_;
   static uint16_t corrR_, corrG_, corrB_;
