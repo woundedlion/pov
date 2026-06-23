@@ -231,9 +231,12 @@ if (!MeshOps) {
       if (!isValidMesh(trunc)) fail(`${solidName}.truncate(0.3) did not produce a valid mesh`);
       if (trunc) trunc.delete();
 
-      // relax(int): the int-arg path plus its clamp. relax(1) is the nominal
-      // case; relax(1e9) must clamp to kMaxRelaxIterations (not loop unbounded
-      // across the JS boundary) and still return a valid mesh.
+      // relax(int): the int-arg path plus its C++-side clamp. relax(1) is the
+      // nominal case; relax(1e9) is a large-but-still-INT32-valid count
+      // (1e9 < 2^31) that must clamp to kMaxRelaxIterations rather than loop a
+      // billion times, and still return a valid mesh. This exercises the C++
+      // clamp only — NOT embind's double->int coercion at/past INT32_MAX, which
+      // is a separate marshaling path this test does not reach.
       const relaxed = solid.relax(1);
       if (!isValidMesh(relaxed)) fail(`${solidName}.relax(1) did not produce a valid mesh`);
       if (relaxed) relaxed.delete();
