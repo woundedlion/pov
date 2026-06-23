@@ -839,7 +839,14 @@ inline Pixel oklch_to_pixel(OKLCH lch) {
  * Hue is left free to wrap.
  */
 inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
-  // Handle achromatic cases (near-zero chroma)
+  // Handle achromatic cases (near-zero chroma). One endpoint being achromatic
+  // (gray) has no meaningful hue angle, so there is no arc to interpolate: take
+  // the chromatic endpoint's hue for the whole segment. This means an
+  // achromatic-start blend adopts the target hue instantly at t~0+ rather than
+  // sweeping into it -- which is correct, not a pop: chroma is ~0 near that end
+  // (it lerps up from the gray endpoint's ~0), so the hue is invisible there and
+  // only becomes visible as chroma grows, by which point it is already the
+  // target hue. (If both ends are gray, hue is moot; pin it to 0.)
   float h;
   if (a.C < 1e-4f && b.C < 1e-4f) {
     h = 0.0f;
