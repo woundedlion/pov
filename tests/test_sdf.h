@@ -961,7 +961,7 @@ inline int expect_cull_covers_interior(const Shape &shape) {
   std::vector<uint8_t> visited;
   cull_visited<W, H>(shape, visited);
 
-  const float *cos_theta = TrigLUT<W, H>::cos_theta.data();
+  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   const float pixel_width = 2.0f * PI_F / W;
   int interior = 0;
@@ -1121,7 +1121,7 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
   std::vector<uint8_t> visited;
   cull_visited<W, H>(face, visited);
 
-  const float *cos_theta = TrigLUT<W, H>::cos_theta.data();
+  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   const float pixel_width = 2.0f * PI_F / W;
   int paintable = 0;

@@ -1031,10 +1031,10 @@ struct Ring {
 
     for (int i = 0; i < W; i++) {
       // Angle-addition identity: cos/sin(θ+φ) from the precomputed θ-grid.
-      float cos_t = TrigLUT<W, H>::cos_theta[i] * cos_phase -
+      float cos_t = TrigLUT<W, H>::cos_theta(i) * cos_phase -
                     TrigLUT<W, H>::sin_theta[i] * sin_phase;
       float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase +
-                    TrigLUT<W, H>::cos_theta[i] * sin_phase;
+                    TrigLUT<W, H>::cos_theta(i) * sin_phase;
       Vector u_temp = (u * cos_t) + (w * sin_t);
 
       Fragment f;
@@ -1348,10 +1348,10 @@ struct DistortedRing {
     sample_closed_ring(points, num_samples, [&](int i) {
       float theta = i * step;
       // Angle-addition identity: cos/sin(θ+φ) from precomputed LUT
-      float cos_t = TrigLUT<W, H>::cos_theta[i] * cos_phase -
+      float cos_t = TrigLUT<W, H>::cos_theta(i) * cos_phase -
                     TrigLUT<W, H>::sin_theta[i] * sin_phase;
       float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase +
-                    TrigLUT<W, H>::cos_theta[i] * sin_phase;
+                    TrigLUT<W, H>::cos_theta(i) * sin_phase;
       Vector u_temp = (u * cos_t) + (w * sin_t);
 
       float shift = shift_fn(theta / (2.0f * PI_F));

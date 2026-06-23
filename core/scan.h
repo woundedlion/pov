@@ -172,7 +172,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   auto &norm = *new (scratch_arena_b.allocate(sizeof(NormBuf),
                                               alignof(NormBuf))) NormBuf();
 
-  const float *cos_theta = TrigLUT<W, H>::cos_theta.data();
+  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
 
   // An inverted range (y_min > y_max) is a safe no-op: a disjoint CSG

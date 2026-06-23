@@ -350,9 +350,17 @@ template <int H> inline float y_to_phi(float y) {
  * Memory: ~(4*W + 4*H_VIRT) floats vs W*H_VIRT Vectors — a ~145x reduction.
  */
 template <int W, int H> struct TrigLUT {
+  static_assert(W % 4 == 0,
+                "cos_theta is recovered as sin_theta[x + W/4]; W must be a "
+                "multiple of 4 for the quarter-turn offset to be exact");
   static constexpr int H_VIRT = H + hs::H_OFFSET;
-  static std::array<float, W> sin_theta;     /**< sin(theta) per column. */
-  static std::array<float, W> cos_theta;     /**< cos(theta) per column. */
+  // sin_theta is stored with W/4 extra trailing entries duplicating the first
+  // quarter turn, so cos(theta) reads back as sin_theta[x + W/4] (cos t =
+  // sin(t + pi/2), and theta = x*2pi/W) with a constant-offset load — no
+  // separate cos_theta table. Saves W*4 - (W/4)*4 bytes of DTCM (RAM1) versus a
+  // dedicated cos array, at zero hot-path cost (the +W/4 folds into the load).
+  static constexpr int W_EXT = W + W / 4;
+  static std::array<float, W_EXT> sin_theta; /**< sin(theta); cos via +W/4. */
   static std::array<float, H_VIRT> sin_phi;  /**< sin(phi) per virtual row. */
   static std::array<float, H_VIRT> cos_phi;  /**< cos(phi) per virtual row. */
   // Lazy-init guard. Same non-atomic check-then-set thread-safety contract as
@@ -360,17 +368,22 @@ template <int W, int H> struct TrigLUT {
   // init_geometry_luts() at engine setup as the production first-touch.
   static bool initialized; /**< Lazy-init guard; true once tables are filled. */
   /**
-   * @brief Fills the theta and phi sin/cos tables and marks them initialized.
-   * @details Ensures PhiLUT<H> is populated first to source the phi angles.
+   * @brief cos(theta) for column x, recovered from the extended sin table.
+   * @param x Column in [0, W). Returns sin_theta[x + W/4] == cos(x*2*pi/W).
+   */
+  static float cos_theta(int x) { return sin_theta[x + W / 4]; }
+  /**
+   * @brief Fills the theta and phi tables and marks them initialized.
+   * @details Ensures PhiLUT<H> is populated first to source the phi angles. The
+   * extra W/4 sin_theta entries wrap naturally: sin is 2*pi-periodic, so
+   * sin(x*2*pi/W) for x in [W, W+W/4) equals the first-quarter values.
    */
   static void init() {
     if (!PhiLUT<H>::initialized) {
       PhiLUT<H>::init();
     }
-    for (int x = 0; x < W; x++) {
-      float theta = (x * 2 * PI_F) / W;
-      sin_theta[x] = sinf(theta);
-      cos_theta[x] = cosf(theta);
+    for (int x = 0; x < W_EXT; x++) {
+      sin_theta[x] = sinf((x * 2 * PI_F) / W);
     }
     for (int y = 0; y < H_VIRT; y++) {
       float phi = PhiLUT<H>::data[y];
@@ -381,8 +394,8 @@ template <int W, int H> struct TrigLUT {
   }
 };
 
-template <int W, int H> std::array<float, W> TrigLUT<W, H>::sin_theta;
-template <int W, int H> std::array<float, W> TrigLUT<W, H>::cos_theta;
+template <int W, int H>
+std::array<float, TrigLUT<W, H>::W_EXT> TrigLUT<W, H>::sin_theta;
 template <int W, int H>
 std::array<float, TrigLUT<W, H>::H_VIRT> TrigLUT<W, H>::sin_phi;
 template <int W, int H>
@@ -452,7 +465,7 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
   constexpr int kHVirt = TrigLUT<W, H>::H_VIRT;
   assert(x >= 0 && x < W && y >= 0 && y < kHVirt);
   float sp = TrigLUT<W, H>::sin_phi[y];
-  return Vector(sp * TrigLUT<W, H>::cos_theta[x], TrigLUT<W, H>::cos_phi[y],
+  return Vector(sp * TrigLUT<W, H>::cos_theta(x), TrigLUT<W, H>::cos_phi[y],
                 sp * TrigLUT<W, H>::sin_theta[x]);
 }
 
