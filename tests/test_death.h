@@ -684,6 +684,26 @@ inline void case_hd107s_load_count_over_range() {
 }
 
 /**
+ * @brief Death case: calling an empty (default-constructed) Fn must trap.
+ * @details Concepts surface — hs::inplace_function routes an empty-state call
+ *          through ipf_empty_ops::invoke, which fail-fast traps via check_fail
+ *          rather than dereferencing the empty buffer (std::function would throw
+ *          bad_function_call; the engine builds without exceptions). The
+ *          never-taken opaque(false) assignment keeps the optimizer from proving
+ *          the function empty and folding the trap at compile time. The non-trap
+ *          value semantics (copy/move/empty operator bool) are covered in-process
+ *          by tests/test_concepts.h.
+ */
+inline void case_empty_fn_call() {
+  Fn<int(int), 16> f;
+  if (opaque(false))
+    f = [](int x) { return x; };
+  int v = f(opaque(7)); // empty invoke -> check_fail -> trap
+  if (v == 42)
+    std::printf("x");
+}
+
+/**
  * @brief A named death case selected by HS_DEATH_CASE in the child process.
  */
 struct Case {
@@ -737,6 +757,7 @@ inline const Case *all_cases(int &n) {
       {"gradient_stops_unsorted", case_gradient_stops_unsorted},
       {"random_timer_inverted_range", case_random_timer_inverted_range},
       {"hd107s_load_count_over_range", case_hd107s_load_count_over_range},
+      {"empty_fn_call", case_empty_fn_call},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
   return cases;

@@ -10,6 +10,7 @@
 #include "core/engine.h"
 
 #include "tests/test_3dmath.h"
+#include "tests/test_concepts.h"
 #include "tests/test_memory.h"
 #include "tests/test_spatial.h"
 #include "tests/test_static_circular_buffer.h"
@@ -58,6 +59,7 @@ struct TestModule {
 
 static const TestModule kModules[] = {
     {"3dmath", hs_test::math3d::run_3dmath_tests},
+    {"concepts", hs_test::concepts_tests::run_concepts_tests},
     {"memory", hs_test::mem::run_memory_tests},
     {"spatial", hs_test::spatial::run_spatial_tests},
     {"scb", hs_test::scb::run_static_circular_buffer_tests},

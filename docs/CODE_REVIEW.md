@@ -162,7 +162,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 ### Test Coverage Improvements
 
-37. **No focused test for `concepts.h`** — `FunctionRef`/`StoredFunctionRef` overload resolution (non-const lvalue → non-const ctor; rvalue → const ctor; `StoredFunctionRef` rejects rvalues) and `inplace_function` copy/move/empty-trap semantics are exercised only incidentally and would silently regress under a refactor. Add `tests/test_concepts.h`.
+37. ✅ **No focused test for `concepts.h`** — `FunctionRef`/`StoredFunctionRef` overload resolution (non-const lvalue → non-const ctor; rvalue → const ctor; `StoredFunctionRef` rejects rvalues) and `inplace_function` copy/move/empty-trap semantics are exercised only incidentally and would silently regress under a refactor. Add `tests/test_concepts.h`.
 
 38. **`BZReactionDiffusion` lacks a white-box test seam** — `GSReactionDiffusion` has `GSWhiteBox` reaching its fixed-point round-trip and step; BZ has identical fixed-point/stability concerns (`to_q8`/`advance_species`/`perturb_state`) with no isolation seam. Add a matching friend.
 
