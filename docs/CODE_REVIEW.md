@@ -136,7 +136,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 24. ✅ **`BZ::to_q8` open-codes `255.0f` instead of `Q8_SCALE`** — `effects/BZReactionDiffusion.h:147` vs the constant at `:117`; `GS::to_q16` correctly uses `Q16_SCALE`. Cosmetic symmetry.
 
-25. **Voronoi dead zero-sites guard** — `effects/Voronoi.h:106-107`. `active_site_count()` clamps to `[1, MAX_SITES]` and the slider min is 1, so `sites_buffer` can never be empty; the guard and its comment describe an unreachable state.
+25. ✅ **Voronoi dead zero-sites guard** — `effects/Voronoi.h:106-107`. `active_site_count()` clamps to `[1, MAX_SITES]` and the slider min is 1, so `sites_buffer` can never be empty; the guard and its comment describe an unreachable state.
 
 26. **IslamicStars redundant scratch reset diverges from the HankinSolids idiom** — `effects/IslamicStars.h:182-185` does a bare `reset()` (already done by `generate()`) before `classify_faces_by_topology`, whereas HankinSolids uses `ScratchScope` for the same operation (`HankinSolids.h:102-113`). Pick one convention.
 

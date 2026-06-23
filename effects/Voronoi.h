@@ -101,8 +101,11 @@ public:
     }
 
     // 2. Render Pixels (KD-tree nearest + second-nearest)
-    // No sites (degenerate num_sites == 0): nothing to render, so bail before
-    // building the tree / pixel loop (an empty tree would yield no neighbors).
+    // Defense-in-depth: bail before building the tree / pixel loop if there are
+    // no sites (an empty tree would yield no neighbors). Currently unreachable —
+    // active_site_count() clamps to [1, MAX_SITES] and the slider floor is 1, so
+    // sites_buffer is always seeded with >= 1 site — but cheap insurance against
+    // a future seeding path that could leave it empty.
     if (sites_buffer.size() == 0)
       return;
 
