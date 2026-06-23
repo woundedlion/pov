@@ -235,9 +235,10 @@ public:
     // Bake procedural palette into fast LUT
     baked_palette.bake(persistent_arena, Palettes::richSunset);
 
-    // Initial shape
+    // Initial shape. next_idx is left at its member default; start_morph() below
+    // re-rolls it before the first morph commit (and before any read), so an
+    // assignment here would be dead.
     current_idx = 6;
-    next_idx = 6;
 
     // Spin
     Vector axis = Vector(0.5f, 1.0f, 0.2f).normalized();
@@ -341,7 +342,7 @@ private:
     // match with the current index: blending a basis function into itself leaves
     // the field unchanged, freezing the sphere for the full 64-frame transition.
     do {
-      next_idx = static_cast<int>(hs::rand_int(1, 24));
+      next_idx = hs::rand_int(1, 24);
     } while (next_idx == current_idx);
 
     // Animate morph_alpha 0->1 over 64 frames with linear easing
