@@ -468,11 +468,14 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       }
     }
 
-    // sim_dist > 0 always holds here (the loop runs at least once past the
-    // total_dist >= base_step fast-path guard above), so the fallback is dead;
-    // use 1.0f (identity, no stretch) rather than 0.0f, which would have zeroed
-    // every replayed step.
-    float scale = (sim_dist > 0.0f) ? (total_dist / sim_dist) : 1.0f;
+    // sim_dist > 0 always holds here: the total_dist >= base_step fast-path
+    // guard above means the loop runs at least once and accumulates a positive
+    // step. Assert that invariant (fail-fast on device) instead of carrying a
+    // dead ternary fallback. The final step overshoots total_dist slightly, so
+    // sim_dist >= total_dist and scale <= 1 — the normalized replay stretches
+    // the cached steps back to exactly total_dist, correcting the overshoot.
+    HS_CHECK(sim_dist > 0.0f);
+    float scale = total_dist / sim_dist;
     bool omitLast = (close_loop) ? true : !isLastSegment;
 
     if (omitLast && _steps_cache.is_empty())
