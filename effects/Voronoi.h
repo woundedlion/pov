@@ -171,14 +171,11 @@ public:
       return c;
     };
 
-    // Canonical (order-independent) nearest-pair identity at a sample point.
-    // The two query orders along a cell seam (best/second swap) map to the same
-    // {lo, hi} set so corner comparisons below are seam-stable.
-    struct CellId {
-      uint16_t lo;     /**< min(nearest, second) site index. */
-      uint16_t hi;     /**< max(nearest, second) site index. */
-      bool hasSecond;  /**< Whether a second neighbor exists (≥ 2 sites). */
-    };
+    // Canonical (order-independent) nearest-pair identity at a sample point
+    // (CellId is declared at class scope so the scratch-budget static_assert can
+    // size the corner grid). The two query orders along a cell seam (best/second
+    // swap) map to the same {lo, hi} set so corner comparisons below are
+    // seam-stable.
     auto classify = [&](const Vector &p) -> CellId {
       auto knn = tree.nearest(p, 2);
       uint16_t a = knn[0].original_index;
@@ -287,8 +284,46 @@ public:
                                              is allocated once at this size. */
   static constexpr int kCoherenceBlock = 8; /**< Coarse-coherence block edge in
       pixels: a pixel whose surrounding block corners agree on the nearest pair
-      skips the per-pixel KD query (finding 6). Smaller is safer (fewer missed
+      skips the per-pixel KD query. Smaller is safer (fewer missed
       sub-block cells) but skips fewer queries. */
+
+  /** @brief Canonical (order-independent) nearest-pair identity at a sample
+   *  point; the coarse-grid corner classifier stores one per corner (see the
+   *  render path). At class scope so the scratch-budget static_assert below can
+   *  size the corner grid against sizeof(CellId). */
+  struct CellId {
+    uint16_t lo;    /**< min(nearest, second) site index. */
+    uint16_t hi;    /**< max(nearest, second) site index. */
+    bool hasSecond; /**< Whether a second neighbor exists (>= 2 sites). */
+  };
+
+  // Compile-time high-water check for the 64 KB scratch_arena_a reserve that
+  // init() requests via configure_arenas(). Two transient peaks share that
+  // arena; `positions` and the KD-tree node pool are live across both:
+  //   build:   positions + KD nodes + the KD build-index scratch (KDTree rewinds
+  //            the index array via its own ScratchScope once the build returns)
+  //   shading: positions + KD nodes + the coarse-grid corner cells
+  // All three terms scale with MAX_SITES / the canvas, so a future MAX_SITES bump
+  // or kCoherenceBlock change is caught here at compile time instead of tripping
+  // the runtime OOM trap. (BZ/GS derive their scratch budgets from sizeof the
+  // same way; this one had only a prose justification.)
+  static constexpr size_t kScratchABytes = 64 * 1024;
+  static constexpr size_t kPositionsBytes = size_t(MAX_SITES) * sizeof(Vector);
+  static constexpr size_t kKdNodesBytes = size_t(MAX_SITES) * sizeof(KDNode);
+  static constexpr size_t kKdBuildScratchBytes = size_t(MAX_SITES) * sizeof(int);
+  // Corner grid spans the full canvas in kCoherenceBlock-px steps, +2 for the
+  // inclusive [0,W)/[0,H) end corners (mirrors render()'s nbx/nby at full clip).
+  static constexpr size_t kCornerCols = size_t((W - 1) / kCoherenceBlock + 2);
+  static constexpr size_t kCornerRows = size_t((H - 1) / kCoherenceBlock + 2);
+  static constexpr size_t kCellsBytes = kCornerCols * kCornerRows * sizeof(CellId);
+  static constexpr size_t kScratchHighWater =
+      kPositionsBytes + kKdNodesBytes +
+      (kKdBuildScratchBytes > kCellsBytes ? kKdBuildScratchBytes : kCellsBytes);
+  static_assert(kScratchHighWater <= kScratchABytes,
+                "Voronoi scratch_arena_a budget (64 KB) too small for MAX_SITES "
+                "positions + KD-tree + coarse-grid cells; raise the reserve in "
+                "init() or lower MAX_SITES / coarsen kCoherenceBlock");
+
   int current_num_sites = 0; /**< Count currently seeded; re-seeds (clear +
                                   refill, no realloc) when the slider changes. */
   ArenaVector<Site> sites_buffer; /**< Active Voronoi sites for the frame. */
