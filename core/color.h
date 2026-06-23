@@ -1315,7 +1315,11 @@ public:
       // the envelope at the interpolated L. Guard the divisor at the L extremes
       // (black vignette stops sit at L~0, sin~0) -- there C~0, so cmax is ~0
       // anyway and the stop stays achromatic.
-      float env = sinf(PI_F * colors_oklch[i].L);
+      // Use fast_sinf, matching get()'s re-application (not exact sinf): the
+      // recover/re-apply pair then cancels, so sampling exactly at a stop
+      // reproduces its authored chroma. This is the cold rebuild path, so it
+      // leaves get()'s per-sample fast_sinf untouched.
+      float env = fast_sinf(PI_F * colors_oklch[i].L);
       colors_cmax[i] = (env > 1e-3f) ? colors_oklch[i].C / env : 0.0f;
     }
   }
@@ -1406,7 +1410,9 @@ public:
     // straight chord lerp_oklch produces -- no chroma dip where the gradient
     // brightens through mid-L. fast_sinf: get() is per-sample on the non-baked
     // palette path (the +1.86% near-zero error is negligible -- chroma is ~0
-    // there). lerp_oklch still owns the L and shortest-arc hue; only C changes.
+    // there), and update_stops() recovers cmax with the same fast_sinf so a
+    // sample landing exactly on a stop reproduces its authored chroma. lerp_oklch
+    // still owns the L and shortest-arc hue; only C changes.
     float cmax = colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
     blended.C = cmax * fast_sinf(PI_F * blended.L);
     // Hue torsion: drift hue with lightness (centered at L=0.5) so the ramp
