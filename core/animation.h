@@ -539,7 +539,7 @@ public:
     this->friction = friction;
     this->gravity = gravity;
     // Clamp before narrowing: a float outside [0, 65535] is UB on conversion to
-    // uint16_t. Particle::init's std::min sits on the far side of this store
+    // uint16_t. Particle::init's hs::clamp sits on the far side of this store
     // (its caller already passes the narrowed member), so the guard has to live
     // here. Current callers are in range; this keeps a stray value from spawning
     // particles with a garbage lifetime.

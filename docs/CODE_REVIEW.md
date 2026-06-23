@@ -132,7 +132,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 22. ✅ **Stale comment: `hue_rotate` references a "per-channel clamp below" that no longer exists** — `core/color.h:751-755`. The clamp is now inside `float_to_pixel16`; the spatial reference misleads.
 
-23. **Stale comment: `Particle::init` cites `std::min`, code uses `hs::clamp`** — `core/animation.h:466-467` and `:543`. Rename-history drift.
+23. ✅ **Stale comment: `Particle::init` cites `std::min`, code uses `hs::clamp`** — `core/animation.h:466-467` and `:543`. Rename-history drift.
 
 24. **`BZ::to_q8` open-codes `255.0f` instead of `Q8_SCALE`** — `effects/BZReactionDiffusion.h:147` vs the constant at `:117`; `GS::to_q16` correctly uses `Q16_SCALE`. Cosmetic symmetry.
 
