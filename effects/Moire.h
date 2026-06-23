@@ -73,6 +73,18 @@ public:
         .add(0, Animation::PeriodicTimer(80, [this](Canvas &) { color_wipe(); }))
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,
                                        ease_linear, true))
+        // Ramp `rotation` 0 -> 2π, then snap it back to 0 and repeat. The snap is
+        // seamless ONLY because every consumer of `rotation` is exactly
+        // 2π-periodic, so the value 2π and the value 0 produce an identical frame:
+        //   - draw_frame()'s q_base/q_int are products of make_rotation(axis, θ)
+        //     about fixed axes, and a quaternion rotation about a fixed axis is
+        //     2π-periodic;
+        //   - draw_layer()'s DistortedRing wobble is sin_wave(..., freq=4, ...)
+        //     evaluated at `rotation`, and 4·(2π) is an integer number of sine
+        //     periods, so it too returns to its starting phase at 2π.
+        // Changing an axis, the ramp endpoint, or the wobble frequency to a value
+        // that is not 2π-periodic would make this reset visibly snap. Keep the
+        // endpoint an integer multiple of 2π and the wobble frequency an integer.
         .add(0, Animation::Transition(rotation, 2 * PI_F, 160, ease_linear, false,
                                       true)
                     .then([this]() { rotation = 0.0f; }))
