@@ -608,7 +608,14 @@ public:
 
       float max_delta = (2 * PI_F) / W;
 
-      // Physics
+      // Physics. Swap-remove dead particles: overwrite the dead slot with the
+      // last live one, shrink, and re-test the same index. The `i--` here is a
+      // deliberate unsigned-wraparound idiom: when i == 0, `i--` wraps to
+      // SIZE_MAX, then the loop's `++i` wraps it back to 0 so the swapped-in
+      // particle at slot 0 is re-tested — well-defined for unsigned size_t, but
+      // it ONLY works because `i` is unsigned and `i--`/`++i` are adjacent with
+      // nothing in between. Do NOT change `i` to a signed type or insert logic
+      // that reads `i` after the decrement; either breaks the wrap.
       for (size_t i = 0; i < active_count; ++i) {
         bool dead = step_particle(pool[i], max_delta);
         if (dead) {
