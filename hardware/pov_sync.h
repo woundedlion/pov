@@ -1245,6 +1245,11 @@ public:
   /**
    * @brief Telemetry counters.
    * @return Const reference to the telemetry block.
+   * @warning The returned reference aliases the live, ISR-mutated counter block
+   * — it is NOT a snapshot. A device caller copying it field-by-field outside an
+   * IRQ-off window can latch a torn block (a mix of pre- and post-increment
+   * fields); snapshot the copy under a brief `__disable_irq()`/`__enable_irq()`
+   * bracket (spec §8.2), as POVSegmented's health-telemetry poll does.
    */
   const Telemetry &telemetry() const { return telemetry_; }
   /**

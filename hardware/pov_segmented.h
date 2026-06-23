@@ -341,16 +341,18 @@ public:
       }
 
       // Health telemetry (spec §8.6): foreground-polled, never ISR-printed,
-      // emitted only on change — the existing DMA-overrun pattern. The
-      // snapshot read races the ISR's counter increments; for debug counters
-      // a torn read is benign — the worst case is a one-cycle-late or briefly
-      // inconsistent debug print (behind hs::debug), never anything that feeds
-      // control flow. This is a deliberate, documented data race. If telemetry
-      // is ever promoted beyond debug output, snapshot it under a brief IRQ-off
-      // bracket like the mailbox handoff.
+      // emitted only on change — the existing DMA-overrun pattern. telemetry()
+      // aliases the live, ISR-mutated counter block, so the copy is taken under
+      // a brief IRQ-off bracket (like the mailbox handoff, spec §8.2): an
+      // unbracketed field-by-field read could latch a torn block — a mix of
+      // pre- and post-increment fields — and mis-fire the change comparison
+      // below. The masked window is a handful of aligned-word copies, debug-only
+      // and ~1 Hz, so it is far shorter and rarer than the per-tick handoff.
       if (hs::debug && millis() - last_report >= 1000UL) {
         last_report = millis();
+        __disable_irq();
         const pov::sync::Telemetry tm = sync_.telemetry();
+        __enable_irq();
         if (memcmp(&tm, &last_tm, sizeof tm) != 0) {
           // hs::log (integer-only vsniprintf + Serial.println) rather than
           // Serial.printf: Teensy's Print::printf routes through vdprintf, which
