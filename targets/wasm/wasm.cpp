@@ -565,6 +565,21 @@ public:
   }
 
   /**
+   * @brief Reports the active effect's POV column-strobe mode for the simulator.
+   * @return true if the effect strobes each column to black after it is shown
+   *         (discrete columns with dark gaps); false if columns persist and
+   *         smear horizontally into the next (a continuous, gap-free band).
+   *         false when no effect is set.
+   * @details The simulator's dot mesh inherently renders discrete columns with
+   *          gaps — already the strobe == true look — so daydream reads this to
+   *          decide whether to fill the inter-column gap (false) or leave it
+   *          dark (true). See docs/strobe_columns_audit.md.
+   */
+  bool strobeColumns() const {
+    return currentEffect ? currentEffect->strobe_columns() : false;
+  }
+
+  /**
    * @brief Exposes the raw pixel buffer to JS as a zero-copy Uint16Array view.
    * @return Typed memory view over the active resolution's R,G,B pixels within
    *         the stable MAX_W*MAX_H*3 backing buffer.
@@ -1328,7 +1343,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .class_function("getSupportedResolutions",
                       &HolosphereEngine::getSupportedResolutions)
       .function("setClip", &HolosphereEngine::setClip)
-      .function("getRenderUs", &HolosphereEngine::getRenderUs);
+      .function("getRenderUs", &HolosphereEngine::getRenderUs)
+      .function("strobeColumns", &HolosphereEngine::strobeColumns);
 
   class_<MeshOpsWrapper>("MeshOps")
       .constructor<>()
