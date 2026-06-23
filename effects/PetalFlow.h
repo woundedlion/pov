@@ -127,6 +127,11 @@ private:
     gap_accumulator = 0.0f;
     timeline.add(0, spawner);
 
+    // Pre-fill the path with evenly spaced rings so frame zero looks like a
+    // running flow rather than an empty path filling in. Start one epsilon inside
+    // END_RHO (not exactly on it) so the oldest pre-filled ring sits just short of
+    // the retire boundary (draw_frame() culls rings with rho > END_RHO) instead of
+    // landing on the cull edge, matching the steady-state spacing.
     for (float r = END_RHO - 0.01f; r > START_RHO; r -= SPACING) {
       spawn_ring_at_pos(r);
     }
@@ -233,7 +238,7 @@ private:
 
     ScratchScope _(scratch_arena_a);
     Fragments fragments;
-    fragments.bind(scratch_arena_a, num_samples + 1);
+    fragments.bind(scratch_arena_a, num_samples);
     for (int i = 0; i < num_samples; ++i) {
       float t_norm = static_cast<float>(i) / num_samples;
       float theta = i * step;
