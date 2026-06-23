@@ -2419,11 +2419,11 @@ struct TimelineEvent {
   }
 };
 
-// Device inline-storage budget audit (finding 373). The per-type
+// Device inline-storage budget audit. The per-type
 // static_assert(sizeof(A) <= MAX_ANIM_SIZE) in Timeline::add/add_get only fires
 // for types that are actually add()ed in the build being compiled — so if an
 // effect stops add()ing a heavy animation, that type can grow past the device
-// budget unnoticed. Pin the budget for the largest on-device animation type here
+// budget unnoticed. Pin the budget for the largest concrete animation type here
 // at namespace scope so it is checked in every build that includes this header,
 // independent of any callsite.
 //
@@ -2436,13 +2436,22 @@ struct TimelineEvent {
 // MAX_ANIM_SIZE == 112: this assert enforces the real device budget there and is
 // a no-op headroom check on the host. The WASM CI build, which compiles every
 // registered effect, is the comprehensive gate for all add()ed animation types;
-// this line additionally guards MobiusWarpEvolving — the heaviest type (it
-// embeds a full MobiusParams snapshot) and the one the finding named — even if
-// it ever becomes unreferenced. (Templated animations like Motion/Rotation<W,CAP>
+// this line additionally pins the *largest* of the concrete animation types —
+// the max over the whole set, not one hand-picked name, so the audit stays
+// accurate if a different type ever becomes the heaviest — and covers each even
+// if it becomes unreferenced. (Templated animations like Motion/Rotation<W,CAP>
 // cannot be sized at namespace scope and stay covered at their add() sites.)
-static_assert(sizeof(Animation::MobiusWarpEvolving) <=
-                  TimelineEvent::MAX_ANIM_SIZE,
-              "MobiusWarpEvolving exceeds the TimelineEvent inline-storage "
+constexpr size_t kLargestConcreteAnimSize = std::max({
+    sizeof(Animation::RandomTimer), sizeof(Animation::PeriodicTimer),
+    sizeof(Animation::Transition), sizeof(Animation::Mutation),
+    sizeof(Animation::Driver), sizeof(Animation::Lerp),
+    sizeof(Animation::Sprite), sizeof(Animation::ColorWipe),
+    sizeof(Animation::MobiusFlow), sizeof(Animation::MobiusWarp),
+    sizeof(Animation::MobiusWarpCircular), sizeof(Animation::MeshMorph),
+    sizeof(Animation::MobiusWarpEvolving), sizeof(Animation::Ripple),
+    sizeof(Animation::Noise)});
+static_assert(kLargestConcreteAnimSize <= TimelineEvent::MAX_ANIM_SIZE,
+              "A concrete animation type exceeds the TimelineEvent inline-storage "
               "budget (on the 32-bit WASM/device build MAX_ANIM_SIZE is the "
               "112-byte device budget); shrink the type or raise the budget.");
 

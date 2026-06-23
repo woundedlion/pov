@@ -356,13 +356,19 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
   // Sample 3D noise field. Offset all three axes per channel (not just X/Y): a
   // shared Z/time input would leave the three displacement components correlated
   // along Z, so the slide direction is biased rather than isotropic. Distinct
-  // per-axis offsets decorrelate every component.
+  // per-axis offsets decorrelate every component — each channel reads a region
+  // of the field far enough from the others (>> the unit-sphere coordinate span)
+  // that their samples are independent.
+  constexpr float kChannelYOffset = 100.0f; // channel 2 (ny) field shift
+  constexpr float kChannelZOffset = 200.0f; // channel 3 (nz) field shift
   float nx =
       params.noise.GetNoise(v.x * scale, v.y * scale, v.z * scale + time_val);
-  float ny = params.noise.GetNoise(v.x * scale + 100.0f, v.y * scale + 100.0f,
-                                   v.z * scale + time_val + 100.0f);
-  float nz = params.noise.GetNoise(v.x * scale + 200.0f, v.y * scale + 200.0f,
-                                   v.z * scale + time_val + 200.0f);
+  float ny = params.noise.GetNoise(v.x * scale + kChannelYOffset,
+                                   v.y * scale + kChannelYOffset,
+                                   v.z * scale + time_val + kChannelYOffset);
+  float nz = params.noise.GetNoise(v.x * scale + kChannelZOffset,
+                                   v.y * scale + kChannelZOffset,
+                                   v.z * scale + time_val + kChannelZOffset);
 
   Vector raw_noise = Vector(nx, ny, nz) * (params.amplitude * 0.05f);
 
