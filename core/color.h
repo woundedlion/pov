@@ -1681,6 +1681,12 @@ struct CycleModifier {
    * @brief Shifts the coordinate by the driver offset (pass-through if null).
    * @param t Input coordinate.
    * @return t plus the offset, or t unchanged when no driver is bound.
+   * @note The result intentionally leaves [0,1] (t + a monotonically growing
+   *       offset), relying on the consuming palette's `Wrap=true` (the
+   *       `StaticPalette` default) to fold it back into range and produce the
+   *       cycling. Composing this modifier with a `Wrap=false` palette samples
+   *       the source out of range — keep `Wrap=true` whenever a CycleModifier
+   *       drives the coordinate.
    */
   float modify(float t) const { return offset ? t + *offset : t; }
 };
@@ -1905,6 +1911,12 @@ struct ScaleModifier {
    * @brief Multiplies the coordinate by the active scale.
    * @param t Input coordinate.
    * @return The scaled coordinate.
+   * @note For scale > 1 the result intentionally leaves [0,1], relying on the
+   *       consuming palette's `Wrap=true` (the `StaticPalette` default) to fold
+   *       it back into range — that fold IS the multiple-repeats effect.
+   *       Composing this modifier with a `Wrap=false` palette samples the source
+   *       out of range — keep `Wrap=true` whenever a ScaleModifier with scale > 1
+   *       drives the coordinate.
    */
   float modify(float t) const {
     return t * (dynamic_scale ? *dynamic_scale : base_scale);
