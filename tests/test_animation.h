@@ -780,6 +780,15 @@ inline void test_timeline_cancel_removes_repeating_animation() {
   h->cancel();
   tl.step(fake_canvas()); // canceled: done() && !repeats() -> removed
   HS_EXPECT_EQ(global_timeline_num_events, 0);
+
+  // Behavior, not just the count: a removed event is gone, not a replaying
+  // zombie still firing its callback. Were it still rewinding each cycle, v
+  // would keep oscillating (0.5, 1.0, 0.5, ...); after removal it must stay
+  // frozen at its last value across many further frames.
+  const float v_frozen = v;
+  for (int i = 0; i < 6; ++i)
+    tl.step(fake_canvas());
+  HS_EXPECT_NEAR(v, v_frozen, 1e-6f);
 }
 
 /**
@@ -890,15 +899,21 @@ inline void test_timeline_clear_resets_state() {
 inline void test_timeline_full_guard_rejects_overflow() {
   Timeline tl;
   float sink = 0.0f;
-  // Targets share one float — this test asserts the count guard, not values, and
-  // never steps. Fill to capacity.
+  // Fill to capacity; the capacity events share one float (their values are not
+  // under test).
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
     tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
   HS_EXPECT_EQ(global_timeline_num_events, Timeline::MAX_EVENTS);
 
-  tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear)); // one past full
+  // The overflow event gets its OWN target so we can prove it was truly rejected,
+  // not silently queued: if it had been accepted, stepping would advance it.
+  float rejected = 0.0f;
+  tl.add(0, Animation::Transition(rejected, 42.0f, 10, ease_linear)); // past full
   HS_EXPECT_EQ(global_timeline_num_events,
                Timeline::MAX_EVENTS); // rejected, count unchanged
+
+  tl.step(fake_canvas());
+  HS_EXPECT_NEAR(rejected, 0.0f, 1e-6f); // never ran -> absent, not queued
 }
 
 /**
@@ -956,7 +971,7 @@ inline void test_motion_repeating_does_not_drift() {
   global_timeline_num_events = 0;
   global_timeline_t = 0;
 
-  const int duration = 40;
+  constexpr int duration = 40;
   ProceduralPath path;
   // A representative Comets Lissajous figure; lissajous(.,.,.,0) == +Y, so the
   // identity-start orientation places the head exactly on the path at phase 0.
@@ -968,33 +983,33 @@ inline void test_motion_repeating_does_not_drift() {
   Timeline tl;
   tl.add(0, Animation::Motion<288, 16>(o, path, duration, /*repeat=*/true));
 
-  // Ideal internal angles between three fixed within-cycle phases.
-  const int pa = 10, pb = 20, pc = 30;
-  Vector Ia = path.f((float)pa / duration);
-  Vector Ib = path.f((float)pb / duration);
-  Vector Ic = path.f((float)pc / duration);
-  float ideal_ab = angle_between(Ia, Ib);
-  float ideal_ac = angle_between(Ia, Ic);
-  float ideal_bc = angle_between(Ib, Ic);
-
-  Vector Pa, Pb, Pc;
+  // Sample EVERY within-cycle phase (not just three): a slow monotone drift can
+  // hide between coarse probes, so the late cycle's head is captured at every
+  // frame and its full set of rotation-invariant internal angles is checked.
+  Vector late_heads[duration + 1]; // indexed by phase 1..duration
   const int cycles = 600; // ~24k frames; bug reaches multi-radian warp well before
   for (int c = 0; c < cycles; ++c) {
     for (int fr = 1; fr <= duration; ++fr) {
       tl.step(fake_canvas());
-      // global_timeline_t advances with each step; the Motion's own phase is
-      // (t-1 within the cycle). Sample by position in this inner loop.
-      if (fr == pa) Pa = o.orient(node_v);
-      if (fr == pb) Pb = o.orient(node_v);
-      if (fr == pc) Pc = o.orient(node_v);
+      // Only the final cycle is compared to the ideal; drift, if any, has fully
+      // accumulated by then. Sample by position in this inner loop.
+      if (c == cycles - 1) late_heads[fr] = o.orient(node_v);
     }
   }
 
-  // After 600 cycles the reconstructed internal angles must still match the
-  // ideal within the first-cycle discretization residual (< 0.1 rad).
-  HS_EXPECT_NEAR(angle_between(Pa, Pb), ideal_ab, 0.1f);
-  HS_EXPECT_NEAR(angle_between(Pa, Pc), ideal_ac, 0.1f);
-  HS_EXPECT_NEAR(angle_between(Pb, Pc), ideal_bc, 0.1f);
+  // Anchor at phase 1; every other phase's internal angle to the anchor must
+  // still match the ideal Lissajous internal angle within the first-cycle
+  // discretization residual (< 0.1 rad). A rigid precession leaves these
+  // rotation-invariant angles untouched, so any growth is genuine warp.
+  // Sweep interior phases (1..duration-1), as the original probe did, so the
+  // exact cycle-boundary frame (phase 1.0, which rewinds to phase 0) is excluded.
+  const int anchor = 1;
+  const Vector ideal_anchor = path.f((float)anchor / duration);
+  for (int fr = 2; fr < duration; ++fr) {
+    const Vector ideal_fr = path.f((float)fr / duration);
+    HS_EXPECT_NEAR(angle_between(late_heads[anchor], late_heads[fr]),
+                   angle_between(ideal_anchor, ideal_fr), 0.1f);
+  }
 
   global_timeline_num_events = 0;
   global_timeline_t = 0;
