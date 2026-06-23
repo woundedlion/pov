@@ -2108,6 +2108,14 @@ private:
 /**
  * @brief Continuously modulates Mobius parameters to create an evolving warp.
  * @details Uses multiple frequencies for non-repeating chaos.
+ *
+ * PERPETUAL — never completes: the default AnimationBase ctor gives it
+ * duration = -1 with no repeat, so it never reaches done() and a `.then()`
+ * callback attached to it NEVER fires (same hazard documented on RandomWalk).
+ * Do not chain sequencing logic off its `.then()`, and note the Transformer's
+ * slot-recycling `.then()` likewise will not fire for a spawned
+ * MobiusWarpEvolving — drive follow-on behavior from a finite animation or
+ * cancel() it explicitly.
  */
 class MobiusWarpEvolving : public AnimationBase<MobiusWarpEvolving> {
 public:

@@ -126,7 +126,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 19. ✅ **Reaction-diffusion seeders duplicate the neighbor sentinel skip** — `effects/BZReactionDiffusion.h:188-190` and `effects/GSReactionDiffusion.h:186-188` hand-roll the `nb >= 0` skip that `ReactionDiffusionBase::for_each_neighbor` (`ReactionDiffusionBase.h:171`) exists to centralize. Add a base seed helper.
 
-20. **`MobiusWarpEvolving` is perpetual; its `.then()` never fires, undocumented** — `core/animation.h:2117-2120` delegates to the default `AnimationBase()` (duration −1), so it never reaches `done()`. The identical RandomWalk hazard is documented at `:1606-1614`; mirror that note here (and for any code relying on its Transformer slot-recycle callback).
+20. ✅ **`MobiusWarpEvolving` is perpetual; its `.then()` never fires, undocumented** — `core/animation.h:2117-2120` delegates to the default `AnimationBase()` (duration −1), so it never reaches `done()`. The identical RandomWalk hazard is documented at `:1606-1614`; mirror that note here (and for any code relying on its Transformer slot-recycle callback).
 
 21. **`Noise` with a finite duration sawtooths the time axis** — `core/animation.h:2302-2324` is constructed `repeat = true`; a finite duration rewinds `t` to 0 each cycle and snaps `params.time` backward, the opposite of the smooth-flow intent. Fix: force duration −1 or document finite durations as unsupported.
 
