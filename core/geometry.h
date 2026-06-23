@@ -470,7 +470,13 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  *   `acos` in-domain, it does not correct the angle). Left unguarded on purpose
  *   — this runs in the per-pixel hot loop, from which `HS_CHECK` is withheld by
  *   the engine's fail-fast doctrine; callers normalize before projecting.
- * @return The 2D PixelCoords.
+ * @return The 2D PixelCoords. The `y` field is a float in `[0, H_VIRT-1]`, but at
+ *   the south pole it can land a hair *above* `H_VIRT-1`: `fast_acos` returns
+ *   `PI_F` there and `phi_to_y` computes `(PI_F*(H_VIRT-1))/PI_F`, whose float
+ *   multiply-then-divide need not round back to exactly `H_VIRT-1`. This is the
+ *   `vector→pixel` counterpart of the unchecked `y` contract `pixel_to_vector`
+ *   documents at the inverse end — left unclamped on the same hot-path grounds; a
+ *   caller that indexes a row buffer with `(int)y` must clamp or floor first.
  */
 template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
