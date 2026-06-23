@@ -48,6 +48,7 @@
 #include "core/solids.h"
 #include "core/spatial.h"
 #include "core/static_circular_buffer.h"
+#include "core/transformers.h"
 #include "hardware/hd107s_frame.h"
 
 #if !defined(_WIN32)
@@ -410,6 +411,28 @@ inline void case_make_basis_nan() {
 }
 
 /**
+ * @brief Death case: an active noise_transform fed a non-finite direction must
+ *        trap, not propagate NaN/Inf into the rendered geometry.
+ * @details Transformer surface — noise_transform's active path ends in
+ *          (v + distortion).normalized(), whose zero/non-finite-length guard
+ *          traps. A non-finite input direction is a logic bug (every caller feeds
+ *          unit sphere directions), so it must fail fast here rather than emit a
+ *          NaN dot somewhere downstream. The zero-amplitude short-circuit is the
+ *          legitimate no-op and is covered in-process by test_transformers.h.
+ */
+inline void case_noise_transform_nan() {
+  const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
+  NoiseParams p;
+  p.amplitude = opaque(0.5f); // active path (skips the zero-amplitude no-op)
+  p.scale = opaque(4.0f);
+  p.time = opaque(1.0f);
+  Vector v{nan, opaque(0.0f), opaque(0.0f)};
+  Vector r = noise_transform(v, p); // NaN -> normalized() -> HS_CHECK
+  if (r.x == 42.0f)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: make_rotation(from, to) with a non-unit source must trap.
  * @details Math-core surface — the d-based parallel/antiparallel branches assume
  *          |from| = |to| = 1, so a finite but non-unit input must trap at the
@@ -700,6 +723,7 @@ inline const Case *all_cases(int &n) {
       {"make_rotation_angle_nan", case_make_rotation_angle_nan},
       {"make_rotation_nonunit", case_make_rotation_nonunit},
       {"make_basis_nan", case_make_basis_nan},
+      {"noise_transform_nan", case_noise_transform_nan},
       {"driver_null_speed_src", case_driver_null_speed_src},
       {"path_append_zero_samples", case_path_append_zero_samples},
       {"register_param_overflow", case_register_param_overflow},

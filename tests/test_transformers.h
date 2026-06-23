@@ -269,6 +269,113 @@ inline void test_ripple_threshold_reject_path() {
   HS_EXPECT_NEAR(r_far.z, far_c.z, 1e-6f);
 }
 
+/**
+ * @brief Verifies the decay parameter attenuates the ripple's rotation with
+ *        angular distance from the center.
+ * @details Every other ripple test pins decay to 0 (max strength), so the
+ *          attenuation term expf(-decay * d) ships unexercised. Here the same
+ *          peak point (d == 90° from the center) is transformed at several decay
+ *          rates: a positive decay must move it strictly less than decay 0, a
+ *          larger decay less still, and a strong decay collapses the rotation to
+ *          ~identity — a decay term that was ignored (or sign-flipped) fails.
+ */
+inline void test_ripple_decay_attenuates() {
+  RippleParams base;
+  base.center = Vector(0, 1, 0);
+  base.amplitude = 0.5f;
+  base.phase = PI_F * 0.5f; // peak of the wavelet at d == 90°
+  base.thickness = 1.0f;
+  // default thresholds (min=1, max=-1) disable the fast reject → always applies
+  const Vector v = Vector(1, 0, 0); // d == 90° from center, at the peak
+
+  auto moved = [&](float decay) {
+    RippleParams p = base;
+    p.decay = decay;
+    Vector r = ripple_transform(v, p);
+    return std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
+  };
+
+  const float m0 = moved(0.0f);
+  const float m_small = moved(0.5f);
+  const float m_large = moved(8.0f);
+
+  HS_EXPECT_GT(m0, 1e-2f);        // undamped baseline rotates noticeably
+  HS_EXPECT_LT(m_small, m0);      // decay reduces the rotation...
+  HS_EXPECT_GT(m_small, 0.0f);    // ...but does not zero it
+  HS_EXPECT_LT(m_large, m_small); // more decay → less rotation
+  HS_EXPECT_NEAR(m_large, 0.0f, 5e-2f); // strong decay ≈ identity
+}
+
+/**
+ * @brief Pins the prepare_thresholds() reject band at its edges, not just well
+ *        outside them.
+ * @details test_ripple_threshold_reject_path samples points 0.3 rad beyond each
+ *          edge, so a band misplaced by up to ~0.3 rad would still pass. Here a
+ *          point a hair inside each edge takes the slow path (the wavelet tail is
+ *          tiny but nonzero, so it moves), while a point a hair outside is
+ *          fast-rejected and returned bit-for-bit unchanged. The asymmetry
+ *          (moves vs. exactly-equal) brackets the edge to within the epsilon.
+ */
+inline void test_ripple_threshold_boundary() {
+  RippleParams p;
+  p.center = Vector(0, 1, 0); // north pole → cos_d == dot(v, center) == v.y
+  p.amplitude = 0.5f;
+  p.phase = PI_F * 0.5f;
+  p.decay = 0.0f;
+  p.thickness = 0.4f; // band edges at phase ± thickness
+  p.prepare_thresholds();
+
+  const float d_min = p.phase - p.thickness; // lower edge (toward the center)
+  const float d_max = p.phase + p.thickness; // upper edge (away from it)
+  const float eps = 0.02f;
+
+  // A point at angle d from the +y center, in the x-y plane.
+  auto pt = [](float d) { return Vector(std::sin(d), std::cos(d), 0.0f); };
+  auto moved = [&](const Vector &src) {
+    Vector r = ripple_transform(src, p);
+    return std::abs(r.x - src.x) + std::abs(r.y - src.y) + std::abs(r.z - src.z);
+  };
+
+  // Just inside each edge: applied (wavelet tail is small but nonzero).
+  HS_EXPECT_GT(moved(pt(d_max - eps)), 1e-4f);
+  HS_EXPECT_GT(moved(pt(d_min + eps)), 1e-4f);
+  // Just outside each edge: fast-rejected → returned exactly unchanged.
+  HS_EXPECT_NEAR(moved(pt(d_max + eps)), 0.0f, 1e-7f);
+  HS_EXPECT_NEAR(moved(pt(d_min - eps)), 0.0f, 1e-7f);
+}
+
+/**
+ * @brief Feeds non-finite (NaN/Inf) directions through the transforms' identity
+ *        short-circuits and confirms they pass the input through verbatim.
+ * @details No in-process test previously pushed NaN/Inf in. The zero-amplitude
+ *          and no-active-entity short-circuits return the input before any
+ *          arithmetic, so a non-finite input comes back non-finite — they never
+ *          choke on it nor manufacture a spurious finite result. The ACTIVE paths
+ *          are deliberately fail-fast on a non-finite direction (the trailing
+ *          normalized()/make_rotation traps rather than propagate garbage into
+ *          the geometry); that trap is asserted out-of-process by the death
+ *          harness (case_noise_transform_nan), since an HS_CHECK aborts the
+ *          process and cannot be caught in-line here.
+ */
+inline void test_transforms_nonfinite_passes_through_identity() {
+  const float inf = HUGE_VALF;
+  const float nan = NAN;
+  const Vector bad[] = {Vector(nan, 0, 0), Vector(0, inf, 0),
+                        Vector(inf, nan, -inf)};
+
+  for (const Vector &v : bad) {
+    RippleParams rp;
+    rp.amplitude = 0.0f; // zero-amplitude short circuit → returns v unchanged
+    HS_EXPECT_FALSE(finite_vec(ripple_transform(v, rp)));
+    NoiseParams np;
+    np.amplitude = 0.0f; // zero-amplitude short circuit → returns v unchanged
+    HS_EXPECT_FALSE(finite_vec(noise_transform(v, np)));
+    Timeline tl;
+    RippleTransformer<4> rt(tl);
+    HS_EXPECT_FALSE(finite_vec(rt.transform(v))); // no entities → identity
+  }
+}
+
 // ============================================================================
 // noise_transform
 // ============================================================================
@@ -421,6 +528,9 @@ inline int run_transformers_tests() {
   test_ripple_center_point_is_identity();
   test_ripple_active_rotates_on_sphere();
   test_ripple_threshold_reject_path();
+  test_ripple_decay_attenuates();
+  test_ripple_threshold_boundary();
+  test_transforms_nonfinite_passes_through_identity();
   test_noise_zero_amplitude_is_identity();
   test_noise_active_stays_on_sphere();
   test_transformer_no_entities_is_identity();
