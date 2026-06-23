@@ -458,6 +458,14 @@ struct MeshState {
    * @details Required by Cloneable.
    */
   static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
+    // Defensive symmetry with MeshOps::transform / update_hankin: a reused dst
+    // may still carry borrowed views from a prior borrowed-mode life. clone
+    // produces an owned-mode mesh, but face_offsets/topology copy only
+    // conditionally, so a stale view could shadow an unbound owned vector via
+    // the owned-first accessors. Clear the views up front.
+    dst.face_counts_view = {};
+    dst.faces_view = {};
+    dst.face_offsets_view = {};
     copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
     copy_vector(dst.face_counts, src.get_face_counts_data(),
                 src.get_face_counts_size(), arena);
