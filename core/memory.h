@@ -240,10 +240,13 @@ template <int MAX_V> struct TriangularBitset {
   static int index(int small, int large) {
     // The triangular layout is only valid for an ordered, in-range pair: a
     // swapped pair silently aliases the wrong bit (dedup corruption) and an
-    // out-of-range one writes adjacent memory. This is the one memory-writing
-    // primitive in memory.h with no guard; assert (stripped on device under
-    // NDEBUG, caught on the bench) so an unordered caller is fixed at the source.
-    assert(small >= 0 && small < large && large < MAX_V);
+    // out-of-range one writes adjacent memory. HS_CHECK (survives NDEBUG, traps
+    // on device) matches every sibling write primitive in memory.h, so an
+    // unordered or out-of-range caller fails fast instead of corrupting memory.
+    // index() feeds test()/test_and_set() on the per-edge mesh-dedup setup path
+    // (plot.h draw()), not a per-pixel loop, and that caller already runs
+    // always-on HS_CHECKs alongside it, so the guard is contract-appropriate.
+    HS_CHECK(small >= 0 && small < large && large < MAX_V);
     return small * (2 * MAX_V - small - 1) / 2 + (large - small - 1);
   }
 
