@@ -554,6 +554,14 @@ private:
       HS_CHECK(p && pending_gen_.load(std::memory_order_relaxed) ==
                         pov::sync::SyncBoard::build_gen_of(sync_.build_word()),
                "epoch commit: effect init exceeded the K-revolution window");
+      // render_column samples the raw display buffer directly, bypassing
+      // get_pixel(); an effect that overrides get_pixel would be silently
+      // mis-sampled on this path. Trap that at the (cold) effect-adopt seam
+      // rather than rely on prose that the segmented roster excludes such
+      // effects. Cheap here, off the per-column ISR hot path.
+      HS_CHECK(!p->overrides_get_pixel(),
+               "segmented render_column bypasses get_pixel(); a get_pixel-"
+               "overriding effect cannot run on this path");
       live_effect_ = p;
       consumed_gen_.store(pending_gen_.load(std::memory_order_relaxed),
                           std::memory_order_relaxed);
@@ -568,6 +576,11 @@ private:
       const uint32_t pg = pending_gen_.load(std::memory_order_relaxed);
       if (p && pg != consumed_gen_.load(std::memory_order_relaxed) &&
           pg == pov::sync::SyncBoard::build_gen_of(sync_.build_word())) {
+        // Same get_pixel guard as the commit path above: render_column reads the
+        // raw buffer, so a get_pixel-overriding effect must never go live here.
+        HS_CHECK(!p->overrides_get_pixel(),
+                 "segmented render_column bypasses get_pixel(); a get_pixel-"
+                 "overriding effect cannot run on this path");
         live_effect_ = p;
         consumed_gen_.store(pg, std::memory_order_relaxed);
       }
