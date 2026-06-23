@@ -540,9 +540,9 @@ inline Vector fib_spiral(int n, float eps, int i) {
                                          static_cast<float>(n),
                               -1.0f, 1.0f));
   float theta = fmodf((2.0f * PI_F * static_cast<float>(i) * INV_PHI), (2.0f * PI_F));
-  // Y-up convention
-  return Vector(sinf(phi) * cosf(theta), cosf(phi), sinf(phi) * sinf(theta))
-      .normalized();
+  // Y-up convention. Already unit-length: sin²φ(cos²θ + sin²θ) + cos²φ = 1, so no
+  // normalize() is needed (matches logPolarToVector's proves-and-omits).
+  return Vector(sinf(phi) * cosf(theta), cosf(phi), sinf(phi) * sinf(theta));
 }
 
 /**
@@ -786,9 +786,10 @@ struct LissajousParams {
  * @return The calculated 3D point (unit vector).
  */
 inline Vector lissajous(float m1, float m2, float a, float t) {
-  Vector v(sinf(m2 * t) * cosf(m1 * t - a), cosf(m2 * t),
-           sinf(m2 * t) * sinf(m1 * t - a));
-  return v.normalized();
+  // Already unit-length: sin²(m2·t)(cos²(m1·t−a) + sin²(m1·t−a)) + cos²(m2·t) = 1,
+  // so no normalize() is needed (matches logPolarToVector's proves-and-omits).
+  return Vector(sinf(m2 * t) * cosf(m1 * t - a), cosf(m2 * t),
+                sinf(m2 * t) * sinf(m1 * t - a));
 }
 
 /**
