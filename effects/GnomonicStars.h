@@ -27,6 +27,7 @@ public:
     float points = 600.0f;    /**< Number of stars scattered on the spiral. */
     float star_radius = 0.02f; /**< Per-star radius in normalized sphere units. */
     float star_sides = 4.0f;  /**< Polygon side count per star. */
+    float warp_speed = 0.5f;  /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
     bool debug_bb = false;    /**< When true, draws each star's bounding box. */
   } params;
 
@@ -58,20 +59,21 @@ public:
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
     registerParam("Debug BB", &params.debug_bb);
 
-    // Spawn the evolving warp and retain its animation reference for the live
-    // "Warp Speed" param. The warp is infinite and added before any other
-    // timeline event, so pinning it is the safe retained-handle path: if a
-    // future edit ever inserts a finite event ahead of it, compaction traps
-    // loudly rather than dangling this pointer the GUI reads every frame.
-    auto *anim = transformer.spawn_pinned(0, 0.5f, 0.035f);
+    // Spawn the evolving warp and retain its handle so the "Warp Speed" slider —
+    // bound to params.warp_speed like every other control — can be mirrored into
+    // the animation each frame (see draw_frame). The warp is infinite and added
+    // before any other timeline event, so pinning it is the safe retained-handle
+    // path: if a future edit ever inserts a finite event ahead of it, compaction
+    // traps loudly rather than dangling this pointer.
+    warp_ = transformer.spawn_pinned(0, params.warp_speed, 0.035f);
     // A pinned spawn into a fresh transformer always has a free slot, so a null
     // here is a structural bug, not a runtime condition. Trap rather than
     // silently drop the "Warp Speed" slider.
-    HS_CHECK(anim, "GnomonicStars: pinned warp spawn must succeed");
-    registerParam("Warp Speed", &anim->speed, 0.0f, 1.0f);
+    HS_CHECK(warp_, "GnomonicStars: pinned warp spawn must succeed");
+    registerParam("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
 
     timeline.add(0, Animation::RandomWalk<W>(
-                        orientation, UP, noise,
+                        orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
   }
 
@@ -88,6 +90,10 @@ public:
    */
   void draw_frame() override {
     Canvas canvas(*this);
+
+    // Mirror the live Warp Speed slider into the pinned warp animation before the
+    // timeline advances it, so a mid-run change takes effect this frame.
+    warp_->speed = params.warp_speed;
 
     timeline.step(canvas);
 
@@ -145,6 +151,7 @@ private:
   int cached_points_ = 0;           /**< Point count the cache holds (0 = unbuilt). */
 
   MobiusWarpGnomonicTransformer<1> transformer; /**< Evolving Möbius warp applied per point. */
+  Animation::MobiusWarpEvolving *warp_ = nullptr; /**< Pinned warp handle; mirrors params.warp_speed each frame. */
 };
 
 #include "core/effect_registry.h"
