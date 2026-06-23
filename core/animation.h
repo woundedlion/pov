@@ -722,6 +722,13 @@ private:
       }
     }
 
+    // A particle is only reclaimable once it is BOTH dead AND its trail has
+    // fully drained, so a just-killed particle holds its pool slot for up to
+    // TRAIL_LEN more frames while the trail fades out (freeing it earlier would
+    // pop the trail mid-fade). This couples effective pool capacity to
+    // TRAIL_LEN: under sustained spawning, ~TRAIL_LEN slots are always occupied
+    // by draining trails rather than live particles. Intentional — the trail
+    // must render to completion — but size CAPACITY with that headroom in mind.
     return !active && p.history.length() == 0;
   }
 };
@@ -2211,14 +2218,19 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
 
-    // 1. Move the wave (Emanate outward)
-    params.get().phase += speed;
-
-    // 2. Lifecycle Management
+    // Lifecycle Management
     float progress = static_cast<float>(t) / duration;
     float envelope = 0.0f;
 
+    // Once the duration has elapsed the envelope is pinned to 0, so advancing
+    // the phase and recomputing the reject thresholds would be dead work on an
+    // already-invisible ripple (the one final step the Timeline runs before it
+    // removes a finished one-shot). Do the wave work only while live; always
+    // publish the amplitude so the last frame correctly renders nothing.
     if (t < duration) {
+      // Move the wave (emanate outward).
+      params.get().phase += speed;
+
       // Ease In (Attack) - fast ramp up over ~10% of duration
       float attack_dur = 0.1f;
       float attack = std::min(progress / attack_dur, 1.0f);
@@ -2229,19 +2241,19 @@ public:
       float decay = 1.0f - progress;
 
       envelope = attack * decay;
+
+      // Re-prepare the fast-reject thresholds against the phase we just
+      // advanced. The transformer's prepare_frame() runs before timeline.step(),
+      // so without this the render samples the wavelet at the NEW phase but
+      // rejects against thresholds cached at the OLD phase — clipping the leading
+      // `speed`-wide slice of every ripple (the whole leading half at extreme
+      // Ripp Width / Dur, where speed approaches the 2·half-width window).
+      // Recomputing here keeps phase and thresholds consistent in any step
+      // ordering. Cold (≤ pool-size ripples per frame, 2 cosf each).
+      params.get().prepare_thresholds();
     }
 
     params.get().amplitude = peak_amplitude * envelope;
-
-    // Re-prepare the fast-reject thresholds against the phase we just advanced.
-    // The transformer's prepare_frame() runs before timeline.step(), so without
-    // this the render samples the wavelet at the NEW phase but rejects against
-    // thresholds cached at the OLD phase — clipping the leading `speed`-wide
-    // slice of every ripple (the whole leading half at extreme Ripp Width / Dur,
-    // where speed approaches the 2·half-width window). Recomputing here keeps
-    // phase and thresholds consistent in any step ordering. Cold (≤ pool-size
-    // ripples per frame, 2 cosf each).
-    params.get().prepare_thresholds();
   }
 
 private:
