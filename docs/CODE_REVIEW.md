@@ -122,7 +122,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 17. ✅ **Source comment cites a review-finding number** — `tests/fastmath_clamp_check.cpp:1` ("Finding 369"). Violates the project's own "no finding refs in comments" rule; finding numbers belong in commit subjects + this doc only.
 
-18. **README §7.0 `v2` register row vs `sdf.h` "always 0"** — `README.md:637` says `v2` = "Face index for `Scan::Mesh` (0 otherwise)" (the rasterizer injects it via a wrapper in `scan.h:805-808`), while `sdf.h:196` says `v2` is "reserved and always 0" (true at the `process_pixel` layer, `scan.h:110`). Both are correct for their layer; add a cross-reference so a reader wiring a new SDF shape isn't confused about where `v2` originates.
+18. ✅ **README §7.0 `v2` register row vs `sdf.h` "always 0"** — `README.md:637` says `v2` = "Face index for `Scan::Mesh` (0 otherwise)" (the rasterizer injects it via a wrapper in `scan.h:805-808`), while `sdf.h:196` says `v2` is "reserved and always 0" (true at the `process_pixel` layer, `scan.h:110`). Both are correct for their layer; add a cross-reference so a reader wiring a new SDF shape isn't confused about where `v2` originates.
 
 19. **Reaction-diffusion seeders duplicate the neighbor sentinel skip** — `effects/BZReactionDiffusion.h:188-190` and `effects/GSReactionDiffusion.h:186-188` hand-roll the `nb >= 0` skip that `ReactionDiffusionBase::for_each_neighbor` (`ReactionDiffusionBase.h:171`) exists to centralize. Add a base seed helper.
 

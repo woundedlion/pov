@@ -199,7 +199,9 @@ struct Bounds {
  *   raw_dist -> Fragment::v1
  *   aux      -> Fragment::v3
  *   size     -> Fragment::size
- * (Fragment::v2 is reserved and always 0.)
+ * (Fragment::v2 is reserved and always 0 at this layer. Scan::Mesh injects a
+ *  face index into Fragment::v2 downstream via a rasterizer wrapper — see
+ *  scan.h and README §7.0 — so a shape's DistanceResult never carries v2.)
  */
 struct DistanceResult {
   float dist;        /**< Signed distance (negative inside); always this meaning. */
