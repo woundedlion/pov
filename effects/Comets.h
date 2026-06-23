@@ -266,8 +266,13 @@ private:
   /** @brief Function table of Lissajous parameters cycled through over time.
    *  @details Immutable authored data, so it is `static constexpr` — shared
    *           across instances (no per-effect copy) and readable without an
-   *           instance (the closing-loop unit test reads it directly). */
-  static constexpr std::array<LissajousParams, 12> functions = {{{1.06f, 1.06f, 0, 5.909f},
+   *           instance (the closing-loop unit test reads it directly).
+   *           Each row is a LissajousParams: {m1, m2, a, domain} — m1 axial
+   *           (X/Z) frequency, m2 orbital (Y) frequency, a phase shift in
+   *           radians (0 for every authored entry), domain the traversal length
+   *           t (closing_domain() snaps it so the curve closes). */
+  static constexpr std::array<LissajousParams, 12> functions = {{// {m1, m2, a, domain}
+                                                {1.06f, 1.06f, 0, 5.909f},
                                                 {6.06f, 1.0f, 0, 2 * PI_F},
                                                 {6.02f, 4.01f, 0, 3.132f},
                                                 {46.62f, 62.16f, 0, 0.404f},
