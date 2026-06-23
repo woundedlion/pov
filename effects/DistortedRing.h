@@ -143,6 +143,10 @@ private:
   GenerativePalette ringPalette;
   Vector normal;
   Orientation<> orientation;
+  // Built in the constructor (not inline in init() like the sprite/walk) so the
+  // Mutation's reference_wrapper binding to `amplitude`/`params.max_amplitude`
+  // is established once; init() then copies it into the timeline, and the copy
+  // retains that binding. Held as a member only to be that copy source.
   Animation::Mutation amplitude_mut;
 };
 
