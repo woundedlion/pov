@@ -138,7 +138,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 25. ✅ **Voronoi dead zero-sites guard** — `effects/Voronoi.h:106-107`. `active_site_count()` clamps to `[1, MAX_SITES]` and the slider min is 1, so `sites_buffer` can never be empty; the guard and its comment describe an unreachable state.
 
-26. **IslamicStars redundant scratch reset diverges from the HankinSolids idiom** — `effects/IslamicStars.h:182-185` does a bare `reset()` (already done by `generate()`) before `classify_faces_by_topology`, whereas HankinSolids uses `ScratchScope` for the same operation (`HankinSolids.h:102-113`). Pick one convention.
+26. ✅ **IslamicStars redundant scratch reset diverges from the HankinSolids idiom** — `effects/IslamicStars.h:182-185` does a bare `reset()` (already done by `generate()`) before `classify_faces_by_topology`, whereas HankinSolids uses `ScratchScope` for the same operation (`HankinSolids.h:102-113`). Pick one convention.
 
 27. **MeshFeedback `apply_params()` runs before the noise type is configured** — `effects/MeshFeedback.h:71` vs `:73-74`. The first `sync_noise()` propagates a not-yet-configured noise type; benign (re-applied per frame) but backwards from intent.
 

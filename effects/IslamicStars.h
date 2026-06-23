@@ -179,10 +179,17 @@ private:
       MeshOps::compile(mesh, carousel.slot(back), target);
     });
 
-    scratch_arena_a.reset();
-    scratch_arena_b.reset();
-    MeshOps::classify_faces_by_topology(carousel.slot(back), scratch_arena_a,
-                                        scratch_arena_b, persistent_arena);
+    // classify_faces_by_topology uses both scratch arenas as transient
+    // workspace (its result lands in persistent_arena), so bracket it with
+    // ScratchScope to free only its own allocations on exit — the same idiom
+    // HankinSolids::classify_mesh_topology uses, rather than a bare reset() that
+    // would discard any allocation a caller already holds in these arenas.
+    {
+      ScratchScope _a(scratch_arena_a);
+      ScratchScope _b(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(carousel.slot(back), scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
 
     // 3. Flip front eagerly for the overlapping sprite
     carousel.set_front(back);
