@@ -1363,20 +1363,21 @@ inline Vector cubic(const Vector &p0, const Vector &p1, const Vector &p2,
  * @param start Segment start point.
  * @param end Segment end point.
  * @param next Control point after the segment.
- * @param tension Smoothing amount in [0, 1] (see @details for convention).
+ * @param smoothing Smoothing amount in [0, 1] (see @details for convention).
  * @param cp1 Output: first Bézier control point for the start→end segment.
  * @param cp2 Output: second Bézier control point for the start→end segment.
- * @details tension=0 produces geodesic (linear) segments; tension=1 produces
- * full Catmull-Rom smoothing. This is inverted from the conventional
- * Catmull-Rom tension parameter where τ=0 is the standard cardinal spline.
+ * @details smoothing=0 produces geodesic (linear) segments; smoothing=1
+ * produces full Catmull-Rom smoothing. Named `smoothing` rather than the
+ * conventional Catmull-Rom `tension` because the sense is inverted from that
+ * convention (where τ=0 is the standard cardinal spline).
  */
 inline void catmull_rom_tangents(const Vector &prev, const Vector &start,
                                  const Vector &end, const Vector &next,
-                                 float tension, Vector &cp1, Vector &cp2) {
+                                 float smoothing, Vector &cp1, Vector &cp2) {
   // Tangent at start: pull toward the midpoint of prev→end
-  cp1 = slerp(start, slerp(prev, end, 0.5f), tension);
+  cp1 = slerp(start, slerp(prev, end, 0.5f), smoothing);
   // Tangent at end: pull toward the midpoint of start→next
-  cp2 = slerp(end, slerp(start, next, 0.5f), tension);
+  cp2 = slerp(end, slerp(start, next, 0.5f), smoothing);
 }
 
 } // namespace Spline

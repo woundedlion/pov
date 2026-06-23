@@ -157,7 +157,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 34. ✅ **DistortedRing `amplitude_mut` is a dead template-copy member** — `effects/DistortedRing.h:32-38,69`. Constructed only to be copied into the timeline; correct (the copy retains the `reference_wrapper` binding) but an unusual, slightly wasteful idiom.
 
-35. **`catmull_rom_tangents` "tension" parameter is inverted vs convention** — `core/geometry.h:1373-1380`. `tension=0` → geodesic, `tension=1` → full Catmull-Rom, opposite the standard cardinal-spline convention; documented but easy to misuse. Consider renaming to `smoothing`.
+35. ✅ **`catmull_rom_tangents` "tension" parameter is inverted vs convention** — `core/geometry.h:1373-1380`. `tension=0` → geodesic, `tension=1` → full Catmull-Rom, opposite the standard cardinal-spline convention; documented but easy to misuse. Consider renaming to `smoothing`.
 
 36. **`least_parallel_axis` helper is not adopted by its intended call sites** — `core/geometry.h:855-869` (`make_basis`) and `core/3dmath.h:1093` (`make_rotation` antiparallel branch) still inline the reference-axis fallback the helper was created to centralize. Also: `easing.h:26-30` `ease_in_out_cubic` lacks the endpoint guard its `circ`/`expo`/`elastic` siblings carry — confirm the asymmetry is deliberate.
 
