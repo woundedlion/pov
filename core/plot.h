@@ -509,6 +509,15 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       // values; for v1 (cumulative arc length) those were computed from geodesic
       // chords, so under planar interpolation the interpolated v1 follows the
       // chord polygon, not the longer rendered planar arc.
+      //
+      // Consequence beyond the absolute under-count: the mismatch is also
+      // NONLINEAR within a segment, because position advances by the planar arc
+      // while the v0/v1 registers advance by the geodesic-chord lerp. Any shader
+      // driven by a register as a progress/arc-length proxy — gradients keyed on
+      // v1, dashes/ticks spaced in v0 — therefore drifts against the drawn
+      // position mid-segment (not just a constant scale), most visibly where the
+      // planar arc bows farthest from its chord. Geodesic segments don't drift
+      // (position and the registers share the same arc metric).
       Vector p = map(t).normalized();
       Fragment f = Fragment::lerp(curr, next, t);
       f.pos = p;
