@@ -309,6 +309,17 @@ inline void test_ctor_spin_waits_for_buffer_free() {
 // ============================================================================
 // Canvas access
 // ============================================================================
+//
+// OUT-OF-BOUNDS PIXEL ACCESS is deliberately NOT covered here, and — unlike the
+// scan-clip and container OOB cases — it is NOT a death-harness case either.
+// Canvas operator()(x,y) / operator()(xy) / prev() / get_pixel() guard their
+// index with a debug-only `assert`, NOT HS_CHECK (core/canvas.h documents this
+// as the single hot-loop exception: "No bounds checking" on the device, where
+// NDEBUG strips the guard). An assert failure aborts via SIGABRT, whereas the
+// death harness keys specifically on the HS_CHECK __builtin_trap → SIGILL
+// status (tests/test_death.h child_trapped), so an assert-based OOB cannot be a
+// death case. It is covered only by that assert firing in this assert-enabled
+// test build; on device the access is unchecked by design.
 
 /**
  * @brief Verifies Canvas exposes 2D (x,y) and 1D (row-major index) writes that
@@ -438,6 +449,22 @@ inline void test_paramlist_fills_to_capacity() {
 // ============================================================================
 // Clip setters
 // ============================================================================
+//
+// CLIP-BOUND COVERAGE: set_clip / set_clip_x store the four bounds verbatim with
+// no validation by design (the driver writes a trusted owned-segment once), so
+// there is no in-process trap to assert on the bounds themselves. The two ways a
+// bad clip bites are covered elsewhere:
+//   - An x-band exceeding the canvas width (x_end > W) would index the trig LUTs
+//     out of range; that traps (HS_CHECK) downstream in the scan path, covered
+//     out-of-process by the death harness — case_scan_clip_out_of_bounds in
+//     tests/test_death.h.
+//   - Inverted or empty bounds (start >= end) are NOT a trap: the per-fragment
+//     clip predicate simply selects no pixels, so the effect renders an empty
+//     region rather than aborting.
+// (set_margin is the one clip setter that DOES validate at the call site — an
+// HS_CHECK that a margin >= canvas width traps, a cold setup-time guard.)
+// This test covers only the field-write contract; the trap/empty behaviors are
+// where the bounds are actually consumed.
 
 /**
  * @brief Verifies the clip setters write the expected fields.
