@@ -1093,7 +1093,11 @@ inline int rand_int(int min, int max) {
     __attribute__((format(printf, 4, 5)));
 [[noreturn]] inline void check_fail(const char *file, int line,
                                     const char *cond, const char *fmt, ...) {
-  char msg[96];
+  // Size the message buffer to the downstream 256-byte sink (the EM_ASM buf and
+  // hs::log's internal buffer). A smaller intermediate would truncate a long
+  // HS_CHECK message *before* the sink even sees it — a second, hidden choke on
+  // top of the documented single bound, defeating the "no truncation" rationale.
+  char msg[256];
   va_list args;
   va_start(args, fmt);
 #ifdef ARDUINO
