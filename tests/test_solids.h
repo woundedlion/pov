@@ -179,9 +179,15 @@ inline void test_registry_count_matches_collections() {
  * @brief Builds the registry entry at `index`, derives its half-edge mesh, and
  *        asserts the Euler characteristic V - E + F == 2.
  * @param index Registry entry index to check.
+ * @param expected_V,expected_E,expected_F Optional independent count oracles;
+ *        pass -1 (the default) to skip a given check. When provided, each is
+ *        asserted exactly. V - E + F == 2 alone is blind to a class-wide
+ *        omission/duplication that preserves the relation (e.g. every face
+ *        split in two), so a fixed expected-count oracle is the real guard.
  * @details Edges are counted as half_edges/2, matching test_mesh.h.
  */
-inline void check_euler_for_index(size_t index) {
+inline void check_euler_for_index(size_t index, int expected_V = -1,
+                                  int expected_E = -1, int expected_F = -1) {
   Arena geom(solids_geom_a, sizeof(solids_geom_a));
   PolyMesh m = build_index(index, geom);
 
@@ -193,15 +199,36 @@ inline void check_euler_for_index(size_t index) {
   int E = static_cast<int>(he.half_edges.size()) / 2;
   int F = static_cast<int>(he.faces.size());
   HS_EXPECT_EQ(V - E + F, 2);
+
+  if (expected_V >= 0) HS_EXPECT_EQ(V, expected_V);
+  if (expected_E >= 0) HS_EXPECT_EQ(E, expected_E);
+  if (expected_F >= 0) HS_EXPECT_EQ(F, expected_F);
 }
 
 /**
- * @brief Verifies V - E + F == 2 for each Platonic solid (closed manifolds).
+ * @brief Verifies the Euler characteristic and the exact (V, E, F) counts for
+ *        each Platonic solid (closed manifolds).
+ * @details The per-solid counts are fixed mathematical constants, so they form
+ *          an independent oracle: a builder bug that uniformly mis-counts
+ *          vertices or faces while still satisfying V - E + F == 2 is caught
+ *          here, where the bare relation check could not see it.
  */
 inline void test_euler_platonic_solids() {
-  // simple_registry indices 0-4 are the Platonic solids (closed manifolds).
-  for (size_t i = 0; i < Solids::Collections::get_platonic_solids().size(); ++i)
-    check_euler_for_index(i);
+  // simple_registry indices 0-4 are the Platonic solids, in this fixed order.
+  struct Counts {
+    int v, e, f;
+  };
+  static constexpr Counts kPlatonic[] = {
+      {4, 6, 4},    // tetrahedron
+      {8, 12, 6},   // cube
+      {6, 12, 8},   // octahedron
+      {20, 30, 12}, // dodecahedron
+      {12, 30, 20}, // icosahedron
+  };
+  const auto platonic = Solids::Collections::get_platonic_solids();
+  HS_EXPECT_EQ(platonic.size(), sizeof(kPlatonic) / sizeof(kPlatonic[0]));
+  for (size_t i = 0; i < platonic.size(); ++i)
+    check_euler_for_index(i, kPlatonic[i].v, kPlatonic[i].e, kPlatonic[i].f);
 }
 
 // ---------------------------------------------------------------------------
