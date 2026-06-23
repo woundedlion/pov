@@ -1335,6 +1335,67 @@ inline void test_world_trails_set_lifetime_shrink_clamps_t() {
 }
 
 /**
+ * @brief Verifies the documented capacity-erosion consequence of front-only
+ *        reclaim: a dead mid-buffer item (heterogeneous TTLs) wastes a ring slot
+ *        until it reaches the head, so the next plot() evicts the oldest *live*
+ *        point instead of reclaiming the dead slot.
+ * @details Front-contiguous reclaim only frees dead items at the head. With a
+ *          short-lived point buffered behind a long-lived older one, the dead
+ *          slot lingers and the effective live capacity drops below Cap.
+ */
+inline void test_world_trails_midbuffer_expiry_erodes_capacity() {
+  constexpr int W = 32, Cap = 4;
+  static uint8_t buf[Cap * 16];
+  Arena arena(buf, sizeof(buf));
+  Filter::World::Trails<W, Cap> trails(/*lifetime=*/100);
+  trails.init_storage(arena);
+
+  // Orthogonal/antipodal unit vectors so int16-quantized decodes stay trivially
+  // identifiable by dot product.
+  const Vector p0(1, 0, 0), p1(0, 1, 0), p2(0, 0, 1), p3(-1, 0, 0), p4(0, -1, 0);
+  auto noop = [](const Vector &, const Pixel &, float, float) {};
+
+  trails.plot(p0, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100 — oldest, long-lived
+  trails.set_lifetime(1);
+  trails.plot(p1, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 1 — dies on next flush
+  trails.set_lifetime(100);
+  trails.plot(p2, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
+  trails.plot(p3, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
+  HS_EXPECT_EQ(trails.size(), (size_t)Cap);          // [p0, p1, p2, p3] — full
+
+  int live_drawn = 0;
+  bool saw_p0 = false;
+  auto trail = [&](const Vector &v, float) {
+    ++live_drawn;
+    if (dot(v, p0) > 0.9f)
+      saw_p0 = true;
+    return Color4(Pixel(1, 1, 1), 1.0f);
+  };
+  // p1 ttl 1 -> 0, but the front (p0) is still alive, so the front-only pop
+  // cannot reclaim p1: it lingers mid-buffer, drawn-skipped, still a live slot.
+  trails.flush(WorldTrailFn(trail), 1.0f, noop);
+  HS_EXPECT_EQ(live_drawn, 3);              // only 3 of 4 slots are live
+  HS_EXPECT_TRUE(saw_p0);                   // the oldest live point still draws
+  HS_EXPECT_EQ(trails.size(), (size_t)Cap); // dead p1 still occupies a slot
+
+  // Buffer is full (4) with one wasted dead slot. This plot evicts the OLDEST
+  // LIVE point (p0) rather than reclaiming p1's dead slot — the erosion.
+  trails.plot(p4, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
+
+  bool saw_p0_after = false, saw_p4_after = false;
+  auto trail2 = [&](const Vector &v, float) {
+    if (dot(v, p0) > 0.9f)
+      saw_p0_after = true;
+    if (dot(v, p4) > 0.9f)
+      saw_p4_after = true;
+    return Color4(Pixel(1, 1, 1), 1.0f);
+  };
+  trails.flush(WorldTrailFn(trail2), 1.0f, noop);
+  HS_EXPECT_FALSE(saw_p0_after); // the live oldest point was evicted prematurely
+  HS_EXPECT_TRUE(saw_p4_after);  // the new point made it in
+}
+
+/**
  * @brief Verifies the Screen::Trails store / emit / decay lifecycle.
  * @details Screen::Trails stores float DecayPixels with no int16 quantization
  *          (that path is World::Trails-specific).
@@ -1650,6 +1711,7 @@ inline int run_filter_tests() {
   test_world_trails_ring_evicts_oldest();
   test_world_trails_ttl_expiry();
   test_world_trails_set_lifetime_shrink_clamps_t();
+  test_world_trails_midbuffer_expiry_erodes_capacity();
   test_screen_trails_store_emit_decay();
   test_screen_trails_forwards_aged_emission();
 

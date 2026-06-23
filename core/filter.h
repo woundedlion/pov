@@ -839,6 +839,15 @@ public:
         item.ttl--;
     }
 
+    // Front-contiguous reclaim only: a dead item behind a still-live older one
+    // is NOT freed here (see the mid-buffer skip below). Consequence: with
+    // heterogeneous TTLs (e.g. after a set_lifetime() shrink) a lingering dead
+    // item occupies a ring slot, so the effective live capacity dips below Cap
+    // and the next plot() can evict the oldest *live* point even though a dead
+    // slot exists. Accepted: homogeneous-TTL trails (the common case) reclaim
+    // in strict order, and a full sweep-and-compact would cost an O(Cap) shift
+    // on the hot flush path for a transient over-eviction. Covered by
+    // test_world_trails_midbuffer_expiry_erodes_capacity.
     while (count_ > 0 && at(0).ttl == 0) {
       pop_front();
     }
