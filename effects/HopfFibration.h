@@ -222,10 +222,12 @@ private:
     float theta = sph.phi; // polar angle (co-latitude)
     float phi = sph.theta; // azimuthal angle
 
-    // Folding
+    // Folding. The displacement depth is driven by the Folding slider alone and
+    // is independent of Tumble Spd, so Folding still acts when the tumble is
+    // frozen (Tumble Spd = 0). The 0.2f factor reproduces the previous depth at
+    // the default tumble_speed of 2.0 (0.1 * 2.0), keeping the default look.
     float eta = theta / 2.0f;
-    eta += fast_sinf(phi * 2.0f + ty_rad + fold_base) * 0.1f *
-           params.tumble_speed * params.folding;
+    eta += fast_sinf(phi * 2.0f + ty_rad + fold_base) * 0.2f * params.folding;
 
     // Twist
     phi += eta * params.twist;
