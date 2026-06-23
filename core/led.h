@@ -12,13 +12,12 @@
 #pragma once
 #include "platform.h"
 
-// Selects the DMA-based HD107S controller instead of the FastLED WS2801 path.
-// Requires Teensy 4.x hardware; leave undefined for WASM/sim and single-board
-// builds. Targets that need it define USE_DMA_LEDS themselves before including
-// the driver (e.g. targets/Phantasm/Phantasm.ino) rather than toggling it here,
-// so this engine-wide header stays neutral. Uncomment only for a one-off local
-// experiment:
-// #define USE_DMA_LEDS
+// USE_DMA_LEDS selects the DMA-based HD107S controller instead of the FastLED
+// WS2801 path. It requires Teensy 4.x hardware and is left undefined for WASM/sim
+// and single-board builds. Targets that need it define USE_DMA_LEDS themselves
+// before including the driver (e.g. targets/Phantasm/Phantasm.ino); this
+// engine-wide header deliberately never defines it, so no commented-out toggle is
+// kept here to be uncommented by accident.
 
 /**
  * @brief Analog pin used for seeding the random number generator.
