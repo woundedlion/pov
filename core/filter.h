@@ -968,13 +968,6 @@ namespace Screen {
  */
 template <int W, int H> class AntiAlias : public Is2D {
 public:
-  // Cold one-time touch of the phi LUT so the per-sub-pixel plot() path can read
-  // it unconditionally. In production init_geometry_luts() has already filled the
-  // table; this guarded call is the lazy fallback for callers that skip engine
-  // setup. Hoisting it here keeps the hot loop free of the init branch.
-  AntiAlias() {
-    if (!TrigLUT<W, H>::initialized) TrigLUT<W, H>::init();
-  }
   /**
    * @brief Splats a sub-pixel sample across its four nearest pixel neighbors.
    * @tparam PassFnT Downstream 2D callback type.
@@ -984,8 +977,8 @@ public:
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1]; scaled per tap by its bilinear weight.
    * @param pass Downstream 2D callback receiving each weighted tap.
-   * @details X fractional weight is scaled by sin(phi) for spherical density
-   * compensation; both axes are eased with a quintic kernel.
+   * @details Both axes are eased with a quintic kernel; the splat is uniform in
+   * framebuffer space at every latitude (no sin(phi) density compensation).
    *
    * AntiAlias deliberately takes @p pass as a forwarding-reference template
    * (PassFnT&&) rather than the type-erased PassFn2D/PassFn3D FunctionRef the
@@ -1021,32 +1014,21 @@ public:
     float x_floor = floorf(x);
     float x_m = x - x_floor; // always in [0, 1)
 
-    // Spherical density compensation: scale X fractional by sin(phi).
-    // At poles, all columns converge to the same point, so the compression
-    // drives x_frac->0 and the sample collapses onto its left (floor) column
-    // x0 — a floor-snap, NOT a round-to-nearest (x_m=0.9 still lands on x0).
-    // At equator, sin(phi)=1 so behavior is unchanged.
-    // (LUT init hoisted to the constructor — see above.)
-    // Derive the integer row once so the clamped LUT index and the clipped tap
-    // row (y0/y1 below) share one rounding convention; y_i is the floorf result
-    // above, and splitting this into two static_cast<int>(y_i) sites would let a
-    // future edit to one desync the density-compensation row from the deposited
-    // row.
+    // Derive the integer row once; it backs the clipped tap rows (y0/y1 below).
+    // y_i is the floorf result above, so the single static_cast keeps one
+    // rounding convention for the deposited row.
     int yi = static_cast<int>(y_i);
-    int yi0 = hs::clamp(yi, 0, TrigLUT<W, H>::H_VIRT - 1);
-    int yi1 = hs::clamp(yi + 1, 0, TrigLUT<W, H>::H_VIRT - 1);
-    float sin_phi = TrigLUT<W, H>::sin_phi[yi0]
-        + (TrigLUT<W, H>::sin_phi[yi1] - TrigLUT<W, H>::sin_phi[yi0]) * y_m;
-    float x_frac = hs::clamp(x_m * sin_phi, 0.0f, 1.0f);
 
     // Ease both axes with the same quintic kernel so the bilinear weight has
     // vanishing 1st/2nd derivatives at the cell edges — without it, a point
     // drifting across a column boundary ramps linearly in X while Y stays
-    // smooth (most visible at the equator, where sin(phi)=1 and x_frac==x_m).
-    // sin(phi) is an orthogonal density compensation, not a substitute for the
-    // easing; at the poles x_frac->0 so quintic_kernel(0)=0 collapses the
-    // sample onto its left (floor) column x0.
-    float xs = quintic_kernel(x_frac);
+    // smooth. The splat is uniform in framebuffer space at every latitude:
+    // anti-aliasing is a property of the pixel grid, not of where the columns
+    // map on the sphere, so X is NOT scaled by sin(phi). A prior density
+    // compensation (x_m*sin(phi)) collapsed the X spread onto a single column
+    // near the poles, dropping horizontal AA exactly where curves alias most
+    // and leaving polar samples as crisp, beating hot spots.
+    float xs = quintic_kernel(x_m);
     float ys = quintic_kernel(y_m);
 
     // Clip Y neighbors to the physical row range rather than clamping them. With
@@ -1057,7 +1039,7 @@ public:
     // it here stops a clamped tap from defeating it. (Host builds set
     // H_OFFSET = 0, so no out-of-range row is produced and behavior is unchanged
     // — which is why this device-only divergence is invisible to the host suite.)
-    int y0 = yi; // same integer row as the LUT index above
+    int y0 = yi; // same integer row derived above
     int y1 = y0 + 1;
     int x0 = fast_wrap(static_cast<int>(x_floor), W);
     int x1 = fast_wrap(static_cast<int>(x_floor) + 1, W);
