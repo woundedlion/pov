@@ -40,6 +40,46 @@ public:
                 "SHAPE_FRAMES and PRESET_FRAMES must stay coprime so the shape "
                 "and preset cycles drift out of phase instead of locking");
 
+  // Registered slider ranges for the six preset-driven style params, hoisted to
+  // constexpr so registerParam() (in init()) and the compile-time range check
+  // below share one source. The preset cycle writes these fields live, so every
+  // preset must stay within the range the GUI advertises or the slider readout
+  // and the live value diverge. If a future preset needs a value outside a
+  // range, WIDEN THE RANGE here — the range exists to expose the presets, not to
+  // clamp them.
+  static constexpr float kFadeMin = 0.0f,  kFadeMax = 0.99f;
+  static constexpr float kAmpMin = 0.0f,   kAmpMax = 30.0f;
+  static constexpr float kFreqMin = 0.01f, kFreqMax = 1.0f;
+  static constexpr float kSpeedMin = 0.0f, kSpeedMax = 5.0f;
+  static constexpr float kScaleMin = 0.1f, kScaleMax = 50.0f;
+  static constexpr float kHueMin = 0.0f,   kHueMax = 0.1f;
+
+  /** @brief True iff every preset-driven field of @p s lies within its
+   *  registered slider range (see the range constants above). */
+  static constexpr bool preset_in_ranges(const Style &s) {
+    return s.fade >= kFadeMin && s.fade <= kFadeMax &&
+           s.amplitude >= kAmpMin && s.amplitude <= kAmpMax &&
+           s.frequency >= kFreqMin && s.frequency <= kFreqMax &&
+           s.speed >= kSpeedMin && s.speed <= kSpeedMax &&
+           s.scale >= kScaleMin && s.scale <= kScaleMax &&
+           s.hue_shift >= kHueMin && s.hue_shift <= kHueMax;
+  }
+  // Pin the preset/range agreement at compile time: the cycle snaps `style` to
+  // each preset, so a preset field outside its registered range would surface a
+  // live value the GUI cannot represent. (The cycle hard-cuts between presets,
+  // so no interpolated value can exceed the per-field endpoints either.)
+  static_assert(preset_in_ranges(Style::SlowTwist()) &&
+                    preset_in_ranges(Style::Churn()) &&
+                    preset_in_ranges(Style::Smoke()) &&
+                    preset_in_ranges(Style::Frozen()) &&
+                    preset_in_ranges(Style::Shatter()) &&
+                    preset_in_ranges(Style::Drift()) &&
+                    preset_in_ranges(Style::Melting()) &&
+                    preset_in_ranges(Style::Swirling()),
+                "a MeshFeedback preset drives a style field outside its "
+                "registered slider range; widen the range to accommodate the "
+                "preset (the range exposes the presets, it does not clamp them)");
+
   /**
    * @brief Wires up palette, noise, orientation, and the filter pipeline.
    * @details Constructs the World/Screen/Pixel filter stack; the Feedback pixel
@@ -90,12 +130,12 @@ public:
                        persistent_arena);
     }
 
-    registerParam("Fade", &style.fade, 0.0f, 0.99f);
-    registerParam("Distort Amp", &style.amplitude, 0.0f, 30.0f);
-    registerParam("Distort Freq", &style.frequency, 0.01f, 1.0f);
-    registerParam("Distort Speed", &style.speed, 0.0f, 5.0f);
-    registerParam("Noise Scale", &style.scale, 0.1f, 50.0f);
-    registerParam("Hue Shift", &style.hue_shift, 0.0f, 0.1f);
+    registerParam("Fade", &style.fade, kFadeMin, kFadeMax);
+    registerParam("Distort Amp", &style.amplitude, kAmpMin, kAmpMax);
+    registerParam("Distort Freq", &style.frequency, kFreqMin, kFreqMax);
+    registerParam("Distort Speed", &style.speed, kSpeedMin, kSpeedMax);
+    registerParam("Noise Scale", &style.scale, kScaleMin, kScaleMax);
+    registerParam("Hue Shift", &style.hue_shift, kHueMin, kHueMax);
     registerParam("Feedback", &feedback_enabled);
     // The preset cycle drives these six style params; flag them so the standard
     // "Pause Animation" toggle gates the cycling.
