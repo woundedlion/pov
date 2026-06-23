@@ -1640,11 +1640,19 @@ private:
   // foreground via build_word(). publish_build() runs from the flywheel ISR in
   // steady state, but seed(is_master=true) also calls it once from the
   // foreground at boot to publish effect 0 — a benign pre-attach write before
-  // the sync ISR is live, so no concurrent writer races it. volatile — like
-  // every sibling handoff word in POVSegmented — so the foreground re-loads it
-  // each poll. Without it the pre-first-build run_show loop (no other
-  // volatile/opaque access on that path) may hoist the load and never observe
-  // the ISR's first publish.
+  // the sync ISR is live, so no concurrent writer races it. It stays `volatile`
+  // (not std::atomic) *deliberately*: unlike POVSegmented's cross-context handoff
+  // words — which migrated to std::atomic but are all *static* members, so atomic
+  // doesn't affect any object's copyability — build_word_ is a per-instance member
+  // of SyncBoard, and SyncBoard is move-assigned at setup (`sync_ = SyncBoard(cfg)`
+  // in POVSegmented::run_show()). A std::atomic member would delete that implicit
+  // move-assignment, forcing a hand-written every-member operator= just to keep
+  // the assignment compiling — strictly worse. `volatile` keeps SyncBoard
+  // move-assignable while still forcing the foreground to re-load each poll;
+  // without that re-load the pre-first-build run_show loop (no other
+  // volatile/opaque access on that path) may hoist the load and never observe the
+  // ISR's first publish. The access is a single aligned word with one logical
+  // writer at a time, so the volatile read/write is benign here.
   volatile uint32_t build_word_ = 0; /**< (gen << 8) | index; foreground-read. */
 };
 
