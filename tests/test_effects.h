@@ -302,11 +302,33 @@ inline void render_capture(std::vector<Pixel> &out, int frames) {
  * nondeterminism (uninitialized read, stale global, address-dependent path) —
  * the defect class smoke coverage cannot see.
  */
+/**
+ * @brief Scrambles every output-affecting global that render_capture() resets.
+ * @details Run between the two determinism captures so the second one must
+ * RECOVER canonical output from a dirtied process state rather than merely
+ * re-run from an identical pristine one. This makes each reset line in
+ * render_capture load-bearing and self-testing: drop the RNG re-seed and an
+ * effect that draws randomness diverges; drop the hue-seed reset and a
+ * generative-palette effect diverges; drop the global_timeline_t reset and a
+ * timeline-driven effect diverges. It also catches a global the effect READS
+ * but never mutates that is missing from the reset list — the existing
+ * pristine-twice check is blind to that class because both runs read the same
+ * unchanged value. It does NOT catch a static seeded once and never reset:
+ * in-process that value persists across both runs, so it stays out of reach (as
+ * the determinism design notes above).
+ */
+inline void perturb_determinism_globals() {
+  hs::random().seed(0xC0FFEEu);           // off the canonical seed(1337)
+  global_timeline_t = 0x5EED;             // off zero
+  GenerativePalette::reset_hue_seed(199); // off the zero hue cursor
+}
+
 template <template <int, int> class E, int W = kW, int H = kH>
 inline void determinism_one(const char *name) {
   const int frames = smoke_frames();
   std::vector<Pixel> a, b;
   render_capture<E, W, H>(a, frames);
+  perturb_determinism_globals(); // force run B to recover from a dirtied state
   render_capture<E, W, H>(b, frames);
   hs::clear_mock_time();
 
