@@ -49,8 +49,9 @@ public:
    */
   void init() override {
     // The particle pool needs the bulk of the arena, so leave the persistent
-    // arena large: carve only a small scratch_a (11 KiB) and no scratch_b.
-    static constexpr size_t SCRATCH_BYTES = 11 * 1024;
+    // arena large: carve only a small scratch_a (6 KiB, measured peak ~5.4 KiB)
+    // and no scratch_b. Keeping this carve tight returns the slack to RAM1.
+    static constexpr size_t SCRATCH_BYTES = 6 * 1024;
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
 
     // Compile-time device-budget guard for the particle pool (the dominant
@@ -61,7 +62,7 @@ public:
     // layout or NUM_PARTICLES change re-checks here. The reserve covers the other
     // persistent tenants (baked palette ~3 KiB LUT, attractor/emitter vectors
     // <1 KiB) with margin.
-    static constexpr size_t kDeviceArenaBytes = 335 * 1024;
+    static constexpr size_t kDeviceArenaBytes = DEVICE_GLOBAL_ARENA_SIZE;
     static constexpr size_t kPoolBytes =
         sizeof(Animation::Particle<kTrailLen>) * NUM_PARTICLES;
     static constexpr size_t kAuxReserveBytes = 6 * 1024;

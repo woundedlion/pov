@@ -162,6 +162,16 @@ target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
 add_test(NAME unit_stack_budget COMMAND stack_measure)
 
+# Arena high-water probe: reports per-effect global-arena usage to size
+# GLOBAL_ARENA_SIZE. Not a CTest (informational, like perf_bench).
+add_executable(arena_measure
+  ${CMAKE_CURRENT_SOURCE_DIR}/arena_measure.cpp
+  ${HS_ROOT}/core/memory.cpp
+  ${HS_ROOT}/core/reaction_graph.cpp)
+target_compile_definitions(arena_measure PRIVATE HS_TEST_BUILD)
+target_include_directories(arena_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
+
 # Render micro-benchmark, built at two opt levels to bracket the size config's
 # per-pixel codegen cost (perf_bench.cpp). Not CTests — wall time is noisy.
 foreach(_opt Os O3)

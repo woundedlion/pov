@@ -27,10 +27,18 @@
 // elements, so the residual host/device delta is small but nonzero; do not
 // treat the host high-water mark as an exact device figure. Effects tune their
 // own split via configure_arenas() to fit the device budget.
+// The real device FlexRAM (RAM1) arena. Sized from the measured worst-effect
+// high-water (tests/arena_measure.cpp): MindSplatter is the binding tenant at
+// ~327 KiB persistent + a 6 KiB scratch carve. 330 KiB clears that with the
+// MindSplatter pool's compile-time margin intact while returning ~5 KiB of RAM1
+// to the stack. A distinct always-defined constant (not the host-inflated
+// GLOBAL_ARENA_SIZE below) so device-budget static_asserts — MindSplatter's
+// particle pool — check the real figure even in the host suite.
+constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = 330 * 1024;
 #ifdef HS_TEST_BUILD
 constexpr size_t GLOBAL_ARENA_SIZE = 8 * 1024 * 1024;
 #else
-constexpr size_t GLOBAL_ARENA_SIZE = 335 * 1024;
+constexpr size_t GLOBAL_ARENA_SIZE = DEVICE_GLOBAL_ARENA_SIZE;
 #endif
 
 constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;

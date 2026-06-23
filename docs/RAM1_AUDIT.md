@@ -174,8 +174,8 @@ Target: ITCM ≤ 163,840 (cut ≥ 10,088). Moving the list above (~9–10 KB) pl
 
 ### P2 — The arena (the real consumer)
 
-**R4 — Right-size `global_arena_block` (343,040 B = 96.6 % of DTCM).** *(every byte trimmed → a byte of stack, zero perf cost up to the true high-water.)*
-This is the dominant lever and the budget's tuning target (`min 327,680 / max 360,448`). The repo already stack-paints to find the worst-effect stack peak (`tests/stack_measure.cpp`); apply the same high-water instrumentation to the arena across **all** effects, then set the arena to `peak + margin`. The fail-fast trap (project policy: arena overflow must crash, never mask) makes an aggressive cut safe — a regression traps loudly rather than corrupting. Even a 5 % trim (~17 KB) more than covers the residual overflow after R1.
+**R4 — ✅ (measured) Right-size `global_arena_block`.** *(DONE: 335 → 330 KiB, DTCM −5,120 B → free-for-locals 8,448 → 13,568 B; phantasm gate now PASSES. NOT the "~17 KB" first guessed — the arena is near-full.)*
+Measured the per-effect arena high-water (`tests/arena_measure.cpp`, mirroring the stack probe): the binding tenant is **MindSplatter at 332,496 B** (327,120 persistent + 5,376 scratch), i.e. the 343,040 B arena was **97% used** — far tighter than the audit's initial 96.6%-is-trimmable framing implied. The reclaimable slack was MindSplatter's *over-provisioned* scratch carve (11 KiB configured, 5.4 KiB used), so the trim drops `GLOBAL_ARENA_SIZE` to 330 KiB **and** MindSplatter's scratch carve to 6 KiB, leaving its persistent budget (331,776 B) and pool `static_assert` margin **exactly unchanged**. The gate floor was simultaneously re-derived from the measured worst-effect stack peak (Dynamo 9,055 B → 12 KiB floor, down from a conservative 16 KiB). Further arena reclamation now requires shrinking MindSplatter's 316 KiB particle pool itself.
 
 ### P3 — Small / marginal wins (exhaustive)
 

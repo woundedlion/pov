@@ -41,17 +41,19 @@
   "phantasm": {
     "board": "teensy40",
     "regions": {
-      // After -Os + nano + the flash routing (custom ld script): RAM1 used
-      // 519,200 — it now fits the 512 KiB address space but is over the ceiling
-      // below and leaves only ~5 KB stack, so the gate still (correctly) fails
-      // until the arena is trimmed. RAM2 518,272.
+      // -Os + nano + flash routing (custom ld script), with the ITCM bank
+      // reclaimed (FLASHMEM repatriation), the RNG/cos_theta DTCM trims, and the
+      // arena sized down to 330 KiB from its measured worst-effect high-water:
+      // RAM1 used ~510,720, free-for-locals ~13,568. Fits with margin above the
+      // floor below. RAM2 518,272.
       "flash": { "max_bytes": 1900000 },
       // free_min_bytes is the DTCM stack reservation. The host stack-painting
-      // gate (tests/stack_measure.cpp) measures a worst-effect peak of ~9 KB;
-      // 16 KiB covers that plus the host->device pointer delta and the ISR
-      // allowance. max_bytes = 524288 - 16384, so the 16 KiB stack floor is the
-      // binding RAM1 constraint (was 32 KiB — measured down to a real value).
-      "ram1":  { "max_bytes": 507904, "free_min_bytes": 16384 },
+      // gate (tests/stack_measure.cpp) measures a worst-effect peak of 9,055 B
+      // (Dynamo); 12 KiB covers that (host figure already over-estimates the
+      // 4-byte-pointer device) plus the ISR allowance. max_bytes = 524288 -
+      // 12288, so the 12 KiB stack floor is the binding RAM1 constraint (was
+      // 16 KiB — re-derived from the measured peak, not a round guess).
+      "ram1":  { "max_bytes": 512000, "free_min_bytes": 12288 },
       "ram2":  { "max_bytes": 524288 }
     },
     "symbols": {
