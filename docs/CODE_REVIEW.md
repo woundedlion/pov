@@ -114,7 +114,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 14. **Daydream module-worker load failure recovery relies on a 20 s watchdog** — `daydream/segment_controller.js:202` (module worker), `:303-311` (`INIT_WATCHDOG_MS = 20000`). A failed module-worker top-level fetch (e.g. a renamed `holosphere_wasm.js`) may fire `onerror` with an empty message or not at all in some browsers, so the only backstop for the most common deploy breakage is a 20 s delay before the fault overlay. Handled, but slow. Fix: add a faster readiness probe.
 
-15. **`beat16(bpm)` truncates `bpm ≥ 256` with no documented ceiling** — `core/platform.h:806-808`. `static_cast<uint16_t>(bpm << 8)` discards the high byte, so `beat16(300)` behaves as `beat16(44)`. This is **parity-faithful to FastLED's own `beat16`** (not a divergence), and >255 BPM is musically nonsensical, so this is doc-only. Fix: add a `@pre bpm <= 255` note, matching the other FastLED mocks.
+15. ✅ **`beat16(bpm)` truncates `bpm ≥ 256` with no documented ceiling** — `core/platform.h:806-808`. `static_cast<uint16_t>(bpm << 8)` discards the high byte, so `beat16(300)` behaves as `beat16(44)`. This is **parity-faithful to FastLED's own `beat16`** (not a divergence), and >255 BPM is musically nonsensical, so this is doc-only. Fix: add a `@pre bpm <= 255` note, matching the other FastLED mocks.
 
 ### Low Priority — polish, stale comments, consistency
 

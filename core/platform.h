@@ -802,6 +802,10 @@ inline uint16_t beat88(uint16_t bpm88, uint32_t timebase = 0) {
  * @param bpm Tempo in beats per minute.
  * @param timebase Millisecond offset for the zero of time.
  * @return The current phase in [0, 65535].
+ * @pre bpm <= 255. bpm << 8 is truncated to 16 bits, so bpm >= 256 wraps
+ *      (e.g. beat16(300) == beat16(44)). Parity-faithful to FastLED's own
+ *      beat16; >255 BPM is musically nonsensical, hence a precondition not a
+ *      guard.
  */
 inline uint16_t beat16(uint16_t bpm, uint32_t timebase = 0) {
   return beat88(static_cast<uint16_t>(bpm << 8), timebase);
