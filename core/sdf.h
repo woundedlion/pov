@@ -54,6 +54,31 @@ using IntervalBuffer =
 using MergedIntervalBuffer =
     StaticCircularBuffer<std::pair<float, float>, 2 * kIntervalSpanCap>;
 
+// Forward-declared so the span-count trait below can pattern-match the binary
+// CSG union ops (defined later in this header) before their full definitions.
+template <typename A, typename B> struct Union;
+template <typename A, typename B> struct SmoothUnion;
+
+/** Compile-time upper bound on the number of scanline spans a shape may emit to
+ *  its parent in one row. A leaf shape is capped at kIntervalSpanCap by its own
+ *  IntervalBuffer. Union/SmoothUnion merge BOTH children into one
+ *  MergedIntervalBuffer before any fallback decision, so their bound is the SUM
+ *  of the children's (merging never grows the count). Union/SmoothUnion
+ *  static_assert this sum against the buffer capacity so a nesting that would
+ *  overflow MergedIntervalBuffer and trap at runtime is rejected at compile
+ *  time instead. */
+template <typename T> struct sdf_max_spans {
+  static constexpr size_t value = kIntervalSpanCap;
+};
+template <typename A, typename B> struct sdf_max_spans<Union<A, B>> {
+  static constexpr size_t value =
+      sdf_max_spans<A>::value + sdf_max_spans<B>::value;
+};
+template <typename A, typename B> struct sdf_max_spans<SmoothUnion<A, B>> {
+  static constexpr size_t value =
+      sdf_max_spans<A>::value + sdf_max_spans<B>::value;
+};
+
 /**
  * @brief Append a scanline interval, trapping on overflow.
  * @tparam N Buffer capacity (deduced); supports both the per-shape and the
@@ -742,6 +767,17 @@ template <typename A, typename B> struct Union {
   // matching how that child looks drawn on its own.
   static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
+  // Both children push into a single MergedIntervalBuffer (2 * kIntervalSpanCap)
+  // before the fallback check, so the combined span count must fit. Two leaf
+  // children fit exactly (kIntervalSpanCap each); a nested-CSG child can emit up
+  // to its own 2 * kIntervalSpanCap, overflowing the buffer at runtime. Reject
+  // that composition at compile time rather than relying on push_interval's
+  // runtime trap.
+  static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
+                    2 * kIntervalSpanCap,
+                "nested CSG union exceeds MergedIntervalBuffer capacity; flatten "
+                "the union or raise kIntervalSpanCap");
+
   /**
    * @brief Builds a union of two child shapes.
    * @param shape_a First child shape.
@@ -852,6 +888,15 @@ template <typename A, typename B> struct SmoothUnion {
   // composite through the thickness-falloff AA path, so smin-blended strokes
   // keep their own soft edge instead of collapsing to a hard 1-px silhouette.
   static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
+
+  // Same row-interval merge as Union: both children accumulate into one
+  // MergedIntervalBuffer (2 * kIntervalSpanCap) before the fallback check, so a
+  // nested-CSG child can overflow it at runtime. Reject the composition at
+  // compile time instead of relying on push_interval's runtime trap.
+  static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
+                    2 * kIntervalSpanCap,
+                "nested CSG smooth-union exceeds MergedIntervalBuffer capacity; "
+                "flatten the union or raise kIntervalSpanCap");
 
   /**
    * @brief Builds a smooth union of two child shapes.
