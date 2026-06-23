@@ -1,4 +1,4 @@
-// Finding 369: the hs::clamp NaN->hi contract that the engine's float->int
+// The hs::clamp NaN->hi contract that the engine's float->int
 // domain safety depends on is regression-tested in run_tests under the native
 // toolchain's DEFAULT IEEE semantics (no math flags), where the contract holds
 // trivially — the at-risk codegen is never exercised. The WASM release build
