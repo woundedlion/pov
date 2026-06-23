@@ -1053,6 +1053,13 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
  * @param from The source vector (must be unit vector).
  * @param to The destination vector (must be unit vector).
  * @return The resulting unit rotation quaternion.
+ * @details Near-parallel inputs snap to identity: when d = dot(from,to) exceeds
+ * 1 - TOLERANCE the shortest-arc angle is below ~0.81° (1 - cos θ < 1e-4), so the
+ * rotation is dropped rather than divided through a near-zero cross product. Sub-
+ * 0.81° rotations are therefore silently lost — harmless for the orientation-level
+ * callers here, but a caller needing exact tiny rotations must not route them
+ * through this overload. The antiparallel case (d < -1 + TOLERANCE) instead
+ * synthesizes a stable perpendicular axis and rotates by π.
  */
 inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   // Inputs must be unit: the d>1-eps / d<-1+eps branch tests below assume |from|
