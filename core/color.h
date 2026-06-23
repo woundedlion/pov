@@ -523,8 +523,11 @@ struct CPixel {
   /**
    * @brief Constructs a CPixel from a packed 0xRRGGBB hex value.
    * @param hex Packed color; bits 16-23 red, 8-15 green, 0-7 blue.
+   * @details `explicit` to match the file's explicit-cast policy: a packed hex
+   * is a deliberate construction (`CPixel{0xRRGGBB}`), so a stray int can't
+   * silently decay into a color through an implicit conversion.
    */
-  constexpr CPixel(uint32_t hex)
+  constexpr explicit CPixel(uint32_t hex)
       : r((hex >> 16) & 0xFF), g((hex >> 8) & 0xFF), b(hex & 0xFF) {}
   /**
    * @brief Constructs a CPixel from a FastLED CRGB.
