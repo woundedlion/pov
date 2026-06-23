@@ -272,7 +272,7 @@ device's shipped behavior:
 148. ✅ daydream/tests/color_parity_wasm.test.js:124 — only the palette path has absolute goldens; `oklab`/`lissajous` parity is WASM-vs-JS only, so a coordinated shared drift passes.
 149. ✅ daydream/tests/segment_controller.test.js:43 — `onmessageerror` is wired into the FakeWorker but never delivered/asserted; out-of-order frames within a generation are untested.
 150. ✅ daydream/tests/recorder.test.js — the empty-chunk (`size:0`) filter and the `targetHeight` downscale export path are untested (only the native-pin path).
-151. daydream/tests/gui.test.js — lil-gui is fully stubbed, so the `getParameterDefinitions()→gui.add(min,max)` auto-generation (float→slider, bool→checkbox) — a documented risky area — is unverified.
+151. ✅ daydream/tests/gui.test.js — lil-gui is fully stubbed, so the `getParameterDefinitions()→gui.add(min,max)` auto-generation (float→slider, bool→checkbox) — a documented risky area — is unverified. *(Covered the project's own type-dependent `DeepLinkGUI.add` handling these flow through: numeric min/max clamping, the NaN guard, and the boolean truthy/falsy spellings. The lil-gui slider-vs-checkbox widget rendering itself stays lil-gui's stubbed concern.)*
 152. daydream/tests/sidebar_logic.test.js — the per-resolution hydration fallback (an effect not in the active list, incl. one from `?effect=`, is replaced with the list's first) is untested anywhere (prevents a black canvas).
 153. daydream/tests (hygiene) — `globalThis.window`/`document`/`Worker` stubs are saved/restored in recorder but not in state/gui/controller tests, relying on `node --test` per-file process isolation (brittle if the runner ever shares context).
 
