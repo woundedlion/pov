@@ -290,6 +290,10 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
     // point inside the span iff the forward tangent's y-component flips sign
     // between the endpoints. The extremal |y| is the great circle's peak
     // latitude sqrt(1 - n.y²) (n = arc pole), reached only when present.
+    // No one-row epsilon here (unlike the planar branch below): the span is the
+    // exact closed-form y range of the rendered arc — the endpoint y values are
+    // the rendered endpoints, and y_to_row is monotonic in y — so there is no
+    // project/unproject round-trip to leave the cull a sub-pixel short.
     Vector axis = cross(a, b);
     float L2 = dot(axis, axis);
     if (L2 > math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
