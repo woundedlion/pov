@@ -853,7 +853,9 @@ template <typename A, typename B> struct SmoothUnion {
    */
   SmoothUnion(const A &shape_a, const B &shape_b, float smoothness)
       : a(shape_a), b(shape_b), k(smoothness),
-        thickness(std::max(shape_a.thickness, shape_b.thickness)) {}
+        thickness(std::max(shape_a.thickness, shape_b.thickness)) {
+    HS_CHECK(k > 0.0f); // k==0 -> smin divisor h = .../k is 0/0 -> NaN to LEDs
+  }
 
   /**
    * @brief Row bounds spanning both children's bands, padded by the blend radius.
