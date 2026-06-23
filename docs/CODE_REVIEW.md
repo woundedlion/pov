@@ -159,7 +159,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 35. ✅ **`catmull_rom_tangents` "tension" parameter is inverted vs convention** — `core/geometry.h:1373-1380`. `tension=0` → geodesic, `tension=1` → full Catmull-Rom, opposite the standard cardinal-spline convention; documented but easy to misuse. Consider renaming to `smoothing`.
 
-36. **`least_parallel_axis` helper is not adopted by its intended call sites** — `core/geometry.h:855-869` (`make_basis`) and `core/3dmath.h:1093` (`make_rotation` antiparallel branch) still inline the reference-axis fallback the helper was created to centralize. Also: `easing.h:26-30` `ease_in_out_cubic` lacks the endpoint guard its `circ`/`expo`/`elastic` siblings carry — confirm the asymmetry is deliberate.
+36. ✅ **`least_parallel_axis` helper is not adopted by its intended call sites** — `core/geometry.h:855-869` (`make_basis`) and `core/3dmath.h:1093` (`make_rotation` antiparallel branch) still inline the reference-axis fallback the helper was created to centralize. Also: `easing.h:26-30` `ease_in_out_cubic` lacks the endpoint guard its `circ`/`expo`/`elastic` siblings carry — confirm the asymmetry is deliberate. *Resolved: `least_parallel_axis` moved to `3dmath.h` (next to `make_rotation`/`COS_AXIS_PARALLEL`, no include cycle) and `make_rotation`'s antiparallel branch now uses it — a better-conditioned seed (degenerate-input-only output change; tri-target parity preserved). `make_basis` deliberately keeps its own pick (it tests **rotated** axes, which the world-axis helper does not). `ease_in_out_cubic`'s missing guard is deliberate (exact at the endpoints — no sqrt/2^x term) and now commented.*
 
 ### Test Coverage Improvements
 

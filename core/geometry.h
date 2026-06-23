@@ -155,18 +155,9 @@ static constexpr Vector Z_AXIS(0, 0, 1);
  */
 static constexpr Vector UP = Y_AXIS;
 
-/**
- * @brief Returns the canonical body axis (X or Y) least parallel to @p v.
- * @param v Vector to find a well-conditioned reference axis for.
- * @return X_AXIS unless @p v is near-parallel to it, in which case Y_AXIS.
- * @details Seed for building a cross-product frame around @p v: crossing @p v
- *          with a near-parallel axis collapses to ~zero, so pick the axis that
- *          is safely off-axis. Centralizes the reference-axis pick that the
- *          path/walk frame builders previously spelled out three different ways.
- */
-inline Vector least_parallel_axis(const Vector &v) {
-  return std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL ? Y_AXIS : X_AXIS;
-}
+// least_parallel_axis() now lives in 3dmath.h (alongside make_rotation, its
+// first user, and the COS_AXIS_PARALLEL constant) so it can be shared without
+// an include cycle. It is still visible here via the 3dmath.h include.
 
 /**
  * @brief Structure representing 2D floating-point pixel coordinates.

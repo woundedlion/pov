@@ -24,6 +24,10 @@
  * @return The eased factor.
  */
 inline float ease_in_out_cubic(float t) {
+  // No endpoint guard (unlike circ/expo/elastic below): this is a pure
+  // polynomial already exact at the ends — 4t³ = 0 at t=0 and
+  // 1 - (-2t+2)³/2 = 1 at t=1 — with no sqrt (NaN) or 2^x (unbounded) term that
+  // would need pinning. The asymmetry is deliberate.
   return t < 0.5f ?
     4 * t * t * t :
     1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;

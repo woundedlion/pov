@@ -1054,6 +1054,23 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
 }
 
 /**
+ * @brief Returns the canonical body axis least parallel to @p v.
+ * @param v Vector to find a well-conditioned reference axis for.
+ * @return +X unless @p v is near-parallel to it, in which case +Y.
+ * @details Seed for building a cross-product frame around @p v: crossing @p v
+ *          with a near-parallel axis collapses to ~zero, so pick the axis that
+ *          is safely off-axis. Centralizes the reference-axis pick that the
+ *          path/walk frame builders and make_rotation's antiparallel branch
+ *          would otherwise spell out by hand. (Lives here, not in geometry.h
+ *          with X_AXIS/Y_AXIS, so make_rotation below can use it without an
+ *          include cycle; dot(v, X_AXIS) is just v.x.)
+ */
+inline Vector least_parallel_axis(const Vector &v) {
+  return std::abs(v.x) > math::COS_AXIS_PARALLEL ? Vector(0, 1, 0)
+                                                 : Vector(1, 0, 0);
+}
+
+/**
  * @brief Creates a rotation quaternion to rotate from one vector to another.
  * @param from The source vector (must be unit vector).
  * @param to The destination vector (must be unit vector).
@@ -1089,11 +1106,12 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
 
   // Handle antiparallel vectors (180 degrees apart)
   if (d < -1.0f + TOLERANCE) {
-    // Choose an axis perpendicular to 'from'
-    Vector axis = cross(Vector(1, 0, 0), from);
-    if (axis.length() < TOLERANCE) {
-      axis = cross(Vector(0, 1, 0), from);
-    }
+    // Any axis perpendicular to 'from' yields a valid 180° rotation taking
+    // from -> -from, so the only thing that matters is conditioning. Seed the
+    // cross with least_parallel_axis(from) (the shared reference-axis pick) so
+    // |cross| stays >= sqrt(1 - COS_AXIS_PARALLEL^2) rather than being allowed
+    // to shrink to ~TOLERANCE before we normalize through it.
+    Vector axis = cross(least_parallel_axis(from), from);
     axis.normalize();
     return make_rotation(axis, PI_F);
   }
