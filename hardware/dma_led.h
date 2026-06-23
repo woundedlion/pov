@@ -119,6 +119,12 @@ public:
     transferComplete_.store(false, std::memory_order_relaxed);
     // Stamp when this transfer goes in-flight so the overrun-drop path (see
     // checkStaleTransfer) can tell a transient overrun from a wedged channel.
+    // The stamp's order relative to the store(false) above is irrelevant: this
+    // transfer does not actually start — and so its completion ISR cannot fire —
+    // until dma_.enable() below, which is after the stamp. The previous transfer
+    // already completed (guaranteed by the trap at the top of this function), so
+    // no completion ISR can land between the store and the stamp to leave a stale
+    // time on an already-finished transfer.
     transferStartUs_ = micros();
     dma_.sourceBuffer(data, len);
     dma_.enable();
