@@ -140,8 +140,15 @@ inline void test_half_edge_mesh_face_loop_closes() {
 }
 
 /**
- * @brief Verifies that for a closed manifold (cube), every half-edge has a pair
- *        and the pairing is reciprocal: pair(pair(i)) == i.
+ * @brief Verifies that for a closed manifold (cube), every half-edge has a pair,
+ *        the pairing is reciprocal (pair(pair(i)) == i), AND the twin is the
+ *        geometric opposite — it traverses the same undirected edge in reverse.
+ * @details Reciprocity alone is too weak: a pairing that consistently joined the
+ *          wrong edges (e.g. swapped two twins) could still satisfy
+ *          pair(pair(i)) == i. The opposite-direction check pins the geometry:
+ *          for a half-edge u→v, its twin must run v→u, so head(pair) == tail(i)
+ *          and tail(pair) == head(i). `he.vertex` is the head (destination); the
+ *          tail is the head of the previous half-edge in the face loop.
  */
 inline void test_half_edge_mesh_pairs_are_symmetric() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
@@ -153,6 +160,14 @@ inline void test_half_edge_mesh_pairs_are_symmetric() {
     uint16_t pair = he.half_edges[i].pair;
     HS_EXPECT_TRUE(pair != HE_NONE);
     HS_EXPECT_EQ(he.half_edges[pair].pair, (uint16_t)i);
+
+    // Same undirected edge, reversed endpoints: twin of u->v must be v->u.
+    const uint16_t head_i = he.half_edges[i].vertex;
+    const uint16_t tail_i = he.half_edges[he.half_edges[i].prev].vertex;
+    const uint16_t head_p = he.half_edges[pair].vertex;
+    const uint16_t tail_p = he.half_edges[he.half_edges[pair].prev].vertex;
+    HS_EXPECT_EQ(head_p, tail_i);
+    HS_EXPECT_EQ(tail_p, head_i);
   }
 }
 
