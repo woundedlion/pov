@@ -690,7 +690,10 @@ public:
    */
   T *end() {
     check_alive();
-    return data_ + size_;
+    // data_ + size_ is nullptr + 0 on an unbound/empty vector — formal UB
+    // ([expr.add]/4), UBSan-flagged, and reachable via a range-for over a
+    // default-constructed vector. Same hardening append_bulk already applies.
+    return data_ ? data_ + size_ : nullptr;
   }
   /**
    * @brief Returns a const iterator to the first element.
@@ -706,7 +709,8 @@ public:
    */
   const T *end() const {
     check_alive();
-    return data_ + size_;
+    // See the non-const end(): guard the nullptr + 0 UB on an unbound vector.
+    return data_ ? data_ + size_ : nullptr;
   }
 };
 

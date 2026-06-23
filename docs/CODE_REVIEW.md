@@ -96,7 +96,7 @@ Each item is numbered sequentially and lists `file:line`. Severities reflect the
 
 5. **README/comment claims 288×144 on a single Teensy, which the hardware cannot do** — `hardware/pov_single.h:40`. Holosphere is `POVDisplay<40,480>` → `S/2 = 20` rows, and the ISR enforces `HS_CHECK(effect_->height() == S/2)` at `:134`; a 144-row effect would trap, and 144 physical LEDs/half-arm is the Phantasm rig, not a 40-LED board. Fix: drop the "288×144 with one Teensy" phrase.
 
-6. **`ArenaVector::begin()/end()` compute `nullptr + 0` on an unbound/empty vector** — `core/memory.h:691-694`, `:707-710`. Formal UB ([expr.add]/4), UBSan-flagged, reachable via a range-for over a default-constructed vector. The sibling `append_bulk` (`:553-563`) was already hardened against this exact hazard. Fix: guard with `return data_ ? data_ + size_ : nullptr;`.
+6. ✅ **`ArenaVector::begin()/end()` compute `nullptr + 0` on an unbound/empty vector** — `core/memory.h:691-694`, `:707-710`. Formal UB ([expr.add]/4), UBSan-flagged, reachable via a range-for over a default-constructed vector. The sibling `append_bulk` (`:553-563`) was already hardened against this exact hazard. Fix: guard with `return data_ ? data_ + size_ : nullptr;`.
 
 7. **`Motion` hard-traps on an empty or origin-crossing path** — `core/animation.h:1369` (`angle_between`) and `:1430` (`path_fn(s).normalized()`); `Path::get_point` returns `Vector(0,0,0)` for an empty path (`:82`). Both callees trap on zero length. Likely *by-design* fail-fast (an empty/origin path is not a legitimate animation state), but the trap is far from the cause. Fix: add an earlier, clearer `HS_CHECK(!path.empty())` in the `Motion` ctor.
 
