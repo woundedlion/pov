@@ -288,7 +288,12 @@ inline void test_noise_zero_amplitude_is_identity() {
 
 /**
  * @brief Verifies an active noise warp keeps every sample finite and on the
- *        unit sphere.
+ *        unit sphere, and actually displaces the points.
+ * @details The displacement assertion is the companion to
+ *          test_noise_zero_amplitude_is_identity: without it, a noise_transform
+ *          that returned the input unchanged would still pass the finite /
+ *          on-sphere checks. Displacement is summed across samples so a single
+ *          noise zero-crossing at one point cannot make the test flaky.
  */
 inline void test_noise_active_stays_on_sphere() {
   NoiseParams p;
@@ -297,11 +302,15 @@ inline void test_noise_active_stays_on_sphere() {
   p.time = 1.0f;
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0),
                             Vector(0.4f, 0.6f, 0.7f).normalized()};
+  float total_moved = 0.0f;
   for (const Vector &v : samples) {
     Vector r = noise_transform(v, p);
     HS_EXPECT_TRUE(finite_vec(r));
     HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
+    total_moved +=
+        std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
   }
+  HS_EXPECT_GT(total_moved, 1e-2f); // a non-zero amplitude must move the points
 }
 
 // ============================================================================
