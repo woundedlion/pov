@@ -55,7 +55,13 @@ public:
                         orientation, random_vector(), orient_noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
-    particle_system.init(persistent_arena, 0.96f, 0.0f, 300.0f);
+    // Particle dynamics: light per-frame damping, no gravity (the noise flow
+    // field is the only force), and a long lifetime so streamlines read as
+    // continuous. Named rather than passed as bare positionals.
+    constexpr float kFriction = 0.96f;
+    constexpr float kGravity = 0.0f;
+    constexpr float kMaxLife = 300.0f;
+    particle_system.init(persistent_arena, kFriction, kGravity, kMaxLife);
 
     // Per-step emitter: keep the pool saturated, then push each particle by the
     // noise force field clamped to max_speed.
@@ -84,18 +90,25 @@ public:
         // coupled to the z spatial structure, not a fully independent 4th axis.
         // FastNoiseLite is only 3D here, so a genuine 4th time dimension isn't
         // available; this shared-z animation is the accepted simplification.
+        // The Y/Z channels sample the field shifted along x by these offsets so
+        // the three components decorrelate (large enough to clear the noise
+        // lattice's correlation length).
+        constexpr float kChannelOffsetY = 100.0f;
+        constexpr float kChannelOffsetZ = 200.0f;
         float fx =
             noise_generator.GetNoise(p.position.x * params.noise_scale,
                                      p.position.y * params.noise_scale,
                                      p.position.z * params.noise_scale + t) *
             params.force_scale;
         float fy =
-            noise_generator.GetNoise(p.position.x * params.noise_scale + 100.0f,
+            noise_generator.GetNoise(p.position.x * params.noise_scale +
+                                         kChannelOffsetY,
                                      p.position.y * params.noise_scale,
                                      p.position.z * params.noise_scale + t) *
             params.force_scale;
         float fz =
-            noise_generator.GetNoise(p.position.x * params.noise_scale + 200.0f,
+            noise_generator.GetNoise(p.position.x * params.noise_scale +
+                                         kChannelOffsetZ,
                                      p.position.y * params.noise_scale,
                                      p.position.z * params.noise_scale + t) *
             params.force_scale;

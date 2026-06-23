@@ -41,14 +41,24 @@ public:
   };
 
   /**
+   * @brief The effect's canonical generative-palette recipe.
+   * @details The initial palette and every color-wipe palette share the same
+   *          VIGNETTE / ANALOGOUS / ASCENDING recipe; centralized here so the
+   *          three construction arguments are not duplicated across the
+   *          constructor and color_wipe().
+   */
+  static GenerativePalette make_palette() {
+    return GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS,
+                             BrightnessProfile::ASCENDING);
+  }
+
+  /**
    * @brief Constructs the effect, seeding the initial palette, palette normal,
    *        and filter pipeline.
    */
   FLASHMEM Dynamo()
       : Effect(W, H),
-        palettes(
-            {GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS,
-                               BrightnessProfile::ASCENDING)}),
+        palettes({make_palette()}),
         palette_normal(Z_AXIS),
         filters(Filter::World::Trails<W, TRAIL_CAPACITY>(
                     (uint32_t)params.trail_length),
@@ -124,9 +134,7 @@ public:
       return;
     }
 
-    palettes.push_front(GenerativePalette(GradientShape::VIGNETTE,
-                                          HarmonyType::ANALOGOUS,
-                                          BrightnessProfile::ASCENDING));
+    palettes.push_front(make_palette());
     palette_boundaries.push_front(0);
     // Re-bake the active set into the LUT pool: the per-pixel color() path reads
     // baked_palettes_, never the GenerativePalettes directly. A push_front
