@@ -260,6 +260,13 @@ private:
      */
     void lerp(const Params &a, const Params &b, float t) {
       constexpr int N = 7;
+      // Params is exactly N floats, so the hand-maintained dst/src/tgt arrays
+      // below cover every field. This guard trips if a field is added, removed,
+      // or changed to a non-float type — forcing the arrays (and N) to be
+      // updated in step, rather than a reorder/add silently mis-lerping.
+      static_assert(sizeof(Params) == N * sizeof(float),
+                    "Liquid2D::Params field set changed — update lerp's "
+                    "dst/src/tgt arrays and N to match");
       float *dst[N] = {&warp_scale, &warp_strength, &pattern_freq, &time_speed,
                        &complexity,  &pole_fade,     &cycle_speed};
       const float src[N] = {a.warp_scale, a.warp_strength, a.pattern_freq,
