@@ -34,11 +34,30 @@ static constexpr float STAR_INNER_RATIO = 0.382f;
 static constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
 
 /**
- * @brief Floor on the sin(φ) step-density scale near the poles.
- * @details Caps sub-steps per segment so polar curves don't oversample. A
- * clamp, not a tolerance.
+ * @brief Floor on the adaptive sub-step length, as a fraction of base_step.
+ * @details Caps sub-steps per segment so polar curves don't oversample: the
+ * screen-velocity step sampler (screen_step) drives the step toward zero where
+ * the azimuthal velocity diverges at the poles, and this is the lower clamp that
+ * bounds it. A clamp, not a tolerance.
  */
 static constexpr float MIN_POLE_SCALE = 0.05f;
+
+/**
+ * @brief Target screen-space spacing (pixels) between adaptive sub-samples.
+ * @details The rasterizer sizes each sub-step so consecutive samples land about
+ * this far apart in SCREEN space. Slightly sub-pixel so the bilinear AntiAlias
+ * splat of neighbouring samples overlaps and the rendered curve has no holes;
+ * smaller = denser = smoother but costlier.
+ */
+static constexpr float SCREEN_STEP_PX = 0.9f;
+
+/**
+ * @brief Parameter delta for the planar strategy's finite-difference tangent.
+ * @details The planar (azimuthal) map has no closed-form tangent, so its screen
+ * velocity is taken from a short forward difference; small enough to track the
+ * arc, large enough to stay clear of float cancellation.
+ */
+static constexpr float PLANAR_TAN_DT = 1.0f / 256.0f;
 
 /**
  * @brief Antipode cutoff for the planar projection's stable-azimuth region.
@@ -134,13 +153,27 @@ static inline Vector azimuthal_unproject(float Px, float Py,
 }
 
 /**
- * @brief Planar interpolation strategy: builds an arc-uniform map for one edge.
- * @tparam ProcessSegmentFn Callable (map, curr, next, dist, isLast) -> void.
+ * @brief A rasterized sample: its unit-sphere position and unit tangent.
+ * @details `tan` is the curve's unit tangent with respect to ARC LENGTH at the
+ * sample, used by screen_step() to size the next sub-step from screen velocity.
+ * The geodesic strategy fills it in closed form (free from the slerp's sin/cos);
+ * the planar strategy finite-differences it. Zero for degenerate (coincident)
+ * edges, which never reach the velocity sampler.
+ */
+struct SamplePT {
+  Vector pos;
+  Vector tan;
+};
+
+/**
+ * @brief Planar interpolation strategy: builds an arc-uniform sampler for one edge.
+ * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
  * @param curr Start fragment of the edge.
  * @param next End fragment of the edge.
  * @param planar_basis Azimuthal-equidistant projection basis.
  * @param isLastSegment True if this is the final edge of the polyline.
- * @param process_segment Receives the arc-length map, endpoints, on-sphere
+ * @param process_segment Receives the arc-length sampler (position + a
+ *                        finite-difference unit tangent), endpoints, on-sphere
  *                        length (radians), and the last-segment flag.
  * @details The path is a straight line in the azimuthal-equidistant projection.
  * Projection-uniform stepping is NOT arc-uniform under the anisotropic
@@ -206,20 +239,33 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
     return unproject(std::min(1.0f, std::max(0.0f, p)));
   };
 
-  process_segment(map_planar, curr, next, dist, isLastSegment);
+  // The azimuthal map has no closed-form tangent, so take it from a short forward
+  // difference (backward at the s=1 end) — map_planar is arc-uniform, so the
+  // difference direction is the unit tangent regardless of its magnitude. Feeds
+  // the same screen-velocity sub-step sampler as the geodesic path.
+  auto sample_planar = [=](float s) -> SamplePT {
+    Vector p = map_planar(s);
+    bool fwd = (s + PLANAR_TAN_DT <= 1.0f);
+    Vector q = map_planar(fwd ? s + PLANAR_TAN_DT : s - PLANAR_TAN_DT);
+    Vector d = fwd ? (q - p) : (p - q);
+    return {p, normalized_or(d, Vector())};
+  };
+
+  process_segment(sample_planar, curr, next, dist, isLastSegment);
 }
 
 /**
- * @brief Geodesic interpolation strategy: builds a great-circle map for one edge.
- * @tparam ProcessSegmentFn Callable (map, curr, next, dist, isLast) -> void.
+ * @brief Geodesic interpolation strategy: builds a great-circle sampler for one edge.
+ * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
  * @param curr Start fragment of the edge.
  * @param next End fragment of the edge.
  * @param isLastSegment True if this is the final edge of the polyline.
- * @param process_segment Receives the arc-length map, endpoints, on-sphere
- *                        length (radians), and the last-segment flag.
+ * @param process_segment Receives the arc-length sampler (position + unit
+ *                        tangent), endpoints, on-sphere length (radians), and
+ *                        the last-segment flag.
  * @details Picks a stable perpendicular axis for antipodal/degenerate endpoints
  * and slerps along the great circle; a coincident-endpoint edge collapses to a
- * constant map.
+ * constant sampler.
  */
 template <typename ProcessSegmentFn>
 static void rasterize_geodesic_strategy(const Fragment &curr,
@@ -231,8 +277,8 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
   float total_dist = angle_between(v1, v2);
 
   if (total_dist < EPS_GEODESIC_SEGMENT) {
-    auto map_degenerate = [=](float) { return v1; };
-    process_segment(map_degenerate, curr, next, total_dist, isLastSegment);
+    auto sample_degenerate = [=](float) -> SamplePT { return {v1, Vector()}; };
+    process_segment(sample_degenerate, curr, next, total_dist, isLastSegment);
   } else {
     Vector axis;
     if (std::abs(PI_F - total_dist) < TOLERANCE) {
@@ -245,13 +291,16 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
 
     Vector v_perp = cross(axis, v1);
 
-    auto map_geodesic = [=](float t) {
+    auto sample_geodesic = [=](float t) -> SamplePT {
       float ang = total_dist * t;
       float s = fast_sinf(ang);
       float c = fast_cosf(ang);
-      return (v1 * c) + (v_perp * s);
+      // pos on the great circle; tan = d(pos)/d(ang) is a unit vector (v1,
+      // v_perp orthonormal), so the screen-velocity sampler's tangent comes free
+      // from the same sin/cos — no extra trig.
+      return {(v1 * c) + (v_perp * s), (v_perp * c) - (v1 * s)};
     };
-    process_segment(map_geodesic, curr, next, total_dist, isLastSegment);
+    process_segment(sample_geodesic, curr, next, total_dist, isLastSegment);
   }
 }
 
@@ -346,12 +395,55 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
 }
 
 /**
+ * @brief Adaptive sub-step length (radians of arc) for ~one-pixel screen steps.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param pos Current unit-sphere sample position.
+ * @param tan Unit tangent at @p pos (with respect to arc length).
+ * @param base_step Equatorial step 2π/W; also the maximum returned step.
+ * @return Arc-length step that advances ~SCREEN_STEP_PX pixels on screen.
+ * @details Converts the object-space tangent to a screen-space velocity (pixels
+ * per radian of arc) under the canvas map x = θ·W/2π, y = φ·(H_VIRT-1)/π, then
+ * returns step = SCREEN_STEP_PX / |v_screen|. With φ the colatitude and λ the
+ * longitude, dφ/ds = -tan.y/sin(φ) and dλ/ds = (pos.x·tan.z - pos.z·tan.x)/sin²φ.
+ *
+ * This replaces the old base_step·sin(φ) heuristic, which modeled only the
+ * LONGITUDINAL crowding near the poles (dλ stretch) and ignored the curve's
+ * LATITUDINAL motion — so anywhere the curve also moved in φ it mis-estimated
+ * the true screen spacing, leaving the rendered ring unevenly bright (samples
+ * 1.0-1.7 px apart instead of ~1) all the way around, worst near the poles.
+ * Tracking the full 2-D screen speed deposits ~one sample per pixel everywhere.
+ *
+ * Clamped to [base_step·MIN_POLE_SCALE, base_step]: the lower bound caps
+ * oversampling at the poles (where dλ/ds diverges → speed → ∞ → step → 0); the
+ * upper bound keeps the equator near one sample per column.
+ */
+template <int W, int H>
+static inline float screen_step(const Vector &pos, const Vector &tan,
+                                float base_step) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  const float KX = W / (2.0f * PI_F);     // columns per radian of longitude
+  const float KY = (H_VIRT - 1) / PI_F;   // rows per radian of colatitude
+  // sin²φ = 1 - y²; floored so the pole (sin φ → 0) yields a finite, large
+  // velocity (hence the min-clamped step) rather than a divide-by-zero.
+  const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
+  const float inv_sin = 1.0f / sqrtf(sin2);
+  const float dphi_ds = -tan.y * inv_sin;
+  const float dlon_ds = (pos.x * tan.z - pos.z * tan.x) / sin2;
+  const float vx = KX * dlon_ds;
+  const float vy = KY * dphi_ds;
+  const float speed = sqrtf(vx * vx + vy * vy);
+  const float step = SCREEN_STEP_PX / std::max(speed, 1e-6f);
+  return std::max(base_step * MIN_POLE_SCALE, std::min(step, base_step));
+}
+
+/**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
  * Walks consecutive fragment pairs, picks a geodesic or planar interpolation
- * strategy per segment, sub-steps each segment at ≈one-pixel-column density
- * (with a sinφ floor near the poles), and plots through the pipeline. Segments
- * whose full screen-row span lies outside the active clip band are culled.
+ * strategy per segment, sub-steps each segment at ≈one-pixel SCREEN-space
+ * density (screen_step, clamped near the poles), and plots through the pipeline.
+ * Segments whose full screen-row span lies outside the active clip band are
+ * culled.
  *
  * @tparam W,H Rasterization resolution (pixel grid).
  * @tparam PipelineT Pipeline type (defaults to PipelineRef).
@@ -393,25 +485,25 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   ScratchScope _sc(scratch_arena_a);
   ArenaVector<float> _steps_cache;
   // The cache holds ONE segment's adaptive sub-steps (cleared per segment). Each
-  // step advances ≈ one pixel column, so a single segment needs ≲ W steps (a
-  // great-circle arc crosses each longitude ~once; the sinφ≥0.05 clamp caps the
-  // pole case). Size off W with 2× headroom; the simulation loop breaks at
-  // capacity as a backstop.
+  // step advances ≈ one screen pixel, so a single segment needs ≲ W steps (the
+  // step·≥MIN_POLE_SCALE lower clamp caps the per-segment count at the poles).
+  // Size off W with 2× headroom; the simulation loop breaks at capacity as a
+  // backstop.
   size_t max_cache = std::max((size_t)64, (size_t)(2 * W));
   _steps_cache.bind(scratch_arena_a, max_cache);
 
-  // Adaptively sub-step and plot one segment. `map(t)` returns the sphere point
-  // at arc fraction t in [0,1] under the chosen strategy; `total_dist` is the
-  // segment's on-sphere length (radians). Endpoints are omitted on interior /
-  // closed segments so a shared vertex isn't plotted twice.
-  auto process_segment = [&](auto &&map, const Fragment &curr,
+  // Adaptively sub-step and plot one segment. `sample(t)` returns the sphere
+  // point AND unit tangent at arc fraction t in [0,1] under the chosen strategy;
+  // `total_dist` is the segment's on-sphere length (radians). Endpoints are
+  // omitted on interior / closed segments so a shared vertex isn't plotted twice.
+  auto process_segment = [&](auto &&sample, const Fragment &curr,
                              const Fragment &next, float total_dist,
                              bool isLastSegment) {
     // The degenerate and fast paths below plot curr.pos/next.pos directly, without
     // the renormalize the DRAWING PHASE applies further down: these are the
     // original sampled vertices (already unit), not the fast_sinf/cosf-interpolated
-    // map() outputs that drift ~0.04% off the unit sphere. Precondition: callers
-    // pass unit fragment positions.
+    // sample().pos outputs that drift ~0.04% off the unit sphere. Precondition:
+    // callers pass unit fragment positions.
     // Degenerate (coincident endpoints): plot at most a single dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool shouldOmit = (close_loop) ? true : !isLastSegment;
@@ -443,15 +535,18 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       return;
     }
 
-    // 1. SIMULATION PHASE
+    // 1. SIMULATION PHASE — size each sub-step so consecutive samples land
+    // ~SCREEN_STEP_PX apart in SCREEN space (screen_step), using the strategy's
+    // unit tangent at the step's start. This tracks the true 2-D screen speed
+    // rather than the old sin(φ) longitudinal-only proxy, so the curve is
+    // sampled ~one pixel per step everywhere instead of unevenly (see
+    // screen_step's note).
     _steps_cache.clear();
     float sim_dist = 0.0f;
-    Vector p_temp = map(0.0f);
+    SamplePT smp = sample(0.0f);
 
     while (sim_dist < total_dist) {
-      float scale_factor =
-          std::max(MIN_POLE_SCALE, sqrtf(std::max(0.0f, 1.0f - p_temp.y * p_temp.y)));
-      float step = base_step * scale_factor;
+      float step = screen_step<W, H>(smp.pos, smp.tan, base_step);
 
       // Backstop: a pathological segment (e.g. a huge-radius shape wrapping the
       // sphere) could still exceed the 2*W cache. Stop subdividing and let the
@@ -464,7 +559,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       sim_dist += step;
 
       if (sim_dist < total_dist) {
-        p_temp = map(sim_dist / total_dist);
+        smp = sample(sim_dist / total_dist);
       }
     }
 
@@ -483,7 +578,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
     // 2. DRAWING PHASE
     //
-    // map_geodesic/map_planar build interpolated points with fast_sinf/fast_cosf,
+    // sample()'s pos builds interpolated points with fast_sinf/fast_cosf,
     // which don't satisfy sin²+cos²=1 — so the result is ~0.04% non-unit. The
     // sink's vector_to_pixel skips normalization and takes phi = acos(v.y)
     // directly; near the pole acos has infinite slope, so a y of 0.9996 instead
@@ -491,7 +586,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // positions here (the sampled vertices are already unit) so polar samples
     // map to the correct row. Plot-path only; one sqrt per drawn sample.
     {
-      Vector start_pos = map(0.0f).normalized();
+      Vector start_pos = sample(0.0f).pos.normalized();
       Fragment f = Fragment::lerp(curr, next, 0.0f);
       f.pos = start_pos;
       f.color = Color4(0, 0, 0, 0);
@@ -525,7 +620,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       // position mid-segment (not just a constant scale), most visibly where the
       // planar arc bows farthest from its chord. Geodesic segments don't drift
       // (position and the registers share the same arc metric).
-      Vector p = map(t).normalized();
+      Vector p = sample(t).pos.normalized();
       Fragment f = Fragment::lerp(curr, next, t);
       f.pos = p;
       f.color = Color4(0, 0, 0, 0);
