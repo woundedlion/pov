@@ -921,6 +921,11 @@ struct ScratchScope {
 /**
  * @brief Concept requiring a static clone(const T&, T&, Arena&) method.
  * @tparam T Type that must provide static void clone(const T&, T&, Arena&).
+ * @note Cloneable only constrains the clone hook. `Persist<T>` needs more (T
+ *       default-initializable and assignable, because ~Persist does
+ *       `target_ = T()` before restoring) and enforces those extra requirements
+ *       with its own static_asserts rather than widening this concept, which is
+ *       reused wherever a clone hook alone is the contract.
  */
 template <typename T>
 concept Cloneable = requires(const T &src, T &dst, Arena &arena) {
@@ -950,6 +955,18 @@ template <Cloneable T> class Persist {
   // so that backup_ is destroyed before the scratch arena is rolled back.
   ScratchScope scratch_; /**< Scratch scope holding the backup's storage. */
   T backup_;             /**< Cloned backup of the target in scratch memory. */
+
+  // ~Persist does `target_ = T()` before re-cloning the backup, so T needs more
+  // than Cloneable (which only requires a clone hook). Assert the extra
+  // requirements here so a Cloneable-but-not-default-constructible/assignable T
+  // fails with a clear message at instantiation instead of an opaque error
+  // buried inside the destructor body.
+  static_assert(std::default_initializable<T>,
+                "Persist<T>: ~Persist resets target_ = T() before restoring, so "
+                "T must be default-initializable (Cloneable does not imply this).");
+  static_assert(std::assignable_from<T &, T>,
+                "Persist<T>: ~Persist assigns target_ = T(), so T must be "
+                "assignable from a T rvalue (Cloneable does not imply this).");
 
 public:
   /**
