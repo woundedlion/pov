@@ -318,8 +318,13 @@ struct Vector {
  */
 inline float fast_atan2(float y, float x) {
   // +1e-10f keeps abs_y strictly positive so the (x==0,y==0) origin yields a
-  // finite 0/abs_y ratio instead of a 0/0 NaN; it is far below the ~0.0038 rad
-  // Hastings error above, so it never perturbs a non-degenerate result.
+  // finite 0/abs_y ratio instead of a 0/0 NaN. The bias is additive, so for a
+  // legitimately tiny |y| (|y| ≲ 1e-10) it dominates and the result's *relative*
+  // error grows toward order-1 — but the *absolute* angle error stays ≪ the
+  // ~0.0038 rad Hastings error, and every caller (hue/azimuth lookups) consumes
+  // the angle absolutely, so the tiny-y relative cliff is harmless here. A caller
+  // that needed a relatively-accurate angle for sub-1e-10 y would have to scale
+  // its inputs up first.
   float abs_y = std::abs(y) + 1e-10f;
   float abs_x = std::abs(x);
   float r, angle;
