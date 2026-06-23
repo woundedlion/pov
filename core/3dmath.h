@@ -1027,9 +1027,15 @@ inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
 
 /**
  * @brief Creates a rotation quaternion from an axis and an angle.
- * @param axis The rotation axis (must be unit vector).
+ * @param axis The rotation axis (must be a non-zero unit vector).
  * @param theta The angle of rotation in radians.
  * @return The resulting unit rotation quaternion.
+ * @pre `axis` is unit length and non-zero. A zero/degenerate axis collapses the
+ *      quaternion's vector part to zero; at `theta = pi` the scalar part
+ *      `cos(pi/2)` is also ~0, so the whole quaternion is zero-magnitude and the
+ *      trailing `normalized()` traps. This is deliberate fail-fast on a
+ *      precondition violation, not a soft fallback — callers that may produce a
+ *      degenerate axis must guard it (e.g. via `normalized_or`) before calling.
  */
 inline Quaternion make_rotation(const Vector &axis, float theta) {
   // Exact sinf/cosf (not the Bhaskara fast_* pair): fast_sinf's +1.86% near-zero
