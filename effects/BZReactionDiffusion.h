@@ -352,7 +352,7 @@ private:
     // Drive opacity by the total concentration so a growing front dissolves
     // smoothly into the background instead of snapping on at full opacity.
     // blend_species normalizes the three concentrations into a pure hue with no
-    // concentration-driven dimming (finding 396), so a faint single-species
+    // concentration-driven dimming, so a faint single-species
     // front still renders at full brightness; without an alpha ramp the edge
     // collapses to a hard binary step that traces the lattice cells — the
     // "jagged front" artifact. The sum clamps to 1, so the interior of any
