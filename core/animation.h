@@ -629,6 +629,22 @@ private:
    * the caller can remove it).
    * @details Ages it, applies attractor gravity/steering and drag, rotates
    * position+velocity along the surface, and updates its trail.
+   *
+   * Integration is forward Euler with an implicit dt = 1 (one step == one
+   * frame): forces and the rotation step are applied per-frame with no dt
+   * scaling, so the motion is frame-rate dependent — the same emitter/attractor
+   * config evolves faster or slower if the step cadence changes. This is
+   * intentional for a fixed-cadence display driver; it is NOT a wall-clock
+   * physics sim.
+   *
+   * Ordering note: `friction` is applied to velocity AFTER the per-frame gravity
+   * impulse (below), so an impulse added this frame is also damped this frame.
+   * That under-counts the freshest impulse by one `friction` factor relative to
+   * a friction-then-impulse scheme, biasing orbits very slightly inward. The
+   * order is deliberate and left as-is: it keeps the shipped visual behavior of
+   * every ParticleSystem effect stable, and at typical `friction` (~0.85–0.99)
+   * the one-frame difference is cosmetic. Do not reorder without re-tuning the
+   * effects that depend on the current feel.
    */
   bool step_particle(Particle<TRAIL_LEN> &p, float max_delta) {
     bool active = p.life > 0;
