@@ -35,6 +35,12 @@ public:
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
+    // Warp Scale/Strength span 10x the range Liquid2D gives the same
+    // stereo_noise_warp core: Flyby's presets actively sweep the warp hard (up
+    // to scale ~47.8, strength ~11.6 — see presets below), so the slider must
+    // reach those preset extremes. Liquid2D instead pins warp at 1.5/0.5 across
+    // its presets and animates other fields, so it keeps a tighter range for
+    // finer manual control. The divergence is intentional, not an oversight.
     registerParam("Warp Scale", &params.warp_scale, 0.1f, 100.0f);
     registerParam("Warp Strength", &params.warp_strength, 0.0f, 30.0f);
     registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
