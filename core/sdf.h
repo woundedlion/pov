@@ -2129,6 +2129,14 @@ struct Face {
    * @param p Point on sphere (normalized).
    * @param res Output result; dist = signed angular distance to the edge minus
    *        thickness, raw_dist = unsigned angular distance, size = inradius.
+   * @note The "angular" distances are an approximation: the face works in its
+   *       gnomonic tangent plane and converts the planar edge distance to an
+   *       angle via `fast_atan2(plane_dist, 1)`, which is exact only at the face
+   *       center (where the gnomonic chart is conformal with unit scale) and
+   *       increasingly compresses toward the face edge. Good enough for the
+   *       thickness band test and shading; do not treat raw_dist as a metric
+   *       geodesic angle. (PlanarPolygon carries the same caveat for its polar
+   *       distance.)
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
