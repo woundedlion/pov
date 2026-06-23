@@ -97,6 +97,13 @@ public:
     Vector s_in = -Y_AXIS;
     Vector s_trans = mobius_gen.transform(s_in);
     Vector mid = (n_trans + s_trans);
+    // Counter-rotation that swings the pole midpoint back onto +Z. When the two
+    // transformed poles cancel (mid ≈ 0, e.g. they map antipodally at the strip
+    // singularity), the direction is undefined: leave q at its default identity
+    // (no counter-rotation this frame) rather than feed a zero vector to
+    // make_rotation. This is the explicit sibling of the normalized_or fallbacks
+    // below — a degenerate-input guard, not a soft default — and the worst case
+    // is one frame of un-stabilized grid before the midpoint leaves the seam.
     Quaternion q;
     if (mid.length() > 0.001f) {
       mid.normalize();
