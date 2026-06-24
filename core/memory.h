@@ -465,6 +465,14 @@ public:
     // same-arena/same-generation, so the block is live in every build.
     if (bound_ && capacity_ >= exact_capacity) {
       size_ = 0;
+#ifndef NDEBUG
+      // Reuse keeps data_ but resets size_ (and callers refill the block), so a
+      // span snapshotted before this point now dangles just as it would after a
+      // grow. Bump here too — mirroring the fresh-allocation path below — so its
+      // check_alive() trips (the arena generation alone won't: reuse leaves it
+      // untouched). Debug-only counter, free in release.
+      rebind_generation_++;
+#endif
       return;
     }
     // Otherwise (unbound, or a deliberate grow that abandons the old block) →
