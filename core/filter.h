@@ -525,7 +525,7 @@ public:
    * @param axis Unit axis the point is projected onto to pick an orientation.
    */
   OrientSlice(std::span<const Orientation<>> orientations, const Vector &axis)
-      : enabled(true), axis(axis), orientations(orientations) {}
+      : enabled(true), axis(axis.normalized()), orientations(orientations) {}
 
   /**
    * @brief Selects an orientation by axis projection and re-emits the point.
@@ -570,10 +570,23 @@ public:
     });
   }
 
+  /**
+   * @brief Sets the slicing axis, renormalizing to enforce the unit-length
+   * contract that the projection bucket math assumes.
+   * @param a New slicing axis (any non-zero length; renormalized internally).
+   */
+  void set_axis(const Vector &a) { axis = a.normalized(); }
+
+  /**
+   * @brief Accesses the current (unit-length) slicing axis.
+   * @return The unit axis points are projected onto to select a slice.
+   */
+  const Vector &get_axis() const { return axis; }
+
   bool enabled;  /**< When false, the filter passes points through unrotated. */
-  Vector axis;   /**< Unit axis points are projected onto to select a slice. */
 
 private:
+  Vector axis;   /**< Unit axis points are projected onto to select a slice. */
   std::span<const Orientation<>> orientations; /**< Candidate orientations indexed by projection. */
 };
 
