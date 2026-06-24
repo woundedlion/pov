@@ -34,8 +34,6 @@ public:
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    // Wide range: presets sweep the warp hard (up to scale ~47.8, strength
-    // ~11.6), so the slider must reach those extremes.
     registerParam("Warp Scale", &params.warp_scale, 0.1f, 100.0f);
     registerParam("Warp Strength", &params.warp_strength, 0.0f, 30.0f);
     registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
@@ -43,8 +41,8 @@ public:
     registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
     registerParam("Drift", &params.drift, 0.0f, 2.0f);
     registerParam("Hue Shift", &params.hue_shift, 0.0f, 1.0f);
-    // Every param is driven by the preset lerp; flag them so "Pause Animation"
-    // lets the user take a slider over.
+    // Flag every preset-driven param so "Pause Animation" lets the user take a
+    // slider over.
     for (const char *n :
          {"Warp Scale", "Warp Strength", "Pattern Freq", "Speed", "Pole Fade",
           "Drift", "Hue Shift"})
@@ -95,13 +93,11 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Unbounded: OpenSimplex2 is not periodic, so wrapping would jump the warp;
-    // it feeds GetNoise (graceful with large coords), not fast_sinf, so it is no
-    // range-reduction hazard.
+    // Left unbounded: OpenSimplex2 is aperiodic so wrapping would jump the warp,
+    // and it feeds GetNoise (graceful with large coords), not fast_sinf.
     noise_time += params.speed;
-    // Trig phases ARE wrapped to 2pi so fast_sinf/fast_cosf keep precise range
-    // reduction. Each tracks its own coefficient (sin +t, cos -drift*t) so the
-    // wrap stays invisible; shipped presets have drift == 0.
+    // Wrap the trig phases to 2pi so fast_sinf/fast_cosf keep precise range
+    // reduction; each tracks its own coefficient (sin +t, cos -drift*t).
     constexpr float kTwoPi = 2.0f * PI_F;
     sin_phase = fmodf(sin_phase + params.speed, kTwoPi);
     drift_phase = fmodf(drift_phase + params.speed * params.drift, kTwoPi);
@@ -153,10 +149,8 @@ private:
    * @return Product of two sinusoids in [-1, 1] forming the grid pattern.
    */
   float sample(const Complex &w, float sin_phase, float drift_phase) const {
-    // Soft-limit the trig argument: near the pole |w| -> STEREO_INF, so
-    // w*pattern_freq can reach ~2e5 where fast_sinf range reduction bands. That
-    // region is pole-attenuated anyway, so clamp it (see
-    // STEREO_PATTERN_ARG_LIMIT).
+    // Near the pole |w| -> STEREO_INF, so w*pattern_freq can reach ~2e5 where
+    // fast_sinf range reduction bands; clamp the (pole-attenuated) argument.
     float pu = hs::clamp(w.re * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
                          STEREO_PATTERN_ARG_LIMIT);
     float pv = hs::clamp(w.im * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,

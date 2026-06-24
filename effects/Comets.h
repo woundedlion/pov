@@ -73,8 +73,6 @@ public:
     baked_palette.bake(persistent_arena, palette);
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    // Absolute angular half-width in radians, so this [0, 0.5] range is
-    // resolution-independent (~8% of the 2π ring at any W).
     registerParam("Thickness", &params.thickness, 0.0f, 0.5f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     registerParam("Debug BB", &params.debug_bb);
@@ -83,7 +81,7 @@ public:
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
     // Motion + cycle timer are infinite and added before any finite animation,
-    // so the timeline never moves them — handles stay valid for live Cycle Dur.
+    // so the timeline never relocates them and the retained handles stay valid.
     motion_ = timeline.add_get(
         0, Animation::Motion<W, 16>(node->orientation, path,
                                     (int)params.cycle_duration, true));
@@ -116,7 +114,6 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Live-apply the Cycle Dur slider to the motion duration + cycle timer.
     apply_if_changed((int)params.cycle_duration, last_cycle_dur_, [&](int cd) {
       if (motion_)
         motion_->set_duration(cd);
@@ -124,8 +121,8 @@ public:
         cycle_timer_->set_period(2 * cd);
     });
 
-    // `palette` only changes while a ColorWipe is mutating it, so skip the
-    // 256-entry rebake the rest of the time.
+    // `palette` only changes while a ColorWipe is in flight; skip the rebake
+    // otherwise.
     if (wipe_frames_remaining_ > 0) {
       baked_palette.rebake(palette);
       --wipe_frames_remaining_;
@@ -182,20 +179,19 @@ private:
    */
   void update_path() {
     LissajousParams config = functions[cur_function_idx];
-    // Snap the traversal length so path_fn(domain) == path_fn(0). Motion drives
-    // the head by relative frame deltas, so a closed path re-traces seamlessly
-    // while an unclosed endpoint pinches the curve to a stray point each cycle.
+    // Snap so path_fn(domain) == path_fn(0); an unclosed endpoint pinches the
+    // curve to a stray point each cycle.
     float closed_domain = closing_domain(config);
-    // Capture only the three scalars plus closed_domain (16 B); the whole
-    // LissajousParams + closed_domain (20 B) overflows PlotFn's Fn<Vector(float),
-    // 16> inline capacity (no heap fallback on Arduino).
+    // Capture only the three scalars + closed_domain (16 B): the whole
+    // LissajousParams (20 B) overflows PlotFn's Fn<Vector(float), 16> inline
+    // capacity (no heap fallback on Arduino).
     const float m1 = config.m1, m2 = config.m2, a = config.a;
     path.f = [m1, m2, a, closed_domain](float t) {
       return lissajous(m1, m2, a, t * closed_domain);
     };
-    // Re-anchor Motion's baseline to the freshly-swapped path: both curves pass
-    // through (0,1,0) at the seam but their travel-tangent frames differ, so
-    // without this the first post-switch delta is a one-frame teleport.
+    // Re-anchor Motion's baseline to the freshly-swapped path: the two curves'
+    // travel-tangent frames differ at the seam, so a missing re-anchor teleports
+    // the head for one frame.
     if (motion_)
       motion_->reanchor();
   }
@@ -206,11 +202,9 @@ private:
    *          rollover while a previous wipe is still in flight.
    */
   void update_palette() {
-    // Skip the rollover while a wipe is in flight: at the Cycle Dur floor the
-    // cycle period (20) is shorter than WIPE_FRAMES (48), so the timer can fire
-    // mid-wipe. A second wipe would overwrite the next_palette_ the live wipe
-    // still references and queue a rival mutator over `palette`; the next tick
-    // picks it up once the wipe drains.
+    // Skip while a wipe is in flight: at the Cycle Dur floor the cycle period
+    // (20) is shorter than WIPE_FRAMES (48), so the timer can fire mid-wipe and a
+    // second wipe would clobber the next_palette_ the live one still references.
     if (wipe_frames_remaining_ > 0)
       return;
     next_palette_ =
@@ -218,8 +212,7 @@ private:
                           BrightnessProfile::ASCENDING);
     timeline.add(0, Animation::ColorWipe(palette, next_palette_, WIPE_FRAMES,
                                          ease_linear));
-    // +1 covers the arming frame before the wipe first steps (a redundant
-    // rebake is harmless).
+    // +1 covers the arming frame before the wipe first steps.
     wipe_frames_remaining_ = WIPE_FRAMES + 1;
   }
 

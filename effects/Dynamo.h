@@ -147,15 +147,12 @@ public:
 
     palettes.push_front(make_palette());
     palette_boundaries.push_front(0);
-    // push_front shifts every logical index, so rebake the whole active range
-    // (color() reads baked_palettes_, not the GenerativePalettes).
+    // push_front shifts every logical index, so rebake the whole active range.
     rebake_active_palettes();
 
-    // On completion, stamp this wipe's own boundary slot with WIPE_COMPLETE
-    // rather than pop_back: overlapping wipes can finish out of order, so a
-    // pop_back would evict the oldest still-animating boundary. The captured slot
-    // stays valid because the is_full() guard caps palette_boundaries at
-    // capacity, so the ring never wraps to overwrite a live front slot.
+    // Stamp this wipe's own boundary slot with WIPE_COMPLETE on completion rather
+    // than pop_back: overlapping wipes can finish out of order, and a pop_back
+    // would evict the oldest still-animating boundary.
     float *boundary_slot = &palette_boundaries.front();
     timeline.add(0, Animation::Transition(palette_boundaries.front(), PI_F,
                                           (int)params.wipe_duration, ease_linear)
@@ -202,19 +199,13 @@ public:
    *          oldest to find the band containing the angle.
    */
   Color4 color(const Vector &v, float t) {
-    // Cross-fade half-width per boundary side, in radians. PI_F/4 (45 deg) is
-    // wide enough vs the [0, PI] span that boundaries read as gradients, not
-    // hard edges.
+    // Cross-fade half-width per boundary side, in radians.
     constexpr float blend_width = PI_F / 4;
     // Sentinel for "no next boundary": `a` is in [0, PI], so any value above PI
     // makes the `a < next_boundary_lower_edge` test pass.
     constexpr float NO_NEXT_BOUNDARY = 100.0f;
     float a = angle_between(v, palette_normal);
 
-    // palettes[i+1] stays in range via palettes.size() ==
-    // palette_boundaries.size()+1; backstop: palette_boundaries' capacity is
-    // MAX_PALETTES-1, so i+1 < palettes capacity even if that invariant broke.
-    //
     // The scan assumes palette_boundaries is monotonically non-decreasing. A live
     // Wipe-Dur change can transiently invert that (newer, shorter wipe overtakes
     // an older one) — cosmetic, self-heals as wipes drain, stays in bounds.
@@ -261,28 +252,25 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // Push the live "Trail Len" slider into the Trails filter each frame, clamped
-    // to the filter's [1,255] domain so set_lifetime's trap only fires on a
-    // genuine authoring error.
+    // Push the live "Trail Len" slider into the Trails filter, clamped to its
+    // [1,255] domain.
     filters.template get<Filter::World::Trails<W, TRAIL_CAPACITY>>()
         .set_lifetime(hs::clamp((int)params.trail_length, 1, 255));
 
     timeline.step(canvas);
 
-    // Collapse color wipes that finished this step, in FIFO order, before their
-    // boundaries are read below.
+    // Collapse finished wipes (FIFO) before their boundaries are read below.
     reap_completed_wipes();
 
     // Carry the fractional part of |speed| across frames so |speed| < 1 still
-    // advances the strand instead of dead-zoning to zero.
+    // advances the strand instead of truncating to zero.
     const float effective_speed = params.speed * speed_direction_;
     speed_accumulator_ += std::abs(effective_speed);
     const int steps = static_cast<int>(speed_accumulator_);
     speed_accumulator_ -= static_cast<float>(steps);
     if (steps == 0) {
-      // Zero-step frame: re-emit the strand in place. Otherwise no plots are
-      // produced and a Trail Len of 1 (ttl popped before drawing) blanks the
-      // strand, so sub-unit speeds flicker.
+      // Re-emit the strand in place; otherwise a Trail Len of 1 blanks it on
+      // zero-step frames and sub-unit speeds flicker.
       draw_nodes(canvas, 0.0f);
     } else {
       for (int i = steps - 1; i >= 0; --i) {
@@ -291,10 +279,9 @@ public:
       }
     }
 
-    // The Trails filter replays every buffered point with t = its age fraction
-    // (1 - ttl/lifetime). Feeding that age in as color()'s palette parameter
-    // fades the trail along the palette with age (newest t=0, oldest t=1) rather
-    // than just dimming.
+    // The Trails filter replays each buffered point with t = its age fraction;
+    // feeding that as color()'s palette parameter fades the trail along the
+    // palette with age (newest t=0, oldest t=1) rather than just dimming.
     filters.flush(
         canvas, [this](const Vector &v, float t) { return color(v, t); }, 1.0f);
   }

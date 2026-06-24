@@ -58,8 +58,6 @@ public:
    * and seeds the A/B state, and builds the cubemap LUT and lattice nodes once.
    */
   void init() override {
-    // Sizes derive from sizeof so a future type-size change trips the
-    // static_assert rather than the init trap.
     constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
                                      ReactionGraph::CubemapLUT::RES *
                                      sizeof(uint16_t); // cube_lut.build
@@ -72,11 +70,8 @@ public:
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill", &params.k, 0.0f, 0.1f);
-    // dA/dB cap at 0.05: explicit Euler is stable only while dt·D·λmax ≤ 2.
-    // |λ|max ≤ 2·6 = 12 (6-NN lattice), so at Speed top (dt = 3.0) the worst case
-    // is 3·0.05·12 = 1.8 ≤ 2. Covers only the diffusion term — widening
-    // Feed/Kill/dt needs a fresh reaction-Jacobian check. Backstop: to_q16()
-    // clamps every state to [0, 1], so a violation degrades visually.
+    // dA/dB cap at 0.05: explicit Euler is stable only while dt·D·λmax ≤ 2
+    // (|λ|max ≤ 12 on the 6-NN lattice), giving 3·0.05·12 = 1.8 ≤ 2 at Speed top.
     registerParam("dA", &params.dA, 0.0f, 0.05f);
     registerParam("dB", &params.dB, 0.0f, 0.05f);
     registerParam("Speed", &params.dt, 0.1f, 3.0f);
@@ -91,7 +86,6 @@ public:
     }
 
     cube_lut.build(persistent_arena);
-    // Must follow the persistent allocations above (shares the arena).
     init_lattice();
     seed_clusters();
   }
@@ -185,8 +179,6 @@ private:
       float a = from_q16(cA[i]);
       float b = from_q16(cB[i]);
 
-      // Both Laplacians share one neighbor walk; two separate walks would double
-      // the lattice reads.
       float lA = 0, lB = 0;
       for_each_neighbor(i, [&](int ni) {
         lA += from_q16(cA[ni]) - a;
@@ -215,8 +207,8 @@ private:
       wb += from_q16(state.B[i]) * w;
       tw += w;
     });
-    // Empty kernel: guard the division. A 0/0 NaN would slip past the
-    // b < B_CULL_THRESHOLD cull (NaN compares false) and poison palette.get().
+    // Guard the division: a 0/0 NaN would slip past the b < B_CULL_THRESHOLD cull
+    // (NaN compares false) and poison palette.get().
     if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
       return 0.0f;
     return wb / tw;
@@ -235,8 +227,6 @@ private:
     uint16_t *sB = static_cast<uint16_t *>(
         scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
 
-    // Ping-pong between persistent state and scratch. cur always names the latest
-    // generation; nxt is the next write target.
     uint16_t *curA = state.A, *curB = state.B;
     uint16_t *nxtA = sA, *nxtB = sB;
     for (int k = 0; k < STEPS_PER_FRAME; k++) {
@@ -245,18 +235,15 @@ private:
       std::swap(curB, nxtB);
     }
 
-    // Land the final generation back in persistent state so it survives the
-    // ScratchScope pop. Even substep count leaves cur == state (no copy); odd
-    // count leaves it in scratch, copied back here.
+    // Land the final generation back in persistent state before the ScratchScope
+    // pops; an odd substep count leaves it in scratch, so copy it back.
     if (curA != state.A) {
       std::memcpy(state.A, curA, RD_N * sizeof(uint16_t));
       std::memcpy(state.B, curB, RD_N * sizeof(uint16_t));
     }
 
-    // Hoist the cubemap lookup into the vertex shader (once at the pixel center),
-    // sparing ~3 redundant lookups per pixel under 4× SSAA. The seed only feeds
-    // refine_nearest_node, which re-finds the true nearest per sub-sample, so the
-    // result is identical.
+    // Seed the cubemap lookup once per pixel center; it only feeds
+    // refine_nearest_node, which re-finds the true nearest per sub-sample.
     auto vertex_shader = [&](Fragment &frag) {
       Vector rv = orientation.unorient(frag.pos);
       frag.v0 = static_cast<float>(cube_lut.lookup(rv));
@@ -264,8 +251,8 @@ private:
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       Vector rv = orientation.unorient(v);
-      // Refine to the genuine nearest node: the CubemapLUT quantizes `rv` to a
-      // face cell and can return a not-quite-nearest seed.
+      // The CubemapLUT seed is quantized to a face cell; refine to the true
+      // nearest node.
       int nearest =
           refine_nearest_node(rv, nodes, static_cast<int>(frag.v0));
       float b = interpolate_b(rv, nearest, nodes);

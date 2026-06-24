@@ -72,8 +72,6 @@ public:
    *        and seeds the initial spiral nuclei.
    */
   void init() override {
-    // Sizes derive from sizeof so a future type-size change trips the
-    // static_assert rather than the init trap.
     constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
                                      ReactionGraph::CubemapLUT::RES *
                                      sizeof(uint16_t); // cube_lut.build
@@ -86,16 +84,13 @@ public:
 
     // "Compete" is the Lotka-Volterra predation coefficient, not an opacity.
     registerParam("Compete", &params.alpha, 0.0f, 4.0f);
-    // Explicit Euler, stable only while dt·D·λmax ≤ 2. |λ|max ≤ 2·6 = 12 (6-NN
-    // lattice), so at the Diff/Speed tops the worst case is 1.0·0.1·12 = 1.2 ≤ 2.
-    // Backstop: to_q8() clamps every written state to [0, 1] each step, so a
-    // range-widening degrades visually rather than blowing up.
+    // Explicit Euler is stable only while dt·D·λmax ≤ 2 (|λ|max ≤ 12 on the 6-NN
+    // lattice), bounding these Diff/Speed tops.
     registerParam("Diff", &params.D, 0.001f, 0.1f);
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
 
     allocate_state();
     cube_lut.build(persistent_arena);
-    // Must follow the persistent allocations above (shares the arena).
     init_lattice();
     seed_spiral_nuclei();
   }
@@ -226,7 +221,7 @@ private:
   static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
       int idx = hs::rand_int(0, RD_N);
-      int s = hs::rand_int(0, 3);  // half-open [0,3): all three species
+      int s = hs::rand_int(0, 3);
       uint8_t *t = (s == 0) ? nA : (s == 1) ? nB : nC;
       t[idx] = static_cast<uint8_t>(
           std::min(static_cast<int>(t[idx]) + PERTURB_AMOUNT, 255));
@@ -253,8 +248,6 @@ private:
       float b = from_q8(cB[i]);
       float c = from_q8(cC[i]);
 
-      // All three Laplacians share one neighbor walk; three single-field walks
-      // would triple the lattice reads on this dominant loop.
       float lA = 0, lB = 0, lC = 0;
       for_each_neighbor(i, [&](int ni) {
         lA += from_q8(cA[ni]) - a;
@@ -299,8 +292,6 @@ private:
     float g = (ca.color.g * a + cb.color.g * b + cc.color.g * c) * inv;
     float bl = (ca.color.b * a + cb.color.b * b + cc.color.b * c) * inv;
 
-    // No clamp: each channel is a convex combination of the uint16 palette
-    // channels, so it stays in [0, 65535] and the cast cannot overflow.
     return Pixel(static_cast<uint16_t>(r), static_cast<uint16_t>(g),
                  static_cast<uint16_t>(bl));
   }
@@ -321,9 +312,6 @@ private:
   Color4 sample_kernel(const Vector &rv, const Vector *nodes, int best_node,
                        const Color4 &ca, const Color4 &cb,
                        const Color4 &cc) const {
-    // Accumulate raw Q8 bytes and defer the single Q8_INV scale to one multiply
-    // after the walk (folded into `inv`); converting per term would cost three
-    // extra multiplies per node.
     float tw = 0, wa = 0, wb = 0, wc = 0;
     kernel_accumulate(rv, nodes, best_node, [&](int i, float w) {
       wa += state.A[i] * w;
@@ -337,10 +325,6 @@ private:
 
     float inv = Q8_INV / tw;
     float a = wa * inv, b = wb * inv, c = wc * inv;
-    // Drive opacity by total concentration so a growing front dissolves smoothly
-    // instead of snapping on (blend_species normalizes to a pure hue with no
-    // dimming, so without this the edge would be a hard step along lattice cells).
-    // Sum clamps to 1; below SPECIES_EMPTY_EPS the location culls to transparent.
     float total = a + b + c;
     if (total < SPECIES_EMPTY_EPS)
       return Color4(Pixel(0, 0, 0), 0.0f);
@@ -363,7 +347,6 @@ private:
     uint8_t *sB = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sC = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
 
-    // Ping-pong: cur names the latest generation, nxt the next write target.
     uint8_t *curA = state.A, *curB = state.B, *curC = state.C;
     uint8_t *nxtA = sA, *nxtB = sB, *nxtC = sC;
     for (int k = 0; k < STEPS_PER_FRAME; k++) {
@@ -373,9 +356,8 @@ private:
       std::swap(curC, nxtC);
     }
 
-    // Land the final generation back in persistent state so it survives the
-    // ScratchScope pop. Even substep count leaves cur == state (no copy); odd
-    // leaves the result in scratch, copied back here.
+    // Land the final generation back in persistent state before the ScratchScope
+    // pops; an odd substep count leaves it in scratch, so copy it back.
     if (curA != state.A) {
       std::memcpy(state.A, curA, RD_N);
       std::memcpy(state.B, curB, RD_N);

@@ -43,8 +43,7 @@ public:
    * mutation animations to the timeline.
    */
   void init() override {
-    // One pixel of azimuth in ring-space; scales the stroke/slider by
-    // resolution so their pixel meaning is the same at any W.
+    // One pixel of azimuth in ring-space.
     const float px = 2.0f * PI_F / W;
     params.thickness = 4.0f * px;
 
@@ -105,7 +104,6 @@ public:
         f.color = ringPalette.get(f.v0);
 
         float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
-        // Smootherstep falloff: full alpha at the center line, 0 at the edge.
         float falloff = quintic_kernel(1.0f - norm_dist);
 
         f.color.alpha = f.color.alpha * opacity * params.alpha * falloff;
@@ -139,9 +137,6 @@ private:
   GenerativePalette ringPalette;
   Vector normal;
   Orientation<> orientation;
-  // Built in the constructor so the Mutation's reference_wrapper binding to
-  // `amplitude`/`params.max_amplitude` is established once; the copy init() adds
-  // to the timeline retains that binding.
   Animation::Mutation amplitude_mut;
 };
 

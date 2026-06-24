@@ -43,17 +43,14 @@ public:
     registerParam("Time Spd", &params.time_scale, 0.001f, 0.05f);
 
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    // rand_int is half-open, so 65536 makes the full 16-bit seed range reachable.
     noise_generator.SetSeed(hs::rand_int(0, 65536));
 
-    // Drives the whole-sphere drift the Orient stage consumes. `orient_noise` is
-    // dedicated so RandomWalk never reconfigures the flow-field noise.
+    // `orient_noise` is dedicated so RandomWalk never reconfigures the
+    // flow-field noise.
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, random_vector(), orient_noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
-    // No gravity (the noise flow field is the only force) and a long lifetime so
-    // streamlines read as continuous.
     constexpr float kFriction = 0.96f;
     constexpr float kGravity = 0.0f;
     constexpr float kMaxLife = 300.0f;
@@ -68,8 +65,6 @@ public:
         auto &p = sys.pool[i];
 
         // Rare random respawn so particles caught in field sinks redistribute.
-        // ~0.5%/frame: long enough dwell to read as continuous, frequent enough
-        // to bleed off sink accumulation.
         constexpr float kRespawnProb = 0.005f;
         if (hs::rand_f() < kRespawnProb) {
           p.position = random_vector();
@@ -78,9 +73,8 @@ public:
         }
 
         // Three force channels decorrelated by large x-offsets (0/100/200, past
-        // the lattice correlation length). All share the z input (p.z*scale + t),
-        // so time advances the field along z — FastNoiseLite is only 3D, so this
-        // shared-z animation is the accepted simplification.
+        // the lattice correlation length). All share the z input (p.z*scale + t)
+        // so time advances the field along z, since FastNoiseLite is only 3D.
         constexpr float kChannelOffsetY = 100.0f;
         constexpr float kChannelOffsetZ = 200.0f;
         float fx =
@@ -129,17 +123,15 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     // Wrap the noise-time accumulator so the float ULP never swallows the
-    // increment and freezes the field. OpenSimplex2 is not periodic, so the wrap
-    // pops the field once per period; at 2048 the ULP stays under the slowest
-    // Time Spd increment and pops are hours apart.
+    // increment and freezes the field; OpenSimplex2 is aperiodic so the wrap pops
+    // the field once per period (hours apart at TIME_PERIOD).
     t = fmodf(t + params.time_scale, TIME_PERIOD);
 
     timeline.step(canvas);
     particle_system.step(canvas);
 
-    // Rotation is owned by the Orient stage; applying it again here would rotate
-    // every point twice, so the shader does none. Color by latitude (v.y ->
-    // palette t).
+    // Rotation is owned by the Orient stage, so the shader applies none. Color by
+    // latitude (v.y -> palette t).
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
       float alpha = f.v0;
       float palette_t = (v.y + 1.0f) / 2.0f;

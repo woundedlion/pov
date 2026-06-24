@@ -46,8 +46,7 @@ public:
     baked_sunset.bake(persistent_arena, Palettes::richSunset);
 
     // Persistent footprint ~105 KB fits the default partition (~303 KB) with no
-    // per-frame scratch, so it keeps the default split rather than calling
-    // configure_arenas(); a retuned-too-small split traps in allocate().
+    // per-frame scratch, so keep the default split (no configure_arenas()).
     fibers = static_cast<Vector *>(persistent_arena.allocate(
         ACTUAL_FIBERS * sizeof(Vector), alignof(Vector)));
 
@@ -64,8 +63,6 @@ public:
     // below are gated so Pause freezes the fiber motion.
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_linear, true));
-    // Each Driver pulls its slider (× per-unit rate) every step, so speeds stay
-    // live without a per-frame set_speed re-sync.
     timeline.add(0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE,
                                       true, &anims_paused_));
     timeline.add(0, Animation::Driver(tumble_angle_x, &params.tumble_speed,
@@ -118,19 +115,15 @@ private:
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
 
-  // Denominator is (1 + eps) - q3, staying positive at the pole (q3 == 1)
-  // instead of 0. The magnitude is irrelevant — at a fiber pole the projected
-  // components are ~0 and normalized_or() substitutes its fallback axis; eps
-  // only keeps the pre-normalize direction NaN-free.
+  // Keeps the projection denominator (1 + eps) - q3 positive at the pole
+  // (q3 == 1); only needed to keep the pre-normalize direction NaN-free, since
+  // normalized_or() substitutes its fallback axis there.
   static constexpr float STEREO_POLE_EPSILON = 0.001f;
 
   // Phases accumulate as wrapped fractions of their period ("turns") and scale
-  // back to radians at use, keeping the trig arguments bounded; an unbounded
-  // accumulator grows ULPs and visibly steps over multi-day runs.
-  //
-  // flow_offset and tumble_angle_y feed only full-angle (2pi) terms.
-  // tumble_angle_x also feeds the half-angle fold_base term, so it wraps over
-  // 4pi to keep both the full-angle and half-angle terms continuous.
+  // back to radians at use, keeping the trig arguments bounded. tumble_angle_x
+  // also feeds the half-angle fold_base term, so it wraps over 4pi to keep both
+  // the full-angle and half-angle terms continuous.
   static constexpr float FLOW_PERIOD     = 2 * PI_F;
   static constexpr float TUMBLE_X_PERIOD = 4 * PI_F;
   static constexpr float TUMBLE_Y_PERIOD = 2 * PI_F;
@@ -207,9 +200,8 @@ private:
     float theta = sph.phi; // polar angle (co-latitude)
     float phi = sph.theta; // azimuthal angle
 
-    // Folding. Depth is driven by the Folding slider alone (independent of
-    // Tumble Spd), so it still acts when tumble is frozen. The 0.2f matches the
-    // default look (0.1 * default tumble_speed 2.0).
+    // Folding: depth driven by the Folding slider alone, so it still acts when
+    // tumble is frozen.
     float eta = theta / 2.0f;
     eta += fast_sinf(phi * 2.0f + ty_rad + fold_base) * 0.2f * params.folding;
 
@@ -248,9 +240,8 @@ private:
    * (opaque) to oldest (transparent).
    */
   void render_trails(Canvas &canvas) {
-    // alpha scales every fragment, so alpha == 0 paints nothing — skip
-    // rasterizing (output-identical). Trails are still recorded in draw_frame(),
-    // so motion continues and resumes when alpha > 0.
+    // alpha == 0 paints nothing; skip rasterizing. Trails are still recorded in
+    // draw_frame(), so motion resumes when alpha > 0.
     if (params.alpha <= 0.0f)
       return;
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
@@ -266,7 +257,6 @@ private:
       for (size_t j = 0; j < len; ++j) {
         Fragment f;
         f.pos = orientation.orient(trail.get(j));
-        // len >= 2 (guarded above), so len - 1 >= 1 — no divide-by-zero.
         f.v0 = static_cast<float>(j) / (len - 1);
         f.age = 0;
         points.push_back(f);

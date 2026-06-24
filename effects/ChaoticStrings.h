@@ -22,8 +22,6 @@
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
-  // deep_tween() emits one Fragment per (frame, sub-frame), so this product is
-  // the worst-case vertex count sizing the scratch buffer and arena carve below.
   static constexpr int ORIENTATION_SUBSTEPS = 16;
   static constexpr int MAX_FRAGMENTS = TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
 
@@ -67,8 +65,7 @@ public:
         path([](float) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
 
-  // Scratch A holds the per-frame Fragment buffer plus Multiline-draw headroom;
-  // tied to the worst case so the buffer can never overrun its arena.
+  // Scratch A holds the per-frame Fragment buffer plus Multiline-draw headroom.
   static constexpr size_t SCRATCH_A_BYTES = 200 * 1024;
   static_assert(SCRATCH_A_BYTES >= MAX_FRAGMENTS * sizeof(Fragment),
                 "scratch arena A must fit the worst-case fragment buffer");
@@ -80,8 +77,6 @@ public:
    */
   void init() override {
 
-    // No scratch B; carve it to 0. The default size is restored before the next
-    // effect's init(), so it never leaks across an effect switch.
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     node = static_cast<Node *>(
@@ -109,13 +104,10 @@ public:
 
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
-    // Retain the motion handle so the Cycle Dur slider can be applied live.
     motion_ = timeline.add_get(
         0, Animation::Motion<W, ORIENTATION_SUBSTEPS>(
                node->orientation, path, (int)params.cycle_duration, true));
 
-    // Bound Driver reads the live Cycle Speed slider each step; no retained
-    // handle or per-frame set_speed needed.
     timeline.add(0, Animation::Driver(cycle_phase, &params.cycleSpeed, 1.0f));
 
     last_cycle_duration_ = params.cycle_duration;
@@ -142,8 +134,8 @@ public:
     ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
     timeline.step(canvas);
 
-    // Sliders bind to `params`, not the entities, so push the live values in by
-    // hand; prepare_frame() below re-syncs each active entity afterward.
+    // Push live slider values into the noise entities (they bind to `params`,
+    // not the entities); prepare_frame() re-syncs each active entity afterward.
     for (auto &e : noise_xform.entities) {
       if (e.active) {
         e.params.frequency = params.noiseFreq;
@@ -153,8 +145,6 @@ public:
     }
     noise_xform.prepare_frame();
 
-    // Guarded: set_duration reschedules from now, so calling it every frame
-    // would perpetually defer the trigger.
     apply_if_changed(params.cycle_duration, last_cycle_duration_, [&](float cd) {
       if (motion_)
         motion_->set_duration((int)cd);
@@ -163,7 +153,6 @@ public:
     node->trail.record(node->orientation);
 
     deep_tween(node->trail, [&](const Quaternion &q, float t) {
-      // Re-apply transforms at draw time so the trail undulates with noise.
       Vector pos =
           noise_xform.transform(orientation.orient(rotate(node->v, q)));
       Fragment f;
@@ -173,7 +162,6 @@ public:
     });
 
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      // Color and fade from the normalized trail parameter (v3).
       float color_t = frag.v3;
       frag.color = static_palette.get(color_t);
       frag.color.alpha *= quintic_kernel(frag.v3) * params.alpha;

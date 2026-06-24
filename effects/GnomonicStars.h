@@ -47,8 +47,6 @@ public:
    */
   void init() override {
     // Sized to MAX_POINTS so a live "Points" change never reallocates.
-    // draw_frame() fills slot [0, points) before reading it, so the
-    // uninitialized storage is always overwritten first.
     spiral_cache_ = static_cast<Vector *>(persistent_arena.allocate(
         MAX_POINTS * sizeof(Vector), alignof(Vector)));
 
@@ -57,13 +55,8 @@ public:
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
     registerParam("Debug BB", &params.debug_bb);
 
-    // Retain the handle to mirror the "Warp Speed" slider into the warp each
-    // frame. The warp is infinite and added first, so pinning is safe: a later
-    // finite event traps on compaction rather than dangling this pointer. Args
-    // are (scale, speed): scale the fixed 0.5 magnitude, speed the slider rate.
+    // Args are (scale, speed): the fixed 0.5 warp magnitude and the slider rate.
     warp_ = transformer.spawn_pinned(0, 0.5f, params.warp_speed);
-    // A pinned spawn into a fresh transformer always has a free slot, so a null
-    // here is a structural bug, not a runtime condition.
     HS_CHECK(warp_, "GnomonicStars: pinned warp spawn must succeed");
     registerParam("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
 
@@ -88,8 +81,7 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // Mirror the slider into the warp before the timeline advances it, so a
-    // mid-run change takes effect this frame.
+    // Mirror the slider into the warp before the timeline advances it.
     warp_->speed = params.warp_speed;
 
     timeline.step(canvas);
@@ -104,10 +96,9 @@ public:
     const float radius = params.star_radius;
     const int sides = (int)params.star_sides;
 
-    // The base spiral depends only on (points, i): `eps` is fixed at 0 and only
-    // the warp + orientation animate, so the raw lattice is identical every frame
-    // until "Points" moves. Rebuild the trig-heavy fib_spiral only on a points
-    // change; the steady state just reads each cached base point back.
+    // The base spiral depends only on (points, i) — the warp and orientation
+    // animate downstream — so rebuild the trig-heavy fib_spiral only when
+    // "Points" changes.
     HS_CHECK(points <= MAX_POINTS,
              "GnomonicStars: Points exceeds spiral-cache capacity");
     if (points != cached_points_) {
@@ -120,9 +111,8 @@ public:
     for (int i = 0; i < points; i++) {
       Vector v = transformer.transform(spiral_cache_[i]);
 
-      // make_basis() rotates its normal by the orientation, so passing the raw
-      // warp output applies it exactly once — orienting v first would rotate
-      // twice (q*q*v) and drift the field at double the RandomWalk rate.
+      // make_basis() rotates its normal by the orientation; pass the raw warp
+      // output so the orientation is applied exactly once, not twice.
       Basis basis = make_basis(orientation.get(), v);
 
       Scan::Star::draw<W, H>(filters, canvas, basis, radius, sides,

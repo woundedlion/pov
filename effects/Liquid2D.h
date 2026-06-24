@@ -41,8 +41,6 @@ public:
   void init() override {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    // Warp Scale/Strength use a tight range because presets pin warp at 1.5/0.5
-    // (animating pattern/complexity instead); Flyby sweeps warp wide via presets.
     registerParam("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
     registerParam("Warp Strength", &params.warp_strength, 0.0f, 3.0f);
     registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
@@ -50,8 +48,8 @@ public:
     registerParam("Complexity", &params.complexity, 0.5f, 3.0f);
     registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
     registerParam("Cycle Speed", &params.cycle_speed, 0.0f, 1.0f);
-    // Every param is preset-driven; flag them so "Pause Animation" lets the
-    // user take a slider over.
+    // Flag every preset-driven param so "Pause Animation" lets the user take a
+    // slider over.
     for (const char *n :
          {"Warp Scale", "Warp Strength", "Pattern Freq", "Time Speed",
           "Complexity", "Pole Fade", "Cycle Speed"})
@@ -59,12 +57,10 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
     timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
-    // Bound Drivers pull the live Time/Cycle Speed sliders each step; no
-    // per-frame set_speed re-sync or retained handles needed.
     timeline.add(0, Animation::Driver(accumulated_time, &params.time_speed, 1.0f,
                                       false));
     // wrap=false: cycle_phase is wrapped by hand to 2pi in draw_frame; the
-    // Driver's wrap normalizes to [0,1), the wrong period for fast_sinf.
+    // Driver's [0,1) wrap is the wrong period for fast_sinf.
     timeline.add(0, Animation::Driver(cycle_phase, &params.cycle_speed, 1.0f,
                                       false));
 
@@ -111,28 +107,22 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // accumulated_time is the unbounded noise-time axis: OpenSimplex2 is not
-    // periodic so it cannot be wrapped without a visible jump, and GetNoise
-    // degrades gracefully with large coordinates.
+    // accumulated_time is the unbounded noise-time axis: OpenSimplex2 is
+    // aperiodic so it cannot be wrapped without a visible jump.
     float t = accumulated_time;
-    // The pattern's inner fast_sinf/fast_cosf are the range-reduction hazard, so
-    // their time terms ride phases wrapped to 2pi, advancing by this frame's
-    // delta of t (scaled by the term's coefficient) for an exact wrap.
-    //
-    // dt reads the live Time Speed slider directly rather than (t - prev_time):
-    // the Driver adds the freshly-read speed each step, so the slider value IS
-    // this frame's advance of t. Differencing the unbounded accumulator would
-    // lose that increment to float ULP after multi-day uptime (field freezes).
-    // Guard a non-finite slider to 0.
+    // The pattern's fast_sinf/fast_cosf time terms ride phases wrapped to 2pi.
+    // dt is the live Time Speed slider directly, not (t - prev_time): the Driver
+    // adds that speed each step, so it IS this frame's advance of t. Differencing
+    // the unbounded accumulator would lose the increment to ULP after multi-day
+    // uptime.
     constexpr float kTwoPi = 2.0f * PI_F;
     float dt = params.time_speed;
     if (!std::isfinite(dt))
       dt = 0.0f;
     sin_phase = fmodf(sin_phase + dt, kTwoPi);
     cos_phase = fmodf(cos_phase + 0.8f * dt, kTwoPi);
-    // cycle_phase feeds BreatheModifier's fast_sinf (coefficient 1), so wrapping
-    // to 2pi in place is exact. Done by hand because the Driver's wrap normalizes
-    // to [0,1), the wrong domain for a radians consumer.
+    // cycle_phase feeds BreatheModifier's fast_sinf, so wrap to 2pi by hand (the
+    // Driver's [0,1) wrap is the wrong domain for a radians consumer).
     cycle_phase = fmodf(cycle_phase, kTwoPi);
 
     auto shader = [&](const Vector &v) -> Color4 {
@@ -180,10 +170,8 @@ private:
    * @return Pattern value in [-1, 1], modulated by params.complexity.
    */
   float sample(const Complex &w, float sin_phase, float cos_phase) const {
-    // Soft-limit the trig argument: near the pole |w| -> STEREO_INF, so
-    // w*pattern_freq can reach ~2e5 where fast_sinf range reduction bands. The
-    // pole is attenuated anyway, so clamp rather than feed the trig an
-    // unresolvable coordinate (see STEREO_PATTERN_ARG_LIMIT).
+    // Near the pole |w| -> STEREO_INF, so w*pattern_freq can reach ~2e5 where
+    // fast_sinf range reduction bands; clamp the (pole-attenuated) argument.
     float pu = hs::clamp(w.re * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
                          STEREO_PATTERN_ARG_LIMIT);
     float pv = hs::clamp(w.im * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
@@ -220,7 +208,7 @@ private:
     float R2 = x2 + z2;
 
     // Pole guard: on the rotation axis (x≈z≈0) the lens map divides by R², so
-    // return the pole direction directly. The floor is in squared-radius units.
+    // return the pole direction directly.
     constexpr float MIN_AXIS_RADIUS2 = 1e-6f;
     if (R2 < MIN_AXIS_RADIUS2)
       return Vector(0.0f, 1.0f, 0.0f);
@@ -266,9 +254,8 @@ private:
      */
     void lerp(const Params &a, const Params &b, float t) {
       constexpr int N = 7;
-      // Params is exactly N floats, so the dst/src/tgt arrays below cover every
-      // field. This guard trips if the field set changes, forcing the arrays
-      // (and N) to be updated rather than silently mis-lerping.
+      // Trips if the field set changes, so the dst/src/tgt arrays and N below
+      // can't silently fall out of sync with Params.
       static_assert(sizeof(Params) == N * sizeof(float),
                     "Liquid2D::Params field set changed — update lerp's "
                     "dst/src/tgt arrays and N to match");

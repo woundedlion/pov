@@ -34,8 +34,7 @@ public:
 
     palette_bank_.bake_all(persistent_arena);
 
-    // Set BEFORE registering: registerParam snaps *ptr as the slider default,
-    // so these must already hold the intended runtime values.
+    // Set BEFORE registering: registerParam snaps *ptr as the slider default.
     ripple_gen.template_params.amplitude = 0.4f;
     ripple_gen.template_params.thickness = 0.7f;
     ripple_gen.template_params.decay = 0.1f;
@@ -81,9 +80,8 @@ public:
 
 private:
   // Ripple-pool capacity invariant: the current burst plus the still-live tail
-  // of the previous one peak at kRipplePoolSize slots, so no spawn is dropped.
-  // These constants are coupled (enforced by the static_assert below); changing
-  // one in isolation overflows and silently drops ripples.
+  // of the previous one peak at kRipplePoolSize slots (enforced by the
+  // static_assert below).
   static constexpr int kRipplePoolSize = 8;
   static constexpr int kRippleStaggerFrames = 16;
   static constexpr int kRippleRecurrenceFrames = 96;
@@ -106,8 +104,7 @@ private:
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
   // Per-slot palette indices; value-init so a missed shuffle reads palette 0,
-  // not garbage. Shuffle-before-draw is a convention (each spawn_shape shuffles
-  // the back slot), not a runtime guard.
+  // not garbage.
   std::array<int, NUM_PALETTES> palettes_slots[2] = {};
 
   /**
@@ -164,8 +161,6 @@ private:
   void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
-    // Captured once so the shuffle, the draw_fn closure, and the generate target
-    // all reference the same slot.
     int back = 1 - carousel.front_index();
     MeshPaletteBank::shuffle_indices(palettes_slots[back]);
 
@@ -178,7 +173,7 @@ private:
     };
 
     // Compact the back slot, rebaking palettes into the fresh arena rather than
-    // tracking them through the evacuation (saves fragmentation/OOM).
+    // tracking them through the evacuation.
     carousel.compact_keep_front(
         [this](Arena &arena) { palette_bank_.bake_all(arena); });
 
@@ -188,9 +183,8 @@ private:
       MeshOps::compile(mesh, carousel.slot(back), target);
     });
 
-    // ScratchScope frees only this call's own allocations on exit (its result
-    // lands in persistent_arena), leaving prior caller allocations in these
-    // shared arenas intact — a bare reset() would discard them.
+    // ScratchScope frees only this call's own allocations, preserving prior
+    // caller allocations in these shared arenas that a bare reset() would drop.
     {
       ScratchScope _a(scratch_arena_a);
       ScratchScope _b(scratch_arena_b);
@@ -201,17 +195,16 @@ private:
     // Flip front eagerly for the overlapping sprite.
     carousel.set_front(back);
 
-    // Clamp fade to dur/2 so the fade windows never overlap and the respawn
-    // delay (dur - fade) stays >= dur/2; a larger fade piles up sprites.
+    // Clamp fade to dur/2 so the fade windows never overlap; a larger fade piles
+    // up sprites.
     int dur = static_cast<int>(params.duration);
     int fade = std::min(static_cast<int>(params.fade), dur / 2);
-    // Cold setup-time seam, so trap on device too with HS_CHECK.
     HS_CHECK(fade <= dur / 2 && dur - fade >= dur / 2);
     timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_linear, fade,
                                       ease_linear));
 
     // Topology indices left un-reduced: draw_shape applies the modulo at render
-    // time, so reducing here would double-modulo and mutate the carousel's mesh.
+    // time, so reducing here would double-modulo.
 
     const auto &entry = solids[solid_idx];
     hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
