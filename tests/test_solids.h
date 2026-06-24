@@ -333,7 +333,7 @@ inline void check_determinism_for_index(size_t index) {
  *          bit-identical.
  */
 inline void test_determinism_hardcoded_platonic() {
-  // index 1 = cube (pure data, no procedural ops).
+  // index 1 = cube
   check_determinism_for_index(1);
 }
 
@@ -342,7 +342,7 @@ inline void test_determinism_hardcoded_platonic() {
  * @details The procedural path must reproduce identical geometry across builds.
  */
 inline void test_determinism_archimedean_with_conway_ops() {
-  // index 6 = cuboctahedron (cube -> ambo): exercises a Conway op pipeline.
+  // index 6 = cuboctahedron (cube -> ambo)
   check_determinism_for_index(6);
 }
 

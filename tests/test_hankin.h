@@ -47,7 +47,6 @@ inline void test_compile_hankin_populates_arrays() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(cube, compiled, target, temp);
 
-  // base_vertices mirrors the input vertex list exactly
   HS_EXPECT_EQ(compiled.base_vertices.size(), cube.vertices.size());
   for (size_t i = 0; i < cube.vertices.size(); ++i) {
     HS_EXPECT_NEAR(compiled.base_vertices[i].x, cube.vertices[i].x, 1e-6f);
@@ -55,31 +54,27 @@ inline void test_compile_hankin_populates_arrays() {
     HS_EXPECT_NEAR(compiled.base_vertices[i].z, cube.vertices[i].z, 1e-6f);
   }
 
-  // static_vertices: one per unique edge of the input. Cube has 12 edges.
+  // one static vertex per unique edge; cube has 12 edges
   HS_EXPECT_EQ(compiled.static_vertices.size(), (size_t)12);
 
-  // Static vertices are midpoints normalised onto the unit sphere.
+  // static vertices are edge midpoints normalised onto the unit sphere
   for (size_t i = 0; i < compiled.static_vertices.size(); ++i) {
     HS_EXPECT_NEAR(compiled.static_vertices[i].length(), 1.0f, 1e-3f);
   }
 
-  // dynamic_vertices: one per half-edge (= twice the edge count).
+  // one dynamic vertex per half-edge (twice the edge count)
   HS_EXPECT_EQ(compiled.dynamic_vertices.size(), (size_t)24);
-  // dynamic_instructions parallels dynamic_vertices.
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
                compiled.dynamic_vertices.size());
 
-  // static_offset == |static_vertices| (dynamic indices start at static_offset).
   HS_EXPECT_EQ((size_t)compiled.static_offset,
                compiled.static_vertices.size());
 
-  // Face data is internally consistent.
   size_t total = 0;
   for (size_t i = 0; i < compiled.face_counts.size(); ++i)
     total += compiled.face_counts[i];
   HS_EXPECT_EQ(total, compiled.faces.size());
 
-  // All face indices must be < |static_vertices| + |dynamic_vertices|.
   size_t max_v = compiled.static_vertices.size() + compiled.dynamic_vertices.size();
   for (size_t i = 0; i < compiled.faces.size(); ++i)
     HS_EXPECT_TRUE(compiled.faces[i] < max_v);
@@ -172,24 +167,21 @@ inline void test_compile_hankin_icosahedron_triangular_faces() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(ico, compiled, target, temp);
 
-  // base_vertices mirrors the 12 input vertices.
   HS_EXPECT_EQ(compiled.base_vertices.size(), (size_t)12);
 
-  // static_vertices: one per unique edge. Icosahedron has 30 edges.
+  // one static vertex per unique edge; icosahedron has 30 edges
   HS_EXPECT_EQ(compiled.static_vertices.size(), (size_t)30);
   for (size_t i = 0; i < compiled.static_vertices.size(); ++i)
     HS_EXPECT_NEAR(compiled.static_vertices[i].length(), 1.0f, 1e-3f);
 
-  // dynamic_vertices: one per half-edge (= twice the edge count = 60).
+  // one dynamic vertex per half-edge (twice the edge count = 60)
   HS_EXPECT_EQ(compiled.dynamic_vertices.size(), (size_t)60);
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
                compiled.dynamic_vertices.size());
 
-  // static_offset == |static_vertices|.
   HS_EXPECT_EQ((size_t)compiled.static_offset,
                compiled.static_vertices.size());
 
-  // Face data is internally consistent and every index is in range.
   size_t total = 0;
   for (size_t i = 0; i < compiled.face_counts.size(); ++i)
     total += compiled.face_counts[i];
@@ -200,7 +192,6 @@ inline void test_compile_hankin_icosahedron_triangular_faces() {
   for (size_t i = 0; i < compiled.faces.size(); ++i)
     HS_EXPECT_TRUE(compiled.faces[i] < max_v);
 
-  // Every dynamic instruction references in-range base/static indices.
   size_t V = ico.vertices.size();
   size_t S = compiled.static_vertices.size();
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
@@ -214,8 +205,7 @@ inline void test_compile_hankin_icosahedron_triangular_faces() {
 }
 
 // ---------------------------------------------------------------------------
-// update_hankin — flat (angle = 0) collapses dynamic verts to the
-// normalised corner positions.
+// update_hankin
 // ---------------------------------------------------------------------------
 
 /**
@@ -232,7 +222,6 @@ inline void test_update_hankin_flat_collapses_to_corners() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(cube, compiled, target, temp);
 
-  // angle = 0 → each dynamic vertex equals the normalised v_corner.
   PolyMesh out;
   MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.0f);
 
@@ -267,25 +256,24 @@ inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
   MeshOps::compile_hankin(cube, compiled, target, temp);
   HS_EXPECT_TRUE(compiled.dynamic_instructions.size() > 0);
 
-  // Force a zero-length edge for instruction 0: make its previous corner
-  // coincide with its corner, so cross(p_prev, p_corner) == 0.
+  // Make instruction 0's previous corner coincide with its corner so
+  // cross(p_prev, p_corner) == 0, forcing a zero-length edge.
   const size_t idx = 0;
   const auto ins = compiled.dynamic_instructions[idx];
-  HS_EXPECT_TRUE(ins.v_prev != ins.v_corner); // distinct before the overwrite
+  HS_EXPECT_TRUE(ins.v_prev != ins.v_corner);
   compiled.base_vertices[ins.v_prev] = compiled.base_vertices[ins.v_corner];
 
-  // Non-zero angle so we take the twisted path, not the flat short-circuit.
+  // Non-zero angle to take the twisted path, not the flat short-circuit.
   PolyMesh out;
   MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.5f);
 
-  // The degenerate edge collapses the dynamic vertex onto the normalised corner.
   const Vector corner = compiled.base_vertices[ins.v_corner].normalized();
   const Vector got = compiled.dynamic_vertices[idx];
   HS_EXPECT_NEAR(got.x, corner.x, 1e-4f);
   HS_EXPECT_NEAR(got.y, corner.y, 1e-4f);
   HS_EXPECT_NEAR(got.z, corner.z, 1e-4f);
 
-  // It must stay finite and unit-length — never NaN from normalising a zero.
+  // Stays finite and unit-length — never NaN from normalising a zero.
   HS_EXPECT_TRUE(std::isfinite(got.x) && std::isfinite(got.y) &&
                  std::isfinite(got.z));
   HS_EXPECT_NEAR(got.length(), 1.0f, 1e-4f);
@@ -309,7 +297,6 @@ inline void test_update_hankin_populates_output_mesh() {
   PolyMesh out;
   MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.4f);
 
-  // Output vertices = static_vertices + dynamic_vertices
   HS_EXPECT_EQ(out.vertices.size(),
                compiled.static_vertices.size() +
                    compiled.dynamic_vertices.size());
@@ -344,13 +331,9 @@ inline void test_hankin_one_shot_produces_valid_mesh() {
   check_face_counts_consistent(out);
   check_indices_in_range(out);
 
-  // Static + dynamic vertices live on (or very near) the unit sphere. The 1e-2
-  // tolerance is intentionally looser than compile_hankin's 1e-3: that check
-  // covers only static_vertices (edge midpoints, re-normalized exactly onto the
-  // sphere), whereas the one-shot output also contains the dynamic vertices —
-  // ray/segment intersections at the build angle that land slightly off the unit
-  // sphere by construction. They are the same vertices the engine draws, so 1e-2
-  // is the honest bound on the full output set, not a weakened version of 1e-3.
+  // 1e-2 (looser than compile_hankin's 1e-3) because the output also contains
+  // dynamic vertices — ray/segment intersections that land slightly off the
+  // unit sphere by construction, not just re-normalised edge midpoints.
   check_all_unit_vertices(out, 1e-2f);
 }
 
@@ -367,10 +350,8 @@ inline void test_hankin_flat_and_twisted_differ() {
   PolyMesh cube;
   build_solid<Solids::Cube>(cube, temp);
 
-  // Compile once, then update the same topology at two angles so the static /
-  // dynamic split is known: output indices [0, static_count) are the
-  // angle-independent edge midpoints, the remainder the angle-dependent star
-  // points.
+  // Indices [0, static_count) are angle-independent edge midpoints; the
+  // remainder are the angle-dependent star points.
   CompiledHankin compiled;
   MeshOps::compile_hankin(cube, compiled, target_a, temp);
   const size_t static_count = compiled.static_vertices.size();
@@ -380,21 +361,16 @@ inline void test_hankin_flat_and_twisted_differ() {
   PolyMesh twisted;
   MeshOps::update_hankin(compiled, twisted, target_b, 0.6f);
 
-  // Same topology at both angles.
   HS_EXPECT_EQ(flat.vertices.size(), twisted.vertices.size());
   HS_EXPECT_EQ(flat.face_counts.size(), twisted.face_counts.size());
 
-  // Static vertices are edge midpoints with no angle dependence, so they must be
-  // identical at the 1e-6 build-noise floor — any later difference can only come
-  // from the dynamic star points.
+  // Edge midpoints are angle-independent, so identical at the 1e-6 noise floor.
   for (size_t i = 0; i < static_count; ++i)
     HS_EXPECT_NEAR((flat.vertices[i] - twisted.vertices[i]).length(), 0.0f,
                    1e-6f);
 
-  // The dynamic star points must move by a geometrically real amount. A 0.6 rad
-  // contact twist displaces them substantially; require the largest delta to
-  // clear 1e-2 — four orders of magnitude above the 1e-6 noise floor, so the
-  // check can only pass on an actual twist and never on rounding.
+  // Dynamic star points must move a real amount; require the largest delta to
+  // clear 1e-2, well above the 1e-6 noise floor so rounding can't pass it.
   float max_dynamic_delta = 0.0f;
   for (size_t i = static_count; i < flat.vertices.size(); ++i) {
     const float d = (flat.vertices[i] - twisted.vertices[i]).length();
@@ -405,7 +381,7 @@ inline void test_hankin_flat_and_twisted_differ() {
 }
 
 // ---------------------------------------------------------------------------
-// CompiledHankin::clone — deep copy into a separate arena
+// CompiledHankin::clone
 // ---------------------------------------------------------------------------
 
 /**
@@ -435,11 +411,10 @@ inline void test_compiled_hankin_clone_deep_copies() {
   HS_EXPECT_EQ(dst.faces.size(), src.faces.size());
   HS_EXPECT_EQ(dst.static_offset, src.static_offset);
 
-  // Backing storage is independent (pointers differ — different arenas).
+  // Independent backing storage: pointers differ.
   HS_EXPECT_TRUE(dst.base_vertices.data() != src.base_vertices.data());
   HS_EXPECT_TRUE(dst.static_vertices.data() != src.static_vertices.data());
 
-  // Element values match.
   for (size_t i = 0; i < src.base_vertices.size(); ++i) {
     HS_EXPECT_NEAR(dst.base_vertices[i].x, src.base_vertices[i].x, 1e-6f);
     HS_EXPECT_NEAR(dst.base_vertices[i].y, src.base_vertices[i].y, 1e-6f);

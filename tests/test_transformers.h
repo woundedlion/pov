@@ -223,15 +223,13 @@ inline void test_ripple_active_rotates_on_sphere() {
   p.phase = PI_F * 0.5f; // peak of the wavelet at d == 90°
   p.decay = 0.0f;        // no attenuation, so the rotation is significant
   p.thickness = 1.0f;
-  // default thresholds (min=1, max=-1) disable the fast reject → ripple always
-  // applies. test_ripple_threshold_reject_path covers the prepared-bounds path.
+  // Default thresholds (min=1, max=-1) disable the fast reject → always applies.
 
   Vector v = Vector(1, 0, 0); // 90° from center → at the wavelet peak
   Vector r = ripple_transform(v, p);
 
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.length(), 1.0f, 1e-4f); // rotation preserves unit length
-  // The point actually moved.
   float moved =
       std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
   HS_EXPECT_GT(moved, 1e-2f);
@@ -258,8 +256,8 @@ inline void test_ripple_threshold_reject_path() {
   p.thickness = 0.4f;    // band ≈ [phase - 0.4, phase + 0.4] rad
   p.prepare_thresholds();
 
-  // The prepared bounds must be a real (non-degenerate) window, else the reject
-  // legs below can never fire and the test would silently prove nothing.
+  // Prepared bounds must be a real (non-degenerate) window, else the reject legs
+  // below can never fire.
   HS_EXPECT_LT(p.cos_threshold_min, 1.0f);
   HS_EXPECT_GT(p.cos_threshold_max, -1.0f);
 
@@ -306,7 +304,7 @@ inline void test_ripple_decay_attenuates() {
   base.amplitude = 0.5f;
   base.phase = PI_F * 0.5f; // peak of the wavelet at d == 90°
   base.thickness = 1.0f;
-  // default thresholds (min=1, max=-1) disable the fast reject → always applies
+  // Default thresholds (min=1, max=-1) disable the fast reject → always applies.
   const Vector v = Vector(1, 0, 0); // d == 90° from center, at the peak
 
   auto moved = [&](float decay) {

@@ -33,7 +33,6 @@ inline void test_named_presets() {
   HS_EXPECT_TRUE(smoke.space_fn == &Feedback::noise_warp);
   HS_EXPECT_TRUE(smoke.color_fn == &Feedback::hue_fade);
 
-  // The two melt-based presets use melt_warp; Swirling drops the hue shift.
   HS_EXPECT_TRUE(Feedback::Style::Melting().space_fn == &Feedback::melt_warp);
   HS_EXPECT_TRUE(Feedback::Style::Swirling().space_fn == &Feedback::melt_warp);
   HS_EXPECT_TRUE(Feedback::Style::Swirling().color_fn == &Feedback::plain_fade);
@@ -77,9 +76,8 @@ inline void test_lerp_scalars_and_snapping() {
 
   NoiseParams subj;
   Feedback::Style mid{};
-  mid.noise = &subj; // the subject's own bound state, distinct from a/b
+  mid.noise = &subj; // subject's own bound state, distinct from a/b
   mid.lerp(a, b, 0.5f);
-  // Scalars interpolate linearly.
   HS_EXPECT_NEAR(mid.fade, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(mid.hue_shift, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(mid.scale, 0.5f, 1e-6f);
@@ -87,11 +85,10 @@ inline void test_lerp_scalars_and_snapping() {
   HS_EXPECT_TRUE(mid.space_fn == &Feedback::noise_warp);
   HS_EXPECT_TRUE(mid.color_fn == &Feedback::hue_fade);
   HS_EXPECT_EQ(mid.downsample, 8);
-  // noise is the subject's bound state: lerping presets must leave it alone,
-  // never pulling a.noise (&na) or b.noise (nullptr) over it.
+  // lerp must leave the subject's bound noise untouched.
   HS_EXPECT_TRUE(mid.noise == &subj);
 
-  // Just below the midpoint the discrete fields stay on a.
+  // Below the midpoint, discrete fields stay on a.
   Feedback::Style lo{};
   lo.lerp(a, b, 0.4f);
   HS_EXPECT_TRUE(lo.space_fn == &Feedback::identity_warp);
@@ -120,7 +117,7 @@ inline void test_identity_warp() {
  */
 inline void test_noise_warp_null_is_identity() {
   Feedback::Style s{};
-  s.noise = nullptr; // unbound → no distortion
+  s.noise = nullptr;
   Vector v = Vector(0.6f, 0.4f, 0.69f).normalized();
   Vector out = Feedback::noise_warp(v, s);
   HS_EXPECT_NEAR(out.x, v.x, 1e-6f);
@@ -136,15 +133,15 @@ inline void test_noise_warp_null_is_identity() {
  */
 inline void test_melt_warp_drifts_toward_north() {
   Feedback::Style s{};
-  s.speed = 1.0f;     // positive drip rate
+  s.speed = 1.0f;
   s.amplitude = 0.0f; // no noise wobble
   s.noise = nullptr;  // skip the noise branch
   Vector v(1.0f, 0.0f, 0.0f); // on the equator (y = 0)
   Vector out = Feedback::melt_warp(v, s);
-  // Slerp toward the north pole pulls y upward and shrinks x.
+  // Slerp toward the north pole pulls y up and shrinks x.
   HS_EXPECT_TRUE(out.y > 0.0f);
   HS_EXPECT_TRUE(out.x < 1.0f);
-  HS_EXPECT_NEAR(out.length(), 1.0f, 1e-4f); // slerp preserves unit length
+  HS_EXPECT_NEAR(out.length(), 1.0f, 1e-4f);
 }
 
 /**
@@ -165,14 +162,14 @@ inline void test_noise_warp_bound_distorts() {
   s.speed = 0.0f;
   s.scale = 4.0f;
   s.noise = &np;
-  s.sync_noise(); // production path: push scalars into the bound NoiseParams
+  s.sync_noise(); // push scalars into the bound NoiseParams
 
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
                             Vector(0.4f, 0.6f, 0.7f).normalized()};
   float total_moved = 0.0f;
   for (const Vector &v : samples) {
     Vector out = Feedback::noise_warp(v, s);
-    HS_EXPECT_NEAR(out.length(), 1.0f, 1e-3f); // stays on the sphere (and finite)
+    HS_EXPECT_NEAR(out.length(), 1.0f, 1e-3f); // stays on the sphere
     total_moved +=
         std::abs(out.x - v.x) + std::abs(out.y - v.y) + std::abs(out.z - v.z);
   }
@@ -191,7 +188,7 @@ inline void test_melt_warp_bound_noise_perturbs() {
   NoiseParams np;
   Feedback::Style s{};
   s.speed = 1.0f;
-  s.amplitude = 0.6f; // above the melt noise-wobble floor → noise branch runs
+  s.amplitude = 0.6f; // above the melt wobble floor → noise branch runs
   s.frequency = 0.5f;
   s.scale = 4.0f;
   s.noise = &np;
@@ -241,7 +238,7 @@ inline void test_hue_fade_zero_shift_preserves_gray() {
   Pixel out = Feedback::hue_fade(gray, 0.5f, s);
   HS_EXPECT_TRUE(out.r < gray.r); // dimmed
   HS_EXPECT_TRUE(out.r > 0);
-  // Stays gray within a small round-trip tolerance.
+  // Stays gray within the OKLCH round-trip tolerance.
   HS_EXPECT_TRUE(std::abs((int)out.r - (int)out.g) < 64);
   HS_EXPECT_TRUE(std::abs((int)out.g - (int)out.b) < 64);
 }
@@ -255,14 +252,13 @@ inline void test_hue_fade_zero_shift_preserves_gray() {
  */
 inline void test_sync_hue_caches_rotation() {
   Feedback::Style s{};
-  // Until sync_hue() runs, the cache is the identity rotation (angle 0).
+  // Before sync_hue(), the cache is the identity rotation (angle 0).
   HS_EXPECT_NEAR(s.hue_ca, 1.0f, 1e-6f);
   HS_EXPECT_NEAR(s.hue_sa, 0.0f, 1e-6f);
 
-  s.hue_shift = 0.25f; // a quarter turn around the hue circle
+  s.hue_shift = 0.25f; // quarter turn
   s.sync_hue();
   const float angle = 0.25f * (2.0f * PI_F);
-  // sync_hue caches exactly fast_cosf/fast_sinf of the turn angle.
   HS_EXPECT_NEAR(s.hue_ca, fast_cosf(angle), 1e-6f);
   HS_EXPECT_NEAR(s.hue_sa, fast_sinf(angle), 1e-6f);
   // A quarter turn lands near (cos, sin) = (0, 1).
@@ -286,13 +282,12 @@ inline void test_hue_fade_nonzero_shift_rotates_saturated() {
   const float fade = 0.8f;
   Pixel rotated = Feedback::hue_fade(red, fade, s);
 
-  // A nonzero hue shift must move the color off the plain (hue-preserving) fade;
-  // otherwise the cache path would be a silent no-op.
+  // A nonzero shift must move the color off the plain fade.
   Pixel plain = Feedback::plain_fade(red, fade, s);
   const int delta = std::abs((int)rotated.r - (int)plain.r) +
                     std::abs((int)rotated.g - (int)plain.g) +
                     std::abs((int)rotated.b - (int)plain.b);
-  HS_EXPECT_TRUE(delta > 1000); // the hue genuinely rotated
+  HS_EXPECT_TRUE(delta > 1000);
 
   // The cached (hue_ca, hue_sa) path must agree bit-for-bit with the per-call
   // hue_rotate overload that recomputes the rotation from hue_shift.
@@ -324,7 +319,7 @@ inline void test_sync_noise_pushes_scalars() {
   HS_EXPECT_NEAR(np.speed, 2.5f, 1e-6f);
   HS_EXPECT_NEAR(np.scale, 9.0f, 1e-6f);
 
-  // Unbound sync is a safe no-op (must not dereference null).
+  // Unbound sync must not dereference null.
   Feedback::Style unbound{};
   unbound.noise = nullptr;
   unbound.sync_noise();

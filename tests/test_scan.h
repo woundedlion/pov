@@ -71,13 +71,9 @@ inline void test_shader_constant_fills_canvas() {
   }
   fx.advance_display();
 
-  // Every pixel in the full canvas got the constant color. The readback is
-  // asserted bit-exact intentionally: at alpha = 1.0 the compositing path is the
-  // identity (src*1 + dst*0, no rounding term), so the written channels must
-  // survive verbatim. That alpha=1 blend identity is itself guaranteed by
-  // test_blend_alpha (blend_alpha(1.0f)(a, b) == b); if a future blend change
-  // breaks it (a rounding/premultiply/dither term), expect this to fail too,
-  // which is the intended coupling, not an over-tight tolerance.
+  // Bit-exact readback: at alpha=1 the blend is the identity (src*1 + dst*0), so
+  // channels survive verbatim. Couples to test_blend_alpha by design — a blend
+  // change that adds a rounding/dither term is meant to fail here too.
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       const Pixel &p = fx.get_pixel(x, y);
@@ -102,9 +98,8 @@ inline void test_shader_ssaa_premultiplies_partial_coverage() {
   ScanFx fx(W, H);
   {
     Canvas c(fx);
-    // The 2x2 grid calls the shader 4× per pixel; alternating opaque/transparent
-    // by call index yields exactly two opaque red + two transparent samples per
-    // pixel (4 is even, so the phase realigns at every pixel).
+    // 2x2 grid calls the shader 4× per pixel; alternating by call index yields
+    // two opaque red + two transparent per pixel (4 is even, phase realigns).
     int call = 0;
     Scan::Shader::draw<W, H, 4>(c, [&call](const Vector &) -> Color4 {
       bool opaque = (call++ % 2) == 0;
@@ -115,7 +110,6 @@ inline void test_shader_ssaa_premultiplies_partial_coverage() {
   fx.advance_display();
 
   // Premultiplied: (60000*1 + 60000*1 + 0 + 0) / 4 = 30000.
-  // Straight-alpha (old, wrong) would have been (60000/2) * 0.5 = 15000.
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       const Pixel &p = fx.get_pixel(x, y);
@@ -144,7 +138,7 @@ inline void test_shader_positional_maps_latitude() {
   }
   fx.advance_display();
 
-  // Top row (y=0) is the north pole and must be brighter than the bottom row.
+  // Top row (y=0) is the north pole, brighter than the bottom row.
   HS_EXPECT_GT((int)fx.get_pixel(0, 0).g, (int)fx.get_pixel(0, H - 1).g);
   HS_EXPECT_GT((int)fx.get_pixel(0, 0).g, 40000);
   HS_EXPECT_LT((int)fx.get_pixel(0, H - 1).g, 20000);
@@ -204,7 +198,7 @@ inline void test_ring_rasterize_produces_bounded_output() {
       if (!is_black(fx.get_pixel(x, y)))
         ++plotted;
 
-  // The rasterizer plotted a ring: some pixels, but not the whole canvas.
+  // Some pixels, but not the whole canvas.
   HS_EXPECT_GT(plotted, (size_t)0);
   HS_EXPECT_LT(plotted, (size_t)(W * H));
 }
@@ -250,7 +244,7 @@ inline void test_ring_rasterize_lit_pixels_on_band() {
       float polar = acosf(hs::clamp(v.y, -1.0f, 1.0f));
       HS_EXPECT_LE(fabsf(polar - target), band);
     }
-  HS_EXPECT_GT(lit, (size_t)0); // the ring is actually drawn
+  HS_EXPECT_GT(lit, (size_t)0);
 }
 
 /**
@@ -392,7 +386,6 @@ inline void test_plot_line_over_pole_reaches_row0() {
   for (int x = 0; x < W; ++x)
     if (!is_black(fx.get_pixel(x, 0)))
       ++row0;
-  // The line reaches the pole row.
   HS_EXPECT_GT(row0, (size_t)0);
 }
 
@@ -466,7 +459,6 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
   // Same geometry as `thick_line` but standalone, for the contrast check.
   SDF::Line thick_solo(Vector(1, 0, 0), Vector(0, 0, 1), thick);
 
-  // A composite of two strokes is itself a stroke.
   HS_EXPECT_FALSE((SDF::Union<SDF::Line, SDF::Line>::is_solid));
 
   // Point at geodesic distance 0.025 (half the thin thickness) north of the
@@ -581,8 +573,7 @@ inline void test_stroke_aa_is_monotone_ramp() {
     float a = scan_alpha_at<W, H>(ring, p, c, &count);
     if (count == 0) a = 0.0f; // outside the stroke -> not drawn -> alpha 0
 
-    // Monotone non-increasing as we move outward.
-    HS_EXPECT_LE(a, prev + 1e-4f);
+    HS_EXPECT_LE(a, prev + 1e-4f); // monotone non-increasing outward
     prev = a;
 
     if (a > 0.95f) saw_one = true;

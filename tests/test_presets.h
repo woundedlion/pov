@@ -63,7 +63,7 @@ inline void test_next_cycles_forward_and_tracks_prev() {
 
   p.next();
   HS_EXPECT_EQ(p.get().id, 2);
-  HS_EXPECT_EQ(p.prev_get().id, 1); // prev_idx points at the pre-next entry
+  HS_EXPECT_EQ(p.prev_get().id, 1); // prev points at the pre-next entry
 
   p.next();
   HS_EXPECT_EQ(p.get().id, 3);
@@ -125,7 +125,7 @@ inline void test_single_entry_wraps_in_place() {
  *          and confirms the deduced size and forward cycling.
  */
 inline void test_ctad_deduces_size() {
-  // The deduction guide deduces <DummyParams, 2> from the array's element count.
+  // No explicit <DummyParams, 2>: the deduction guide infers it from the array.
   Presets ctad{std::array<PresetEntry<DummyParams>, 2>{{
       {DummyParams{7, 0.0f}},
       {DummyParams{8, 0.0f}},

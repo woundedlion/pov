@@ -72,7 +72,6 @@ inline void test_fresh_frame_skeleton() {
   for (int i = 0; i < 4; ++i)
     HS_EXPECT_EQ(d[i], 0);
 
-  // Every pixel slot carries the fixed 0xFF brightness byte and zero color.
   for (int i = 0; i < N; ++i) {
     const uint8_t *p = pixel(f, i);
     HS_EXPECT_EQ(p[0], 0xFF);
@@ -85,7 +84,6 @@ inline void test_fresh_frame_skeleton() {
   for (int i = 0; i < Frame::END_FRAME_BYTES; ++i)
     HS_EXPECT_EQ(d[4 + N * 4 + i], 0);
 
-  // Trailing black frame mirrors the image frame's brightness bytes, zero color.
   const uint8_t *bg = d + Frame::BUFFER_SIZE;
   for (int i = 0; i < N; ++i) {
     HS_EXPECT_EQ(bg[4 + i * 4], 0xFF);
@@ -108,21 +106,18 @@ inline void test_correct_pipeline() {
   HS_EXPECT_EQ(g, 0u);
   HS_EXPECT_EQ(b, 0u);
 
-  // Unity factors (255) resolve to ×256/256 = exact identity at every stage,
-  // so full brightness is preserved bit-for-bit. Output never exceeds input,
-  // so the clamp is never reached.
+  // Factor 255 maps to ×256/256 = exact identity, so full input is preserved.
   r = g = b = 65535;
   f.correct(r, g, b);
   HS_EXPECT_EQ(r, 65535u);
   HS_EXPECT_EQ(g, 65535u);
   HS_EXPECT_EQ(b, 65535u);
 
-  // Brightness scales down monotonically; 0 zeroes the channel.
   Frame::setBrightness(128);
   uint32_t half = 65535;
   uint32_t dummy = 0;
   f.correct(half, dummy, dummy);
-  HS_EXPECT_LT(half, 65535u); // dimmer than full brightness
+  HS_EXPECT_LT(half, 65535u);
 
   Frame::setBrightness(0);
   uint32_t off = 65535;
@@ -146,9 +141,8 @@ inline void test_correct_pipeline() {
 inline void test_correct_multifactor() {
   Frame f;
 
-  // Temperature compounds ON TOP of correction, it does not replace it: green
-  // attenuated by correction alone must be brighter than green attenuated by
-  // correction *and* the candle temperature.
+  // Temperature compounds on top of correction, not instead of it: green under
+  // correction alone is brighter than green under correction + temperature.
   Frame::setCorrection(255, 176, 240);
   Frame::setTemperature(255, 255, 255);
   Frame::setBrightness(255);
@@ -159,31 +153,26 @@ inline void test_correct_multifactor() {
   Frame::setTemperature(255, 147, 41);
   uint32_t r = 65535, g = 65535, b = 65535;
   f.correct(r, g, b);
-  HS_EXPECT_LT(g, g_corr_only); // temperature further dims green: factors compound
+  HS_EXPECT_LT(g, g_corr_only); // factors compound
 
-  // Exact shipped scaling. factor(f) stores f+1, so each stage is (v * (f+1)) >> 8;
-  // red (255,255 → ×256/256) passes through, while the warm-white correction plus
-  // candle temperature drive green and especially blue far down (R > G > B).
+  // Exact shipped scaling. factor(f) stores f+1, so each stage is (v*(f+1))>>8:
   //   R: 65535                                                     = 65535
   //   G: ((65535*177>>8)=45311 *148>>8)=26195  *256>>8             = 26195
   //   B: ((65535*241>>8)=61695 * 42>>8)=10121  *256>>8             = 10121
   HS_EXPECT_EQ(r, 65535u);
   HS_EXPECT_EQ(g, 26195u);
   HS_EXPECT_EQ(b, 10121u);
-  HS_EXPECT_LT(b, g); // blue is the most attenuated channel under candle white
+  HS_EXPECT_LT(b, g);
 
-  // Dead-clamp invariant: the largest public factor is 255, which factor() maps
-  // to the internal multiplier 256 = exact unity, so every stage multiplies by at
-  // most 256 before the >>8 — output can never exceed the input, hence never
-  // exceeds 65535. Drive all six gains and brightness to their max with the
-  // brightest input and confirm the result lands exactly at the ceiling without
-  // the clamp ever having to fire.
+  // Dead-clamp invariant: factor 255 maps to multiplier 256 (exact unity), so
+  // every stage's (v*256)>>8 never exceeds the input — max gains reach but never
+  // breach 65535, so the clamp never fires.
   Frame::setCorrection(255, 255, 255);
   Frame::setTemperature(255, 255, 255);
   Frame::setBrightness(255);
   uint32_t mr = 65535, mg = 65535, mb = 65535;
   f.correct(mr, mg, mb);
-  HS_EXPECT_EQ(mr, 65535u); // max factors reach but never breach 65535
+  HS_EXPECT_EQ(mr, 65535u);
   HS_EXPECT_EQ(mg, 65535u);
   HS_EXPECT_EQ(mb, 65535u);
 
@@ -198,12 +187,11 @@ inline void test_packpixel_wire_order() {
   reset_correction();
   Frame f;
 
-  // Linear primaries via the sRGB→linear conversion CRGB carries.
   const Pixel16 red(CRGB(255, 0, 0));
   const Pixel16 green(CRGB(0, 255, 0));
   const Pixel16 blue(CRGB(0, 0, 255));
 
-  // Wire record is [0xFF][B][G][R]: a primary must light exactly its own slot.
+  // Wire record is [0xFF][B][G][R].
   f.packPixel(0, red);
   HS_EXPECT_EQ(pixel(f, 0)[0], 0xFF);
   HS_EXPECT_EQ(pixel(f, 0)[1], 0);    // B
@@ -220,7 +208,7 @@ inline void test_packpixel_wire_order() {
   HS_EXPECT_EQ(pixel(f, 2)[2], 0);    // G
   HS_EXPECT_EQ(pixel(f, 2)[3], 0);    // R
 
-  // Packing pixel 2 must not have disturbed pixel 0.
+  // Packing pixel 2 must not disturb pixel 0.
   HS_EXPECT_GT(pixel(f, 0)[3], 0);
   HS_EXPECT_EQ(pixel(f, 0)[1], 0);
 }
@@ -234,8 +222,6 @@ inline void test_packpixel_wire_order() {
 inline void test_load_matches_packpixel() {
   reset_correction();
 
-  // load(): sRGB CRGB → linear → correct → sRGB; packPixel(): linear Pixel16 →
-  // correct → sRGB. Same correct() core, so equivalent inputs cannot drift.
   const CRGB src[3] = {CRGB(200, 100, 50), CRGB(0, 0, 0), CRGB(255, 255, 255)};
 
   Frame fl;
@@ -249,7 +235,7 @@ inline void test_load_matches_packpixel() {
     for (int k = 0; k < 4; ++k)
       HS_EXPECT_EQ(pixel(fl, i)[k], pixel(fp, i)[k]);
 
-  // And load() honors CRGB channel identity: pure red → only the R wire slot.
+  // load() honors CRGB channel identity: pure red → only the R wire slot.
   Frame fr;
   const CRGB red_only[1] = {CRGB(255, 0, 0)};
   fr.load(red_only, 1);

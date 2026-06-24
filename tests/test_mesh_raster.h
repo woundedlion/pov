@@ -179,8 +179,7 @@ inline void test_wireframe_draws_every_edge() {
   Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
   Arena geom(mr_geom, sizeof(mr_geom));
 
-  // Octahedron: 6 vertices on the ±axes, 12 edges. Edge midpoints are off the
-  // poles (every edge joins two orthogonal axes), so each projects to a
+  // Octahedron edge midpoints are off the poles, so each projects to a
   // well-defined, non-singular pixel.
   PolyMesh mesh = Solids::Platonic::octahedron(seed_a, seed_b);
 
@@ -197,7 +196,6 @@ inline void test_wireframe_draws_every_edge() {
   }
   fx.advance_display();
 
-  // Every unique edge's geodesic midpoint lands on a lit pixel.
   for (size_t e = 0; e < edges.size(); ++e) {
     Vector a = mesh.vertices[edges[e].u];
     Vector b = mesh.vertices[edges[e].v];
@@ -244,7 +242,7 @@ inline void test_wireframe_pixels_lie_on_edges() {
   fx.advance_display();
 
   // Tolerance: a few rows of latitude to absorb single-pixel line width,
-  // geodesic-sampling granularity, and vector_to_pixel rounding.
+  // sampling granularity, and vector_to_pixel rounding.
   const float tol = 4.0f * (PI_F / H);
   size_t lit = 0, off_arc = 0;
   for (int y = 0; y < H; ++y)
@@ -263,8 +261,8 @@ inline void test_wireframe_pixels_lie_on_edges() {
       if (best > tol)
         ++off_arc;
     }
-  HS_EXPECT_GT(lit, (size_t)0);   // edges were drawn
-  HS_EXPECT_EQ(off_arc, (size_t)0); // and nothing was drawn off them
+  HS_EXPECT_GT(lit, (size_t)0);
+  HS_EXPECT_EQ(off_arc, (size_t)0); // nothing drawn off the edges
 }
 
 // ============================================================================
@@ -289,10 +287,9 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
 
   PolyMesh poly = Solids::Platonic::octahedron(seed_a, seed_b);
 
-  // Wireframe lit count, for the "fill covers far more than the wireframe"
-  // contrast. `wire` and the `fx` fill below alias the same static double
-  // buffer, so the wireframe effect must be torn down (its lit count captured)
-  // before the fill effect is constructed — only one Effect may be live at once.
+  // Wireframe lit count, for the fill-vs-wireframe contrast. `wire` and `fx`
+  // alias the same static double buffer, so `wire` must be torn down (count
+  // captured) before `fx` is built — only one Effect may be live at once.
   size_t wire_lit;
   {
     MeshFx wire(W, H);
@@ -305,7 +302,7 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
     wire_lit = count_lit<W, H>(wire);
   }
 
-  // Compile to a MeshState (the solid scan path needs face_offsets) and fill.
+  // Compile to a MeshState; the solid scan path needs face_offsets.
   MeshState mesh;
   MeshOps::compile(poly, mesh, geom);
 
@@ -317,9 +314,8 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   }
   fx.advance_display();
 
-  // (a) Each face's interior is lit: project the face centroid and assert a lit
-  //     pixel there. A face whose bounding cull wrongly dropped its rows would
-  //     leave its centroid dark.
+  // (a) Each face interior is lit: project the centroid and assert a lit pixel
+  //     there. A face whose bounding cull dropped its rows leaves it dark.
   const uint8_t *fc = mesh.get_face_counts_data();
   const uint16_t *fi = mesh.get_faces_data();
   const uint16_t *fo = mesh.get_face_offsets_data();
@@ -334,16 +330,13 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
     HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 2)));
   }
 
-  // (b) The fill covers far more than the wireframe...
+  // (b) The fill covers far more than the wireframe.
   const size_t fill_lit = count_lit<W, H>(fx);
   HS_EXPECT_GT(fill_lit, wire_lit * 4);
 
-  // ...and a closed convex solid's spherical faces tile the entire sphere, so
-  // the fill leaves essentially no holes. A conservative per-face row/column
-  // cull is necessary for this: a cull that clipped any covered row would punch
-  // a visible gap. Allow a thin slack for seam pixels exactly on a geodesic
-  // boundary between two faces (a pixel center can miss both under the bare
-  // non-AA fill rule).
+  // A closed convex solid tiles the whole sphere, so the fill leaves essentially
+  // no holes. The thin slack covers seam pixels exactly on a geodesic boundary
+  // between two faces (a pixel center can miss both under the non-AA fill rule).
   const size_t total = static_cast<size_t>(W) * H;
   HS_EXPECT_GT(fill_lit, total * 99 / 100);
 }

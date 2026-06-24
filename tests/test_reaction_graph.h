@@ -56,7 +56,6 @@ static inline float chord2(const Vector &a, const Vector &b) {
  *          generator's contract.
  */
 inline void test_nodes_on_unit_sphere() {
-  // Sample across the whole lattice; every node must lie on the unit sphere.
   for (int i = 0; i < RD_N; i += 17) {
     Vector v = node(i);
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
@@ -73,9 +72,7 @@ inline void test_nodes_on_unit_sphere() {
  */
 inline void test_node_deterministic_and_distinct() {
   HS_EXPECT_VEC(node(1234), node(1234), 0.0f);
-  // Adjacent lattice indices are distinct points. Cap the sample budget at
-  // RD_N-1 so the node(i+1) read can never run past the lattice [0, RD_N),
-  // regardless of RD_N (the 500 is just a budget, not tied to the lattice size).
+  // Cap the sample budget at RD_N-1 so node(i+1) never reads past [0, RD_N).
   const int samples = std::min(500, RD_N - 1);
   for (int i = 0; i < samples; ++i) {
     HS_EXPECT_GT(chord2(node(i), node(i + 1)), 0.0f);
@@ -125,7 +122,7 @@ inline void test_table_shape_matches_constants() {
     // from this south-pole row; a real neighbor is within ~11 deg (chord^2<0.037).
     HS_EXPECT_LT(chord2(last, node(ni)), 0.037f);
   }
-  HS_EXPECT_GT(valid, 0); // populated, not an all-sentinel / zero-pad row
+  HS_EXPECT_GT(valid, 0); // populated, not a zero-pad row
 }
 
 // ---------------------------------------------------------------------------
@@ -139,9 +136,6 @@ inline void test_table_shape_matches_constants() {
  *          consumers guard `ni < 0`, so both are accepted here.
  */
 inline void test_indices_in_range() {
-  // Every entry is either the -1 sentinel or a valid node index. (The shipped
-  // table contains no sentinels, but the format permits them and consumers
-  // guard `ni < 0`, so both are accepted here.)
   int bad = 0;
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k) {
@@ -204,7 +198,7 @@ inline void test_max_degree_bounds_laplacian() {
   }
   std::printf("  [info] reaction_graph max degree: %d (|lambda|max <= %d)\n",
               max_deg, 2 * max_deg);
-  HS_EXPECT_LE(max_deg, 6); // hence |λ|max ≤ 12, the GS stability assumption
+  HS_EXPECT_LE(max_deg, 6); // hence |λ|max ≤ 12, the GS stability bound
 }
 
 // ---------------------------------------------------------------------------
@@ -217,9 +211,7 @@ inline void test_max_degree_bounds_laplacian() {
  *          past the expected ~11 deg upper bound.
  */
 inline void test_neighbors_are_local() {
-  // Mean nearest-neighbor spacing on a 7680-point sphere is ~1.3 deg; even the
-  // farthest of the 6 listed neighbors should be well within ~11 deg
-  // (chord^2 < 0.037). A shuffled/corrupted table would blow past this.
+  // ~11 deg upper bound for a listed neighbor → chord^2 < 0.037.
   const float kMaxChord2 = 0.037f;
   int far = 0;
   for (int i = 0; i < RD_N; i += 7) {
@@ -283,11 +275,8 @@ inline void test_edge_reciprocity_high() {
     }
   }
   HS_EXPECT_GT(total, 0L);
-  // The shipped Fibonacci-lattice 6-NN table reciprocates ~98.9% of directed
-  // edges (legitimate K-NN asymmetry is only ~1%). The old >50% bound was far
-  // too slack to notice a half-scrambled table; require >95%, which still clears
-  // the real ~1% asymmetry by a wide margin but trips long before a corruption
-  // could halve the graph.
+  // Shipped table reciprocates ~98.9% (legitimate K-NN asymmetry ~1%); the >95%
+  // bound clears that margin but trips on a half-scrambled table.
   float rate = total ? static_cast<float>(reciprocated) / total : 0.0f;
   std::printf("  [info] reaction_graph edge reciprocity: %.1f%%\n", rate * 100.0f);
   HS_EXPECT_GT(rate, 0.95f);
@@ -312,8 +301,6 @@ inline void test_cubemap_lut_roundtrip() {
   ReactionGraph::CubemapLUT lut;
   lut.build(arena);
 
-  // Looking up a node's own direction should return that node, or at worst a
-  // direct neighbor (cubemap texel quantization can land one cell over).
   int exact = 0, near = 0, miss = 0;
   for (int i = 0; i < RD_N; i += 23) {
     int found = lut.lookup(node(i));
@@ -325,9 +312,7 @@ inline void test_cubemap_lut_roundtrip() {
   }
   std::printf("  [info] cubemap roundtrip: %d exact, %d neighbor, %d miss\n",
               exact, near, miss);
-  // Seeded at exact lattice points, the LUT resolves every probe to its own node
-  // or a direct neighbor with zero misses, so allow at most 5% (was 25%, which a
-  // badly mis-built LUT could slip under).
+  // Seeded at lattice points the LUT misses none; allow at most 5%.
   HS_EXPECT_GT(exact + near, 0);
   HS_EXPECT_LE(miss, (exact + near) / 20);
 }
@@ -357,8 +342,7 @@ inline void test_cubemap_lut_offlattice() {
   const int kSamples = 400;
   int exact = 0, near = 0, miss = 0;
   for (int s = 0; s < kSamples; ++s) {
-    // Draw a uniformly-random direction; reject near-origin draws that
-    // normalize unstably so the query is a well-defined off-lattice direction.
+    // Reject near-origin draws that normalize unstably.
     Vector q;
     float len2;
     do {
@@ -367,7 +351,7 @@ inline void test_cubemap_lut_offlattice() {
     } while (len2 < 0.01f);
     q = q.normalized();
 
-    // Brute-force argmin over the whole lattice = the true nearest node.
+    // Brute-force argmin = the true nearest node.
     int best = 0;
     float best_d = chord2(q, node(0));
     for (int i = 1; i < RD_N; ++i) {
@@ -384,9 +368,7 @@ inline void test_cubemap_lut_offlattice() {
   }
   std::printf("  [info] cubemap off-lattice: %d exact, %d neighbor, %d miss / %d\n",
               exact, near, miss, kSamples);
-  // The shipped LUT returns the true nearest node or a direct neighbor for every
-  // one of the 400 fixed-seed off-lattice probes (0 misses), so allow at most 5%
-  // (was 25%) — tight enough to catch a face-boundary or long-hop regression.
+  // 0 misses across the 400 fixed-seed off-lattice probes; allow at most 5%.
   HS_EXPECT_GT(exact + near, 0);
   HS_EXPECT_LE(miss, kSamples / 20);
 }

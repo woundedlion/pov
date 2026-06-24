@@ -148,7 +148,7 @@ inline void test_flip_gate() {
   HS_EXPECT_FALSE(g.try_flip(Boundary::ZERO));
   HS_EXPECT_TRUE(g.try_flip(Boundary::HALF));
   // Symbol-leads interleaving: symbol flips, late crossing dedups, next
-  // boundary flips again — exactly 2 per simulated revolution.
+  // boundary flips again — exactly 2 per revolution.
   FlipGate h;
   int flips = 0;
   for (int rev = 0; rev < 5; ++rev) {
@@ -482,7 +482,7 @@ inline void test_flywheel_position() {
     HS_EXPECT_TRUE(c1.boundary == Boundary::HALF);
     HS_EXPECT_EQ(c1.at_cycles, 1000u + kPeriod);
     HS_EXPECT_FALSE(f.fold(1000u + kPeriod).crossed);
-    // Coast 2.5 half-revs: two more crossings, exact instants.
+    // Coast 2.5 half-revs: two more crossings at exact instants.
     const uint32_t late = 1000u + kPeriod + 2 * kPeriod + kPeriod / 2;
     const Crossing c2 = f.fold(late);
     HS_EXPECT_TRUE(c2.crossed && c2.boundary == Boundary::ZERO);
@@ -1072,7 +1072,6 @@ inline void test_sim_epoch_commit() {
   const int32_t ppm[4] = {0, 30, -25, 10};
   Sim sim(cfg, 4, ppm);
 
-  // Through boot join.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
         for (auto &b : s.boards)

@@ -93,7 +93,6 @@ inline void check_strip_tiling(int S, int w, int x) {
   HS_EXPECT_FALSE(stray_column);
   HS_EXPECT_EQ(covered, 2 * ROWS);
 
-  // Both sampled columns fully covered, row for row.
   for (int y = 0; y < ROWS; ++y) {
     HS_EXPECT_EQ(cover[static_cast<size_t>(col_top) * ROWS + y], 1);
     HS_EXPECT_EQ(cover[static_cast<size_t>(col_bot) * ROWS + y], 1);
@@ -118,8 +117,7 @@ inline void test_strip_derivation() {
   HS_EXPECT_EQ(strip_bottom_led(0, S), 20);
   HS_EXPECT_EQ(strip_bottom_led(19, S), 39);
 
-  // The two halves partition [0, S) with no overlap: top covers [0,20), bottom
-  // [20,40).
+  // The two halves partition [0, S) with no overlap.
   for (int y = 0; y < S / 2; ++y) {
     HS_EXPECT_TRUE(strip_top_led(y, S) < S / 2);
     HS_EXPECT_TRUE(strip_bottom_led(y, S) >= S / 2);

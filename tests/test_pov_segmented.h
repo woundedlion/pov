@@ -83,7 +83,6 @@ inline void check_tiling(int S, int N, int w, int x) {
   HS_EXPECT_FALSE(stray_column);
   HS_EXPECT_EQ(covered, 2 * ROWS);
 
-  // Both arm columns fully covered, row for row.
   for (int y = 0; y < ROWS; ++y) {
     HS_EXPECT_EQ(cover[static_cast<size_t>(col_a) * ROWS + y], 1);
     HS_EXPECT_EQ(cover[static_cast<size_t>(col_b) * ROWS + y], 1);

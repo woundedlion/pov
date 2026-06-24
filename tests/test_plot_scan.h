@@ -128,23 +128,20 @@ inline void test_line_sample_endpoints_and_unit_length() {
 
   HS_EXPECT_EQ(points.size(), (size_t)(density + 1));
 
-  // Endpoints land exactly on the inputs.
   HS_EXPECT_NEAR(points[0].pos.x, a.pos.x, 1e-6f);
   HS_EXPECT_NEAR(points[0].pos.y, a.pos.y, 1e-6f);
   HS_EXPECT_NEAR(points[density].pos.x, b.pos.x, 1e-6f);
   HS_EXPECT_NEAR(points[density].pos.y, b.pos.y, 1e-6f);
 
-  // All sampled positions are unit length (great-circle interpolation).
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
 
-  // v0 (progress) spans 0..1; v1 (arc length) ends at the segment angle.
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(points[density].v0, 1.0f, 1e-6f);
   float total_angle = angle_between(a.pos, b.pos);
   HS_EXPECT_NEAR(points[density].v1, total_angle, 1e-4f);
-  HS_EXPECT_NEAR(total_angle, PI_F * 0.5f, 1e-4f); // x-axis to y-axis = 90deg
+  HS_EXPECT_NEAR(total_angle, PI_F * 0.5f, 1e-4f); // x-axis to y-axis
 }
 
 /**
@@ -188,7 +185,7 @@ inline void test_line_sample_degenerate_segment() {
 
   Plot::Line::sample(points, a, b, 8);
 
-  // Degenerate path emits a dot (two coincident fragments), no NaN, no crash.
+  // Degenerate path emits a dot (two coincident fragments), not NaN.
   HS_EXPECT_EQ(points.size(), (size_t)2);
   for (size_t i = 0; i < points.size(); ++i) {
     const Vector &p = points[i].pos;
@@ -223,7 +220,6 @@ inline void test_line_sample_antipodal_stable_axis() {
   HS_EXPECT_NEAR(points[0].pos.x, a.pos.x, 1e-6f);
   HS_EXPECT_NEAR(points[density].pos.x, b.pos.x, 1e-6f);
 
-  // Every sample is finite and unit length.
   for (size_t i = 0; i < points.size(); ++i) {
     const Vector &p = points[i].pos;
     HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
@@ -231,8 +227,8 @@ inline void test_line_sample_antipodal_stable_axis() {
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   }
 
-  // Discriminating check: the midpoint is a real point ~90deg from each
-  // antipodal endpoint (a degenerate axis would collapse it to angle 0).
+  // The midpoint is a real point ~90deg from each antipodal endpoint (a
+  // degenerate axis would collapse it to angle 0).
   const Vector &mid = points[density / 2].pos;
   HS_EXPECT_NEAR(angle_between(a.pos, mid), PI_F * 0.5f, 1e-3f);
   HS_EXPECT_NEAR(angle_between(b.pos, mid), PI_F * 0.5f, 1e-3f);
@@ -260,23 +256,18 @@ inline void test_clip_could_intersect_y() {
 
   HS_EXPECT_FALSE(cr.is_full());
 
-  // Render band (margin 0) is [40, 80).
   HS_EXPECT_EQ(cr.render_y_start(), 40);
   HS_EXPECT_EQ(cr.render_y_end(), 80);
 
-  // Segment fully inside the band -> NOT culled.
+  // Inside the band, then straddling the lower edge: NOT culled.
   HS_EXPECT_TRUE(cr.could_intersect_y(50.0f, 60.0f));
-
-  // Segment straddling the lower edge -> NOT culled.
   HS_EXPECT_TRUE(cr.could_intersect_y(30.0f, 45.0f));
 
-  // Segment fully ABOVE the band (smaller y) -> culled.
+  // Fully above, then fully below the band: culled.
   HS_EXPECT_FALSE(cr.could_intersect_y(0.0f, 39.0f));
-
-  // Segment fully BELOW the band (larger y) -> culled.
   HS_EXPECT_FALSE(cr.could_intersect_y(80.0f, 120.0f));
 
-  // Order independence: arguments swapped give the same answer.
+  // Order independence: swapped arguments give the same answer.
   HS_EXPECT_TRUE(cr.could_intersect_y(60.0f, 50.0f));
   HS_EXPECT_FALSE(cr.could_intersect_y(120.0f, 80.0f));
 }
@@ -370,8 +361,8 @@ inline void test_clip_x_band_topologies() {
     expect_xclip_parity(cr);
   }
 
-  // 4) Explicit full-width band: x_end - x_start >= w short-circuits to "covers
-  //    everything" regardless of margin.
+  // 4) Explicit full-width band: x_end - x_start >= w covers everything
+  //    regardless of margin.
   {
     ClipRegion cr = make(0, W, 0);
     HS_EXPECT_TRUE(cr.is_full());
@@ -454,7 +445,7 @@ inline void test_edge_row_span_covers_arc_bulge() {
       if (angle_between(a, b) < 0.05f) continue;
     }
 
-    // Dense ground truth: the true rendered arc's row extent.
+    // Dense ground truth for the rendered arc's row extent.
     float t_lo = 1e9f, t_hi = -1e9f;
     constexpr int N = 2000;
     std::pair<float, float> p1{}, p2{};
@@ -522,11 +513,10 @@ inline void test_ring_sample_unit_length_and_progress() {
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
-  // Angular progress v0 runs 0 .. 1.
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(points[points.size() - 1].v0, 1.0f, 1e-6f);
 
-  // Closing fragment coincides with the first sample (closed ring).
+  // Closing fragment coincides with the first sample.
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
@@ -698,7 +688,6 @@ inline void test_spiral_sample_unit_length_and_monotone_arc() {
 inline void test_multiline_sample_arclength_param() {
   ScratchScope sc(plot_arena());
 
-  // Source vertices as Fragments (sample reads .pos).
   Fragments verts;
   verts.bind(plot_arena(), 4);
   Fragment v;
@@ -712,7 +701,6 @@ inline void test_multiline_sample_arclength_param() {
 
   HS_EXPECT_EQ(points.size(), (size_t)3);
 
-  // v0 normalized progress: first 0, last 1, monotone.
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-4f);
   float last = -1.0f;
@@ -749,7 +737,6 @@ inline void test_bezier_sample_endpoints_and_monotone_arc() {
   Plot::Bezier::sample(points, p0, p1, p2, p3, N);
   HS_EXPECT_EQ(points.size(), (size_t)(N + 1));
 
-  // Endpoints land on the outer control points.
   HS_EXPECT_NEAR(points[0].pos.x, p0.x, 1e-3f);
   HS_EXPECT_NEAR(points[0].pos.z, p0.z, 1e-3f);
   HS_EXPECT_NEAR(points[N].pos.x, p3.x, 1e-3f);
@@ -765,16 +752,15 @@ inline void test_bezier_sample_endpoints_and_monotone_arc() {
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(points[N].v0, 1.0f, 1e-6f);
 
-  // Discriminating: the cubic bulges toward its interior control points and away
-  // from the plain p0->p3 geodesic. A straight geodesic — or a regression that
-  // ignored p1/p2 — would leave the mid-sample on the geodesic midpoint, in the
-  // p0/p3 plane.
-  const Vector geo_mid = (p0 + p3).normalized(); // minor-arc midpoint of p0,p3
+  // The cubic bulges toward its interior control points: a straight geodesic, or
+  // a regression that ignored p1/p2, would leave the mid-sample on the geodesic
+  // midpoint in the p0/p3 plane.
+  const Vector geo_mid = (p0 + p3).normalized();
   const Vector &mid = points[N / 2].pos;
-  HS_EXPECT_GT(angle_between(mid, geo_mid), 0.15f); // genuinely curved
+  HS_EXPECT_GT(angle_between(mid, geo_mid), 0.15f);
   Vector nrm = cross(p0, p3).normalized();
-  if (dot(p1, nrm) < 0.0f) nrm = -nrm;              // orient toward the controls
-  HS_EXPECT_GT(dot(mid, nrm), 0.1f);                // bulges toward the controls
+  if (dot(p1, nrm) < 0.0f) nrm = -nrm; // orient toward the controls
+  HS_EXPECT_GT(dot(mid, nrm), 0.1f);
 }
 
 // ============================================================================
@@ -810,11 +796,11 @@ inline void test_star_sample_unit_length_closed() {
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-6f);
 
-  // Discriminating: alternating outer/inner colatitude about the center axis.
+  // Alternating outer/inner colatitude about the center axis.
   const Vector axis = get_antipode(b, 0.5f).first.v;
-  const float outer = angle_between(points[0].pos, axis); // i=0 (even) -> outer
-  const float inner = angle_between(points[1].pos, axis); // i=1 (odd)  -> inner
-  HS_EXPECT_GT(outer, inner + 1e-3f);                      // genuinely notched
+  const float outer = angle_between(points[0].pos, axis); // even index -> outer
+  const float inner = angle_between(points[1].pos, axis); // odd index  -> inner
+  HS_EXPECT_GT(outer, inner + 1e-3f);
   HS_EXPECT_NEAR(inner / outer, Plot::STAR_INNER_RATIO, 1e-2f);
   for (int i = 0; i < sides * 2; ++i) {
     const float colat = angle_between(points[i].pos, axis);
@@ -847,7 +833,7 @@ inline void test_flower_sample_unit_length_closed() {
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
 
-  // Discriminating: constant colatitude about the center axis (no star notches).
+  // Constant colatitude about the center axis (no star notches).
   const Vector axis = get_antipode(b, 0.5f).first.v;
   const float colat0 = angle_between(points[0].pos, axis);
   for (int i = 0; i < sides * 2; ++i) {
@@ -885,7 +871,7 @@ inline void test_rasterize_subpixel_open_segment_plots_both_endpoints() {
   }
   fx.advance_display();
 
-  // Fast path on an open last segment plots curr and next: exactly two dots.
+  // Fast path on an open last segment plots curr and next.
   HS_EXPECT_EQ(pipe.plotted.size(), (size_t)2);
   HS_EXPECT_NEAR(angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-4f);
   HS_EXPECT_NEAR(angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-4f);

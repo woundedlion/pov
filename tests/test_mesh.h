@@ -27,8 +27,6 @@ namespace mesh_tests {
 inline uint8_t mesh_arena_a[256 * 1024];
 inline uint8_t mesh_arena_b[256 * 1024];
 
-// build_solid() lives in tests/mesh_test_util.h.
-
 // ---------------------------------------------------------------------------
 // PolyMesh API
 // ---------------------------------------------------------------------------
@@ -108,7 +106,6 @@ inline void test_half_edge_mesh_size_matches_input() {
   HalfEdgeMesh he(arena, cube);
   HS_EXPECT_EQ(he.vertices.size(), cube.vertices.size());
   HS_EXPECT_EQ(he.faces.size(), cube.face_counts.size());
-  // One half-edge per face index.
   HS_EXPECT_EQ(he.half_edges.size(), cube.faces.size());
 }
 
@@ -124,9 +121,8 @@ inline void test_half_edge_mesh_face_loop_closes() {
   build_solid<Solids::Cube>(cube, arena);
   HalfEdgeMesh he(arena, cube);
 
-  // A valid ring visits each half-edge at most once, so any traversal longer
-  // than the total half-edge count cannot close — a mesh-derived bound, not a
-  // magic constant. The exact expected length is asserted per face below.
+  // A valid ring visits each half-edge at most once, so anything longer than the
+  // total half-edge count cannot close — a mesh-derived bound, not a constant.
   const int max_steps = static_cast<int>(he.half_edges.size()) + 1;
   for (size_t fi = 0; fi < he.faces.size(); ++fi) {
     uint16_t start = he.faces[fi].half_edge;
@@ -138,7 +134,7 @@ inline void test_half_edge_mesh_face_loop_closes() {
       HS_EXPECT_EQ(he.half_edges[curr].face, (uint16_t)fi);
       curr = he.half_edges[curr].next;
       steps++;
-      if (steps > max_steps) break; // ring failed to close (bounded by mesh size)
+      if (steps > max_steps) break; // ring failed to close
     } while (curr != start);
     HS_EXPECT_EQ(steps, (int)cube.face_counts[fi]);
   }
@@ -211,7 +207,7 @@ inline void test_half_edge_mesh_open_boundary_edges() {
       boundary++;
     } else {
       paired++;
-      HS_EXPECT_EQ(he.half_edges[pair].pair, (uint16_t)i); // reciprocal pairing
+      HS_EXPECT_EQ(he.half_edges[pair].pair, (uint16_t)i);
     }
   }
   HS_EXPECT_EQ(paired, 2);   // the shared edge 0-2, both directions
@@ -317,13 +313,13 @@ inline void test_compile_drops_degenerate_faces() {
   m.vertices.bind(src, /*verts*/ 4);
   m.face_counts.bind(src, /*faces*/ 3);
   m.faces.bind(src, /*indices*/ 7);
-  // Positions are arbitrary; only the topology (face vertex counts) matters.
+  // Positions are arbitrary; only the face vertex counts matter here.
   m.vertices.push_back(Vector(1, 0, 0));
   m.vertices.push_back(Vector(0, 1, 0));
   m.vertices.push_back(Vector(0, 0, 1));
   m.vertices.push_back(Vector(-1, -1, -1));
 
-  // Face counts: 3 (valid), 2 (degenerate), 2 (degenerate)
+  // Face counts: 3 (valid), then two degenerate 2-vertex faces.
   m.face_counts.push_back(3);
   m.face_counts.push_back(2);
   m.face_counts.push_back(2);
@@ -334,7 +330,7 @@ inline void test_compile_drops_degenerate_faces() {
 
   MeshState ms;
   MeshOps::compile(m, ms, dst);
-  // Only one face survives (the triangle).
+  // Only the triangle survives.
   HS_EXPECT_EQ(ms.face_counts.size(), (size_t)1);
   HS_EXPECT_EQ(ms.faces.size(), (size_t)3);
   HS_EXPECT_EQ(ms.face_counts[0], (uint8_t)3);
@@ -352,7 +348,6 @@ inline void test_clone_meshstate_deep_copies() {
   Arena src_arena(mesh_arena_a, sizeof(mesh_arena_a));
   Arena dst_arena(mesh_arena_b, sizeof(mesh_arena_b));
 
-  // Build a MeshState via PolyMesh -> compile().
   PolyMesh cube;
   build_solid<Solids::Cube>(cube, src_arena);
   MeshState src;
@@ -368,11 +363,8 @@ inline void test_clone_meshstate_deep_copies() {
 
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
 
-  // Compare every array element-wise. A size mismatch is already a failure
-  // (the asserts above), so the loops run over the COMMON length: a clone that
-  // dropped elements still fails loudly via the size assert, while the bounded
-  // loop refuses to index past the shorter array (the previous src-sized loops
-  // would read out of bounds on a short dst instead of comparing what exists).
+  // Compare element-wise over the common length: a size mismatch already fails
+  // the asserts above, and the bounded loop avoids indexing past a short dst.
   const size_t vn = std::min(dst.vertices.size(), src.vertices.size());
   for (size_t i = 0; i < vn; ++i) {
     HS_EXPECT_NEAR(dst.vertices[i].x, src.vertices[i].x, 1e-6f);
@@ -474,7 +466,7 @@ inline void test_classify_faces_truncated_cube_distinct_topology() {
   HS_EXPECT_EQ(tr.face_counts.size(), (size_t)14); // 6 octagons + 8 triangles
 
   // truncate's temp working set is no longer referenced; reuse mesh_arena_b for
-  // the classifier scratch. topology is grown into `target`, where tr lives.
+  // the classifier scratch. topology grows into `target`, where tr lives.
   Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);
   Arena scratch_b(mesh_arena_b + sizeof(mesh_arena_b) / 2,
                   sizeof(mesh_arena_b) / 2);
@@ -501,7 +493,7 @@ inline void test_classify_faces_truncated_cube_distinct_topology() {
   }
   HS_EXPECT_TRUE(octagon_id >= 0 && triangle_id >= 0);
   HS_EXPECT_TRUE(octagon_id != triangle_id);
-  // Dense assignment: exactly two distinct classes -> ids {0, 1}.
+  // Dense ids: two classes -> {0, 1}.
   HS_EXPECT_EQ(max_id, 1);
 }
 

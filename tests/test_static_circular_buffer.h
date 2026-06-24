@@ -53,10 +53,8 @@ inline void test_initializer_list_within_capacity() {
 
 /**
  * @brief Verifies an initializer list filling the buffer exactly to capacity.
- * @details An over-capacity list (e.g. `StaticCircularBuffer<int, 3>{1,2,3,4}`)
- *          is now a compile-time error via static_assert in the variadic
- *          constructor, so the former runtime "keep last N" overflow behavior
- *          can no longer be exercised at runtime — only the at-capacity fill is.
+ * @details An over-capacity list is a compile-time error via static_assert in
+ *          the variadic constructor, so only the at-capacity fill is exercised.
  */
 inline void test_initializer_list_at_capacity() {
   StaticCircularBuffer<int, 3> buf{1, 2, 3};
@@ -382,7 +380,6 @@ inline void test_iterator_types_are_public() {
   const Buf &cbuf = buf;
   Buf::const_iterator cit = cbuf.begin();
   HS_EXPECT_EQ(*cit, 10);
-  // const_iterator is convertible from iterator.
   Buf::const_iterator from_mut = buf.begin();
   HS_EXPECT_EQ(*from_mut, 10);
 }
@@ -466,7 +463,7 @@ inline void test_const_iterator() {
   HS_EXPECT_EQ(sum, 6);
 
   auto ci = cref.begin();
-  ci = buf.begin(); // implicit construction from non-const iterator
+  ci = buf.begin();
   HS_EXPECT_EQ(*ci, 1);
 }
 

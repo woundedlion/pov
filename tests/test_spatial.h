@@ -22,20 +22,13 @@ namespace spatial {
 
 using hs_test::math3d::approx_vec;
 
-// Dedicated arena buffer to keep KDTree/MeshState scratch isolated from the
-// memory-test arenas.
-//
-// Reset boundary: this buffer is module-scope and reused by every test below.
-// Each test re-bases the bump pointer by constructing a fresh Arena over it at
-// entry (no allocation persists across an Arena construction), so nothing leaks
-// between tests as long as that rule is followed. Do NOT retain an ArenaVector
-// or pointer into this buffer past its own test scope.
+// Module-scope scratch buffer; each test re-bases the bump pointer by
+// constructing a fresh Arena over it at entry. Do NOT retain an ArenaVector or
+// pointer into this buffer past its own test scope.
 inline constexpr size_t kSpatialBufBytes = 128 * 1024;
 inline uint8_t spatial_buf[kSpatialBufBytes];
 
-// Split offset for the one test that needs two disjoint arenas over this single
-// buffer (clone src vs dst). Kept as a named fraction of the total so the two
-// halves can never silently drift out of agreement with kSpatialBufBytes.
+// Split offset for the one test needing two disjoint arenas over this buffer.
 inline constexpr size_t kSpatialBufSplit = kSpatialBufBytes / 2;
 
 // ============================================================================
@@ -53,7 +46,6 @@ inline void test_kdtree_empty_input() {
   KDTree tree(arena, empty);
   HS_EXPECT_EQ(tree.root_index, -1);
 
-  // Querying an empty tree returns an empty result.
   auto r = tree.nearest(Vector(0, 0, 0), 1);
   HS_EXPECT_TRUE(r.is_empty());
 }
@@ -93,19 +85,17 @@ inline void test_kdtree_nearest_known_set() {
   std::span<Vector> sp(pts, 6);
   KDTree tree(arena, sp);
 
-  // Query near (0.1, 0.1, 0.1) → closest is index 0 at the origin
   auto r1 = tree.nearest(Vector(0.1f, 0.1f, 0.1f), 1);
   HS_EXPECT_EQ(r1.size(), (size_t)1);
   HS_EXPECT_VEC(r1[0].point, Vector(0, 0, 0), 1e-6f);
   HS_EXPECT_EQ(r1[0].original_index, (uint16_t)0);
 
-  // Query at (10.1, 0, 0) → closest is index 1
   auto r2 = tree.nearest(Vector(10.1f, 0, 0), 1);
   HS_EXPECT_EQ(r2.size(), (size_t)1);
   HS_EXPECT_VEC(r2[0].point, Vector(10, 0, 0), 1e-6f);
   HS_EXPECT_EQ(r2[0].original_index, (uint16_t)1);
 
-  // Query exactly at one of the points → that point comes back, dist = 0
+  // Query exactly on a point → dist 0.
   auto r3 = tree.nearest(Vector(5, 5, 5), 1);
   HS_EXPECT_EQ(r3.size(), (size_t)1);
   HS_EXPECT_VEC(r3[0].point, Vector(5, 5, 5), 1e-6f);
@@ -130,7 +120,6 @@ inline void test_kdtree_k_nearest_sorted() {
 
   auto r = tree.nearest(Vector(0, 0, 0), 3);
   HS_EXPECT_EQ(r.size(), (size_t)3);
-  // Results must be sorted by distance (closest first).
   HS_EXPECT_VEC(r[0].point, Vector(0, 0, 0), 1e-6f);
   HS_EXPECT_VEC(r[1].point, Vector(1, 0, 0), 1e-6f);
   HS_EXPECT_VEC(r[2].point, Vector(2, 0, 0), 1e-6f);
@@ -240,8 +229,8 @@ inline void test_kdtree_duplicates_and_max_k() {
   std::span<Vector> sp(pts, 8);
   KDTree tree(arena, sp);
 
-  constexpr int K = KDTree::MAX_K; // 5 — the maximum a query may request
-  const Vector query(1, 1, 1);     // lands exactly on the coincident cluster
+  constexpr int K = KDTree::MAX_K; // 5
+  const Vector query(1, 1, 1);     // lands on the coincident cluster
 
   auto r = tree.nearest(query, K);
   HS_EXPECT_EQ(r.size(), (size_t)K);
@@ -251,20 +240,19 @@ inline void test_kdtree_duplicates_and_max_k() {
   for (int i = 0; i < 8; ++i) all_d2[i] = distance_squared(pts[i], query);
   std::sort(all_d2, all_d2 + 8);
 
-  // Result is nearest-first; its squared distances must equal the K smallest as
-  // a sorted sequence (boundary ties make the index order arbitrary).
+  // Squared distances must equal the K smallest as a sorted sequence (boundary
+  // ties make index order arbitrary).
   float prev = -1.0f;
   for (int i = 0; i < K; ++i) {
-    HS_EXPECT_TRUE(r[i].d_sq >= prev - 1e-6f); // non-decreasing (sorted)
+    HS_EXPECT_TRUE(r[i].d_sq >= prev - 1e-6f);
     prev = r[i].d_sq;
     HS_EXPECT_TRUE(std::fabs(r[i].d_sq - all_d2[i]) < 1e-5f);
-    // Stored point and distance are self-consistent with the source array.
     HS_EXPECT_VEC(r[i].point, pts[r[i].original_index], 1e-6f);
     HS_EXPECT_TRUE(std::fabs(distance_squared(r[i].point, query) - r[i].d_sq) <
                    1e-5f);
   }
 
-  // All three coincident points come back at distance 0.
+  // All three coincident points are at distance 0.
   HS_EXPECT_TRUE(std::fabs(r[0].d_sq) < 1e-6f);
   HS_EXPECT_TRUE(std::fabs(r[1].d_sq) < 1e-6f);
   HS_EXPECT_TRUE(std::fabs(r[2].d_sq) < 1e-6f);
@@ -323,7 +311,7 @@ inline void test_meshstate_clone_deep_copies() {
   HS_EXPECT_EQ(dst.faces[1], (uint16_t)1);
   HS_EXPECT_EQ(dst.faces[2], (uint16_t)2);
 
-  // Clone is a real copy — destination lives in dst_arena, not src_arena.
+  // Destination lives in dst_arena, not src_arena.
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
 }
 

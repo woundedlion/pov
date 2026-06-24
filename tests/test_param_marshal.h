@@ -63,24 +63,22 @@ inline bool check_one(const char *) {
   HS_EXPECT_EQ(views.size(), n);
   HS_EXPECT_EQ(values.size(), n);
 
-  // Definition stream and value stream are derived from one ordered pass, so
-  // for every i: same name, same value, same type as the source param.
+  // Both streams come from one ordered pass: for every i, name/value/type must
+  // match the source param.
   size_t i = 0;
   for (const auto &def : effect.getParameters()) {
     HS_EXPECT(i < views.size(), "marshaled index within range");
-    HS_EXPECT_EQ(views[i].name, def.name);     // order matches the source
-    HS_EXPECT_EQ(views[i].value, values[i]);   // value stream index-aligned
+    HS_EXPECT_EQ(views[i].name, def.name);
+    HS_EXPECT_EQ(views[i].value, values[i]);
     HS_EXPECT_EQ(views[i].is_bool, def.is_bool());
     HS_EXPECT_EQ(views[i].value, def.get());
     ++i;
   }
 
   // Write an editable float param BY NAME and confirm it reappears at the same
-  // index with the rest of the order untouched — guards against a value pushed
-  // back through setParameter landing on the wrong slider. Effects with no
-  // editable float param have nothing to round-trip; the caller tallies the
-  // skip (return false) so roster drift toward such effects is visible, not
-  // silent.
+  // index with the order untouched — guards against setParameter landing on the
+  // wrong slider. No editable float param -> return false so the caller tallies
+  // the skip and roster drift toward such effects stays visible.
   int target = -1;
   for (size_t k = 0; k < views.size(); ++k) {
     const auto &v = views[k];
@@ -105,7 +103,7 @@ inline bool check_one(const char *) {
   HS_EXPECT_EQ(views2.size(), views.size());
   HS_EXPECT_NEAR(views2[target].value, newv, 1e-3f);
   for (size_t k = 0; k < views2.size(); ++k)
-    HS_EXPECT_EQ(views2[k].name, views[k].name); // order/names stable
+    HS_EXPECT_EQ(views2[k].name, views[k].name);
   return true;
 }
 
@@ -229,10 +227,8 @@ inline void check_roster_order_pinned() {
 inline int run_param_marshal_tests() {
   auto scope = hs_test::begin_module("param_marshal");
   check_roster_order_pinned();
-  // Tally how many effects actually exercised the by-name round-trip. The check
-  // is silently skipped for an effect with no editable float param; without this
-  // counter, the roster drifting toward such effects would erode coverage
-  // invisibly. Surface the split and fail loudly if it ever reaches zero.
+  // Tally how many effects exercised the by-name round-trip; it is skipped for
+  // effects with no editable float param. Surface the split and fail if zero.
   int rt_covered = 0, rt_total = 0;
 #define HS_PARAM_ONE(name)                                                     \
   do {                                                                         \
@@ -249,10 +245,9 @@ inline int run_param_marshal_tests() {
             "by-name round-trip must run on at least one effect — the roster "
             "drifted to all-non-editable params and the check covers nothing");
 
-  // Size a single pair of vectors to the roster's largest parameter set, then
-  // marshal every effect through them in turn (the effect-switch path) and
-  // confirm the backing storage is never reallocated — the per-frame memory-view
-  // stability the WASM bridge depends on.
+  // Size one pair of vectors to the roster's largest parameter set, then marshal
+  // every effect through them (the effect-switch path) and confirm the backing
+  // storage never reallocates — the memory-view stability the WASM bridge needs.
   size_t max_count = 0;
 #define HS_PARAM_COUNT(name) count_one<name>(max_count);
   HS_EFFECT_LIST(HS_PARAM_COUNT)

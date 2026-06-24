@@ -67,11 +67,11 @@ inline void test_clamp_phi_above_pi_reflects() {
  *        single-reflection body returned.
  */
 inline void test_clamp_phi_full_range() {
-  // 2π + 0.2 used to return -0.2 (out of range); folds to 0.2.
+  // 2π + 0.2 folds to 0.2.
   HS_EXPECT_NEAR(SDF::clamp_phi(2.0f * PI_F + 0.2f), 0.2f, 1e-5f);
-  // 3π used to return -π; acosf(cosf(3π)) = π.
+  // acosf(cosf(3π)) = π.
   HS_EXPECT_NEAR(SDF::clamp_phi(3.0f * PI_F), PI_F, 1e-5f);
-  // -1.5π used to return 1.5π (> π); folds to 0.5π.
+  // -1.5π folds to 0.5π.
   HS_EXPECT_NEAR(SDF::clamp_phi(-1.5f * PI_F), 0.5f * PI_F, 1e-5f);
 }
 
@@ -199,10 +199,8 @@ inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
 /** @brief Verifies the polygon center is inside, with dist equal to the negated apothem. */
 inline void test_polygon_at_center_inside() {
   Basis b = equator_basis();
-  // 6-gon, thickness=0.5 (radians), phase=0
   SDF::PlanarPolygon poly(b, /*thickness*/ 0.5f, /*sides*/ 6, /*phase*/ 0.0f);
 
-  // Point at center of polygon (basis.v direction) is inside.
   auto r = poly.distance(Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist < 0.0f);
   // dist == polar(0) * cos(local) - apothem = -apothem
@@ -229,7 +227,6 @@ inline void test_spherical_polygon_center_inside() {
   Basis b = equator_basis();
   SDF::SphericalPolygon sp(b, /*radius*/ 0.5f, /*sides*/ 5, /*phase*/ 0.0f);
   auto r = sp.distance(Vector(0, 1, 0));
-  // Center of polygon is strictly inside (negative signed distance).
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
@@ -250,7 +247,7 @@ inline void test_star_center_inside() {
   Basis b = equator_basis();
   SDF::Star star(b, /*radius*/ 0.6f, /*sides*/ 5, /*phase*/ 0.0f);
   auto r = star.distance(Vector(0, 1, 0));
-  HS_EXPECT_TRUE(r.dist < 0.0f); // center is interior
+  HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
 /** @brief Verifies the antipode of the star center is outside. */
@@ -486,13 +483,12 @@ inline void test_union_picks_closest_shape() {
 
   SDF::Union<SDF::Line, SDF::Line> u(la, lb);
 
-  // Point on first arc midpoint — distance to a is -0.1 (inside la),
-  // distance to b is large positive. Union picks a.
+  // On la's midpoint: dist(la) = -0.1, dist(lb) large positive → Union picks la.
   Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
   auto r = u.distance(mid_a);
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-2f);
 
-  // Point on second arc midpoint — Union picks b.
+  // On lb's midpoint → Union picks lb.
   Vector mid_b = ((Vector(-1, 0, 0) + Vector(0, 0, -1)) * 0.5f).normalized();
   auto r2 = u.distance(mid_b);
   HS_EXPECT_NEAR(r2.dist, -0.1f, 1e-2f);
@@ -665,12 +661,12 @@ inline void test_intersection_requires_both_inside() {
   SDF::Line lb(Vector(1, 0, 0), Vector(0, 1, 0), 0.3f);
   SDF::Intersection<SDF::Line, SDF::Line> inter(la, lb);
 
-  // Endpoint a is on both lines (intersection of the two arcs).
+  // Endpoint a is on both arcs.
   Vector a(1, 0, 0);
   auto r = inter.distance(a);
-  HS_EXPECT_TRUE(r.dist < 0.0f); // intersection point lies inside both
+  HS_EXPECT_TRUE(r.dist < 0.0f);
 
-  // Far point: outside both — intersection still outside.
+  // Outside both → outside the intersection.
   Vector far_pt(-1, 0, 0);
   auto r2 = inter.distance(far_pt);
   HS_EXPECT_TRUE(r2.dist > 0.0f);
@@ -774,7 +770,6 @@ inline void test_smooth_union_matches_union_far_from_boundary() {
   Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
   auto r_hard = u.distance(mid_a);
   auto r_soft = su.distance(mid_a);
-  // Far from the blending zone, smooth union ≈ hard union.
   HS_EXPECT_NEAR(r_hard.dist, r_soft.dist, 1e-3f);
 }
 
@@ -850,13 +845,11 @@ inline void test_angular_repeat_matches_base_at_zero_angle() {
   auto r_base = ln.distance(mid);
   auto r_rep = rep.distance(mid);
   HS_EXPECT_TRUE(r_rep.dist < 0.0f);
-  // Repeated and base agree at the canonical sector.
   HS_EXPECT_NEAR(r_rep.dist, r_base.dist, 1e-3f);
 }
 
 /** @brief Verifies AngularRepeat folds a line in the canonical sector into a folded copy. */
 inline void test_angular_repeat_creates_copies() {
-  // A line in the canonical sector should also be inside in a folded sector.
   SDF::Line ln(Vector(1, 0, 0), Vector(0.7071f, 0, 0.7071f), 0.05f);
   SDF::AngularRepeat<SDF::Line> rep(ln, 4, Vector(0, 1, 0));
 
@@ -1025,7 +1018,6 @@ inline void test_cull_covers_interior_over_orientation_grid() {
       total_interior += expect_cull_covers_interior<W, H>(ppoly);
     }
   }
-  // The grid exercised a non-trivial number of interior pixels.
   HS_EXPECT_GT(total_interior, 1000);
 }
 
@@ -1310,7 +1302,6 @@ inline int check_face_lut(int sides, float rho, const Vector &axis) {
  *   hexagon) and tilts.
  */
 inline void test_face_lut_matches_exact_within_cell_diagonal() {
-  // A spread of polygons (triangle, pentagon, hexagon) and tilts.
   int lut_samples = 0;
   lut_samples += check_face_lut(/*sides=*/3, 0.45f, Vector(0.4f, 0.3f, 1.0f));
   lut_samples += check_face_lut(/*sides=*/5, 0.50f, Vector(0.4f, 0.3f, 1.0f));

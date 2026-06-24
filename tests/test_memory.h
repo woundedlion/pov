@@ -86,7 +86,7 @@ inline void test_arena_basic_allocation() {
  */
 inline void test_arena_alignment() {
   Arena a(test_buf_a, sizeof(test_buf_a));
-  // Eat one byte to force a non-aligned offset
+  // Eat one byte to force a non-aligned offset.
   a.allocate(1, 1);
   void *p16 = a.allocate(32, 16);
   HS_EXPECT_TRUE(p16 != nullptr);
@@ -107,15 +107,15 @@ inline void test_arena_high_water_mark() {
   size_t hwm1 = a.get_high_water_mark();
   HS_EXPECT_TRUE(hwm1 >= 100);
 
-  // Rewinding via set_offset does NOT lower the high water mark
+  // Rewind must not lower the high water mark.
   a.set_offset(0);
   HS_EXPECT_EQ(a.get_high_water_mark(), hwm1);
 
-  // A smaller allocation after rewind doesn't change HWM
+  // A smaller allocation after rewind doesn't change it.
   a.allocate(50);
   HS_EXPECT_EQ(a.get_high_water_mark(), hwm1);
 
-  // A larger allocation does
+  // A larger allocation does.
   a.set_offset(0);
   a.allocate(200);
   HS_EXPECT_TRUE(a.get_high_water_mark() >= 200);
@@ -163,11 +163,9 @@ inline void test_arena_fills_to_capacity() {
   HS_EXPECT_TRUE(q != nullptr);
   HS_EXPECT_EQ(a.get_offset(), sizeof(tiny));
 
-  // Assert the documented contract — both pointers in range, contiguous
-  // (alignment-1, so no inter-allocation padding), and the arena exactly full —
-  // rather than pinning p == base. Pinning p == base couples the test to the
-  // arena using the raw buffer address verbatim (no header, no base alignment),
-  // which is an implementation detail, not the contract.
+  // Assert the contract — both pointers in range, contiguous (alignment-1, no
+  // padding), arena exactly full — rather than pinning p == base, which would
+  // couple to the raw buffer address (an implementation detail).
   uintptr_t pa = reinterpret_cast<uintptr_t>(p);
   uintptr_t qa = reinterpret_cast<uintptr_t>(q);
   uintptr_t base = reinterpret_cast<uintptr_t>(tiny);
@@ -253,7 +251,6 @@ inline void test_configure_arenas_repartition() {
 
   configure_arenas(P, A, B);
 
-  // Each arena reports exactly the requested capacity and starts empty.
   HS_EXPECT_EQ(persistent_arena.get_capacity(), P);
   HS_EXPECT_EQ(scratch_arena_a.get_capacity(), A);
   HS_EXPECT_EQ(scratch_arena_b.get_capacity(), B);
@@ -261,18 +258,15 @@ inline void test_configure_arenas_repartition() {
   HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
   HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
 
-  // Recover each base via a 1-byte align-1 allocation (zero padding -> buffer+0).
+  // 1-byte align-1 allocation returns the arena base (zero padding -> buffer+0).
   auto *pbase = static_cast<uint8_t *>(persistent_arena.allocate(1, 1));
   auto *abase = static_cast<uint8_t *>(scratch_arena_a.allocate(1, 1));
   auto *bbase = static_cast<uint8_t *>(scratch_arena_b.allocate(1, 1));
 
-  // Strictly ordered and contiguous: each arena's [base, base+cap) ends exactly
-  // where the next begins, so the partitions tile the block with no overlap and
-  // no gap. (All three bases live in the one global block, so the pointer
-  // comparisons are well-defined.)
+  // Contiguous: each arena's [base, base+cap) ends where the next begins, so the
+  // partitions tile the block with no overlap or gap.
   HS_EXPECT_EQ(abase, pbase + P);
   HS_EXPECT_EQ(bbase, abase + A);
-  // The whole partition fits inside the global block.
   HS_EXPECT_TRUE(bbase + B <= pbase + GLOBAL_ARENA_SIZE);
 
   // Leave the canonical split in place for subsequent tests.
@@ -353,7 +347,7 @@ inline void test_tribitset_index_uniqueness() {
 inline void test_tribitset_all_pairs_independent() {
   TriangularBitset<8> bs;
   bs.clear();
-  // Set every (i, i+2) and verify the (i, i+1) pairs stay unset.
+  // Setting (i, i+2) pairs must leave the disjoint (i, i+1) pairs unset.
   for (int i = 0; i + 2 < 8; ++i) bs.test_and_set(i, i + 2);
   for (int i = 0; i + 2 < 8; ++i) HS_EXPECT_TRUE(bs.test(i, i + 2));
   for (int i = 0; i + 1 < 8; ++i) HS_EXPECT_FALSE(bs.test(i, i + 1));
@@ -451,7 +445,6 @@ inline void test_arenavec_append_bulk() {
   HS_EXPECT_EQ(v.size(), (size_t)5);
   for (int i = 0; i < 5; ++i) HS_EXPECT_EQ(v[i], src[i]);
 
-  // Second bulk append continues
   int more[3] = {60, 70, 80};
   v.append_bulk(more, 3);
   HS_EXPECT_EQ(v.size(), (size_t)8);
@@ -474,7 +467,6 @@ inline void test_arenavec_clear() {
   HS_EXPECT_TRUE(v.is_bound());
   HS_EXPECT_TRUE(v.is_empty());
 
-  // Can refill after clear
   v.push_back(99);
   HS_EXPECT_EQ(v[0], 99);
 }
@@ -492,7 +484,6 @@ inline void test_arenavec_iteration() {
   for (auto it = v.begin(); it != v.end(); ++it) sum += *it;
   HS_EXPECT_EQ(sum, 0 + 1 + 2 + 3 + 4);
 
-  // Range-based for compiles and visits each element
   int count = 0;
   for (int x : v) { (void)x; ++count; }
   HS_EXPECT_EQ(count, 5);
@@ -771,14 +762,13 @@ inline void test_persist_restores_target() {
 
   {
     Persist<TestPayload> p(live, scratch, persistent);
-    // Inside the scope, simulate a destructive operation on persistent
+    // Simulate a destructive operation on persistent.
     persistent.reset();
     live = TestPayload();
     HS_EXPECT_EQ(live.data.size(), (size_t)0);
     HS_EXPECT_EQ(live.summary, 0);
   }
 
-  // After scope exit, live is rebuilt from the scratch backup
   HS_EXPECT_EQ(live.data.size(), (size_t)3);
   HS_EXPECT_EQ(live.data[0], 7);
   HS_EXPECT_EQ(live.data[1], 11);
@@ -823,7 +813,7 @@ inline void test_persist_compaction_relocates_survivor() {
   Arena persistent(test_buf_a, sizeof(test_buf_a));
   Arena scratch(test_buf_b, sizeof(test_buf_b));
 
-  // Pre-compaction: a large junk block FIRST pushes the survivor to a high base.
+  // A large junk block first pushes the survivor to a high base address.
   ArenaVector<int> junk;
   junk.bind(persistent, 256);
   for (int i = 0; i < 256; ++i) junk.push_back(i);
@@ -841,22 +831,22 @@ inline void test_persist_compaction_relocates_survivor() {
     Persist<TestPayload> p(live, scratch, persistent);
     persistent.reset();   // free junk + survivor
     live = TestPayload();
-    // Compaction: place the survivors of the rebuild first, far smaller than
-    // the old junk, so the restored survivor lands at a different address.
+    // Place compacted data first, smaller than the old junk, so the restored
+    // survivor lands at a different address.
     compacted_other.bind(persistent, 2);
     compacted_other.push_back(7);
     compacted_other.push_back(8);
   } // ~Persist clones the backup into persistent AFTER compacted_other
 
-  // Survivor restored intact...
+  // Survivor restored intact.
   HS_EXPECT_EQ(live.data.size(), (size_t)3);
   HS_EXPECT_EQ(live.data[0], 100);
   HS_EXPECT_EQ(live.data[1], 200);
   HS_EXPECT_EQ(live.data[2], 300);
   HS_EXPECT_EQ(live.summary, 42);
-  // ...relocated (no longer sitting after the now-freed junk)...
+  // Relocated: no longer at its old post-junk address.
   HS_EXPECT_TRUE(&live.data[0] != base_before);
-  // ...and the compacted data it was restored after is untouched.
+  // The compacted data it was restored after is untouched.
   HS_EXPECT_EQ(compacted_other.size(), (size_t)2);
   HS_EXPECT_EQ(compacted_other[0], 7);
   HS_EXPECT_EQ(compacted_other[1], 8);
