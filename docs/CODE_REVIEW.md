@@ -183,7 +183,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 49. ✅ **`clearToolingMemory()` bumps the generation but does not free the 16 MB tooling block** — `targets/wasm/wasm.cpp:893-902`. Correct by design (block retained for module lifetime) but the name reads as if it releases memory; a JS caller will not see linear memory shrink. Rename to `resetToolingArenas()` or add a JS-facing note.
 
-50. **Trap-shape probe re-runs the first death case twice** — `tests/test_death.h:954,963-969`. The probe spawns `cs[0]` to detect the shell's trap-relay shape, then the loop spawns it again. Subprocess spawns dominate suite runtime. Start the loop at `i=1` after asserting the probe trapped, or reuse the probe's rc for `i==0`.
+50. ✅ **Trap-shape probe re-runs the first death case twice** — `tests/test_death.h:954,963-969`. The probe spawns `cs[0]` to detect the shell's trap-relay shape, then the loop spawns it again. Subprocess spawns dominate suite runtime. Start the loop at `i=1` after asserting the probe trapped, or reuse the probe's rc for `i==0`.
 
 51. **Windows death-child command string is fragile to special characters in the exe path** — `tests/test_death.h:805-819`. Relies on `cmd.exe` outer-quote stripping; robust for benign paths but `CreateProcess`/`_spawnv` with an argv array avoids shell parsing entirely. Document the constraint or switch to a shell-free spawn.
 

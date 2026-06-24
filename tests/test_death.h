@@ -951,7 +951,8 @@ inline int run_death_tests() {
   // child that genuinely exit(128+SIGILL)s pass — with the single relay shape
   // the shell actually uses. If the probe doesn't trap at all, the harness can't
   // interpret results, so skip (or FAIL under CI) rather than emit false passes.
-  TrapShape shape = classify_trap(spawn_child(cs[0].name));
+  int probe_rc = spawn_child(cs[0].name);
+  TrapShape shape = classify_trap(probe_rc);
   if (shape == TrapShape::None) {
     report_unrunnable("trap probe child did not die by the illegal-instruction "
                       "trap; cannot classify trap status",
@@ -961,7 +962,9 @@ inline int run_death_tests() {
   }
 
   for (int i = 0; i < n; ++i) {
-    int rc = spawn_child(cs[i].name);
+    // cs[0] was already spawned by the trap-shape probe above; reuse that rc
+    // rather than spawning it a second time (subprocess spawns dominate runtime).
+    int rc = (i == 0) ? probe_rc : spawn_child(cs[i].name);
     bool trapped = child_trapped(rc, shape);
     HS_EXPECT_TRUE(trapped);
     std::printf("  [%s] trap fires: %-26s (child rc=%d)\n",
