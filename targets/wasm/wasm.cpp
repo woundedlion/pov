@@ -1082,7 +1082,13 @@ struct MeshOpsWrapper {
 #undef MESHOP_0
 #undef MESHOP_1F
 
-  /** Upper bound on relax smoothing passes (the editor caps the slider at 500). */
+  /**
+   * Engine-enforced ceiling on relax smoothing passes. The editor
+   * (solids.html) caps its slider at 500; this 1000 is deliberate headroom
+   * above that cap, an independent defense-in-depth limit for direct/API
+   * callers that bypass the editor. The two numbers are intentionally
+   * different, not a mismatch.
+   */
   static constexpr int kMaxRelaxIterations = 1000;
 
   /**
