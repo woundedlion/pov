@@ -43,28 +43,23 @@ public:
     registerParam("Time Spd", &params.time_scale, 0.001f, 0.05f);
 
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    // rand_int is half-open [min, max), so use 65536 to make the full 16-bit
-    // seed range [0, 65535] reachable rather than stopping one short at 65534.
+    // rand_int is half-open, so 65536 makes the full 16-bit seed range reachable.
     noise_generator.SetSeed(hs::rand_int(0, 65536));
 
-    // Drive the whole-sphere drift consumed by the Filter::World::Orient stage.
-    // Without an animation the orientation stays at identity and the filter
-    // (plus its SLERP motion-blur sweep) is a no-op. `orient_noise` is a
-    // dedicated generator so RandomWalk never reconfigures the flow-field noise.
+    // Drives the whole-sphere drift the Orient stage consumes; without it the
+    // filter is a no-op. `orient_noise` is dedicated so RandomWalk never
+    // reconfigures the flow-field noise.
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, random_vector(), orient_noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
-    // Particle dynamics: light per-frame damping, no gravity (the noise flow
-    // field is the only force), and a long lifetime so streamlines read as
-    // continuous. Named rather than passed as bare positionals.
+    // No gravity (the noise flow field is the only force) and a long lifetime so
+    // streamlines read as continuous.
     constexpr float kFriction = 0.96f;
     constexpr float kGravity = 0.0f;
     constexpr float kMaxLife = 300.0f;
     particle_system.init(persistent_arena, kFriction, kGravity, kMaxLife);
 
-    // Per-step emitter: keep the pool saturated, then push each particle by the
-    // noise force field clamped to max_speed.
     particle_system.add_emitter([this](ParticleSystem &sys) mutable {
       while (sys.active_count < sys.pool.capacity()) {
         sys.spawn(random_vector(), Vector(0, 0, 0), 0);
@@ -74,8 +69,8 @@ public:
         auto &p = sys.pool[i];
 
         // Rare random respawn so particles caught in field sinks redistribute.
-        // ~0.5% per particle per frame: long enough average dwell that motion
-        // reads as continuous, frequent enough to bleed off sink accumulation.
+        // ~0.5%/frame: long enough dwell to read as continuous, frequent enough
+        // to bleed off sink accumulation.
         constexpr float kRespawnProb = 0.005f;
         if (hs::rand_f() < kRespawnProb) {
           p.position = random_vector();
@@ -83,16 +78,10 @@ public:
           p.history.clear();
         }
 
-        // Sample three noise channels for the force vector's components. They
-        // are mutually decorrelated by sampling at large x-offsets (0/100/200),
-        // but all three share the same z input (p.z*scale + t), so time evolution
-        // advances the field along the z axis: the temporal evolution is
-        // coupled to the z spatial structure, not a fully independent 4th axis.
-        // FastNoiseLite is only 3D here, so a genuine 4th time dimension isn't
-        // available; this shared-z animation is the accepted simplification.
-        // The Y/Z channels sample the field shifted along x by these offsets so
-        // the three components decorrelate (large enough to clear the noise
-        // lattice's correlation length).
+        // Three force-component channels decorrelated by large x-offsets
+        // (0/100/200, past the lattice correlation length). All share the z input
+        // (p.z*scale + t), so time advances the field along z — FastNoiseLite is
+        // only 3D, so this shared-z animation is the accepted simplification.
         constexpr float kChannelOffsetY = 100.0f;
         constexpr float kChannelOffsetZ = 200.0f;
         float fx =
@@ -140,22 +129,18 @@ public:
    */
   void draw_frame() override {
     Canvas canvas(*this);
-    // Wrap the noise-time accumulator so it never grows large enough for the
-    // float ULP to swallow the increment and freeze the field. OpenSimplex2 is
-    // not periodic, so the wrap produces a brief flow-field pop once per period;
-    // at 2048 the ULP (~2.4e-4) stays well under the slowest Time Spd increment
-    // (0.001) so t always advances, and the pop is hours apart at the default
-    // rate (and power/show cycles reset it far sooner).
+    // Wrap the noise-time accumulator so the float ULP never swallows the
+    // increment and freezes the field. OpenSimplex2 is not periodic, so the wrap
+    // pops the field once per period; at 2048 the ULP stays under the slowest
+    // Time Spd increment and pops are hours apart.
     t = fmodf(t + params.time_scale, TIME_PERIOD);
 
     timeline.step(canvas);
     particle_system.step(canvas);
 
-    // Rotation is owned by the Filter::World::Orient stage in `filters`, which
-    // also sweeps the orientation history for SLERP motion blur. Applying it
-    // again in a vertex shader would rotate every point twice, so none is used.
-    // Color by latitude (v.y in [-1,1] -> palette t in [0,1]); the trail's
-    // per-vertex alpha (f.v0) and the global Alpha param fade the tail.
+    // Rotation is owned by the Orient stage; applying it again here would rotate
+    // every point twice, so the shader does none. Color by latitude (v.y ->
+    // palette t).
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
       float alpha = f.v0;
       float palette_t = (v.y + 1.0f) / 2.0f;
@@ -171,12 +156,9 @@ public:
 private:
   /**
    * @brief Particle pool capacity.
-   * @details Sets the per-frame force-loop cost: each active particle samples the
-   * noise field 3x per frame (one OpenSimplex2 call per force component), so the
-   * loop is a fixed ~k_num_particles*3 (~1800) noise evaluations/frame. Unlike
-   * Raymarch's per-pixel marching this cost is independent of W*H -- it does not
-   * scale with the pixel/column budget -- so it carries no resolution cost cliff
-   * and fits the device frame budget at any supported resolution. Lower this if a
+   * @details Sets the per-frame force-loop cost: each particle samples the noise
+   * field 3x per frame, a fixed ~k_num_particles*3 evaluations independent of
+   * W*H, so it fits the device frame budget at any resolution. Lower this if a
    * future device target needs more margin.
    */
   static constexpr int k_num_particles = 600;

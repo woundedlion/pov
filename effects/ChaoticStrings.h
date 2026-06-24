@@ -14,26 +14,16 @@
  * @tparam H Canvas height in pixels.
  * @details A single node random-walks and follows a Lissajous path while a
  *          noise transformer warps its trail each frame.
- * @note Sibling trail effects `Comets` and `RingSpin` share the scaffolding
- *       (orientation random-walk → fading trail → position-colored multiline),
- *       but only the common record + deep_tween skeleton lives in the engine
- *       (`OrientationTrail::record`, the `deep_tween` free function). The bodies
- *       diverge in draw primitive, transform chain, color/fade, and
- *       accumulate-vs-draw model, so a unifying base would be a worse abstraction
- *       than the two-line idiom — each renders independently; propagate
- *       trail-rendering fixes by hand. Intentional per-effect differences:
- *       `RingSpin` skips the `Screen::AntiAlias` filter the other two apply, and
- *       uses `Orientation<>` (CAP 4) vs `Orientation<16>` — its great-circle
- *       rings overlap heavily so 4 sub-frames read like 16, while a single
- *       fast-moving point needs the finer fidelity.
+ * @note Sibling trail effects `Comets` and `RingSpin` share only the
+ *       record + deep_tween skeleton (in the engine); their bodies diverge in
+ *       draw primitive, transform chain, and color/fade, so each renders
+ *       independently and trail-rendering fixes must be propagated by hand.
  */
 template <int W, int H> class ChaoticStrings : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 115;
-  // Each trail frame is an Orientation holding up to ORIENTATION_SUBSTEPS
-  // sub-frames; deep_tween() emits one Fragment per (frame, sub-frame). The
-  // product is the strict worst-case vertex count per draw, and it sizes both
-  // the scratch vertex buffer and the scratch arena carve below.
+  // deep_tween() emits one Fragment per (frame, sub-frame), so this product is
+  // the worst-case vertex count sizing the scratch buffer and arena carve below.
   static constexpr int ORIENTATION_SUBSTEPS = 16;
   static constexpr int MAX_FRAGMENTS = TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
 
@@ -77,9 +67,8 @@ public:
         path([](float) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
 
-  // Scratch A holds the per-frame Fragment buffer (MAX_FRAGMENTS) plus headroom
-  // for the downstream Multiline draw. Tie the carve to that worst case so the
-  // buffer can never overrun its arena, with margin above the bare requirement.
+  // Scratch A holds the per-frame Fragment buffer plus Multiline-draw headroom;
+  // tied to the worst case so the buffer can never overrun its arena.
   static constexpr size_t SCRATCH_A_BYTES = 200 * 1024;
   static_assert(SCRATCH_A_BYTES >= MAX_FRAGMENTS * sizeof(Fragment),
                 "scratch arena A must fit the worst-case fragment buffer");
@@ -91,22 +80,18 @@ public:
    */
   void init() override {
 
-    // This effect never uses scratch B, so carve it to 0 and give the rest to
-    // persistent + scratch A. The 0 zeroes scratch B globally for this effect's
-    // duration, but never leaks across an effect switch: every construction site
-    // calls configure_arenas_default() before the next effect's init(), restoring
-    // the default scratch-B size before anything touches it.
+    // This effect never uses scratch B, so carve it to 0. The default size is
+    // restored before the next effect's init() (every site calls
+    // configure_arenas_default()), so it never leaks across an effect switch.
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     node = static_cast<Node *>(
         persistent_arena.allocate(sizeof(Node), alignof(Node)));
     new (node) Node();
 
-    // Colors
     static_palette.bind(&palette_variant, &scale_mod, &cycle_mod);
     palette_variant = Palettes::fireAndIce;
 
-    // Parameters
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     registerParam("Speed", &params.speed, 0.0f, 5.0f);
@@ -115,27 +100,23 @@ public:
     registerParam("Scale Factor", &params.scaleFactor, 1.0f, 500.0f);
     registerParam("Cycle Speed", &params.cycleSpeed, 0.0f, 1.0f);
 
-    // Initialize noise params
     noise_xform.template_params.amplitude = params.jitterAmp;
     noise_xform.template_params.frequency = params.noiseFreq;
     noise_xform.template_params.speed = params.speed;
     noise_xform.template_params.sync();
 
-    // Build the initial Lissajous path and start the noise transformer
     update_path();
     noise_xform.spawn(0, -1);
 
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
-    // Retain the motion handle so the Cycle Dur slider can be applied live
-    // (its duration was otherwise captured once at init).
+    // Retain the motion handle so the Cycle Dur slider can be applied live.
     motion_ = timeline.add_get(
         0, Animation::Motion<W, ORIENTATION_SUBSTEPS>(
                node->orientation, path, (int)params.cycle_duration, true));
 
-    // Bind the Driver to the live Cycle Speed slider (scale 1.0) so it reads the
-    // value itself each step; no retained handle or per-frame set_speed needed
-    // (the idiom DreamBalls/Liquid2D use).
+    // Bound Driver reads the live Cycle Speed slider each step; no retained
+    // handle or per-frame set_speed needed.
     timeline.add(0, Animation::Driver(cycle_phase, &params.cycleSpeed, 1.0f));
 
     last_cycle_duration_ = params.cycle_duration;
@@ -162,10 +143,9 @@ public:
     ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
     timeline.step(canvas);
 
-    // Each entity holds its own copy of the noise params (sliders bind to this
-    // effect's `params`, not the spawned entities), so push the live values in by
-    // hand. The embedded-FastNoiseLite re-sync is left to prepare_frame() below,
-    // which calls NoiseParams::sync() on every active entity after this push.
+    // Each entity holds its own copy of the noise params (sliders bind to
+    // `params`, not the entities), so push the live values in by hand;
+    // prepare_frame() below re-syncs each active entity afterward.
     for (auto &e : noise_xform.entities) {
       if (e.active) {
         e.params.frequency = params.noiseFreq;
@@ -175,19 +155,17 @@ public:
     }
     noise_xform.prepare_frame();
 
-    // Live-apply the Cycle Dur slider to the motion
-    // (guarded: set_duration reschedules from now, so calling it every frame
-    // would perpetually defer the trigger).
+    // Guarded: set_duration reschedules from now, so calling it every frame
+    // would perpetually defer the trigger.
     apply_if_changed(params.cycle_duration, last_cycle_duration_, [&](float cd) {
       if (motion_)
         motion_->set_duration((int)cd);
     });
 
-    // Record the current orientation snapshot
     node->trail.record(node->orientation);
 
     deep_tween(node->trail, [&](const Quaternion &q, float t) {
-      // Re-apply transforms at draw time so the trail undulates with noise
+      // Re-apply transforms at draw time so the trail undulates with noise.
       Vector pos =
           noise_xform.transform(orientation.orient(rotate(node->v, q)));
       Fragment f;
@@ -197,8 +175,7 @@ public:
     });
 
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      // Drive color and fade from the normalized trail parameter (v3), as the
-      // sibling Comets effect does.
+      // Color and fade from the normalized trail parameter (v3).
       float color_t = frag.v3;
       frag.color = static_palette.get(color_t);
       frag.color.alpha *= quintic_kernel(frag.v3) * params.alpha;

@@ -43,18 +43,14 @@ public:
     registerParam("Twist", &params.twist, -5.0f, 5.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
-    // Bake palette for trail coloring
     baked_sunset.bake(persistent_arena, Palettes::richSunset);
 
-    // Persistent footprint ~105 KB (mostly ACTUAL_FIBERS VectorTrail<40> ≈ 100 KB).
-    // It fits the default persistent partition (~303 KB on device) with wide
-    // headroom and uses no per-frame scratch, so it deliberately keeps the default
-    // split rather than calling configure_arenas(). If that split were ever retuned
-    // below this footprint, allocate() traps (fail-fast).
+    // Persistent footprint ~105 KB fits the default partition (~303 KB) with no
+    // per-frame scratch, so it keeps the default split rather than calling
+    // configure_arenas(); a retuned-too-small split traps in allocate().
     fibers = static_cast<Vector *>(persistent_arena.allocate(
         ACTUAL_FIBERS * sizeof(Vector), alignof(Vector)));
 
-    // Allocate VectorTrails for each fiber
     trails = static_cast<Animation::VectorTrail<TRAIL_LEN> *>(
         persistent_arena.allocate(ACTUAL_FIBERS *
                                       sizeof(Animation::VectorTrail<TRAIL_LEN>),
@@ -64,13 +60,12 @@ public:
     }
 
     init_fibers();
-    // Ambient Y-axis spin is intentionally left ungated (keeps running while
-    // paused, per the setAnimationsPaused contract). The flow/tumble Drivers
-    // ARE gated so "Pause Animation" actually freezes the fiber motion.
+    // Ambient spin is intentionally left ungated (runs while paused); the
+    // flow/tumble Drivers below are gated so Pause freezes the fiber motion.
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_linear, true));
-    // Bound Drivers: each pulls its tuning slider (× per-unit rate) every step,
-    // so the flow/tumble speeds stay live without a per-frame set_speed re-sync.
+    // Each Driver pulls its slider (× per-unit rate) every step, so speeds stay
+    // live without a per-frame set_speed re-sync.
     timeline.add(0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE,
                                       true, &anims_paused_));
     timeline.add(0, Animation::Driver(tumble_angle_x, &params.tumble_speed,
@@ -98,14 +93,12 @@ public:
     timeline.step(canvas);
     advance_tumble();
 
-    // Project fibers and record trail positions (oriented world space)
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       Vector v = hopf_project(i);
-      // Store in world space (unoriented) — orient at render time
+      // Store unoriented — oriented at render time.
       trails[i].record(v);
     }
 
-    // Render trails as polylines (already oriented, skip Orient filter)
     render_trails(canvas);
   }
 
@@ -125,32 +118,24 @@ private:
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
 
-  // Stereographic-projection guard: the denominator is (1 + eps) - q3, so at
-  // the projection pole (q3 == 1) it stays a small positive number instead of
-  // 0. The resulting 1/eps magnitude is irrelevant — at a fiber pole the
-  // projected components are themselves ~0, so normalized_or() discards the
-  // magnitude and substitutes its fallback axis. eps's only job is to keep the
-  // pre-normalize direction well-defined (no 0/0 NaN that would poison
-  // normalized_or's length test).
+  // Denominator is (1 + eps) - q3, staying positive at the pole (q3 == 1)
+  // instead of 0. The magnitude is irrelevant — at a fiber pole the projected
+  // components are ~0 and normalized_or() substitutes its fallback axis; eps
+  // only keeps the pre-normalize direction NaN-free.
   static constexpr float STEREO_POLE_EPSILON = 0.001f;
 
-  // Phases accumulate as wrapped fractions of their natural period ("turns")
-  // and are scaled back to radians at the use site, so the arguments handed to
-  // fast_sinf/cosf stay bounded. An unbounded accumulator grows float ULPs
-  // without limit and visibly steps over multi-day installation runs; Flyby and
-  // DreamBalls wrap their trig phases for exactly this reason.
+  // Phases accumulate as wrapped fractions of their period ("turns") and scale
+  // back to radians at use, keeping the trig arguments bounded; an unbounded
+  // accumulator grows ULPs and visibly steps over multi-day runs.
   //
-  // flow_offset and tumble_angle_y feed only full-angle terms, so their period
-  // is 2pi. tumble_angle_x additionally feeds the half-angle fold_base term
-  // (period 4pi); wrapping it over 4pi keeps BOTH the full-angle (cx/sx) and the
-  // half-angle (fold_base) terms continuous across the wrap.
+  // flow_offset and tumble_angle_y feed only full-angle (2pi) terms.
+  // tumble_angle_x also feeds the half-angle fold_base term, so it wraps over
+  // 4pi to keep both the full-angle and half-angle terms continuous.
   static constexpr float FLOW_PERIOD     = 2 * PI_F;
   static constexpr float TUMBLE_X_PERIOD = 4 * PI_F;
   static constexpr float TUMBLE_Y_PERIOD = 2 * PI_F;
 
-  // Per-unit driver rates, in turns of the corresponding period (the original
-  // radians-per-unit-speed rate divided by that period). Multiplied by the
-  // tuning param via the bound Drivers set up in init().
+  // Per-unit driver rates, in turns (radians-per-unit-speed / period).
   static constexpr float FLOW_RATE     = (0.02f * 0.2f) / FLOW_PERIOD;
   static constexpr float TUMBLE_X_RATE = 0.003f / TUMBLE_X_PERIOD;
   static constexpr float TUMBLE_Y_RATE = 0.005f / TUMBLE_Y_PERIOD;
@@ -162,8 +147,7 @@ private:
   Vector *fibers = nullptr;
   Animation::VectorTrail<TRAIL_LEN> *trails = nullptr;
 
-  // Cached per-frame values: tumble rotation (cx/sx/cy/sy), the fold_base phase
-  // offset, and the radian-scaled flow/tumble-y phases reused across all fibers.
+  // Per-frame values reused across all fibers (refreshed in advance_tumble).
   float cx = 1.0f, sx = 0.0f, cy = 1.0f, sy = 0.0f, fold_base = 0.0f;
   float flow_rad = 0.0f, ty_rad = 0.0f;
 
@@ -171,8 +155,8 @@ private:
   Timeline timeline;
   BakedPalette baked_sunset;
 
-  // trail_pipeline applies AA only; trail points are oriented by hand in
-  // render_trails before rasterizing, so no Orient filter is needed.
+  // AA only; trail points are oriented by hand in render_trails, so no Orient
+  // filter is needed.
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> trail_pipeline;
 
   /**
@@ -197,8 +181,7 @@ private:
    * and the radian-scaled flow and tumble-y phases shared across all fibers.
    */
   void advance_tumble() {
-    // Scale the wrapped [0,1)-turn phases back to radians at use; the arguments
-    // are now bounded (ax < 4pi, ty_rad < 2pi) instead of growing without limit.
+    // Scale wrapped [0,1)-turn phases back to radians (ax < 4pi, ty_rad < 2pi).
     const float ax = tumble_angle_x * TUMBLE_X_PERIOD;
     ty_rad = tumble_angle_y * TUMBLE_Y_PERIOD;
     flow_rad = flow_offset * FLOW_PERIOD;
@@ -206,8 +189,8 @@ private:
     sx = fast_sinf(ax);
     cy = fast_cosf(ty_rad);
     sy = fast_sinf(ty_rad);
-    // fold_base needs sin(ax/2): ax = tumble_angle_x*4pi, so ax*0.5 spans [0,2pi)
-    // continuously across the 4pi wrap.
+    // fold_base needs sin(ax/2); ax*0.5 spans [0,2pi) continuously across the
+    // 4pi wrap.
     fold_base = fast_sinf(ax * 0.5f) * 0.5f;
   }
 
@@ -224,10 +207,9 @@ private:
     float theta = sph.phi; // polar angle (co-latitude)
     float phi = sph.theta; // azimuthal angle
 
-    // Folding. The displacement depth is driven by the Folding slider alone and
-    // is independent of Tumble Spd, so Folding still acts when the tumble is
-    // frozen (Tumble Spd = 0). The 0.2f factor reproduces the previous depth at
-    // the default tumble_speed of 2.0 (0.1 * 2.0), keeping the default look.
+    // Folding. Depth is driven by the Folding slider alone (independent of
+    // Tumble Spd), so it still acts when tumble is frozen. The 0.2f matches the
+    // default look (0.1 * default tumble_speed 2.0).
     float eta = theta / 2.0f;
     eta += fast_sinf(phi * 2.0f + ty_rad + fold_base) * 0.2f * params.folding;
 
@@ -251,8 +233,8 @@ private:
     q2 = q1 * sy + q2 * cy;
     q1 = q1_r;
 
-    // Stereographic S3 → R3. At a fiber pole (q0=q1=q2=0) the projected
-    // direction is undefined; fall back to a stable axis instead of trapping.
+    // Stereographic S3 -> R3; at a fiber pole the direction is undefined, so
+    // fall back to a stable axis.
     float factor = 1.0f / ((1.0f + STEREO_POLE_EPSILON) - q3);
     return normalized_or(Vector(q0 * factor, q1 * factor, q2 * factor),
                          Vector(1, 0, 0));
@@ -266,10 +248,9 @@ private:
    * (opaque) to oldest (transparent).
    */
   void render_trails(Canvas &canvas) {
-    // Every fragment's alpha is scaled by params.alpha (see the shader below),
-    // so alpha == 0 paints nothing. Skip rasterizing all 210 fibers in that
-    // case — output-identical, just cheaper. Trails are still recorded in
-    // draw_frame(), so motion continues and resumes correctly when alpha > 0.
+    // alpha scales every fragment, so alpha == 0 paints nothing — skip
+    // rasterizing (output-identical). Trails are still recorded in draw_frame(),
+    // so motion continues and resumes when alpha > 0.
     if (params.alpha <= 0.0f)
       return;
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
@@ -284,17 +265,13 @@ private:
 
       for (size_t j = 0; j < len; ++j) {
         Fragment f;
-        // Orient from world space to current view at render time
         f.pos = orientation.orient(trail.get(j));
-        // The len < 2 guard above guarantees len >= 2, so len - 1 >= 1 — no
-        // divide-by-zero and no need for a len > 1 ternary.
+        // len >= 2 (guarded above), so len - 1 >= 1 — no divide-by-zero.
         f.v0 = static_cast<float>(j) / (len - 1);
         f.age = 0;
         points.push_back(f);
       }
 
-      // Shade each trail point by its normalized age: sunset palette lookup
-      // plus an alpha ramp that fades the tail from opaque (newest) to clear.
       auto shader = [this](const Vector &, Fragment &f) {
         float t = f.v0; // 0 = oldest, 1 = newest
         Color4 c = baked_sunset.get(1.0f - t);
@@ -302,7 +279,6 @@ private:
         f.color = c;
       };
 
-      // Rasterize polyline through trail_pipeline (AA only, no Orient)
       Plot::rasterize<W, H>(trail_pipeline, canvas, points, shader);
     }
   }

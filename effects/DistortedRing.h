@@ -43,12 +43,8 @@ public:
    * mutation animations to the timeline.
    */
   void init() override {
-    // One pixel of azimuth in ring-space. Default stroke is 4 px, the Thickness
-    // slider floor is 2 px and its cap is 12 px — all scaled by resolution so
-    // the slider's pixel meaning (and the default's place within range) is the
-    // same at any W. 12 px ≈ the prior fixed 0.75 rad cap at the canonical
-    // Holosphere <96,20> device (12·2π/96 ≈ 0.785 rad), now consistent across
-    // resolutions instead of a fixed angle whose pixel width grew with W.
+    // One pixel of azimuth in ring-space; scales the stroke/slider by
+    // resolution so their pixel meaning is the same at any W.
     const float px = 2.0f * PI_F / W;
     params.thickness = 4.0f * px;
 
@@ -104,9 +100,8 @@ public:
 
       Basis basis = make_basis(orientation.get(), normal);
       auto fragment_shader = [&](const Vector &, Fragment &f) {
-        // f.v0 is normalized azimuth (0..1)
-        // f.v1 is distance from center line
-        // f.size is thickness
+        // f.v0 = normalized azimuth (0..1), f.v1 = distance from center line,
+        // f.size = thickness.
         f.color = ringPalette.get(f.v0);
 
         float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
@@ -145,10 +140,9 @@ private:
   GenerativePalette ringPalette;
   Vector normal;
   Orientation<> orientation;
-  // Built in the constructor (not inline in init() like the sprite/walk) so the
-  // Mutation's reference_wrapper binding to `amplitude`/`params.max_amplitude`
-  // is established once; init() then copies it into the timeline, and the copy
-  // retains that binding. Held as a member only to be that copy source.
+  // Built in the constructor so the Mutation's reference_wrapper binding to
+  // `amplitude`/`params.max_amplitude` is established once; the copy init() adds
+  // to the timeline retains that binding.
   Animation::Mutation amplitude_mut;
 };
 

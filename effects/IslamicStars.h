@@ -34,18 +34,16 @@ public:
 
     palette_bank_.bake_all(persistent_arena);
 
-    // Set ripple defaults BEFORE registering their pointers: registerParam
-    // snaps *ptr as the slider default, so these must already hold the intended
-    // runtime values.
+    // Set BEFORE registering: registerParam snaps *ptr as the slider default,
+    // so these must already hold the intended runtime values.
     ripple_gen.template_params.amplitude = 0.4f;
     ripple_gen.template_params.thickness = 0.7f;
     ripple_gen.template_params.decay = 0.1f;
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Fade", &params.fade, 0.0f, 96.0f);
-    // Burst and Ripp Dur ranges are clamped to the ripple pool's capacity
-    // invariant (see the kRipple* constants below): the current burst plus the
-    // still-live previous one peaks at exactly kRipplePoolSize slots.
+    // Burst/Ripp Dur ranges are clamped to the ripple pool capacity invariant
+    // (see the kRipple* constants below).
     registerParam("Burst", &params.burst_size, 1.0f, (float)kBurstMax);
     registerParam("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f, 1.0f);
     registerParam("Ripp Width", &ripple_gen.template_params.thickness, 0.1f, 1.0f);
@@ -83,13 +81,10 @@ public:
   }
 
 private:
-  // Ripple-pool capacity invariant: a burst spawns at most kBurstMax ripples
-  // staggered kRippleStaggerFrames apart, and a new burst starts every
-  // kRippleRecurrenceFrames. With kRippleRecurrenceFrames spanning the full
-  // stagger of one burst, only the current burst plus the still-live tail of
-  // the previous one coexist; capping Ripp Dur at kRippleDurationMax keeps that
-  // peak at kRipplePoolSize slots, so no spawn is ever dropped. Changing any one
-  // breaks the coupling — overflow then silently drops ripples.
+  // Ripple-pool capacity invariant: the current burst plus the still-live tail
+  // of the previous one peak at kRipplePoolSize slots, so no spawn is dropped.
+  // These constants are coupled (enforced by the static_assert below); changing
+  // one in isolation overflows and silently drops ripples.
   static constexpr int kRipplePoolSize = 8;
   static constexpr int kRippleStaggerFrames = 16;
   static constexpr int kRippleRecurrenceFrames = 96;
@@ -112,9 +107,8 @@ private:
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
   // Per-slot palette indices; value-init so a missed shuffle reads palette 0,
-  // not garbage. The shuffle-before-draw rule is a convention (each spawn_shape
-  // shuffles the back slot), enforced the same way as HankinSolids' identical
-  // palettes_slots — not by a runtime guard.
+  // not garbage. Shuffle-before-draw is a convention (each spawn_shape shuffles
+  // the back slot), not a runtime guard.
   std::array<int, NUM_PALETTES> palettes_slots[2] = {};
 
   /**
@@ -154,8 +148,6 @@ private:
     const int *raw_indices = faceIndices.data();
 
     const int num_faces = static_cast<int>(faceIndices.size());
-    // Color each fragment by its face's topology class, shaded by edge distance
-    // (gain 1.0). Shared with HankinSolids via shade_mesh_topology.
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
       frag.color = shade_mesh_topology(frag, raw_indices, num_faces,
                                        palette_bank_, palette_idx, 1.0f, opacity);
@@ -173,13 +165,12 @@ private:
   void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
-    // The back slot is the render/generate target for this cycle. Captured once
-    // so the palette shuffle, the draw_fn closure, and the generate target all
-    // reference the same slot.
+    // Captured once so the shuffle, the draw_fn closure, and the generate target
+    // all reference the same slot.
     int back = 1 - carousel.front_index();
     MeshPaletteBank::shuffle_indices(palettes_slots[back]);
 
-    int idx = solid_idx; // capture for generate lambda
+    int idx = solid_idx;
 
     auto draw_fn = [this, back](Canvas &canvas, float opacity) {
       const MeshState &mesh = carousel.slot(back);
@@ -187,24 +178,20 @@ private:
                        palettes_slots[back]);
     };
 
-    // 1. Free the back slot and compact, rebaking palettes into the fresh
-    // arena instead of tracking them through the evacuation (saves
-    // fragmentation/OOM).
+    // Compact the back slot, rebaking palettes into the fresh arena rather than
+    // tracking them through the evacuation (saves fragmentation/OOM).
     carousel.compact_keep_front(
         [this](Arena &arena) { palette_bank_.bake_all(arena); });
 
-    // 2. Generate new shape
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh mesh = solids[idx].generate(a, b);
       carousel.slot(back).clear();
       MeshOps::compile(mesh, carousel.slot(back), target);
     });
 
-    // classify_faces_by_topology uses both scratch arenas as transient
-    // workspace (its result lands in persistent_arena), so bracket it with
-    // ScratchScope to free only its own allocations on exit — the same idiom
-    // HankinSolids::classify_mesh_topology uses, rather than a bare reset() that
-    // would discard any allocation a caller already holds in these arenas.
+    // ScratchScope frees only this call's own allocations on exit (its result
+    // lands in persistent_arena), leaving prior caller allocations in these
+    // shared arenas intact — a bare reset() would discard them.
     {
       ScratchScope _a(scratch_arena_a);
       ScratchScope _b(scratch_arena_b);
@@ -212,34 +199,28 @@ private:
                                           scratch_arena_b, persistent_arena);
     }
 
-    // 3. Flip front eagerly for the overlapping sprite
+    // Flip front eagerly for the overlapping sprite.
     carousel.set_front(back);
 
-    // Live-read the Duration slider per shape cycle. Clamp fade to dur/2 so
-    // the fade-in/out windows never overlap and the respawn delay (dur - fade)
-    // stays >= dur/2 — a larger fade piles up sprites and per-frame respawns.
+    // Clamp fade to dur/2 so the fade windows never overlap and the respawn
+    // delay (dur - fade) stays >= dur/2; a larger fade piles up sprites.
     int dur = static_cast<int>(params.duration);
     int fade = std::min(static_cast<int>(params.fade), dur / 2);
-    // Make the comment's invariant checkable: fade never exceeds half the
-    // duration, so the respawn delay (dur - fade) stays >= dur/2 and sprites
-    // never pile up. Cold setup-time seam (once per shape cycle), so trap on
-    // device too with HS_CHECK rather than a debug-stripped assert.
+    // Cold setup-time seam, so trap on device too with HS_CHECK.
     HS_CHECK(fade <= dur / 2 && dur - fade >= dur / 2);
     timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_linear, fade,
                                       ease_linear));
 
-    // Topology indices are left un-reduced: draw_shape applies
-    // `topoIdx % NUM_PALETTES` at render time, so reducing the stored topology
-    // here would be a redundant double-modulo and an unwanted mutation of the
-    // carousel's mesh state.
+    // Topology indices left un-reduced: draw_shape applies the modulo at render
+    // time, so reducing here would double-modulo and mutate the carousel's mesh.
 
     const auto &entry = solids[solid_idx];
     hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
             (int)carousel.current().vertices.size(),
             (int)carousel.current().faces.size());
 
-    // Schedule the next shape to begin one fade-out before this one ends, so
-    // the two sprites overlap during the cross-fade.
+    // Next shape starts one fade-out before this one ends, so the two sprites
+    // overlap during the cross-fade.
     int next_delay = dur - fade;
     timeline.add(next_delay,
                  Animation::PeriodicTimer(

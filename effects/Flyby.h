@@ -13,11 +13,10 @@
  * @tparam H Canvas height in pixels.
  * @details Projects a noise-warped Cartesian grid onto a sphere, rotating
  * around Y, blending continuously between camera/warp presets.
- * @note `Liquid2D` is the sibling stereographic effect. Both build on the same
- *       core primitives (`stereo()`, `stereo_noise_warp()`, `pole_attenuation()`),
- *       but `project()`, the `sample()` pattern, and `Params::lerp` are
- *       intentionally different — they are independent effects, NOT hand-synced
- *       copies, so a change here is not expected to propagate to Liquid2D.
+ * @note `Liquid2D` is the sibling stereographic effect, sharing the core
+ *       primitives (`stereo()`, `stereo_noise_warp()`, `pole_attenuation()`) but
+ *       with its own `project()`, `sample()` pattern, and `Params::lerp`; the
+ *       two are independent effects, so a change here need not propagate there.
  */
 template <int W, int H> class Flyby : public Effect {
 public:
@@ -35,12 +34,9 @@ public:
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    // Warp Scale/Strength span 10x the range Liquid2D gives the same
-    // stereo_noise_warp core: Flyby's presets actively sweep the warp hard (up
-    // to scale ~47.8, strength ~11.6 — see presets below), so the slider must
-    // reach those preset extremes. Liquid2D instead pins warp at 1.5/0.5 across
-    // its presets and animates other fields, so it keeps a tighter range for
-    // finer manual control. The divergence is intentional, not an oversight.
+    // Wide Warp Scale/Strength range: presets sweep the warp hard (up to scale
+    // ~47.8, strength ~11.6 — see presets below), so the slider must reach those
+    // extremes.
     registerParam("Warp Scale", &params.warp_scale, 0.1f, 100.0f);
     registerParam("Warp Strength", &params.warp_strength, 0.0f, 30.0f);
     registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
@@ -48,19 +44,17 @@ public:
     registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
     registerParam("Drift", &params.drift, 0.0f, 2.0f);
     registerParam("Hue Shift", &params.hue_shift, 0.0f, 1.0f);
-    // Every param is driven by the continuous preset lerp; flag them so the
-    // standard "Pause Animation" toggle lets the user take a slider over.
+    // Every param is driven by the preset lerp; flag them so "Pause Animation"
+    // lets the user take a slider over.
     for (const char *n :
          {"Warp Scale", "Warp Strength", "Pattern Freq", "Speed", "Pole Fade",
           "Drift", "Hue Shift"})
       markAnimated(n);
 
-    // Start with tangent plane at -Z, then rotate around Y
     orientation.set(make_rotation(Vector(0, 0, -1), Vector(0, -1, 0)));
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,
                                            ease_linear, true));
 
-    // Bake the generative palette into a fast 16-bit LUT
     palette.bake(persistent_arena,
                  GenerativePalette{
                      GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
@@ -84,15 +78,11 @@ public:
   }
 
   /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns. Requests a
-   * trailing black display frame after each column, not a software
-   * alpha-composite over a background buffer.
-   * @return true; the strip blanks to black after each column is shown so the
-   * bright stereographic pattern stands as sharp slices against a dark sweep
-   * instead of smearing over the previous revolution. The shader itself
-   * OVERWRITES every pixel — `Scan::Shader::draw` writes `color * alpha`, and
-   * `c.alpha *= (1 - value)` only darkens toward black; no persistent background
-   * buffer is blended in or revealed.
+   * @brief POV column-strobe flag — see Effect::strobe_columns.
+   * @return true; the strip blanks to black after each column so the bright
+   * stereographic pattern stands as sharp slices against a dark sweep instead of
+   * smearing over the previous revolution. The shader overwrites every pixel, so
+   * no persistent background buffer is blended in.
    */
   bool strobe_columns() const override { return true; }
 
@@ -106,15 +96,13 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Noise time axis: grows unbounded. OpenSimplex2 is not periodic, so this
-    // cannot be wrapped without a visible jump in the warp; it feeds GetNoise
-    // (which degrades gracefully with large coordinates), not fast_sinf, so it
-    // is not the range-reduction hazard the trig phases are.
+    // Unbounded: OpenSimplex2 is not periodic, so wrapping would jump the warp;
+    // it feeds GetNoise (graceful with large coords), not fast_sinf, so it is no
+    // range-reduction hazard.
     noise_time += params.speed;
     // Trig phases ARE wrapped to 2pi so fast_sinf/fast_cosf keep precise range
-    // reduction over multi-hour runs. Each tracks its own time coefficient so
-    // the wrap stays invisible (the pattern uses +t in sin and -drift*t in cos);
-    // for the shipped presets drift == 0, so drift_phase stays 0.
+    // reduction. Each tracks its own coefficient (sin +t, cos -drift*t) so the
+    // wrap stays invisible; shipped presets have drift == 0.
     constexpr float kTwoPi = 2.0f * PI_F;
     sin_phase = fmodf(sin_phase + params.speed, kTwoPi);
     drift_phase = fmodf(drift_phase + params.speed * params.drift, kTwoPi);
@@ -126,7 +114,7 @@ public:
       float pattern = sample(w, sin_phase, drift_phase);
       float value = attenuate(pattern, r_sq);
       Color4 c = palette.get(value);
-      c.alpha *= (1.0f - value); // Linear alpha falloff toward bright values
+      c.alpha *= (1.0f - value);
       c = hue_rotate(c, -displacement * params.hue_shift);
       return c;
     };
@@ -167,11 +155,9 @@ private:
    */
   float sample(const Complex &w, float sin_phase, float drift_phase) const {
     // Soft-limit the trig argument: near the pole |w| -> STEREO_INF, so
-    // w*pattern_freq can reach ~2e5 where fast_sinf range reduction bands. The
-    // pole cap is pole-attenuated anyway, so clamp rather than feed the trig a
-    // coordinate it cannot resolve (see STEREO_PATTERN_ARG_LIMIT). This clamp
-    // guard is the one piece shared with Liquid2D::sample; the pattern below is
-    // this effect's own.
+    // w*pattern_freq can reach ~2e5 where fast_sinf range reduction bands. That
+    // region is pole-attenuated anyway, so clamp it (see
+    // STEREO_PATTERN_ARG_LIMIT).
     float pu = hs::clamp(w.re * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
                          STEREO_PATTERN_ARG_LIMIT);
     float pv = hs::clamp(w.im * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,

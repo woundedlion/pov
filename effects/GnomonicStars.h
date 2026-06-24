@@ -46,11 +46,9 @@ public:
    *          RandomWalk that reorients the field.
    */
   void init() override {
-    // Carve the base-lattice cache once from the persistent arena (only the
-    // active effect uses it). Sized to MAX_POINTS so a live "Points" change never
-    // reallocates a bump arena. draw_frame() fills slot [0, points) before
-    // reading it, so the uninitialized Vector storage here is always overwritten
-    // before use. allocate() traps on OOM, so a non-null return needs no check.
+    // Sized to MAX_POINTS so a live "Points" change never reallocates.
+    // draw_frame() fills slot [0, points) before reading it, so the
+    // uninitialized storage is always overwritten first.
     spiral_cache_ = static_cast<Vector *>(persistent_arena.allocate(
         MAX_POINTS * sizeof(Vector), alignof(Vector)));
 
@@ -59,21 +57,14 @@ public:
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
     registerParam("Debug BB", &params.debug_bb);
 
-    // Spawn the evolving warp and retain its handle so the "Warp Speed" slider —
-    // bound to params.warp_speed like every other control — can be mirrored into
-    // the animation each frame (see draw_frame). The warp is infinite and added
-    // before any other timeline event, so pinning it is the safe retained-handle
-    // path: if a future edit ever inserts a finite event ahead of it, compaction
-    // traps loudly rather than dangling this pointer.
-    //
-    // Arg order is (scale, speed): scale is the fixed 0.5 modulation magnitude;
-    // speed is the slider-controlled evolution rate. params.warp_speed feeds the
-    // *speed* slot only — routing it into scale (and defaulting it to scale's
-    // 0.5) is what spun the field ~14x too fast.
+    // Retain the handle so the "Warp Speed" slider can be mirrored into the warp
+    // each frame (see draw_frame). The warp is infinite and added first, so
+    // pinning is safe: a later finite event inserted ahead traps on compaction
+    // rather than dangling this pointer. Args are (scale, speed): scale is the
+    // fixed 0.5 modulation magnitude, speed the slider-controlled rate.
     warp_ = transformer.spawn_pinned(0, 0.5f, params.warp_speed);
     // A pinned spawn into a fresh transformer always has a free slot, so a null
-    // here is a structural bug, not a runtime condition. Trap rather than
-    // silently drop the "Warp Speed" slider.
+    // here is a structural bug, not a runtime condition.
     HS_CHECK(warp_, "GnomonicStars: pinned warp spawn must succeed");
     registerParam("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
 
@@ -98,15 +89,14 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // Mirror the live Warp Speed slider into the pinned warp animation before the
-    // timeline advances it, so a mid-run change takes effect this frame.
+    // Mirror the slider into the warp before the timeline advances it, so a
+    // mid-run change takes effect this frame.
     warp_->speed = params.warp_speed;
 
     timeline.step(canvas);
 
-    // Tints each fragment along a Mango Peel gradient keyed to its world-space Y.
     auto fragment_shader = [](const Vector &p, Fragment &frag) {
-      float t = (p.y + 1.0f) * 0.5f; // map Y in [-1, 1] to gradient t in [0, 1]
+      float t = (p.y + 1.0f) * 0.5f; // Y in [-1, 1] -> gradient t in [0, 1]
       Color4 c = Palettes::mangoPeel.get(t);
       frag.color = c;
     };
@@ -117,11 +107,8 @@ public:
 
     // The base spiral depends only on (points, i): `eps` is fixed at 0 and only
     // the warp + orientation animate, so the raw lattice is identical every frame
-    // until "Points" moves. Rebuild it (trig-heavy fib_spiral, up to MAX_POINTS
-    // calls) only on a points change and cache it in the persistent arena; the
-    // steady state then just reads each base point back before warping it. The
-    // cache is a fixed MAX_POINTS-Vector buffer carved once in init() from the
-    // persistent arena, which only the active effect uses.
+    // until "Points" moves. Rebuild the trig-heavy fib_spiral only on a points
+    // change; the steady state just reads each cached base point back.
     HS_CHECK(points <= MAX_POINTS,
              "GnomonicStars: Points exceeds spiral-cache capacity");
     if (points != cached_points_) {
@@ -134,9 +121,8 @@ public:
     for (int i = 0; i < points; i++) {
       Vector v = transformer.transform(spiral_cache_[i]);
 
-      // Build the basis at the star position. make_basis() rotates its normal
-      // by the orientation, so passing the raw warp output applies the latest
-      // orientation exactly once — orienting v separately first would rotate it
+      // make_basis() rotates its normal by the orientation, so passing the raw
+      // warp output applies it exactly once — orienting v first would rotate
       // twice (q*q*v) and drift the field at double the RandomWalk rate.
       Basis basis = make_basis(orientation.get(), v);
 

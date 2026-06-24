@@ -9,11 +9,9 @@
 
 #include <array>
 
-// Forward declaration of the unit-test accessor (tests/test_effects.h) that
-// reaches the private preset-cycle bookkeeping (spawn_sprite, active_bake_,
-// last_preset_idx_). The smoke/determinism harness only renders ~120 frames,
-// short of the 288-frame re-spawn period, so the preset advance / bake
-// ping-pong / reseed-guard paths are driven directly through this seam.
+// Unit-test accessor reaching the private preset-cycle bookkeeping; the smoke
+// harness renders ~120 frames, short of the 288-frame re-spawn period, so those
+// paths are driven directly through this seam.
 namespace hs_test {
 namespace effects_tests {
 struct DreamBallsWhiteBox;
@@ -63,8 +61,8 @@ public:
     bloodStreamComposition.bind(&bloodStreamPalette, &bloodStreamFade);
 
     params = preset_manager.get();
-    // Bake both LUT slots up front so each owns its persistent-arena allocation;
-    // spawn_sprite only ever rebakes (no further allocation) thereafter.
+    // Bake both LUT slots up front so each owns its allocation; spawn_sprite
+    // only rebakes thereafter.
     baked_palettes_[0].bake(persistent_arena, *params.palette);
     baked_palettes_[1].bake(persistent_arena, *params.palette);
 
@@ -73,12 +71,11 @@ public:
     registerParam("Speed", &params.offset_speed, 0.0f, 5.0f);
     registerParam("Warp", &params.warp_scale, 0.0f, 5.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    // Each preset cycle reseeds these from the preset; flag them so the standard
-    // "Pause Animation" toggle freezes the cycle and lets the user take over.
+    // Each preset cycle reseeds these; flag them so "Pause Animation" freezes
+    // the cycle and lets the user take over.
     for (const char *n : {"Copies", "Radius", "Speed", "Warp", "Alpha"})
       markAnimated(n);
 
-    // Start Sequence
     timeline.add(0, Animation::PeriodicTimer(
                         160, [this](Canvas &) { this->spin_slices(); }, true));
     timeline.add(9, Animation::RandomWalk<W>(
@@ -86,10 +83,9 @@ public:
                         Animation::RandomWalk<W>::Options::Languid()));
 
     spawn_sprite(0);
-    // Accumulate orbit phase by integrating the live Speed slider each frame
-    // (wrapped to [0,1)) so a Speed change alters the rate going forward only
-    // rather than retroactively rescaling all elapsed phase. The wrap keeps fast
-    // trig in precise range over multi-day runs.
+    // Integrate the live Speed slider each frame, wrapped to [0,1): a Speed
+    // change alters the rate going forward only, and trig stays in precise range
+    // over multi-day runs.
     timeline.add(0, Animation::Driver(orbit_phase, &params.offset_speed, 0.01f,
                                       /*wrap=*/true));
   }
@@ -209,8 +205,8 @@ private:
       PolyMesh m = generate(persistent_arena, Solids::get_by_name,
                             std::string_view(p.solid_name));
 
-      // Deep-copy vertices into the persistent arena (the generator's scratch
-      // mesh does not outlive this loop).
+      // Deep-copy into the persistent arena; the generator's scratch mesh does
+      // not outlive this loop.
       data.mesh_state.vertices.bind(persistent_arena, m.vertices.size());
       for (const auto &v : m.vertices) {
         data.mesh_state.vertices.push_back(v);
@@ -228,8 +224,8 @@ private:
         }
       }
 
-      // Build a tangent frame per vertex; pick X_AXIS as the seed near the poles
-      // to avoid a degenerate cross product with the near-parallel Y_AXIS.
+      // Per-vertex tangent frame; seed with X_AXIS near the poles to avoid a
+      // degenerate cross product with the near-parallel Y_AXIS.
       data.tangents.bind(persistent_arena, data.mesh_state.vertices.size());
       for (const auto &v : data.mesh_state.vertices) {
         Vector axis = (std::abs(v.y) > 0.99f) ? X_AXIS : Y_AXIS;
@@ -238,11 +234,9 @@ private:
         data.tangents.push_back({u, frame_v});
       }
 
-      // Precompute unique edge list (topology is static). On a closed 2-manifold
-      // every edge is shared by two faces, so faces.size() (Σ face degrees) is
-      // exactly 2·E — size to E. These presets are all closed Solids:: polyhedra;
-      // a non-manifold mesh would under-size and trap loudly in push_back, per the
-      // engine's fail-fast contract, rather than carry a 2× over-allocation.
+      // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E, so
+      // size to E. A non-manifold mesh under-sizes and traps in push_back rather
+      // than over-allocating.
       size_t edge_count = data.mesh_state.faces.size() / 2;
       data.edges.bind(persistent_arena, edge_count);
       Plot::Mesh::extract_edges(data.mesh_state, data.edges);
@@ -262,25 +256,22 @@ private:
     auto entries = preset_manager.get_entries();
     int safe_idx = idx % entries.size();
 
-    // Reseed the slider-bound params from the preset only when the preset
-    // actually changes. While paused the chain re-spawns the SAME preset (see
-    // the scheduler below), so the user's live edits persist instead of being
-    // clobbered each cycle.
+    // Reseed the slider-bound params only when the preset actually changes.
+    // While paused the chain re-spawns the same preset, so the user's live edits
+    // persist instead of being clobbered each cycle.
     if (safe_idx != last_preset_idx_) {
       params = entries[safe_idx].params;
       last_preset_idx_ = safe_idx;
     }
     int period = 288;
     // Bind the warp magnitude to the live "Warp" slider so dragging it takes
-    // effect this frame instead of only at the next spawn (~5 s later). The
-    // returned pointer is used transiently — never retained — so it is safe
-    // against timeline compaction.
+    // effect this frame instead of at the next spawn. The returned pointer is
+    // used transiently, so it is safe against compaction.
     if (auto *warp = mobius_gen.spawn(0, this->params.warp_scale, period, false))
       warp->bind_scale(this->params.warp_scale);
-    // Rebake into the inactive slot so the previous sprite (still fading out)
-    // keeps reading the palette it spawned with. The slot two spawns back is
-    // long gone (sprites overlap at most pairwise), so this never disturbs a
-    // live sprite.
+    // Rebake into the inactive slot so the still-fading previous sprite keeps its
+    // palette. The slot two spawns back is gone (sprites overlap at most
+    // pairwise), so this never disturbs a live sprite.
     active_bake_ ^= 1;
     baked_palettes_[active_bake_].rebake(*params.palette);
     const int bake_slot = active_bake_;
@@ -291,10 +282,9 @@ private:
       MeshState target_mesh;
       MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
 
-      // Render from the live, slider-bound params (not a fresh preset copy) so
-      // the registered Copies/Radius/Speed/Alpha sliders actually affect the
-      // output, but from this sprite's own baked LUT so its color stays
-      // continuous across a preset change.
+      // Render from the live slider-bound params (so the sliders affect output)
+      // but from this sprite's own baked LUT (so color stays continuous across a
+      // preset change).
       this->draw_scene(canvas, this->params, opacity, preset.mesh_state,
                        target_mesh, preset.tangents, preset.edges,
                        baked_palettes_[bake_slot]);
@@ -331,8 +321,8 @@ private:
     size_t count = base.vertices.size();
     float r = p.offset_radius;
 
-    // MeshOps::transform pre-sizes target.vertices to match base; pin that here
-    // so a future reorder can't silently let the indexed writes below go OOB.
+    // MeshOps::transform pre-sizes target.vertices to match base; pin that
+    // invariant so a future reorder can't let the indexed writes below go OOB.
     HS_CHECK(target.vertices.size() == base.vertices.size(),
              "DreamBalls: displaced-mesh target not pre-sized to base");
 
@@ -340,9 +330,9 @@ private:
       const Vector &v = base.vertices[i];
       const auto &tan = tangents[i];
 
-      // orbit_phase already integrates Speed (see the Driver in init()); it is a
-      // fraction of a turn, so scale to radians here. Per-vertex stagger and the
-      // copy's angle_offset spread the orbits in phase.
+      // orbit_phase already integrates Speed and is a fraction of a turn, so
+      // scale to radians. Per-vertex stagger and the copy's angle_offset spread
+      // the orbits in phase.
       float phase = i * VERTEX_PHASE_STAGGER;
       float angle = orbit_phase * 2 * PI_F + phase + angle_offset;
 
@@ -381,13 +371,8 @@ private:
       f.color = c;
     };
 
-    // num_copies is a float param (slider/preset), but it is a count: hoist it
-    // to an int bound so the loop compares int-to-int instead of promoting the
-    // counter to float each iteration. Identical for the integer values it ever
-    // holds (presets and the slider's whole-number stops). Clamp to >= 1 so the
-    // "at least one shell" contract and the i/num_copies divisor hold even if the
-    // registered min (currently 1.0) is ever lowered into [0, 1) — without it a
-    // sub-1 value would truncate the bound to 0 and silently draw nothing.
+    // Clamp the int copy count to >= 1 so the "at least one shell" contract and
+    // the i/num_copies divisor hold even if the registered min drops below 1.
     const int num_copies_raw = static_cast<int>(p.num_copies);
     const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
     for (int i = 0; i < num_copies; ++i) {

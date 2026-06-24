@@ -10,12 +10,9 @@
 #include "core/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
-// Forward declaration of the unit-test accessor (tests/test_effects.h) that
-// reaches the private Q8 conversions, advance_species, perturb_state, and one
-// physics substep. The smoke/determinism harness cannot see a fixed-point
-// round-trip error, a sign/clamp slip in the reaction-diffusion update, or a
-// perturbation wrap, so the dynamics are pinned directly through this seam.
-// Mirrors GSReactionDiffusion's GSWhiteBox.
+// Unit-test accessor (tests/test_effects.h) reaching the private Q8
+// conversions, advance_species, perturb_state, and one physics substep, which
+// the smoke/determinism harness cannot pin.
 namespace hs_test {
 namespace effects_tests {
 struct BZWhiteBox;
@@ -75,14 +72,10 @@ public:
    *        and seeds the initial spiral nuclei.
    */
   void init() override {
-    // 165KB persistent: 48KB Cubemap LUT + 23KB State + 90KB node positions. The
-    // node array (7680 × Vector) is the fixed Fibonacci lattice and does not
-    // depend on the per-frame view orientation (queries are un-oriented onto it,
-    // not the reverse), so it lives in the persistent arena and is built once.
-    //
-    // Derive the requirement from sizeof so a future type-size change (Vector,
-    // RD_N, or the LUT resolution) trips a compile-time static_assert here
-    // rather than the runtime init trap when the literal silently undersizes.
+    // 165KB persistent: Cubemap LUT + State + node positions. The node array is
+    // the fixed Fibonacci lattice (queries are un-oriented onto it), so it is
+    // view-independent and built once. The requirement is derived from sizeof so
+    // a future type-size change trips the static_assert rather than the init trap.
     constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
                                      ReactionGraph::CubemapLUT::RES *
                                      sizeof(uint16_t); // cube_lut.build
@@ -97,30 +90,24 @@ public:
     // the name avoids clashing with the engine-wide Alpha-as-opacity convention.
     registerParam("Compete", &params.alpha, 0.0f, 4.0f);
     // Explicit Euler, stable only while dt·D·λmax ≤ 2. The graph Laplacian's
-    // |λ|max ≤ 2·6 = 12 (6-NN Fibonacci lattice), so at the Diff/Speed sliders'
-    // joint top the worst case is 1.0·0.1·12 = 1.2 ≤ 2 — stable across the whole
-    // GUI. The Lotka-Volterra reaction term (conc·(1 − conc − α·predator)) is
-    // logistic in conc ∈ [0, 1], so its Jacobian stays bounded over the
-    // registered Compete range and does not threaten the diffusion bound above.
-    // Backstop: the Euler bound is a *visual-quality* guarantee, not the hard
-    // stability backstop — to_q8() clamps every written state to [0, 1] (Q8)
-    // each step, so a future range-widening that breaks the bound degrades
-    // visually rather than numerically blowing up. (Mirrors GSReactionDiffusion.)
+    // |λ|max ≤ 2·6 = 12 (6-NN lattice), so at the Diff/Speed tops the worst case
+    // is 1.0·0.1·12 = 1.2 ≤ 2. The logistic reaction term stays bounded over the
+    // Compete range. Backstop: the bound is a visual-quality guarantee, not the
+    // hard limit — to_q8() clamps every written state to [0, 1] each step, so a
+    // range-widening degrades visually rather than blowing up.
     registerParam("Diff", &params.D, 0.001f, 0.1f);
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
 
     allocate_state();
     cube_lut.build(persistent_arena);
-    // Reserve + build the lattice and arm the orientation walk in one call (must
-    // follow the persistent allocations above, which it shares the arena with).
+    // Must follow the persistent allocations above (shares the arena).
     init_lattice();
     seed_spiral_nuclei();
   }
 
 private:
-  // Test seam: lets the unit tests reach to_q8/from_q8, advance_species,
-  // perturb_state, step_physics, and params without exposing them to production
-  // callers (zero runtime cost). Mirrors GSReactionDiffusion's GSWhiteBox.
+  // Test seam: lets the unit tests reach the private Q8 helpers, physics, and
+  // params without exposing them to production callers.
   friend struct ::hs_test::effects_tests::BZWhiteBox;
 
   // ---------------------------------------------------------------------------
@@ -128,8 +115,7 @@ private:
   // ---------------------------------------------------------------------------
 
   /**
-   * @brief Q8 full-scale factor: maps the [0, 255] byte state to [0.0, 1.0],
-   * mirroring GSReactionDiffusion's Q16_SCALE/Q16_INV naming.
+   * @brief Q8 full-scale factor: maps the [0, 255] byte state to [0.0, 1.0].
    */
   static constexpr float Q8_SCALE = 255.0f;
   static constexpr float Q8_INV = 1.0f / Q8_SCALE; /**< Reciprocal of Q8_SCALE. */
@@ -236,21 +222,16 @@ private:
    * @details Nudges NUM_PERTURBATIONS random nodes by PERTURB_AMOUNT (Q8),
    *          saturating at 255, to keep the dynamics from settling on the
    *          closed manifold.
-   * @note Draws from the global deterministic RNG (`hs::rand_int`), so each
-   *       substep advances the same shared stream every other effect uses.
-   *       This keeps the simulation byte-deterministic sim-vs-device (the
-   *       perturbation sequence is fixed by the seed), but it couples this
-   *       effect's stream position to the substep count — the draws here are
-   *       part of the global RNG ordering, not an independent generator.
+   * @note Draws from the global deterministic RNG, so this advances the shared
+   *       stream by exactly 2*NUM_PERTURBATIONS draws (idx + species each
+   *       iteration). Keeps sim-vs-device byte-determinism but couples this
+   *       effect's stream position to the substep count: retuning the draw count
+   *       is a global-determinism change.
    */
   static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
-    // RNG-draw pin: this call advances the global stream by exactly
-    // 2 * NUM_PERTURBATIONS draws (idx + species per iteration). Retuning
-    // NUM_PERTURBATIONS or the per-iteration draw count shifts every later
-    // effect's stream position — treat it as a global-determinism change.
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
       int idx = hs::rand_int(0, RD_N);
-      int s = hs::rand_int(0, 3);  // half-open [0,3): all three species, incl. C
+      int s = hs::rand_int(0, 3);  // half-open [0,3): all three species
       uint8_t *t = (s == 0) ? nA : (s == 1) ? nB : nC;
       t[idx] = static_cast<uint8_t>(
           std::min(static_cast<int>(t[idx]) + PERTURB_AMOUNT, 255));
@@ -277,10 +258,8 @@ private:
       float b = from_q8(cB[i]);
       float c = from_q8(cC[i]);
 
-      // All three species' Laplacians share one neighbor walk (fused on
-      // purpose, per for_each_neighbor's note: three single-field walks would
-      // triple the lattice reads on this dominant loop). Each Σ runs over the
-      // same neighbor order, so the result is identical to the split form.
+      // All three Laplacians share one neighbor walk; three single-field walks
+      // would triple the lattice reads on this dominant loop.
       float lA = 0, lB = 0, lC = 0;
       for_each_neighbor(i, [&](int ni) {
         lA += from_q8(cA[ni]) - a;
@@ -311,11 +290,9 @@ private:
    * @return Composited RGB pixel; the convex blend keeps each 16-bit channel in [0, 65535] without clamping.
    * @details Concentration-weighted average of the three species colors:
    *          (ca·a + cb·b + cc·c) / (a + b + c). Each species contributes in
-   *          proportion to its local concentration with no order bias — unlike
-   *          a series alpha-over composite, which let whichever species was
-   *          composited last (C) dominate every region where species overlapped.
-   *          The normalization by total concentration makes the output a pure
-   *          mix of the palette colors (hue-driven), not concentration-dimmed.
+   *          proportion to its local concentration with no order bias.
+   *          Normalizing by total concentration makes the output a pure mix of
+   *          the palette colors (hue-driven), not concentration-dimmed.
    */
   static Pixel blend_species(float a, float b, float c, const Color4 &ca,
                              const Color4 &cb, const Color4 &cc) {
@@ -327,11 +304,8 @@ private:
     float g = (ca.color.g * a + cb.color.g * b + cc.color.g * c) * inv;
     float bl = (ca.color.b * a + cb.color.b * b + cc.color.b * c) * inv;
 
-    // No clamp: a, b, c are >= 0 and wsum > 0, so each channel is a convex
-    // combination (weights a/wsum, b/wsum, c/wsum sum to 1) of the palette
-    // channels, which are uint16 in [0, 65535]. The result is therefore bounded
-    // by that range — FP rounding stays far under one count of 65536 — so the
-    // cast cannot overflow and a defensive clamp would be dead.
+    // No clamp: each channel is a convex combination of the uint16 palette
+    // channels, so it stays in [0, 65535] and the cast cannot overflow.
     return Pixel(static_cast<uint16_t>(r), static_cast<uint16_t>(g),
                  static_cast<uint16_t>(bl));
   }
@@ -352,12 +326,9 @@ private:
   Color4 sample_kernel(const Vector &rv, const Vector *nodes, int best_node,
                        const Color4 &ca, const Color4 &cb,
                        const Color4 &cc) const {
-    // Accumulate the raw Q8 bytes weighted by the kernel and defer the single
-    // Q8_INV scale to one multiply after the walk (folded into `inv` below).
-    // GSReactionDiffusion converts per term with from_q16 because it walks one
-    // field; BZ fuses three species into a single walk, so converting per term
-    // would cost three extra multiplies per node. Deferring the constant scale
-    // is the mathematically identical, cheaper form for the fused walk.
+    // Accumulate raw Q8 bytes weighted by the kernel and defer the single
+    // Q8_INV scale to one multiply after the walk (folded into `inv` below);
+    // converting per term would cost three extra multiplies per node.
     float tw = 0, wa = 0, wb = 0, wc = 0;
     kernel_accumulate(rv, nodes, best_node, [&](int i, float w) {
       wa += state.A[i] * w;
@@ -371,17 +342,12 @@ private:
 
     float inv = Q8_INV / tw;
     float a = wa * inv, b = wb * inv, c = wc * inv;
-    // Drive opacity by the total concentration so a growing front dissolves
-    // smoothly into the background instead of snapping on at full opacity.
-    // blend_species normalizes the three concentrations into a pure hue with no
-    // concentration-driven dimming, so a faint single-species
-    // front still renders at full brightness; without an alpha ramp the edge
-    // collapses to a hard binary step that traces the lattice cells — the
-    // "jagged front" artifact. The sum clamps to 1, so the interior of any
-    // saturated blob stays fully opaque. Below SPECIES_EMPTY_EPS every species
-    // has decayed to ~0, so the location culls to transparent rather than
-    // painting opaque black over a (possibly non-black) background — the same
-    // emptiness test blend_species applies internally.
+    // Drive opacity by total concentration so a growing front dissolves smoothly
+    // into the background instead of snapping on. blend_species normalizes to a
+    // pure hue with no dimming, so without this ramp the edge would collapse to
+    // a hard step tracing the lattice cells. The sum clamps to 1 (saturated
+    // interiors stay opaque); below SPECIES_EMPTY_EPS the location culls to
+    // transparent rather than painting opaque black over the background.
     float total = a + b + c;
     if (total < SPECIES_EMPTY_EPS)
       return Color4(Pixel(0, 0, 0), 0.0f);
@@ -416,16 +382,14 @@ private:
     }
 
     // Land the final generation back in the persistent buffers so it survives
-    // the ScratchScope pop. An even substep count leaves cur == state (no copy);
-    // an odd count leaves the result in scratch, so copy it back. Correct for any
-    // STEPS_PER_FRAME parity.
+    // the ScratchScope pop. Even substep count leaves cur == state (no copy);
+    // odd count leaves the result in scratch and is copied back.
     if (curA != state.A) {
       std::memcpy(state.A, curA, RD_N);
       std::memcpy(state.B, curB, RD_N);
       std::memcpy(state.C, curC, RD_N);
     }
 
-    // `nodes` is the fixed lattice, built once in init().
     Color4 ca = palette.get(0.0f);
     Color4 cb = palette.get(0.5f);
     Color4 cc = palette.get(1.0f);

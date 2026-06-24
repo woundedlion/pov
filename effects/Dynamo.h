@@ -7,9 +7,8 @@
 
 #include "core/engine.h"
 
-// Forward declaration of the unit-test accessor (tests/test_effects.h) that
-// reaches palette_boundaries to stage the documented overlapping-wipe band
-// inversion and assert color() stays memory-safe and in-range.
+// Unit-test accessor reaching palette_boundaries to stage the overlapping-wipe
+// band inversion and assert color() stays memory-safe and in-range.
 namespace hs_test {
 namespace effects_tests {
 struct DynamoWhiteBox;
@@ -103,9 +102,8 @@ public:
       nodes[i].y = i;
     }
 
-    // Allocate the baked-palette LUT pool once (one 256-entry Color4 LUT per
-    // possible live palette). bake() allocates; subsequent rebake() refills in
-    // place with no allocation, so push/pop churn never grows the arena. Seed
+    // Allocate the baked-palette LUT pool once. bake() allocates; later
+    // rebake() refills in place, so push/pop churn never grows the arena. Seed
     // every slot from the initial palette, then fill the active set.
     for (auto &bp : baked_palettes_)
       bp.bake(persistent_arena, palettes[0]);
@@ -150,20 +148,15 @@ public:
 
     palettes.push_front(make_palette());
     palette_boundaries.push_front(0);
-    // Re-bake the active set into the LUT pool: the per-pixel color() path reads
-    // baked_palettes_, never the GenerativePalettes directly. A push_front
-    // shifts every logical index, so rebake the whole active range.
+    // push_front shifts every logical index, so rebake the whole active range
+    // (color() reads baked_palettes_, not the GenerativePalettes).
     rebake_active_palettes();
 
-    // On completion, stamp THIS wipe's own boundary slot with the WIPE_COMPLETE
-    // sentinel rather than pop_back here: overlapping wipes can have different
-    // durations and finish out of order, so a pop_back would evict the oldest
-    // still-animating boundary. reap_completed_wipes() then collapses finished
-    // wipes from the back in FIFO order without touching a live one. The slot
-    // address stays valid because the palettes.is_full() guard above caps
-    // palette_boundaries at its capacity, so the ring never wraps to overwrite a
-    // live front slot the captured pointer aliases — loosen that guard and this
-    // capture becomes a dangling write.
+    // On completion, stamp this wipe's own boundary slot with WIPE_COMPLETE
+    // rather than pop_back: overlapping wipes can finish out of order, so a
+    // pop_back would evict the oldest still-animating boundary. The captured slot
+    // stays valid because the is_full() guard caps palette_boundaries at
+    // capacity, so the ring never wraps to overwrite a live front slot.
     float *boundary_slot = &palette_boundaries.front();
     timeline.add(0, Animation::Transition(palette_boundaries.front(), PI_F,
                                           (int)params.wipe_duration, ease_linear)
@@ -210,28 +203,23 @@ public:
    *          oldest to find the band containing the angle.
    */
   Color4 color(const Vector &v, float t) {
-    // Half-width of the cross-fade region on each side of a palette boundary, in
-    // radians. PI_F/4 (45 deg) gives a broad, soft seam between adjacent palette
-    // bands relative to the [0, PI] angular span — wide enough that boundaries
-    // read as gradients, not hard edges.
+    // Cross-fade half-width per boundary side, in radians. PI_F/4 (45 deg) is
+    // wide enough vs the [0, PI] span that boundaries read as gradients, not
+    // hard edges.
     constexpr float blend_width = PI_F / 4;
-    // +inf sentinel for "no next boundary": `a` is an angle in [0, PI], so any
-    // value well above PI makes the `a < next_boundary_lower_edge` test pass.
+    // Sentinel for "no next boundary": `a` is in [0, PI], so any value above PI
+    // makes the `a < next_boundary_lower_edge` test pass.
     constexpr float NO_NEXT_BOUNDARY = 100.0f;
     float a = angle_between(v, palette_normal);
 
-    // palettes[i+1] stays in range via the invariant palettes.size() ==
-    // palette_boundaries.size()+1 (color_wipe and the reap push/pop one of each
-    // together). As a second guard, palette_boundaries' capacity is
-    // MAX_PALETTES-1, so i+1 < palettes capacity even if that invariant broke;
-    // it must stay below MAX_PALETTES.
+    // palettes[i+1] stays in range via palettes.size() ==
+    // palette_boundaries.size()+1; as a backstop, palette_boundaries' capacity is
+    // MAX_PALETTES-1, so i+1 < palettes capacity even if that invariant broke.
     //
-    // This scan assumes palette_boundaries is monotonically non-decreasing in
-    // index (newest wipe at front=0 with the smallest angle, animating up to PI);
-    // both the short-circuit and the gap test rely on it. A live Wipe-Dur change
-    // can transiently invert the order when a newer, shorter wipe overtakes an
-    // older one — purely cosmetic, self-heals as wipes drain, and stays in bounds
-    // regardless.
+    // The scan assumes palette_boundaries is monotonically non-decreasing in
+    // index. A live Wipe-Dur change can transiently invert that when a newer,
+    // shorter wipe overtakes an older one — cosmetic, self-heals as wipes drain,
+    // and stays in bounds regardless.
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
       float boundary = palette_boundaries[i];
       auto lower_edge = boundary - blend_width;
@@ -275,35 +263,28 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
 
-    // Live "Trail Len" slider: push the (clamped) param into the Trails filter
-    // each frame so dragging it retunes the trail length. Clamp into the
-    // filter's [1,255] domain (the slider tops out at 100) so set_lifetime's
-    // trap only ever fires on a genuine authoring error.
+    // Push the live "Trail Len" slider into the Trails filter each frame, clamped
+    // to the filter's [1,255] domain so set_lifetime's trap only fires on a
+    // genuine authoring error.
     filters.template get<Filter::World::Trails<W, TRAIL_CAPACITY>>()
         .set_lifetime(hs::clamp((int)params.trail_length, 1, 255));
 
     timeline.step(canvas);
 
-    // Collapse any color wipes that finished this step, in FIFO order, before
-    // their boundaries are read below.
+    // Collapse color wipes that finished this step, in FIFO order, before their
+    // boundaries are read below.
     reap_completed_wipes();
 
-    // Carry the fractional part of |speed| across frames so slow speeds still
-    // advance the strand instead of dead-zoning to zero whenever |speed| < 1.
-    // The integer part is consumed as whole steps this frame; the remainder
-    // rolls forward.
+    // Carry the fractional part of |speed| across frames so |speed| < 1 still
+    // advances the strand instead of dead-zoning to zero.
     const float effective_speed = params.speed * speed_direction_;
     speed_accumulator_ += std::abs(effective_speed);
     const int steps = static_cast<int>(speed_accumulator_);
     speed_accumulator_ -= static_cast<float>(steps);
-    // The i/steps division is provably guarded: the loop body only runs when
-    // steps >= 1, so a sub-1 accumulator produces zero iterations (no
-    // divide-by-zero).
     if (steps == 0) {
-      // Zero-step frame (|speed| < 1, accumulator still sub-unit): re-emit the
-      // strand at its current position without advancing it. Otherwise no plots
-      // are produced this frame, and a Trail Len of 1 (ttl popped before
-      // drawing) blanks the strand, so sub-unit speeds flicker.
+      // Zero-step frame: re-emit the strand in place. Otherwise no plots are
+      // produced and a Trail Len of 1 (ttl popped before drawing) blanks the
+      // strand, so sub-unit speeds flicker.
       draw_nodes(canvas, 0.0f);
     } else {
       for (int i = steps - 1; i >= 0; --i) {
@@ -312,18 +293,15 @@ public:
       }
     }
 
-    // Trail re-draw: the Trails filter replays every buffered point and calls
-    // this trailFn with t = the point's age fraction (1 - ttl/lifetime). We feed
-    // that age straight in as color()'s palette parameter, so a trail fades
-    // ALONG the palette with age (newest at t=0, oldest at t=1) rather than just
-    // dimming — the trail's color sweep is its age axis.
+    // The Trails filter replays every buffered point with t = its age fraction
+    // (1 - ttl/lifetime). Feeding that age in as color()'s palette parameter
+    // fades the trail along the palette with age (newest t=0, oldest t=1) rather
+    // than just dimming.
     filters.flush(
         canvas, [this](const Vector &v, float t) { return color(v, t); }, 1.0f);
   }
 
 private:
-  // White-box test reaches palette_boundaries to stage the documented
-  // overlapping-wipe band inversion and assert color() stays in-range.
   friend struct ::hs_test::effects_tests::DynamoWhiteBox;
 
   /**
@@ -426,18 +404,12 @@ private:
   static constexpr size_t NUM_NODES = H_VIRT; /**< Strand node count. */
   /**
    * @brief Compile-time Trails storage capacity (max buffered trail points).
-   * @details DELIBERATE MEMORY-BUDGET CAP, not sized to the worst case. The
-   *          active trail length is the runtime "Trail Len" slider; emission is
+   * @details Deliberate memory-budget cap, not the worst case: emission is
    *          slider-driven (up to floor(|Speed|) full-strand plots per frame,
-   *          each point stored for up to 100 frames), so the true worst case
-   *          reaches hundreds of thousands of points and has no honest small
-   *          compile-time bound — unlike ChaoticStrings (TRAIL_LENGTH *
-   *          ORIENTATION_SUBSTEPS). Over-budget is graceful and memory-safe:
-   *          World::Trails' ring (filter.h push_back) drops the OLDEST point
-   *          when full, only shortening the visible tail — it never traps,
-   *          overruns the arena, or corrupts a frame. 10000 holds the trail at
-   *          typical settings; a static_assert is intentionally omitted as no
-   *          truthful worst-case bound exists.
+   *          each kept up to 100 frames), so the true worst case has no honest
+   *          small compile-time bound. Over-budget is graceful — World::Trails'
+   *          ring drops the OLDEST point when full, only shortening the visible
+   *          tail. 10000 holds the trail at typical settings.
    */
   static constexpr int TRAIL_CAPACITY = 10000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes; /**< Live palettes. */

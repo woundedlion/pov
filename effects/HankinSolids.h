@@ -29,19 +29,15 @@ public:
    * the interlace sweep/morph cycle.
    */
   void init() override {
-    // Arena split: persistent = GLOBAL - 16 KB (scratch_a) - 32 KB (scratch_b).
-    // scratch_b holds two non-overlapping peaks (each its own ScratchScope); the
-    // 32 KB must cover the LARGER of (1) generation — Conway-operator and
-    // face-pairing intermediates, or (2) compaction — the morph-cycle Persist set
-    // (CompiledHankin ~10 KB + MeshPaletteBank ~15 KB ≈ 25 KB, the driver, ~7 KB
-    // headroom). The H=144 device high-water isn't exercised in CI (no automated
-    // Teensy build) — confirm the peak on hardware.
+    // scratch_b (32 KB) must cover the LARGER of its two non-overlapping peaks:
+    // generation intermediates, or the morph-cycle Persist set (CompiledHankin
+    // ~10 KB + MeshPaletteBank ~15 KB). Device H=144 high-water isn't in CI;
+    // confirm the peak on hardware.
     configure_arenas(GLOBAL_ARENA_SIZE - 16 * 1024 - 32 * 1024, 16 * 1024,
                      32 * 1024);
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
-    // Angle is swept by the Mutation in start_hankin_cycle(); flagged animated
-    // so the GUI auto-pauses the sweep (and its morph cycle) when the user grabs
-    // the slider.
+    // Flagged animated so the GUI auto-pauses the sweep/morph cycle when the
+    // user grabs the slider.
     registerAnimatedParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
     registerParam("Debug BB", &params.debug_bb);
 
@@ -102,12 +98,9 @@ private:
    * arenas survive.
    */
   void classify_mesh_topology(MeshState &mesh) {
-    // Save/restore the scratch high-water marks instead of hard-resetting to
-    // base. classify_faces_by_topology uses both arenas as transient workspace
-    // (its result lands in persistent_arena), so it only needs its own
-    // allocations freed on exit — not the whole arena yanked. A bare reset()
-    // would discard any allocation a caller already holds in these shared
-    // arenas; ScratchScope leaves that prior state intact.
+    // ScratchScope frees only this call's own allocations on exit (its result
+    // lands in persistent_arena), leaving any prior caller allocations in these
+    // shared arenas intact — a bare reset() would discard them.
     ScratchScope _a(scratch_arena_a);
     ScratchScope _b(scratch_arena_b);
     MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
@@ -158,14 +151,9 @@ private:
 
     ScratchScope _(scratch_arena_a);
     MeshState rotated_mesh;
-    // Single-pass clone + camera rotation via OrientTransformer: orient(v) ==
-    // rotate(v, orientation.get()).
     OrientTransformer camera(orientation);
     MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
 
-    // Color each fragment by its face's topology class, shaded by edge distance
-    // scaled by the intensity slider. Shared with IslamicStars via
-    // shade_mesh_topology.
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       f.color = shade_mesh_topology(f, topology.data(),
                                     static_cast<int>(topology.size()),
@@ -203,28 +191,25 @@ private:
                         }));
 
     int front = carousel.front_index();
-    // Snapshot the angle-independent counts for this cycle so the per-frame
-    // sprite can prove they never change (see the HS_CHECK below).
+    // Snapshot the angle-independent counts so the per-frame sprite can assert
+    // they never change (see the HS_CHECK below).
     hankin_vertex_count_ = compiled_hankin.static_vertices.size() +
                            compiled_hankin.dynamic_vertices.size();
     hankin_face_count_ = compiled_hankin.face_counts.size();
-    // Gate the render sprite on the same pause flag (holds the frame instead of
-    // expiring) so a paused angle keeps rendering rather than going blank.
+    // Gate the render sprite on the same pause flag so a paused angle keeps
+    // rendering rather than going blank.
     timeline.add(
         0, Animation::Sprite(
                [this, front](Canvas &c, float opacity) {
-                 // Per-frame persistent-bind invariant: update_hankin re-binds
-                 // the slot's vectors against persistent_arena every frame, but
-                 // the angle never changes vertex/face COUNTS, so ArenaVector::bind
-                 // reuses the allocated blocks in place (size reset, no growth).
-                 // Its same-arena/same-generation soundness is enforced by bind's
-                 // debug contract assert.
+                 // update_hankin re-binds the slot's vectors against
+                 // persistent_arena every frame; the angle never changes
+                 // vertex/face COUNTS, so bind reuses the blocks in place rather
+                 // than growing the arena.
                  MeshOps::update_hankin(compiled_hankin, carousel.slot(front),
                                         persistent_arena, params.hankin_angle);
-                 // That contract is debug-only (NDEBUG strips it on device), so
-                 // back it with an always-on guard: if the counts grew, the
-                 // re-bind would leak persistent_arena every frame on a permanent
-                 // install. Trap instead.
+                 // bind's same-arena/same-generation contract is debug-only;
+                 // back it with an always-on guard, since grown counts would leak
+                 // persistent_arena every frame on a permanent install.
                  const MeshState &s = carousel.slot(front);
                  HS_CHECK(s.vertices.size() == hankin_vertex_count_ &&
                               s.face_counts.size() == hankin_face_count_,
@@ -251,8 +236,7 @@ private:
     load_shape(carousel.slot(new_slot), compiled_hankin_staging,
                palettes_slots[new_slot], next_idx, params.hankin_angle);
 
-    // Set slot indices before creating MeshMorph (draw callbacks reference
-    // these)
+    // Set before creating MeshMorph: the draw callbacks reference these.
     morph_old_slot_ = old_front;
     morph_new_slot_ = new_slot;
 
@@ -265,15 +249,11 @@ private:
                  solid_idx = next_idx;
                  carousel.set_front(new_slot);
                  promote_staged_hankin();
-                 // Manual compaction. Only the front slot survives: the back
-                 // slot is dead here (the next start_morph_cycle regenerates it
-                 // via load_shape's clear()+rebuild), so persisting it would be
-                 // wasted clone work and arena fragmentation. Drop its handle to
-                 // a fresh MeshState first so its now-dangling ArenaVectors
-                 // (pointing into the about-to-be-reset arena) are not restored.
-                 // MeshState -> scratch_arena_a; CompiledHankin + palette bank ->
-                 // scratch_arena_b (kept on separate scratch arenas so neither
-                 // overflows; see init()'s arena sizing).
+                 // Manual compaction; only the front slot survives (the back
+                 // slot is regenerated next cycle). Clear it to a fresh MeshState
+                 // first so its now-dangling ArenaVectors aren't restored across
+                 // the reset. Survivors go to separate scratch arenas so neither
+                 // overflows (see init()'s sizing).
                  carousel.slot(1 - new_slot) = MeshState();
                  {
                    Persist<CompiledHankin> ph(compiled_hankin, scratch_arena_b,

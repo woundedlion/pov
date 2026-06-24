@@ -10,11 +10,9 @@
 #include "core/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
-// Forward declaration of the unit-test accessor (tests/test_effects.h) that
-// reaches the private Q16 conversions and one Gray-Scott substep. The
-// smoke/determinism harness cannot see a fixed-point round-trip error or a
-// numerically-unstable-but-deterministic blow-up, so the dynamics are pinned
-// directly through this seam.
+// Unit-test accessor (tests/test_effects.h) reaching the private Q16
+// conversions and one Gray-Scott substep that the smoke/determinism harness
+// cannot pin.
 namespace hs_test {
 namespace effects_tests {
 struct GSWhiteBox;
@@ -60,11 +58,10 @@ public:
    * and seeds the A/B state, and builds the cubemap LUT and lattice nodes once.
    */
   void init() override {
-    // 170KB holds the Cubemap LUT + A/B State + node positions. The node array is
-    // the fixed Fibonacci lattice (queries are un-oriented onto it, not the
-    // reverse), so it's view-independent and built ONCE here, not per frame. The
-    // requirement is derived from sizeof below so a future type-size change trips
-    // a compile-time static_assert rather than the runtime init trap.
+    // 170KB holds the Cubemap LUT + A/B State + node positions. The node array
+    // is the fixed Fibonacci lattice (queries are un-oriented onto it), so it is
+    // built once. Sizes derive from sizeof so a future type-size change trips the
+    // static_assert rather than the init trap.
     constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
                                      ReactionGraph::CubemapLUT::RES *
                                      sizeof(uint16_t); // cube_lut.build
@@ -77,21 +74,11 @@ public:
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill", &params.k, 0.0f, 0.1f);
-    // dA/dB cap at 0.05: this is explicit Euler, stable only while
-    // dt·D·λmax ≤ 2. The graph Laplacian's |λ|max ≤ 2·6 = 12 (6-NN lattice), so
-    // at the Speed slider's top (dt = 3.0) the joint worst case is 3·0.05·12 =
-    // 1.8 ≤ 2 — stable across the whole GUI. This bound covers only the diffusion
-    // term; the full forward-Euler stability region also depends on the reaction
-    // Jacobian (the A·B² autocatalysis and the feed/kill terms), which is assumed
-    // sub-dominant within the registered Feed/Kill/dt ranges below. If any of
-    // those slider ranges are ever widened, the reaction Jacobian must be
-    // re-checked — it is not bounded by the diffusion argument above.
-    //
-    // Backstop: the Euler bound above is a *visual-quality* guarantee, not the
-    // hard stability backstop. to_q16() clamps every written state to [0, 1]
-    // (Q16) each step, so even a range-widening or reaction-Jacobian overshoot
-    // that violates the Euler bound cannot make the simulation numerically blow
-    // up — it can only degrade visually (oscillation / saturation artifacts).
+    // dA/dB cap at 0.05: explicit Euler is stable only while dt·D·λmax ≤ 2. The
+    // graph Laplacian's |λ|max ≤ 2·6 = 12 (6-NN lattice), so at Speed top
+    // (dt = 3.0) the worst case is 3·0.05·12 = 1.8 ≤ 2. Covers only the diffusion
+    // term — widening Feed/Kill/dt needs a fresh reaction-Jacobian check. Backstop:
+    // to_q16() clamps every state to [0, 1], so a violation degrades visually.
     registerParam("dA", &params.dA, 0.0f, 0.05f);
     registerParam("dB", &params.dB, 0.0f, 0.05f);
     registerParam("Speed", &params.dt, 0.1f, 3.0f);
@@ -100,22 +87,20 @@ public:
         persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
     state.B = static_cast<uint16_t *>(
         persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-    // A starts at 1.0 (65535), B starts at 0.0
     for (int i = 0; i < RD_N; i++) {
       state.A[i] = 65535;
       state.B[i] = 0;
     }
 
     cube_lut.build(persistent_arena);
-    // Reserve + build the lattice and arm the orientation walk in one call (must
-    // follow the persistent allocations above, which it shares the arena with).
+    // Must follow the persistent allocations above (shares the arena).
     init_lattice();
     seed_clusters();
   }
 
 private:
-  // Test seam: lets the unit tests reach to_q16/from_q16, step_physics, and
-  // params without exposing them to production callers (zero runtime cost).
+  // Test seam: lets unit tests reach the Q16 helpers, step_physics, and params
+  // without exposing them to production callers.
   friend struct ::hs_test::effects_tests::GSWhiteBox;
 
   /**
@@ -130,13 +115,10 @@ private:
                                                     init. */
   /**
    * @brief Physics substeps advanced per rendered frame.
-   * @details GS morphogenesis is slow per step: the feed/kill reaction (feed
-   * ~0.04, kill ~0.06) and the small diffusion rates move the field only
-   * fractionally each substep, so 16 substeps/frame are needed for the pattern to
-   * grow and drift at a visible rate. BZ's oscillatory dynamics move far faster
-   * per step and read visibly in 2. Every substep stays inside the explicit-Euler
-   * stability bound documented at the "Speed" (dt) param, so the higher count is
-   * pure evolution throughput, not a stability risk.
+   * @details GS morphogenesis is slow per step, so 16 substeps/frame are needed
+   * for the pattern to grow at a visible rate. Each substep stays inside the
+   * explicit-Euler stability bound (see the "Speed" param), so the higher count
+   * is pure throughput, not a stability risk.
    */
   static constexpr int STEPS_PER_FRAME = 16;
   /**
@@ -205,8 +187,8 @@ private:
       float a = from_q16(cA[i]);
       float b = from_q16(cB[i]);
 
-      // Both species' Laplacians share one neighbor walk (fused on purpose:
-      // two single-field neighbor walks would double the lattice reads).
+      // Both Laplacians share one neighbor walk; two separate walks would double
+      // the lattice reads.
       float lA = 0, lB = 0;
       for_each_neighbor(i, [&](int ni) {
         lA += from_q16(cA[ni]) - a;
@@ -235,9 +217,8 @@ private:
       wb += from_q16(state.B[i]) * w;
       tw += w;
     });
-    // Empty kernel (no node within the support radius): guard the division. A
-    // 0/0 NaN would slip past the b < B_CULL_THRESHOLD cull in the shader (NaN
-    // compares false) and silently poison palette.get().
+    // Empty kernel: guard the division. A 0/0 NaN would slip past the
+    // b < B_CULL_THRESHOLD cull (NaN compares false) and poison palette.get().
     if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
       return 0.0f;
     return wb / tw;
@@ -256,8 +237,8 @@ private:
     uint16_t *sB = static_cast<uint16_t *>(
         scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
 
-    // Ping-pong between the persistent state and the scratch buffers. cur always
-    // names the latest generation; nxt is the write target for the next step.
+    // Ping-pong between persistent state and scratch. cur always names the latest
+    // generation; nxt is the next write target.
     uint16_t *curA = state.A, *curB = state.B;
     uint16_t *nxtA = sA, *nxtB = sB;
     for (int k = 0; k < STEPS_PER_FRAME; k++) {
@@ -266,35 +247,27 @@ private:
       std::swap(curB, nxtB);
     }
 
-    // Land the final generation back in the persistent buffers so it survives
-    // the ScratchScope pop. An even substep count already leaves cur == state
-    // (no copy); an odd count leaves it in scratch and is copied back — correct
-    // for any STEPS_PER_FRAME parity.
+    // Land the final generation back in persistent state so it survives the
+    // ScratchScope pop. Even substep count leaves cur == state (no copy); odd
+    // count leaves it in scratch, copied back here.
     if (curA != state.A) {
       std::memcpy(state.A, curA, RD_N * sizeof(uint16_t));
       std::memcpy(state.B, curB, RD_N * sizeof(uint16_t));
     }
 
-    // `nodes` is the fixed lattice, built once in init(). Hoist the per-pixel
-    // cubemap lookup into the vertex shader (run once at the pixel center) and
-    // keep the per-sub-sample refine + interpolation in the fragment shader,
-    // sparing ~3 redundant CubemapLUT lookups per pixel under 4× SSAA. The
-    // pixel-center seed only feeds refine_nearest_node, which re-finds the
-    // genuine nearest from the sub-sample position, so the rendered result is
-    // identical to looking the cubemap up per sub-sample.
+    // Hoist the cubemap lookup into the vertex shader (once at the pixel center),
+    // sparing ~3 redundant lookups per pixel under 4× SSAA. The seed only feeds
+    // refine_nearest_node, which re-finds the true nearest per sub-sample, so the
+    // result is identical to looking up per sub-sample.
     auto vertex_shader = [&](Fragment &frag) {
       Vector rv = orientation.unorient(frag.pos);
       frag.v0 = static_cast<float>(cube_lut.lookup(rv));
     };
 
-    // Per sub-sample: refine the seed, sample B, and map to a palette color or
-    // cull to transparent below B_CULL_THRESHOLD.
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       Vector rv = orientation.unorient(v);
-      // Refine the cubemap seed to the genuine nearest node before centering the
-      // kernel — the CubemapLUT quantizes `rv` to a face cell and can return a
-      // not-quite-nearest seed; refine_nearest_node removes that quantization
-      // bias.
+      // Refine to the genuine nearest node: the CubemapLUT quantizes `rv` to a
+      // face cell and can return a not-quite-nearest seed.
       int nearest =
           refine_nearest_node(rv, nodes, static_cast<int>(frag.v0));
       float b = interpolate_b(rv, nearest, nodes);
