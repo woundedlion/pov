@@ -1371,6 +1371,18 @@ public:
   /** @brief Marks this as terminal: flush() writes the Canvas and ignores `pass`. */
   static constexpr bool is_terminal = true;
 
+  // Compile-time backstop for the per-flush divisibility HS_CHECK in flush().
+  // `downsample` is a runtime Style field — snapped/copied between presets and
+  // settable after W/H are fixed — so the general check must stay the runtime
+  // trap. But every shipped preset leaves it at the default, so pin here that
+  // the DEFAULT downsample is positive and divides this W x H: a resolution the
+  // default can't tile fails to build instead of trapping on the first flush().
+  static_assert(::Feedback::Style{}.downsample > 0 &&
+                    W % ::Feedback::Style{}.downsample == 0 &&
+                    H % ::Feedback::Style{}.downsample == 0,
+                "Feedback<W,H>: default style downsample must be > 0 and divide "
+                "W and H");
+
   /**
    * @brief Binds the filter to a live feedback Style.
    * @param style Style supplying the spatial warp and color transforms.
