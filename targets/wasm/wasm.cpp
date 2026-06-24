@@ -889,6 +889,11 @@ struct MeshOpsWrapper {
    * @details Reclaims the storage behind every live wrapper and bumps the
    *          generation so any wrapper built before this wipe traps on next use
    *          (check_live). JS-callable.
+   *
+   *          Despite the name, this does NOT shrink the module's linear memory:
+   *          the 16 MB tooling block is retained for the module's lifetime and
+   *          only its arena bump-pointers are reset. A JS caller will not see
+   *          memory usage drop; this frees the arenas for reuse, not the OS.
    */
   static void clearToolingMemory() {
     tooling_arena.reset();

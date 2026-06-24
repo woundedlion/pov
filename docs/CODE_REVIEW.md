@@ -181,7 +181,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 48. ✅ **Magic stagger/recurrence/pool constants in the IslamicStars ripple burst are unnamed** — `effects/IslamicStars.h:110-112`. The `16`/`96`/`8`/`144` values are coupled by a capacity invariant (overflow safely drops ripples) but live as bare literals in different methods. Hoist to named `constexpr` members with a note, mirroring `MeshFeedback`'s `static_assert`-locked period constants.
 
-49. **`clearToolingMemory()` bumps the generation but does not free the 16 MB tooling block** — `targets/wasm/wasm.cpp:893-902`. Correct by design (block retained for module lifetime) but the name reads as if it releases memory; a JS caller will not see linear memory shrink. Rename to `resetToolingArenas()` or add a JS-facing note.
+49. ✅ **`clearToolingMemory()` bumps the generation but does not free the 16 MB tooling block** — `targets/wasm/wasm.cpp:893-902`. Correct by design (block retained for module lifetime) but the name reads as if it releases memory; a JS caller will not see linear memory shrink. Rename to `resetToolingArenas()` or add a JS-facing note.
 
 50. **Trap-shape probe re-runs the first death case twice** — `tests/test_death.h:954,963-969`. The probe spawns `cs[0]` to detect the shell's trap-relay shape, then the loop spawns it again. Subprocess spawns dominate suite runtime. Start the loop at `i=1` after asserting the probe trapped, or reuse the probe's rc for `i==0`.
 
