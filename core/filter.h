@@ -543,8 +543,7 @@ public:
       return;
     }
 
-    float projection =
-        v.x * axis.x + v.y * axis.y + v.z * axis.z; // dot product
+    float projection = v.x * axis.x + v.y * axis.y + v.z * axis.z;
     float dot_val = std::max(-1.0f, std::min(1.0f, projection));
     // fast_acos can overshoot [0,π] slightly even for in-range input, so t can
     // land just outside [0,1]. Clamp so a tiny negative overshoot selects the
@@ -563,7 +562,6 @@ public:
     if (idx >= count)
       idx = count - 1;
 
-    // Pass to selected orientation
     const Orientation<> &q = orientations[idx];
     tween(q, [&](const Quaternion &rot, float tween_t) {
       pass(rotate(v, rot), color, age + (1.0f - tween_t), alpha);
@@ -836,7 +834,7 @@ public:
    */
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
-    pass(v, color, age, alpha); // Pass through current frame
+    pass(v, color, age, alpha); // pass through current frame
 
     // Round (+0.5f) the age rather than truncating: a preceding Orient can hand
     // us a fractional age, and bare truncation collapses every fraction within a
@@ -859,7 +857,6 @@ public:
    * @param pass Downstream 3D callback.
    */
   void flush(const WorldTrailFn &trailFn, float alpha, PassFn3D pass) {
-    // Age
     for (size_t i = 0; i < count_; ++i) {
       auto &item = at(i);
       if (item.ttl > 0)
@@ -879,7 +876,6 @@ public:
       pop_front();
     }
 
-    // Draw
     for (size_t i = 0; i < count_; ++i) {
       const auto &item = at(i);
       // Heterogeneous TTLs let an item expire behind a younger one; the pop loop
@@ -977,7 +973,7 @@ private:
    */
   void push_back(const Item &item) {
     if (count_ == Capacity) {
-      pop_front(); // Drop oldest on overflow
+      pop_front(); // drop oldest on overflow
     }
     items_[tail_] = item;
     tail_ = (tail_ + 1) % Capacity;

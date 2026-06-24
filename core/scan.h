@@ -605,7 +605,7 @@ struct Circle {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    bool debug_bb = false) {
-    // Circle is a Ring with inner radius 0
+    // Circle is a Ring with inner radius 0.
     float th = radius * (PI_F / 2.0f);
     Ring::draw<W, H, ComputeUVs>(pipeline, canvas, basis, 0.0f, th,
                                  fragment_shader, 0, debug_bb);
@@ -652,7 +652,7 @@ struct Point {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Vector &p,
                    float thickness, FragmentShaderFn fragment_shader,
                    bool debug_bb = false) {
-    // Scan.Point uses Scan.Ring with radius 0
+    // Point is a Ring with radius 0.
     Basis basis = make_basis(Quaternion(), p);
     Ring::draw<W, H>(pipeline, canvas, basis, 0.0f, thickness, fragment_shader,
                      0.0f, debug_bb);
@@ -913,7 +913,6 @@ struct Shader {
     check_lut_domain<W, H>(cr);
 
     if constexpr (SAMPLES == 1) {
-      // 1× — single sample at pixel center (no SSAA)
       ScopedRenderTimer _timer(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
@@ -1132,16 +1131,15 @@ struct Volume {
        float bounds_radius, const Vector &view_dir, const Shape &shape,
        FragmentShaderFn frag_fn, int max_steps = 15, float aa_width = 0.01f) {
 
-    // Normalized view direction
     float vd_len = sqrtf(view_dir.x * view_dir.x + view_dir.y * view_dir.y +
                          view_dir.z * view_dir.z);
     float vd_inv = (vd_len > TOLERANCE) ? 1.0f / vd_len : 1.0f;
     Vector vd(view_dir.x * vd_inv, view_dir.y * vd_inv, view_dir.z * vd_inv);
 
-    // Ray must start behind the farthest extent of the shape
+    // Ray must start behind the farthest extent of the shape.
     float start_offset = 1.0f + bounds_radius;
 
-    // Precompute bounds_center projected onto the view plane (⊥ vd)
+    // bounds_center projected onto the view plane (⊥ vd).
     float bc_dot_vd = bounds_center.x * vd.x + bounds_center.y * vd.y +
                       bounds_center.z * vd.z;
     Vector bc_proj(bounds_center.x - bc_dot_vd * vd.x,

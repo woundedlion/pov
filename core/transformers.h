@@ -324,7 +324,6 @@ inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
 
   float theta = params.amplitude * ricker * attenuation;
 
-  // Apply rotation
   Vector axis = cross(params.center, v);
   float lenSq = dot(axis, axis);
   if (lenSq > 1e-6f) {
@@ -372,11 +371,11 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
 
   Vector raw_noise = Vector(nx, ny, nz) * (params.amplitude * 0.05f);
 
-  // Project noise onto the tangent plane
+  // Project noise onto the tangent plane at v.
   float inward_pull = dot(raw_noise, v);
   Vector surface_distortion = raw_noise - (v * inward_pull);
 
-  // Soft-cap the slide distance to prevent cross-hemisphere grabs
+  // Soft-cap the slide distance to prevent cross-hemisphere grabs.
   constexpr float max_slide = 0.5f;
   float sd_len_sq = dot(surface_distortion, surface_distortion);
   if (sd_len_sq > max_slide * max_slide) {

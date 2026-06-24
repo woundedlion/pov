@@ -828,7 +828,7 @@ struct Line {
     float angle = angle_between(f1.pos, f2.pos);
     if (std::abs(angle) < TOLERANCE) {
       points.push_back(f1);
-      points.push_back(f1); // Draw at least a dot
+      points.push_back(f1); // draw at least a dot
       return;
     }
 
@@ -859,7 +859,7 @@ struct Line {
 
       f.v0 = t;
       f.v1 = angle * t;
-      f.v2 = 0.0f; // Standard: Single lines have v2=0
+      f.v2 = 0.0f;
       points.push_back(f);
     }
   }
@@ -955,7 +955,6 @@ struct Multiline {
     if (it == end)
       return;
 
-    // 1. Calculate total length to normalize v0
     float total_len = 0.0f;
     Fragment first = *it;
     Fragment prev = first;
@@ -978,12 +977,10 @@ struct Multiline {
       total_len = 1.0f;
     }
 
-    // 2. Generate fragments
     float current_len = 0.0f;
     it = std::begin(vertices);
     prev = *it;
 
-    // Add first point
     Fragment f = prev;
     f.v0 = 0.0f;
     f.v1 = 0.0f;
@@ -1395,7 +1392,7 @@ struct SphericalPolygon {
     size_t start_idx = points.size();
     Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
 
-    // Re-calculate v1 to be true geodesic chord length
+    // v1 = true geodesic chord length.
     float cumulative_length = 0.0f;
     for (size_t i = start_idx; i < points.size(); ++i) {
       points[i].v2 = static_cast<float>(i - start_idx);
@@ -1473,11 +1470,8 @@ struct DistortedRing {
    */
   static Vector fn_point(ScalarFn shift_fn, const Basis &basis, float radius,
                          float angle) {
-    // Mirror sample() exactly (at phase 0, as the renderer is invoked) so the
-    // returned point lands on the *drawn* ring: same theta_eq mapping and
-    // shift_fn(theta/2PI) domain. Any divergence here would detach callers'
-    // sampled points (e.g. Thrusters' thrust points) from the visible ring off
-    // Radius=1.
+    // Mirror sample() at phase 0 (same theta_eq mapping, same shift_fn(theta/2PI)
+    // domain) so the returned point lands on the drawn ring.
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
     float work_radius = res.second;
@@ -1618,8 +1612,7 @@ struct Spiral {
       f.pos = pos;
       f.v0 = (n > 1) ? static_cast<float>(i) / (n - 1) : 0.0f;
       f.v1 = cumulative_len;
-      f.v2 = static_cast<float>(i); // vertex index, matching the ring/star/flower
-                                    // samplers' v2 convention
+      f.v2 = static_cast<float>(i);
       f.age = 0;
       fragments.push_back(f);
     }
@@ -1810,7 +1803,6 @@ struct Flower {
       float cos_r = cosf(safe_apothem);
       float cos_t = cosf(theta);
       float sin_t = sinf(theta);
-      // Unproject Polar -> Sphere
       Vector p = (v * cos_r) + (u * (cos_t * sin_r)) + (w * (sin_t * sin_r));
       p.normalize();
       return p;
