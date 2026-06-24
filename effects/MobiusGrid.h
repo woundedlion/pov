@@ -51,13 +51,11 @@ public:
    *          out-of-phase sine mutations driving the ring/line counts.
    */
   void init() override {
-    // MobiusGrid requires very little persistent memory.
-    // Give it 64KB for Scratch A and 64KB for Scratch B to comfortably handle
-    // rasterization arrays.
+    // Little persistent memory; 64KB each scratch handles rasterization arrays.
     configure_arenas(GLOBAL_ARENA_SIZE - 128 * 1024, 64 * 1024, 64 * 1024);
 
-    // Rings/Lines are driven by the Mutations below; flagged animated so the GUI
-    // auto-pauses the animation when the user grabs the slider.
+    // Rings/Lines driven by the Mutations below; flagged animated so the GUI
+    // auto-pauses when the user grabs the slider.
     registerAnimatedParam("Rings", &params.num_rings, 0.0f, 20.0f);
     registerAnimatedParam("Lines", &params.num_lines, 0.0f, 20.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -86,26 +84,20 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Derive the ring/line phase from the timeline's own frame counter, which
-    // step() above just advanced — no parallel per-effect accumulator to keep
-    // in lockstep (an extra/missing step can't silently desync the phase). The
-    // int % 120 stays exact and bounded, where a float from the global frame
-    // count would lose integer precision past 2^24 (~77 h).
+    // Derive phase from the timeline's frame counter. The int % 120 stays exact
+    // and bounded, where a float from the global frame count would lose integer
+    // precision past 2^24 (~77 h).
     float phase = static_cast<float>(timeline.frame() % 120) / 120.0f;
 
-    // Calculate Stabilizing Counter-Rotation
     Vector n_in = Y_AXIS;
     Vector n_trans = mobius_gen.transform(n_in);
     Vector s_in = -Y_AXIS;
     Vector s_trans = mobius_gen.transform(s_in);
     Vector mid = (n_trans + s_trans);
-    // Counter-rotation that swings the pole midpoint back onto +Z. When the two
-    // transformed poles cancel (mid ≈ 0, e.g. they map antipodally at the strip
-    // singularity), the direction is undefined: leave q at its default identity
-    // (no counter-rotation this frame) rather than feed a zero vector to
-    // make_rotation. This is the explicit sibling of the normalized_or fallbacks
-    // below — a degenerate-input guard, not a soft default — and the worst case
-    // is one frame of un-stabilized grid before the midpoint leaves the seam.
+    // Counter-rotation swinging the pole midpoint back onto +Z. When the two
+    // transformed poles cancel (mid ≈ 0 at the strip singularity), the direction
+    // is undefined: leave q at identity rather than feed a zero vector to
+    // make_rotation. Worst case is one frame of un-stabilized grid.
     Quaternion q;
     if (mid.length() > 0.001f) {
       mid.normalize();
@@ -213,9 +205,8 @@ private:
     const float log_max = 2.5f;
     const float range = log_max - log_min;
 
-    // A ring's color depends only on its index i, but the shader runs ~W/4 times
-    // per ring, so resolve palette.get once and reuse it. Rings draw
-    // sequentially, so a single cache entry keyed on i suffices.
+    // A ring's color depends only on i, but the shader runs ~W/4 times per ring;
+    // cache palette.get keyed on i (rings draw sequentially).
     int cached_i = -1;
     Color4 cached_c;
     draw_curves(
@@ -263,16 +254,13 @@ private:
           float t_line = f_val.v0;
           float z = sinf(t_line * 2.0f * PI_F);
 
-          // Conformal radius of the stereographic longitude, R = sqrt((1+z)/(1-z)),
-          // is singular at the poles z = ±1 (t_line = 0.25 and 0.75). Branch on the
-          // pole BEFORE the division so no non-finite intermediate (inf R / inf
-          // log_r / NaN t) is ever produced — this keeps the math valid without
-          // depending on the project's -fno-finite-math-only build flag, which a
-          // fast-math sub-target could drop. The line saturates to its terminal
-          // palette color (coord = 1.0) at both poles, matching the prior
-          // NaN->hi behavior. Do NOT instead nudge (1 - z) off zero — that changes
-          // the endpoint color and splits the two poles to different ends.
-          // 1 - |z| >= POLE_EPS bounds R <= ~1414, so the else branch stays finite.
+          // Conformal radius R = sqrt((1+z)/(1-z)) is singular at the poles
+          // z = ±1. Branch on the pole BEFORE the division so no non-finite
+          // intermediate is produced, keeping the math valid independent of the
+          // -fno-finite-math-only build flag. Both poles saturate to coord = 1.0.
+          // Do NOT instead nudge (1 - z) off zero — that changes the endpoint
+          // color and splits the two poles to different ends. POLE_EPS bounds
+          // R <= ~1414, so the else branch stays finite.
           constexpr float POLE_EPS = 1e-6f;
           float coord;
           if (1.0f - fabsf(z) < POLE_EPS) {

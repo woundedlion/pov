@@ -205,9 +205,8 @@ public:
       float cos_phi = hs::clamp(local.y, -1.0f, 1.0f);
 
       float val = SHMath::sphericalHarmonic(l1, m1, theta, cos_phi, N1);
-      // Skip the second harmonic when not blending. Morphs chain back-to-back,
-      // so blend > 0 on all but the single commit frame; the guard is cheap
-      // insurance for any future hold period between morphs.
+      // Skip the second harmonic when not blending (cheap insurance for any
+      // future hold period; morphs currently chain with blend > 0 every frame).
       if (blend > 0.001f) {
         float val2 = SHMath::sphericalHarmonic(l2, m2, theta, cos_phi, N2);
         val += (val2 - val) * blend;
@@ -232,20 +231,16 @@ public:
     registerParam("Amplitude", &params.amplitude, 0.1f, 10.0f);
     registerParam("Debug BB", &params.debug_bb);
 
-    // Bake procedural palette into fast LUT
     baked_palette.bake(persistent_arena, Palettes::richSunset);
 
-    // Initial shape. next_idx is left at its member default; start_morph() below
-    // re-rolls it before the first morph commit (and before any read), so an
-    // assignment here would be dead.
+    // next_idx is re-rolled by start_morph() before any read, so it needs no
+    // assignment here.
     current_idx = 6;
 
-    // Spin
     Vector axis = Vector(0.5f, 1.0f, 0.2f).normalized();
     timeline.add(0, Animation::Rotation<W>(orientation, axis, 2 * PI_F * 100,
                                            10000, ease_linear, true));
 
-    // Start morphing immediately
     start_morph();
   }
 
@@ -276,15 +271,12 @@ public:
       float val = frag.v1;
       float abs_val = std::abs(val);
 
-      // Positive palette (baked LUT — no cosf/powf per pixel)
       Color4 pos =
           baked_palette.get(std::min(1.0f, abs_val * params.amplitude));
-      // Negative palette: a cheap channel recolor of the positive palette so
-      // negative SH lobes read as a distinct color, without a second baked LUT
-      // or a per-pixel perceptual rotate. Swap R<->B (the dominant hue flip) and
-      // dim green by NEG_LOBE_GREEN_SCALE so the result is a stylized complement
-      // rather than a literal RGB mirror. Deliberately NOT OKLCH-accurate — it
-      // is a lobe-polarity cue, kept to LUT-cheap integer ops on the hot path.
+      // Negative palette: a cheap channel recolor of pos so negative SH lobes
+      // read distinct, without a second LUT or per-pixel perceptual rotate. Swap
+      // R<->B and dim green by NEG_LOBE_GREEN_SCALE for a stylized complement.
+      // Deliberately not OKLCH-accurate — a lobe-polarity cue, kept LUT-cheap.
       constexpr float NEG_LOBE_GREEN_SCALE = 0.8f;
       Color4 neg = Color4(
           Pixel(pos.color.b,
@@ -292,17 +284,12 @@ public:
                 pos.color.r),
           pos.alpha);
 
-      // Narrow quintic-smoothed seam at the zero-crossing boundary. This is NOT a
-      // wide crossfade: `transition` is the half-width (in field units) of the
-      // anti-aliasing band, and at 0.03 only |val| < 0.03 lies on the ramp — the
-      // field saturates blend_t to 0/1 everywhere else, so the two lobes meet at a
-      // crisp boundary with just a thin smoothed seam (intended; widening it would
-      // blur the lobe edge). blend_t rides 0..1 with the field's *positiveness*
-      // (0 deep in the negative lobe, 1 deep in the positive lobe). lerp(other, t)
-      // returns `this` (pos) at t=0 and `other` (neg) at t=1, so invert with
-      // 1 - blend_t to map a positive field to the positive palette and a negative
-      // field to neg — the blend is otherwise symmetric, so this inversion is the
-      // only thing keeping the lobes from swapping colors.
+      // Narrow quintic-smoothed seam at the zero-crossing. `transition` is the
+      // half-width (field units) of the anti-aliasing band; only |val| <
+      // transition lies on the ramp, so the lobes meet at a crisp boundary.
+      // blend_t rides 0..1 with the field's positiveness; invert with 1 - blend_t
+      // so a positive field maps to pos and a negative one to neg (the blend is
+      // otherwise symmetric, so this inversion keeps the lobes from swapping).
       constexpr float transition = 0.03f;
       float blend_t =
           quintic_kernel(hs::clamp(val / transition * 0.5f + 0.5f, 0.0f, 1.0f));
@@ -338,20 +325,16 @@ private:
    * endless morph chain.
    */
   void start_morph() {
-    // Pick a random new harmonic. next_idx is a *flat* index into the SH basis
-    // (1..23), not an SH mode number: decode_lm() maps each value to one (l, m)
-    // basis function, and the low end of the table reads best. Re-roll on a
-    // match with the current index: blending a basis function into itself leaves
-    // the field unchanged, freezing the sphere for the full 64-frame transition.
+    // next_idx is a flat index into the SH basis (1..23), mapped to an (l, m)
+    // pair by decode_lm(). Re-roll on a match with current: blending a basis
+    // function into itself would freeze the sphere for the whole transition.
     do {
       next_idx = hs::rand_int(1, 24);
     } while (next_idx == current_idx);
 
-    // Animate morph_alpha 0->1 over 64 frames with linear easing
     timeline.add(
         0, Animation::Transition(morph_alpha, 1.0f, 64, ease_linear, false, false)
                .then([this]() {
-                 // Commit the morph and start next one immediately
                  current_idx = next_idx;
                  morph_alpha = 0.0f;
                  start_morph();

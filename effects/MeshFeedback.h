@@ -24,29 +24,20 @@ public:
 
   static constexpr int MORPH_FRAMES = 160;
   static constexpr int PRESET_FRAMES = 241; // preset hard-cut period (prime)
-  // The shape cycle is a no-morph hold followed by a morph, so its PERIOD is
-  // hold + morph — and that, not the hold alone, must be coprime with
-  // PRESET_FRAMES for the shape and preset cycles to stay out of phase. 241 is
-  // prime, so any period that is not a multiple of it is coprime; 240
-  // (= PRESET_FRAMES - 1) is coprime and maximises the beat between the cycles.
-  static constexpr int SHAPE_FRAMES = 240; // shape-cycle period, coprime with PRESET_FRAMES
-  static constexpr int NO_MORPH_FRAMES = SHAPE_FRAMES - MORPH_FRAMES; // 80-frame hold
+  // Shape-cycle PERIOD is hold + morph, and that (not the hold alone) must be
+  // coprime with PRESET_FRAMES for the two cycles to stay out of phase. 241 is
+  // prime; 240 is coprime and maximises the beat between the cycles.
+  static constexpr int SHAPE_FRAMES = 240;
+  static constexpr int NO_MORPH_FRAMES = SHAPE_FRAMES - MORPH_FRAMES;
 
-  // Lock the coprimality the comment above relies on: if a future edit to either
-  // period reintroduces a common factor, the two cycles re-lock and the drift is
-  // lost. Trap that at compile time rather than shipping a silently re-phased
-  // carousel (the smoke harness cannot observe the lost beat).
   static_assert(std::gcd(SHAPE_FRAMES, PRESET_FRAMES) == 1,
                 "SHAPE_FRAMES and PRESET_FRAMES must stay coprime so the shape "
                 "and preset cycles drift out of phase instead of locking");
 
-  // Registered slider ranges for the six preset-driven style params, hoisted to
-  // constexpr so registerParam() (in init()) and the compile-time range check
-  // below share one source. The preset cycle writes these fields live, so every
-  // preset must stay within the range the GUI advertises or the slider readout
-  // and the live value diverge. If a future preset needs a value outside a
-  // range, WIDEN THE RANGE here — the range exists to expose the presets, not to
-  // clamp them.
+  // Slider ranges for the six preset-driven style params. The preset cycle
+  // writes these fields live, so every preset must stay within the range the GUI
+  // advertises or the slider readout and the live value diverge. Widen the range
+  // (not clamp the preset) if a future preset needs a value outside it.
   static constexpr float kFadeMin = 0.0f,  kFadeMax = 0.99f;
   static constexpr float kAmpMin = 0.0f,   kAmpMax = 30.0f;
   static constexpr float kFreqMin = 0.01f, kFreqMax = 1.0f;
@@ -64,10 +55,6 @@ public:
            s.scale >= kScaleMin && s.scale <= kScaleMax &&
            s.hue_shift >= kHueMin && s.hue_shift <= kHueMax;
   }
-  // Pin the preset/range agreement at compile time: the cycle snaps `style` to
-  // each preset, so a preset field outside its registered range would surface a
-  // live value the GUI cannot represent. (The cycle hard-cuts between presets,
-  // so no interpolated value can exceed the per-field endpoints either.)
   static_assert(preset_in_ranges(Style::SlowTwist()) &&
                     preset_in_ranges(Style::Churn()) &&
                     preset_in_ranges(Style::Smoke()) &&
@@ -82,13 +69,10 @@ public:
 
   /**
    * @brief Wires up palette, noise, orientation, and the filter pipeline.
-   * @details Constructs the World/Screen/Pixel filter stack; the Feedback pixel
-   * filter reads `style` by reference. The mem-initializer list below names
-   * `filters` (which captures &style) without naming `style`, which reads as if
-   * filters were built first — but C++ runs initializers in member-DECLARATION
-   * order, and `style` is declared well before `filters`, so style is fully
-   * constructed before filters binds its reference. Keep style declared ahead of
-   * filters.
+   * @details The Feedback pixel filter reads `style` by reference. Initializers
+   * run in member-DECLARATION order, and `style` is declared before `filters`,
+   * so style is fully constructed before filters binds its reference. Keep style
+   * declared ahead of filters.
    */
   FLASHMEM MeshFeedback()
       : Effect(W, H), noise_params(), orientation(), timeline(),
@@ -103,7 +87,6 @@ public:
    * tunable params, and schedules the noise/walk/preset/shape timers.
    */
   void init() override {
-    // Bind mutable state into all presets
     for (auto &e : presets.entries) {
       e.params.noise = &noise_params;
     }
@@ -117,7 +100,6 @@ public:
     style = presets.get();
     apply_params();
 
-    // Load first shape
     solid_idx = 0;
     {
       auto solids = Solids::Collections::get_platonic_solids();
@@ -137,8 +119,7 @@ public:
     registerParam("Noise Scale", &style.scale, kScaleMin, kScaleMax);
     registerParam("Hue Shift", &style.hue_shift, kHueMin, kHueMax);
     registerParam("Feedback", &feedback_enabled);
-    // The preset cycle drives these six style params; flag them so the standard
-    // "Pause Animation" toggle gates the cycling.
+    // Flag the six preset-driven params so "Pause Animation" gates the cycling.
     markAnimated("Fade");
     markAnimated("Distort Amp");
     markAnimated("Distort Freq");
@@ -150,9 +131,8 @@ public:
     timeline.add(
         0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise_params.noise));
 
-    // Preset cycling — presets hard-cut: snap style to the new preset (no
-    // crossfade). presets.apply() copies all scalar/fn-ptr/downsample fields
-    // and leaves the bound noise pointer intact.
+    // Preset cycling hard-cuts: apply() copies all scalar/fn-ptr/downsample
+    // fields and leaves the bound noise pointer intact.
     timeline.add(0, Animation::PeriodicTimer(
                         PRESET_FRAMES,
                         [this](Canvas &) {
@@ -163,10 +143,6 @@ public:
                         },
                         true));
 
-    // Shape cycling — gated by the same "Pause Animation" flag as the preset
-    // timer above, so pausing halts the shape carousel as well as preset cuts.
-    // The hold timer is a one-shot the morph chain re-arms on completion;
-    // arm_hold_timer() is the single guarded entry point both paths share.
     arm_hold_timer();
   }
 
@@ -200,15 +176,12 @@ public:
     Canvas canvas(*this);
     apply_params();
 
-    // feedback step
     filters.flush(
         canvas, [](float, float, float) { return Color4(0, 0, 0, 0); },
         1.0f);
 
-    // The front slot is always bound while not morphing: init() compiles into
-    // it, and the only front-flip (start_morph's completion) targets a slot
-    // just compiled in the same call. No is_bound() guard needed — and an
-    // unbound mesh would draw as a no-op (empty face loop) regardless.
+    // The front slot is always bound while not morphing, so no is_bound() guard
+    // is needed (an unbound mesh would draw as a no-op empty face loop anyway).
     if (!morphing) {
       Plot::Mesh::draw<W, H>(filters, canvas, carousel.current(),
                              [&](const Vector &v, Fragment &f) {
@@ -258,7 +231,6 @@ private:
     solid_idx = (solid_idx + 1) % solids.size();
     int new_slot = 1 - carousel.front_index();
 
-    // Generate incoming shape into back slot
     carousel.slot(new_slot) = MeshState();
     PolyMesh poly = generate(persistent_arena, [&](Arena &target, Arena &a,
                                                    Arena &b) {
@@ -275,9 +247,6 @@ private:
                  morphing = false;
                  carousel.set_front(new_slot);
                  carousel.compact();
-                 // Re-arm the one-shot hold through the shared guarded entry
-                 // point so the post-morph path obeys "Pause Animation" exactly
-                 // as the initial arm does.
                  arm_hold_timer();
                }));
   }

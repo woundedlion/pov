@@ -73,13 +73,8 @@ public:
    *          then advances and draws each live thruster.
    */
   void draw_frame() override {
-    // Advance first so this frame's consumers (on_fire_thruster, draw_ring, via
-    // the timeline below) read this frame's counter, not the previous frame's.
-    // Only drives a periodic wave in ring_fn with no external reference, so the
-    // one-frame phase shift versus an end-of-frame increment is invisible.
-    // Wrap at 32 (ring_fn reads frame % 32): keeps the counter bounded so it can
-    // never overflow on a long-running installation, and is behavior-identical
-    // since 32 is exactly the modulation period.
+    // Advance first so this frame's consumers read this frame's counter. Wrap at
+    // 32 (ring_fn's modulation period) to keep the counter bounded.
     t_global = (t_global + 1) % 32;
 
     Canvas canvas(*this);
@@ -259,14 +254,10 @@ private:
    *          amplitude / t_global are mutated relative to the call.
    */
   static float ring_fn(float t, float phase, float amp, int frame) {
-    // phase is in radians (rand_f()*2*PI_F, shared with the DistortedRing
-    // calls); sin_wave's phase is in cycles. The exact radians->cycles divisor
-    // is 2*PI_F; dividing by half of it (PI_F) instead gives a phase in [0,2)
-    // cycles — a deliberate 2x offset that stays uniform because `phase` is
-    // itself uniform random. The divisor is named so the halving reads as
-    // intent (a non-random caller would get silently doubled frequency), not
-    // as PI_F mistyped for 2*PI_F. Keep the divide form so the value is
-    // bit-identical to the original.
+    // phase is in radians; sin_wave's phase is in cycles. The exact
+    // radians->cycles divisor is 2*PI_F; dividing by PI_F instead gives a phase
+    // in [0,2) cycles — a deliberate 2x offset, uniform because `phase` is itself
+    // uniform random. Named so the halving reads as intent, not a 2*PI_F typo.
     constexpr float kDoubledCycleDivisor = PI_F; // = (2*PI_F) / 2
     return sin_wave(-1, 1, 2, phase / kDoubledCycleDivisor)(t) *
            sin_wave(-1, 1, 3, 0)(static_cast<float>(frame % 32) / 32.0f) *

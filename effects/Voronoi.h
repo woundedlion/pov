@@ -76,44 +76,34 @@ public:
     Canvas canvas(*this);
 
     // Re-seed when the GUI changes the site count (integer change only, so
-    // dragging within a bucket doesn't thrash). Note: seed_sites() fully
-    // re-scatters — site positions are deterministic per index (golden-angle
-    // spiral) so they are stable, but each site's rotation axis is drawn fresh
-    // from the RNG, so a single-step count change reshuffles every cell's spin,
-    // not just the added/removed one. Intentional full re-scatter, not an
-    // incremental edit.
+    // dragging within a bucket doesn't thrash). seed_sites() fully re-scatters:
+    // positions are deterministic per index but each axis is redrawn from the
+    // RNG, so a count change reshuffles every cell's spin. Intentional.
     if (active_site_count() != current_num_sites)
       seed_sites();
 
-    // 1. Animate Sites
     float s = logf(params.speed + 1.0f) * 0.005f;
 
     for (size_t i = 0; i < sites_buffer.size(); ++i) {
       auto &site = sites_buffer[i];
-      // Rotate pos around axis. rotate() is length-preserving only in exact
-      // arithmetic; over the unbounded frame count of a long-running art piece
-      // float rounding makes |pos| drift off the unit sphere. Renormalize so the
-      // invariants that rest on unit sites hold indefinitely: nearest-by-
-      // Euclidean == nearest-by-max-dot (|p−s|²=2−2p·s only for unit p,s) and the
-      // border acosf(dot(...)) staying in range. One normalize per site per frame
-      // is negligible against the per-pixel KD-tree query.
+      // rotate() is length-preserving only in exact arithmetic; over a long run
+      // float rounding drifts |pos| off the unit sphere. Renormalize so the
+      // unit-site invariants hold: nearest-by-Euclidean == nearest-by-max-dot
+      // (|p−s|²=2−2p·s only for unit p,s) and the border acosf(dot) staying in
+      // range. One normalize/site/frame is negligible vs. the KD-tree query.
       Quaternion q = make_rotation(site.axis, s);
       site.pos = rotate(site.pos, q).normalized();
     }
 
-    // 2. Render Pixels (KD-tree nearest + second-nearest)
-    // Defense-in-depth: bail before building the tree / pixel loop if there are
-    // no sites (an empty tree would yield no neighbors). Currently unreachable —
-    // active_site_count() clamps to [1, MAX_SITES] and the slider floor is 1, so
-    // sites_buffer is always seeded with >= 1 site — but cheap insurance against
-    // a future seeding path that could leave it empty.
+    // Defense-in-depth: bail if there are no sites (an empty tree yields no
+    // neighbors). Currently unreachable (count clamps to [1, MAX_SITES]) but
+    // cheap insurance against a future seeding path that leaves it empty.
     if (sites_buffer.size() == 0)
       return;
 
-    // Build a KD-tree over the (moving) site positions once per frame. On the
-    // unit sphere nearest-by-Euclidean-distance is exactly nearest-by-max-dot
-    // (|p−s|² = 2 − 2·p·s for unit p,s), so the k=2 query returns the exact
-    // best/second-best site: O(N log N) build + O(log N) per pixel rather than
+    // Build a KD-tree over the moving site positions once per frame. On the unit
+    // sphere nearest-by-Euclidean == nearest-by-max-dot (|p−s|² = 2 − 2·p·s),
+    // so the k=2 query is exact: O(N log N) build + O(log N)/pixel rather than
     // an O(W·H·N) per-pixel scan.
     ScratchScope _scope(scratch_arena_a);
     Vector *positions = static_cast<Vector *>(scratch_arena_a.allocate(
@@ -187,20 +177,16 @@ public:
       return x.lo == y.lo && x.hi == y.hi && x.hasSecond == y.hasSecond;
     };
 
-    // Coarse-grid coherence (finding 6). The k=2 KD-tree query is the dominant
-    // per-pixel cost, but the *identity* of the nearest two sites is piecewise-
-    // constant over each Voronoi cell. Classify the pair once per coarse-grid
-    // corner; an interior pixel whose four surrounding corners agree on the same
-    // pair skips the tree query and shades from just two exact dot products. The
-    // shading stays per-pixel and exact (the color blend and border test are
-    // continuous in the dot gap — only the discrete query is elided). A pixel
-    // whose corners disagree (a cell seam, or the dense sub-block region near a
-    // pole) falls back to the full query, so the scheme self-corrects exactly
-    // where cells shrink below a block. Residual approximation: a cell entirely
-    // contained between four agreeing corners (smaller than kCoherenceBlock,
-    // missed by all of them) is not sampled — acceptable atop the existing
-    // SAMPLES=1 point sampling, and the failure mode is a dropped speck, never a
-    // wrong frame on the rest of the image.
+    // Coarse-grid coherence: the k=2 query dominates per-pixel cost, but the
+    // identity of the nearest two sites is piecewise-constant over each Voronoi
+    // cell. Classify the pair once per coarse-grid corner; an interior pixel
+    // whose four corners agree skips the query and shades from two exact dot
+    // products (shading stays per-pixel and exact — only the discrete query is
+    // elided). A pixel whose corners disagree (a seam, or the dense region near
+    // a pole) falls back to the full query, so the scheme self-corrects where
+    // cells shrink below a block. Residual: a cell smaller than kCoherenceBlock
+    // missed by all four corners is not sampled — acceptable atop the SAMPLES=1
+    // point sampling; the failure mode is a dropped speck.
     auto &cr = canvas.clip();
     Scan::Shader::check_lut_domain<W, H>(cr);
     const int x0 = cr.x_start;
@@ -305,8 +291,7 @@ public:
   //   shading: positions + KD nodes + the coarse-grid corner cells
   // All three terms scale with MAX_SITES / the canvas, so a future MAX_SITES bump
   // or kCoherenceBlock change is caught here at compile time instead of tripping
-  // the runtime OOM trap. (BZ/GS derive their scratch budgets from sizeof the
-  // same way; this one had only a prose justification.)
+  // the runtime OOM trap.
   static constexpr size_t kScratchABytes = 64 * 1024;
   static constexpr size_t kPositionsBytes = size_t(MAX_SITES) * sizeof(Vector);
   static constexpr size_t kKdNodesBytes = size_t(MAX_SITES) * sizeof(KDNode);

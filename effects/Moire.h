@@ -52,12 +52,10 @@ public:
    *          user params, and arms the rotation / wipe / amplitude animations.
    */
   void init() override {
-    // Each frame draws many concentric DistortedRing layers, each of which
-    // binds W+2 ring points and rasterization buffers into Scratch A. Give it
-    // 32KB of Scratch A for those, and 16KB of Scratch B for the AA filter.
+    // Each DistortedRing layer binds W+2 ring points + raster buffers into
+    // Scratch A (32KB); Scratch B (16KB) is for the AA filter.
     configure_arenas(GLOBAL_ARENA_SIZE - 48 * 1024, 32 * 1024, 16 * 1024);
 
-    // Allocate the two palette LUTs (rebaked each frame in draw_frame()).
     base_baked.bake(persistent_arena, base_palette);
     int_baked.bake(persistent_arena, int_palette);
 
@@ -73,18 +71,12 @@ public:
         .add(0, Animation::PeriodicTimer(80, [this](Canvas &) { color_wipe(); }))
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,
                                        ease_linear, true))
-        // Ramp `rotation` 0 -> 2π, then snap it back to 0 and repeat. The snap is
-        // seamless ONLY because every consumer of `rotation` is exactly
-        // 2π-periodic, so the value 2π and the value 0 produce an identical frame:
-        //   - draw_frame()'s q_base/q_int are products of make_rotation(axis, θ)
-        //     about fixed axes, and a quaternion rotation about a fixed axis is
-        //     2π-periodic;
-        //   - draw_layer()'s DistortedRing wobble is sin_wave(..., freq=4, ...)
-        //     evaluated at `rotation`, and 4·(2π) is an integer number of sine
-        //     periods, so it too returns to its starting phase at 2π.
-        // Changing an axis, the ramp endpoint, or the wobble frequency to a value
-        // that is not 2π-periodic would make this reset visibly snap. Keep the
-        // endpoint an integer multiple of 2π and the wobble frequency an integer.
+        // Ramp `rotation` 0 -> 2π then snap back to 0. The snap is seamless ONLY
+        // because every consumer of `rotation` is exactly 2π-periodic: q_base/
+        // q_int are make_rotation about fixed axes, and draw_layer's wobble is
+        // sin_wave at freq=4 (4·2π = integer sine periods). Keep the endpoint an
+        // integer multiple of 2π and the wobble frequency an integer, or the
+        // reset will visibly snap.
         .add(0, Animation::Transition(rotation, 2 * PI_F, 160, ease_linear, false,
                                       true)
                     .then([this]() { rotation = 0.0f; }))
@@ -102,12 +94,12 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Refresh the LUTs from the (continuously wipe-animated) source palettes.
-    // Once per frame, vs. a full OKLCH interpolation per ring fragment.
+    // Refresh the LUTs once per frame from the wipe-animated source palettes,
+    // vs. a full OKLCH interpolation per ring fragment.
     base_baked.rebake(base_palette);
     int_baked.rebake(int_palette);
 
-    // Two layers counter-rotate (opposite-signed axes) so their rings beat
+    // Counter-rotate the two layers (opposite-signed axes) so their rings beat
     // against each other, producing the moire interference.
     Quaternion q_base =
         make_rotation(-X_AXIS, rotation) * make_rotation(-Z_AXIS, rotation);
@@ -124,11 +116,9 @@ private:
    * @details Called periodically to keep the colors drifting.
    */
   void color_wipe() {
-    // The two counter-rotating layers are deliberately contrasting: the base
-    // layer starts BELL, the interference layer CUP (see the constructor). Keep
-    // that inter-layer contrast through the wipe by giving the new palettes
-    // opposite brightness gradients — otherwise both layers wipe to the same
-    // profile and the moire beat washes out to incidental hue noise.
+    // Give the new palettes opposite brightness gradients (ASCENDING vs
+    // DESCENDING) to keep the inter-layer contrast through the wipe — otherwise
+    // both layers wipe to the same profile and the moire beat washes out.
     base_next_palette =
         GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                           BrightnessProfile::ASCENDING);
@@ -160,10 +150,9 @@ private:
       c.alpha *= params.alpha;
       f.color = c;
     };
-    // i runs 1..count inclusive: i == count closes the pattern at r == 2.0 (the
-    // full radius), giving count concentric rings. Start at 1, not 0 — an r == 0
-    // ring is a degenerate point (and a degenerate basis sample) that wastes one
-    // rasterization per layer every frame.
+    // i runs 1..count inclusive: i == count closes the pattern at r == 2.0.
+    // Start at 1, not 0 — an r == 0 ring is a degenerate point that wastes a
+    // rasterization per layer.
     for (int i = 1; i <= count; ++i) {
       float r = static_cast<float>(i) / count * 2.0f;
 
@@ -179,7 +168,7 @@ private:
    */
   struct Params {
     float alpha = 0.2f;   /**< Per-ring opacity in [0, 1]. */
-    float density = 10.0f; /**< Ring count per layer in [1, 100]. Overridden per-resolution in init() (10 at W<=96, else 45), so this default never reaches a live frame. */
+    float density = 10.0f; /**< Ring count per layer in [1, 100]. Overridden per-resolution in init(), so this default never reaches a live frame. */
     float amp = 0.0f;     /**< Wobble amplitude in [0, 1]. */
   } params;
 

@@ -35,40 +35,32 @@ public:
     registerParam("Twist", &params.twist, 0.0f, 8.0f);
     registerParam("AA Width", &params.aa_mult, 0.1f, 1.5f);
 
-    // Precompute frame quaternions — dodecahedron vertices are constexpr
     for (int i = 0; i < NUM_VERTS; ++i) {
       raw_quats[i] = make_rotation(Y_AXIS, Solids::Dodecahedron::vertices[i]);
     }
 
-    // Bake the fixed-seed palette into a 256-entry LUT once. `palette` is
-    // immutable (constructed with a fixed manual seed, never mutated), so the
-    // per-fragment shader can do a cheap LUT lookup instead of the full
-    // ~2000-cycle dual sRGB->OKLCH conversion on every ray-marched fragment.
+    // Bake the immutable fixed-seed palette into a 256-entry LUT so the
+    // per-fragment shader does a cheap lookup instead of the full ~2000-cycle
+    // dual sRGB->OKLCH conversion per fragment.
     baked_palette.bake(persistent_arena, palette);
 
     timeline.add(0, Animation::RandomWalk<W>(camera, normal, noise));
 
     // Drive the tumble and palette-scroll phases from the live Pulse Speed
-    // slider instead of reading the unbounded global frame clock: each is an
-    // effect-owned accumulator wrapped to [0,1) every step, so the trig
-    // argument never grows (stable precision over long runs) and the phase no
-    // longer couples to the global counter at effect-switch time. The scales
-    // reproduce the prior per-animation-second increments (1.5 rad of spin and
-    // 0.05 cycle of palette scroll at 60 fps); spin_phase is scaled to radians
-    // by *2pi where it is consumed.
+    // slider rather than the global frame clock: each is an effect-owned
+    // accumulator wrapped to [0,1) every step, so the trig argument never grows.
+    // The scales give 1.5 rad of spin and 0.05 cycle of palette scroll per
+    // animation-second at 60 fps; spin_phase is scaled to radians by *2pi where
+    // consumed. Both gated on the pause flag.
     constexpr float kTwoPi = 2.0f * PI_F;
-    // Gate both phase Drivers on the pause flag so "Pause Animation" actually
-    // freezes the spin and palette scroll, matching HopfFibration/Liquid2D.
     timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
                                       1.5f / (60.0f * kTwoPi), true,
                                       &anims_paused_));
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
                                       0.05f / 60.0f, true, &anims_paused_));
 
-    // The render Sprite needs no pause gate: it is perpetual (duration -1) and
-    // its image is driven entirely by the two phase accumulators above, which
-    // are now frozen while paused — so the frame holds without gating the
-    // sprite's own (unused) timer.
+    // The render Sprite needs no pause gate: it is perpetual and its image is
+    // driven entirely by the two phase accumulators above, frozen while paused.
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float opacity) {
                           this->drawFn(canvas, opacity);
@@ -177,20 +169,14 @@ private:
     Quaternion spin_q = make_rotation(X_AXIS, spin_angle);
 
     // Per-frame cost is O(NUM_VERTS * max_steps * W * H): one volumetric
-    // ray-march per dodecahedron vertex (NUM_VERTS = 20), each marching up to
-    // max_steps (slider 4..30) shape.distance() evaluations at every covered
-    // pixel. The Scan::Volume bounds_radius cull below trims pixels outside
-    // each torus's screen disc, but the sphere covers a large fraction of the
-    // frame, so this is the heaviest effect in the set alongside Voronoi.
-    // Left unbudgeted (no per-frame cap against W*H); acceptable on the WASM
-    // sim. If a device target ever runs this effect, lower max_steps or cap the
-    // marched pixel count against the frame budget here.
+    // ray-march per dodecahedron vertex, each up to max_steps distance() evals
+    // per covered pixel. One of the heaviest effects (alongside Voronoi);
+    // unbudgeted, acceptable on the WASM sim. For a device target, lower
+    // max_steps or cap the marched pixel count against the frame budget here.
     for (int vi = 0; vi < NUM_VERTS; ++vi) {
       Vector vertex = camera.orient(Solids::Dodecahedron::vertices[vi]);
       Vector view_dir(-vertex.x, -vertex.y, -vertex.z);
 
-      // Compose: frame (local→world at vertex) * spin (rotate in local X)
-      // Then apply camera orientation
       Quaternion world_q = camera.get() * raw_quats[vi] * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
 
@@ -240,7 +226,7 @@ private:
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
                             BrightnessProfile::BELL, SaturationProfile::VIBRANT,
                             219};
-  BakedPalette baked_palette; // LUT baked once from `palette` (immutable) in init()
+  BakedPalette baked_palette;
 };
 
 #include "core/effect_registry.h"

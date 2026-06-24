@@ -133,12 +133,11 @@ protected:
 
   /**
    * @brief Reserves and fills the shared lattice, then arms the view animation.
-   * @details The three steps every derived `init()` must perform together —
-   * reserve the RD_N node array in the persistent arena, fill it with the static
-   * Fibonacci lattice, and install the orientation random-walk. Bundled into one
-   * call so a derived class cannot perform a subset and silently ship a frozen or
-   * empty view (the original footgun: each derived re-listed all three). MUST be
-   * called after configure_arenas() and after the derived class's own persistent
+   * @details Bundles the three steps every derived `init()` must perform
+   * together — reserve the RD_N node array, fill it with the static Fibonacci
+   * lattice, and install the orientation random-walk — so a derived class cannot
+   * perform a subset and silently ship a frozen or empty view. MUST be called
+   * after configure_arenas() and after the derived class's own persistent
    * allocations, since the node array shares the persistent arena.
    */
   void init_lattice() {
@@ -153,22 +152,16 @@ protected:
    * @tparam Fn Callable accepting a neighbor node id.
    * @param node Center node id whose neighbors are visited.
    * @param fn Callable invoked once per valid neighbor index.
-   * @details The fundamental shared iteration over the lattice graph; the lambda
-   * inlines, so this is identical codegen to a hand-written neighbor loop. The
-   * discrete graph Laplacian of a field is `Σ_neighbors (field[ni] − center)`;
-   * systems needing several fields per node fuse them into one walk here rather
-   * than calling a single-field helper per field, which would re-read the
-   * neighbor list once per species.
+   * @details The lambda inlines, so this is identical codegen to a hand-written
+   * neighbor loop. Systems needing several fields per node fuse them into one
+   * walk here rather than re-reading the neighbor list once per species.
    *
    * Negative entries are the K-NN sentinel for an unfilled slot and are skipped,
-   * so the effective Laplacian degree is the count of *valid* neighbors (≤ RD_K).
-   * A node with fewer than RD_K valid neighbors therefore sums its Laplacian over
-   * fewer terms and diffuses correspondingly slower — a position-dependent
-   * inhomogeneity, but a benign one: the explicit-Euler stability bound assumes
-   * the full degree RD_K, so a deficient node is strictly on the stable side.
-   * The shipped Fibonacci lattice is in fact full-degree (no sentinels; pinned by
-   * test_indices_in_range), so this is a robustness path rather than an active
-   * inhomogeneity today.
+   * so the effective Laplacian degree is the count of valid neighbors (≤ RD_K).
+   * A deficient node diffuses slower, but is strictly on the stable side of the
+   * explicit-Euler bound (which assumes full degree RD_K). The shipped Fibonacci
+   * lattice is full-degree (pinned by test_indices_in_range), so this is a
+   * robustness path, not an active inhomogeneity today.
    */
   template <typename Fn> static void for_each_neighbor(int node, Fn &&fn) {
     for (int k = 0; k < RD_K; ++k) {

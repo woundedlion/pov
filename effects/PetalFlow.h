@@ -41,7 +41,6 @@ public:
                 {0.461f, 0.461f, 0.461f}, {0.539f, 0.701f, 0.809f}),
         orientation(), filters(Filter::World::Orient<W>(orientation),
                                Filter::Screen::AntiAlias<W, H>()),
-        // Fires every frame to spawn new rings as the flow accumulates gap.
         spawner(1, [this](Canvas &) { this->check_spawn(); }, true) {}
 
   /**
@@ -130,10 +129,9 @@ private:
     timeline.add(0, spawner);
 
     // Pre-fill the path with evenly spaced rings so frame zero looks like a
-    // running flow rather than an empty path filling in. Start one epsilon inside
-    // END_RHO (not exactly on it) so the oldest pre-filled ring sits just short of
-    // the retire boundary (draw_frame() culls rings with rho > END_RHO) instead of
-    // landing on the cull edge, matching the steady-state spacing.
+    // running flow. Start one epsilon inside END_RHO so the oldest ring sits just
+    // short of the retire boundary (draw_frame() culls rho > END_RHO) rather than
+    // on the cull edge.
     for (float r = END_RHO - 0.01f; r > START_RHO; r -= SPACING) {
       spawn_ring_at_pos(r);
     }
@@ -272,9 +270,7 @@ private:
     };
 
     // close_loop=true reconnects the last fragment to the first, closing the
-    // ring; no manual first-sample duplicate is needed (it only added a
-    // redundant zero-length closing segment, and the flat shader above ignores
-    // v0 so the duplicate's v0=1.0 had no visible effect).
+    // ring; no manual first-sample duplicate is needed.
     Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
   }
 };

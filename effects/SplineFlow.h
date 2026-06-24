@@ -51,10 +51,9 @@ public:
     filters.template get<Filter::World::Trails<W, MAX_TRAILS>>().init_storage(
         persistent_arena);
 
-    // Bake the immutable palette once into a 256-entry LUT. The trail flush
-    // evaluates the palette per live trail item (~25k/frame); a ProceduralPalette
-    // get() costs 3 cosf + sRGB-LUT interp + a virtual call each, whereas
-    // BakedPalette::get is a table lookup + lerp. Reused by the spline shader too.
+    // Bake the immutable palette into a 256-entry LUT. The trail flush evaluates
+    // the palette per live trail item (~25k/frame); BakedPalette::get is a table
+    // lookup + lerp vs. ProceduralPalette's 3 cosf + sRGB interp + virtual call.
     baked_palette_.bake(persistent_arena, Palettes::lavenderLake);
 
     registerParam("Tension", &params.tension, 0.0f, 1.0f);
@@ -114,7 +113,6 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Live-apply the Drift slider to the control-point walk speeds.
     apply_if_changed(params.drift, last_drift_, [&](float drift) {
       float walk_speed = drift * 0.02f;
       for (auto *w : point_walks_)
@@ -124,7 +122,6 @@ public:
 
     int n = hs::clamp(static_cast<int>(params.num_points), 4, MAX_POINTS);
 
-    // Build control points from animated orientations
     ScratchScope _frag(scratch_arena_a);
     Fragments control_points;
     control_points.bind(scratch_arena_a, n);
@@ -148,7 +145,6 @@ public:
                                   24,   // samples per segment
                                   SplineMode::Geodesic);
 
-    // Flush trails
     filters.flush(
         canvas,
         [this](const Vector &, float t) {

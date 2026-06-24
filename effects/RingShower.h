@@ -40,8 +40,6 @@ public:
   void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
-    // Allocate each slot's palette LUT once up front; spawn_ring refills it in
-    // place.
     for (size_t i = 0; i < MAX_RINGS; ++i)
       rings[i].palette.bake(persistent_arena, make_palette());
 
@@ -157,14 +155,10 @@ private:
    * @brief Reinitializes the first free ring slot with a new orientation, life,
    *        and palette.
    * @details Scans for a slot whose age has reached its life; if none is free,
-   *          the spawn is silently dropped. life is drawn uniformly in
-   *          [LIFE_MIN, LIFE_MIN + LIFE_SPAN) = [8, 80) frames. With MAX_RINGS
-   *          slots, lives up to 80 frames, and a
-   *          4-48 frame spawn cadence the pool can briefly fill, so a dropped
-   *          spawn is an EXPECTED transient (bounded soft handling — a missed
-   *          ring is invisible against the shower), NOT an invariant violation:
-   *          it intentionally drops rather than trapping. Do not convert this to
-   *          an HS_CHECK.
+   *          the spawn is silently dropped. The pool can briefly fill, so a
+   *          dropped spawn is an EXPECTED transient (a missed ring is invisible
+   *          against the shower), NOT an invariant violation — do not convert
+   *          this to an HS_CHECK.
    */
   void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {

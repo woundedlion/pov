@@ -14,25 +14,18 @@
  * @tparam H Canvas height in pixels.
  * @details Each ring's orientation follows a random-walk over the sphere and
  * leaves a motion-blur trail that fades in color and alpha along its length.
- * @note Sibling trail effects — `Comets` and `ChaoticStrings` — share the same
- *       scaffolding (orientation random-walk → motion-blur/fading trail). Only
- *       the record + deep_tween skeleton is genuinely common, and that already
- *       lives in the engine (`OrientationTrail::record` + the `deep_tween` free
- *       function); the per-effect bodies diverge in draw primitive, transform
- *       chain, color/fade, and accumulate-vs-draw model, so a unifying base would
- *       have to parameterize all of those — a worse abstraction than the two-line
- *       idiom and a fresh coupling across three independently-tuned effects.
- *       Each therefore renders independently; propagate trail-rendering
- *       fixes by hand across all three. Differences from the two siblings:
- *         - This effect renders without the `Screen::AntiAlias` filter the
- *           siblings apply.
- *         - This effect uses `Orientation<>` (CAP 4) for the ring orientation and
- *           trail, where the siblings use `Orientation<16>` — i.e. up to 4
- *           motion-blur sub-frames per recorded frame versus 16. Intentional: a
- *           full great-circle ring is a spatially huge shape whose successive
- *           trail frames overlap almost completely, so 4 interpolated sub-frames
- *           read identically to 16; the siblings smear a single fast-moving
- *           point/string where the sub-frame count sets the blur smoothness.
+ * @note Sibling trail effects `Comets` and `ChaoticStrings` share the same
+ *       scaffolding (orientation random-walk → motion-blur/fading trail), but
+ *       only the common `OrientationTrail::record` + `deep_tween` skeleton lives
+ *       in the engine; the per-effect bodies diverge in draw primitive,
+ *       transform, color/fade, and accumulate-vs-draw model, so each renders
+ *       independently — propagate trail-rendering fixes by hand across all three.
+ *       Two intentional differences from the siblings:
+ *         - No `Screen::AntiAlias` filter.
+ *         - `Orientation<>` (CAP 4) instead of `Orientation<16>`: a full
+ *           great-circle ring is spatially huge and its successive trail frames
+ *           overlap almost completely, so 4 sub-frames read identically to 16,
+ *           where the siblings smear a fast-moving point/string.
  */
 template <int W, int H> class RingSpin : public Effect {
 public:
@@ -122,13 +115,11 @@ public:
       Ring &ring = rings[i];
       ring.trail.record(ring.orientation);
       deep_tween(ring.trail, [&](const Quaternion &q, float t) {
-        // The trail's length-fade is supplied ENTIRELY by the palette: sampling
-        // at 1-t walks a transparent-vignette palette whose alpha tapers to ~0
-        // toward the tail, so there is deliberately no quintic_kernel(t)/t fade
-        // in this draw loop (unlike sibling Comets). This is a load-bearing
-        // dependency on the palette's alpha shape — swap in an opaque palette and
-        // the whole trail renders at full alpha with no taper. Keep the alpha
-        // vignette, or reinstate an explicit t-fade here, if the palette changes.
+        // The trail's length-fade comes ENTIRELY from the palette: sampling at
+        // 1-t walks a transparent-vignette palette whose alpha tapers to ~0
+        // toward the tail, so there is deliberately no explicit t-fade here. Swap
+        // in an opaque palette and the whole trail renders at full alpha — keep
+        // the alpha vignette or reinstate a t-fade here if the palette changes.
         Color4 c = ring.palette->get(1.0f - t);
         c.alpha = c.alpha * params.alpha;
         if (c.alpha <= 0.001f) return;

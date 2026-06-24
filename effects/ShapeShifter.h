@@ -45,15 +45,13 @@ public:
    */
   void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    // Count's slider tops out at 128, but the effective ring count is gated
-    // against the canvas resolution in drawAll() (capped at H) so a low-res
-    // device can't be driven into ~256 SDF rasterizations/frame; see the clamp
-    // there for the rationale.
+    // Count's slider tops out at 128; the effective ring count is gated against
+    // the canvas resolution in drawAll() (see the clamp there).
     registerParam("Count", &params.num_shapes, 1.0f, 128.0f);
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
-    // Twist is driven by the Mutation in build(); flagged animated so the GUI
-    // auto-pauses the animation when the user grabs the slider.
+    // Twist driven by the Mutation in build(); flagged animated so the GUI
+    // auto-pauses when the user grabs the slider.
     registerAnimatedParam("Twist", &params.twist, -5.0f, 5.0f);
     registerParam("Debug BB", &params.debug_bb);
 
@@ -72,9 +70,7 @@ public:
     Canvas canvas(*this);
 
     if (!anims_paused_) {
-      // Wrap at the 48-frame cycle period so the counter stays bounded and can
-      // never overflow on a long-running installation; frame_count_ is read
-      // nowhere else, so this is behavior-identical to the unbounded count.
+      // Wrap at the 48-frame cycle period to keep the counter bounded.
       frame_count_ = (frame_count_ + 1) % 48;
       if (frame_count_ == 0) {
         int next = (static_cast<int>(current_shape) + 1) % 4;
@@ -96,19 +92,17 @@ public:
   FLASHMEM void build() {
     timeline.clear();
 
-    // Single camera tumble.
     timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, {},
                                              hs::rand_int(0, 65535)));
 
-    // Twist Mutation: sin wave.
     timeline.add(0, Animation::Mutation(
                         params.twist,
                         [](float t) { return (PI_F / 4.0f) * sinf(t * PI_F); },
                         480, ease_linear, true, &anims_paused_));
 
-    // Two shared tumbles: every Plot ring rides plot_orient_ (+X), every Scan
-    // ring rides scan_orient_ (-X). These also drive the once-per-frame
-    // orientation collapse (motion blur) before the draw event runs below.
+    // Shared tumbles: every Plot ring rides plot_orient_ (+X), every Scan ring
+    // rides scan_orient_ (-X). These also drive the once-per-frame orientation
+    // collapse (motion blur) before the draw event below.
     timeline.add(0, Animation::Rotation<W>(plot_orient_, X_AXIS, 2 * PI_F, 160,
                                            ease_linear, true,
                                            Animation::Space::Local));
@@ -133,20 +127,15 @@ public:
     int count = static_cast<int>(params.num_shapes);
     if (count < 1)
       count = 1;
-    // Resolution-gate the ring count. Each ring dispatches a Plot AND a Scan SDF
-    // rasterization, so the unclamped slider max (128) is ~256 rasterizations a
-    // frame — fine on the WASM sim but able to blow a low-resolution device's
-    // frame budget. Cap the effective count at H, the canvas's radial/latitude
-    // resolution: concentric rings spaced finer than one row apart can't be
-    // resolved, so the clamp costs no visible fidelity. High-res targets
-    // (Phantasm, H=144) keep the full 128; low-res targets (Holosphere, H=20)
-    // clamp to a count the device can actually paint, well above the default 7.
+    // Resolution-gate the ring count: each ring dispatches a Plot AND a Scan SDF
+    // rasterization, so the slider max (128) is ~256 rasterizations/frame, able
+    // to blow a low-res device's budget. Cap at H — rings spaced finer than one
+    // row apart can't be resolved, so the clamp costs no visible fidelity.
     constexpr int kMaxRings = H > 1 ? H : 1;
     if (count > kMaxRings)
       count = kMaxRings;
 
-    // Basis is identical across all rings of a mode (shared orientation + fixed
-    // normal), so compute each once per frame instead of once per ring.
+    // Basis is identical across all rings of a mode, so compute once per frame.
     Quaternion cam_q = camera.get();
     Basis plot_basis = make_basis(cam_q * plot_orient_.get(), X_AXIS);
     Basis scan_basis = make_basis(cam_q * scan_orient_.get(), -X_AXIS);
