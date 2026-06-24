@@ -33,10 +33,7 @@ inline Vector face_centroid(const HalfEdgeMesh &he_mesh,
   uint16_t he_idx = face.half_edge;
   uint16_t start = he_idx;
   if (he_idx != HE_NONE) {
-    // Always-on anti-hang guard (survives NDEBUG): a face loop visits each
-    // half-edge at most once, so exceeding the total half-edge count means the
-    // .next chain is corrupt and would otherwise spin forever — trap so it is
-    // caught on the bench instead of hanging the device (mirrors vertex_orbit).
+    // Anti-hang guard: a corrupt .next chain would otherwise spin forever.
     const int max_sides = static_cast<int>(he_mesh.half_edges.size());
     do {
       HS_CHECK(out_count < max_sides);
@@ -70,11 +67,8 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
   uint16_t he_idx = face.half_edge;
   if (he_idx == HE_NONE) return n;
   uint16_t start = he_idx;
-  // Always-on anti-hang guard plus an explicit HE_NONE trap on he.next: unlike
-  // face_centroid (which reads only half_edges[he_idx], already known live),
-  // this loop dereferences half_edges[he.next] in-body, so a corrupt .next chain
-  // could otherwise spin forever or index half_edges[HE_NONE]. Trap on the
-  // bench, never hang.
+  // Anti-hang guard plus an HE_NONE trap: this loop dereferences
+  // half_edges[he.next] in-body, so a corrupt .next chain could spin or index HE_NONE.
   const int max_sides = static_cast<int>(he_mesh.half_edges.size());
   int sides = 0;
   do {
@@ -107,11 +101,7 @@ inline int vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
                         VisitorFn &&visitor) {
   uint16_t curr_idx = start_idx;
   int count = 0;
-  // Hard upper bound, independent of asserts (survives NDEBUG): a vertex orbit
-  // visits each incident half-edge at most once, so it can never legitimately
-  // touch more half-edges than exist. Exceeding that means the half-edge graph
-  // is non-manifold/corrupt and the walk would otherwise spin forever — trap so
-  // it's caught on the bench instead of hanging the device.
+  // Anti-hang guard: a corrupt/non-manifold half-edge graph would otherwise spin forever.
   const int max_orbit = static_cast<int>(he_mesh.half_edges.size());
   do {
     HS_CHECK(count < max_orbit);
@@ -174,9 +164,6 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
     int orbit_count = 0;
     vertex_orbit<DIR>(he_mesh, he_start_idx, [&](uint16_t idx) {
       HS_CHECK(orbit_count < (int)I);
-      // Route the emitted index through narrow_index (bounds-checked to
-      // INT16_MAX) rather than a bare static_cast, matching every other
-      // index-narrowing site in this file.
       orbit_buf[orbit_count++] = narrow_index(value_of(idx));
     });
 
@@ -205,9 +192,7 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
 inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
   int count = 0;
   if (start_he != HE_NONE) {
-    // Always-on anti-hang guard: a face loop touches each half-edge at most
-    // once, so a count past the total means corrupt topology that would
-    // otherwise spin forever — trap on the bench instead of hanging.
+    // Anti-hang guard: corrupt topology would otherwise spin forever.
     const int max_sides = static_cast<int>(he_mesh.half_edges.size());
     uint16_t he_idx = start_he;
     do {
@@ -262,19 +247,10 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
  */
 inline void transform(const MeshState &local_state, MeshState &world_state,
                       Arena& arena) {
-  // The output views below borrow from the source's OWNED topology vectors, so
-  // a borrowed-mode source (owned vectors empty, topology in its *_view spans)
-  // would silently yield a topology-less output that renders nothing. Require
-  // owned-mode input. Unreachable today (all call sites pass owned compiled
-  // meshes) but trap loudly if that ever changes.
   HS_CHECK(local_state.face_counts.is_bound(),
            "MeshOps::transform: source mesh must be owned-mode");
-  // transform() produces a BORROWED-mode mesh: vertices are owned (rebuilt
-  // below) but topology is shared through the *_view spans. The per-member
-  // accessors discriminate owned-vs-borrowed on each owned vector's is_bound()
-  // (NOT empty()), so owned topology left bound from a prior owned-mode life of
-  // a reused output would shadow the views set here and serve stale topology.
-  // Unbind it up front so the borrowed mode is unambiguous on reuse.
+  // Unbind any stale owned topology so the borrowed-mode views set below are not
+  // shadowed by it on a reused output.
   world_state.face_counts = {};
   world_state.faces = {};
   world_state.face_offsets = {};
@@ -285,10 +261,6 @@ inline void transform(const MeshState &local_state, MeshState &world_state,
 
   world_state.vertices.bind(arena, local_state.vertices.size());
 
-  // Vertices are copied verbatim (no transformers), so bulk-memcpy them rather
-  // than running up to MAX_VERTS checked push_backs every frame (HankinSolids
-  // calls this per frame). Vector is trivially copyable; capacity was just bound
-  // to exactly the source size above.
   world_state.vertices.append_bulk(local_state.vertices.data(),
                                    local_state.vertices.size());
 }
@@ -309,12 +281,9 @@ template <typename T1, typename... Transformers>
 inline void transform(const MeshState &mesh, MeshState &transformed, Arena& arena,
                       const T1 &first_transformer,
                       const Transformers &...transformers) {
-  // The output views borrow from the source's owned topology, so a borrowed-mode
-  // source would silently produce a topology-less output (see the base overload).
   HS_CHECK(mesh.face_counts.is_bound(),
            "MeshOps::transform: source mesh must be owned-mode");
-  // Borrowed-mode output: unbind any stale owned topology so the views set
-  // below are not shadowed on a reused destination (see the base overload).
+  // Unbind any stale owned topology (see the base overload).
   transformed.face_counts = {};
   transformed.faces = {};
   transformed.face_offsets = {};
@@ -330,7 +299,6 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 
     v = first_transformer(v);
 
-    // Unroll the remaining transformers at compile time via a fold expression.
     (..., (v = transformers(v)));
 
     transformed.vertices.push_back(v);
@@ -432,13 +400,8 @@ HS_COLD static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       int count;
       Vector c = face_centroid(he_mesh, mesh, i, count);
-      // Strict normalized() traps on a zero-length centroid (a centrally-
-      // symmetric face); fall back to the face's first vertex — already on the
-      // unit sphere — so the dual degrades gracefully, matching every other
-      // operator's normalized_or() rather than a lone strict normalize here
-      // (cf. snub(), which similarly guards its degenerate-centroid normal).
-      // Unreachable on the convex 52-solid roster (a face's vertices share a
-      // hemisphere, so their mean is never zero).
+      // Fall back to the face's first vertex on a zero-length (centrally-symmetric)
+      // centroid, where strict normalized() would trap.
       Vector first_v =
           mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
       out_mesh.vertices.push_back(normalized_or(c, first_v));
@@ -491,10 +454,6 @@ HS_COLD static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
     size_t offset = 0;
     for (size_t fi = 0; fi < F; ++fi) {
       int count = face_counts[fi];
-      // kis reads face_counts/faces directly, bypassing the HE builder's
-      // count==0 trap. A zero-vertex face would push an apex at the origin (the
-      // centroid never leaves 0,0,0) and emit no surrounding triangles — silent
-      // garbage geometry. Trap it up front (fail-fast), matching the builder.
       HS_CHECK(count > 0, "kis: zero-vertex face");
       Vector centroid(0, 0, 0);
       for (int k = 0; k < count; ++k) {
@@ -596,11 +555,6 @@ HS_COLD static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
     }
 
     // 4. Reconstruct Original Faces (Shrunk)
-    // Unlike truncate (which needs truncate_oriented_cut to pick the right one of
-    // an edge's two directional cut vertices), ambo's edge_to_vert is symmetric:
-    // each half-edge and its pair map to the single shared midpoint vertex, so
-    // the loop can push edge_to_vert[he_idx] directly without an orientation
-    // helper.
     for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
       uint16_t start = he_mesh.faces[fi].half_edge;
       int count = face_side_count(he_mesh, start);
@@ -809,12 +763,8 @@ HS_COLD static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
       uint16_t start = he_mesh.faces[fi].half_edge;
       uint16_t he_idx = start;
 
-      // Emit the shrunk primary face only when it is well-formed (>=3 sides),
-      // matching ambo/truncate and the vertex-orbit emitter. The new vertices
-      // and their he->vertex mapping are still created unconditionally because
-      // the edge and orbit faces below reference them; only a degenerate
-      // primary face is dropped (a malformed intermediate would otherwise leak
-      // a sub-triangular face that just gets stripped later by compile()).
+      // Emit the shrunk primary face only when well-formed (>=3 sides); new
+      // vertices and the he->vertex mapping are still created unconditionally.
       const bool well_formed = count >= 3;
       if (well_formed)
         out_mesh.face_counts.push_back(narrow_face_count(count));
@@ -900,10 +850,8 @@ HS_COLD static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
       uint16_t start = he_mesh.faces[fi].half_edge;
       uint16_t he_idx = start;
 
-      // Emit the shrunk primary face only when well-formed (>=3 sides); the new
-      // vertices and he->vertex mapping are created unconditionally for the
-      // edge hexagons below. Mirrors ambo/truncate and the orbit emitter,
-      // dropping a degenerate primary face instead of leaking a <3-gon.
+      // Emit the shrunk primary face only when well-formed (>=3 sides); new
+      // vertices and the he->vertex mapping are created unconditionally.
       const bool well_formed = count >= 3;
       if (well_formed)
         out_mesh.face_counts.push_back(narrow_face_count(count));
@@ -981,11 +929,6 @@ HS_COLD static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
   for (size_t i = 0; i < V; ++i)
     out_mesh.vertices.push_back(mesh.vertices[i]);
   for (size_t i = 0; i < F; ++i) {
-    // Spring relaxation averages edge lengths over the whole mesh; a degenerate
-    // face (< 3 sides) contributes spurious zero/duplicate-vertex edges that
-    // bias `target_len` and the per-vertex forces. Shipped recipes only relax
-    // well-formed closed meshes, so a degenerate face is a caller/pipeline bug —
-    // trap it up front (fail-fast) rather than silently skewing the result.
     HS_CHECK(face_counts[i] >= 3, "relax: degenerate face (< 3 sides)");
     out_mesh.face_counts.push_back(face_counts[i]);
   }
@@ -1019,8 +962,6 @@ HS_COLD static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
 
       if (edge_count == 0)
         break;
-      // total_len is float, so total_len / edge_count already divides in float;
-      // no cast needed (edge_count promotes to float, no integer truncation).
       float target_len = total_len / edge_count;
 
       for (size_t i = 0; i < V; ++i) {
@@ -1028,22 +969,15 @@ HS_COLD static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
 
         HEVertex &hev = he_mesh.vertices[i];
         uint16_t he_idx = hev.half_edge; // an incoming half-edge (head == i)
-        // hev.half_edge points *into* i; its pair points *out of* i, the
-        // outgoing half-edge that vertex_orbit<'N'> (pair->next) walks. Starting
-        // the orbit there visits i's 1-ring in the same order the old hand-rolled
-        // next->pair loop did, so the force accumulation is byte-identical — and
-        // it reuses vertex_orbit's own always-on anti-hang guard instead of a
-        // duplicate one. The pair!=HE_NONE guard skips a boundary vertex with no
-        // outgoing twin (shipped recipes relax only closed meshes).
+        // hev.half_edge points into i; its pair points out of i, which
+        // vertex_orbit<'N'> walks over i's 1-ring. pair!=HE_NONE skips a
+        // boundary vertex with no outgoing twin.
         if (he_idx != HE_NONE && he_mesh.half_edges[he_idx].pair != HE_NONE) {
           uint16_t start_out = he_mesh.half_edges[he_idx].pair;
           vertex_orbit<'N'>(he_mesh, start_out, [&](uint16_t idx) {
             int ni = he_mesh.half_edges[idx].vertex; // head == 1-ring neighbor
             Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];
-            // Compare SQUARED length against the squared tolerance (the
-            // codebase idiom), so near-zero edges are skipped before 1/dist
-            // can explode into a huge force spike. sqrt only runs for
-            // non-degenerate edges.
+            // Skip near-zero edges before 1/dist can spike the force.
             float len_sq = dot(vec, vec);
             if (len_sq > math::EPS_LEN_SQ) {
               float dist = sqrtf(len_sq);
@@ -1062,15 +996,8 @@ HS_COLD static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
             (out_mesh.vertices[i] + movements[i]).normalized();
       }
 
-      // Converged: the largest per-vertex spring force this pass has magnitude
-      // below ~1e-4. Note this tests the raw PRE-normalize force (movements[i]),
-      // not the post-normalize geodesic move on the sphere — but the force is
-      // applied as (vertex + force).normalized(), and for a small, near-tangential
-      // force the resulting angular step is ~|force| rad, so |force| is a tight,
-      // conservative proxy: when it falls below ~1e-4 rad (sub-pixel on the unit
-      // sphere) the remaining iterations are visual no-ops, so stop early. The
-      // guard only fires once the spring system has settled; a still-moving mesh
-      // runs the full iteration budget.
+      // Stop early once the largest per-vertex spring force settles below ~1e-4
+      // (a sub-pixel angular step on the unit sphere).
       constexpr float RELAX_CONVERGE_EPS_SQ = 1e-8f;
       if (max_move_sq < RELAX_CONVERGE_EPS_SQ)
         break;
@@ -1133,17 +1060,13 @@ HS_COLD static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
         normal = centroid.normalized();
       }
 
-      // normal and twist are face-invariant, so build the twist quaternion once
-      // per face (a sincos + normalize) rather than once per vertex below.
       const bool do_twist = twist != 0.0f;
       Quaternion twist_q;
       if (do_twist)
         twist_q = make_rotation(normal, twist);
 
-      // Emit the twisted primary face only when well-formed (>=3 sides); the
-      // new vertices and he->vertex mapping are created unconditionally for the
-      // edge triangles below. Mirrors ambo/truncate and the orbit emitter,
-      // dropping a degenerate primary face instead of leaking a <3-gon.
+      // Emit the twisted primary face only when well-formed (>=3 sides); new
+      // vertices and the he->vertex mapping are created unconditionally.
       const bool well_formed = count >= 3;
       if (well_formed)
         out_mesh.face_counts.push_back(narrow_face_count(count));
@@ -1287,9 +1210,7 @@ HS_COLD static PolyMesh bevel(const MeshT &mesh, Arena &target, Arena &temp,
   return truncate(ambo(mesh, target, temp), temp, target, t);
 }
 
-// Propeller (Hart's `p`) and whirl/loft are deliberately not implemented
-// here — they are chiral standalone operators whose blade geometry/winding
-// is subtle on the sphere, and a half-baked version is worse than none.
-// Add them under a separate change with a dedicated test for blade winding.
+// TODO: Propeller (Hart's `p`) and whirl/loft are not implemented; their chiral
+// blade winding on the sphere needs a dedicated test before adding.
 
 } // namespace MeshOps

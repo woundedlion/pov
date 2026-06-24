@@ -76,14 +76,9 @@ Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
  * rendered output); the log preserves the numbers for diagnosis before the trap.
  */
 void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
-  // Reject absurd per-arena sizes up front: any single arena larger than the
-  // whole block is already a config bug, and bounding each input keeps the
-  // align_up()/sum arithmetic below far from a size_t wrap that could fold a
-  // colossal request back under GLOBAL_ARENA_SIZE and slip past the budget
-  // check. Cold init path; over-subscription is unrecoverable, so trap.
+  // Bound each input so the align_up()/sum arithmetic below cannot wrap size_t.
   HS_CHECK(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE &&
            scratch_b <= GLOBAL_ARENA_SIZE);
-  // Align each inter-arena boundary up to max_align_t (see @details above).
   constexpr size_t A = alignof(std::max_align_t);
   auto align_up = [](size_t n) { return (n + (A - 1)) & ~(A - 1); };
   size_t a_base = align_up(persistent);

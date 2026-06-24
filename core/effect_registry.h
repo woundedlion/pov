@@ -68,17 +68,6 @@ public:
   static std::vector<EffectRegistration>& entries() {
     static std::vector<EffectRegistration> s = [] {
       std::vector<EffectRegistration> v;
-      // Reserve once up front so the self-registration push_back()s below grow
-      // the vector a single time instead of reallocating incrementally as each
-      // TU registers. kReserveHint is a generous fixed hint, not the exact
-      // count: this header cannot see HS_EFFECT_COUNT (effects.h includes every
-      // effect header, which include this file — a cycle), so vs the ~30
-      // shipping effects over-reserving is harmless and an under-reserve simply
-      // falls back to the old incremental growth. This whole class is
-      // __EMSCRIPTEN__-only; on the WASM
-      // host an allocation failure here happens pre-main and is unrecoverable by
-      // design (no located HS_CHECK trap can run before static init completes),
-      // so a std::terminate on OOM is the accepted, bounded exemption.
       constexpr size_t kReserveHint = 64; // ~2x the ~30 shipping effects
       v.reserve(kReserveHint);
       return v;
@@ -128,8 +117,6 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
   HS_RESOLUTIONS(HS_REG_FILL_BRANCH)
 #undef HS_REG_FILL_BRANCH
   {
-    // Reached only for an <W,H> not listed in HS_RESOLUTIONS — the predicate
-    // reads as "this resolution is unsupported", not a check for a specific size.
     static_assert(unsupported_resolution<W>,
                   "get_fill_fn: unsupported <W,H> — add it to HS_RESOLUTIONS");
     return EffectRegistration::FillFn{}; // unreachable (static_assert fires)

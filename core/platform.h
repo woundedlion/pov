@@ -414,10 +414,7 @@ struct CRGB {
    */
   CRGB lerp16(const CRGB &other, uint16_t frac) const {
     CRGB ret;
-    // frac is 0..65535. The >> 16 truncates (no +0x8000 round bias) to match
-    // FastLED's integer fixed-point lerp16by16/scale16, which also truncate — so
-    // the host mock and the device stay byte-identical. Add a +0x8000 round only
-    // if a future FastLED variant this mocks starts rounding.
+    // Truncating (no round bias) to match FastLED's integer lerp16by16/scale16.
     ret.r = static_cast<uint8_t>((static_cast<uint32_t>(r) * (65535 - frac) +
                                   static_cast<uint32_t>(other.r) * frac) >>
                                  16);
@@ -562,9 +559,6 @@ enum ColorOrder { RGB };
  */
 inline int random(int max) {
   if (max <= 0) return 0;
-  // Cheap modulo reduction: slightly biased for non-power-of-two ranges, but
-  // negligible for the small ranges this serves, and the fixed mapping keeps
-  // sim/device output bit-identical.
   return hs::random()() % max;
 }
 /**
@@ -577,9 +571,6 @@ inline int random(int max) {
  */
 inline int random(int min, int max) {
   if (max <= min) return min;
-  // Cheap modulo reduction: slightly biased for non-power-of-two ranges, but
-  // negligible for the small ranges this serves, and the fixed mapping keeps
-  // sim/device output bit-identical.
   return min + (hs::random()() % (max - min));
 }
 /**
@@ -671,11 +662,9 @@ struct SerialMock {
 inline SerialMock Serial;
 
 // --- FastLED Mocks ---
-// NOTE: these route through hs::random() (Pcg32) only to give the host a
-// reproducible stream — they do NOT match the device, where random8/random16
-// are FastLED's LCG. This path is therefore per-platform and used only by
-// legacy effects; modern effects use hs::rand_* (see the determinism contract
-// on the ARDUINO branch's hs::random()).
+// These route through hs::random() (Pcg32) and do NOT match the device, where
+// random8/random16 are FastLED's LCG; used only by legacy effects (modern
+// effects use hs::rand_*).
 /**
  * @brief Returns a pseudo-random 8-bit value (FastLED random8).
  * @return A value in [0, 255].
@@ -1116,10 +1105,6 @@ inline float random_to_unit(uint32_t value, uint32_t max) {
  * @return A random float in the half-open range [0.0, 1.0).
  */
 inline float rand_f() {
-  // The uint32_t casts below — and random_to_unit's 2^32-1 divisor — are exact
-  // only while the global RNG draws fill the full 32-bit range. Trap a future
-  // generator swap (e.g. to a 64-bit engine) that would silently truncate both
-  // the draw and max() to uint32_t and break the [0,1) guarantee.
   using Rng = std::remove_reference_t<decltype(hs::random())>;
   static_assert(Rng::max() == 0xFFFFFFFFu,
                 "rand_f()/random_to_unit assume a 32-bit-range RNG; update them "
@@ -1146,9 +1131,6 @@ inline float rand_f(float min, float max) {
  */
 inline int rand_int(int min, int max) {
   if (max > min) {
-    // Cheap modulo reduction: slightly biased for non-power-of-two ranges, but
-    // the small spawn ranges this serves make the bias negligible, and the
-    // fixed mapping keeps sim/device output bit-identical.
     return min + (hs::random()() % (max - min));
   }
   return min;
@@ -1170,33 +1152,22 @@ inline int rand_int(int min, int max) {
     __attribute__((format(printf, 4, 5)));
 [[noreturn]] inline void check_fail(const char *file, int line,
                                     const char *cond, const char *fmt, ...) {
-  // Size the message buffer to the downstream 256-byte sink (the EM_ASM buf and
-  // hs::log's internal buffer). A smaller intermediate would truncate a long
-  // HS_CHECK message *before* the sink even sees it — a second, hidden choke on
-  // top of the documented single bound, defeating the "no truncation" rationale.
   char msg[256];
   va_list args;
   va_start(args, fmt);
 #ifdef ARDUINO
-  // Integer-only formatter: keeps newlib's float path (_dtoa_r + the bignum
-  // helpers behind %f/%g) out of ITCM, matching hs::log. Nothing reaches an
-  // HS_CHECK with a float argument, so the device loses no diagnostics.
+  // Integer-only formatter keeps newlib's float path out of ITCM (matching hs::log).
   vsniprintf(msg, sizeof(msg), fmt, args);
 #else
   vsnprintf(msg, sizeof(msg), fmt, args);
 #endif
   va_end(args);
-  // Strip the directory from __FILE__: the compiler bakes in an absolute build
-  // path that can be far longer than the basename, and on the bounded log buffer
-  // below it would crowd out the cond/message tail — the part that actually
-  // identifies the failure. Keep just the filename.
+  // Strip the directory so the basename does not crowd out the message in the bounded log buffer.
   const char *base = file;
   for (const char *p = file; *p; ++p) {
     if (*p == '/' || *p == '\\') base = p + 1;
   }
 #ifdef __EMSCRIPTEN__
-  // Route straight to console.error: synchronous (the trap can't drop it) and
-  // visible even if stdout is not wired to the page console.
   char buf[256];
   snprintf(buf, sizeof(buf), "HS_CHECK failed: %s:%d: (%s) %s", base, line,
            cond, msg);

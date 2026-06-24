@@ -43,16 +43,9 @@
 template <typename T, typename U>
 inline std::common_type_t<T, U> wrap(T x, U m) {
   using R = std::common_type_t<T, U>;
-  // Precondition: m > 0. A non-positive modulo base is a caller bug (the [0, m)
-  // result is undefined); the assert is the debug breadcrumb. Under NDEBUG the
-  // assert is stripped, so floor m to the smallest positive value FIRST: this is
-  // a single branchless std::fmax (wrap() runs per-pixel in the SDF angular-
-  // repeat path, so no branch may land on the hot loop), and because
-  // fmax(NaN, y) == y it also keeps a NaN base from silently propagating into
-  // pixel coordinates. For every real caller — m a positive constant or a
-  // positive sector angle — fmax returns m unchanged, so the result stays
-  // bit-identical between sim and device.
   assert(m > 0);
+  // Branchless floor to the smallest positive value (the hot SDF angular-repeat
+  // path forbids a branch); fmax(NaN, y) == y also blocks a NaN base.
   const R mm = std::fmax(static_cast<R>(m), std::numeric_limits<R>::min());
   R r = std::fmod(static_cast<R>(x), mm);
   if (r < 0) {
@@ -96,11 +89,6 @@ inline int wrap(int x, int m) {
  * @return The wrapped value in the range [0, W).
  */
 inline int fast_wrap(int x, int W) {
-  // Single-step correction only: a value more than one period out of range is
-  // left out of range. Trap the [-W, 2*W) precondition debug-only — stripped
-  // under NDEBUG on device (zero cost), fires in the native tests / WASM-debug
-  // if a caller forwards an unbounded coordinate this would silently fail to
-  // wrap.
   assert(x >= -W && x < 2 * W);
   if (x >= W)
     return x - W;
@@ -118,13 +106,8 @@ inline int fast_wrap(int x, int W) {
  * @return The shortest distance in the range [0, m/2].
  */
 inline float shortest_distance(float a, float b, float m) {
-  // Precondition: m > 0 (the domain length). Trap a non-positive base debug-only
-  // — stripped under NDEBUG on device, fires in the native tests / WASM-debug.
   assert(m > 0.0f);
-  // Double-fmod (not the single-branch wrap fwd_distance uses): this entry takes
-  // an arbitrary a - b of any magnitude, so it needs full range reduction — the
-  // inner fmod lands in (-m, m), the +m and outer fmod fold that into [0, m).
-  // fwd_distance can use one branch because it assumes b - a already in (-m, m).
+  // Double-fmod for full range reduction of an arbitrary a - b into [0, m).
   float d = std::fmod(std::fmod(a - b, m) + m, m);
   return std::min(d, m - d);
 }

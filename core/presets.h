@@ -27,9 +27,6 @@ template <typename Params> struct PresetEntry {
  * so callers can crossfade between the outgoing and incoming presets.
  */
 template <typename Params, size_t Size> class Presets {
-  // An empty preset set is meaningless for a selector and would make get()/
-  // apply()/prev_get() index a zero-length array (UB). Reject it up front so
-  // every accessor has at least one valid entry.
   static_assert(Size > 0, "Presets requires at least one entry");
 
 public:
@@ -50,9 +47,6 @@ public:
    * @return Const reference to the current entry's params.
    */
   const Params &get() const {
-    // current_idx is private and only next()/prev() mutate it, holding it in
-    // [0, Size) via their `% Size` discipline; no external write can reach it.
-    // This trap is cheap insurance that the invariant holds before indexing.
     HS_CHECK(current_idx >= 0 && static_cast<size_t>(current_idx) < Size,
              "Presets::get: current_idx out of range");
     return entries[current_idx].params;
@@ -108,12 +102,6 @@ public:
   std::array<Entry, Size> entries; /**< The backing store of preset entries. */
 
 private:
-  // Indices are private so next()/prev() are the only mutators; both keep them
-  // in [0, Size) via their `% Size` discipline, so get()/prev_get() can never be
-  // handed an out-of-range index from outside. int by design: Size is a
-  // compile-time entry count (a small registry, never near INT_MAX), so both
-  // fit; the `% Size` / `- 1 + Size` arithmetic promotes int to size_t cleanly
-  // because the values stay in [0, Size).
   int current_idx = 0; /**< Index of the currently selected entry. */
   int prev_idx = 0;    /**< Index active before the last next()/prev(); for crossfades. */
 };

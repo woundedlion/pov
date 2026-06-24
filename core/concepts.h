@@ -188,10 +188,8 @@ class StoredFunctionRef<Ret(Args...)> : public FunctionRef<Ret(Args...)> {
 public:
   using FunctionRef<Ret(Args...)>::FunctionRef;
 
-  // Reject rvalue temporaries the base would otherwise accept: a stored ref must
-  // outlive the call that builds it. The lvalue-reference and self-type guards
-  // keep lvalue callables and StoredFunctionRef copy/move binding to the
-  // inherited ctors instead of this deleted overload.
+  // Reject rvalue temporaries the base would accept; the guards keep lvalue
+  // callables and copy/move on the inherited ctors.
   template <typename Callable,
             typename = std::enable_if_t<
                 !std::is_lvalue_reference_v<Callable> &&
@@ -303,19 +301,9 @@ public:
 };
 
 using PlotFn = Fn<Vector(float), 16>;
-// One Cap for every platform — no per-arch split. The sprite draw closures all
-// capture [this, idx, slot]; on a 64-bit host that is this(8) + two ints = 16 B,
-// and pointer alignment rounds any [this, data] capture up to 16 regardless, so
-// 16 is the floor there. 32-bit targets (device + WASM) pack the same capture
-// into 12 B, so 16 covers them with room to spare. Not 8: every target (device
-// included) builds these effects, and 12 B never fit 8.
 using SpriteFn = Fn<void(Canvas &, float), 16>;
 using TimerFn = Fn<void(Canvas &), 16>;
-// 32, not 16 like the closures above: ScalarFn holds the wave/shift builders'
-// captures, which run larger than a sprite's [this, idx, slot]. sin_wave & the
-// other oscillators capture from/to/freq/phase (4 floats), and the DistortedRing
-// shift_fn / Animation::Mutation closures carry a few params more — all past the
-// 16-byte budget. 32 covers them with headroom.
+// 32: ScalarFn holds the wave/shift builders' captures, larger than 16 B.
 using ScalarFn = Fn<float(float), 32>;
 using EasingFn = float (*)(float);
 

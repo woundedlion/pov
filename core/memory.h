@@ -90,42 +90,14 @@ public:
    */
   void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
     HS_CHECK(size > 0, "Arena::allocate: zero-size request");
-    // The padding math `(align - current % align) % align` is only correct for a
-    // power-of-two alignment (and `current % align` is UB for align == 0). Every
-    // caller passes `alignof(T)`, so this is a latent guard against a future
-    // explicit-align caller, placed on the cold allocation path. Power-of-two is
-    // the *only* requirement: an over-aligned request (align > max_align_t) is
-    // honored exactly because the padding below is derived from the true address,
-    // not from any assumption about the buffer's base alignment.
     HS_CHECK(align != 0 && (align & (align - 1)) == 0);
-    // `padding` is a byte count derived from the TRUE address (buffer+offset),
-    // which is the robust form (correct for any base alignment, including the
-    // arbitrary bases configure_arenas() rebinds to). The bounds check adds that
-    // same byte count to `offset` before comparing against `capacity` (the byte
-    // length from `buffer`): the allocation occupies
-    // [buffer+offset+padding, buffer+offset+padding+size) and the arena is
-    // [buffer, buffer+capacity), so it fits iff offset+padding+size <= capacity.
-    // Mixing address-derived padding with the offset-space bound is therefore
-    // correct, not a unit error.
     uintptr_t current = reinterpret_cast<uintptr_t>(buffer + offset);
     size_t padding = (align - (current % align)) % align;
-    // No-wrap bounds check. An additive form (offset + padding + size > capacity)
-    // wraps if `size` is colossal — e.g. an overflowed exact_capacity * sizeof(T)
-    // from bind() — and would spuriously pass. The subtractive form can't wrap:
-    // offset <= capacity is an invariant, so (capacity - offset) is safe; guard
-    // the padding step against it, then compare the remaining room against size.
+    // Subtractive form: offset <= capacity is invariant, so it cannot wrap the
+    // way `offset + padding + size > capacity` would for a colossal `size`.
     if (padding > capacity - offset || size > capacity - offset - padding) {
-      // Route through hs::log (Serial on device, stdout on host) instead of a
-      // raw Serial.printf/printf split: hs::log formats with vsnprintf into a
-      // fixed stack buffer, so the OOM diagnostic pulls in no extra stdio that
-      // the device build's NDEBUG strategy works to keep out of the image.
       hs::log("[OOM] Arena: req %zu, offset %zu / cap %zu", size,
               offset + padding, capacity);
-      // Over-allocation is a sizing/logic bug, not a recoverable runtime
-      // condition: there is no valid recovery, and returning null only relocates
-      // the corruption into whatever derefs the result (callers do not check).
-      // Trap at the violation site so it's caught on the bench. The log above
-      // remains for the diagnostic; HS_CHECK survives NDEBUG on device.
       HS_CHECK(false);
     }
     offset += padding;
@@ -445,61 +417,34 @@ public:
    */
   void bind(Arena &arena, size_t exact_capacity) {
 #ifndef NDEBUG
-    // Rebinding a still-bound vector after its source arena was reset
-    // (generation bumped) or to a *different* arena is a contract violation: the
-    // old block is already dead, so reusing it in place would alias whatever the
-    // arena handed out next. Release builds cannot detect this — generation
-    // tracking is debug-only (matching check_alive), keeping the per-vector
-    // footprint and the bind() path free of release-build state — so this is a
-    // debug-time contract trap and release trusts the contract: callers clear or
-    // reconstruct the handle before resetting/changing its arena (shipping
-    // effects already do). A same-arena, same-generation GROW is NOT stale: it
-    // passes this assert and reallocates via the path below.
+    // Rebinding a still-bound vector after its source arena was reset, or to a
+    // different arena, is a contract violation (the old block is already dead). A
+    // same-arena/same-generation grow is not stale and reallocates below.
     assert((!bound_ || (source_arena_ == &arena &&
                         birth_generation_ == arena.get_generation())) &&
            "ArenaVector::bind() on a stale binding: clear the handle before "
            "resetting or changing its arena");
 #endif
-    // Same arena, still live, and big enough → reuse the block in place. Past
-    // the contract assert above, a still-bound vector here is guaranteed
-    // same-arena/same-generation, so the block is live in every build.
+    // Same arena, still live, and big enough → reuse the block in place.
     if (bound_ && capacity_ >= exact_capacity) {
       size_ = 0;
 #ifndef NDEBUG
-      // Reuse keeps data_ but resets size_ (and callers refill the block), so a
-      // span snapshotted before this point now dangles just as it would after a
-      // grow. Bump here too — mirroring the fresh-allocation path below — so its
-      // check_alive() trips (the arena generation alone won't: reuse leaves it
-      // untouched). Debug-only counter, free in release.
+      // Reuse dangles any span snapshotted before this point; bump so its
+      // check_alive() trips (the arena generation alone won't).
       rebind_generation_++;
 #endif
       return;
     }
-    // Otherwise (unbound, or a deliberate grow that abandons the old block) →
-    // allocate fresh. A re-bind that grows is NOT a memory-safety invariant
-    // violation: it just leaks the old block until the next arena reset /
-    // compaction reclaims it — a supported pattern (e.g. HankinSolids' shape
-    // morph rebinds restored vectors to the next, larger shape between
-    // compactions). So no double-bind assert here. The genuine hard failures
-    // are still trapped: OOM in Arena::allocate (HS_CHECK), capacity overflow in
-    // push_back/append_bulk (HS_CHECK), and use-after-free in check_alive().
+    // Otherwise (unbound, or a grow that abandons the old block) → allocate
+    // fresh. A grow leaks the old block until the next arena reset/compaction.
 #ifndef NDEBUG
-    // Reaching here with a still-live binding means a genuine grow against the
-    // same arena/generation (the in-place reuse above already returned, and a
-    // stale binding would have tripped the contract assert). The old block is abandoned
-    // until the next reset — supported, but otherwise observable only via the
-    // arena high-water mark. Log it so the silent consumption is visible,
-    // matching the project's fail-loud habit. Debug-only: this is a development
-    // signal, not a device-release concern.
     if (bound_)
       hs::log("ArenaVector grow abandons %zu bytes (cap %zu -> %zu)",
               capacity_ * sizeof(T), capacity_, exact_capacity);
 #endif
     if (exact_capacity > 0) {
-      // A capacity so large that exact_capacity * sizeof(T) overflows size_t
-      // would wrap to a small byte count that slips past Arena::allocate's
-      // bounds check — a silent under-allocation. Trap the overflow here, where
-      // the multiply happens. Cold path (binding, not per-element).
+      // Trap an exact_capacity * sizeof(T) overflow that would wrap to a small
+      // byte count and slip past Arena::allocate's bounds check.
       HS_CHECK(exact_capacity <= SIZE_MAX / sizeof(T),
                "ArenaVector capacity * sizeof(T) overflows size_t!");
       data_ = static_cast<T *>(
@@ -513,9 +458,6 @@ public:
 #ifndef NDEBUG
     source_arena_ = &arena;
     birth_generation_ = arena.get_generation();
-    // A fresh block: any span taken before this point now dangles. Bump so its
-    // check_alive() trips (the arena generation alone won't — a grow leaves it
-    // untouched).
     rebind_generation_++;
 #endif
   }
@@ -533,9 +475,6 @@ public:
   void push_back(const T &value) {
     check_alive();
     check_bound();
-    // Cold-path capacity guard: a fixed-capacity overflow is a sizing bug.
-    // HS_CHECK survives NDEBUG so this traps in the device build instead of
-    // silently writing past the arena allocation.
     HS_CHECK(size_ < capacity_, "ArenaVector exact capacity exceeded!");
     new (&data_[size_]) T(value);
     size_++;
@@ -553,20 +492,10 @@ public:
                   "append_bulk memcpy's the source; T must be trivially copyable");
     check_alive();
     check_bound();
-    // Subtractive, wrap-proof form (capacity_ >= size_ is an invariant, so the
-    // difference never underflows): `size_ + count` could wrap for a colossal
-    // count and slip an overflowed sum under capacity_. Matches Arena::allocate.
+    // Subtractive, wrap-proof form: `size_ + count` could wrap for a colossal count.
     HS_CHECK(count <= capacity_ - size_,
              "ArenaVector bulk append exceeds capacity!");
-    // An empty append must not reach memcpy: a null src (e.g. an empty source
-    // vector's data()) with count 0 is formal UB that UBSan flags, even though
-    // real libc treats it as a no-op. Bail after the invariant checks.
-    //
-    // This early-out is also what makes a null *destination* safe: a zero-size
-    // bind() leaves data_ == nullptr with capacity_ == 0, so the capacity guard
-    // above (count <= capacity_ - size_ == 0) forces count == 0 and we return
-    // here — the memcpy below never dereferences a null data_. The non-null
-    // destination invariant is therefore enforced, not merely assumed.
+    // Skip memcpy on an empty append: a null src with count 0 is formal UB.
     if (count == 0)
       return;
     memcpy(static_cast<void*>(data_ + size_), src, count * sizeof(T));
@@ -698,9 +627,7 @@ public:
    */
   T *end() {
     check_alive();
-    // data_ + size_ is nullptr + 0 on an unbound/empty vector — formal UB
-    // ([expr.add]/4), UBSan-flagged, and reachable via a range-for over a
-    // default-constructed vector. Same hardening append_bulk already applies.
+    // Guard nullptr + 0 (formal UB) on an unbound/empty vector.
     return data_ ? data_ + size_ : nullptr;
   }
   /**
@@ -717,7 +644,7 @@ public:
    */
   const T *end() const {
     check_alive();
-    // See the non-const end(): guard the nullptr + 0 UB on an unbound vector.
+    // Guard nullptr + 0 (formal UB) on an unbound/empty vector.
     return data_ ? data_ + size_ : nullptr;
   }
 };
@@ -855,9 +782,7 @@ public:
    */
   const T *end() const {
     check_alive();
-    // data_ + size_ is nullptr + 0 on a default-constructed/empty span — formal
-    // UB ([expr.add]/4), UBSan-flagged, and reachable via a range-for over a
-    // default-constructed span. Mirror ArenaVector::end()'s guard.
+    // Guard nullptr + 0 (formal UB) on a default-constructed/empty span.
     return data_ ? data_ + size_ : nullptr;
   }
 };

@@ -203,9 +203,7 @@ public:
     while (!is_empty()) {
       pop_front_internal();
     }
-    // Reset to head == tail == 0, not merely count == 0: a caller that takes a
-    // raw &buf[0] and indexes it linearly (e.g. Scan::scan_region's interval
-    // sort) is only correct when the storage starts at index 0 after a clear.
+    // Reset to head == tail == 0 so a caller indexing raw &buf[0] linearly starts at 0.
     head = tail = 0;
   }
 
