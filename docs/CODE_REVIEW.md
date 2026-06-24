@@ -147,7 +147,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 31. ✅ **`ParamList::find()` and the LED correction-guard destructors carry byte-identical duplicated bodies** — `core/canvas.h:384-413`, `core/led.h:97-129`. Implement non-const `find()` via `const_cast<…>(std::as_const(*this).find(name))`; factor a shared `restore_baseline()` for the two guard dtors.
 
-32. **`Hole::requires_unit_world_input` rationale overstates `angle_between`'s precondition** — `core/filter.h:588-590` (and `42-44,421-422`). `angle_between` normalizes internally; Hole's real sensitivity is the zero-length degenerate, not off-unit length (unlike Mobius, which genuinely needs unit input). Reword, or drop the trait from Hole.
+32. ✅ **`Hole::requires_unit_world_input` rationale overstates `angle_between`'s precondition** — `core/filter.h:588-590` (and `42-44,421-422`). `angle_between` normalizes internally; Hole's real sensitivity is the zero-length degenerate, not off-unit length (unlike Mobius, which genuinely needs unit input). Reword, or drop the trait from Hole.
 
 33. **`OrientSlice` exposes mutable `enabled`/`axis` as public members while peer filters use accessors** — `core/filter.h:573-574`. Inconsistent encapsulation; a non-unit `axis` skews bucket selection (clamped, so no UB). Add `set_axis()` that renormalizes, or document the unit-length contract.
 

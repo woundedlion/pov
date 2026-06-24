@@ -585,8 +585,11 @@ private:
  */
 template <int W, typename OriginT = Vector> class Hole : public Is3D {
 public:
-  // angle_between(v, origin) assumes a unit-length v; see the Pipeline
-  // intra-World unit-length ordering static_assert.
+  // angle_between(v, origin) normalizes both operands internally, so it is
+  // scale-invariant — Hole's real sensitivity is the zero-length degenerate
+  // (which traps the angle_between length check), not off-unit length. The
+  // trait is kept conservatively so the Pipeline intra-World ordering
+  // static_assert still treats a non-unit-emitting predecessor as suspect.
   static constexpr bool requires_unit_world_input = true;
   /**
    * @brief Constructs a hole centered at @p origin with angular @p radius.
