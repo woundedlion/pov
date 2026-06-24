@@ -56,11 +56,9 @@ struct TestModule {
   int (*run)();     /**< Entry point; returns the module's failure count. */
 };
 
-// Single source of truth for the roster. Each X(name, fn) row pairs the short
-// module name (matched against argv) with its entry point, and expands into both
-// the kModules[] array and the derived HS_TEST_MODULE_COUNT below. Adding a
-// module means an #include above AND one X(...) row here. Mirrors
-// core/effects.h's HS_EFFECT_LIST.
+// Single source of truth for the roster: expands into both kModules[] and the
+// derived HS_TEST_MODULE_COUNT below. Adding a module means an #include above
+// AND one X(...) row here. Mirrors core/effects.h's HS_EFFECT_LIST.
 #define HS_TEST_MODULE_LIST(X)                                                  \
   X("3dmath", hs_test::math3d::run_3dmath_tests)                               \
   X("concepts", hs_test::concepts_tests::run_concepts_tests)                   \
@@ -100,8 +98,6 @@ struct TestModule {
 static const TestModule kModules[] = {HS_TEST_MODULE_LIST(HS_TEST_MODULE_ENTRY)};
 #undef HS_TEST_MODULE_ENTRY
 
-// Entry count derived from the list rather than hand-counted, so it can never
-// silently disagree with the roster.
 #define HS_TEST_MODULE_COUNT_ADD(name, fn) +1
 constexpr int HS_TEST_MODULE_COUNT = 0 HS_TEST_MODULE_LIST(HS_TEST_MODULE_COUNT_ADD);
 #undef HS_TEST_MODULE_COUNT_ADD
@@ -150,9 +146,8 @@ int main(int argc, char **argv) {
 
   int failures = 0;
   if (argc > 1) {
-    // Filtered run: execute only the named modules. `--list`/`-h`/`--help`
-    // prints the roster; an unknown name fails fast (exit 2) and lists what is
-    // available, so a typo never silently runs nothing.
+    // Filtered run: execute only the named modules. An unknown name fails fast
+    // (exit 2) so a typo never silently runs nothing.
     if (std::strcmp(argv[1], "--list") == 0 ||
         std::strcmp(argv[1], "-h") == 0 || std::strcmp(argv[1], "--help") == 0) {
       std::printf("usage: run_tests [module...]\nmodules:\n");

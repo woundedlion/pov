@@ -41,7 +41,6 @@ inline void test_lerp16_endpoints() {
   HS_EXPECT_EQ(at0.g, a.g);
   HS_EXPECT_EQ(at0.b, a.b);
 
-  // The rounded division is exact at the endpoints.
   Pixel16 at1 = a.lerp16(b, 65535);
   HS_EXPECT_EQ(at1.r, b.r);
   HS_EXPECT_EQ(at1.g, b.g);
@@ -181,14 +180,12 @@ inline void test_blend_mean() {
   Pixel16 a(0, 100, 65534);
   Pixel16 b(65534, 300, 0);
   Pixel16 m = blend_mean(a, b);
-  // Even sums: floor and round-to-nearest agree (e.g. (0+65534)/2 == 32767
-  // either way), so these alone do not constrain the rounding mode.
+  // Even sums: floor and round-to-nearest agree.
   HS_EXPECT_EQ(m.r, 32767);
   HS_EXPECT_EQ(m.g, 200);
   HS_EXPECT_EQ(m.b, 32767);
 
-  // Odd sums: floor and round-to-nearest differ by one. blend_mean rounds up,
-  // so each channel is (a+b+1)/2, not (a+b)/2.
+  // Odd sums: blend_mean rounds up to (a+b+1)/2, not (a+b)/2.
   Pixel16 odd = blend_mean(Pixel16(1, 3, 5), Pixel16(2, 4, 6));
   HS_EXPECT_EQ(odd.r, 2); // (1+2+1)/2 = 2  (floor would give 1)
   HS_EXPECT_EQ(odd.g, 4); // (3+4+1)/2 = 4  (floor would give 3)
@@ -217,7 +214,6 @@ inline void test_blend_add_saturates() {
   HS_EXPECT_EQ(r.r, 65535);       // saturated
   HS_EXPECT_EQ(r.g, 61000);       // no saturation
   HS_EXPECT_EQ(r.b, 150);
-  // Bounded: never exceeds max.
   HS_EXPECT_LE(r.r, 65535);
 }
 
@@ -236,8 +232,6 @@ inline void test_blend_add_packed_lane_layout() {
     uint32_t s = x + y;
     return (uint16_t)(s > 65535 ? 65535 : s);
   };
-  // Distinct per-channel values so a swapped lane or wrong shift can't alias to
-  // the right answer; mixes saturating and non-saturating sums per channel.
   const Pixel16 cases[][2] = {
       {Pixel16(60000, 1000, 40000), Pixel16(10000, 200, 40000)}, // r,b sat; g not
       {Pixel16(0, 65535, 0), Pixel16(65535, 0, 65535)},          // each lane to max
@@ -249,8 +243,7 @@ inline void test_blend_add_packed_lane_layout() {
     HS_EXPECT_EQ(got.r, ref(c[0].r, c[1].r));
     HS_EXPECT_EQ(got.g, ref(c[0].g, c[1].g));
     HS_EXPECT_EQ(got.b, ref(c[0].b, c[1].b));
-    // The host add operators must agree with the packed device layout so the
-    // simulator and device composite identically.
+    // Host add operators must agree with the packed device layout.
     Pixel16 acc = c[0];
     acc += c[1];
     HS_EXPECT_TRUE(acc == got);
@@ -281,7 +274,7 @@ inline void test_color4_scale_affects_color_and_alpha() {
  *          average with alpha <= 1.
  */
 inline void test_color4_add_clamps_alpha_and_sums_color() {
-  // Direct clamp check: two near-opaque samples sum past 1.0 -> clamped to 1.0.
+  // Two near-opaque samples sum past 1.0 -> clamped.
   Color4 a(Pixel16(10000, 0, 0), 0.7f);
   a += Color4(Pixel16(20000, 100, 0), 0.6f);
   HS_EXPECT_EQ(a.color.r, 30000);
@@ -289,8 +282,6 @@ inline void test_color4_add_clamps_alpha_and_sums_color() {
   HS_EXPECT_NEAR(a.alpha, 1.0f, 1e-6f); // 1.3 clamped
 
   // SSAA averaging: sum of (sample * 1/N) reproduces the average, alpha <= 1.
-  // Distinct per-channel sums (all multiples of N, so the *0.25 scale is exact)
-  // so a channel mix-up can't pass: r->10000, g->14000, b->18000.
   const int N = 4;
   Color4 samples[N] = {
       Color4(Pixel16(40000, 0, 0), 1.0f),
@@ -333,17 +324,15 @@ inline void test_blend_alpha_clamps_before_cast() {
   HS_EXPECT_TRUE(blend_alpha(0.0f)(a, b) == a); // fully a
   HS_EXPECT_TRUE(blend_alpha(1.0f)(a, b) == b); // fully b
 
-  // The float alpha rounds to nearest (+0.5f): 0.5 -> weight 32768, not the
-  // truncated 32767. The two weights produce different output for this pixel
-  // pair.
+  // Alpha rounds to nearest (+0.5f): 0.5 -> weight 32768, not 32767.
   HS_EXPECT_TRUE(blend_alpha(0.5f)(a, b) == a.lerp16(b, 32768));
 
   // Out-of-range alpha saturates: a >= 1 -> full b; a <= 0 -> full a.
   HS_EXPECT_TRUE(blend_alpha(1000.0f)(a, b) == b);
   HS_EXPECT_TRUE(blend_alpha(-5.0f)(a, b) == a);
-  // An alpha large enough to overflow int in an unclamped (int)(a*65535).
+  // Large enough to overflow int in an unclamped (int)(a*65535).
   HS_EXPECT_TRUE(blend_alpha(1e9f)(a, b) == b);
-  // NaN must not propagate into the cast; hs::clamp maps it to the hi bound.
+  // NaN folds to the hi bound via hs::clamp.
   Pixel16 nan_res = blend_alpha(NAN)(a, b);
   HS_EXPECT_TRUE(nan_res == b);
 }
@@ -357,23 +346,18 @@ inline void test_blend_alpha_clamps_before_cast() {
 inline void test_pixel16_scale_clamps_before_cast() {
   Pixel16 c(100, 2000, 30000);
 
-  // In-range scales quantize round-to-nearest (+0.5f); integer multiples are
-  // exact under either rounding rule.
   HS_EXPECT_TRUE(c * 0.0f == Pixel16(0, 0, 0));
   HS_EXPECT_TRUE(c * 1.0f == c);
   HS_EXPECT_TRUE(c * 2.0f == Pixel16(200, 4000, 60000));
 
-  // Half-LSB results round up, not down: odd channels * 0.5 land on .5 exactly
-  // (0.5 is exactly representable), and round-to-nearest carries them up.
+  // Half-LSB results round up: odd channels * 0.5 land on .5 and carry up.
   HS_EXPECT_TRUE(Pixel16(3, 5, 7) * 0.5f == Pixel16(2, 3, 4));
 
-  // A scale large enough to overflow each channel saturates at 65535 rather
-  // than wrapping or invoking UB in the float->int cast.
+  // Overflowing scale saturates at 65535.
   HS_EXPECT_TRUE(c * 1e9f == Pixel16(65535, 65535, 65535));
   // Negative scale clamps to zero.
   HS_EXPECT_TRUE(c * -3.0f == Pixel16(0, 0, 0));
-  // NaN scale must not propagate into the cast; hs::clamp maps it to the hi
-  // bound (matches blend_alpha's contract).
+  // NaN folds to the hi bound.
   HS_EXPECT_TRUE(c * NAN == Pixel16(65535, 65535, 65535));
 }
 
@@ -507,28 +491,26 @@ inline void test_lerp_oklch_shortest_arc_midpoint() {
   const float L = 0.6f, C = 0.15f;
 
   // Straddle the +/-PI seam: 2.8 and -2.8 rad are ~0.68 rad apart the short way
-  // (through +/-PI), but ~5.6 rad apart the long way (through 0).
+  // (through +/-PI), ~5.6 rad apart the long way (through 0).
   OKLCH a{L, C, 2.8f};
   OKLCH b{L, C, -2.8f};
   OKLCH mid = lerp_oklch(a, b, 0.5f);
-  // Short arc midpoint sits at the seam (+/-PI), NOT at 0.
+  // Short arc midpoint sits at the seam (+/-PI), not at 0.
   HS_EXPECT_NEAR(std::fabs(mid.h), PI_F, 1e-4f);
-  // L and C interpolate linearly regardless of the hue path.
   HS_EXPECT_NEAR(mid.L, L, 1e-5f);
   HS_EXPECT_NEAR(mid.C, C, 1e-5f);
 
-  // Same seam, opposite winding: still resolves to the seam, never through 0.
+  // Same seam, opposite winding.
   OKLCH c{L, C, 3.0f};
   OKLCH d{L, C, -3.0f};
   OKLCH mid2 = lerp_oklch(c, d, 0.5f);
   HS_EXPECT_NEAR(std::fabs(mid2.h), PI_F, 1e-4f);
 
-  // A non-seam-crossing pair interpolates directly (no spurious wrap).
+  // A non-seam-crossing pair interpolates directly.
   OKLCH e{L, C, 0.5f};
   OKLCH f{L, C, 1.5f};
   HS_EXPECT_NEAR(lerp_oklch(e, f, 0.5f).h, 1.0f, 1e-4f);
 
-  // Re-pin chroma: the seam crossing must not perturb the L/C channels.
   HS_EXPECT_NEAR(mid.C, C, 1e-5f);
 }
 
@@ -610,8 +592,7 @@ inline void test_gamut_clip_preserves_hue() {
   for (float h : {0.3f, 1.2f, 2.5f, -1.0f, -2.6f}) {
     OKLab lab = oklch_to_oklab({L, C, h});
 
-    // Precondition: this chroma is unreachable in sRGB at this L, so the search
-    // actually runs.
+    // Precondition: this chroma is unreachable in sRGB at this L.
     float r0, g0, b0;
     oklab_to_linear_rgb(lab, r0, g0, b0);
     HS_EXPECT_FALSE(linear_rgb_in_gamut(r0, g0, b0));
@@ -622,10 +603,10 @@ inline void test_gamut_clip_preserves_hue() {
     HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
 
     OKLCH out = oklab_to_oklch(mapped);
-    HS_EXPECT_NEAR(out.L, L, 1e-4f);                       // lightness untouched
-    HS_EXPECT_NEAR(wrap_hue_delta(out.h - h), 0.0f, 1e-3f); // hue held
-    HS_EXPECT_LT(out.C, C);                                 // chroma reduced
-    HS_EXPECT_GT(out.C, 0.0f);                              // ...but not crushed
+    HS_EXPECT_NEAR(out.L, L, 1e-4f);
+    HS_EXPECT_NEAR(wrap_hue_delta(out.h - h), 0.0f, 1e-3f);
+    HS_EXPECT_LT(out.C, C);   // chroma reduced...
+    HS_EXPECT_GT(out.C, 0.0f); // ...but not crushed
   }
 }
 
@@ -643,8 +624,6 @@ inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
 
   float r = p.r / 65535.0f, g = p.g / 65535.0f, b = p.b / 65535.0f;
   OKLCH got = oklab_to_oklch(linear_rgb_to_oklab(r, g, b));
-  // Loose tol: 16-bit quantization plus the search epsilon perturb the realized
-  // hue slightly, but nowhere near a clip's primary-ward swing.
   HS_EXPECT_NEAR(wrap_hue_delta(got.h - h), 0.0f, 2e-2f);
 }
 
@@ -658,13 +637,11 @@ inline void test_oklch_to_pixel_holds_hue_out_of_gamut() {
  *          exact at 0, and the negative/zero-domain guard returns 0.
  */
 inline void test_fast_cbrt_accuracy() {
-  // Exact at the easy points.
   HS_EXPECT_EQ(fast_cbrt(0.0f), 0.0f);
   HS_EXPECT_NEAR(fast_cbrt(1.0f), 1.0f, 1e-4f);
   HS_EXPECT_NEAR(fast_cbrt(8.0f), 2.0f, 1e-3f);
-  // Negative / zero domain guard returns 0 (cbrt is only used on >= 0 inputs).
+  // Negative / zero domain guard returns 0.
   HS_EXPECT_EQ(fast_cbrt(-1.0f), 0.0f);
-  // One Halley step holds ~2.3e-5 relative error over the linear-RGB range.
   for (int k = 1; k <= 800; ++k) {
     float x = 8.0f * static_cast<float>(k) / 800.0f;
     float approx = fast_cbrt(x);
@@ -686,7 +663,6 @@ inline void test_hue_rotate_preserves_gray() {
   Color4 gray(128, 128, 128, 0.5f);
   for (float amt : {0.1f, 0.25f, 0.5f, 0.8f}) {
     Color4 out = hue_rotate(gray, amt);
-    // Output stays gray (channels track each other) and near the input.
     HS_EXPECT_NEAR(static_cast<float>(out.color.r),
                    static_cast<float>(gray.color.r), 1.0f);
     HS_EXPECT_NEAR(static_cast<float>(out.color.g),
@@ -727,7 +703,6 @@ inline void test_hue_rotate_full_turn_identity() {
  */
 inline void test_srgb_to_linear_endpoints() {
   HS_EXPECT_EQ(srgb_to_linear(0), 0);
-  // Max sRGB maps to (near) max linear.
   HS_EXPECT_EQ(srgb_to_linear(255), 65535);
 }
 
@@ -850,7 +825,6 @@ inline void test_gradient_in_range_valid_and_monotone() {
     float t = i / 100.0f;
     if (t > 0.999f) t = 0.999f; // index = uint8_t(t*255); keep within [0,255]
     Color4 c = grad.get(t);
-    // Valid range (uint16_t is structurally bounded; check non-decreasing ramp).
     HS_EXPECT_GE(c.color.r, prev);
     prev = c.color.r;
   }
@@ -909,9 +883,7 @@ inline void test_gradient_get_clamps_out_of_range() {
   HS_EXPECT_EQ(above.color.g, hi_end.color.g);
   HS_EXPECT_EQ(above.color.b, hi_end.color.b);
 
-  // NaN routes through hs::clamp to the hi bound (see the contract on
-  // platform.h's clamp), so it saturates to the last entry rather than
-  // producing UB in the float->int cast.
+  // NaN folds to the hi bound via hs::clamp -> last entry.
   Color4 nan_res = grad.get(NAN);
   HS_EXPECT_EQ(nan_res.color.r, hi_end.color.r);
 }
@@ -928,14 +900,13 @@ inline void test_gradient_first_stop_offset_flat_fills_prefix() {
 
   Color4 at0 = grad.get(0.0f);
   Color4 flat = grad.get(0.1f); // still inside the [0,0.25] flat prefix
-  // Pure red, exact (flat fill uses srgb_to_linear directly, no interpolation).
+  // Pure red.
   HS_EXPECT_GT(at0.color.r, 60000);
   HS_EXPECT_EQ(at0.color.g, 0);
   HS_EXPECT_EQ(at0.color.b, 0);
-  // The whole prefix is one color.
   HS_EXPECT_EQ(flat.color.r, at0.color.r);
   HS_EXPECT_EQ(flat.color.b, at0.color.b);
-  // Past the first stop the flank interpolates toward blue (red falls, blue rises).
+  // Past the first stop the flank interpolates toward blue.
   Color4 ramp = grad.get(0.7f);
   HS_EXPECT_LT(ramp.color.r, at0.color.r);
   HS_EXPECT_GT(ramp.color.b, at0.color.b);

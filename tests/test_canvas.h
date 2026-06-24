@@ -104,10 +104,8 @@ inline void test_construction_dims_and_clear() {
   TestEffect fx(96, 20);
   HS_EXPECT_EQ(fx.width(), 96);
   HS_EXPECT_EQ(fx.height(), 20);
-  // Both buffers start black; display is ready (no frame queued).
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(10, 5), 0, 0, 0));
   HS_EXPECT_TRUE(fx.buffer_free());
-  // Clip initialized to the full canvas.
   HS_EXPECT_TRUE(fx.clip.is_full());
   HS_EXPECT_EQ(fx.clip.y_end, 20);
   HS_EXPECT_EQ(fx.clip.x_end, 96);
@@ -133,12 +131,11 @@ inline void test_frame_visible_only_after_advance_display() {
     HS_EXPECT_TRUE(pix_eq(fx.get_pixel(3, 3), 0, 0, 0));
   } // ~Canvas queues the frame
 
-  // Queued but not yet displayed: buffer is "busy" and pixel still old.
+  // Queued but not displayed: buffer busy, pixel still old.
   HS_EXPECT_FALSE(fx.buffer_free());
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(3, 3), 0, 0, 0));
 
   fx.advance_display();
-  // Now the drawn frame is live, and the buffer is free for the next frame.
   HS_EXPECT_TRUE(fx.buffer_free());
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(3, 3), 100, 200, 300));
 }
@@ -154,12 +151,11 @@ inline void test_consecutive_frames_alternate_buffers() {
   fx.advance_display();
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 11, 0, 0));
 
-  // Second frame draws a different pixel; non-persist clears the new buffer, so
-  // the first pixel is gone.
+  // Non-persist clears the new buffer, so the first frame's pixel is gone.
   { Canvas c(fx); c(2, 2) = Pixel(0, 22, 0); }
   fx.advance_display();
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 0, 22, 0));
-  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 0, 0, 0)); // cleared
+  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 0, 0, 0));
 }
 
 /**
@@ -174,7 +170,7 @@ inline void test_persist_pixels_copies_previous_frame() {
   fx.advance_display();
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 10, 20, 30));
 
-  // Next frame draws nothing; with persist the previous content carries over.
+  // With persist, the undrawn next frame carries the previous content over.
   { Canvas c(fx); /* draw nothing */ }
   fx.advance_display();
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 10, 20, 30));
@@ -194,23 +190,19 @@ inline void test_double_buffer_handoff_no_aliasing() {
   TestEffect fx(8, 4);
   const int N = 8 * 4;
 
-  // Capacity intentionally exceeds the 2 buffers we expect: the load-bearing
-  // direction of this test's invariant is that no THIRD physical buffer ever
-  // appears, so record_ptr must be able to count past 2. A cap of 2 would make
-  // the final distinct == 2 assertion blind to a third-buffer regression.
+  // Capacity 4 (> the 2 expected) so a third/fourth buffer would be recorded.
   const Pixel *seen[4] = {nullptr, nullptr, nullptr, nullptr};
   int distinct = 0;
   auto record_ptr = [&](const Pixel *p) {
     for (int i = 0; i < distinct; ++i)
       if (seen[i] == p) return;
-    HS_EXPECT_TRUE(distinct < 4); // bounds seen[]; trips on a >=4-buffer regression
+    HS_EXPECT_TRUE(distinct < 4);
     if (distinct < 4) seen[distinct++] = p;
   };
 
   const Pixel colors[6] = {Pixel(10, 0, 0), Pixel(0, 20, 0), Pixel(0, 0, 30),
                            Pixel(40, 0, 0), Pixel(0, 50, 0), Pixel(0, 0, 60)};
 
-  // Frame 0 establishes a displayed baseline.
   { Canvas c(fx); for (int i = 0; i < N; ++i) c(i) = colors[0]; }
   fx.advance_display();
   record_ptr(fx.display_buffer());
@@ -223,9 +215,8 @@ inline void test_double_buffer_handoff_no_aliasing() {
     // Draw the next frame but do NOT advance the display.
     { Canvas c(fx); for (int i = 0; i < N; ++i) c(i) = colors[f]; }
 
-    // Frame queued: the writer claimed the OTHER buffer, so the displayed
-    // pointer is unchanged and still shows the PREVIOUS frame — the newly
-    // written frame is invisible until the display side picks it up.
+    // Queued frame is invisible: the displayed pointer is unchanged and still
+    // shows the previous frame.
     HS_EXPECT_FALSE(fx.buffer_free());
     HS_EXPECT_TRUE(fx.display_buffer() == display_before);
     HS_EXPECT_TRUE(pix_eq(fx.get_pixel(0, 0), colors[f - 1].r, colors[f - 1].g,
@@ -233,8 +224,6 @@ inline void test_double_buffer_handoff_no_aliasing() {
 
     fx.advance_display();
 
-    // Display side advanced to the queued frame; the writer's next buffer is a
-    // DIFFERENT physical buffer than the one just displayed.
     HS_EXPECT_TRUE(fx.buffer_free());
     HS_EXPECT_TRUE(
         pix_eq(fx.get_pixel(0, 0), colors[f].r, colors[f].g, colors[f].b));
@@ -242,7 +231,6 @@ inline void test_double_buffer_handoff_no_aliasing() {
     record_ptr(fx.display_buffer());
   }
 
-  // Only two physical buffers were ever displayed across all cycles.
   HS_EXPECT_EQ(distinct, 2);
 }
 
@@ -265,7 +253,7 @@ inline void test_ctor_spin_waits_for_buffer_free() {
   hs::clear_mock_time(); // use the real wall clock so the spin/watchdog are live
   TestEffect fx(8, 8);
 
-  // Queue frame 0 WITHOUT advancing the display: the buffer is now busy.
+  // Queue frame 0 WITHOUT advancing: the buffer is now busy.
   {
     Canvas c(fx);
     c(0, 0) = Pixel(1, 2, 3);
@@ -274,15 +262,13 @@ inline void test_ctor_spin_waits_for_buffer_free() {
 
   std::atomic<bool> ctor_returned{false};
   std::atomic<bool> released{false};
-  // The helper records its observation here instead of calling HS_EXPECT_*
-  // itself: the harness counters are single-threaded (see test_harness.h), so
-  // every assertion stays on the main thread, evaluated after join().
+  // The harness counters are single-threaded, so the helper records here and
+  // the assertions run on the main thread after join().
   std::atomic<bool> ctor_blocked_when_checked{false};
 
   std::thread display_isr([&] {
-    // Give the main thread time to actually enter the spin, then confirm the
-    // ctor is still blocked (it cannot have returned while the buffer is busy)
-    // before consuming the frame.
+    // Let the main thread enter the spin, then confirm the ctor is still
+    // blocked before consuming the frame.
     std::this_thread::sleep_for(std::chrono::milliseconds(10));
     ctor_blocked_when_checked.store(
         !ctor_returned.load(std::memory_order_acquire),
@@ -296,13 +282,9 @@ inline void test_ctor_spin_waits_for_buffer_free() {
   ctor_returned.store(true, std::memory_order_release);
 
   display_isr.join();
-  // join() makes the helper's stores visible, so these plain loads are safe.
   HS_EXPECT_TRUE(ctor_blocked_when_checked.load(std::memory_order_relaxed));
   HS_EXPECT_TRUE(released.load(std::memory_order_relaxed));
-  // The helper's advance_display() promoted frame 0 to the displayed buffer, so
-  // its pixel is now live. (buffer_free() is back to false here — the second
-  // Canvas's dtor already queued its own frame — so we assert visibility, not
-  // the gate.)
+  // Frame 0 is now the displayed buffer, so its pixel is live.
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(0, 0), 1, 2, 3));
 }
 
@@ -310,16 +292,9 @@ inline void test_ctor_spin_waits_for_buffer_free() {
 // Canvas access
 // ============================================================================
 //
-// OUT-OF-BOUNDS PIXEL ACCESS is deliberately NOT covered here, and — unlike the
-// scan-clip and container OOB cases — it is NOT a death-harness case either.
-// Canvas operator()(x,y) / operator()(xy) / prev() / get_pixel() guard their
-// index with a debug-only `assert`, NOT HS_CHECK (core/canvas.h documents this
-// as the single hot-loop exception: "No bounds checking" on the device, where
-// NDEBUG strips the guard). An assert failure aborts via SIGABRT, whereas the
-// death harness keys specifically on the HS_CHECK __builtin_trap → SIGILL
-// status (tests/test_death.h child_trapped), so an assert-based OOB cannot be a
-// death case. It is covered only by that assert firing in this assert-enabled
-// test build; on device the access is unchecked by design.
+// OOB pixel access is not a death-harness case: Canvas index accessors guard
+// with a debug-only `assert` (SIGABRT), not HS_CHECK's __builtin_trap (SIGILL)
+// that the death harness keys on. On device (NDEBUG) the access is unchecked.
 
 /**
  * @brief Verifies Canvas exposes 2D (x,y) and 1D (row-major index) writes that
@@ -393,11 +368,11 @@ inline void test_update_parameter_by_name() {
   HS_EXPECT_TRUE(fx.updateParameter("Flag", 0.8f));
   HS_EXPECT_TRUE(fx.flag);
 
-  // Unknown name is a safe no-op and reports false to the caller.
+  // Unknown name is a no-op returning false.
   HS_EXPECT_FALSE(fx.updateParameter("Nope", 99.0f));
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
-  // Non-finite values are rejected and also report false.
+  // Non-finite values are rejected, returning false.
   HS_EXPECT_FALSE(fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()));
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 }
@@ -414,9 +389,9 @@ inline void test_update_parameter_rejects_readonly() {
   fx.mark_readonly("Telemetry");
 
   HS_EXPECT_FALSE(fx.updateParameter("Telemetry", 5.0f));
-  HS_EXPECT_NEAR(telemetry, 1.0f, 1e-6f); // engine value left intact
+  HS_EXPECT_NEAR(telemetry, 1.0f, 1e-6f);
 
-  // An ordinary editable param in the same effect still writes.
+  // An editable param in the same effect still writes.
   fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
   HS_EXPECT_TRUE(fx.updateParameter("Speed", 4.0f));
   HS_EXPECT_NEAR(fx.speed, 4.0f, 1e-6f);
@@ -428,13 +403,9 @@ inline void test_update_parameter_rejects_readonly() {
 inline void test_paramlist_fills_to_capacity() {
   TestEffect fx(4, 4);
   static float vals[32];
-  // Distinct names "pNN": registerParam traps on a duplicate name, so the
-  // capacity fill must use unique names (the ParamDef stores the char* by
-  // pointer, hence the static name storage so it outlives the registration).
+  // Unique names "pNN": registerParam traps on duplicates, and ParamDef stores
+  // the char* by pointer, so the names need static storage.
   static char names[32][4];
-  // Registering exactly ParamList's capacity (std::array<ParamDef, 32>) is
-  // valid. A 33rd registration TRAPS (an effect-authoring bug, fail-fast), so
-  // the overflow path can't be exercised here without death-test infra.
   for (int i = 0; i < 32; ++i) {
     vals[i] = static_cast<float>(i);
     names[i][0] = 'p';
@@ -450,21 +421,11 @@ inline void test_paramlist_fills_to_capacity() {
 // Clip setters
 // ============================================================================
 //
-// CLIP-BOUND COVERAGE: set_clip / set_clip_x store the four bounds verbatim with
-// no validation by design (the driver writes a trusted owned-segment once), so
-// there is no in-process trap to assert on the bounds themselves. The two ways a
-// bad clip bites are covered elsewhere:
-//   - An x-band exceeding the canvas width (x_end > W) would index the trig LUTs
-//     out of range; that traps (HS_CHECK) downstream in the scan path, covered
-//     out-of-process by the death harness — case_scan_clip_out_of_bounds in
-//     tests/test_death.h.
-//   - Inverted or empty bounds (start >= end) are NOT a trap: the per-fragment
-//     clip predicate simply selects no pixels, so the effect renders an empty
-//     region rather than aborting.
-// (set_margin is the one clip setter that DOES validate at the call site — an
-// HS_CHECK that a margin >= canvas width traps, a cold setup-time guard.)
-// This test covers only the field-write contract; the trap/empty behaviors are
-// where the bounds are actually consumed.
+// set_clip / set_clip_x store the four bounds verbatim with no validation; this
+// test covers only that field-write contract. The bad-clip failure modes are
+// consumed elsewhere: x_end > W traps downstream (death harness
+// case_scan_clip_out_of_bounds), and inverted/empty bounds just render nothing.
+// set_margin is the one setter that validates (HS_CHECK margin >= width).
 
 /**
  * @brief Verifies the clip setters write the expected fields.
@@ -483,7 +444,7 @@ inline void test_clip_setters() {
   fx.set_clip_x(7, 50);
   HS_EXPECT_EQ(fx.clip.x_start, 7);
   HS_EXPECT_EQ(fx.clip.x_end, 50);
-  HS_EXPECT_EQ(fx.clip.y_start, 2); // unchanged
+  HS_EXPECT_EQ(fx.clip.y_start, 2);
 
   fx.set_margin(3);
   HS_EXPECT_EQ(fx.clip.margin, 3);
@@ -541,7 +502,7 @@ inline void test_pipeline_ref_copy_is_independent_of_source() {
     Canvas c(fx);
     b.plot(c, 0.0f, 0.0f, Pixel(0, 0, 0), 0.0f, 0.0f);
   }
-  // A genuine copy still routes to s1; a ref-to-ref wrapper follows a -> s2.
+  // A real copy still routes to s1; a ref-to-ref wrapper would follow a -> s2.
   HS_EXPECT_EQ(hit, 1);
 }
 

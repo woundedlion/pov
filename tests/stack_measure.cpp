@@ -4,29 +4,13 @@
  *
  * Host stack high-water-mark gate across every effect.
  *
- * WHY (not on-device): the engine's per-pixel shader and plot calls go through
- * FunctionRef and draw_frame() is virtual, so a static call-graph stack tool
- * can't follow them; mesh/KDTree recursion depth is also data-dependent. Running
- * the real workload captures both the per-pixel filter-pipeline nesting (Orient
- * -> AntiAlias -> Feedback, each hop a FunctionRef trampoline) and the recursive
- * mesh/solid construction at init. Host caveats vs the Teensy device:
- *   - real DEPTH is captured exactly;
- *   - frame SIZES are x86-64 (8-byte pointers); the device's 4-byte pointers
- *     make the same frames SMALLER, so this is a conservative (high) estimate;
- *   - no ISRs here; the device flywheel/DMA/sync ISRs nest on the same stack
- *     (~104 B FPU exception frame each + locals) — budget allows for that below.
- *
  * Method: stack painting. Descend writing a sentinel, unwind (the painted region
  * is now free stack below SP), run one effect (which descends into it), then find
  * the deepest point it reached by sentinel DENSITY (painting leaves small
  * per-frame gaps, so an untouched window is mostly-sentinel and a written one is
  * not). Built -Os + the device math flags so codegen tracks the size build.
  *
- * CI gate: fails (non-zero exit) if the worst effect exceeds kBudgetBytes. That
- * ceiling sits below the device's reserved stack (teensy_budgets.json ram1
- * free_min_bytes = 16 KB) with room for the host->device pointer delta + the ISR
- * allowance, so a stack regression here is caught before it can overflow the
- * device's MPU-guarded stack. Re-run after adding/changing effects.
+ * CI gate: fails (non-zero exit) if the worst effect exceeds kBudgetBytes.
  */
 #include <cstdint>
 #include <cstdio>
@@ -42,9 +26,7 @@ constexpr int kFrames = 8;
 constexpr uint8_t kSentinel = 0xA5;
 constexpr int kChunk = 2048;
 
-// Worst measured host peak today is ~9 KB (Dynamo, via the per-pixel filter
-// pipeline). 12 KB leaves regression headroom and stays under the 16 KB device
-// stack reservation minus the ISR allowance.
+// Below the 16 KB device stack reservation minus the ISR allowance.
 constexpr size_t kBudgetBytes = 12288;
 
 volatile uint8_t *g_lo;

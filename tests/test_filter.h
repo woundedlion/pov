@@ -106,7 +106,7 @@ inline void test_filter_trait_inheritance() {
   HS_EXPECT_TRUE((Filter::Screen::Trails<W>::is_2d));
   HS_EXPECT_TRUE((Filter::Screen::Trails<W>::has_history));
 
-  // Static-assert form (compile-time): mirrors the runtime checks above.
+  // Static-assert form (compile-time).
   static_assert(Filter::Screen::AntiAlias<W, H>::is_2d, "AntiAlias is 2D");
   static_assert(!Filter::World::Replicate<W>::is_2d, "Replicate is 3D");
   static_assert(Filter::Pixel::Feedback<W, H>::has_history,
@@ -125,41 +125,36 @@ inline void test_filter_trait_inheritance() {
 inline void test_crosses_segments_trait_and_fold() {
   constexpr int W = 32, H = 16;
 
-  // Per-filter trait. Non-stateful stages never cross a band; the fail-safe
-  // default ties crosses_segments to has_history.
+  // Per-filter trait. The fail-safe default ties crosses_segments to has_history.
   HS_EXPECT_FALSE((Filter::Screen::AntiAlias<W, H>::crosses_segments));
   HS_EXPECT_FALSE((Filter::World::Replicate<W>::crosses_segments));
-  HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::crosses_segments)); // load-bearing
-  HS_EXPECT_TRUE((Filter::World::Trails<W, 16>::crosses_segments));   // fail-safe default
+  HS_EXPECT_TRUE((Filter::Pixel::Feedback<W, H>::crosses_segments));
+  HS_EXPECT_TRUE((Filter::World::Trails<W, 16>::crosses_segments));
   // The sole non-fail-safe override: reach-0 in-place decay stays band-clippable.
   HS_EXPECT_FALSE((Filter::Screen::Trails<W>::crosses_segments));
 
-  // crosses_segments tracks reach, NOT has_history: Screen::Trails keeps history
-  // yet does not cross segments. Pin that they can disagree.
+  // crosses_segments tracks reach, not has_history: Screen::Trails has history
+  // yet does not cross segments.
   HS_EXPECT_TRUE((Filter::Screen::Trails<W>::has_history));
   HS_EXPECT_FALSE((Filter::Screen::Trails<W>::crosses_segments));
 
-  // Pipeline OR-fold. Empty base case reaches no other segment.
+  // Pipeline OR-fold.
   HS_EXPECT_FALSE((Pipeline<W, H>::any_crosses_segments));
 
-  // The MeshFeedback stack (World::Orient, Screen::AntiAlias, Pixel::Feedback)
-  // trips the fold via its terminal Feedback stage.
   using MeshStack = Pipeline<W, H, Filter::World::Orient<W>,
                              Filter::Screen::AntiAlias<W, H>,
                              Filter::Pixel::Feedback<W, H>>;
   HS_EXPECT_TRUE(MeshStack::any_crosses_segments);
 
-  // A non-stateful stack does not — it keeps the segmented clipping win.
+  // A non-stateful stack does not.
   using PlainStack =
       Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>;
   HS_EXPECT_FALSE(PlainStack::any_crosses_segments);
 
-  // A Screen::Trails-only stack does NOT trip the fold despite has_history —
-  // exactly the override the bit-identity test validates.
+  // A Screen::Trails-only stack does not trip the fold despite has_history.
   HS_EXPECT_FALSE((Pipeline<W, H, Filter::Screen::Trails<W>>::any_crosses_segments));
 
-  // Compile-time form: the gate must hold at constant-evaluation, since the
-  // driver reads it through Effect::needs_full_frame's constexpr trait access.
+  // Compile-time form.
   static_assert(MeshStack::any_crosses_segments,
                 "MeshFeedback pipeline must render full-frame per worker");
   static_assert(!PlainStack::any_crosses_segments,
@@ -188,11 +183,8 @@ inline void test_pipeline_get_returns_correct_filter() {
   using CS = Filter::Pixel::ChromaticShift<W>;
   using Blur = Filter::Screen::Blur<W, H>;
 
-  // Compose a 3-filter pipeline (all constructible without a Canvas).
   Pipeline<W, H, AA, Blur, CS> pipe(AA{}, Blur{1.0f}, CS{});
 
-  // get<T>() must return a reference whose static type is T and which is the
-  // base subobject of the pipeline node.
   AA &aa = pipe.get<AA>();
   Blur &bl = pipe.get<Blur>();
   CS &cs = pipe.get<CS>();
@@ -204,23 +196,19 @@ inline void test_pipeline_get_returns_correct_filter() {
   static_assert(std::is_same_v<decltype(pipe.get<CS>()), CS &>,
                 "get<CS>() returns CS&");
 
-  // The head filter is also the pipeline itself upcast to AA.
+  // The head filter is the pipeline itself upcast to AA.
   HS_EXPECT_TRUE(static_cast<AA *>(&pipe) == &aa);
-  // Tail nodes resolve to distinct subobjects.
   HS_EXPECT_TRUE(static_cast<const void *>(&bl) !=
                  static_cast<const void *>(&cs));
 
-  // const overload of get<T>() is usable.
   const Pipeline<W, H, AA, Blur, CS> &cpipe = pipe;
   const Blur &cbl = cpipe.get<Blur>();
   HS_EXPECT_TRUE(&cbl == &bl);
 
-  // Absent-filter case: get<T>() on a pipeline lacking T must fail to compile
-  // cleanly (the dependent-false static_assert "Filter type T not found"). It
-  // cannot be exercised at runtime — instantiating the base get<T>() is a hard
-  // error, not a SFINAE-detectable one — so it lives behind a default-off macro.
-  // Verify by hand: build with -DHS_TEST_PIPELINE_GET_ABSENT and confirm the
-  // sole diagnostic is the intended message.
+  // Absent-filter case: get<T>() on a pipeline lacking T is a hard compile error
+  // (not SFINAE-detectable), so it lives behind a default-off macro. Build with
+  // -DHS_TEST_PIPELINE_GET_ABSENT and confirm the "Filter type T not found"
+  // static_assert is the sole diagnostic.
 #ifdef HS_TEST_PIPELINE_GET_ABSENT
   using Absent = Filter::Pixel::Feedback<W, H>; // not in the pipeline above
   (void)pipe.get<Absent>();
@@ -241,8 +229,6 @@ inline void test_antialias_weights_partition() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
 
-  // Interior, non-pole sample with a clear fractional offset; the four bilinear
-  // weights v00+v10+v01+v11 == 1 by construction.
   float sum = 0.0f;
   int count = 0;
   const float in_alpha = 0.8f;
@@ -264,8 +250,7 @@ inline void test_antialias_integer_coord_single_tap() {
   constexpr int W = 64, H = 64;
   Filter::Screen::AntiAlias<W, H> aa;
 
-  // Exact integer coordinates → fractional parts are 0 → only the (x0,y0) tap
-  // carries weight (v00 == 1, the rest are 0 and fall below 1e-8 threshold).
+  // Integer coords -> fractional parts 0 -> only the (x0,y0) tap carries weight.
   int count = 0;
   float kept_alpha = 0.0f;
   float kept_x = -1.0f, kept_y = -1.0f;
@@ -410,7 +395,6 @@ inline void test_blur_update_changes_kernel() {
   constexpr int W = 32, H = 32;
   Filter::Screen::Blur<W, H> blur(1.0f);
 
-  // After update(0) the kernel collapses to identity (single center tap).
   blur.update(0.0f);
   int count = 0;
   blur.plot(15.0f, 16.0f, Pixel(1, 1, 1), 0.0f, 1.0f,
@@ -441,8 +425,7 @@ inline void test_blur_pole_row_renormalizes() {
                 if (yy < 0.0f || yy >= static_cast<float>(H))
                   all_in_bounds = false;
               });
-    // Top/bottom row clipped → only the 2 surviving rows (6 taps) emit.
-    HS_EXPECT_EQ(count, 6);
+    HS_EXPECT_EQ(count, 6); // pole row clipped -> 2 surviving rows, 6 taps
     HS_EXPECT_TRUE(all_in_bounds);
     HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
   }
@@ -520,13 +503,11 @@ inline void test_feedback_style_binding() {
   ::Feedback::Style style = ::Feedback::Style::Smoke();
   Filter::Pixel::Feedback<W, H> fb(style);
 
-  // The accessor returns the same Style object that was bound.
   HS_EXPECT_TRUE(&fb.style() == &style);
 
   const Filter::Pixel::Feedback<W, H> &cfb = fb;
   HS_EXPECT_TRUE(&cfb.style() == &style);
 
-  // Smoke preset values are reflected through the binding.
   HS_EXPECT_NEAR(fb.style().fade, 0.9f, 1e-6f);
   HS_EXPECT_EQ(fb.style().downsample, 4);
 
@@ -534,7 +515,6 @@ inline void test_feedback_style_binding() {
   fb.style().fade = 0.5f;
   HS_EXPECT_NEAR(style.fade, 0.5f, 1e-6f);
 
-  // set_enabled compiles and is callable.
   fb.set_enabled(false);
   fb.set_enabled(true);
 }
@@ -776,16 +756,14 @@ inline void test_world_mobius_identity_and_transform() {
   mob2.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f,
             [&](const Vector &o, const Pixel &, float, float) { out2 = o; });
   HS_EXPECT_NEAR(out2.length(), 1.0f, 1e-3f);
-  HS_EXPECT_GT(distance_between(out2, v), 0.05f); // actually transformed
+  HS_EXPECT_GT(distance_between(out2, v), 0.05f);
 }
 
 // ============================================================================
 // End-to-end pipeline routing through a live Canvas
 //
-// The test_canvas/test_scan pattern: a Canvas spins in its ctor while
-// !buffer_free(), so every drawn frame MUST advance_display() before the next
-// Canvas is constructed. With that, the full Pipeline::plot/flush routing
-// (which the per-call helper tests above cannot reach) is exercisable.
+// A Canvas spins in its ctor while !buffer_free(), so every drawn frame must
+// advance_display() before the next Canvas is constructed.
 // ============================================================================
 
 /**
@@ -850,9 +828,8 @@ inline size_t count_lit(const PipeFx &fx) {
 inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
   constexpr int W = 16, H = 8;
   Pipeline<W, H> pipe;
-  // fx and fx2 alias the same static double buffer, so only one may be live at
-  // a time (Effect's single-live guard) — scope the first frame's effect closed
-  // before constructing the second.
+  // fx and fx2 alias the same static double buffer (Effect's single-live guard),
+  // so scope the first effect closed before constructing the second.
   {
     PipeFx fx(W, H);
     {
@@ -952,10 +929,6 @@ inline void test_pipeline_2d_into_3d_head_roundtrips() {
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
       if (!px_black(fx.get_pixel(x, y)))
-        // OR-accumulate: the intent is "at least one lit pixel is within a pixel
-        // of the input". Plain assignment would record only the last lit pixel
-        // in scan order, so the check would stay green even if a regression lit
-        // a far-away pixel (caught only by the separate count_lit == 1 above).
         near_input |= (std::abs(x - px) <= 1 && std::abs(y - py) <= 1);
   HS_EXPECT_TRUE(near_input);
 }
@@ -1177,10 +1150,6 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
 
 // ============================================================================
 // World::Trails — int16 quantization round-trip + ring buffer / ttl lifecycle
-//
-// Trails are history-bearing filters: plot() encodes the world position into a
-// quantized int16 ring entry, flush() ages, evicts, decodes and re-emits. These
-// tests cover the quantization round-trip and the ring mechanics directly.
 // ============================================================================
 
 /**
@@ -1197,14 +1166,14 @@ inline void test_world_trails_int16_quantization_roundtrip() {
 
   const Vector v0 = Vector(0.3f, -0.6f, 0.74f).normalized();
 
-  // plot() passes the current frame through and (age=0 -> ttl=10>0) stores it.
+  // plot() passes the frame through and (age=0 -> ttl=10>0) stores it.
   int passthru = 0;
   trails.plot(v0, Pixel(100, 100, 100), 0.0f, 1.0f,
               [&](const Vector &, const Pixel &, float, float) { ++passthru; });
   HS_EXPECT_EQ(passthru, 1);
   HS_EXPECT_EQ(trails.size(), (size_t)1);
 
-  // flush() ages (10->9, still alive), decodes the int16 entry and re-emits it.
+  // flush() ages (10->9, alive), decodes the int16 entry and re-emits it.
   Vector decoded(0, 0, 0);
   int emitted = 0;
   auto trail = [](const Vector &, float) {
@@ -1270,7 +1239,6 @@ inline void test_world_trails_ring_evicts_oldest() {
     Vector v = Vector(static_cast<float>(i + 1), 1.0f, 0.5f).normalized();
     trails.plot(v, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
   }
-  // Capacity is a hard ring bound; the oldest entries were dropped on overflow.
   HS_EXPECT_EQ(trails.size(), (size_t)Cap);
 }
 
@@ -1526,16 +1494,14 @@ inline void test_screen_trails_banded_matches_full() {
     }};
   };
   auto trail = [](float, float, float t) {
-    // Brightness tracks remaining lifetime so the decay path is exercised, not
-    // just a constant emission.
+    // Brightness tracks remaining lifetime so the decay path is exercised.
     uint16_t v = static_cast<uint16_t>((1.0f - t) * 50000.0f);
     return Color4(Pixel(v, v, v), 1.0f);
   };
 
-  // One run = a fresh trail buffer + effect driven K frames under the given clip,
-  // capturing the final displayed frame. PipeFx instances alias the same static
-  // double buffer (single-live guard), so each run is scoped closed before the
-  // next; the arena is reset per run so trail storage starts empty.
+  // One run = a fresh trail buffer + effect driven K frames under the given clip.
+  // PipeFx instances alias the same static double buffer (single-live guard), so
+  // each run is scoped closed before the next; the arena is reset per run.
   auto run = [&](int cy0, int cy1, Pixel out[H][W]) {
     static uint8_t buf[MAXP * 32];
     Arena arena(buf, sizeof(buf));
@@ -1576,7 +1542,7 @@ inline void test_screen_trails_banded_matches_full() {
       if (want.r | want.g | want.b) ++lit;
     }
   HS_EXPECT_TRUE(identical);
-  HS_EXPECT_GT(lit, 0); // else the bit-identity is vacuous
+  HS_EXPECT_GT(lit, 0);
 }
 
 /**

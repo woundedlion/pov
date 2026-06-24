@@ -145,7 +145,6 @@ inline void test_y_to_phi_templated_LUT() {
 
   HS_EXPECT_TRUE(PhiLUT<H>::initialized);
 
-  // Float overload with integer-valued input also hits the LUT.
   float lut_f = y_to_phi<H>(5.0f);
   HS_EXPECT_NEAR(lut_f, y_to_phi<H>(5), 1e-5f);
 }
@@ -169,17 +168,14 @@ inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
   constexpr int H_VIRT = H + OFF; // 23
   const float bottom_phys = static_cast<float>(H - 1); // y = 19
 
-  // Single-offset mapping: bottom physical row clips short of PI.
   float correct = y_to_phi(bottom_phys, H_VIRT);          // 19*PI/22
   HS_EXPECT_NEAR(correct, bottom_phys * PI_F / (H_VIRT - 1), 1e-5f);
   HS_EXPECT_TRUE(correct < PI_F);
 
-  // A double-applied offset would divide by (H + 2*OFF - 1) = 25, which must
-  // stay clearly distinct from the single-offset mapping.
+  // A double-applied offset would divide by (H + 2*OFF - 1) = 25.
   float double_applied = bottom_phys * PI_F / (H + 2 * OFF - 1); // 19*PI/24
   HS_EXPECT_TRUE(std::abs(correct - double_applied) > 1e-2f);
 
-  // The virtual bottom row reaches the pole exactly.
   HS_EXPECT_NEAR(y_to_phi(static_cast<float>(H_VIRT - 1), H_VIRT), PI_F, 1e-5f);
 }
 
@@ -208,8 +204,7 @@ inline void test_pixel_to_vector_unit_length() {
  */
 inline void test_pixel_to_vector_known_samples() {
   constexpr int W = 32, H = 32;
-  // x=0, y near equator. Integer y rarely lands exactly on phi=π/2 (true
-  // equator is y=(H_VIRT-1)/2), so allow a generous tolerance.
+  // Integer y rarely lands exactly on phi=π/2 (equator is y=(H_VIRT-1)/2).
   Vector v = pixel_to_vector<W, H>(0, (H + hs::H_OFFSET) / 2);
   HS_EXPECT_VEC(v, Vector(1, 0, 0), 0.15f);
 
@@ -242,7 +237,6 @@ inline void test_pixel_to_vector_float_branch_matches_phi_lut() {
  */
 inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
   constexpr int W = 64, H = 64;
-  // Non-degenerate samples, avoiding poles where azimuth wrap is undefined.
   int xs[] = {3, 17, 31, 50};
   int ys[] = {8, 16, 24, 40};
   for (int x : xs) {
@@ -269,7 +263,7 @@ inline void test_log_polar_roundtrip() {
       Vector(1, 0, 0),
       Vector(0.5f, 0.5f, 0.7071f).normalized(),
       Vector(-0.6f, 0.3f, 0.7f).normalized(),
-      Vector(0, -1, 0), // south pole — well-defined
+      Vector(0, -1, 0), // south pole
   };
   for (const Vector &v : samples) {
     LogPolar lp = vectorToLogPolar(v);
@@ -293,7 +287,6 @@ inline void test_log_polar_north_pole_sentinel() {
  *        symmetric sentinel.
  */
 inline void test_log_polar_south_pole_sentinel() {
-  // Symmetric sentinel is (rho=-10, theta=0); without the guard rho is -inf.
   LogPolar lp = vectorToLogPolar(Vector(0, -1, 0));
   HS_EXPECT_NEAR(lp.rho, -10.0f, 1e-3f);
   HS_EXPECT_NEAR(lp.theta, 0.0f, 1e-3f);
@@ -332,7 +325,7 @@ inline void test_fib_spiral_endpoints() {
   Vector last = fib_spiral(16, 0.5f, 15);
   HS_EXPECT_NEAR(first.length(), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(last.length(), 1.0f, 1e-3f);
-  HS_EXPECT_TRUE(first.y * last.y < 0.0f); // opposite hemispheres
+  HS_EXPECT_TRUE(first.y * last.y < 0.0f);
 }
 
 // ============================================================================
@@ -399,7 +392,7 @@ inline void test_random_vector_deterministic() {
   hs::random().seed(1337);
   for (int i = 0; i < N; ++i) {
     Vector v = random_vector();
-    HS_EXPECT_VEC(v, first[i], 0.0f); // exact reproduction, not approximate
+    HS_EXPECT_VEC(v, first[i], 0.0f);
   }
   hs::random() = saved;
 }
@@ -588,7 +581,7 @@ inline void test_orientation_upsample_preserves_endpoints() {
 
   o.upsample(8);
   HS_EXPECT_EQ(o.length(), 8);
-  // Endpoints preserved (slerp may flip sign — same orientation).
+  // slerp may flip sign — same orientation.
   HS_EXPECT_NEAR(std::abs(dot(o.get(0), start)), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(std::abs(dot(o.get(7), end)), 1.0f, 1e-3f);
 }

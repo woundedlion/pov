@@ -3,18 +3,6 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
  * Unit tests for core/concepts.h — the type-erased callable wrappers.
- *
- * The generic effect/animation suites exercise FunctionRef, StoredFunctionRef,
- * and Fn (hs::inplace_function) only incidentally, so a refactor of their
- * overload resolution or value semantics could regress silently. These tests pin
- * the load-bearing behaviour directly:
- *   - FunctionRef binds a non-const lvalue through the non-const ctor and a
- *     const lvalue / rvalue through the const ctor;
- *   - the plain-function-pointer ctor handles a null pointer as an empty ref;
- *   - StoredFunctionRef accepts an lvalue callable but REJECTS an rvalue
- *     temporary (the borrow-vs-store lifetime contract, enforced by the type);
- *   - Fn copy/move/empty value semantics behave (the empty-state CALL trap is a
- *     death case — see case_empty_fn_call in tests/test_death.h).
  */
 #pragma once
 
@@ -74,7 +62,6 @@ inline void test_functionref_overload_resolution() {
   FunctionRef<int(int)> r_const = cf; // const lvalue -> const ctor
   HS_EXPECT_EQ(r_const(0), 100);
 
-  // rvalue temporary -> const ctor, invoked inside the same full expression.
   HS_EXPECT_EQ(call_scoped(0, DualCall{}), 100);
 }
 
@@ -107,10 +94,10 @@ inline void test_functionref_empty_and_copy() {
 
   DualCall f;
   FunctionRef<int(int)> r = f;
-  FunctionRef<int(int)> copy = r; // copy refers to the same callable
+  FunctionRef<int(int)> copy = r;
   HS_EXPECT_TRUE((bool)copy);
   HS_EXPECT_EQ(copy(0), 1);
-  FunctionRef<int(int)> moved = std::move(r); // move is a pointer copy
+  FunctionRef<int(int)> moved = std::move(r);
   HS_EXPECT_EQ(moved(0), 1);
 }
 
@@ -139,7 +126,7 @@ inline void test_stored_functionref_rvalue_rejection() {
   HS_EXPECT_TRUE((std::is_constructible_v<FunctionRef<int(int)>, DualCall &&>));
 
   DualCall f;
-  StoredFunctionRef<int(int)> s = f; // lvalue bind invokes correctly
+  StoredFunctionRef<int(int)> s = f;
   HS_EXPECT_EQ(s(0), 1);
 }
 
@@ -161,17 +148,14 @@ inline void test_fn_copy_move_empty() {
   HS_EXPECT_TRUE((bool)f);
   HS_EXPECT_EQ(f(5), 15);
 
-  // Copy: the source stays live and both invoke identically.
   Fn<int(int), 16> g = f;
   HS_EXPECT_TRUE((bool)f);
   HS_EXPECT_EQ(g(5), 15);
 
-  // Move: the destination takes over; the moved-from function is left empty.
   Fn<int(int), 16> h = std::move(f);
   HS_EXPECT_EQ(h(5), 15);
   HS_EXPECT_FALSE((bool)f);
 
-  // Assign a callable, then reset to empty via nullptr.
   Fn<int(int), 16> a;
   a = [](int x) { return x * 2; };
   HS_EXPECT_TRUE((bool)a);

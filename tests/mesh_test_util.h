@@ -4,9 +4,7 @@
  *
  * Shared mesh test fixtures. The conway/mesh/hankin/solids suites all build a
  * PolyMesh from a Solids::* descriptor and check that its vertices land on the
- * unit sphere; sharing these helpers keeps the fixture identical across suites.
- * The unit-sphere tolerance is an explicit parameter so each caller states the
- * precision it actually needs.
+ * unit sphere.
  */
 #pragma once
 

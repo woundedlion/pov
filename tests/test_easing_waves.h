@@ -4,11 +4,10 @@
  *
  * Unit tests for core/easing.h and core/waves.h.
  *
- * Pure scalar functions: cheap to test, easy to regress silently. We assert the
- * defining contract of each easing curve (anchored endpoints, finiteness,
- * monotonicity where the curve is monotone) and the bounded/shape properties of
- * the wave generators. t is sampled at exact rational fractions of [0,1] to
- * avoid float drift past 1.0 (where circular easings would go NaN).
+ * Asserts the defining contract of each easing curve (anchored endpoints,
+ * finiteness, monotonicity where the curve is monotone) and the bounded/shape
+ * properties of the wave generators. t is sampled at exact rational fractions
+ * of [0,1] to avoid float drift past 1.0 (where circular easings would go NaN).
  */
 #pragma once
 
@@ -21,10 +20,7 @@
 namespace hs_test {
 namespace easing_waves_tests {
 
-// Sample count over [0,1]. Dense enough that the monotonicity sweep in
-// check_curve catches a dip occurring between adjacent samples, not just a
-// gross full-grid inversion (the 1e-4 tolerance there absorbs float noise on
-// the sin/circ curves, so density — not slack — is the real limiter).
+// Sample count over [0,1].
 constexpr int N = 200;
 
 /**
@@ -51,7 +47,7 @@ static inline void check_curve(Fn f, bool monotone, const char *name) {
     float v = f(frac(i));
     HS_EXPECT(std::isfinite(v), name);
     if (monotone)
-      HS_EXPECT(v >= prev - 1e-4f, name); // non-decreasing within tolerance
+      HS_EXPECT(v >= prev - 1e-4f, name);
     prev = v;
   }
 }
@@ -79,13 +75,11 @@ inline void test_easing_endpoints() {
   HS_EXPECT_NEAR(ease_in_circ(0.0f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_out_circ(1.0f), 1.0f, 1e-5f);
 
-  // Special-cased endpoints (avoid powf domain issues at the boundary).
   HS_EXPECT_NEAR(ease_out_expo(0.0f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_out_expo(1.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_out_elastic(0.0f), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(ease_out_elastic(1.0f), 1.0f, 1e-5f);
 
-  // Linear is the identity.
   HS_EXPECT_NEAR(ease_linear(0.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(ease_linear(0.5f), 0.5f, 1e-6f);
   HS_EXPECT_NEAR(ease_linear(1.0f), 1.0f, 1e-6f);
@@ -97,7 +91,6 @@ inline void test_easing_endpoints() {
  *          behavior; expo/elastic overshoot, so they get finiteness only.
  */
 inline void test_easing_finite_and_monotone() {
-  // Monotone non-decreasing curves.
   check_curve(ease_in_out_cubic, true, "ease_in_out_cubic");
   check_curve(ease_in_out_sin, true, "ease_in_out_sin");
   check_curve(ease_in_sin, true, "ease_in_sin");
@@ -132,7 +125,6 @@ inline void test_easing_expo_elastic_interior_reference() {
 
   HS_EXPECT_NEAR(ease_out_elastic(0.25f), 0.9116117f, 1e-4f);
   HS_EXPECT_NEAR(ease_out_elastic(0.5f), 1.015625f, 1e-4f);
-  // Defining feature: the elastic curve overshoots past its end value mid-travel.
   HS_EXPECT_GT(ease_out_elastic(0.5f), 1.0f);
 }
 
@@ -164,10 +156,8 @@ inline void test_sin_wave_bounds_and_phase() {
     HS_EXPECT_GE(v, 2.0f - 1e-3f);
     HS_EXPECT_LE(v, 5.0f + 1e-3f);
   }
-  // Phase convention: at t=0 the wave starts at the `from` end.
   HS_EXPECT_NEAR(sin_wave(0.0f, 1.0f, 1.0f, 0.0f)(0.0f), 0.0f, 1e-3f);
-  // A quarter-cycle phase puts t=0 at the RISING midpoint (forward phase),
-  // matching tri_wave's direction at the same value.
+  // A quarter-cycle phase puts t=0 at the rising midpoint (forward phase).
   auto wp = sin_wave(0.0f, 1.0f, 1.0f, 0.25f);
   HS_EXPECT_NEAR(wp(0.0f), 0.5f, 1e-3f);
   HS_EXPECT(wp(0.05f) > 0.5f, "sin_wave phase 0.25 rises at t=0 like tri_wave");
@@ -199,7 +189,6 @@ inline void test_tri_wave_shape() {
  */
 inline void test_square_wave_binary() {
   auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
-  // Only ever emits `from` or `to`.
   for (int i = 0; i <= N; ++i) {
     float v = w(frac(i) * 2.0f);
     bool is_from = hs_test::approx(v, 0.0f, 1e-5f);
@@ -224,7 +213,6 @@ inline void test_square_wave_negative_phase() {
   auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
   HS_EXPECT_NEAR(w(-0.25f), 0.0f, 1e-5f); // wrap(-0.25)=0.75 -> low, not latched
   HS_EXPECT_NEAR(w(-0.9f), 1.0f, 1e-5f);  // wrap(-0.9)=0.1 -> high
-  // Periodicity across the sign boundary: w(t-1) == w(t) over a full sweep.
   for (int i = 0; i < N; ++i) {
     float ft = frac(i); // [0,1)
     HS_EXPECT_NEAR(w(ft - 1.0f), w(ft), 1e-5f);

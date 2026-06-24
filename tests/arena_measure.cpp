@@ -6,13 +6,8 @@
  *
  * Reads Arena::get_high_water_mark() for the three global arenas after running
  * each effect's init + a few frames, to size the device GLOBAL_ARENA_SIZE
- * (343,040 B = 335 KiB) against what effects actually touch. The host build uses
- * an 8 MB global arena (memory.h, HS_TEST_BUILD) so nothing OOMs mid-measure.
- *
- * Host caveat vs device: arena payloads are mostly POD geometry (Vector =
- * 3 floats, uint16 indices — same size both), so the figure tracks device
- * closely; the few pointer-bearing structures make host a slight over-estimate
- * (8-byte vs 4-byte pointers) — conservative for sizing. Not a CTest.
+ * against what effects actually touch. The host build uses an 8 MB global arena
+ * (memory.h, HS_TEST_BUILD) so nothing OOMs mid-measure. Not a CTest.
  */
 #include <cstdint>
 #include <cstdio>
@@ -32,8 +27,6 @@ template <typename Effect> void measure(const char *name) {
   configure_arenas_default();
   Timeline().clear();
   global_timeline_t = 0;
-  // Zero peaks after the (re)configure so only this effect's init + frame
-  // allocations are captured, including any per-effect configure_arenas() split.
   persistent_arena.reset_high_water_mark();
   scratch_arena_a.reset_high_water_mark();
   scratch_arena_b.reset_high_water_mark();

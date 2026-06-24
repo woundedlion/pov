@@ -47,29 +47,10 @@ namespace animation_tests {
 // ============================================================================
 // Stand-in Canvas reference
 // ----------------------------------------------------------------------------
-// The animations under test (Transition/Mutation/Lerp/Driver) take a Canvas& in
-// step() but never dereference it. We construct ONE genuine Canvas over a tiny
-// Effect and reuse it, so the reference is always valid. A fresh effect's
-// buffer_free() is true, so the ctor doesn't spin; the single dtor (queue_frame)
-// runs harmlessly when the module ends.
-//
-// LIFETIME: the fixture is owned by run_animation_tests() (see bottom of file)
-// and reached through fake_canvas_ptr(), NOT a process-lifetime static. A static
-// FakeEffect would keep the single-live-Effect guard (canvas.h s_alive) set for
-// the rest of the process — its dtor only runs at exit — and trip that guard when
-// the NEXT module's first Effect is constructed in an all-modules run (the bare
-// `run_tests` binary; the ctest gate runs one module per process and never saw
-// it). Scoping the fixture to the module destroys its Effect at module end and
-// releases the guard cleanly.
-//
-// COUPLING (load-bearing): nothing a test does with this canvas may invoke
-// queue_frame() — i.e. no test may construct (and destruct) a *second* Canvas on
-// this shared FakeEffect during the run. queue_frame() advances next_, so a
-// second Canvas's ctor would then see buffer_free()==false and spin on a display
-// ISR that never runs in the host harness (a hang). The only queue_frame() that
-// may fire is the single dtor one at module end, after all tests pass. If a
-// future animation test needs to actually queue a frame, give it its own local
-// Canvas/Effect rather than reusing fake_canvas().
+// One genuine Canvas over a tiny Effect, shared across tests. The animations
+// under test take a Canvas& but never dereference it. No test may construct a
+// second Canvas on this shared FakeEffect: that would queue_frame() and spin the
+// next ctor on a display ISR the host never runs.
 // ============================================================================
 
 /**
@@ -124,7 +105,6 @@ inline void test_path_empty_returns_origin() {
   HS_EXPECT_NEAR(v.x, 0.0f, 0.0f);
   HS_EXPECT_NEAR(v.y, 0.0f, 0.0f);
   HS_EXPECT_NEAR(v.z, 0.0f, 0.0f);
-  // Any t on an empty path is the origin guard.
   Vector v1 = p.get_point(1.0f);
   HS_EXPECT_NEAR(v1.x, 0.0f, 0.0f);
 }
@@ -135,8 +115,7 @@ inline void test_path_empty_returns_origin() {
  */
 inline void test_path_endpoints_and_clamp() {
   Path<32> p;
-  // Plot a straight ramp along X: f(s) = (s, 0, 0), domain 1, 4 samples,
-  // linear easing. append_segment samples t/samples in [0,1] -> x in [0,1].
+  // A straight ramp along X: f(s) = (s, 0, 0), 4 samples, x in [0,1].
   p.append_segment([](float s) { return Vector(s, 0.0f, 0.0f); }, 1.0f, 4,
                    ease_linear);
 
@@ -146,11 +125,9 @@ inline void test_path_endpoints_and_clamp() {
   Vector end = p.get_point(1.0f);
   HS_EXPECT_NEAR(end.x, 1.0f, 1e-5f);
 
-  // t beyond 1.0 clamps to the last point (i >= size-1 -> back()).
   Vector over = p.get_point(2.0f);
   HS_EXPECT_NEAR(over.x, end.x, 1e-5f);
 
-  // Midpoint interpolates linearly along the ramp.
   Vector mid = p.get_point(0.5f);
   HS_EXPECT_NEAR(mid.x, 0.5f, 1e-5f);
 }
@@ -165,7 +142,6 @@ inline void test_path_collapse_keeps_last() {
                    ease_linear);
   Vector last_before = p.get_point(1.0f);
   p.collapse();
-  // After collapse there is a single point; get_point(anything) == that point.
   Vector a = p.get_point(0.0f);
   Vector b = p.get_point(1.0f);
   HS_EXPECT_NEAR(a.x, last_before.x, 1e-5f);
@@ -197,7 +173,7 @@ inline void test_transition_reaches_target_linear() {
  * a forward Transition advances monotonically toward the target.
  */
 inline void test_transition_monotonic_and_starts_from_current() {
-  float v = 5.0f; // 'from' is captured from the live value at t==0
+  float v = 5.0f;
   const int duration = 8;
   Animation::Transition tr(v, 25.0f, duration, ease_linear);
   float prev = v;
@@ -217,12 +193,11 @@ inline void test_transition_monotonic_and_starts_from_current() {
  * divide-by-zero, and a single step completes it.
  */
 inline void test_transition_duration_zero_no_divide_by_zero() {
-  // AnimationBase coerces duration 0 -> 1, so the t/duration ratio is finite.
   float v = 0.0f;
   Animation::Transition tr(v, 42.0f, 0, ease_linear);
   tr.step(fake_canvas());
   HS_EXPECT_TRUE(std::isfinite(v));
-  HS_EXPECT_NEAR(v, 42.0f, 1e-3f); // one step of a 1-frame transition completes
+  HS_EXPECT_NEAR(v, 42.0f, 1e-3f);
   HS_EXPECT_TRUE(tr.done());
 }
 
@@ -237,7 +212,7 @@ inline void test_transition_quantized_floors_result() {
   for (int i = 0; i < duration; ++i) {
     tr.step(fake_canvas());
   }
-  // Final eased value 3.7 floored to 3.0.
+  // 3.7 floored to 3.0.
   HS_EXPECT_NEAR(v, 3.0f, 1e-5f);
 }
 
@@ -254,14 +229,14 @@ inline void test_transition_repeat_retraverses_each_cycle() {
                            /*repeat=*/true);
   for (int i = 0; i < duration; ++i)
     tr.step(fake_canvas());
-  HS_EXPECT_NEAR(v, 10.0f, 1e-3f); // first cycle reaches the target
+  HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
 
-  tr.rewind(); // what Timeline does for a repeating animation
+  tr.rewind();
   tr.step(fake_canvas());
-  HS_EXPECT_LT(v, 10.0f); // second cycle leaves the target
+  HS_EXPECT_LT(v, 10.0f);
   for (int i = 1; i < duration; ++i)
     tr.step(fake_canvas());
-  HS_EXPECT_NEAR(v, 10.0f, 1e-3f); // and lands on it again
+  HS_EXPECT_NEAR(v, 10.0f, 1e-3f);
 }
 
 // ============================================================================
@@ -275,7 +250,7 @@ inline void test_transition_repeat_retraverses_each_cycle() {
 inline void test_mutation_applies_function_of_eased_time() {
   float v = 0.0f;
   const int duration = 5;
-  // f(e) = e * 10 ; with linear easing, at completion e==1 -> v==10.
+  // f(e) = e * 10; at completion e==1 -> v==10.
   Animation::Mutation m(
       v, [](float e) { return e * 10.0f; }, duration, ease_linear);
   for (int i = 0; i < duration; ++i) {
@@ -340,14 +315,14 @@ inline void test_driver_nan_source_does_not_poison() {
   float slider = 0.25f;
   Animation::Driver d(v, &slider, /*scale=*/1.0f, /*wrap=*/true);
   d.step(fake_canvas());
-  HS_EXPECT_NEAR(v, 0.25f, 1e-5f); // finite source advances normally
+  HS_EXPECT_NEAR(v, 0.25f, 1e-5f);
 
   slider = std::numeric_limits<float>::quiet_NaN();
   d.step(fake_canvas());
   HS_EXPECT_TRUE(std::isfinite(v)); // NaN frame kept the last good speed
   HS_EXPECT_NEAR(v, 0.5f, 1e-5f);
 
-  slider = 0.25f; // a recovered slider resumes cleanly
+  slider = 0.25f;
   d.step(fake_canvas());
   HS_EXPECT_NEAR(v, 0.75f, 1e-5f);
 }
@@ -411,10 +386,7 @@ inline void test_lerp_midpoint() {
 // OrientationTrail
 // ----------------------------------------------------------------------------
 // Index 0 is the OLDEST snapshot, length()-1 the newest (matching the JS
-// simulator's trail ordering):
-// OrientationTrail::record() calls snapshots.push_back(), and
-// StaticCircularBuffer::operator[](0) returns buffer[head] — the first element
-// still live. This test pins that behavior.
+// simulator's trail ordering).
 // ============================================================================
 
 /**
@@ -434,7 +406,7 @@ inline void test_orientation_trail_index_zero_is_oldest() {
   trail.record(c);
   HS_EXPECT_EQ(trail.length(), static_cast<size_t>(3));
 
-  // Index 0 == first recorded (a, the OLDEST); last index == newest (c).
+  // Index 0 == oldest (a); last index == newest (c).
   HS_EXPECT_NEAR(std::abs(dot(trail.get(0).get(), a.get())), 1.0f, 1e-4f);
   HS_EXPECT_NEAR(std::abs(dot(trail.get(2).get(), c.get())), 1.0f, 1e-4f);
 }
@@ -452,7 +424,6 @@ inline void test_orientation_trail_expire_drops_oldest() {
   trail.record(b);
   trail.expire(); // removes the oldest (a)
   HS_EXPECT_EQ(trail.length(), static_cast<size_t>(1));
-  // The survivor is b, now at index 0.
   HS_EXPECT_NEAR(std::abs(dot(trail.get(0).get(), b.get())), 1.0f, 1e-4f);
 }
 
@@ -506,10 +477,8 @@ inline void test_easing_output_finite_over_range() {
                     ease_out_sin,        ease_in_cubic,   ease_in_circ,
                     ease_linear,            ease_out_expo,   ease_out_circ,
                     ease_out_cubic,      ease_out_elastic};
-  // Sample the documented domain [0,1] exactly. NOTE: float accumulation can
-  // drift just past 1.0, and ease_out_circ/ease_in_circ are sqrt(1-(...)^2)
-  // forms that go NaN for t>1 (out of their defined domain), so we step with
-  // an integer index instead of accumulating a float.
+  // Step with an integer index: a float accumulator can drift past 1.0, where
+  // the circ easings (sqrt(1-(...)^2)) go NaN.
   for (EasingFn fn : fns) {
     for (int i = 0; i <= 20; ++i) {
       float t = static_cast<float>(i) / 20.0f;
@@ -532,22 +501,16 @@ inline void test_easing_elastic_anchors() {
 // ============================================================================
 // Borrow-contract guards (compile-time)
 // ----------------------------------------------------------------------------
-// Motion and MeshMorph store a non-owning borrow (Fn capturing &path_obj /
-// StoredFunctionRef) of effect-owned state that must outlive the Timeline.
-// Binding to a temporary is a compile error instead of a silent dangle: Motion
-// via a `= delete` rvalue ctor overload, MeshMorph via its StoredFunctionRef
-// draw-callback parameter type (which itself rejects rvalues). These
-// static_asserts lock that contract: an effect-owned lvalue must be accepted, a
-// temporary must be rejected. They live at namespace scope (checked at compile
-// time; no runner call needed). If a refactor turns the guard into a no-op,
-// this fails to compile.
+// Motion/MeshMorph/Lerp/MobiusFlow store non-owning borrows of effect-owned
+// state. These static_asserts lock the contract: an effect-owned lvalue is
+// accepted, a temporary (which would dangle) is rejected.
+// ============================================================================
 namespace borrow_guard {
 /** @brief Orientation alias used by the borrow-contract static_asserts. */
 using Ori = Orientation<16>;
 /** @brief Mesh draw-callable alias used by the MeshMorph borrow asserts. */
 using DrawFn = Fn<void(Canvas &, const MeshState &, float), 8>;
 
-// Motion: effect-owned lvalue path OK; temporary path rejected.
 static_assert(std::is_constructible_v<Animation::Motion<288, 16>, Ori &,
                                       ProceduralPath &, int>,
               "Motion must accept an lvalue (effect-owned) path");
@@ -555,8 +518,6 @@ static_assert(!std::is_constructible_v<Animation::Motion<288, 16>, Ori &,
                                        ProceduralPath &&, int>,
               "Motion must REJECT a temporary path (would dangle)");
 
-// MeshMorph: effect-owned lvalue callables OK; a temporary in EITHER slot
-// rejected.
 static_assert(std::is_constructible_v<Animation::MeshMorph, const MeshState &,
                                       const MeshState &, Arena &, DrawFn &,
                                       DrawFn &, int>,
@@ -570,10 +531,6 @@ static_assert(!std::is_constructible_v<Animation::MeshMorph, const MeshState &,
                                        DrawFn &&, int>,
               "MeshMorph must REJECT a temporary in either callable slot");
 
-// Lerp stores raw pointers to subject/start/target and dereferences them every
-// frame; start/target are `const T&` and so could bind a temporary. The
-// deleted rvalue overloads must make an lvalue start+target OK and a temporary
-// in either slot a compile error.
 /**
  * @brief Minimal lerp subject used to probe Lerp's deleted rvalue overloads.
  */
@@ -602,11 +559,6 @@ static_assert(!std::is_constructible_v<Animation::Lerp, Lerpable &,
                                        EasingFn>,
               "Lerp must REJECT a temporary target (would dangle)");
 
-// MobiusFlow stores num_rings/num_lines as reference_wrappers and re-reads them
-// every frame (live-tracking); they are `const float&` and so could bind a
-// temporary. The deleted rvalue overloads must make lvalue scalars OK and a
-// temporary in either slot a compile error. `params` is a non-const ref and
-// already rejects temporaries on its own.
 static_assert(std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
                                       const float &, const float &, int>,
               "MobiusFlow must accept lvalue (effect-owned) scalars");
@@ -633,13 +585,11 @@ inline void test_rotation_substeps_shared_and_tight() {
   // Always at least 1, even for a sub-threshold angle.
   HS_EXPECT_EQ(Animation::rotation_substeps(0.0f, MAX), 1);
   HS_EXPECT_EQ(Animation::rotation_substeps(MAX * 0.5f, MAX), 1);
-  // Tight ceil: N*MAX needs exactly N subdivisions (no extra +1).
+  // Tight ceil: N*MAX needs exactly N subdivisions.
   HS_EXPECT_EQ(Animation::rotation_substeps(MAX, MAX), 1);
   HS_EXPECT_EQ(Animation::rotation_substeps(MAX * 3.0f, MAX), 3);
-  // A fractional overshoot rounds up.
   HS_EXPECT_EQ(Animation::rotation_substeps(MAX * 3.2f, MAX), 4);
-  // Each of the (substeps) sub-intervals stays within MAX (the invariant the
-  // trail sizing must guarantee).
+  // Every sub-interval stays within MAX.
   for (float a = 0.0f; a < 2.0f; a += 0.013f) {
     int n = Animation::rotation_substeps(a, MAX);
     HS_EXPECT_GE(n, 1);
@@ -658,12 +608,11 @@ inline void test_rotation_accumulates_subthreshold_deltas() {
   using Ori = Orientation<16>;
   Ori o; // identity
   // 0.05 rad over 1000 frames => 5e-5 rad/frame, half of TOLERANCE, so every
-  // single frame's raw delta is below the early-out threshold.
+  // frame's raw delta is below the early-out threshold.
   Animation::Rotation<288, 16> rot(o, Z_AXIS, 0.05f, 1000, ease_linear);
   for (int i = 0; i < 20; ++i)
     rot.step(fake_canvas());
-  // After 20 frames the accumulated sweep is ~1e-3 rad; a Z rotation sends +X
-  // toward +Y.
+  // A Z rotation sends +X toward +Y.
   Vector v = o.orient(X_AXIS, o.length() - 1);
   HS_EXPECT_GT(v.y, 5e-4f);
   HS_EXPECT_NEAR(v.x, 1.0f, 1e-3f);
@@ -685,19 +634,17 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
 
   Ori o; // identity, single frame
   Timeline tl;
-  // Two world-space rotations about the SAME axis, each a quarter turn,
-  // completing in one frame so the single step sweeps the full angle.
+  // Two quarter-turn rotations about the same axis, each completing in one frame.
   tl.add(0, Animation::Rotation<288, 16>(o, Z_AXIS, PI_F / 2, 1, ease_linear));
   tl.add(0, Animation::Rotation<288, 16>(o, Z_AXIS, PI_F / 2, 1, ease_linear));
   tl.step(fake_canvas());
 
-  // A motion-blur trail, not a single collapsed frame.
   HS_EXPECT_GE(o.length(), 2);
   // Oldest sub-frame is the pre-frame orientation (identity): +X stays +X.
   Vector oldest = o.orient(X_AXIS, 0);
   HS_EXPECT_NEAR(oldest.x, 1.0f, 1e-3f);
   HS_EXPECT_NEAR(oldest.y, 0.0f, 1e-3f);
-  // Newest sub-frame reflects BOTH rotations (a half turn): +X -> -X.
+  // Newest reflects both rotations (a half turn): +X -> -X.
   Vector newest = o.orient(X_AXIS, o.length() - 1);
   HS_EXPECT_NEAR(newest.x, -1.0f, 1e-3f);
 
@@ -713,27 +660,27 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
  * live-guard balances, and Transition::step never dereferences the canvas.
  */
 inline void test_timeline_sequences_events_by_start_frame() {
-  Timeline tl; // ctor clears the global cursors; dtor releases the live guard
+  Timeline tl;
   float a = 0.0f, b = 0.0f;
   tl.add(0, Animation::Transition(a, 10.0f, 2, ease_linear)); // starts now
   tl.add(3, Animation::Transition(b, 20.0f, 2, ease_linear)); // delayed 3 frames
 
-  tl.step(fake_canvas()); // t=1: a ramps, b dormant
+  tl.step(fake_canvas()); // t=1
   HS_EXPECT_GT(a, 0.0f);
   HS_EXPECT_NEAR(b, 0.0f, 1e-6f);
 
-  tl.step(fake_canvas()); // t=2: a completes (reaches target) and is removed
+  tl.step(fake_canvas()); // t=2: a completes and is removed
   HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
   HS_EXPECT_NEAR(b, 0.0f, 1e-6f); // still dormant (start=3)
-  HS_EXPECT_EQ(global_timeline_num_events, 1); // only b remains scheduled
+  HS_EXPECT_EQ(global_timeline_num_events, 1);
 
-  tl.step(fake_canvas()); // t=3: b finally starts ramping
+  tl.step(fake_canvas()); // t=3: b starts
   HS_EXPECT_GT(b, 0.0f);
   HS_EXPECT_LT(b, 20.0f);
 
   tl.step(fake_canvas()); // t=4: b completes
   HS_EXPECT_NEAR(b, 20.0f, 1e-3f);
-  HS_EXPECT_EQ(global_timeline_num_events, 0); // both done and removed
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
 }
 
 /**
@@ -753,10 +700,9 @@ inline void test_timeline_repeating_animation_rewinds_each_cycle() {
   HS_EXPECT_NEAR(v, 0.5f, 1e-3f);
   tl.step(fake_canvas()); // t=2 -> v = eased(1.0) = 1.0, done -> rewind
   HS_EXPECT_NEAR(v, 1.0f, 1e-3f);
-  tl.step(fake_canvas()); // rewound: t=1 again -> v = 0.5 (proves the rewind)
+  tl.step(fake_canvas()); // rewound to t=1 -> v = 0.5
   HS_EXPECT_NEAR(v, 0.5f, 1e-3f);
 
-  // Repeating events are never removed.
   HS_EXPECT_EQ(global_timeline_num_events, 1);
 }
 
@@ -781,10 +727,7 @@ inline void test_timeline_cancel_removes_repeating_animation() {
   tl.step(fake_canvas()); // canceled: done() && !repeats() -> removed
   HS_EXPECT_EQ(global_timeline_num_events, 0);
 
-  // Behavior, not just the count: a removed event is gone, not a replaying
-  // zombie still firing its callback. Were it still rewinding each cycle, v
-  // would keep oscillating (0.5, 1.0, 0.5, ...); after removal it must stay
-  // frozen at its last value across many further frames.
+  // A removed event stops stepping: v stays frozen instead of oscillating.
   const float v_frozen = v;
   for (int i = 0; i < 6; ++i)
     tl.step(fake_canvas());
@@ -810,15 +753,15 @@ inline void test_timeline_compaction_preserves_later_events() {
   HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
   HS_EXPECT_GT(b, 0.0f);
   HS_EXPECT_GT(c, 0.0f);
-  HS_EXPECT_EQ(global_timeline_num_events, 2); // a gone; b,c compacted to 0,1
+  HS_EXPECT_EQ(global_timeline_num_events, 2);
   float b_after1 = b, c_after1 = c;
 
   for (int i = 0; i < 4; ++i)
     tl.step(fake_canvas()); // t=2..5: finish the relocated survivors
-  HS_EXPECT_GT(b, b_after1);            // kept advancing post-relocation
+  HS_EXPECT_GT(b, b_after1);
   HS_EXPECT_GT(c, c_after1);
   HS_EXPECT_NEAR(b, 100.0f, 1e-2f);
-  HS_EXPECT_NEAR(c, 200.0f, 1e-2f);     // last event survived relocation intact
+  HS_EXPECT_NEAR(c, 200.0f, 1e-2f);
   HS_EXPECT_EQ(global_timeline_num_events, 0);
 }
 
@@ -840,7 +783,7 @@ inline void test_timeline_then_chains_follow_up_event() {
   tl.step(fake_canvas()); // t=1: a completes -> callback adds b (gap-filled in)
   HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
   HS_EXPECT_NEAR(b, 0.0f, 1e-6f);              // b added this frame, not yet run
-  HS_EXPECT_EQ(global_timeline_num_events, 1); // a removed, b now scheduled
+  HS_EXPECT_EQ(global_timeline_num_events, 1);
 
   tl.step(fake_canvas()); // t=2: the chained event runs and completes
   HS_EXPECT_NEAR(b, 20.0f, 1e-3f);
@@ -863,7 +806,7 @@ inline void test_repeating_timer_fires_then_each_cycle() {
   for (int i = 0; i < 9; ++i)
     tl.step(fake_canvas()); // triggers at t=3,6,9
   HS_EXPECT_EQ(triggers, 3);
-  HS_EXPECT_EQ(thens, 3); // the .then() hook fires once per trigger
+  HS_EXPECT_EQ(thens, 3);
 }
 
 /**
@@ -884,7 +827,7 @@ inline void test_timeline_clear_resets_state() {
   HS_EXPECT_EQ(global_timeline_num_events, 0);
   HS_EXPECT_EQ(global_timeline_t, 0); // cursor rewound
 
-  // Reusable: a fresh one-frame event schedules from t=0 and completes.
+  // Reusable after clear().
   float b = 0.0f;
   tl.add(0, Animation::Transition(b, 5.0f, 1, ease_linear));
   tl.step(fake_canvas());
@@ -899,21 +842,19 @@ inline void test_timeline_clear_resets_state() {
 inline void test_timeline_full_guard_rejects_overflow() {
   Timeline tl;
   float sink = 0.0f;
-  // Fill to capacity; the capacity events share one float (their values are not
-  // under test).
+  // Fill to capacity (these events share one float).
   for (int i = 0; i < Timeline::MAX_EVENTS; ++i)
     tl.add(0, Animation::Transition(sink, 1.0f, 10, ease_linear));
   HS_EXPECT_EQ(global_timeline_num_events, Timeline::MAX_EVENTS);
 
-  // The overflow event gets its OWN target so we can prove it was truly rejected,
-  // not silently queued: if it had been accepted, stepping would advance it.
+  // The overflow event has its own target so a silent enqueue would show up.
   float rejected = 0.0f;
   tl.add(0, Animation::Transition(rejected, 42.0f, 10, ease_linear)); // past full
   HS_EXPECT_EQ(global_timeline_num_events,
-               Timeline::MAX_EVENTS); // rejected, count unchanged
+               Timeline::MAX_EVENTS);
 
   tl.step(fake_canvas());
-  HS_EXPECT_NEAR(rejected, 0.0f, 1e-6f); // never ran -> absent, not queued
+  HS_EXPECT_NEAR(rejected, 0.0f, 1e-6f); // never ran
 }
 
 /**
@@ -938,7 +879,7 @@ inline void test_orientation_upsample_then_collapse() {
   Vector f4 = o.orient(X_AXIS, 4);
   HS_EXPECT_NEAR(f4.y, 1.0f, 1e-3f);
 
-  // SLERP is monotone: the +X component decreases across the interpolated frames.
+  // SLERP is monotone: +X decreases across the interpolated frames.
   float prevx = 2.0f;
   for (int i = 0; i < 5; ++i) {
     float x = o.orient(X_AXIS, i).x;
@@ -946,7 +887,6 @@ inline void test_orientation_upsample_then_collapse() {
     prevx = x;
   }
 
-  // collapse() keeps only the newest sub-frame (the +90 rotation survives).
   o.collapse();
   HS_EXPECT_EQ(o.length(), 1);
   Vector c = o.orient(X_AXIS, 0);
@@ -973,8 +913,8 @@ inline void test_motion_repeating_does_not_drift() {
 
   constexpr int duration = 40;
   ProceduralPath path;
-  // A representative Comets Lissajous figure; lissajous(.,.,.,0) == +Y, so the
-  // identity-start orientation places the head exactly on the path at phase 0.
+  // lissajous(.,.,.,0) == +Y, so the identity-start orientation places the head
+  // on the path at phase 0.
   path.f = [](float t) { return lissajous(1.06f, 1.06f, 0.0f, t * 5.909f); };
 
   Ori o; // identity, single frame; orient(+Y) starts on the path
@@ -983,26 +923,18 @@ inline void test_motion_repeating_does_not_drift() {
   Timeline tl;
   tl.add(0, Animation::Motion<288, 16>(o, path, duration, /*repeat=*/true));
 
-  // Sample EVERY within-cycle phase (not just three): a slow monotone drift can
-  // hide between coarse probes, so the late cycle's head is captured at every
-  // frame and its full set of rotation-invariant internal angles is checked.
   Vector late_heads[duration + 1]; // indexed by phase 1..duration
-  const int cycles = 600; // ~24k frames; bug reaches multi-radian warp well before
+  const int cycles = 600;
   for (int c = 0; c < cycles; ++c) {
     for (int fr = 1; fr <= duration; ++fr) {
       tl.step(fake_canvas());
-      // Only the final cycle is compared to the ideal; drift, if any, has fully
-      // accumulated by then. Sample by position in this inner loop.
       if (c == cycles - 1) late_heads[fr] = o.orient(node_v);
     }
   }
 
-  // Anchor at phase 1; every other phase's internal angle to the anchor must
-  // still match the ideal Lissajous internal angle within the first-cycle
-  // discretization residual (< 0.1 rad). A rigid precession leaves these
-  // rotation-invariant angles untouched, so any growth is genuine warp.
-  // Sweep interior phases (1..duration-1), as the original probe did, so the
-  // exact cycle-boundary frame (phase 1.0, which rewinds to phase 0) is excluded.
+  // Each phase's internal angle to the phase-1 anchor must match the ideal
+  // Lissajous internal angle; a rigid precession leaves these untouched, so any
+  // growth is genuine warp. Interior phases only (the boundary frame rewinds).
   const int anchor = 1;
   const Vector ideal_anchor = path.f((float)anchor / duration);
   for (int fr = 2; fr < duration; ++fr) {
@@ -1035,8 +967,8 @@ inline void test_motion_codriven_survives_repeat_seam() {
 
   const int duration = 30;
   ProceduralPath path;
-  // A closed great circle: path(0) == path(1) with a matching tangent, so
-  // Motion's path frame is periodic and its per-cycle delta product is identity.
+  // A closed great circle: path(0) == path(1) with matching tangent, so Motion's
+  // per-cycle delta product is identity.
   path.f = [](float t) {
     float a = 2.0f * PI_F * t;
     return Vector(std::cos(a), std::sin(a), 0.0f);
@@ -1065,12 +997,9 @@ inline void test_motion_codriven_survives_repeat_seam() {
     }
   }
 
-  // No single frame — seams included — snaps the orientation: the co-driver was
-  // preserved, not clobbered. The bound clears the largest legitimate one-frame
-  // step (Motion ~2pi/duration plus the co-driver's share) yet sits far below
-  // the multi-radian snap the old absolute reset produced.
+  // No single frame (seams included) snaps the orientation; 0.8 clears the
+  // largest legitimate one-frame step but is far below a multi-radian snap.
   HS_EXPECT_LT(max_step, 0.8f);
-  // Non-vacuous: the co-driver actually moved the probe a long way over 8 cycles.
   HS_EXPECT_GT(total_travel, 5.0f);
 
   global_timeline_num_events = 0;
@@ -1080,10 +1009,8 @@ inline void test_motion_codriven_survives_repeat_seam() {
 // ============================================================================
 // ParticleSystem
 // ----------------------------------------------------------------------------
-// step() only advances the base frame counter and runs emitter/physics updates;
-// it never dereferences the canvas, so fake_canvas() suffices. These cover the
-// three pool-state transitions the system exists to manage: spawn (+ capacity
-// guard), life-expiry with trail drain, and attractor kill-radius removal.
+// Covers the pool-state transitions: spawn (+ capacity guard), life-expiry with
+// trail drain, and attractor kill-radius removal.
 // ============================================================================
 
 /**
@@ -1101,8 +1028,6 @@ inline void test_particle_system_spawn_and_capacity_guard() {
   ps.spawn(Vector(0, 1, 0), Vector(0, 0, 0), 1);
   HS_EXPECT_EQ(static_cast<int>(ps.active_count), 2);
 
-  // Fill to capacity and then one past — the extra spawn is silently dropped,
-  // never overrunning the fixed pool.
   ps.spawn(Vector(0, 0, 1), Vector(0, 0, 0), 2);
   ps.spawn(Vector(-1, 0, 0), Vector(0, 0, 0), 3);
   HS_EXPECT_EQ(static_cast<int>(ps.active_count), 4);
@@ -1118,16 +1043,16 @@ inline void test_particle_system_expires_after_life_and_trail_drain() {
   static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 4> ps;
-  // gravity 0 + zero velocity => the particle never moves; the only thing that
-  // ends it is life reaching 0 and its recorded trail draining to empty.
+  // gravity 0 + zero velocity => the particle never moves; only life reaching 0
+  // and its trail draining to empty ends it.
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/3.0f);
   ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
 
   ps.step(fake_canvas());
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1); // still alive
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
 
-  // life (3) plus the trail length (default 8) plus slack is a hard upper bound
-  // on how long a dead particle lingers while its history expires one per frame.
+  // life (3) + trail length (default 8) + slack bounds how long a dead particle
+  // lingers while its history drains one per frame.
   for (int i = 0; i < 3 + 8 + 4; ++i)
     ps.step(fake_canvas());
   HS_EXPECT_EQ(static_cast<int>(ps.active_count), 0);
@@ -1143,8 +1068,8 @@ inline void test_particle_system_attractor_kills_within_radius() {
   Animation::ParticleSystem<32, 4> ps;
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.001f, /*max_life=*/600.0f);
   ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
-  // Attractor co-located with the particle: distance 0 < kill_radius, so the
-  // particle is removed by the kill check — not by life expiry (life is 600).
+  // Attractor co-located (distance 0 < kill_radius): removed by the kill check,
+  // not life expiry (life is 600).
   ps.add_attractor(Vector(1, 0, 0), /*strength=*/1.0f, /*kill_radius=*/0.5f,
                    /*event_horizon=*/2.0f);
   HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
@@ -1168,8 +1093,7 @@ inline void test_particle_system_spawn_initializes_and_steps() {
   static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 4> ps;
-  // gravity 0 and no attractor → the only state change is the step's own
-  // bookkeeping (life--, trail record), so the assertions below are exact.
+  // gravity 0 and no attractor: the only state change is the step's bookkeeping.
   ps.init(arena, /*friction=*/0.85f, /*gravity=*/0.0f, /*max_life=*/120.0f);
 
   const Vector pos(0.6f, 0.0f, 0.8f);
@@ -1186,12 +1110,12 @@ inline void test_particle_system_spawn_initializes_and_steps() {
   HS_EXPECT_NEAR(p.velocity.z, vel.z, 0.0f);
   HS_EXPECT_EQ(static_cast<int>(p.color_seed), 42);
   HS_EXPECT_EQ(static_cast<int>(p.life), 120);       // == system max_life
-  HS_EXPECT_EQ(static_cast<int>(p.history_length()), 0); // trail freshly cleared
+  HS_EXPECT_EQ(static_cast<int>(p.history_length()), 0);
 
   ps.step(fake_canvas());
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);          // still alive
+  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
   HS_EXPECT_EQ(static_cast<int>(ps.pool[0].life), 119);        // life-- per step
-  HS_EXPECT_GT(static_cast<int>(ps.pool[0].history_length()), 0); // trail recorded
+  HS_EXPECT_GT(static_cast<int>(ps.pool[0].history_length()), 0);
 }
 
 /**
@@ -1221,17 +1145,15 @@ inline void test_particle_system_attractor_kill_radius_boundary() {
   };
 
   HS_EXPECT_FALSE(survives(kr - 0.01f)); // inside the radius → killed
-  HS_EXPECT_TRUE(survives(kr));          // exactly at the radius → survives (<)
-  HS_EXPECT_TRUE(survives(kr + 0.01f));  // outside the radius → survives
+  HS_EXPECT_TRUE(survives(kr));          // exactly at the radius → survives (strict <)
+  HS_EXPECT_TRUE(survives(kr + 0.01f));
 }
 
 // ============================================================================
 // Sprite (opacity envelope + paused-hold)
 // ----------------------------------------------------------------------------
-// Sprite::step never touches the canvas itself — it computes an opacity and
-// forwards it to the user draw_fn. We capture that opacity to assert the
-// fade-in/plateau/fade-out envelope and the paused-hold contract (no timer
-// advance, no expiry, still drawing).
+// Sprite::step computes an opacity and forwards it to the user draw_fn; the
+// captured opacity drives the envelope and paused-hold assertions.
 // ============================================================================
 
 /**
@@ -1248,13 +1170,13 @@ inline void test_sprite_fade_in_plateau_fade_out_envelope() {
     s.step(fake_canvas()); // observed at t = 1..10
 
   HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
-  // Fade-in: first sample is partial and rising (linear ease => t/fade_in).
-  HS_EXPECT_NEAR(ops[0], 1.0f / 3.0f, 1e-3f); // t=1
-  HS_EXPECT_GT(ops[1], ops[0]);               // t=2 brighter
-  // Plateau: fully opaque once past fade-in and before fade-out (t=3..7).
+  // Fade-in (linear): t=1 -> 1/3, then rising.
+  HS_EXPECT_NEAR(ops[0], 1.0f / 3.0f, 1e-3f);
+  HS_EXPECT_GT(ops[1], ops[0]);
+  // Plateau: fully opaque between fade-in and fade-out.
   HS_EXPECT_NEAR(ops[3], 1.0f, 1e-3f);
   HS_EXPECT_NEAR(ops[5], 1.0f, 1e-3f);
-  // Fade-out: descends to fully transparent on the final frame (t=10).
+  // Fade-out: transparent on the final frame.
   HS_EXPECT_LT(ops[8], ops[5]);
   HS_EXPECT_NEAR(ops[9], 0.0f, 1e-3f);
   HS_EXPECT_TRUE(s.done());
@@ -1276,13 +1198,12 @@ inline void test_sprite_overlapping_fades_stay_continuous() {
     s.step(fake_canvas()); // observed at t = 1..10
 
   HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
-  // Linear ramps of slope 1/8 per frame, so no single-frame opacity step may
-  // exceed ~0.125.
+  // Slope 1/8 per frame, so no single-frame step exceeds ~0.125.
   float max_jump = 0.0f;
   for (size_t i = 1; i < ops.size(); ++i)
     max_jump = std::max(max_jump, std::abs(ops[i] - ops[i - 1]));
   HS_EXPECT_LT(max_jump, 0.2f);
-  // Sanity: it still rises to a peak then falls (a triangle), not flat zero.
+  // Rises to a peak then falls (a triangle).
   HS_EXPECT_GT(ops[4], ops[0]);
   HS_EXPECT_GT(ops[4], ops[9]);
 }
@@ -1296,7 +1217,7 @@ inline void test_sprite_paused_holds_frame() {
   bool paused = true;
   int draws = 0;
   float last_op = -1.0f;
-  // No fade in/out => held opacity is full; duration 3 would normally expire.
+  // No fade in/out => held opacity is full.
   Animation::Sprite s(
       [&](Canvas &, float o) { draws++; last_op = o; }, /*duration=*/3,
       /*fade_in=*/0, ease_linear, /*fade_out=*/0, ease_linear, &paused);
@@ -1305,9 +1226,8 @@ inline void test_sprite_paused_holds_frame() {
     s.step(fake_canvas());
   HS_EXPECT_FALSE(s.done());          // timer never advanced while paused
   HS_EXPECT_EQ(draws, 10);            // but it kept drawing every frame
-  HS_EXPECT_NEAR(last_op, 1.0f, 1e-6f); // at its held (full) opacity
+  HS_EXPECT_NEAR(last_op, 1.0f, 1e-6f);
 
-  // Unpausing lets the timer advance and the sprite finally completes.
   paused = false;
   for (int i = 0; i < 3; ++i)
     s.step(fake_canvas());
@@ -1317,11 +1237,10 @@ inline void test_sprite_paused_holds_frame() {
 // ============================================================================
 // deep_tween (global_t span)
 // ----------------------------------------------------------------------------
-// deep_tween walks an OrientationTrail's frames and, within each frame, its
-// sub-frames, emitting a global parameter t in [0,1] across the whole trail. It
-// skips sub-frame 0 of every frame after the first (the shared boundary), so the
-// emitted count is M + (N-1)*(M-1) for N frames of M sub-frames. We assert the
-// span endpoints, monotonicity, and that exact count.
+// deep_tween walks an OrientationTrail's frames and sub-frames, emitting a
+// global t in [0,1] across the trail. It skips sub-frame 0 of every frame after
+// the first (the shared boundary), so the emitted count is M + (N-1)*(M-1) for
+// N frames of M sub-frames.
 // ============================================================================
 
 /**
@@ -1336,9 +1255,9 @@ inline void test_deep_tween_global_t_spans_unit_interval() {
   Animation::OrientationTrail<Ori, 8> trail;
   const int N = 3, M = 3;
   for (int k = 0; k < N; ++k) {
-    Ori o;                                       // identity, length 1
-    o.push(make_rotation(Z_AXIS, 0.3f * (k + 1))); // length 2
-    o.upsample(M);                               // length M sub-frames
+    Ori o;
+    o.push(make_rotation(Z_AXIS, 0.3f * (k + 1)));
+    o.upsample(M);
     trail.record(o);
   }
 
@@ -1346,13 +1265,11 @@ inline void test_deep_tween_global_t_spans_unit_interval() {
   deep_tween(trail,
              [&](const Quaternion &, float gt) { gts.push_back(gt); });
 
-  // M for the first frame + (M-1) for each subsequent frame (sub-frame 0 of
-  // frames 1..N-1 is the skipped shared boundary).
   HS_EXPECT_EQ(gts.size(), static_cast<size_t>(M + (N - 1) * (M - 1)));
   HS_EXPECT_NEAR(gts.front(), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
   for (size_t i = 1; i < gts.size(); ++i)
-    HS_EXPECT_GE(gts[i], gts[i - 1] - 1e-6f); // non-decreasing across the trail
+    HS_EXPECT_GE(gts[i], gts[i - 1] - 1e-6f);
 }
 
 /**
@@ -1371,7 +1288,7 @@ inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
     o.upsample(3);
     trail.record(o);
   }
-  Ori still; // identity, length 1 — no motion this frame
+  Ori still; // length 1 — no motion this frame
   trail.record(still);
 
   std::vector<float> gts;
@@ -1395,7 +1312,7 @@ inline void test_deep_tween_all_collapsed_reaches_one() {
   using Ori = Orientation<8>;
   Animation::OrientationTrail<Ori, 8> trail;
   for (int k = 0; k < 3; ++k) {
-    Ori still; // identity, length 1 — no motion any frame
+    Ori still; // length 1 — no motion any frame
     trail.record(still);
   }
 
@@ -1436,11 +1353,8 @@ inline void test_tween_vectortrail_single_sample_reaches_one() {
 // ----------------------------------------------------------------------------
 // MeshMorph maps each destination vertex to its nearest source vertex, SLERPs
 // between them by an eased alpha, and crossfades the two shaded meshes with
-// op_A = 1 - alpha. Using an octahedron as BOTH source and dest makes the
-// nearest-vertex map the identity (vertices are 90 deg apart, the symmetry-twist
-// is tiny), so the SLERP output must equal the destination at every alpha — a
-// decisive check on both the correspondence and the interpolation. We also
-// capture the two render opacities to assert the op_A + alpha == 1 crossfade.
+// op_A = 1 - alpha. Morphing an octahedron onto itself makes the nearest-vertex
+// map the identity, so the SLERP output equals the destination at every alpha.
 // ============================================================================
 
 /**
@@ -1487,8 +1401,7 @@ inline void test_meshmorph_identity_self_map_and_crossfade() {
   float opA = -1.0f, alpha = -1.0f;
   bool mesh_b_tracks_dest = true;
 
-  // Effect-owned lvalue callables (MeshMorph stores non-owning FunctionRefs and
-  // rejects temporaries — see the borrow_guard static_asserts above).
+  // Effect-owned lvalue callables (MeshMorph stores non-owning FunctionRefs).
   auto draw_out = [&](Canvas &, const MeshState &, float op) { opA = op; };
   auto draw_in = [&](Canvas &, const MeshState &mb, float a) {
     alpha = a;
@@ -1516,8 +1429,8 @@ inline void test_meshmorph_identity_self_map_and_crossfade() {
     }
   }
 
-  HS_EXPECT_TRUE(saw_both_layers);  // the crossfade was actually exercised
-  HS_EXPECT_TRUE(mesh_b_tracks_dest); // identity correspondence + SLERP identity
+  HS_EXPECT_TRUE(saw_both_layers);
+  HS_EXPECT_TRUE(mesh_b_tracks_dest);
   HS_EXPECT_NEAR(alpha, 1.0f, 1e-3f); // fully faded to the incoming mesh
   HS_EXPECT_TRUE(morph.done());
 }
@@ -1531,11 +1444,7 @@ inline int run_animation_tests() {
 
   hs::random().seed(1337); // OrientationTrail/animations may touch global RNG
 
-  // Module-scoped fake-canvas fixture (see "Stand-in Canvas reference" above):
-  // one Effect + Canvas for the whole module, published via fake_canvas_ptr().
-  // Destroying it on return releases the single-live-Effect guard so a following
-  // module in an all-modules run starts clean, while preserving the single-Canvas
-  // (no second queue_frame) coupling within this module.
+  // Module-scoped fake-canvas fixture (see "Stand-in Canvas reference" above).
   FakeEffect fake_fx;
   Canvas fake_cv(fake_fx);
   fake_canvas_ptr() = &fake_cv;
@@ -1601,8 +1510,7 @@ inline int run_animation_tests() {
   test_meshmorph_identity_self_map_and_crossfade();
 
   const int result = hs_test::end_module(scope);
-  // Unpublish before fake_cv/fake_fx destruct below so the dangling pointer is
-  // never observable; the FakeEffect dtor then clears the single-live guard.
+  // Unpublish before fake_cv/fake_fx destruct below.
   fake_canvas_ptr() = nullptr;
   return result;
 }

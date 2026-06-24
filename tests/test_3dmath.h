@@ -101,9 +101,6 @@ inline void test_quintic_kernel() {
   HS_EXPECT_NEAR(quintic_kernel(-1.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(quintic_kernel(2.0f), 1.0f, 1e-6f);
 
-  // Strict (zero-tolerance) monotonicity is safe: the smallest analytic per-step
-  // increment over 200 samples (~1.25e-6 at the flat endpoint) dwarfs the float
-  // evaluation noise (~1e-13), so a true dip would still be caught.
   float prev = -1.0f;
   for (int i = 0; i <= 200; ++i) {
     float v = quintic_kernel(i / 200.0f);
@@ -128,8 +125,6 @@ inline void test_quintic_kernel() {
  *        sweep against std::atan2.
  */
 inline void test_fast_atan2() {
-  // Tolerance pinned just above the documented ~3.8e-3 peak so a doubling of the
-  // approximation error fails the test.
   HS_EXPECT_NEAR(fast_atan2(0.0f, 1.0f), 0.0f, 4e-3f);
   HS_EXPECT_NEAR(fast_atan2(1.0f, 0.0f), PI_F * 0.5f, 4e-3f);
   HS_EXPECT_NEAR(fast_atan2(0.0f, -1.0f), PI_F, 4e-3f);
@@ -142,8 +137,7 @@ inline void test_fast_atan2() {
     HS_EXPECT_NEAR(fast_atan2(y, x), std::atan2(y, x), 4e-3f);
   }
 
-  // Worst case: peak error (~3.76e-3) sits near a = -2.5702 rad, between the
-  // sweep's coarse samples.
+  // Peak error (~3.76e-3) near a = -2.5702 rad, between the sweep's samples.
   {
     float a = -2.5702f, y = std::sin(a), x = std::cos(a);
     HS_EXPECT_NEAR(fast_atan2(y, x), std::atan2(y, x), 4e-3f);
@@ -155,8 +149,6 @@ inline void test_fast_atan2() {
  *        across a sweep against std::acos.
  */
 inline void test_fast_acos() {
-  // Tolerance pinned just above the documented ~1.3e-4 peak so a doubling of the
-  // approximation error fails the test.
   HS_EXPECT_NEAR(fast_acos(1.0f), 0.0f, 2e-4f);
   HS_EXPECT_NEAR(fast_acos(-1.0f), PI_F, 2e-4f);
   HS_EXPECT_NEAR(fast_acos(0.0f), PI_F * 0.5f, 2e-4f);
@@ -170,8 +162,7 @@ inline void test_fast_acos() {
     HS_EXPECT_NEAR(fast_acos(x), std::acos(x), 2e-4f);
   }
 
-  // Worst case: peak error (~1.26e-4) sits near x = 0.1226, between the sweep's
-  // coarse samples.
+  // Peak error (~1.26e-4) near x = 0.1226, between the sweep's samples.
   HS_EXPECT_NEAR(fast_acos(0.1226f), std::acos(0.1226f), 2e-4f);
 }
 
@@ -180,7 +171,6 @@ inline void test_fast_acos() {
  *        ~2.3e-5 peak relative error over [0,8] (plus a few values past 8).
  */
 inline void test_fast_cbrt() {
-  // Clamp branch and exact anchors.
   HS_EXPECT_NEAR(fast_cbrt(-1.0f), 0.0f, 1e-7f);
   HS_EXPECT_NEAR(fast_cbrt(0.0f), 0.0f, 1e-7f);
   HS_EXPECT_NEAR(fast_cbrt(1.0f), 1.0f, 2.3e-5f);
@@ -192,8 +182,7 @@ inline void test_fast_cbrt() {
     HS_EXPECT_TRUE(rel <= 2.3e-5f);
   }
 
-  // A few values past the documented domain: the bit-hack + Halley step keeps a
-  // bounded relative error across the exponent range, not just within [0,8].
+  // Values past the documented [0,8] domain stay within the same rel error.
   for (float x : {27.0f, 100.0f, 1000.0f}) {
     float rel = std::abs(fast_cbrt(x) - std::cbrt(x)) / std::cbrt(x);
     HS_EXPECT_TRUE(rel <= 2.3e-5f);
@@ -206,8 +195,6 @@ inline void test_fast_cbrt() {
  * @details The periodicity check exercises range reduction beyond ±2π.
  */
 inline void test_fast_sinf_cosf() {
-  // Tolerance pinned just above the documented ~1.6e-3 peak so a doubling of the
-  // approximation error fails the test.
   HS_EXPECT_NEAR(fast_sinf(0.0f), 0.0f, 1.8e-3f);
   HS_EXPECT_NEAR(fast_sinf(PI_F * 0.5f), 1.0f, 1.8e-3f);
   HS_EXPECT_NEAR(fast_sinf(PI_F), 0.0f, 1.8e-3f);
@@ -217,17 +204,13 @@ inline void test_fast_sinf_cosf() {
   HS_EXPECT_NEAR(fast_cosf(PI_F * 0.5f), 0.0f, 1.8e-3f);
   HS_EXPECT_NEAR(fast_cosf(PI_F), -1.0f, 1.8e-3f);
 
-  // Accuracy sweep against std::sin/std::cos. The cardinal anchors above all
-  // land on exact-zero-error angles, so without this sweep nothing actually
-  // exercised the ~1.6e-3 approximation budget. 256 intervals over [-3pi, 3pi]
-  // catch the peak (~1.63e-3, near a = -9.22) including the range-reduction band.
+  // Sweep peak (~1.63e-3) sits near a = -9.22, in the range-reduction band.
   for (int i = 0; i <= 256; ++i) {
     float a = -3.0f * PI_F + (i * 6.0f * PI_F) / 256.0f;
     HS_EXPECT_NEAR(fast_sinf(a), std::sin(a), 1.8e-3f);
     HS_EXPECT_NEAR(fast_cosf(a), std::cos(a), 1.8e-3f);
   }
 
-  // Pythagorean identity holds approximately.
   for (int i = 0; i < 32; ++i) {
     float a = -3.0f * PI_F + (i * 6.0f * PI_F) / 32.0f;
     float s = fast_sinf(a);
@@ -235,7 +218,6 @@ inline void test_fast_sinf_cosf() {
     HS_EXPECT_NEAR(s * s + c * c, 1.0f, 5e-3f);
   }
 
-  // Range reduction: periodicity over ±2π.
   for (int i = 0; i < 16; ++i) {
     float a = i * 0.3f;
     HS_EXPECT_NEAR(fast_sinf(a + 2.0f * PI_F), fast_sinf(a), 3e-3f);
@@ -289,7 +271,6 @@ inline void test_vector_spherical_construction() {
   // phi=π → -Y (south pole)
   HS_EXPECT_VEC(Vector::from_spherical(0.0f, PI_F), Vector(0, -1, 0), 2e-3f);
 
-  // Spherical-built unit vectors stay unit
   Vector u = Vector::from_spherical(0.8f, 1.1f);
   HS_EXPECT_NEAR(u.length(), 1.0f, 2e-3f);
 }
@@ -305,7 +286,6 @@ inline void test_vector_equality() {
   HS_EXPECT_TRUE(a != c);
   HS_EXPECT_FALSE(a != b);
 
-  // Tolerance behavior: 0.00005 difference equal, 0.001 difference not equal
   HS_EXPECT_TRUE(Vector(1, 0, 0) == Vector(1.00005f, 0, 0));
   HS_EXPECT_FALSE(Vector(1, 0, 0) == Vector(1.001f, 0, 0));
 }
@@ -359,15 +339,13 @@ inline void test_vector_normalize() {
   HS_EXPECT_NEAR(v.length(), 1.0f, 1e-6f);
   HS_EXPECT_VEC(v, Vector(0.6f, 0.0f, 0.8f), 1e-6f);
 
-  // normalized() does not mutate the source
   Vector u(0, 5, 0);
   Vector n = u.normalized();
   HS_EXPECT_VEC(u, Vector(0, 5, 0), 1e-6f);
   HS_EXPECT_VEC(n, Vector(0, 1, 0), 1e-6f);
 
-  // normalized_or() guards the zero-length case (which traps under the strict
-  // normalize()): it returns the supplied fallback, while a non-zero vector
-  // normalizes as usual.
+  // normalized_or() returns the fallback for a zero-length input (which traps
+  // under strict normalize()), else normalizes as usual.
   HS_EXPECT_VEC(normalized_or(Vector(0, 0, 0), Vector(1, 0, 0)), Vector(1, 0, 0),
                 1e-6f);
   HS_EXPECT_VEC(normalized_or(Vector(0, 6, 0), Vector(1, 0, 0)), Vector(0, 1, 0),
@@ -393,7 +371,7 @@ inline void test_dot_cross() {
   HS_EXPECT_VEC(cross(x, y), z, 1e-6f);
   HS_EXPECT_VEC(cross(y, z), x, 1e-6f);
   HS_EXPECT_VEC(cross(z, x), y, 1e-6f);
-  HS_EXPECT_VEC(cross(y, x), -z, 1e-6f); // anticommutative
+  HS_EXPECT_VEC(cross(y, x), -z, 1e-6f);
   HS_EXPECT_VEC(cross(Vector(2, 3, 5), Vector(2, 3, 5)), Vector(0, 0, 0),
                 1e-6f);
   // a × b is perpendicular to both operands.
@@ -424,10 +402,8 @@ inline void test_angle_between_vectors() {
   HS_EXPECT_NEAR(angle_between(x, y), PI_F * 0.5f, 1e-3f);
   HS_EXPECT_NEAR(angle_between(x, x), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(angle_between(x, -x), PI_F, 1e-3f);
-  // Independent of magnitude
+  // Independent of operand magnitude.
   HS_EXPECT_NEAR(angle_between(x * 5.0f, y * 0.3f), PI_F * 0.5f, 1e-3f);
-  // A zero-length operand traps (HS_CHECK), so it is not exercised here; the
-  // guarded path is covered via normalized_or() above.
 }
 
 // ============================================================================
@@ -443,13 +419,11 @@ inline void test_spherical() {
   HS_EXPECT_NEAR(s.theta, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(s.phi, 1.2f, 1e-6f);
 
-  // Roundtrip on a non-pole unit vector
   Vector v_orig(0.6f, 0.0f, 0.8f);
   Spherical s2(v_orig);
   Vector v2(s2);
   HS_EXPECT_VEC(v2, v_orig, 5e-3f);
 
-  // Roundtrip on an off-equator unit vector
   Vector v3 = Vector(1.0f, 1.0f, 1.0f).normalized();
   Spherical s3(v3);
   Vector v3_back(s3);
@@ -530,15 +504,14 @@ inline void test_quaternion_conjugate_inverse() {
   Quaternion conj = q.conjugate();
   HS_EXPECT_QUAT(conj, Quaternion(0.5f, -0.5f, -0.5f, -0.5f), 1e-6f);
 
-  // For unit q, inverse and unit_inverse both equal conjugate
+  // For unit q, inverse and unit_inverse both equal conjugate.
   HS_EXPECT_QUAT(q.inverse(), conj, 1e-6f);
   HS_EXPECT_QUAT(q.unit_inverse(), conj, 1e-6f);
 
-  // q * q.inverse() == identity
   HS_EXPECT_QUAT(q * q.inverse(), Quaternion(1, 0, 0, 0), 1e-6f);
 
-  // Non-unit quaternion: inverse() still gives a multiplicative inverse
-  Quaternion p(2, 0, 0, 0); // |p|² = 4
+  // inverse() inverts a non-unit quaternion too.
+  Quaternion p(2, 0, 0, 0);
   HS_EXPECT_QUAT(p * p.inverse(), Quaternion(1, 0, 0, 0), 1e-6f);
 }
 
@@ -552,9 +525,6 @@ inline void test_quaternion_normalize() {
   HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-6f);
   HS_EXPECT_QUAT(p, Quaternion(1, 0, 0, 0), 1e-6f);
 
-  // A zero-magnitude quaternion traps (HS_CHECK), so it is not exercised here.
-
-  // normalized() does not mutate
   Quaternion u(3, 0, 0, 0);
   Quaternion n = u.normalized();
   HS_EXPECT_NEAR(u.r, 3.0f, 1e-6f);
@@ -570,7 +540,6 @@ inline void test_quaternion_multiplication() {
   Quaternion id;
   Quaternion q(0.5f, 0.5f, 0.5f, 0.5f);
 
-  // Identity laws
   HS_EXPECT_QUAT(id * q, q, 1e-6f);
   HS_EXPECT_QUAT(q * id, q, 1e-6f);
 
@@ -582,14 +551,11 @@ inline void test_quaternion_multiplication() {
   HS_EXPECT_QUAT(k * k, neg_one, 1e-6f);
   HS_EXPECT_QUAT(i * j * k, neg_one, 1e-6f);
 
-  // Cyclic products
   HS_EXPECT_QUAT(i * j, k, 1e-6f);
   HS_EXPECT_QUAT(j * k, i, 1e-6f);
   HS_EXPECT_QUAT(k * i, j, 1e-6f);
-  // Non-commutativity
   HS_EXPECT_QUAT(j * i, -k, 1e-6f);
 
-  // *= consistency
   Quaternion qa(0.5f, 0.5f, 0.5f, 0.5f), qb(qa);
   qa *= qa;
   HS_EXPECT_QUAT(qa, qb * qb, 1e-6f);
@@ -614,7 +580,6 @@ inline void test_quaternion_equality() {
 inline void test_dot_quaternion() {
   Quaternion a(1, 2, 3, 4), b(2, 3, 4, 5);
   HS_EXPECT_NEAR(dot(a, b), 1 * 2 + 2 * 3 + 3 * 4 + 4 * 5, 1e-5f);
-  // Self-dot equals squared magnitude
   HS_EXPECT_NEAR(dot(a, a), a.squared_magnitude(), 1e-5f);
 }
 
@@ -638,12 +603,10 @@ inline void test_angle_between_quaternions() {
  *        result, and correct right-handed rotation of test vectors.
  */
 inline void test_make_rotation_axis_angle() {
-  // Identity (angle = 0): real part = ±1, vector = 0
   Quaternion id = make_rotation(Vector(0, 1, 0), 0.0f);
   HS_EXPECT_NEAR(std::abs(id.r), 1.0f, 5e-3f);
   HS_EXPECT_VEC(id.v, Vector(0, 0, 0), 5e-3f);
 
-  // Resulting quaternion is unit-length
   Quaternion qy90 = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
   HS_EXPECT_NEAR(qy90.magnitude(), 1.0f, 1e-4f);
 
@@ -665,15 +628,13 @@ inline void test_make_rotation_from_to() {
   Quaternion id = make_rotation(Vector(1, 0, 0), Vector(1, 0, 0));
   HS_EXPECT_QUAT(id, Quaternion(1, 0, 0, 0), 1e-4f);
 
-  // Perpendicular: x to y
   Quaternion q = make_rotation(Vector(1, 0, 0), Vector(0, 1, 0));
   HS_EXPECT_VEC(rotate(Vector(1, 0, 0), q), Vector(0, 1, 0), 5e-3f);
 
-  // Antiparallel (degenerate): x to -x  → 180° rotation
+  // Antiparallel (degenerate): x to -x → 180° rotation.
   Quaternion qa = make_rotation(Vector(1, 0, 0), Vector(-1, 0, 0));
   HS_EXPECT_VEC(rotate(Vector(1, 0, 0), qa), Vector(-1, 0, 0), 5e-3f);
 
-  // Generic case: rotation from one direction to another actually achieves it
   Vector from(1, 1, 0);
   from.normalize();
   Vector to(0, 1, 1);
@@ -692,13 +653,11 @@ inline void test_make_rotation_from_to() {
  *        trace<=0 branch (a 180° frame) the Shepperd selection must handle.
  */
 inline void test_quaternion_from_basis() {
-  // Identity frame → identity quaternion.
   Quaternion id =
       quaternion_from_basis(Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1));
   HS_EXPECT_VEC(rotate(Vector(1, 0, 0), id), Vector(1, 0, 0), 1e-5f);
   HS_EXPECT_VEC(rotate(Vector(0, 0, 1), id), Vector(0, 0, 1), 1e-5f);
 
-  // Generic frame: rotate the standard axes by a known quaternion, then recover.
   Quaternion q0 = make_rotation(Vector(0.3f, 0.5f, 0.8f).normalized(), 1.1f);
   Vector cx = rotate(Vector(1, 0, 0), q0);
   Vector cy = rotate(Vector(0, 1, 0), q0);
@@ -709,7 +668,7 @@ inline void test_quaternion_from_basis() {
   HS_EXPECT_VEC(rotate(Vector(0, 0, 1), q), cz, 5e-3f);
   HS_EXPECT_NEAR(q.magnitude(), 1.0f, 1e-3f);
 
-  // trace <= 0 branch: a 180° rotation about Z (diagonal = (-1,-1,1)).
+  // trace <= 0 branch: 180° rotation about Z (diagonal = (-1,-1,1)).
   Quaternion qz = quaternion_from_basis(Vector(-1, 0, 0), Vector(0, -1, 0),
                                         Vector(0, 0, 1));
   HS_EXPECT_VEC(rotate(Vector(1, 0, 0), qz), Vector(-1, 0, 0), 5e-3f);
@@ -721,17 +680,15 @@ inline void test_quaternion_from_basis() {
  *        composition law rotate(rotate(v,q1),q2) == rotate(v, q2*q1).
  */
 inline void test_rotate() {
-  // Identity rotation leaves vectors unchanged
   Vector v(1, 2, 3);
   HS_EXPECT_VEC(rotate(v, Quaternion(1, 0, 0, 0)), v, 1e-6f);
 
-  // Rotation preserves length
   Quaternion q =
       make_rotation(Vector(1, 2, 3).normalized(), 1.234f);
   Vector r = rotate(v, q);
   HS_EXPECT_NEAR(r.length(), v.length(), 1e-3f);
 
-  // Composition: rotate(rotate(v, q1), q2) == rotate(v, q2 * q1)
+  // Composition: rotate(rotate(v, q1), q2) == rotate(v, q2 * q1).
   Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.3f);
   Quaternion q2 = make_rotation(Vector(1, 0, 0), 0.5f);
   Vector via_sequential = rotate(rotate(v, q1), q2);
@@ -759,15 +716,14 @@ inline void test_vector_slerp() {
   HS_EXPECT_NEAR(mid.y, std::sqrt(2.0f) * 0.5f, 5e-3f);
   HS_EXPECT_NEAR(mid.z, 0.0f, 5e-3f);
 
-  // Nearly-identical vectors: falls back to lerp; result still unit-length
+  // Nearly-identical vectors take the lerp fallback; result stays unit-length.
   Vector v1(1, 0, 0);
   Vector v2(0.99999f, 0.00001f, 0.0f);
   Vector lerp_result = slerp(v1, v2, 0.5f);
   HS_EXPECT_NEAR(lerp_result.length(), 1.0f, 1e-3f);
 
-  // Antipodal endpoints: the lerp midpoint would collapse to the zero vector at
-  // t=0.5, so slerp must degrade to a stable unit direction. Endpoints stay
-  // exact; the midpoint stays unit-length.
+  // Antipodal endpoints: the lerp midpoint collapses to zero at t=0.5, so slerp
+  // must degrade to a stable unit direction.
   Vector p(0, 1, 0), ap(0, -1, 0);
   HS_EXPECT_VEC(slerp(p, ap, 0.0f), p, 5e-3f);
   HS_EXPECT_VEC(slerp(p, ap, 1.0f), ap, 5e-3f);
@@ -784,26 +740,23 @@ inline void test_quaternion_slerp() {
   Quaternion id(1, 0, 0, 0);
   Quaternion q = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
 
-  // Endpoint at t=0 returns the starting quaternion
   HS_EXPECT_QUAT(slerp(id, q, 0.0f), id, 5e-3f);
 
-  // Endpoint at t=1 returns q (possibly negated — same rotation).
-  // Test via |dot| since q and -q represent the same orientation.
+  // t=1 may return -q; |dot| == 1 since q and -q are the same orientation.
   Quaternion s1 = slerp(id, q, 1.0f);
   HS_EXPECT_NEAR(std::abs(dot(s1, q)), 1.0f, 5e-3f);
 
-  // Halfway slerp is a unit quaternion
   Quaternion half = slerp(id, q, 0.5f);
   HS_EXPECT_NEAR(half.magnitude(), 1.0f, 1e-3f);
 
-  // Composing half with itself recovers q's rotation (q^0.5 squared = q)
+  // Composing half with itself recovers q (q^0.5 squared = q).
   Vector v(1, 0, 0);
   Vector r_twice = rotate(rotate(v, half), half);
   Vector r_full = rotate(v, q);
   HS_EXPECT_VEC(r_twice, r_full, 1e-2f);
 
-  // long_way variant negates the start, so the long-arc path begins at -q1:
-  // at t=0 it returns -id, and its midpoint differs from the short-arc one.
+  // long_way negates the start: t=0 returns -id, and its midpoint differs from
+  // the short-arc one.
   Quaternion long_start = slerp(id, q, 0.0f, true);
   HS_EXPECT_QUAT(long_start, -id, 5e-3f);
 
@@ -837,14 +790,13 @@ inline void test_stereo_roundtrip() {
     HS_EXPECT_VEC(back, v, 5e-3f);
   }
 
-  // North pole maps to the infinity sentinel (azimuth undefined → +real axis)
+  // North pole maps to the infinity sentinel (azimuth undefined → +real axis).
   Complex zN = stereo(Vector(0, 1, 0));
   HS_EXPECT_NEAR(zN.re, STEREO_INF, 1.0f);
   HS_EXPECT_NEAR(zN.im, 0.0f, 1.0f);
 
   // Inside the pole cap (denom < STEREO_POLE_EPS) the sentinel preserves the
-  // (x,z) azimuth at magnitude STEREO_INF rather than collapsing onto +real, so
-  // a Mobius map can carry the cap's swirl to a finite point.
+  // (x,z) azimuth at magnitude STEREO_INF rather than collapsing onto +real.
   Vector nearPole(0.006f, 0.99998f, 0.0021f); // |xz| small, denom ≈ 2e-5
   Complex zCap = stereo(nearPole.normalized());
   HS_EXPECT_NEAR(std::sqrt(zCap.re * zCap.re + zCap.im * zCap.im), STEREO_INF,
@@ -852,11 +804,11 @@ inline void test_stereo_roundtrip() {
   HS_EXPECT_NEAR(std::atan2(zCap.im, zCap.re),
                  std::atan2(nearPole.z, nearPole.x), 1e-3f);
 
-  // Large complex magnitude maps back to north pole
+  // Large complex magnitude maps back to north pole.
   Vector pole = inv_stereo(Complex(STEREO_INF, 0));
   HS_EXPECT_VEC(pole, Vector(0, 1, 0), 1e-3f);
 
-  // Origin in plane maps to south pole
+  // Plane origin maps to south pole.
   HS_EXPECT_VEC(inv_stereo(Complex(0, 0)), Vector(0, -1, 0), 1e-3f);
 }
 
@@ -876,17 +828,16 @@ inline void test_complex_arithmetic() {
   // (1+2i)(3+4i) = 3 + 4i + 6i + 8i² = -5 + 10i
   HS_EXPECT_COMPLEX(a * b, Complex(-5, 10), 1e-5f);
 
-  // Division round-trips: (a / b) * b ≈ a
+  // (a / b) * b ≈ a
   Complex q = a / b;
   HS_EXPECT_COMPLEX(q * b, a, 1e-4f);
 
-  // Multiplicative identity
   HS_EXPECT_COMPLEX(a * Complex(1, 0), a, 1e-6f);
 
-  // 0 / 0 → indeterminate, returns 0 by convention
+  // 0 / 0 → 0 by convention.
   HS_EXPECT_COMPLEX(Complex(0, 0) / Complex(0, 0), Complex(0, 0), 1e-6f);
 
-  // Nonzero / 0 → large magnitude in numerator direction
+  // Nonzero / 0 → large magnitude in the numerator direction.
   Complex inf_dir = Complex(1, 0) / Complex(0, 0);
   HS_EXPECT_TRUE(std::abs(inf_dir.re) > 1e3f);
 }
@@ -900,19 +851,17 @@ inline void test_complex_arithmetic() {
  *        default) and that the a,b,c,d coefficients land in order.
  */
 inline void test_mobius_params_accessors() {
-  // The eight-float constructor fills the four Complex coefficients in order.
   MobiusParams p(1, 2, 3, 4, 5, 6, 7, 8);
   HS_EXPECT_COMPLEX(p.a, Complex(1, 2), 0.0f);
   HS_EXPECT_COMPLEX(p.b, Complex(3, 4), 0.0f);
   HS_EXPECT_COMPLEX(p.c, Complex(5, 6), 0.0f);
   HS_EXPECT_COMPLEX(p.d, Complex(7, 8), 0.0f);
 
-  // The Complex-tuple constructor stores the coefficients as given.
   MobiusParams q(Complex(1, 2), Complex(3, 4), Complex(5, 6), Complex(7, 8));
   HS_EXPECT_COMPLEX(q.a, Complex(1, 2), 0.0f);
   HS_EXPECT_COMPLEX(q.d, Complex(7, 8), 0.0f);
 
-  // Default constructor builds the identity Mobius (a=d=1, b=c=0)
+  // Identity Mobius default: a=d=1, b=c=0.
   MobiusParams id;
   HS_EXPECT_COMPLEX(id.a, Complex(1, 0), 0.0f);
   HS_EXPECT_COMPLEX(id.b, Complex(0, 0), 0.0f);
@@ -927,7 +876,6 @@ inline void test_mobius_params_accessors() {
 inline void test_mobius_transform() {
   Complex z(0.3f, 0.7f);
 
-  // Identity Mobius leaves points unchanged
   MobiusParams id;
   HS_EXPECT_COMPLEX(mobius(z, id), z, 1e-4f);
 
@@ -950,13 +898,12 @@ inline void test_mobius_transform() {
  *        near-equator clamping.
  */
 inline void test_gnomonic_roundtrip() {
-  // Generic upper-hemisphere point
   Vector vUp = Vector(0.3f, 0.8f, 0.4f).normalized();
   Complex zUp = gnomonic(vUp);
   Vector vUp_back = inv_gnomonic(zUp, 1.0f);
   HS_EXPECT_VEC(vUp_back, vUp, 5e-3f);
 
-  // Generic lower-hemisphere point — sign tracked explicitly
+  // Lower hemisphere: the hemisphere sign is passed to inv_gnomonic explicitly.
   Vector vDn = Vector(0.3f, -0.8f, 0.4f).normalized();
   Complex zDn = gnomonic(vDn);
   Vector vDn_back = inv_gnomonic(zDn, -1.0f);
@@ -992,21 +939,18 @@ inline void test_spline_cubic_endpoints() {
   const Vector p2(0, 1, 0);
   const Vector p3 = Vector(-0.7f, 0.7f, 0).normalized();
 
-  // cubic_fast hits the (normalized) endpoints
   HS_EXPECT_VEC(Spline::cubic_fast(p0, p1, p2, p3, 0.0f), p0, 1e-3f);
   HS_EXPECT_VEC(Spline::cubic_fast(p0, p1, p2, p3, 1.0f), p3, 1e-3f);
 
-  // cubic_slerp hits the endpoints
   HS_EXPECT_VEC(Spline::cubic_slerp(p0, p1, p2, p3, 0.0f), p0, 5e-3f);
   HS_EXPECT_VEC(Spline::cubic_slerp(p0, p1, p2, p3, 1.0f), p3, 5e-3f);
 
-  // Both variants yield unit-length results at midpoint
   Vector mFast = Spline::cubic_fast(p0, p1, p2, p3, 0.5f);
   Vector mSlerp = Spline::cubic_slerp(p0, p1, p2, p3, 0.5f);
   HS_EXPECT_NEAR(mFast.length(), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(mSlerp.length(), 1.0f, 1e-3f);
 
-  // Dispatch routes to the appropriate variant
+  // cubic() dispatches by mode.
   HS_EXPECT_VEC(Spline::cubic(p0, p1, p2, p3, 0.5f, SplineMode::Fast), mFast,
                 1e-4f);
   HS_EXPECT_VEC(Spline::cubic(p0, p1, p2, p3, 0.5f, SplineMode::Geodesic),
@@ -1051,7 +995,6 @@ inline void test_spline_catmull_rom() {
   HS_EXPECT_VEC(cp1, slerp(prev, end, 0.5f), 1e-3f);
   HS_EXPECT_VEC(cp2, slerp(start, next, 0.5f), 1e-3f);
 
-  // Output control points are unit-length
   Spline::catmull_rom_tangents(prev, start, end, next, 0.5f, cp1, cp2);
   HS_EXPECT_NEAR(cp1.length(), 1.0f, 5e-3f);
   HS_EXPECT_NEAR(cp2.length(), 1.0f, 5e-3f);
@@ -1069,22 +1012,18 @@ inline void test_spline_catmull_rom() {
 inline void test_wrap_index() {
   const int m = 288;
 
-  // Non-negative inputs: integer + fractional parts preserved.
   HS_EXPECT_NEAR(wrap_index(0.0f, m), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(wrap_index(0.5f, m), 0.5f, 1e-5f);
   HS_EXPECT_NEAR(wrap_index(287.9f, m), 287.9f, 1e-3f);
 
-  // Wrap at and above the period.
   HS_EXPECT_NEAR(wrap_index(static_cast<float>(m), m), 0.0f, 1e-5f);
   HS_EXPECT_NEAR(wrap_index(m + 1.5f, m), 1.5f, 1e-4f);
 
-  // Negative inputs must fold into [0, m) (e.g. -0.5 -> 287.5), never stay
-  // negative, since a negative index would yield a negative pixel x.
+  // Negatives fold into [0, m): -0.5 -> 287.5.
   HS_EXPECT_NEAR(wrap_index(-0.5f, m), 287.5f, 1e-3f);
   HS_EXPECT_NEAR(wrap_index(-1.5f, m), 286.5f, 1e-3f);
   HS_EXPECT_NEAR(wrap_index(-static_cast<float>(m) + 0.25f, m), 0.25f, 1e-3f);
 
-  // Result stays in [0, m) across several periods of both signs.
   for (int i = -3 * m; i <= 3 * m; ++i) {
     float w = wrap_index(i * 0.5f, m);
     HS_EXPECT_TRUE(w >= 0.0f && w < static_cast<float>(m));

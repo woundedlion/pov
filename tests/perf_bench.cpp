@@ -4,15 +4,10 @@
  *
  * Host render micro-benchmark: per-frame wall time for every effect.
  *
- * Purpose: bracket the cost of the size build's per-pixel codegen. Build the two
- * targets (perf_bench_os at -Os = the Phantasm size config, perf_bench_o3 at
- * -O3) and diff: the gap is what optimization buys the render (filter-plot
- * inlining + per-pixel math vectorization; the FunctionRef pipeline indirection
- * is un-inlinable in BOTH, so it is NOT in the gap). Host x86-64 wall time is a
- * relative proxy for the Teensy device, not an absolute — use it to compare
- * configs and to catch per-effect render regressions, not as a device frame time.
- *
- * Not a CTest: wall time is environment-dependent and would flake a CI gate.
+ * Build the two targets (perf_bench_os at -Os = the Phantasm size config,
+ * perf_bench_o3 at -O3) and diff to see what optimization buys the render. Host
+ * x86-64 wall time is a relative proxy for the Teensy device, not an absolute.
+ * Not a CTest.
  */
 #include <chrono>
 #include <cstdint>

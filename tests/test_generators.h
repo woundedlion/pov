@@ -34,7 +34,6 @@ inline uint8_t gen_target_buf[8 * 1024];
 inline void test_generate_lifecycle_and_forwarding() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
-  // Pre-dirty the global scratch arenas so we can prove generate() resets them.
   scratch_arena_a.reset();
   scratch_arena_a.allocate(123);
   scratch_arena_b.reset();
@@ -52,11 +51,11 @@ inline void test_generate_lifecycle_and_forwarding() {
         seen_target = &t;
         seen_a = &a;
         seen_b = &b;
-        a_offset_in_fn = a.get_offset(); // should be 0 (reset before fn)
+        a_offset_in_fn = a.get_offset();
         b_offset_in_fn = b.get_offset();
         captured_arg = arg;
-        a.allocate(64); // scratch — must be rolled back
-        t.allocate(32); // target — must persist
+        a.allocate(64);
+        t.allocate(32);
         return 7;
       },
       42);
@@ -65,18 +64,15 @@ inline void test_generate_lifecycle_and_forwarding() {
   HS_EXPECT_TRUE(seen_b == &scratch_arena_b);
   HS_EXPECT_TRUE(seen_target == &target);
 
-  // Scratch reset to empty before fn ran.
   HS_EXPECT_EQ(a_offset_in_fn, (size_t)0);
   HS_EXPECT_EQ(b_offset_in_fn, (size_t)0);
 
   HS_EXPECT_EQ(captured_arg, 42);
   HS_EXPECT_EQ(result, 7);
 
-  // Scratch rolled back to empty on return.
   HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
   HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
 
-  // Target is caller-owned: only the 32-byte t.allocate persists.
   HS_EXPECT_EQ(target.get_offset(), (size_t)32);
 }
 
@@ -124,12 +120,10 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
   uint8_t outer_value_after_inner = 0;
 
   (void)generate(target, [&](Arena &t, Arena &a, Arena &, int) {
-    // Outer frame stamps a sentinel into its scratch.
     uint8_t *outer = static_cast<uint8_t *>(a.allocate(64));
     outer[0] = 0xAB;
     const size_t outer_offset_before_inner = a.get_offset();
 
-    // Nested generate() must stack above the outer allocations, not rewind to 0.
     (void)generate(t, [&](Arena &, Arena &ia, Arena &, int) {
       inner_start_offset = ia.get_offset();
       uint8_t *inner = static_cast<uint8_t *>(ia.allocate(32));
@@ -143,7 +137,6 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
     return 0;
   }, 0);
 
-  // Inner stacked above the outer allocation (no reset to 0).
   HS_EXPECT_EQ(inner_start_offset, (size_t)64);
   HS_EXPECT_EQ((int)outer_value_after_inner, 0xAB);
   HS_EXPECT_EQ(outer_offset_after_inner, (size_t)64);
@@ -154,9 +147,7 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
 
 // --- Deep (multi-level) reentrant nesting -----------------------------------
 
-// Number of stacked generate() frames the deep-nesting stress drives.
 inline constexpr int kDeepLevels = 5;
-// Per-level scratch_a entry offset, checked for strictly-monotonic stacking.
 inline size_t g_deep_a_entry[kDeepLevels];
 
 /**
@@ -184,8 +175,6 @@ inline int gen_deep_level(Arena &t, Arena &a, Arena &b, int level,
   if (level + 1 < max_level)
     (void)generate(t, gen_deep_level, level + 1, max_level);
 
-  // Nested call stacked above this frame and rolled back: offsets and sentinels
-  // survive unchanged.
   HS_EXPECT_EQ(a.get_offset(), a_after);
   HS_EXPECT_EQ(b.get_offset(), b_after);
   HS_EXPECT_EQ((int)am[0], (int)sentinel);
@@ -210,8 +199,6 @@ inline void test_generate_deep_nesting_stacks_and_unwinds() {
 
   (void)generate(target, gen_deep_level, 0, kDeepLevels);
 
-  // Level 0 started on a reset arena; every deeper level entered strictly above
-  // the previous level's allocations.
   HS_EXPECT_EQ(g_deep_a_entry[0], (size_t)0);
   for (int level = 1; level < kDeepLevels; ++level)
     HS_EXPECT_GT(g_deep_a_entry[level], g_deep_a_entry[level - 1]);

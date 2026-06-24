@@ -2,28 +2,21 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Death tests — the suite's coverage of the fail-fast philosophy the project
- * markets, spanning the memory/arena, math core, mesh-topology, registry,
- * container, spatial (KDTree), animation, canvas, scan, and plot seams (including non-finite-input
- * faults: NaN fed to normalize/slerp/make_rotation/make_basis must trap, not
- * propagate into geometry). An HS_CHECK violation is a deliberate __builtin_trap() that
- * aborts the whole process; the in-process HS_EXPECT_* harness cannot catch it.
- * So each trap is exercised in a CHILD process: the test binary re-exec's
- * itself with HS_DEATH_CASE=<name> (handled in main() before any module runs),
- * runs exactly one trap-triggering case, and the parent asserts the child died
- * by the *specific* trap status — clang lowers __builtin_trap() to an illegal
- * instruction (x86 ud2), so the child dies by SIGILL (POSIX) /
- * STATUS_ILLEGAL_INSTRUCTION (Windows). Asserting that exact status, not merely
- * "nonzero", means an unrelated child crash (a different signal, an ordinary
- * nonzero exit) can no longer masquerade as a passing death test.
+ * Death tests for the fail-fast (HS_CHECK / __builtin_trap) seams.
  *
- * Cross-platform by design: the child is selected through an inherited env var
- * and spawned with std::system(), so no fork() (absent on Windows) is needed.
- * A control "spawn check" runs first; if the harness cannot re-exec itself
- * (unknown argv[0], a sandbox that blocks process creation), the death tests
- * are SKIPPED with a notice — EXCEPT under CI (the CI env var is set), where a
- * suite that cannot run is a hard FAILURE rather than a silent green skip, so a
- * regression in the fail-fast layer cannot slip through unobserved.
+ * An HS_CHECK violation traps and aborts the whole process, so the in-process
+ * HS_EXPECT_* harness cannot catch it. Each trap is exercised in a CHILD
+ * process: the test binary re-exec's itself with HS_DEATH_CASE=<name> (handled
+ * in main() before any module runs), runs exactly one trap-triggering case, and
+ * the parent asserts the child died by the *specific* trap status — clang lowers
+ * __builtin_trap() to an illegal instruction (x86 ud2), so the child dies by
+ * SIGILL (POSIX) / STATUS_ILLEGAL_INSTRUCTION (Windows).
+ *
+ * The child is selected through an inherited env var and spawned with
+ * std::system(), so no fork() (absent on Windows) is needed. A control "spawn
+ * check" runs first; if the harness cannot re-exec itself, the death tests are
+ * SKIPPED — EXCEPT under CI (the CI env var is set), where a suite that cannot
+ * run is a hard FAILURE rather than a silent green skip.
  */
 #pragma once
 
@@ -274,7 +267,6 @@ inline void case_spatial_knn_over_max() {
  *          GLOBAL_ARENA_SIZE, so configure_arenas fires HS_CHECK.
  */
 inline void case_arena_oversubscribed() {
-  // Each request alone fits, but the sum exceeds GLOBAL_ARENA_SIZE -> HS_CHECK.
   configure_arenas(opaque(GLOBAL_ARENA_SIZE), opaque<size_t>(1024),
                    opaque<size_t>(1024));
 }
@@ -920,9 +912,8 @@ inline void report_unrunnable(const char *why, int rc) {
     HS_EXPECT_TRUE(false && "death suite must run under CI");
   } else {
     std::printf("  [skip] death tests: %s (rc=%d)\n", why, rc);
-    // Local (non-CI) skip: register one counted assertion so the skipped death
-    // module shows up in the tally as ran-but-skipped rather than reading as a
-    // silent 0-passed/0-failed green. CI still hard-fails via the branch above.
+    // Register one counted assertion so the skipped death module shows up in the
+    // tally as ran-but-skipped rather than a silent 0-passed/0-failed green.
     HS_EXPECT_TRUE(true && "death suite skipped locally; CI is the hard gate");
   }
 }
@@ -955,11 +946,9 @@ inline int run_death_tests() {
   const Case *cs = all_cases(n);
 
   // Probe how THIS shell relays a trap (direct SIGILL vs forked exit 128+SIGILL)
-  // by spawning one case known to trap, then require exactly that shape for
-  // every case below. This replaces a permanent accept-both — which would let a
-  // child that genuinely exit(128+SIGILL)s pass — with the single relay shape
-  // the shell actually uses. If the probe doesn't trap at all, the harness can't
-  // interpret results, so skip (or FAIL under CI) rather than emit false passes.
+  // by spawning one case known to trap, then require exactly that shape for every
+  // case below. If the probe doesn't trap at all, the harness can't interpret
+  // results, so skip (or FAIL under CI).
   int probe_rc = spawn_child(cs[0].name);
   TrapShape shape = classify_trap(probe_rc);
   if (shape == TrapShape::None) {

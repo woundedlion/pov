@@ -4,30 +4,11 @@
  *
  * Effect smoke / robustness harness — exercises all registered effects.
  *
- * Each effect is constructed, init()'d, and rendered for several frames at a
- * supported resolution, then its full output buffer is read back. The test
- * build keeps asserts ON (NDEBUG is force-defined only on the Arduino target),
- * so this drives the very ArenaVector bounds / Canvas out-of-bounds /
- * use-after-free guards that are compiled out on hardware: an effect that
- * overruns an arena, indexes a pixel out of range, or derefs a failed
- * allocation will abort here instead of silently corrupting the live show.
- *
- * COVERAGE: two passes over the full effect roster.
- *   1. smoke_one  — construct/init/render/read-back robustness (above).
+ * Two passes over the full effect roster:
+ *   1. smoke_one  — construct/init/render/read-back, under native asserts.
  *   2. determinism_one — renders each effect twice under an injected, fixed
- *      per-frame clock (hs::set_mock_time, the seam in core/platform.h that
- *      hs::millis/micros and beatsin* honor) and asserts the two final frames
- *      are byte-identical. This proves *what* is rendered is reproducible — the
- *      gap the in-run get_pixel-stability check cannot cover — and directly
- *      guards the time/state-dependent defect class (drifting trail clocks,
- *      stale globals, uninitialized reads) without any stored reference frame.
- *
- * Deliberately NOT golden-frame hashing: a stored hash over the actively-tuned
- * generative effects inverts the signal (every intentional look change is a red
- * test), carries zero diagnostic value, and is not even bit-reproducible across
- * the native + WASM targets (fast_* trig / float rounding diverge). Self-
- * referential cross-run comparison catches the real bug classes with none of
- * that maintenance tax. Pixel-aesthetic correctness remains a human judgment.
+ *      per-frame clock (hs::set_mock_time) and asserts the two final frames are
+ *      byte-identical.
  */
 #pragma once
 
@@ -93,9 +74,6 @@ constexpr int kDefaultFrames = 8;
  * @return HS_SMOKE_FRAMES if set to a positive int, else kDefaultFrames.
  */
 inline int smoke_frames() {
-  // getenv is the simplest way to parameterize a test binary; the MSVC CRT
-  // flags it deprecated in favor of _dupenv_s, but the standard call is fine
-  // for read-only test config.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
   if (const char *e = std::getenv("HS_SMOKE_FRAMES")) {
@@ -113,14 +91,8 @@ inline int smoke_frames() {
  */
 inline void lint_dead_sliders(Effect &effect, const char *name);
 
-// Sweep-wide "something lit up" counter. smoke_one() can't assert acc > 0 per
-// effect — a few effects legitimately render black at smoke_frames() (e.g.
-// RingShower sums to 0 this early), so a per-effect non-black check would be a
-// false positive on them. But a TOTAL regression-to-black (a broken Canvas/blit
-// zeroing every effect's buffer) leaves the whole roster dark, which the
-// per-effect pure-accessor check cannot see. smoke_one() bumps this whenever its
-// frame sum is non-zero; run_effects_tests() resets it before each full roster
-// pass and asserts it ended positive, so at least one effect must have lit up.
+// Sweep-wide "something lit up" counter: bumped by smoke_one() on a non-zero
+// frame sum, asserted positive once per roster pass in run_effects_tests().
 inline int g_nonblack_effects = 0;
 
 /**
@@ -140,10 +112,8 @@ inline void smoke_one(const char *name) {
   hs::random().seed(1337u);
   // Fresh arena layout for every effect (each effect's init() may reconfigure).
   configure_arenas_default();
-  // CRITICAL: Timeline state (event buffer + frame counter) is global/static and
-  // shared across all effects. The real app resets it on effect switch; without
-  // this, one effect's leftover events reference the previous (now-destroyed)
-  // effect instance, and the next effect's step() would deref freed state.
+  // Timeline state is global/static and shared across effects: without this
+  // reset, leftover events reference the previous (destroyed) effect instance.
   Timeline().clear();
   global_timeline_t = 0;
 
@@ -156,14 +126,10 @@ inline void smoke_one(const char *name) {
   const int frames = smoke_frames();
   for (int f = 0; f < frames; ++f) {
     effect.draw_frame();
-    // Simulate the display consuming the queued frame, otherwise the next
-    // Canvas ctor would spin-wait on buffer_free() forever.
+    // Consume the queued frame, else the next Canvas ctor spin-waits forever.
     effect.advance_display();
   }
 
-  // Read every pixel of the last displayed frame. Exercises get_pixel()'s
-  // index path across the whole buffer; the accumulator prevents the loop
-  // from being optimized away.
   auto sum_buffer = [&effect]() {
     uint64_t s = 0;
     for (int y = 0; y < H; ++y)
@@ -175,25 +141,15 @@ inline void smoke_one(const char *name) {
   };
   const uint64_t acc = sum_buffer();
 
-  // Post-condition: get_pixel is a pure, stable accessor over the displayed
-  // buffer, so re-reading the very same frame must yield the identical sum. A
-  // get_pixel that mutated state, indexed nondeterministically, or read outside
-  // the buffer would diverge here. Unlike `acc > 0` this also holds for effects
-  // that legitimately render black (e.g. RingShower sums to 0 at this frame
-  // count). Reaching this point also proves the effect constructed, init'd,
-  // rendered, and read back without tripping an assert / OOB / hang.
+  // get_pixel is a pure accessor: re-reading the same frame yields the same sum.
   HS_EXPECT_EQ(acc, sum_buffer());
 
-  // Feed the sweep-wide non-black tracker: a single effect lighting up can't be
-  // required here (some are legitimately black this early), but the roster-level
-  // assertion in run_effects_tests() catches a total regression-to-black.
   if (acc > 0)
     ++g_nonblack_effects;
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
               frames, W, H, static_cast<unsigned long long>(acc));
 
-  // The dead-slider lint is resolution-independent (param persistence), so run
-  // it once on the primary pass rather than redundantly at every resolution.
+  // The dead-slider lint is resolution-independent; run it once on the primary pass.
   if constexpr (W == kW && H == kH)
     lint_dead_sliders(effect, name);
 }
@@ -231,10 +187,8 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
       effect.draw_frame();
       effect.advance_display();
     }
-    // A slow per-frame revert toward `cur` could still land within `eps` of
-    // `target` after only 3 frames, reading as persisted. Require the value to
-    // stay near `target` AND remain strictly closer to it than to the pre-write
-    // value, so any drift back past the midpoint toward `cur` is caught.
+    // Require the value near `target` AND strictly closer to it than to the
+    // pre-write `cur`, catching a slow per-frame revert that 3 frames hide.
     const float eps = fmaxf(1e-3f, 1e-3f * range);
     const float now = def.get();
     const bool persisted =
@@ -277,9 +231,8 @@ inline void render_capture(std::vector<Pixel> &out, int frames) {
   configure_arenas_default();
   Timeline().clear();
   global_timeline_t = 0;
-  // The global generative-hue cursor drifts across palette constructions by
-  // design (see GenerativePalette); pin it so both runs start from identical
-  // global state — without this, the second run's palettes are hue-rotated.
+  // Pin the global generative-hue cursor so both runs start identical (it
+  // drifts across palette constructions by design; see GenerativePalette).
   GenerativePalette::reset_hue_seed(0);
   hs::set_mock_time(0, 0);
 
@@ -334,7 +287,7 @@ inline void determinism_one(const char *name) {
   const int frames = smoke_frames();
   std::vector<Pixel> a, b;
   render_capture<E, W, H>(a, frames);
-  perturb_determinism_globals(); // force run B to recover from a dirtied state
+  perturb_determinism_globals();
   render_capture<E, W, H>(b, frames);
   hs::clear_mock_time();
 
@@ -441,7 +394,6 @@ inline void test_gs_q16_roundtrip() {
   HS_EXPECT_EQ(GSWhiteBox::to_q16(-0.5f), (uint16_t)0);     // clamp low
   HS_EXPECT_NEAR(GSWhiteBox::from_q16(0), 0.0f, 1e-9f);
   HS_EXPECT_NEAR(GSWhiteBox::from_q16(65535), 1.0f, 1e-9f);
-  // Round-trip is exact for every Q16 value (the +0.5 absorbs the float error).
   int bad = 0;
   for (int v = 0; v <= 65535; ++v)
     if (GSWhiteBox::to_q16(GSWhiteBox::from_q16((uint16_t)v)) != (uint16_t)v)
@@ -526,8 +478,7 @@ inline void test_gs_evolution_stays_bounded() {
     std::swap(cB, nB);
   }
   // No blow-up: a stable run leaves at most a handful of nodes at the upper
-  // rail; an unstable oscillation would clamp a large fraction of the lattice
-  // there. (< 5% is a generous tripwire — the stable run sits near zero.)
+  // rail; an unstable oscillation would clamp a large fraction there.
   int saturated = 0;
   for (int i = 0; i < GSWhiteBox::N; ++i)
     if (cB[i] == 65535)
@@ -827,16 +778,6 @@ inline void test_dreamballs_respawn_fires_and_honors_pause() {
 // ---------------------------------------------------------------------------
 // In-code-flagged numeric invariants with no oracle in the smoke harness
 // ---------------------------------------------------------------------------
-//
-// The smoke/determinism passes only prove each effect renders something
-// reproducibly; they cannot detect a wrong-but-still-non-black result. These
-// white-box seams pin the fragile numeric invariants the effects flag in-code:
-// a regression in any of them renders fine and slips past the generic harness.
-//
-// (MeshFeedback's SHAPE_FRAMES/PRESET_FRAMES coprimality — the fourth such
-// invariant — is locked at compile time by a static_assert in the effect, so
-// it needs no runtime case here: instantiating the effect in the smoke pass
-// already checks it.)
 
 /**
  * @brief White-box accessor for Comets' Lissajous-loop closing snap.
@@ -930,8 +871,8 @@ struct DynamoWhiteBox {
    * @brief Verifies color() is memory-safe and in-range under inverted bands.
    */
   static void check_overlapping_wipes_stay_in_range() {
-    // Mirror smoke_one's global-state reset: Dynamo::init() bakes the LUT pool
-    // from persistent_arena and schedules timers on the shared global timeline.
+    // Dynamo::init() bakes from persistent_arena and schedules on the shared
+    // global timeline, so reset the shared globals as smoke_one does.
     hs::random().seed(1337u);
     configure_arenas_default();
     Timeline().clear();
@@ -1037,24 +978,17 @@ inline int run_effects_tests() {
   RingShowerWhiteBox::check_radius_endpoints();
   DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
 
-  // Smoke every registered effect. The list is GENERATED from the single-source
+  // Smoke every registered effect. The list is generated from the single-source
   // roster in core/effects.h (HS_EFFECT_LIST), so it cannot drift from the
-  // shipped set: an effect added to the roster is smoke-tested automatically
-  // (and one in the roster but not #included is a compile error). The matching
-  // WASM-registry count is checked against HS_EFFECT_COUNT at engine startup
-  // (targets/wasm/wasm.cpp).
+  // shipped set.
   g_nonblack_effects = 0;
 #define HS_SMOKE_ONE(name) smoke_one<name>(#name);
   HS_EFFECT_LIST(HS_SMOKE_ONE)
 #undef HS_SMOKE_ONE
-  // A total regression-to-black (a broken blit/Canvas zeroing the buffer) would
-  // leave every effect dark — invisible to the per-effect pure-accessor check,
-  // which only pins get_pixel's stability. At least one effect in the full
-  // production-resolution roster must render a non-trivial (non-black) frame.
+  // At least one effect must light up, catching a total regression-to-black.
   HS_EXPECT_GT(g_nonblack_effects, 0);
 
-  // Second pass: cross-run determinism under the injected clock. Same roster,
-  // so a new effect is automatically held to byte-exact reproducibility too.
+  // Second pass: cross-run determinism under the injected clock.
 #define HS_DET_ONE(name) determinism_one<name>(#name);
   HS_EFFECT_LIST(HS_DET_ONE)
 #undef HS_DET_ONE
@@ -1066,9 +1000,7 @@ inline int run_effects_tests() {
 #define HS_SMOKE_ONE_DEV(name) smoke_one<name, kDeviceW, kDeviceH>(#name);
   HS_EFFECT_LIST(HS_SMOKE_ONE_DEV)
 #undef HS_SMOKE_ONE_DEV
-  // The device <96,20> specialization is a distinct codepath; require it lights
-  // up too, so a regression that only blacks out the small-resolution blit is
-  // caught here rather than slipping through the production-resolution pass.
+  // The device <96,20> specialization is a distinct codepath; require it lights up too.
   HS_EXPECT_GT(g_nonblack_effects, 0);
 #define HS_DET_ONE_DEV(name) determinism_one<name, kDeviceW, kDeviceH>(#name);
   HS_EFFECT_LIST(HS_DET_ONE_DEV)

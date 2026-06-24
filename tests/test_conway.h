@@ -34,7 +34,7 @@ inline uint8_t conway_temp_buf[256 * 1024]; /**< Comfortable budget for cube-sca
 // and check_indices_in_range() live in tests/mesh_test_util.h.
 
 // ---------------------------------------------------------------------------
-// Structural invariants — used by every Conway-op test
+// Structural invariants
 // ---------------------------------------------------------------------------
 
 /**
@@ -91,7 +91,7 @@ inline int count_inward_winding(const PolyMesh &m) {
     if (count >= 3) {
       Vector n = face_newell_normal(m, offset, count);
       Vector c = face_centroid_pos(m, offset, count);
-      // Skip degenerate normals (colinear vertices) — caller can decide.
+      // Skip degenerate normals (colinear vertices).
       if (n.length() > 1e-6f && dot(n, c) <= 0.0f) ++bad;
     }
     offset += count;
@@ -108,7 +108,6 @@ inline int count_inward_winding(const PolyMesh &m) {
  *          reuse means at least one of the two faces is wound backwards.
  */
 inline int count_same_direction_edge_violations(const PolyMesh &m) {
-  // Collect every directed edge (u -> v) from every face.
   /** @brief A single directed edge from source vertex u to destination v. */
   struct DirEdge { uint16_t u, v; };
   size_t total_edges = 0;
@@ -129,13 +128,11 @@ inline int count_same_direction_edge_violations(const PolyMesh &m) {
     offset += count;
   }
 
-  // Sort lexicographically by (u, v).
   std::sort(edges.begin(), edges.end(),
             [](const DirEdge &a, const DirEdge &b) {
               return a.u != b.u ? a.u < b.u : a.v < b.v;
             });
 
-  // Count adjacent duplicates (same direction).
   int dup = 0;
   for (size_t i = 1; i < edges.size(); ++i) {
     if (edges[i].u == edges[i - 1].u && edges[i].v == edges[i - 1].v) ++dup;
@@ -190,7 +187,6 @@ inline void check_basic_invariants(const PolyMesh &m) {
  *          both, then verifies Euler's formula.
  */
 inline void check_euler_genus0(const PolyMesh &m) {
-  // Undirected edges (min,max) gathered from every face.
   std::vector<std::pair<uint16_t, uint16_t>> edges;
   edges.reserve(m.faces.size());
   size_t offset = 0;
@@ -206,7 +202,6 @@ inline void check_euler_genus0(const PolyMesh &m) {
   }
   std::sort(edges.begin(), edges.end());
 
-  // Distinct edge count, asserting each appears exactly twice (closed manifold).
   int E = 0;
   for (size_t i = 0; i < edges.size();) {
     size_t j = i;
@@ -231,8 +226,6 @@ inline void check_euler_genus0(const PolyMesh &m) {
  */
 template <typename Solid>
 inline void check_euler_for_seed() {
-  // Each op gets a fresh target/temp pair; the seed is rebuilt into temp (the
-  // op checkpoints temp above it, exactly as the per-operator tests do).
 #define HS_EULER_OP(CALL)                                                      \
   do {                                                                         \
     Arena target(conway_target_buf, sizeof(conway_target_buf));               \
@@ -242,7 +235,6 @@ inline void check_euler_for_seed() {
     check_euler_genus0(MeshOps::CALL);                                        \
   } while (0)
 
-  // The seed itself first.
   {
     Arena arena(conway_target_buf, sizeof(conway_target_buf));
     PolyMesh seed;
@@ -277,8 +269,7 @@ inline void test_conway_ops_preserve_euler_characteristic() {
 }
 
 // ---------------------------------------------------------------------------
-// Input fixture: the unit-sphere cube. Vertex magnitudes are 1/√3 each, so
-// |v|=1 — confirms our cube data is correctly normalised.
+// Input fixture: the unit-sphere cube.
 // ---------------------------------------------------------------------------
 
 /**
@@ -336,7 +327,7 @@ inline void test_normalize_pushes_to_unit_sphere() {
 }
 
 // ---------------------------------------------------------------------------
-// dual(cube) → octahedron-topology (6 vertices, 8 faces, 24 face indices)
+// dual(cube)
 // ---------------------------------------------------------------------------
 
 /**
@@ -354,17 +345,13 @@ inline void test_dual_cube_has_octahedral_topology() {
   PolyMesh d = MeshOps::dual(cube, target, temp);
 
   check_basic_invariants(d);
-  // Each original face → one dual vertex. Cube has 6 faces.
   HS_EXPECT_EQ(d.vertices.size(), (size_t)6);
-  // Each original vertex → one dual face. Cube has 8 vertices → 8 faces,
-  // each triangular (3 indices) for an octahedron.
   HS_EXPECT_EQ(d.face_counts.size(), (size_t)8);
   HS_EXPECT_EQ(d.faces.size(), (size_t)24);
 }
 
 // ---------------------------------------------------------------------------
-// kis(cube) — pyramidalize each face. Adds 1 center vertex per face,
-// each n-gon face becomes n triangles.
+// kis(cube)
 // ---------------------------------------------------------------------------
 
 /**
@@ -383,17 +370,14 @@ inline void test_kis_cube_pyramidalizes() {
 
   check_basic_invariants(k);
   HS_EXPECT_EQ(k.vertices.size(), (size_t)(8 + 6)); // original V + one per F
-  // 6 quad faces × 4 triangles each = 24 triangles
   HS_EXPECT_EQ(k.face_counts.size(), (size_t)24);
   HS_EXPECT_EQ(k.faces.size(), (size_t)72);
-  // Every face must be a triangle
   for (size_t i = 0; i < k.face_counts.size(); ++i)
     HS_EXPECT_EQ(k.face_counts[i], (uint8_t)3);
 }
 
 // ---------------------------------------------------------------------------
-// ambo(cube) → cuboctahedron-topology. Each original edge → one new vertex.
-// Cube has 12 edges → 12 vertices, 6+8 = 14 faces.
+// ambo(cube)
 // ---------------------------------------------------------------------------
 
 /**
@@ -416,8 +400,7 @@ inline void test_ambo_cube_has_cuboctahedral_topology() {
 }
 
 // ---------------------------------------------------------------------------
-// truncate(cube) — cuts each corner. Result: 24 vertices (2 per edge),
-// 6 octagons + 8 triangles = 14 faces.
+// truncate(cube)
 // ---------------------------------------------------------------------------
 
 /**
@@ -461,8 +444,7 @@ inline void test_truncate_t_half_is_ambo() {
 }
 
 // ---------------------------------------------------------------------------
-// expand(cube) — rhombicuboctahedron-topology. Each face shrinks, each edge
-// becomes a quad, each vertex becomes a triangle.
+// expand(cube)
 // ---------------------------------------------------------------------------
 
 /**
@@ -487,8 +469,7 @@ inline void test_expand_cube() {
 }
 
 // ---------------------------------------------------------------------------
-// chamfer(cube) — replaces each edge with a hexagon. Result: V + 2E vertices
-// = 8 + 24 = 32, F + E faces = 6 + 12 = 18.
+// chamfer(cube)
 // ---------------------------------------------------------------------------
 
 /**
@@ -510,8 +491,7 @@ inline void test_chamfer_cube() {
 }
 
 // ---------------------------------------------------------------------------
-// relax — spring-based edge-length relaxation on the unit sphere. Output
-// must keep the same topology and all vertices must remain on the sphere.
+// relax
 // ---------------------------------------------------------------------------
 
 /**
@@ -591,8 +571,8 @@ inline void test_relax_reduces_edge_variance() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
 
-  // Build the uneven-edge source in `target`; free the cube + truncation scratch
-  // from `temp` once the truncated output (which lives in `target`) is built.
+  // Build the uneven-edge source in `target`; the truncation scratch in `temp`
+  // is freed once the truncated output (in `target`) is built.
   PolyMesh uneven;
   {
     ScratchScope tscope(temp);
@@ -602,10 +582,10 @@ inline void test_relax_reduces_edge_variance() {
   }
 
   const float var_before = edge_length_variance(uneven);
-  HS_EXPECT_GT(var_before, 1e-5f); // the truncated mesh is genuinely uneven
+  HS_EXPECT_GT(var_before, 1e-5f);
 
-  // Relax the uneven mesh. `target` still holds `uneven`, so relax writes its
-  // output and scratch into the two halves of the now-free `temp` buffer.
+  // `target` still holds `uneven`, so relax writes its output and scratch into
+  // the two halves of the now-free `temp` buffer.
   Arena relax_out(conway_temp_buf, sizeof(conway_temp_buf) / 2);
   Arena relax_scratch(conway_temp_buf + sizeof(conway_temp_buf) / 2,
                       sizeof(conway_temp_buf) / 2);
@@ -613,14 +593,11 @@ inline void test_relax_reduces_edge_variance() {
                                     /*iterations*/ 12);
 
   const float var_after = edge_length_variance(relaxed);
-  HS_EXPECT_LT(var_after, var_before); // relax evens the edges out
+  HS_EXPECT_LT(var_after, var_before);
 }
 
 // ---------------------------------------------------------------------------
-// Compositional + standalone operators. We only check structural invariants —
-// exact topology counts for compositions like meta/needle/zip/bevel are
-// derived from their primitive definitions and would just duplicate the test
-// for the primitives.
+// Compositional + standalone operators — structural invariants only.
 // ---------------------------------------------------------------------------
 
 /** @brief Verifies meta(cube) satisfies the basic structural invariants. */
@@ -664,13 +641,8 @@ inline void test_bevel_cube() {
 }
 
 // ---------------------------------------------------------------------------
-// COMPOSITION POLARITY — the load-bearing arena invariant in conway.h: a
-// PRIMITIVE operator returns its output mesh in `target`, but a two-op COMPOSED
-// operator (gyro/meta/needle/zip/bevel), written as op2(op1(m,target,temp),
-// temp,target), reuses the same ping-pong and lands its output in `temp`, the
-// OPPOSITE arena. SolidBuilder's recipe scheduling depends on this exact
-// polarity, yet it was only exercised transitively via the recipes. Pin it
-// directly by locating which arena the returned mesh's storage falls in.
+// Composition polarity: a primitive operator returns its output in `target`; a
+// composed operator (gyro/meta/needle/zip/bevel) returns it in `temp`.
 // ---------------------------------------------------------------------------
 
 /**
@@ -703,8 +675,7 @@ inline void test_conway_composition_polarity() {
   const size_t tgt_n = sizeof(conway_target_buf);
   const size_t tmp_n = sizeof(conway_temp_buf);
 
-  // Sanity baseline: a PRIMITIVE returns in `target` (confirms the buffers and
-  // the locator are wired correctly before testing the compositions).
+  // A primitive returns in `target`.
   {
     Arena target(conway_target_buf, sizeof(conway_target_buf));
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -716,7 +687,7 @@ inline void test_conway_composition_polarity() {
     HS_EXPECT_FALSE(ptr_in_buffer(&d.vertices[0], tmp, tmp_n));
   }
 
-  // Each COMPOSED operator returns in `temp`, the opposite arena.
+  // Each composed operator returns in `temp`.
 #define HS_POLARITY_COMPOSED(CALL)                                             \
   do {                                                                         \
     Arena target(conway_target_buf, sizeof(conway_target_buf));               \
@@ -738,7 +709,7 @@ inline void test_conway_composition_polarity() {
 }
 
 // ---------------------------------------------------------------------------
-// snub(cube) — chiral operator; structural sanity only.
+// snub(cube)
 // ---------------------------------------------------------------------------
 
 /** @brief Verifies snub(cube), a chiral operator, satisfies basic invariants. */
@@ -755,8 +726,7 @@ inline void test_snub_cube_is_well_formed() {
 }
 
 // ---------------------------------------------------------------------------
-// transform — variadic vertex transformer pipeline. Operates on MeshState
-// (which has the face_counts_view / faces_view borrowed members).
+// transform — variadic vertex transformer pipeline.
 // ---------------------------------------------------------------------------
 
 /**
@@ -796,8 +766,7 @@ inline void test_transform_applies_translation_chain() {
     HS_EXPECT_NEAR(dst.vertices[i].z, expected.z, 1e-5f);
   }
 
-  // Topology is borrowed (view) from the source — accessible via unified
-  // accessors even though the destination didn't bind its own buffer.
+  // Topology is borrowed (view) from the source; the dst bound no buffer.
   HS_EXPECT_EQ(dst.get_face_counts_size(), (size_t)1);
   HS_EXPECT_EQ(dst.get_faces_size(), (size_t)3);
 }
@@ -828,8 +797,7 @@ inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
   src.faces.push_back(1);
   src.faces.push_back(2);
 
-  // Destination arrives in OWNED mode with stale topology (2 faces / 9 indices),
-  // as it would after a previous owned-mode build into the same object.
+  // Destination arrives in OWNED mode with stale topology (2 faces / 9 indices).
   MeshState dst;
   dst.face_counts.bind(dst_arena, 2);
   dst.face_counts.push_back(4);
@@ -840,8 +808,7 @@ inline void test_transform_unbinds_stale_owned_topology_on_reuse() {
 
   MeshOps::transform(src, dst, dst_arena);
 
-  // Accessors must reflect the SOURCE topology (the borrowed view), not the
-  // stale owned buffers that were bound on entry.
+  // Accessors must reflect the source view, not the stale owned buffers.
   HS_EXPECT_EQ(dst.get_face_counts_size(), (size_t)1);
   HS_EXPECT_EQ(dst.get_faces_size(), (size_t)3);
   HS_EXPECT_EQ((int)dst.get_face_counts_data()[0], 3);
@@ -867,14 +834,13 @@ inline void test_face_centroid_for_cube_top_face() {
   HalfEdgeMesh he(arena, cube);
   int count = 0;
   Vector c = MeshOps::face_centroid(he, cube, 0, count);
-  HS_EXPECT_EQ(count, 4); // cube face is a quad
-  // Centroid magnitude is bounded by 1 (mean of unit vectors)
+  HS_EXPECT_EQ(count, 4);
+  // Centroid magnitude is bounded by 1 (mean of unit vectors).
   HS_EXPECT_TRUE(c.length() <= 1.0f + 1e-4f);
 }
 
 // ---------------------------------------------------------------------------
-// Degenerate-face checks — expand/chamfer/snub must not emit a primary face
-// with fewer than 3 sides.
+// Degenerate-face checks
 // ---------------------------------------------------------------------------
 
 /**
