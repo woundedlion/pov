@@ -642,12 +642,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       }
     }
 
-    // sim_dist > 0 always holds here: the total_dist >= base_step fast-path
-    // guard above means the loop runs at least once and accumulates a positive
-    // step. Assert that invariant (fail-fast on device) instead of carrying a
-    // dead ternary fallback. The final step overshoots total_dist slightly, so
-    // sim_dist >= total_dist and scale <= 1 — the normalized replay stretches
-    // the cached steps back to exactly total_dist, correcting the overshoot.
+    // The final step overshoots total_dist slightly, so sim_dist >= total_dist
+    // and scale <= 1 — the normalized replay stretches the cached steps back to
+    // exactly total_dist, correcting the overshoot.
     HS_CHECK(sim_dist > 0.0f);
     float scale = total_dist / sim_dist;
     bool omitLast = (close_loop) ? true : !isLastSegment;
@@ -1151,9 +1148,8 @@ struct Ring {
     }
 
     // Manual Close (Overlap): the close vertex sits at theta == 2π, whose
-    // position is identical to the i == 0 vertex (cos/sin(2π+φ) == cos/sin(φ)).
-    // Reuse it instead of recomputing the trig + normalize — and it avoids the
-    // tiny float error a literal 2π+φ argument would introduce.
+    // position is identical to the i == 0 vertex (cos/sin(2π+φ) == cos/sin(φ));
+    // reusing it also avoids the float error a literal 2π+φ argument introduces.
     if (num_samples > 0) {
       Fragment f;
       f.pos = first_pos;
@@ -1249,11 +1245,6 @@ struct Ring {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    // W samples keep circles smooth and avoid pinching at the poles. sample()
-    // appends the overlap-close vertex, so the final edge back to the start is
-    // already an explicit segment — pass close_loop=false (Multiline's clean
-    // close) rather than also closing in rasterize, which would only re-walk
-    // that wrap as a zero-length (degenerate) segment.
     draw_fragments<W, H>(
         pipeline, canvas, vertex_shader, fragment_shader, {.capacity = W + 2},
         [&](Fragments &points) { sample<W, H>(points, basis, radius, phase); });
@@ -1329,10 +1320,8 @@ struct PlanarPolygon {
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     // Far-field radii (> 1) need the planar chart centered on the opposite pole,
-    // exactly as Plot::Star does; without the flip the azimuthal projection bows
-    // the polygon edges (the deliberate far-field petal-bowing Flower exploits)
-    // instead of keeping them straight. radius <= 1 keeps the supplied chart
-    // unchanged.
+    // else the azimuthal projection bows the polygon edges instead of keeping
+    // them straight. radius <= 1 keeps the supplied chart unchanged.
     Basis planar_basis = basis;
     if (radius > 1.0f) {
       Vector v = -basis.v;
@@ -1470,8 +1459,6 @@ struct DistortedRing {
    */
   static Vector fn_point(ScalarFn shift_fn, const Basis &basis, float radius,
                          float angle) {
-    // Mirror sample() at phase 0 (same theta_eq mapping, same shift_fn(theta/2PI)
-    // domain) so the returned point lands on the drawn ring.
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
     float work_radius = res.second;
@@ -1829,13 +1816,9 @@ struct Flower {
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
     // Center the planar chart on work_basis.v, the pole *opposite* the petal ring
-    // (which sits at colatitude apothem = PI - outer >= PI/2, near -work_basis.v).
-    // This is intentional and load-bearing for the look, NOT a bug: the ring is a
-    // constant-radius polygon, so it only reads as a flower because projecting it
-    // through the far-pole chart (where R -> PI) bows the straight edges outward
-    // into petals. Centering on -work_basis.v (the ring's own pole, as SDF/Scan
-    // Flower do for their sector-folded geometry) collapses the edges to clean
-    // tangent-plane chords -- i.e. a plain planar polygon, not a flower.
+    // (which sits at colatitude apothem = PI - outer >= PI/2, near -work_basis.v):
+    // the ring is a constant-radius polygon, and projecting it through the
+    // far-pole chart (where R -> PI) bows the straight edges outward into petals.
     Vector center = work_basis.v;
 
     // Construct a planar basis aligned with the center
@@ -1919,12 +1902,6 @@ struct Mesh {
     ScratchScope _edge(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, 16);
-    // Fixed 10-segment pre-sample: the adaptive rasterize() below further
-    // sub-steps each chord at ~1px, so this only sets the per-vertex shader
-    // granularity and the great-circle seed points. Left fixed (not arc-length
-    // adaptive) deliberately — lowering it would perturb the adaptive
-    // sub-step/normalization pattern and thus the rendered edges, a change
-    // that needs sign-off rather than a polish pass.
     Line::sample(points, fu, fv, 10);
 
     if (vertex_shader) {

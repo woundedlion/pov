@@ -1173,13 +1173,9 @@ public:
     // backends — see the World::Trails seed.
     float ttl = static_cast<float>(lifetime) - age;
     // At capacity this drops the NEWEST point — the opposite of World::Trails,
-    // whose ring buffer evicts the oldest so the freshest motion stays visible.
-    // The asymmetry is deliberate: this buffer is an unordered array (decay()
+    // which evicts the oldest. This buffer is an unordered array (decay()
     // swap-removes dead slots), so there is no front-of-queue "oldest" to evict
-    // without an O(n) min-ttl scan on this per-point hot path. Saturation of the
-    // MAX_PIXELS=1024 budget is a transient edge regime that clears within a few
-    // frames as points decay; paying a per-point scan to reshape it is not worth
-    // it. A saturated buffer briefly favors its existing trail over new seeds.
+    // without an O(n) min-ttl scan on this per-point hot path.
     if (ttl > 0.0f && points_ && num_pixels < MAX_PIXELS) {
       points_[num_pixels++] = {x, y, ttl};
     }
@@ -1454,9 +1450,8 @@ public:
         hh * hw * sizeof(int16_t), alignof(int16_t)));
     auto *dy = static_cast<int16_t *>(scope.get_arena().allocate(
         hh * hw * sizeof(int16_t), alignof(int16_t)));
-    // No OOM guard here: Arena::allocate traps on over-allocation and never
-    // returns null, so a "skip this frame" fallback would be dead code that
-    // also implies a recovery path the fail-fast model deliberately rejects.
+    // No OOM guard: Arena::allocate traps on over-allocation and never returns
+    // null.
 
     // Step 2 (sampling) honors the segment's cylindrical x-clip; precompute that
     // clip here so step 1 populates ONLY the coarse columns the sampling pass
@@ -1500,11 +1495,8 @@ public:
     // ±32767/Q px, precision 1/Q px. A legitimate displacement reaches ±W/2 px
     // horizontally (after the seam wrap below) and up to ±H px vertically (no
     // vertical wrap — a melt/swirl warp can pull a row most of the way across
-    // the canvas). At Q=256 the range was only ±128 px, so on a 288×144 canvas
-    // any displacement past 128 px CLAMPED — the sample landed ~15 px off its
-    // true source, reading "a pixel from elsewhere" in a fixed screen band. Q=128
-    // widens the range to ±256 px (covering max(W/2, H) for every current target)
-    // while keeping 1/128 px precision, which is far finer than the warp needs.
+    // the canvas), so Q=128 gives ±256 px range (covering max(W/2, H) for every
+    // current target) at 1/128 px precision.
     constexpr float Q = 128.0f;
     // Step 2 samples only y in [y_lo, y_hi), reading coarse rows cy0 = y/ds and
     // cy1 = cy0+1 (clamped to hh-1). Populate exactly that coarse-row band so a
@@ -1615,16 +1607,9 @@ public:
           // Write unconditionally — including black. This Feedback flush OWNS
           // the frame: it rewrites every pixel from the warped previous-frame
           // sample, and under double-buffering the draw buffer still holds an
-          // earlier frame's pixels, so they must be fully overwritten here.
-          // (This is buffer persistence, not the strobe_columns POV flag — the
-          // two are unrelated.) The old `if (p.r|p.g|p.b)`
-          // guard skipped the write where the warped sample decayed to black,
-          // leaving those stale two-frame-old pixels intact — so dark trail gaps
-          // showed a flickering ghost of an earlier frame: "pixels from
-          // elsewhere" anchored to the buffer, not the rotating image. Writing
-          // black (with alpha=1, blend_alpha is an exact replace) clears them.
-          // x is in [0,W) and y is within the render band, so no x-wrap or
-          // y-bounds guard is needed before the write.
+          // earlier frame's pixels, so they must be fully overwritten here (else
+          // dark trail gaps keep a stale two-frame-old ghost). x is in [0,W) and
+          // y is within the render band, so no x-wrap or y-bounds guard is needed.
           cv(x, y) = blend_alpha(alpha)(cv(x, y), p);
         }
 

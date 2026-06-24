@@ -79,17 +79,9 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
       // rather than shape.thickness: for a CSG composite of strokes the wrapper
       // carries a min/max thickness, which would scale a thin child's falloff by
       // a thicker sibling's width and blow out the AA ramp at the boundary.
-      //
-      // The ramp is intentionally inward-only, and intentionally asymmetric with
-      // the solid path above. A stroke's `d` is centerline_dist - half_width, so
-      // d=0 is the geometric tube edge (alpha=quintic_kernel(0)=0) and d=-size is
-      // the centerline (alpha=1). Coverage therefore already feathers to zero AT
-      // the boundary with a C2-flat (zero-slope) tangent, so the outer edge is
-      // intrinsically anti-aliased — the whole half-width IS the AA ramp. The
-      // solid path needs an outward straddle only because its interior is opaque
-      // up to the edge; a stroke has no such interior, so there is nothing to
-      // fringe. Pushing the ramp outward (alpha=0.5 at d=0) would bleed the
-      // stroke half a thickness past its true geometry.
+      // The ramp is inward-only: a stroke's `d` is centerline_dist - half_width,
+      // so d=0 is the tube edge (alpha=0) and d=-size the centerline (alpha=1),
+      // and the whole half-width IS the AA ramp.
       float aa_thickness = result_scratch.size;
       if (aa_thickness > 0) {
         alpha = quintic_kernel(-d / aa_thickness);
@@ -195,8 +187,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
       // wrapped overlap. For the common in-[0,W) sorted case this is a no-op
       // (no wrap, no split, sort already ordered) — identical output. The norm
       // buffer is exactly 2× the input span cap (one span splits into at most
-      // two at the seam), so splitting can never overflow it — bound at compile
-      // time below rather than left to a hand-maintained literal.
+      // two at the seam), so splitting can never overflow it.
       bool full_row = false;
       norm.clear();
       for (const auto &iv : intervals) {
@@ -307,11 +298,7 @@ template <int W, int H> struct BoundingSphere {
     // forward rounding already baked into vector_to_pixel's phi_to_y.
     float center_phi = acosf(hs::clamp(center.y, -1.0f, 1.0f));
     // Round the band outward on both ends (floor the top, ceil the bottom) so a
-    // fractional cap edge never clips the fringe row it touches. floorf is
-    // currently equivalent to the bare truncating cast — the only case they
-    // differ (a negative top phi when the cap straddles the north pole) clamps
-    // to 0 either way — but stating floorf keeps the intent explicit and robust
-    // if the max(0, ...) clamp is ever changed.
+    // fractional cap edge never clips the fringe row it touches.
     y_min = std::max(
         0, static_cast<int>(floorf(phi_to_y<H>(center_phi - angular_radius))));
     y_max = std::min(H - 1, static_cast<int>(ceilf(
@@ -792,10 +779,8 @@ struct Mesh {
       std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
-      // Profile the Face construction through HS_PROFILE — the shared primitive
-      // every other site uses — rather than a hand-rolled CycleCounter. The IIFE
-      // lets the CycleScope close right after the prvalue Face is constructed in
-      // place (guaranteed elision), so the measurement still covers construction
+      // The IIFE lets the HS_PROFILE scope close right after the prvalue Face is
+      // constructed in place (guaranteed elision), so it measures construction
       // alone, not the rasterize below.
       SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
@@ -903,10 +888,8 @@ struct Shader {
    */
   template <int W, int H, int SAMPLES = 1, typename ShaderFn>
   static void draw(Canvas &canvas, ShaderFn &&shader) {
-    // The sample-offset table only defines four distinct sub-pixel positions, so
-    // SAMPLES > 4 would re-run the shader on duplicate points while still
-    // dividing the average by SAMPLES — wasted work and a wrong mean. Only 1
-    // (no SSAA) and 4 (the 2x2 grid) are supported.
+    // The sample-offset table defines only four distinct sub-pixel positions, so
+    // SAMPLES > 4 would average over duplicates. Only 1 and the 2x2 grid (4) work.
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
     const auto &cr = canvas.clip();
@@ -1225,15 +1208,6 @@ struct Volume {
             // preconditions are HS_CHECKed once per draw at the top of this
             // function; a scaling transform or off-center bounds_center traps
             // there rather than silently mis-culling here.
-            //
-            // Breaking here WITHOUT sampling shape.distance(local_p) is
-            // deliberate: local_p has just passed the back of the bounding sphere,
-            // so its signed distance is large and positive and could never improve
-            // (lower) the running closest_d. Re-evaluating at the exit point would
-            // only burn a shape.distance() call to record a value the min ignores.
-            // The occlusion probe below correctly seeds from closest_local (the
-            // closest approach), NOT this terminal local_p, so the unrecorded exit
-            // sample does not weaken the halo cull either.
             if (local_p.x * local_vd.x + local_p.y * local_vd.y +
                     local_p.z * local_vd.z >
                 bounds_radius)
@@ -1289,16 +1263,11 @@ struct Volume {
             // probing forward from there never punches through a thin feature,
             // leaving the false halo it was meant to cull.
             //
-            // Bounded best-effort: 4 iterations with a step floored at
-            // bounds_radius * 0.15 deliberately trade resolution for cost on
-            // this AA-border-only slow path. A solid feature thinner than the
-            // coarse step can be straddled — both samples land in empty space
-            // with pd >= hit_threshold — so the probe fails to punch through and
-            // a faint false halo survives. This is an accepted cosmetic limit,
-            // not a correctness defect: the coarseness keeps the per-edge-pixel
-            // shape.distance() count low on the Volume hot path. Raising the
-            // iteration count or shrinking the floor would sharpen thin-feature
-            // halos at a measurable per-frame cost.
+            // Bounded to 4 iterations with the step floored at bounds_radius *
+            // 0.15: a solid feature thinner than that coarse step can be straddled
+            // (both samples land in empty space with pd >= hit_threshold), so the
+            // probe misses it and a faint false halo survives — an accepted
+            // cosmetic limit on this AA-border-only slow path.
             Vector probe = closest_local;
             float probed = 0.0f;
             for (int i = 0; i < 4; ++i) {

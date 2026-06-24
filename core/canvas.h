@@ -49,12 +49,7 @@ public:
              "Effect: a second Effect was constructed while one is still alive; "
              "buffer_a/buffer_b are shared static storage (one live Effect only)");
     s_alive = true;
-    // Point bufs_ at the shared static storage and clear both buffers. Factored
-    // into a noinline helper so the two MAX_W*MAX_H fills are emitted once rather
-    // than duplicated into both GCC constructor variants (C1 complete + C2 base)
-    // — the same code-size concern init() exists to address. They stay in
-    // construction rather than moving to init() because the clear must run for
-    // every Effect and derived init() overrides do not chain to a base init().
+    // Point bufs_ at the shared static storage and clear both buffers.
     clear_buffers();
     clip.w = W;
     clip.h = H;
