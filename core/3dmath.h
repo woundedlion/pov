@@ -45,11 +45,6 @@ static constexpr float EPS_GEOMETRIC  = 1e-5f;
 static constexpr float EPS_LEN_SQ     = 1e-6f;
 static constexpr float EPS_CROSS_SQ   = 1e-8f;
 static constexpr float EPS_NORMAL_SQ  = 1e-9f;
-// Generous squared "is-unit" slack for cold-path assertion guards (not the tight
-// EPS_UNIT length test): input-validity tolerance, deliberately loose so
-// accumulated normalization error never false-traps a valid caller. Distinct in
-// scale and purpose from the geometric branch threshold TOLERANCE (see
-// make_rotation); quaternion and vector forms carry independently-tuned bounds.
 static constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
 static constexpr float EPS_UNIT_VEC_SQ  = 0.02f;
 /**
@@ -320,10 +315,7 @@ struct Vector {
  * and harmless for all callers (hue/azimuth lookups).
  */
 inline float fast_atan2(float y, float x) {
-  // +1e-10f keeps abs_y strictly positive so the (x==0,y==0) origin yields a
-  // finite 0/abs_y ratio instead of a 0/0 NaN. The additive bias inflates the
-  // relative error for |y| ≲ 1e-10, but the absolute angle error stays ≪ the
-  // ~0.0038 rad Hastings error and every caller consumes the angle absolutely.
+  // +1e-10f keeps abs_y strictly positive so the (0,0) origin gives 0, not NaN.
   float abs_y = std::abs(y) + 1e-10f;
   float abs_x = std::abs(x);
   float r, angle;
@@ -375,12 +367,9 @@ inline float fast_cosf(float x);
 
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
-  // Traps on a zero-length input (via normalize()): a degenerate direction has
-  // no spherical coordinate, so it is treated as a logic bug, not a soft edge.
   n.normalize();
-  // At the poles (n.y == ±1) n.x and n.z are both ~0, so fast_atan2 returns its
-  // 0/0 -> 0 fallback: theta is arbitrary there but harmless, because phi==0 or
-  // π collapses the azimuth (every theta maps to the same point on the sphere).
+  // At the poles (n.y == ±1) theta is arbitrary but harmless: phi==0 or π
+  // collapses the azimuth so every theta maps to the same point.
   theta = fast_atan2(n.z, n.x);
   phi = fast_acos(hs::clamp(n.y, -1.0f, 1.0f));
 }
@@ -502,9 +491,6 @@ struct Quaternion {
    */
   [[nodiscard]] Quaternion inverse() const {
     float sq_mag = squared_magnitude();
-    // A zero-magnitude quaternion has no inverse; the divide below would
-    // silently yield NaN/Inf. Trap instead — inverse() is computed per-frame
-    // and cached (never per-pixel), so this guard is off the hot path.
     HS_CHECK(sq_mag > std::numeric_limits<float>::epsilon());
     return conjugate() / sq_mag;
   }
@@ -666,7 +652,6 @@ struct Complex {
    */
   Complex operator/(const Complex &b) const {
     float denom = b.re * b.re + b.im * b.im;
-    // denom is a sum of squares, so it is always non-negative — no std::abs.
     if (denom < math::EPS_LEN_SQ) {
       // Near-zero denominator → point at infinity, along the numerator direction.
       float num_mag = re * re + im * im;
@@ -727,11 +712,9 @@ struct MobiusParams {
 inline Complex stereo(const Vector &v) {
   float denom = 1.0f - v.y;
   if (denom < STEREO_POLE_EPS) {
-    // Inside the north-pole cap. Emit the infinity sentinel, but keep the
-    // (x,z) azimuth so a Mobius map that pulls the pole to a finite point
-    // preserves the cap's swirl instead of collapsing it onto the +real axis.
-    // At the exact pole (x = z = 0) the azimuth is undefined → +real fallback,
-    // matching test_stereo_roundtrip's stereo(0,1,0).re ≈ STEREO_INF.
+    // North-pole cap: emit the infinity sentinel but keep the (x,z) azimuth so a
+    // Mobius map pulling the pole finite preserves the swirl. At the exact pole
+    // (x = z = 0) the azimuth is undefined → +real fallback.
     float r = sqrtf(v.x * v.x + v.z * v.z);
     if (r < 1e-12f)
       return Complex(STEREO_INF, 0.0f);
@@ -747,8 +730,8 @@ inline Complex stereo(const Vector &v) {
  * @return The corresponding point on the unit sphere.
  */
 inline Vector inv_stereo(const Complex &z) {
-  // Recognize the infinity sentinel (|z| >= STEREO_INF_RECOGNIZE) → exact North
-  // Pole. Compared squared to keep the sqrt off this path.
+  // |z| >= STEREO_INF_RECOGNIZE is the infinity sentinel → North Pole (squared
+  // compare avoids a sqrt).
   float r2 = z.re * z.re + z.im * z.im;
   if (r2 >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE)
     return Vector(0.0f, 1.0f, 0.0f);
@@ -775,16 +758,10 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
  * Pole (0,1,0), i.e. j=1).
  */
 inline Complex gnomonic(const Vector &v) {
-  // Equator handling is two-stage and round-trips consistently with
-  // inv_gnomonic. (1) Floor the divisor to ±1e-9 purely to avoid div-by-zero
-  // at v.y == 0. (2) Clamp the result to ±STEREO_INF — this is the actual
-  // equator→pole threshold. On the unit sphere a near-equator point (small
-  // |v.y|) has |v.x| or |v.z| ≈ O(1), so at least one coordinate exceeds
-  // STEREO_INF and is clamped to the same sentinel that inv_gnomonic
-  // (|z| >= STEREO_INF) maps back to the pole. With STEREO_INF = 1e4 the flip
-  // to "pole" happens around |v.y| < ~7e-5, far above the 1e-9 div floor — so
-  // the floor never decides the round-trip; the matched STEREO_INF threshold
-  // does.
+  // Equator handling: floor the divisor to ±1e-9 to avoid div-by-zero at
+  // v.y == 0, then clamp to ±STEREO_INF — the actual equator→pole threshold that
+  // inv_gnomonic recognizes. A near-equator point has |v.x| or |v.z| ≈ O(1), so
+  // it clamps to the sentinel; the flip to "pole" happens at |v.y| < ~7e-5.
   float div = (std::abs(v.y) < 1e-9f) ? 1e-9f * (v.y >= 0 ? 1.0f : -1.0f) : v.y;
   float gx = v.x / div;
   float gz = v.z / div;
@@ -801,11 +778,8 @@ inline Complex gnomonic(const Vector &v) {
  * @return The corresponding point on the unit sphere.
  */
 inline Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
-  // Recognize clamped-to-infinity → return the pole. gnomonic() clamps each
-  // component to exactly ±STEREO_INF, so the inverse matches at exactly
-  // STEREO_INF — no margin (unlike inv_stereo's STEREO_INF_RECOGNIZE), because
-  // the forward sentinel here is an exact per-axis clamp, not a magnitude that a
-  // Mobius map can shrink.
+  // Clamped-to-infinity → pole. Matched at exactly ±STEREO_INF (no margin,
+  // unlike inv_stereo) since gnomonic()'s forward sentinel is an exact clamp.
   if (std::abs(z.re) >= STEREO_INF || std::abs(z.im) >= STEREO_INF)
     return Vector(0.0f, original_sign, 0.0f);
   // Project (re, 1, im) back onto unit sphere
@@ -874,10 +848,7 @@ constexpr Vector operator*(const Vector &v, float s) {
  */
 constexpr Vector operator*(float s, const Vector &v) { return v * s; }
 
-// Unlike Vector::operator/=, this free operator deliberately does NOT trap on
-// s == 0: it is a per-pixel hot-path primitive, and HS_CHECK is reserved for
-// cold paths (see core/platform.h). A zero divisor yields ±Inf/NaN. Use the
-// compound-assignment form (v /= s) where a guarded divide is wanted.
+// Hot-path primitive: no s == 0 trap (yields ±Inf/NaN); use v /= s when guarded.
 constexpr Vector operator/(const Vector &v, float s) {
   return Vector(v.x / s, v.y / s, v.z / s);
 }
@@ -1025,9 +996,6 @@ constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
  * @return The angle in radians.
  */
 inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
-  // Exact acosf (unlike the Vector overload's fast_acos): quaternion variants are
-  // orientation-level ops invoked at most per-object per-frame, never per-pixel,
-  // so the cycles are immaterial while drift-free rotation fidelity is not.
   return acosf(hs::clamp(dot(q1, q2), -1.0f, 1.0f));
 }
 
@@ -1044,13 +1012,6 @@ inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
  *      degenerate axis must guard it (e.g. via `normalized_or`) before calling.
  */
 inline Quaternion make_rotation(const Vector &axis, float theta) {
-  // Exact sinf/cosf (not the Bhaskara fast_* pair): fast_sinf's +1.86% near-zero
-  // error would scale the effective rotation 2*atan2(s,c) by the same factor, a
-  // systematic overshoot of every small incremental rotation that normalization
-  // cannot undo (it preserves the s/c ratio). This is an orientation-level op
-  // invoked at most per-object/per-vertex per frame, never per-pixel, so the
-  // cycles are immaterial while drift-free fidelity is not -- same rationale as
-  // angle_between() and the quaternion slerp overloads above.
   return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalized();
 }
 
@@ -1085,21 +1046,13 @@ inline Vector least_parallel_axis(const Vector &v) {
  * synthesizes a stable perpendicular axis and rotates by π.
  */
 inline Quaternion make_rotation(const Vector &from, const Vector &to) {
-  // Inputs must be unit: the d>1-eps / d<-1+eps branch tests below assume |from|
-  // = |to| = 1, and a non-unit input silently skews the angle. (dot(v,v) avoids
-  // the sqrt.) EPS_UNIT_VEC_SQ here and TOLERANCE below sit on different scales by
-  // design: the former is generous input-validity slack on |v|, the latter a tight
-  // geometric branch threshold on d = dot(from,to) keeping the general-path
-  // cross-product normalize well-conditioned.
   HS_CHECK(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ &&
                std::abs(dot(to, to) - 1.0f) < math::EPS_UNIT_VEC_SQ,
            "make_rotation(from, to): inputs must be unit vectors");
   float d = dot(from, to);
 
-  // Antiparallel (180°): any axis perpendicular to 'from' is valid, so only
-  // conditioning matters. Seed the cross with least_parallel_axis(from) so
-  // |cross| stays >= sqrt(1 - COS_AXIS_PARALLEL^2) rather than shrinking to
-  // ~TOLERANCE before we normalize through it.
+  // Antiparallel (180°): seed the cross with least_parallel_axis(from) so the
+  // axis we normalize through stays well-conditioned.
   if (d < -1.0f + TOLERANCE) {
     Vector axis = cross(least_parallel_axis(from), from);
     axis.normalize();
@@ -1231,16 +1184,12 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
   }
   float theta = fast_acos(d);
   if (theta > PI_F - math::TOLERANCE) {
-    // Antipodal endpoints: the lerp midpoint collapses to the zero vector for an
-    // exact antipode at t≈0.5, where the great-circle path is undefined anyway.
-    // Fall back to a stable endpoint direction rather than trapping in strict
-    // normalized() — an antipodal pair is a legitimate geometric edge here.
+    // Antipodal endpoints: the great-circle path is undefined and the lerp
+    // midpoint can be zero, so fall back to a stable endpoint direction.
     return normalized_or((v1 + (v2 - v1) * t), v1);
   }
-  // Classic slerp weights are sin((1-t)θ)/sinθ and sin(tθ)/sinθ. The common
-  // 1/sin(θ) factor cancels under the final normalize() (direction depends only
-  // on the ratio of the two numerator sines), so we omit it — also avoiding a
-  // divide of an approximate fast_sinf by a small approximate sin(θ) near θ→π.
+  // The 1/sinθ factor in the slerp weights cancels under the final normalize(),
+  // so it is omitted (also dodging a divide by a small sin(θ) near θ→π).
   float s1 = fast_sinf((1 - t) * theta);
   float s2 = fast_sinf(t * theta);
   return ((s1 * v1) + (s2 * v2)).normalized();
@@ -1260,12 +1209,8 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
   Quaternion p(q1);
   Quaternion q(q2);
 
-  // Boundary at exactly-orthogonal endpoints (d == 0, the 90°/270° pair) is
-  // owned deliberately and split between the two modes so each takes the arc its
-  // name promises: long_way flips on d >= 0 (so d == 0 takes the 270° arc),
-  // short-path flips on d < 0 (so d == 0 keeps the 90° arc). A plain d > 0 here
-  // would leave d == 0 unflipped in both modes, silently giving long_way the
-  // short 90° arc.
+  // At d == 0 (orthogonal endpoints) the >=/< split sends each mode to the arc
+  // its name promises: long_way takes the 270° arc, short-path the 90° arc.
   if ((long_way && d >= 0) || (!long_way && d < 0)) {
     p = -p;
     d = -d;
@@ -1276,9 +1221,6 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
     return r.normalized();
   }
 
-  // Exact acosf/sinf (unlike the Vector slerp's fast_*): orientation interpolation
-  // runs at most per-object per-frame, not per-pixel, so exact trig costs nothing
-  // measurable here and keeps rotation paths free of approximation drift.
   float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
   if (sin_theta < math::TOLERANCE) {
@@ -1315,10 +1257,8 @@ inline Vector cubic_fast(const Vector &p0, const Vector &p1, const Vector &p2,
   float tt = t * t;
   Vector blended = p0 * (uu * u) + p1 * (3.0f * uu * t) + p2 * (3.0f * u * tt) +
                    p3 * (tt * t);
-  // Antipodal / coincident control points can sum to a near-zero vector —
-  // legitimate geometry, not a bug — and the strict normalized() would trap.
-  // Degrade gracefully to p1, matching the robustness cubic_slerp already gets
-  // from slerp's normalized_or fallback.
+  // Antipodal/coincident control points can sum to ~zero (a legitimate edge),
+  // so degrade to p1 rather than trapping in strict normalized().
   return normalized_or(blended, p1);
 }
 

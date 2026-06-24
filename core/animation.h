@@ -52,17 +52,10 @@ public:
    */
   Path &append_segment(PlotFn plot, float domain, int samples,
                        ScalarFn easing) {
-    // points is a fixed-capacity ring buffer: overflowing it silently
-    // overwrites the oldest points and corrupts the path. A sizing bug should
-    // trap on the bench, not degrade. (Cold path — path construction.)
-    // samples >= 1 also keeps the t / samples below from dividing by zero:
-    // easing(0/0) = NaN would silently append a garbage point. samples is an
-    // integer count, so the final t == samples lands exactly on easing(1.0).
+    // samples >= 1 also keeps the t / samples divide below non-zero.
     HS_CHECK(samples >= 1);
-    // Capacity check accounts for the pop_back below: a non-empty path drops its
-    // last point before appending samples + 1 new ones, so the final size is
-    // (size - 1) + samples + 1. Counting the popped point as still-present would
-    // reject a final segment that actually fits (over-conservative by one).
+    // Account for the pop_back below: a non-empty path drops its last point
+    // before appending samples + 1, so the final size is (size - 1) + samples + 1.
     size_t retained = points.is_empty() ? points.size() : points.size() - 1;
     HS_CHECK(retained + static_cast<size_t>(samples) + 1 <= RESOLUTION);
     if (!points.is_empty())
@@ -81,9 +74,8 @@ public:
   Vector get_point(float t) const {
     if (points.is_empty())
       return Vector(0, 0, 0);
-    // Clamp like every other interpolator here: an out-of-[0,1] t would make
-    // raw_index negative, and static_cast<size_t> of a negative float is UB
-    // (t > 1 is caught by the i >= size-1 guard below, but t < 0 is not).
+    // Clamp: a negative t makes raw_index negative, and casting that to size_t
+    // is UB (t > 1 is caught by the i >= size-1 guard below, t < 0 is not).
     t = hs::clamp(t, 0.0f, 1.0f);
     float raw_index = t * (points.size() - 1);
     size_t i = static_cast<size_t>(raw_index);
@@ -99,9 +91,8 @@ public:
    * @brief Collapses the path to its newest point only.
    */
   void collapse() {
-    // Clear in place and re-push the single survivor rather than assigning a
-    // fresh buffer: a StaticCircularBuffer<Vector, RESOLUTION> temporary is
-    // ~12.3 KB at the default RESOLUTION=1024, over the WASM build's 8 KB stack.
+    // Clear in place rather than assigning a fresh buffer: a full
+    // StaticCircularBuffer temporary (~12.3 KB) overflows the WASM 8 KB stack.
     if (points.size() > 1) {
       Vector last = points.back();
       points.clear();
@@ -538,17 +529,11 @@ public:
             float max_life = 600.0f) {
     this->friction = friction;
     this->gravity = gravity;
-    // Clamp before narrowing: a float outside [0, 65535] is UB on conversion to
-    // uint16_t. Particle::init's hs::clamp sits on the far side of this store
-    // (its caller already passes the narrowed member), so the guard has to live
-    // here. Current callers are in range; this keeps a stray value from spawning
-    // particles with a garbage lifetime.
+    // Clamp before narrowing: a float outside [0, 65535] is UB cast to uint16_t.
     this->max_life =
         static_cast<uint16_t>(std::min(std::max(max_life, 0.0f), 65535.0f));
     active_count = 0;
     pool.bind(arena, CAPACITY);
-    // No is_bound() guard: bind() routes through Arena::allocate, which traps on
-    // OOM and never leaves the vector unbound for CAPACITY > 0.
     for (size_t i = 0; i < CAPACITY; ++i) {
       pool.emplace_back();
     }
@@ -607,14 +592,9 @@ public:
 
       float max_delta = (2 * PI_F) / W;
 
-      // Swap-remove dead particles: overwrite the dead slot with the
-      // last live one, shrink, and re-test the same index. The `i--` here is a
-      // deliberate unsigned-wraparound idiom: when i == 0, `i--` wraps to
-      // SIZE_MAX, then the loop's `++i` wraps it back to 0 so the swapped-in
-      // particle at slot 0 is re-tested — well-defined for unsigned size_t, but
-      // it ONLY works because `i` is unsigned and `i--`/`++i` are adjacent with
-      // nothing in between. Do NOT change `i` to a signed type or insert logic
-      // that reads `i` after the decrement; either breaks the wrap.
+      // Swap-remove dead particles, re-testing the same index. The i-- relies on
+      // unsigned wraparound (i==0 -> SIZE_MAX -> ++i back to 0): keep i unsigned
+      // and do not read i between the decrement and the loop's ++i.
       for (size_t i = 0; i < active_count; ++i) {
         bool dead = step_particle(pool[i], max_delta);
         if (dead) {
@@ -665,11 +645,8 @@ private:
     if (active) {
       Vector pos = p.position;
 
-      // Drag first: damp the velocity carried in from previous frames BEFORE
-      // this frame's attractor forces, so a fresh impulse is not also damped
-      // this frame (forward Euler: v <- friction*v + impulse). Applied to the
-      // carried velocity even if an attractor kills the particle below — a
-      // killed particle's velocity is discarded, so the order is harmless there.
+      // Drag the carried velocity before this frame's impulse so a fresh impulse
+      // is not also damped this frame (forward Euler: v <- friction*v + impulse).
       p.velocity *= friction;
 
       for (size_t k = 0; k < attractors.size(); ++k) {
@@ -688,8 +665,8 @@ private:
             float speed = p.velocity.magnitude();
             p.velocity = torque * speed;
           } else {
-            // Gravity. pos and the attractor can be ~antipodal, leaving the
-            // cross-product axis undefined; guard the normalize.
+            // Gravity. pos and the attractor can be ~antipodal (undefined cross
+            // axis), so guard the normalize.
             float force = (gravity * attr.strength) / dist_sq;
             Vector torque =
                 normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) * force;
@@ -699,19 +676,14 @@ private:
       }
 
       if (active) {
-        // Move. The surface-rotation axis is cross(pos, velocity); it vanishes
-        // when the velocity is purely radial (parallel to pos) even though
-        // speed is non-zero — e.g. once a non-tangent external force (the flow-
-        // field noise) has pushed the velocity off the tangent plane. A radial
-        // velocity produces no motion along the sphere, so skip the step rather
-        // than normalize a zero-length axis (mirrors the normalized_or guard on
-        // the gravity branch above).
+        // The surface-rotation axis cross(pos, velocity) vanishes for a purely
+        // radial velocity (no motion along the sphere), so skip rather than
+        // normalize a zero-length axis.
         float speed = p.velocity.magnitude();
         Vector axis = cross(pos, p.velocity);
         if (speed > 0.000001f && axis.magnitude() > 0.000001f) {
-          // Cap the surface advance at one display column/frame so a high-speed
-          // particle can't skip columns (trail/motion-blur aliasing). Velocity
-          // keeps its full magnitude; only the per-frame step is clamped.
+          // Cap the per-frame surface advance at one column to avoid aliasing;
+          // velocity keeps its full magnitude.
           speed = std::min(speed, max_delta);
           Quaternion dq = make_rotation(axis.normalized(), speed);
           p.position = rotate(p.position, dq);
@@ -728,13 +700,8 @@ private:
       }
     }
 
-    // A particle is only reclaimable once it is BOTH dead AND its trail has
-    // fully drained, so a just-killed particle holds its pool slot for up to
-    // TRAIL_LEN more frames while the trail fades out (freeing it earlier would
-    // pop the trail mid-fade). This couples effective pool capacity to
-    // TRAIL_LEN: under sustained spawning, ~TRAIL_LEN slots are always occupied
-    // by draining trails rather than live particles. Intentional — the trail
-    // must render to completion — but size CAPACITY with that headroom in mind.
+    // Reclaimable only once dead AND the trail has drained, so a killed particle
+    // holds its slot for up to TRAIL_LEN more frames — size CAPACITY accordingly.
     return !active && p.history.length() == 0;
   }
 };
@@ -754,10 +721,6 @@ public:
   RandomTimer(int min, int max, TimerFn f, bool repeat = false)
       : AnimationBase(-1, repeat), min(min), max(max), f(std::move(f)),
         next(0) {
-    // Cold authoring seam: a negative or inverted range makes the half-open
-    // rand_int(min, max + 1) empty/inverted, yielding an implementation-defined
-    // garbage delay that would fire at a nondeterministic time. Trap it at
-    // construction like the file's other invariants rather than soft-fail later.
     HS_CHECK(min >= 0 && min <= max);
     reset();
   }
@@ -781,11 +744,8 @@ public:
       f(canvas);
       if (repeat) {
         reset();
-        // A repeating timer is constructed with duration=-1 and resets itself
-        // here, so it never reaches done() and the Timeline never fires its
-        // per-cycle .then(). Fire it directly so an attached callback honors
-        // the documented per-cycle contract (the non-repeating branch reaches
-        // done() via cancel(), so the Timeline fires its callback for it).
+        // A repeating timer never reaches done(), so fire the per-cycle .then()
+        // directly to honor the contract.
         this->post_callback();
       } else {
         cancel();
@@ -844,10 +804,7 @@ public:
       f(canvas);
       if (repeat) {
         reset();
-        // See RandomTimer::step: a repeating timer never reaches done(), so
-        // route its per-cycle .then() through post_callback() here to honor the
-        // documented contract.
-        this->post_callback();
+        this->post_callback(); // see RandomTimer::step
       } else {
         cancel();
       }
@@ -884,21 +841,14 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
-    // Snapshot the start value once, on the first step — not every time t hits
-    // 0. A repeating Transition rewinds t to 0 at the end of each cycle, by
-    // which point mutant == to; re-snapshotting would set from = to and every
-    // subsequent cycle would write the constant `to` (a silent no-op). Capturing
-    // here rather than in the ctor still picks up a mutant changed between
-    // construction and the first step.
+    // Snapshot the start once, on the first step. A repeating Transition rewinds
+    // to t==0 with mutant == to, so re-snapshotting would freeze from = to.
     if (!captured) {
       from = mutant;
       captured = true;
     }
     AnimationBase::step(canvas);
-    // Clamp both ends (not just std::min on the top): a negative duration would
-    // make t/duration negative and feed easing a negative arg. The lower bound
-    // pins it to 0, matching Lerp/MeshMorph. The base ctor maps duration 0 -> 1,
-    // so the divide is never by zero.
+    // Clamp both ends so a negative duration can't feed easing a negative arg.
     auto t_norm = hs::clamp(static_cast<float>(this->t) / duration, 0.0f, 1.0f);
     auto n = easing_fn(t_norm) * (to - from) + from;
     if (quantized) {
@@ -961,8 +911,6 @@ public:
     if (paused_ && *paused_)
       return;
     AnimationBase::step(canvas);
-    // Clamp both ends like Transition: a negative duration must not feed easing a
-    // negative arg. Base ctor maps duration 0 -> 1, so the divide is safe.
     auto t_norm = hs::clamp(static_cast<float>(this->t) / duration, 0.0f, 1.0f);
     mutant.get() = f(easing_fn(t_norm));
   }
@@ -1004,11 +952,7 @@ public:
          const bool *paused = nullptr)
       : AnimationBase(1, true), mutant(mutant), speed(speed), wrap_(wrap),
         paused_(paused) {
-    // A non-finite fixed speed poisons `mutant` permanently: mutant += NaN/Inf
-    // is non-finite and wrap_t() cannot recover it (see step()). A literal
-    // non-finite speed is a construction-time programming error, so trap it
-    // fail-fast — unlike the live-source ctor, which keeps its 0.0f seed
-    // because that value is runtime/untrusted and transient.
+    // A non-finite speed permanently poisons `mutant` (wrap_t can't recover NaN).
     HS_CHECK(std::isfinite(speed), "Driver: fixed speed must be finite");
   }
 
@@ -1028,10 +972,8 @@ public:
          const bool *paused = nullptr)
       : AnimationBase(1, true), mutant(mutant), speed(0.0f), wrap_(wrap),
         paused_(paused), speed_src_(speed_src), scale_(scale) {
-    // Guard the live source before dereferencing it.
     HS_CHECK(speed_src != nullptr, "Driver: live speed_src is null");
-    // Never seed a non-finite speed: see step() for why a NaN/Inf source must
-    // not reach `mutant`. On a non-finite initial read keep the 0.0f seed.
+    // On a non-finite initial read keep the 0.0f seed (see step()).
     float s = *speed_src * scale;
     if (std::isfinite(s))
       speed = s;
@@ -1046,12 +988,8 @@ public:
     if (paused_ && *paused_)
       return;
     AnimationBase::step(canvas);
-    // A bound Driver re-reads its live speed source each step (one load +
-    // multiply on the once-per-frame timeline path, not the pixel loop).
-    // A slider glitching to NaN/Inf for even one frame would otherwise poison
-    // `mutant` permanently: speed goes non-finite, `mutant += speed` is NaN, and
-    // wrap_t(NaN) stays NaN forever. Keep the last good speed on a non-finite
-    // read (isfinite is on the once-per-frame path, not the pixel loop).
+    // Re-read the live source, keeping the last good speed on a non-finite read:
+    // a one-frame NaN/Inf would otherwise poison `mutant` permanently.
     if (speed_src_) {
       float s = *speed_src_ * scale_;
       if (std::isfinite(s))
@@ -1059,8 +997,6 @@ public:
     }
     mutant.get() += speed;
     if (wrap_) {
-      // wrap_t (fract) folds the phase back into [0,1) for any magnitude, so
-      // |speed| >= 1 or a resume-jump far outside the range still wraps cleanly.
       mutant.get() = wrap_t(mutant.get());
     }
   }
@@ -1131,15 +1067,10 @@ public:
     };
   }
 
-  // Borrow contract: subject/start/target are stored as raw pointers and
-  // dereferenced in step() across many frames, so they must be caller-owned
-  // lvalues that outlive the Timeline. `T &subject` already rejects a temporary
-  // subject; these deleted overloads reject a temporary start/target too, so an
-  // inline `Lerp(x, Foo{...}, bar, ...)` is a compile error instead of a silent
-  // dangling read (mirrors Motion/MeshMorph). The trailing defaulted `paused`
-  // mirrors the real ctor so an rvalue start/target is rejected whether or not a
-  // pause flag is passed — otherwise a 6-arg paused call would skip these 5-arg
-  // overloads and bind the temporary to the real ctor.
+  // Borrow contract: subject/start/target are stored as pointers and read across
+  // many frames, so they must outlive the Timeline. These deleted overloads
+  // reject a temporary start/target at compile time; the defaulted `paused`
+  // mirrors the real ctor so the 6-arg paused call is rejected too.
   template <typename T, typename Easing>
   Lerp(T &subject, const T &&start, const T &target, int duration,
        Easing easing_fn, const bool *paused = nullptr) = delete;
@@ -1217,22 +1148,14 @@ public:
    * @param canvas The canvas buffer passed to the draw function.
    */
   void step(Canvas &canvas) override {
-    // Paused: hold the frame — don't advance the timer (so the sprite neither
-    // fades nor expires) but keep drawing at the current opacity. Lets a paused,
-    // param-driven effect keep rendering its held state instead of going blank
-    // when the sprite that renders it would otherwise run out (see HankinSolids,
-    // whose render sprite is the same length as the angle Mutation it pauses).
+    // Paused: hold the frame (don't advance the timer) but keep drawing at the
+    // current opacity.
     if (!(paused_ && *paused_))
       AnimationBase::step(canvas);
 
-    // Trapezoid envelope as the MIN of an independent fade-in ramp and fade-out
-    // ramp, each 1.0 outside its window. Computing both (rather than an
-    // if/else-if where fade-in masks fade-out) keeps opacity continuous when the
-    // windows overlap (fade_in_duration + fade_out_duration > duration),
-    // degrading smoothly to a triangle instead of jumping at the handoff —
-    // duration and fade are independent GUI sliders, so the overlap is
-    // user-reachable. In the non-overlapping case only one ramp is ever below
-    // 1.0 at a time, so the MIN reduces to a plain trapezoid.
+    // Trapezoid envelope as the MIN of an independent fade-in and fade-out ramp.
+    // Computing both keeps opacity continuous when the windows overlap (the
+    // durations are independent GUI sliders), degrading to a triangle.
     float fade_in = 1.0f;
     if (fade_in_duration > 0 && t < fade_in_duration) {
       float progress = static_cast<float>(t) / fade_in_duration;
@@ -1240,9 +1163,8 @@ public:
     }
 
     // An indefinite sprite (duration < 0) has no end frame to fade toward, so
-    // fade_out_duration is intentionally ignored for it — the `duration >= 0`
-    // guard is load-bearing, not just overflow safety. Fade a sprite out by
-    // giving it a finite duration.
+    // the `duration >= 0` guard skips fade-out for it (load-bearing, not just
+    // overflow safety).
     float fade_out = 1.0f;
     if (duration >= 0 && fade_out_duration > 0 &&
         t >= (duration - fade_out_duration)) {
@@ -1302,13 +1224,8 @@ public:
    * @param repeat If true, the motion repeats.
    * @param space Coordinate space for the applied rotations.
    */
-  // By design, an empty or origin-crossing path is not a legitimate animation
-  // state and is trapped fail-fast — but downstream of here: the first update()
-  // feeds path_fn(s) into angle_between()/normalized(), which HS_CHECK a
-  // zero-length vector (Path::get_point returns the origin for an empty path).
-  // No earlier ctor guard: P is generic (Path has is_empty(), ProceduralPath
-  // does not and is never "empty"), so there is no portable emptiness test to
-  // assert here. This note records where the trap actually fires.
+  // No ctor emptiness guard (P is generic): an empty/origin-crossing path traps
+  // downstream when step() feeds the origin into angle_between()/normalized().
   template <typename P>
   Motion(Orientation<CAP> &orientation, const P &path_obj, int duration,
          bool repeat = false, Space space = Space::World)
@@ -1317,11 +1234,8 @@ public:
         path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
         space(space) {}
 
-  // Borrow contract: path_fn captures &path_obj and dereferences it every
-  // frame for the animation's lifetime (which lives in the effect's Timeline).
-  // The path must therefore be an effect-owned lvalue that outlives the
-  // timeline — reject binding to a temporary at compile time instead of
-  // dangling silently. (Non-owning by design: see Fn<>/inline-storage budget.)
+  // Borrow contract: path_fn captures &path_obj and reads it every frame, so the
+  // path must outlive the timeline — reject a temporary at compile time.
   template <typename P,
             typename = std::enable_if_t<!std::is_lvalue_reference_v<P>>>
   Motion(Orientation<CAP> &orientation, P &&path_obj, int duration,
@@ -1378,19 +1292,10 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase<Motion<W, CAP>>::step(canvas);
 
-    // Drift-free, composable integration. Motion advances the bound Orientation
-    // by RELATIVE deltas only — never writing its absolute state — so it composes
-    // with any co-driver of the same Orientation (the multi-animation motion blur
-    // the collapse pre-pass in Timeline::step supports). Each delta carries the
-    // path's own orientation frame from one (sub)frame to the next, and that frame
-    // is a *pure function* of the path parameter (point path(s) + travel-tangent
-    // pin a full orthonormal frame; see path_frame()). That purity is what makes
-    // it drift-free: the baseline is always a fresh path-derived value, never an
-    // accumulating quaternion chain, so per-frame deltas telescope with no float
-    // buildup and each cycle re-derives the same frames. (A two-vector frame is a
-    // global section with no holonomy, so a closed path loops seamlessly; no
-    // per-cycle re-anchor is needed.) The roll this frame pins is about the head's
-    // own axis, invisible for a path-following point head.
+    // Motion advances the Orientation by RELATIVE deltas only (never its absolute
+    // state), so it composes with any co-driver of the same Orientation. Each
+    // delta's frame is a pure function of the path parameter (see path_frame),
+    // so the baseline never accumulates and per-frame deltas telescope drift-free.
     float t_prev = static_cast<float>(this->t - 1);
     Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
@@ -1398,22 +1303,14 @@ public:
     float total_angle = angle_between(current_v, target_v);
     int num_steps = rotation_substeps(total_angle, MAX_ANGLE);
 
-    // Ensure sufficient resolution. Past CAP this soft-clamps and the smear
-    // sub-samples (graceful degradation, never a trap) — see Orientation::upsample.
     orientation.get().upsample(num_steps + 1);
     int len = orientation.get().length();
 
-    // Baseline = the frame Motion last drove the Orientation to (carried across
-    // frames, NOT recomputed from t-1). Within a cycle these coincide, but at a
-    // repeat seam the phase rewinds to 0 while the Orientation still sits at the
-    // end-of-cycle frame; using the carried baseline makes the first delta of
-    // the new cycle carry the head from where it actually is (end of path) back
-    // to the start, re-seating it for the next traversal. For a closed path the
-    // start and end frames coincide and that delta is identity (a seamless
-    // loop); for an open arc it is a jump-back, but expressed as a *relative*
-    // delta so a co-driver's contribution rides along instead of being
-    // clobbered. At i==0 the delta is identity, so the
-    // loop starts at i==1 and at(0) is left as the collapsed/co-driven seed.
+    // Baseline = the frame Motion last drove to, carried across frames (not
+    // recomputed from t-1). At a repeat seam the phase rewinds while the
+    // Orientation still sits at the end-of-cycle frame, so the carried baseline
+    // makes the first delta a relative jump-back that a co-driver rides along.
+    // The i==0 delta is identity, so the loop starts at i==1.
     if (!have_prev_frame_) {
       prev_frame_ = path_frame(t_prev / this->duration);
       have_prev_frame_ = true;
@@ -1426,9 +1323,8 @@ public:
       float sub_t = t_prev + (static_cast<float>(i) / (len - 1));
       frame = path_frame(sub_t / this->duration);
 
-      // The advance from the baseline frame to this substep's frame, applied as
-      // a relative delta onto the existing orientation: World pre-multiplies
-      // (frame * base_inv), Local post-multiplies (base_inv * frame).
+      // Relative delta from the baseline frame to this substep's frame: World
+      // pre-multiplies, Local post-multiplies.
       Quaternion &current_q = orientation.get().at(i);
       if (space == Space::Local) {
         current_q = current_q * (base_inv * frame);
@@ -1437,9 +1333,7 @@ public:
       }
       current_q.normalize();
     }
-    // Carry the final substep's frame (= F at the current phase) as the next
-    // frame's baseline. A pure path-derived value, never an accumulating chain,
-    // so the per-frame deltas telescope and no float drift builds up.
+    // Carry the final substep's frame as the next frame's baseline.
     prev_frame_ = frame;
   }
 
@@ -1460,8 +1354,7 @@ public:
     Vector ahead = path_fn(s + FRAME_TANGENT_H).normalized();
     Vector travel = ahead - point;
     Vector tangent = travel - dot(travel, point) * point;
-    // Fallback when the tangent vanishes: a cross with the body axis least
-    // parallel to the point (shared with RandomWalk's reference pick).
+    // Fallback when the tangent vanishes.
     Vector seed = least_parallel_axis(point);
     Vector b1 = normalized_or(tangent, cross(seed, point).normalized());
     Vector b2 = cross(point, b1);
@@ -1556,9 +1449,6 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
-    // A default-constructed Rotation leaves orientation null (has_orientation()
-    // reports exactly this state); stepping it would be a null deref under
-    // NDEBUG in the apply loop below. Trap at the cold seam instead.
     HS_CHECK(orientation != nullptr);
     if (this->t == 0) {
       last_angle = 0;
@@ -1569,18 +1459,13 @@ public:
     float delta = target_angle - last_angle;
 
     if (std::abs(delta) < TOLERANCE) {
-      // Leave last_angle untouched so this sub-threshold increment is not
-      // dropped: it accumulates into delta on later frames and is applied once
-      // the sum crosses TOLERANCE. Advancing last_angle to target_angle here
-      // would discard it forever, freezing very slow rotations and
-      // systematically undershooting the slow-start portion of eased ones.
+      // Leave last_angle untouched so this sub-threshold increment accumulates
+      // into delta and is applied once the sum crosses TOLERANCE; advancing it
+      // would freeze very slow rotations.
       return;
     }
 
-    // Same tight substep count as Motion (shared rotation_substeps).
     int num_steps = rotation_substeps(std::abs(delta), MAX_ANGLE);
-    // Past CAP this soft-clamps and the smear sub-samples (graceful
-    // degradation, never a trap) — see Orientation::upsample.
     orientation->upsample(num_steps + 1);
     int len = orientation->length();
 
@@ -1743,8 +1628,7 @@ public:
                        target_pivot * (1.0f - options.smoothing);
     direction = rotate(direction, make_rotation(v, angular_velocity)).normalized();
     // If v and direction drift near-parallel the cross collapses to zero; fall
-    // back to a deterministic perpendicular of v (the ctor's basis choice)
-    // rather than normalizing a zero-length axis into NaN.
+    // back to a deterministic perpendicular of v.
     const Vector axis_seed = least_parallel_axis(v);
     Vector walk_axis =
         normalized_or(cross(v, direction), cross(v, axis_seed).normalized());
@@ -1794,11 +1678,7 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
-    // Snapshot the start palette once, on the first step — not every time t hits
-    // 0. Mirrors Transition's `captured` flag: a rewound (e.g. requeued) wipe
-    // returns to t == 0 with the palette already at the target, so re-snapshot
-    // would freeze from_snap == to_snap. Capturing here rather than in the ctor
-    // still picks up a palette mutated between construction and the first step.
+    // Snapshot the start palette once, on the first step (see Transition::step).
     if (!captured) {
       from_snap = cur_palette.get().snapshot();
       captured = true;
@@ -1835,12 +1715,8 @@ public:
       : AnimationBase(duration, repeat), params(params), num_rings(num_rings),
         num_lines(num_lines) {}
 
-  // Borrow contract: num_rings/num_lines are stored as reference_wrappers and
-  // re-read in step() across many frames (live-tracking), so they must be
-  // caller-owned lvalues that outlive the Timeline. `MobiusParams &params`
-  // already rejects a temporary; these deleted overloads reject a temporary
-  // scalar too, so `MobiusFlow(p, 3.0f, 4.0f, ...)` is a compile error instead
-  // of a silent dangling read (mirrors Lerp/Motion/MeshMorph).
+  // Borrow contract: num_rings/num_lines are read every frame, so they must
+  // outlive the Timeline; these deleted overloads reject a temporary scalar.
   MobiusFlow(MobiusParams &params, const float &&num_rings,
              const float &num_lines, int duration, bool repeat = true) = delete;
   MobiusFlow(MobiusParams &params, const float &num_rings,
@@ -1854,14 +1730,9 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    // Clamp to [0,1] like every sibling animation (Transition/Mutation/
-    // MobiusWarp): repeat=true rewinds t in practice, but a non-repeating or
-    // overshooting duration would otherwise feed out-of-range progress to the
-    // warp.
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
-    // num_rings is live-bound; if it ever reaches -1 the divisor num_rings + 1
-    // hits 0 and logPeriod blows up to inf, poisoning a/d with inf/NaN. Floor
-    // at 0 so num_rings + 1 stays >= 1, mirroring the num_lines guard below.
+    // Floor rings at 0 so the divisor rings + 1 stays >= 1 (num_rings == -1 would
+    // make logPeriod inf and poison a/d).
     float rings = num_rings;
     if (rings < 0.0f)
       rings = 0.0f;
@@ -1869,9 +1740,7 @@ public:
     float flowParam = progress * logPeriod;
     float scale = expf(flowParam);
     float s = sqrtf(scale);
-    // num_lines is live-bound and its GUI slider bottoms out at 0, so 2π/0
-    // would blow angle up to inf. Clamp to >= 1 before dividing, mirroring the
-    // defensive floor in set_period/set_duration.
+    // Clamp lines to >= 1 before dividing (the slider bottoms out at 0 → 2π/0).
     float lines = num_lines;
     if (lines < 1.0f)
       lines = 1.0f;
@@ -2029,10 +1898,6 @@ public:
             EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(duration, false), easing_fn(easing_fn),
         draw_outgoing(draw_outgoing), draw_incoming(draw_incoming) {
-    // An empty source leaves best_idx pinned at 0 and indexes an empty
-    // ArenaVector when building the correspondence below — an OOB read under
-    // NDEBUG. The nearest-vertex map is meaningless without source vertices;
-    // trap at construction (house style).
     HS_CHECK(!source.vertices.is_empty());
     buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
@@ -2040,10 +1905,8 @@ public:
     MeshOps::clone(source, buf_->mesh_A, arena);
     MeshOps::clone(dest, buf_->mesh_B, arena);
 
-    // step() writes interpolated positions into mesh_B.vertices[i] for i in
-    // [0, dest.vertices.size()), which is in-bounds only if clone() preserved
-    // dest's vertex count one-to-one. If clone ever welds/dedups, trap at
-    // construction (cold) rather than writing OOB on the per-frame step.
+    // step() indexes mesh_B.vertices by dest's vertex count, so trap here if
+    // clone() ever welds/dedups rather than writing OOB per-frame.
     HS_CHECK(buf_->mesh_B.vertices.size() == dest.vertices.size());
 
     buf_->start_pos.bind(arena, dest.vertices.size());
@@ -2061,15 +1924,9 @@ public:
     }
     Quaternion twist = make_rotation(twist_axis, 0.05f);
 
-    // Build nearest-vertex correspondence. This is an O(V_dest * V_source)
-    // brute-force double loop, run once at construction (effect-spawn), not per
-    // frame — a high-poly morph can briefly hitch the spawning effect on Teensy.
-    // The KDTree in spatial.h would cut this to O(V_dest * log V_source), but it
-    // resolves nearest by Euclidean distance, whereas the match here is greatest
-    // dot product against the twist-biased dest vertex (the twist breaks the
-    // degenerate ties that arise on symmetric meshes). Kept brute-force so the
-    // tie-breaking bias is exact; revisit with the KDTree only if spawn latency
-    // on the largest meshes becomes a problem.
+    // Build nearest-vertex correspondence: an O(V_dest * V_source) brute force,
+    // run once at construction. Matched by greatest dot product against the
+    // twist-biased dest vertex (the twist breaks ties on symmetric meshes).
     for (size_t i = 0; i < dest.vertices.size(); ++i) {
       Vector v_biased = rotate(dest.vertices[i], twist);
       int best_idx = 0;
@@ -2086,26 +1943,17 @@ public:
     }
   }
 
-  // Borrow contract: draw_outgoing/draw_incoming are stored as non-owning
-  // StoredFunctionRefs (8 bytes each — deliberately not owning, to keep
-  // MeshMorph inside the Timeline inline-storage budget) and invoked in step()
-  // across many frames. The callables must be effect-owned lvalues that outlive
-  // the timeline; StoredFunctionRef rejects a temporary (e.g. an inline lambda)
-  // at the MorphDrawFn parameter, turning a dangling bind into a compile error
-  // rather than a silent use-after-free. No per-ctor `= delete` overload is
-  // needed — the type carries the rule.
+  // Borrow contract: the draw callbacks are non-owning StoredFunctionRefs read
+  // every frame, so they must outlive the timeline; StoredFunctionRef rejects a
+  // temporary at the MorphDrawFn parameter, so no `= delete` overload is needed.
 
   /**
    * @brief Steps the crossfade: interpolates vertices and renders both halves.
    * @param canvas The canvas buffer passed to the draw callbacks.
    */
   void step(Canvas &canvas) override {
-    // Increment-first (same ordering as Transition/Mutation) is deliberate: the
-    // rendered progress runs 1/duration .. duration/duration, so the final frame
-    // lands exactly on the destination mesh (alpha == 1) — the correct terminal
-    // state for a morph. The skipped pure-source frame (progress == 0) is
-    // immaterial: at progress == 1/duration the easing is still ~0, so the first
-    // rendered frame already draws the source at op_A ~= 1.
+    // Increment-first so the final frame lands exactly on the destination mesh
+    // (alpha == 1); the skipped progress==0 frame is immaterial.
     AnimationBase::step(canvas);
 
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
@@ -2271,11 +2119,8 @@ public:
     float progress = static_cast<float>(t) / duration;
     float envelope = 0.0f;
 
-    // Once the duration has elapsed the envelope is pinned to 0, so advancing
-    // the phase and recomputing the reject thresholds would be dead work on an
-    // already-invisible ripple (the one final step the Timeline runs before it
-    // removes a finished one-shot). Do the wave work only while live; always
-    // publish the amplitude so the last frame correctly renders nothing.
+    // Past the duration the envelope is pinned to 0, so skip the wave work; the
+    // amplitude is still published below so the last frame renders nothing.
     if (t < duration) {
       params.get().phase += speed;
 
@@ -2288,14 +2133,8 @@ public:
 
       envelope = attack * decay;
 
-      // Re-prepare the fast-reject thresholds against the phase we just
-      // advanced. The transformer's prepare_frame() runs before timeline.step(),
-      // so without this the render samples the wavelet at the NEW phase but
-      // rejects against thresholds cached at the OLD phase — clipping the leading
-      // `speed`-wide slice of every ripple (the whole leading half at extreme
-      // Ripp Width / Dur, where speed approaches the 2·half-width window).
-      // Recomputing here keeps phase and thresholds consistent in any step
-      // ordering. Cold (≤ pool-size ripples per frame, 2 cosf each).
+      // Re-prepare the reject thresholds against the phase just advanced, so the
+      // render never tests the new phase against thresholds cached at the old one.
       params.get().prepare_thresholds();
     }
 
@@ -2353,19 +2192,9 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    // Accepted divergence: t is an integer frame counter, so once it exceeds
-    // 2^24 (~16.7M frames, ~77 h at 60 fps) float can no longer represent
-    // consecutive values and the noise time axis quantizes — the field appears
-    // to slow then freeze on a permanent install. A modulo-before-cast would
-    // hold float precision but OpenSimplex2 is aperiodic, so every wrap injects
-    // a visible discontinuity; a float accumulator quantizes the same way once
-    // it passes 2^24. Both fixes trade a gradual, barely-perceptible drift for a
-    // sharp artifact, so the raw cast is kept and the limit documented.
-    //
-    // The ~77 h figure is for the default speed==1. noise_transform samples the
-    // time axis at time*speed, so each float quantization step is magnified by
-    // `speed`: the visible onset scales inversely, ~2^24/speed frames — sooner
-    // above 1, later below.
+    // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher speed)
+    // float can't represent consecutive frames and the noise time axis freezes.
+    // A modulo/accumulator fix only trades the slow drift for a sharp artifact.
     params.get().time = static_cast<float>(t);
   }
 
@@ -2381,13 +2210,9 @@ private:
  * compaction).
  */
 struct TimelineEvent {
-  // Inline storage budget for a type-erased animation. Tuned to 112 B for the
-  // device (teensy::inplace_function, 24 B/callable) and the WASM simulator
-  // (libc++ std::function, 32 B/callable). The native unit-test build uses
-  // MSVC's std::function (64 B/callable), which inflates the same animation
-  // types past 112 B; HS_TEST_BUILD widens the budget for that build only so
-  // the device's RAM footprint is unchanged. See the `tests` CMake preset
-  // (or `just test`).
+  // Inline storage budget for a type-erased animation: 112 B for device/WASM.
+  // The native test build's std::function is wider, so HS_TEST_BUILD widens the
+  // budget for that build only, leaving the device footprint unchanged.
 #ifdef HS_TEST_BUILD
   static constexpr size_t MAX_ANIM_SIZE = 256;
 #else
@@ -2436,13 +2261,8 @@ struct TimelineEvent {
    * @param dst The destination slot to move into.
    */
   void move_into(TimelineEvent &dst) {
-    // Fail-fast on the add_get() dangling-handle hazard: relocating a handled
-    // event invalidates the caller's cached animation pointer. Today's callers
-    // are safe by an unstated invariant (handled animations are infinite and
-    // added before any finite one, so compaction never shifts them), but a
-    // future change that violates it would silently corrupt memory. Trap at the
-    // move instead — a bench-time crash beats a live use-after-free. (Cold path:
-    // once per relocated event per frame, never per pixel.)
+    // Relocating a handled event would dangle the caller's cached animation
+    // pointer (handled animations are never meant to move); trap instead.
     HS_CHECK(!handled);
     dst.start = start;
     dst.handled = handled; // always false past the check; kept for symmetry
@@ -2464,28 +2284,13 @@ struct TimelineEvent {
   }
 };
 
-// Device inline-storage budget audit. The per-type
-// static_assert(sizeof(A) <= MAX_ANIM_SIZE) in Timeline::add/add_get only fires
-// for types that are actually add()ed in the build being compiled — so if an
-// effect stops add()ing a heavy animation, that type can grow past the device
-// budget unnoticed. Pin the budget for the largest concrete animation type here
-// at namespace scope so it is checked in every build that includes this header,
-// independent of any callsite.
-//
-// MAX_ANIM_SIZE — not a hardcoded 112 — is deliberate. sizeof of an Fn-/vtable-
-// bearing animation is wider on the 64-bit native host (8-byte pointers) than on
-// the 32-bit device/WASM (4-byte), so a literal `<= 112` would FAIL on the host
-// even for a type that fits on device; that pointer-width gap is exactly why the
-// native test build widens MAX_ANIM_SIZE to 256 (see TimelineEvent). The
-// accurate device check is therefore the 32-bit WASM/device build, where
-// MAX_ANIM_SIZE == 112: this assert enforces the real device budget there and is
-// a no-op headroom check on the host. The WASM CI build, which compiles every
-// registered effect, is the comprehensive gate for all add()ed animation types;
-// this line additionally pins the *largest* of the concrete animation types —
-// the max over the whole set, not one hand-picked name, so the audit stays
-// accurate if a different type ever becomes the heaviest — and covers each even
-// if it becomes unreferenced. (Templated animations like Motion/Rotation<W,CAP>
-// cannot be sized at namespace scope and stay covered at their add() sites.)
+// Device inline-storage budget audit. The per-type static_assert in
+// Timeline::add only fires for types actually add()ed in this build, so pin the
+// largest concrete animation type here so it is checked in every build that
+// includes this header. Compared against MAX_ANIM_SIZE (not a literal 112) so it
+// is the real 112 B device budget on the 32-bit WASM/device build and a no-op
+// headroom check on the wider native host. (Templated animations stay covered at
+// their add() sites.)
 constexpr size_t kLargestConcreteAnimSize = std::max({
     sizeof(Animation::RandomTimer), sizeof(Animation::PeriodicTimer),
     sizeof(Animation::Transition), sizeof(Animation::Mutation),
@@ -2506,13 +2311,8 @@ static_assert(kLargestConcreteAnimSize <= TimelineEvent::MAX_ANIM_SIZE,
  */
 static constexpr int TIMELINE_MAX_EVENTS = 64;
 extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
-// True while a Timeline instance is alive. Guards the single-singleton invariant
-// (see global_timeline_events): every Timeline shares that one event array, so a
-// second live instance would silently stomp the first's events.
+// True while a Timeline instance is alive (guards the single-singleton invariant).
 extern bool global_timeline_live;
-// Bookkeeping cursors into global_timeline_events. Kept as free globals
-// alongside the array (not Timeline statics): the storage is one shared
-// singleton, so its frame counter and active-event count belong with it.
 extern int global_timeline_t;          // current global frame count
 extern int global_timeline_num_events; // current number of active events
 
@@ -2548,9 +2348,7 @@ public:
     global_timeline_live = false;
   }
 
-  // Singleton over global state: copying/moving would either bypass the live
-  // guard or leave a moved-from husk whose dtor clears the survivor's events.
-  // To reset in place, call clear() rather than reassigning a fresh instance.
+  // Singleton over global state — not copyable/movable; call clear() to reset.
   Timeline(const Timeline &) = delete;
   Timeline &operator=(const Timeline &) = delete;
   Timeline(Timeline &&) = delete;
@@ -2580,11 +2378,8 @@ public:
     static_assert(alignof(A) <= alignof(std::max_align_t),
                   "Animation type is over-aligned for TimelineEvent inline "
                   "storage (placement-new would be misaligned)");
-    // Deliberate soft-drop, not the usual fail-fast trap: pool exhaustion here
-    // is a recoverable scheduling condition (an effect over-queues for one
-    // frame), not a corrupted invariant, and it is pinned by tests. The chained
-    // add() form returns *this regardless; callers that need the handle use
-    // add_get(), which returns nullptr here and is null-checked at every site.
+    // Soft-drop: pool exhaustion is a recoverable scheduling condition, not a
+    // corrupted invariant.
     if (global_timeline_num_events >= MAX_EVENTS) {
       hs::log("Timeline full, failed to add animation!");
       return *this;
@@ -2594,10 +2389,7 @@ public:
     e.handled = false; // global slots are reused — clear any stale handled flag
     e.iface = static_cast<IAnimation *>(new (e.storage) A(std::move(animation)));
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
-      // std::launder: the A was placement-new'd into the raw byte storage, so a
-      // bare reinterpret_cast of the array address is not a pointer to the live
-      // object. Launder it to recover a usable A* (matches the iface comment's
-      // reasoning about typed pointer recovery from this same storage).
+      // std::launder to recover a usable A* from the placement-new'd storage.
       A *obj = std::launder(reinterpret_cast<A *>(src.storage));
       if (dst) {
         dst->iface = static_cast<IAnimation *>(new (dst->storage) A(std::move(*obj)));
@@ -2636,16 +2428,11 @@ public:
     }
     auto &e = global_timeline_events[global_timeline_num_events++];
     e.start = global_timeline_t + (int)in_frames;
-    // A pinned (retained) handle must stay put: step()'s compaction traps in
-    // move_into if a later change ever tries to relocate this event.
     e.handled = pin;
     auto *ptr = new (e.storage) A(std::move(animation));
     e.iface = static_cast<IAnimation *>(ptr);
     e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
-      // std::launder: the A was placement-new'd into the raw byte storage, so a
-      // bare reinterpret_cast of the array address is not a pointer to the live
-      // object. Launder it to recover a usable A* (matches the iface comment's
-      // reasoning about typed pointer recovery from this same storage).
+      // std::launder to recover a usable A* from the placement-new'd storage.
       A *obj = std::launder(reinterpret_cast<A *>(src.storage));
       if (dst) {
         dst->iface = static_cast<IAnimation *>(new (dst->storage) A(std::move(*obj)));
@@ -2667,20 +2454,10 @@ public:
     int active_cnt = global_timeline_num_events; // Snapshot count before callbacks
                                  // potentially add more
 
-    // Collapse each distinct Orientation exactly once, before any animation
-    // steps it. Collapsing per-animation would discard the sub-frame
-    // motion-blur history an earlier animation sharing the same Orientation had
-    // already built this frame, breaking the multi-animation motion blur the
-    // engine advertises. An Orientation is collapsed only by the first started
-    // animation that references it.
-    //
-    // Track the orientations already collapsed this frame in a fixed-size
-    // scratch set (at most MAX_EVENTS distinct ids, so it lives on the stack
-    // with no allocation). The earlier form rescanned every prior event for
-    // each orientation-owning one — O(active^2), and it paid that cost even
-    // though most events own no orientation. Membership is now checked only
-    // against the handful of distinct collapsed ids, so the common case (a few
-    // orientations shared across many events) is effectively O(active).
+    // Collapse each distinct Orientation exactly once, before any animation steps
+    // it: collapsing per-animation would discard the sub-frame motion-blur history
+    // a sharing animation already built this frame. Track the already-collapsed
+    // ids in a fixed-size stack scratch set.
     const void *collapsed_ids[MAX_EVENTS];
     int collapsed_n = 0;
     for (int i = 0; i < active_cnt; ++i) {
@@ -2720,10 +2497,6 @@ public:
 
       // 2. Step (Orientation already collapsed once-per-frame above)
       IAnimation *anim = e.animation();
-      // A started event always carries a live animation: add() sets
-      // manager/iface, and compaction only nulls a slot the loop has already
-      // passed (write_idx <= i). A null here is an upstream invariant
-      // violation — trap rather than silently counting a moved-out husk as live.
       HS_CHECK(anim);
       anim->step(canvas);
 
@@ -2748,27 +2521,17 @@ public:
         }
         write_idx++;
       } else {
-        // Symmetric with move_into's guard, closing the completion side of the
-        // pin invariant. The contract is pinned ⇒ infinite, so a pinned event
-        // should never reach natural completion; if one does — even as the last
-        // event, where no relocation runs and move_into's trap would not fire —
-        // destroying it dangles the caller's retained pointer silently. Trap so
-        // misuse crashes at the bench instead of live. A deliberate cancel() is
-        // exempt: that is the held handle's own sanctioned teardown (like
-        // clear()), not a silent dangle. (Cold path: once per completed event,
-        // never per pixel.)
+        // A pinned event should never reach natural completion (pinned ⇒
+        // infinite); destroying one dangles the caller's pointer. cancel() is the
+        // one sanctioned teardown, so it is exempt.
         HS_CHECK(!e.handled || anim->is_canceled());
         e.destroy();
       }
     }
 
     // 5. Move new events (added during callbacks) to fill the gap left by
-    //    completed ones. This relocates the new events, so a *pinned* event
-    //    spawned inside a callback (add_get/spawn_pinned with pin=true) would
-    //    trap here in move_into's HS_CHECK(!handled) — by design: its address
-    //    was handed back to the caller and must not move. Callback-spawners use
-    //    pin=false today (TransformerPool::spawn), so the gap-fill is safe; the
-    //    trap stands as the fail-fast guard if that ever changes.
+    //    completed ones. A pinned event spawned inside a callback would trap in
+    //    move_into here; callback-spawners use pin=false, so this is safe.
     int new_vals_count = global_timeline_num_events - active_cnt;
     if (new_vals_count > 0 && write_idx < active_cnt) {
       for (int i = 0; i < new_vals_count; ++i) {
@@ -2789,9 +2552,6 @@ public:
    */
   int frame() const { return global_timeline_t; }
 
-  // Frame counter (`global_timeline_t`) and active-event count
-  // (`global_timeline_num_events`) live as free globals, not statics here, so
-  // they stay one shared singleton with global_timeline_events.
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */
 };
@@ -2871,9 +2631,7 @@ public:
    * allocating new persistent data.
    */
   void compact() {
-    // NOTE: Both evacuations share scratch_arena_a. If both slots are
-    // populated, scratch_arena_a must have room for both. An OOM here
-    // will trigger the Arena::allocate assert.
+    // Both evacuations share scratch_arena_a, which must hold both populated slots.
     Persist<MeshState> p0(slots_[0], scratch_arena_a, persistent_arena);
     Persist<MeshState> p1(slots_[1], scratch_arena_a, persistent_arena);
     persistent_arena.reset();
@@ -2915,9 +2673,7 @@ void tween(const Orientation<CAP> &o, TweenFn callback) {
   int len = o.length();
   int start = (len > 1) ? 1 : 0;
   for (int i = start; i < len; ++i) {
-    // A lone snapshot is the newest sub-position, so t = 1 (age-neutral); the
-    // multi-frame sweep already ends at t = 1 for i = len - 1. Emitting t = 0
-    // here would push age + 1 on every static orientation (see World::Orient).
+    // A lone snapshot is the newest sub-position → t = 1 (age-neutral).
     float t = (len > 1) ? static_cast<float>(i) / (len - 1) : 1.0f;
     callback(o.get(i), t);
   }
@@ -2938,10 +2694,7 @@ void tween(const Animation::VectorTrail<CAPACITY> &trail,
     return;
 
   for (size_t i = 0; i < len; ++i) {
-    // A lone sample is the newest (head) position, so t = 1 (age-neutral) — the
-    // multi-sample sweep already ends at 1 for i = len - 1. Emitting 0 here
-    // would flash a freshly spawned or dying particle at tail brightness for the
-    // one frame its history holds a single point (mirrors tween(Orientation)).
+    // A lone sample is the newest (head) position → t = 1 (age-neutral).
     float t = (len > 1) ? static_cast<float>(i) / (len - 1) : 1.0f;
     callback(trail.get(i), t);
   }
@@ -2959,25 +2712,16 @@ void deep_tween(const Tweenable auto &trail, TweenFn callback) {
   if (trail_len == 0)
     return;
 
-  // The age ramp must end at 1.0 on the newest *plotted* orientation. A frame
-  // recorded with no intra-frame motion collapses to a single sub-frame, whose
-  // lone quaternion is the shared boundary the previous frame already plotted —
-  // it emits nothing after the sub-frame-0 skip, and plotting it would just
-  // double up that junction. So a motionless tail would strand the ramp below
-  // 1.0 if we normalized by trail_len. Find the newest frame that actually
-  // contributes and normalize against it instead; the backward scan stops at
-  // the first contentful frame (O(1) in the common case — not a second pass
-  // over the emitted samples), and for an all-moving trail span == trail_len,
-  // leaving the per-frame mapping unchanged.
+  // The age ramp must end at 1.0 on the newest *plotted* orientation. A motionless
+  // tail frame collapses to a single sub-frame that emits nothing, so normalizing
+  // by trail_len would strand the ramp below 1.0; normalize against the newest
+  // frame that actually contributes instead.
   size_t last = trail_len - 1;
   while (last > 0 && trail.get(last).length() <= 1)
     --last;
 
-  // A fully motionless trail collapses to frame 0's lone sub-position — the
-  // newest (and only) plotted orientation. Like the single-snapshot tween()
-  // overload, it must read t = 1.0 (age-neutral), not the 0.0 the sub-frame-0
-  // fallback would yield; otherwise quintic_kernel(0) = 0 renders a static head
-  // invisible. (A length-0 frame 0 emits nothing, matching the main loop.)
+  // A fully motionless trail collapses to frame 0's lone sub-position, which must
+  // read t = 1.0 (age-neutral) or quintic_kernel(0) renders a static head invisible.
   if (last == 0 && trail.get(0).length() == 1) {
     const auto &frame = trail.get(0);
     callback(frame.get(0), 1.0f);

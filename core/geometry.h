@@ -41,8 +41,7 @@ struct Fragment {
   static Fragment lerp(const Fragment &a, const Fragment &b, float t) {
     Fragment f;
     f.pos =
-        a.pos + (b.pos - a.pos) * t; // Linear, not slerp: any slerp of pos is
-                                     // applied by the caller.
+        a.pos + (b.pos - a.pos) * t;
     f.v0 = a.v0 + (b.v0 - a.v0) * t;
     f.v1 = a.v1 + (b.v1 - a.v1) * t;
     f.v2 = a.v2 + (b.v2 - a.v2) * t;
@@ -65,8 +64,6 @@ struct Fragment {
  * both gradient-map this depth.
  */
 inline float fragment_edge_dist(const Fragment &f) {
-  // math::TOLERANCE (1e-4) is the generic small-positive guard; here it rejects a
-  // degenerate (near-zero-size) face before the divide.
   return (f.size > math::TOLERANCE) ? (-f.v1 / f.size) : 0.0f;
 }
 
@@ -95,10 +92,8 @@ inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
   int faceIdx = static_cast<int>(f.v2);
   int topoIdx = (faceIdx >= 0 && faceIdx < num_faces) ? topology[faceIdx] : 0;
   float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
-  // topology[] can hold a raw (possibly negative) class id, and C++ % keeps the
-  // sign of the dividend — a bare `topoIdx % NumPalettes` could index palette_idx
-  // out of bounds. Floor it into [0, NumPalettes); branchless-cheap on this
-  // per-pixel path, so no HS_CHECK trap here.
+  // topoIdx may be negative and C++ % keeps the dividend's sign, so fold the
+  // result into [0, NumPalettes) before indexing palette_idx.
   int slot = topoIdx % static_cast<int>(NumPalettes);
   if (slot < 0)
     slot += static_cast<int>(NumPalettes);
@@ -223,10 +218,6 @@ static constexpr float LOGPOLAR_RHO_SENTINEL = 10.0f;
  * @return The spherical phi angle in radians.
  */
 inline float y_to_phi(float y, int h_virt) {
-  // Mirrors the templated y_to_phi<H>'s static_assert(H_VIRT > 1): the mapping
-  // degenerates (divide-by-zero at h_virt == 1, garbage for h_virt <= 0). Cold
-  // setup/conversion helper, not the per-pixel loop; every real caller passes a
-  // compile-time H_VIRT, so the check constant-folds away under optimization.
   HS_CHECK(h_virt > 1, "y_to_phi: h_virt must be > 1");
   return (y * PI_F) / (h_virt - 1);
 }
@@ -238,8 +229,6 @@ inline float y_to_phi(float y, int h_virt) {
  * @return The pixel y-coordinate [0, h_virt - 1].
  */
 inline float phi_to_y(float phi, int h_virt) {
-  // See y_to_phi(float,int): same h_virt > 1 precondition as the templated
-  // overload's static_assert. Constant-folds away for compile-time H_VIRT.
   HS_CHECK(h_virt > 1, "phi_to_y: h_virt must be > 1");
   return (phi * (h_virt - 1)) / PI_F;
 }
@@ -265,13 +254,8 @@ template <int H> inline float phi_to_y(float phi) {
 template <int H> struct PhiLUT {
   static constexpr int H_VIRT = H + hs::H_OFFSET;
   static std::array<float, H_VIRT> data; /**< phi per virtual row, radians. */
-  // Lazy-init guard. THREAD-SAFETY CONTRACT: the `if (!initialized) init()`
-  // pattern at the call sites is a non-atomic check-then-set and is safe ONLY
-  // because rendering is single-threaded — every consumer (the scanline
-  // rasterizers, y_to_phi) runs on the render thread, and engine setup calls
-  // init_geometry_luts() eagerly before the first frame, so on hardware the
-  // column-sweep ISR never observes a half-filled table. It is NOT a
-  // concurrency safeguard; a second writer would race. See init_geometry_luts.
+  // The `if (!initialized) init()` pattern is a non-atomic check-then-set, safe
+  // only because rendering is single-threaded; it is NOT a concurrency guard.
   static bool initialized; /**< Lazy-init guard; true once data is filled. */
   /**
    * @brief Fills the phi table for every virtual row and marks it initialized.
@@ -341,18 +325,13 @@ template <int W, int H> struct TrigLUT {
                 "cos_theta is recovered as sin_theta[x + W/4]; W must be a "
                 "multiple of 4 for the quarter-turn offset to be exact");
   static constexpr int H_VIRT = H + hs::H_OFFSET;
-  // sin_theta is stored with W/4 extra trailing entries duplicating the first
-  // quarter turn, so cos(theta) reads back as sin_theta[x + W/4] (cos t =
-  // sin(t + pi/2), and theta = x*2pi/W) with a constant-offset load — no
-  // separate cos_theta table. Saves W*4 - (W/4)*4 bytes of DTCM (RAM1) versus a
-  // dedicated cos array, at zero hot-path cost (the +W/4 folds into the load).
+  // sin_theta carries W/4 extra trailing entries (one quarter turn) so cos(theta)
+  // reads back as sin_theta[x + W/4], avoiding a separate cos table.
   static constexpr int W_EXT = W + W / 4;
   static std::array<float, W_EXT> sin_theta; /**< sin(theta); cos via +W/4. */
   static std::array<float, H_VIRT> sin_phi;  /**< sin(phi) per virtual row. */
   static std::array<float, H_VIRT> cos_phi;  /**< cos(phi) per virtual row. */
-  // Lazy-init guard. Same non-atomic check-then-set thread-safety contract as
-  // PhiLUT::initialized above: single-render-thread only, with eager
-  // init_geometry_luts() at engine setup as the production first-touch.
+  // Same single-thread check-then-set contract as PhiLUT::initialized.
   static bool initialized; /**< Lazy-init guard; true once tables are filled. */
   /**
    * @brief cos(theta) for column x, recovered from the extended sin table.
@@ -445,10 +424,7 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
   if (!TrigLUT<W, H>::initialized) {
     TrigLUT<W, H>::init();
   }
-  // Per-pixel hot path: use a stripped assert (compiled out under NDEBUG on
-  // device), not an always-on HS_CHECK. The LUT-domain invariant is trapped
-  // once per draw on the cold path by Scan::check_lut_domain; this assert only
-  // backs the native/WASM-debug builds. Local avoids the comma in TrigLUT<W, H>.
+  // Local avoids the comma in TrigLUT<W, H> inside the assert macro.
   constexpr int kHVirt = TrigLUT<W, H>::H_VIRT;
   assert(x >= 0 && x < W && y >= 0 && y < kHVirt);
   float sp = TrigLUT<W, H>::sin_phi[y];
@@ -478,8 +454,6 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
     return pixel_to_vector<W, H>(static_cast<int>(x), static_cast<int>(y));
   }
   // y_to_phi<H> already accounts for H_OFFSET internally; pass H, not H_VIRT.
-  // y is intentionally not clamped here (see the @param note: unchecked sub-pixel
-  // contract, kept off the hot path).
   return Vector(Spherical((x * 2 * PI_F) / W, y_to_phi<H>(y)));
 }
 
@@ -503,8 +477,6 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  */
 template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  // Skip normalize: fast_atan2 is scale-invariant, and inputs from
-  // the rasterizer are already unit vectors (see the unit precondition above).
   float theta = fast_atan2(v.z, v.x);
   float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
   PixelCoords p({wrap((theta * W) / (2 * PI_F), W), phi_to_y(phi, H_VIRT)});
@@ -524,8 +496,7 @@ inline Vector logPolarToVector(float rho, float theta) {
   const float R2 = R * R;
   const float y = (R2 - 1.0f) / (R2 + 1.0f);
   const float r_xz = sqrtf(std::max(0.0f, 1.0f - y * y));
-  // Already unit-length: r_xz^2 + y^2 = (1 - y^2) + y^2 = 1 (the cos/sin fold the
-  // xz components back to r_xz^2), so no normalize() is needed.
+  // Unit by construction (r_xz^2 + y^2 = 1), so no normalize().
   return Vector(r_xz * cosf(theta), y, r_xz * sinf(theta));
 }
 
@@ -536,11 +507,8 @@ inline Vector logPolarToVector(float rho, float theta) {
  * @return Log-Polar coordinates.
  */
 inline LogPolar vectorToLogPolar(const Vector &v) {
-  // Both poles are stereographic singularities: at the north pole (v.y -> +1)
-  // the planar radius R -> +inf, at the south pole (v.y -> -1) it goes R -> 0,
-  // so rho = 0.5*log((1+y)/(1-y)) tends to +inf and -inf respectively. Clamp
-  // each to a symmetric finite sentinel so neither pole leaks a non-finite rho
-  // into downstream arithmetic.
+  // rho = 0.5*log((1+y)/(1-y)) diverges to ±inf at the poles (v.y -> ±1); clamp
+  // each to a finite sentinel so no non-finite rho leaks downstream.
   const float numer = 1.0f + v.y;
   const float denom = 1.0f - v.y;
   if (std::abs(denom) < math::EPS_GEOMETRIC) {
@@ -562,15 +530,12 @@ inline LogPolar vectorToLogPolar(const Vector &v) {
  * @return The point on the unit sphere.
  */
 inline Vector fib_spiral(int n, float eps, int i) {
-  // Clamp before acosf: at i == n-1 (or eps near 1) float rounding can push the
-  // argument just past -1, where acosf returns NaN; every sibling acos call in
-  // the codebase clamps the same way.
+  // Clamp before acosf: float rounding can push the argument past -1 → NaN.
   float phi = acosf(hs::clamp(1.0f - (2.0f * (static_cast<float>(i) + eps)) /
                                          static_cast<float>(n),
                               -1.0f, 1.0f));
   float theta = fmodf((2.0f * PI_F * static_cast<float>(i) * INV_PHI), (2.0f * PI_F));
-  // Y-up convention. Already unit-length: sin²φ(cos²θ + sin²θ) + cos²φ = 1, so no
-  // normalize() is needed (matches logPolarToVector's proves-and-omits).
+  // Y-up; unit by construction, so no normalize().
   return Vector(sinf(phi) * cosf(theta), cosf(phi), sinf(phi) * sinf(theta));
 }
 
@@ -682,10 +647,6 @@ public:
    * @return Reference to the Orientation object.
    */
   Orientation &push(const Quaternion &q) {
-    // Overflow means a caller emitted more motion substeps than the history
-    // holds — an invariant violation, not a recoverable transient. Fail fast
-    // rather than silently dropping the frame (a soft log is invisible
-    // on-device and corrupts the motion-blur trail).
     HS_CHECK(num_frames < CAPACITY);
     orientations[num_frames++] = q;
     return *this;
@@ -735,19 +696,13 @@ public:
    * the affected `Orientation` rather than reintroducing a trap.
    */
   void upsample(int count) {
-    // A history must hold at least one frame; count < 1 is a caller bug.
     HS_CHECK(count >= 1);
     if (num_frames >= count)
       return;
     if (count > CAPACITY) // soft-degrade past capacity — see @note above
       count = CAPACITY;
 
-    // Foreclose the 0/0 in t = i/(count-1) below with a single explicit guard
-    // rather than resting on the conjunction of three facts (CAPACITY>=1, the
-    // early return, and every ctor routing through set() so num_frames>=1).
-    // count==1 holds a single frame with nothing to interpolate; returning also
-    // keeps the loop reachable only when count>=2 (count-1>=1) even if a future
-    // code path leaves num_frames==0 and slips past the early return above.
+    // count == 1 has nothing to interpolate and would make t = i/(count-1) a 0/0.
     if (count < 2)
       return;
 
@@ -783,9 +738,7 @@ private:
  */
 inline Vector random_vector() {
   float v1, v2, s;
-  // Marsaglia rejection: accepts when (v1,v2) lands in the open unit disk
-  // (area pi/4), so ~1.27 expected iterations. Termination relies on rand_f()
-  // being well-distributed; it has no fixed bound.
+  // Marsaglia rejection: accept when (v1,v2) lands in the open unit disk.
   do {
     v1 = 2.0f * hs::rand_f() - 1.0f;
     v2 = 2.0f * hs::rand_f() - 1.0f;
@@ -818,8 +771,7 @@ struct LissajousParams {
  * @return The calculated 3D point (unit vector).
  */
 inline Vector lissajous(float m1, float m2, float a, float t) {
-  // Already unit-length: sin²(m2·t)(cos²(m1·t−a) + sin²(m1·t−a)) + cos²(m2·t) = 1,
-  // so no normalize() is needed (matches logPolarToVector's proves-and-omits).
+  // Unit by construction, so no normalize().
   return Vector(sinf(m2 * t) * cosf(m1 * t - a), cosf(m2 * t),
                 sinf(m2 * t) * sinf(m1 * t - a));
 }
@@ -843,13 +795,10 @@ struct Basis {
  * @return The constructed Basis.
  */
 inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
-  // rotate() is only a pure rotation for a unit quaternion; assert it rather
-  // than silently scale/shear the basis (fail-fast doctrine).
   HS_CHECK(std::abs(orientation.squared_magnitude() - 1.0f) <
            math::EPS_UNIT_QUAT_SQ);
   Vector v = rotate(normal, orientation).normalized();
-  // Pick the reference axis least parallel to v, testing the *rotated* vectors
-  // that are actually crossed below.
+  // Reference axis least parallel to v, using the rotated vectors crossed below.
   Vector ref = rotate(X_AXIS, orientation).normalized();
   if (std::abs(dot(v, ref)) > math::COS_AXIS_PARALLEL) {
     ref = rotate(Y_AXIS, orientation).normalized();
@@ -872,11 +821,6 @@ inline std::pair<Basis, float> get_antipode(const Basis &basis, float radius) {
     new_basis.u = -basis.u; // Flip U to maintain chirality
     new_basis.v = -basis.v; // Flip V (Antipode)
     new_basis.w = basis.w;  // W stays (Rotation axis)
-    // make_basis's relationship w == cross(v, u) survives this flip untouched:
-    // cross(-v, -u) == cross(v, u), so the kept w stays consistent with the
-    // negated u/v (and handedness is preserved — two axes flip). A consumer that
-    // recomputed w from the returned u/v would get the same vector back, so it is
-    // safe to keep the original w rather than recompute it.
     return {new_basis, 2.0f - radius};
   }
   return {basis, radius};
