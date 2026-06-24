@@ -334,7 +334,8 @@ namespace MeshOps {
  * @return The index as a uint16_t.
  * @details Vertex/face indices are stored as uint16_t (faces, with
  * HE_NONE=0xFFFF as the sentinel) and, in some operators' scratch, as int16_t
- * (-1 sentinel). The input range is checked at mesh build, but each operator's
+ * (-1 sentinel; see `hankin.h` `face_indices`). The input range is checked at
+ * mesh build, but each operator's
  * OUTPUT index is captured via static_cast<...>(vertices.size() - 1), which
  * silently wraps if a future MAX_VERTS bump makes the count exceed the index
  * type. Routing those casts through here converts that silent geometry
