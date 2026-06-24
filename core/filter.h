@@ -797,6 +797,17 @@ public:
    * clamp into [1,255] first, so this trap fires only on a genuine authoring
    * error, not on slider motion. Already-buffered points keep their encoded ttl
    * and age out under the new length within a few frames.
+   *
+   * Intentionally does NOT reconcile buffered ttls against the new lifetime. A
+   * shrink leaves older points with ttl > lifetime (so t = 1 - ttl/lifetime goes
+   * negative and the re-emitted age = lifetime - ttl goes negative); flush()
+   * clamps both at the emission sites, and those two clamps are the contract that
+   * keeps t in [0,1] and age >= 0. Reconciling here would not let us drop them:
+   * plot() seeds ttl = lifetime - age and can produce the same out-of-range ttl
+   * from a negative incoming age with no set_lifetime() call at all, so the
+   * clamps must guard the seed path regardless. Walking the ring to rewrite ttls
+   * would add an O(Cap) pass here purely for a few frames of overlap that the
+   * existing per-point clamps already absorb for free.
    */
   void set_lifetime(int new_lifetime) {
     HS_CHECK(new_lifetime > 0 && new_lifetime <= 255);
