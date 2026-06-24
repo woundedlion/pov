@@ -21,6 +21,19 @@ static constexpr int RD_K = 6;
  */
 static constexpr float D_AVG = 0.04045f; // sqrt(4π / 7680)
 
+// node()'s `(RD_N - 1)` divisor degenerates (divide-by-zero) when RD_N <= 1,
+// mirroring geometry.h's phi<->y `H_VIRT > 1` guard.
+static_assert(RD_N >= 2, "node() lattice mapping degenerates when RD_N <= 1");
+
+// Pin the hand-synced D_AVG literal to RD_N: D_AVG = sqrt(4π / RD_N), so
+// D_AVG*D_AVG*RD_N must equal 4π. sqrtf isn't constexpr here, so check the
+// squared form (multiplication IS constexpr). The band passes for the current
+// 0.04045f/7680 pair (residual ~3e-4) but trips on any RD_N change that leaves
+// D_AVG stale (even RD_N±1 shifts the product by >1e-3). Update both together.
+static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
+                  12.566370614f - D_AVG * D_AVG * RD_N < 0.0006f,
+              "D_AVG out of sync with RD_N (must stay sqrt(4*pi / RD_N))");
+
 /**
  * @brief Computes Fibonacci-lattice node i as a unit vector on the sphere.
  * @param i Node index in [0, RD_N), ordered from north pole (i=0) southward.

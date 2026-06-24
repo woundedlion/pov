@@ -131,7 +131,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 24. **Init-time off-list effect clears per-effect param URL entries despite `preserveParams=true`** — `c:/work/daydream/daydream.js:499`. When a hydrated `?effect=` is invalid for its resolution, the correction fires `applyEffect()` with the default `preserveParams=false`, dropping accompanying `?param=` values the init path asked to preserve. Practical harm is minimal (the params target an unavailable effect). Thread the preserve intent through the hydration `set('effect')` path.
 
-25. **`node()` divides by `(RD_N-1)` and `D_AVG` is a hand-synced literal, neither guarded against an `RD_N` change** — `core/reaction_graph.h:43,22`. A future `RD_N` edit silently leaves `D_AVG = sqrt(4π/RD_N)` wrong (it sets the RD kernel radius). The file already traps one other `RD_N`-derived value, so the silence is inconsistent. Add `static_assert(RD_N >= 2, …)` and a CI/comment pin tying `D_AVG` to `RD_N`.
+25. ✅ **`node()` divides by `(RD_N-1)` and `D_AVG` is a hand-synced literal, neither guarded against an `RD_N` change** — `core/reaction_graph.h:43,22`. A future `RD_N` edit silently leaves `D_AVG = sqrt(4π/RD_N)` wrong (it sets the RD kernel radius). The file already traps one other `RD_N`-derived value, so the silence is inconsistent. Add `static_assert(RD_N >= 2, …)` and a CI/comment pin tying `D_AVG` to `RD_N`.
 
 ### Low Priority — naming, micro-performance, comment precision, DRY
 
