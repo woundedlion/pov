@@ -135,6 +135,18 @@ public:
    * @param x1 Exclusive end column of the owned segment.
    */
   void set_clip(int y0, int y1, int x0, int x1) {
+    // Cold setup-time guard on the invariants the render-bound helpers assume
+    // (ClipRegion::render_*): a non-inverted band with non-negative origins.
+    // render_x_start's single-period `+ w` mod only corrects one period of
+    // underflow (needs x_start >= 0), and render_y_start/end clamp just one
+    // side each, relying on y_start <= y_end. An inverted band silently yields
+    // an empty/malformed render region with no breadcrumb at this site.
+    // The UPPER bound (x1 <= w) is deliberately NOT checked here: an x_end past
+    // the canvas is caught downstream by the per-draw LUT-domain HS_CHECK in
+    // Scan::Shader::draw (the layer that actually indexes the trig LUTs), and a
+    // death test depends on that being where it traps.
+    HS_CHECK(y0 >= 0 && y0 <= y1 && x0 >= 0 && x0 <= x1,
+             "set_clip band must be non-inverted with non-negative origins");
     clip.y_start = y0;
     clip.y_end = y1;
     clip.x_start = x0;
@@ -151,6 +163,10 @@ public:
    * @param x1 Exclusive end column of the horizontal clip band.
    */
   void set_clip_x(int x0, int x1) {
+    // Same non-inverted/non-negative invariant as set_clip (x-band only); the
+    // upper bound is likewise deferred to the downstream LUT-domain guard.
+    HS_CHECK(x0 >= 0 && x0 <= x1,
+             "set_clip_x band must be non-inverted with a non-negative origin");
     clip.x_start = x0;
     clip.x_end = x1;
   }

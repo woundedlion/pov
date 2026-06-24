@@ -99,7 +99,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 ### Medium Priority — robustness/consistency gaps and misleading documentation
 
-9. **`set_clip`/`set_clip_x` validate nothing, unlike the eager `set_margin` trap** — `core/canvas.h:137-156`. An inverted band (`x1<x0`/`y1<y0`) is accepted and silently yields an empty/malformed render region with no breadcrumb at the configuration site. Add a cheap `HS_CHECK(x0<=x1 && y0<=y1 && x1<=clip.w && y1<=clip.h)`, or document the deferred-validation intent.
+9. ✅ **`set_clip`/`set_clip_x` validate nothing, unlike the eager `set_margin` trap** — `core/canvas.h:137-156`. An inverted band (`x1<x0`/`y1<y0`) is accepted and silently yields an empty/malformed render region with no breadcrumb at the configuration site. Add a cheap `HS_CHECK(x0<=x1 && y0<=y1 && x1<=clip.w && y1<=clip.h)`, or document the deferred-validation intent. *Fixed: guard the ordering + non-negative origins in both setters; the upper bound (`x1<=w`) is intentionally left to the downstream `Scan::Shader::draw` LUT-domain trap, which a death test pins.*
 
 10. **`Conway::dual()` uses strict `normalized()` where every other operator uses `normalized_or()`** — `core/conway.h:435`. A zero-length face centroid (centrally-symmetric face) would trap the build; `snub()` already guards the analogous case with an EPS fallback. Unreachable on the fixed 52-solid roster. Use `normalized_or(c, fallback)` or document provable unreachability.
 
