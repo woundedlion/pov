@@ -354,10 +354,13 @@ inline uint16_t srgb_to_linear(uint8_t srgb) {
  * LUT lookup + lerp (no powf).
  */
 inline uint16_t srgb_to_linear_interp(float s_srgb) {
+  // The contract is [0,1], but route through hs::clamp at entry so a NaN input
+  // maps to the hi bound rather than reaching static_cast<int>(f) below as
+  // float->int UB — the same hardening Gradient::get / BakedPalette::get apply.
+  // This also bounds a negative or >1 stray; the explicit edge guards below
+  // remain as cheap backstops.
+  s_srgb = hs::clamp(s_srgb, 0.0f, 1.0f);
   float f = s_srgb * 255.0f; // [0, 255]
-  // The contract is [0,1], but a negative input would make (int)f negative — an
-  // OOB LUT read — and a negative frac that wraps the uint16_t cast. Clamp the
-  // low end defensively, mirroring the i>=255 high-end guard.
   if (f <= 0.0f)
     return srgb_to_linear_lut[0];
   int i = static_cast<int>(f);

@@ -105,7 +105,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 11. ✅ **Hankin rosette emission silently drops `count < 6` windings instead of trapping** — `core/hankin.h:280-285`. A degree-<3 orbit is silently skipped, diverging from the file's own fail-fast convention (cf. the unpaired-half-edge `HS_CHECK` in the same loop). Unreachable on a closed convex solid. Replace the silent skip with `HS_CHECK(count >= 6, …)`.
 
-12. **`srgb_to_linear_interp` low guard does not catch NaN, unlike its sibling LUT helpers** — `core/color.h:356-369`. A NaN input reaches `static_cast<int>(f)` (float→int UB) — the exact hazard `Gradient::get`/`BakedPalette::get` were hardened against via `hs::clamp`. Both current callers satisfy the [0,1] contract, so latent. Route the input through `hs::clamp` at entry (NaN→hi).
+12. ✅ **`srgb_to_linear_interp` low guard does not catch NaN, unlike its sibling LUT helpers** — `core/color.h:356-369`. A NaN input reaches `static_cast<int>(f)` (float→int UB) — the exact hazard `Gradient::get`/`BakedPalette::get` were hardened against via `hs::clamp`. Both current callers satisfy the [0,1] contract, so latent. Route the input through `hs::clamp` at entry (NaN→hi).
 
 13. **`Driver` fixed-speed ctor accepts a non-finite speed the bound-source path explicitly rejects** — `core/animation.h:1006-1009`. A NaN/Inf `speed` poisons `mutant` permanently via `wrap_t(NaN)`, the very hazard the bound-source ctor/`step()` guard with `std::isfinite`. Add a matching `HS_CHECK`/`isfinite` guard at construction.
 
