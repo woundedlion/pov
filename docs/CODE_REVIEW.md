@@ -135,7 +135,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 ### Low Priority — naming, micro-performance, comment precision, DRY
 
-26. **Tolerance-based `Vector`/`Quaternion operator==` is scale-dependent and non-transitive, undocumented** — `core/3dmath.h:181-184,445-447`. Absolute `1e-4` per-component compare; fine for current uses (no container keys), but the doc only says "within TOLERANCE." Add a caveat or expose a named `approx_equal()`.
+26. ✅ **Tolerance-based `Vector`/`Quaternion operator==` is scale-dependent and non-transitive, undocumented** — `core/3dmath.h:181-184,445-447`. Absolute `1e-4` per-component compare; fine for current uses (no container keys), but the doc only says "within TOLERANCE." Add a caveat or expose a named `approx_equal()`.
 
 27. **`ease_out_cubic` uses `powf` where sibling cubics use direct multiply** — `core/easing.h:124`. Immaterial (per-frame path), idiom-inconsistent. Use `float u = 1 - t; return 1 - u*u*u;`.
 

@@ -177,6 +177,10 @@ struct Vector {
    * @brief Equality comparison using tolerance.
    * @param v The vector to compare.
    * @return True if components are within TOLERANCE.
+   * @note Uses an absolute per-component tolerance (TOLERANCE), so it is
+   *   scale-dependent (loose for large magnitudes, strict for tiny ones) and
+   *   non-transitive (a==b and b==c does not imply a==c). Fine for direct
+   *   value compares; do not rely on it for ordering or container keys.
    */
   bool operator==(const Vector &v) const {
     return std::abs(x - v.x) <= TOLERANCE && std::abs(y - v.y) <= TOLERANCE &&
@@ -441,6 +445,9 @@ struct Quaternion {
    * @brief Equality comparison using tolerance.
    * @param q The quaternion to compare.
    * @return True if components are within TOLERANCE.
+   * @note Absolute per-component tolerance (TOLERANCE): scale-dependent and
+   *   non-transitive (see Vector::operator==). Suitable for direct value
+   *   compares, not for ordering or container keys.
    */
   bool operator==(const Quaternion &q) const {
     return std::abs(q.r - r) <= TOLERANCE && q.v == v;
