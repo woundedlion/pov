@@ -121,7 +121,8 @@ inline float ease_out_circ(float t) {
  * @return The eased factor.
  */
 inline float ease_out_cubic(float t) {
-  return 1 - powf(1 - t, 3);
+  float u = 1 - t;
+  return 1 - u * u * u;
 }
 
 /**
