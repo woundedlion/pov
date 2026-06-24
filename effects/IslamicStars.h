@@ -43,23 +43,25 @@ public:
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Fade", &params.fade, 0.0f, 96.0f);
-    // Burst and Ripp Dur ranges are clamped to the 8-slot ripple pool: with
-    // Burst <= 4 and Ripp Dur <= 144, the current burst (4) plus the still-live
-    // previous burst (4) peaks at exactly 8, so no spawns are dropped.
-    registerParam("Burst", &params.burst_size, 1.0f, 4.0f);
+    // Burst and Ripp Dur ranges are clamped to the ripple pool's capacity
+    // invariant (see the kRipple* constants below): the current burst plus the
+    // still-live previous one peaks at exactly kRipplePoolSize slots.
+    registerParam("Burst", &params.burst_size, 1.0f, (float)kBurstMax);
     registerParam("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f, 1.0f);
     registerParam("Ripp Width", &ripple_gen.template_params.thickness, 0.1f, 1.0f);
     registerParam("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
-    registerParam("Ripp Dur", &ripple_duration, 30.0f, 144.0f);
+    registerParam("Ripp Dur", &ripple_duration, 30.0f, (float)kRippleDurationMax);
     registerParam("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
 
-    // One immediate ripple burst, then a recurring one every 96 frames.
+    // One immediate ripple burst, then a recurring one every
+    // kRippleRecurrenceFrames frames.
     timeline.add(0, Animation::PeriodicTimer(
                         0, [this](Canvas &canvas) { ripple(canvas); }, false));
     timeline.add(0, Animation::PeriodicTimer(
-                        96, [this](Canvas &canvas) { ripple(canvas); }, true));
+                        kRippleRecurrenceFrames,
+                        [this](Canvas &canvas) { ripple(canvas); }, true));
     spawn_shape();
   }
 
@@ -81,10 +83,27 @@ public:
   }
 
 private:
+  // Ripple-pool capacity invariant: a burst spawns at most kBurstMax ripples
+  // staggered kRippleStaggerFrames apart, and a new burst starts every
+  // kRippleRecurrenceFrames. With kRippleRecurrenceFrames spanning the full
+  // stagger of one burst, only the current burst plus the still-live tail of
+  // the previous one coexist; capping Ripp Dur at kRippleDurationMax keeps that
+  // peak at kRipplePoolSize slots, so no spawn is ever dropped. Changing any one
+  // breaks the coupling — overflow then silently drops ripples.
+  static constexpr int kRipplePoolSize = 8;
+  static constexpr int kRippleStaggerFrames = 16;
+  static constexpr int kRippleRecurrenceFrames = 96;
+  static constexpr int kRippleDurationMax = 144;
+  static constexpr int kBurstMax = 4;
+  static_assert(kBurstMax + (kRippleDurationMax / kRippleRecurrenceFrames) *
+                                    kBurstMax <=
+                    kRipplePoolSize,
+                "IslamicStars: ripple burst peak exceeds the ripple pool");
+
   Orientation<> orientation;
   Timeline timeline;
   Pipeline<W, H> filters;
-  RippleTransformer<8> ripple_gen;
+  RippleTransformer<kRipplePoolSize> ripple_gen;
   FastNoiseLite noise;
   float ripple_duration = 80.0f;
   int solid_idx = -1;
@@ -100,14 +119,14 @@ private:
 
   /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
-   *        staggered 16 frames apart, each expanding over ripple_duration
+   *        staggered kRippleStaggerFrames apart, each expanding over ripple_duration
    *        frames.
    * @param canvas Unused render target for the timer callback signature.
    */
   void ripple(Canvas &) {
     Vector origin = random_vector();
     for (int i = 0; i < (int)params.burst_size; i++) {
-      ripple_gen.spawn(i * 16, origin, PI_F / ripple_duration,
+      ripple_gen.spawn(i * kRippleStaggerFrames, origin, PI_F / ripple_duration,
                        static_cast<int>(ripple_duration));
     }
   }
