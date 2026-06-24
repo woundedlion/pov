@@ -68,10 +68,9 @@ public:
    * separate hs::random() mt19937(1337) reproduced by the simulator.
    */
   POVDisplay() {
-    // Seeds FastLED's LCG only — i.e. the bare random8()/random16()/random()
-    // path used by legacy effects. Modern effects draw from the separate
-    // hs::random() mt19937(1337), which is what the simulator reproduces; see
-    // the determinism contract in platform.h.
+    // Seeds FastLED's LCG only (bare random8/16/random(), used by legacy
+    // effects); modern effects draw from hs::random() mt19937(1337). See the
+    // determinism contract in platform.h.
     randomSeed(1337);
   #ifdef USE_DMA_LEDS
     ledController_.begin();
@@ -97,8 +96,6 @@ public:
    * configures, runs, and deletes the effect.
    */
   template <typename E> void show(unsigned long duration) {
-    // Eager-fill the scanline LUTs for this effect's resolution before the
-    // first frame, so the ISR never observes a half-filled table.
     GeometryResolution<E>::init();
     E *e = new E();
     configure_arenas_default(); // Reset before init so effects can override

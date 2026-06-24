@@ -719,13 +719,10 @@ private:
   static std::atomic<Effect *> pending_effect_; /**< Next effect awaiting commit; foreground-written (release), ISR-read (acquire). */
   // Cross-context counters as std::atomic (relaxed), not bare volatile: each
   // has a single writer (named below) but is read from the other context, so a
-  // plain volatile RMW/read is a formal data race the way dma_led.h's overrun
-  // counters were before they moved to std::atomic (:388-396). Relaxed ordering
-  // adds no fence on the single-core Cortex-M — these carry no happens-before of
-  // their own (the (effect, gen) handoff is ordered by pending_effect_'s
-  // release/acquire), so they compile to the same load/store the volatile did,
-  // now well-defined. Completes the volatile->atomic migration pending_effect_
-  // already made.
+  // plain volatile RMW/read is a formal data race. Relaxed ordering adds no
+  // fence on the single-core Cortex-M — these carry no happens-before of their
+  // own (the (effect, gen) handoff is ordered by pending_effect_'s
+  // release/acquire), so they compile to the same load/store, now well-defined.
   static std::atomic<uint32_t> pending_gen_;   /**< Build generation of pending_effect_; foreground-written. */
   static std::atomic<uint32_t> consumed_gen_;  /**< Build generation taken live; ISR-written.  */
   static std::atomic<uint32_t> release_req_;   /**< Teardown request counter; foreground-written. */

@@ -47,9 +47,8 @@ using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 namespace {
 POV *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
 
-// Foreground effect constructor for one roster entry: LUTs, arenas, init —
-// the same sequence the old per-effect show<E>() performed. Called from the
-// driver's show loop during the epoch construction window.
+// Foreground effect constructor for one roster entry: LUTs, arenas, init.
+// Called from the driver's show loop during the epoch construction window.
 template <typename E> Effect *construct_effect() {
   // Eager-fill the scanline LUTs for this effect's resolution before the
   // first frame, so the flywheel ISR never observes a half-filled table.

@@ -114,7 +114,7 @@ static uint32_t tooling_generation = 0;
  */
 static void ensure_tooling_arenas() {
   if (tooling_arena.get_capacity() != 0)
-    return; // already allocated
+    return;
   const size_t total = kToolingArenaBytes + 2 * kToolingScratchBytes;
   uint8_t *block = static_cast<uint8_t *>(std::malloc(total));
   HS_CHECK(block != nullptr); // 16 MB tooling block — fail-fast on OOM
@@ -285,7 +285,6 @@ public:
    *          immediately.
    */
   HolosphereEngine() {
-    // Paint stack canary for HWM tracking
     stack_paint_canary();
 
     // SSOT guard: the self-registering effect count must match the static roster
@@ -360,7 +359,6 @@ public:
     // view. getPixels() instead returns a view over just the active
     // pixel_width*pixel_height*3 prefix of this stable buffer.
 
-    // Re-create current effect if exists
     if (currentEffect) {
       currentEffect = nullptr;
       // The param set is now empty until the next setEffect(); bump so a
@@ -902,7 +900,6 @@ struct MeshOpsWrapper {
     tooling_scratch_a.reset_high_water_mark();
     tooling_scratch_b.reset();
     tooling_scratch_b.reset_high_water_mark();
-    // Invalidate every wrapper built before this wipe.
     ++tooling_generation;
   }
 
@@ -940,7 +937,6 @@ struct MeshOpsWrapper {
       data.push_back(v.y);
       data.push_back(v.z);
     }
-    // Create JS Float32Array from memory view (copying data)
     return val::global("Float32Array")
         .new_(val(typed_memory_view(data.size(), data.data())));
   }

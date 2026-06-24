@@ -128,17 +128,14 @@ public:
    *          65535 would become live here and must be reinstated.
    */
   FASTRUN inline void correct(uint32_t& r, uint32_t& g, uint32_t& b) const {
-    // Color correction
     r = (r * corrR_) >> 8;
     g = (g * corrG_) >> 8;
     b = (b * corrB_) >> 8;
 
-    // Temperature correction
     r = (r * tempR_) >> 8;
     g = (g * tempG_) >> 8;
     b = (b * tempB_) >> 8;
 
-    // Brightness scaling
     r = (r * brightness_) >> 8;
     g = (g * brightness_) >> 8;
     b = (b * brightness_) >> 8;
@@ -161,15 +158,12 @@ public:
     for (int i = 0; i < count; ++i) {
       const CRGB& c = pixels[i];
 
-      // 1. sRGB 8-bit → Linear 16-bit (PROGMEM LUT)
       uint32_t r = srgb_to_linear_lut[c.r];
       uint32_t g = srgb_to_linear_lut[c.g];
       uint32_t b = srgb_to_linear_lut[c.b];
 
-      // 2-4. Color + temperature + brightness correction (linear).
       correct(r, g, b);
 
-      // 5. Linear 16-bit → sRGB 8-bit (PROGMEM LUT)
       uint8_t r8 = linear_to_srgb_lut[r];
       uint8_t g8 = linear_to_srgb_lut[g];
       uint8_t b8 = linear_to_srgb_lut[b];
@@ -213,10 +207,8 @@ public:
     uint32_t g = p.g;
     uint32_t b = p.b;
 
-    // Color + temperature + brightness correction (all linear 16-bit).
     correct(r, g, b);
 
-    // Single linear 16-bit → sRGB 8-bit conversion, packed in wire order
     dest[0] = 0xFF;
     dest[1] = linear_to_srgb_lut[b];
     dest[2] = linear_to_srgb_lut[g];

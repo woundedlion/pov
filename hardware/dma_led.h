@@ -76,13 +76,11 @@ public:
     SPI.begin();
     SPI.beginTransaction(spiSettings_);
 
-    // Configure LPSPI4 for DMA
     LPSPI4_CFGR1 |= LPSPI_CFGR1_NOSTALL;
-    LPSPI4_DER   |= LPSPI_DER_TDDE;  // Enable TX DMA request
+    LPSPI4_DER   |= LPSPI_DER_TDDE;  // TX DMA request
     LPSPI4_TCR    = (LPSPI4_TCR & ~LPSPI_TCR_FRAMESZ(31))
                   | LPSPI_TCR_FRAMESZ(7);  // 8-bit frames
 
-    // Configure DMA channel
     dma_.begin(true);
     // 8-bit destination width to match the byte-stream source. The uint8_t
     // cast is load-bearing: LPSPI4_TDR is a volatile uint32_t, and binding the
