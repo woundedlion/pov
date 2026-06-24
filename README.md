@@ -967,7 +967,7 @@ FastLED output ← CRGB(gamma encode) ← linear→sRGB ← Pixel16
 
 | Type | Description |
 |---|---|
-| `ProceduralPalette` | Cosine palette: `0.5 + 0.5*cos(2π*(c*t + d))` per channel. Defined by 4 vec3 coefficients. |
+| `ProceduralPalette` | Cosine palette: `a + b*cos(2π*(c*t + d))` per channel. Defined by 4 vec3 coefficients. |
 | `Gradient` | Linear interpolation between a sorted list of (position, color) stops. |
 | `GenerativePalette` | Procedurally generated palette from harmony rules (triadic, analogous, etc.) combined with brightness/saturation profiles. Supports snapshot/lerp for animated transitions. |
 | `SolidColorPalette` | Constant color, adapts to the `Palette` interface. |
