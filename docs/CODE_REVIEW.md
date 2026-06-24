@@ -151,7 +151,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 33. ✅ **`OrientSlice` exposes mutable `enabled`/`axis` as public members while peer filters use accessors** — `core/filter.h:573-574`. Inconsistent encapsulation; a non-unit `axis` skews bucket selection (clamped, so no UB). Add `set_axis()` that renormalizes, or document the unit-length contract.
 
-34. **`clamp_phi_band` recomputes `clamp_phi(a1)`/`clamp_phi(a2)` redundantly** — `core/sdf.h:191-207`. Both branches recompute the same two values (4 trig calls vs 2) on a cold path. Hoist `p1`/`p2` above the conditionals.
+34. ✅ **`clamp_phi_band` recomputes `clamp_phi(a1)`/`clamp_phi(a2)` redundantly** — `core/sdf.h:191-207`. Both branches recompute the same two values (4 trig calls vs 2) on a cold path. Hoist `p1`/`p2` above the conditionals.
 
 35. **`compute_inradius` documents a "dead" branch the ctor's `HS_CHECK` already makes unreachable** — `core/sdf.h:1729-1734`. The `count==0` fallback is unreachable (the ctor traps `count>0`). Tighten the comment to note the floor only guards pathological all-coincident vertices.
 

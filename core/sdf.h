@@ -191,18 +191,14 @@ struct PhiBand {
 inline PhiBand clamp_phi_band(float center_phi, float target_angle) {
   float a1 = center_phi - target_angle;
   float a2 = center_phi + target_angle;
+  float p1 = clamp_phi(a1);
+  float p2 = clamp_phi(a2);
   float phi_min = 0, phi_max = PI_F;
 
-  if (a1 > 0) {
-    float p1 = clamp_phi(a1);
-    float p2 = clamp_phi(a2);
+  if (a1 > 0)
     phi_min = std::min(p1, p2);
-  }
-  if (a2 < PI_F) {
-    float p1 = clamp_phi(a1);
-    float p2 = clamp_phi(a2);
+  if (a2 < PI_F)
     phi_max = std::max(p1, p2);
-  }
   return {phi_min, phi_max};
 }
 /**
