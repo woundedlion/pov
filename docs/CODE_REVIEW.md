@@ -173,7 +173,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 44. ✅ **`hankin()` one-shot's reversed arena polarity is correct but the `@param target` understates its working-set requirement** — `core/hankin.h:410-429`. `target` must hold `max(compile scratch, output)`, not just the output; a caller sizing for output alone under-provisions. Document the working-set requirement (and optionally add a tightly-sized test).
 
-45. **`FlowField` noise-time comment understates the z-input scaling** — `effects/FlowField.h:88-90`. The parenthetical `(p.z + t)` drops the `* noise_scale` factor present in the code. Reword to `p.z*scale + t` or drop the parenthetical.
+45. ✅ **`FlowField` noise-time comment understates the z-input scaling** — `effects/FlowField.h:88-90`. The parenthetical `(p.z + t)` drops the `* noise_scale` factor present in the code. Reword to `p.z*scale + t` or drop the parenthetical.
 
 46. **`DreamBalls::update_displaced_mesh` indexed write relies on an unstated target-sizing precondition** — `effects/DreamBalls.h:334-348`. Safe today because `MeshOps::transform` pre-sizes `target.vertices`; a future reorder could silently go OOB on device (debug `assert` catches it natively). Add an always-on `HS_CHECK(target.vertices.size() == base.vertices.size())` at the cold seam.
 

@@ -85,7 +85,7 @@ public:
 
         // Sample three noise channels for the force vector's components. They
         // are mutually decorrelated by sampling at large x-offsets (0/100/200),
-        // but all three share the same z input (p.z + t), so time evolution
+        // but all three share the same z input (p.z*scale + t), so time evolution
         // advances the field along the z axis: the temporal evolution is
         // coupled to the z spatial structure, not a fully independent 4th axis.
         // FastNoiseLite is only 3D here, so a genuine 4th time dimension isn't
