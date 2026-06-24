@@ -889,23 +889,23 @@ Transformers integrate with the `MeshOps::transform()` pipeline and can be chain
 
 ### 7.5 Memory Architecture (`memory.h`, `memory.cpp`)
 
-A single contiguous memory block (`GLOBAL_ARENA_SIZE = 335 KB`) is partitioned into three arena allocators. This block is the same size on both Teensy and WASM targets. Individual effects can call `configure_arenas()` to repartition the block at runtime.
+A single contiguous memory block (`GLOBAL_ARENA_SIZE = 330 KiB`) is partitioned into three arena allocators. This block is the same size on both Teensy and WASM targets. Individual effects can call `configure_arenas()` to repartition the block at runtime.
 
 | Arena | Default Size | Purpose |
 |---|---|---|
-| `persistent_arena` | 303 KB | Long-lived compiled mesh data, persists across frames |
+| `persistent_arena` | 298 KiB | Long-lived compiled mesh data, persists across frames |
 | `scratch_arena_a` | 16 KB | Short-lived intermediate geometry (RAII scoped) |
 | `scratch_arena_b` | 16 KB | Secondary scratch for ping-pong subdivision passes |
 
 Effects that need more scratch memory can repartition at init time:
 
 ```cpp
-// The three sizes must not exceed GLOBAL_ARENA_SIZE (335 KB on device); an
+// The three sizes must not exceed GLOBAL_ARENA_SIZE (330 KiB on device); an
 // over-subscribed partition traps at init() via HS_CHECK rather than silently
 // scaling down. Under-subscription is allowed (the surplus is just unused),
 // but partitioning the full budget is the norm. Here scratch is doubled at the
 // expense of persistent space:
-configure_arenas(271 * 1024, 32 * 1024, 32 * 1024);  // 271 + 32 + 32 = 335 KB
+configure_arenas(266 * 1024, 32 * 1024, 32 * 1024);  // 266 + 32 + 32 = 330 KiB
 ```
 
 `ScratchScope` provides stack-like RAII lifetime:
@@ -1846,7 +1846,7 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 | `setClip(x0, x1, y0, y1)` → `bool` | Restrict rendering to a sub-rectangle (used by segment workers) |
 | `getRenderUs()` → `double` | Last frame's rasterization time in microseconds (per-frame profiling) |
 
-The bridge also exposes a `MeshOps` class — used by the `solids.html` geometry tool — with dedicated tooling arenas (an 8 MB persistent arena plus two 4 MB scratch arenas — 16 MB total, separate from the engine's 335 KB arena) for interactive solid manipulation.
+The bridge also exposes a `MeshOps` class — used by the `solids.html` geometry tool — with dedicated tooling arenas (an 8 MB persistent arena plus two 4 MB scratch arenas — 16 MB total, separate from the engine's 330 KiB arena) for interactive solid manipulation.
 
 Alongside the classes, the bridge exports a few free spline-evaluation functions — `spline_cubic_fast`, `spline_cubic_slerp`, and `spline_catmull_rom_tangents` — used by the `splines.html` tool so its Bézier / Catmull-Rom curves are evaluated by the same engine code the firmware uses rather than a JavaScript reimplementation.
 
@@ -1975,7 +1975,7 @@ Five standalone HTML pages. Four render with their own Three.js scene; `palettes
 | `lissajous.html` | Designs spherical Lissajous curves with live frequency / phase / amplitude sliders; outputs a C++ `LissajousParams` initializer for the engine's Lissajous effects (`ChaoticStrings`, `Comets`). |
 | `mobius.html` | Visualizes Möbius transformations on the sphere via stereographic projection; lets you sweep the four complex coefficients and see the warp on a latitude-longitude grid. |
 | `palettes.html` | Tunes `ProceduralPalette` cosine coefficients and `GenerativePalette` harmony rules and exports the C++ initializer; renders its swatches and graphs on 2D canvas contexts rather than a Three.js scene. |
-| `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas (16 MB, separate from the engine's 335 KB arena). |
+| `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas (16 MB, separate from the engine's 330 KiB arena). |
 | `splines.html` | Dual-mode (Bézier / Catmull-Rom) spherical spline designer with closed-loop and open-chain modes; click to add control points, drag to edit, export the control points as a `constexpr std::array<Vector>` or as `Fragment` positions. Spline evaluation runs through the engine's exported WASM spline functions (the tool's single source of truth). |
 
 All five reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`.
