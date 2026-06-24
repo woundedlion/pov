@@ -51,11 +51,8 @@ public:
    *          out-of-phase sine mutations driving the ring/line counts.
    */
   void init() override {
-    // Little persistent memory; 64KB each scratch handles rasterization arrays.
     configure_arenas(GLOBAL_ARENA_SIZE - 128 * 1024, 64 * 1024, 64 * 1024);
 
-    // Rings/Lines driven by the Mutations below; flagged animated so the GUI
-    // auto-pauses when the user grabs the slider.
     registerAnimatedParam("Rings", &params.num_rings, 0.0f, 20.0f);
     registerAnimatedParam("Lines", &params.num_lines, 0.0f, 20.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -84,9 +81,8 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Derive phase from the timeline's frame counter. The int % 120 stays exact
-    // and bounded, where a float from the global frame count would lose integer
-    // precision past 2^24 (~77 h).
+    // int % 120 before the float cast: a float frame counter would lose integer
+    // precision past 2^24.
     float phase = static_cast<float>(timeline.frame() % 120) / 120.0f;
 
     Vector n_in = Y_AXIS;
@@ -95,17 +91,15 @@ public:
     Vector s_trans = mobius_gen.transform(s_in);
     Vector mid = (n_trans + s_trans);
     // Counter-rotation swinging the pole midpoint back onto +Z. When the two
-    // transformed poles cancel (mid ≈ 0 at the strip singularity), the direction
-    // is undefined: leave q at identity rather than feed a zero vector to
-    // make_rotation. Worst case is one frame of un-stabilized grid.
+    // transformed poles cancel (mid ~ 0 at the strip singularity) the direction
+    // is undefined; leave q at identity rather than feed a zero vector to
+    // make_rotation.
     Quaternion q;
     if (mid.length() > 0.001f) {
       mid.normalize();
       q = make_rotation(mid, Z_AXIS);
     }
 
-    // Update hole origins to match the rotated geometry. The Möbius transform
-    // can collapse a point to ~0 at the strip singularity; guard the normalize.
     holeN = normalized_or(rotate(n_trans, q), Vector(1, 0, 0));
     holeS = normalized_or(rotate(s_trans, q), Vector(1, 0, 0));
 
@@ -161,8 +155,7 @@ private:
       Curve curve = curve_fn(i);
 
       Fragments m_points;
-      // SphericalPolygon::sample emits W/4 + 1 points (one closing overlap);
-      // size to that, not a fixed constant, so the bind scales with resolution.
+      // SphericalPolygon::sample emits W/4 + 1 points (one closing overlap).
       m_points.bind(scratch_arena_a, W / 4 + 2);
       Plot::SphericalPolygon::sample(m_points, curve.basis, curve.radius,
                                      W / 4);
@@ -205,8 +198,6 @@ private:
     const float log_max = 2.5f;
     const float range = log_max - log_min;
 
-    // A ring's color depends only on i, but the shader runs ~W/4 times per ring;
-    // cache palette.get keyed on i (rings draw sequentially).
     int cached_i = -1;
     Color4 cached_c;
     draw_curves(
@@ -255,12 +246,8 @@ private:
           float z = sinf(t_line * 2.0f * PI_F);
 
           // Conformal radius R = sqrt((1+z)/(1-z)) is singular at the poles
-          // z = ±1. Branch on the pole BEFORE the division so no non-finite
-          // intermediate is produced, keeping the math valid independent of the
-          // -fno-finite-math-only build flag. Both poles saturate to coord = 1.0.
-          // Do NOT instead nudge (1 - z) off zero — that changes the endpoint
-          // color and splits the two poles to different ends. POLE_EPS bounds
-          // R <= ~1414, so the else branch stays finite.
+          // z = +/-1. Branch on the pole before the division so no non-finite
+          // intermediate is produced; both poles saturate to coord = 1.0.
           constexpr float POLE_EPS = 1e-6f;
           float coord;
           if (1.0f - fabsf(z) < POLE_EPS) {

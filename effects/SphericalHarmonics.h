@@ -196,17 +196,13 @@ public:
       float theta = fast_atan2(local.z, local.x);
       if (theta < 0)
         theta += 2 * PI_F;
-      // local.y IS cos(phi) — skip the fast_acos + cosf roundtrip. Note it's the
-      // LOCAL-frame latitude: the shape spins about an arbitrary axis, so the
-      // conjugate rotation mixes world x/z into local.y and cos_phi varies across
-      // a screen row even though the WORLD latitude is row-constant. Hoisting the
-      // associatedLegendre(cos_phi) term to a per-row precompute is therefore
-      // invalid (correct only for a pure-Y spin where local.y == world.y).
+      // local.y is cos(phi) in the LOCAL frame: the shape spins about an
+      // arbitrary axis, so cos_phi varies across a screen row even though the
+      // WORLD latitude is row-constant. Hoisting the associatedLegendre(cos_phi)
+      // term to a per-row precompute is therefore invalid.
       float cos_phi = hs::clamp(local.y, -1.0f, 1.0f);
 
       float val = SHMath::sphericalHarmonic(l1, m1, theta, cos_phi, N1);
-      // Skip the second harmonic when not blending (cheap insurance for any
-      // future hold period; morphs currently chain with blend > 0 every frame).
       if (blend > 0.001f) {
         float val2 = SHMath::sphericalHarmonic(l2, m2, theta, cos_phi, N2);
         val += (val2 - val) * blend;
@@ -233,8 +229,6 @@ public:
 
     baked_palette.bake(persistent_arena, Palettes::richSunset);
 
-    // next_idx is re-rolled by start_morph() before any read, so it needs no
-    // assignment here.
     current_idx = 6;
 
     Vector axis = Vector(0.5f, 1.0f, 0.2f).normalized();
@@ -273,10 +267,8 @@ public:
 
       Color4 pos =
           baked_palette.get(std::min(1.0f, abs_val * params.amplitude));
-      // Negative palette: a cheap channel recolor of pos so negative SH lobes
-      // read distinct, without a second LUT or per-pixel perceptual rotate. Swap
-      // R<->B and dim green by NEG_LOBE_GREEN_SCALE for a stylized complement.
-      // Deliberately not OKLCH-accurate — a lobe-polarity cue, kept LUT-cheap.
+      // Negative palette: recolor pos by swapping R<->B and dimming green so
+      // negative SH lobes read distinct. A stylized polarity cue, not OKLCH.
       constexpr float NEG_LOBE_GREEN_SCALE = 0.8f;
       Color4 neg = Color4(
           Pixel(pos.color.b,
@@ -284,12 +276,9 @@ public:
                 pos.color.r),
           pos.alpha);
 
-      // Narrow quintic-smoothed seam at the zero-crossing. `transition` is the
-      // half-width (field units) of the anti-aliasing band; only |val| <
-      // transition lies on the ramp, so the lobes meet at a crisp boundary.
-      // blend_t rides 0..1 with the field's positiveness; invert with 1 - blend_t
-      // so a positive field maps to pos and a negative one to neg (the blend is
-      // otherwise symmetric, so this inversion keeps the lobes from swapping).
+      // Narrow quintic-smoothed seam at the zero-crossing; `transition` is the
+      // half-width (field units) of the anti-aliasing band. blend_t is inverted
+      // (1 - blend_t) below so a positive field maps to pos and a negative to neg.
       constexpr float transition = 0.03f;
       float blend_t =
           quintic_kernel(hs::clamp(val / transition * 0.5f + 0.5f, 0.0f, 1.0f));
@@ -325,9 +314,8 @@ private:
    * endless morph chain.
    */
   void start_morph() {
-    // next_idx is a flat index into the SH basis (1..23), mapped to an (l, m)
-    // pair by decode_lm(). Re-roll on a match with current: blending a basis
-    // function into itself would freeze the sphere for the whole transition.
+    // Re-roll on a match with current_idx: blending a basis function into
+    // itself would freeze the sphere for the whole transition.
     do {
       next_idx = hs::rand_int(1, 24);
     } while (next_idx == current_idx);

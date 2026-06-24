@@ -75,9 +75,9 @@ public:
     registerParam("Thickness", &params.thickness, 0.01f, 10.0f);
     registerParam("Show Bounding", &params.show_bounding_box);
 
-    // Bake transparent-vignette palettes into fast LUTs: inset the source into
-    // the middle band, then fade alpha at the edges. Wrap=false so the top edge
-    // resolves to the source's last stop (wrap_t(1)==0 would fold it to black).
+    // Inset the source into the middle band, then fade alpha at the edges.
+    // Wrap=false so the top edge resolves to the source's last stop
+    // (wrap_t(1)==0 would fold it to black).
     InsetModifier inset;
     EdgeAlphaShade edge_fade;
     for (int i = 0; i < (int)source_palettes.size(); ++i) {
@@ -115,11 +115,9 @@ public:
       Ring &ring = rings[i];
       ring.trail.record(ring.orientation);
       deep_tween(ring.trail, [&](const Quaternion &q, float t) {
-        // The trail's length-fade comes ENTIRELY from the palette: sampling at
+        // The trail's length-fade comes entirely from the palette: sampling at
         // 1-t walks a transparent-vignette palette whose alpha tapers to ~0
-        // toward the tail, so there is deliberately no explicit t-fade here. Swap
-        // in an opaque palette and the whole trail renders at full alpha — keep
-        // the alpha vignette or reinstate a t-fade here if the palette changes.
+        // toward the tail, so there is deliberately no explicit t-fade here.
         Color4 c = ring.palette->get(1.0f - t);
         c.alpha = c.alpha * params.alpha;
         if (c.alpha <= 0.001f) return;

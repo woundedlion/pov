@@ -90,10 +90,6 @@ private:
   struct Ring {
     static constexpr int FADE_IN_FRAMES = 4; /**< Frames spent fading in from 0 to full opacity; opacity then holds (no fade-out). */
     static constexpr float RADIUS_MAX = 2.0f; /**< Maximum radius; the ring grows from 0 to this over its whole life. */
-    // Lifetime is drawn uniformly from [LIFE_MIN, LIFE_MIN + LIFE_SPAN) frames.
-    // LIFE_MIN is strictly positive *by design*: it is the sole guarantee that
-    // radius_at()'s `/ life` divisor is never zero (spawn_ring() is the only
-    // writer of life). Keep LIFE_MIN >= 1 if these are ever retuned.
     static constexpr int LIFE_MIN = 8;   /**< Minimum lifetime in frames (>0: guards the radius_at divisor). */
     static constexpr int LIFE_SPAN = 72; /**< Width of the random lifetime range, in frames. */
 
@@ -122,8 +118,6 @@ private:
      *          final visible frame (age + 1 == life).
      */
     float radius_at() const {
-      // `/ life` is divisor-safe because spawn_ring() always sets life >= LIFE_MIN
-      // (> 0); a slot is never drawn before being spawned (age >= life marks it free).
       float t = hs::clamp(static_cast<float>(age + 1) / life, 0.0f, 1.0f);
       return RADIUS_MAX * ease_linear(t);
     }

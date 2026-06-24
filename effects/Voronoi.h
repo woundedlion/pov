@@ -41,20 +41,15 @@ public:
    */
   void init() override {
     // Persistent holds the sites buffer; scratch_arena_a holds the per-frame
-    // KD-tree (positions + nodes + build indices, ~15KB at MAX_SITES). Give it
-    // comfortable headroom rather than rely on the 16KB default.
+    // KD-tree (positions + nodes + build indices).
     configure_arenas(GLOBAL_ARENA_SIZE - 64 * 1024, 64 * 1024, 0);
 
     registerParam("Num Sites", &params.num_sites, 1.0f,
                   static_cast<float>(MAX_SITES));
     registerParam("Speed", &params.speed, 0.0f, 100.0f);
-    // "Sharpness", not "Smoothness": a larger value saturates the blend factor
-    // sooner, narrowing the border band — i.e. it sharpens cell edges.
     registerParam("Sharpness", &params.sharpness, 1.0f, 500.0f);
     registerParam("Border Thick", &params.borderThickness, 0.0f, 0.1f);
 
-    // Allocate the buffer once at its maximum; seed_sites() fills the active
-    // count and re-seeds when the slider changes (no further allocation).
     sites_buffer.bind(persistent_arena, MAX_SITES);
     seed_sites();
   }
@@ -76,9 +71,7 @@ public:
     Canvas canvas(*this);
 
     // Re-seed when the GUI changes the site count (integer change only, so
-    // dragging within a bucket doesn't thrash). seed_sites() fully re-scatters:
-    // positions are deterministic per index but each axis is redrawn from the
-    // RNG, so a count change reshuffles every cell's spin. Intentional.
+    // dragging within a bucket doesn't thrash).
     if (active_site_count() != current_num_sites)
       seed_sites();
 
@@ -86,25 +79,19 @@ public:
 
     for (size_t i = 0; i < sites_buffer.size(); ++i) {
       auto &site = sites_buffer[i];
-      // rotate() is length-preserving only in exact arithmetic; over a long run
-      // float rounding drifts |pos| off the unit sphere. Renormalize so the
-      // unit-site invariants hold: nearest-by-Euclidean == nearest-by-max-dot
-      // (|p−s|²=2−2p·s only for unit p,s) and the border acosf(dot) staying in
-      // range. One normalize/site/frame is negligible vs. the KD-tree query.
+      // Renormalize: rotate() drifts |pos| off the unit sphere over a long run,
+      // and the unit-site invariants (nearest-by-Euclidean == nearest-by-max-dot,
+      // and the border acosf(dot) staying in range) require unit vectors.
       Quaternion q = make_rotation(site.axis, s);
       site.pos = rotate(site.pos, q).normalized();
     }
 
-    // Defense-in-depth: bail if there are no sites (an empty tree yields no
-    // neighbors). Currently unreachable (count clamps to [1, MAX_SITES]) but
-    // cheap insurance against a future seeding path that leaves it empty.
     if (sites_buffer.size() == 0)
       return;
 
     // Build a KD-tree over the moving site positions once per frame. On the unit
-    // sphere nearest-by-Euclidean == nearest-by-max-dot (|p−s|² = 2 − 2·p·s),
-    // so the k=2 query is exact: O(N log N) build + O(log N)/pixel rather than
-    // an O(W·H·N) per-pixel scan.
+    // sphere nearest-by-Euclidean == nearest-by-max-dot (|p-s|^2 = 2 - 2*p*s),
+    // so the k=2 query is exact.
     ScratchScope _scope(scratch_arena_a);
     Vector *positions = static_cast<Vector *>(scratch_arena_a.allocate(
         sites_buffer.size() * sizeof(Vector), alignof(Vector)));
@@ -115,9 +102,7 @@ public:
 
     // Resolves the final color from the already-identified nearest pair: the
     // nearest site index i0 and its dot d0 (the larger), and — when a second
-    // neighbor exists — the second site index i1 and its dot d1. Factored out so
-    // the full-query and coarse-coherent paths below share one exact shading
-    // body (the query may be elided, the per-pixel dots and shading never are).
+    // neighbor exists — the second site index i1 and its dot d1.
     auto shade = [&](int i0, float d0, bool hasSecond, int i1,
                      float d1) -> Color4 {
       const Site &bestSite = sites_buffer[i0];
@@ -161,11 +146,9 @@ public:
       return c;
     };
 
-    // Canonical (order-independent) nearest-pair identity at a sample point
-    // (CellId is declared at class scope so the scratch-budget static_assert can
-    // size the corner grid). The two query orders along a cell seam (best/second
-    // swap) map to the same {lo, hi} set so corner comparisons below are
-    // seam-stable.
+    // Canonical (order-independent) nearest-pair identity at a sample point: the
+    // two query orders along a cell seam (best/second swap) map to the same
+    // {lo, hi} set, so corner comparisons below are seam-stable.
     auto classify = [&](const Vector &p) -> CellId {
       auto knn = tree.nearest(p, 2);
       uint16_t a = knn[0].original_index;
@@ -177,16 +160,12 @@ public:
       return x.lo == y.lo && x.hi == y.hi && x.hasSecond == y.hasSecond;
     };
 
-    // Coarse-grid coherence: the k=2 query dominates per-pixel cost, but the
-    // identity of the nearest two sites is piecewise-constant over each Voronoi
-    // cell. Classify the pair once per coarse-grid corner; an interior pixel
-    // whose four corners agree skips the query and shades from two exact dot
-    // products (shading stays per-pixel and exact — only the discrete query is
-    // elided). A pixel whose corners disagree (a seam, or the dense region near
-    // a pole) falls back to the full query, so the scheme self-corrects where
-    // cells shrink below a block. Residual: a cell smaller than kCoherenceBlock
-    // missed by all four corners is not sampled — acceptable atop the SAMPLES=1
-    // point sampling; the failure mode is a dropped speck.
+    // Coarse-grid coherence: the nearest-pair identity is piecewise-constant
+    // over each Voronoi cell. Classify the pair once per coarse-grid corner; an
+    // interior pixel whose four corners agree skips the k=2 query and shades from
+    // two exact dot products, while a pixel whose corners disagree (a seam, or
+    // the dense region near a pole) falls back to the full query. A cell smaller
+    // than kCoherenceBlock missed by all four corners is dropped.
     auto &cr = canvas.clip();
     Scan::Shader::check_lut_domain<W, H>(cr);
     const int x0 = cr.x_start;
@@ -201,8 +180,8 @@ public:
     const int nby = (y1 - y0 - 1) / B + 2; // corner rows spanning    [y0, y1)
     CellId *cells = static_cast<CellId *>(
         scratch_arena_a.allocate(nbx * nby * sizeof(CellId), alignof(CellId)));
-    // Corner k/j map to the block-aligned pixel, clamped to the last valid pixel
-    // (x1/y1 are exclusive) so every classified point indexes the trig LUT.
+    // Clamp to the last valid pixel (x1/y1 are exclusive) so every classified
+    // point indexes the trig LUT.
     auto corner_x = [&](int j) { return std::min(x0 + j * B, x1 - 1); };
     auto corner_y = [&](int k) { return std::min(y0 + k * B, y1 - 1); };
     for (int k = 0; k < nby; ++k)
@@ -283,15 +262,10 @@ public:
     bool hasSecond; /**< Whether a second neighbor exists (>= 2 sites). */
   };
 
-  // Compile-time high-water check for the 64 KB scratch_arena_a reserve that
-  // init() requests via configure_arenas(). Two transient peaks share that
-  // arena; `positions` and the KD-tree node pool are live across both:
-  //   build:   positions + KD nodes + the KD build-index scratch (KDTree rewinds
-  //            the index array via its own ScratchScope once the build returns)
-  //   shading: positions + KD nodes + the coarse-grid corner cells
-  // All three terms scale with MAX_SITES / the canvas, so a future MAX_SITES bump
-  // or kCoherenceBlock change is caught here at compile time instead of tripping
-  // the runtime OOM trap.
+  // Compile-time high-water check for the 64 KB scratch_arena_a reserve. Two
+  // transient peaks share that arena, with positions + KD nodes live across both:
+  //   build:   positions + KD nodes + KD build-index scratch
+  //   shading: positions + KD nodes + coarse-grid corner cells
   static constexpr size_t kScratchABytes = 64 * 1024;
   static constexpr size_t kPositionsBytes = size_t(MAX_SITES) * sizeof(Vector);
   static constexpr size_t kKdNodesBytes = size_t(MAX_SITES) * sizeof(KDNode);
@@ -331,13 +305,11 @@ public:
     const int n = active_site_count();
     sites_buffer.clear();
 
-    // Loop-invariant; hoisted out of the per-site loop below.
     const float goldenAngle = PI_F * (3.0f - sqrtf(5.0f));
 
     for (int i = 0; i < n; i++) {
-      // Guard n == 1: the denominator would be 0 → NaN y (which then poisons
-      // pos/axis). A single site sits at the pole (y = 1). Mirrors the same
-      // guard applied to `t` below.
+      // Guard n == 1: a 0 denominator would give NaN y. A single site sits at
+      // the pole (y = 1).
       int span = n > 1 ? n - 1 : 1;
       float y = 1.0f - (i / (float)span) * 2.0f;
       float radius = sqrtf(std::max(0.0f, 1.0f - y * y));

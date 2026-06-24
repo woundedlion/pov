@@ -51,9 +51,6 @@ public:
     filters.template get<Filter::World::Trails<W, MAX_TRAILS>>().init_storage(
         persistent_arena);
 
-    // Bake the immutable palette into a 256-entry LUT. The trail flush evaluates
-    // the palette per live trail item (~25k/frame); BakedPalette::get is a table
-    // lookup + lerp vs. ProceduralPalette's 3 cosf + sRGB interp + virtual call.
     baked_palette_.bake(persistent_arena, Palettes::lavenderLake);
 
     registerParam("Tension", &params.tension, 0.0f, 1.0f);
@@ -62,9 +59,7 @@ public:
     registerParam("Num Pts", &params.num_points, 4.0f, 12.0f);
     registerParam("Alpha", &params.alpha, 0.1f, 1.0f);
 
-    // Animated control points driven by independent random walks. All walks
-    // are infinite (never removed), so the timeline never compacts and these
-    // add_get() handles stay valid for live Drift updates.
+    // Animated control points driven by independent random walks.
     for (int i = 0; i < MAX_POINTS; ++i) {
       point_orientations[i].set(
           make_rotation(random_vector(), hs::rand_f() * 2 * PI_F));
@@ -78,8 +73,6 @@ public:
                         orientation, Y_AXIS, orient_noise_,
                         Animation::RandomWalk<W>::Options::Languid()));
 
-    // Phase accumulator for draw-head position. A bound Driver pulls the Speed
-    // slider each step, so it stays live with no retained handle or re-sync.
     timeline.add(0, Animation::Driver(draw_head, &params.speed, 1.0f, true));
   }
 

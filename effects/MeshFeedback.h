@@ -23,10 +23,7 @@ public:
   using Style = Feedback::Style;
 
   static constexpr int MORPH_FRAMES = 160;
-  static constexpr int PRESET_FRAMES = 241; // preset hard-cut period (prime)
-  // Shape-cycle PERIOD is hold + morph, and that (not the hold alone) must be
-  // coprime with PRESET_FRAMES for the two cycles to stay out of phase. 241 is
-  // prime; 240 is coprime and maximises the beat between the cycles.
+  static constexpr int PRESET_FRAMES = 241;
   static constexpr int SHAPE_FRAMES = 240;
   static constexpr int NO_MORPH_FRAMES = SHAPE_FRAMES - MORPH_FRAMES;
 
@@ -34,10 +31,6 @@ public:
                 "SHAPE_FRAMES and PRESET_FRAMES must stay coprime so the shape "
                 "and preset cycles drift out of phase instead of locking");
 
-  // Slider ranges for the six preset-driven style params. The preset cycle
-  // writes these fields live, so every preset must stay within the range the GUI
-  // advertises or the slider readout and the live value diverge. Widen the range
-  // (not clamp the preset) if a future preset needs a value outside it.
   static constexpr float kFadeMin = 0.0f,  kFadeMax = 0.99f;
   static constexpr float kAmpMin = 0.0f,   kAmpMax = 30.0f;
   static constexpr float kFreqMin = 0.01f, kFreqMax = 1.0f;
@@ -91,9 +84,8 @@ public:
       e.params.noise = &noise_params;
     }
 
-    // Configure the noise type before apply_params(): apply_params() calls
-    // style.sync_noise(), which would otherwise propagate the default (not-yet-
-    // configured) noise type on the first frame.
+    // Configure the noise type before apply_params(): it calls sync_noise(),
+    // which would otherwise propagate the default noise type on the first frame.
     noise_params.noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_params.sync();
 
@@ -119,7 +111,6 @@ public:
     registerParam("Noise Scale", &style.scale, kScaleMin, kScaleMax);
     registerParam("Hue Shift", &style.hue_shift, kHueMin, kHueMax);
     registerParam("Feedback", &feedback_enabled);
-    // Flag the six preset-driven params so "Pause Animation" gates the cycling.
     markAnimated("Fade");
     markAnimated("Distort Amp");
     markAnimated("Distort Freq");
@@ -131,8 +122,6 @@ public:
     timeline.add(
         0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise_params.noise));
 
-    // Preset cycling hard-cuts: apply() copies all scalar/fn-ptr/downsample
-    // fields and leaves the bound noise pointer intact.
     timeline.add(0, Animation::PeriodicTimer(
                         PRESET_FRAMES,
                         [this](Canvas &) {
@@ -180,8 +169,6 @@ public:
         canvas, [](float, float, float) { return Color4(0, 0, 0, 0); },
         1.0f);
 
-    // The front slot is always bound while not morphing, so no is_bound() guard
-    // is needed (an unbound mesh would draw as a no-op empty face loop anyway).
     if (!morphing) {
       Plot::Mesh::draw<W, H>(filters, canvas, carousel.current(),
                              [&](const Vector &v, Fragment &f) {

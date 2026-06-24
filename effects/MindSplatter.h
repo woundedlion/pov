@@ -22,11 +22,9 @@ public:
    */
   FLASHMEM MindSplatter()
       : Effect(W, H),
-        // Each row is one preset the cycle lerps between. well_strength is
-        // pre-scaled by friction (0.85): the integrator drags carried velocity
-        // before adding the attractor impulse (v <- friction*v + impulse), so
-        // multiplying the well strengths by friction keeps the per-frame pull
-        // matching a friction*(v+impulse) order.
+        // well_strength is pre-scaled by friction (0.85) because the integrator
+        // applies v <- friction*v + impulse, dragging velocity before the
+        // attractor impulse.
         presets{std::array<PresetEntry<Params>, 5>{{
                     {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.2f}},
                     {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.52f}},
@@ -42,17 +40,11 @@ public:
    *        bakes the palette, and kicks off the warp scheduler.
    */
   void init() override {
-    // The particle pool needs the bulk of the arena: carve only a small
-    // scratch_a (6 KiB, measured peak ~5.4 KiB) and no scratch_b.
     static constexpr size_t SCRATCH_BYTES = 6 * 1024;
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_BYTES, SCRATCH_BYTES, 0);
 
-    // Compile-time device-budget guard for the particle pool. Checks against the
-    // real device arena literal (GLOBAL_ARENA_SIZE is inflated to 8 MiB on the
-    // host test build, so an overflow would never trip there). Pool size is
-    // derived from sizeof() so a Particle/VectorTrail layout or NUM_PARTICLES
-    // change re-checks here; the reserve covers the baked palette LUT (~3 KiB)
-    // and attractor/emitter vectors (<1 KiB) with margin.
+    // Compile-time device-budget guard: GLOBAL_ARENA_SIZE is inflated on the
+    // host test build, so check against the real device arena literal.
     static constexpr size_t kDeviceArenaBytes = DEVICE_GLOBAL_ARENA_SIZE;
     static constexpr size_t kPoolBytes =
         sizeof(Animation::Particle<kTrailLen>) * NUM_PARTICLES;
@@ -62,8 +54,6 @@ public:
                   "MindSplatter particle pool + palette/aux overflow the device "
                   "persistent arena");
 
-    // The preset Lerp drives these four; flagged animated so "Pause Animation"
-    // governs them (touching one pauses the presets and hands the value over).
     registerAnimatedParam("Friction", &params.friction, 0.5f, 1.0f);
     registerAnimatedParam("Well Str", &params.well_strength, 0.0f, 20.0f);
     registerAnimatedParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
@@ -108,7 +98,6 @@ public:
     timeline.step(canvas);
 
     particle_system.friction = params.friction;
-    // Apply Well Str live; attractors otherwise captured it once at rebuild().
     for (size_t i = 0; i < particle_system.attractors.size(); ++i)
       particle_system.attractors[i].strength = params.well_strength;
     particle_system.step(canvas);
@@ -223,9 +212,6 @@ private:
       emitter_basis_[i] = make_basis(Quaternion(), EmitSolid::vertices[i]);
 
       particle_system.add_emitter([this, i](ParticleSystem &) {
-        // Integrate Ang Spd into a wrapped per-emitter phase so a live speed
-        // change affects only the rate going forward; the [0,2pi) wrap keeps
-        // cos/sin precise over long runs.
         float angle = emit_phases[i];
         emit_phases[i] =
             fmodf(emit_phases[i] + params.angular_speed, 2.0f * PI_F);
@@ -234,7 +220,6 @@ private:
         Vector vel = (basis.u * fast_cosf(angle) + basis.w * fast_sinf(angle)) *
                      params.initial_speed;
 
-        // Advance hue by the golden ratio for an even spread across emissions.
         emitter_hues[i] = fmodf(emitter_hues[i] + INV_PHI * 0.1f, 1.0f);
 
         if (particle_system.active_count < particle_system.pool.capacity()) {
@@ -253,19 +238,14 @@ private:
    * @param opacity Global opacity multiplier in [0, 1] applied to each fragment.
    */
   void draw_particles(Canvas &canvas, float opacity = 1.0f) {
-    // Precompute cos(event_horizon) per attractor for a dot-product fast-reject:
-    // points with dot < this threshold lie beyond the horizon (no influence)
-    // and are skipped below.
+    // cos(event_horizon) per attractor for the dot-product fast-reject below.
     std::array<float, AttractSolid::NUM_VERTS> cos_eh;
     for (size_t i = 0; i < particle_system.attractors.size(); ++i) {
       cos_eh[i] = fast_cosf(particle_system.attractors[i].event_horizon);
     }
 
     // Accumulate per-attractor alpha falloff from the pre-warp position, then
-    // apply the Mobius warp and orientation to the fragment position. This loop
-    // is O(fragments x attractors), accepted because NUM_VERTS is small (6) and
-    // the cos_eh reject skips most iterations. If the attractor solid grows,
-    // bucket the pre-warp position to cull distant attractors before the loop.
+    // apply the Mobius warp and orientation to the fragment position.
     auto vertex_shader = [&](Fragment &f) {
       Vector original_pos = f.pos;
       float holeAlpha = 1.0f;
@@ -284,10 +264,6 @@ private:
       f.v3 *= holeAlpha;
     };
 
-    // Color from the per-particle hue seed, squaring alpha for a softer falloff.
-    // Plot::ParticleSystem::draw emits fragments only for the active pool and
-    // stamps the source index into v2, so p_idx is always in range; the assert
-    // pins that convention and is stripped on the device.
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       float alpha = std::min(f.v0, f.v3);
       size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);

@@ -73,32 +73,24 @@ public:
    *          then advances and draws each live thruster.
    */
   void draw_frame() override {
-    // Advance first so this frame's consumers read this frame's counter. Wrap at
-    // 32 (ring_fn's modulation period) to keep the counter bounded.
+    // Wrap at 32, ring_fn's modulation period.
     t_global = (t_global + 1) % 32;
 
     Canvas canvas(*this);
     timeline.step(canvas);
-    // Stepped manually rather than via the timeline: each fire reassigns
-    // warp_anim to restart the decay, and fires routinely overlap its life, so
-    // a single restartable member is correct here where timeline.add() would
-    // stack concurrent mutations fighting over `amplitude`.
     if (!warp_anim.done()) {
       warp_anim.step(canvas);
     }
 
-    // Expire finished thrusters from the front (FIFO: oldest spawned first; all
-    // share the same LIFE, so the front always expires first).
+    // Expire finished thrusters from the front (FIFO: all share the same LIFE,
+    // so the front always expires first).
     while (!thrusters.is_empty() &&
            thrusters.front().age >= ThrusterContext::LIFE) {
       thrusters.pop();
     }
 
-    // Advance and draw each live thruster directly from the ring. Lifetime,
-    // radius growth and fade are driven here rather than by per-thruster
-    // animations capturing &ctx: ctx is a recyclable ring slot, so an animation
-    // outliving the slot's reuse would step/draw whatever thruster later lands
-    // in it. Both radius and opacity are pure functions of `age`.
+    // Advance and draw each live thruster; radius and opacity are pure
+    // functions of `age`.
     for (size_t i = 0; i < thrusters.size(); ++i) {
       ThrusterContext &ctx = thrusters[i];
       float progress = static_cast<float>(ctx.age) / ThrusterContext::LIFE;
@@ -186,35 +178,26 @@ private:
   void on_fire_thruster() {
     warp_phase = hs::rand_f() * 2 * PI_F;
 
-    // Snapshot the warp state into the closure so the thrust-point geometry can't
-    // depend on member-mutation order: warp_phase was just set; amplitude is the
-    // residual from the previous fire (warp_anim restarts below, after the
-    // fn_point calls); t_global is this frame's counter (advanced at the top of
-    // draw_frame, so it already reflects the current frame).
+    // Snapshot the warp state into the closure so the thrust-point geometry
+    // can't depend on member-mutation order.
     const float phase = warp_phase;
     const float amp = amplitude;
     const int frame = t_global;
     auto r_fn = [phase, amp, frame](float t) { return ring_fn(t, phase, amp, frame); };
     Basis basis = make_basis(Quaternion(), ring_vec);
-    // Same radius as the visible ring (draw_ring uses params.radius); a
-    // hardcoded 1.0 detaches the thrust pairs and the derived spin axis from the
-    // ring whenever the Radius slider is moved off its default.
+    // Use params.radius (matching the visible ring) so the thrust pairs and the
+    // derived spin axis track the ring under the Radius slider.
     Vector thrust_point =
         Plot::DistortedRing::fn_point(r_fn, basis, params.radius, phase);
     Vector thrust_opp =
         Plot::DistortedRing::fn_point(r_fn, basis, params.radius,
                                       phase + PI_F);
 
-    // warp: decay from peak (0.7) to exactly 0 over the mutation's life so the
-    // ring fully relaxes between fires (warp_decay carries the rationale).
     warp_anim = Animation::Mutation(amplitude, warp_decay, 32, ease_linear);
 
-    // spin
     // Under a large warp the two oriented vectors can become near-parallel, so
-    // their cross product collapses toward zero and a strict normalize() would
-    // trap on NaN/inf that then seeds Rotation. Fall back to a fixed axis on the
-    // degenerate case (the spin axis is arbitrary when the pair is parallel),
-    // mirroring make_rotation's perpendicular-axis fallback.
+    // their cross product collapses toward zero; fall back to a fixed axis on the
+    // degenerate case (the spin axis is arbitrary when the pair is parallel).
     Vector thrust_axis = normalized_or(
         cross(orientation.orient(thrust_point), orientation.orient(ring_vec)),
         Y_AXIS);
@@ -235,9 +218,6 @@ private:
       thrusters.pop();
     thrusters.push_back(ThrusterContext());
     thrusters.back().reset(orientation, point);
-    // Lifetime, radius and fade are advanced in draw_frame() by iterating the
-    // ring rather than by a per-thruster animation capturing this slot
-    // (see draw_frame()).
   }
 
   /**
@@ -254,11 +234,10 @@ private:
    *          amplitude / t_global are mutated relative to the call.
    */
   static float ring_fn(float t, float phase, float amp, int frame) {
-    // phase is in radians; sin_wave's phase is in cycles. The exact
-    // radians->cycles divisor is 2*PI_F; dividing by PI_F instead gives a phase
-    // in [0,2) cycles — a deliberate 2x offset, uniform because `phase` is itself
-    // uniform random. Named so the halving reads as intent, not a 2*PI_F typo.
-    constexpr float kDoubledCycleDivisor = PI_F; // = (2*PI_F) / 2
+    // phase is radians; sin_wave's phase is cycles. Dividing by PI_F (not the
+    // exact 2*PI_F) is a deliberate 2x offset, harmless because `phase` is
+    // uniform random.
+    constexpr float kDoubledCycleDivisor = PI_F;
     return sin_wave(-1, 1, 2, phase / kDoubledCycleDivisor)(t) *
            sin_wave(-1, 1, 3, 0)(static_cast<float>(frame % 32) / 32.0f) *
            amp;
@@ -276,10 +255,8 @@ private:
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
     auto fragment_shader = [this, opacity](const Vector &, Fragment &f) {
       f.color = Color4(CRGB(255, 255, 255));
-      // Premultiply RGB by opacity *and* fold it into alpha (unlike draw_ring,
-      // which scales alpha only): the thruster glow is an additive flare, so the
-      // intended quadratic falloff at the edges comes from applying opacity to
-      // both the color and the coverage.
+      // Apply opacity to both color and alpha (a quadratic edge falloff) for the
+      // additive thruster glow.
       f.color.color = f.color.color * opacity;
       f.color.alpha = opacity * params.alpha;
     };
@@ -295,17 +272,13 @@ private:
     Basis basis = make_basis(orientation.get(), ring_vec);
 
     auto fragment_shader = [this, opacity](const Vector &v, Fragment &f) {
-      // Rotation preserves angles, so angle_between(R·X_AXIS, R·v) ==
-      // angle_between(X_AXIS, v): both orientation rotations cancel. Compute the
-      // gradient directly off the un-rotated axis to skip two per-fragment
-      // orient() calls.
+      // Rotation preserves angles, so angle_between(X_AXIS, v) equals the angle
+      // between the rotated pair; compute off the un-rotated axis.
       float angle = angle_between(X_AXIS, v);
       f.color = palette.get(angle / PI_F);
       f.color.alpha *= params.alpha * opacity;
     };
 
-    // Snapshot the warp state once per frame; ring_fn is pure in these, so every
-    // fragment along the ring sees a consistent warp.
     const float phase = warp_phase;
     const float amp = amplitude;
     const int frame = t_global;

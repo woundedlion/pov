@@ -39,19 +39,13 @@ public:
       raw_quats[i] = make_rotation(Y_AXIS, Solids::Dodecahedron::vertices[i]);
     }
 
-    // Bake the immutable fixed-seed palette into a 256-entry LUT so the
-    // per-fragment shader does a cheap lookup instead of the full ~2000-cycle
-    // dual sRGB->OKLCH conversion per fragment.
     baked_palette.bake(persistent_arena, palette);
 
     timeline.add(0, Animation::RandomWalk<W>(camera, normal, noise));
 
-    // Drive the tumble and palette-scroll phases from the live Pulse Speed
-    // slider rather than the global frame clock: each is an effect-owned
-    // accumulator wrapped to [0,1) every step, so the trig argument never grows.
-    // The scales give 1.5 rad of spin and 0.05 cycle of palette scroll per
-    // animation-second at 60 fps; spin_phase is scaled to radians by *2pi where
-    // consumed. Both gated on the pause flag.
+    // spin_phase / palette_phase are effect-owned accumulators wrapped to [0,1)
+    // each step, so the trig argument never grows. spin_phase is scaled to
+    // radians by *2pi where consumed.
     constexpr float kTwoPi = 2.0f * PI_F;
     timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
                                       1.5f / (60.0f * kTwoPi), true,
@@ -59,8 +53,6 @@ public:
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
                                       0.05f / 60.0f, true, &anims_paused_));
 
-    // The render Sprite needs no pause gate: it is perpetual and its image is
-    // driven entirely by the two phase accumulators above, frozen while paused.
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float opacity) {
                           this->drawFn(canvas, opacity);
@@ -111,13 +103,11 @@ private:
     float half_lam = ndotl * 0.5f + 0.5f;
     float diffuse = half_lam * half_lam;
 
-    // Specular: light tilted off-axis along tangent for visible highlight.
-    // Normalize only above TOLERANCE; a near-zero tilt stays as-is.
+    // Specular: light tilted off-axis along tangent for a visible highlight.
     Vector light = light_dir + tangent * 0.3f;
     float ll = light.length();
     if (ll > TOLERANCE)
       light /= ll;
-    // Half-vector between tilted light and view direction
     Vector half = light + view_dir;
     float hl = half.length();
     if (hl > TOLERANCE)
@@ -163,16 +153,10 @@ private:
     float aa_width = minor_r * params.aa_mult;
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
 
-    // Tumble rotation around local X-axis (tangent). spin_phase rides in [0,1);
-    // scale to radians for make_rotation (2pi-periodic, so the wrap is exact).
+    // spin_phase rides in [0,1); scale to radians for make_rotation.
     float spin_angle = spin_phase * kTwoPi;
     Quaternion spin_q = make_rotation(X_AXIS, spin_angle);
 
-    // Per-frame cost is O(NUM_VERTS * max_steps * W * H): one volumetric
-    // ray-march per dodecahedron vertex, each up to max_steps distance() evals
-    // per covered pixel. One of the heaviest effects (alongside Voronoi);
-    // unbudgeted, acceptable on the WASM sim. For a device target, lower
-    // max_steps or cap the marched pixel count against the frame budget here.
     for (int vi = 0; vi < NUM_VERTS; ++vi) {
       Vector vertex = camera.orient(Solids::Dodecahedron::vertices[vi]);
       Vector view_dir(-vertex.x, -vertex.y, -vertex.z);

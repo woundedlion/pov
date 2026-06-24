@@ -45,13 +45,9 @@ public:
    */
   void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    // Count's slider tops out at 128; the effective ring count is gated against
-    // the canvas resolution in drawAll() (see the clamp there).
     registerParam("Count", &params.num_shapes, 1.0f, 128.0f);
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
-    // Twist driven by the Mutation in build(); flagged animated so the GUI
-    // auto-pauses when the user grabs the slider.
     registerAnimatedParam("Twist", &params.twist, -5.0f, 5.0f);
     registerParam("Debug BB", &params.debug_bb);
 
@@ -101,8 +97,7 @@ public:
                         480, ease_linear, true, &anims_paused_));
 
     // Shared tumbles: every Plot ring rides plot_orient_ (+X), every Scan ring
-    // rides scan_orient_ (-X). These also drive the once-per-frame orientation
-    // collapse (motion blur) before the draw event below.
+    // rides scan_orient_ (-X).
     timeline.add(0, Animation::Rotation<W>(plot_orient_, X_AXIS, 2 * PI_F, 160,
                                            ease_linear, true,
                                            Animation::Space::Local));
@@ -110,8 +105,8 @@ public:
                                            ease_linear, true,
                                            Animation::Space::Local));
 
-    // One draw event for every shape. Reads Count live, so a GUI change needs no
-    // rebuild. Added last so it steps after the rotations have collapsed.
+    // Single draw event reading Count live. Added last so it steps after the
+    // rotations have collapsed.
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float) { drawAll(canvas); }, -1,
                         0, ease_linear, 0, ease_linear));
@@ -127,24 +122,19 @@ public:
     int count = static_cast<int>(params.num_shapes);
     if (count < 1)
       count = 1;
-    // Resolution-gate the ring count: each ring dispatches a Plot AND a Scan SDF
-    // rasterization, so the slider max (128) is ~256 rasterizations/frame, able
-    // to blow a low-res device's budget. Cap at H — rings spaced finer than one
-    // row apart can't be resolved, so the clamp costs no visible fidelity.
+    // Cap the ring count at H: rings spaced finer than one row apart can't be
+    // resolved.
     constexpr int kMaxRings = H > 1 ? H : 1;
     if (count > kMaxRings)
       count = kMaxRings;
 
-    // Basis is identical across all rings of a mode, so compute once per frame.
     Quaternion cam_q = camera.get();
     Basis plot_basis = make_basis(cam_q * plot_orient_.get(), X_AXIS);
     Basis scan_basis = make_basis(cam_q * scan_orient_.get(), -X_AXIS);
 
     for (int i = count - 1; i >= 0; --i) {
-      // (i+1)/count, not i/(count-1): the latter gives the i=0 layer t=0 (radius
-      // 0, invisible) every frame and renders nothing at all at Count=1. This
-      // maps the layers to (0, 1], so the innermost layer keeps a nonzero radius
-      // and Count=1 draws a single full-size ring.
+      // (i+1)/count maps layers to (0, 1]; i/(count-1) would give the i=0 layer
+      // radius 0 and render nothing at Count=1.
       float t = static_cast<float>(i + 1) / count;
       Color4 color = Palettes::richSunset.get(t);
       drawRing(canvas, plot_basis, RenderMode::Plot, t, color, i);
