@@ -30,33 +30,12 @@ using PassFn3D =
 
 /**
  * @brief Trait indicating a filter operates in 2D screen space.
- * @details `is_terminal` marks a filter that writes the Canvas directly during
- * flush() and ignores its downstream `pass` callback (e.g. Pixel::Feedback).
- * Such a filter swallows the stream, so anything chained after it would
- * silently never run — the Pipeline static-asserts a terminal filter is the
- * last stage. Almost all filters forward via `pass` and leave this false.
- *
- * `emits_nonunit_world` marks a world-space (3D) stage that can forward points
- * that are not strictly unit length (e.g. World::Trails, whose re-emitted trail
- * samples are int16-quantized and deliberately not renormalized).
- * `requires_unit_world_input` marks a world-space stage whose math assumes a
- * unit-length input (e.g. World::Mobius's stereographic projection, the
- * `angle_between` in World::Hole). The Pipeline static-asserts that no
- * `emits_nonunit_world` stage precedes a `requires_unit_world_input` stage —
- * the intra-World analogue of the World-before-Screen ordering rule. Both
- * default false; only the few stages above flip them.
- *
- * `crosses_segments` marks a stateful stage whose per-frame state depends on
- * pixels OUTSIDE the segment band the simulator clips a worker to — feedback
- * warps that sample `cv.prev` at unbounded offsets (Pixel::Feedback), reprojected
- * trails (World::Trails). Such an effect must render the FULL canvas per worker
- * (not just the band), or cross-band trails read as black and seams appear. It
- * defaults to `has_history` (fail-safe: a new history filter is assumed
- * cross-segment until proven bounded); reach-0 in-place history (Screen::Trails,
- * which redraws at the same screen coordinate) overrides it to false. The
- * Pipeline OR-folds it into `any_crosses_segments`, which the WASM driver reads
- * to keep a stateful effect's clip full-canvas (see Effect::needs_full_frame and
- * docs/segmented_stateful_effects_spec.md).
+ * @details `is_terminal`: writes the Canvas directly in flush() and ignores its
+ * `pass` callback (must be the last stage). `emits_nonunit_world` /
+ * `requires_unit_world_input`: a non-unit-emitting world stage must not precede
+ * a unit-assuming one. `crosses_segments`: per-frame state reads pixels outside
+ * the worker's segment band, so the effect must render the full canvas; defaults
+ * to `has_history` (fail-safe).
  */
 struct Is2D {
   static constexpr bool is_2d = true;
@@ -126,19 +105,14 @@ inline void plot_virtual(Canvas &canvas, int x, int y, const Pixel &c) {
  */
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
-  // OR-fold base case: an empty pipeline reaches no other segment. The recursive
-  // node ORs each stage's crosses_segments into this; see the trait doc above.
   static constexpr bool any_crosses_segments = false;
 
   /**
    * @brief Type-safe filter accessor (base case: T not found).
    * @tparam T Filter type being looked up.
    * @return Never returns; instantiation is a hard error.
-   * @details The guard is a dependent-false: !sizeof(T*) is always false but
-   * cannot be proven so until the template is instantiated, so it fires only
-   * when get<T>() is actually named on a pipeline lacking T. (sizeof(T*) — not
-   * sizeof(T) — so the intended "not found" diagnostic also wins for an
-   * incomplete T.)
+   * @details Dependent-false guard: fires only when get<T>() is named on a
+   * pipeline lacking T.
    */
   template <typename T> T &get() {
     static_assert(!sizeof(T *), "Filter type T not found in Pipeline");
@@ -163,14 +137,7 @@ template <int W, int H> struct Pipeline<W, H> {
    */
   void plot(Canvas &cv, int x, int y, const Pixel &c, float, float alpha) {
     HS_PROFILE(filter_blend);
-    // fast_wrap() only corrects a single +/-W offset, so the sink requires the
-    // producer to keep x within [-W, 2W). The known producers honor this (3D
-    // path full-wraps via vector_to_pixel; AntiAlias/Blur/ChromaticShift wrap
-    // before forwarding), but that is the producers' contract, not a property
-    // this sink can prove — so the precondition is enforced by the debug assert
-    // below, stripped under NDEBUG on device (zero hot-loop cost) and firing in
-    // the native test suite / WASM-debug if a NaN coord or a future out-of-range
-    // filter slips in.
+    // Producer must keep x in [-W, 2W); fast_wrap corrects only a single ±W offset.
     assert(x >= -W && x < 2 * W);
     if (!cv.clip().contains_y(y)) return;
     int xi = fast_wrap(x, W);
@@ -190,10 +157,7 @@ template <int W, int H> struct Pipeline<W, H> {
    */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float,
             float alpha) {
-    // Non-finite coords would make the int casts below UB and bypass the wrap,
-    // and round() must land within fast_wrap()'s [-W, 2W) window. Both hold for
-    // every finite producer; assert debug-only (stripped on device, fires in
-    // tests / WASM-debug) so a NaN-producing effect faults at the bench.
+    // Non-finite coords make the int casts below UB and bypass the wrap.
     assert(std::isfinite(x) && std::isfinite(y));
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
@@ -242,11 +206,6 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   using Next = Pipeline<W, H, Tail...>;
   Next next;
 
-  // Recursive OR-fold of every stage's crosses_segments trait, terminating in
-  // the empty-pipeline `false` base case. The WASM driver reads this (via
-  // Effect::needs_full_frame) to decide whether a stateful effect's clip must
-  // stay full-canvas rather than be narrowed to a worker's band. See the trait
-  // doc above and docs/segmented_stateful_effects_spec.md.
   static constexpr bool any_crosses_segments =
       Head::crosses_segments || Next::any_crosses_segments;
 
@@ -256,11 +215,8 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
    * @tparam TArgs Argument types forwarded to the remaining stages.
    * @param h Argument forwarded to Head's constructor.
    * @param t Arguments forwarded to the Tail pipeline's constructors.
-   * @details The requires guard stops it from hijacking copy construction:
-   * copying from a non-const Pipeline lvalue would otherwise prefer this
-   * template (an exact Pipeline& match) over the implicit copy ctor (which adds
-   * const) and try to construct Head(Pipeline&). Excluding Pipeline lets the
-   * copy ctor win.
+   * @details The requires guard excludes Pipeline so this template does not
+   * hijack copy construction.
    */
   template <typename HArg, typename... TArgs>
     requires(!std::is_same_v<std::remove_cvref_t<HArg>, Pipeline>)
@@ -271,8 +227,7 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
    * @brief Partial constructor: builds Head only, default-constructing the Tail.
    * @tparam HArg Argument type forwarded to Head's constructor.
    * @param h Argument forwarded to Head's constructor.
-   * @details Same guard as the variadic ctor: as an explicit single-arg
-   * forwarding ctor it would hijack direct copy construction the same way.
+   * @details Same Pipeline-excluding guard as the variadic ctor.
    */
   template <typename HArg>
     requires(!std::is_same_v<std::remove_cvref_t<HArg>, Pipeline>)
@@ -326,7 +281,7 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
                      float nalpha) {
                    next.plot(cv, nx, ny, nc, nage, nalpha);
                  });
-    } else { // 2D -> 3D mismatch: lift to world space
+    } else {
       Vector v = pixel_to_vector<W, H>(x, y);
       plot(cv, v, c, age, alpha);
     }
@@ -362,18 +317,12 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
                      float nalpha) {
                    next.plot(cv, nv, nc, nage, nalpha);
                  });
-    } else { // 3D -> 2D mismatch: project to screen space
+    } else {
       auto p = vector_to_pixel<W, H>(v);
       plot(cv, p.x, p.y, c, age, alpha);
     }
   }
 
-  // Flush contract: a history-bearing filter must define exactly the flush
-  // signature matching its dimension trait — the if-constexpr dispatch below
-  // only ever names the matching one (the other call sits in a discarded
-  // branch, so a single-flush filter composes fine). These asserts make that
-  // contract explicit: a trait/signature mismatch fails here with a readable
-  // message instead of a deep overload-resolution error further down.
   static_assert(
       !Head::has_history || Head::is_2d ||
           requires(Head h, const WorldTrailFn &w, PassFn3D p) {
@@ -389,39 +338,17 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
       "2D history filter must define "
       "flush(Canvas&, const ScreenTrailFn&, float, PassFn2D)");
 
-  // A terminal filter (one that writes the Canvas directly in flush() and
-  // ignores its downstream pass, e.g. Pixel::Feedback) swallows the stream, so
-  // any stage chained after it would silently never run. Enforce it is last.
   static_assert(
       !Head::is_terminal || sizeof...(Tail) == 0,
       "A terminal filter (e.g. Pixel::Feedback) writes the Canvas directly and "
       "ignores downstream filters — it must be the last stage in the Pipeline.");
 
-  // World-before-Screen ordering: every world-space (3D) stage must precede
-  // every screen-space (2D) stage. The plot() dispatch above runs each Head in
-  // its own domain and converts on a mismatch — so a 2D Head ahead of a 3D Tail
-  // member would lift the already-splatted screen point back to a Vector
-  // (pixel_to_vector), run the World filter in the wrong space, and re-project
-  // it, silently destroying the 2D distribution (e.g. an AntiAlias splat) and
-  // rotating in screen space. The fold enforces the invariant locally at every
-  // node: if this stage is 2D, no later stage may be 3D. Composed across the
-  // recursion that means once the chain goes 2D it stays 2D. Filter::Pixel::*
-  // are 2D (Is2D / Is2DWithHistory), so they are correctly constrained to follow
-  // the World::* stages too. (Empty Tail folds to true.)
   static_assert(
       !Head::is_2d || (... && Tail::is_2d),
       "Filter ordering: a screen-space (2D) filter (Screen::* / Pixel::*) must "
       "not precede a world-space (3D) filter (World::*) — World filters operate "
       "before screen projection. Reorder so every World::* stage comes first.");
 
-  // Intra-World unit-length ordering: a stage that emits non-unit world points
-  // (emits_nonunit_world, i.e. World::Trails, whose flush re-emits int16-
-  // quantized, deliberately-unnormalized samples downstream) must not precede a
-  // stage that assumes unit-length input (requires_unit_world_input, i.e.
-  // World::Mobius's stereographic projection or the angle_between in
-  // World::Hole). Such an ordering would feed an off-sphere point into math that
-  // assumes unit length, silently warping the result. The fold enforces it
-  // locally at every node, the same shape as the World-before-Screen rule above.
   static_assert(
       !Head::emits_nonunit_world || (... && !Tail::requires_unit_world_input),
       "Filter ordering: a World stage that emits non-unit-length points "
@@ -464,27 +391,15 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   }
 };
 
-// ----------------------------------------------------------------------------
-// Namespace: Filter
-// ----------------------------------------------------------------------------
-
 namespace Filter {
 
-// ----------------------------------------------------------------------------
-// World Space Filters (3D)
-// ----------------------------------------------------------------------------
 namespace World {
 
 /**
  * @brief Rotates 3D points based on a dynamic Orientation.
- *
- * Age-channel contract: this filter sweeps the orientation's intra-frame
- * SLERP history (`tween` walks t: 0→1, oldest→newest sub-position) and offsets
- * `age` by the *fractional* `(1 - t)`, spreading the sweep across one frame's
- * worth of age — i.e. genuine temporal motion blur, where the trailing
- * sub-positions fade as if one frame older. This is the only filter that
- * adjusts age: the Replicate filters pass it through untouched, since their
- * copies are spatial, not temporal (see their notes).
+ * @details Sweeps the orientation's intra-frame SLERP history and offsets `age`
+ * by the fractional `(1 - t)`, producing temporal motion blur. The only filter
+ * that adjusts age.
  */
 template <int W> class Orient : public Is3D {
 public:
@@ -545,11 +460,6 @@ public:
 
     float projection = v.x * axis.x + v.y * axis.y + v.z * axis.z;
     float dot_val = std::max(-1.0f, std::min(1.0f, projection));
-    // fast_acos can overshoot [0,π] slightly even for in-range input, so t can
-    // land just outside [0,1]. Clamp so a tiny negative overshoot selects the
-    // first orientation (bucket 0) instead of wrapping through size_t to the
-    // last one; bounds safety itself is the >= count guard below, which also
-    // folds the t == 1 top edge into the last bucket.
     float t = hs::clamp(1.0f - fast_acos(dot_val) / PI_F, 0.0f, 1.0f);
 
     size_t count = orientations.size();
@@ -596,11 +506,6 @@ private:
  */
 template <int W, typename OriginT = Vector> class Hole : public Is3D {
 public:
-  // angle_between(v, origin) normalizes both operands internally, so it is
-  // scale-invariant — Hole's real sensitivity is the zero-length degenerate
-  // (which traps the angle_between length check), not off-unit length. The
-  // trait is kept conservatively so the Pipeline intra-World ordering
-  // static_assert still treats a non-unit-emitting predecessor as suspect.
   static constexpr bool requires_unit_world_input = true;
   /**
    * @brief Constructs a hole centered at @p origin with angular @p radius.
@@ -641,21 +546,16 @@ template <int W> using HoleRef = Hole<W, std::reference_wrapper<const Vector>>;
 
 /**
  * @brief Replicates geometry by rotating it around the Y-axis.
- *
- * Age-channel contract: every copy is emitted with the *same* source `age`.
- * The replicas are simultaneous spatial mirrors of a single instant, so they
- * must share one age — there is deliberately no per-copy offset here, matching
- * `VertexReplicate`; only `Orient` adjusts age, via its motion-blur tween.
+ * @details Every copy shares the source `age` (replication is spatial, not
+ * temporal).
  */
 template <int W> class Replicate : public Is3D {
 public:
   /**
    * @brief Builds a replicator emitting @p count evenly-spaced Y-axis copies.
    * @param count Desired copy count; clamped to [1, W].
-   * @details Uses the clamped member, not the parameter: unqualified `count`
-   * here resolves to the ctor parameter, so a raw count > W would span only a
-   * fraction of the circle and count == 0 would feed inf into make_rotation.
-   * `this->count` is initialized first (declared first).
+   * @details `this->count` (the clamped member, declared/initialized first)
+   * feeds make_rotation, so count == 0 cannot feed inf into it.
    */
   Replicate(int count)
       : count(hs::clamp(count, 1, W)),
@@ -685,11 +585,8 @@ private:
 
 /**
  * @brief Replicates geometry onto the vertices of a solid.
- * Precomputes rotation quaternions from vertex[0] to each other vertex.
- * Every copy carries the source point's age unchanged: age is the temporal
- * channel (motion blur, trail TTL), not a per-copy discriminator — replication
- * is spatial and must not steer age-driven palettes. This matches Replicate;
- * only Orient/OrientSlice adjust age, via their fractional motion-blur tween.
+ * @details Precomputes rotation quaternions from vertex[0] to each other vertex.
+ * Every copy carries the source age unchanged (replication is spatial).
  */
 template <int W, int N> class VertexReplicate : public Is3D {
 public:
@@ -727,8 +624,6 @@ public:
  */
 template <int W> class Mobius : public Is3D {
 public:
-  // stereo(v) assumes a unit-length v; see the Pipeline intra-World
-  // unit-length ordering static_assert.
   static constexpr bool requires_unit_world_input = true;
   /**
    * @brief Binds the filter to a live Mobius parameter set.
@@ -757,16 +652,8 @@ private:
  */
 template <int W, int Capacity> class Trails : public Is3DWithHistory {
 public:
-  // flush() re-emits decode()'d samples downstream, which are int16-quantized
-  // and intentionally NOT renormalized (see decode()'s @note). This stage must
-  // therefore precede any World filter that assumes unit-length input; the
-  // Pipeline static_assert enforces it.
   static constexpr bool emits_nonunit_world = true;
-  // crosses_segments stays true via the has_history default: trail samples are
-  // reprojected under rotation and so move across segment bands. Left as the
-  // fail-safe default (not an explicit override) — whether band clipping would
-  // actually corrupt the plot()-time store depends on rasterizer cull ordering,
-  // and full-frame is the safe choice without relying on that analysis.
+
   /** @brief One quantized trail sample: unit vector plus remaining lifetime. */
   struct Item {
     int16_t x, y, z; /**< Quantized unit vector components (6 bytes). */
@@ -778,11 +665,8 @@ public:
   /**
    * @brief Constructs a world trail buffer with the given fade lifetime.
    * @param lifetime Per-frame fade divisor in frames; must be in [1, 255].
-   * @details lifetime is a per-frame divisor (fade alpha); a zero/negative
-   * trail length is a cold authoring error that would feed inf/NaN into
-   * blend_alpha. The upper bound is structural: ttl is stored as uint8_t and
-   * encode() truncates, so lifetime > 255 would silently wrap the trail length.
-   * Trap both at construction (cold path) rather than producing garbage per pixel.
+   * @details Upper bound is structural: ttl is a uint8_t, so lifetime > 255
+   * would wrap the trail length.
    */
   Trails(int lifetime) : lifetime(lifetime) {
     HS_CHECK(lifetime > 0 && lifetime <= 255);
@@ -791,21 +675,8 @@ public:
   /**
    * @brief Retunes the trail length at runtime (e.g. from a "Trail Len" slider).
    * @param new_lifetime New fade divisor in frames; must be in [1, 255].
-   * @details Same bounds as the constructor; a per-frame caller is expected to
-   * clamp into [1,255] first, so this trap fires only on a genuine authoring
-   * error, not on slider motion. Already-buffered points keep their encoded ttl
-   * and age out under the new length within a few frames.
-   *
-   * Intentionally does NOT reconcile buffered ttls against the new lifetime. A
-   * shrink leaves older points with ttl > lifetime (so t = 1 - ttl/lifetime goes
-   * negative and the re-emitted age = lifetime - ttl goes negative); flush()
-   * clamps both at the emission sites, and those two clamps are the contract that
-   * keeps t in [0,1] and age >= 0. Reconciling here would not let us drop them:
-   * plot() seeds ttl = lifetime - age and can produce the same out-of-range ttl
-   * from a negative incoming age with no set_lifetime() call at all, so the
-   * clamps must guard the seed path regardless. Walking the ring to rewrite ttls
-   * would add an O(Cap) pass here purely for a few frames of overlap that the
-   * existing per-point clamps already absorb for free.
+   * @details Same bounds as the constructor; buffered points keep their ttl and
+   * age out under the new length within a few frames.
    */
   void set_lifetime(int new_lifetime) {
     HS_CHECK(new_lifetime > 0 && new_lifetime <= 255);
@@ -834,16 +705,9 @@ public:
    */
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
             PassFn3D pass) {
-    pass(v, color, age, alpha); // pass through current frame
+    pass(v, color, age, alpha);
 
-    // Round (+0.5f) the age rather than truncating: a preceding Orient can hand
-    // us a fractional age, and bare truncation collapses every fraction within a
-    // frame onto the same TTL bucket (1.0 and 1.9 both lose a full frame). age is
-    // non-negative by contract, so +0.5f is a correct round-to-nearest; ttl <= 0
-    // is dropped below regardless. NOTE: this rounds because ttl is an integer
-    // byte here; Screen::Trails stores ttl as a float and keeps the fraction, so
-    // for the same fractional age the two backends differ by up to one frame in
-    // when a trail point first appears — a deliberate, benign divergence.
+    // round, not truncate (ttl is an integer byte)
     int ttl = lifetime - static_cast<int>(age + 0.5f);
     if (ttl > 0 && items_) {
       push_back(encode(v, static_cast<uint8_t>(ttl)));
@@ -863,43 +727,21 @@ public:
         item.ttl--;
     }
 
-    // Front-contiguous reclaim only: a dead item behind a still-live older one
-    // is NOT freed here (see the mid-buffer skip below). Consequence: with
-    // heterogeneous TTLs (e.g. after a set_lifetime() shrink) a lingering dead
-    // item occupies a ring slot, so the effective live capacity dips below Cap
-    // and the next plot() can evict the oldest *live* point even though a dead
-    // slot exists. Accepted: homogeneous-TTL trails (the common case) reclaim
-    // in strict order, and a full sweep-and-compact would cost an O(Cap) shift
-    // on the hot flush path for a transient over-eviction. Covered by
-    // test_world_trails_midbuffer_expiry_erodes_capacity.
     while (count_ > 0 && at(0).ttl == 0) {
       pop_front();
     }
 
     for (size_t i = 0; i < count_; ++i) {
       const auto &item = at(i);
-      // Heterogeneous TTLs let an item expire behind a younger one; the pop loop
-      // above only frees front-contiguous dead items, so an expired mid-buffer
-      // item lingers until it reaches the head. Skip it rather than redraw a
-      // frozen ghost at t = 1.0 every frame (it is still popped once it reaches
-      // the front).
       if (item.ttl == 0)
         continue;
       Vector v = decode(item);
-      // lifetime can shrink mid-run via set_lifetime() while older points still
-      // carry a ttl encoded under the previous (larger) lifetime, making
-      // ttl/lifetime > 1 and t negative. WorldTrailFn receives t as fade
-      // progress in [0,1] (it may index a palette/gradient), so clamp — mirroring
-      // the age >= 0 clamp below, which already guards the same race.
       float t = hs::clamp(
           1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime)),
           0.0f, 1.0f);
       Color4 c = trailFn(v, t);
 
       if (c.alpha > 0.001f) {
-        // lifetime can shrink mid-run via set_lifetime() while older points
-        // still carry a ttl encoded under the previous (larger) lifetime, which
-        // makes (lifetime - ttl) negative; clamp to honor the age >= 0 contract.
         int age = lifetime - static_cast<int>(item.ttl);
         if (age < 0)
           age = 0;
@@ -927,11 +769,7 @@ private:
    * @return Packed Item with quantized coordinates.
    */
   static Item encode(const Vector &v, uint8_t ttl) {
-    // Saturate each component to the unit cube before quantizing. An upstream
-    // World filter (Mobius warp, ripple) can transiently push a component past
-    // 1; without the clamp v.x*Q overflows int16 and wraps to a garbage point
-    // that lands on the opposite side of the sphere. Clamping pins the stray
-    // sample to the surface instead.
+    // clamp before scaling: an unclamped component past 1 overflows int16
     return {static_cast<int16_t>(hs::clamp(v.x, -1.0f, 1.0f) * Q),
             static_cast<int16_t>(hs::clamp(v.y, -1.0f, 1.0f) * Q),
             static_cast<int16_t>(hs::clamp(v.z, -1.0f, 1.0f) * Q), ttl, 0};
@@ -940,14 +778,8 @@ private:
    * @brief Decodes a quantized Item back into a near-unit vector.
    * @param item Packed trail sample.
    * @return Reconstructed world-space point.
-   * @note The result is only *near* unit length: int16 quantization leaves each
-   * component off by up to ~1/Q, so the decoded point sits slightly off the
-   * sphere. It is intentionally NOT renormalized — flush() feeds it straight to
-   * the sink (vector_to_pixel), which tolerates the deviation, and skipping the
-   * per-item sqrt keeps the draw loop cheap. A World::Trails must therefore not
-   * be placed before another World filter that assumes strict unit length
-   * (e.g. Mobius stereo projection, or angle_between in Hole); renormalize here
-   * first if that ordering is ever introduced.
+   * @note Only *near* unit length (int16 quantization), and not renormalized;
+   * a World::Trails must not precede a unit-assuming World filter.
    */
   static Vector decode(const Item &item) {
     constexpr float INV_Q = 1.0f / Q;
@@ -973,7 +805,7 @@ private:
    */
   void push_back(const Item &item) {
     if (count_ == Capacity) {
-      pop_front(); // drop oldest on overflow
+      pop_front();
     }
     items_[tail_] = item;
     tail_ = (tail_ + 1) % Capacity;
@@ -989,14 +821,11 @@ private:
 
 } // namespace World
 
-// ----------------------------------------------------------------------------
-// Screen Space Filters (2D)
-// ----------------------------------------------------------------------------
 namespace Screen {
 
 /**
  * @brief Applies 2D anti-aliasing to sub-pixel coordinates.
- * Distributes intensity to 4 nearest neighbors using quintic kernel.
+ * @details Distributes intensity to the 4 nearest neighbors using a quintic kernel.
  */
 template <int W, int H> class AntiAlias : public Is2D {
 public:
@@ -1011,67 +840,25 @@ public:
    * @param pass Downstream 2D callback receiving each weighted tap.
    * @details Both axes are eased with a quintic kernel; the splat is uniform in
    * framebuffer space at every latitude (no sin(phi) density compensation).
-   *
-   * AntiAlias deliberately takes @p pass as a forwarding-reference template
-   * (PassFnT&&) rather than the type-erased PassFn2D/PassFn3D FunctionRef the
-   * other filters accept. This is the densest per-sample fan-out in the family
-   * (up to four taps emitted per plot on the hot path), so the downstream
-   * callback is fully inlined here, avoiding an indirect call per tap. The
-   * history-bearing/world filters (Trails, Feedback, ChromaticShift, the World
-   * filters) instead take the concrete FunctionRef by value: each forwards at
-   * most once per sample and several share the same flush() call site, so the
-   * one indirect call costs little and the type erasure bounds template-driven
-   * code-size growth. Keep the template form confined to the hot splat filters.
+   * @p pass is a forwarding-reference template so the densest fan-out in the
+   * family inlines its taps.
    */
   template <typename PassFnT>
   void plot(float x, float y, const Pixel &c, float age, float alpha,
             PassFnT &&pass) {
-    // age/alpha are non-negative by contract; a negative alpha would silently
-    // drop all four taps (alpha*weight < 1e-8f). Debug-only trap — stripped on
-    // device, fires in the native tests / WASM-debug.
     assert(age >= 0.0f && alpha >= 0.0f);
-    // Floor-based split for Y too, matching the X split below: std::modf
-    // truncates toward zero, the exact asymmetry the X comment warns against.
-    // Y is non-negative today, so this is behavior-preserving — but floorf keeps
-    // a future negative y robust and gives both axes one truncation convention.
     float y_i = floorf(y);
-    float y_m = y - y_i; // always in [0, 1)
+    float y_m = y - y_i;
 
-    // Floor-based integer/fraction split for X so a sub-pixel coordinate just
-    // left of the theta=0 seam (x < 0, or x >= W) wraps to the correct columns
-    // and keeps a fractional weight in [0, 1). std::modf truncates toward zero,
-    // which collapses a negative fraction onto the wrong column and leaves the
-    // left neighbor (x0) unwrapped, contrary to the sink's "wrap before
-    // forwarding" contract.
     float x_floor = floorf(x);
-    float x_m = x - x_floor; // always in [0, 1)
+    float x_m = x - x_floor;
 
-    // Derive the integer row once; it backs the clipped tap rows (y0/y1 below).
-    // y_i is the floorf result above, so the single static_cast keeps one
-    // rounding convention for the deposited row.
     int yi = static_cast<int>(y_i);
 
-    // Ease both axes with the same quintic kernel so the bilinear weight has
-    // vanishing 1st/2nd derivatives at the cell edges — without it, a point
-    // drifting across a column boundary ramps linearly in X while Y stays
-    // smooth. The splat is uniform in framebuffer space at every latitude:
-    // anti-aliasing is a property of the pixel grid, not of where the columns
-    // map on the sphere, so X is NOT scaled by sin(phi). A prior density
-    // compensation (x_m*sin(phi)) collapsed the X spread onto a single column
-    // near the poles, dropping horizontal AA exactly where curves alias most
-    // and leaving polar samples as crisp, beating hot spots.
     float xs = quintic_kernel(x_m);
     float ys = quintic_kernel(y_m);
 
-    // Clip Y neighbors to the physical row range rather than clamping them. With
-    // H_OFFSET > 0 the LEDs stop short of the south pole, so a virtual sub-pole
-    // row (y >= H) must be dropped — clamping it onto row H-1 would stretch the
-    // bottom of the image onto the last LED row at full weight instead of
-    // clipping it. The sink applies the same contains_y() clip downstream; doing
-    // it here stops a clamped tap from defeating it. (Host builds set
-    // H_OFFSET = 0, so no out-of-range row is produced and behavior is unchanged
-    // — which is why this device-only divergence is invisible to the host suite.)
-    int y0 = yi; // same integer row derived above
+    int y0 = yi;
     int y1 = y0 + 1;
     int x0 = fast_wrap(static_cast<int>(x_floor), W);
     int x1 = fast_wrap(static_cast<int>(x_floor) + 1, W);
@@ -1079,14 +866,6 @@ public:
     bool y0_ok = y0 >= 0 && y0 < H;
     bool y1_ok = y1 >= 0 && y1 < H;
 
-    // Per-row Y weights. X wraps (its two weights always sum to 1), but a clipped
-    // Y tap would otherwise be dropped, depositing < alpha total and dimming the
-    // last visible row. When exactly one Y row survives, fold the clipped row's
-    // weight into it (renormalize the bilinear split to the surviving rows);
-    // with both rows in range this is the unchanged (1-ys, ys) split. On host
-    // (H_OFFSET=0) the south-pole row maps exactly to y=H-1, so ys=0 and the
-    // clipped y1 taps already carry zero weight — a no-op in practice; it bites
-    // on device, where virtual sub-pole rows carry real fractional Y weight.
     float wy0 = 1.0f - ys;
     float wy1 = ys;
     if (y0_ok && !y1_ok) {
@@ -1118,19 +897,11 @@ public:
  */
 template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
-  // Reach 0: a screen trail decays in place and redraws each point at the SAME
-  // screen coordinate it was seeded — its per-frame state never moves across a
-  // segment band, so band clipping is correct and the worker need not render
-  // full-frame. This is the ONE non-fail-safe override of the has_history
-  // default (Pixel::Feedback / World::Trails stay true); the reach-0 assumption
-  // is proven by a banded-vs-full bit-identity test (see test_filter.h).
   static constexpr bool crosses_segments = false;
 
   /**
    * @brief Constructs a screen trail buffer with the given fade lifetime.
    * @param lifetime Per-frame fade divisor in frames; must be positive.
-   * @details lifetime divides per-frame; trap a zero/negative trail length at
-   * construction (cold) rather than feeding inf/NaN into the fade.
    */
   Trails(int lifetime) : lifetime(lifetime) { HS_CHECK(lifetime > 0); }
 
@@ -1158,24 +929,9 @@ public:
     if (alpha <= 0.001f)
       return;
 
-    pass(x, y, color, age, alpha); // Pass through current frame (mirror World::Trails)
+    pass(x, y, color, age, alpha);
 
-    // Only seed live trail points. age >= lifetime gives a non-positive ttl: the
-    // point is already dead, and seeding it would push t = 1-(ttl/lifetime) out
-    // of trailFn's range and the re-emitted age past lifetime. The ttl>0 gate
-    // mirrors World::Trails and gates only the seed, not the forward above, so an
-    // already-aged emission still paints this frame.
-    //
-    // ttl keeps the full fractional age (no +0.5f round, unlike World::Trails):
-    // it is stored as a float and decremented by 1 per frame, so a point lives
-    // ceil(ttl) frames. World rounds because its ttl is a byte; the result is a
-    // sub-frame, deliberate divergence in fade-in timing between the two
-    // backends — see the World::Trails seed.
     float ttl = static_cast<float>(lifetime) - age;
-    // At capacity this drops the NEWEST point — the opposite of World::Trails,
-    // which evicts the oldest. This buffer is an unordered array (decay()
-    // swap-removes dead slots), so there is no front-of-queue "oldest" to evict
-    // without an O(n) min-ttl scan on this per-point hot path.
     if (ttl > 0.0f && points_ && num_pixels < MAX_PIXELS) {
       points_[num_pixels++] = {x, y, ttl};
     }
@@ -1192,12 +948,6 @@ public:
   void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha,
              PassFn2D pass) {
     for (int i = 0; i < num_pixels; ++i) {
-      // Mirror World::Trails: a point seeded from a negative incoming age
-      // carries ttl > lifetime, which drives t = 1 - ttl/lifetime below zero and
-      // the re-emitted age (lifetime - ttl) negative. ScreenTrailFn receives t as
-      // fade progress in [0,1] (it may index a palette/gradient) and the age
-      // channel is contracted non-negative, so clamp both for parity — the plot()
-      // seed gate keeps t in range for any non-negative age, this guards the rest.
       float t = hs::clamp(1.0f - (points_[i].ttl / lifetime), 0.0f, 1.0f);
       Color4 color = trailFn(points_[i].x, points_[i].y, t);
       if (color.alpha > 0.001f) {
@@ -1213,16 +963,8 @@ public:
   /**
    * @brief Ages every point one frame and swap-removes dead slots.
    * @details Unordered compaction: a dead slot is overwritten by the last live
-   * point and the count shrinks.
-   *
-   * ttl is decremented by exactly 1 per frame, i.e. a whole-frame model: a
-   * point survives ceil(ttl) frames. `lifetime` is contracted >= 1 (trapped in
-   * the constructor and set_lifetime), so a point seeded with an integer age
-   * lives the expected lifetime-age frames. A *fractional* seed ttl < 1 — which
-   * arises only from a fractional incoming age within one frame of `lifetime`
-   * (e.g. an upstream Orient motion-blur tween) — dies after this single decay
-   * regardless of its fractional part; there is no sub-frame accumulator. That
-   * is acceptable: such a point was already at the very end of its fade.
+   * point. ttl decrements by 1 per frame (whole-frame model), so a point
+   * survives ceil(ttl) frames.
    */
   void decay() {
     for (int i = 0; i < num_pixels; ++i) {
@@ -1236,11 +978,6 @@ public:
 private:
   /** @brief One screen trail point: position plus remaining lifetime. */
   struct DecayPixel {
-    // ttl is float although it advances in whole frames (seeded lifetime - age,
-    // decremented by 1 per decay()): keeping it float lets the per-point hot
-    // loop compute the fade t = 1 - ttl/lifetime and the re-emitted age =
-    // lifetime - ttl with no int->float cast, and tolerates a fractional
-    // incoming age without a separate sub-frame accumulator.
     float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */
   };
   int lifetime;               /**< Per-frame fade divisor in frames. */
@@ -1267,7 +1004,6 @@ public:
    */
   void update(float factor) {
     float f = hs::clamp(factor, 0.0f, 1.0f);
-    // Gaussian reference: Corner=1/16, Edge=2/16, Center=4/16
     float c = 1.0f - (0.75f * f);
     float e = 0.125f * f;
     float d = 0.0625f * f;
@@ -1289,14 +1025,6 @@ public:
     int cx = static_cast<int>(std::round(x));
     int cy = static_cast<int>(std::round(y));
 
-    // Pole-clip renormalization. A 3x3 tap straddling a pole row loses that row
-    // (poles don't wrap), so the surviving kernel weights sum to < 1 and the
-    // edge rows deposit < alpha and darken. Mirror AntiAlias's Y-clip handling:
-    // fold the clipped row's weight back into the survivors by scaling every
-    // surviving tap by 1/(sum of surviving-row weights). Interior rows clip
-    // nothing, so the sum is the full kernel (1) and inv is exactly 1.0f — the
-    // per-tap multiply is then a no-op (x * 1.0f is exact), keeping the common
-    // path bit-identical. The branch gates the renorm work to the two pole rows.
     float inv = 1.0f;
     if (cy - 1 < 0 || cy + 1 >= H) {
       float wsum = 0.0f;
@@ -1319,16 +1047,12 @@ public:
         for (int dx = -1; dx <= 1; dx++) {
           float weight = kernel[k++] * inv;
           if (weight > 1e-5f) {
-            // cx is round(x) with x in [0, W], so cx + dx stays within
-            // fast_wrap's single-step [-W, 2W) window — matching AntiAlias and
-            // the sink. A malformed out-of-window coord now trips fast_wrap's
-            // debug assert rather than being silently full-modulo wrapped.
             pass(static_cast<float>(fast_wrap(cx + dx, W)),
                  static_cast<float>(ny), color, age, alpha * weight);
           }
         }
       } else {
-        k += 3; // Skip row
+        k += 3;
       }
     }
   }
@@ -1339,34 +1063,17 @@ private:
 
 } // namespace Screen
 
-// ----------------------------------------------------------------------------
-// Pixel Space Filters (1:1 with buffer)
-// ----------------------------------------------------------------------------
 namespace Pixel {
 
 /**
  * @brief Style-aware terminal feedback filter that warps the previous frame.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Takes a `::Feedback::Style&` directly — drop-in pipeline filter. The
- * Style's spatial transform (noise, melt, etc.) is smooth and expensive (noise
- * + atan2 + acos per call), so the warp field is computed on a coarse
- * W/DS x H/DS grid (allocated from scratch_arena_a per flush) and bilinearly
- * upsampled. DS is read from style.downsample.
- *
- * Operates on the full canvas during flush() (integer coordinates, reads
- * cv.prev) — this is a pixel-space filter despite the 2D trait.
- *
- * TERMINAL: flush() composites directly into the Canvas and ignores its
- * `PassFn2D pass` callback, so it does NOT forward the stream downstream. It
- * must therefore be the last stage of the Pipeline — `is_terminal` makes the
- * Pipeline static-assert this (a non-terminal Feedback would silently drop
- * every filter chained after it).
- *
- * Usage:
- *   ::Feedback::Style style = ::Feedback::Style::Smoke();
- *   Pipeline<W, H, ..., Filter::Pixel::Feedback<W, H>> filters(
- *       ..., Filter::Pixel::Feedback<W, H>(style));
+ * @details The Style's spatial warp is computed on a coarse W/DS x H/DS grid
+ * (DS = style.downsample, allocated from scratch_arena_a per flush) and
+ * bilinearly upsampled. Operates on the full canvas during flush(). TERMINAL:
+ * flush() composites directly into the Canvas and ignores its `pass` callback,
+ * so it must be the last Pipeline stage.
  */
 template <int W, int H>
 class Feedback : public Is2DWithHistory {
@@ -1374,12 +1081,6 @@ public:
   /** @brief Marks this as terminal: flush() writes the Canvas and ignores `pass`. */
   static constexpr bool is_terminal = true;
 
-  // Compile-time backstop for the per-flush divisibility HS_CHECK in flush().
-  // `downsample` is a runtime Style field — snapped/copied between presets and
-  // settable after W/H are fixed — so the general check must stay the runtime
-  // trap. But every shipped preset leaves it at the default, so pin here that
-  // the DEFAULT downsample is positive and divides this W x H: a resolution the
-  // default can't tile fails to build instead of trapping on the first flush().
   static_assert(::Feedback::Style{}.downsample > 0 &&
                     W % ::Feedback::Style{}.downsample == 0 &&
                     H % ::Feedback::Style{}.downsample == 0,
@@ -1411,18 +1112,13 @@ public:
    * @param cv Target canvas (reads cv.prev, writes the front buffer).
    * @param alpha Global blend alpha in [0, 1].
    * @details Computes a coarse warp field via the Style's space_fn, bilinearly
-   * upsamples it, then composites the warped previous frame. Honors the
-   * segment's cylindrical clip and ignores the unused ScreenTrailFn / PassFn2D
-   * parameters (terminal stage). No-op when disabled.
+   * upsamples it, then composites the warped previous frame, honoring the
+   * segment's cylindrical clip. No-op when disabled.
    */
   void flush(Canvas &cv, const ScreenTrailFn &, float alpha, PassFn2D) {
     if (!enabled_) return;
 
     const int ds = style_->downsample;
-    // Cold authoring/config guard: a downsample that doesn't divide the
-    // resolution would silently no-op the whole effect. Trap so the typo
-    // surfaces instead of feedback simply vanishing (use enabled_ to turn
-    // feedback off). Runs once per flush(), never in the per-pixel loop.
     HS_CHECK(ds > 0 && W % ds == 0 && H % ds == 0,
              "feedback downsample %d must be > 0 and divide %dx%d", ds, W, H);
     const int hw = W / ds;
@@ -1430,52 +1126,19 @@ public:
 
     if (!any_pixel_lit(cv)) return;
 
-    // Allocate coarse warp deltas (signed 8.8 fixed-point) from scratch.
-    //
-    // SCRATCH ARENA CONTRACT (load-bearing): this flush and Plot::rasterize
-    // both checkpoint scratch_arena_a (Plot::rasterize opens its own reciprocal
-    // ScratchScope on it — see the matching contract note at plot.h rasterize).
-    // Sharing one arena across both is SAFE BY CONSTRUCTION: scratch_arena_a is
-    // a LIFO bump allocator, so any scope opened while this flush's frame is
-    // live saves a mark above dx/dy and rewinds to exactly where they end —
-    // nesting cannot clobber a live allocation. The single rule is LIFO scope
-    // discipline (no ScratchScope on this arena may outlive an enclosing one),
-    // which ScratchScope's destructor now traps directly (HS_CHECK in
-    // ~ScratchScope, memory.h). The one hazard the allocator does NOT cover is a
-    // raw pointer outliving its scope: dx/dy below must not be read after this
-    // function returns (they point into reclaimed arena bytes once `scope`
-    // closes). Both are honored today.
+    // LIFO scope reclaims dx/dy on return; must not be read after that.
     ScratchScope scope(scratch_arena_a);
     auto *dx = static_cast<int16_t *>(scope.get_arena().allocate(
         hh * hw * sizeof(int16_t), alignof(int16_t)));
     auto *dy = static_cast<int16_t *>(scope.get_arena().allocate(
         hh * hw * sizeof(int16_t), alignof(int16_t)));
-    // No OOM guard: Arena::allocate traps on over-allocation and never returns
-    // null.
 
-    // Step 2 (sampling) honors the segment's cylindrical x-clip; precompute that
-    // clip here so step 1 populates ONLY the coarse columns the sampling pass
-    // will read. Without this, a feedback effect on segmented Phantasm recomputes
-    // the whole sphere's warp field on every board (4x wasted space_fn) and then
-    // uses only its own band.
     const auto &cr = cv.clip();
     const int y_lo = cr.render_y_start();
     const int y_hi = cr.render_y_end();
-    // A full-width x range — or one whose margin expansion wraps to cover the
-    // whole circumference (rs == re) — needs no x clipping; XClip folds both of
-    // those cases into `active`, so this stays in lockstep with scan.h.
     const auto xc = cr.x_clip();
 
-    // Mark the coarse columns the clipped sampling pass actually touches. Step 2
-    // reads, for each in-band full-res x, coarse column cx0 = x/ds and its
-    // seam-wrapping right neighbour cx1; mark exactly those (the clip test
-    // mirrors step 2's below). Unmarked columns are never sampled, so leaving
-    // their dx/dy uninitialized is safe. Sized to W (>= hw, since ds >= 1) and
-    // zero-initialized so the col_used read in the sampling loop below is safe on
-    // every path — not only by the short-circuit that currently skips it
-    // whenever xc is inactive. A
-    // std::bitset (W bits, default-zeroed) rather than bool[W] keeps this the
-    // smallest possible per-flush stack footprint (W/8 bytes, not W).
+    // Mark the coarse columns the clipped sampling pass touches.
     std::bitset<W> col_used;
     if (xc.active) {
       for (int x = 0; x < W; ++x) {
@@ -1487,24 +1150,8 @@ public:
       }
     }
 
-    // 1) Populate coarse warp field. Delta encoding keeps the bilerp safe
-    //    across the longitude seam — neighbouring absolute bx values can
-    //    straddle x=W ↔ x=0, but their deltas are continuous.
-    //
-    // Q is the signed-8.x fixed-point scale for the int16 deltas: range is
-    // ±32767/Q px, precision 1/Q px. A legitimate displacement reaches ±W/2 px
-    // horizontally (after the seam wrap below) and up to ±H px vertically (no
-    // vertical wrap — a melt/swirl warp can pull a row most of the way across
-    // the canvas), so Q=128 gives ±256 px range (covering max(W/2, H) for every
-    // current target) at 1/128 px precision.
+    // 1) Populate coarse warp field as seam-continuous deltas (int16 1/128 px).
     constexpr float Q = 128.0f;
-    // Step 2 samples only y in [y_lo, y_hi), reading coarse rows cy0 = y/ds and
-    // cy1 = cy0+1 (clamped to hh-1). Populate exactly that coarse-row band so a
-    // y-band-clipped segment (segmented Phantasm) skips space_fn for rows it
-    // never composites — the y-axis counterpart to the col_used column pruning
-    // above. Rows outside the band stay uninitialized but are never read,
-    // mirroring that pruning. A full canvas spans all hh rows, so it does the
-    // same work either way.
     const int cy_lo = y_lo / ds;
     int cy_hi = ((y_hi - 1) / ds) + 1;
     if (cy_hi > hh - 1) cy_hi = hh - 1;
@@ -1529,26 +1176,14 @@ public:
     }
 
     // 2) Sample at full res, bilerping the coarse warp field per pixel.
-    //    Honor the segment clip exactly like every other rasterizer (scan.h):
-    //    iterate y over the margin-expanded render band and skip x columns
-    //    outside the cylindrical x clip (clip computed above for step 1).
-    //    Without this, a feedback effect on segmented Phantasm would have every
-    //    board composite the whole sphere instead of just its own band — wrong
-    //    output and 4x wasted work.
     constexpr float INV_Q = 1.0f / Q;
     const float inv_ds = 1.0f / ds;
     const float fade = style_->fade;
-    // Precompute hue_shift's rotation once per frame; the default hue_fade
-    // color_fn reads style_->hue_ca/hue_sa instead of recomputing sin/cos of
-    // this frame-constant angle for every one of the W*H pixels below.
     style_->sync_hue();
     for (int y = y_lo; y < y_hi; ++y) {
       int cy0 = y / ds;
       int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;
-      // Step 1 populated coarse rows [cy_lo, cy_hi] as the exact superset of the
-      // rows sampled here. Trap if a future edit to either band formula lets this
-      // read past the populated top — bilerping uninitialized scratch is silent
-      // visual corruption, not a crash. Per-row (H checks/frame), never per-pixel.
+      // bilerping uninitialized scratch is silent corruption, not a crash
       HS_CHECK(cy0 >= cy_lo && cy1 <= cy_hi,
                "feedback warp row %d outside populated band [%d,%d]", cy1, cy_lo,
                cy_hi);
@@ -1556,12 +1191,6 @@ public:
       float wy0 = 1.0f - fy, wy1 = fy;
       const int row0 = cy0 * hw, row1 = cy1 * hw;
 
-      // cx0 / cx1 / fx advance with x rather than a per-pixel divide+modulo
-      // (ds divides W, guaranteed above): cx0 ticks every ds columns, fx ramps
-      // 0..(ds-1)/ds and resets, cx1 wraps to 0 at the longitude seam. `sub`
-      // tracks x - cx0*ds, so fx here is bit-identical to (x - cx0*ds)*inv_ds.
-      // The bookkeeping advances every column even for clipped x so the ramp
-      // stays in lockstep with the absolute coordinate.
       int cx0 = 0, sub = 0;
       for (int x = 0; x < W; ++x) {
         int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
@@ -1578,17 +1207,7 @@ public:
           float w00 = wx0 * wy0, w10 = wx1 * wy0;
           float w01 = wx0 * wy1, w11 = wx1 * wy1;
 
-          // Wrap-aware horizontal blend of the X deltas. Each dx was
-          // canonicalized to [-W/2, W/2] about ITS OWN column (step 1), so where
-          // the displacement nears ±W/2 — e.g. the strong warp at the x=0 seam,
-          // where cx1 wraps hw-1 -> 0 — two adjacent taps that mean nearly the
-          // same target can land on opposite sides of the wrap (-143 vs +143). A
-          // plain lerp passes through 0 there and samples the UNDISPLACED pixel,
-          // drawing the swirly vertical seam line. Re-center the other three taps
-          // to within W/2 of d00 before blending so the interpolation takes the
-          // short way around; the result feeds sample_bilinear_prev, which wraps
-          // x. Taps that don't straddle (the common case) are left untouched, so
-          // interior cells are bit-identical to the plain blend. Y has no wrap.
+          // Re-center the three taps within W/2 of d00 for a seam-safe blend.
           constexpr float WQ = static_cast<float>(W) * Q;
           constexpr float HALF_WQ = WQ * 0.5f;
           float d00 = dx[i00], d10 = dx[i10], d01 = dx[i01], d11 = dx[i11];
@@ -1604,12 +1223,7 @@ public:
           ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
           ::Pixel p = style_->color_fn(sample, fade, *style_);
 
-          // Write unconditionally — including black. This Feedback flush OWNS
-          // the frame: it rewrites every pixel from the warped previous-frame
-          // sample, and under double-buffering the draw buffer still holds an
-          // earlier frame's pixels, so they must be fully overwritten here (else
-          // dark trail gaps keep a stale two-frame-old ghost). x is in [0,W) and
-          // y is within the render band, so no x-wrap or y-bounds guard is needed.
+          // write black too, to overwrite the stale double-buffer frame
           cv(x, y) = blend_alpha(alpha)(cv(x, y), p);
         }
 
@@ -1640,14 +1254,8 @@ private:
    * @brief Tests whether the previous frame has any non-black pixel.
    * @param cv Canvas whose previous-frame buffer is scanned.
    * @return True on the first lit pixel found, false if the frame is all black.
-   * @details Returns on the first lit pixel, so a non-empty frame (the common
-   * warm case) costs ~one read; only a fully black region — exactly when the
-   * expensive flush is skipped anyway — pays a full scan. Scans only this
-   * segment's clip band (rows render_y_start..render_y_end, columns past the
-   * x-clip): on segmented Phantasm another board's lit pixels must not gate this
-   * board's flush, and there is no point scanning rows/columns this flush will
-   * never composite. For the full-frame single-instance case the clip is the
-   * whole canvas, so this is identical to a whole-frame scan.
+   * @details Scans only this segment's clip band so another board's lit pixels
+   * do not gate this board's flush.
    */
   static bool any_pixel_lit(const Canvas &cv) {
     const auto &cr = cv.clip();
@@ -1680,12 +1288,7 @@ private:
     float fy = by - fy0;
     int x1 = x0 + 1;
 
-    // Wrap with the family's single-step fast_wrap, matching the AntiAlias
-    // bilerp above and the Pixel-domain sinks. The producer must keep bx in
-    // [-W, 2W): the sole producer (Feedback) seam-wraps its warp deltas to
-    // [-W/2, W/2], so bx = x + ddx stays in (-W, 2W) and both taps land in the
-    // window. An out-of-window coord trips fast_wrap's debug assert at the bench
-    // rather than being silently full-modulo wrapped.
+    // Producer must keep bx in [-W, 2W); fast_wrap corrects only a single step.
     x0 = fast_wrap(x0, W);
     x1 = fast_wrap(x1, W);
 
@@ -1699,16 +1302,7 @@ private:
     float w01 = (1.0f - fx) * fy;
     float w11 = fx * fy;
 
-    // Accumulate the four weighted taps in float and round the combined sum
-    // once (+0.5) per channel, rather than truncating each Pixel16*float tap
-    // and saturating-adding. Per-tap truncation biases every sample downward by
-    // up to a few LSB; this sample feeds the feedback loop (it is re-sampled
-    // every frame), so a one-directional bias compounds frame over frame into
-    // visible dark grit/moiré on the trails. Rounding the combined sum is
-    // unbiased, so the error no longer accumulates. The weights sum to 1 and
-    // channels are in [0, 65535]; hs::clamp guards the cast against float-error
-    // overshoot and maps a NaN coordinate to the hi bound (matching the old
-    // operator* path) instead of letting it reach the uint16_t cast.
+    // clamp guards the cast against overshoot and maps NaN to the hi bound.
     float r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
     float g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
     float b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
@@ -1741,8 +1335,6 @@ public:
    */
   void plot(float x, float y, const ::Pixel &c, float age, float alpha,
             PassFn2D pass) {
-    // age/alpha are non-negative by contract. Debug-only trap — stripped on
-    // device, fires in the native tests / WASM-debug.
     assert(age >= 0.0f && alpha >= 0.0f);
     pass(x, y, c, age, alpha);
 
@@ -1756,12 +1348,6 @@ public:
     b_col.r = 0;
     b_col.g = 0;
 
-    // Normalize the base column into [0, W) with the family's single-step
-    // fast_wrap (the Pixel-domain producer contract guarantees x in [-W, 2W)),
-    // then offset and fast_wrap again. Each offset is at most +3, so xi+offset
-    // stays inside fast_wrap's [-W, 2W) window for any W > 2. This matches
-    // AntiAlias and the sink rather than the full wrap() this used to call, so
-    // an out-of-window x now trips the same debug assert its siblings rely on.
     int xi = fast_wrap(static_cast<int>(x), W);
     pass(static_cast<float>(fast_wrap(xi + 1, W)), y, r_col, age, alpha);
     pass(static_cast<float>(fast_wrap(xi + 2, W)), y, g_col, age, alpha);
