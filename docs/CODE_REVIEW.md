@@ -153,7 +153,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 34. ✅ **`clamp_phi_band` recomputes `clamp_phi(a1)`/`clamp_phi(a2)` redundantly** — `core/sdf.h:191-207`. Both branches recompute the same two values (4 trig calls vs 2) on a cold path. Hoist `p1`/`p2` above the conditionals.
 
-35. **`compute_inradius` documents a "dead" branch the ctor's `HS_CHECK` already makes unreachable** — `core/sdf.h:1729-1734`. The `count==0` fallback is unreachable (the ctor traps `count>0`). Tighten the comment to note the floor only guards pathological all-coincident vertices.
+35. ✅ **`compute_inradius` documents a "dead" branch the ctor's `HS_CHECK` already makes unreachable** — `core/sdf.h:1729-1734`. The `count==0` fallback is unreachable (the ctor traps `count>0`). Tighten the comment to note the floor only guards pathological all-coincident vertices.
 
 36. **`Star` full-width scan fallback is under-documented relative to `AngularRepeat`'s PERF-CLIFF note** — `core/sdf.h:297,2564-2573`. A pole-spanning star falls back to a full-row scan (correct geometry); the cost-model framing is less explicit than its analog. Add a one-line note. (Borderline trivial — the docstring already mentions the fallback.)
 
