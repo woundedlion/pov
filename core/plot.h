@@ -1895,6 +1895,56 @@ struct Mesh {
   static constexpr int kDedupCapacity = 128;
 
   /**
+   * @brief Sample, shade, and rasterize one wireframe edge.
+   * @tparam W,H Rasterization resolution.
+   * @tparam MeshT Mesh type.
+   * @tparam PipelineT Pipeline type.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param mesh Mesh supplying vertex positions.
+   * @param u,v Endpoint vertex indices (assumed in bounds — the callers run the
+   *            cold OOB/capacity traps before delegating here).
+   * @param edge_index Value written to each fragment's v2 register.
+   * @param fragment_shader Shader function.
+   * @param vertex_shader Optional vertex shader.
+   * @details Shared body for both draw() overloads (face-walk and precomputed
+   * edge list); keeping it in one place is why the two paths stay bit-identical.
+   */
+  template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
+  static void draw_edge(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
+                        int u, int v, int edge_index,
+                        FragmentShaderFn fragment_shader,
+                        VertexShaderRef vertex_shader) {
+    Fragment fu;
+    fu.pos = mesh.vertices[u];
+    Fragment fv;
+    fv.pos = mesh.vertices[v];
+
+    ScratchScope _edge(scratch_arena_a);
+    Fragments points;
+    points.bind(scratch_arena_a, 16);
+    // Fixed 10-segment pre-sample: the adaptive rasterize() below further
+    // sub-steps each chord at ~1px, so this only sets the per-vertex shader
+    // granularity and the great-circle seed points. Left fixed (not arc-length
+    // adaptive) deliberately — lowering it would perturb the adaptive
+    // sub-step/normalization pattern and thus the rendered edges, a change
+    // that needs sign-off rather than a polish pass.
+    Line::sample(points, fu, fv, 10);
+
+    if (vertex_shader) {
+      for (auto &p : points) {
+        p.v2 = static_cast<float>(edge_index); // Edge Index
+        vertex_shader(p);
+      }
+    } else {
+      for (auto &p : points) {
+        p.v2 = static_cast<float>(edge_index);
+      }
+    }
+    rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, nullptr);
+  }
+
+  /**
    * @brief Draws a mesh (wireframe).
    * @tparam W,H Rasterization resolution.
    * @tparam MeshT Mesh type.
@@ -1944,33 +1994,8 @@ struct Mesh {
       // are both valid.
       HS_CHECK(static_cast<size_t>(large) < mesh.vertices.size());
 
-      Fragment fu;
-      fu.pos = mesh.vertices[u];
-      Fragment fv;
-      fv.pos = mesh.vertices[v];
-
-      ScratchScope _edge(scratch_arena_a);
-      Fragments points;
-      points.bind(scratch_arena_a, 16);
-      // Fixed 10-segment pre-sample: the adaptive rasterize() below further
-      // sub-steps each chord at ~1px, so this only sets the per-vertex shader
-      // granularity and the great-circle seed points. Left fixed (not arc-length
-      // adaptive) deliberately — lowering it would perturb the adaptive
-      // sub-step/normalization pattern and thus the rendered edges, a change
-      // that needs sign-off rather than a polish pass.
-      Line::sample(points, fu, fv, 10);
-
-      if (vertex_shader) {
-        for (auto &p : points) {
-          p.v2 = static_cast<float>(edge_index); // Edge Index
-          vertex_shader(p);
-        }
-      } else {
-        for (auto &p : points) {
-          p.v2 = static_cast<float>(edge_index);
-        }
-      }
-      rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, nullptr);
+      draw_edge<W, H>(pipeline, canvas, mesh, u, v, edge_index, fragment_shader,
+                      vertex_shader);
 
       edge_index++;
     };
@@ -2080,29 +2105,8 @@ struct Mesh {
       HS_CHECK(edges[ei].u < mesh.vertices.size() &&
                edges[ei].v < mesh.vertices.size());
 
-      Fragment fu;
-      fu.pos = mesh.vertices[edges[ei].u];
-      Fragment fv;
-      fv.pos = mesh.vertices[edges[ei].v];
-
-      ScratchScope _edge(scratch_arena_a);
-      Fragments points;
-      points.bind(scratch_arena_a, 16);
-      // Fixed pre-sample; the adaptive rasterize() below refines to ~1px (see
-      // the matching note on the other edge-draw path). Left fixed deliberately.
-      Line::sample(points, fu, fv, 10);
-
-      if (vertex_shader) {
-        for (auto &p : points) {
-          p.v2 = static_cast<float>(ei);
-          vertex_shader(p);
-        }
-      } else {
-        for (auto &p : points) {
-          p.v2 = static_cast<float>(ei);
-        }
-      }
-      rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, nullptr);
+      draw_edge<W, H>(pipeline, canvas, mesh, edges[ei].u, edges[ei].v,
+                      static_cast<int>(ei), fragment_shader, vertex_shader);
     }
   }
 };

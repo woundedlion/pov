@@ -159,7 +159,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 37. ✅ **Closed rings pass `close_loop=true` *and* append an overlap-close vertex, drawing a redundant degenerate segment** — `core/plot.h:1156-1164,1254`. The final segment is short-circuited by the degenerate guard (zero measurable cost) but is conceptually a double-close; `Multiline` already does it the clean way. Pick one closure mechanism per primitive.
 
-38. **`Plot::Mesh::draw` face-walk and edge-list overloads duplicate the per-edge sample/shade/rasterize body** — `core/plot.h:1944-1972,2080-2102`. Near-identical blocks the comments explicitly say must stay in sync. Extract a private `draw_edge(...)` helper.
+38. ✅ **`Plot::Mesh::draw` face-walk and edge-list overloads duplicate the per-edge sample/shade/rasterize body** — `core/plot.h:1944-1972,2080-2102`. Near-identical blocks the comments explicitly say must stay in sync. Extract a private `draw_edge(...)` helper.
 
 39. **`edge_row_span` planar comment overstates cull/renderer sample agreement** — `core/plot.h:392-399`. The unprojection *map* is shared but the cull samples projection-uniform while the renderer samples arc-uniform; correctness comes from the Lipschitz + one-row margin, not bit-identical samples. Soften the wording.
 
