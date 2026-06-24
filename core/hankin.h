@@ -399,7 +399,10 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
 /**
  * @brief One-shot Hankin pattern: compile then update, returning the new mesh.
  * @param mesh Input closed-manifold mesh to derive the pattern from.
- * @param target Arena that backs the returned mesh's persistent data.
+ * @param target Arena that backs the returned mesh's persistent data. In this
+ *   one-shot path it also serves as compile_hankin's working arena (see the
+ *   reversed polarity below), so it must hold max(compile scratch, output) —
+ *   sizing it for the output mesh alone under-provisions.
  * @param temp Arena for the transient compiled topology, discarded on return.
  * @param angle Contact angle in radians (see update_hankin).
  * @return The generated Hankin PolyMesh, allocated from @p target.

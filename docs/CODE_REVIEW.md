@@ -171,7 +171,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 43. ✅ **`narrow_index`'s `int16_t`-scratch rationale cites scratch that does not exist in `mesh.h`/`conway.h`** — `core/mesh.h:341`. The only `int16_t` `-1`-sentinel store is `hankin.h:239`; the bound is correct but the comment is not traceable from where it is enforced. Add "see `hankin.h` `face_indices`".
 
-44. **`hankin()` one-shot's reversed arena polarity is correct but the `@param target` understates its working-set requirement** — `core/hankin.h:410-429`. `target` must hold `max(compile scratch, output)`, not just the output; a caller sizing for output alone under-provisions. Document the working-set requirement (and optionally add a tightly-sized test).
+44. ✅ **`hankin()` one-shot's reversed arena polarity is correct but the `@param target` understates its working-set requirement** — `core/hankin.h:410-429`. `target` must hold `max(compile scratch, output)`, not just the output; a caller sizing for output alone under-provisions. Document the working-set requirement (and optionally add a tightly-sized test).
 
 45. **`FlowField` noise-time comment understates the z-input scaling** — `effects/FlowField.h:88-90`. The parenthetical `(p.z + t)` drops the `* noise_scale` factor present in the code. Reword to `p.z*scale + t` or drop the parenthetical.
 
