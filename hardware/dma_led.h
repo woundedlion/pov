@@ -153,6 +153,18 @@ public:
    * 100 ms means wedged). Cheap enough for the drop path: one micros() read and
    * a compare, and the drop path runs at most once per column. No-op while a
    * transfer is legitimately still completing.
+   *
+   * Coverage boundary, by design: this watchdog fires only while submitFrame()
+   * is being called, i.e. while columns are being submitted. POVSegmented's
+   * fail-dark path latches the strip (dark_latched_) after one accepted black
+   * frame and then stops submitting for the whole dark window, so a channel that
+   * wedges during a sustained dark window is NOT surfaced until submission
+   * resumes. That gap is intentional and acceptable: the wedge symptom — a dark
+   * strip — is identical to the intended dark output, so there is nothing to
+   * fail-fast about while dark-latched. The wedge is surfaced the moment real
+   * column work resumes (the next submitFrame() on overrun). Do not add an idle-
+   * path poll to close this gap without weighing the per-wake cost on the
+   * column ISR — the diagnostic value is nil while the output is meant to be dark.
    */
   void checkStaleTransfer() {
     if (transferComplete_.load(std::memory_order_relaxed)) return;
