@@ -1578,12 +1578,12 @@ public:
     // 16-bit linear via the interpolated LUT — avoids the 8-bit quantization a
     // plain srgb_to_linear(uint8_t) lookup would impose, without a per-channel
     // powf.
-    float r_srgb =
-        hs::clamp(a[0] + b[0] * cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f);
-    float g_srgb =
-        hs::clamp(a[1] + b[1] * cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f);
-    float b_srgb =
-        hs::clamp(a[2] + b[2] * cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f);
+    float r_srgb = hs::clamp(
+        a[0] + b[0] * fast_cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f);
+    float g_srgb = hs::clamp(
+        a[1] + b[1] * fast_cosf(2 * PI_F * (c[1] * t + d[1])), 0.0f, 1.0f);
+    float b_srgb = hs::clamp(
+        a[2] + b[2] * fast_cosf(2 * PI_F * (c[2] * t + d[2])), 0.0f, 1.0f);
 
     Pixel color(srgb_to_linear_interp(r_srgb), srgb_to_linear_interp(g_srgb),
                 srgb_to_linear_interp(b_srgb));
