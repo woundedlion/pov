@@ -1248,10 +1248,13 @@ struct Ring {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
                    float radius, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    // W samples keep circles smooth and avoid pinching at the poles.
+    // W samples keep circles smooth and avoid pinching at the poles. sample()
+    // appends the overlap-close vertex, so the final edge back to the start is
+    // already an explicit segment — pass close_loop=false (Multiline's clean
+    // close) rather than also closing in rasterize, which would only re-walk
+    // that wrap as a zero-length (degenerate) segment.
     draw_fragments<W, H>(
-        pipeline, canvas, vertex_shader, fragment_shader,
-        {.capacity = W + 2, .close_loop = true},
+        pipeline, canvas, vertex_shader, fragment_shader, {.capacity = W + 2},
         [&](Fragments &points) { sample<W, H>(points, basis, radius, phase); });
   }
 

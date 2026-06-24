@@ -157,7 +157,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 36. ✅ **`Star` full-width scan fallback is under-documented relative to `AngularRepeat`'s PERF-CLIFF note** — `core/sdf.h:297,2564-2573`. A pole-spanning star falls back to a full-row scan (correct geometry); the cost-model framing is less explicit than its analog. Add a one-line note. (Borderline trivial — the docstring already mentions the fallback.)
 
-37. **Closed rings pass `close_loop=true` *and* append an overlap-close vertex, drawing a redundant degenerate segment** — `core/plot.h:1156-1164,1254`. The final segment is short-circuited by the degenerate guard (zero measurable cost) but is conceptually a double-close; `Multiline` already does it the clean way. Pick one closure mechanism per primitive.
+37. ✅ **Closed rings pass `close_loop=true` *and* append an overlap-close vertex, drawing a redundant degenerate segment** — `core/plot.h:1156-1164,1254`. The final segment is short-circuited by the degenerate guard (zero measurable cost) but is conceptually a double-close; `Multiline` already does it the clean way. Pick one closure mechanism per primitive.
 
 38. **`Plot::Mesh::draw` face-walk and edge-list overloads duplicate the per-edge sample/shade/rasterize body** — `core/plot.h:1944-1972,2080-2102`. Near-identical blocks the comments explicitly say must stay in sync. Extract a private `draw_edge(...)` helper.
 
