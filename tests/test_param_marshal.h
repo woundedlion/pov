@@ -68,7 +68,7 @@ inline bool check_one(const char *) {
   size_t i = 0;
   for (const auto &def : effect.getParameters()) {
     HS_EXPECT(i < views.size(), "marshaled index within range");
-    HS_EXPECT_EQ(views[i].name, def.name);
+    HS_EXPECT_EQ(std::string_view(views[i].name), std::string_view(def.name));
     HS_EXPECT_EQ(views[i].value, values[i]);
     HS_EXPECT_EQ(views[i].is_bool, def.is_bool());
     HS_EXPECT_EQ(views[i].value, def.get());
@@ -103,7 +103,7 @@ inline bool check_one(const char *) {
   HS_EXPECT_EQ(views2.size(), views.size());
   HS_EXPECT_NEAR(views2[target].value, newv, 1e-3f);
   for (size_t k = 0; k < views2.size(); ++k)
-    HS_EXPECT_EQ(views2[k].name, views[k].name);
+    HS_EXPECT_EQ(std::string_view(views2[k].name), std::string_view(views[k].name));
   return true;
 }
 
