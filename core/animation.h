@@ -1006,7 +1006,14 @@ public:
   Driver(float &mutant, float speed, bool wrap = true,
          const bool *paused = nullptr)
       : AnimationBase(1, true), mutant(mutant), speed(speed), wrap_(wrap),
-        paused_(paused) {}
+        paused_(paused) {
+    // A non-finite fixed speed poisons `mutant` permanently: mutant += NaN/Inf
+    // is non-finite and wrap_t() cannot recover it (see step()). A literal
+    // non-finite speed is a construction-time programming error, so trap it
+    // fail-fast — unlike the live-source ctor, which keeps its 0.0f seed
+    // because that value is runtime/untrusted and transient.
+    HS_CHECK(std::isfinite(speed), "Driver: fixed speed must be finite");
+  }
 
   /**
    * @brief Constructs a Driver whose speed tracks a live param every step.

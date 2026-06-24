@@ -107,7 +107,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 12. ✅ **`srgb_to_linear_interp` low guard does not catch NaN, unlike its sibling LUT helpers** — `core/color.h:356-369`. A NaN input reaches `static_cast<int>(f)` (float→int UB) — the exact hazard `Gradient::get`/`BakedPalette::get` were hardened against via `hs::clamp`. Both current callers satisfy the [0,1] contract, so latent. Route the input through `hs::clamp` at entry (NaN→hi).
 
-13. **`Driver` fixed-speed ctor accepts a non-finite speed the bound-source path explicitly rejects** — `core/animation.h:1006-1009`. A NaN/Inf `speed` poisons `mutant` permanently via `wrap_t(NaN)`, the very hazard the bound-source ctor/`step()` guard with `std::isfinite`. Add a matching `HS_CHECK`/`isfinite` guard at construction.
+13. ✅ **`Driver` fixed-speed ctor accepts a non-finite speed the bound-source path explicitly rejects** — `core/animation.h:1006-1009`. A NaN/Inf `speed` poisons `mutant` permanently via `wrap_t(NaN)`, the very hazard the bound-source ctor/`step()` guard with `std::isfinite`. Add a matching `HS_CHECK`/`isfinite` guard at construction.
 
 14. **Feedback divisibility trap has no compile-time backstop for `downsample`** — `core/filter.h:1390-1396`. The per-flush `HS_CHECK(W % ds == 0 && H % ds == 0)` is the sole guard; a preset author setting a non-dividing `downsample` is caught only at runtime. (The live-lerp concern is refuted — `downsample` is snapped, not interpolated.) Add a `static_assert` alongside the other preset-range asserts.
 
