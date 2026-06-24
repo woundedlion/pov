@@ -341,7 +341,7 @@ private:
    *          a cubemap-LUT vertex shader and a kernel-sampling fragment shader.
    */
   void render(Canvas &canvas) {
-    ScratchScope _frame(scratch_arena_a);
+    ScratchScope frame_guard(scratch_arena_a);
 
     uint8_t *sA = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sB = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));

@@ -261,7 +261,7 @@ private:
     size_t he_idx = 0;
 
     {
-      ScratchScope _(arena);
+      ScratchScope arena_guard(arena);
       HalfEdgePairRecord *records =
           static_cast<HalfEdgePairRecord *>(arena.allocate(
               total_indices * sizeof(HalfEdgePairRecord),
@@ -488,7 +488,7 @@ template <typename MeshT>
 HS_COLD static void
 classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
                            Arena &persistent) {
-  ScratchScope _(scratch_a);
+  ScratchScope scratch_a_guard(scratch_a);
 
   // Read topology through the unified accessors: a borrowed-mode MeshState
   // serves face_counts/faces via its view spans with the owned vectors empty.

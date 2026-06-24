@@ -270,7 +270,7 @@ private:
 
     auto draw_fn = [this, safe_idx, bake_slot](Canvas &canvas, float opacity) {
       const auto &preset = loaded_presets[safe_idx];
-      ScratchScope _(scratch_arena_a);
+      ScratchScope scratch_a_guard(scratch_arena_a);
       MeshState target_mesh;
       MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
 

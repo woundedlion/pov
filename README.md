@@ -912,7 +912,7 @@ configure_arenas(266 * 1024, 32 * 1024, 32 * 1024);  // 266 + 32 + 32 = 330 KiB
 
 ```cpp
 {
-    ScratchScope _(scratch_arena_a);     // save offset
+    ScratchScope scratch_a_guard(scratch_arena_a);  // save offset
     // ... allocate from scratch_arena_a ...
 }                                        // restore offset — all allocations freed
 ```

@@ -1391,7 +1391,7 @@ struct FaceScratchBuffer {
    * @brief Packed per-edge data for the cache-friendly distance() fallback.
    */
   struct EdgePacked {
-    float vx, vy, ex, ey, inv_len_sq, inv_ej, next_vy, _pad; /**< Edge origin, vector, reciprocals, next-vertex y, padding. */
+    float vx, vy, ex, ey, inv_len_sq, inv_ej, next_vy, pad; /**< Edge origin, vector, reciprocals, next-vertex y, padding. */
   };
   std::array<EdgePacked, MAX_VERTS> packed_edges; /**< Packed per-edge data. */
 };

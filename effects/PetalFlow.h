@@ -232,7 +232,7 @@ private:
       return PETAL_DEPTH * std::abs(fast_sinf(PETAL_LOBES * PI_F * t));
     };
 
-    ScratchScope _(scratch_arena_a);
+    ScratchScope scratch_a_guard(scratch_arena_a);
     Fragments fragments;
     fragments.bind(scratch_arena_a, num_samples);
     for (int i = 0; i < num_samples; ++i) {

@@ -502,7 +502,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   // many per-pixel fragment_shader() calls below can't invoke a null thunk.
   HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
   #ifdef __EMSCRIPTEN__
-  double _plot_t0 = emscripten_get_now();
+  double plot_t0 = emscripten_get_now();
   #endif
 
   size_t count = close_loop ? len : len - 1;
@@ -514,15 +514,15 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   // LIFO discipline (memory.h). The residual rule the allocator can't enforce:
   // do not let a raw scratch_arena_a pointer outlive the scope that produced it
   // (e.g. across a plot/flush boundary) — read it only within its scope.
-  ScratchScope _sc(scratch_arena_a);
-  ArenaVector<float> _steps_cache;
+  ScratchScope sc_guard(scratch_arena_a);
+  ArenaVector<float> steps_cache;
   // The cache holds ONE segment's adaptive sub-steps (cleared per segment). Each
   // step advances ≈ one screen pixel, so a single segment needs ≲ W steps (the
   // step·≥MIN_POLE_SCALE lower clamp caps the per-segment count at the poles).
   // Size off W with 2× headroom; the simulation loop breaks at capacity as a
   // backstop.
   size_t max_cache = std::max((size_t)64, (size_t)(2 * W));
-  _steps_cache.bind(scratch_arena_a, max_cache);
+  steps_cache.bind(scratch_arena_a, max_cache);
 
   // PLANAR ARC REGISTERS (v0/v1). The sample functions store v0 as a vertex
   // fraction and v1 as the GEODESIC chord cumulant. Under planar (azimuthal-
@@ -621,7 +621,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // rather than the old sin(φ) longitudinal-only proxy, so the curve is
     // sampled ~one pixel per step everywhere instead of unevenly (see
     // screen_step's note). `smp`/`first_step` above seed the first iteration.
-    _steps_cache.clear();
+    steps_cache.clear();
     float sim_dist = 0.0f;
 
     while (sim_dist < total_dist) {
@@ -632,9 +632,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       // normalized replay stretch the cached steps over the rest of the segment
       // — coarser sampling on an extreme arc is fine (and far better than
       // trapping a live show). Normal segments never reach this.
-      if (_steps_cache.size() >= _steps_cache.capacity())
+      if (steps_cache.size() >= steps_cache.capacity())
         break;
-      _steps_cache.push_back(step);
+      steps_cache.push_back(step);
       sim_dist += step;
 
       if (sim_dist < total_dist) {
@@ -649,7 +649,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     float scale = total_dist / sim_dist;
     bool omitLast = (close_loop) ? true : !isLastSegment;
 
-    if (omitLast && _steps_cache.is_empty())
+    if (omitLast && steps_cache.is_empty())
       return;
 
     // 2. DRAWING PHASE
@@ -673,11 +673,11 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     }
 
     size_t loop_limit =
-        omitLast ? _steps_cache.size() - 1 : _steps_cache.size();
+        omitLast ? steps_cache.size() - 1 : steps_cache.size();
     float current_dist = 0.0f;
 
     for (size_t j = 0; j < loop_limit; j++) {
-      float step = _steps_cache[j] * scale;
+      float step = steps_cache[j] * scale;
       current_dist += step;
 
       float t = (total_dist > 0.0f) ? (current_dist / total_dist) : 1.0f;
@@ -751,7 +751,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     }
   }
   #ifdef __EMSCRIPTEN__
-  canvas.add_render_us(emscripten_get_now() - _plot_t0);
+  canvas.add_render_us(emscripten_get_now() - plot_t0);
   #endif
 }
 
@@ -793,7 +793,7 @@ inline void draw_fragments(PipelineRef pipeline, Canvas &canvas,
                            VertexShaderRef vertex_shader,
                            FragmentShaderFn fragment_shader,
                            const FragmentDrawParams &params, FillFn &&fill) {
-  ScratchScope _frag(scratch_arena_a);
+  ScratchScope frag_guard(scratch_arena_a);
   Fragments points;
   points.bind(scratch_arena_a, params.capacity);
   fill(points);
@@ -1899,7 +1899,7 @@ struct Mesh {
     Fragment fv;
     fv.pos = mesh.vertices[v];
 
-    ScratchScope _edge(scratch_arena_a);
+    ScratchScope edge_guard(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, 16);
     Line::sample(points, fu, fv, 10);
@@ -1938,7 +1938,7 @@ struct Mesh {
     // render chain and Phantasm's DTCM stack is tight. Held in scratch_arena_b
     // for the whole call; the per-edge scratch_arena_a scopes below are
     // independent, so the heavily-used render scratch keeps its full headroom.
-    ScratchScope _visited(scratch_arena_b);
+    ScratchScope visited_guard(scratch_arena_b);
     auto &visited = *new (scratch_arena_b.allocate(
         sizeof(TriangularBitset<kDedupCapacity>),
         alignof(TriangularBitset<kDedupCapacity>))) TriangularBitset<kDedupCapacity>();
@@ -2023,7 +2023,7 @@ struct Mesh {
     // Dedup bitset (1016 B) in the arena, not on the stack: this runs at setup
     // on the deep mesh-build chain. The output `edges` lives in a separate arena
     // (persistent), so scratch_arena_b here cannot disturb it.
-    ScratchScope _visited(scratch_arena_b);
+    ScratchScope visited_guard(scratch_arena_b);
     auto &visited = *new (scratch_arena_b.allocate(
         sizeof(TriangularBitset<kDedupCapacity>),
         alignof(TriangularBitset<kDedupCapacity>))) TriangularBitset<kDedupCapacity>();
@@ -2111,7 +2111,7 @@ struct ParticleSystem {
 
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
-      ScratchScope _trail(scratch_arena_a);
+      ScratchScope trail_guard(scratch_arena_a);
       Fragments trail;
       trail.bind(scratch_arena_a, 64);
       float cumulative_len = 0.0f;

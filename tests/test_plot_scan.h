@@ -1341,7 +1341,7 @@ inline int run_plot_scan_tests() {
   test_star_sample_unit_length_closed();
   test_flower_sample_unit_length_closed();
 
-  // rasterize() control-flow coverage. The 2*W _steps_cache backstop is a
+  // rasterize() control-flow coverage. The 2*W steps_cache backstop is a
   // defensive path unreachable through any realistic single segment, so it is
   // not asserted here.
   test_rasterize_subpixel_open_segment_plots_both_endpoints();

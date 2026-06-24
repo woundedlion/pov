@@ -135,7 +135,7 @@ private:
                   const std::array<int, NUM_PALETTES> &palette_idx) {
     if (opacity <= 0.005f)
       return;
-    ScratchScope _a(scratch_arena_a);
+    ScratchScope a_guard(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer camera(orientation);
     MeshOps::transform(base_state, transformed_state, scratch_arena_a,
@@ -186,8 +186,8 @@ private:
     // ScratchScope frees only this call's own allocations, preserving prior
     // caller allocations in these shared arenas that a bare reset() would drop.
     {
-      ScratchScope _a(scratch_arena_a);
-      ScratchScope _b(scratch_arena_b);
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
       MeshOps::classify_faces_by_topology(carousel.slot(back), scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }

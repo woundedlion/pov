@@ -221,7 +221,7 @@ private:
    * SSAA shader pipeline after advancing the simulation.
    */
   void render(Canvas &canvas) {
-    ScratchScope _frame(scratch_arena_a);
+    ScratchScope frame_guard(scratch_arena_a);
     uint16_t *sA = static_cast<uint16_t *>(
         scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
     uint16_t *sB = static_cast<uint16_t *>(

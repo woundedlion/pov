@@ -250,7 +250,7 @@ private:
       if (len < 2)
         continue;
 
-      ScratchScope _sc(scratch_arena_a);
+      ScratchScope sc_guard(scratch_arena_a);
       Fragments points;
       points.bind(scratch_arena_a, len);
 

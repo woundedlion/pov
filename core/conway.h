@@ -392,8 +392,8 @@ HS_COLD static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
   out_mesh.faces.bind(target, I);
 
   {
-    ScratchScope _temp(temp);
-    ScratchScope _target(target);
+    ScratchScope temp_guard(temp);
+    ScratchScope target_guard(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
 
@@ -446,7 +446,7 @@ HS_COLD static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
   out_mesh.faces.bind(target, 3 * I);
 
   {
-    ScratchScope _(temp);
+    ScratchScope temp_guard(temp);
 
     for (size_t i = 0; i < V; ++i)
       out_mesh.vertices.push_back(mesh.vertices[i]);
@@ -520,8 +520,8 @@ HS_COLD static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
   out_mesh.faces.bind(target, 2 * I);
 
   {
-    ScratchScope _temp(temp);
-    ScratchScope _target(target);
+    ScratchScope temp_guard(temp);
+    ScratchScope target_guard(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "ambo");
@@ -637,8 +637,8 @@ HS_COLD static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
   out_mesh.faces.bind(target, 3 * I);
 
   {
-    ScratchScope _temp(temp);
-    ScratchScope _target(target);
+    ScratchScope temp_guard(temp);
+    ScratchScope target_guard(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "truncate");
@@ -737,8 +737,8 @@ HS_COLD static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
   out_mesh.faces.bind(target, 4 * I);
 
   {
-    ScratchScope _temp(temp);
-    ScratchScope _target(target);
+    ScratchScope temp_guard(temp);
+    ScratchScope target_guard(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "expand");
@@ -829,7 +829,7 @@ HS_COLD static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
   out_mesh.faces.bind(target, I + 6 * E);
 
   {
-    ScratchScope _(temp);
+    ScratchScope temp_guard(temp);
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "chamfer");
 
@@ -936,7 +936,7 @@ HS_COLD static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
     out_mesh.faces.push_back(faces[i]);
 
   {
-    ScratchScope _(temp);
+    ScratchScope temp_guard(temp);
 
     ArenaVector<Vector> movements;
     movements.bind(temp, V);
@@ -1033,7 +1033,7 @@ HS_COLD static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
   out_mesh.faces.bind(target, 5 * I);
 
   {
-    ScratchScope _(temp);
+    ScratchScope temp_guard(temp);
 
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "snub");

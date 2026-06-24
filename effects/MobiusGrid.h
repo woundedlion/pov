@@ -151,7 +151,7 @@ private:
                    CurveFn curve_fn, ShadeFn shade) {
     int count = static_cast<int>(std::ceil(num));
     for (int i = 0; i < count; ++i) {
-      ScratchScope _frag(scratch_arena_a);
+      ScratchScope frag_guard(scratch_arena_a);
       Curve curve = curve_fn(i);
 
       Fragments m_points;

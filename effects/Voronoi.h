@@ -92,7 +92,7 @@ public:
     // Build a KD-tree over the moving site positions once per frame. On the unit
     // sphere nearest-by-Euclidean == nearest-by-max-dot (|p-s|^2 = 2 - 2*p*s),
     // so the k=2 query is exact.
-    ScratchScope _scope(scratch_arena_a);
+    ScratchScope scope_guard(scratch_arena_a);
     Vector *positions = static_cast<Vector *>(scratch_arena_a.allocate(
         sites_buffer.size() * sizeof(Vector), alignof(Vector)));
     for (size_t i = 0; i < sites_buffer.size(); ++i)
@@ -193,7 +193,7 @@ public:
     // heavy to supersample. Mirrors Scan::Shader::draw<W, H, 1>'s clip iteration
     // and telemetry (open-coded only because the coarse grid needs the integer
     // pixel coordinates the generic shader callback does not expose).
-    Scan::ScopedRenderTimer _timer(canvas);
+    Scan::ScopedRenderTimer timer_guard(canvas);
     for (int y = y0; y < y1; ++y) {
       const int ky = (y - y0) / B;
       for (int x = x0; x < x1; ++x) {

@@ -121,7 +121,7 @@ HS_COLD static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
   compiled.faces.bind(target_arena, 4 * I);
 
   {
-    ScratchScope _(temp_arena);
+    ScratchScope temp_arena_guard(temp_arena);
 
     HalfEdgeMesh he_mesh(temp_arena, mesh);
 
@@ -379,7 +379,7 @@ HS_COLD static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
   PolyMesh out;
 
   {
-    ScratchScope _(temp);
+    ScratchScope temp_guard(temp);
     CompiledHankin compiled;
     // Arena polarity is reversed from the streaming path: the throwaway
     // CompiledHankin is allocated from `temp` while `target` serves as

@@ -418,7 +418,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   SDF::DistanceResult result_scratch;
   Fragment frag_scratch;
 
-  ScopedRenderTimer _timer(canvas);
+  ScopedRenderTimer timer_guard(canvas);
   scan_region<W, H>(
       y_lo, y_hi,
       [&](int y, auto &&out) {
@@ -906,7 +906,7 @@ struct Shader {
     check_lut_domain<W, H>(cr);
 
     if constexpr (SAMPLES == 1) {
-      ScopedRenderTimer _timer(canvas);
+      ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector v = pixel_to_vector<W, H>(x, y);
@@ -918,7 +918,7 @@ struct Shader {
       constexpr float inv_samples = 1.0f / SAMPLES;
       constexpr auto offsets = make_sample_offsets<SAMPLES>();
 
-      ScopedRenderTimer _timer(canvas);
+      ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           // Premultiplied SSAA: accumulate each sample's coverage-weighted color
@@ -974,7 +974,7 @@ struct Shader {
     if constexpr (SAMPLES == 1) {
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
-      ScopedRenderTimer _timer(canvas);
+      ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
@@ -994,7 +994,7 @@ struct Shader {
 
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
-      ScopedRenderTimer _timer(canvas);
+      ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           Vector center_v = pixel_to_vector<W, H>(x, y);
@@ -1170,7 +1170,7 @@ struct Volume {
     if (vol_y_lo > vol_y_hi)
       return;
 
-    ScopedRenderTimer _timer(canvas);
+    ScopedRenderTimer timer_guard(canvas);
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },

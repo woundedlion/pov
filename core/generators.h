@@ -49,8 +49,8 @@ template <typename GenerateFn, typename... Args>
     scratch_arena_a.reset();
     scratch_arena_b.reset();
   }
-  ScratchScope _a(scratch_arena_a);
-  ScratchScope _b(scratch_arena_b);
+  ScratchScope a_guard(scratch_arena_a);
+  ScratchScope b_guard(scratch_arena_b);
   ++depth;
   /**
    * @brief RAII guard that decrements the nesting depth on scope exit.
@@ -61,7 +61,7 @@ template <typename GenerateFn, typename... Args>
      * @brief Decrements the referenced depth counter on destruction.
      */
     ~DepthGuard() { --d; }
-  } _g{depth};
+  } depth_guard{depth};
   return fn(target, scratch_arena_a, scratch_arena_b,
             std::forward<Args>(args)...);
 }
