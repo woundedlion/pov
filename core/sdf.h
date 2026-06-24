@@ -282,7 +282,7 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
   if (C_min > 1.0f)
     return true; // Completely outside the cap
   if (C_min < -1.0f)
-    return false; // Full scan fallback (simplification)
+    return false; // Full scan fallback
 
   // fast_acos: ~1.3e-4 rad peak error ≈ 0.006 px at W=288, far under the
   // floor/ceil pad below. Matches the Ring/DistortedRing scanline path.
@@ -761,18 +761,14 @@ template <typename A, typename B> struct Union {
   const A &a;         /**< First child shape. */
   const B &b;         /**< Second child shape. */
   float thickness;    /**< Max child thickness (drives AA falloff). */
-  // A composite renders solid (1px silhouette AA) only if every child is solid.
-  // If any child is a stroke, the result is a stroke so the rasterizer takes
-  // the thickness-falloff AA path and each child keeps its own soft edge —
-  // matching how that child looks drawn on its own.
+  // Solid only if every child is solid; a stroke child routes the composite
+  // through the thickness-falloff AA path so each child keeps its own soft edge.
   static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
-  // Both children push into a single MergedIntervalBuffer (2 * kIntervalSpanCap)
-  // before the fallback check, so the combined span count must fit. Two leaf
-  // children fit exactly (kIntervalSpanCap each); a nested-CSG child can emit up
-  // to its own 2 * kIntervalSpanCap, overflowing the buffer at runtime. Reject
-  // that composition at compile time rather than relying on push_interval's
-  // runtime trap.
+  // Both children push into one MergedIntervalBuffer (2 * kIntervalSpanCap)
+  // before the fallback check, so a nested-CSG child (up to 2 * kIntervalSpanCap
+  // each) can overflow it. Reject at compile time rather than rely on
+  // push_interval's runtime trap.
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
                     2 * kIntervalSpanCap,
                 "nested CSG union exceeds MergedIntervalBuffer capacity; flatten "
@@ -812,34 +808,24 @@ template <typename A, typename B> struct Union {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     MergedIntervalBuffer merged;
 
-    // Both children push into `merged` BEFORE the fallback decision below, so the
-    // accumulator must hold both contributions even on a row that ultimately
-    // falls back to full scan. MergedIntervalBuffer is sized 2 * kIntervalSpanCap,
-    // so two *leaf* children (each capped at kIntervalSpanCap spans) always fit.
-    // A nested-CSG child is different: its own merge can emit up to its full
-    // 2 * kIntervalSpanCap merged spans, so two such children can exceed this
-    // accumulator. That is not silent corruption — push_interval traps (HS_CHECK)
-    // on overflow, so a pathologically deep union fails fast at the violation
-    // site rather than dropping geometry. Real scenes stay well under the cap.
+    // Both children push into `merged` BEFORE the fallback decision, so it must
+    // hold both even on a row that ultimately falls back. Overflow (a deeply
+    // nested union) traps in push_interval rather than dropping geometry.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
 
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
 
-    // If neither shape provides intervals, fall back to full scan. (The spans
-    // already pushed into `merged` are simply discarded — `merged` is a local.)
     if (!has_a && !has_b)
       return false;
 
-    // If only one shape returned intervals and the other fell back, we must do
-    // full scan (the fallback shape needs all pixels). Returning false requests
-    // that full-width scan, equivalent to but cheaper than emitting [0,W).
+    // One child fell back to full width: the whole row needs the full scan.
     if (!has_a || !has_b)
       return false;
 
     if (merged.is_empty())
-      return true; // Both reported intervals but none produced
+      return true;
 
     merge_intervals(merged, out);
     return true;
@@ -868,7 +854,7 @@ template <typename A, typename B> struct Union {
     DistanceResult res_b;
     b.template distance<ComputeUVs>(p, res_b);
     if (res.dist < res_b.dist)
-      return; // A is already closer, keep it
+      return;
     res = res_b;
   }
 };
@@ -889,10 +875,8 @@ template <typename A, typename B> struct SmoothUnion {
   // keep their own soft edge instead of collapsing to a hard 1-px silhouette.
   static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
-  // Same row-interval merge as Union: both children accumulate into one
-  // MergedIntervalBuffer (2 * kIntervalSpanCap) before the fallback check, so a
-  // nested-CSG child can overflow it at runtime. Reject the composition at
-  // compile time instead of relying on push_interval's runtime trap.
+  // Same row-interval merge (and overflow risk) as Union; reject at compile
+  // time instead of relying on push_interval's runtime trap.
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
                     2 * kIntervalSpanCap,
                 "nested CSG smooth-union exceeds MergedIntervalBuffer capacity; "
@@ -942,13 +926,8 @@ template <typename A, typename B> struct SmoothUnion {
     MergedIntervalBuffer merged;
     float pad_px = k * W / (2 * PI_F);
 
-    // As in Union: both children push into `merged` before the fallback check, so
-    // the accumulator holds both contributions even on a row that falls back. The
-    // k-pad only widens each span, never adds spans, so the count matches Union's:
-    // two leaf children (each <= kIntervalSpanCap) fit the 2 * kIntervalSpanCap
-    // buffer, but two nested-CSG children (each up to 2 * kIntervalSpanCap merged
-    // spans) can exceed it. push_interval then traps (HS_CHECK) — fail-fast at the
-    // violation site, not silent geometry loss. Real scenes stay under the cap.
+    // As in Union: both children push before the fallback check. The k-pad only
+    // widens spans, never adds them, so the same overflow trap applies.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
           push_interval(merged, start - pad_px, end + pad_px);
@@ -959,9 +938,7 @@ template <typename A, typename B> struct SmoothUnion {
           push_interval(merged, start - pad_px, end + pad_px);
         });
 
-    // If either child falls back to full-width, so must the blend. (Returning
-    // false requests the full-width scan, equivalent to but cheaper than [0,W);
-    // the spans already in the local `merged` are discarded.)
+    // If either child falls back to full-width, so must the blend.
     if (!has_a || !has_b)
       return false;
 
@@ -1028,8 +1005,6 @@ template <typename A, typename B> struct Subtract {
   const A &a;      /**< Minuend shape. */
   const B &b;      /**< Subtrahend shape (removed from A). */
   float thickness; /**< Inherited from the minuend A. */
-  // Solid only if every child is solid (see Union); a stroke child routes the
-  // composite through the thickness-falloff AA path.
   static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
   /**
@@ -1122,8 +1097,7 @@ template <typename A, typename B> struct Subtract {
     // The per-A shrink/split loop walks B left-to-right, so B must be sorted.
     sort_intervals_by_start(intervals_b);
 
-    // Set difference: A minus B
-    // For each A interval, subtract all overlapping B intervals
+    // Set difference: for each A interval, subtract all overlapping B intervals.
     for (size_t ai = 0; ai < intervals_a.size(); ++ai) {
       float cur_start = intervals_a[ai].first;
       float cur_end = intervals_a[ai].second;
@@ -1185,7 +1159,6 @@ template <typename A, typename B> struct Subtract {
     a.template distance<ComputeUVs>(p, res);
     DistanceResult res_b;
     b.template distance<ComputeUVs>(p, res_b);
-    // Max(A, -B)
     if (-res_b.dist > res.dist) {
       res_b.dist = -res_b.dist;
       res = res_b;
@@ -1202,8 +1175,6 @@ template <typename A, typename B> struct Intersection {
   const A &a;      /**< First child shape. */
   const B &b;      /**< Second child shape. */
   float thickness; /**< Min child thickness (drives AA falloff). */
-  // Solid only if every child is solid (see Union); a stroke child routes the
-  // composite through the thickness-falloff AA path.
   static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
   /**
@@ -1321,7 +1292,6 @@ template <typename A, typename B> struct Intersection {
     a.template distance<ComputeUVs>(p, res);
     DistanceResult res_b;
     b.template distance<ComputeUVs>(p, res_b);
-    // Max(A, B)
     if (res.dist > res_b.dist)
       return;
     res = res_b;
@@ -1382,19 +1352,13 @@ template <typename Shape> struct AngularRepeat {
    * @return The child's band for a Y-axis fold; the full canvas otherwise.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    // Only a fold about the Y axis preserves latitude (the axis component, which
-    // becomes a copy's invariant, is then the row axis), so the un-repeated
-    // child's latitude band still bounds every copy. For any other axis the
-    // copies sweep through latitudes the child never occupies; forwarding the
-    // child's narrow band would row-clip those copies out of the scan and drop
-    // them silently. Fall back to the full canvas there — conservative, and the
-    // common Y-axis path keeps its tight bound. (axis is unit length, as the
-    // distance() projection basis requires, so axis.y near ±1 is the Y fold.)
+    // Only a Y-axis fold preserves latitude, so only then does the child's band
+    // still bound every copy. For any other axis the copies sweep latitudes the
+    // child never occupies; forwarding its narrow band would row-clip them away.
+    // (axis is unit length, so axis.y near ±1 is the Y fold.)
     //
-    // PERF CLIFF: a tilted (non-Y) fold axis therefore disables vertical
-    // culling entirely — every row is scanned for the repeat. A tighter bound is
-    // possible (the union of the child's band swept around the axis) but is not
-    // computed here; tilted AngularRepeats pay the full-canvas scan.
+    // PERF CLIFF: a tilted axis disables vertical culling entirely (every row
+    // scanned). A tighter swept-band bound is possible but not computed here.
     if (fabsf(axis.y) < 1.0f - TOLERANCE)
       return {0, H - 1};
     return shape.template get_vertical_bounds<H>();
@@ -1409,7 +1373,6 @@ template <typename Shape> struct AngularRepeat {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int, OutputIt) const {
-    // Full scan: repetitions cover the full azimuth
     return false;
   }
 
@@ -1658,14 +1621,10 @@ struct Face {
     max_r2 = 0.0f;
     for (int i = 0; i < count; ++i) {
       const Vector &v = vertices[indices[i]];
-      // Gnomonic projection divides by d = cos(angle from the face center); it
-      // is singular as a vertex approaches the center's antipode (d -> 0),
-      // yielding ±inf/NaN coordinates. Registered solids never produce an
-      // in-face vertex that far from its own face center, so this cannot fire on
-      // shipped geometry — but guard it for parity with the plot-path planar
-      // projection (plot.h COS_PLANAR_ANTIPODE) and the fast_atan2 origin guard.
-      // Clamp d away from zero, preserving its sign so the projection stays on
-      // the correct side.
+      // Gnomonic projection divides by d = cos(angle from face center), singular
+      // as a vertex nears the center's antipode (d -> 0 -> ±inf/NaN). Shipped
+      // solids never reach that, but clamp d away from zero (sign-preserving, so
+      // the projection stays on the correct side) for parity with plot.h's guard.
       float d = dot(v, basis_v);
       if (fabsf(d) < math::TOLERANCE)
         d = copysignf(math::TOLERANCE, d);
@@ -1685,7 +1644,6 @@ struct Face {
     scratch.poly_2d[count] = scratch.poly_2d[0];
     poly_2d = std::span<Vector>(scratch.poly_2d.data(), count + 1);
 
-    // Store 3D vertices and edge normals for angular distance computation
     for (int i = 0; i < count; ++i)
       scratch.verts_3d[i] = vertices[indices[i]];
     scratch.verts_3d[count] = scratch.verts_3d[0];
@@ -1726,11 +1684,8 @@ struct Face {
       if (d_line < min_edge_dist)
         min_edge_dist = d_line;
     }
-    // The > 1e8f test can only fire if the 1e9f seed survived, i.e. the loop
-    // never ran (count == 0) — which the ctor's HS_CHECK(count > 0) already makes
-    // unreachable. For any real face every d_line is a small bounded magnitude,
-    // so the seed is always overwritten. Kept only as a defensive floor against
-    // a pathological all-coincident-vertex face leaving size at the sentinel.
+    // Defensive floor: the seed only survives if the loop never ran (count == 0,
+    // already trapped in the ctor) or an all-coincident-vertex face.
     size = (min_edge_dist > 1e8f) ? 1.0f : min_edge_dist;
 
     if (size < radius * MIN_SIZE_RADIUS_RATIO)
@@ -2508,11 +2463,9 @@ struct Star {
   Star(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
     HS_CHECK(sides > 0); // sector folding divides by sides
-    // A zero radius collapses the inner/outer points onto the origin, so the
-    // edge vector (dx,dy) below is zero-length and nx/ny = -dy/len, dx/len
-    // become NaN, poisoning plane_d and every distance() result. Trap the
-    // sizing bug here (cold path, like the sides>0 trap) rather than shipping
-    // NaN to the LEDs. Both production consumers keep radius structurally > 0.
+    // Zero radius collapses inner/outer points onto the origin -> zero-length
+    // edge vector -> nx/ny become NaN, poisoning every distance() result. Trap
+    // here (cold path) rather than ship NaN to the LEDs.
     HS_CHECK(radius > 0.0f); // zero radius -> zero-length edge normal (NaN)
     float outer_radius = radius * (PI_F / 2.0f);
     float inner_radius = outer_radius * STAR_INNER_RATIO;

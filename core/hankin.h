@@ -65,8 +65,6 @@ struct CompiledHankin {
    */
   static void clone(const CompiledHankin &src, CompiledHankin &dst,
                     Arena &arena) {
-    // Bind a fresh arena-backed vector and deep-copy a source vector into it via
-    // a single memcpy, matching finalize_solid/to_polymesh's bulk-copy idiom.
     auto push = [&arena](const auto &s_vec, auto &d_vec) {
       d_vec.bind(arena, s_vec.size());
       d_vec.append_bulk(s_vec.data(), s_vec.size());
