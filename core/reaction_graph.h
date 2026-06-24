@@ -23,10 +23,8 @@ static constexpr float D_AVG = 0.04045f; // sqrt(4π / 7680)
 // node()'s `(RD_N - 1)` divisor degenerates (divide-by-zero) when RD_N <= 1.
 static_assert(RD_N >= 2, "node() lattice mapping degenerates when RD_N <= 1");
 
-// Pin D_AVG to RD_N: D_AVG = sqrt(4π / RD_N), so D_AVG*D_AVG*RD_N must equal 4π.
-// sqrtf isn't constexpr here, so check the squared (multiply-only) form. The
-// 0.0006 band trips on any RD_N change that leaves D_AVG stale; update both
-// together.
+// D_AVG = sqrt(4π / RD_N), so D_AVG*D_AVG*RD_N must equal 4π (12.566...). sqrtf
+// isn't constexpr here, so check the squared, multiply-only form.
 static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
                   12.566370614f - D_AVG * D_AVG * RD_N < 0.0006f,
               "D_AVG out of sync with RD_N (must stay sqrt(4*pi / RD_N))");
@@ -40,11 +38,9 @@ static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
  *          the implementation note for why the wider math is needed).
  */
 inline Vector node(int i) {
-  // neighbors[] is generated from DOUBLE-precision lattice positions and
-  // reproduces bit-for-bit ONLY in double: float32 y/radius flips the sort order
-  // of near-tie rows, and at i=RD_N-1 theta = golden_angle·i reaches ~18,400 rad
-  // where a float holds only ~1e-3 rad of azimuth. So fold y, radius, AND theta
-  // in double, then narrow once into the float Vector.
+  // Must fold y, radius, and theta in double to reproduce neighbors[] bit-for-bit:
+  // float32 flips near-tie sort order, and theta = golden_angle*i reaches ~18,400
+  // rad at i=RD_N-1 where a float holds only ~1e-3 rad of azimuth.
   constexpr double golden_angle = 2.399963229728653;
   constexpr double two_pi = 6.283185307179586;
   double y = 1.0 - (static_cast<double>(i) / (RD_N - 1)) * 2.0;
@@ -192,7 +188,6 @@ private:
    *          raising the cap.
    */
   static int find_nearest_node(const Vector &p) {
-    // Squared distance: only ordering matters for the comparison, so skip sqrt.
     auto dist2 = [](const Vector &a, const Vector &b) {
       float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
       return dx * dx + dy * dy + dz * dz;
@@ -207,16 +202,10 @@ private:
         int ni = neighbors[cur][k];
         if (ni < 0) continue;
         float d = dist2(p, node(ni));
-        // Mid-scan reassignment of `cur` is deliberate (see LOAD-BEARING note):
-        // subsequent k read neighbors of the updated `cur`, chaining hops/iter.
         if (d < best_d) { best_d = d; cur = ni; improved = true; }
       }
       if (!improved) { converged = true; break; }
     }
-    // The 64-iteration cap is calibrated to the RD_N=7680 lattice (see the
-    // LOAD-BEARING note). Hitting it without converging means the descent was
-    // truncated and `cur` may be wrong, silently baking a biased LUT; trap so a
-    // future RD_N bump that outgrows the cap fails loudly at build/init.
     HS_CHECK(converged, "find_nearest_node hit the 64-iter cap without converging "
                         "(RD_N grew past the calibrated hop bound)");
     return cur;
