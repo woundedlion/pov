@@ -144,12 +144,7 @@ inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
     if (a.min_v != b.min_v) return a.min_v < b.min_v;
     return a.max_v < b.max_v;
   };
-  auto edge_greater = [&](const HalfEdgePairRecord &a,
-                          const HalfEdgePairRecord &b) {
-    return edge_less(b, a);
-  };
-  std::make_heap(records, records + n, edge_greater);
-  std::sort_heap(records, records + n, edge_greater);
+  std::sort(records, records + n, edge_less);
 
   for (size_t i = 0; i < n;) {
     size_t j = i + 1;
@@ -664,8 +659,7 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   auto hash_greater = [](const HashNode &a, const HashNode &b) {
     return a.hash > b.hash;
   };
-  std::make_heap(nodes, nodes + F, hash_greater);
-  std::sort_heap(nodes, nodes + F, hash_greater);
+  std::sort(nodes, nodes + F, hash_greater);
 
   if (mesh.topology.capacity() < F) {
     mesh.topology.bind(persistent, F);

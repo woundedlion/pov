@@ -167,7 +167,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 41. ✅ **`Arena::allocate` uses `reinterpret_cast<size_t>` for pointer address math instead of `uintptr_t`** — `core/memory.h:110`. Works on every target; `uintptr_t` is the strictly-correct round-trippable type and `<cstdint>` is already included. Switch for standard-conformance/self-documentation.
 
-42. **`pair_half_edges` and the classify `HashNode` sort use `make_heap`+`sort_heap` with no rationale** — `core/mesh.h:151,667`. Heapsort vs `std::sort` (used elsewhere in the same subsystem) on a cold path; immaterial perf, conspicuous silence. Switch to `std::sort` or add a one-line justification.
+42. ✅ **`pair_half_edges` and the classify `HashNode` sort use `make_heap`+`sort_heap` with no rationale** — `core/mesh.h:151,667`. Heapsort vs `std::sort` (used elsewhere in the same subsystem) on a cold path; immaterial perf, conspicuous silence. Switch to `std::sort` or add a one-line justification.
 
 43. **`narrow_index`'s `int16_t`-scratch rationale cites scratch that does not exist in `mesh.h`/`conway.h`** — `core/mesh.h:341`. The only `int16_t` `-1`-sentinel store is `hankin.h:239`; the bound is correct but the comment is not traceable from where it is enforced. Add "see `hankin.h` `face_indices`".
 
