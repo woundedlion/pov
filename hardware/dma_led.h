@@ -82,12 +82,9 @@ public:
                   | LPSPI_TCR_FRAMESZ(7);  // 8-bit frames
 
     dma_.begin(true);
-    // 8-bit destination width to match the byte-stream source. The uint8_t
-    // cast is load-bearing: LPSPI4_TDR is a volatile uint32_t, and binding the
-    // 32-bit destination() overload sets ATTR_DST to 32-bit transfers, which
-    // conflicts with sourceBuffer()'s NBYTES=1 and raises an eDMA configuration
-    // error on enable — nothing transmits. (Same pattern as SPI.cpp's
-    // destination((volatile uint8_t&)port().TDR).)
+    // The uint8_t cast is load-bearing: the 32-bit destination() overload sets
+    // ATTR_DST to 32-bit transfers, conflicting with sourceBuffer()'s NBYTES=1
+    // and raising an eDMA config error on enable — nothing transmits.
     dma_.destination(reinterpret_cast<volatile uint8_t&>(LPSPI4_TDR));
     dma_.triggerAtHardwareEvent(DMAMUX_SOURCE_LPSPI4_TX);
     dma_.disableOnCompletion();
@@ -101,28 +98,15 @@ public:
    * @param len  Number of bytes to transmit.
    */
   void transmitAsync(const uint8_t* data, size_t len) {
-    // submitFrame() guarantees the previous transfer has completed before it
-    // calls us (it overrun-drops via isComplete() otherwise), so a transfer
-    // still in flight here is a contract violation, not a wait condition. Trap
-    // rather than spin: transmitAsync runs in the column ISR, where spinning
-    // would deadlock — the DMA-completion ISR that clears transferComplete_
-    // cannot preempt an equal/lower-priority ISR. Name the site on Serial (the
-    // trap is a bare illegal instruction) then halt. A genuinely wedged channel
-    // is surfaced separately by checkStaleTransfer() on the overrun-drop path.
+    // Trap rather than spin on an in-flight transfer: this runs in the column
+    // ISR, where spinning would deadlock — the DMA-completion ISR that clears
+    // transferComplete_ cannot preempt an equal/lower-priority ISR.
     if (!transferComplete_.load(std::memory_order_relaxed)) {
       hs::log("FATAL: transmitAsync entered with a transfer still in flight — "
               "submitFrame() must guard with isComplete()");
       __builtin_trap();
     }
     transferComplete_.store(false, std::memory_order_relaxed);
-    // Stamp when this transfer goes in-flight so the overrun-drop path (see
-    // checkStaleTransfer) can tell a transient overrun from a wedged channel.
-    // The stamp's order relative to the store(false) above is irrelevant: this
-    // transfer does not actually start — and so its completion ISR cannot fire —
-    // until dma_.enable() below, which is after the stamp. The previous transfer
-    // already completed (guaranteed by the trap at the top of this function), so
-    // no completion ISR can land between the store and the stamp to leave a stale
-    // time on an already-finished transfer.
     transferStartUs_ = micros();
     dma_.sourceBuffer(data, len);
     dma_.enable();
@@ -296,16 +280,8 @@ public:
    */
   [[nodiscard]] bool submitFrame(bool withBg = false) {
     if (!spi_.isComplete()) {
-      // Drop on overrun — never call transmitAsync() while a transfer is still
-      // in flight from the column ISR (transmitAsync traps if entered then,
-      // precisely because spinning there could deadlock: transferComplete_ is
-      // only set by the DMA-completion ISR, which cannot preempt an
-      // equal/lower-priority ISR). A dropped frame is a transient (platform.h),
-      // not an invariant violation: the in-flight DMA keeps the previous column;
-      // the already-packed back buffer is simply discarded and the next column
-      // repacks. But a transfer that NEVER completes is a wedged channel, not a
-      // transient: surface it here rather than dropping forever, since this drop
-      // path is where a wedge actually manifests.
+      // Drop on overrun. A transfer that NEVER completes is a wedged channel,
+      // not a transient, so surface it here — the drop path is where it shows.
       spi_.checkStaleTransfer();
       overrunCount_.fetch_add(1, std::memory_order_relaxed);
       return false;
@@ -320,12 +296,6 @@ public:
   }
 
   // --- Diagnostics ---
-  // These counters are this driver's telemetry surface. They are intentionally
-  // NOT mirrored into a read-only registered param (the MindSplatter "Particles"
-  // pattern): the param system's only consumer is the daydream WASM GUI, which
-  // is absent from this ARDUINO-only build, and Phantasm.ino has no param
-  // reader. A caller that wants them (e.g. a future serial telemetry path) reads
-  // them here.
   /**
    * @brief Returns the count of frames handed to the DMA engine since start.
    * @return Monotonic transfer counter (number of successful submitFrame()s).

@@ -62,34 +62,19 @@ using namespace emscripten;
 // to pre-reserve the getParamValues() backing store so it never reallocates.
 static constexpr size_t MAX_PARAMS = 32;
 
-// Pin MAX_PARAMS to ParamList's actual array size: if the backing array grows,
-// the reserve() above would under-provision and getParamValues() could hand JS
-// a dangling Float32Array view after a silent reallocation. Fail at compile time
-// instead.
 static_assert(MAX_PARAMS ==
                   std::tuple_size<decltype(Effect::ParamList::elements)>::value,
               "MAX_PARAMS must match Effect::ParamList's fixed array size");
 
-// Dedicated arenas for the JavaScript mesh-editor tools (8 MB build + two 4 MB
-// scratch). These are used ONLY by MeshOpsWrapper, so they are malloc'd lazily
-// on first MeshOps use rather than reserved as 16 MB of file-scope BSS: the
-// render engine and every segment worker instantiate this same module but never
-// touch MeshOps, so reserving 16 MB of unusable linear memory in every instance
-// would inflate the baseline (and the INITIAL_MEMORY/growth headroom) for no
-// benefit. The arenas start empty (capacity 0) and are rebound to a single
-// malloc'd block on first use; the block lives for the module's lifetime
-// (reclamation within it is via clearToolingMemory()).
+// Arenas for the JS mesh-editor tools (8 MB build + two 4 MB scratch), used
+// only by MeshOpsWrapper. malloc'd lazily on first MeshOps use (start at
+// capacity 0) so engine/worker instances that never touch MeshOps don't reserve
+// 16 MB; the block lives for the module's lifetime (reset via clearToolingMemory).
 static constexpr size_t kToolingArenaBytes = 8 * 1024 * 1024;
 static constexpr size_t kToolingScratchBytes = 4 * 1024 * 1024;
 Arena tooling_arena(nullptr, 0);
-// Transient single-op scratch, shared module-globally across every
-// MeshOpsWrapper. Every MeshOps entry point reset()s both at its head, so their
-// contents are valid only within one synchronous MeshOps call — relying on WASM
-// single-threading, each op runs to completion before JS regains control. Unlike
-// tooling_arena, these are NOT covered by the generation trap, so the
-// "scratch outlives its op" contract is enforced purely by single-threading —
-// there is no runtime guard, because under single-threading there is nothing an
-// assert could ever catch (no op can observe another's scratch).
+// Transient single-op scratch, shared module-globally. Every MeshOps entry
+// point reset()s both at its head; valid only within one synchronous call.
 // TODO(workers): if/when a worker or async refactor lets two ops interleave,
 // re-establish the contract explicitly (e.g. per-op scratch arenas, or a
 // reentrancy assert at each MeshOps entry point) — single-threading no longer
@@ -97,12 +82,8 @@ Arena tooling_arena(nullptr, 0);
 Arena tooling_scratch_a(nullptr, 0);
 Arena tooling_scratch_b(nullptr, 0);
 
-// Bumped on every clearToolingMemory(). Each MeshOpsWrapper's `mesh` is built
-// into tooling_arena, so a wipe reclaims the storage behind every live wrapper;
-// in NDEBUG the arena's own generation stamps are compiled out, so a stale
-// wrapper would read recycled bytes as silently wrong geometry. Each wrapper
-// records the generation it was built under and traps on use if it no longer
-// matches (MeshOpsWrapper::check_live), making stale use loud in every build.
+// Bumped on every clearToolingMemory(). Each wrapper records the generation it
+// was built under and traps via check_live() if a wipe reclaimed its storage.
 static uint32_t tooling_generation = 0;
 
 /**
@@ -160,12 +141,8 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
     std::vector<FactoryEntry> t(regs.size());
     for (size_t i = 0; i < regs.size(); ++i)
       get_fill_fn<W, H>(regs[i])(t[i]);
-    // Duplicate effect names silently shadow: create_effect/factory_has_effect
-    // both return the FIRST name match, so a second REGISTER_EFFECT of the same
-    // class name would make its entry unreachable. The name isn't known until
-    // the fill functions above run, so this is the materialization seam at which
-    // to detect it. Cold one-time table build; trap rather than ship a hidden
-    // unreachable effect.
+    // Duplicate names silently shadow (lookups return the first match); the
+    // names aren't known until the fill functions run, so trap here.
     for (size_t i = 0; i < t.size(); ++i)
       for (size_t j = i + 1; j < t.size(); ++j)
         HS_CHECK(t[i].name != t[j].name,
@@ -208,9 +185,8 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
     if (name == entry.name)
       return entry.creator();
   }
-  // Unknown name = typo'd/stale UI string. Substituting factory[0] would render
-  // a different effect with no signal; instead surface it and return null —
-  // setEffect()'s `if (currentEffect)` guard makes a null a safe no-op.
+  // Unknown name: return null (setEffect's guard makes it a safe no-op) rather
+  // than silently substituting a different effect.
   hs::log("WASM: create_effect: unknown effect name (no effect created)");
   return nullptr;
 }
@@ -226,10 +202,7 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
   X(96, 20)                                                                     \
   X(288, 144)
 
-// Pin every resolution row to the MAX_W×MAX_H pixel-buffer bound. The ctor
-// pre-sizes pixelBuffer to MAX_W*MAX_H*3 and deliberately never resizes it, so
-// a row exceeding either dimension would overflow the buffer at the first
-// drawFrame. Reject it at compile time instead (mirrors the MAX_PARAMS guard).
+// Pin every resolution row to the MAX_W×MAX_H pixel-buffer bound.
 #define X(W, H)                                                                 \
   static_assert((W) <= MAX_W && (H) <= MAX_H,                                   \
                 "HS_WASM_RESOLUTIONS row exceeds the MAX_W×MAX_H pixel buffer");
@@ -288,41 +261,20 @@ public:
     stack_paint_canary();
 
     // SSOT guard: the self-registering effect count must match the static roster
-    // in core/effects.h (HS_EFFECT_LIST / HS_EFFECT_COUNT). A mismatch means an
-    // effect was added to the roster without REGISTER_EFFECT (or registered
-    // without a roster entry) — the live set here and the native smoke suite
-    // (which generates one case per roster entry) would silently diverge. Trap
-    // at startup; this is a cold one-time check with no per-frame cost.
+    // (HS_EFFECT_LIST / HS_EFFECT_COUNT) or the live set and the native smoke
+    // suite silently diverge.
     HS_CHECK(EffectRegistry::entries().size() ==
              static_cast<size_t>(HS_EFFECT_COUNT));
 
-    // Pre-size the JS-facing readback buffers ONCE to their maximum extent so
-    // their backing storage never moves and the steady-state render/sync path
-    // performs no allocation. This is the core of the WASM memory-view contract
-    // (see getPixels()): under ALLOW_MEMORY_GROWTH=1 any heap reallocation
-    // detaches the ArrayBuffer behind a typed_memory_view, so the buffers
-    // exposed to JS must be stable for the lifetime of the engine. pixelBuffer
-    // (getPixels) and paramValues (getParamValues) are both returned AS views,
-    // so they are bound by that contract.
-    pixelBuffer.assign(MAX_W * MAX_H * kChannels, 0); // 16-bit linear RGB; never resized
-    paramValues.reserve(MAX_PARAMS);          // view-backed: never reallocated past this
-    // paramViews is NOT view-backed: getParameterDefinitions() iterates it to
-    // build a fresh val::array (no typed_memory_view aliases its storage), so
-    // this reserve is pure call-to-call amortization, not part of the contract
-    // above — a reallocation here would be harmless.
-    paramViews.reserve(MAX_PARAMS);
+    // Pre-size the view-backed readback buffers ONCE: under ALLOW_MEMORY_GROWTH
+    // a reallocation detaches the ArrayBuffer behind a typed_memory_view, so the
+    // buffers returned as views (getPixels/getParamValues) must never move.
+    pixelBuffer.assign(MAX_W * MAX_H * kChannels, 0);
+    paramValues.reserve(MAX_PARAMS);
+    paramViews.reserve(MAX_PARAMS); // not view-backed; reserve is amortization only
 
-    // Initialize with a valid default effect. The C++ bootstrap default
-    // (DistortedRing, installed below) and the JS frontend default differ by
-    // design: the bootstrap only needs *any* real registered name to keep the
-    // engine valid for the first instant and for any headless/tool use, while
-    // daydream overrides it almost immediately with its own default
-    // (IslamicStars) or the URL ?effect=.
+    // Bootstrap default; daydream overrides it almost immediately.
     setResolution(96, 20);
-    // Trap if the default name no longer resolves: setEffect returns false on an
-    // unknown name and leaves currentEffect null, so a roster rename would
-    // otherwise ship every fresh engine a null effect behind only a log line.
-    // Same drift class as the HS_EFFECT_COUNT guard above.
     HS_CHECK(setEffect("DistortedRing"));
   }
 
@@ -339,12 +291,10 @@ public:
    */
   bool setResolution(int w, int h) {
     if (w == pixel_width && h == pixel_height)
-      return true; // already at this (valid) resolution
+      return true;
 
-    // Reject sizes the factory can't build rather than switching to them and
-    // nulling currentEffect (which would leave the engine rendering blank with
-    // no signal to JS). Keep the prior valid resolution/effect alive and report
-    // the failure so the caller can surface it.
+    // Reject unsupported sizes and keep the prior valid state alive rather than
+    // switching to a null effect that renders blank with no signal to JS.
     if (!wasm_resolution_supported(w, h)) {
       hs::log("WASM: Unsupported resolution %dx%d — ignored", w, h);
       return false;
@@ -353,18 +303,9 @@ public:
     pixel_width = w;
     pixel_height = h;
 
-    // NOTE: pixelBuffer is pre-sized to MAX_W*MAX_H*3 in the constructor and is
-    // deliberately NEVER resized here. Resizing could move its backing store
-    // (and/or grow the WASM heap), detaching every outstanding getPixels()
-    // view. getPixels() instead returns a view over just the active
-    // pixel_width*pixel_height*3 prefix of this stable buffer.
-
     if (currentEffect) {
       currentEffect = nullptr;
-      // The param set is now empty until the next setEffect(); bump so a
-      // consumer holding the prior effect's cached definitions detects the
-      // change (see paramGeneration_).
-      ++paramGeneration_;
+      ++paramGeneration_; // param set now empty; bump so cached defs detect it
     }
     return true;
   }
@@ -381,15 +322,11 @@ public:
    *          prior valid state alive rather than blanking the engine.
    */
   bool setEffect(std::string name) {
-    // hs::log is printf-style: pass name as an arg, never as the format string
-    // (an effect name containing '%' would otherwise read nonexistent varargs).
+    // name as an arg, never the format string (a '%' in it reads bad varargs).
     hs::log("WASM: setEffect called with %s", name.c_str());
 
-    // Validate the name against the factory for the CURRENT resolution BEFORE
-    // tearing anything down. setResolution() keeps the prior valid state alive
-    // on a bad request; setEffect matches that — resetting currentEffect and the
-    // arenas before validating would leave the engine rendering nothing on a
-    // typo'd/stale UI string. This is the same cheap scan create_effect() does.
+    // Validate against the current resolution's factory BEFORE tearing anything
+    // down, so a typo'd name keeps the prior valid state alive.
     bool name_valid = false;
     dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
       name_valid = factory_has_effect<W, H>(name);
@@ -403,8 +340,7 @@ public:
     currentEffect.reset();
     configure_arenas_default();
 
-    // Reset stack HWM by repainting unused region
-    stack_paint_canary();
+    stack_paint_canary(); // reset stack HWM by repainting unused region
 
     bool created = dispatch_resolution(
         pixel_width, pixel_height, [&]<int W, int H>() {
@@ -412,22 +348,14 @@ public:
           currentEffect = create_effect<W, H>(name);
         });
     if (!created) {
-      // Unreachable in practice: setResolution() only admits supported sizes.
-      hs::log("WASM: Unsupported resolution for factory!");
+      hs::log("WASM: Unsupported resolution for factory!"); // unreachable guard
       return false;
     }
     if (!currentEffect) {
-      // Unreachable: the name was validated against this resolution's factory
-      // above, so create_effect() cannot return null here. Kept as a guard.
-      return false;
+      return false; // unreachable: name was validated above
     }
     currentEffect->init();
-    // A new effect means a new param set (names/count/order); bump so a consumer
-    // re-fetches the definitions before reading the value stream (see
-    // paramGeneration_).
-    ++paramGeneration_;
-    // Log init stack HWM, then repaint to isolate render HWM. Pass the value as
-    // a printf arg, not via a prebuilt buffer as the format string (see above).
+    ++paramGeneration_; // new param set; bump so consumers re-fetch definitions
     hs::log("WASM: init stack HWM = %u bytes", (unsigned)stack_high_water_mark());
     stack_paint_canary();
     return true;
@@ -454,13 +382,8 @@ public:
   bool setClip(int x0, int x1, int y0, int y1) {
     if (!currentEffect)
       return false;
-    // Clip bounds cross the untyped JS boundary. Reject malformed input that
-    // would otherwise feed negatives into ClipRegion's modulo arithmetic
-    // (constants.h render_x_*), yielding a wrong clip band instead of a clean
-    // segment. Mirror setResolution: reject-and-return rather than trap, since a
-    // trap at the JS boundary aborts the whole WASM module. Segment workers
-    // always pass valid, in-range, ordered bounds, so this rejects only
-    // malformed external calls.
+    // Reject malformed bounds from the untyped JS boundary (negatives would feed
+    // ClipRegion's modulo arithmetic); reject-and-return, never trap.
     if (!(x0 >= 0 && y0 >= 0 && x0 <= x1 && x1 <= pixel_width && y0 <= y1 &&
           y1 <= pixel_height)) {
       hs::log("WASM: setClip bounds out of range (x0=%d,x1=%d,y0=%d,y1=%d) — "
@@ -468,16 +391,9 @@ public:
               x0, x1, y0, y1);
       return false;
     }
-    // Cross-segment stateful effects (MeshFeedback's unbounded feedback warp)
-    // must render the FULL canvas in every worker: a band-clipped worker has
-    // stale/zero cv.prev outside its band, so cross-band trails read as black
-    // and seams appear. The Effect ctor reset the clip to the full W x H canvas
-    // and this fires before any narrowing, so returning here preserves that full
-    // clip rather than resetting a stale band. Each worker then computes the
-    // bit-identical full frame and segment_worker.js slices its quadrant out of
-    // the full readback — matching the device, where every board independently
-    // renders the whole canvas. Non-stateful effects fall through and keep the
-    // band (and the clipping win). See docs/segmented_stateful_effects_spec.md.
+    // Cross-segment stateful effects must render the FULL canvas in every worker
+    // (a band-clipped worker has stale cv.prev outside its band, so trails seam);
+    // keep the full clip. See docs/segmented_stateful_effects_spec.md.
     if (currentEffect->needs_full_frame())
       return true;
     currentEffect->set_clip(y0, y1, x0, x1);
@@ -493,25 +409,16 @@ public:
    */
   void drawFrame() {
     if (!currentEffect) {
-      // No active effect (e.g. between setResolution() clearing currentEffect
-      // and the next selectEffect()): clear the active prefix so getPixels()
-      // hands JS a blank frame at the CURRENT resolution rather than the prior
-      // frame still laid out for the old one (wrong aspect / stale content).
-      // pixelBuffer is pre-sized to MAX_W*MAX_H*3 and never resized, so writing
-      // the active prefix is always in-bounds.
+      // No active effect: clear the active prefix so getPixels() hands JS a
+      // blank frame at the current resolution, not stale content.
       const int count = pixel_width * pixel_height * kChannels;
       for (int i = 0; i < count; i++)
         pixelBuffer[i] = 0;
       return;
     }
 
-    // Both readback paths below assume the effect's coordinate domain is exactly
-    // <pixel_width, pixel_height>: the fast path indexes display_buffer() with a
-    // pixel_width stride, and the slow path iterates [0,pixel_height)x[0,pixel_width)
-    // calling get_pixel(x,y). That holds because the effect is instantiated at this
-    // resolution. Assert it once per frame — cold relative to the per-pixel copy
-    // below — so the instantiation invariant is enforced for both paths, not left
-    // implicit in a comment.
+    // Both readback paths assume the effect's domain is <pixel_width,
+    // pixel_height>, true because it is instantiated at this resolution.
     HS_CHECK(currentEffect->width() == pixel_width &&
              currentEffect->height() == pixel_height);
 
@@ -519,20 +426,12 @@ public:
     currentEffect->draw_frame();
     currentEffect->advance_display();
 
-    // Output 16-bit Linear values directly. The readback copies the FULL
-    // canvas regardless of any active clip region: a clip restricts *rendering*
-    // (scanline culling skips out-of-clip rows/cols) but not this readback. In
-    // segmented mode segment_worker.js extracts just its quadrant from this
-    // full buffer before transferring it, so out-of-clip pixels here are
-    // discarded JS-side rather than shaded here (README §10.7).
+    // Readback copies the FULL canvas regardless of any clip; segment_worker.js
+    // extracts its quadrant JS-side (README §10.7).
     int idx = 0;
     const int count = pixel_width * pixel_height;
     if (!currentEffect->overrides_get_pixel()) {
-      // Fast path: for any effect that does not override get_pixel (every
-      // modern effect), display_buffer()[i] == get_pixel(x, y), so copy the
-      // contiguous buffer directly and skip per-pixel virtual dispatch. The
-      // effect's width()/height() equal pixel_width/pixel_height (the effect is
-      // instantiated at this resolution), so the strides match exactly.
+      // Fast path: display_buffer()[i] == get_pixel(x, y), so copy directly.
       const Pixel *buf = currentEffect->display_buffer();
       for (int i = 0; i < count; i++) {
         pixelBuffer[idx++] = buf[i].r;
@@ -596,8 +495,6 @@ public:
    *          daydream.js::refreshPixelView mirrors this expectation.
    */
   val getPixels() {
-    // View spans only the active resolution's pixels (R,G,B per pixel) within
-    // the stable MAX_W*MAX_H*3 backing buffer.
     return val(typed_memory_view(pixel_width * pixel_height * kChannels,
                                  pixelBuffer.data()));
   }
@@ -629,12 +526,8 @@ public:
   bool setParameter(std::string name, float value) {
     if (!currentEffect)
       return false;
-    // Finiteness is NOT re-checked at this boundary on purpose: unlike the
-    // MeshOps wrappers (which own their finite_arg gate), the NaN/inf reject for
-    // params is single-sourced in Canvas::updateParameter (a non-finite value is
-    // dropped there before it can reach render math), so duplicating the check
-    // here would diverge from that one contract point. updateParameter returning
-    // false collapses the non-finite case with name-unknown / readonly (see doc).
+    // Finiteness is single-sourced in Canvas::updateParameter, not re-checked
+    // here.
     return currentEffect->updateParameter(name.c_str(), value);
   }
 
@@ -686,19 +579,14 @@ public:
       entry.set("name", val(v.name));
 
       if (v.is_bool) {
-        // Emit a JS boolean so the frontend's `typeof value === 'boolean'`
-        // check renders a checkbox (daydream.js applyEffect). Bool params
-        // deliberately omit min/max — a toggle has no range, and the GUI keys
-        // off the boolean type, never reading min/max for it. Float params
-        // always carry both because the slider path consumes them.
+        // Emit a JS boolean so the frontend renders a checkbox; toggles omit
+        // min/max (no range).
         entry.set("value", val(v.value > 0.5f));
       } else {
         entry.set("value", v.value);
         entry.set("min", v.min);
         entry.set("max", v.max);
       }
-      // Animation-driven params surface as auto-pausing sliders in the GUI;
-      // read-only params are shown live but disabled for editing.
       entry.set("animated", val(v.animated));
       entry.set("readonly", val(v.readonly));
       result.set(i++, entry);
@@ -720,23 +608,14 @@ public:
    */
   val getParamValues() {
     if (!currentEffect) {
-      // Return an empty Float32Array (not a JS Array) so callers get a
-      // consistent typed-view type whether or not an effect is set — calling a
-      // typed-array method on the no-effect result is then not a footgun.
-      // data() is valid (capacity reserved in the ctor); length 0 exposes
-      // nothing. (getParameterDefinitions() returns a JS array of objects in
-      // both states, so it has no analogous discontinuity.)
+      // Empty Float32Array (not a JS Array) so callers get a consistent typed
+      // view whether or not an effect is set.
       paramValues.clear();
       return val(typed_memory_view(paramValues.size(), paramValues.data()));
     }
 
-    // Same definition order as getParameterDefinitions(); clears but retains the
-    // MAX_PARAMS capacity reserved in the ctor, so no reallocation occurs here.
+    // Same order as getParameterDefinitions(); clear retains MAX_PARAMS capacity.
     hs_wasm::fill_param_values(*currentEffect, paramValues);
-    // Same memory-view contract as getPixels(): this view aliases WASM memory
-    // and must be consumed before the next allocation. paramValues never
-    // reallocates here (params.size() <= MAX_PARAMS), so emitting it triggers no
-    // heap growth that could detach other outstanding views.
     return val(typed_memory_view(paramValues.size(), paramValues.data()));
   }
 
@@ -911,8 +790,6 @@ struct MeshOpsWrapper {
    *          tripping get_by_name()'s fail-fast HS_CHECK and aborting the module.
    */
   static std::unique_ptr<MeshOpsWrapper> fromSolidName(std::string name) {
-    // Untrusted JS boundary: a typo'd/stale name would trip get_by_name()'s
-    // fail-fast HS_CHECK and abort the module. Reject unknown names instead.
     if (!Solids::has_name(name)) {
       hs::log("WASM: fromSolidName unknown solid '%s' — ignored", name.c_str());
       return nullptr;
@@ -954,8 +831,6 @@ struct MeshOpsWrapper {
       val face = val::array();
       int count = mesh.face_counts[i];
       for (int c = 0; c < count; ++c) {
-        // face_counts must sum to faces.size(); trap a corrupt/desynced pair
-        // instead of reading past the flat index buffer.
         HS_CHECK(static_cast<size_t>(flat_idx) < mesh.faces.size());
         face.call<void>("push", mesh.faces[flat_idx++]);
       }
@@ -1184,20 +1059,13 @@ struct MeshOpsWrapper {
 
     ensure_tooling_arenas();
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
-      // Measure each solid in the scratch arenas ONLY — never tooling_arena,
-      // which backs every live MeshOpsWrapper the JS side still holds; resetting
-      // it here would silently invalidate those meshes. Generating straight into
-      // scratch (skipping finalize_solid, which exists only to copy into a
-      // persistent geom arena) yields the same vertex/face/index counts without
-      // touching, growing, or resetting the persistent mesh storage.
+      // Measure in the scratch arenas only — never tooling_arena, which backs
+      // live wrappers the JS side holds.
       tooling_scratch_a.reset();
       tooling_scratch_b.reset();
       PolyMesh temp =
           Solids::get_entry(i).generate(tooling_scratch_a, tooling_scratch_b);
 
-      // Explicit narrowing: these roster counts are all well under INT16_MAX
-      // (bounded by MAX_VERTS/MAX_INDICES), so size_t -> int is lossless here.
-      // Dev-only measurement binding; not on any UI path.
       int v = static_cast<int>(temp.vertices.size());
       int f = static_cast<int>(temp.face_counts.size());
       int idxs = static_cast<int>(temp.faces.size());
@@ -1216,7 +1084,6 @@ struct MeshOpsWrapper {
       }
     }
 
-    // tooling_arena was never touched, so live meshes are unaffected.
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
 
@@ -1277,12 +1144,8 @@ struct PaletteOps {
    */
   val bakeLut(int gradientShape, int h1, int s1, int v1, int h2, int s2, int v2,
               int h3, int s3, int v3) {
-    // gradientShape crosses the untyped JS boundary; an out-of-range int is UB
-    // when static_cast into the 4-value GradientShape enum. Clamp to STRAIGHT
-    // and log rather than trap (a trap at the JS boundary aborts the whole WASM
-    // module), mirroring setClip's reject-and-continue. This keeps the 256*3-byte
-    // return contract intact for the caller. The h/s/v ints are documented [0,255]
-    // and intentionally truncated to uint8_t below.
+    // Out-of-range gradientShape is UB when cast into the enum; clamp and log
+    // rather than trap at the JS boundary.
     if (gradientShape < 0 ||
         gradientShape > static_cast<int>(GradientShape::FALLOFF)) {
       hs::log("WASM: bakeLut gradientShape %d out of range — using STRAIGHT",
@@ -1344,8 +1207,7 @@ static val eval_cubic_spline(Vector (*fn)(const Vector &, const Vector &,
                              float p1y, float p1z, float p2x, float p2y,
                              float p2z, float p3x, float p3y, float p3z,
                              float t) {
-  // Non-finite control points/parameter would flow into the slerp normalize and
-  // abort the module; reject at the boundary and return the zero vector.
+  // Reject non-finite input at the boundary (it would abort the slerp normalize).
   if (!all_finite({p0x, p0y, p0z, p1x, p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z,
                    t}))
     return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
@@ -1391,9 +1253,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getVertices", &MeshOpsWrapper::getVertices)
       .function("getFaces", &MeshOpsWrapper::getFaces)
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
-      // Conway/Goldberg operators, bound from the same MESHOP_LIST that
-      // generates their wrapper methods so a new operator cannot compile yet be
-      // unreachable from JS.
+      // Bound from the same MESHOP_LIST that generates the wrapper methods.
 #define MESHOP_BIND(name) .function(#name, &MeshOpsWrapper::name)
       MESHOP_LIST(MESHOP_BIND, MESHOP_BIND)
 #undef MESHOP_BIND
@@ -1463,12 +1323,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
            }));
 
   // ── Color / palette / lissajous exports ────────────────────────────────────
-  // tools/color.js, tools/palette_math.js and tools/lissajous_math.js hand-port
-  // this engine math (the sRGB transfer, the Ottosson OKLab matrices, the
-  // integer HSV sextant split, the ProceduralPalette cosine formula, the
-  // lissajous curve). Exporting the real engine functions lets the JS tools
-  // cross-check their ports, so an engine-side change fails a JS test instead of
-  // silently drifting from the device.
+  // The real engine math, exported so the JS tool ports can cross-check it.
 
   // sRGB transfer function (color.js srgbToLinearFloat / linearToSrgbFloat).
   function("srgb_to_linear_float",
@@ -1480,9 +1335,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
              return all_finite({l}) ? linear_to_srgb_float(l) : 0.0f;
            }));
 
-  // The interpolated sRGB->16-bit-linear LUT the cosine palette path uses, so a
-  // JS test can reproduce ProceduralPalette::get's exact quantization. A
-  // non-finite s would cast to an out-of-range LUT index, so gate it.
+  // The interpolated sRGB->16-bit-linear LUT the cosine palette path uses.
   function("srgb_to_linear_interp",
            optional_override([](float s) -> int {
              if (!all_finite({s}))

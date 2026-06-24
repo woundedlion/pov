@@ -82,12 +82,7 @@ constexpr int32_t floor_mod(int64_t a, int32_t m) {
  * @return Shortest distance around the ring, in columns, in [0, w/2].
  */
 constexpr int32_t circ_dist(int32_t a, int32_t b, int32_t w) {
-  // The single `+= w` fully normalizes for ANY a, b — it does not rely on the
-  // inputs being pre-reduced to [0, w). C++ truncated division gives a remainder
-  // strictly in (-w, w) for any dividend, so `(a - b) % w` is already within one
-  // `w` of [0, w); one conditional add lands it in [0, w). The only real
-  // preconditions are w > 0 and that `a - b` not overflow int32 (always true for
-  // column indices, which are bounded by the ring width).
+  // (a-b)%w lands in (-w, w) for any a, b, so one conditional add normalizes.
   int32_t d = (a - b) % w;
   if (d < 0)
     d += w;
@@ -228,34 +223,20 @@ struct Config {
     return W > 0 && W % 2 == 0 && cycles_per_half_rev > 0 && gate_cols > 0 &&
            gate_cols < W / 4 && reject_fallback > 0 && glitch_filter_cycles > 0 &&
            pulse_pitch_cols > 0 && gap_timeout_cols > pulse_pitch_cols &&
-           // Beacon wire mirrors the boundary wire: digit pulses must be closer
-           // than the gap that terminates the burst, or every beacon digit would
-           // read as its own burst.
            beacon_pitch_cols > 0 && gap_timeout_cols > beacon_pitch_cols &&
            effect_count > 0 && effect_count <= 64 && commit_revs > 0 &&
-           // epoch_repeats is signed: a negative value would cast to a huge
-           // uint32_t below, spuriously satisfying the refractory bound while
-           // wrapping commit_in_revs into an astronomical refractory window.
-           // Gate >= 0 first so the cast (and the bound it feeds) is well-defined;
-           // the refractory inequality then also caps it from above.
+           // Gate epoch_repeats >= 0 first: a negative value casts to a huge
+           // uint32_t and wraps the refractory bound below.
            epoch_repeats >= 0 &&
            refractory_revs >
                commit_revs + static_cast<uint32_t>(epoch_repeats) &&
            revs_per_effect > refractory_revs &&
            beacon_period_revs > commit_revs &&
-           // The beacon carries rev mod 64 (6 bits); the receiver resyncs a
-           // slipped schedule counter via the signed mod-64 difference
-           // (handle_beacon_burst), which recovers a slip only in (-32, +32) —
-           // a larger slip aliases to the wrong sign and resyncs backwards. The
-           // counter is corrected on EVERY beacon, so the slip seen at a
-           // cross-check cannot outgrow the beacon spacing; bounding the period
-           // below the half-window keeps the resync precondition enforced rather
-           // than assumed.
+           // Beacon rev resync recovers a slip only in (-32, +32), so keep the
+           // period below the half-window.
            beacon_period_revs < 32 &&
-           // §9.1 rejoin budget: a board joining just after a beacon waits up
-           // to beacon_period_revs revs for the next identity, so the cadence
-           // must stay within the budget (≤16 revs ≈ 2 s at 480 RPM). Ties the
-           // two previously-independent tunables; the budget was prose-only.
+           // §9.1 rejoin budget: a joiner waits up to beacon_period_revs revs
+           // for the next identity, so cap the cadence at the budget.
            beacon_period_revs <= rejoin_budget_revs && join_grid_revs > 0 &&
            (64u % join_grid_revs) == 0;
   }
@@ -433,7 +414,7 @@ public:
       first_cycles_ = now;
     last_cycles_ = now;
     if (count_ < 255)
-      ++count_; // saturate; anything > 8 is invalid everywhere downstream
+      ++count_; // saturate
   }
 
   /**
@@ -483,13 +464,8 @@ public:
   }
 
 private:
-  // burst_complete() + claim() are the pre-consolidation split consumer path:
-  // a separate completion test and a separate take. try_claim() fused them so
-  // the test and the reset cannot be split around an incoming edge (see its
-  // @details). They survive only because the unit tests exercise the two halves
-  // in isolation; production must use try_claim(). Kept private behind a test
-  // friend so the split-then-reset race cannot be reintroduced at a real call
-  // site by accident.
+  // burst_complete()+claim() are the split consumer path try_claim() fused;
+  // kept private behind a test friend so production cannot reintroduce the race.
   friend struct ::hs_test::pov_sync_tests::EdgeMailboxTestAccess;
 
   /**
@@ -584,17 +560,9 @@ public:
   explicit Flywheel(const Config &cfg)
       : period_(cfg.cycles_per_half_rev), w_(cfg.W), gate_cols_(cfg.gate_cols),
         reject_fallback_(cfg.reject_fallback) {
-    // position() reinterprets (at - epoch_cycles_) as int32 (modular -> signed),
-    // so the elapsed term must never reach 2^31 cycles. The rebase rule folds
-    // the epoch forward by one half-rev (period_ cycles) at every boundary
-    // crossing, so in steady state |elapsed| stays within ~one half-rev plus the
-    // masked-window coast. Pin that safety to a guard instead of leaving it to
-    // the rebase invariant alone: require at least kMinSafeHalfRevs half-revs of
-    // coast to fit inside the int32 window. At the default 37.5M cycles/half-rev
-    // this leaves ~57 half-revs (~3.5 s at 600 MHz); the floor below trips only a
-    // grossly slow (≈<134 rpm-equivalent) misconfiguration. Raise kMinSafeHalfRevs
-    // if the rotor can legitimately coast longer than this without a snap; raise
-    // it far enough and a slow period would (correctly) fail this check at boot.
+    // position() reinterprets (at - epoch_cycles_) as int32, so the elapsed term
+    // must never reach 2^31 cycles. Require at least kMinSafeHalfRevs half-revs
+    // of coast to fit inside that window.
     constexpr uint32_t kMinSafeHalfRevs = 16;
     HS_CHECK(period_ > 0 &&
                  period_ <= static_cast<uint32_t>(INT32_MAX) / kMinSafeHalfRevs,
@@ -628,8 +596,6 @@ public:
    * evaluation may look slightly into the past).
    */
   int32_t position(uint32_t at) const {
-    // The int32 reinterpretation is safe within the window the constructor's
-    // kMinSafeHalfRevs guard reserves against INT32_MAX (see Flywheel ctor).
     const int64_t delta =
         static_cast<int32_t>(at - epoch_cycles_); // modular → signed
     const int64_t cols = floor_div(delta * (w_ / 2), period_);
@@ -772,10 +738,8 @@ constexpr void encode_beacon_digits(int32_t effect_index, uint32_t rev_count,
   out[1] = static_cast<uint8_t>(idx & 7u);
   out[2] = static_cast<uint8_t>(rev >> 3);
   out[3] = static_cast<uint8_t>(rev & 7u);
-  // Position-weighted Σ(i+1)·dᵢ mod 8 rather than a plain sum: at no extra wire
-  // cost it detects digit transpositions and compensating errors (a pulse
-  // miscounted into the adjacent burst) — the corruption classes a pulse-count
-  // alphabet is prone to and that an unweighted sum is blind to.
+  // Position-weighted Σ(i+1)·dᵢ mod 8: catches digit transpositions and
+  // compensating miscounts a plain sum would miss.
   out[4] = static_cast<uint8_t>(
       (1u * out[0] + 2u * out[1] + 3u * out[2] + 4u * out[3]) & 7u);
 }
@@ -833,8 +797,7 @@ public:
     if (n_ < 5)
       return false;
     n_ = 0;
-    // Position-weighted checksum (see encode_beacon_digits): catches digit
-    // transpositions and compensating miscounts an unweighted sum would pass.
+    // Position-weighted checksum (see encode_beacon_digits).
     if (((1u * digits_[0] + 2u * digits_[1] + 3u * digits_[2] +
           4u * digits_[3]) &
          7u) != digits_[4]) {
@@ -989,21 +952,13 @@ public:
                          const Config &cfg) {
     if (symbol == Symbol::INVALID)
       return false;
-    // A boundary scheduled in the future (now before at_cycles) is not late:
-    // take the lateness as a SIGNED difference so the unsigned wrap of
-    // now - at_cycles isn't read as a huge positive lateness and censored.
-    // Mirrors the signed now-vs-due tests in tick() — a future boundary is
-    // simply scheduled and waits there. (Current callers always pass a past
-    // boundary, so this is defensive, but it keeps the censor consistent with
-    // the rest of the emitter.)
+    // Signed lateness so a future boundary isn't read as a huge positive
+    // lateness through the unsigned wrap of now - at_cycles.
     const int32_t lateness = static_cast<int32_t>(now - at_cycles);
     if (lateness > static_cast<int32_t>(cfg.late_censor_cycles()))
       return false; // late at the boundary: skip the whole symbol
-    // The wire must be idle: a still-running beacon frame here means the
-    // schedule violated its own spacing — drop the boundary symbol rather
-    // than corrupt both (cannot happen with in-range config; defensive).
     if (pulses_left_ > 0 || queue_pos_ < queue_len_)
-      return false;
+      return false; // wire still busy (defensive; in-range config never hits it)
     pulses_left_ = symbol_pulse_count(symbol);
     next_due_ = at_cycles;
     pitch_ = cfg.pulse_pitch_cycles();
@@ -1216,17 +1171,10 @@ public:
     if (burst)
       handle_burst(*burst, a);
 
-    // Suspect-burst timeout: a lone valid-count burst far from every
-    // predicted boundary was held pending (handle_burst). If the beacon
-    // interdigit window expired with no follow-up burst, it was not beacon
-    // data — count it as a gate rejection so a board with a corrupted
-    // timebase (whose REAL boundary symbols all land "far") still reaches
-    // the §5.3 ACQUIRE fallback instead of deadlocking.
-    // The signed (now - suspect_last_cycles_) > 0 re-check rejects a modular
-    // difference that wrapped to look like a huge positive timeout. It assumes
-    // the tick cadence is far below 2^31 cycles, so a genuine elapsed interval
-    // never spans half the counter between ticks — true at any real spindle
-    // speed (ticks land every column, ~tens of thousands of cycles apart).
+    // Suspect-burst timeout: a lone far burst held pending in handle_burst that
+    // saw no follow-up was not beacon data — count it as a gate rejection so a
+    // corrupted-timebase board still reaches the §5.3 ACQUIRE fallback. The
+    // signed re-check rejects a wrapped modular difference.
     if (suspect_pending_ &&
         (now - suspect_last_cycles_) > cfg_.interdigit_timeout_cycles() &&
         static_cast<int32_t>(now - suspect_last_cycles_) > 0) {
@@ -1237,7 +1185,7 @@ public:
     }
 
     // Fold every locally-crossed boundary (usually 0 or 1; several after a
-    // long masked coast — the skipped columns were undisplayable anyway).
+    // long masked coast).
     for (;;) {
       const Crossing c = fly_.fold(now);
       if (!c.crossed)
@@ -1260,12 +1208,8 @@ public:
     if (aborted)
       ++telemetry_.emit_aborted;
 
-    // Render decision. Dark whenever phase or content identity is missing,
-    // and during the epoch construction window — the last K revolutions of
-    // the commit countdown, an absolute boundary all boards share, so the
-    // window is deterministic on every board (spec §6.1 — never a stale
-    // frame on some and black on others). The announce phase before it
-    // keeps playing the outgoing effect.
+    // Render decision: dark when phase/identity is missing or during the epoch
+    // construction window (spec §6.1).
     a.dark = fly_.lock() != LockState::LOCKED || !content_.identity_known ||
              content_.constructing(cfg_);
     if (!a.dark) {
@@ -1375,15 +1319,12 @@ private:
       if (content_.on_zero_crossing(cfg_))
         a.commit = true; // B+R+K reached; driver swaps in the pending effect
       else if (content_.construction_opens(cfg_))
-        // Last K revolutions: ask the foreground to construct the next
-        // effect now, on every board at the same absolute boundary.
+        // Last K revolutions: construct the next effect now.
         publish_build((content_.effect_index + 1) % cfg_.effect_count);
       else if (!content_.commit_pending &&
                (content_.rev_in_effect % cfg_.join_grid_revs) == 0)
-        // Raised on every join-grid boundary regardless of whether this board is
-        // already rendering: it only marks "a late joiner could snap in here".
-        // The driver shell is responsible for acting on it only when it has no
-        // live effect — a board mid-render ignores the flag.
+        // Marks "a late joiner could snap in here"; the shell acts on it only
+        // when it has no live effect.
         a.join_boundary = true;
     }
   }
@@ -1417,12 +1358,9 @@ private:
       const int32_t to_half = circ_dist(pos, cfg_.W / 2, cfg_.W);
       if (to_zero > cfg_.gate_cols && to_half > cfg_.gate_cols) {
         handle_beacon_burst(s);
-        // A lone valid-count burst far from every predicted boundary is
-        // either EMI or — if this board's timebase is corrupted — a real
-        // boundary symbol it can no longer place. It is indistinguishable
-        // from a beacon's first digit until we know whether a train
-        // follows, so hold it as a suspect; the timeout in tick() converts
-        // it into a gate rejection if the wire stays silent.
+        // A lone far burst is indistinguishable from a beacon's first digit
+        // until a train follows: hold it as a suspect, and tick()'s timeout
+        // converts it to a gate rejection if the wire stays silent.
         const bool isolated =
             !had_prev ||
             (s.first_cycles - prev_end) >= cfg_.acquire_quiet_cycles();
@@ -1433,10 +1371,8 @@ private:
         return;
       }
     } else {
-      // ACQUIRE quiet-before guard: boundary symbols are isolated on the
-      // wire (≥ half-rev apart); a burst following close on another is a
-      // beacon digit train. Keeps a just-rebooted board from hard-snapping
-      // to a mid-revolution data burst.
+      // ACQUIRE quiet-before guard: a burst following close on another is a
+      // beacon digit train, not an isolated boundary symbol — don't hard-snap.
       if (had_prev &&
           (s.first_cycles - prev_end) < cfg_.acquire_quiet_cycles()) {
         handle_beacon_burst(s);
@@ -1464,20 +1400,13 @@ private:
     if (!was_locked)
       ++telemetry_.lock_transitions;
     halves_since_snap_ = 0;
-    // Backstop flip; deduped if the local crossing already fired. This MUST
-    // precede on_epoch_symbol: for a ZERO_EPOCH it folds rev_in_effect (via
-    // on_zero_crossing) so the j-inference below reads the post-fold rev. Were
-    // the boundary fold left to tick()'s fold loop — which runs after
-    // handle_burst — a burst landing in the same tick as its fold would infer j
-    // one short on a repeat copy and commit a revolution late (§6.3.1). The
-    // later fold-loop apply_flip is then the deduped one. See
-    // test_epoch_same_tick_burst_fold.
+    // MUST precede on_epoch_symbol: a ZERO_EPOCH folds rev_in_effect here so the
+    // j-inference below reads the post-fold rev (§6.3.1). Deduped against the
+    // later fold-loop apply_flip. See test_epoch_same_tick_burst_fold.
     apply_flip(b, a);
     if (sym == Symbol::ZERO_EPOCH && content_.identity_known) {
       if (content_.on_epoch_symbol(cfg_)) {
-        // Construction normally starts at a later crossing (apply_flip);
-        // a board that heard only the LAST repeat opens the window at the
-        // accept itself.
+        // A board that heard only the last repeat opens the window at the accept.
         if (content_.construction_opens(cfg_))
           publish_build((content_.effect_index + 1) % cfg_.effect_count);
       } else {
@@ -1508,18 +1437,9 @@ private:
       content_.rev_in_effect = f.rev_count;
       publish_build(idx);
     } else if (content_.commit_pending) {
-      // Inside the epoch window the displayed index is in flux; the next
-      // post-commit beacon re-verifies. Deliberately do NOT publish_build here:
-      // suppressing the index-correction publish while a commit is pending is
-      // what keeps pending_gen_ stable from the moment construction opens to the
-      // commit. That stability is the precondition the commit-time HS_CHECK in
-      // the segmented/single foreground relies on — pending_gen_ must still
-      // equal the wire's advertised build_gen when `a.commit` fires; bumping it
-      // mid-window would either trap a fully-built effect on a non-bug or commit
-      // a half-built one. (The join branch above also cannot fire mid-window: it
-      // requires !identity_known, and a board in its commit window joined long
-      // ago. The master's own epoch publish is likewise gated on
-      // !commit_pending in master_on_crossing.)
+      // Do NOT publish_build mid-window: pending_gen_ must stay stable from
+      // construction-open to commit, the precondition the commit-time HS_CHECK
+      // relies on. The next post-commit beacon re-verifies the index.
     } else if (idx != content_.effect_index) {
       // Missed epoch (all repeats): correct within ≤16 revs (spec §6.3.2).
       content_.effect_index = idx;
@@ -1527,19 +1447,9 @@ private:
       ++telemetry_.beacon_index_corrections;
       publish_build(idx);
     } else if (f.rev_count != (content_.rev_in_effect & 63u)) {
-      // The schedule counter slipped against the master's: a late commit
-      // through the §6.3.1 j-fallback, or a crossing hiccup while a
-      // corrupted timebase recovered. Left alone the slip is
-      // self-sustaining — the board's own commit re-zeros the counter at
-      // its own, offset boundary — and it skews every later epoch commit
-      // by mis-inferred j. §6.2's "detect, don't retro-correct" applies to
-      // content frames (t is untouched); the counter itself is resynced by
-      // the signed mod-64 difference, which restores absolute agreement
-      // for any slip under 32 revolutions and so re-arms exact j-inference
-      // before the next train. (A mid-effect joiner's counter is mod-64 in
-      // absolute terms until its first commit; the correction keeps its
-      // residue exact regardless, and full absolute agreement follows that
-      // commit.)
+      // The schedule counter slipped against the master's; left alone it skews
+      // every later epoch commit by mis-inferred j. Resync via the signed
+      // mod-64 difference, which recovers any slip under 32 revolutions.
       ++telemetry_.beacon_rev_mismatches;
       const int32_t d =
           beacon_rev_resync_delta(f.rev_count, content_.rev_in_effect);
@@ -1562,15 +1472,11 @@ private:
   void master_on_crossing(const Crossing &c, uint32_t now, TickActions &) {
     Symbol sym = Symbol::HALF;
     if (c.boundary == Boundary::ZERO) {
-      // Conductor (spec §6.1): when the effect's revolutions elapse, start
-      // an EPOCH train — the primary copy plus R redundancy repeats on the
-      // following ZERO boundaries (idempotent via the refractory window).
+      // Conductor (spec §6.1): when the effect's revolutions elapse, start an
+      // EPOCH train — primary copy plus R repeats on following ZERO boundaries.
       if (epoch_emits_left_ == 0 && !content_.commit_pending &&
           content_.rev_in_effect >= cfg_.revs_per_effect) {
         epoch_emits_left_ = 1 + cfg_.epoch_repeats;
-        // j = 0 by construction (the train starts at this crossing); the
-        // build publish follows when the construction window opens —
-        // immediately, if epoch_repeats is zero.
         if (content_.on_epoch_symbol(cfg_) &&
             content_.construction_opens(cfg_))
           publish_build((content_.effect_index + 1) % cfg_.effect_count);
@@ -1581,9 +1487,8 @@ private:
         sym = Symbol::ZERO;
       }
     }
-    // Spend the epoch-train redundancy budget only on a symbol that actually
-    // reaches the wire: a censored ZERO_EPOCH never propagated, so decrementing
-    // for it would silently burn a repeat exactly when the wire is degraded.
+    // Spend a redundancy repeat only on a symbol that actually reaches the wire;
+    // a censored ZERO_EPOCH never propagated.
     if (!emitter_.schedule_boundary(sym, c.at_cycles, now, cfg_))
       ++telemetry_.emit_censored;
     else if (sym == Symbol::ZERO_EPOCH)
@@ -1596,32 +1501,16 @@ private:
    * @param now Current timestamp, in cycles.
    */
   void maybe_schedule_beacon(uint32_t now) {
-    // Beacon point: x ≈ W/4, i.e. mid-way through the ZERO→HALF half-rev,
-    // where the wire is otherwise quiet (spec §6.4). Emitted on rev 1 of
-    // every beacon period plus the first revs of a fresh effect (confirming
-    // the post-commit index immediately) — never rev 0 of boot, so a
-    // just-powered downstream board sees clean boundary symbols first.
+    // Beacon point: x ≈ W/4, mid-way through the ZERO→HALF half-rev where the
+    // wire is otherwise quiet (spec §6.4).
     if (beacon_done_this_rev_ || fly_.current_boundary() != Boundary::ZERO)
       return;
-    // Stay silent during the commit window: a beacon here would broadcast
-    // the outgoing effect's index, and a board joining off it would adopt
-    // stale identity just as everyone else switches.
+    // Silent during the commit window: a beacon here broadcasts the outgoing
+    // index, and a board joining off it would adopt stale identity.
     if (content_.commit_pending)
       return;
-    // Beacon-start budget (why the frame can't encroach the HALF boundary):
-    // the start is gated to position >= W/4 (col 72 at W=288). schedule_beacon()
-    // lays down 5 digit bursts separated by 4 inter-burst gaps (the trailing
-    // gap its loop adds past the last digit falls after the final pulse, so it
-    // does not extend the frame's footprint). The visible worst case is thus
-    // 5·digit·beacon_pitch_cols + 4·(gap_timeout_cols+1) cols — with base-8
-    // digits ≤7, pitch 1 and gap 4 that is 5·7 + 4·5 = 55 cols (~24 ms at
-    // 480 RPM). So even a frame starting exactly at W/4 ends by ~col 127,
-    // ~17 cols (~7 ms) short of HALF (col 144). A masked window can
-    // only push the *start* later toward W/2; that ~12-col slack is the margin
-    // absorbing it (and schedule_beacon's defensive guard plus the per-pulse
-    // late_censor in emitter_.tick handle any pulse that itself slips). There is
-    // deliberately no separate beacon-start late-bound: the span budget above is
-    // the guarantee, documented here rather than re-enforced.
+    // Frame span (≤55 cols at base-8 digits) ends well short of HALF even when a
+    // masked window pushes the start later; no separate beacon-start late-bound.
     if (fly_.position(now) < cfg_.W / 4)
       return;
     beacon_done_this_rev_ = true;
@@ -1666,23 +1555,10 @@ private:
   uint32_t epoch_emits_left_ = 0;
   bool beacon_done_this_rev_ = false;
   uint32_t build_gen_ = 0;
-  // ISR→foreground handoff: written by publish_build(), polled by the
-  // foreground via build_word(). publish_build() runs from the flywheel ISR in
-  // steady state, but seed(is_master=true) also calls it once from the
-  // foreground at boot to publish effect 0 — a benign pre-attach write before
-  // the sync ISR is live, so no concurrent writer races it. It stays `volatile`
-  // (not std::atomic) *deliberately*: unlike POVSegmented's cross-context handoff
-  // words — which migrated to std::atomic but are all *static* members, so atomic
-  // doesn't affect any object's copyability — build_word_ is a per-instance member
-  // of SyncBoard, and SyncBoard is move-assigned at setup (`sync_ = SyncBoard(cfg)`
-  // in POVSegmented::run_show()). A std::atomic member would delete that implicit
-  // move-assignment, forcing a hand-written every-member operator= just to keep
-  // the assignment compiling — strictly worse. `volatile` keeps SyncBoard
-  // move-assignable while still forcing the foreground to re-load each poll;
-  // without that re-load the pre-first-build run_show loop (no other
-  // volatile/opaque access on that path) may hoist the load and never observe the
-  // ISR's first publish. The access is a single aligned word with one logical
-  // writer at a time, so the volatile read/write is benign here.
+  // `volatile`, not std::atomic: SyncBoard is move-assigned at setup (sync_ =
+  // SyncBoard(cfg)), and an atomic member would delete the implicit move-assign.
+  // volatile keeps the type move-assignable and still forces the foreground poll
+  // to re-load (single aligned word, one logical writer at a time).
   volatile uint32_t build_word_ = 0; /**< (gen << 8) | index; foreground-read. */
 };
 

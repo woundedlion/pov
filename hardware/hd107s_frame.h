@@ -27,13 +27,9 @@
                            // pulling it (this header is independently host-tested)
 #include "core/color.h" // Pixel16, CRGB, srgb_to_linear_lut / linear_to_srgb_lut
 
-// arm_dcache_flush is a Teensy cache intrinsic (Arduino.h) that cleans (writes
-// back) dirty D-cache lines without invalidating them. That is exactly what a
-// TX-only buffer needs: the CPU writes it and DMA only reads it, so the lines
-// must reach RAM (clean) but stay resident for the next frame's re-read/re-write
-// — the heavier flush_delete (clean+invalidate) would needlessly evict them. It
-// only matters when a real DMA engine reads the buffer; on host builds (unit
-// tests, WASM sim) there is no DMA, so the flush is a no-op.
+// arm_dcache_flush (Arduino.h) cleans dirty D-cache lines without invalidating:
+// a TX-only buffer must reach RAM but stay resident for the next frame's write.
+// No DMA on host builds, so the flush is a no-op there.
 #ifndef ARDUINO
 static inline void arm_dcache_flush(void *, size_t) {}
 #endif
@@ -99,10 +95,8 @@ public:
    */
   HD107SFrame() {
     memset(buffer_, 0, COMPOSITE_SIZE);
-    // Prime the 0xFF brightness byte of every pixel slot in both the image frame
-    // (base 4) and the trailing black frame (base BUFFER_SIZE+4); only the B/G/R
-    // color bytes change at runtime. One construction-time loop over the two
-    // half-base offsets keeps the two frames from drifting out of sync.
+    // Prime the 0xFF brightness byte of every pixel slot in the image frame
+    // (base 4) and the trailing black frame (base BUFFER_SIZE+4).
     const int bases[2] = {4, BUFFER_SIZE + 4};
     for (int base : bases) {
       for (int i = 0; i < N; ++i) {
@@ -176,8 +170,6 @@ public:
       dest += 4;
     }
 
-    // Flush data cache so DMA sees the updated buffer. Full COMPOSITE_SIZE on
-    // purpose even for an image-only transfer — see flush()'s note.
     arm_dcache_flush(buffer_, COMPOSITE_SIZE);
   }
 
@@ -297,12 +289,6 @@ private:
     return f == 0 ? 0u : static_cast<uint16_t>(f) + 1u;
   }
 
-  // LUT-index safety for correct(): every (v * f) >> 8 stage must leave v within
-  // its 16-bit range, or the chained result over-reads the 65536-entry
-  // linear_to_srgb_lut. That holds iff factor() never exceeds unity (256), and
-  // factor() is monotonic so its maximum is at f == 255. Pin it here so widening
-  // factor()'s domain (e.g. a future >1.0 gain) fails at compile time instead of
-  // silently over-reading the LUT on the ISR hot path.
   static_assert(factor(255) <= 256u,
                 "factor() must cap at unity (256) so correct()'s (v*f)>>8 stages "
                 "cannot grow v past 16 bits and over-read linear_to_srgb_lut");

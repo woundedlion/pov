@@ -40,11 +40,6 @@
  * Used by Holosphere (96x20 / 288x144 with one Teensy owning the full strip).
  */
 template <int S, int RPM> class POVDisplay {
-  // The whole driver tiles the strip as two equal arms of S/2 rows: rows = S/2
-  // truncates, show_col() loops y in [0, S/2), and the resolution HS_CHECK only
-  // validates effect height == S/2. An odd S would silently drop the middle LED
-  // (S=41 -> writes 40) and mis-tile the strip with no runtime trap. Guard the
-  // precondition at compile time, in keeping with the fail-fast doctrine.
   static_assert(S > 0 && S % 2 == 0,
                 "POVDisplay requires an even, positive segment count S");
 
@@ -68,9 +63,8 @@ public:
    * separate hs::random() mt19937(1337) reproduced by the simulator.
    */
   POVDisplay() {
-    // Seeds FastLED's LCG only (bare random8/16/random(), used by legacy
-    // effects); modern effects draw from hs::random() mt19937(1337). See the
-    // determinism contract in platform.h.
+    // Seeds FastLED's LCG only (legacy effects); modern effects draw from
+    // hs::random() mt19937(1337). See the determinism contract in platform.h.
     randomSeed(1337);
   #ifdef USE_DMA_LEDS
     ledController_.begin();
@@ -82,8 +76,7 @@ public:
                                                                         S);
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
-    FastLED.setBrightness(255);  // explicit (FastLED defaults to 255), so both
-                                 // branches set correction+temperature+brightness
+    FastLED.setBrightness(255);
   #endif
   }
 
@@ -117,31 +110,23 @@ private:
    * strip or an unguarded OOB read in the column ISR.
    */
   void run(Effect *e, unsigned long duration) {
-    // Unsigned start + unsigned elapsed (millis() - start) is the overflow-safe
-    // timing idiom: the modular subtraction stays correct across the ~49.7-day
-    // millis() wraparound. A signed start would mis-compare on overflow.
+    // Unsigned start + (millis() - start) stays correct across the millis()
+    // wraparound; a signed start would mis-compare on overflow.
     const unsigned long start = millis();
     const unsigned long duration_ms = duration * 1000;
     effect_ = e;
-    // ISR seam (project doctrine: trap at the cold bind site, not the hot ISR):
-    // show_col() walks y in [0, S/2) and indexes the display buffer as
-    // buf[y * width + x], in-bounds only when the effect's canvas height equals
-    // the strip's half-height. Trap a driver/effect resolution mismatch here,
-    // before it becomes an unguarded OOB read inside the column ISR.
+    // show_col() indexes buf[y * width + x] for y in [0, S/2), in-bounds only
+    // when the effect's canvas height equals the strip's half-height.
     HS_CHECK(effect_->height() == S / 2,
              "POVDisplay: effect canvas height must equal S/2");
     x_ = 0;
     IntervalTimer timer;
-    // One column sweep period (µs), rounded. A pathological RPM/width could floor
-    // this to 0 µs, which gives IntervalTimer::begin an undefined period — trap
-    // the degenerate timing here, beside the no-PIT-channel guard.
+    // One column sweep period (µs), rounded; a pathological RPM/width could
+    // floor it to 0 µs, an undefined IntervalTimer period.
     const unsigned long interval_us = static_cast<unsigned long>(
         1000000.0f / (RPM / 60.0f) / effect_->width() + 0.5f);
     HS_CHECK(interval_us >= 1,
         "column interval rounded to 0 µs (RPM/width too high)");
-    // sweep the width once per rotation; begin() returns false if no PIT
-    // channel is free — an unstarted timer means the column ISR never fires
-    // and the strip stays dark, so trap rather than render to a dead timer.
     HS_CHECK(timer.begin(show_col, interval_us),
         "column IntervalTimer failed to start (no PIT channel)");
     while (millis() - start < duration_ms) {
@@ -149,14 +134,12 @@ private:
       effect_->draw_frame();
       unsigned long dt = micros() - t0;
       if (hs::debug) {
-        // dt is micros() elapsed; the unit-neutral "ft " label matches the
-        // segmented driver.
         Serial.print("ft ");
         Serial.println(dt);
       }
     }
     timer.end();
-    effect_ = nullptr; // ISR detached above — unpublish; caller deletes e
+    effect_ = nullptr;
   }
 
 private:
@@ -166,33 +149,25 @@ private:
    */
   static FASTRUN void show_col() {
     // Top half reads column x_; bottom half reads the opposite column (x_+W/2).
-    // The physical-LED ↔ canvas mapping (pov::strip_*) is host-unit-tested in
-    // tests/test_pov_single.h.
     const int w = effect_->width();
     const int x_top = x_;
     const int x_bot = pov::strip_opposite_col(x_, w);
 
-    // ISR fast path: fetch the display buffer base once and index it directly,
-    // dropping the S per-column virtual get_pixel() dispatches. Sound because
-    // (1) prev_ is stable for this whole column — advance_display() runs below
-    // after the loop — and (2) buf[y * w + x] == get_pixel(x, y) for any effect
-    // that does not override get_pixel. Only the legacy scroller (RingTwist)
-    // does; one virtual probe per column routes it to the correct slow path.
+    // ISR fast path: index the display buffer directly, dropping the per-column
+    // virtual get_pixel() dispatches. The one effect that overrides get_pixel
+    // (RingTwist) routes to the slow path via this probe.
     const bool slow = effect_->overrides_get_pixel();
     const Pixel *buf = slow ? nullptr : effect_->display_buffer();
 
 #if defined(USE_DMA_LEDS)
-    // Direct Pixel16 → HD107S wire packing (no intermediate CRGB array).
     auto& frame = ledController_.backFrame();
     for (int y = 0; y < S / 2; ++y) {
-      // Map to physical strip: top half is reversed, bottom half is straight.
+      // Top half is wired reversed, bottom half straight.
       frame.packPixel(pov::strip_top_led(y, S),
           slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top]);
       frame.packPixel(pov::strip_bottom_led(y, S),
           slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
-    // Steady-state column path intentionally drops the accept/overrun result:
-    // a dropped image column self-heals next tick (see submitFrame's doc).
     (void)ledController_.submitFrame(effect_->strobe_columns());
 #else
     for (int y = 0; y < S / 2; ++y) {
@@ -208,8 +183,7 @@ private:
 #endif
 
     x_ = (x_ + 1) % w;
-    // When the POV sweep completes one full virtual revolution (x_ = 0 or x_ =
-    // width/2), advance the display buffer.
+    // Advance the display buffer at each half-revolution boundary.
     if (x_ == 0 || x_ == w / 2) {
       effect_->advance_display();
     }

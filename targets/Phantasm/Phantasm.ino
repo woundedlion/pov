@@ -23,12 +23,8 @@
  *   ID 3: both grounded   — arm B inner
  */
 
-// Select the DMA HD107S output path for this target. Must be defined before any
-// include that pulls in led.h (via pov_segmented.h) so the driver compiles the
-// non-blocking DMA controller (24 MHz, see pov_segmented.h) rather than the
-// engine-default FastLED/WS2801 fallback — the wrong chipset, and its blocking
-// show() cannot meet the column ISR budget. The led.h global toggle stays
-// commented so WASM/sim and single-board builds keep the FastLED path.
+// Select the DMA HD107S output path. Must precede any include that pulls in
+// led.h (via pov_segmented.h).
 #define USE_DMA_LEDS
 
 #include <FastLED.h>
@@ -50,8 +46,8 @@ POV *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace 
 // Foreground effect constructor for one roster entry: LUTs, arenas, init.
 // Called from the driver's show loop during the epoch construction window.
 template <typename E> Effect *construct_effect() {
-  // Eager-fill the scanline LUTs for this effect's resolution before the
-  // first frame, so the flywheel ISR never observes a half-filled table.
+  // Eager-fill the scanline LUTs before the first frame so the flywheel ISR
+  // never observes a half-filled table.
   GeometryResolution<E>::init();
   E *e = new E();
   configure_arenas_default(); // Reset before init so effects can override
@@ -59,13 +55,8 @@ template <typename E> Effect *construct_effect() {
   return e;
 }
 
-// The factory table is GENERATED from the single-source effect roster
-// (HS_EFFECT_LIST in core/effects.h) rather than hand-maintained, so the
-// firmware roster cannot silently drift from the shipped effect set: an
-// effect added to the roster joins the show automatically, and one renamed
-// or removed from it becomes a compile error here instead of a stale entry.
-// The table order IS the playlist order, identical on all four boards —
-// which is what lets the epoch symbol say just "advance" (spec §6.1).
+// Generated from the single-source effect roster (HS_EFFECT_LIST); the table
+// order IS the playlist order, identical on all four boards (spec §6.1).
 #define HS_FACTORY_ONE(name) &construct_effect<name<288, 144>>,
 const POV::EffectFactory kEffectFactories[] = {
   HS_EFFECT_LIST(HS_FACTORY_ONE)
@@ -74,20 +65,10 @@ const POV::EffectFactory kEffectFactories[] = {
 } // namespace
 
 void setup() {
-  // The 9600 is inert on Teensy: USB-CDC runs at native USB speed and ignores
-  // the baud argument. The call is kept only to initialize the Serial object
-  // (and to read as the conventional Arduino setup); it sets no real baud rate.
-  Serial.begin(9600);
-  // USB-CDC enumeration settle: gives the host time to attach so the early
-  // HS_CHECK OOM message below (and other startup output) isn't lost. The
-  // 1s value is empirical; the serial console is used for on-hardware debug.
-  delay(1000);
-  // Fail fast at the allocation site if the heap can't hold the driver, matching
-  // the project's crash-on-violation rule (see HS_CHECK on the wasm tooling
-  // malloc and the arena OOM traps). nothrow new is used so the guard fires
-  // regardless of whether the build compiles exceptions: a thrown bad_alloc has
-  // no handler on Teensy, and a silently-null g_pov would be dereferenced by the
-  // first run_show() call below — a null deref away from the violation site.
+  Serial.begin(9600); // baud inert on Teensy USB-CDC; initializes Serial only
+  delay(1000);        // USB-CDC enumeration settle so early output isn't lost
+  // nothrow new + HS_CHECK: a thrown bad_alloc has no handler on Teensy, so
+  // fail-fast at the allocation site rather than null-deref in run_show().
   g_pov = new (std::nothrow) POV();
   HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
 }

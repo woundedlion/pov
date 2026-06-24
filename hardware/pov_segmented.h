@@ -52,16 +52,6 @@
 #ifdef USE_DMA_LEDS
   #include "dma_led.h"
 #else
-  // A segmented build ships one uniform firmware to every board; the master
-  // (segment 0) is elected at runtime from the ID pins, so ANY board may become
-  // the conductor that drives the sync wire. The master's pulse-width contract
-  // (spec §5.2: a "tens of µs" HIGH bracketing the LED work, dropped right after)
-  // cannot be honored over the blocking FastLED transport — FastLED.show() stalls
-  // the flywheel ISR for the full strip transfer, widening the pulse far past spec
-  // and skewing column timing. That combination is untested and unshippable, so
-  // fail the build rather than silently degrade the only multi-board transport.
-  // (No real target hits this: targets/Phantasm defines USE_DMA_LEDS; the host
-  // unit test never includes this Arduino-only driver.)
   #error "POVSegmented requires USE_DMA_LEDS (the Phantasm DMA LED transport): the FastLED fallback cannot honor the master sync pulse-width contract (spec §5.2)."
 #endif
 
@@ -178,17 +168,8 @@ public:
     ledController_.setTemperature(255, 147, 41);    // Candle
     ledController_.setBrightness(255);
 
-    // SysTick (millis) runs at NVIC priority 32 — the Teensy 4 boot default —
-    // and so may briefly preempt the flywheel ISR, whose IntervalTimer sits
-    // at the default 128. That is fine: the handler is short, shares no state
-    // with the ISR, and the flywheel tolerates wake-up jitter by construction
-    // (position is time-derived).
-
-    // The flywheel timebase reads DWT->CYCCNT. Teensyduino normally enables it
-    // during startup, but enable it explicitly here rather than silently
-    // depending on that: TRCENA gates the DWT block on, then CYCCNTENA starts
-    // the cycle counter. (Enabling unconditionally, not asserting — the counter
-    // is running either way once these two writes land.)
+    // Enable the DWT cycle counter the flywheel timebase reads: TRCENA gates the
+    // DWT block on, then CYCCNTENA starts the counter.
     ARM_DEMCR |= ARM_DEMCR_TRCENA;
     ARM_DWT_CTRL |= ARM_DWT_CTRL_CYCCNTENA;
 
@@ -249,15 +230,10 @@ public:
 
     sync_.seed(ARM_DWT_CYCCNT, master);
 
-    // Attach ONCE per show; the flywheel is the timebase and persists across
-    // epochs (spec §8.5) — there is no per-effect attach/detach.
     if (!master) {
       attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC_IN),
                       sync_edge_isr, RISING);
     }
-    // begin() returns false if all four PIT channels are already taken; an
-    // unstarted flywheel is a silent dead board (no timebase, no display), so
-    // trap at the violation site rather than spin forever in the loop below.
     HS_CHECK(timer_.begin(flywheel_isr, kColumnUs / float(kOversample)),
              "flywheel IntervalTimer failed to start (no PIT channel)");
 
@@ -280,48 +256,28 @@ public:
         const unsigned long t0 = micros();
         while (release_ack_.load(std::memory_order_relaxed) !=
                release_req_.load(std::memory_order_relaxed)) {
-          // 100 ms is a deliberately loose liveness bound, not a tight timing
-          // budget: the flywheel ISR acks within one wake interval
-          // (kColumnUs / kOversample ≈ 54 µs at 480 RPM × 288), so 100 ms is
-          // ~1800 wake intervals of slack. It absorbs any plausible transient
-          // (a long `__disable_irq` window, a stalled wake) and traps only a
-          // genuinely wedged ISR — never a momentary handshake delay.
           HS_CHECK(micros() - t0 < 100000UL,
                    "flywheel ISR failed to release the live effect");
         }
         delete cur;
-        // Deterministic content (spec §2): every board restarts the shared
-        // RNG stream per effect — exactly what the simulator does for a
-        // standalone effect — so frames are identical across boards
-        // regardless of boot or join history.
+        // Restart the shared RNG stream per effect so frames match the
+        // simulator and across boards regardless of boot/join history (spec §2).
         hs::random().seed(1337);
         cur = factories_[pov::sync::SyncBoard::build_index_of(bw)]();
-        // ISR seam (project doctrine: trap at the cold construction site, not
-        // the hot ISR): render_column() walks PPS pixels over canvas rows in
-        // [0, ROWS) and indexes buf[y * width + x_col], in-bounds only when the
-        // effect's canvas height equals ROWS (S/2) AND its width equals the
-        // CANVAS_W the sync engine sweeps x over — x_col derives from x in
-        // [0, CANVAS_W) but is bounds-checked against the row stride w =
-        // width(). Trap a resolution mismatch on either axis here, before the
-        // flywheel ISR can take this instance live.
         HS_CHECK(cur->height() == ROWS,
                  "POVSegmented: effect canvas height must equal S/2 (ROWS)");
         HS_CHECK(cur->width() == CANVAS_W,
                  "POVSegmented: effect canvas width must equal CANVAS_W");
-        cur->draw_frame(); // frame 0, queued; fresh buffers never block
+        cur->draw_frame();
         hs::disable_interrupts();
-        // Release store last so it publishes both the new generation and every
-        // constructor/draw_frame() write into *cur; the bracket keeps the
-        // (effect, gen) pair atomic against the ISR.
+        // Release store last so the (effect, gen) pair publishes atomically and
+        // orders every constructor/draw_frame() write before the ISR sees it.
         pending_gen_.store(gen, std::memory_order_relaxed);
         pending_effect_.store(cur, std::memory_order_release);
         hs::enable_interrupts();
         built_gen = gen;
       }
 
-      // Render only once the ISR has taken this instance live; before that
-      // the queued frame 0 is waiting for the commit/join boundary. The
-      // Canvas buffer_free() gate paces this to exactly one step() per flip.
       if (cur && consumed_gen_.load(std::memory_order_relaxed) == built_gen) {
         const unsigned long f0 = micros();
         cur->draw_frame();
@@ -331,24 +287,17 @@ public:
         }
       }
 
-      // Health telemetry (spec §8.6): foreground-polled, never ISR-printed,
-      // emitted only on change — the existing DMA-overrun pattern. telemetry()
-      // aliases the live, ISR-mutated counter block, so the copy is taken under
-      // a brief IRQ-off bracket (like the mailbox handoff, spec §8.2): an
-      // unbracketed field-by-field read could latch a torn block — a mix of
-      // pre- and post-increment fields — and mis-fire the change comparison
-      // below. The masked window is a handful of aligned-word copies, debug-only
-      // and ~1 Hz, so it is far shorter and rarer than the per-tick handoff.
+      // Health telemetry (spec §8.6): foreground-polled, emitted only on change.
+      // telemetry() aliases the live, ISR-mutated block, so copy it under a brief
+      // IRQ-off bracket or a torn read could mis-fire the comparison below.
       if (hs::debug && millis() - last_report >= 1000UL) {
         last_report = millis();
         __disable_irq();
         const pov::sync::Telemetry tm = sync_.telemetry();
         __enable_irq();
         if (memcmp(&tm, &last_tm, sizeof tm) != 0) {
-          // hs::log (integer-only vsniprintf + Serial.println) rather than
-          // Serial.printf: Teensy's Print::printf routes through vdprintf, which
-          // unconditionally drags newlib's float formatter (_dtoa_r + bignum
-          // helpers, ~5 KB of ITCM) into the image. These counters are all %lu.
+          // hs::log, not Serial.printf: Teensy's printf drags in newlib's float
+          // formatter (~5 KB ITCM); these counters are all %lu.
           hs::log("sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu "
                   "bok=%lu brej=%lu fix=%lu rmis=%lu lock=%lu "
                   "flip=%lu coast=%lu epi=%lu",
@@ -403,34 +352,19 @@ private:
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
     pinMode(PIN_ID1, INPUT_PULLUP);
-    // Settle the pull-ups, then debounce by sampling three times spread across a
-    // ~10 ms window and requiring all three to agree. The heuristic 10 ms settle
-    // assumes the strap RC (internal pull-up x trace+pin capacitance) resolves
-    // well within it; the resampling guards against reading a strap mid-
-    // transition.
-    //
-    // Why three samples over ~10 ms, not one re-sample at 2 ms: a single 2 ms
-    // re-sample only catches bounces shorter than that gap. A strap that settles
-    // slower than 2 ms (long traces / added caps) could read identically at both
-    // samples while still mid-transition and pass — mis-ID'ing the board into a
-    // *second* master and driving the push-pull sync wire into bus contention, a
-    // fault no single board can detect (see the class note on the absent peer
-    // cross-check). Three samples spaced ~5 ms widen the debounce window an order
-    // of magnitude past the expected sub-ms RC for a one-time ~20 ms boot cost.
-    // Widen the spacing further if a future board adds long strap traces or caps.
     delay(10);  // settle time for pull-ups
 
+    // Debounce: three samples ~5 ms apart must agree; an unstable strap reads as
+    // a second master and drives the push-pull sync wire into bus contention.
     const int raw0 = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
     for (int i = 0; i < 2; ++i) {
-      delay(5);  // spread the resamples across the ~10 ms debounce window
+      delay(5);
       const int rawN = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
-      HS_CHECK(rawN == raw0);  // unstable strap → mis-ID → bus contention
+      HS_CHECK(rawN == raw0);
     }
 
-    // ~ binds tighter than &: invert the 2-bit reading (so all-floating
-    // pull-ups => ID 0), then mask off the inverted high bits with & (N-1).
-    // The mask is load-bearing — without it the full-width ~ would set every
-    // upper bit. Parens make the (~...) & (N-1) grouping explicit.
+    // Invert the 2-bit reading (all-floating pull-ups => ID 0), then mask the
+    // inverted high bits; the mask is load-bearing.
     segment_id_ = (~raw0) & (N - 1);
   }
 
@@ -488,13 +422,9 @@ private:
   static FASTRUN void flywheel_isr() {
     const uint32_t now = ARM_DWT_CYCCNT;
 
-    // Complete a deferred dark-path sync pulse from the previous wake. On the
-    // dark-latched path the ISR body is only a few dozen instructions (no
-    // render_black / render_column), so a same-wake HIGH→LOW pulse collapses to
-    // ~50–200 ns — two to three orders below spec §5.2's "tens of µs," exactly
-    // during the boot-acquisition window downstream boards lock onto. The dark
-    // path instead holds the pin HIGH and drops it here at the next wake, giving
-    // the pulse a full wake interval (~T0/kOversample) of width.
+    // Complete a deferred dark-path sync pulse from the previous wake: the
+    // dark-latched path's body is too short to width a same-wake pulse to spec
+    // §5.2's "tens of µs," so it holds the pin HIGH and drops it here instead.
     if (sync_low_pending_) {
       digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
       sync_low_pending_ = false;
@@ -515,8 +445,7 @@ private:
 
     const pov::sync::TickActions a = sync_.tick(now, bp);
 
-    // Pin write first, LED work after (spec §5.2): emission timing carries
-    // only ISR-entry jitter plus the tick() computation.
+    // Pin write first, LED work after (spec §5.2).
     if (a.pulse)
       digitalWriteFast(PIN_FRAME_SYNC_OUT, HIGH);
 
@@ -530,35 +459,16 @@ private:
     }
 
     // Swap in the foreground-constructed pending effect, only ever at a ZERO
-    // boundary (frame parity). Two paths:
-    //   commit — the B+K epoch deadline (spec §6.1). The next effect MUST be
-    //            ready; an init that outruns K revolutions is an invariant
-    //            violation and traps rather than silently skewing the show.
-    //   join   — first display (boot / beacon join / index correction): take
-    //            the pending effect at the next join-grid boundary once it
-    //            exists. The grid (rev ≡ 0 mod join_grid_revs) is what makes
-    //            all four boards go live at the SAME crossing at boot, frame
-    //            counters aligned.
+    // boundary. Two paths: commit (the B+K epoch deadline, spec §6.1) and join
+    // (first display: boot / beacon join / index correction, taken at the next
+    // join-grid boundary so all boards go live at the same crossing).
     if (a.commit) {
-      // Acquire load pairs with the foreground's release store, ordering the
-      // pending instance's construction writes before any dereference below.
       Effect *p = pending_effect_.load(std::memory_order_acquire);
-      // This equality check is sound only because pending_gen_ is stable across
-      // the construction window: it is set once when the window opens (the
-      // foreground's publish_build) and no beacon/symbol path bumps it again
-      // while a commit is pending — SyncBoard::handle_beacon_burst suppresses
-      // beacon index-corrections during commit_pending, and the master gates its
-      // epoch publish on !commit_pending. So a mismatch here means only the
-      // genuine fault in the message — init outran the K-revolution window — and
-      // never a mid-window generation bump from a beacon correction.
       HS_CHECK(p && pending_gen_.load(std::memory_order_relaxed) ==
                         pov::sync::SyncBoard::build_gen_of(sync_.build_word()),
                "epoch commit: effect init exceeded the K-revolution window");
-      // render_column samples the raw display buffer directly, bypassing
-      // get_pixel(); an effect that overrides get_pixel would be silently
-      // mis-sampled on this path. Trap that at the (cold) effect-adopt seam
-      // rather than rely on prose that the segmented roster excludes such
-      // effects. Cheap here, off the per-column ISR hot path.
+      // render_column samples the raw display buffer, bypassing get_pixel(), so
+      // a get_pixel-overriding effect must never go live here.
       HS_CHECK(!p->overrides_get_pixel(),
                "segmented render_column bypasses get_pixel(); a get_pixel-"
                "overriding effect cannot run on this path");
@@ -566,18 +476,12 @@ private:
       consumed_gen_.store(pending_gen_.load(std::memory_order_relaxed),
                           std::memory_order_relaxed);
     } else if (a.join_boundary && !a.dark && live_effect_ == nullptr) {
-      // Re-read pending_gen_ against the current build_word() so a late joiner
-      // only adopts an effect still matching the sync wire's advertised
-      // generation. A momentary visibility lag between the foreground's
-      // pending_gen_ publish and build_word() reflecting it can fail this match
-      // and skip the join — benign: join_boundary recurs on the next grid
-      // boundary, so the board simply joins one grid step later.
+      // Adopt only an effect still matching the wire's advertised generation; a
+      // visibility lag that fails the match simply joins one grid step later.
       Effect *p = pending_effect_.load(std::memory_order_acquire);
       const uint32_t pg = pending_gen_.load(std::memory_order_relaxed);
       if (p && pg != consumed_gen_.load(std::memory_order_relaxed) &&
           pg == pov::sync::SyncBoard::build_gen_of(sync_.build_word())) {
-        // Same get_pixel guard as the commit path above: render_column reads the
-        // raw buffer, so a get_pixel-overriding effect must never go live here.
         HS_CHECK(!p->overrides_get_pixel(),
                  "segmented render_column bypasses get_pixel(); a get_pixel-"
                  "overriding effect cannot run on this path");
@@ -586,30 +490,17 @@ private:
       }
     }
 
-    // Flip whenever the effect is live — even during the dark commit window,
-    // where the foreground may be blocked in the Canvas buffer_free() gate on
-    // its final frame of the outgoing effect; advance_display() is what
-    // releases it to go tear the effect down.
+    // Flip whenever the effect is live, even during the dark commit window:
+    // advance_display() is what releases a foreground blocked in buffer_free().
     Effect *e = live_effect_;
     if (a.flip && e)
       e->advance_display();
 
-    // Tracks whether this wake did real LED work between the pulse edges. The
-    // bright path (render_column) and the first dark frame (render_black) take
-    // tens of µs and so width the pulse themselves; the dark-latched path skips
-    // both and must defer the pin drop (below) to keep the pulse spec-wide.
     bool did_render = false;
     if (a.dark || e == nullptr) {
-      // Fail-dark (spec §5.3/§6.3): show nothing rather than the wrong
-      // thing. One black frame latches the strip; then stay idle.
-      //
-      // Latch only once the black frame is actually accepted: submitFrame()
-      // drops on a DMA overrun (the prior bright column's transfer is still in
-      // flight), and latching on a dropped frame would hold that stale bright
-      // column for the entire dark window — inverting the design's
-      // missed-never-wrong asymmetry. Leaving dark_latched_ false retries on
-      // the next wake until the black frame lands, so a drop self-heals in one
-      // column tick (~434 µs) instead of latching indefinitely.
+      // Fail-dark (spec §5.3/§6.3). Latch only once the black frame is actually
+      // accepted: latching on a DMA-overrun drop would hold the stale bright
+      // column for the whole dark window. Leaving it false retries next wake.
       if (!dark_latched_ && render_black()) {
         dark_latched_ = true;
         did_render = true;
@@ -624,13 +515,9 @@ private:
 
     if (a.pulse) {
       if (did_render) {
-        // Bright / first-dark path: the ISR body already gave the pulse its
-        // spec width (tens of µs). Drop it now.
         digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
       } else {
-        // Dark-latched (or render-less) path: the body is too short to width
-        // the pulse. Hold the pin HIGH and drop it at the next wake — see the
-        // deferred-drop at the top of the ISR.
+        // Body too short to width the pulse: hold HIGH, drop at the next wake.
         sync_low_pending_ = true;
       }
     }
@@ -651,12 +538,8 @@ private:
     const int w = e->width();
     const int x_col = pov::segment_x_col(arm_b_, x, w);
 
-    // ISR fast path: fetch the display buffer base once and index it
-    // directly, dropping PPS per-pixel virtual get_pixel() dispatches per
-    // column. Sound here because (1) prev_ is stable for this whole column —
-    // advance_display() runs at the boundary, before rendering — and (2) no
-    // effect reachable on this segmented path overrides get_pixel (the one
-    // effect that does is out of scope here and never runs on this path).
+    // ISR fast path: index the display buffer directly, dropping PPS per-pixel
+    // virtual get_pixel() dispatches. No effect on this path overrides get_pixel.
     const Pixel *buf = e->display_buffer();
 
     auto &frame = ledController_.backFrame();
@@ -664,9 +547,8 @@ private:
     for (int i = 0; i < PPS; ++i, y += y_step_) {
       frame.packPixel(i, buf[y * w + x_col]);
     }
-    // Steady-state column path intentionally drops the accept/overrun result:
-    // a dropped image column self-heals next tick (see submitFrame's doc and
-    // render_black, which DOES gate on the return for the fail-dark latch).
+    // Drop the accept/overrun result: a dropped image column self-heals next
+    // tick (render_black, by contrast, gates on it for the fail-dark latch).
     (void)ledController_.submitFrame(e->strobe_columns());
   }
 
@@ -717,12 +599,6 @@ private:
    */
   static Effect *live_effect_;             /**< Effect the ISR renders; ISR-owned.       */
   static std::atomic<Effect *> pending_effect_; /**< Next effect awaiting commit; foreground-written (release), ISR-read (acquire). */
-  // Cross-context counters as std::atomic (relaxed), not bare volatile: each
-  // has a single writer (named below) but is read from the other context, so a
-  // plain volatile RMW/read is a formal data race. Relaxed ordering adds no
-  // fence on the single-core Cortex-M — these carry no happens-before of their
-  // own (the (effect, gen) handoff is ordered by pending_effect_'s
-  // release/acquire), so they compile to the same load/store, now well-defined.
   static std::atomic<uint32_t> pending_gen_;   /**< Build generation of pending_effect_; foreground-written. */
   static std::atomic<uint32_t> consumed_gen_;  /**< Build generation taken live; ISR-written.  */
   static std::atomic<uint32_t> release_req_;   /**< Teardown request counter; foreground-written. */
