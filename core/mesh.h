@@ -393,6 +393,11 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
     }
   }
 
+  // Vertices are copied wholesale: no index remap or compaction is performed,
+  // so vertices referenced only by stripped degenerate faces remain as orphans.
+  // Harmless for face-iterating renderers (they only touch vertices via faces),
+  // but vertex-count-driven consumers (e.g. MeshMorph's brute-force match) see
+  // the inflated count and may animate to an unrendered point.
   copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(),
               geom_arena);
 
