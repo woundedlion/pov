@@ -226,7 +226,11 @@ inline float y_to_phi(float y, int h_virt) {
  * @brief Converts a spherical phi angle to a pixel y-coordinate.
  * @param phi The spherical phi angle in radians.
  * @param h_virt The virtual height.
- * @return The pixel y-coordinate [0, h_virt - 1].
+ * @return The pixel y-coordinate in [0, h_virt - 1] for phi in [0, pi], EXCEPT at
+ *   the south pole (phi == PI_F) the `*(h_virt-1)/PI_F` float round-trip can land
+ *   a hair *above* `h_virt - 1`. Left un-snapped on the hot-path grounds
+ *   `vector_to_pixel` documents; a caller indexing a row buffer with `(int)y`
+ *   must clamp or floor first.
  */
 inline float phi_to_y(float phi, int h_virt) {
   HS_CHECK(h_virt > 1, "phi_to_y: h_virt must be > 1");
