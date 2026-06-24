@@ -103,7 +103,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 10. ✅ **`Conway::dual()` uses strict `normalized()` where every other operator uses `normalized_or()`** — `core/conway.h:435`. A zero-length face centroid (centrally-symmetric face) would trap the build; `snub()` already guards the analogous case with an EPS fallback. Unreachable on the fixed 52-solid roster. Use `normalized_or(c, fallback)` or document provable unreachability. *Fixed: `normalized_or(c, first_face_vertex)` — the first vertex is already on the unit sphere, so the dual degrades gracefully like every sibling operator.*
 
-11. **Hankin rosette emission silently drops `count < 6` windings instead of trapping** — `core/hankin.h:280-285`. A degree-<3 orbit is silently skipped, diverging from the file's own fail-fast convention (cf. the unpaired-half-edge `HS_CHECK` in the same loop). Unreachable on a closed convex solid. Replace the silent skip with `HS_CHECK(count >= 6, …)`.
+11. ✅ **Hankin rosette emission silently drops `count < 6` windings instead of trapping** — `core/hankin.h:280-285`. A degree-<3 orbit is silently skipped, diverging from the file's own fail-fast convention (cf. the unpaired-half-edge `HS_CHECK` in the same loop). Unreachable on a closed convex solid. Replace the silent skip with `HS_CHECK(count >= 6, …)`.
 
 12. **`srgb_to_linear_interp` low guard does not catch NaN, unlike its sibling LUT helpers** — `core/color.h:356-369`. A NaN input reaches `static_cast<int>(f)` (float→int UB) — the exact hazard `Gradient::get`/`BakedPalette::get` were hardened against via `hs::clamp`. Both current callers satisfy the [0,1] contract, so latent. Route the input through `hs::clamp` at entry (NaN→hi).
 

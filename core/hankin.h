@@ -273,15 +273,14 @@ HS_COLD static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
       // `count` accumulates two indices per orbit step (a midpoint + a dynamic
       // vertex), so it is twice the winding's edge count. A real rosette winds
       // >= 3 edges — every interior vertex of a closed solid has degree >= 3 —
-      // i.e. count >= 6; a smaller orbit is a degenerate degree-< 3 vertex,
-      // unreachable on a real solid. Gate on >= 6 (mirroring the >= 3 side
-      // threshold the sibling emitters use) so a degenerate winding never emits
-      // a 1- or 2-edge sliver face.
-      if (count >= 6) {
-        compiled.face_counts.push_back(narrow_face_count(count));
-        for (int k = count - 1; k >= 0; --k) {
-          compiled.faces.push_back(face_indices[k]);
-        }
+      // i.e. count >= 6. A smaller orbit is a degenerate degree-<3 vertex,
+      // unreachable on a real solid, so trap it here (mirroring this loop's
+      // unpaired-half-edge HS_CHECK) rather than silently dropping a 1- or
+      // 2-edge sliver face and diverging from the file's fail-fast convention.
+      HS_CHECK(count >= 6, "Hankin rosette winding has degree < 3");
+      compiled.face_counts.push_back(narrow_face_count(count));
+      for (int k = count - 1; k >= 0; --k) {
+        compiled.faces.push_back(face_indices[k]);
       }
     }
   }
