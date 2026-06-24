@@ -185,7 +185,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 50. ✅ **Trap-shape probe re-runs the first death case twice** — `tests/test_death.h:954,963-969`. The probe spawns `cs[0]` to detect the shell's trap-relay shape, then the loop spawns it again. Subprocess spawns dominate suite runtime. Start the loop at `i=1` after asserting the probe trapped, or reuse the probe's rc for `i==0`.
 
-51. **Windows death-child command string is fragile to special characters in the exe path** — `tests/test_death.h:805-819`. Relies on `cmd.exe` outer-quote stripping; robust for benign paths but `CreateProcess`/`_spawnv` with an argv array avoids shell parsing entirely. Document the constraint or switch to a shell-free spawn.
+51. ✅ **Windows death-child command string is fragile to special characters in the exe path** — `tests/test_death.h:805-819`. Relies on `cmd.exe` outer-quote stripping; robust for benign paths but `CreateProcess`/`_spawnv` with an argv array avoids shell parsing entirely. Document the constraint or switch to a shell-free spawn.
 
 52. **Dead-slider lint epsilon can mask a partial per-frame revert** — `tests/test_effects.h:234-241`. A slider slowly pulled back toward its driven value (≤0.13%/frame) could still read as "persisted" within `eps` after 3 frames. No current effect exploits it (all slider drivers are absolute writes). Render more frames or assert the value is closer to the written target than to the pre-write value.
 

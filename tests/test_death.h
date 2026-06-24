@@ -806,7 +806,12 @@ inline int spawn_child(const char *name) {
   set_case_env(name);
   std::string cmd;
 #if defined(_WIN32)
-  // cmd.exe /c strips one outer quote pair, so wrap the whole command again.
+  // This command string is parsed by cmd.exe (std::system runs `cmd /c`), so it
+  // assumes self_exe() is a benign path: it relies on cmd.exe stripping one
+  // outer quote pair and contains no characters cmd.exe treats specially (&, |,
+  // ^, %, etc.). That holds for the test binary's own build path. A path with
+  // such characters would need a shell-free spawn (_spawnv with an argv array,
+  // or CreateProcess) to avoid cmd.exe parsing entirely.
   cmd = "\"\"";
   cmd += self_exe();
   cmd += "\" >NUL 2>&1\"";
