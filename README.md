@@ -505,7 +505,7 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 
 | Filter | Effect |
 |---|---|
-| `Screen::AntiAlias<W,H>` | Distributes a sub-pixel coordinate to its 4 nearest integer pixels using `quintic_kernel` bilinear weights. Scales the X fractional by `sin(φ)` from a trig LUT for spherical density compensation near the poles. |
+| `Screen::AntiAlias<W,H>` | Distributes a sub-pixel coordinate to its 4 nearest integer pixels using `quintic_kernel` bilinear weights, eased uniformly on both axes in framebuffer space — no `sin(φ)` density compensation, because anti-aliasing is a property of the pixel grid, not of where the columns map on the sphere. |
 | `Screen::Blur<W, H>` | Applies a parameterized 3×3 Gaussian convolution kernel at plot time. |
 | `Screen::Trails<W, MAX_PIXELS>` | Screen-space variant of trail decay; stores 2D coordinates with TTL and redraws via a trail color function. Uses arena-allocated storage (`MAX_PIXELS` capacity, default 1024). |
 

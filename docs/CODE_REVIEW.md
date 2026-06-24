@@ -81,7 +81,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 ### High Priority — real behavioral, UB, or actively-misleading issues
 
-1. **README contradicts the code on AntiAlias `sin(φ)` scaling** — `core/filter.h:1031-1039` vs `README.md:508`. *(documentation-accuracy, medium severity)* The README states `Screen::AntiAlias` "scales the X fractional by `sin(φ)`"; the code deliberately does **not** (an in-code comment documents that this density compensation was removed because it collapsed horizontal AA near the poles). Update `README.md:508` to describe uniform bilinear quintic-eased weights in framebuffer space with no `sin(φ)` compensation.
+1. ✅ **README contradicts the code on AntiAlias `sin(φ)` scaling** — `core/filter.h:1031-1039` vs `README.md:508`. *(documentation-accuracy, medium severity)* The README states `Screen::AntiAlias` "scales the X fractional by `sin(φ)`"; the code deliberately does **not** (an in-code comment documents that this density compensation was removed because it collapsed horizontal AA near the poles). Update `README.md:508` to describe uniform bilinear quintic-eased weights in framebuffer space with no `sin(φ)` compensation.
 
 2. **README arena-budget figures are stale and the worked example would trap on device** — `core/memory.h:37,44-47` vs `README §7.5`. The README documents 335 KB total / 303 KB persistent and a `configure_arenas(271K, 32K, 32K)` example summing to 335 KB, but the real device block is 330 KiB / 298 KiB. A reader copying the example verbatim over-subscribes by one 4 KiB page and trips the `configure_arenas` budget trap (`HS_CHECK`) at `init()`. Update the README figures and example to the current 330 KiB / 298 KiB; state current values only (no rename history).
 
