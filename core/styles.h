@@ -114,9 +114,8 @@ struct Style {
   NoiseParams *noise = nullptr;
 
   // --- Per-frame derived cache (NOT a preset; refreshed by sync_hue) ---
-  // cos/sin of hue_shift's turn angle. hue_fade reads these so the per-pixel
-  // hot path skips recomputing the frame-constant rotation for every pixel.
-  // Defaults to the identity rotation (angle 0) until the first sync_hue().
+  // cos/sin of hue_shift's turn angle, read by hue_fade. Defaults to the
+  // identity rotation (angle 0) until the first sync_hue().
   float hue_ca = 1.0f;
   float hue_sa = 0.0f;
 
@@ -141,7 +140,6 @@ struct Style {
     space_fn   = t < 0.5f ? a.space_fn   : b.space_fn;
     color_fn   = t < 0.5f ? a.color_fn   : b.color_fn;
     downsample = t < 0.5f ? a.downsample : b.downsample;
-    // noise is left untouched: see @details.
   }
 
   /**
@@ -244,13 +242,9 @@ struct Style {
   }
 };
 
-// Compile-time anchor for the presets' positional brace-init. The preset
-// initializers (and the "Params:" comment above SlowTwist) list the fields by
-// position; reordering the same-typed scalar members of Style would silently
-// reassign those literals to the wrong fields. Pin SlowTwist's resolved fields
-// by name so such a reorder fails to compile here instead of mis-tuning every
-// preset at runtime. (A scalar<->pointer reorder is already a type error in the
-// aggregate init; this catches the float-vs-float case the type system can't.)
+// Compile-time anchor pinning SlowTwist's resolved fields by name: a reorder of
+// Style's same-typed scalar members would silently reassign the positional
+// preset literals, which this catches at compile time.
 static_assert(Style::SlowTwist().fade == 0.8158f &&
                   Style::SlowTwist().hue_shift == 0.041f &&
                   Style::SlowTwist().amplitude == 6.36f &&
@@ -264,7 +258,6 @@ static_assert(Style::SlowTwist().fade == 0.8158f &&
 
 // --- Deferred inline definitions (Style is now complete) ----------------------
 
-// Returns v unchanged when no noise is bound.
 inline Vector noise_warp(const Vector &v, const Style &s) {
   if (!s.noise) return v;
   return noise_transform(v, *s.noise);
@@ -272,15 +265,11 @@ inline Vector noise_warp(const Vector &v, const Style &s) {
 
 inline Vector melt_warp(const Vector &v, const Style &s) {
   // Shift sample toward north pole → image appears to drip south. speed controls
-  // drip rate; amplitude controls noise wobble (applied only when bound and
-  // amplitude > 0.001, for organic, uneven drip widths).
+  // drip rate; amplitude controls noise wobble.
   static constexpr Vector NORTH = {0.0f, 1.0f, 0.0f};
-  // Slerp fraction toward the pole per frame at speed=1; the registered preset
-  // speeds (e.g. Melting 1.005, Swirling 1.465) scale this, so at speed=1 each
-  // frame drifts the sample ~4% of the arc to NORTH.
+  // Slerp fraction toward the pole per frame at speed=1 (preset speeds scale it).
   static constexpr float kMeltStepPerFrame = 0.04f;
-  // Amplitude floor below which the noise wobble is skipped (drip stays smooth);
-  // also avoids paying for noise_transform on a negligible perturbation.
+  // Amplitude floor below which the noise wobble is skipped.
   static constexpr float kMeltNoiseAmpFloor = 0.001f;
   float drip = s.speed * kMeltStepPerFrame;
   Vector drifted = slerp(v, NORTH, drip);
@@ -291,9 +280,7 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
   return drifted;
 }
 
-// Uses the rotation precomputed once per frame by Style::sync_hue (called from
-// Feedback::flush) rather than recomputing sin/cos of the frame-constant
-// hue_shift for every pixel.
+// Uses the rotation precomputed once per frame by Style::sync_hue.
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s) {
   return hue_rotate(Color4(p * fade, 1.0f), s.hue_ca, s.hue_sa).color;
 }

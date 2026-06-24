@@ -43,18 +43,10 @@ struct NoColorCorrection {};
 struct NoTempCorrection {};
 #else
 // CONTRACT — restore-to-baseline, NOT save/restore. The destructors reinstate
-// the engine's canonical baseline (TypicalLEDStrip color, Candle temperature —
-// the values the drivers set at init), not whatever correction was active at
-// construction: FastLED exposes no getter for the current global correction (and
-// on device it is per-controller). Correct for the one supported use — a single
-// per-effect member (see effects_legacy.h), effects constructed/destroyed
-// sequentially so the ambient correction is always the baseline. Consequence:
-// these guards do NOT nest.
-//
-// Non-nesting is enforced by the shared depth counter below: each guard traps
-// (HS_CHECK, always-on so it survives the NDEBUG device build) if another guard
-// is already live. Single-threaded (the per-effect render loop), so a plain int
-// needs no atomicity.
+// the engine's canonical baseline (TypicalLEDStrip color, Candle temperature),
+// not whatever correction was active at construction (FastLED exposes no getter
+// for the current global correction). These guards do NOT nest; the shared depth
+// counter below traps a second live guard.
 
 /**
  * @brief Shared liveness counter for the correction guards.
