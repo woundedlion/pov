@@ -2567,6 +2567,10 @@ struct Star {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     float pixel_width = 2.0f * PI_F / W;
+    // PERF CLIFF: reject_full_width drops any row whose cap spans the whole width
+    // to a full-row scan (a pole-spanning star hits this on rows near its center).
+    // The geometry stays correct; that row simply pays the full-canvas scan rather
+    // than a bounded interval, mirroring the AngularRepeat tilted-axis fallback.
     return emit_cap_interval<W>(cosf(thickness + pixel_width), scan_ny, scan_r,
                                 scan_alpha, TrigLUT<W, H>::cos_phi[y],
                                 TrigLUT<W, H>::sin_phi[y], true, out);
