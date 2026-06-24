@@ -331,6 +331,11 @@ private:
     size_t count = base.vertices.size();
     float r = p.offset_radius;
 
+    // MeshOps::transform pre-sizes target.vertices to match base; pin that here
+    // so a future reorder can't silently let the indexed writes below go OOB.
+    HS_CHECK(target.vertices.size() == base.vertices.size(),
+             "DreamBalls: displaced-mesh target not pre-sized to base");
+
     for (size_t i = 0; i < count; ++i) {
       const Vector &v = base.vertices[i];
       const auto &tan = tangents[i];

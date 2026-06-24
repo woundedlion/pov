@@ -175,7 +175,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 45. ✅ **`FlowField` noise-time comment understates the z-input scaling** — `effects/FlowField.h:88-90`. The parenthetical `(p.z + t)` drops the `* noise_scale` factor present in the code. Reword to `p.z*scale + t` or drop the parenthetical.
 
-46. **`DreamBalls::update_displaced_mesh` indexed write relies on an unstated target-sizing precondition** — `effects/DreamBalls.h:334-348`. Safe today because `MeshOps::transform` pre-sizes `target.vertices`; a future reorder could silently go OOB on device (debug `assert` catches it natively). Add an always-on `HS_CHECK(target.vertices.size() == base.vertices.size())` at the cold seam.
+46. ✅ **`DreamBalls::update_displaced_mesh` indexed write relies on an unstated target-sizing precondition** — `effects/DreamBalls.h:334-348`. Safe today because `MeshOps::transform` pre-sizes `target.vertices`; a future reorder could silently go OOB on device (debug `assert` catches it natively). Add an always-on `HS_CHECK(target.vertices.size() == base.vertices.size())` at the cold seam.
 
 47. **BZ `perturb_state` couples global RNG stream position to substep count** — `effects/BZReactionDiffusion.h:246-254`. Documented and intended (single-stream determinism is a deliberate project stance); informational only. Optionally pin the per-frame draw count in a determinism-test comment so a future retune is recognized as a global-stream change.
 
