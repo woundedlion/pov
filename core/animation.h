@@ -1558,6 +1558,10 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override {
+    // A default-constructed Rotation leaves orientation null (has_orientation()
+    // reports exactly this state); stepping it would be a null deref under
+    // NDEBUG in the apply loop below. Trap at the cold seam instead.
+    HS_CHECK(orientation != nullptr);
     if (this->t == 0) {
       last_angle = 0;
     }
