@@ -787,6 +787,9 @@ private:
  */
 inline Vector random_vector() {
   float v1, v2, s;
+  // Marsaglia rejection: accepts when (v1,v2) lands in the open unit disk
+  // (area pi/4), so ~1.27 expected iterations. Termination relies on rand_f()
+  // being well-distributed; it has no fixed bound.
   do {
     v1 = 2.0f * hs::rand_f() - 1.0f;
     v2 = 2.0f * hs::rand_f() - 1.0f;

@@ -139,7 +139,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 27. ✅ **`ease_out_cubic` uses `powf` where sibling cubics use direct multiply** — `core/easing.h:124`. Immaterial (per-frame path), idiom-inconsistent. Use `float u = 1 - t; return 1 - u*u*u;`.
 
-28. **`random_vector` rejection loop has no documented bound or progress guard** — `core/geometry.h:788-798`. Marsaglia rejection (~1.27 expected iterations); termination relies on `rand_f()` being well-distributed. Add a one-line note on the expected-iteration bound.
+28. ✅ **`random_vector` rejection loop has no documented bound or progress guard** — `core/geometry.h:788-798`. Marsaglia rejection (~1.27 expected iterations); termination relies on `rand_f()` being well-distributed. Add a one-line note on the expected-iteration bound.
 
 29. **`ProceduralPalette::get` evaluates exact `cosf` ×3 per sample on the non-baked path** — `core/color.h:1578-1583`. Every other per-sample trig path uses `fast_cosf`; `ChaoticStrings` samples this unbaked per fragment. Switch to `fast_cosf` (matching the file's ~0.17% budget) or document a bake-before-per-pixel contract.
 
