@@ -121,8 +121,6 @@ public:
     if (is_full()) {
       pop_back_internal();
     }
-    // Commit head/count only after the (potentially throwing) constructor
-    // succeeds, so a throwing T leaves the buffer's size invariant intact.
     uint32_t slot = (head + N - 1) % N; // + N first: never underflows
     T &ref = construct_in_place(slot, std::forward<Args>(args)...);
     head = slot;
@@ -171,8 +169,6 @@ public:
     if (is_full()) {
       pop_front_internal();
     }
-    // Commit tail/count only after the (potentially throwing) constructor
-    // succeeds, so a throwing T leaves the buffer's size invariant intact.
     uint32_t slot = tail;
     T &ref = construct_in_place(slot, std::forward<Args>(args)...);
     tail = (tail + 1) % N;

@@ -307,9 +307,8 @@ using PlotFn = Fn<Vector(float), 16>;
 // capture [this, idx, slot]; on a 64-bit host that is this(8) + two ints = 16 B,
 // and pointer alignment rounds any [this, data] capture up to 16 regardless, so
 // 16 is the floor there. 32-bit targets (device + WASM) pack the same capture
-// into 12 B, so 16 covers them with room to spare. It is NOT 8: every target —
-// the device included — builds these effects (the .ino factory runs init() ->
-// spawn_sprite()), and 12 B never fit 8; the historical "8" predates them.
+// into 12 B, so 16 covers them with room to spare. Not 8: every target (device
+// included) builds these effects, and 12 B never fit 8.
 using SpriteFn = Fn<void(Canvas &, float), 16>;
 using TimerFn = Fn<void(Canvas &), 16>;
 // 32, not 16 like the closures above: ScalarFn holds the wave/shift builders'

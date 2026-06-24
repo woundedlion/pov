@@ -4,7 +4,6 @@
  */
 #pragma once
 
-// Canvas resolution — override per target via -D flags if needed
 /** @brief Canvas width in pixels (override via -DCANVAS_W). */
 #ifndef CANVAS_W
 #define CANVAS_W 288
@@ -54,18 +53,16 @@
 namespace hs {
 /**
  * @brief Small deterministic PRNG (PCG XSH-RR 64/32) — the process-wide RNG.
- * @details Replaces std::mt19937 as the engine behind hs::random(): it cuts the
- *          global generator state from ~2,500 B to 16 B of DTCM (RAM1) and has a
- *          shorter critical path. Models a UniformRandomBitGenerator (result_type
- *          / min() / max() / operator()), so std::shuffle and hs::rand_* consume
- *          it unchanged.
+ * @details The engine behind hs::random(): 16 B of DTCM (RAM1) state and a short
+ *          critical path. Models a UniformRandomBitGenerator (result_type /
+ *          min() / max() / operator()), so std::shuffle and hs::rand_* consume it
+ *          unchanged.
  *
  *          DETERMINISM CONTRACT: device and host both instantiate this identical
  *          type seeded with 1337, so the draw stream stays bit-identical across
- *          the two builds — the sim/device parity invariant is preserved. Only
- *          the algorithm changed, so the sequence differs from the former
- *          mt19937; nothing may depend on the specific values, only on
- *          reproducibility. Reference implementation by Melissa O'Neill (pcg32).
+ *          the two builds — the sim/device parity invariant. Nothing may depend
+ *          on the specific values, only on reproducibility. Reference
+ *          implementation by Melissa O'Neill (pcg32).
  */
 class Pcg32 {
 public:
@@ -184,11 +181,10 @@ inline void disable_interrupts() { noInterrupts(); }
 /** @brief Enables interrupts (Arduino). */
 inline void enable_interrupts() { interrupts(); }
 
-// Global state
 /** @brief Global debug-logging toggle. */
 inline bool debug = false;
-// rand_f/rand_int and ScanMetrics are platform-agnostic — defined once in the
-// shared hs namespace after the #endif below.
+// rand_f/rand_int and ScanMetrics are defined once in the shared hs namespace
+// after the #endif below.
 
 #ifdef CORE_TEENSY
 #define HS_OS_CYCLES() ARM_DWT_CYCCNT
@@ -933,15 +929,11 @@ inline uint8_t triwave8(uint8_t in) {
  * @param N Interval in milliseconds.
  * @details Expands to a static throttle object plus one `if`, the SAME two-token
  * shape as the device's class-based FastLED macro (`static CEveryNMillis o(N);
- * if (o)`). The previous host mock expanded to THREE statements — a `static`
- * decl, an extra non-static local `__now`, then the `if` — so its body did not
- * line up statement-for-statement with the device's, the divergence this closes
- * (`EVERY_N_MILLIS host-mock parity`). As on the device, the trailing `if` is
- * what the following braced block attaches to; like FastLED's, this still cannot
- * serve as the *unbraced* body of an outer control statement (a leading `static`
- * decl is not a valid lone substatement) — that constraint now matches the
- * device instead of being a third host-only failure mode. See hs::EveryNMillis
- * for the preserved timing semantics.
+ * if (o)`), so the body lines up statement-for-statement with the device's. As
+ * on the device, the trailing `if` is what the following braced block attaches
+ * to; like FastLED's, this still cannot serve as the *unbraced* body of an outer
+ * control statement (a leading `static` decl is not a valid lone substatement).
+ * See hs::EveryNMillis for the timing semantics.
  */
 #define EVERY_N_MILLIS(N)                                                      \
   static hs::EveryNMillis HS_CONCAT(__every_, __LINE__)((N));                  \
@@ -978,15 +970,14 @@ inline unsigned long millis() {
 /**
  * @brief Host throttle backing EVERY_N_MILLIS, mirroring FastLED's CEveryNMillis.
  * @details Class-based like the device's FastLED macro so EVERY_N_MILLIS can
- * expand to a single guarded statement (`static EveryNMillis o(N); if (o)`)
- * instead of a multi-statement sequence, keeping the host structurally in step
- * with the device and nesting correctly in control flow.
+ * expand to a single guarded statement (`static EveryNMillis o(N); if (o)`),
+ * keeping the host structurally in step with the device and nesting correctly in
+ * control flow.
  *
- * Timing is preserved exactly from the prior mock: `last_` starts at 0 so the
- * first evaluation fires (`now - 0 >= period`), and the trigger stamp is never
- * reset across effect switches (the object is a function-local `static`). The
- * period is captured at construction, matching the device's FastLED object
- * (which likewise fixes its period when the static is built).
+ * `last_` starts at 0 so the first evaluation fires (`now - 0 >= period`), and
+ * the trigger stamp is never reset across effect switches (the object is a
+ * function-local `static`). The period is captured at construction, matching the
+ * device's FastLED object.
  */
 class EveryNMillis {
 public:
@@ -1024,11 +1015,10 @@ inline void disable_interrupts() {}
 /** @brief Enables interrupts (no-op on host). */
 inline void enable_interrupts() {}
 
-// Global state
 /** @brief Global debug-logging toggle. */
 inline bool debug = false;
-// rand_f/rand_int and ScanMetrics are platform-agnostic — defined once in the
-// shared hs namespace after the #endif below.
+// rand_f/rand_int and ScanMetrics are defined once in the shared hs namespace
+// after the #endif below.
 #define HS_OS_CYCLES() 0
 
 /**

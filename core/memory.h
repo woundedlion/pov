@@ -306,7 +306,7 @@ template <int MAX_V> struct TriangularBitset {
  * resource regardless of size. A type that owns heap/handles outside the arena
  * must not be stored in an ArenaVector — notably a raw std::function, which
  * heap-allocates any capture past its small-buffer size and would leak when this
- * handle skips its destructor; that is precisely why Fn<> no longer aliases it.
+ * handle skips its destructor.
  */
 template <typename T> class ArenaVector {
   // ArenaSpan borrows our backing data and (in debug builds) our arena
@@ -1026,9 +1026,9 @@ public:
    * it only reconstructs the object usefully if the caller rewound the
    * persistent arena during the scope (the canonical `persistent_arena.reset()`
    * in the usage example). Without that reset the clone appends a second copy
-   * and grows the arena rather than restoring. That precondition used to be
-   * unenforced; now the dtor traps *after* the restore unless the persistent
-   * arena ends no larger than it was at construction.
+   * and grows the arena rather than restoring. The dtor traps *after* the
+   * restore unless the persistent arena ends no larger than it was at
+   * construction.
    *
    * The check is post-restore and uses `<=` (not a pre-restore `<`) on purpose:
    * (1) the Persist ctor allocates only in *scratch*, so the captured watermark
