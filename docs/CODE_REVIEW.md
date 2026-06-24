@@ -87,7 +87,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 3. ✅ **`Thrusters::t_global` is a raw signed `int` that overflows (UB) on a long-running piece** — `effects/Thrusters.h:330` (incremented at `:80`, read as `frame % 32`). On an explicitly long-running art installation a signed `int` at ~60 fps is UB after ~414 days. Wrap it (`t_global = (t_global + 1) % 32;`) or make it `uint32_t`, matching Raymarch's deliberate switch to wrapped accumulators.
 
-4. **`ShapeShifter::frame_count_` is a raw signed `int` that overflows (UB)** — `effects/ShapeShifter.h:297` (incremented at `:75`, read as `% 48`). Same class as #3 on the same long-running target. Make it unsigned or wrap at the cycle period.
+4. ✅ **`ShapeShifter::frame_count_` is a raw signed `int` that overflows (UB)** — `effects/ShapeShifter.h:297` (incremented at `:75`, read as `% 48`). Same class as #3 on the same long-running target. Make it unsigned or wrap at the cycle period.
 
 5. **Segmented recorder captures stale/black frames after a worker fault** — `c:/work/daydream/segment_controller.js:820-823`. The faulted-tick early return never resets `frameComposited`, which can remain `true` from the last good composite; the recorder gate then keeps treating the frozen black buffer as real content. Set `this.frameComposited = false` before the faulted return, mirroring the normal path.
 

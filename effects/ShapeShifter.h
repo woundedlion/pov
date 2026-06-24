@@ -72,8 +72,11 @@ public:
     Canvas canvas(*this);
 
     if (!anims_paused_) {
-      frame_count_++;
-      if (frame_count_ % 48 == 0) {
+      // Wrap at the 48-frame cycle period so the counter stays bounded and can
+      // never overflow on a long-running installation; frame_count_ is read
+      // nowhere else, so this is behavior-identical to the unbounded count.
+      frame_count_ = (frame_count_ + 1) % 48;
+      if (frame_count_ == 0) {
         int next = (static_cast<int>(current_shape) + 1) % 4;
         current_shape = static_cast<ShapeType>(next);
       }
@@ -294,7 +297,7 @@ private:
   } params;
 
   ShapeType current_shape; /**< Shape currently being rendered. */
-  int frame_count_ = 0;    /**< Frames drawn so far; gates shape cycling. */
+  int frame_count_ = 0;    /**< Frame phase in [0, 48) — gates shape cycling; never overflows. */
 };
 
 #include "core/effect_registry.h"
