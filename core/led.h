@@ -13,11 +13,10 @@
 #include "platform.h"
 
 // USE_DMA_LEDS selects the DMA-based HD107S controller instead of the FastLED
-// WS2801 path. It requires Teensy 4.x hardware and is left undefined for WASM/sim
-// and single-board builds. Targets that need it define USE_DMA_LEDS themselves
-// before including the driver (e.g. targets/Phantasm/Phantasm.ino); this
-// engine-wide header deliberately never defines it, so no commented-out toggle is
-// kept here to be uncommented by accident.
+// WS2801 path. Requires Teensy 4.x and is left undefined for WASM/sim and
+// single-board builds. Targets that need it define it themselves before
+// including the driver (e.g. targets/Phantasm/Phantasm.ino); this engine-wide
+// header never defines it.
 
 /**
  * @brief Analog pin used for seeding the random number generator.
@@ -43,24 +42,19 @@ struct NoColorCorrection {};
  */
 struct NoTempCorrection {};
 #else
-// CONTRACT — restore-to-baseline, NOT save/restore. The destructors below
-// reinstate the engine's canonical baseline (TypicalLEDStrip color, Candle
-// temperature — the same values the drivers set once at init, see
-// pov_single.h / pov_segmented.h), not whatever correction happened to be
-// active when the guard was constructed. FastLED exposes no getter for the
-// current global correction (and on device it is per-controller), so a true
-// save/restore is not available here. This is correct for the one supported
-// use — a single per-effect *member* (see effects_legacy.h), with effects
-// constructed and destroyed sequentially so the ambient correction is always
-// the baseline. Consequence: these guards do NOT nest — constructing one inside
-// a non-baseline correction scope would restore the baseline on exit, not the
-// outer scope's value.
+// CONTRACT — restore-to-baseline, NOT save/restore. The destructors reinstate
+// the engine's canonical baseline (TypicalLEDStrip color, Candle temperature —
+// the values the drivers set at init), not whatever correction was active at
+// construction: FastLED exposes no getter for the current global correction (and
+// on device it is per-controller). Correct for the one supported use — a single
+// per-effect member (see effects_legacy.h), effects constructed/destroyed
+// sequentially so the ambient correction is always the baseline. Consequence:
+// these guards do NOT nest.
 //
-// That non-nesting precondition is enforced by the shared depth counter below:
-// each guard traps (HS_CHECK, always-on so it survives the NDEBUG device build)
-// if another guard is already live, surfacing the misuse on the bench instead of
-// silently dropping the outer correction at runtime. Single-threaded by
-// construction (the per-effect render loop), so a plain int needs no atomicity.
+// Non-nesting is enforced by the shared depth counter below: each guard traps
+// (HS_CHECK, always-on so it survives the NDEBUG device build) if another guard
+// is already live. Single-threaded (the per-effect render loop), so a plain int
+// needs no atomicity.
 
 /**
  * @brief Shared liveness counter for the correction guards.

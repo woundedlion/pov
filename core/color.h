@@ -23,12 +23,10 @@ __attribute__((always_inline)) static inline uint32_t inline_uqadd16(uint32_t a,
 }
 #else
 // Portable software model of ARM `uqadd16`: two independent 16-bit unsigned
-// saturating adds, one per halfword lane. The host has no uqadd16 instruction,
-// so this lets the device's exact lane-packing (pixel16_blend_add_packed)
-// compile and be unit-tested natively, pinning the bit layout the asm path
-// can't run to verify. Not on any host hot path: the host add operators use
-// the plain per-channel std::min form below; this exists for the device-parity
-// test only.
+// saturating adds, one per halfword lane. Lets the device's lane-packing
+// (pixel16_blend_add_packed) compile and be unit-tested natively, pinning the
+// bit layout the asm path can't run to verify. Off the host hot path — host add
+// operators use the per-channel std::min form below.
 inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
   uint32_t lo = (a & 0xFFFFu) + (b & 0xFFFFu);
   uint32_t hi = (a >> 16) + (b >> 16);
@@ -39,11 +37,10 @@ inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
 #endif
 
 struct Pixel16;
-// The device's saturating per-channel add, packed into two uqadd16 lanes
-// (g|b in one 32-bit word, r alone in another). Shared by Pixel16::operator+=
-// and blend_add on the device so the lane layout has a single definition, and
-// compiled on the host (via the software uqadd16 above) so a unit test can pin
-// that layout against an independent per-channel reference.
+// Saturating per-channel add packed into two uqadd16 lanes (g|b in one 32-bit
+// word, r alone in another). Single lane-layout definition shared by
+// Pixel16::operator+= and blend_add on the device; compiled on the host (via the
+// software uqadd16 above) so a unit test can pin the layout.
 inline Pixel16 pixel16_blend_add_packed(const Pixel16 &c1, const Pixel16 &c2);
 
 /**
@@ -135,10 +132,6 @@ struct Pixel16 {
    * bound stays exactly 65535.
    */
   Pixel16 operator*(float s) const {
-    // Round (+0.5f) and clamp in float before the cast: r*s can exceed INT_MAX
-    // for large s, and float->int conversion is UB out of range, so an int
-    // clamp would fire too late. hs::clamp (not std::clamp) also maps a NaN
-    // scale to the hi bound instead of letting NaN reach the cast.
     return Pixel16((uint16_t)hs::clamp(r * s + 0.5f, 0.0f, 65535.0f),
                    (uint16_t)hs::clamp(g * s + 0.5f, 0.0f, 65535.0f),
                    (uint16_t)hs::clamp(b * s + 0.5f, 0.0f, 65535.0f));
@@ -354,13 +347,11 @@ inline uint16_t srgb_to_linear(uint8_t srgb) {
  * LUT lookup + lerp (no powf).
  */
 inline uint16_t srgb_to_linear_interp(float s_srgb) {
-  // The contract is [0,1], but route through hs::clamp at entry so a NaN input
-  // maps to the hi bound rather than reaching static_cast<int>(f) below as
-  // float->int UB — the same hardening Gradient::get / BakedPalette::get apply.
-  // This also bounds a negative or >1 stray; the explicit edge guards below
-  // remain as cheap backstops.
+  // Clamp at entry so a NaN maps to the hi bound rather than reaching
+  // static_cast<int>(f) below as float->int UB; also bounds a negative/>1 stray.
+  // The explicit edge guards below remain as cheap backstops.
   s_srgb = hs::clamp(s_srgb, 0.0f, 1.0f);
-  float f = s_srgb * 255.0f; // [0, 255]
+  float f = s_srgb * 255.0f;
   if (f <= 0.0f)
     return srgb_to_linear_lut[0];
   int i = static_cast<int>(f);
@@ -417,7 +408,6 @@ inline Pixel blend_under(const Pixel &c1, const Pixel &) { return c1; }
  * @return c1 + c2 (clamped).
  */
 inline Pixel blend_add(const Pixel &c1, const Pixel &c2) {
-  // Saturated Add
 #if defined(__ARM_FEATURE_DSP)
   return pixel16_blend_add_packed(c1, c2);
 #else
@@ -430,11 +420,9 @@ inline Pixel blend_add(const Pixel &c1, const Pixel &c2) {
 #endif
 }
 
-// Definition of the device packed-add helper declared above Pixel16. Packs g|b
-// into the low add lane and r into a separate lane (its high halfword stays 0,
-// so uqadd16's upper add is a harmless 0+0). Identical layout to the asm the
-// device runs; on the host the software inline_uqadd16 drives it so the test
-// suite can pin the lane assignment.
+// Packs g|b into the low add lane and r into a separate lane (its high halfword
+// stays 0, so uqadd16's upper add is a harmless 0+0). Identical layout to the
+// device asm; on the host the software inline_uqadd16 drives it.
 inline Pixel16 pixel16_blend_add_packed(const Pixel16 &c1, const Pixel16 &c2) {
   uint32_t bg1 = ((uint32_t)c1.g << 16) | c1.b;
   uint32_t bg2 = ((uint32_t)c2.g << 16) | c2.b;
@@ -725,16 +713,12 @@ inline uint16_t float_to_pixel16(float v) {
   return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
 }
 
-// Definition; canonical docs are on the declaration above. Rotates the (a,b)
-// chroma plane in the OKLab perceptual color space, which preserves perceived
-// lightness (L) and chroma (sqrt(a^2+b^2)) across the shift. A linear-RGB
-// rotation cannot: its equal angular steps are not perceptually uniform and its
-// perceived brightness drifts with hue. Hot path: this is the default feedback
-// color transform (Feedback::hue_fade, run per pixel every frame) and Flyby's
-// per-pixel shader. To stay affordable, the forward linear->OKLab nonlinearity
-// uses fast_cbrt (~2e-5 rel error) while the inverse is exact cubes, and the
-// shift is a direct 2D rotation of (a,b) — no atan2/sqrt of a full OKLCH polar
-// round-trip.
+// Rotates the (a,b) chroma plane in OKLab, preserving perceived lightness (L)
+// and chroma (sqrt(a^2+b^2)); a linear-RGB rotation cannot (its steps aren't
+// perceptually uniform and brightness drifts with hue). Hot path (per-pixel
+// every frame in Feedback::hue_fade and Flyby): the forward nonlinearity uses
+// fast_cbrt (~2e-5 rel error) while the inverse is exact cubes, and the shift is
+// a direct 2D rotation of (a,b) — no atan2/sqrt OKLCH polar round-trip.
 inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   constexpr float INV16 = 1.0f / 65535.0f;
   float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
@@ -750,31 +734,23 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   float A2 = A * ca - B * sa;
   float B2 = A * sa + B * ca;
 
-  // OKLab -> linear RGB (exact inverse) -> 16-bit linear. Off the hot path
-  // (only the rare pixel that leaves gamut), reduce chroma to hold hue and L
-  // instead of letting float_to_pixel16's per-channel [0,1] clamp (below) twist
-  // the hue — this is what keeps the hue-rotate feedback loop from drifting
-  // saturated colors frame over frame. In-gamut pixels (the common case) skip
-  // the search and fall straight through to that clamp.
+  // Off the hot path (rare out-of-gamut pixel), reduce chroma to hold hue and L
+  // rather than letting float_to_pixel16's per-channel [0,1] clamp twist the hue
+  // — keeps the feedback loop from drifting saturated colors frame over frame.
+  // In-gamut pixels skip the search and fall through to that clamp.
   float nr, ng, nb;
   oklab_to_linear_rgb_gamut({L, A2, B2}, nr, ng, nb);
 
   Color4 result = c;
-  // Round, don't truncate: float_to_pixel16 applies the +0.5f rule (and the
-  // [0,1] gamut clamp) so this per-pixel hot path doesn't bias every channel
-  // down by up to ~1/65535 every frame.
   result.color.r = float_to_pixel16(nr);
   result.color.g = float_to_pixel16(ng);
   result.color.b = float_to_pixel16(nb);
   return result;
 }
 
-// Definition; canonical docs are on the declaration above. Computes the
-// rotation per call. On hot paths where `amount` is constant across the frame
-// (the default Feedback::hue_fade) call the (ca, sa) overload with values
-// hoisted out of the per-pixel loop instead (Style::sync_hue populates
-// Style::hue_ca / hue_sa). Callers with a genuinely per-fragment amount (Flyby)
-// use this overload.
+// Computes the rotation per call. When `amount` is frame-constant, prefer the
+// (ca, sa) overload with sin/cos hoisted out of the per-pixel loop (see
+// Style::sync_hue); this overload is for a genuinely per-fragment amount (Flyby).
 inline Color4 hue_rotate(const Color4 &c, float amount) {
   float angle = amount * (2.0f * PI_F);
   return hue_rotate(c, fast_cosf(angle), fast_sinf(angle));
@@ -842,14 +818,11 @@ inline Pixel oklch_to_pixel(OKLCH lch) {
  * Hue is left free to wrap.
  */
 inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
-  // Handle achromatic cases (near-zero chroma). One endpoint being achromatic
-  // (gray) has no meaningful hue angle, so there is no arc to interpolate: take
-  // the chromatic endpoint's hue for the whole segment. This means an
-  // achromatic-start blend adopts the target hue instantly at t~0+ rather than
-  // sweeping into it -- which is correct, not a pop: chroma is ~0 near that end
-  // (it lerps up from the gray endpoint's ~0), so the hue is invisible there and
-  // only becomes visible as chroma grows, by which point it is already the
-  // target hue. (If both ends are gray, hue is moot; pin it to 0.)
+  // An achromatic (gray) endpoint has no meaningful hue angle, so there is no
+  // arc to interpolate: take the chromatic endpoint's hue for the whole segment.
+  // No visible pop — chroma is ~0 near the gray end, so the hue only becomes
+  // visible as chroma grows, by which point it is already the target hue. If
+  // both ends are gray, hue is moot; pin it to 0.
   float h;
   if (a.C < 1e-4f && b.C < 1e-4f) {
     h = 0.0f;
@@ -858,17 +831,15 @@ inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
   } else if (b.C < 1e-4f) {
     h = a.h;
   } else {
-    // Shortest arc interpolation
+    // Shortest arc.
     float dh = b.h - a.h;
     if (dh > PI_F) dh -= 2.0f * PI_F;
     if (dh < -PI_F) dh += 2.0f * PI_F;
     h = a.h + dh * t;
   }
-  // Clamp the magnitude channels (see @details); hue is left free to wrap.
-  // C is floored at 0 but intentionally not capped above: for the interpolation
-  // contract (t in [0,1]) the result lies between two in-gamut endpoints, so no
-  // upper bound is needed; an out-of-[0,1] t could overshoot C and hue-shift
-  // after the downstream RGB clamp, but no caller extrapolates.
+  // C floored at 0 but not capped above: under the t-in-[0,1] contract the
+  // result lies between two in-gamut endpoints, so no upper bound is needed.
+  // Hue is left free to wrap.
   float L = hs::clamp(a.L + (b.L - a.L) * t, 0.0f, 1.0f);
   float C = __builtin_fmaxf(0.0f, a.C + (b.C - a.C) * t);
   return {L, C, h};
@@ -968,7 +939,7 @@ public:
       return;
 
     // Trap out-of-range or unsorted stops always-on at construction (see
-    // @details) rather than corrupting the table or rendering wrong.
+    // @details).
     float prevCheck = -1.0f;
     for (const auto &stop : points) {
       HS_CHECK(stop.first >= 0.0f && stop.first <= 1.0f,
@@ -982,13 +953,11 @@ public:
     CPixel prevColor = it->second;
 
     // Fill start. Convert via the same srgb_to_linear_float + float_to_pixel16
-    // path the interpolated segment body uses (below), not the 8-bit
-    // srgb_to_linear() LUT, so a stop's flat-region entry is bit-identical to
-    // the value an adjacent interpolated segment computes at that stop — no
-    // ~1-LSB precision seam at flat/interpolated boundaries. Cold path.
-    // Quantize stop positions round-to-nearest (+0.5 before truncating; pos is
-    // in [0,1] so it stays non-negative), matching the file's round-to-nearest
-    // discipline: a plain floor biases every authored centroid up to ~1/255 low.
+    // path the segment body uses (not the 8-bit srgb_to_linear LUT) so a flat-
+    // region entry is bit-identical to an adjacent segment's value at that stop
+    // — no ~1-LSB seam at flat/interpolated boundaries. Quantize stop positions
+    // round-to-nearest (+0.5; pos in [0,1] stays non-negative): a plain floor
+    // biases every authored centroid up to ~1/255 low.
     int firstStop = static_cast<int>(prevPos * 255.0f + 0.5f);
     Pixel prevLinear(float_to_pixel16(srgb_to_linear_float(prevColor.r / 255.0f)),
                      float_to_pixel16(srgb_to_linear_float(prevColor.g / 255.0f)),
@@ -1010,7 +979,6 @@ public:
       // end-fill. This is the intended "hard stop" — an abrupt color boundary
       // with no interpolation — not a dropped stop.
       if (end > start) {
-        // Pre-convert stop colors to linear float
         float pr = srgb_to_linear_float(prevColor.r / 255.0f);
         float pg = srgb_to_linear_float(prevColor.g / 255.0f);
         float pb = srgb_to_linear_float(prevColor.b / 255.0f);
@@ -1020,7 +988,6 @@ public:
         for (int i = start; i <= end; i++) {
           float t = static_cast<float>(i - start) / (end - start);
 
-          // Interpolate in linear space
           float r_lin = pr * (1.0f - t) + nr * t;
           float g_lin = pg * (1.0f - t) + ng * t;
           float b_lin = pb * (1.0f - t) + nb * t;
@@ -1034,8 +1001,7 @@ public:
       it++;
     }
 
-    // Fill end. Same float conversion path as the start-fill and segment body
-    // (see the start-fill note) for bit-identical flat/interpolated parity.
+    // Fill end. Same float conversion path as the start-fill (see that note).
     int lastStop = static_cast<int>(prevPos * 255.0f + 0.5f);
     Pixel lastLinear(float_to_pixel16(srgb_to_linear_float(prevColor.r / 255.0f)),
                      float_to_pixel16(srgb_to_linear_float(prevColor.g / 255.0f)),
@@ -1059,9 +1025,8 @@ public:
     int lo = static_cast<int>(idx);
     if (lo >= 255) return Color4(entries[255], 1.0f);
     float frac = idx - lo;
-    // Round (+0.5f) the blend weight via the shared helper rather than
-    // truncating, which would bias every interpolated sample down by up to
-    // ~1/65535.
+    // Round the blend weight via float_to_pixel16 (+0.5f) rather than truncating,
+    // which would bias every interpolated sample down by up to ~1/65535.
     return Color4(entries[lo].lerp16(entries[lo + 1], float_to_pixel16(frac)),
                   1.0f);
   }
@@ -1127,15 +1092,10 @@ public:
       palette_hue = static_cast<uint8_t>(manual_seed);
     } else {
       palette_hue = g_hue_seed;
-      // Advance the global seed by a fixed integer step: this is an R1 additive
-      // recurrence (Weyl sequence) mod 256, x' = (x + s) mod 256. static_cast
-      // truncates INV_PHI * 255 = 157.6 to s = 157. The truncation (not rounding
-      // to 158) is load-bearing, not incidental: 157 is coprime with 256 so the
-      // cursor visits every residue before repeating, whereas 158 is even and
-      // would short-cycle. Calling it "low-discrepancy" overstates it — the true
-      // low-discrepancy property of an R1 sequence needs the exact irrational
-      // increment, which the truncation to 157 discards; equidistribution here
-      // is only approximate. Kept as-is for output stability across generations.
+      // Weyl recurrence mod 256: x' = (x + s) mod 256, s = static_cast truncates
+      // INV_PHI*255 = 157.6 to 157. The truncation is load-bearing: 157 is
+      // coprime with 256 so the cursor visits every residue before repeating,
+      // whereas rounding to even 158 would short-cycle.
       g_hue_seed = static_cast<uint8_t>((static_cast<uint32_t>(g_hue_seed) +
                                          static_cast<uint32_t>(INV_PHI * 255.0f)) %
                                         256);
@@ -1189,10 +1149,9 @@ public:
     }
 
     // Author the three keys directly in OKLCH (see author_key / key_oklch). The
-    // (h,s,v) integer draws above are kept untouched -- the global RNG stream,
-    // and every other effect's randomness, are unperturbed -- and only
-    // reinterpreted as OKLCH coordinates, then baked to the 8-bit sRGB key
-    // (gamut-mapped) to preserve the 9-byte snapshot and the lerp machinery.
+    // (h,s,v) integer draws above are reinterpreted as OKLCH coordinates, not
+    // redrawn, so the global RNG stream stays unperturbed; baked to gamut-mapped
+    // 8-bit sRGB to preserve the 9-byte snapshot and the lerp machinery.
     a = author_key(h1, s1, v1);
     b = author_key(h2, s2, v2);
     c = author_key(h3, s3, v3);
@@ -1239,9 +1198,7 @@ public:
   // Perceptual lightness band a key's HSV value maps into: L = kLightnessFloor +
   // (val/255) * kLightnessSpan, i.e. [0.12, 0.67]. The floor keeps dark stops off
   // pure black; the ceiling sits well below L=1 because perceptual lightness near
-  // white starves the sRGB gamut of chroma (see key_oklch). Named (vs bare
-  // literals) to match kChromaPeak/kHueTorsion and so the two halves of the band
-  // can't drift apart silently.
+  // white starves the sRGB gamut of chroma (see key_oklch).
   static constexpr float kLightnessFloor = 0.12f;
   static constexpr float kLightnessSpan = 0.55f;
 
@@ -1257,31 +1214,19 @@ public:
     // Hue: even perceptual spacing -- the integer harmony offsets from
     // calc_hues become true OKLCH-hue offsets (triadic is a real 120deg).
     float h = (hue / 256.0f) * (2.0f * PI_F);
-    // Lightness: compress HSV value into a perceptual L band. The ceiling is
-    // deliberately well below L=1: perceptual lightness near white starves the
-    // sRGB gamut of chroma, so a high-value key (e.g. FLAT, v=255) would clip to
-    // a washed-out pastel. Mapping [0,255] into [0.12, 0.67] lands full value in
-    // the chroma-rich mid-high zone where the gamut bulges -- keys stay
-    // saturated rather than bright-and-gray -- while the floor keeps dark stops
-    // off pure black. FLAT is still a genuinely isoluminant shimmer, now at a
-    // lightness the LEDs can actually render with saturation.
+    // Lightness: map HSV value into a perceptual L band well below L=1, since
+    // perceptual lightness near white starves the sRGB gamut of chroma (a
+    // high-value key would clip to a washed-out pastel). [0.12, 0.67] lands full
+    // value in the chroma-rich mid-high zone; the floor keeps dark stops off
+    // black.
     float L = kLightnessFloor + (val / 255.0f) * kLightnessSpan;
-    // Chroma co-varies with lightness: the saturation profile sets the ceiling
-    // (kChromaPeak), and a sin(pi*L) envelope tapers it toward both ends, where
-    // the gamut narrows. So a dark or near-white key can't also be fully
-    // saturated -- the garish dark+saturated failure mode -- and chroma peaks at
-    // mid-L where the gamut bulges. kChromaPeak is tuned so a typical key (FLAT
-    // sits at L=0.67) keeps roughly its previous chroma. get() re-applies the
-    // same envelope at the interpolated L so midpoints stay on this curve.
-    //
-    // VIBRANT is deliberately NOT authored at the exact per-hue cusp: get()'s
-    // envelope peaks chroma at mid-L *between* keys (it overshoots a key's own
-    // chroma when the segment passes through L~0.5), so cusp-authored keys push
-    // that mid-segment peak past the gamut boundary -- the in-gamut/chroma-clip
-    // path switch in oklch_to_pixel then bands the gradient. The fixed ceiling
-    // leaves the headroom that overshoot needs. (The banding-safe chroma sits
-    // about where this ceiling already is, so exact-cusp authoring bought almost
-    // no extra vividness for the artifact it introduced.)
+    // Chroma co-varies with lightness: kChromaPeak ceiling tapered by a sin(pi*L)
+    // envelope toward both ends where the gamut narrows, so a dark or near-white
+    // key can't also be fully saturated. get() re-applies the same envelope at
+    // the interpolated L. The ceiling stays below the per-hue cusp on purpose:
+    // get()'s envelope overshoots a key's chroma at mid-L between keys, and
+    // cusp-authored keys would push that overshoot past the gamut boundary,
+    // banding the gradient where oklch_to_pixel switches to the chroma-clip path.
     float C = (sat / 255.0f) * kChromaPeak * sinf(PI_F * L);
     return {L, C, h};
   }
@@ -1329,15 +1274,12 @@ public:
     }
     for (int i = 0; i < size; ++i) {
       colors_oklch[i] = srgb_to_oklch(colors[i].r, colors[i].g, colors[i].b);
-      // Recover the stop's chroma ceiling from its authored (L, C): the key was
-      // built as C = cmax * sin(pi*L), so cmax = C / sin(pi*L). get() re-applies
-      // the envelope at the interpolated L. Guard the divisor at the L extremes
-      // (black vignette stops sit at L~0, sin~0) -- there C~0, so cmax is ~0
-      // anyway and the stop stays achromatic.
-      // Use fast_sinf, matching get()'s re-application (not exact sinf): the
-      // recover/re-apply pair then cancels, so sampling exactly at a stop
-      // reproduces its authored chroma. This is the cold rebuild path, so it
-      // leaves get()'s per-sample fast_sinf untouched.
+      // Recover the stop's chroma ceiling cmax = C / sin(pi*L) (key was built as
+      // C = cmax * sin(pi*L)) so get() can re-apply the envelope at the
+      // interpolated L. Guard the divisor at the L extremes (black vignette stops
+      // sit at L~0, sin~0) where C~0 anyway. fast_sinf, matching get()'s
+      // re-application, so the recover/re-apply pair cancels and sampling exactly
+      // at a stop reproduces its authored chroma.
       float env = fast_sinf(PI_F * colors_oklch[i].L);
       colors_cmax[i] = (env > 1e-3f) ? colors_oklch[i].C / env : 0.0f;
     }
@@ -1420,18 +1362,15 @@ public:
     float p = std::clamp((t - start) / dist, 0.0f, 1.0f);
 
     // Interpolate in OKLCH for perceptually uniform gradients. Stops are
-    // pre-converted in update_stops(), so this avoids the per-sample
-    // sRGB->OKLCH cost (load-bearing on GSReactionDiffusion's 4x-SSAA path).
+    // pre-converted in update_stops(), avoiding the per-sample sRGB->OKLCH cost
+    // (load-bearing on GSReactionDiffusion's 4x-SSAA path).
     OKLCH blended = lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p);
-    // Chroma rides the lightness envelope at the *interpolated* L: interpolate
-    // the two stops' chroma ceilings, then C = cmax * sin(pi*L). This keeps a
-    // segment that spans a lightness change on the sin curve rather than the
-    // straight chord lerp_oklch produces -- no chroma dip where the gradient
-    // brightens through mid-L. fast_sinf: get() is per-sample on the non-baked
-    // palette path (the +1.86% near-zero error is negligible -- chroma is ~0
-    // there), and update_stops() recovers cmax with the same fast_sinf so a
-    // sample landing exactly on a stop reproduces its authored chroma. lerp_oklch
-    // still owns the L and shortest-arc hue; only C changes.
+    // Re-derive chroma on the envelope at the *interpolated* L: lerp the two
+    // stops' ceilings, then C = cmax * sin(pi*L). Keeps a segment spanning a
+    // lightness change on the sin curve rather than lerp_oklch's straight chord
+    // — no chroma dip where the gradient brightens through mid-L. fast_sinf
+    // matches update_stops()'s cmax recovery so a sample on a stop reproduces its
+    // authored chroma. lerp_oklch still owns L and shortest-arc hue.
     float cmax = colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
     blended.C = cmax * fast_sinf(PI_F * blended.L);
     // Hue torsion: drift hue with lightness (centered at L=0.5) so the ramp
@@ -1493,15 +1432,11 @@ private:
   GradientShape gradient_shape;
   CPixel a, b, c;
 
-  // Mutable static cursor shared across all GenerativePalette instances: each
-  // auto-seeded construction reads it and advances it so successive palettes get
-  // distinct base hues. Non-atomic by design — safe only because palette
-  // construction is single-threaded (engine setup / the render thread); it is
-  // NOT a concurrency guard and a second constructing thread would race it.
-  // OPT-OUT: the global is engaged only on the auto-seed path. Passing an
-  // explicit `manual_seed >= 0` to the constructor neither reads nor advances
-  // this cursor, so a caller wanting a deterministic, instance-local base hue
-  // (or isolation from the shared cursor) seeds through the constructor instead.
+  // Static cursor shared across all GenerativePalette instances: each auto-seeded
+  // construction reads and advances it so successive palettes get distinct base
+  // hues. Non-atomic by design — safe only because palette construction is
+  // single-threaded (engine setup / render thread); a second constructing thread
+  // would race it. Engaged only on the auto-seed path (manual_seed < 0).
   static inline uint8_t g_hue_seed = 0;
   std::array<float, 5> shape;
   std::array<CPixel, 5> colors;
@@ -1574,10 +1509,6 @@ public:
    * per-channel powf.
    */
   Color4 get(float t) const override {
-    // Determine color in high-precision float sRGB space first, then convert to
-    // 16-bit linear via the interpolated LUT — avoids the 8-bit quantization a
-    // plain srgb_to_linear(uint8_t) lookup would impose, without a per-channel
-    // powf.
     float r_srgb = hs::clamp(
         a[0] + b[0] * fast_cosf(2 * PI_F * (c[0] * t + d[0])), 0.0f, 1.0f);
     float g_srgb = hs::clamp(
@@ -1622,7 +1553,7 @@ public:
                   std::array<float, 3> c1, std::array<float, 3> d1,
                   std::array<float, 3> a2, std::array<float, 3> b2,
                   std::array<float, 3> c2, std::array<float, 3> d2)
-      : ProceduralPalette(a1, b1, c1, d1), // Initialize base with start values
+      : ProceduralPalette(a1, b1, c1, d1),
         a1(a1), b1(b1), c1(c1), d1(d1), a2(a2), b2(b2), c2(c2), d2(d2) {
     mutate(0.0f);
   }
@@ -1805,10 +1736,9 @@ struct FoldModifier {
     float shift = phase ? *phase : 0.0f;
     float scaled = (t * folds) + shift;
 
-    // Triangle wave formula: creates symmetrical, continuous bouncing between 0
-    // and 1. fmodf keeps the sign of the dividend, so reduce into [0, 2) first
-    // — otherwise negative scaled (e.g. a negative phase shift) folds to values
-    // above 1.
+    // Triangle wave. fmodf keeps the sign of the dividend, so reduce into [0, 2)
+    // first — otherwise negative scaled (e.g. a negative phase shift) folds above
+    // 1.
     float m = fmodf(scaled, 2.0f);
     if (m < 0.0f) m += 2.0f;
     return fabsf(m - 1.0f);
@@ -1842,22 +1772,20 @@ struct PinchModifier {
     if (!tension)
       return t;
 
-    // Shift t to -1.0 to 1.0 range based on a 0.0 to 1.0 domain block
+    // Center the wrapped coordinate into [-1, 1].
     float wrapped_t = wrap_t(t);
     float centered = wrapped_t * 2.0f - 1.0f;
     float sign = centered < 0.0f ? -1.0f : 1.0f;
 
-    // Apply power curve
     float amount = std::clamp(*tension, -0.99f, 0.99f);
     float power = (amount < 0.0f) ? (1.0f / (1.0f + std::abs(amount)))
                                   : (1.0f + amount * 3.0f);
 
     centered = sign * powf(std::abs(centered), power);
 
-    // Map back to 0.0 to 1.0 and add to integer spatial frame. floorf(t) pairs
-    // with wrap_t(t) (== t - floorf(t)), so the reshaped fraction is re-anchored
-    // to t's own integer cell — including for negative t, where both agree on
-    // the same floor (no truncation-toward-zero mismatch).
+    // Re-anchor the reshaped fraction to t's own integer cell: floorf(t) pairs
+    // with wrap_t(t) (== t - floorf(t)), agreeing even for negative t (no
+    // truncation-toward-zero mismatch).
     return floorf(t) + ((centered + 1.0f) * 0.5f);
   }
 };
@@ -2024,9 +1952,9 @@ struct EdgeFadeShade {
    * @return The sample with its color faded near the edges.
    */
   Color4 shade(Color4 c, float t) const {
-    // Pixel (16-bit linear) black, not CRGB: a CRGB temporary here would bind
-    // the low-edge blend to CRGB::lerp16 (quantize -> sRGB lerp -> re-expand),
-    // banding the fade and making it asymmetric with the 16-bit high edge.
+    // Pixel (16-bit linear) black, not CRGB: a CRGB temporary would route the
+    // blend through an 8-bit sRGB lerp, banding the fade and making it asymmetric
+    // with the 16-bit high edge.
     Pixel black(0, 0, 0);
     if (t < edge)
       return Color4(
@@ -2304,13 +2232,10 @@ public:
     // deliberately NOT HS_CHECK — a branch here costs on every pixel on-device.
     // The unbaked-palette wiring bug is trapped always-on at the cold rebake().
     assert(lut_ != nullptr && "BakedPalette::get before bake()");
-    // Clamp in float space before the int cast (parity with the NaN-safe
-    // Gradient::get): static_cast<int>(NaN) is UB and a NaN idx would slip past
-    // both integer bound guards below. hs::clamp is a branchless hardware
-    // min/max that maps NaN to the hi bound, so NaN resolves to the last entry.
-    // Valid t in [0,1] is unchanged (no-op clamp), so the per-pixel hot path
-    // keeps its cost. The clamp guarantees idx >= 0, so no `lo < 0` guard is
-    // needed.
+    // Clamp before the int cast: static_cast<int>(NaN) is UB and a NaN idx would
+    // slip past the integer guards below. hs::clamp maps NaN to the hi bound (NaN
+    // -> last entry) and guarantees idx >= 0 (no `lo < 0` guard needed); valid t
+    // in [0,1] is a no-op.
     float idx = hs::clamp(t * (LUT_SIZE - 1), 0.0f,
                           static_cast<float>(LUT_SIZE - 1));
     int lo = static_cast<int>(idx);
@@ -2318,14 +2243,10 @@ public:
     float frac = idx - lo;
     const Color4 &a = lut_[lo];
     const Color4 &b = lut_[lo + 1];
-    // Round (+0.5f) the blend weight rather than truncating, matching
-    // float_to_pixel16 / Gradient::get — bare truncation would bias every
-    // interpolated sample down by up to ~1/65535. The helper's clamp is skipped
-    // here: frac is already in [0,1) after the bounds checks above, and get() is
-    // a per-pixel hot path. The +0.5f round applies only to the color channel:
-    // its weight is quantized to a uint16_t, so truncation would bias it. Alpha
-    // is interpolated with the raw float `frac` in full float precision (no
-    // quantization step to bias), so it deliberately needs no rounding term.
+    // Round (+0.5f) the color weight rather than truncating (bias of up to
+    // ~1/65535); float_to_pixel16's clamp is skipped since frac is already in
+    // [0,1) and this is per-pixel. Only the color weight is quantized to uint16_t
+    // and so needs the round; alpha lerps in full float precision (no bias).
     return Color4(a.color.lerp16(b.color,
                                  static_cast<uint16_t>(frac * 65535.0f + 0.5f)),
                   a.alpha + (b.alpha - a.alpha) * frac);

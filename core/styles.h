@@ -141,10 +141,7 @@ struct Style {
     space_fn   = t < 0.5f ? a.space_fn   : b.space_fn;
     color_fn   = t < 0.5f ? a.color_fn   : b.color_fn;
     downsample = t < 0.5f ? a.downsample : b.downsample;
-    // noise is bound state the effect owns (set at init), not a preset
-    // parameter. Leave the subject's pointer untouched — pulling it from a
-    // preset would overwrite it with that preset's nullptr and silently
-    // degrade noise_warp to identity.
+    // noise is left untouched: see @details.
   }
 
   /**
@@ -273,12 +270,10 @@ inline Vector noise_warp(const Vector &v, const Style &s) {
   return noise_transform(v, *s.noise);
 }
 
-// speed controls the drip rate; amplitude controls the noise wobble. Noise
-// perturbation is applied only when bound and amplitude exceeds 0.001 to
-// produce organic, uneven drip widths.
 inline Vector melt_warp(const Vector &v, const Style &s) {
-  // Shift sample toward north pole → image appears to drip south.
-  // speed controls drip rate; amplitude controls noise wobble.
+  // Shift sample toward north pole → image appears to drip south. speed controls
+  // drip rate; amplitude controls noise wobble (applied only when bound and
+  // amplitude > 0.001, for organic, uneven drip widths).
   static constexpr Vector NORTH = {0.0f, 1.0f, 0.0f};
   // Slerp fraction toward the pole per frame at speed=1; the registered preset
   // speeds (e.g. Melting 1.005, Swirling 1.465) scale this, so at speed=1 each
@@ -290,7 +285,6 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
   float drip = s.speed * kMeltStepPerFrame;
   Vector drifted = slerp(v, NORTH, drip);
 
-  // Add noise perturbation for organic, uneven drip widths
   if (s.noise && s.amplitude > kMeltNoiseAmpFloor) {
     return noise_transform(drifted, *s.noise);
   }

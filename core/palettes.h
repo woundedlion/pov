@@ -173,9 +173,9 @@ struct MeshPaletteBank {
   BakedPaletteBank bank; /**< Underlying baked-palette bank holding N LUTs. */
 };
 
-// Ties the source-palette list length to N (== BakedPaletteBank::N). Editing N
-// or the sources() list without the other now fails to compile rather than
-// silently desyncing the bake_all()/shuffle_indices() loops.
+// Ties the source-palette list length to N (== BakedPaletteBank::N): editing one
+// without the other fails to compile rather than desyncing the
+// bake_all()/shuffle_indices() loops.
 static_assert(MeshPaletteBank::sources().size() == MeshPaletteBank::N,
               "MeshPaletteBank::sources() count must equal N");
 
