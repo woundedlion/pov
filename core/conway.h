@@ -432,7 +432,16 @@ HS_COLD static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       int count;
       Vector c = face_centroid(he_mesh, mesh, i, count);
-      out_mesh.vertices.push_back(c.normalized());
+      // Strict normalized() traps on a zero-length centroid (a centrally-
+      // symmetric face); fall back to the face's first vertex — already on the
+      // unit sphere — so the dual degrades gracefully, matching every other
+      // operator's normalized_or() rather than a lone strict normalize here
+      // (cf. snub(), which similarly guards its degenerate-centroid normal).
+      // Unreachable on the convex 52-solid roster (a face's vertices share a
+      // hemisphere, so their mean is never zero).
+      Vector first_v =
+          mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
+      out_mesh.vertices.push_back(normalized_or(c, first_v));
     }
 
     bool *visited_verts = static_cast<bool *>(
