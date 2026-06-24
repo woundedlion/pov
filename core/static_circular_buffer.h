@@ -197,7 +197,9 @@ public:
   }
 
   /**
-   * @brief Removes all elements, running each element's destructor.
+   * @brief Empties the buffer for reuse.
+   * @details Advances head/count to empty and resets head == tail == 0; backing
+   * slots stay live (no per-element destructor runs).
    */
   void clear() {
     while (!is_empty()) {
