@@ -120,10 +120,10 @@ public:
     // delta of t (scaled by the term's coefficient) for an exact wrap.
     //
     // dt reads the live Time Speed slider directly rather than (t - prev_time):
-    // the Driver's scale is 1.0 and it adds the freshly-read speed each step, so
-    // the slider value IS this frame's advance of t. Differencing the unbounded
-    // accumulator would lose that increment to float ULP after multi-day uptime
-    // (quantizes to 0, field freezes). Guard a non-finite slider to 0.
+    // the Driver adds the freshly-read speed each step, so the slider value IS
+    // this frame's advance of t. Differencing the unbounded accumulator would
+    // lose that increment to float ULP after multi-day uptime (field freezes).
+    // Guard a non-finite slider to 0.
     constexpr float kTwoPi = 2.0f * PI_F;
     float dt = params.time_speed;
     if (!std::isfinite(dt))

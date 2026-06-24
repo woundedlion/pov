@@ -58,9 +58,7 @@ public:
    * and seeds the A/B state, and builds the cubemap LUT and lattice nodes once.
    */
   void init() override {
-    // 170KB holds the Cubemap LUT + A/B State + node positions. The node array
-    // is the fixed Fibonacci lattice (queries are un-oriented onto it), so it is
-    // built once. Sizes derive from sizeof so a future type-size change trips the
+    // Sizes derive from sizeof so a future type-size change trips the
     // static_assert rather than the init trap.
     constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
                                      ReactionGraph::CubemapLUT::RES *
@@ -74,11 +72,11 @@ public:
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill", &params.k, 0.0f, 0.1f);
-    // dA/dB cap at 0.05: explicit Euler is stable only while dt·D·λmax ≤ 2. The
-    // graph Laplacian's |λ|max ≤ 2·6 = 12 (6-NN lattice), so at Speed top
-    // (dt = 3.0) the worst case is 3·0.05·12 = 1.8 ≤ 2. Covers only the diffusion
-    // term — widening Feed/Kill/dt needs a fresh reaction-Jacobian check. Backstop:
-    // to_q16() clamps every state to [0, 1], so a violation degrades visually.
+    // dA/dB cap at 0.05: explicit Euler is stable only while dt·D·λmax ≤ 2.
+    // |λ|max ≤ 2·6 = 12 (6-NN lattice), so at Speed top (dt = 3.0) the worst case
+    // is 3·0.05·12 = 1.8 ≤ 2. Covers only the diffusion term — widening
+    // Feed/Kill/dt needs a fresh reaction-Jacobian check. Backstop: to_q16()
+    // clamps every state to [0, 1], so a violation degrades visually.
     registerParam("dA", &params.dA, 0.0f, 0.05f);
     registerParam("dB", &params.dB, 0.0f, 0.05f);
     registerParam("Speed", &params.dt, 0.1f, 3.0f);
@@ -258,7 +256,7 @@ private:
     // Hoist the cubemap lookup into the vertex shader (once at the pixel center),
     // sparing ~3 redundant lookups per pixel under 4× SSAA. The seed only feeds
     // refine_nearest_node, which re-finds the true nearest per sub-sample, so the
-    // result is identical to looking up per sub-sample.
+    // result is identical.
     auto vertex_shader = [&](Fragment &frag) {
       Vector rv = orientation.unorient(frag.pos);
       frag.v0 = static_cast<float>(cube_lut.lookup(rv));

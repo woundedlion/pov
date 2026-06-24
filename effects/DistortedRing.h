@@ -105,8 +105,7 @@ public:
         f.color = ringPalette.get(f.v0);
 
         float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
-        // Smootherstep falloff: full alpha at the center line, fading to 0 at
-        // the stroke edge.
+        // Smootherstep falloff: full alpha at the center line, 0 at the edge.
         float falloff = quintic_kernel(1.0f - norm_dist);
 
         f.color.alpha = f.color.alpha * opacity * params.alpha * falloff;

@@ -46,9 +46,8 @@ public:
     // rand_int is half-open, so 65536 makes the full 16-bit seed range reachable.
     noise_generator.SetSeed(hs::rand_int(0, 65536));
 
-    // Drives the whole-sphere drift the Orient stage consumes; without it the
-    // filter is a no-op. `orient_noise` is dedicated so RandomWalk never
-    // reconfigures the flow-field noise.
+    // Drives the whole-sphere drift the Orient stage consumes. `orient_noise` is
+    // dedicated so RandomWalk never reconfigures the flow-field noise.
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, random_vector(), orient_noise,
                         Animation::RandomWalk<W>::Options::Languid()));
@@ -78,10 +77,10 @@ public:
           p.history.clear();
         }
 
-        // Three force-component channels decorrelated by large x-offsets
-        // (0/100/200, past the lattice correlation length). All share the z input
-        // (p.z*scale + t), so time advances the field along z — FastNoiseLite is
-        // only 3D, so this shared-z animation is the accepted simplification.
+        // Three force channels decorrelated by large x-offsets (0/100/200, past
+        // the lattice correlation length). All share the z input (p.z*scale + t),
+        // so time advances the field along z — FastNoiseLite is only 3D, so this
+        // shared-z animation is the accepted simplification.
         constexpr float kChannelOffsetY = 100.0f;
         constexpr float kChannelOffsetZ = 200.0f;
         float fx =

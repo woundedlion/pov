@@ -28,7 +28,7 @@ public:
    *        first shape.
    */
   void init() override {
-    // scratch arenas + room for BakedPaletteBank (~15KB) in persistent
+    // scratch arenas + room for BakedPaletteBank (~15KB) in persistent.
     configure_arenas(GLOBAL_ARENA_SIZE - (120 + 120) * 1024, 120 * 1024,
                      120 * 1024);
 
@@ -53,8 +53,7 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
 
-    // One immediate ripple burst, then a recurring one every
-    // kRippleRecurrenceFrames frames.
+    // One immediate burst, then a recurring one every kRippleRecurrenceFrames.
     timeline.add(0, Animation::PeriodicTimer(
                         0, [this](Canvas &canvas) { ripple(canvas); }, false));
     timeline.add(0, Animation::PeriodicTimer(

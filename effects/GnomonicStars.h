@@ -57,11 +57,10 @@ public:
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
     registerParam("Debug BB", &params.debug_bb);
 
-    // Retain the handle so the "Warp Speed" slider can be mirrored into the warp
-    // each frame (see draw_frame). The warp is infinite and added first, so
-    // pinning is safe: a later finite event inserted ahead traps on compaction
-    // rather than dangling this pointer. Args are (scale, speed): scale is the
-    // fixed 0.5 modulation magnitude, speed the slider-controlled rate.
+    // Retain the handle to mirror the "Warp Speed" slider into the warp each
+    // frame. The warp is infinite and added first, so pinning is safe: a later
+    // finite event traps on compaction rather than dangling this pointer. Args
+    // are (scale, speed): scale the fixed 0.5 magnitude, speed the slider rate.
     warp_ = transformer.spawn_pinned(0, 0.5f, params.warp_speed);
     // A pinned spawn into a fresh transformer always has a free slot, so a null
     // here is a structural bug, not a runtime condition.

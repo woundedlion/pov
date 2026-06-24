@@ -80,9 +80,8 @@ public:
    */
   void init() override {
 
-    // This effect never uses scratch B, so carve it to 0. The default size is
-    // restored before the next effect's init() (every site calls
-    // configure_arenas_default()), so it never leaks across an effect switch.
+    // No scratch B; carve it to 0. The default size is restored before the next
+    // effect's init(), so it never leaks across an effect switch.
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
     node = static_cast<Node *>(
@@ -143,9 +142,8 @@ public:
     ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
     timeline.step(canvas);
 
-    // Each entity holds its own copy of the noise params (sliders bind to
-    // `params`, not the entities), so push the live values in by hand;
-    // prepare_frame() below re-syncs each active entity afterward.
+    // Sliders bind to `params`, not the entities, so push the live values in by
+    // hand; prepare_frame() below re-syncs each active entity afterward.
     for (auto &e : noise_xform.entities) {
       if (e.active) {
         e.params.frequency = params.noiseFreq;

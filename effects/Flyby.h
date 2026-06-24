@@ -34,9 +34,8 @@ public:
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    // Wide Warp Scale/Strength range: presets sweep the warp hard (up to scale
-    // ~47.8, strength ~11.6 — see presets below), so the slider must reach those
-    // extremes.
+    // Wide range: presets sweep the warp hard (up to scale ~47.8, strength
+    // ~11.6), so the slider must reach those extremes.
     registerParam("Warp Scale", &params.warp_scale, 0.1f, 100.0f);
     registerParam("Warp Strength", &params.warp_strength, 0.0f, 30.0f);
     registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);

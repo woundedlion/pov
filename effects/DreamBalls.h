@@ -57,7 +57,7 @@ public:
   void init() override {
     setup_presets();
 
-    // Wire the blood-stream composition before any preset bakes through it.
+    // Bind before any preset bakes through it.
     bloodStreamComposition.bind(&bloodStreamPalette, &bloodStreamFade);
 
     params = preset_manager.get();
@@ -83,9 +83,8 @@ public:
                         Animation::RandomWalk<W>::Options::Languid()));
 
     spawn_sprite(0);
-    // Integrate the live Speed slider each frame, wrapped to [0,1): a Speed
-    // change alters the rate going forward only, and trig stays in precise range
-    // over multi-day runs.
+    // Integrate the live Speed slider each frame, wrapped to [0,1) so trig stays
+    // in precise range over multi-day runs.
     timeline.add(0, Animation::Driver(orbit_phase, &params.offset_speed, 0.01f,
                                       /*wrap=*/true));
   }

@@ -36,8 +36,7 @@ public:
     configure_arenas(GLOBAL_ARENA_SIZE - 16 * 1024 - 32 * 1024, 16 * 1024,
                      32 * 1024);
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
-    // Flagged animated so the GUI auto-pauses the sweep/morph cycle when the
-    // user grabs the slider.
+    // Flagged animated so the GUI auto-pauses the sweep/morph cycle on grab.
     registerAnimatedParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
     registerParam("Debug BB", &params.debug_bb);
 

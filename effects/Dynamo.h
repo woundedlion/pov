@@ -102,9 +102,8 @@ public:
       nodes[i].y = i;
     }
 
-    // Allocate the baked-palette LUT pool once. bake() allocates; later
-    // rebake() refills in place, so push/pop churn never grows the arena. Seed
-    // every slot from the initial palette, then fill the active set.
+    // Allocate the LUT pool once: bake() allocates, rebake() refills in place,
+    // so push/pop churn never grows the arena.
     for (auto &bp : baked_palettes_)
       bp.bake(persistent_arena, palettes[0]);
     rebake_active_palettes();
@@ -213,13 +212,12 @@ public:
     float a = angle_between(v, palette_normal);
 
     // palettes[i+1] stays in range via palettes.size() ==
-    // palette_boundaries.size()+1; as a backstop, palette_boundaries' capacity is
+    // palette_boundaries.size()+1; backstop: palette_boundaries' capacity is
     // MAX_PALETTES-1, so i+1 < palettes capacity even if that invariant broke.
     //
-    // The scan assumes palette_boundaries is monotonically non-decreasing in
-    // index. A live Wipe-Dur change can transiently invert that when a newer,
-    // shorter wipe overtakes an older one — cosmetic, self-heals as wipes drain,
-    // and stays in bounds regardless.
+    // The scan assumes palette_boundaries is monotonically non-decreasing. A live
+    // Wipe-Dur change can transiently invert that (newer, shorter wipe overtakes
+    // an older one) — cosmetic, self-heals as wipes drain, stays in bounds.
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
       float boundary = palette_boundaries[i];
       auto lower_edge = boundary - blend_width;

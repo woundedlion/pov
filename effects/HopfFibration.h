@@ -60,8 +60,8 @@ public:
     }
 
     init_fibers();
-    // Ambient spin is intentionally left ungated (runs while paused); the
-    // flow/tumble Drivers below are gated so Pause freezes the fiber motion.
+    // Ambient spin is left ungated (runs while paused); the flow/tumble Drivers
+    // below are gated so Pause freezes the fiber motion.
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_linear, true));
     // Each Driver pulls its slider (× per-unit rate) every step, so speeds stay

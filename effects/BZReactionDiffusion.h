@@ -72,10 +72,8 @@ public:
    *        and seeds the initial spiral nuclei.
    */
   void init() override {
-    // 165KB persistent: Cubemap LUT + State + node positions. The node array is
-    // the fixed Fibonacci lattice (queries are un-oriented onto it), so it is
-    // view-independent and built once. The requirement is derived from sizeof so
-    // a future type-size change trips the static_assert rather than the init trap.
+    // Sizes derive from sizeof so a future type-size change trips the
+    // static_assert rather than the init trap.
     constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
                                      ReactionGraph::CubemapLUT::RES *
                                      sizeof(uint16_t); // cube_lut.build
@@ -86,14 +84,11 @@ public:
                   "BZ persistent arena too small for LUT + state + nodes");
     configure_arenas(kPersistentBytes, GLOBAL_ARENA_SIZE - kPersistentBytes, 0);
 
-    // "Compete" is the Lotka-Volterra predation coefficient, not an opacity;
-    // the name avoids clashing with the engine-wide Alpha-as-opacity convention.
+    // "Compete" is the Lotka-Volterra predation coefficient, not an opacity.
     registerParam("Compete", &params.alpha, 0.0f, 4.0f);
-    // Explicit Euler, stable only while dt·D·λmax ≤ 2. The graph Laplacian's
-    // |λ|max ≤ 2·6 = 12 (6-NN lattice), so at the Diff/Speed tops the worst case
-    // is 1.0·0.1·12 = 1.2 ≤ 2. The logistic reaction term stays bounded over the
-    // Compete range. Backstop: the bound is a visual-quality guarantee, not the
-    // hard limit — to_q8() clamps every written state to [0, 1] each step, so a
+    // Explicit Euler, stable only while dt·D·λmax ≤ 2. |λ|max ≤ 2·6 = 12 (6-NN
+    // lattice), so at the Diff/Speed tops the worst case is 1.0·0.1·12 = 1.2 ≤ 2.
+    // Backstop: to_q8() clamps every written state to [0, 1] each step, so a
     // range-widening degrades visually rather than blowing up.
     registerParam("Diff", &params.D, 0.001f, 0.1f);
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
@@ -326,9 +321,9 @@ private:
   Color4 sample_kernel(const Vector &rv, const Vector *nodes, int best_node,
                        const Color4 &ca, const Color4 &cb,
                        const Color4 &cc) const {
-    // Accumulate raw Q8 bytes weighted by the kernel and defer the single
-    // Q8_INV scale to one multiply after the walk (folded into `inv` below);
-    // converting per term would cost three extra multiplies per node.
+    // Accumulate raw Q8 bytes and defer the single Q8_INV scale to one multiply
+    // after the walk (folded into `inv`); converting per term would cost three
+    // extra multiplies per node.
     float tw = 0, wa = 0, wb = 0, wc = 0;
     kernel_accumulate(rv, nodes, best_node, [&](int i, float w) {
       wa += state.A[i] * w;
@@ -343,11 +338,9 @@ private:
     float inv = Q8_INV / tw;
     float a = wa * inv, b = wb * inv, c = wc * inv;
     // Drive opacity by total concentration so a growing front dissolves smoothly
-    // into the background instead of snapping on. blend_species normalizes to a
-    // pure hue with no dimming, so without this ramp the edge would collapse to
-    // a hard step tracing the lattice cells. The sum clamps to 1 (saturated
-    // interiors stay opaque); below SPECIES_EMPTY_EPS the location culls to
-    // transparent rather than painting opaque black over the background.
+    // instead of snapping on (blend_species normalizes to a pure hue with no
+    // dimming, so without this the edge would be a hard step along lattice cells).
+    // Sum clamps to 1; below SPECIES_EMPTY_EPS the location culls to transparent.
     float total = a + b + c;
     if (total < SPECIES_EMPTY_EPS)
       return Color4(Pixel(0, 0, 0), 0.0f);
@@ -370,8 +363,7 @@ private:
     uint8_t *sB = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sC = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
 
-    // Ping-pong between the persistent state and the scratch buffers. cur always
-    // names the latest generation; nxt is the write target for the next step.
+    // Ping-pong: cur names the latest generation, nxt the next write target.
     uint8_t *curA = state.A, *curB = state.B, *curC = state.C;
     uint8_t *nxtA = sA, *nxtB = sB, *nxtC = sC;
     for (int k = 0; k < STEPS_PER_FRAME; k++) {
@@ -381,9 +373,9 @@ private:
       std::swap(curC, nxtC);
     }
 
-    // Land the final generation back in the persistent buffers so it survives
-    // the ScratchScope pop. Even substep count leaves cur == state (no copy);
-    // odd count leaves the result in scratch and is copied back.
+    // Land the final generation back in persistent state so it survives the
+    // ScratchScope pop. Even substep count leaves cur == state (no copy); odd
+    // leaves the result in scratch, copied back here.
     if (curA != state.A) {
       std::memcpy(state.A, curA, RD_N);
       std::memcpy(state.B, curB, RD_N);

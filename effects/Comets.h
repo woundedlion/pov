@@ -83,8 +83,7 @@ public:
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
     // Motion + cycle timer are infinite and added before any finite animation,
-    // so the timeline never moves them — these handles stay valid for live
-    // Cycle Dur updates.
+    // so the timeline never moves them — handles stay valid for live Cycle Dur.
     motion_ = timeline.add_get(
         0, Animation::Motion<W, 16>(node->orientation, path,
                                     (int)params.cycle_duration, true));
@@ -228,7 +227,6 @@ private:
 
   FastNoiseLite noise; /**< Noise source driving the head's RandomWalk. */
   Timeline timeline; /**< Animation timeline owning all scheduled animations. */
-  // Empty pipeline: an AntiAlias pass would only blur Scan::Point's own glow.
   Pipeline<W, H> filters; /**< Render filter pipeline applied to drawn fragments. */
   ProceduralPath path; /**< Current path function the comet head traces. */
   Orientation<> orientation; /**< World orientation walked by the RandomWalk. */
