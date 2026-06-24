@@ -23,7 +23,7 @@ Holosphere is an exceptionally disciplined embedded-graphics codebase. It is a c
 - numerical rigor with documented error budgets (provably overflow-safe `lerp16`, OKLCH gamut-preserving chroma clip, Cortex-M7 DSP-aware saturating math, hot/cold trig split);
 - host/device determinism treated as a first-class invariant (bit-exact FastLED math mocks, seeded PCG32, a death-trap harness that asserts the fail-fast traps actually fire).
 
-The single most pervasive critique — raised independently against many components — is **comment density**: the rationale documentation, while genuinely excellent and rare, is dense enough in the largest headers (`color.h`, `sdf.h`, `animation.h`, `conway.h`, `dma_led.h`) to slow navigation and create a prose-vs-code synchronization surface. The second systemic gap is **the absence of an automated device build**: several device-only paths and hand-tuned arena high-water marks are unverifiable in CI and rest on manual hardware confirmation (mitigated by always-on fail-fast traps).
+The single most pervasive critique — raised independently against many components — is **comment density**: the rationale documentation, while genuinely excellent and rare, is dense enough in the largest headers (`color.h`, `sdf.h`, `animation.h`, `conway.h`, `dma_led.h`) to slow navigation and create a prose-vs-code synchronization surface. The second systemic gap is **the absence of on-hardware validation in CI**: CI now compiles both Teensy 4.0 firmware images headlessly and gates them on per-region size and layout budgets, but does not run them on hardware, so on-device timing and a few runtime-only paths still rest on manual confirmation (mitigated by always-on fail-fast traps).
 
 ### Quality-dimension grades
 
@@ -36,7 +36,7 @@ The single most pervasive critique — raised independently against many compone
 | **Error Handling & Robustness** | A | A precisely articulated and consistently applied policy: trap (always-on, NDEBUG-surviving) at cold logic-bug seams; soft-degrade at UI/transient boundaries; NaN→hi clamp contract protecting every float→int cast, compile-guarded against `-ffast-math`. |
 | **Performance & Resource Use** | A− | Genuinely target-aware throughout (LUT folding, analytic scanline bounds, squared-distance compares, arena-baked palettes, fast approximations with error budgets). A few unbudgeted or per-frame-recomputed spots are documented rather than fixed. |
 | **Testing & Testability** | B+ | Strong native suite (oracle-based, X-macro rosters, rigorous death harness) and a WASM-vs-JS parity suite with absolute golden pins. Gaps: `wasm.cpp` engine glue has no host coverage, one assertion compares C-strings by pointer, several worst-case rasterizer paths are acknowledged untriggered. |
-| **Portability** | A− | Clean `platform.h` abstraction, bit-exact host mocks, same arena size on both targets. Device-only code (drivers, sync protocol shell) compiles nowhere automated. |
+| **Portability** | A | Clean `platform.h` abstraction, bit-exact host mocks, same arena size on both targets. Both device targets (drivers, sync protocol shell) now compile in CI under the pinned ARM toolchain with per-region size/layout gating; the residual gap is that nothing runs on hardware in CI. |
 | **Documentation** | A | README is exhaustive and accurate to the code (one formula mismatch found); inline Doxygen and design notes are among the best reviewed — to a fault (see Readability). |
 
 ### Per-component grades
