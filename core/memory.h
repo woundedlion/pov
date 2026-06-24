@@ -107,7 +107,7 @@ public:
     // [buffer, buffer+capacity), so it fits iff offset+padding+size <= capacity.
     // Mixing address-derived padding with the offset-space bound is therefore
     // correct, not a unit error.
-    size_t current = reinterpret_cast<size_t>(buffer + offset);
+    uintptr_t current = reinterpret_cast<uintptr_t>(buffer + offset);
     size_t padding = (align - (current % align)) % align;
     // No-wrap bounds check. An additive form (offset + padding + size > capacity)
     // wraps if `size` is colossal — e.g. an overflowed exact_capacity * sizeof(T)

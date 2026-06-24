@@ -165,7 +165,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 40. ✅ **`MobiusWarpEvolving::phase` can return exactly 100.0, contradicting its documented `[0,100)` range** — `core/animation.h:2177-2180`. `(h & 0xFFFF) * (100/65535)` hits 100.0 at `0xFFFF`. No functional consequence (feeds `sinf`/`cosf`). Divide by `65536.0f` for a true half-open range and uniform bucketing.
 
-41. **`Arena::allocate` uses `reinterpret_cast<size_t>` for pointer address math instead of `uintptr_t`** — `core/memory.h:110`. Works on every target; `uintptr_t` is the strictly-correct round-trippable type and `<cstdint>` is already included. Switch for standard-conformance/self-documentation.
+41. ✅ **`Arena::allocate` uses `reinterpret_cast<size_t>` for pointer address math instead of `uintptr_t`** — `core/memory.h:110`. Works on every target; `uintptr_t` is the strictly-correct round-trippable type and `<cstdint>` is already included. Switch for standard-conformance/self-documentation.
 
 42. **`pair_half_edges` and the classify `HashNode` sort use `make_heap`+`sort_heap` with no rationale** — `core/mesh.h:151,667`. Heapsort vs `std::sort` (used elsewhere in the same subsystem) on a cold path; immaterial perf, conspicuous silence. Switch to `std::sort` or add a one-line justification.
 
