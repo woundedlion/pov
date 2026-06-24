@@ -231,13 +231,19 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
       effect.draw_frame();
       effect.advance_display();
     }
+    // A slow per-frame revert toward `cur` could still land within `eps` of
+    // `target` after only 3 frames, reading as persisted. Require the value to
+    // stay near `target` AND remain strictly closer to it than to the pre-write
+    // value, so any drift back past the midpoint toward `cur` is caught.
     const float eps = fmaxf(1e-3f, 1e-3f * range);
-    const bool persisted = fabsf(def.get() - target) <= eps;
+    const float now = def.get();
+    const bool persisted =
+        fabsf(now - target) <= eps && fabsf(now - target) < fabsf(now - cur);
     if (!persisted)
       std::printf("  DEAD SLIDER %s::%s — wrote %.4f, engine reverted to %.4f "
                   "(markAnimated / markReadonly / drive a private member)\n",
                   name, def.name, static_cast<double>(target),
-                  static_cast<double>(def.get()));
+                  static_cast<double>(now));
     HS_EXPECT(persisted, "editable param must persist across frames");
   }
 }

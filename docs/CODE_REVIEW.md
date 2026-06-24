@@ -187,7 +187,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 51. ✅ **Windows death-child command string is fragile to special characters in the exe path** — `tests/test_death.h:805-819`. Relies on `cmd.exe` outer-quote stripping; robust for benign paths but `CreateProcess`/`_spawnv` with an argv array avoids shell parsing entirely. Document the constraint or switch to a shell-free spawn.
 
-52. **Dead-slider lint epsilon can mask a partial per-frame revert** — `tests/test_effects.h:234-241`. A slider slowly pulled back toward its driven value (≤0.13%/frame) could still read as "persisted" within `eps` after 3 frames. No current effect exploits it (all slider drivers are absolute writes). Render more frames or assert the value is closer to the written target than to the pre-write value.
+52. ✅ **Dead-slider lint epsilon can mask a partial per-frame revert** — `tests/test_effects.h:234-241`. A slider slowly pulled back toward its driven value (≤0.13%/frame) could still read as "persisted" within `eps` after 3 frames. No current effect exploits it (all slider drivers are absolute writes). Render more frames or assert the value is closer to the written target than to the pre-write value.
 
 53. **`captureFrame` stretches the source into a fixed-aspect offscreen after a mid-recording resize** — `c:/work/daydream/recorder.js:233`. The 4-arg `drawImage` fills the pinned offscreen, so a window resize mid-recording distorts geometry (track size is correctly pinned; aspect is not). Compute a letterbox/pillarbox dest rect (and clear before blit), or document the limitation.
 
