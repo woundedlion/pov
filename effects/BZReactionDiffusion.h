@@ -244,6 +244,10 @@ private:
    *       part of the global RNG ordering, not an independent generator.
    */
   static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
+    // RNG-draw pin: this call advances the global stream by exactly
+    // 2 * NUM_PERTURBATIONS draws (idx + species per iteration). Retuning
+    // NUM_PERTURBATIONS or the per-iteration draw count shifts every later
+    // effect's stream position — treat it as a global-determinism change.
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
       int idx = hs::rand_int(0, RD_N);
       int s = hs::rand_int(0, 3);  // half-open [0,3): all three species, incl. C

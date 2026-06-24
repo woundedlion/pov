@@ -177,7 +177,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 46. ✅ **`DreamBalls::update_displaced_mesh` indexed write relies on an unstated target-sizing precondition** — `effects/DreamBalls.h:334-348`. Safe today because `MeshOps::transform` pre-sizes `target.vertices`; a future reorder could silently go OOB on device (debug `assert` catches it natively). Add an always-on `HS_CHECK(target.vertices.size() == base.vertices.size())` at the cold seam.
 
-47. **BZ `perturb_state` couples global RNG stream position to substep count** — `effects/BZReactionDiffusion.h:246-254`. Documented and intended (single-stream determinism is a deliberate project stance); informational only. Optionally pin the per-frame draw count in a determinism-test comment so a future retune is recognized as a global-stream change.
+47. ✅ **BZ `perturb_state` couples global RNG stream position to substep count** — `effects/BZReactionDiffusion.h:246-254`. Documented and intended (single-stream determinism is a deliberate project stance); informational only. Optionally pin the per-frame draw count in a determinism-test comment so a future retune is recognized as a global-stream change.
 
 48. **Magic stagger/recurrence/pool constants in the IslamicStars ripple burst are unnamed** — `effects/IslamicStars.h:110-112`. The `16`/`96`/`8`/`144` values are coupled by a capacity invariant (overflow safely drops ripples) but live as bare literals in different methods. Hoist to named `constexpr` members with a note, mirroring `MeshFeedback`'s `static_assert`-locked period constants.
 
