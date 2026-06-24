@@ -95,7 +95,6 @@ inline void test_kdtree_nearest_known_set() {
   HS_EXPECT_VEC(r2[0].point, Vector(10, 0, 0), 1e-6f);
   HS_EXPECT_EQ(r2[0].original_index, (uint16_t)1);
 
-  // Query exactly on a point → dist 0.
   auto r3 = tree.nearest(Vector(5, 5, 5), 1);
   HS_EXPECT_EQ(r3.size(), (size_t)1);
   HS_EXPECT_VEC(r3[0].point, Vector(5, 5, 5), 1e-6f);
@@ -235,13 +234,11 @@ inline void test_kdtree_duplicates_and_max_k() {
   auto r = tree.nearest(query, K);
   HS_EXPECT_EQ(r.size(), (size_t)K);
 
-  // Brute-force the K smallest squared distances (sorted ascending).
   float all_d2[8];
   for (int i = 0; i < 8; ++i) all_d2[i] = distance_squared(pts[i], query);
   std::sort(all_d2, all_d2 + 8);
 
-  // Squared distances must equal the K smallest as a sorted sequence (boundary
-  // ties make index order arbitrary).
+  // Compare as a sorted sequence: boundary ties make index order arbitrary.
   float prev = -1.0f;
   for (int i = 0; i < K; ++i) {
     HS_EXPECT_TRUE(r[i].d_sq >= prev - 1e-6f);
@@ -252,7 +249,6 @@ inline void test_kdtree_duplicates_and_max_k() {
                    1e-5f);
   }
 
-  // All three coincident points are at distance 0.
   HS_EXPECT_TRUE(std::fabs(r[0].d_sq) < 1e-6f);
   HS_EXPECT_TRUE(std::fabs(r[1].d_sq) < 1e-6f);
   HS_EXPECT_TRUE(std::fabs(r[2].d_sq) < 1e-6f);
@@ -311,7 +307,6 @@ inline void test_meshstate_clone_deep_copies() {
   HS_EXPECT_EQ(dst.faces[1], (uint16_t)1);
   HS_EXPECT_EQ(dst.faces[2], (uint16_t)2);
 
-  // Destination lives in dst_arena, not src_arena.
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
 }
 

@@ -82,12 +82,10 @@ inline void test_clamp_phi_full_range() {
 /** @brief Verifies a point on the ring centerline reads raw_dist 0 and dist = -thickness. */
 inline void test_ring_on_centerline() {
   Basis b = equator_basis();
-  // radius=1 → target_angle = π/2 (equator viewed from +Y)
   SDF::Ring ring(b, 1.0f, 0.1f);
 
-  // A point on the equator (perpendicular to +Y) lies on the centerline.
   auto r = ring.distance(Vector(1, 0, 0));
-  HS_EXPECT_NEAR(r.dist, -0.1f, 1e-3f); // dist = raw_dist - thickness = 0 - 0.1
+  HS_EXPECT_NEAR(r.dist, -0.1f, 1e-3f);
   HS_EXPECT_NEAR(r.raw_dist, 0.0f, 1e-3f);
 }
 
@@ -96,7 +94,6 @@ inline void test_ring_inside_band() {
   Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
 
-  // Point slightly above the equator — still inside the band of width 0.1
   float off = 0.05f;
   Vector p(std::cos(off), std::sin(off), 0.0f);
   auto r = ring.distance(p);
@@ -109,9 +106,8 @@ inline void test_ring_outside_band_returns_sentinel() {
   Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
 
-  // North pole — far outside the equatorial ring band
   auto r = ring.distance(Vector(0, 1, 0));
-  HS_EXPECT_TRUE(r.dist > 50.0f); // sentinel: 100.0f
+  HS_EXPECT_TRUE(r.dist > 50.0f);
 }
 
 /** @brief Verifies just past the band edge still trips the sentinel (band edge is exclusive). */
@@ -119,11 +115,10 @@ inline void test_ring_just_outside_band() {
   Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.05f);
 
-  // Point at phi = π/2 - 0.07 from Y-axis: 0.02 outside the 0.05 band edge.
+  // off (0.07) > thickness (0.05): point is 0.02 past the band edge.
   float off = 0.07f;
   Vector p(std::cos(off), std::sin(off), 0.0f);
   auto r = ring.distance(p);
-  // off (0.07) > thickness (0.05): point is past the band edge → sentinel.
   HS_EXPECT_TRUE(r.dist > 50.0f);
 }
 
@@ -141,25 +136,21 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
   const float shift = 0.2f;
   const float thickness = 0.05f;
 
-  // A point at azimuth 0 (along +X) on the *shifted* centerline: its polar angle
-  // from +Y is π/2 + shift, so p.y = cos(π/2+shift) and p.x = sin(π/2+shift).
+  // Azimuth 0 (along +X) on the shifted centerline: polar angle from +Y is
+  // π/2 + shift.
   Vector p(std::sin(PI_F / 2 + shift), std::cos(PI_F / 2 + shift), 0.0f);
 
-  // Same shift baked in: the point lands on the centerline (raw_dist ≈ 0). The
-  // band is widened by max_distortion = shift so d = p.y is inside the cull
-  // limits — a shifted on-centerline point must survive the early reject.
   SDF::DistortedRing shifted(b, 1.0f, thickness,
                              [shift](float) { return shift; },
                              /*max_distortion=*/shift, /*phase=*/0.0f);
   auto rs = shifted.distance(p);
-  HS_EXPECT_TRUE(rs.dist < 50.0f); // not the cull sentinel
+  HS_EXPECT_TRUE(rs.dist < 50.0f);
   HS_EXPECT_NEAR(rs.raw_dist, 0.0f, 1e-2f);
   HS_EXPECT_NEAR(rs.dist, -thickness, 1e-2f);
-  HS_EXPECT_NEAR(rs.t, 0.0f, 1e-2f); // azimuth 0 → t = 0
+  HS_EXPECT_NEAR(rs.t, 0.0f, 1e-2f);
 
-  // No shift but the same widened band, same point: the centerline stays at π/2,
-  // so the point now sits `shift` radians off it (raw_dist ≈ shift), proving the
-  // shift moved the centerline rather than the point.
+  // Same point, no shift: the centerline stays at π/2, so it now sits `shift`
+  // radians off (raw_dist ≈ shift) — the shift moved the centerline.
   SDF::DistortedRing plain(b, 1.0f, thickness, [](float) { return 0.0f; },
                            /*max_distortion=*/shift, /*phase=*/0.0f);
   auto rp = plain.distance(p);
@@ -173,20 +164,18 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
 inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
   Basis b = equator_basis();
   const float amp = 0.2f;
-  // shift(t) = amp·sin(2πt); with phase 0, t = azimuth/(2π) ⇒ shift = amp·sin(azimuth).
   SDF::DistortedRing ring(
       b, 1.0f, 0.05f, [amp](float t) { return amp * std::sin(2 * PI_F * t); },
       amp, 0.0f);
 
-  // Azimuth π/2 (along +Z) → t = 0.25 → shift = amp. The local centerline polar
-  // angle is π/2 + amp; a point placed there reads raw_dist ≈ 0.
+  // Azimuth π/2 (along +Z) → t = 0.25 → shift = amp; centerline polar angle is
+  // π/2 + amp.
   Vector on(0.0f, std::cos(PI_F / 2 + amp), std::sin(PI_F / 2 + amp));
   auto r_on = ring.distance(on);
   HS_EXPECT_NEAR(r_on.t, 0.25f, 1e-2f);
   HS_EXPECT_NEAR(r_on.raw_dist, 0.0f, 1e-2f);
 
-  // Same azimuth, on the *unshifted* equator (+Z): the centerline has moved by
-  // amp here, so this point now reads raw_dist ≈ amp.
+  // Same azimuth on the unshifted equator (+Z): centerline moved by amp here.
   auto r_off = ring.distance(Vector(0, 0, 1));
   HS_EXPECT_NEAR(r_off.t, 0.25f, 1e-2f);
   HS_EXPECT_NEAR(r_off.raw_dist, amp, 1e-2f);
@@ -203,7 +192,6 @@ inline void test_polygon_at_center_inside() {
 
   auto r = poly.distance(Vector(0, 1, 0));
   HS_EXPECT_TRUE(r.dist < 0.0f);
-  // dist == polar(0) * cos(local) - apothem = -apothem
   float apothem = 0.5f * std::cos(PI_F / 6.0f);
   HS_EXPECT_NEAR(r.dist, -apothem, 1e-3f);
 }
@@ -213,7 +201,6 @@ inline void test_polygon_far_point_outside() {
   Basis b = equator_basis();
   SDF::PlanarPolygon poly(b, 0.3f, 6, 0.0f);
 
-  // Point at the opposite pole (-Y) is π away from the polygon center → outside.
   auto r = poly.distance(Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
@@ -234,7 +221,7 @@ inline void test_spherical_polygon_center_inside() {
 inline void test_spherical_polygon_far_outside() {
   Basis b = equator_basis();
   SDF::SphericalPolygon sp(b, 0.3f, 6, 0.0f);
-  auto r = sp.distance(Vector(0, -1, 0)); // antipode
+  auto r = sp.distance(Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
@@ -268,7 +255,6 @@ inline void test_line_on_arc_is_inside() {
   Vector bv(0, 0, 1);
   SDF::Line ln(a, bv, /*thickness*/ 0.1f);
 
-  // Midpoint of the great-circle arc — on the line → dist = -thickness.
   Vector mid = ((a + bv) * 0.5f).normalized();
   auto r = ln.distance(mid);
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-2f);
@@ -291,8 +277,7 @@ inline void test_line_perpendicular_off() {
   Vector b(0, 0, 1);
   SDF::Line ln(a, b, 0.05f);
 
-  // Point off the arc in the +Y direction (perpendicular to the great-circle
-  // plane that contains a and b).
+  // Off the arc in +Y (perpendicular to the great-circle plane of a and b).
   Vector p = Vector(0.5f, 0.7f, 0.5f).normalized();
   auto r = ln.distance(p);
   HS_EXPECT_TRUE(r.dist > 0.0f);
@@ -322,7 +307,6 @@ inline void test_line_degenerate_zero_length() {
 /** @brief Verifies on the ring centerline the torus is maximally inside: dist = -minor radius. */
 inline void test_torus_on_centerline_is_inside() {
   SDF::Torus t{2.0f, 0.5f};
-  // Point on the ring centerline → distance = -r (inside, equal to minor radius).
   HS_EXPECT_NEAR(t.distance(Vector(2, 0, 0)), -0.5f, 1e-5f);
   HS_EXPECT_NEAR(t.distance(Vector(0, 0, 2)), -0.5f, 1e-5f);
   HS_EXPECT_NEAR(t.distance(Vector(-2, 0, 0)), -0.5f, 1e-5f);
@@ -331,25 +315,21 @@ inline void test_torus_on_centerline_is_inside() {
 /** @brief Verifies inner/outer rim and top-of-tube points all read dist 0 (on the surface). */
 inline void test_torus_on_surface() {
   SDF::Torus t{2.0f, 0.5f};
-  // Outer rim point (xz_radius = R + r).
-  HS_EXPECT_NEAR(t.distance(Vector(2.5f, 0, 0)), 0.0f, 1e-5f);
-  // Inner rim point (xz_radius = R - r).
-  HS_EXPECT_NEAR(t.distance(Vector(1.5f, 0, 0)), 0.0f, 1e-5f);
-  // Top of tube.
-  HS_EXPECT_NEAR(t.distance(Vector(2.0f, 0.5f, 0)), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(t.distance(Vector(2.5f, 0, 0)), 0.0f, 1e-5f); // outer rim, R+r
+  HS_EXPECT_NEAR(t.distance(Vector(1.5f, 0, 0)), 0.0f, 1e-5f); // inner rim, R-r
+  HS_EXPECT_NEAR(t.distance(Vector(2.0f, 0.5f, 0)), 0.0f, 1e-5f); // top of tube
 }
 
 /** @brief Verifies the donut-hole center is outside, at distance R - r from the tube. */
 inline void test_torus_origin_is_outside_hole() {
   SDF::Torus t{2.0f, 0.5f};
-  // Origin is in the centre of the donut hole — distance equals R - r = 1.5.
+  // Donut-hole center: distance = R - r = 1.5.
   HS_EXPECT_NEAR(t.distance(Vector(0, 0, 0)), 1.5f, 1e-5f);
 }
 
 /** @brief Verifies the surface normal on the outer rim points radially outward (+X here). */
 inline void test_torus_normal_points_outward_on_outer_rim() {
   SDF::Torus t{2.0f, 0.5f};
-  // Outer rim — normal should point radially outward in XZ.
   Vector n = t.normal(Vector(2.5f, 0, 0));
   HS_EXPECT_VEC(n, Vector(1, 0, 0), 1e-4f);
 }
@@ -357,7 +337,6 @@ inline void test_torus_normal_points_outward_on_outer_rim() {
 /** @brief Verifies the surface normal at the top of the tube points +Y. */
 inline void test_torus_normal_points_outward_on_top() {
   SDF::Torus t{2.0f, 0.5f};
-  // Top of tube — normal points +Y.
   Vector n = t.normal(Vector(2.0f, 0.5f, 0));
   HS_EXPECT_VEC(n, Vector(0, 1, 0), 1e-4f);
 }
@@ -370,12 +349,12 @@ inline void test_torus_normal_points_outward_on_top() {
 inline void test_twist_apply_displaces_y() {
   SDF::Warp::Twist tw{/*twist=*/1, /*amplitude=*/0.3f, /*R=*/1.0f};
 
-  // θ = atan2(0, 1) = 0 → sin(0) = 0 → no displacement.
+  // θ = atan2(0, 1) = 0 → no displacement.
   Vector a(1.0f, 0.5f, 0.0f);
   Vector ra = tw.apply(a, tw.make_ctx(a));
   HS_EXPECT_VEC(ra, Vector(1.0f, 0.5f, 0.0f), 1e-3f);
 
-  // θ = atan2(1, 0) = π/2 → sin(twist·π/2) = sin(π/2) = 1 → Y drops by amplitude.
+  // θ = π/2 → sin(twist·π/2) = 1 → Y drops by amplitude.
   Vector b(0.0f, 0.5f, 1.0f);
   Vector rb = tw.apply(b, tw.make_ctx(b));
   HS_EXPECT_VEC(rb, Vector(0.0f, 0.5f - 0.3f, 1.0f), 1e-2f);
@@ -383,16 +362,14 @@ inline void test_twist_apply_displaces_y() {
 
 /** @brief Verifies Twist::lipschitz is 1 for twist 0 and matches the closed form otherwise. */
 inline void test_twist_lipschitz_identity_and_closed_form() {
-  // twist == 0: identity warp, Lipschitz constant exactly 1.
   SDF::Warp::Twist flat{0, 0.5f, 1.0f};
   HS_EXPECT_NEAR(flat.lipschitz(Vector(2, 0, 0), flat.make_ctx(Vector(2, 0, 0))),
                  1.0f, 1e-6f);
 
-  // twist=2, amplitude=0.5 → |twist·amplitude| = 1; at s = 2 (> R/2 = 0.5),
-  // γ = 1/2 = 0.5 and the bound is γ/2 + √(1 + γ²/4).
+  // twist=2, amplitude=0.5 at s=2: γ = 0.5, bound = γ/2 + √(1 + γ²/4).
   SDF::Warp::Twist tw{2, 0.5f, 1.0f};
   Vector p(2, 0, 0);
-  float s = tw.make_ctx(p); // sqrt(4) = 2
+  float s = tw.make_ctx(p);
   HS_EXPECT_NEAR(s, 2.0f, 1e-6f);
   float gamma = 0.5f;
   float expected = 0.5f * gamma + std::sqrt(1.0f + 0.25f * gamma * gamma);
@@ -415,15 +392,12 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
   SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{
       SDF::Torus{1.0f, 0.3f}, SDF::Warp::Twist{3, 0.2f, 1.0f}};
 
-  // Sweep a grid spanning far field (fast-path), near-surface, and interior.
   for (float x = -2.0f; x <= 2.0f; x += 0.5f)
     for (float y = -1.0f; y <= 1.0f; y += 0.5f)
       for (float z = -2.0f; z <= 2.0f; z += 0.5f) {
         Vector p(x, y, z);
         float d = wv.distance(p);
         float raw = wv.raw_distance(p);
-        // A safe march distance must not exceed the true warped distance; raw
-        // is the un-discounted distance, so d <= raw (within fp slack).
         HS_EXPECT_TRUE(d <= raw + 1e-4f);
       }
 }
@@ -437,9 +411,8 @@ inline void test_warped_volume_distance_matches_lipschitz_correction() {
   SDF::Warp::Twist tw{3, 0.2f, 1.0f};
   SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{torus, tw};
 
-  // Just outside the outer rim at θ=0 (no Y displacement there): base distance
-  // is small and positive, so bd = base - inflation <= inflation (off the
-  // fast-path) and d = base.distance(p) > 0 triggers the Lipschitz divide.
+  // Just outside the outer rim at θ=0: small positive base distance lands off
+  // the bounding fast-path and triggers the Lipschitz divide.
   Vector p(1.4f, 0.1f, 0.0f);
   float raw = wv.raw_distance(p);
   HS_EXPECT_TRUE(raw > 0.0f);
@@ -453,14 +426,11 @@ inline void test_warped_volume_distance_matches_lipschitz_correction() {
 inline void test_twist_correct_normal_unit_length() {
   Vector base_n = Vector(0.6f, 0.8f, 0.0f); // already unit
 
-  // twist == 0: correction is the identity.
   SDF::Warp::Twist flat{0, 0.3f, 1.0f};
   Vector cf = flat.correct_normal(Vector(1, 0.2f, 0.5f), base_n,
                                   flat.make_ctx(Vector(1, 0.2f, 0.5f)));
   HS_EXPECT_VEC(cf, base_n, 1e-6f);
 
-  // Non-trivial twist: the corrected normal must remain unit length at points
-  // sampled around the ring.
   SDF::Warp::Twist tw{4, 0.25f, 1.0f};
   for (float x = -1.0f; x <= 1.0f; x += 0.5f)
     for (float z = -1.0f; z <= 1.0f; z += 0.5f) {
@@ -476,19 +446,15 @@ inline void test_twist_correct_normal_unit_length() {
 
 /** @brief Verifies Union returns the min of member distances, picking the closest shape. */
 inline void test_union_picks_closest_shape() {
-  // Union distance is the min of member distances. Torus has no .thickness field,
-  // which Union<> requires, so the algebra is exercised with Line shapes.
   SDF::Line la(Vector(1, 0, 0), Vector(0, 0, 1), 0.1f);
   SDF::Line lb(Vector(-1, 0, 0), Vector(0, 0, -1), 0.1f);
 
   SDF::Union<SDF::Line, SDF::Line> u(la, lb);
 
-  // On la's midpoint: dist(la) = -0.1, dist(lb) large positive → Union picks la.
   Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
   auto r = u.distance(mid_a);
   HS_EXPECT_NEAR(r.dist, -0.1f, 1e-2f);
 
-  // On lb's midpoint → Union picks lb.
   Vector mid_b = ((Vector(-1, 0, 0) + Vector(0, 0, -1)) * 0.5f).normalized();
   auto r2 = u.distance(mid_b);
   HS_EXPECT_NEAR(r2.dist, -0.1f, 1e-2f);
@@ -514,7 +480,6 @@ inline void test_subtract_inside_a_outside_b_remains_inside() {
 
   Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
   auto r = s.distance(mid_a);
-  // Inside la (~-0.2), outside lb (positive large). Max(-0.2, -large_neg) = -0.2.
   HS_EXPECT_TRUE(r.dist < 0.0f);
 }
 
@@ -525,7 +490,7 @@ inline void test_subtract_inside_both_becomes_outside() {
   SDF::Subtract<SDF::Line, SDF::Line> s(la, la);
   Vector mid = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
   auto r = s.distance(mid);
-  // dist(A) = -0.1, dist(B) = -0.1. Max(A, -B) = max(-0.1, 0.1) = 0.1 → outside.
+  // max(dist(A), -dist(B)) = max(-0.1, 0.1) = 0.1 → outside.
   HS_EXPECT_NEAR(r.dist, 0.1f, 1e-3f);
 }
 
@@ -647,8 +612,8 @@ inline void test_subtract_full_width_b_requests_full_row_scan() {
   std::vector<P> out;
   bool ok = s.get_horizontal_intervals<256, 128>(
       0, [&](float st, float en) { out.push_back({st, en}); });
-  HS_EXPECT_TRUE(!ok); // false: request a full-row distance scan, NOT a...
-  HS_EXPECT_EQ(out.size(), static_cast<size_t>(0)); // ...definitive empty row
+  HS_EXPECT_TRUE(!ok);
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(0));
 }
 
 // ============================================================================
@@ -666,7 +631,6 @@ inline void test_intersection_requires_both_inside() {
   auto r = inter.distance(a);
   HS_EXPECT_TRUE(r.dist < 0.0f);
 
-  // Outside both → outside the intersection.
   Vector far_pt(-1, 0, 0);
   auto r2 = inter.distance(far_pt);
   HS_EXPECT_TRUE(r2.dist > 0.0f);
@@ -720,7 +684,6 @@ inline void test_intersection_full_width_child_replays_other() {
   MockI shape{&ivs};
   MockF full;
 
-  // A full-width, B has intervals -> out == B's intervals (emission order).
   {
     SDF::Intersection<MockF, MockI> s(full, shape);
     std::vector<P> out;
@@ -732,7 +695,7 @@ inline void test_intersection_full_width_child_replays_other() {
     HS_EXPECT_NEAR(out[1].first, 20.0f, 1e-4f);
   }
 
-  // Symmetric: A has intervals, B full-width -> out == A's intervals.
+  // Symmetric: A has intervals, B full-width.
   {
     SDF::Intersection<MockI, MockF> s(shape, full);
     std::vector<P> out;
@@ -744,7 +707,7 @@ inline void test_intersection_full_width_child_replays_other() {
     HS_EXPECT_NEAR(out[1].first, 20.0f, 1e-4f);
   }
 
-  // Both fall back -> request a full-scan fallback (return false), no intervals.
+  // Both fall back -> full-scan fallback (return false).
   {
     SDF::Intersection<MockF, MockF> s(full, full);
     std::vector<P> out;
@@ -766,7 +729,6 @@ inline void test_smooth_union_matches_union_far_from_boundary() {
   SDF::Union<SDF::Line, SDF::Line> u(la, lb);
   SDF::SmoothUnion<SDF::Line, SDF::Line> su(la, lb, /*k*/ 0.05f);
 
-  // Sample a point clearly inside la and clearly outside lb.
   Vector mid_a = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
   auto r_hard = u.distance(mid_a);
   auto r_soft = su.distance(mid_a);
@@ -787,29 +749,25 @@ inline void test_smooth_union_blends_inside_band() {
   const float k = 0.5f;
   SDF::SmoothUnion<SDF::Line, SDF::Line> su(la, lb, k);
 
-  // Both arcs lie in the y=0 plane, so the north pole is equidistant from both:
-  // |dA - dB| ≈ 0, putting the cubic blend at its maximum (h == 1, m == k/6).
+  // Both arcs lie in the y=0 plane, so the north pole is equidistant from both
+  // (|dA - dB| ≈ 0), maximizing the cubic blend (h == 1, m == k/6).
   Vector p(0, 1, 0);
   float dA = la.distance(p).dist;
   float dB = lb.distance(p).dist;
-  HS_EXPECT_TRUE(std::abs(dA - dB) < k); // inside the blend band
+  HS_EXPECT_TRUE(std::abs(dA - dB) < k);
 
   float h = std::max(k - std::abs(dA - dB), 0.0f) / k;
   float m = h * h * h * k * (1.0f / 6.0f);
   float soft = su.distance(p).dist;
-  // Smooth distance is the nearer child reduced by the blend term m.
   HS_EXPECT_NEAR(soft, std::min(dA, dB) - m, 1e-4f);
-  // The blend strictly deepens the field relative to the hard min.
   HS_EXPECT_LT(soft, std::min(dA, dB) - 1e-4f);
-  // The carved depth matches the expected m (≈ k/6 at full overlap).
   HS_EXPECT_NEAR(std::min(dA, dB) - soft, m, 1e-4f);
 
-  // Outside the band (clearly inside la, far from lb) the blend term vanishes
-  // and the smooth union collapses to the hard min.
+  // Outside the band the blend vanishes and collapses to the hard min.
   Vector q = ((Vector(1, 0, 0) + Vector(0, 0, 1)) * 0.5f).normalized();
   float qA = la.distance(q).dist;
   float qB = lb.distance(q).dist;
-  HS_EXPECT_TRUE(std::abs(qA - qB) >= k); // outside the blend band
+  HS_EXPECT_TRUE(std::abs(qA - qB) >= k);
   HS_EXPECT_NEAR(su.distance(q).dist, std::min(qA, qB), 1e-5f);
 }
 
@@ -819,7 +777,6 @@ inline void test_smooth_union_blends_inside_band() {
  *   instead of collapsing to a hard 1-px silhouette in process_pixel.
  */
 inline void test_smooth_union_solidity_follows_children() {
-  // Ring is a stroke (is_solid == false); PlanarPolygon is solid.
   static_assert(!SDF::SmoothUnion<SDF::Ring, SDF::Ring>::is_solid,
                 "two strokes -> falloff path");
   static_assert(
@@ -838,8 +795,6 @@ inline void test_angular_repeat_matches_base_at_zero_angle() {
   SDF::Line ln(Vector(1, 0, 0), Vector(0.7071f, 0, 0.7071f), 0.05f);
   SDF::AngularRepeat<SDF::Line> rep(ln, /*reps*/ 4, Vector(0, 1, 0));
 
-  // A point exactly on the input line should be inside both the base and
-  // the repeated shape.
   Vector mid =
       ((Vector(1, 0, 0) + Vector(0.7071f, 0, 0.7071f)) * 0.5f).normalized();
   auto r_base = ln.distance(mid);
@@ -853,7 +808,7 @@ inline void test_angular_repeat_creates_copies() {
   SDF::Line ln(Vector(1, 0, 0), Vector(0.7071f, 0, 0.7071f), 0.05f);
   SDF::AngularRepeat<SDF::Line> rep(ln, 4, Vector(0, 1, 0));
 
-  // Rotate the midpoint by 90° around Y — should land on a "copy" of the line.
+  // Rotate the midpoint by one sector (90° around Y) onto a folded copy.
   Vector mid =
       ((Vector(1, 0, 0) + Vector(0.7071f, 0, 0.7071f)) * 0.5f).normalized();
   Quaternion q90 = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
@@ -872,28 +827,27 @@ inline void test_angular_repeat_creates_copies() {
  *   the documented sector-local convention so a future change is caught.
  */
 inline void test_angular_repeat_t_is_sector_local() {
-  Basis b = equator_basis(); // ring axis +Y, azimuth measured in the XZ plane
+  Basis b = equator_basis();
   SDF::Ring ring(b, 1.0f, 0.1f);
   const int reps = 4;
   SDF::AngularRepeat<SDF::Ring> rep(ring, reps, Vector(0, 1, 0));
 
-  // A point on the equatorial ring at 30° azimuth (inside sector 0, away from a
-  // boundary), and the same point rotated by exactly one sector (2π/reps).
+  // A point at 30° azimuth (inside sector 0, off a boundary) and its copy one
+  // sector away.
   float az = PI_F / 6.0f;
   Vector p(cosf(az), 0.0f, sinf(az));
   Quaternion q_sector = make_rotation(Vector(0, 1, 0), 2 * PI_F / reps);
   Vector p2 = rotate(p, q_sector);
 
-  // The un-repeated ring sees two distinct global azimuths exactly one sector
-  // apart (sign depends on rotation handedness, so compare the wrapped gap).
+  // The un-repeated ring sees two global azimuths one sector apart (sign is
+  // handedness-dependent, so compare the wrapped gap).
   float t_global_1 = ring.distance(p).t;
   float t_global_2 = ring.distance(p2).t;
   float dg = t_global_2 - t_global_1;
-  dg -= floorf(dg); // fractional part in [0,1)
+  dg -= floorf(dg);
   HS_EXPECT_NEAR(std::min(dg, 1.0f - dg), 1.0f / reps, 1e-3f);
 
-  // The repeated shape folds both into the same sector → identical, sector-local
-  // t (and it equals the sector-0 azimuth, not p2's global azimuth).
+  // The repeated shape folds both into the same sector → identical sector-local t.
   float t_rep_1 = rep.distance(p).t;
   float t_rep_2 = rep.distance(p2).t;
   HS_EXPECT_NEAR(t_rep_1, t_rep_2, 1e-3f);
@@ -903,24 +857,12 @@ inline void test_angular_repeat_t_is_sector_local() {
 // ============================================================================
 // Interval-cull conservativeness  ("interval cull == full-row scan")
 //
-// The rasterizer culls in two tiers: get_vertical_bounds<H> picks the row band,
-// get_horizontal_intervals<W,H> picks the column spans within each row.
-// scan_region only visits the culled spans; process_pixel then accepts/rejects
-// each visited pixel via the exact distance(). So the cull must be
-// *conservative* — it may over-visit (the exact test rejects extras) but it must
-// never drop a pixel that belongs to the shape. The load-bearing invariant: a
-// pixel clearly inside the shape — distance().dist < -pixel_width, i.e. at least
-// one pixel deep into the body (solid) or stroke band (stroke) — is among the
-// pixels scan_region visits.
-//
-// The one-pixel margin is deliberate, not a fudge: it scopes the test to the
-// invariant the cull actually promises and away from two soft edge behaviours it
-// does NOT — a stroke's outer ~5% rim, which the interval generator drops
-// because the AA kernel there is ~0.001, and a solid's sub-pixel AA halo, which
-// process_pixel paints just *outside* the geometric boundary (so outside the
-// caps). It also clears the ~0.004 rad fast-trig noise between distance() and the
-// cap math. The Line/great-circle arc-bulge vertical cull is covered separately
-// by test_line_arc_bulge_cull_covers_interior.
+// The cull must be conservative: it may over-visit but must never drop a pixel
+// belonging to the shape. Invariant: a pixel clearly inside (distance().dist <
+// -pixel_width, one pixel deep into body or stroke band) is among those
+// scan_region visits. The one-pixel margin keeps the test off two soft edges the
+// cull does NOT promise — a stroke's outer ~5% rim and a solid's sub-pixel AA
+// halo — and clears the ~0.004 rad fast-trig noise.
 // ============================================================================
 
 /**
@@ -990,7 +932,7 @@ inline int expect_cull_covers_interior(const Shape &shape) {
 inline void test_cull_covers_interior_over_orientation_grid() {
   constexpr int W = 96, H = 48;
 
-  // Poles, equator, and oblique tilts — the cull math is orientation-dependent.
+  // Poles, equator, and oblique tilts.
   const Vector axes[] = {
       Vector(0, 1, 0),         Vector(0, -1, 0),        Vector(1, 0, 0),
       Vector(0, 0, 1),         Vector(1, 1, 0.4f),      Vector(-0.5f, 0.7f, -0.6f),
@@ -1000,20 +942,16 @@ inline void test_cull_covers_interior_over_orientation_grid() {
   for (const Vector &axis : axes) {
     Basis basis = make_basis(Quaternion(), axis);
     for (float radius : {0.3f, 0.6f, 0.9f}) {
-      // Ring (stroke): both annular-band arcs must cover the whole band.
       SDF::Ring ring(basis, radius, /*thickness=*/0.25f);
       total_interior += expect_cull_covers_interior<W, H>(ring);
 
-      // SphericalPolygon (solid, great-circle edges, geodesic cap).
       SDF::SphericalPolygon spoly(basis, radius, /*sides=*/5, 0.0f);
       total_interior += expect_cull_covers_interior<W, H>(spoly);
 
-      // Star (solid, padded bounding cap).
       SDF::Star star(basis, radius, /*sides=*/5, 0.0f);
       total_interior += expect_cull_covers_interior<W, H>(star);
 
-      // PlanarPolygon (solid, tangent-plane cap; `thickness` is its angular
-      // circumradius).
+      // PlanarPolygon's `thickness` is its angular circumradius.
       SDF::PlanarPolygon ppoly(basis, /*thickness=*/radius, /*sides=*/6, 0.0f);
       total_interior += expect_cull_covers_interior<W, H>(ppoly);
     }
@@ -1030,10 +968,8 @@ inline void test_cull_covers_interior_over_orientation_grid() {
  */
 inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
   constexpr int W = 96, H = 48;
-  // A short stroke arc near the north pole (+Y), folded into 4 sectors around
-  // X. X-fold's canonical sector is centered on +Y, so the child sits in it and
-  // its copies rotate to +Z / -Y / -Z — the equator and the opposite pole, far
-  // below the child's near-pole band. The full-canvas cull must reach them.
+  // Near-pole (+Y) arc folded into 4 sectors around X: copies rotate to
+  // +Z / -Y / -Z, far below the child's near-pole band.
   SDF::Line ln(Vector(0.25f, 1, 0).normalized(),
                Vector(-0.25f, 1, 0).normalized(), /*thickness=*/0.12f);
   SDF::AngularRepeat<SDF::Line> rep(ln, /*reps=*/4, Vector(1, 0, 0));
@@ -1049,8 +985,8 @@ inline void test_angular_repeat_non_y_axis_cull_covers_copies() {
  */
 inline void test_line_arc_bulge_cull_covers_interior() {
   constexpr int W = 96, H = 48;
-  // Endpoints at phi≈0.4 either side of +Y; the shorter arc passes through the
-  // north pole (phi=0), far above either endpoint's latitude.
+  // Endpoints at phi≈0.4 either side of +Y; the arc bulges through the north
+  // pole (phi=0), above either endpoint's latitude.
   SDF::Line ln(Vector(0, cosf(0.4f), sinf(0.4f)),
                Vector(0, cosf(0.4f), -sinf(0.4f)), /*thickness=*/0.15f);
   int interior = expect_cull_covers_interior<W, H>(ln);
@@ -1069,11 +1005,8 @@ inline void test_line_arc_bulge_cull_covers_interior() {
  *   pixel is dropped.
  */
 inline void test_ring_pole_wrap_cull_covers_interior() {
-  // 256x128 — at coarser resolutions the gap can fall below one pixel. The
-  // (tilt, radius, thickness) triples below were found by differential search
-  // to drop 1-4 interior pixels at the pole seam on the pre-fix two-arc fast
-  // path and zero with the annular-merge route, so this regresses the fix
-  // without tripping the unrelated sub-pixel annular boundary rounding.
+  // 256x128 — coarser resolutions can hide the sub-pixel gap. The triples below
+  // were search-found to drop 1-4 interior pixels at the pole seam pre-fix.
   constexpr int W = 256, H = 128;
   struct Cfg { float tilt, radius, thickness; };
   const Cfg cfgs[] = {
@@ -1147,10 +1080,8 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
 
 /** @brief Regresses the Face AA-fringe pad over configs whose edges fall near a column. */
 inline void test_face_cull_covers_aa_fringe() {
-  // 256x128 — at coarser resolutions the dropped fringe can fall below a pixel.
-  // The (sides, rho, axis) triples were found by differential search to drop
-  // 3-6 paintable AA-fringe pixels with the un-padded floor/ceil and zero once
-  // the intervals are padded by one pixel.
+  // 256x128 — coarser resolutions can hide the dropped fringe. The triples below
+  // were search-found to drop 3-6 AA-fringe pixels with the un-padded floor/ceil.
   constexpr int W = 256, H = 128;
   struct Cfg { int sides; float rho; Vector axis; };
   const Cfg cfgs[] = {
@@ -1166,30 +1097,13 @@ inline void test_face_cull_covers_aa_fringe() {
 // ============================================================================
 // Face distance LUT vs exact  (LUT bilinear vs an independent exact oracle)
 //
-// Face::distance interpolates a 32x32 baked distance LUT in cells that are
-// sign-pure and at least one cell-diagonal (lut_safe_dist) from any edge, and
-// falls back to the exact per-edge scan otherwise. The bilinear error is NOT
-// bounded by the cell-diagonal: away from the boundary, in the medial-axis
-// gradient creases of a face's vertex fans, bilinear interpolation of the
-// (otherwise 1-Lipschitz) field is much less accurate — the measured worst case
-// is ~1.3x the cell diagonal for a pentagon and ~4x for a sharp-vertexed
-// triangle. lut_safe_dist bounds distance to the *zero set* (sign purity), not
-// to those creases.
-//
-// What actually matters for rendering, and what this pins against an independent
-// exact point-to-polygon scan, is therefore two stronger invariants:
-//
-//   1. SIGN is always correct — the load-bearing guarantee for solid fill. The
-//      sign-purity guard makes it exact, never a flipped pixel.
-//   2. The LUT NEVER reports a near-boundary magnitude. It fires only when all
-//      four corners are same-sign with magnitude > cell-diagonal, so the
-//      bilinear value (a convex combination) also has magnitude >= cell-diagonal.
-//      The renderer only consults the distance magnitude for the AA ramp, which
-//      spans +-pixel_width; since cell-diagonal exceeds a pixel here, an
-//      LUT-served pixel is always unambiguously inside or outside and its AA
-//      ramp is inactive — so AA accuracy never depends on the LUT's magnitude,
-//      only on its (exact) sign.
-//
+// Face::distance interpolates a 32x32 LUT in sign-pure cells >= one cell-diagonal
+// from any edge, else falls back to the exact per-edge scan. The bilinear error
+// is NOT bounded by the cell-diagonal (in medial-axis creases it can reach ~4x),
+// so this pins two stronger invariants against an exact point-to-polygon oracle:
+//   1. SIGN is always correct (sign-purity guard).
+//   2. The LUT never serves a near-boundary magnitude — every LUT result is
+//      >= cell-diagonal from zero, outside the AA ramp.
 // The exact fallback path must reproduce the oracle to float precision.
 // ============================================================================
 
@@ -1227,9 +1141,7 @@ inline int check_face_lut(int sides, float rho, const Vector &axis) {
 
   int lut_samples = 0, sign_mismatches = 0;
   float min_lut_mag = FLT_MAX;
-  // March a grid across the gnomonic tangent-plane box the face occupies. A
-  // point with gnomonic coords (px,py) is normalize(center + u*px + w*py): then
-  // dot(p,center)=k, dot(p,u)=k*px, dot(p,w)=k*py, so distance() recovers (px,py)
+  // Gnomonic point normalize(center + u*px + w*py): distance() recovers (px,py)
   // exactly after dividing by dot(p,center).
   const float reach = face.max_dist * 0.98f;
   constexpr int G = 64;
@@ -1248,8 +1160,7 @@ inline int check_face_lut(int sides, float rho, const Vector &axis) {
       if (!took_lut && !took_exact)
         continue; // culled (outside max_dist / behind the center)
 
-      // Independent exact oracle: point-to-polygon in the same tangent plane,
-      // over the face's packed edges (mirrors Face::distance's fallback).
+      // Independent exact oracle: point-to-polygon in the same tangent plane.
       float dmin = FLT_MAX;
       bool inside = false;
       for (int i = 0; i < face.count; ++i) {
@@ -1278,17 +1189,13 @@ inline int check_face_lut(int sides, float rho, const Vector &axis) {
         if (mag < min_lut_mag)
           min_lut_mag = mag;
       } else {
-        // Exact path must reproduce the oracle to float precision.
         HS_EXPECT_NEAR(res.raw_dist, exact_angular, 1e-4f);
       }
     }
   }
-  // (1) The sign-purity guard never lets the LUT path mis-sign a pixel.
+  // (1) sign always correct on the LUT path.
   HS_EXPECT_EQ(sign_mismatches, 0);
-  // (2) The LUT never serves a near-boundary magnitude: every LUT-path result is
-  // at least ~atan(cell_diagonal) from zero (the convex-combination floor), so it
-  // lands outside the AA ramp and only its (exact) sign drives the pixel. Allow a
-  // small slack for the fast_atan2 approximation.
+  // (2) LUT magnitude floor ~atan(cell_diagonal); slack for fast_atan2.
   if (lut_samples > 0) {
     float floor_mag = fast_atan2(cell_diag, 1.0f) - 0.01f;
     HS_EXPECT_GT(min_lut_mag, floor_mag);
@@ -1306,7 +1213,7 @@ inline void test_face_lut_matches_exact_within_cell_diagonal() {
   lut_samples += check_face_lut(/*sides=*/3, 0.45f, Vector(0.4f, 0.3f, 1.0f));
   lut_samples += check_face_lut(/*sides=*/5, 0.50f, Vector(0.4f, 0.3f, 1.0f));
   lut_samples += check_face_lut(/*sides=*/6, 0.40f, Vector(-0.6f, 0.5f, 0.7f));
-  // The grid actually fired the LUT path (otherwise the bounds are untested).
+  // The grid actually fired the LUT path.
   HS_EXPECT_GT(lut_samples, 300);
 }
 

@@ -26,9 +26,6 @@ namespace hankin_tests {
 inline uint8_t hankin_target_buf[256 * 1024];
 inline uint8_t hankin_temp_buf[256 * 1024];
 
-// build_solid(), check_all_unit_vertices(), check_face_counts_consistent(),
-// and check_indices_in_range() live in tests/mesh_test_util.h.
-
 // ---------------------------------------------------------------------------
 // compile_hankin
 // ---------------------------------------------------------------------------
@@ -331,9 +328,8 @@ inline void test_hankin_one_shot_produces_valid_mesh() {
   check_face_counts_consistent(out);
   check_indices_in_range(out);
 
-  // 1e-2 (looser than compile_hankin's 1e-3) because the output also contains
-  // dynamic vertices — ray/segment intersections that land slightly off the
-  // unit sphere by construction, not just re-normalised edge midpoints.
+  // Looser 1e-2: dynamic vertices are ray/segment intersections that land
+  // slightly off the unit sphere by construction.
   check_all_unit_vertices(out, 1e-2f);
 }
 
@@ -351,7 +347,7 @@ inline void test_hankin_flat_and_twisted_differ() {
   build_solid<Solids::Cube>(cube, temp);
 
   // Indices [0, static_count) are angle-independent edge midpoints; the
-  // remainder are the angle-dependent star points.
+  // remainder are angle-dependent star points.
   CompiledHankin compiled;
   MeshOps::compile_hankin(cube, compiled, target_a, temp);
   const size_t static_count = compiled.static_vertices.size();
@@ -364,13 +360,11 @@ inline void test_hankin_flat_and_twisted_differ() {
   HS_EXPECT_EQ(flat.vertices.size(), twisted.vertices.size());
   HS_EXPECT_EQ(flat.face_counts.size(), twisted.face_counts.size());
 
-  // Edge midpoints are angle-independent, so identical at the 1e-6 noise floor.
+  // Edge midpoints are angle-independent, so identical across angles.
   for (size_t i = 0; i < static_count; ++i)
     HS_EXPECT_NEAR((flat.vertices[i] - twisted.vertices[i]).length(), 0.0f,
                    1e-6f);
 
-  // Dynamic star points must move a real amount; require the largest delta to
-  // clear 1e-2, well above the 1e-6 noise floor so rounding can't pass it.
   float max_dynamic_delta = 0.0f;
   for (size_t i = static_count; i < flat.vertices.size(); ++i) {
     const float d = (flat.vertices[i] - twisted.vertices[i]).length();
@@ -411,7 +405,6 @@ inline void test_compiled_hankin_clone_deep_copies() {
   HS_EXPECT_EQ(dst.faces.size(), src.faces.size());
   HS_EXPECT_EQ(dst.static_offset, src.static_offset);
 
-  // Independent backing storage: pointers differ.
   HS_EXPECT_TRUE(dst.base_vertices.data() != src.base_vertices.data());
   HS_EXPECT_TRUE(dst.static_vertices.data() != src.static_vertices.data());
 

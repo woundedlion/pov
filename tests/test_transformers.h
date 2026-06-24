@@ -64,7 +64,7 @@ inline bool vec_bits_equal(const Vector &a, const Vector &b) {
  *        unchanged.
  */
 inline void test_orient_transformer_identity() {
-  Orientation<> ori; // default = identity quaternion
+  Orientation<> ori;
   OrientTransformer ot(ori);
 
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1),
@@ -109,8 +109,8 @@ inline void test_orient_transformer_known_rotation() {
  *        stereographic projection back to itself, staying on the unit sphere.
  */
 inline void test_mobius_identity_roundtrip() {
-  MobiusParams id; // a=1, b=0, c=0, d=1 → identity
-  Vector v = Vector(0.5f, 0.1f, 0.3f).normalized(); // away from the N pole
+  MobiusParams id;
+  Vector v = Vector(0.5f, 0.1f, 0.3f).normalized();
   Vector r = mobius_transform(v, id);
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.x, v.x, 2e-3f);
@@ -146,7 +146,7 @@ inline void test_mobius_known_rotation() {
  */
 inline void test_gnomonic_mobius_identity_roundtrip() {
   MobiusParams id;
-  Vector v = Vector(0.3f, 0.7f, 0.2f).normalized(); // y>0 hemisphere
+  Vector v = Vector(0.3f, 0.7f, 0.2f).normalized();
   Vector r = gnomonic_mobius_transform(v, id);
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.x, v.x, 2e-3f);
@@ -166,7 +166,7 @@ inline void test_gnomonic_mobius_identity_roundtrip() {
  */
 inline void test_gnomonic_mobius_known_rotation() {
   MobiusParams neg(-1, 0, 0, 0, 0, 0, 1, 0); // f(z) = -z
-  Vector v = Vector(0.3f, 0.7f, 0.2f).normalized(); // upper hemisphere (v.y>0)
+  Vector v = Vector(0.3f, 0.7f, 0.2f).normalized();
   Vector r = gnomonic_mobius_transform(v, neg);
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.x, -v.x, 1e-3f);
@@ -220,16 +220,16 @@ inline void test_ripple_active_rotates_on_sphere() {
   RippleParams p;
   p.center = Vector(0, 1, 0);
   p.amplitude = 0.5f;
-  p.phase = PI_F * 0.5f; // peak of the wavelet at d == 90°
-  p.decay = 0.0f;        // no attenuation, so the rotation is significant
+  p.phase = PI_F * 0.5f; // wavelet peak at d == 90°
+  p.decay = 0.0f;
   p.thickness = 1.0f;
-  // Default thresholds (min=1, max=-1) disable the fast reject → always applies.
+  // Default thresholds (min=1, max=-1) disable the fast reject.
 
   Vector v = Vector(1, 0, 0); // 90° from center → at the wavelet peak
   Vector r = ripple_transform(v, p);
 
   HS_EXPECT_TRUE(finite_vec(r));
-  HS_EXPECT_NEAR(r.length(), 1.0f, 1e-4f); // rotation preserves unit length
+  HS_EXPECT_NEAR(r.length(), 1.0f, 1e-4f);
   float moved =
       std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
   HS_EXPECT_GT(moved, 1e-2f);
@@ -252,17 +252,15 @@ inline void test_ripple_threshold_reject_path() {
   p.center = Vector(0, 1, 0); // north pole, so cos_d == dot(v, center) == v.y
   p.amplitude = 0.5f;
   p.phase = PI_F * 0.5f; // wavelet peak at d == 90°
-  p.decay = 0.0f;        // no attenuation, so an applied rotation is significant
+  p.decay = 0.0f;
   p.thickness = 0.4f;    // band ≈ [phase - 0.4, phase + 0.4] rad
   p.prepare_thresholds();
 
-  // Prepared bounds must be a real (non-degenerate) window, else the reject legs
-  // below can never fire.
   HS_EXPECT_LT(p.cos_threshold_min, 1.0f);
   HS_EXPECT_GT(p.cos_threshold_max, -1.0f);
 
-  // In-band: at the peak (d == phase), the ripple rotates the point off itself.
-  const Vector in_band = Vector(1, 0, 0); // d == 90°, exactly at the peak
+  // In-band: at the peak.
+  const Vector in_band = Vector(1, 0, 0);
   const Vector r_in = ripple_transform(in_band, p);
   HS_EXPECT_TRUE(finite_vec(r_in));
   HS_EXPECT_NEAR(r_in.length(), 1.0f, 1e-4f);
@@ -272,7 +270,7 @@ inline void test_ripple_threshold_reject_path() {
   HS_EXPECT_GT(moved_in, 1e-2f);
 
   // Out-of-band toward the center (d < d_min): cos_d > cos_threshold_min leg.
-  const float d_near = p.phase - p.thickness - 0.3f; // safely inside d_min, > 0
+  const float d_near = p.phase - p.thickness - 0.3f;
   const Vector near_c = Vector(std::sin(d_near), std::cos(d_near), 0.0f);
   const Vector r_near = ripple_transform(near_c, p);
   HS_EXPECT_NEAR(r_near.x, near_c.x, 1e-6f);
@@ -280,7 +278,7 @@ inline void test_ripple_threshold_reject_path() {
   HS_EXPECT_NEAR(r_near.z, near_c.z, 1e-6f);
 
   // Out-of-band away from the center (d > d_max): cos_d < cos_threshold_max leg.
-  const float d_far = p.phase + p.thickness + 0.3f; // safely past d_max, < PI
+  const float d_far = p.phase + p.thickness + 0.3f;
   const Vector far_c = Vector(std::sin(d_far), std::cos(d_far), 0.0f);
   const Vector r_far = ripple_transform(far_c, p);
   HS_EXPECT_NEAR(r_far.x, far_c.x, 1e-6f);
@@ -302,10 +300,10 @@ inline void test_ripple_decay_attenuates() {
   RippleParams base;
   base.center = Vector(0, 1, 0);
   base.amplitude = 0.5f;
-  base.phase = PI_F * 0.5f; // peak of the wavelet at d == 90°
+  base.phase = PI_F * 0.5f; // wavelet peak at d == 90°
   base.thickness = 1.0f;
-  // Default thresholds (min=1, max=-1) disable the fast reject → always applies.
-  const Vector v = Vector(1, 0, 0); // d == 90° from center, at the peak
+  // Default thresholds (min=1, max=-1) disable the fast reject.
+  const Vector v = Vector(1, 0, 0);
 
   auto moved = [&](float decay) {
     RippleParams p = base;
@@ -318,11 +316,11 @@ inline void test_ripple_decay_attenuates() {
   const float m_small = moved(0.5f);
   const float m_large = moved(8.0f);
 
-  HS_EXPECT_GT(m0, 1e-2f);        // undamped baseline rotates noticeably
-  HS_EXPECT_LT(m_small, m0);      // decay reduces the rotation...
-  HS_EXPECT_GT(m_small, 0.0f);    // ...but does not zero it
-  HS_EXPECT_LT(m_large, m_small); // more decay → less rotation
-  HS_EXPECT_NEAR(m_large, 0.0f, 5e-2f); // strong decay ≈ identity
+  HS_EXPECT_GT(m0, 1e-2f);
+  HS_EXPECT_LT(m_small, m0);
+  HS_EXPECT_GT(m_small, 0.0f);
+  HS_EXPECT_LT(m_large, m_small);
+  HS_EXPECT_NEAR(m_large, 0.0f, 5e-2f);
 }
 
 /**
@@ -344,18 +342,17 @@ inline void test_ripple_threshold_boundary() {
   p.thickness = 0.4f; // band edges at phase ± thickness
   p.prepare_thresholds();
 
-  const float d_min = p.phase - p.thickness; // lower edge (toward the center)
-  const float d_max = p.phase + p.thickness; // upper edge (away from it)
+  const float d_min = p.phase - p.thickness;
+  const float d_max = p.phase + p.thickness;
   const float eps = 0.02f;
 
-  // A point at angle d from the +y center, in the x-y plane.
   auto pt = [](float d) { return Vector(std::sin(d), std::cos(d), 0.0f); };
   auto moved = [&](const Vector &src) {
     Vector r = ripple_transform(src, p);
     return std::abs(r.x - src.x) + std::abs(r.y - src.y) + std::abs(r.z - src.z);
   };
 
-  // Just inside each edge: applied (wavelet tail is small but nonzero).
+  // Just inside each edge: wavelet tail is small but nonzero.
   HS_EXPECT_GT(moved(pt(d_max - eps)), 1e-4f);
   HS_EXPECT_GT(moved(pt(d_min + eps)), 1e-4f);
   // Just outside each edge: fast-rejected → returned exactly unchanged.
@@ -383,19 +380,15 @@ inline void test_transforms_nonfinite_passes_through_identity() {
                         Vector(inf, nan, -inf)};
 
   for (const Vector &v : bad) {
-    // Assert the input passes through VERBATIM (bit-identical), not merely that
-    // the result stays non-finite: a buggy short-circuit returning all-NaN for
-    // any input would satisfy the weaker finiteness check while violating the
-    // documented "passes through identity" contract.
     RippleParams rp;
-    rp.amplitude = 0.0f; // zero-amplitude short circuit → returns v unchanged
+    rp.amplitude = 0.0f;
     HS_EXPECT_TRUE(vec_bits_equal(ripple_transform(v, rp), v));
     NoiseParams np;
-    np.amplitude = 0.0f; // zero-amplitude short circuit → returns v unchanged
+    np.amplitude = 0.0f;
     HS_EXPECT_TRUE(vec_bits_equal(noise_transform(v, np), v));
     Timeline tl;
     RippleTransformer<4> rt(tl);
-    HS_EXPECT_TRUE(vec_bits_equal(rt.transform(v), v)); // no entities → identity
+    HS_EXPECT_TRUE(vec_bits_equal(rt.transform(v), v));
   }
 }
 
@@ -440,7 +433,7 @@ inline void test_noise_active_stays_on_sphere() {
     total_moved +=
         std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
   }
-  HS_EXPECT_GT(total_moved, 1e-2f); // a non-zero amplitude must move the points
+  HS_EXPECT_GT(total_moved, 1e-2f);
 }
 
 // ============================================================================
@@ -455,7 +448,7 @@ inline void test_transformer_no_entities_is_identity() {
   Timeline tl;
   RippleTransformer<8> rt(tl);
   Vector v = Vector(0.6f, 0.2f, 0.77f).normalized();
-  Vector r = rt.transform(v); // nothing spawned → all entities inactive
+  Vector r = rt.transform(v);
   HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
   HS_EXPECT_NEAR(r.y, v.y, 1e-6f);
   HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
@@ -486,7 +479,6 @@ inline void test_transformer_spawn_applies_and_composes() {
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
                             Vector(0.4f, 0.6f, 0.7f).normalized()};
 
-  // No active entities → identity for every sample.
   for (const Vector &v : samples) {
     Vector r = nt.transform(v);
     HS_EXPECT_NEAR(r.x, v.x, 1e-6f);
@@ -494,9 +486,6 @@ inline void test_transformer_spawn_applies_and_composes() {
     HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
   }
 
-  // One active entity → transform applies the warp; sum the displacement across
-  // samples so a single noise zero-crossing can't make the test flaky. Capture
-  // the single-entity output per sample to compare against the composed result.
   HS_EXPECT_TRUE(nt.spawn(0) != nullptr);
   constexpr size_t kN = sizeof(samples) / sizeof(samples[0]);
   Vector single[kN];
@@ -511,11 +500,6 @@ inline void test_transformer_spawn_applies_and_composes() {
   }
   HS_EXPECT_GT(total_moved, 1e-2f);
 
-  // A second active entity → both compose. The composed output must differ from
-  // the single-entity output (the second slot warps the already-displaced
-  // point); if the active-slot list silently dropped the second entity — or
-  // transform() applied only the first — this divergence would vanish. Sum
-  // across samples so one near-coincident sample can't mask a real composition.
   HS_EXPECT_TRUE(nt.spawn(0) != nullptr);
   float total_divergence = 0.0f;
   for (size_t i = 0; i < kN; ++i) {

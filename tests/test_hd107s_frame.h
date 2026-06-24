@@ -141,8 +141,7 @@ inline void test_correct_pipeline() {
 inline void test_correct_multifactor() {
   Frame f;
 
-  // Temperature compounds on top of correction, not instead of it: green under
-  // correction alone is brighter than green under correction + temperature.
+  // Temperature compounds on top of correction, not instead of it.
   Frame::setCorrection(255, 176, 240);
   Frame::setTemperature(255, 255, 255);
   Frame::setBrightness(255);
@@ -208,7 +207,6 @@ inline void test_packpixel_wire_order() {
   HS_EXPECT_EQ(pixel(f, 2)[2], 0);    // G
   HS_EXPECT_EQ(pixel(f, 2)[3], 0);    // R
 
-  // Packing pixel 2 must not disturb pixel 0.
   HS_EXPECT_GT(pixel(f, 0)[3], 0);
   HS_EXPECT_EQ(pixel(f, 0)[1], 0);
 }

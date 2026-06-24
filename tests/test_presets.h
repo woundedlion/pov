@@ -69,7 +69,6 @@ inline void test_next_cycles_forward_and_tracks_prev() {
   HS_EXPECT_EQ(p.get().id, 3);
   HS_EXPECT_EQ(p.prev_get().id, 2);
 
-  // Wraps back to the first entry.
   p.next();
   HS_EXPECT_EQ(p.get().id, 1);
   HS_EXPECT_EQ(p.prev_get().id, 3);
@@ -81,7 +80,6 @@ inline void test_next_cycles_forward_and_tracks_prev() {
 inline void test_prev_cycles_backward() {
   auto p = make_presets();
 
-  // prev() from index 0 wraps to the last entry.
   p.prev();
   HS_EXPECT_EQ(p.get().id, 3);
   HS_EXPECT_EQ(p.prev_get().id, 1);

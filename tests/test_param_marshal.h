@@ -88,7 +88,7 @@ inline bool check_one(const char *) {
     }
   }
   if (target < 0)
-    return false; // no editable float param to round-trip
+    return false;
 
   const float lo = views[target].min, hi = views[target].max;
   float newv = lo + 0.5f * (hi - lo);

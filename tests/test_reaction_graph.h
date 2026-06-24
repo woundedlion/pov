@@ -275,8 +275,6 @@ inline void test_edge_reciprocity_high() {
     }
   }
   HS_EXPECT_GT(total, 0L);
-  // Shipped table reciprocates ~98.9% (legitimate K-NN asymmetry ~1%); the >95%
-  // bound clears that margin but trips on a half-scrambled table.
   float rate = total ? static_cast<float>(reciprocated) / total : 0.0f;
   std::printf("  [info] reaction_graph edge reciprocity: %.1f%%\n", rate * 100.0f);
   HS_EXPECT_GT(rate, 0.95f);

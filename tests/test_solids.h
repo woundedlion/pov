@@ -35,12 +35,9 @@
 namespace hs_test {
 namespace solids_tests {
 
-// Generation budget. The complex Islamic-pattern generators chain many Conway
-// operators (relax/ambo/bevel/hankin/...) and the WASM tooling path uses
-// 4 MB scratch arenas for exactly these, resetting them before each build. We
-// mirror that: two large scratch arenas (reset per solid) plus a geometry arena
-// that holds the finalized result. A second geometry arena lets us build the
-// same solid twice for the determinism check without aliasing storage.
+// Two scratch arenas (reset per solid) plus two geometry arenas, sized to match
+// the WASM tooling path's 4 MB scratch. The second geometry arena lets the
+// determinism check build the same solid twice without aliasing storage.
 inline uint8_t solids_geom_a[4 * 1024 * 1024];
 inline uint8_t solids_geom_b[4 * 1024 * 1024];
 inline uint8_t solids_scratch_a[4 * 1024 * 1024];
@@ -115,7 +112,7 @@ inline void test_simple_registry_solids_are_spherical_and_valid() {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh m = build_index(i, geom);
     check_basic(m);
-    check_all_unit_vertices(m, 1e-3f); // Platonic/Archimedean seeds + ops stay on unit sphere
+    check_all_unit_vertices(m, 1e-3f);
   }
 }
 
@@ -131,7 +128,7 @@ inline void test_catalan_registry_solids_are_spherical_and_valid() {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh m = build_index(base + k, geom);
     check_basic(m);
-    check_all_unit_vertices(m, 1e-3f); // Catalan = dual of an Archimedean; ops re-normalize
+    check_all_unit_vertices(m, 1e-3f);
   }
 }
 
@@ -364,32 +361,12 @@ inline void test_determinism_complex_islamic() {
 // ---------------------------------------------------------------------------
 // High-water regression at the real shipping arena configuration.
 //
-// The IslamicStars effect is the one that ships these recipes: spawn_shape()
-// builds get_islamic_solids()[idx].generate(a, b) through scratch_arena_a /
-// scratch_arena_b, which init() sizes via configure_arenas(..., 120 KB, 120 KB)
-// (effects/IslamicStars.h). SolidBuilder ping-pongs the two arenas WITHOUT
-// resetting between ops (see the SCRATCH ARENA CONTRACT in core/conway.h), so a
-// whole recipe chain accumulates into that pair and its peak is the recipe's
-// high-water mark. The COMPOSITION POLARITY note in core/conway.h calls out
-// cube_relax_bevel33_relax_hk675_expand5 as the one recipe whose relax()-after-
-// bevel() runs input and output on the same arena; that "measured to fit" was a
-// comment, and this test makes it an automated guard. A recipe edit or a Conway
-// operator-table change that pushes peak scratch over budget would otherwise
-// surface only as a device-only OOM trap, invisible to the host suite.
-//
-// 64-bit host vs 32-bit device: a recipe's scratch is flat POD arrays (PolyMesh
-// is ArenaVector<Vector/uint8_t/uint16_t/int>, the half-edge build uses POD
-// records) whose element sizes are identical on both builds, so these arena
-// footprints do NOT carry the host/device pointer delta core/memory.h warns
-// about for pointer-bearing pooled structs. Where any delta exists at all it can
-// only make the 64-bit host figure LARGER (8-byte vs 4-byte pointers), never
-// smaller, so a host high-water mark is a conservative UPPER bound on the device
-// figure: passing here guarantees the recipe fits the device's 120 KB split.
-//
-// The backing buffers (solids_scratch_a/b, multi-MB) are deliberately larger
-// than the asserted budget so a regression yields a precise high-water assertion
-// — the actual byte count vs 120 KB — instead of an opaque mid-build OOM trap;
-// the HS_EXPECT_LE against the real 120 KB budget is the guard.
+// IslamicStars::spawn_shape builds each recipe through a 120 KB / 120 KB scratch
+// pair that ping-pongs WITHOUT resetting between ops, so a recipe chain's peak is
+// its high-water mark. Over-budget would otherwise surface only as a device-only
+// OOM trap. Scratch is flat POD whose only host/device delta (64-bit pointers)
+// can only make the host figure larger, so the host high-water mark is a
+// conservative upper bound on the device figure.
 // ---------------------------------------------------------------------------
 
 constexpr size_t kIslamicScratchBudget =
@@ -406,7 +383,7 @@ inline void check_high_water_for_recipe(const Solids::Entry &entry) {
   Arena a(solids_scratch_a, sizeof(solids_scratch_a));
   Arena b(solids_scratch_b, sizeof(solids_scratch_b));
   PolyMesh m = entry.generate(a, b);
-  check_nonempty(m); // the build actually produced geometry through this pair
+  check_nonempty(m);
 
   HS_EXPECT_LE(a.get_high_water_mark(), kIslamicScratchBudget);
   HS_EXPECT_LE(b.get_high_water_mark(), kIslamicScratchBudget);
@@ -427,26 +404,13 @@ inline void test_islamic_recipes_fit_islamicstars_budget() {
 // ---------------------------------------------------------------------------
 // Persistent-budget regression for the IslamicStars carousel.
 //
-// The scratch sweep above guards GENERATION (the two 120 KB pools). This guards
-// the OTHER half of IslamicStars' split: the persistent arena holding the baked
-// palette bank plus the double-buffered carousel of COMPILED meshes. init()
-// calls configure_arenas(GLOBAL_ARENA_SIZE - (120+120)*1024, 120 KB, 120 KB); on
-// the device GLOBAL_ARENA_SIZE is 335 KB, leaving ~95 KB persistent. The native
-// suite builds with an 8 MB GLOBAL_ARENA_SIZE, so a device persistent overflow
-// can NOT surface by running the effect here, and the effect smoke test never
-// cycles through every Islamic shape — so the worst-case recipe's compiled
-// footprint goes unmeasured against the real device budget. Measure it.
-//
-// Peak persistent residents during a cross-fade swap: one re-baked palette bank
-// plus exactly two carousel slots — the outgoing FRONT (shape i) and the freshly
-// generated BACK (shape i+1) coexist until the swap, each a compiled mesh plus
-// its per-face topology array. spawn_shape cycles solid_idx = (solid_idx+1) % N,
-// so the coexisting pair is always two registry-ADJACENT shapes (wrapping at the
-// end); the peak is the largest adjacent-pair sum, not twice the single largest.
-// The host figure is a conservative upper bound on the device figure for the
-// same reason check_high_water_for_recipe documents (flat POD arrays whose only
-// host/device delta — 64-bit pointers — can only make the host larger), so
-// passing here guarantees the device fits.
+// Guards the persistent half of IslamicStars' split (~95 KB on the device,
+// GLOBAL_ARENA_SIZE 335 KB minus the two 120 KB scratch pools): the baked palette
+// bank plus the double-buffered carousel. The native 8 MB GLOBAL_ARENA_SIZE means
+// a device persistent overflow can't surface by running the effect here. Peak
+// residents during a cross-fade are the palette bank plus the two adjacent
+// carousel slots that coexist until the swap (spawn_shape cycles idx % N), so the
+// peak is the largest adjacent-pair sum, not twice the largest single slot.
 // ---------------------------------------------------------------------------
 
 constexpr size_t kIslamicPersistentBudget =
@@ -463,7 +427,6 @@ constexpr size_t kIslamicPersistentBudget =
  *          coexistence) plus one palette bank stays within the device budget.
  */
 inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
-  // One resident palette bank (re-baked into the fresh arena each shape cycle).
   size_t palette_bytes;
   {
     Arena pal(solids_geom_b, sizeof(solids_geom_b));
@@ -477,17 +440,14 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
   const auto islamic = Solids::Collections::get_islamic_solids();
   const size_t N = islamic.size();
 
-  // Per-slot persistent footprint (compiled mesh + topology array) for each
-  // Islamic shape, in registry/cycle order.
   size_t slot_bytes[Solids::NUM_ENTRIES];
   size_t worst_slot = 0, worst_v = 0, worst_f = 0, worst_k = 0;
   for (size_t k = 0; k < N; ++k) {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh raw = build_index(base + k, geom);
 
-    // Compile + classify into one fresh persistent arena, as spawn_shape does,
-    // and measure the bytes a single carousel slot consumes. The three arenas
-    // are distinct backing buffers (no aliasing with geom, which holds raw).
+    // The three arenas are distinct backing buffers (no aliasing with geom,
+    // which still holds raw).
     Arena slot_arena(solids_scratch_a, sizeof(solids_scratch_a));
     Arena sa(solids_scratch_b, sizeof(solids_scratch_b));
     Arena sb(solids_geom_b, sizeof(solids_geom_b));
@@ -504,8 +464,7 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
     }
   }
 
-  // Worst cross-fade coexistence = the largest registry-adjacent pair, with the
-  // (N-1, 0) wrap (the cycle loops, so that pair occurs too).
+  // Largest registry-adjacent pair, including the (N-1, 0) cycle wrap.
   size_t worst_pair = 0, worst_pair_i = 0;
   for (size_t i = 0; i < N; ++i) {
     size_t pair = slot_bytes[i] + slot_bytes[(i + 1) % N];

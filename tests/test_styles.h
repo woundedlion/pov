@@ -76,19 +76,16 @@ inline void test_lerp_scalars_and_snapping() {
 
   NoiseParams subj;
   Feedback::Style mid{};
-  mid.noise = &subj; // subject's own bound state, distinct from a/b
+  mid.noise = &subj;
   mid.lerp(a, b, 0.5f);
   HS_EXPECT_NEAR(mid.fade, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(mid.hue_shift, 0.5f, 1e-6f);
   HS_EXPECT_NEAR(mid.scale, 0.5f, 1e-6f);
-  // Discrete fields snap to b at t >= 0.5.
   HS_EXPECT_TRUE(mid.space_fn == &Feedback::noise_warp);
   HS_EXPECT_TRUE(mid.color_fn == &Feedback::hue_fade);
   HS_EXPECT_EQ(mid.downsample, 8);
-  // lerp must leave the subject's bound noise untouched.
   HS_EXPECT_TRUE(mid.noise == &subj);
 
-  // Below the midpoint, discrete fields stay on a.
   Feedback::Style lo{};
   lo.lerp(a, b, 0.4f);
   HS_EXPECT_TRUE(lo.space_fn == &Feedback::identity_warp);
@@ -134,11 +131,10 @@ inline void test_noise_warp_null_is_identity() {
 inline void test_melt_warp_drifts_toward_north() {
   Feedback::Style s{};
   s.speed = 1.0f;
-  s.amplitude = 0.0f; // no noise wobble
-  s.noise = nullptr;  // skip the noise branch
+  s.amplitude = 0.0f;
+  s.noise = nullptr;
   Vector v(1.0f, 0.0f, 0.0f); // on the equator (y = 0)
   Vector out = Feedback::melt_warp(v, s);
-  // Slerp toward the north pole pulls y up and shrinks x.
   HS_EXPECT_TRUE(out.y > 0.0f);
   HS_EXPECT_TRUE(out.x < 1.0f);
   HS_EXPECT_NEAR(out.length(), 1.0f, 1e-4f);
@@ -162,14 +158,14 @@ inline void test_noise_warp_bound_distorts() {
   s.speed = 0.0f;
   s.scale = 4.0f;
   s.noise = &np;
-  s.sync_noise(); // push scalars into the bound NoiseParams
+  s.sync_noise();
 
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
                             Vector(0.4f, 0.6f, 0.7f).normalized()};
   float total_moved = 0.0f;
   for (const Vector &v : samples) {
     Vector out = Feedback::noise_warp(v, s);
-    HS_EXPECT_NEAR(out.length(), 1.0f, 1e-3f); // stays on the sphere
+    HS_EXPECT_NEAR(out.length(), 1.0f, 1e-3f);
     total_moved +=
         std::abs(out.x - v.x) + std::abs(out.y - v.y) + std::abs(out.z - v.z);
   }
@@ -195,7 +191,7 @@ inline void test_melt_warp_bound_noise_perturbs() {
   s.sync_noise();
 
   Feedback::Style drip_only = s;
-  drip_only.noise = nullptr; // same drip, no noise perturbation
+  drip_only.noise = nullptr;
 
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 0, 1),
                             Vector(0.4f, 0.6f, 0.7f).normalized()};
@@ -236,7 +232,7 @@ inline void test_hue_fade_zero_shift_preserves_gray() {
   Feedback::Style s{};
   s.hue_shift = 0.0f;
   Pixel out = Feedback::hue_fade(gray, 0.5f, s);
-  HS_EXPECT_TRUE(out.r < gray.r); // dimmed
+  HS_EXPECT_TRUE(out.r < gray.r);
   HS_EXPECT_TRUE(out.r > 0);
   // Stays gray within the OKLCH round-trip tolerance.
   HS_EXPECT_TRUE(std::abs((int)out.r - (int)out.g) < 64);
@@ -252,7 +248,6 @@ inline void test_hue_fade_zero_shift_preserves_gray() {
  */
 inline void test_sync_hue_caches_rotation() {
   Feedback::Style s{};
-  // Before sync_hue(), the cache is the identity rotation (angle 0).
   HS_EXPECT_NEAR(s.hue_ca, 1.0f, 1e-6f);
   HS_EXPECT_NEAR(s.hue_sa, 0.0f, 1e-6f);
 
@@ -275,22 +270,19 @@ inline void test_sync_hue_caches_rotation() {
  *          amount — pinning that hue_fade consumes hue_ca/hue_sa correctly.
  */
 inline void test_hue_fade_nonzero_shift_rotates_saturated() {
-  Pixel red(50000, 2000, 2000); // saturated: real chroma to rotate
+  Pixel red(50000, 2000, 2000);
   Feedback::Style s{};
   s.hue_shift = 0.33f;
   s.sync_hue();
   const float fade = 0.8f;
   Pixel rotated = Feedback::hue_fade(red, fade, s);
 
-  // A nonzero shift must move the color off the plain fade.
   Pixel plain = Feedback::plain_fade(red, fade, s);
   const int delta = std::abs((int)rotated.r - (int)plain.r) +
                     std::abs((int)rotated.g - (int)plain.g) +
                     std::abs((int)rotated.b - (int)plain.b);
   HS_EXPECT_TRUE(delta > 1000);
 
-  // The cached (hue_ca, hue_sa) path must agree bit-for-bit with the per-call
-  // hue_rotate overload that recomputes the rotation from hue_shift.
   Pixel ref = hue_rotate(Color4(red * fade, 1.0f), s.hue_shift).color;
   HS_EXPECT_EQ(rotated.r, ref.r);
   HS_EXPECT_EQ(rotated.g, ref.g);
@@ -319,7 +311,6 @@ inline void test_sync_noise_pushes_scalars() {
   HS_EXPECT_NEAR(np.speed, 2.5f, 1e-6f);
   HS_EXPECT_NEAR(np.scale, 9.0f, 1e-6f);
 
-  // Unbound sync must not dereference null.
   Feedback::Style unbound{};
   unbound.noise = nullptr;
   unbound.sync_noise();

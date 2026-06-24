@@ -204,7 +204,6 @@ inline void test_wireframe_draws_every_edge() {
     HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 3)));
   }
 
-  // A wireframe lights some pixels but nowhere near the whole canvas.
   const size_t lit = count_lit<W, H>(fx);
   HS_EXPECT_GT(lit, (size_t)0);
   HS_EXPECT_LT(lit, (size_t)(W * H) / 2);
@@ -262,7 +261,7 @@ inline void test_wireframe_pixels_lie_on_edges() {
         ++off_arc;
     }
   HS_EXPECT_GT(lit, (size_t)0);
-  HS_EXPECT_EQ(off_arc, (size_t)0); // nothing drawn off the edges
+  HS_EXPECT_EQ(off_arc, (size_t)0);
 }
 
 // ============================================================================

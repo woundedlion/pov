@@ -31,11 +31,6 @@ namespace pov_sync_tests {
 
 using namespace pov::sync;
 
-// EdgeMailbox::burst_complete() and claim() are the pre-consolidation split
-// consumer path, now private behind a test friend (see hardware/pov_sync.h):
-// production goes through the fused try_claim(), and the split path is reachable
-// only here. EdgeMailboxTestAccess is the friend; the burst_complete()/claim()
-// free wrappers below let the tests exercise the two halves try_claim() merged.
 struct EdgeMailboxTestAccess {
   static bool burst_complete(const EdgeMailbox &m, uint32_t now, uint32_t gap) {
     return m.burst_complete(now, gap);
@@ -175,7 +170,7 @@ inline void test_mailbox() {
   m.on_edge(1000 + 4 * kCol, kGlitch);
   // EMI spike < 100 µs after an accepted edge is rejected…
   m.on_edge(1000 + 4 * kCol + kGlitch / 2, kGlitch);
-  // …and does not reset the filter reference (a spike train can't suppress).
+  // …and does not reset the filter reference.
   m.on_edge(1000 + 6 * kCol, kGlitch);
   HS_EXPECT_FALSE(burst_complete(m, 1000 + 7 * kCol, 4 * kCol));
   HS_EXPECT_TRUE(burst_complete(m, 1000 + 10 * kCol + 1, 4 * kCol));
@@ -188,10 +183,6 @@ inline void test_mailbox() {
   m.on_edge(1000 + 6 * kCol + kGlitch - 1, kGlitch); // too close: rejected
   HS_EXPECT_FALSE(burst_complete(m, 1000 + 20 * kCol, 4 * kCol));
 
-  // try_claim() is the atomic consumer primitive: it recomputes completion
-  // from the same count_ it then clears, so the test and the reset cannot be
-  // split. It declines an incomplete (or absent) burst and takes a complete
-  // one, leaving the same empty state claim() does.
   EdgeMailbox tc;
   BurstSnapshot out;
   HS_EXPECT_FALSE(tc.try_claim(0, 4 * kCol, &out)); // no burst yet
@@ -228,7 +219,7 @@ inline void test_mailbox_prior_staleness() {
 
   // After the wire goes quiet the prior is retired, so a later edge whose
   // (wrapped) modular distance to the OLD prior lands inside the reject window
-  // is still accepted. Without age_prior this edge would be silently dropped.
+  // is still accepted.
   {
     EdgeMailbox m;
     const uint32_t prior = 1000u;
@@ -258,12 +249,10 @@ inline void test_seed_clears_mailbox() {
   const uint32_t col = cfg.cycles_per_column();
   SyncBoard board(cfg);
   board.seed(1000u, /*is_master=*/false);
-  // A burst accumulates on the sync wire before the reboot.
   board.on_sync_edge(2000u);
   board.on_sync_edge(2000u + 4 * col);
   HS_EXPECT_TRUE(burst_complete(board.mailbox(), 2000u + 100 * col,
                                 cfg.gap_timeout_cycles()));
-  // Reboot: reseed. The stale burst must be gone.
   board.seed(3000u, false);
   HS_EXPECT_FALSE(burst_complete(board.mailbox(), 3000u + 100 * col,
                                  cfg.gap_timeout_cycles()));
@@ -322,7 +311,6 @@ inline void test_beacon_codec() {
       HS_EXPECT_EQ(f.rev_count, rev);
     }
   }
-  // A corrupted digit breaks the checksum; a corrupted checksum likewise.
   encode_beacon_digits(27, 45, d);
   HS_EXPECT_FALSE(feed_frame(d, true, false, &f));
   HS_EXPECT_FALSE(feed_frame(d, false, true, &f));
@@ -631,9 +619,8 @@ inline void test_emitter() {
   }
 
   // Boundary scheduled in the FUTURE (now before at_cycles): not late — it must
-  // be accepted and then emitted once `now` reaches the boundary. Regression
-  // guard for the signed late-censor: an unsigned `now - at_cycles` wraps a
-  // future boundary to a huge positive lateness and would wrongly censor it.
+  // be accepted and then emitted once `now` reaches the boundary. An unsigned
+  // `now - at_cycles` wraps a future boundary to a huge positive lateness.
   {
     SymbolEmitter e;
     const uint32_t at = 1000000u;
@@ -927,8 +914,7 @@ private:
   void run_tick(SimBoard &b, uint64_t tg) {
     // This wake is consumed: the grid resumes at the next slot strictly
     // after it (a mask may have swallowed several slots — they coalesced
-    // into this one delayed wake). do-while: tg was rounded down from
-    // next_tick, so the loop must advance at least once.
+    // into this one delayed wake).
     do {
       b.next_tick += b.tick_step;
     } while (b.next_tick <= double(tg));
@@ -1049,7 +1035,6 @@ inline void test_sim_boot_and_phase() {
       HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
     }
   }
-  // No gate rejections, no invalid symbols, no traps in a clean run.
   for (int i = 1; i < 4; ++i) {
     const Telemetry &tm = sim.boards[i].board.telemetry();
     HS_EXPECT_EQ(tm.symbols_rejected_gate, 0u);
@@ -1265,7 +1250,6 @@ inline void test_sim_emi() {
   HS_EXPECT_GT(tm1.symbols_rejected_gate, 20u); // isolated EMI all rejected
   const Telemetry &tm2 = sim.boards[2].board.telemetry();
   HS_EXPECT_GE(tm2.symbols_discarded_invalid, 2u); // corrupted bursts dropped
-  // System health: everyone locked, coherent, phase bounded.
   HS_EXPECT_LE(sim.max_phase_err(), 2);
   for (int i = 1; i < 4; ++i) {
     HS_EXPECT_TRUE(sim.boards[i].board.lock() == LockState::LOCKED);
@@ -2007,7 +1991,6 @@ inline void test_budget_beacon_corruption() {
         return s.boards[1].board.telemetry().beacons_ok > ok_before;
       },
       double(cfg.beacon_period_revs) + 1));
-  // The show never noticed: index, phase, and frame counters all clean.
   HS_EXPECT_EQ(sim.boards[1].live_index, sim.boards[0].live_index);
   sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
   HS_EXPECT_LE(sim.max_phase_err(), 2);
@@ -2071,8 +2054,7 @@ inline void test_budget_wire_dead() {
   // 40+R+K-rev test cadence).
   HS_EXPECT_EQ(sim.boards[0].live_index, 3);
   // Precession matches the budget: 40 ppm × 150 revs × 288 col/rev ≈ 1.7
-  // col; 25 ppm ≈ 1.1 col. And these positions are only meaningful because
-  // the rebase rule survived the snap-free wrap.
+  // col; 25 ppm ≈ 1.1 col.
   const int32_t e1 = circ_dist(sim.board_pos(1), sim.board_pos(0), cfg.W);
   const int32_t e2 = circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W);
   HS_EXPECT_GE(e1, 1);

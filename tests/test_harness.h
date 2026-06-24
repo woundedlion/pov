@@ -227,10 +227,9 @@ inline int end_module(const ModuleScope &m) {
     }                                                                          \
   } while (0)
 
-// Near-equality with an absolute tolerance. Operands are captured as double:
-// floats widen exactly, and double-valued operands compare at full precision
-// rather than being rounded to float resolution. Call sites wanting a
-// float-domain compare invoke hs_test::approx(float,float,float) directly.
+// Near-equality with an absolute tolerance. Operands are captured as double so
+// double-valued operands compare at full precision; a float-domain compare can
+// invoke hs_test::approx(float,float,float) directly.
 #define HS_EXPECT_NEAR(a, b, tol)                                             \
   do {                                                                        \
     double _hs_a = (a);                                                       \

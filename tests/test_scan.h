@@ -72,8 +72,7 @@ inline void test_shader_constant_fills_canvas() {
   fx.advance_display();
 
   // Bit-exact readback: at alpha=1 the blend is the identity (src*1 + dst*0), so
-  // channels survive verbatim. Couples to test_blend_alpha by design — a blend
-  // change that adds a rounding/dither term is meant to fail here too.
+  // channels survive verbatim.
   for (int y = 0; y < H; ++y) {
     for (int x = 0; x < W; ++x) {
       const Pixel &p = fx.get_pixel(x, y);
@@ -198,7 +197,6 @@ inline void test_ring_rasterize_produces_bounded_output() {
       if (!is_black(fx.get_pixel(x, y)))
         ++plotted;
 
-  // Some pixels, but not the whole canvas.
   HS_EXPECT_GT(plotted, (size_t)0);
   HS_EXPECT_LT(plotted, (size_t)(W * H));
 }
@@ -474,10 +472,10 @@ inline void test_csg_stroke_aa_uses_winning_child_thickness() {
 
   HS_EXPECT_EQ(n_union, 1);
   HS_EXPECT_EQ(n_bare, 1);
-  // The composite reproduces the winning child's own AA exactly...
+  // The composite reproduces the winning child's own AA, and the thin/thick
+  // falloffs are clearly separable so reproducing thin (not the wrapper-max
+  // thick) is a meaningful distinction.
   HS_EXPECT_NEAR(a_union, a_thin, 1e-4f);
-  // ...and the thin/thick falloffs are clearly separable, so reproducing thin
-  // rather than the wrapper-max thick is a meaningful distinction.
   HS_EXPECT_GT(fabsf(a_thin - a_thick), 0.1f);
 }
 
@@ -581,8 +579,7 @@ inline void test_stroke_aa_is_monotone_ramp() {
     if (a > 0.1f && a < 0.9f) saw_mid = true;
   }
 
-  // Centerline ~opaque, far edge ~transparent, with a genuine ramp between
-  // (a hard edge would jump 1 -> 0 with no intermediate sample).
+  // Centerline ~opaque, far edge ~transparent, with a genuine ramp between.
   HS_EXPECT_TRUE(saw_one);
   HS_EXPECT_TRUE(saw_zero);
   HS_EXPECT_TRUE(saw_mid);

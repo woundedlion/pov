@@ -6,9 +6,7 @@
  * dependency on constants.h ClipRegion).
  *
  * Focus: PURE sampling / geometry paths that produce Fragments from geometry
- * WITHOUT a live Canvas. The draw()/rasterize() paths (which require an
- * Effect + Canvas) and the entire Scan:: rasterizer are intentionally NOT
- * exercised here — the Scan:: rasterizer is covered separately in test_scan.h.
+ * WITHOUT a live Canvas. The Scan:: rasterizer is covered in test_scan.h.
  *
  * Coverage:
  *   - Plot::Line::sample        : geodesic endpoints unit-length, span, v0/v1;
@@ -39,8 +37,7 @@ namespace hs_test {
 namespace plot_scan_tests {
 
 // ---------------------------------------------------------------------------
-// Local arena for sampling. Plot::*::sample takes a caller-bound Fragments,
-// so we provide our own arena rather than relying on the global scratch arena.
+// Local arena for sampling.
 // ---------------------------------------------------------------------------
 
 /** @brief Backing storage for the module-local sampling arena. */
@@ -58,12 +55,8 @@ inline Arena &plot_arena() {
 }
 
 // ---------------------------------------------------------------------------
-// Headless rasterize() harness. rasterize<W,H> is templated on the pipeline
-// type, so a stub that records the plotted world positions lets us drive the
-// rasterizer's control flow directly (fast path, drawing phase, strategy
-// selection) without a live pixel pipeline. A Canvas is still required for its
-// clip band; a no-op Effect supplies a full (unclipped) one so every segment
-// is processed.
+// Headless rasterize() harness. A stub pipeline records plotted world positions;
+// a no-op Effect supplies a Canvas with a full (unclipped) clip band.
 // ---------------------------------------------------------------------------
 
 /**
@@ -141,7 +134,7 @@ inline void test_line_sample_endpoints_and_unit_length() {
   HS_EXPECT_NEAR(points[density].v0, 1.0f, 1e-6f);
   float total_angle = angle_between(a.pos, b.pos);
   HS_EXPECT_NEAR(points[density].v1, total_angle, 1e-4f);
-  HS_EXPECT_NEAR(total_angle, PI_F * 0.5f, 1e-4f); // x-axis to y-axis
+  HS_EXPECT_NEAR(total_angle, PI_F * 0.5f, 1e-4f);
 }
 
 /**
@@ -158,8 +151,6 @@ inline void test_line_sample_interior_between_endpoints() {
   b.pos = Vector(0, 1, 0);
   Plot::Line::sample(points, a, b, 4);
 
-  // Interior samples must be finite and lie on the minor arc: their angle to
-  // each endpoint never exceeds the total span.
   float total = angle_between(a.pos, b.pos);
   for (size_t i = 1; i + 1 < points.size(); ++i) {
     const Vector &p = points[i].pos;
@@ -181,11 +172,10 @@ inline void test_line_sample_degenerate_segment() {
 
   Fragment a, b;
   a.pos = Vector(0, 0, 1);
-  b.pos = Vector(0, 0, 1); // identical -> zero-length
+  b.pos = Vector(0, 0, 1);
 
   Plot::Line::sample(points, a, b, 8);
 
-  // Degenerate path emits a dot (two coincident fragments), not NaN.
   HS_EXPECT_EQ(points.size(), (size_t)2);
   for (size_t i = 0; i < points.size(); ++i) {
     const Vector &p = points[i].pos;
@@ -208,8 +198,6 @@ inline void test_line_sample_antipodal_stable_axis() {
   Fragments points;
   points.bind(plot_arena(), 16);
 
-  // Antipodal endpoints: angle == pi, so cross(a, b) == 0 and a perpendicular
-  // fallback axis is required.
   Fragment a, b;
   a.pos = Vector(1, 0, 0);
   b.pos = Vector(-1, 0, 0);
@@ -227,8 +215,7 @@ inline void test_line_sample_antipodal_stable_axis() {
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
   }
 
-  // The midpoint is a real point ~90deg from each antipodal endpoint (a
-  // degenerate axis would collapse it to angle 0).
+  // The midpoint is ~90deg from each antipodal endpoint.
   const Vector &mid = points[density / 2].pos;
   HS_EXPECT_NEAR(angle_between(a.pos, mid), PI_F * 0.5f, 1e-3f);
   HS_EXPECT_NEAR(angle_between(b.pos, mid), PI_F * 0.5f, 1e-3f);
@@ -244,7 +231,6 @@ inline void test_line_sample_antipodal_stable_axis() {
  *        rejected, and the test is order-independent in its two y arguments.
  */
 inline void test_clip_could_intersect_y() {
-  // A clip window covering the middle band of a 144-row canvas.
   ClipRegion cr;
   cr.y_start = 40;
   cr.y_end = 80;
@@ -259,11 +245,9 @@ inline void test_clip_could_intersect_y() {
   HS_EXPECT_EQ(cr.render_y_start(), 40);
   HS_EXPECT_EQ(cr.render_y_end(), 80);
 
-  // Inside the band, then straddling the lower edge: NOT culled.
   HS_EXPECT_TRUE(cr.could_intersect_y(50.0f, 60.0f));
   HS_EXPECT_TRUE(cr.could_intersect_y(30.0f, 45.0f));
 
-  // Fully above, then fully below the band: culled.
   HS_EXPECT_FALSE(cr.could_intersect_y(0.0f, 39.0f));
   HS_EXPECT_FALSE(cr.could_intersect_y(80.0f, 120.0f));
 
@@ -321,10 +305,10 @@ inline void test_clip_x_band_topologies() {
     HS_EXPECT_FALSE(xc.wrap);
     HS_EXPECT_EQ(xc.rs, 18);
     HS_EXPECT_EQ(xc.re, 62);
-    HS_EXPECT_FALSE(cr.contains_x(17)); // just left of band
-    HS_EXPECT_TRUE(cr.contains_x(18));  // first in-band column
-    HS_EXPECT_TRUE(cr.contains_x(61));  // last in-band column
-    HS_EXPECT_FALSE(cr.contains_x(62)); // exclusive right edge
+    HS_EXPECT_FALSE(cr.contains_x(17));
+    HS_EXPECT_TRUE(cr.contains_x(18));
+    HS_EXPECT_TRUE(cr.contains_x(61));
+    HS_EXPECT_FALSE(cr.contains_x(62)); // re exclusive
     expect_xclip_parity(cr);
   }
 
@@ -337,12 +321,12 @@ inline void test_clip_x_band_topologies() {
     const ClipRegion::XClip xc = cr.x_clip();
     HS_EXPECT_TRUE(xc.active);
     HS_EXPECT_TRUE(xc.wrap);
-    HS_EXPECT_TRUE(cr.contains_x(0));   // past the seam, in-band
+    HS_EXPECT_TRUE(cr.contains_x(0));
     HS_EXPECT_TRUE(cr.contains_x(1));
-    HS_EXPECT_FALSE(cr.contains_x(2));  // re is exclusive
-    HS_EXPECT_FALSE(cr.contains_x(89)); // interior, clipped
+    HS_EXPECT_FALSE(cr.contains_x(2));  // re exclusive
+    HS_EXPECT_FALSE(cr.contains_x(89)); // interior of the clipped gap
     HS_EXPECT_TRUE(cr.contains_x(90));  // rs inclusive
-    HS_EXPECT_TRUE(cr.contains_x(95));  // last column before seam
+    HS_EXPECT_TRUE(cr.contains_x(95));
     expect_xclip_parity(cr);
   }
 
@@ -409,7 +393,7 @@ inline void test_edge_row_span_covers_arc_bulge() {
   };
 
   hs::random().seed(20260609);
-  int bulge_cases = 0; // edges where endpoints alone under-cover the true arc
+  int bulge_cases = 0; // edges whose arc bulges past both endpoints
 
   for (int trial = 0; trial < 6000; ++trial) {
     const bool planar = (trial & 1);
@@ -472,20 +456,17 @@ inline void test_edge_row_span_covers_arc_bulge() {
     float n_lo, n_hi;
     Plot::edge_row_span<TW, TH>(a, b, pb, n_lo, n_hi);
 
-    // The span must conservatively contain the true arc (sub-pixel tolerance for
-    // fast-math; the real render band additionally expands by >=1px margin).
+    // Span must conservatively contain the arc (sub-pixel tolerance for fast-math).
     HS_EXPECT_LE(n_lo, t_lo + 0.25f);
     HS_EXPECT_GE(n_hi, t_hi - 0.25f);
 
-    // Count edges whose interior bulges past the endpoints — the case a plain
-    // endpoint-only span would under-cover. Confirms the test exercises it.
+    // Count edges whose interior bulges past the endpoints.
     float e_lo = std::min(row_of(a), row_of(b));
     float e_hi = std::max(row_of(a), row_of(b));
     if (t_lo < e_lo - 1.0f || t_hi > e_hi + 1.0f) bulge_cases++;
   }
 
-  // The randomized sweep must produce many genuine bulge cases, else the span
-  // contains-arc assertion above would pass vacuously on degenerate inputs.
+  // Non-vacuity guard: the sweep must produce many genuine bulge cases.
   HS_EXPECT_GT(bulge_cases, 500);
 }
 
@@ -516,7 +497,6 @@ inline void test_ring_sample_unit_length_and_progress() {
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(points[points.size() - 1].v0, 1.0f, 1e-6f);
 
-  // Closing fragment coincides with the first sample.
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
@@ -565,7 +545,6 @@ inline void test_ring_sample_lut_matches_direct() {
     HS_EXPECT_NEAR(points[i].v1, theta * arc_scale, 2e-3f);
   }
 
-  // Close vertex coincides with sample 0 and carries v0 == 1.
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
@@ -651,15 +630,12 @@ inline void test_spiral_sample_unit_length_and_monotone_arc() {
   for (size_t i = 0; i < frags.size(); ++i) {
     const Vector &p = frags[i].pos;
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
-    // Cumulative arc length is non-decreasing.
     HS_EXPECT_GE(frags[i].v1, last_v1);
     last_v1 = frags[i].v1;
 
-    // Latitude sweeps strictly downward, pole toward pole.
     HS_EXPECT_LT(p.y, last_y);
     last_y = p.y;
 
-    // Accumulate wrapped azimuth steps to measure the winding.
     float theta = std::atan2(p.z, p.x);
     if (i > 0) {
       float d = theta - last_theta;
@@ -707,10 +683,9 @@ inline void test_multiline_sample_arclength_param() {
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_GE(points[i].v0, last - 1e-6f);
     last = points[i].v0;
-    // v2 carries the vertex index.
     HS_EXPECT_NEAR(points[i].v2, static_cast<float>(i), 1e-6f);
   }
-  // v1 cumulative arc length equals the sum of the two equal 90deg hops.
+  // v1 cumulative arc length sums the two equal 90deg hops.
   HS_EXPECT_NEAR(points.back().v1, PI_F, 1e-3f);
 }
 
@@ -742,7 +717,6 @@ inline void test_bezier_sample_endpoints_and_monotone_arc() {
   HS_EXPECT_NEAR(points[N].pos.x, p3.x, 1e-3f);
   HS_EXPECT_NEAR(points[N].pos.z, p3.z, 1e-3f);
 
-  // Geodesic-mode samples stay on the unit sphere; arc length is monotone.
   float last_v1 = -1.0f;
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 5e-3f);
@@ -752,9 +726,7 @@ inline void test_bezier_sample_endpoints_and_monotone_arc() {
   HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
   HS_EXPECT_NEAR(points[N].v0, 1.0f, 1e-6f);
 
-  // The cubic bulges toward its interior control points: a straight geodesic, or
-  // a regression that ignored p1/p2, would leave the mid-sample on the geodesic
-  // midpoint in the p0/p3 plane.
+  // The cubic bulges toward its interior control points, off the geodesic midpoint.
   const Vector geo_mid = (p0 + p3).normalized();
   const Vector &mid = points[N / 2].pos;
   HS_EXPECT_GT(angle_between(mid, geo_mid), 0.15f);
@@ -791,7 +763,6 @@ inline void test_star_sample_unit_length_closed() {
   for (size_t i = 0; i < points.size(); ++i) {
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
   }
-  // Closing fragment matches the first vertex.
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-6f);
@@ -833,7 +804,7 @@ inline void test_flower_sample_unit_length_closed() {
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
 
-  // Constant colatitude about the center axis (no star notches).
+  // Constant colatitude about the center axis.
   const Vector axis = get_antipode(b, 0.5f).first.v;
   const float colat0 = angle_between(points[0].pos, axis);
   for (int i = 0; i < sides * 2; ++i) {
@@ -894,7 +865,7 @@ inline void test_rasterize_open_segment_gap_free() {
 
   Fragment a, b;
   a.pos = Vector(1, 0, 0);
-  b.pos = Vector(0, 1, 0); // 90-degree arc
+  b.pos = Vector(0, 1, 0);
   points.push_back(a);
   points.push_back(b);
 
@@ -906,8 +877,7 @@ inline void test_rasterize_open_segment_gap_free() {
   fx.advance_display();
 
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)10);
-  // Adaptive sub-stepping caps each advance at ~base_step (the replay scale is
-  // <= 1); allow a little slack for the arc-length quantization.
+  // Adaptive sub-stepping caps each advance at ~base_step (slack for quantization).
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
                1.5f * base_step);
   HS_EXPECT_NEAR(angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-3f);
@@ -949,7 +919,7 @@ inline void test_rasterize_closed_loop_gap_free_no_dup() {
   // Continuity all the way around, including the last->first seam.
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/true),
                1.5f * base_step);
-  // No vertex is plotted twice: consecutive samples are always distinct.
+  // No vertex plotted twice: consecutive samples stay distinct.
   for (size_t i = 1; i < pipe.plotted.size(); ++i)
     HS_EXPECT_GT(angle_between(pipe.plotted[i - 1], pipe.plotted[i]), 1e-5f);
 }
@@ -990,7 +960,6 @@ inline void test_rasterize_antipodal_seam_planar_falls_back_geodesic() {
   }
   fx.advance_display();
 
-  // The fallback makes the planar call identical to the geodesic one.
   HS_EXPECT_EQ(planar_pipe.plotted.size(), geo_pipe.plotted.size());
   size_t n = std::min(planar_pipe.plotted.size(), geo_pipe.plotted.size());
   for (size_t i = 0; i < n; ++i)
@@ -1044,12 +1013,9 @@ inline void test_rasterize_planar_segment_gap_free_arclength() {
   fx.advance_display();
 
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)10);
-  // Gap-free in arc length: the worst step stays near one pixel column.
   HS_EXPECT_LE(max_consecutive_gap(pipe.plotted, /*wrap=*/false),
                1.5f * base_step);
-  // Endpoints land within the azimuthal-projection round-trip error (sub-pixel:
-  // map_planar(0/1) re-projects then unprojects the vertex rather than echoing
-  // it, unlike the exact geodesic endpoints).
+  // Endpoints land within map_planar's project/unproject round-trip error.
   HS_EXPECT_NEAR(angle_between(pipe.plotted.front(), a.pos), 0.0f, 1e-2f);
   HS_EXPECT_NEAR(angle_between(pipe.plotted.back(), b.pos), 0.0f, 1e-2f);
   for (const Vector &p : pipe.plotted)
@@ -1083,9 +1049,8 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   b.pos = on_disk(1.3f, 1.0f);
   HS_EXPECT_GT(dot(a.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
   HS_EXPECT_GT(dot(b.pos, basis.v), -Plot::COS_PLANAR_ANTIPODE);
-  // Bare control points keep v0/v1 at their default 0, so a geodesic-chord lerp
-  // would pin v1 at 0 for the whole edge — any nonzero arc below is produced
-  // solely by the rasterizer's rendered-arc override.
+  // Bare control points default v0/v1 to 0, so any nonzero arc below comes
+  // solely from the rasterizer's rendered-arc override.
   points.push_back(a);
   points.push_back(b);
 
@@ -1103,7 +1068,6 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
 
   HS_EXPECT_GT(v1s.size(), (size_t)10);
 
-  // Both registers rise monotonically along the drawn arc.
   for (size_t i = 1; i < v1s.size(); ++i) {
     HS_EXPECT_GE(v1s[i], v1s[i - 1] - 1e-6f);
     HS_EXPECT_GE(v0s[i], v0s[i - 1] - 1e-6f);
@@ -1266,7 +1230,6 @@ inline void test_spline_chain_tension_deflects() {
 
   // Tension 0 is piecewise-geodesic: every point sits on a segment arc.
   HS_EXPECT_LE(geo_defl, 0.02f);
-  // Positive tension bulges the curve off those arcs by a clear margin.
   HS_EXPECT_GT(taut_defl, 0.08f);
   HS_EXPECT_GT(taut_defl, geo_defl + 0.05f);
 }
@@ -1331,8 +1294,7 @@ inline void test_particle_system_draws_active_trails_with_registers() {
   }
   fx.advance_display();
 
-  // (1)+(2) The active trail was rasterized along its recorded arc; nothing from
-  // the inactive ±Y particle leaked in.
+  // (1)+(2) Active trail follows its recorded arc; the inactive ±Y particle is absent.
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)2);
   for (const Vector &v : pipe.plotted) {
     HS_EXPECT_LE(dist_to_arc(v, t0[0], t0[2]), 0.05f);
@@ -1379,11 +1341,9 @@ inline int run_plot_scan_tests() {
   test_star_sample_unit_length_closed();
   test_flower_sample_unit_length_closed();
 
-  // rasterize() control-flow coverage (fast path, drawing phase, closed-loop
-  // seam, planar antipodal-seam fallback). The 2*W _steps_cache backstop is a
-  // defensive path for pathological inputs and is not reachable through a
-  // single smooth segment (the step-count integral stays below the cap for any
-  // realistic arc), so it is documented here rather than asserted.
+  // rasterize() control-flow coverage. The 2*W _steps_cache backstop is a
+  // defensive path unreachable through any realistic single segment, so it is
+  // not asserted here.
   test_rasterize_subpixel_open_segment_plots_both_endpoints();
   test_rasterize_open_segment_gap_free();
   test_rasterize_closed_loop_gap_free_no_dup();

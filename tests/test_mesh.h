@@ -330,7 +330,6 @@ inline void test_compile_drops_degenerate_faces() {
 
   MeshState ms;
   MeshOps::compile(m, ms, dst);
-  // Only the triangle survives.
   HS_EXPECT_EQ(ms.face_counts.size(), (size_t)1);
   HS_EXPECT_EQ(ms.faces.size(), (size_t)3);
   HS_EXPECT_EQ(ms.face_counts[0], (uint8_t)3);
@@ -363,8 +362,6 @@ inline void test_clone_meshstate_deep_copies() {
 
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
 
-  // Compare element-wise over the common length: a size mismatch already fails
-  // the asserts above, and the bounded loop avoids indexing past a short dst.
   const size_t vn = std::min(dst.vertices.size(), src.vertices.size());
   for (size_t i = 0; i < vn; ++i) {
     HS_EXPECT_NEAR(dst.vertices[i].x, src.vertices[i].x, 1e-6f);
