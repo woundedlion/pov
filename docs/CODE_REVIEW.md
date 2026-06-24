@@ -85,7 +85,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 2. ✅ **README arena-budget figures are stale and the worked example would trap on device** — `core/memory.h:37,44-47` vs `README §7.5`. The README documents 335 KB total / 303 KB persistent and a `configure_arenas(271K, 32K, 32K)` example summing to 335 KB, but the real device block is 330 KiB / 298 KiB. A reader copying the example verbatim over-subscribes by one 4 KiB page and trips the `configure_arenas` budget trap (`HS_CHECK`) at `init()`. Update the README figures and example to the current 330 KiB / 298 KiB; state current values only (no rename history).
 
-3. **`Thrusters::t_global` is a raw signed `int` that overflows (UB) on a long-running piece** — `effects/Thrusters.h:330` (incremented at `:80`, read as `frame % 32`). On an explicitly long-running art installation a signed `int` at ~60 fps is UB after ~414 days. Wrap it (`t_global = (t_global + 1) % 32;`) or make it `uint32_t`, matching Raymarch's deliberate switch to wrapped accumulators.
+3. ✅ **`Thrusters::t_global` is a raw signed `int` that overflows (UB) on a long-running piece** — `effects/Thrusters.h:330` (incremented at `:80`, read as `frame % 32`). On an explicitly long-running art installation a signed `int` at ~60 fps is UB after ~414 days. Wrap it (`t_global = (t_global + 1) % 32;`) or make it `uint32_t`, matching Raymarch's deliberate switch to wrapped accumulators.
 
 4. **`ShapeShifter::frame_count_` is a raw signed `int` that overflows (UB)** — `effects/ShapeShifter.h:297` (incremented at `:75`, read as `% 48`). Same class as #3 on the same long-running target. Make it unsigned or wrap at the cycle period.
 

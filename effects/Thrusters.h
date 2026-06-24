@@ -77,7 +77,10 @@ public:
     // the timeline below) read this frame's counter, not the previous frame's.
     // Only drives a periodic wave in ring_fn with no external reference, so the
     // one-frame phase shift versus an end-of-frame increment is invisible.
-    t_global++;
+    // Wrap at 32 (ring_fn reads frame % 32): keeps the counter bounded so it can
+    // never overflow on a long-running installation, and is behavior-identical
+    // since 32 is exactly the modulation period.
+    t_global = (t_global + 1) % 32;
 
     Canvas canvas(*this);
     timeline.step(canvas);
@@ -327,7 +330,7 @@ private:
   Vector ring_vec;   /**< Unit normal of the main ring's plane. */
   float amplitude;   /**< Current warp amplitude driven by warp_anim. */
   float warp_phase;  /**< Spatial warp phase in radians, randomized per fire. */
-  int t_global;      /**< Global frame counter. */
+  int t_global;      /**< Frame counter, wrapped to [0, 32) — ring_fn's modulation period; never overflows. */
 
   Timeline timeline;                /**< Animation timeline for sprite/timer/spin. */
   Animation::Mutation warp_anim;    /**< Restartable warp-amplitude decay animation. */
