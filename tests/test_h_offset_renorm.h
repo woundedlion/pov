@@ -92,8 +92,8 @@ inline float deposited_energy(Filter::Screen::AntiAlias<W, H> &aa, float x,
  *          (H_VIRT-1) still reaches the pole exactly (sin == 0).
  */
 inline void test_offset_is_active_and_lut_nondegenerate() {
-  // Locals first: TrigLUT<W, H> embeds a comma that would split the assertion
-  // macros' argument lists if used inline.
+  // Alias first: TrigLUT<W, H>'s comma would split the assertion macros' arg
+  // lists if used inline.
   using LUT = TrigLUT<W, H>;
   const int h_virt = LUT::H_VIRT;
   HS_EXPECT_EQ(hs::H_OFFSET, 3);
@@ -126,19 +126,19 @@ inline void test_energy_conserved_through_clip_boundary() {
   const float in_alpha = 0.8f;
 
   // Walk from the interior, through the last physical row, into the virtual
-  // sub-pole band. x carries a fractional offset so the X split is non-trivial.
+  // sub-pole band. x carries a fraction so the X split is non-trivial.
   for (float y = static_cast<float>(H - 2); y < static_cast<float>(H + 1) + 1e-3f;
        y += 0.1f) {
     int count = 0;
     float energy = deposited_energy(aa, 10.37f, y, in_alpha, &count);
 
     if (y < static_cast<float>(H)) {
-      // Center row on-image: the surviving taps carry the full input alpha.
+      // Center row on-image: surviving taps carry the full input alpha.
       HS_EXPECT_NEAR(energy, in_alpha, 1e-4f);
       HS_EXPECT_GE(count, 1);
       HS_EXPECT_LE(count, 4);
     } else {
-      // Center row at/below the pole clip: nothing is deposited.
+      // Center row at/below the pole clip: nothing deposited.
       HS_EXPECT_NEAR(energy, 0.0f, 1e-6f);
       HS_EXPECT_EQ(count, 0);
     }

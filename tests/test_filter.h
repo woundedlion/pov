@@ -318,8 +318,8 @@ inline void test_antialias_seam_wraps_left_column() {
  *          south pole) rather than stretched onto row H-1 at full weight — the
  *          y0_ok/y1_ok clip in AntiAlias::plot (filter.h). The host/sim build
  *          sets H_OFFSET == 0, so projected geometry never yields y >= H and that
- *          branch is otherwise unreachable under the native asserts (finding
- *          375). Rather than make the filter's compile-time offset injectable,
+ *          branch is otherwise unreachable under the native asserts. Rather than
+ *          make the filter's compile-time offset injectable,
  *          drive the branch directly with an out-of-range row coordinate: the
  *          clip decision (y0 < H) is identical regardless of how y was produced.
  *          A sub-pole y emits no tap; the bottom physical row keeps its y0 taps

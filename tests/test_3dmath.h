@@ -98,16 +98,12 @@ inline void test_quintic_kernel() {
   HS_EXPECT_NEAR(quintic_kernel(1.0f), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(quintic_kernel(0.5f), 0.5f, 1e-6f);
 
-  // Clamps below 0 and above 1
   HS_EXPECT_NEAR(quintic_kernel(-1.0f), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(quintic_kernel(2.0f), 1.0f, 1e-6f);
 
-  // Strictly monotone increasing on [0, 1]. Smootherstep is exactly monotone
-  // and its smallest analytic per-step increment over 200 samples (~1.25e-6 at
-  // the flat endpoint) dwarfs the float evaluation noise (~1e-13 there), so a
-  // strict (zero-tolerance) compare is safe and pins true monotonicity rather
-  // than tolerating a sub-1e-6 dip. The dense 200-point sweep also closes the
-  // gap a coarse 21-sample grid left between samples.
+  // Strict (zero-tolerance) monotonicity is safe: the smallest analytic per-step
+  // increment over 200 samples (~1.25e-6 at the flat endpoint) dwarfs the float
+  // evaluation noise (~1e-13), so a true dip would still be caught.
   float prev = -1.0f;
   for (int i = 0; i <= 200; ++i) {
     float v = quintic_kernel(i / 200.0f);
@@ -115,7 +111,7 @@ inline void test_quintic_kernel() {
     prev = v;
   }
 
-  // Smootherstep is C2-continuous: derivative ~= 0 at endpoints
+  // C2-continuous: derivative ~= 0 at endpoints.
   float dl = quintic_kernel(0.01f) - quintic_kernel(0.0f);
   float dr = quintic_kernel(1.0f) - quintic_kernel(0.99f);
   HS_EXPECT_TRUE(std::abs(dl) < 1e-3f);
@@ -132,14 +128,13 @@ inline void test_quintic_kernel() {
  *        sweep against std::atan2.
  */
 inline void test_fast_atan2() {
-  // Tolerance is pinned just above the documented ~3.8e-3 peak so a doubling of
-  // the approximation error fails the test (was a slack 5e-3).
+  // Tolerance pinned just above the documented ~3.8e-3 peak so a doubling of the
+  // approximation error fails the test.
   HS_EXPECT_NEAR(fast_atan2(0.0f, 1.0f), 0.0f, 4e-3f);
   HS_EXPECT_NEAR(fast_atan2(1.0f, 0.0f), PI_F * 0.5f, 4e-3f);
   HS_EXPECT_NEAR(fast_atan2(0.0f, -1.0f), PI_F, 4e-3f);
   HS_EXPECT_NEAR(fast_atan2(-1.0f, 0.0f), -PI_F * 0.5f, 4e-3f);
 
-  // Sweep against std::atan2
   for (int i = 0; i < 64; ++i) {
     float a = -PI_F + (i * 2.0f * PI_F) / 64.0f;
     float y = std::sin(a);
@@ -147,8 +142,8 @@ inline void test_fast_atan2() {
     HS_EXPECT_NEAR(fast_atan2(y, x), std::atan2(y, x), 4e-3f);
   }
 
-  // Pin the worst case explicitly: the peak error (~3.76e-3) sits near
-  // a = -2.5702 rad, between the sweep's coarse samples.
+  // Worst case: peak error (~3.76e-3) sits near a = -2.5702 rad, between the
+  // sweep's coarse samples.
   {
     float a = -2.5702f, y = std::sin(a), x = std::cos(a);
     HS_EXPECT_NEAR(fast_atan2(y, x), std::atan2(y, x), 4e-3f);
@@ -160,25 +155,23 @@ inline void test_fast_atan2() {
  *        across a sweep against std::acos.
  */
 inline void test_fast_acos() {
-  // Tolerance is pinned just above the documented ~1.3e-4 peak so a doubling of
-  // the approximation error fails the test (was a slack 1e-3).
+  // Tolerance pinned just above the documented ~1.3e-4 peak so a doubling of the
+  // approximation error fails the test.
   HS_EXPECT_NEAR(fast_acos(1.0f), 0.0f, 2e-4f);
   HS_EXPECT_NEAR(fast_acos(-1.0f), PI_F, 2e-4f);
   HS_EXPECT_NEAR(fast_acos(0.0f), PI_F * 0.5f, 2e-4f);
 
-  // Out-of-range clamps
   HS_EXPECT_NEAR(fast_acos(1.5f), 0.0f, 2e-4f);
   HS_EXPECT_NEAR(fast_acos(-1.5f), PI_F, 2e-4f);
 
-  // Sweep against std::acos
   for (int i = 0; i <= 32; ++i) {
     float x = -1.0f + (i / 16.0f);
     if (x > 1.0f) x = 1.0f;
     HS_EXPECT_NEAR(fast_acos(x), std::acos(x), 2e-4f);
   }
 
-  // Pin the worst case explicitly: the peak error (~1.26e-4) sits near
-  // x = 0.1226, between the sweep's coarse samples.
+  // Worst case: peak error (~1.26e-4) sits near x = 0.1226, between the sweep's
+  // coarse samples.
   HS_EXPECT_NEAR(fast_acos(0.1226f), std::acos(0.1226f), 2e-4f);
 }
 
@@ -193,7 +186,6 @@ inline void test_fast_cbrt() {
   HS_EXPECT_NEAR(fast_cbrt(1.0f), 1.0f, 2.3e-5f);
   HS_EXPECT_NEAR(fast_cbrt(8.0f), 2.0f, 2.3e-5f * 2.0f);
 
-  // Relative-error sweep over the documented [0,8] domain.
   for (int i = 1; i <= 256; ++i) {
     float x = (8.0f * i) / 256.0f;
     float rel = std::abs(fast_cbrt(x) - std::cbrt(x)) / std::cbrt(x);
@@ -214,8 +206,8 @@ inline void test_fast_cbrt() {
  * @details The periodicity check exercises range reduction beyond ±2π.
  */
 inline void test_fast_sinf_cosf() {
-  // Tolerance is pinned just above the documented ~1.6e-3 peak so a doubling of
-  // the approximation error fails the test (was a slack 2e-3).
+  // Tolerance pinned just above the documented ~1.6e-3 peak so a doubling of the
+  // approximation error fails the test.
   HS_EXPECT_NEAR(fast_sinf(0.0f), 0.0f, 1.8e-3f);
   HS_EXPECT_NEAR(fast_sinf(PI_F * 0.5f), 1.0f, 1.8e-3f);
   HS_EXPECT_NEAR(fast_sinf(PI_F), 0.0f, 1.8e-3f);
@@ -235,7 +227,7 @@ inline void test_fast_sinf_cosf() {
     HS_EXPECT_NEAR(fast_cosf(a), std::cos(a), 1.8e-3f);
   }
 
-  // Pythagorean identity holds approximately
+  // Pythagorean identity holds approximately.
   for (int i = 0; i < 32; ++i) {
     float a = -3.0f * PI_F + (i * 6.0f * PI_F) / 32.0f;
     float s = fast_sinf(a);
@@ -243,7 +235,7 @@ inline void test_fast_sinf_cosf() {
     HS_EXPECT_NEAR(s * s + c * c, 1.0f, 5e-3f);
   }
 
-  // Range reduction: periodicity over ±2π
+  // Range reduction: periodicity over ±2π.
   for (int i = 0; i < 16; ++i) {
     float a = i * 0.3f;
     HS_EXPECT_NEAR(fast_sinf(a + 2.0f * PI_F), fast_sinf(a), 3e-3f);
@@ -398,16 +390,13 @@ inline void test_dot_cross() {
   HS_EXPECT_NEAR(dot(x, -x), -1.0f, 1e-6f);
   HS_EXPECT_NEAR(dot(Vector(1, 2, 3), Vector(4, -5, 6)), 4 - 10 + 18, 1e-5f);
 
-  // Right-handed cross products
   HS_EXPECT_VEC(cross(x, y), z, 1e-6f);
   HS_EXPECT_VEC(cross(y, z), x, 1e-6f);
   HS_EXPECT_VEC(cross(z, x), y, 1e-6f);
-  // Anticommutative
-  HS_EXPECT_VEC(cross(y, x), -z, 1e-6f);
-  // a × a = 0
+  HS_EXPECT_VEC(cross(y, x), -z, 1e-6f); // anticommutative
   HS_EXPECT_VEC(cross(Vector(2, 3, 5), Vector(2, 3, 5)), Vector(0, 0, 0),
                 1e-6f);
-  // a × b is perpendicular to both
+  // a × b is perpendicular to both operands.
   Vector a(1, 2, 3), b(4, -5, 6);
   Vector c = cross(a, b);
   HS_EXPECT_NEAR(dot(c, a), 0.0f, 1e-4f);

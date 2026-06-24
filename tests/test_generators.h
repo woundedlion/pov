@@ -55,30 +55,28 @@ inline void test_generate_lifecycle_and_forwarding() {
         a_offset_in_fn = a.get_offset(); // should be 0 (reset before fn)
         b_offset_in_fn = b.get_offset();
         captured_arg = arg;
-        a.allocate(64); // scratch allocation — must be rolled back
-        t.allocate(32); // target allocation — must persist
+        a.allocate(64); // scratch — must be rolled back
+        t.allocate(32); // target — must persist
         return 7;
       },
       42);
 
-  // fn was handed the two global scratch arenas and our target.
   HS_EXPECT_TRUE(seen_a == &scratch_arena_a);
   HS_EXPECT_TRUE(seen_b == &scratch_arena_b);
   HS_EXPECT_TRUE(seen_target == &target);
 
-  // Scratch arenas were reset to empty before fn ran.
+  // Scratch reset to empty before fn ran.
   HS_EXPECT_EQ(a_offset_in_fn, (size_t)0);
   HS_EXPECT_EQ(b_offset_in_fn, (size_t)0);
 
-  // Arg + return value forwarded.
   HS_EXPECT_EQ(captured_arg, 42);
   HS_EXPECT_EQ(result, 7);
 
-  // ScratchScope rolled the scratch arenas back to empty on return.
+  // Scratch rolled back to empty on return.
   HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
   HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
 
-  // The target arena is owned by the caller — generate() must not touch it.
+  // Target is caller-owned: only the 32-byte t.allocate persists.
   HS_EXPECT_EQ(target.get_offset(), (size_t)32);
 }
 
@@ -107,7 +105,6 @@ inline void test_generate_nested_target_persists() {
   }, 2);
   HS_EXPECT_EQ(target.get_offset(), (size_t)80);
 
-  // Scratch fully rolled back after both calls.
   HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
   HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
 }
@@ -127,47 +124,39 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
   uint8_t outer_value_after_inner = 0;
 
   (void)generate(target, [&](Arena &t, Arena &a, Arena &, int) {
-    // Outer frame claims some scratch and stamps a sentinel into it.
+    // Outer frame stamps a sentinel into its scratch.
     uint8_t *outer = static_cast<uint8_t *>(a.allocate(64));
     outer[0] = 0xAB;
     const size_t outer_offset_before_inner = a.get_offset();
 
-    // Nested generate() must not rewind the arena to 0 (that would zero the
-    // outer frame); its scratch stacks above the outer allocations.
+    // Nested generate() must stack above the outer allocations, not rewind to 0.
     (void)generate(t, [&](Arena &, Arena &ia, Arena &, int) {
-      inner_start_offset = ia.get_offset(); // stacked above outer, not reset
+      inner_start_offset = ia.get_offset();
       uint8_t *inner = static_cast<uint8_t *>(ia.allocate(32));
       inner[0] = 0xCD; // would corrupt outer[0] if the arena had been reset
       return 0;
     }, 0);
 
-    // After the inner call returns, the outer frame is intact: its sentinel
-    // survives and the offset is rewound to exactly where it was pre-nest.
     outer_value_after_inner = outer[0];
     outer_offset_after_inner = a.get_offset();
     HS_EXPECT_EQ(a.get_offset(), outer_offset_before_inner);
     return 0;
   }, 0);
 
-  // Inner saw the outer's allocation in front of it (no reset to 0).
+  // Inner stacked above the outer allocation (no reset to 0).
   HS_EXPECT_EQ(inner_start_offset, (size_t)64);
-  // Outer sentinel was never overwritten by the nested allocation.
   HS_EXPECT_EQ((int)outer_value_after_inner, 0xAB);
   HS_EXPECT_EQ(outer_offset_after_inner, (size_t)64);
 
-  // Both scratch arenas fully rolled back once the outermost call returns.
   HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
   HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
 }
 
 // --- Deep (multi-level) reentrant nesting -----------------------------------
 
-// Number of stacked generate() frames the deep-nesting stress drives. Five is
-// well past the single-nest case above and exercises a non-trivial stack of
-// ScratchScope save/restore pairs in both arenas.
+// Number of stacked generate() frames the deep-nesting stress drives.
 inline constexpr int kDeepLevels = 5;
-// Per-level scratch_a entry offset, captured during recursion and checked for
-// strictly-monotonic stacking after the outermost frame returns.
+// Per-level scratch_a entry offset, checked for strictly-monotonic stacking.
 inline size_t g_deep_a_entry[kDeepLevels];
 
 /**
@@ -195,8 +184,8 @@ inline int gen_deep_level(Arena &t, Arena &a, Arena &b, int level,
   if (level + 1 < max_level)
     (void)generate(t, gen_deep_level, level + 1, max_level);
 
-  // The nested call stacked above this frame and rolled fully back: our offsets
-  // and sentinels survive unchanged.
+  // Nested call stacked above this frame and rolled back: offsets and sentinels
+  // survive unchanged.
   HS_EXPECT_EQ(a.get_offset(), a_after);
   HS_EXPECT_EQ(b.get_offset(), b_after);
   HS_EXPECT_EQ((int)am[0], (int)sentinel);
@@ -221,13 +210,12 @@ inline void test_generate_deep_nesting_stacks_and_unwinds() {
 
   (void)generate(target, gen_deep_level, 0, kDeepLevels);
 
-  // Level 0 began on a freshly reset arena; every deeper level entered strictly
-  // above the previous level's allocations — never resetting an outer frame.
+  // Level 0 started on a reset arena; every deeper level entered strictly above
+  // the previous level's allocations.
   HS_EXPECT_EQ(g_deep_a_entry[0], (size_t)0);
   for (int level = 1; level < kDeepLevels; ++level)
     HS_EXPECT_GT(g_deep_a_entry[level], g_deep_a_entry[level - 1]);
 
-  // The outermost scope rolled both scratch arenas fully back.
   HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
   HS_EXPECT_EQ(scratch_arena_b.get_offset(), (size_t)0);
 }

@@ -1017,7 +1017,7 @@ inline void test_motion_repeating_does_not_drift() {
 
 /**
  * @brief A co-driver sharing a repeating Motion's Orientation survives the
- * repeat seam (finding 3 / sole-ownership removal).
+ * repeat seam.
  * @details The old drift fix snapped the entire Orientation back to Motion's
  * captured anchor at every cycle boundary, which clobbered any other animation
  * driving the same Orientation. Motion now re-seats via a *relative* delta, so a

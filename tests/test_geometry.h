@@ -143,10 +143,9 @@ inline void test_y_to_phi_templated_LUT() {
     HS_EXPECT_NEAR(lut, direct, 1e-5f);
   }
 
-  // Using the LUT lazily initialises it.
   HS_EXPECT_TRUE(PhiLUT<H>::initialized);
 
-  // Float version with integer-valued input also hits the LUT.
+  // Float overload with integer-valued input also hits the LUT.
   float lut_f = y_to_phi<H>(5.0f);
   HS_EXPECT_NEAR(lut_f, y_to_phi<H>(5), 1e-5f);
 }
@@ -170,13 +169,13 @@ inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
   constexpr int H_VIRT = H + OFF; // 23
   const float bottom_phys = static_cast<float>(H - 1); // y = 19
 
-  // Correct (single-offset) mapping: bottom physical row clips short of PI.
+  // Single-offset mapping: bottom physical row clips short of PI.
   float correct = y_to_phi(bottom_phys, H_VIRT);          // 19*PI/22
   HS_EXPECT_NEAR(correct, bottom_phys * PI_F / (H_VIRT - 1), 1e-5f);
-  HS_EXPECT_TRUE(correct < PI_F); // clipped, not reaching the south pole
+  HS_EXPECT_TRUE(correct < PI_F);
 
-  // A double-applied offset would divide by (H + 2*OFF - 1) = 25; that value
-  // must stay clearly distinct from the correct single-offset mapping.
+  // A double-applied offset would divide by (H + 2*OFF - 1) = 25, which must
+  // stay clearly distinct from the single-offset mapping.
   float double_applied = bottom_phys * PI_F / (H + 2 * OFF - 1); // 19*PI/24
   HS_EXPECT_TRUE(std::abs(correct - double_applied) > 1e-2f);
 
@@ -209,12 +208,12 @@ inline void test_pixel_to_vector_unit_length() {
  */
 inline void test_pixel_to_vector_known_samples() {
   constexpr int W = 32, H = 32;
-  // (x=0, y near H/2) → near equator. Integer y rarely lands exactly on
-  // phi=π/2 (true equator is y=(H_VIRT-1)/2), so allow a generous tolerance.
+  // x=0, y near equator. Integer y rarely lands exactly on phi=π/2 (true
+  // equator is y=(H_VIRT-1)/2), so allow a generous tolerance.
   Vector v = pixel_to_vector<W, H>(0, (H + hs::H_OFFSET) / 2);
   HS_EXPECT_VEC(v, Vector(1, 0, 0), 0.15f);
 
-  // y=0 (north pole): phi=0 ⇒ cos_phi=1, sin_phi=0 ⇒ Vector(0, 1, 0).
+  // y=0 (north pole): phi=0 ⇒ Vector(0, 1, 0).
   Vector north = pixel_to_vector<W, H>(0, 0);
   HS_EXPECT_VEC(north, Vector(0, 1, 0), 5e-2f);
 }
@@ -243,8 +242,7 @@ inline void test_pixel_to_vector_float_branch_matches_phi_lut() {
  */
 inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
   constexpr int W = 64, H = 64;
-  // Pick representative non-degenerate samples (avoiding poles where wrap is
-  // undefined).
+  // Non-degenerate samples, avoiding poles where azimuth wrap is undefined.
   int xs[] = {3, 17, 31, 50};
   int ys[] = {8, 16, 24, 40};
   for (int x : xs) {
@@ -285,7 +283,6 @@ inline void test_log_polar_roundtrip() {
  *        sentinel.
  */
 inline void test_log_polar_north_pole_sentinel() {
-  // Sentinel is (rho=10, theta=0).
   LogPolar lp = vectorToLogPolar(Vector(0, 1, 0));
   HS_EXPECT_NEAR(lp.rho, 10.0f, 1e-3f);
   HS_EXPECT_NEAR(lp.theta, 0.0f, 1e-3f);
@@ -394,7 +391,7 @@ inline void test_random_vector_unit_length() {
  *          the stream position other RNG-touching tests observe.
  */
 inline void test_random_vector_deterministic() {
-  auto saved = hs::random(); // copy of the global Pcg32
+  auto saved = hs::random();
   constexpr int N = 16;
   Vector first[N];
   hs::random().seed(1337);
@@ -420,7 +417,7 @@ inline void test_random_vector_deterministic() {
  *          reproducibility; the generator is saved and restored.
  */
 inline void test_random_vector_distribution() {
-  auto saved = hs::random(); // copy of the global Pcg32
+  auto saved = hs::random();
   hs::random().seed(0xC0FFEEu);
   constexpr int N = 4000;
   float sx = 0.0f, sy = 0.0f, sz = 0.0f;
@@ -451,13 +448,11 @@ inline void test_random_vector_distribution() {
  *        given normal.
  */
 inline void test_make_basis_orthonormal() {
-  // Identity quaternion: basis aligned with normal.
   Quaternion id(1, 0, 0, 0);
   Basis b = make_basis(id, Vector(0, 1, 0));
   HS_EXPECT_VEC(b.v, Vector(0, 1, 0), 1e-4f);
   HS_EXPECT_NEAR(b.u.length(), 1.0f, 1e-4f);
   HS_EXPECT_NEAR(b.w.length(), 1.0f, 1e-4f);
-  // Orthogonality
   HS_EXPECT_NEAR(dot(b.u, b.v), 0.0f, 1e-4f);
   HS_EXPECT_NEAR(dot(b.v, b.w), 0.0f, 1e-4f);
   HS_EXPECT_NEAR(dot(b.u, b.w), 0.0f, 1e-4f);
@@ -469,7 +464,6 @@ inline void test_make_basis_orthonormal() {
  */
 inline void test_make_basis_alternate_normals() {
   Quaternion id(1, 0, 0, 0);
-  // A tilted normal
   Vector n = Vector(0.5f, 0.5f, 0.7071f).normalized();
   Basis b = make_basis(id, n);
   HS_EXPECT_VEC(b.v, n, 1e-3f);
@@ -486,7 +480,6 @@ inline void test_make_basis_alternate_normals() {
 inline void test_get_antipode_short_arc_unchanged() {
   Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
   auto [nb, nr] = get_antipode(b, 0.5f);
-  // radius <= 1: identity
   HS_EXPECT_VEC(nb.u, b.u, 1e-6f);
   HS_EXPECT_VEC(nb.v, b.v, 1e-6f);
   HS_EXPECT_VEC(nb.w, b.w, 1e-6f);

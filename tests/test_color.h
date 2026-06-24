@@ -335,7 +335,7 @@ inline void test_blend_alpha_clamps_before_cast() {
 
   // The float alpha rounds to nearest (+0.5f): 0.5 -> weight 32768, not the
   // truncated 32767. The two weights produce different output for this pixel
-  // pair, so this fails under the old truncating conversion.
+  // pair.
   HS_EXPECT_TRUE(blend_alpha(0.5f)(a, b) == a.lerp16(b, 32768));
 
   // Out-of-range alpha saturates: a >= 1 -> full b; a <= 0 -> full a.
@@ -364,8 +364,7 @@ inline void test_pixel16_scale_clamps_before_cast() {
   HS_EXPECT_TRUE(c * 2.0f == Pixel16(200, 4000, 60000));
 
   // Half-LSB results round up, not down: odd channels * 0.5 land on .5 exactly
-  // (0.5 is exactly representable), and round-to-nearest carries them up. Under
-  // the old truncation this would yield (1, 2, 3).
+  // (0.5 is exactly representable), and round-to-nearest carries them up.
   HS_EXPECT_TRUE(Pixel16(3, 5, 7) * 0.5f == Pixel16(2, 3, 4));
 
   // A scale large enough to overflow each channel saturates at 65535 rather

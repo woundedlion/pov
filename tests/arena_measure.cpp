@@ -32,8 +32,8 @@ template <typename Effect> void measure(const char *name) {
   configure_arenas_default();
   Timeline().clear();
   global_timeline_t = 0;
-  // Zero the peaks after the (re)configure so we capture only this effect's
-  // init + frame allocations, including any per-effect configure_arenas() split.
+  // Zero peaks after the (re)configure so only this effect's init + frame
+  // allocations are captured, including any per-effect configure_arenas() split.
   persistent_arena.reset_high_water_mark();
   scratch_arena_a.reset_high_water_mark();
   scratch_arena_b.reset_high_water_mark();
