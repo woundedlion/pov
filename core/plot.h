@@ -389,14 +389,18 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
     }
   } else {
     // Planar edge: an azimuthal-equidistant straight line is not a great circle,
-    // so there is no closed-form latitude extremum. Sample the arc with the same
-    // unprojection the rasterizer uses (so the cull and the renderer agree to
-    // the bit), then widen by the arc's Lipschitz bound. Working in row space
-    // keeps the margin uniform (it would blow up near the poles in y): phi is
-    // 1-Lipschitz in angular distance, so between samples |Δrow| ≤
-    // (Δarc)·(H_VIRT−1)/π, and the projected chord length over-estimates the
-    // on-sphere arc (the projection stretches tangential distance). That margin
-    // makes the span provably gap-free without dense sampling.
+    // so there is no closed-form latitude extremum. Sample the arc through the
+    // same unprojection MAP the rasterizer uses, then widen by the arc's
+    // Lipschitz bound. The cull and the renderer do NOT take bit-identical
+    // samples — the cull steps uniformly in PROJECTION space (p = k/SAMPLES)
+    // while the renderer sub-steps adaptively in ARC length — so gap-freeness
+    // comes from the Lipschitz + one-row margin below, not from matching sample
+    // points. Working in row space keeps the margin uniform (it would blow up
+    // near the poles in y): phi is 1-Lipschitz in angular distance, so between
+    // samples |Δrow| ≤ (Δarc)·(H_VIRT−1)/π, and the projected chord length
+    // over-estimates the on-sphere arc (the projection stretches tangential
+    // distance). That margin makes the span provably gap-free without dense
+    // sampling.
     auto p1 = azimuthal_project(a, *planar_basis);
     auto p2 = azimuthal_project(b, *planar_basis);
     float dX = p2.first - p1.first;

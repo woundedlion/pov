@@ -161,7 +161,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 38. ✅ **`Plot::Mesh::draw` face-walk and edge-list overloads duplicate the per-edge sample/shade/rasterize body** — `core/plot.h:1944-1972,2080-2102`. Near-identical blocks the comments explicitly say must stay in sync. Extract a private `draw_edge(...)` helper.
 
-39. **`edge_row_span` planar comment overstates cull/renderer sample agreement** — `core/plot.h:392-399`. The unprojection *map* is shared but the cull samples projection-uniform while the renderer samples arc-uniform; correctness comes from the Lipschitz + one-row margin, not bit-identical samples. Soften the wording.
+39. ✅ **`edge_row_span` planar comment overstates cull/renderer sample agreement** — `core/plot.h:392-399`. The unprojection *map* is shared but the cull samples projection-uniform while the renderer samples arc-uniform; correctness comes from the Lipschitz + one-row margin, not bit-identical samples. Soften the wording.
 
 40. **`MobiusWarpEvolving::phase` can return exactly 100.0, contradicting its documented `[0,100)` range** — `core/animation.h:2177-2180`. `(h & 0xFFFF) * (100/65535)` hits 100.0 at `0xFFFF`. No functional consequence (feeds `sinf`/`cosf`). Divide by `65536.0f` for a true half-open range and uniform bucketing.
 
