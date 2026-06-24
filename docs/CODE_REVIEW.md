@@ -163,7 +163,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 39. ✅ **`edge_row_span` planar comment overstates cull/renderer sample agreement** — `core/plot.h:392-399`. The unprojection *map* is shared but the cull samples projection-uniform while the renderer samples arc-uniform; correctness comes from the Lipschitz + one-row margin, not bit-identical samples. Soften the wording.
 
-40. **`MobiusWarpEvolving::phase` can return exactly 100.0, contradicting its documented `[0,100)` range** — `core/animation.h:2177-2180`. `(h & 0xFFFF) * (100/65535)` hits 100.0 at `0xFFFF`. No functional consequence (feeds `sinf`/`cosf`). Divide by `65536.0f` for a true half-open range and uniform bucketing.
+40. ✅ **`MobiusWarpEvolving::phase` can return exactly 100.0, contradicting its documented `[0,100)` range** — `core/animation.h:2177-2180`. `(h & 0xFFFF) * (100/65535)` hits 100.0 at `0xFFFF`. No functional consequence (feeds `sinf`/`cosf`). Divide by `65536.0f` for a true half-open range and uniform bucketing.
 
 41. **`Arena::allocate` uses `reinterpret_cast<size_t>` for pointer address math instead of `uintptr_t`** — `core/memory.h:110`. Works on every target; `uintptr_t` is the strictly-correct round-trippable type and `<cstdint>` is already included. Switch for standard-conformance/self-documentation.
 

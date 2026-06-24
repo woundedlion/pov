@@ -2187,7 +2187,7 @@ public:
    */
   float phase(int i) const {
     uint32_t h = seed ^ (static_cast<uint32_t>(i) * 2654435761u);
-    return (h & 0xFFFF) * (100.0f / 65535.0f);
+    return (h & 0xFFFF) * (100.0f / 65536.0f);
   }
 
   /**
