@@ -125,7 +125,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 21. ✅ **Local death-suite skip records zero pass/fail, so absent fail-fast coverage reads green** — `tests/test_death.h:912-919,930-961`. When self-exec is blocked locally (non-CI), the entire death module — the only coverage of the marketed `HS_CHECK` layer — contributes zero assertions and the run still reports success. CI hard-fails (the real backstop). Emit a visible counted info line or a sentinel `HS_EXPECT` on the local skip path.
 
-22. **No guard that `kModules` covers every included test header** — `tests/run_tests.cpp:12-44,60-94`. The 33 `#include`s and the `kModules[]` roster are two hand-maintained parallel lists; a header included but never registered compiles clean and silently never runs. Drive the roster from one X-macro list (as `HS_EFFECT_LIST` already does), or add a count `static_assert`.
+22. ✅ **No guard that `kModules` covers every included test header** — `tests/run_tests.cpp:12-44,60-94`. The 33 `#include`s and the `kModules[]` roster are two hand-maintained parallel lists; a header included but never registered compiles clean and silently never runs. Drive the roster from one X-macro list (as `HS_EFFECT_LIST` already does), or add a count `static_assert`.
 
 23. **`AppState.update()` applies all mutations before notifying, so a subscriber sees a fully-advanced sibling value** — `c:/work/daydream/state.js:66`. Diverges from `set()`'s per-mutation notify; a future multi-key reactive handler reading a sibling key would observe the post-batch snapshot. Latent (no current consumer uses `update()` with sibling reads). Document the batch-then-notify ordering or notify per key.
 
