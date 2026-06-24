@@ -1609,11 +1609,14 @@ private:
     if (content_.commit_pending)
       return;
     // Beacon-start budget (why the frame can't encroach the HALF boundary):
-    // the start is gated to position >= W/4 (col 72 at W=288) and the worst-case
-    // 5-digit frame spans Σ(digit·beacon_pitch_cols + (gap_timeout_cols+1)) cols
-    // — with base-8 digits ≤7, pitch 1 and gap 4 that is ≤ 5·(7+5) = 60 cols
-    // (~26 ms at 480 RPM). So even a frame starting exactly at W/4 ends by
-    // ~col 132, ~12 cols (~5 ms) short of HALF (col 144). A masked window can
+    // the start is gated to position >= W/4 (col 72 at W=288). schedule_beacon()
+    // lays down 5 digit bursts separated by 4 inter-burst gaps (the trailing
+    // gap its loop adds past the last digit falls after the final pulse, so it
+    // does not extend the frame's footprint). The visible worst case is thus
+    // 5·digit·beacon_pitch_cols + 4·(gap_timeout_cols+1) cols — with base-8
+    // digits ≤7, pitch 1 and gap 4 that is 5·7 + 4·5 = 55 cols (~24 ms at
+    // 480 RPM). So even a frame starting exactly at W/4 ends by ~col 127,
+    // ~17 cols (~7 ms) short of HALF (col 144). A masked window can
     // only push the *start* later toward W/2; that ~12-col slack is the margin
     // absorbing it (and schedule_beacon's defensive guard plus the per-pulse
     // late_censor in emitter_.tick handle any pulse that itself slips). There is
