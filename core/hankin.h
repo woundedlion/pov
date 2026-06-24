@@ -95,12 +95,10 @@ namespace MeshOps {
 template <typename MeshT>
 HS_COLD static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
                                     Arena &target_arena, Arena &temp_arena) {
-  // Topology counts must come through the unified accessors, like every
-  // conway.h operator: a borrowed-mode MeshState serves face_counts/faces via
-  // its *_view spans with the owned vectors left empty, so reading them
-  // directly would yield F == I == 0, bind zero-capacity pools, and silently
-  // build corrupt geometry in release. vertices is always owned, so it stays a
-  // direct read.
+  // Topology counts must come through the unified accessors: a borrowed-mode
+  // MeshState serves face_counts/faces via its *_view spans with the owned
+  // vectors empty, so a direct read would yield F == I == 0. vertices is always
+  // owned.
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
@@ -109,17 +107,10 @@ HS_COLD static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
   for (size_t i = 0; i < V; ++i) {
     compiled.base_vertices.push_back(mesh.vertices[i]);
   }
-  // compile_hankin requires a closed manifold (every half-edge paired): each
-  // undirected edge is shared by 2 half-edges that emit one shared midpoint, so
-  // the static pool is exactly I/2 vertices and I is even. The entry check below
-  // enforces this; a boundary mesh would otherwise overrun the pool. Combined
-  // with the I dynamic vertices, the index (static_offset + dyn_idx, emitted
-  // below) must fit the int16_t topology range. The largest index actually
-  // emitted is static_offset + (I - 1) = (I/2) + (I - 1), so the gate matches
-  // narrow_index()'s INT16_MAX ceiling exactly (written as count <= INT16_MAX+1
-  // to avoid an unsigned underflow when I == 0). narrow_index() would trap an
-  // overflow mid-build, but the ceiling is knowable here — fail fast at the
-  // binding site if MAX_INDICES is ever raised past what the index width allows.
+  // Closed manifold: each undirected edge shares 2 half-edges emitting one
+  // midpoint, so the static pool is exactly I/2 and the largest emitted index is
+  // static_offset + (I - 1) = (I/2) + (I - 1). Gate it against narrow_index()'s
+  // INT16_MAX ceiling (written +1 to avoid unsigned underflow when I == 0).
   HS_CHECK((I / 2) + I <= static_cast<size_t>(INT16_MAX) + 1,
            "Hankin output vertex count exceeds int16_t index range "
            "(MAX_INDICES raised too high?)");
@@ -134,11 +125,8 @@ HS_COLD static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
 
     HalfEdgeMesh he_mesh(temp_arena, mesh);
 
-    // Closed-manifold invariant: every half-edge must be paired. The pool
-    // sizing (I/2 midpoints) and the orbit walks below all assume each edge has
-    // its twin; a boundary half-edge would overrun static_vertices and break the
-    // rosette traversal. Hankin only ever runs on closed convex solids, so an
-    // unpaired edge is a build-invariant violation — trap with a clear message.
+    // Closed-manifold invariant: every half-edge must be paired (the I/2 pool
+    // sizing and the orbit walks below all assume each edge has its twin).
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
       HS_CHECK(he_mesh.half_edges[i].pair != HE_NONE,
                "compile_hankin requires a closed manifold (unpaired half-edge)");
@@ -209,10 +197,7 @@ HS_COLD static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
                                                 narrow_index(idx_m1),
                                                 narrow_index(idx_m2)});
 
-        // Pre-push capture is deliberate: size() BEFORE emplace_back is exactly
-        // the index the new dynamic vertex will occupy, so dyn_idx names the
-        // element created on the next line — not an off-by-one against the
-        // size()-1-after-push idiom used elsewhere.
+        // size() BEFORE emplace_back is the index the new vertex will occupy.
         uint16_t dyn_idx = narrow_index(compiled.dynamic_vertices.size());
         he_to_dynamic_idx[he_idx] = dyn_idx;
         compiled.dynamic_vertices.emplace_back();
@@ -259,22 +244,13 @@ HS_COLD static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
         // start_orbit and never hits HE_NONE.
         uint16_t next_edge_idx = he_mesh.half_edges[curr_he.pair].next;
         HS_CHECK(count < (int)(2 * I));
-        // Route the dynamic-vertex index through narrow_index like the star
-        // path (and every other topology cast) so it traps if the
-        // static_offset + dynamic range ever exceeds int16_t, instead of
-        // silently truncating into face_indices.
         face_indices[count++] = narrow_index(
             compiled.static_offset + he_to_dynamic_idx[next_edge_idx]);
         curr_idx = next_edge_idx;
       } while (curr_idx != start_orbit);
 
-      // `count` accumulates two indices per orbit step (a midpoint + a dynamic
-      // vertex), so it is twice the winding's edge count. A real rosette winds
-      // >= 3 edges — every interior vertex of a closed solid has degree >= 3 —
-      // i.e. count >= 6. A smaller orbit is a degenerate degree-<3 vertex,
-      // unreachable on a real solid, so trap it here (mirroring this loop's
-      // unpaired-half-edge HS_CHECK) rather than silently dropping a 1- or
-      // 2-edge sliver face and diverging from the file's fail-fast convention.
+      // count is two indices per orbit step (midpoint + dynamic vertex), so it
+      // is twice the edge count; an interior vertex has degree >= 3, so count >= 6.
       HS_CHECK(count >= 6, "Hankin rosette winding has degree < 3");
       compiled.face_counts.push_back(narrow_face_count(count));
       for (int k = count - 1; k >= 0; --k) {
@@ -298,12 +274,8 @@ template <typename MeshT>
 inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
                           Arena &target_arena, float angle) {
 
-  // Owned-mode output: the owned vertex/face vectors are bound below. If the
-  // output type carries borrowed-mode view spans (a reused MeshState left bound
-  // from a prior borrowed life), clear them so the owned topology is
-  // unambiguous on reuse — mirroring MeshOps::transform's unbind. Safe today
-  // because the accessors discriminate on the owned vector's is_bound(), but
-  // defense-in-depth keeps the two mesh-writing paths symmetric.
+  // Clear any borrowed-mode view spans a reused MeshState may still carry, so
+  // the owned topology bound below is unambiguous on reuse.
   if constexpr (requires { out_mesh.face_counts_view; }) {
     out_mesh.face_counts_view = {};
     out_mesh.faces_view = {};
@@ -312,7 +284,6 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
 
   bool is_flat = std::abs(angle) < math::TOLERANCE;
 
-  // Precompute half-angle trig: one cosf + sinf instead of 2N
   float cos_ha = cosf(angle * 0.5f);
   float sin_ha = sinf(angle * 0.5f);
 
@@ -340,10 +311,8 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     }
 
     Vector n_edge1 = cross1.normalized();
-    // Inline make_rotation using precomputed half-angle trig. Precondition: m1/m2
-    // are unit (static_vertices midpoints are normalized at compile time), so
-    // (cos_ha, sin_ha*axis) is already a unit quaternion — rotate() requires
-    // that, which is why we can omit make_rotation's .normalized() here.
+    // m1/m2 are unit (midpoints normalized at compile time), so (cos_ha,
+    // sin_ha*axis) is already a unit quaternion as rotate() requires.
     Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
     Vector n_hankin1 = rotate(n_edge1, q1);
 
@@ -380,8 +349,6 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
   for (size_t i = 0; i < compiled.face_counts.size(); ++i) {
     out_mesh.face_counts.push_back(compiled.face_counts[i]);
     if constexpr (requires { out_mesh.face_offsets; }) {
-      // face_offsets is uint16_t; current_offset (cumulative index count) wraps
-      // silently past 65535 — trap, mirroring MeshOps::compile.
       HS_CHECK(current_offset <= UINT16_MAX,
                "mesh face_offsets exceeds 16-bit index range");
       out_mesh.face_offsets.push_back(static_cast<uint16_t>(current_offset));
@@ -414,13 +381,9 @@ HS_COLD static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
   {
     ScratchScope _(temp);
     CompiledHankin compiled;
-    // Arena polarity looks swapped versus compile_hankin's (target_arena,
-    // temp_arena) signature, and deliberately so: in the one-shot path the
-    // CompiledHankin is itself throwaway (only `out` survives), so it is
-    // allocated from `temp` (rewound by the ScratchScope above) while `target`
-    // serves as compile_hankin's working arena. update_hankin then builds the
-    // surviving `out` mesh into `target`. The persistent/scratch roles are thus
-    // the reverse of the streaming (compile-once, update-many) usage.
+    // Arena polarity is reversed from the streaming path: the throwaway
+    // CompiledHankin is allocated from `temp` while `target` serves as
+    // compile_hankin's working arena, then update_hankin builds `out` into it.
     compile_hankin(mesh, compiled, temp, target);
     update_hankin(compiled, out, target, angle);
   }

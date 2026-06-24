@@ -1232,9 +1232,6 @@ inline std::span<const Entry> get_islamic_solids() {
  * order.
  */
 inline const Entry &get_entry(size_t index) {
-  // An out-of-range index is a caller/sizing bug, not a recoverable condition:
-  // silently substituting a different solid hides the bug and renders the wrong
-  // shape. Trap at the violation site (fail-fast philosophy).
   HS_CHECK(index < static_cast<size_t>(NUM_ENTRIES),
            "Solids::get_entry: index out of range");
 
@@ -1265,10 +1262,8 @@ FLASHMEM static PolyMesh get(Arena &geom, Arena &a, Arena &b, int index) {
   return finalize_solid(get_entry(index).generate(a, b), geom);
 }
 #else
-// Index-based get() is the WASM bridge's enumeration path and is not compiled
-// on the device; firmware builds solids by name. Declaring it deleted here
-// makes a stray firmware index call fail with "use of deleted function 'get'"
-// (pointing the reader straight to get_by_name) instead of "no such function".
+// Index-based get() is the WASM bridge's enumeration path; firmware builds by
+// name. Deleted (not absent) so a stray firmware index call names get_by_name.
 static PolyMesh get(Arena &geom, Arena &a, Arena &b, int index) = delete;
 #endif
 
@@ -1295,13 +1290,7 @@ FLASHMEM static PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
     if (name == entry.name)
       return finalize_solid(entry.generate(a, b), geom);
   }
-  // An unknown name is a typo'd/stale caller bug: a wrong solid rendered with no
-  // signal is worse than a bench-time crash. Trap rather than fall back to cube.
   HS_CHECK(false, "Solids::get_by_name: unknown solid name");
-  // No live fallback: the "no silent wrong solid" guarantee must not rest on
-  // HS_CHECK being [[noreturn]]. check_fail() always traps (it is [[noreturn]]
-  // and survives NDEBUG), so control never reaches here; mark it unreachable so
-  // a returned cube can never be the result of a missed/altered trap.
   __builtin_unreachable();
 }
 

@@ -443,10 +443,6 @@ struct Ring {
     nz = normal.z;
 
     target_angle = radius * (PI_F / 2.0f);
-    // Cold path (ctor, once per shape): full-precision trig, matching the
-    // polygon family. The precomputed cos/sin constants below feed the
-    // per-pixel reject and centerline distance, so exact values here cost
-    // nothing in the hot loop while keeping the SDF accurate.
     center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
 
     float ang_min = std::max(0.0f, target_angle - thickness);
@@ -508,30 +504,23 @@ struct Ring {
     float C_target = (cos_target - ny_cos_phi) / denom;
     float scale = W / (2.0f * PI_F);
 
-    // Pole-wrap guard: emit_annular_band merges its two arcs into one span when
-    // a band edge arc collapses to within one column (2π/W) of a pole. The
-    // centerline fast path below always emits two *unmerged* arcs, so on such a
-    // row it would leave a one-band gap at the seam. Detect the wrap from the
-    // band edges (cos decreases with angle, so the near edge cos_max gives the
-    // smaller angle) and route to the annular fallback, not just on the
-    // centerline clamp below.
+    // Pole-wrap: when a band edge arc collapses within one column (2π/W) of a
+    // pole, emit_annular_band merges its two arcs but the centerline fast path
+    // below emits them unmerged, leaving a seam gap. cos decreases with angle,
+    // so the near edge cos_max gives the smaller angle.
     float C_band_near = (cos_max - ny_cos_phi) / denom;
     float C_band_far = (cos_min - ny_cos_phi) / denom;
     float cos_pole = cosf(2.0f * PI_F / W);
     bool pole_wrap = C_band_near >= cos_pole || C_band_far <= -cos_pole;
 
-    // Centerline-crossing: fast path when the annular band edges won't be
-    // clamped to [-1,1]. Past the clamp boundary the first-order formula
-    // over-estimates width (spikes), so we fall back to the exact annular
-    // band arcs there.
+    // Centerline fast path, valid only while the band edges stay inside [-1,1];
+    // past the clamp boundary the first-order width formula spikes, so fall back
+    // to the exact annular arcs.
     float clamp_bound = 1.0f - sin_target * thickness / denom;
     if (!pole_wrap && clamp_bound < 1.0f && C_target > -clamp_bound &&
         C_target < clamp_bound && sin_target > 1e-3f) {
-      // Floor the radicand: at the upper edge of the guard band C_target nears 1
-      // and 1-C^2 nears 0 (and can go slightly negative under -ffast-math, which
-      // would yield sqrtf(NaN)). The floor both kills the NaN and caps half_width
-      // so a grazing row cannot emit a runaway interval; genuine near-tangent
-      // rows are handled by the annular fallback below.
+      // Floor the radicand: 1-C^2 nears 0 and can go slightly negative under
+      // -ffast-math (sqrtf(NaN)); the floor also caps half_width on grazing rows.
       float sin_cross = sqrtf(std::max(1.0f - C_target * C_target, 1e-6f));
       float acos_C = fast_acos(C_target);
       float eff_th = 0.95f * thickness;
@@ -648,8 +637,6 @@ struct DistortedRing {
     ny = normal.y;
     nz = normal.z;
     target_angle = radius * (PI_F / 2.0f);
-    // Cold path (ctor): full-precision trig, matching Ring and the polygon
-    // family. Runs once per shape, never per pixel.
     center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
     max_thickness = thickness + max_distortion;
 
@@ -761,14 +748,8 @@ template <typename A, typename B> struct Union {
   const A &a;         /**< First child shape. */
   const B &b;         /**< Second child shape. */
   float thickness;    /**< Max child thickness (drives AA falloff). */
-  // Solid only if every child is solid; a stroke child routes the composite
-  // through the thickness-falloff AA path so each child keeps its own soft edge.
   static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
-  // Both children push into one MergedIntervalBuffer (2 * kIntervalSpanCap)
-  // before the fallback check, so a nested-CSG child (up to 2 * kIntervalSpanCap
-  // each) can overflow it. Reject at compile time rather than rely on
-  // push_interval's runtime trap.
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
                     2 * kIntervalSpanCap,
                 "nested CSG union exceeds MergedIntervalBuffer capacity; flatten "
@@ -808,9 +789,6 @@ template <typename A, typename B> struct Union {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     MergedIntervalBuffer merged;
 
-    // Both children push into `merged` BEFORE the fallback decision, so it must
-    // hold both even on a row that ultimately falls back. Overflow (a deeply
-    // nested union) traps in push_interval rather than dropping geometry.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
 
@@ -870,13 +848,8 @@ template <typename A, typename B> struct SmoothUnion {
   const B &b;         /**< Second child shape. */
   float k;            /**< Smoothing radius in radians (e.g. 0.1). */
   float thickness;    /**< Max child thickness (drives AA falloff). */
-  // Solid only if every child is solid (see Union); a stroke child routes the
-  // composite through the thickness-falloff AA path, so smin-blended strokes
-  // keep their own soft edge instead of collapsing to a hard 1-px silhouette.
   static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
-  // Same row-interval merge (and overflow risk) as Union; reject at compile
-  // time instead of relying on push_interval's runtime trap.
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
                     2 * kIntervalSpanCap,
                 "nested CSG smooth-union exceeds MergedIntervalBuffer capacity; "
@@ -891,7 +864,7 @@ template <typename A, typename B> struct SmoothUnion {
   SmoothUnion(const A &shape_a, const B &shape_b, float smoothness)
       : a(shape_a), b(shape_b), k(smoothness),
         thickness(std::max(shape_a.thickness, shape_b.thickness)) {
-    HS_CHECK(k > 0.0f); // k==0 -> smin divisor h = .../k is 0/0 -> NaN to LEDs
+    HS_CHECK(k > 0.0f);
   }
 
   /**
@@ -903,9 +876,8 @@ template <typename A, typename B> struct SmoothUnion {
     constexpr int H_VIRT = H + hs::H_OFFSET;
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
-    // Expand bounds by the blending radius (k, in radians) converted to rows:
-    // phi spans [0,π] over (H_VIRT-1) rows, mirroring the horizontal pad (k→px).
-    // The pad scales with k so large blends are not clipped top/bottom.
+    // Expand by the blend radius k (radians) converted to rows: phi spans [0,π]
+    // over (H_VIRT-1) rows.
     int pad = std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / PI_F)));
     return {std::max(0, std::min(b1.y_min, b2.y_min) - pad),
             std::min(H - 1, std::max(b1.y_max, b2.y_max) + pad)};
@@ -926,8 +898,6 @@ template <typename A, typename B> struct SmoothUnion {
     MergedIntervalBuffer merged;
     float pad_px = k * W / (2 * PI_F);
 
-    // As in Union: both children push before the fallback check. The k-pad only
-    // widens spans, never adds them, so the same overflow trap applies.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
           push_interval(merged, start - pad_px, end + pad_px);
@@ -982,8 +952,7 @@ template <typename A, typename B> struct SmoothUnion {
     DistanceResult res_b;
     b.template distance<ComputeUVs>(p, res_b);
 
-    // Polynomial smooth min (cubic). Only dist gets the smin blend; the rest of
-    // the surviving DistanceResult snaps to the nearer child (see @note).
+    // Polynomial smooth min (cubic).
     float h = std::max(k - std::abs(res.dist - res_b.dist), 0.0f) / k;
     float m = h * h * h * k * (1.0f / 6.0f);
 
@@ -1039,34 +1008,24 @@ template <typename A, typename B> struct Subtract {
     IntervalBuffer intervals_a;
     IntervalBuffer intervals_b;
 
-    // The set-difference loop below and scan_region's coalescer both assume
-    // intervals arrive in non-decreasing start order; a multi-interval child
-    // (a nested CSG) can emit them out of order, which without sorting yields a
-    // wrong set difference AND unsorted output the coalescer silently drops.
-    // sort_intervals_by_start() (above) is shared with Union/SmoothUnion.
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(intervals_a, start, end); });
 
-    // If A falls back to full-width, we can't restrict
     if (!has_a)
       return false;
 
-    // If A produced no intervals on this row, nothing to subtract from
     if (intervals_a.is_empty())
       return true;
 
-    // A's pieces are emitted in A-interval order, so A must be start-sorted for
-    // the output (and the pass-through below) to stay start-ordered.
+    // The set-difference loop and scan_region's coalescer both require
+    // start-sorted intervals; a multi-interval child can emit them out of order.
     sort_intervals_by_start(intervals_a);
 
-    // A stroke subtrahend (e.g. Ring, Line) emits intervals describing only its
-    // thin drawn band, and adjacent edge-bands can coalesce into a single chord
-    // interval that spans the stroke's hollow interior. Treating those as
-    // removable would carve A's interior between the stroke edges, and the
-    // skipped columns never get re-filled (scan_region only refines columns it
-    // scans). So for a non-solid B, do NOT do interval subtraction: pass A's
-    // intervals through unchanged and let scan_region's per-pixel max(A, -B)
-    // carve exactly the stroke band and leave A's interior intact.
+    // A stroke subtrahend's edge-bands can coalesce into one chord interval that
+    // spans the stroke's hollow interior; subtracting that would carve A's
+    // interior, and scan_region never re-fills the skipped columns. So for a
+    // non-solid B, pass A through unchanged and let per-pixel max(A, -B) carve
+    // exactly the stroke band.
     if constexpr (!B::is_solid) {
       for (size_t i = 0; i < intervals_a.size(); ++i)
         out(intervals_a[i].first, intervals_a[i].second);
@@ -1076,18 +1035,13 @@ template <typename A, typename B> struct Subtract {
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(intervals_b, start, end); });
 
-    // B fell back to a full-row scan: it could not produce intervals, NOT that
-    // it covers the row. Without B's intervals we cannot compute the set
-    // difference, so request a full-row scan (return false) exactly as
-    // Union/SmoothUnion do — scan_region then evaluates distance() = max(A, -B)
-    // per pixel, which is correct. Returning true + emitting nothing would skip
-    // the row and silently erase all of A (e.g. when B is a near-vertical Ring
-    // or any AngularRepeat, both of which fall back unconditionally).
+    // B's fallback means "no intervals produced", not "covers the row": without
+    // B's intervals the set difference is undefined, so request a full-row scan
+    // and let per-pixel max(A, -B) handle it. Emitting nothing would erase A.
     if (!has_b)
       return false;
 
-    // B produced no intervals on this row: it removes nothing, so pass A's
-    // intervals through unchanged.
+    // B produced no intervals: it removes nothing, so pass A through.
     if (intervals_b.is_empty()) {
       for (size_t i = 0; i < intervals_a.size(); ++i)
         out(intervals_a[i].first, intervals_a[i].second);
@@ -1218,12 +1172,8 @@ template <typename A, typename B> struct Intersection {
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(intervals_b, start, end); });
 
-    // A child that returns false wants a full-width scan; intersecting that
-    // full width with the other child is just the other child's intervals,
-    // which we already collected above. Replay the buffer instead of
-    // re-invoking the child — avoids doubling a nested CSG child's per-row
-    // interval work, and is robust to a child whose emission is not identical
-    // across calls.
+    // A full-width child intersected with the other child is just the other
+    // child's intervals, already collected above; replay the buffer.
     if (!has_a) {
       for (size_t i = 0; i < intervals_b.size(); ++i)
         out(intervals_b[i].first, intervals_b[i].second);
@@ -1238,14 +1188,11 @@ template <typename A, typename B> struct Intersection {
     if (intervals_a.is_empty() || intervals_b.is_empty())
       return true;
 
-    // The merge-sweep below assumes both lists are start-sorted (it advances by
-    // comparing interval ends); a multi-interval child (a nested CSG) can emit
-    // them out of order, so sort first — same as Subtract. Single-interval
-    // children are already trivially sorted.
+    // The merge-sweep requires both lists start-sorted; a multi-interval child
+    // can emit them out of order.
     sort_intervals_by_start(intervals_a);
     sort_intervals_by_start(intervals_b);
 
-    // Intersect sorted intervals
     size_t idx_a = 0;
     size_t idx_b = 0;
 
@@ -1326,7 +1273,7 @@ template <typename Shape> struct AngularRepeat {
    */
   AngularRepeat(const Shape &s, int reps, const Vector &ax)
       : shape(s), axis(ax), repetitions(reps), thickness(s.thickness) {
-    HS_CHECK(reps > 0); // sector folding divides by repetitions
+    HS_CHECK(reps > 0);
     // Derive perpendicular plane via Gram-Schmidt
     Vector ref = (fabsf(ax.y) < 0.9f) ? Vector(0, 1, 0) : Vector(1, 0, 0);
     float d = ref.x * ax.x + ref.y * ax.y + ref.z * ax.z;
@@ -1352,13 +1299,9 @@ template <typename Shape> struct AngularRepeat {
    * @return The child's band for a Y-axis fold; the full canvas otherwise.
    */
   template <int H> Bounds get_vertical_bounds() const {
-    // Only a Y-axis fold preserves latitude, so only then does the child's band
-    // still bound every copy. For any other axis the copies sweep latitudes the
-    // child never occupies; forwarding its narrow band would row-clip them away.
-    // (axis is unit length, so axis.y near ±1 is the Y fold.)
-    //
-    // PERF CLIFF: a tilted axis disables vertical culling entirely (every row
-    // scanned). A tighter swept-band bound is possible but not computed here.
+    // Only a Y-axis fold (axis.y near ±1) preserves latitude; any other axis
+    // sweeps latitudes the child never occupies, so its band cannot bound the
+    // copies and every row must be scanned.
     if (fabsf(axis.y) < 1.0f - TOLERANCE)
       return {0, H - 1};
     return shape.template get_vertical_bounds<H>();
@@ -1516,10 +1459,6 @@ struct Face {
     }
 
     count = indices.size();
-    // A face with more vertices than the scratch budget would build wrong
-    // geometry from a truncated index list; an empty index list (count == 0)
-    // would build a degenerate zero-edge polygon. Trap both bounds instead of
-    // silently masking.
     HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
              "Face: vertex count must be in (0, MAX_VERTS]");
 
@@ -1552,9 +1491,8 @@ struct Face {
   }
 
   // ---------------------------------------------------------------------------
-  // Construction phases. Each is a single-call-site helper factored out of the
-  // constructor for readability; all are force-inlined so the per-frame
-  // Mesh::draw face-setup cost stays free of call overhead.
+  // Construction phases: single-call-site helpers factored out of the ctor,
+  // force-inlined.
   // ---------------------------------------------------------------------------
 
   /**
@@ -1622,9 +1560,7 @@ struct Face {
     for (int i = 0; i < count; ++i) {
       const Vector &v = vertices[indices[i]];
       // Gnomonic projection divides by d = cos(angle from face center), singular
-      // as a vertex nears the center's antipode (d -> 0 -> ±inf/NaN). Shipped
-      // solids never reach that, but clamp d away from zero (sign-preserving, so
-      // the projection stays on the correct side) for parity with plot.h's guard.
+      // near the center's antipode; clamp d away from zero, sign-preserving.
       float d = dot(v, basis_v);
       if (fabsf(d) < math::TOLERANCE)
         d = copysignf(math::TOLERANCE, d);
@@ -1684,8 +1620,6 @@ struct Face {
       if (d_line < min_edge_dist)
         min_edge_dist = d_line;
     }
-    // Defensive floor: the seed only survives if the loop never ran (count == 0,
-    // already trapped in the ctor) or an all-coincident-vertex face.
     size = (min_edge_dist > 1e8f) ? 1.0f : min_edge_dist;
 
     if (size < radius * MIN_SIZE_RADIUS_RATIO)
@@ -1743,12 +1677,9 @@ struct Face {
     dist_lut = scratch.dist_lut.data();
     float step_x = (2.0f * lut_Rx) / (LUT_N - 1);
     float step_y = (2.0f * lut_Ry) / (LUT_N - 1);
-    // Bilinear interpolation is trusted only when no zero-isocontour can cross
-    // the cell. The plane SDF is 1-Lipschitz in (px,py), so a zero anywhere in a
-    // cell forces every corner to lie within one cell diagonal of it; requiring
-    // the smallest corner magnitude to exceed the diagonal therefore guarantees
-    // a sign-pure cell. This is a true per-face bound: it scales with the face's
-    // own LUT cell size, so it stays correct (sign-pure edges) for large faces.
+    // The plane SDF is 1-Lipschitz in (px,py), so a zero anywhere in a cell puts
+    // every corner within one cell diagonal of it; a min corner magnitude above
+    // the diagonal therefore guarantees a sign-pure cell (safe to interpolate).
     lut_safe_dist = sqrtf(step_x * step_x + step_y * step_y);
     for (int gy = 0; gy < LUT_N; ++gy) {
       float qy = (lut_cy - lut_Ry) + gy * step_y;
@@ -1813,10 +1744,8 @@ struct Face {
     if (max_gap > PI_F) {
       full_width = false;
       float start_t = fmodf(gap_start + max_gap, 2 * PI_F);
-      // fmodf can leave start_t at ~2*PI (instead of ~0) when gap_start + max_gap
-      // lands just under an exact 2*PI multiple; without this fold the else-branch
-      // below emits a degenerate [~2*PI, 2*PI] sliver. Snap it to 0 so the wrap
-      // collapses into the single {0, end_t} interval.
+      // fmodf can leave start_t at ~2*PI instead of ~0, producing a degenerate
+      // [~2*PI, 2*PI] sliver below; snap to 0.
       if (start_t > 2 * PI_F - 1e-4f)
         start_t = 0.0f;
       float end_t = gap_start;
@@ -1960,14 +1889,9 @@ struct Face {
           (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
       Vector normal = cross(v1, v2);
       float len_sq = dot(normal, normal);
-      // planes[] is COMPACTED: a degenerate edge (zero-length normal) pushes no
-      // plane, so planes_count advances independently of the edge index `i`.
-      // This means planes[k] does NOT correspond to edge k, unlike the per-edge
-      // arrays above (edge_vectors/edge_lengths_sq/inv_*/thetas), which are all
-      // indexed by `i`. Downstream consumers (the np/sp-containment loop below,
-      // and the caller's distance fallback) treat planes[] as a standalone set
-      // and never index it by edge — keep it that way: correlating planes[k]
-      // with per-edge data[k] would silently mis-pair after any degenerate edge.
+      // planes[] is COMPACTED: a degenerate edge pushes no plane, so planes[k]
+      // does NOT correspond to edge k (unlike the per-edge arrays indexed by i).
+      // Downstream consumers treat planes[] as a standalone set, never by edge.
       if (len_sq > 1e-12f)
         scratch.planes[planes_count++] = normal.normalized();
       float phi_val = fast_acos(hs::clamp(v1.y, -1.0f, 1.0f));
@@ -2055,9 +1979,7 @@ struct Face {
   bool get_horizontal_intervals(int, OutputIt out) const {
     if (full_width)
       return false;
-    // Pad each azimuth interval by one pixel before floor/ceil so the outer AA
-    // fringe at a silhouette edge is scanned, matching the polygon family's cap
-    // pad (process_pixel draws up to d < +pixel_width).
+    // Pad each interval by one pixel so the outer AA fringe is scanned.
     float pixel_width = 2.0f * PI_F / W;
     for (const auto &iv : intervals) {
       float f_x1 = (iv.first - pixel_width) * W / (2 * PI_F);
@@ -2131,7 +2053,6 @@ struct Face {
 
     bool same_sign = (d00 > 0) == (d10 > 0) && (d00 > 0) == (d01 > 0) &&
                      (d00 > 0) == (d11 > 0);
-    // Per-face threshold: cell diagonal (tightest correct bound)
     float min_abs =
         std::min({std::abs(d00), std::abs(d10), std::abs(d01), std::abs(d11)});
     float plane_dist;
@@ -2192,7 +2113,7 @@ struct PlanarPolygon {
    */
   PlanarPolygon(const Basis &b, float th, int s, float ph)
       : basis(b), thickness(th), sides(s), phase(ph) {
-    HS_CHECK(sides > 0); // sector folding divides by sides
+    HS_CHECK(sides > 0);
     apothem = thickness * cosf(PI_F / sides);
     nx = basis.v.x;
     ny = basis.v.y;
@@ -2228,8 +2149,7 @@ struct PlanarPolygon {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
-    // Pad the cap by one pixel so the outer AA fringe at the polygon tips is
-    // scanned, matching Star (process_pixel draws up to d < +pixel_width).
+    // Pad the cap by one pixel so the outer AA fringe is scanned.
     float pixel_width = 2.0f * PI_F / W;
     return emit_cap_interval<W>(cosf(thickness + pixel_width), ny, R_val,
                                 alpha_angle, TrigLUT<W, H>::cos_phi[y],
@@ -2309,7 +2229,7 @@ struct SphericalPolygon {
    */
   SphericalPolygon(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
-    HS_CHECK(sides > 0); // sector folding divides by sides
+    HS_CHECK(sides > 0);
     circumradius = radius * (PI_F / 2.0f);
 
     // Build canonical edge: between vertices at azimuth ±π/n from
@@ -2329,13 +2249,9 @@ struct SphericalPolygon {
     if (len > 1e-9f) {
       en = en * (1.0f / len);
     } else {
-      // Degenerate canonical edge: circumradius near 0 or near PI (both
-      // reachable — ShapeShifter's radius slider drives circumradius up to PI,
-      // where v1==v2==-v so cross()==0), or a near-collinear low-sides polygon.
-      // Both degenerate limits drive en toward ±u, so substitute the sector
-      // bisector axis as a defined unit normal (edge_nv=0, edge_nu=1) instead of
-      // an indeterminate near-zero vector — the polygon then collapses
-      // deterministically to its center rather than producing garbage edges.
+      // Degenerate canonical edge (circumradius near 0 or PI, or a near-collinear
+      // low-sides polygon): both limits drive en toward ±u, so substitute the
+      // sector bisector as a defined unit normal and collapse to center.
       en = basis.u;
     }
     // Ensure outward: dot(center, n) should be negative
@@ -2380,8 +2296,7 @@ struct SphericalPolygon {
   bool get_horizontal_intervals(int y, OutputIt out) const {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
-    // Pad the cap by one pixel so the outer AA fringe at the polygon tips is
-    // scanned, matching Star (process_pixel draws up to d < +pixel_width).
+    // Pad the cap by one pixel so the outer AA fringe is scanned.
     float pixel_width = 2.0f * PI_F / W;
     return emit_cap_interval<W>(cosf(circumradius + pixel_width), ny, R_val,
                                 alpha_angle, TrigLUT<W, H>::cos_phi[y],
@@ -2462,10 +2377,7 @@ struct Star {
    */
   Star(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
-    HS_CHECK(sides > 0); // sector folding divides by sides
-    // Zero radius collapses inner/outer points onto the origin -> zero-length
-    // edge vector -> nx/ny become NaN, poisoning every distance() result. Trap
-    // here (cold path) rather than ship NaN to the LEDs.
+    HS_CHECK(sides > 0);
     HS_CHECK(radius > 0.0f); // zero radius -> zero-length edge normal (NaN)
     float outer_radius = radius * (PI_F / 2.0f);
     float inner_radius = outer_radius * STAR_INNER_RATIO;
@@ -2520,10 +2432,6 @@ struct Star {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     float pixel_width = 2.0f * PI_F / W;
-    // PERF CLIFF: reject_full_width drops any row whose cap spans the whole width
-    // to a full-row scan (a pole-spanning star hits this on rows near its center).
-    // The geometry stays correct; that row simply pays the full-canvas scan rather
-    // than a bounded interval, mirroring the AngularRepeat tilted-axis fallback.
     return emit_cap_interval<W>(cosf(thickness + pixel_width), scan_ny, scan_r,
                                 scan_alpha, TrigLUT<W, H>::cos_phi[y],
                                 TrigLUT<W, H>::sin_phi[y], true, out);
@@ -2604,7 +2512,7 @@ struct Flower {
    */
   Flower(const Basis &b, float radius, int s, float ph)
       : basis(b), sides(s), phase(ph) {
-    HS_CHECK(sides > 0); // sector folding divides by sides
+    HS_CHECK(sides > 0);
     float outer = radius * (PI_F / 2.0f);
     apothem = PI_F - outer;
     thickness = outer;
@@ -2642,8 +2550,6 @@ struct Flower {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
-    // Phi trig from the static LUT (bit-identical to cosf(y_to_phi(y))) and
-    // fast_acos for the band edges — same as Ring's annular fallback path.
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     float cos_phi = TrigLUT<W, H>::cos_phi[y];
@@ -2659,9 +2565,6 @@ struct Flower {
     float ang_max = thickness;
     float cos_limit = cosf(ang_max);
 
-    // Route through the shared annular-band emitter (like Ring/DistortedRing) so
-    // the two pole-wraparound degeneracies collapse into a single span instead
-    // of emitting holey two-arc intervals near the antipode for large radii.
     emit_annular_band<W>(cos_limit, 1.0f, scan_ny, cos_phi, denom, scan_alpha,
                          out);
     return true;
@@ -2724,10 +2627,7 @@ struct Line {
   float len;              /**< Arc length (radians). */
   float phi_min, phi_max; /**< Precomputed vertical bounds (radians). */
 
-  // Bounding-cap geometry, loop-invariant across scanlines — hoisted out of
-  // get_horizontal_intervals (every other shape precomputes its cap in the
-  // constructor and reads the TrigLUT for per-row phi). cap_horiz_valid is
-  // false when the cap has no horizontal projection (its axis is ~vertical).
+  // Bounding-cap geometry, loop-invariant across scanlines (precomputed in ctor).
   Vector mid; /**< Arc midpoint axis (bounding-cap center). */
   float mid_ny = 0.0f, mid_r = 0.0f, mid_alpha = 0.0f; /**< Midpoint y, XZ projection length, azimuth. */
   float cap_D_min = 0.0f; /**< Cosine of the bounding-cap radius. */
@@ -2746,24 +2646,18 @@ struct Line {
     if (len < 1e-6f) {
       n = Vector(0, 0, 0);
     } else {
-      // Antipodal endpoints (len ~ π) make cross() degenerate to ~0 with no
-      // defined great circle; guard the normalize rather than trap.
+      // Antipodal endpoints (len ~ π) make cross() degenerate; guard the normalize.
       n = normalized_or(cross(a, b), Vector(1, 0, 0));
     }
 
-    // Compute vertical bounds from endpoint phi values + thickness. The
-    // endpoints alone are not enough: a great-circle arc bulges toward a pole
-    // between them, so its peak latitude can lie well outside [phi_a, phi_b]
-    // (e.g. two equal-latitude points whose arc passes through a pole). Extend
-    // by the arc's interior latitude extremum when present — the same
-    // tangent-sign-flip test plot.h's edge_row_span uses.
+    // A great-circle arc bulges toward a pole between its endpoints, so its peak
+    // latitude can lie outside [phi_a, phi_b]; extend by the interior extremum.
     float phi_a = acosf(std::max(-1.0f, std::min(1.0f, a.y)));
     float phi_b = acosf(std::max(-1.0f, std::min(1.0f, b.y)));
     float phi_lo = std::min(phi_a, phi_b);
     float phi_hi = std::max(phi_a, phi_b);
-    // y(t) = a.y·cos + v_perp.y·sin turns inside the arc iff the forward
-    // tangent's y-component (cross(n, p).y) flips sign between the endpoints.
-    // The extremal y is the great circle's peak latitude ±sqrt(1 - n.y²).
+    // The latitude turns inside the arc iff the forward tangent's y-component
+    // (cross(n, p).y) flips sign between endpoints; the extremum is ±sqrt(1-n.y²).
     float t0 = cross(n, a).y;
     float t1 = cross(n, b).y;
     if ((t0 > 0.0f) != (t1 > 0.0f)) {
@@ -2776,9 +2670,8 @@ struct Line {
     phi_min = std::max(0.0f, phi_lo - margin);
     phi_max = std::min(PI_F, phi_hi + margin);
 
-    // Bounding cap centered on the segment midpoint — all loop-invariant, so
-    // precompute here instead of per scanline. Antipodal endpoints sum to ~0
-    // (no defined midpoint); guard the normalize.
+    // Bounding cap centered on the segment midpoint. Antipodal endpoints sum to
+    // ~0 (no defined midpoint); guard the normalize.
     mid = normalized_or(a + b, Vector(1, 0, 0));
     mid_ny = mid.y;
     mid_r = sqrtf(mid.x * mid.x + mid.z * mid.z);
@@ -2840,15 +2733,10 @@ struct Line {
     float ang_b = angle_between(b, p_proj);
 
     float dist_seg = 0.0f;
-    // Two geodesic metrics meet here, C0-continuous at the join: in-segment the
-    // closest point of the great circle lies on the arc, so the perpendicular
-    // distance asinf(|d_plane|) is exact; past an endpoint the closest point is
-    // that endpoint, so the distance is the geodesic to the cap. They agree at the
-    // boundary (where the perpendicular foot reaches the endpoint); only the first
-    // derivative differs — the C1 kink is inherent to a *capped* segment. The
-    // branches cannot be unified onto asinf(|d_plane|) alone: that is the distance
-    // to the whole great circle, which would stretch the segment past its caps
-    // into an infinite line.
+    // Two geodesic metrics, C0-continuous at the join: in-segment the foot lies
+    // on the arc so asinf(|d_plane|) (perpendicular to the great circle) is exact;
+    // past an endpoint the closest point is that cap. Using asinf(|d_plane|) alone
+    // would measure the whole great circle and lose the caps.
     if (ang_a + ang_b <= len + 1e-4f) {
       dist_seg = asinf(std::abs(d_plane));
     } else {
@@ -2875,20 +2763,11 @@ struct Line {
     if (!cap_horiz_valid)
       return false;
 
-    // Per-row phi trig from the LUT (indexed by virtual row, so H_OFFSET is
-    // baked in), matching every other shape; the cap geometry below was
-    // precomputed in the constructor.
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     float cos_phi = TrigLUT<W, H>::cos_phi[y];
     float sin_phi = TrigLUT<W, H>::sin_phi[y];
 
-    // The bounding cap is a great-circle cap like every polygon/Star cap, so
-    // emit it through the shared helper rather than re-deriving the same denom/
-    // C_min/d_alpha math. The cap_horiz_valid early-out above already covers
-    // emit_cap_interval's R_val < MIN_HORIZONTAL_PROJ guard (cap_horiz_valid is
-    // exactly mid_r >= MIN_HORIZONTAL_PROJ), so by here that guard is satisfied;
-    // Line never rejects a full-width span, so reject_full_width is false.
     return emit_cap_interval<W>(cap_D_min, mid_ny, mid_r, mid_alpha, cos_phi,
                                 sin_phi, /*reject_full_width=*/false, out);
   }
@@ -2981,7 +2860,7 @@ struct Twist {
    */
   Twist(int twist_, float amplitude_, float R_)
       : twist(twist_), amplitude(amplitude_), R(R_) {
-    HS_CHECK(R > 0.0f); // R==0 -> lipschitz divisor floors to 0 -> NaN/inf gamma
+    HS_CHECK(R > 0.0f);
   }
 
   /** @brief Precomputed context: s = sqrtf(x² + z²), shared across apply/lipschitz. */
@@ -3014,9 +2893,7 @@ struct Twist {
     if (twist == 0)
       return 1.0f;
     // The warp Jacobian is the shear I - e_y·gᵀ with e_y ⊥ g and |g| = γ; its
-    // exact operator norm (largest singular value) is γ/2 + √(1 + γ²/4). This
-    // exact bound prevents Raymarch's sphere tracing from over-estimating the
-    // safe step and marching through thin surfaces at high Twist. γ uses
+    // operator norm (largest singular value) is γ/2 + √(1 + γ²/4). γ uses
     // |twist·amplitude| so the bound stays conservative regardless of sign.
     const float gamma =
         fabsf(static_cast<float>(twist) * amplitude) / std::max(s, R * 0.5f);

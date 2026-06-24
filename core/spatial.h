@@ -75,18 +75,9 @@ public:
     size_t count = points.size();
     nodes.bind(arena, count);
 
-    // The per-build index array is scratch: build() partitions it in place and
-    // never reads it after returning, and `nodes` is already fully reserved
-    // above. Scope it to a ScratchScope so the arena offset rewinds past it once
-    // build() returns — otherwise ~count*4 bytes (≈34 KB at MAX_VERTS) leak into
-    // the arena for the rest of its lifetime.
+    // Scope the scratch index array so the arena offset rewinds once build()
+    // returns, rather than leaking ~count*4 bytes for the arena's lifetime.
     ScratchScope scratch(arena);
-    // count is narrowed to int here (indices is int*, build() takes int count,
-    // and indices[i]=i folds the source index into int). The per-node build()
-    // guards bound the *stored* index range (uint16_t original_index), which
-    // requires every source index 0..count-1 to fit uint16_t; trap that bound
-    // at the seam so an over-large point set fails loud here instead of deep in
-    // the recursion. Cold path (once per build).
     HS_CHECK(count <= static_cast<size_t>(UINT16_MAX) + 1,
              "KDTree source point count exceeds uint16_t index range");
     int *indices = (int *)arena.allocate(count * sizeof(int), alignof(int));
@@ -113,29 +104,18 @@ public:
     if (root_index == -1 || k == 0) // k is size_t; only k == 0 is the empty case
       return result;
 
-    // The result/candidate buffers are sized MAX_K, so more than MAX_K neighbors
-    // cannot be honored. Silently returning fewer than requested would mask the
-    // caller's mistake; trap so a k > MAX_K bug surfaces instead. (Requesting
-    // more neighbors than points exist is fine — that legitimately caps below.)
     HS_CHECK(k <= static_cast<size_t>(MAX_K));
 
     // Bounded scratch buffer of the k best candidates so far, kept unsorted.
-    // Each entry pairs a squared distance with its node index.
     struct Candidate {
       float d_sq;
       int idx;
     };
-    // Named `best`, not `heap`: this is a deliberately unsorted linear array of
-    // the k best candidates, not a heap-ordered structure. With small K (1-5) a
-    // linear scan for the max is cheaper than maintaining heap order, so there
-    // is no O(log k) push / O(1) peek-max invariant to rely on.
     StaticCircularBuffer<Candidate, MAX_K> best;
 
-    // Cached pruning bound: the largest squared distance currently in `best` and
-    // its slot. FLT_MAX (worst_i = -1) until the set fills to k, matching the
-    // "don't prune before full" rule. Recomputed only when `best` actually
-    // changes (a fill that reaches k, or a displacement) — so the per-node prune
-    // test get_worst_dist() is O(1), not an O(k) rescan on every visited node.
+    // Cached pruning bound: the largest squared distance in `best` and its slot,
+    // FLT_MAX (worst_i = -1) until the set fills to k so nothing prunes early.
+    // Recomputed only when `best` changes, keeping the per-node prune test O(1).
     float worst_d_sq = FLT_MAX;
     int worst_i = -1;
     auto recompute_worst = [&]() {
@@ -193,11 +173,8 @@ private:
   int build(std::span<const Vector> points, int *indices, int count, int depth) {
     if (count <= 0)
       return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
-    // The node pool is bound to exactly points.size() and build() emits exactly
-    // one node per point, so this can never fire. Trap rather than return -1:
-    // a -1 here is indistinguishable from the empty-subtree sentinel above, so
-    // pool exhaustion would silently drop an entire subtree instead of failing
-    // loud. Cold path (once per node during build).
+    // Trap rather than return -1: a -1 here is indistinguishable from the
+    // empty-subtree sentinel above, so exhaustion would silently drop a subtree.
     HS_CHECK(nodes.size() < nodes.capacity(),
              "KDTree node pool exhausted during build");
 
@@ -220,17 +197,9 @@ private:
     int median_idx = indices[mid];
 
     int new_node_idx = static_cast<int>(nodes.size());
-    // Child links (left/right) are stored as int16_t with -1 as the sentinel,
-    // so a node pool bumped past INT16_MAX would silently truncate them into
-    // garbage links. The pool-capacity guard above caps nodes.size(), but trap
-    // the index range explicitly so a future capacity bump fails loud instead of
-    // corrupting the tree. Cold path (once per node during build).
+    // left/right are int16_t (-1 sentinel); original_index is uint16_t.
     HS_CHECK(new_node_idx <= INT16_MAX,
              "KDTree node index exceeds int16_t child-link range");
-    // original_index is uint16_t, so a source set larger than 65535 points
-    // would silently fold a high index back into the wrong vertex. The node
-    // guard above bounds nodes.size(), not the source index, so trap the vertex
-    // range too. Cold path (once per node during build).
     HS_CHECK(median_idx <= UINT16_MAX,
              "KDTree vertex index exceeds uint16_t original_index range");
     nodes.emplace_back();
@@ -458,11 +427,9 @@ struct MeshState {
    * @details Required by Cloneable.
    */
   static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
-    // Defensive symmetry with MeshOps::transform / update_hankin: a reused dst
-    // may still carry borrowed views from a prior borrowed-mode life. clone
-    // produces an owned-mode mesh, but face_offsets/topology copy only
-    // conditionally, so a stale view could shadow an unbound owned vector via
-    // the owned-first accessors. Clear the views up front.
+    // A reused dst may still carry borrowed views; clone produces an owned-mode
+    // mesh, so clear them up front lest a stale view shadow an unbound owned
+    // vector via the owned-first accessors.
     dst.face_counts_view = {};
     dst.faces_view = {};
     dst.face_offsets_view = {};

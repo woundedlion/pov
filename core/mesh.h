@@ -151,10 +151,8 @@ inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
     while (j < n && records[j].min_v == records[i].min_v &&
            records[j].max_v == records[i].max_v)
       ++j;
-    // A 2-manifold mesh shares each undirected edge between exactly 1 (boundary)
-    // or 2 (interior) half-edges. A run of >2 is a non-manifold edge — a build
-    // invariant violation — so fail fast rather than pair two arbitrarily and
-    // silently drop the rest.
+    // A 2-manifold mesh shares each undirected edge between 1 (boundary) or 2
+    // (interior) half-edges; a run of >2 is a non-manifold edge.
     HS_CHECK(j - i <= 2, "non-manifold edge: >2 half-edges share an edge");
     if (j - i == 2)
       set_pair(records[i].he, records[i + 1].he);
@@ -248,8 +246,6 @@ private:
     size_t num_faces = counts.size();
     size_t total_indices = faces_arr.size();
 
-    // All vertex/face/half-edge indices are stored as uint16_t below; a mesh
-    // past that range would silently truncate. Trap instead (fail-fast).
     HS_CHECK(num_verts <= UINT16_MAX && total_indices <= UINT16_MAX,
              "half-edge mesh exceeds 16-bit index range");
 
@@ -274,13 +270,9 @@ private:
       for (size_t fi = 0; fi < num_faces; ++fi) {
         int count = counts[fi];
 
-        // A zero-count face emits no half-edges yet still gets its half_edge
-        // set below, mis-linking it to the next face's first half-edge (or
-        // one-past-the-end for a trailing zero-count face) — corrupt topology.
-        // Trap it (fail-fast, matching the 16-bit index trap above). Note we
-        // trap only count==0, not all <3 faces: compile() deliberately accepts
-        // 1-/2-side degenerate faces and strips them downstream (they still
-        // emit linked half-edges here), so a >=3 invariant would be wrong.
+        // A zero-count face emits no half-edges yet still gets its half_edge set
+        // below, mis-linking it to the next face. Only count==0 traps: compile()
+        // accepts 1-/2-side degenerate faces and strips them downstream.
         HS_CHECK(count > 0, "half-edge mesh face has zero sides");
 
         faces.emplace_back();
@@ -393,11 +385,10 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
     }
   }
 
-  // Vertices are copied wholesale: no index remap or compaction is performed,
-  // so vertices referenced only by stripped degenerate faces remain as orphans.
-  // Harmless for face-iterating renderers (they only touch vertices via faces),
-  // but vertex-count-driven consumers (e.g. MeshMorph's brute-force match) see
-  // the inflated count and may animate to an unrendered point.
+  // Vertices are copied wholesale with no compaction, so vertices referenced
+  // only by stripped degenerate faces remain as orphans. Harmless for
+  // face-iterating renderers, but vertex-count-driven consumers (e.g. MeshMorph)
+  // see the inflated count.
   copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(),
               geom_arena);
 
@@ -411,10 +402,8 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
     int count = src.face_counts[i];
     if (count >= 3) {
       dst.face_counts.push_back(narrow_face_count(count));
-      // face_offsets is uint16_t; current_offset is the cumulative index count
-      // and wraps silently past 65535. Trap instead, matching build_from_flat's
-      // total_indices <= UINT16_MAX gate (not narrow_index's INT16_MAX bound:
-      // offsets count half-edges and legitimately exceed the vertex range).
+      // face_offsets is uint16_t (counts half-edges, so bounded by UINT16_MAX
+      // not narrow_index's INT16_MAX vertex bound).
       HS_CHECK(current_offset <= UINT16_MAX,
                "mesh face_offsets exceeds 16-bit index range");
       dst.face_offsets.push_back(static_cast<uint16_t>(current_offset));
@@ -502,8 +491,7 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   ScratchScope _(scratch_a);
 
   // Read topology through the unified accessors: a borrowed-mode MeshState
-  // serves face_counts/faces via its view spans with the owned vectors empty,
-  // so indexing the owned vectors directly would silently classify nothing.
+  // serves face_counts/faces via its view spans with the owned vectors empty.
   // Vertices and topology are always owned, so they stay direct.
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
@@ -537,33 +525,14 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       verts.push_back(mesh.vertices[faces[offset + k]]);
     }
 
-    // The 32-bit hash (count + sorted rounded interior angles, mixed by fmix32)
-    // is used directly as the topology id, so two genuinely different face
-    // topologies that collide to the same hash would be merged into one class.
-    // No secondary tiebreak is kept: the inputs are the small fixed polyhedron
-    // roster (a handful of distinct face shapes per solid), not adversarial, so
-    // a 32-bit collision is not reachable in practice. Note the angles below are
-    // rounded to whole degrees, which widens the collision target for near-but-
-    // distinct angle sets — so the safety margin rests on the fixed roster, not
-    // on hash strength.
-    //
-    // The one untrusted caller is the WASM/JS mesh editor (wasm.cpp's
-    // Mesh::classifyFaces over an editor-built mesh). A collision there is still
-    // not a memory-safety or invariant breach — it only mis-merges two face
-    // *palette* classes (a cosmetic grouping in the tool), and the birthday
-    // bound needs ~77k DISTINCT face topologies before a collision is even
-    // likely, which no displayable mesh approaches. If this is ever fed meshes
-    // dense enough in distinct face classes to matter, add a vertex-key tiebreak
-    // here and hash the angles at finer than 1-degree resolution, gated to the
-    // untrusted path so the firmware roster keeps its current cheap hashing.
+    // The 32-bit hash (count + sorted whole-degree interior angles) is used
+    // directly as the topology id, so a hash collision merges two distinct face
+    // topologies into one class. Acceptable for the fixed polyhedron roster.
     uint32_t h = 0x12345678;
     hash_combine(h, static_cast<uint32_t>(count));
 
-    // Interior angles only exist for a real polygon. A degenerate face (1 or 2
-    // vertices) leaves `angles` empty, so the angle hash-combine must stay
-    // inside this guard. Folding angles[k] in unconditionally would read past
-    // the empty scratch vector and yield a non-deterministic topology id.
-    // Degenerate faces hash on vertex count alone.
+    // A degenerate face (1 or 2 vertices) leaves `angles` empty, so the angle
+    // hash-combine must stay guarded; degenerate faces hash on count alone.
     if (count >= 3) {
       angles.clear();
       for (int k = 0; k < count; ++k) {
@@ -589,9 +558,6 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   {
     ScratchScope temp_topo(scratch_a);
 
-    // Half-edge ids (he_idx, < I) and face ids (fi, < F) are stored as uint16_t
-    // below; an over-range mesh would silently truncate. Trap up front, the same
-    // discipline as HalfEdgeMesh::build_from_flat.
     HS_CHECK(I <= UINT16_MAX && F <= UINT16_MAX,
              "classify_faces_by_topology exceeds 16-bit index range");
 
