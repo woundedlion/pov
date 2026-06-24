@@ -149,14 +149,24 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   if (!TrigLUT<W, H>::initialized)
     TrigLUT<W, H>::init();
 
-  // The interval scratch (~768 B) lives in scratch_arena_b, not on the stack:
+  // The interval scratch (~1.5 KiB) lives in scratch_arena_b, not on the stack:
   // Phantasm's DTCM stack is tight and scan_region is on the deepest render
   // chain. Per-call bump scope; norm is cleared per row below.
+  //
+  // intervals must hold the full per-row emission of the top-level shape. A
+  // Union/SmoothUnion merges BOTH children (each up to kIntervalSpanCap spans)
+  // into one buffer and coalesces; coalescing never grows the count, so a single
+  // Union emits at most 2*kIntervalSpanCap spans. Sizing intervals to that bound
+  // (matching SDF::MergedIntervalBuffer) proves push_interval cannot overflow for
+  // any single top-level Union, even when no children overlap. norm then holds
+  // one seam-split per input span, so 2x intervals = 4*kIntervalSpanCap.
   ScratchScope scratch(scratch_arena_b);
   using IntervalBuf =
-      StaticCircularBuffer<std::pair<float, float>, SDF::kIntervalSpanCap>;
-  using NormBuf =
       StaticCircularBuffer<std::pair<float, float>, 2 * SDF::kIntervalSpanCap>;
+  using NormBuf =
+      StaticCircularBuffer<std::pair<float, float>, 4 * SDF::kIntervalSpanCap>;
+  static_assert(IntervalBuf::kCapacity == SDF::MergedIntervalBuffer::kCapacity,
+                "scan_region intervals must hold a single Union's full emission");
   static_assert(NormBuf::kCapacity == 2 * IntervalBuf::kCapacity,
                 "norm must hold 2 spans per input interval (seam split)");
   auto &intervals = *new (scratch_arena_b.allocate(
