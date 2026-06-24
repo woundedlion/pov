@@ -143,7 +143,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 29. ✅ **`ProceduralPalette::get` evaluates exact `cosf` ×3 per sample on the non-baked path** — `core/color.h:1578-1583`. Every other per-sample trig path uses `fast_cosf`; `ChaoticStrings` samples this unbaked per fragment. Switch to `fast_cosf` (matching the file's ~0.17% budget) or document a bake-before-per-pixel contract.
 
-30. **Modulo-based `rand_int`/`random` introduce non-uniform bias on the active path** — `core/platform.h:1151-1156,567-582`. Classic modulo bias for non-power-of-two ranges; negligible for the small spawn ranges but untreated while `rand_f` is carefully unbiased. Use rejection reduction if uniformity matters, or note the cheap-but-biased intent.
+30. ✅ **Modulo-based `rand_int`/`random` introduce non-uniform bias on the active path** — `core/platform.h:1151-1156,567-582`. Classic modulo bias for non-power-of-two ranges; negligible for the small spawn ranges but untreated while `rand_f` is carefully unbiased. Use rejection reduction if uniformity matters, or note the cheap-but-biased intent.
 
 31. **`ParamList::find()` and the LED correction-guard destructors carry byte-identical duplicated bodies** — `core/canvas.h:384-413`, `core/led.h:97-129`. Implement non-const `find()` via `const_cast<…>(std::as_const(*this).find(name))`; factor a shared `restore_baseline()` for the two guard dtors.
 

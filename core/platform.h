@@ -566,6 +566,9 @@ enum ColorOrder { RGB };
  */
 inline int random(int max) {
   if (max <= 0) return 0;
+  // Cheap modulo reduction: slightly biased for non-power-of-two ranges, but
+  // negligible for the small ranges this serves, and the fixed mapping keeps
+  // sim/device output bit-identical.
   return hs::random()() % max;
 }
 /**
@@ -578,6 +581,9 @@ inline int random(int max) {
  */
 inline int random(int min, int max) {
   if (max <= min) return min;
+  // Cheap modulo reduction: slightly biased for non-power-of-two ranges, but
+  // negligible for the small ranges this serves, and the fixed mapping keeps
+  // sim/device output bit-identical.
   return min + (hs::random()() % (max - min));
 }
 /**
@@ -1150,6 +1156,9 @@ inline float rand_f(float min, float max) {
  */
 inline int rand_int(int min, int max) {
   if (max > min) {
+    // Cheap modulo reduction: slightly biased for non-power-of-two ranges, but
+    // the small spawn ranges this serves make the bias negligible, and the
+    // fixed mapping keeps sim/device output bit-identical.
     return min + (hs::random()() % (max - min));
   }
   return min;
