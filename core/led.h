@@ -75,6 +75,18 @@ inline int &correction_guard_depth() {
 }
 
 /**
+ * @brief Reinstates the engine's canonical baseline (TypicalLEDStrip color,
+ * Candle temperature) and releases the guard liveness counter.
+ * @details Shared by both correction guards' destructors (see the
+ * restore-to-baseline contract above).
+ */
+inline void restore_correction_baseline() {
+  FastLED.setCorrection(TypicalLEDStrip);
+  FastLED.setTemperature(Candle);
+  --correction_guard_depth();
+}
+
+/**
  * @brief RAII guard to disable both color and temperature correction for its
  * scope, restoring the TypicalLEDStrip/Candle baseline on destruction (see the
  * restore-to-baseline contract above).
@@ -94,11 +106,7 @@ struct NoColorCorrection {
    * @brief Restores the TypicalLEDStrip/Candle baseline (restore-to-baseline,
    * not the correction active at construction).
    */
-  ~NoColorCorrection() {
-    FastLED.setCorrection(TypicalLEDStrip);
-    FastLED.setTemperature(Candle);
-    --correction_guard_depth();
-  }
+  ~NoColorCorrection() { restore_correction_baseline(); }
 };
 
 /**
@@ -122,10 +130,6 @@ struct NoTempCorrection {
    * @brief Restores the TypicalLEDStrip/Candle baseline (restore-to-baseline,
    * not the correction active at construction).
    */
-  ~NoTempCorrection() {
-    FastLED.setCorrection(TypicalLEDStrip);
-    FastLED.setTemperature(Candle);
-    --correction_guard_depth();
-  }
+  ~NoTempCorrection() { restore_correction_baseline(); }
 };
 #endif // !USE_DMA_LEDS

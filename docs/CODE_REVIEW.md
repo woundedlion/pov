@@ -145,7 +145,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 30. ✅ **Modulo-based `rand_int`/`random` introduce non-uniform bias on the active path** — `core/platform.h:1151-1156,567-582`. Classic modulo bias for non-power-of-two ranges; negligible for the small spawn ranges but untreated while `rand_f` is carefully unbiased. Use rejection reduction if uniformity matters, or note the cheap-but-biased intent.
 
-31. **`ParamList::find()` and the LED correction-guard destructors carry byte-identical duplicated bodies** — `core/canvas.h:384-413`, `core/led.h:97-129`. Implement non-const `find()` via `const_cast<…>(std::as_const(*this).find(name))`; factor a shared `restore_baseline()` for the two guard dtors.
+31. ✅ **`ParamList::find()` and the LED correction-guard destructors carry byte-identical duplicated bodies** — `core/canvas.h:384-413`, `core/led.h:97-129`. Implement non-const `find()` via `const_cast<…>(std::as_const(*this).find(name))`; factor a shared `restore_baseline()` for the two guard dtors.
 
 32. **`Hole::requires_unit_world_input` rationale overstates `angle_between`'s precondition** — `core/filter.h:588-590` (and `42-44,421-422`). `angle_between` normalizes internally; Hole's real sensitivity is the zero-length degenerate, not off-unit length (unlike Mobius, which genuinely needs unit input). Reword, or drop the trait from Hole.
 

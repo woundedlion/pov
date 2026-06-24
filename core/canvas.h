@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <variant>
 #include <atomic>
+#include <utility>
 #include "constants.h"
 #include "color.h"
 #include <array>
@@ -421,11 +422,7 @@ public:
     ParamDef *begin() { return elements.data(); }
     ParamDef *end() { return elements.data() + count; }
     ParamDef *find(const char *name) {
-      for (size_t i = 0; i < count; ++i) {
-        if (std::strcmp(elements[i].name, name) == 0)
-          return &elements[i];
-      }
-      return nullptr;
+      return const_cast<ParamDef *>(std::as_const(*this).find(name));
     }
   };
 
