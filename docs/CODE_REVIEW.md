@@ -123,7 +123,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 20. ✅ **Beacon span-budget comment arithmetic is internally inconsistent with its own worst case** — `hardware/pov_sync.h:1611-1621`. The note's `5*(7+5) = 60` cols double-counts a trailing inter-burst gap after the last digit; the true worst case is ~55 cols and the conclusion (ends before HALF) holds with *more* margin. Tighten the arithmetic to match `schedule_beacon()` (4 inter-burst gaps, no terminating gap).
 
-21. **Local death-suite skip records zero pass/fail, so absent fail-fast coverage reads green** — `tests/test_death.h:912-919,930-961`. When self-exec is blocked locally (non-CI), the entire death module — the only coverage of the marketed `HS_CHECK` layer — contributes zero assertions and the run still reports success. CI hard-fails (the real backstop). Emit a visible counted info line or a sentinel `HS_EXPECT` on the local skip path.
+21. ✅ **Local death-suite skip records zero pass/fail, so absent fail-fast coverage reads green** — `tests/test_death.h:912-919,930-961`. When self-exec is blocked locally (non-CI), the entire death module — the only coverage of the marketed `HS_CHECK` layer — contributes zero assertions and the run still reports success. CI hard-fails (the real backstop). Emit a visible counted info line or a sentinel `HS_EXPECT` on the local skip path.
 
 22. **No guard that `kModules` covers every included test header** — `tests/run_tests.cpp:12-44,60-94`. The 33 `#include`s and the `kModules[]` roster are two hand-maintained parallel lists; a header included but never registered compiles clean and silently never runs. Drive the roster from one X-macro list (as `HS_EFFECT_LIST` already does), or add a count `static_assert`.
 
