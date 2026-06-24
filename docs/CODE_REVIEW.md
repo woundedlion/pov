@@ -95,7 +95,7 @@ low-to-medium severity. Each item cites `file:line`, the dimension, and the reco
 
 7. **Recorder `getContext('2d')` return is dereferenced unchecked → silently blank recording** — `c:/work/daydream/recorder.js:275,302`. A null 2D context is tolerated by the blit guard but `start()` still creates the `MediaRecorder`, producing a permanently blank file with no diagnostic — the file's only silent-failure path. On null, `console.error` and abort `start()`.
 
-8. **`DistortedRing` silently culls geometry when `max_distortion` underestimates `shift_fn`'s true range** — `core/sdf.h:640-733`. `max_distortion` is a hard correctness precondition (it widens the row/column/per-pixel reject band) but is documented merely as "used to widen the band," and unlike every sibling shape it carries no guard. Underestimating it drops genuine arcs with no diagnostic. (All shipped callers pass an exact bound, so this is latent.) Document it as a precondition; optionally widen the early-reject by a safety epsilon.
+8. ✅ **`DistortedRing` silently culls geometry when `max_distortion` underestimates `shift_fn`'s true range** — `core/sdf.h:640-733`. `max_distortion` is a hard correctness precondition (it widens the row/column/per-pixel reject band) but is documented merely as "used to widen the band," and unlike every sibling shape it carries no guard. Underestimating it drops genuine arcs with no diagnostic. (All shipped callers pass an exact bound, so this is latent.) Document it as a precondition; optionally widen the early-reject by a safety epsilon.
 
 ### Medium Priority — robustness/consistency gaps and misleading documentation
 

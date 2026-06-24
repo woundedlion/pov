@@ -634,7 +634,11 @@ struct DistortedRing {
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
    * @param sf Per-azimuth centerline shift function, t in [0,1) -> radians.
-   * @param md Maximum magnitude of sf (radians), used to widen the band.
+   * @param md Maximum magnitude of sf over t in [0,1) (radians). PRECONDITION:
+   *           md must be a true upper bound on |sf|. It widens the row, column,
+   *           and per-pixel reject bands, so an underestimate silently culls
+   *           genuine arcs with no diagnostic — unlike the sibling shapes, this
+   *           one carries no guard. All shipped callers pass an exact bound.
    * @param ph Azimuth phase offset (radians).
    */
   DistortedRing(const Basis &b, float r, float th, ScalarFn sf, float md,
