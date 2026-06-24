@@ -155,10 +155,6 @@ static constexpr Vector Z_AXIS(0, 0, 1);
  */
 static constexpr Vector UP = Y_AXIS;
 
-// least_parallel_axis() now lives in 3dmath.h (alongside make_rotation, its
-// first user, and the COS_AXIS_PARALLEL constant) so it can be shared without
-// an include cycle. It is still visible here via the 3dmath.h include.
-
 /**
  * @brief Structure representing 2D floating-point pixel coordinates.
  */

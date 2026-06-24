@@ -601,14 +601,13 @@ public:
                                  ATTRACTOR_CAP>>::step(canvas);
 
     {
-      // Emitters
       for (size_t i = 0; i < emitters.size(); ++i) {
         emitters[i](*this);
       }
 
       float max_delta = (2 * PI_F) / W;
 
-      // Physics. Swap-remove dead particles: overwrite the dead slot with the
+      // Swap-remove dead particles: overwrite the dead slot with the
       // last live one, shrink, and re-test the same index. The `i--` here is a
       // deliberate unsigned-wraparound idiom: when i == 0, `i--` wraps to
       // SIZE_MAX, then the loop's `++i` wraps it back to 0 so the swapped-in
@@ -663,7 +662,6 @@ private:
       active = p.life > 0;
     }
 
-    // Physics
     if (active) {
       Vector pos = p.position;
 
@@ -722,7 +720,6 @@ private:
       }
     }
 
-    // History Management
     if (active) {
       p.history.record(p.position);
     } else {
@@ -1382,24 +1379,18 @@ public:
     AnimationBase<Motion<W, CAP>>::step(canvas);
 
     // Drift-free, composable integration. Motion advances the bound Orientation
-    // by RELATIVE deltas only — it never writes the Orientation's absolute state
-    // — so it composes with any other animation driving the same Orientation
-    // (the multi-animation motion blur the collapse pre-pass in Timeline::step
-    // supports). Each delta is the rotation carrying the path's own orientation
-    // frame from one (sub)frame to the next, where that frame is a *pure
-    // function* of the path parameter: the point path(s) plus the travel-tangent
-    // pin a full orthonormal frame (see path_frame()). Drift-freedom comes from
-    // that purity: the baseline frame is always a fresh path-derived value, never
-    // an accumulating quaternion chain, so the per-frame deltas telescope and no
-    // float error builds up — across unbounded cycles each cycle re-derives the
-    // same frames. (A two-vector frame is also a global section with no holonomy,
-    // so a closed path loops seamlessly.) That is why no per-cycle re-anchor (and
-    // so no sole-ownership invariant) is needed: the old design dead-reckoned
-    // parallel-transport deltas whose product drifted, and reset the whole
-    // Orientation to an absolute anchor each cycle — which clobbered any
-    // co-driver. The roll this frame pins is about the head's own axis, invisible
-    // for a path-following point head, so the visible motion matches the prior
-    // parallel-transport behavior.
+    // by RELATIVE deltas only — never writing its absolute state — so it composes
+    // with any co-driver of the same Orientation (the multi-animation motion blur
+    // the collapse pre-pass in Timeline::step supports). Each delta carries the
+    // path's own orientation frame from one (sub)frame to the next, and that frame
+    // is a *pure function* of the path parameter (point path(s) + travel-tangent
+    // pin a full orthonormal frame; see path_frame()). That purity is what makes
+    // it drift-free: the baseline is always a fresh path-derived value, never an
+    // accumulating quaternion chain, so per-frame deltas telescope with no float
+    // buildup and each cycle re-derives the same frames. (A two-vector frame is a
+    // global section with no holonomy, so a closed path loops seamlessly; no
+    // per-cycle re-anchor is needed.) The roll this frame pins is about the head's
+    // own axis, invisible for a path-following point head.
     float t_prev = static_cast<float>(this->t - 1);
     Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
@@ -1419,9 +1410,9 @@ public:
     // the new cycle carry the head from where it actually is (end of path) back
     // to the start, re-seating it for the next traversal. For a closed path the
     // start and end frames coincide and that delta is identity (a seamless
-    // loop); for an open arc it is the jump-back the old absolute reset did —
-    // but expressed as a *relative* delta, so a co-driver's contribution rides
-    // along instead of being clobbered. At i==0 the delta is identity, so the
+    // loop); for an open arc it is a jump-back, but expressed as a *relative*
+    // delta so a co-driver's contribution rides along instead of being
+    // clobbered. At i==0 the delta is identity, so the
     // loop starts at i==1 and at(0) is left as the collapsed/co-driven seed.
     if (!have_prev_frame_) {
       prev_frame_ = path_frame(t_prev / this->duration);
@@ -1595,7 +1586,6 @@ public:
 
     float step_angle = delta / (len - 1);
 
-    // lambda to apply rotation based on space
     auto apply_rotation = [&](Quaternion &target, const Quaternion &source) {
       if (space == Space::Local) {
         target = target * source;
@@ -2044,11 +2034,9 @@ public:
     // NDEBUG. The nearest-vertex map is meaningless without source vertices;
     // trap at construction (house style).
     HS_CHECK(!source.vertices.is_empty());
-    // Allocate transient storage on the arena
     buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
 
-    // Clone both meshes for interpolation
     MeshOps::clone(source, buf_->mesh_A, arena);
     MeshOps::clone(dest, buf_->mesh_B, arena);
 
@@ -2058,7 +2046,6 @@ public:
     // construction (cold) rather than writing OOB on the per-frame step.
     HS_CHECK(buf_->mesh_B.vertices.size() == dest.vertices.size());
 
-    // Allocate SLERP buffers
     buf_->start_pos.bind(arena, dest.vertices.size());
     buf_->end_pos.bind(arena, dest.vertices.size());
 
@@ -2124,13 +2111,11 @@ public:
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
     float alpha = easing_fn(progress);
 
-    // Interpolate vertices
     for (size_t i = 0; i < buf_->end_pos.size(); ++i) {
       buf_->mesh_B.vertices[i] =
           slerp(buf_->start_pos[i], buf_->end_pos[i], alpha);
     }
 
-    // Render crossfade
     float op_A = 1.0f - alpha;
     if (op_A > 0.01f)
       draw_outgoing(canvas, buf_->mesh_A, op_A);
@@ -2283,7 +2268,6 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
 
-    // Lifecycle Management
     float progress = static_cast<float>(t) / duration;
     float envelope = 0.0f;
 
@@ -2293,16 +2277,13 @@ public:
     // removes a finished one-shot). Do the wave work only while live; always
     // publish the amplitude so the last frame correctly renders nothing.
     if (t < duration) {
-      // Move the wave (emanate outward).
       params.get().phase += speed;
 
-      // Ease In (Attack) - fast ramp up over ~10% of duration
+      // Attack: fast ramp over ~10% of duration, squared for a parabolic ease-in.
       float attack_dur = 0.1f;
       float attack = std::min(progress / attack_dur, 1.0f);
-      // Square the attack for a parabolic ease-in (starts very low)
       attack = attack * attack;
 
-      // Fade Out (Decay)
       float decay = 1.0f - progress;
 
       envelope = attack * decay;
@@ -2757,7 +2738,6 @@ public:
           anim->post_callback();
         } else {
           keep = false;
-          // Fire callback for non-repeating event before removing
           anim->post_callback();
         }
       }

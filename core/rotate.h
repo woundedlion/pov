@@ -130,7 +130,6 @@ public:
   Point project(const Point &src) const {
     Point p(src);
 
-    // rotate lambda
     p.lambda += delta_lambda;
     if (p.lambda > PI_F) {
       p.lambda -= tau;
@@ -138,18 +137,18 @@ public:
       p.lambda += tau;
     }
 
-    // convert to cartesian x, y, z
+    // lambda/phi -> Cartesian unit vector
     float cos_p = cosf(p.phi);
     float x = cosf(p.lambda) * cos_p;
     float y = sinf(p.lambda) * cos_p;
     float z = sinf(p.phi);
 
-    // rotate phi gamma
+    // rotate by the cached phi/gamma terms
     float k = z * cos_dp + x * sin_dp;
     p.lambda = atan2f(y * cos_dg - k * sin_dg, x * cos_dp - z * sin_dp);
     p.phi = asinf(k * cos_dg + y * sin_dg);
 
-    // convert to equirectangular x, y
+    // back to equirectangular pixel (x, y)
     p.x = wrap_index((p.lambda + PI_F) * W / tau, W);
     p.y = H - ((p.phi + PI_F / 2) * H / PI_F);
 

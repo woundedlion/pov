@@ -45,12 +45,11 @@ static constexpr float EPS_GEOMETRIC  = 1e-5f;
 static constexpr float EPS_LEN_SQ     = 1e-6f;
 static constexpr float EPS_CROSS_SQ   = 1e-8f;
 static constexpr float EPS_NORMAL_SQ  = 1e-9f;
-// Generous squared "is-unit" slack for cold-path assertion guards (NOT the tight
+// Generous squared "is-unit" slack for cold-path assertion guards (not the tight
 // EPS_UNIT length test): input-validity tolerance, deliberately loose so
-// accumulated normalization error never false-traps an otherwise-valid caller.
-// Distinct in scale and purpose from the geometric branch threshold TOLERANCE
-// (see make_rotation). The quaternion and vector forms carry independently-tuned
-// bounds (the legacy 0.01f / 0.02f literals these replace).
+// accumulated normalization error never false-traps a valid caller. Distinct in
+// scale and purpose from the geometric branch threshold TOLERANCE (see
+// make_rotation); quaternion and vector forms carry independently-tuned bounds.
 static constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
 static constexpr float EPS_UNIT_VEC_SQ  = 0.02f;
 /**
@@ -322,13 +321,9 @@ struct Vector {
  */
 inline float fast_atan2(float y, float x) {
   // +1e-10f keeps abs_y strictly positive so the (x==0,y==0) origin yields a
-  // finite 0/abs_y ratio instead of a 0/0 NaN. The bias is additive, so for a
-  // legitimately tiny |y| (|y| ≲ 1e-10) it dominates and the result's *relative*
-  // error grows toward order-1 — but the *absolute* angle error stays ≪ the
-  // ~0.0038 rad Hastings error, and every caller (hue/azimuth lookups) consumes
-  // the angle absolutely, so the tiny-y relative cliff is harmless here. A caller
-  // that needed a relatively-accurate angle for sub-1e-10 y would have to scale
-  // its inputs up first.
+  // finite 0/abs_y ratio instead of a 0/0 NaN. The additive bias inflates the
+  // relative error for |y| ≲ 1e-10, but the absolute angle error stays ≪ the
+  // ~0.0038 rad Hastings error and every caller consumes the angle absolutely.
   float abs_y = std::abs(y) + 1e-10f;
   float abs_x = std::abs(x);
   float r, angle;
@@ -673,8 +668,7 @@ struct Complex {
     float denom = b.re * b.re + b.im * b.im;
     // denom is a sum of squares, so it is always non-negative — no std::abs.
     if (denom < math::EPS_LEN_SQ) {
-      // Near-zero denominator → point at infinity.
-      // Preserve direction of the numerator.
+      // Near-zero denominator → point at infinity, along the numerator direction.
       float num_mag = re * re + im * im;
       if (num_mag < STEREO_DIV_NUM_EPS_SQ)
         return Complex(0, 0); // 0/0 → indeterminate, keep zero
@@ -1092,38 +1086,26 @@ inline Vector least_parallel_axis(const Vector &v) {
  */
 inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   // Inputs must be unit: the d>1-eps / d<-1+eps branch tests below assume |from|
-  // = |to| = 1, and a non-unit input silently skews the angle. Trap it, matching
-  // make_basis's unit guard. (dot(v,v) avoids the sqrt; EPS_UNIT_VEC_SQ is the
-  // generous squared-magnitude is-unit band.)
-  //
-  // EPS_UNIT_VEC_SQ here and the TOLERANCE (1e-4) below are deliberately on
-  // different scales because they measure different things: EPS_UNIT_VEC_SQ is
-  // *input-validity* slack — how far the caller's vectors may drift from unit
-  // length and still be accepted — and is generous on purpose so accumulated
-  // normalization error never false-traps. TOLERANCE is a *geometric branch
-  // threshold* — how close d = dot(from,to) must be to ±1 to take the
-  // (anti)parallel special case (and how degenerate a cross product must be to
-  // swap reference axes) — and is kept tight so the general path's cross-product
-  // normalize stays well-conditioned. Reconciling them to one scale would be a
-  // category error.
+  // = |to| = 1, and a non-unit input silently skews the angle. (dot(v,v) avoids
+  // the sqrt.) EPS_UNIT_VEC_SQ here and TOLERANCE below sit on different scales by
+  // design: the former is generous input-validity slack on |v|, the latter a tight
+  // geometric branch threshold on d = dot(from,to) keeping the general-path
+  // cross-product normalize well-conditioned.
   HS_CHECK(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ &&
                std::abs(dot(to, to) - 1.0f) < math::EPS_UNIT_VEC_SQ,
            "make_rotation(from, to): inputs must be unit vectors");
   float d = dot(from, to);
 
-  // Handle antiparallel vectors (180 degrees apart)
+  // Antiparallel (180°): any axis perpendicular to 'from' is valid, so only
+  // conditioning matters. Seed the cross with least_parallel_axis(from) so
+  // |cross| stays >= sqrt(1 - COS_AXIS_PARALLEL^2) rather than shrinking to
+  // ~TOLERANCE before we normalize through it.
   if (d < -1.0f + TOLERANCE) {
-    // Any axis perpendicular to 'from' yields a valid 180° rotation taking
-    // from -> -from, so the only thing that matters is conditioning. Seed the
-    // cross with least_parallel_axis(from) (the shared reference-axis pick) so
-    // |cross| stays >= sqrt(1 - COS_AXIS_PARALLEL^2) rather than being allowed
-    // to shrink to ~TOLERANCE before we normalize through it.
     Vector axis = cross(least_parallel_axis(from), from);
     axis.normalize();
     return make_rotation(axis, PI_F);
   }
 
-  // Handle parallel vectors (0 degrees apart)
   if (d > 1.0f - TOLERANCE) {
     return Quaternion(1, 0, 0, 0); // Identity
   }
@@ -1243,10 +1225,7 @@ inline float fast_cosf(float x) { return fast_sinf(x + PI_F * 0.5f); }
  */
 inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
   float d = hs::clamp(dot(v1, v2), -1.0f, 1.0f);
-  // If vectors are extremely close, just lerp to avoid NaN. The near-parallel /
-  // near-antipodal branch thresholds are TOLERANCE-scale (1.0f - TOLERANCE here
-  // is bit-identical to the old 0.9999f literal; PI_F - TOLERANCE to the old
-  // PI_F - 0.0001f).
+  // Near-parallel: lerp to avoid NaN. Branch thresholds are TOLERANCE-scale.
   if (d > 1.0f - math::TOLERANCE) {
     return (v1 + (v2 - v1) * t).normalized();
   }
@@ -1259,11 +1238,9 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
     return normalized_or((v1 + (v2 - v1) * t), v1);
   }
   // Classic slerp weights are sin((1-t)θ)/sinθ and sin(tθ)/sinθ. The common
-  // 1/sin(θ) factor cancels under the final normalize() — the result direction
-  // depends only on the ratio of the two numerator sines — so we omit it. That
-  // also avoids dividing an approximate fast_sinf by a small approximate sin(θ)
-  // near θ→π (the divisor never reaches the output anyway). The θ-vs-π guard
-  // above replaces the old sin_theta<1e-4 degeneracy check at the same boundary.
+  // 1/sin(θ) factor cancels under the final normalize() (direction depends only
+  // on the ratio of the two numerator sines), so we omit it — also avoiding a
+  // divide of an approximate fast_sinf by a small approximate sin(θ) near θ→π.
   float s1 = fast_sinf((1 - t) * theta);
   float s2 = fast_sinf(t * theta);
   return ((s1 * v1) + (s2 * v2)).normalized();
@@ -1304,7 +1281,7 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
   // measurable here and keeps rotation paths free of approximation drift.
   float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
-  if (sin_theta < math::TOLERANCE) { // bit-identical to the old 0.0001f literal
+  if (sin_theta < math::TOLERANCE) {
     Quaternion r = p + t * (q - p);
     return r.normalized();
   }
