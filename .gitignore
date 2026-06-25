@@ -22,6 +22,10 @@ CMakeUserPresets.json
 
 # IDE / tooling
 .vs/
+# Local agent/tooling config (machine-specific, not repo-shared)
+.claude/
+.agent/
+.agents/
 /out/
 /obj/
 # Visual Micro generated state + per-user VS project settings. Un-anchored so it
