@@ -1867,9 +1867,9 @@ public:
  * pointer to arena-allocated storage — keeps inline size small for
  * TimelineEvent. The caller provides source/dest MeshState references and an
  * Arena; MeshMorph clones both, builds nearest-vertex correspondence, and
- * interpolates each frame. Transients are released when the animation completes
- * and the TimelineEvent is destroyed; call compact on the arena afterward to
- * reclaim the space.
+ * interpolates each frame. Destruction runs only member destructors — there is
+ * no destructor that reclaims the arena, so the transient bytes persist in the
+ * arena until the caller compacts or resets it.
  *
  * Crossfade contract (intentional): only the incoming mesh (mesh_B, carrying
  * dest topology) morphs — each frame its vertices SLERP from their nearest
