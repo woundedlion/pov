@@ -1291,9 +1291,8 @@ public:
 
     // Interpolate in OKLCH; stops are pre-converted in update_stops().
     OKLCH blended = lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p);
-    // Re-derive chroma on the envelope at the interpolated L (lerp the stops'
-    // ceilings, then C = cmax * sin(pi*L)) so it stays on the sin curve rather
-    // than lerp_oklch's straight chord. fast_sinf matches update_stops().
+    // Re-derive chroma on the envelope at the interpolated L (see colors_cmax).
+    // fast_sinf matches update_stops().
     float cmax = colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
     blended.C = cmax * fast_sinf(PI_F * blended.L);
     // Hue torsion: drift hue with lightness, centered at L=0.5.
