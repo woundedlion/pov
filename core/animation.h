@@ -1679,8 +1679,8 @@ class ColorWipe : public AnimationBase<ColorWipe> {
 public:
   /**
    * @brief Constructs a ColorWipe animation.
-   * @param from_palette The GenerativePalette to animate (snapshot taken at
-   * t=0).
+   * @param from_palette The GenerativePalette to animate (snapshotted on the
+   * first step(), mirroring Transition).
    * @param to_palette The GenerativePalette to interpolate toward.
    * @param duration The duration in frames.
    * @param easing_fn The easing function.
