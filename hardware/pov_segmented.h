@@ -360,7 +360,7 @@ private:
     for (int i = 0; i < 2; ++i) {
       delay(5);
       const int rawN = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
-      HS_CHECK(rawN == raw0);
+      HS_CHECK(rawN == raw0, "unstable segment-ID strap (field/manufacturing fault)");
     }
 
     // Invert the 2-bit reading (all-floating pull-ups => ID 0), then mask the
