@@ -741,6 +741,29 @@ inline void test_intersection_full_width_child_replays_other() {
   }
 }
 
+/**
+ * @brief Verifies a seam-straddling band shared by both children is intersected across wrap frames.
+ * @details A emits the seam band as [-10, 10]; B emits the SAME physical band as
+ *   [W-10, W+10]. A raw-coordinate overlap test sees no shared columns and
+ *   under-reports the seam. After normalizing both into [0, W) the bands coincide
+ *   and the intersection is the full shared band, split at the seam.
+ */
+inline void test_intersection_seam_straddle_overlaps_across_wrap_frames() {
+  using P = std::pair<float, float>;
+  using Mock = sdf_subtract_detail::MockIntervalShape;
+  std::vector<P> a_ivs = {{-10.0f, 10.0f}};  // seam band, negative frame
+  std::vector<P> b_ivs = {{246.0f, 266.0f}}; // same band, [W,2W) frame (W=256)
+  Mock A{&a_ivs}, B{&b_ivs};
+  SDF::Intersection<Mock, Mock> s(A, B);
+
+  std::vector<P> out;
+  bool ok = s.get_horizontal_intervals<256, 128>(
+      0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
+  // Both normalize to {[246,256],[0,10]}; the intersection is the same band.
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(2));
+}
+
 // ============================================================================
 // SmoothUnion — blends at the boundary
 // ============================================================================
@@ -1306,6 +1329,7 @@ inline int run_sdf_tests() {
   test_intersection_thickness_is_min();
   test_intersection_unsorted_child_yields_sorted_result();
   test_intersection_full_width_child_replays_other();
+  test_intersection_seam_straddle_overlaps_across_wrap_frames();
 
   test_smooth_union_matches_union_far_from_boundary();
   test_smooth_union_blends_inside_band();

@@ -82,12 +82,13 @@ template <typename A, typename B> struct sdf_max_spans<SmoothUnion<A, B>> {
   static constexpr size_t value =
       sdf_max_spans<A>::value + sdf_max_spans<B>::value;
 };
-// Intersection merge-sweeps the two start-sorted child lists, emitting at most
-// one span per advance and advancing |A|+|B| times total, so its output is
-// bounded by the sum of the children's span counts.
+// Intersection seam-splits each child into a [0, W) frame, then merge-sweeps the
+// two start-sorted lists, emitting at most one span per advance. Only the single
+// span containing θ=0 can split, so each child grows by at most one, and the
+// sweep advances |norm_a| + |norm_b| times: bound |A| + |B| + 2.
 template <typename A, typename B> struct sdf_max_spans<Intersection<A, B>> {
   static constexpr size_t value =
-      sdf_max_spans<A>::value + sdf_max_spans<B>::value;
+      sdf_max_spans<A>::value + sdf_max_spans<B>::value + 2;
 };
 // Subtract seam-splits each child into a [0, W) frame before differencing. Only
 // the single span containing θ=0 can split, so each child grows by at most one
@@ -1330,17 +1331,32 @@ template <typename A, typename B> struct Intersection {
     if (intervals_a.is_empty() || intervals_b.is_empty())
       return true;
 
-    // The merge-sweep requires both lists start-sorted; a multi-interval child
-    // can emit them out of order.
-    sort_intervals_by_start(intervals_a);
-    sort_intervals_by_start(intervals_b);
+    // Normalize both children into [0, W) (seam-split) before the merge sweep: a
+    // band straddling θ=0 can be emitted by A and B in different wrap frames
+    // (A as [-5, 5], B as [W-5, W+5]), and the raw-coordinate overlap below would
+    // then miss the shared coverage and under-report at the seam. Splitting into
+    // a common [0, W) frame makes the comparison correct. Seam-splitting at most
+    // doubles each child's span count, so the buffers are sized 2x.
+    constexpr size_t kSeamSplitCap = 2 * kIntervalSpanCap;
+    static_assert(sdf_max_spans<A>::value <= kSeamSplitCap &&
+                      sdf_max_spans<B>::value <= kSeamSplitCap,
+                  "seam-split child exceeds norm buffer capacity");
+    StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_a;
+    StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_b;
+    normalize_intervals_to_range<W>(intervals_a, norm_a);
+    normalize_intervals_to_range<W>(intervals_b, norm_b);
+
+    // The merge sweep requires both lists start-sorted; the seam split above can
+    // reorder them.
+    sort_intervals_by_start(norm_a);
+    sort_intervals_by_start(norm_b);
 
     size_t idx_a = 0;
     size_t idx_b = 0;
 
-    while (idx_a < intervals_a.size() && idx_b < intervals_b.size()) {
-      auto iv_a = intervals_a[idx_a];
-      auto iv_b = intervals_b[idx_b];
+    while (idx_a < norm_a.size() && idx_b < norm_b.size()) {
+      auto iv_a = norm_a[idx_a];
+      auto iv_b = norm_b[idx_b];
 
       float start = std::max(iv_a.first, iv_b.first);
       float end = std::min(iv_a.second, iv_b.second);
