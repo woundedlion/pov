@@ -31,6 +31,7 @@ template <int W, int H> class RingSpin : public Effect {
 public:
   static constexpr int TRAIL_LENGTH = 19; // trail samples per ring
   static constexpr int NUM_RINGS = 4;
+  static constexpr int NUM_PALETTES = 4;
 
   /**
    * @brief One ring: great-circle plane, palette, orientation, and trail.
@@ -80,16 +81,19 @@ public:
     // (wrap_t(1)==0 would fold it to black).
     InsetModifier inset;
     EdgeAlphaShade edge_fade;
-    for (int i = 0; i < (int)source_palettes.size(); ++i) {
+    const ProceduralPalette sources[NUM_PALETTES] = {
+        Palettes::iceMelt, Palettes::undersea, Palettes::mangoPeel,
+        Palettes::richSunset};
+    for (int i = 0; i < NUM_PALETTES; ++i) {
       StaticPalette<ProceduralPalette, Coords<InsetModifier>,
                     Colors<EdgeAlphaShade>, /*Wrap=*/false>
           v;
-      v.bind(&source_palettes[i], &inset, &edge_fade);
+      v.bind(&sources[i], &inset, &edge_fade);
       baked_palettes[i].bake(persistent_arena, v);
     }
 
     for (int i = 0; i < NUM_RINGS; ++i) {
-      int p_idx = i % source_palettes.size();
+      int p_idx = i % NUM_PALETTES;
       spawn_ring(Y_AXIS, &baked_palettes[p_idx]);
     }
   }
@@ -167,10 +171,7 @@ private:
   Ring *rings = nullptr;
   int num_rings = 0;
 
-  std::array<ProceduralPalette, 4> source_palettes = {
-      Palettes::iceMelt, Palettes::undersea, Palettes::mangoPeel,
-      Palettes::richSunset};
-  std::array<BakedPalette, 4> baked_palettes;
+  std::array<BakedPalette, NUM_PALETTES> baked_palettes;
 
   /**
    * @brief Tunable rendering parameters for the effect.
