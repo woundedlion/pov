@@ -802,7 +802,7 @@ template <typename A, typename B> struct Union {
   const A &a;         /**< First child shape. */
   const B &b;         /**< Second child shape. */
   float thickness;    /**< Max child thickness (drives AA falloff). */
-  static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
+  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the union keeps both interiors. */
 
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
                     2 * kIntervalSpanCap,
@@ -902,7 +902,7 @@ template <typename A, typename B> struct SmoothUnion {
   const B &b;         /**< Second child shape. */
   float k;            /**< Smoothing radius in radians (e.g. 0.1). */
   float thickness;    /**< Max child thickness (drives AA falloff). */
-  static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
+  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the smooth union keeps both interiors. */
 
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
                     2 * kIntervalSpanCap,
@@ -1028,7 +1028,7 @@ template <typename A, typename B> struct Subtract {
   const A &a;      /**< Minuend shape. */
   const B &b;      /**< Subtrahend shape (removed from A). */
   float thickness; /**< Inherited from the minuend A. */
-  static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
+  static constexpr bool is_solid = A::is_solid; /**< Tracks the minuend; carving B never changes A's solidity. */
 
   /**
    * @brief Builds a subtraction (shape_a minus shape_b).

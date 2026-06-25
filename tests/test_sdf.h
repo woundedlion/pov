@@ -795,9 +795,10 @@ inline void test_smooth_union_blends_inside_band() {
 }
 
 /**
- * @brief Verifies SmoothUnion derives its solidity from its children.
- * @details Like Union/Subtract/Intersection, a stroke child keeps its soft falloff
- *   instead of collapsing to a hard 1-px silhouette in process_pixel.
+ * @brief Verifies SmoothUnion is solid when either child is solid.
+ * @details A union keeps both child interiors, so a single solid child drives the
+ *   composite onto the hard 1-px silhouette path in process_pixel; the soft
+ *   falloff applies only when every child is a stroke.
  */
 inline void test_smooth_union_solidity_follows_children() {
   static_assert(!SDF::SmoothUnion<SDF::Ring, SDF::Ring>::is_solid,
@@ -805,8 +806,8 @@ inline void test_smooth_union_solidity_follows_children() {
   static_assert(
       SDF::SmoothUnion<SDF::PlanarPolygon, SDF::PlanarPolygon>::is_solid,
       "two solids -> silhouette path");
-  static_assert(!SDF::SmoothUnion<SDF::PlanarPolygon, SDF::Ring>::is_solid,
-                "mixed -> falloff path");
+  static_assert(SDF::SmoothUnion<SDF::PlanarPolygon, SDF::Ring>::is_solid,
+                "mixed -> silhouette path");
 }
 
 // ============================================================================
