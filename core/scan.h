@@ -1100,6 +1100,110 @@ template <typename SDF> struct TransformedVolume {
  */
 struct Volume {
   /**
+   * @brief Sphere-traces a ray in local space, recording the closest approach.
+   * @param shape Volume shape providing distance().
+   * @param local_ro Ray origin in local space.
+   * @param local_vd Unit ray direction in local space.
+   * @param bounds_radius Bounding sphere radius (past-the-back early-out).
+   * @param max_steps Maximum sphere-tracing steps.
+   * @param aa_width Anti-aliasing band half-width (deep-hit early-out).
+   * @param closest_local Output: local-space point of closest approach.
+   * @return Signed distance at the closest approach (FLT_MAX if never sampled).
+   */
+  template <typename Shape>
+  static __attribute__((always_inline)) float
+  trace_closest(const Shape &shape, const Vector &local_ro,
+                const Vector &local_vd, float bounds_radius, int max_steps,
+                float aa_width, Vector &closest_local) {
+    Vector local_p = local_ro;
+    closest_local = local_ro;
+    // Sentinel for "no surface seen yet": any real signed distance the
+    // trace reports is smaller, so the first sample always wins.
+    float closest_d = FLT_MAX;
+
+    for (int i = 0; i < max_steps; ++i) {
+      // Early out: ray has exited the back of the bounding sphere.
+      // local_p.local_vd is compared against the world-space bounds_radius;
+      // this is correct only because ray_to_local is length-preserving
+      // (rotation + translation, no scale) so local_vd is unit and
+      // local_p.local_vd == (p_world - center).vd, AND callers pass the
+      // shape center as bounds_center (so center == bounds_center). Both
+      // preconditions are HS_CHECKed once per draw at the top of this
+      // function; a scaling transform or off-center bounds_center traps
+      // there rather than silently mis-culling here.
+      if (local_p.x * local_vd.x + local_p.y * local_vd.y +
+              local_p.z * local_vd.z >
+          bounds_radius)
+        break;
+
+      float d = shape.distance(local_p);
+
+      if (d < closest_d) {
+        closest_d = d;
+        closest_local = local_p;
+      }
+
+      if (d < -aa_width)
+        break;
+
+      // The 1e-5 floor is a deliberate absolute stall-guard, distinct from
+      // the probe loop's bounds_radius-relative floor below: this is the
+      // precision trace (it wants fine steps near the surface) and is
+      // bounded by max_steps and the past-the-sphere early-out above, so a
+      // grazing ray cannot loop unboundedly. The probe is a coarse
+      // halo punch-through, so it scales its step to the shape size.
+      float advance = std::max(d * 0.9f, 1e-5f);
+      local_p = Vector(local_p.x + local_vd.x * advance,
+                       local_p.y + local_vd.y * advance,
+                       local_p.z + local_vd.z * advance);
+    }
+    return closest_d;
+  }
+
+  /**
+   * @brief Punches a coarse occlusion probe through an AA halo.
+   * @param shape Volume shape providing distance().
+   * @param closest_local Local-space closest approach (probe seed).
+   * @param local_vd Unit ray direction in local space.
+   * @param bounds_radius Bounding sphere radius (probe travel limit + step floor).
+   * @param hit_threshold Solid-hit distance threshold.
+   * @param edge_alpha Current AA alpha; promoted to 1.0 on a confirmed hit.
+   * @return The resolved edge alpha.
+   */
+  template <typename Shape>
+  static __attribute__((always_inline)) float
+  resolve_halo(const Shape &shape, const Vector &closest_local,
+               const Vector &local_vd, float bounds_radius, float hit_threshold,
+               float edge_alpha) {
+    // Seed from the closest approach, not the march's terminal local_p:
+    // the loop can exit having stepped past the bounding sphere, and
+    // probing forward from there never punches through a thin feature,
+    // leaving the false halo it was meant to cull.
+    //
+    // Bounded to 4 iterations with the step floored at bounds_radius *
+    // 0.15: a solid feature thinner than that coarse step can be straddled
+    // (both samples land in empty space with pd >= hit_threshold), so the
+    // probe misses it and a faint false halo survives — an accepted
+    // cosmetic limit on this AA-border-only slow path.
+    Vector probe = closest_local;
+    float probed = 0.0f;
+    for (int i = 0; i < 4; ++i) {
+      float pd = shape.distance(probe);
+      if (pd < hit_threshold) {
+        edge_alpha = 1.0f; // Punched through the halo, solid hit!
+        break;
+      }
+      float step = std::max(pd * 0.9f, bounds_radius * 0.15f);
+      probe = Vector(probe.x + local_vd.x * step, probe.y + local_vd.y * step,
+                     probe.z + local_vd.z * step);
+      probed += step;
+      if (probed > bounds_radius)
+        break;
+    }
+    return edge_alpha;
+  }
+
+  /**
    * @brief Raymarches and shades a volume shape over its bounding sphere.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
@@ -1201,49 +1305,12 @@ struct Volume {
           // computed once into local_vd above, so transform only the origin here
           // instead of paying a second per-pixel quaternion rotation.
           Vector local_ro = shape.origin_to_local(ro);
-          Vector local_p = local_ro;
-          Vector closest_local = local_ro;
-          // Sentinel for "no surface seen yet": any real signed distance the
-          // trace reports is smaller, so the first sample always wins.
-          float closest_d = FLT_MAX;
+          Vector closest_local;
 
           // --- Sphere tracing in local space ---
-          for (int i = 0; i < max_steps; ++i) {
-            // Early out: ray has exited the back of the bounding sphere.
-            // local_p.local_vd is compared against the world-space bounds_radius;
-            // this is correct only because ray_to_local is length-preserving
-            // (rotation + translation, no scale) so local_vd is unit and
-            // local_p.local_vd == (p_world - center).vd, AND callers pass the
-            // shape center as bounds_center (so center == bounds_center). Both
-            // preconditions are HS_CHECKed once per draw at the top of this
-            // function; a scaling transform or off-center bounds_center traps
-            // there rather than silently mis-culling here.
-            if (local_p.x * local_vd.x + local_p.y * local_vd.y +
-                    local_p.z * local_vd.z >
-                bounds_radius)
-              break;
-
-            float d = shape.distance(local_p);
-
-            if (d < closest_d) {
-              closest_d = d;
-              closest_local = local_p;
-            }
-
-            if (d < -aa_width)
-              break;
-
-            // The 1e-5 floor is a deliberate absolute stall-guard, distinct from
-            // the probe loop's bounds_radius-relative floor below: this is the
-            // precision trace (it wants fine steps near the surface) and is
-            // bounded by max_steps and the past-the-sphere early-out above, so a
-            // grazing ray cannot loop unboundedly. The probe is a coarse
-            // halo punch-through, so it scales its step to the shape size.
-            float advance = std::max(d * 0.9f, 1e-5f);
-            local_p = Vector(local_p.x + local_vd.x * advance,
-                             local_p.y + local_vd.y * advance,
-                             local_p.z + local_vd.z * advance);
-          }
+          float closest_d =
+              trace_closest(shape, local_ro, local_vd, bounds_radius, max_steps,
+                            aa_width, closest_local);
 
           if (closest_d >= aa_width)
             return;
@@ -1268,32 +1335,8 @@ struct Volume {
                                                    (aa_width - hit_threshold));
 
             // ...and fire the occlusion probe to see if this is a false halo!
-            // Seed from the closest approach, not the march's terminal local_p:
-            // the loop can exit having stepped past the bounding sphere, and
-            // probing forward from there never punches through a thin feature,
-            // leaving the false halo it was meant to cull.
-            //
-            // Bounded to 4 iterations with the step floored at bounds_radius *
-            // 0.15: a solid feature thinner than that coarse step can be straddled
-            // (both samples land in empty space with pd >= hit_threshold), so the
-            // probe misses it and a faint false halo survives — an accepted
-            // cosmetic limit on this AA-border-only slow path.
-            Vector probe = closest_local;
-            float probed = 0.0f;
-            for (int i = 0; i < 4; ++i) {
-              float pd = shape.distance(probe);
-              if (pd < hit_threshold) {
-                edge_alpha = 1.0f; // Punched through the halo, solid hit!
-                break;
-              }
-              float step = std::max(pd * 0.9f, bounds_radius * 0.15f);
-              probe = Vector(probe.x + local_vd.x * step,
-                             probe.y + local_vd.y * step,
-                             probe.z + local_vd.z * step);
-              probed += step;
-              if (probed > bounds_radius)
-                break;
-            }
+            edge_alpha = resolve_halo(shape, closest_local, local_vd,
+                                      bounds_radius, hit_threshold, edge_alpha);
           }
 
           if (frag.color.alpha * edge_alpha > 0.001f) {

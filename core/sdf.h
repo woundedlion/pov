@@ -1854,6 +1854,81 @@ struct Face {
   }
 
   /**
+   * @brief Refines phi bounds with an edge's great-circle arc extremum.
+   * @param n Normalized great-circle plane normal of the edge.
+   * @param v1 First edge endpoint (on the unit sphere).
+   * @param v2 Second edge endpoint (on the unit sphere).
+   * @param min_phi In/out running minimum phi.
+   * @param max_phi In/out running maximum phi.
+   * @details The extremum of an edge's arc may lie between its endpoints; project
+   * the pole-tangent onto the plane and, if it falls inside the arc, fold its phi
+   * into the bounds.
+   */
+  static __attribute__((always_inline)) void
+  refine_phi_from_arc_extremum(const Vector &n, const Vector &v1,
+                               const Vector &v2, float &min_phi,
+                               float &max_phi) {
+    float ny = n.y;
+    if (std::abs(ny) < 0.99999f) {
+      float nx = n.x;
+      float nz = n.z;
+      float tx = -nx * ny;
+      float ty = 1.0f - ny * ny;
+      float tz = -nz * ny;
+      float t_len_sq = tx * tx + ty * ty + tz * tz;
+      if (t_len_sq > 1e-12f) {
+        float inv_len = 1.0f / sqrtf(t_len_sq);
+        float ptx = tx * inv_len;
+        float pty = ty * inv_len;
+        float ptz = tz * inv_len;
+        float cx1 = (v1.y * ptz - v1.z * pty) * nx +
+                    (v1.z * ptx - v1.x * ptz) * ny +
+                    (v1.x * pty - v1.y * ptx) * nz;
+        float cx2 = (pty * v2.z - ptz * v2.y) * nx +
+                    (ptz * v2.x - ptx * v2.z) * ny +
+                    (ptx * v2.y - pty * v2.x) * nz;
+        if (cx1 > 0 && cx2 > 0) {
+          float phi_top = fast_acos(hs::clamp(pty, -1.0f, 1.0f));
+          if (phi_top < min_phi)
+            min_phi = phi_top;
+        }
+        if (cx1 < 0 && cx2 < 0) {
+          float phi_bot = fast_acos(hs::clamp(-pty, -1.0f, 1.0f));
+          if (phi_bot > max_phi)
+            max_phi = phi_bot;
+        }
+      }
+    }
+  }
+
+  /**
+   * @brief Snaps phi bounds to a pole when the face's planes enclose it.
+   * @param scratch Scratch storage holding the compacted great-circle planes.
+   * @param planes_count Number of valid planes.
+   * @param center Normalized face centroid.
+   * @param min_phi In/out phi minimum, set to 0 if the north pole is enclosed.
+   * @param max_phi In/out phi maximum, set to PI if the south pole is enclosed.
+   */
+  static __attribute__((always_inline)) void
+  snap_phi_for_pole_planes(const FaceScratchBuffer &scratch, int planes_count,
+                           const Vector &center, float &min_phi,
+                           float &max_phi) {
+    bool np_inside = (planes_count > 0);
+    bool sp_inside = (planes_count > 0);
+    for (int pi = 0; pi < planes_count; ++pi) {
+      float center_side = dot(center, scratch.planes[pi]);
+      if ((scratch.planes[pi].y > 0) != (center_side > 0))
+        np_inside = false;
+      if ((-scratch.planes[pi].y > 0) != (center_side > 0))
+        sp_inside = false;
+    }
+    if (np_inside)
+      min_phi = 0.0f;
+    if (sp_inside)
+      max_phi = PI_F;
+  }
+
+  /**
    * @brief Full-path vertical bounds (arc extrema + pole containment) for large faces.
    * @param scratch Scratch storage receiving edge data, planes, and thetas.
    * @param vertices Shared vertex pool.
@@ -1902,58 +1977,15 @@ struct Face {
       if (phi_val > max_phi)
         max_phi = phi_val;
       // Arc Extrema Logic
-      if (planes_count > 0) {
-        const Vector &n = scratch.planes[planes_count - 1];
-        float ny = n.y;
-        if (std::abs(ny) < 0.99999f) {
-          float nx = n.x;
-          float nz = n.z;
-          float tx = -nx * ny;
-          float ty = 1.0f - ny * ny;
-          float tz = -nz * ny;
-          float t_len_sq = tx * tx + ty * ty + tz * tz;
-          if (t_len_sq > 1e-12f) {
-            float inv_len = 1.0f / sqrtf(t_len_sq);
-            float ptx = tx * inv_len;
-            float pty = ty * inv_len;
-            float ptz = tz * inv_len;
-            float cx1 = (v1.y * ptz - v1.z * pty) * nx +
-                        (v1.z * ptx - v1.x * ptz) * ny +
-                        (v1.x * pty - v1.y * ptx) * nz;
-            float cx2 = (pty * v2.z - ptz * v2.y) * nx +
-                        (ptz * v2.x - ptx * v2.z) * ny +
-                        (ptx * v2.y - pty * v2.x) * nz;
-            if (cx1 > 0 && cx2 > 0) {
-              float phi_top = fast_acos(hs::clamp(pty, -1.0f, 1.0f));
-              if (phi_top < min_phi)
-                min_phi = phi_top;
-            }
-            if (cx1 < 0 && cx2 < 0) {
-              float phi_bot = fast_acos(hs::clamp(-pty, -1.0f, 1.0f));
-              if (phi_bot > max_phi)
-                max_phi = phi_bot;
-            }
-          }
-        }
-      }
+      if (planes_count > 0)
+        refine_phi_from_arc_extremum(scratch.planes[planes_count - 1], v1, v2,
+                                     min_phi, max_phi);
       float theta = fast_atan2(v1.z, v1.x);
       if (theta < 0)
         theta += 2 * PI_F;
       scratch.thetas[i] = theta;
     }
-    bool np_inside = (planes_count > 0);
-    bool sp_inside = (planes_count > 0);
-    for (int pi = 0; pi < planes_count; ++pi) {
-      float center_side = dot(center, scratch.planes[pi]);
-      if ((scratch.planes[pi].y > 0) != (center_side > 0))
-        np_inside = false;
-      if ((-scratch.planes[pi].y > 0) != (center_side > 0))
-        sp_inside = false;
-    }
-    if (np_inside)
-      min_phi = 0.0f;
-    if (sp_inside)
-      max_phi = PI_F;
+    snap_phi_for_pole_planes(scratch, planes_count, center, min_phi, max_phi);
     float margin = thickness + BOUNDS_MARGIN;
     Bounds rows =
         phi_bounds_to_rows(min_phi - margin, max_phi + margin, h_virt, height);
