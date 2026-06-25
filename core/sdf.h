@@ -684,6 +684,21 @@ struct DistortedRing {
     float ang_max = std::min(PI_F, target_angle + max_thickness);
     cos_max_limit = cosf(ang_min);
     cos_min_limit = cosf(ang_max);
+
+#ifndef NDEBUG
+    // max_distortion is a load-bearing upper bound on |shift_fn| (see @param md):
+    // an underestimate silently culls genuine arcs. Sample-and-trap on the debug
+    // host — a one-sided check (never false-positives; a coarse grid can still
+    // miss a sharp peak). Device builds compile this out, so the per-frame
+    // construction path pays nothing.
+    constexpr int kBoundSamples = 256;
+    float worst = 0.0f;
+    for (int i = 0; i < kBoundSamples; ++i)
+      worst = std::max(worst,
+                       std::abs(shift_fn(static_cast<float>(i) / kBoundSamples)));
+    HS_CHECK(worst <= max_distortion * 1.001f + 1e-4f,
+             "DistortedRing max_distortion underestimates |shift_fn|");
+#endif
   }
 
   /**
