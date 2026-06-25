@@ -523,6 +523,15 @@ struct BZWhiteBox {
                    const uint8_t *cC, uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     bz.step_physics(cA, cB, cC, nA, nB, nC);
   }
+  static void set_state(BZ &bz, uint8_t *A, uint8_t *B, uint8_t *C) {
+    bz.state.A = A;
+    bz.state.B = B;
+    bz.state.C = C;
+  }
+  static void advance_substeps(BZ &bz, int steps, uint8_t *sA, uint8_t *sB,
+                               uint8_t *sC) {
+    bz.advance_substeps(steps, sA, sB, sC);
+  }
 };
 
 /**
@@ -658,6 +667,42 @@ inline void test_bz_substep_diffuses() {
       ++spread;
   }
   HS_EXPECT_GT(spread, 0); // A diffused into at least one empty neighbor
+}
+
+/**
+ * @brief Verifies an odd substep count lands the final generation back in the
+ *        persistent state buffers.
+ * @details render() ping-pongs between the persistent state and scratch, then
+ *          copies back only when the final generation ended up in scratch — the
+ *          parity copy-back, which the even production STEPS_PER_FRAME never
+ *          exercises. Drive a single (odd) substep on a seeded field: the
+ *          diffused result must appear in the persistent A buffer (not just the
+ *          scratch one), so a missing copy-back leaves the neighbors empty and
+ *          fails here.
+ */
+inline void test_bz_odd_substep_lands_in_state() {
+  std::vector<uint8_t> A(BZWhiteBox::N, 0), B(BZWhiteBox::N, 0),
+      C(BZWhiteBox::N, 0);
+  std::vector<uint8_t> sA(BZWhiteBox::N, 0), sB(BZWhiteBox::N, 0),
+      sC(BZWhiteBox::N, 0);
+  const int seed = 4000; // interior lattice node with a full neighbor ring
+  A[seed] = 255;
+
+  BZWhiteBox::BZ bz;
+  BZWhiteBox::set_params(bz, 3.0f, 0.05f, 0.35f);
+  BZWhiteBox::set_state(bz, A.data(), B.data(), C.data());
+
+  // One (odd) substep: the result must be copied back into A, not stranded in sA.
+  BZWhiteBox::advance_substeps(bz, 1, sA.data(), sB.data(), sC.data());
+
+  HS_EXPECT_GT((int)A[seed], 0); // seed decayed in place, landed back in A
+  int spread = 0;
+  for (int k = 0; k < ReactionGraph::RD_K; ++k) {
+    int nb = ReactionGraph::neighbors[seed][k];
+    if (nb >= 0 && A[nb] > 0)
+      ++spread;
+  }
+  HS_EXPECT_GT(spread, 0); // diffusion landed in the persistent buffer
 }
 
 // ---------------------------------------------------------------------------
@@ -971,6 +1016,7 @@ inline int run_effects_tests() {
   test_bz_advance_species_signs_and_clamp();
   test_bz_perturb_state_saturates_and_nudges();
   test_bz_substep_diffuses();
+  test_bz_odd_substep_lands_in_state();
   test_dreamballs_preset_cycle_bookkeeping();
   test_dreamballs_respawn_fires_and_honors_pause();
   CometsWhiteBox::check_paths_close();
