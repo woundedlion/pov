@@ -338,6 +338,35 @@ private:
   }
 
   /**
+   * @brief Runs `steps` ping-ponged physics substeps and lands the final
+   *        generation back in the persistent state.
+   * @param steps Number of physics substeps to advance.
+   * @param sA Scratch buffer A for the ping-pong (RD_N bytes).
+   * @param sB Scratch buffer B for the ping-pong (RD_N bytes).
+   * @param sC Scratch buffer C for the ping-pong (RD_N bytes).
+   * @details Pure double-buffered: ping-pongs between the persistent state and
+   *          the scratch buffers. An odd `steps` count leaves the final
+   *          generation in scratch, so it is copied back into the persistent
+   *          buffers before the caller's ScratchScope pops.
+   */
+  void advance_substeps(int steps, uint8_t *sA, uint8_t *sB, uint8_t *sC) {
+    uint8_t *curA = state.A, *curB = state.B, *curC = state.C;
+    uint8_t *nxtA = sA, *nxtB = sB, *nxtC = sC;
+    for (int k = 0; k < steps; k++) {
+      step_physics(curA, curB, curC, nxtA, nxtB, nxtC);
+      std::swap(curA, nxtA);
+      std::swap(curB, nxtB);
+      std::swap(curC, nxtC);
+    }
+
+    if (curA != state.A) {
+      std::memcpy(state.A, curA, RD_N);
+      std::memcpy(state.B, curB, RD_N);
+      std::memcpy(state.C, curC, RD_N);
+    }
+  }
+
+  /**
    * @brief Allocates scratch, advances the simulation, then rasterizes a frame.
    * @param canvas Destination canvas to draw into.
    * @details Runs STEPS_PER_FRAME ping-ponged physics substeps between the
@@ -352,22 +381,7 @@ private:
     uint8_t *sB = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sC = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
 
-    uint8_t *curA = state.A, *curB = state.B, *curC = state.C;
-    uint8_t *nxtA = sA, *nxtB = sB, *nxtC = sC;
-    for (int k = 0; k < STEPS_PER_FRAME; k++) {
-      step_physics(curA, curB, curC, nxtA, nxtB, nxtC);
-      std::swap(curA, nxtA);
-      std::swap(curB, nxtB);
-      std::swap(curC, nxtC);
-    }
-
-    // Land the final generation back in persistent state before the ScratchScope
-    // pops; an odd substep count leaves it in scratch, so copy it back.
-    if (curA != state.A) {
-      std::memcpy(state.A, curA, RD_N);
-      std::memcpy(state.B, curB, RD_N);
-      std::memcpy(state.C, curC, RD_N);
-    }
+    advance_substeps(STEPS_PER_FRAME, sA, sB, sC);
 
     const Color4 &ca = color_a;
     const Color4 &cb = color_b;
