@@ -105,7 +105,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 12. ✅ `core/FastNoiseLite_config.h` (2–3) — the comment claims the `FASTNOISELITE_ONLY_OPENSIMPLEX2` macro strips "Cellular, Perlin, ValueCubic, Value, OpenSimplex2S, fractal modes, and domain warp." The macro actually gates only the per-type switch and one warp-transform call; the lean binary comes from template DCE, and the fractal/domain-warp paths remain present. Restate the comment to distinguish macro-stripping from dead-code elimination.
 
-13. `effects/Dynamo.h` (212–240) — when a live Wipe-Dur change transiently inverts the `palette_boundaries` ordering, the band-scan early-return can select a stale palette for some directions for a few frames. In-bounds and self-healing (cosmetic, as the comment notes); make the scan robust to transient non-monotonicity or document it as accepted.
+13. ✅ `effects/Dynamo.h` (212–240) — when a live Wipe-Dur change transiently inverts the `palette_boundaries` ordering, the band-scan early-return can select a stale palette for some directions for a few frames. In-bounds and self-healing (cosmetic, as the comment notes); make the scan robust to transient non-monotonicity or document it as accepted.
 
 ### Priority 3 — Test, Tooling & Robustness Hardening
 

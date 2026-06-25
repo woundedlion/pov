@@ -208,7 +208,9 @@ public:
 
     // The scan assumes palette_boundaries is monotonically non-decreasing. A live
     // Wipe-Dur change can transiently invert that (newer, shorter wipe overtakes
-    // an older one) — cosmetic, self-heals as wipes drain, stays in bounds.
+    // an older one), so the early-return below can pick a stale palette for some
+    // directions for a few frames. Accepted: cosmetic, self-heals as wipes drain,
+    // stays in bounds — not worth the per-pixel cost of a non-monotonic scan.
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
       float boundary = palette_boundaries[i];
       auto lower_edge = boundary - blend_width;
