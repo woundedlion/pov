@@ -79,7 +79,7 @@ Items are numbered sequentially across all priority sections. Each cites the loc
 13. **`segment_controller.js:492` (daydream) — compositing seam is unguarded.** `composite()` validates the rect against display bounds but never asserts `r.quadW === x1-x0 && r.quadH === y1-y0`; a protocol drift would silently `subarray` a short/long compact buffer instead of trapping, unlike the fail-fast rigor elsewhere. *Fix:* assert the quad dimensions match the rect.
 14. **`effects/RingSpin.h:97,158` — `spawn_ring`'s `normal` parameter is effectively dead.** `init()` passes `Y_AXIS` for all four rings, so the per-ring great-circle-plane distinction is illusory; variety comes only from random-walk seeds. *Fix:* pass distinct axes if planes were intended, or drop the parameter.
 15. ✅ **`effects/ShapeShifter.h:48,127` — "Count" slider range exceeds the render cap.** The slider goes to 128 but `drawAll` caps rings at `kMaxRings = H` (20 at 96×20), so the slider's upper ~84% is inert at the hardware resolution. *Fix:* track `H` in the registered max, or document the cap.
-16. **`core/led.h:80-119` — correction-guard nesting contract is mis-described.** `NoColorCorrection` and `NoTempCorrection` share one depth counter, so *any* two live guards (even of different types) trap, but the contract comment says only "do not nest." *Fix:* clarify that at most one correction guard may be live at a time.
+16. ✅ **`core/led.h:80-119` — correction-guard nesting contract is mis-described.** `NoColorCorrection` and `NoTempCorrection` share one depth counter, so *any* two live guards (even of different types) trap, but the contract comment says only "do not nest." *Fix:* clarify that at most one correction guard may be live at a time.
 
 ### Informational / Polish
 
