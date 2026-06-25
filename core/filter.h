@@ -419,10 +419,13 @@ public:
    * @param color Source color, forwarded unchanged.
    * @param age Incoming age (frames); offset by the fractional (1 - t) per tween step.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
    */
+  template <typename PassFnT>
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            PassFn3D pass) {
+            PassFnT &&pass) {
     tween(orientation, [&](const Quaternion &q, float t) {
       pass(rotate(v, q), color, age + (1.0f - t), alpha);
     });
@@ -453,11 +456,14 @@ public:
    * @param color Source color, forwarded unchanged.
    * @param age Incoming age (frames); offset by fractional (1 - t) per tween step.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
    * @details Passes through untouched when disabled or the orientation list is empty.
    */
+  template <typename PassFnT>
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            PassFn3D pass) {
+            PassFnT &&pass) {
     if (!enabled) {
       pass(v, color, age, alpha);
       return;
@@ -524,10 +530,13 @@ public:
    * @param color Source color; scaled by a quintic falloff inside the radius.
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
    */
+  template <typename PassFnT>
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            PassFn3D pass) {
+            PassFnT &&pass) {
     const Vector &o = origin;
     float d = angle_between(v, o);
     if (d > radius)
@@ -571,10 +580,13 @@ public:
    * @param color Source color, forwarded unchanged to every copy.
    * @param age Temporal age channel (frames), shared by every copy.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
    */
+  template <typename PassFnT>
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            PassFn3D pass) {
+            PassFnT &&pass) {
     Vector r = v;
     pass(r, color, age, alpha);
     for (int i = 1; i < count; i++) {
@@ -612,10 +624,13 @@ public:
    * @param color Source color, forwarded unchanged to every copy.
    * @param age Temporal age channel (frames), shared by every copy.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
    */
+  template <typename PassFnT>
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            PassFn3D pass) {
+            PassFnT &&pass) {
     for (int i = 0; i < N; ++i) {
       pass(rotate(v, rotations[i]), color, age, alpha);
     }
@@ -641,10 +656,13 @@ public:
    * @param color Source color, forwarded unchanged.
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
    */
+  template <typename PassFnT>
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            PassFn3D pass) {
+            PassFnT &&pass) {
     pass(inv_stereo(mobius(stereo(v), params)), color, age, alpha);
   }
 
@@ -706,10 +724,13 @@ public:
    * @param color Source color, forwarded unchanged this frame.
    * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
    */
+  template <typename PassFnT>
   void plot(const Vector &v, const Pixel &color, float age, float alpha,
-            PassFn3D pass) {
+            PassFnT &&pass) {
     pass(v, color, age, alpha);
 
     // round, not truncate (ttl is an integer byte)
@@ -723,9 +744,12 @@ public:
    * @brief Ages every buffered point one frame and re-emits the survivors.
    * @param trailFn Callback producing trail color/alpha from (point, t).
    * @param alpha Global blend alpha in [0, 1].
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
    */
-  void flush(const WorldTrailFn &trailFn, float alpha, PassFn3D pass) {
+  template <typename PassFnT>
+  void flush(const WorldTrailFn &trailFn, float alpha, PassFnT &&pass) {
     for (size_t i = 0; i < count_; ++i) {
       auto &item = at(i);
       if (item.ttl > 0)
@@ -927,10 +951,13 @@ public:
    * @param color Source color, forwarded unchanged this frame.
    * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
    * @param alpha Blend alpha in [0, 1]; samples with alpha <= 0.001 are dropped.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
    */
+  template <typename PassFnT>
   void plot(float x, float y, const Pixel &color, float age, float alpha,
-            PassFn2D pass) {
+            PassFnT &&pass) {
     if (alpha <= 0.001f)
       return;
 
@@ -946,12 +973,15 @@ public:
    * @brief Re-emits each buffered trail point colored by @p trailFn.
    * @param trailFn Callback producing trail color/alpha from (x, y, t).
    * @param alpha Global blend alpha in [0, 1].
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
    * @details The unused Canvas parameter satisfies the 2D flush signature; ages
    * all points one frame via decay() after emission.
    */
+  template <typename PassFnT>
   void flush(Canvas &, const ScreenTrailFn &trailFn, float alpha,
-             PassFn2D pass) {
+             PassFnT &&pass) {
     for (int i = 0; i < num_pixels; ++i) {
       float t = hs::clamp(1.0f - (points_[i].ttl / lifetime), 0.0f, 1.0f);
       Color4 color = trailFn(points_[i].x, points_[i].y, t);
@@ -1023,10 +1053,13 @@ public:
    * @param color Source color, forwarded to each tap.
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1]; scaled per tap by its kernel weight.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
    */
+  template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
-            PassFn2D pass) {
+            PassFnT &&pass) {
     int cx = static_cast<int>(std::round(x));
     int cy = static_cast<int>(std::round(y));
 
@@ -1105,10 +1138,13 @@ public:
    * @param color Source color, forwarded unchanged.
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
    */
+  template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
-            PassFn2D pass) {
+            PassFnT &&pass) {
     pass(x, y, color, age, alpha);
   }
 
@@ -1339,10 +1375,13 @@ public:
    * @param c Source color; split into single-channel copies.
    * @param age Temporal age channel (frames), forwarded unchanged.
    * @param alpha Blend alpha in [0, 1], forwarded unchanged.
+   * @tparam PassFnT Downstream callback type; a forwarding reference so the
+   * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
    */
+  template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &c, float age, float alpha,
-            PassFn2D pass) {
+            PassFnT &&pass) {
     assert(age >= 0.0f && alpha >= 0.0f);
     pass(x, y, c, age, alpha);
 
