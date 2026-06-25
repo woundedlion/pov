@@ -347,9 +347,11 @@ inline float fast_atan2(float y, float x) {
  * @return An approximation of the cube root of `x`.
  * @details Bit-hack initial guess (divide the float exponent by three) refined
  * by ONE Halley step (cubic convergence). Peak relative error ~2.3e-5 measured
- * against cbrtf over [0,8] — vs ~1e-3 for a single Newton step — for ~2 extra
- * multiplies and the same single division. Avoids the ~100-200-cycle soft-float
- * cbrtf in the per-pixel OKLab hue path (see hue_rotate).
+ * against cbrtf for x >= 1e-6 — vs ~1e-3 for a single Newton step — for ~2 extra
+ * multiplies and the same single division; the bit-hack seed degrades in the
+ * denormal/tiny-normal tail, far below the inputs this serves. Avoids the
+ * ~100-200-cycle soft-float cbrtf in the per-pixel OKLab hue path (see
+ * hue_rotate).
  */
 inline float fast_cbrt(float x) {
   if (x <= 0.0f)
