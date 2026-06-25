@@ -57,9 +57,11 @@ using MergedIntervalBuffer =
     StaticCircularBuffer<std::pair<float, float>, 2 * kIntervalSpanCap>;
 
 // Forward-declared so the span-count trait below can pattern-match the binary
-// CSG union ops (defined later in this header) before their full definitions.
+// CSG ops (defined later in this header) before their full definitions.
 template <typename A, typename B> struct Union;
 template <typename A, typename B> struct SmoothUnion;
+template <typename A, typename B> struct Subtract;
+template <typename A, typename B> struct Intersection;
 
 /** Compile-time upper bound on the number of scanline spans a shape may emit to
  *  its parent in one row. A leaf shape is capped at kIntervalSpanCap by its own
@@ -79,6 +81,22 @@ template <typename A, typename B> struct sdf_max_spans<Union<A, B>> {
 template <typename A, typename B> struct sdf_max_spans<SmoothUnion<A, B>> {
   static constexpr size_t value =
       sdf_max_spans<A>::value + sdf_max_spans<B>::value;
+};
+// Intersection merge-sweeps the two start-sorted child lists, emitting at most
+// one span per advance and advancing |A|+|B| times total, so its output is
+// bounded by the sum of the children's span counts.
+template <typename A, typename B> struct sdf_max_spans<Intersection<A, B>> {
+  static constexpr size_t value =
+      sdf_max_spans<A>::value + sdf_max_spans<B>::value;
+};
+// Subtract seam-splits each child into a [0, W) frame before differencing. Only
+// the single span containing θ=0 can split, so each child grows by at most one
+// (norm_a <= |A|+1, norm_b <= |B|+1). The set difference splits an A span once
+// per B span that falls inside it, and the B spans are disjoint, so the total
+// output is bounded by |norm_a| + |norm_b| = |A| + |B| + 2.
+template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
+  static constexpr size_t value =
+      sdf_max_spans<A>::value + sdf_max_spans<B>::value + 2;
 };
 
 /**
@@ -1054,6 +1072,13 @@ template <typename A, typename B> struct Subtract {
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Subtract children must be SDF shapes "
                 "(is_solid/thickness)");
+  // Each child is collected into an IntervalBuffer (cap kIntervalSpanCap) before
+  // differencing, so a child that could emit more spans must be rejected at
+  // compile time rather than trapping in push_interval at runtime.
+  static_assert(sdf_max_spans<A>::value <= kIntervalSpanCap &&
+                    sdf_max_spans<B>::value <= kIntervalSpanCap,
+                "nested CSG Subtract child exceeds IntervalBuffer capacity; "
+                "flatten the nesting or raise kIntervalSpanCap");
 
   /**
    * @brief Builds a subtraction (shape_a minus shape_b).
@@ -1226,6 +1251,13 @@ template <typename A, typename B> struct Intersection {
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Intersection children must be SDF shapes "
                 "(is_solid/thickness)");
+  // Each child is collected into an IntervalBuffer (cap kIntervalSpanCap) before
+  // the merge-sweep, so a child that could emit more spans must be rejected at
+  // compile time rather than trapping in push_interval at runtime.
+  static_assert(sdf_max_spans<A>::value <= kIntervalSpanCap &&
+                    sdf_max_spans<B>::value <= kIntervalSpanCap,
+                "nested CSG Intersection child exceeds IntervalBuffer capacity; "
+                "flatten the nesting or raise kIntervalSpanCap");
 
   /**
    * @brief Builds an intersection of two child shapes.
