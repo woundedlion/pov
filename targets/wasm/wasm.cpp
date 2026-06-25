@@ -10,7 +10,8 @@
 #include "effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
 #include "core/effect_registry.h"
 #include "platform.h"
-#include "targets/wasm/param_marshal.h" // pure, host-tested param marshaling
+#include "targets/wasm/param_marshal.h"    // pure, host-tested param marshaling
+#include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
 #include <string_view>
 #include <cstring>
 #include <cstdlib> // std::malloc for the lazily-allocated tooling arenas
@@ -384,8 +385,8 @@ public:
       return false;
     // Reject malformed bounds from the untyped JS boundary (negatives would feed
     // ClipRegion's modulo arithmetic); reject-and-return, never trap.
-    if (!(x0 >= 0 && y0 >= 0 && x0 <= x1 && x1 <= pixel_width && y0 <= y1 &&
-          y1 <= pixel_height)) {
+    if (!hs_wasm::clip_bounds_valid(x0, x1, y0, y1, pixel_width,
+                                    pixel_height)) {
       hs::log("WASM: setClip bounds out of range (x0=%d,x1=%d,y0=%d,y1=%d) — "
               "ignored",
               x0, x1, y0, y1);
@@ -973,13 +974,11 @@ struct MeshOpsWrapper {
    *          trusted.
    */
   std::unique_ptr<MeshOpsWrapper> relax(int iterations) const {
-    if (iterations < 0)
-      iterations = 0;
-    if (iterations > kMaxRelaxIterations) {
+    int clamped = hs_wasm::clamp_relax_iterations(iterations, kMaxRelaxIterations);
+    if (clamped != iterations)
       hs::log("WASM: MeshOps::relax clamped %d iterations to %d", iterations,
-              kMaxRelaxIterations);
-      iterations = kMaxRelaxIterations;
-    }
+              clamped);
+    iterations = clamped;
     return apply([iterations](const PolyMesh &m, Arena &a, Arena &b) {
       return MeshOps::relax(m, a, b, iterations);
     });

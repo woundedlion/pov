@@ -97,7 +97,8 @@ set(_hs_test_modules
     3dmath concepts memory spatial scb sdf conway hankin geometry mesh solids
     reaction_graph color easing_waves platform filter plot_scan canvas
     scan mesh_raster transformers generators animation effects hd107s
-    pov_segmented pov_single pov_sync param_marshal util presets styles death)
+    pov_segmented pov_single pov_sync param_marshal wasm_predicates util
+    presets styles death)
 foreach(_mod IN LISTS _hs_test_modules)
     add_test(NAME unit_${_mod} COMMAND run_tests ${_mod})
 endforeach()

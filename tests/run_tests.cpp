@@ -37,6 +37,7 @@
 #include "tests/test_pov_single.h"
 #include "tests/test_pov_sync.h"
 #include "tests/test_param_marshal.h"
+#include "tests/test_wasm_predicates.h"
 #include "tests/test_util.h"
 #include "tests/test_presets.h"
 #include "tests/test_styles.h"
@@ -89,6 +90,8 @@ struct TestModule {
   X("pov_single", hs_test::pov_single_tests::run_pov_single_tests)            \
   X("pov_sync", hs_test::pov_sync_tests::run_pov_sync_tests)                   \
   X("param_marshal", hs_test::param_marshal_tests::run_param_marshal_tests)    \
+  X("wasm_predicates",                                                         \
+    hs_test::wasm_predicates_tests::run_wasm_predicates_tests)                 \
   X("util", hs_test::util_tests::run_util_tests)                               \
   X("presets", hs_test::presets_tests::run_presets_tests)                      \
   X("styles", hs_test::styles_tests::run_styles_tests)                         \
