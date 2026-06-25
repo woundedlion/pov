@@ -70,6 +70,9 @@ public:
    */
   void init() {
     HS_CHECK(!initialized_, "TeensySPIDMA::init() called twice");
+    HS_CHECK(instance_ == nullptr,
+             "TeensySPIDMA: only one instance supported (shared DMA-completion "
+             "ISR singleton)");
     initialized_ = true;
     instance_ = this;
 
@@ -213,7 +216,8 @@ private:
   bool initialized_ = false;
 
   /**
-   * @brief Singleton pointer for ISR callback dispatch.
+   * @brief Singleton pointer for ISR callback dispatch. Exactly one
+   *        TeensySPIDMA per image; init() traps on a second instance.
    *
    * Thread-safety: Safe under the single-core Cortex-M7 ISR preemption model.
    * Only written once from setup() (before interrupts that use it) and read

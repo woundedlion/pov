@@ -87,7 +87,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 4. `core/sdf.h` (≈683–719) — `DistortedRing`'s load-bearing `max_distortion` bound is verified only by a 256-sample sweep under `#ifndef NDEBUG`, so on the device an under-estimate silently culls genuine arcs with no trap. Add an always-on guard (or a coarser device-side bound check) consistent with the fail-fast doctrine for output-affecting preconditions.
 
-5. `hardware/dma_led.h` (≈71–93, 173–178, 224–227) — `init()` unconditionally sets a file-static `instance_` and the DMA completion ISR dispatches solely through it; the single-init guard is per-instance, so a second `TeensySPIDMA` would silently clobber the shared pointer and cross-wire both double-buffer state machines. Add a global second-instance trap (or document "exactly one per image" with an `HS_CHECK`).
+5. ✅ `hardware/dma_led.h` (≈71–93, 173–178, 224–227) — `init()` unconditionally sets a file-static `instance_` and the DMA completion ISR dispatches solely through it; the single-init guard is per-instance, so a second `TeensySPIDMA` would silently clobber the shared pointer and cross-wire both double-buffer state machines. Add a global second-instance trap (or document "exactly one per image" with an `HS_CHECK`).
 
 6. `targets/wasm/wasm.cpp` (775) — `check_live()` concatenates its diagnostic message into the `HS_CHECK` *condition* with `&&` instead of passing it as the message argument; the trap still fires but `check_fail` receives an empty message and a noisy stringized condition. Move the string to the second argument, matching every other call site.
 
