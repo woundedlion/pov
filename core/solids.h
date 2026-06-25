@@ -1039,10 +1039,13 @@ struct Entry {
 };
 
 /**
- * @brief Registry of Platonic and Archimedean solids.
+ * @brief Registry of the Platonic solids and 11 of the 13 Archimedean solids.
  * @details Order is load-bearing:
  * Collections::get_platonic/archimedean_solids() slice this array by fixed
- * offsets (Platonic 0-4, Archimedean 5-15).
+ * offsets (Platonic 0-4, Archimedean 5-15). truncatedIcosidodecahedron and
+ * snubDodecahedron are intentionally omitted — the two highest-face-count
+ * Archimedean solids serve only as Catalan/Islamic pattern bases and are never
+ * cycled as simple solids.
  */
 inline constexpr Entry simple_registry[] = {
 
@@ -1194,8 +1197,10 @@ inline std::span<const Entry> get_platonic_solids() {
   return std::span<const Entry>(simple_registry, PLATONIC_COUNT);
 }
 /**
- * @brief Returns the Archimedean solids.
- * @return Span over the Archimedean entries (offset 5, count 11) of simple_registry.
+ * @brief Returns the 11 Archimedean solids carried by simple_registry.
+ * @return Span over the Archimedean entries (offset 5, count 11) of
+ * simple_registry. Excludes truncatedIcosidodecahedron and snubDodecahedron
+ * (the two highest-complexity Archimedean solids, used only as pattern bases).
  */
 inline std::span<const Entry> get_archimedean_solids() {
   return std::span<const Entry>(simple_registry + PLATONIC_COUNT,
