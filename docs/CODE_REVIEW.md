@@ -121,7 +121,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 19. ✅ `daydream/tools/solid_codegen.js` (88–125) — a parameterized op (`truncate`/`expand`/`chamfer`/`hankin`/`bevel`/`relax`) passed as a bare string (which the `string|object` contract permits) dereferences `o.params.t` and throws an opaque `TypeError` instead of the file's own descriptive validation message. Either narrow the contract or guard `o.params` with a clear throw.
 
-20. `daydream/tools/shared.js` (161–167, 111) — `defaultResize` computes `camera.aspect = w/h` from `container.clientHeight`; a collapsed/hidden container reporting height 0 yields `Infinity` and a non-finite projection matrix. Add a `Math.max(1, h)` guard.
+20. ✅ `daydream/tools/shared.js` (161–167, 111) — `defaultResize` computes `camera.aspect = w/h` from `container.clientHeight`; a collapsed/hidden container reporting height 0 yields `Infinity` and a non-finite projection matrix. Add a `Math.max(1, h)` guard.
 
 21. `daydream/tests/segment_worker.test.js` (92–97) — `dispatch()` drains the worker's serialized queue by awaiting `setImmediate` exactly 4 times rather than the actual queue promise; brittle coupling to the implementation's current await depth that could under-drain if one more await is added. Await the real settle signal.
 
