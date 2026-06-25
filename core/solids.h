@@ -1039,13 +1039,10 @@ struct Entry {
 };
 
 /**
- * @brief Registry of the Platonic solids and 11 of the 13 Archimedean solids.
+ * @brief Registry of the Platonic and the 13 Archimedean solids.
  * @details Order is load-bearing:
  * Collections::get_platonic/archimedean_solids() slice this array by fixed
- * offsets (Platonic 0-4, Archimedean 5-15). truncatedIcosidodecahedron and
- * snubDodecahedron are intentionally omitted — the two highest-face-count
- * Archimedean solids serve only as Catalan/Islamic pattern bases and are never
- * cycled as simple solids.
+ * offsets (Platonic 0-4, Archimedean 5-17).
  */
 inline constexpr Entry simple_registry[] = {
 
@@ -1072,7 +1069,10 @@ inline constexpr Entry simple_registry[] = {
     {"truncatedIcosahedron", Archimedean::truncatedIcosahedron,
      Category::Simple},
     {"rhombicosidodecahedron", Archimedean::rhombicosidodecahedron,
-     Category::Simple}};
+     Category::Simple},
+    {"truncatedIcosidodecahedron", Archimedean::truncatedIcosidodecahedron,
+     Category::Simple},
+    {"snubDodecahedron", Archimedean::snubDodecahedron, Category::Simple}};
 
 /**
  * @brief Registry of Catalan solids (duals of the Archimedean solids).
@@ -1180,10 +1180,10 @@ inline constexpr int NUM_ENTRIES =
 // simple_registry is laid out as [Platonic | Archimedean]. The Collections
 // slices below derive their offsets/counts from these named constants, and the
 // static_assert cross-checks that the two spans exactly tile the registry — so a
-// boundary move that keeps the total at 16 is a compile error, not a silent
+// boundary move that keeps the total at 18 is a compile error, not a silent
 // mis-slice.
 inline constexpr size_t PLATONIC_COUNT = 5;
-inline constexpr size_t ARCHIMEDEAN_COUNT = 11;
+inline constexpr size_t ARCHIMEDEAN_COUNT = 13;
 static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT == std::size(simple_registry),
               "PLATONIC_COUNT + ARCHIMEDEAN_COUNT must equal simple_registry "
               "size; update the counts if the registry layout changes");
@@ -1197,10 +1197,9 @@ inline std::span<const Entry> get_platonic_solids() {
   return std::span<const Entry>(simple_registry, PLATONIC_COUNT);
 }
 /**
- * @brief Returns the 11 Archimedean solids carried by simple_registry.
- * @return Span over the Archimedean entries (offset 5, count 11) of
- * simple_registry. Excludes truncatedIcosidodecahedron and snubDodecahedron
- * (the two highest-complexity Archimedean solids, used only as pattern bases).
+ * @brief Returns the 13 Archimedean solids.
+ * @return Span over the Archimedean entries (offset 5, count 13) of
+ * simple_registry.
  */
 inline std::span<const Entry> get_archimedean_solids() {
   return std::span<const Entry>(simple_registry + PLATONIC_COUNT,
