@@ -285,6 +285,21 @@ struct DistanceResult {
 };
 
 /**
+ * @brief Structural fingerprint shared by every SDF leaf and CSG combinator:
+ * a static is_solid flag and an AA-falloff thickness.
+ * @tparam T Candidate shape type.
+ * @details The CSG combinators assert this on their children so a wrong-type
+ * argument fails at the boundary, not deep inside the combinator body. distance()
+ * and the scanline members vary by render path (the scanline-only test mocks omit
+ * distance()) and are not part of the shared contract.
+ */
+template <typename T>
+concept SDFShape = requires(const T &t) {
+  { T::is_solid } -> std::convertible_to<bool>;
+  { t.thickness } -> std::convertible_to<float>;
+};
+
+/**
  * @brief Emit the single horizontal interval where a row crosses a great-circle
  * "cap" of half-angle `acos(cos_cap)` centred on an axis whose projection onto
  * the scan plane is (ny, R_val, alpha_angle). Shared by PlanarPolygon /
@@ -804,6 +819,9 @@ template <typename A, typename B> struct Union {
   float thickness;    /**< Max child thickness (drives AA falloff). */
   static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the union keeps both interiors. */
 
+  static_assert(SDFShape<A> && SDFShape<B>,
+                "CSG Union children must be SDF shapes "
+                "(is_solid/thickness)");
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
                     2 * kIntervalSpanCap,
                 "nested CSG union exceeds MergedIntervalBuffer capacity; flatten "
@@ -904,6 +922,9 @@ template <typename A, typename B> struct SmoothUnion {
   float thickness;    /**< Max child thickness (drives AA falloff). */
   static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the smooth union keeps both interiors. */
 
+  static_assert(SDFShape<A> && SDFShape<B>,
+                "CSG SmoothUnion children must be SDF shapes "
+                "(is_solid/thickness)");
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
                     2 * kIntervalSpanCap,
                 "nested CSG smooth-union exceeds MergedIntervalBuffer capacity; "
@@ -1029,6 +1050,10 @@ template <typename A, typename B> struct Subtract {
   const B &b;      /**< Subtrahend shape (removed from A). */
   float thickness; /**< Inherited from the minuend A. */
   static constexpr bool is_solid = A::is_solid; /**< Tracks the minuend; carving B never changes A's solidity. */
+
+  static_assert(SDFShape<A> && SDFShape<B>,
+                "CSG Subtract children must be SDF shapes "
+                "(is_solid/thickness)");
 
   /**
    * @brief Builds a subtraction (shape_a minus shape_b).
@@ -1198,6 +1223,10 @@ template <typename A, typename B> struct Intersection {
   float thickness; /**< Min child thickness (drives AA falloff). */
   static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
+  static_assert(SDFShape<A> && SDFShape<B>,
+                "CSG Intersection children must be SDF shapes "
+                "(is_solid/thickness)");
+
   /**
    * @brief Builds an intersection of two child shapes.
    * @param shape_a First child shape.
@@ -1331,6 +1360,10 @@ template <typename Shape> struct AngularRepeat {
   int repetitions;    /**< Number of copies around the axis. */
   float thickness;    /**< Inherited from the child shape. */
   static constexpr bool is_solid = Shape::is_solid; /**< Matches the child's solidity. */
+
+  static_assert(SDFShape<Shape>,
+                "AngularRepeat child must be an SDF shape "
+                "(is_solid/thickness)");
 
   /**
    * @brief Repeats the shape around an arbitrary axis.
