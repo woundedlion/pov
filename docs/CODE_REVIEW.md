@@ -95,7 +95,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 ### Priority 2 — Contract & Documentation Accuracy
 
-8. `core/easing.h` (13–19) — the file-level convention block states every easing "neither clamps the input nor bounds the output," but `ease_in_circ`/`ease_out_circ` floor their radicand and `ease_out_expo`/`ease_out_elastic` pin their endpoints. Correct the contract text (the math is fine).
+8. ✅ `core/easing.h` (13–19) — the file-level convention block states every easing "neither clamps the input nor bounds the output," but `ease_in_circ`/`ease_out_circ` floor their radicand and `ease_out_expo`/`ease_out_elastic` pin their endpoints. Correct the contract text (the math is fine).
 
 9. `core/animation.h` (1682–1683, 1700–1703) — `ColorWipe`'s ctor doc says the start palette is "snapshot taken at t=0," but capture is lazy on the first `step()` (mirroring `Transition`). Reword to describe the actual first-step capture.
 
