@@ -45,8 +45,9 @@ public:
 
     baked_sunset.bake(persistent_arena, Palettes::richSunset);
 
-    // Persistent footprint ~105 KB fits the default partition (~303 KB) with no
-    // per-frame scratch, so keep the default split (no configure_arenas()).
+    // Whole footprint lives in the persistent arena with no per-frame scratch, so
+    // keep the default split (no configure_arenas()); kFootprintBytes asserts it
+    // fits the device default partition.
     fibers = static_cast<Vector *>(persistent_arena.allocate(
         ACTUAL_FIBERS * sizeof(Vector), alignof(Vector)));
 
@@ -114,6 +115,19 @@ private:
   static constexpr int RINGS = 15;
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
+
+  // Persistent allocations: palette LUT + one Vector and one trail per fiber.
+  static constexpr size_t kFootprintBytes =
+      BakedPalette::LUT_SIZE * sizeof(Color4) +
+      ACTUAL_FIBERS * sizeof(Vector) +
+      ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>);
+  // Effect keeps the default arena split, so the footprint must fit the device
+  // persistent partition. Guards a RINGS/PER_RING/TRAIL_LEN retune.
+  static constexpr size_t kPersistentBudget =
+      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+  static_assert(kFootprintBytes <= kPersistentBudget,
+                "HopfFibration persistent footprint exceeds the default "
+                "partition; retune RINGS/PER_RING/TRAIL_LEN or carve arenas");
 
   // Keeps the projection denominator (1 + eps) - q3 positive at the pole
   // (q3 == 1); only needed to keep the pre-normalize direction NaN-free, since
