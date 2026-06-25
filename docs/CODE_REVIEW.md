@@ -125,7 +125,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 21. ✅ `daydream/tests/segment_worker.test.js` (92–97) — `dispatch()` drains the worker's serialized queue by awaiting `setImmediate` exactly 4 times rather than the actual queue promise; brittle coupling to the implementation's current await depth that could under-drain if one more await is added. Await the real settle signal.
 
-22. `daydream/tests/segment_worker.test.js` (83–117) — `segment_worker.js` posts `{type:'booted'}` at module load as the contract the controller's boot watchdog depends on, but the worker suite never asserts it is emitted (the controller suite uses a `FakeWorker`). Add a direct assertion so a dropped/renamed ping is caught.
+22. ✅ `daydream/tests/segment_worker.test.js` (83–117) — `segment_worker.js` posts `{type:'booted'}` at module load as the contract the controller's boot watchdog depends on, but the worker suite never asserts it is emitted (the controller suite uses a `FakeWorker`). Add a direct assertion so a dropped/renamed ping is caught.
 
 23. `daydream/tests/clipboard.test.js` (34–48) — `mock.timers` is enabled in `beforeEach` but reset only at the end of the test body; an earlier assertion failure leaks the faked timers into the next suite. Move the reset into `afterEach`/`finally`, as the recorder/state/gui suites do.
 
