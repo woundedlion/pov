@@ -121,7 +121,37 @@ def clang_format(text):
     return result.stdout
 
 
+def check():
+    """Self-validate the tables: monotonicity and round-trip fidelity.
+
+    Both transfer functions are monotonic non-decreasing, so each table must be
+    too; a libm change that shifted a single entry would break this. The sRGB
+    round trip (byte -> linear -> byte) must return within +/-1 code. Returns the
+    number of failures (0 == pass).
+    """
+    fails = 0
+    fwd = srgb_to_linear_lut()
+    rev = linear_to_srgb_lut()
+    for name, table in (("srgb_to_linear_lut", fwd), ("linear_to_srgb_lut", rev)):
+        for i in range(1, len(table)):
+            if table[i] < table[i - 1]:
+                sys.stderr.write(
+                    f"generate_luts: {name} not monotonic at {i}: "
+                    f"{table[i - 1]} -> {table[i]}\n")
+                fails += 1
+    for s in range(SRGB_LEVELS):
+        rt = rev[fwd[s]]
+        if abs(rt - s) > 1:
+            sys.stderr.write(
+                f"generate_luts: round trip {s} -> {fwd[s]} -> {rt} "
+                f"exceeds +/-1 code\n")
+            fails += 1
+    return fails
+
+
 def main():
+    if "--check" in sys.argv[1:]:
+        sys.exit(1 if check() else 0)
     buf = StringIO()
     render(buf)
     text = buf.getvalue()
