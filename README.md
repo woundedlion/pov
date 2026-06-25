@@ -1601,7 +1601,7 @@ FastNoiseLite-driven flow field. Three independently offset 3D-noise channels fo
 
 #### Voronoi
 
-Spherical Voronoi diagram with animated seed positions. Cells are always filled with per-site palette colors (smoothly blended across the seam between the nearest two sites); an optional black border seam is painted between neighboring cells when **Border Thick** > 0 (off by default).
+Spherical Voronoi diagram with animated seed positions. Cells are always filled with per-site palette colors (blended across the seam between the nearest two sites); an optional black border seam is painted between neighboring cells when **Border Thick** > 0 (off by default).
 
 **Parameters**: Num Sites, Speed, Sharpness, Border Thick
 
