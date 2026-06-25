@@ -5,6 +5,7 @@
  */
 #pragma once
 #include "core/engine.h"
+#include "effects/aged_slot.h"
 
 // Forward declaration of the unit-test accessor (tests/test_effects.h) that
 // pins warp_decay's endpoint invariants; the smoke harness only proves the
@@ -85,7 +86,7 @@ public:
     // Expire finished thrusters from the front (FIFO: all share the same LIFE,
     // so the front always expires first).
     while (!thrusters.is_empty() &&
-           thrusters.front().age >= ThrusterContext::LIFE) {
+           thrusters.front().expired(ThrusterContext::LIFE)) {
       thrusters.pop();
     }
 
@@ -105,7 +106,7 @@ private:
    * @brief One spawned thruster ring aged frame-by-frame to drive growth/fade.
    * @details A point on the unit sphere with its own orientation snapshot.
    */
-  struct ThrusterContext {
+  struct ThrusterContext : AgedSlot {
     static constexpr int LIFE = 16; /**< Visible lifetime in frames. */
     /**
      * @brief Frames over which the ring radius grows from 0 to RADIUS_MAX.
@@ -117,7 +118,6 @@ private:
 
     Orientation<> orientation; /**< Orientation snapshot at spawn time. */
     Vector point;              /**< Thrust point on the unit sphere. */
-    int age = 0;               /**< Frames elapsed since spawn. */
 
     /**
      * @brief Reinitializes this slot for a freshly spawned thruster.
@@ -141,9 +141,7 @@ private:
      *          RADIUS_GROW_FRAMES frames.
      */
     float radius_at() const {
-      float t = hs::clamp(static_cast<float>(age + 1) / RADIUS_GROW_FRAMES,
-                          0.0f, 1.0f);
-      return RADIUS_MAX * ease_linear(t);
+      return AgedSlot::radius_at(RADIUS_MAX, RADIUS_GROW_FRAMES);
     }
   };
 
