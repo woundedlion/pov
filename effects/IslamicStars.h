@@ -199,7 +199,6 @@ private:
     // up sprites.
     int dur = static_cast<int>(params.duration);
     int fade = std::min(static_cast<int>(params.fade), dur / 2);
-    HS_CHECK(fade <= dur / 2 && dur - fade >= dur / 2);
     timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_linear, fade,
                                       ease_linear));
 
