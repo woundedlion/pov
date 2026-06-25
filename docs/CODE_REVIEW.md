@@ -101,7 +101,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 10. ✅ `core/animation.h` (871, 933) — `Transition`/`Mutation` forward an arbitrary `duration` to `AnimationBase`, which accepts the perpetual `-1`; their `step()` then clamps `t_norm` to 0 forever, silently freezing the value tween instead of rejecting a nonsensical configuration. Guard `duration >= 0` in these value-driving classes.
 
-11. `core/animation.h` (1319–1321) — `Motion`'s ctor path forwards `duration` without rejecting `-1`, so `path_fn(t/duration)` samples the path at negative/decreasing parameters. Apply the same guard as `set_duration()`.
+11. ✅ `core/animation.h` (1319–1321) — `Motion`'s ctor path forwards `duration` without rejecting `-1`, so `path_fn(t/duration)` samples the path at negative/decreasing parameters. Apply the same guard as `set_duration()`.
 
 12. `core/FastNoiseLite_config.h` (2–3) — the comment claims the `FASTNOISELITE_ONLY_OPENSIMPLEX2` macro strips "Cellular, Perlin, ValueCubic, Value, OpenSimplex2S, fractal modes, and domain warp." The macro actually gates only the per-type switch and one warp-transform call; the lean binary comes from template DCE, and the fractal/domain-warp paths remain present. Restate the comment to distinguish macro-stripping from dead-code elimination.
 

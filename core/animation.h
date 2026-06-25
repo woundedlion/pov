@@ -1259,7 +1259,11 @@ public:
       : AnimationBase<Motion<W, CAP>>(duration, repeat),
         orientation(orientation),
         path_fn([&path_obj](float t) { return path_obj.get_point(t); }),
-        space(space) {}
+        space(space) {
+    // Reject the perpetual -1 the base permits: step() samples path_fn(t/duration),
+    // so a -1 duration walks the path at negative, decreasing parameters.
+    HS_CHECK(duration >= 0, "Motion duration must be >= 0");
+  }
 
   // Borrow contract: path_fn captures &path_obj and reads it every frame, so the
   // path must outlive the timeline — reject a temporary at compile time.
