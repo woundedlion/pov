@@ -309,6 +309,9 @@ template <int H> inline float y_to_phi(float y) {
   }
   constexpr int H_VIRT = H + hs::H_OFFSET;
   static_assert(H_VIRT > 1, "phi<->y mapping degenerates when H_VIRT <= 1");
+  // Debug parity with the integer overload's range trap; device hot path stays
+  // unguarded (assert compiles out under NDEBUG).
+  assert(y >= 0.0f && y <= H_VIRT - 1);
   return (y * PI_F) / (H_VIRT - 1);
 }
 
