@@ -132,19 +132,23 @@ inline void fill_edge_record(HalfEdgePairRecord &rec, uint16_t u, uint16_t v,
  * @param records Array of half-edge pair records; sorted in place by edge key.
  * @param n Number of records in the array.
  * @param set_pair Callback linking the two half-edges of each interior edge.
- * @details Templated + inline, so it lowers to the same code as a hand-inlined
- * sort/scan — no call overhead on the cold mesh-build path; this only removes
- * the copy-paste between build_from_flat and classify_faces_by_topology. Traps
- * on a non-manifold edge (>2 half-edges sharing one undirected edge).
+ * @details The lambda-independent record sort is factored into the non-template
+ * sort_edge_records (one flash-resident copy shared by every caller); only the
+ * tiny pairing scan is templated + inlined per set_pair. Traps on a non-manifold
+ * edge (>2 half-edges sharing one undirected edge).
  */
+[[maybe_unused]] HS_COLD static void
+sort_edge_records(HalfEdgePairRecord *records, size_t n) {
+  std::sort(records, records + n,
+            [](const HalfEdgePairRecord &a, const HalfEdgePairRecord &b) {
+              if (a.min_v != b.min_v) return a.min_v < b.min_v;
+              return a.max_v < b.max_v;
+            });
+}
 template <typename SetPairFn>
 inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
                             SetPairFn set_pair) {
-  auto edge_less = [](const HalfEdgePairRecord &a, const HalfEdgePairRecord &b) {
-    if (a.min_v != b.min_v) return a.min_v < b.min_v;
-    return a.max_v < b.max_v;
-  };
-  std::sort(records, records + n, edge_less);
+  sort_edge_records(records, n);
 
   for (size_t i = 0; i < n;) {
     size_t j = i + 1;
@@ -188,6 +192,27 @@ template <typename T> struct FlatView {
   const T &operator[](size_t i) const { return ptr[i]; }
 };
 
+class HalfEdgeMesh;
+/**
+ * @brief Fills a HalfEdgeMesh's connectivity arrays from a flat (vertex count,
+ * per-face side counts, flat face-index list) representation.
+ * @param out Half-edge mesh whose arrays are bound and populated.
+ * @param arena Arena supplying storage for the half-edge arrays and scratch.
+ * @param num_verts Vertex count (positions themselves are not read here).
+ * @param counts Per-face side counts.
+ * @param num_faces Number of faces (length of @p counts).
+ * @param faces_arr Flat per-face vertex index list.
+ * @param total_indices Length of @p faces_arr.
+ * @details Emits one half-edge per face index, links each face's next/prev loop,
+ * then pairs opposite half-edges by undirected vertex key. Kept non-template so
+ * HS_COLD relocates the body to flash; the HalfEdgeMesh ctors are thin accessor
+ * adapters onto it. Traps on a 16-bit index overflow or a zero-side face.
+ */
+[[maybe_unused]] HS_COLD static void
+build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
+                     const uint8_t *counts, size_t num_faces,
+                     const uint16_t *faces_arr, size_t total_indices);
+
 /**
  * @brief Half-edge connectivity built from a flat face list, giving O(1)
  * adjacency (next/prev/pair) for traversal-based mesh operators.
@@ -204,7 +229,9 @@ public:
    * @param mesh Source mesh whose owned vertices/face_counts/faces are read.
    */
   explicit HalfEdgeMesh(Arena &arena, const PolyMesh &mesh) {
-    build_from_flat(arena, mesh.vertices, mesh.face_counts, mesh.faces);
+    build_half_edge_mesh(*this, arena, mesh.vertices.size(),
+                         mesh.get_face_counts_data(), mesh.get_face_counts_size(),
+                         mesh.get_faces_data(), mesh.get_faces_size());
   }
 
   /**
@@ -216,102 +243,82 @@ public:
    * owned and borrowed modes work.
    */
   explicit HalfEdgeMesh(Arena &arena, const MeshState &mesh) {
-    build_from_flat(
-        arena, mesh.vertices,
-        FlatView<uint8_t>{mesh.get_face_counts_data(),
-                          mesh.get_face_counts_size()},
-        FlatView<uint16_t>{mesh.get_faces_data(), mesh.get_faces_size()});
-  }
-
-private:
-  /**
-   * @brief Builds the half-edge structure from a flat (vertices, per-face side
-   * counts, face index list) representation.
-   * @tparam Verts Container of vertex positions (size()/operator[]).
-   * @tparam Counts Container of per-face side counts (size()/operator[]).
-   * @tparam Faces Container of the flat face vertex indices (size()/operator[]).
-   * @param arena Arena supplying storage for the half-edge arrays and scratch.
-   * @param verts Vertex positions; only its size() is used here.
-   * @param counts Per-face side counts.
-   * @param faces_arr Flat per-face vertex index list.
-   * @details Emits one half-edge per face index, links each face's next/prev
-   * loop, then pairs opposite half-edges by undirected vertex key. Templated
-   * over the container types so it accepts both owned ArenaVectors and borrowed
-   * FlatViews. Traps on a 16-bit index overflow or a zero-side face.
-   */
-  template <typename Verts, typename Counts, typename Faces>
-  void build_from_flat(Arena &arena, const Verts &verts, const Counts &counts,
-                       const Faces &faces_arr) {
-    size_t num_verts = verts.size();
-    size_t num_faces = counts.size();
-    size_t total_indices = faces_arr.size();
-
-    HS_CHECK(num_verts <= UINT16_MAX && total_indices <= UINT16_MAX,
-             "half-edge mesh exceeds 16-bit index range");
-
-    vertices.bind(arena, num_verts);
-    for (size_t i = 0; i < num_verts; ++i) {
-      vertices.push_back({HE_NONE});
-    }
-
-    faces.bind(arena, num_faces);
-    half_edges.bind(arena, total_indices);
-
-    size_t face_offset = 0;
-    size_t he_idx = 0;
-
-    {
-      ScratchScope arena_guard(arena);
-      HalfEdgePairRecord *records =
-          static_cast<HalfEdgePairRecord *>(arena.allocate(
-              total_indices * sizeof(HalfEdgePairRecord),
-              alignof(HalfEdgePairRecord)));
-
-      for (size_t fi = 0; fi < num_faces; ++fi) {
-        int count = counts[fi];
-
-        // A zero-count face emits no half-edges yet still gets its half_edge set
-        // below, mis-linking it to the next face. Only count==0 traps: compile()
-        // accepts 1-/2-side degenerate faces and strips them downstream.
-        HS_CHECK(count > 0, "half-edge mesh face has zero sides");
-
-        faces.emplace_back();
-        uint16_t current_face_idx = static_cast<uint16_t>(faces.size() - 1);
-        size_t face_start_he_idx = he_idx;
-
-        for (int i = 0; i < count; ++i) {
-          half_edges.emplace_back();
-        }
-
-        for (int i = 0; i < count; ++i) {
-          uint16_t u = faces_arr[face_offset + i];
-          uint16_t v = faces_arr[face_offset + (i + 1) % count];
-
-          uint16_t he_index = static_cast<uint16_t>(face_start_he_idx + i);
-          HalfEdge &he = half_edges[he_index];
-          he.vertex = v;
-          he.face = current_face_idx;
-          he.next = static_cast<uint16_t>(face_start_he_idx + (i + 1) % count);
-          he.prev =
-              static_cast<uint16_t>(face_start_he_idx + (i - 1 + count) % count);
-
-          vertices[v].half_edge = he_index;
-
-          fill_edge_record(records[he_idx], u, v, he_index);
-
-          he_idx++;
-        }
-        faces[current_face_idx].half_edge = static_cast<uint16_t>(face_start_he_idx);
-        face_offset += count;
-      }
-
-      pair_half_edges(records, total_indices, [&](uint16_t a, uint16_t b) {
-        half_edges[a].pair = b;
-        half_edges[b].pair = a;
-      });
-    }
+    build_half_edge_mesh(*this, arena, mesh.vertices.size(),
+                         mesh.get_face_counts_data(), mesh.get_face_counts_size(),
+                         mesh.get_faces_data(), mesh.get_faces_size());
   }
 };
+
+[[maybe_unused]] HS_COLD static void
+build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
+                     const uint8_t *counts, size_t num_faces,
+                     const uint16_t *faces_arr, size_t total_indices) {
+  HS_CHECK(num_verts <= UINT16_MAX && total_indices <= UINT16_MAX,
+           "half-edge mesh exceeds 16-bit index range");
+
+  out.vertices.bind(arena, num_verts);
+  for (size_t i = 0; i < num_verts; ++i) {
+    out.vertices.push_back({HE_NONE});
+  }
+
+  out.faces.bind(arena, num_faces);
+  out.half_edges.bind(arena, total_indices);
+
+  size_t face_offset = 0;
+  size_t he_idx = 0;
+
+  {
+    ScratchScope arena_guard(arena);
+    HalfEdgePairRecord *records =
+        static_cast<HalfEdgePairRecord *>(arena.allocate(
+            total_indices * sizeof(HalfEdgePairRecord),
+            alignof(HalfEdgePairRecord)));
+
+    for (size_t fi = 0; fi < num_faces; ++fi) {
+      int count = counts[fi];
+
+      // A zero-count face emits no half-edges yet still gets its half_edge set
+      // below, mis-linking it to the next face. Only count==0 traps: compile()
+      // accepts 1-/2-side degenerate faces and strips them downstream.
+      HS_CHECK(count > 0, "half-edge mesh face has zero sides");
+
+      out.faces.emplace_back();
+      uint16_t current_face_idx = static_cast<uint16_t>(out.faces.size() - 1);
+      size_t face_start_he_idx = he_idx;
+
+      for (int i = 0; i < count; ++i) {
+        out.half_edges.emplace_back();
+      }
+
+      for (int i = 0; i < count; ++i) {
+        uint16_t u = faces_arr[face_offset + i];
+        uint16_t v = faces_arr[face_offset + (i + 1) % count];
+
+        uint16_t he_index = static_cast<uint16_t>(face_start_he_idx + i);
+        HalfEdge &he = out.half_edges[he_index];
+        he.vertex = v;
+        he.face = current_face_idx;
+        he.next = static_cast<uint16_t>(face_start_he_idx + (i + 1) % count);
+        he.prev =
+            static_cast<uint16_t>(face_start_he_idx + (i - 1 + count) % count);
+
+        out.vertices[v].half_edge = he_index;
+
+        fill_edge_record(records[he_idx], u, v, he_index);
+
+        he_idx++;
+      }
+      out.faces[current_face_idx].half_edge =
+          static_cast<uint16_t>(face_start_he_idx);
+      face_offset += count;
+    }
+
+    pair_half_edges(records, total_indices, [&](uint16_t a, uint16_t b) {
+      out.half_edges[a].pair = b;
+      out.half_edges[b].pair = a;
+    });
+  }
+}
 
 namespace MeshOps {
 
@@ -485,9 +492,9 @@ static inline void hash_combine(uint32_t &seed, uint32_t v) {
  * the 16-bit index range.
  */
 template <typename MeshT>
-HS_COLD static void
-classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
-                           Arena &persistent) {
+__attribute__((always_inline)) inline void
+classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
+                    Arena &persistent) {
   ScratchScope scratch_a_guard(scratch_a);
 
   // Read topology through the unified accessors: a borrowed-mode MeshState
@@ -651,6 +658,19 @@ classify_faces_by_topology(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       mesh.topology[nodes[i].original_face] = current_id;
     }
   }
+}
+
+/** @brief Classifies a PolyMesh's faces by topology (see classify_faces_impl). */
+[[maybe_unused]] HS_COLD static void
+classify_faces_by_topology(PolyMesh &mesh, Arena &scratch_a, Arena &scratch_b,
+                           Arena &persistent) {
+  classify_faces_impl(mesh, scratch_a, scratch_b, persistent);
+}
+/** @brief Classifies a MeshState's faces by topology (see classify_faces_impl). */
+[[maybe_unused]] HS_COLD static void
+classify_faces_by_topology(MeshState &mesh, Arena &scratch_a, Arena &scratch_b,
+                           Arena &persistent) {
+  classify_faces_impl(mesh, scratch_a, scratch_b, persistent);
 }
 
 } // namespace MeshOps

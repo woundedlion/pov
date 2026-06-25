@@ -164,6 +164,9 @@ Target: ITCM ≤ 163,840 (cut ≥ 10,088). Moving the list above (~9–10 KB) pl
 
 **Net after R1:** stack free −27,680 → **+5,088**. Combine with one DTCM item below (e.g. R2+R3 = ~6.5 KB) to reach a comfortable stack margin; with all of R2+R3+R6 you reach ~+12 KB, near the 16 KiB budgeted floor.
 
+**R1-residual — ✅ Relocate the construction-only template/COMDAT bodies `HS_COLD` could not reach.** *(DONE: phantasm ITCM 163,272 → 154,664 B, −8,608; padding 564 → 9,176. Both gates green, full native suite 37/37.)*
+The `static` template instantiations R1 left in ITCM are now de-templated to their single concrete type so the `.flashmem` section is honored: the 13 Conway operators and `compile_hankin` bind to `const PolyMesh&`; `classify_faces_by_topology` becomes an `always_inline` impl behind two non-template `[[maybe_unused]] HS_COLD` overloads (PolyMesh + MeshState). The `HalfEdgeMesh` COMDAT ctor body moved into a free `build_half_edge_mesh` init function (the ctors are thin accessor adapters), and `pair_half_edges`' lambda-independent `std::sort` was factored into a non-template `sort_edge_records`, collapsing its two per-caller copies into one flash-resident sort. `update_hankin` was deliberately left in ITCM — it runs in a per-frame draw callback (HankinSolids.h), so flash latency there would regress the render path.
+
 ### P1 — DTCM data, perf-neutral or **faster**
 
 **R2 — ✅ Replace `std::mt19937` with a small PRNG.** *(DONE: DTCM variables 355,360 → 352,864 B, −2,496 B; stack +5,088 → +7,584 B. Added `hs::Pcg32` (PCG XSH-RR 64/32, 16 B state) behind `hs::random()`; device + host use the identical seeded type so parity holds; all 35 native tests pass.)* *(−2,470 B DTCM, and faster.)*

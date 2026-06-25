@@ -83,7 +83,6 @@ namespace MeshOps {
 
 /**
  * @brief Bakes the angle-independent Hankin topology for a mesh.
- * @tparam MeshT Mesh type exposing vertices plus the unified topology accessors.
  * @param mesh Input closed-manifold mesh to derive the pattern from.
  * @param compiled Output topology, allocated from @p target_arena.
  * @param target_arena Arena that backs the persistent compiled vectors.
@@ -92,8 +91,7 @@ namespace MeshOps {
  * static_vertices, reserves one dynamic (star-point) slot per half-edge, and
  * records the star and rosette faces.
  */
-template <typename MeshT>
-HS_COLD static void compile_hankin(const MeshT &mesh, CompiledHankin &compiled,
+HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
                                     Arena &target_arena, Arena &temp_arena) {
   // Topology counts must come through the unified accessors: a borrowed-mode
   // MeshState serves face_counts/faces via its *_view spans with the owned
