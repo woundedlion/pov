@@ -126,6 +126,41 @@ sort_intervals_by_start(StaticCircularBuffer<std::pair<float, float>, N> &buf) {
 }
 
 /**
+ * @brief Wrap each interval start into [0, W) and split any span that crosses the
+ *        x=0 seam, appending the result to @p dst.
+ * @tparam W Canvas width in columns.
+ * @param src Source intervals in unwrapped column space (may straddle θ=0).
+ * @param dst Destination buffer; must hold up to 2x the source span count (one
+ *        span splits into at most two at the seam).
+ * @details Mirrors scan_region's normalization so seam math is bit-identical. A
+ * span of length >= W is emitted as a single full-row [0, W) span. For the common
+ * in-[0,W) case this copies through unchanged.
+ */
+template <int W, size_t N, size_t M>
+inline void
+normalize_intervals_to_range(const StaticCircularBuffer<std::pair<float, float>, N> &src,
+                             StaticCircularBuffer<std::pair<float, float>, M> &dst) {
+  constexpr float Wf = static_cast<float>(W);
+  for (size_t i = 0; i < src.size(); ++i) {
+    float len = src[i].second - src[i].first;
+    if (len >= Wf) {
+      push_interval(dst, 0.0f, Wf);
+      continue;
+    }
+    float s = fmodf(src[i].first, Wf);
+    if (s < 0.0f)
+      s += Wf;
+    float e = s + len;
+    if (e <= Wf) {
+      push_interval(dst, s, e);
+    } else {
+      push_interval(dst, s, Wf);
+      push_interval(dst, 0.0f, e - Wf);
+    }
+  }
+}
+
+/**
  * @brief Sort an interval buffer by start, then emit the union of overlapping
  * intervals via out(start, end). Shared by Union/SmoothUnion.
  * @tparam N Buffer capacity (deduced).
@@ -1050,17 +1085,30 @@ template <typename A, typename B> struct Subtract {
       return true;
     }
 
-    // The per-A shrink/split loop walks B left-to-right, so B must be sorted.
-    sort_intervals_by_start(intervals_b);
+    // Normalize both children into [0, W) (seam-split) before differencing: a
+    // band straddling θ=0 can be emitted by A and B in different wrap frames
+    // (A as [-5, 5], B as [W-5, W+5]), and the raw-coordinate disjointness test
+    // below would then miss the overlap and under-carve at the seam. Splitting
+    // into a common [0, W) frame makes the comparison correct. Seam-splitting at
+    // most doubles each child's span count, so the buffers are sized 2x.
+    StaticCircularBuffer<std::pair<float, float>, 2 * kIntervalSpanCap> norm_a;
+    StaticCircularBuffer<std::pair<float, float>, 2 * kIntervalSpanCap> norm_b;
+    normalize_intervals_to_range<W>(intervals_a, norm_a);
+    normalize_intervals_to_range<W>(intervals_b, norm_b);
+
+    // The set-difference loop and scan_region's coalescer both require
+    // start-sorted intervals; the seam split above can reorder them.
+    sort_intervals_by_start(norm_a);
+    sort_intervals_by_start(norm_b);
 
     // Set difference: for each A interval, subtract all overlapping B intervals.
-    for (size_t ai = 0; ai < intervals_a.size(); ++ai) {
-      float cur_start = intervals_a[ai].first;
-      float cur_end = intervals_a[ai].second;
+    for (size_t ai = 0; ai < norm_a.size(); ++ai) {
+      float cur_start = norm_a[ai].first;
+      float cur_end = norm_a[ai].second;
 
-      for (size_t bi = 0; bi < intervals_b.size(); ++bi) {
-        float bs = intervals_b[bi].first;
-        float be = intervals_b[bi].second;
+      for (size_t bi = 0; bi < norm_b.size(); ++bi) {
+        float bs = norm_b[bi].first;
+        float be = norm_b[bi].second;
 
         // No overlap
         if (be <= cur_start || bs >= cur_end)

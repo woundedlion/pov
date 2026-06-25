@@ -616,6 +616,29 @@ inline void test_subtract_full_width_b_requests_full_row_scan() {
   HS_EXPECT_EQ(out.size(), static_cast<size_t>(0));
 }
 
+/**
+ * @brief Verifies a B band straddling θ=0 in a different wrap frame still carves A.
+ * @details A emits the seam band as [-10, 10]; B emits the SAME physical band as
+ *   [W-10, W+10]. A raw-coordinate disjointness test sees no overlap and leaves A
+ *   uncarved (under-carve at the seam). After normalizing both into [0, W) the
+ *   bands coincide and the difference is empty.
+ */
+inline void test_subtract_seam_straddle_carves_across_wrap_frames() {
+  using P = std::pair<float, float>;
+  using Mock = sdf_subtract_detail::MockIntervalShape;
+  std::vector<P> a_ivs = {{-10.0f, 10.0f}};   // seam band, negative frame
+  std::vector<P> b_ivs = {{246.0f, 266.0f}};  // same band, [W,2W) frame (W=256)
+  Mock A{&a_ivs}, B{&b_ivs};
+  SDF::Subtract<Mock, Mock> s(A, B);
+
+  std::vector<P> out;
+  bool ok = s.get_horizontal_intervals<256, 128>(
+      0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
+  // Both normalize to {[246,256],[0,10]}; A - B is empty.
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(0));
+}
+
 // ============================================================================
 // Intersection — max(A, B)
 // ============================================================================
@@ -1276,6 +1299,7 @@ inline int run_sdf_tests() {
   test_subtract_unsorted_b_yields_sorted_set_difference();
   test_subtract_unsorted_a_passthrough_is_sorted();
   test_subtract_full_width_b_requests_full_row_scan();
+  test_subtract_seam_straddle_carves_across_wrap_frames();
 
   test_intersection_requires_both_inside();
   test_intersection_thickness_is_min();
