@@ -80,17 +80,18 @@ if [ -n "$NATIVE" ]; then
   echo "[pre-commit] Unit tests passed."
 fi
 
-# ─── Teensy 4 size/layout gate (Phantasm = the RAM1-constrained image) ──────
-# Build the all-effects image and let the post-build extra_script
+# ─── Teensy 4 size/layout gate (both shipping images) ───────────────────────
+# Build both images and let the post-build extra_script
 # (tools/teensy_gate_extra.py) enforce the per-region budgets in
 # tools/teensy_budgets.json — a non-zero exit aborts the commit. Phantasm is the
-# binding RAM1 image; CI's teensy-size job builds BOTH holosphere + phantasm and
-# stays the authoritative gate. Skipped if PlatformIO is absent (a contributor
-# without the ARM toolchain still commits — CI catches it) or via HS_SKIP_TEENSY=1.
+# binding RAM1 image, but Holosphere has its own budget/layout, so both are
+# gated here to match CI's teensy-size job exactly. Skipped if PlatformIO is
+# absent (a contributor without the ARM toolchain still commits — CI catches it)
+# or via HS_SKIP_TEENSY=1.
 if [ -n "$TEENSY" ] && [ -z "$HS_SKIP_TEENSY" ]; then
   if command -v pio >/dev/null 2>&1; then
-    echo "[pre-commit] Teensy size/layout gate (pio run -e phantasm)..."
-    if ! pio run -e phantasm; then
+    echo "[pre-commit] Teensy size/layout gate (pio run -e holosphere -e phantasm)..."
+    if ! pio run -e holosphere -e phantasm; then
       echo "[pre-commit] Teensy size/layout gate FAILED — commit aborted."
       echo "[pre-commit] (bypass once with: HS_SKIP_TEENSY=1 git commit  /  --no-verify)"
       exit 1
