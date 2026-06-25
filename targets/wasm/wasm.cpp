@@ -772,7 +772,7 @@ struct MeshOpsWrapper {
    *          never the render loop, so the compare is free.
    */
   void check_live() const {
-    HS_CHECK(generation_ == tooling_generation &&
+    HS_CHECK(generation_ == tooling_generation,
              "MeshOps wrapper used after clearToolingMemory()");
   }
 
