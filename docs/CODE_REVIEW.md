@@ -99,7 +99,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 9. ✅ `core/animation.h` (1682–1683, 1700–1703) — `ColorWipe`'s ctor doc says the start palette is "snapshot taken at t=0," but capture is lazy on the first `step()` (mirroring `Transition`). Reword to describe the actual first-step capture.
 
-10. `core/animation.h` (871, 933) — `Transition`/`Mutation` forward an arbitrary `duration` to `AnimationBase`, which accepts the perpetual `-1`; their `step()` then clamps `t_norm` to 0 forever, silently freezing the value tween instead of rejecting a nonsensical configuration. Guard `duration >= 0` in these value-driving classes.
+10. ✅ `core/animation.h` (871, 933) — `Transition`/`Mutation` forward an arbitrary `duration` to `AnimationBase`, which accepts the perpetual `-1`; their `step()` then clamps `t_norm` to 0 forever, silently freezing the value tween instead of rejecting a nonsensical configuration. Guard `duration >= 0` in these value-driving classes.
 
 11. `core/animation.h` (1319–1321) — `Motion`'s ctor path forwards `duration` without rejecting `-1`, so `path_fn(t/duration)` samples the path at negative/decreasing parameters. Apply the same guard as `set_duration()`.
 

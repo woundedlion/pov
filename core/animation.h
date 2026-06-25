@@ -853,7 +853,11 @@ public:
   Transition(float &mutant, float to, int duration, EasingFn easing_fn,
              bool quantized = false, bool repeat = false)
       : AnimationBase(duration, repeat), mutant(mutant), from(mutant), to(to),
-        easing_fn(std::move(easing_fn)), quantized(quantized) {}
+        easing_fn(std::move(easing_fn)), quantized(quantized) {
+    // Reject the perpetual -1 the base permits: step() would clamp t_norm to 0
+    // forever, silently freezing the tween instead of driving it.
+    HS_CHECK(duration >= 0, "Transition duration must be >= 0");
+  }
 
   /**
    * @brief Performs one step of the transition.
@@ -916,7 +920,11 @@ public:
   Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
            bool repeat = false, const bool *paused = nullptr)
       : AnimationBase(duration, repeat), mutant(mutant), f(std::move(f)),
-        easing_fn(std::move(easing_fn)), paused_(paused) {}
+        easing_fn(std::move(easing_fn)), paused_(paused) {
+    // Reject the perpetual -1 the base permits: step() would clamp t_norm to 0
+    // forever, silently freezing the curve instead of driving it.
+    HS_CHECK(duration >= 0, "Mutation duration must be >= 0");
+  }
 
   /**
    * @brief Performs one step of the mutation.
