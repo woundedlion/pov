@@ -94,9 +94,10 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Left unbounded: OpenSimplex2 is aperiodic so wrapping would jump the warp,
-    // and it feeds GetNoise (graceful with large coords), not fast_sinf.
-    noise_time += params.speed;
+    // Wrap the noise-time accumulator so the float ULP never swallows the
+    // increment and freezes the warp; OpenSimplex2 is aperiodic so the wrap pops
+    // the field once per period (far apart at TIME_PERIOD).
+    noise_time = fmodf(noise_time + params.speed, TIME_PERIOD);
     // Wrap the trig phases to 2pi so fast_sinf/fast_cosf keep precise range
     // reduction; each tracks its own coefficient (sin +t, cos -drift*t).
     constexpr float kTwoPi = 2.0f * PI_F;
@@ -170,10 +171,17 @@ private:
     return (pattern * fade + 1.0f) * 0.5f;
   }
 
+  /**
+   * @brief Wrap period for the noise-time accumulator (see draw_frame).
+   * @details Large enough that warp pops are far apart, small enough that the
+   *          float ULP never swallows the per-frame Speed increment.
+   */
+  static constexpr float TIME_PERIOD = 65536.0f;
+
   Timeline timeline;
   Orientation<> orientation;
   FastNoiseLite noise;
-  float noise_time = 0.0f;   /**< Unbounded noise-time axis (see draw_frame). */
+  float noise_time = 0.0f;   /**< Noise-time axis, wrapped to TIME_PERIOD (see draw_frame). */
   float sin_phase = 0.0f;    /**< Wrapped to [0, 2pi): the pattern's +t term. */
   float drift_phase = 0.0f;  /**< Wrapped to [0, 2pi): pattern's drift*t term. */
 
