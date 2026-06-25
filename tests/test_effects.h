@@ -845,6 +845,9 @@ struct CometsWhiteBox {
     for (const LissajousParams &cfg : C::functions) {
       const float cd = C::closing_domain(cfg);
       HS_EXPECT_GT(cd, 0.0f); // floor-at-1 keeps the head moving
+      // Every authored entry must clear the floor (m2*domain >= PI rounds to >= 1
+      // closing cycle) so the floor never silently rewrites an authored domain.
+      HS_EXPECT_GE(cfg.m2 * cfg.domain, PI_F);
       const Vector start = lissajous(cfg.m1, cfg.m2, cfg.a, 0.0f);
       const Vector end = lissajous(cfg.m1, cfg.m2, cfg.a, cd);
       const float gap = (end - start).magnitude();
