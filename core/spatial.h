@@ -95,7 +95,8 @@ public:
   /**
    * @brief Finds the k nearest neighbors of target, sorted closest-first.
    * @param target Query point, in world units.
-   * @param k Number of neighbors to return; capped at MAX_K and at the point count.
+   * @param k Number of neighbors to return; MUST be <= MAX_K (traps via HS_CHECK
+   *        otherwise). Soft-capped only at the point count.
    * @return Buffer of neighbors (point + source index + squared distance), closest first.
    */
   StaticCircularBuffer<Neighbor, MAX_K> nearest(const Vector &target,
