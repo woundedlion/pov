@@ -1281,13 +1281,11 @@ public:
 
     float start = shape[seg];
     float end = shape[seg + 1];
-    CPixel c1 = colors[seg];
 
     float dist = end - start;
-    if (dist < 0.0001f)
-      return Color4(c1, 1.0f);
-
-    float p = std::clamp((t - start) / dist, 0.0f, 1.0f);
+    // Zero-width segment: pin to the left stop (p=0) and render it through the
+    // OKLCH path below, avoiding both a divide by ~0 and the 8-bit sRGB key.
+    float p = dist < 0.0001f ? 0.0f : std::clamp((t - start) / dist, 0.0f, 1.0f);
 
     // Interpolate in OKLCH; stops are pre-converted in update_stops().
     OKLCH blended = lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p);
