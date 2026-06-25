@@ -47,6 +47,11 @@
 #if !defined(_WIN32)
 #include <csignal>    // SIGILL — the expected trap signal
 #include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
+#else
+#include <fcntl.h>   // _O_WRONLY for the NUL redirect
+#include <io.h>      // _dup / _dup2 / _sopen_s / _close
+#include <process.h> // _spawnv / _P_WAIT — shell-free child spawn
+#include <share.h>   // _SH_DENYNO
 #endif
 
 #if defined(_WIN32)
@@ -791,28 +796,42 @@ inline void set_case_env(const char *name) {
 /**
  * @brief Spawns the test binary as a child running the given death case.
  * @param name Case selector passed to the child via HS_DEATH_CASE.
- * @return The raw std::system() status of the child.
+ * @return The child's raw status (_spawnv() on Windows, std::system() on POSIX).
  * @details Child stdout/stderr are discarded; only the exit code matters.
  */
 inline int spawn_child(const char *name) {
   set_case_env(name);
-  std::string cmd;
 #if defined(_WIN32)
-  // This command string is parsed by cmd.exe (std::system runs `cmd /c`), so it
-  // assumes self_exe() is a benign path: it relies on cmd.exe stripping one
-  // outer quote pair and contains no characters cmd.exe treats specially (&, |,
-  // ^, %, etc.). That holds for the test binary's own build path. A path with
-  // such characters would need a shell-free spawn (_spawnv with an argv array,
-  // or CreateProcess) to avoid cmd.exe parsing entirely.
-  cmd = "\"\"";
-  cmd += self_exe();
-  cmd += "\" >NUL 2>&1\"";
+  // Shell-free spawn: hand argv straight to the CRT so no cmd.exe parsing can
+  // mangle a self_exe() path containing &, %, ^, or quotes. Child stdout/stderr
+  // go to NUL by redirecting fds 1/2 across the synchronous _P_WAIT spawn (the
+  // child inherits the CRT fd table), then the descriptors are restored.
+  std::fflush(stdout);
+  std::fflush(stderr);
+  int saved_out = _dup(1);
+  int saved_err = _dup(2);
+  int devnull = -1;
+  _sopen_s(&devnull, "NUL", _O_WRONLY, _SH_DENYNO, 0);
+  if (devnull >= 0) {
+    _dup2(devnull, 1);
+    _dup2(devnull, 2);
+  }
+  const char *argv[] = {self_exe(), nullptr};
+  intptr_t rc = _spawnv(_P_WAIT, self_exe(), argv);
+  if (devnull >= 0) {
+    _dup2(saved_out, 1);
+    _dup2(saved_err, 2);
+    _close(devnull);
+  }
+  _close(saved_out);
+  _close(saved_err);
+  return static_cast<int>(rc);
 #else
-  cmd = "\"";
+  std::string cmd = "\"";
   cmd += self_exe();
   cmd += "\" >/dev/null 2>&1";
-#endif
   return std::system(cmd.c_str());
+#endif
 }
 
 #if defined(_WIN32)
