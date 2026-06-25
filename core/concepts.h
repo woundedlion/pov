@@ -7,6 +7,8 @@
 #include <concepts>
 #include "3dmath.h"
 #include "canvas.h"
+#include "color.h"    // Pixel
+#include "platform.h" // Fn
 
 // ---------------------------------------------------------------------------
 // Callable wrappers — two complementary types:
