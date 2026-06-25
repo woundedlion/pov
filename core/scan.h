@@ -74,14 +74,10 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
         alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
       }
     } else {
-      // Stroke Falloff: opacity fades over the winning surface's own thickness.
-      // Drive the ramp from result.size (the leaf that produced this distance)
-      // rather than shape.thickness: for a CSG composite of strokes the wrapper
-      // carries a min/max thickness, which would scale a thin child's falloff by
-      // a thicker sibling's width and blow out the AA ramp at the boundary.
-      // The ramp is inward-only: a stroke's `d` is centerline_dist - half_width,
-      // so d=0 is the tube edge (alpha=0) and d=-size the centerline (alpha=1),
-      // and the whole half-width IS the AA ramp.
+      // Stroke falloff over the winning leaf's own half-width: result.size, not
+      // shape.thickness (a CSG composite's wrapper carries a min/max thickness).
+      // Inward-only ramp: d = centerline_dist - half_width, so d=0 is the tube
+      // edge (alpha 0) and d=-size the centerline (alpha 1).
       float aa_thickness = result_scratch.size;
       if (aa_thickness > 0) {
         alpha = quintic_kernel(-d / aa_thickness);
@@ -91,10 +87,9 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     if (!debug_bb && alpha <= 0.001f)
       return;
 
-    // Reset color before every shader call (matches Plot::rasterize): the
-    // scratch Fragment is reused across pixels, so a conditionally-writing
-    // shader would otherwise inherit the previous pixel's color *and alpha*,
-    // and the stale `alpha > 0.001f` check below would plot a ghost.
+    // Scratch Fragment is reused across pixels; reset color each call so a
+    // conditionally-writing shader starts from a clean color/alpha (matches
+    // Plot::rasterize).
     frag_scratch.color = Color4(0, 0, 0, 0);
     frag_scratch.pos = p;
     frag_scratch.v0 = result_scratch.t;
@@ -149,17 +144,14 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   if (!TrigLUT<W, H>::initialized)
     TrigLUT<W, H>::init();
 
-  // The interval scratch (~1.5 KiB) lives in scratch_arena_b, not on the stack:
+  // Interval scratch (~1.5 KiB) lives in scratch_arena_b, not the stack:
   // Phantasm's DTCM stack is tight and scan_region is on the deepest render
   // chain. Per-call bump scope; norm is cleared per row below.
   //
-  // intervals must hold the full per-row emission of the top-level shape. A
-  // Union/SmoothUnion merges BOTH children (each up to kIntervalSpanCap spans)
-  // into one buffer and coalesces; coalescing never grows the count, so a single
-  // Union emits at most 2*kIntervalSpanCap spans. Sizing intervals to that bound
-  // (matching SDF::MergedIntervalBuffer) proves push_interval cannot overflow for
-  // any single top-level Union, even when no children overlap. norm then holds
-  // one seam-split per input span, so 2x intervals = 4*kIntervalSpanCap.
+  // intervals holds a top-level shape's full per-row emission: a Union/SmoothUnion
+  // merges both children (up to kIntervalSpanCap spans each) into one buffer, and
+  // coalescing never grows the count, so 2*kIntervalSpanCap. norm holds one
+  // seam-split per span, so 4*kIntervalSpanCap.
   ScratchScope scratch(scratch_arena_b);
   using IntervalBuf =
       StaticCircularBuffer<std::pair<float, float>, 2 * SDF::kIntervalSpanCap>;
@@ -177,10 +169,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
 
-  // An inverted range (y_min > y_max) is a safe no-op: a disjoint CSG
-  // Intersection or a fully-culled Face reports y_min=1,y_max=0, and this loop
-  // simply never executes. A near/over-full-width interval is likewise handled
-  // below by the len >= W full-row clamp.
+  // Inverted range (y_min > y_max) is a no-op: a disjoint CSG Intersection or a
+  // fully-culled Face reports y_min=1, y_max=0, and the loop never runs.
   for (int y = y_min; y <= y_max; ++y) {
     float sp = TrigLUT<W, H>::sin_phi[y];
     float cp = TrigLUT<W, H>::cos_phi[y];
@@ -189,15 +179,10 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
     if (handled && !intervals.is_empty()) {
-      // Normalize spans into [0, W): wrap each start and split any span that
-      // crosses the x=0 seam, so the forward-sweep coalescer below (which
-      // assumes sorted, non-wrapping spans) is correct even when a shape/CSG
-      // emits intervals that straddle θ=0. Coalescing seam-crossers in
-      // unwrapped space could otherwise skip distinct pixels or double-plot the
-      // wrapped overlap. For the common in-[0,W) sorted case this is a no-op
-      // (no wrap, no split, sort already ordered) — identical output. The norm
-      // buffer is exactly 2× the input span cap (one span splits into at most
-      // two at the seam), so splitting can never overflow it.
+      // Normalize into [0, W): wrap each start and split any span crossing the
+      // x=0 seam, so the forward-sweep coalescer below sees sorted, non-wrapping
+      // spans even when a shape/CSG straddles θ=0. norm is 2× the span cap (a
+      // seam split makes at most two).
       bool full_row = false;
       norm.clear();
       for (const auto &iv : intervals) {
@@ -206,8 +191,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
           full_row = true;
           break;
         }
-        // SDF emit_* can hand back a negative start when a shape straddles θ=0;
-        // fmodf(negative, W) is itself negative in C, so re-wrap into [0,W).
+        // A shape straddling θ=0 emits a negative start; C fmodf keeps the sign,
+        // so re-wrap into [0,W).
         float s = fmodf(iv.first, static_cast<float>(W));
         if (s < 0.0f)
           s += static_cast<float>(W);
@@ -238,10 +223,9 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
         }
 
         float current_end = -FLT_MAX;
-        // Coalesce in integer pixel space too: when two intervals share a pixel
-        // column fractionally (prev end 5.4 paints x=5, next start 5.6 floors to
-        // 5), the float merge alone lets both paint x=5 — double process_pixel,
-        // double alpha. last_x2 clamps each run's start past the prior run's end.
+        // Coalesce in integer pixel space too: last_x2 clamps each run's start
+        // past the prior run's end so two spans sharing a fractional column don't
+        // both paint it (double process_pixel / alpha).
         int last_x2 = 0;
         for (const auto &iv : norm) {
           if (iv.second <= current_end)
@@ -252,19 +236,14 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
 
           int x1 = static_cast<int>(floorf(start));
           int x2 = static_cast<int>(ceilf(end));
-          // A zero-width interval (x1 == x2) still owns its single pixel column,
-          // so widen to paint it. Combined with the last_x2 clamp below, a
-          // following interval that maps to that same column is then suppressed
-          // — correct, because it is the same physical pixel (re-painting it
-          // would double-process / double-alpha), not a lost distinct column.
+          // A zero-width interval (x1 == x2) still owns its pixel column; widen
+          // to paint it. The last_x2 clamp then suppresses a following interval
+          // mapping to the same column.
           if (x1 == x2)
             x2++;
-          // Finalize to canvas columns. After the [0,W) wrap/split above, start
-          // is >= 0 and end is <= W, so x2 > W arises only from the x1 == x2
-          // widening landing exactly on the right edge (ceilf(W) == W, then ++),
-          // which this clamps back; x1 < 0 cannot occur for the current
-          // producers and is a defensive floor. The last_x2 clamp then enforces
-          // the monotone, non-overlapping integer sweep (see the comment above).
+          // Clamp to canvas columns. After the wrap/split above start>=0 and
+          // end<=W, so x2>W only from the x1==x2 widen at the right edge; x1<0 is
+          // a defensive floor. last_x2 keeps the integer sweep monotone.
           if (x1 < 0)
             x1 = 0;
           if (x2 > W)
@@ -303,12 +282,11 @@ template <int W, int H> struct BoundingSphere {
       : angular_radius(asinf(std::min(bounds_radius, 1.0f))) {
     PixelCoords center_px = vector_to_pixel<W, H>(center);
     center_theta = center_px.x;
-    // phi straight from the world y (phi = acos(y)) rather than round-tripping
-    // center_px.y back through the y->phi formula, which would compound the
-    // forward rounding already baked into vector_to_pixel's phi_to_y.
+    // phi = acos(y) from the world y directly, not from center_px.y (avoids
+    // compounding vector_to_pixel's phi_to_y rounding).
     float center_phi = acosf(hs::clamp(center.y, -1.0f, 1.0f));
-    // Round the band outward on both ends (floor the top, ceil the bottom) so a
-    // fractional cap edge never clips the fringe row it touches.
+    // Round the band outward (floor the top, ceil the bottom) so a fractional cap
+    // edge keeps the fringe row it touches.
     y_min = std::max(
         0, static_cast<int>(floorf(phi_to_y<H>(center_phi - angular_radius))));
     y_max = std::min(H - 1, static_cast<int>(ceilf(
@@ -324,36 +302,24 @@ template <int W, int H> struct BoundingSphere {
    * @return Always true (an interval is always produced).
    */
   template <typename OutFn> bool get_intervals(int y, OutFn &&out) const {
-    // Phi trig from the static LUT (bit-identical to sinf(y_to_phi(y))), matching
-    // every other shape on the Volume hot path rather than recomputing sinf.
+    // Phi trig from the static LUT (bit-identical to sinf(y_to_phi(y))), as on the
+    // rest of the Volume hot path.
     float sin_phi = TrigLUT<W, H>::sin_phi[y];
     float theta_span;
-    // sin_phi == 0 at the poles: with a degenerate angular_radius == 0 the else
-    // branch would compute 0/0 = NaN, and static_cast<int>(ceilf(NaN)) below is
-    // undefined behavior. Fold a zero/near-zero sin_phi into the full-row branch
-    // (the first test already catches sin_phi < angular_radius/PI_F whenever
-    // angular_radius > 0, so this only adds the angular_radius == 0 pole case).
+    // Fold zero/near-zero sin_phi into the full-row branch: at the pole with
+    // angular_radius == 0 the else branch is 0/0 = NaN, and ceilf(NaN) → int cast
+    // is UB.
     if (sin_phi < angular_radius / PI_F || sin_phi <= 0.0f) {
       // Near pole: span exceeds half the row, scan all columns
       theta_span = static_cast<float>(W);
     } else {
       theta_span = angular_radius / sin_phi * W / (2.0f * PI_F);
     }
-    // The +1 is not redundant: theta_span is the first-order small-circle
-    // longitude half-width (angular_radius / sin_phi), which can slightly
-    // under-estimate the true extent, so ceilf alone could clip a column the
-    // sphere actually touches. The extra column is a conservative margin on this
-    // coarse cull bound — the per-pixel ray-sphere test downstream rejects any
-    // genuinely-outside column it admits.
-    //
-    // The min(W/2, ...) clamp also upholds scan_region's producer contract: the
-    // emitted span is center_theta ± x_half, so its length 2*x_half is capped at
-    // W. scan_region requires every interval to have length <= W (one span can
-    // cross the θ=0 seam into at most two, which its norm buffer is sized 2× to
-    // hold). This is the small-circle half of the two-step — the near-pole
-    // branch above instead returns the full width (theta_span = W) directly. The
-    // emitted endpoints are intentionally NOT clamped to [0,W); scan_region
-    // wraps them into range.
+    // +1 is a conservative margin: theta_span (the first-order small-circle
+    // half-width) can under-estimate the extent; the downstream per-pixel
+    // ray-sphere test rejects any extra column. min(W/2, ...) caps the span
+    // length 2*x_half at W, scan_region's producer contract (interval length
+    // <= W). Endpoints are not clamped to [0,W); scan_region wraps them.
     int x_half = std::min(W / 2, static_cast<int>(ceilf(theta_span)) + 1);
     out(center_theta - x_half, center_theta + x_half);
     return true;
@@ -364,11 +330,7 @@ template <int W, int H> struct BoundingSphere {
  * @brief Scoped accumulator for per-draw render time (telemetry only).
  * @details Measures wall-clock over its lifetime and adds it to the canvas's
  * render-time counter on destruction. Off-Emscripten there is no JS perf clock,
- * so the type is empty and every use optimizes away to nothing. Replaces six
- * identical `#ifdef __EMSCRIPTEN__ { _t0 = now() } ... { add_render_us(now()-_t0) }`
- * blocks; place one at the point the old `_t0` was taken and it fires at scope
- * end (where each old `add_render_us` already sat — the last statement in its
- * block).
+ * so the type is empty and every use optimizes away to nothing.
  */
 struct ScopedRenderTimer {
 #ifdef __EMSCRIPTEN__
@@ -780,9 +742,8 @@ struct Mesh {
     for (size_t i = 0; i < num_f; ++i) {
       size_t count = fc[i];
 
-      // Trap malformed mesh data at the seam: an offset/count pair that
-      // disagrees with the flat index array would otherwise build an
-      // out-of-bounds span consumed by SDF::Face. Cold per-face check.
+      // Trap malformed mesh data: an offset/count pair disagreeing with the flat
+      // index array yields an out-of-bounds span for SDF::Face. Cold per-face check.
       HS_CHECK(static_cast<size_t>(fo[i]) + count <= fi_size,
                "mesh face span exceeds face index array");
 
@@ -831,11 +792,9 @@ struct Shader {
    * @brief Builds the sub-pixel sample offset table at compile time.
    * @tparam SAMPLES Number of sub-pixel samples per pixel.
    * @return Offset table with each sample on a centered 2×2 grid (±0.25, ±0.25).
-   * @details Fully compile-time, so it costs nothing at runtime. The grid is
-   * centered at ±0.25 rather than the ±0.5 pixel corners so the four samples lie
-   * strictly inside the pixel: corner sampling lands on the shared pixel
-   * boundary, biasing coverage outward and making adjacent pixels evaluate the
-   * identical boundary point (correlated, not independent, samples).
+   * @details Fully compile-time. The grid is centered at ±0.25, not the ±0.5
+   * pixel corners, so the four samples lie strictly inside the pixel (corner
+   * samples sit on shared boundaries, correlating adjacent pixels).
    */
   template <int SAMPLES>
   static constexpr SampleOffsets<SAMPLES> make_sample_offsets() {
@@ -898,8 +857,8 @@ struct Shader {
    */
   template <int W, int H, int SAMPLES = 1, typename ShaderFn>
   static void draw(Canvas &canvas, ShaderFn &&shader) {
-    // The sample-offset table defines only four distinct sub-pixel positions, so
-    // SAMPLES > 4 would average over duplicates. Only 1 and the 2x2 grid (4) work.
+    // The sample-offset table has four distinct sub-pixel positions; only 1 and
+    // the 2x2 grid (4) are valid.
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
     const auto &cr = canvas.clip();
@@ -922,10 +881,8 @@ struct Shader {
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
         for (int x = cr.x_start; x < cr.x_end; ++x) {
           // Premultiplied SSAA: accumulate each sample's coverage-weighted color
-          // (color * alpha * 1/N) and write it directly. Averaging straight
-          // color and alpha separately and re-multiplying applies coverage
-          // twice, darkening multi-color antialiased edges. Matches the
-          // SAMPLES==1 path, which writes sample.color * sample.alpha.
+          // (color * alpha * 1/N) and write it directly, matching the SAMPLES==1
+          // path (sample.color * sample.alpha).
           Pixel accum(0, 0, 0);
 
           for (int i = 0; i < SAMPLES; ++i) {
@@ -956,21 +913,18 @@ struct Shader {
    * pixel center) from per-sub-sample evaluation (fragment_shader, called
    * SAMPLES×).
    *
-   * @note SAMPLES defaults to 1 (no SSAA) to match the single-callback overload
-   * above; switching a shader between the two overloads must not silently change
-   * antialiasing cost. Every call site passes SAMPLES explicitly regardless.
+   * @note SAMPLES defaults to 1 (no SSAA), matching the single-callback overload.
+   * Every call site passes SAMPLES explicitly.
    */
   template <int W, int H, int SAMPLES = 1>
   static void draw(Canvas &canvas, FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    // Only 1 and 4 are supported; see the single-callback overload for why
-    // SAMPLES > 4 would duplicate samples and skew the average.
+    // Only 1 and 4 are supported (see the single-callback overload).
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
-    // frag_base is declared per pixel below, not once for the whole draw: a
-    // vertex shader that writes only some registers (v0-v3/size/age/color) must
-    // not inherit the previous pixel's values — an order-dependent leak. Each
-    // pixel starts from a default-constructed Fragment.
+    // frag_base is per pixel, not per draw: each pixel starts from a default
+    // Fragment, so a vertex shader writing only some registers (v0-v3/size/age/
+    // color) can't inherit the previous pixel's values.
     if constexpr (SAMPLES == 1) {
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
@@ -982,9 +936,8 @@ struct Shader {
           frag_base.pos = center_v;
           vertex_shader(frag_base);
           fragment_shader(center_v, frag_base);
-          // Premultiply by alpha to match the single-callback overload (and the
-          // process_pixel/Volume contract); both overloads must write identical
-          // pixels for a shader that fades via Color4::alpha.
+          // Premultiply by alpha, matching the single-callback overload and the
+          // process_pixel/Volume contract.
           canvas(x, y) = frag_base.color.color * frag_base.color.alpha;
         }
       }
@@ -1003,9 +956,8 @@ struct Shader {
           frag_base.pos = center_v;
           vertex_shader(frag_base);
 
-          // Premultiplied SSAA: accumulate coverage-weighted color directly
-          // (see the single-callback overload). Both overloads must write
-          // identical pixels for a shader that fades via Color4::alpha.
+          // Premultiplied SSAA: accumulate coverage-weighted color directly (see
+          // the single-callback overload).
           Pixel accum(0, 0, 0);
 
           for (int i = 0; i < SAMPLES; ++i) {
@@ -1122,15 +1074,11 @@ struct Volume {
     float closest_d = FLT_MAX;
 
     for (int i = 0; i < max_steps; ++i) {
-      // Early out: ray has exited the back of the bounding sphere.
-      // local_p.local_vd is compared against the world-space bounds_radius;
-      // this is correct only because ray_to_local is length-preserving
-      // (rotation + translation, no scale) so local_vd is unit and
-      // local_p.local_vd == (p_world - center).vd, AND callers pass the
-      // shape center as bounds_center (so center == bounds_center). Both
-      // preconditions are HS_CHECKed once per draw at the top of this
-      // function; a scaling transform or off-center bounds_center traps
-      // there rather than silently mis-culling here.
+      // Early out: ray has exited the back of the bounding sphere. The
+      // local-space dot is compared against the world-space bounds_radius, valid
+      // because ray_to_local is length-preserving (unit local_vd) and the caller
+      // passes the shape center as bounds_center. Both are HS_CHECKed once per
+      // draw at the top.
       if (local_p.x * local_vd.x + local_p.y * local_vd.y +
               local_p.z * local_vd.z >
           bounds_radius)
@@ -1146,12 +1094,9 @@ struct Volume {
       if (d < -aa_width)
         break;
 
-      // The 1e-5 floor is a deliberate absolute stall-guard, distinct from
-      // the probe loop's bounds_radius-relative floor below: this is the
-      // precision trace (it wants fine steps near the surface) and is
-      // bounded by max_steps and the past-the-sphere early-out above, so a
-      // grazing ray cannot loop unboundedly. The probe is a coarse
-      // halo punch-through, so it scales its step to the shape size.
+      // 1e-5 absolute stall-guard for the precision trace (fine steps near the
+      // surface), bounded by max_steps and the early-out above. The probe loop
+      // below instead uses a bounds_radius-relative floor for coarse punch-through.
       float advance = std::max(d * 0.9f, 1e-5f);
       local_p = Vector(local_p.x + local_vd.x * advance,
                        local_p.y + local_vd.y * advance,
@@ -1175,15 +1120,10 @@ struct Volume {
   resolve_halo(const Shape &shape, const Vector &closest_local,
                const Vector &local_vd, float bounds_radius, float hit_threshold,
                float edge_alpha) {
-    // Seed from the closest approach, not the march's terminal local_p:
-    // the loop can exit having stepped past the bounding sphere, and
-    // probing forward from there never punches through a thin feature,
-    // leaving the false halo it was meant to cull.
-    //
-    // Bounded to 4 iterations with the step floored at bounds_radius *
-    // 0.15: a solid feature thinner than that coarse step can be straddled
-    // (both samples land in empty space with pd >= hit_threshold), so the
-    // probe misses it and a faint false halo survives — an accepted
+    // Seed from the closest approach, not the march's terminal local_p (the loop
+    // can exit having stepped past the bounding sphere). Bounded to 4 iterations,
+    // step floored at bounds_radius * 0.15; a solid feature thinner than that
+    // coarse step can be straddled, leaving a faint false halo — an accepted
     // cosmetic limit on this AA-border-only slow path.
     Vector probe = closest_local;
     float probed = 0.0f;
@@ -1244,22 +1184,19 @@ struct Volume {
                    bounds_center.z - bc_dot_vd * vd.z);
     float bounds_r2 = bounds_radius * bounds_radius;
 
-    // Precompute local-space view direction (shared across all pixels) and, on
-    // the same cold transform, validate the volume preconditions. The per-step
-    // early-out below compares a local-space dot product against the world-space
+    // Precompute the local-space view direction (shared across all pixels) and,
+    // on the same cold transform, validate the volume preconditions. The per-step
+    // early-out below compares a local-space dot against the world-space
     // bounds_radius, which holds only if ray_to_local is length-preserving
-    // (no scale → |local_vd| == 1) and bounds_center coincides with the shape's
-    // local origin (transforms to ~0). A scaling shape or an off-center
-    // bounds_center would silently corrupt the cull; trap it here (once per
-    // draw) rather than mis-rendering every pixel.
+    // (|local_vd| == 1) and bounds_center maps to the shape's local origin (~0).
+    // Trap a scaling shape or off-center bounds_center here, once per draw.
     auto [local_bc, local_vd] = shape.ray_to_local(bounds_center, vd);
     HS_CHECK(fabsf(local_vd.x * local_vd.x + local_vd.y * local_vd.y +
                    local_vd.z * local_vd.z - 1.0f) < TOLERANCE);
     HS_CHECK(local_bc.x * local_bc.x + local_bc.y * local_bc.y +
              local_bc.z * local_bc.z < TOLERANCE);
-    // The slow-path AA divides edge_alpha by (aa_width - hit_threshold) ==
-    // 0.9*aa_width; a zero band-width would make that 0/0 -> NaN and ride
-    // through quintic_kernel into clamp(). aa_width > 0 is the contract.
+    // aa_width > 0 is the contract: the slow-path AA divides by (aa_width -
+    // hit_threshold) == 0.9*aa_width, so a zero band-width gives 0/0 -> NaN.
     HS_CHECK(aa_width > 0.0f);
 
     BoundingSphere<W, H> bounds(bounds_center, bounds_radius);
@@ -1301,9 +1238,8 @@ struct Volume {
                     pp_z - vd.z * start_offset);
 
           // Transform the ray origin to local space once per pixel. The local
-          // direction is constant across the draw (vd is fixed) and was already
-          // computed once into local_vd above, so transform only the origin here
-          // instead of paying a second per-pixel quaternion rotation.
+          // direction is constant across the draw (local_vd, computed above), so
+          // only the origin is transformed here.
           Vector local_ro = shape.origin_to_local(ro);
           Vector closest_local;
 
