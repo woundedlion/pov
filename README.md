@@ -1543,7 +1543,7 @@ Procedurally generates Islamic geometric patterns using Hankin's method (pentago
 
 #### HankinSolids
 
-Similar to IslamicStars but sequences through the full Archimedean solid library with animated palette transitions.
+Similar to IslamicStars but sequences through the Platonic and Archimedean solids with animated palette transitions.
 
 </td></tr></table>
 
