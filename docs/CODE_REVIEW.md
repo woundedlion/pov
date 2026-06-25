@@ -133,7 +133,7 @@ All retained findings survived independent validation; **none exceeds "low" seve
 45. **Protocol-config rejection is a runtime boot trap despite compile-time-known inputs** — `hardware/pov_sync.h` (`Config::valid` 227-261). On the Phantasm path the inputs are `constexpr`; a `static_assert(phantasm_config(...).valid())` at instantiation would fail the build instead of the boot.
 46. **Steady-state strobe overrun is dropped with no escalation path** — `hardware/pov_segmented.h` (render_column ~670). Self-healing per tick is correct, but a chronically over-budget board only shows in a debug poll. Consider an always-on escalation (trap if `getOverrunCount()` exceeds a windowed threshold).
 47. ✅ **`solid_codegen` lets non-finite/out-of-range op params into emitted C++** — `daydream/tools/solid_codegen.js` (83-115). `base`/`op` are validated; numeric params are not (`truncate(NaNf)`, fractional `relax`). Guarded upstream by the tool page's min/step, but validate (`Number.isFinite`, integer≥0) for defense-in-depth.
-48. **Negative `pctSuffix` yields an invalid C++ identifier** — `daydream/tools/solid_codegen.js` (53-55, funcName 118). `truncate t=-0.5 → Cube_truncate-50`. Reject negative fractional params or encode the sign identifier-safely (guarded upstream by `min:0.01`).
+48. ✅ **Negative `pctSuffix` yields an invalid C++ identifier** — `daydream/tools/solid_codegen.js` (53-55, funcName 118). `truncate t=-0.5 → Cube_truncate-50`. Reject negative fractional params or encode the sign identifier-safely (guarded upstream by `min:0.01`).
 
 ### Priority 3 — Defense-in-depth, documented trade-offs & informational
 
