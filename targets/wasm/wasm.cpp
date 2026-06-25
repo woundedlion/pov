@@ -75,17 +75,31 @@ static constexpr size_t kToolingArenaBytes = 8 * 1024 * 1024;
 static constexpr size_t kToolingScratchBytes = 4 * 1024 * 1024;
 Arena tooling_arena(nullptr, 0);
 // Transient single-op scratch, shared module-globally. Every MeshOps entry
-// point reset()s both at its head; valid only within one synchronous call.
-// TODO(workers): if/when a worker or async refactor lets two ops interleave,
-// re-establish the contract explicitly (e.g. per-op scratch arenas, or a
-// reentrancy assert at each MeshOps entry point) — single-threading no longer
-// holds it.
+// point reset()s both at its head; valid only within one synchronous call. A
+// ToolingOpGuard at each entry traps any re-entrant or interleaved use (e.g. a
+// future worker or async refactor) before it can alias this scratch.
 Arena tooling_scratch_a(nullptr, 0);
 Arena tooling_scratch_b(nullptr, 0);
 
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
 // was built under and traps via check_live() if a wipe reclaimed its storage.
 static uint32_t tooling_generation = 0;
+
+// Set for the duration of one MeshOps entry point. The tooling scratch arenas
+// are module-global and reset() at each entry's head, so a second op entered
+// before the first returns would alias the first's scratch and corrupt its
+// geometry. Synchronous single-threaded calls never overlap today; the guard
+// makes that contract enforced rather than implicit, so a future worker/async
+// refactor traps here instead of silently aliasing.
+static bool tooling_op_active = false;
+struct ToolingOpGuard {
+  ToolingOpGuard() {
+    HS_CHECK(!tooling_op_active,
+             "re-entrant MeshOps call aliases module-global tooling scratch");
+    tooling_op_active = true;
+  }
+  ~ToolingOpGuard() { tooling_op_active = false; }
+};
 
 /**
  * @brief Allocates and binds the tooling arenas on first MeshOps use.
@@ -795,6 +809,7 @@ struct MeshOpsWrapper {
       hs::log("WASM: fromSolidName unknown solid '%s' — ignored", name.c_str());
       return nullptr;
     }
+    ToolingOpGuard guard;
     ensure_tooling_arenas();
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
@@ -855,6 +870,7 @@ struct MeshOpsWrapper {
    */
   val classifyFaces() {
     check_live();
+    ToolingOpGuard guard;
     ensure_tooling_arenas();
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
@@ -882,6 +898,7 @@ struct MeshOpsWrapper {
   template <typename Op>
   std::unique_ptr<MeshOpsWrapper> apply(Op &&op) const {
     check_live();
+    ToolingOpGuard guard;
     ensure_tooling_arenas();
     tooling_scratch_a.reset();
     tooling_scratch_b.reset();
@@ -1056,6 +1073,7 @@ struct MeshOpsWrapper {
     const char *mf_name = "";
     const char *mi_name = "";
 
+    ToolingOpGuard guard;
     ensure_tooling_arenas();
     for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
       // Measure in the scratch arenas only — never tooling_arena, which backs
