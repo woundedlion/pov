@@ -134,6 +134,15 @@ def parse_size_a(text: str) -> list[tuple[str, int, int]]:
     return rows
 
 
+# Non-allocated metadata sections report a VMA of 0 in `size -A`. Filter them by
+# name, not by VMA == 0: real ITCM sections (.text.itcm) also load at 0x0, so a
+# VMA test would drop live code while these consume no target memory.
+_NON_ALLOC_SECTIONS = (
+    ".ARM.attributes", ".comment", ".debug", ".note",
+    ".symtab", ".strtab", ".shstrtab", ".stab",
+)
+
+
 def region_totals_from_size_a(text: str) -> dict[str, int]:
     """Sum `size -A` sections into ITCM/DTCM/OCRAM/FLASH totals by VMA.
 
@@ -142,9 +151,12 @@ def region_totals_from_size_a(text: str) -> dict[str, int]:
     even though its initialized copy also consumes flash — i.e. this UNDERCOUNTS
     flash relative to teensy_size, which does the correct LMA accounting. Use it
     for RAM1/RAM2 placement cross-checks, not as the authoritative flash ceiling.
+    Non-allocated metadata sections (VMA 0) are dropped so they do not inflate ITCM.
     """
     totals: dict[str, int] = {}
-    for _name, size, addr in parse_size_a(text):
+    for name, size, addr in parse_size_a(text):
+        if name.startswith(_NON_ALLOC_SECTIONS):
+            continue
         if addr == 0 and size == 0:
             continue
         totals[region_for_address(addr)] = totals.get(region_for_address(addr), 0) + size

@@ -7,4 +7,6 @@ section                   size         addr
 .bss                   0x53c00     0x20000040
 .bss.dma               0x79900     0x20200000
 .ARM.exidx                 0x8     0x60040000
-Total                  0xfe22c
+.ARM.attributes           0x30          0x0
+.comment                  0x67          0x0
+Total                  0xfe2c3
