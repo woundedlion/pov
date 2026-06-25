@@ -434,6 +434,7 @@ private:
  */
 template <int W> class OrientSlice : public Is3D {
 public:
+  static constexpr bool requires_unit_world_input = true;
   /**
    * @brief Binds the slice selector to an orientation list and a slicing axis.
    * @param orientations Candidate orientations, indexed by axis projection.
