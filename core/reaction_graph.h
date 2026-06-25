@@ -55,9 +55,11 @@ inline Vector node(int i) {
  * @brief Precomputed K-nearest-neighbor indices for every lattice node.
  * @details neighbors[i][k] is the node index of the k-th nearest neighbor of
  *          node i, or negative when fewer than RD_K neighbors exist. Total size
- *          92160 bytes (RD_N × RD_K × 2B).
+ *          92160 bytes (RD_N × RD_K × 2B). PROGMEM matches the generated
+ *          definition; it is a no-op on the supported flat-address targets, where
+ *          the direct `neighbors[i][k]` subscripting below is intentional.
  */
-extern const int16_t neighbors[RD_N][RD_K];
+extern PROGMEM const int16_t neighbors[RD_N][RD_K];
 
 // ---------------------------------------------------------------------------
 // CubemapLUT: O(1) direction → nearest Fibonacci node lookup (no runtime trig)
