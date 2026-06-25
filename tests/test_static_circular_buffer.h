@@ -14,6 +14,7 @@
 
 #include <iterator>
 #include "core/static_circular_buffer.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -504,7 +505,7 @@ inline void test_index_assignment() {
  * @return The module's failure count (number of failed assertions).
  */
 inline int run_static_circular_buffer_tests() {
-  auto scope = hs_test::begin_module("static_circular_buffer");
+  hs_test::ModuleFixture fixture("static_circular_buffer");
 
   test_default_state();
   test_initializer_list_within_capacity();
@@ -540,7 +541,7 @@ inline int run_static_circular_buffer_tests() {
 
   test_index_assignment();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace scb

@@ -30,6 +30,7 @@
 #include "core/palettes.h"
 #include "core/solids.h"
 #include "tests/mesh_test_util.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -631,7 +632,7 @@ inline void test_hankin_solids_fit_hankinsolids_persistent_budget() {
  * @return The module's failure count.
  */
 inline int run_solids_tests() {
-  auto scope = hs_test::begin_module("solids");
+  hs_test::ModuleFixture fixture("solids");
 
   test_registry_count_matches_collections();
 
@@ -655,7 +656,7 @@ inline int run_solids_tests() {
   test_hankin_solids_fit_hankinsolids_scratch_budget();
   test_hankin_solids_fit_hankinsolids_persistent_budget();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace solids_tests

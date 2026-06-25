@@ -18,6 +18,7 @@
 #include "core/hankin.h"
 #include "core/solids.h"
 #include "tests/mesh_test_util.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -450,7 +451,7 @@ inline void test_compiled_hankin_clear() {
  * @return Number of test failures recorded by the module.
  */
 inline int run_hankin_tests() {
-  auto scope = hs_test::begin_module("hankin");
+  hs_test::ModuleFixture fixture("hankin");
 
   test_compile_hankin_populates_arrays();
   test_compile_hankin_instruction_indices_in_range();
@@ -467,7 +468,7 @@ inline int run_hankin_tests() {
   test_compiled_hankin_clone_deep_copies();
   test_compiled_hankin_clear();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace hankin_tests

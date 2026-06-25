@@ -18,6 +18,7 @@
 #pragma once
 
 #include "core/platform.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <cmath>
@@ -292,7 +293,7 @@ inline void test_crgb_colorcode_constructor() {
  * @return The module's failure count.
  */
 inline int run_platform_tests() {
-  auto scope = hs_test::begin_module("platform");
+  hs_test::ModuleFixture fixture("platform");
 
   test_sin8_golden();
   test_sin16_golden();
@@ -307,7 +308,7 @@ inline int run_platform_tests() {
   test_beatsin16_golden();
   test_serial_printf_formats_varargs();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace platform_tests

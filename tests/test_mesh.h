@@ -19,6 +19,7 @@
 #include "core/mesh.h"
 #include "core/solids.h"
 #include "tests/mesh_test_util.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -503,7 +504,7 @@ inline void test_classify_faces_truncated_cube_distinct_topology() {
  * @return The module's failure count.
  */
 inline int run_mesh_tests() {
-  auto scope = hs_test::begin_module("mesh");
+  hs_test::ModuleFixture fixture("mesh");
 
   test_polymesh_default_state();
   test_polymesh_bind_arrays();
@@ -528,7 +529,7 @@ inline int run_mesh_tests() {
   test_classify_faces_tetrahedron_uniform_topology();
   test_classify_faces_truncated_cube_distinct_topology();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace mesh_tests

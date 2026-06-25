@@ -42,6 +42,7 @@
 
 #include "core/filter.h"
 #include "core/canvas.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -1632,7 +1633,7 @@ inline void test_feedback_banded_diverges_from_full() {
  * @return The module's failure count.
  */
 inline int run_filter_tests() {
-  auto scope = hs_test::begin_module("filter");
+  hs_test::ModuleFixture fixture("filter");
 
   test_trait_member_values();
   test_filter_trait_inheritance();
@@ -1685,7 +1686,7 @@ inline int run_filter_tests() {
   test_screen_trails_banded_matches_full();
   test_feedback_banded_diverges_from_full();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace filter_tests

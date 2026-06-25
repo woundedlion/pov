@@ -19,6 +19,7 @@
 
 #include "core/geometry.h"
 #include "tests/test_3dmath.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -609,7 +610,7 @@ inline void test_orientation_upsample_noop_if_already_long() {
  * @return The module's failure count.
  */
 inline int run_geometry_tests() {
-  auto scope = hs_test::begin_module("geometry");
+  hs_test::ModuleFixture fixture("geometry");
 
   test_axis_constants();
 
@@ -654,7 +655,7 @@ inline int run_geometry_tests() {
   test_orientation_upsample_preserves_endpoints();
   test_orientation_upsample_noop_if_already_long();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace geometry

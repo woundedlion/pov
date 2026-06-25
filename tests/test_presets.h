@@ -12,6 +12,7 @@
 #include <array>
 
 #include "core/presets.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -138,7 +139,7 @@ inline void test_ctad_deduces_size() {
  * @return The module's failure count, as reported by end_module().
  */
 inline int run_presets_tests() {
-  auto scope = hs_test::begin_module("presets");
+  hs_test::ModuleFixture fixture("presets");
 
   test_initial_state();
   test_next_cycles_forward_and_tracks_prev();
@@ -147,7 +148,7 @@ inline int run_presets_tests() {
   test_single_entry_wraps_in_place();
   test_ctad_deduces_size();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace presets_tests

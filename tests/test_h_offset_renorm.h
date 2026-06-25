@@ -12,6 +12,7 @@
 #pragma once
 
 #include "core/filter.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -159,12 +160,12 @@ inline void test_boundary_energy_independent_of_x_fraction() {
  * @return The module's failure count.
  */
 inline int run_h_offset_renorm_tests() {
-  ModuleScope m = begin_module("h_offset_renorm");
+  hs_test::ModuleFixture fixture("h_offset_renorm");
   test_offset_is_active_and_lut_nondegenerate();
   test_energy_conserved_through_clip_boundary();
   test_boundary_row_splits_two_columns_and_conserves();
   test_boundary_energy_independent_of_x_fraction();
-  return end_module(m);
+  return fixture.result();
 }
 
 } // namespace h_offset_renorm

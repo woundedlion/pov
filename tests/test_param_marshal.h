@@ -18,6 +18,7 @@
 #include "core/canvas.h"
 #include "core/memory.h"
 #include "targets/wasm/param_marshal.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <cstdio>
@@ -225,7 +226,7 @@ inline void check_roster_order_pinned() {
 }
 
 inline int run_param_marshal_tests() {
-  auto scope = hs_test::begin_module("param_marshal");
+  hs_test::ModuleFixture fixture("param_marshal");
   check_roster_order_pinned();
   // Tally how many effects exercised the by-name round-trip; it is skipped for
   // effects with no editable float param. Surface the split and fail if zero.
@@ -268,7 +269,7 @@ inline int run_param_marshal_tests() {
   HS_EFFECT_LIST(HS_PARAM_STAB)
 #undef HS_PARAM_STAB
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace param_marshal_tests

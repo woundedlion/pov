@@ -21,6 +21,7 @@
 
 #include "core/reaction_graph.h"
 #include "tests/test_3dmath.h" // for HS_EXPECT_VEC
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -380,7 +381,7 @@ inline void test_cubemap_lut_offlattice() {
  * @return The module's failure count.
  */
 inline int run_reaction_graph_tests() {
-  auto scope = hs_test::begin_module("reaction_graph");
+  hs_test::ModuleFixture fixture("reaction_graph");
 
   test_nodes_on_unit_sphere();
   test_node_deterministic_and_distinct();
@@ -399,7 +400,7 @@ inline int run_reaction_graph_tests() {
   test_cubemap_lut_roundtrip();
   test_cubemap_lut_offlattice();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace reaction_graph_tests

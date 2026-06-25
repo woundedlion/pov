@@ -20,6 +20,7 @@
 #pragma once
 
 #include "core/transformers.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <cstdint>
@@ -523,7 +524,7 @@ inline void test_transformer_spawn_applies_and_composes() {
  * @return The module's failure count.
  */
 inline int run_transformers_tests() {
-  auto scope = hs_test::begin_module("transformers");
+  hs_test::ModuleFixture fixture("transformers");
 
   test_orient_transformer_identity();
   test_orient_transformer_known_rotation();
@@ -543,7 +544,7 @@ inline int run_transformers_tests() {
   test_transformer_no_entities_is_identity();
   test_transformer_spawn_applies_and_composes();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace transformers_tests

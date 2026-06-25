@@ -11,6 +11,7 @@
 
 #include "core/platform.h" // Fn = hs::inplace_function (defined before concepts.h)
 #include "core/concepts.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -169,7 +170,7 @@ inline void test_fn_copy_move_empty() {
  * @return Failure count reported by end_module for the "concepts" module.
  */
 inline int run_concepts_tests() {
-  auto scope = hs_test::begin_module("concepts");
+  hs_test::ModuleFixture fixture("concepts");
 
   test_functionref_overload_resolution();
   test_functionref_function_pointer();
@@ -177,7 +178,7 @@ inline int run_concepts_tests() {
   test_stored_functionref_rvalue_rejection();
   test_fn_copy_move_empty();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace concepts_tests

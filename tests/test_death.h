@@ -26,6 +26,7 @@
 #include <optional>
 #include <string>
 
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include "core/3dmath.h"
@@ -944,11 +945,11 @@ inline void report_unrunnable(const char *why, int rc) {
  *          each died by the exact trap status.
  */
 inline int run_death_tests() {
-  auto scope = hs_test::begin_module("death");
+  hs_test::ModuleFixture fixture("death");
 
   if (!self_exe() || self_exe()[0] == '\0') {
     report_unrunnable("no argv[0] to re-exec", 0);
-    return hs_test::end_module(scope);
+    return fixture.result();
   }
 
   // Control: a child given an unknown case must exit cleanly. If it doesn't,
@@ -958,7 +959,7 @@ inline int run_death_tests() {
   if (!child_exited_clean(control)) {
     report_unrunnable("cannot re-exec self", control);
     set_case_env("");
-    return hs_test::end_module(scope);
+    return fixture.result();
   }
 
   int n;
@@ -979,7 +980,7 @@ inline int run_death_tests() {
                       "trap; cannot classify trap status",
                       0);
     set_case_env("");
-    return hs_test::end_module(scope);
+    return fixture.result();
   }
   TrapShape shape = shape0;
 
@@ -996,7 +997,7 @@ inline int run_death_tests() {
   }
 
   set_case_env(""); // leave the env clean for anything that runs after us
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace death

@@ -11,6 +11,7 @@
 #pragma once
 
 #include "core/util.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -175,7 +176,7 @@ inline void test_apply_if_changed() {
  * @return The module's failure count, as reported by end_module.
  */
 inline int run_util_tests() {
-  auto scope = hs_test::begin_module("util");
+  hs_test::ModuleFixture fixture("util");
 
   test_wrap_float();
   test_wrap_t();
@@ -186,7 +187,7 @@ inline int run_util_tests() {
   test_fwd_distance();
   test_apply_if_changed();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace util_tests

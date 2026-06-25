@@ -17,6 +17,7 @@
 
 #include "core/generators.h"
 #include "core/memory.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -216,14 +217,14 @@ inline void test_generate_deep_nesting_stacks_and_unwinds() {
  * @return The module's failure count.
  */
 inline int run_generators_tests() {
-  auto scope = hs_test::begin_module("generators");
+  hs_test::ModuleFixture fixture("generators");
 
   test_generate_lifecycle_and_forwarding();
   test_generate_nested_target_persists();
   test_generate_reentrant_nesting_does_not_clobber();
   test_generate_deep_nesting_stacks_and_unwinds();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace generators_tests

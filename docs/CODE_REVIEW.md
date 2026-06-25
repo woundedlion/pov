@@ -111,7 +111,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 14. ✅ `tests/test_death.h` (971–979) — `run_death_tests()` probes the shell's trap-relay shape by spawning exactly one case (`case_arena_oom`); if that single probe fails to die as expected, the suite reports "unrunnable" and skips all 34 death cases. Use a dedicated maximally-robust sentinel, or require two independent probes to agree, so a probe failure localizes instead of masking the module.
 
-15. `tests/test_fixture.h` (39–54) — `ModuleFixture`/`reset_globals()` were built to centralize the arena/Timeline/RNG reset, but only `test_memory.h` uses them; the other 33 modules hand-roll resets. No live bug (CTest forks per module), but the full-run path is order-dependent by hand. Adopt the fixture across modules.
+15. ✅ `tests/test_fixture.h` (39–54) — `ModuleFixture`/`reset_globals()` were built to centralize the arena/Timeline/RNG reset, but only `test_memory.h` uses them; the other 33 modules hand-roll resets. No live bug (CTest forks per module), but the full-run path is order-dependent by hand. Adopt the fixture across modules.
 
 16. ✅ `tests/test_hd107s_frame.h` (266) — the module is registered/selected as `hd107s` but opens its scope with `begin_module("hd107s_frame")`, so `ctest -R hd107s` prints a header that doesn't match the selector. Align the printed name with the registered name.
 
