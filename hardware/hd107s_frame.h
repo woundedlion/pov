@@ -62,6 +62,10 @@ static inline void arm_dcache_flush(void *, size_t) {}
  *   3. Temperature correction multiply (Candle equivalent)
  *   4. Brightness scaling
  *   5. Linear 16-bit → sRGB 8-bit   (linear_to_srgb_lut, PROGMEM)
+ *
+ * PROGMEM is a placement no-op on Teensy 4.x (Cortex-M7, unified flash/RAM
+ * address space) and empty on the PC/wasm sim; the LUTs are read with plain
+ * operator[], not pgm_read_*. Direct subscripting is intentional.
  */
 template <int N>
 class HD107SFrame {
