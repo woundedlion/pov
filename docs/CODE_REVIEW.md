@@ -84,7 +84,7 @@ Items are numbered sequentially across all priority sections. Each cites the loc
 ### Informational / Polish
 
 17. **`effects/Flyby.h:37` — stale `// TODO:` preset comment left in shipped `init()`.** Remove dead commentary.
-18. **`core/effect_registry.h:71` — `kReserveHint` comment says "~30 effects"; the roster is 27.** Harmless (reserve is a hint) but stale against the X-macro SSOT.
+18. ✅ **`core/effect_registry.h:71` — `kReserveHint` comment says "~30 effects"; the roster is 27.** Harmless (reserve is a hint) but stale against the X-macro SSOT.
 19. **`.github/workflows/docs.yml:8` — docs deploy has no `paths:` filter.** Every push to master rebuilds and redeploys the full Doxygen+Graphviz site. *Fix:* scope to `**.h`, `**.cpp`, `README.md`, `Doxyfile`.
 20. **`.github/workflows/ci.yml:329-381` — provenance gates diff *all* numeric tokens.** The LUT/reaction-graph drift check tokenizes the whole file (includes, type widths, array bounds), so it's self-consistent but coarse. *Fix:* compare only the array-body tokens.
 21. **`.githooks/pre-commit:90` — local Teensy gate builds only the `phantasm` image.** A Holosphere-only budget/layout regression passes the hook and fails only in CI. Documented as intentional (CI stays authoritative); noted for awareness.
