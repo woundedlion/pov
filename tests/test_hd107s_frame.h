@@ -263,7 +263,7 @@ inline void test_load_full_count() {
  * @return The module's failure count from end_module().
  */
 inline int run_hd107s_tests() {
-  auto scope = hs_test::begin_module("hd107s_frame");
+  auto scope = hs_test::begin_module("hd107s");
   test_layout_constants();
   test_fresh_frame_skeleton();
   test_correct_pipeline();
