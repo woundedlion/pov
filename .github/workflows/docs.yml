@@ -7,6 +7,16 @@ name: Docs
 on:
   push:
     branches: [master]
+    # Only the Doxygen inputs (Doxyfile INPUT = README.md core effects hardware
+    # targets, *.h/*.cpp), the config, the custom stylesheet, and this workflow
+    # affect the published site; skip the full rebuild+redeploy on other pushes.
+    paths:
+      - '**.h'
+      - '**.cpp'
+      - 'README.md'
+      - 'Doxyfile'
+      - 'docs/doxygen-custom.css'
+      - '.github/workflows/docs.yml'
 
 # Pages deployment needs write + OIDC; nothing else is granted.
 permissions:
