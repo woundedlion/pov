@@ -567,6 +567,8 @@ struct Ring {
       float t1 = (alpha_angle - acos_C) * scale;
       float t2 = (alpha_angle + acos_C) * scale;
 
+      // Both padded twin arcs can straddle θ=0; the seam merge is left to
+      // scan_region's [0,W) wrap/coalesce pass (mirrors pole_wrap above).
       out(floorf(t1 - hw_px), ceilf(t1 + hw_px));
       out(floorf(t2 - hw_px), ceilf(t2 + hw_px));
       return true;
