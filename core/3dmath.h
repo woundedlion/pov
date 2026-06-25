@@ -766,9 +766,10 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
  */
 inline Complex gnomonic(const Vector &v) {
   // Equator handling: floor the divisor to ±1e-9 to avoid div-by-zero at
-  // v.y == 0, then clamp to ±STEREO_INF — the actual equator→pole threshold that
-  // inv_gnomonic recognizes. A near-equator point has |v.x| or |v.z| ≈ O(1), so
-  // it clamps to the sentinel; the flip to "pole" happens at |v.y| < ~7e-5.
+  // v.y == 0, then clamp to ±STEREO_INF. A near-equator point has |v.x| or
+  // |v.z| ≈ O(1), so it clamps to the sentinel; inv_gnomonic snaps any magnitude
+  // at/above STEREO_INF_RECOGNIZE (half the sentinel) back to the pole, so the
+  // equator collapses to the pole just inside |v.y| ~ 1.4e-4.
   float div = (std::abs(v.y) < 1e-9f) ? 1e-9f * (v.y >= 0 ? 1.0f : -1.0f) : v.y;
   float gx = v.x / div;
   float gz = v.z / div;
@@ -785,9 +786,12 @@ inline Complex gnomonic(const Vector &v) {
  * @return The corresponding point on the unit sphere.
  */
 inline Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
-  // Clamped-to-infinity → pole. Matched at exactly ±STEREO_INF (no margin,
-  // unlike inv_stereo) since gnomonic()'s forward sentinel is an exact clamp.
-  if (std::abs(z.re) >= STEREO_INF || std::abs(z.im) >= STEREO_INF)
+  // Clamped-to-infinity → pole, recognized from STEREO_INF_RECOGNIZE (half the
+  // sentinel) like inv_stereo: a Mobius map between gnomonic() and here can
+  // scale the exact ±STEREO_INF clamp toward (but not past) zero, so the margin
+  // still snaps a shrunk sentinel back to the pole.
+  if (std::abs(z.re) >= STEREO_INF_RECOGNIZE ||
+      std::abs(z.im) >= STEREO_INF_RECOGNIZE)
     return Vector(0.0f, original_sign, 0.0f);
   // Project (re, 1, im) back onto unit sphere
   float len = sqrtf(z.re * z.re + z.im * z.im + 1.0f);
