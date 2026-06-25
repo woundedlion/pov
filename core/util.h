@@ -77,6 +77,7 @@ inline float wrap_t(float t) {
  * @return The wrapped value in the range [0, m).
  */
 inline int wrap(int x, int m) {
+  assert(m > 0);
   int r = x % m;
   return r < 0 ? r + m : r;
 }
