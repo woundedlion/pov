@@ -1579,6 +1579,8 @@ A latitude-longitude grid that undergoes live Möbius transformation animation v
 
 Two counter-rotating families of concentric rings that beat against each other into a shifting moiré interference pattern, driven by an animated ring-distortion amplitude.
 
+**Parameters**: Alpha, Density, Amp
+
 </td></tr></table>
 
 <table border="0"><tr>
@@ -1613,6 +1615,8 @@ Spherical Voronoi diagram with animated seed positions. Cells are always filled 
 
 Polyline rings drift pole-to-pole through an inverse stereographic projection, each wobbled into petal lobes and twisted by an angle that grows with its position; rasterized via Plot.
 
+**Parameters**: Twist, Speed, Alpha
+
 </td></tr></table>
 
 <table border="0"><tr>
@@ -1634,6 +1638,8 @@ Draws twisting wireframe knotted structures derived from Archimedean solids. Mes
 #### Comets
 
 A single head traces spherical Lissajous curves, cycling through a dozen configurations, trailed by a long 115-frame orientation tail and periodically wiping the palette to a fresh triadic scheme.
+
+**Parameters**: Alpha, Thickness, Cycle Dur, Debug BB
 
 </td></tr></table>
 
@@ -1669,6 +1675,8 @@ Rings bloom at random orientations and grow their radius from zero, fading in ov
 
 A head traces a fixed 12:5 spherical Lissajous figure whose long trail is continuously warped by a noise transformer, over a slowly cycling gradient palette.
 
+**Parameters**: Alpha, Cycle Dur, Speed, Jitter Amp, Noise Freq, Scale Factor, Cycle Speed
+
 </td></tr></table>
 
 <table border="0"><tr>
@@ -1700,6 +1708,8 @@ Stereographic-projection shader (extends `Effect` directly) that samples world-s
 #### MindSplatter
 
 Random-walk particle system with Möbius warp bursts.
+
+**Parameters**: Friction, Well Str, Init Spd, Ang Spd, Particles
 
 </td></tr></table>
 
@@ -1734,6 +1744,8 @@ A central distorted ring (`Plot::DistortedRing`) warps and spins; periodic rando
 #### GnomonicStars
 
 A Fibonacci-spiral field of star-polygon SDFs, continuously deformed by an evolving Möbius warp (built on a gnomonic-projection transformer) and slowly tumbled by a Languid random walk.
+
+**Parameters**: Points, Radius, Sides, Debug BB, Warp Speed
 
 </td></tr></table>
 
