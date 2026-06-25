@@ -324,7 +324,12 @@ protected:
    */
   AnimationBase(int duration, bool repeat)
       : duration(duration == 0 ? 1 : duration), repeat(repeat),
-        canceled(false) {}
+        canceled(false) {
+    // -1 is the sole perpetual sentinel; any other negative would make done()
+    // permanently false so a one-shot never completes or fires .then().
+    HS_CHECK(duration >= 0 || duration == -1,
+             "AnimationBase duration must be >= 0 or -1 (perpetual)");
+  }
 
   /**
    * @brief Default constructor: an indefinite, non-repeating animation.
