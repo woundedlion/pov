@@ -312,7 +312,11 @@ using EasingFn = float (*)(float);
  * by index.
  * @tparam T Candidate type; must expose length() and get(index).
  * @details Matches Orientation (get -> Quaternion) and OrientationTrail (get ->
- * Orientation). The return type of get() is left deduced.
+ * Orientation). get()'s return type is left deduced but contractually must be a
+ * slerp/lerp-able orientation (Quaternion or Orientation); a container yielding
+ * anything else satisfies this concept yet fails deep inside slerp/lerp with a
+ * worse diagnostic. length() is consumed as a count (used as size_t), so a
+ * signed return must be non-negative.
  */
 template <typename T>
 concept Tweenable = requires(const T &t, size_t i) {
