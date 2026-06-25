@@ -26,6 +26,12 @@ public:
   enum class RenderMode { Plot, Scan };
 
   /**
+   * @brief Maximum rings the raster can resolve: one per row. Rings spaced finer
+   * than a row apart collapse, so this bounds both the Count slider and drawAll.
+   */
+  static constexpr int kMaxRings = H > 1 ? H : 1;
+
+  /**
    * @brief Constructs the effect on a WxH canvas.
    * @details Starts on the planar polygon shape.
    */
@@ -45,7 +51,8 @@ public:
    */
   void init() override {
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Count", &params.num_shapes, 1.0f, 128.0f);
+    registerParam("Count", &params.num_shapes, 1.0f,
+                  static_cast<float>(kMaxRings));
     registerParam("Radius", &params.radius, 0.1f, 5.0f);
     registerParam("Sides", &params.sides, 3.0f, 12.0f);
     registerAnimatedParam("Twist", &params.twist, -5.0f, 5.0f);
@@ -122,9 +129,6 @@ public:
     int count = static_cast<int>(params.num_shapes);
     if (count < 1)
       count = 1;
-    // Cap the ring count at H: rings spaced finer than one row apart can't be
-    // resolved.
-    constexpr int kMaxRings = H > 1 ? H : 1;
     if (count > kMaxRings)
       count = kMaxRings;
 
