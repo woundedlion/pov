@@ -333,7 +333,12 @@ protected:
 
   int duration; /**< Total length of the animation in frames. */
   bool repeat;  /**< Flag indicating if the animation should repeat. */
-  int t = 0;    /**< Internal frame counter. */
+  int t = 0;    /**< Internal frame counter. Finite animations bound it by
+                     `duration`; perpetual ones (duration == -1:
+                     RandomTimer/PeriodicTimer/Driver/RandomWalk) increment it
+                     forever, so `t++` and the `t >= next` trigger comparisons are
+                     signed-overflow UB past ~2^31 frames (~276 days at 90 fps).
+                     Restart before then if uptime can approach that bound. */
 
 private:
   bool canceled;       /**< Flag to signal immediate cancellation. */
