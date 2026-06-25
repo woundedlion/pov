@@ -100,7 +100,7 @@ struct Spherical {
    */
   explicit Spherical(const Vector &v);
 
-  float theta; /**< Azimuthal angle (usually longitude). */
+  float theta; /**< Azimuthal angle from +x toward +z, range (-π,π] (atan2). */
   float phi;   /**< Polar angle (usually co-latitude). */
 };
 
@@ -376,6 +376,7 @@ inline Spherical::Spherical(const Vector &v) {
   n.normalize();
   // At the poles (n.y == ±1) theta is arbitrary but harmless: phi==0 or π
   // collapses the azimuth so every theta maps to the same point.
+  // theta is fast_atan2's (-π,π], not [0,2π); consumers needing the latter wrap.
   theta = fast_atan2(n.z, n.x);
   phi = fast_acos(hs::clamp(n.y, -1.0f, 1.0f));
 }
