@@ -123,7 +123,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 20. ✅ `daydream/tools/shared.js` (161–167, 111) — `defaultResize` computes `camera.aspect = w/h` from `container.clientHeight`; a collapsed/hidden container reporting height 0 yields `Infinity` and a non-finite projection matrix. Add a `Math.max(1, h)` guard.
 
-21. `daydream/tests/segment_worker.test.js` (92–97) — `dispatch()` drains the worker's serialized queue by awaiting `setImmediate` exactly 4 times rather than the actual queue promise; brittle coupling to the implementation's current await depth that could under-drain if one more await is added. Await the real settle signal.
+21. ✅ `daydream/tests/segment_worker.test.js` (92–97) — `dispatch()` drains the worker's serialized queue by awaiting `setImmediate` exactly 4 times rather than the actual queue promise; brittle coupling to the implementation's current await depth that could under-drain if one more await is added. Await the real settle signal.
 
 22. `daydream/tests/segment_worker.test.js` (83–117) — `segment_worker.js` posts `{type:'booted'}` at module load as the contract the controller's boot watchdog depends on, but the worker suite never asserts it is emitted (the controller suite uses a `FakeWorker`). Add a direct assertion so a dropped/renamed ping is caught.
 
