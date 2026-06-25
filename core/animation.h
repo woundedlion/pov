@@ -2029,7 +2029,7 @@ public:
    */
   MobiusWarpEvolving(MobiusParams &params, float scale = 0.5f,
                      float speed = 0.01f)
-      : speed(speed), scale(scale), params(params), base(params),
+      : params(params), speed(speed), scale(scale), base(params),
         seed(hs::random()()) {}
 
   /**
