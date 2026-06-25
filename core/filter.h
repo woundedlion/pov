@@ -1179,6 +1179,9 @@ public:
     constexpr float INV_Q = 1.0f / Q;
     const float inv_ds = 1.0f / ds;
     const float fade = style_->fade;
+    // A non-finite fade would saturate every channel to white (NaN clamps to hi)
+    // and persist; trap it here rather than flash the buffer.
+    HS_CHECK(std::isfinite(fade), "feedback fade is non-finite");
     style_->sync_hue();
     for (int y = y_lo; y < y_hi; ++y) {
       int cy0 = y / ds;
