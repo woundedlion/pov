@@ -92,11 +92,7 @@ inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
   int faceIdx = static_cast<int>(f.v2);
   int topoIdx = (faceIdx >= 0 && faceIdx < num_faces) ? topology[faceIdx] : 0;
   float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
-  // topoIdx may be negative and C++ % keeps the dividend's sign, so fold the
-  // result into [0, NumPalettes) before indexing palette_idx.
-  int slot = topoIdx % static_cast<int>(NumPalettes);
-  if (slot < 0)
-    slot += static_cast<int>(NumPalettes);
+  int slot = wrap(topoIdx, static_cast<int>(NumPalettes));
   Color4 c = palette_bank[palette_idx[slot]].get(t);
   c.alpha = opacity;
   return c;
