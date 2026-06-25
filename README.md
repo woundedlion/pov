@@ -1096,10 +1096,10 @@ All Conway operators are templated on input mesh type and take `(const MeshT& me
 | Operation | Description |
 |---|---|
 | `MeshOps::compile_hankin` | Pre-compute topological data for fast Hankin pattern updates |
-| `MeshOps::update_hankin` | Update dynamic vertices based on angle parameter (no reallocation) |
+| `MeshOps::update_hankin` | Update dynamic vertices based on angle parameter (no new allocation when reusing a sufficiently-sized output mesh) |
 | `MeshOps::hankin` | One-shot Hankin pattern generation (compile + update) |
 
-`compile_hankin` produces a `CompiledHankin` struct containing base vertices, static midpoints, and dynamic instructions. `update_hankin` evaluates the dynamic vertices by sweeping the Hankin angle, producing the star polygon line intersections for each face without reallocating memory.
+`compile_hankin` produces a `CompiledHankin` struct containing base vertices, static midpoints, and dynamic instructions. `update_hankin` evaluates the dynamic vertices by sweeping the Hankin angle, producing the star polygon line intersections for each face. It re-binds the output mesh's vectors on every call, so it avoids new allocation only in the steady state — reusing the same output mesh against the same arena, already sized large enough.
 
 #### Solids Library (`solids.h`)
 
