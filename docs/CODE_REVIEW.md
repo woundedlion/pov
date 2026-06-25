@@ -156,7 +156,7 @@ verified impact. No Critical-severity defects were found.
 ### Low
 
 3. ✅ **`Spherical`-from-`Vector` azimuth contradicts the `[0,2π)` convention** — `core/3dmath.h:374-381`. `theta = fast_atan2(n.z, n.x)` yields `(-π, π]`; consumers reading `s.theta` raw (e.g. `filter.h:1165`) get negatives and must hand-wrap. *Fix:* wrap into `[0,2π)` in the constructor, or document the `(-π,π]` range on `Spherical`.
-4. **`geometry.h` uses `std::pair` without `#include <utility>`** — `core/geometry.h:818`. Compiles only via a transitive include. *Fix:* add `#include <utility>`.
+4. ✅ **`geometry.h` uses `std::pair` without `#include <utility>`** — `core/geometry.h:818`. Compiles only via a transitive include. *Fix:* add `#include <utility>`.
 5. **`Tweenable` concept doesn't constrain `get()`'s element type** — `core/concepts.h:317-321`. Non-conforming containers fail deep inside `slerp`/`lerp` with a worse diagnostic; `length()` admits signed `int` with no non-negativity contract. *Fix:* constrain the deduced `get()` result (or at least document the element contract).
 6. **`concepts.h` depends on `Pixel` and the global `Fn` alias only transitively** — `core/concepts.h:212-307`. Resolves only because `canvas.h` pulls in `color.h`/`platform.h`. *Fix:* include `color.h` and `platform.h` directly.
 7. **LUT generator has no round-trip / monotonicity self-check** — `scripts/generate_luts.py:64-73,124-142`. Regeneration correctness rests solely on a CI token diff; a future libm change could land a one-entry shift silently. *Fix:* add a `--check` pass asserting each table is non-decreasing and the sRGB→linear→sRGB round trip stays within ±1 code.
