@@ -8,3 +8,4 @@ Symbol table '.symtab' contains 5089 entries:
   4592: 20202000 0x3cc00 OBJECT  GLOBAL DEFAULT    9 _ZN6Effect8buffer_bE
   4831: 60003dc0 92160 OBJECT  GLOBAL DEFAULT    3 _ZN13ReactionGraph9neighborsE
   4878: 2023ec00 0x3cc00 OBJECT  GLOBAL DEFAULT    9 _ZN6Effect8buffer_aE
+  4783: 2027b800  1280 OBJECT  GLOBAL DEFAULT    9 _ZN12POVSegmentedILi288ELi4ELi480EE14ledController_E

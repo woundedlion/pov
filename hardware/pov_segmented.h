@@ -664,13 +664,13 @@ template <int S, int N, int RPM>
 int POVSegmented<S, N, RPM>::y_step_ = 1;
 
 #if defined(USE_DMA_LEDS)
-// DMAMEM (OCRAM): the controller's HD107SFrame buffers are the actual eDMA TX
-// source, so they must live in DMA-reachable, cached OCRAM — which is exactly
-// what HD107SFrame's arm_dcache_flush() assumes. Default placement is DTCM,
-// where that flush is a dead no-op; here it does the required write-back.
-template <int S, int N, int RPM>
-DMAMEM DMALEDController<POVSegmented<S, N, RPM>::PPS>
-    POVSegmented<S, N, RPM>::ledController_{POVSegmented<S, N, RPM>::SPI_CLOCK_HZ};
+// ledController_ is intentionally NOT defined out-of-line here. Its HD107SFrame
+// buffers are the eDMA TX source and belong in cached, DMA-reachable OCRAM (where
+// HD107SFrame's arm_dcache_flush() write-back is meaningful — in DTCM it is a
+// dead no-op). DMAMEM (a section attribute) is silently dropped by GCC on a
+// vague-linkage template static member, so a generic definition would land in
+// DTCM regardless. Each instantiating target therefore defines it as an explicit
+// specialization (ordinary strong linkage, so DMAMEM sticks) — see Phantasm.ino.
 #endif
 
 #endif // ARDUINO
