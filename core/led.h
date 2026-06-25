@@ -45,8 +45,10 @@ struct NoTempCorrection {};
 // CONTRACT — restore-to-baseline, NOT save/restore. The destructors reinstate
 // the engine's canonical baseline (TypicalLEDStrip color, Candle temperature),
 // not whatever correction was active at construction (FastLED exposes no getter
-// for the current global correction). These guards do NOT nest; the shared depth
-// counter below traps a second live guard.
+// for the current global correction). At most ONE correction guard may be live
+// at a time: NoColorCorrection and NoTempCorrection share the single depth
+// counter below, so a second live guard of EITHER type traps — they neither nest
+// nor coexist.
 
 /**
  * @brief Shared liveness counter for the correction guards.
@@ -83,7 +85,8 @@ struct NoColorCorrection {
    */
   NoColorCorrection() {
     HS_CHECK(correction_guard_depth() == 0,
-             "correction guards do not nest (see contract above)");
+             "at most one correction guard may be live at a time (see contract "
+             "above)");
     ++correction_guard_depth();
     FastLED.setCorrection(UncorrectedColor);
     FastLED.setTemperature(UncorrectedTemperature);
@@ -107,7 +110,8 @@ struct NoTempCorrection {
    */
   NoTempCorrection() {
     HS_CHECK(correction_guard_depth() == 0,
-             "correction guards do not nest (see contract above)");
+             "at most one correction guard may be live at a time (see contract "
+             "above)");
     ++correction_guard_depth();
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(UncorrectedTemperature);
