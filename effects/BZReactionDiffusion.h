@@ -93,6 +93,11 @@ public:
     cube_lut.build(persistent_arena);
     init_lattice();
     seed_spiral_nuclei();
+
+    // Fixed-seed palette: the three species colors never change after init.
+    color_a = palette.get(0.0f);
+    color_b = palette.get(0.5f);
+    color_c = palette.get(1.0f);
   }
 
 private:
@@ -364,9 +369,9 @@ private:
       std::memcpy(state.C, curC, RD_N);
     }
 
-    Color4 ca = palette.get(0.0f);
-    Color4 cb = palette.get(0.5f);
-    Color4 cc = palette.get(1.0f);
+    const Color4 &ca = color_a;
+    const Color4 &cb = color_b;
+    const Color4 &cc = color_c;
 
     auto vertex_shader = [&](Fragment &frag) {
       Vector rv = orientation.unorient(frag.pos);
@@ -399,6 +404,9 @@ private:
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                             BrightnessProfile::DESCENDING,
                             SaturationProfile::VIBRANT, 42};
+
+  /** @brief Per-species palette colors, evaluated once in init(). */
+  Color4 color_a, color_b, color_c;
 
   /** @brief User-tunable Lotka-Volterra and diffusion parameters. */
   struct Params {
