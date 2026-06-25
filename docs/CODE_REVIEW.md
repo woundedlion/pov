@@ -89,7 +89,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 5. ✅ `hardware/dma_led.h` (≈71–93, 173–178, 224–227) — `init()` unconditionally sets a file-static `instance_` and the DMA completion ISR dispatches solely through it; the single-init guard is per-instance, so a second `TeensySPIDMA` would silently clobber the shared pointer and cross-wire both double-buffer state machines. Add a global second-instance trap (or document "exactly one per image" with an `HS_CHECK`).
 
-6. `targets/wasm/wasm.cpp` (775) — `check_live()` concatenates its diagnostic message into the `HS_CHECK` *condition* with `&&` instead of passing it as the message argument; the trap still fires but `check_fail` receives an empty message and a noisy stringized condition. Move the string to the second argument, matching every other call site.
+6. ✅ `targets/wasm/wasm.cpp` (775) — `check_live()` concatenates its diagnostic message into the `HS_CHECK` *condition* with `&&` instead of passing it as the message argument; the trap still fires but `check_fail` receives an empty message and a noisy stringized condition. Move the string to the second argument, matching every other call site.
 
 7. `core/util.h` (79) — the integer `wrap(int,int)` overload computes `x % m` with no precondition guard, while the float overload and `fast_wrap`/`shortest_distance` all assert their domains. `m == 0` is UB. Add the `m > 0` guard for consistency with the file's documented domain-guard convention.
 
