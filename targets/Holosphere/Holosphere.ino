@@ -5,8 +5,8 @@
  * Holosphere — Single-Teensy POV display
  *
  * Target: Teensy 4.0
- * Physical LEDs: 288 (144 per arm × 2 sides)
- * Virtual canvas: 288×144
+ * Physical LEDs: 40 (20 per arm × 2 sides)
+ * Virtual canvas: 96×20
  */
 #include <FastLED.h>
 #include <SPI.h>
@@ -15,7 +15,7 @@
 #include "effects.h"
 #include "effects_legacy.h"
 
-static constexpr int NUM_PIXELS = 288;
+static constexpr int NUM_PIXELS = 40;
 static constexpr unsigned int RPM = 480;
 
 namespace {
@@ -30,7 +30,7 @@ void setup() {
 }
 
 FLASHMEM static void run_show_sequence() {
-  g_pov->show<RingSpin<288, 144>>(120); // 140
+  g_pov->show<RingSpin<96, 20>>(120);
 
   //  pov->show<IslamicStars<288, 144>>(120);
 
