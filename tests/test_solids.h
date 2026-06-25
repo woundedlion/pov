@@ -485,6 +485,144 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
 }
 
 // ---------------------------------------------------------------------------
+// High-water regression for HankinSolids at its shipping arena configuration.
+//
+// HankinSolids::init() splits the device arena as configure_arenas(GLOBAL - 16 KB
+// - 32 KB, 16 KB, 32 KB): a 16 KB scratch_a / 32 KB scratch_b pair and the rest
+// persistent. load_shape() runs the whole generate -> compile_hankin ->
+// update_hankin chain inside one generate() call (scratch ping-pongs without an
+// intervening reset), then classify_faces_by_topology() reuses the scratch after
+// generate() rewinds it. The two heaviest Archimedean solids
+// (truncatedIcosidodecahedron, snubDodecahedron) only cycle into the simple-solid
+// carousel here, so this is the path that decides whether they fit the budget.
+// Scratch is flat POD whose only host/device delta (64-bit pointers) inflates the
+// host figure, so the host high-water mark is a conservative upper bound.
+// ---------------------------------------------------------------------------
+
+constexpr size_t kHankinScratchABudget = 16 * 1024; /**< HankinSolids scratch_a. */
+constexpr size_t kHankinScratchBBudget = 32 * 1024; /**< HankinSolids scratch_b. */
+constexpr float kHankinAngle = PI_F / 4.0f; /**< Mid-sweep; counts are angle-independent. */
+
+/**
+ * @brief Runs one simple solid through HankinSolids' full load pipeline and
+ *        asserts each scratch arena's peak stays within the 16 KB / 32 KB split.
+ * @param entry Registry entry whose generator is exercised.
+ * @details Mirrors load_shape: generate + compile_hankin + update_hankin share
+ *          the scratch pair without a reset (their combined peak is measured
+ *          before the rewind), then classify reuses the rewound scratch.
+ */
+inline void check_hankin_high_water_for_solid(const Solids::Entry &entry) {
+  Arena a(solids_scratch_a, sizeof(solids_scratch_a));
+  Arena b(solids_scratch_b, sizeof(solids_scratch_b));
+  Arena persist(solids_geom_a, sizeof(solids_geom_a));
+
+  PolyMesh base = Solids::finalize_solid(entry.generate(a, b), a);
+  CompiledHankin hankin;
+  MeshOps::compile_hankin(base, hankin, persist, a);
+  MeshState mesh;
+  MeshOps::update_hankin(hankin, mesh, persist, kHankinAngle);
+  size_t a_peak = a.get_high_water_mark();
+  size_t b_peak = b.get_high_water_mark();
+
+  // generate() rewinds the scratch pair before classify runs.
+  a.reset();
+  b.reset();
+  MeshOps::classify_faces_by_topology(mesh, a, b, persist);
+  if (a.get_high_water_mark() > a_peak)
+    a_peak = a.get_high_water_mark();
+  if (b.get_high_water_mark() > b_peak)
+    b_peak = b.get_high_water_mark();
+
+  HS_EXPECT_LE(a_peak, kHankinScratchABudget);
+  HS_EXPECT_LE(b_peak, kHankinScratchBBudget);
+}
+
+/**
+ * @brief Verifies every simple solid fits HankinSolids' 16 KB / 32 KB scratch
+ *        split — including the two heaviest Archimedean solids the carousel now
+ *        cycles through.
+ */
+inline void test_hankin_solids_fit_hankinsolids_scratch_budget() {
+  for (const Solids::Entry &e : Solids::Collections::get_simple_solids())
+    check_hankin_high_water_for_solid(e);
+}
+
+// ---------------------------------------------------------------------------
+// Persistent-budget regression for the HankinSolids carousel.
+//
+// The persistent half is GLOBAL_ARENA_SIZE - 16 KB - 32 KB (~282 KB on device).
+// The native 8 MB GLOBAL_ARENA_SIZE means a device overflow can't surface by
+// running the effect here. Peak residents during a morph are the baked palette
+// bank plus the two adjacent solids that coexist until compaction — each solid
+// contributing its compiled-hankin pattern, the rasterized mesh slot, and its
+// per-face topology — so the peak is the largest registry-adjacent pair sum, not
+// twice the largest single solid.
+// ---------------------------------------------------------------------------
+
+constexpr size_t kHankinPersistentBudget =
+    DEVICE_GLOBAL_ARENA_SIZE - 16 * 1024 - 32 * 1024; /**< ~282 KB on device. */
+
+/**
+ * @brief Verifies the worst adjacent pair of simple solids, plus the palette
+ *        bank, fits HankinSolids' persistent carousel split.
+ * @details Builds each solid's persistent footprint (compiled hankin + mesh +
+ *          topology) exactly as load_shape does, records it, then asserts the
+ *          largest registry-adjacent pair (the morph's worst coexistence) plus
+ *          one palette bank stays within the device budget.
+ */
+inline void test_hankin_solids_fit_hankinsolids_persistent_budget() {
+  size_t palette_bytes;
+  {
+    Arena pal(solids_geom_b, sizeof(solids_geom_b));
+    MeshPaletteBank bank;
+    bank.bake_all(pal);
+    palette_bytes = pal.get_high_water_mark();
+  }
+
+  const auto simple = Solids::Collections::get_simple_solids();
+  const size_t N = simple.size();
+
+  size_t slot_bytes[Solids::NUM_ENTRIES];
+  size_t worst_slot = 0, worst_k = 0;
+  for (size_t k = 0; k < N; ++k) {
+    Arena a(solids_scratch_a, sizeof(solids_scratch_a));
+    Arena b(solids_scratch_b, sizeof(solids_scratch_b));
+    Arena slot(solids_geom_a, sizeof(solids_geom_a));
+
+    PolyMesh base = Solids::finalize_solid(simple[k].generate(a, b), a);
+    CompiledHankin hankin;
+    MeshOps::compile_hankin(base, hankin, slot, a);
+    MeshState mesh;
+    MeshOps::update_hankin(hankin, mesh, slot, kHankinAngle);
+    MeshOps::classify_faces_by_topology(mesh, a, b, slot);
+
+    slot_bytes[k] = slot.get_high_water_mark();
+    if (slot_bytes[k] > worst_slot) {
+      worst_slot = slot_bytes[k];
+      worst_k = k;
+    }
+  }
+
+  // Largest registry-adjacent pair, including the (N-1, 0) cycle wrap.
+  size_t worst_pair = 0, worst_pair_i = 0;
+  for (size_t i = 0; i < N; ++i) {
+    size_t pair = slot_bytes[i] + slot_bytes[(i + 1) % N];
+    if (pair > worst_pair) {
+      worst_pair = pair;
+      worst_pair_i = i;
+    }
+  }
+
+  const size_t peak = palette_bytes + worst_pair;
+  std::printf("  [hankin persistent] palette=%zu B, worst slot=%zu B (%s), worst "
+              "adj pair=%zu B (%s+%s), peak=%zu B / budget=%zu B\n",
+              palette_bytes, worst_slot, simple[worst_k].name, worst_pair,
+              simple[worst_pair_i].name, simple[(worst_pair_i + 1) % N].name,
+              peak, (size_t)kHankinPersistentBudget);
+  HS_EXPECT_LE(peak, (size_t)kHankinPersistentBudget);
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -513,6 +651,9 @@ inline int run_solids_tests() {
 
   test_islamic_recipes_fit_islamicstars_budget();
   test_islamic_solids_fit_islamicstars_persistent_budget();
+
+  test_hankin_solids_fit_hankinsolids_scratch_budget();
+  test_hankin_solids_fit_hankinsolids_persistent_budget();
 
   return hs_test::end_module(scope);
 }
