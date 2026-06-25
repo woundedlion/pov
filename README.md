@@ -1857,13 +1857,22 @@ The WASM bridge includes stack high-water-mark instrumentation: `stack_paint_can
 Pixel data is 16-bit linear light (`uint16_t` per channel). The zero-copy `Uint16Array` view is bound directly as the instanced dot-mesh's `instanceColor` attribute, declared `normalized` so Three.js scales 0–65535 → 0–1 linear **on the GPU** — there is no per-pixel divide or float copy in JavaScript (Three.js expects linear color when `THREE.ColorManagement.enabled = true`):
 
 ```js
-const wasmPixels = wasmEngine.getPixels();   // Uint16Array view, zero-copy
-// Bound once as the instance-color buffer; the `true` flag marks it normalized,
-// so the GPU divides by 65535 on read. No JS-side divide or Float32 copy.
+let wasmPixels = wasmEngine.getPixels();     // Uint16Array view, zero-copy
+// The `true` flag marks the attribute normalized, so the GPU divides by 65535 on
+// read. No JS-side divide or Float32 copy.
 dotMesh.instanceColor =
     new THREE.InstancedBufferAttribute(wasmPixels, 3, /*normalized=*/ true);
 // → instanced dot-mesh per-instance colors → WebGL renderer
 ```
+
+The view aliases WASM linear memory and is **not** bound once: with
+`ALLOW_MEMORY_GROWTH` (e.g. the lazy 16 MB MeshOps allocation) any later heap
+growth detaches the `ArrayBuffer` and leaves the cached view zero-length. Re-fetch
+it after anything that may allocate — a resolution/effect change, and defensively
+each frame — rebinding `instanceColor` to a fresh `getPixels()` view when the old
+one has detached (`wasmPixels.byteLength === 0`), mirroring `daydream.js`'s
+`refreshPixelView`. Copying the snippet without this guard ships a latent
+black-frame-after-growth bug.
 
 ### 10.3 The Three.js Renderer (`driver.js`)
 
