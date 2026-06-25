@@ -10,4 +10,4 @@ Symbol table '.symtab' contains 10 entries:
      6: 60010000 92160 OBJECT  GLOBAL DEFAULT    2 _ZN13ReactionGraph9neighborsE
      7: 20279800   256 OBJECT  GLOBAL DEFAULT    6 global_timeline_events
      8: 60000200  1284 FUNC    GLOBAL DEFAULT    2 setup
-     9: 2027a000  1280 OBJECT  GLOBAL DEFAULT    6 _ZN12POVSegmentedILi288ELi4ELi480EE14ledController_E
+     9: 20001000  1280 OBJECT  GLOBAL DEFAULT    5 _ZN12POVSegmentedILi288ELi4ELi480EE14ledController_E

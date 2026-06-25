@@ -135,6 +135,15 @@ class TestLayoutInvariantsFail(unittest.TestCase):
         self.assertIn("symbol-wrong-region", _codes(result))
         self.assertTrue(any("reaction_graph" in v.message for v in result.violations))
 
+    def test_dma_tx_buffer_dropped_dmamem_lands_in_dtcm(self):
+        # phantasm env: the segment LED controller's eDMA TX buffers must stay in
+        # OCRAM; a vague-linkage DMAMEM drop strands them in DTCM.
+        result = _eval("phantasm", "good_teensy_size.txt",
+                       "broken_dma_tx_dtcm_syms.txt")
+        self.assertFalse(result.passed)
+        self.assertIn("symbol-wrong-region", _codes(result))
+        self.assertTrue(any("dma_tx_buffer" in v.message for v in result.violations))
+
     def test_arena_8mb_test_build_leak_trips_magnitude(self):
         result = _eval("holosphere", "good_teensy_size.txt",
                        "broken_arena_8mb_syms.txt")
@@ -242,6 +251,14 @@ class TestRealCapture(unittest.TestCase):
         rg = next(s for s in syms if s.name == "_ZN13ReactionGraph9neighborsE")
         self.assertEqual(rg.region, "FLASH")
         self.assertEqual(rg.size, 92160)
+
+    @unittest.skipUnless((REAL_DIR / "phantasm_readelf_syms.txt").exists(),
+                         "real captures not present")
+    def test_real_phantasm_dma_tx_buffer_is_in_ocram(self):
+        syms = tg.parse_readelf_symbols((REAL_DIR / "phantasm_readelf_syms.txt").read_text())
+        led = next(s for s in syms
+                   if s.name == "_ZN12POVSegmentedILi288ELi4ELi480EE14ledController_E")
+        self.assertEqual(led.region, "OCRAM")
 
 
 if __name__ == "__main__":

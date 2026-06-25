@@ -61,12 +61,14 @@
       "framebuffer_a":  { "name": "_ZN6Effect8buffer_aE",          "region": "OCRAM" },
       "framebuffer_b":  { "name": "_ZN6Effect8buffer_bE",          "region": "OCRAM" },
       // Phantasm instantiates all effects (incl. reaction-diffusion), so the K-NN
-      // table is present and must stay in flash. UNVERIFIED on a real ELF yet — the
-      // overflowing build is discarded before it can be inspected; confirm once the
-      // image fits. (Const => flash/.rodata; §7.4 #3.)
-      "reaction_graph": { "name": "_ZN13ReactionGraph9neighborsE", "region": "FLASH" }
-      // PHASE-1: add the DMALEDController eDMA TX-buffer invariant once its mangled
-      // symbol is captured from a fitting Phantasm build (must stay OCRAM, §5/§8).
+      // table is present and must stay in flash (const => flash/.rodata; §7.4 #3).
+      // Verified on the real Phantasm ELF.
+      "reaction_graph": { "name": "_ZN13ReactionGraph9neighborsE", "region": "FLASH" },
+      // The segment LED controller's HD107SFrame buffers are the eDMA TX source and
+      // must stay in cached, DMA-reachable OCRAM (where arm_dcache_flush() is real;
+      // §5/§8). Defined as an explicit specialization in Phantasm.ino because GCC
+      // drops DMAMEM on the vague-linkage template static member.
+      "dma_tx_buffer":  { "name": "_ZN12POVSegmentedILi288ELi4ELi480EE14ledController_E", "region": "OCRAM" }
     }
   }
 }
