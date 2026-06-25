@@ -1168,7 +1168,7 @@ Three hardware drivers form a layered stack.  `dma_led.h` handles the SPI wire p
 
 #### DMA LED Controller (`dma_led.h`)
 
-Non-blocking DMA-based LED output for HD107S (APA102-compatible) LEDs on Teensy 4.x.  Enabled by `#define USE_DMA_LEDS` in the target sketch (e.g. `targets/Phantasm/Phantasm.ino`) before it includes the driver; `led.h` stays neutral (the define is commented out there) and the default FastLED/WS2801 path remains as fallback.
+Non-blocking DMA-based LED output for HD107S (APA102-compatible) LEDs on Teensy 4.x.  Enabled by `#define USE_DMA_LEDS` in the target sketch (e.g. `targets/Phantasm/Phantasm.ino`) before it includes the driver; `led.h` stays neutral (the define is commented out there) and the default FastLED/WS2801 path remains as fallback. The FastLED fallback applies only to the single-board `POVDisplay`; the segmented `POVSegmented` driver `#error`s without `USE_DMA_LEDS` (the FastLED path cannot honor the master sync pulse-width contract), so DMA LEDs are mandatory on Phantasm.
 
 | Class | Role |
 |---|---|
