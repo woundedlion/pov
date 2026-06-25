@@ -54,10 +54,13 @@ inline Vector node(int i) {
 /**
  * @brief Precomputed K-nearest-neighbor indices for every lattice node.
  * @details neighbors[i][k] is the node index of the k-th nearest neighbor of
- *          node i, or negative when fewer than RD_K neighbors exist. Total size
- *          92160 bytes (RD_N × RD_K × 2B). PROGMEM matches the generated
- *          definition; it is a no-op on the supported flat-address targets, where
- *          the direct `neighbors[i][k]` subscripting below is intentional.
+ *          node i. Every entry is a valid index in [0, RD_N): the RD_N=7680
+ *          lattice always yields a full RD_K-neighbor ring, so the table is fully
+ *          populated and the `ni < 0` guard in find_nearest_node is a defensive
+ *          belt-and-suspenders, not a live table state. Total size 92160 bytes
+ *          (RD_N × RD_K × 2B). PROGMEM matches the generated definition; it is a
+ *          no-op on the supported flat-address targets, where the direct
+ *          `neighbors[i][k]` subscripting below is intentional.
  */
 extern PROGMEM const int16_t neighbors[RD_N][RD_K];
 
