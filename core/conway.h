@@ -308,8 +308,7 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 // ---------------------------------------------------------------------------
 // Conway operators
 //
-// All operators take a const MeshT& input (PolyMesh or MeshState — both
-// expose the same vertices/face_counts/faces shape). PRIMITIVE operators (dual,
+// All operators take a const PolyMesh& input. PRIMITIVE operators (dual,
 // kis, ambo, truncate, expand, chamfer, snub, relax) return a fresh PolyMesh in
 // `target`. Both arenas are checkpointed via ScratchScope, so all scratch (the
 // HalfEdgeMesh build plus, for most primitives, the per-orbit index/flag buffers
@@ -374,14 +373,12 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
 /**
  * @brief Computes the dual of a mesh (each face becomes a vertex and vice
  *   versa).
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh.
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh.
  * @return Fresh dual PolyMesh allocated in `target`.
  */
-template <typename MeshT>
-HS_COLD static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -426,14 +423,12 @@ HS_COLD static PolyMesh dual(const MeshT &mesh, Arena &target, Arena &temp) {
 /**
  * @brief Kis operator: raises a pyramid on each face (apex at the face
  *   centroid).
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient scratch.
  * @return Fresh kis PolyMesh allocated in `target`.
  */
-template <typename MeshT>
-HS_COLD static PolyMesh kis(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target, Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -501,14 +496,12 @@ static void require_closed_manifold(const HalfEdgeMesh &he_mesh,
 
 /**
  * @brief Ambo operator: truncates vertices to edge midpoints (rectification).
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh.
  * @return Fresh ambo PolyMesh allocated in `target`.
  */
-template <typename MeshT>
-HS_COLD static PolyMesh ambo(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -603,7 +596,6 @@ inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
 
 /**
  * @brief Truncate operator: cuts corners off the polyhedron.
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh.
@@ -618,8 +610,7 @@ inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
  * @return Fresh truncated PolyMesh allocated in `target` (or the ambo result
  *   when t == 0.5).
  */
-template <typename MeshT>
-HS_COLD static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &temp,
                                   float t = 0.25f) {
   HS_CHECK(t >= 0.0f && t <= 1.0f);
   if (std::abs(t - 0.5f) < math::TOLERANCE) {
@@ -716,15 +707,13 @@ HS_COLD static PolyMesh truncate(const MeshT &mesh, Arena &target, Arena &temp,
 
 /**
  * @brief Expand operator: separates faces (e = aa).
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh.
  * @param t Expansion factor. Default 2-sqrt(2) ~= 0.5857.
  * @return Fresh expanded PolyMesh allocated in `target`.
  */
-template <typename MeshT>
-HS_COLD static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
                                 float t = 2.0f - sqrtf(2.0f)) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -808,15 +797,13 @@ HS_COLD static PolyMesh expand(const MeshT &mesh, Arena &target, Arena &temp,
 
 /**
  * @brief Chamfer operator: replaces edges with hexagonal faces.
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
  * @param t Thickness factor for the new hexagons [0..1].
  * @return Fresh chamfered PolyMesh allocated in `target`.
  */
-template <typename MeshT>
-HS_COLD static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp,
                                  float t = 0.5f) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -904,7 +891,6 @@ HS_COLD static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
 
 /**
  * @brief Edge-length relaxation by spring forces on the unit sphere.
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh, copied into the output before relaxing.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient movement buffer and HalfEdgeMesh.
@@ -912,8 +898,7 @@ HS_COLD static PolyMesh chamfer(const MeshT &mesh, Arena &target, Arena &temp,
  *   convergence.
  * @return Fresh relaxed PolyMesh allocated in `target`.
  */
-template <typename MeshT>
-HS_COLD static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
                                int iterations = 8) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -1008,7 +993,6 @@ HS_COLD static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
 
 /**
  * @brief Snub operator: creates a chiral semi-regular polyhedron.
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh.
  * @param temp Arena holding the transient HalfEdgeMesh and index scratch.
@@ -1019,8 +1003,7 @@ HS_COLD static PolyMesh relax(const MeshT &mesh, Arena &target, Arena &temp,
  * @details Uses Newell's method for face normals, robust to non-planar faces on
  *   the unit sphere and to collinear vertex triplets.
  */
-template <typename MeshT>
-HS_COLD static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
                               float t = 0.5f, float twist = 0.0f) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
@@ -1126,15 +1109,13 @@ HS_COLD static PolyMesh snub(const MeshT &mesh, Arena &target, Arena &temp,
 
 /**
  * @brief Gyro operator: dual of snub.
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh.
  * @param target Arena used as the ping-pong source for the composition.
  * @param temp Arena used as the ping-pong destination for the composition.
  * @return Composed PolyMesh; the output lands in `temp`, not `target` (see
  *   COMPOSITION POLARITY at the top of the operator block).
  */
-template <typename MeshT>
-HS_COLD static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
   return dual(snub(mesh, target, temp), temp, target);
 }
 
@@ -1154,49 +1135,42 @@ HS_COLD static PolyMesh gyro(const MeshT &mesh, Arena &target, Arena &temp) {
 
 /**
  * @brief Meta operator (Hart's `m`): kis of ambo (m = kj, j = a).
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh.
  * @param target Arena used as the ping-pong source for the composition.
  * @param temp Arena used as the ping-pong destination for the composition.
  * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
  *   POLARITY at the top of the operator block).
  */
-template <typename MeshT>
-HS_COLD static PolyMesh meta(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh meta(const PolyMesh &mesh, Arena &target, Arena &temp) {
   return kis(ambo(mesh, target, temp), temp, target);
 }
 
 /**
  * @brief Needle operator: kis of the dual (n = kd).
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh.
  * @param target Arena used as the ping-pong source for the composition.
  * @param temp Arena used as the ping-pong destination for the composition.
  * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
  *   POLARITY at the top of the operator block).
  */
-template <typename MeshT>
-HS_COLD static PolyMesh needle(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh needle(const PolyMesh &mesh, Arena &target, Arena &temp) {
   return kis(dual(mesh, target, temp), temp, target);
 }
 
 /**
  * @brief Zip operator: dual of kis, i.e. the truncated dual (z = dk).
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh.
  * @param target Arena used as the ping-pong source for the composition.
  * @param temp Arena used as the ping-pong destination for the composition.
  * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
  *   POLARITY at the top of the operator block).
  */
-template <typename MeshT>
-HS_COLD static PolyMesh zip(const MeshT &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh zip(const PolyMesh &mesh, Arena &target, Arena &temp) {
   return dual(kis(mesh, target, temp), temp, target);
 }
 
 /**
  * @brief Bevel operator: truncate of ambo (b = ta).
- * @tparam MeshT Source mesh type (PolyMesh or MeshState).
  * @param mesh Source mesh.
  * @param target Arena used as the ping-pong source for the composition.
  * @param temp Arena used as the ping-pong destination for the composition.
@@ -1204,8 +1178,7 @@ HS_COLD static PolyMesh zip(const MeshT &mesh, Arena &target, Arena &temp) {
  * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
  *   POLARITY at the top of the operator block).
  */
-template <typename MeshT>
-HS_COLD static PolyMesh bevel(const MeshT &mesh, Arena &target, Arena &temp,
+HS_COLD static PolyMesh bevel(const PolyMesh &mesh, Arena &target, Arena &temp,
                                float t = 0.25f) {
   return truncate(ambo(mesh, target, temp), temp, target, t);
 }
