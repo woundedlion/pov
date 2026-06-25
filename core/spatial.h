@@ -114,13 +114,13 @@ public:
     StaticCircularBuffer<Candidate, MAX_K> best;
 
     // Cached pruning bound: the largest squared distance in `best` and its slot,
-    // FLT_MAX (worst_i = -1) until the set fills to k so nothing prunes early.
+    // FLT_MAX until the set fills to k so nothing prunes early.
     // Recomputed only when `best` changes, keeping the per-node prune test O(1).
     float worst_d_sq = FLT_MAX;
-    int worst_i = -1;
+    size_t worst_i = 0;
     auto recompute_worst = [&]() {
       worst_d_sq = -1.0f;
-      worst_i = -1;
+      worst_i = 0;
       for (size_t i = 0; i < best.size(); ++i) {
         if (best[i].d_sq > worst_d_sq) {
           worst_d_sq = best[i].d_sq;
