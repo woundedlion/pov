@@ -2046,11 +2046,11 @@ public:
     params.get().d.im = base.d.im + cosf(time * 1.09f + phase(7)) * s;
   }
 
+  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
   float speed; /**< Animation speed (radians of phase per frame unit). */
   float scale; /**< Magnitude of the per-channel modulation. */
 
 private:
-  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
   MobiusParams base; /**< Baseline params captured at construction. */
   uint32_t seed;     /**< Seed for the per-channel phase offsets. */
 };
