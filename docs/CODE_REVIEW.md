@@ -113,7 +113,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 15. `tests/test_fixture.h` (39–54) — `ModuleFixture`/`reset_globals()` were built to centralize the arena/Timeline/RNG reset, but only `test_memory.h` uses them; the other 33 modules hand-roll resets. No live bug (CTest forks per module), but the full-run path is order-dependent by hand. Adopt the fixture across modules.
 
-16. `tests/test_hd107s_frame.h` (266) — the module is registered/selected as `hd107s` but opens its scope with `begin_module("hd107s_frame")`, so `ctest -R hd107s` prints a header that doesn't match the selector. Align the printed name with the registered name.
+16. ✅ `tests/test_hd107s_frame.h` (266) — the module is registered/selected as `hd107s` but opens its scope with `begin_module("hd107s_frame")`, so `ctest -R hd107s` prints a header that doesn't match the selector. Align the printed name with the registered name.
 
 17. `tools/teensy_gate.py` (147–150) — the `size -A` fallback buckets non-allocated metadata sections (`.ARM.attributes`, `.comment`, addr 0, non-zero size) into ITCM/RAM1, inflating computed RAM1 by ~97 B. Only affects the non-authoritative fallback path. Key the bucketing off whether the section is loadable, not `addr != 0`.
 
