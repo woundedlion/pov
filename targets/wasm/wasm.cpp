@@ -1209,8 +1209,10 @@ static val eval_cubic_spline(Vector (*fn)(const Vector &, const Vector &,
                              float t) {
   // Reject non-finite input at the boundary (it would abort the slerp normalize).
   if (!all_finite({p0x, p0y, p0z, p1x, p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z,
-                   t}))
+                   t})) {
+    hs::log("WASM: cubic spline got a non-finite argument — returning zero");
     return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
+  }
   return vector_to_xyz(fn({p0x, p0y, p0z}, {p1x, p1y, p1z}, {p2x, p2y, p2z},
                           {p3x, p3y, p3z}, t));
 }
@@ -1305,6 +1307,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                                 float nexty, float nextz, float tension) -> val {
              if (!all_finite({prevx, prevy, prevz, startx, starty, startz, endx,
                               endy, endz, nextx, nexty, nextz, tension})) {
+               hs::log("WASM: catmull_rom_tangents got a non-finite argument — "
+                       "returning zero");
                val v = val::object();
                v.set("cp1", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
                v.set("cp2", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
@@ -1328,18 +1332,29 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   // sRGB transfer function (color.js srgbToLinearFloat / linearToSrgbFloat).
   function("srgb_to_linear_float",
            optional_override([](float s) -> float {
-             return all_finite({s}) ? srgb_to_linear_float(s) : 0.0f;
+             if (all_finite({s}))
+               return srgb_to_linear_float(s);
+             hs::log("WASM: srgb_to_linear_float got a non-finite argument — "
+                     "returning zero");
+             return 0.0f;
            }));
   function("linear_to_srgb_float",
            optional_override([](float l) -> float {
-             return all_finite({l}) ? linear_to_srgb_float(l) : 0.0f;
+             if (all_finite({l}))
+               return linear_to_srgb_float(l);
+             hs::log("WASM: linear_to_srgb_float got a non-finite argument — "
+                     "returning zero");
+             return 0.0f;
            }));
 
   // The interpolated sRGB->16-bit-linear LUT the cosine palette path uses.
   function("srgb_to_linear_interp",
            optional_override([](float s) -> int {
-             if (!all_finite({s}))
+             if (!all_finite({s})) {
+               hs::log("WASM: srgb_to_linear_interp got a non-finite argument — "
+                       "returning zero");
                return 0;
+             }
              return static_cast<int>(srgb_to_linear_interp(s));
            }));
 
@@ -1347,6 +1362,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   function("linear_rgb_to_oklab",
            optional_override([](float r, float g, float b) -> val {
              if (!all_finite({r, g, b})) {
+               hs::log("WASM: linear_rgb_to_oklab got a non-finite argument — "
+                       "returning zero");
                val v = val::object();
                v.set("L", 0.0f);
                v.set("a", 0.0f);
@@ -1363,6 +1380,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   function("oklab_to_linear_rgb",
            optional_override([](float L, float a, float b) -> val {
              if (!all_finite({L, a, b})) {
+               hs::log("WASM: oklab_to_linear_rgb got a non-finite argument — "
+                       "returning zero");
                val v = val::object();
                v.set("r", 0.0f);
                v.set("g", 0.0f);
@@ -1400,6 +1419,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                                 float d1, float d2, float t) -> val {
              if (!all_finite({a0, a1, a2, b0, b1, b2, c0, c1, c2, d0, d1, d2,
                               t})) {
+               hs::log("WASM: procedural_palette_linear got a non-finite "
+                       "argument — returning zero");
                val o = val::object();
                o.set("r", 0);
                o.set("g", 0);
@@ -1419,8 +1440,11 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   // Lissajous curve (lissajous_math.js lissajous), via geometry.h.
   function("lissajous",
            optional_override([](float m1, float m2, float a, float t) -> val {
-             if (!all_finite({m1, m2, a, t}))
+             if (!all_finite({m1, m2, a, t})) {
+               hs::log("WASM: lissajous got a non-finite argument — returning "
+                       "zero");
                return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
+             }
              return vector_to_xyz(lissajous(m1, m2, a, t));
            }));
 }
