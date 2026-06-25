@@ -1158,8 +1158,22 @@ template <typename A, typename B> struct Subtract {
     // below would then miss the overlap and under-carve at the seam. Splitting
     // into a common [0, W) frame makes the comparison correct. Seam-splitting at
     // most doubles each child's span count, so the buffers are sized 2x.
-    StaticCircularBuffer<std::pair<float, float>, 2 * kIntervalSpanCap> norm_a;
-    StaticCircularBuffer<std::pair<float, float>, 2 * kIntervalSpanCap> norm_b;
+    //
+    // Output bound: the set difference splits an A span once per enclosed B span,
+    // and the B spans are disjoint, so it emits at most |norm_a| + |norm_b| spans
+    // (the sdf_max_spans<Subtract> bound). The top-level consumer is scan_region's
+    // `intervals` buffer (2*kIntervalSpanCap). The conservative bound can exceed
+    // that, but only one span per child actually straddles θ=0 in a row, so the
+    // real maximum is sdf_max_spans<A> + sdf_max_spans<B> + 2; reaching even
+    // 2*kIntervalSpanCap would require both children to emit kIntervalSpanCap
+    // disjoint arcs in a single row, which no SDF shape does. push_interval traps
+    // (fail-fast) if that ever holds.
+    constexpr size_t kSeamSplitCap = 2 * kIntervalSpanCap;
+    static_assert(sdf_max_spans<A>::value <= kSeamSplitCap &&
+                      sdf_max_spans<B>::value <= kSeamSplitCap,
+                  "seam-split child exceeds norm buffer capacity");
+    StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_a;
+    StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_b;
     normalize_intervals_to_range<W>(intervals_a, norm_a);
     normalize_intervals_to_range<W>(intervals_b, norm_b);
 

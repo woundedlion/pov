@@ -81,7 +81,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 1. ✅ `core/sdf.h` (≈1087–1088, 1262–1263, 72–82) — `Subtract` and `Intersection` allocate per-child interval buffers at `kIntervalSpanCap` (32) and carry no `static_assert`, while `sdf_max_spans<T>` is specialized only for `Union`/`SmoothUnion`. A nested `Subtract<Union<A,B>, C>` therefore relies entirely on the runtime `push_interval` trap rather than the compile-time rejection `Union` advertises. Fail-fast-safe (no corruption), but the documented compile-time-budgeting contract is not enforced for these combinators. Add `sdf_max_spans` specializations and the matching `static_assert`.
 
-2. `core/sdf.h` (≈1147–1183) — `Subtract::get_horizontal_intervals` can emit up to ~4×`kIntervalSpanCap` spans into a consumer buffer sized 2×`kIntervalSpanCap`, with no `static_assert` tying producer to consumer (unlike the carefully-reasoned `Union` path). Document and compile-time-bound the relationship.
+2. ✅ `core/sdf.h` (≈1147–1183) — `Subtract::get_horizontal_intervals` can emit up to ~4×`kIntervalSpanCap` spans into a consumer buffer sized 2×`kIntervalSpanCap`, with no `static_assert` tying producer to consumer (unlike the carefully-reasoned `Union` path). Document and compile-time-bound the relationship.
 
 3. `core/sdf.h` (≈1287–1311) — `Intersection::get_horizontal_intervals` compares raw, un-normalized coordinates in its merge sweep, where `Subtract` explicitly normalizes both children into a common `[0,W)` frame first. A seam-straddling span (e.g. `[-5,5]` vs `[W-5,W+5]`) can under-cover at θ=0. Apply the same seam-normalization `Subtract` uses.
 
