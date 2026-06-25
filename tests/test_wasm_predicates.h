@@ -12,6 +12,7 @@
 #pragma once
 
 #include "targets/wasm/wasm_predicates.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -67,10 +68,10 @@ inline void check_relax_clamp() {
  * @return The module's failure count.
  */
 inline int run_wasm_predicates_tests() {
-  auto scope = hs_test::begin_module("wasm_predicates");
+  hs_test::ModuleFixture fixture("wasm_predicates");
   check_clip_bounds();
   check_relax_clamp();
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace wasm_predicates_tests

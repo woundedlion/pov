@@ -14,6 +14,7 @@
 #pragma once
 
 #include "hardware/pov_single_map.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <vector>
@@ -144,7 +145,7 @@ inline void test_opposite_col_offset() {
  * over every rotation column.
  */
 inline int run_pov_single_tests() {
-  auto scope = begin_module("pov_single");
+  hs_test::ModuleFixture fixture("pov_single");
 
   test_strip_derivation();
   test_opposite_col_offset();
@@ -162,7 +163,7 @@ inline int run_pov_single_tests() {
   for (int x = 0; x < 8; ++x)
     check_strip_tiling(/*S=*/8, /*w=*/8, x);
 
-  return end_module(scope);
+  return fixture.result();
 }
 
 } // namespace pov_single_tests

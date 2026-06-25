@@ -39,6 +39,7 @@
 #include "core/canvas.h"
 #include "core/easing.h"
 #include "core/mesh.h" // PolyMesh, MeshOps::compile (MeshMorph fixtures)
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -1440,7 +1441,7 @@ inline void test_meshmorph_identity_self_map_and_crossfade() {
  * @return The module's failure count.
  */
 inline int run_animation_tests() {
-  auto scope = hs_test::begin_module("animation");
+  hs_test::ModuleFixture fixture("animation");
 
   hs::random().seed(1337); // OrientationTrail/animations may touch global RNG
 
@@ -1509,7 +1510,7 @@ inline int run_animation_tests() {
 
   test_meshmorph_identity_self_map_and_crossfade();
 
-  const int result = hs_test::end_module(scope);
+  const int result = fixture.result();
   // Unpublish before fake_cv/fake_fx destruct below.
   fake_canvas_ptr() = nullptr;
   return result;

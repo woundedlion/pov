@@ -20,6 +20,7 @@
 
 #include "core/color.h"
 #include "core/util.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -1353,7 +1354,7 @@ inline void test_palette_wrappers() {
  *         any failure.
  */
 inline int run_color_tests() {
-  auto scope = hs_test::begin_module("color");
+  hs_test::ModuleFixture fixture("color");
 
   test_lerp16_endpoints();
   test_lerp16_midpoint();
@@ -1418,7 +1419,7 @@ inline int run_color_tests() {
   test_static_palette_composition();
   test_palette_wrappers();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace color_tests

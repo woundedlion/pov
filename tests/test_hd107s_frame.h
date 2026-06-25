@@ -13,6 +13,7 @@
 #pragma once
 
 #include "hardware/hd107s_frame.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <cstdint>
@@ -263,7 +264,7 @@ inline void test_load_full_count() {
  * @return The module's failure count from end_module().
  */
 inline int run_hd107s_tests() {
-  auto scope = hs_test::begin_module("hd107s");
+  hs_test::ModuleFixture fixture("hd107s");
   test_layout_constants();
   test_fresh_frame_skeleton();
   test_correct_pipeline();
@@ -271,7 +272,7 @@ inline int run_hd107s_tests() {
   test_load_matches_packpixel();
   test_load_full_count();
   reset_correction(); // leave shared static state clean for any later module
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace hd107s_tests

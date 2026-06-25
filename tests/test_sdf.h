@@ -21,6 +21,7 @@
 #include "core/scan.h"
 #include "core/geometry.h"
 #include "tests/test_3dmath.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <cmath>
@@ -1273,7 +1274,7 @@ inline void test_face_lut_matches_exact_within_cell_diagonal() {
  * @return The module's failure count.
  */
 inline int run_sdf_tests() {
-  auto scope = hs_test::begin_module("sdf");
+  hs_test::ModuleFixture fixture("sdf");
 
   test_clamp_phi_in_range();
   test_clamp_phi_negative_reflects();
@@ -1346,7 +1347,7 @@ inline int run_sdf_tests() {
   test_face_cull_covers_aa_fringe();
   test_face_lut_matches_exact_within_cell_diagonal();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace sdf

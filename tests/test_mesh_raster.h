@@ -25,6 +25,7 @@
 #include "core/plot.h"
 #include "core/scan.h"
 #include "core/solids.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -345,13 +346,13 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
  * @return Failure count reported by end_module.
  */
 inline int run_mesh_raster_tests() {
-  auto scope = begin_module("mesh_raster");
+  hs_test::ModuleFixture fixture("mesh_raster");
 
   test_wireframe_draws_every_edge();
   test_wireframe_pixels_lie_on_edges();
   test_solid_fill_covers_faces_and_tiles_sphere();
 
-  return end_module(scope);
+  return fixture.result();
 }
 
 } // namespace mesh_raster_tests

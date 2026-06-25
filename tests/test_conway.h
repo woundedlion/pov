@@ -20,6 +20,7 @@
 #include "core/conway.h"
 #include "core/solids.h"
 #include "tests/mesh_test_util.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -908,7 +909,7 @@ inline void test_conway_ops_drop_degenerate_primary_faces() {
  * @return Failure count reported by end_module for the "conway" module.
  */
 inline int run_conway_tests() {
-  auto scope = hs_test::begin_module("conway");
+  hs_test::ModuleFixture fixture("conway");
 
   test_input_cube_is_well_formed();
   test_input_tetrahedron_winding();
@@ -934,7 +935,7 @@ inline int run_conway_tests() {
   test_transform_unbinds_stale_owned_topology_on_reuse();
   test_face_centroid_for_cube_top_face();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace conway_tests

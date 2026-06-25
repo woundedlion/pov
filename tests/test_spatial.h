@@ -15,6 +15,7 @@
 #include <cstdint>
 #include "core/spatial.h"
 #include "tests/test_3dmath.h" // re-uses approx_vec / HS_EXPECT_VEC
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -377,7 +378,7 @@ inline void test_meshstate_view_fallback() {
  * @return The module's failure count.
  */
 inline int run_spatial_tests() {
-  auto scope = hs_test::begin_module("spatial");
+  hs_test::ModuleFixture fixture("spatial");
 
   test_kdtree_empty_input();
   test_kdtree_single_point();
@@ -395,7 +396,7 @@ inline int run_spatial_tests() {
   test_meshstate_move_invalidates_source();
   test_meshstate_view_fallback();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace spatial

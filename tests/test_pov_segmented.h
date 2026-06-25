@@ -12,6 +12,7 @@
 #pragma once
 
 #include "hardware/pov_segment_map.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <vector>
@@ -146,7 +147,7 @@ inline void test_arm_b_offset() {
  * @return Number of failures recorded by the module.
  */
 inline int run_pov_segmented_tests() {
-  auto scope = begin_module("pov_segmented");
+  hs_test::ModuleFixture fixture("pov_segmented");
 
   test_segment_derivation();
   test_arm_b_offset();
@@ -164,7 +165,7 @@ inline int run_pov_segmented_tests() {
   for (int x = 0; x < 8; ++x)
     check_tiling(/*S=*/8, /*N=*/4, /*w=*/8, x);
 
-  return end_module(scope);
+  return fixture.result();
 }
 
 } // namespace pov_segmented_tests

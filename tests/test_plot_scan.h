@@ -29,6 +29,7 @@
 #include "core/scan.h"
 #include "core/geometry.h"
 #include "core/canvas.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <vector>
@@ -1316,7 +1317,7 @@ inline void test_particle_system_draws_active_trails_with_registers() {
  * @return Number of failed assertions reported across the module's tests.
  */
 inline int run_plot_scan_tests() {
-  auto scope = hs_test::begin_module("plot_scan");
+  hs_test::ModuleFixture fixture("plot_scan");
 
   hs::random().seed(1337);
 
@@ -1355,7 +1356,7 @@ inline int run_plot_scan_tests() {
   test_spline_chain_tension_deflects();
   test_particle_system_draws_active_trails_with_registers();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace plot_scan_tests

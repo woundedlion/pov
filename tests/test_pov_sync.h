@@ -20,6 +20,7 @@
 #pragma once
 
 #include "hardware/pov_sync.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <algorithm>
@@ -2071,7 +2072,7 @@ inline void test_budget_wire_dead() {
  * @return The module's failure count.
  */
 inline int run_pov_sync_tests() {
-  auto scope = begin_module("pov_sync");
+  hs_test::ModuleFixture fixture("pov_sync");
 
   test_helpers();
   test_alphabet();
@@ -2104,7 +2105,7 @@ inline int run_pov_sync_tests() {
   test_budget_beacon_corruption();
   test_budget_wire_dead();
 
-  return end_module(scope);
+  return fixture.result();
 }
 
 } // namespace pov_sync_tests

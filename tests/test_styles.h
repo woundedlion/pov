@@ -12,6 +12,7 @@
 #pragma once
 
 #include "core/styles.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -322,7 +323,7 @@ inline void test_sync_noise_pushes_scalars() {
  * @return The module's failure count.
  */
 inline int run_styles_tests() {
-  auto scope = hs_test::begin_module("styles");
+  hs_test::ModuleFixture fixture("styles");
 
   test_named_presets();
   test_lerp_scalars_and_snapping();
@@ -337,7 +338,7 @@ inline int run_styles_tests() {
   test_hue_fade_nonzero_shift_rotates_saturated();
   test_sync_noise_pushes_scalars();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace styles_tests

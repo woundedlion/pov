@@ -13,6 +13,7 @@
 
 #include "core/easing.h"
 #include "core/waves.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <cmath>
@@ -228,7 +229,7 @@ inline void test_square_wave_negative_phase() {
  * @return Number of failures reported by the module.
  */
 inline int run_easing_waves_tests() {
-  auto scope = hs_test::begin_module("easing_waves");
+  hs_test::ModuleFixture fixture("easing_waves");
 
   test_easing_endpoints();
   test_easing_finite_and_monotone();
@@ -240,7 +241,7 @@ inline int run_easing_waves_tests() {
   test_square_wave_binary();
   test_square_wave_negative_phase();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace easing_waves_tests

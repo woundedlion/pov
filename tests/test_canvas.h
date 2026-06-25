@@ -17,6 +17,7 @@
 #include <thread>
 
 #include "core/canvas.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -515,7 +516,7 @@ inline void test_pipeline_ref_copy_is_independent_of_source() {
  * @return The module's failure count reported by end_module().
  */
 inline int run_canvas_tests() {
-  auto scope = hs_test::begin_module("canvas");
+  hs_test::ModuleFixture fixture("canvas");
 
   test_construction_dims_and_clear();
   test_frame_visible_only_after_advance_display();
@@ -531,7 +532,7 @@ inline int run_canvas_tests() {
   test_clip_setters();
   test_pipeline_ref_copy_is_independent_of_source();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace canvas_tests

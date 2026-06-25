@@ -17,6 +17,7 @@
 #include "core/filter.h"
 #include "core/canvas.h"
 #include "core/geometry.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <vector>
@@ -732,7 +733,7 @@ inline void test_volume_raymarch_silhouette_and_registers() {
  * @return The number of test failures recorded by the module.
  */
 inline int run_scan_tests() {
-  auto scope = hs_test::begin_module("scan");
+  hs_test::ModuleFixture fixture("scan");
 
   test_shader_constant_fills_canvas();
   test_shader_ssaa_premultiplies_partial_coverage();
@@ -751,7 +752,7 @@ inline int run_scan_tests() {
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace scan_tests

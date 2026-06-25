@@ -15,6 +15,7 @@
 #include "core/effects.h"
 #include "core/canvas.h"
 #include "core/memory.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 #include <cmath>
@@ -1007,7 +1008,7 @@ inline void test_needs_full_frame_gate() {
  * the full effect roster at the production and device resolutions.
  */
 inline int run_effects_tests() {
-  auto scope = hs_test::begin_module("effects");
+  hs_test::ModuleFixture fixture("effects");
 
   test_needs_full_frame_gate();
   test_sh_decode_lm_valid_order();
@@ -1055,7 +1056,7 @@ inline int run_effects_tests() {
   HS_EFFECT_LIST(HS_DET_ONE_DEV)
 #undef HS_DET_ONE_DEV
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace effects_tests
