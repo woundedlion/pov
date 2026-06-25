@@ -437,13 +437,8 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
  * per radian of arc) under the canvas map x = θ·W/2π, y = φ·(H_VIRT-1)/π, then
  * returns step = SCREEN_STEP_PX / |v_screen|. With φ the colatitude and λ the
  * longitude, dφ/ds = -tan.y/sin(φ) and dλ/ds = (pos.x·tan.z - pos.z·tan.x)/sin²φ.
- *
- * This replaces the old base_step·sin(φ) heuristic, which modeled only the
- * LONGITUDINAL crowding near the poles (dλ stretch) and ignored the curve's
- * LATITUDINAL motion — so anywhere the curve also moved in φ it mis-estimated
- * the true screen spacing, leaving the rendered ring unevenly bright (samples
- * 1.0-1.7 px apart instead of ~1) all the way around, worst near the poles.
- * Tracking the full 2-D screen speed deposits ~one sample per pixel everywhere.
+ * Tracking the full 2-D screen speed (not just longitudinal pole-crowding)
+ * deposits ~one sample per pixel everywhere on the curve.
  *
  * Clamped to [base_step·MIN_POLE_SCALE, base_step]: the lower bound caps
  * oversampling at the poles (where dλ/ds diverges → speed → ∞ → step → 0); the
