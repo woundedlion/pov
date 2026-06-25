@@ -11,7 +11,11 @@
 #include <cstring>
 #include <limits>
 #include <algorithm>
+// platform.h first: on device it defines NDEBUG, which must be set before
+// <cassert> expands the assert macro — otherwise assert-stripping would depend
+// on a prior TU having pulled in platform.h, making this header non-self-sufficient.
 #include "platform.h"
+#include <cassert>
 #include "FastNoiseLite.h"
 
 /**
@@ -848,8 +852,11 @@ constexpr Vector operator*(const Vector &v, float s) {
  */
 constexpr Vector operator*(float s, const Vector &v) { return v * s; }
 
-// Hot-path primitive: no s == 0 trap (yields ±Inf/NaN); use v /= s when guarded.
+// Hot-path primitive: the device build has no s == 0 trap (yields ±Inf/NaN);
+// callers guard with HS_CHECK when s may be zero. The debug-only assert surfaces
+// unguarded misuse in native/WASM-debug at zero device cost.
 constexpr Vector operator/(const Vector &v, float s) {
+  assert(s != 0.0f);
   return Vector(v.x / s, v.y / s, v.z / s);
 }
 
@@ -969,12 +976,14 @@ constexpr Quaternion operator*(float s, const Quaternion &q) { return q * s; }
  * @param s Scalar.
  * @return The resulting quaternion.
  *
- * Like operator/(Vector, float), this deliberately does NOT trap on s == 0 (hot
- * path; HS_CHECK is cold-path only). Callers that divide by a magnitude which
- * could be zero must guard themselves — e.g. Quaternion::inverse() HS_CHECKs the
- * squared magnitude before dividing.
+ * Like operator/(Vector, float), the device build deliberately does NOT trap on
+ * s == 0 (hot path; HS_CHECK is cold-path only). Callers that divide by a
+ * magnitude which could be zero must guard themselves — e.g.
+ * Quaternion::inverse() HS_CHECKs the squared magnitude before dividing. The
+ * debug-only assert surfaces unguarded misuse at zero device cost.
  */
 constexpr Quaternion operator/(const Quaternion &q, float s) {
+  assert(s != 0.0f);
   return Quaternion(q.r / s, q.v / s);
 }
 
