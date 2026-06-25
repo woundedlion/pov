@@ -147,7 +147,7 @@ verified impact. No Critical-severity defects were found.
 
 ### High
 
-1. **Three registered CTests run in zero CI shards** — `.github/workflows/ci.yml:37-45` vs `tests/CMakeLists.txt:96-100,148,163`. `unit_concepts`, `unit_h_offset_renorm`, and `unit_stack_budget` match no shard regex, so they get no Linux/sanitizer coverage, and the `shard-coverage` self-gate (which `exit 1`s on any test matching ≠1 shard) should be failing CI — meaning either master is red or the gate is bypassed. The "partition all 32 modules" comment also undercounts the 33 registered. *Fix:* add the three to shard regexes, correct the module count, and confirm `shard-coverage` passes.
+1. ✅ **Three registered CTests run in zero CI shards** — `.github/workflows/ci.yml:37-45` vs `tests/CMakeLists.txt:96-100,148,163`. `unit_concepts`, `unit_h_offset_renorm`, and `unit_stack_budget` match no shard regex, so they get no Linux/sanitizer coverage, and the `shard-coverage` self-gate (which `exit 1`s on any test matching ≠1 shard) should be failing CI — meaning either master is red or the gate is bypassed. The "partition all 32 modules" comment also undercounts the 33 registered. *Fix:* add the three to shard regexes, correct the module count, and confirm `shard-coverage` passes.
 
 ### Medium
 

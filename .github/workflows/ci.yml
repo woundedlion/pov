@@ -27,8 +27,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Shards partition all 32 modules (plus the fastmath_clamp release-flag
-        # check, finding 369) so every registered test runs in exactly one job.
+        # Shards partition all 33 registered module tests plus the three
+        # standalone checks (fastmath_clamp release-flag, h_offset_renorm
+        # device-offset, stack_budget) so every registered test runs in exactly
+        # one job.
         # SINGLE SOURCE OF TRUTH: the sanitizers job references this same anchored
         # list (*shard_matrix), and the shard-coverage job (which references the
         # per-shard anchors) asserts the union covers every registered test — so a
@@ -36,11 +38,11 @@ jobs:
         # running in zero Linux/sanitizer jobs. Adjust groupings here only.
         include: &shard_matrix
           - shard: 1
-            test_regex: &shard1_re "^unit_(3dmath|memory|spatial|scb|sdf|conway|hankin|geometry)$"
+            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|hankin|geometry)$"
           - shard: 2
             test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|easing_waves|platform|filter|plot_scan|fastmath_clamp)$"
           - shard: 3
-            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|generators|animation|effects)$"
+            test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|generators|animation|effects|h_offset_renorm|stack_budget)$"
           - shard: 4
             test_regex: &shard4_re "^unit_(hd107s|pov_segmented|pov_single|pov_sync|param_marshal|util|presets|styles|death)$"
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
