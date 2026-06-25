@@ -151,7 +151,7 @@ verified impact. No Critical-severity defects were found.
 
 ### Medium
 
-2. **Teensy warning-hygiene ratchet is implemented, baselined, and unit-tested but wired into no workflow** — `tools/teensy_warnings.py` (whole file); cf. `.github/workflows/ci.yml:467-510`, `platformio.ini:30-33`. The spec treats the ratchet as a load-bearing gate, but the `teensy-size` job runs only a *cached* `pio run`, and the ratchet's own docstring requires a cache-disabled build (a cached TU emits no warnings). Net: new first-party Teensy warnings ride green CI. *Fix:* add a CI step that does a cache-disabled Teensy build, captures the compiler log, and runs `teensy_warnings.py --build-log <log> --github`.
+2. ✅ **Teensy warning-hygiene ratchet is implemented, baselined, and unit-tested but wired into no workflow** — `tools/teensy_warnings.py` (whole file); cf. `.github/workflows/ci.yml:467-510`, `platformio.ini:30-33`. The spec treats the ratchet as a load-bearing gate, but the `teensy-size` job runs only a *cached* `pio run`, and the ratchet's own docstring requires a cache-disabled build (a cached TU emits no warnings). Net: new first-party Teensy warnings ride green CI. *Fix:* add a CI step that does a cache-disabled Teensy build, captures the compiler log, and runs `teensy_warnings.py --build-log <log> --github`.
 
 ### Low
 

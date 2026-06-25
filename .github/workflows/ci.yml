@@ -517,3 +517,40 @@ jobs:
           name: teensy-firmware
           path: .pio/build/*/firmware.*
           if-no-files-found: warn
+
+  teensy-warnings:
+    name: Teensy 4 firmware (first-party warning ratchet)
+    # The warning ratchet (tools/teensy_warnings.py, spec §7.2) fails on any
+    # first-party warning not in tools/teensy_warning_baseline.txt. It needs a
+    # CACHE-DISABLED build: a cached/incremental TU emits no warnings, so the
+    # object-cached teensy-size job above cannot feed it. This job is a separate,
+    # clean build that does NOT restore the build-objects cache and disables the
+    # object cache outright, so every first-party TU recompiles and emits its
+    # warnings.
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5        # PlatformIO is a Python package
+        with:
+          python-version: '3.x'
+      # Toolchain cache is safe to share with teensy-size (it only holds the
+      # downloaded compiler/framework, not built objects). The build-objects
+      # cache is deliberately NOT restored here.
+      - name: Cache PlatformIO toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-teensy-${{ hashFiles('platformio.ini') }}
+          restore-keys: pio-teensy-
+      - name: Install pinned PlatformIO
+        run: pip install 'platformio==6.1.19'   # same pin as teensy-size
+      - name: Cache-disabled build + warning ratchet (both targets)
+        # PLATFORMIO_BUILD_CACHE_DIR= overrides platformio.ini's build_cache_dir
+        # with an empty value, disabling the object cache so no TU is skipped.
+        # -v echoes the compiler invocations; warnings go to stderr, so 2>&1 folds
+        # them into the captured log. pipefail (GitHub's default bash) makes a
+        # build failure fail the step rather than masking it behind tee.
+        run: |
+          PLATFORMIO_BUILD_CACHE_DIR= pio run -e holosphere -e phantasm -v 2>&1 \
+            | tee teensy_build.log
+          python tools/teensy_warnings.py --build-log teensy_build.log --github
