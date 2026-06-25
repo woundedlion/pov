@@ -99,6 +99,10 @@ public:
    */
   void draw_frame() override {
     Canvas canvas(*this);
+    // Mirror live slider edits into the active sprite's snapshot so the incoming
+    // shape tracks the sliders while a still-fading outgoing sprite keeps the
+    // frozen snapshot it was spawned with.
+    param_slots_[active_bake_] = params;
     timeline.step(canvas);
   }
 
@@ -157,6 +161,16 @@ private:
    */
   BakedPalette baked_palettes_[2];
   int active_bake_ = 0; /**< Index of the slot the next spawn rebakes into. */
+  /**
+   * @brief Per-sprite render-param snapshots, ping-ponged with baked_palettes_.
+   * @details Each sprite renders from the slot it was spawned with so an
+   *          outgoing fade keeps its own copy count / radius / warp / alpha
+   *          instead of jumping to the incoming preset's values. draw_frame()
+   *          mirrors the live slider-bound params into the active slot every
+   *          frame, so the incoming sprite stays live-editable while the
+   *          outgoing slot is frozen.
+   */
+  Params param_slots_[2];
 
   ProceduralPalette bloodStreamPalette = Palettes::bloodStream;
   AlphaFalloffShade bloodStreamFade{[](float t) { return 1.0f - t; }};
@@ -257,16 +271,21 @@ private:
       last_preset_idx_ = safe_idx;
     }
     int period = 288;
-    // Bind the warp magnitude to the live "Warp" slider so dragging it takes
-    // effect this frame instead of at the next spawn.
-    if (auto *warp = mobius_gen.spawn(0, this->params.warp_scale, period, false))
-      warp->bind_scale(this->params.warp_scale);
-    // Rebake into the inactive slot so the still-fading previous sprite keeps its
-    // palette (sprites overlap at most pairwise, so the slot two spawns back is
-    // already gone).
+    // Ping-pong to the inactive slot so the still-fading previous sprite keeps
+    // its palette and params (sprites overlap at most pairwise, so the slot two
+    // spawns back is already gone). Seed this sprite's param snapshot from the
+    // current live params; draw_frame() keeps the active slot tracking sliders.
     active_bake_ ^= 1;
     baked_palettes_[active_bake_].rebake(*params.palette);
     const int bake_slot = active_bake_;
+    param_slots_[bake_slot] = params;
+
+    // Bind the warp magnitude to this sprite's slot so dragging "Warp" takes
+    // effect this frame while the active sprite renders, yet the outgoing sprite
+    // warps to its own frozen magnitude rather than the incoming preset's.
+    if (auto *warp = mobius_gen.spawn(0, param_slots_[bake_slot].warp_scale,
+                                      period, false))
+      warp->bind_scale(param_slots_[bake_slot].warp_scale);
 
     auto draw_fn = [this, safe_idx, bake_slot](Canvas &canvas, float opacity) {
       const auto &preset = loaded_presets[safe_idx];
@@ -274,11 +293,12 @@ private:
       MeshState target_mesh;
       MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
 
-      // Live slider-bound params, but this sprite's own baked LUT so color stays
-      // continuous across a preset change.
-      this->draw_scene(canvas, this->params, opacity, preset.mesh_state,
-                       target_mesh, preset.tangents, preset.edges,
-                       baked_palettes_[bake_slot]);
+      // This sprite's own param + palette snapshot, so geometry and color both
+      // stay continuous across a preset change instead of snapping to the
+      // incoming preset.
+      this->draw_scene(canvas, param_slots_[bake_slot], opacity,
+                       preset.mesh_state, target_mesh, preset.tangents,
+                       preset.edges, baked_palettes_[bake_slot]);
     };
 
     timeline
