@@ -134,8 +134,8 @@ public:
       // value paints the seam between the nearest two sites. d0 is the nearest,
       // so maxDot1 >= maxDot2 → dist1 <= dist2 and the cell gap is non-negative.
       if (params.borderThickness > 0.0f && hasSecond) {
-        float dist1 = acosf(std::min(1.0f, maxDot1));
-        float dist2 = acosf(std::min(1.0f, maxDot2));
+        float dist1 = acosf(hs::clamp(maxDot1, -1.0f, 1.0f));
+        float dist2 = acosf(hs::clamp(maxDot2, -1.0f, 1.0f));
         if (dist2 - dist1 < params.borderThickness) {
           // Paint the seam black. The Scan sink writes color*alpha, so an
           // alpha-0 fragment collapses to (0,0,0) regardless of its RGB.
