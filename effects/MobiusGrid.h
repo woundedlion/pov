@@ -154,20 +154,22 @@ private:
       ScratchScope frag_guard(scratch_arena_a);
       Curve curve = curve_fn(i);
 
-      Fragments m_points;
+      Fragments m_fragments;
       // SphericalPolygon::sample emits W/4 + 1 points (one closing overlap).
-      m_points.bind(scratch_arena_a, W / 4 + 2);
-      Plot::SphericalPolygon::sample(m_points, curve.basis, curve.radius,
+      m_fragments.bind(scratch_arena_a, W / 4 + 2);
+      Plot::SphericalPolygon::sample(m_fragments, curve.basis, curve.radius,
                                      W / 4);
 
-      Fragments m_fragments;
-      m_fragments.bind(scratch_arena_a, W / 4 + 2);
-      for (size_t k = 0; k < m_points.size(); ++k) {
-        Vector transformed = mobius_gen.transform(m_points[k].pos);
-        Fragment f;
+      // Warp the sampled points in place; v0 carries the polyline parameter and
+      // the sampler's arc-length/index registers are unused here.
+      size_t n = m_fragments.size();
+      for (size_t k = 0; k < n; ++k) {
+        Vector transformed = mobius_gen.transform(m_fragments[k].pos);
+        Fragment &f = m_fragments[k];
         f.pos = normalized_or(rotate(transformed, q), Vector(1, 0, 0));
-        f.v0 = (m_points.size() > 1) ? (float)k / (m_points.size() - 1) : 0.0f;
-        m_fragments.push_back(f);
+        f.v0 = (n > 1) ? (float)k / (n - 1) : 0.0f;
+        f.v1 = 0.0f;
+        f.v2 = 0.0f;
       }
 
       float opacity = hs::clamp(num - static_cast<float>(i), 0.0f, 1.0f);
