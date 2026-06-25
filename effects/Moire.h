@@ -88,8 +88,13 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    base_baked.rebake(base_palette);
-    int_baked.rebake(int_palette);
+    // The palettes only change while a ColorWipe is in flight; skip the 256-entry
+    // OKLCH rebake otherwise (e.g. before the first wipe arms).
+    if (wipe_frames_remaining_ > 0) {
+      base_baked.rebake(base_palette);
+      int_baked.rebake(int_palette);
+      --wipe_frames_remaining_;
+    }
 
     // Counter-rotate the two layers (opposite-signed axes) so their rings beat
     // against each other, producing the moire interference.
@@ -117,11 +122,15 @@ private:
         GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
                           BrightnessProfile::DESCENDING);
 
-    timeline.add(
-        0, Animation::ColorWipe(base_palette, base_next_palette, 80, ease_linear));
-    timeline.add(
-        0, Animation::ColorWipe(int_palette, int_next_palette, 80, ease_linear));
+    timeline.add(0, Animation::ColorWipe(base_palette, base_next_palette,
+                                         WIPE_FRAMES, ease_linear));
+    timeline.add(0, Animation::ColorWipe(int_palette, int_next_palette,
+                                         WIPE_FRAMES, ease_linear));
+    // +1 covers the arming frame before the wipes first step.
+    wipe_frames_remaining_ = WIPE_FRAMES + 1;
   }
+
+  static constexpr int WIPE_FRAMES = 80; /**< Duration of a palette cross-fade ColorWipe, in frames. */
 
   /**
    * @brief Draws one stack of concentric DistortedRings for a layer.
@@ -162,6 +171,7 @@ private:
   } params;
 
   float rotation = 0.0f; /**< Current layer rotation angle in radians. */
+  int wipe_frames_remaining_ = 0; /**< Frames left to rebake the palettes for an in-flight wipe. */
 
   GenerativePalette base_palette;      /**< Live source palette for the base layer. */
   GenerativePalette base_next_palette; /**< Wipe target palette for the base layer. */
