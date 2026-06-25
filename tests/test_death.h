@@ -965,23 +965,30 @@ inline int run_death_tests() {
   const Case *cs = all_cases(n);
 
   // Probe how THIS shell relays a trap (direct SIGILL vs forked exit 128+SIGILL)
-  // by spawning one case known to trap, then require exactly that shape for every
-  // case below. If the probe doesn't trap at all, the harness can't interpret
-  // results, so skip (or FAIL under CI).
-  int probe_rc = spawn_child(cs[0].name);
-  TrapShape shape = classify_trap(probe_rc);
-  if (shape == TrapShape::None) {
-    report_unrunnable("trap probe child did not die by the illegal-instruction "
+  // by spawning two independent known-trapping cases and requiring they classify
+  // to the same non-None shape. Two agreeing probes localize a single flaky probe
+  // instead of mislabeling all cases below "unrunnable". If they disagree, or
+  // either fails to trap, the harness can't interpret results, so skip (or FAIL
+  // under CI).
+  int probe0_rc = spawn_child(cs[0].name);
+  TrapShape shape0 = classify_trap(probe0_rc);
+  int probe1_rc = (n > 1) ? spawn_child(cs[1].name) : probe0_rc;
+  TrapShape shape1 = (n > 1) ? classify_trap(probe1_rc) : shape0;
+  if (shape0 == TrapShape::None || shape1 == TrapShape::None || shape0 != shape1) {
+    report_unrunnable("trap-shape probes did not agree on the illegal-instruction "
                       "trap; cannot classify trap status",
                       0);
     set_case_env("");
     return hs_test::end_module(scope);
   }
+  TrapShape shape = shape0;
 
   for (int i = 0; i < n; ++i) {
-    // cs[0] was already spawned by the trap-shape probe above; reuse that rc
-    // rather than spawning it a second time (subprocess spawns dominate runtime).
-    int rc = (i == 0) ? probe_rc : spawn_child(cs[i].name);
+    // cs[0]/cs[1] were already spawned by the trap-shape probes above; reuse those
+    // rcs rather than spawning them again (subprocess spawns dominate runtime).
+    int rc = (i == 0)            ? probe0_rc
+             : (i == 1 && n > 1) ? probe1_rc
+                                 : spawn_child(cs[i].name);
     bool trapped = child_trapped(rc, shape);
     HS_EXPECT_TRUE(trapped);
     std::printf("  [%s] trap fires: %-26s (child rc=%d)\n",
