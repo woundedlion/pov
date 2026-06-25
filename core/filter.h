@@ -295,6 +295,10 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
    * @param c Source color.
    * @param age Temporal age channel (frames).
    * @param alpha Blend alpha in [0, 1].
+   * @details Deliberately diverges from the filter-less sink's int overload,
+   * which wraps the int directly: a filtered pipeline promotes to float and
+   * rounds so the int sample takes the same float path as every filter stage.
+   * Both agree for in-range ints.
    */
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
     plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
