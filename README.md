@@ -418,7 +418,7 @@ A typical effect frame follows a four-stage pipeline. Not every effect uses ever
 
 **Rasterize**: Convert geometry to pixels. Two families:
 - **SDF path** (`sdf.h` → `scan.h`): analytic shapes with scanline intervals and `quintic_kernel` anti-aliasing
-- **Plot path** (`plot.h`): line/curve rasterization with adaptive step size scaled by `sin(φ)` for uniform sampling
+- **Plot path** (`plot.h`): line/curve rasterization with adaptive step size from full 2-D screen-velocity tracking for uniform sampling
 - **Shader path** (`Scan::Shader`): full-screen per-pixel evaluation with optional SSAA
 
 **Filter**: The `Pipeline<W, H, Filters...>` variadic template processes each plotted point through a chain of filter stages before it reaches the canvas.
