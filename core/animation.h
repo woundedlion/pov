@@ -336,6 +336,15 @@ protected:
    */
   AnimationBase() : duration(-1), repeat(false), canceled(false) {}
 
+  /**
+   * @brief Evaluates a wired pause flag.
+   * @param flag Optional pointer to an effect's pause bool (may be null).
+   * @return True when a non-null flag points to a set bool.
+   * @details Shared gate for the pausable animations (Mutation/Driver/Lerp/Sprite)
+   * so pause semantics live in one place.
+   */
+  static bool is_paused(const bool *flag) { return flag && *flag; }
+
   int duration; /**< Total length of the animation in frames. */
   bool repeat;  /**< Flag indicating if the animation should repeat. */
   int t = 0;    /**< Internal frame counter. Finite animations bound it by
@@ -918,7 +927,7 @@ public:
    * user's value holds. Resuming hands the member back to the curve.
    */
   void step(Canvas &canvas) override {
-    if (paused_ && *paused_)
+    if (is_paused(paused_))
       return;
     AnimationBase::step(canvas);
     auto t_norm = hs::clamp(static_cast<float>(this->t) / duration, 0.0f, 1.0f);
@@ -995,7 +1004,7 @@ public:
    * @details Freezes while a wired pause flag is set (see Mutation::step).
    */
   void step(Canvas &canvas) override {
-    if (paused_ && *paused_)
+    if (is_paused(paused_))
       return;
     AnimationBase::step(canvas);
     // Re-read the live source, keeping the last good speed on a non-finite read:
@@ -1101,7 +1110,7 @@ public:
    * subject holds.
    */
   void step(Canvas &canvas) override {
-    if (paused_ && *paused_)
+    if (is_paused(paused_))
       return;
     AnimationBase::step(canvas);
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
@@ -1160,7 +1169,7 @@ public:
   void step(Canvas &canvas) override {
     // Paused: hold the frame (don't advance the timer) but keep drawing at the
     // current opacity.
-    if (!(paused_ && *paused_))
+    if (!is_paused(paused_))
       AnimationBase::step(canvas);
 
     // Trapezoid envelope as the MIN of an independent fade-in and fade-out ramp.
