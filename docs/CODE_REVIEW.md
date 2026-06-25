@@ -115,7 +115,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 16. ✅ `tests/test_hd107s_frame.h` (266) — the module is registered/selected as `hd107s` but opens its scope with `begin_module("hd107s_frame")`, so `ctest -R hd107s` prints a header that doesn't match the selector. Align the printed name with the registered name.
 
-17. `tools/teensy_gate.py` (147–150) — the `size -A` fallback buckets non-allocated metadata sections (`.ARM.attributes`, `.comment`, addr 0, non-zero size) into ITCM/RAM1, inflating computed RAM1 by ~97 B. Only affects the non-authoritative fallback path. Key the bucketing off whether the section is loadable, not `addr != 0`.
+17. ✅ `tools/teensy_gate.py` (147–150) — the `size -A` fallback buckets non-allocated metadata sections (`.ARM.attributes`, `.comment`, addr 0, non-zero size) into ITCM/RAM1, inflating computed RAM1 by ~97 B. Only affects the non-authoritative fallback path. Key the bucketing off whether the section is loadable, not `addr != 0`.
 
 18. `daydream/segment_worker.js` (79) — worker `init` calls `engine.setResolution()` and discards the boolean result, then derives `segRange` from the requested size regardless; the dedicated `setResolution` handler correctly checks for `false` and keeps the old geometry. Currently unreachable, but it is the unguarded asymmetry the resize regression test specifically protects. Guard the init path symmetrically.
 
