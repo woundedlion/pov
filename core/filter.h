@@ -1027,6 +1027,10 @@ private:
  */
 template <int W, int H> class Blur : public Is2D {
 public:
+  // Taps rows cy±1 with only a canvas-edge clamp, so under segmented rendering
+  // it samples neighbor-segment rows; force full-frame rendering.
+  static constexpr bool crosses_segments = true;
+
   /**
    * @brief Constructs a blur with the given initial strength.
    * @param factor Blur strength in [0, 1] (0 = identity, 1 = full Gaussian).
