@@ -43,7 +43,7 @@ inline int &generate_depth() {
  *   scratch headroom above the outer allocations rather than clobbering them.
  */
 template <typename GenerateFn, typename... Args>
-[[nodiscard]] auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
+auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
   int &depth = hs_detail::generate_depth();
   if (depth == 0) {
     scratch_arena_a.reset();
