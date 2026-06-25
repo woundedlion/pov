@@ -216,7 +216,7 @@ private:
    * @details On completion swaps slots, compacts arenas, and restarts the
    * hankin cycle.
    */
-  FLASHMEM void start_morph_cycle() {
+  void start_morph_cycle() {
     constexpr int MORPH_FRAMES = 16;
     auto solids = Solids::Collections::get_simple_solids();
     int next_idx = (solid_idx + 1) % solids.size();
