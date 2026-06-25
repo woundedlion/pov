@@ -29,6 +29,7 @@
 #include <cstring>
 #include <utility>
 #include "core/memory.h"
+#include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {
@@ -850,7 +851,7 @@ inline void test_persist_compaction_relocates_survivor() {
  * @return The harness exit code (zero on success, nonzero on failure).
  */
 inline int run_memory_tests() {
-  auto scope = hs_test::begin_module("memory");
+  hs_test::ModuleFixture fixture("memory");
 
   test_arena_construction();
   test_arena_basic_allocation();
@@ -901,7 +902,7 @@ inline int run_memory_tests() {
   test_persist_scratch_offset_restored();
   test_persist_compaction_relocates_survivor();
 
-  return hs_test::end_module(scope);
+  return fixture.result();
 }
 
 } // namespace mem
