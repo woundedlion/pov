@@ -83,7 +83,7 @@ All 23 surviving findings are **Low severity** — none represents a live defect
 
 2. ✅ `core/sdf.h` (≈1147–1183) — `Subtract::get_horizontal_intervals` can emit up to ~4×`kIntervalSpanCap` spans into a consumer buffer sized 2×`kIntervalSpanCap`, with no `static_assert` tying producer to consumer (unlike the carefully-reasoned `Union` path). Document and compile-time-bound the relationship.
 
-3. `core/sdf.h` (≈1287–1311) — `Intersection::get_horizontal_intervals` compares raw, un-normalized coordinates in its merge sweep, where `Subtract` explicitly normalizes both children into a common `[0,W)` frame first. A seam-straddling span (e.g. `[-5,5]` vs `[W-5,W+5]`) can under-cover at θ=0. Apply the same seam-normalization `Subtract` uses.
+3. ✅ `core/sdf.h` (≈1287–1311) — `Intersection::get_horizontal_intervals` compares raw, un-normalized coordinates in its merge sweep, where `Subtract` explicitly normalizes both children into a common `[0,W)` frame first. A seam-straddling span (e.g. `[-5,5]` vs `[W-5,W+5]`) can under-cover at θ=0. Apply the same seam-normalization `Subtract` uses.
 
 4. `core/sdf.h` (≈683–719) — `DistortedRing`'s load-bearing `max_distortion` bound is verified only by a 256-sample sweep under `#ifndef NDEBUG`, so on the device an under-estimate silently culls genuine arcs with no trap. Add an always-on guard (or a coarser device-side bound check) consistent with the fail-fast doctrine for output-affecting preconditions.
 
