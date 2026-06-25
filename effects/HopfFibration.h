@@ -48,8 +48,8 @@ public:
     // Whole footprint lives in the persistent arena with no per-frame scratch, so
     // keep the default split (no configure_arenas()); kFootprintBytes asserts it
     // fits the device default partition.
-    fibers = static_cast<Vector *>(persistent_arena.allocate(
-        ACTUAL_FIBERS * sizeof(Vector), alignof(Vector)));
+    fibers = static_cast<Spherical *>(persistent_arena.allocate(
+        ACTUAL_FIBERS * sizeof(Spherical), alignof(Spherical)));
 
     trails = static_cast<Animation::VectorTrail<TRAIL_LEN> *>(
         persistent_arena.allocate(ACTUAL_FIBERS *
@@ -116,10 +116,10 @@ private:
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
 
-  // Persistent allocations: palette LUT + one Vector and one trail per fiber.
+  // Persistent allocations: palette LUT + one Spherical and one trail per fiber.
   static constexpr size_t kFootprintBytes =
       BakedPalette::LUT_SIZE * sizeof(Color4) +
-      ACTUAL_FIBERS * sizeof(Vector) +
+      ACTUAL_FIBERS * sizeof(Spherical) +
       ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a RINGS/PER_RING/TRAIL_LEN retune.
@@ -151,7 +151,7 @@ private:
   float flow_offset = 0.0f;
   float tumble_angle_x = 0.0f;
   float tumble_angle_y = 0.0f;
-  Vector *fibers = nullptr;
+  Spherical *fibers = nullptr;
   Animation::VectorTrail<TRAIL_LEN> *trails = nullptr;
 
   // Per-frame values reused across all fibers (refreshed in advance_tumble).
@@ -167,9 +167,11 @@ private:
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> trail_pipeline;
 
   /**
-   * @brief Seeds the base fibers as a spherical lattice of unit vectors.
-   * @details Lays out a RINGS x PER_RING grid of unit vectors, evenly spaced in
-   * polar bands and azimuth around each band.
+   * @brief Seeds the base fibers as a spherical lattice.
+   * @details Lays out a RINGS x PER_RING grid of spherical coordinates, evenly
+   * spaced in polar bands and azimuth around each band. Stored as Spherical so
+   * hopf_project reuses the angles directly instead of re-deriving them per
+   * frame.
    */
   void init_fibers() {
     int idx = 0;
@@ -177,7 +179,7 @@ private:
       float polar = PI_F * (i + 0.5f) / RINGS;
       for (int j = 0; j < PER_RING; ++j) {
         float azimuth = 2 * PI_F * j / PER_RING;
-        fibers[idx++] = Vector(Spherical(azimuth, polar));
+        fibers[idx++] = Spherical(azimuth, polar);
       }
     }
   }
@@ -209,8 +211,7 @@ private:
    * @details Pipeline: folding -> twist -> S3 -> tumble -> stereographic R3.
    */
   Vector hopf_project(size_t i) const {
-    const Vector &base = fibers[i];
-    Spherical sph(base);
+    const Spherical &sph = fibers[i];
     float theta = sph.phi; // polar angle (co-latitude)
     float phi = sph.theta; // azimuthal angle
 
