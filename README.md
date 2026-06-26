@@ -636,7 +636,7 @@ Each rasterizer family populates the Fragment registers with a consistent conven
 | `v1` | `DistanceResult.raw_dist` | Unsigned distance to shape centerline (for distance-based effects) |
 | `v2` | Set by rasterizer | Face index for `Scan::Mesh` (0 otherwise) |
 | `v3` | `DistanceResult.aux` | Auxiliary — shape-dependent secondary parameter (0 when unused, including faces) |
-| `size` | `DistanceResult.size` | Shape radius or apothem for normalization |
+| `size` | `DistanceResult.size` | Shape radius or apothem for normalization (mesh `Face` floors it to ≥0.25× circumradius on sliver faces, so a normalized shader can see up to a 4× overstated inradius there) |
 
 The `DistanceResult` struct is returned by each SDF shape's `distance<ComputeUVs>()` method:
 
