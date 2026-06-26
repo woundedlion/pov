@@ -16,6 +16,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <map>
 #include <vector>
 #include "core/conway.h"
 #include "core/solids.h"
@@ -218,6 +219,35 @@ inline void check_euler_genus0(const PolyMesh &m) {
 }
 
 /**
+ * @brief Histogram of vertex degree (incident faces) → number of such vertices.
+ * @param m Mesh to inspect.
+ * @details In a closed manifold a vertex's incident-face count equals its edge
+ *          degree, so this pins the local connectivity a bare vertex/face count
+ *          cannot. Every vertex is tallied, so an unreferenced (degree-0) vertex
+ *          shows up as a {0, n} bucket.
+ */
+inline std::map<int, int> vertex_degree_histogram(const PolyMesh &m) {
+  std::vector<int> degree(m.vertices.size(), 0);
+  for (uint16_t idx : m.faces)
+    ++degree[idx];
+  std::map<int, int> hist;
+  for (int d : degree)
+    ++hist[d];
+  return hist;
+}
+
+/**
+ * @brief Histogram of face side-count (triangle, quad, ...) → number of faces.
+ * @param m Mesh to inspect.
+ */
+inline std::map<int, int> face_type_histogram(const PolyMesh &m) {
+  std::map<int, int> hist;
+  for (uint8_t c : m.face_counts)
+    ++hist[(int)c];
+  return hist;
+}
+
+/**
  * @brief Runs every primitive Conway operator on one seed and checks Euler.
  * @tparam Solid Platonic seed solid (e.g. Solids::Cube) to build and operate on.
  * @details Asserts each operator's result is a closed genus-0 manifold.
@@ -349,6 +379,14 @@ inline void test_dual_cube_has_octahedral_topology() {
   HS_EXPECT_EQ(d.vertices.size(), (size_t)6);
   HS_EXPECT_EQ(d.face_counts.size(), (size_t)8);
   HS_EXPECT_EQ(d.faces.size(), (size_t)24);
+
+  // Octahedral connectivity: all 6 vertices have degree 4, all 8 faces triangles.
+  auto deg = vertex_degree_histogram(d);
+  HS_EXPECT_EQ(deg.size(), (size_t)1);
+  HS_EXPECT_EQ(deg[4], 6);
+  auto faces = face_type_histogram(d);
+  HS_EXPECT_EQ(faces.size(), (size_t)1);
+  HS_EXPECT_EQ(faces[3], 8);
 }
 
 // ---------------------------------------------------------------------------
@@ -373,8 +411,16 @@ inline void test_kis_cube_pyramidalizes() {
   HS_EXPECT_EQ(k.vertices.size(), (size_t)(8 + 6)); // original V + one per F
   HS_EXPECT_EQ(k.face_counts.size(), (size_t)24);
   HS_EXPECT_EQ(k.faces.size(), (size_t)72);
-  for (size_t i = 0; i < k.face_counts.size(); ++i)
-    HS_EXPECT_EQ(k.face_counts[i], (uint8_t)3);
+
+  // kis lifts each original corner to degree 6 (its 3 faces each split in two)
+  // and adds a degree-4 apex per face; every face is a triangle.
+  auto deg = vertex_degree_histogram(k);
+  HS_EXPECT_EQ(deg.size(), (size_t)2);
+  HS_EXPECT_EQ(deg[6], 8);
+  HS_EXPECT_EQ(deg[4], 6);
+  auto faces = face_type_histogram(k);
+  HS_EXPECT_EQ(faces.size(), (size_t)1);
+  HS_EXPECT_EQ(faces[3], 24);
 }
 
 // ---------------------------------------------------------------------------
