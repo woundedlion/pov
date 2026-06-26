@@ -240,7 +240,9 @@ private:
           // Explicit basis construction to match JS texture alignment.
           Vector v = normal;
           Vector w = Y_AXIS;
-          Vector u = cross(v, w).normalized();
+          // Fall back to X when the normal aligns with Y (cross collapses to 0),
+          // matching the normalized_or guards on the sibling bases above.
+          Vector u = normalized_or(cross(v, w), Vector(1, 0, 0));
           return {Basis{u, v, w}, 1.0f};
         },
         [&](int, float opacity, Fragment &f_val) {
