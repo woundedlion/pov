@@ -29,10 +29,13 @@ public:
    * the interlace sweep/morph cycle.
    */
   void init() override {
-    // scratch_b (32 KB) covers the larger of its two non-overlapping peaks:
-    // generation intermediates, or the morph-cycle Persist set. The device H=144
-    // high-water isn't in CI; confirm the peak on hardware.
-    configure_arenas(GLOBAL_ARENA_SIZE - 16 * 1024 - 32 * 1024, 16 * 1024,
+    // scratch_a (24 KB) covers its largest non-overlapping peak: the render path
+    // (draw_mesh transforms the front mesh into scratch_a, then Scan::Mesh::draw
+    // stacks an SDF::FaceScratchBuffer on top), which for the heaviest hankin
+    // mesh exceeds the generation/classify peak. scratch_b (32 KB) covers the
+    // larger of generation intermediates or the morph-cycle Persist set. The
+    // device H=144 high-water isn't in CI; confirm the peak on hardware.
+    configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
                      32 * 1024);
     registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
     registerAnimatedParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
