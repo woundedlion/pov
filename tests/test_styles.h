@@ -312,10 +312,12 @@ inline void test_sync_noise_pushes_scalars() {
   HS_EXPECT_NEAR(np.speed, 2.5f, 1e-6f);
   HS_EXPECT_NEAR(np.scale, 9.0f, 1e-6f);
 
-  Feedback::Style unbound{};
-  unbound.noise = nullptr;
-  unbound.sync_noise();
-  HS_EXPECT_TRUE(true);
+  // Clearing the binding makes sync a no-op: it must neither dereference the
+  // null pointer nor write through to the previously-bound NoiseParams.
+  s.noise = nullptr;
+  s.amplitude = 1.0f;
+  s.sync_noise();
+  HS_EXPECT_NEAR(np.amplitude, 7.0f, 1e-6f);
 }
 
 /**
