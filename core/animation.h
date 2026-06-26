@@ -2414,29 +2414,8 @@ public:
    * @return Reference to the Timeline object.
    */
   template <typename A> Timeline &add(float in_frames, A animation) {
-    static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
-                  "Animation type exceeds TimelineEvent inline storage");
-    static_assert(alignof(A) <= alignof(std::max_align_t),
-                  "Animation type is over-aligned for TimelineEvent inline "
-                  "storage (placement-new would be misaligned)");
-    // Soft-drop: pool exhaustion is a recoverable scheduling condition, not a
-    // corrupted invariant.
-    if (global_timeline_num_events >= MAX_EVENTS) {
-      hs::log("Timeline full, failed to add animation!");
-      return *this;
-    }
-    auto &e = global_timeline_events[global_timeline_num_events++];
-    e.start = global_timeline_t + (int)in_frames;
-    e.handled = false; // global slots are reused — clear any stale handled flag
-    e.iface = static_cast<IAnimation *>(new (e.storage) A(std::move(animation)));
-    e.manager = [](TimelineEvent &src, TimelineEvent *dst) {
-      // std::launder to recover a usable A* from the placement-new'd storage.
-      A *obj = std::launder(reinterpret_cast<A *>(src.storage));
-      if (dst) {
-        dst->iface = static_cast<IAnimation *>(new (dst->storage) A(std::move(*obj)));
-      }
-      obj->~A();
-    };
+    // pin=false: an add() caller keeps no handle, so the event compacts normally.
+    add_get(in_frames, std::move(animation), /*pin=*/false);
     return *this;
   }
 
