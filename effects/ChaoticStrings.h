@@ -65,10 +65,13 @@ public:
         path([](float) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
 
-  // Scratch A holds the per-frame Fragment buffer plus Multiline-draw headroom.
+  // Scratch A holds the per-frame vertices buffer and, during the draw call, the
+  // Multiline fragment buffer it binds (capacity vertices.size()+2) at the same
+  // time, so the worst case is both buffers live at once.
   static constexpr size_t SCRATCH_A_BYTES = 200 * 1024;
-  static_assert(SCRATCH_A_BYTES >= MAX_FRAGMENTS * sizeof(Fragment),
-                "scratch arena A must fit the worst-case fragment buffer");
+  static_assert(SCRATCH_A_BYTES >= (2 * MAX_FRAGMENTS + 2) * sizeof(Fragment),
+                "scratch arena A must fit the vertices buffer and the "
+                "Multiline-draw fragment buffer at once");
 
   /**
    * @brief Carves arenas, allocates the node, binds the palette, registers
