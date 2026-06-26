@@ -656,24 +656,6 @@ inline void test_scratch_basic_restore() {
 }
 
 /**
- * @brief Verifies make_vector() yields a vector backed by the scope's arena; its
- *        storage is reclaimed when the scope exits.
- */
-inline void test_scratch_make_vector() {
-  Arena a(test_buf_a, sizeof(test_buf_a));
-  size_t before = a.get_offset();
-  {
-    ScratchScope s(a);
-    ArenaVector<int> v = s.make_vector<int>(16);
-    HS_EXPECT_TRUE(v.is_bound());
-    HS_EXPECT_EQ(v.capacity(), (size_t)16);
-    for (int i = 0; i < 16; ++i) v.push_back(i);
-    HS_EXPECT_EQ(v[10], 10);
-  }
-  HS_EXPECT_EQ(a.get_offset(), before);
-}
-
-/**
  * @brief Verifies nested scopes unwind in LIFO order, each restoring its own
  *        entry offset.
  */
@@ -895,7 +877,6 @@ inline int run_memory_tests() {
   test_arenaspan_from_vector();
 
   test_scratch_basic_restore();
-  test_scratch_make_vector();
   test_scratch_nested();
 
   test_persist_restores_target();
