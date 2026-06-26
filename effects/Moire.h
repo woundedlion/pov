@@ -64,7 +64,9 @@ public:
     registerAnimatedParam("Amp", &params.amp, 0.0f, 1.0f);
 
     timeline
-        .add(0, Animation::PeriodicTimer(80, [this](Canvas &) { color_wipe(); }))
+        .add(0,
+             Animation::PeriodicTimer(80, [this](Canvas &) { color_wipe(); },
+                                      true))
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,
                                        ease_linear, true))
         // Ramp `rotation` 0 -> 2pi then snap back to 0. The snap is seamless
