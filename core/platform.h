@@ -923,11 +923,15 @@ inline uint8_t triwave8(uint8_t in) {
  * on the device, the trailing `if` is what the following braced block attaches
  * to; like FastLED's, this still cannot serve as the *unbraced* body of an outer
  * control statement (a leading `static` decl is not a valid lone substatement).
- * See hs::EveryNMillis for the timing semantics.
+ * The throttle object is named from `__COUNTER__` (consumed once via the _I
+ * indirection), so it is unique per expansion and two uses on one source line do
+ * not collide — matching FastLED, which also counts. See hs::EveryNMillis for
+ * the timing semantics.
  */
-#define EVERY_N_MILLIS(N)                                                      \
-  static hs::EveryNMillis HS_CONCAT(__every_, __LINE__)((N));                  \
-  if (HS_CONCAT(__every_, __LINE__))
+#define EVERY_N_MILLIS_I(NAME, N)                                              \
+  static hs::EveryNMillis NAME((N));                                           \
+  if (NAME)
+#define EVERY_N_MILLIS(N) EVERY_N_MILLIS_I(HS_CONCAT(__every_, __COUNTER__), N)
 
 /**
  * @brief Executes the guarded block at most once every N seconds.
