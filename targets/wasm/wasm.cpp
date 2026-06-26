@@ -1170,10 +1170,25 @@ struct PaletteOps {
               gradientShape);
       gradientShape = static_cast<int>(GradientShape::STRAIGHT);
     }
+    // h/s/v keys arrive as untyped JS ints; clamp to the documented [0,255]
+    // rather than letting the uint8_t cast wrap mod 256.
+    bool clamped = false;
+    auto u8 = [&clamped](int v) -> uint8_t {
+      if (v < 0) {
+        clamped = true;
+        return 0;
+      }
+      if (v > 255) {
+        clamped = true;
+        return 255;
+      }
+      return static_cast<uint8_t>(v);
+    };
     GenerativePalette pal = GenerativePalette::from_hsv_keys(
-        static_cast<GradientShape>(gradientShape), (uint8_t)h1, (uint8_t)s1,
-        (uint8_t)v1, (uint8_t)h2, (uint8_t)s2, (uint8_t)v2, (uint8_t)h3,
-        (uint8_t)s3, (uint8_t)v3);
+        static_cast<GradientShape>(gradientShape), u8(h1), u8(s1), u8(v1),
+        u8(h2), u8(s2), u8(v2), u8(h3), u8(s3), u8(v3));
+    if (clamped)
+      hs::log("WASM: bakeLut hsv key out of [0,255] — clamped");
     for (int i = 0; i < 256; ++i) {
       CRGB c = static_cast<CRGB>(pal.get(i / 255.0f));
       lut[3 * i + 0] = c.r;
