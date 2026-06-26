@@ -102,7 +102,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 17. ✅ **Duplicated insertion-sort and seam-normalize logic** — `core/scan.h` @ `scan_region` 196–223 vs `sdf.h` `normalize_intervals_to_range`/`sort_intervals_by_start` · *Maintainability*. **Fix:** have `scan_region` call the `SDF::` helpers instead of inlining bit-identical copies.
 18. **`Plot::Flower::draw` recomputes `get_antipode` that `sample` already computes** ▹ — `core/plot.h` @ 1811–1817 / 1767 · *Performance*. **Fix:** compute the antipode once and pass it in, or add a comment that both must use identical mapping.
 19. ✅ **`ScratchScope::make_vector` has no production callers** — `core/memory.h` @ 856 · *Maintainability*. **Fix:** remove it, or note it is currently unused.
-20. **`Arena::set_offset` permits a forward jump past the current offset** — `core/memory.h` @ 138–141 · *API design*. **Fix:** tighten to `HS_CHECK(new_offset <= offset)`, or document the forward-seek case and update `high_water_mark`.
+20. ✅ **`Arena::set_offset` permits a forward jump past the current offset** — `core/memory.h` @ 138–141 · *API design*. **Fix:** tighten to `HS_CHECK(new_offset <= offset)`, or document the forward-seek case and update `high_water_mark`.
 21. **`TriangularBitset::data` is uninitialized until `clear()`; reading a pair before `clear()` is UB** ▹ — `core/memory.h` @ 207/212/239 · *Correctness*. **Fix:** document the "must `clear()` first" precondition on the struct, or add an in-class default member initializer.
 22. **`ArenaVector` move ctor and move-assign duplicate the full transfer block** — `core/memory.h` @ 351–368 / 375–397 · *Style*. **Fix:** factor into a private `steal_from(ArenaVector&) noexcept` helper.
 
