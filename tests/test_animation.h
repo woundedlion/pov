@@ -1296,7 +1296,10 @@ inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
   deep_tween(trail,
              [&](const Quaternion &, float gt) { gts.push_back(gt); });
 
-  HS_EXPECT_GE(gts.size(), static_cast<size_t>(1));
+  // The collapsed tail frame is dropped, so the count matches the two
+  // contentful frames (M=3 sub-frames each): M + (contentful-1)*(M-1).
+  const size_t M = 3, contentful = 2;
+  HS_EXPECT_EQ(gts.size(), M + (contentful - 1) * (M - 1));
   HS_EXPECT_NEAR(gts.front(), 0.0f, 1e-6f);
   HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
   for (size_t i = 1; i < gts.size(); ++i)

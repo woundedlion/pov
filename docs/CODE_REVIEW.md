@@ -120,7 +120,7 @@ _None found._
 ### Low — Test Quality
 
 22. ✅ `tests/test_styles.h:318` — `test_sync_noise_pushes_scalars` asserts `HS_EXPECT_TRUE(true)` on the unbound (`noise == nullptr`) branch — a tautology that cannot fail and does not prove the null guard skipped the dereference. Assert observable state instead.
-23. `tests/test_animation.h:1299` — The collapsed-frame `deep_tween` test asserts `gts.size() >= 1` (always true) rather than the documented exact count `M + (N-1)*(M-1)` (which the sibling non-collapsed test at `:1269` does pin), so the boundary-skip logic is not actually verified.
+23. ✅ `tests/test_animation.h:1299` — The collapsed-frame `deep_tween` test asserts `gts.size() >= 1` (always true) rather than the documented exact count `M + (N-1)*(M-1)` (which the sibling non-collapsed test at `:1269` does pin), so the boundary-skip logic is not actually verified.
 24. `tests/test_mesh_raster.h:341` — The solid-fill coverage threshold is `> 99%` for a closed convex octahedron, tolerating ~1% dark pixels that could hide edge holes or clipping artifacts; a closed convex solid should fill far tighter.
 25. `tests/test_sdf.h:1007` — The interior-cull check uses an arbitrary loose aggregate bar (`total_interior > 1000` summed over 84 cases); a regression dropping hundreds of interior pixels still passes. Assert per-shape coverage.
 26. `tests/test_conway.h:339-378` — The `dual`/`kis` cube tests assert vertex/face **counts** (plus all-triangles for `kis`); the suite's `check_euler_genus0` manifold oracle covers much of the structural risk, but there is no per-vertex degree or face-type-histogram oracle, so a count-correct topology error could slip through.
