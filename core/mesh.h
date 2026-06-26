@@ -133,8 +133,9 @@ inline void fill_edge_record(HalfEdgePairRecord &rec, uint16_t u, uint16_t v,
  * @param n Number of records in the array.
  * @param set_pair Callback linking the two half-edges of each interior edge.
  * @details The lambda-independent record sort is factored into the non-template
- * sort_edge_records (one flash-resident copy shared by every caller); only the
- * tiny pairing scan is templated + inlined per set_pair. Traps on a non-manifold
+ * sort_edge_records (internal linkage: each including TU gets its own copy, which
+ * the linker may identical-code-fold); only the tiny pairing scan is templated +
+ * inlined per set_pair. Traps on a non-manifold
  * edge (>2 half-edges sharing one undirected edge).
  */
 [[maybe_unused]] HS_COLD static void
