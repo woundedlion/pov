@@ -1128,6 +1128,9 @@ inline float rand_f(float min, float max) {
  * @param min The minimum value (inclusive).
  * @param max The maximum value (exclusive).
  * @return A random integer in the range [min, max).
+ * @note Uses `% (max - min)`, so the result is modulo-biased for ranges that do
+ * not divide 2^32 evenly. Acceptable here: callers pass small setup-time ranges
+ * and rely on `Pcg32` for determinism, not uniformity.
  */
 inline int rand_int(int min, int max) {
   if (max > min) {
