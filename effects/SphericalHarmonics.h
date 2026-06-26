@@ -324,7 +324,7 @@ private:
     // Re-roll on a match with current_idx: blending a basis function into
     // itself would freeze the sphere for the whole transition.
     do {
-      next_idx = hs::rand_int(1, MAX_MODE_IDX);
+      next_idx = hs::rand_int(1, MAX_MODE_IDX + 1);
     } while (next_idx == current_idx);
 
     timeline.add(
