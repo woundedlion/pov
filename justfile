@@ -31,7 +31,7 @@ smoke: build
 # Needs the sibling daydream checkout served (see README) and the chromium
 # browser installed once via `npx playwright install chromium`.
 screenshots:
-    npm run screenshots
+    node scripts/capture_screenshots.mjs
 
 # Native unit-test suite (Clang) + CTest.
 test:
