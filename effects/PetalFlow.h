@@ -173,11 +173,15 @@ private:
    * of the path, keeping ring density constant.
    */
   void check_spawn() {
-    gap_accumulator += move_dist();
+    const float move = move_dist();
+    gap_accumulator += move;
 
+    // update_and_draw_rings() advances every ring by one move this same frame,
+    // so spawn one move short to land each ring's first drawn position at
+    // START_RHO + gap rather than START_RHO + gap + move.
     while (gap_accumulator >= SPACING) {
       gap_accumulator -= SPACING;
-      spawn_ring_at_pos(START_RHO + gap_accumulator);
+      spawn_ring_at_pos(START_RHO + gap_accumulator - move);
     }
   }
 
