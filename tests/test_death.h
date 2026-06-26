@@ -800,7 +800,8 @@ inline void run_child_case(const char *name) {
 
 /**
  * @brief Sets HS_DEATH_CASE in this process's environment.
- * @param name Case selector to publish; children inherit it via system().
+ * @param name Case selector to publish; the spawned child inherits it through
+ *             the environment.
  */
 inline void set_case_env(const char *name) {
 #if defined(_WIN32)
@@ -814,7 +815,7 @@ inline void set_case_env(const char *name) {
  * @brief Spawns the test binary as a child running the given death case.
  * @param name Case selector passed to the child via HS_DEATH_CASE.
  * @return The child's raw status (_spawnv() on Windows, fork+execv wait status
- *         on POSIX). -1 on a spawn failure, matching the std::system() sentinel.
+ *         on POSIX). -1 on a spawn failure.
  * @details Child stdout/stderr are discarded; only the exit code matters.
  */
 inline int spawn_child(const char *name) {
@@ -848,8 +849,7 @@ inline int spawn_child(const char *name) {
   // Shell-free spawn: fork and execv the binary directly so no /bin/sh parsing
   // can mangle a self_exe() path containing a quote or shell metacharacter. The
   // child sends stdout/stderr to /dev/null and execs; the parent waits and
-  // returns the raw wait status — the same encoding std::system() yielded, so
-  // classify_trap() reads it unchanged.
+  // returns the raw wait status that classify_trap() decodes.
   std::fflush(stdout);
   std::fflush(stderr);
   const char *exe = self_exe();
@@ -878,8 +878,8 @@ inline int spawn_child(const char *name) {
 #if defined(_WIN32)
 /**
  * @brief The Windows EXCEPTION_ILLEGAL_INSTRUCTION process exit code.
- * @details An unhandled trap sets it as the process exit code, which
- *          std::system() returns through cmd.exe.
+ * @details An unhandled trap sets it as the process exit code, which _spawnv()
+ *          returns directly to the parent.
  */
 inline constexpr int kTrapStatus = static_cast<int>(0xC000001D);
 #endif
@@ -935,7 +935,7 @@ inline bool child_trapped(int rc, TrapShape expected) {
 
 /**
  * @brief Tests whether the child exited cleanly (exit code 0).
- * @param rc The raw std::system() return value to interpret.
+ * @param rc The raw spawn_child() return value to interpret.
  * @return True iff the child exited normally with status 0.
  * @details Used by the control spawn check.
  */
