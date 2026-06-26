@@ -226,9 +226,10 @@ struct Color4 {
   float alpha;
 
   /**
-   * @brief Constructs an opaque black color (alpha 1.0).
+   * @brief Constructs a transparent black color (alpha 0.0), the additive/SSAA
+   * accumulator identity for `operator+=`.
    */
-  Color4() : color(Pixel(0, 0, 0)), alpha(1.0f) {}
+  Color4() : color(Pixel(0, 0, 0)), alpha(0.0f) {}
   /**
    * @brief Constructs a color from a Pixel and alpha.
    * @param p Linear-space pixel color.
