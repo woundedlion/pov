@@ -1399,7 +1399,7 @@ public:
     b_col.r = 0;
     b_col.g = 0;
 
-    int xi = fast_wrap(static_cast<int>(x), W);
+    int xi = fast_wrap(static_cast<int>(std::round(x)), W);
     pass(static_cast<float>(fast_wrap(xi + 1, W)), y, r_col, age, alpha);
     pass(static_cast<float>(fast_wrap(xi + 2, W)), y, g_col, age, alpha);
     pass(static_cast<float>(fast_wrap(xi + 3, W)), y, b_col, age, alpha);
