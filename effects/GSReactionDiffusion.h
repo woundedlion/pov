@@ -207,8 +207,9 @@ private:
       wb += from_q16(state.B[i]) * w;
       tw += w;
     });
-    // Guard the division: a 0/0 NaN would slip past the b < B_CULL_THRESHOLD cull
-    // (NaN compares false) and poison palette.get().
+    // Guard the division: returning 0 (not a 0/0 NaN) keeps the value cullable
+    // by render()'s `b < B_CULL_THRESHOLD` test downstream — a NaN compares false
+    // there, slips through, and poisons palette.get().
     if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
       return 0.0f;
     return wb / tw;
