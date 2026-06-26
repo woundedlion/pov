@@ -1848,7 +1848,7 @@ A normal page load creates one WASM instance on the main thread. The dot mesh ha
 | `drawFrame()` | Advance one frame and copy pixels to the output buffer |
 | `getPixels()` | Return a zero-copy `Uint16Array` view into WASM linear memory |
 | `getBufferLength()` → `int` | Length of the pixel buffer (`W × H × 3`) for sizing the view |
-| `setParameter(name, value)` → `bool` | Update a live effect parameter; returns `false` on an unknown name |
+| `setParameter(name, value)` → `bool` | Update a live effect parameter; returns `false` if the write was not applied (no active effect, unknown name, read-only param, or non-finite value) |
 | `setAnimationsPaused(paused)` | Freeze/resume the current effect's animation drivers (the GUI "Pause Animation" toggle) |
 | `getParameterDefinitions()` | Return the parameter list; each entry is `{name, value, animated, readonly}`, and float params additionally carry `{min, max}` (bool params omit `min`/`max` and return `value` as a JS boolean) |
 | `getParamValues()` | Return current parameter values (including animation-driven updates) |
