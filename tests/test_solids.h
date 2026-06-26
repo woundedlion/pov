@@ -488,29 +488,37 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
 // ---------------------------------------------------------------------------
 // High-water regression for HankinSolids at its shipping arena configuration.
 //
-// HankinSolids::init() splits the device arena as configure_arenas(GLOBAL - 16 KB
-// - 32 KB, 16 KB, 32 KB): a 16 KB scratch_a / 32 KB scratch_b pair and the rest
-// persistent. load_shape() runs the whole generate -> compile_hankin ->
-// update_hankin chain inside one generate() call (scratch ping-pongs without an
-// intervening reset), then classify_faces_by_topology() reuses the scratch after
-// generate() rewinds it. The two heaviest Archimedean solids
-// (truncatedIcosidodecahedron, snubDodecahedron) only cycle into the simple-solid
-// carousel here, so this is the path that decides whether they fit the budget.
-// Scratch is flat POD whose only host/device delta (64-bit pointers) inflates the
-// host figure, so the host high-water mark is a conservative upper bound.
+// HankinSolids::init() splits the device arena as configure_arenas(GLOBAL - 24 KB
+// - 32 KB, 24 KB, 32 KB): a 24 KB scratch_a / 32 KB scratch_b pair and the rest
+// persistent. scratch_a hosts two non-overlapping peaks, both measured here:
+//   * Load: load_shape() runs the whole generate -> compile_hankin ->
+//     update_hankin chain inside one generate() call (scratch ping-pongs without
+//     an intervening reset), then classify_faces_by_topology() reuses the scratch
+//     after generate() rewinds it.
+//   * Render: draw_mesh() transforms the front mesh into scratch_a, then
+//     Scan::Mesh::draw() stacks an SDF::FaceScratchBuffer on top. For the
+//     heaviest hankin mesh this render peak (transformed vertices + the fixed
+//     FaceScratchBuffer) exceeds the load peak — the path that actually decides
+//     the scratch_a budget, and the one a load-only check missed.
+// The two heaviest Archimedean solids (truncatedIcosidodecahedron,
+// snubDodecahedron) only cycle into the simple-solid carousel here. Scratch is
+// flat POD whose only host/device delta (64-bit pointers) inflates the host
+// figure, so the host high-water mark is a conservative upper bound.
 // ---------------------------------------------------------------------------
 
-constexpr size_t kHankinScratchABudget = 16 * 1024; /**< HankinSolids scratch_a. */
+constexpr size_t kHankinScratchABudget = 24 * 1024; /**< HankinSolids scratch_a. */
 constexpr size_t kHankinScratchBBudget = 32 * 1024; /**< HankinSolids scratch_b. */
 constexpr float kHankinAngle = PI_F / 4.0f; /**< Mid-sweep; counts are angle-independent. */
 
 /**
- * @brief Runs one simple solid through HankinSolids' full load pipeline and
- *        asserts each scratch arena's peak stays within the 16 KB / 32 KB split.
+ * @brief Runs one simple solid through HankinSolids' full load AND render paths
+ *        and asserts each scratch arena's peak stays within the 24 KB / 32 KB
+ *        split.
  * @param entry Registry entry whose generator is exercised.
- * @details Mirrors load_shape: generate + compile_hankin + update_hankin share
- *          the scratch pair without a reset (their combined peak is measured
- *          before the rewind), then classify reuses the rewound scratch.
+ * @details Mirrors load_shape (generate + compile_hankin + update_hankin sharing
+ *          the scratch pair without a reset, then classify reusing the rewound
+ *          scratch) and then draw_mesh (transform the mesh into scratch_a, then
+ *          the SDF::FaceScratchBuffer Scan::Mesh::draw stacks on top).
  */
 inline void check_hankin_high_water_for_solid(const Solids::Entry &entry) {
   Arena a(solids_scratch_a, sizeof(solids_scratch_a));
@@ -534,12 +542,27 @@ inline void check_hankin_high_water_for_solid(const Solids::Entry &entry) {
   if (b.get_high_water_mark() > b_peak)
     b_peak = b.get_high_water_mark();
 
+  // Render path: draw_mesh transforms the front mesh into scratch_a (transform
+  // copies only the vertices; topology is borrowed), then Scan::Mesh::draw
+  // allocates one SDF::FaceScratchBuffer in the same arena. Their sum is the
+  // render-time scratch_a peak.
+  a.reset();
+  {
+    ScratchScope render_scope(a);
+    MeshState rotated;
+    MeshOps::transform(mesh, rotated, a, [](const Vector &v) { return v; });
+    (void)a.allocate(sizeof(SDF::FaceScratchBuffer),
+                     alignof(SDF::FaceScratchBuffer));
+  }
+  if (a.get_high_water_mark() > a_peak)
+    a_peak = a.get_high_water_mark();
+
   HS_EXPECT_LE(a_peak, kHankinScratchABudget);
   HS_EXPECT_LE(b_peak, kHankinScratchBBudget);
 }
 
 /**
- * @brief Verifies every simple solid fits HankinSolids' 16 KB / 32 KB scratch
+ * @brief Verifies every simple solid fits HankinSolids' 24 KB / 32 KB scratch
  *        split — including the two heaviest Archimedean solids the carousel now
  *        cycles through.
  */
@@ -551,7 +574,7 @@ inline void test_hankin_solids_fit_hankinsolids_scratch_budget() {
 // ---------------------------------------------------------------------------
 // Persistent-budget regression for the HankinSolids carousel.
 //
-// The persistent half is GLOBAL_ARENA_SIZE - 16 KB - 32 KB (~282 KB on device).
+// The persistent half is GLOBAL_ARENA_SIZE - 24 KB - 32 KB (~274 KB on device).
 // The native 8 MB GLOBAL_ARENA_SIZE means a device overflow can't surface by
 // running the effect here. Peak residents during a morph are the baked palette
 // bank plus the two adjacent solids that coexist until compaction — each solid
@@ -561,7 +584,7 @@ inline void test_hankin_solids_fit_hankinsolids_scratch_budget() {
 // ---------------------------------------------------------------------------
 
 constexpr size_t kHankinPersistentBudget =
-    DEVICE_GLOBAL_ARENA_SIZE - 16 * 1024 - 32 * 1024; /**< ~282 KB on device. */
+    DEVICE_GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024; /**< ~274 KB on device. */
 
 /**
  * @brief Verifies the worst adjacent pair of simple solids, plus the palette
