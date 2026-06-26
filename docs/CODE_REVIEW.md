@@ -109,7 +109,7 @@ _None found._
 15. ✅ `core/effects.h:48` — `HS_EFFECT_LIST` (X-macro) and the `#include` list are two hand-maintained lists; a forgotten `X()` row only *silently* drops native smoke coverage (the anti-drift `static_assert` exists only on the WASM `HS_EFFECT_COUNT` path). Add a registry-size check to the native test harness.
 16. ✅ `effects/SphericalHarmonics.h:103,232,320` — Magic literals `6` (seed mode) and `24` (`rand_int(1,24)`) implicitly couple to "modes through l=4" with no named constant or `static_assert`; widening one without the other silently changes the visual range.
 17. ✅ `daydream/tools/mobius.html:343-348` — GLSL `cmult`/`cadd`/`cdiv` (including the `1e-6` divide guard) duplicate `mobius_transforms.js`; the on-screen warp runs the GLSL copy while presets use the JS copy, so an edit to one silently diverges. Add a cross-reference comment (GLSL cannot import the JS module).
-18. `daydream/tools/clipboard.js:67` — `copyWithFeedback`/`copyToClipboard` return a success boolean that no caller inspects (`solids.html:1184`, `splines.html:494`, `lissajous.html:370`), so a copy failure is fully silent — the "Copied!" label never flips and nothing surfaces. Surface a failure state.
+18. ✅ `daydream/tools/clipboard.js:67` — `copyWithFeedback`/`copyToClipboard` return a success boolean that no caller inspects (`solids.html:1184`, `splines.html:494`, `lissajous.html:370`), so a copy failure is fully silent — the "Copied!" label never flips and nothing surfaces. Surface a failure state.
 
 ### Low — Performance
 
