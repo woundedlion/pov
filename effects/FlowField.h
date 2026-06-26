@@ -75,8 +75,8 @@ public:
         // Three force channels decorrelated by large x-offsets (0/100/200, past
         // the lattice correlation length). All share the z input (p.z*scale + t)
         // so time advances the field along z, since FastNoiseLite is only 3D.
-        constexpr float kChannelOffsetY = 100.0f;
-        constexpr float kChannelOffsetZ = 200.0f;
+        constexpr float kChannelDecorrelationOffset1 = 100.0f;
+        constexpr float kChannelDecorrelationOffset2 = 200.0f;
         float fx =
             noise_generator.GetNoise(p.position.x * params.noise_scale,
                                      p.position.y * params.noise_scale,
@@ -84,13 +84,13 @@ public:
             params.force_scale;
         float fy =
             noise_generator.GetNoise(p.position.x * params.noise_scale +
-                                         kChannelOffsetY,
+                                         kChannelDecorrelationOffset1,
                                      p.position.y * params.noise_scale,
                                      p.position.z * params.noise_scale + t) *
             params.force_scale;
         float fz =
             noise_generator.GetNoise(p.position.x * params.noise_scale +
-                                         kChannelOffsetZ,
+                                         kChannelDecorrelationOffset2,
                                      p.position.y * params.noise_scale,
                                      p.position.z * params.noise_scale + t) *
             params.force_scale;
