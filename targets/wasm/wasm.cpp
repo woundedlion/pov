@@ -322,6 +322,7 @@ public:
     if (currentEffect) {
       currentEffect = nullptr;
       ++paramGeneration_; // param set now empty; bump so cached defs detect it
+      stack_paint_canary(); // repaint to reset stack HWM after teardown
     }
     return true;
   }
