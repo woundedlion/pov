@@ -1533,7 +1533,7 @@ Visualizes the Hopf fibration — a map from S³ to S². Points on S² (the base
 
 Procedurally generates Islamic geometric patterns using Hankin's method (pentagon-based subdivision of the Archimedean solids). Each face of a rotating solid is decorated with its characteristic star polygon, colored by face topology (triangles, pentagons, hexagons, etc.). Ripple waves periodically distort the geometry.
 
-**Parameters**: Duration, Fade, Burst, Ripp Amp, Ripp Width, Ripp Decay, Ripp Dur, Debug BB
+**Parameters**: Duration, Fade, Burst, Ripp Amp, Ripp Decay, Ripp Dur, Debug BB
 
 </td></tr></table>
 

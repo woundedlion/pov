@@ -86,7 +86,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 7. ✅ **README self-contradiction on AntiAlias `sin(φ)` density compensation.** `README.md` line ~448 says `Screen::AntiAlias` distributes "with `sin(φ)` density compensation"; line ~508 says "no `sin(φ)` density compensation". The code (`core/filter.h` ~875–921) applies no latitude term, so line 448 is wrong. Fix: delete the density-compensation clause from line 448.
 
-8. **README advertises a non-existent IslamicStars parameter.** `README.md` §9 lists IslamicStars params including "Ripp Width", but `effects/IslamicStars.h` `init()` registers no such slider — ripple thickness is the fixed constant `kRippleThickness` ("thickness is fixed (not a slider)"). Fix: remove "Ripp Width" from the README parameter list.
+8. ✅ **README advertises a non-existent IslamicStars parameter.** `README.md` §9 lists IslamicStars params including "Ripp Width", but `effects/IslamicStars.h` `init()` registers no such slider — ripple thickness is the fixed constant `kRippleThickness` ("thickness is fixed (not a slider)"). Fix: remove "Ripp Width" from the README parameter list.
 
 9. **`vector_to_pixel` returns an unclamped south-pole `y` (contract hazard).** `core/geometry.h` ~485–491: `y` can land "a hair above `H_VIRT-1`" at the south pole and is deliberately left unclamped, with a documented "caller must clamp" contract. The primary consumer (`AntiAlias::plot`) already bounds-checks each tap, so there is no active OOB today — but every other `(int)y` row-buffer consumer inherits the hazard. Fix (defensive): clamp `y` once at the producer, or keep the contract but add a guard at any bare-index consumer.
 
