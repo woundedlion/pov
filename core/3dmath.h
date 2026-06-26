@@ -1109,25 +1109,25 @@ inline Quaternion quaternion_from_basis(const Vector &cx, const Vector &cy,
   const float trace = m00 + m11 + m22;
   Quaternion q;
   if (trace > 0.0f) {
-    float s = std::sqrt(trace + 1.0f) * 2.0f; // s = 4 * q.r
+    float s = sqrtf(trace + 1.0f) * 2.0f; // s = 4 * q.r
     q.r = 0.25f * s;
     q.v.x = (m21 - m12) / s;
     q.v.y = (m02 - m20) / s;
     q.v.z = (m10 - m01) / s;
   } else if (m00 > m11 && m00 > m22) {
-    float s = std::sqrt(1.0f + m00 - m11 - m22) * 2.0f; // s = 4 * q.v.x
+    float s = sqrtf(1.0f + m00 - m11 - m22) * 2.0f; // s = 4 * q.v.x
     q.r = (m21 - m12) / s;
     q.v.x = 0.25f * s;
     q.v.y = (m01 + m10) / s;
     q.v.z = (m02 + m20) / s;
   } else if (m11 > m22) {
-    float s = std::sqrt(1.0f + m11 - m00 - m22) * 2.0f; // s = 4 * q.v.y
+    float s = sqrtf(1.0f + m11 - m00 - m22) * 2.0f; // s = 4 * q.v.y
     q.r = (m02 - m20) / s;
     q.v.x = (m01 + m10) / s;
     q.v.y = 0.25f * s;
     q.v.z = (m12 + m21) / s;
   } else {
-    float s = std::sqrt(1.0f + m22 - m00 - m11) * 2.0f; // s = 4 * q.v.z
+    float s = sqrtf(1.0f + m22 - m00 - m11) * 2.0f; // s = 4 * q.v.z
     q.r = (m10 - m01) / s;
     q.v.x = (m02 + m20) / s;
     q.v.y = (m12 + m21) / s;
