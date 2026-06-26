@@ -12,11 +12,12 @@
  * __builtin_trap() to an illegal instruction (x86 ud2), so the child dies by
  * SIGILL (POSIX) / STATUS_ILLEGAL_INSTRUCTION (Windows).
  *
- * The child is selected through an inherited env var and spawned with
- * std::system(), so no fork() (absent on Windows) is needed. A control "spawn
- * check" runs first; if the harness cannot re-exec itself, the death tests are
- * SKIPPED — EXCEPT under CI (the CI env var is set), where a suite that cannot
- * run is a hard FAILURE rather than a silent green skip.
+ * The child is selected through an inherited env var and spawned shell-free —
+ * fork()+execv() on POSIX, _spawnv() on Windows — so no shell can mangle the
+ * re-exec path. A control "spawn check" runs first; if the harness cannot
+ * re-exec itself, the death tests are SKIPPED — EXCEPT under CI (the CI env var
+ * is set), where a suite that cannot run is a hard FAILURE rather than a silent
+ * green skip.
  */
 #pragma once
 
@@ -47,7 +48,9 @@
 
 #if !defined(_WIN32)
 #include <csignal>    // SIGILL — the expected trap signal
+#include <fcntl.h>    // open / O_WRONLY for the /dev/null redirect
 #include <sys/wait.h> // WIFSIGNALED / WTERMSIG / WIFEXITED / WEXITSTATUS
+#include <unistd.h>   // fork / execv / dup2 / close / _exit — shell-free spawn
 #else
 #include <fcntl.h>   // _O_WRONLY for the NUL redirect
 #include <io.h>      // _dup / _dup2 / _sopen_s / _close
@@ -797,7 +800,8 @@ inline void set_case_env(const char *name) {
 /**
  * @brief Spawns the test binary as a child running the given death case.
  * @param name Case selector passed to the child via HS_DEATH_CASE.
- * @return The child's raw status (_spawnv() on Windows, std::system() on POSIX).
+ * @return The child's raw status (_spawnv() on Windows, fork+execv wait status
+ *         on POSIX). -1 on a spawn failure, matching the std::system() sentinel.
  * @details Child stdout/stderr are discarded; only the exit code matters.
  */
 inline int spawn_child(const char *name) {
@@ -828,10 +832,33 @@ inline int spawn_child(const char *name) {
   _close(saved_err);
   return static_cast<int>(rc);
 #else
-  std::string cmd = "\"";
-  cmd += self_exe();
-  cmd += "\" >/dev/null 2>&1";
-  return std::system(cmd.c_str());
+  // Shell-free spawn: fork and execv the binary directly so no /bin/sh parsing
+  // can mangle a self_exe() path containing a quote or shell metacharacter. The
+  // child sends stdout/stderr to /dev/null and execs; the parent waits and
+  // returns the raw wait status — the same encoding std::system() yielded, so
+  // classify_trap() reads it unchanged.
+  std::fflush(stdout);
+  std::fflush(stderr);
+  const char *exe = self_exe();
+  pid_t pid = fork();
+  if (pid < 0)
+    return -1;
+  if (pid == 0) {
+    int devnull = open("/dev/null", O_WRONLY);
+    if (devnull >= 0) {
+      dup2(devnull, 1);
+      dup2(devnull, 2);
+      if (devnull > 2)
+        close(devnull);
+    }
+    const char *argv[] = {exe, nullptr};
+    execv(exe, const_cast<char *const *>(argv));
+    _exit(127); // exec failed — never returns to the harness
+  }
+  int status = 0;
+  if (waitpid(pid, &status, 0) < 0)
+    return -1;
+  return status;
 #endif
 }
 
