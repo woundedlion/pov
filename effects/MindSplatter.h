@@ -98,6 +98,9 @@ public:
     timeline.step(canvas);
 
     particle_system.friction = params.friction;
+    // All attractors are deliberately uniform, slaved to the one live (and
+    // preset-animated) Well Str slider; the per-attractor strength passed at
+    // add_attractor time is just an initial seed this overwrites each frame.
     for (size_t i = 0; i < particle_system.attractors.size(); ++i)
       particle_system.attractors[i].strength = params.well_strength;
     particle_system.step(canvas);
