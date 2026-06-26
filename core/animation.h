@@ -674,6 +674,7 @@ private:
         float dist_sq = distance_squared(pos, attr.position);
 
         if (dist_sq < attr.kill_radius * attr.kill_radius) {
+          p.life = 0; // Stay dead; a live `life` resurrects the particle next frame.
           active = false;
           break; // Killed
         }

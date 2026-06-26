@@ -70,7 +70,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 ### Priority 1 — Correctness defects (runtime behavior)
 
-1. **Attractor `kill_radius` never kills a particle (resurrection bug).** `core/animation.h` ~658–726 (`step_particle`): the kill branch `if (dist_sq < attr.kill_radius * attr.kill_radius) { active = false; break; }` sets the local flag but never zeroes `p.life`. Next frame `active = p.life > 0` is true again, so the particle re-runs full physics and resumes recording its trail, fully resurrecting if it drifts back out of the kill radius before `life` naturally expires. Fix: set `p.life = 0;` in the kill branch.
+1. ✅ **Attractor `kill_radius` never kills a particle (resurrection bug).** `core/animation.h` ~658–726 (`step_particle`): the kill branch `if (dist_sq < attr.kill_radius * attr.kill_radius) { active = false; break; }` sets the local flag but never zeroes `p.life`. Next frame `active = p.life > 0` is true again, so the particle re-runs full physics and resumes recording its trail, fully resurrecting if it drifts back out of the kill radius before `life` naturally expires. Fix: set `p.life = 0;` in the kill branch.
 
 2. **`Rotation` constructor missing `HS_CHECK(duration >= 0)`.** `core/animation.h` ~1450–1455: every sibling animation (`Transition`, `Mutation`, `Motion`, `MobiusFlow`/`Warp`/`WarpCircular`, `Ripple`) rejects the perpetual `-1` the base permits; `Rotation` does not, yet `step()` computes `easing_fn(t / duration) * total_angle`, so a `-1` duration divides by `-1` and feeds the easing function a negative, growing argument — a garbage, never-completing rotation. Fix: add the same guard to the parameterized ctor.
 
