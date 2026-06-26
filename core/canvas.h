@@ -675,6 +675,9 @@ public:
       while (!effect_.buffer_free()) {
         HS_CHECK(micros() - wait_start < kBufferFreeWatchdogUs,
                  "buffer_free watchdog timeout — display ISR stalled");
+#ifdef HS_TEST_BUILD
+        s_buffer_free_spins.fetch_add(1, std::memory_order_relaxed);
+#endif
       }
     }
     effect_.advance_buffer();
@@ -780,11 +783,28 @@ public:
    */
   inline bool debug() const { return effect_.debug_visuals; }
 
+#ifdef HS_TEST_BUILD
+  /**
+   * @brief Test-only count of buffer_free() spin iterations across all Canvas
+   *        ctors in this process.
+   * @return The running spin-iteration count.
+   * @details Lets a test detect that a ctor has actually entered the wait loop
+   *          and release it on observed progress, rather than racing a fixed
+   *          sleep. Compiled out of the device/sim image.
+   */
+  static unsigned long buffer_free_spin_count() {
+    return s_buffer_free_spins.load(std::memory_order_relaxed);
+  }
+#endif
+
 private:
   /** Watchdog bound for the ctor buffer_free() spin (µs). One display
    *  revolution is tens-to-hundreds of ms even at low RPM; 2 s is well above
    *  that, so only a genuinely stalled display ISR trips it. */
   static constexpr unsigned long kBufferFreeWatchdogUs = 2000000UL;
   Effect &effect_; /**< Reference to the owning Effect instance. */
+#ifdef HS_TEST_BUILD
+  inline static std::atomic<unsigned long> s_buffer_free_spins{0};
+#endif
 };
 
