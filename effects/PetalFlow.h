@@ -137,13 +137,19 @@ private:
   }
 
   /**
+   * @brief Rho advanced this frame: the Speed slider scaled into per-frame
+   * motion. Spawn and render must step by the identical amount, so both read it
+   * here.
+   */
+  float move_dist() const { return params.speed * RHO_PER_SPEED; }
+
+  /**
    * @brief Accumulates this frame's travel and spawns rings as gap opens up.
    * @details Emits a ring each time a full SPACING of gap opens up at the start
    * of the path, keeping ring density constant.
    */
   void check_spawn() {
-    float move_dist = params.speed * RHO_PER_SPEED;
-    gap_accumulator += move_dist;
+    gap_accumulator += move_dist();
 
     while (gap_accumulator >= SPACING) {
       gap_accumulator -= SPACING;
@@ -184,11 +190,11 @@ private:
    * @details Retires rings that pass END_RHO; otherwise draws them.
    */
   void update_and_draw_rings(Canvas &canvas) {
-    float move_dist = params.speed * RHO_PER_SPEED;
+    const float move = move_dist();
     for (int i = 0; i < MAX_RINGS; ++i) {
       if (!rings[i].active)
         continue;
-      rings[i].rho += move_dist;
+      rings[i].rho += move;
       if (rings[i].rho > END_RHO) {
         rings[i].active = false;
         continue;
