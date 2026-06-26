@@ -226,7 +226,7 @@ public:
    * @return True if done.
    */
   bool done() const override {
-    return canceled || (duration >= 0 && t >= duration);
+    return canceled || (duration >= 0 && t >= static_cast<uint32_t>(duration));
   }
   /**
    * @brief Checks if the animation should repeat after finishing.
@@ -347,12 +347,13 @@ protected:
 
   int duration; /**< Total length of the animation in frames. */
   bool repeat;  /**< Flag indicating if the animation should repeat. */
-  int t = 0;    /**< Internal frame counter. Finite animations bound it by
+  uint32_t t = 0; /**< Internal frame counter. Finite animations bound it by
                      `duration`; perpetual ones (duration == -1:
                      RandomTimer/PeriodicTimer/Driver/RandomWalk) increment it
-                     forever, so `t++` and the `t >= next` trigger comparisons are
-                     signed-overflow UB past ~2^31 frames (~276 days at 90 fps).
-                     Restart before then if uptime can approach that bound. */
+                     forever. Unsigned so `t++` and the `t >= next` trigger
+                     comparisons wrap with defined behavior past 2^32 frames
+                     (~552 days at 90 fps) rather than incurring signed-overflow
+                     UB. Restart before then if uptime can approach that bound. */
 
 private:
   bool canceled;       /**< Flag to signal immediate cancellation. */
@@ -775,8 +776,8 @@ public:
 private:
   int min;   /**< Minimum frame delay. */
   int max;   /**< Maximum frame delay. */
-  TimerFn f; /**< The callback function. */
-  int next;  /**< The target frame count for the next trigger. */
+  TimerFn f;      /**< The callback function. */
+  uint32_t next;  /**< The target frame count for the next trigger. */
 };
 
 /**
@@ -831,9 +832,9 @@ public:
   }
 
 private:
-  int period; /**< The interval in frames. */
-  TimerFn f;  /**< The callback function. */
-  int next;   /**< The target frame count for the next trigger. */
+  int period;    /**< The interval in frames. */
+  TimerFn f;     /**< The callback function. */
+  uint32_t next; /**< The target frame count for the next trigger. */
 };
 
 /**
@@ -1184,7 +1185,7 @@ public:
     // Computing both keeps opacity continuous when the windows overlap (the
     // durations are independent GUI sliders), degrading to a triangle.
     float fade_in = 1.0f;
-    if (fade_in_duration > 0 && t < fade_in_duration) {
+    if (fade_in_duration > 0 && t < static_cast<uint32_t>(fade_in_duration)) {
       float progress = static_cast<float>(t) / fade_in_duration;
       fade_in = fade_in_easing(hs::clamp(progress, 0.0f, 1.0f));
     }
@@ -1194,8 +1195,9 @@ public:
     // overflow safety).
     float fade_out = 1.0f;
     if (duration >= 0 && fade_out_duration > 0 &&
-        t >= (duration - fade_out_duration)) {
-      float elapsed = static_cast<float>(t - (duration - fade_out_duration));
+        static_cast<int>(t) >= (duration - fade_out_duration)) {
+      float elapsed =
+          static_cast<float>(static_cast<int>(t) - (duration - fade_out_duration));
       float progress = elapsed / fade_out_duration;
       fade_out = 1.0f - fade_out_easing(hs::clamp(progress, 0.0f, 1.0f));
     }
@@ -2153,7 +2155,7 @@ public:
 
     // Past the duration the envelope is pinned to 0, so skip the wave work; the
     // amplitude is still published below so the last frame renders nothing.
-    if (t < duration) {
+    if (t < static_cast<uint32_t>(duration)) {
       params.get().phase += speed;
 
       // Attack: fast ramp over ~10% of duration, squared for a parabolic ease-in.
