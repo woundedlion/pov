@@ -166,6 +166,33 @@ inline void test_sin_wave_bounds_and_phase() {
 }
 
 /**
+ * @brief Verifies sin_wave reaches full amplitude and is periodic and symmetric.
+ * @details A bounds-only check passes for a shrunk amplitude or a DC-offset
+ *          drift, so pin the shape directly: the wave touches both rails
+ *          (trough=from, peak=to half a cycle apart), repeats one period later,
+ *          and opposite half-cycle phases sum to from+to (which fixes both the
+ *          amplitude and the DC level).
+ */
+inline void test_sin_wave_amplitude_period_symmetry() {
+  auto w = sin_wave(2.0f, 5.0f, 1.0f, 0.0f); // period 1; trough@0, peak@0.5
+  float lo = w(0.0f), hi = w(0.0f);
+  for (int i = 0; i <= N; ++i) {
+    float v = w(frac(i)); // one full period
+    lo = std::fmin(lo, v);
+    hi = std::fmax(hi, v);
+  }
+  HS_EXPECT_NEAR(lo, 2.0f, 1e-3f);       // trough reaches `from`
+  HS_EXPECT_NEAR(hi, 5.0f, 1e-3f);       // peak reaches `to`
+  HS_EXPECT_NEAR(w(0.5f), 5.0f, 1e-3f);  // peak a half-cycle after the trough
+  HS_EXPECT_NEAR(w(0.25f), 3.5f, 1e-3f); // midpoint on the rise
+  for (int i = 0; i <= N; ++i) {
+    float t = frac(i);
+    HS_EXPECT_NEAR(w(t), w(t + 1.0f), 1e-3f);        // periodic one cycle later
+    HS_EXPECT_NEAR(w(t) + w(t + 0.5f), 7.0f, 1e-3f); // half-cycle symmetry
+  }
+}
+
+/**
  * @brief Verifies tri_wave traces a symmetric triangle within bounds.
  * @details The wave runs trough to peak and back, staying within [from,to]
  *          across multiple periods.
@@ -180,6 +207,8 @@ inline void test_tri_wave_shape() {
     float v = w(frac(i) * 2.0f);
     HS_EXPECT_GE(v, -1e-3f);
     HS_EXPECT_LE(v, 1.0f + 1e-3f);
+    float t = frac(i);
+    HS_EXPECT_NEAR(w(t), w(t + 1.0f), 1e-4f); // periodic one cycle later
   }
 }
 
@@ -237,6 +266,7 @@ inline int run_easing_waves_tests() {
   test_easing_in_out_symmetry_midpoint();
 
   test_sin_wave_bounds_and_phase();
+  test_sin_wave_amplitude_period_symmetry();
   test_tri_wave_shape();
   test_square_wave_binary();
   test_square_wave_negative_phase();
