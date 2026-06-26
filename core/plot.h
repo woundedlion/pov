@@ -1808,6 +1808,9 @@ struct Flower {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
+    // The planar chart and sample()'s petal placement must derive from the same
+    // antipode mapping, so both call get_antipode(basis, radius) on identical
+    // inputs; keep them in lockstep if either mapping changes.
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
     // Center the planar chart on work_basis.v, the pole *opposite* the petal ring
