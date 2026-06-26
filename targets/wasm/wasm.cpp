@@ -337,7 +337,8 @@ public:
    *          prior valid state alive rather than blanking the engine.
    */
   bool setEffect(std::string name) {
-    // name as an arg, never the format string (a '%' in it reads bad varargs).
+    // Pass name as the %s argument, never as the format string itself: a '%' in
+    // an effect name would otherwise consume uninitialized varargs.
     hs::log("WASM: setEffect called with %s", name.c_str());
 
     // Validate against the current resolution's factory BEFORE tearing anything
