@@ -94,7 +94,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 11. ✅ **Undocumented `SlowTwist` feedback preset.** `core/styles.h` ~184 defines `Style::SlowTwist()` (the preset anchoring the field-order `static_assert`), but the README §6 preset table omits it. Fix: document it or note it is internal.
 
-12. **`AntiAlias` weights mislabeled "bilinear".** `core/filter.h` ~875–921 uses `quintic_kernel` (smootherstep) for a 2-tap partition, not true bilinear weights; README §6 (lines ~448/476/508) and the code comment call it "bilinear". Energy is conserved (partition of unity), so this is terminology, not a bug. Fix: describe it as a "quintic-eased 2×2 splat".
+12. ✅ **`AntiAlias` weights mislabeled "bilinear".** `core/filter.h` ~875–921 uses `quintic_kernel` (smootherstep) for a 2-tap partition, not true bilinear weights; README §6 (lines ~448/476/508) and the code comment call it "bilinear". Energy is conserved (partition of unity), so this is terminology, not a bug. Fix: describe it as a "quintic-eased 2×2 splat".
 
 ### Priority 3 — Performance & efficiency
 

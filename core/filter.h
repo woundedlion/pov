@@ -865,7 +865,7 @@ public:
    * @param y Sub-pixel row coordinate.
    * @param c Source color, forwarded to each tap.
    * @param age Temporal age channel (frames), forwarded unchanged.
-   * @param alpha Blend alpha in [0, 1]; scaled per tap by its bilinear weight.
+   * @param alpha Blend alpha in [0, 1]; scaled per tap by its quintic-eased splat weight.
    * @param pass Downstream 2D callback receiving each weighted tap.
    * @details Both axes are eased with a quintic kernel; the splat is uniform in
    * framebuffer space at every latitude (no sin(phi) density compensation).
