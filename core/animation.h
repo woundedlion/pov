@@ -1747,7 +1747,9 @@ public:
   MobiusFlow(MobiusParams &params, const float &num_rings,
              const float &num_lines, int duration, bool repeat = true)
       : AnimationBase(duration, repeat), params(params), num_rings(num_rings),
-        num_lines(num_lines) {}
+        num_lines(num_lines) {
+    HS_CHECK(duration >= 0, "MobiusFlow duration must be >= 0");
+  }
 
   // Borrow contract: num_rings/num_lines are read every frame, so they must
   // outlive the Timeline; these deleted overloads reject a temporary scalar.
@@ -1811,7 +1813,9 @@ public:
   MobiusWarp(MobiusParams &params, float scale, int duration,
              bool repeat = true, EasingFn easing = ease_in_out_sin)
       : AnimationBase(duration, repeat), params(params), scale(scale),
-        easing(easing) {}
+        easing(easing) {
+    HS_CHECK(duration >= 0, "MobiusWarp duration must be >= 0");
+  }
 
   /**
    * @brief Binds the warp magnitude to a live external float.
@@ -1863,7 +1867,9 @@ public:
   MobiusWarpCircular(MobiusParams &params, float scale, int duration,
                      bool repeat = true, EasingFn easing = ease_in_out_sin)
       : AnimationBase(duration, repeat), params(params), scale(scale),
-        easing(easing) {}
+        easing(easing) {
+    HS_CHECK(duration >= 0, "MobiusWarpCircular duration must be >= 0");
+  }
 
   /**
    * @brief Steps the animation, updating param b.
@@ -2137,6 +2143,7 @@ public:
          int duration = 100)
       : AnimationBase(duration, false), params(params), speed(speed),
         peak_amplitude(params.amplitude) {
+    HS_CHECK(duration >= 0, "Ripple duration must be >= 0");
     this->params.get().center = center;
     this->params.get().phase = 0.0f;
     // Start at 0 to prevent 1-frame singularity before first step()
