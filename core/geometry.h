@@ -463,6 +463,9 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
 
 /**
  * @brief Converts a 3D unit vector back to 2D pixel coordinates.
+ * @note Derives `theta`/`phi` with the approximate `fast_atan2`/`fast_acos`, so
+ *   the projection is sub-pixel inexact and `vector → pixel → vector` does not
+ *   bit-exactly invert the exact-trig `pixel_to_vector`.
  * @tparam W The width.
  * @tparam H The height.
  * @param v The input vector; MUST be unit length. This is an unenforced caller
