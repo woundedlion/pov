@@ -114,7 +114,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 26. ✅ **`compile_hankin` index-range comment states a looser bound than the code checks** — `core/hankin.h` @ 108–114 · *Documentation*. **Fix:** reword so the prose matches the `(I/2)+I` guard and explain the `I-1` underflow it conservatively avoids.
 27. ✅ **`effects.h` doc overstates roster enforcement — a forgotten `X()` row is silently unshipped on native** — `core/effects.h` @ 43–53 · *Documentation*. **Fix:** scope the guarantee to WASM, or add a native `static_assert` tying the include list to `HS_EFFECT_COUNT`.
 28. ✅ **`Presets` exposes a public mutable `entries`, undercutting its documented index-invariant encapsulation** — `core/presets.h` @ 102 vs 83–85/77/104–106 · *API design*. **Fix:** make `entries` private with a non-const accessor for the rebind use case, or drop `get_entries()` and document direct access as supported.
-29. **`Presets` ctor takes the entry array by value, forcing a full-array copy** — `core/presets.h` @ 43 · *Performance*. **Fix:** `: entries(std::move(e))` (future-proofs non-trivial `Params`).
+29. ✅ **`Presets` ctor takes the entry array by value, forcing a full-array copy** — `core/presets.h` @ 43 · *Performance*. **Fix:** `: entries(std::move(e))` (future-proofs non-trivial `Params`).
 30. ✅ **Stale hardcoded roster count in `kReserveHint` comment** — `core/effect_registry.h` @ 71 · *Documentation*. **Fix:** drop the parenthetical, or `v.reserve(2 * HS_EFFECT_COUNT)` so it tracks the SSOT.
 31. ✅ **`HS_REG_FILL_PTR` macro left defined in the global preprocessor namespace** — `core/effect_registry.h` @ 175 · *Style*. **Fix:** rename to a clearly-internal `HS_DETAIL_REG_FILL_PTR`.
 

@@ -6,6 +6,7 @@
 
 #include <array>
 #include <span>
+#include <utility>
 
 #include "platform.h" // HS_CHECK
 
@@ -40,7 +41,7 @@ public:
    * inputs — they start at 0 and only next()/prev() ever move them, which is
    * what keeps them in [0, Size) (see the private section).
    */
-  constexpr Presets(std::array<Entry, Size> e) : entries(e) {}
+  constexpr Presets(std::array<Entry, Size> e) : entries(std::move(e)) {}
 
   /**
    * @brief Returns the params of the currently selected entry.
