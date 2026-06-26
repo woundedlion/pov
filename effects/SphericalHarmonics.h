@@ -202,6 +202,13 @@ public:
       // term to a per-row precompute is therefore invalid.
       float cos_phi = hs::clamp(local.y, -1.0f, 1.0f);
 
+      // Per-pixel cost: associatedLegendre runs once here, and again for the
+      // blend target, with no horizontal-interval narrowing
+      // (get_horizontal_intervals returns false) and full-height vertical
+      // bounds — the heaviest per-pixel evaluation in the harmonic group. Left
+      // uncapped because morph indices are drawn from [1, 24] (start_morph), so
+      // l = floor(sqrt(idx)) <= 4 keeps the Legendre recurrence short and the
+      // cost bounded.
       float val = SHMath::sphericalHarmonic(l1, m1, theta, cos_phi, N1);
       if (blend > 0.001f) {
         float val2 = SHMath::sphericalHarmonic(l2, m2, theta, cos_phi, N2);
