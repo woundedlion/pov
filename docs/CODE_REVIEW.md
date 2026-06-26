@@ -162,30 +162,30 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 
 #### daydream — UI
 
-59. **JSDoc block for `_createSortBtn` is detached from its method by an intervening method** — `sidebar.js` @ 174–207 · *Documentation*. **Fix:** move the JSDoc (174–181) down to immediately precede `_createSortBtn` at 195.
-60. **NaN engine value for a boolean controller writes a spurious `false`** — `param_sync.js` @ `resolveParamSync` 36–40 · *Correctness*. **Fix:** `if (Number.isNaN(incoming)) return { update: false, value };` before coercion.
-61. **Out-of-range numeric deep link leaves a stale value in the URL after clamping** — `gui.js` @ `add()` 210–218 / 248–251 · *Error handling*. **Fix:** call `this._urlWriter(key, val)` once after attaching when the hydrated value was clamped/snapped.
-62. **Mouse-click selection does not move the roving tabindex** — `sidebar.js` @ `setEffects()` 122 · *Correctness*. **Fix:** `btn.onclick = () => { this._setRovingTabbable(btn); this.onSelect(name); };`.
-63. **Unused mutable local `precision` in `prettify`** — `label_format.js` @ 22/40 · *Style*. **Fix:** inline the literal `r.toFixed(3)` or hoist a module-level `const PRECISION = 3;`.
+59. ✅ **JSDoc block for `_createSortBtn` is detached from its method by an intervening method** — `sidebar.js` @ 174–207 · *Documentation*. **Fix:** move the JSDoc (174–181) down to immediately precede `_createSortBtn` at 195.
+60. ✅ **NaN engine value for a boolean controller writes a spurious `false`** — `param_sync.js` @ `resolveParamSync` 36–40 · *Correctness*. **Fix:** `if (Number.isNaN(incoming)) return { update: false, value };` before coercion.
+61. ✅ **Out-of-range numeric deep link leaves a stale value in the URL after clamping** — `gui.js` @ `add()` 210–218 / 248–251 · *Error handling*. **Fix:** call `this._urlWriter(key, val)` once after attaching when the hydrated value was clamped/snapped.
+62. ✅ **Mouse-click selection does not move the roving tabindex** — `sidebar.js` @ `setEffects()` 122 · *Correctness*. **Fix:** `btn.onclick = () => { this._setRovingTabbable(btn); this.onSelect(name); };`.
+63. ✅ **Unused mutable local `precision` in `prettify`** — `label_format.js` @ 22/40 · *Style*. **Fix:** inline the literal `r.toFixed(3)` or hoist a module-level `const PRECISION = 3;`.
 
 #### daydream — segment workers & recorder
 
-64. **`init` handler commits `canvasW/canvasH` to a rejected resolution before the success check** ▹ — `segment_worker.js` @ `handleMessage 'init'` 71–81 · *Correctness*. **Fix:** defer the `canvasW/canvasH` assignment until after the `setResolution` success check, mirroring the `setResolution` handler.
-65. **`captureFrame` letterbox/scaling math has no unit test** — `recorder.js` @ `captureFrame` 189–211 · *Testing*. **Fix:** add a test recording a known source aspect into a differently-shaped offscreen, spy the `drawImage` args, and assert the letterbox math for both aspect directions.
-66. **Boundary-overlay seam set rebuilt with two passes and `Set` allocations every composite call** — `segment_controller.js` @ `composite()` 497–525 · *Performance*. **Fix:** cache the boundary line sets when the layout is established and invalidate on generation bump.
+64. ✅ **`init` handler commits `canvasW/canvasH` to a rejected resolution before the success check** ▹ — `segment_worker.js` @ `handleMessage 'init'` 71–81 · *Correctness*. **Fix:** defer the `canvasW/canvasH` assignment until after the `setResolution` success check, mirroring the `setResolution` handler.
+65. ✅ **`captureFrame` letterbox/scaling math has no unit test** — `recorder.js` @ `captureFrame` 189–211 · *Testing*. **Fix:** add a test recording a known source aspect into a differently-shaped offscreen, spy the `drawImage` args, and assert the letterbox math for both aspect directions.
+66. ✅ **Boundary-overlay seam set rebuilt with two passes and `Set` allocations every composite call** — `segment_controller.js` @ `composite()` 497–525 · *Performance*. **Fix:** cache the boundary line sets when the layout is established and invalidate on generation bump.
 
 #### daydream — tools
 
-67. **`splineExportCode` treats any non-`'vectors'` format as `'fragments'` instead of rejecting unknowns** — `tools/spline_math.js` @ 91–111 · *API design*. **Fix:** validate `format` against an explicit allow-set and throw on anything else (matching `solid_codegen.js`/`palette_math.js`).
-68. **`GenerativePalette.getChannelValue` recomputes all three channels per call** ▹ — `tools/palette_math.js` @ 365–367 · *Performance*. **Fix:** have plotting callers call `get(t)` once and index the triple, or document the minor cost.
+67. ✅ **`splineExportCode` treats any non-`'vectors'` format as `'fragments'` instead of rejecting unknowns** — `tools/spline_math.js` @ 91–111 · *API design*. **Fix:** validate `format` against an explicit allow-set and throw on anything else (matching `solid_codegen.js`/`palette_math.js`).
+68. ✅ **`GenerativePalette.getChannelValue` recomputes all three channels per call** ▹ — `tools/palette_math.js` @ 365–367 · *Performance*. **Fix:** have plotting callers call `get(t)` once and index the triple, or document the minor cost.
 
 #### daydream — infra & tests
 
-69. **`URLSync.reset()` and the `setParam` deletion-marker path are entirely untested** — `tests/state.test.js` @ URLSync section 80–140 · *Testing*. **Fix:** add tests for `setParam(k, null)` removal, `reset(['keep'])` preservation, and `reset()` cancelling a pending debounced flush.
-70. **`composite()` out-of-bounds test asserts a guarantee the code only gives for a leading bad segment** — `tests/segment_controller.test.js` @ 421–433 · *Testing*. **Fix:** weaken the comment, or add a two-result case (good segment then overflowing segment) and assert the partial-blit-then-throw behavior.
-71. **`generate-importmap` assumes `pkg.dependencies.three`/`lil-gui` exist; opaque crash if relocated** — `scripts/generate-importmap.mjs` @ 27–30 · *Error handling*. **Fix:** validate both versions are non-empty strings and `console.error` + `process.exit(1)` with a named message otherwise.
-72. **Redundant `defer` on a `type=module` script** — `index.html` @ 74 · *Style*. **Fix:** drop `defer`; module scripts already defer.
-73. **`vendor-importmap` `EXTRA` can silently clobber core entries like `'three'`** ▹ — `vendor-importmap.js` @ 59–64 · *API design*. **Fix:** merge base last (`Object.assign({}, EXTRA, base)`) or warn on collision with a known core key; otherwise document the override as intentional.
+69. ✅ **`URLSync.reset()` and the `setParam` deletion-marker path are entirely untested** — `tests/state.test.js` @ URLSync section 80–140 · *Testing*. **Fix:** add tests for `setParam(k, null)` removal, `reset(['keep'])` preservation, and `reset()` cancelling a pending debounced flush.
+70. ✅ **`composite()` out-of-bounds test asserts a guarantee the code only gives for a leading bad segment** — `tests/segment_controller.test.js` @ 421–433 · *Testing*. **Fix:** weaken the comment, or add a two-result case (good segment then overflowing segment) and assert the partial-blit-then-throw behavior.
+71. ✅ **`generate-importmap` assumes `pkg.dependencies.three`/`lil-gui` exist; opaque crash if relocated** — `scripts/generate-importmap.mjs` @ 27–30 · *Error handling*. **Fix:** validate both versions are non-empty strings and `console.error` + `process.exit(1)` with a named message otherwise.
+72. ✅ **Redundant `defer` on a `type=module` script** — `index.html` @ 74 · *Style*. **Fix:** drop `defer`; module scripts already defer.
+73. ✅ **`vendor-importmap` `EXTRA` can silently clobber core entries like `'three'`** ▹ — `vendor-importmap.js` @ 59–64 · *API design*. **Fix:** merge base last (`Object.assign({}, EXTRA, base)`) or warn on collision with a known core key; otherwise document the override as intentional.
 
 ---
 
