@@ -157,8 +157,11 @@ static inline Vector azimuthal_unproject(float Px, float Py,
  * @details `tan` is the curve's unit tangent with respect to ARC LENGTH at the
  * sample, used by screen_step() to size the next sub-step from screen velocity.
  * The geodesic strategy fills it in closed form (free from the slerp's sin/cos);
- * the planar strategy finite-differences it. Zero for degenerate (coincident)
- * edges, which never reach the velocity sampler.
+ * the planar strategy finite-differences it. Zero for a degenerate edge: a
+ * coincident one (< EPS_GEOMETRIC) is plotted as a single dot before any
+ * sampling, while a near-coincident geodesic one (< EPS_GEODESIC_SEGMENT, where
+ * the slerp axis is unstable) does reach screen_step, whose speed floor maps the
+ * zero tangent to a base_step (one-dot) step.
  */
 struct SamplePT {
   Vector pos;
