@@ -302,9 +302,11 @@ inline void test_compile_polymesh_to_meshstate_basic() {
 }
 
 /**
- * @brief Verifies compile() discards faces with fewer than three vertices.
+ * @brief Verifies compile() discards faces with fewer than three vertices and
+ *        compacts away the vertices they orphaned.
  * @details Of one triangle and two 2-vertex faces, only the triangle survives
- *          into the MeshState.
+ *          into the MeshState. Vertex 3 is referenced only by the dropped faces,
+ *          so it is compacted out while the survivor keeps its remapped indices.
  */
 inline void test_compile_drops_degenerate_faces() {
   Arena src(mesh_arena_a, sizeof(mesh_arena_a));
@@ -314,7 +316,7 @@ inline void test_compile_drops_degenerate_faces() {
   m.vertices.bind(src, /*verts*/ 4);
   m.face_counts.bind(src, /*faces*/ 3);
   m.faces.bind(src, /*indices*/ 7);
-  // Positions are arbitrary; only the face vertex counts matter here.
+  // The triangle references vertices 0-2; vertex 3 only the degenerate faces.
   m.vertices.push_back(Vector(1, 0, 0));
   m.vertices.push_back(Vector(0, 1, 0));
   m.vertices.push_back(Vector(0, 0, 1));
@@ -334,6 +336,13 @@ inline void test_compile_drops_degenerate_faces() {
   HS_EXPECT_EQ(ms.face_counts.size(), (size_t)1);
   HS_EXPECT_EQ(ms.faces.size(), (size_t)3);
   HS_EXPECT_EQ(ms.face_counts[0], (uint8_t)3);
+
+  // Orphan vertex 3 is compacted out; the kept vertices retain source order so
+  // the surviving triangle's indices are unchanged.
+  HS_EXPECT_EQ(ms.vertices.size(), (size_t)3);
+  HS_EXPECT_EQ(ms.faces[0], (uint16_t)0);
+  HS_EXPECT_EQ(ms.faces[1], (uint16_t)1);
+  HS_EXPECT_EQ(ms.faces[2], (uint16_t)2);
 }
 
 // ---------------------------------------------------------------------------
