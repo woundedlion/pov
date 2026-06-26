@@ -346,6 +346,8 @@ def _strip_jsonc_comments(text: str) -> str:
             i += 2  # /* */ block comment: drop through the closing */
             while i + 1 < n and not (text[i] == "*" and text[i + 1] == "/"):
                 i += 1
+            if not (i + 1 < n and text[i] == "*" and text[i + 1] == "/"):
+                raise ValueError("unterminated block comment in JSONC")
             i += 2
         else:
             out.append(c)
