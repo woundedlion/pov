@@ -131,7 +131,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 
 #### hardware/, targets/, build
 
-40. **`read_id()` docstring misstates pin polarity** — `hardware/pov_segmented.h` @ 335–352 · *Documentation*. **Fix:** "grounding a pin reads LOW; the raw reading is inverted so a grounded pin contributes a 1, and all-floating = ID 0 (master)."
+40. ✅ **`read_id()` docstring misstates pin polarity** — `hardware/pov_segmented.h` @ 335–352 · *Documentation*. **Fix:** "grounding a pin reads LOW; the raw reading is inverted so a grounded pin contributes a 1, and all-floating = ID 0 (master)."
 41. **`bakeLut` silently mod-256-truncates out-of-range h/s/v ints** — `targets/wasm/wasm.cpp` @ 1162–1175 · *Error handling*. **Fix:** clamp to [0,255] with a log (matching `gradientShape`) or document the intentional wrap; the doxygen currently says values are "in [0,255]".
 42. **Tooling `Arena` globals have external linkage, inconsistent with sibling internal-linkage state** — `targets/wasm/wasm.cpp` @ 76/81/82 · *Style*. **Fix:** mark the three `Arena` objects `static` or move module-private globals into an anonymous namespace.
 43. **Dangling sentence fragment in `setEffect` inline comment** — `targets/wasm/wasm.cpp` @ 340 · *Documentation*. **Fix:** rewrite as a complete sentence explaining the `%s`-not-format-string guard.
