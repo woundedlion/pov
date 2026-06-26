@@ -327,6 +327,31 @@ private:
     assert(bound_ && "Attempted to access unbound ArenaVector!");
   }
 
+  /**
+   * @brief Transfers @p other's storage and bookkeeping into this vector,
+   *        leaving @p other in a pristine unbound state.
+   */
+  void steal_from(ArenaVector &other) noexcept {
+    data_ = other.data_;
+    size_ = other.size_;
+    capacity_ = other.capacity_;
+    bound_ = other.bound_;
+#ifndef NDEBUG
+    source_arena_ = other.source_arena_;
+    birth_generation_ = other.birth_generation_;
+    rebind_generation_ = other.rebind_generation_;
+#endif
+    other.data_ = nullptr;
+    other.size_ = 0;
+    other.capacity_ = 0;
+    other.bound_ = false;
+#ifndef NDEBUG
+    other.source_arena_ = nullptr;
+    other.birth_generation_ = 0;
+    other.rebind_generation_ = 0;
+#endif
+  }
+
 public:
   /**
    * @brief Default-constructs an unbound vector.
@@ -350,24 +375,7 @@ public:
    * @brief Move constructor.
    * @param other Source vector; left in a pristine unbound state.
    */
-  ArenaVector(ArenaVector &&other) noexcept
-      : data_(other.data_), size_(other.size_), capacity_(other.capacity_),
-        bound_(other.bound_) {
-#ifndef NDEBUG
-    source_arena_ = other.source_arena_;
-    birth_generation_ = other.birth_generation_;
-    rebind_generation_ = other.rebind_generation_;
-#endif
-    other.data_ = nullptr;
-    other.size_ = 0;
-    other.capacity_ = 0;
-    other.bound_ = false;
-#ifndef NDEBUG
-    other.source_arena_ = nullptr;
-    other.birth_generation_ = 0;
-    other.rebind_generation_ = 0;
-#endif
-  }
+  ArenaVector(ArenaVector &&other) noexcept { steal_from(other); }
 
   /**
    * @brief Move assignment.
@@ -375,26 +383,8 @@ public:
    * @return Reference to this.
    */
   ArenaVector &operator=(ArenaVector &&other) noexcept {
-    if (this != &other) {
-      data_ = other.data_;
-      size_ = other.size_;
-      capacity_ = other.capacity_;
-      bound_ = other.bound_;
-#ifndef NDEBUG
-      source_arena_ = other.source_arena_;
-      birth_generation_ = other.birth_generation_;
-      rebind_generation_ = other.rebind_generation_;
-#endif
-      other.data_ = nullptr;
-      other.size_ = 0;
-      other.capacity_ = 0;
-      other.bound_ = false;
-#ifndef NDEBUG
-      other.source_arena_ = nullptr;
-      other.birth_generation_ = 0;
-      other.rebind_generation_ = 0;
-#endif
-    }
+    if (this != &other)
+      steal_from(other);
     return *this;
   }
 
