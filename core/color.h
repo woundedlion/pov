@@ -892,7 +892,7 @@ public:
   /**
    * @brief Builds the 256-entry LUT by interpolating between color stops.
    * @param points Sorted-ascending (position in [0,1], color) stops.
-   * @details Stop positions index entries[256] via static_cast<int>(pos * 255);
+   * @details Stop positions index entries[256] via static_cast<int>(pos * 255 + 0.5f);
    * a pos outside [0,1] is an out-of-bounds write into the table, and segments
    * are only filled when end > start, so a transposed/unsorted pair would
    * silently degenerate. Gradient literals are authored once at construction
