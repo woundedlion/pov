@@ -127,7 +127,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 36. ✅ **`GnomonicStars` passes a hardcoded `0.0f` time to `fib_spiral` with no explanation** ▹ — `effects/GnomonicStars.h` @ 106 · *Documentation*. **Fix:** name the argument inline (`// phase=0: base lattice is animation-independent`) or hoist a named constant.
 37. ✅ **`Voronoi` has an unreachable empty-buffer guard after the per-site rotation loop** — `effects/Voronoi.h` @ 89 · *Maintainability*. **Fix:** remove the dead guard, or move it above the loop as a documented invariant.
 38. ✅ **`PetalFlow` recomputes `move_dist` identically in two methods that must stay in lockstep** — `effects/PetalFlow.h` @ 145 / 187 · *Style*. **Fix:** extract `float move_dist() const { return params.speed * RHO_PER_SPEED; }`.
-39. **`PetalFlow::next_hue` declared mid-class between member functions** — `effects/PetalFlow.h` @ 159 · *Style*. **Fix:** move the declaration up with the other data members.
+39. ✅ **`PetalFlow::next_hue` declared mid-class between member functions** — `effects/PetalFlow.h` @ 159 · *Style*. **Fix:** move the declaration up with the other data members.
 
 #### hardware/, targets/, build
 
