@@ -68,7 +68,7 @@ public:
   static std::vector<EffectRegistration>& entries() {
     static std::vector<EffectRegistration> s = [] {
       std::vector<EffectRegistration> v;
-      constexpr size_t kReserveHint = 64; // ~2x the HS_EFFECT_LIST roster (27)
+      constexpr size_t kReserveHint = 64; // ~2x the HS_EFFECT_LIST roster
       v.reserve(kReserveHint);
       return v;
     }();
