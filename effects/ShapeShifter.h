@@ -96,7 +96,7 @@ public:
     timeline.clear();
 
     timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, {},
-                                             hs::rand_int(0, 65535)));
+                                             hs::rand_int(0, 65536)));
 
     timeline.add(0, Animation::Mutation(
                         params.twist,

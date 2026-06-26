@@ -129,7 +129,7 @@ _None found._
 ### Low / Trivial — Maintainability & Nice-to-Have
 
 28. ✅ `effects/BZReactionDiffusion.h` / `effects/GSReactionDiffusion.h` — The odd-parity ping-pong land-back (BZ's `advance_substeps()` vs GS's inlined copy at `:230-243`) and the cubemap-LUT vertex/fragment-shader preamble are near-duplicated; hoist both into `ReactionDiffusionBase` to prevent drift.
-29. `effects/FlowField.h:46` — `rand_int(0, 65536)` uses a different upper-bound convention than sibling `ShapeShifter.h:99` (`rand_int(0, 65535)`); align the half-open-vs-inclusive convention across call sites.
+29. ✅ `effects/FlowField.h:46` — `rand_int(0, 65536)` uses a different upper-bound convention than sibling `ShapeShifter.h:99` (`rand_int(0, 65535)`); align the half-open-vs-inclusive convention across call sites.
 30. `effects/DistortedRing.h:96-98` — `shiftFn` is rebuilt as a fresh `this`-capturing lambda inside the per-ring loop every frame; hoist it out of the loop.
 31. `justfile` (`screenshots` recipe) — Shells through `npm run screenshots` while every sibling recipe (e.g. `smoke`) calls `node scripts/...` directly, adding an undocumented npm layer; align for consistency.
 32. `daydream/tools/solid_codegen.js:69,120-123` — Function-name parameter suffixes quantize (0.01, and 1° for hankin), so two solids whose params round equal collide on one `funcName` and the later C++ paste overwrites the earlier; `snub` additionally ignores `t`/`twist` params. Documented tradeoffs, but worth surfacing a collision warning.
