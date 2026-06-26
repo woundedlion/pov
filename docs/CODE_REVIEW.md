@@ -154,11 +154,11 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 
 #### daydream — app core
 
-54. **Uncaught alias-invariant throw inside the animation loop permanently halts rendering** — `daydream.js` @ `adapter.drawFrame()` 491–497 (reached via the `setAnimationLoop` callback) · *Error handling*. **Fix:** degrade per the file's own policy — `console.error` and re-point the aliases, or set a one-shot fatal overlay like the context-loss path, rather than throwing every frame.
-55. **`testAll` auto-advance silently no-ops at a resolution whose effect list is missing** — `daydream.js` @ 573–588 · *Correctness*. **Fix:** mirror `applyResolution`'s fallback: `const currentList = effectsByResolution[appState.get('resolution')] || HiResFavorites;`.
-56. **`instanceColor` buffer reallocated only when null, masking a count/size mismatch** ▹ — `driver.js` @ `precomputeMatrices()` 722–733 · *Memory safety*. **Fix:** reallocate when `array.length !== count*3`, or assert the lengths match.
-57. **`disposeApp` does not destroy the global GUI or the active-effect GUI** — `daydream.js` @ 717–728 · *Memory safety*. **Fix:** destroy `guiInstance` and `activeEffect.gui` (mirroring `applyEffect`'s teardown, including draining `activeDragEnds` and removing the window pointer listeners).
-58. **`AppState.update` batch-then-notify can re-enter `set()` and interleave notifications nondeterministically** — `state.js` @ `update()` 74–84, `_notify` 105–107 · *Architecture*. **Fix:** document the re-entrancy hazard, or snapshot the notification queue and skip a queued tuple whose key has since changed.
+54. ✅ **Uncaught alias-invariant throw inside the animation loop permanently halts rendering** — `daydream.js` @ `adapter.drawFrame()` 491–497 (reached via the `setAnimationLoop` callback) · *Error handling*. **Fix:** degrade per the file's own policy — `console.error` and re-point the aliases, or set a one-shot fatal overlay like the context-loss path, rather than throwing every frame.
+55. ✅ **`testAll` auto-advance silently no-ops at a resolution whose effect list is missing** — `daydream.js` @ 573–588 · *Correctness*. **Fix:** mirror `applyResolution`'s fallback: `const currentList = effectsByResolution[appState.get('resolution')] || HiResFavorites;`.
+56. ✅ **`instanceColor` buffer reallocated only when null, masking a count/size mismatch** ▹ — `driver.js` @ `precomputeMatrices()` 722–733 · *Memory safety*. **Fix:** reallocate when `array.length !== count*3`, or assert the lengths match.
+57. ✅ **`disposeApp` does not destroy the global GUI or the active-effect GUI** — `daydream.js` @ 717–728 · *Memory safety*. **Fix:** destroy `guiInstance` and `activeEffect.gui` (mirroring `applyEffect`'s teardown, including draining `activeDragEnds` and removing the window pointer listeners).
+58. ✅ **`AppState.update` batch-then-notify can re-enter `set()` and interleave notifications nondeterministically** — `state.js` @ `update()` 74–84, `_notify` 105–107 · *Architecture*. **Fix:** document the re-entrancy hazard, or snapshot the notification queue and skip a queued tuple whose key has since changed.
 
 #### daydream — UI
 
