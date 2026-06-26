@@ -103,7 +103,7 @@ public:
              "GnomonicStars: Points exceeds spiral-cache capacity");
     if (points != cached_points_) {
       for (int i = 0; i < points; i++) {
-        spiral_cache_[i] = fib_spiral(points, 0.0f, i);
+        spiral_cache_[i] = fib_spiral(points, /*eps=*/0.0f, i);
       }
       cached_points_ = points;
     }
