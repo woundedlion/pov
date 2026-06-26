@@ -158,19 +158,34 @@ private:
             HS_CHECK(p->is_finite() || p->repeats(),
                      "Transformer::spawn of a perpetual non-repeating "
                      "animation leaks its pool slot; use spawn_pinned");
-          // Attach the completion callback to the *stored* animation so it can
-          // capture its pointer and re-query repeats() at callback time, not at
-          // spawn time. A repeating animation that is later cancel()ed reports
-          // repeats()==false and is routed through the removal branch (firing
-          // this once); a spawn-time snapshot of repeats==true would skip the
-          // free and leak the pool slot forever. The handle p is stable —
-          // add_get traps on relocating a handled animation.
-          p->then([this, idx, p]() {
-            if (!p->repeats()) {
-              entities[idx].active = false;
-              remove_active(idx);
-            }
-          });
+          // Recycle the pool slot at the animation's final removal. The callback
+          // must tell a removal apart from a mid-repeat post fire, which it reads
+          // from repeats(); how it reads repeats() differs by pin because the two
+          // paths have opposite handle stability:
+          //   - Pinned: the event never relocates (add_get traps on moving a
+          //     handled event) and may be cancel()ed through the retained
+          //     pointer, flipping repeats() to false. Re-query live through p so
+          //     a post-cancel teardown routes through the free branch.
+          //   - Non-pinned: the event is compacted (relocated) by step() when an
+          //     earlier event completes, so p must not be retained. The transient
+          //     handle is never cancel()ed, so repeats() is fixed at spawn —
+          //     snapshot it rather than dereference a possibly-relocated slot.
+          if (pin) {
+            p->then([this, idx, p]() {
+              if (!p->repeats()) {
+                entities[idx].active = false;
+                remove_active(idx);
+              }
+            });
+          } else {
+            const bool repeats = p->repeats();
+            p->then([this, idx, repeats]() {
+              if (!repeats) {
+                entities[idx].active = false;
+                remove_active(idx);
+              }
+            });
+          }
         }
         return p;
       }
