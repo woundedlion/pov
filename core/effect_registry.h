@@ -7,12 +7,14 @@
  * at static-init time, eliminating the hand-maintained list in
  * wasm_bridge.cpp.
  *
- * On non-WASM targets (Teensy), REGISTER_EFFECT is a no-op to
- * avoid pulling in std::vector/std::function overhead.
+ * Active on the WASM build and the native test build (HS_TEST_BUILD): the
+ * latter uses the registry as an anti-drift oracle (tests/test_effects.h)
+ * against the HS_EFFECT_LIST roster. On the firmware target it is a no-op, so
+ * effect registration pulls in no std::vector/std::function overhead.
  */
 #pragma once
 
-#ifdef __EMSCRIPTEN__
+#if defined(__EMSCRIPTEN__) || defined(HS_TEST_BUILD)
 
 #include <vector>
 #include <string_view>
@@ -175,7 +177,8 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
 #define HS_DETAIL_REG_FILL_PTR(W, H) &fill<W, H>,
 
 #else
-// Non-WASM targets (Teensy): no-op, so effect registration pulls in no
-// std::vector/std::function overhead and effects are selected statically.
+// Firmware target (neither WASM nor the native test build): no-op, so effect
+// registration pulls in no std::vector/std::function overhead and effects are
+// selected statically.
 #define REGISTER_EFFECT(ClassName)
 #endif

@@ -1010,6 +1010,14 @@ inline void test_needs_full_frame_gate() {
 inline int run_effects_tests() {
   hs_test::ModuleFixture fixture("effects");
 
+  // SSOT anti-drift guard, mirroring the WASM startup check (targets/wasm/wasm.cpp):
+  // the self-registering effect count (each header's REGISTER_EFFECT) must equal
+  // the static HS_EFFECT_LIST roster, or an effect present in one and missing from
+  // the other silently drops smoke coverage below. Active because the test build
+  // defines HS_TEST_BUILD (see core/effect_registry.h).
+  HS_EXPECT_EQ(EffectRegistry::entries().size(),
+               static_cast<size_t>(HS_EFFECT_COUNT));
+
   test_needs_full_frame_gate();
   test_sh_decode_lm_valid_order();
   test_gs_q16_roundtrip();
