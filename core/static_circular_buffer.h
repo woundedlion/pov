@@ -202,11 +202,8 @@ public:
    * slots stay live (no per-element destructor runs).
    */
   void clear() {
-    while (!is_empty()) {
-      pop_front_internal();
-    }
     // Reset to head == tail == 0 so a caller indexing raw &buf[0] linearly starts at 0.
-    head = tail = 0;
+    head = tail = count = 0;
   }
 
   /**
