@@ -115,7 +115,7 @@ public:
    * @param callable Callable whose address is stored; must outlive this ref.
    */
   template <typename Callable>
-    requires std::invocable<Callable, Args...> &&
+    requires std::invocable<Callable &, Args...> &&
              (!std::same_as<std::decay_t<Callable>, FunctionRef>)
   FunctionRef(Callable &callable) noexcept : ctx_(std::addressof(callable)) {
     thunk_ = [](void *ptr, Args... args) -> Ret {
