@@ -107,8 +107,10 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
   }
   // Closed manifold: each undirected edge shares 2 half-edges emitting one
   // midpoint, so the static pool is exactly I/2 and the largest emitted index is
-  // static_offset + (I - 1) = (I/2) + (I - 1). Gate it against narrow_index()'s
-  // INT16_MAX ceiling (written +1 to avoid unsigned underflow when I == 0).
+  // static_offset + (I - 1) = (I/2) + (I - 1). The guard adds 1 to both sides —
+  // checking (I/2) + I <= INT16_MAX + 1 — to dodge the unsigned underflow of
+  // I - 1 at I == 0; it is the same bound against narrow_index()'s INT16_MAX
+  // ceiling.
   HS_CHECK((I / 2) + I <= static_cast<size_t>(INT16_MAX) + 1,
            "Hankin output vertex count exceeds int16_t index range "
            "(MAX_INDICES raised too high?)");
