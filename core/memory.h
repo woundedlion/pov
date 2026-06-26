@@ -205,7 +205,8 @@ template <int MAX_V> struct TriangularBitset {
                 "TriangularBitset: MAX_V too large; index() product overflows int");
   static constexpr int BITS = MAX_V * (MAX_V - 1) / 2;
   static constexpr int BYTES = (BITS + 7) / 8;
-  uint8_t data[BYTES]; /**< Packed bit storage for all unique pairs. */
+  uint8_t data[BYTES] = {}; /**< Packed bit storage; zero-initialized so a pair
+                                 read before clear() reads "unset" rather than UB. */
 
   /**
    * @brief Clears every pair bit to zero.
