@@ -64,6 +64,11 @@ public:
       for (size_t i = 0; i < sys.active_count; ++i) {
         auto &p = sys.pool[i];
 
+        // Dead-but-draining slot: step_particle ignores its velocity, so skip
+        // the force evaluation.
+        if (p.life == 0)
+          continue;
+
         // Rare random respawn so particles caught in field sinks redistribute.
         constexpr float kRespawnProb = 0.005f;
         if (hs::rand_f() < kRespawnProb) {
