@@ -591,8 +591,10 @@ struct Ring {
       // -ffast-math (sqrtf(NaN)); the floor also caps half_width on grazing rows.
       float sin_cross = sqrtf(std::max(1.0f - C_target * C_target, 1e-6f));
       float acos_C = fast_acos(C_target);
-      float eff_th = 0.95f * thickness;
-      float half_width = eff_th * sin_target / (denom * sin_cross);
+      // Full thickness: the scan interval must span the stroke-AA footprint,
+      // which process_pixel derives from full `size`; an inset here clips the
+      // outermost AA column on grazing rows.
+      float half_width = thickness * sin_target / (denom * sin_cross);
 
       float hw_px = half_width * scale;
       float t1 = (alpha_angle - acos_C) * scale;
