@@ -94,7 +94,7 @@ public:
         .init_storage(persistent_arena);
 
     registerParam("Speed", &params.speed, -10.0f, 10.0f);
-    registerParam("Gap", &params.gap, 1.0f, 20.0f);
+    registerParam("Gap", &params.gap, 1.0f, GAP_MAX);
     registerParam("Trail Len", &params.trail_length, 1.0f, 100.0f);
     registerParam("Wipe Dur", &params.wipe_duration, 1.0f, 100.0f);
 
@@ -380,6 +380,15 @@ private:
   Timeline timeline; /**< Drives reverse/wipe/rotate animations and timers. */
 
   static constexpr size_t MAX_PALETTES = 16; /**< Max live palettes. */
+  /**
+   * @brief Upper bound of the "Gap" slider (target node spacing).
+   * @details Held below W/2 so drag()'s slack-closing loop always terminates:
+   *          shortest_distance() saturates at W/2, so a gap that can actually be
+   *          reached keeps the loop making progress instead of circling forever.
+   */
+  static constexpr float GAP_MAX = 20.0f;
+  static_assert(2.0f * GAP_MAX < static_cast<float>(W),
+                "Gap max must stay below W/2 so drag() terminates");
   /**
    * @brief Sentinel a completed wipe writes into its boundary slot so
    *        reap_completed_wipes() can collapse it.
