@@ -765,6 +765,15 @@ inline const Case *all_cases(int &n) {
 }
 
 /**
+ * @brief Dedicated always-trapping case used only to probe the trap-relay shape.
+ * @details Not part of all_cases(): run_child_case() dispatches it directly. It
+ *          traps through the same HS_CHECK path as every real case, so its relay
+ *          shape matches theirs, but it can never regress to not-trapping the way
+ *          a real case might — so shape detection never rests on a real case.
+ */
+inline constexpr const char *kShapeProbeCase = "__shape_probe__";
+
+/**
  * @brief Child entry point: runs exactly one named death case, then returns.
  * @param name Case selector; an unknown name (e.g. the "__spawn_check__"
  *             control) simply returns, so the child exits 0.
@@ -776,6 +785,10 @@ inline void run_child_case(const char *name) {
 #if defined(_WIN32)
   SetErrorMode(0x0001u | 0x0002u);
 #endif
+  if (std::strcmp(name, kShapeProbeCase) == 0) {
+    HS_CHECK(false, "death-harness trap-shape probe"); // always traps
+    return;
+  }
   int n;
   const Case *cs = all_cases(n);
   for (int i = 0; i < n; ++i)
@@ -872,24 +885,25 @@ inline constexpr int kTrapStatus = static_cast<int>(0xC000001D);
 #endif
 
 /**
- * @brief How this shell relays a child's illegal-instruction trap.
+ * @brief How a child's illegal-instruction trap reaches the parent.
  * @details clang lowers __builtin_trap() to an illegal instruction, so a fired
  *          HS_CHECK kills the child with SIGILL (POSIX) /
- *          STATUS_ILLEGAL_INSTRUCTION (Windows). Most /bin/sh exec-optimize the
- *          single child command, so SIGILL propagates directly (TrapSignal); a
- *          shell that instead forks and waits relays the death as an ordinary
- *          exit with status 128+SIGILL (TrapExit128). The two are
- *          indistinguishable from a raw `exit(128+SIGILL)` at the std::system()
- *          status level, so accepting BOTH unconditionally would let a child
- *          that genuinely exit(132)s read as a passing death test. The harness
- *          therefore probes which shape THIS shell uses once (run_death_tests)
- *          and then requires exactly that shape per case.
+ *          STATUS_ILLEGAL_INSTRUCTION (Windows). The harness spawns the child
+ *          shell-free, so the trap normally arrives as that signal directly
+ *          (Signal). Exit128 is kept defensively for any relay that instead
+ *          surfaces the death as an ordinary exit with status 128+SIGILL: that
+ *          is indistinguishable from a raw `exit(128+SIGILL)` at the wait-status
+ *          level, so accepting BOTH unconditionally would let a child that
+ *          genuinely exit(132)s read as a passing death test. The harness
+ *          therefore probes which shape occurs once (run_death_tests), with a
+ *          dedicated always-trapping sentinel, and then requires exactly that
+ *          shape per case.
  */
 enum class TrapShape { None, Signal, Exit128 };
 
 /**
- * @brief Classifies a std::system() status into the trap relay shape, if any.
- * @param rc The raw std::system() return value to interpret.
+ * @brief Classifies a child wait status into the trap relay shape, if any.
+ * @param rc The raw spawn_child() return value to interpret.
  * @return The TrapShape the status represents, or TrapShape::None.
  */
 inline TrapShape classify_trap(int rc) {
@@ -907,13 +921,13 @@ inline TrapShape classify_trap(int rc) {
 }
 
 /**
- * @brief Tests whether a child died by the trap in the shell's probed shape.
- * @param rc The raw std::system() return value to interpret.
- * @param expected The TrapShape this shell was probed to use (never None).
+ * @brief Tests whether a child died by the trap in the probed relay shape.
+ * @param rc The raw spawn_child() return value to interpret.
+ * @param expected The TrapShape the harness probed (never None).
  * @return True iff the child died by exactly that illegal-instruction relay.
  * @details Requiring the single probed shape — not "either signal OR 128+sig" —
- *          keeps the guarantee tight: under a normal direct-relay shell a child
- *          that exit(128+SIGILL)s no longer counts as a trap.
+ *          keeps the guarantee tight: a child that exit(128+SIGILL)s under a
+ *          direct-relay environment no longer counts as a trap.
  */
 inline bool child_trapped(int rc, TrapShape expected) {
   return expected != TrapShape::None && classify_trap(rc) == expected;
@@ -992,31 +1006,21 @@ inline int run_death_tests() {
   int n;
   const Case *cs = all_cases(n);
 
-  // Probe how THIS shell relays a trap (direct SIGILL vs forked exit 128+SIGILL)
-  // by spawning two independent known-trapping cases and requiring they classify
-  // to the same non-None shape. Two agreeing probes localize a single flaky probe
-  // instead of mislabeling all cases below "unrunnable". If they disagree, or
-  // either fails to trap, the harness can't interpret results, so skip (or FAIL
-  // under CI).
-  int probe0_rc = spawn_child(cs[0].name);
-  TrapShape shape0 = classify_trap(probe0_rc);
-  int probe1_rc = (n > 1) ? spawn_child(cs[1].name) : probe0_rc;
-  TrapShape shape1 = (n > 1) ? classify_trap(probe1_rc) : shape0;
-  if (shape0 == TrapShape::None || shape1 == TrapShape::None || shape0 != shape1) {
-    report_unrunnable("trap-shape probes did not agree on the illegal-instruction "
-                      "trap; cannot classify trap status",
+  // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
+  // dedicated always-trapping sentinel rather than a real case. A real case that
+  // regressed to not trapping would otherwise corrupt shape detection and skip
+  // the whole suite, instead of failing just that case in the loop below. The
+  // sentinel traps through the same HS_CHECK path, so its shape matches the cases.
+  TrapShape shape = classify_trap(spawn_child(kShapeProbeCase));
+  if (shape == TrapShape::None) {
+    report_unrunnable("trap-shape sentinel did not trap; cannot classify trap status",
                       0);
     set_case_env("");
     return fixture.result();
   }
-  TrapShape shape = shape0;
 
   for (int i = 0; i < n; ++i) {
-    // cs[0]/cs[1] were already spawned by the trap-shape probes above; reuse those
-    // rcs rather than spawning them again (subprocess spawns dominate runtime).
-    int rc = (i == 0)            ? probe0_rc
-             : (i == 1 && n > 1) ? probe1_rc
-                                 : spawn_child(cs[i].name);
+    int rc = spawn_child(cs[i].name);
     bool trapped = child_trapped(rc, shape);
     HS_EXPECT_TRUE(trapped);
     std::printf("  [%s] trap fires: %-26s (child rc=%d)\n",
