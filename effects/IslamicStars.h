@@ -79,9 +79,12 @@ public:
   }
 
 private:
-  // Ripple-pool capacity invariant: the current burst plus the still-live tail
-  // of the previous one peak at kRipplePoolSize slots (enforced by the
-  // static_assert below).
+  // Ripple-pool sizing target: the current burst plus the still-live tail of the
+  // previous recurrence window. The static_assert below is a heuristic floor — it
+  // counts whole carried-over bursts and ignores the intra-burst stagger, so the
+  // true simultaneous peak can run slightly above it. That is not a correctness
+  // bound: RippleTransformer::spawn() returns nullptr when the pool is full, so an
+  // overflow simply drops the excess ripple, never corrupting state.
   static constexpr int kRipplePoolSize = 8;
   static constexpr int kRippleStaggerFrames = 16;
   static constexpr int kRippleRecurrenceFrames = 96;
