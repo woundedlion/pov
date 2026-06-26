@@ -120,7 +120,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 
 #### effects/
 
-32. **`FlowField` channel-offset constants named for Y/Z axes but applied to the X coordinate** — `effects/FlowField.h` @ 78–96 · *Documentation/Style*. **Fix:** rename to e.g. `kChannelDecorrelationOffset1/2` so the name stops implying a per-axis offset.
+32. ✅ **`FlowField` channel-offset constants named for Y/Z axes but applied to the X coordinate** — `effects/FlowField.h` @ 78–96 · *Documentation/Style*. **Fix:** rename to e.g. `kChannelDecorrelationOffset1/2` so the name stops implying a per-axis offset.
 33. **Repeated `strobe_columns()`/`persist_pixels` boilerplate duplicated verbatim across effects** — `effects/{ChaoticStrings,Comets,DistortedRing,DreamBalls,Dynamo,FlowField,Flyby}.h` + `ReactionDiffusionBase.h` · *Maintainability*. **Fix:** a thin intermediate base or defaulted member for the `strobe=true` family; at minimum stop copy-pasting the rationale comment.
 34. **`init_lattice()` ordering contract enforced only by prose** ▹ — `effects/ReactionDiffusionBase.h` @ 134–148 · *API design*. **Fix:** `HS_CHECK` that the persistent arena is configured, or fold derived-state allocation into a base-driven template-method init.
 35. **`IslamicStars` ripple-pool `static_assert` under-models the staggered burst peak** — `effects/IslamicStars.h` @ 90–93; `ripple()` 116–122 · *Testing*. **Fix:** tighten the comment (overflow degrades to dropped ripples, not corruption) or use a ceil-based bound accounting for the stagger window.
