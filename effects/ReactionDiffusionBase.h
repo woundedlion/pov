@@ -7,6 +7,9 @@
 
 #include "core/engine.h"
 
+#include <array>
+#include <cstring>
+
 /**
  * @brief CRTP base for the spherical reaction-diffusion effects (BZ, Gray-Scott).
  * @tparam Derived Concrete effect supplying the system-specific render().
@@ -107,6 +110,39 @@ protected:
       }
     });
     return best_node;
+  }
+
+  /**
+   * @brief Vertex-shader seed: tags a fragment with its cubemap-LUT node id.
+   * @param frag Fragment whose pos seeds frag.v0 with the nearest-node id.
+   * @details Shared by both systems' render() vertex shaders; the fragment
+   * shader refines this face-quantized seed to the true nearest node per
+   * sub-sample (see refine_nearest_node).
+   */
+  void seed_face_lut(Fragment &frag) {
+    Vector rv = orientation.unorient(frag.pos);
+    frag.v0 = static_cast<float>(cube_lut.lookup(rv));
+  }
+
+  /**
+   * @brief Lands the latest ping-pong generation back into persistent state.
+   * @tparam T Fixed-point species sample type.
+   * @tparam N Species count.
+   * @param persistent Destination persistent buffers, one per species.
+   * @param latest Latest-generation buffers after the substep loop.
+   * @param count Samples per buffer (RD_N).
+   * @details An even substep count already leaves the latest generation in the
+   * persistent buffers; an odd count leaves it in scratch, so copy each species
+   * buffer back before the caller's ScratchScope pops. Agnostic to species
+   * count and fixed-point width, so both systems share one land-back.
+   */
+  template <typename T, size_t N>
+  static void land_back(const std::array<T *, N> &persistent,
+                        const std::array<T *, N> &latest, size_t count) {
+    if (latest[0] == persistent[0])
+      return;
+    for (size_t i = 0; i < N; ++i)
+      std::memcpy(persistent[i], latest[i], count * sizeof(T));
   }
 
   /**

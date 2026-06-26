@@ -128,7 +128,7 @@ _None found._
 
 ### Low / Trivial — Maintainability & Nice-to-Have
 
-28. `effects/BZReactionDiffusion.h` / `effects/GSReactionDiffusion.h` — The odd-parity ping-pong land-back (BZ's `advance_substeps()` vs GS's inlined copy at `:230-243`) and the cubemap-LUT vertex/fragment-shader preamble are near-duplicated; hoist both into `ReactionDiffusionBase` to prevent drift.
+28. ✅ `effects/BZReactionDiffusion.h` / `effects/GSReactionDiffusion.h` — The odd-parity ping-pong land-back (BZ's `advance_substeps()` vs GS's inlined copy at `:230-243`) and the cubemap-LUT vertex/fragment-shader preamble are near-duplicated; hoist both into `ReactionDiffusionBase` to prevent drift.
 29. `effects/FlowField.h:46` — `rand_int(0, 65536)` uses a different upper-bound convention than sibling `ShapeShifter.h:99` (`rand_int(0, 65535)`); align the half-open-vs-inclusive convention across call sites.
 30. `effects/DistortedRing.h:96-98` — `shiftFn` is rebuilt as a fresh `this`-capturing lambda inside the per-ring loop every frame; hoist it out of the loop.
 31. `justfile` (`screenshots` recipe) — Shells through `npm run screenshots` while every sibling recipe (e.g. `smoke`) calls `node scripts/...` directly, adding an undocumented npm layer; align for consistency.

@@ -55,11 +55,13 @@ class BZReactionDiffusion
   using Base::for_each_neighbor;
   using Base::init_lattice;
   using Base::kernel_accumulate;
+  using Base::land_back;
   using Base::nodes;
   using Base::orientation;
   using Base::RD_N;
   using Base::refine_nearest_node;
   using Base::registerParam;
+  using Base::seed_face_lut;
 
 public:
   /**
@@ -359,11 +361,8 @@ private:
       std::swap(curC, nxtC);
     }
 
-    if (curA != state.A) {
-      std::memcpy(state.A, curA, RD_N);
-      std::memcpy(state.B, curB, RD_N);
-      std::memcpy(state.C, curC, RD_N);
-    }
+    land_back(std::array<uint8_t *, 3>{state.A, state.B, state.C},
+              std::array<uint8_t *, 3>{curA, curB, curC}, RD_N);
   }
 
   /**
@@ -387,10 +386,7 @@ private:
     const Color4 &cb = color_b;
     const Color4 &cc = color_c;
 
-    auto vertex_shader = [&](Fragment &frag) {
-      Vector rv = orientation.unorient(frag.pos);
-      frag.v0 = static_cast<float>(cube_lut.lookup(rv));
-    };
+    auto vertex_shader = [this](Fragment &frag) { seed_face_lut(frag); };
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       int center_node = static_cast<int>(frag.v0);
