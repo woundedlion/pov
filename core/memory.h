@@ -126,17 +126,18 @@ public:
 
   /**
    * @brief Rewinds the offset to a previously saved mark.
-   * @param new_offset Offset to rewind to; must be <= capacity.
-   * @details The allocator's core invariant is offset <= capacity: the no-wrap
-   * bounds math in allocate() (capacity - offset) is only safe while it holds.
-   * This is the one seam that can break it, so trap an out-of-range rewind at
-   * the source rather than letting it silently corrupt a later allocation.
+   * @param new_offset Offset to rewind to; must be <= the current offset.
+   * @details A mark is only valid as a rewind target: jumping the offset
+   * *forward* would hand out backing bytes that were never reserved by an
+   * allocate() call. Trap any non-rewind at the source rather than letting it
+   * silently resurrect or over-run storage. (new_offset <= offset also implies
+   * new_offset <= capacity, preserving the no-wrap bounds math in allocate().)
    * Alignment is not re-checked here: allocate() recomputes leading padding from
    * the true address on every call, so restoring an unaligned mark (e.g. a
    * ScratchScope save) is safe — the next allocation realigns itself.
    */
   void set_offset(size_t new_offset) {
-    HS_CHECK(new_offset <= capacity);
+    HS_CHECK(new_offset <= offset);
     offset = new_offset;
   }
 
