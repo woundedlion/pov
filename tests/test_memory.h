@@ -204,7 +204,10 @@ inline void test_arena_reset_high_water_mark() {
 /**
  * @brief Verifies reset() and rebind() each bump the debug-only generation
  *        counter that backs ArenaVector's stale-binding detection.
- * @details Debug builds only.
+ * @details Debug builds only: generation tracking is `#ifndef NDEBUG`, so this
+ *          is its sole automated cover. The canonical `tests` preset is a Debug
+ *          build, so it runs in CI; a non-canonical Release/NDEBUG test build
+ *          would skip it.
  */
 #ifndef NDEBUG
 inline void test_arena_generation_bumps() {
@@ -568,6 +571,8 @@ inline void test_arenavec_rebind_grows() {
  *          tests below do exactly this). This test only pins the generation-bump
  *          that the bind() assert and check_alive() key on — it does not trip
  *          the assert itself (which lowers to abort, not a death-case trap).
+ *          Gated `#ifndef NDEBUG` like the contract it covers; the canonical
+ *          Debug `tests` preset runs it, a Release/NDEBUG test build skips it.
  */
 #ifndef NDEBUG
 inline void test_arenavec_stale_binding_after_reset() {
