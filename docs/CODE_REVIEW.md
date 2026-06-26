@@ -108,7 +108,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 
 #### core/ — mesh, effect system
 
-23. **`MeshOps::compile` copies vertices wholesale, leaving orphans that inflate vertex-count consumers** — `core/mesh.h` @ 395–400 · *Correctness*. **Fix:** compact vertices with a used-vertex remap, or expose `num_referenced_vertices()` and pin the behavior with a test.
+23. ✅ **`MeshOps::compile` copies vertices wholesale, leaving orphans that inflate vertex-count consumers** — `core/mesh.h` @ 395–400 · *Correctness*. **Fix:** compact vertices with a used-vertex remap, or expose `num_referenced_vertices()` and pin the behavior with a test.
 24. ✅ **Comment claims a single shared flash copy of `sort_edge_records`, but internal linkage gives each TU its own** — `core/mesh.h` @ 135–147 · *Documentation*. **Fix:** correct the comment (per-TU COMDAT-folded copies) or give the function external linkage via a single anchor.
 25. **Composed-operator return-arena polarity is encoded only in prose** ▹ — `core/conway.h` @ `gyro/meta/needle/zip/bevel` 1118–1184 · *API design*. **Fix:** make polarity legible at the type level (return `{PolyMesh, Arena&}`) or re-clone into `target` to restore primitive polarity.
 26. ✅ **`compile_hankin` index-range comment states a looser bound than the code checks** — `core/hankin.h` @ 108–114 · *Documentation*. **Fix:** reword so the prose matches the `(I/2)+I` guard and explain the `I-1` underflow it conservatively avoids.

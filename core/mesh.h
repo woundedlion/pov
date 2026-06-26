@@ -376,8 +376,12 @@ inline uint8_t narrow_face_count(int count) {
  * @param src Source dynamic mesh to compile.
  * @param dst Destination MeshState, cleared and populated in place.
  * @param geom_arena Arena supplying storage for the destination arrays.
- * @details Removes degenerate faces (faces with < 3 vertices) during the
- * process. Traps if the cumulative face offset exceeds the 16-bit range.
+ * @details Removes degenerate faces (faces with < 3 vertices), then compacts
+ * the vertex array to the set the surviving faces reference, so the compiled
+ * vertex count matches what vertex-count consumers (e.g. MeshMorph) see rather
+ * than carrying orphans left by the stripped faces. Traps if the cumulative
+ * face offset exceeds the 16-bit range. Borrows scratch_arena_a for a transient
+ * old->new vertex remap.
  */
 HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
                                     Arena &geom_arena) {
@@ -393,12 +397,47 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
     }
   }
 
-  // Vertices are copied wholesale with no compaction, so vertices referenced
-  // only by stripped degenerate faces remain as orphans. Harmless for
-  // face-iterating renderers, but vertex-count-driven consumers (e.g. MeshMorph)
-  // see the inflated count.
-  copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(),
-              geom_arena);
+  // Old->new vertex remap on scratch (LIFO bump, restored on scope exit).
+  // kUnreferenced is an unused slot, kReferenced a vertex seen on a surviving
+  // face but not yet numbered; both sit above the INT16_MAX index bound
+  // narrow_index enforces, so neither aliases a real compacted index.
+  constexpr uint16_t kUnreferenced = 0xFFFF;
+  constexpr uint16_t kReferenced = 0xFFFE;
+  ScratchScope scratch_guard(scratch_arena_a);
+  const size_t src_vertex_count = src.vertices.size();
+  uint16_t *remap = static_cast<uint16_t *>(scratch_arena_a.allocate(
+      src_vertex_count * sizeof(uint16_t), alignof(uint16_t)));
+  for (size_t i = 0; i < src_vertex_count; ++i)
+    remap[i] = kUnreferenced;
+
+  // Flag every vertex referenced by a surviving face.
+  size_t referenced_vertices = 0;
+  {
+    size_t scan_offset = 0;
+    for (size_t i = 0; i < src.face_counts.size(); ++i) {
+      int count = src.face_counts[i];
+      if (count >= 3) {
+        for (int k = 0; k < count; ++k) {
+          uint16_t v = src.faces[scan_offset + k];
+          HS_CHECK(v < src_vertex_count, "mesh face index out of range");
+          if (remap[v] == kUnreferenced) {
+            remap[v] = kReferenced;
+            referenced_vertices++;
+          }
+        }
+      }
+      scan_offset += count;
+    }
+  }
+
+  // Number and copy the referenced vertices in source order, dropping orphans.
+  dst.vertices.bind(geom_arena, referenced_vertices);
+  for (size_t i = 0; i < src_vertex_count; ++i) {
+    if (remap[i] == kReferenced) {
+      remap[i] = narrow_index(dst.vertices.size());
+      dst.vertices.push_back(src.vertices[i]);
+    }
+  }
 
   dst.face_counts.bind(geom_arena, valid_faces);
   dst.faces.bind(geom_arena, valid_indices);
@@ -416,7 +455,7 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
                "mesh face_offsets exceeds 16-bit index range");
       dst.face_offsets.push_back(static_cast<uint16_t>(current_offset));
       for (int k = 0; k < count; ++k) {
-        dst.faces.push_back(src.faces[offset + k]);
+        dst.faces.push_back(remap[src.faces[offset + k]]);
       }
       current_offset += count;
     }
