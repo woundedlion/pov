@@ -443,7 +443,7 @@ The filter pipeline operates across three coordinate domains. Each filter declar
     ◂── pixel_to_vector()         ◂── expand to float
 ```
 
-**World → Screen**: `vector_to_pixel()` projects a 3D unit-sphere vector to fractional pixel coordinates via `(theta / 2π * W, phi / π * H)`.
+**World → Screen**: `vector_to_pixel()` projects a 3D unit-sphere vector to fractional pixel coordinates near `(theta / 2π * W, phi / π * H)`, deriving `theta`/`phi` with the approximate `fast_atan2`/`fast_acos`. The approximation makes the projection sub-pixel inexact, so `vector → pixel → vector` does not exactly invert the exact-trig `pixel_to_vector()`.
 
 **Screen → Pixel**: `AntiAlias` distributes the fractional coordinate to its 4 nearest integer pixels using `quintic_kernel` bilinear weights, with `sin(φ)` density compensation.
 
