@@ -114,7 +114,7 @@ _None found._
 ### Low — Performance
 
 19. ✅ `effects/Moire.h:147` — `draw_layer` rasterizes `ceil(params.density)` rings per layer with no per-row budget cap (Density slider max 100, ×2 layers), unlike `ShapeShifter` which caps at `H`. On the 96×20 target many rings collapse below a row and waste rasterizer work; add a resolution-aware cap.
-20. `effects/PetalFlow.h:221` — `draw_ring` recomputes `expf`/`fast_cosf`/`fast_sinf` per sample for every active ring every frame (~9,200 `expf`/frame at `W=288`, up to `MAX_RINGS=64`). Ring geometry depends only on `rho`/`twist`/static shift; cache per-rho buckets for the device budget.
+20. ✅ `effects/PetalFlow.h:221` — `draw_ring` recomputes `expf`/`fast_cosf`/`fast_sinf` per sample for every active ring every frame (~9,200 `expf`/frame at `W=288`, up to `MAX_RINGS=64`). Ring geometry depends only on `rho`/`twist`/static shift; cache per-rho buckets for the device budget.
 21. `effects/SphericalHarmonics.h:86-90,297` — Each pixel evaluates `associatedLegendre` up to twice over the full sphere with no horizontal-interval narrowing and full-height vertical bounds; acceptable for `l ≤ 4` but it is the group's heaviest per-pixel cost and is uncapped. Cap `l` or document the cost.
 
 ### Low — Test Quality

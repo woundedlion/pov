@@ -58,6 +58,7 @@ public:
     }
     next_hue = 0.0f;
 
+    build_shift_table();
     init_timeline();
   }
 
@@ -92,6 +93,7 @@ private:
   static constexpr float RHO_PER_SPEED = 0.009375f;
   static constexpr float PETAL_LOBES = 3.0f;  /**< Petal lobe count per revolution for the radial wobble. */
   static constexpr float PETAL_DEPTH = 0.6f;  /**< Petal wobble depth in rho units. */
+  static constexpr int NUM_SAMPLES = W / 2;   /**< Angular samples drawn per ring. */
 
   /**
    * @brief One ring on the flow.
@@ -104,6 +106,14 @@ private:
   };
 
   Ring rings[MAX_RINGS];          /**< Fixed pool of ring slots, active or free. */
+
+  /**
+   * @brief Per-sample exp(radial wobble), cached once in init().
+   * @details The petal shift depends only on the normalized angle, so
+   * exp(shift) is identical for every ring and frame; caching it leaves a single
+   * exp(rho) per ring instead of one exp per sample.
+   */
+  float exp_shift_[NUM_SAMPLES];
   float gap_accumulator = 0.0f;   /**< Accumulated path travel awaiting the next spawn, in rho units. */
   float next_hue = 0.0f;          /**< Per-instance hue cursor, advanced per spawn; reset in init() so hue assignment stays deterministic for the fixed-seed segmented driver. */
 
@@ -123,6 +133,19 @@ private:
    * pre-fills the entire path with evenly spaced rings so the flow is full from
    * frame zero rather than filling in over time.
    */
+  /**
+   * @brief Precomputes the geometry-static exp(petal wobble) per sample.
+   * @details The radial wobble is a function of the normalized angle alone, so
+   * its exponential is constant across rings and frames.
+   */
+  FLASHMEM void build_shift_table() {
+    for (int i = 0; i < NUM_SAMPLES; ++i) {
+      float t_norm = static_cast<float>(i) / NUM_SAMPLES;
+      float shift = PETAL_DEPTH * std::abs(fast_sinf(PETAL_LOBES * PI_F * t_norm));
+      exp_shift_[i] = expf(shift);
+    }
+  }
+
   FLASHMEM void init_timeline() {
     timeline.add(0, Animation::Rotation<W>(orientation, UP, PI_F / 4.0f, 160,
                                            ease_linear, true));
@@ -218,19 +241,14 @@ private:
     if (effective_opacity <= 0.01f)
       return;
 
-    const int num_samples = W / 2;
+    constexpr int num_samples = NUM_SAMPLES;
     const float step = 2.0f * PI_F / num_samples;
 
     Color4 base_col = palette.get(ring.hue).color;
     base_col.alpha = effective_opacity;
 
     float twist_angle = (ring.rho / SPACING) * params.twist_factor;
-
-    // Radial wobble around the ring: rectified sine gives PETAL_LOBES lobes per
-    // revolution, the petals. t is the normalized angle [0,1).
-    auto get_shift = [](float t) -> float {
-      return PETAL_DEPTH * std::abs(fast_sinf(PETAL_LOBES * PI_F * t));
-    };
+    const float exp_rho = expf(ring.rho);
 
     ScratchScope scratch_a_guard(scratch_arena_a);
     Fragments fragments;
@@ -239,12 +257,13 @@ private:
       float t_norm = static_cast<float>(i) / num_samples;
       float theta = i * step;
 
-      float rho_val = ring.rho + get_shift(t_norm);
       float final_theta = theta + twist_angle;
 
       // Inverse stereographic projection of the planar point at
-      // (radius R=exp(rho_val), angle final_theta) onto the unit sphere.
-      float R = expf(rho_val);
+      // (radius R=exp(rho + wobble), angle final_theta) onto the unit sphere.
+      // exp(rho + wobble) factors into the per-ring exp(rho) and the cached,
+      // geometry-static exp(wobble) in exp_shift_.
+      float R = exp_rho * exp_shift_[i];
 
       float r2 = R * R;
       float denom = 1.0f + r2;
