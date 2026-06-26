@@ -147,7 +147,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 
 #### scripts & Python tooling
 
-50. **`check_screenshots.mjs` throws an unhandled rejection if `docs/screenshots/` is absent** — `scripts/check_screenshots.mjs` @ 16 · *Error handling*. **Fix:** try/catch the `readdir`; treat ENOENT as "all roster effects missing" with the same `::error::` guidance and non-zero exit.
+50. ✅ **`check_screenshots.mjs` throws an unhandled rejection if `docs/screenshots/` is absent** — `scripts/check_screenshots.mjs` @ 16 · *Error handling*. **Fix:** try/catch the `readdir`; treat ENOENT as "all roster effects missing" with the same `::error::` guidance and non-zero exit.
 51. ✅ **JSONC stripper silently truncates the rest of the file on an unterminated `/*`** — `tools/teensy_gate.py` @ 344–347 · *Error handling*. **Fix:** raise `ValueError('unterminated block comment in JSONC')` if no closing `*/` was found.
 52. ✅ **`region_totals_from_size_a` computes `region_for_address(addr)` twice per row** — `tools/teensy_gate.py` @ 162 · *Style*. **Fix:** hoist `r = region_for_address(addr)` (or use `defaultdict(int)`).
 53. **`wasm_smoke.mjs` uses `process.exit()` after console output, risking truncated logs** — `scripts/wasm_smoke.mjs` @ 46–47/68–69/321–322 · *Error handling*. **Fix:** prefer `process.exitCode = 1; return;` so buffered output flushes.

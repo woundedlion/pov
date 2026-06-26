@@ -13,7 +13,13 @@ import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
 const SHOTS_DIR = join(REPO_ROOT, 'docs', 'screenshots');
 
 const roster = await loadEffectRoster();
-const files = await readdir(SHOTS_DIR);
+let files;
+try {
+  files = await readdir(SHOTS_DIR);
+} catch (err) {
+  if (err.code !== 'ENOENT') throw err;
+  files = []; // no gallery dir at all — every roster effect reads as missing below
+}
 const pngs = new Set(
   files.filter(f => f.endsWith('.png')).map(f => f.slice(0, -'.png'.length))
 );
