@@ -947,9 +947,10 @@ inline void cull_visited(const Shape &shape, std::vector<uint8_t> &visited) {
  * @tparam H Canvas height in pixels.
  * @tparam Shape SDF shape type providing the cull and distance interface.
  * @param shape Shape under test.
- * @return Count of interior pixels (dist < -pixel_width) found, so the caller can
- *   confirm the case was non-trivial.
- * @details Interior pixels are found by a brute-force full-canvas exact distance scan.
+ * @return Count of interior pixels (dist < -pixel_width) found.
+ * @details Interior pixels are found by a brute-force full-canvas exact distance
+ *   scan. Asserts the case is non-trivial (at least one interior pixel) so no
+ *   shape silently contributes zero coverage.
  */
 template <int W, int H, typename Shape>
 inline int expect_cull_covers_interior(const Shape &shape) {
@@ -973,6 +974,7 @@ inline int expect_cull_covers_interior(const Shape &shape) {
       }
     }
   }
+  HS_EXPECT_GT(interior, 0);
   return interior;
 }
 
@@ -986,25 +988,23 @@ inline void test_cull_covers_interior_over_orientation_grid() {
       Vector(0, 0, 1),         Vector(1, 1, 0.4f),      Vector(-0.5f, 0.7f, -0.6f),
       Vector(0.3f, -0.8f, 0.5f)};
 
-  int total_interior = 0;
   for (const Vector &axis : axes) {
     Basis basis = make_basis(Quaternion(), axis);
     for (float radius : {0.3f, 0.6f, 0.9f}) {
       SDF::Ring ring(basis, radius, /*thickness=*/0.25f);
-      total_interior += expect_cull_covers_interior<W, H>(ring);
+      expect_cull_covers_interior<W, H>(ring);
 
       SDF::SphericalPolygon spoly(basis, radius, /*sides=*/5, 0.0f);
-      total_interior += expect_cull_covers_interior<W, H>(spoly);
+      expect_cull_covers_interior<W, H>(spoly);
 
       SDF::Star star(basis, radius, /*sides=*/5, 0.0f);
-      total_interior += expect_cull_covers_interior<W, H>(star);
+      expect_cull_covers_interior<W, H>(star);
 
       // PlanarPolygon's `thickness` is its angular circumradius.
       SDF::PlanarPolygon ppoly(basis, /*thickness=*/radius, /*sides=*/6, 0.0f);
-      total_interior += expect_cull_covers_interior<W, H>(ppoly);
+      expect_cull_covers_interior<W, H>(ppoly);
     }
   }
-  HS_EXPECT_GT(total_interior, 1000);
 }
 
 /**
@@ -1061,17 +1061,15 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
       {0.15f, 0.22f, 0.13f}, {0.16f, 0.25f, 0.14f},
       {0.16f, 0.33f, 0.15f}, {0.16f, 0.39f, 0.15f},
   };
-  int total_interior = 0;
   for (const Cfg &c : cfgs) {
     Basis basis_n = make_basis(Quaternion(), Vector(c.tilt, 1.0f, 0.0f));
     SDF::Ring ring_n(basis_n, c.radius, c.thickness);
-    total_interior += expect_cull_covers_interior<W, H>(ring_n);
+    expect_cull_covers_interior<W, H>(ring_n);
 
     Basis basis_s = make_basis(Quaternion(), Vector(c.tilt, -1.0f, 0.0f));
     SDF::Ring ring_s(basis_s, c.radius, c.thickness);
-    total_interior += expect_cull_covers_interior<W, H>(ring_s);
+    expect_cull_covers_interior<W, H>(ring_s);
   }
-  HS_EXPECT_GT(total_interior, 1000);
 }
 
 /**
