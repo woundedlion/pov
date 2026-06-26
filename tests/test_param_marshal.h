@@ -43,9 +43,7 @@ constexpr int kH = 144;
  */
 template <template <int, int> class E>
 inline bool check_one(const char *) {
-  configure_arenas_default();
-  Timeline().clear();
-  global_timeline_t = 0;
+  reset_globals();
 
   E<kW, kH> effect;
   effect.init();
@@ -117,9 +115,7 @@ inline bool check_one(const char *) {
  */
 template <template <int, int> class E>
 inline void count_one(size_t &max_count) {
-  configure_arenas_default();
-  Timeline().clear();
-  global_timeline_t = 0;
+  reset_globals();
 
   E<kW, kH> effect;
   effect.init();
@@ -161,9 +157,7 @@ inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
                                 const hs_wasm::ParamView *view_data,
                                 size_t view_cap, const float *value_data,
                                 size_t value_cap) {
-  configure_arenas_default();
-  Timeline().clear();
-  global_timeline_t = 0;
+  reset_globals();
 
   E<kW, kH> effect;
   effect.init();

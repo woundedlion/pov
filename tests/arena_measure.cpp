@@ -14,6 +14,7 @@
 
 #include "effects.h"
 #include "memory.h"
+#include "tests/test_fixture.h"
 
 namespace {
 constexpr int W = 288, H = 144;
@@ -23,10 +24,7 @@ size_t g_max_p = 0, g_max_a = 0, g_max_b = 0, g_worst_total = 0;
 const char *g_worst_name = "";
 
 template <typename Effect> void measure(const char *name) {
-  hs::random().seed(1337u);
-  configure_arenas_default();
-  Timeline().clear();
-  global_timeline_t = 0;
+  hs_test::reset_globals();
   persistent_arena.reset_high_water_mark();
   scratch_arena_a.reset_high_water_mark();
   scratch_arena_b.reset_high_water_mark();
