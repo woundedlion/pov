@@ -104,7 +104,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 19. ✅ **`ScratchScope::make_vector` has no production callers** — `core/memory.h` @ 856 · *Maintainability*. **Fix:** remove it, or note it is currently unused.
 20. ✅ **`Arena::set_offset` permits a forward jump past the current offset** — `core/memory.h` @ 138–141 · *API design*. **Fix:** tighten to `HS_CHECK(new_offset <= offset)`, or document the forward-seek case and update `high_water_mark`.
 21. ✅ **`TriangularBitset::data` is uninitialized until `clear()`; reading a pair before `clear()` is UB** ▹ — `core/memory.h` @ 207/212/239 · *Correctness*. **Fix:** document the "must `clear()` first" precondition on the struct, or add an in-class default member initializer.
-22. **`ArenaVector` move ctor and move-assign duplicate the full transfer block** — `core/memory.h` @ 351–368 / 375–397 · *Style*. **Fix:** factor into a private `steal_from(ArenaVector&) noexcept` helper.
+22. ✅ **`ArenaVector` move ctor and move-assign duplicate the full transfer block** — `core/memory.h` @ 351–368 / 375–397 · *Style*. **Fix:** factor into a private `steal_from(ArenaVector&) noexcept` helper.
 
 #### core/ — mesh, effect system
 
