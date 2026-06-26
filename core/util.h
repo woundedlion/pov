@@ -24,7 +24,10 @@
  *   that is not an exact `(int, int)` match; the non-template `wrap(int, int)`
  *   below is preferred only for two `int` arguments. A mixed call such as
  *   `wrap(int_x, float_m)` therefore resolves here (float math), not to the
- *   integer overload. Precondition: m > 0 (m <= 0 yields NaN/garbage).
+ *   integer overload. Precondition: m > 0; the debug `assert(m > 0)` enforces it.
+ *   Under NDEBUG (assert stripped) the `fmax(m, min())` floor below clamps a
+ *   non-positive m to the smallest positive value, so the result collapses to a
+ *   near-zero in [0, min()) rather than NaN/garbage.
  *   Exactness: the body wraps via `std::fmod`, which is floating-point even when
  *   the common type is integral (integer args promote to `double`), then casts
  *   back. So the result is exact only within the working mantissa — ~2^24 when
