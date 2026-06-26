@@ -268,6 +268,7 @@ inline int run_hd107s_tests() {
   test_layout_constants();
   test_fresh_frame_skeleton();
   test_correct_pipeline();
+  test_correct_multifactor();
   test_packpixel_wire_order();
   test_load_matches_packpixel();
   test_load_full_count();
