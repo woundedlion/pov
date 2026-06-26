@@ -12,6 +12,7 @@
 #include "platform.h"
 #include "targets/wasm/param_marshal.h"    // pure, host-tested param marshaling
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
+#include <algorithm> // std::fill_n — blank-frame clear in drawFrame
 #include <string_view>
 #include <cstring>
 #include <cstdlib> // std::malloc for the lazily-allocated tooling arenas
@@ -428,8 +429,7 @@ public:
       // No active effect: clear the active prefix so getPixels() hands JS a
       // blank frame at the current resolution, not stale content.
       const int count = pixel_width * pixel_height * kChannels;
-      for (int i = 0; i < count; i++)
-        pixelBuffer[i] = 0;
+      std::fill_n(pixelBuffer.data(), count, uint16_t{0});
       return;
     }
 

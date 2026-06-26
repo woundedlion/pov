@@ -135,7 +135,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 41. **`bakeLut` silently mod-256-truncates out-of-range h/s/v ints** — `targets/wasm/wasm.cpp` @ 1162–1175 · *Error handling*. **Fix:** clamp to [0,255] with a log (matching `gradientShape`) or document the intentional wrap; the doxygen currently says values are "in [0,255]".
 42. ✅ **Tooling `Arena` globals have external linkage, inconsistent with sibling internal-linkage state** — `targets/wasm/wasm.cpp` @ 76/81/82 · *Style*. **Fix:** mark the three `Arena` objects `static` or move module-private globals into an anonymous namespace.
 43. ✅ **Dangling sentence fragment in `setEffect` inline comment** — `targets/wasm/wasm.cpp` @ 340 · *Documentation*. **Fix:** rewrite as a complete sentence explaining the `%s`-not-format-string guard.
-44. **`drawFrame` no-effect clear uses a scalar loop instead of a fill primitive** — `targets/wasm/wasm.cpp` @ 429–431 · *Performance*. **Fix:** `std::fill_n(pixelBuffer.data(), pixel_width * pixel_height * kChannels, uint16_t{0});`.
+44. ✅ **`drawFrame` no-effect clear uses a scalar loop instead of a fill primitive** — `targets/wasm/wasm.cpp` @ 429–431 · *Performance*. **Fix:** `std::fill_n(pixelBuffer.data(), pixel_width * pixel_height * kChannels, uint16_t{0});`.
 
 #### tests (C++)
 
