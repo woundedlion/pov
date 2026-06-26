@@ -100,7 +100,7 @@ _None found._
 9. ✅ `daydream/recorder.js:280` — `_extension()` returns `mp4` only for `video/mp4`, else unconditionally `webm`; an exotic MediaRecorder fallback mimetype (e.g. `video/x-matroska`, or empty) produces a `.webm` file/Blob type that disagrees with the real container. Derive the extension from the actual mimetype.
 10. ✅ `daydream/gui.js:236` — An out-of-range **enum** value hydrated from the URL sets `urlApplied = false` but does not rewrite the URL, whereas numeric clamping does; a shared link keeps the stale enum value in the address bar. Make the enum path symmetric.
 11. ✅ `daydream/state.js:113` — `_notify` iterates the live `_listeners` array; a subscriber that calls `subscribe()` during a notification would be invoked for the current event (add-during-notify is not snapshotted). No current caller does this, but snapshot the array or document the contract.
-12. `daydream/daydream.js:116` — `EngineHost.refresh()` re-points `instanceColor.array` without setting `needsUpdate`; it works only because both current callers flag it afterward. Document the "caller must flag `needsUpdate`" contract or set it inside `refresh()`.
+12. ✅ `daydream/daydream.js:116` — `EngineHost.refresh()` re-points `instanceColor.array` without setting `needsUpdate`; it works only because both current callers flag it afterward. Document the "caller must flag `needsUpdate`" contract or set it inside `refresh()`.
 
 ### Low — Documentation & Consistency
 
