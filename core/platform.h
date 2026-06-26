@@ -963,14 +963,16 @@ inline unsigned long millis() {
  * keeping the host structurally in step with the device and nesting correctly in
  * control flow.
  *
- * `last_` starts at 0 so the first evaluation fires (`now - 0 >= period`), and
- * the trigger stamp is never reset across effect switches (the object is a
- * function-local `static`). The period is captured at construction, matching the
- * device's FastLED object.
+ * `last_` is seeded to `millis()` at construction, so the first evaluation does
+ * not fire until a full period elapses — matching the device, whose FastLED
+ * `CEveryNMillis` stamps its trigger from `millis()` in its constructor. The
+ * stamp is never reset across effect switches (the object is a function-local
+ * `static`), and the period is captured at construction.
  */
 class EveryNMillis {
 public:
-  explicit EveryNMillis(unsigned long period) : last_(0), period_(period) {}
+  explicit EveryNMillis(unsigned long period)
+      : last_(millis()), period_(period) {}
 
   /** @brief True at most once per `period_` ms; stamps the trigger when it fires. */
   bool ready() {
