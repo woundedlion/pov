@@ -44,7 +44,7 @@ jobs:
           - shard: 3
             test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|generators|animation|effects|h_offset_renorm|stack_budget)$"
           - shard: 4
-            test_regex: &shard4_re "^unit_(hd107s|pov_segmented|pov_single|pov_sync|param_marshal|util|presets|styles|death)$"
+            test_regex: &shard4_re "^unit_(hd107s|pov_segmented|pov_single|pov_sync|param_marshal|wasm_predicates|util|presets|styles|death)$"
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
     # and the suite isn't silently re-hosted on a new runner image.
     runs-on: ubuntu-24.04

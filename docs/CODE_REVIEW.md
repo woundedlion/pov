@@ -52,7 +52,7 @@ Items are numbered sequentially and grouped by priority. Each cites `file:line`,
 
 ### High
 
-1. **`.github/workflows/ci.yml:41-47` & `tests/CMakeLists.txt:96-104` — CI coverage.** The registered CTest `unit_wasm_predicates` is matched by none of the four anchored shard regexes (`^unit_(...)$`), so it runs in zero Linux `tests` shards and zero `sanitizers` (ASan/UBSan) shards — only in the unfiltered `windows-tests` job. The `shard-coverage` meta-job (ci.yml ~405-456) asserts every test maps to exactly one shard, so it is currently RED (`test 'unit_wasm_predicates' is in 0 shards`). Fix: add `wasm_predicates` to one shard alternation (e.g. shard4 alongside `param_marshal`).
+1. ✅ **`.github/workflows/ci.yml:41-47` & `tests/CMakeLists.txt:96-104` — CI coverage.** The registered CTest `unit_wasm_predicates` is matched by none of the four anchored shard regexes (`^unit_(...)$`), so it runs in zero Linux `tests` shards and zero `sanitizers` (ASan/UBSan) shards — only in the unfiltered `windows-tests` job. The `shard-coverage` meta-job (ci.yml ~405-456) asserts every test maps to exactly one shard, so it is currently RED (`test 'unit_wasm_predicates' is in 0 shards`). Fix: add `wasm_predicates` to one shard alternation (e.g. shard4 alongside `param_marshal`).
 
 ### Medium
 
