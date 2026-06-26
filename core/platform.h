@@ -1508,8 +1508,16 @@ struct CycleScope {
 /**
  * @brief Times the enclosing scope into a named cycle counter.
  * @param label Counter name (used both as the identifier suffix and log label).
+ * @details Compiled in only under HS_PROFILE_ENABLE. Off by default so regular
+ *          builds pay nothing: the active-counter bookkeeping (and, on-device,
+ *          the per-scope CYCCNT read) runs on every hot-path face/pixel scope,
+ *          which is pure overhead outside a profiling run.
  */
+#ifdef HS_PROFILE_ENABLE
 #define HS_PROFILE(label) \
   static hs::CycleCounter hs_ctr_##label(#label); \
   hs::CycleScope hs_scope_##label(hs_ctr_##label)
+#else
+#define HS_PROFILE(label) ((void)0)
+#endif
 
