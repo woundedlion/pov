@@ -84,6 +84,12 @@ public:
     return std::span<const Entry>(entries);
   }
 
+  /**
+   * @brief Returns a mutable view over all entries, for in-place rebinding.
+   * @return Span covering all Size entries in order.
+   */
+  std::span<Entry> get_entries() { return std::span<Entry>(entries); }
+
   /** @brief Index of the currently selected entry; always in [0, Size). */
   int current_index() const { return current_idx; }
   /** @brief Index active before the last next()/prev(); always in [0, Size). */
@@ -99,9 +105,8 @@ public:
     return entries[prev_idx].params;
   }
 
-  std::array<Entry, Size> entries; /**< The backing store of preset entries. */
-
 private:
+  std::array<Entry, Size> entries; /**< The backing store of preset entries. */
   int current_idx = 0; /**< Index of the currently selected entry. */
   int prev_idx = 0;    /**< Index active before the last next()/prev(); for crossfades. */
 };
