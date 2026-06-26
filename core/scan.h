@@ -4,7 +4,6 @@
  */
 #pragma once
 
-#include <cstring>
 #include <utility>
 #include "sdf.h"
 #include "color.h"
@@ -48,37 +47,13 @@ namespace Scan {
  * per <W,H> rather than per shader/pipeline combination); see the PipelineRef
  * note in concepts.h.
  */
-/**
- * @brief Per-pixel face-claim mask (1 bit/pixel) for non-overlapping mesh fills.
- * @details A face claims a pixel once it covers it fully interior; later faces
- * of the same tiling mesh skip already-claimed pixels, cutting bounding-box
- * overdraw. Bit-identical: a claimed pixel lies more than a pixel-width inside
- * its owning face, so it is outside every other (non-overlapping) face — which
- * would compute a positive distance and plot nothing anyway. Empty (bits ==
- * nullptr) disables the optimization, so it is opt-in per draw.
- */
-struct ClaimMask {
-  uint8_t *bits = nullptr; /**< Packed 1-bit-per-pixel storage; nullptr disables. */
-  int w = 0;               /**< Row stride in pixels. */
-  bool claimed(int x, int y) const {
-    int b = y * w + x;
-    return bits[b >> 3] & static_cast<uint8_t>(1u << (b & 7));
-  }
-  void claim(int x, int y) const {
-    int b = y * w + x;
-    bits[b >> 3] |= static_cast<uint8_t>(1u << (b & 7));
-  }
-};
-
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
 inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
                           Canvas &canvas, const auto &shape,
                           FragmentShaderFn fragment_shader, bool debug_bb,
                           SDF::DistanceResult &result_scratch,
-                          Fragment &frag_scratch, const ClaimMask &claim = {}) {
-  if (claim.bits && claim.claimed(x, y))
-    return;
+                          Fragment &frag_scratch) {
   shape.template distance<ComputeUVs>(p, result_scratch);
 
   float d = result_scratch.dist;
@@ -93,8 +68,6 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
       if (d <= -pixel_width) {
         // FAST PATH: Pixel is fully inside the shape. Skip AA
         alpha = 1.0f;
-        if (claim.bits)
-          claim.claim(x, y);
       } else {
         // SLOW PATH: Pixel is on the boundary. Calculate AA
         float t_aa = 0.5f - d / (2.0f * pixel_width);
@@ -369,8 +342,7 @@ struct ScopedRenderTimer {
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
 inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
-                      FragmentShaderFn fragment_shader, bool debug_bb = false,
-                      const ClaimMask &claim = {}) {
+                      FragmentShaderFn fragment_shader, bool debug_bb = false) {
   bool effective_debug = debug_bb || canvas.debug();
 
   int y_lo, y_hi;
@@ -397,7 +369,7 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
           return;
         process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
                                         fragment_shader, effective_debug,
-                                        result_scratch, frag_scratch, claim);
+                                        result_scratch, frag_scratch);
       });
 }
 
@@ -733,22 +705,11 @@ struct Mesh {
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
-                   bool debug_bb = false, bool tiling = false) {
+                   bool debug_bb = false) {
     ScratchScope scope(scratch_arena);
     auto *scratch =
         static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
             sizeof(SDF::FaceScratchBuffer), alignof(SDF::FaceScratchBuffer)));
-
-    // tiling: the mesh's faces partition the sphere without overlap (closed
-    // solids, hankin rosettes), so a per-pixel claim mask lets each face skip
-    // the bounding-box pixels already filled by a neighbor. ~5 KB for 144x288.
-    ClaimMask claim;
-    if (tiling) {
-      constexpr int kMaskBytes = (W * H + 7) / 8;
-      claim.bits = static_cast<uint8_t *>(scratch_arena.allocate(kMaskBytes, 1));
-      std::memset(claim.bits, 0, kMaskBytes);
-      claim.w = W;
-    }
 
     const uint8_t *fc = mesh.get_face_counts_data();
     size_t num_f = mesh.get_face_counts_size();
@@ -781,8 +742,7 @@ struct Mesh {
       };
 
       { HS_PROFILE(scan_mesh_raster);
-        Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb,
-                                    claim);
+        Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb);
       }
     }
   }
