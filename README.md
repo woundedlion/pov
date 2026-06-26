@@ -532,6 +532,7 @@ The Filter auto-syncs from the Style every frame — when the Style lerps betwee
 
 | Preset | Description |
 |---|---|
+| `Style::SlowTwist()` | Static fine-grain turbulence — high amplitude over a tight scale, no temporal drift. Frozen, twisted distortion. |
 | `Style::Churn()` | Dense fine-grain turbulence with strong hue shift. Tight scale, slow drift. |
 | `Style::Smoke()` | Gentle drifting haze with slow noise. Classic smoke look. |
 | `Style::Frozen()` | Static frozen distortion — no temporal movement. |
