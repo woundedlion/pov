@@ -40,11 +40,13 @@ class GSReactionDiffusion
   using Base::for_each_neighbor;
   using Base::init_lattice;
   using Base::kernel_accumulate;
+  using Base::land_back;
   using Base::nodes;
   using Base::orientation;
   using Base::RD_N;
   using Base::refine_nearest_node;
   using Base::registerParam;
+  using Base::seed_face_lut;
 
 public:
   /**
@@ -238,17 +240,12 @@ private:
 
     // Land the final generation back in persistent state before the ScratchScope
     // pops; an odd substep count leaves it in scratch, so copy it back.
-    if (curA != state.A) {
-      std::memcpy(state.A, curA, RD_N * sizeof(uint16_t));
-      std::memcpy(state.B, curB, RD_N * sizeof(uint16_t));
-    }
+    land_back(std::array<uint16_t *, 2>{state.A, state.B},
+              std::array<uint16_t *, 2>{curA, curB}, RD_N);
 
     // Seed the cubemap lookup once per pixel center; it only feeds
     // refine_nearest_node, which re-finds the true nearest per sub-sample.
-    auto vertex_shader = [&](Fragment &frag) {
-      Vector rv = orientation.unorient(frag.pos);
-      frag.v0 = static_cast<float>(cube_lut.lookup(rv));
-    };
+    auto vertex_shader = [this](Fragment &frag) { seed_face_lut(frag); };
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       Vector rv = orientation.unorient(v);
