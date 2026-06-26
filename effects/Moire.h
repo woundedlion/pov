@@ -135,6 +135,13 @@ private:
   static constexpr int WIPE_FRAMES = 80; /**< Duration of a palette cross-fade ColorWipe, in frames. */
 
   /**
+   * @brief Rings finer than one display row apart collapse on the raster, so
+   * the per-layer ring count is capped at one ring per row to skip overdraw at
+   * high Density.
+   */
+  static constexpr int kMaxRings = H > 1 ? H : 1;
+
+  /**
    * @brief Draws one stack of concentric DistortedRings for a layer.
    * @param canvas Render target for this layer's rings.
    * @param layer_rotation Quaternion rotation applied to this stack.
@@ -145,6 +152,8 @@ private:
   void draw_layer(Canvas &canvas, Quaternion layer_rotation,
                   const BakedPalette &pal) {
     int count = static_cast<int>(std::ceil(params.density));
+    if (count > kMaxRings)
+      count = kMaxRings;
     Basis basis = make_basis(layer_rotation, Z_AXIS);
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       Color4 c = pal.get(f.v0);
