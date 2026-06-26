@@ -1286,15 +1286,7 @@ struct PlanarPolygon {
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_sides, float phase = 0) {
-    size_t start_idx = points.size();
     Ring::sample(points, basis, radius, num_sides, phase + PI_F / num_sides);
-    float cumul = 0.0f;
-    for (size_t i = start_idx; i < points.size(); i++) {
-      points[i].v1 = cumul;
-      if (i < points.size() - 1) {
-        cumul += angle_between(points[i].pos, points[i + 1].pos);
-      }
-    }
   }
 
   /**
