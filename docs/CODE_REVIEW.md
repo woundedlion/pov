@@ -98,7 +98,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 ### Priority 3 — Performance & efficiency
 
-13. **`DistortedRing` evaluates a generative palette per pixel.** `effects/DistortedRing.h` ~101–110 calls `ringPalette.get(f.v0)` (full OKLCH lerp) in the fragment shader, though `ringPalette` is an immutable `GenerativePalette`. Siblings (`Moire`, `Dynamo`) bake a `BakedPalette` LUT specifically to avoid this. Fix: bake once in `init()` and sample the LUT.
+13. ✅ **`DistortedRing` evaluates a generative palette per pixel.** `effects/DistortedRing.h` ~101–110 calls `ringPalette.get(f.v0)` (full OKLCH lerp) in the fragment shader, though `ringPalette` is an immutable `GenerativePalette`. Siblings (`Moire`, `Dynamo`) bake a `BakedPalette` LUT specifically to avoid this. Fix: bake once in `init()` and sample the LUT.
 
 14. **Planar arc length computed twice per frame.** `core/plot.h` ~542–553 / ~733–738: the cold pre-pass and the draw loop both call `planar_arc_length` per segment for Star/Flower/PlanarPolygon every frame. Fix: cache per-segment lengths in the pre-pass.
 
