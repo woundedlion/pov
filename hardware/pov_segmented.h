@@ -335,8 +335,9 @@ private:
   /**
    * @brief Reads the 2-bit hardware segment ID from GPIO pins.
    *
-   * Pins are configured as INPUT_PULLUP; grounding a pin sets its bit.
-   * The result is inverted so that all-floating = ID 0 (master).
+   * Pins are configured as INPUT_PULLUP, so a floating pin reads HIGH and a
+   * grounded pin reads LOW. The raw 2-bit reading is inverted, so a grounded pin
+   * contributes a 1 and all-floating = ID 0 (master).
    *
    * A floating or cold-soldered strap reads HIGH, which inverts toward ID 0 —
    * silently promoting the board to a second master and driving the shared
