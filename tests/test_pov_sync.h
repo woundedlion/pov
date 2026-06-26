@@ -972,6 +972,46 @@ private:
   }
 };
 
+/**
+ * @brief Predicate: every board has gone live (boot join complete).
+ * @param s The simulation to inspect.
+ * @return True iff no board is still pre-live.
+ */
+inline bool all_boards_live(Sim &s) {
+  for (auto &b : s.boards)
+    if (!b.live)
+      return false;
+  return true;
+}
+
+/**
+ * @brief Runs the sim until every board has gone live (boot join complete).
+ * @param sim The simulation to advance.
+ * @param cfg The active config (supplies the join budget).
+ * @return True if all boards went live within the join budget.
+ */
+inline bool boot_join(Sim &sim, const Config &cfg) {
+  return sim.run_until(all_boards_live, double(cfg.join_grid_revs) + 2);
+}
+
+/**
+ * @brief Runs the sim to one revolution before the train start.
+ * @param sim The simulation to advance.
+ * @param cfg The active config (supplies the effect-length budget).
+ * @return True if the pre-train point was reached within budget.
+ * @details The master (ppm 0) crosses ZERO on exact rev multiples, so the
+ *          primary copy rides the crossing ≈ one rev from the moment this
+ *          predicate fires.
+ */
+inline bool to_pre_train(Sim &sim, const Config &cfg) {
+  return sim.run_until(
+      [](Sim &s) {
+        return s.boards[0].board.content().rev_in_effect >=
+               s.cfg.revs_per_effect - 1;
+      },
+      double(cfg.revs_per_effect) + 4);
+}
+
 // ── Scenario: clean 4-board run (boot join, phase, flips, wrap) ─────────────
 
 /**
@@ -1000,14 +1040,7 @@ inline void test_sim_boot_and_phase() {
 
   // Boot join: every board goes live at the SAME join-grid boundary with
   // identical effect and frame counter (no master head start).
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (!b.live)
-            return false;
-        return true;
-      },
-      double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
   for (int i = 0; i < 4; ++i) {
     HS_EXPECT_EQ(sim.boards[i].live_index, 0);
     // Swaps happen at each board's own crossing of the same boundary —
@@ -1058,14 +1091,7 @@ inline void test_sim_epoch_commit() {
   const int32_t ppm[4] = {0, 30, -25, 10};
   Sim sim(cfg, 4, ppm);
 
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (!b.live)
-            return false;
-        return true;
-      },
-      double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
 
   // Run to the train start. Through the announce phase (the first R revs of
   // the B+R+K countdown) every board keeps playing the outgoing effect…
@@ -1275,14 +1301,7 @@ inline void test_sim_drops_and_missed_epoch() {
   const uint64_t rev = 2ull * kPeriod;
 
   // Boot join first.
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (!b.live)
-            return false;
-        return true;
-      },
-      double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
 
   // Plain symbol drop: board 1 hears nothing for 2 revolutions — it coasts
   // on its crystal (telemetry max_coast) and silently re-snaps after.
@@ -1421,37 +1440,6 @@ inline void test_sim_epoch_repeat_lockstep() {
   const uint64_t rev = 2ull * kPeriod;
 
   /**
-   * @brief Runs the sim until every board has gone live (boot join complete).
-   * @param sim The simulation to advance.
-   * @return True if all boards went live within the join budget.
-   */
-  auto boot_join = [&cfg](Sim &sim) {
-    return sim.run_until(
-        [](Sim &s) {
-          for (auto &b : s.boards)
-            if (!b.live)
-              return false;
-          return true;
-        },
-        double(cfg.join_grid_revs) + 2);
-  };
-  /**
-   * @brief Runs the sim to one revolution before the train start.
-   * @param sim The simulation to advance.
-   * @return True if the pre-train point was reached within budget.
-   * @details The master (ppm 0) crosses ZERO on exact rev multiples, so the
-   *          primary copy rides the crossing ≈ one rev from the moment this
-   *          predicate fires.
-   */
-  auto to_pre_train = [&cfg](Sim &sim) {
-    return sim.run_until(
-        [](Sim &s) {
-          return s.boards[0].board.content().rev_in_effect >=
-                 s.cfg.revs_per_effect - 1;
-        },
-        double(cfg.revs_per_effect) + 4);
-  };
-  /**
    * @brief Predicate: all boards have committed to effect 1.
    * @param s The simulation to inspect.
    * @return True iff every board's live_index is 1.
@@ -1489,8 +1477,8 @@ inline void test_sim_epoch_repeat_lockstep() {
   {
     const int32_t ppm[4] = {0, 20, -20, 10};
     Sim sim(cfg, 4, ppm);
-    HS_EXPECT_TRUE(boot_join(sim));
-    HS_EXPECT_TRUE(to_pre_train(sim));
+    HS_EXPECT_TRUE(boot_join(sim, cfg));
+    HS_EXPECT_TRUE(to_pre_train(sim, cfg));
     sim.boards[2].drop_from = sim.g + rev - 4 * kCol;
     sim.boards[2].drop_to = sim.g + rev + rev / 4; // before the B+1 repeat
     HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
@@ -1503,8 +1491,8 @@ inline void test_sim_epoch_repeat_lockstep() {
   {
     const int32_t ppm[4] = {0, 15, -25, 30};
     Sim sim(cfg, 4, ppm);
-    HS_EXPECT_TRUE(boot_join(sim));
-    HS_EXPECT_TRUE(to_pre_train(sim));
+    HS_EXPECT_TRUE(boot_join(sim, cfg));
+    HS_EXPECT_TRUE(to_pre_train(sim, cfg));
     const uint64_t b0 = sim.g + rev;
     sim.boards[0].masks.push_back({b0 - kCol / 4, b0 + 2 * kCol});
     HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
@@ -1534,14 +1522,7 @@ inline void test_sim_rev_resync() {
   const int32_t ppm[4] = {0, 20, -20, 10};
   Sim sim(cfg, 4, ppm);
   const uint64_t rev = 2ull * kPeriod;
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (!b.live)
-            return false;
-        return true;
-      },
-      double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Settle past the boot beacons (revs 1–3), then slip board 3's counter
   // by +2: at the next train it would over-count j by 2 and commit 2
   // revolutions EARLY.
@@ -1617,14 +1598,7 @@ inline void test_sim_rev_wrap_within_effect() {
   Sim sim(cfg, 4, ppm);
 
   // Boot: all four boards live on effect 0.
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (!b.live)
-            return false;
-        return true;
-      },
-      double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
   for (int i = 0; i < 4; ++i)
     HS_EXPECT_EQ(sim.boards[i].live_index, 0);
 
@@ -1836,14 +1810,7 @@ inline void test_budget_emi_accepted_seam() {
   const Config cfg = test_config();
   const int32_t ppm[2] = {0, 20};
   Sim sim(cfg, 2, ppm);
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (!b.live)
-            return false;
-        return true;
-      },
-      double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
   sim.run_until([](Sim &s) { return s.board_pos(0) == 40; }, 1.1);
 
@@ -1886,14 +1853,7 @@ inline void test_budget_corrupted_timebase() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 20, -20, 10};
   Sim sim(cfg, 4, ppm);
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (!b.live)
-            return false;
-        return true;
-      },
-      double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Park at rev 10 (≡ 2 mod the beacon period) so the ACQUIRE window stays
   // clear of beacon trains: an isolated first digit could re-poison an
   // ACQUIRE board (the §9.1 forged-during-ACQUIRE sub-case) and double the
@@ -1957,14 +1917,7 @@ inline void test_budget_beacon_corruption() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 15, -20, 30};
   Sim sim(cfg, 4, ppm);
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (!b.live)
-            return false;
-        return true;
-      },
-      double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Master beacons ride rev ≡ 1 (mod 8); park at the rev-9 ZERO crossing.
   // The train starts when the master reaches x = W/4 = 72.
   HS_EXPECT_TRUE(sim.run_until(
@@ -2015,14 +1968,7 @@ inline void test_budget_wire_dead() {
   // Local clocks start ~30 revs below the 32-bit wrap: the wrap lands ~22
   // revs into the snap-free coast.
   Sim sim(cfg, 3, ppm, 0xFFFFFFFFull - 30ull * 2 * kPeriod + 999);
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) {
-        for (auto &b : s.boards)
-          if (!b.live)
-            return false;
-        return true;
-      },
-      double(cfg.join_grid_revs) + 2));
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
   // Cut the wire at a quiet point (mid-half, no beacon this rev) so no
   // burst is in flight: a half-received burst would register one truncated-
