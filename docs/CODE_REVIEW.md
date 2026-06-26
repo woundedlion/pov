@@ -74,7 +74,7 @@ Items are numbered sequentially and grouped by priority. Each cites `file:line`,
 
 #### Core engine
 
-12. **`core/filter.h:1402` — consistency.** `Pixel::ChromaticShift::plot` does `static_cast<int>(x)` (truncation) inside `fast_wrap`, while the base sink (`:162`) and `Screen::Blur` (`:1067`) use `std::round`, so the aberration lands one column off for sub-pixel/tiny-negative `x`. Fix: round to match the family.
+12. ✅ **`core/filter.h:1402` — consistency.** `Pixel::ChromaticShift::plot` does `static_cast<int>(x)` (truncation) inside `fast_wrap`, while the base sink (`:162`) and `Screen::Blur` (`:1067`) use `std::round`, so the aberration lands one column off for sub-pixel/tiny-negative `x`. Fix: round to match the family.
 13. **`core/animation.h:1747,1811,1863,2153` — robustness.** `MobiusFlow`, `MobiusWarp`, `MobiusWarpCircular`, and `Ripple` divide `t/duration` but omit the `HS_CHECK(duration >= 0)` guard that `Transition` (`:860`), `Mutation` (`:927`), and `Motion` (`:1267`) carry; since `AnimationBase` accepts the `-1` perpetual sentinel, `duration=-1` yields negative progress clamped to a silent freeze. Fix: add the guard (these effects are finite/looped, not perpetual).
 14. **`core/animation.h:2409-2434` vs `:2453-2477` — maintainability.** `add()` and `add_get(pin=false)` duplicate the type-erased manager lambda and `static_assert` pair. Fix: implement `add` in terms of `add_get`.
 15. **`core/color.h:231` — API footgun.** `Color4()` defaults to opaque black (`alpha = 1.0f`); used as an additive/SSAA accumulator it starts at the wrong identity and `operator+=` (`:287`) saturates alpha at 1.0. No in-scope caller relies on this. Fix: document the dual role, or provide a transparent-zero accumulator constant.
