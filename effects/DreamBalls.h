@@ -280,9 +280,11 @@ private:
     const int bake_slot = active_bake_;
     param_slots_[bake_slot] = params;
 
-    // Bind the warp magnitude to this sprite's slot so dragging "Warp" takes
-    // effect this frame while the active sprite renders, yet the outgoing sprite
-    // warps to its own frozen magnitude rather than the incoming preset's.
+    // Bind the warp magnitude to this spawn's scale so dragging "Warp" takes
+    // effect this frame. The transformer has a single slot, so a crossfade
+    // shares one warp across both sprites; the outgoing warp has relaxed to
+    // identity by the period boundary where the next sprite spawns, so the
+    // shared magnitude is unnoticeable.
     if (auto *warp = mobius_gen.spawn(0, param_slots_[bake_slot].warp_scale,
                                       period, false))
       warp->bind_scale(param_slots_[bake_slot].warp_scale);
