@@ -104,7 +104,7 @@ _None found._
 
 ### Low — Documentation & Consistency
 
-13. `core/util.h:27,54` — The `wrap(T,U)` doc says `m <= 0` yields "NaN/garbage", but the `fmax(m, min())` floor actually produces a silent tiny-positive modulus (≈0) under `NDEBUG`. Fix the comment to match behavior (the debug `assert(m > 0)` already covers dev builds).
+13. ✅ `core/util.h:27,54` — The `wrap(T,U)` doc says `m <= 0` yields "NaN/garbage", but the `fmax(m, min())` floor actually produces a silent tiny-positive modulus (≈0) under `NDEBUG`. Fix the comment to match behavior (the debug `assert(m > 0)` already covers dev builds).
 14. `effects/GSReactionDiffusion.h:210-211` — The comment claims `interpolate_b`'s weight guard prevents a 0/0 NaN from reaching `palette.get()`, but the actual NaN cull (`b < B_CULL_THRESHOLD`) lives in `render()`. The guard is correct (returns 0 before dividing); only the comment misattributes the filter location.
 15. `core/effects.h:48` — `HS_EFFECT_LIST` (X-macro) and the `#include` list are two hand-maintained lists; a forgotten `X()` row only *silently* drops native smoke coverage (the anti-drift `static_assert` exists only on the WASM `HS_EFFECT_COUNT` path). Add a registry-size check to the native test harness.
 16. `effects/SphericalHarmonics.h:103,232,320` — Magic literals `6` (seed mode) and `24` (`rand_int(1,24)`) implicitly couple to "modes through l=4" with no named constant or `static_assert`; widening one without the other silently changes the visual range.
