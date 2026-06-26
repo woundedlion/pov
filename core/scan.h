@@ -158,7 +158,8 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   using NormBuf =
       StaticCircularBuffer<std::pair<float, float>, 4 * SDF::kIntervalSpanCap>;
   static_assert(IntervalBuf::kCapacity == SDF::MergedIntervalBuffer::kCapacity,
-                "scan_region intervals must hold a single Union's full emission");
+                "scan_region intervals must hold the largest top-level CSG "
+                "emission (Subtract/Intersection: |A|+|B|+2)");
   static_assert(NormBuf::kCapacity == 2 * IntervalBuf::kCapacity,
                 "norm must hold 2 spans per input interval (seam split)");
   auto &intervals = *new (scratch_arena_b.allocate(
