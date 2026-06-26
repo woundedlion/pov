@@ -106,7 +106,7 @@ Items are numbered sequentially and grouped by priority. Each cites `file:line`,
 35. ✅ **`README.md:1864` — wasm doc.** `setParameter(...)` is documented as returning `false` only "on an unknown name," but the implementation returns `false` for four cases (no effect, unknown name, readonly, non-finite). Fix: broaden to "if the write was not applied."
 36. ✅ **`reaction_graph.h:62` / `README.md:199` — units.** "90 KB" is correctly 90 *KiB* (92,160 bytes); decimal-KB shorthand. Cosmetic; align units if desired.
 37. ✅ **`conway.h:248,367` — framing.** `transform` and `normalize` live in `conway.h` and the Conway table but are not Conway operators. Fix: a one-line note or relocation for the next reader.
-38. **`.github/workflows/docs.yml:2` — stale URL.** Comment references `woundedlion.github.io/pov/` (old repo name) rather than the Holosphere Pages URL. Cosmetic.
+38. ✅ **`.github/workflows/docs.yml:2` — stale URL.** Comment references `woundedlion.github.io/pov/` (old repo name) rather than the Holosphere Pages URL. Cosmetic. **Non-issue:** the GitHub remote is `github.com/woundedlion/pov`, so Pages serves at `woundedlion.github.io/pov/` — the comment (and the matching `README.md:5` Doxygen link) are accurate. The local-directory rename to Holosphere did not rename the remote repo, so no change.
 
 #### Tests & build
 
