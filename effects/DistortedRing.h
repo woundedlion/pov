@@ -91,12 +91,12 @@ public:
   void drawFn(Canvas &canvas, float opacity) {
     int nRings = static_cast<int>(params.num_rings);
 
+    auto shiftFn = [this](float t) {
+      return sin_wave(-amplitude, amplitude, 4.0f, 0.0f)(t);
+    };
+
     for (int i = 0; i < nRings; ++i) {
       float radius = 2.0f / (nRings + 1) * (i + 1);
-      auto shiftFn = [this](float t) {
-        return sin_wave(-amplitude, amplitude, 4.0f, 0.0f)(t);
-      };
-
       Basis basis = make_basis(orientation.get(), normal);
       auto fragment_shader = [&](const Vector &, Fragment &f) {
         // f.v0 = normalized azimuth (0..1), f.v1 = distance from center line,
