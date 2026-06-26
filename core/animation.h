@@ -1291,12 +1291,13 @@ public:
 
   /**
    * @brief Live-updates the traversal duration (frames per path loop).
-   * @param frames New duration in frames; 0 is clamped to 1.
+   * @param frames New duration in frames; any value below 1 is clamped to 1.
    * @details Guards against 0 (which would divide-by-zero in step()'s
-   * `t / duration`), matching the base ctor's `duration == 0 ? 1` rule that
-   * this direct write would bypass.
+   * `t / duration`) and negatives (which would walk the path backward),
+   * matching PeriodicTimer::set_period's `frames < 1 ? 1` floor that this
+   * direct write would otherwise bypass.
    */
-  void set_duration(int frames) { this->duration = (frames == 0 ? 1 : frames); }
+  void set_duration(int frames) { this->duration = (frames < 1 ? 1 : frames); }
 
   /**
    * @brief Discards the carried baseline frame so the next step re-seeds it from
