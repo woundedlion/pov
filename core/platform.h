@@ -674,9 +674,10 @@ inline uint8_t random8() { return hs::random()() % 256; }
  * @brief Returns a pseudo-random 8-bit value below a limit (FastLED random8).
  * @param top Exclusive upper bound.
  * @return A value in [0, top), or 0 when top == 0.
- * @details FastLED's random8(lim) is a scaled multiply ((r*lim)>>8), so
- *          random8(0)==0 on the device; the host modulo would SIGFPE, so guard
- *          to match rather than crash.
+ * @details Host modulo, not the device's scaled multiply ((r*lim)>>8): like the
+ *          other FastLED mocks here this is legacy-only and not bit-faithful (see
+ *          the note above). The top==0 guard returns 0 to match the device's
+ *          scaled form (which yields 0) and to avoid the host modulo's SIGFPE.
  */
 inline uint8_t random8(uint8_t top) {
   if (top == 0) return 0;
