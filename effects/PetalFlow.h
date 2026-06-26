@@ -105,6 +105,7 @@ private:
 
   Ring rings[MAX_RINGS];          /**< Fixed pool of ring slots, active or free. */
   float gap_accumulator = 0.0f;   /**< Accumulated path travel awaiting the next spawn, in rho units. */
+  float next_hue = 0.0f;          /**< Per-instance hue cursor, advanced per spawn; reset in init() so hue assignment stays deterministic for the fixed-seed segmented driver. */
 
   ProceduralPalette palette;      /**< Color palette sampled by ring hue. */
   Orientation<> orientation;      /**< Shared orientation driven by the timeline rotation. */
@@ -156,13 +157,6 @@ private:
       spawn_ring_at_pos(START_RHO + gap_accumulator);
     }
   }
-
-  /**
-   * @brief Per-instance hue cursor, advanced per spawn.
-   * @details Reset in init() so hue assignment stays deterministic for the
-   * fixed-seed segmented driver.
-   */
-  float next_hue = 0.0f;
 
   /**
    * @brief Claims the first inactive ring slot and initializes it.
