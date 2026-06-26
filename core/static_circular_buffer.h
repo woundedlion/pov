@@ -366,14 +366,18 @@ private:
    * @param idx Slot index in [0, N) whose object is replaced.
    * @param args Arguments forwarded to T's constructor.
    * @return Reference to the newly constructed element.
-   * @details Every std::array slot is a live object for the buffer's lifetime,
-   * so the existing object's lifetime is ended and the new value is constructed
-   * directly in its storage. Unlike `buffer[idx] = T(args...)` this builds no
-   * temporary and requires only that T be constructible from Args, not
+   * @details The existing object's lifetime is ended and the new value is
+   * constructed directly in its storage. Unlike `buffer[idx] = T(args...)` this
+   * builds no temporary and requires only that T be constructible from Args, not
    * assignable. The placement-new result is passed through std::launder so the
    * returned reference is valid even for a T that is not transparently
    * replaceable (e.g. one with const/reference members), where reusing the prior
    * object's address is otherwise UB.
+   * @warning The old object is destroyed before the new one is constructed, so a
+   * throwing constructor leaves the slot holding no live object. The emplace
+   * callers keep the size invariant intact in that case, but the slot must not be
+   * read or re-destroyed until a later construct succeeds; supply a T whose
+   * constructor does not throw to keep every slot continuously live.
    */
   template <typename... Args>
   T &construct_in_place(uint32_t idx, Args &&...args) {
