@@ -267,10 +267,17 @@ inline void test_ctor_spin_waits_for_buffer_free() {
   // the assertions run on the main thread after join().
   std::atomic<bool> ctor_blocked_when_checked{false};
 
+  const unsigned long spins_before = Canvas::buffer_free_spin_count();
   std::thread display_isr([&] {
-    // Let the main thread enter the spin, then confirm the ctor is still
-    // blocked before consuming the frame.
-    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+    // Wait until the ctor is observably spinning on buffer_free() before freeing
+    // the buffer, so the release is gated on real progress rather than a fixed
+    // sleep a loaded CI host could outrun. Observing a spin iteration proves the
+    // ctor is in the wait loop and has not yet returned. The ctor_returned exit
+    // keeps a broken/inverted gate (ctor returns without spinning) from hanging
+    // here: it falls through and the assertions below fail loudly instead.
+    while (Canvas::buffer_free_spin_count() == spins_before &&
+           !ctor_returned.load(std::memory_order_acquire))
+      std::this_thread::yield();
     ctor_blocked_when_checked.store(
         !ctor_returned.load(std::memory_order_acquire),
         std::memory_order_relaxed);
