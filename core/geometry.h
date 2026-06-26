@@ -483,10 +483,10 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  *   caller that indexes a row buffer with `(int)y` must clamp or floor first.
  */
 template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
   float theta = fast_atan2(v.z, v.x);
   float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
-  PixelCoords p({wrap((theta * W) / (2 * PI_F), W), phi_to_y(phi, H_VIRT)});
+  // phi_to_y<H> derives H_VIRT internally, mirroring pixel_to_vector's y_to_phi<H>.
+  PixelCoords p({wrap((theta * W) / (2 * PI_F), W), phi_to_y<H>(phi)});
   return p;
 }
 
