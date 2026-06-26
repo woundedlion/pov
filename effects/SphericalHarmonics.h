@@ -229,7 +229,7 @@ public:
 
     baked_palette.bake(persistent_arena, Palettes::richSunset);
 
-    current_idx = 6;
+    current_idx = SEED_MODE_IDX;
 
     Vector axis = Vector(0.5f, 1.0f, 0.2f).normalized();
     timeline.add(0, Animation::Rotation<W>(orientation, axis, 2 * PI_F * 100,
@@ -317,7 +317,7 @@ private:
     // Re-roll on a match with current_idx: blending a basis function into
     // itself would freeze the sphere for the whole transition.
     do {
-      next_idx = hs::rand_int(1, 24);
+      next_idx = hs::rand_int(1, MAX_MODE_IDX);
     } while (next_idx == current_idx);
 
     timeline.add(
@@ -341,6 +341,18 @@ private:
   Timeline timeline;          /**< Drives spin and morph animations. */
   Pipeline<W, H> filters;     /**< Post-process filter pipeline. */
   BakedPalette baked_palette; /**< Precomputed color LUT for the shader. */
+
+  // Highest harmonic degree the morph visits. Modes are flat-indexed
+  // idx = l*l + l + m, so degrees [0, MAX_DEGREE] occupy idx [0, MAX_MODE_IDX].
+  // The seed and the roll bound below derive from MAX_DEGREE so they cannot
+  // drift from it (widen MAX_DEGREE alone to extend the visual range).
+  static constexpr int MAX_DEGREE = 4;
+  // Top flat index over those degrees: idx peaks at l = MAX_DEGREE, m = +MAX_DEGREE.
+  static constexpr int MAX_MODE_IDX = (MAX_DEGREE + 1) * (MAX_DEGREE + 1) - 1; // 24
+  // Initial mode (l=2, m=0); the constant mode (idx 0) is excluded from the roll.
+  static constexpr int SEED_MODE_IDX = 6;
+  static_assert(SEED_MODE_IDX > 0 && SEED_MODE_IDX <= MAX_MODE_IDX,
+                "seed mode must be a valid, non-constant harmonic index");
 
   int current_idx = 0;        /**< Flat index of the currently displayed mode. */
   int next_idx = 0;           /**< Flat index of the mode being morphed toward. */
