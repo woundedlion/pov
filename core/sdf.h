@@ -31,9 +31,6 @@ static constexpr float INTERVAL_DENOM_EPS = 1e-6f;
 static constexpr float POLE_SAFE_MARGIN = 0.05f;
 /** Inner/outer radius ratio for star shapes (1/φ² ≈ 0.382). */
 static constexpr float STAR_INNER_RATIO = 0.382f;
-/** Vertex phi-span threshold below which Face uses the fast vertex-only
- *  bounding path instead of the full arc-extrema computation. */
-static constexpr float FAST_BOUNDS_PHI_THRESHOLD = 0.3f;
 /** Minimum inradius-to-circumradius ratio used to floor Face::size,
  *  preventing degenerate near-zero inradii from collapsing AA. */
 static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
@@ -1612,9 +1609,7 @@ struct Face {
 
     // Early vertical exit: a face whose latitude band (plus thickness margin)
     // maps to an empty row range can never be rasterized.
-    float min_phi_check, max_phi_check;
-    if (compute_phi_extent(vertices, indices, h_virt, height, min_phi_check,
-                           max_phi_check)) {
+    if (compute_phi_extent(vertices, indices, h_virt, height)) {
       y_min = 1;
       y_max = 0;
       return;
@@ -1627,18 +1622,12 @@ struct Face {
     setup_frame_and_polygon(vertices, indices, scratch);
     compute_inradius(scratch);
 
-    // Vertical bounds: large faces need the full arc-extrema + pole analysis;
-    // small faces use the cheaper vertex-only phi span.
-    int planes_count = 0;
-    if (max_phi_check - min_phi_check < FAST_BOUNDS_PHI_THRESHOLD) {
-      compute_fast_bounds(scratch, vertices, indices, count, thickness,
-                          min_phi_check, max_phi_check, h_virt, height, y_min,
-                          y_max);
-    } else {
-      planes_count =
-          compute_full_bounds(scratch, vertices, indices, count, center,
-                              thickness, h_virt, height, y_min, y_max);
-    }
+    // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
+    // span misses the great-circle edge bulge toward a pole, leaving near-pole
+    // faces with unscanned rows; the arc-extrema path covers them.
+    int planes_count =
+        compute_full_bounds(scratch, vertices, indices, count, center,
+                            thickness, h_virt, height, y_min, y_max);
 
     edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
     edge_lengths_sq = std::span<float>(scratch.edge_lengths_sq.data(), count);
@@ -1663,15 +1652,13 @@ struct Face {
    * @param indices Indices selecting this face's vertices.
    * @param h_virt Virtual row count (height plus pole offset).
    * @param height Canvas height in rows.
-   * @param min_phi_check Output: minimum polar angle of the face (radians).
-   * @param max_phi_check Output: maximum polar angle of the face (radians).
    * @return True when the phi extent plus thickness margin maps to an empty
-   *         canvas-row range; the raw phi extent is always written out for reuse.
+   *         canvas-row range.
    */
   __attribute__((always_inline)) bool
   compute_phi_extent(std::span<const Vector> vertices,
-                     std::span<const uint16_t> indices, int h_virt, int height,
-                     float &min_phi_check, float &max_phi_check) const {
+                     std::span<const uint16_t> indices, int h_virt,
+                     int height) const {
     float min_y_val = 2.0f;
     float max_y_val = -2.0f;
 
@@ -1683,8 +1670,8 @@ struct Face {
         max_y_val = y;
     }
 
-    min_phi_check = fast_acos(hs::clamp(max_y_val, -1.0f, 1.0f));
-    max_phi_check = fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
+    float min_phi_check = fast_acos(hs::clamp(max_y_val, -1.0f, 1.0f));
+    float max_phi_check = fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
     float margin_check = thickness + BOUNDS_MARGIN;
 
     Bounds rows = phi_bounds_to_rows(min_phi_check - margin_check,
@@ -1970,47 +1957,6 @@ struct Face {
         full_width = true;
       }
     }
-  }
-
-  /**
-   * @brief Fast-path vertical bounds using vertex-based phi for small faces.
-   * @param scratch Scratch storage receiving edge data and thetas.
-   * @param vertices Shared vertex pool.
-   * @param indices Indices selecting this face's vertices.
-   * @param count Vertex/edge count.
-   * @param thickness Edge half-width (radians).
-   * @param min_phi_check Minimum face polar angle (radians).
-   * @param max_phi_check Maximum face polar angle (radians).
-   * @param h_virt Virtual row count (height plus pole offset).
-   * @param height Canvas height in rows.
-   * @param y_min_out Output: first covered row.
-   * @param y_max_out Output: last covered row.
-   */
-  static void compute_fast_bounds(FaceScratchBuffer &scratch,
-                                  std::span<const Vector> vertices,
-                                  std::span<const uint16_t> indices, int count,
-                                  float thickness, float min_phi_check,
-                                  float max_phi_check, int h_virt, int height,
-                                  int &y_min_out, int &y_max_out) {
-    for (int i = 0; i < count; ++i) {
-      Vector edge = scratch.poly_2d[(i + 1) % count] - scratch.poly_2d[i];
-      scratch.edge_vectors[i] = edge;
-      float edge_len_sq = dot(edge, edge);
-      scratch.edge_lengths_sq[i] = edge_len_sq;
-      scratch.inv_edge_lengths_sq[i] =
-          (edge_len_sq > 1e-12f) ? (1.0f / edge_len_sq) : 0.0f;
-      scratch.inv_edge_j[i] =
-          (std::abs(edge.y) > 1e-12f) ? (1.0f / edge.y) : 0.0f;
-      float theta = fast_atan2(vertices[indices[i]].z, vertices[indices[i]].x);
-      if (theta < 0)
-        theta += 2 * PI_F;
-      scratch.thetas[i] = theta;
-    }
-    float margin = thickness + BOUNDS_MARGIN;
-    Bounds rows = phi_bounds_to_rows(min_phi_check - margin,
-                                     max_phi_check + margin, h_virt, height);
-    y_min_out = rows.y_min;
-    y_max_out = rows.y_max;
   }
 
   /**
