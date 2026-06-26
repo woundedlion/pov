@@ -143,7 +143,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 46. ✅ **Two-probe trap-shape agreement can falsely classify under a forked shell if `cs[1]` does not trap** — `tests/test_death.h` @ 974–985 · *Testing*. **Fix:** use a dedicated always-trapping sentinel for shape detection and still run `cs[0]`/`cs[1]` through the normal per-case loop.
 47. ✅ **`check_tiling` allocates a `w*ROWS` cover grid but only touches two columns, masking out-of-range `x_col` writes** — `tests/test_pov_segmented.h` @ 51–90 · *Testing*. **Fix:** guard the write `if (x_col < 0 || x_col >= w) continue;` after the `HS_EXPECT`.
 48. ✅ **Redundant `global_timeline_t` reset obscures the canonical reset path** ▹ — `tests/test_param_marshal.h` @ 47–49/122–124/165–167 (also `perf_bench.cpp:27`, `arena_measure.cpp:29`) · *Style*. **Fix:** use `reset_globals()`; drop the redundant `global_timeline_t = 0`.
-49. **Large boot-join / pre-train predicate lambdas duplicated across `pov_sync` scenarios** — `tests/test_pov_sync.h` @ multiple (e.g. 992–999, 1061–1068, 1839–1846) · *Maintainability*. **Fix:** promote the `boot_join`/`to_pre_train` helpers to file scope and reuse across scenarios.
+49. ✅ **Large boot-join / pre-train predicate lambdas duplicated across `pov_sync` scenarios** — `tests/test_pov_sync.h` @ multiple (e.g. 992–999, 1061–1068, 1839–1846) · *Maintainability*. **Fix:** promote the `boot_join`/`to_pre_train` helpers to file scope and reuse across scenarios.
 
 #### scripts & Python tooling
 
