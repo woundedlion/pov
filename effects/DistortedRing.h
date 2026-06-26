@@ -47,6 +47,8 @@ public:
     const float px = 2.0f * PI_F / W;
     params.thickness = 4.0f * px;
 
+    ringBaked.bake(persistent_arena, ringPalette);
+
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("MaxAmplitude", &params.max_amplitude, 0.0f, 2.0f);
     registerParam("Thickness", &params.thickness, 2.0f * px, 12.0f * px);
@@ -101,7 +103,7 @@ public:
       auto fragment_shader = [&](const Vector &, Fragment &f) {
         // f.v0 = normalized azimuth (0..1), f.v1 = distance from center line,
         // f.size = thickness.
-        f.color = ringPalette.get(f.v0);
+        f.color = ringBaked.get(f.v0);
 
         float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
         float falloff = quintic_kernel(1.0f - norm_dist);
@@ -135,6 +137,7 @@ private:
   float amplitude = 0;
 
   GenerativePalette ringPalette;
+  BakedPalette ringBaked;
   Vector normal;
   Orientation<> orientation;
   Animation::Mutation amplitude_mut;
