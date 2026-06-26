@@ -55,6 +55,8 @@ inline void check_tiling(int S, int N, int w, int x) {
     const SegmentMap m = segment_map(seg, S, N);
     const int x_col = segment_x_col(m.arm_b, x, w);
     HS_EXPECT_TRUE(x_col >= 0 && x_col < w);
+    if (x_col < 0 || x_col >= w)
+      continue; // keep an out-of-range column out of the cover grid
 
     for (int i = 0; i < PPS; ++i) {
       const int y = segment_y(m, i);
