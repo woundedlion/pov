@@ -86,9 +86,6 @@ public:
       site.pos = rotate(site.pos, q).normalized();
     }
 
-    if (sites_buffer.size() == 0)
-      return;
-
     // Build a KD-tree over the moving site positions once per frame. On the unit
     // sphere nearest-by-Euclidean == nearest-by-max-dot (|p-s|^2 = 2 - 2*p*s),
     // so the k=2 query is exact.
