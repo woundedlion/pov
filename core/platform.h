@@ -947,13 +947,17 @@ namespace hs {
  *          source would let an NTP step or manual clock change make millis()
  *          jump or go backward, so the unsigned `now - last` in EVERY_N_MILLIS
  *          wraps huge and the beat/beatsin phases jump. The device millis() is
- *          monotonic; the simulator must match.
+ *          monotonic; the simulator must match. The count is narrowed through
+ *          uint32_t so it wraps at 2^32 ms (~49 days) on every host, matching
+ *          the device's 32-bit return rather than wrapping at a host-bitness-
+ *          dependent point (never on LP64).
  */
 inline unsigned long millis() {
   if (use_mock_time) return mock_millis_value;
   using namespace std::chrono;
-  return duration_cast<milliseconds>(steady_clock::now().time_since_epoch())
-      .count();
+  return static_cast<uint32_t>(
+      duration_cast<milliseconds>(steady_clock::now().time_since_epoch())
+          .count());
 }
 
 /**
@@ -994,12 +998,15 @@ private:
 /**
  * @brief Returns microseconds since an arbitrary epoch (host micros()).
  * @return Monotonic microsecond count, or the injected mock time when enabled.
+ * @details Narrowed through uint32_t so it wraps at 2^32 us (~71 min) on every
+ *          host, matching the device's 32-bit return instead of a host-bitness-
+ *          dependent wrap point.
  */
 inline unsigned long micros() {
   if (use_mock_time) return mock_micros_value;
   using namespace std::chrono;
-  return (unsigned long)duration_cast<microseconds>(
-      steady_clock::now().time_since_epoch()).count();
+  return static_cast<uint32_t>(duration_cast<microseconds>(
+      steady_clock::now().time_since_epoch()).count());
 }
 /** @brief Disables interrupts (no-op on host). */
 inline void disable_interrupts() {}
