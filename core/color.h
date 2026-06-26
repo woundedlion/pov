@@ -1045,7 +1045,7 @@ public:
                     int manual_seed = -1)
       : gradient_shape(gradient_shape) {
     uint8_t palette_hue;
-    if (manual_seed != -1) {
+    if (manual_seed >= 0) {
       palette_hue = static_cast<uint8_t>(manual_seed);
     } else {
       palette_hue = g_hue_seed;
