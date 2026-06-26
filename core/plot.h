@@ -644,9 +644,6 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     float scale = total_dist / sim_dist;
     bool omitLast = (close_loop) ? true : !isLastSegment;
 
-    if (omitLast && steps_cache.is_empty())
-      return;
-
     // 2. DRAWING PHASE
     //
     // sample()'s pos builds interpolated points with fast_sinf/fast_cosf,
@@ -675,7 +672,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       float step = steps_cache[j] * scale;
       current_dist += step;
 
-      float t = (total_dist > 0.0f) ? (current_dist / total_dist) : 1.0f;
+      // total_dist > 0 here: HS_CHECK(sim_dist > 0) above implies >=1 sim step,
+      // which the loop only takes while sim_dist < total_dist.
+      float t = current_dist / total_dist;
 
       // `t` (hence the drawn POSITION) is parameterized by the RENDERED arc
       // length. The registers are lerped from the control points; under a planar
