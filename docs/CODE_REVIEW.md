@@ -78,7 +78,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 4. ✅ **Animated GUI sliders freeze in segmented mode.** `daydream/daydream.js` ~486–510: the segmented `drawFrame` path calls only `segments.tick()` and never steps `host.engine`, yet `syncGUI()` reads `host.engine.getParamValues()` — so animation-driven sliders read static values from the un-stepped main engine while the worker-rendered sphere animates. Fix: source GUI param values from segment 0's worker in segmented mode, or annotate the controls as worker-driven.
 
-5. **`setEffect` failure path leaves stale strobe-column mode.** `daydream/daydream.js` ~234–241: on `host.engine.setEffect(...) === false` the function returns early without calling `daydream.setStrobeColumns(...)`, so the previous effect's column-fill mode persists. Fix: set the strobe/round-dot mode on the failure branch too.
+5. ✅ **`setEffect` failure path leaves stale strobe-column mode.** `daydream/daydream.js` ~234–241: on `host.engine.setEffect(...) === false` the function returns early without calling `daydream.setStrobeColumns(...)`, so the previous effect's column-fill mode persists. Fix: set the strobe/round-dot mode on the failure branch too.
 
 ### Priority 2 — Concurrency, latent safety, and documentation defects
 
