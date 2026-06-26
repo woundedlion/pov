@@ -932,7 +932,7 @@ inline uint8_t triwave8(uint8_t in) {
  * @brief Executes the guarded block at most once every N seconds.
  * @param N Interval in seconds.
  */
-#define EVERY_N_SECONDS(N) EVERY_N_MILLIS((N) * 1000)
+#define EVERY_N_SECONDS(N) EVERY_N_MILLIS((N) * 1000UL)
 /**
  * @brief Executes the guarded block at most once every N milliseconds (alias).
  * @param N Interval in milliseconds.
