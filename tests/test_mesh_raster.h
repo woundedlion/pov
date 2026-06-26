@@ -334,11 +334,11 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   const size_t fill_lit = count_lit<W, H>(fx);
   HS_EXPECT_GT(fill_lit, wire_lit * 4);
 
-  // A closed convex solid tiles the whole sphere, so the fill leaves essentially
-  // no holes. The thin slack covers seam pixels exactly on a geodesic boundary
-  // between two faces (a pixel center can miss both under the non-AA fill rule).
+  // A closed convex solid tiles the whole sphere: every pixel center lands in
+  // some face, so the fill covers the canvas with no holes. Any dark pixel is an
+  // edge hole or a clipping artifact.
   const size_t total = static_cast<size_t>(W) * H;
-  HS_EXPECT_GT(fill_lit, total * 99 / 100);
+  HS_EXPECT_EQ(fill_lit, total);
 }
 
 /**
