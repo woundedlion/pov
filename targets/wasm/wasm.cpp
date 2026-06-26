@@ -73,13 +73,13 @@ static_assert(MAX_PARAMS ==
 // 16 MB; the block lives for the module's lifetime (reset via clearToolingMemory).
 static constexpr size_t kToolingArenaBytes = 8 * 1024 * 1024;
 static constexpr size_t kToolingScratchBytes = 4 * 1024 * 1024;
-Arena tooling_arena(nullptr, 0);
+static Arena tooling_arena(nullptr, 0);
 // Transient single-op scratch, shared module-globally. Every MeshOps entry
 // point reset()s both at its head; valid only within one synchronous call. A
 // ToolingOpGuard at each entry traps any re-entrant or interleaved use (e.g. a
 // future worker or async refactor) before it can alias this scratch.
-Arena tooling_scratch_a(nullptr, 0);
-Arena tooling_scratch_b(nullptr, 0);
+static Arena tooling_scratch_a(nullptr, 0);
+static Arena tooling_scratch_b(nullptr, 0);
 
 // Bumped on every clearToolingMemory(). Each wrapper records the generation it
 // was built under and traps via check_live() if a wipe reclaimed its storage.
