@@ -137,7 +137,7 @@ _None found._
 34. ✅ `daydream/geometry.js:35` — `pixelToSpherical` hard-codes the `H_OFFSET == 0` simulator assumption (acknowledged in-comment); it is an unenforced cross-repo invariant that a future device-parity mode would silently violate.
 35. ✅ `core/animation.h:350-355` — Perpetual animations (`duration == -1`) increment a signed `int` frame counter forever; `t++` is signed-overflow UB past ~2³¹ frames. Documented as an accepted limit ("restart before then"); consider an unsigned counter for defensiveness.
 36. ✅ `hardware/pov_single.h:116` — `duration * 1000` (`unsigned long`) overflows only past ~49.7 days; unreachable in practice, but add a guard for symmetry with the segmented driver's `run_show`.
-37. `hardware/pov_single.h:171,180` — The single-board DMA path discards `submitFrame()`'s result, giving a weaker overrun watchdog than the segmented driver. Acceptable given the ~1.3 ms single-board column period (an overrun is realistically impossible), but the asymmetry is undocumented here.
+37. ✅ `hardware/pov_single.h:171,180` — The single-board DMA path discards `submitFrame()`'s result, giving a weaker overrun watchdog than the segmented driver. Acceptable given the ~1.3 ms single-board column period (an overrun is realistically impossible), but the asymmetry is undocumented here.
 38. `tests/test_memory.h:209,572` — The ArenaVector stale-binding and generation-bump (use-after-reset) contract tests are `#ifndef NDEBUG`-gated. They *do* run under the canonical Debug `tests` preset, so this is not a live gap; note it only because a non-canonical Release/NDEBUG test build would skip the only automated cover for those contracts.
 
 ---

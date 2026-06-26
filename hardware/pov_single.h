@@ -173,6 +173,10 @@ private:
       frame.packPixel(pov::strip_bottom_led(y, S),
           slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
+    // submitFrame()'s overrun result is intentionally discarded here: at the
+    // single-board column period (~1.3 ms) a DMA overrun is realistically
+    // impossible, so this path runs without the overrun watchdog the segmented
+    // driver keeps (it tracks getOverrunCount()).
     (void)ledController_.submitFrame(effect_->strobe_columns());
 #else
     for (int y = 0; y < S / 2; ++y) {
