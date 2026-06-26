@@ -159,7 +159,8 @@ def region_totals_from_size_a(text: str) -> dict[str, int]:
             continue
         if addr == 0 and size == 0:
             continue
-        totals[region_for_address(addr)] = totals.get(region_for_address(addr), 0) + size
+        r = region_for_address(addr)
+        totals[r] = totals.get(r, 0) + size
     return totals
 
 
