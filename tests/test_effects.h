@@ -731,7 +731,7 @@ struct DreamBallsWhiteBox {
   static void spawn(DB &db, int idx) { db.spawn_sprite(idx); }
   // The literal solid-name pointer the given preset seeds into params on reseed.
   static const char *preset_name(const DB &db, int idx) {
-    return db.preset_manager.entries[idx].params.solid_name;
+    return db.preset_manager.get_entries()[idx].params.solid_name;
   }
 };
 

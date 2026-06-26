@@ -80,7 +80,7 @@ public:
    * tunable params, and schedules the noise/walk/preset/shape timers.
    */
   void init() override {
-    for (auto &e : presets.entries) {
+    for (auto &e : presets.get_entries()) {
       e.params.noise = &noise_params;
     }
 
