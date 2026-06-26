@@ -404,7 +404,7 @@ struct Quaternion {
    * @brief Copy constructor.
    * @param q The quaternion to copy.
    */
-  constexpr Quaternion(const Quaternion &q) : r(q.r), v(q.v) {}
+  constexpr Quaternion(const Quaternion &q) = default;
   /**
    * @brief Constructs a quaternion with explicit components.
    * @param a Real component (r).
@@ -426,11 +426,7 @@ struct Quaternion {
    * @param q The quaternion to assign from.
    * @return Reference to the current object.
    */
-  Quaternion &operator=(const Quaternion &q) {
-    r = q.r;
-    v = q.v;
-    return *this;
-  }
+  Quaternion &operator=(const Quaternion &q) = default;
 
   /**
    * @brief Equality comparison using tolerance.
