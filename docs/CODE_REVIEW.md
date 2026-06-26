@@ -86,7 +86,7 @@ Items are numbered sequentially 1–73 across all priority sections, ordered by 
 
 5. **`fast_atan2` doc says it returns 0 at the origin but returns ~π/2** — `core/3dmath.h` @ 321–341 (comment 322) · *Documentation*. **Fix:** correct the comment to state the bias only prevents a NaN; if a defined 0 is wanted, special-case `abs_x==0 && |y|<=1e-10`.
 6. ✅ **`Quaternion` copy ctor/assignment hand-written for no functional reason, defeating trivial copyability** — `core/3dmath.h` @ line 407, 429–433 · *Style*. **Fix:** replace both with `= default` to match `Vector`.
-7. **Inconsistent sqrt precision: `std::sqrt` (double) vs `sqrtf`** ▹ — `core/3dmath.h` @ `quaternion_from_basis` 1116/1122/1128/1134 · *Style*. **Fix:** use `sqrtf` for consistency with the rest of the file.
+7. ✅ **Inconsistent sqrt precision: `std::sqrt` (double) vs `sqrtf`** ▹ — `core/3dmath.h` @ `quaternion_from_basis` 1116/1122/1128/1134 · *Style*. **Fix:** use `sqrtf` for consistency with the rest of the file.
 8. **`slerp(Vector)` and `slerp(Quaternion)` use different trig backends without note** — `core/3dmath.h` @ 1195–1212 vs 1222–1249 · *Style*. **Fix:** add a one-line comment on each stating why fast-vs-exact trig is intentional, so the divergence is on-record.
 9. **`StaticCircularBuffer::clear()` is O(n) where O(1) suffices** — `core/static_circular_buffer.h` @ 204–210 · *Performance*. **Fix:** `head = tail = count = 0;` (no destructors are being skipped).
 10. **`construct_in_place` leaves a destroyed slot if `T`'s ctor throws** ▹ — `core/static_circular_buffer.h` @ 381–387 · *Memory safety*. **Fix:** add `static_assert(std::is_nothrow_constructible_v<T, Args&&...>)` (mirroring `inplace_function`) or narrow the docstring claim.
