@@ -15,16 +15,14 @@
 
 #include "effects.h"
 #include "memory.h"
+#include "tests/test_fixture.h"
 
 namespace {
 constexpr int W = 288, H = 144;
 constexpr int kFrames = 60, kWarm = 10;
 
 template <typename Effect> double bench(const char *name) {
-  hs::random().seed(1337u);
-  configure_arenas_default();
-  Timeline().clear();
-  global_timeline_t = 0;
+  hs_test::reset_globals();
   Effect effect;
   effect.init();
   for (int i = 0; i < kWarm; ++i) {
