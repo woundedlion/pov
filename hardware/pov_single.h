@@ -113,6 +113,11 @@ private:
     // Unsigned start + (millis() - start) stays correct across the millis()
     // wraparound; a signed start would mis-compare on overflow.
     const unsigned long start = millis();
+    // duration * 1000 must fit in unsigned long; trap the overflow for symmetry
+    // with the segmented driver's invariant checks (unreachable in practice —
+    // past ~49.7 days on a 32-bit millis() clock).
+    HS_CHECK(duration <= ~0UL / 1000UL,
+             "show duration too long (duration*1000 ms overflows unsigned long)");
     const unsigned long duration_ms = duration * 1000;
     effect_ = e;
     // show_col() indexes buf[y * width + x] for y in [0, S/2), in-bounds only
