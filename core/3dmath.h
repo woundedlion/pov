@@ -319,7 +319,9 @@ struct Vector {
  * and harmless for all callers (hue/azimuth lookups).
  */
 inline float fast_atan2(float y, float x) {
-  // +1e-10f keeps abs_y strictly positive so the (0,0) origin gives 0, not NaN.
+  // +1e-10f keeps abs_y strictly positive so the (0,0) origin stays finite
+  // (~PI/2 from the abs_x<abs_y branch) instead of NaN; callers tolerate an
+  // arbitrary angle at the undefined origin.
   float abs_y = std::abs(y) + 1e-10f;
   float abs_x = std::abs(x);
   float r, angle;
