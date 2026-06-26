@@ -111,7 +111,7 @@ Items are numbered sequentially and grouped by priority. Each cites `file:line`,
 #### Tests & build
 
 39. ✅ **`tests/test_canvas.h:253` — flakiness.** `test_ctor_spin_waits_for_buffer_free` uses a fixed 10 ms `sleep_for` to let the main thread enter the ctor spin; under heavy CI load this could race. Fix: gate the release on an observable spin-iteration counter/flag.
-40. **`tests/test_death.h` (comments) — staleness.** Comments on `set_case_env`/`spawn_child` still reference `std::system()` though both platforms now spawn shell-free (`_spawnv`/`execv`). Fix: update the comments.
+40. ✅ **`tests/test_death.h` (comments) — staleness.** Comments on `set_case_env`/`spawn_child` still reference `std::system()` though both platforms now spawn shell-free (`_spawnv`/`execv`). Fix: update the comments.
 41. **`tests/test_easing_waves.h:44` — depth.** `check_curve` asserts only finiteness/monotonicity; wave generators get no amplitude/period/symmetry oracle, so an amplitude or DC-offset drift could pass. Fix: add bounded-range and period/symmetry oracles for `sin_wave`/`tri_wave`/`square_wave`.
 42. **`.github/workflows/ci.yml` (setup-python) — reproducibility.** `python-version: '3.x'` is a floating range, not a pin, despite a comment claiming it pins "like the teensy jobs." Fix: pin a concrete minor (e.g. `'3.12'`) or soften the comment.
 
