@@ -244,6 +244,7 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
  * @param arena The memory arena from which to allocate vertices.
  * @details Base case of the variadic overload below: with no transformers,
  *   vertices are copied verbatim.
+ * @note Mesh utility, not a Conway operator.
  */
 inline void transform(const MeshState &local_state, MeshState &world_state,
                       Arena& arena) {
@@ -363,6 +364,7 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
  * @brief Normalizes all vertices in the mesh to the unit sphere.
  * @tparam MeshT Mesh type exposing an iterable `vertices` of Vector.
  * @param mesh Mesh whose vertices are normalized in place.
+ * @note Mesh utility, not a Conway operator.
  */
 template <typename MeshT> static void normalize(MeshT &mesh) {
   for (auto &v : mesh.vertices) {
