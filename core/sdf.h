@@ -1586,13 +1586,15 @@ struct Face {
   // Packed edge data + LUT for distance computation
   using EdgePacked = FaceScratchBuffer::EdgePacked; /**< Packed per-edge record type. */
   std::span<EdgePacked> packed_edges;               /**< Packed per-edge data. */
-  static constexpr int LUT_N = FaceScratchBuffer::LUT_N; /**< Distance-LUT resolution per axis. */
+  static constexpr int LUT_N = FaceScratchBuffer::LUT_N; /**< Max distance-LUT resolution per axis. */
+  static constexpr int kMinLutN = 6;   /**< Floor for the adaptive per-face LUT resolution. */
   const float *dist_lut = nullptr;     /**< Pointer into the scratch distance LUT. */
   float lut_cx = 0.0f, lut_cy = 0.0f;  /**< LUT bounding-box center. */
   float lut_Rx = 0.0f, lut_Ry = 0.0f;  /**< LUT bounding-box half-extents. */
   float lut_inv_step_x = 0.0f;         /**< Reciprocal LUT cell width. */
   float lut_inv_step_y = 0.0f;         /**< Reciprocal LUT cell height. */
   float lut_safe_dist = 0.0f;          /**< Per-face cell diagonal (sign-pure bound). */
+  int lut_n = LUT_N;                   /**< Per-face LUT grid resolution, sized to the row span. */
 
   /**
    * @brief Builds a face's projection, bounds, edge data, and distance LUT.
@@ -1821,18 +1823,26 @@ struct Face {
       lut_Rx = 0.01f;
     if (lut_Ry < 0.01f)
       lut_Ry = 0.01f;
-    lut_inv_step_x = (LUT_N - 1) / (2.0f * lut_Rx);
-    lut_inv_step_y = (LUT_N - 1) / (2.0f * lut_Ry);
+    // Size the grid to the face's covered row span rather than a fixed 32x32:
+    // most faces cover far fewer rows, so this cuts the per-face build (the
+    // dominant rasterizer cost) while the exact fallback preserves sub-cell
+    // accuracy near edges.
+    int n = static_cast<int>(
+        hs::clamp(static_cast<float>(y_max - y_min) + 2.0f,
+                  static_cast<float>(kMinLutN), static_cast<float>(LUT_N)));
+    lut_n = n;
+    lut_inv_step_x = (n - 1) / (2.0f * lut_Rx);
+    lut_inv_step_y = (n - 1) / (2.0f * lut_Ry);
     dist_lut = scratch.dist_lut.data();
-    float step_x = (2.0f * lut_Rx) / (LUT_N - 1);
-    float step_y = (2.0f * lut_Ry) / (LUT_N - 1);
+    float step_x = (2.0f * lut_Rx) / (n - 1);
+    float step_y = (2.0f * lut_Ry) / (n - 1);
     // The plane SDF is 1-Lipschitz in (px,py), so a zero anywhere in a cell puts
     // every corner within one cell diagonal of it; a min corner magnitude above
     // the diagonal therefore guarantees a sign-pure cell (safe to interpolate).
     lut_safe_dist = sqrtf(step_x * step_x + step_y * step_y);
-    for (int gy = 0; gy < LUT_N; ++gy) {
+    for (int gy = 0; gy < n; ++gy) {
       float qy = (lut_cy - lut_Ry) + gy * step_y;
-      for (int gx = 0; gx < LUT_N; ++gx) {
+      for (int gx = 0; gx < n; ++gx) {
         float qx = (lut_cx - lut_Rx) + gx * step_x;
         float d_sq = FLT_MAX;
         bool is_inside = false;
@@ -1851,7 +1861,7 @@ struct Face {
               is_inside = !is_inside;
           }
         }
-        scratch.dist_lut[gy * LUT_N + gx] =
+        scratch.dist_lut[gy * n + gx] =
             (is_inside ? -1.0f : 1.0f) * sqrtf(d_sq);
       }
     }
@@ -2180,16 +2190,16 @@ struct Face {
     // LUT lookup + same-sign hybrid
     float fx = (px - lut_cx + lut_Rx) * lut_inv_step_x;
     float fy = (py - lut_cy + lut_Ry) * lut_inv_step_y;
-    fx = hs::clamp(fx, 0.0f, (float)(LUT_N - 2));
-    fy = hs::clamp(fy, 0.0f, (float)(LUT_N - 2));
+    fx = hs::clamp(fx, 0.0f, (float)(lut_n - 2));
+    fy = hs::clamp(fy, 0.0f, (float)(lut_n - 2));
     int ix = (int)fx;
     int iy = (int)fy;
     float tx = fx - ix;
     float ty = fy - iy;
-    float d00 = dist_lut[iy * LUT_N + ix];
-    float d10 = dist_lut[iy * LUT_N + ix + 1];
-    float d01 = dist_lut[(iy + 1) * LUT_N + ix];
-    float d11 = dist_lut[(iy + 1) * LUT_N + ix + 1];
+    float d00 = dist_lut[iy * lut_n + ix];
+    float d10 = dist_lut[iy * lut_n + ix + 1];
+    float d01 = dist_lut[(iy + 1) * lut_n + ix];
+    float d11 = dist_lut[(iy + 1) * lut_n + ix + 1];
 
     bool same_sign = (d00 > 0) == (d10 > 0) && (d00 > 0) == (d01 > 0) &&
                      (d00 > 0) == (d11 > 0);
