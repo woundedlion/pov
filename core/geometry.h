@@ -511,9 +511,14 @@ inline Vector logPolarToVector(float rho, float theta) {
  * @brief Converts a vector on the unit sphere to Log-Polar coordinates.
  * Maps: Sphere -> Stereographic -> Complex Plane -> Log-Polar
  * @param v Normalized vector on the unit sphere.
+ * @pre `v` is unit length. A non-unit `v.y > 1` drives `1 - v.y` negative and
+ *   `logf(numer/denom)` to NaN; trap-enforced below. Unlike the per-pixel
+ *   `vector_to_pixel`, this is a cold path (no hot-loop caller), so the check
+ *   stays on.
  * @return Log-Polar coordinates.
  */
 inline LogPolar vectorToLogPolar(const Vector &v) {
+  HS_CHECK(std::abs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
   // rho = 0.5*log((1+y)/(1-y)) diverges to ±inf at the poles (v.y -> ±1); clamp
   // each to a finite sentinel so no non-finite rho leaks downstream.
   const float numer = 1.0f + v.y;
