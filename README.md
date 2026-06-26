@@ -1487,7 +1487,7 @@ When `persist_pixels = true`, `Canvas` copies the previous frame's buffer into t
 
 ## 9. Effects Reference
 
-All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) at the Phantasm 288×144 resolution.
+All screenshots below were captured from the [live WebAssembly simulator](https://woundedlion.github.io/daydream/) at each effect's highest available resolution — the Phantasm 288×144 preset for most, and the Holosphere 96×20 preset for effects only registered there (RingShower, Dynamo).
 
 ### Core Effects (Modern Engine)
 
@@ -1785,7 +1785,9 @@ Catmull-Rom spline curves whose control points drift via independent random walk
 
 </td></tr></table>
 
-The two effects below are registered and selectable but not pictured here:
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=DistortedRing" target="_blank"><img src="docs/screenshots/DistortedRing.png" alt="DistortedRing" width="280"></a></td>
+<td valign="top">
 
 #### DistortedRing
 
@@ -1793,11 +1795,19 @@ Concentric rings built from per-azimuth distorted ring SDFs, their radii oscilla
 
 **Parameters**: Alpha, MaxAmplitude, Thickness, Rings, Show Bounding
 
+</td></tr></table>
+
+<table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=ShapeShifter" target="_blank"><img src="docs/screenshots/ShapeShifter.png" alt="ShapeShifter" width="280"></a></td>
+<td valign="top">
+
 #### ShapeShifter
 
 Layered polygon, star, and flower rings (planar and spherical polygon variants) drawn through both the `Plot` and `Scan` rasterizers at once. The shape type hard-cuts to the next of four (planar polygon, spherical polygon, flower, star) every 48 frames while a twist Mutation shears the layers. All `Plot` rings share one tumbling orientation and all `Scan` rings share another, so layer Count scales with the raster budget rather than the timeline.
 
 **Parameters**: Alpha, Count, Radius, Sides, Twist, Debug BB
+
+</td></tr></table>
 
 ### Legacy Effects (`effects_legacy.h`)
 
