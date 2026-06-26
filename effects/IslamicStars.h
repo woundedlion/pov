@@ -35,8 +35,11 @@ public:
     palette_bank_.bake_all(persistent_arena);
 
     // Set BEFORE registering: registerParam snaps *ptr as the slider default.
-    ripple_gen.template_params.amplitude = 0.4f;
-    ripple_gen.template_params.thickness = 0.7f;
+    // Amplitude is held below the self-fold onset: above amplitude/thickness ~0.2
+    // the rippled mesh folds over itself, so faces stop tiling the sphere and
+    // stack along the view ray, multiplying rasterizer overdraw (self-occlusion).
+    ripple_gen.template_params.amplitude = kRippleAmpMax;
+    ripple_gen.template_params.thickness = kRippleThickness;
     ripple_gen.template_params.decay = 0.1f;
 
     registerParam("Duration", &params.duration, 48.0f, 192.0f);
@@ -44,8 +47,10 @@ public:
     // Burst/Ripp Dur ranges are clamped to the ripple pool capacity invariant
     // (see the kRipple* constants below).
     registerParam("Burst", &params.burst_size, 1.0f, (float)kBurstMax);
-    registerParam("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f, 1.0f);
-    registerParam("Ripp Width", &ripple_gen.template_params.thickness, 0.1f, 1.0f);
+    // Amplitude slider capped at the fold-free ceiling; thickness is fixed (not a
+    // slider) so amplitude/thickness can never cross the self-fold onset.
+    registerParam("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f,
+                  kRippleAmpMax);
     registerParam("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
     registerParam("Ripp Dur", &ripple_duration, 30.0f, (float)kRippleDurationMax);
     registerParam("Debug BB", &params.debug_bb);
@@ -90,6 +95,8 @@ private:
   static constexpr int kRippleRecurrenceFrames = 96;
   static constexpr int kRippleDurationMax = 144;
   static constexpr int kBurstMax = 4;
+  static constexpr float kRippleThickness = 0.7f; /**< Fixed ripple wavelet width (radians). */
+  static constexpr float kRippleAmpMax = 0.15f;   /**< Fold-free amplitude ceiling at kRippleThickness (amp/thickness < ~0.2 self-fold onset). */
   static_assert(kBurstMax + (kRippleDurationMax / kRippleRecurrenceFrames) *
                                     kBurstMax <=
                     kRipplePoolSize,
