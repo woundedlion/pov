@@ -163,7 +163,7 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
      * used / retain rationale and the pre-`retain` fallback. */               \
     HS_REGISTRAR_ANCHOR                                                       \
     static inline int _reg = EffectRegistry::add({                     \
-      HS_RESOLUTIONS(HS_REG_FILL_PTR)                                  \
+      HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)                          \
     });                                                                \
   };                                                                   \
   }
@@ -172,7 +172,7 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
 // above. Defined outside the macro (preprocessor directives can't live inside a
 // macro body) and left defined because REGISTER_EFFECT expands it in every
 // effect translation unit. The trailing comma is harmless in a braced-init list.
-#define HS_REG_FILL_PTR(W, H) &fill<W, H>,
+#define HS_DETAIL_REG_FILL_PTR(W, H) &fill<W, H>,
 
 #else
 // Non-WASM targets (Teensy): no-op, so effect registration pulls in no
