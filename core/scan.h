@@ -179,29 +179,13 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
     if (handled && !intervals.is_empty()) {
-      // Normalize into [0, W): wrap each start and split any span crossing the
-      // x=0 seam, so the forward-sweep coalescer below sees sorted, non-wrapping
-      // spans even when a shape/CSG straddles θ=0. norm is 2× the span cap (a
-      // seam split makes at most two).
+      // A shape spanning the full circle (len >= W) paints every column, so
+      // detect it up front and skip the seam-split/sort/coalesce path.
       bool full_row = false;
-      norm.clear();
       for (const auto &iv : intervals) {
-        float len = iv.second - iv.first;
-        if (len >= W) {
+        if (iv.second - iv.first >= static_cast<float>(W)) {
           full_row = true;
           break;
-        }
-        // A shape straddling θ=0 emits a negative start; C fmodf keeps the sign,
-        // so re-wrap into [0,W).
-        float s = fmodf(iv.first, static_cast<float>(W));
-        if (s < 0.0f)
-          s += static_cast<float>(W);
-        float e = s + len;
-        if (e <= static_cast<float>(W)) {
-          norm.push_back({s, e});
-        } else {
-          norm.push_back({s, static_cast<float>(W)});
-          norm.push_back({0.0f, e - static_cast<float>(W)});
         }
       }
 
@@ -209,18 +193,12 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
         for (int x = 0; x < W; ++x)
           pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
       } else {
-        // Insertion-sort by start (small n; a no-op when already sorted).
-        auto *d = &norm[0];
-        size_t nn = norm.size();
-        for (size_t i = 1; i < nn; ++i) {
-          auto key = d[i];
-          int j = static_cast<int>(i) - 1;
-          while (j >= 0 && d[j].first > key.first) {
-            d[j + 1] = d[j];
-            --j;
-          }
-          d[j + 1] = key;
-        }
+        // Wrap each start into [0, W) and split any span crossing the x=0 seam so
+        // the forward-sweep coalescer sees sorted, non-wrapping spans even when a
+        // shape/CSG straddles θ=0; norm holds up to 2 spans per input interval.
+        norm.clear();
+        SDF::normalize_intervals_to_range<W>(intervals, norm);
+        SDF::sort_intervals_by_start(norm);
 
         float current_end = -FLT_MAX;
         // Coalesce in integer pixel space too: last_x2 clamps each run's start
