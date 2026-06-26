@@ -119,7 +119,7 @@ Items are numbered sequentially and grouped by priority. Each cites `file:line`,
 
 43. ✅ **`daydream.js:474-481` vs `:547` — redundancy.** Init calls `setResolution` directly and then `applyResolution(true)` calls it again with the same dimensions; the first is redundant and double-logs on the unsupported-resolution path. Fix: drop the pre-set and rely on `applyResolution(true)`.
 44. ✅ **`segment_controller.js:489-502` — robustness.** `composite()` validates each segment's rect against buffer bounds but never checks `r.pixels.length === (x1-x0)*(y1-y0)*3` before `blitSegmentRect`'s `subarray`/`set`, so a rect/buffer mismatch would silently write a truncated row. Fix: add a length assertion (fail-fast).
-45. **`daydream.js:740` — teardown.** `disposeApp()` calls `recorder.stop()`, whose async `onstop` download may not complete before page teardown on `pagehide`, silently losing an in-progress recording. Fix: note the tradeoff or flush synchronously on discard.
+45. ✅ **`daydream.js:740` — teardown.** `disposeApp()` calls `recorder.stop()`, whose async `onstop` download may not complete before page teardown on `pagehide`, silently losing an in-progress recording. Fix: note the tradeoff or flush synchronously on discard.
 46. **`segment_controller.js:534-548` — cosmetic.** `_rebuildBoundaries()` drops the seam of any `null` segment; harmless in normal fenced flow (boundary overlay only). Fix: none required; noted for completeness.
 47. **`gui.js:87` — consistency.** Standalone-tool URL writer passes a number to `URLSearchParams.set` (coerced via `String()`), inconsistent with the explicit `String(...)` in `state.js`. Cosmetic.
 
