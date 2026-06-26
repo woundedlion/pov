@@ -152,8 +152,10 @@ private:
                                        palette_bank_, palette_idx, 1.0f, opacity);
     };
 
+    // tiling: the oriented/rippled solid still partitions the sphere without
+    // overlap, so the per-pixel claim mask can skip bounding-box overdraw.
     Scan::Mesh::draw<W, H>(filters, canvas, transformed_state, fragment_shader,
-                           scratch_arena_a, params.debug_bb);
+                           scratch_arena_a, params.debug_bb, /*tiling=*/true);
   }
 
   /**
