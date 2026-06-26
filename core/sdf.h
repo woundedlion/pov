@@ -1167,9 +1167,9 @@ template <typename A, typename B> struct Subtract {
     // disjoint arcs in a single row, which no SDF shape does. push_interval traps
     // (fail-fast) if that ever holds.
     constexpr size_t kSeamSplitCap = 2 * kIntervalSpanCap;
-    static_assert(sdf_max_spans<A>::value <= kSeamSplitCap &&
-                      sdf_max_spans<B>::value <= kSeamSplitCap,
-                  "seam-split child exceeds norm buffer capacity");
+    static_assert(2 * sdf_max_spans<A>::value <= kSeamSplitCap &&
+                      2 * sdf_max_spans<B>::value <= kSeamSplitCap,
+                  "post-seam-split span count exceeds norm buffer capacity");
     StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_a;
     StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_b;
     normalize_intervals_to_range<W>(intervals_a, norm_a);
@@ -1335,9 +1335,9 @@ template <typename A, typename B> struct Intersection {
     // a common [0, W) frame makes the comparison correct. Seam-splitting at most
     // doubles each child's span count, so the buffers are sized 2x.
     constexpr size_t kSeamSplitCap = 2 * kIntervalSpanCap;
-    static_assert(sdf_max_spans<A>::value <= kSeamSplitCap &&
-                      sdf_max_spans<B>::value <= kSeamSplitCap,
-                  "seam-split child exceeds norm buffer capacity");
+    static_assert(2 * sdf_max_spans<A>::value <= kSeamSplitCap &&
+                      2 * sdf_max_spans<B>::value <= kSeamSplitCap,
+                  "post-seam-split span count exceeds norm buffer capacity");
     StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_a;
     StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_b;
     normalize_intervals_to_range<W>(intervals_a, norm_a);
