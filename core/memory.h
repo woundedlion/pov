@@ -843,21 +843,6 @@ struct ScratchScope {
   }
 
   /**
-   * @brief Creates a temporary ArenaVector scoped to this ScratchScope.
-   * @tparam T Element type of the vector.
-   * @param capacity Element count to allocate.
-   * @return An ArenaVector backed by this scope's arena.
-   * @warning IN-SCOPE USE ONLY. The returned vector's backing is freed when this
-   *   scope rewinds the arena. Because rewind is a plain `set_offset` (no
-   *   generation bump), a returned-and-outlived vector is NOT caught by the
-   *   debug use-after-free stamp — it silently dangles even in debug builds. Do
-   *   not return it from, or store it past, the scope that produced it.
-   */
-  template <typename T> ArenaVector<T> make_vector(size_t capacity) {
-    return ArenaVector<T>(arena, capacity);
-  }
-
-  /**
    * @brief Returns the guarded arena.
    * @return Reference to the underlying arena.
    */
