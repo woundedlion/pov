@@ -165,6 +165,33 @@ struct SamplePT {
   Vector tan;
 };
 
+constexpr int kPlanarLenSamples = 4;
+
+/**
+ * @brief Cumulative on-sphere arc length at kPlanarLenSamples+1 evenly-spaced
+ *        PROJECTION samples of the azimuthal-equidistant straight edge whose
+ *        projection starts at `proj` and spans (dx, dy).
+ * @details arc_cumul[0] = 0; arc_cumul.back() is the full rendered length. The
+ * planar edge bows away from the great-circle chord, so the total exceeds the
+ * chord's angle_between. Shared by the planar rasterizer (which inverts the table
+ * for arc-uniform stepping) and rasterize()'s perimeter pre-pass (which takes the
+ * total), so both sample identical points.
+ */
+static inline void
+planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
+                 const Basis &planar_basis,
+                 std::array<float, kPlanarLenSamples + 1> &arc_cumul) {
+  arc_cumul[0] = 0.0f;
+  Vector prev = azimuthal_unproject(proj.first, proj.second, planar_basis);
+  for (int k = 1; k <= kPlanarLenSamples; ++k) {
+    float p = static_cast<float>(k) / kPlanarLenSamples;
+    Vector cur = azimuthal_unproject(proj.first + dx * p, proj.second + dy * p,
+                                     planar_basis);
+    arc_cumul[k] = arc_cumul[k - 1] + angle_between(prev, cur);
+    prev = cur;
+  }
+}
+
 /**
  * @brief Planar interpolation strategy: builds an arc-uniform sampler for one edge.
  * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
@@ -211,31 +238,24 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
   // cluster/gap samples. The inversion makes planar sampling arc-uniform —
   // matching the geodesic strategy — at the cost of a trig-free table scan per
   // sample (no new trig anywhere).
-  constexpr int LEN_SAMPLES = 4;
-  std::array<float, LEN_SAMPLES + 1> arc_cumul;
-  arc_cumul[0] = 0.0f;
-  Vector len_prev = unproject(0.0f);
-  for (int k = 1; k <= LEN_SAMPLES; ++k) {
-    Vector len_cur = unproject(static_cast<float>(k) / LEN_SAMPLES);
-    arc_cumul[k] = arc_cumul[k - 1] + angle_between(len_prev, len_cur);
-    len_prev = len_cur;
-  }
-  const float dist = arc_cumul[LEN_SAMPLES];
+  std::array<float, kPlanarLenSamples + 1> arc_cumul;
+  planar_arc_cumul(proj1, dx, dy, planar_basis, arc_cumul);
+  const float dist = arc_cumul[kPlanarLenSamples];
 
   // Arc-length parameterization: s is the arc fraction in [0,1]. Invert the
   // piecewise-linear cumulative-arc table to a projection parameter, then
-  // unproject. A short scan over LEN_SAMPLES floats — no trig.
+  // unproject. A short scan over kPlanarLenSamples floats — no trig.
   auto map_planar = [=](float s) -> Vector {
     if (dist < math::EPS_GEOMETRIC)
       return unproject(s);
     float target = s * dist;
     int k = 0;
-    while (k < LEN_SAMPLES - 1 && arc_cumul[k + 1] < target)
+    while (k < kPlanarLenSamples - 1 && arc_cumul[k + 1] < target)
       ++k;
     float seg = arc_cumul[k + 1] - arc_cumul[k];
     float frac =
         (seg > math::EPS_GEOMETRIC) ? (target - arc_cumul[k]) / seg : 0.0f;
-    float p = (static_cast<float>(k) + frac) / LEN_SAMPLES;
+    float p = (static_cast<float>(k) + frac) / kPlanarLenSamples;
     return unproject(std::min(1.0f, std::max(0.0f, p)));
   };
 
@@ -257,29 +277,19 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
 /**
  * @brief On-sphere arc length (radians) of the azimuthal-equidistant straight
  *        edge a->b — the length actually rendered under planar interpolation.
- * @details Mirrors the cumulative-arc summation inside rasterize_planar_strategy
- * (same LEN_SAMPLES, same unprojection), so rasterize()'s perimeter pre-pass and
- * per-segment arc accumulator sum exactly the lengths the draw phase walks. The
- * planar edge bows away from the great-circle chord, so this exceeds
- * angle_between(a, b). Keep in sync with rasterize_planar_strategy.
+ * @details Shares planar_arc_cumul with rasterize_planar_strategy, so
+ * rasterize()'s perimeter pre-pass and per-segment arc accumulator sum exactly
+ * the lengths the draw phase walks. The planar edge bows away from the
+ * great-circle chord, so this exceeds angle_between(a, b).
  */
 static inline float planar_arc_length(const Vector &a, const Vector &b,
                                       const Basis &planar_basis) {
   auto p1 = azimuthal_project(a, planar_basis);
   auto p2 = azimuthal_project(b, planar_basis);
-  float dx = p2.first - p1.first;
-  float dy = p2.second - p1.second;
-  constexpr int LEN_SAMPLES = 4;
-  Vector prev = azimuthal_unproject(p1.first, p1.second, planar_basis);
-  float len = 0.0f;
-  for (int k = 1; k <= LEN_SAMPLES; ++k) {
-    float p = static_cast<float>(k) / LEN_SAMPLES;
-    Vector cur = azimuthal_unproject(p1.first + dx * p, p1.second + dy * p,
-                                     planar_basis);
-    len += angle_between(prev, cur);
-    prev = cur;
-  }
-  return len;
+  std::array<float, kPlanarLenSamples + 1> arc_cumul;
+  planar_arc_cumul(p1, p2.first - p1.first, p2.second - p1.second, planar_basis,
+                   arc_cumul);
+  return arc_cumul[kPlanarLenSamples];
 }
 
 /**
