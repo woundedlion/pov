@@ -100,7 +100,8 @@ private:
   static_assert(kBurstMax + (kRippleDurationMax / kRippleRecurrenceFrames) *
                                     kBurstMax <=
                     kRipplePoolSize,
-                "IslamicStars: ripple burst peak exceeds the ripple pool");
+                "IslamicStars: ripple pool below the heuristic burst-peak floor "
+                "(overflow is dropped by spawn(), not corrupting — see above)");
 
   Orientation<> orientation;
   Timeline timeline;
