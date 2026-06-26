@@ -1204,6 +1204,8 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
   }
   // The 1/sinθ factor in the slerp weights cancels under the final normalize(),
   // so it is omitted (also dodging a divide by a small sin(θ) near θ→π).
+  // Fast trig here (vs the exact sinf/acosf in the Quaternion overload): a
+  // direction blend tolerates fast_sinf's bounded error; orientation slerp does not.
   float s1 = fast_sinf((1 - t) * theta);
   float s2 = fast_sinf(t * theta);
   return ((s1 * v1) + (s2 * v2)).normalized();
@@ -1235,6 +1237,8 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
     return r.normalized();
   }
 
+  // Exact acosf/sinf (vs fast_* in the Vector overload): orientation interpolation
+  // is more sensitive to angular error than a direction blend.
   float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
   if (sin_theta < math::TOLERANCE) {
