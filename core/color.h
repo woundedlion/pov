@@ -705,6 +705,17 @@ inline uint16_t float_to_pixel16(float v) {
   return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
 }
 
+/**
+ * @brief Quantizes a [0,1] linear channel to an 8-bit sRGB component.
+ * @param l Linear channel value; clamped to [0, 1].
+ * @return The channel as an 8-bit sRGB value in [0, 255].
+ */
+inline uint8_t linear_float_to_srgb8(float l) {
+  return static_cast<uint8_t>(hs::clamp(
+      linear_to_srgb_float(hs::clamp(l, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f,
+      255.0f));
+}
+
 // Rotates the (a,b) chroma plane in OKLab, preserving perceived lightness and
 // chroma. Hot path: fast_cbrt forward, exact cubes inverse, direct 2D rotation
 // of (a,b) (no atan2/sqrt OKLCH polar round-trip).
@@ -844,10 +855,8 @@ inline Pixel lerp_oklch(const CPixel &c1, const CPixel &c2, float t) {
 inline CPixel oklch_to_cpixel(OKLCH lch) {
   float r, g, b;
   oklab_to_linear_rgb_gamut(oklch_to_oklab(lch), r, g, b);
-  return CPixel(
-    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(r, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)),
-    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(g, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)),
-    static_cast<uint8_t>(hs::clamp(linear_to_srgb_float(hs::clamp(b, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f, 255.0f)));
+  return CPixel(linear_float_to_srgb8(r), linear_float_to_srgb8(g),
+                linear_float_to_srgb8(b));
 }
 
 /**
