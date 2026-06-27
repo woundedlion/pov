@@ -46,7 +46,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 
 2. ✅ **`Timeline` pin-ordering invariant is enforced only at removal time, not at registration.** `add_get` ([core/animation.h:2458](core/animation.h#L2458)) accepts a pinned infinite animation registered after a finite one; the `HS_CHECK(!handled)` trap fires later in `move_into` when the finite event completes — a confusing, data-dependent crash site. Validate at `add_get` (scan existing events for any finite one when `pin=true`) so misuse fails deterministically at the call site.
 
-3. **`Timeline::step` event relocation rests on an unstated `write_idx <= active_cnt` invariant.** The compaction/relocation arithmetic ([core/animation.h:2574](core/animation.h#L2574)) is correct only because that invariant holds, but nothing asserts it. Add `HS_CHECK(write_idx <= active_cnt)` and a one-line comment pinning the no-gap case.
+3. ✅ **`Timeline::step` event relocation rests on an unstated `write_idx <= active_cnt` invariant.** The compaction/relocation arithmetic ([core/animation.h:2574](core/animation.h#L2574)) is correct only because that invariant holds, but nothing asserts it. Add `HS_CHECK(write_idx <= active_cnt)` and a one-line comment pinning the no-gap case.
 
 4. **`ParticleSystem::init` double-init orphans arena allocations.** `init` ([core/animation.h:553](core/animation.h#L553)) calls `pool.bind(arena, CAPACITY)` etc. with no re-init guard; a second `init()` leaks the first (large) allocation since the arena has no per-allocation free. Add `HS_CHECK(!pool.is_bound(), ...)` (the accessor already exists and is used in `spawn`).
 
