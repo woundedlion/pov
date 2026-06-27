@@ -229,7 +229,7 @@ seam-straddle and AngularRepeat culls are covered, but the `Union`/`SmoothUnion`
 `get_horizontal_intervals` overlap/merge path is exercised only via `distance()`, never with
 seam-straddling intervals — exactly where double-paint regressions hide.
 
-32. **`tests/test_conway.h` — `snub(cube)` has no topology-count assertions.** The most complex operator
+32. ✅ **`tests/test_conway.h` — `snub(cube)` has no topology-count assertions.** The most complex operator
 (chiral, twist pass, Newell normals) is checked only for basic winding/Euler invariants; a winding-correct
 but wrong-count snub would pass. Assert expected vertex/face/triangle counts.
 
