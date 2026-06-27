@@ -272,6 +272,10 @@ private:
       size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
       assert(p_idx < particle_system.active_count &&
              "ParticleSystem fragment carries an out-of-range particle index");
+      // Fragments only exist for live particles, so active_count >= 1 here; the
+      // clamp keeps a float-rounding overshoot in range once NDEBUG strips the
+      // assert on device.
+      p_idx = std::min<size_t>(p_idx, particle_system.active_count - 1);
 
       const auto &p = particle_system.pool[p_idx];
       float seed_f = static_cast<float>(p.color_seed) / 65535.0f;
