@@ -416,6 +416,8 @@ private:
  */
 template <int CAPACITY> class VectorTrail {
 public:
+  static constexpr int kCapacity = CAPACITY; /**< Max retained snapshots. */
+
   /**
    * @brief Records a world-space position snapshot.
    * @param source The position to copy into the trail.
