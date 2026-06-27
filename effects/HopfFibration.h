@@ -33,8 +33,8 @@ public:
   /**
    * @brief Initializes params, buffers, fibers, and timeline animations.
    * @details Registers tuning params, bakes the trail palette, allocates the
-   * fiber and trail arrays from the persistent arena, seeds fibers, and wires
-   * the ambient spin plus the phase-driver animations onto the timeline.
+   * fiber, phase, and trail arrays from the persistent arena, seeds fibers, and
+   * wires the ambient spin plus the phase-driver animations onto the timeline.
    */
   void init() override {
     registerParam("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
@@ -50,6 +50,8 @@ public:
     // fits the device default partition.
     fibers = static_cast<Spherical *>(persistent_arena.allocate(
         ACTUAL_FIBERS * sizeof(Spherical), alignof(Spherical)));
+    fiber_phase = static_cast<float *>(
+        persistent_arena.allocate(ACTUAL_FIBERS * sizeof(float), alignof(float)));
 
     trails = static_cast<Animation::VectorTrail<TRAIL_LEN> *>(
         persistent_arena.allocate(ACTUAL_FIBERS *
@@ -116,10 +118,12 @@ private:
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
 
-  // Persistent allocations: palette LUT + one Spherical and one trail per fiber.
+  // Persistent allocations: palette LUT + one Spherical, one phase, and one
+  // trail per fiber.
   static constexpr size_t kFootprintBytes =
       BakedPalette::LUT_SIZE * sizeof(Color4) +
       ACTUAL_FIBERS * sizeof(Spherical) +
+      ACTUAL_FIBERS * sizeof(float) +
       ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a RINGS/PER_RING/TRAIL_LEN retune.
@@ -152,6 +156,7 @@ private:
   float tumble_angle_x = 0.0f;
   float tumble_angle_y = 0.0f;
   Spherical *fibers = nullptr;
+  float *fiber_phase = nullptr;
   Animation::VectorTrail<TRAIL_LEN> *trails = nullptr;
 
   // Per-frame values reused across all fibers (refreshed in advance_tumble).
@@ -169,17 +174,20 @@ private:
   /**
    * @brief Seeds the base fibers as a spherical lattice.
    * @details Lays out a RINGS x PER_RING grid of spherical coordinates, evenly
-   * spaced in polar bands and azimuth around each band. Stored as Spherical so
-   * hopf_project reuses the angles directly instead of re-deriving them per
-   * frame.
+   * spaced in polar bands and azimuth around each band. Stored as Spherical,
+   * plus a per-fiber S3 phase, so hopf_project reuses them directly instead of
+   * re-deriving per frame.
    */
   void init_fibers() {
+    constexpr float kPhaseStep = PI_F / ACTUAL_FIBERS;
     int idx = 0;
     for (int i = 0; i < RINGS; ++i) {
       float polar = PI_F * (i + 0.5f) / RINGS;
       for (int j = 0; j < PER_RING; ++j) {
         float azimuth = 2 * PI_F * j / PER_RING;
-        std::construct_at(&fibers[idx++], azimuth, polar);
+        fiber_phase[idx] = idx * kPhaseStep;
+        std::construct_at(&fibers[idx], azimuth, polar);
+        ++idx;
       }
     }
   }
@@ -224,8 +232,7 @@ private:
     phi += eta * params.twist;
 
     // S3 point
-    float phase = i * (PI_F / ACTUAL_FIBERS);
-    float beta = flow_rad + phase;
+    float beta = flow_rad + fiber_phase[i];
     float cos_eta = fast_cosf(eta), sin_eta = fast_sinf(eta);
     float q0 = cos_eta * fast_cosf(phi + beta);
     float q1 = cos_eta * fast_sinf(phi + beta);
