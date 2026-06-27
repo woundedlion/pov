@@ -1773,7 +1773,7 @@ struct Face {
       if (d_line < min_edge_dist)
         min_edge_dist = d_line;
     }
-    size = (min_edge_dist > 1e8f) ? 1.0f : min_edge_dist;
+    size = min_edge_dist;
 
     if (size < radius * MIN_SIZE_RADIUS_RATIO)
       size = radius * MIN_SIZE_RADIUS_RATIO;
