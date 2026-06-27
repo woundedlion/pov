@@ -145,7 +145,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 **hardware**
 
 63. ✅ A stably mis-wired/floating ID strap can silently elect a phantom second master driving the push-pull sync line into contention ([hardware/pov_segmented.h:353](hardware/pov_segmented.h#L353)); out of firmware scope, but document that ID0 must be a positively-driven strap.
-64. `SymbolEmitter::schedule_beacon`'s int32 signed "is-due" comparison is correct only while the worst-case burst span stays well under 2³¹ cycles, enforced by prose not by a check ([hardware/pov_sync.h:975](hardware/pov_sync.h#L975)); add a `Config::valid()` clause bounding it.
+64. ✅ `SymbolEmitter::schedule_beacon`'s int32 signed "is-due" comparison is correct only while the worst-case burst span stays well under 2³¹ cycles, enforced by prose not by a check ([hardware/pov_sync.h:975](hardware/pov_sync.h#L975)); add a `Config::valid()` clause bounding it.
 65. `position()`'s int32 cast safety relies on the fold-before-position ordering in `tick()`, argued in a comment rather than asserted ([hardware/pov_sync.h:598](hardware/pov_sync.h#L598)); assert the coast bound or document that the fold loop is the invariant.
 66. `HD107SFrame::load()` does a partial write that does not clear the tail `[count, N)` ([hardware/hd107s_frame.h:157](hardware/hd107s_frame.h#L157)); a surprising public-API edge — zero the tail or rename/assert full-frame.
 67. `factor()` maps intermediate brightness as `(f+1)/256`, differing slightly from the documented `f/255` scale at all non-endpoint values ([hardware/hd107s_frame.h:297](hardware/hd107s_frame.h#L297)); document the exact intermediate mapping, not just the exact endpoints.
