@@ -271,8 +271,9 @@ private:
     Basis basis = make_basis(orientation.get(), ring_vec);
 
     auto fragment_shader = [this, opacity](const Vector &v, Fragment &f) {
-      // Rotation preserves angles, so angle_between(X_AXIS, v) equals the angle
-      // between the rotated pair; compute off the un-rotated axis.
+      // v is the world-space fragment direction (the basis bakes orientation),
+      // so banding is anchored to the fixed world X axis: the ring sweeps through
+      // static world-space color bands.
       float angle = angle_between(X_AXIS, v);
       f.color = palette.get(angle / PI_F);
       f.color.alpha *= params.alpha * opacity;
