@@ -1558,7 +1558,11 @@ private:
   // `volatile`, not std::atomic: SyncBoard is move-assigned at setup (sync_ =
   // SyncBoard(cfg)), and an atomic member would delete the implicit move-assign.
   // volatile keeps the type move-assignable and still forces the foreground poll
-  // to re-load (single aligned word, one logical writer at a time).
+  // to re-load (single aligned word, one logical writer at a time). volatile
+  // suppresses elision/reordering but NOT tearing; the load-bearing assumption is
+  // that a naturally-aligned 32-bit load/store is atomic on the single-core ARM
+  // target, so the reader never observes a half-written word. That tear-free
+  // guarantee comes from the target ISA, not the C++ memory model.
   volatile uint32_t build_word_ = 0; /**< (gen << 8) | index; foreground-read. */
 };
 
