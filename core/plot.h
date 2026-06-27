@@ -843,7 +843,9 @@ struct Line {
       density = 1;
 
     float angle = angle_between(f1.pos, f2.pos);
-    if (std::abs(angle) < TOLERANCE) {
+    // Same coincident-endpoint threshold as rasterize_geodesic_strategy: below
+    // it the slerp axis is unstable, so collapse to a dot.
+    if (angle < EPS_GEODESIC_SEGMENT) {
       points.push_back(f1);
       points.push_back(f1); // draw at least a dot
       return;
