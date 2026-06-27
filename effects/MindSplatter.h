@@ -281,6 +281,8 @@ private:
       f.color = c;
     };
 
+    HS_CHECK(particle_system.active_count <= particle_system.pool.capacity(),
+             "MindSplatter particle index space exceeds pool capacity");
     Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
                                      fragment_shader, vertex_shader);
   }

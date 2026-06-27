@@ -120,7 +120,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 22. ✅ **`Thrusters` advances `t_global` before constructing `Canvas`** and uses a mixed declaration/init member order. `effects/Thrusters.h` ~78/80 and ~34–41/292–299. Behaviorally inert; breaks the "Canvas first" shape used everywhere else and would trip `-Wreorder`. Fix: reorder.
 
-23. **`MindSplatter` per-pixel `pool[p_idx]` index guarded only by a stripped `assert`.** `effects/MindSplatter.h` ~273–274: the hot-path index has no cold bind-site `HS_CHECK` backstop, so a corrupt `f.v2` reads OOB silently in the device build. Fix: add a cold capacity/`active_count` invariant trap at the draw-call seam.
+23. ✅ **`MindSplatter` per-pixel `pool[p_idx]` index guarded only by a stripped `assert`.** `effects/MindSplatter.h` ~273–274: the hot-path index has no cold bind-site `HS_CHECK` backstop, so a corrupt `f.v2` reads OOB silently in the device build. Fix: add a cold capacity/`active_count` invariant trap at the draw-call seam.
 
 24. **`HS_CHECK` calls missing their message argument.** e.g. `core/hankin.h` ~241/246 and several orbit guards in `core/conway.h`; on a device trap these surface only file:line, losing the self-explanatory text the codebase otherwise standardizes on. Fix: add messages.
 
