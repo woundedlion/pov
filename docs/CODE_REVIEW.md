@@ -84,7 +84,7 @@ counting) compile and run only on-device, where there is no debugger or console.
 host-testable header (the same split already applied to `pov_segment_map`/`pov_single_map`/`hd107s_frame`)
 and pin it.
 
-2. **`tests/test_canvas.h` — the double-buffer atomics are untested under contention.** The three
+2. ✅ **`tests/test_canvas.h` — the double-buffer atomics are untested under contention.** The three
 `std::atomic<int>` indices (`cur_`/`next_`/`prev_`) are the heart of the "Why the ISR Double Buffer"
 invariant, but the existing tests are single-threaded or a deterministic spin-release handshake
 (`test_double_buffer_handoff_no_aliasing` is explicitly single-threaded). Add a ThreadSanitizer job or a
