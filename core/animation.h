@@ -2347,6 +2347,8 @@ struct TimelineEvent {
 // is the real 112 B device budget on the 32-bit WASM/device build and a no-op
 // headroom check on the wider native host. (Templated animations stay covered at
 // their add() sites.)
+// Insertion point: append every new non-templated Animation type's sizeof here,
+// or its size escapes this device inline-storage audit.
 constexpr size_t kLargestConcreteAnimSize = std::max({
     sizeof(Animation::RandomTimer), sizeof(Animation::PeriodicTimer),
     sizeof(Animation::Transition), sizeof(Animation::Mutation),
