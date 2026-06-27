@@ -1097,6 +1097,8 @@ namespace hs {
  * @brief Maps a raw RNG draw in [0, max] onto the half-open interval [0.0, 1.0).
  * @param value Raw RNG draw, in [0, max].
  * @param max Maximum possible draw value.
+ * @pre max == UINT32_MAX: the top-band clamp constant is derived for that exact
+ *      divisor. rand_f()'s static_assert enforces it for the global RNG.
  * @return A float in [0.0, 1.0), clamped just below 1.0f at the top band.
  * @details The naive value/max can land on exactly 1.0f for the top band of
  *          draws because both operands — value and the divisor max, which is
