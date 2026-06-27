@@ -1511,6 +1511,12 @@ private:
       return;
     // Frame span (≤55 cols at base-8 digits) ends well short of HALF even when a
     // masked window pushes the start later; no separate beacon-start late-bound.
+    //
+    // A coalesced coast can jump position from < W/4 straight past the beacon
+    // point (and even past HALF) in one wake, leaving beacon_done_this_rev_ unset
+    // while current_boundary() has already advanced — so this revolution emits no
+    // beacon. That is an accepted skip, not a missed-emission bug: the protocol
+    // self-heals on the next due beacon (≤ 2 s).
     if (fly_.position(now) < cfg_.W / 4)
       return;
     beacon_done_this_rev_ = true;
