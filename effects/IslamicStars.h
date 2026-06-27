@@ -127,8 +127,10 @@ private:
   void ripple(Canvas &) {
     Vector origin = random_vector();
     for (int i = 0; i < (int)params.burst_size; i++) {
-      ripple_gen.spawn(i * kRippleStaggerFrames, origin, PI_F / ripple_duration,
-                       static_cast<int>(ripple_duration));
+      if (!ripple_gen.spawn(i * kRippleStaggerFrames, origin,
+                            PI_F / ripple_duration,
+                            static_cast<int>(ripple_duration)))
+        hs::log("IslamicStars: ripple pool full, dropping spawn");
     }
   }
 
