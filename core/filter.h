@@ -1368,6 +1368,10 @@ private:
  * producing a chromatic-aberration fringe.
  */
 template <int W> class ChromaticShift : public Is2D {
+  // fast_wrap corrects only one ±W step, so the +1/+2/+3 column offsets stay in
+  // a single wrap of [0,W) only for W >= 4.
+  static_assert(W >= 4, "ChromaticShift requires W >= 4 for fast_wrap offsets");
+
 public:
   /** @brief Constructs the chromatic-shift filter (stateless). */
   ChromaticShift() {}
