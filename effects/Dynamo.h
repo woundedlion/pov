@@ -57,7 +57,7 @@ public:
    */
   FLASHMEM Dynamo()
       : Effect(W, H),
-        palettes({make_palette()}),
+        palettes{make_palette()},
         palette_normal(Z_AXIS),
         filters(Filter::World::Trails<W, TRAIL_CAPACITY>(
                     (uint32_t)params.trail_length),
