@@ -341,8 +341,12 @@ inline void test_alternating_push_pop_wraps() {
     buf.push_back(i);
     if (i % 2 == 1) buf.pop();
   }
-  HS_EXPECT_TRUE(buf.size() <= 3);
+  // Final window after the wrap: push 9 fills [7,8,9], then the i=9 pop drops 7.
+  HS_EXPECT_EQ(buf.size(), (size_t)2);
+  HS_EXPECT_EQ(buf.front(), 8);
   HS_EXPECT_EQ(buf.back(), 9);
+  HS_EXPECT_EQ(buf[0], 8);
+  HS_EXPECT_EQ(buf[1], 9);
 }
 
 // ============================================================================
