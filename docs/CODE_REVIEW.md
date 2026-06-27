@@ -130,8 +130,11 @@ overwrite) but inconsistent — move the param mirror below the `_frameSeen` gua
 
 ### Priority 3 — Low (robustness, polish, documentation, duplication)
 
-9. **`core/sdf.h:2685` — `Flower` (and `SphericalPolygon`) lack `HS_CHECK(radius > 0)`.** `Star` has it;
+9. ⏭️ **`core/sdf.h:2685` — `Flower` (and `SphericalPolygon`) lack `HS_CHECK(radius > 0)`.** `Star` has it;
 `Flower` does not, and `radius=0` drives `t = scan_dist/thickness` to infinity. Add the guard for parity.
+*Skipped: `ShapeShifter` feeds these SDFs a negative animated radius on a live path (`params.radius`
+lerps below 0), which the rasterizers already render deterministically; adding the guard would trap a
+shipped path. Left as-is rather than altering that animation.*
 
 10. ✅ **`core/color.h:826` — `lerp_oklch` mixes `__builtin_fmaxf` with `hs::clamp`.** Use one idiom
 (`hs::clamp` / `std::fmax`) for portability and consistency with the rest of the file.
