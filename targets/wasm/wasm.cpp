@@ -17,6 +17,7 @@
 #include <cstring>
 #include <cstdlib> // std::malloc for the lazily-allocated tooling arenas
 #include <cmath>   // std::isfinite — validate MeshOps args at the JS boundary
+#include <climits>  // INT_MAX — drawFrame pixel-index accumulator bound
 #include <initializer_list> // all_finite() variadic-arg gate for free exports
 
 // ---- Stack canary painting for high water mark tracking ----
@@ -448,6 +449,8 @@ public:
 
     // Readback copies the FULL canvas regardless of any clip; segment_worker.js
     // extracts its quadrant JS-side (README §10.7).
+    static_assert(static_cast<long long>(MAX_W) * MAX_H * kChannels <= INT_MAX,
+                  "drawFrame pixel-index accumulators are int");
     int idx = 0;
     const int count = pixel_width * pixel_height;
     if (!currentEffect->overrides_get_pixel()) {
