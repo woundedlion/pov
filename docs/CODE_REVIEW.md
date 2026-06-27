@@ -102,7 +102,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 14. ✅ **Planar arc length computed twice per frame.** `core/plot.h` ~542–553 / ~733–738: the cold pre-pass and the draw loop both call `planar_arc_length` per segment for Star/Flower/PlanarPolygon every frame. Fix: cache per-segment lengths in the pre-pass.
 
-15. **Exact `acosf` on per-shape construction paths.** `core/sdf.h` (multiple shape ctors, e.g. ~514/712/2276): `acosf(clamp(ny))` is used for a bounds estimate where the rest of the file uses `fast_acos`. Minor, but inconsistent with the file's own fast-trig discipline.
+15. ❌ **Exact `acosf` on per-shape construction paths.** `core/sdf.h` (multiple shape ctors, e.g. ~514/712/2276): `acosf(clamp(ny))` is used for a bounds estimate where the rest of the file uses `fast_acos`. Minor, but inconsistent with the file's own fast-trig discipline. — **INVALID (validated):** the discipline is fast-trig on HOT paths, exact trig on COLD ones, and these sites already honor it. Every `fast_acos` is per-pixel/per-query — the `distance()` samplers (~645/808/2335) and the per-scanline bound (~357, whose own comment budgets its ~1.3e-4 rad error against the floor/ceil pad). Every `acosf` is a once-per-construction `center_phi` latitude bound, and seven sibling ctors (~514/712/2276/2423/2556/2679/2807) compute it identically with exact `acosf`. Switching three of them to `fast_acos` would break that convention and inject approximation error into a clip-row bound for zero hot-path gain (the ctor runs once). The exact-trig constructor convention stands.
 
 ### Priority 4 — Maintainability, consistency & dead code
 
