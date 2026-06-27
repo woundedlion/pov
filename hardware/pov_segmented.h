@@ -129,6 +129,9 @@ class POVSegmented {
    */
   static constexpr int kOversample = 8;
 
+  static_assert(kColumnUs / float(kOversample) >= 1.0f,
+      "Flywheel wake period must be >= 1 us for IntervalTimer::begin");
+
   /**
    * @brief HD107S SPI clock for the Phantasm DMA path, in Hz.
    *
