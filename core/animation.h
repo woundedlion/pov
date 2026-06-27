@@ -1215,9 +1215,10 @@ public:
     // overflow safety).
     float fade_out = 1.0f;
     if (duration >= 0 && fade_out_duration > 0 &&
-        static_cast<int>(t) >= (duration - fade_out_duration)) {
-      float elapsed =
-          static_cast<float>(static_cast<int>(t) - (duration - fade_out_duration));
+        t + static_cast<uint32_t>(fade_out_duration) >=
+            static_cast<uint32_t>(duration)) {
+      float elapsed = static_cast<float>(t + static_cast<uint32_t>(fade_out_duration) -
+                                         static_cast<uint32_t>(duration));
       float progress = elapsed / fade_out_duration;
       fade_out = 1.0f - fade_out_easing(hs::clamp(progress, 0.0f, 1.0f));
     }
