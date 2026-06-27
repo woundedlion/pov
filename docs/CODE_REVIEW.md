@@ -124,7 +124,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 
 **core memory / wasm**
 
-49. `Arena::allocate` OOM trap logs `offset + padding`, which can exceed `capacity` and reads as a nonsensical offset ([core/memory.h:94](core/memory.h#L94)); log `padding`/`size` separately.
+49. ✅ `Arena::allocate` OOM trap logs `offset + padding`, which can exceed `capacity` and reads as a nonsensical offset ([core/memory.h:94](core/memory.h#L94)); log `padding`/`size` separately.
 50. `drawFrame` pixel-index accumulators are `int` with no `static_assert(MAX_W*MAX_H*kChannels <= INT_MAX)` co-located ([targets/wasm/wasm.cpp:435](targets/wasm/wasm.cpp#L435)); add the guard for a future resolution bump.
 51. An `ArenaSpan` cannot track its source vector across a *move* in debug staleness checks (runtime-safe, since it snapshots `data_`) ([core/memory.h:705](core/memory.h#L705)); document that a span must be re-taken after the source is moved.
 
