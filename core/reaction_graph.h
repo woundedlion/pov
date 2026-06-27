@@ -83,16 +83,6 @@ extern PROGMEM const int16_t neighbors[RD_N][RD_K];
  */
 struct CubemapLUT {
   static constexpr int RES = 64;
-  /**
-   * @brief Texel-to-node table, indexed (face*RES+y)*RES+x.
-   * @details Arena-backed rather than a bare uint16_t*: inherits ArenaVector's
-   *          debug generation tracking (use-after-free if the arena is reset out
-   *          from under the LUT) and bound-check (lookup() before build() traps
-   *          via operator[]'s check_bound, instead of a silent null/garbage
-   *          read). On device (NDEBUG) the checks compile out, so lookup() is a
-   *          single load.
-   */
-  ArenaVector<uint16_t> data;
 
   /**
    * @brief Allocates and populates the LUT from the given arena (48 KB).
@@ -155,6 +145,17 @@ struct CubemapLUT {
   }
 
 private:
+  /**
+   * @brief Texel-to-node table, indexed (face*RES+y)*RES+x.
+   * @details Arena-backed rather than a bare uint16_t*: inherits ArenaVector's
+   *          debug generation tracking (use-after-free if the arena is reset out
+   *          from under the LUT) and bound-check (lookup() before build() traps
+   *          via operator[]'s check_bound, instead of a silent null/garbage
+   *          read). On device (NDEBUG) the checks compile out, so lookup() is a
+   *          single load.
+   */
+  ArenaVector<uint16_t> data;
+
   /**
    * @brief Converts a cubemap face plus texel coordinates to a unit direction.
    * @param face Cube face index in [0, 6): +X,-X,+Y,-Y,+Z,-Z.
