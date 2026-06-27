@@ -141,7 +141,7 @@ segments both write the shared join index (`for i = start; i <= end`). Correctne
 color) but a transposed edit could silently double-fill; make the interior loop `i < end` and let each
 segment own its left endpoint.
 
-12. **`core/memory.h`/`platform.h` `random_to_unit` — no assert on the `max == UINT32_MAX` precondition.**
+12. ✅ **`core/memory.h`/`platform.h` `random_to_unit` — no assert on the `max == UINT32_MAX` precondition.**
 The clamp constant is derived for that exact divisor, but only `rand_f`'s `static_assert` enforces it; a
 direct caller with a different `max` gets a silently-wrong top band. Add an assert to the pure function
 (it is advertised as independently unit-testable).

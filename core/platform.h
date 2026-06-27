@@ -1093,6 +1093,11 @@ inline unsigned long micros() { return hs::micros(); }
 // ---------------------------------------------------------------------------
 namespace hs {
 
+// Defined later in this header; forward-declared so the helpers below can HS_CHECK.
+[[noreturn]] inline void check_fail(const char *file, int line, const char *cond,
+                                    const char *fmt, ...)
+    __attribute__((format(printf, 4, 5)));
+
 /**
  * @brief Maps a raw RNG draw in [0, max] onto the half-open interval [0.0, 1.0).
  * @param value Raw RNG draw, in [0, max].
@@ -1111,6 +1116,7 @@ namespace hs {
  *          without driving the global RNG to its (rare) max.
  */
 inline float random_to_unit(uint32_t value, uint32_t max) {
+  HS_CHECK(max == UINT32_MAX); // top-band clamp constant assumes this divisor
   float r = static_cast<float>(value) / static_cast<float>(max);
   constexpr float kJustBelowOne = 0x1.fffffep-1f; // nextafterf(1.0f, 0.0f)
   return r > kJustBelowOne ? kJustBelowOne : r;
