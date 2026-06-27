@@ -56,6 +56,8 @@ struct NoTempCorrection {};
  * @details A function-local static keeps one instance across translation units
  * without an out-of-line definition. Incremented after the nesting check in each
  * guard's ctor and decremented in its dtor.
+ * @note Non-atomic and main-loop-only — never construct/destroy a correction
+ * guard from an ISR or any preemptive context.
  */
 inline int &correction_guard_depth() {
   static int depth = 0;

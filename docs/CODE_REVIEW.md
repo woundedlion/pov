@@ -119,7 +119,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 44. ✅ `Presets::get`/`prev_get` re-`HS_CHECK` an index the class invariants already prove in `[0,Size)`, while the index accessors don't — an asymmetry signaling dead checks or missing ones ([core/presets.h:94](core/presets.h#L94)); pick one.
 45. ✅ `effect_registry.h` `kReserveHint = 64 // ~2x roster` is decoupled from the actual 27-effect roster ([core/effect_registry.h:73](core/effect_registry.h#L73)); drop the misleading ratio claim (the file can't see `HS_EFFECT_COUNT`).
 46. ✅ `Sprite` fade-out casts `uint32_t t` to `int` ([core/animation.h:1208](core/animation.h#L1208)) — a latent UB seam reachable only for absurd finite durations; compute the comparison in the unsigned domain like the fade-in branch.
-47. `led.h` correction-guard depth counter is a non-atomic `int` with no reentrancy note, unlike `hs::random()` ([core/led.h:60](core/led.h#L60)); add the same "main-loop only" one-liner.
+47. ✅ `led.h` correction-guard depth counter is a non-atomic `int` with no reentrancy note, unlike `hs::random()` ([core/led.h:60](core/led.h#L60)); add the same "main-loop only" one-liner.
 48. `beat16` computes `bpm << 8` on a `uint16_t` (promotes to `int`, then narrows) — intentional FastLED parity but a `-Wconversion` trip ([core/platform.h:802](core/platform.h#L802)); make the truncation explicit.
 
 **core memory / wasm**
