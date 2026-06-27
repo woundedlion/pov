@@ -85,7 +85,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 22. ✅ `fib_spiral`/`lissajous`/`logPolarToVector` use exact trig while per-pixel paths use fast trig, with no documented rationale ([core/geometry.h:544](core/geometry.h#L544)); add a "setup-time generator; exact trig intentional" note.
 23. ✅ `gnomonic` drops the hemisphere sign at the equator and `inv_gnomonic` needs it out-of-band ([core/3dmath.h:766](core/3dmath.h#L766)); document at the `gnomonic` site that the caller must track the sign.
 24. `StaticCircularBuffer`'s greedy variadic forwarding ctor is a future-maintenance footgun ([core/static_circular_buffer.h:74](core/static_circular_buffer.h#L74)); consider `explicit` and note the hazard.
-25. `apply_if_changed` uses `operator!=`, which for `Vector` is the non-transitive tolerance comparator ([core/util.h:149](core/util.h#L149)); document/assert exact-equality `T` (scalar/int).
+25. ✅ `apply_if_changed` uses `operator!=`, which for `Vector` is the non-transitive tolerance comparator ([core/util.h:149](core/util.h#L149)); document/assert exact-equality `T` (scalar/int).
 26. ✅ `fast_sinf` has no domain note; accuracy degrades for large args (only `STEREO_PATTERN_ARG_LIMIT` documents it) ([core/3dmath.h:1165](core/3dmath.h#L1165)); add a `@warning` and cross-reference.
 
 **core rendering / raster**

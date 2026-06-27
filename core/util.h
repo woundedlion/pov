@@ -150,6 +150,10 @@ constexpr float fwd_distance(float a, float b, float m) {
  */
 template <typename T, typename F>
 inline void apply_if_changed(const T &current, T &last, F &&apply) {
+  // T must compare with exact equality: a tolerance comparator (e.g. Vector's
+  // operator!=) is non-transitive and could re-fire or latch incorrectly.
+  static_assert(std::is_arithmetic_v<T>,
+                "apply_if_changed requires an exact-equality T (scalar/int)");
   if (current != last) {
     last = current;
     apply(current);
