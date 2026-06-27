@@ -1922,6 +1922,49 @@ struct Mesh {
   }
 
   /**
+   * @brief Walk a mesh's faces and invoke fn(u, v) once per unique edge.
+   * @tparam MeshT Mesh type.
+   * @tparam Fn Per-edge callback type.
+   * @param mesh Mesh whose faces are walked for edges.
+   * @param visited Caller-owned dedup bitset; cleared before walking. Held by
+   *                the caller so each path picks its own arena/scope.
+   * @param fn Invoked as fn(u, v) for the first occurrence of each edge.
+   * @details Shared face-walk/edge-dedup loop behind both draw() and
+   * extract_edges().
+   */
+  template <typename MeshT, typename Fn>
+  static void for_each_unique_edge(const MeshT &mesh,
+                                   TriangularBitset<kDedupCapacity> &visited,
+                                   Fn &&fn) {
+    visited.clear();
+
+    const uint8_t *fc = mesh.get_face_counts_data();
+    size_t num_f = mesh.get_face_counts_size();
+    const uint16_t *fi = mesh.get_faces_data();
+    size_t offset = 0;
+
+    for (size_t i = 0; i < num_f; ++i) {
+      int count = fc[i];
+      for (int k = 0; k < count; ++k) {
+        int u = fi[offset + k];
+        int v = fi[offset + (k + 1) % count];
+        int small = std::min(u, v);
+        int large = std::max(u, v);
+
+        // A vertex index past the dedup bitset's capacity is a mesh-sizing bug
+        // with no valid recovery: silently dropping the edge would mask it and
+        // leave a wireframe with missing lines. Trap on the cold setup path
+        // (platform.h).
+        HS_CHECK(large < kDedupCapacity);
+
+        if (!visited.test_and_set(small, large))
+          fn(u, v);
+      }
+      offset += count;
+    }
+  }
+
+  /**
    * @brief Draws a mesh (wireframe).
    * @tparam W,H Rasterization resolution.
    * @tparam MeshT Mesh type.
@@ -1946,51 +1989,22 @@ struct Mesh {
     auto &visited = *new (scratch_arena_b.allocate(
         sizeof(TriangularBitset<kDedupCapacity>),
         alignof(TriangularBitset<kDedupCapacity>))) TriangularBitset<kDedupCapacity>();
-    visited.clear();
 
-    auto process_edge = [&](int u, int v) {
-      int small = std::min(u, v);
-      int large = std::max(u, v);
-
-      // A vertex index past the dedup bitset's capacity is a mesh-sizing bug
-      // with no valid recovery: silently dropping the edge would mask it and
-      // leave a wireframe with missing lines. Trap on the cold per-edge setup
-      // path, consistent with the OOB guard below (platform.h).
-      HS_CHECK(large < kDedupCapacity);
-
-      if (visited.test_and_set(small, large))
-        return;
-
+    for_each_unique_edge(mesh, visited, [&](int u, int v) {
       // mesh.vertices[] only asserts in bounds (stripped under NDEBUG on the
       // device), so a malformed face index would read OOB silently on hardware.
       // This is the per-edge setup boundary, not a per-pixel path, so an
       // always-on HS_CHECK is contract-appropriate (platform.h). Checking only
-      // `large` covers both endpoints: u and v are read from uint16_t face data
-      // (call site below), so they are non-negative — large = max(u,v) in bounds
-      // implies 0 <= small <= large < size(), hence vertices[u] and vertices[v]
-      // are both valid.
-      HS_CHECK(static_cast<size_t>(large) < mesh.vertices.size());
+      // the larger index covers both endpoints: u and v are read from uint16_t
+      // face data, so they are non-negative — max(u,v) in bounds implies both
+      // vertices[u] and vertices[v] are valid.
+      HS_CHECK(static_cast<size_t>(std::max(u, v)) < mesh.vertices.size());
 
       draw_edge<W, H>(pipeline, canvas, mesh, u, v, edge_index, fragment_shader,
                       vertex_shader);
 
       edge_index++;
-    };
-
-    size_t offset = 0;
-    const uint8_t *fc = mesh.get_face_counts_data();
-    size_t num_f = mesh.get_face_counts_size();
-    const uint16_t *fi = mesh.get_faces_data();
-
-    for (size_t i = 0; i < num_f; ++i) {
-      int count = fc[i];
-      for (int k = 0; k < count; ++k) {
-        int u = fi[offset + k];
-        int v = fi[offset + (k + 1) % count];
-        process_edge(u, v);
-      }
-      offset += count;
-    }
+    });
   }
 
   /**
@@ -2031,31 +2045,10 @@ struct Mesh {
     auto &visited = *new (scratch_arena_b.allocate(
         sizeof(TriangularBitset<kDedupCapacity>),
         alignof(TriangularBitset<kDedupCapacity>))) TriangularBitset<kDedupCapacity>();
-    visited.clear();
 
-    const uint8_t *fc = mesh.get_face_counts_data();
-    size_t num_f = mesh.get_face_counts_size();
-    const uint16_t *fi = mesh.get_faces_data();
-    size_t offset = 0;
-
-    for (size_t i = 0; i < num_f; ++i) {
-      int count = fc[i];
-      for (int k = 0; k < count; ++k) {
-        int u = fi[offset + k];
-        int v = fi[offset + (k + 1) % count];
-        int small = std::min(u, v);
-        int large = std::max(u, v);
-        // A vertex index past the dedup bitset's capacity is a mesh-sizing
-        // bug with no valid recovery: silently dropping the edge would mask
-        // it and leave a wireframe with missing lines. Trap on this cold
-        // setup path, matching the dynamic draw() overload above.
-        HS_CHECK(large < kDedupCapacity);
-        if (!visited.test_and_set(small, large)) {
-          edges.push_back({(uint16_t)u, (uint16_t)v});
-        }
-      }
-      offset += count;
-    }
+    for_each_unique_edge(mesh, visited, [&](int u, int v) {
+      edges.push_back({(uint16_t)u, (uint16_t)v});
+    });
   }
 
   /**

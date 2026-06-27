@@ -106,7 +106,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 ### Priority 4 — Maintainability, consistency & dead code
 
-16. **`Plot::Mesh::draw` and `extract_edges` duplicate the face-walk/edge-dedup loop verbatim.** `core/plot.h` ~1980–2053, differing only in the per-edge action. Fix: extract a shared `for_each_unique_edge(mesh, fn)`.
+16. ✅ **`Plot::Mesh::draw` and `extract_edges` duplicate the face-walk/edge-dedup loop verbatim.** `core/plot.h` ~1980–2053, differing only in the per-edge action. Fix: extract a shared `for_each_unique_edge(mesh, fn)`.
 
 17. **Dead branch in `compute_inradius`.** `core/sdf.h` ~1776: `(min_edge_dist > 1e8f) ? 1.0f : min_edge_dist` can never take the true branch because the `count > 0` loop always overwrites `min_edge_dist`. Fix: remove or document the dead guard.
 
