@@ -40,9 +40,10 @@ test:
     ctest --preset tests
 
 # Build Doxygen API reference locally into build/docs/html/.
-# Clones doxygen-awesome theme into .doxygen-awesome/ on first run.
-# Requires doxygen on PATH.
-docs: _doxygen-theme
+# Clones doxygen-awesome theme into .doxygen-awesome/ on first run and
+# synthesizes the gitignored Doxyfile.local (Doxyfile + theme overrides, mirroring
+# .github/workflows/docs.yml). Requires doxygen on PATH.
+docs: _doxygen-theme _doxyfile-local
     cmake -E make_directory build/docs
     doxygen Doxyfile.local
 
@@ -57,6 +58,20 @@ _doxygen-theme:
 [windows]
 _doxygen-theme:
     if not exist .doxygen-awesome git clone --depth 1 --branch v2.3.4 https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
+
+# Synthesize Doxyfile.local = Doxyfile + theme overrides (mirrors docs.yml). The
+# heredoc-style append is shell-specific, so it's split per-OS.
+[unix]
+_doxyfile-local:
+    cp Doxyfile Doxyfile.local
+    { echo "HTML_EXTRA_STYLESHEET = .doxygen-awesome/doxygen-awesome.css .doxygen-awesome/doxygen-awesome-sidebar-only.css docs/doxygen-custom.css"; echo "HTML_COLORSTYLE       = DARK"; echo "HTML_COLORSTYLE_GAMMA = 160"; } >> Doxyfile.local
+
+[windows]
+_doxyfile-local:
+    copy /y Doxyfile Doxyfile.local
+    (echo HTML_EXTRA_STYLESHEET = .doxygen-awesome/doxygen-awesome.css .doxygen-awesome/doxygen-awesome-sidebar-only.css docs/doxygen-custom.css) >> Doxyfile.local
+    (echo HTML_COLORSTYLE       = DARK) >> Doxyfile.local
+    (echo HTML_COLORSTYLE_GAMMA = 160) >> Doxyfile.local
 
 # WASM release build + install the module into ../daydream.
 install:
