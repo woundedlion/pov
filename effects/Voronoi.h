@@ -237,9 +237,9 @@ public:
   struct Params {
     float num_sites = 200.0f;     /**< Live-tunable site count (GUI slider). */
     float speed = 20.0f;          /**< Site spin rate (GUI slider). */
-    float borderThickness = 0.0f; /**< Cell-seam border width; 0 disables. */
     float sharpness = 100.0f;     /**< Edge sharpening; larger narrows the
                                        border blend band. */
+    float borderThickness = 0.0f; /**< Cell-seam border width; 0 disables. */
   } params;
 
   static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
