@@ -97,11 +97,19 @@ class POVSegmented {
   static constexpr int PIN_ID0 = 21;
   static constexpr int PIN_ID1 = 22;
 
-  /** @brief Sync-symbol output (segment 0 / master only). */
-  static constexpr int PIN_FRAME_SYNC_OUT = 3;
+  /**
+   * @brief Shared sync wire: master drives it OUTPUT (symbol bursts),
+   *        downstream boards read it INPUT (RISING edge ISR). One pin serves
+   *        both roles since a board is master XOR downstream.
+   */
+  static constexpr int PIN_FRAME_SYNC = 3;
 
-  /** @brief Sync-symbol input (downstream boards decode symbol bursts). */
-  static constexpr int PIN_FRAME_SYNC_IN = 4;
+  /**
+   * @brief Master-enable strap for the external sync-out level shifter.
+   *        OUTPUT, driven LOW on the master (segment 0) and HIGH elsewhere, so
+   *        only the master drives the shared sync bus.
+   */
+  static constexpr int PIN_MASTER_EN = 5;
 
   // ── Flywheel timing ─────────────────────────────────────────────────
 
@@ -225,16 +233,19 @@ public:
     sync_ = pov::sync::SyncBoard(cfg);
 
     const bool master = (segment_id_ == 0);
+    pinMode(PIN_MASTER_EN, OUTPUT);
+    digitalWriteFast(PIN_MASTER_EN, master ? LOW : HIGH);
     if (master) {
-      pinMode(PIN_FRAME_SYNC_OUT, OUTPUT);
-      digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
+      pinMode(PIN_FRAME_SYNC, OUTPUT);
+      digitalWriteFast(PIN_FRAME_SYNC, LOW);
+    } else {
+      pinMode(PIN_FRAME_SYNC, INPUT);
     }
-    pinMode(PIN_FRAME_SYNC_IN, INPUT);
 
     sync_.seed(ARM_DWT_CYCCNT, master);
 
     if (!master) {
-      attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC_IN),
+      attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC),
                       sync_edge_isr, RISING);
     }
     HS_CHECK(timer_.begin(flywheel_isr, kColumnUs / float(kOversample)),
@@ -433,7 +444,7 @@ private:
     // dark-latched path's body is too short to width a same-wake pulse to spec
     // §5.2's "tens of µs," so it holds the pin HIGH and drops it here instead.
     if (sync_low_pending_) {
-      digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
+      digitalWriteFast(PIN_FRAME_SYNC, LOW);
       sync_low_pending_ = false;
     }
 
@@ -454,7 +465,7 @@ private:
 
     // Pin write first, LED work after (spec §5.2).
     if (a.pulse)
-      digitalWriteFast(PIN_FRAME_SYNC_OUT, HIGH);
+      digitalWriteFast(PIN_FRAME_SYNC, HIGH);
 
     // Release handshake: the foreground wants the live pointer dropped so it
     // can destroy the instance (epoch teardown / beacon rebuild).
@@ -522,7 +533,7 @@ private:
 
     if (a.pulse) {
       if (did_render) {
-        digitalWriteFast(PIN_FRAME_SYNC_OUT, LOW);
+        digitalWriteFast(PIN_FRAME_SYNC, LOW);
       } else {
         // Body too short to width the pulse: hold HIGH, drop at the next wake.
         sync_low_pending_ = true;
