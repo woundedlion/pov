@@ -146,7 +146,7 @@ The clamp constant is derived for that exact divisor, but only `rand_f`'s `stati
 direct caller with a different `max` gets a silently-wrong top band. Add an assert to the pure function
 (it is advertised as independently unit-testable).
 
-13. **`core/presets.h:103-104` — `current_idx`/`prev_idx` are `int` while `Size` is `size_t`.** Gratuitous
+13. ✅ **`core/presets.h:103-104` — `current_idx`/`prev_idx` are `int` while `Size` is `size_t`.** Gratuitous
 signed/unsigned mixing in the modular index math; make them consistently one type.
 
 14. **`core/animation.h:1208-1218` — `Sprite::step` has unguarded fade durations.** `fade_in_duration`/
