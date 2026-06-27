@@ -154,7 +154,7 @@ public:
     vtable_ = &detail::ipf_ops<D, R, Args...>::value;
   }
 
-  inplace_function(const inplace_function &o) : vtable_(o.vtable_) {
+  inplace_function(const inplace_function &o) noexcept : vtable_(o.vtable_) {
     vtable_->copy(storage_, o.storage_);
   }
   inplace_function(inplace_function &&o) noexcept : vtable_(o.vtable_) {
@@ -162,7 +162,7 @@ public:
     o.vtable_ = empty_vtable();
   }
 
-  inplace_function &operator=(const inplace_function &o) {
+  inplace_function &operator=(const inplace_function &o) noexcept {
     if (this != &o) {
       // Destroy-then-copy is safe only because the converting constructor's
       // is_nothrow_copy_constructible_v static_assert guarantees copy() cannot
