@@ -148,6 +148,11 @@ public:
    *          [0xFF][B][G][R]. This cold bind seam traps an out-of-range count
    *          rather than silently clamping (count > N) or no-op'ing (count < 0),
    *          mirroring packPixel()'s index guard.
+   *
+   *          Writes only slots [0, count); slots [count, N) retain whatever they
+   *          held before — a partial load() does NOT clear the tail. Callers that
+   *          repaint fewer than N pixels must blank the remainder themselves (the
+   *          shipped path uses packPixel(), which rewrites every slot each frame).
    */
   void load(const CRGB* pixels, int count) {
     HS_CHECK(count >= 0 && count <= N, "load count out of range");
