@@ -298,7 +298,7 @@ inline void test_edge_reciprocity_high() {
 inline void test_cubemap_lut_roundtrip() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
                          ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
-                     64];
+                     RD_N * sizeof(Vector) + 64];
   Arena arena(buf, sizeof(buf));
   ReactionGraph::CubemapLUT lut;
   lut.build(arena);
@@ -334,7 +334,7 @@ inline void test_cubemap_lut_roundtrip() {
 inline void test_cubemap_lut_offlattice() {
   static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
                          ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
-                     64];
+                     RD_N * sizeof(Vector) + 64];
   Arena arena(buf, sizeof(buf));
   ReactionGraph::CubemapLUT lut;
   lut.build(arena);
