@@ -1134,13 +1134,19 @@ template <typename A, typename B> struct Subtract {
     // A stroke subtrahend's edge-bands can coalesce into one chord interval that
     // spans the stroke's hollow interior; subtracting that would carve A's
     // interior, and scan_region never re-fills the skipped columns. So for a
-    // non-solid B, pass A through unchanged and let per-pixel max(A, -B) carve
-    // exactly the stroke band. Cost note: the carve gets no horizontal culling,
-    // so Subtract<solid, stroke> pays full A-coverage shading — the expensive CSG
-    // combination.
+    // non-solid B, emit A's spans (seam-split into [0, W)) and let per-pixel
+    // max(A, -B) carve exactly the stroke band. Cost note: the carve gets no
+    // horizontal culling, so Subtract<solid, stroke> pays full A-coverage shading
+    // — the expensive CSG combination.
     if constexpr (!B::is_solid) {
-      for (size_t i = 0; i < intervals_a.size(); ++i)
-        out(intervals_a[i].first, intervals_a[i].second);
+      constexpr size_t kSeamSplitCap = 2 * kIntervalSpanCap;
+      static_assert(2 * sdf_max_spans<A>::value <= kSeamSplitCap,
+                    "post-seam-split span count exceeds norm buffer capacity");
+      StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_a;
+      normalize_intervals_to_range<W>(intervals_a, norm_a);
+      sort_intervals_by_start(norm_a);
+      for (size_t i = 0; i < norm_a.size(); ++i)
+        out(norm_a[i].first, norm_a[i].second);
       return true;
     }
 
