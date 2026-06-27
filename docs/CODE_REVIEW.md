@@ -109,10 +109,14 @@ to 2000 points through `transformer.transform()` and issues a separate `Scan::St
 no per-frame work cap analogous to the `kMaxRings` clamp used elsewhere. Add a screen-space cull / draw
 cap, or document the worst-case cost.
 
-6. **`core/led.h:62` — `correction_guard_depth()` lacks a re-entrancy assertion.** It is a bare
+6. ✅ **`core/led.h:62` — `correction_guard_depth()` lacks a re-entrancy assertion.** It is a bare
 `static int` documented as main-loop-only, but unlike the Canvas/Timeline/Effect singletons it carries no
 `HS_CHECK` against the wrong-context use the rest of the codebase guards. Add the assertion (or a note on
-why it cannot exist) to match the project's fail-fast rigor.
+why it cannot exist) to match the project's fail-fast rigor. **Resolved (already guarded):** re-entrancy —
+a second live guard of either type — already traps via `HS_CHECK(correction_guard_depth() == 0)` in both
+guard constructors; the main-loop-only constraint follows the codebase's note-only convention for that same
+class of precondition (e.g. `hs::random()` in `platform.h`), as no ISR-context primitive exists to assert
+against.
 
 7. **`core/3dmath.h:1216` — `slerp(Vector)` is non-monotone near the antipode.** The antipodal branch
 returns `normalized_or(v1 + (v2-v1)*t, v1)`; at `t≈0.5` with `v2≈-v1` the blend collapses to ~0 and falls
