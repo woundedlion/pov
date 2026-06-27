@@ -238,12 +238,12 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
 
       do {
         const HalfEdge &curr_he = he_mesh.half_edges[curr_idx];
-        HS_CHECK(count < (int)(2 * I));
+        HS_CHECK(count < (int)(2 * I), "Hankin rosette winding overflow");
         face_indices[count++] = he_to_midpoint_idx[curr_idx];
         // Closed manifold: pair is always valid, so the orbit closes back on
         // start_orbit and never hits HE_NONE.
         uint16_t next_edge_idx = he_mesh.half_edges[curr_he.pair].next;
-        HS_CHECK(count < (int)(2 * I));
+        HS_CHECK(count < (int)(2 * I), "Hankin rosette winding overflow");
         face_indices[count++] = narrow_index(
             compiled.static_offset + he_to_dynamic_idx[next_edge_idx]);
         curr_idx = next_edge_idx;

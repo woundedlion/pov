@@ -36,7 +36,7 @@ inline Vector face_centroid(const HalfEdgeMesh &he_mesh,
     // Anti-hang guard: a corrupt .next chain would otherwise spin forever.
     const int max_sides = static_cast<int>(he_mesh.half_edges.size());
     do {
-      HS_CHECK(out_count < max_sides);
+      HS_CHECK(out_count < max_sides, "face_centroid: corrupt face loop");
       c = c + mesh.vertices[he_mesh.half_edges[he_idx].vertex];
       out_count++;
       he_idx = he_mesh.half_edges[he_idx].next;
@@ -72,9 +72,9 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
   const int max_sides = static_cast<int>(he_mesh.half_edges.size());
   int sides = 0;
   do {
-    HS_CHECK(sides++ < max_sides);
+    HS_CHECK(sides++ < max_sides, "face_normal: corrupt face loop");
     const HalfEdge &he = he_mesh.half_edges[he_idx];
-    HS_CHECK(he.next != HE_NONE);
+    HS_CHECK(he.next != HE_NONE, "face_normal: HE_NONE in face loop");
     const Vector &curr = mesh.vertices[he.vertex];
     const Vector &next = mesh.vertices[he_mesh.half_edges[he.next].vertex];
     n.x += (curr.y - next.y) * (curr.z + next.z);
@@ -104,7 +104,7 @@ inline int vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
   // Anti-hang guard: a corrupt/non-manifold half-edge graph would otherwise spin forever.
   const int max_orbit = static_cast<int>(he_mesh.half_edges.size());
   do {
-    HS_CHECK(count < max_orbit);
+    HS_CHECK(count < max_orbit, "vertex_orbit: corrupt orbit");
     const HalfEdge &curr_he = he_mesh.half_edges[curr_idx];
     if (curr_he.face == HE_NONE)
       break;
@@ -163,7 +163,7 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
 
     int orbit_count = 0;
     vertex_orbit<DIR>(he_mesh, he_start_idx, [&](uint16_t idx) {
-      HS_CHECK(orbit_count < (int)I);
+      HS_CHECK(orbit_count < (int)I, "vertex orbit overflow");
       orbit_buf[orbit_count++] = narrow_index(value_of(idx));
     });
 
@@ -196,7 +196,7 @@ inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
     const int max_sides = static_cast<int>(he_mesh.half_edges.size());
     uint16_t he_idx = start_he;
     do {
-      HS_CHECK(count < max_sides);
+      HS_CHECK(count < max_sides, "face_side_count: corrupt face loop");
       count++;
       he_idx = he_mesh.half_edges[he_idx].next;
     } while (he_idx != HE_NONE && he_idx != start_he);
@@ -558,7 +558,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
         uint16_t he_idx = start;
         int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
         do {
-          HS_CHECK(emitted++ < count);
+          HS_CHECK(emitted++ < count, "face re-walk overran side count");
           out_mesh.faces.push_back(edge_to_vert[he_idx]);
           he_idx = he_mesh.half_edges[he_idx].next;
         } while (he_idx != HE_NONE && he_idx != start);
@@ -614,7 +614,7 @@ inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
  */
 HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &temp,
                                   float t = 0.25f) {
-  HS_CHECK(t >= 0.0f && t <= 1.0f);
+  HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
   if (std::abs(t - 0.5f) < math::TOLERANCE) {
     return ambo(mesh, target, temp);
   }
@@ -684,7 +684,7 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &tem
         uint16_t he_idx = start;
         int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
         do {
-          HS_CHECK(emitted++ < count);
+          HS_CHECK(emitted++ < count, "face re-walk overran side count");
           auto [tail_cut, head_cut] =
               truncate_oriented_cut(he_mesh, edge_to_vert, he_idx);
           out_mesh.faces.push_back(tail_cut);
@@ -763,7 +763,7 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
       if (he_idx != HE_NONE) {
         int walked = 0; // anti-hang guard: face has `count` half-edges
         do {
-          HS_CHECK(walked++ < count);
+          HS_CHECK(walked++ < count, "face re-walk overran side count");
           Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
           Vector new_v = v + (centroid - v) * t;
           out_mesh.vertices.push_back(new_v);
@@ -849,7 +849,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp
       if (he_idx != HE_NONE) {
         int walked = 0; // anti-hang guard: face has `count` half-edges
         do {
-          HS_CHECK(walked++ < count);
+          HS_CHECK(walked++ < count, "face re-walk overran side count");
           uint16_t vi =
               he_mesh.half_edges[he_mesh.half_edges[he_idx].prev].vertex;
           Vector v = mesh.vertices[vi];
@@ -1059,7 +1059,7 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
       if (he_idx != HE_NONE) {
         int walked = 0; // anti-hang guard: face has `count` half-edges
         do {
-          HS_CHECK(walked++ < count);
+          HS_CHECK(walked++ < count, "face re-walk overran side count");
           Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
           Vector new_v = v + (centroid - v) * t;
 
