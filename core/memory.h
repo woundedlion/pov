@@ -96,8 +96,8 @@ public:
     // Subtractive form: offset <= capacity is invariant, so it cannot wrap the
     // way `offset + padding + size > capacity` would for a colossal `size`.
     if (padding > capacity - offset || size > capacity - offset - padding) {
-      hs::log("[OOM] Arena: req %zu, offset %zu / cap %zu", size,
-              offset + padding, capacity);
+      hs::log("[OOM] Arena: req %zu, offset %zu, pad %zu / cap %zu", size,
+              offset, padding, capacity);
       HS_CHECK(false);
     }
     offset += padding;
