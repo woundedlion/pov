@@ -224,7 +224,7 @@ can "land a hair above `H-1`" (documented in `geometry.h:226,477`); the existing
 `HS_EXPECT_NEAR` (proximity), which passes even at 144.0001 and does not pin the `≤ H_VIRT-1` upper bound.
 Add a bound assertion.
 
-31. **`tests/test_sdf.h` — `Union`/`SmoothUnion` interval merge path untested.** Subtract/Intersection
+31. ✅ **`tests/test_sdf.h` — `Union`/`SmoothUnion` interval merge path untested.** Subtract/Intersection
 seam-straddle and AngularRepeat culls are covered, but the `Union`/`SmoothUnion`
 `get_horizontal_intervals` overlap/merge path is exercised only via `distance()`, never with
 seam-straddling intervals — exactly where double-paint regressions hide.

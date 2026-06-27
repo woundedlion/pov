@@ -834,6 +834,79 @@ inline void test_smooth_union_solidity_follows_children() {
                 "mixed -> silhouette path");
 }
 
+/**
+ * @brief Verifies Union coalesces two overlapping child intervals into one span.
+ * @details merge_intervals sorts by start and welds spans that touch or overlap;
+ *   the children emit overlapping bands (A [0,40], B [30,70]) that must collapse
+ *   to a single [0,70] — emitting both would double-paint the [30,40] overlap.
+ */
+inline void test_union_merges_overlapping_intervals() {
+  using P = std::pair<float, float>;
+  using Mock = sdf_subtract_detail::MockIntervalShape;
+  std::vector<P> a_ivs = {{0.0f, 40.0f}};
+  std::vector<P> b_ivs = {{30.0f, 70.0f}};
+  Mock A{&a_ivs}, B{&b_ivs};
+  SDF::Union<Mock, Mock> u(A, B);
+
+  std::vector<P> out;
+  bool ok = u.get_horizontal_intervals<256, 128>(
+      0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(1));
+  HS_EXPECT_NEAR(out[0].first, 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[0].second, 70.0f, 1e-4f);
+}
+
+/**
+ * @brief Verifies Union welds two overlapping seam-straddling spans into one.
+ * @details Both children emit bands straddling θ=0 in the same negative frame
+ *   (A [-10,6], B [2,12]); their overlap must coalesce to a single [-10,12] span,
+ *   not two duplicate spans the downstream seam-split would then double-paint.
+ */
+inline void test_union_seam_straddle_merges_overlapping_intervals() {
+  using P = std::pair<float, float>;
+  using Mock = sdf_subtract_detail::MockIntervalShape;
+  std::vector<P> a_ivs = {{-10.0f, 6.0f}};
+  std::vector<P> b_ivs = {{2.0f, 12.0f}};
+  Mock A{&a_ivs}, B{&b_ivs};
+  SDF::Union<Mock, Mock> u(A, B);
+
+  std::vector<P> out;
+  bool ok = u.get_horizontal_intervals<256, 128>(
+      0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(1));
+  HS_EXPECT_NEAR(out[0].first, -10.0f, 1e-4f);
+  HS_EXPECT_NEAR(out[0].second, 12.0f, 1e-4f);
+}
+
+/**
+ * @brief Verifies SmoothUnion's k-padded union welds overlapping seam-straddling spans.
+ * @details Each child interval is inflated by pad_px = k·W/2π before the merge, so
+ *   a tiny k keeps the bounds near the raw spans while still routing through the
+ *   pad path; two overlapping seam-straddling bands must coalesce to one padded
+ *   span rather than two overlapping spans.
+ */
+inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
+  using P = std::pair<float, float>;
+  using Mock = sdf_subtract_detail::MockIntervalShape;
+  constexpr int W = 256;
+  const float k = 0.02f;
+  const float pad = k * W / (2.0f * PI_F);
+  std::vector<P> a_ivs = {{-10.0f, 6.0f}};
+  std::vector<P> b_ivs = {{2.0f, 12.0f}};
+  Mock A{&a_ivs}, B{&b_ivs};
+  SDF::SmoothUnion<Mock, Mock> su(A, B, k);
+
+  std::vector<P> out;
+  bool ok = su.get_horizontal_intervals<W, 128>(
+      0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
+  HS_EXPECT_EQ(out.size(), static_cast<size_t>(1));
+  HS_EXPECT_NEAR(out[0].first, -10.0f - pad, 1e-4f);
+  HS_EXPECT_NEAR(out[0].second, 12.0f + pad, 1e-4f);
+}
+
 // ============================================================================
 // AngularRepeat — folds azimuth into N sectors
 // ============================================================================
@@ -1333,6 +1406,10 @@ inline int run_sdf_tests() {
   test_smooth_union_matches_union_far_from_boundary();
   test_smooth_union_blends_inside_band();
   test_smooth_union_solidity_follows_children();
+
+  test_union_merges_overlapping_intervals();
+  test_union_seam_straddle_merges_overlapping_intervals();
+  test_smooth_union_seam_straddle_merges_padded_intervals();
 
   test_angular_repeat_matches_base_at_zero_angle();
   test_angular_repeat_creates_copies();
