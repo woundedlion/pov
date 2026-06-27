@@ -114,7 +114,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 
 **core engine / animation / platform**
 
-42. `MeshMorph` allocates clone+position transients into the arena with no destructor reclamation, so back-to-back morphs without an explicit compaction grow the arena ([core/animation.h:1955](core/animation.h#L1955)); documented intentional, but the required compaction cadence should be flagged at the call sites.
+42. ✅ `MeshMorph` allocates clone+position transients into the arena with no destructor reclamation, so back-to-back morphs without an explicit compaction grow the arena ([core/animation.h:1955](core/animation.h#L1955)); documented intentional, but the required compaction cadence should be flagged at the call sites.
 43. `random_to_unit`'s clamp constant is correct only for `max == UINT32_MAX`, but `max` is a runtime parameter (the `static_assert` lives in `rand_f`) ([core/platform.h:1111](core/platform.h#L1111)); document the precondition or derive the boundary from `max`.
 44. `Presets::get`/`prev_get` re-`HS_CHECK` an index the class invariants already prove in `[0,Size)`, while the index accessors don't — an asymmetry signaling dead checks or missing ones ([core/presets.h:94](core/presets.h#L94)); pick one.
 45. `effect_registry.h` `kReserveHint = 64 // ~2x roster` is decoupled from the actual 27-effect roster ([core/effect_registry.h:73](core/effect_registry.h#L73)); drop the misleading ratio claim (the file can't see `HS_EFFECT_COUNT`).
