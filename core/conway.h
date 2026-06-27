@@ -365,8 +365,8 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
  * @tparam MeshT Mesh type exposing an iterable `vertices` of Vector.
  * @param mesh Mesh whose vertices are normalized in place.
  * @note Mesh utility, not a Conway operator.
- * @note Traps on a zero-length vertex: callers (kis/expand/snub) assume no
- *   origin-centered vertex, e.g. a centrally-symmetric face centroid.
+ * @note Traps on a zero-length vertex; guard centroid-derived inputs with
+ *   normalized_or (e.g. a centrally-symmetric face centroid; see kis/dual).
  */
 template <typename MeshT> static void normalize(MeshT &mesh) {
   for (auto &v : mesh.vertices) {
@@ -481,7 +481,7 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target, Arena &temp) {
       }
       centroid = centroid / static_cast<float>(count);
 
-      out_mesh.vertices.push_back(centroid);
+      out_mesh.vertices.push_back(normalized_or(centroid, mesh.vertices[faces[offset]]));
       int center_idx = narrow_index(out_mesh.vertices.size() - 1);
 
       for (int k = 0; k < count; ++k) {
