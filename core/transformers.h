@@ -367,12 +367,9 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
   float scale = params.scale;
   float time_val = params.time * params.speed;
 
-  // Sample 3D noise field. Offset all three axes per channel (not just X/Y): a
-  // shared Z/time input would leave the three displacement components correlated
-  // along Z, so the slide direction is biased rather than isotropic. Distinct
-  // per-axis offsets decorrelate every component — each channel reads a region
-  // of the field far enough from the others (>> the unit-sphere coordinate span)
-  // that their samples are independent.
+  // ny/nz read the same field as nx under a constant translation (100/200 on
+  // every axis). The channels decorrelate because that translation exceeds the
+  // noise correlation length, not because the per-axis offsets differ.
   constexpr float kChannelYOffset = 100.0f; // channel 2 (ny) field shift
   constexpr float kChannelZOffset = 200.0f; // channel 3 (nz) field shift
   float nx =
