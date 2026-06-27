@@ -163,7 +163,7 @@ type that can never complete.
 (`pair == HE_NONE`), the entire 1-ring spring force is skipped even when other incoming edges have twins.
 The closed-manifold roster never triggers it, but scan for any paired edge or document the limitation.
 
-17. **`core/mesh.h:619` (`classify_faces_impl`) — 32-bit hash used directly as a topology-class id.** An
+17. ✅ **`core/mesh.h:619` (`classify_faces_impl`) — 32-bit hash used directly as a topology-class id.** An
 `fmix32` collision merges two distinct face topologies into one palette class. Safe for the fixed roster,
 but add a roster-wide collision-free test (or a debug assert) so it stays safe as the roster grows.
 
