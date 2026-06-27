@@ -9,6 +9,13 @@
 #include <algorithm>
 #include "core/engine.h"
 
+// Unit-test accessor for the spawn-gap accumulator and hue-cursor wrap invariants.
+namespace hs_test {
+namespace effects_tests {
+struct PetalFlowWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Flowing petal effect built from concentric rings on the sphere.
  * @tparam W Canvas width in pixels.
@@ -81,6 +88,9 @@ public:
   }
 
 private:
+  // Test seam: reaches the spawn-gap accumulator and hue-cursor wrap invariants.
+  friend struct ::hs_test::effects_tests::PetalFlowWhiteBox;
+
   static constexpr int MAX_RINGS = 64;        /**< Maximum number of concurrent rings. */
   static constexpr float START_RHO = -3.75f;  /**< Rho at which rings are spawned (path start). */
   static constexpr float END_RHO = 3.75f;     /**< Rho past which rings are retired (path end). */

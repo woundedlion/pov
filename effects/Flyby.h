@@ -7,6 +7,13 @@
 
 #include "core/engine.h"
 
+// Unit-test accessor for the noise-time and trig-phase wrap invariants.
+namespace hs_test {
+namespace effects_tests {
+struct FlybyWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Stereographic fly-through effect.
  * @tparam W Canvas width in pixels.
@@ -120,6 +127,9 @@ public:
   }
 
 private:
+  // Test seam: reaches the noise-time and trig-phase wrap invariants.
+  friend struct ::hs_test::effects_tests::FlybyWhiteBox;
+
   /**
    * @brief Projects a sphere point to stereographic space.
    * @param v World-space unit vector on the sphere.

@@ -241,7 +241,7 @@ coverage. Pin a few named-palette endpoints and hue-arc directions.
 FastNoiseLite wrapper are only checked for divergence/NaN, never against a golden reference; a silent
 noise regression renders deterministically and passes. Golden-hash a fixed noise sample grid.
 
-35. **`tests/test_effects.h` — several effects have smoke/determinism coverage only.** FlowField, Flyby,
+35. ✅ **`tests/test_effects.h` — several effects have smoke/determinism coverage only.** FlowField, Flyby,
 PetalFlow, ChaoticStrings, MindSplatter, RingSpin (and the white-box-light Hopf/Islamic/Raymarch/Liquid2D)
 lack invariant pins for exactly the silent-drift behaviors smoke tests miss (spawn-gap accumulators,
 emit-phase wrap, pattern-arg clamps). Add targeted pins.
