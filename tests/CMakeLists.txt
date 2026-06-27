@@ -103,6 +103,17 @@ foreach(_mod IN LISTS _hs_test_modules)
     add_test(NAME unit_${_mod} COMMAND run_tests ${_mod})
 endforeach()
 
+# Pin core/color_luts.h against its generator; skips (exit 77) without Python.
+find_program(HS_PYTHON NAMES python3 python)
+add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
+    -DPYTHON_EXE=${HS_PYTHON}
+    -DGENERATOR=${HS_ROOT}/scripts/generate_luts.py
+    -DCOMMITTED=${HS_ROOT}/core/color_luts.h
+    -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/color_luts.generated.h
+    -DSKIP_CODE=77
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts.cmake)
+set_tests_properties(unit_color_luts PROPERTIES SKIP_RETURN_CODE 77)
+
 # Finding 369: the run_tests build sets NO math flags, so its NaN-clamp
 # assertions run under default IEEE semantics where the hs::clamp NaN->hi
 # contract holds trivially — the at-risk codegen the WASM release build actually
