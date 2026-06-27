@@ -956,7 +956,7 @@ public:
         float nr = srgb_to_linear_float(nextColor.r / 255.0f);
         float ng = srgb_to_linear_float(nextColor.g / 255.0f);
         float nb = srgb_to_linear_float(nextColor.b / 255.0f);
-        for (int i = start; i <= end; i++) {
+        for (int i = start; i < end; i++) {
           float t = static_cast<float>(i - start) / (end - start);
 
           float r_lin = pr * (1.0f - t) + nr * t;
