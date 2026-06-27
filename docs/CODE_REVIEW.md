@@ -107,7 +107,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 **core mesh**
 
 37. ✅ `kis`/`expand`/`snub` build a centroid apex and call `normalize()`, which traps on a zero-length (centrally-symmetric face) centroid, whereas `dual` guards the same case with `normalized_or` ([core/conway.h:482](core/conway.h#L482)); use `normalized_or` consistently rather than relying on the unenforced "no origin-centered vertex" precondition.
-38. `MeshOps::transform` produces borrowed-mode output but rejects borrowed-mode *input*, so `transform(transform(x))` traps ([core/conway.h:251](core/conway.h#L251)); route the topology copy through the unified `get_*_data()` accessors or document why chaining is unsupported.
+38. ✅ `MeshOps::transform` produces borrowed-mode output but rejects borrowed-mode *input*, so `transform(transform(x))` traps ([core/conway.h:251](core/conway.h#L251)); route the topology copy through the unified `get_*_data()` accessors or document why chaining is unsupported.
 39. `relax` omits the `require_closed_manifold` precondition its sibling operators all carry, silently giving a partial relaxation on a boundary mesh instead of failing fast ([core/conway.h:936](core/conway.h#L936)); add the check or document the tolerance.
 40. `compile_hankin` open-codes a closed-manifold scan duplicating `require_closed_manifold` ([core/hankin.h:130](core/hankin.h#L130)); centralize (move the helper to `mesh.h`).
 41. `find_nearest_node` calls the double-precision `node()` (cos/sin/fmod/sqrt) inside the cubemap-LUT build hill-climb — millions of transcendentals at boot ([core/reaction_graph.h:214](core/reaction_graph.h#L214)); precompute the lattice once into scratch to cut boot latency. (One-time cost; never hits frame time.)

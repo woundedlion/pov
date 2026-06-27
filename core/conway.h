@@ -245,6 +245,9 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
  * @details Base case of the variadic overload below: with no transformers,
  *   vertices are copied verbatim.
  * @note Mesh utility, not a Conway operator.
+ * @note Input must be owned-mode (its topology is exposed as borrowed views in
+ *   the output). The output is borrowed-mode, so it cannot be re-fed as input:
+ *   transform(transform(x)) is unsupported and traps at the owned-mode check.
  */
 inline void transform(const MeshState &local_state, MeshState &world_state,
                       Arena& arena) {
