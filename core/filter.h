@@ -161,6 +161,7 @@ template <int W, int H> struct Pipeline<W, H> {
     assert(std::isfinite(x) && std::isfinite(y));
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
+    // fast_wrap corrects only a single ±W offset, so xi must land in [-W, 2W).
     assert(xi >= -W && xi < 2 * W);
     if (!cv.clip().contains_y(yi)) return;
     xi = fast_wrap(xi, W);
