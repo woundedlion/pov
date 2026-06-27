@@ -126,7 +126,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 25. ✅ **`std::clamp` used where the file relies on NaN-safe `hs::clamp`.** `core/color.h` ~1289/1692/814: `std::clamp(NaN,...)` diverges from the documented `hs::clamp` NaN→hi contract the file depends on elsewhere. Fix: use `hs::clamp`.
 
-26. **Redundant double `std::fmod` in `shortest_distance`.** `core/util.h` ~115: two `fmod` calls (each ~20+ soft-float cycles on M7) where one reduction plus a branchless fold suffices on the common in-range input. Minor; non-hot path.
+26. **Redundant double `std::fmod` in `shortest_distance`.** `core/util.h` ~115: two `fmod` calls (each ~20+ soft-float cycles on M7) where one reduction plus a branchless fold suffices on the common in-range input. Minor; non-hot path. — **DECLINED (validated):** the single-`fmod`-plus-branchless-fold is not bit-identical to the current double-`fmod` — across a 2M in-domain sweep ~7.6% of inputs differ by a ULP, from the `fl(r+m)−m` rounding the outer `fmod` performs. `shortest_distance` is an explicitly non-hot path, so perturbing a geometry primitive's results for a cold-path micro-optimization is not worth the reproducibility risk; the double-`fmod` stands.
 
 27. ✅ **Möbius complex-arithmetic core duplicated between JS and GLSL.** `daydream/tools/mobius.html` ~345–354 vs `mobius_transforms.js` ~44–51: `cmult`/`cadd`/`cdiv` (including the `1e-6` divide guard) are hand-copied and can silently diverge. Fix: a parity unit test, or generate the GLSL from the shared spec.
 
