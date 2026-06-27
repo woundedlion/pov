@@ -84,7 +84,10 @@ public:
                   "BZ persistent arena too small for LUT + state + nodes");
     configure_arenas(kPersistentBytes, GLOBAL_ARENA_SIZE - kPersistentBytes, 0);
 
-    // "Compete" is the Lotka-Volterra predation coefficient, not an opacity.
+    // "Compete" is the Lotka-Volterra predation coefficient, not an opacity. Its
+    // reaction term is bounded only by to_q8's [0,1] clamp, not the diffusion
+    // stability bound below, so a high Compete intentionally saturates (hard
+    // banding) rather than diverging.
     registerParam("Compete", &params.alpha, 0.0f, 4.0f);
     // Explicit Euler is stable only while dt·D·λmax ≤ 2 (|λ|max ≤ 12 on the 6-NN
     // lattice), bounding these Diff/Speed tops.
