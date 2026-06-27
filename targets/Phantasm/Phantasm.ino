@@ -24,8 +24,14 @@
  */
 
 // Select the DMA HD107S output path. Must precede any include that pulls in
-// led.h (via pov_segmented.h).
+// led.h (via pov_segmented.h). Guarded because platformio.ini's phantasm env
+// also passes -D USE_DMA_LEDS: an Arduino-IDE/VMicro build sees only this
+// #define, a PlatformIO build sees only the flag, and the #ifndef keeps the two
+// from colliding into a redefinition warning (the flag's value 1 vs this empty
+// define).
+#ifndef USE_DMA_LEDS
 #define USE_DMA_LEDS
+#endif
 
 #include <FastLED.h>
 #include <SPI.h>
