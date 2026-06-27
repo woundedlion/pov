@@ -481,6 +481,9 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  *   `vector→pixel` counterpart of the unchecked `y` contract `pixel_to_vector`
  *   documents at the inverse end — left unclamped on the same hot-path grounds; a
  *   caller that indexes a row buffer with `(int)y` must clamp or floor first.
+ *   The `x` field carries the symmetric hazard: `wrap()` returns `[0, W)`, but a
+ *   value a hair under `W` rounds up to `W`, so a caller must floor (not round)
+ *   `x` before indexing a width-`W` column buffer.
  */
 template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
   float theta = fast_atan2(v.z, v.x);
