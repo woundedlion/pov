@@ -92,7 +92,7 @@ producer/consumer hammer loop asserting no torn or doubly-displayed frame.
 
 ### Priority 2 — Medium (correctness-adjacent, perf, and consistency)
 
-3. **`effects/Voronoi.h:160-217` — coarse-coherence silently drops sub-block cells.** The 8 px coherence
+3. ✅ **`effects/Voronoi.h:160-217` — coarse-coherence silently drops sub-block cells.** The 8 px coherence
 block classifies only at corners; a Voronoi cell smaller than the block missed by all four corners
 vanishes. At high site counts (up to ~400) small cells near the dense pole region can disappear. The
 in-code "bit-identical to the full query" equivalence claim (~L208-217) is **untested**. Add the
