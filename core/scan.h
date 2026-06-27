@@ -699,7 +699,8 @@ struct Mesh {
    * @param canvas Destination canvas.
    * @param mesh Mesh providing vertices, face counts, indices, and offsets.
    * @param fragment_shader Shader invoked per covered pixel; receives the face
-   *                        index in register v2.
+   *                        index in register v2. v2 is a float, so the index is
+   *                        exact only up to 2^24 faces.
    * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
    * @param debug_bb When true, renders the bounding box for debugging.
    */
@@ -738,6 +739,7 @@ struct Mesh {
       }();
 
       auto wrapper = [&](const Vector &p, Fragment &f_in) {
+        // Exact for i < 2^24 (float mantissa); meshes never approach that face count.
         f_in.v2 = static_cast<float>(i);
         fragment_shader(p, f_in);
       };
