@@ -1654,12 +1654,13 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase<RandomWalk<W, CAP>>::step(canvas);
+    // noise_scale is applied once, via SetFrequency() in the ctor; the 100x is a
+    // fixed base sample scale. Multiplying the coordinates by noise_scale here too
+    // would make the effective spatial frequency quadratic in noise_scale.
     float target_pivot =
         noiseGenerator.get().GetNoise(
-            v.x * options.noise_scale * 100.0f,
-            v.y * options.noise_scale * 100.0f,
-            v.z * options.noise_scale * 100.0f +
-                static_cast<float>(this->t) * options.drift) *
+            v.x * 100.0f, v.y * 100.0f,
+            v.z * 100.0f + static_cast<float>(this->t) * options.drift) *
         options.pivot_strength;
     angular_velocity = angular_velocity * options.smoothing +
                        target_pivot * (1.0f - options.smoothing);
