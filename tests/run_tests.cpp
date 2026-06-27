@@ -21,6 +21,7 @@
 #include "tests/test_solids.h"
 #include "tests/test_reaction_graph.h"
 #include "tests/test_color.h"
+#include "tests/test_palettes.h"
 #include "tests/test_easing_waves.h"
 #include "tests/test_platform.h"
 #include "tests/test_filter.h"
@@ -75,6 +76,7 @@ struct TestModule {
   X("solids", hs_test::solids_tests::run_solids_tests)                         \
   X("reaction_graph", hs_test::reaction_graph_tests::run_reaction_graph_tests) \
   X("color", hs_test::color_tests::run_color_tests)                            \
+  X("palettes", hs_test::palettes_tests::run_palettes_tests)                   \
   X("easing_waves", hs_test::easing_waves_tests::run_easing_waves_tests)       \
   X("platform", hs_test::platform_tests::run_platform_tests)                   \
   X("filter", hs_test::filter_tests::run_filter_tests)                         \
