@@ -66,12 +66,7 @@ public:
     spawn_shape();
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return true; the strip blanks to black immediately after each column is
-   *         shown, so every column reads as a sharp slice with dark gaps
-   *         between columns rather than persisting across the sweep.
-   */
+  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
   bool strobe_columns() const override { return true; }
 
   /**
