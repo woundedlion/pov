@@ -102,7 +102,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 33. ✅ `srgb_to_linear_interp` interpolates in linear space between sRGB-spaced codes, a small upward (secant) bias ([core/color.h:345](core/color.h#L345)); soften the "keeps sub-8-bit precision" comment or compute exactly on this cold path.
 34. ✅ `GenerativePalette::get` zeroes a stop's chroma when its lightness nears 0/1 ([core/color.h:1227](core/color.h#L1227)); correct for current callers but document the envelope-model assumption so a future authoring path doesn't silently desaturate.
 35. ✅ `oklch_to_cpixel` open-codes the linear→8-bit-sRGB quantization three times ([core/color.h:846](core/color.h#L846)); extract `linear_float_to_srgb8()` paralleling `float_to_pixel16`.
-36. `ProceduralPalette` toggles `protected`→`public` solely to place a trivial destructor ([core/color.h:1453](core/color.h#L1453)); move the `= default` destructor up and keep one trailing `protected:`.
+36. ✅ `ProceduralPalette` toggles `protected`→`public` solely to place a trivial destructor ([core/color.h:1453](core/color.h#L1453)); move the `= default` destructor up and keep one trailing `protected:`.
 
 **core mesh**
 
