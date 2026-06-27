@@ -165,7 +165,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 75. ✅ Reaction-graph determinism test compares `node(1234)` to itself — always true ([tests/test_reaction_graph.h:75](tests/test_reaction_graph.h#L75)); compare to a frozen golden or drop it.
 76. ✅ Platform LUT-error ceilings (`sin8 < 6`, `sin16 < 300`) sit well above measured worst-case ([tests/test_platform.h:57](tests/test_platform.h#L57)); tighten to just above the measured peaks.
 77. ✅ Melt-warp style test's `out.x < 1.0f` leg is near-tautological ([tests/test_styles.h:139](tests/test_styles.h#L139)); assert a minimum drift magnitude.
-78. The absent-filter negative test is behind a default-off macro neither preset nor CI defines ([tests/test_filter.h:213](tests/test_filter.h#L213)); convert to a runtime/death assertion or wire the macro into CI.
+78. ✅ The absent-filter negative test is behind a default-off macro neither preset nor CI defines ([tests/test_filter.h:213](tests/test_filter.h#L213)); convert to a runtime/death assertion or wire the macro into CI.
 79. The in-process double-buffer spin-wait test is the suite's one latent timing flake ([tests/test_canvas.h:253](tests/test_canvas.h#L253)); prefer a deterministic cooperative-yield model or a generous watchdog.
 
 **daydream driver / render**
