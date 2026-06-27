@@ -59,7 +59,12 @@ public:
     registerParam("Num Pts", &params.num_points, 4.0f, 12.0f);
     registerParam("Alpha", &params.alpha, 0.1f, 1.0f);
 
-    // Animated control points driven by independent random walks.
+    // Animated control points driven by independent random walks. All MAX_POINTS
+    // walks are seeded and stepped every frame regardless of the live Num Pts —
+    // the surplus walks above the active count have no visible effect but keep
+    // advancing, so raising Num Pts mid-run reveals already-drifted points rather
+    // than ones frozen at their seed. The constant per-frame cost (MAX_POINTS=12
+    // walks) is the intentional price of that live-editing continuity.
     for (int i = 0; i < MAX_POINTS; ++i) {
       point_orientations[i].set(
           make_rotation(random_vector(), hs::rand_f() * 2 * PI_F));
