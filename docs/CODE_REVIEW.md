@@ -219,7 +219,7 @@ to holosphere. Use `${env.extra_scripts}` interpolation or add a warning comment
 
 ### Priority 3 (continued) — Test-coverage gaps (Low)
 
-30. **`tests/test_geometry.h` — south-pole overflow boundary not pinned.** `phi_to_y`/`vector_to_pixel`
+30. ✅ **`tests/test_geometry.h` — south-pole overflow boundary not pinned.** `phi_to_y`/`vector_to_pixel`
 can "land a hair above `H-1`" (documented in `geometry.h:226,477`); the existing test uses
 `HS_EXPECT_NEAR` (proximity), which passes even at 144.0001 and does not pin the `≤ H_VIRT-1` upper bound.
 Add a bound assertion.
