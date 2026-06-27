@@ -104,19 +104,13 @@ public:
                        persistent_arena);
     }
 
-    registerParam("Fade", &style.fade, kFadeMin, kFadeMax);
-    registerParam("Distort Amp", &style.amplitude, kAmpMin, kAmpMax);
-    registerParam("Distort Freq", &style.frequency, kFreqMin, kFreqMax);
-    registerParam("Distort Speed", &style.speed, kSpeedMin, kSpeedMax);
-    registerParam("Noise Scale", &style.scale, kScaleMin, kScaleMax);
-    registerParam("Hue Shift", &style.hue_shift, kHueMin, kHueMax);
+    registerAnimatedParam("Fade", &style.fade, kFadeMin, kFadeMax);
+    registerAnimatedParam("Distort Amp", &style.amplitude, kAmpMin, kAmpMax);
+    registerAnimatedParam("Distort Freq", &style.frequency, kFreqMin, kFreqMax);
+    registerAnimatedParam("Distort Speed", &style.speed, kSpeedMin, kSpeedMax);
+    registerAnimatedParam("Noise Scale", &style.scale, kScaleMin, kScaleMax);
+    registerAnimatedParam("Hue Shift", &style.hue_shift, kHueMin, kHueMax);
     registerParam("Feedback", &feedback_enabled);
-    markAnimated("Fade");
-    markAnimated("Distort Amp");
-    markAnimated("Distort Freq");
-    markAnimated("Distort Speed");
-    markAnimated("Noise Scale");
-    markAnimated("Hue Shift");
 
     timeline.add(0, Animation::Noise(noise_params));
     timeline.add(
