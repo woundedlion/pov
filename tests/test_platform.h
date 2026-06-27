@@ -54,7 +54,7 @@ inline void test_sin8_golden() {
     if (err > max_err) max_err = err;
   }
   // sin8_C tracks the true sine to within a few LSBs (measured worst case 3).
-  HS_EXPECT_LT(max_err, 6);
+  HS_EXPECT_LT(max_err, 4);
 }
 
 /**
@@ -80,9 +80,9 @@ inline void test_sin16_golden() {
                        static_cast<int>(std::lround(truth)));
     if (err > max_err) max_err = err;
   }
-  // sin16_C's 8-section linear LUT tracks the true sine to within ~226 of 32767
+  // sin16_C's 8-section linear LUT tracks the true sine to within 226 of 32767
   // (~0.7%); a broken secoffset8 truncation or slope table would blow far past.
-  HS_EXPECT_LT(max_err, 300);
+  HS_EXPECT_LT(max_err, 227);
 }
 
 /**
