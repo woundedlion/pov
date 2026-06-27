@@ -1211,9 +1211,11 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
   }
   float theta = fast_acos(d);
   if (theta > PI_F - math::TOLERANCE) {
-    // Antipodal endpoints: the great-circle path is undefined and the lerp
-    // midpoint can be zero, so fall back to a stable endpoint direction.
-    return normalized_or((v1 + (v2 - v1) * t), v1);
+    // Antipodal: v1 + v2 cancels so the standard blend is non-monotone
+    // (collapses to ~v1 for all t). Rotate v1 by t*theta about an arbitrary
+    // perpendicular axis — a monotone half-turn landing within TOLERANCE of v2.
+    Vector axis = cross(least_parallel_axis(v1), v1).normalized();
+    return rotate(v1, make_rotation(axis, t * theta));
   }
   // The 1/sinθ factor in the slerp weights cancels under the final normalize(),
   // so it is omitted (also dodging a divide by a small sin(θ) near θ→π).
