@@ -72,7 +72,10 @@ inline void test_nodes_on_unit_sphere() {
  *          collapses adjacent indices onto the same point.
  */
 inline void test_node_deterministic_and_distinct() {
-  HS_EXPECT_VEC(node(1234), node(1234), 0.0f);
+  // Frozen golden: the double-folded Fibonacci-lattice point for index 1234,
+  // cast to float32 (host/device agree to the cast per the provenance contract).
+  HS_EXPECT_VEC(node(1234),
+                Vector(-0.416881472f, 0.678604007f, 0.604736686f), 1e-6f);
   // Cap the sample budget at RD_N-1 so node(i+1) never reads past [0, RD_N).
   const int samples = std::min(500, RD_N - 1);
   for (int i = 0; i < samples; ++i) {
