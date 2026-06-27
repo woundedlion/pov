@@ -158,7 +158,10 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
     for (size_t i = 0; i < regs.size(); ++i)
       get_fill_fn<W, H>(regs[i])(t[i]);
     // Duplicate names silently shadow (lookups return the first match); the
-    // names aren't known until the fill functions run, so trap here.
+    // names aren't known until the fill functions run, so trap here. The O(n²)
+    // pairwise scan is deliberate: the table is built once per (W,H) and the
+    // roster is tiny (~27), so a sort-and-adjacent-compare or a set buys no
+    // measurable time and adds code.
     for (size_t i = 0; i < t.size(); ++i)
       for (size_t j = i + 1; j < t.size(); ++j)
         HS_CHECK(t[i].name != t[j].name,
