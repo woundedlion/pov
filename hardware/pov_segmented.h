@@ -341,7 +341,9 @@ private:
    *
    * Pins are configured as INPUT_PULLUP, so a floating pin reads HIGH and a
    * grounded pin reads LOW. The raw 2-bit reading is inverted, so a grounded pin
-   * contributes a 1 and all-floating = ID 0 (master).
+   * contributes a 1 and all-floating = ID 0 (master). ID0 must be a positively
+   * driven strap (a board grounding it, or a deliberate pull-up to elect master);
+   * a floating/cold ID0 inverts toward ID 0 and elects a phantom second master.
    *
    * A floating or cold-soldered strap reads HIGH, which inverts toward ID 0 —
    * silently promoting the board to a second master and driving the shared
