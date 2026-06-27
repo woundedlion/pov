@@ -1225,6 +1225,8 @@ public:
       // Recover the stop's chroma ceiling cmax = C / sin(pi*L) so get() can
       // re-apply the envelope at the interpolated L. fast_sinf matches get()'s
       // re-application, so sampling exactly at a stop reproduces its chroma.
+      // env -> 0 at L near 0/1 forces cmax = 0: the envelope model assumes no
+      // stop is authored vivid near black/white; one that is desaturates to gray.
       float env = fast_sinf(PI_F * colors_oklch[i].L);
       colors_cmax[i] = (env > 1e-3f) ? colors_oklch[i].C / env : 0.0f;
     }
