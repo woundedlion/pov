@@ -66,10 +66,11 @@ public:
    * @param args Arguments forwarded to the Animation constructor (after the
    * Params& argument).
    * @return Pointer to the spawned animation, or nullptr if no slots are free.
-   * @details Only valid when the spawned animation is infinite and added before
-   * any finite timeline event, so compaction never shifts it — the standard
-   * retained-handle contract (see Timeline::add_get). If that invariant is ever
-   * broken, step()'s compaction traps loudly instead of dangling the pointer.
+   * @details Only valid when the spawned animation never completes on its own —
+   * infinite, or repeating (it rewinds rather than reaching done()) — and is
+   * added before any finite timeline event, so compaction never shifts it: the
+   * standard retained-handle contract (see Timeline::add_get). If that invariant
+   * is ever broken, step()'s compaction traps loudly instead of dangling it.
    */
   template <typename... Args>
   AnimT *spawn_pinned(int in_frames, Args &&...args) {
@@ -144,20 +145,19 @@ private:
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
         AnimT *p = timeline.add_get(in_frames, std::move(anim), pin);
         if (p) {
-          // A non-pinned spawn returns a transient handle the caller does not
-          // retain, so the slot is reclaimed only when the animation reaches
-          // done() (the then() callback below fires once and frees it) or a
-          // later cancel() routes it through the same path. A perpetual,
-          // non-repeating animation (duration<0, repeat=false) reaches neither
-          // and has no retained handle to cancel it, so its slot would leak;
-          // after CAPACITY such spawns the pool silently returns nullptr. That
-          // combination must instead use spawn_pinned and retain the handle.
-          // Trap the misuse here rather than leak. (Pinned perpetual handles —
-          // the documented retained-handle path — are exempt.)
+          // A non-pinned spawn keeps no retained handle, so the slot is
+          // reclaimed only by the one-shot then() below — which fires only when
+          // the animation reaches done() once and is removed. That happens only
+          // for a finite, non-repeating animation: an infinite one never reaches
+          // done(), and a repeating one rewinds instead of being removed, so
+          // either would hold its slot for the effect's life with no handle to
+          // cancel it (and after CAPACITY such spawns the pool returns nullptr).
+          // Those must use spawn_pinned and the retained-handle contract.
           if (!pin)
-            HS_CHECK(p->is_finite() || p->repeats(),
-                     "Transformer::spawn of a perpetual non-repeating "
-                     "animation leaks its pool slot; use spawn_pinned");
+            HS_CHECK(p->is_finite() && !p->repeats(),
+                     "Transformer::spawn needs a finite, non-repeating "
+                     "animation; infinite or repeating spawns leak their pool "
+                     "slot — use spawn_pinned");
           // Recycle the pool slot at the animation's final removal. The callback
           // must tell a removal apart from a mid-repeat post fire, which it reads
           // from repeats(); how it reads repeats() differs by pin because the two

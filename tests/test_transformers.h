@@ -487,7 +487,7 @@ inline void test_transformer_spawn_applies_and_composes() {
     HS_EXPECT_NEAR(r.z, v.z, 1e-6f);
   }
 
-  HS_EXPECT_TRUE(nt.spawn(0) != nullptr);
+  HS_EXPECT_TRUE(nt.spawn_pinned(0) != nullptr);
   constexpr size_t kN = sizeof(samples) / sizeof(samples[0]);
   Vector single[kN];
   float total_moved = 0.0f;
@@ -501,7 +501,7 @@ inline void test_transformer_spawn_applies_and_composes() {
   }
   HS_EXPECT_GT(total_moved, 1e-2f);
 
-  HS_EXPECT_TRUE(nt.spawn(0) != nullptr);
+  HS_EXPECT_TRUE(nt.spawn_pinned(0) != nullptr);
   float total_divergence = 0.0f;
   for (size_t i = 0; i < kN; ++i) {
     const Vector &v = samples[i];
