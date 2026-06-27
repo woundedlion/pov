@@ -365,6 +365,8 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
  * @tparam MeshT Mesh type exposing an iterable `vertices` of Vector.
  * @param mesh Mesh whose vertices are normalized in place.
  * @note Mesh utility, not a Conway operator.
+ * @note Traps on a zero-length vertex: callers (kis/expand/snub) assume no
+ *   origin-centered vertex, e.g. a centrally-symmetric face centroid.
  */
 template <typename MeshT> static void normalize(MeshT &mesh) {
   for (auto &v : mesh.vertices) {
