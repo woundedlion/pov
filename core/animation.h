@@ -162,6 +162,13 @@ public:
   virtual bool repeats() const = 0;
 
   /**
+   * @brief Reports whether the animation has a finite duration.
+   * @return True if it can reach done() on its own; false for an indefinite
+   * (perpetual) animation that only ends via cancel(). Defaults to true.
+   */
+  virtual bool is_finite() const { return true; }
+
+  /**
    * @brief Reports whether the animation was explicitly canceled.
    * @return True if cancel() drove it to done(); false for a natural end.
    * @details Lets Timeline distinguish a deliberate teardown (a held handle
@@ -249,7 +256,7 @@ public:
    * @return True if it can reach done() on its own (duration >= 0); false for an
    * indefinite (perpetual) animation that only ends via cancel().
    */
-  bool is_finite() const { return duration >= 0; }
+  bool is_finite() const override { return duration >= 0; }
   /**
    * @brief Advances the animation state by one frame.
    * @details The canvas buffer is unused by the base class and passed through
@@ -2464,6 +2471,16 @@ public:
     if (global_timeline_num_events >= MAX_EVENTS) {
       hs::log("Timeline full, failed to add animation!");
       return nullptr;
+    }
+    if (pin) {
+      // A finite, non-repeating predecessor is removed on completion and would
+      // relocate this pinned event (move_into traps). Repeating or infinite
+      // predecessors are never removed, so they are safe to precede a pin.
+      for (int i = 0; i < global_timeline_num_events; ++i) {
+        IAnimation *prev = global_timeline_events[i].animation();
+        HS_CHECK(!prev || !prev->is_finite() || prev->repeats(),
+                 "pinned animation added after a finite non-repeating one");
+      }
     }
     auto &e = global_timeline_events[global_timeline_num_events++];
     e.start = global_timeline_t + (int)in_frames;
