@@ -905,6 +905,9 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp
  * @param iterations Maximum spring-relaxation passes; stops early on
  *   convergence.
  * @return Fresh relaxed PolyMesh allocated in `target`.
+ * @note Unlike its sibling operators, relax tolerates a boundary mesh: a vertex
+ *   with no outgoing twin is skipped, yielding a partial relaxation instead of a
+ *   closed-manifold trap.
  */
 HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
                                int iterations = 8) {
