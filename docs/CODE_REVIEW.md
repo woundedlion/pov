@@ -116,7 +116,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 20. ✅ **`Voronoi` struct field order diverges from `registerParam`/README order.** `effects/Voronoi.h` ~238–242 (`num_sites, speed, borderThickness, sharpness`) vs ~47–51 (`Num Sites, Speed, Sharpness, Border Thick`). Harmless with named-member init, but a hazard for any future aggregate-init or preset table. Fix: align the orders.
 
-21. **`RingSpin` spawns all four rings with an identical `Y_AXIS` normal.** `effects/RingSpin.h` ~95–98: the per-plane normal ctor parameter is always `Y_AXIS`, so rings differ only by palette/noise; the unused parameter reads as dead intent. Fix: pass varied normals or drop the parameter.
+21. ✅ **`RingSpin` spawns all four rings with an identical `Y_AXIS` normal.** `effects/RingSpin.h` ~95–98: the per-plane normal ctor parameter is always `Y_AXIS`, so rings differ only by palette/noise; the unused parameter reads as dead intent. Fix: pass varied normals or drop the parameter.
 
 22. ✅ **`Thrusters` advances `t_global` before constructing `Canvas`** and uses a mixed declaration/init member order. `effects/Thrusters.h` ~78/80 and ~34–41/292–299. Behaviorally inert; breaks the "Canvas first" shape used everywhere else and would trip `-Wreorder`. Fix: reorder.
 
