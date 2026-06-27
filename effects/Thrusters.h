@@ -233,7 +233,7 @@ private:
     // uniform random.
     constexpr float kDoubledCycleDivisor = PI_F;
     return sin_wave(-1, 1, 2, phase / kDoubledCycleDivisor)(t) *
-           sin_wave(-1, 1, 3, 0)(static_cast<float>(frame % 32) / 32.0f) *
+           sin_wave(-1, 1, 3, 0)(static_cast<float>(frame) / 32.0f) *
            amp;
   }
 

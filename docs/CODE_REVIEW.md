@@ -185,7 +185,7 @@ peak or clamp the slider tops.
 `opacity * params.alpha <= 0.01` means lowering the Alpha slider shortens the flow's pole reach. Gate on
 geometric `opacity` before multiplying by `params.alpha`.
 
-22. **`effects/Thrusters.h:241` — redundant `frame % 32`.** `t_global` is already wrapped to `[0,32)` at
+22. ✅ **`effects/Thrusters.h:241` — redundant `frame % 32`.** `t_global` is already wrapped to `[0,32)` at
 line 80; the inner modulo in `ring_fn` is dead. Remove it (or keep it only if the function is meant to be
 called with unwrapped frames, and document that).
 
