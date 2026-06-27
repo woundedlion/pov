@@ -1182,7 +1182,10 @@ public:
         fade_in_duration(fade_in_duration),
         fade_out_duration(fade_out_duration),
         fade_in_easing(std::move(fade_in_easing_fn)),
-        fade_out_easing(std::move(fade_out_easing_fn)), paused_(paused) {}
+        fade_out_easing(std::move(fade_out_easing_fn)), paused_(paused) {
+    HS_CHECK(fade_in_duration >= 0, "Sprite fade-in duration must be >= 0");
+    HS_CHECK(fade_out_duration >= 0, "Sprite fade-out duration must be >= 0");
+  }
 
   /**
    * @brief Updates the drawing function used by the sprite.
