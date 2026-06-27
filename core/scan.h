@@ -251,6 +251,9 @@ template <int W, int H> struct BoundingSphere {
   int y_min, y_max;
   float center_theta; /**< Longitude of center in pixel units. */
   float angular_radius;
+  float cos_rho;        /**< cos(angular_radius). */
+  float cos_center_phi; /**< cos of the cap center's colatitude. */
+  float sin_center_phi; /**< sin of the cap center's colatitude. */
 
   /**
    * @brief Constructs the bounding sphere clamped to the canvas rows.
@@ -264,6 +267,9 @@ template <int W, int H> struct BoundingSphere {
     // phi = acos(y) from the world y directly, not from center_px.y (avoids
     // compounding vector_to_pixel's phi_to_y rounding).
     float center_phi = acosf(hs::clamp(center.y, -1.0f, 1.0f));
+    cos_rho = cosf(angular_radius);
+    cos_center_phi = cosf(center_phi);
+    sin_center_phi = sinf(center_phi);
     // Round the band outward (floor the top, ceil the bottom) so a fractional cap
     // edge keeps the fringe row it touches.
     y_min = std::max(
@@ -284,18 +290,22 @@ template <int W, int H> struct BoundingSphere {
     // Phi trig from the static LUT (bit-identical to sinf(y_to_phi(y))), as on the
     // rest of the Volume hot path.
     float sin_phi = TrigLUT<W, H>::sin_phi[y];
+    float cos_phi = TrigLUT<W, H>::cos_phi[y];
     float theta_span;
-    // Fold zero/near-zero sin_phi into the full-row branch: at the pole with
-    // angular_radius == 0 the else branch is 0/0 = NaN, and ceilf(NaN) → int cast
-    // is UB.
-    if (sin_phi < angular_radius / PI_F || sin_phi <= 0.0f) {
-      // Near pole: span exceeds half the row, scan all columns
+    // Exact cap longitude half-width at this row from the spherical law of cosines:
+    // cos(dtheta) = (cos rho - cos phi cos phi_c) / (sin phi sin phi_c). denom <= 0
+    // only at a pole (this row or the cap center), where the cap spans the whole
+    // row; that branch also dodges the 0/0 → NaN → int-cast UB.
+    float denom = sin_phi * sin_center_phi;
+    float cos_dtheta =
+        denom > 0.0f ? (cos_rho - cos_phi * cos_center_phi) / denom : -1.0f;
+    if (cos_dtheta <= -1.0f) {
       theta_span = static_cast<float>(W);
     } else {
-      theta_span = angular_radius / sin_phi * W / (2.0f * PI_F);
+      float dtheta = acosf(cos_dtheta < 1.0f ? cos_dtheta : 1.0f);
+      theta_span = dtheta * W / (2.0f * PI_F);
     }
-    // +1 is a conservative margin: theta_span (the first-order small-circle
-    // half-width) can under-estimate the extent; the downstream per-pixel
+    // +1 absorbs ceil/round-off at the span edges; the downstream per-pixel
     // ray-sphere test rejects any extra column. min(W/2, ...) caps the span
     // length 2*x_half at W, scan_region's producer contract (interval length
     // <= W). Endpoints are not clamped to [0,W); scan_region wraps them.
