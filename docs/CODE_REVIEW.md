@@ -87,7 +87,7 @@ Items are grouped by priority and numbered sequentially. No Critical (P0) or Hig
 ### Low Priority
 
 3. **`fwd_distance` undocumented single-wrap precondition** — `core/util.h:127-133`. Applies only one `+= m` correction; un-prewrapped inputs yield a silently negative distance, unlike sibling `fast_wrap` which documents/asserts the same constraint. *Fix:* document the `[0,m)` precondition and `assert(m > 0)`, or do a full `wrap()` reduction.
-4. **`Orientation(const Quaternion&)` is a non-explicit converting constructor** — `core/geometry.h:573`. Inconsistent with the codebase's otherwise-explicit space-changing constructors; a bare quaternion can silently wrap into a full history object. *Fix:* mark `explicit`.
+4. ✅ **`Orientation(const Quaternion&)` is a non-explicit converting constructor** — `core/geometry.h:573`. Inconsistent with the codebase's otherwise-explicit space-changing constructors; a bare quaternion can silently wrap into a full history object. *Fix:* mark `explicit`.
 5. **`fast_atan2` can return exactly −π, just outside its documented `(-π, π]`** — `core/3dmath.h:314-343`. Reachable for `x<0, y→0⁻`. Harmless (callers re-wrap). *Fix:* relax the doc to `[-π, π]` or note the attainable endpoint.
 6. **`GenerativePalette::get` can index `shape[-2]` for an out-of-contract `gradient_shape`** — `core/color.h:1280-1284`. `update_stops()` has no `default` arm, leaving `size==0`; `get()` then computes `seg = size-2 = -2`. Unreachable today (all ctors set a valid enum). *Fix:* add a `default` case that `HS_CHECK`s the enum.
 7. **`GenerativePalette` splits its class body into two public sections around a private block** — `core/color.h:1302/1378`. *Fix:* consolidate into one public then one private section.

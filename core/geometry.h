@@ -570,7 +570,7 @@ public:
    * @brief Constructs with a specific initial quaternion.
    * @param q The initial quaternion.
    */
-  Orientation(const Quaternion &q) : num_frames(0) { set(q); }
+  explicit Orientation(const Quaternion &q) : num_frames(0) { set(q); }
 
   /**
    * @brief Gets the number of recorded orientation frames in the current step.
