@@ -48,6 +48,13 @@
 namespace hs_test {
 namespace filter_tests {
 
+/** @brief True iff Pipeline P carries filter T as one of its stages. */
+template <typename T, typename P> struct pipeline_contains : std::false_type {};
+template <typename T, int W, int H, typename Head, typename... Tail>
+struct pipeline_contains<T, Pipeline<W, H, Head, Tail...>>
+    : std::bool_constant<std::is_same_v<T, Head> ||
+                         pipeline_contains<T, Pipeline<W, H, Tail...>>::value> {};
+
 // ============================================================================
 // Trait structs — direct member values
 // ============================================================================
@@ -207,13 +214,18 @@ inline void test_pipeline_get_returns_correct_filter() {
   HS_EXPECT_TRUE(&cbl == &bl);
 
   // Absent-filter case: get<T>() on a pipeline lacking T is a hard compile error
-  // (not SFINAE-detectable), so it lives behind a default-off macro. Build with
-  // -DHS_TEST_PIPELINE_GET_ABSENT and confirm the "Filter type T not found"
-  // static_assert is the sole diagnostic.
-#ifdef HS_TEST_PIPELINE_GET_ABSENT
+  // (not SFINAE-detectable), so it can't be exercised at runtime. pipeline_contains
+  // captures the discriminating property — the present stages are members, the
+  // absent one is not — at compile time, so it always runs.
   using Absent = Filter::Pixel::Feedback<W, H>; // not in the pipeline above
-  (void)pipe.get<Absent>();
-#endif
+  static_assert((pipeline_contains<AA, Pipeline<W, H, AA, Blur, CS>>::value),
+                "AA is a pipeline stage");
+  static_assert((pipeline_contains<Blur, Pipeline<W, H, AA, Blur, CS>>::value),
+                "Blur is a pipeline stage");
+  static_assert((pipeline_contains<CS, Pipeline<W, H, AA, Blur, CS>>::value),
+                "CS is a pipeline stage");
+  static_assert((!pipeline_contains<Absent, Pipeline<W, H, AA, Blur, CS>>::value),
+                "Feedback is absent from the pipeline");
 }
 
 // ============================================================================
