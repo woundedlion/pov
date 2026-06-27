@@ -134,7 +134,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 29. ✅ **`gui.js` `_attachUrlWriter` makes `onChange` non-idempotent.** `daydream/gui.js` ~172–181: reassigns `controller.onChange` to a single-slot setter, so a second `.onChange` registration silently replaces the first and the load-replay only fires for the original handler. Fix: support an array of user handlers or document the single-registration contract.
 
-30. **`effectReady` worker message is received and ignored.** `daydream/segment_controller.js` ~204: the worker emits `effectReady` after every `setEffect` but the controller does nothing with it, so a frame can composite mid-switch; the message reads as if synchronization exists when it does not. Fix: gate compositing on it (mirroring `ready`) or drop it from the protocol.
+30. ✅ **`effectReady` worker message is received and ignored.** `daydream/segment_controller.js` ~204: the worker emits `effectReady` after every `setEffect` but the controller does nothing with it, so a frame can composite mid-switch; the message reads as if synchronization exists when it does not. Fix: gate compositing on it (mirroring `ready`) or drop it from the protocol.
 
 31. **`URLSync` applies the `effect` URL key with no validator.** `daydream/state.js` ~159–167: a garbage/empty `?effect=` is written straight into state during hydration, overriding the validated default (it self-heals later via `resolveActiveEffect`, but briefly holds an invalid value). Fix: pass an `effect` validator alongside the `resolution` one.
 
