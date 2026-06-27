@@ -205,8 +205,9 @@ private:
       float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
       return dx * dx + dy * dy + dz * dz;
     };
-    int cur = hs::clamp(
-        static_cast<int>((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f), 0, RD_N - 1);
+    int cur = static_cast<int>(hs::clamp(
+        (1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f, 0.0f,
+        static_cast<float>(RD_N - 1)));
     float best_d = dist2(p, node(cur));
     bool converged = false;
     for (int iter = 0; iter < 64; ++iter) {
