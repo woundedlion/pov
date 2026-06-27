@@ -28,13 +28,12 @@
  *   Under NDEBUG (assert stripped) the `fmax(m, min())` floor below clamps a
  *   non-positive m to the smallest positive value, so the result collapses to a
  *   near-zero in [0, min()) rather than NaN/garbage.
- *   Exactness: the body wraps via `std::fmod`, which is floating-point even when
- *   the common type is integral (integer args promote to `double`), then casts
- *   back. So the result is exact only within the working mantissa — ~2^24 when
- *   the common type is `float`, ~2^53 otherwise (the `double` fmod path). Large
- *   integer pairs such as `wrap(long, long)` therefore lose precision past 2^53;
- *   only the dedicated `wrap(int, int)` overload below, which uses integer `%`,
- *   is exact across its full range.
+ *   Exactness: the body wraps via `std::fmod` (floating-point), so the result is
+ *   exact only within the working mantissa — ~2^24 for a `float` common type,
+ *   ~2^53 for the `double` path. An all-integral call (e.g. `wrap(long, long)`)
+ *   would silently lose precision past 2^53, so a `static_assert` rejects it at
+ *   compile time; use the dedicated `wrap(int, int)` overload below, which uses
+ *   integer `%` and is exact across its full range.
  * @tparam T The type of the value being wrapped (e.g., float).
  * @tparam U The type of the modulo base.
  * @param x The value to wrap.
@@ -45,6 +44,9 @@
  */
 template <typename T, typename U>
 inline std::common_type_t<T, U> wrap(T x, U m) {
+  static_assert(!(std::is_integral_v<T> && std::is_integral_v<U>),
+                "wrap(integral, integral) loses precision past 2^53 via the "
+                "double fmod path; use the exact wrap(int, int) overload");
   using R = std::common_type_t<T, U>;
   assert(m > 0);
   // Branchless floor to the smallest positive value (the hot SDF angular-repeat
