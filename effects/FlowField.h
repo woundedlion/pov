@@ -138,6 +138,8 @@ public:
     // Rotation is owned by the Orient stage, so the shader applies none. Color by
     // latitude (v.y -> palette t).
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
+      // f.v0 = normalized progress along the particle trail polyline, used
+      // directly as the per-fragment trail fade alpha.
       float alpha = f.v0;
       float palette_t = (v.y + 1.0f) / 2.0f;
       Color4 c = palette.get(palette_t);
