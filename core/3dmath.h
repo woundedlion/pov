@@ -351,7 +351,8 @@ inline float fast_atan2(float y, float x) {
 /**
  * @brief Fast cube root for x >= 0.
  * @param x Input value; the domain is x >= 0 (cbrt(0)=0), negative inputs
- * return 0.
+ * return 0. Accuracy holds for x >~ 1e-6; in the denormal/tiny-normal tail
+ * below that the bit-hack seed degrades and the result collapses toward 0.
  * @return An approximation of the cube root of `x`.
  * @details Bit-hack initial guess (divide the float exponent by three) refined
  * by ONE Halley step (cubic convergence). Peak relative error ~2.3e-5 measured
