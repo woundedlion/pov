@@ -1144,6 +1144,11 @@ public:
   // h += kHueTorsion * (L - 0.5), so shadows and highlights shift along the ramp.
   static constexpr float kHueTorsion = 0.35f;
 
+  // 8-bit hue wheel: harmony companion hues are fractions of the 256-value ring.
+  static constexpr int kHueWheel = 256;
+  static constexpr int kHueTriadic = kHueWheel / 3;    // 1/3 turn (85)
+  static constexpr int kHueComplement = kHueWheel / 2; // 1/2 turn (128)
+
   // Perceptual lightness band a key's HSV value maps into: L = kLightnessFloor +
   // (val/255) * kLightnessSpan, i.e. [0.12, 0.67] — below L=1 where the sRGB
   // gamut starves of chroma (see key_oklch).
@@ -1339,18 +1344,18 @@ private:
     const int h1_int = h1;
     switch (harmony_type) {
     case HarmonyType::TRIADIC:
-      h2 = wrap_hue(h1_int + 85);
-      h3 = wrap_hue(h1_int + 170);
+      h2 = wrap_hue(h1_int + kHueTriadic);
+      h3 = wrap_hue(h1_int + 2 * kHueTriadic);
       break;
     case HarmonyType::SPLIT_COMPLEMENTARY: {
-      const int complement = wrap_hue(h1_int + 128);
+      const int complement = wrap_hue(h1_int + kHueComplement);
       const int offset = 21;
       h2 = wrap_hue(complement - offset);
       h3 = wrap_hue(complement + offset);
       break;
     }
     case HarmonyType::COMPLEMENTARY: {
-      h2 = wrap_hue(h1_int + 128);
+      h2 = wrap_hue(h1_int + kHueComplement);
       const int offset = hs::rand_int(-7, 8);
       h3 = wrap_hue(h1_int + offset);
       break;
