@@ -1123,6 +1123,7 @@ struct Ring {
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_samples, float phase = 0) {
+    HS_CHECK(num_samples >= 1);
     auto res = get_antipode(basis, radius);
     const Basis &work_basis = res.first;
     float work_radius = res.second;
