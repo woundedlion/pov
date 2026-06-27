@@ -262,6 +262,7 @@ public:
           HS_CHECK(micros() - t0 < 100000UL,
                    "flywheel ISR failed to release the live effect");
         }
+        pending_effect_.store(nullptr, std::memory_order_release);
         delete cur;
         // Restart the shared RNG stream per effect so frames match the
         // simulator and across boards regardless of boot/join history (spec §2).
