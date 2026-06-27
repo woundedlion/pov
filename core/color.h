@@ -339,8 +339,9 @@ inline uint16_t srgb_to_linear(uint8_t srgb) {
  * @param s_srgb sRGB value in [0, 1]; callers must clamp before calling.
  * @return 16-bit linear channel value.
  * @details Lerps between the two bracketing LUT entries by the fractional part
- * of s*255, so the sRGB->linear step keeps sub-8-bit precision at the cost of a
- * LUT lookup + lerp (no powf).
+ * of s*255, recovering sub-8-bit resolution at the cost of a LUT lookup + lerp
+ * (no powf). Lerping the convex sRGB transfer in linear space adds a small
+ * upward (secant) bias versus an exact powf conversion.
  */
 inline uint16_t srgb_to_linear_interp(float s_srgb) {
   // Clamp before the int cast: NaN/out-of-range would be float->int UB below.
