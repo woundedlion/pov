@@ -1589,6 +1589,7 @@ struct Face {
   std::span<Vector> edge_normals;       /**< Per-edge normalized 3D normals. */
 
   int y_min, y_max;                            /**< Inclusive vertical row bounds. */
+  int build_height;                            /**< Canvas height the bounds were computed for. */
   std::span<std::pair<float, float>> intervals; /**< Azimuth coverage intervals (radians). */
   bool full_width;                             /**< True when the face spans all columns. */
   static constexpr bool is_solid = true;       /**< Face renders as a filled region. */
@@ -1617,7 +1618,7 @@ struct Face {
    */
   Face(std::span<const Vector> vertices, std::span<const uint16_t> indices,
        float th, FaceScratchBuffer &scratch, int h_virt, int height)
-      : thickness(th), full_width(true) {
+      : thickness(th), build_height(height), full_width(true) {
 
     // Early vertical exit: a face whose latitude band (plus thickness margin)
     // maps to an empty row range can never be rasterized.
@@ -2122,10 +2123,15 @@ struct Face {
 
   /**
    * @brief Returns the face's precomputed inclusive row bounds.
-   * @tparam H Canvas height in rows.
+   * @tparam H Canvas height in rows; must match the construction height the
+   * bounds were computed for.
    * @return The stored {y_min, y_max} bounds.
    */
-  template <int H> Bounds get_vertical_bounds() const { return {y_min, y_max}; }
+  template <int H> Bounds get_vertical_bounds() const {
+    HS_CHECK(H == build_height,
+             "Face::get_vertical_bounds: H differs from construction height");
+    return {y_min, y_max};
+  }
 
   /**
    * @brief Emits the face's azimuth-coverage intervals for a row.
