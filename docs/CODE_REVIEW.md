@@ -197,7 +197,7 @@ called with unwrapped frames, and document that).
 `handle_burst`, which the master (the reference board, receiving no wire bursts) never reaches — so the
 master reports an ever-growing coast. Reset it for the master, or exclude the master from the metric.
 
-25. **`daydream/gui.js:181-188` — `_attachUrlWriter` couples to lil-gui internals.** It consumes lil-gui's
+25. ✅ **`daydream/gui.js:181-188` — `_attachUrlWriter` couples to lil-gui internals.** It consumes lil-gui's
 single `onChange` slot via a fan-out registrar; `reset()` reads `_onChange` directly. Document the
 coupling or wrap it so a future lil-gui upgrade can't silently break the URL writer.
 
