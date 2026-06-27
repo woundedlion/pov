@@ -79,24 +79,24 @@ public:
   }
 
 private:
-  // Ripple-pool sizing target: the current burst plus the still-live tail of the
-  // previous recurrence window. The static_assert below is a heuristic floor — it
-  // counts whole carried-over bursts and ignores the intra-burst stagger, so the
-  // true simultaneous peak can run slightly above it. That is not a correctness
-  // bound: RippleTransformer::spawn() returns nullptr when the pool is full, so an
-  // overflow simply drops the excess ripple, never corrupting state.
+  // Ripple-pool sizing: a slot is held from spawn() until the staggered ripple
+  // completes, so a burst holds kBurstMax slots for
+  // (kBurstMax-1)*kRippleStaggerFrames + kRippleDurationMax frames. Keeping that
+  // span under two recurrence windows bounds the live set to two bursts, so
+  // 2*kBurstMax slots suffice and spawn() never drops a ripple.
   static constexpr int kRipplePoolSize = 8;
   static constexpr int kRippleStaggerFrames = 16;
   static constexpr int kRippleRecurrenceFrames = 96;
-  static constexpr int kRippleDurationMax = 144;
+  static constexpr int kRippleDurationMax = 143;
   static constexpr int kBurstMax = 4;
   static constexpr float kRippleThickness = 0.7f; /**< Fixed ripple wavelet width (radians). */
   static constexpr float kRippleAmpMax = 0.15f;   /**< Fold-free amplitude ceiling at kRippleThickness (amp/thickness < ~0.2 self-fold onset). */
-  static_assert(kBurstMax + (kRippleDurationMax / kRippleRecurrenceFrames) *
-                                    kBurstMax <=
-                    kRipplePoolSize,
-                "IslamicStars: ripple pool below the heuristic burst-peak floor "
-                "(overflow is dropped by spawn(), not corrupting — see above)");
+  static_assert((kBurstMax - 1) * kRippleStaggerFrames + kRippleDurationMax <
+                    2 * kRippleRecurrenceFrames,
+                "IslamicStars: ripple lifespan must stay under two recurrence "
+                "windows so at most two bursts overlap");
+  static_assert(2 * kBurstMax <= kRipplePoolSize,
+                "IslamicStars: ripple pool must hold two overlapping bursts");
 
   Orientation<> orientation;
   Timeline timeline;

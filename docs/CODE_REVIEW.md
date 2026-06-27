@@ -176,7 +176,7 @@ first row, or accept and note the cost.
 decorrelation relies on the translation magnitude (100/200) exceeding the noise correlation length.
 Tighten the comment.
 
-20. **`effects/IslamicStars.h:100-104` — ripple pool can silently drop spawns.** The `static_assert` is a
+20. ✅ **`effects/IslamicStars.h:100-104` — ripple pool can silently drop spawns.** The `static_assert` is a
 heuristic floor; the true simultaneous-ripple peak can exceed `kRipplePoolSize`, making `spawn()` return
 null and the Burst / Ripp-Dur sliders partially non-functional at their tops. Size the pool to the real
 peak or clamp the slider tops.
