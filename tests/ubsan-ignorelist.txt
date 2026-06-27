@@ -9,3 +9,14 @@
 # active there, and all first-party code keeps full signed-overflow coverage.
 [signed-integer-overflow]
 src:*FastNoiseLite.h
+
+# A non-finite noise coordinate reaches FastFloor/FastRound's `(int)f` casts as
+# a float-cast-overflow (NaN/Inf -> int). That only happens on out-of-contract
+# input — every engine caller feeds finite coordinates, and noise_transform
+# traps on the resulting non-finite vector at its `.normalized()` guard. The
+# death-test that drives that guard (case_noise_transform_nan) deliberately feeds
+# a NaN; the in-report-mode sanitizer would otherwise _exit(1) at this cast
+# before the intended trap fires. Suppress the cast check in ONLY the vendored
+# noise header; first-party code keeps full float-cast-overflow coverage.
+[float-cast-overflow]
+src:*FastNoiseLite.h
