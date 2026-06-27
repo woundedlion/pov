@@ -170,34 +170,34 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 
 **daydream driver / render**
 
-80. `isViewLive` reads `view.buffer.byteLength` with no guard for a non-typed-array argument ([pixel_view.js:25](pixel_view.js#L25)); since this is the single source of truth for the buffer-alias contract, guard `view.buffer`/`ArrayBuffer.isView`.
-81. The `testAll` interval keeps firing for the page lifetime if the WASM load failed (each tick harmlessly early-returns) ([daydream.js:600](daydream.js#L600)); disable the control in the load `.catch`.
-82. `_advanceFrameClock` consumes at most one interval per frame, so the `MAX_FRAME_CATCHUP` clamp + "catch up by a few frames" comment describe behavior the single-step structure doesn't implement ([driver.js:440](driver.js#L440)); loop the step for true fixed-timestep catch-up or simplify the comment.
-83. While paused, `_advanceFrameClock` still drains the accumulator, so the first post-unpause frame can briefly stall ([driver.js:396](driver.js#L396)); skip consumption while paused or reset on unpause.
+80. ✅ `isViewLive` reads `view.buffer.byteLength` with no guard for a non-typed-array argument ([pixel_view.js:25](pixel_view.js#L25)); since this is the single source of truth for the buffer-alias contract, guard `view.buffer`/`ArrayBuffer.isView`.
+81. ✅ The `testAll` interval keeps firing for the page lifetime if the WASM load failed (each tick harmlessly early-returns) ([daydream.js:600](daydream.js#L600)); disable the control in the load `.catch`.
+82. ✅ `_advanceFrameClock` consumes at most one interval per frame, so the `MAX_FRAME_CATCHUP` clamp + "catch up by a few frames" comment describe behavior the single-step structure doesn't implement ([driver.js:440](driver.js#L440)); loop the step for true fixed-timestep catch-up or simplify the comment.
+83. ✅ While paused, `_advanceFrameClock` still drains the accumulator, so the first post-unpause frame can briefly stall ([driver.js:396](driver.js#L396)); skip consumption while paused or reset on unpause.
 
 **daydream segment workers**
 
-84. Odd canvas width gives the two arms unequal widths, diverging from the firmware's symmetric `w/2` split ([segment_layout.js:59](segment_layout.js#L59)); both shipped presets are even, so document/assert even-`w` or seam at exactly `floor(w/2)`.
-85. `composite()` validates bounds inside the blit loop, so a valid segment ahead of a bad one is already composited when the fault latches (one partial frame) ([segment_controller.js:513](segment_controller.js#L513)); validate all results in a pre-pass.
-86. A faulted worker pool only recovers on a user-initiated resolution/mode change — no bounded auto-restart for transient errors ([segment_controller.js:372](segment_controller.js#L372)); deliberate fail-fast, but consider a bounded auto-recreate or document the choice.
-87. The `frame` handler captures `paramValues` before the generation fence, so a stale-generation segment-0 frame can momentarily publish param values against a new descriptor list ([segment_controller.js:230](segment_controller.js#L230)); move the capture inside the current-generation block.
+84. ✅ Odd canvas width gives the two arms unequal widths, diverging from the firmware's symmetric `w/2` split ([segment_layout.js:59](segment_layout.js#L59)); both shipped presets are even, so document/assert even-`w` or seam at exactly `floor(w/2)`.
+85. ✅ `composite()` validates bounds inside the blit loop, so a valid segment ahead of a bad one is already composited when the fault latches (one partial frame) ([segment_controller.js:513](segment_controller.js#L513)); validate all results in a pre-pass.
+86. ✅ A faulted worker pool only recovers on a user-initiated resolution/mode change — no bounded auto-restart for transient errors ([segment_controller.js:372](segment_controller.js#L372)); deliberate fail-fast, but consider a bounded auto-recreate or document the choice.
+87. ✅ The `frame` handler captures `paramValues` before the generation fence, so a stale-generation segment-0 frame can momentarily publish param values against a new descriptor list ([segment_controller.js:230](segment_controller.js#L230)); move the capture inside the current-generation block.
 
 **daydream GUI / state / recorder**
 
-88. `_getKey` drops a level when an intermediate folder has no `folderName`, risking a deep-link key collision ([gui.js:144](gui.js#L144)); assert non-empty folder names or include a stable fallback segment.
-89. `captureFrame` silently no-ops (one `console.warn`) on browsers without `track.requestFrame`, yielding an empty video while recording "succeeds" ([recorder.js:181](recorder.js#L181)); probe at `start()` and refuse or fall back to timed `captureStream(fps)`.
-90. `selectMimeType` probes only bare `video/mp4;codecs=avc1`, which some engines report unsupported, silently downgrading to WebM ([recorder.js:33](recorder.js#L33)); add fully-qualified fallbacks (`avc1.42E01E`, `video/mp4`).
-91. Object-enum URL hydration can pick a display label that doesn't match the link when two options share a value ([gui.js:236](gui.js#L236)); document distinct-value enums or match on label.
-92. The standalone-tool-page URL writer's fallback `setTimeout` is not cleared by `DeepLinkGUI.destroy()` ([gui.js:56](gui.js#L56)) — the exact hazard `URLSync.dispose()` exists to prevent; expose `cancel()`/`flush()` and call it from `destroy()`.
-93. URL-hydration replay fires only the first registered `onChange` handler via a single `replayed` latch ([gui.js:166](gui.js#L166)); a second fan-out consumer's load-time side effect is skipped — replay per-handler.
+88. ✅ `_getKey` drops a level when an intermediate folder has no `folderName`, risking a deep-link key collision ([gui.js:144](gui.js#L144)); assert non-empty folder names or include a stable fallback segment.
+89. ✅ `captureFrame` silently no-ops (one `console.warn`) on browsers without `track.requestFrame`, yielding an empty video while recording "succeeds" ([recorder.js:181](recorder.js#L181)); probe at `start()` and refuse or fall back to timed `captureStream(fps)`.
+90. ✅ `selectMimeType` probes only bare `video/mp4;codecs=avc1`, which some engines report unsupported, silently downgrading to WebM ([recorder.js:33](recorder.js#L33)); add fully-qualified fallbacks (`avc1.42E01E`, `video/mp4`).
+91. ✅ Object-enum URL hydration can pick a display label that doesn't match the link when two options share a value ([gui.js:236](gui.js#L236)); document distinct-value enums or match on label.
+92. ✅ The standalone-tool-page URL writer's fallback `setTimeout` is not cleared by `DeepLinkGUI.destroy()` ([gui.js:56](gui.js#L56)) — the exact hazard `URLSync.dispose()` exists to prevent; expose `cancel()`/`flush()` and call it from `destroy()`.
+93. ✅ URL-hydration replay fires only the first registered `onChange` handler via a single `replayed` latch ([gui.js:166](gui.js#L166)); a second fan-out consumer's load-time side effect is skipped — replay per-handler.
 
 **daydream tools / JS tests**
 
-94. `relax` codegen defaults to 100 iterations vs the C++ `SolidBuilder` default of 8 ([tools/solid_codegen.js:135](tools/solid_codegen.js#L135)); the emitted C++ is explicit/valid, but align the fallback to 8 (or document the divergence).
-95. Procedural-palette export rounds coefficients to 3 decimals, a separate (undocumented) fidelity gap from the linearization gap ([tools/palette_math.js:400](tools/palette_math.js#L400)); widen to 6 digits or document.
-96. `tools/slider.js` validation branches (NaN guards, step/scale rounding) are untested ([tools/slider.js](tools/slider.js)); add a small `slider.test.js` with a DOM stub.
-97. `scripts/generate-importmap.mjs` GENERATED-block rewrite has no test for its output (only a marker-drift `exit(1)`) ([scripts/generate-importmap.mjs](scripts/generate-importmap.mjs)); add a fixture test for `--local` vs default modes.
-98. `copyToClipboard`'s async-API `catch (err) {}` is empty with an unused binding ([tools/clipboard.js:30](tools/clipboard.js#L30)); use `catch {}` or add a `console.debug` for the double-failure path.
+94. ✅ `relax` codegen defaults to 100 iterations vs the C++ `SolidBuilder` default of 8 ([tools/solid_codegen.js:135](tools/solid_codegen.js#L135)); the emitted C++ is explicit/valid, but align the fallback to 8 (or document the divergence).
+95. ✅ Procedural-palette export rounds coefficients to 3 decimals, a separate (undocumented) fidelity gap from the linearization gap ([tools/palette_math.js:400](tools/palette_math.js#L400)); widen to 6 digits or document.
+96. ✅ `tools/slider.js` validation branches (NaN guards, step/scale rounding) are untested ([tools/slider.js](tools/slider.js)); add a small `slider.test.js` with a DOM stub.
+97. ✅ `scripts/generate-importmap.mjs` GENERATED-block rewrite has no test for its output (only a marker-drift `exit(1)`) ([scripts/generate-importmap.mjs](scripts/generate-importmap.mjs)); add a fixture test for `--local` vs default modes.
+98. ✅ `copyToClipboard`'s async-API `catch (err) {}` is empty with an unused binding ([tools/clipboard.js:30](tools/clipboard.js#L30)); use `catch {}` or add a `console.debug` for the double-failure path.
 
 ---
 
