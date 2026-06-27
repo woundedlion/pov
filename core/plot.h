@@ -2111,7 +2111,9 @@ struct ParticleSystem {
       const auto &p = system.pool[i];
       ScratchScope trail_guard(scratch_arena_a);
       Fragments trail;
-      trail.bind(scratch_arena_a, 64);
+      // tween emits at most one fragment per retained trail position.
+      trail.bind(scratch_arena_a,
+                 std::remove_cvref_t<decltype(p.history)>::kCapacity);
       float cumulative_len = 0.0f;
       Vector last_pos;
       bool first = true;
