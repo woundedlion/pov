@@ -201,7 +201,7 @@ master reports an ever-growing coast. Reset it for the master, or exclude the ma
 single `onChange` slot via a fan-out registrar; `reset()` reads `_onChange` directly. Document the
 coupling or wrap it so a future lil-gui upgrade can't silently break the URL writer.
 
-26. **`daydream/daydream.js:564-569` — WASM-load `.catch` forward-references `testAll*`.** The catch
+26. ✅ **`daydream/daydream.js:564-569` — WASM-load `.catch` forward-references `testAll*`.** The catch
 references `testAllInterval`/`testAllController` declared ~40 lines later; it works because the catch is
 async, but it is a TDZ fragility. Move the Test-All setup above the WASM-init block.
 
