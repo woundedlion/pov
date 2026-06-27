@@ -209,7 +209,7 @@ async, but it is a TDZ fragility. Move the Test-All setup above the WASM-init bl
 `Doxyfile.local` is gitignored and untracked and no recipe generates it. Either track it or have the
 recipe synthesize it (as `docs.yml` does).
 
-28. **`scripts/generate_luts.py` — the `--check` self-test is never run in CI.** The `lut-provenance` job
+28. ✅ **`scripts/generate_luts.py` — the `--check` self-test is never run in CI.** The `lut-provenance` job
 only diffs numeric tokens. Add `python3 scripts/generate_luts.py --check` for a clearer monotonicity /
 round-trip signal.
 
