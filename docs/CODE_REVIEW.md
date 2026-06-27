@@ -123,7 +123,7 @@ returns `normalized_or(v1 + (v2-v1)*t, v1)`; at `t≈0.5` with `v2≈-v1` the bl
 back to `v1`, so `slerp(p, antipode, 0.5) ≈ p` regardless of `t`. Pick a perpendicular-bisector axis for
 the degenerate case, or document that antipodal callers must supply an explicit rotation axis.
 
-8. **`daydream/segment_controller.js:236` — `paramValues` is published outside the dedup guard.** Seg-0's
+8. ✅ **`daydream/segment_controller.js:236` — `paramValues` is published outside the dedup guard.** Seg-0's
 `paramValues` is mirrored above the `_frameSeen[segId]` check while `pending` is mirrored inside it; a
 worker emitting two `frame` messages in one generation re-publishes params twice. Benign (idempotent
 overwrite) but inconsistent — move the param mirror below the `_frameSeen` guard.
