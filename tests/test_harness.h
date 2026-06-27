@@ -25,8 +25,9 @@ namespace hs_test {
  * the helper.
  */
 struct Stats {
-  int passed = 0; /**< Count of comparisons that succeeded. */
-  int failed = 0; /**< Count of comparisons that failed. */
+  int passed = 0;  /**< Count of comparisons that succeeded. */
+  int failed = 0;  /**< Count of comparisons that failed. */
+  int skipped = 0; /**< Count of suites/cases skipped (never counted as passed). */
 };
 
 /**
@@ -190,6 +191,7 @@ struct ModuleScope {
   const char *name;    /**< Module name, echoed in the header and footer. */
   int passed_before;   /**< Global passed count captured at begin_module. */
   int failed_before;   /**< Global failed count captured at begin_module. */
+  int skipped_before;  /**< Global skipped count captured at begin_module. */
 };
 
 /**
@@ -199,7 +201,7 @@ struct ModuleScope {
  */
 inline ModuleScope begin_module(const char *name) {
   std::printf("=== %s ===\n", name);
-  return {name, stats().passed, stats().failed};
+  return {name, stats().passed, stats().failed, stats().skipped};
 }
 
 /**
@@ -210,7 +212,12 @@ inline ModuleScope begin_module(const char *name) {
 inline int end_module(const ModuleScope &m) {
   int passed = stats().passed - m.passed_before;
   int failed = stats().failed - m.failed_before;
-  std::printf("=== %s: %d passed, %d failed ===\n", m.name, passed, failed);
+  int skipped = stats().skipped - m.skipped_before;
+  if (skipped > 0)
+    std::printf("=== %s: %d passed, %d failed, %d SKIPPED ===\n", m.name, passed,
+                failed, skipped);
+  else
+    std::printf("=== %s: %d passed, %d failed ===\n", m.name, passed, failed);
   return failed;
 }
 

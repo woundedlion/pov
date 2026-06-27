@@ -972,10 +972,12 @@ inline void report_unrunnable(const char *why, int rc) {
     std::printf("  [FAIL] death tests: %s (rc=%d, CI=on)\n", why, rc);
     HS_EXPECT_TRUE(false && "death suite must run under CI");
   } else {
-    std::printf("  [skip] death tests: %s (rc=%d)\n", why, rc);
-    // Register one counted assertion so the skipped death module shows up in the
-    // tally as ran-but-skipped rather than a silent 0-passed/0-failed green.
-    HS_EXPECT_TRUE(true && "death suite skipped locally; CI is the hard gate");
+    // Count a skip — never a pass — so a green local run cannot be mistaken for
+    // trap coverage; the banner is unmistakable and CI is the hard gate.
+    ++hs_test::stats().skipped;
+    std::printf("  [SKIPPED] death tests: %s (rc=%d) — 0 trap cases executed; "
+                "CI is the hard gate\n",
+                why, rc);
   }
 }
 
