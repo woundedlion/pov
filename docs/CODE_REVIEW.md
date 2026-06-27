@@ -160,7 +160,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 **tests (C++ native suite)**
 
 72. ✅ Circular-buffer wrap test asserts only `size() <= 3` (vacuous — capacity *is* 3) and `back()`, never the surviving sequence/head-tail positions ([tests/test_static_circular_buffer.h:344](tests/test_static_circular_buffer.h#L344)); assert the exact live window.
-73. HD107S wire-order test asserts lit channels `> 0` rather than exact corrected bytes ([tests/test_hd107s_frame.h:199](tests/test_hd107s_frame.h#L199)); mitigated by `test_correct_multifactor`, but assert exact values or note the delegation.
+73. ✅ HD107S wire-order test asserts lit channels `> 0` rather than exact corrected bytes ([tests/test_hd107s_frame.h:199](tests/test_hd107s_frame.h#L199)); mitigated by `test_correct_multifactor`, but assert exact values or note the delegation.
 74. Easing monotonicity check uses `v >= prev - 1e-4f`, letting steady cumulative drift slip ([tests/test_easing_waves.h:51](tests/test_easing_waves.h#L51)); tighten to `>= prev` (exact-arithmetic curves) and pin both endpoints.
 75. Reaction-graph determinism test compares `node(1234)` to itself — always true ([tests/test_reaction_graph.h:75](tests/test_reaction_graph.h#L75)); compare to a frozen golden or drop it.
 76. Platform LUT-error ceilings (`sin8 < 6`, `sin16 < 300`) sit well above measured worst-case ([tests/test_platform.h:57](tests/test_platform.h#L57)); tighten to just above the measured peaks.
