@@ -1170,6 +1170,9 @@ inline float fast_acos(float x) {
  * @return The approximate sine of `x`.
  * @details Max error ~0.17% (~0.1 degrees); ~8 FPU ops vs ~80-120 cycles for
  * newlib sinf.
+ * @warning Accuracy degrades for large |x|: the `x - floor(x/2π)·2π` range
+ * reduction loses precision as a float's ULP grows past the period, so callers
+ * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).
  */
 inline float fast_sinf(float x) {
   // Range reduce to [0, 2π)
