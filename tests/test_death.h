@@ -830,20 +830,29 @@ inline int spawn_child(const char *name) {
   int saved_out = _dup(1);
   int saved_err = _dup(2);
   int devnull = -1;
-  _sopen_s(&devnull, "NUL", _O_WRONLY, _SH_DENYNO, 0);
-  if (devnull >= 0) {
-    _dup2(devnull, 1);
-    _dup2(devnull, 2);
+  // Redirect to NUL only when both originals were saved: a failed _dup leaves no
+  // way to restore, so skipping the redirect keeps the parent's streams intact
+  // (a muted parent would silence reporting for every remaining case).
+  if (saved_out >= 0 && saved_err >= 0) {
+    _sopen_s(&devnull, "NUL", _O_WRONLY, _SH_DENYNO, 0);
+    if (devnull >= 0) {
+      _dup2(devnull, 1);
+      _dup2(devnull, 2);
+    }
   }
   const char *argv[] = {self_exe(), nullptr};
   intptr_t rc = _spawnv(_P_WAIT, self_exe(), argv);
+  // devnull is only open when both saves succeeded, so the restore is reached
+  // only with valid descriptors.
   if (devnull >= 0) {
     _dup2(saved_out, 1);
     _dup2(saved_err, 2);
     _close(devnull);
   }
-  _close(saved_out);
-  _close(saved_err);
+  if (saved_out >= 0)
+    _close(saved_out);
+  if (saved_err >= 0)
+    _close(saved_err);
   return static_cast<int>(rc);
 #else
   // Shell-free spawn: fork and execv the binary directly so no /bin/sh parsing
