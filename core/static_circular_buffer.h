@@ -70,11 +70,13 @@ public:
    * into a T, and the zero-argument case routes to the default constructor.
    * Elements are built with T{...} so narrowing conversions stay diagnosed, as
    * they were under brace list-initialization.
+   * `explicit` so the greedy forwarding pack cannot be picked as an implicit
+   * single-argument conversion to StaticCircularBuffer.
    */
   template <typename... Args,
             typename = std::enable_if_t<(sizeof...(Args) > 0) &&
                                         (std::is_constructible_v<T, Args &&> && ...)>>
-  StaticCircularBuffer(Args &&...args) : head(0), tail(0), count(0) {
+  explicit StaticCircularBuffer(Args &&...args) : head(0), tail(0), count(0) {
     static_assert(sizeof...(Args) <= N,
                   "StaticCircularBuffer initializer list exceeds capacity N");
     (push_back(T{std::forward<Args>(args)}), ...);
