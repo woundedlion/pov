@@ -1000,6 +1000,10 @@ public:
    *   `timeline.add(...)` and drop the handle rather than re-syncing the speed
    *   via set_speed() every frame.
    */
+  // Borrow contract: speed_src is stored and dereferenced every step, so the
+  // referent must outlive the Driver (e.g. an effect's registered param). A
+  // pointer parameter already rejects a temporary at compile time, so no deleted
+  // overload is needed.
   Driver(float &mutant, const float *speed_src, float scale, bool wrap = true,
          const bool *paused = nullptr)
       : AnimationBase(1, true), mutant(mutant), speed(0.0f), wrap_(wrap),
