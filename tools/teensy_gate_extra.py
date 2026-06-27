@@ -44,13 +44,19 @@ def _run(args, check=True):
 
 
 def _find_teensy_size():
-    """Best-effort locate of teensy_size (ships with the Teensy platform tools)."""
+    """Best-effort locate of teensy_size (ships with the Teensy platform tools).
+
+    Validates the probe output identifies itself as teensy_size, so an unrelated
+    same-named binary on PATH (which would merely launch) is not accepted.
+    """
     for cand in ("teensy_size", "teensy_size.exe"):
         try:
-            subprocess.run([cand, "--help"], capture_output=True, check=False)
-            return cand
+            r = subprocess.run([cand, "--help"], capture_output=True, text=True,
+                               check=False)
         except OSError:
             continue
+        if "teensy_size" in (r.stdout + r.stderr).lower():
+            return cand
     return None
 
 
