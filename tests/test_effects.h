@@ -1007,6 +1007,76 @@ inline void test_needs_full_frame_gate() {
 }
 
 /**
+ * @brief Pins Voronoi's coarse-coherence equivalence: where a block's four
+ *        corners share the canonical nearest-pair, every interior pixel resolves
+ *        to that same pair under a full k=2 query.
+ * @details Mirrors Voronoi::draw_frame's corner sampling (kCoherenceBlock stride,
+ *          clamped corners, order-independent {lo,hi} pair) over the public
+ *          KDTree at the production resolution, using six maximally separated
+ *          (octahedral) sites so no cell is smaller than a block — the regime in
+ *          which the in-effect "bit-identical to the full query" fast path is
+ *          exact. A sub-block cell dropped by all four corners (the documented
+ *          high-density limitation) would break this invariant.
+ */
+inline void test_voronoi_coherence_equivalence() {
+  constexpr int W = kW, H = kH;
+  constexpr int B = 8; // Voronoi<W, H>::kCoherenceBlock
+
+  static uint8_t buf[64 * 1024];
+  Arena arena(buf, sizeof(buf));
+
+  const Vector sites[] = {
+      Vector(1, 0, 0),  Vector(-1, 0, 0), Vector(0, 1, 0),
+      Vector(0, -1, 0), Vector(0, 0, 1),  Vector(0, 0, -1),
+  };
+  constexpr int N = sizeof(sites) / sizeof(sites[0]);
+  KDTree tree(arena, std::span<const Vector>(sites, N));
+
+  struct Pair {
+    uint16_t lo, hi;
+    bool hasSecond;
+  };
+  auto classify = [&](const Vector &p) -> Pair {
+    auto knn = tree.nearest(p, 2);
+    uint16_t a = knn[0].original_index;
+    bool hasSecond = knn.size() > 1;
+    uint16_t b = hasSecond ? knn[1].original_index : a;
+    return {std::min(a, b), std::max(a, b), hasSecond};
+  };
+  auto same = [](const Pair &x, const Pair &y) {
+    return x.lo == y.lo && x.hi == y.hi && x.hasSecond == y.hasSecond;
+  };
+
+  constexpr int kNbx = (W - 1) / B + 2;
+  constexpr int kNby = (H - 1) / B + 2;
+  static Pair corners[kNbx * kNby];
+  auto cx = [&](int j) { return std::min(j * B, W - 1); };
+  auto cy = [&](int k) { return std::min(k * B, H - 1); };
+  for (int k = 0; k < kNby; ++k)
+    for (int j = 0; j < kNbx; ++j)
+      corners[k * kNbx + j] = classify(pixel_to_vector<W, H>(cx(j), cy(k)));
+
+  int fast_pixels = 0;
+  for (int y = 0; y < H; ++y) {
+    const int ky = y / B;
+    for (int x = 0; x < W; ++x) {
+      const int jx = x / B;
+      const Pair &c00 = corners[ky * kNbx + jx];
+      const Pair &c10 = corners[ky * kNbx + (jx + 1)];
+      const Pair &c01 = corners[(ky + 1) * kNbx + jx];
+      const Pair &c11 = corners[(ky + 1) * kNbx + (jx + 1)];
+      // Seam/dense block -> the effect takes the full query; nothing to pin.
+      if (!(same(c00, c10) && same(c00, c01) && same(c00, c11)))
+        continue;
+      HS_EXPECT_TRUE(same(classify(pixel_to_vector<W, H>(x, y)), c00));
+      ++fast_pixels;
+    }
+  }
+  // The fast path must actually be exercised, else the test pins nothing.
+  HS_EXPECT_GT(fast_pixels, 0);
+}
+
+/**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Runs the SH-decode check, then both smoke and determinism passes over
@@ -1024,6 +1094,7 @@ inline int run_effects_tests() {
                static_cast<size_t>(HS_EFFECT_COUNT));
 
   test_needs_full_frame_gate();
+  test_voronoi_coherence_equivalence();
   test_sh_decode_lm_valid_order();
   test_gs_q16_roundtrip();
   test_gs_rest_state_is_fixed_point();
