@@ -125,31 +125,15 @@ public:
 
   /**
    * @brief Surfaces a permanently wedged DMA channel from the overrun-drop path.
+   * @details submitFrame() drops on overrun rather than spinning, so a channel
+   *          whose completion ISR never fires would otherwise stay masked
+   *          forever. Traps once the in-flight transfer outlives the watchdog
+   *          bound (healthy transfers finish in single-digit ms).
    *
-   * This is the only place a wedged channel is surfaced. Its caller,
-   * DMALEDController::submitFrame(), guards with isComplete() and *drops* on
-   * overrun rather than spinning (never entering transmitAsync while a transfer
-   * is in flight — transmitAsync traps if it ever is). So a channel whose
-   * completion ISR never fires would otherwise be masked forever — isComplete()
-   * stays false, every submitFrame() drops and bumps overrunCount, and the dark
-   * strip the fail-fast doctrine exists to surface never traps. Called from
-   * submitFrame's overrun branch, this traps once the in-flight transfer has
-   * outlived the watchdog bound (healthy transfers finish in single-digit ms;
-   * 100 ms means wedged). Cheap enough for the drop path: one micros() read and
-   * a compare, and the drop path runs at most once per column. No-op while a
-   * transfer is legitimately still completing.
-   *
-   * Coverage boundary, by design: this watchdog fires only while submitFrame()
-   * is being called, i.e. while columns are being submitted. POVSegmented's
-   * fail-dark path latches the strip (dark_latched_) after one accepted black
-   * frame and then stops submitting for the whole dark window, so a channel that
-   * wedges during a sustained dark window is NOT surfaced until submission
-   * resumes. That gap is intentional and acceptable: the wedge symptom — a dark
-   * strip — is identical to the intended dark output, so there is nothing to
-   * fail-fast about while dark-latched. The wedge is surfaced the moment real
-   * column work resumes (the next submitFrame() on overrun). Do not add an idle-
-   * path poll to close this gap without weighing the per-wake cost on the
-   * column ISR — the diagnostic value is nil while the output is meant to be dark.
+   *          Coverage gap, by design: fires only while submitFrame() is being
+   *          called. A wedge during a sustained dark-latched window (POVSegmented
+   *          stops submitting) is not surfaced until column work resumes — the
+   *          symptom (a dark strip) is indistinguishable from intended dark.
    */
   void checkStaleTransfer() {
     if (transferComplete_.load(std::memory_order_relaxed)) return;
@@ -184,26 +168,19 @@ private:
   /**
    * @brief Completion flag handed between the DMA-completion ISR and the
    *        main/column thread.
-   * @details The ISR writes true; the main/column thread reads, and writes
-   *          false to start a transfer. relaxed ordering is intentional and
-   *          correct on this single-core Cortex-M7: the ISR and the thread are
-   *          the SAME observer (the ISR preempts), so there is no multi-core
-   *          reordering for acquire/release to constrain — same rationale as
-   *          the instance_ note below. Crucially, this flag does NOT order the
-   *          buffer for the DMA engine: that buffer→DMA coherence is provided by
-   *          arm_dcache_flush() (cache clean + DSB) before dma_.enable(),
-   *          which the atomic's memory_order has no effect on. Do not "upgrade"
-   *          to acquire/release expecting a visibility fix — it only adds DMB
-   *          cost here.
+   * @details Single-core Cortex-M7 relaxed-atomic invariant: ISR and thread are
+   *          one observer (the ISR preempts), so relaxed ordering is sufficient —
+   *          acquire/release would only add DMB cost. This flag does NOT order
+   *          the buffer for the DMA engine; arm_dcache_flush() (clean + DSB)
+   *          before dma_.enable() provides that coherence, independent of the
+   *          atomic's memory_order.
    */
   std::atomic<bool> transferComplete_;
   /**
    * @brief micros() at which the in-flight transfer was enabled.
-   * @details Written and read only in the column-ISR context (transmitAsync /
-   *          checkStaleTransfer, both reached from submitFrame) — the
-   *          DMA-completion ISR never touches it — so a plain scalar is correct,
-   *          same single-observer model as DMALEDController's activeBuffer_.
-   *          Only meaningful while transferComplete_ is false.
+   * @details Touched only in column-ISR context (transmitAsync /
+   *          checkStaleTransfer), never the completion ISR, so a plain scalar is
+   *          correct. Only meaningful while transferComplete_ is false.
    */
   unsigned long transferStartUs_ = 0;
   SPISettings spiSettings_; /**< Cached SPI clock/bit-order/mode for this driver. */
@@ -218,12 +195,9 @@ private:
   /**
    * @brief Singleton pointer for ISR callback dispatch. Exactly one
    *        TeensySPIDMA per image; init() traps on a second instance.
-   *
-   * Thread-safety: Safe under the single-core Cortex-M7 ISR preemption model.
-   * Only written once from setup() (before interrupts that use it) and read
-   * from the DMA completion ISR. No concurrent write-write or read-write
-   * race is possible — ARM single-core guarantees that ISR preemption of
-   * the main thread sees all prior stores.
+   * @details Written once from setup() before any ISR uses it, then read from
+   *          the completion ISR — race-free under the single-observer model (see
+   *          transferComplete_).
    */
   static TeensySPIDMA* instance_;
 };
