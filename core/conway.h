@@ -921,6 +921,20 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
 
     HalfEdgeMesh he_mesh(temp, out_mesh);
 
+    // Per-vertex orbit start: an outgoing half-edge (pair of an interior
+    // incoming edge). vertices[i].half_edge holds only the last incoming edge
+    // written; if that one is a boundary its 1-ring would be dropped even when a
+    // paired incoming edge exists, so scan for one.
+    ArenaVector<uint16_t> orbit_start;
+    orbit_start.bind(temp, V);
+    for (size_t i = 0; i < V; ++i)
+      orbit_start.push_back(HE_NONE);
+    for (size_t e = 0; e < he_mesh.half_edges.size(); ++e) {
+      const HalfEdge &he = he_mesh.half_edges[e];
+      if (he.pair != HE_NONE && orbit_start[he.vertex] == HE_NONE)
+        orbit_start[he.vertex] = he.pair;
+    }
+
     for (int iter = 0; iter < iterations; ++iter) {
       float total_len = 0;
       int edge_count = 0;
@@ -943,13 +957,8 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
       for (size_t i = 0; i < V; ++i) {
         Vector force(0, 0, 0);
 
-        HEVertex &hev = he_mesh.vertices[i];
-        uint16_t he_idx = hev.half_edge; // an incoming half-edge (head == i)
-        // hev.half_edge points into i; its pair points out of i, which
-        // vertex_orbit<'N'> walks over i's 1-ring. pair!=HE_NONE skips a
-        // boundary vertex with no outgoing twin.
-        if (he_idx != HE_NONE && he_mesh.half_edges[he_idx].pair != HE_NONE) {
-          uint16_t start_out = he_mesh.half_edges[he_idx].pair;
+        uint16_t start_out = orbit_start[i]; // outgoing edge; HE_NONE if boundary
+        if (start_out != HE_NONE) {
           vertex_orbit<'N'>(he_mesh, start_out, [&](uint16_t idx) {
             int ni = he_mesh.half_edges[idx].vertex; // head == 1-ring neighbor
             Vector vec = out_mesh.vertices[ni] - out_mesh.vertices[i];

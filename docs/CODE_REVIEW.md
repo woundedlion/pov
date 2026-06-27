@@ -158,7 +158,7 @@ attached to an indefinite, non-repeating animation (e.g. `RandomWalk`, `MobiusWa
 never fires; only prose protects this. Add a compile-time or runtime trap when `.then()` is attached to a
 type that can never complete.
 
-16. **`core/conway.h:947-951` — `relax()` undercounts the boundary 1-ring.** It keys on `hev.half_edge`
+16. ✅ **`core/conway.h:947-951` — `relax()` undercounts the boundary 1-ring.** It keys on `hev.half_edge`
 (only the *last* incoming half-edge written during build); if that edge is a boundary
 (`pair == HE_NONE`), the entire 1-ring spring force is skipped even when other incoming edges have twins.
 The closed-manifold roster never triggers it, but scan for any paired edge or document the limitation.
