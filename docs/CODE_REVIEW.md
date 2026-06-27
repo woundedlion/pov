@@ -42,7 +42,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 
 ### P2 — Significant (robustness, leak-on-misuse, tooling/test integrity)
 
-1. **Plot mesh face-walk reads the flat index array out of bounds on a malformed mesh.** `Plot::Mesh::for_each_unique_edge` ([core/plot.h:1955](core/plot.h#L1955)) indexes `fi[offset + k]` without checking `offset + count <= mesh.get_faces_size()`, while the sibling `Scan::Mesh::draw` ([core/scan.h:727](core/scan.h#L727)) guards exactly this. Add the matching `HS_CHECK` so a face-counts/face-indices mismatch traps at the cold seam instead of reading past the array on-device.
+1. ✅ **Plot mesh face-walk reads the flat index array out of bounds on a malformed mesh.** `Plot::Mesh::for_each_unique_edge` ([core/plot.h:1955](core/plot.h#L1955)) indexes `fi[offset + k]` without checking `offset + count <= mesh.get_faces_size()`, while the sibling `Scan::Mesh::draw` ([core/scan.h:727](core/scan.h#L727)) guards exactly this. Add the matching `HS_CHECK` so a face-counts/face-indices mismatch traps at the cold seam instead of reading past the array on-device.
 
 2. **`Timeline` pin-ordering invariant is enforced only at removal time, not at registration.** `add_get` ([core/animation.h:2458](core/animation.h#L2458)) accepts a pinned infinite animation registered after a finite one; the `HS_CHECK(!handled)` trap fires later in `move_into` when the finite event completes — a confusing, data-dependent crash site. Validate at `add_get` (scan existing events for any finite one when `pin=true`) so misuse fails deterministically at the call site.
 
