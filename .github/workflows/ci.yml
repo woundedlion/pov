@@ -353,6 +353,9 @@ jobs:
           fi
           echo "LUT numeric tokens match the generator."
 
+      - name: Generator self-test (monotonicity + sRGB round-trip)
+        run: python3 scripts/generate_luts.py --check
+
   reaction-graph-provenance:
     name: Generated reaction-graph table matches committed file
     runs-on: ubuntu-24.04
