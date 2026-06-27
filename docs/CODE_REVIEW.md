@@ -77,7 +77,7 @@ items — no shipped correctness or safety bug was found.
 
 ### Priority 1 — High (test-coverage gaps on the no-debugger surface)
 
-1. **`hardware/dma_led.h` — DMA transmit path has zero host-test coverage.** The entire file is
+1. ✅ **`hardware/dma_led.h` — DMA transmit path has zero host-test coverage.** The entire file is
 `#ifdef ARDUINO`, so `TeensySPIDMA`/`DMALEDController` (chunking, completion, SPI clock-out, overrun
 counting) compile and run only on-device, where there is no debugger or console. Only the protocol
 *buffer* (`hd107s_frame.h`) is host-tested. Extract the pure framing/chunk/completion math into a
