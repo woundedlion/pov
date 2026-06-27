@@ -118,7 +118,7 @@ guard constructors; the main-loop-only constraint follows the codebase's note-on
 class of precondition (e.g. `hs::random()` in `platform.h`), as no ISR-context primitive exists to assert
 against.
 
-7. **`core/3dmath.h:1216` — `slerp(Vector)` is non-monotone near the antipode.** The antipodal branch
+7. ✅ **`core/3dmath.h:1216` — `slerp(Vector)` is non-monotone near the antipode.** The antipodal branch
 returns `normalized_or(v1 + (v2-v1)*t, v1)`; at `t≈0.5` with `v2≈-v1` the blend collapses to ~0 and falls
 back to `v1`, so `slerp(p, antipode, 0.5) ≈ p` regardless of `t`. Pick a perpendicular-bisector axis for
 the degenerate case, or document that antipodal callers must supply an explicit rotation axis.

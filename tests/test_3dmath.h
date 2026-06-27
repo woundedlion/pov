@@ -723,13 +723,19 @@ inline void test_vector_slerp() {
   Vector lerp_result = slerp(v1, v2, 0.5f);
   HS_EXPECT_NEAR(lerp_result.length(), 1.0f, 1e-3f);
 
-  // Antipodal endpoints: the lerp midpoint collapses to zero at t=0.5, so slerp
-  // must degrade to a stable unit direction.
+  // Antipodal endpoints: the great-circle direction is undefined, so slerp picks
+  // a perpendicular axis and sweeps a monotone half-turn — the midpoint must NOT
+  // collapse back onto p.
   Vector p(0, 1, 0), ap(0, -1, 0);
   HS_EXPECT_VEC(slerp(p, ap, 0.0f), p, 5e-3f);
   HS_EXPECT_VEC(slerp(p, ap, 1.0f), ap, 5e-3f);
-  Vector anti_mid = slerp(p, ap, 0.5f);
-  HS_EXPECT_NEAR(anti_mid.length(), 1.0f, 1e-3f);
+  float a25 = dot(slerp(p, ap, 0.25f), p);
+  float a50 = dot(slerp(p, ap, 0.50f), p);
+  float a75 = dot(slerp(p, ap, 0.75f), p);
+  HS_EXPECT_NEAR(slerp(p, ap, 0.5f).length(), 1.0f, 1e-3f);
+  HS_EXPECT_GT(a25, a50);
+  HS_EXPECT_GT(a50, a75);
+  HS_EXPECT_NEAR(a50, 0.0f, 5e-3f);
 }
 
 /**
