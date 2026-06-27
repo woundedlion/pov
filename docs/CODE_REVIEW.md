@@ -136,7 +136,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 30. ✅ **`effectReady` worker message is received and ignored.** `daydream/segment_controller.js` ~204: the worker emits `effectReady` after every `setEffect` but the controller does nothing with it, so a frame can composite mid-switch; the message reads as if synchronization exists when it does not. Fix: gate compositing on it (mirroring `ready`) or drop it from the protocol.
 
-31. **`URLSync` applies the `effect` URL key with no validator.** `daydream/state.js` ~159–167: a garbage/empty `?effect=` is written straight into state during hydration, overriding the validated default (it self-heals later via `resolveActiveEffect`, but briefly holds an invalid value). Fix: pass an `effect` validator alongside the `resolution` one.
+31. ✅ **`URLSync` applies the `effect` URL key with no validator.** `daydream/state.js` ~159–167: a garbage/empty `?effect=` is written straight into state during hydration, overriding the validated default (it self-heals later via `resolveActiveEffect`, but briefly holds an invalid value). Fix: pass an `effect` validator alongside the `resolution` one.
 
 32. **No runtime guard at the worker postMessage trust boundary.** `daydream/segment_worker.js` ~201 / `worker_protocol.js`: inbound `e.data` is cast to the protocol union with an unchecked JSDoc assertion and the `switch` has no `default`, so a malformed/drifted message no-ops silently. Fix: add a `default` arm that logs unknown message types.
 
