@@ -375,9 +375,29 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
 }
 
 /**
+ * @brief Trap if the mesh has a boundary (any unpaired half-edge).
+ * @param he_mesh Half-edge connectivity to validate.
+ * @param op Operator name, interpolated into the trap message on failure.
+ * @details The operators below size their output pools assuming a closed
+ * manifold — E = I/2 undirected edges — and walk complete edge orbits. An
+ * unpaired half-edge undersizes those pools and the operator overruns them,
+ * surfacing far from the cause as a generic "capacity exceeded" trap. Check the
+ * precondition explicitly and up front (mirroring compile_hankin) so a boundary
+ * mesh fails with a self-explanatory message. Cold path: once per operator at
+ * build time, never in a per-element loop.
+ */
+static void require_closed_manifold(const HalfEdgeMesh &he_mesh,
+                                    const char *op) {
+  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+    HS_CHECK(he_mesh.half_edges[i].pair != HE_NONE,
+             "MeshOps::%s requires a closed manifold (unpaired half-edge)", op);
+  }
+}
+
+/**
  * @brief Computes the dual of a mesh (each face becomes a vertex and vice
  *   versa).
- * @param mesh Source mesh.
+ * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh.
  * @return Fresh dual PolyMesh allocated in `target`.
@@ -397,6 +417,7 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
     ScratchScope target_guard(target);
 
     HalfEdgeMesh he_mesh(temp, mesh);
+    require_closed_manifold(he_mesh, "dual");
 
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       int count;
@@ -476,26 +497,6 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target, Arena &temp) {
   }
   normalize(out_mesh);
   return out_mesh;
-}
-
-/**
- * @brief Trap if the mesh has a boundary (any unpaired half-edge).
- * @param he_mesh Half-edge connectivity to validate.
- * @param op Operator name, interpolated into the trap message on failure.
- * @details The edge-based operators below size their output pools assuming a
- * closed manifold — E = I/2 undirected edges — and walk complete edge orbits.
- * An unpaired half-edge undersizes those pools and the operator overruns them,
- * surfacing far from the cause as a generic "capacity exceeded" trap. Check the
- * precondition explicitly and up front (mirroring compile_hankin) so a boundary
- * mesh fails with a self-explanatory message. Cold path: once per operator at
- * build time, never in a per-element loop.
- */
-static void require_closed_manifold(const HalfEdgeMesh &he_mesh,
-                                    const char *op) {
-  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-    HS_CHECK(he_mesh.half_edges[i].pair != HE_NONE,
-             "MeshOps::%s requires a closed manifold (unpaired half-edge)", op);
-  }
 }
 
 /**
