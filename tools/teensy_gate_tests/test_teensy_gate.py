@@ -417,9 +417,15 @@ class TestGateExtra(unittest.TestCase):
     def test_tool_falls_back_to_path_lookup(self):
         self.assertEqual(self.ge._tool("clang", "size"), "arm-none-eabi-size")
 
-    def test_find_teensy_size_returns_first_launchable(self):
-        with mock_patch(subprocess, "run", lambda *a, **k: None):
+    def test_find_teensy_size_accepts_self_identifying(self):
+        probe = types.SimpleNamespace(stdout="usage: teensy_size <elf>", stderr="")
+        with mock_patch(subprocess, "run", lambda *a, **k: probe):
             self.assertEqual(self.ge._find_teensy_size(), "teensy_size")
+
+    def test_find_teensy_size_rejects_foreign_binary(self):
+        probe = types.SimpleNamespace(stdout="usage: other-tool", stderr="")
+        with mock_patch(subprocess, "run", lambda *a, **k: probe):
+            self.assertIsNone(self.ge._find_teensy_size())
 
     def test_find_teensy_size_none_when_absent(self):
         def _raise(*a, **k):
