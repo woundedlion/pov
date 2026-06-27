@@ -179,7 +179,7 @@ private:
       float polar = PI_F * (i + 0.5f) / RINGS;
       for (int j = 0; j < PER_RING; ++j) {
         float azimuth = 2 * PI_F * j / PER_RING;
-        fibers[idx++] = Spherical(azimuth, polar);
+        std::construct_at(&fibers[idx++], azimuth, polar);
       }
     }
   }
