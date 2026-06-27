@@ -10,7 +10,12 @@ in milliseconds in the existing CI test lane.
 Run:  python -m unittest discover -s tools/teensy_gate_tests
 """
 
+import contextlib
+import io
+import subprocess
 import sys
+import tempfile
+import types
 import unittest
 from pathlib import Path
 
@@ -27,6 +32,28 @@ BUDGETS = tg.load_budgets(TOOLS / "teensy_budgets.json")
 
 def _read(name):
     return (FIX / name).read_text(encoding="utf-8")
+
+
+def _load_gate_extra():
+    """Load tools/teensy_gate_extra.py (SCons glue) outside PlatformIO.
+
+    The module runs `Import("env")` and `env.subst(...)` at import time, so it
+    cannot be plain-imported; inject no-op SCons hooks and a stub env, then exec.
+    """
+    class _Env:
+        def subst(self, s):
+            return str(TOOLS.parent) if s == "$PROJECT_DIR" else s
+
+        def AddPostAction(self, *a, **k):
+            pass
+
+    src = (TOOLS / "teensy_gate_extra.py").read_text(encoding="utf-8")
+    mod = types.ModuleType("teensy_gate_extra")
+    mod.__file__ = str(TOOLS / "teensy_gate_extra.py")
+    mod.__dict__["Import"] = lambda *a, **k: None
+    mod.__dict__["env"] = _Env()
+    exec(compile(src, mod.__file__, "exec"), mod.__dict__)
+    return mod
 
 
 def _eval(env, teensy_size_file, syms_file, secs_file="good_readelf_secs.txt"):
@@ -281,6 +308,172 @@ class TestRealCapture(unittest.TestCase):
         led = next(s for s in syms
                    if s.name == "_ZN12POVSegmentedILi288ELi4ELi480EE14ledController_E")
         self.assertEqual(led.region, "OCRAM")
+
+
+class TestSizeAFallback(unittest.TestCase):
+    """The `--size-a` fallback path (no teensy_size): VMA bucketing + 0x80000-ram1
+    free-headroom arithmetic, end-to-end through main() and evaluate()."""
+
+    def _size_a(self, itcm, dtcm, ocram, flash):
+        # One section per region at its base VMA, sizes in hex.
+        return (
+            "elf:\nsection size addr\n"
+            f".text.itcm 0x{itcm:x} 0x0\n"
+            f".bss 0x{dtcm:x} 0x20000000\n"
+            f".bss.dma 0x{ocram:x} 0x20200000\n"
+            f".text.progmem 0x{flash:x} 0x60000000\n")
+
+    def test_free_headroom_is_0x80000_minus_used(self):
+        totals = tg.region_totals_from_size_a(_read("good_size_a.txt"))
+        ram1 = totals.get("ITCM", 0) + totals.get("DTCM", 0)
+        # Replicate main()'s fallback synthesis and assert the free arithmetic.
+        sizes = {
+            "ram1": {"used": ram1, "free": 0x80000 - ram1},
+            "ram2": {"used": totals.get("OCRAM", 0),
+                     "free": 0x80000 - totals.get("OCRAM", 0)},
+        }
+        self.assertEqual(sizes["ram1"]["free"], 0x80000 - ram1)
+        self.assertEqual(sizes["ram2"]["free"], 0x80000 - totals["OCRAM"])
+
+    def test_main_size_a_fallback_passes_a_fitting_build(self):
+        rc, out = self._run_main_size_a(
+            self._size_a(0x10000, 0x40000, 0x70000, 0x20000),
+            "good_readelf_syms.txt", "holosphere")
+        self.assertEqual(rc, 0, msg=out)
+        self.assertIn("PASS", out)
+
+    def test_main_size_a_fallback_free_arithmetic_trips_headroom_floor(self):
+        # DTCM large enough that 0x80000 - ram1 drops below the 32,768 B floor,
+        # proving the fallback `free` figure actually drives the gate decision.
+        # ram1 = 0x10000 + 0x70000 = 0x80000 -> free 0; floor 32768 -> violation.
+        rc, out = self._run_main_size_a(
+            self._size_a(0x10000, 0x70000, 0x70000, 0x20000),
+            "good_readelf_syms.txt", "holosphere")
+        self.assertEqual(rc, 1, msg=out)
+        self.assertIn("free-for-local-variables", out)
+
+    def _run_main_size_a(self, size_a_text, syms_fixture, env):
+        with tempfile.TemporaryDirectory() as d:
+            sa = Path(d) / "size_a.txt"
+            sa.write_text(size_a_text, encoding="utf-8")
+            syms = Path(d) / "syms.txt"
+            syms.write_text(_read(syms_fixture), encoding="utf-8")
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                rc = tg.main([
+                    "--env", env,
+                    "--budgets", str(TOOLS / "teensy_budgets.json"),
+                    "--size-a", str(sa),
+                    "--readelf-syms", str(syms),
+                ])
+            return rc, buf.getvalue()
+
+
+class TestStripJsoncComments(unittest.TestCase):
+    """The bespoke JSONC comment stripper guarding the budgets file."""
+
+    def test_strips_line_and_block_comments(self):
+        text = '{\n  // line\n  "a": 1, /* block */ "b": 2\n}'
+        self.assertEqual(tg._strip_jsonc_comments(text),
+                         '{\n  \n  "a": 1,  "b": 2\n}')
+
+    def test_keeps_comment_sequences_inside_strings(self):
+        # // and /* inside a JSON string value must survive untouched (a path,
+        # URL, or note must not be mangled).
+        text = '{"url": "http://x/y", "note": "a /* not a */ comment"}'
+        self.assertEqual(tg._strip_jsonc_comments(text), text)
+
+    def test_escaped_quote_does_not_end_string(self):
+        text = r'{"s": "a\"// still in string", "n": 1}'
+        self.assertEqual(tg._strip_jsonc_comments(text), text)
+
+    def test_block_comment_with_newlines(self):
+        text = '{\n/* multi\nline */\n"a": 1}'
+        self.assertEqual(tg._strip_jsonc_comments(text), '{\n\n"a": 1}')
+
+    def test_unterminated_block_comment_raises(self):
+        with self.assertRaises(ValueError):
+            tg._strip_jsonc_comments('{"a":1} /* never closed')
+
+    def test_round_trips_through_json_load(self):
+        import json
+        cfg = json.loads(tg._strip_jsonc_comments(
+            '{\n  // c\n  "x": 1, /* y */ "s": "10 // 2"\n}'))
+        self.assertEqual(cfg, {"x": 1, "s": "10 // 2"})
+
+
+class TestGateExtra(unittest.TestCase):
+    """The PlatformIO post-build glue: toolchain discovery + exit(2) guards."""
+
+    def setUp(self):
+        self.ge = _load_gate_extra()
+
+    def test_tool_derives_sibling_arm_tools(self):
+        self.assertEqual(self.ge._tool("/opt/arm/bin/arm-none-eabi-gcc", "size"),
+                         "/opt/arm/bin/arm-none-eabi-size")
+        self.assertEqual(self.ge._tool("C:/x/arm-none-eabi-gcc.exe", "readelf"),
+                         "C:/x/arm-none-eabi-readelf.exe")
+
+    def test_tool_falls_back_to_path_lookup(self):
+        self.assertEqual(self.ge._tool("clang", "size"), "arm-none-eabi-size")
+
+    def test_find_teensy_size_returns_first_launchable(self):
+        with mock_patch(subprocess, "run", lambda *a, **k: None):
+            self.assertEqual(self.ge._find_teensy_size(), "teensy_size")
+
+    def test_find_teensy_size_none_when_absent(self):
+        def _raise(*a, **k):
+            raise OSError("not found")
+        with mock_patch(subprocess, "run", _raise):
+            self.assertIsNone(self.ge._find_teensy_size())
+
+    def test_toolchain_oserror_exits_2(self):
+        # A tool step raising OSError is a build/tooling break -> exit(2), never a
+        # size-budget "violation".
+        self.ge._find_teensy_size = lambda: None
+        def _boom(*a, **k):
+            raise OSError("no such tool")
+        self.ge._run = _boom
+        rc, out = self._run_gate("holosphere")
+        self.assertEqual(rc, 2)
+        self.assertIn("toolchain step failed", out)
+
+    def test_empty_regions_exits_2(self):
+        # Tool output the parser no longer recognizes (no FLASH/RAM1/RAM2) is a
+        # format break -> exit(2), not a region-missing "violation". teensy_gate
+        # is the shared module, so restore parse_teensy_size after the patch.
+        self.ge._find_teensy_size = lambda: "teensy_size"
+        self.ge._run = lambda *a, **k: ""
+        with mock_patch(self.ge.teensy_gate, "parse_teensy_size", lambda text: {}):
+            rc, out = self._run_gate("holosphere")
+        self.assertEqual(rc, 2)
+        self.assertIn("parsed no FLASH/RAM1/RAM2 regions", out)
+
+    def _run_gate(self, pioenv):
+        class _Env(dict):
+            def subst(self, s):
+                return self.get(s.lstrip("$"), s)
+        env = _Env(PIOENV=pioenv, CC="/opt/arm/bin/arm-none-eabi-gcc")
+        target = [str(TOOLS / "build" / "firmware.elf")]
+        buf = io.StringIO()
+        rc = 0
+        try:
+            with contextlib.redirect_stdout(buf):
+                self.ge.run_gate(None, target, env)
+        except SystemExit as exc:
+            rc = exc.code
+        return rc, buf.getvalue()
+
+
+@contextlib.contextmanager
+def mock_patch(obj, attr, value):
+    """Temporarily set obj.attr = value (stdlib-only stand-in for mock.patch)."""
+    orig = getattr(obj, attr)
+    setattr(obj, attr, value)
+    try:
+        yield
+    finally:
+        setattr(obj, attr, orig)
 
 
 if __name__ == "__main__":
