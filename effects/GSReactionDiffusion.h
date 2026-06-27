@@ -65,9 +65,13 @@ public:
                                      sizeof(uint16_t); // cube_lut.build
     constexpr size_t kStateBytes = 2u * RD_N * sizeof(uint16_t); // A + B, Q16
     constexpr size_t kNodeBytes = RD_N * sizeof(Vector);         // build_nodes
-    constexpr size_t kPersistentBytes = 170 * 1024;
-    static_assert(kCubeLutBytes + kStateBytes + kNodeBytes <= kPersistentBytes,
-                  "GS persistent arena too small for LUT + state + nodes");
+    constexpr size_t kPaletteBytes =
+        BakedPalette::LUT_SIZE * sizeof(Color4); // palette.bake
+    constexpr size_t kPersistentBytes = 174 * 1024;
+    static_assert(kCubeLutBytes + kStateBytes + kNodeBytes + kPaletteBytes <=
+                      kPersistentBytes,
+                  "GS persistent arena too small for LUT + state + nodes + "
+                  "palette");
     configure_arenas(kPersistentBytes, GLOBAL_ARENA_SIZE - kPersistentBytes, 0);
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
@@ -86,6 +90,12 @@ public:
       state.A[i] = 65535;
       state.B[i] = 0;
     }
+
+    palette.bake(persistent_arena,
+                 GenerativePalette{GradientShape::STRAIGHT,
+                                   HarmonyType::SPLIT_COMPLEMENTARY,
+                                   BrightnessProfile::ASCENDING,
+                                   SaturationProfile::VIBRANT});
 
     cube_lut.build(persistent_arena);
     init_lattice();
@@ -274,10 +284,8 @@ private:
     uint16_t *A = nullptr, *B = nullptr; /**< Per-node A/B concentrations, Q16. */
   } state;
 
-  /** @brief Color palette mapping the B gradient to RGB. */
-  GenerativePalette palette{
-      GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
-      BrightnessProfile::ASCENDING, SaturationProfile::VIBRANT};
+  /** @brief 16-bit LUT baked from the generative palette mapping B to RGB. */
+  BakedPalette palette;
 
   /**
    * @brief GUI-tunable Gray-Scott parameters.
