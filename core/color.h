@@ -1209,6 +1209,8 @@ public:
       colors = {a, b, c, vignette_color, vignette_color};
       size = 5;
       break;
+    default:
+      HS_CHECK(false, "GenerativePalette: unknown gradient_shape");
     }
     for (int i = 0; i < size; ++i) {
       colors_oklch[i] = srgb_to_oklch(colors[i].r, colors[i].g, colors[i].b);
