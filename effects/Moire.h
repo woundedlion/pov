@@ -57,6 +57,8 @@ public:
     base_baked.bake(persistent_arena, base_palette);
     int_baked.bake(persistent_arena, int_palette);
 
+    // Set before registerParam, which snapshots *ptr as the reset-to-default:
+    // the resolution-dependent default must be in place first.
     params.density = W <= 96 ? 10.0f : 45.0f;
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
