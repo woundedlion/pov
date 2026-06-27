@@ -1135,7 +1135,9 @@ template <typename A, typename B> struct Subtract {
     // spans the stroke's hollow interior; subtracting that would carve A's
     // interior, and scan_region never re-fills the skipped columns. So for a
     // non-solid B, pass A through unchanged and let per-pixel max(A, -B) carve
-    // exactly the stroke band.
+    // exactly the stroke band. Cost note: the carve gets no horizontal culling,
+    // so Subtract<solid, stroke> pays full A-coverage shading — the expensive CSG
+    // combination.
     if constexpr (!B::is_solid) {
       for (size_t i = 0; i < intervals_a.size(); ++i)
         out(intervals_a[i].first, intervals_a[i].second);
