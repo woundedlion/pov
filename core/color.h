@@ -1286,7 +1286,7 @@ public:
     float dist = end - start;
     // Zero-width segment: pin to the left stop (p=0) and render it through the
     // OKLCH path below, avoiding both a divide by ~0 and the 8-bit sRGB key.
-    float p = dist < 0.0001f ? 0.0f : std::clamp((t - start) / dist, 0.0f, 1.0f);
+    float p = dist < 0.0001f ? 0.0f : hs::clamp((t - start) / dist, 0.0f, 1.0f);
 
     // Interpolate in OKLCH; stops are pre-converted in update_stops().
     OKLCH blended = lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p);
@@ -1689,7 +1689,7 @@ struct PinchModifier {
     float centered = wrapped_t * 2.0f - 1.0f;
     float sign = centered < 0.0f ? -1.0f : 1.0f;
 
-    float amount = std::clamp(*tension, -0.99f, 0.99f);
+    float amount = hs::clamp(*tension, -0.99f, 0.99f);
     float power = (amount < 0.0f) ? (1.0f / (1.0f + std::abs(amount)))
                                   : (1.0f + amount * 3.0f);
 
