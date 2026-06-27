@@ -506,6 +506,9 @@ class ParticleSystem
     : public AnimationBase<
           ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP>> {
 public:
+  static_assert(CAPACITY <= 65535,
+                "active_count is uint16_t; CAPACITY must fit in it");
+
   ArenaVector<Particle<TRAIL_LEN>> pool; /**< Backing pool of particles. */
   uint16_t active_count = 0; /**< Number of live particles in the pool prefix. */
 
