@@ -118,7 +118,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 21. **`RingSpin` spawns all four rings with an identical `Y_AXIS` normal.** `effects/RingSpin.h` ~95–98: the per-plane normal ctor parameter is always `Y_AXIS`, so rings differ only by palette/noise; the unused parameter reads as dead intent. Fix: pass varied normals or drop the parameter.
 
-22. **`Thrusters` advances `t_global` before constructing `Canvas`** and uses a mixed declaration/init member order. `effects/Thrusters.h` ~78/80 and ~34–41/292–299. Behaviorally inert; breaks the "Canvas first" shape used everywhere else and would trip `-Wreorder`. Fix: reorder.
+22. ✅ **`Thrusters` advances `t_global` before constructing `Canvas`** and uses a mixed declaration/init member order. `effects/Thrusters.h` ~78/80 and ~34–41/292–299. Behaviorally inert; breaks the "Canvas first" shape used everywhere else and would trip `-Wreorder`. Fix: reorder.
 
 23. **`MindSplatter` per-pixel `pool[p_idx]` index guarded only by a stripped `assert`.** `effects/MindSplatter.h` ~273–274: the hot-path index has no cold bind-site `HS_CHECK` backstop, so a corrupt `f.v2` reads OOB silently in the device build. Fix: add a cold capacity/`active_count` invariant trap at the draw-call seam.
 

@@ -74,10 +74,11 @@ public:
    *          then advances and draws each live thruster.
    */
   void draw_frame() override {
+    Canvas canvas(*this);
+
     // Wrap at 32, ring_fn's modulation period.
     t_global = (t_global + 1) % 32;
 
-    Canvas canvas(*this);
     timeline.step(canvas);
     if (!warp_anim.done()) {
       warp_anim.step(canvas);
@@ -293,9 +294,9 @@ private:
   float amplitude;   /**< Current warp amplitude driven by warp_anim. */
   float warp_phase;  /**< Spatial warp phase in radians, randomized per fire. */
   int t_global;      /**< Frame counter, wrapped to [0, 32) — ring_fn's modulation period; never overflows. */
+  Animation::Mutation warp_anim;    /**< Restartable warp-amplitude decay animation. */
 
   Timeline timeline;                /**< Animation timeline for sprite/timer/spin. */
-  Animation::Mutation warp_anim;    /**< Restartable warp-amplitude decay animation. */
   Orientation<> orientation;        /**< Global orientation, spun by each fire. */
 
   /**
