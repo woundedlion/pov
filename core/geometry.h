@@ -816,11 +816,9 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
   HS_CHECK(std::abs(orientation.squared_magnitude() - 1.0f) <
            math::EPS_UNIT_QUAT_SQ);
   Vector v = rotate(normal, orientation).normalized();
-  // Reference axis least parallel to v, using the rotated vectors crossed below.
-  Vector ref = rotate(X_AXIS, orientation).normalized();
-  if (std::abs(dot(v, ref)) > math::COS_AXIS_PARALLEL) {
-    ref = rotate(Y_AXIS, orientation).normalized();
-  }
+  // rotate preserves dot, so least_parallel_axis(normal) picks the same body
+  // axis the rotated-frame test would; rotate it into the frame for the cross.
+  Vector ref = rotate(least_parallel_axis(normal), orientation).normalized();
   Vector u = cross(v, ref).normalized();
   Vector w = cross(v, u).normalized();
   return {u, v, w};
