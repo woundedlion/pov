@@ -173,7 +173,7 @@ private:
     else if (face == 2) dir = Vector(u,  1.0f, -v);  // +Y
     else if (face == 3) dir = Vector(u, -1.0f,  v);  // -Y
     else if (face == 4) dir = Vector(u, v,  1.0f);   // +Z
-    else                dir = Vector(-u, v, -1.0f);   // -Z
+    else                dir = Vector(-u, v, -1.0f);  // -Z
     return dir.normalized();
   }
 
