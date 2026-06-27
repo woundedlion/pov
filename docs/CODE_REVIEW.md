@@ -142,7 +142,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 ### Priority 5 — Testing & verification gaps
 
-33. **`dma_led.h` and `pov_single_map.h` have no host tests.** The project's own pattern (extracting `pov_segment_map.h`/`hd107s_frame.h` as host-testable pure logic) shows the index/timing math can be lifted; currently any pure-arithmetic seam in these two ships unverified. Fix: extract a host-testable index unit for `pov_single_map.h`.
+33. ✅ **`dma_led.h` and `pov_single_map.h` have no host tests.** The project's own pattern (extracting `pov_segment_map.h`/`hd107s_frame.h` as host-testable pure logic) shows the index/timing math can be lifted; currently any pure-arithmetic seam in these two ships unverified. Fix: extract a host-testable index unit for `pov_single_map.h`.
 
 34. ✅ **Committed `color_luts.h` is not pinned against its generator.** `scripts/generate_luts.py` is the "generator of record," but no test asserts the committed table matches a fresh regeneration, so a hand-edit or stale divergence would pass. Fix: a CI check that regenerating yields no diff.
 
