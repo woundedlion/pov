@@ -181,7 +181,7 @@ heuristic floor; the true simultaneous-ripple peak can exceed `kRipplePoolSize`,
 null and the Burst / Ripp-Dur sliders partially non-functional at their tops. Size the pool to the real
 peak or clamp the slider tops.
 
-21. **`effects/PetalFlow.h:245` — the opacity cull is alpha-dependent.** Gating on
+21. ✅ **`effects/PetalFlow.h:245` — the opacity cull is alpha-dependent.** Gating on
 `opacity * params.alpha <= 0.01` means lowering the Alpha slider shortens the flow's pole reach. Gate on
 geometric `opacity` before multiplying by `params.alpha`.
 

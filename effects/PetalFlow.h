@@ -246,9 +246,9 @@ private:
       opacity = std::max(0.0f, 1.0f - (dist - 2.5f) / 1.0f);
     }
 
-    float effective_opacity = opacity * params.alpha;
-    if (effective_opacity <= 0.01f)
+    if (opacity <= 0.01f)
       return;
+    float effective_opacity = opacity * params.alpha;
 
     constexpr int num_samples = NUM_SAMPLES;
     const float step = 2.0f * PI_F / num_samples;
