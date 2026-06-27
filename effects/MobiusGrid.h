@@ -9,8 +9,8 @@
 /**
  * @brief Renders a rotating sphere of latitude rings and longitude lines warped
  *        through a Möbius transform.
- * @tparam W Cubemap face width in pixels.
- * @tparam H Cubemap face height in pixels.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
  * @details Every sampled point is pushed through a Möbius transform so the grid
  *          continuously inflates/deflates between two "holes" on the sphere.
  */
