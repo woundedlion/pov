@@ -324,8 +324,8 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
     Vector axis;
     if (std::abs(PI_F - total_dist) < TOLERANCE) {
       axis = (std::abs(dot(v1, X_AXIS)) > math::COS_AXIS_PARALLEL)
-                 ? cross(v1, Y_AXIS)
-                 : cross(v1, X_AXIS);
+                 ? cross(v1, Y_AXIS).normalized()
+                 : cross(v1, X_AXIS).normalized();
     } else {
       axis = cross(v1, v2).normalized();
     }
