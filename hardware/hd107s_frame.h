@@ -290,12 +290,10 @@ private:
    *        used by correct()'s `(v * f) >> 8`.
    * @param f Public 8-bit scale factor (255 = ×1.0, 0 = off).
    * @return Internal multiplier (256 = exact unity, 0 = off).
-   * @details Storing factor+1 makes 255 resolve to ×256/256 = exact unity (a
-   *          bare `(v*255)>>8` loses ~0.4% per stage, ~1.2% compounded over the
-   *          three stages — full brightness would be unreachable in a pipeline
-   *          whose selling point is exact 16-bit fidelity). 0 is kept at 0 so it
-   *          still zeroes the channel exactly; the cost lives here, off the ISR
-   *          hot path.
+   * @details Maps f to (f+1)/256, not the nominal f/255: exact at the endpoints
+   *          (0→off, 255→×1.0) and ~1/256 high at intermediate values. Storing
+   *          f+1 keeps full brightness reachable as exact ×256/256 unity; 0 stays
+   *          0 to zero the channel exactly.
    */
   static constexpr uint16_t factor(uint8_t f) {
     return f == 0 ? 0u : static_cast<uint16_t>(f) + 1u;
