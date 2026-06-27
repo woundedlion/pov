@@ -248,7 +248,7 @@ emit-phase wrap, pattern-arg clamps). Add targeted pins.
 
 ### Priority 4 — Nits / elegance (informational)
 
-36. **Cross-effect duplication.** `strobe_columns()`/`needs_full_frame()` doc-comment blocks are
+36. ✅ **Cross-effect duplication.** `strobe_columns()`/`needs_full_frame()` doc-comment blocks are
 byte-identical across ~9 effects; the trail skeleton (record → `deep_tween` → fragment shader) is
 copy-pasted across Comets/RingSpin/ChaoticStrings with a "fix must be hand-propagated" note; two
 field-by-field `Params::lerp` bodies (Flyby, MindSplatter) drift-risk on field reorder. Consider a
