@@ -36,8 +36,9 @@ static inline float frac(int i) { return static_cast<float>(i) / N; }
  * @brief Asserts a curve is finite over [0,1] and optionally monotone.
  * @tparam Fn Callable taking a float t and returning a float.
  * @param f Curve to sample at frac(0)..frac(N).
- * @param monotone If true, also require each sample to be non-decreasing
- *        (within a 1e-4 tolerance) relative to the previous one.
+ * @param monotone If true, require each sample to be non-decreasing relative to
+ *        the previous one (strict: these are exact-arithmetic curves) and pin
+ *        both endpoints to f(0)=0, f(1)=1.
  * @param name Label forwarded to HS_EXPECT for failure reporting.
  */
 template <typename Fn>
@@ -48,8 +49,12 @@ static inline void check_curve(Fn f, bool monotone, const char *name) {
     float v = f(frac(i));
     HS_EXPECT(std::isfinite(v), name);
     if (monotone)
-      HS_EXPECT(v >= prev - 1e-4f, name);
+      HS_EXPECT(v >= prev, name);
     prev = v;
+  }
+  if (monotone) {
+    HS_EXPECT_NEAR(f(0.0f), 0.0f, 1e-6f);
+    HS_EXPECT_NEAR(f(1.0f), 1.0f, 1e-6f);
   }
 }
 
