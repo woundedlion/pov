@@ -154,7 +154,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 **tools (Python gates)**
 
 69. ✅ `parse_readelf_sections` column-shifts on the empty-Name NULL section row, mislabeling section 0 ([tools/teensy_gate.py:197](tools/teensy_gate.py#L197)); affects only the human-readable failure message, but parse by fixed columns or skip ndx 0.
-70. `region_totals_from_size_a` buckets a section solely by start VMA, ignoring a size spill past a region boundary (and can print a negative "free") ([tools/teensy_gate.py:146](tools/teensy_gate.py#L146)); it's the documented cross-check path, so note the spill limitation in the docstring.
+70. ✅ `region_totals_from_size_a` buckets a section solely by start VMA, ignoring a size spill past a region boundary (and can print a negative "free") ([tools/teensy_gate.py:146](tools/teensy_gate.py#L146)); it's the documented cross-check path, so note the spill limitation in the docstring.
 71. `_find_teensy_size` selects any same-named binary whose `--help` merely launches (non-zero exit not rejected) ([tools/teensy_gate_extra.py:46](tools/teensy_gate_extra.py#L46)); the downstream empty-parse `exit(2)` backstops it, but validate the probe output.
 
 **tests (C++ native suite)**

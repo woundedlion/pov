@@ -152,6 +152,9 @@ def region_totals_from_size_a(text: str) -> dict[str, int]:
     flash relative to teensy_size, which does the correct LMA accounting. Use it
     for RAM1/RAM2 placement cross-checks, not as the authoritative flash ceiling.
     Non-allocated metadata sections (VMA 0) are dropped so they do not inflate ITCM.
+    Also buckets each section by its START VMA only: a section spilling past a
+    region boundary is charged entirely to the start region, so a region's "free"
+    can read negative — another reason this is a cross-check, not a ceiling.
     """
     totals: dict[str, int] = {}
     for name, size, addr in parse_size_a(text):
