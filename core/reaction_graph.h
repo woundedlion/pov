@@ -41,6 +41,14 @@ inline Vector node(int i) {
   // Must fold y, radius, and theta in double to reproduce neighbors[] bit-for-bit:
   // float32 flips near-tie sort order, and theta = golden_angle*i reaches ~18,400
   // rad at i=RD_N-1 where a float holds only ~1e-3 rad of azimuth.
+  //
+  // Bit-exact reproduction of the generated neighbors[] is a CI-pinned-toolchain
+  // provenance contract, not a portable runtime guarantee: it needs host x86,
+  // device ARM, and the numpy table generator to agree to the last ULP on
+  // cos/sin/fmod, which is not promised for transcendentals across libms. The
+  // runtime tolerates disagreement — find_nearest_node is a nearest-node search,
+  // not a table-index equality — so a ULP drift degrades seeding quality at
+  // worst, never correctness.
   constexpr double golden_angle = 2.399963229728653;
   constexpr double two_pi = 6.283185307179586;
   double y = 1.0 - (static_cast<double>(i) / (RD_N - 1)) * 2.0;
