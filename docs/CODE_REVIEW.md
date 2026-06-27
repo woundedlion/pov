@@ -189,7 +189,7 @@ geometric `opacity` before multiplying by `params.alpha`.
 line 80; the inner modulo in `ring_fn` is dead. Remove it (or keep it only if the function is meant to be
 called with unwrapped frames, and document that).
 
-23. **`effects/RingSpin.h:50` — dead `X_AXIS` default normal.** `spawn_ring` always placement-news with
+23. ✅ **`effects/RingSpin.h:50` — dead `X_AXIS` default normal.** `spawn_ring` always placement-news with
 `Y_AXIS`, so the constructor's `X_AXIS` default is never used. Benign; drop it for clarity.
 
 24. **`hardware/pov_segmented.h:155-164` — master "longest coast" counter is meaningless.**
