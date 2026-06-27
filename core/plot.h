@@ -296,6 +296,19 @@ static inline float planar_arc_length(const Vector &a, const Vector &b,
 }
 
 /**
+ * @brief Unit axis perpendicular to v, stable for an antipodal geodesic.
+ * @param v Unit endpoint of a near-antipodal great-circle segment.
+ * @return A unit axis perpendicular to v.
+ * @details Antipodal endpoints leave cross(v1, v2) ~= 0 (infinitely many
+ * connecting geodesics), so normalizing it yields a garbage axis. Cross v with
+ * whichever world axis is least parallel to it and normalize for a well-defined
+ * rotation axis. Shared by rasterize_geodesic_strategy and Line::sample.
+ */
+static inline Vector stable_perpendicular_axis(const Vector &v) {
+  return cross(v, least_parallel_axis(v)).normalized();
+}
+
+/**
  * @brief Geodesic interpolation strategy: builds a great-circle sampler for one edge.
  * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
  * @param curr Start fragment of the edge.
@@ -323,9 +336,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
   } else {
     Vector axis;
     if (std::abs(PI_F - total_dist) < TOLERANCE) {
-      axis = (std::abs(dot(v1, X_AXIS)) > math::COS_AXIS_PARALLEL)
-                 ? cross(v1, Y_AXIS).normalized()
-                 : cross(v1, X_AXIS).normalized();
+      axis = stable_perpendicular_axis(v1);
     } else {
       axis = cross(v1, v2).normalized();
     }
@@ -840,12 +851,7 @@ struct Line {
 
     Vector axis;
     if (std::abs(PI_F - angle) < TOLERANCE) {
-      // Antipodal endpoints: cross() degenerates to ~0 (infinitely many
-      // geodesics connect them), so normalizing it yields a garbage axis. Pick
-      // a stable perpendicular axis instead, matching the geodesic strategy.
-      axis = (std::abs(dot(f1.pos, X_AXIS)) > math::COS_AXIS_PARALLEL)
-                 ? cross(f1.pos, Y_AXIS).normalized()
-                 : cross(f1.pos, X_AXIS).normalized();
+      axis = stable_perpendicular_axis(f1.pos);
     } else {
       axis = cross(f1.pos, f2.pos).normalized();
     }
