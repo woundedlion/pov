@@ -39,6 +39,8 @@ static constexpr float INV_PHI = 1 / PHI;
  *   EPS_LEN_SQ     — degenerate squared edge length (1e-6f)
  *   EPS_CROSS_SQ   — degenerate cross-product magnitude (squared) (1e-8f)
  *   EPS_NORMAL_SQ  — degenerate face normal (squared) (1e-9f)
+ *   EPS_NORMALIZE_SQ — squared length below which normalize() has no reliable
+ *                      direction; |v| < 1e-6 amplifies by >1e6 (1e-12f)
  *   EPS_UNIT_QUAT_SQ — generous |q|^2 is-unit assertion slack (0.01f)
  *   EPS_UNIT_VEC_SQ  — generous |v|^2 is-unit assertion slack (0.02f)
  */
@@ -49,6 +51,7 @@ static constexpr float EPS_GEOMETRIC  = 1e-5f;
 static constexpr float EPS_LEN_SQ     = 1e-6f;
 static constexpr float EPS_CROSS_SQ   = 1e-8f;
 static constexpr float EPS_NORMAL_SQ  = 1e-9f;
+static constexpr float EPS_NORMALIZE_SQ = 1e-12f;
 static constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
 static constexpr float EPS_UNIT_VEC_SQ  = 0.02f;
 /**
@@ -260,8 +263,9 @@ struct Vector {
    * @brief Normalizes the vector in place (scales to unit length).
    */
   void normalize() {
-    float m = length();
-    HS_CHECK(m >= std::numeric_limits<float>::epsilon());
+    float m2 = x * x + y * y + z * z;
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+    float m = sqrtf(m2);
     x = x / m;
     y = y / m;
     z = z / m;
@@ -276,8 +280,9 @@ struct Vector {
    * fallback.
    */
   [[nodiscard]] Vector normalized() const {
-    float m = length();
-    HS_CHECK(m >= std::numeric_limits<float>::epsilon());
+    float m2 = x * x + y * y + z * z;
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+    float m = sqrtf(m2);
     return Vector(x / m, y / m, z / m);
   }
 

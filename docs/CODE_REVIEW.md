@@ -76,7 +76,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 
 **core math & geometry**
 
-16. `normalize()`/`normalized()` gate on `length() >= epsilon` (relative spacing near 1.0), admitting sub-micro-length vectors that yield ~1e6-magnitude "unit" results ([core/3dmath.h:262](core/3dmath.h#L262)). Gate on squared length against a named small constant, consistent with `make_rotation`/`make_basis`.
+16. ✅ `normalize()`/`normalized()` gate on `length() >= epsilon` (relative spacing near 1.0), admitting sub-micro-length vectors that yield ~1e6-magnitude "unit" results ([core/3dmath.h:262](core/3dmath.h#L262)). Gate on squared length against a named small constant, consistent with `make_rotation`/`make_basis`.
 17. `vector_to_pixel` documents the `y` south-pole overshoot but not the symmetric `x → W` rounding hazard ([core/geometry.h:489](core/geometry.h#L489)); extend the `@return` floor-don't-round contract to `x`.
 18. `Orientation::upsample` does a redundant `slerp(q, q, 0)` at the `t==1` endpoint and resamples linearly in source-index (not arc-length) space ([core/geometry.h:727](core/geometry.h#L727)); special-case the endpoint and tighten the "shape-preserving" doc.
 19. `fast_cbrt` silently collapses to 0 in the denormal/tiny-normal tail ([core/3dmath.h:359](core/3dmath.h#L359)); promote the "supported for x ≳ 1e-6" note into the `@param` contract.
