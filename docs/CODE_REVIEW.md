@@ -92,7 +92,7 @@ _None confirmed. (The initially-reported H_OFFSET render-loop crash was independ
 
 27. ✅ `World::Replicate::plot` rotates each copy from the previous one, compounding float drift so copies aren't evenly spaced and the loop doesn't exactly close ([core/filter.h:590](core/filter.h#L590)); precompute per-copy quaternions or renormalize each step (cf. `VertexReplicate`).
 28. ✅ README "1-pixel AA border" (§7.1) doesn't match the implemented 2-pixel coverage ramp ([core/scan.h:62](core/scan.h#L62)); reconcile the wording.
-29. `Subtract` non-solid-B pass-through emits un-normalized A spans, relying on `scan_region` to re-normalize ([core/sdf.h:1141](core/sdf.h#L1141)); add a comment that seam handling is deliberately deferred (the solid-B branch documents its normalization but this one is silent).
+29. ✅ `Subtract` non-solid-B pass-through emits un-normalized A spans, relying on `scan_region` to re-normalize ([core/sdf.h:1141](core/sdf.h#L1141)); add a comment that seam handling is deliberately deferred (the solid-B branch documents its normalization but this one is silent).
 30. `Pipeline::plot` float overload enforces the `[-W, 2W)` column bound via `assert` *after* the cast, and `fast_wrap` corrects only a single ±W offset ([core/filter.h:158](core/filter.h#L158)); note that the single-step correction is the load-bearing reason the contract is `[-W,2W)`.
 31. `BoundingSphere::get_intervals` near-pole fold uses a heuristic `angular_radius/PI_F` threshold that force-scans full rows for large radii ([core/scan.h:291](core/scan.h#L291)); correct and conservative, but a future tightening should re-derive the constant.
 
