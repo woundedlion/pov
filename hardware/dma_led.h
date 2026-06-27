@@ -35,6 +35,10 @@
 // peripherals below. See tests/test_hd107s_frame.h.
 #include "hd107s_frame.h"
 
+// Pure framing / transfer-length / stale-transfer math, host-unit-tested
+// without the Teensy peripherals below. See tests/test_dma_core.h.
+#include "dma_led_core.h"
+
 // ============================================================================
 // TeensySPIDMA — Low-level async DMA+SPI driver for Teensy 4.x
 // ============================================================================
@@ -137,7 +141,7 @@ public:
    */
   void checkStaleTransfer() {
     if (transferComplete_.load(std::memory_order_relaxed)) return;
-    if (micros() - transferStartUs_ >= kTransferWatchdogUs) {
+    if (dma::transfer_stale(transferStartUs_, micros(), kTransferWatchdogUs)) {
       hs::log("FATAL: DMA channel wedged — in-flight transfer outlived the "
               "watchdog on the overrun-drop path; completion ISR never fired");
       __builtin_trap();
@@ -242,7 +246,7 @@ public:
    *         then call submitFrame().
    */
   HD107SFrame<N>& backFrame() {
-    return frames_[1 - activeBuffer_];
+    return frames_[dma::next_buffer(activeBuffer_)];
   }
 
   /**
@@ -264,9 +268,10 @@ public:
       overrunCount_.fetch_add(1, std::memory_order_relaxed);
       return false;
     }
-    int back = 1 - activeBuffer_;
+    int back = dma::next_buffer(activeBuffer_);
     frames_[back].flush();
-    size_t len = withBg ? frames_[back].sizeWithBg() : frames_[back].size();
+    size_t len = dma::transfer_len(frames_[back].size(),
+                                   frames_[back].sizeWithBg(), withBg);
     spi_.transmitAsync(frames_[back].data(), len);
     activeBuffer_ = back;
     transferCount_.fetch_add(1, std::memory_order_relaxed);
