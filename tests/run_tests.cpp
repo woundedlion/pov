@@ -30,6 +30,7 @@
 #include "tests/test_scan.h"
 #include "tests/test_mesh_raster.h"
 #include "tests/test_transformers.h"
+#include "tests/test_noise.h"
 #include "tests/test_generators.h"
 #include "tests/test_animation.h"
 #include "tests/test_effects.h"
@@ -85,6 +86,7 @@ struct TestModule {
   X("scan", hs_test::scan_tests::run_scan_tests)                               \
   X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests)         \
   X("transformers", hs_test::transformers_tests::run_transformers_tests)       \
+  X("noise", hs_test::noise_tests::run_noise_tests)                            \
   X("generators", hs_test::generators_tests::run_generators_tests)             \
   X("animation", hs_test::animation_tests::run_animation_tests)                \
   X("effects", hs_test::effects_tests::run_effects_tests)                      \
