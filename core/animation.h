@@ -2123,10 +2123,14 @@ struct RippleParams {
     float hw = thickness * 0.5f;
     if (hw < 0.001f)
       hw = 0.001f;
-    float d_min = phase - hw * 2.0f;
-    float d_max = phase + hw * 2.0f;
-    cos_threshold_min = (d_min >= 0.0f && d_min <= PI_F) ? cosf(d_min) : 1.0f;
-    cos_threshold_max = (d_max >= 0.0f && d_max <= PI_F) ? cosf(d_max) : -1.0f;
+    // Clamp into [0,π]: the active ring lies within the sphere's angular range,
+    // so cos(clamped) keeps the fast-reject band engaged past phase=π instead of
+    // collapsing both bounds to accept-all. cos(0)=1 and cos(π)=-1 reproduce the
+    // out-of-range sentinels at the endpoints.
+    float d_min = hs::clamp(phase - hw * 2.0f, 0.0f, PI_F);
+    float d_max = hs::clamp(phase + hw * 2.0f, 0.0f, PI_F);
+    cos_threshold_min = cosf(d_min);
+    cos_threshold_max = cosf(d_max);
   }
 };
 
