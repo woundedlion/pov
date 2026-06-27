@@ -693,8 +693,9 @@ public:
   }
 
   /**
-   * @brief Increases the resolution of the history to 'count' steps, preserving
-   * shape via Slerp.
+   * @brief Increases the resolution of the history to 'count' steps by
+   * Slerp-resampling the existing frames (uniform in source index, not arc
+   * length).
    * @param count The target number of steps in the history.
    * @note When `count > CAPACITY` the trail is upsampled to `CAPACITY` instead.
    * This is intentional graceful degradation, not a trap: a `count` past
@@ -727,7 +728,7 @@ public:
 
     int old_num_frames = num_frames;
 
-    for (int i = 0; i < count; ++i) {
+    for (int i = 0; i < count - 1; ++i) {
       float t = static_cast<float>(i) / (count - 1);
       float source_float_index = t * (old_num_frames - 1);
       int idx = static_cast<int>(source_float_index);
@@ -737,6 +738,8 @@ public:
           old_orientations[idx],
           old_orientations[std::min((int)old_num_frames - 1, idx + 1)], frac);
     }
+    // Endpoint maps exactly onto the last source frame (slerp(q, q, 0)).
+    orientations[count - 1] = old_orientations[old_num_frames - 1].normalized();
     num_frames = count;
   }
 
