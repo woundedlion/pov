@@ -36,11 +36,11 @@ class GSReactionDiffusion
   friend Base; // draw_frame() forwards to render()
 
   // Bring dependent-base names into scope (template base requires this).
+  using Base::advance_substeps;
   using Base::cube_lut;
   using Base::for_each_neighbor;
   using Base::init_lattice;
   using Base::kernel_accumulate;
-  using Base::land_back;
   using Base::nodes;
   using Base::orientation;
   using Base::RD_N;
@@ -240,18 +240,12 @@ private:
     uint16_t *sB = static_cast<uint16_t *>(
         scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
 
-    uint16_t *curA = state.A, *curB = state.B;
-    uint16_t *nxtA = sA, *nxtB = sB;
-    for (int k = 0; k < STEPS_PER_FRAME; k++) {
-      step_physics(curA, curB, nxtA, nxtB);
-      std::swap(curA, nxtA);
-      std::swap(curB, nxtB);
-    }
-
-    // Land the final generation back in persistent state before the ScratchScope
-    // pops; an odd substep count leaves it in scratch, so copy it back.
-    land_back(std::array<uint16_t *, 2>{state.A, state.B},
-              std::array<uint16_t *, 2>{curA, curB}, RD_N);
+    advance_substeps(STEPS_PER_FRAME,
+                     std::array<uint16_t *, 2>{state.A, state.B},
+                     std::array<uint16_t *, 2>{sA, sB},
+                     [this](auto &cur, auto &nxt) {
+                       step_physics(cur[0], cur[1], nxt[0], nxt[1]);
+                     });
 
     // Seed the cubemap lookup once per pixel center; it only feeds
     // refine_nearest_node, which re-finds the true nearest per sub-sample.

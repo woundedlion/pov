@@ -9,6 +9,7 @@
 
 #include <array>
 #include <cstring>
+#include <utility>
 
 /**
  * @brief CRTP base for the spherical reaction-diffusion effects (BZ, Gray-Scott).
@@ -143,6 +144,35 @@ protected:
       return;
     for (size_t i = 0; i < N; ++i)
       std::memcpy(persistent[i], latest[i], count * sizeof(T));
+  }
+
+  /**
+   * @brief Runs `steps` ping-ponged physics substeps and lands the final
+   *        generation back in persistent state.
+   * @tparam T Fixed-point species sample type.
+   * @tparam N Species count.
+   * @tparam StepFn Callable invoked as step(cur, nxt) to advance one substep.
+   * @param steps Number of physics substeps to advance.
+   * @param persistent Persistent state buffers, one per species.
+   * @param scratch Scratch ping-pong buffers, one per species.
+   * @param step Physics kernel reading the N `cur` buffers and writing the N
+   * `nxt` buffers for one substep.
+   * @details Ping-pongs between the persistent state and the scratch buffers. An
+   * odd `steps` count leaves the final generation in scratch, so land_back
+   * copies it back before the caller's ScratchScope pops. Agnostic to species
+   * count and fixed-point width, so both systems share one substep driver.
+   */
+  template <typename T, size_t N, typename StepFn>
+  void advance_substeps(int steps, const std::array<T *, N> &persistent,
+                        const std::array<T *, N> &scratch, StepFn &&step) {
+    std::array<T *, N> cur = persistent;
+    std::array<T *, N> nxt = scratch;
+    for (int k = 0; k < steps; ++k) {
+      step(cur, nxt);
+      for (size_t i = 0; i < N; ++i)
+        std::swap(cur[i], nxt[i]);
+    }
+    land_back(persistent, cur, RD_N);
   }
 
   /**

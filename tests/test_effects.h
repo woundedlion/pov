@@ -531,7 +531,12 @@ struct BZWhiteBox {
   }
   static void advance_substeps(BZ &bz, int steps, uint8_t *sA, uint8_t *sB,
                                uint8_t *sC) {
-    bz.advance_substeps(steps, sA, sB, sC);
+    bz.advance_substeps(
+        steps,
+        std::array<uint8_t *, 3>{bz.state.A, bz.state.B, bz.state.C},
+        std::array<uint8_t *, 3>{sA, sB, sC}, [&bz](auto &cur, auto &nxt) {
+          bz.step_physics(cur[0], cur[1], cur[2], nxt[0], nxt[1], nxt[2]);
+        });
   }
 };
 

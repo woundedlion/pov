@@ -51,11 +51,11 @@ class BZReactionDiffusion
   friend Base; // draw_frame() forwards to render()
 
   // Bring dependent-base names into scope (template base requires this).
+  using Base::advance_substeps;
   using Base::cube_lut;
   using Base::for_each_neighbor;
   using Base::init_lattice;
   using Base::kernel_accumulate;
-  using Base::land_back;
   using Base::nodes;
   using Base::orientation;
   using Base::RD_N;
@@ -340,32 +340,6 @@ private:
   }
 
   /**
-   * @brief Runs `steps` ping-ponged physics substeps and lands the final
-   *        generation back in the persistent state.
-   * @param steps Number of physics substeps to advance.
-   * @param sA Scratch buffer A for the ping-pong (RD_N bytes).
-   * @param sB Scratch buffer B for the ping-pong (RD_N bytes).
-   * @param sC Scratch buffer C for the ping-pong (RD_N bytes).
-   * @details Pure double-buffered: ping-pongs between the persistent state and
-   *          the scratch buffers. An odd `steps` count leaves the final
-   *          generation in scratch, so it is copied back into the persistent
-   *          buffers before the caller's ScratchScope pops.
-   */
-  void advance_substeps(int steps, uint8_t *sA, uint8_t *sB, uint8_t *sC) {
-    uint8_t *curA = state.A, *curB = state.B, *curC = state.C;
-    uint8_t *nxtA = sA, *nxtB = sB, *nxtC = sC;
-    for (int k = 0; k < steps; k++) {
-      step_physics(curA, curB, curC, nxtA, nxtB, nxtC);
-      std::swap(curA, nxtA);
-      std::swap(curB, nxtB);
-      std::swap(curC, nxtC);
-    }
-
-    land_back(std::array<uint8_t *, 3>{state.A, state.B, state.C},
-              std::array<uint8_t *, 3>{curA, curB, curC}, RD_N);
-  }
-
-  /**
    * @brief Allocates scratch, advances the simulation, then rasterizes a frame.
    * @param canvas Destination canvas to draw into.
    * @details Runs STEPS_PER_FRAME ping-ponged physics substeps between the
@@ -380,7 +354,13 @@ private:
     uint8_t *sB = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sC = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
 
-    advance_substeps(STEPS_PER_FRAME, sA, sB, sC);
+    advance_substeps(STEPS_PER_FRAME,
+                     std::array<uint8_t *, 3>{state.A, state.B, state.C},
+                     std::array<uint8_t *, 3>{sA, sB, sC},
+                     [this](auto &cur, auto &nxt) {
+                       step_physics(cur[0], cur[1], cur[2],
+                                    nxt[0], nxt[1], nxt[2]);
+                     });
 
     const Color4 &ca = color_a;
     const Color4 &cb = color_b;
