@@ -259,7 +259,7 @@ composition polarity" comment encodes correctness the type system doesn't enforc
 in the *opposite* arena). A thin `OpResult{ PolyMesh, Arena& where }` wrapper would make polarity
 self-documenting at call sites. Subjective; the length of the comment is itself the evidence.
 
-38. **`make_basis` / `least_parallel_axis` duplication (`3dmath.h:1054`, `geometry.h:824`,
+38. ✅ **`make_basis` / `least_parallel_axis` duplication (`3dmath.h:1054`, `geometry.h:824`,
 `MobiusGrid.h:239-246`).** The "pick a cross-safe seed axis" idiom is re-implemented inline at several
 sites instead of routing through the helper; consolidate or rename the helper to `cross_safe_axis`.
 

@@ -1335,8 +1335,7 @@ struct PlanarPolygon {
     Basis planar_basis = basis;
     if (radius > 1.0f) {
       Vector v = -basis.v;
-      Vector ref = (std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL) ? Y_AXIS
-                                                                        : X_AXIS;
+      Vector ref = least_parallel_axis(v);
       Vector u = cross(v, ref).normalized();
       Vector w = cross(v, u).normalized();
       planar_basis = {u, v, w};
@@ -1722,8 +1721,7 @@ struct Star {
       center = -center;
 
     Vector v = center;
-    Vector ref = (std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL) ? Y_AXIS
-                                                                      : X_AXIS;
+    Vector ref = least_parallel_axis(v);
     Vector u = cross(v, ref).normalized();
     Vector w = cross(v, u).normalized();
     Basis planar_basis = {u, v, w};
@@ -1835,9 +1833,7 @@ struct Flower {
     Vector center = work_basis.v;
 
     // Construct a planar basis aligned with the center
-    Vector ref =
-        (std::abs(dot(center, X_AXIS)) > math::COS_AXIS_PARALLEL) ? Y_AXIS
-                                                                  : X_AXIS;
+    Vector ref = least_parallel_axis(center);
     Vector u_p = cross(center, ref).normalized();
     Vector w_p = cross(center, u_p).normalized();
     Basis planar_basis = {u_p, center, w_p};
