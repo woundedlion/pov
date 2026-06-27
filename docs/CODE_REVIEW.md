@@ -171,7 +171,7 @@ but add a roster-wide collision-free test (or a debug assert) so it stays safe a
 pays a full-canvas scan *plus* the full warp pass (two passes). Fold the lit-test into the warp loop's
 first row, or accept and note the cost.
 
-19. **`core/transformers.h:376-385` — noise decorrelation comment overstates the mechanism.** The
+19. ✅ **`core/transformers.h:376-385` — noise decorrelation comment overstates the mechanism.** The
 `ny`/`nz` channels differ from `nx` by a *constant 3D translation*, not "distinct per-axis offsets";
 decorrelation relies on the translation magnitude (100/200) exceeding the noise correlation length.
 Tighten the comment.
