@@ -119,6 +119,35 @@ inline void test_phi_to_y_free_function() {
 }
 
 /**
+ * @brief Pins the south-pole row-index contract: phi=PI can land a float hair
+ *        *above* H_VIRT-1, but the floored row a caller indexes with must stay
+ *        in [0, H_VIRT-1].
+ * @details The proximity (HS_EXPECT_NEAR) checks pass even at H_VIRT-1+epsilon
+ *          and do not pin the ceiling. The raw float overshoots for some heights
+ *          (e.g. h_virt=64); flooring is the documented caller fix, so the bound
+ *          is asserted on static_cast<int>(y), across the free function, the
+ *          templated phi_to_y<H>, and vector_to_pixel of the south pole.
+ */
+inline void test_phi_to_y_south_pole_row_in_bounds() {
+  for (int h_virt : {16, 64, 145, 23}) {
+    int row = static_cast<int>(phi_to_y(PI_F, h_virt));
+    HS_EXPECT_GE(row, 0);
+    HS_EXPECT_LE(row, h_virt - 1);
+  }
+
+  constexpr int H = 32;
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  int row_t = static_cast<int>(phi_to_y<H>(PI_F));
+  HS_EXPECT_GE(row_t, 0);
+  HS_EXPECT_LE(row_t, H_VIRT - 1);
+
+  PixelCoords p = vector_to_pixel<H, H>(Vector(0, -1, 0));
+  int row_v = static_cast<int>(p.y);
+  HS_EXPECT_GE(row_v, 0);
+  HS_EXPECT_LE(row_v, H_VIRT - 1);
+}
+
+/**
  * @brief Verifies phi_to_y(y_to_phi(i)) recovers i for every row across several
  *        heights.
  */
@@ -619,6 +648,7 @@ inline int run_geometry_tests() {
 
   test_y_to_phi_free_function();
   test_phi_to_y_free_function();
+  test_phi_to_y_south_pole_row_in_bounds();
   test_y_phi_roundtrip();
   test_y_to_phi_templated_LUT();
   test_y_to_phi_offset_injection_clips_no_double_apply();
