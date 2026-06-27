@@ -93,13 +93,20 @@ struct CubemapLUT {
    */
   void build(Arena &arena) {
     data.bind(arena, 6 * RES * RES);
+    // node() is double-precision trig; precompute every lattice point once into
+    // scratch so the hill-climb reads a table instead of recomputing per hop.
+    ScratchScope lattice_guard(arena);
+    Vector *lattice = static_cast<Vector *>(
+        arena.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+    for (int i = 0; i < RD_N; ++i)
+      lattice[i] = node(i);
     for (int face = 0; face < 6; ++face) {
       for (int y = 0; y < RES; ++y) {
         for (int x = 0; x < RES; ++x) {
           float u = (x + 0.5f) / RES * 2.0f - 1.0f;
           float v = (y + 0.5f) / RES * 2.0f - 1.0f;
-          data.push_back(
-              static_cast<uint16_t>(find_nearest_node(texel_direction(face, u, v))));
+          data.push_back(static_cast<uint16_t>(
+              find_nearest_node(texel_direction(face, u, v), lattice)));
         }
       }
     }
@@ -181,6 +188,9 @@ private:
    * @brief Finds the near-nearest Fibonacci node to p via greedy K-NN descent
    *        from a latitude seed.
    * @param p Query direction (expected unit-length) on the sphere.
+   * @param lattice Precomputed node() positions for all RD_N points, indexed by
+   *        node id; built once by the caller to avoid recomputing node()'s trig
+   *        per hop.
    * @return Lattice node index in [0, RD_N) at a local distance minimum.
    * @details Hill-climbs toward closer neighbors and stops at a local minimum, so
    *          on the near-uniform Fibonacci sphere this lands on the true nearest
@@ -201,7 +211,7 @@ private:
    *          at the answer. Do not convert this to best-of-neighbors without also
    *          raising the cap.
    */
-  static int find_nearest_node(const Vector &p) {
+  static int find_nearest_node(const Vector &p, const Vector *lattice) {
     auto dist2 = [](const Vector &a, const Vector &b) {
       float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
       return dx * dx + dy * dy + dz * dz;
@@ -209,14 +219,14 @@ private:
     int cur = static_cast<int>(hs::clamp(
         (1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f, 0.0f,
         static_cast<float>(RD_N - 1)));
-    float best_d = dist2(p, node(cur));
+    float best_d = dist2(p, lattice[cur]);
     bool converged = false;
     for (int iter = 0; iter < 64; ++iter) {
       bool improved = false;
       for (int k = 0; k < RD_K; ++k) {
         int ni = neighbors[cur][k];
         if (ni < 0) continue;
-        float d = dist2(p, node(ni));
+        float d = dist2(p, lattice[ni]);
         if (d < best_d) { best_d = d; cur = ni; improved = true; }
       }
       if (!improved) { converged = true; break; }
