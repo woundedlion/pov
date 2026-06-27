@@ -32,6 +32,10 @@ from pathlib import Path
 
 FIRST_PARTY = ("core/", "effects/", "hardware/", "targets/")
 
+# Library/toolchain roots: a path through any of these is third-party even when a
+# nested dir reuses a first-party name (e.g. .platformio/lib/Foo/effects/x.h).
+THIRD_PARTY = ("lib/", ".platformio/", "packages/")
+
 # gcc: "<path>:<line>[:<col>]: warning: <message> [-Wflag]"
 _WARNING_RE = re.compile(r"^(.*?):(\d+):(?:\d+:)?\s*warning:\s*(.*)$")
 
@@ -39,6 +43,9 @@ _WARNING_RE = re.compile(r"^(.*?):(\d+):(?:\d+:)?\s*warning:\s*(.*)$")
 def _relativize(path: str) -> str | None:
     """Return a first-party repo-relative path, or None if not first-party."""
     p = path.replace("\\", "/")
+    segs = p.split("/")
+    if any(tp.rstrip("/") in segs for tp in THIRD_PARTY):
+        return None
     for fp in FIRST_PARTY:
         if p.startswith(fp):
             return p

@@ -203,6 +203,14 @@ class TestWarningRatchet(unittest.TestCase):
         self.assertIsNone(tw.normalize(
             "/root/.platformio/lib/FastLED/FastLED.h:9:1: warning: foo [-Wbar]"))
 
+    def test_library_path_with_first_party_segment_excluded(self):
+        # A vendored lib whose nested dir reuses a first-party name (effects/)
+        # must NOT collapse to a first-party key and pollute the baseline.
+        self.assertIsNone(tw.normalize(
+            "/root/.platformio/lib/SomeLib/effects/reverb.h:5:1: warning: w [-Wx]"))
+        self.assertIsNone(tw.normalize(
+            "/x/.pio/libdeps/teensy40/Foo/lib/core/bar.h:2:1: warning: w [-Wy]"))
+
     def test_new_warning_fails_but_reorder_passes(self):
         baseline = {"core/a.h: warning: w1 [-Wx]", "core/b.h: warning: w2 [-Wy]"}
         # Same set, different order -> no new warnings (set-based, §7.2).
