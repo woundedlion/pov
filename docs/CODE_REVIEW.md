@@ -213,7 +213,7 @@ recipe synthesize it (as `docs.yml` does).
 only diffs numeric tokens. Add `python3 scripts/generate_luts.py --check` for a clearer monotonicity /
 round-trip signal.
 
-29. **`platformio.ini:149-153` — `[env:phantasm]` does not inherit `[env].extra_scripts`.** PlatformIO
+29. ✅ **`platformio.ini:149-153` — `[env:phantasm]` does not inherit `[env].extra_scripts`.** PlatformIO
 does not merge list options across sections, so a future script added to `[env]` would silently apply only
 to holosphere. Use `${env.extra_scripts}` interpolation or add a warning comment.
 
