@@ -659,6 +659,10 @@ public:
  * generation, so the rebind counter is the only signal). Re-taking the span
  * after a grow is still the right pattern; the counter just converts a silent
  * dangle into a debug fault.
+ *
+ * A MOVE of the source vector is not tracked: the span keeps its snapshotted
+ * data_ (runtime-safe), but its debug stamps reference the moved-from husk, so
+ * re-take the span after moving its source.
  */
 template <typename T> class ArenaSpan {
   const T *data_; /**< Snapshotted pointer to the borrowed data. */
