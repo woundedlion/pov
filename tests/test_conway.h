@@ -759,7 +759,13 @@ inline void test_conway_composition_polarity() {
 // snub(cube)
 // ---------------------------------------------------------------------------
 
-/** @brief Verifies snub(cube), a chiral operator, satisfies basic invariants. */
+/**
+ * @brief Verifies snub(cube) yields snub-cube topology with the expected counts.
+ * @details One inset vertex per half-edge (I = 24); faces are the 6 twisted
+ *          quad primaries, 8 vertex-orbit triangles, and 2 triangles per edge
+ *          (2 * E = 24), for 38 faces and 6*4 + 32*3 = 120 indices. The chiral
+ *          snub leaves the primaries as quads (no triangulation at twist = 0).
+ */
 inline void test_snub_cube_is_well_formed() {
   Arena target(conway_target_buf, sizeof(conway_target_buf));
   Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
@@ -770,6 +776,14 @@ inline void test_snub_cube_is_well_formed() {
   PolyMesh s = MeshOps::snub(cube, target, temp);
 
   check_basic_invariants(s);
+  HS_EXPECT_EQ(s.vertices.size(), (size_t)24);             // one per half-edge
+  HS_EXPECT_EQ(s.face_counts.size(), (size_t)38);          // 6 + 8 + 2*12
+  HS_EXPECT_EQ(s.faces.size(), (size_t)(6 * 4 + 32 * 3));  // 6 quads + 32 triangles
+
+  auto faces = face_type_histogram(s);
+  HS_EXPECT_EQ(faces.size(), (size_t)2);
+  HS_EXPECT_EQ(faces[3], 32); // 8 vertex-orbit + 24 edge triangles
+  HS_EXPECT_EQ(faces[4], 6);  // twisted square primaries
 }
 
 // ---------------------------------------------------------------------------
