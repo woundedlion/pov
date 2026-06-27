@@ -378,26 +378,6 @@ template <typename MeshT> static void normalize(MeshT &mesh) {
 }
 
 /**
- * @brief Trap if the mesh has a boundary (any unpaired half-edge).
- * @param he_mesh Half-edge connectivity to validate.
- * @param op Operator name, interpolated into the trap message on failure.
- * @details The operators below size their output pools assuming a closed
- * manifold — E = I/2 undirected edges — and walk complete edge orbits. An
- * unpaired half-edge undersizes those pools and the operator overruns them,
- * surfacing far from the cause as a generic "capacity exceeded" trap. Check the
- * precondition explicitly and up front (mirroring compile_hankin) so a boundary
- * mesh fails with a self-explanatory message. Cold path: once per operator at
- * build time, never in a per-element loop.
- */
-static void require_closed_manifold(const HalfEdgeMesh &he_mesh,
-                                    const char *op) {
-  for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-    HS_CHECK(he_mesh.half_edges[i].pair != HE_NONE,
-             "MeshOps::%s requires a closed manifold (unpaired half-edge)", op);
-  }
-}
-
-/**
  * @brief Computes the dual of a mesh (each face becomes a vertex and vice
  *   versa).
  * @param mesh Source mesh; must be a closed manifold.

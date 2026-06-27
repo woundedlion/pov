@@ -125,12 +125,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
 
     HalfEdgeMesh he_mesh(temp_arena, mesh);
 
-    // Closed-manifold invariant: every half-edge must be paired (the I/2 pool
-    // sizing and the orbit walks below all assume each edge has its twin).
-    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
-      HS_CHECK(he_mesh.half_edges[i].pair != HE_NONE,
-               "compile_hankin requires a closed manifold (unpaired half-edge)");
-    }
+    require_closed_manifold(he_mesh, "compile_hankin");
 
     uint16_t *he_to_midpoint_idx = static_cast<uint16_t *>(
         temp_arena.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
