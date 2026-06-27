@@ -122,15 +122,19 @@ different real moments; §6 replaces it with epoch-counted sequencing.
 
 **The single wire (role in the new design):**
 
-- **Sync wire (the only inter-board connection).** Master emits count-coded
-  symbols on `PIN_FRAME_SYNC_OUT` 3 → all boards decode on `PIN_FRAME_SYNC_IN` 4.
+- **Sync wire (the only inter-board connection).** Master drives the shared
+  `PIN_FRAME_SYNC` 3 OUTPUT; downstream boards read the same pin INPUT and decode
+  on its RISING edge. `PIN_MASTER_EN` 5 gates the external sync-out level shifter
+  (OUTPUT, LOW on the master, HIGH otherwise) so only the master drives the bus.
   Carries the **boundary** marks (Layer 2, 2/rev) and the **epoch** mark
   (Layer 3, 1/effect). These same boundary marks also discipline each board's
   Layer-1 flywheel (phase snap, optional frequency trim).
 - **Deleted: the column clock wire.** The former `PIN_CLOCK_OUT` 5 →
   `PIN_COLUMN_SYNC` 2 link and master's fixed-frequency PWM are removed. Master
   no longer streams a per-column clock; it runs the same flywheel as every other
-  board and only emits the low-rate sync symbols. Those two pins are freed.
+  board and only emits the low-rate sync symbols. Pins 2 and 4 are free; pin 5
+  carries `PIN_MASTER_EN`. The shared `PIN_FRAME_SYNC` 3 serves both the master's
+  drive and downstream receive.
 
 ---
 

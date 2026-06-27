@@ -1,0 +1,716 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1820" height="1570" viewBox="0 0 1820 1570" font-family="Segoe UI, Arial, sans-serif">
+<rect width="1820" height="1570" fill="#ffffff"/>
+<text x="40" y="42" font-size="26" text-anchor="start" fill="#2b3a55" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">PHANTASM — 4× Teensy 4.0 Segmented POV Sphere</text>
+<text x="40" y="66" font-size="14" text-anchor="start" fill="#445" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">288-px HD107S display (2 arms × 2 segments × 72 px) · 480 RPM · 288×144 virtual canvas · 1-wire flywheel sync</text>
+<text x="40" y="86" font-size="12" text-anchor="start" fill="#778" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="italic">Pin map from hardware/pov_segmented.h · dma_led.h (LPSPI4) · Phantasm.ino · pov_segment_map.h    —    THROUGH-HOLE BOM (no SMD)</text>
+<rect x="40" y="150" width="300" height="760" fill="#fbfcff" stroke="#889" stroke-width="1.5" rx="10"/>
+<text x="190.0" y="174" font-size="13" text-anchor="middle" fill="#556" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">STATIONARY FRAME (off-rotor)</text>
+<rect x="70" y="200" width="240" height="120" fill="#fff" stroke="#2b3a55" stroke-width="2" rx="6"/>
+<text x="190.0" y="226" font-size="15" text-anchor="middle" fill="#111" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">AC–DC PSU</text>
+<text x="190.0" y="248" font-size="13" text-anchor="middle" fill="#d11" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">5 V  ·  ≥30 A  (150 W)</text>
+<text x="190.0" y="270" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Meanwell LRS-150-5 or sim.</text>
+<text x="190.0" y="292" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">sized for 288×60 mA peak</text>
+<text x="190.0" y="308" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">(POV avg draw far lower)</text>
+<circle cx="154.0" cy="320" r="4" fill="#d11"/>
+<circle cx="226.0" cy="320" r="4" fill="#111"/>
+<text x="148.0" y="334" font-size="10" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+5V</text>
+<text x="232.0" y="334" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">GND</text>
+<circle cx="190.0" cy="510" r="56" fill="none" stroke="#556" stroke-width="2"/>
+<circle cx="190.0" cy="510" r="40" fill="none" stroke="#d11" stroke-width="3"/>
+<circle cx="190.0" cy="510" r="24" fill="none" stroke="#111" stroke-width="3"/>
+<circle cx="190.0" cy="510" r="5" fill="#556"/>
+<text x="190.0" y="440" font-size="13" text-anchor="middle" fill="#111" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SLIP RING</text>
+<text x="190.0" y="584" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">rotary power transfer</text>
+<text x="190.0" y="598" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">2 conductors: +5V, GND</text>
+<text x="190.0" y="612" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">(data stays ON-rotor — no</text>
+<text x="190.0" y="624" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ring needed for sync/SPI)</text>
+<line x1="154.0" y1="320" x2="154.0" y2="470" stroke="#d11" stroke-width="3"/>
+<line x1="154.0" y1="470" x2="150.0" y2="510" stroke="#d11" stroke-width="3"/>
+<line x1="226.0" y1="320" x2="226.0" y2="486" stroke="#111" stroke-width="3"/>
+<line x1="226.0" y1="486" x2="166.0" y2="510" stroke="#111" stroke-width="3"/>
+<circle cx="190.0" cy="710" r="40" fill="#fff" stroke="#2b3a55" stroke-width="2"/>
+<text x="190.0" y="716" font-size="24" text-anchor="middle" fill="#2b3a55" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">M</text>
+<text x="190.0" y="656" font-size="13" text-anchor="middle" fill="#111" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SPINDLE MOTOR</text>
+<text x="190.0" y="770" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">BLDC + ESC, 480 RPM</text>
+<text x="190.0" y="784" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">spins the rotor; NOT wired</text>
+<text x="190.0" y="798" font-size="10" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">to the logic (open-loop, §2)</text>
+<line x1="190.0" y1="670" x2="190.0" y2="534" stroke="#aab" stroke-width="2" stroke-dasharray="4 4"/>
+<text x="198.0" y="602.0" font-size="9" text-anchor="start" fill="#99a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">shaft</text>
+<rect x="380" y="150" width="1410" height="760" fill="none" stroke="#bcd" stroke-width="1.5" rx="10"/>
+<text x="396" y="172" font-size="13" text-anchor="start" fill="#456" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ROTATING ASSEMBLY (all 4 boards + strips co-rotate on the arm)</text>
+<line x1="400" y1="230" x2="1770" y2="230" stroke="#d11" stroke-width="4"/>
+<line x1="400" y1="252" x2="1770" y2="252" stroke="#111" stroke-width="4"/>
+<line x1="400" y1="274" x2="1770" y2="274" stroke="#0a8a3a" stroke-width="3"/>
+<text x="1770" y="222" font-size="12" text-anchor="end" fill="#d11" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+5 V rail</text>
+<text x="1770" y="244" font-size="12" text-anchor="end" fill="#111" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">GND rail</text>
+<text x="1770" y="266" font-size="12" text-anchor="end" fill="#0a8a3a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SYNC 1-wire bus  ·  buffered 5 V push-pull</text>
+<line x1="412" y1="274" x2="412" y2="284" stroke="#111" stroke-width="2"/>
+<polyline points="412,284 404,287.6666666666667 420,291.3333333333333 404,295.0 420,298.6666666666667 404,302.3333333333333 412,306" fill="none" stroke="#111" stroke-width="2"/>
+<text x="426" y="298.0" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">10k</text>
+<line x1="412" y1="306" x2="412" y2="313" stroke="#111" stroke-width="2"/>
+<line x1="412" y1="313" x2="412" y2="318" stroke="#111" stroke-width="2"/>
+<line x1="403" y1="318" x2="421" y2="318" stroke="#111" stroke-width="2"/>
+<line x1="406.5" y1="322" x2="417.5" y2="322" stroke="#111" stroke-width="2"/>
+<line x1="409.5" y1="326" x2="414.5" y2="326" stroke="#111" stroke-width="2"/>
+<text x="428" y="296" font-size="8.5" text-anchor="start" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">bus idle pull-down</text>
+<line x1="230.0" y1="510" x2="400" y2="510" stroke="#d11" stroke-width="3"/>
+<line x1="400" y1="510" x2="400" y2="230" stroke="#d11" stroke-width="3"/>
+<line x1="214.0" y1="510.1" x2="214.0" y2="590" stroke="#fff" stroke-width="0"/>
+<line x1="214.0" y1="510" x2="418" y2="510" stroke="#111" stroke-width="3"/>
+<line x1="418" y1="510" x2="418" y2="252" stroke="#111" stroke-width="3"/>
+<rect x="471.25" y="330" width="200" height="200" fill="#fff" stroke="#7a1320" stroke-width="3" rx="6"/>
+<rect x="471.25" y="330" width="200" height="30" fill="#7a1320" stroke="#7a1320" stroke-width="3" rx="6"/>
+<rect x="471.25" y="330" width="200" height="30" fill="#7a1320" rx="6"/>
+<text x="571.25" y="351" font-size="14" text-anchor="middle" fill="#fff" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">TEENSY 4.0   ·   SEG 0</text>
+<text x="571.25" y="380" font-size="12" text-anchor="middle" fill="#7a1320" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Arm A · OUTER / top</text>
+<text x="571.25" y="398" font-size="10" text-anchor="middle" fill="#556" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">samples canvas col x</text>
+<text x="571.25" y="416" font-size="10.5" text-anchor="middle" fill="#7a1320" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SYNC MASTER / conductor</text>
+<line x1="455.25" y1="450" x2="471.25" y2="450" stroke="#d11" stroke-width="2"/>
+<circle cx="455.25" cy="450" r="3" fill="#d11"/>
+<text x="451.25" y="454" font-size="9.5" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">5V</text>
+<line x1="455.25" y1="475" x2="471.25" y2="475" stroke="#111" stroke-width="2"/>
+<circle cx="455.25" cy="475" r="3" fill="#111"/>
+<text x="451.25" y="479" font-size="9.5" text-anchor="end" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">GND</text>
+<line x1="455.25" y1="500" x2="471.25" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<circle cx="455.25" cy="500" r="3" fill="#0a8a3a"/>
+<text x="451.25" y="504" font-size="8.5" text-anchor="end" fill="#0a8a3a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">3</text>
+<line x1="671.25" y1="450" x2="687.25" y2="450" stroke="#1f5fcc" stroke-width="2"/>
+<circle cx="687.25" cy="450" r="3" fill="#1f5fcc"/>
+<text x="691.25" y="454" font-size="9.5" text-anchor="start" fill="#1f5fcc" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">11 DATA</text>
+<line x1="671.25" y1="475" x2="687.25" y2="475" stroke="#e0820a" stroke-width="2"/>
+<circle cx="687.25" cy="475" r="3" fill="#e0820a"/>
+<text x="691.25" y="479" font-size="9.5" text-anchor="start" fill="#e0820a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">13 CLK</text>
+<line x1="671.25" y1="502" x2="687.25" y2="502" stroke="#8a2be2" stroke-width="2"/>
+<circle cx="687.25" cy="502" r="3" fill="#8a2be2"/>
+<text x="691.25" y="506" font-size="9.5" text-anchor="start" fill="#8a2be2" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">21 ID0</text>
+<line x1="671.25" y1="522" x2="687.25" y2="522" stroke="#8a2be2" stroke-width="2"/>
+<circle cx="687.25" cy="522" r="3" fill="#8a2be2"/>
+<text x="691.25" y="526" font-size="9.5" text-anchor="start" fill="#8a2be2" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">22 ID1</text>
+<line x1="493.25" y1="230" x2="493.25" y2="450" stroke="#d11" stroke-width="2.5"/>
+<circle cx="493.25" cy="230" r="4" fill="#d11"/>
+<line x1="493.25" y1="450" x2="455.25" y2="450" stroke="#d11" stroke-width="2.5"/>
+<line x1="481.25" y1="252" x2="481.25" y2="475" stroke="#111" stroke-width="2.5"/>
+<circle cx="481.25" cy="252" r="4" fill="#111"/>
+<line x1="481.25" y1="475" x2="455.25" y2="475" stroke="#111" stroke-width="2.5"/>
+<circle cx="421.25" cy="274" r="5" fill="#0a8a3a"/>
+<path d="M 416.25 284 L 421.25 276 L 426.25 284 Z" fill="#0a8a3a"/>
+<text x="428.25" y="270" font-size="7.5" text-anchor="start" fill="#0a8a3a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">pin3 SYNC ▲ master drives</text>
+<line x1="545.25" y1="274" x2="545.25" y2="281" stroke="#0a8a3a" stroke-width="2"/>
+<circle cx="545.25" cy="274" r="4" fill="#0a8a3a"/>
+<polyline points="545.25,281 537.25,283.1666666666667 553.25,285.3333333333333 537.25,287.5 553.25,289.6666666666667 537.25,291.8333333333333 545.25,294" fill="none" stroke="#0a8a3a" stroke-width="2"/>
+<text x="559.25" y="290.5" font-size="10" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal"></text>
+<line x1="545.25" y1="294" x2="545.25" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="545.25" y1="500" x2="455.25" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="545.25" y1="294" x2="558.25" y2="294" stroke="#111" stroke-width="1.4"/>
+<polyline points="558.25,294 550.25,296.1666666666667 566.25,298.3333333333333 550.25,300.5 566.25,302.6666666666667 550.25,304.8333333333333 558.25,307" fill="none" stroke="#111" stroke-width="2"/>
+<text x="572.25" y="303.5" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal"></text>
+<line x1="558.25" y1="311" x2="558.25" y2="316" stroke="#111" stroke-width="2"/>
+<line x1="549.25" y1="316" x2="567.25" y2="316" stroke="#111" stroke-width="2"/>
+<line x1="552.75" y1="320" x2="563.75" y2="320" stroke="#111" stroke-width="2"/>
+<line x1="555.75" y1="324" x2="560.75" y2="324" stroke="#111" stroke-width="2"/>
+<text x="571.25" y="298" font-size="6.5" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SYNC recv: 5V bus</text>
+<text x="571.25" y="308" font-size="6.5" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">→ R-div → pin3 (R2=pull-dn)</text>
+<rect x="471.25" y="548" width="200" height="50" fill="#faf6ff" stroke="#8a2be2" stroke-width="1.5" rx="6"/>
+<text x="571.25" y="563" font-size="9" text-anchor="middle" fill="#8a2be2" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID STRAP  ·  pins 21/22  INPUT_PULLUP (GND = 1)</text>
+<text x="479.25" y="584" font-size="10.5" text-anchor="start" fill="#889" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID0 pin21: float</text>
+<text x="663.25" y="584" font-size="10.5" text-anchor="end" fill="#889" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID1 pin22: float</text>
+<line x1="687.25" y1="502" x2="679.25" y2="502" stroke="#8a2be2" stroke-width="2"/>
+<line x1="679.25" y1="502" x2="679.25" y2="560" stroke="#8a2be2" stroke-width="2"/>
+<line x1="679.25" y1="560" x2="671.25" y2="560" stroke="#8a2be2" stroke-width="2"/>
+<line x1="687.25" y1="522" x2="691.25" y2="522" stroke="#8a2be2" stroke-width="2"/>
+<line x1="691.25" y1="522" x2="691.25" y2="578" stroke="#8a2be2" stroke-width="2"/>
+<line x1="691.25" y1="578" x2="671.25" y2="578" stroke="#8a2be2" stroke-width="2"/>
+<text x="571.25" y="610" font-size="7.5" text-anchor="middle" fill="#a55" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">float = internal pull-UP (HIGH).  No pull-down here —</text>
+<text x="571.25" y="620" font-size="7.5" text-anchor="middle" fill="#a55" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">it would invert the ID decode (read_id, §pov_segmented).</text>
+<rect x="486.25" y="630" width="170" height="46" fill="#f3f7ff" stroke="#88a" stroke-width="1.5" rx="5"/>
+<text x="571.25" y="647" font-size="9.5" text-anchor="middle" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">U1  74AHCT125N (DIP) @ 5V</text>
+<text x="571.25" y="662" font-size="8.5" text-anchor="middle" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">3.3→5V  ·  DATA · CLK · SYNC-OUT</text>
+<line x1="470.25" y1="644.0" x2="470.25" y2="650.0" stroke="#456" stroke-width="2"/>
+<line x1="461.25" y1="650.0" x2="479.25" y2="650.0" stroke="#456" stroke-width="2.5"/>
+<line x1="461.25" y1="656.0" x2="479.25" y2="656.0" stroke="#456" stroke-width="2.5"/>
+<line x1="470.25" y1="656.0" x2="470.25" y2="662.0" stroke="#456" stroke-width="2"/>
+<text x="457.25" y="657.0" font-size="9" text-anchor="end" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">0.1µF</text>
+<line x1="470.25" y1="644.0" x2="470.25" y2="638" stroke="#d11" stroke-width="1.5"/>
+<line x1="470.25" y1="638" x2="486.25" y2="638" stroke="#d11" stroke-width="1.5"/>
+<line x1="470.25" y1="662.0" x2="470.25" y2="668" stroke="#111" stroke-width="1.5"/>
+<line x1="470.25" y1="668" x2="486.25" y2="668" stroke="#111" stroke-width="1.5"/>
+<line x1="687.25" y1="450" x2="721.25" y2="450" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="721.25" y1="450" x2="721.25" y2="600" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="721.25" y1="600" x2="521.25" y2="600" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="521.25" y1="600" x2="521.25" y2="630" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="687.25" y1="475" x2="707.25" y2="475" stroke="#e0820a" stroke-width="2"/>
+<line x1="707.25" y1="475" x2="707.25" y2="614" stroke="#e0820a" stroke-width="2"/>
+<line x1="707.25" y1="614" x2="621.25" y2="614" stroke="#e0820a" stroke-width="2"/>
+<line x1="621.25" y1="614" x2="621.25" y2="630" stroke="#e0820a" stroke-width="2"/>
+<line x1="521.25" y1="676" x2="521.25" y2="720" stroke="#1f5fcc" stroke-width="2"/>
+<polyline points="521.25,720 513.25,727.6666666666666 529.25,735.3333333333334 513.25,743.0 529.25,750.6666666666666 513.25,758.3333333333334 521.25,766" fill="none" stroke="#1f5fcc" stroke-width="2"/>
+<text x="507.25" y="746.0" font-size="10" text-anchor="end" fill="#1f5fcc" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω</text>
+<line x1="521.25" y1="766" x2="521.25" y2="838" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="621.25" y1="676" x2="621.25" y2="720" stroke="#e0820a" stroke-width="2"/>
+<polyline points="621.25,720 613.25,727.6666666666666 629.25,735.3333333333334 613.25,743.0 629.25,750.6666666666666 613.25,758.3333333333334 621.25,766" fill="none" stroke="#e0820a" stroke-width="2"/>
+<text x="635.25" y="746.0" font-size="10" text-anchor="start" fill="#e0820a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω</text>
+<line x1="621.25" y1="766" x2="621.25" y2="838" stroke="#e0820a" stroke-width="2"/>
+<circle cx="521.25" cy="838" r="4" fill="#1f5fcc"/>
+<circle cx="621.25" cy="838" r="4" fill="#e0820a"/>
+<text x="571.25" y="712" font-size="7" text-anchor="middle" fill="#778" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω series term (short line)</text>
+<line x1="455.25" y1="500" x2="455.25" y2="616" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="455.25" y1="616" x2="499.25" y2="616" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="499.25" y1="616" x2="499.25" y2="630" stroke="#0a8a3a" stroke-width="2"/>
+<text x="501.25" y="612" font-size="6.5" text-anchor="start" fill="#889" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">pin3 in</text>
+<line x1="499.25" y1="676" x2="499.25" y2="688" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="499.25" y1="688" x2="421.25" y2="688" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="421.25" y1="688" x2="421.25" y2="274" stroke="#0a8a3a" stroke-width="2.5"/>
+<text x="417.25" y="356" font-size="7" text-anchor="middle" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="italic">SYNC</text>
+<text x="417.25" y="366" font-size="7" text-anchor="middle" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="italic">OUT</text>
+<text x="505.25" y="685" font-size="6.5" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">/OE=pin5</text>
+<rect x="461.25" y="838" width="220" height="96" fill="#eef3fb" stroke="#14213d" stroke-width="2.5" rx="6"/>
+<text x="571.25" y="858" font-size="12" text-anchor="middle" fill="#14213d" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">HD107S STRIP — 72 px</text>
+<text x="571.25" y="874" font-size="9" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">APA102-compatible · 24 MHz SPI</text>
+<rect x="472.25" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="489.34090909090907" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="506.4318181818182" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="523.5227272727273" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="540.6136363636364" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="557.7045454545455" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="574.7954545454545" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="591.8863636363636" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="608.9772727272727" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="626.0681818181818" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="643.1590909090909" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="660.25" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<text x="571.25" y="916" font-size="8.5" text-anchor="middle" fill="#556" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">input end ◀── DI / CI / 5V / GND      DO / CO (open) ──▶ end</text>
+<text x="515.25" y="833" font-size="9" text-anchor="end" fill="#1f5fcc" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">DI</text>
+<text x="627.25" y="833" font-size="9" text-anchor="start" fill="#e0820a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">CI</text>
+<line x1="493.25" y1="230" x2="493.25" y2="318" stroke="#d11" stroke-width="0"/>
+<line x1="651.25" y1="230" x2="651.25" y2="838" stroke="#d11" stroke-width="2.5"/>
+<circle cx="651.25" cy="230" r="4" fill="#d11"/>
+<line x1="673.25" y1="252" x2="673.25" y2="838" stroke="#111" stroke-width="2.5"/>
+<circle cx="673.25" cy="252" r="4" fill="#111"/>
+<text x="649.25" y="834" font-size="8.5" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">5V</text>
+<text x="675.25" y="834" font-size="8.5" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">GND</text>
+<line x1="631.25" y1="792" x2="651.25" y2="792" stroke="#d11" stroke-width="2"/>
+<line x1="631.25" y1="792" x2="631.25" y2="808" stroke="#d11" stroke-width="2"/>
+<line x1="619.25" y1="812" x2="643.25" y2="812" stroke="#111" stroke-width="3"/>
+<path d="M 619.25 820 Q 631.25 828 643.25 820" fill="none" stroke="#111" stroke-width="3"/>
+<text x="649.25" y="818" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">1000µF</text>
+<text x="615.25" y="808" font-size="11" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+</text>
+<line x1="631.25" y1="824" x2="631.25" y2="832" stroke="#111" stroke-width="2"/>
+<line x1="631.25" y1="832" x2="673.25" y2="832" stroke="#111" stroke-width="2"/>
+<text x="571.25" y="952" font-size="8.5" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">y_base=0, y_step=+1  (N-pole→junction)</text>
+<text x="571.25" y="966" font-size="8" text-anchor="middle" fill="#9aa" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+ 0.1µF decoupling at each Teensy VIN</text>
+<rect x="813.75" y="330" width="200" height="200" fill="#fff" stroke="#1d3557" stroke-width="3" rx="6"/>
+<rect x="813.75" y="330" width="200" height="30" fill="#1d3557" stroke="#1d3557" stroke-width="3" rx="6"/>
+<rect x="813.75" y="330" width="200" height="30" fill="#1d3557" rx="6"/>
+<text x="913.75" y="351" font-size="14" text-anchor="middle" fill="#fff" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">TEENSY 4.0   ·   SEG 1</text>
+<text x="913.75" y="380" font-size="12" text-anchor="middle" fill="#1d3557" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Arm A · INNER / bottom</text>
+<text x="913.75" y="398" font-size="10" text-anchor="middle" fill="#556" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">samples canvas col x</text>
+<text x="913.75" y="416" font-size="10.5" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">downstream (flywheel slave)</text>
+<line x1="797.75" y1="450" x2="813.75" y2="450" stroke="#d11" stroke-width="2"/>
+<circle cx="797.75" cy="450" r="3" fill="#d11"/>
+<text x="793.75" y="454" font-size="9.5" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">5V</text>
+<line x1="797.75" y1="475" x2="813.75" y2="475" stroke="#111" stroke-width="2"/>
+<circle cx="797.75" cy="475" r="3" fill="#111"/>
+<text x="793.75" y="479" font-size="9.5" text-anchor="end" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">GND</text>
+<line x1="797.75" y1="500" x2="813.75" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<circle cx="797.75" cy="500" r="3" fill="#0a8a3a"/>
+<text x="793.75" y="504" font-size="8.5" text-anchor="end" fill="#0a8a3a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">3</text>
+<line x1="1013.75" y1="450" x2="1029.75" y2="450" stroke="#1f5fcc" stroke-width="2"/>
+<circle cx="1029.75" cy="450" r="3" fill="#1f5fcc"/>
+<text x="1033.75" y="454" font-size="9.5" text-anchor="start" fill="#1f5fcc" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">11 DATA</text>
+<line x1="1013.75" y1="475" x2="1029.75" y2="475" stroke="#e0820a" stroke-width="2"/>
+<circle cx="1029.75" cy="475" r="3" fill="#e0820a"/>
+<text x="1033.75" y="479" font-size="9.5" text-anchor="start" fill="#e0820a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">13 CLK</text>
+<line x1="1013.75" y1="502" x2="1029.75" y2="502" stroke="#8a2be2" stroke-width="2"/>
+<circle cx="1029.75" cy="502" r="3" fill="#8a2be2"/>
+<text x="1033.75" y="506" font-size="9.5" text-anchor="start" fill="#8a2be2" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">21 ID0</text>
+<line x1="1013.75" y1="522" x2="1029.75" y2="522" stroke="#8a2be2" stroke-width="2"/>
+<circle cx="1029.75" cy="522" r="3" fill="#8a2be2"/>
+<text x="1033.75" y="526" font-size="9.5" text-anchor="start" fill="#8a2be2" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">22 ID1</text>
+<line x1="835.75" y1="230" x2="835.75" y2="450" stroke="#d11" stroke-width="2.5"/>
+<circle cx="835.75" cy="230" r="4" fill="#d11"/>
+<line x1="835.75" y1="450" x2="797.75" y2="450" stroke="#d11" stroke-width="2.5"/>
+<line x1="823.75" y1="252" x2="823.75" y2="475" stroke="#111" stroke-width="2.5"/>
+<circle cx="823.75" cy="252" r="4" fill="#111"/>
+<line x1="823.75" y1="475" x2="797.75" y2="475" stroke="#111" stroke-width="2.5"/>
+<text x="770.75" y="270" font-size="7" text-anchor="start" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">pin3 SYNC ▲ Hi-Z (not master)</text>
+<line x1="887.75" y1="274" x2="887.75" y2="281" stroke="#0a8a3a" stroke-width="2"/>
+<circle cx="887.75" cy="274" r="4" fill="#0a8a3a"/>
+<polyline points="887.75,281 879.75,283.1666666666667 895.75,285.3333333333333 879.75,287.5 895.75,289.6666666666667 879.75,291.8333333333333 887.75,294" fill="none" stroke="#0a8a3a" stroke-width="2"/>
+<text x="901.75" y="290.5" font-size="10" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal"></text>
+<line x1="887.75" y1="294" x2="887.75" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="887.75" y1="500" x2="797.75" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="887.75" y1="294" x2="900.75" y2="294" stroke="#111" stroke-width="1.4"/>
+<polyline points="900.75,294 892.75,296.1666666666667 908.75,298.3333333333333 892.75,300.5 908.75,302.6666666666667 892.75,304.8333333333333 900.75,307" fill="none" stroke="#111" stroke-width="2"/>
+<text x="914.75" y="303.5" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal"></text>
+<line x1="900.75" y1="311" x2="900.75" y2="316" stroke="#111" stroke-width="2"/>
+<line x1="891.75" y1="316" x2="909.75" y2="316" stroke="#111" stroke-width="2"/>
+<line x1="895.25" y1="320" x2="906.25" y2="320" stroke="#111" stroke-width="2"/>
+<line x1="898.25" y1="324" x2="903.25" y2="324" stroke="#111" stroke-width="2"/>
+<text x="913.75" y="298" font-size="6.5" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SYNC recv: 5V bus</text>
+<text x="913.75" y="308" font-size="6.5" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">→ R-div → pin3 (R2=pull-dn)</text>
+<rect x="813.75" y="548" width="200" height="50" fill="#faf6ff" stroke="#8a2be2" stroke-width="1.5" rx="6"/>
+<text x="913.75" y="563" font-size="9" text-anchor="middle" fill="#8a2be2" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID STRAP  ·  pins 21/22  INPUT_PULLUP (GND = 1)</text>
+<text x="821.75" y="584" font-size="10.5" text-anchor="start" fill="#111" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID0 pin21: GND</text>
+<text x="1005.75" y="584" font-size="10.5" text-anchor="end" fill="#889" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID1 pin22: float</text>
+<line x1="1029.75" y1="502" x2="1021.75" y2="502" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1021.75" y1="502" x2="1021.75" y2="560" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1021.75" y1="560" x2="1013.75" y2="560" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1029.75" y1="522" x2="1033.75" y2="522" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1033.75" y1="522" x2="1033.75" y2="578" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1033.75" y1="578" x2="1013.75" y2="578" stroke="#8a2be2" stroke-width="2"/>
+<text x="913.75" y="610" font-size="7.5" text-anchor="middle" fill="#a55" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">float = internal pull-UP (HIGH).  No pull-down here —</text>
+<text x="913.75" y="620" font-size="7.5" text-anchor="middle" fill="#a55" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">it would invert the ID decode (read_id, §pov_segmented).</text>
+<rect x="828.75" y="630" width="170" height="46" fill="#f3f7ff" stroke="#88a" stroke-width="1.5" rx="5"/>
+<text x="913.75" y="647" font-size="9.5" text-anchor="middle" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">U1  74AHCT125N (DIP) @ 5V</text>
+<text x="913.75" y="662" font-size="8.5" text-anchor="middle" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">3.3→5V  ·  DATA · CLK · SYNC-OUT</text>
+<line x1="812.75" y1="644.0" x2="812.75" y2="650.0" stroke="#456" stroke-width="2"/>
+<line x1="803.75" y1="650.0" x2="821.75" y2="650.0" stroke="#456" stroke-width="2.5"/>
+<line x1="803.75" y1="656.0" x2="821.75" y2="656.0" stroke="#456" stroke-width="2.5"/>
+<line x1="812.75" y1="656.0" x2="812.75" y2="662.0" stroke="#456" stroke-width="2"/>
+<text x="799.75" y="657.0" font-size="9" text-anchor="end" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">0.1µF</text>
+<line x1="812.75" y1="644.0" x2="812.75" y2="638" stroke="#d11" stroke-width="1.5"/>
+<line x1="812.75" y1="638" x2="828.75" y2="638" stroke="#d11" stroke-width="1.5"/>
+<line x1="812.75" y1="662.0" x2="812.75" y2="668" stroke="#111" stroke-width="1.5"/>
+<line x1="812.75" y1="668" x2="828.75" y2="668" stroke="#111" stroke-width="1.5"/>
+<line x1="1029.75" y1="450" x2="1063.75" y2="450" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1063.75" y1="450" x2="1063.75" y2="600" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1063.75" y1="600" x2="863.75" y2="600" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="863.75" y1="600" x2="863.75" y2="630" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1029.75" y1="475" x2="1049.75" y2="475" stroke="#e0820a" stroke-width="2"/>
+<line x1="1049.75" y1="475" x2="1049.75" y2="614" stroke="#e0820a" stroke-width="2"/>
+<line x1="1049.75" y1="614" x2="963.75" y2="614" stroke="#e0820a" stroke-width="2"/>
+<line x1="963.75" y1="614" x2="963.75" y2="630" stroke="#e0820a" stroke-width="2"/>
+<line x1="863.75" y1="676" x2="863.75" y2="720" stroke="#1f5fcc" stroke-width="2"/>
+<polyline points="863.75,720 855.75,727.6666666666666 871.75,735.3333333333334 855.75,743.0 871.75,750.6666666666666 855.75,758.3333333333334 863.75,766" fill="none" stroke="#1f5fcc" stroke-width="2"/>
+<text x="849.75" y="746.0" font-size="10" text-anchor="end" fill="#1f5fcc" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω</text>
+<line x1="863.75" y1="766" x2="863.75" y2="838" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="963.75" y1="676" x2="963.75" y2="720" stroke="#e0820a" stroke-width="2"/>
+<polyline points="963.75,720 955.75,727.6666666666666 971.75,735.3333333333334 955.75,743.0 971.75,750.6666666666666 955.75,758.3333333333334 963.75,766" fill="none" stroke="#e0820a" stroke-width="2"/>
+<text x="977.75" y="746.0" font-size="10" text-anchor="start" fill="#e0820a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω</text>
+<line x1="963.75" y1="766" x2="963.75" y2="838" stroke="#e0820a" stroke-width="2"/>
+<circle cx="863.75" cy="838" r="4" fill="#1f5fcc"/>
+<circle cx="963.75" cy="838" r="4" fill="#e0820a"/>
+<text x="913.75" y="712" font-size="7" text-anchor="middle" fill="#778" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω series term (short line)</text>
+<line x1="797.75" y1="500" x2="797.75" y2="616" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="797.75" y1="616" x2="841.75" y2="616" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="841.75" y1="616" x2="841.75" y2="630" stroke="#0a8a3a" stroke-width="2"/>
+<text x="843.75" y="612" font-size="6.5" text-anchor="start" fill="#889" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">pin3 in</text>
+<line x1="841.75" y1="676" x2="841.75" y2="688" stroke="#98a4bd" stroke-width="2"/>
+<line x1="841.75" y1="688" x2="763.75" y2="688" stroke="#98a4bd" stroke-width="2"/>
+<line x1="763.75" y1="688" x2="763.75" y2="280" stroke="#98a4bd" stroke-width="1.4" stroke-dasharray="3 3"/>
+<text x="759.75" y="356" font-size="7" text-anchor="middle" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="italic">SYNC</text>
+<text x="759.75" y="366" font-size="7" text-anchor="middle" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="italic">OUT</text>
+<text x="847.75" y="685" font-size="6.5" text-anchor="start" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">/OE=pin5</text>
+<rect x="803.75" y="838" width="220" height="96" fill="#eef3fb" stroke="#14213d" stroke-width="2.5" rx="6"/>
+<text x="913.75" y="858" font-size="12" text-anchor="middle" fill="#14213d" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">HD107S STRIP — 72 px</text>
+<text x="913.75" y="874" font-size="9" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">APA102-compatible · 24 MHz SPI</text>
+<rect x="814.75" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="831.8409090909091" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="848.9318181818181" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="866.0227272727273" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="883.1136363636364" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="900.2045454545455" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="917.2954545454545" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="934.3863636363636" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="951.4772727272727" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="968.5681818181818" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="985.6590909090909" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1002.75" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<text x="913.75" y="916" font-size="8.5" text-anchor="middle" fill="#556" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">input end ◀── DI / CI / 5V / GND      DO / CO (open) ──▶ end</text>
+<text x="857.75" y="833" font-size="9" text-anchor="end" fill="#1f5fcc" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">DI</text>
+<text x="969.75" y="833" font-size="9" text-anchor="start" fill="#e0820a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">CI</text>
+<line x1="835.75" y1="230" x2="835.75" y2="318" stroke="#d11" stroke-width="0"/>
+<line x1="993.75" y1="230" x2="993.75" y2="838" stroke="#d11" stroke-width="2.5"/>
+<circle cx="993.75" cy="230" r="4" fill="#d11"/>
+<line x1="1015.75" y1="252" x2="1015.75" y2="838" stroke="#111" stroke-width="2.5"/>
+<circle cx="1015.75" cy="252" r="4" fill="#111"/>
+<text x="991.75" y="834" font-size="8.5" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">5V</text>
+<text x="1017.75" y="834" font-size="8.5" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">GND</text>
+<line x1="973.75" y1="792" x2="993.75" y2="792" stroke="#d11" stroke-width="2"/>
+<line x1="973.75" y1="792" x2="973.75" y2="808" stroke="#d11" stroke-width="2"/>
+<line x1="961.75" y1="812" x2="985.75" y2="812" stroke="#111" stroke-width="3"/>
+<path d="M 961.75 820 Q 973.75 828 985.75 820" fill="none" stroke="#111" stroke-width="3"/>
+<text x="991.75" y="818" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">1000µF</text>
+<text x="957.75" y="808" font-size="11" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+</text>
+<line x1="973.75" y1="824" x2="973.75" y2="832" stroke="#111" stroke-width="2"/>
+<line x1="973.75" y1="832" x2="1015.75" y2="832" stroke="#111" stroke-width="2"/>
+<text x="913.75" y="952" font-size="8.5" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">y_base=143, y_step=−1  (S-pole→junction, reversed)</text>
+<text x="913.75" y="966" font-size="8" text-anchor="middle" fill="#9aa" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+ 0.1µF decoupling at each Teensy VIN</text>
+<rect x="1156.25" y="330" width="200" height="200" fill="#fff" stroke="#1d3557" stroke-width="3" rx="6"/>
+<rect x="1156.25" y="330" width="200" height="30" fill="#1d3557" stroke="#1d3557" stroke-width="3" rx="6"/>
+<rect x="1156.25" y="330" width="200" height="30" fill="#1d3557" rx="6"/>
+<text x="1256.25" y="351" font-size="14" text-anchor="middle" fill="#fff" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">TEENSY 4.0   ·   SEG 2</text>
+<text x="1256.25" y="380" font-size="12" text-anchor="middle" fill="#1d3557" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Arm B · OUTER / top</text>
+<text x="1256.25" y="398" font-size="10" text-anchor="middle" fill="#556" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">samples col (x+W/2)</text>
+<text x="1256.25" y="416" font-size="10.5" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">downstream (flywheel slave)</text>
+<line x1="1140.25" y1="450" x2="1156.25" y2="450" stroke="#d11" stroke-width="2"/>
+<circle cx="1140.25" cy="450" r="3" fill="#d11"/>
+<text x="1136.25" y="454" font-size="9.5" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">5V</text>
+<line x1="1140.25" y1="475" x2="1156.25" y2="475" stroke="#111" stroke-width="2"/>
+<circle cx="1140.25" cy="475" r="3" fill="#111"/>
+<text x="1136.25" y="479" font-size="9.5" text-anchor="end" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">GND</text>
+<line x1="1140.25" y1="500" x2="1156.25" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<circle cx="1140.25" cy="500" r="3" fill="#0a8a3a"/>
+<text x="1136.25" y="504" font-size="8.5" text-anchor="end" fill="#0a8a3a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">3</text>
+<line x1="1356.25" y1="450" x2="1372.25" y2="450" stroke="#1f5fcc" stroke-width="2"/>
+<circle cx="1372.25" cy="450" r="3" fill="#1f5fcc"/>
+<text x="1376.25" y="454" font-size="9.5" text-anchor="start" fill="#1f5fcc" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">11 DATA</text>
+<line x1="1356.25" y1="475" x2="1372.25" y2="475" stroke="#e0820a" stroke-width="2"/>
+<circle cx="1372.25" cy="475" r="3" fill="#e0820a"/>
+<text x="1376.25" y="479" font-size="9.5" text-anchor="start" fill="#e0820a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">13 CLK</text>
+<line x1="1356.25" y1="502" x2="1372.25" y2="502" stroke="#8a2be2" stroke-width="2"/>
+<circle cx="1372.25" cy="502" r="3" fill="#8a2be2"/>
+<text x="1376.25" y="506" font-size="9.5" text-anchor="start" fill="#8a2be2" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">21 ID0</text>
+<line x1="1356.25" y1="522" x2="1372.25" y2="522" stroke="#8a2be2" stroke-width="2"/>
+<circle cx="1372.25" cy="522" r="3" fill="#8a2be2"/>
+<text x="1376.25" y="526" font-size="9.5" text-anchor="start" fill="#8a2be2" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">22 ID1</text>
+<line x1="1178.25" y1="230" x2="1178.25" y2="450" stroke="#d11" stroke-width="2.5"/>
+<circle cx="1178.25" cy="230" r="4" fill="#d11"/>
+<line x1="1178.25" y1="450" x2="1140.25" y2="450" stroke="#d11" stroke-width="2.5"/>
+<line x1="1166.25" y1="252" x2="1166.25" y2="475" stroke="#111" stroke-width="2.5"/>
+<circle cx="1166.25" cy="252" r="4" fill="#111"/>
+<line x1="1166.25" y1="475" x2="1140.25" y2="475" stroke="#111" stroke-width="2.5"/>
+<text x="1113.25" y="270" font-size="7" text-anchor="start" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">pin3 SYNC ▲ Hi-Z (not master)</text>
+<line x1="1230.25" y1="274" x2="1230.25" y2="281" stroke="#0a8a3a" stroke-width="2"/>
+<circle cx="1230.25" cy="274" r="4" fill="#0a8a3a"/>
+<polyline points="1230.25,281 1222.25,283.1666666666667 1238.25,285.3333333333333 1222.25,287.5 1238.25,289.6666666666667 1222.25,291.8333333333333 1230.25,294" fill="none" stroke="#0a8a3a" stroke-width="2"/>
+<text x="1244.25" y="290.5" font-size="10" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal"></text>
+<line x1="1230.25" y1="294" x2="1230.25" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="1230.25" y1="500" x2="1140.25" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="1230.25" y1="294" x2="1243.25" y2="294" stroke="#111" stroke-width="1.4"/>
+<polyline points="1243.25,294 1235.25,296.1666666666667 1251.25,298.3333333333333 1235.25,300.5 1251.25,302.6666666666667 1235.25,304.8333333333333 1243.25,307" fill="none" stroke="#111" stroke-width="2"/>
+<text x="1257.25" y="303.5" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal"></text>
+<line x1="1243.25" y1="311" x2="1243.25" y2="316" stroke="#111" stroke-width="2"/>
+<line x1="1234.25" y1="316" x2="1252.25" y2="316" stroke="#111" stroke-width="2"/>
+<line x1="1237.75" y1="320" x2="1248.75" y2="320" stroke="#111" stroke-width="2"/>
+<line x1="1240.75" y1="324" x2="1245.75" y2="324" stroke="#111" stroke-width="2"/>
+<text x="1256.25" y="298" font-size="6.5" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SYNC recv: 5V bus</text>
+<text x="1256.25" y="308" font-size="6.5" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">→ R-div → pin3 (R2=pull-dn)</text>
+<rect x="1156.25" y="548" width="200" height="50" fill="#faf6ff" stroke="#8a2be2" stroke-width="1.5" rx="6"/>
+<text x="1256.25" y="563" font-size="9" text-anchor="middle" fill="#8a2be2" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID STRAP  ·  pins 21/22  INPUT_PULLUP (GND = 1)</text>
+<text x="1164.25" y="584" font-size="10.5" text-anchor="start" fill="#889" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID0 pin21: float</text>
+<text x="1348.25" y="584" font-size="10.5" text-anchor="end" fill="#111" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID1 pin22: GND</text>
+<line x1="1372.25" y1="502" x2="1364.25" y2="502" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1364.25" y1="502" x2="1364.25" y2="560" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1364.25" y1="560" x2="1356.25" y2="560" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1372.25" y1="522" x2="1376.25" y2="522" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1376.25" y1="522" x2="1376.25" y2="578" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1376.25" y1="578" x2="1356.25" y2="578" stroke="#8a2be2" stroke-width="2"/>
+<text x="1256.25" y="610" font-size="7.5" text-anchor="middle" fill="#a55" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">float = internal pull-UP (HIGH).  No pull-down here —</text>
+<text x="1256.25" y="620" font-size="7.5" text-anchor="middle" fill="#a55" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">it would invert the ID decode (read_id, §pov_segmented).</text>
+<rect x="1171.25" y="630" width="170" height="46" fill="#f3f7ff" stroke="#88a" stroke-width="1.5" rx="5"/>
+<text x="1256.25" y="647" font-size="9.5" text-anchor="middle" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">U1  74AHCT125N (DIP) @ 5V</text>
+<text x="1256.25" y="662" font-size="8.5" text-anchor="middle" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">3.3→5V  ·  DATA · CLK · SYNC-OUT</text>
+<line x1="1155.25" y1="644.0" x2="1155.25" y2="650.0" stroke="#456" stroke-width="2"/>
+<line x1="1146.25" y1="650.0" x2="1164.25" y2="650.0" stroke="#456" stroke-width="2.5"/>
+<line x1="1146.25" y1="656.0" x2="1164.25" y2="656.0" stroke="#456" stroke-width="2.5"/>
+<line x1="1155.25" y1="656.0" x2="1155.25" y2="662.0" stroke="#456" stroke-width="2"/>
+<text x="1142.25" y="657.0" font-size="9" text-anchor="end" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">0.1µF</text>
+<line x1="1155.25" y1="644.0" x2="1155.25" y2="638" stroke="#d11" stroke-width="1.5"/>
+<line x1="1155.25" y1="638" x2="1171.25" y2="638" stroke="#d11" stroke-width="1.5"/>
+<line x1="1155.25" y1="662.0" x2="1155.25" y2="668" stroke="#111" stroke-width="1.5"/>
+<line x1="1155.25" y1="668" x2="1171.25" y2="668" stroke="#111" stroke-width="1.5"/>
+<line x1="1372.25" y1="450" x2="1406.25" y2="450" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1406.25" y1="450" x2="1406.25" y2="600" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1406.25" y1="600" x2="1206.25" y2="600" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1206.25" y1="600" x2="1206.25" y2="630" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1372.25" y1="475" x2="1392.25" y2="475" stroke="#e0820a" stroke-width="2"/>
+<line x1="1392.25" y1="475" x2="1392.25" y2="614" stroke="#e0820a" stroke-width="2"/>
+<line x1="1392.25" y1="614" x2="1306.25" y2="614" stroke="#e0820a" stroke-width="2"/>
+<line x1="1306.25" y1="614" x2="1306.25" y2="630" stroke="#e0820a" stroke-width="2"/>
+<line x1="1206.25" y1="676" x2="1206.25" y2="720" stroke="#1f5fcc" stroke-width="2"/>
+<polyline points="1206.25,720 1198.25,727.6666666666666 1214.25,735.3333333333334 1198.25,743.0 1214.25,750.6666666666666 1198.25,758.3333333333334 1206.25,766" fill="none" stroke="#1f5fcc" stroke-width="2"/>
+<text x="1192.25" y="746.0" font-size="10" text-anchor="end" fill="#1f5fcc" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω</text>
+<line x1="1206.25" y1="766" x2="1206.25" y2="838" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1306.25" y1="676" x2="1306.25" y2="720" stroke="#e0820a" stroke-width="2"/>
+<polyline points="1306.25,720 1298.25,727.6666666666666 1314.25,735.3333333333334 1298.25,743.0 1314.25,750.6666666666666 1298.25,758.3333333333334 1306.25,766" fill="none" stroke="#e0820a" stroke-width="2"/>
+<text x="1320.25" y="746.0" font-size="10" text-anchor="start" fill="#e0820a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω</text>
+<line x1="1306.25" y1="766" x2="1306.25" y2="838" stroke="#e0820a" stroke-width="2"/>
+<circle cx="1206.25" cy="838" r="4" fill="#1f5fcc"/>
+<circle cx="1306.25" cy="838" r="4" fill="#e0820a"/>
+<text x="1256.25" y="712" font-size="7" text-anchor="middle" fill="#778" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω series term (short line)</text>
+<line x1="1140.25" y1="500" x2="1140.25" y2="616" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="1140.25" y1="616" x2="1184.25" y2="616" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="1184.25" y1="616" x2="1184.25" y2="630" stroke="#0a8a3a" stroke-width="2"/>
+<text x="1186.25" y="612" font-size="6.5" text-anchor="start" fill="#889" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">pin3 in</text>
+<line x1="1184.25" y1="676" x2="1184.25" y2="688" stroke="#98a4bd" stroke-width="2"/>
+<line x1="1184.25" y1="688" x2="1106.25" y2="688" stroke="#98a4bd" stroke-width="2"/>
+<line x1="1106.25" y1="688" x2="1106.25" y2="280" stroke="#98a4bd" stroke-width="1.4" stroke-dasharray="3 3"/>
+<text x="1102.25" y="356" font-size="7" text-anchor="middle" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="italic">SYNC</text>
+<text x="1102.25" y="366" font-size="7" text-anchor="middle" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="italic">OUT</text>
+<text x="1190.25" y="685" font-size="6.5" text-anchor="start" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">/OE=pin5</text>
+<rect x="1146.25" y="838" width="220" height="96" fill="#eef3fb" stroke="#14213d" stroke-width="2.5" rx="6"/>
+<text x="1256.25" y="858" font-size="12" text-anchor="middle" fill="#14213d" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">HD107S STRIP — 72 px</text>
+<text x="1256.25" y="874" font-size="9" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">APA102-compatible · 24 MHz SPI</text>
+<rect x="1157.25" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1174.340909090909" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1191.4318181818182" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1208.5227272727273" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1225.6136363636363" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1242.7045454545455" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1259.7954545454545" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1276.8863636363635" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1293.9772727272727" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1311.0681818181818" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1328.159090909091" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1345.25" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<text x="1256.25" y="916" font-size="8.5" text-anchor="middle" fill="#556" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">input end ◀── DI / CI / 5V / GND      DO / CO (open) ──▶ end</text>
+<text x="1200.25" y="833" font-size="9" text-anchor="end" fill="#1f5fcc" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">DI</text>
+<text x="1312.25" y="833" font-size="9" text-anchor="start" fill="#e0820a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">CI</text>
+<line x1="1178.25" y1="230" x2="1178.25" y2="318" stroke="#d11" stroke-width="0"/>
+<line x1="1336.25" y1="230" x2="1336.25" y2="838" stroke="#d11" stroke-width="2.5"/>
+<circle cx="1336.25" cy="230" r="4" fill="#d11"/>
+<line x1="1358.25" y1="252" x2="1358.25" y2="838" stroke="#111" stroke-width="2.5"/>
+<circle cx="1358.25" cy="252" r="4" fill="#111"/>
+<text x="1334.25" y="834" font-size="8.5" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">5V</text>
+<text x="1360.25" y="834" font-size="8.5" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">GND</text>
+<line x1="1316.25" y1="792" x2="1336.25" y2="792" stroke="#d11" stroke-width="2"/>
+<line x1="1316.25" y1="792" x2="1316.25" y2="808" stroke="#d11" stroke-width="2"/>
+<line x1="1304.25" y1="812" x2="1328.25" y2="812" stroke="#111" stroke-width="3"/>
+<path d="M 1304.25 820 Q 1316.25 828 1328.25 820" fill="none" stroke="#111" stroke-width="3"/>
+<text x="1334.25" y="818" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">1000µF</text>
+<text x="1300.25" y="808" font-size="11" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+</text>
+<line x1="1316.25" y1="824" x2="1316.25" y2="832" stroke="#111" stroke-width="2"/>
+<line x1="1316.25" y1="832" x2="1358.25" y2="832" stroke="#111" stroke-width="2"/>
+<text x="1256.25" y="952" font-size="8.5" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">y_base=0, y_step=+1  (N-pole→junction)</text>
+<text x="1256.25" y="966" font-size="8" text-anchor="middle" fill="#9aa" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+ 0.1µF decoupling at each Teensy VIN</text>
+<rect x="1498.75" y="330" width="200" height="200" fill="#fff" stroke="#1d3557" stroke-width="3" rx="6"/>
+<rect x="1498.75" y="330" width="200" height="30" fill="#1d3557" stroke="#1d3557" stroke-width="3" rx="6"/>
+<rect x="1498.75" y="330" width="200" height="30" fill="#1d3557" rx="6"/>
+<text x="1598.75" y="351" font-size="14" text-anchor="middle" fill="#fff" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">TEENSY 4.0   ·   SEG 3</text>
+<text x="1598.75" y="380" font-size="12" text-anchor="middle" fill="#1d3557" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Arm B · INNER / bottom</text>
+<text x="1598.75" y="398" font-size="10" text-anchor="middle" fill="#556" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">samples col (x+W/2)</text>
+<text x="1598.75" y="416" font-size="10.5" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">downstream (flywheel slave)</text>
+<line x1="1482.75" y1="450" x2="1498.75" y2="450" stroke="#d11" stroke-width="2"/>
+<circle cx="1482.75" cy="450" r="3" fill="#d11"/>
+<text x="1478.75" y="454" font-size="9.5" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">5V</text>
+<line x1="1482.75" y1="475" x2="1498.75" y2="475" stroke="#111" stroke-width="2"/>
+<circle cx="1482.75" cy="475" r="3" fill="#111"/>
+<text x="1478.75" y="479" font-size="9.5" text-anchor="end" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">GND</text>
+<line x1="1482.75" y1="500" x2="1498.75" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<circle cx="1482.75" cy="500" r="3" fill="#0a8a3a"/>
+<text x="1478.75" y="504" font-size="8.5" text-anchor="end" fill="#0a8a3a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">3</text>
+<line x1="1698.75" y1="450" x2="1714.75" y2="450" stroke="#1f5fcc" stroke-width="2"/>
+<circle cx="1714.75" cy="450" r="3" fill="#1f5fcc"/>
+<text x="1718.75" y="454" font-size="9.5" text-anchor="start" fill="#1f5fcc" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">11 DATA</text>
+<line x1="1698.75" y1="475" x2="1714.75" y2="475" stroke="#e0820a" stroke-width="2"/>
+<circle cx="1714.75" cy="475" r="3" fill="#e0820a"/>
+<text x="1718.75" y="479" font-size="9.5" text-anchor="start" fill="#e0820a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">13 CLK</text>
+<line x1="1698.75" y1="502" x2="1714.75" y2="502" stroke="#8a2be2" stroke-width="2"/>
+<circle cx="1714.75" cy="502" r="3" fill="#8a2be2"/>
+<text x="1718.75" y="506" font-size="9.5" text-anchor="start" fill="#8a2be2" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">21 ID0</text>
+<line x1="1698.75" y1="522" x2="1714.75" y2="522" stroke="#8a2be2" stroke-width="2"/>
+<circle cx="1714.75" cy="522" r="3" fill="#8a2be2"/>
+<text x="1718.75" y="526" font-size="9.5" text-anchor="start" fill="#8a2be2" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">22 ID1</text>
+<line x1="1520.75" y1="230" x2="1520.75" y2="450" stroke="#d11" stroke-width="2.5"/>
+<circle cx="1520.75" cy="230" r="4" fill="#d11"/>
+<line x1="1520.75" y1="450" x2="1482.75" y2="450" stroke="#d11" stroke-width="2.5"/>
+<line x1="1508.75" y1="252" x2="1508.75" y2="475" stroke="#111" stroke-width="2.5"/>
+<circle cx="1508.75" cy="252" r="4" fill="#111"/>
+<line x1="1508.75" y1="475" x2="1482.75" y2="475" stroke="#111" stroke-width="2.5"/>
+<text x="1455.75" y="270" font-size="7" text-anchor="start" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">pin3 SYNC ▲ Hi-Z (not master)</text>
+<line x1="1572.75" y1="274" x2="1572.75" y2="281" stroke="#0a8a3a" stroke-width="2"/>
+<circle cx="1572.75" cy="274" r="4" fill="#0a8a3a"/>
+<polyline points="1572.75,281 1564.75,283.1666666666667 1580.75,285.3333333333333 1564.75,287.5 1580.75,289.6666666666667 1564.75,291.8333333333333 1572.75,294" fill="none" stroke="#0a8a3a" stroke-width="2"/>
+<text x="1586.75" y="290.5" font-size="10" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal"></text>
+<line x1="1572.75" y1="294" x2="1572.75" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="1572.75" y1="500" x2="1482.75" y2="500" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="1572.75" y1="294" x2="1585.75" y2="294" stroke="#111" stroke-width="1.4"/>
+<polyline points="1585.75,294 1577.75,296.1666666666667 1593.75,298.3333333333333 1577.75,300.5 1593.75,302.6666666666667 1577.75,304.8333333333333 1585.75,307" fill="none" stroke="#111" stroke-width="2"/>
+<text x="1599.75" y="303.5" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal"></text>
+<line x1="1585.75" y1="311" x2="1585.75" y2="316" stroke="#111" stroke-width="2"/>
+<line x1="1576.75" y1="316" x2="1594.75" y2="316" stroke="#111" stroke-width="2"/>
+<line x1="1580.25" y1="320" x2="1591.25" y2="320" stroke="#111" stroke-width="2"/>
+<line x1="1583.25" y1="324" x2="1588.25" y2="324" stroke="#111" stroke-width="2"/>
+<text x="1598.75" y="298" font-size="6.5" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SYNC recv: 5V bus</text>
+<text x="1598.75" y="308" font-size="6.5" text-anchor="start" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">→ R-div → pin3 (R2=pull-dn)</text>
+<rect x="1498.75" y="548" width="200" height="50" fill="#faf6ff" stroke="#8a2be2" stroke-width="1.5" rx="6"/>
+<text x="1598.75" y="563" font-size="9" text-anchor="middle" fill="#8a2be2" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID STRAP  ·  pins 21/22  INPUT_PULLUP (GND = 1)</text>
+<text x="1506.75" y="584" font-size="10.5" text-anchor="start" fill="#111" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID0 pin21: GND</text>
+<text x="1690.75" y="584" font-size="10.5" text-anchor="end" fill="#111" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ID1 pin22: GND</text>
+<line x1="1714.75" y1="502" x2="1706.75" y2="502" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1706.75" y1="502" x2="1706.75" y2="560" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1706.75" y1="560" x2="1698.75" y2="560" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1714.75" y1="522" x2="1718.75" y2="522" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1718.75" y1="522" x2="1718.75" y2="578" stroke="#8a2be2" stroke-width="2"/>
+<line x1="1718.75" y1="578" x2="1698.75" y2="578" stroke="#8a2be2" stroke-width="2"/>
+<text x="1598.75" y="610" font-size="7.5" text-anchor="middle" fill="#a55" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">float = internal pull-UP (HIGH).  No pull-down here —</text>
+<text x="1598.75" y="620" font-size="7.5" text-anchor="middle" fill="#a55" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">it would invert the ID decode (read_id, §pov_segmented).</text>
+<rect x="1513.75" y="630" width="170" height="46" fill="#f3f7ff" stroke="#88a" stroke-width="1.5" rx="5"/>
+<text x="1598.75" y="647" font-size="9.5" text-anchor="middle" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">U1  74AHCT125N (DIP) @ 5V</text>
+<text x="1598.75" y="662" font-size="8.5" text-anchor="middle" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">3.3→5V  ·  DATA · CLK · SYNC-OUT</text>
+<line x1="1497.75" y1="644.0" x2="1497.75" y2="650.0" stroke="#456" stroke-width="2"/>
+<line x1="1488.75" y1="650.0" x2="1506.75" y2="650.0" stroke="#456" stroke-width="2.5"/>
+<line x1="1488.75" y1="656.0" x2="1506.75" y2="656.0" stroke="#456" stroke-width="2.5"/>
+<line x1="1497.75" y1="656.0" x2="1497.75" y2="662.0" stroke="#456" stroke-width="2"/>
+<text x="1484.75" y="657.0" font-size="9" text-anchor="end" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">0.1µF</text>
+<line x1="1497.75" y1="644.0" x2="1497.75" y2="638" stroke="#d11" stroke-width="1.5"/>
+<line x1="1497.75" y1="638" x2="1513.75" y2="638" stroke="#d11" stroke-width="1.5"/>
+<line x1="1497.75" y1="662.0" x2="1497.75" y2="668" stroke="#111" stroke-width="1.5"/>
+<line x1="1497.75" y1="668" x2="1513.75" y2="668" stroke="#111" stroke-width="1.5"/>
+<line x1="1714.75" y1="450" x2="1748.75" y2="450" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1748.75" y1="450" x2="1748.75" y2="600" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1748.75" y1="600" x2="1548.75" y2="600" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1548.75" y1="600" x2="1548.75" y2="630" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1714.75" y1="475" x2="1734.75" y2="475" stroke="#e0820a" stroke-width="2"/>
+<line x1="1734.75" y1="475" x2="1734.75" y2="614" stroke="#e0820a" stroke-width="2"/>
+<line x1="1734.75" y1="614" x2="1648.75" y2="614" stroke="#e0820a" stroke-width="2"/>
+<line x1="1648.75" y1="614" x2="1648.75" y2="630" stroke="#e0820a" stroke-width="2"/>
+<line x1="1548.75" y1="676" x2="1548.75" y2="720" stroke="#1f5fcc" stroke-width="2"/>
+<polyline points="1548.75,720 1540.75,727.6666666666666 1556.75,735.3333333333334 1540.75,743.0 1556.75,750.6666666666666 1540.75,758.3333333333334 1548.75,766" fill="none" stroke="#1f5fcc" stroke-width="2"/>
+<text x="1534.75" y="746.0" font-size="10" text-anchor="end" fill="#1f5fcc" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω</text>
+<line x1="1548.75" y1="766" x2="1548.75" y2="838" stroke="#1f5fcc" stroke-width="2"/>
+<line x1="1648.75" y1="676" x2="1648.75" y2="720" stroke="#e0820a" stroke-width="2"/>
+<polyline points="1648.75,720 1640.75,727.6666666666666 1656.75,735.3333333333334 1640.75,743.0 1656.75,750.6666666666666 1640.75,758.3333333333334 1648.75,766" fill="none" stroke="#e0820a" stroke-width="2"/>
+<text x="1662.75" y="746.0" font-size="10" text-anchor="start" fill="#e0820a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω</text>
+<line x1="1648.75" y1="766" x2="1648.75" y2="838" stroke="#e0820a" stroke-width="2"/>
+<circle cx="1548.75" cy="838" r="4" fill="#1f5fcc"/>
+<circle cx="1648.75" cy="838" r="4" fill="#e0820a"/>
+<text x="1598.75" y="712" font-size="7" text-anchor="middle" fill="#778" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">33Ω series term (short line)</text>
+<line x1="1482.75" y1="500" x2="1482.75" y2="616" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="1482.75" y1="616" x2="1526.75" y2="616" stroke="#0a8a3a" stroke-width="2"/>
+<line x1="1526.75" y1="616" x2="1526.75" y2="630" stroke="#0a8a3a" stroke-width="2"/>
+<text x="1528.75" y="612" font-size="6.5" text-anchor="start" fill="#889" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">pin3 in</text>
+<line x1="1526.75" y1="676" x2="1526.75" y2="688" stroke="#98a4bd" stroke-width="2"/>
+<line x1="1526.75" y1="688" x2="1448.75" y2="688" stroke="#98a4bd" stroke-width="2"/>
+<line x1="1448.75" y1="688" x2="1448.75" y2="280" stroke="#98a4bd" stroke-width="1.4" stroke-dasharray="3 3"/>
+<text x="1444.75" y="356" font-size="7" text-anchor="middle" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="italic">SYNC</text>
+<text x="1444.75" y="366" font-size="7" text-anchor="middle" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="italic">OUT</text>
+<text x="1532.75" y="685" font-size="6.5" text-anchor="start" fill="#98a4bd" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">/OE=pin5</text>
+<rect x="1488.75" y="838" width="220" height="96" fill="#eef3fb" stroke="#14213d" stroke-width="2.5" rx="6"/>
+<text x="1598.75" y="858" font-size="12" text-anchor="middle" fill="#14213d" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">HD107S STRIP — 72 px</text>
+<text x="1598.75" y="874" font-size="9" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">APA102-compatible · 24 MHz SPI</text>
+<rect x="1499.75" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1516.840909090909" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1533.9318181818182" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1551.0227272727273" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1568.1136363636363" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1585.2045454545455" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1602.2954545454545" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1619.3863636363635" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1636.4772727272727" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1653.5681818181818" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1670.659090909091" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<rect x="1687.75" y="884" width="10" height="10" fill="#cfe0ff" stroke="#14213d" stroke-width="1" rx="2"/>
+<text x="1598.75" y="916" font-size="8.5" text-anchor="middle" fill="#556" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">input end ◀── DI / CI / 5V / GND      DO / CO (open) ──▶ end</text>
+<text x="1542.75" y="833" font-size="9" text-anchor="end" fill="#1f5fcc" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">DI</text>
+<text x="1654.75" y="833" font-size="9" text-anchor="start" fill="#e0820a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">CI</text>
+<line x1="1520.75" y1="230" x2="1520.75" y2="318" stroke="#d11" stroke-width="0"/>
+<line x1="1678.75" y1="230" x2="1678.75" y2="838" stroke="#d11" stroke-width="2.5"/>
+<circle cx="1678.75" cy="230" r="4" fill="#d11"/>
+<line x1="1700.75" y1="252" x2="1700.75" y2="838" stroke="#111" stroke-width="2.5"/>
+<circle cx="1700.75" cy="252" r="4" fill="#111"/>
+<text x="1676.75" y="834" font-size="8.5" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">5V</text>
+<text x="1702.75" y="834" font-size="8.5" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">GND</text>
+<line x1="1658.75" y1="792" x2="1678.75" y2="792" stroke="#d11" stroke-width="2"/>
+<line x1="1658.75" y1="792" x2="1658.75" y2="808" stroke="#d11" stroke-width="2"/>
+<line x1="1646.75" y1="812" x2="1670.75" y2="812" stroke="#111" stroke-width="3"/>
+<path d="M 1646.75 820 Q 1658.75 828 1670.75 820" fill="none" stroke="#111" stroke-width="3"/>
+<text x="1676.75" y="818" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">1000µF</text>
+<text x="1642.75" y="808" font-size="11" text-anchor="end" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+</text>
+<line x1="1658.75" y1="824" x2="1658.75" y2="832" stroke="#111" stroke-width="2"/>
+<line x1="1658.75" y1="832" x2="1700.75" y2="832" stroke="#111" stroke-width="2"/>
+<text x="1598.75" y="952" font-size="8.5" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">y_base=143, y_step=−1  (S-pole→junction, reversed)</text>
+<text x="1598.75" y="966" font-size="8" text-anchor="middle" fill="#9aa" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+ 0.1µF decoupling at each Teensy VIN</text>
+<rect x="40" y="980" width="1740" height="250" fill="#f7f9fc" stroke="#ccd" stroke-width="1.5" rx="10"/>
+<text x="60" y="1008" font-size="14" text-anchor="start" fill="#2b3a55" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">NETS</text>
+<line x1="60" y1="1028" x2="100" y2="1028" stroke="#d11" stroke-width="4"/>
+<text x="110" y="1032" font-size="11.5" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">+5 V power (PSU → slip ring → rotor rail → every Teensy VIN + every strip 5V)</text>
+<line x1="60" y1="1058" x2="100" y2="1058" stroke="#111" stroke-width="4"/>
+<text x="110" y="1062" font-size="11.5" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Common GND (single shared return — boards, strips, PSU &amp; the sync reference)</text>
+<line x1="60" y1="1088" x2="100" y2="1088" stroke="#0a8a3a" stroke-width="4"/>
+<text x="110" y="1092" font-size="11.5" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SYNC bus — buffered 5 V push-pull; ONE pin (pin 3): drive 74AHCT125N @5V (gated) / receive R-divider</text>
+<line x1="60" y1="1118" x2="100" y2="1118" stroke="#1f5fcc" stroke-width="4"/>
+<text x="110" y="1122" font-size="11.5" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SPI MOSI — pin 11 (LED DATA / DI), via 74AHCT125N @5V (U1, DIP) + ~33 Ω series term</text>
+<line x1="60" y1="1148" x2="100" y2="1148" stroke="#e0820a" stroke-width="4"/>
+<text x="110" y="1152" font-size="11.5" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SPI SCK — pin 13 (LED CLOCK / CI), via U1 + ~33 Ω series term (short line)</text>
+<line x1="60" y1="1178" x2="100" y2="1178" stroke="#8a2be2" stroke-width="4"/>
+<text x="110" y="1182" font-size="11.5" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Hardware-ID straps — pins 21/22 INPUT_PULLUP; ground a pin to set its bit</text>
+<text x="950" y="1008" font-size="14" text-anchor="start" fill="#2b3a55" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">BUILD NOTES</text>
+<text x="950" y="1032" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• Identical board ×4; ID strap (Phantasm.ino) picks role: 00→seg0 master, 21→seg1,</text>
+<text x="950" y="1053" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">   22→seg2, 21+22→seg3.  MASTER_EN = Teensy pin 5 (LOW on seg-0) gates SYNC-OUT.</text>
+<text x="950" y="1074" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• ONE sync pin (pin 3, frees pin 4): DRIVE via U1 74AHCT125N (SN74AHCT125N, DIP-14) @5V</text>
+<text x="950" y="1095" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">   (3.3→5, same '125 as DATA/CLK; its SYNC-OUT channel /OE gated by pin5=MASTER_EN), and</text>
+<text x="950" y="1116" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">   RECEIVE via R-divider (10k/18k≈3.2V) onto the same pin. No THT 5V-tolerant buffer exists</text>
+<text x="950" y="1137" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">   (74LVC125A SMD-only); AHCT can't down-shift. Master drives + ignores its own echo.</text>
+<text x="950" y="1158" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• Floating-pin discipline: 10k pull-down on the sync bus; the divider R2 holds pin 3 defined</text>
+<text x="950" y="1179" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">   (no separate pull-down). ID straps EXCEPTED — internal pull-UPs (float=HIGH); a pull-down</text>
+<text x="950" y="1200" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">   there inverts the ID map.  Spare '125 inputs → GND.</text>
+<text x="950" y="1221" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• Decoupling 0.1µF at each 74AHCT125N Vcc &amp; each Teensy VIN; 1000µF bulk per strip.</text>
+<text x="950" y="1242" font-size="11" text-anchor="start" fill="#223" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">• 5 V bus for noise margin. Only +5 V &amp; GND cross the slip ring; SYNC+SPI stay on-rotor.</text>
+<rect x="40" y="1250" width="1740" height="290" fill="#fbfdff" stroke="#bcd" stroke-width="1.5" rx="10"/>
+<text x="60" y="1276" font-size="12.5" text-anchor="start" fill="#2b3a55" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SYNC LINE CONDITIONING — detail  (THROUGH-HOLE · ONE sync pin (pin 3): drive via 74AHCT125N @5V / receive via R-divider · /OE = pin5 MASTER_EN)</text>
+<line x1="900" y1="1310" x2="900" y2="1486" stroke="#0a8a3a" stroke-width="4"/>
+<text x="900" y="1302" font-size="11" text-anchor="middle" fill="#0a8a3a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">SYNC BUS (5 V)</text>
+<polyline points="900,1486 892,1490.0 908,1494.0 892,1498.0 908,1502.0 892,1506.0 900,1510" fill="none" stroke="#111" stroke-width="2"/>
+<text x="914" y="1501.0" font-size="10" text-anchor="start" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">10k</text>
+<line x1="900" y1="1510" x2="900" y2="1517" stroke="#111" stroke-width="2"/>
+<line x1="900" y1="1517" x2="900" y2="1522" stroke="#111" stroke-width="2"/>
+<line x1="891" y1="1522" x2="909" y2="1522" stroke="#111" stroke-width="2"/>
+<line x1="894.5" y1="1526" x2="905.5" y2="1526" stroke="#111" stroke-width="2"/>
+<line x1="897.5" y1="1530" x2="902.5" y2="1530" stroke="#111" stroke-width="2"/>
+<text x="918" y="1520" font-size="8.5" text-anchor="start" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">idle pull-down</text>
+<rect x="100" y="1324" width="100" height="36" fill="#eef3fb" stroke="#1d3557" stroke-width="1.5" rx="5"/>
+<text x="150" y="1340" font-size="11" text-anchor="middle" fill="#1d3557" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">pin 3 SYNC</text>
+<text x="150" y="1354" font-size="8.5" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">drive (master)</text>
+<line x1="200" y1="1342" x2="250" y2="1342" stroke="#0a8a3a" stroke-width="2"/>
+<polygon points="250,1328 250,1356 290,1342" fill="#fff" stroke="#0a8a3a" stroke-width="2.5"/>
+<line x1="260" y1="1352" x2="260" y2="1376" stroke="#a33" stroke-width="1.6"/>
+<text x="265" y="1372" font-size="8" text-anchor="start" fill="#a33" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">/OE</text>
+<text x="270" y="1320" font-size="9.5" text-anchor="middle" fill="#0a8a3a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">74AHCT125N @5V (DIP)</text>
+<line x1="270" y1="1289" x2="270" y2="1295" stroke="#456" stroke-width="2"/>
+<line x1="261" y1="1295" x2="279" y2="1295" stroke="#456" stroke-width="2.5"/>
+<line x1="261" y1="1301" x2="279" y2="1301" stroke="#456" stroke-width="2.5"/>
+<line x1="270" y1="1301" x2="270" y2="1307" stroke="#456" stroke-width="2"/>
+<text x="283" y="1302" font-size="9" text-anchor="start" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">0.1µF</text>
+<text x="270" y="1284" font-size="8" text-anchor="middle" fill="#d11" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Vcc +5 V</text>
+<line x1="270" y1="1307" x2="270" y2="1328" stroke="#d11" stroke-width="1.2"/>
+<line x1="290" y1="1342" x2="360" y2="1342" stroke="#0a8a3a" stroke-width="2"/>
+<polyline points="360,1342 369.0,1333 378.0,1351 387.0,1333 396.0,1351 405.0,1333 414,1342" fill="none" stroke="#0a8a3a" stroke-width="2"/>
+<text x="387.0" y="1328" font-size="11" text-anchor="middle" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">100Ω</text>
+<line x1="414" y1="1342" x2="900" y2="1342" stroke="#0a8a3a" stroke-width="2.5"/>
+<circle cx="900" cy="1342" r="5" fill="#0a8a3a"/>
+<path d="M 891 1337 L 899 1342 L 891 1347 Z" fill="#0a8a3a"/>
+<text x="70" y="1302" font-size="10" text-anchor="start" fill="#456" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">OUT — 74AHCT125N @5V (DIP): in-spec 3.3→5 up-shift (DATA, CLK, SYNC-OUT share this '125)</text>
+<rect x="180" y="1379" width="172" height="30" fill="#eef3fb" stroke="#1d3557" stroke-width="1.4" rx="4"/>
+<text x="266" y="1392" font-size="8.5" text-anchor="middle" fill="#1d3557" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">Teensy pin 5  =  MASTER_EN</text>
+<text x="266" y="1405" font-size="8" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">firmware: LOW when segment_id == 0</text>
+<line x1="266" y1="1379" x2="266" y2="1376" stroke="#a33" stroke-width="1.6"/>
+<circle cx="260" cy="1376" r="3" fill="#a33"/>
+<text x="366" y="1391" font-size="9" text-anchor="start" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">drives /OE of the SYNC-OUT channel — only seg-0 enables it. Per-channel /OE on the</text>
+<text x="366" y="1405" font-size="9" text-anchor="start" fill="#456" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">'125 keeps DATA/CLK always-on.  (Alts: NAND(ID0,ID1) gate, or a master jumper to GND.)</text>
+<line x1="900" y1="1450" x2="1020" y2="1450" stroke="#0a8a3a" stroke-width="2.5"/>
+<circle cx="900" cy="1450" r="5" fill="#0a8a3a"/>
+<polyline points="1020,1450 1029.6666666666667,1441 1039.3333333333333,1459 1049.0,1441 1058.6666666666667,1459 1068.3333333333333,1441 1078,1450" fill="none" stroke="#0a8a3a" stroke-width="2"/>
+<text x="1049.0" y="1436" font-size="11" text-anchor="middle" fill="#0a8a3a" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">R1 10k</text>
+<line x1="1078" y1="1450" x2="1150" y2="1450" stroke="#0a8a3a" stroke-width="2"/>
+<circle cx="1150" cy="1450" r="4" fill="#0a8a3a"/>
+<line x1="1150" y1="1450" x2="1150" y2="1464" stroke="#111" stroke-width="2"/>
+<polyline points="1150,1464 1142,1469.6666666666667 1158,1475.3333333333333 1142,1481.0 1158,1486.6666666666667 1142,1492.3333333333333 1150,1498" fill="none" stroke="#111" stroke-width="2"/>
+<text x="1136" y="1484.0" font-size="10" text-anchor="end" fill="#111" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">R2 18k</text>
+<line x1="1150" y1="1503" x2="1150" y2="1508" stroke="#111" stroke-width="2"/>
+<line x1="1141" y1="1508" x2="1159" y2="1508" stroke="#111" stroke-width="2"/>
+<line x1="1144.5" y1="1512" x2="1155.5" y2="1512" stroke="#111" stroke-width="2"/>
+<line x1="1147.5" y1="1516" x2="1152.5" y2="1516" stroke="#111" stroke-width="2"/>
+<line x1="1150" y1="1450" x2="1236" y2="1450" stroke="#0a8a3a" stroke-width="2"/>
+<rect x="1236" y="1432" width="100" height="36" fill="#eef3fb" stroke="#1d3557" stroke-width="1.5" rx="5"/>
+<text x="1286" y="1448" font-size="11" text-anchor="middle" fill="#1d3557" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">pin 3 SYNC</text>
+<text x="1286" y="1462" font-size="8.5" text-anchor="middle" fill="#667" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">receive (all)</text>
+<text x="1160" y="1442" font-size="9" text-anchor="start" fill="#0a8a3a" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">≈3.2 V</text>
+<text x="560" y="1414" font-size="10" text-anchor="start" fill="#456" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">IN — through-hole RESISTOR DIVIDER: 5 V bus → R1/R2 → ~3.2 V into the SAME pin 3 (R2 = pull-down)</text>
+<text x="560" y="1428" font-size="8.5" text-anchor="start" fill="#777" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ONE sync pin: pin 3 is drive (via U1) AND receive (via divider); master ignores its own echo, pin 4 free</text>
+<text x="1440" y="1298" font-size="10.5" text-anchor="start" fill="#0a6" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ALL THROUGH-HOLE (DIP / axial):</text>
+<text x="1440" y="1316" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">OUT 74AHCT125N (DIP-14, SN74AHCT125N) @5V —</text>
+<text x="1440" y="1334" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">TTL input reads 3.3 V HIGH, drives clean 5 V.</text>
+<text x="1440" y="1352" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">In-spec 3.3→5; DATA, CLK, SYNC-OUT share it.</text>
+<text x="1440" y="1370" font-size="10.5" text-anchor="start" fill="#a33" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">IN ISN'T A PACKAGE PROBLEM — A DIRECTION ONE:</text>
+<text x="1440" y="1388" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">an AHCT125 OUTPUT swings to ~5 V, which would</text>
+<text x="1440" y="1406" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">kill the non-5V-tolerant pin 3. The 5V-tolerant</text>
+<text x="1440" y="1424" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">buffer (74LVC125A) is SMD-only, so use a</text>
+<text x="1440" y="1442" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">DIVIDER: R1 10k / R2 18k ≈ 3.2 V (slow line ⇒</text>
+<text x="1440" y="1460" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">RC negligible). Alt: AHCT125N @3.3V + series R.</text>
+<text x="1440" y="1478" font-size="10.5" text-anchor="start" fill="#06c" font-weight="bold" font-family="Segoe UI, Arial, sans-serif" font-style="normal">ONE SYNC PIN (pin 3); role by strap:</text>
+<text x="1440" y="1496" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">drive (U1, /OE=pin5 low on seg-0) + receive</text>
+<text x="1440" y="1514" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">(divider) share pin 3 — master never reads its</text>
+<text x="1440" y="1532" font-size="10.5" text-anchor="start" fill="#333" font-weight="normal" font-family="Segoe UI, Arial, sans-serif" font-style="normal">echo. DATA/CLK always-on; pin 4 freed.</text>
+</svg>
