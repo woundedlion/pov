@@ -136,7 +136,7 @@ overwrite) but inconsistent — move the param mirror below the `_frameSeen` gua
 10. ✅ **`core/color.h:826` — `lerp_oklch` mixes `__builtin_fmaxf` with `hs::clamp`.** Use one idiom
 (`hs::clamp` / `std::fmax`) for portability and consistency with the rest of the file.
 
-11. **`core/color.h:959` — `Gradient` segments redundantly double-write boundary indices.** Adjacent
+11. ✅ **`core/color.h:959` — `Gradient` segments redundantly double-write boundary indices.** Adjacent
 segments both write the shared join index (`for i = start; i <= end`). Correctness-neutral (identical
 color) but a transposed edit could silently double-fill; make the interior loop `i < end` and let each
 segment own its left endpoint.
