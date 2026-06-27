@@ -1301,6 +1301,23 @@ public:
     return Color4(oklch_to_pixel(blended), 1.0f);
   }
 
+  /**
+   * @brief Trivial constexpr destructor.
+   */
+  constexpr ~GenerativePalette() {}
+
+  /**
+   * @brief Pins the global generative-hue cursor.
+   * @param seed Hue value in [0, 255] to set the cursor to; defaults to 0.
+   * @details Auto-seeded palettes draw their base hue from `g_hue_seed` and
+   * advance it (golden-ratio step) so successive palettes across the live show
+   * keep evolving — deliberately stateful, never reset in production. The test
+   * harness calls this to restore identical global state before re-rendering an
+   * effect, so a cross-run determinism check is not defeated by the drift. Does
+   * not affect production, which never invokes it.
+   */
+  static void reset_hue_seed(uint8_t seed = 0) { g_hue_seed = seed; }
+
 private:
   /**
    * @brief Wraps an integer hue into [0,255], correct for negative inputs.
@@ -1376,24 +1393,6 @@ private:
    */
   std::array<float, 5> colors_cmax{};
   int size = 0;
-
-public:
-  /**
-   * @brief Trivial constexpr destructor.
-   */
-  constexpr ~GenerativePalette() {}
-
-  /**
-   * @brief Pins the global generative-hue cursor.
-   * @param seed Hue value in [0, 255] to set the cursor to; defaults to 0.
-   * @details Auto-seeded palettes draw their base hue from `g_hue_seed` and
-   * advance it (golden-ratio step) so successive palettes across the live show
-   * keep evolving — deliberately stateful, never reset in production. The test
-   * harness calls this to restore identical global state before re-rendering an
-   * effect, so a cross-run determinism check is not defeated by the drift. Does
-   * not affect production, which never invokes it.
-   */
-  static void reset_hue_seed(uint8_t seed = 0) { g_hue_seed = seed; }
 };
 
 /**
