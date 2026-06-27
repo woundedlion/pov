@@ -52,11 +52,6 @@ public:
     Animation::OrientationTrail<Orientation<>, TRAIL_LENGTH> trail;
     FastNoiseLite noise;
     /**
-     * @brief Constructs a default ring on the X axis with no palette.
-     */
-    Ring() : normal(X_AXIS), palette(nullptr) {}
-
-    /**
      * @brief Constructs a ring with the given plane normal and palette.
      * @param n Unit normal of the ring's great-circle plane.
      * @param p Baked palette used to color the ring's trail.
