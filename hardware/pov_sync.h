@@ -569,7 +569,6 @@ public:
     // position() reinterprets (at - epoch_cycles_) as int32, so the elapsed term
     // must never reach 2^31 cycles. Require at least kMinSafeHalfRevs half-revs
     // of coast to fit inside that window.
-    constexpr uint32_t kMinSafeHalfRevs = 16;
     HS_CHECK(period_ > 0 &&
                  period_ <= static_cast<uint32_t>(INT32_MAX) / kMinSafeHalfRevs,
              "Flywheel: cycles_per_half_rev too large — position()'s int32 "
@@ -604,6 +603,12 @@ public:
   int32_t position(uint32_t at) const {
     const int64_t delta =
         static_cast<int32_t>(at - epoch_cycles_); // modular → signed
+    // Fold-before-position invariant: tick() folds every crossed boundary before
+    // calling position(now), so the forward elapsed stays inside the coast window
+    // the constructor sized the int32 cast for. A larger delta means an unfolded
+    // coast and an overflowed cast.
+    HS_CHECK(delta < static_cast<int64_t>(kMinSafeHalfRevs) * period_,
+             "Flywheel::position: unfolded coast — int32 elapsed cast overflowed");
     const int64_t cols = floor_div(delta * (w_ / 2), period_);
     return floor_mod(boundary_column(boundary_, w_) + cols, w_);
   }
@@ -708,6 +713,9 @@ public:
   void set_cycles_per_half_rev(uint32_t c) { period_ = c; }
 
 private:
+  // Min coast (in half-revs) position()'s int32 elapsed cast must survive.
+  static constexpr uint32_t kMinSafeHalfRevs = 16;
+
   uint32_t period_;       /**< cycles_per_half_rev (optionally trimmed). */
   int32_t w_;
   int32_t gate_cols_;
