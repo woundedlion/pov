@@ -130,7 +130,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 27. ✅ **Möbius complex-arithmetic core duplicated between JS and GLSL.** `daydream/tools/mobius.html` ~345–354 vs `mobius_transforms.js` ~44–51: `cmult`/`cadd`/`cdiv` (including the `1e-6` divide guard) are hand-copied and can silently diverge. Fix: a parity unit test, or generate the GLSL from the shared spec.
 
-28. **`recorder.js` mkv path produces a mismatched blob MIME / picker filter.** `daydream/recorder.js` ~283–335: `_extension` maps `video/x-matroska → 'mkv'` but `_download` sets the blob type to `video/webm` for any non-mp4 ext and builds an internally inconsistent `accept` map. Fix: derive the blob type from an ext→MIME map.
+28. ✅ **`recorder.js` mkv path produces a mismatched blob MIME / picker filter.** `daydream/recorder.js` ~283–335: `_extension` maps `video/x-matroska → 'mkv'` but `_download` sets the blob type to `video/webm` for any non-mp4 ext and builds an internally inconsistent `accept` map. Fix: derive the blob type from an ext→MIME map.
 
 29. **`gui.js` `_attachUrlWriter` makes `onChange` non-idempotent.** `daydream/gui.js` ~172–181: reassigns `controller.onChange` to a single-slot setter, so a second `.onChange` registration silently replaces the first and the load-replay only fires for the original handler. Fix: support an array of user handlers or document the single-registration contract.
 
