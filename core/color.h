@@ -1217,6 +1217,8 @@ public:
     default:
       HS_CHECK(false, "GenerativePalette: unknown gradient_shape");
     }
+    HS_CHECK(size <= kMaxStops,
+             "GenerativePalette: stop count exceeds parallel-array capacity");
     for (int i = 0; i < size; ++i) {
       colors_oklch[i] = srgb_to_oklch(colors[i].r, colors[i].g, colors[i].b);
       // Recover the stop's chroma ceiling cmax = C / sin(pi*L) so get() can
@@ -1379,8 +1381,12 @@ private:
   // (manual_seed < 0) reads and advances it for a distinct base hue. Non-atomic;
   // palette construction is single-threaded.
   static inline uint8_t g_hue_seed = 0;
-  std::array<float, 5> shape;
-  std::array<CPixel, 5> colors;
+
+  // Single capacity bound for the parallel per-stop arrays below; `size` (set
+  // only by update_stops) selects the live prefix shared by all of them.
+  static constexpr int kMaxStops = 5;
+  std::array<float, kMaxStops> shape;
+  std::array<CPixel, kMaxStops> colors;
   /**
    * @brief OKLCH forms of `colors`, cached by update_stops().
    * @details Lets the per-sample get() hot path skip the sRGB->OKLCH conversion
@@ -1388,7 +1394,7 @@ private:
    * construction and in lerp(), both of which route through update_stops(), so
    * this stays in sync.
    */
-  std::array<OKLCH, 5> colors_oklch;
+  std::array<OKLCH, kMaxStops> colors_oklch;
   /**
    * @brief Per-stop chroma ceiling, cached by update_stops().
    * @details Each stop's chroma is authored as C = cmax * sin(pi*L) (the
@@ -1396,7 +1402,7 @@ private:
    * so get() can re-apply the envelope at the interpolated L, keeping midpoints
    * on the sin curve rather than the straight chroma chord a plain lerp gives.
    */
-  std::array<float, 5> colors_cmax{};
+  std::array<float, kMaxStops> colors_cmax{};
   int size = 0;
 };
 
