@@ -149,7 +149,7 @@ direct caller with a different `max` gets a silently-wrong top band. Add an asse
 13. ✅ **`core/presets.h:103-104` — `current_idx`/`prev_idx` are `int` while `Size` is `size_t`.** Gratuitous
 signed/unsigned mixing in the modular index math; make them consistently one type.
 
-14. **`core/animation.h:1208-1218` — `Sprite::step` has unguarded fade durations.** `fade_in_duration`/
+14. ✅ **`core/animation.h:1208-1218` — `Sprite::step` has unguarded fade durations.** `fade_in_duration`/
 `fade_out_duration` are cast to `uint32_t`; a negative value becomes a huge bound and the fade never
 completes. The float `duration` overloads `HS_CHECK(duration >= 0)`; add the same guard for the fades.
 
