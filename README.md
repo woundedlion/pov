@@ -681,7 +681,7 @@ The rendering pipeline splits shape definitions from rasterization. `sdf.h` defi
 `scan.h` contains `Scan::rasterize()`, which drives the scanline loop and anti-aliasing, plus convenience wrappers that pair SDF shapes with the rasterizer.
 
 The `process_pixel` function applies anti-aliasing based on shape type:
-- **Solid shapes**: quintic smoothstep over a 1-pixel AA border. Full interior pixels (`d < -pixel_width`) skip AA math entirely.
+- **Solid shapes**: quintic smoothstep over a 2-pixel AA band centered on the edge (`-pixel_width <= d <= pixel_width`). Full interior pixels (`d < -pixel_width`) skip AA math entirely.
 - **Strokes**: opacity falloff across the full stroke thickness.
 
 #### SDF Shape Primitives (`sdf.h`)
