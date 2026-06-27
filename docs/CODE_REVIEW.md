@@ -132,7 +132,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 28. ✅ **`recorder.js` mkv path produces a mismatched blob MIME / picker filter.** `daydream/recorder.js` ~283–335: `_extension` maps `video/x-matroska → 'mkv'` but `_download` sets the blob type to `video/webm` for any non-mp4 ext and builds an internally inconsistent `accept` map. Fix: derive the blob type from an ext→MIME map.
 
-29. **`gui.js` `_attachUrlWriter` makes `onChange` non-idempotent.** `daydream/gui.js` ~172–181: reassigns `controller.onChange` to a single-slot setter, so a second `.onChange` registration silently replaces the first and the load-replay only fires for the original handler. Fix: support an array of user handlers or document the single-registration contract.
+29. ✅ **`gui.js` `_attachUrlWriter` makes `onChange` non-idempotent.** `daydream/gui.js` ~172–181: reassigns `controller.onChange` to a single-slot setter, so a second `.onChange` registration silently replaces the first and the load-replay only fires for the original handler. Fix: support an array of user handlers or document the single-registration contract.
 
 30. **`effectReady` worker message is received and ignored.** `daydream/segment_controller.js` ~204: the worker emits `effectReady` after every `setEffect` but the controller does nothing with it, so a frame can composite mid-switch; the message reads as if synchronization exists when it does not. Fix: gate compositing on it (mirroring `ready`) or drop it from the protocol.
 
