@@ -40,18 +40,23 @@ THIRD_PARTY = ("lib/", ".platformio/", "packages/")
 _WARNING_RE = re.compile(r"^(.*?):(\d+):(?:\d+:)?\s*warning:\s*(.*)$")
 
 
+_FIRST_PARTY_DIRS = frozenset(fp.rstrip("/") for fp in FIRST_PARTY)
+_THIRD_PARTY_DIRS = frozenset(tp.rstrip("/") for tp in THIRD_PARTY)
+
+
 def _relativize(path: str) -> str | None:
-    """Return a first-party repo-relative path, or None if not first-party."""
-    p = path.replace("\\", "/")
-    segs = p.split("/")
-    if any(tp.rstrip("/") in segs for tp in THIRD_PARTY):
+    """Return the repo-root-relative path if first-party, else None.
+
+    Anchored at the FIRST segment naming a first-party top-level dir, so the full
+    nested path is kept (targets/Phantasm/effects/Foo.h != top-level effects/Foo.h)
+    and not collapsed to the first matching segment.
+    """
+    segs = path.replace("\\", "/").split("/")
+    if _THIRD_PARTY_DIRS & set(segs):
         return None
-    for fp in FIRST_PARTY:
-        if p.startswith(fp):
-            return p
-        idx = p.find("/" + fp)
-        if idx != -1:
-            return p[idx + 1:]
+    for i, seg in enumerate(segs):
+        if seg in _FIRST_PARTY_DIRS:
+            return "/".join(segs[i:])
     return None
 
 
