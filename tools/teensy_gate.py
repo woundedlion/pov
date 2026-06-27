@@ -204,7 +204,9 @@ def parse_readelf_sections(text: str) -> dict[str, tuple[str, int]]:
     secs: dict[str, tuple[str, int]] = {}
     for line in text.splitlines():
         m = _READELF_SEC_RE.match(line)
-        if m:
+        if m and m.group(1) != "0":
+            # ndx 0 is the NULL section: its empty Name column shifts every \S+
+            # group one field left (Type read as Name, Addr as Type). Skip it.
             secs[m.group(1)] = (m.group(2), int(m.group(4), 16))
     return secs
 
