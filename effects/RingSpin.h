@@ -94,7 +94,7 @@ public:
 
     for (int i = 0; i < NUM_RINGS; ++i) {
       int p_idx = i % NUM_PALETTES;
-      spawn_ring(Y_AXIS, &baked_palettes[p_idx]);
+      spawn_ring(&baked_palettes[p_idx]);
     }
   }
 
@@ -155,11 +155,11 @@ private:
    * guard never fires today — it exists to support runtime spawning (a future
    * slider/event) without overrunning `rings`.
    */
-  void spawn_ring(const Vector &normal, BakedPalette *palette) {
+  void spawn_ring(BakedPalette *palette) {
     if (num_rings >= NUM_RINGS)
       return;
     Ring &r = rings[num_rings];
-    new (&r) Ring(normal, palette);
+    new (&r) Ring(Y_AXIS, palette);
     num_rings++;
     timeline.add(0, Animation::RandomWalk<W>(
                         r.orientation, r.normal, r.noise,
