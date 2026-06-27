@@ -543,15 +543,20 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   // polylines already carry the rendered arc, so this is skipped for them.
   const bool override_uv = (planar_basis != nullptr);
   float total_arc = 0.0f;
+  // Per-segment rendered arc length, reused by the draw-loop cumulant below.
+  ArenaVector<float> seg_arc_cache;
   if (override_uv) {
+    seg_arc_cache.bind(scratch_arena_a, count);
     const Vector &pcenter = planar_basis->v;
     for (size_t i = 0; i < count; i++) {
       const Vector &a = points[i].pos;
       const Vector &b = points[(i + 1) % len].pos;
       const bool seam = dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
                         dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
-      total_arc += seam ? angle_between(a, b)
-                        : planar_arc_length(a, b, *planar_basis);
+      float seg = seam ? angle_between(a, b)
+                       : planar_arc_length(a, b, *planar_basis);
+      seg_arc_cache.push_back(seg);
+      total_arc += seg;
     }
   }
   float cumul = 0.0f;    // rendered arc reached so far (planar polylines only)
@@ -731,13 +736,10 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
     // Advance the rendered-arc accumulator for EVERY segment (drawn or culled) so
     // v0/v1 stay a true full-curve parameterization; seg_base snapshots the start
-    // for the draw lambda. seg_arc mirrors whichever strategy the branch below
-    // picks, matching total_arc's pre-pass. Skipped for geodesic polylines.
+    // for the draw lambda. Skipped for geodesic polylines.
     if (override_uv) {
       seg_base = cumul;
-      cumul += use_planar
-                   ? planar_arc_length(curr.pos, next.pos, *planar_basis)
-                   : angle_between(curr.pos, next.pos);
+      cumul += seg_arc_cache[i];
     }
 
     // Tier 3: Segment culling — skip if the edge's full screen-row span (arc
