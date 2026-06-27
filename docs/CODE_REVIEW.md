@@ -192,7 +192,7 @@ called with unwrapped frames, and document that).
 23. ✅ **`effects/RingSpin.h:50` — dead `X_AXIS` default normal.** `spawn_ring` always placement-news with
 `Y_AXIS`, so the constructor's `X_AXIS` default is never used. Benign; drop it for clarity.
 
-24. **`hardware/pov_segmented.h:155-164` — master "longest coast" counter is meaningless.**
+24. ✅ **`hardware/pov_segmented.h:155-164` — master "longest coast" counter is meaningless.**
 `max_coast_halves` increments every fold, but the reset (`halves_since_snap_ = 0`) lives in
 `handle_burst`, which the master (the reference board, receiving no wire bursts) never reaches — so the
 master reports an ever-growing coast. Reset it for the master, or exclude the master from the metric.

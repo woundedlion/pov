@@ -1204,10 +1204,14 @@ public:
       const Crossing c = fly_.fold(now);
       if (!c.crossed)
         break;
-      if (halves_since_snap_ < 0xFFFFFFFFu)
-        ++halves_since_snap_;
-      if (halves_since_snap_ > telemetry_.max_coast_halves)
-        telemetry_.max_coast_halves = halves_since_snap_;
+      // The master is force-locked and snaps to no wire bursts, so coast is
+      // undefined for it.
+      if (!is_master_) {
+        if (halves_since_snap_ < 0xFFFFFFFFu)
+          ++halves_since_snap_;
+        if (halves_since_snap_ > telemetry_.max_coast_halves)
+          telemetry_.max_coast_halves = halves_since_snap_;
+      }
       apply_flip(c.boundary, a);
       if (is_master_)
         master_on_crossing(c, now, a);
