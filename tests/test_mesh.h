@@ -504,6 +504,111 @@ inline void test_classify_faces_truncated_cube_distinct_topology() {
   HS_EXPECT_EQ(max_id, 1);
 }
 
+/**
+ * @brief A face topology key plus the base hash the classifier derives from it.
+ */
+struct FaceTopoRecord {
+  int count;          /**< Side count. */
+  int angles[24];     /**< Sorted whole-degree interior angles. */
+  uint32_t hash;      /**< MeshOps base topology hash for this key. */
+};
+
+/**
+ * @brief Recomputes a face's canonical key (count, sorted angles) and the base
+ *        topology hash, mirroring classify_faces_impl.
+ */
+inline FaceTopoRecord face_topo_record(const PolyMesh &mesh, const uint16_t *idx,
+                                       int count) {
+  FaceTopoRecord rec;
+  rec.count = count;
+  for (int k = 0; k < 24; ++k)
+    rec.angles[k] = 0;
+  HS_EXPECT_TRUE(count <= 24);
+  uint32_t h = 0x12345678;
+  MeshOps::hash_combine(h, static_cast<uint32_t>(count));
+  if (count >= 3) {
+    for (int k = 0; k < count; ++k) {
+      const Vector &prev = mesh.vertices[idx[(k - 1 + count) % count]];
+      const Vector &curr = mesh.vertices[idx[k]];
+      const Vector &next = mesh.vertices[idx[(k + 1) % count]];
+      Vector v1 = (prev - curr).normalized();
+      Vector v2 = (next - curr).normalized();
+      rec.angles[k] =
+          (int)std::round(angle_between(v1, v2) * 180.0f / PI_F);
+    }
+    std::sort(rec.angles, rec.angles + count);
+    for (int k = 0; k < count; ++k)
+      MeshOps::hash_combine(h, static_cast<uint32_t>(rec.angles[k]));
+  }
+  rec.hash = MeshOps::fmix32(h);
+  return rec;
+}
+
+/**
+ * @brief True when two records share the same canonical key (count + angles).
+ */
+inline bool same_topo_key(const FaceTopoRecord &a, const FaceTopoRecord &b) {
+  if (a.count != b.count)
+    return false;
+  for (int k = 0; k < a.count; ++k)
+    if (a.angles[k] != b.angles[k])
+      return false;
+  return true;
+}
+
+/**
+ * @brief Verifies the per-face topology hash is collision-free across the
+ *        Platonic/Archimedean/Catalan roster.
+ * @details A fmix32 collision between two distinct face topologies would merge
+ *          them into one palette class. Builds every roster solid, collects the
+ *          distinct (count, sorted-angle) keys, and asserts each maps to a
+ *          unique hash.
+ */
+inline void test_classify_faces_roster_hash_collision_free() {
+  static FaceTopoRecord keys[256];
+  int n = 0;
+
+  auto collect = [&](const Solids::Entry *reg, size_t reg_n) {
+    for (size_t r = 0; r < reg_n; ++r) {
+      Arena a(mesh_arena_a, sizeof(mesh_arena_a));
+      Arena b(mesh_arena_b, sizeof(mesh_arena_b));
+      PolyMesh mesh = reg[r].generate(a, b);
+
+      const uint8_t *fc = mesh.get_face_counts_data();
+      const uint16_t *faces = mesh.get_faces_data();
+      size_t F = mesh.get_face_counts_size();
+      size_t off = 0;
+      for (size_t f = 0; f < F; ++f) {
+        int count = fc[f];
+        FaceTopoRecord rec = face_topo_record(mesh, faces + off, count);
+        off += count;
+
+        bool seen = false;
+        for (int i = 0; i < n; ++i) {
+          if (same_topo_key(keys[i], rec)) {
+            seen = true;
+            break;
+          }
+          // Distinct keys must not share a hash.
+          HS_EXPECT_TRUE(keys[i].hash != rec.hash);
+        }
+        if (!seen) {
+          HS_EXPECT_TRUE(n < (int)(sizeof(keys) / sizeof(keys[0])));
+          keys[n++] = rec;
+        }
+      }
+    }
+  };
+
+  collect(Solids::simple_registry,
+          sizeof(Solids::simple_registry) / sizeof(Solids::simple_registry[0]));
+  collect(Solids::catalan_registry,
+          sizeof(Solids::catalan_registry) /
+              sizeof(Solids::catalan_registry[0]));
+
+  HS_EXPECT_TRUE(n > 0);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -537,6 +642,7 @@ inline int run_mesh_tests() {
   test_classify_faces_cube_uniform_topology();
   test_classify_faces_tetrahedron_uniform_topology();
   test_classify_faces_truncated_cube_distinct_topology();
+  test_classify_faces_roster_hash_collision_free();
 
   return fixture.result();
 }
