@@ -500,6 +500,7 @@ template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
  * plane).
  * @param theta The angle in radians.
  * @return Unit vector on the sphere (unit by construction).
+ * @note Setup-time generator; exact trig is intentional (not a per-pixel path).
  */
 inline Vector logPolarToVector(float rho, float theta) {
   const float R = expf(rho);
@@ -543,6 +544,7 @@ inline LogPolar vectorToLogPolar(const Vector &v) {
  * @param eps The epsilon offset for the spiral.
  * @param i The index of the point to calculate.
  * @return The point on the unit sphere.
+ * @note Setup-time generator; exact trig is intentional (not a per-pixel path).
  */
 inline Vector fib_spiral(int n, float eps, int i) {
   // Clamp before acosf: float rounding can push the argument past -1 → NaN.
@@ -787,6 +789,7 @@ struct LissajousParams {
  *          exported snippet feed straight into this function.
  * @param t Time variable (or position along the domain).
  * @return The calculated 3D point (unit vector).
+ * @note Setup-time generator; exact trig is intentional (not a per-pixel path).
  */
 inline Vector lissajous(float m1, float m2, float a, float t) {
   // Unit by construction, so no normalize().
