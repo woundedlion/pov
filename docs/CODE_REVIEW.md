@@ -233,7 +233,7 @@ seam-straddling intervals — exactly where double-paint regressions hide.
 (chiral, twist pass, Newell normals) is checked only for basic winding/Euler invariants; a winding-correct
 but wrong-count snub would pass. Assert expected vertex/face/triangle counts.
 
-33. **`tests` — `palettes.h` generative/OKLCH layer is untested.** `lerp_oklch` math is pinned, but the
+33. ✅ **`tests` — `palettes.h` generative/OKLCH layer is untested.** `lerp_oklch` math is pinned, but the
 named `ProceduralPalette` instances, shortest-arc hue direction, and `MeshPaletteBank` have no dedicated
 coverage. Pin a few named-palette endpoints and hue-arc directions.
 
