@@ -145,6 +145,8 @@ DTCM is **96.6 % one object.** `.bss` = 352,608, `.data` = 2,752.
 
 RAM2 is full but separate; do **not** move RAM1 data there — there is no room.
 
+**Deliberate flash/speed tradeoff:** `linear_to_srgb_lut` (`core/color_luts.h`) is a 64 KB direct `PROGMEM` table that the per-pixel `Pixel16 -> CRGB` output path indexes with a single branch-free load. A 4096-entry table + interpolation (the idiom `srgb_to_linear_interp` uses inbound) would cut it ~16× at imperceptible 8-bit-output error, but at the cost of an interpolation per channel per pixel on that hot output path. Kept as a direct table by choice: flash has 1.63 MB free, so the 64 KB buys the cheaper per-pixel lookup.
+
 ---
 
 ## 5. Reclamation plan — prioritized, performance-preserving
