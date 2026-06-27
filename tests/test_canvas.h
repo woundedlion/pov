@@ -236,6 +236,82 @@ inline void test_double_buffer_handoff_no_aliasing() {
 }
 
 /**
+ * @brief Hammers the double-buffer hand-off under real producer/consumer
+ * contention, asserting no torn read and no out-of-order frame.
+ * @details test_double_buffer_handoff_no_aliasing drives the same state machine
+ * single-threaded; this runs the two roles on separate threads so the relaxed
+ * atomics are exercised under genuine concurrency. A PRODUCER thread plays the
+ * main loop: it constructs a Canvas (whose ctor blocks on buffer_free(), so the
+ * consumer rate-limits it), fills every pixel with a sentinel encoding the frame
+ * index, and lets ~Canvas queue it. A CONSUMER thread plays the display ISR:
+ * when a frame is queued (!buffer_free()) it advance_display()s and reads the
+ * whole displayed buffer, asserting all pixels carry one sentinel (a torn read
+ * mixing two frames trips torn_read) and that the sentinel strictly advances (a
+ * doubly-displayed or regressed frame trips out_of_order). The buffer_free()
+ * gate forces the producer one frame ahead at most, so every frame is displayed
+ * exactly once — distinct_displayed must reach the full frame count, proving the
+ * hand-off really happened rather than frames coalescing. The harness counters
+ * are single-threaded, so both threads record into atomics and the main thread
+ * runs all HS_EXPECT_* after join(). The Canvas ctor's 2 s watchdog (live under
+ * the real wall clock) bounds the producer, and the consumer terminates once it
+ * has promoted every frame, so a logic break traps loudly instead of hanging.
+ */
+inline void test_double_buffer_handoff_concurrent() {
+  hs::clear_mock_time(); // real wall clock keeps the ctor's spin watchdog live
+  TestEffect fx(8, 4);
+  const int N = 8 * 4;
+  const int kFrames = 3000;
+  // r holds the frame index (kFrames < 65536, so r alone is a unique sentinel).
+  auto sentinel = [](int f) { return Pixel((uint16_t)f, 0, 0); };
+
+  std::atomic<bool> producer_done{false};
+  std::atomic<bool> torn_read{false};
+  std::atomic<bool> out_of_order{false};
+  std::atomic<int> distinct_displayed{0};
+
+  std::thread producer([&] {
+    for (int f = 0; f < kFrames; ++f) {
+      Canvas c(fx); // blocks until the consumer frees the buffer
+      for (int i = 0; i < N; ++i) c(i) = sentinel(f);
+    } // ~Canvas queues the frame
+    producer_done.store(true, std::memory_order_release);
+  });
+
+  std::thread consumer([&] {
+    int last_sentinel = -1;
+    int promoted = 0;
+    while (promoted < kFrames) {
+      if (fx.buffer_free()) {
+        // Nothing queued; if the producer has finished there is no more work.
+        if (producer_done.load(std::memory_order_acquire) && fx.buffer_free())
+          break;
+        std::this_thread::yield();
+        continue;
+      }
+      fx.advance_display();
+      ++promoted;
+      const Pixel *buf = fx.display_buffer();
+      int s = buf[0].r;
+      bool uniform = true;
+      for (int i = 1; i < N; ++i)
+        if (buf[i].r != s) { uniform = false; break; }
+      if (!uniform) torn_read.store(true, std::memory_order_relaxed);
+      if (s <= last_sentinel) out_of_order.store(true, std::memory_order_relaxed);
+      last_sentinel = s;
+      distinct_displayed.store(promoted, std::memory_order_relaxed);
+    }
+  });
+
+  producer.join();
+  consumer.join();
+
+  HS_EXPECT_FALSE(torn_read.load(std::memory_order_relaxed));
+  HS_EXPECT_FALSE(out_of_order.load(std::memory_order_relaxed));
+  // The gate admits no coalescing, so every queued frame is displayed once.
+  HS_EXPECT_EQ(distinct_displayed.load(std::memory_order_relaxed), kFrames);
+}
+
+/**
  * @brief Verifies the Canvas ctor's buffer_free() spin-wait blocks until the
  * display side frees the buffer.
  * @details Directly exercises the one synchronization gate the rest of the
@@ -530,6 +606,7 @@ inline int run_canvas_tests() {
   test_consecutive_frames_alternate_buffers();
   test_persist_pixels_copies_previous_frame();
   test_double_buffer_handoff_no_aliasing();
+  test_double_buffer_handoff_concurrent();
   test_ctor_spin_waits_for_buffer_free();
   test_canvas_2d_and_1d_access_and_prev();
   test_register_float_and_bool_params();
