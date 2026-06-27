@@ -1955,6 +1955,9 @@ public:
    * @param draw_incoming Draw callback for the fading-in morphing mesh.
    * @param duration The crossfade duration in frames.
    * @param easing_fn The easing function applied to crossfade progress.
+   * @note The cloned meshes and position buffers are arena-allocated with no
+   *   per-instance reclamation; the caller must compact the arena between
+   *   successive morphs or it grows unbounded (see HankinSolids/MeshFeedback).
    */
   MeshMorph(const MeshState &source, const MeshState &dest, Arena &arena,
             MorphDrawFn draw_outgoing, MorphDrawFn draw_incoming, int duration,
