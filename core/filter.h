@@ -590,7 +590,8 @@ public:
     Vector r = v;
     pass(r, color, age, alpha);
     for (int i = 1; i < count; i++) {
-      r = rotate(r, step);
+      // renormalize so repeated rotation can't drift copies off the unit sphere
+      r = rotate(r, step).normalized();
       pass(r, color, age, alpha);
     }
   }
