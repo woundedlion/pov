@@ -563,6 +563,11 @@ struct OverCapacityMockMesh {
    * @return Pointer to the face-index data.
    */
   const uint16_t *get_faces_data() const { return fi; }
+  /**
+   * @brief Returns the flat face-index array length.
+   * @return Always 2.
+   */
+  size_t get_faces_size() const { return 2; }
 };
 
 /**

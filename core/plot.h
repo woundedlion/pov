@@ -1950,10 +1950,17 @@ struct Mesh {
     const uint8_t *fc = mesh.get_face_counts_data();
     size_t num_f = mesh.get_face_counts_size();
     const uint16_t *fi = mesh.get_faces_data();
+    size_t fi_size = mesh.get_faces_size();
     size_t offset = 0;
 
     for (size_t i = 0; i < num_f; ++i) {
       int count = fc[i];
+
+      // Trap malformed mesh data: an offset/count pair disagreeing with the flat
+      // index array yields out-of-bounds reads. Cold per-face check.
+      HS_CHECK(offset + static_cast<size_t>(count) <= fi_size,
+               "mesh face span exceeds face index array");
+
       for (int k = 0; k < count; ++k) {
         int u = fi[offset + k];
         int v = fi[offset + (k + 1) % count];
