@@ -128,7 +128,7 @@ Items are numbered sequentially across all priority tiers. Each is independently
 
 26. **Redundant double `std::fmod` in `shortest_distance`.** `core/util.h` ~115: two `fmod` calls (each ~20+ soft-float cycles on M7) where one reduction plus a branchless fold suffices on the common in-range input. Minor; non-hot path.
 
-27. **Möbius complex-arithmetic core duplicated between JS and GLSL.** `daydream/tools/mobius.html` ~345–354 vs `mobius_transforms.js` ~44–51: `cmult`/`cadd`/`cdiv` (including the `1e-6` divide guard) are hand-copied and can silently diverge. Fix: a parity unit test, or generate the GLSL from the shared spec.
+27. ✅ **Möbius complex-arithmetic core duplicated between JS and GLSL.** `daydream/tools/mobius.html` ~345–354 vs `mobius_transforms.js` ~44–51: `cmult`/`cadd`/`cdiv` (including the `1e-6` divide guard) are hand-copied and can silently diverge. Fix: a parity unit test, or generate the GLSL from the shared spec.
 
 28. **`recorder.js` mkv path produces a mismatched blob MIME / picker filter.** `daydream/recorder.js` ~283–335: `_extension` maps `video/x-matroska → 'mkv'` but `_download` sets the blob type to `video/webm` for any non-mp4 ext and builds an internally inconsistent `accept` map. Fix: derive the blob type from an ext→MIME map.
 
