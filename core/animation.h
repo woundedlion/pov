@@ -559,6 +559,9 @@ public:
    */
   void init(Arena &arena, float friction = 0.85f, float gravity = 0.001f,
             float max_life = 600.0f) {
+    // The arena has no per-allocation free, so re-binding would orphan the first
+    // pool/attractor/emitter allocations.
+    HS_CHECK(!pool.is_bound(), "ParticleSystem::init called twice");
     this->friction = friction;
     this->gravity = gravity;
     // Clamp before narrowing: a float outside [0, 65535] is UB cast to uint16_t.
