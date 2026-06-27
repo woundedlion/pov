@@ -237,7 +237,7 @@ but wrong-count snub would pass. Assert expected vertex/face/triangle counts.
 named `ProceduralPalette` instances, shortest-arc hue direction, and `MeshPaletteBank` have no dedicated
 coverage. Pin a few named-palette endpoints and hue-arc directions.
 
-34. **`tests` — noise paths lack an oracle.** `noise_transform` / `Feedback::noise_warp` / the
+34. ✅ **`tests` — noise paths lack an oracle.** `noise_transform` / `Feedback::noise_warp` / the
 FastNoiseLite wrapper are only checked for divergence/NaN, never against a golden reference; a silent
 noise regression renders deterministically and passes. Golden-hash a fixed noise sample grid.
 
