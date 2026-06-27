@@ -205,7 +205,7 @@ coupling or wrap it so a future lil-gui upgrade can't silently break the URL wri
 references `testAllInterval`/`testAllController` declared ~40 lines later; it works because the catch is
 async, but it is a TDZ fragility. Move the Test-All setup above the WASM-init block.
 
-27. **`justfile:45-48` — `just docs` is broken on a fresh clone.** It runs `doxygen Doxyfile.local`, but
+27. ✅ **`justfile:45-48` — `just docs` is broken on a fresh clone.** It runs `doxygen Doxyfile.local`, but
 `Doxyfile.local` is gitignored and untracked and no recipe generates it. Either track it or have the
 recipe synthesize it (as `docs.yml` does).
 
