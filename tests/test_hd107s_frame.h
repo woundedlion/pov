@@ -191,24 +191,25 @@ inline void test_packpixel_wire_order() {
   const Pixel16 green(CRGB(0, 255, 0));
   const Pixel16 blue(CRGB(0, 0, 255));
 
-  // Wire record is [0xFF][B][G][R].
+  // Wire record is [0xFF][B][G][R]. Under unity correction the lit channel
+  // round-trips the sRGB<->linear LUTs back to 255; the rest stay 0.
   f.packPixel(0, red);
   HS_EXPECT_EQ(pixel(f, 0)[0], 0xFF);
   HS_EXPECT_EQ(pixel(f, 0)[1], 0);    // B
   HS_EXPECT_EQ(pixel(f, 0)[2], 0);    // G
-  HS_EXPECT_GT(pixel(f, 0)[3], 0);    // R
+  HS_EXPECT_EQ(pixel(f, 0)[3], 255);  // R
 
   f.packPixel(1, green);
   HS_EXPECT_EQ(pixel(f, 1)[1], 0);    // B
-  HS_EXPECT_GT(pixel(f, 1)[2], 0);    // G
+  HS_EXPECT_EQ(pixel(f, 1)[2], 255);  // G
   HS_EXPECT_EQ(pixel(f, 1)[3], 0);    // R
 
   f.packPixel(2, blue);
-  HS_EXPECT_GT(pixel(f, 2)[1], 0);    // B
+  HS_EXPECT_EQ(pixel(f, 2)[1], 255);  // B
   HS_EXPECT_EQ(pixel(f, 2)[2], 0);    // G
   HS_EXPECT_EQ(pixel(f, 2)[3], 0);    // R
 
-  HS_EXPECT_GT(pixel(f, 0)[3], 0);
+  HS_EXPECT_EQ(pixel(f, 0)[3], 255);
   HS_EXPECT_EQ(pixel(f, 0)[1], 0);
 }
 
