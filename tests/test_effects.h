@@ -966,6 +966,231 @@ struct DynamoWhiteBox {
   }
 };
 
+// ---------------------------------------------------------------------------
+// Drift-prone effects: spawn-gap / emit-phase / pool-bound white-box pins.
+//
+// The smoke pass proves these render and the determinism pass proves they
+// reproduce, but neither sees a per-frame accumulator that runs away, a phase
+// that escapes its wrap interval, or a pool index that overruns its capacity —
+// silent drift that still renders a plausible (wrong) frame. These seams reach
+// the private state and assert the bound holds on every frame.
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Shared per-effect setup mirroring smoke_one's global reset.
+ */
+inline void reset_effect_globals() {
+  hs::random().seed(1337u);
+  configure_arenas_default();
+  Timeline().clear();
+  global_timeline_t = 0;
+}
+
+/**
+ * @brief White-box accessor for PetalFlow's spawn-gap accumulator and hue cursor
+ *        (befriended in effects/PetalFlow.h).
+ */
+struct PetalFlowWhiteBox {
+  using PF = PetalFlow<kW, kH>;
+  static float gap(const PF &pf) { return pf.gap_accumulator; }
+  static float spacing() { return PF::SPACING; }
+  static float next_hue(const PF &pf) { return pf.next_hue; }
+};
+
+/**
+ * @brief Verifies the spawn-gap accumulator drains every frame and the hue
+ *        cursor stays wrapped.
+ * @details check_spawn() integrates Speed*RHO_PER_SPEED into gap_accumulator and
+ *          drains it by SPACING per spawn, so after any frame the residue must
+ *          satisfy 0 <= gap < SPACING — a runaway (missing drain) or a negative
+ *          residue both fail here. Run at the Speed slider top so the per-frame
+ *          travel exceeds SPACING and the while-loop must emit several rings per
+ *          frame. next_hue is advanced wrap(.,1) per spawn and must stay [0, 1).
+ */
+inline void test_petalflow_spawn_gap_bounded() {
+  using WB = PetalFlowWhiteBox;
+  reset_effect_globals();
+  WB::PF pf;
+  pf.init();
+  pf.updateParameter("Speed", 20.0f); // slider top: per-frame travel >> SPACING
+
+  const float spacing = WB::spacing();
+  const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
+  for (int f = 0; f < frames; ++f) {
+    pf.draw_frame();
+    pf.advance_display();
+    const float gap = WB::gap(pf);
+    HS_EXPECT_GE(gap, 0.0f);
+    HS_EXPECT_LT(gap, spacing); // accumulator never runs away past one spacing
+    const float hue = WB::next_hue(pf);
+    HS_EXPECT_GE(hue, 0.0f);
+    HS_EXPECT_LT(hue, 1.0f); // hue cursor stays wrapped
+  }
+}
+
+/**
+ * @brief White-box accessor for MindSplatter's per-emitter emit-phase and hue
+ *        arrays (befriended in effects/MindSplatter.h).
+ */
+struct MindSplatterWhiteBox {
+  using MS = MindSplatter<kW, kH>;
+  static size_t num_emitters() { return MS::EmitSolid::NUM_VERTS; }
+  static float emit_phase(const MS &ms, size_t i) { return ms.emit_phases[i]; }
+  static float hue(const MS &ms, size_t i) { return ms.emitter_hues[i]; }
+};
+
+/**
+ * @brief Verifies every per-emitter emission phase stays wrapped to [0, 2pi) and
+ *        each hue stays [0, 1) across frames at the max angular rate.
+ * @details Each emitter integrates Ang Spd into emit_phases[i] with fmodf(., 2pi)
+ *          and advances emitter_hues[i] with fmodf(., 1); a dropped wrap lets the
+ *          phase grow unbounded (fast_sinf range reduction then bands). Run at the
+ *          Ang Spd slider top so the phase laps 2pi repeatedly.
+ */
+inline void test_mindsplatter_emit_phase_wrapped() {
+  using WB = MindSplatterWhiteBox;
+  reset_effect_globals();
+  WB::MS ms;
+  ms.init();
+  ms.updateParameter("Ang Spd", 1.0f); // slider top: phase laps fast
+
+  const float two_pi = 2.0f * PI_F;
+  const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
+  for (int f = 0; f < frames; ++f) {
+    ms.draw_frame();
+    ms.advance_display();
+    for (size_t i = 0; i < WB::num_emitters(); ++i) {
+      const float ph = WB::emit_phase(ms, i);
+      HS_EXPECT_GE(ph, 0.0f);
+      HS_EXPECT_LT(ph, two_pi);
+      const float h = WB::hue(ms, i);
+      HS_EXPECT_GE(h, 0.0f);
+      HS_EXPECT_LT(h, 1.0f);
+    }
+  }
+}
+
+/**
+ * @brief White-box accessor for Flyby's noise-time and trig-phase accumulators
+ *        (befriended in effects/Flyby.h).
+ */
+struct FlybyWhiteBox {
+  using FB = Flyby<kW, kH>;
+  static float noise_time(const FB &fb) { return fb.noise_time; }
+  static float time_period() { return FB::TIME_PERIOD; }
+  static float sin_phase(const FB &fb) { return fb.sin_phase; }
+  static float drift_phase(const FB &fb) { return fb.drift_phase; }
+};
+
+/**
+ * @brief Verifies Flyby's noise-time stays in [0, TIME_PERIOD) and both trig
+ *        phases stay in [0, 2pi) across frames.
+ * @details draw_frame wraps noise_time by fmodf(., TIME_PERIOD) and sin/drift
+ *          phase by fmodf(., 2pi); a dropped wrap freezes the field (ULP) or
+ *          bands fast_sinf range reduction. Params are markAnimated so the preset
+ *          Lerp drives Speed/Drift — the accumulators must stay bounded under it.
+ */
+inline void test_flyby_phase_wrapped() {
+  using WB = FlybyWhiteBox;
+  reset_effect_globals();
+  hs::set_mock_time(0, 0);
+  WB::FB fb;
+  fb.init();
+
+  const float period = WB::time_period();
+  const float two_pi = 2.0f * PI_F;
+  const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
+  for (int f = 0; f < frames; ++f) {
+    hs::set_mock_time(static_cast<unsigned long>(f) * kFrameMs,
+                      static_cast<unsigned long>(f) * kFrameUs);
+    fb.draw_frame();
+    fb.advance_display();
+    const float nt = WB::noise_time(fb);
+    HS_EXPECT_GE(nt, 0.0f);
+    HS_EXPECT_LT(nt, period);
+    const float sp = WB::sin_phase(fb);
+    HS_EXPECT_GE(sp, 0.0f);
+    HS_EXPECT_LT(sp, two_pi);
+    const float dp = WB::drift_phase(fb);
+    HS_EXPECT_GE(dp, 0.0f);
+    HS_EXPECT_LT(dp, two_pi);
+  }
+  hs::clear_mock_time();
+}
+
+/**
+ * @brief White-box accessor for FlowField's noise-time and particle pool
+ *        (befriended in effects/FlowField.h).
+ */
+struct FlowFieldWhiteBox {
+  using FF = FlowField<kW, kH>;
+  static float noise_time(const FF &ff) { return ff.t; }
+  static float time_period() { return FF::TIME_PERIOD; }
+  static uint16_t active_count(const FF &ff) {
+    return ff.particle_system.active_count;
+  }
+  static size_t pool_capacity(const FF &ff) {
+    return ff.particle_system.pool.capacity();
+  }
+};
+
+/**
+ * @brief Verifies FlowField's noise-time stays in [0, TIME_PERIOD) and the
+ *        particle pool never exceeds capacity.
+ * @details draw_frame wraps t by fmodf(., TIME_PERIOD); the emitter back-fills
+ *          the pool to capacity every frame, so active_count must hold at exactly
+ *          capacity without overrun. Run at the Time Spd top so t advances fast.
+ */
+inline void test_flowfield_time_and_pool_bounded() {
+  using WB = FlowFieldWhiteBox;
+  reset_effect_globals();
+  WB::FF ff;
+  ff.init();
+  ff.updateParameter("Time Spd", 0.05f); // slider top: t advances fast
+
+  const float period = WB::time_period();
+  const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
+  for (int f = 0; f < frames; ++f) {
+    ff.draw_frame();
+    ff.advance_display();
+    const float nt = WB::noise_time(ff);
+    HS_EXPECT_GE(nt, 0.0f);
+    HS_EXPECT_LT(nt, period);
+    HS_EXPECT_LE(static_cast<size_t>(WB::active_count(ff)),
+                 WB::pool_capacity(ff));
+  }
+}
+
+/**
+ * @brief White-box accessor for RingSpin's live ring count (befriended in
+ *        effects/RingSpin.h).
+ */
+struct RingSpinWhiteBox {
+  using RS = RingSpin<kW, kH>;
+  static int num_rings(const RS &rs) { return rs.num_rings; }
+  static int max_rings() { return RS::NUM_RINGS; }
+  static void spawn(RS &rs) { rs.spawn_ring(&rs.baked_palettes[0]); }
+};
+
+/**
+ * @brief Verifies spawn_ring clamps to the fixed pool and never overruns it.
+ * @details init() fills the pool to NUM_RINGS; the guard (num_rings >= NUM_RINGS)
+ *          must make every further spawn a no-op, holding num_rings pinned at the
+ *          bound — an off-by-one would write past the rings[] allocation. Drive
+ *          extra spawns directly past the bound to exercise the guard branch.
+ */
+inline void test_ringspin_pool_clamped() {
+  using WB = RingSpinWhiteBox;
+  reset_effect_globals();
+  WB::RS rs;
+  rs.init();
+  HS_EXPECT_EQ(WB::num_rings(rs), WB::max_rings()); // init filled the pool
+  for (int i = 0; i < WB::max_rings() + 4; ++i) {
+    WB::spawn(rs); // each must be rejected by the >= NUM_RINGS guard
+    HS_EXPECT_EQ(WB::num_rings(rs), WB::max_rings());
+  }
+}
+
 /**
  * @brief Verifies the segmented-mode full-frame gate on the real effect roster.
  * @details Effect::needs_full_frame() must report true for exactly the effects
@@ -1111,6 +1336,11 @@ inline int run_effects_tests() {
   ThrustersWhiteBox::check_warp_endpoints();
   RingShowerWhiteBox::check_radius_endpoints();
   DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
+  test_petalflow_spawn_gap_bounded();
+  test_mindsplatter_emit_phase_wrapped();
+  test_flyby_phase_wrapped();
+  test_flowfield_time_and_pool_bounded();
+  test_ringspin_pool_clamped();
 
   // Smoke every registered effect. The list is generated from the single-source
   // roster in core/effects.h (HS_EFFECT_LIST), so it cannot drift from the

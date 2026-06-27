@@ -7,6 +7,13 @@
 
 #include "core/engine.h"
 
+// Unit-test accessor for the noise-time wrap and particle-pool bound invariants.
+namespace hs_test {
+namespace effects_tests {
+struct FlowFieldWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Particle flow field over the sphere: particles advect along a 3D
  *        OpenSimplex2 noise field, leaving SLERP-blurred trails.
@@ -152,6 +159,9 @@ public:
   }
 
 private:
+  // Test seam: reaches the noise-time wrap and particle-pool bound invariants.
+  friend struct ::hs_test::effects_tests::FlowFieldWhiteBox;
+
   /**
    * @brief Particle pool capacity.
    * @details Sets the per-frame force-loop cost: each particle samples the noise

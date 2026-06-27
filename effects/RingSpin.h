@@ -8,6 +8,13 @@
 #include <array>
 #include "core/engine.h"
 
+// Unit-test accessor for the live ring-count pool-bound invariant.
+namespace hs_test {
+namespace effects_tests {
+struct RingSpinWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Spinning great-circle rings that wander the sphere.
  * @tparam W Canvas width in pixels.
@@ -144,6 +151,9 @@ public:
   }
 
 private:
+  // Test seam: reaches the live ring-count pool-bound invariant.
+  friend struct ::hs_test::effects_tests::RingSpinWhiteBox;
+
   /**
    * @brief Constructs one more ring and starts its energetic random-walk.
    * @param palette Baked palette used to color the new ring's trail.

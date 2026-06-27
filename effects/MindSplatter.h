@@ -7,6 +7,13 @@
 
 #include "core/engine.h"
 
+// Unit-test accessor for the per-emitter emit-phase / hue wrap invariants.
+namespace hs_test {
+namespace effects_tests {
+struct MindSplatterWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Particle effect spraying from cube-vertex emitters toward
  *        octahedron-vertex attractors through a Mobius warp.
@@ -110,6 +117,9 @@ public:
   }
 
 private:
+  // Test seam: reaches the per-emitter emit-phase / hue wrap invariants.
+  friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
+
   /** @brief Per-particle trail length (feeds the pool footprint below). */
   static constexpr int kTrailLen = 23;
 
