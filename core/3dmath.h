@@ -768,6 +768,9 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
  * @return The projected plane coordinate (equator points clamp to the sentinel).
  * @details Projects from center (0,0,0) to the plane y=1 (tangent at the North
  * Pole (0,1,0), i.e. j=1).
+ * @note Both hemispheres map to the same plane: the sign of `v.y` is dropped
+ * here, so a caller that round-trips through inv_gnomonic must track it and
+ * pass it back via inv_gnomonic's `original_sign`.
  */
 inline Complex gnomonic(const Vector &v) {
   // Equator handling: floor the divisor to ±1e-9 to avoid div-by-zero at
