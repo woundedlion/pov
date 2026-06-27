@@ -238,7 +238,13 @@ struct Config {
            // §9.1 rejoin budget: a joiner waits up to beacon_period_revs revs
            // for the next identity, so cap the cadence at the budget.
            beacon_period_revs <= rejoin_budget_revs && join_grid_revs > 0 &&
-           (64u % join_grid_revs) == 0;
+           (64u % join_grid_revs) == 0 &&
+           // schedule_beacon's "is-due" check reads (now - start_cycles) as
+           // int32, so the worst-case span (5 digits of value 7) must clear 2^31.
+           5u * (7u * beacon_pitch_cycles() +
+                 static_cast<uint32_t>(gap_timeout_cols + 1) *
+                     cycles_per_column()) <
+               static_cast<uint32_t>(INT32_MAX);
   }
 };
 
