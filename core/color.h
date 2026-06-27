@@ -823,7 +823,7 @@ inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
     h = a.h + dh * t;
   }
   float L = hs::clamp(a.L + (b.L - a.L) * t, 0.0f, 1.0f);
-  float C = __builtin_fmaxf(0.0f, a.C + (b.C - a.C) * t);
+  float C = std::max(0.0f, a.C + (b.C - a.C) * t);
   return {L, C, h};
 }
 

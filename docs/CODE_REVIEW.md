@@ -133,7 +133,7 @@ overwrite) but inconsistent — move the param mirror below the `_frameSeen` gua
 9. **`core/sdf.h:2685` — `Flower` (and `SphericalPolygon`) lack `HS_CHECK(radius > 0)`.** `Star` has it;
 `Flower` does not, and `radius=0` drives `t = scan_dist/thickness` to infinity. Add the guard for parity.
 
-10. **`core/color.h:826` — `lerp_oklch` mixes `__builtin_fmaxf` with `hs::clamp`.** Use one idiom
+10. ✅ **`core/color.h:826` — `lerp_oklch` mixes `__builtin_fmaxf` with `hs::clamp`.** Use one idiom
 (`hs::clamp` / `std::fmax`) for portability and consistency with the rest of the file.
 
 11. **`core/color.h:959` — `Gradient` segments redundantly double-write boundary indices.** Adjacent
