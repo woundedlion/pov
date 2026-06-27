@@ -161,6 +161,8 @@ normalize_intervals_to_range(const StaticCircularBuffer<std::pair<float, float>,
   constexpr float Wf = static_cast<float>(W);
   for (size_t i = 0; i < src.size(); ++i) {
     float len = src[i].second - src[i].first;
+    HS_CHECK(len >= 0.0f,
+             "normalize_intervals_to_range: interval end precedes start");
     if (len >= Wf) {
       push_interval(dst, 0.0f, Wf);
       continue;
