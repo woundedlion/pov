@@ -128,6 +128,8 @@ inline void push_interval(StaticCircularBuffer<std::pair<float, float>, N> &buf,
 template <size_t N>
 inline void
 sort_intervals_by_start(StaticCircularBuffer<std::pair<float, float>, N> &buf) {
+  HS_CHECK(buf.is_linear(),
+           "sort_intervals_by_start: raw linear indexing requires head==0");
   auto *data = &buf[0];
   size_t n = buf.size();
   for (size_t i = 1; i < n; ++i) {
@@ -191,6 +193,8 @@ inline void
 merge_intervals(StaticCircularBuffer<std::pair<float, float>, N> &merged,
                 OutputIt out) {
   sort_intervals_by_start(merged);
+  HS_CHECK(merged.is_linear(),
+           "merge_intervals: raw linear indexing requires head==0");
   auto *data = &merged[0];
   size_t n = merged.size();
   float cur_start = data[0].first;
