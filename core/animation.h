@@ -2589,6 +2589,10 @@ public:
     //    completed ones. A pinned event spawned inside a callback would trap in
     //    move_into here; callback-spawners use pin=false, so this is safe.
     int new_vals_count = global_timeline_num_events - active_cnt;
+    // Each kept event advances write_idx by one, so it never outruns the events
+    // scanned: the source span [active_cnt, ...) and the gap-fill destination
+    // span [write_idx, ...) stay disjoint.
+    HS_CHECK(write_idx <= active_cnt);
     if (new_vals_count > 0 && write_idx < active_cnt) {
       for (int i = 0; i < new_vals_count; ++i) {
         global_timeline_events[active_cnt + i].move_into(
