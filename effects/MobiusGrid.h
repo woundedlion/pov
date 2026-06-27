@@ -57,7 +57,7 @@ public:
     registerAnimatedParam("Lines", &params.num_lines, 0.0f, 20.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
-    mobius_gen.spawn(0, 1.0f, 160, true);
+    mobius_gen.spawn_pinned(0, 1.0f, 160, true);
 
     timeline
         .add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 400,

@@ -103,7 +103,7 @@ public:
     noise_xform.template_params.sync();
 
     update_path();
-    noise_xform.spawn(0, -1);
+    noise_xform.spawn_pinned(0, -1);
 
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
