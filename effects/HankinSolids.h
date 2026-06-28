@@ -217,7 +217,9 @@ private:
   void start_morph_cycle() {
     constexpr int MORPH_FRAMES = 16;
     auto solids = Solids::Collections::get_simple_solids();
-    int next_idx = (solid_idx + 1) % solids.size();
+    const int n = static_cast<int>(solids.size());
+    // Random next solid, never the current one: offset in [1, n) keeps it distinct.
+    int next_idx = (solid_idx + 1 + hs::rand_int(0, n - 1)) % n;
 
     int old_front = carousel.front_index();
     int new_slot = 1 - old_front;
