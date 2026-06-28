@@ -1097,41 +1097,78 @@ struct Volume {
   }
 
   /**
-   * @brief Punches a coarse occlusion probe through an AA halo.
+   * @brief Result of probing behind an AA halo for an occluded surface.
+   */
+  struct Occluder {
+    bool solid;    /**< A solid surface sits behind the halo (behind is valid). */
+    Vector behind; /**< Its local-space hit point (only when solid). */
+    float soft;    /**< Coverage of a grazed background edge, for the corner fill. */
+  };
+
+  /**
+   * @brief Marches behind an AA-halo pixel to find any surface the foreground edge
+   *        occludes.
    * @param shape Volume shape providing distance().
    * @param closest_local Local-space closest approach (probe seed).
    * @param local_vd Unit ray direction in local space.
-   * @param bounds_radius Bounding sphere radius (probe travel limit + step floor).
+   * @param bounds_radius Bounding sphere radius (probe reach + step floor).
    * @param hit_threshold Solid-hit distance threshold.
-   * @param edge_alpha Current AA alpha; promoted to 1.0 on a confirmed hit.
-   * @return The resolved edge alpha.
+   * @param aa_width Anti-aliasing band half-width (soft-occlusion falloff scale).
+   * @return An Occluder: a solid hit point to antialias the edge over, or a soft
+   *         coverage for the corner where two edges meet.
    */
   template <typename Shape>
-  static __attribute__((always_inline)) float
-  resolve_halo(const Shape &shape, const Vector &closest_local,
-               const Vector &local_vd, float bounds_radius, float hit_threshold,
-               float edge_alpha) {
-    // Seed from the closest approach, not the march's terminal local_p (the loop
-    // can exit having stepped past the bounding sphere). Bounded to 4 iterations,
-    // step floored at bounds_radius * 0.15; a solid feature thinner than that
-    // coarse step can be straddled, leaving a faint false halo — an accepted
-    // cosmetic limit on this AA-border-only slow path.
+  static __attribute__((always_inline)) Occluder
+  probe_occluder(const Shape &shape, const Vector &closest_local,
+                 const Vector &local_vd, float bounds_radius, float hit_threshold,
+                 float aa_width) {
+    // Seed from the closest approach (not the march's terminal local_p — the loop
+    // can exit having stepped past the bounding sphere) and march forward for a
+    // surface this foreground halo occludes. A solid hit means the halo is a
+    // self-occlusion edge, not a true silhouette, so the caller antialiases it over
+    // that surface instead of fading it to black.
+    //
+    // closest_local sits near the FRONT of the volume, so a background feature can
+    // lie up to a full diameter (2*bounds_radius) deeper; the probe must reach that
+    // far or it falsely reports "no surface behind". The step is floored to punch
+    // past the foreground surface the main trace stalled on (a pure sphere trace
+    // would crawl its tangent halo): fine in the near field so a background just
+    // behind the foreground (two features first crossing) isn't jumped over, coarse
+    // beyond it so the budget still reaches a deep back face. Termination is the
+    // back face of the bounding sphere (matching trace_closest's early-out).
+    //
+    // With no solid hit, a background edge can still graze in the AA band at the
+    // corner where two edges meet (never pd < hit_threshold); detect it as a local
+    // minimum of pd (rise then fall, robust when the gap is too thin for pd to
+    // clear the band) and report its coverage for the corner fill.
     Vector probe = closest_local;
-    float probed = 0.0f;
-    for (int i = 0; i < 4; ++i) {
-      float pd = shape.distance(probe);
-      if (pd < hit_threshold) {
-        edge_alpha = 1.0f; // Punched through the halo, solid hit!
+    float prev = FLT_MAX;  // previous step's distance
+    bool climbing = false; // pd has risen off the foreground graze
+    float min_behind = FLT_MAX;
+    for (int i = 0; i < 24; ++i) {
+      // Stop at the back of the bounding sphere: nothing left to occlude this halo.
+      if (probe.x * local_vd.x + probe.y * local_vd.y + probe.z * local_vd.z >
+          bounds_radius)
         break;
-      }
-      float step = std::max(pd * 0.9f, bounds_radius * 0.15f);
+      float pd = shape.distance(probe);
+      if (pd < hit_threshold)
+        return {true, probe, 0.0f}; // solid surface behind the edge
+      if (pd > prev)
+        climbing = true; // moving away from the foreground graze
+      else if (climbing)
+        min_behind = std::min(min_behind, pd); // descending toward a surface behind
+      prev = pd;
+      float floor = bounds_radius * (i < 6 ? 0.04f : 0.12f);
+      float step = std::max(pd * 0.9f, floor);
       probe = Vector(probe.x + local_vd.x * step, probe.y + local_vd.y * step,
                      probe.z + local_vd.z * step);
-      probed += step;
-      if (probed > bounds_radius)
-        break;
     }
-    return edge_alpha;
+
+    float soft = (min_behind < aa_width)
+                     ? quintic_kernel(1.0f - (min_behind - hit_threshold) /
+                                                 (aa_width - hit_threshold))
+                     : 0.0f;
+    return {false, closest_local, soft};
   }
 
   /**
@@ -1256,14 +1293,31 @@ struct Volume {
             // FAST PATH: Solid hit. No probe needed.
             edge_alpha = 1.0f;
           } else {
-            // SLOW PATH: We are in the fuzzy AA border.
-            // Calculate standard AA alpha...
+            // SLOW PATH: fuzzy AA border. Standard one-sided AA coverage...
             edge_alpha = quintic_kernel(1.0f - (closest_d - hit_threshold) /
                                                    (aa_width - hit_threshold));
 
-            // ...and fire the occlusion probe to see if this is a false halo!
-            edge_alpha = resolve_halo(shape, closest_local, local_vd,
-                                      bounds_radius, hit_threshold, edge_alpha);
+            // ...then probe behind the halo for a surface this edge occludes.
+            Occluder occ = probe_occluder(shape, closest_local, local_vd,
+                                          bounds_radius, hit_threshold, aa_width);
+            if (occ.solid) {
+              // Self-occlusion edge: antialias the foreground over the surface it
+              // covers — lay the shaded background down, then blend the foreground
+              // over it by the edge coverage. Smooth, vs. fading to black (fringe)
+              // or snapping to opaque (jagged).
+              if (frag.color.alpha > 0.001f) {
+                Fragment bg;
+                bg.pos = occ.behind;
+                bg.size = 0.0f;
+                frag_fn(occ.behind, bg);
+                pipeline.plot(canvas, p, bg.color.color, 0.0f, bg.color.alpha);
+                pipeline.plot(canvas, p, frag.color.color, 0.0f,
+                              frag.color.alpha * edge_alpha);
+              }
+              return;
+            }
+            // No solid behind; a grazed background edge fills the corner ("over").
+            edge_alpha += (1.0f - edge_alpha) * occ.soft;
           }
 
           if (frag.color.alpha * edge_alpha > 0.001f) {
