@@ -34,6 +34,7 @@ public:
     float twist_factor = 0.35f; /**< Swirl strength applied per unit of rho spacing. */
     float speed = 2.5f;         /**< Unitless flow rate; scaled by RHO_PER_SPEED into per-frame motion. */
     float alpha = 0.2f;         /**< Global opacity multiplier. */
+    float density = 1.0f;       /**< Ring packing; live spacing is SPACING / density. */
   } params;
 
   /**
@@ -59,6 +60,7 @@ public:
     registerParam("Twist", &params.twist_factor, 0.0f, 5.0f);
     registerParam("Speed", &params.speed, 0.0f, 20.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    registerParam("Density", &params.density, 0.5f, 2.5f);
 
     for (int i = 0; i < MAX_RINGS; ++i) {
       rings[i].active = false;
@@ -89,7 +91,7 @@ private:
   static constexpr int MAX_RINGS = 64;        /**< Maximum number of concurrent rings. */
   static constexpr float START_RHO = -3.75f;  /**< Rho at which rings are spawned (path start). */
   static constexpr float END_RHO = 3.75f;     /**< Rho past which rings are retired (path end). */
-  static constexpr float SPACING = 0.3f;      /**< Inter-ring spacing in rho units. */
+  static constexpr float SPACING = 0.3f;      /**< Base inter-ring spacing in rho units, before the Density scaling. */
   /**
    * @brief Rho advanced per frame per unit of the Speed slider.
    * @details Converts the unitless Speed control to per-frame motion along the
@@ -160,7 +162,7 @@ private:
     // Pre-fill the path with evenly spaced rings so frame zero looks like a
     // running flow. Start one epsilon inside END_RHO so the oldest ring sits just
     // short of the retire boundary (draw_frame() culls rho > END_RHO).
-    for (float r = END_RHO - 0.01f; r > START_RHO; r -= SPACING) {
+    for (float r = END_RHO - 0.01f; r > START_RHO; r -= spacing()) {
       spawn_ring_at_pos(r);
     }
   }
@@ -172,6 +174,9 @@ private:
    */
   float move_dist() const { return params.speed * RHO_PER_SPEED; }
 
+  /** @brief Live inter-ring spacing: the base SPACING scaled by the Density slider. */
+  float spacing() const { return SPACING / params.density; }
+
   /**
    * @brief Accumulates this frame's travel and spawns rings as gap opens up.
    * @details Emits a ring each time a full SPACING of gap opens up at the start
@@ -179,13 +184,14 @@ private:
    */
   void check_spawn() {
     const float move = move_dist();
+    const float gap = spacing();
     gap_accumulator += move;
 
     // update_and_draw_rings() advances every ring by one move this same frame,
     // so spawn one move short to land each ring's first drawn position at
     // START_RHO + gap rather than START_RHO + gap + move.
-    while (gap_accumulator >= SPACING) {
-      gap_accumulator -= SPACING;
+    while (gap_accumulator >= gap) {
+      gap_accumulator -= gap;
       spawn_ring_at_pos(START_RHO + gap_accumulator - move);
     }
   }
@@ -256,7 +262,7 @@ private:
     Color4 base_col = palette.get(ring.hue).color;
     base_col.alpha = effective_opacity;
 
-    float twist_angle = (ring.rho / SPACING) * params.twist_factor;
+    float twist_angle = (ring.rho / spacing()) * params.twist_factor;
     const float exp_rho = expf(ring.rho);
 
     ScratchScope scratch_a_guard(scratch_arena_a);
