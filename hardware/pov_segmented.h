@@ -87,15 +87,23 @@ class POVSegmented {
       "Segment count must be even (equal split across two arms)");
   static_assert(S >= N,
       "Must have at least one pixel per segment");
-  static_assert((N & (N - 1)) == 0 && N <= 4,
-      "Segment ID is decoded from 2 GPIO pins as (raw & (N-1)); that requires "
-      "N to be a power of two and N <= 4 (2 ID bits)");
+  static_assert((N & (N - 1)) == 0 && N <= 8,
+      "Segment ID is decoded from up to 3 GPIO straps as (raw & (N-1)); that "
+      "requires N to be a power of two and N <= 8 (up to 3 ID bits, pins 21/22/23)");
 
   // ── Pin assignments ─────────────────────────────────────────────────
 
-  /** @brief GPIO pins for hardware ID (active-low with internal pull-up). */
+  /**
+   * @brief GPIO straps for hardware ID (active-low with internal pull-up).
+   * Up to three straps decode N <= 8 segments; the build reads kIdStraps =
+   * log2(N) of them. ID2 (pin 23) is reserved-but-unread at N <= 4.
+   */
   static constexpr int PIN_ID0 = 21;
   static constexpr int PIN_ID1 = 22;
+  static constexpr int PIN_ID2 = 23;
+
+  /** @brief Number of ID straps actually read = log2(N). */
+  static constexpr int kIdStraps = (N <= 2) ? 1 : (N <= 4) ? 2 : 3;
 
   /**
    * @brief Shared sync wire: master drives it OUTPUT (symbol bursts),
@@ -240,6 +248,11 @@ public:
       digitalWriteFast(PIN_FRAME_SYNC, LOW);
     } else {
       pinMode(PIN_FRAME_SYNC, INPUT);
+      // Schmitt-trigger the sync input. The on-board divider + C_SYNC RC slows the
+      // edge to reject BLDC/LED spikes; pad hysteresis then gives exactly one clean
+      // interrupt per edge instead of multiple threshold recrossings on the slow
+      // ramp. pinMode rewrites the pad-control register, so enable HYS afterward.
+      *(portControlRegister(PIN_FRAME_SYNC)) |= IOMUXC_PAD_HYS;
     }
 
     sync_.seed(ARM_DWT_CYCCNT, master);
@@ -348,13 +361,24 @@ private:
   // ── Hardware ID ─────────────────────────────────────────────────────
 
   /**
-   * @brief Reads the 2-bit hardware segment ID from GPIO pins.
+   * @brief Samples the raw ID straps (kIdStraps bits, LSB = ID0).
+   * @return Raw reading; floating (HIGH) bits set, grounded bits clear.
+   */
+  int sample_strap_() const {
+    int raw = digitalReadFast(PIN_ID0);
+    if constexpr (kIdStraps >= 2) raw |= digitalReadFast(PIN_ID1) << 1;
+    if constexpr (kIdStraps >= 3) raw |= digitalReadFast(PIN_ID2) << 2;
+    return raw;
+  }
+
+  /**
+   * @brief Reads the hardware segment ID from the GPIO straps (log2(N) bits).
    *
-   * Pins are configured as INPUT_PULLUP, so a floating pin reads HIGH and a
-   * grounded pin reads LOW. The raw 2-bit reading is inverted, so a grounded pin
-   * contributes a 1 and all-floating = ID 0 (master). ID0 must be a positively
-   * driven strap (a board grounding it, or a deliberate pull-up to elect master);
-   * a floating/cold ID0 inverts toward ID 0 and elects a phantom second master.
+   * Straps are INPUT_PULLUP, so a floating strap reads HIGH and a grounded one
+   * reads LOW. The raw reading is inverted, so a grounded strap contributes a 1
+   * and all-floating = ID 0 (master). ID0 must be a positively driven strap (a
+   * board grounding it, or a deliberate pull-up to elect master); a floating/cold
+   * ID0 inverts toward ID 0 and elects a phantom second master.
    *
    * A floating or cold-soldered strap reads HIGH, which inverts toward ID 0 —
    * silently promoting the board to a second master and driving the shared
@@ -369,20 +393,21 @@ private:
    */
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
-    pinMode(PIN_ID1, INPUT_PULLUP);
+    if constexpr (kIdStraps >= 2) pinMode(PIN_ID1, INPUT_PULLUP);
+    if constexpr (kIdStraps >= 3) pinMode(PIN_ID2, INPUT_PULLUP);
     delay(10);  // settle time for pull-ups
 
     // Debounce: three samples ~5 ms apart must agree; an unstable strap reads as
     // a second master and drives the push-pull sync wire into bus contention.
-    const int raw0 = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
+    const int raw0 = sample_strap_();
     for (int i = 0; i < 2; ++i) {
       delay(5);
-      const int rawN = digitalReadFast(PIN_ID0) | (digitalReadFast(PIN_ID1) << 1);
-      HS_CHECK(rawN == raw0, "unstable segment-ID strap (field/manufacturing fault)");
+      HS_CHECK(sample_strap_() == raw0,
+               "unstable segment-ID strap (field/manufacturing fault)");
     }
 
-    // Invert the 2-bit reading (all-floating pull-ups => ID 0), then mask the
-    // inverted high bits; the mask is load-bearing.
+    // Invert the reading (all-floating pull-ups => ID 0), then mask to log2(N)
+    // bits; the mask is load-bearing.
     segment_id_ = (~raw0) & (N - 1);
   }
 
@@ -624,7 +649,7 @@ private:
   static bool dark_latched_;               /**< True once the black frame has latched; ISR-owned. */
   static bool sync_low_pending_;           /**< ISR-owned: dark-path pulse drop deferred to next wake. */
 
-  static int segment_id_;                  /**< Decoded 2-bit hardware segment ID.       */
+  static int segment_id_;                  /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
   static bool arm_b_;                      /**< True if this segment lives on arm B (x + W/2). */
   static int y_base_;                      /**< Canvas row of this segment's LED 0.      */
   static int y_step_;                      /**< Row stride per LED: +1 (top) or -1 (bottom, reversed). */
