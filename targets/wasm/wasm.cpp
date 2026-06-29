@@ -439,9 +439,16 @@ public:
     }
 
     // Both readback paths assume the effect's domain is <pixel_width,
-    // pixel_height>, true because it is instantiated at this resolution.
-    HS_CHECK(currentEffect->width() == pixel_width &&
-             currentEffect->height() == pixel_height);
+    // pixel_height>, true because it is instantiated at this resolution. A
+    // divergence is an internal invariant violation; blank the frame and return
+    // rather than aborting the whole module, matching this file's reject-and-
+    // return policy at every other boundary.
+    if (currentEffect->width() != pixel_width ||
+        currentEffect->height() != pixel_height) {
+      const int count = pixel_width * pixel_height * kChannels;
+      std::fill_n(pixelBuffer.data(), count, uint16_t{0});
+      return;
+    }
 
     currentEffect->render_us = 0.0;
     currentEffect->draw_frame();
