@@ -2337,6 +2337,9 @@ struct SplineChain {
               last_pos = pos;
               first_point = false;
 
+              // Inherited registers (v3/color/age) lerp per-span between the two
+              // bracketing control points and reset at each one; only v0/v1/v2
+              // below carry chain-global meaning.
               Fragment f = Fragment::lerp(control_points[i1],
                                           control_points[i2], local_t);
               f.pos = pos;
