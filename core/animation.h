@@ -2140,7 +2140,6 @@ struct RippleParams {
   Vector center;          /**< Center point of the ripple source. */
   float amplitude = 0.0f; /**< Current height of the wave. */
   float phase = 0.0f;     /**< Current phase offset (time). */
-  float frequency{20.0}; /**< Spatial frequency of the wave. */
   float decay{5.0};      /**< Spatial decay rate. */
   float thickness{1.0f}; /**< Thickness of the ripple. */
 

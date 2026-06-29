@@ -111,7 +111,7 @@ and are flagged as such.
 
 12. ✅ **[correctness] `core/scan.h:314-315` — `BoundingSphere` half-width cap at `W/2` leaves a hemisphere-or-larger cap one column short for odd `W`.** `2*x_half ≤ W−1` when `W` is odd, so a full-coverage row paints `W−1` columns. Latent: Phantasm's `W=288` is even. *Fix:* let the clamp reach full width for odd `W` (e.g. `(W+1)/2` on one side) or rely on the `cos_dtheta≤−1` full-row branch.
 
-13. **[maintainability] `core/animation.h:2143` — `RippleParams::frequency` is a dead field never read by any transform.** `ripple_transform()` derives the wavelet from amplitude/phase/thickness/decay/center only; the field misleads readers into thinking spatial frequency is tunable. *Fix:* remove it (and its doc), or wire it into `ripple_transform`/`prepare_thresholds`.
+13. ✅ **[maintainability] `core/animation.h:2143` — `RippleParams::frequency` is a dead field never read by any transform.** `ripple_transform()` derives the wavelet from amplitude/phase/thickness/decay/center only; the field misleads readers into thinking spatial frequency is tunable. *Fix:* remove it (and its doc), or wire it into `ripple_transform`/`prepare_thresholds`.
 
 14. **[interface-design] `core/animation.h:1043-1076` — `Driver::set_speed` is silently overwritten every frame when a live `speed_src_` is bound.** `step()` re-reads `*speed_src_ * scale_`, clobbering a manual `set_speed` with no diagnostic; `get_speed()` reports the source value. *Fix:* `HS_CHECK(!speed_src_)` inside `set_speed`, or have it clear `speed_src_` to switch to manual mode; document the chosen semantics.
 
