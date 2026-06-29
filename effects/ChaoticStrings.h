@@ -132,15 +132,11 @@ public:
     ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
     timeline.step(canvas);
 
-    // Push live slider values into the noise entities (they bind to `params`,
-    // not the entities); prepare_frame() re-syncs each active entity afterward.
-    for (auto &e : noise_xform.entities) {
-      if (e.active) {
-        e.params.frequency = params.noiseFreq;
-        e.params.amplitude = params.jitterAmp;
-        e.params.speed = params.speed;
-      }
-    }
+    // Push live slider values onto the noise template; prepare_frame() copies
+    // them into each active entity (refresh_from) and re-syncs the generator.
+    noise_xform.template_params.frequency = params.noiseFreq;
+    noise_xform.template_params.amplitude = params.jitterAmp;
+    noise_xform.template_params.speed = params.speed;
     noise_xform.prepare_frame();
 
     apply_if_changed(params.cycle_duration, last_cycle_duration_, [&](float cd) {

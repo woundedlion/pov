@@ -200,8 +200,9 @@ public:
    * @brief Prepares per-frame cached state for all active entities.
    * @details ORDERING CONTRACT: call once per frame, before transform(), in any
    * frame where an active entity's params were *live-updated* since they were
-   * last prepared (e.g. a GUI slider moved this frame). It refreshes each active
-   * entity's derived state (RippleParams::prepare_thresholds /
+   * last prepared (e.g. a GUI slider moved this frame). It re-reads live config
+   * from template_params (NoiseParams::refresh_from, when provided) and refreshes
+   * each active entity's derived state (RippleParams::prepare_thresholds /
    * NoiseParams::sync). transform() reads that state but cannot verify it is
    * current: the dependency is value-dependent (did the params change?), not
    * structural, so it is a caller contract, not a compile-time/assert invariant.
@@ -213,6 +214,12 @@ public:
   void prepare_frame() {
     for (int k = 0; k < active_count_; ++k) {
       Entity &e = entities[active_slots_[k]];
+      // Pull live-tunable config from template_params into the spawned entity:
+      // slider edits land on template_params, not the spawn-time copy. Runs
+      // before sync() so the refreshed frequency reaches the generator.
+      if constexpr (requires { e.params.refresh_from(template_params); }) {
+        e.params.refresh_from(template_params);
+      }
       if constexpr (requires { e.params.prepare_thresholds(); }) {
         e.params.prepare_thresholds();
       }

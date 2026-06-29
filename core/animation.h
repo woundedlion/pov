@@ -2251,6 +2251,21 @@ struct NoiseParams {
    * @brief Syncs the generator's frequency with the `frequency` field.
    */
   void sync() const { noise.SetFrequency(frequency); }
+
+  /**
+   * @brief Refreshes live-tunable config from a template snapshot.
+   * @param t Template params carrying the current slider values.
+   * @details Copies the slider-driven fields (amplitude, speed, frequency,
+   * scale) but not the animation-advanced `time` axis or the backing generator,
+   * so a live edit reaches an already-spawned entity without resetting its
+   * phase. prepare_frame() invokes this before sync().
+   */
+  void refresh_from(const NoiseParams &t) {
+    amplitude = t.amplitude;
+    speed = t.speed;
+    frequency = t.frequency;
+    scale = t.scale;
+  }
 };
 
 /**
