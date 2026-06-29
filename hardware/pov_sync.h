@@ -1012,9 +1012,9 @@ public:
    */
   bool tick(uint32_t now, const Config &cfg, bool *aborted) {
     *aborted = false;
-    if (pulses_left_ == 0 && queue_pos_ >= queue_len_ && queue_len_ != 0)
+    if (pulses_left_ == 0 && !queue_pending() && queue_len_ != 0)
       queue_len_ = queue_pos_ = 0; // beacon frame drained: emitter idle again
-    if (pulses_left_ == 0 && queue_pos_ < queue_len_) {
+    if (pulses_left_ == 0 && queue_pending()) {
       const PendingBurst &b = queue_[queue_pos_];
       if (static_cast<int32_t>(now - b.start_cycles) >= 0) {
         pulses_left_ = b.pulses;
@@ -1044,9 +1044,12 @@ public:
    * @brief Whether the emitter has nothing queued or in flight.
    * @return True if no pulses or beacon bursts remain.
    */
-  bool idle() const { return pulses_left_ == 0 && queue_pos_ >= queue_len_; }
+  bool idle() const { return pulses_left_ == 0 && !queue_pending(); }
 
 private:
+  /** @brief Whether a queued beacon burst is still waiting to be emitted. */
+  bool queue_pending() const { return queue_pos_ < queue_len_; }
+
   /**
    * @brief A queued beacon-digit burst awaiting its start time.
    */

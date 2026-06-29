@@ -585,8 +585,10 @@ inline int random(int min, int max) {
  * @details Arduino's map() divides by (in_max - in_min) with no guard. A
  *          degenerate input range raises SIGFPE on the host (x86 integer
  *          div-by-zero) while the Cortex-M7 device returns 0 from the divide
- *          (SDIV-by-zero traps are off), so map() there yields out_min. Match
- *          the device rather than crashing only in the simulator.
+ *          (SDIV-by-zero traps are off — relies on CCR.DIV_0_TRP staying at its
+ *          clear reset default, which the firmware never sets), so map() there
+ *          yields out_min. Match the device rather than crashing only in the
+ *          simulator.
  */
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
   if (in_max == in_min) return out_min;
@@ -861,9 +863,10 @@ inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
  * @return (a + b) mod m, or (a + b) when m == 0.
  * @details A zero modulus SIGFPEs on the host (x86 integer div-by-zero) while
  *          the Cortex-M7 device returns the unreduced sum: UDIV-by-zero yields a
- *          0 quotient (traps off), so the remainder reduces to (a + b). Match the
- *          device rather than crashing only in the simulator, mirroring the
- *          m == 0 guards in map()/random8().
+ *          0 quotient (traps off; same CCR.DIV_0_TRP reset-default dependence as
+ *          map()), so the remainder reduces to (a + b). Match the device rather
+ *          than crashing only in the simulator, mirroring the m == 0 guards in
+ *          map()/random8().
  */
 inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) {
   if (m == 0) return static_cast<uint8_t>(a + b);
