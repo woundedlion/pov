@@ -341,6 +341,160 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   HS_EXPECT_EQ(fill_lit, total);
 }
 
+// ============================================================================
+// Generic oracles over an arbitrary closed convex solid — exercise the
+// wireframe edge-arc and solid-fill tiling paths beyond the octahedron, on
+// quad faces (cube), pentagon faces (dodecahedron), and a large mixed-face
+// Goldberg mesh (truncated icosahedron: 60 V, 90 E, 32 mixed pentagon/hexagon
+// faces). Mixed-face face-walk, larger edge dedup, and the per-face bounding
+// cull at higher face counts are pixel-unverified on the octahedron alone.
+// ============================================================================
+
+/**
+ * @brief Asserts every lit wireframe pixel lies on some edge arc, for any mesh.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param mesh Closed mesh whose edges are extracted and drawn.
+ * @param geom Arena backing the extracted edge list.
+ * @details Mirrors test_wireframe_pixels_lie_on_edges' oracle: each lit pixel's
+ *          world direction must fall within a few rows of latitude of the
+ *          nearest analytic great-circle edge arc.
+ */
+template <int W, int H>
+inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
+                                            size_t edge_cap) {
+  configure_arenas_default();
+  ArenaVector<Plot::Mesh::Edge> edges;
+  edges.bind(geom, edge_cap);
+  Plot::Mesh::extract_edges(mesh, edges);
+
+  MeshFx fx(W, H);
+  {
+    Canvas c(fx);
+    Pipeline<W, H> pipe;
+    Plot::Mesh::draw<W, H>(pipe, c, mesh, white);
+  }
+  fx.advance_display();
+
+  const float tol = 4.0f * (PI_F / H);
+  size_t lit = 0, off_arc = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      if (is_black(fx.get_pixel(x, y)))
+        continue;
+      ++lit;
+      Vector v = pixel_to_vector<W, H>(x, y);
+      float best = PI_F;
+      for (size_t e = 0; e < edges.size(); ++e) {
+        float d = arc_distance(v, mesh.vertices[edges[e].u],
+                               mesh.vertices[edges[e].v]);
+        if (d < best)
+          best = d;
+      }
+      if (best > tol)
+        ++off_arc;
+    }
+  HS_EXPECT_GT(lit, (size_t)0);
+  HS_EXPECT_EQ(off_arc, (size_t)0);
+}
+
+/**
+ * @brief Asserts a closed convex solid's solid fill lights every face centroid
+ *        and tiles the whole sphere with no holes, for any mesh.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param poly Closed convex mesh to compile and fill.
+ * @param geom Arena backing the compiled MeshState.
+ * @param scratch Arena for the solid scan path.
+ */
+template <int W, int H>
+inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom, Arena &scratch) {
+  configure_arenas_default();
+  MeshState mesh;
+  MeshOps::compile(poly, mesh, geom);
+
+  MeshFx fx(W, H);
+  {
+    Canvas c(fx);
+    Pipeline<W, H> pipe;
+    Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch);
+  }
+  fx.advance_display();
+
+  const uint8_t *fc = mesh.get_face_counts_data();
+  const uint16_t *fi = mesh.get_faces_data();
+  const uint16_t *fo = mesh.get_face_offsets_data();
+  const size_t num_f = mesh.get_face_counts_size();
+  for (size_t f = 0; f < num_f; ++f) {
+    Vector centroid(0, 0, 0);
+    for (int k = 0; k < fc[f]; ++k)
+      centroid = centroid + mesh.vertices[fi[fo[f] + k]];
+    centroid = centroid.normalized();
+    PixelCoords p = vector_to_pixel<W, H>(centroid);
+    HS_EXPECT_TRUE((lit_near<W, H>(fx, p.x, p.y, 2)));
+  }
+
+  const size_t total = static_cast<size_t>(W) * H;
+  const size_t fill_lit = count_lit<W, H>(fx);
+  HS_EXPECT_EQ(fill_lit, total);
+}
+
+/**
+ * @brief Wireframe + solid-fill oracles on the cube (quad faces).
+ */
+inline void test_cube_wireframe_and_fill() {
+  constexpr int W = 288, H = 144;
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+  Arena scratch(mr_scratch, sizeof(mr_scratch));
+
+  PolyMesh cube = Solids::Platonic::cube(seed_a, seed_b);
+  check_wireframe_pixels_on_edges<W, H>(cube, geom, 64);
+  Arena geom2(mr_geom, sizeof(mr_geom)); // fresh: edge list above is dead now
+  check_solid_fill_tiles<W, H>(cube, geom2, scratch);
+}
+
+/**
+ * @brief Wireframe + solid-fill oracles on the dodecahedron (pentagon faces).
+ */
+inline void test_dodecahedron_wireframe_and_fill() {
+  constexpr int W = 288, H = 144;
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+  Arena scratch(mr_scratch, sizeof(mr_scratch));
+
+  PolyMesh dodec = Solids::Platonic::dodecahedron(seed_a, seed_b);
+  check_wireframe_pixels_on_edges<W, H>(dodec, geom, 64);
+  Arena geom2(mr_geom, sizeof(mr_geom));
+  check_solid_fill_tiles<W, H>(dodec, geom2, scratch);
+}
+
+/**
+ * @brief Wireframe + solid-fill oracles on a large mixed-face Goldberg mesh.
+ * @details The truncated icosahedron (60 V, 90 E, 32 mixed pentagon/hexagon
+ *          faces) is the effect-payload scale the rasterizer-bound hot path
+ *          actually runs, with non-triangular mixed faces the octahedron lacks.
+ */
+inline void test_truncated_icosahedron_wireframe_and_fill() {
+  constexpr int W = 288, H = 144;
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+  Arena scratch(mr_scratch, sizeof(mr_scratch));
+
+  PolyMesh goldberg = Solids::Archimedean::truncatedIcosahedron(seed_a, seed_b);
+  check_wireframe_pixels_on_edges<W, H>(goldberg, geom, 128); // 90 edges
+  Arena seed_a2(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b2(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom2(mr_geom, sizeof(mr_geom));
+  // Rebuild: the SolidBuilder above consumed seed_a/seed_b as its op pipeline.
+  PolyMesh goldberg2 =
+      Solids::Archimedean::truncatedIcosahedron(seed_a2, seed_b2);
+  check_solid_fill_tiles<W, H>(goldberg2, geom2, scratch);
+}
+
 /**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
@@ -351,6 +505,9 @@ inline int run_mesh_raster_tests() {
   test_wireframe_draws_every_edge();
   test_wireframe_pixels_lie_on_edges();
   test_solid_fill_covers_faces_and_tiles_sphere();
+  test_cube_wireframe_and_fill();
+  test_dodecahedron_wireframe_and_fill();
+  test_truncated_icosahedron_wireframe_and_fill();
 
   return fixture.result();
 }
