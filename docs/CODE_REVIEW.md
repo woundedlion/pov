@@ -153,7 +153,7 @@ sequentially across all priority sections.
    - Evidence: §7.2 states step size "is scaled by `sqrt(1 - y²)` — the sine of the polar angle." The live rasterizer instead sizes each sub-step from the full 2-D screen speed `sqrt(vx²+vy²)` (both `dlon_ds` and `dphi_ds`); the code comment explicitly contrasts with "the old sin(φ) longitudinal-only proxy." Per the repo's describe-current-state-only convention, the README is stale.
    - Fix: reword §7.2 to describe the screen-velocity sampler (each sub-step ~1 px apart in screen space, with a pole-oversampling floor). No code change.
 
-8. **`Animation::RandomWalk` has no direct test of its on-sphere invariants.**
+8. ✅ **`Animation::RandomWalk` has no direct test of its on-sphere invariants.**
    - File: `tests/` (gap); `core/animation.h:1621`
    - Severity: Low · Dimension: Test coverage · Confidence: High
    - Evidence: `RandomWalk<W,CAP>` has deterministically-testable pure logic (smoothed angular-velocity integrator, on-sphere unit-length walk, degenerate-axis `normalized_or` fallback at `:1715`) but is exercised only inside the ~19 effects that use it. The unit-length invariant and the fallback branch are RNG-independent under a fixed seed.
