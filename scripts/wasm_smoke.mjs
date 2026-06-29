@@ -5,7 +5,7 @@
 // mismatch, a stack overflow (STACK_SIZE is a tight 8 KB), or an
 // ALLOW_MEMORY_GROWTH detachment regression would pass CI and deploy. This
 // script imports the built module exactly as a browser would, drives the engine
-// across every registered effect at both supported resolutions, and asserts the
+// across every registered effect at every enumerated resolution, and asserts the
 // arena/stack high-water marks stay within their capacities — turning a runtime
 // regression into a red build instead of a broken deploy.
 //

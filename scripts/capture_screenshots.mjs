@@ -13,11 +13,20 @@
 // http.server port); WAIT_MS overrides the per-effect animation settle time.
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { loadEffectRoster } from './effect_roster.mjs';
 
+// A malformed env value (parseInt/parseFloat -> NaN) silently disables the
+// timing it controls (NaN comparisons are always false), so fall back to the
+// default on anything non-finite.
+function numEnv(name, def) {
+  const v = Number(process.env[name]);
+  return Number.isFinite(v) ? v : def;
+}
+
 const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
-const OUT_DIR = 'docs/screenshots';
-const WAIT_MS = parseInt(process.env.WAIT_MS || '30000', 10);
+const OUT_DIR = join('docs', 'screenshots');
+const WAIT_MS = numEnv('WAIT_MS', 30000);
 // A single toDataURL grab samples one instant, so for sparse/strobing effects
 // (e.g. RingShower) it can land on an empty frame and ship an all-black
 // thumbnail. After the initial settle, grab up to MAX_ATTEMPTS frames spaced
@@ -27,10 +36,10 @@ const WAIT_MS = parseInt(process.env.WAIT_MS || '30000', 10);
 // wins). BLANK_FLOOR is the coverage below which a frame is treated as blank
 // for the still-empty warning, not a save gate — the busiest frame is saved
 // regardless so a failed effect never overwrites its prior PNG with nothing.
-const MAX_ATTEMPTS = parseInt(process.env.MAX_ATTEMPTS || '6', 10);
-const RETRY_WAIT_MS = parseInt(process.env.RETRY_WAIT_MS || '4000', 10);
-const MIN_LIT = parseFloat(process.env.MIN_LIT || '0.004');
-const BLANK_FLOOR = parseFloat(process.env.BLANK_FLOOR || '0.0005');
+const MAX_ATTEMPTS = numEnv('MAX_ATTEMPTS', 6);
+const RETRY_WAIT_MS = numEnv('RETRY_WAIT_MS', 4000);
+const MIN_LIT = numEnv('MIN_LIT', 0.004);
+const BLANK_FLOOR = numEnv('BLANK_FLOOR', 0.0005);
 
 // The effect roster (and the docs/screenshots freshness gate that mirrors it)
 // is parsed from the HS_EFFECT_LIST X-macro by scripts/effect_roster.mjs.
@@ -38,17 +47,28 @@ const EFFECTS = await loadEffectRoster();
 
 await mkdir(OUT_DIR, { recursive: true });
 
-const browser = await chromium.launch({
-  headless: true,
-  args: [
-    '--enable-webgl',
-    '--use-gl=angle',
-    '--use-angle=swiftshader',
-    '--enable-unsafe-swiftshader',
-    '--ignore-gpu-blocklist',
-    '--enable-accelerated-2d-canvas',
-  ],
-});
+// A launch failure (browser not installed) would otherwise throw a raw stack
+// past the script's banner summaries; report it through the same actionable path.
+let browser;
+try {
+  browser = await chromium.launch({
+    headless: true,
+    args: [
+      '--enable-webgl',
+      '--use-gl=angle',
+      '--use-angle=swiftshader',
+      '--enable-unsafe-swiftshader',
+      '--ignore-gpu-blocklist',
+      '--enable-accelerated-2d-canvas',
+    ],
+  });
+} catch (e) {
+  console.warn('========================================================');
+  console.warn(`capture_screenshots: ERROR — could not launch Chromium (${e.message}).`);
+  console.warn('Install the browser once with:  npx playwright install chromium');
+  console.warn('========================================================');
+  process.exit(1);
+}
 const ctx = await browser.newContext({
   ignoreHTTPSErrors: true,
   viewport: { width: 1600, height: 1200 },
@@ -192,7 +212,7 @@ for (const effect of targets) {
 
     const b64 = best.split(',', 2)[1];
     const buf = Buffer.from(b64, 'base64');
-    const out = `${OUT_DIR}/${effect}.png`;
+    const out = join(OUT_DIR, `${effect}.png`);
     await writeFile(out, buf);
     const pct = (bestLit * 100).toFixed(2);
     if (bestLit < BLANK_FLOOR) blanks.push(effect);
