@@ -850,12 +850,12 @@ struct MeshOpsWrapper {
   val getFaces() const {
     check_live();
     val faces_arr = val::array();
-    int flat_idx = 0;
+    size_t flat_idx = 0;
     for (size_t i = 0; i < mesh.face_counts.size(); ++i) {
       val face = val::array();
-      int count = mesh.face_counts[i];
-      for (int c = 0; c < count; ++c) {
-        HS_CHECK(static_cast<size_t>(flat_idx) < mesh.faces.size());
+      size_t count = mesh.face_counts[i];
+      for (size_t c = 0; c < count; ++c) {
+        HS_CHECK(flat_idx < mesh.faces.size());
         face.call<void>("push", mesh.faces[flat_idx++]);
       }
       faces_arr.set(i, face);
