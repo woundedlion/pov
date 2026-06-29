@@ -1393,6 +1393,226 @@ inline void test_meshmorph_identity_self_map_and_crossfade() {
   HS_EXPECT_TRUE(morph.done());
 }
 
+// ============================================================================
+// ColorWipe
+// ----------------------------------------------------------------------------
+// Snapshots the source palette's keys on the first step (mirroring Transition),
+// then OKLCH-lerps them toward the target snapshot. The three RNG-free key
+// constructors keep these palettes deterministic.
+// ============================================================================
+
+/**
+ * @brief Builds a fixed three-key palette with no RNG draws.
+ * @param ka First key color.
+ * @param kb Second key color.
+ * @param kc Third key color.
+ * @return A STRAIGHT-gradient palette over the supplied keys.
+ */
+inline GenerativePalette make_palette(CPixel ka, CPixel kb, CPixel kc) {
+  return GenerativePalette(GradientShape::STRAIGHT, ka, kb, kc);
+}
+
+/**
+ * @brief Verifies ColorWipe lands the source palette's keys exactly on the
+ * target keys at completion and reports done() only on the final frame.
+ */
+inline void test_colorwipe_reaches_target_keys() {
+  GenerativePalette from = make_palette(CPixel(10, 20, 30), CPixel(40, 50, 60),
+                                        CPixel(70, 80, 90));
+  GenerativePalette to = make_palette(CPixel(200, 0, 0), CPixel(0, 200, 0),
+                                      CPixel(0, 0, 200));
+  GenerativePalette::Snapshot target = to.snapshot();
+
+  const int duration = 6;
+  Animation::ColorWipe wipe(from, to, duration, ease_linear);
+  HS_EXPECT_FALSE(wipe.done());
+
+  for (int i = 0; i < duration - 1; ++i)
+    wipe.step(fake_canvas());
+  HS_EXPECT_FALSE(wipe.done()); // not done until t == duration
+
+  wipe.step(fake_canvas()); // t == duration: amount == 1 -> exact target keys
+  HS_EXPECT_TRUE(wipe.done());
+  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.r), static_cast<int>(target.a.r));
+  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.g), static_cast<int>(target.a.g));
+  HS_EXPECT_EQ(static_cast<int>(from.snapshot().b.b), static_cast<int>(target.b.b));
+  HS_EXPECT_EQ(static_cast<int>(from.snapshot().c.r), static_cast<int>(target.c.r));
+}
+
+/**
+ * @brief Verifies the start keys are snapshotted on the first step, not at
+ * construction: editing the source palette before the first step is honored.
+ */
+inline void test_colorwipe_snapshots_on_first_step() {
+  GenerativePalette from = make_palette(CPixel(10, 10, 10), CPixel(10, 10, 10),
+                                        CPixel(10, 10, 10));
+  GenerativePalette to = make_palette(CPixel(250, 250, 250), CPixel(250, 250, 250),
+                                      CPixel(250, 250, 250));
+  const int duration = 4;
+  Animation::ColorWipe wipe(from, to, duration, ease_linear);
+
+  // Edit the source after construction but before the first step: the snapshot
+  // taken on the first step must capture THIS value, so the midpoint sits
+  // between 200 and 250, not between 10 and 250.
+  from = make_palette(CPixel(200, 200, 200), CPixel(200, 200, 200),
+                      CPixel(200, 200, 200));
+
+  wipe.step(fake_canvas()); // t=1: amount 0.25, snapshot captured here
+  HS_EXPECT_GT(static_cast<int>(from.snapshot().a.r), 200);
+}
+
+// ============================================================================
+// Mobius warps (b-coefficient drivers)
+// ----------------------------------------------------------------------------
+// Each warp eases a normalized progress to an angle and writes Mobius param b.
+// At completion (progress == 1) angle == 2π, giving exact closed-form b values.
+// ============================================================================
+
+/**
+ * @brief Verifies MobiusWarp eases param b around the unit circle, closing to
+ * b == 0 at completion and reporting done() only on the final frame.
+ */
+inline void test_mobiuswarp_closes_at_completion() {
+  MobiusParams params;
+  const float scale = 0.4f;
+  const int duration = 8;
+  Animation::MobiusWarp warp(params, scale, duration, /*repeat=*/false,
+                             ease_linear);
+  HS_EXPECT_FALSE(warp.done());
+
+  warp.step(fake_canvas()); // t=1: b lifts off the origin
+  HS_EXPECT_GT(std::abs(params.b.re) + std::abs(params.b.im), 1e-4f);
+
+  for (int i = 1; i < duration - 1; ++i)
+    warp.step(fake_canvas());
+  HS_EXPECT_FALSE(warp.done());
+
+  warp.step(fake_canvas()); // t=duration: angle 2π -> b back to 0
+  HS_EXPECT_TRUE(warp.done());
+  HS_EXPECT_NEAR(params.b.re, 0.0f, 1e-4f);
+  HS_EXPECT_NEAR(params.b.im, 0.0f, 1e-4f);
+}
+
+/**
+ * @brief Verifies bind_scale makes step() read the live referent instead of the
+ * captured construction-time scale.
+ */
+inline void test_mobiuswarp_bind_scale_reads_live() {
+  MobiusParams params;
+  float live = 1.0f;
+  const int duration = 4;
+  Animation::MobiusWarp warp(params, /*scale=*/0.0f, duration, /*repeat=*/false,
+                             ease_linear);
+  warp.bind_scale(live);
+  warp.step(fake_canvas()); // captured scale is 0, so any motion comes from live
+  HS_EXPECT_GT(std::abs(params.b.re) + std::abs(params.b.im), 1e-4f);
+}
+
+/**
+ * @brief Verifies MobiusWarpCircular traces param b on the |b| == scale circle,
+ * landing at (scale, 0) at completion and reporting the done() boundary.
+ */
+inline void test_mobiuswarp_circular_traces_radius() {
+  MobiusParams params;
+  const float scale = 0.3f;
+  const int duration = 8;
+  Animation::MobiusWarpCircular warp(params, scale, duration, /*repeat=*/false,
+                                     ease_linear);
+  warp.step(fake_canvas()); // |b| sits on the scale-radius circle every frame
+  HS_EXPECT_NEAR(std::sqrt(params.b.re * params.b.re + params.b.im * params.b.im),
+                 scale, 1e-4f);
+
+  for (int i = 1; i < duration; ++i)
+    warp.step(fake_canvas());
+  HS_EXPECT_TRUE(warp.done());
+  // angle 2π: b.re == scale, b.im == 0.
+  HS_EXPECT_NEAR(params.b.re, scale, 1e-4f);
+  HS_EXPECT_NEAR(params.b.im, 0.0f, 1e-4f);
+}
+
+/**
+ * @brief Verifies MobiusWarpEvolving modulates all eight coefficients within
+ * ±scale of their captured baseline and, being perpetual, never reports done().
+ */
+inline void test_mobiuswarp_evolving_bounded_and_perpetual() {
+  hs::random().seed(1337);
+  MobiusParams params(2.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 3.0f, 0.0f);
+  const float scale = 0.5f;
+  Animation::MobiusWarpEvolving warp(params, scale, /*speed=*/0.05f);
+  HS_EXPECT_FALSE(warp.done());
+
+  const MobiusParams base = params;
+  for (int i = 0; i < 50; ++i) {
+    warp.step(fake_canvas());
+    HS_EXPECT_FALSE(warp.done()); // perpetual: duration -1
+    const float bound = scale + 1e-4f;
+    HS_EXPECT_LE(std::abs(params.a.re - base.a.re), bound);
+    HS_EXPECT_LE(std::abs(params.b.im - base.b.im), bound);
+    HS_EXPECT_LE(std::abs(params.d.re - base.d.re), bound);
+    HS_EXPECT_TRUE(std::isfinite(params.c.im));
+  }
+}
+
+// ============================================================================
+// Ripple / Noise (the Animation:: classes, distinct from the pure transforms)
+// ============================================================================
+
+/**
+ * @brief Verifies a Ripple seeds its center, ramps amplitude up then down across
+ * its life, pins amplitude to 0 at the duration boundary, and reports done()
+ * only on the final frame.
+ */
+inline void test_ripple_envelope_and_done_boundary() {
+  RippleParams params;
+  params.amplitude = 2.0f; // peak captured at construction
+  const Vector center(0.0f, 1.0f, 0.0f);
+  const int duration = 20;
+  Animation::Ripple ripple(params, center, /*speed=*/0.2f, duration);
+
+  // Construction zeroes the live amplitude and seats the center.
+  HS_EXPECT_NEAR(params.amplitude, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(params.center.y, 1.0f, 1e-6f);
+
+  std::vector<float> amps;
+  float prev_phase = params.phase;
+  bool phase_advances = true;
+  for (int i = 0; i < duration; ++i) {
+    ripple.step(fake_canvas());
+    amps.push_back(params.amplitude);
+    if (i < duration - 1 && params.phase <= prev_phase)
+      phase_advances = false;
+    prev_phase = params.phase;
+    if (i < duration - 1)
+      HS_EXPECT_FALSE(ripple.done());
+  }
+  HS_EXPECT_TRUE(ripple.done()); // t == duration
+
+  HS_EXPECT_TRUE(phase_advances);
+  // Envelope rises off zero then decays back to zero on the final frame.
+  float peak = 0.0f;
+  for (float a : amps)
+    peak = std::max(peak, a);
+  HS_EXPECT_GT(peak, 0.0f);
+  HS_EXPECT_NEAR(amps.back(), 0.0f, 1e-6f);
+}
+
+/**
+ * @brief Verifies the Noise animation publishes its frame counter as
+ * params.time each step and, being perpetual, never reports done().
+ */
+inline void test_noise_publishes_time_and_is_perpetual() {
+  NoiseParams params;
+  Animation::Noise noise(params); // default duration -1
+  HS_EXPECT_FALSE(noise.done());
+  HS_EXPECT_NEAR(params.time, 0.0f, 1e-6f);
+
+  for (int i = 1; i <= 5; ++i) {
+    noise.step(fake_canvas());
+    HS_EXPECT_NEAR(params.time, static_cast<float>(i), 1e-6f);
+    HS_EXPECT_FALSE(noise.done());
+  }
+}
+
 /**
  * @brief Runs every animation/easing test case in this module.
  * @return The module's failure count.
@@ -1460,6 +1680,17 @@ inline int run_animation_tests() {
   test_tween_vectortrail_single_sample_reaches_one();
 
   test_meshmorph_identity_self_map_and_crossfade();
+
+  test_colorwipe_reaches_target_keys();
+  test_colorwipe_snapshots_on_first_step();
+
+  test_mobiuswarp_closes_at_completion();
+  test_mobiuswarp_bind_scale_reads_live();
+  test_mobiuswarp_circular_traces_radius();
+  test_mobiuswarp_evolving_bounded_and_perpetual();
+
+  test_ripple_envelope_and_done_boundary();
+  test_noise_publishes_time_and_is_perpetual();
 
   const int result = fixture.result();
   // Unpublish before fake_cv/fake_fx destruct below.
