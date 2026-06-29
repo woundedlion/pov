@@ -775,9 +775,10 @@ inline OKLab oklch_to_oklab(OKLCH lch) {
  * @return The color in OKLCH space.
  */
 inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
-  float rf = srgb_to_linear_float(r / 255.0f);
-  float gf = srgb_to_linear_float(g / 255.0f);
-  float bf = srgb_to_linear_float(b / 255.0f);
+  constexpr float INV16 = 1.0f / 65535.0f;
+  float rf = srgb_to_linear_lut[r] * INV16;
+  float gf = srgb_to_linear_lut[g] * INV16;
+  float bf = srgb_to_linear_lut[b] * INV16;
   return oklab_to_oklch(linear_rgb_to_oklab(rf, gf, bf));
 }
 
