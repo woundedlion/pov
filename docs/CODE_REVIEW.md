@@ -118,7 +118,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 37. ✅ **`effects/DistortedRing.h` documents a `thickness` default that is never observed.** `Params::thickness` is doc'd as default `1.0f`, but `init()` overwrites it to `4.0f * px` before `registerParam` snaps the slider default. Fix: drop the misleading `= 1.0f` or comment it as reseeded in `init()`.
 
-38. **`effects/Voronoi.h` open-codes a 3-channel cross-cell color lerp.** The per-channel `sec + (best - sec) * t` with manual `uint16_t` casts duplicates the canonical `Color4::lerp`/`Pixel` blend and risks divergence from it. Fix: use the existing color lerp helper.
+38. ✅ **`effects/Voronoi.h` open-codes a 3-channel cross-cell color lerp.** The per-channel `sec + (best - sec) * t` with manual `uint16_t` casts duplicates the canonical `Color4::lerp`/`Pixel` blend and risks divergence from it. Fix: use the existing color lerp helper.
 
 39. **`effects/GnomonicStars.h` sources the warp speed twice.** The pinned warp is spawned with `params.warp_speed` and then `draw_frame` mirrors `warp_->speed = params.warp_speed` every frame, so the spawn-time value is immediately superseded. Fix: pass a don't-care at spawn and rely on the per-frame mirror, or comment the redundancy.
 
