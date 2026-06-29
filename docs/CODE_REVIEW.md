@@ -121,7 +121,7 @@ and are flagged as such.
 
 17. ✅ **[interface-design] `core/generators.h:46-67` — `generate(target, …)` silently resets `target` if a scratch arena is passed as `target`.** At depth 0 it unconditionally resets both scratch arenas, then `ScratchScope` rewinds them on exit — destroying the output. Latent (all callers pass `persistent_arena`) but produces silent garbage, contrary to the fail-fast philosophy. *Fix:* add `HS_CHECK(&target != &scratch_arena_a && &target != &scratch_arena_b, …)` and tighten the doc to a hard precondition.
 
-18. **[testing] `core/memory.h:961-968` — `~Persist()` forgot-to-reset watermark trap has no death-test coverage.** It is exactly the cold-path trap class the death harness pins elsewhere. *Fix:* add a death case that omits `persistent_arena.reset()` over a trivial `Cloneable` and asserts the trap fires.
+18. ✅ **[testing] `core/memory.h:961-968` — `~Persist()` forgot-to-reset watermark trap has no death-test coverage.** It is exactly the cold-path trap class the death harness pins elsewhere. *Fix:* add a death case that omits `persistent_arena.reset()` over a trivial `Cloneable` and asserts the trap fires.
 
 19. **[testing] `core/memory.h:222-233` — `TriangularBitset::index()` ordered-pair/range `HS_CHECK` is untested.** Guards against swapped/out-of-range pairs that "write adjacent memory"; memory-safety-relevant and unpinned. *Fix:* add a death case with a swapped pair or `large ≥ MAX_V` via `opaque()`.
 

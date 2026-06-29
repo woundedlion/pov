@@ -281,6 +281,47 @@ inline void case_arena_oversubscribed() {
 }
 
 /**
+ * @brief Trivial Cloneable whose clone() allocates from the destination arena,
+ *        so a Persist restore measurably grows the persistent arena.
+ */
+struct PersistProbe {
+  uint8_t *storage = nullptr; /**< Stand-in for arena-backed object state. */
+  /**
+   * @brief Clones by allocating fresh storage from @p arena.
+   * @param src Source probe (unused beyond the Cloneable interface).
+   * @param dst Destination probe receiving freshly allocated storage.
+   * @param arena Arena the clone allocates from.
+   */
+  static void clone(const PersistProbe &src, PersistProbe &dst, Arena &arena) {
+    (void)src;
+    dst.storage = static_cast<uint8_t *>(arena.allocate(opaque<size_t>(8)));
+  }
+};
+
+/**
+ * @brief Death case: a Persist scope that forgets persistent_arena.reset() must trap.
+ * @details Memory surface — without the rewind, ~Persist's restore clones the
+ *          backup *after* the still-live object instead of over it, pushing the
+ *          persistent offset past the construction watermark; the post-restore
+ *          HS_CHECK fires.
+ */
+inline void case_persist_forgot_reset() {
+  static uint8_t pbuf[256];
+  static uint8_t sbuf[256];
+  Arena persistent(pbuf, sizeof(pbuf));
+  Arena scratch(sbuf, sizeof(sbuf));
+  PersistProbe target;
+  PersistProbe::clone(target, target, persistent); // the live object in persistent
+  {
+    Persist<PersistProbe> p(target, scratch, persistent);
+    // A correct scope rewinds here (persistent.reset()); omitting it makes the
+    // restore append past the watermark.
+  } // ~Persist restore -> offset past watermark -> HS_CHECK
+  if (target.storage == reinterpret_cast<uint8_t *>(0x1))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: relocating a retained (pinned) add_get() handle must trap.
  * @details Animation surface — step()'s compaction routes every relocation
  *          through TimelineEvent::move_into, which traps when the event was
@@ -740,6 +781,7 @@ inline const Case *all_cases(int &n) {
        case_arena_vector_append_bulk_overflow},
       {"spatial_knn_over_max", case_spatial_knn_over_max},
       {"arena_oversubscribed", case_arena_oversubscribed},
+      {"persist_forgot_reset", case_persist_forgot_reset},
       {"timeline_handled_relocation", case_timeline_handled_relocation},
       {"timeline_handled_completion", case_timeline_handled_completion},
       {"timeline_double_construct", case_timeline_double_construct},
