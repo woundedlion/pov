@@ -125,7 +125,7 @@ and are flagged as such.
 
 19. ✅ **[testing] `core/memory.h:222-233` — `TriangularBitset::index()` ordered-pair/range `HS_CHECK` is untested.** Guards against swapped/out-of-range pairs that "write adjacent memory"; memory-safety-relevant and unpinned. *Fix:* add a death case with a swapped pair or `large ≥ MAX_V` via `opaque()`.
 
-20. **[correctness] `core/conway.h:528-559,374-378` — `ambo` edge-midpoint + strict `normalize()` traps if an edge's endpoints are antipodal.** `(v1+v2)*0.5` near the origin makes `normalize()` trap; `dual`/`kis` use `normalized_or` with a fallback for exactly this case. Latent on the closed-manifold roster. *Fix:* use `normalized_or(mid, mesh.vertices[v1])` to match `dual`/`kis`.
+20. ✅ **[correctness] `core/conway.h:528-559,374-378` — `ambo` edge-midpoint + strict `normalize()` traps if an edge's endpoints are antipodal.** `(v1+v2)*0.5` near the origin makes `normalize()` trap; `dual`/`kis` use `normalized_or` with a fallback for exactly this case. Latent on the closed-manifold roster. *Fix:* use `normalized_or(mid, mesh.vertices[v1])` to match `dual`/`kis`.
 
 21. **[correctness] `core/spatial.h:81-82` — `KDTree` constructor bound (`≤ UINT16_MAX+1`) is misleading; the real ceiling is the `int16_t` child links (`INT16_MAX+1`).** An oversized point set trips the per-node child-link trap mid-build rather than failing clearly at construction. *Fix:* tighten the constructor bound to `count ≤ INT16_MAX + 1`.
 
