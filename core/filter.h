@@ -1125,6 +1125,8 @@ public:
   /** @brief Marks this as terminal: flush() writes the Canvas and ignores `pass`. */
   static constexpr bool is_terminal = true;
 
+  // Covers only the default-constructed Style; a runtime-swapped style's
+  // downsample is validated in flush() (the HS_CHECK below).
   static_assert(::Feedback::Style{}.downsample > 0 &&
                     W % ::Feedback::Style{}.downsample == 0 &&
                     H % ::Feedback::Style{}.downsample == 0,
