@@ -1250,6 +1250,40 @@ inline void test_ringspin_pool_clamped() {
 }
 
 /**
+ * @brief Drives ShapeShifter through its 48-frame shape cut to cover the cycle
+ *        wrap the default 8-frame smoke window never reaches.
+ * @details draw_frame advances frame_count_ mod 48 and rotates current_shape on
+ *          the wrap, so the cut path (and the post-cut shape's renderer) only
+ *          executes past frame 48. Run two full periods under a fixed clock and
+ *          require non-black output on every frame: the cut must neither blank
+ *          the effect nor blow an assert on the new shape's first render. Uses
+ *          only public draw_frame/get_pixel — no production seam.
+ */
+inline void test_shapeshifter_shape_cut_lifecycle() {
+  reset_effect_globals();
+  hs::set_mock_time(0, 0);
+  ShapeShifter<kW, kH> ss;
+  ss.init();
+
+  const int period = 48;
+  const int frames = smoke_frames() < 2 * period ? 2 * period : smoke_frames();
+  for (int f = 0; f < frames; ++f) {
+    hs::set_mock_time(static_cast<unsigned long>(f) * kFrameMs,
+                      static_cast<unsigned long>(f) * kFrameUs);
+    ss.draw_frame();
+    ss.advance_display();
+    uint64_t acc = 0;
+    for (int y = 0; y < kH; ++y)
+      for (int x = 0; x < kW; ++x) {
+        const Pixel &p = ss.get_pixel(x, y);
+        acc += static_cast<uint64_t>(p.r) + p.g + p.b;
+      }
+    HS_EXPECT_GT(acc, 0u); // each shape, including post-cut, must render
+  }
+  hs::clear_mock_time();
+}
+
+/**
  * @brief Verifies the segmented-mode full-frame gate on the real effect roster.
  * @details Effect::needs_full_frame() must report true for exactly the effects
  *          whose filter pipeline crosses segment bands (its trait-derived
@@ -1400,6 +1434,7 @@ inline int run_effects_tests() {
   test_flyby_phase_wrapped();
   test_flowfield_time_and_pool_bounded();
   test_ringspin_pool_clamped();
+  test_shapeshifter_shape_cut_lifecycle();
 
   // Smoke every registered effect. The list is generated from the single-source
   // roster in core/effects.h (HS_EFFECT_LIST), so it cannot drift from the
