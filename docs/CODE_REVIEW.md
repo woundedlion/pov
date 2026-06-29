@@ -191,7 +191,7 @@ sequentially across all priority sections.
     - Evidence: The class doc says the per-pixel `0xFF` brightness byte is primed at construction and "Only the B/G/R color bytes change at runtime," but `packPixel()` and `load()` unconditionally re-store `dest[0] = 0xFF` on every pixel, making the constructor priming dead for image frames.
     - Fix: correct the comment (low-risk), or drop the redundant per-pixel store as a micro-optimization — but the latter must be validated against the tests since `load()` only touches image slots, never the trailing black frame.
 
-14. **`MindSplatter` memory comment cites the wrong device arena size.**
+14. ✅ **`MindSplatter` memory comment cites the wrong device arena size.**
     - File: `effects/MindSplatter.h:124-125` vs `core/memory.h:37` (`DEVICE_GLOBAL_ARENA_SIZE = 330 * 1024`)
     - Severity: Nit · Dimension: Documentation · Confidence: High
     - Evidence: The comment says "316 KiB of the 335 KiB device arena, leaving ~8 KiB"; the arena is 330 KiB, not 335. The binding `static_assert` uses the correct literal, so the build is unaffected — comment-only. (The "~8 KiB" is gross slack after the scratch carve; ~2 KiB remains after the 6 KiB aux reserve.)
