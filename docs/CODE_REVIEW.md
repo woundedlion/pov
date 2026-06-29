@@ -103,7 +103,7 @@ and are flagged as such.
 
 8. ✅ **[documentation] `core/filter.h:745-755` — `flush()` doc claims it "culls the dead" but only the oldest contiguous run is culled.** Doc overstates the guarantee given the non-monotonic-TTL case in #7. *Fix:* once #7 is fixed the comment is accurate; if front-only is kept deliberately, say "culls from the oldest end" and document the monotonic-TTL precondition.
 
-9. **[correctness] `core/filter.h:963-975` — `Screen::Trails` silently drops the *newest* seed point at `MAX_PIXELS`, unlike `World::Trails`.** At capacity the current sample is forwarded but not recorded, so the trail tip freezes while stale points keep their slots — the opposite of `World::Trails`' evict-oldest behavior. *Fix:* pick one overflow policy for both filters (evict-oldest, or document drop-newest; or `HS_CHECK` if overflow is an authoring error).
+9. ✅ **[correctness] `core/filter.h:963-975` — `Screen::Trails` silently drops the *newest* seed point at `MAX_PIXELS`, unlike `World::Trails`.** At capacity the current sample is forwarded but not recorded, so the trail tip freezes while stale points keep their slots — the opposite of `World::Trails`' evict-oldest behavior. *Fix:* pick one overflow policy for both filters (evict-oldest, or document drop-newest; or `HS_CHECK` if overflow is an authoring error).
 
 10. **[testing] `core/sdf.h:707-743` — `DistortedRing`'s load-bearing `max_distortion` bound is validated only under NDEBUG-off, by 256-point sampling.** An underestimate silently culls genuine arcs with no device diagnostic; the sampling can miss a sharp peak. *Fix:* add a property test with adversarial high-frequency `shift_fn`s asserting no arc columns drop vs a full-scan reference.
 
