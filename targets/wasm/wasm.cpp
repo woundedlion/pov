@@ -656,9 +656,9 @@ public:
       uintptr_t end = emscripten_stack_get_end();
       uintptr_t sp = emscripten_stack_get_current();
       val m = val::object();
-      m.set("usage", static_cast<unsigned>(base - sp));
+      m.set("usage", static_cast<unsigned>(base >= sp ? base - sp : 0));
       m.set("high_water_mark", static_cast<unsigned>(stack_high_water_mark()));
-      m.set("capacity", static_cast<unsigned>(base - end));
+      m.set("capacity", static_cast<unsigned>(base >= end ? base - end : 0));
       metrics.set("stack", m);
     }
 
