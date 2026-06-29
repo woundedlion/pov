@@ -152,7 +152,7 @@ public:
     // interior pixel whose four corners agree skips the k=2 query and shades from
     // two exact dot products, while a pixel whose corners disagree (a seam, or
     // the dense region near a pole) falls back to the full query. A cell smaller
-    // than kCoherenceBlock missed by all four corners is dropped.
+    // than the block missed by all four corners is dropped.
     auto &cr = canvas.clip();
     Scan::Shader::check_lut_domain<W, H>(cr);
     const int x0 = cr.x_start;
@@ -162,7 +162,15 @@ public:
     if (x1 <= x0 || y1 <= y0)
       return;
 
-    constexpr int B = kCoherenceBlock;
+    // Voronoi cell pixel size falls as ~1/sqrt(num_sites) (smallest near the
+    // poles, where rows crowd), so a fixed block eventually straddles more than
+    // one cell and misses small cells. Shrink the block toward the cell's
+    // vertical pixel extent (rows map uniformly over [0,π]); the floor keeps the
+    // corner grid inside the scratch budget the static_assert below pins.
+    const float cell_px =
+        (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites_buffer.size()));
+    const int B = hs::clamp(static_cast<int>(cell_px), kCoherenceBlockMin,
+                            kCoherenceBlock);
     const int nbx = (x1 - x0 - 1) / B + 2; // corner columns spanning [x0, x1)
     const int nby = (y1 - y0 - 1) / B + 2; // corner rows spanning    [y0, y1)
     CellId *cells = static_cast<CellId *>(
@@ -235,9 +243,14 @@ public:
   static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
                                              is allocated once at this size. */
   static constexpr int kCoherenceBlock = 8; /**< Coarse-coherence block edge in
-      pixels: a pixel whose surrounding block corners agree on the nearest pair
-      skips the per-pixel KD query. Smaller is safer (fewer missed
-      sub-block cells) but skips fewer queries. */
+      pixels at low site counts: a pixel whose surrounding block corners agree on
+      the nearest pair skips the per-pixel KD query. Smaller is safer (fewer
+      missed sub-block cells) but skips fewer queries; the render path shrinks the
+      block toward kCoherenceBlockMin as the site count rises. */
+  static constexpr int kCoherenceBlockMin = 4; /**< Smallest adaptive block edge.
+      Floors the per-frame block so the corner grid stays within the scratch
+      budget (pinned by the static_assert below); ~matches the cell pixel size at
+      MAX_SITES. */
 
   /** @brief Canonical (order-independent) nearest-pair identity at a sample
    *  point; the coarse-grid corner classifier stores one per corner (see the
@@ -257,10 +270,11 @@ public:
   static constexpr size_t kPositionsBytes = size_t(MAX_SITES) * sizeof(Vector);
   static constexpr size_t kKdNodesBytes = size_t(MAX_SITES) * sizeof(KDNode);
   static constexpr size_t kKdBuildScratchBytes = size_t(MAX_SITES) * sizeof(int);
-  // Corner grid spans the full canvas in kCoherenceBlock-px steps, +2 for the
-  // inclusive [0,W)/[0,H) end corners (mirrors render()'s nbx/nby at full clip).
-  static constexpr size_t kCornerCols = size_t((W - 1) / kCoherenceBlock + 2);
-  static constexpr size_t kCornerRows = size_t((H - 1) / kCoherenceBlock + 2);
+  // Corner grid spans the full canvas in block-px steps, +2 for the inclusive
+  // [0,W)/[0,H) end corners (mirrors render()'s nbx/nby at full clip). Sized at
+  // kCoherenceBlockMin — the worst case (most corners) the adaptive block hits.
+  static constexpr size_t kCornerCols = size_t((W - 1) / kCoherenceBlockMin + 2);
+  static constexpr size_t kCornerRows = size_t((H - 1) / kCoherenceBlockMin + 2);
   static constexpr size_t kCellsBytes = kCornerCols * kCornerRows * sizeof(CellId);
   static constexpr size_t kScratchHighWater =
       kPositionsBytes + kKdNodesBytes +
