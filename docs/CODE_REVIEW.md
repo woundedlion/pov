@@ -58,7 +58,7 @@ Findings are numbered sequentially for the `code-review-fix` workflow. Each is r
 
 ### P2 — Robustness / correctness-in-a-narrow-path / parity
 
-1. **`Sprite` fade-overlap rescale can overflow signed `int` for long durations** — `core/animation.h:1207`. `fade_in_duration = duration * fade_in_duration / fade_total` multiplies two user-controllable frame counts before dividing; at high FPS over minutes the product exceeds `INT_MAX` (signed-overflow UB) and corrupts the fade split. Branch runs only when fades overlap. Fix: widen the multiply via `static_cast<long long>` (cold ctor path, no runtime cost).
+1. ✅ **`Sprite` fade-overlap rescale can overflow signed `int` for long durations** — `core/animation.h:1207`. `fade_in_duration = duration * fade_in_duration / fade_total` multiplies two user-controllable frame counts before dividing; at high FPS over minutes the product exceeds `INT_MAX` (signed-overflow UB) and corrupts the fade split. Branch runs only when fades overlap. Fix: widen the multiply via `static_cast<long long>` (cold ctor path, no runtime cost).
 
 2. **`Canvas` RAII guard is copy-constructible, so a copy double-queues the frame** — `core/canvas.h:635-693`. `~Canvas()` calls `queue_frame()`; the class declares no copy/move control, and its single reference member leaves the copy *constructor* implicitly available, so a by-value `Canvas` would re-publish `next_` outside the `buffer_free()` discipline. Latent today (all uses are scoped locals). Fix: `= delete` the four copy/move special members.
 
