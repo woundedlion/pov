@@ -58,9 +58,15 @@ inline void check_tiling(int S, int N, int w, int x) {
     if (x_col < 0 || x_col >= w)
       continue; // keep an out-of-range column out of the cover grid
 
+    int prev_y = -1;
     for (int i = 0; i < PPS; ++i) {
       const int y = segment_y(m, i);
       HS_EXPECT_TRUE(y >= 0 && y < ROWS);
+      // Interior ordering: rows advance by the segment's unit y_step, so a
+      // scrambled-but-bijective interior fails here, not just covered-once.
+      if (i > 0)
+        HS_EXPECT_EQ(y - prev_y, m.y_step);
+      prev_y = y;
       cover[static_cast<size_t>(x_col) * ROWS + y]++;
       ++writes;
     }
