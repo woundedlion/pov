@@ -135,12 +135,6 @@ private:
   Animation::PeriodicTimer spawner;   /**< Per-frame timer that triggers check_spawn(). */
 
   /**
-   * @brief Seeds the timeline and pre-fills the path with rings.
-   * @details Adds the looping orientation rotation and the spawner, then
-   * pre-fills the entire path with evenly spaced rings so the flow is full from
-   * frame zero rather than filling in over time.
-   */
-  /**
    * @brief Precomputes the geometry-static exp(petal wobble) per sample.
    * @details The radial wobble is a function of the normalized angle alone, so
    * its exponential is constant across rings and frames.
@@ -153,6 +147,12 @@ private:
     }
   }
 
+  /**
+   * @brief Seeds the timeline and pre-fills the path with rings.
+   * @details Adds the looping orientation rotation and the spawner, then
+   * pre-fills the entire path with evenly spaced rings so the flow is full from
+   * frame zero rather than filling in over time.
+   */
   FLASHMEM void init_timeline() {
     timeline.add(0, Animation::Rotation<W>(orientation, UP, PI_F / 4.0f, 160,
                                            ease_linear, true));
