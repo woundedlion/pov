@@ -1108,7 +1108,7 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
 }
 
 /**
- * @brief Gyro operator: dual of snub.
+ * @brief Gyro operator: dual of snub (pentagonal chiral subdivision).
  * @param mesh Source mesh.
  * @param target Arena used as the ping-pong source for the composition.
  * @param temp Arena used as the ping-pong destination for the composition.
