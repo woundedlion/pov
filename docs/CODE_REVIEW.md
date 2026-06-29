@@ -145,7 +145,7 @@ and are flagged as such.
 
 29. ✅ **[testing] `core/effects.h:40-83` — a fully-forgotten effect silently drops from native smoke coverage.** The WASM registry-vs-`HS_EFFECT_COUNT` check only catches a mismatch; if an author forgets the `#include`, `REGISTER_EFFECT`, *and* `X()` row, counts still agree and nothing fails. *Fix:* add a CI cross-check that scans `effects/*.h` for `REGISTER_EFFECT(` and asserts the set equals `HS_EFFECT_LIST`.
 
-30. **[interface-design] `core/canvas.h:179-182` — `set_margin` guards `m < w` but not a negative margin.** A negative margin propagates into `ClipRegion` and inverts/empties the render band (silently skipping rows). Latent (no negative caller today), but the lower bound is the easier mistake. *Fix:* `HS_CHECK(m >= 0 && m < clip.w, …)`.
+30. ✅ **[interface-design] `core/canvas.h:179-182` — `set_margin` guards `m < w` but not a negative margin.** A negative margin propagates into `ClipRegion` and inverts/empties the render band (silently skipping rows). Latent (no negative caller today), but the lower bound is the easier mistake. *Fix:* `HS_CHECK(m >= 0 && m < clip.w, …)`.
 
 31. **[maintainability] `effects/Flyby.h:195-229` — `Flyby::Params` lacks the field-drift `static_assert` that its twin `Liquid2D::Params` has.** `lerp()` hand-lists 6 fields and presets are 6 bare floats; a field add/reorder silently mis-maps both. *Fix:* add `static_assert(sizeof(Params) == N*sizeof(float), …)` (or convert `lerp` to the indexed-array form) so a field change is a compile error.
 
