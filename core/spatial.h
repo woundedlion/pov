@@ -438,12 +438,8 @@ struct MeshState {
     copy_vector(dst.face_counts, src.get_face_counts_data(),
                 src.get_face_counts_size(), arena);
     copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(), arena);
-
-    size_t fo_size = src.get_face_offsets_size();
-    if (fo_size > 0)
-      copy_vector(dst.face_offsets, src.get_face_offsets_data(), fo_size, arena);
-
-    if (!src.topology.is_empty())
-      copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
+    copy_vector(dst.face_offsets, src.get_face_offsets_data(),
+                src.get_face_offsets_size(), arena);
+    copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
   }
 };
