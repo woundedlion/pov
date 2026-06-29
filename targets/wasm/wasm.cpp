@@ -1283,8 +1283,9 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getRenderUs", &HolosphereEngine::getRenderUs)
       .function("strobeColumns", &HolosphereEngine::strobeColumns);
 
+  // No public .constructor<>(): all construction goes through fromSolidName so
+  // JS cannot wrap an empty mesh past the operator boundary's check_live().
   class_<MeshOpsWrapper>("MeshOps")
-      .constructor<>()
       .class_function("clearToolingMemory", &MeshOpsWrapper::clearToolingMemory)
       .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName)
       .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
