@@ -89,8 +89,9 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // The palettes only change while a ColorWipe is in flight; skip the 256-entry
-    // OKLCH rebake otherwise (e.g. before the first wipe arms).
+    // Rebake the two 256-entry OKLCH palette LUTs only while a wipe is in
+    // flight. Wipes run back-to-back (timer period == WIPE_FRAMES), so this
+    // skips the rebake only before the first wipe arms, not between wipes.
     if (wipe_frames_remaining_ > 0) {
       base_baked.rebake(base_palette);
       int_baked.rebake(int_palette);

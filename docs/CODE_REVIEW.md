@@ -151,7 +151,7 @@ and are flagged as such.
 
 32. ✅ **[documentation] `effects/GSReactionDiffusion.h:22-31` — GS class doc omits the memory-budget table BZ carries, despite GS being the heavier arena tenant.** GS bakes an extra palette and runs 16 substeps/frame; its budget exists only inside an `init()` `static_assert`. *Fix:* add a parallel budget table matching BZ's style.
 
-33. **[performance] `effects/Moire.h:65-98` — palette LUTs rebake nearly every frame because the wipe period equals the wipe length.** With `period == WIPE_FRAMES == 80`, a new wipe starts the frame the previous ends, so the "skip rebake when idle" guard never engages after frame 80. *Fix:* make the timer period strictly greater than `WIPE_FRAMES`, or drop the now-misleading "skip otherwise" comment.
+33. ✅ **[performance] `effects/Moire.h:65-98` — palette LUTs rebake nearly every frame because the wipe period equals the wipe length.** With `period == WIPE_FRAMES == 80`, a new wipe starts the frame the previous ends, so the "skip rebake when idle" guard never engages after frame 80. *Fix:* make the timer period strictly greater than `WIPE_FRAMES`, or drop the now-misleading "skip otherwise" comment.
 
 34. **[correctness] `effects/DreamBalls.h:285-301` — single-slot Möbius warp is shared across overlapping fade-out/fade-in sprites, violating its own documented invariant.** The spawn period (288) equals the warp duration, so an incoming sprite re-arms the warp at the exact boundary while the outgoing sprite is still fading (~32 frames), warping it with the *incoming* (non-identity) warp — opposite the "relaxed to identity" assumption. Visually subtle. *Fix:* give the transformer two slots, or correct the comment to state the shared-warp overlap and argue it is acceptable.
 
