@@ -76,8 +76,9 @@ public:
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill", &params.k, 0.0f, 0.1f);
-    // dA/dB cap at 0.05: explicit Euler is stable only while dt·D·λmax ≤ 2
-    // (|λ|max ≤ 12 on the 6-NN lattice), giving 3·0.05·12 = 1.8 ≤ 2 at Speed top.
+    // dA/dB cap at 0.05: explicit Euler is stable only while dt·D·λmax ≤ 2. The
+    // graph Laplacian on a degree-RD_K lattice has |λ|max ≤ 2·RD_K (= 12 at
+    // RD_K=6), giving 3·0.05·12 = 1.8 ≤ 2 at Speed top.
     registerParam("dA", &params.dA, 0.0f, 0.05f);
     registerParam("dB", &params.dB, 0.0f, 0.05f);
     registerParam("Speed", &params.dt, 0.1f, 3.0f);
