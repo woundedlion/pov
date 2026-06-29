@@ -1316,15 +1316,14 @@ inline void test_world_trails_set_lifetime_shrink_clamps_t() {
 }
 
 /**
- * @brief Verifies the documented capacity-erosion consequence of front-only
- *        reclaim: a dead mid-buffer item (heterogeneous TTLs) wastes a ring slot
- *        until it reaches the head, so the next plot() evicts the oldest *live*
- *        point instead of reclaiming the dead slot.
- * @details Front-contiguous reclaim only frees dead items at the head. With a
- *          short-lived point buffered behind a long-lived older one, the dead
- *          slot lingers and the effective live capacity drops below Cap.
+ * @brief Verifies flush() reclaims a dead mid-buffer item (heterogeneous TTLs),
+ *        not just dead items at the head.
+ * @details A short-lived point buffered behind a long-lived older one dies in
+ *          the middle of the ring; flush()'s swap-remove cull frees its slot, so
+ *          live capacity is preserved and the next plot() fills the freed slot
+ *          rather than evicting an older live point.
  */
-inline void test_world_trails_midbuffer_expiry_erodes_capacity() {
+inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
   constexpr int W = 32, Cap = 4;
   static uint8_t buf[Cap * 16];
   Arena arena(buf, sizeof(buf));
@@ -1353,15 +1352,14 @@ inline void test_world_trails_midbuffer_expiry_erodes_capacity() {
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
   // p1 is drawn this frame (ttl 1, its final render) and then ages to 0. The
-  // front (p0) is still alive, so the front-only pop cannot reclaim p1: it
-  // lingers mid-buffer as a dead slot.
+  // front (p0) is still alive; the swap-remove cull reclaims p1 mid-buffer.
   trails.flush(WorldTrailFn(trail), 1.0f, noop);
-  HS_EXPECT_EQ(live_drawn, 4);              // all 4 still live at emit time
-  HS_EXPECT_TRUE(saw_p0);                   // the oldest live point still draws
-  HS_EXPECT_EQ(trails.size(), (size_t)Cap); // dead p1 still occupies a slot
+  HS_EXPECT_EQ(live_drawn, 4);                  // all 4 still live at emit time
+  HS_EXPECT_TRUE(saw_p0);                       // the oldest live point still draws
+  HS_EXPECT_EQ(trails.size(), (size_t)(Cap - 1)); // dead p1's slot reclaimed
 
-  // Buffer is full (4) with one wasted dead slot. This plot evicts the OLDEST
-  // LIVE point (p0) rather than reclaiming p1's dead slot — the erosion.
+  // Buffer has a free slot, so this plot fills it without evicting any live
+  // point; the oldest (p0) survives.
   trails.plot(p4, Pixel(1, 1, 1), 0.0f, 1.0f, noop);
 
   bool saw_p0_after = false, saw_p4_after = false;
@@ -1373,8 +1371,8 @@ inline void test_world_trails_midbuffer_expiry_erodes_capacity() {
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
   trails.flush(WorldTrailFn(trail2), 1.0f, noop);
-  HS_EXPECT_FALSE(saw_p0_after); // the live oldest point was evicted prematurely
-  HS_EXPECT_TRUE(saw_p4_after);  // the new point made it in
+  HS_EXPECT_TRUE(saw_p0_after); // the oldest live point was not evicted
+  HS_EXPECT_TRUE(saw_p4_after); // the new point made it in
 }
 
 /**
@@ -1691,7 +1689,7 @@ inline int run_filter_tests() {
   test_world_trails_ring_evicts_oldest();
   test_world_trails_ttl_expiry();
   test_world_trails_set_lifetime_shrink_clamps_t();
-  test_world_trails_midbuffer_expiry_erodes_capacity();
+  test_world_trails_midbuffer_expiry_reclaims_slot();
   test_screen_trails_store_emit_decay();
   test_screen_trails_forwards_aged_emission();
 
