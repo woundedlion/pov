@@ -85,7 +85,7 @@ void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
   size_t b_base = align_up(a_base + scratch_a);
   size_t total = b_base + scratch_b;
   if (total > GLOBAL_ARENA_SIZE) {
-    hs::log("[FATAL] configure_arenas: requested %zu > available %zu",
+    hs::log("[OOM] configure_arenas: requested %zu > available %zu",
             total, GLOBAL_ARENA_SIZE);
     HS_CHECK(false);
   }
