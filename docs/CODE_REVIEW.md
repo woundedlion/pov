@@ -126,7 +126,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 41. ✅ **`core/memory.cpp` arena-failure log tags are inconsistent.** `configure_arenas` logs over-subscription as `[FATAL]` while `Arena::allocate` logs OOM as `[OOM]` and mesh/Hankin traps use bare messages. Fix: standardize the prefix across arena failure paths.
 
-42. **Test gap: `fib_spiral` distribution property is unverified.** `tests/test_geometry.h` checks unit-length, determinism, and opposite-hemisphere endpoints but not the golden-angle spacing / even-distribution that is the spiral's defining purpose; a wrong-but-unit-length spiral would pass. Fix: add a nearest-neighbor-spacing or golden-angle-increment assertion.
+42. ✅ **Test gap: `fib_spiral` distribution property is unverified.** `tests/test_geometry.h` checks unit-length, determinism, and opposite-hemisphere endpoints but not the golden-angle spacing / even-distribution that is the spiral's defining purpose; a wrong-but-unit-length spiral would pass. Fix: add a nearest-neighbor-spacing or golden-angle-increment assertion.
 
 43. **Test gap: POV strip interior ordering and N>4 segment layouts are untested.** The POV map tests assert endpoint LEDs and an exactly-once bijection but not monotonic interior ordering within a half-strip (a scrambled-but-bijective interior would pass), and segmented tiling is only checked for N∈{2,4}. Fix: assert monotonic interior LED indices, and add an N=6/8 tiling sweep if the driver supports it.
 
