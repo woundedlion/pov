@@ -2353,6 +2353,10 @@ struct PlanarPolygon {
    * @param p Point on sphere (normalized).
    * @param res Output result; dist = polar*cos(local) - apothem, raw_dist =
    *        polar angle from center, t = polar/thickness when ComputeUVs.
+   * @note The `polar*cos(local)` form under-estimates the true distance near
+   *       the sector corners (gradient < 1 there), like the tangent-plane
+   *       caveat on the public distance() above; for scanline shading, not a
+   *       march-safe metric.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
