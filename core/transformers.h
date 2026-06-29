@@ -425,6 +425,19 @@ inline float pole_attenuation(float r_sq, float pole_fade) {
 }
 
 /**
+ * @brief Pole-attenuates a stereographic pattern value and maps it to [0, 1].
+ * @param pattern Raw pattern value in [-1, 1].
+ * @param r_sq Pre-computed |z|² driving the pole fade.
+ * @param pole_fade Attenuation radius (larger = wider fade zone).
+ * @return Pole-attenuated value normalized to [0, 1].
+ * @details Shared by the stereo pattern effects (Flyby/Liquid2D) so the
+ * attenuation and normalization stay identical across them.
+ */
+inline float pole_normalize_pattern(float pattern, float r_sq, float pole_fade) {
+  return (pattern * pole_attenuation(r_sq, pole_fade) + 1.0f) * 0.5f;
+}
+
+/**
  * @brief Applies noise-based displacement in stereographic space.
  * @param z Stereographic coordinate to warp.
  * @param r_sq Pre-computed |z|² (z.re² + z.im²).
