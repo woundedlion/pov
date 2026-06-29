@@ -203,7 +203,7 @@ sequentially across all priority sections.
     - Evidence: `test_concepts.h` thoroughly covers `FunctionRef`/`Fn`, and `StoredFunctionRef`'s rvalue-rejection is already pinned (`test_concepts.h:118-119`) and `PipelineRef` is covered (`test_canvas.h:571`) — but the `Tweenable` concept that constrains `Lerp`/`Transition` subjects has no `static_assert` confirming a conforming type satisfies it and a non-conforming one does not.
     - Fix: add one `static_assert` pair (e.g. `Tweenable<Lerpable>` holds, `Tweenable<int>` does not). Compile-time only.
 
-16. **`palette_math.js` `SPLIT_COMPLEMENTARY` case declares `const` without a block (`no-case-declarations`).**
+16. ✅ **`palette_math.js` `SPLIT_COMPLEMENTARY` case declares `const` without a block (`no-case-declarations`).**
     - File: `daydream/tools/palette_math.js:309-313` (vs the correctly-braced `ANALOGOUS` case at `:318-323`)
     - Severity: Nit · Dimension: Style/Convention · Confidence: High
     - Evidence: `case "SPLIT_COMPLEMENTARY":` is immediately followed by `const complement = …` with no braces; the identifier leaks into the shared switch scope. Behavior is correct today but it trips the `no-case-declarations` lint and is a reorder hazard; the sibling case already uses braces.
