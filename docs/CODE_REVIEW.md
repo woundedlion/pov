@@ -126,7 +126,7 @@ All defects found, numbered sequentially. Severity in brackets. "Latent" = corre
 ### Priority 3 — Test-coverage gaps & polish
 
 56. **Per-effect "did it produce output" is not asserted** — only a roster-wide `g_nonblack_effects > 0` aggregate; a single effect regressing to all-black passes as long as any other lights up. `tests/test_effects.h:148-149,1357`. Track lit-count per effect (with an allowlist for intentionally-dark frames). [Low, testing]
-57. **The `util.h` wrap family is untested at its load-bearing boundaries** (`wrap_t(-1e-8)`, `shortest_distance` across the seam, `fast_wrap` at `-W`/`2W-1`, `fwd_distance` range). `core/util.h`. Add a boundary test module. [Medium → test gap]
+57. ✅ **The `util.h` wrap family is untested at its load-bearing boundaries** (`wrap_t(-1e-8)`, `shortest_distance` across the seam, `fast_wrap` at `-W`/`2W-1`, `fwd_distance` range). `core/util.h`. Add a boundary test module. [Medium → test gap]
 58. **`Orientation::upsample` degrade path and `slerp` antipodal monotonicity are untested.** `core/geometry.h:719`, `core/3dmath.h:1213-1219`. [Medium → test gap]
 59. **`engine_contract_wasm.test.js` omits `getParamValues` from its method-surface list,** though `segment_worker` consumes it — so the only coverage is fake-only and a real-engine rename would pass CI. `daydream/tests/engine_contract_wasm.test.js:23-31`. Add it. [Medium → test gap]
 60. **`relax` is the only boundary-tolerant Conway operator with no boundary-mesh test.** `core/conway.h:922-936`. Add one asserting no trap + finite vertices. [Medium → test gap]

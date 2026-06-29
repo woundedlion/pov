@@ -47,6 +47,11 @@ inline void test_wrap_t() {
   HS_EXPECT_NEAR(wrap_t(1.4f), 0.4f, 1e-6f);
   HS_EXPECT_NEAR(wrap_t(-0.25f), 0.75f, 1e-6f);
   HS_EXPECT_NEAR(wrap_t(-2.1f), 0.9f, 1e-5f);
+  // Tiny negative t: t - floorf(t) rounds up to exactly 1.0f, which the guard
+  // must fold back to 0 to keep the half-open [0, 1) contract.
+  float tiny = wrap_t(-1e-8f);
+  HS_EXPECT_TRUE(tiny >= 0.0f && tiny < 1.0f);
+  HS_EXPECT_NEAR(tiny, 0.0f, 1e-6f);
   for (int i = -50; i <= 50; ++i) {
     float w = wrap_t(i * 0.13f);
     HS_EXPECT_TRUE(w >= 0.0f && w < 1.0f);
@@ -123,6 +128,8 @@ inline void test_shortest_distance() {
   HS_EXPECT_NEAR(shortest_distance(1.0f, 0.0f, 10.0f), 1.0f, 1e-5f);
   HS_EXPECT_NEAR(shortest_distance(1.0f, 9.0f, 10.0f), 2.0f, 1e-5f);
   HS_EXPECT_NEAR(shortest_distance(0.0f, 5.0f, 10.0f), 5.0f, 1e-5f);
+  // Across the seam the wrap arc (2) must beat the direct arc (8).
+  HS_EXPECT_TRUE(shortest_distance(1.0f, 9.0f, 10.0f) < 9.0f - 1.0f);
   for (int i = 0; i < 20; ++i) {
     float d = shortest_distance(i * 0.5f, 3.3f, 10.0f);
     HS_EXPECT_TRUE(d >= 0.0f && d <= 5.0f + 1e-5f);
