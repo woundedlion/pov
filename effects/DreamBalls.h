@@ -306,10 +306,13 @@ private:
         .add(period,
              Animation::PeriodicTimer(
                  0,
-                 [this, idx](Canvas &) {
+                 [this, safe_idx](Canvas &) {
                    // Paused: re-spawn the same preset (params hold); otherwise
-                   // advance to the next one.
-                   this->spawn_sprite(animationsPaused() ? idx : idx + 1);
+                   // advance to the next one. Pass the wrapped index so the
+                   // re-passed value stays bounded instead of incrementing an int
+                   // without limit.
+                   this->spawn_sprite(animationsPaused() ? safe_idx
+                                                         : safe_idx + 1);
                  },
                  false));
   }
