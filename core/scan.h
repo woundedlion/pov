@@ -308,11 +308,14 @@ template <int W, int H> struct BoundingSphere {
       theta_span = dtheta * W / (2.0f * PI_F);
     }
     // +1 absorbs ceil/round-off at the span edges; the downstream per-pixel
-    // ray-sphere test rejects any extra column. min(W/2, ...) caps the span
-    // length 2*x_half at W, scan_region's producer contract (interval length
-    // <= W). Endpoints are not clamped to [0,W); scan_region wraps them.
-    int x_half = std::min(W / 2, static_cast<int>(ceilf(theta_span)) + 1);
-    out(center_theta - x_half, center_theta + x_half);
+    // ray-sphere test rejects any extra column. The asymmetric W/2 .. (W+1)/2
+    // caps bound the span length at W (scan_region's producer contract) while
+    // still reaching a full W columns for odd W. Endpoints are not clamped to
+    // [0,W); scan_region wraps them.
+    int span = static_cast<int>(ceilf(theta_span)) + 1;
+    int x_lo = std::min(W / 2, span);
+    int x_hi = std::min((W + 1) / 2, span);
+    out(center_theta - x_lo, center_theta + x_hi);
     return true;
   }
 };
