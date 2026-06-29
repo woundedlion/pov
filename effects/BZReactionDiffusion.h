@@ -90,8 +90,9 @@ public:
     // stability bound below, so a high Compete intentionally saturates (hard
     // banding) rather than diverging.
     registerParam("Compete", &params.alpha, 0.0f, 4.0f);
-    // Explicit Euler is stable only while dt·D·λmax ≤ 2 (|λ|max ≤ 12 on the 6-NN
-    // lattice), bounding these Diff/Speed tops.
+    // Explicit Euler is stable only while dt·D·λmax ≤ 2. The graph Laplacian on a
+    // degree-RD_K lattice has |λ|max ≤ 2·RD_K (= 12 at RD_K=6), bounding these
+    // Diff/Speed tops.
     registerParam("Diff", &params.D, 0.001f, 0.1f);
     registerParam("Speed", &params.dt, 0.0f, 1.0f);
 
