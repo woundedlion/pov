@@ -109,7 +109,7 @@ sequentially across all priority sections.
 
 ### Medium
 
-1. **`SegmentController.tick()` re-dispatches a render after `composite()` latches a fault — doomed broadcast + leaked promise.**
+1. ✅ **`SegmentController.tick()` re-dispatches a render after `composite()` latches a fault — doomed broadcast + leaked promise.**
    - File: `daydream/segment_controller.js:758-769` (root); interacts with `:534`, `:543` (composite faults), `:388-403` (`onWorkerFault`), `:228` (frame handler), `:749` (top guard)
    - Severity: Medium · Dimension: Concurrency · Confidence: High (control flow independently re-derived by validator)
    - Evidence: `composite()` (called only from `tick()`, `:759`) can call `onWorkerFault()` from its bounds/length pre-pass; `onWorkerFault` sets `faulted=true` and `renderInFlight=false`. Control returns to `tick()` with **no `faulted` re-check**, so `if (!this.renderInFlight)` is true and a fresh `render` is broadcast to the just-faulted pool. The frame handler early-returns while `faulted` (`:228`), so `pending` never decrements, `frameResolve` never fires (leaked promise), and `renderInFlight` stays stuck `true`. The faults are defensive invariant checks (reachable only if a fence/layout bug already let a bad rect through) and user-facing recovery still works via `create()→destroy()`, which is why this is Medium and not High. Untested: existing fault tests call `composite()` directly, never through `tick()`.
