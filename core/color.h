@@ -573,6 +573,10 @@ struct OKLCH { float L, C, h; };
  *  nonlinearity. */
 struct LMS { float l, m, s; };
 
+/** @brief Linear-RGB triple in [0,1] (may sit slightly out of gamut before
+ *  clamping). */
+struct LinRGB { float r, g, b; };
+
 /**
  * @brief Linear-RGB -> LMS cone response (the first OKLab matrix).
  * @param r Linear red in [0, 1].
@@ -636,6 +640,17 @@ inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
 }
 
 /**
+ * @brief Converts OKLab to linear RGB [0,1].
+ * @param lab Source color in OKLab space.
+ * @return The linear-RGB triple (may exit gamut before clamping).
+ */
+inline LinRGB oklab_to_linear_rgb(OKLab lab) {
+  LinRGB rgb;
+  oklab_to_linear_rgb(lab, rgb.r, rgb.g, rgb.b);
+  return rgb;
+}
+
+/**
  * @brief Tests whether a linear-RGB triple lies inside the [0,1] display cube.
  * @param r Linear red.
  * @param g Linear green.
@@ -672,9 +687,8 @@ inline OKLab gamut_clip_preserve_chroma(OKLab lab) {
   float lo = 0.0f, hi = 1.0f;
   for (int i = 0; i < 16; ++i) {
     float mid = 0.5f * (lo + hi);
-    float r, g, b;
-    oklab_to_linear_rgb({lab.L, lab.a * mid, lab.b * mid}, r, g, b);
-    if (linear_rgb_in_gamut(r, g, b))
+    LinRGB rgb = oklab_to_linear_rgb({lab.L, lab.a * mid, lab.b * mid});
+    if (linear_rgb_in_gamut(rgb.r, rgb.g, rgb.b))
       lo = mid;
     else
       hi = mid;
@@ -700,6 +714,19 @@ inline void oklab_to_linear_rgb_gamut(OKLab lab, float &r, float &g, float &b) {
   oklab_to_linear_rgb(lab, r, g, b);
   if (!linear_rgb_in_gamut(r, g, b))
     oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r, g, b);
+}
+
+/**
+ * @brief OKLab -> linear RGB with chroma-reduction gamut mapping off the fast
+ * path.
+ * @param lab Source color in OKLab space.
+ * @return The gamut-mapped linear-RGB triple (may sit a hair past the bound;
+ * callers still clamp).
+ */
+inline LinRGB oklab_to_linear_rgb_gamut(OKLab lab) {
+  LinRGB rgb;
+  oklab_to_linear_rgb_gamut(lab, rgb.r, rgb.g, rgb.b);
+  return rgb;
 }
 
 /**
@@ -741,13 +768,12 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   float A2 = A * ca - B * sa;
   float B2 = A * sa + B * ca;
 
-  float nr, ng, nb;
-  oklab_to_linear_rgb_gamut({L, A2, B2}, nr, ng, nb);
+  LinRGB rgb = oklab_to_linear_rgb_gamut({L, A2, B2});
 
   Color4 result = c;
-  result.color.r = float_to_pixel16(nr);
-  result.color.g = float_to_pixel16(ng);
-  result.color.b = float_to_pixel16(nb);
+  result.color.r = float_to_pixel16(rgb.r);
+  result.color.g = float_to_pixel16(rgb.g);
+  result.color.b = float_to_pixel16(rgb.b);
   return result;
 }
 
@@ -797,9 +823,9 @@ inline OKLCH srgb_to_oklch(uint8_t r, uint8_t g, uint8_t b) {
  * @return The color as a linear-space Pixel.
  */
 inline Pixel oklch_to_pixel(OKLCH lch) {
-  float r, g, b;
-  oklab_to_linear_rgb_gamut(oklch_to_oklab(lch), r, g, b);
-  return Pixel(float_to_pixel16(r), float_to_pixel16(g), float_to_pixel16(b));
+  LinRGB rgb = oklab_to_linear_rgb_gamut(oklch_to_oklab(lch));
+  return Pixel(float_to_pixel16(rgb.r), float_to_pixel16(rgb.g),
+               float_to_pixel16(rgb.b));
 }
 
 /**
@@ -863,10 +889,9 @@ inline Pixel lerp_oklch(const CPixel &c1, const CPixel &c2, float t) {
  *          pay only the gate test.
  */
 inline CPixel oklch_to_cpixel(OKLCH lch) {
-  float r, g, b;
-  oklab_to_linear_rgb_gamut(oklch_to_oklab(lch), r, g, b);
-  return CPixel(linear_float_to_srgb8(r), linear_float_to_srgb8(g),
-                linear_float_to_srgb8(b));
+  LinRGB rgb = oklab_to_linear_rgb_gamut(oklch_to_oklab(lch));
+  return CPixel(linear_float_to_srgb8(rgb.r), linear_float_to_srgb8(rgb.g),
+                linear_float_to_srgb8(rgb.b));
 }
 
 /**
