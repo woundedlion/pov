@@ -128,6 +128,8 @@ inline float shortest_distance(float a, float b, float m) {
  */
 constexpr float fwd_distance(float a, float b, float m) {
   auto d = b - a;
+  // Single +m correction below assumes |b - a| < m (one period).
+  assert(d >= -m && d < m);
   if (d < 0) {
     d += m;
   }
