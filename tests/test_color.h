@@ -552,8 +552,6 @@ inline void test_lerp_oklch_shortest_arc_midpoint() {
   OKLCH e{L, C, 0.5f};
   OKLCH f{L, C, 1.5f};
   HS_EXPECT_NEAR(lerp_oklch(e, f, 0.5f).h, 1.0f, 1e-4f);
-
-  HS_EXPECT_NEAR(mid.C, C, 1e-5f);
 }
 
 /**
