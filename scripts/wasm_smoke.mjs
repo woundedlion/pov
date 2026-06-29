@@ -143,9 +143,10 @@ async function main() {
         if (!Array.isArray(defs)) {
           fail(`${name}: getParameterDefinitions() did not return an array`);
         } else {
-          // param_marshal.h is the single source of order shared by both calls,
-          // so a length split means the value view can no longer be zipped onto
-          // the definitions — the exact index-drift this seam risks.
+          // param_marshal.h is the single source of order shared by both calls.
+          // A length split means the streams can no longer be zipped at all; the
+          // per-index value check below then proves the surviving pairs are not
+          // transposed — a reorder keeps lengths equal, so length alone is blind.
           if (values.length !== defs.length) {
             fail(`${name}: getParamValues() length ${values.length} != ` +
               `getParameterDefinitions() length ${defs.length} (param order seam drifted)`);
@@ -155,17 +156,37 @@ async function main() {
             if (typeof d.name !== 'string' || d.name.length === 0) {
               fail(`${name}: param ${i} has no name`);
             }
-            if (typeof d.value === 'boolean') continue; // bools omit min/max (wasm.cpp)
+            // The value stream carries no names, so order is proven by checking
+            // values[i] reproduces defs[i].value at the same index — both derive
+            // from one Effect::getParameters() pass (param_marshal.h) with no
+            // drawFrame between the two calls, so they are bit-identical per i.
+            // A reordering bug keeps lengths equal but transposes the pairing,
+            // tripping this where a length-only check stays green.
+            const sv = i < values.length ? values[i] : undefined;
+            if (i < values.length && !Number.isFinite(sv)) {
+              fail(`${name}: param "${d.name}" value-stream entry ${sv} is not finite`);
+            }
+            if (typeof d.value === 'boolean') {
+              // wasm.cpp collapses a bool def's value to `raw > 0.5`; the value
+              // stream keeps the raw float, so reconstruct and compare.
+              if (i < values.length && d.value !== (sv > 0.5)) {
+                fail(`${name}: param "${d.name}" (index ${i}) def bool ${d.value} ` +
+                  `!= value-stream ${sv} > 0.5 (param order seam transposed)`);
+              }
+              continue; // bools omit min/max (wasm.cpp)
+            }
+            // Float def: the stream entry must equal the def's value at this
+            // index, or the two streams are not zippable.
+            if (i < values.length && Number.isFinite(sv) && sv !== d.value) {
+              fail(`${name}: param "${d.name}" (index ${i}) def value ${d.value} ` +
+                `!= value-stream ${sv} (param order seam transposed)`);
+            }
             // Float params carry a finite, ordered range bracketing their value.
             const eps = 1e-4 * (1 + Math.abs(d.max - d.min));
             if (!Number.isFinite(d.min) || !Number.isFinite(d.max) || d.min > d.max) {
               fail(`${name}: param "${d.name}" has a non-finite/inverted range [${d.min}, ${d.max}]`);
             } else if (!Number.isFinite(d.value) || d.value < d.min - eps || d.value > d.max + eps) {
               fail(`${name}: param "${d.name}" value ${d.value} outside [${d.min}, ${d.max}]`);
-            }
-            // Its aligned entry in the value stream must be a real number too.
-            if (i < values.length && !Number.isFinite(values[i])) {
-              fail(`${name}: param "${d.name}" value-stream entry ${values[i]} is not finite`);
             }
           }
         }
