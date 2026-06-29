@@ -179,22 +179,30 @@ private:
    * @param cB Current B field (read-only), Q16 per node.
    * @param nA Next A field (write target), Q16 per node.
    * @param nB Next B field (write target), Q16 per node.
+   * @param fA Float scratch (RD_N) for the current A generation.
+   * @param fB Float scratch (RD_N) for the current B generation.
    * @details Gray-Scott: dA/dt = dA·∇²A - A·B² + feed·(1-A);
    * dB/dt = dB·∇²B + A·B² - (k+feed)·B. Pure double-buffered (Jacobi) step:
    * reads the current buffers, writes the next ones. The caller owns the
    * ping-pong so the result can be landed back in the persistent state
-   * regardless of substep parity (see render()).
+   * regardless of substep parity (see render()). The current generation is
+   * pre-converted into fA/fB once, so the neighbor loop reads floats instead of
+   * reconverting each node's Q16 value on every neighbor visit (~6-7x per node).
    */
   void step_physics(const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
-                    uint16_t *nB) {
+                    uint16_t *nB, float *fA, float *fB) {
     for (int i = 0; i < RD_N; i++) {
-      float a = from_q16(cA[i]);
-      float b = from_q16(cB[i]);
+      fA[i] = from_q16(cA[i]);
+      fB[i] = from_q16(cB[i]);
+    }
+    for (int i = 0; i < RD_N; i++) {
+      float a = fA[i];
+      float b = fB[i];
 
       float lA = 0, lB = 0;
       for_each_neighbor(i, [&](int ni) {
-        lA += from_q16(cA[ni]) - a;
-        lB += from_q16(cB[ni]) - b;
+        lA += fA[ni] - a;
+        lB += fB[ni] - b;
       });
 
       float abb = a * b * b;
@@ -239,12 +247,16 @@ private:
         scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
     uint16_t *sB = static_cast<uint16_t *>(
         scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
+    float *fA = static_cast<float *>(
+        scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+    float *fB = static_cast<float *>(
+        scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
 
     advance_substeps(STEPS_PER_FRAME,
                      std::array<uint16_t *, 2>{state.A, state.B},
                      std::array<uint16_t *, 2>{sA, sB},
-                     [this](auto &cur, auto &nxt) {
-                       step_physics(cur[0], cur[1], nxt[0], nxt[1]);
+                     [&](auto &cur, auto &nxt) {
+                       step_physics(cur[0], cur[1], nxt[0], nxt[1], fA, fB);
                      });
 
     // Seed the cubemap lookup once per pixel center; it only feeds
