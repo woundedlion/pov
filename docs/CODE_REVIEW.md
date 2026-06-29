@@ -124,7 +124,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 40. ✅ **`effects/PetalFlow.h` has a misplaced doxygen block.** The block describing `init_timeline` sits above `build_shift_table`, so Doxygen mis-associates it and `init_timeline` gets no doc of its own. Fix: move the block down to directly precede `init_timeline()`.
 
-41. **`core/memory.cpp` arena-failure log tags are inconsistent.** `configure_arenas` logs over-subscription as `[FATAL]` while `Arena::allocate` logs OOM as `[OOM]` and mesh/Hankin traps use bare messages. Fix: standardize the prefix across arena failure paths.
+41. ✅ **`core/memory.cpp` arena-failure log tags are inconsistent.** `configure_arenas` logs over-subscription as `[FATAL]` while `Arena::allocate` logs OOM as `[OOM]` and mesh/Hankin traps use bare messages. Fix: standardize the prefix across arena failure paths.
 
 42. **Test gap: `fib_spiral` distribution property is unverified.** `tests/test_geometry.h` checks unit-length, determinism, and opposite-hemisphere endpoints but not the golden-angle spacing / even-distribution that is the spiral's defining purpose; a wrong-but-unit-length spiral would pass. Fix: add a nearest-neighbor-spacing or golden-angle-increment assertion.
 
