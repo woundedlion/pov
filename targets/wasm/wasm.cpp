@@ -872,6 +872,8 @@ struct MeshOpsWrapper {
       }
       faces_arr.set(i, face);
     }
+    HS_CHECK(flat_idx == mesh.faces.size(),
+             "getFaces: face_counts undercount left flat indices unconsumed");
     return faces_arr;
   }
 
