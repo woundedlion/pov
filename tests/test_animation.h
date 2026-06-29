@@ -1614,6 +1614,30 @@ inline void test_noise_publishes_time_and_is_perpetual() {
 }
 
 /**
+ * @brief A seeded RandomWalk keeps its oriented vector unit-length each frame and
+ * accumulates nonzero travel on the sphere.
+ */
+inline void test_random_walk_stays_unit_and_travels() {
+  Orientation<4> o; // identity
+  FastNoiseLite noise;
+  Animation::RandomWalk<288, 4> walk(
+      o, Y_AXIS, noise,
+      Animation::RandomWalk<288, 4>::Options::Energetic(), /*seed=*/1234);
+
+  const Vector probe = X_AXIS;
+  Vector prev = o.orient(probe);
+  float travel = 0.0f;
+  for (int fr = 0; fr < 50; ++fr) {
+    walk.step(fake_canvas());
+    const Vector cur = o.orient(probe);
+    HS_EXPECT_NEAR(cur.length(), 1.0f, 1e-4f);
+    travel += angle_between(prev, cur);
+    prev = cur;
+  }
+  HS_EXPECT_GT(travel, 0.0f);
+}
+
+/**
  * @brief Runs every animation/easing test case in this module.
  * @return The module's failure count.
  */
@@ -1691,6 +1715,8 @@ inline int run_animation_tests() {
 
   test_ripple_envelope_and_done_boundary();
   test_noise_publishes_time_and_is_perpetual();
+
+  test_random_walk_stays_unit_and_travels();
 
   const int result = fixture.result();
   // Unpublish before fake_cv/fake_fx destruct below.
