@@ -639,7 +639,10 @@ public:
   val getParamValues() {
     if (!currentEffect) {
       // Empty Float32Array (not a JS Array) so callers get a consistent typed
-      // view whether or not an effect is set.
+      // view whether or not an effect is set. The zero-length view still needs a
+      // valid backing pointer, which holds only because the ctor reserved
+      // MAX_PARAMS and clear() retains that capacity.
+      HS_CHECK(paramValues.capacity() >= MAX_PARAMS);
       paramValues.clear();
       return val(typed_memory_view(paramValues.size(), paramValues.data()));
     }
