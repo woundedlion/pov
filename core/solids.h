@@ -1229,6 +1229,31 @@ inline std::span<const Entry> get_islamic_solids() {
 } // namespace Collections
 
 /**
+ * @brief The three solid registries in flat global-index order.
+ * @return Spans over the simple, then Catalan, then Islamic registries.
+ * @details Single source of truth for the registry enumeration order; the
+ * index- and name-based lookups below all derive from it.
+ */
+inline std::array<std::span<const Entry>, 3> all_registries() {
+  return {std::span<const Entry>(simple_registry),
+          std::span<const Entry>(catalan_registry),
+          std::span<const Entry>(islamic_registry)};
+}
+
+/**
+ * @brief Finds a registry entry by name across all registries.
+ * @param name Candidate solid name.
+ * @return Pointer to the matching entry, or nullptr when no name matches.
+ */
+inline const Entry *find_entry(std::string_view name) {
+  for (std::span<const Entry> reg : all_registries())
+    for (const Entry &entry : reg)
+      if (name == entry.name)
+        return &entry;
+  return nullptr;
+}
+
+/**
  * @brief Looks up a registry entry by global index across all three registries.
  * @param index Zero-based index in [0, NUM_ENTRIES); traps if out of range.
  * @return Reference to the entry at that index.
@@ -1239,14 +1264,12 @@ inline const Entry &get_entry(size_t index) {
   HS_CHECK(index < static_cast<size_t>(NUM_ENTRIES),
            "Solids::get_entry: index out of range");
 
-  if (index < std::size(simple_registry))
-    return simple_registry[index];
-
-  if (index < std::size(simple_registry) + std::size(catalan_registry))
-    return catalan_registry[index - std::size(simple_registry)];
-
-  return islamic_registry[index - (std::size(simple_registry) +
-                                   std::size(catalan_registry))];
+  for (std::span<const Entry> reg : all_registries()) {
+    if (index < reg.size())
+      return reg[index];
+    index -= reg.size();
+  }
+  __builtin_unreachable();
 }
 
 #ifdef EMSCRIPTEN
@@ -1282,20 +1305,9 @@ static PolyMesh get(Arena &geom, Arena &a, Arena &b, int index) = delete;
  */
 FLASHMEM static PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
                                      std::string_view name) {
-  for (const auto &entry : simple_registry) {
-    if (name == entry.name)
-      return finalize_solid(entry.generate(a, b), geom);
-  }
-  for (const auto &entry : catalan_registry) {
-    if (name == entry.name)
-      return finalize_solid(entry.generate(a, b), geom);
-  }
-  for (const auto &entry : islamic_registry) {
-    if (name == entry.name)
-      return finalize_solid(entry.generate(a, b), geom);
-  }
-  HS_CHECK(false, "Solids::get_by_name: unknown solid name");
-  __builtin_unreachable();
+  const Entry *entry = find_entry(name);
+  HS_CHECK(entry, "Solids::get_by_name: unknown solid name");
+  return finalize_solid(entry->generate(a, b), geom);
 }
 
 /**
@@ -1307,16 +1319,7 @@ FLASHMEM static PolyMesh get_by_name(Arena &geom, Arena &a, Arena &b,
  * with this first and reject unknown names rather than abort.
  */
 inline bool has_name(std::string_view name) {
-  for (const auto &entry : simple_registry)
-    if (name == entry.name)
-      return true;
-  for (const auto &entry : catalan_registry)
-    if (name == entry.name)
-      return true;
-  for (const auto &entry : islamic_registry)
-    if (name == entry.name)
-      return true;
-  return false;
+  return find_entry(name) != nullptr;
 }
 
 } // namespace Solids
