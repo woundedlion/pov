@@ -49,7 +49,17 @@ and one CI self-check. There are **no Critical or High-severity defects**: the m
 serious confirmed item (a controller re-dispatch after a defensive fault latch) is
 Medium and self-recovers, and the rest are Low/Nit.
 
-### Overall grades
+### Overall grade: **A+**
+
+Weighted toward the dimensions that matter most for a hard-real-time art engine —
+correctness, memory safety, architecture, and performance, all A/A+ — and discounting
+only peripheral documentation/test-coverage/build dimensions sitting at A−. The C++
+engine core is effectively defect-free under independent adversarial validation, the
+architecture is genuinely elegant, and the sim↔device determinism contract is enforced
+and tested. The handful of confirmed defects are non-Critical, non-High, and confined to
+the periphery. This is professional-grade work.
+
+### Per-dimension grades
 
 | Dimension | Grade | Rationale |
 |---|---|---|
