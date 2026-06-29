@@ -27,9 +27,10 @@ public:
   static constexpr int SHAPE_FRAMES = 240;
   static constexpr int NO_MORPH_FRAMES = SHAPE_FRAMES - MORPH_FRAMES;
 
-  static_assert(std::gcd(SHAPE_FRAMES, PRESET_FRAMES) == 1,
-                "SHAPE_FRAMES and PRESET_FRAMES must stay coprime so the shape "
-                "and preset cycles drift out of phase instead of locking");
+  static_assert(std::gcd(NO_MORPH_FRAMES + MORPH_FRAMES, PRESET_FRAMES) == 1,
+                "the shape cycle (NO_MORPH_FRAMES + MORPH_FRAMES) and "
+                "PRESET_FRAMES must stay coprime so the shape and preset cycles "
+                "drift out of phase instead of locking");
 
   static constexpr float kFadeMin = 0.0f,  kFadeMax = 0.99f;
   static constexpr float kAmpMin = 0.0f,   kAmpMax = 30.0f;
