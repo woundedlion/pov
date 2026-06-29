@@ -298,7 +298,9 @@ struct CHSV {
 /**
  * @brief RGB color structure mimicking FastLED's CRGB.
  * @details Reproduces FastLED's constructors, operators and helpers so host
- *          effects compile and behave identically to the device.
+ *          effects compile and behave identically to the device — the lone
+ *          exception is CRGB(const CHSV&), which is not bit-identical (see its
+ *          @warning).
  */
 struct CRGB {
   /** @brief Red, green and blue channels, each in [0, 255]. */
@@ -327,6 +329,10 @@ struct CRGB {
    * @brief Constructs an RGB color by converting from HSV.
    * @param hsv Source color in HSV space.
    * @details Basic integer HSV-to-RGB conversion over six hue sectors.
+   * @warning NOT bit-identical to the device: FastLED's runtime path is
+   *          hsv2rgb_rainbow, while this is a 6-sector integer spectrum giving
+   *          visibly different RGB. A legacy-compat conversion only — do not use
+   *          on parity-sensitive paths (no modern effect uses CHSV).
    */
   constexpr CRGB(const CHSV &hsv) {
     unsigned char region, remainder, p, q, t;
