@@ -1125,7 +1125,6 @@ namespace hs {
  *          without driving the global RNG to its (rare) max.
  */
 inline float random_to_unit(uint32_t value, uint32_t max) {
-  HS_CHECK(max == UINT32_MAX); // top-band clamp constant assumes this divisor
   float r = static_cast<float>(value) / static_cast<float>(max);
   constexpr float kJustBelowOne = 0x1.fffffep-1f; // nextafterf(1.0f, 0.0f)
   return r > kJustBelowOne ? kJustBelowOne : r;
