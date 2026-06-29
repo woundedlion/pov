@@ -1196,14 +1196,14 @@ inline void test_sprite_fade_in_plateau_fade_out_envelope() {
 }
 
 /**
- * @brief Verifies that when fade_in + fade_out exceed duration the overlapping
- * opacity envelope stays continuous (a triangle).
+ * @brief Verifies that when fade_in + fade_out exceed duration the fades scale
+ * proportionally into a continuous triangle that still peaks at full opacity.
  * @details There must be no jump where the fade-in hands off to the fade-out;
  * the slider ranges make this configuration user-reachable.
  */
 inline void test_sprite_overlapping_fades_stay_continuous() {
   std::vector<float> ops;
-  const int dur = 10, fade_in = 8, fade_out = 8; // 8 + 8 > 10 => overlap
+  const int dur = 10, fade_in = 8, fade_out = 8; // 8 + 8 > 10 => overlap, scaled to 5 + 5
   Animation::Sprite s(
       [&](Canvas &, float o) { ops.push_back(o); }, dur, fade_in, ease_linear,
       fade_out, ease_linear);
@@ -1211,12 +1211,13 @@ inline void test_sprite_overlapping_fades_stay_continuous() {
     s.step(fake_canvas()); // observed at t = 1..10
 
   HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
-  // Slope 1/8 per frame, so no single-frame step exceeds ~0.125.
+  // Scaled to 5 + 5: slope 1/5 per frame, so no single-frame step exceeds ~0.2.
   float max_jump = 0.0f;
   for (size_t i = 1; i < ops.size(); ++i)
     max_jump = std::max(max_jump, std::abs(ops[i] - ops[i - 1]));
-  HS_EXPECT_LT(max_jump, 0.2f);
-  // Rises to a peak then falls (a triangle).
+  HS_EXPECT_LT(max_jump, 0.3f);
+  // Rises to full opacity at the apex, then falls (a triangle).
+  HS_EXPECT_NEAR(ops[4], 1.0f, 1e-3f);
   HS_EXPECT_GT(ops[4], ops[0]);
   HS_EXPECT_GT(ops[4], ops[9]);
 }
