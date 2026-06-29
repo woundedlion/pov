@@ -209,6 +209,8 @@ private:
     for (const auto &v : AttractSolid::vertices) {
       particle_system.add_attractor(v, params.well_strength, 0.003f, 0.2f);
     }
+    HS_CHECK(particle_system.attractors.size() <= AttractSolid::NUM_VERTS,
+             "attractor count exceeds draw_particles cos_eh capacity");
 
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
       emitter_hues[i] = hs::rand_f();
