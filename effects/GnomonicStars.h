@@ -55,8 +55,9 @@ public:
     registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
     registerParam("Debug BB", &params.debug_bb);
 
-    // Args are (scale, speed): the fixed 0.5 warp magnitude and the slider rate.
-    warp_ = transformer.spawn_pinned(0, 0.5f, params.warp_speed);
+    // Args are (scale, speed): fixed 0.5 magnitude; speed is a don't-care here
+    // since draw_frame mirrors params.warp_speed into the warp every frame.
+    warp_ = transformer.spawn_pinned(0, 0.5f, 0.0f);
     HS_CHECK(warp_, "GnomonicStars: pinned warp spawn must succeed");
     registerParam("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
 
