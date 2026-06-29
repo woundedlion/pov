@@ -312,17 +312,13 @@ inline void check_determinism_for_index(size_t index) {
   HS_EXPECT_EQ(m1.face_counts.size(), m2.face_counts.size());
   HS_EXPECT_EQ(m1.faces.size(), m2.faces.size());
 
-  if (m1.vertices.size() == m2.vertices.size()) {
-    for (size_t i = 0; i < m1.vertices.size(); ++i) {
-      HS_EXPECT_NEAR(m1.vertices[i].x, m2.vertices[i].x, 1e-6f);
-      HS_EXPECT_NEAR(m1.vertices[i].y, m2.vertices[i].y, 1e-6f);
-      HS_EXPECT_NEAR(m1.vertices[i].z, m2.vertices[i].z, 1e-6f);
-    }
+  for (size_t i = 0; i < m1.vertices.size(); ++i) {
+    HS_EXPECT_NEAR(m1.vertices[i].x, m2.vertices[i].x, 1e-6f);
+    HS_EXPECT_NEAR(m1.vertices[i].y, m2.vertices[i].y, 1e-6f);
+    HS_EXPECT_NEAR(m1.vertices[i].z, m2.vertices[i].z, 1e-6f);
   }
-  if (m1.faces.size() == m2.faces.size()) {
-    for (size_t i = 0; i < m1.faces.size(); ++i)
-      HS_EXPECT_EQ(m1.faces[i], m2.faces[i]);
-  }
+  for (size_t i = 0; i < m1.faces.size(); ++i)
+    HS_EXPECT_EQ(m1.faces[i], m2.faces[i]);
 }
 
 /**
