@@ -87,8 +87,13 @@ struct CubemapLUT {
   static constexpr int RES = 64;
 
   /**
-   * @brief Allocates and populates the LUT from the given arena (48 KB).
-   * @param arena Arena providing backing storage for the 6×RES² table.
+   * @brief Allocates and populates the LUT from the given arena (48 KB
+   *        persistent + ~90 KB transient).
+   * @param arena Arena providing backing storage for the 6×RES² table (48 KB,
+   *        retained) plus a transient RD_N×sizeof(Vector) (~90 KB) lattice
+   *        scratch, scoped to build() and rewound on return. A caller must
+   *        provision for the peak (~138 KB), not the 48 KB persistent table
+   *        alone, or this traps mid-build.
    * @details The triple loop visits texels in linear (face, y, x) order — exactly
    *          the index (face*RES+y)*RES+x used by lookup() — so sequential
    *          push_back fills the table in place with no random-access writes.
