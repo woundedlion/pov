@@ -147,7 +147,7 @@ and are flagged as such.
 
 30. ✅ **[interface-design] `core/canvas.h:179-182` — `set_margin` guards `m < w` but not a negative margin.** A negative margin propagates into `ClipRegion` and inverts/empties the render band (silently skipping rows). Latent (no negative caller today), but the lower bound is the easier mistake. *Fix:* `HS_CHECK(m >= 0 && m < clip.w, …)`.
 
-31. **[maintainability] `effects/Flyby.h:195-229` — `Flyby::Params` lacks the field-drift `static_assert` that its twin `Liquid2D::Params` has.** `lerp()` hand-lists 6 fields and presets are 6 bare floats; a field add/reorder silently mis-maps both. *Fix:* add `static_assert(sizeof(Params) == N*sizeof(float), …)` (or convert `lerp` to the indexed-array form) so a field change is a compile error.
+31. ✅ **[maintainability] `effects/Flyby.h:195-229` — `Flyby::Params` lacks the field-drift `static_assert` that its twin `Liquid2D::Params` has.** `lerp()` hand-lists 6 fields and presets are 6 bare floats; a field add/reorder silently mis-maps both. *Fix:* add `static_assert(sizeof(Params) == N*sizeof(float), …)` (or convert `lerp` to the indexed-array form) so a field change is a compile error.
 
 32. **[documentation] `effects/GSReactionDiffusion.h:22-31` — GS class doc omits the memory-budget table BZ carries, despite GS being the heavier arena tenant.** GS bakes an extra palette and runs 16 substeps/frame; its budget exists only inside an `init()` `static_assert`. *Fix:* add a parallel budget table matching BZ's style.
 

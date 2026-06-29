@@ -211,6 +211,12 @@ private:
      * time would make the motion stutter field by field.
      */
     void lerp(const Params &a, const Params &b, float t) {
+      constexpr int N = 6;
+      // Trips if the field set changes, so the per-field lerp below and the
+      // bare-float presets can't silently fall out of sync with Params.
+      static_assert(sizeof(Params) == N * sizeof(float),
+                    "Flyby::Params field set changed — update lerp and the "
+                    "preset float lists to match");
       warp_scale = hs::lerp(a.warp_scale, b.warp_scale, t);
       warp_strength = hs::lerp(a.warp_strength, b.warp_strength, t);
       pattern_freq = hs::lerp(a.pattern_freq, b.pattern_freq, t);
