@@ -149,7 +149,7 @@ and are flagged as such.
 
 31. ✅ **[maintainability] `effects/Flyby.h:195-229` — `Flyby::Params` lacks the field-drift `static_assert` that its twin `Liquid2D::Params` has.** `lerp()` hand-lists 6 fields and presets are 6 bare floats; a field add/reorder silently mis-maps both. *Fix:* add `static_assert(sizeof(Params) == N*sizeof(float), …)` (or convert `lerp` to the indexed-array form) so a field change is a compile error.
 
-32. **[documentation] `effects/GSReactionDiffusion.h:22-31` — GS class doc omits the memory-budget table BZ carries, despite GS being the heavier arena tenant.** GS bakes an extra palette and runs 16 substeps/frame; its budget exists only inside an `init()` `static_assert`. *Fix:* add a parallel budget table matching BZ's style.
+32. ✅ **[documentation] `effects/GSReactionDiffusion.h:22-31` — GS class doc omits the memory-budget table BZ carries, despite GS being the heavier arena tenant.** GS bakes an extra palette and runs 16 substeps/frame; its budget exists only inside an `init()` `static_assert`. *Fix:* add a parallel budget table matching BZ's style.
 
 33. **[performance] `effects/Moire.h:65-98` — palette LUTs rebake nearly every frame because the wipe period equals the wipe length.** With `period == WIPE_FRAMES == 80`, a new wipe starts the frame the previous ends, so the "skip rebake when idle" guard never engages after frame 80. *Fix:* make the timer period strictly greater than `WIPE_FRAMES`, or drop the now-misleading "skip otherwise" comment.
 
