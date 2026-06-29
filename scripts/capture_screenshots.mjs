@@ -38,7 +38,7 @@ const WAIT_MS = numEnv('WAIT_MS', 30000);
 // wins). BLANK_FLOOR is the coverage below which a frame is treated as blank
 // for the still-empty warning, not a save gate — the busiest frame is saved
 // regardless so a failed effect never overwrites its prior PNG with nothing.
-const MAX_ATTEMPTS = numEnv('MAX_ATTEMPTS', 6);
+const MAX_ATTEMPTS = Math.max(1, numEnv('MAX_ATTEMPTS', 6));
 const RETRY_WAIT_MS = numEnv('RETRY_WAIT_MS', 4000);
 const MIN_LIT = numEnv('MIN_LIT', 0.004);
 const BLANK_FLOOR = numEnv('BLANK_FLOOR', 0.0005);

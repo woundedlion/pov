@@ -159,7 +159,7 @@ sequentially across all priority sections.
    - Evidence: `RandomWalk<W,CAP>` has deterministically-testable pure logic (smoothed angular-velocity integrator, on-sphere unit-length walk, degenerate-axis `normalized_or` fallback at `:1715`) but is exercised only inside the ~19 effects that use it. The unit-length invariant and the fallback branch are RNG-independent under a fixed seed.
    - Fix: add a seeded test that steps a `RandomWalk` ~50 frames and asserts the oriented vector stays unit-length each frame and total travel > 0; optionally force the degenerate case.
 
-9. **`capture_screenshots.mjs` makes every effect report FAILED when `MAX_ATTEMPTS=0`.**
+9. ✅ **`capture_screenshots.mjs` makes every effect report FAILED when `MAX_ATTEMPTS=0`.**
    - File: `scripts/capture_screenshots.mjs:22-27` (`numEnv`), `:41`, `:209-218`, `:227-230`
    - Severity: Low · Dimension: Error handling · Confidence: High
    - Evidence: `numEnv('MAX_ATTEMPTS', 6)` returns `0` for the input `"0"` (zero is finite and ≥ 0), so the grab loop never runs, `best` stays `null`, and `best.split(',', 2)[1]` throws. The TypeError *is* caught by the per-effect `try/catch` (`:227`), so it does not crash the run — but every effect is then logged FAILED, silently producing zero screenshots.
