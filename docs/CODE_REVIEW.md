@@ -125,7 +125,7 @@ All defects found, numbered sequentially. Severity in brackets. "Latent" = corre
 
 ### Priority 3 — Test-coverage gaps & polish
 
-56. **Per-effect "did it produce output" is not asserted** — only a roster-wide `g_nonblack_effects > 0` aggregate; a single effect regressing to all-black passes as long as any other lights up. `tests/test_effects.h:148-149,1357`. Track lit-count per effect (with an allowlist for intentionally-dark frames). [Low, testing]
+56. ✅ **Per-effect "did it produce output" is not asserted** — only a roster-wide `g_nonblack_effects > 0` aggregate; a single effect regressing to all-black passes as long as any other lights up. `tests/test_effects.h:148-149,1357`. Track lit-count per effect (with an allowlist for intentionally-dark frames). [Low, testing]
 57. ✅ **The `util.h` wrap family is untested at its load-bearing boundaries** (`wrap_t(-1e-8)`, `shortest_distance` across the seam, `fast_wrap` at `-W`/`2W-1`, `fwd_distance` range). `core/util.h`. Add a boundary test module. [Medium → test gap]
 58. ✅ **`Orientation::upsample` degrade path and `slerp` antipodal monotonicity are untested.** `core/geometry.h:719`, `core/3dmath.h:1213-1219`. [Medium → test gap]
 59. ✅ **`engine_contract_wasm.test.js` omits `getParamValues` from its method-surface list,** though `segment_worker` consumes it — so the only coverage is fake-only and a real-engine rename would pass CI. `daydream/tests/engine_contract_wasm.test.js:23-31`. Add it. [Medium → test gap]
@@ -141,7 +141,7 @@ All defects found, numbered sequentially. Severity in brackets. "Latent" = corre
 69. **Default 8-frame local smoke window leaves cyclic/lifecycle paths uncovered** until CI's `HS_SMOKE_FRAMES=120`; the pre-commit hook runs 8. `tests/test_effects.h:71`. Route lifecycle effects through their own ≥1-period white-box drivers. [Low]
 70. ✅ **Animation suite seeds RNG once per module (vs per-case in the effects suite),** creating latent test-order coupling. `tests/test_animation.h:1449`. Re-seed per RNG-touching case. [Low]
 71. **7 of 10 effects in batch-A have no white-box test seam** (only RingSpin/FlowField/RingShower do); correctness-relevant invariants (GnomonicStars cache coupling, Moire density clamp) are smoke-only. `effects/*`. Add seams. [Low]
-72. **Reaction-diffusion `perturb_state` draws ~32 values/frame from the shared deterministic RNG stream** (per-frame draw count untested), so a substep retune silently shifts every later effect's RNG. `effects/BZReactionDiffusion.h:232-240`. Add a determinism test or use a per-effect substream. [Low]
+72. ✅ **Reaction-diffusion `perturb_state` draws ~32 values/frame from the shared deterministic RNG stream** (per-frame draw count untested), so a substep retune silently shifts every later effect's RNG. `effects/BZReactionDiffusion.h:232-240`. Add a determinism test or use a per-effect substream. [Low]
 73. ✅ **`std::min`-guarded clone/determinism comparison loops mask a size mismatch into fewer iterations,** weakening the failure signal. `tests/test_mesh.h:375-389`, `tests/test_solids.h:315-325`. Iterate the full extent (the size assert already gates). [Low]
 74. ✅ **SSAA premultiply test couples its expected value to sub-sample iteration order/count.** `tests/test_scan.h:96-121`. Derive opacity from sample position, not a global call counter. [Low]
 75. ✅ **Redundant duplicate assertion.** `tests/test_color.h:541,554` — delete the dead duplicate. [Low]

@@ -21,6 +21,7 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <vector>
 
 namespace hs_test {
@@ -96,6 +97,18 @@ inline void lint_dead_sliders(Effect &effect, const char *name);
 // frame sum, asserted positive once per roster pass in run_effects_tests().
 inline int g_nonblack_effects = 0;
 
+// Per-effect non-black exemption. An effect whose ramp-up exceeds the frame
+// window legitimately ends on an all-black frame; exempt it only below the frame
+// count at which it first lights, so the assertion still fires at the longer
+// windows (e.g. CI's HS_SMOKE_FRAMES=120) where output is mandatory.
+//   RingShower: rings expand from zero radius; nothing is lit until ~frame 30,
+//   so the default 8-frame local window is black by design (it lights by 120).
+inline bool effect_may_be_dark(const char *name, int frames) {
+  if (std::strcmp(name, "RingShower") == 0)
+    return frames < 30;
+  return false;
+}
+
 /**
  * @brief Drives one effect type through construct -> init -> render -> read-back.
  * @tparam E Effect class template, instantiated as E<W, H>.
@@ -149,6 +162,16 @@ inline void smoke_one(const char *name) {
     ++g_nonblack_effects;
   std::printf("  [ok] %-20s rendered %d frames @ %dx%d (sum=%llu)\n", name,
               frames, W, H, static_cast<unsigned long long>(acc));
+
+  // Per-effect "did it produce output": one effect regressing to all-black no
+  // longer hides behind the roster-wide g_nonblack_effects aggregate.
+  if (!effect_may_be_dark(name, frames)) {
+    if (acc == 0)
+      std::printf("  ALL-BLACK %-20s produced no lit pixel over %d frames "
+                  "@ %dx%d\n",
+                  name, frames, W, H);
+    HS_EXPECT(acc > 0, "effect must produce non-black output");
+  }
 
   // The dead-slider lint is resolution-independent; run it once on the primary pass.
   if constexpr (W == kW && H == kH)
