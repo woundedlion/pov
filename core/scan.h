@@ -180,8 +180,10 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
         y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
     if (handled && !intervals.is_empty()) {
-      // A shape spanning the full circle (len >= W) paints every column, so
-      // detect it up front and skip the seam-split/sort/coalesce path.
+      // A single span covering the full circle (len >= W) paints every column;
+      // detect it up front and skip the seam-split/sort/coalesce path. Coverage
+      // assembled from multiple abutting spans is not caught here — it falls to
+      // the slow path, which still paints every covered column.
       bool full_row = false;
       for (const auto &iv : intervals) {
         if (iv.second - iv.first >= static_cast<float>(W)) {
