@@ -511,6 +511,11 @@ jobs:
           # build_cache_dir from platformio.ini — without this the 7,685-line
           # reaction_graph.cpp + FastLED recompile from scratch every run, ×2 envs.
           path: .pio/build_cache
+          # Rolling cache (like the toolchain cache above): the github.sha suffix
+          # makes the exact key miss every run, so restore-keys seeds from the
+          # newest prior cache and PlatformIO recompiles only what changed, then
+          # this run saves a fresh entry. The per-commit save trades storage churn
+          # for an always-warm incremental cache independent of branch topology.
           key: pio-objs-${{ hashFiles('platformio.ini') }}-${{ github.sha }}
           restore-keys: pio-objs-${{ hashFiles('platformio.ini') }}-
       - name: Install pinned PlatformIO
