@@ -4,7 +4,7 @@
 // the same roster the WASM startup check and the native smoke suite are derived
 // from, so the gallery — and its CI freshness gate — can never silently drift
 // from the registered effect set when an effect is added or removed.
-import { readFile } from 'node:fs/promises';
+import { readFile, readdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -29,4 +29,29 @@ export async function loadEffectRoster() {
   const names = [...body.matchAll(/X\((\w+)\)/g)].map(m => m[1]);
   if (names.length === 0) throw new Error('HS_EFFECT_LIST parsed to zero effects');
   return names;
+}
+
+// The self-registering effect set, read straight from the headers on disk: every
+// effects/*.h carries exactly one REGISTER_EFFECT(ClassName). This is the
+// independent witness the HS_EFFECT_LIST roster is cross-checked against — a
+// header that registers an effect the X-macro list never names (or vice versa)
+// is roster drift the WASM count check cannot see, because an effect never
+// #included from core/effects.h is absent from both the registry and the count.
+// The REGISTER_EFFECT *macro definition* lives in core/effect_registry.h (not
+// effects/), so globbing effects/*.h captures only call sites.
+export async function loadRegisteredEffects() {
+  const dir = join(REPO_ROOT, 'effects');
+  const headers = (await readdir(dir)).filter(f => f.endsWith('.h'));
+  const names = new Set();
+  for (const f of headers) {
+    const src = await readFile(join(dir, f), 'utf8');
+    // Strip comments first so a commented-out REGISTER_EFFECT row is not counted
+    // (mirrors loadEffectRoster's handling of the X-macro list).
+    const stripped = src
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/\/\/[^\n]*/g, '');
+    for (const m of stripped.matchAll(/REGISTER_EFFECT\((\w+)\)/g))
+      names.add(m[1]);
+  }
+  return [...names];
 }
