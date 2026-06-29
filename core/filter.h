@@ -773,14 +773,17 @@ public:
       }
     }
 
-    for (size_t i = 0; i < count_; ++i) {
-      auto &item = at(i);
+    for (size_t i = 0; i < count_;) {
+      Item &item = at(i);
       if (item.ttl > 0)
         item.ttl--;
-    }
-
-    while (count_ > 0 && at(0).ttl == 0) {
-      pop_front();
+      if (item.ttl == 0) {
+        item = at(count_ - 1);
+        tail_ = (tail_ + Capacity - 1) % Capacity;
+        count_--;
+      } else {
+        ++i;
+      }
     }
   }
 
