@@ -128,8 +128,10 @@ private:
     IntervalTimer timer;
     // One column sweep period (µs), rounded to nearest; a pathological RPM/width
     // could round it to 0 µs, an undefined IntervalTimer period.
+    static_assert(RPM > 0, "POVDisplay: RPM must be positive");
     const unsigned long cols_per_min =
         static_cast<unsigned long>(RPM) * effect_->width();
+    HS_CHECK(cols_per_min > 0, "column sweep rate is zero (width is 0)");
     const unsigned long interval_us =
         (60000000UL + cols_per_min / 2) / cols_per_min;
     HS_CHECK(interval_us >= 1,
