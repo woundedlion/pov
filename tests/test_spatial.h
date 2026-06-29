@@ -13,6 +13,7 @@
 #include <cfloat>
 #include <cmath>
 #include <cstdint>
+#include <random>
 #include "core/spatial.h"
 #include "tests/test_3dmath.h" // re-uses approx_vec / HS_EXPECT_VEC
 #include "tests/test_fixture.h"
@@ -255,6 +256,56 @@ inline void test_kdtree_duplicates_and_max_k() {
   HS_EXPECT_TRUE(std::fabs(r[2].d_sq) < 1e-6f);
 }
 
+/**
+ * @brief Verifies k>1 nearest matches brute force on 100 random distinct points.
+ * @details The k>1 brute-force checks elsewhere use coincident/collinear points
+ *          where bbox pruning can't err. This builds a tree over 100 randomly
+ *          placed distinct points (fixed mt19937 seed for reproducibility) and,
+ *          for several queries, compares the tree's k-nearest set against a
+ *          brute-force k-smallest scan. Distances are well separated, so the
+ *          comparison is per-rank on sorted squared distance plus a point/index
+ *          cross-check.
+ */
+inline void test_kdtree_k_nearest_brute_force_random() {
+  Arena arena(spatial_buf, sizeof(spatial_buf));
+  constexpr int N = 100;
+  Vector pts[N];
+
+  std::mt19937 rng(20240611u);
+  std::uniform_real_distribution<float> uni(-10.0f, 10.0f);
+  for (int i = 0; i < N; ++i)
+    pts[i] = Vector(uni(rng), uni(rng), uni(rng));
+
+  std::span<Vector> sp(pts, N);
+  KDTree tree(arena, sp);
+
+  const Vector queries[] = {
+      Vector(0, 0, 0),     Vector(3.5f, -7.0f, 2.0f),
+      Vector(-8.0f, 8.0f, -1.5f), Vector(9.9f, 9.9f, 9.9f),
+      Vector(-2.2f, 0.3f, 5.1f),
+  };
+  constexpr int K = KDTree::MAX_K;
+
+  for (const Vector &q : queries) {
+    auto r = tree.nearest(q, K);
+    HS_EXPECT_EQ(r.size(), (size_t)K);
+
+    float all_d2[N];
+    for (int i = 0; i < N; ++i) all_d2[i] = distance_squared(pts[i], q);
+    std::sort(all_d2, all_d2 + N);
+
+    float prev = -1.0f;
+    for (int i = 0; i < K; ++i) {
+      HS_EXPECT_TRUE(r[i].d_sq >= prev - 1e-5f); // sorted nearest-first
+      prev = r[i].d_sq;
+      HS_EXPECT_TRUE(std::fabs(r[i].d_sq - all_d2[i]) < 1e-4f);
+      HS_EXPECT_VEC(r[i].point, pts[r[i].original_index], 1e-6f);
+      HS_EXPECT_TRUE(
+          std::fabs(distance_squared(r[i].point, q) - r[i].d_sq) < 1e-4f);
+    }
+  }
+}
+
 // ============================================================================
 // MeshState
 // ============================================================================
@@ -389,6 +440,7 @@ inline int run_spatial_tests() {
   test_kdtree_clear();
   test_kdtree_matches_brute_force();
   test_kdtree_duplicates_and_max_k();
+  test_kdtree_k_nearest_brute_force_random();
 
   test_meshstate_default_unbound();
   test_meshstate_clone_deep_copies();
