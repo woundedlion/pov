@@ -102,14 +102,14 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // accumulated_time is the unbounded noise-time axis: OpenSimplex2 is
-    // aperiodic so it cannot be wrapped without a visible jump.
+    // Wrap the noise-time accumulator so the float ULP never swallows the
+    // increment and freezes the warp; OpenSimplex2 is aperiodic so the wrap pops
+    // the field once per period (far apart at TIME_PERIOD).
+    accumulated_time = fmodf(accumulated_time, TIME_PERIOD);
     float t = accumulated_time;
-    // The pattern's fast_sinf/fast_cosf time terms ride phases wrapped to 2pi.
-    // dt is the live Time Speed slider directly, not (t - prev_time): the Driver
-    // adds that speed each step, so it IS this frame's advance of t. Differencing
-    // the unbounded accumulator would lose the increment to ULP after multi-day
-    // uptime.
+    // dt is the live Time Speed slider, not (t - prev): the Driver adds that speed
+    // each step so it IS this frame's advance, and differencing across the wrap
+    // seam would spike.
     constexpr float kTwoPi = 2.0f * PI_F;
     float dt = params.time_speed;
     if (!std::isfinite(dt))
@@ -270,8 +270,9 @@ private:
       }
     }
   };
+  static constexpr float TIME_PERIOD = 65536.0f;
   Params params; /**< Live per-frame parameters, lerped between presets. */
-  float accumulated_time = 0.0f; /**< Unbounded noise-time axis (see draw_frame). */
+  float accumulated_time = 0.0f; /**< Noise-time axis, wrapped to TIME_PERIOD (see draw_frame). */
   float cycle_phase = 0.0f;      /**< Wrapped to [0, 2pi) each frame for breathe. */
   float sin_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's +t term. */
   float cos_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's 0.8*t term. */
