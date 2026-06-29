@@ -89,7 +89,7 @@ and are flagged as such.
 
 ### Low Priority
 
-2. **[documentation] `core/3dmath.h:1198-1203` — `fast_cosf` omits the large-argument range-reduction warning `fast_sinf` carries.** It is `fast_sinf(x + π/2)` and inherits the precision collapse for large `|x|`, but its doc lacks the `@warning` and `STEREO_PATTERN_ARG_LIMIT` pointer. *Fix:* mirror `fast_sinf`'s `@warning` or add `@see fast_sinf`.
+2. ✅ **[documentation] `core/3dmath.h:1198-1203` — `fast_cosf` omits the large-argument range-reduction warning `fast_sinf` carries.** It is `fast_sinf(x + π/2)` and inherits the precision collapse for large `|x|`, but its doc lacks the `@warning` and `STEREO_PATTERN_ARG_LIMIT` pointer. *Fix:* mirror `fast_sinf`'s `@warning` or add `@see fast_sinf`.
 
 3. **[documentation] `core/3dmath.h:385-393` — `Spherical(const Vector&)` traps on a zero/degenerate vector but does not document the precondition.** It calls `normalize()`, which `HS_CHECK`-traps below `~1e-6`; every other trap contract in the file is documented at the call site. *Fix:* document the non-degenerate-input precondition (or route legitimate zeros through a `normalized_or`-style fallback).
 
