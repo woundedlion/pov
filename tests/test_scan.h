@@ -587,6 +587,152 @@ inline void test_stroke_aa_is_monotone_ramp() {
 }
 
 // ============================================================================
+// Scan::Star / PlanarPolygon / Flower — filled-shape placement oracle
+// ============================================================================
+
+/**
+ * @brief Reports whether any lit pixel lies in the given row.
+ * @tparam W Canvas width in pixels.
+ * @param fx Effect whose canvas is sampled.
+ * @param y Row to scan.
+ * @return True if a non-black pixel is found in row y.
+ */
+template <int W>
+inline bool row_has_lit(const ScanFx &fx, int y) {
+  for (int x = 0; x < W; ++x)
+    if (!is_black(fx.get_pixel(x, y)))
+      return true;
+  return false;
+}
+
+/**
+ * @brief Placement oracle for a filled cap: the pole the shape is centred on is
+ *        lit and the opposite pole stays dark.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param fx Effect whose canvas was drawn into.
+ * @param cap_north True if the shape caps the +Y pole (row 0); false if it caps
+ *        the -Y pole (row H-1). Star/PlanarPolygon centre on basis.v (north);
+ *        Flower centres on its antipode -basis.v (south).
+ * @details Drawn to actual pixels — the placement, not just distance()/cull
+ *          coverage. With an angular radius well under PI/2 the far pole sits
+ *          outside the fill, so a projection sign flip (wrong hemisphere) or a
+ *          collapsed fill is caught here where a bare draw-without-asserting is
+ *          not.
+ */
+template <int W, int H>
+inline void expect_filled_cap(const ScanFx &fx, bool cap_north) {
+  const int near_row = cap_north ? 0 : H - 1;
+  const int far_row = cap_north ? H - 1 : 0;
+  HS_EXPECT_TRUE((row_has_lit<W>(fx, near_row)));
+  HS_EXPECT_FALSE((row_has_lit<W>(fx, far_row)));
+}
+
+/** @brief Verifies a filled Star caps the basis.v (+Y) pole and not the other. */
+inline void test_star_pixel_placement() {
+  constexpr int W = 96, H = 64;
+  ScanFx fx(W, H);
+  Pipeline<W, H> pipe;
+  {
+    Canvas c(fx);
+    Basis basis = make_basis(Quaternion(), Y_AXIS);
+    Scan::Star::draw<W, H, false>(
+        pipe, c, basis, /*radius=*/0.6f, /*sides=*/5,
+        [](const Vector &, Fragment &f) {
+          f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+        });
+  }
+  fx.advance_display();
+  expect_filled_cap<W, H>(fx, /*cap_north=*/true);
+}
+
+/** @brief Verifies a filled PlanarPolygon caps the basis.v (+Y) pole, not the other. */
+inline void test_planar_polygon_pixel_placement() {
+  constexpr int W = 96, H = 64;
+  ScanFx fx(W, H);
+  Pipeline<W, H> pipe;
+  {
+    Canvas c(fx);
+    Basis basis = make_basis(Quaternion(), Y_AXIS);
+    Scan::PlanarPolygon::draw<W, H, false>(
+        pipe, c, basis, /*radius=*/0.6f, /*sides=*/6,
+        [](const Vector &, Fragment &f) {
+          f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+        });
+  }
+  fx.advance_display();
+  expect_filled_cap<W, H>(fx, /*cap_north=*/true);
+}
+
+/**
+ * @brief Verifies a filled Flower caps the antipode (-Y) pole, not basis.v.
+ * @details Flower's SDF scans from antipode = -basis.v, so the fill lands on the
+ *          opposite pole from Star/PlanarPolygon — a placement detail only a
+ *          pixel oracle pins.
+ */
+inline void test_flower_pixel_placement() {
+  constexpr int W = 96, H = 64;
+  ScanFx fx(W, H);
+  Pipeline<W, H> pipe;
+  {
+    Canvas c(fx);
+    Basis basis = make_basis(Quaternion(), Y_AXIS);
+    Scan::Flower::draw<W, H, false>(
+        pipe, c, basis, /*radius=*/0.6f, /*sides=*/6,
+        [](const Vector &, Fragment &f) {
+          f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+        });
+  }
+  fx.advance_display();
+  expect_filled_cap<W, H>(fx, /*cap_north=*/false);
+}
+
+/**
+ * @brief Verifies overlapping strokes composite via the over operator at the
+ *        shared pixel.
+ * @details The 2D sink blends dst.lerp16(src, alpha) = dst*(1-a) + src*a. Two
+ *          filled polygons both capping the +Y pole are drawn in order over a
+ *          black frame, each at frag.alpha 0.5; their interiors are fully
+ *          covered (AA alpha 1), so the pole pixel sees plot alpha exactly 0.5.
+ *          First (red over black) yields red*0.5; second (green over that)
+ *          yields red*0.25 + green*0.5. A draw-order or coverage bug (e.g.
+ *          replacing instead of blending, or doubling coverage) moves the pole
+ *          pixel off this composite.
+ */
+inline void test_overlapping_strokes_composite_blend() {
+  constexpr int W = 96, H = 64;
+  ScanFx fx(W, H);
+  Pipeline<W, H> pipe;
+
+  constexpr uint16_t red = 60000, green = 50000;
+  {
+    Canvas c(fx);
+    Basis basis = make_basis(Quaternion(), Y_AXIS);
+    // First fill: red at half alpha over black -> red*0.5.
+    Scan::PlanarPolygon::draw<W, H, false>(
+        pipe, c, basis, /*radius=*/0.6f, /*sides=*/6,
+        [](const Vector &, Fragment &f) {
+          f.color = Color4(Pixel(red, 0, 0), 0.5f);
+        });
+    // Second fill: green at half alpha over the red -> red*0.25 + green*0.5.
+    Scan::PlanarPolygon::draw<W, H, false>(
+        pipe, c, basis, /*radius=*/0.6f, /*sides=*/6,
+        [](const Vector &, Fragment &f) {
+          f.color = Color4(Pixel(0, green, 0), 0.5f);
+        });
+  }
+  fx.advance_display();
+
+  // Sample an interior column at the pole row, where both fills are fully
+  // covered (AA alpha 1) so plot alpha is exactly frag.alpha 0.5.
+  const Pixel &p = fx.get_pixel(W / 2, 0);
+  // dst.lerp16 rounds to nearest; allow a few LSB of quantization slack.
+  HS_EXPECT_NEAR((int)p.r, (int)(red * 0.25f), 64);
+  HS_EXPECT_NEAR((int)p.g, (int)(green * 0.5f), 64);
+  HS_EXPECT_EQ((int)p.b, 0);
+}
+
+// ============================================================================
 // Scan::Volume / TransformedVolume — orthographic ray-march
 // ============================================================================
 
@@ -748,6 +894,11 @@ inline int run_scan_tests() {
   test_scan_region_fractional_boundary_no_double_plot();
   test_plot_line_over_pole_reaches_row0();
   test_csg_stroke_aa_uses_winning_child_thickness();
+
+  test_star_pixel_placement();
+  test_planar_polygon_pixel_placement();
+  test_flower_pixel_placement();
+  test_overlapping_strokes_composite_blend();
 
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();
