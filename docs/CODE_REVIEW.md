@@ -209,7 +209,7 @@ sequentially across all priority sections.
     - Evidence: `case "SPLIT_COMPLEMENTARY":` is immediately followed by `const complement = …` with no braces; the identifier leaks into the shared switch scope. Behavior is correct today but it trips the `no-case-declarations` lint and is a reorder hazard; the sibling case already uses braces.
     - Fix: wrap the case body in `{ }` to match `ANALOGOUS`.
 
-17. **In segmented mode the main-engine arena metrics are recomputed and written into hidden DOM cells every frame.**
+17. ✅ **In segmented mode the main-engine arena metrics are recomputed and written into hidden DOM cells every frame.**
     - File: `daydream/daydream.js:512-513`, `daydream/driver.js:791-806`
     - Severity: Nit · Dimension: Performance · Confidence: High
     - Evidence: `getArenaMetrics()` always returns the (idle) main-thread engine's metrics, and `driver.updateStats` writes them into the global stats cells each frame. In segmented mode those cells are hidden (`#global-stats-desktop`/`#stats-bar` are display:none; the visible HUD is the correct per-segment `#segment-stats` table sourced from the workers). So there is **no stale-display bug** — only a small redundant `getArenaMetrics()` call + text writes into invisible nodes.
