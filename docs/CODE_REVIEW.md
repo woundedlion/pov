@@ -135,7 +135,7 @@ sequentially across all priority sections.
    - Evidence: The bridge documents that "a consumer records this value … and re-fetches the definitions whenever it changes," but the only references in either repo are the C++ getter and the README — daydream never reads it. The safety the contract promises is actually delivered by construction: `applyEffect` rebuilds the param name list on every effect/resolution switch, and `syncGUI` binds by name with a `Math.min(names.length, values.length)` clamp. The counter `paramGeneration_` is still updated, so removing only the getter leaves a harmless write-only field.
    - Fix: prefer softening the doc to "provided for a *positional* (index-keyed) consumer; daydream binds by name and does not use this," or remove the getter + embind line + README row.
 
-5. **`applyResolution` desyncs UI/URL from the engine if `setResolution` is rejected.**
+5. ✅ **`applyResolution` desyncs UI/URL from the engine if `setResolution` is rejected.**
    - File: `daydream/daydream.js:404-415` (handler), `:449-455` (subscriber wiring)
    - Severity: Low · Dimension: Error handling · Confidence: High (latent; unreachable today)
    - Evidence: `applyResolution` runs as the `appState` `resolution` subscriber, so `appState`/URL/dropdown already hold the new value by the time it runs; on `setResolution(...) === false` it logs and returns, leaving the engine on the old resolution while the UI/URL advertise the new one. Unreachable today because the two WASM-supported resolutions (`wasm.cpp:221-223`) exactly match the two daydream presets, so the call never rejects — but it is a latent footgun for any future build-gated third resolution (the documented extension point).
