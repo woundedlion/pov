@@ -177,7 +177,8 @@ public:
    *          the per-fragment clip predicates on the hot path.
    */
   void set_margin(int m) {
-    HS_CHECK(m < clip.w, "render margin must be < canvas width");
+    HS_CHECK(m >= 0 && m < clip.w,
+             "render margin must be in [0, canvas width)");
     clip.margin = m;
   }
 
