@@ -18,6 +18,7 @@
 #include "core/hankin.h"
 #include "core/solids.h"
 #include "tests/mesh_test_util.h"
+#include "tests/test_conway.h" // check_euler_genus0, check_consistent_winding
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -376,6 +377,42 @@ inline void test_hankin_flat_and_twisted_differ() {
 }
 
 // ---------------------------------------------------------------------------
+// Topology of compiled Hankin output
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Verifies Hankin output is a closed genus-0 manifold with consistent
+ *        winding, for both a quad seed (cube) and a triangle seed (icosahedron).
+ * @details The structural smoke above (face-count consistency, index range,
+ *          loose unit-length) accepts a non-manifold or backwards-wound mesh.
+ *          Hankin is the family most likely to open a seam or invert a face, so
+ *          apply the same Euler + manifold-edge-degree + winding oracle Conway
+ *          and solids use: every undirected edge bounds exactly two faces,
+ *          V - E + F == 2, every face points outward, and no directed edge is
+ *          reused in the same direction.
+ */
+inline void test_hankin_output_is_genus0_manifold() {
+  {
+    Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+    Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, temp);
+    PolyMesh out = MeshOps::hankin(cube, target, temp, /*angle*/ 0.4f);
+    conway_tests::check_euler_genus0(out);
+    conway_tests::check_consistent_winding(out);
+  }
+  {
+    Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+    Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+    PolyMesh ico;
+    build_solid<Solids::Icosahedron>(ico, temp);
+    PolyMesh out = MeshOps::hankin(ico, target, temp, /*angle*/ 0.4f);
+    conway_tests::check_euler_genus0(out);
+    conway_tests::check_consistent_winding(out);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // CompiledHankin::clone
 // ---------------------------------------------------------------------------
 
@@ -464,6 +501,8 @@ inline int run_hankin_tests() {
 
   test_hankin_one_shot_produces_valid_mesh();
   test_hankin_flat_and_twisted_differ();
+
+  test_hankin_output_is_genus0_manifold();
 
   test_compiled_hankin_clone_deep_copies();
   test_compiled_hankin_clear();
