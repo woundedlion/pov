@@ -124,7 +124,9 @@ async function main() {
         // The stack traps nowhere, so guard it with a margin instead of waiting
         // for hwm > capacity (which it can never reach — see STACK_MAX_FILL).
         const stack = m.stack;
-        if (stack.high_water_mark === 0) {
+        if (!stack) {
+          fail(`${name}: getArenaMetrics() omits the stack region`);
+        } else if (stack.high_water_mark === 0) {
           fail(`${name}: stack high-water mark is 0 (canary tracking is broken)`);
         } else if (stack.high_water_mark >= stack.capacity * STACK_MAX_FILL) {
           fail(`${name}: stack high-water mark ${stack.high_water_mark} of ` +
@@ -196,7 +198,8 @@ async function main() {
     // Report the worst-case stack usage as a margin against STACK_SIZE so a
     // creeping regression is visible in the log before it ever overflows.
     const stack = engine.getArenaMetrics().stack;
-    console.log(`\nstack: ${stack.high_water_mark}/${stack.capacity} bytes peak`);
+    if (!stack) fail('getArenaMetrics() omits the stack region');
+    else console.log(`\nstack: ${stack.high_water_mark}/${stack.capacity} bytes peak`);
   } finally {
     engine.delete();
   }
