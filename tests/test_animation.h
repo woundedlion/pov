@@ -1057,10 +1057,14 @@ inline void test_particle_system_expires_after_life_and_trail_drain() {
   ps.step(fake_canvas());
   HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
 
-  // life (3) + trail length (default 8) + slack bounds how long a dead particle
-  // lingers while its history drains one per frame.
-  for (int i = 0; i < 3 + 8 + 4; ++i)
+  // life=3 records 2 trail frames (life stays >0 after the decrement on frames
+  // 1,2), then drains one per frame: reclaimed exactly on frame 2*(life-1)=4.
+  const int reclaim_frame = 2 * (3 - 1);
+  for (int frame = 2; frame < reclaim_frame; ++frame) {
     ps.step(fake_canvas());
+    HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
+  }
+  ps.step(fake_canvas()); // frame reclaim_frame
   HS_EXPECT_EQ(static_cast<int>(ps.active_count), 0);
 }
 
