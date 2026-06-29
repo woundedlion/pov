@@ -115,7 +115,7 @@ and are flagged as such.
 
 14. ✅ **[interface-design] `core/animation.h:1043-1076` — `Driver::set_speed` is silently overwritten every frame when a live `speed_src_` is bound.** `step()` re-reads `*speed_src_ * scale_`, clobbering a manual `set_speed` with no diagnostic; `get_speed()` reports the source value. *Fix:* `HS_CHECK(!speed_src_)` inside `set_speed`, or have it clear `speed_src_` to switch to manual mode; document the chosen semantics.
 
-15. **[correctness] `core/animation.h:1227-1235` — `Sprite` with `fade_out_duration ≥ duration` never reaches full opacity and starts already fading.** The fade-out condition is true from `t==0`, capping peak opacity below 1.0 — easy to hit with independent GUI sliders. *Fix:* clamp the combined fade window (or scale proportionally) so the sprite hits opacity 1.0, or document the capped behavior.
+15. ✅ **[correctness] `core/animation.h:1227-1235` — `Sprite` with `fade_out_duration ≥ duration` never reaches full opacity and starts already fading.** The fade-out condition is true from `t==0`, capping peak opacity below 1.0 — easy to hit with independent GUI sliders. *Fix:* clamp the combined fade window (or scale proportionally) so the sprite hits opacity 1.0, or document the capped behavior.
 
 16. **[build-system] `core/animation.h:2385-2402` — inline-storage budget audit relies on manually appending each new non-templated animation type to `kLargestConcreteAnimSize`.** The `static_assert` only protects listed types; a new non-templated type can escape the audit until exercised. *Fix:* drive the audit from a single type list shared with a test that round-trips every animation type through `Timeline::add`.
 
