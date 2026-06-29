@@ -197,7 +197,7 @@ for (const effect of targets) {
     const pct = (bestLit * 100).toFixed(2);
     if (bestLit < BLANK_FLOOR) blanks.push(effect);
     console.log(`saved ${out} @ ${usedRes || 'default'} (${pct}% lit, ` +
-      `${attempts} attempt(s)${honored ? '' : ', WRONG EFFECT (fell back)'}` +
+      `${attempts} attempt(s)` +
       `${bestLit < BLANK_FLOOR ? ', STILL BLANK' : ''})`);
   } catch (e) {
     failures++;
