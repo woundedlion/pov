@@ -1439,7 +1439,10 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
            }));
 
   // HSV -> sRGB integer sextant path (palette_math.js hsvToRgb), via the engine's
-  // CRGB(CHSV) constructor. Returns sRGB bytes.
+  // CRGB(CHSV) constructor. Returns sRGB bytes. The uint8_t cast wraps mod 256,
+  // mirroring palette_math.js's `h &= 0xff` byte masking (device CHSV semantics);
+  // bakeLut above instead clamps its HSV keys, so the two paths handle
+  // out-of-range inputs differently by design.
   function("hsv_to_rgb",
            optional_override([](int h, int s, int v) -> val {
              CRGB c = CRGB(CHSV(static_cast<uint8_t>(h), static_cast<uint8_t>(s),
