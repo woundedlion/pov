@@ -56,6 +56,8 @@ inline void check_strip_tiling(int S, int w, int x) {
 
   std::vector<int> cover(static_cast<size_t>(w) * ROWS, 0);
   std::vector<int> led_hits(static_cast<size_t>(S), 0);
+  // The column each physical LED ends up painting; -1 == unwritten.
+  std::vector<int> led_col(static_cast<size_t>(S), -1);
   int writes = 0;
   int prev_top = -1, prev_bot = -1;
 
@@ -74,10 +76,20 @@ inline void check_strip_tiling(int S, int w, int x) {
     prev_bot = bot_led;
     led_hits[static_cast<size_t>(top_led)]++;
     led_hits[static_cast<size_t>(bot_led)]++;
+    led_col[static_cast<size_t>(top_led)] = col_top;
+    led_col[static_cast<size_t>(bot_led)] = col_bot;
     cover[static_cast<size_t>(col_top) * ROWS + y]++;
     cover[static_cast<size_t>(col_bot) * ROWS + y]++;
     writes += 2;
   }
+
+  // Bind LED range to hemisphere column: the top half [0, ROWS) paints col_top,
+  // the bottom half [ROWS, S) paints col_bot. An arm/hemisphere swap that still
+  // tiles bijectively flips these and fails here.
+  for (int p = 0; p < ROWS; ++p)
+    HS_EXPECT_EQ(led_col[static_cast<size_t>(p)], col_top);
+  for (int p = ROWS; p < S; ++p)
+    HS_EXPECT_EQ(led_col[static_cast<size_t>(p)], col_bot);
 
   HS_EXPECT_EQ(writes, S);
 
