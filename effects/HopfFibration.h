@@ -218,8 +218,8 @@ private:
     float theta = sph.phi; // polar angle (co-latitude)
     float phi = sph.theta; // azimuthal angle
 
-    // Folding: depth driven by the Folding slider alone, so it still acts when
-    // tumble is frozen.
+    // Folding: amplitude gated by the Folding slider so it persists when tumble
+    // is frozen, though its phase still tracks ty_rad.
     float eta = theta / 2.0f;
     eta += fast_sinf(phi * 2.0f + ty_rad + fold_base) * 0.2f * params.folding;
 

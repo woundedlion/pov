@@ -445,7 +445,8 @@ struct Quaternion {
    * @return True if components are within TOLERANCE.
    * @note Absolute per-component tolerance (TOLERANCE): scale-dependent and
    *   non-transitive (see Vector::operator==). Suitable for direct value
-   *   compares, not for ordering or container keys.
+   *   compares, not for ordering or container keys. Component equality, not
+   *   rotation equality: `q` and `-q` are the same rotation but compare unequal.
    */
   bool operator==(const Quaternion &q) const {
     return std::abs(q.r - r) <= TOLERANCE && q.v == v;
@@ -770,9 +771,10 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
  * @return The projected plane coordinate (equator points clamp to the sentinel).
  * @details Projects from center (0,0,0) to the plane y=1 (tangent at the North
  * Pole (0,1,0), i.e. j=1).
- * @note Both hemispheres map to the same plane: the sign of `v.y` is dropped
- * here, so a caller that round-trips through inv_gnomonic must track it and
- * pass it back via inv_gnomonic's `original_sign`.
+ * @note Identifies antipodes: `v` and `-v` project to the same plane
+ * coordinate, so the hemisphere is lost. A caller that round-trips through
+ * inv_gnomonic must track the sign of `v.y` and pass it back via
+ * inv_gnomonic's `original_sign`.
  */
 inline Complex gnomonic(const Vector &v) {
   // Equator handling: floor the divisor to ±1e-9 to avoid div-by-zero at
@@ -1020,6 +1022,7 @@ constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
  * @param q1 First unit quaternion.
  * @param q2 Second unit quaternion.
  * @return The angle in radians.
+ * @note Exact `acosf`, unlike the Vector overload's `fast_acos`.
  */
 inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
   return acosf(hs::clamp(dot(q1, q2), -1.0f, 1.0f));
@@ -1032,8 +1035,9 @@ inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
  * @return The resulting unit rotation quaternion.
  * @pre `axis` is unit length and non-zero. A zero/degenerate axis collapses the
  *      quaternion's vector part to zero; at `theta = pi` the scalar part
- *      `cos(pi/2)` is also ~0, so the whole quaternion is zero-magnitude and the
- *      trailing `normalized()` traps. This is deliberate fail-fast on a
+ *      `cos(pi/2)` is also ~0, so the whole quaternion's magnitude falls below
+ *      `normalized()`'s epsilon threshold (not exact zero) and it traps. This
+ *      is deliberate fail-fast on a
  *      precondition violation, not a soft fallback — callers that may produce a
  *      degenerate axis must guard it (e.g. via `normalized_or`) before calling.
  */
