@@ -1072,8 +1072,13 @@ public:
   /**
    * @brief Sets the current speed.
    * @param new_speed The new amount to add to the mutant per frame.
+   * @pre No live speed_src is bound; step() would otherwise clobber the manual
+   *   speed each frame from the source.
    */
-  void set_speed(float new_speed) { speed = new_speed; }
+  void set_speed(float new_speed) {
+    HS_CHECK(!speed_src_, "Driver::set_speed with a live speed_src bound");
+    speed = new_speed;
+  }
 
   /**
    * @brief Gets the current mutant value.
