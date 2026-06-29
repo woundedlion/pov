@@ -127,7 +127,7 @@ and are flagged as such.
 
 20. ✅ **[correctness] `core/conway.h:528-559,374-378` — `ambo` edge-midpoint + strict `normalize()` traps if an edge's endpoints are antipodal.** `(v1+v2)*0.5` near the origin makes `normalize()` trap; `dual`/`kis` use `normalized_or` with a fallback for exactly this case. Latent on the closed-manifold roster. *Fix:* use `normalized_or(mid, mesh.vertices[v1])` to match `dual`/`kis`.
 
-21. **[correctness] `core/spatial.h:81-82` — `KDTree` constructor bound (`≤ UINT16_MAX+1`) is misleading; the real ceiling is the `int16_t` child links (`INT16_MAX+1`).** An oversized point set trips the per-node child-link trap mid-build rather than failing clearly at construction. *Fix:* tighten the constructor bound to `count ≤ INT16_MAX + 1`.
+21. ✅ **[correctness] `core/spatial.h:81-82` — `KDTree` constructor bound (`≤ UINT16_MAX+1`) is misleading; the real ceiling is the `int16_t` child links (`INT16_MAX+1`).** An oversized point set trips the per-node child-link trap mid-build rather than failing clearly at construction. *Fix:* tighten the constructor bound to `count ≤ INT16_MAX + 1`.
 
 22. **[correctness] `core/mesh.h:306` — `vertices[v].half_edge` records only the last incoming half-edge, an unreliable orbit start for boundary meshes.** Only `relax()` documents and works around this; a future operator trusting the entry point on a boundary mesh would silently lose that vertex's ring. *Fix:* document the boundary-edge caveat on `HEVertex.half_edge`/`build_half_edge_mesh` (or prefer recording a paired half-edge when one exists).
 
