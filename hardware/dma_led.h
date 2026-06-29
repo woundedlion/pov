@@ -103,6 +103,9 @@ public:
    * @brief Starts an async DMA transfer. Returns immediately.
    * @param data Pointer to byte buffer (must remain valid until complete).
    * @param len  Number of bytes to transmit.
+   * @pre The caller has cleaned the buffer from cache (submitFrame() does this
+   *      via frames_[back].flush()); this method only enables the DMA and does
+   *      not flush.
    */
   void transmitAsync(const uint8_t* data, size_t len) {
     // Trap rather than spin on an in-flight transfer: this runs in the column
@@ -175,9 +178,9 @@ private:
    * @details Single-core Cortex-M7 relaxed-atomic invariant: ISR and thread are
    *          one observer (the ISR preempts), so relaxed ordering is sufficient —
    *          acquire/release would only add DMB cost. This flag does NOT order
-   *          the buffer for the DMA engine; arm_dcache_flush() (clean + DSB)
-   *          before dma_.enable() provides that coherence, independent of the
-   *          atomic's memory_order.
+   *          the buffer for the DMA engine; the caller's arm_dcache_flush()
+   *          (clean + DSB) before transmitAsync() provides that coherence,
+   *          independent of the atomic's memory_order.
    */
   std::atomic<bool> transferComplete_;
   /**
@@ -337,8 +340,9 @@ private:
    *          index, so there is no cross-context reader to synchronize and a
    *          barrier here would be pure cost (same single-observer model as the
    *          transferComplete_/instance_ notes). The frames_[] buffer it selects
-   *          is made coherent for the DMA engine by the cache flush in
-   *          transmitAsync() (see above), not by this index.
+   *          is made coherent for the DMA engine by the caller's cache flush
+   *          before transmitAsync() (submitFrame() cleans frames_[back] via
+   *          flush()), not by this index.
    */
   int activeBuffer_;
   /**
