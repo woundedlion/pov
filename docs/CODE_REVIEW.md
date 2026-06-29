@@ -94,7 +94,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 25. ✅ **`core/conway.h` `gyro` carries two unreconciled doc strings.** It is implemented as `dual(snub(...))` and documented "dual of snub," while the `SolidBuilder` wrapper calls it "pentagonal chiral subdivision." The descriptions are compatible (recipe vs geometric effect) but read as different operations. Fix: cross-reference the two, or align the wording.
 
-26. **`daydream/vendor-importmap.js` "CDN fallback" naming is inaccurate.** The file header and README §10.8 describe a "local-first / CDN-fallback" mechanism, but vendor resolution is baked at build time to a single source with no runtime fallback — if the chosen source is unreachable, every import hard-fails. The code comment itself notes the old runtime probing was removed. Fix: rename the concept to "build-time-baked vendor resolution" in the README and doc comment.
+26. ✅ **`daydream/vendor-importmap.js` "CDN fallback" naming is inaccurate.** The file header and README §10.8 describe a "local-first / CDN-fallback" mechanism, but vendor resolution is baked at build time to a single source with no runtime fallback — if the chosen source is unreachable, every import hard-fails. The code comment itself notes the old runtime probing was removed. Fix: rename the concept to "build-time-baked vendor resolution" in the README and doc comment.
 
 27. ✅ **`scripts/capture_screenshots.mjs` has a dead "WRONG EFFECT" log branch.** Control reaches the save/log line only when `honored === true` (the `!honored` case `continue`s earlier), so the inline `${honored ? '' : ', WRONG EFFECT (fell back)'}` can never print. Fix: drop the dead ternary, or restructure so a tolerated fallback can reach it.
 
