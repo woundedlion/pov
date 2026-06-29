@@ -129,7 +129,7 @@ and are flagged as such.
 
 21. ✅ **[correctness] `core/spatial.h:81-82` — `KDTree` constructor bound (`≤ UINT16_MAX+1`) is misleading; the real ceiling is the `int16_t` child links (`INT16_MAX+1`).** An oversized point set trips the per-node child-link trap mid-build rather than failing clearly at construction. *Fix:* tighten the constructor bound to `count ≤ INT16_MAX + 1`.
 
-22. **[correctness] `core/mesh.h:306` — `vertices[v].half_edge` records only the last incoming half-edge, an unreliable orbit start for boundary meshes.** Only `relax()` documents and works around this; a future operator trusting the entry point on a boundary mesh would silently lose that vertex's ring. *Fix:* document the boundary-edge caveat on `HEVertex.half_edge`/`build_half_edge_mesh` (or prefer recording a paired half-edge when one exists).
+22. ✅ **[correctness] `core/mesh.h:306` — `vertices[v].half_edge` records only the last incoming half-edge, an unreliable orbit start for boundary meshes.** Only `relax()` documents and works around this; a future operator trusting the entry point on a boundary mesh would silently lose that vertex's ring. *Fix:* document the boundary-edge caveat on `HEVertex.half_edge`/`build_half_edge_mesh` (or prefer recording a paired half-edge when one exists).
 
 23. **[correctness] `core/hankin.h:323-330` — `update_hankin` degenerate-intersection fallback uses strict `normalized()` that can itself trap.** `(m1+m2).normalized()` traps when the shared-corner midpoints are near-opposite; the function's other fallbacks correctly use a known-unit corner. Low probability (self-intersecting `truncate>0.5` recipes), hard abort. *Fix:* `intersect = normalized_or(m1+m2, p_corner.normalized())`.
 

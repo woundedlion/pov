@@ -89,7 +89,10 @@ struct HalfEdge {
  */
 struct HEVertex {
   uint16_t half_edge =
-      HE_NONE; /**< One of the half-edges pointing to this vertex. */
+      HE_NONE; /**< An incoming half-edge at this vertex (the last one written
+                    during build). On a boundary mesh this is not a reliable
+                    orbit start — the one-ring walk can break at the boundary;
+                    closed manifolds are unaffected. */
 };
 
 /**
