@@ -692,6 +692,11 @@ public:
    */
   ~Canvas() { effect_.queue_frame(); }
 
+  Canvas(const Canvas &) = delete;
+  Canvas(Canvas &&) = delete;
+  Canvas &operator=(const Canvas &) = delete;
+  Canvas &operator=(Canvas &&) = delete;
+
   /**
    * @brief Accesses a pixel in the current drawing buffer by 2D coordinates.
    * @param x The horizontal coordinate.
