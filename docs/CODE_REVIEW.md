@@ -141,7 +141,7 @@ and are flagged as such.
 
 27. ✅ **[documentation] `core/platform.h:298-380` — mock `CRGB(const CHSV&)` does NOT "behave identically to the device".** The host uses the 6-sector integer spectrum; FastLED's device path uses `hsv2rgb_rainbow`, giving visibly different RGB. Impact is currently nil (no modern effect uses `CHSV`), but the blanket parity claim is wrong and could mislead. *Fix:* scope the claim — note `CRGB(CHSV)` is a legacy-compat spectrum conversion that must not be used on parity-sensitive paths (or port `hsv2rgb_rainbow` if exact parity is ever needed).
 
-28. **[performance] `core/platform.h:1121-1139` — runtime `HS_CHECK(max == UINT32_MAX)` in `random_to_unit` is effectively dead.** Its only callers pass a value already pinned by a `static_assert`; the per-call branch can never fire. *Fix:* drop the runtime check (the `static_assert` in `rand_f` is the real guard) or make the divisor a `constexpr`/template parameter.
+28. ✅ **[performance] `core/platform.h:1121-1139` — runtime `HS_CHECK(max == UINT32_MAX)` in `random_to_unit` is effectively dead.** Its only callers pass a value already pinned by a `static_assert`; the per-call branch can never fire. *Fix:* drop the runtime check (the `static_assert` in `rand_f` is the real guard) or make the divisor a `constexpr`/template parameter.
 
 29. **[testing] `core/effects.h:40-83` — a fully-forgotten effect silently drops from native smoke coverage.** The WASM registry-vs-`HS_EFFECT_COUNT` check only catches a mismatch; if an author forgets the `#include`, `REGISTER_EFFECT`, *and* `X()` row, counts still agree and nothing fails. *Fix:* add a CI cross-check that scans `effects/*.h` for `REGISTER_EFFECT(` and asserts the set equals `HS_EFFECT_LIST`.
 
