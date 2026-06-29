@@ -322,8 +322,13 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
 
     Vector intersect = cross(n_hankin1, n_hankin2);
     float len_sq = dot(intersect, intersect);
-    if (len_sq < math::EPS_LEN_SQ)
-      intersect = normalized_or(m1 + m2, p_corner.normalized());
+    if (len_sq < math::EPS_LEN_SQ) {
+      Vector fallback = normalized_or(m1 + m2, p_corner.normalized());
+      if (dot(fallback, p_corner) < 0)
+        fallback = -fallback;
+      compiled.dynamic_vertices[i] = fallback;
+      continue;
+    }
     if (dot(intersect, p_corner) < 0)
       intersect = -intersect;
 
