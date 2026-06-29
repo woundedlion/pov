@@ -49,6 +49,9 @@ inline uint8_t plot_scan_arena_buf[256 * 1024];
  * @return Reference to a function-static Arena over plot_scan_arena_buf.
  * @details Plot::*::sample takes a caller-bound Fragments, so this provides a
  *          dedicated arena rather than relying on the global scratch arena.
+ *          The arena is not reset between tests: every caller must wrap its
+ *          allocations in a ScratchScope, or allocations leak across tests and
+ *          couple correctness to run order.
  */
 inline Arena &plot_arena() {
   static Arena a(plot_scan_arena_buf, sizeof(plot_scan_arena_buf));
