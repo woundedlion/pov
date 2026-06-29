@@ -77,22 +77,14 @@ if(EMSCRIPTEN)
     # parity contract is the integer wrap guards, not floats.
     message(STATUS "WASM Release build (-O3 -ffast-math -fno-finite-math-only -msimd128 -flto, 8 KB stack)")
     target_compile_options(${TARGET_NAME} PRIVATE "-O3" "-ffast-math" "-fno-finite-math-only" "-msimd128" "-flto")
-    # The -ffast-math / -fno-finite-math-only pair is COMPILE-ONLY by design even
-    # though -flto defers codegen to link: Clang lowers these into per-function IR
-    # fast-math flags / "no-nans-fp-math"="false" function attributes at compile
-    # time, and the LTO link consumes those attributes from the bitcode — it does
-    # NOT re-derive math semantics from the link command line. So omitting them
-    # from target_link_options below is safe and matches how -flto is meant to
-    # work (the flags ride in the IR, not the link invocation). The asymmetry is
-    # the one thing to watch: if a future toolchain added a link-time math pass
-    # that keyed off the link-line flags, the absent -fno-finite-math-only there
-    # could silently re-enable finite-math assumptions in codegen. If that ever
-    # happens, add the pair to target_link_options too. (The native
-    # fastmath_clamp_check test pins the NaN-survives-the-cast contract at the
-    # source level, but it does not exercise this wasm LTO link path.)
+    # The -ffast-math / -fno-finite-math-only pair also rides the link line. With
+    # -flto the math semantics live in per-function IR attributes that the LTO
+    # link consumes (it does not re-derive them from the command line), so the
+    # link-line copy is a no-op for today's toolchain — but it closes the gap if a
+    # future link-time math pass ever keys off the link flags instead.
     # 8 KB stack: the tight production budget, sized against the inlined -O3 build.
-    target_link_options(${TARGET_NAME} PRIVATE "-O3" "-msimd128" "-flto"
-      "-sSTACK_SIZE=8192")
+    target_link_options(${TARGET_NAME} PRIVATE "-O3" "-ffast-math"
+      "-fno-finite-math-only" "-msimd128" "-flto" "-sSTACK_SIZE=8192")
   endif()
 
   # Optional dev-only WASM bindings (off by default, so a normal build is
