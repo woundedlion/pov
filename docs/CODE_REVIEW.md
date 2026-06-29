@@ -129,7 +129,7 @@ sequentially across all priority sections.
 
 ### Low
 
-4. **`getParamGeneration()` is a dead contract — exposed and documented as a re-fetch protocol, but no consumer honors it.**
+4. ✅ **`getParamGeneration()` is a dead contract — exposed and documented as a re-fetch protocol, but no consumer honors it.**
    - File: `targets/wasm/wasm.cpp:577-588` (getter + contract doc), `:1291` (embind export), `README.md:1872`; JS side `daydream/daydream.js:104-126, 226, 449-455`
    - Severity: Low · Dimension: API design · Confidence: High
    - Evidence: The bridge documents that "a consumer records this value … and re-fetches the definitions whenever it changes," but the only references in either repo are the C++ getter and the README — daydream never reads it. The safety the contract promises is actually delivered by construction: `applyEffect` rebuilds the param name list on every effect/resolution switch, and `syncGUI` binds by name with a `Math.min(names.length, values.length)` clamp. The counter `paramGeneration_` is still updated, so removing only the getter leaves a harmless write-only field.
