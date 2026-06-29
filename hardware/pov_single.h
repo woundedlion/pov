@@ -126,10 +126,12 @@ private:
              "POVDisplay: effect canvas height must equal S/2");
     x_ = 0;
     IntervalTimer timer;
-    // One column sweep period (µs), rounded; a pathological RPM/width could
-    // floor it to 0 µs, an undefined IntervalTimer period.
-    const unsigned long interval_us = static_cast<unsigned long>(
-        1000000.0f / (RPM / 60.0f) / effect_->width() + 0.5f);
+    // One column sweep period (µs), rounded to nearest; a pathological RPM/width
+    // could round it to 0 µs, an undefined IntervalTimer period.
+    const unsigned long cols_per_min =
+        static_cast<unsigned long>(RPM) * effect_->width();
+    const unsigned long interval_us =
+        (60000000UL + cols_per_min / 2) / cols_per_min;
     HS_CHECK(interval_us >= 1,
         "column interval rounded to 0 µs (RPM/width too high)");
     HS_CHECK(timer.begin(show_col, interval_us),
