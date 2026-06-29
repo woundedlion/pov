@@ -417,7 +417,9 @@ struct StereoWarpResult {
  * falloff stays identical across warp and shading.
  */
 inline float pole_attenuation(float r_sq, float pole_fade) {
-  return 1.0f / (1.0f + (r_sq / (pole_fade * pole_fade)));
+  // Floor the radius so a 0 pole_fade can't divide by zero and poison the warp.
+  const float pf = pole_fade > 1e-3f ? pole_fade : 1e-3f;
+  return 1.0f / (1.0f + (r_sq / (pf * pf)));
 }
 
 /**
