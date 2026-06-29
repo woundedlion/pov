@@ -96,7 +96,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 26. **`daydream/vendor-importmap.js` "CDN fallback" naming is inaccurate.** The file header and README §10.8 describe a "local-first / CDN-fallback" mechanism, but vendor resolution is baked at build time to a single source with no runtime fallback — if the chosen source is unreachable, every import hard-fails. The code comment itself notes the old runtime probing was removed. Fix: rename the concept to "build-time-baked vendor resolution" in the README and doc comment.
 
-27. **`scripts/capture_screenshots.mjs` has a dead "WRONG EFFECT" log branch.** Control reaches the save/log line only when `honored === true` (the `!honored` case `continue`s earlier), so the inline `${honored ? '' : ', WRONG EFFECT (fell back)'}` can never print. Fix: drop the dead ternary, or restructure so a tolerated fallback can reach it.
+27. ✅ **`scripts/capture_screenshots.mjs` has a dead "WRONG EFFECT" log branch.** Control reaches the save/log line only when `honored === true` (the `!honored` case `continue`s earlier), so the inline `${honored ? '' : ', WRONG EFFECT (fell back)'}` can never print. Fix: drop the dead ternary, or restructure so a tolerated fallback can reach it.
 
 28. **`tools/teensy_gate.py` does not assert exactly one definition per layout symbol.** The match filter excludes zero-size and UND rows but never checks `len(matches) == 1`, so a benign duplicate definition (vague-linkage across TUs) yields duplicate violations rather than a surfaced "unexpected duplicate." Fix: assert a single match (or dedup by value/size).
 
