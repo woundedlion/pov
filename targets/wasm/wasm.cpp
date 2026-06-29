@@ -360,6 +360,8 @@ public:
     }
 
     currentEffect.reset();
+    // Configured before construction; effect constructors must not allocate from
+    // the engine arenas (Teensy configures after construction — see Phantasm.ino).
     configure_arenas_default();
 
     stack_paint_canary(); // reset stack HWM by repainting unused region

@@ -69,6 +69,9 @@ template <typename E> Effect *construct_effect() {
   // Eager-fill the scanline LUTs before the first frame so the flywheel ISR
   // never observes a half-filled table.
   GeometryResolution<E>::init();
+  // Effect constructors must not allocate from the engine arenas: here they run
+  // before configure_arenas_default() (WASM's setEffect configures first), so an
+  // arena allocation in a ctor would corrupt on Teensy yet pass on WASM.
   E *e = new E();
   configure_arenas_default(); // Reset before init so effects can override
   e->init();
