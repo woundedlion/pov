@@ -96,7 +96,8 @@ struct Spherical {
   Spherical(float theta, float phi) : theta(theta), phi(phi) {}
   /**
    * @brief Constructs a Spherical coordinate from a 3D Vector.
-   * @param v The Cartesian vector.
+   * @param v The Cartesian vector (must be non-degenerate; normalize() traps
+   *          on a zero/near-zero-length input below normalized()'s epsilon).
    * @details explicit: a coordinate-space change must be spelled out
    * (`Spherical{v}`) so a Cartesian vector cannot silently bind where a
    * Spherical is expected, and vice versa.
