@@ -1023,8 +1023,8 @@ inline void test_baked_palette_matches_source_endpoints() {
   Color4 target(Pixel(1000, 2000, 3000), 1.0f);
   SolidColorPalette src(target);
 
-  alignas(std::max_align_t) static uint8_t buf[BakedPalette::LUT_SIZE *
-                                                   sizeof(Color4) + 64];
+  alignas(std::max_align_t) static uint8_t
+      buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
 
   BakedPalette baked;
@@ -1048,8 +1048,8 @@ inline void test_baked_palette_in_range() {
   // Ramp source via Gradient (black->white), bake, then sample.
   Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
 
-  alignas(std::max_align_t) static uint8_t buf[BakedPalette::LUT_SIZE *
-                                                   sizeof(Color4) + 64];
+  alignas(std::max_align_t) static uint8_t
+      buf[BakedPalette::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
 
   BakedPalette baked;
