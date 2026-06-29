@@ -286,7 +286,7 @@ jobs:
       - name: Smoke-test the WASM module at runtime
         # The build above only proves the module compiles and links. Instantiate
         # it the way the browser does and drive the engine across every
-        # registered effect at both resolutions, so a SIMD-codegen fault, an
+        # registered effect at every enumerated resolution, so a SIMD-codegen fault, an
         # embind signature mismatch, an 8 KB stack overflow, or an
         # ALLOW_MEMORY_GROWTH detachment regression fails here instead of riding
         # a green build to deploy. (Node is preinstalled on the runner; the
@@ -359,6 +359,9 @@ jobs:
   reaction-graph-provenance:
     name: Generated reaction-graph table matches committed file
     runs-on: ubuntu-24.04
+    # The generator is O(RD_N*W) with W=1000 and runs ~2+ min; bound the job so a
+    # pathological RD_N/W change can't hang a runner indefinitely.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5        # pin the interpreter, like the teensy jobs
