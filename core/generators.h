@@ -26,7 +26,9 @@ inline int &generate_depth() {
  * @brief Universal generation wrapper for procedural geometry.
  * @tparam GenerateFn The generation function or callable type.
  * @tparam Args       Types of the extra arguments forwarded to fn.
- * @param target The arena for persistent output (e.g., persistent_arena).
+ * @param target The arena for persistent output (e.g., persistent_arena). Must
+ *   not be either engine scratch arena (`scratch_arena_a`/`scratch_arena_b`):
+ *   the depth-0 reset and `ScratchScope` rewind would destroy the output.
  * @param fn     The generation function or callable.
  * @param args   Extra arguments forwarded to fn.
  * @return Whatever fn returns.
@@ -44,6 +46,8 @@ inline int &generate_depth() {
  */
 template <typename GenerateFn, typename... Args>
 auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
+  HS_CHECK(&target != &scratch_arena_a && &target != &scratch_arena_b,
+           "generate: target must not alias an engine scratch arena");
   int &depth = hs_detail::generate_depth();
   if (depth == 0) {
     scratch_arena_a.reset();
