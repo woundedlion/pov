@@ -483,6 +483,8 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
   const float vx = KX * dlon_ds;
   const float vy = KY * dphi_ds;
   const float speed = sqrtf(vx * vx + vy * vy);
+  // Degenerate-speed floor: guards 1/speed when a zero/near-zero tangent stalls
+  // the curve, yielding base_step rather than an unbounded step.
   const float step = SCREEN_STEP_PX / std::max(speed, 1e-6f);
   return std::max(base_step * MIN_POLE_SCALE, std::min(step, base_step));
 }

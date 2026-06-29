@@ -149,7 +149,7 @@ All defects found, numbered sequentially. Severity in brackets. "Latent" = corre
 77. **Minor numerical/doc polish in the geometry registry:** `D_AVG` literal is truncated to 5 sig-figs while neighbors carry full precision (`core/reaction_graph.h:21`); `node()`'s pole degeneracy (`y=±1 → radius 0`) is correct but undocumented as a deliberate invariant (`:54`); Hankin contact-angle sign convention is the load-bearing geometry but unexplained (`core/hankin.h:299-326`). [Low]
 78. ✅ **SplineChain interpolates inherited registers (v3/color/age) per-span (resets at each control point), not globally** — correct but undocumented. `core/plot.h:2342`. Document, or carry a global parameter. [Nit]
 79. ✅ **`Star::draw` reimplements `get_antipode`'s radius>1 flip inline** instead of reusing it like `Flower::draw`, risking silent desync if the flip rule changes. `core/plot.h:1719-1727`. Mirror Flower. [Nit]
-80. **Two distinct magic floors (`1e-7` on `sin2`, `1e-6` on `speed`) in `screen_step` are uncommented.** `core/plot.h:479,486`. Name them or comment the zero-tangent-degenerate role. [Nit]
+80. ✅ **Two distinct magic floors (`1e-7` on `sin2`, `1e-6` on `speed`) in `screen_step` are uncommented.** `core/plot.h:479,486`. Name them or comment the zero-tangent-degenerate role. [Nit]
 
 ---
 
