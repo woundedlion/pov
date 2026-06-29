@@ -448,6 +448,45 @@ inline void test_oklch_roundtrip() {
 }
 
 /**
+ * @brief Pins sRGB -> OKLab/OKLCH against published reference coordinates.
+ * @details Round-trip and palette-golden tests only check the forward and
+ *          inverse transforms agree; a transposed or otherwise wrong-but-
+ *          invertible M1/M2 pair would round-trip cleanly. These triples are the
+ *          canonical Ottosson sRGB references (white, pure red/green/blue) in the
+ *          engine's units: L in [0,1], a/b Cartesian, h in radians. The tolerance
+ *          (4e-3 on L/a/b, ~0.3deg on hue) catches a swapped matrix row/column
+ *          while absorbing cbrtf rounding.
+ */
+inline void test_oklab_reference_triples() {
+  struct Ref {
+    uint8_t r, g, b;
+    float L, a, bb; // expected OKLab
+  };
+  const Ref refs[] = {
+      {255, 255, 255, 1.0000f, 0.0000f, 0.0000f},
+      {255, 0, 0, 0.6279f, 0.2249f, 0.1258f},
+      {0, 255, 0, 0.8664f, -0.2339f, 0.1795f},
+      {0, 0, 255, 0.4520f, -0.0324f, -0.3115f},
+  };
+  const float tol = 4e-3f;
+  for (const Ref &x : refs) {
+    float rf = srgb_to_linear_float(x.r / 255.0f);
+    float gf = srgb_to_linear_float(x.g / 255.0f);
+    float bf = srgb_to_linear_float(x.b / 255.0f);
+    OKLab lab = linear_rgb_to_oklab(rf, gf, bf);
+    HS_EXPECT_NEAR(lab.L, x.L, tol);
+    HS_EXPECT_NEAR(lab.a, x.a, tol);
+    HS_EXPECT_NEAR(lab.b, x.bb, tol);
+  }
+
+  // Pure red in OKLCH: L=0.6279, C=0.2577, h=29.23deg.
+  OKLCH red = srgb_to_oklch(255, 0, 0);
+  HS_EXPECT_NEAR(red.L, 0.6279f, tol);
+  HS_EXPECT_NEAR(red.C, 0.2577f, tol);
+  HS_EXPECT_NEAR(red.h, 29.23f * PI_F / 180.0f, 5e-3f);
+}
+
+/**
  * @brief Verifies pure grays have ~zero chroma in OKLCH.
  */
 inline void test_oklch_gray_is_achromatic() {
@@ -1376,6 +1415,7 @@ inline int run_color_tests() {
 
   test_oklab_roundtrip();
   test_oklch_roundtrip();
+  test_oklab_reference_triples();
   test_oklch_gray_is_achromatic();
   test_lerp_oklch_achromatic_hue();
   test_lerp_oklch_shortest_arc_midpoint();
