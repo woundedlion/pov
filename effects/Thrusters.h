@@ -228,11 +228,8 @@ private:
    *          amplitude / t_global are mutated relative to the call.
    */
   static float ring_fn(float t, float phase, float amp, int frame) {
-    // phase is radians; sin_wave's phase is cycles. Dividing by PI_F (not the
-    // exact 2*PI_F) is a deliberate 2x offset, harmless because `phase` is
-    // uniform random.
-    constexpr float kDoubledCycleDivisor = PI_F;
-    return sin_wave(-1, 1, 2, phase / kDoubledCycleDivisor)(t) *
+    // phase is radians; sin_wave's phase is cycles.
+    return sin_wave(-1, 1, 2, phase / (2 * PI_F))(t) *
            sin_wave(-1, 1, 3, 0)(static_cast<float>(frame) / 32.0f) *
            amp;
   }
