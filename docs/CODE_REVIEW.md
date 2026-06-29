@@ -95,7 +95,7 @@ and are flagged as such.
 
 4. ❌ **[maintainability] `core/palettes.h:15-99` — seven named `ProceduralPalette` instances are dead source.** `vintageSunset`, `lateSunset`, `lemonLime`, `algae`, `darkPrimary`, `desertRose`, `bruisedBanana` are referenced nowhere; they inflate the file and the README inventory (compiler elides them, so no flash/RAM cost). *Fix:* delete them (and trim the README), or document them as an intentional reserve bank. *Rejected:* intentional reserve palette bank — unused instances are elided by the compiler (zero flash/RAM) and remain available to effect authors; no deletion.
 
-5. **[maintainability] `core/color.h:992-1001` vs `2153-2167` — two divergent idioms for the same `[0,1)`-frac → `uint16_t` lerp weight.** `Gradient::get` uses `float_to_pixel16(frac)` (clamps+rounds); `BakedPalette::get`/`Color4::lerp` inline `(frac*65535+0.5)` (no clamp). Both correct today; invites silent divergence. *Fix:* route all three through one helper (`frac_to_q16`).
+5. ✅ **[maintainability] `core/color.h:992-1001` vs `2153-2167` — two divergent idioms for the same `[0,1)`-frac → `uint16_t` lerp weight.** `Gradient::get` uses `float_to_pixel16(frac)` (clamps+rounds); `BakedPalette::get`/`Color4::lerp` inline `(frac*65535+0.5)` (no clamp). Both correct today; invites silent divergence. *Fix:* route all three through one helper (`frac_to_q16`).
 
 6. **[interface-design] `core/color.h:617-627,577-581` — OKLab helpers mix struct returns with `float&` out-parameters.** The forward direction returns `LMS`/`OKLab` structs while `oklab_to_linear_rgb*` threads three out-params, forcing callers to declare loose uninitialized locals. *Fix:* introduce a `LinRGB` POD and return it, keeping an out-param overload only if a measured hot path needs it.
 
