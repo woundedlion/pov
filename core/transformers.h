@@ -367,9 +367,11 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
   float scale = params.scale;
   float time_val = params.time * params.speed;
 
-  // ny/nz read the same field as nx under a constant translation (100/200 on
-  // every axis). The channels decorrelate because that translation exceeds the
-  // noise correlation length, not because the per-axis offsets differ.
+  // ny/nz read the same field as nx under a constant spatial translation
+  // (100/200 on every axis). The channels decorrelate because that translation
+  // exceeds the noise correlation length, not because the per-axis offsets
+  // differ. The same time_val drives the z input of all three, so they animate
+  // together in time.
   constexpr float kChannelYOffset = 100.0f; // channel 2 (ny) field shift
   constexpr float kChannelZOffset = 200.0f; // channel 3 (nz) field shift
   float nx =

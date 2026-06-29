@@ -19,9 +19,11 @@ public:
   /**
    * @brief Constructs the effect, building the two palette pairs and the
    *        filter pipeline.
-   * @details Uses deliberately contrasting brightness profiles (BELL base vs
-   *          CUP interference) so the layers stay visually distinct, and wires
-   *          the world-orient + screen anti-alias filter pipeline.
+   * @details Builds the initial palette pairs with contrasting brightness
+   *          profiles (BELL base vs CUP interference) so the layers start
+   *          visually distinct; color_wipe() later swaps both to a different
+   *          contrasting pair (ASCENDING vs DESCENDING). Wires the world-orient
+   *          + screen anti-alias filter pipeline.
    */
   FLASHMEM Moire()
       : Effect(W, H),
