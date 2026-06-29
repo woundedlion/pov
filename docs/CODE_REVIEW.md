@@ -165,7 +165,7 @@ sequentially across all priority sections.
    - Evidence: `numEnv('MAX_ATTEMPTS', 6)` returns `0` for the input `"0"` (zero is finite and ≥ 0), so the grab loop never runs, `best` stays `null`, and `best.split(',', 2)[1]` throws. The TypeError *is* caught by the per-effect `try/catch` (`:227`), so it does not crash the run — but every effect is then logged FAILED, silently producing zero screenshots.
    - Fix: `const MAX_ATTEMPTS = Math.max(1, numEnv('MAX_ATTEMPTS', 6));` (or reject `< 1` in `numEnv`).
 
-10. **`wasm_smoke.mjs` dereferences `m.stack` unguarded — an uncaught crash if the region is ever absent.**
+10. ✅ **`wasm_smoke.mjs` dereferences `m.stack` unguarded — an uncaught crash if the region is ever absent.**
     - File: `scripts/wasm_smoke.mjs:126-127` (and the same bare deref at `:198`)
     - Severity: Low · Dimension: Error handling · Confidence: Medium
     - Evidence: After iterating `Object.keys(m)`, the script does `const stack = m.stack; if (stack.high_water_mark === 0) …`. The enclosing block is `try { … } finally { engine.delete(); }` with **no `catch`**, so if `getArenaMetrics()` ever omits `stack`, the TypeError escapes the smoke harness instead of being counted via `fail()`. Defensive (the region is contractually present today), but cheap to harden, and the same pattern repeats at `:198`.
