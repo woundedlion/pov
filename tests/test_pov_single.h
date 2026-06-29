@@ -57,12 +57,21 @@ inline void check_strip_tiling(int S, int w, int x) {
   std::vector<int> cover(static_cast<size_t>(w) * ROWS, 0);
   std::vector<int> led_hits(static_cast<size_t>(S), 0);
   int writes = 0;
+  int prev_top = -1, prev_bot = -1;
 
   for (int y = 0; y < ROWS; ++y) {
     const int top_led = strip_top_led(y, S);
     const int bot_led = strip_bottom_led(y, S);
     HS_EXPECT_TRUE(top_led >= 0 && top_led < S);
     HS_EXPECT_TRUE(bot_led >= 0 && bot_led < S);
+    // Interior ordering: top half strictly descends, bottom half strictly
+    // ascends, so a scrambled-but-bijective remap fails here, not just below.
+    if (y > 0) {
+      HS_EXPECT_TRUE(top_led < prev_top);
+      HS_EXPECT_TRUE(bot_led > prev_bot);
+    }
+    prev_top = top_led;
+    prev_bot = bot_led;
     led_hits[static_cast<size_t>(top_led)]++;
     led_hits[static_cast<size_t>(bot_led)]++;
     cover[static_cast<size_t>(col_top) * ROWS + y]++;
