@@ -185,7 +185,7 @@ sequentially across all priority sections.
     - Evidence: The table says "ID: pins 21–22"; the driver declares three ID straps (21/22/23) and reads pin 23 only at `N = 8` (it is reserved-but-unread at the shipped `N = 4`). The README is correct for the shipped wiring but understates the declared hardware contract.
     - Fix: note that pin 23 is reserved for ID2 (used only at `N = 8`), or leave as-is matching shipped wiring.
 
-13. **`hd107s_frame.h` comment claims the brightness byte is primed once, but it is re-written every pixel every frame.**
+13. ✅ **`hd107s_frame.h` comment claims the brightness byte is primed once, but it is re-written every pixel every frame.**
     - File: `hardware/hd107s_frame.h:97` (comment), `:173`, `:180`, `:216`
     - Severity: Nit · Dimension: Documentation / Maintainability · Confidence: High
     - Evidence: The class doc says the per-pixel `0xFF` brightness byte is primed at construction and "Only the B/G/R color bytes change at runtime," but `packPixel()` and `load()` unconditionally re-store `dest[0] = 0xFF` on every pixel, making the constructor priming dead for image frames.

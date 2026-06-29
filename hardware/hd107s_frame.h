@@ -100,7 +100,8 @@ public:
   HD107SFrame() {
     memset(buffer_, 0, COMPOSITE_SIZE);
     // Prime the 0xFF brightness byte of every pixel slot in the image frame
-    // (base 4) and the trailing black frame (base BUFFER_SIZE+4).
+    // (base 4) and the trailing black frame (base BUFFER_SIZE+4). load() and
+    // packPixel() never rewrite it, so this is its sole writer.
     const int bases[2] = {4, BUFFER_SIZE + 4};
     for (int base : bases) {
       for (int i = 0; i < N; ++i) {
@@ -169,15 +170,13 @@ public:
       uint8_t g8 = linear_to_srgb_lut[g];
       uint8_t b8 = linear_to_srgb_lut[b];
 
-      // HD107S byte order: [0xFF][B][G][R]
-      dest[0] = 0xFF;
+      // HD107S byte order: [0xFF][B][G][R]; brightness primed at construction
       dest[1] = b8;
       dest[2] = g8;
       dest[3] = r8;
       dest += 4;
     }
     for (int i = count; i < N; ++i) {
-      dest[0] = 0xFF;
       dest[1] = dest[2] = dest[3] = 0;
       dest += 4;
     }
@@ -213,7 +212,6 @@ public:
 
     correct(r, g, b);
 
-    dest[0] = 0xFF;
     dest[1] = linear_to_srgb_lut[b];
     dest[2] = linear_to_srgb_lut[g];
     dest[3] = linear_to_srgb_lut[r];
