@@ -103,6 +103,13 @@ foreach(_mod IN LISTS _hs_test_modules)
     add_test(NAME unit_${_mod} COMMAND run_tests ${_mod})
 endforeach()
 
+# Pin _hs_test_modules against run_tests' HS_TEST_MODULE_LIST: run_tests
+# --check-modules exits non-zero if the CMake list and the roster diverge in
+# either direction, so a module added to one but not the other can never run
+# silently in CI sharding.
+add_test(NAME unit_module_roster
+    COMMAND run_tests --check-modules ${_hs_test_modules})
+
 # Pin core/color_luts.h against its generator; skips (exit 77) without Python.
 find_program(HS_PYTHON NAMES python3 python)
 add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}

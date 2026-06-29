@@ -124,11 +124,55 @@ static void print_modules(std::FILE *out) {
 }
 
 /**
+ * @brief Verifies an expected module set on argv matches the roster exactly.
+ * @param argc Count of trailing names (argv past --check-modules).
+ * @param argv The expected module names.
+ * @return 0 if the set matches kModules exactly, 3 on any divergence.
+ * @details Both directions are checked so a roster/expected-list drift in either
+ * direction fails: every kModules name must appear in argv, and every argv name
+ * must be a roster module. Used by the CTest that pins _hs_test_modules.
+ */
+static int check_modules(int argc, char **argv) {
+  int mismatches = 0;
+  for (const TestModule &m : kModules) {
+    bool found = false;
+    for (int i = 0; i < argc; ++i)
+      if (std::strcmp(m.name, argv[i]) == 0) {
+        found = true;
+        break;
+      }
+    if (!found) {
+      std::fprintf(stderr, "run_tests: roster module '%s' missing from expected "
+                           "list\n",
+                   m.name);
+      ++mismatches;
+    }
+  }
+  for (int i = 0; i < argc; ++i) {
+    bool found = false;
+    for (const TestModule &m : kModules)
+      if (std::strcmp(m.name, argv[i]) == 0) {
+        found = true;
+        break;
+      }
+    if (!found) {
+      std::fprintf(stderr,
+                   "run_tests: expected name '%s' is not a roster module\n",
+                   argv[i]);
+      ++mismatches;
+    }
+  }
+  return mismatches ? 3 : 0;
+}
+
+/**
  * @brief Test-suite entry point.
  * @param argc Argument count from the C runtime.
  * @param argv Argument vector; argv[0] is the self path used by death tests,
- * remaining args (if any) name the modules to run, or --list/-h/--help.
- * @return 0 on success, 1 if any test failed, 2 on an unknown module name.
+ * remaining args (if any) name the modules to run, or
+ * --list/-h/--help/--check-modules.
+ * @return 0 on success, 1 if any test failed, 2 on an unknown module name, 3 on
+ * a --check-modules divergence.
  * @details Dispatches the HS_DEATH_CASE child case if set, else runs the full
  * roster or only the modules named on argv.
  */
@@ -163,6 +207,8 @@ int main(int argc, char **argv) {
       print_modules(stdout);
       return 0;
     }
+    if (std::strcmp(argv[1], "--check-modules") == 0)
+      return check_modules(argc - 2, argv + 2);
     for (int i = 1; i < argc; ++i) {
       const TestModule *match = nullptr;
       for (const TestModule &m : kModules) {
