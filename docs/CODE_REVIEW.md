@@ -171,7 +171,7 @@ sequentially across all priority sections.
     - Evidence: After iterating `Object.keys(m)`, the script does `const stack = m.stack; if (stack.high_water_mark === 0) …`. The enclosing block is `try { … } finally { engine.delete(); }` with **no `catch`**, so if `getArenaMetrics()` ever omits `stack`, the TypeError escapes the smoke harness instead of being counted via `fail()`. Defensive (the region is contractually present today), but cheap to harden, and the same pattern repeats at `:198`.
     - Fix: `if (!stack) fail(...)` before the dereference at both sites, or check the `stack` region presence once as a precondition.
 
-11. **The LUT generator's own `--check` self-validation is not wired into the ctest suite.**
+11. ✅ **The LUT generator's own `--check` self-validation is not wired into the ctest suite.**
     - File: `tests/check_color_luts.cmake:12-19`, `tests/CMakeLists.txt:113-122`, `scripts/generate_luts.py:124-149`
     - Severity: Low · Dimension: Test coverage · Confidence: High
     - Evidence: `check_color_luts.cmake` runs the generator without `--check` and only token-diffs the committed table against fresh output — which would still pass if a libm/platform shift changed the table monotonically in *both* the committed file and the regen. The generator's `--check` path (monotonicity + sRGB round-trip ≤ 1 code) exists but runs only as a CI shell step, not via ctest, so the Windows ctest path skips it.

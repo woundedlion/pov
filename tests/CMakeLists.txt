@@ -121,6 +121,13 @@ add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts.cmake)
 set_tests_properties(unit_color_luts PROPERTIES SKIP_RETURN_CODE 77)
 
+# Run the generator's own --check self-validation (monotonicity + sRGB
+# round-trip), which CI ran only as a shell step. Absent without Python.
+if(HS_PYTHON)
+  add_test(NAME unit_color_luts_check
+      COMMAND ${HS_PYTHON} ${HS_ROOT}/scripts/generate_luts.py --check)
+endif()
+
 # Finding 369: the run_tests build sets NO math flags, so its NaN-clamp
 # assertions run under default IEEE semantics where the hs::clamp NaN->hi
 # contract holds trivially — the at-risk codegen the WASM release build actually
