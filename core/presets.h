@@ -100,8 +100,8 @@ public:
 
 private:
   std::array<Entry, Size> entries; /**< The backing store of preset entries. */
-  size_t current_idx = 0; /**< Index of the currently selected entry. */
-  size_t prev_idx = 0;    /**< Index active before the last next()/prev(); for crossfades. */
+  int current_idx = 0; /**< Index of the currently selected entry. */
+  int prev_idx = 0;    /**< Index active before the last next()/prev(); for crossfades. */
 };
 
 /**
