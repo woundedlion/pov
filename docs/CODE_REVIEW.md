@@ -179,7 +179,7 @@ sequentially across all priority sections.
 
 ### Nit / Polish
 
-12. **README Phantasm pin table omits ID2 (pin 23) that the driver declares.**
+12. ✅ **README Phantasm pin table omits ID2 (pin 23) that the driver declares.**
     - File: `README.md:96` vs `hardware/pov_segmented.h:101-106` (`PIN_ID2 = 23`, `kIdStraps`), `:99` (doc)
     - Severity: Nit · Dimension: Documentation · Confidence: High
     - Evidence: The table says "ID: pins 21–22"; the driver declares three ID straps (21/22/23) and reads pin 23 only at `N = 8` (it is reserved-but-unread at the shipped `N = 4`). The README is correct for the shipped wiring but understates the declared hardware contract.
