@@ -1199,6 +1199,9 @@ inline float fast_sinf(float x) {
  * @brief Fast cosine, computed as fast_sinf(x + π/2).
  * @param x Angle in radians.
  * @return The approximate cosine of `x`.
+ * @warning Accuracy degrades for large |x|: the `x - floor(x/2π)·2π` range
+ * reduction loses precision as a float's ULP grows past the period, so callers
+ * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).
  */
 inline float fast_cosf(float x) { return fast_sinf(x + PI_F * 0.5f); }
 
