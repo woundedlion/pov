@@ -36,8 +36,8 @@ static constexpr float STAR_INNER_RATIO = 0.382f;
 static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
 
 /** Maximum disjoint scanline spans a single shape (leaf) emits per row.
- *  scan_region's `intervals` buffer is sized to 2x this so it holds a single
- *  top-level Union's full two-child emission, and its seam-split `norm` buffer is
+ *  scan_region's `intervals` buffer holds the widest top-level CSG emission
+ *  (Subtract/Intersection: 2x this + 2), and its seam-split `norm` buffer is
  *  2x intervals (one span can split in two at the x=0 seam); see the
  *  static_asserts there. */
 inline constexpr size_t kIntervalSpanCap = 32;
