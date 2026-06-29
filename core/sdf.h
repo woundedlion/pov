@@ -1044,6 +1044,9 @@ template <typename A, typename B> struct SmoothUnion {
    *       on the SDF hot path for a feature no shipped geometry reads — but, like
    *       the AngularRepeat UV note, it is called out here so a future consumer
    *       does not mistake the register seam for a bug.
+   * @warning The cubic smin pulls `dist` below the true distance near the weld,
+   *          so this SDF is not sphere-tracing-safe (unlike WarpedVolume's
+   *          Lipschitz-corrected distance) — scanline rasterization only.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
