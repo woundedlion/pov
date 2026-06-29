@@ -706,9 +706,9 @@ inline void test_hue_rotate_preserves_gray() {
     HS_EXPECT_NEAR(static_cast<float>(out.color.r),
                    static_cast<float>(gray.color.r), 1.0f);
     HS_EXPECT_NEAR(static_cast<float>(out.color.g),
-                   static_cast<float>(out.color.r), 1.0f);
+                   static_cast<float>(gray.color.g), 1.0f);
     HS_EXPECT_NEAR(static_cast<float>(out.color.b),
-                   static_cast<float>(out.color.r), 1.0f);
+                   static_cast<float>(gray.color.b), 1.0f);
     HS_EXPECT_NEAR(out.alpha, 0.5f, 1e-5f);
   }
 }
