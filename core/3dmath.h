@@ -103,7 +103,8 @@ struct Spherical {
    */
   explicit Spherical(const Vector &v);
 
-  float theta; /**< Azimuthal angle from +x toward +z, range [-π, π] (atan2). */
+  float theta; /**< Azimuthal angle from +x toward +z (atan2 convention; the
+                    (theta, phi) ctor stores any value unchecked). */
   float phi;   /**< Polar angle (usually co-latitude). */
 };
 
