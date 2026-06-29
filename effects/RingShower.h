@@ -42,7 +42,7 @@ public:
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
 
     for (size_t i = 0; i < MAX_RINGS; ++i)
-      rings[i].palette.bake(persistent_arena, make_palette());
+      rings[i].palette.bake(persistent_arena, dot_keyed(make_palette()));
 
     timeline.add(0, Animation::RandomTimer(
                         4, 48, [this](Canvas &) { this->spawn_ring(); }, true));
@@ -138,6 +138,33 @@ private:
   }
 
   /**
+   * @brief Bake-time adapter that maps the LUT coordinate from the cos domain
+   *        into the source's angle parameter.
+   * @details Baking through this lets the per-fragment lookup key the LUT by the
+   *          raw dot product d = dot(X, v) directly: dot_key(d) yields the LUT
+   *          coordinate so the d -> acos(d)/PI radial mapping is folded into the
+   *          bake (256 acos calls per spawn) instead of one acos per fragment.
+   *          dot_key inverts: u in [0,1] -> d = 1 - 2u, and get(u) returns the
+   *          source color at acos(d)/PI, so LUT entry i holds the original color
+   *          for cos-value 1 - 2*(i/255).
+   */
+  template <typename Source> struct DotKeyed {
+    const Source &source;
+    Color4 get(float u) const {
+      float d = hs::clamp(1.0f - 2.0f * u, -1.0f, 1.0f);
+      return source.get(fast_acos(d) / PI_F);
+    }
+  };
+  template <typename Source>
+  static DotKeyed<Source> dot_keyed(const Source &source) {
+    return DotKeyed<Source>{source};
+  }
+  /// LUT coordinate for cos-value d = dot(X, v); inverse of DotKeyed's mapping.
+  static float dot_key(float d) {
+    return (1.0f - hs::clamp(d, -1.0f, 1.0f)) * 0.5f;
+  }
+
+  /**
    * @brief Reinitializes the first free ring slot with a new orientation, life,
    *        and palette.
    * @details Scans for a slot whose age has reached its life; if none is free,
@@ -154,7 +181,7 @@ private:
         ring.life = static_cast<int>(hs::rand_f() * Ring::LIFE_SPAN +
                                      Ring::LIFE_MIN);
         ring.age = 0;
-        ring.palette.rebake(make_palette());
+        ring.palette.rebake(dot_keyed(make_palette()));
         return;
       }
     }
@@ -173,9 +200,11 @@ private:
   void draw_ring(Canvas &canvas, float opacity, size_t index) {
     Ring &ring = rings[index];
     Basis basis = make_basis(Quaternion(), ring.normal);
-    const Vector z = X_AXIS;
+    // v is unit (the rasterizer renormalizes every shaded position), so
+    // dot(X, v) is just v.x; the palette is baked in this cos domain (dot_keyed),
+    // folding the acos radial mapping into the bake.
     auto fragment_shader = [&](const Vector &v, Fragment &f) {
-      f.color = ring.palette.get(angle_between(z, v) / PI_F);
+      f.color = ring.palette.get(dot_key(v.x));
       f.color.alpha *= opacity * params.alpha;
     };
     Plot::Ring::draw<W, H>(filters, canvas, basis, ring.radius_at(),
