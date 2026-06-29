@@ -137,7 +137,7 @@ and are flagged as such.
 
 25. ✅ **[documentation] `core/reaction_graph.h:84-115` — `CubemapLUT::build()` doc omits the ~90 KB transient lattice scratch it requires.** The "48 KB" figure is only the persistent table; `build()` also allocates `RD_N` `Vector`s (~90 KB) from the same arena. A caller sizing from 48 KB under-provisions and traps. *Fix:* document the transient `RD_N*sizeof(Vector)` scratch.
 
-26. **[performance] `core/hankin.h:325-330` — redundant re-normalization of an already-unit fallback intersection.** The fallback branch normalizes, then the code unconditionally normalizes again. Trivial cost; folding the branch also fixes #23. *Fix:* give the degenerate branch its own assignment+continue using `normalized_or`, leaving the trailing `normalized()` for the primary cross-product path.
+26. ✅ **[performance] `core/hankin.h:325-330` — redundant re-normalization of an already-unit fallback intersection.** The fallback branch normalizes, then the code unconditionally normalizes again. Trivial cost; folding the branch also fixes #23. *Fix:* give the degenerate branch its own assignment+continue using `normalized_or`, leaving the trailing `normalized()` for the primary cross-product path.
 
 27. **[documentation] `core/platform.h:298-380` — mock `CRGB(const CHSV&)` does NOT "behave identically to the device".** The host uses the 6-sector integer spectrum; FastLED's device path uses `hsv2rgb_rainbow`, giving visibly different RGB. Impact is currently nil (no modern effect uses `CHSV`), but the blanket parity claim is wrong and could mislead. *Fix:* scope the claim — note `CRGB(CHSV)` is a legacy-compat spectrum conversion that must not be used on parity-sensitive paths (or port `hsv2rgb_rainbow` if exact parity is ever needed).
 
