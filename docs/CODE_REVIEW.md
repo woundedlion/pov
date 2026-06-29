@@ -165,7 +165,7 @@ and are flagged as such.
 
 39. ✅ **[correctness] `targets/wasm/wasm.cpp:860-874` — `getFaces()` bounds-checks each index but never asserts all face indices were consumed.** Over-reads trap (`flat_idx < size`) but under-reads (`sum(face_counts) < faces.size()`) silently drop the tail, reading back as valid-but-truncated geometry in the JS editor. *Fix:* add `HS_CHECK(flat_idx == mesh.faces.size(), …)` after the loop.
 
-40. **[interface-design] `targets/wasm/wasm.cpp:660-676` — stack metrics are emitted as `unsigned` while arena metrics are `size_t`, giving one JS object mixed numeric widths.** The `static_cast<unsigned>` would truncate on a wasm64/4GB-stack build and is the only region produced by a different integral type for no stated reason. *Fix:* emit the stack fields as `size_t`/`uintptr_t`.
+40. ✅ **[interface-design] `targets/wasm/wasm.cpp:660-676` — stack metrics are emitted as `unsigned` while arena metrics are `size_t`, giving one JS object mixed numeric widths.** The `static_cast<unsigned>` would truncate on a wasm64/4GB-stack build and is the only region produced by a different integral type for no stated reason. *Fix:* emit the stack fields as `size_t`/`uintptr_t`.
 
 41. **[testing] `tests/test_animation.h:453-503` — easing endpoint/finiteness coverage is duplicated from (and weaker than) `test_easing_waves.h`.** Two places to update per easing change, with assertions buried in a module whose scope is the animation system. *Fix:* drop the duplicated cases and rely on the easing_waves module; keep only animation-specific easing usage.
 
