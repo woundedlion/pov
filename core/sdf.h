@@ -1159,7 +1159,10 @@ template <typename A, typename B> struct Subtract {
     if (!has_b)
       return false;
 
-    // B produced no intervals: it removes nothing, so pass A through.
+    // B produced no intervals: it removes nothing, so pass A through raw. The
+    // difference branches seam-split into [0, W) only because their in-frame
+    // comparison needs it; emitted spans need not lie in [0, W) — scan_region is
+    // the seam authority and wraps/splits them.
     if (intervals_b.is_empty()) {
       for (size_t i = 0; i < intervals_a.size(); ++i)
         out(intervals_a[i].first, intervals_a[i].second);
