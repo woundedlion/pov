@@ -322,6 +322,20 @@ inline void case_persist_forgot_reset() {
 }
 
 /**
+ * @brief Death case: a swapped (unordered) TriangularBitset pair must trap.
+ * @details Memory-safety surface — index() requires small < large < MAX_V; a
+ *          swapped pair would alias the wrong bit and an out-of-range one would
+ *          write adjacent memory, so the HS_CHECK traps the misuse on the cold
+ *          edge-dedup setup path.
+ */
+inline void case_triangular_bitset_unordered_pair() {
+  TriangularBitset<128> bits;
+  bool hit = bits.test(opaque(5), opaque(3)); // small > large -> HS_CHECK
+  if (hit)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: relocating a retained (pinned) add_get() handle must trap.
  * @details Animation surface — step()'s compaction routes every relocation
  *          through TimelineEvent::move_into, which traps when the event was
@@ -782,6 +796,8 @@ inline const Case *all_cases(int &n) {
       {"spatial_knn_over_max", case_spatial_knn_over_max},
       {"arena_oversubscribed", case_arena_oversubscribed},
       {"persist_forgot_reset", case_persist_forgot_reset},
+      {"triangular_bitset_unordered_pair",
+       case_triangular_bitset_unordered_pair},
       {"timeline_handled_relocation", case_timeline_handled_relocation},
       {"timeline_handled_completion", case_timeline_handled_completion},
       {"timeline_double_construct", case_timeline_double_construct},
