@@ -85,7 +85,7 @@ and are flagged as such.
 
 ### Medium Priority
 
-1. **[build-system] `tests/CMakeLists.txt:96-104` vs `tests/run_tests.cpp:66-104` — CTest module list and run_tests roster are independently maintained with no cross-check.** CMake's `_hs_test_modules` (one CTest per `run_tests <name>`) duplicates `HS_TEST_MODULE_LIST`; `run_tests.cpp` only static_asserts internal consistency, which cannot catch a CMake/roster divergence. A module added to the roster but omitted from `_hs_test_modules` is *never run under ctest* and fails silently in CI sharding. *Fix:* add a CTest that runs `run_tests --list` and diffs the emitted names against `_hs_test_modules` (or generate the CMake list from the roster); at minimum add a `run_tests` mode that exits non-zero if any module name is absent from a list passed on argv.
+1. ✅ **[build-system] `tests/CMakeLists.txt:96-104` vs `tests/run_tests.cpp:66-104` — CTest module list and run_tests roster are independently maintained with no cross-check.** CMake's `_hs_test_modules` (one CTest per `run_tests <name>`) duplicates `HS_TEST_MODULE_LIST`; `run_tests.cpp` only static_asserts internal consistency, which cannot catch a CMake/roster divergence. A module added to the roster but omitted from `_hs_test_modules` is *never run under ctest* and fails silently in CI sharding. *Fix:* add a CTest that runs `run_tests --list` and diffs the emitted names against `_hs_test_modules` (or generate the CMake list from the roster); at minimum add a `run_tests` mode that exits non-zero if any module name is absent from a list passed on argv.
 
 ### Low Priority
 
