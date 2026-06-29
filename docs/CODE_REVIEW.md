@@ -44,7 +44,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 ### Priority 2 — Medium
 
-2. **`core/filter.h` `Feedback::flush` re-centers neighbor taps against `d00` only.** The three neighbor displacements `d10/d01/d11` are wrapped to within `HALF_WQ` of the `d00` anchor; if `d00` is itself the seam outlier (sits just past the θ=0 wrap while the other three cluster on the far side), all three are pulled toward the outlier and the bilinear blend warps in a one-pixel band at the seam. Fix: re-center against the median of the four taps, or anchor on the tap nearest the sampled pixel's own column.
+2. ✅ **`core/filter.h` `Feedback::flush` re-centers neighbor taps against `d00` only.** The three neighbor displacements `d10/d01/d11` are wrapped to within `HALF_WQ` of the `d00` anchor; if `d00` is itself the seam outlier (sits just past the θ=0 wrap while the other three cluster on the far side), all three are pulled toward the outlier and the bilinear blend warps in a one-pixel band at the seam. Fix: re-center against the median of the four taps, or anchor on the tap nearest the sampled pixel's own column.
 
 3. **`effects/MindSplatter.h` clamp is a no-op in exactly the case it guards.** `p_idx = std::min<size_t>(p_idx, particle_system.active_count - 1)` underflows to `SIZE_MAX` when `active_count == 0`, so the clamp cannot bound the index — and the preceding `assert` is stripped under `NDEBUG` on device, making this the sole device-side guard. Latent OOB read of `pool[SIZE_MAX]` if the "fragments only exist for live particles" precondition is ever violated. Fix: `if (active_count) p_idx = std::min<size_t>(p_idx, active_count - 1);`.
 

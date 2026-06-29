@@ -1257,13 +1257,18 @@ public:
           float w00 = wx0 * wy0, w10 = wx1 * wy0;
           float w01 = wx0 * wy1, w11 = wx1 * wy1;
 
-          // Re-center the three taps within W/2 of d00 for a seam-safe blend.
+          // Re-center the four taps within W/2 of their median for a seam-safe
+          // blend; the median anchor holds even when d00 is the seam outlier.
           constexpr float WQ = static_cast<float>(W) * Q;
           constexpr float HALF_WQ = WQ * 0.5f;
           float d00 = dx[i00], d10 = dx[i10], d01 = dx[i01], d11 = dx[i11];
-          d10 += (d10 - d00 > HALF_WQ) ? -WQ : (d10 - d00 < -HALF_WQ ? WQ : 0.0f);
-          d01 += (d01 - d00 > HALF_WQ) ? -WQ : (d01 - d00 < -HALF_WQ ? WQ : 0.0f);
-          d11 += (d11 - d00 > HALF_WQ) ? -WQ : (d11 - d00 < -HALF_WQ ? WQ : 0.0f);
+          float lo = std::min(std::min(d00, d10), std::min(d01, d11));
+          float hi = std::max(std::max(d00, d10), std::max(d01, d11));
+          float anchor = (d00 + d10 + d01 + d11 - lo - hi) * 0.5f;
+          d00 += (d00 - anchor > HALF_WQ) ? -WQ : (d00 - anchor < -HALF_WQ ? WQ : 0.0f);
+          d10 += (d10 - anchor > HALF_WQ) ? -WQ : (d10 - anchor < -HALF_WQ ? WQ : 0.0f);
+          d01 += (d01 - anchor > HALF_WQ) ? -WQ : (d01 - anchor < -HALF_WQ ? WQ : 0.0f);
+          d11 += (d11 - anchor > HALF_WQ) ? -WQ : (d11 - anchor < -HALF_WQ ? WQ : 0.0f);
 
           float ddx = (d00 * w00 + d10 * w10
                      + d01 * w01 + d11 * w11) * INV_Q;
