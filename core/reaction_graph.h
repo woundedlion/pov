@@ -18,7 +18,7 @@ static constexpr int RD_K = 6;
  * @details Used as the base radius for reaction-diffusion interpolation kernels
  *          (BZ / GS). Precomputed because std::sqrt isn't constexpr here.
  */
-static constexpr float D_AVG = 0.04045f; // sqrt(4π / 7680)
+static constexpr float D_AVG = 0.0404505398f; // sqrt(4π / 7680)
 
 // node()'s `(RD_N - 1)` divisor degenerates (divide-by-zero) when RD_N <= 1.
 static_assert(RD_N >= 2, "node() lattice mapping degenerates when RD_N <= 1");
@@ -52,6 +52,8 @@ inline Vector node(int i) {
   constexpr double golden_angle = 2.399963229728653;
   constexpr double two_pi = 6.283185307179586;
   double y = 1.0 - (static_cast<double>(i) / (RD_N - 1)) * 2.0;
+  // y=±1 at the poles (i=0, i=RD_N-1) collapses radius to 0, placing the node
+  // exactly on the axis regardless of theta.
   double radius = std::sqrt(1.0 - y * y);
   double theta = std::fmod(golden_angle * i, two_pi);
   return Vector(static_cast<float>(std::cos(theta) * radius),
