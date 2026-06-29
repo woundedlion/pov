@@ -743,25 +743,18 @@ public:
   }
 
   /**
-   * @brief Ages every buffered point one frame and re-emits the survivors.
+   * @brief Re-emits each buffered point colored by @p trailFn, then ages every
+   * point one frame and culls the dead.
    * @param trailFn Callback producing trail color/alpha from (point, t).
    * @param alpha Global blend alpha in [0, 1].
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 3D callback.
+   * @details Emits before aging (matching Screen::Trails::flush), so a point
+   * still renders on the frame its ttl reaches 1 rather than being culled unseen.
    */
   template <typename PassFnT>
   void flush(const WorldTrailFn &trailFn, float alpha, PassFnT &&pass) {
-    for (size_t i = 0; i < count_; ++i) {
-      auto &item = at(i);
-      if (item.ttl > 0)
-        item.ttl--;
-    }
-
-    while (count_ > 0 && at(0).ttl == 0) {
-      pop_front();
-    }
-
     for (size_t i = 0; i < count_; ++i) {
       const auto &item = at(i);
       if (item.ttl == 0)
@@ -778,6 +771,16 @@ public:
           age = 0;
         pass(v, c.color, static_cast<float>(age), c.alpha * alpha);
       }
+    }
+
+    for (size_t i = 0; i < count_; ++i) {
+      auto &item = at(i);
+      if (item.ttl > 0)
+        item.ttl--;
+    }
+
+    while (count_ > 0 && at(0).ttl == 0) {
+      pop_front();
     }
   }
 
