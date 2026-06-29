@@ -1198,11 +1198,15 @@ public:
         fade_out_easing(std::move(fade_out_easing_fn)), paused_(paused) {
     HS_CHECK(fade_in_duration >= 0, "Sprite fade-in duration must be >= 0");
     HS_CHECK(fade_out_duration >= 0, "Sprite fade-out duration must be >= 0");
-    // Keep a fully-opaque frame between the ramps: clamp fade-out so the two
-    // independent windows fit inside the visible duration (definite sprites only;
-    // indefinite ones skip fade-out).
-    if (duration >= 0 && this->fade_in_duration + this->fade_out_duration > duration)
-      this->fade_out_duration = std::max(0, duration - this->fade_in_duration);
+    // Overlapping windows (durations are independent GUI sliders): scale both
+    // fades proportionally to fit the visible duration, so the envelope still
+    // peaks at full opacity and stays a continuous triangle (definite sprites
+    // only; indefinite ones skip fade-out).
+    int fade_total = this->fade_in_duration + this->fade_out_duration;
+    if (duration >= 0 && fade_total > duration) {
+      this->fade_in_duration = duration * this->fade_in_duration / fade_total;
+      this->fade_out_duration = duration - this->fade_in_duration;
+    }
   }
 
   /**
