@@ -161,7 +161,7 @@ and are flagged as such.
 
 37. ✅ **[maintainability] `scripts/capture_screenshots.mjs:65-71` — the launch-failure path uses `process.exit(1)`, risking truncation of the actionable warning it just printed.** The sibling `wasm_smoke.mjs` documents the opposite (`process.exitCode = 1; return`) so buffered output flushes. *Fix:* use `process.exitCode = 1` and fall through.
 
-38. **[correctness] `scripts/capture_screenshots.mjs:22-25` — `numEnv` treats an empty-string env var as a finite 0, silently disabling the timing it guards.** `Number('') === 0` passes the finite check, collapsing settle/retry waits to zero — the exact failure the comment claims to defend against. *Fix:* treat empty/blank as unset and reject negatives.
+38. ✅ **[correctness] `scripts/capture_screenshots.mjs:22-25` — `numEnv` treats an empty-string env var as a finite 0, silently disabling the timing it guards.** `Number('') === 0` passes the finite check, collapsing settle/retry waits to zero — the exact failure the comment claims to defend against. *Fix:* treat empty/blank as unset and reject negatives.
 
 39. **[correctness] `targets/wasm/wasm.cpp:860-874` — `getFaces()` bounds-checks each index but never asserts all face indices were consumed.** Over-reads trap (`flat_idx < size`) but under-reads (`sum(face_counts) < faces.size()`) silently drop the tail, reading back as valid-but-truncated geometry in the JS editor. *Fix:* add `HS_CHECK(flat_idx == mesh.faces.size(), …)` after the loop.
 

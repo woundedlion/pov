@@ -16,12 +16,14 @@ import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadEffectRoster } from './effect_roster.mjs';
 
-// A malformed env value (parseInt/parseFloat -> NaN) silently disables the
-// timing it controls (NaN comparisons are always false), so fall back to the
-// default on anything non-finite.
+// A malformed env value silently disables or distorts the timing it controls,
+// so fall back to the default on anything that isn't a finite, non-negative
+// number. Number('') is 0 (finite), so blank/whitespace is rejected explicitly.
 function numEnv(name, def) {
-  const v = Number(process.env[name]);
-  return Number.isFinite(v) ? v : def;
+  const raw = process.env[name];
+  if (raw === undefined || raw.trim() === '') return def;
+  const v = Number(raw);
+  return Number.isFinite(v) && v >= 0 ? v : def;
 }
 
 const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
