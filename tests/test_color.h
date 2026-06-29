@@ -94,6 +94,8 @@ inline void test_lerp16_bounded() {
     HS_EXPECT_GE(m.r + 1, static_cast<uint16_t>(std::min(a.r, b.r)));
     HS_EXPECT_LE(m.g, static_cast<uint16_t>(std::max(a.g, b.g)));
     HS_EXPECT_GE(m.g + 1, static_cast<uint16_t>(std::min(a.g, b.g)));
+    HS_EXPECT_LE(m.b, static_cast<uint16_t>(std::max(a.b, b.b)));
+    HS_EXPECT_GE(m.b + 1, static_cast<uint16_t>(std::min(a.b, b.b)));
   }
 }
 
