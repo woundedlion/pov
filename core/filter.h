@@ -1343,11 +1343,12 @@ private:
     int x0 = static_cast<int>(fx0);
     float fx = bx - fx0;
     float fy = by - fy0;
-    int x1 = x0 + 1;
 
     // Producer must keep bx in [-W, 2W); fast_wrap corrects only a single step.
+    // Derive x1 from the wrapped x0: a pre-wrap x0 == 2W-1 would form x1 == 2W,
+    // tripping fast_wrap's x < 2W assert (and returning column W in release).
     x0 = fast_wrap(x0, W);
-    x1 = fast_wrap(x1, W);
+    int x1 = fast_wrap(x0 + 1, W);
 
     ::Pixel p00 = (y0 >= 0 && y0 < H) ? cv.prev(x0, y0) : ::Pixel(0, 0, 0);
     ::Pixel p10 = (y0 >= 0 && y0 < H) ? cv.prev(x1, y0) : ::Pixel(0, 0, 0);
