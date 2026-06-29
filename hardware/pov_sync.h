@@ -34,6 +34,7 @@
  */
 #pragma once
 
+#include <cassert>
 #include <cstdint>
 
 #include "core/platform.h" // HS_CHECK used in Flywheel's constructor guard
@@ -607,8 +608,8 @@ public:
     // calling position(now), so the forward elapsed stays inside the coast window
     // the constructor sized the int32 cast for. A larger delta means an unfolded
     // coast and an overflowed cast.
-    HS_CHECK(delta < static_cast<int64_t>(kMinSafeHalfRevs) * period_,
-             "Flywheel::position: unfolded coast — int32 elapsed cast overflowed");
+    assert(delta < static_cast<int64_t>(kMinSafeHalfRevs) * period_ &&
+           "Flywheel::position: unfolded coast — int32 elapsed cast overflowed");
     const int64_t cols = floor_div(delta * (w_ / 2), period_);
     return floor_mod(boundary_column(boundary_, w_) + cols, w_);
   }
