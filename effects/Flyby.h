@@ -47,13 +47,14 @@ public:
     registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
     registerParam("Speed", &params.speed, 0.0f, 2.0f);
     registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
-    registerParam("Drift", &params.drift, 0.0f, 2.0f);
+    registerParam("Drift", &drift, 0.0f, 2.0f);
     registerParam("Hue Shift", &params.hue_shift, 0.0f, 1.0f);
     // Flag every preset-driven param so "Pause Animation" lets the user take a
-    // slider over.
+    // slider over. Drift is a standalone live control, not preset-driven, so it
+    // is omitted and edits apply during normal playback.
     for (const char *n :
          {"Warp Scale", "Warp Strength", "Pattern Freq", "Speed", "Pole Fade",
-          "Drift", "Hue Shift"})
+          "Hue Shift"})
       markAnimated(n);
 
     orientation.set(make_rotation(Vector(0, 0, -1), Vector(0, -1, 0)));
@@ -109,7 +110,7 @@ public:
     // reduction; each tracks its own coefficient (sin +t, cos -drift*t).
     constexpr float kTwoPi = 2.0f * PI_F;
     sin_phase = fmodf(sin_phase + params.speed, kTwoPi);
-    drift_phase = fmodf(drift_phase + params.speed * params.drift, kTwoPi);
+    drift_phase = fmodf(drift_phase + params.speed * drift, kTwoPi);
 
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);
@@ -194,6 +195,7 @@ private:
   float noise_time = 0.0f;   /**< Noise-time axis, wrapped to TIME_PERIOD (see draw_frame). */
   float sin_phase = 0.0f;    /**< Wrapped to [0, 2pi): the pattern's +t term. */
   float drift_phase = 0.0f;  /**< Wrapped to [0, 2pi): pattern's drift*t term. */
+  float drift = 0.7f;        /**< Live drift-rate control; scales the cos phase advance. */
 
   BakedPalette palette;
 
@@ -206,7 +208,6 @@ private:
     float pattern_freq = 8.0f;
     float speed = 0.30f;
     float pole_fade = 2.0f;
-    float drift = 0.7f;
     float hue_shift = 0.15f;
 
     /**
@@ -225,17 +226,16 @@ private:
       pattern_freq = hs::lerp(a.pattern_freq, b.pattern_freq, t);
       speed = hs::lerp(a.speed, b.speed, t);
       pole_fade = hs::lerp(a.pole_fade, b.pole_fade, t);
-      drift = hs::lerp(a.drift, b.drift, t);
       hue_shift = hs::lerp(a.hue_shift, b.hue_shift, t);
     }
   };
   Params params;
 
   Presets<Params, 4> presets = {{{
-      {{47.752f, 11.55f, 2.7f, 0.586f, 1.55f, 0.0f, 0.097f}},
-      {{0.1f, 0.87f, 14.262f, 0.586f, 3.527f, 0.0f, 0.097f}},
-      {{1.5f, 0.5f, 8.0f, 0.30f, 2.0f, 0.0f, 0.15f}},
-      {{47.752f, 2.55f, 7.878f, 0.562f, 2.843f, 0.0f, 0.0f}},
+      {{47.752f, 11.55f, 2.7f, 0.586f, 1.55f, 0.097f}},
+      {{0.1f, 0.87f, 14.262f, 0.586f, 3.527f, 0.097f}},
+      {{1.5f, 0.5f, 8.0f, 0.30f, 2.0f, 0.15f}},
+      {{47.752f, 2.55f, 7.878f, 0.562f, 2.843f, 0.0f}},
   }}};
 };
 
