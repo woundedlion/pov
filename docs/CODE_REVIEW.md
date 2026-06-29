@@ -147,7 +147,7 @@ sequentially across all priority sections.
    - Evidence: The manual edit path auto-pauses animation when an `animated` slider is touched; the deep-link hydration path pushes `?Param=value` straight through `setParameter` and never pauses, so for an animated param the engine re-drives the value next frame and `syncGUI` snaps the slider back. A shared/bookmarked animated-param value therefore does not "stick," asymmetric with a manual edit.
    - Fix: if animated deep links should hold, pause on hydrating any `p.animated` param; if the current behavior is intended, document it. (Owner intent call — not a unilateral fix.)
 
-7. **README §7.2 describes the superseded `sqrt(1 - y²)`-only curve step model.**
+7. ✅ **README §7.2 describes the superseded `sqrt(1 - y²)`-only curve step model.**
    - File: `README.md:736` vs `core/plot.h:471-490` (`screen_step`), `:644-649` (comment)
    - Severity: Low · Dimension: Documentation · Confidence: High
    - Evidence: §7.2 states step size "is scaled by `sqrt(1 - y²)` — the sine of the polar angle." The live rasterizer instead sizes each sub-step from the full 2-D screen speed `sqrt(vx²+vy²)` (both `dlon_ds` and `dphi_ds`); the code comment explicitly contrasts with "the old sin(φ) longitudinal-only proxy." Per the repo's describe-current-state-only convention, the README is stale.
