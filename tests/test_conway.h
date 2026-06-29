@@ -15,6 +15,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <map>
 #include <vector>
@@ -643,6 +644,44 @@ inline void test_relax_reduces_edge_variance() {
   HS_EXPECT_LT(var_after, var_before);
 }
 
+/**
+ * @brief Verifies relax runs on an open (boundary) mesh without tripping a trap
+ *        and leaves every output vertex finite.
+ * @details Two triangles sharing one edge: the outer edges are boundary edges
+ *          (shared once), so the per-vertex orbit must fall back to the
+ *          boundary-tolerant path rather than HS_CHECK-trapping.
+ */
+inline void test_relax_open_mesh_finite() {
+  Arena target(conway_target_buf, sizeof(conway_target_buf));
+  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+
+  PolyMesh strip;
+  strip.vertices.bind(target, 4);
+  strip.vertices.push_back(Vector(1, 0, 0).normalized());
+  strip.vertices.push_back(Vector(0, 1, 0).normalized());
+  strip.vertices.push_back(Vector(0, 0, 1).normalized());
+  strip.vertices.push_back(Vector(1, 1, 0).normalized());
+  strip.face_counts.bind(target, 2);
+  strip.face_counts.push_back(3);
+  strip.face_counts.push_back(3);
+  strip.faces.bind(target, 6);
+  strip.faces.push_back(0);
+  strip.faces.push_back(1);
+  strip.faces.push_back(2);
+  strip.faces.push_back(0);
+  strip.faces.push_back(3);
+  strip.faces.push_back(1);
+
+  PolyMesh r = MeshOps::relax(strip, target, temp, /*iterations*/ 5);
+
+  HS_EXPECT_EQ(r.vertices.size(), strip.vertices.size());
+  for (size_t i = 0; i < r.vertices.size(); ++i) {
+    HS_EXPECT_TRUE(std::isfinite(r.vertices[i].x));
+    HS_EXPECT_TRUE(std::isfinite(r.vertices[i].y));
+    HS_EXPECT_TRUE(std::isfinite(r.vertices[i].z));
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Compositional + standalone operators — structural invariants only.
 // ---------------------------------------------------------------------------
@@ -983,6 +1022,7 @@ inline int run_conway_tests() {
   test_chamfer_cube();
   test_relax_preserves_topology();
   test_relax_reduces_edge_variance();
+  test_relax_open_mesh_finite();
   test_meta_cube();
   test_needle_cube();
   test_zip_cube();
