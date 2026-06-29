@@ -159,7 +159,7 @@ and are flagged as such.
 
 36. ✅ **[portability] `targets/Phantasm/Phantasm.ino:68-76` vs `targets/wasm/wasm.cpp:362-379` — `configure_arenas_default()` runs after the constructor on Teensy but before it in WASM.** Benign today only because effect constructors never allocate from the engine arenas; a future constructor allocation would work in WASM and corrupt on Teensy with no compile-time signal. *Fix:* pick one ordering for both targets (preferably configure-before-construct, matching WASM), or document the "constructors must not allocate" convention at both seams.
 
-37. **[maintainability] `scripts/capture_screenshots.mjs:65-71` — the launch-failure path uses `process.exit(1)`, risking truncation of the actionable warning it just printed.** The sibling `wasm_smoke.mjs` documents the opposite (`process.exitCode = 1; return`) so buffered output flushes. *Fix:* use `process.exitCode = 1` and fall through.
+37. ✅ **[maintainability] `scripts/capture_screenshots.mjs:65-71` — the launch-failure path uses `process.exit(1)`, risking truncation of the actionable warning it just printed.** The sibling `wasm_smoke.mjs` documents the opposite (`process.exitCode = 1; return`) so buffered output flushes. *Fix:* use `process.exitCode = 1` and fall through.
 
 38. **[correctness] `scripts/capture_screenshots.mjs:22-25` — `numEnv` treats an empty-string env var as a finite 0, silently disabling the timing it guards.** `Number('') === 0` passes the finite check, collapsing settle/retry waits to zero — the exact failure the comment claims to defend against. *Fix:* treat empty/blank as unset and reject negatives.
 
