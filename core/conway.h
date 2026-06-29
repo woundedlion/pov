@@ -526,7 +526,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
         uint16_t v2 = he_mesh.half_edges[he.prev].vertex;
 
         Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
-        out_mesh.vertices.push_back(mid);
+        out_mesh.vertices.push_back(normalized_or(mid, mesh.vertices[v1]));
         uint16_t new_idx = narrow_index(out_mesh.vertices.size() - 1);
 
         edge_to_vert[i] = new_idx;
