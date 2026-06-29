@@ -2398,17 +2398,19 @@ struct TimelineEvent {
 // is the real 112 B device budget on the 32-bit WASM/device build and a no-op
 // headroom check on the wider native host. (Templated animations stay covered at
 // their add() sites.)
-// Insertion point: append every new non-templated Animation type's sizeof here,
-// or its size escapes this device inline-storage audit.
-constexpr size_t kLargestConcreteAnimSize = std::max({
-    sizeof(Animation::RandomTimer), sizeof(Animation::PeriodicTimer),
-    sizeof(Animation::Transition), sizeof(Animation::Mutation),
-    sizeof(Animation::Driver), sizeof(Animation::Lerp),
-    sizeof(Animation::Sprite), sizeof(Animation::ColorWipe),
-    sizeof(Animation::MobiusFlow), sizeof(Animation::MobiusWarp),
-    sizeof(Animation::MobiusWarpCircular), sizeof(Animation::MeshMorph),
-    sizeof(Animation::MobiusWarpEvolving), sizeof(Animation::Ripple),
-    sizeof(Animation::Noise)});
+/** @brief Largest sizeof over a pack of types. */
+template <typename... Ts> constexpr size_t largest_sizeof() {
+  return std::max({sizeof(Ts)...});
+}
+
+// Add every new non-templated Animation type to this pack; the audit folds over
+// it, so the static_assert tracks the list automatically.
+constexpr size_t kLargestConcreteAnimSize = largest_sizeof<
+    Animation::RandomTimer, Animation::PeriodicTimer, Animation::Transition,
+    Animation::Mutation, Animation::Driver, Animation::Lerp, Animation::Sprite,
+    Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusWarp,
+    Animation::MobiusWarpCircular, Animation::MeshMorph,
+    Animation::MobiusWarpEvolving, Animation::Ripple, Animation::Noise>();
 static_assert(kLargestConcreteAnimSize <= TimelineEvent::MAX_ANIM_SIZE,
               "A concrete animation type exceeds the TimelineEvent inline-storage "
               "budget (on the 32-bit WASM/device build MAX_ANIM_SIZE is the "
