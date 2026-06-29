@@ -288,6 +288,18 @@ def evaluate(
                 f"renamed/removed? A missing symbol is a hard failure, never a "
                 f"silent pass (spec 7.4)."))
             continue
+        # Vague-linkage copies across TUs share a VMA and size; collapse them so a
+        # benign duplicate reads as one definition. Genuinely distinct definitions
+        # are an unexpected layout ambiguity, surfaced once rather than as a
+        # duplicate violation per copy.
+        distinct = {(s.value, s.size) for s in matches}
+        if len(distinct) > 1:
+            v.append(Violation(
+                "symbol-duplicate",
+                f"{env}: layout symbol '{key}' ({name}) has {len(distinct)} "
+                f"distinct definitions in the ELF - expected exactly one."))
+            continue
+        matches = matches[:1]
         want_region = spec.get("region")
         for sym in matches:
             got_region = sym.region
