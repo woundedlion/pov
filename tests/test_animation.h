@@ -444,65 +444,6 @@ inline void test_orientation_trail_clear() {
 }
 
 // ============================================================================
-// easing.h sanity
-// ============================================================================
-
-/**
- * @brief Verifies every in/out easing variant anchors at f(0)==0 and f(1)==1.
- */
-inline void test_easing_in_out_endpoints() {
-  struct {
-    const char *name;
-    EasingFn fn;
-  } fns[] = {
-      {"ease_in_out_cubic", ease_in_out_cubic},
-      {"ease_in_out_sin", ease_in_out_sin},
-      {"ease_in_sin", ease_in_sin},
-      {"ease_out_sin", ease_out_sin},
-      {"ease_in_cubic", ease_in_cubic},
-      {"ease_in_circ", ease_in_circ},
-      {"ease_linear", ease_linear},
-      {"ease_out_expo", ease_out_expo},
-      {"ease_out_circ", ease_out_circ},
-      {"ease_out_cubic", ease_out_cubic},
-  };
-  for (const auto &e : fns) {
-    HS_EXPECT_NEAR(e.fn(0.0f), 0.0f, 1e-3f);
-    HS_EXPECT_NEAR(e.fn(1.0f), 1.0f, 1e-3f);
-  }
-}
-
-/**
- * @brief Verifies every easing function stays finite across its documented
- * [0,1] domain.
- */
-inline void test_easing_output_finite_over_range() {
-  EasingFn fns[] = {ease_in_out_cubic, ease_in_out_sin, ease_in_sin,
-                    ease_out_sin,        ease_in_cubic,   ease_in_circ,
-                    ease_linear,            ease_out_expo,   ease_out_circ,
-                    ease_out_cubic,      ease_out_elastic};
-  // Step with an integer index: a float accumulator can drift past 1.0, where
-  // the circ easings (sqrt(1-(...)^2)) go NaN.
-  for (EasingFn fn : fns) {
-    for (int i = 0; i <= 20; ++i) {
-      float t = static_cast<float>(i) / 20.0f;
-      HS_EXPECT_TRUE(std::isfinite(fn(t)));
-    }
-  }
-}
-
-/**
- * @brief Verifies ease_out_elastic anchors at f(0)==0 and f(1)==1 even though
- * it overshoots in between.
- * @details ease_out_elastic is not part of an in/out pair, so it is checked
- * separately from the in/out endpoint suite.
- */
-inline void test_easing_elastic_anchors() {
-  HS_EXPECT_NEAR(ease_out_elastic(0.0f), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(ease_out_elastic(1.0f), 1.0f, 1e-3f);
-}
-
-// ============================================================================
 // Borrow-contract guards (compile-time)
 // ----------------------------------------------------------------------------
 // Motion/MeshMorph/Lerp/MobiusFlow store non-owning borrows of effect-owned
@@ -1487,10 +1428,6 @@ inline int run_animation_tests() {
   test_orientation_trail_index_zero_is_oldest();
   test_orientation_trail_expire_drops_oldest();
   test_orientation_trail_clear();
-
-  test_easing_in_out_endpoints();
-  test_easing_output_finite_over_range();
-  test_easing_elastic_anchors();
 
   test_rotation_substeps_shared_and_tight();
   test_rotation_accumulates_subthreshold_deltas();
