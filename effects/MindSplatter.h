@@ -122,11 +122,11 @@ private:
    * @brief Fixed particle pool capacity.
    * @details Footprint is identical on the 32-bit device and 64-bit native build
    *          (VectorTrail's circular-buffer indices are uint32_t): 316 B/particle
-   *          × 1024 = 316 KiB of the 335 KiB device arena, leaving ~8 KiB after
-   *          the scratch carve for the baked palette and attractor/emitter
-   *          vectors. The static_assert in init() enforces this at compile time
-   *          against the device arena literal (GLOBAL_ARENA_SIZE is inflated on
-   *          the host test build).
+   *          × 1024 = 316 KiB of the 330 KiB device arena, leaving ~8 KiB after
+   *          the scratch carve (gross; ~2 KiB after the aux reserve) for the
+   *          baked palette and attractor/emitter vectors. The static_assert in
+   *          init() enforces this at compile time against the device arena
+   *          literal (GLOBAL_ARENA_SIZE is inflated on the host test build).
    */
   static const int NUM_PARTICLES = 1024;
 
