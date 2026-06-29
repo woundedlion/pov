@@ -309,7 +309,7 @@ public:
     return *this;
   }
   /**
-   * @brief Applies the gyro operator (pentagonal chiral subdivision).
+   * @brief Applies the gyro operator (dual of snub; pentagonal chiral subdivision).
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &gyro() {

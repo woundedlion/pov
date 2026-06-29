@@ -92,7 +92,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 24. ✅ **`core/geometry.h` `Orientation::upsample` silently produces no motion smear from a single source frame.** When `old_num_frames == 1` (the common post-`set()`/`collapse()` state), every output frame collapses to `old[0]`. This is mathematically the only well-defined result (no motion to interpolate), so it is correct behavior. Fix: document that a single-frame trail upsamples to a flat smear; real motion blur requires ≥2 pushed frames.
 
-25. **`core/conway.h` `gyro` carries two unreconciled doc strings.** It is implemented as `dual(snub(...))` and documented "dual of snub," while the `SolidBuilder` wrapper calls it "pentagonal chiral subdivision." The descriptions are compatible (recipe vs geometric effect) but read as different operations. Fix: cross-reference the two, or align the wording.
+25. ✅ **`core/conway.h` `gyro` carries two unreconciled doc strings.** It is implemented as `dual(snub(...))` and documented "dual of snub," while the `SolidBuilder` wrapper calls it "pentagonal chiral subdivision." The descriptions are compatible (recipe vs geometric effect) but read as different operations. Fix: cross-reference the two, or align the wording.
 
 26. **`daydream/vendor-importmap.js` "CDN fallback" naming is inaccurate.** The file header and README §10.8 describe a "local-first / CDN-fallback" mechanism, but vendor resolution is baked at build time to a single source with no runtime fallback — if the chosen source is unreachable, every import hard-fails. The code comment itself notes the old runtime probing was removed. Fix: rename the concept to "build-time-baked vendor resolution" in the README and doc comment.
 
