@@ -98,7 +98,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 27. ✅ **`scripts/capture_screenshots.mjs` has a dead "WRONG EFFECT" log branch.** Control reaches the save/log line only when `honored === true` (the `!honored` case `continue`s earlier), so the inline `${honored ? '' : ', WRONG EFFECT (fell back)'}` can never print. Fix: drop the dead ternary, or restructure so a tolerated fallback can reach it.
 
-28. **`tools/teensy_gate.py` does not assert exactly one definition per layout symbol.** The match filter excludes zero-size and UND rows but never checks `len(matches) == 1`, so a benign duplicate definition (vague-linkage across TUs) yields duplicate violations rather than a surfaced "unexpected duplicate." Fix: assert a single match (or dedup by value/size).
+28. ✅ **`tools/teensy_gate.py` does not assert exactly one definition per layout symbol.** The match filter excludes zero-size and UND rows but never checks `len(matches) == 1`, so a benign duplicate definition (vague-linkage across TUs) yields duplicate violations rather than a surfaced "unexpected duplicate." Fix: assert a single match (or dedup by value/size).
 
 29. **`.github/workflows/ci.yml` `pio-objs` cache key guarantees a primary-key miss every run.** The key embeds `${{ github.sha }}`, so it never restores an exact hit (always falls to `restore-keys`) and saves a fresh full-size entry per commit. This is a valid rolling-cache idiom but is undocumented and doubles storage churn. Fix: document the rolling intent like the toolchain cache, or key on a source content hash.
 
