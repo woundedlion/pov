@@ -93,7 +93,7 @@ public:
    * @return false to persist: the lit column is held on the strip until the
    *               next column overwrites it, filling its full angular cell.
    */
-  virtual bool strobe_columns() const = 0;
+  virtual bool strobe_columns() const { return false; }
 
   /**
    * @brief Whether this effect must render the FULL canvas per simulator worker
