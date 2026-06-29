@@ -70,7 +70,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 ### Priority 3 — Low
 
-14. **`daydream/segment_controller.js` `composite()` self-heals only one of two view aliases.** Unlike the single-engine path (which re-points both `Daydream.pixels` and `dotMesh.instanceColor.array`), `composite()` re-points only `Daydream.pixels`. No reachable trigger was found (composite routes through `host.refresh()`, which re-points both aliases together), so this is a latent defensive-symmetry gap rather than a live bug. Fix: mirror both aliases in the divergence branch for consistency with the single-engine heal.
+14. ✅ **`daydream/segment_controller.js` `composite()` self-heals only one of two view aliases.** Unlike the single-engine path (which re-points both `Daydream.pixels` and `dotMesh.instanceColor.array`), `composite()` re-points only `Daydream.pixels`. No reachable trigger was found (composite routes through `host.refresh()`, which re-points both aliases together), so this is a latent defensive-symmetry gap rather than a live bug. Fix: mirror both aliases in the divergence branch for consistency with the single-engine heal.
 
 15. **`effects/ChaoticStrings.h` binds `vertices` to exactly `MAX_FRAGMENTS` with zero slack.** `deep_tween` can push up to `TRAIL_LENGTH * ORIENTATION_SUBSTEPS` fragments into a buffer of exactly that capacity; any off-by-one in the emitted sample count trips the arena fail-fast trap. Fix: bind with a small slack (`+ ORIENTATION_SUBSTEPS`) or assert the post-loop tween count.
 
