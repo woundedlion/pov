@@ -115,7 +115,7 @@ private:
     spec *= spec;               // ^16
     spec *= spec;               // ^32
 
-    float fresnel = 1.0f - hs::clamp(ndotl, 0.0f, 1.0f);
+    float fresnel = 1.0f - hs::clamp(dot(normal_w, view_dir), 0.0f, 1.0f);
     fresnel = fresnel * fresnel * fresnel;
 
     return 0.05f + diffuse * params.diffuse + spec * params.specular +
