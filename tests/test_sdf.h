@@ -1188,6 +1188,43 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
 }
 
 /**
+ * @brief Verifies the DistortedRing cull drops no interior arc column under
+ *        high-frequency centerline shifts with exact max_distortion bounds.
+ * @details max_distortion widens the row/column/per-pixel reject bands; an
+ *   underestimate silently culls genuine arcs. The ctor's NDEBUG-off sampler can
+ *   miss a sharp peak, so a passed bound that is exact-but-spiky must still cover
+ *   every interior pixel. Sweeps shift_fns whose peak sits between the sampler's
+ *   256 grid points (high harmonics, off-grid phase) at exact bounds and asserts
+ *   expect_cull_covers_interior — a full-canvas distance() reference — drops none.
+ */
+inline void test_distorted_ring_cull_covers_interior_high_freq() {
+  constexpr int W = 256, H = 128;
+  // Harmonic / off-grid-phase pairs whose |shift| peak falls between the ctor
+  // sampler's i/256 grid points; the bound passed is the exact analytic peak.
+  struct Cfg { float amp; int harmonic; float phase_frac; };
+  const Cfg cfgs[] = {
+      {0.18f, 127, 0.5f / 256.0f}, {0.20f, 255, 0.5f / 256.0f},
+      {0.15f, 384, 0.25f / 256.0f}, {0.22f, 200, 0.5f / 256.0f},
+  };
+  const Vector axes[] = {Vector(0, 1, 0), Vector(0.3f, 1.0f, 0.2f),
+                         Vector(1, 0, 0)};
+  for (const Vector &axis : axes) {
+    Basis basis = make_basis(Quaternion(), axis);
+    for (const Cfg &c : cfgs) {
+      float amp = c.amp;
+      int harmonic = c.harmonic;
+      float ph = c.phase_frac;
+      auto shift = [amp, harmonic, ph](float t) {
+        return amp * std::sin(2.0f * PI_F * (harmonic * t + ph));
+      };
+      SDF::DistortedRing ring(basis, /*radius=*/0.6f, /*thickness=*/0.12f, shift,
+                              /*max_distortion=*/amp, /*phase=*/0.0f);
+      expect_cull_covers_interior<W, H>(ring);
+    }
+  }
+}
+
+/**
  * @brief Verifies the Face azimuth-interval cull covers every paintable pixel
  *        (including the outer AA fringe column at a silhouette edge).
  * @return The paintable-pixel count, so the caller confirms the case is non-trivial.
@@ -1462,6 +1499,7 @@ inline int run_sdf_tests() {
   test_angular_repeat_non_y_axis_cull_covers_copies();
   test_line_arc_bulge_cull_covers_interior();
   test_ring_pole_wrap_cull_covers_interior();
+  test_distorted_ring_cull_covers_interior_high_freq();
   test_face_cull_covers_aa_fringe();
   test_face_lut_matches_exact_within_cell_diagonal();
 
