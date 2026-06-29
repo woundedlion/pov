@@ -544,6 +544,7 @@ struct BZWhiteBox {
   static void perturb(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     BZ::perturb_state(nA, nB, nC);
   }
+  static int num_perturbations() { return BZ::NUM_PERTURBATIONS; }
   static void step(BZ &bz, const uint8_t *cA, const uint8_t *cB,
                    const uint8_t *cC, uint8_t *nA, uint8_t *nB, uint8_t *nC) {
     std::vector<float> fA(N), fB(N), fC(N);
@@ -666,6 +667,36 @@ inline void test_bz_perturb_state_saturates_and_nudges() {
     HS_EXPECT_GT(touched, 0);
     HS_EXPECT_EQ(malformed, 0);
   }
+}
+
+/**
+ * @brief Pins perturb_state's per-frame draw count on the shared RNG stream.
+ * @details perturb_state advances hs::random() by exactly 2*NUM_PERTURBATIONS
+ *          draws (idx + species per nudge). That count is part of the global
+ *          determinism contract: every later effect's stream position depends on
+ *          it, so a substep/perturbation retune that changes the draw count
+ *          silently shifts all downstream effects. Reproduce the post-call stream
+ *          position with a private generator stepped exactly that many times and
+ *          require the global generator to be at the same position (next outputs
+ *          equal), failing if the count drifts in either direction.
+ */
+inline void test_bz_perturb_state_draw_count_pinned() {
+  const int expected_draws = 2 * BZWhiteBox::num_perturbations();
+
+  constexpr uint64_t kSeed = 1337u;
+  hs::random().seed(kSeed);
+  std::vector<uint8_t> a(BZWhiteBox::N, 0), b(BZWhiteBox::N, 0),
+      c(BZWhiteBox::N, 0);
+  BZWhiteBox::perturb(a.data(), b.data(), c.data());
+
+  // A private generator from the same seed, advanced by the contracted count,
+  // must now be at the same stream position as the global generator.
+  hs::Pcg32 ref(kSeed);
+  for (int i = 0; i < expected_draws; ++i)
+    (void)ref();
+  HS_EXPECT_EQ(hs::random()(), ref());
+  // Off-by-one in either direction would have landed at a different output.
+  HS_EXPECT_EQ(hs::random()(), ref());
 }
 
 /**
@@ -1355,6 +1386,7 @@ inline int run_effects_tests() {
   test_bz_q8_roundtrip();
   test_bz_advance_species_signs_and_clamp();
   test_bz_perturb_state_saturates_and_nudges();
+  test_bz_perturb_state_draw_count_pinned();
   test_bz_substep_diffuses();
   test_bz_odd_substep_lands_in_state();
   test_dreamballs_preset_cycle_bookkeeping();
