@@ -306,6 +306,10 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     }
 
     Vector n_edge1 = cross1.normalized();
+    // Sign convention: the two edge normals are rotated by OPPOSITE-signed half
+    // contact angles (+ha about m1, -ha about m2) so both Hankin planes tilt
+    // toward the shared corner; the dot(intersect, p_corner)<0 flip below then
+    // selects the corner-side hemisphere of their intersection.
     // m1/m2 are unit (midpoints normalized at compile time), so (cos_ha,
     // sin_ha*axis) is already a unit quaternion as rotate() requires.
     Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
