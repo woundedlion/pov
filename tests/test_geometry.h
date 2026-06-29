@@ -358,6 +358,30 @@ inline void test_fib_spiral_endpoints() {
   HS_EXPECT_TRUE(first.y * last.y < 0.0f);
 }
 
+/**
+ * @brief Verifies consecutive fib_spiral samples advance in azimuth by a
+ *        constant golden-angle step, the property that gives the spiral its
+ *        even spread (a wrong-but-unit-length placement would fail here).
+ * @details Sample i's azimuth is 2*pi*i*INV_PHI, so consecutive samples differ
+ *        by a fixed golden step (mod 2*pi). Mid-range indices are used because
+ *        near the poles sin(phi) -> 0 makes the recovered azimuth noisy.
+ */
+inline void test_fib_spiral_golden_angle() {
+  const int n = 64;
+  auto wrap_pi = [](float a) {
+    while (a > PI_F) a -= 2.0f * PI_F;
+    while (a <= -PI_F) a += 2.0f * PI_F;
+    return a;
+  };
+  const float step = wrap_pi(2.0f * PI_F * INV_PHI);
+  for (int i = 8; i < n - 8; ++i) {
+    Vector a = fib_spiral(n, 0.5f, i);
+    Vector b = fib_spiral(n, 0.5f, i + 1);
+    float delta = wrap_pi(atan2f(b.z, b.x) - atan2f(a.z, a.x));
+    HS_EXPECT_NEAR(delta, step, 1e-3f);
+  }
+}
+
 // ============================================================================
 // lissajous
 // ============================================================================
@@ -665,6 +689,7 @@ inline int run_geometry_tests() {
   test_fib_spiral_unit_length();
   test_fib_spiral_deterministic();
   test_fib_spiral_endpoints();
+  test_fib_spiral_golden_angle();
 
   test_lissajous_unit_length();
   test_lissajous_phase_is_radians();
