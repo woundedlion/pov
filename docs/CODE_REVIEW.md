@@ -135,7 +135,7 @@ and are flagged as such.
 
 24. ✅ **[performance] `core/hankin.h:333-360` — per-frame `update_hankin` rebuilds the output mesh with element loops instead of `append_bulk`.** Called every frame during angle sweeps; all four element types are trivially copyable and `clone()`/`finalize_solid` already use `append_bulk` (single memcpy vs N push_backs). *Fix:* replace the static/dynamic vertex and faces loops with `append_bulk`, keeping the `face_counts` loop where it interleaves the prefix sum.
 
-25. **[documentation] `core/reaction_graph.h:84-115` — `CubemapLUT::build()` doc omits the ~90 KB transient lattice scratch it requires.** The "48 KB" figure is only the persistent table; `build()` also allocates `RD_N` `Vector`s (~90 KB) from the same arena. A caller sizing from 48 KB under-provisions and traps. *Fix:* document the transient `RD_N*sizeof(Vector)` scratch.
+25. ✅ **[documentation] `core/reaction_graph.h:84-115` — `CubemapLUT::build()` doc omits the ~90 KB transient lattice scratch it requires.** The "48 KB" figure is only the persistent table; `build()` also allocates `RD_N` `Vector`s (~90 KB) from the same arena. A caller sizing from 48 KB under-provisions and traps. *Fix:* document the transient `RD_N*sizeof(Vector)` scratch.
 
 26. **[performance] `core/hankin.h:325-330` — redundant re-normalization of an already-unit fallback intersection.** The fallback branch normalizes, then the code unconditionally normalizes again. Trivial cost; folding the branch also fixes #23. *Fix:* give the degenerate branch its own assignment+continue using `normalized_or`, leaving the trailing `normalized()` for the primary cross-product path.
 
