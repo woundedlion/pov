@@ -305,10 +305,11 @@ struct Vector {
  */
 [[nodiscard]] inline Vector normalized_or(const Vector &v,
                                           const Vector &fallback) {
-  float m = v.length();
-  if (m < std::numeric_limits<float>::epsilon()) {
+  float m2 = v.x * v.x + v.y * v.y + v.z * v.z;
+  if (m2 < math::EPS_NORMALIZE_SQ) {
     return fallback;
   }
+  float m = sqrtf(m2);
   return Vector(v.x / m, v.y / m, v.z / m);
 }
 
