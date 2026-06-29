@@ -579,6 +579,8 @@ public:
   /**
    * @brief Registers a per-frame emitter functor.
    * @param fn The emitter to add.
+   * @note Traps on overflow: emitters are registered at setup with fixed
+   * cardinality, so an overrun is a bug — unlike spawn()'s runtime soft-drop.
    */
   void add_emitter(EmitterFn fn) { emitters.push_back(fn); }
 
@@ -588,6 +590,8 @@ public:
    * @param str Attractive force multiplier.
    * @param kill Kill radius (particles within it die).
    * @param horizon Event-horizon radius (steering becomes radial within it).
+   * @note Traps on overflow: attractors are registered at setup with fixed
+   * cardinality, so an overrun is a bug — unlike spawn()'s runtime soft-drop.
    */
   void add_attractor(const Vector &pos, float str, float kill, float horizon) {
     attractors.push_back({pos, str, kill, horizon});
