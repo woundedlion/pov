@@ -323,7 +323,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     Vector intersect = cross(n_hankin1, n_hankin2);
     float len_sq = dot(intersect, intersect);
     if (len_sq < math::EPS_LEN_SQ)
-      intersect = (m1 + m2).normalized();
+      intersect = normalized_or(m1 + m2, p_corner.normalized());
     if (dot(intersect, p_corner) < 0)
       intersect = -intersect;
 
