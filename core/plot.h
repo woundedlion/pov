@@ -1716,15 +1716,13 @@ struct Star {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    Vector center = basis.v;
-    if (radius > 1.0f)
-      center = -center;
+    auto res = get_antipode(basis, radius);
+    Vector center = res.first.v;
 
-    Vector v = center;
-    Vector ref = least_parallel_axis(v);
-    Vector u = cross(v, ref).normalized();
-    Vector w = cross(v, u).normalized();
-    Basis planar_basis = {u, v, w};
+    Vector ref = least_parallel_axis(center);
+    Vector u = cross(center, ref).normalized();
+    Vector w = cross(center, u).normalized();
+    Basis planar_basis = {u, center, w};
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),
