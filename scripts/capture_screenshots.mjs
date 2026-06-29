@@ -67,7 +67,10 @@ try {
   console.warn(`capture_screenshots: ERROR — could not launch Chromium (${e.message}).`);
   console.warn('Install the browser once with:  npx playwright install chromium');
   console.warn('========================================================');
-  process.exit(1);
+  process.exitCode = 1;
+  // Drain buffered stderr before the hard exit; a pipe truncates it otherwise.
+  await new Promise((resolve) => process.stderr.write('', resolve));
+  process.exit();
 }
 const ctx = await browser.newContext({
   ignoreHTTPSErrors: true,
