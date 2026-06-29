@@ -333,10 +333,10 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
   out_mesh.vertices.bind(target_arena,
                                compiled.static_vertices.size() +
                                    compiled.dynamic_vertices.size());
-  for (size_t i = 0; i < compiled.static_vertices.size(); ++i)
-    out_mesh.vertices.push_back(compiled.static_vertices[i]);
-  for (size_t i = 0; i < compiled.dynamic_vertices.size(); ++i)
-    out_mesh.vertices.push_back(compiled.dynamic_vertices[i]);
+  out_mesh.vertices.append_bulk(compiled.static_vertices.data(),
+                                compiled.static_vertices.size());
+  out_mesh.vertices.append_bulk(compiled.dynamic_vertices.data(),
+                                compiled.dynamic_vertices.size());
 
   out_mesh.face_counts.bind(target_arena, compiled.face_counts.size());
 
@@ -356,8 +356,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
   }
 
   out_mesh.faces.bind(target_arena, compiled.faces.size());
-  for (size_t i = 0; i < compiled.faces.size(); ++i)
-    out_mesh.faces.push_back(compiled.faces[i]);
+  out_mesh.faces.append_bulk(compiled.faces.data(), compiled.faces.size());
 }
 
 /**
