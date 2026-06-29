@@ -211,6 +211,15 @@ struct Pixel16 {
 using Pixel = Pixel16;
 
 /**
+ * @brief Quantizes a [0,1) interpolation fraction to a 16-bit lerp16 weight.
+ * @param frac Blend fraction, assumed in [0, 1) (caller-guaranteed; not clamped).
+ * @return The fraction as a 16-bit weight in [0, 65535], rounded.
+ */
+inline uint16_t frac_to_q16(float frac) {
+  return static_cast<uint16_t>(frac * 65535.0f + 0.5f);
+}
+
+/**
  * @brief Represents a color with a STRAIGHT (non-premultiplied) alpha channel.
  * @details Alpha is straight: `color` holds the un-premultiplied color and
  * `alpha` its coverage/opacity. `lerp` interpolates the two independently,
@@ -267,7 +276,7 @@ struct Color4 {
    */
   Color4 lerp(const Color4 &other, float t) const {
     const float ct = hs::clamp(t, 0.0f, 1.0f);
-    uint16_t frac = static_cast<uint16_t>(ct * 65535.0f + 0.5f);
+    uint16_t frac = frac_to_q16(ct);
     Pixel blended = color.lerp16(other.color, frac);
     float blended_a = alpha + (other.alpha - alpha) * ct;
     return Color4(blended, blended_a);
@@ -996,8 +1005,7 @@ public:
     int lo = static_cast<int>(idx);
     if (lo >= 255) return Color4(entries[255], 1.0f);
     float frac = idx - lo;
-    return Color4(entries[lo].lerp16(entries[lo + 1], float_to_pixel16(frac)),
-                  1.0f);
+    return Color4(entries[lo].lerp16(entries[lo + 1], frac_to_q16(frac)), 1.0f);
   }
 
   /**
@@ -2161,8 +2169,7 @@ public:
     float frac = idx - lo;
     const Color4 &a = lut_[lo];
     const Color4 &b = lut_[lo + 1];
-    return Color4(a.color.lerp16(b.color,
-                                 static_cast<uint16_t>(frac * 65535.0f + 0.5f)),
+    return Color4(a.color.lerp16(b.color, frac_to_q16(frac)),
                   a.alpha + (b.alpha - a.alpha) * frac);
   }
 
