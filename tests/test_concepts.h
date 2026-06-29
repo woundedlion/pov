@@ -166,6 +166,33 @@ inline void test_fn_copy_move_empty() {
 }
 
 /**
+ * @brief A minimal model of Tweenable: a length()/get() container.
+ * @details length() returns a size_t count and get(index) yields an element —
+ *          the shape Lerp/Transition require of their subject.
+ */
+struct TweenableModel {
+  /** @brief Element count, consumed as a size_t. */
+  size_t length() const { return 0; }
+  /** @brief Element accessor; the concept leaves the return type deduced. */
+  int get(size_t) const { return 0; }
+};
+
+/**
+ * @brief Pins the Tweenable concept: a length()/get() container satisfies it, a
+ *        scalar does not.
+ * @details The static_asserts are the compile-time tripwire; the runtime checks
+ *          mirror them so a regression is also reported by the harness.
+ */
+inline void test_tweenable_concept() {
+  static_assert(Tweenable<TweenableModel>,
+                "a length()/get() container must satisfy Tweenable");
+  static_assert(!Tweenable<int>, "a scalar must not satisfy Tweenable");
+
+  HS_EXPECT_TRUE(Tweenable<TweenableModel>);
+  HS_EXPECT_FALSE(Tweenable<int>);
+}
+
+/**
  * @brief Runs every concepts test under a "concepts" module scope.
  * @return Failure count reported by end_module for the "concepts" module.
  */
@@ -177,6 +204,7 @@ inline int run_concepts_tests() {
   test_functionref_empty_and_copy();
   test_stored_functionref_rvalue_rejection();
   test_fn_copy_move_empty();
+  test_tweenable_concept();
 
   return fixture.result();
 }

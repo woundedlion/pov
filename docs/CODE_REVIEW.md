@@ -197,7 +197,7 @@ sequentially across all priority sections.
     - Evidence: The comment says "316 KiB of the 335 KiB device arena, leaving ~8 KiB"; the arena is 330 KiB, not 335. The binding `static_assert` uses the correct literal, so the build is unaffected — comment-only. (The "~8 KiB" is gross slack after the scratch carve; ~2 KiB remains after the 6 KiB aux reserve.)
     - Fix: change "335 KiB" → "330 KiB" and state both the gross (~8 KiB after scratch) and net (~2 KiB after aux) figures to avoid ambiguity.
 
-15. **The `Tweenable` concept has no compile-time pinning test.**
+15. ✅ **The `Tweenable` concept has no compile-time pinning test.**
     - File: `tests/test_concepts.h` (gap); `core/concepts.h:323-327`
     - Severity: Nit · Dimension: Test coverage · Confidence: High
     - Evidence: `test_concepts.h` thoroughly covers `FunctionRef`/`Fn`, and `StoredFunctionRef`'s rvalue-rejection is already pinned (`test_concepts.h:118-119`) and `PipelineRef` is covered (`test_canvas.h:571`) — but the `Tweenable` concept that constrains `Lerp`/`Transition` subjects has no `static_assert` confirming a conforming type satisfies it and a non-conforming one does not.
