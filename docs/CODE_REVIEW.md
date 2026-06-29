@@ -66,7 +66,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 12. ✅ **Test gap: OKLab/OKLCH are never pinned against external reference coordinates.** `tests/test_color.h` validates the perceptual space only by sRGB→space→sRGB round-trip and named-palette goldens — a wrong-but-invertible M1/M2 matrix pair would pass every assertion. Fix: pin a few published sRGB→OKLab/OKLCH reference triples (e.g. pure red → its documented L,a,b).
 
-13. **Test gap: KDTree k>1 is not cross-checked against brute force on generic geometry.** Brute-force agreement is tested at k=1 (N=16) and at k>1 only on coincident/collinear points where the tree can't really err. There is no large-N (~100) random-distinct-point k>1 sorted-neighbor match, so bbox-pruning/recursion correctness for k>1 on generic geometry is untested. Fix: add a k>1 sorted-set brute-force match on ~100 randomly-placed distinct points.
+13. ✅ **Test gap: KDTree k>1 is not cross-checked against brute force on generic geometry.** Brute-force agreement is tested at k=1 (N=16) and at k>1 only on coincident/collinear points where the tree can't really err. There is no large-N (~100) random-distinct-point k>1 sorted-neighbor match, so bbox-pruning/recursion correctness for k>1 on generic geometry is untested. Fix: add a k>1 sorted-set brute-force match on ~100 randomly-placed distinct points.
 
 ### Priority 3 — Low
 
