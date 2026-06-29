@@ -640,6 +640,48 @@ inline void test_subtract_seam_straddle_carves_across_wrap_frames() {
   HS_EXPECT_EQ(out.size(), static_cast<size_t>(0));
 }
 
+/**
+ * @brief Verifies a many-arc seam-straddling Subtract stays within the span-count bound.
+ * @details normalize_intervals_to_range seam-splits each child into [0, W); a span
+ *   crossing θ=0 becomes two, so the norm buffers are sized 2x. push_interval traps
+ *   (fail-fast) if the post-split count exceeds that cap. Drive A with many disjoint
+ *   arcs — several straddling the seam in a wrapped frame so they split — and a few
+ *   carving B arcs, then assert the result is valid (in [0, W), start-sorted) and
+ *   that no trap fired (reaching this line at all).
+ */
+inline void test_subtract_many_arc_seam_split_within_bound() {
+  using P = std::pair<float, float>;
+  using Mock = sdf_subtract_detail::MockIntervalShape;
+  constexpr float W = 256.0f;
+
+  // Twelve disjoint A arcs; the first two straddle the seam (negative / over-W
+  // frame) so each splits into two on normalization (14 norm spans, well under 64).
+  std::vector<P> a_ivs = {
+      {-6.0f, 4.0f},   {250.0f, 262.0f},                          // seam straddlers
+      {20.0f, 30.0f},  {40.0f, 50.0f},   {60.0f, 70.0f},
+      {80.0f, 90.0f},  {100.0f, 110.0f}, {120.0f, 130.0f},
+      {140.0f, 150.0f},{160.0f, 170.0f}, {180.0f, 190.0f},
+      {200.0f, 210.0f}};
+  std::vector<P> b_ivs = {{45.0f, 55.0f}, {125.0f, 135.0f}};
+  Mock A{&a_ivs}, B{&b_ivs};
+  SDF::Subtract<Mock, Mock> s(A, B);
+
+  std::vector<P> out;
+  bool ok = s.get_horizontal_intervals<256, 128>(
+      0, [&](float st, float en) { out.push_back({st, en}); });
+  HS_EXPECT_TRUE(ok);
+
+  // Every emitted span is a valid in-frame arc, start-sorted (the coalescer
+  // requirement). Reaching here means push_interval never trapped.
+  HS_EXPECT_TRUE(!out.empty());
+  for (size_t i = 0; i < out.size(); ++i) {
+    HS_EXPECT_TRUE(out[i].first >= 0.0f && out[i].second <= W);
+    HS_EXPECT_TRUE(out[i].first < out[i].second);
+    if (i > 0)
+      HS_EXPECT_TRUE(out[i].first >= out[i - 1].first);
+  }
+}
+
 // ============================================================================
 // Intersection — max(A, B)
 // ============================================================================
@@ -1396,6 +1438,7 @@ inline int run_sdf_tests() {
   test_subtract_unsorted_a_passthrough_is_sorted();
   test_subtract_full_width_b_requests_full_row_scan();
   test_subtract_seam_straddle_carves_across_wrap_frames();
+  test_subtract_many_arc_seam_split_within_bound();
 
   test_intersection_requires_both_inside();
   test_intersection_thickness_is_min();
