@@ -109,7 +109,7 @@ and are flagged as such.
 
 11. **[correctness] `core/sdf.h:86-98` — top-level `Subtract`/`Intersection` conservative span bound (66) can exceed `scan_region`'s 64-interval buffer.** With both children at `kIntervalSpanCap=32` the static bound is `|A|+|B|+2=66 > 64`; safety currently rests on a runtime `push_interval` trap plus a "no SDF shape emits 32 disjoint arcs" argument, not a static guarantee. *Fix:* size the buffer to the actual top-level max, or `static_assert` a per-shape emit-count trait so `|A|+|B|+2 ≤ 64` holds at compile time.
 
-12. **[correctness] `core/scan.h:314-315` — `BoundingSphere` half-width cap at `W/2` leaves a hemisphere-or-larger cap one column short for odd `W`.** `2*x_half ≤ W−1` when `W` is odd, so a full-coverage row paints `W−1` columns. Latent: Phantasm's `W=288` is even. *Fix:* let the clamp reach full width for odd `W` (e.g. `(W+1)/2` on one side) or rely on the `cos_dtheta≤−1` full-row branch.
+12. ✅ **[correctness] `core/scan.h:314-315` — `BoundingSphere` half-width cap at `W/2` leaves a hemisphere-or-larger cap one column short for odd `W`.** `2*x_half ≤ W−1` when `W` is odd, so a full-coverage row paints `W−1` columns. Latent: Phantasm's `W=288` is even. *Fix:* let the clamp reach full width for odd `W` (e.g. `(W+1)/2` on one side) or rely on the `cos_dtheta≤−1` full-row branch.
 
 13. **[maintainability] `core/animation.h:2143` — `RippleParams::frequency` is a dead field never read by any transform.** `ripple_transform()` derives the wavelet from amplitude/phase/thickness/decay/center only; the field misleads readers into thinking spatial frequency is tunable. *Fix:* remove it (and its doc), or wire it into `ripple_transform`/`prepare_thresholds`.
 
