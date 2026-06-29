@@ -114,7 +114,7 @@ Each item is numbered sequentially. Items are grouped by priority; fix lower num
 
 35. ✅ **`daydream/tools/solids.html` Hankin op seeds a degenerate 0° angle from a null mesh.** `addOp('hankin')` derives its angle from `computeInternalAngle(currentMesh)`, which returns 0 for a null/load-failed mesh, unconditionally overriding the `OP_DEFS.hankin` default of 54°. Fix: fall back to the default when `computeInternalAngle` returns 0 or the mesh is null.
 
-36. **`effects/IslamicStars.h` and `effects/HankinSolids.h` duplicate the carousel/palette/topology-draw machinery.** Both declare the same `palettes_slots[2]` pattern and near-identical `MeshCarousel` + `shuffle_indices` + `classify_faces_by_topology` + `Persist`-compaction + `draw_shape`/`draw_mesh` bodies. Fix: extract a shared `TopologyMeshDrawer` helper.
+36. ❌ **`effects/IslamicStars.h` and `effects/HankinSolids.h` duplicate the carousel/palette/topology-draw machinery.** Both declare the same `palettes_slots[2]` pattern and near-identical `MeshCarousel` + `shuffle_indices` + `classify_faces_by_topology` + `Persist`-compaction + `draw_shape`/`draw_mesh` bodies. Fix: extract a shared `TopologyMeshDrawer` helper. _Rejected: not a real benefit — the two effects' draw paths diverge enough that a shared helper would add coupling without a net simplification._
 
 37. ✅ **`effects/DistortedRing.h` documents a `thickness` default that is never observed.** `Params::thickness` is doc'd as default `1.0f`, but `init()` overwrites it to `4.0f * px` before `registerParam` snaps the slider default. Fix: drop the misleading `= 1.0f` or comment it as reseeded in `init()`.
 
