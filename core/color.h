@@ -2148,6 +2148,13 @@ public:
   static constexpr int LUT_SIZE = 256;
 
   /**
+   * @brief Arena bytes bake() consumes, including worst-case alignment padding.
+   */
+  static constexpr size_t required_arena_bytes() {
+    return LUT_SIZE * sizeof(Color4) + alignof(Color4);
+  }
+
+  /**
    * @brief Default-constructs an unbaked palette (bake() before use).
    */
   BakedPalette() = default;

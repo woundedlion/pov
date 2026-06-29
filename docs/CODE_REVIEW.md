@@ -169,7 +169,7 @@ and are flagged as such.
 
 41. ✅ **[testing] `tests/test_animation.h:453-503` — easing endpoint/finiteness coverage is duplicated from (and weaker than) `test_easing_waves.h`.** Two places to update per easing change, with assertions buried in a module whose scope is the animation system. *Fix:* drop the duplicated cases and rely on the easing_waves module; keep only animation-specific easing usage.
 
-42. **[testing] `tests/test_color.h:1026-1053` — `BakedPalette` test arenas size `LUT_SIZE*sizeof(Color4)+64`, encoding a single-allocation assumption with a magic `+64`.** A future second allocation in `bake()` overflows and traps inside the test instead of failing cleanly. *Fix:* expose `BakedPalette::required_arena_bytes()` and size buffers from it.
+42. ✅ **[testing] `tests/test_color.h:1026-1053` — `BakedPalette` test arenas size `LUT_SIZE*sizeof(Color4)+64`, encoding a single-allocation assumption with a magic `+64`.** A future second allocation in `bake()` overflows and traps inside the test instead of failing cleanly. *Fix:* expose `BakedPalette::required_arena_bytes()` and size buffers from it.
 
 43. **[maintainability] `tests/test_plot_scan.h:44-56` (and other `test_*.h` statics) — module-static arenas/buffers are reused across invocations with no reset contract, coupling test order to correctness.** Correctness relies on every test wrapping allocations in a `ScratchScope`; a future test that forgets it fails intermittently by run order. *Fix:* document the per-test reset contract at each shared-arena accessor, or have a fixture re-seat the arena offset on each test entry.
 
