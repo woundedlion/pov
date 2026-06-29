@@ -21,9 +21,10 @@ struct FlybyWhiteBox;
  * @details Projects a noise-warped Cartesian grid onto a sphere, rotating
  * around Y, blending continuously between camera/warp presets.
  * @note `Liquid2D` is the sibling stereographic effect, sharing the core
- *       primitives (`stereo()`, `stereo_noise_warp()`, `pole_attenuation()`) but
- *       with its own `project()`, `sample()` pattern, and `Params::lerp`; the
- *       two are independent effects, so a change here need not propagate there.
+ *       primitives (`stereo()`, `stereo_noise_warp()`, `pole_attenuation()`,
+ *       `pole_normalize_pattern()`) but with its own `project()`, `sample()`
+ *       pattern, and `Params::lerp`; the two are independent effects, so a
+ *       change here need not propagate there.
  */
 template <int W, int H> class Flyby : public Effect {
 public:
@@ -117,7 +118,7 @@ public:
       float r_sq = z.re * z.re + z.im * z.im;
       auto [w, displacement] = warp(z, r_sq, noise_time);
       float pattern = sample(w, sin_phase, drift_phase);
-      float value = attenuate(pattern, r_sq);
+      float value = pole_normalize_pattern(pattern, r_sq, params.pole_fade);
       Color4 c = palette.get(value);
       c.alpha *= (1.0f - value);
       c = hue_rotate(c, -displacement * params.hue_shift);
@@ -169,17 +170,6 @@ private:
     float pv = hs::clamp(w.im * params.pattern_freq, -STEREO_PATTERN_ARG_LIMIT,
                          STEREO_PATTERN_ARG_LIMIT);
     return fast_sinf(pu + sin_phase) * fast_cosf(pv - drift_phase);
-  }
-
-  /**
-   * @brief Applies pole attenuation and normalizes the pattern to [0, 1].
-   * @param pattern Raw grid pattern value in [-1, 1].
-   * @param r_sq Squared stereographic radius driving pole attenuation.
-   * @return Attenuated, normalized value in [0, 1].
-   */
-  float attenuate(float pattern, float r_sq) const {
-    float fade = pole_attenuation(r_sq, params.pole_fade);
-    return (pattern * fade + 1.0f) * 0.5f;
   }
 
   /**

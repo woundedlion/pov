@@ -15,14 +15,14 @@
  * pattern, stereographically projected and colored through a breathing
  * generative palette. Presets cycle on a random timer.
  * @note `Flyby` is the sibling stereographic effect. Both build on the same
- *       core primitives — `stereo()`, `stereo_noise_warp()`, `pole_attenuation()`
- *       — but the per-effect `project()`, the `sample()` pattern, and
- *       `Params::lerp` are intentionally different (here: dual orientation + a
- *       glitch lens, a cross-coupled pattern, and a staggered per-field lerp).
- *       They are independent effects, NOT hand-synced copies of one shader: a
- *       change here is not expected to propagate to Flyby. The only genuinely
- *       common per-pixel code is the `STEREO_PATTERN_ARG_LIMIT` clamp guarding
- *       fast_sinf range reduction; the shared math already lives in core.
+ *       core primitives — `stereo()`, `stereo_noise_warp()`, `pole_attenuation()`,
+ *       `pole_normalize_pattern()` — but the per-effect `project()`, the
+ *       `sample()` pattern, and `Params::lerp` are intentionally different (here:
+ *       dual orientation + a glitch lens, a cross-coupled pattern, and a
+ *       staggered per-field lerp). They are independent effects, NOT hand-synced
+ *       copies of one shader: a change here is not expected to propagate to
+ *       Flyby. The common per-pixel code (the `STEREO_PATTERN_ARG_LIMIT` clamp
+ *       and the pole-attenuated normalize) lives in core.
  */
 template <int W, int H> class Liquid2D : public Effect {
 public:
@@ -125,7 +125,7 @@ public:
       float r_sq = z.re * z.re + z.im * z.im;
       Complex w = warp(z, r_sq, t).coords; // only the warped coords feed sample
       float pattern = sample(w, sin_phase, cos_phase);
-      float value = attenuate(pattern, r_sq);
+      float value = pole_normalize_pattern(pattern, r_sq, params.pole_fade);
       return static_palette.get(value);
     };
 
@@ -173,17 +173,6 @@ private:
                          STEREO_PATTERN_ARG_LIMIT);
     return fast_sinf(pu + params.complexity * fast_sinf(pv + sin_phase)) *
            fast_cosf(pv + params.complexity * fast_cosf(pu - cos_phase));
-  }
-
-  /**
-   * @brief Applies pole attenuation to a pattern value and normalizes it.
-   * @param pattern Raw pattern value in [-1, 1].
-   * @param r_sq Squared radius |z|^2 driving the pole fade.
-   * @return Attenuated value normalized to [0, 1].
-   */
-  float attenuate(float pattern, float r_sq) const {
-    float fade = pole_attenuation(r_sq, params.pole_fade);
-    return (pattern * fade + 1.0f) * 0.5f;
   }
 
   /**
