@@ -243,6 +243,8 @@ private:
       size_t edge_count = data.mesh_state.faces.size() / 2;
       data.edges.bind(persistent_arena, edge_count);
       Plot::Mesh::extract_edges(data.mesh_state, data.edges);
+      HS_CHECK(data.edges.size() == edge_count,
+               "DreamBalls edge extraction over/under-filled the edge bind");
 
       preset_idx++;
     }
