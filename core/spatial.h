@@ -78,8 +78,8 @@ public:
     // Scope the scratch index array so the arena offset rewinds once build()
     // returns, rather than leaking ~count*4 bytes for the arena's lifetime.
     ScratchScope scratch(arena);
-    HS_CHECK(count <= static_cast<size_t>(UINT16_MAX) + 1,
-             "KDTree source point count exceeds uint16_t index range");
+    HS_CHECK(count <= static_cast<size_t>(INT16_MAX) + 1,
+             "KDTree source point count exceeds int16_t child-link index range");
     int *indices = (int *)arena.allocate(count * sizeof(int), alignof(int));
     for (size_t i = 0; i < count; ++i)
       indices[i] = (int)i;
