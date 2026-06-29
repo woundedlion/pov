@@ -372,20 +372,16 @@ inline void test_clone_meshstate_deep_copies() {
 
   HS_EXPECT_TRUE(dst.vertices.data() != src.vertices.data());
 
-  const size_t vn = std::min(dst.vertices.size(), src.vertices.size());
-  for (size_t i = 0; i < vn; ++i) {
+  for (size_t i = 0; i < src.vertices.size(); ++i) {
     HS_EXPECT_NEAR(dst.vertices[i].x, src.vertices[i].x, 1e-6f);
     HS_EXPECT_NEAR(dst.vertices[i].y, src.vertices[i].y, 1e-6f);
     HS_EXPECT_NEAR(dst.vertices[i].z, src.vertices[i].z, 1e-6f);
   }
-  const size_t fcn = std::min(dst.face_counts.size(), src.face_counts.size());
-  for (size_t i = 0; i < fcn; ++i)
+  for (size_t i = 0; i < src.face_counts.size(); ++i)
     HS_EXPECT_EQ(dst.face_counts[i], src.face_counts[i]);
-  const size_t fn = std::min(dst.faces.size(), src.faces.size());
-  for (size_t i = 0; i < fn; ++i)
+  for (size_t i = 0; i < src.faces.size(); ++i)
     HS_EXPECT_EQ(dst.faces[i], src.faces[i]);
-  const size_t fon = std::min(dst.face_offsets.size(), src.face_offsets.size());
-  for (size_t i = 0; i < fon; ++i)
+  for (size_t i = 0; i < src.face_offsets.size(); ++i)
     HS_EXPECT_EQ(dst.face_offsets[i], src.face_offsets[i]);
 }
 
