@@ -654,6 +654,24 @@ inline void test_orientation_upsample_noop_if_already_long() {
   HS_EXPECT_EQ(o.length(), before);
 }
 
+/**
+ * @brief Verifies upsample clamps to CAPACITY when count exceeds it (the
+ *        soft-degrade path) while keeping endpoints exact and writes in-bounds.
+ */
+inline void test_orientation_upsample_clamps_past_capacity() {
+  Orientation<4> o;
+  Quaternion start = Quaternion(1, 0, 0, 0);
+  Quaternion end = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
+  o.set(start);
+  o.push(end);
+
+  o.upsample(100);
+  HS_EXPECT_EQ(o.length(), 4);
+  // slerp may flip sign — same orientation.
+  HS_EXPECT_NEAR(std::abs(dot(o.get(0), start)), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(std::abs(dot(o.get(3), end)), 1.0f, 1e-3f);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -709,6 +727,7 @@ inline int run_geometry_tests() {
   test_orientation_collapse_keeps_latest();
   test_orientation_upsample_preserves_endpoints();
   test_orientation_upsample_noop_if_already_long();
+  test_orientation_upsample_clamps_past_capacity();
 
   return fixture.result();
 }
