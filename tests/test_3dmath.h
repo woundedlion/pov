@@ -772,6 +772,24 @@ inline void test_quaternion_slerp() {
   HS_EXPECT_FALSE(approx_quat(mid_short, mid_long, 1e-2f));
 }
 
+/**
+ * @brief Verifies Vector slerp across antipodal endpoints sweeps monotonically:
+ *        dot with the start strictly decreases as t increases, with no flip.
+ */
+inline void test_vector_slerp_antipodal_monotonic() {
+  Vector p(0, 1, 0), ap(0, -1, 0);
+  float prev = dot(slerp(p, ap, 0.0f), p);
+  for (int i = 1; i <= 16; ++i) {
+    float t = static_cast<float>(i) / 16.0f;
+    Vector s = slerp(p, ap, t);
+    HS_EXPECT_NEAR(s.length(), 1.0f, 1e-3f);
+    float cur = dot(s, p);
+    HS_EXPECT_GT(prev, cur);
+    prev = cur;
+  }
+  HS_EXPECT_NEAR(prev, -1.0f, 5e-3f);
+}
+
 // ============================================================================
 // Stereographic projection
 // ============================================================================
@@ -1086,6 +1104,7 @@ inline int run_3dmath_tests() {
   test_rotate();
 
   test_vector_slerp();
+  test_vector_slerp_antipodal_monotonic();
   test_quaternion_slerp();
 
   test_stereo_roundtrip();
