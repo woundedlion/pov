@@ -41,8 +41,9 @@ struct BZWhiteBox;
  *   - Node XYZ: 7680 × 12B         = 92,160 B  (fixed lattice, built once)
  *
  * Scratch arena (per frame):
- *   - Physics:  3 × 7680 × 1B      = 23,040 B
- *   - Total:    23,040 B (22 KB)
+ *   - Physics ping-pong: 3 × 7680 × 1B   = 23,040 B
+ *   - Float pre-convert: 3 × 7680 × 4B   = 92,160 B
+ *   - Total:    115,200 B (113 KB)
  */
 template <int W, int H>
 class BZReactionDiffusion
@@ -246,23 +247,35 @@ private:
    * @param nA Next species A buffer (Q8, written).
    * @param nB Next species B buffer (Q8, written).
    * @param nC Next species C buffer (Q8, written).
+   * @param fA Float scratch (RD_N) for the current A generation.
+   * @param fB Float scratch (RD_N) for the current B generation.
+   * @param fC Float scratch (RD_N) for the current C generation.
    * @details Pure double-buffered (Jacobi): reads the current buffers, writes
    *          the next ones. The caller owns the ping-pong so the result can be
    *          landed back in the persistent state regardless of substep parity
-   *          (see render()).
+   *          (see render()). The current generation is pre-converted into
+   *          fA/fB/fC once, so the neighbor loop reads floats instead of
+   *          reconverting each node's Q8 value on every neighbor visit (~6-7x
+   *          per node).
    */
   void step_physics(const uint8_t *cA, const uint8_t *cB, const uint8_t *cC,
-                    uint8_t *nA, uint8_t *nB, uint8_t *nC) {
+                    uint8_t *nA, uint8_t *nB, uint8_t *nC, float *fA, float *fB,
+                    float *fC) {
     for (int i = 0; i < RD_N; i++) {
-      float a = from_q8(cA[i]);
-      float b = from_q8(cB[i]);
-      float c = from_q8(cC[i]);
+      fA[i] = from_q8(cA[i]);
+      fB[i] = from_q8(cB[i]);
+      fC[i] = from_q8(cC[i]);
+    }
+    for (int i = 0; i < RD_N; i++) {
+      float a = fA[i];
+      float b = fB[i];
+      float c = fC[i];
 
       float lA = 0, lB = 0, lC = 0;
       for_each_neighbor(i, [&](int ni) {
-        lA += from_q8(cA[ni]) - a;
-        lB += from_q8(cB[ni]) - b;
-        lC += from_q8(cC[ni]) - c;
+        lA += fA[ni] - a;
+        lB += fB[ni] - b;
+        lC += fC[ni] - c;
       });
 
       nA[i] = advance_species(a, c, lA);
@@ -356,13 +369,19 @@ private:
     uint8_t *sA = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sB = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
     uint8_t *sC = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
+    float *fA = static_cast<float *>(
+        scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+    float *fB = static_cast<float *>(
+        scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+    float *fC = static_cast<float *>(
+        scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
 
     advance_substeps(STEPS_PER_FRAME,
                      std::array<uint8_t *, 3>{state.A, state.B, state.C},
                      std::array<uint8_t *, 3>{sA, sB, sC},
-                     [this](auto &cur, auto &nxt) {
+                     [&](auto &cur, auto &nxt) {
                        step_physics(cur[0], cur[1], cur[2],
-                                    nxt[0], nxt[1], nxt[2]);
+                                    nxt[0], nxt[1], nxt[2], fA, fB, fC);
                      });
 
     const Color4 &ca = color_a;

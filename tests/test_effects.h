@@ -376,7 +376,8 @@ struct GSWhiteBox {
   }
   static void step(GS &gs, const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
                    uint16_t *nB) {
-    gs.step_physics(cA, cB, nA, nB);
+    std::vector<float> fA(N), fB(N);
+    gs.step_physics(cA, cB, nA, nB, fA.data(), fB.data());
   }
 };
 
@@ -522,7 +523,8 @@ struct BZWhiteBox {
   }
   static void step(BZ &bz, const uint8_t *cA, const uint8_t *cB,
                    const uint8_t *cC, uint8_t *nA, uint8_t *nB, uint8_t *nC) {
-    bz.step_physics(cA, cB, cC, nA, nB, nC);
+    std::vector<float> fA(N), fB(N), fC(N);
+    bz.step_physics(cA, cB, cC, nA, nB, nC, fA.data(), fB.data(), fC.data());
   }
   static void set_state(BZ &bz, uint8_t *A, uint8_t *B, uint8_t *C) {
     bz.state.A = A;
@@ -531,11 +533,13 @@ struct BZWhiteBox {
   }
   static void advance_substeps(BZ &bz, int steps, uint8_t *sA, uint8_t *sB,
                                uint8_t *sC) {
+    std::vector<float> fA(N), fB(N), fC(N);
     bz.advance_substeps(
         steps,
         std::array<uint8_t *, 3>{bz.state.A, bz.state.B, bz.state.C},
-        std::array<uint8_t *, 3>{sA, sB, sC}, [&bz](auto &cur, auto &nxt) {
-          bz.step_physics(cur[0], cur[1], cur[2], nxt[0], nxt[1], nxt[2]);
+        std::array<uint8_t *, 3>{sA, sB, sC}, [&](auto &cur, auto &nxt) {
+          bz.step_physics(cur[0], cur[1], cur[2], nxt[0], nxt[1], nxt[2],
+                          fA.data(), fB.data(), fC.data());
         });
   }
 };
