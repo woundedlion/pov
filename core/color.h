@@ -1504,22 +1504,14 @@ public:
    */
   void mutate(float t) {
     for (int i = 0; i < 3; ++i) {
-      a[i] = lerp(a1[i], a2[i], t);
-      b[i] = lerp(b1[i], b2[i], t);
-      c[i] = lerp(c1[i], c2[i], t);
-      d[i] = lerp(d1[i], d2[i], t);
+      a[i] = hs::lerp(a1[i], a2[i], t);
+      b[i] = hs::lerp(b1[i], b2[i], t);
+      c[i] = hs::lerp(c1[i], c2[i], t);
+      d[i] = hs::lerp(d1[i], d2[i], t);
     }
   }
 
 private:
-  /**
-   * @brief Linearly interpolates between two scalars.
-   * @param x Value at t == 0.
-   * @param y Value at t == 1.
-   * @param t Blend weight.
-   * @return The interpolated value.
-   */
-  float lerp(float x, float y, float t) { return x * (1.0f - t) + y * t; }
   std::array<float, 3> a1, b1, c1, d1;
   std::array<float, 3> a2, b2, c2, d2;
 
