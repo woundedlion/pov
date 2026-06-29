@@ -21,13 +21,27 @@ struct GSWhiteBox;
 
 /**
  * @brief Gray-Scott reaction-diffusion on a Fibonacci lattice sphere.
+ *
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Two species (A, B) evolve via Gray-Scott dynamics (A·B²
- * autocatalysis with feed/kill) on the shared 7680-node lattice, producing
- * spots/stripes/mazes. State is Q16 (uint16_t) for the cubic reaction-term
- * precision. Shared lattice/orientation/kernel scaffolding lives in
- * ReactionDiffusionBase.
+ *
+ * @details
+ * Two species (A, B) evolve via Gray-Scott dynamics (A·B² autocatalysis with
+ * feed/kill) on the shared 7680-node lattice, producing spots/stripes/mazes.
+ * State is Q16 (uint16_t) for the cubic reaction-term precision. Shared
+ * lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
+ *
+ * Memory budget (persistent arena, configured 174 KB):
+ *   - Cubemap LUT:                  6 × 64² × 2B = 49,152 B
+ *   - State:   2 arrays × 7680 × 2B (Q16)        = 30,720 B
+ *   - Node XYZ: 7680 × 12B                       = 92,160 B  (fixed lattice, built once)
+ *   - Palette LUT: 256 × 12B                     =  3,072 B  (the extra tenant vs BZ)
+ *   - Total:                                       175,104 B (171 KB)
+ *
+ * Scratch arena (per frame, STEPS_PER_FRAME = 16):
+ *   - Physics ping-pong: 2 × 7680 × 2B   = 30,720 B
+ *   - Float pre-convert: 2 × 7680 × 4B   = 61,440 B
+ *   - Total:    92,160 B (90 KB)
  */
 template <int W, int H>
 class GSReactionDiffusion
