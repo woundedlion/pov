@@ -758,6 +758,8 @@ public:
       : AnimationBase(-1, repeat), min(min), max(max), f(std::move(f)),
         next(0) {
     HS_CHECK(min >= 0 && min <= max);
+    HS_CHECK(max < std::numeric_limits<int>::max(),
+             "RandomTimer max must be < INT_MAX (reset adds 1)");
     reset();
   }
 
