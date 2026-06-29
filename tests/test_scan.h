@@ -98,11 +98,15 @@ inline void test_shader_ssaa_premultiplies_partial_coverage() {
   ScanFx fx(W, H);
   {
     Canvas c(fx);
-    // 2x2 grid calls the shader 4× per pixel; alternating by call index yields
-    // two opaque red + two transparent per pixel (4 is even, phase realigns).
-    int call = 0;
-    Scan::Shader::draw<W, H, 4>(c, [&call](const Vector &) -> Color4 {
-      bool opaque = (call++ % 2) == 0;
+    // Opacity keys on the sub-sample's position, not call order: the 2x2 grid's
+    // +0.25/-0.25 px x-offsets land at fractional theta-grid phase 0.25 vs 0.75,
+    // so two of the four samples per pixel are opaque regardless of iteration.
+    Scan::Shader::draw<W, H, 4>(c, [](const Vector &v) -> Color4 {
+      float theta = std::atan2(v.z, v.x);
+      if (theta < 0.0f) theta += 2.0f * PI_F;
+      float g = theta * W / (2.0f * PI_F);
+      float frac = g - std::floor(g);
+      bool opaque = frac < 0.5f;
       return opaque ? Color4(Pixel(60000, 0, 0), 1.0f)
                     : Color4(Pixel(0, 0, 0), 0.0f);
     });
