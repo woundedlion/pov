@@ -1167,8 +1167,8 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
 
 /**
  * @brief Verifies plot() passes the frame through and stores it, and flush()
- *        ages, decodes the int16 entry and re-emits it within the quantization
- *        error bound (< 1/32767).
+ *        decodes the int16 entry and re-emits it (then ages) within the
+ *        quantization error bound (< 1/32767).
  */
 inline void test_world_trails_int16_quantization_roundtrip() {
   constexpr int W = 32, Cap = 8;
@@ -1186,7 +1186,7 @@ inline void test_world_trails_int16_quantization_roundtrip() {
   HS_EXPECT_EQ(passthru, 1);
   HS_EXPECT_EQ(trails.size(), (size_t)1);
 
-  // flush() ages (10->9, alive), decodes the int16 entry and re-emits it.
+  // flush() decodes the int16 entry and re-emits it, then ages (10->9, alive).
   Vector decoded(0, 0, 0);
   int emitted = 0;
   auto trail = [](const Vector &, float) {
@@ -1287,7 +1287,7 @@ inline void test_world_trails_ttl_expiry() {
  *          ttl/lifetime exceeds 1 and t = 1 - ttl/lifetime goes negative. A
  *          WorldTrailFn receives t as fade progress and may index a
  *          palette/gradient with it, so flush must clamp — mirroring the age >= 0
- *          clamp on the same race. Without the clamp t here is ~ -3.5.
+ *          clamp on the same race. Without the clamp t here is ~ -4.
  */
 inline void test_world_trails_set_lifetime_shrink_clamps_t() {
   constexpr int W = 32, Cap = 8;
@@ -1352,10 +1352,11 @@ inline void test_world_trails_midbuffer_expiry_erodes_capacity() {
       saw_p0 = true;
     return Color4(Pixel(1, 1, 1), 1.0f);
   };
-  // p1 ttl 1 -> 0, but the front (p0) is still alive, so the front-only pop
-  // cannot reclaim p1: it lingers mid-buffer, drawn-skipped, still a live slot.
+  // p1 is drawn this frame (ttl 1, its final render) and then ages to 0. The
+  // front (p0) is still alive, so the front-only pop cannot reclaim p1: it
+  // lingers mid-buffer as a dead slot.
   trails.flush(WorldTrailFn(trail), 1.0f, noop);
-  HS_EXPECT_EQ(live_drawn, 3);              // only 3 of 4 slots are live
+  HS_EXPECT_EQ(live_drawn, 4);              // all 4 still live at emit time
   HS_EXPECT_TRUE(saw_p0);                   // the oldest live point still draws
   HS_EXPECT_EQ(trails.size(), (size_t)Cap); // dead p1 still occupies a slot
 
