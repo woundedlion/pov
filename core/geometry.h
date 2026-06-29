@@ -712,6 +712,9 @@ public:
    * soft-degrade is the correct response here (cf. the DMA overrun-drop). To
    * trade RAM + per-frame slerp work for a smoother fast smear, raise `CAP` on
    * the affected `Orientation` rather than reintroducing a trap.
+   * @note A single-frame source (`num_frames == 1`, the common post-`set()`/
+   * `collapse()` state) upsamples to a flat smear of that one frame; real motion
+   * blur requires >=2 pushed frames.
    */
   void upsample(int count) {
     HS_CHECK(count >= 1);
