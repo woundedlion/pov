@@ -1091,8 +1091,8 @@ struct FlybyWhiteBox {
  *        phases stay in [0, 2pi) across frames.
  * @details draw_frame wraps noise_time by fmodf(., TIME_PERIOD) and sin/drift
  *          phase by fmodf(., 2pi); a dropped wrap freezes the field (ULP) or
- *          bands fast_sinf range reduction. Params are markAnimated so the preset
- *          Lerp drives Speed/Drift — the accumulators must stay bounded under it.
+ *          bands fast_sinf range reduction. The preset Lerp drives Speed (and
+ *          Drift scales the cos phase), so the accumulators must stay bounded.
  */
 inline void test_flyby_phase_wrapped() {
   using WB = FlybyWhiteBox;
