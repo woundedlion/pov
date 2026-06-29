@@ -408,6 +408,13 @@ jobs:
       - name: Gallery covers every registered effect
         run: node scripts/check_screenshots.mjs
 
+      # Cross-check the HS_EFFECT_LIST X-macro roster against the REGISTER_EFFECT
+      # calls in effects/*.h. The WASM count check can't see an effect that is
+      # never #included from core/effects.h (absent from both registry and
+      # count); scanning the headers on disk catches that roster drift.
+      - name: Effect roster matches REGISTER_EFFECT registrations
+        run: node scripts/check_effect_roster.mjs
+
   shard-coverage:
     name: Shard coverage (every test in exactly one shard)
     # Guards finding 404: the tests/sanitizers jobs run subsets of the suite via
