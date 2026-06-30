@@ -296,6 +296,8 @@ public:
                  "POVSegmented: effect canvas height must equal S/2 (ROWS)");
         HS_CHECK(cur->width() == CANVAS_W,
                  "POVSegmented: effect canvas width must equal CANVAS_W");
+        // The first frame commits on a ZERO boundary, an arm-A-left window.
+        clip_to_segment(cur, /*arm_a_left=*/true);
         cur->draw_frame();
         hs::disable_interrupts();
         // Release store last so the (effect, gen) pair publishes atomically and
@@ -307,6 +309,10 @@ public:
       }
 
       if (cur && consumed_gen_.load(std::memory_order_relaxed) == built_gen) {
+        // Render the quadrant the next display window paints: the live window's
+        // opposite half (windows alternate ZERO/HALF).
+        clip_to_segment(cur,
+                        live_window_left_.load(std::memory_order_relaxed) == 0);
         const unsigned long f0 = micros();
         cur->draw_frame();
         if (hs::debug) {
@@ -439,6 +445,23 @@ private:
     y_step_ = m.y_step;
   }
 
+  /**
+   * @brief Clip @p e to this segment's quadrant for the upcoming display window.
+   * @param e Effect to clip.
+   * @param arm_a_left True if the window this frame displays in sweeps arm-A
+   *        columns [0, CANVAS_W/2); arm B paints the opposite half.
+   * @details Left full-canvas for an effect that reads cross-segment or prior-
+   *          frame state (needs_full_frame / persists_pixels), so trails and
+   *          feedback stay correct under the per-frame arm-half alternation.
+   */
+  void clip_to_segment(Effect *e, bool arm_a_left) {
+    if (e->needs_full_frame() || e->persists_pixels())
+      return;
+    const pov::SegmentMap m{arm_b_, y_base_, y_step_};
+    const pov::SegmentClip c = pov::segment_clip(m, arm_a_left, S, N, CANVAS_W);
+    e->set_clip(c.y0, c.y1, c.x0, c.x1);
+  }
+
   // ── ISRs ────────────────────────────────────────────────────────────
 
   /**
@@ -532,6 +555,13 @@ private:
         consumed_gen_.store(pg, std::memory_order_relaxed);
       }
     }
+
+    // Publish which half the now-open display window sweeps so the foreground
+    // clips the next frame to the quadrant this segment will paint: a ZERO flip
+    // opens the arm-A-left [0,W/2) half-rev, a HALF flip opens [W/2,W).
+    if (a.flip)
+      live_window_left_.store(a.zero_crossing ? 1u : 0u,
+                              std::memory_order_relaxed);
 
     // Flip whenever the effect is live, even during the dark commit window:
     // advance_display() is what releases a foreground blocked in buffer_free().
@@ -648,6 +678,7 @@ private:
   static std::atomic<uint32_t> release_ack_;   /**< Teardown acknowledge counter; ISR-written.  */
   static bool dark_latched_;               /**< True once the black frame has latched; ISR-owned. */
   static bool sync_low_pending_;           /**< ISR-owned: dark-path pulse drop deferred to next wake. */
+  static std::atomic<uint8_t> live_window_left_; /**< ISR-written: 1 when the open display window sweeps arm-A columns [0,CANVAS_W/2). */
 
   static int segment_id_;                  /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
   static bool arm_b_;                      /**< True if this segment lives on arm B (x + W/2). */
@@ -693,6 +724,9 @@ bool POVSegmented<S, N, RPM>::dark_latched_ = false;
 
 template <int S, int N, int RPM>
 bool POVSegmented<S, N, RPM>::sync_low_pending_ = false;
+
+template <int S, int N, int RPM>
+std::atomic<uint8_t> POVSegmented<S, N, RPM>::live_window_left_{1};
 
 template <int S, int N, int RPM>
 int POVSegmented<S, N, RPM>::segment_id_ = 0;
