@@ -106,7 +106,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 18. ✅ **`node()` doc comment contradicts itself: "free per frame" for an init-only function** — `core/reaction_graph.h:36-38` *(Holosphere · documentation)*. **Fix:** reword to "off the per-frame render path (zero per-frame cost)".
 
-19. **`Registrar` correctness silently depends on an undocumented single-TU-per-binary invariant** — `core/effect_registry.h:150-171` *(Holosphere · maintainability)*. The anonymous-namespace `_reg` registers once per including TU; a second TU including `effects.h` would double-register and trip the startup count check. **Fix:** add a one-line note that `effects.h` must be included by exactly one TU per binary.
+19. ✅ **`Registrar` correctness silently depends on an undocumented single-TU-per-binary invariant** — `core/effect_registry.h:150-171` *(Holosphere · maintainability)*. The anonymous-namespace `_reg` registers once per including TU; a second TU including `effects.h` would double-register and trip the startup count check. **Fix:** add a one-line note that `effects.h` must be included by exactly one TU per binary.
 
 20. **`Screen::Trails` capacity eviction does an O(MAX_PIXELS) shift its own `decay()` makes pointless** — `core/filter.h:976-982` *(Holosphere · performance)*. The FIFO shift (default 1024 elements) preserves an order that `decay()`'s unordered swap-remove already scrambles. The `World::Trails` sibling uses an O(1) ring. **Fix:** replace with an O(1) swap-drop of the oldest-by-index slot.
 
