@@ -340,7 +340,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A consumer other than daydream that reuses the engine across resolutions can get silent blank frames after a successful-looking setResolution, with the contract only discoverable by reading the implementation.  
    - **Fix:** Document in the setResolution doxygen that a successful resolution change invalidates the current effect and the caller must call setEffect() again before drawFrame(); the README table entry could note the same.
 
-31. **Docs workflow builds only on push to master, so PRs cannot catch Doxygen breakage** — `Low` · _Build / CI / tooling_ · Build, CI & tooling  
+31. ✅ **Docs workflow builds only on push to master, so PRs cannot catch Doxygen breakage** — `Low` · _Build / CI / tooling_ · Build, CI & tooling  
    - **Where:** `.github/workflows/docs.yml` — lines 7-19 (on: push branches:[master])  
    - **Issue:** docs.yml triggers exclusively on push to master (no pull_request event). A PR that introduces a Doxygen-parsing problem or a broken README anchor is not exercised until after it merges and the push-to-master build runs. Combined with WARN_AS_ERROR=NO in Doxyfile, even the post-merge build will not fail on Doxygen warnings, so doc regressions publish silently.  
    - **Impact:** Documentation breakage is discovered only after merge (and even then only via a manual look at the build log), defeating presubmit coverage that the rest of CI otherwise provides.  
