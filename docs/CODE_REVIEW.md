@@ -88,7 +88,7 @@ sequential across the whole list.
 
 15. ✅ **`core/plot.h:675-677, 266` — two comments overstate invariants.** The `sim_dist >= total_dist` / `scale <= 1` claim is false on the capacity-backstop path (where `scale > 1`), and "the unit tangent regardless of magnitude" is only true within a `map_planar` linear piece, not across a knot. *Fix:* amend both comments to state the two regimes.
 
-16. **`core/3dmath.h:1062` — `least_parallel_axis` applies a cosine threshold to a possibly-non-unit vector.** A non-unit vector parallel to +X with `|v.x|` below `COS_AXIS_PARALLEL` returns +X, collapsing the caller's `cross(v, X).normalized()` to a trap. All current callers pass unit vectors. *Fix:* make the test scale-invariant (`v.x*v.x > k²·dot(v,v)`) or assert the unit precondition.
+16. ✅ **`core/3dmath.h:1062` — `least_parallel_axis` applies a cosine threshold to a possibly-non-unit vector.** A non-unit vector parallel to +X with `|v.x|` below `COS_AXIS_PARALLEL` returns +X, collapsing the caller's `cross(v, X).normalized()` to a trap. All current callers pass unit vectors. *Fix:* make the test scale-invariant (`v.x*v.x > k²·dot(v,v)`) or assert the unit precondition.
 
 17. **`core/geometry.h:830` (`make_basis`)** — feeds the raw, un-normalized `normal` to `least_parallel_axis`, the same latent trap as item 16. *Fix:* normalize the direction before the parallel test.
 
