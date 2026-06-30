@@ -68,12 +68,7 @@ public:
    * @return Reference to the singleton vector of registrations.
    */
   static std::vector<EffectRegistration>& entries() {
-    static std::vector<EffectRegistration> s = [] {
-      std::vector<EffectRegistration> v;
-      constexpr size_t kReserveHint = 64; // avoids reallocation as registrations append
-      v.reserve(kReserveHint);
-      return v;
-    }();
+    static std::vector<EffectRegistration> s;
     return s;
   }
   /**
