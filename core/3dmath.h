@@ -1095,7 +1095,7 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   }
 
   auto axis = cross(from, to).normalized();
-  auto angle = angle_between(from, to);
+  float angle = fast_acos(d);
   return make_rotation(axis, angle);
 }
 

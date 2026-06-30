@@ -72,7 +72,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 #### C++ engine — math, color, memory, raster
 
-3. **`make_rotation(from,to)` recomputes the angle it already has in hand** — `core/3dmath.h:1083-1099` *(Holosphere · performance)*. `d = dot(from,to)` is already computed and inputs are asserted unit, yet `angle_between(from,to)` re-does a dot, two `sqrtf`, and a divide. **Fix:** `float angle = fast_acos(d);`.
+3. ✅ **`make_rotation(from,to)` recomputes the angle it already has in hand** — `core/3dmath.h:1083-1099` *(Holosphere · performance)*. `d = dot(from,to)` is already computed and inputs are asserted unit, yet `angle_between(from,to)` re-does a dot, two `sqrtf`, and a divide. **Fix:** `float angle = fast_acos(d);`.
 
 4. **`angle_between(Vector)` uses two `sqrtf` where one suffices** — `core/3dmath.h:937-942` *(Holosphere · performance)*. `v1.length()*v2.length()` is two square roots; `sqrtf(dot(v1,v1)*dot(v2,v2))` is one. Hot in `plot.h`/`sdf.h` per-fragment paths. **Fix:** combine under a single `sqrtf` (keep the epsilon `HS_CHECK`).
 
