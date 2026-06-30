@@ -446,7 +446,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A caller passing an undefined/NaN initial value gets a silently mispositioned slider and/or a 'NaN' readout instead of the clear, named error the other invalid-config cases produce. Low impact because callers normally pass valid numbers.  
    - **Fix:** Add a `if (!Number.isFinite(value)) throw new Error(...)` guard alongside the existing min/max/step/scale checks (and optionally validate decimals >= 0), keeping the fail-fast contract uniform across all config fields.
 
-49. **SegmentController initFailed receive-handler is untested** — `Low` · _Test coverage & quality_ · daydream: JS test suite  
+49. ✅ **SegmentController initFailed receive-handler is untested** — `Low` · _Test coverage & quality_ · daydream: JS test suite  
    - **Where:** `tests/segment_controller.test.js` — untested branch at segment_controller.js:233-234 (msg.type==='initFailed' -> onWorkerFault)  
    - **Issue:** segment_worker.test.js verifies the worker POSTS an initFailed message when setResolution is rejected (tests/segment_worker.test.js:132-142), and worker_protocol.js documents that this lets the controller fault fast. But the controller side — receiving initFailed and routing msg.reason into onWorkerFault — has no test, even though every other fault entry point (onerror, onmessagerror, boot/init/render watchdogs, composite overflow) is covered. A regression in the initFailed branch (wrong segId mapping, swallowing the message, or not faulting) would ship silently.  
    - **Impact:** A genuine deadlock-avoidance path (fault-fast on an unbuildable resolution) is unverified, leaving a gap in an otherwise complete fault-handling matrix.  
