@@ -304,10 +304,14 @@ public:
    * @param h Requested canvas height in pixels.
    * @return true if the resolution is now active; false if the request was
    *         rejected (unsupported size) and the previous valid state was kept.
-   * @details Callers that use a sub-canvas clip (segmented rendering) must
-   *          re-apply setClip() after a successful setResolution(): a prior clip
-   *          was expressed in the old resolution's pixel bounds and is not
-   *          rescaled here, so it must be recomputed for the new dimensions.
+   * @details A successful resolution change tears down the current effect (a new
+   *          one cannot be carried across pixel dimensions), so the caller must
+   *          call setEffect() again before the next drawFrame() or it renders a
+   *          blank frame. Callers that use a sub-canvas clip (segmented rendering)
+   *          must likewise re-apply setClip() after a successful setResolution():
+   *          a prior clip was expressed in the old resolution's pixel bounds and
+   *          is not rescaled here, so it must be recomputed for the new
+   *          dimensions.
    */
   bool setResolution(int w, int h) {
     if (w == pixel_width && h == pixel_height)
