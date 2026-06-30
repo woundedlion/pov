@@ -130,9 +130,9 @@ private:
     }
 
     /**
-     * @brief Eased ring radius for the frame being drawn.
+     * @brief Linear ring radius for the frame being drawn.
      * @return Radius in unit-sphere units, in [0, RADIUS_MAX].
-     * @details Uses age + 1 (not age) so the first draw renders one eased step
+     * @details Uses age + 1 (not age) so the first draw renders one linear step
      *          in rather than radius 0, reaching RADIUS_MAX after
      *          RADIUS_GROW_FRAMES frames.
      */
