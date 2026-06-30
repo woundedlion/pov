@@ -100,7 +100,7 @@ sequential across the whole list.
 
 21. ✅ **`core/styles.h:284-286,767` — `hue_rotate` chroma slowly drifts under feedback.** The cached `(ca, sa)` rotation pair is non-orthonormal (the code admits it), scaling chroma slightly; applied per-frame in a feedback loop this compounds. *Fix:* renormalize the cached pair once per frame in `sync_hue` (zero hot-path cost).
 
-22. **`core/conway.h:892-912` — `relax(0)` returns un-normalized vertices.** The sphere-projection happens only inside the iteration loop, so a caller-settable `iterations == 0` skips the trailing `normalize` every sibling operator applies. *Fix:* `normalize(out_mesh)` before return (idempotent for unit input), or document the pass-through.
+22. ✅ **`core/conway.h:892-912` — `relax(0)` returns un-normalized vertices.** The sphere-projection happens only inside the iteration loop, so a caller-settable `iterations == 0` skips the trailing `normalize` every sibling operator applies. *Fix:* `normalize(out_mesh)` before return (idempotent for unit input), or document the pass-through.
 
 23. **`core/spatial.h:81-83,201-204` — KDTree index bounds are triplicated and one check is dead.** Three uncoupled bounds (`INT16_MAX+1` ctor, `INT16_MAX` node links, `UINT16_MAX` index) with no shared constant; the `UINT16_MAX` guard can never fire. *Fix:* hoist a named `MAX_POINTS` constant referenced by all sites.
 

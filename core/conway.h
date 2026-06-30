@@ -988,6 +988,9 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
         break;
     }
   }
+  // iterations == 0 skips the in-loop sphere projection; normalize so the
+  // pass-through still lands on the unit sphere (idempotent otherwise).
+  normalize(out_mesh);
   return out_mesh;
 }
 
