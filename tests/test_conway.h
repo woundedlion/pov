@@ -491,6 +491,39 @@ inline void test_truncate_t_half_is_ambo() {
   HS_EXPECT_EQ(tr.face_counts.size(), (size_t)14);
 }
 
+/**
+ * @brief Verifies truncate(t > 0.5) yields the crossed-cut topology with finite,
+ *        on-sphere vertices.
+ * @details For t in (0.5, 1] each edge's two cut points pass each other, forming
+ *          the intentionally self-intersecting faces the truncate50d recipes
+ *          rely on. The adjacency — and thus the counts — matches the t < 0.5
+ *          regime (2E vertices, F + V faces, each primary face doubled to
+ *          count*2 sides), but only this path exercises the crossed oriented-cut
+ *          winding. The geometric outward-winding check is intentionally skipped:
+ *          a Newell normal is ill-defined for a self-intersecting polygon.
+ */
+inline void test_truncate_t_over_half_crossed_cuts() {
+  Arena target(conway_target_buf, sizeof(conway_target_buf));
+  Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+
+  PolyMesh cube;
+  build_solid<Solids::Cube>(cube, temp);
+
+  PolyMesh tr = MeshOps::truncate(cube, target, temp, 0.7f);
+
+  HS_EXPECT_TRUE(tr.vertices.size() > 0);
+  check_face_counts_consistent(tr);
+  check_indices_in_range(tr);
+  check_all_unit_vertices(tr, 1e-3f); // on-sphere implies finite
+
+  HS_EXPECT_EQ(tr.vertices.size(), (size_t)24);    // 2 * E
+  HS_EXPECT_EQ(tr.face_counts.size(), (size_t)14); // F + V
+  HS_EXPECT_EQ(tr.faces.size(), (size_t)(6 * 8 + 8 * 3));
+
+  // Each primary face is doubled to count*2 = 8 sides; the 8 vertex faces are 3.
+  for (size_t fi = 0; fi < 6; ++fi) HS_EXPECT_EQ((int)tr.face_counts[fi], 8);
+}
+
 // ---------------------------------------------------------------------------
 // expand(cube)
 // ---------------------------------------------------------------------------
@@ -1088,6 +1121,7 @@ inline int run_conway_tests() {
   test_ambo_cube_has_cuboctahedral_topology();
   test_truncate_cube_has_truncated_topology();
   test_truncate_t_half_is_ambo();
+  test_truncate_t_over_half_crossed_cuts();
   test_expand_cube();
   test_chamfer_cube();
   test_relax_preserves_topology();
