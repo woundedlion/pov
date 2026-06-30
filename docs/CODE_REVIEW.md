@@ -92,7 +92,7 @@ sequential across the whole list.
 
 17. ❌ **`core/geometry.h:830` (`make_basis`)** — feeds the raw, un-normalized `normal` to `least_parallel_axis`, the same latent trap as item 16. *Fix:* normalize the direction before the parallel test. *Rejected:* subsumed by finding 16. The scale-invariant `least_parallel_axis` now picks the same body axis regardless of `|normal|`, and `make_basis` consumes `normal` nowhere else — `v`, `ref`, `u`, `w` are each independently `normalized()`. A normalize here would be dead work.
 
-18. **`core/geometry.h:724,751` — `Orientation::upsample` early-return uses the unclamped count.** `if (num_frames >= count) return;` runs before `count` is clamped to `CAPACITY`, so `CAPACITY <= num_frames < count` falls through and redundantly re-resamples on a hot path. *Fix:* clamp `count` before the early-return check.
+18. ✅ **`core/geometry.h:724,751` — `Orientation::upsample` early-return uses the unclamped count.** `if (num_frames >= count) return;` runs before `count` is clamped to `CAPACITY`, so `CAPACITY <= num_frames < count` falls through and redundantly re-resamples on a hot path. *Fix:* clamp `count` before the early-return check.
 
 19. **`core/color.h:2201-2202` — `BakedPalette::get` interpolates alpha without clamping.** An `AlphaFalloffShade` whose `fn` returns outside `[0,1]` bakes an out-of-range alpha that the linear interpolation extrapolates further, then over/under-blends at the canvas. *Fix:* `hs::clamp(…, 0, 1)` the interpolated alpha (matching `Color4::lerp`), or document that shade `fn`s must return `[0,1]`.
 
