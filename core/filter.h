@@ -974,9 +974,8 @@ public:
     float ttl = static_cast<float>(lifetime) - age;
     if (ttl > 0.0f && points_) {
       if (num_pixels == MAX_PIXELS) {
-        for (int i = 1; i < num_pixels; ++i)
-          points_[i - 1] = points_[i];
         num_pixels--;
+        points_[0] = points_[num_pixels];
       }
       points_[num_pixels++] = {x, y, ttl};
     }

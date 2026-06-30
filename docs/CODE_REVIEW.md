@@ -108,7 +108,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 19. ✅ **`Registrar` correctness silently depends on an undocumented single-TU-per-binary invariant** — `core/effect_registry.h:150-171` *(Holosphere · maintainability)*. The anonymous-namespace `_reg` registers once per including TU; a second TU including `effects.h` would double-register and trip the startup count check. **Fix:** add a one-line note that `effects.h` must be included by exactly one TU per binary.
 
-20. **`Screen::Trails` capacity eviction does an O(MAX_PIXELS) shift its own `decay()` makes pointless** — `core/filter.h:976-982` *(Holosphere · performance)*. The FIFO shift (default 1024 elements) preserves an order that `decay()`'s unordered swap-remove already scrambles. The `World::Trails` sibling uses an O(1) ring. **Fix:** replace with an O(1) swap-drop of the oldest-by-index slot.
+20. ✅ **`Screen::Trails` capacity eviction does an O(MAX_PIXELS) shift its own `decay()` makes pointless** — `core/filter.h:976-982` *(Holosphere · performance)*. The FIFO shift (default 1024 elements) preserves an order that `decay()`'s unordered swap-remove already scrambles. The `World::Trails` sibling uses an O(1) ring. **Fix:** replace with an O(1) swap-drop of the oldest-by-index slot.
 
 21. **`World::Trails::flush` guards on an unreachable `item.ttl==0`** — `core/filter.h:758-761` *(Holosphere · maintainability)*. Items are only pushed with `ttl>0` and removed the instant `ttl` hits 0, so the branch is dead and obscures the all-live invariant. **Fix:** drop the branch (or replace with `HS_CHECK(item.ttl > 0)`).
 
