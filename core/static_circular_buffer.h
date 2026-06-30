@@ -45,10 +45,10 @@ public:
   static constexpr size_t kCapacity = N;
 
   // back() and the iterators form `head + count - 1` (intermediate up to 2N-2)
-  // before the `% N` fold. Cap N so that sum can never overflow size_t. No real
-  // buffer comes within many orders of magnitude of this bound; the assert just
-  // documents and pins it.
-  static_assert(N <= (SIZE_MAX / 2),
+  // before the `% N` fold. head/count are uint32_t, so cap N to keep that sum
+  // from overflowing 2^32. No real buffer comes within many orders of magnitude
+  // of this bound; the assert just documents and pins it.
+  static_assert(N <= (UINT32_MAX - 1) / 2,
                 "StaticCircularBuffer N too large: head+count could overflow");
 
   /**
