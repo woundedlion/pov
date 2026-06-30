@@ -1703,6 +1703,8 @@ public:
     // noise_scale is applied once, via SetFrequency() in the ctor; the 100x is a
     // fixed base sample scale. Multiplying the coordinates by noise_scale here too
     // would make the effective spatial frequency quadratic in noise_scale.
+    // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher drift)
+    // float can't represent consecutive frames and the drift coordinate freezes.
     float target_pivot =
         noiseGenerator.get().GetNoise(
             v.x * 100.0f, v.y * 100.0f,

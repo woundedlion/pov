@@ -82,7 +82,7 @@ sequential across the whole list.
 
 12. ✅ **`core/animation.h:609` — `ParticleSystem::spawn` silently no-ops when the pool is unbound.** No log/trap, unlike the "pool full" branch two lines down and unlike the fail-fast discipline elsewhere. *Fix:* `HS_CHECK(pool.is_bound(), …)` so a spawn-before-init traps instead of silently dropping particles.
 
-13. **`core/animation.h:1701-1710` — `RandomWalk` drift coordinate freezes after ~2²⁴ frames.** `static_cast<float>(t) * drift` loses single-frame resolution after ~78 h at 60 fps; the walk is perpetual with no rewind. *Fix:* accumulate a wrapped `float` drift phase instead of multiplying a monotonic frame counter, or document the bound as `Noise` does.
+13. ✅ **`core/animation.h:1701-1710` — `RandomWalk` drift coordinate freezes after ~2²⁴ frames.** `static_cast<float>(t) * drift` loses single-frame resolution after ~78 h at 60 fps; the walk is perpetual with no rewind. *Fix:* accumulate a wrapped `float` drift phase instead of multiplying a monotonic frame counter, or document the bound as `Noise` does.
 
 14. **`core/plot.h:1091-1099` — `sample_closed_ring` lacks `HS_CHECK(num_verts >= 1)`.** `Star`/`Flower`/`DistortedRing` compute `PI_F/num_sides` and then call with a zero/negative side count, silently rendering nothing where `Ring::sample` would trap. *Fix:* add the cold-path `HS_CHECK`, matching `Ring::sample`.
 
