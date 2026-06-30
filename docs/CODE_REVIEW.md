@@ -96,7 +96,7 @@ sequential across the whole list.
 
 19. ✅ **`core/color.h:2201-2202` — `BakedPalette::get` interpolates alpha without clamping.** An `AlphaFalloffShade` whose `fn` returns outside `[0,1]` bakes an out-of-range alpha that the linear interpolation extrapolates further, then over/under-blends at the canvas. *Fix:* `hs::clamp(…, 0, 1)` the interpolated alpha (matching `Color4::lerp`), or document that shade `fn`s must return `[0,1]`.
 
-20. **`core/color.h:843-863,1271,1348` — near-gray palette stops bloom a faint hue.** A stop authored near-but-not-exactly gray keeps a small nonzero `cmax`; hue torsion then introduces a reddish tint (`h≈0`) into midtone grays. *Fix:* zero `colors_cmax[i]` for stops below the same `1e-4` gray threshold `lerp_oklch` uses.
+20. ✅ **`core/color.h:843-863,1271,1348` — near-gray palette stops bloom a faint hue.** A stop authored near-but-not-exactly gray keeps a small nonzero `cmax`; hue torsion then introduces a reddish tint (`h≈0`) into midtone grays. *Fix:* zero `colors_cmax[i]` for stops below the same `1e-4` gray threshold `lerp_oklch` uses.
 
 21. **`core/styles.h:284-286,767` — `hue_rotate` chroma slowly drifts under feedback.** The cached `(ca, sa)` rotation pair is non-orthonormal (the code admits it), scaling chroma slightly; applied per-frame in a feedback loop this compounds. *Fix:* renormalize the cached pair once per frame in `sync_hue` (zero hot-path cost).
 

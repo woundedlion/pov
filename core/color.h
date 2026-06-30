@@ -1267,8 +1267,13 @@ public:
       // re-application, so sampling exactly at a stop reproduces its chroma.
       // env -> 0 at L near 0/1 forces cmax = 0: the envelope model assumes no
       // stop is authored vivid near black/white; one that is desaturates to gray.
+      // A near-gray stop (C below lerp_oklch's gray threshold) carries no
+      // meaningful hue; zero its cmax so get()'s envelope + hue torsion can't
+      // bloom a faint tint into midtone grays.
       float env = fast_sinf(PI_F * colors_oklch[i].L);
-      colors_cmax[i] = (env > 1e-3f) ? colors_oklch[i].C / env : 0.0f;
+      colors_cmax[i] = (colors_oklch[i].C >= 1e-4f && env > 1e-3f)
+                           ? colors_oklch[i].C / env
+                           : 0.0f;
     }
   }
 
