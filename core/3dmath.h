@@ -1059,8 +1059,10 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
  *          include cycle; dot(v, X_AXIS) is just v.x.)
  */
 inline Vector least_parallel_axis(const Vector &v) {
-  return std::abs(v.x) > math::COS_AXIS_PARALLEL ? Vector(0, 1, 0)
-                                                 : Vector(1, 0, 0);
+  // Scale-invariant: compare v.x^2 against the threshold scaled by |v|^2, so a
+  // non-unit v can't slip past the cosine test and seed a degenerate cross.
+  constexpr float k = math::COS_AXIS_PARALLEL;
+  return v.x * v.x > k * k * dot(v, v) ? Vector(0, 1, 0) : Vector(1, 0, 0);
 }
 
 /**
