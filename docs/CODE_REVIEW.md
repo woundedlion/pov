@@ -352,7 +352,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** When teensy_size is unavailable (the fallback path), the gate's verdict can be inaccurate while still printing a clean PASS/FAIL, weakening the size guarantee on machines lacking teensy_size.  
    - **Fix:** Have the --size-a / fallback path emit a prominent note in the GateResult (it already warns in teensy_gate_extra.py) and treat its region ceilings as advisory — e.g. downgrade region-over-budget to a warning, or require teensy_size for an authoritative ceiling decision — so a fallback PASS is never mistaken for a calibrated one.
 
-33. **justfile docs recipe's Windows branch uses cmd.exe redirection that breaks under non-cmd shells** — `Low` · _Portability_ · Build, CI & tooling  
+33. ✅ **justfile docs recipe's Windows branch uses cmd.exe redirection that breaks under non-cmd shells** — `Low` · _Portability_ · Build, CI & tooling  
    - **Where:** `justfile` — [windows] _doxyfile-local / _doxygen-theme, lines 58-74  
    - **Issue:** The [windows] recipes use cmd.exe syntax (`copy /y`, `if not exist`, `(echo ...) >> file`). just runs Windows recipes through the shell configured for the platform; if a developer has just configured to use sh/pwsh on Windows (common when Git Bash is the default shell), these `if not exist` / parenthesized-echo forms are a syntax error — the exact failure mode the [unix] split was introduced to avoid, just in the other direction. There is no shebang/`set windows-shell` pin in the file to force cmd.  
    - **Impact:** `just docs` can fail to configure the theme/Doxyfile.local on a Windows machine whose just shell is not cmd, with an opaque shell error.  
