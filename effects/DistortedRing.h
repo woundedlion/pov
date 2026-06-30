@@ -18,24 +18,15 @@
 template <int W, int H> class DistortedRing : public Effect {
 public:
   /**
-   * @brief Builds the effect with palette, ring normal, and amplitude mutation.
-   * @details Configures a circular split-complementary palette, an X-axis ring
-   * normal, and an amplitude mutation that sweeps amplitude over
-   * [-max_amplitude, +max_amplitude] as a unit sine wave (32 steps, eased,
-   * looping).
+   * @brief Builds the effect with its palette and ring normal.
+   * @details Configures a circular split-complementary palette and an X-axis
+   * ring normal.
    */
   FLASHMEM DistortedRing()
       : Effect(W, H),
         ringPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                     BrightnessProfile::FLAT),
-        normal(X_AXIS),
-        amplitude_mut(
-            amplitude,
-            [this](float t) {
-              return sin_wave(-params.max_amplitude, params.max_amplitude, 1.0f,
-                              0.0f)(t);
-            },
-            32, ease_linear, true) {}
+        normal(X_AXIS) {}
 
   /**
    * @brief Registers params and builds the timeline.
@@ -63,7 +54,13 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, normal, noise));
 
-    timeline.add(0, amplitude_mut);
+    timeline.add(0, Animation::Mutation(
+                        amplitude,
+                        [this](float t) {
+                          return sin_wave(-params.max_amplitude,
+                                          params.max_amplitude, 1.0f, 0.0f)(t);
+                        },
+                        32, ease_linear, true));
   }
 
   /// POV column-strobe flag; strobes (see Effect::strobe_columns).
@@ -135,7 +132,6 @@ private:
   BakedPalette ringBaked;
   Vector normal;
   Orientation<> orientation;
-  Animation::Mutation amplitude_mut;
 };
 
 #include "core/effect_registry.h"
