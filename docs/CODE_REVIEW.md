@@ -88,7 +88,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 10. ✅ **`Plot::rasterize` planar pre-pass and draw loop recompute the seam test from different sources** — `core/plot.h:564-573, 744-748` *(Holosphere · maintainability)*. The cached arc-length metric (for `v0`) and the drawn strategy use duplicated, currently-identical seam predicates; a future tweak to one silently desyncs `v0`/`v1` from the rendered position. **Fix:** compute the per-segment seam/planar decision once and consume it in both places.
 
-11. **`Face::build_distance_lut` divides by `(n-1)` on an unasserted `kMinLutN>=2` invariant** — `core/sdf.h:1851-1859` *(Holosphere · correctness)*. Safe today (`n∈[6,32]`), but lowering `kMinLutN` to 1 would divide by zero with no signal. **Fix:** `static_assert(kMinLutN >= 2, ...)` at the definition (do not add a silent runtime clamp).
+11. ✅ **`Face::build_distance_lut` divides by `(n-1)` on an unasserted `kMinLutN>=2` invariant** — `core/sdf.h:1851-1859` *(Holosphere · correctness)*. Safe today (`n∈[6,32]`), but lowering `kMinLutN` to 1 would divide by zero with no signal. **Fix:** `static_assert(kMinLutN >= 2, ...)` at the definition (do not add a silent runtime clamp).
 
 #### C++ engine — animation, mesh, infra, pipeline
 
