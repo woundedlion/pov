@@ -90,7 +90,7 @@ Findings are numbered sequentially for the `code-review-fix` workflow. Each is r
 
 15. ✅ **`lerpOklch` imported into `palettes.html` but never called** — `daydream/tools/palettes.html:375`. Dead import (the gradient strip uses the WASM-baked LUT); misleads readers into thinking the page does its own OKLCH interpolation. **Removed together with finding 3 (the whole `lerpOklch` helper was deleted, not just the import).**
 
-16. **`formatFloatCpp` can emit an invalid C++ literal (`2f`) when `digits=0`** — `daydream/tools/cpp_format.js:29`. The function exists to guarantee a whole value stays a valid float literal, but `toFixed(0)` produces no decimal point, defeating that contract. `digits` is a public parameter (default 6); no caller passes 0 today. Fix: append `.0` when the trimmed string has no `.`.
+16. ✅ **`formatFloatCpp` can emit an invalid C++ literal (`2f`) when `digits=0`** — `daydream/tools/cpp_format.js:29`. The function exists to guarantee a whole value stays a valid float literal, but `toFixed(0)` produces no decimal point, defeating that contract. `digits` is a public parameter (default 6); no caller passes 0 today. Fix: append `.0` when the trimmed string has no `.`.
 
 17. **`blitSegmentRect` composite (`gather=false`) path is never unit-tested** — `daydream/tests/segment_layout.test.js`. The shared row-stride blit "so the two ends cannot drift apart" is only exercised transitively; the `compositeSegment` branch has no direct test of its offset math. Fix: add a round-trip extract→composite test over a non-trivial rect.
 
