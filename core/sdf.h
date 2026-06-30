@@ -975,11 +975,14 @@ template <typename A, typename B> struct SmoothUnion {
     constexpr int H_VIRT = H + hs::H_OFFSET;
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
+    int lo = std::min(b1.y_min, b2.y_min);
+    int hi = std::max(b1.y_max, b2.y_max);
+    if (lo > hi)
+      return {1, 0};
     // Expand by the blend radius k (radians) converted to rows: phi spans [0,π]
     // over (H_VIRT-1) rows.
     int pad = std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / PI_F)));
-    return {std::max(0, std::min(b1.y_min, b2.y_min) - pad),
-            std::min(H - 1, std::max(b1.y_max, b2.y_max) + pad)};
+    return {std::max(0, lo - pad), std::min(H - 1, hi + pad)};
   }
 
   /**
