@@ -74,7 +74,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 3. ✅ **`make_rotation(from,to)` recomputes the angle it already has in hand** — `core/3dmath.h:1083-1099` *(Holosphere · performance)*. `d = dot(from,to)` is already computed and inputs are asserted unit, yet `angle_between(from,to)` re-does a dot, two `sqrtf`, and a divide. **Fix:** `float angle = fast_acos(d);`.
 
-4. **`angle_between(Vector)` uses two `sqrtf` where one suffices** — `core/3dmath.h:937-942` *(Holosphere · performance)*. `v1.length()*v2.length()` is two square roots; `sqrtf(dot(v1,v1)*dot(v2,v2))` is one. Hot in `plot.h`/`sdf.h` per-fragment paths. **Fix:** combine under a single `sqrtf` (keep the epsilon `HS_CHECK`).
+4. ✅ **`angle_between(Vector)` uses two `sqrtf` where one suffices** — `core/3dmath.h:937-942` *(Holosphere · performance)*. `v1.length()*v2.length()` is two square roots; `sqrtf(dot(v1,v1)*dot(v2,v2))` is one. Hot in `plot.h`/`sdf.h` per-fragment paths. **Fix:** combine under a single `sqrtf` (keep the epsilon `HS_CHECK`).
 
 5. **`vectorToLogPolar` can return NaN for `v.y` just above 1 that still passes the unit-vector assertion** — `core/geometry.h:525-536` *(Holosphere · correctness)*. `EPS_UNIT_VEC_SQ=0.02` admits `v.y≈1.005`; the magnitude-only north-pole guard misses the resulting negative `denom`, so `0.5*logf(numer/denom)` → NaN, defeating the function's stated finiteness promise. **Fix:** clamp `v.y` to `[-1,1]` (or use signed sentinels for the poles) before the `logf` branch.
 
