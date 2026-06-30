@@ -196,6 +196,9 @@ private:
     const float log_max = 2.5f;
     const float range = log_max - log_min;
 
+    // normal is loop-invariant, so the basis is identical for every ring.
+    const Basis ring_basis = make_basis(Quaternion(), normal);
+
     int cached_i = -1;
     Color4 cached_c;
     draw_curves(
@@ -204,7 +207,7 @@ private:
           float t = wrap((static_cast<float>(i) / num) + phase, 1.0f);
           float r_val = expf(log_min + t * range);
           float radius = (4.0f / PI_F) * atanf(1.0f / r_val);
-          return {make_basis(Quaternion(), normal), radius};
+          return {ring_basis, radius};
         },
         [&](int i, float opacity, Fragment &f_val) {
           if (i != cached_i) {
