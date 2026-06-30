@@ -174,7 +174,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 47. ✅ **`engine_contract_wasm` pins `getParamValues` existence but not its array-of-numbers shape** — `tests/engine_contract_wasm.test.js:22-31` *(daydream · testing)*. The worker/controller depend on it being array-like of numbers (real binding returns a `Float32Array` view, `FakeEngine` a plain array), but the contract test never invokes it. **Fix:** call it after `drawFrame()` and assert `.length` is numeric and every element is a number.
 
-48. **`setParameter` contract is skipped when an effect exposes no params** — `tests/engine_contract_wasm.test.js:44-57` *(daydream · testing)*. The pin is gated behind `if (defs.length > 0)`; a zero-param default silently skips it (reads as passing). **Fix:** assert `defs.length > 0` for the bootstrap effect, or pick an effect known to expose a parameter.
+48. ✅ **`setParameter` contract is skipped when an effect exposes no params** — `tests/engine_contract_wasm.test.js:44-57` *(daydream · testing)*. The pin is gated behind `if (defs.length > 0)`; a zero-param default silently skips it (reads as passing). **Fix:** assert `defs.length > 0` for the bootstrap effect, or pick an effect known to expose a parameter.
 
 49. **`cpp_format` default-precision rounding path is never pinned** — `tests/cpp_format.test.js:19-38` *(daydream · testing)*. Tests cover whole numbers, trimming, small-value escalation, and exponent avoidance, but never a value that actually rounds at the default 6 digits. **Fix:** add `assert.equal(formatFloatCpp(0.12345678), '0.123457f')` to lock default rounding.
 
