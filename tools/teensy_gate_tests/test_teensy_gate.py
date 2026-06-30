@@ -352,6 +352,17 @@ class TestSizeAFallback(unittest.TestCase):
         self.assertEqual(rc, 1, msg=out)
         self.assertIn("free-for-local-variables", out)
 
+    def test_fallback_pass_is_marked_advisory_not_calibrated(self):
+        # A fallback PASS must carry the advisory note so it is never mistaken
+        # for a teensy_size-calibrated verdict.
+        rc, out = self._run_main_size_a(
+            self._size_a(0x10000, 0x40000, 0x70000, 0x20000),
+            "good_readelf_syms.txt", "holosphere")
+        self.assertEqual(rc, 0, msg=out)
+        self.assertIn("PASS", out)
+        self.assertIn("ADVISORY", out)
+        self.assertIn("not calibrated", out.lower())
+
     def _run_main_size_a(self, size_a_text, syms_fixture, env):
         with tempfile.TemporaryDirectory() as d:
             sa = Path(d) / "size_a.txt"
