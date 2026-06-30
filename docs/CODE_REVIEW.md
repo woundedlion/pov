@@ -116,7 +116,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 22. ✅ **`init_lattice()` capacity guard checks total capacity, not remaining space** — `effects/ReactionDiffusionBase.h:204-213` *(Holosphere · error-handling)*. `get_capacity()` ignores bytes already consumed by `cube_lut`/`state`/`palette`, so the documented "under-sized arena" failure is not actually caught here — it falls through to the generic OOM trap. **Fix:** compare `get_capacity() - get_offset() >= RD_N*sizeof(Vector)`.
 
-23. **`MobiusGrid` binds `mobius_gen`'s timeline reference before `timeline` is constructed** — `effects/MobiusGrid.h:33,270,284` *(Holosphere · maintainability)*. Member init order constructs `mobius_gen` (decl 270) before `timeline` (decl 284); well-defined only because the ctor merely stores the reference, and inconsistent with `IslamicStars`'s deliberate ordering. **Fix:** declare `timeline` before `mobius_gen`.
+23. ✅ **`MobiusGrid` binds `mobius_gen`'s timeline reference before `timeline` is constructed** — `effects/MobiusGrid.h:33,270,284` *(Holosphere · maintainability)*. Member init order constructs `mobius_gen` (decl 270) before `timeline` (decl 284); well-defined only because the ctor merely stores the reference, and inconsistent with `IslamicStars`'s deliberate ordering. **Fix:** declare `timeline` before `mobius_gen`.
 
 24. **`BZ::blend_species` truncating cast can drop the top palette value** — `effects/BZReactionDiffusion.h:315-320` *(Holosphere · correctness)*. The convex-combination divide can yield `65534.999…` → truncates to `65534`, a systematic 1-LSB downward bias on bright pixels — the same bias `to_q8`/`to_q16` avoid with `+0.5f`. **Fix:** add round-to-nearest (`static_cast<uint16_t>(c + 0.5f)`) per channel.
 

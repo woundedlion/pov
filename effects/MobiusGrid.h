@@ -267,6 +267,7 @@ private:
 
   GenerativePalette palette;      /**< Currently displayed palette. */
   GenerativePalette next_palette; /**< Palette being cross-faded toward. */
+  Timeline timeline;         /**< Drives spin, palette wipe, and mutations. */
   MobiusWarpCircularTransformer<1> mobius_gen; /**< Möbius warp generator. */
 
   /**
@@ -281,7 +282,6 @@ private:
   } params;
 
   Orientation<> orientation; /**< Spinning render orientation. */
-  Timeline timeline;         /**< Drives spin, palette wipe, and mutations. */
 
   Vector holeN; /**< North hole origin, tracking the rotated geometry. */
   Vector holeS; /**< South hole origin, tracking the rotated geometry. */
