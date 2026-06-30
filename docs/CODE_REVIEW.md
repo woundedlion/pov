@@ -126,7 +126,7 @@ sequential across the whole list.
 
 34. ✅ **`effects/Comets.h:80` — `update_path()` runs before `motion_` is constructed.** Its `if (motion_) reanchor()` is a guaranteed first-call no-op; correct only because `Motion` captures `path` by reference. *Fix:* add a one-line comment noting the order dependency.
 
-35. **`hardware/dma_led.h:307-309` / `hardware/hd107s_frame.h:305-307` — per-instance color setters mutate per-`N`-global static state.** `setBrightness/Temperature/Correction` look per-controller but write `HD107SFrame<N>` statics, so two controllers of equal `N` would share them. Benign with one controller per image. *Fix:* document the shared scope, or make the correction multipliers non-static if independent per-strip correction is ever wanted.
+35. ✅ **`hardware/dma_led.h:307-309` / `hardware/hd107s_frame.h:305-307` — per-instance color setters mutate per-`N`-global static state.** `setBrightness/Temperature/Correction` look per-controller but write `HD107SFrame<N>` statics, so two controllers of equal `N` would share them. Benign with one controller per image. *Fix:* document the shared scope, or make the correction multipliers non-static if independent per-strip correction is ever wanted.
 
 36. **`hardware/pov_sync.h:1499-1523` — master commit anchors to a self-censored epoch boundary.** When a master `ZERO_EPOCH` symbol is censored (late), `on_epoch_symbol` has already opened the commit window, so the master's commit is anchored one crossing earlier than the boundary downstream boards decode. *Fix:* defer the content-side scheduling until the epoch symbol is confirmed onto the wire — validate against the sync spec before changing.
 
