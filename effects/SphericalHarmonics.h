@@ -349,6 +349,11 @@ private:
   // The seed and the roll bound below derive from MAX_DEGREE so they cannot
   // drift from it (widen MAX_DEGREE alone to extend the visual range).
   static constexpr int MAX_DEGREE = 4;
+  // factorial(2*MAX_DEGREE) must stay in float's exact-integer range; it loses
+  // precision at 14! and overflows to inf at 35!.
+  static_assert(2 * MAX_DEGREE <= 12,
+                "MAX_DEGREE too large: factorial(2*MAX_DEGREE) exceeds float "
+                "precision in normalization()");
   // Top flat index over those degrees: idx peaks at l = MAX_DEGREE, m = +MAX_DEGREE.
   static constexpr int MAX_MODE_IDX = (MAX_DEGREE + 1) * (MAX_DEGREE + 1) - 1; // 24
   // Initial mode (l=2, m=0); the constant mode (idx 0) is excluded from the roll.
