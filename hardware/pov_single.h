@@ -218,8 +218,13 @@ template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds_[S];
 // HD107SFrame's arm_dcache_flush() write-back is meaningful — in DTCM it is a
 // dead no-op). DMAMEM (a section attribute) is silently dropped by GCC on a
 // vague-linkage template static member, so a generic definition would land in
-// DTCM regardless. Each instantiating target therefore defines it as an explicit
-// specialization (ordinary strong linkage, so DMAMEM sticks) — see Phantasm.ino.
+// DTCM regardless. Each instantiating single-board target must therefore define
+// it as an explicit specialization (ordinary strong linkage, so DMAMEM sticks):
+//
+//   template <>
+//   DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController_;
+//
+// POVSegmented carries the same contract (see targets/Phantasm/Phantasm.ino).
 #endif
 
 #endif // ARDUINO
