@@ -452,7 +452,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A genuine deadlock-avoidance path (fault-fast on an unbuildable resolution) is unverified, leaving a gap in an otherwise complete fault-handling matrix.  
    - **Fix:** Add a controller test delivering {type:'initFailed', segId, reason} via workers[id].onmessage and assert c.faulted is true and c.faultInfo carries the reason and segId.
 
-50. **Two of three composite() rect-validation branches are untested** — `Low` · _Test coverage & quality_ · daydream: JS test suite  
+50. ✅ **Two of three composite() rect-validation branches are untested** — `Low` · _Test coverage & quality_ · daydream: JS test suite  
    - **Where:** `tests/segment_controller.test.js` — untested branches at segment_controller.js:582-588 (empty/inverted rect) and 591-597 (pixel buffer length mismatch)  
    - **Issue:** The compositor's pre-pass has three guards: out-of-bounds (574), empty/inverted x1<=x0||y1<=y0 (582), and pixels.length != expectedLen (591). Only the out-of-bounds guard is exercised (tests at segment_controller.js test lines 461-499). The empty/inverted guard and the controller-side buffer-length-mismatch guard have no coverage. (The worker-side length check is tested in segment_worker.test.js:202, but that is a different code path from the controller's composite defense.)  
    - **Impact:** Two layout-corruption invariants that are supposed to halt the pool with a descriptive fault could be broken without any test failing.  
