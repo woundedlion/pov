@@ -84,7 +84,7 @@ sequential across the whole list.
 
 13. ✅ **`core/animation.h:1701-1710` — `RandomWalk` drift coordinate freezes after ~2²⁴ frames.** `static_cast<float>(t) * drift` loses single-frame resolution after ~78 h at 60 fps; the walk is perpetual with no rewind. *Fix:* accumulate a wrapped `float` drift phase instead of multiplying a monotonic frame counter, or document the bound as `Noise` does.
 
-14. **`core/plot.h:1091-1099` — `sample_closed_ring` lacks `HS_CHECK(num_verts >= 1)`.** `Star`/`Flower`/`DistortedRing` compute `PI_F/num_sides` and then call with a zero/negative side count, silently rendering nothing where `Ring::sample` would trap. *Fix:* add the cold-path `HS_CHECK`, matching `Ring::sample`.
+14. ✅ **`core/plot.h:1091-1099` — `sample_closed_ring` lacks `HS_CHECK(num_verts >= 1)`.** `Star`/`Flower`/`DistortedRing` compute `PI_F/num_sides` and then call with a zero/negative side count, silently rendering nothing where `Ring::sample` would trap. *Fix:* add the cold-path `HS_CHECK`, matching `Ring::sample`.
 
 15. **`core/plot.h:675-677, 266` — two comments overstate invariants.** The `sim_dist >= total_dist` / `scale <= 1` claim is false on the capacity-backstop path (where `scale > 1`), and "the unit tangent regardless of magnitude" is only true within a `map_planar` linear piece, not across a knot. *Fix:* amend both comments to state the two regimes.
 
