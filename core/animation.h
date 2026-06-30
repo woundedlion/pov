@@ -2488,7 +2488,7 @@ public:
    * @param animation The animation object.
    * @return Reference to the Timeline object.
    */
-  template <typename A> Timeline &add(float in_frames, A animation) {
+  template <typename A> Timeline &add(int in_frames, A animation) {
     // pin=false: an add() caller keeps no handle, so the event compacts normally.
     add_get(in_frames, std::move(animation), /*pin=*/false);
     return *this;
@@ -2511,7 +2511,7 @@ public:
    * compacted normally and whose return is typically discarded).
    * @return Typed pointer to the inline-stored animation, or nullptr if full.
    */
-  template <typename A> A *add_get(float in_frames, A animation, bool pin = true) {
+  template <typename A> A *add_get(int in_frames, A animation, bool pin = true) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
     static_assert(alignof(A) <= alignof(std::max_align_t),
@@ -2532,7 +2532,7 @@ public:
       }
     }
     auto &e = global_timeline_events[global_timeline_num_events++];
-    e.start = global_timeline_t + (int)in_frames;
+    e.start = global_timeline_t + in_frames;
     e.handled = pin;
     auto *ptr = new (e.storage) A(std::move(animation));
     e.iface = static_cast<IAnimation *>(ptr);
