@@ -20,16 +20,29 @@ try {
   if (err.code !== 'ENOENT') throw err;
   files = []; // no gallery dir at all — every roster effect reads as missing below
 }
-const pngs = new Set(
-  files.filter(f => f.endsWith('.png')).map(f => f.slice(0, -'.png'.length))
-);
+const pngNames = files
+  .filter(f => f.endsWith('.png'))
+  .map(f => f.slice(0, -'.png'.length));
+// Match case-insensitively so the result is identical on the case-insensitive
+// Windows dev FS and on Linux CI; a case-only divergence is reported explicitly
+// below rather than masked on one FS and double-counted on the other.
+const pngByLower = new Map(pngNames.map(p => [p.toLowerCase(), p]));
+const rosterLower = new Set(roster.map(e => e.toLowerCase()));
 
-const missing = roster.filter(e => !pngs.has(e)); // registered effect, no PNG
-const orphan = [...pngs].filter(p => !roster.includes(p)); // PNG, no effect
+const missing = []; // registered effect, no PNG at all
+const caseMismatch = []; // PNG exists but its name differs from the roster only in case
+for (const e of roster) {
+  const png = pngByLower.get(e.toLowerCase());
+  if (png === undefined) missing.push(e);
+  else if (png !== e) caseMismatch.push(`${png}.png vs roster '${e}'`);
+}
+const orphan = pngNames.filter(p => !rosterLower.has(p.toLowerCase())); // PNG, no effect
 
-if (missing.length || orphan.length) {
+if (missing.length || caseMismatch.length || orphan.length) {
   if (missing.length)
     console.error(`::error::screenshot gallery is missing PNGs for: ${missing.join(', ')}`);
+  if (caseMismatch.length)
+    console.error(`::error::screenshot PNG names differ from the roster only in case (case-sensitive on Linux CI): ${caseMismatch.join(', ')}`);
   if (orphan.length)
     console.error(`::error::screenshot gallery has orphan PNGs (no such effect): ${orphan.join(', ')}`);
   console.error('Regenerate the gallery with: npm run screenshots');
