@@ -110,7 +110,7 @@ sequential across the whole list.
 
 26. ✅ **`core/effect_registry.h:73-77` — `reserve(64)` is a magic number decoupled from `HS_EFFECT_COUNT` (27).** Purely advisory (no element pointers held), so it only stops being a no-realloc guarantee past 64. *Fix:* drop it or document it as a soft hint keyed off the roster size.
 
-27. **`effects/MindSplatter.h:280` — particle-index bounds use `assert` + a clamp fallback instead of `HS_CHECK`.** On device the `assert` is stripped and the clamp masks the invariant violation — the bounded fallback the fail-fast philosophy explicitly avoids. *Fix:* promote to `HS_CHECK`, matching line 297.
+27. ❌ **`effects/MindSplatter.h:280` — particle-index bounds use `assert` + a clamp fallback instead of `HS_CHECK`.** *Rejected:* per-fragment hot path; `p_idx` comes from an interpolated float whose rounding overshoot the clamp legitimately absorbs (an `HS_CHECK` would false-trap and cost a hot-path branch); the real invariant is already trapped per-draw at line 297. On device the `assert` is stripped and the clamp masks the invariant violation — the bounded fallback the fail-fast philosophy explicitly avoids. *Fix:* promote to `HS_CHECK`, matching line 297.
 
 28. **`effects/MobiusGrid.h:55` — `spawn_pinned()` return value dropped.** Sibling `GnomonicStars` `HS_CHECK`s the identical pinned-spawn handle; here it is ignored (cannot fail at `CAPACITY 1` today, but a latent null-handle and a cross-effect inconsistency). *Fix:* capture and `HS_CHECK` the handle.
 
