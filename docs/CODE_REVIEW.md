@@ -92,7 +92,7 @@ Findings are numbered sequentially for the `code-review-fix` workflow. Each is r
 
 16. ✅ **`formatFloatCpp` can emit an invalid C++ literal (`2f`) when `digits=0`** — `daydream/tools/cpp_format.js:29`. The function exists to guarantee a whole value stays a valid float literal, but `toFixed(0)` produces no decimal point, defeating that contract. `digits` is a public parameter (default 6); no caller passes 0 today. Fix: append `.0` when the trimmed string has no `.`.
 
-17. **`blitSegmentRect` composite (`gather=false`) path is never unit-tested** — `daydream/tests/segment_layout.test.js`. The shared row-stride blit "so the two ends cannot drift apart" is only exercised transitively; the `compositeSegment` branch has no direct test of its offset math. Fix: add a round-trip extract→composite test over a non-trivial rect.
+17. ✅ **`blitSegmentRect` composite (`gather=false`) path is never unit-tested** — `daydream/tests/segment_layout.test.js`. The shared row-stride blit "so the two ends cannot drift apart" is only exercised transitively; the `compositeSegment` branch has no direct test of its offset math. Fix: add a round-trip extract→composite test over a non-trivial rect.
 
 18. **`copyWithFeedback` clipboard-rejection path is untested** — `daydream/tests/clipboard.test.js`. The stub always resolves; the failure path (rejected `writeText`, where the label must not latch on "Copied!") is never exercised. Fix: add a rejecting-`writeText` test asserting the label reverts.
 
