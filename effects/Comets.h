@@ -77,6 +77,8 @@ public:
     registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
     registerParam("Debug BB", &params.debug_bb);
 
+    // Runs before motion_ exists, so its reanchor() is a no-op here; the path it
+    // sets is still live because Motion below captures `path` by reference.
     update_path();
     timeline.add(0,
                  Animation::RandomWalk<W>(orientation, random_vector(), noise));
