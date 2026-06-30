@@ -610,7 +610,8 @@ public:
     // sized the int32 cast for. Check the unsigned magnitude before narrowing: a
     // forward elapsed past the window wraps to a spurious small-negative int32 that
     // would slip under a signed bound.
-    const uint32_t bound = static_cast<uint32_t>(kMinSafeHalfRevs) * period_;
+    [[maybe_unused]] const uint32_t bound =
+        static_cast<uint32_t>(kMinSafeHalfRevs) * period_;
     assert((elapsed < bound || elapsed >= 0u - bound) &&
            "Flywheel::position: unfolded coast — int32 elapsed cast overflowed");
     const int64_t delta = static_cast<int32_t>(elapsed);
