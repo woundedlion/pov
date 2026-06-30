@@ -17,6 +17,17 @@ on:
       - 'Doxyfile'
       - 'docs/doxygen-custom.css'
       - '.github/workflows/docs.yml'
+  # Build-only presubmit on PRs touching the same inputs: a Doxygen parse break
+  # or dropped README anchor fails the PR instead of publishing silently after
+  # merge. The deploy job is push-gated, so PRs build without deploying.
+  pull_request:
+    paths:
+      - '**.h'
+      - '**.cpp'
+      - 'README.md'
+      - 'Doxyfile'
+      - 'docs/doxygen-custom.css'
+      - '.github/workflows/docs.yml'
 
 # Pages deployment needs write + OIDC; nothing else is granted.
 permissions:
@@ -71,6 +82,7 @@ jobs:
   deploy:
     name: Deploy to Pages
     needs: build
+    if: github.event_name == 'push'
     runs-on: ubuntu-24.04
     environment:
       name: github-pages
