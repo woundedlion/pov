@@ -4001,7 +4001,7 @@
 			(at 40.64 55.88 0)
 			(effects (font (size 1.27 1.27)))
 		)
-		(property "Value" "0.75A"
+		(property "Value" "0.5A"
 			(at 40.64 66.04 0)
 			(effects (font (size 1.27 1.27)))
 		)
