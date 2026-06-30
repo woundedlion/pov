@@ -90,9 +90,17 @@ public:
    * @details Guards against 0 (which would divide-by-zero in step()'s
    * `t / duration`) and negatives (which would walk the path backward),
    * matching PeriodicTimer::set_period's `frames < 1 ? 1` floor that this
-   * direct write would otherwise bypass.
+   * direct write would otherwise bypass. A changed duration also reanchors the
+   * baseline (see reanchor()): the carried prev_frame_ was sampled under the old
+   * parameterization, so without this the next step's first delta would teleport
+   * the Orientation by the gap between the two duration curves.
    */
-  void set_duration(int frames) { this->duration = (frames < 1 ? 1 : frames); }
+  void set_duration(int frames) {
+    int clamped = (frames < 1 ? 1 : frames);
+    if (clamped != this->duration)
+      have_prev_frame_ = false;
+    this->duration = clamped;
+  }
 
   /**
    * @brief Discards the carried baseline frame so the next step re-seeds it from
