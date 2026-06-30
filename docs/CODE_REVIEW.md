@@ -144,7 +144,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 34. ✅ **`captureStream(0)` is unguarded and can throw out of `start()`, leaking the offscreen** — `recorder.js:133-140` *(daydream · error-handling)*. It runs after the offscreen is latched but before any try/catch (only the `MediaRecorder` ctor is wrapped). **Fix:** wrap the `captureStream` block; on throw, stop tracks, `cleanup()`, and return.
 
-35. **Streaming `finish()` can download only the post-failure chunk tail, silently producing a truncated video** — `recorder.js:355-382` *(daydream · error-handling)*. On a mid-stream write rejection, `chunks` holds only the failing-and-later chunks; the fallback `download()` builds a blob from the tail alone, and the disk writable is never `close()`d. **Fix:** abort/close the partial writable and surface an explicit error (or buffer all chunks from session start); at minimum `close()` on the failed path.
+35. ✅ **Streaming `finish()` can download only the post-failure chunk tail, silently producing a truncated video** — `recorder.js:355-382` *(daydream · error-handling)*. On a mid-stream write rejection, `chunks` holds only the failing-and-later chunks; the fallback `download()` builds a blob from the tail alone, and the disk writable is never `close()`d. **Fix:** abort/close the partial writable and surface an explicit error (or buffer all chunks from session start); at minimum `close()` on the failed path.
 
 #### daydream simulator — UI & geometry tools
 
