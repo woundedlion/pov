@@ -752,9 +752,10 @@ inline uint8_t linear_float_to_srgb8(float l) {
       255.0f));
 }
 
-// Rotates the (a,b) chroma plane in OKLab, preserving perceived lightness and
-// chroma. Hot path: fast_cbrt forward, exact cubes inverse, direct 2D rotation
-// of (a,b) (no atan2/sqrt OKLCH polar round-trip).
+// Rotates the (a,b) chroma plane in OKLab, preserving perceived lightness
+// exactly and chroma to within fast-trig accuracy. Hot path: fast_cbrt forward,
+// exact cubes inverse, direct 2D rotation of (a,b) (no atan2/sqrt OKLCH polar
+// round-trip).
 inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   constexpr float INV16 = 1.0f / 65535.0f;
   float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
@@ -764,7 +765,8 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   OKLab lab = lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
   float L = lab.L, A = lab.a, B = lab.b;
 
-  // Rotate the chroma plane by (ca, sa); preserves L and |(A,B)|.
+  // Rotate the chroma plane by (ca, sa); preserves L exactly and |(A,B)| to
+  // within fast-trig accuracy (non-orthonormal (ca,sa) scales chroma slightly).
   float A2 = A * ca - B * sa;
   float B2 = A * sa + B * ca;
 
