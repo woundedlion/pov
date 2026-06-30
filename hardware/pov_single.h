@@ -43,18 +43,6 @@ template <int S, int RPM> class POVDisplay {
   static_assert(S > 0 && S % 2 == 0,
                 "POVDisplay requires an even, positive segment count S");
 
-  /**
-   * @brief HD107S SPI clock for the single-board Holosphere DMA path, in Hz.
-   *
-   * The Holosphere runs one Teensy over the full strip at a wide column period
-   * (~1.3 ms for 96 columns at 480 RPM), so the TeensySPIDMA 12 MHz default
-   * clears the per-column transfer with ample headroom; the 24 MHz clock used
-   * by the segmented driver is not needed here. Stated explicitly rather than
-   * left to the constructor default so the per-board clock choice is on the
-   * record at the call site.
-   */
-  static constexpr uint32_t SPI_CLOCK_HZ = 12000000;
-
 public:
   /**
    * @brief Constructs the driver, initializing the LED strip and hardware-

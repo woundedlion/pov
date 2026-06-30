@@ -74,7 +74,7 @@ Findings are numbered sequentially for the `code-review-fix` workflow. Each is r
 
 7. ✅ **`Gradient` constructor double-initializes `entries[]`** — `core/color.h:948-951`. The `: entries()` member value-init already zeroes (blackens) the table; the following explicit black-fill loop rewrites the same values. Fix: keep one initializer, not both.
 
-8. **Unused, misleading `SPI_CLOCK_HZ` constant in `POVDisplay`** — `hardware/pov_single.h:56`. The single-board target builds the FastLED/WS2801 path at 6 MHz; this dead `12000000` constant documents a DMA clock the board never uses and is referenced nowhere (the segmented driver's equivalent *is* live). Fix: delete it (or wire a real DMA-on-single-board path).
+8. ✅ **Unused, misleading `SPI_CLOCK_HZ` constant in `POVDisplay`** — `hardware/pov_single.h:56`. The single-board target builds the FastLED/WS2801 path at 6 MHz; this dead `12000000` constant documents a DMA clock the board never uses and is referenced nowhere (the segmented driver's equivalent *is* live). Fix: delete it (or wire a real DMA-on-single-board path).
 
 9. **Unused `<cstdio>` include in `canvas.h`** — `core/canvas.h:12`. Nothing in the header uses stdio; the include pulls a stdio header into a hot core header transitively included by the whole effect tree, against the stated no-stdio-on-device posture. Fix: remove the include.
 
