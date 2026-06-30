@@ -263,9 +263,11 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
   };
 
   // The azimuthal map has no closed-form tangent, so take it from a short forward
-  // difference (backward at the s=1 end) — map_planar is arc-uniform, so the
-  // difference direction is the unit tangent regardless of its magnitude. Feeds
-  // the same screen-velocity sub-step sampler as the geodesic path.
+  // difference (backward at the s=1 end) — within a single arc-uniform linear
+  // piece the difference direction is the unit tangent regardless of its
+  // magnitude; a difference spanning a knot blends two pieces, approximating the
+  // tangent there. Feeds the same screen-velocity sub-step sampler as the
+  // geodesic path.
   auto sample_planar = [=](float s) -> SamplePT {
     Vector p = map_planar(s);
     bool fwd = (s + PLANAR_TAN_DT <= 1.0f);
@@ -672,9 +674,11 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       }
     }
 
-    // The final step overshoots total_dist slightly, so sim_dist >= total_dist
-    // and scale <= 1 — the normalized replay stretches the cached steps back to
-    // exactly total_dist, correcting the overshoot.
+    // The final step normally overshoots total_dist slightly, so sim_dist >=
+    // total_dist and scale <= 1 — the normalized replay stretches the cached
+    // steps back to exactly total_dist, correcting the overshoot. On the
+    // capacity-backstop break path sim_dist can fall short (scale > 1) and the
+    // replay stretches the cached steps over the remaining segment instead.
     HS_CHECK(sim_dist > 0.0f);
     float scale = total_dist / sim_dist;
     bool omitLast = (close_loop) ? true : !isLastSegment;
