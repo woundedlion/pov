@@ -304,7 +304,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A maintainer who copies the suggested preset hits the field-count static_assert and has to reverse-engineer which field to drop. Dead/incorrect TODO data.  
    - **Fix:** Delete the stale TODO comment (per the repo's remove-dead-over-document convention) or correct it to the current six-field layout.
 
-25. **AgedSlot::radius_at has no guard or stated precondition against grow_frames == 0** — `Low` · _Error handling & safety_ · Effects (group B) _(severity adjusted by verifier)_  
+25. ✅ **AgedSlot::radius_at has no guard or stated precondition against grow_frames == 0** — `Low` · _Error handling & safety_ · Effects (group B) _(severity adjusted by verifier)_  
    - **Where:** `effects/aged_slot.h` — radius_at(), lines 30-33  
    - **Issue:** radius_at computes `(age + 1) / grow_frames` with no check that grow_frames > 0. A zero divisor yields +inf, which hs::clamp folds to 1.0 (returning max_radius silently). Both current callers guarantee a positive value (RingShower passes life >= LIFE_MIN == 8; Thrusters passes RADIUS_GROW_FRAMES == 8), and the divisor precondition is only documented on the RingShower side (Ring::LIFE_MIN comment), not in the shared helper this file exists to provide.  
    - **Impact:** A future third caller of this shared utility could pass grow_frames == 0 and get a silently-wrong full radius instead of a fail-fast trap, contrary to the project's fail-fast philosophy for invariant violations.  
