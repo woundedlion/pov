@@ -133,7 +133,8 @@ struct CubemapLUT {
    *         find_nearest_node (a hill-climb local minimum, not a global argmin)
    *         and the query is quantized to a face cell, so the result can be off
    *         by a neighbor. Callers needing the true nearest node must refine
-   *         among the seed and its neighbors (see refine_nearest_node).
+   *         among the seed and its neighbors (see
+   *         ReactionDiffusionBase::refine_nearest_node in effects/).
    */
   int lookup(const Vector &p) const {
     float ax = fabsf(p.x), ay = fabsf(p.y), az = fabsf(p.z);

@@ -278,7 +278,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A caller bug that passes a non-unit direction (e.g. an un-normalized orientation output) yields a wrong-but-plausible node index with no diagnostic, defeating the project's fail-fast doctrine for this one hot-path entry point.  
    - **Fix:** Add a debug-only HS_CHECK on dot(p,p) ~= 1 at the top of lookup() (compiles out under NDEBUG like ArenaVector's bound checks, matching the existing single-load device cost the comment promises).
 
-21. **Doc comment references refine_nearest_node, which lives in a different layer (effects/), not this file** — `Low` · _Documentation_ · Core: simulation kernels  
+21. ✅ **Doc comment references refine_nearest_node, which lives in a different layer (effects/), not this file** — `Low` · _Documentation_ · Core: simulation kernels  
    - **Where:** `core/reaction_graph.h` — CubemapLUT::lookup() doc, line 136 ("see refine_nearest_node")  
    - **Issue:** The lookup() documentation directs the reader to refine_nearest_node for true-nearest refinement, but that function is defined in effects/ReactionDiffusionBase.h, not in reaction_graph.h or anywhere in this component. A reader staying within core/ cannot find the referenced symbol, and the cross-layer dependency (a core LUT documented in terms of an effects-layer refiner) is implicit.  
    - **Impact:** Minor navigation/onboarding friction; the doc points at a symbol absent from the file/namespace it documents.  
