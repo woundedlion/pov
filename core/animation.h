@@ -1864,8 +1864,8 @@ public:
    */
   MobiusWarp(MobiusParams &params, float scale, int duration,
              bool repeat = true, EasingFn easing = ease_in_out_sin)
-      : AnimationBase(duration, repeat), params(params), scale(scale),
-        easing(easing) {
+      : AnimationBase(duration, repeat), params_(params), scale_(scale),
+        easing_(easing) {
     HS_CHECK(duration >= 0, "MobiusWarp duration must be >= 0");
   }
 
@@ -1881,6 +1881,12 @@ public:
    */
   void bind_scale(const float &live_scale) { scale_ref_ = &live_scale; }
 
+  /** @brief Sets the warp magnitude (ignored while a live scale is bound). */
+  void set_scale(float scale) { scale_ = scale; }
+
+  /** @brief Sets the easing curve. */
+  void set_easing(EasingFn easing) { easing_ = easing; }
+
   /**
    * @brief Steps the animation, updating param b.
    * @param canvas The canvas buffer (forwarded to the base step).
@@ -1888,18 +1894,17 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     float t_norm = static_cast<float>(t) / duration;
-    float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
+    float progress = easing_(hs::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
-    float s = scale_ref_ ? *scale_ref_ : scale;
-    params.get().b.re = s * (cosf(angle) - 1.0f);
-    params.get().b.im = s * sinf(angle);
+    float s = scale_ref_ ? *scale_ref_ : scale_;
+    params_.get().b.re = s * (cosf(angle) - 1.0f);
+    params_.get().b.im = s * sinf(angle);
   }
 
-  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
-  float scale;     /**< Warp magnitude (public: effects read/write directly). */
-  EasingFn easing; /**< Easing curve (public: effects read/write directly). */
-
 private:
+  std::reference_wrapper<MobiusParams> params_; /**< Mobius params to animate. */
+  float scale_;                      /**< Warp magnitude. */
+  EasingFn easing_;                  /**< Easing curve. */
   const float *scale_ref_ = nullptr; /**< Optional live magnitude source. */
 };
 
@@ -1918,10 +1923,16 @@ public:
    */
   MobiusWarpCircular(MobiusParams &params, float scale, int duration,
                      bool repeat = true, EasingFn easing = ease_in_out_sin)
-      : AnimationBase(duration, repeat), params(params), scale(scale),
-        easing(easing) {
+      : AnimationBase(duration, repeat), params_(params), scale_(scale),
+        easing_(easing) {
     HS_CHECK(duration >= 0, "MobiusWarpCircular duration must be >= 0");
   }
+
+  /** @brief Sets the warp magnitude. */
+  void set_scale(float scale) { scale_ = scale; }
+
+  /** @brief Sets the easing curve. */
+  void set_easing(EasingFn easing) { easing_ = easing; }
 
   /**
    * @brief Steps the animation, updating param b.
@@ -1930,15 +1941,16 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     float t_norm = static_cast<float>(t) / duration;
-    float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
+    float progress = easing_(hs::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
-    params.get().b.re = scale * cosf(angle);
-    params.get().b.im = -scale * sinf(angle);
+    params_.get().b.re = scale_ * cosf(angle);
+    params_.get().b.im = -scale_ * sinf(angle);
   }
 
-  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
-  float scale;     /**< Warp magnitude (public: effects read/write directly). */
-  EasingFn easing; /**< Easing curve (public: effects read/write directly). */
+private:
+  std::reference_wrapper<MobiusParams> params_; /**< Mobius params to animate. */
+  float scale_;    /**< Warp magnitude. */
+  EasingFn easing_; /**< Easing curve. */
 };
 
 
@@ -2105,12 +2117,18 @@ public:
    * @note `base` snapshots `params` at construction; MobiusParams has no
    * refresh_from, so Transformer::prepare_frame() never re-reads it from
    * template_params. The baseline is latched at spawn — live edits to it
-   * require a respawn (live `scale`/`speed` are mutated directly).
+   * require a respawn (live `scale`/`speed` are mutated via the setters).
    */
   MobiusWarpEvolving(MobiusParams &params, float scale = 0.5f,
                      float speed = 0.01f)
-      : params(params), speed(speed), scale(scale), base(params),
+      : params_(params), speed_(speed), scale_(scale), base(params),
         seed(hs::random()()) {}
+
+  /** @brief Sets the modulation speed (radians of phase per frame unit). */
+  void set_speed(float speed) { speed_ = speed; }
+
+  /** @brief Sets the per-channel modulation magnitude. */
+  void set_scale(float scale) { scale_ = scale; }
 
   /**
    * @brief Derives a per-channel phase offset from the seed and channel index.
@@ -2128,28 +2146,27 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
-    float time = t * speed;
-    float s = scale;
+    float time = t * speed_;
+    float s = scale_;
 
     // Use prime-ish number ratios for frequencies to minimize repetition cycle
-    params.get().a.re = base.a.re + sinf(time * 1.0f + phase(0)) * s;
-    params.get().a.im = base.a.im + cosf(time * 1.13f + phase(1)) * s;
+    params_.get().a.re = base.a.re + sinf(time * 1.0f + phase(0)) * s;
+    params_.get().a.im = base.a.im + cosf(time * 1.13f + phase(1)) * s;
 
-    params.get().b.re = base.b.re + sinf(time * 1.27f + phase(2)) * s;
-    params.get().b.im = base.b.im + cosf(time * 1.39f + phase(3)) * s;
+    params_.get().b.re = base.b.re + sinf(time * 1.27f + phase(2)) * s;
+    params_.get().b.im = base.b.im + cosf(time * 1.39f + phase(3)) * s;
 
-    params.get().c.re = base.c.re + sinf(time * 0.71f + phase(4)) * s;
-    params.get().c.im = base.c.im + cosf(time * 0.83f + phase(5)) * s;
+    params_.get().c.re = base.c.re + sinf(time * 0.71f + phase(4)) * s;
+    params_.get().c.im = base.c.im + cosf(time * 0.83f + phase(5)) * s;
 
-    params.get().d.re = base.d.re + sinf(time * 0.97f + phase(6)) * s;
-    params.get().d.im = base.d.im + cosf(time * 1.09f + phase(7)) * s;
+    params_.get().d.re = base.d.re + sinf(time * 0.97f + phase(6)) * s;
+    params_.get().d.im = base.d.im + cosf(time * 1.09f + phase(7)) * s;
   }
 
-  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
-  float speed; /**< Animation speed (radians of phase per frame unit). */
-  float scale; /**< Magnitude of the per-channel modulation. */
-
 private:
+  std::reference_wrapper<MobiusParams> params_; /**< Mobius params to animate. */
+  float speed_; /**< Animation speed (radians of phase per frame unit). */
+  float scale_; /**< Magnitude of the per-channel modulation. */
   MobiusParams base; /**< Baseline params captured at construction. */
   uint32_t seed;     /**< Seed for the per-channel phase offsets. */
 };
