@@ -80,7 +80,7 @@ sequential across the whole list.
 
 11. **`core/constants.h:62,68` — `ClipRegion::margin` is a public aggregate member.** `render_x_start/end`'s single-period wrap holds only while `margin < w`, enforced solely in `Effect::set_margin`; a direct `.margin =` assignment bypasses the trap. *Fix:* make `margin` private with a checked setter, or add a defensive `HS_CHECK` in `render_x_start/end` (called once per draw, not per fragment).
 
-12. **`core/animation.h:609` — `ParticleSystem::spawn` silently no-ops when the pool is unbound.** No log/trap, unlike the "pool full" branch two lines down and unlike the fail-fast discipline elsewhere. *Fix:* `HS_CHECK(pool.is_bound(), …)` so a spawn-before-init traps instead of silently dropping particles.
+12. ✅ **`core/animation.h:609` — `ParticleSystem::spawn` silently no-ops when the pool is unbound.** No log/trap, unlike the "pool full" branch two lines down and unlike the fail-fast discipline elsewhere. *Fix:* `HS_CHECK(pool.is_bound(), …)` so a spawn-before-init traps instead of silently dropping particles.
 
 13. **`core/animation.h:1701-1710` — `RandomWalk` drift coordinate freezes after ~2²⁴ frames.** `static_cast<float>(t) * drift` loses single-frame resolution after ~78 h at 60 fps; the walk is perpetual with no rewind. *Fix:* accumulate a wrapped `float` drift phase instead of multiplying a monotonic frame counter, or document the bound as `Noise` does.
 
