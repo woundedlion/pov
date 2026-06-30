@@ -191,7 +191,7 @@ jobs:
       # exercises the alias-copy block, not just the linker-type/rc.exe paths.
       # Same pinned action + version as the wasm job.
       - name: Set up Emscripten
-        uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021 # v14
+        uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
         with:
           version: 5.0.0
           actions-cache-folder: emsdk-cache-5.0.0
@@ -225,10 +225,10 @@ jobs:
       # Pinned to match the local toolchain (emsdk 5.0.0). Bump deliberately.
       # actions-cache-folder persists the emsdk install across runs. This is the
       # one third-party action and it provisions the toolchain, so it is pinned
-      # to a full commit SHA (not a mutable tag) to prevent a retagged v14 from
+      # to a full commit SHA (not a mutable tag) to prevent a retagged v16 from
       # silently swapping the compiler.
       - name: Set up Emscripten
-        uses: mymindstorm/setup-emsdk@6ab9eb1bda2574c4ddb79809fc9247783eaf9021 # v14
+        uses: emscripten-core/setup-emsdk@4528d102f7230f0e7b276855c01ea1159be0e984 # v16
         with:
           version: 5.0.0
           actions-cache-folder: emsdk-cache-5.0.0
