@@ -80,7 +80,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 6. ✅ **`hue_rotate` comments overstate exact L/chroma preservation** — `core/color.h:755-783` *(Holosphere · documentation)*. The fast-trig `(ca,sa)` (Bhaskara I, ~0.17% error) is non-orthonormal, so the rotation scales chroma by `sqrt(ca²+sa²)≠1`; the "preserves L and |(A,B)|" comments are literally inaccurate (negligible in the fade loop). **Fix:** soften the two comments to "within fast-trig accuracy" (do not change the per-pixel trig).
 
-7. **Dead branch in `srgb_to_linear_interp` after the clamp** — `core/color.h:355-368` *(Holosphere · maintainability)*. Post-clamp `f∈[0,255]`, so `if (f <= 0.0f) return lut[0];` can only fire at `f==0`, which the `i=0`/`frac=0` path already yields. **Fix:** remove the redundant early return (keep the required `i>=255` guard).
+7. ✅ **Dead branch in `srgb_to_linear_interp` after the clamp** — `core/color.h:355-368` *(Holosphere · maintainability)*. Post-clamp `f∈[0,255]`, so `if (f <= 0.0f) return lut[0];` can only fire at `f==0`, which the `i=0`/`frac=0` path already yields. **Fix:** remove the redundant early return (keep the required `i>=255` guard).
 
 8. **`ScratchScope` doc claims a temporary-`ArenaVector` factory that does not exist** — `core/memory.h:808-816` *(Holosphere · documentation)*. The class is offset save/restore only; the "@details … typed factory" sentence misleads. **Fix:** delete the factory sentence (or add the method).
 
