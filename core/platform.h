@@ -43,7 +43,7 @@
 #define HS_CHECK(cond, ...)                                                     \
   do {                                                                          \
     if (!(cond))                                                                \
-      ::hs::check_fail(__FILE__, __LINE__, #cond, "" __VA_ARGS__);             \
+      ::hs::check_fail(__FILE__, __LINE__, #cond __VA_OPT__(, ) __VA_ARGS__);   \
   } while (0)
 
 #include <random>
@@ -1106,6 +1106,9 @@ namespace hs {
 [[noreturn]] inline void check_fail(const char *file, int line, const char *cond,
                                     const char *fmt, ...)
     __attribute__((format(printf, 4, 5)));
+// No-message overload (HS_CHECK(cond) with no varargs); see definition below.
+[[noreturn]] inline void check_fail(const char *file, int line,
+                                    const char *cond);
 
 /**
  * @brief Maps a raw RNG draw in [0, max] onto the half-open interval [0.0, 1.0).
@@ -1210,6 +1213,14 @@ inline int rand_int(int min, int max) {
   hs::flush_log();
 #endif
   __builtin_trap();
+}
+
+// HS_CHECK(cond) with no message. Delegates with an empty formatted message
+// ("%s", "") rather than passing a literal "" as the format, so no zero-length
+// format string ever reaches the printf-format check (gcc -Wformat-zero-length).
+[[noreturn]] inline void check_fail(const char *file, int line,
+                                    const char *cond) {
+  check_fail(file, line, cond, "%s", "");
 }
 
 /** @brief Scanline profiling counters (platform-agnostic). */

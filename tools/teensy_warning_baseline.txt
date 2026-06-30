@@ -3,4 +3,3 @@
 # fails only on warnings NOT listed here. Regenerate with --update-baseline
 # in the SAME PR as the change that legitimately alters the set (§7.2).
 
-core/platform.h: warning: zero-length gnu_printf format string [-Wformat-zero-length]

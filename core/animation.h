@@ -637,7 +637,7 @@ public:
       for (size_t i = 0; i < active_count; ++i) {
         bool dead = step_particle(pool[i], max_delta);
         if (dead) {
-          if (i != active_count - 1) {
+          if (i != static_cast<size_t>(active_count - 1)) {
             pool[i] = pool[active_count - 1];
           }
           active_count--;
