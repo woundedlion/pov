@@ -606,7 +606,7 @@ public:
    * rendering); log it like Timeline::add rather than dropping it silently.
    */
   void spawn(const Vector &pos, const Vector &vel, uint16_t seed) {
-    if (!pool.is_bound()) return;
+    HS_CHECK(pool.is_bound(), "ParticleSystem::spawn before init");
     if (active_count < pool.capacity()) {
       pool[active_count++].init(pos, vel, seed, max_life);
     } else {
