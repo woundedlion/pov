@@ -106,7 +106,7 @@ sequential across the whole list.
 
 24. ✅ **`core/platform.h:553` — `DATA_RATE_MHZ(x)` macro does not parenthesize its argument.** Latent (only ever invoked with the literal `6`) but a macro-hygiene footgun. *Fix:* `#define DATA_RATE_MHZ(x) (x)`.
 
-25. **`core/presets.h:91-93,103-104` — `current_index`/`prev_index` mix `int` and `size_t`.** `(current_idx + 1) % Size` is `size_t` and narrows back into an `int` member. Functionally safe, but exactly what `-Wconversion` flags. *Fix:* make the index members/accessors `size_t`.
+25. ✅ **`core/presets.h:91-93,103-104` — `current_index`/`prev_index` mix `int` and `size_t`.** `(current_idx + 1) % Size` is `size_t` and narrows back into an `int` member. Functionally safe, but exactly what `-Wconversion` flags. *Fix:* make the index members/accessors `size_t`.
 
 26. **`core/effect_registry.h:73-77` — `reserve(64)` is a magic number decoupled from `HS_EFFECT_COUNT` (27).** Purely advisory (no element pointers held), so it only stops being a no-realloc guarantee past 64. *Fix:* drop it or document it as a soft hint keyed off the roster size.
 

@@ -88,9 +88,9 @@ public:
   std::span<Entry> get_entries() { return std::span<Entry>(entries); }
 
   /** @brief Index of the currently selected entry; always in [0, Size). */
-  int current_index() const { return current_idx; }
+  size_t current_index() const { return current_idx; }
   /** @brief Index active before the last next()/prev(); always in [0, Size). */
-  int prev_index() const { return prev_idx; }
+  size_t prev_index() const { return prev_idx; }
 
   /**
    * @brief Returns the params of the entry active before the last move.
@@ -100,8 +100,8 @@ public:
 
 private:
   std::array<Entry, Size> entries; /**< The backing store of preset entries. */
-  int current_idx = 0; /**< Index of the currently selected entry. */
-  int prev_idx = 0;    /**< Index active before the last next()/prev(); for crossfades. */
+  size_t current_idx = 0; /**< Index of the currently selected entry. */
+  size_t prev_idx = 0;    /**< Index active before the last next()/prev(); for crossfades. */
 };
 
 /**

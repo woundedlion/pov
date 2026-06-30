@@ -49,8 +49,8 @@ inline void test_initial_state() {
   auto p = make_presets();
   HS_EXPECT_EQ(p.get().id, 1);
   HS_EXPECT_NEAR(p.get().value, 1.5f, 1e-6f);
-  HS_EXPECT_EQ(p.current_index(), 0);
-  HS_EXPECT_EQ(p.prev_index(), 0);
+  HS_EXPECT_EQ(static_cast<int>(p.current_index()), 0);
+  HS_EXPECT_EQ(static_cast<int>(p.prev_index()), 0);
   HS_EXPECT_EQ(static_cast<int>(p.get_entries().size()), 3);
 }
 
@@ -112,10 +112,10 @@ inline void test_single_entry_wraps_in_place() {
   }}};
   p.next();
   HS_EXPECT_EQ(p.get().id, 42);
-  HS_EXPECT_EQ(p.current_index(), 0);
+  HS_EXPECT_EQ(static_cast<int>(p.current_index()), 0);
   p.prev();
   HS_EXPECT_EQ(p.get().id, 42);
-  HS_EXPECT_EQ(p.current_index(), 0);
+  HS_EXPECT_EQ(static_cast<int>(p.current_index()), 0);
 }
 
 /**
