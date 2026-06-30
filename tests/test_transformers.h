@@ -20,6 +20,8 @@
 #pragma once
 
 #include "core/transformers.h"
+#include "core/canvas.h"
+#include "core/easing.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -516,6 +518,58 @@ inline void test_transformer_spawn_applies_and_composes() {
 }
 
 // ============================================================================
+// Transformer<> non-pinned slot recycling survives timeline compaction
+// ============================================================================
+
+/**
+ * @brief Minimal 8x8 effect backing a stand-in Canvas for stepping a Timeline.
+ * @details A fresh effect reports buffer_free() true, so the Canvas ctor does
+ * not spin on a display ISR the host never runs.
+ */
+struct RecycleFakeEffect : public Effect {
+  RecycleFakeEffect() : Effect(8, 8) {}
+  void draw_frame() override {}
+  bool strobe_columns() const override { return false; }
+};
+
+/**
+ * @brief Verifies a non-pinned spawned transform's pool slot is reclaimed after
+ *        the timeline relocates its event during compaction.
+ * @details spawn() (unlike spawn_pinned) registers a finite, non-repeating event
+ *          whose then() callback frees the entity slot — but only if that callback
+ *          survives the event being move_into-relocated by step()'s compaction.
+ *          An earlier finite event is added first so that, when it completes, the
+ *          spawned ripple's event shifts down into the vacated slot. The pool has
+ *          CAPACITY 1, so a leaked slot would make the post-completion re-spawn
+ *          return nullptr; its success proves the relocated event's callback
+ *          reclaimed the slot.
+ */
+inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
+  Timeline tl;
+  global_timeline_t = 0;
+  RecycleFakeEffect fx;
+  Canvas cv(fx);
+
+  RippleTransformer<1> rt(tl);
+
+  float dummy = 0.0f;
+  tl.add(0, Animation::Transition(dummy, 1.0f, 2, ease_linear));
+
+  Animation::Ripple *p = rt.spawn(0, Vector(0, 1, 0), 0.2f, 4);
+  HS_EXPECT_TRUE(p != nullptr);
+  // Slot occupied: with CAPACITY 1 a second spawn finds nothing free.
+  HS_EXPECT_TRUE(rt.spawn(0, Vector(0, 1, 0), 0.2f, 4) == nullptr);
+
+  // Step past the earlier event (relocates the ripple) and the ripple's own
+  // completion, so the then() callback fires through the relocation.
+  for (int i = 0; i < 12; ++i)
+    tl.step(cv);
+
+  Animation::Ripple *reclaimed = rt.spawn(0, Vector(0, 1, 0), 0.2f, 4);
+  HS_EXPECT_TRUE(reclaimed != nullptr);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -543,6 +597,7 @@ inline int run_transformers_tests() {
   test_noise_active_stays_on_sphere();
   test_transformer_no_entities_is_identity();
   test_transformer_spawn_applies_and_composes();
+  test_transformer_nonpinned_slot_reclaimed_after_compaction();
 
   return fixture.result();
 }
