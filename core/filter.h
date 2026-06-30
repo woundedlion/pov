@@ -932,6 +932,8 @@ public:
  */
 template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {
 public:
+  // Trail points are seeded from and re-emitted into the same band, so they
+  // never sample a neighbor segment.
   static constexpr bool crosses_segments = false;
 
   /**
