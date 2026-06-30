@@ -140,7 +140,7 @@ sequential across the whole list.
 
 41. ✅ **`scripts/check_screenshots.mjs:23-24` / `scripts/effect_roster.mjs:46` — screenshot freshness compare is case-sensitive.** A casing mismatch is masked on the case-insensitive Windows dev FS but can diverge on Linux CI. *Fix:* normalize-compare and flag case-only differences.
 
-42. **`daydream/daydream.js:560-561` — WASM-load `.catch` dereferences a not-yet-assigned controller.** `testAllController` is `null` until a later synchronous block; a fast/synchronous module rejection throws `TypeError` and masks the real load error (the sibling `testAllInterval` access is already null-guarded). *Fix:* `if (testAllController) { … }`.
+42. ✅ **`daydream/daydream.js:560-561` — WASM-load `.catch` dereferences a not-yet-assigned controller.** `testAllController` is `null` until a later synchronous block; a fast/synchronous module rejection throws `TypeError` and masks the real load error (the sibling `testAllInterval` access is already null-guarded). *Fix:* `if (testAllController) { … }`.
 
 43. **`daydream/gui.js:35-36,333` — color-string validator accepts alpha forms lil-gui can't round-trip.** 4-/8-digit hex and `rgba()` pass validation but lil-gui is RGB-only and the serializer emits 6-digit, so an alpha deep link mis-hydrates. *Fix:* tighten the regex to `#rgb`/`#rrggbb`/`rgb()` only.
 
