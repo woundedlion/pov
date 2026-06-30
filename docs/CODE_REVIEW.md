@@ -260,7 +260,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A regression in the twist rotation (e.g. wrong sign convention, axis selection, or a make_rotation change) would not be caught by the conway unit suite; only the coarser registry smoke check would, and only if it broke topology rather than just geometry.  
    - **Fix:** Add a conway unit test that runs snub(cube, ..., twist=0.28f) and asserts the primary-face vertices are rotated about the face normal by the expected angle (e.g. compare against twist=0 positions rotated by make_rotation), wiring it into run_conway_tests.
 
-18. **truncate() t>0.5 self-intersecting path is unit-untested** — `Low` · _Test coverage & quality_ · Core: simulation kernels  
+18. ✅ **truncate() t>0.5 self-intersecting path is unit-untested** — `Low` · _Test coverage & quality_ · Core: simulation kernels  
    - **Where:** `core/conway.h` — truncate(), lines 601-694; test_conway.h tests only t=0.25 and the t=0.5->ambo short-circuit  
    - **Issue:** The documented t>0.5 regime (cut points crossing past each other to form intentional self-intersecting faces, used by the *_truncate50d_* solids) is not covered by a conway unit test. test_truncate_cube uses the default 0.25 and test_truncate_t_half_is_ambo covers exactly 0.5; nothing exercises t in (0.5,1]. The truncate_oriented_cut winding logic is the subtle part and is the same path that feeds the shipped truncate50d recipes.  
    - **Impact:** The crossed-cut winding and oriented-cut recovery for the >0.5 regime relies on solids-registry integration tests; a winding regression there could ship undetected at the unit level.  
