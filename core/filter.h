@@ -1214,6 +1214,8 @@ public:
     const int cy_lo = y_lo / ds;
     int cy_hi = ((y_hi - 1) / ds) + 1;
     if (cy_hi > hh - 1) cy_hi = hh - 1;
+    HS_CHECK(cy_hi >= cy_lo, "feedback coarse band inverted: [%d,%d]", cy_lo,
+             cy_hi);
     for (int cy = cy_lo; cy <= cy_hi; ++cy) {
       int y = cy * ds;
       for (int cx = 0; cx < hw; ++cx) {

@@ -76,7 +76,7 @@ sequential across the whole list.
 
 9. ✅ **`core/filter.h:933-935` — `Screen::Trails` overrides `crosses_segments = false` without explaining why.** The override is correct (screen-trail points are seeded from and re-emitted into the same band) but contradicts the `Is2DWithHistory` fail-safe default with no comment, unlike `Blur` which explains its opposite choice. *Fix:* add the one-line rationale comment.
 
-10. **`core/filter.h:1213-1214` — `Feedback` coarse-grid `cy_hi` clamp is load-bearing on the per-pixel `HS_CHECK`.** Correct as written, but a thin single-coarse-row band relies on the trap rather than producing a valid field. *Fix:* assert `cy_hi >= cy_lo` right after the clamp so a future `ds`/clip change traps at the cheap setup site.
+10. ✅ **`core/filter.h:1213-1214` — `Feedback` coarse-grid `cy_hi` clamp is load-bearing on the per-pixel `HS_CHECK`.** Correct as written, but a thin single-coarse-row band relies on the trap rather than producing a valid field. *Fix:* assert `cy_hi >= cy_lo` right after the clamp so a future `ds`/clip change traps at the cheap setup site.
 
 11. **`core/constants.h:62,68` — `ClipRegion::margin` is a public aggregate member.** `render_x_start/end`'s single-period wrap holds only while `margin < w`, enforced solely in `Effect::set_margin`; a direct `.margin =` assignment bypasses the trap. *Fix:* make `margin` private with a checked setter, or add a defensive `HS_CHECK` in `render_x_start/end` (called once per draw, not per fragment).
 
