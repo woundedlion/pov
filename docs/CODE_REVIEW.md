@@ -144,7 +144,7 @@ sequential across the whole list.
 
 43. ✅ **`daydream/gui.js:35-36,333` — color-string validator accepts alpha forms lil-gui can't round-trip.** 4-/8-digit hex and `rgba()` pass validation but lil-gui is RGB-only and the serializer emits 6-digit, so an alpha deep link mis-hydrates. *Fix:* tighten the regex to `#rgb`/`#rrggbb`/`rgb()` only.
 
-44. **`daydream/recorder.js:33-47` + `daydream.js:646-647` — explicit MP4/WebM silently falls back.** When the chosen container is unsupported, `selectMimeType` returns `''`, `mimeType` is omitted, and `MediaRecorder` records the browser default with no warning. *Fix:* `console.warn` (or explicit fallback) when an explicit format is unsupported.
+44. ✅ **`daydream/recorder.js:33-47` + `daydream.js:646-647` — explicit MP4/WebM silently falls back.** When the chosen container is unsupported, `selectMimeType` returns `''`, `mimeType` is omitted, and `MediaRecorder` records the browser default with no warning. *Fix:* `console.warn` (or explicit fallback) when an explicit format is unsupported.
 
 45. **`daydream/state.js:236-237` — `URLSync.reset()` clears the debounce timer but doesn't null it.** Asymmetric with `schedule()`/`dispose()`; harmless but a latent footgun. *Fix:* `this.timer = null;` after the `clearTimeout`.
 
