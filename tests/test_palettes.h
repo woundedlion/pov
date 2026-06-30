@@ -126,10 +126,7 @@ inline void test_named_palette_hue_short_arc() {
  *          slot-mapping bug can't collapse them.
  */
 inline void test_mesh_palette_bank_lookup() {
-  alignas(std::max_align_t) static uint8_t buf[MeshPaletteBank::N *
-                                                   BakedPalette::LUT_SIZE *
-                                                   sizeof(Color4) +
-                                               256];
+  alignas(std::max_align_t) static uint8_t buf[MeshPaletteBank::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
   MeshPaletteBank bank;
   bank.bake_all(arena);

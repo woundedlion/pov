@@ -70,7 +70,7 @@ Findings are numbered sequentially for the `code-review-fix` workflow. Each is r
 
 ### P3 — Minor (polish, dead code, latent guards, test gaps)
 
-6. **`MeshPaletteBank` has no `required_arena_bytes()` accessor** — `core/palettes.h:131`. Callers hand-compute `N * BakedPalette::required_arena_bytes()` (e.g. `test_palettes.h:129`); the per-allocation alignment padding makes the relationship implicit. Fix: add a `static constexpr` sizing helper and route callers through it.
+6. ✅ **`MeshPaletteBank` has no `required_arena_bytes()` accessor** — `core/palettes.h:131`. Callers hand-compute `N * BakedPalette::required_arena_bytes()` (e.g. `test_palettes.h:129`); the per-allocation alignment padding makes the relationship implicit. Fix: add a `static constexpr` sizing helper and route callers through it.
 
 7. **`Gradient` constructor double-initializes `entries[]`** — `core/color.h:948-951`. The `: entries()` member value-init already zeroes (blackens) the table; the following explicit black-fill loop rewrites the same values. Fix: keep one initializer, not both.
 
