@@ -1074,7 +1074,7 @@ public:
   template <typename PassFnT>
   void plot(float x, float y, const ::Pixel &color, float age, float alpha,
             PassFnT &&pass) {
-    int cx = static_cast<int>(std::round(x));
+    int cx = fast_wrap(static_cast<int>(std::round(x)), W);
     int cy = static_cast<int>(std::round(y));
 
     float inv = 1.0f;
