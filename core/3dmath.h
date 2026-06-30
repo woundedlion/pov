@@ -935,7 +935,7 @@ constexpr float distance_squared(const Vector &a, const Vector &b) {
  * @return The angle in radians.
  */
 inline float angle_between(const Vector &v1, const Vector &v2) {
-  float len_product = v1.length() * v2.length();
+  float len_product = sqrtf(dot(v1, v1) * dot(v2, v2));
   HS_CHECK(len_product > std::numeric_limits<float>::epsilon());
   float d = dot(v1, v2) / len_product;
   return fast_acos(hs::clamp(d, -1.0f, 1.0f));
