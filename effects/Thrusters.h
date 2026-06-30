@@ -173,7 +173,9 @@ private:
     warp_phase = hs::rand_f() * 2 * PI_F;
 
     // Snapshot the warp state into the closure so the thrust-point geometry
-    // can't depend on member-mutation order.
+    // can't depend on member-mutation order. amp is the residual amplitude
+    // before warp_anim restarts below, so the thrust points sit on the ring as
+    // it is currently displayed, not on this fire's about-to-start 0.7 warp.
     const float phase = warp_phase;
     const float amp = amplitude;
     const int frame = t_global;

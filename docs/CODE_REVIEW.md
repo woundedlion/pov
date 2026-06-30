@@ -120,7 +120,7 @@ sequential across the whole list.
 
 31. ✅ **`effects/DreamBalls.h:289` — undocumented sprite/ping-pong overlap margin.** The two-slot `param_slots_`/`baked_palettes_` ping-pong is safe only while at most two sprites overlap (sprite life 320 < 2×period 576). True today with comfortable margin, but the dependency is load-bearing and unstated. *Fix:* add a `static_assert`/comment pinning `sprite_life < 2 * period`.
 
-32. **`effects/Thrusters.h:178` — thrust geometry uses the previous fire's residual amplitude.** `amp = amplitude` is snapshotted before `warp_anim` is restarted to `0.7`, so the thrust points track the stale warp, not this fire's. *Fix:* sample after the restart (`warp_decay(0)`), or document the intentional residual.
+32. ✅ **`effects/Thrusters.h:178` — thrust geometry uses the previous fire's residual amplitude.** `amp = amplitude` is snapshotted before `warp_anim` is restarted to `0.7`, so the thrust points track the stale warp, not this fire's. *Fix:* sample after the restart (`warp_decay(0)`), or document the intentional residual.
 
 33. **`effects/RingShower.h:122` — fade-in off-by-one.** `opacity_at` returns `(age+1)/4` for ages 0-2 then jumps to `1.0` at age 3, producing a visible `0.75 → 1.0` step. *Fix:* divide by `FADE_IN_FRAMES` with `age+1 <= FADE_IN_FRAMES`, or by `FADE_IN_FRAMES-1`.
 
