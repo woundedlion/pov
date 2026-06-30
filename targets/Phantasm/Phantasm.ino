@@ -47,17 +47,10 @@ static constexpr unsigned int RPM = 480;
 using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
 
 #if defined(USE_DMA_LEDS)
-// Out-of-line definition for this target's controller. It belongs in cached,
-// DMA-reachable OCRAM: its HD107SFrame buffers are the eDMA TX source, and
-// arm_dcache_flush() only does real work on cached OCRAM (a no-op in DTCM). It
-// must be an explicit specialization, not the generic template definition: GCC
-// silently drops the DMAMEM section attribute on a vague-linkage template static
-// member (landing it in DTCM); the specialization has ordinary strong linkage,
-// so DMAMEM sticks and the buffers land in .dmabuffers (see pov_segmented.h).
-template <>
-DMAMEM DMALEDController<TOTAL_PIXELS / NUM_SEGMENTS>
-    POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>::ledController_{
-        POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>::SPI_CLOCK_HZ};
+// Out-of-line definition for this target's controller, emitted as the required
+// DMAMEM explicit specialization (see pov_segmented.h for why a generic template
+// definition would silently land in DTCM and break DMA cache coherency).
+HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 #endif
 
 namespace {

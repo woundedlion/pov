@@ -746,8 +746,14 @@ int POVSegmented<S, N, RPM>::y_step_ = 1;
 // HD107SFrame's arm_dcache_flush() write-back is meaningful — in DTCM it is a
 // dead no-op). DMAMEM (a section attribute) is silently dropped by GCC on a
 // vague-linkage template static member, so a generic definition would land in
-// DTCM regardless. Each instantiating target therefore defines it as an explicit
-// specialization (ordinary strong linkage, so DMAMEM sticks) — see Phantasm.ino.
+// DTCM regardless. Each instantiating target must instead invoke
+// HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM) once at file scope; it emits
+// the required explicit specialization, whose ordinary strong linkage keeps the
+// DMAMEM section attribute — see Phantasm.ino.
+#define HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)                       \
+  template <>                                                                  \
+  DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::ledController_{    \
+      POVSegmented<S, N, RPM>::SPI_CLOCK_HZ}
 #endif
 
 #endif // ARDUINO
