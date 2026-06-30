@@ -176,7 +176,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 48. ✅ **`setParameter` contract is skipped when an effect exposes no params** — `tests/engine_contract_wasm.test.js:44-57` *(daydream · testing)*. The pin is gated behind `if (defs.length > 0)`; a zero-param default silently skips it (reads as passing). **Fix:** assert `defs.length > 0` for the bootstrap effect, or pick an effect known to expose a parameter.
 
-49. **`cpp_format` default-precision rounding path is never pinned** — `tests/cpp_format.test.js:19-38` *(daydream · testing)*. Tests cover whole numbers, trimming, small-value escalation, and exponent avoidance, but never a value that actually rounds at the default 6 digits. **Fix:** add `assert.equal(formatFloatCpp(0.12345678), '0.123457f')` to lock default rounding.
+49. ✅ **`cpp_format` default-precision rounding path is never pinned** — `tests/cpp_format.test.js:19-38` *(daydream · testing)*. Tests cover whole numbers, trimming, small-value escalation, and exponent avoidance, but never a value that actually rounds at the default 6 digits. **Fix:** add `assert.equal(formatFloatCpp(0.12345678), '0.123457f')` to lock default rounding.
 
 ---
 
