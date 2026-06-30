@@ -1633,7 +1633,8 @@ struct Face {
    * @param height Canvas height in rows.
    */
   Face(std::span<const Vector> vertices, std::span<const uint16_t> indices,
-       float th, FaceScratchBuffer &scratch, int h_virt, int height)
+       float th, FaceScratchBuffer &scratch, int h_virt, int height,
+       const ClipRegion *clip = nullptr)
       : thickness(th), build_height(height), full_width(true) {
 
     // Early vertical exit: a face whose latitude band (plus thickness margin)
@@ -1664,10 +1665,85 @@ struct Face {
     inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
-    pack_edges(scratch);
-    build_distance_lut(scratch);
+    // LUT grid is sized off the pre-pole-containment row span; apply_pole_
+    // containment may widen y_min/y_max below, but the gnomonic LUT resolution
+    // must stay what it was before, so snapshot the span now.
+    const int lut_row_span = y_max - y_min;
+
     compute_azimuth_intervals(scratch);
     apply_pole_containment(height);
+
+    // Whole-face clip cull: y_min/y_max and the azimuth coverage now match what
+    // the scan would draw, so a face disjoint from the clip band yields no
+    // in-band pixel. Skip the LUT build (the dominant per-face cost) for it.
+    if (clip && clip_rejects(*clip)) {
+      y_min = 1;
+      y_max = 0;
+      return;
+    }
+
+    pack_edges(scratch);
+    build_distance_lut(scratch, lut_row_span);
+  }
+
+  /**
+   * @brief Tests whether the clip band excludes the whole face.
+   * @param cr Clip region (display bounds plus render margin).
+   * @return True when no in-band pixel can be produced — the face's vertical
+   *         band lies outside the render rows, or its azimuth coverage lies
+   *         outside the render columns. A full-width face or an inactive x-clip
+   *         never rejects on the horizontal axis.
+   * @details Mirrors the scan's own culls (Scan::rasterize's vertical clamp and
+   *          per-fragment XClip), so a reject here drops only faces the scan
+   *          would have shaded nothing for.
+   */
+  bool clip_rejects(const ClipRegion &cr) const {
+    if (y_max < cr.render_y_start() || y_min > cr.render_y_end() - 1)
+      return true;
+    if (full_width)
+      return false;
+    const ClipRegion::XClip xc = cr.x_clip();
+    if (!xc.active)
+      return false;
+    const int Wd = cr.w;
+    const float pw = 2.0f * PI_F / static_cast<float>(Wd);
+    const int band_len = ((xc.re - xc.rs) % Wd + Wd) % Wd;
+    for (const auto &iv : intervals) {
+      // Same radians->column mapping (and 1-pixel AA pad) get_horizontal_
+      // intervals scans with, so the cull matches the emitted columns exactly.
+      int a = static_cast<int>(floorf((iv.first - pw) * Wd / (2.0f * PI_F)));
+      int b = static_cast<int>(ceilf((iv.second + pw) * Wd / (2.0f * PI_F)));
+      int len = b - a;
+      if (len <= 0)
+        continue;
+      if (len > Wd)
+        len = Wd;
+      const int s = ((a % Wd) + Wd) % Wd;
+      if (arcs_overlap(xc.rs, band_len, s, len, Wd))
+        return false;
+    }
+    return true;
+  }
+
+  /**
+   * @brief Tests whether two cylindrical column arcs overlap.
+   * @param s1 First arc start column, in [0, w).
+   * @param len1 First arc length in columns.
+   * @param s2 Second arc start column, in [0, w).
+   * @param len2 Second arc length in columns.
+   * @param w Cylinder width in columns.
+   * @return True if the arcs share at least one column.
+   */
+  static bool arcs_overlap(int s1, int len1, int s2, int len2, int w) {
+    if (len1 >= w || len2 >= w)
+      return true;
+    if (len1 <= 0 || len2 <= 0)
+      return false;
+    auto covers = [w](int s, int len, int p) {
+      const int d = ((p - s) % w + w) % w;
+      return d < len;
+    };
+    return covers(s1, len1, s2) || covers(s2, len2, s1);
   }
 
   // ---------------------------------------------------------------------------
@@ -1825,7 +1901,7 @@ struct Face {
    * @param scratch Scratch storage receiving dist_lut.
    */
   __attribute__((always_inline)) void
-  build_distance_lut(FaceScratchBuffer &scratch) {
+  build_distance_lut(FaceScratchBuffer &scratch, int lut_row_span) {
     float bb_min_x = FLT_MAX, bb_max_x = -FLT_MAX;
     float bb_min_y = FLT_MAX, bb_max_y = -FLT_MAX;
     for (int i = 0; i < count; ++i) {
@@ -1853,7 +1929,7 @@ struct Face {
     // dominant rasterizer cost) while the exact fallback preserves sub-cell
     // accuracy near edges.
     int n = static_cast<int>(
-        hs::clamp(static_cast<float>(y_max - y_min) + 2.0f,
+        hs::clamp(static_cast<float>(lut_row_span) + 2.0f,
                   static_cast<float>(kMinLutN), static_cast<float>(LUT_N)));
     lut_n = n;
     lut_inv_step_x = (n - 1) / (2.0f * lut_Rx);

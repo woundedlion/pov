@@ -750,7 +750,8 @@ struct Mesh {
       // alone, not the rasterize below.
       SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
-        return SDF::Face(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H);
+        return SDF::Face(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H,
+                         &canvas.clip());
       }();
 
       auto wrapper = [&](const Vector &p, Fragment &f_in) {

@@ -17,6 +17,7 @@
 #pragma once
 
 #include <cmath>
+#include <vector>
 
 #include "core/canvas.h"
 #include "core/geometry.h"
@@ -496,6 +497,62 @@ inline void test_truncated_icosahedron_wireframe_and_fill() {
 }
 
 /**
+ * @brief Verifies the per-face clip cull never drops an in-band pixel.
+ * @details Renders a sphere-tiling mixed-face solid full-canvas, then under
+ * several clip bands, and asserts the clipped output equals the full output at
+ * every pixel inside each band. The solid tiles the sphere, so faces straddle
+ * every row/column boundary including the poles (rows 0 / H-1) and the x=0 seam
+ * — exactly the great-circle-arc cases an unsafe vertex-based cull would drop.
+ */
+inline void test_clip_band_matches_full() {
+  constexpr int W = 288, H = 144;
+  configure_arenas_default();
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+  Arena scratch(mr_scratch, sizeof(mr_scratch));
+
+  PolyMesh poly = Solids::Archimedean::truncatedIcosahedron(seed_a, seed_b);
+  MeshState mesh;
+  MeshOps::compile(poly, mesh, geom);
+
+  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  {
+    MeshFx full(W, H);
+    { Canvas c(full); Pipeline<W, H> pipe;
+      Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch); }
+    full.advance_display();
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        ref[static_cast<size_t>(y) * W + x] = full.get_pixel(x, y);
+  }
+
+  struct Band { int y0, y1, x0, x1; };
+  const Band bands[] = {
+      {0, 72, 0, 144},     // top-left quadrant (north pole + x=0 seam)
+      {72, 144, 144, 288}, // bottom-right quadrant (south pole + x=144)
+      {0, 144, 0, 144},    // left half (x=144 boundary, full height)
+      {0, 72, 0, 288},     // top band, full width (pole, no x cull)
+  };
+  for (const Band &b : bands) {
+    MeshFx fx(W, H); // one live Effect at a time; ref captured above
+    fx.set_clip(b.y0, b.y1, b.x0, b.x1);
+    { Canvas c(fx); Pipeline<W, H> pipe;
+      Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch); }
+    fx.advance_display();
+    size_t mismatches = 0;
+    for (int y = b.y0; y < b.y1; ++y)
+      for (int x = b.x0; x < b.x1; ++x) {
+        const Pixel &p = fx.get_pixel(x, y);
+        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+        if (p.r != r.r || p.g != r.g || p.b != r.b)
+          ++mismatches;
+      }
+    HS_EXPECT_EQ(mismatches, (size_t)0);
+  }
+}
+
+/**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
  */
@@ -508,6 +565,7 @@ inline int run_mesh_raster_tests() {
   test_cube_wireframe_and_fill();
   test_dodecahedron_wireframe_and_fill();
   test_truncated_icosahedron_wireframe_and_fill();
+  test_clip_band_matches_full();
 
   return fixture.result();
 }
