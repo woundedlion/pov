@@ -86,7 +86,7 @@ sequential across the whole list.
 
 14. ✅ **`core/plot.h:1091-1099` — `sample_closed_ring` lacks `HS_CHECK(num_verts >= 1)`.** `Star`/`Flower`/`DistortedRing` compute `PI_F/num_sides` and then call with a zero/negative side count, silently rendering nothing where `Ring::sample` would trap. *Fix:* add the cold-path `HS_CHECK`, matching `Ring::sample`.
 
-15. **`core/plot.h:675-677, 266` — two comments overstate invariants.** The `sim_dist >= total_dist` / `scale <= 1` claim is false on the capacity-backstop path (where `scale > 1`), and "the unit tangent regardless of magnitude" is only true within a `map_planar` linear piece, not across a knot. *Fix:* amend both comments to state the two regimes.
+15. ✅ **`core/plot.h:675-677, 266` — two comments overstate invariants.** The `sim_dist >= total_dist` / `scale <= 1` claim is false on the capacity-backstop path (where `scale > 1`), and "the unit tangent regardless of magnitude" is only true within a `map_planar` linear piece, not across a knot. *Fix:* amend both comments to state the two regimes.
 
 16. **`core/3dmath.h:1062` — `least_parallel_axis` applies a cosine threshold to a possibly-non-unit vector.** A non-unit vector parallel to +X with `|v.x|` below `COS_AXIS_PARALLEL` returns +X, collapsing the caller's `cross(v, X).normalized()` to a trap. All current callers pass unit vectors. *Fix:* make the test scale-invariant (`v.x*v.x > k²·dot(v,v)`) or assert the unit precondition.
 
