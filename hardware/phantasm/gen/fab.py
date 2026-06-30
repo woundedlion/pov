@@ -38,6 +38,41 @@ ZIP_EXT = {".gtl", ".g1", ".g2", ".gbl", ".gto", ".gbo", ".gts", ".gbs",
 EXCLUDE_FP_SUBSTR = ("PinHeader", "SolderJumper", "CP_Radial")
 EXCLUDE_VAL_SUBSTR = ("Teensy",)
 
+# JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
+# the schematic so the JLC assembly output owns the supplier mapping. R_D1/R_D2
+# use an 0805 33R (C17634) to match their 0805 land pattern, not a 0603 part.
+LCSC_BY_REF = {
+    "C_DEC1": "C14663", "C_DEC2": "C14663",
+    "C_LF": "C12891", "C_SYNC": "C1603",
+    "F1": "C261952", "FB": "C73732", "Q_REV": "C7420330",
+    "R1": "C25804", "R_MEN": "C25804", "R_PD": "C25804",
+    "R2": "C22809", "R_D1": "C17634", "R_D2": "C17634",
+    "R_LF": "C48928179", "R_S": "C17408", "U1": "C155176",
+}
+# CPL rotation correction (degrees added to KiCad's angle) for parts whose
+# JLCPCB library zero-reference differs from KiCad's. U1 (SOIC-14): the raw
+# KiCad angle of 180 reads wrong in JLC's viewer; a +270 correction (180 -> 90)
+# lands pin 1 on the silk mark. Verify each against the assembly preview.
+ROT_CORRECTION = {
+    "U1": 270,    # SOIC-14: KiCad 180 -> 90, pin 1 on silk mark
+    "Q_REV": 180, # SOD-123: cathode (band/"-") must land on +5V_PROT, not RAW
+}
+# JLCPCB catalog description keyed by LCSC #, for the BOM Description column.
+DESC_BY_LCSC = {
+    "C14663": "100nF 50V X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC ROHS",
+    "C12891": "22uF 25V X5R ±10% 1206 Multilayer Ceramic Capacitors MLCC ROHS",
+    "C1603": "220pF 50V X7R ±10% 0603 Multilayer Ceramic Capacitors MLCC ROHS",
+    "C261952": "13.2V 500mA hold 1A trip 750mΩ 1206 Resettable Fuse PPTC ROHS",
+    "C73732": "600Ω@100MHz ±25% 2A 200mΩ 1206 Ferrite Bead ROHS",
+    "C7420330": "40V 1A 600mV@1A SOD-123 Schottky Diode ROHS",
+    "C25804": "10kΩ ±1% 100mW 0603 Thick Film Resistor ROHS",
+    "C22809": "15kΩ ±1% 100mW 0603 Thick Film Resistor ROHS",
+    "C17634": "33Ω ±1% 125mW 0805 Thick Film Resistor ROHS",
+    "C48928179": "1.5Ω ±5% 125mW 0805 Thick Film Resistor ROHS",
+    "C17408": "100Ω ±1% 125mW 0805 Thick Film Resistor ROHS",
+    "C155176": "74AHCT125 4.5~5.5V quad bus buffer 3-state SOIC-14 ROHS",
+}
+
 
 def find_kicad_cli():
     env = os.environ.get("KICAD_CLI")
@@ -153,23 +188,34 @@ def main():
     # BOM grouped by (value, footprint)
     groups = {}
     for r in assembled:
-        key = (comps[r]["value"], comps[r]["footprint"].split(":")[-1],
-               comps[r]["lcsc"])
+        lcsc = LCSC_BY_REF.get(r, comps[r]["lcsc"])
+        key = (comps[r]["value"], comps[r]["footprint"].split(":")[-1], lcsc)
         groups.setdefault(key, []).append(r)
+    missing = sorted(r for r in assembled
+                     if not LCSC_BY_REF.get(r, comps[r]["lcsc"]))
+    if missing:
+        print(f"  WARNING: no LCSC # for {', '.join(missing)}")
     with open(os.path.join(JLC, "phantasm-BOM.csv"), "w", newline='',
               encoding="utf-8") as fh:
         w = csv.writer(fh)
-        w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #"])
+        w.writerow(["Comment", "Designator", "Footprint", "LCSC Part #",
+                    "Description"])
         for (v, f, lcsc), refs in sorted(groups.items()):
-            w.writerow([v, ",".join(sorted(refs)), f, lcsc])
+            w.writerow([v, ",".join(sorted(refs)), f, lcsc,
+                        DESC_BY_LCSC.get(lcsc, "")])
     with open(os.path.join(JLC, "phantasm-CPL.csv"), "w", newline='',
               encoding="utf-8") as fh:
         w = csv.writer(fh)
         w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
         for r in assembled:
             p = posrows.get(r, {})
+            rot = p.get("Rot", "")
+            try:
+                rot = f"{(float(rot) + ROT_CORRECTION.get(r, 0)) % 360:.6f}"
+            except ValueError:
+                pass  # non-numeric rotation: pass through untouched
             w.writerow([r, p.get("PosX", ""), p.get("PosY", ""),
-                        p.get("Side", "top"), p.get("Rot", "")])
+                        p.get("Side", "top"), rot])
 
     print("[6/6] JLC upload zip")
     zpath = os.path.join(JLC, "phantasm-jlc-gerbers.zip")
