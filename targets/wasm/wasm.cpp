@@ -940,12 +940,13 @@ struct MeshOpsWrapper {
 
 /**
  * @brief Defines a one-float-argument operator whose argument is a [0,1]
- *        fraction enforced by an always-on engine trap.
+ *        fraction, clamped at the JS boundary.
  * @param name MeshOps operator name; becomes the generated method name.
  * @details Like MESHOP_1F but clamps the fraction to [0,1] at the JS boundary
  *          (logging when it changed) so a direct/API caller passing a finite
- *          out-of-range value cannot trip the operator's fail-fast HS_CHECK and
- *          abort the whole module.
+ *          out-of-range value stays within the operator's documented domain —
+ *          and, for operators whose fraction reaches an always-on HS_CHECK
+ *          (truncate/bevel), cannot trip that trap and abort the whole module.
  */
 #define MESHOP_1U(name)                                                        \
   std::unique_ptr<MeshOpsWrapper> name(float arg) const {                     \
@@ -968,17 +969,18 @@ struct MeshOpsWrapper {
  *          wrapper methods (below), and with MESHOP_BIND to generate the embind
  *          .function() bindings (in EMSCRIPTEN_BINDINGS), so an operator cannot
  *          be added to one site and silently left unreachable from the other.
- *          truncate and bevel use _OP1U because their fraction reaches an
- *          always-on engine trap; expand and chamfer take an unbounded factor.
- *          relax, hankin, and snub are bound explicitly — their signatures fit
- *          none of the generators (snub takes two float controls) — so they stay
- *          out of this list.
+ *          truncate, bevel, and chamfer use _OP1U: each has a documented [0,1]
+ *          domain (truncate/bevel additionally reach an always-on engine trap).
+ *          expand takes an unbounded factor, so it stays _OP1F. relax, hankin,
+ *          and snub are bound explicitly — their signatures fit none of the
+ *          generators (snub takes two float controls) — so they stay out of this
+ *          list.
  */
 #define MESHOP_LIST(_OP0, _OP1F, _OP1U)                                         \
   _OP0(kis) _OP0(ambo) _OP0(gyro) _OP0(dual) _OP0(meta)                         \
   _OP0(needle) _OP0(zip)                                                        \
-  _OP1F(expand) _OP1F(chamfer)                                                  \
-  _OP1U(truncate) _OP1U(bevel)
+  _OP1F(expand)                                                                 \
+  _OP1U(truncate) _OP1U(bevel) _OP1U(chamfer)
 
   MESHOP_LIST(MESHOP_0, MESHOP_1F, MESHOP_1U)
 
@@ -1034,8 +1036,10 @@ struct MeshOpsWrapper {
 
   /**
    * @brief Applies the chiral snub operator with explicit inset and twist.
-   * @param t Inset factor of each face toward its centroid, in [0, 1].
-   * @param twist Per-face rotation about the face normal, in radians (0 = none).
+   * @param t Inset factor of each face toward its centroid, clamped to [0, 1]
+   *          (its documented domain) at the JS boundary.
+   * @param twist Per-face rotation about the face normal, in radians (0 = none);
+   *          unbounded, so only finiteness is checked.
    * @return Owning pointer to a new wrapper, or null if either arg is non-finite.
    * @details Explicit (not a MESHOP_* macro) because MeshOps::snub takes TWO
    *          float controls, which neither the zero-arg nor the one-float
@@ -1046,8 +1050,11 @@ struct MeshOpsWrapper {
   std::unique_ptr<MeshOpsWrapper> snub(float t, float twist) const {
     if (!finite_arg(t, "snub") || !finite_arg(twist, "snub"))
       return nullptr;
-    return apply([t, twist](const PolyMesh &m, Arena &a, Arena &b) {
-      return MeshOps::snub(m, a, b, t, twist);
+    if (t < 0.0f || t > 1.0f)
+      hs::log("WASM: MeshOps::snub clamped t=%g to [0,1]", t);
+    float ct = t < 0.0f ? 0.0f : (t > 1.0f ? 1.0f : t);
+    return apply([ct, twist](const PolyMesh &m, Arena &a, Arena &b) {
+      return MeshOps::snub(m, a, b, ct, twist);
     });
   }
   /**
