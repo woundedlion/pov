@@ -375,6 +375,56 @@ inline void test_cubemap_lut_offlattice() {
   HS_EXPECT_LE(miss, kSamples / 20);
 }
 
+/**
+ * @brief Stresses find_nearest_node's worst-case equatorial long-hop directly.
+ * @details find_nearest_node seeds by latitude only, so an equatorial query's
+ *          true node can sit many longitude hops from the seed — the chain its
+ *          64-iter cap is sized for. The random off-lattice sampler need not hit
+ *          that chain; this concentrates queries at the equator (|y| tiny)
+ *          across the full longitude circle, where the hop count peaks. Each
+ *          lookup() drives find_nearest_node through the LUT build and the
+ *          always-on HS_CHECK(converged), so a cap exceeded by a future RD_N
+ *          bump traps here at the bench. Results are checked against a
+ *          brute-force argmin oracle (exact node or a direct neighbor).
+ */
+inline void test_cubemap_lut_equatorial() {
+  static uint8_t buf[6 * ReactionGraph::CubemapLUT::RES *
+                         ReactionGraph::CubemapLUT::RES * sizeof(uint16_t) +
+                     RD_N * sizeof(Vector) + 64];
+  Arena arena(buf, sizeof(buf));
+  ReactionGraph::CubemapLUT lut;
+  lut.build(arena);
+
+  const int kLongitudes = 720;
+  int exact = 0, near = 0, miss = 0;
+  for (int j = 0; j < kLongitudes; ++j) {
+    float lon = (j + 0.5f) / kLongitudes * 2.0f * static_cast<float>(PI);
+    // |y| just off the equator: the maximal-latitude seed distance from a node
+    // whose longitude is unrelated to the seed's.
+    float y = (j & 1) ? 1e-4f : -1e-4f;
+    float r = std::sqrt(1.0f - y * y);
+    Vector q(std::cos(lon) * r, y, std::sin(lon) * r);
+
+    int best = 0;
+    float best_d = chord2(q, node(0));
+    for (int i = 1; i < RD_N; ++i) {
+      float d = chord2(q, node(i));
+      if (d < best_d) { best_d = d; best = i; }
+    }
+
+    int found = lut.lookup(q);
+    if (found == best) { ++exact; continue; }
+    bool adjacent = false;
+    for (int k = 0; k < RD_K; ++k)
+      if (neighbors[best][k] == found) { adjacent = true; break; }
+    if (adjacent) ++near; else ++miss;
+  }
+  std::printf("  [info] cubemap equatorial: %d exact, %d neighbor, %d miss / %d\n",
+              exact, near, miss, kLongitudes);
+  HS_EXPECT_GT(exact + near, 0);
+  HS_EXPECT_LE(miss, kLongitudes / 20);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -402,6 +452,7 @@ inline int run_reaction_graph_tests() {
 
   test_cubemap_lut_roundtrip();
   test_cubemap_lut_offlattice();
+  test_cubemap_lut_equatorial();
 
   return fixture.result();
 }
