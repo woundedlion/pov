@@ -311,6 +311,18 @@ static inline Vector stable_perpendicular_axis(const Vector &v) {
 }
 
 /**
+ * @brief Azimuthal-equidistant projection chart centered on a pole.
+ * @param center Unit pole the planar chart is centered on (the 'v' axis).
+ * @return A Basis {u, center, w} with u, w spanning the chart plane.
+ */
+static inline Basis planar_chart_basis(const Vector &center) {
+  Vector ref = least_parallel_axis(center);
+  Vector u = cross(center, ref).normalized();
+  Vector w = cross(center, u).normalized();
+  return {u, center, w};
+}
+
+/**
  * @brief Geodesic interpolation strategy: builds a great-circle sampler for one edge.
  * @tparam ProcessSegmentFn Callable (sample, curr, next, dist, isLast) -> void.
  * @param curr Start fragment of the edge.
@@ -1343,11 +1355,7 @@ struct PlanarPolygon {
     // them straight. radius <= 1 keeps the supplied chart unchanged.
     Basis planar_basis = basis;
     if (radius > 1.0f) {
-      Vector v = -basis.v;
-      Vector ref = least_parallel_axis(v);
-      Vector u = cross(v, ref).normalized();
-      Vector w = cross(v, u).normalized();
-      planar_basis = {u, v, w};
+      planar_basis = planar_chart_basis(-basis.v);
     }
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
@@ -1725,13 +1733,7 @@ struct Star {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    auto res = get_antipode(basis, radius);
-    Vector center = res.first.v;
-
-    Vector ref = least_parallel_axis(center);
-    Vector u = cross(center, ref).normalized();
-    Vector w = cross(center, u).normalized();
-    Basis planar_basis = {u, center, w};
+    Basis planar_basis = planar_chart_basis(get_antipode(basis, radius).first.v);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),
@@ -1828,22 +1830,10 @@ struct Flower {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    // The planar chart and sample()'s petal placement must derive from the same
-    // antipode mapping, so both call get_antipode(basis, radius) on identical
-    // inputs; keep them in lockstep if either mapping changes.
-    auto res = get_antipode(basis, radius);
-    const Basis &work_basis = res.first;
-    // Center the planar chart on work_basis.v, the pole *opposite* the petal ring
-    // (which sits at colatitude apothem = PI - outer >= PI/2, near -work_basis.v):
-    // the ring is a constant-radius polygon, and projecting it through the
-    // far-pole chart (where R -> PI) bows the straight edges outward into petals.
-    Vector center = work_basis.v;
-
-    // Construct a planar basis aligned with the center
-    Vector ref = least_parallel_axis(center);
-    Vector u_p = cross(center, ref).normalized();
-    Vector w_p = cross(center, u_p).normalized();
-    Basis planar_basis = {u_p, center, w_p};
+    // Center the chart on the antipode pole, opposite the petal ring (colatitude
+    // apothem = PI - outer >= PI/2): projecting the constant-radius ring through
+    // the far-pole chart (R -> PI) bows its straight edges outward into petals.
+    Basis planar_basis = planar_chart_basis(get_antipode(basis, radius).first.v);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),
