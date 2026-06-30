@@ -356,8 +356,6 @@ inline uint16_t srgb_to_linear_interp(float s_srgb) {
   // Clamp before the int cast: NaN/out-of-range would be float->int UB below.
   s_srgb = hs::clamp(s_srgb, 0.0f, 1.0f);
   float f = s_srgb * 255.0f;
-  if (f <= 0.0f)
-    return srgb_to_linear_lut[0];
   int i = static_cast<int>(f);
   if (i >= 255)
     return srgb_to_linear_lut[255];
