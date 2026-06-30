@@ -299,6 +299,8 @@ public:
   }
 
   // --- Configuration pass-throughs ---
+  // Write HD107SFrame<N>'s static color state, shared across all controllers of
+  // the same N (one controller per image, so this is per-image in practice).
 
   /**
    * @brief Sets the global brightness applied to every packed pixel.
