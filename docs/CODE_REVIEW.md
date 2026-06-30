@@ -118,7 +118,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 23. ✅ **`MobiusGrid` binds `mobius_gen`'s timeline reference before `timeline` is constructed** — `effects/MobiusGrid.h:33,270,284` *(Holosphere · maintainability)*. Member init order constructs `mobius_gen` (decl 270) before `timeline` (decl 284); well-defined only because the ctor merely stores the reference, and inconsistent with `IslamicStars`'s deliberate ordering. **Fix:** declare `timeline` before `mobius_gen`.
 
-24. **`BZ::blend_species` truncating cast can drop the top palette value** — `effects/BZReactionDiffusion.h:315-320` *(Holosphere · correctness)*. The convex-combination divide can yield `65534.999…` → truncates to `65534`, a systematic 1-LSB downward bias on bright pixels — the same bias `to_q8`/`to_q16` avoid with `+0.5f`. **Fix:** add round-to-nearest (`static_cast<uint16_t>(c + 0.5f)`) per channel.
+24. ✅ **`BZ::blend_species` truncating cast can drop the top palette value** — `effects/BZReactionDiffusion.h:315-320` *(Holosphere · correctness)*. The convex-combination divide can yield `65534.999…` → truncates to `65534`, a systematic 1-LSB downward bias on bright pixels — the same bias `to_q8`/`to_q16` avoid with `+0.5f`. **Fix:** add round-to-nearest (`static_cast<uint16_t>(c + 0.5f)`) per channel.
 
 25. **No `static_assert` binds `MAX_DEGREE` to `factorial()`'s safe float domain** — `effects/SphericalHarmonics.h:19-26,69-74,351` *(Holosphere · correctness)*. A comment invites maintainers to "widen `MAX_DEGREE` alone," but `factorial(2·MAX_DEGREE)` loses float precision at `14!` and overflows to `inf` (→NaN) at `35!`. **Fix:** `static_assert(2*MAX_DEGREE <= 12, ...)` near `MAX_DEGREE` (or rewrite normalization as a cancelling ratio-product).
 
