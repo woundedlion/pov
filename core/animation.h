@@ -2102,6 +2102,10 @@ public:
    * @param params The params to animate.
    * @param scale Magnitude of modulation.
    * @param speed Speed of the animation.
+   * @note `base` snapshots `params` at construction; MobiusParams has no
+   * refresh_from, so Transformer::prepare_frame() never re-reads it from
+   * template_params. The baseline is latched at spawn — live edits to it
+   * require a respawn (live `scale`/`speed` are mutated directly).
    */
   MobiusWarpEvolving(MobiusParams &params, float scale = 0.5f,
                      float speed = 0.01f)
