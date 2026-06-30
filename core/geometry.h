@@ -721,10 +721,10 @@ public:
    */
   void upsample(int count) {
     HS_CHECK(count >= 1);
-    if (num_frames >= count)
-      return;
     if (count > CAPACITY) // soft-degrade past capacity — see @note above
       count = CAPACITY;
+    if (num_frames >= count)
+      return;
 
     // count == 1 has nothing to interpolate and would make t = i/(count-1) a 0/0.
     if (count < 2)
