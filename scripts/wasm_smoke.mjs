@@ -26,17 +26,26 @@ const FRAMES_PER_EFFECT = 3;
 // silently corrupts memory below stack-end, and stack_high_water_mark()
 // saturates at `capacity` because the canary scan begins at stack-end and
 // cannot see past it. So `hwm > capacity` (the arena check) is unsatisfiable
-// for the stack — a fully consumed 8 KB stack reports hwm == capacity and would
-// otherwise pass the exact gate CI claims catches a stack overflow. Require the
-// stack to retain a real margin so a creeping regression trips long before the
-// cliff. Current peak across all effects is ~0.6 KB, so 75% is ample headroom.
+// for the stack — a fully consumed stack reports hwm == capacity and would
+// otherwise pass the exact gate CI claims catches a stack overflow. Guard it
+// with a margin instead so a creeping regression trips long before the cliff.
+//
+// The budget is an ABSOLUTE byte ceiling, not a fraction of capacity: this
+// script can be aimed at any build (the 8 KB release stack or the 64 KB debug
+// stack via WASM_JS), and 75% of a 64 KB stack is ~48 KB of slack — an inert
+// tripwire that still prints as if it guards the build. A fixed ceiling stays
+// meaningful regardless of which module is loaded. Current peak across all
+// effects is ~0.6 KB, so 2 KB leaves generous headroom yet trips far below the
+// 8 KB release cliff. The capacity fraction is kept only as a floor for a
+// hypothetical sub-ceiling stack (the gate is the min of the two).
 //
 // Note this gate is a tripwire, not a guaranteed bound: high_water_mark is a
 // LOWER bound that under-reports (a frame writing a coincidental canary byte, or
 // reserving space it never stores to, reads back as still-canary — see
-// stack_high_water_mark() in wasm.cpp). So a true stack usage above 75% can read
-// back below the gate and pass; the 75% number catches creeping regressions, it
-// does not certify the stack stayed under three-quarters full.
+// stack_high_water_mark() in wasm.cpp). So true usage above the ceiling can read
+// back below the gate and pass; the budget catches creeping regressions, it does
+// not certify the stack stayed under it.
+const STACK_HWM_CEILING_BYTES = 2048;
 const STACK_MAX_FILL = 0.75;
 
 // Wrapped in main() so a fatal precondition can `process.exitCode = 1; return`
@@ -121,19 +130,21 @@ async function main() {
             fail(`${name}: ${region} high-water mark ${hwm} exceeds capacity ${capacity}`);
           }
         }
-        // The stack traps nowhere, so guard it with a margin instead of waiting
-        // for hwm > capacity (which it can never reach — see STACK_MAX_FILL).
+        // The stack traps nowhere, so guard it with an absolute creep budget
+        // instead of waiting for hwm > capacity (which it can never reach — see
+        // STACK_HWM_CEILING_BYTES).
         const stack = m.stack;
+        const stackGate = Math.min(STACK_HWM_CEILING_BYTES, stack && stack.capacity > 0
+          ? stack.capacity * STACK_MAX_FILL : STACK_HWM_CEILING_BYTES);
         if (!stack) {
           fail(`${name}: getArenaMetrics() omits the stack region`);
         } else if (stack.high_water_mark === 0) {
           fail(`${name}: stack high-water mark is 0 (canary tracking is broken)`);
         } else if (!(stack.capacity > 0)) {
-          fail(`${name}: stack capacity ${stack.capacity} is not positive (the margin check below would divide a degenerate budget)`);
-        } else if (stack.high_water_mark >= stack.capacity * STACK_MAX_FILL) {
+          fail(`${name}: stack capacity ${stack.capacity} is not positive (the gate below would compare against a degenerate budget)`);
+        } else if (stack.high_water_mark >= stackGate) {
           fail(`${name}: stack high-water mark ${stack.high_water_mark} of ` +
-            `${stack.capacity} bytes leaves under ${Math.round((1 - STACK_MAX_FILL) * 100)}% ` +
-            `margin — approaching overflow`);
+            `${stack.capacity} bytes exceeds the ${stackGate}-byte creep budget — approaching overflow`);
         }
 
         // The embind param-marshalling layer — getParameterDefinitions() and the
