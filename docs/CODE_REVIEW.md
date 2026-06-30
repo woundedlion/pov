@@ -104,7 +104,7 @@ sequential across the whole list.
 
 23. ✅ **`core/spatial.h:81-83,201-204` — KDTree index bounds are triplicated and one check is dead.** Three uncoupled bounds (`INT16_MAX+1` ctor, `INT16_MAX` node links, `UINT16_MAX` index) with no shared constant; the `UINT16_MAX` guard can never fire. *Fix:* hoist a named `MAX_POINTS` constant referenced by all sites.
 
-24. **`core/platform.h:553` — `DATA_RATE_MHZ(x)` macro does not parenthesize its argument.** Latent (only ever invoked with the literal `6`) but a macro-hygiene footgun. *Fix:* `#define DATA_RATE_MHZ(x) (x)`.
+24. ✅ **`core/platform.h:553` — `DATA_RATE_MHZ(x)` macro does not parenthesize its argument.** Latent (only ever invoked with the literal `6`) but a macro-hygiene footgun. *Fix:* `#define DATA_RATE_MHZ(x) (x)`.
 
 25. **`core/presets.h:91-93,103-104` — `current_index`/`prev_index` mix `int` and `size_t`.** `(current_idx + 1) % Size` is `size_t` and narrows back into an `int` member. Functionally safe, but exactly what `-Wconversion` flags. *Fix:* make the index members/accessors `size_t`.
 
