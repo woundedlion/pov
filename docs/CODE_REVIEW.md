@@ -151,7 +151,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
 
 ### Priority 1 — High (1 item)
 
-1. **MeshOps truncate/bevel abort the whole WASM module on a finite out-of-range argument** — `High` · _Error handling & safety_ · Build targets (WASM / Phantasm)  
+1. ✅ **MeshOps truncate/bevel abort the whole WASM module on a finite out-of-range argument** — `High` · _Error handling & safety_ · Build targets (WASM / Phantasm)  
    - **Where:** `targets/wasm/wasm.cpp` — MESHOP_1F macro (lines 932-939) generating truncate/bevel; underlying check core/conway.h:603 (HS_CHECK in truncate) reached by bevel via conway.h:1186  
    - **Issue:** The MESHOP_1F-generated wrapper for truncate (and bevel, which forwards to truncate) gates its float argument only through finite_arg(), which rejects NaN/Inf but accepts any finite value. MeshOps::truncate begins with HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]"), an always-on fail-fast trap. A JS call such as MeshOps.truncate(2.0) or .truncate(-1.0) or .bevel(5.0) therefore trips HS_CHECK and aborts the entire WASM module — the exact untyped-JS-boundary abort the file's own all_finite/finite_arg design (see the all_finite docstring at lines 1201-1216) and the relax kMaxRelaxIterations comment (lines 963-991, which explicitly call out direct/API callers that bypass the editor's slider clamps) are built to prevent.  
    - **Impact:** A direct or API caller (the documented threat model for these defenses) passing a finite-but-out-of-range fraction crashes the whole simulator module, not just the one operation, defeating the bridge's central robustness contract.  

@@ -939,26 +939,52 @@ struct MeshOpsWrapper {
   }
 
 /**
+ * @brief Defines a one-float-argument operator whose argument is a [0,1]
+ *        fraction enforced by an always-on engine trap.
+ * @param name MeshOps operator name; becomes the generated method name.
+ * @details Like MESHOP_1F but clamps the fraction to [0,1] at the JS boundary
+ *          (logging when it changed) so a direct/API caller passing a finite
+ *          out-of-range value cannot trip the operator's fail-fast HS_CHECK and
+ *          abort the whole module.
+ */
+#define MESHOP_1U(name)                                                        \
+  std::unique_ptr<MeshOpsWrapper> name(float arg) const {                     \
+    if (!finite_arg(arg, #name))                                              \
+      return nullptr;                                                          \
+    if (arg < 0.0f || arg > 1.0f)                                            \
+      hs::log("WASM: MeshOps::%s clamped %g to [0,1]", #name, arg);           \
+    float t = arg < 0.0f ? 0.0f : (arg > 1.0f ? 1.0f : arg);                  \
+    return apply([t](const PolyMesh &m, Arena &a, Arena &b) {                 \
+      return MeshOps::name(m, a, b, t);                                       \
+    });                                                                        \
+  }
+
+/**
  * @brief Single source of truth for the Conway/Goldberg operator roster.
  * @param _OP0  Macro applied to each zero-argument operator name.
  * @param _OP1F Macro applied to each one-float-argument operator name.
- * @details Expanded twice: with MESHOP_0/MESHOP_1F to generate the wrapper
- *          methods (below), and with MESHOP_BIND to generate the embind
+ * @param _OP1U Macro applied to each [0,1]-fraction operator name.
+ * @details Expanded twice: with MESHOP_0/MESHOP_1F/MESHOP_1U to generate the
+ *          wrapper methods (below), and with MESHOP_BIND to generate the embind
  *          .function() bindings (in EMSCRIPTEN_BINDINGS), so an operator cannot
  *          be added to one site and silently left unreachable from the other.
+ *          truncate and bevel use _OP1U because their fraction reaches an
+ *          always-on engine trap; expand and chamfer take an unbounded factor.
  *          relax, hankin, and snub are bound explicitly — their signatures fit
- *          neither generator (snub takes two float controls) — so they stay out
- *          of this list.
+ *          none of the generators (snub takes two float controls) — so they stay
+ *          out of this list.
  */
-#define MESHOP_LIST(_OP0, _OP1F)                                                \
+#define MESHOP_LIST(_OP0, _OP1F, _OP1U)                                         \
   _OP0(kis) _OP0(ambo) _OP0(gyro) _OP0(dual) _OP0(meta)                         \
   _OP0(needle) _OP0(zip)                                                        \
-  _OP1F(truncate) _OP1F(expand) _OP1F(chamfer) _OP1F(bevel)
+  _OP1F(expand) _OP1F(chamfer)                                                  \
+  _OP1U(truncate) _OP1U(bevel)
 
-  MESHOP_LIST(MESHOP_0, MESHOP_1F)
+  MESHOP_LIST(MESHOP_0, MESHOP_1F, MESHOP_1U)
 
 #undef MESHOP_0
 #undef MESHOP_1F
+#undef MESHOP_1U
 
   /**
    * Engine-enforced ceiling on relax smoothing passes. The editor
@@ -1278,7 +1304,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
       // Bound from the same MESHOP_LIST that generates the wrapper methods.
 #define MESHOP_BIND(name) .function(#name, &MeshOpsWrapper::name)
-      MESHOP_LIST(MESHOP_BIND, MESHOP_BIND)
+      MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
 #undef MESHOP_BIND
       .function("snub", &MeshOpsWrapper::snub)
       .function("hankin", &MeshOpsWrapper::hankin)
