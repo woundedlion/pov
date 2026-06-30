@@ -80,7 +80,7 @@ Findings are numbered sequentially for the `code-review-fix` workflow. Each is r
 
 10. ✅ **`StaticCircularBuffer` overflow guard pins the wrong integer width** — `core/static_circular_buffer.h:51-52`. The `N <= SIZE_MAX/2` `static_assert` claims to bound the `head + count - 1` intermediate, but that arithmetic is `uint32_t` and wraps at 2³², so for `N ∈ (2³¹, 2³²)` the guard is ineffective. Purely latent (all instantiations are tiny) but the asserted bound is false. Fix: tighten to `N <= (UINT32_MAX - 1) / 2`.
 
-11. **`MeshMorph` pole detection ignores `v.y`, mis-flagging non-pole vertices** — `core/animation.h:2011`. `abs(v.z) > 0.99 && abs(v.x) < 0.01` can be satisfied by a large-`y` vertex that is not a pole, spuriously selecting the alternate twist axis. Both axes are valid tie-breakers so output stays correct, but the predicate does not express "is a pole." Fix: add the missing `abs(v.y) < 0.01` clause.
+11. ✅ **`MeshMorph` pole detection ignores `v.y`, mis-flagging non-pole vertices** — `core/animation.h:2011`. `abs(v.z) > 0.99 && abs(v.x) < 0.01` can be satisfied by a large-`y` vertex that is not a pole, spuriously selecting the alternate twist axis. Both axes are valid tie-breakers so output stays correct, but the predicate does not express "is a pole." Fix: add the missing `abs(v.y) < 0.01` clause.
 
 12. **`writer.flush()` bypasses the active `URLSync` authority** — `daydream/gui.js:97`. `flush()` calls `commit()` (direct `history.replaceState`), bypassing the single-writer merge the writer body funnels through. Currently dead code (no caller). Fix: remove it, or make it route through `getActiveURLSync()`.
 
