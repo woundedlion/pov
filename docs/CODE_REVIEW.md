@@ -100,7 +100,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 15. ✅ **`classify_faces_impl` hard-traps on a degenerate (zero-length) face edge** — `core/mesh.h:606-621` *(Holosphere · error-handling)*. `normalized()`/`angle_between` trap on coincident consecutive vertices; sibling geometry (`relax`, `conway.h:967`) degrades gracefully via `EPS_LEN_SQ`. Latent (no shipping solid hits it) but inconsistent for a topology *hash* input. **Fix:** compute edges unnormalized, guard each with `dot(e,e)<EPS_LEN_SQ`, and only call `angle_between` when both are non-degenerate.
 
-16. **`KDTree::nearest` skips the documented `k<=MAX_K` trap on an empty tree** — `core/spatial.h:102-108` *(Holosphere · api-design)*. The `root==-1 || k==0` early return precedes the `HS_CHECK(k<=MAX_K)`, so an out-of-contract `k` is caught only when data is present. **Fix:** move the `HS_CHECK` above the early return.
+16. ✅ **`KDTree::nearest` skips the documented `k<=MAX_K` trap on an empty tree** — `core/spatial.h:102-108` *(Holosphere · api-design)*. The `root==-1 || k==0` early return precedes the `HS_CHECK(k<=MAX_K)`, so an out-of-contract `k` is caught only when data is present. **Fix:** move the `HS_CHECK` above the early return.
 
 17. **`compile()` can silently corrupt output if a direct caller aliases `scratch_arena_a` as `geom_arena`** — `core/mesh.h:429-432` *(Holosphere · maintainability)*. The `ScratchScope` rewind would reclaim the destination buffers. `generate()` already traps this; direct callers (MeshFeedback, tests) are unguarded. **Fix:** add `HS_CHECK(&geom_arena != &scratch_arena_a && &geom_arena != &scratch_arena_b)` at the top of `compile()`.
 
