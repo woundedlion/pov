@@ -609,9 +609,12 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         const Vector &prev = verts[(k - 1 + count) % count];
         const Vector &curr = verts[k];
         const Vector &next = verts[(k + 1) % count];
-        Vector v1 = (prev - curr).normalized();
-        Vector v2 = (next - curr).normalized();
-        float ang = angle_between(v1, v2);
+        Vector e1 = prev - curr;
+        Vector e2 = next - curr;
+        float ang = (dot(e1, e1) > math::EPS_LEN_SQ &&
+                     dot(e2, e2) > math::EPS_LEN_SQ)
+                        ? angle_between(e1, e2)
+                        : 0.0f;
         angles.push_back((int)std::round(ang * 180.0f / PI_F));
       }
       std::sort(angles.data(), angles.data() + count);
