@@ -946,9 +946,6 @@ public:
    * corrupting adjacent memory or rendering wrong under NDEBUG on-device.
    */
   Gradient(std::initializer_list<std::pair<float, CPixel>> points) : entries() {
-    Pixel black(0, 0, 0);
-    for (int i = 0; i < 256; i++)
-      entries[i] = black;
 
     if (points.size() == 0)
       return;
