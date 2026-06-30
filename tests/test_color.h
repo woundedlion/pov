@@ -1383,6 +1383,17 @@ inline void test_palette_wrappers() {
   HS_EXPECT_NEAR(solid.get(0.1f).alpha, 0.7f, 1e-6f);
 }
 
+// Clamp-before-cast / NaN-saturation checks whose contract must also hold under
+// the shipping WASM fast-math codegen. fastmath_clamp_check.cpp iterates this
+// same list, so adding a case here automatically extends both the default-IEEE
+// run and the -ffast-math -fno-finite-math-only pass.
+#define HS_FASTMATH_CLAMP_TESTS(X)                                             \
+  X(test_blend_alpha_clamps_before_cast)                                       \
+  X(test_pixel16_scale_clamps_before_cast)                                     \
+  X(test_gradient_get_clamps_out_of_range)                                     \
+  X(test_generative_palette_get_clamps_out_of_range)                           \
+  X(test_mobius_longitude_singularity_saturates_to_endpoint)
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -1410,8 +1421,6 @@ inline int run_color_tests() {
   test_color4_scale_affects_color_and_alpha();
   test_color4_add_clamps_alpha_and_sums_color();
   test_blend_max_with_black_identity();
-  test_blend_alpha_clamps_before_cast();
-  test_pixel16_scale_clamps_before_cast();
 
   test_oklab_roundtrip();
   test_oklch_roundtrip();
@@ -1438,7 +1447,6 @@ inline int run_color_tests() {
 
   test_gradient_endpoints();
   test_gradient_in_range_valid_and_monotone();
-  test_gradient_get_clamps_out_of_range();
   test_gradient_solid_color();
   test_gradient_interpolates_between_entries();
   test_gradient_first_stop_offset_flat_fills_prefix();
@@ -1451,13 +1459,16 @@ inline int run_color_tests() {
   test_procedural_palette_cosine();
   test_mutating_palette_blends_endpoints();
   test_generative_palette_deterministic();
-  test_generative_palette_get_clamps_out_of_range();
-  test_mobius_longitude_singularity_saturates_to_endpoint();
   test_generative_palette_auto_seed_advances();
   test_generative_palette_snapshot_lerp();
   test_palette_modifiers();
   test_static_palette_composition();
   test_palette_wrappers();
+
+  // Clamp-before-cast / NaN-saturation checks, shared with the fast-math pass.
+#define HS_RUN_CLAMP_TEST(fn) fn();
+  HS_FASTMATH_CLAMP_TESTS(HS_RUN_CLAMP_TEST)
+#undef HS_RUN_CLAMP_TEST
 
   return fixture.result();
 }
