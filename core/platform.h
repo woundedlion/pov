@@ -550,7 +550,7 @@ inline FastLEDMock FastLED;
 enum LEDType { WS2801 };
 /** @brief Mock LED color-order selector for addLeds template arguments. */
 enum ColorOrder { RGB };
-#define DATA_RATE_MHZ(x) x
+#define DATA_RATE_MHZ(x) (x)
 
 // --- Mock Arduino Functions ---
 // These are deliberately at global scope to mirror Arduino/FastLED, which
