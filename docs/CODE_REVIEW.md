@@ -291,7 +291,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** An RD_N change that forgets the D_AVG re-paste fails loudly (good), but the manual step is easy to miss during regeneration and the failure surfaces only at build/test time, not at edit time.  
    - **Fix:** Consider deriving D_AVG via a constexpr sqrt (e.g. a small constexpr Newton-Raphson helper) so it tracks RD_N automatically, eliminating the hand-paste step; if that is rejected for toolchain reasons, leave a one-line pointer at the RD_N definition reminding the editor to re-paste D_AVG and regenerate the table.
 
-23. **HopfFibration inverts theta/phi local names relative to the Spherical fields they read** — `Low` · _Readability & code clarity_ · Effects (group A)  
+23. ✅ **HopfFibration inverts theta/phi local names relative to the Spherical fields they read** — `Low` · _Readability & code clarity_ · Effects (group A)  
    - **Where:** `effects/HopfFibration.h` — hopf_project(), lines 217-219; init_fibers() line 184  
    - **Issue:** init_fibers() constructs Spherical(azimuth, polar), and Spherical's ctor is Spherical(theta, phi) (core/3dmath.h:96), so sph.theta == azimuth and sph.phi == polar. hopf_project then deliberately reassigns `float theta = sph.phi; float phi = sph.theta;`, so the local `theta` actually holds the polar angle and local `phi` holds the azimuth — the exact opposite of the member names. The math is correct, but the same two identifiers carry opposite meanings one line apart from the type that defines them.  
    - **Impact:** A maintainer extending the fiber math can easily wire a new term to the wrong angle. This is a clarity landmine, not a current bug.  

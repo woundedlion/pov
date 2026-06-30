@@ -215,22 +215,22 @@ private:
    */
   Vector hopf_project(size_t i) const {
     const Spherical &sph = fibers[i];
-    float theta = sph.phi; // polar angle (co-latitude)
-    float phi = sph.theta; // azimuthal angle
+    float polar = sph.phi;
+    float azimuth = sph.theta;
 
     // Folding: amplitude gated by the Folding slider so it persists when tumble
     // is frozen, though its phase still tracks ty_rad.
-    float eta = theta / 2.0f;
-    eta += fast_sinf(phi * 2.0f + ty_rad + fold_base) * 0.2f * params.folding;
+    float eta = polar / 2.0f;
+    eta += fast_sinf(azimuth * 2.0f + ty_rad + fold_base) * 0.2f * params.folding;
 
     // Twist
-    phi += eta * params.twist;
+    azimuth += eta * params.twist;
 
     // S3 point
     float beta = flow_rad + fiber_phase[i];
     float cos_eta = fast_cosf(eta), sin_eta = fast_sinf(eta);
-    float q0 = cos_eta * fast_cosf(phi + beta);
-    float q1 = cos_eta * fast_sinf(phi + beta);
+    float q0 = cos_eta * fast_cosf(azimuth + beta);
+    float q1 = cos_eta * fast_sinf(azimuth + beta);
     float q2 = sin_eta * fast_cosf(beta);
     float q3 = sin_eta * fast_sinf(beta);
 
