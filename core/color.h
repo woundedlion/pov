@@ -2199,7 +2199,7 @@ public:
     const Color4 &a = lut_[lo];
     const Color4 &b = lut_[lo + 1];
     return Color4(a.color.lerp16(b.color, frac_to_q16(frac)),
-                  a.alpha + (b.alpha - a.alpha) * frac);
+                  hs::clamp(a.alpha + (b.alpha - a.alpha) * frac, 0.0f, 1.0f));
   }
 
   /**
