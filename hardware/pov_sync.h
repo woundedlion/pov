@@ -225,6 +225,7 @@ struct Config {
            gate_cols < W / 4 && reject_fallback > 0 && glitch_filter_cycles > 0 &&
            pulse_pitch_cols > 0 && gap_timeout_cols > pulse_pitch_cols &&
            beacon_pitch_cols > 0 && gap_timeout_cols > beacon_pitch_cols &&
+           acquire_quiet_cols > 0 && beacon_interdigit_timeout_cols > 0 &&
            effect_count > 0 && effect_count <= 64 && commit_revs > 0 &&
            // Gate epoch_repeats >= 0 first: a negative value casts to a huge
            // uint32_t and wraps the refractory bound below.
