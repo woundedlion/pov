@@ -186,6 +186,10 @@ public:
    * @param x The horizontal coordinate.
    * @param y The vertical coordinate.
    * @return The Pixel color reference.
+   * @note An override that applies a per-pixel transform (rather than a plain
+   *       buffer read) must also override overrides_get_pixel() to return true;
+   *       otherwise ISR/readback fast paths that index display_buffer() directly
+   *       bypass the transform.
    */
   virtual const Pixel &get_pixel(int x, int y) const {
     // Debug-only bounds guard, matching the write-path accessors
