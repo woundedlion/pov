@@ -84,7 +84,7 @@ Findings are numbered sequentially for the `code-review-fix` workflow. Each is r
 
 12. ✅ **`writer.flush()` bypasses the active `URLSync` authority** — `daydream/gui.js:97`. `flush()` calls `commit()` (direct `history.replaceState`), bypassing the single-writer merge the writer body funnels through. Currently dead code (no caller). Fix: remove it, or make it route through `getActiveURLSync()`.
 
-13. **`selectMimeType` JSDoc block is detached from its function** — `daydream/recorder.js:20-31`. `RECORDER_TIMESLICE_MS` is declared between the doc comment and `export function selectMimeType`, so tooling associates the docs with the const, not the function. Fix: move the const above the JSDoc (or below the function).
+13. ✅ **`selectMimeType` JSDoc block is detached from its function** — `daydream/recorder.js:20-31`. `RECORDER_TIMESLICE_MS` is declared between the doc comment and `export function selectMimeType`, so tooling associates the docs with the const, not the function. Fix: move the const above the JSDoc (or below the function).
 
 14. **Worker render handler trusts `segRange` without a rect-in-bounds check** — `daydream/segment_worker.js:161-168`. The handler validates buffer length but not that `segRange` fits `[0,canvasW)×[0,canvasH)`; a future desync would silently zero-fill via `subarray` clamping rather than fault. The controller's `composite()` has the symmetric pre-pass; the extract side does not. Fix: add the matching rect-in-bounds assertion.
 
