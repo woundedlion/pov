@@ -973,8 +973,8 @@ public:
     const int32_t lateness = static_cast<int32_t>(now - at_cycles);
     if (lateness > static_cast<int32_t>(cfg.late_censor_cycles()))
       return false; // late at the boundary: skip the whole symbol
-    if (pulses_left_ > 0 || queue_pos_ < queue_len_)
-      return false; // wire still busy (defensive; in-range config never hits it)
+    HS_CHECK(pulses_left_ == 0 && queue_pos_ >= queue_len_,
+             "SymbolEmitter::schedule_boundary: wire busy — overlapping burst");
     pulses_left_ = symbol_pulse_count(symbol);
     next_due_ = at_cycles;
     pitch_ = cfg.pulse_pitch_cycles();
