@@ -205,7 +205,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A correctness fix to the frame seed (e.g. the parallel-axis threshold) or the gnomonic clamp must be applied in many spots; one missed copy diverges silently. Pure maintainability tax — current copies are consistent.  
    - **Fix:** Factor the axis-decomposition block into a small shared helper (e.g. struct AxisProjection{nx,ny,nz,r,alpha} from a Vector) reused by all six shapes, and route Face's frame build through make_basis or a shared free function so the seed/clamp logic has one home.
 
-9. **finalize_solid silently drops PolyMesh::topology** — `Low` · _Correctness & robustness_ · Core: math & geometry  
+9. ✅ **finalize_solid silently drops PolyMesh::topology** — `Low` · _Correctness & robustness_ · Core: math & geometry  
    - **Where:** `core/solids.h` — finalize_solid, lines 55-65  
    - **Issue:** finalize_solid copies vertices, face_counts, and faces into the geometry arena but not the PolyMesh::topology array. Today this is harmless because the Solids generators never populate topology (classification runs later via MeshOps::classify_faces_by_topology), but the omission is silent: a future generator or SolidBuilder step that sets topology would have it discarded at finalize with no warning. The sibling to_polymesh and MeshOps::clone both handle topology; finalize_solid is the odd one out.  
    - **Impact:** Latent footgun: topology populated before finalize would vanish, and the consumer would re-derive or get an empty topology with no diagnostic.  
