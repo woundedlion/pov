@@ -104,7 +104,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 17. **`compile()` can silently corrupt output if a direct caller aliases `scratch_arena_a` as `geom_arena`** — `core/mesh.h:429-432` *(Holosphere · maintainability)*. The `ScratchScope` rewind would reclaim the destination buffers. `generate()` already traps this; direct callers (MeshFeedback, tests) are unguarded. **Fix:** add `HS_CHECK(&geom_arena != &scratch_arena_a && &geom_arena != &scratch_arena_b)` at the top of `compile()`.
 
-18. **`node()` doc comment contradicts itself: "free per frame" for an init-only function** — `core/reaction_graph.h:36-38` *(Holosphere · documentation)*. **Fix:** reword to "off the per-frame render path (zero per-frame cost)".
+18. ✅ **`node()` doc comment contradicts itself: "free per frame" for an init-only function** — `core/reaction_graph.h:36-38` *(Holosphere · documentation)*. **Fix:** reword to "off the per-frame render path (zero per-frame cost)".
 
 19. **`Registrar` correctness silently depends on an undocumented single-TU-per-binary invariant** — `core/effect_registry.h:150-171` *(Holosphere · maintainability)*. The anonymous-namespace `_reg` registers once per including TU; a second TU including `effects.h` would double-register and trip the startup count check. **Fix:** add a one-line note that `effects.h` must be included by exactly one TU per binary.
 

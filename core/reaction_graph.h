@@ -34,8 +34,9 @@ static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
  * @param i Node index in [0, RD_N), ordered from north pole (i=0) southward.
  * @return Unit-length direction for lattice point i.
  * @details Recomputed on demand to avoid storing 90KB in flash. Only ever called
- *          at init, so the double-precision folding below is free per frame (see
- *          the implementation note for why the wider math is needed).
+ *          at init, so the double-precision folding below is off the per-frame
+ *          render path (zero per-frame cost); see the implementation note for why
+ *          the wider math is needed.
  */
 inline Vector node(int i) {
   // Must fold y, radius, and theta in double to reproduce neighbors[] bit-for-bit:
