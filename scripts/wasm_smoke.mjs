@@ -128,6 +128,8 @@ async function main() {
           fail(`${name}: getArenaMetrics() omits the stack region`);
         } else if (stack.high_water_mark === 0) {
           fail(`${name}: stack high-water mark is 0 (canary tracking is broken)`);
+        } else if (!(stack.capacity > 0)) {
+          fail(`${name}: stack capacity ${stack.capacity} is not positive (the margin check below would divide a degenerate budget)`);
         } else if (stack.high_water_mark >= stack.capacity * STACK_MAX_FILL) {
           fail(`${name}: stack high-water mark ${stack.high_water_mark} of ` +
             `${stack.capacity} bytes leaves under ${Math.round((1 - STACK_MAX_FILL) * 100)}% ` +
