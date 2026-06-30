@@ -221,6 +221,12 @@ inline void test_arena_generation_bumps() {
   uint32_t g2 = a.get_generation();
   HS_EXPECT_TRUE(g2 > g1);
 }
+#else
+inline void test_arena_generation_bumps() {
+  ++hs_test::stats().skipped;
+  std::printf("  [SKIPPED] test_arena_generation_bumps: generation tracking is "
+              "NDEBUG-gated\n");
+}
 #endif
 
 /**
@@ -586,6 +592,12 @@ inline void test_arenavec_stale_binding_after_reset() {
   // Calling v.bind(a, ...) here would now (correctly) trip the stale-binding
   // contract assert in bind(), so it is not exercised in-process.
 }
+#else
+inline void test_arenavec_stale_binding_after_reset() {
+  ++hs_test::stats().skipped;
+  std::printf("  [SKIPPED] test_arenavec_stale_binding_after_reset: generation "
+              "tracking is NDEBUG-gated\n");
+}
 #endif
 
 /**
@@ -849,9 +861,7 @@ inline int run_memory_tests() {
   test_arena_fills_to_capacity();
   test_arena_rebind();
   test_arena_reset_high_water_mark();
-#ifndef NDEBUG
   test_arena_generation_bumps();
-#endif
   test_configure_arenas_repartition();
 
   test_tribitset_sizes();
@@ -873,9 +883,7 @@ inline int run_memory_tests() {
   test_arenavec_move_assign();
   test_arenavec_rebind_reuses();
   test_arenavec_rebind_grows();
-#ifndef NDEBUG
   test_arenavec_stale_binding_after_reset();
-#endif
   test_arenavec_zero_capacity();
 
   test_arenaspan_default();
