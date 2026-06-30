@@ -825,6 +825,76 @@ inline void test_snub_cube_is_well_formed() {
   HS_EXPECT_EQ(faces[4], 6);  // twisted square primaries
 }
 
+/**
+ * @brief Verifies a non-zero snub twist rotates each primary face about its
+ *        normal by the twist angle.
+ * @details The structural test above only exercises twist = 0 (the do_twist
+ *          block is skipped), yet the shipped snub-cube recipe twists by a
+ *          non-zero angle. A twist is a rigid rotation of each primary face
+ *          about its normal, so every in-face edge vector rotates by exactly
+ *          `twist` relative to the untwisted run. The signed in-plane angle of
+ *          an edge is centre-independent, pinning the rotation without
+ *          recomputing the face centroid the operator used.
+ */
+inline void test_snub_twist_rotates_primary_faces() {
+  const float twist = 0.28f;
+
+  std::vector<Vector> base;
+  std::vector<std::vector<uint16_t>> primary_faces;
+  {
+    Arena target(conway_target_buf, sizeof(conway_target_buf));
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, temp);
+    PolyMesh s0 = MeshOps::snub(cube, target, temp, 0.5f, 0.0f);
+    for (size_t i = 0; i < s0.vertices.size(); ++i) base.push_back(s0.vertices[i]);
+
+    // Primary faces are emitted first, one per input face (all well-formed here).
+    size_t prim = cube.get_face_counts_size();
+    size_t off = 0;
+    for (size_t fi = 0; fi < s0.face_counts.size() && fi < prim; ++fi) {
+      int cnt = s0.face_counts[fi];
+      std::vector<uint16_t> ids;
+      for (int k = 0; k < cnt; ++k) ids.push_back(s0.faces[off + k]);
+      primary_faces.push_back(ids);
+      off += cnt;
+    }
+  }
+
+  std::vector<Vector> twisted;
+  {
+    Arena target(conway_target_buf, sizeof(conway_target_buf));
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, temp);
+    PolyMesh s1 = MeshOps::snub(cube, target, temp, 0.5f, twist);
+    for (size_t i = 0; i < s1.vertices.size(); ++i) twisted.push_back(s1.vertices[i]);
+  }
+
+  HS_EXPECT_EQ(base.size(), twisted.size());
+
+  for (const auto &ids : primary_faces) {
+    const int sides = static_cast<int>(ids.size());
+    Vector n(0, 0, 0);
+    for (int k = 0; k < sides; ++k) {
+      const Vector &p = base[ids[k]];
+      const Vector &q = base[ids[(k + 1) % sides]];
+      n.x += (p.y - q.y) * (p.z + q.z);
+      n.y += (p.z - q.z) * (p.x + q.x);
+      n.z += (p.x - q.x) * (p.y + q.y);
+    }
+    n = n.normalized();
+    for (int k = 0; k < sides; ++k) {
+      uint16_t a0 = ids[k], a1 = ids[(k + 1) % sides];
+      Vector e_base = base[a1] - base[a0];
+      Vector e_twist = twisted[a1] - twisted[a0];
+      HS_EXPECT_NEAR(e_twist.length(), e_base.length(), 3e-3f);
+      float ang = std::atan2(dot(cross(e_base, e_twist), n), dot(e_base, e_twist));
+      HS_EXPECT_NEAR(ang, twist, 5e-3f);
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // transform — variadic vertex transformer pipeline.
 // ---------------------------------------------------------------------------
@@ -1029,6 +1099,7 @@ inline int run_conway_tests() {
   test_bevel_cube();
   test_conway_composition_polarity();
   test_snub_cube_is_well_formed();
+  test_snub_twist_rotates_primary_faces();
   test_conway_ops_preserve_euler_characteristic();
   test_conway_ops_drop_degenerate_primary_faces();
   test_transform_applies_translation_chain();
