@@ -124,7 +124,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 26. ✅ **`DistortedRing` builds a `Mutation` member then copies it into the timeline, leaving a dead duplicate** — `effects/DistortedRing.h:32-38,66,138` *(Holosphere · maintainability)*. Only the timeline copy is stepped; the `amplitude_mut` member is dead state holding a live ref/lambda, inviting "edit the member, see no effect" confusion. **Fix:** construct the `Mutation` inline at the `add` site and delete the member (single owner).
 
-27. **`Comets` palette rebake gate runs one redundant full-LUT rebake per cycle** — `effects/Comets.h:121-124,199-212` *(Holosphere · performance)*. The arming-frame rebake reproduces the existing LUT (the `ColorWipe` doesn't step until the next frame). *Note: the obvious "drop the `+1`" is wrong — it would skip the final-step rebake and leave the palette one step short of target.* **Fix:** start the countdown on the first frame the wipe actually steps, or rebake only when the wipe stepped this frame. Negligible cost; fix for clarity, not speed.
+27. ✅ **`Comets` palette rebake gate runs one redundant full-LUT rebake per cycle** — `effects/Comets.h:121-124,199-212` *(Holosphere · performance)*. The arming-frame rebake reproduces the existing LUT (the `ColorWipe` doesn't step until the next frame). *Note: the obvious "drop the `+1`" is wrong — it would skip the final-step rebake and leave the palette one step short of target.* **Fix:** start the countdown on the first frame the wipe actually steps, or rebake only when the wipe stepped this frame. Negligible cost; fix for clarity, not speed.
 
 #### C++ hardware, targets, tests/build
 
