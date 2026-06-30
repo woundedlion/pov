@@ -9,7 +9,6 @@
 // on a prior TU having pulled in platform.h, making this header non-self-sufficient.
 #include "platform.h"
 #include <cstring>
-#include <cstdio>
 #include <cassert>
 #include <algorithm>
 #include <variant>

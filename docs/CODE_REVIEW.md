@@ -76,7 +76,7 @@ Findings are numbered sequentially for the `code-review-fix` workflow. Each is r
 
 8. ✅ **Unused, misleading `SPI_CLOCK_HZ` constant in `POVDisplay`** — `hardware/pov_single.h:56`. The single-board target builds the FastLED/WS2801 path at 6 MHz; this dead `12000000` constant documents a DMA clock the board never uses and is referenced nowhere (the segmented driver's equivalent *is* live). Fix: delete it (or wire a real DMA-on-single-board path).
 
-9. **Unused `<cstdio>` include in `canvas.h`** — `core/canvas.h:12`. Nothing in the header uses stdio; the include pulls a stdio header into a hot core header transitively included by the whole effect tree, against the stated no-stdio-on-device posture. Fix: remove the include.
+9. ✅ **Unused `<cstdio>` include in `canvas.h`** — `core/canvas.h:12`. Nothing in the header uses stdio; the include pulls a stdio header into a hot core header transitively included by the whole effect tree, against the stated no-stdio-on-device posture. Fix: remove the include.
 
 10. **`StaticCircularBuffer` overflow guard pins the wrong integer width** — `core/static_circular_buffer.h:51-52`. The `N <= SIZE_MAX/2` `static_assert` claims to bound the `head + count - 1` intermediate, but that arithmetic is `uint32_t` and wraps at 2³², so for `N ∈ (2³¹, 2³²)` the guard is ineffective. Purely latent (all instantiations are tiny) but the asserted bound is false. Fix: tighten to `N <= (UINT32_MAX - 1) / 2`.
 
