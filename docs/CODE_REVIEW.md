@@ -72,7 +72,7 @@ sequential across the whole list.
 
 ### Low Priority
 
-8. **`core/filter.h:1077,1102` — `Blur::plot` has the same unwrapped-tap boundary gap as item 3** (`cx = round(x)` un-wrapped, `cx+1 == 2W`). *Fix:* pre-wrap the center, then offset: `int cxw = fast_wrap(cx, W); … fast_wrap(cxw + dx, W)`.
+8. ✅ **`core/filter.h:1077,1102` — `Blur::plot` has the same unwrapped-tap boundary gap as item 3** (`cx = round(x)` un-wrapped, `cx+1 == 2W`). *Fix:* pre-wrap the center, then offset: `int cxw = fast_wrap(cx, W); … fast_wrap(cxw + dx, W)`.
 
 9. **`core/filter.h:933-935` — `Screen::Trails` overrides `crosses_segments = false` without explaining why.** The override is correct (screen-trail points are seeded from and re-emitted into the same band) but contradicts the `Is2DWithHistory` fail-safe default with no comment, unlike `Blur` which explains its opposite choice. *Fix:* add the one-line rationale comment.
 
