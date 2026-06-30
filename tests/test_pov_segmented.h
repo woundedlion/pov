@@ -20,7 +20,9 @@
 namespace hs_test {
 namespace pov_segmented_tests {
 
+using pov::segment_clip;
 using pov::segment_map;
+using pov::SegmentClip;
 using pov::SegmentMap;
 using pov::segment_x_col;
 using pov::segment_y;
@@ -30,6 +32,10 @@ using pov::segment_y;
 static_assert(segment_map(1, 288, 4).y_base == 143);
 static_assert(segment_map(1, 288, 4).y_step == -1);
 static_assert(segment_x_col(true, 0, 288) == 144);
+static_assert(segment_clip(segment_map(0, 288, 4), true, 288, 4, 288).x0 == 0);
+static_assert(segment_clip(segment_map(0, 288, 4), true, 288, 4, 288).x1 == 144);
+static_assert(segment_clip(segment_map(2, 288, 4), true, 288, 4, 288).x0 == 144);
+static_assert(segment_clip(segment_map(1, 288, 4), true, 288, 4, 288).y0 == 72);
 
 /**
  * @brief Assert the N segments tile both arm columns exactly once at column @p x.
@@ -151,6 +157,41 @@ inline void test_arm_b_offset() {
 }
 
 /**
+ * @brief Verify the per-window quadrant clip rectangles for the 4-segment layout.
+ * @details Each half-rev window the four segments must tile the full canvas
+ * exactly once (the simulator's quadrant set), arm A and arm B on opposite sides
+ * and the top/bottom row bands matching segment_map.
+ */
+inline void test_segment_clip() {
+  const int S = 288, N = 4, w = 288;
+  const int ROWS = S / 2; // 144
+  const int PPS = S / N;  // 72
+
+  for (bool arm_a_left : {true, false}) {
+    std::vector<int> cover(static_cast<size_t>(w) * ROWS, 0);
+    for (int seg = 0; seg < N; ++seg) {
+      const SegmentMap m = segment_map(seg, S, N);
+      const SegmentClip c = segment_clip(m, arm_a_left, S, N, w);
+
+      // Half the width, one segment's row band.
+      HS_EXPECT_EQ(c.x1 - c.x0, w / 2);
+      HS_EXPECT_EQ(c.y1 - c.y0, PPS);
+      // Row band matches strip direction: top [0,PPS), bottom [ROWS-PPS,ROWS).
+      HS_EXPECT_EQ(c.y0, m.y_step > 0 ? 0 : ROWS - PPS);
+      // Arm B paints the opposite column half from arm A in the same window.
+      HS_EXPECT_EQ(c.x0 == 0, m.arm_b ? !arm_a_left : arm_a_left);
+
+      for (int y = c.y0; y < c.y1; ++y)
+        for (int x = c.x0; x < c.x1; ++x)
+          cover[static_cast<size_t>(x) * ROWS + y]++;
+    }
+    // The four quadrants tile the whole canvas exactly once.
+    for (size_t i = 0; i < cover.size(); ++i)
+      HS_EXPECT_EQ(cover[i], 1);
+  }
+}
+
+/**
  * @brief Module entry point: run the segmented-POV cases.
  * @return Number of failures recorded by the module.
  */
@@ -159,6 +200,7 @@ inline int run_pov_segmented_tests() {
 
   test_segment_derivation();
   test_arm_b_offset();
+  test_segment_clip();
 
   // Full-canvas tiling across representative rotation columns, including the
   // x=0 and x=w/2 frame boundaries and the wrap seam.

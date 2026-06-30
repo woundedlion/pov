@@ -2,11 +2,12 @@
 
 *Status: IMPLEMENTED. This document describes the design — now in the engine —
 for making history-reading pixel effects (today only `MeshFeedback`, via the
-`Pixel::Feedback` filter) render correctly under the simulator's segmented
-mode, without dropping pixels, while non-stateful effects keep the full
-clipping win. The seam is the WASM driver boundary (`targets/wasm/wasm.cpp`
-`setClip`) plus two compile-time filter traits; the device path is already
-correct and does not change.*
+`Pixel::Feedback` filter) render correctly under segmented mode, without
+dropping pixels, while non-stateful effects keep the full clipping win. The
+seam is the WASM driver boundary (`targets/wasm/wasm.cpp` `setClip`) and the
+device driver (`hardware/pov_segmented.h` `clip_to_segment`), plus two
+compile-time filter traits. Both drivers gate on `Effect::needs_full_frame()`;
+the device additionally excludes `persists_pixels()` effects (§2).*
 
 ---
 
@@ -21,27 +22,34 @@ retain segmented rendering's clipping win (out-of-band pixels never shaded).
 
 ## 2. Where segmentation actually lives
 
-Segmentation-by-clipping is a **simulator-only** mechanism. The two render
-paths diverge:
+Segmentation-by-clipping runs on **both** paths, but their quadrants differ:
 
-- **Device (`hardware/pov_segmented.h`).** Every Teensy renders the *full*
-  `CANVAS_W × CANVAS_H` canvas (`cur->draw_frame()`, pov_segmented.h:321).
-  The flywheel ISR's `render_column()` (pov_segmented.h:631) packs only this
-  board's LEDs out of the full buffer via `pov::segment_x_col()`. There is no
-  `set_clip` on the device. `MeshFeedback` is therefore **already correct in
-  hardware** — each board independently computes the whole frame and samples
-  its slice.
+- **Device (`hardware/pov_segmented.h`).** Each Teensy clips to its own
+  quadrant per displayed frame (`clip_to_segment`, gated on
+  `needs_full_frame()` and `persists_pixels()`); the flywheel ISR's
+  `render_column()` then packs that board's LEDs out of the clipped buffer.
+  A buffer flips at each half-rev boundary, so an arm sweeps only half the
+  columns per displayed frame — the device quadrants therefore **alternate**
+  (arm A and arm B trade column halves every window), unlike the simulator's
+  fixed assignment. That alternation is why a persisting effect cannot be
+  clipped here: its trail base for a quadrant would jump between the two arms'
+  independent buffers. `needs_full_frame()` effects (e.g. `MeshFeedback`) stay
+  full-canvas and remain correct — each board computes the whole frame and
+  samples its slice.
 
 - **Simulator (`segment_worker.js` → `targets/wasm/wasm.cpp`).** Daydream
   reproduces the *partitioning* in software: one isolated WASM module instance
-  per segment, each calling `setClip(x0, x1, y0, y1)` (wasm.cpp:465) so the
-  rasterizer's scanline culling skips out-of-clip rows/columns. The readback
-  copies the full canvas; `segment_worker.js` then extracts just the quadrant
-  rectangle (`blitSegmentRect`) before transfer (README §10.7).
+  per segment, each calling `setClip(x0, x1, y0, y1)` (gated on
+  `needs_full_frame()`) so the rasterizer's scanline culling skips out-of-clip
+  rows/columns. Each worker owns a **fixed** quadrant for the whole effect; the
+  readback copies the full canvas and `segment_worker.js` extracts just the
+  quadrant rectangle (`blitSegmentRect`) before transfer (README §10.7).
 
-So "compute the full frame per segment" is **what the device already does**.
-The simulator's clipping is an optimization that is sound for non-stateful
-effects and *wrong* for unbounded-reach feedback.
+Both clip non-stateful effects to a quadrant and leave `needs_full_frame()`
+effects at full canvas; the device's quadrant alternates per frame because it
+is true POV (two arms 180° apart), whereas the simulator composites fixed
+quadrants. The clipping is *wrong* for unbounded-reach feedback, which is why
+the gate exists.
 
 ---
 
@@ -193,7 +201,7 @@ instead of full-frame. `MeshFeedback` is unbounded and skips this tier.
 | Effect class | Reach | Simulator render bound |
 |---|---|---|
 | Non-stateful | none | segment band (+1 AA margin) — full clipping win |
-| In-place history (`Screen::Trails`) | 0 (redraws at same coord) | segment band — no margin needed; `crosses_segments = false` |
+| In-place history (`Screen::Trails`) | 0 (redraws at same coord) | sim: segment band, `crosses_segments = false`. Device alternation halves a quadrant's redraw cadence, so a device-clipped in-place-history effect would decay at the wrong rate — none ship today; flag `persists_pixels()` or full-frame before adding one |
 | Bounded spatial neighborhood (AntiAlias ±1, small blurs) | finite | band + declared `set_margin` (§4.4, future) |
 | Cross-segment history (`Pixel::Feedback`, `World::Trails`) | unbounded | full canvas; output sliced JS-side |
 
@@ -207,7 +215,7 @@ instead of full-frame. `MeshFeedback` is unbounded and skips this tier.
 | `core/canvas.h` `Effect` | add `needs_full_frame()` virtual (default `false`) |
 | `targets/wasm/wasm.cpp` `setClip` | branch on `needs_full_frame()` → full canvas vs band |
 | flush / `scan.h` / `plot.h` hot paths | **none** — a full clip already degrades correctly |
-| `hardware/pov_segmented.h` (device) | **none** — already full-frame |
+| `hardware/pov_segmented.h` (device) | `clip_to_segment` clips non-stateful effects to the per-frame quadrant; full canvas when `needs_full_frame()` or `persists_pixels()` |
 | `segment_worker.js` slicing | **none** |
 
 ---
