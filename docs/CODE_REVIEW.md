@@ -136,7 +136,7 @@ sequential across the whole list.
 
 39. ✅ **`tests/CMakeLists.txt:146-158,170-180` — standalone check executables are not roster/include-pinned.** `fastmath_clamp_check` / `h_offset_renorm_check` hand-list their `test_*` calls with none of the drift protection `run_tests` gets. *Fix:* assert a minimum expected assertion count in each `main()`.
 
-40. **`scripts/wasm_smoke.mjs:131` — stack-margin check has no explicit `capacity > 0` assert.** A degenerate zero capacity is caught only indirectly via the `hwm === 0` canary. Self-defending but opaque. *Fix:* add an explicit `capacity <= 0` failure for a clearer diagnostic.
+40. ✅ **`scripts/wasm_smoke.mjs:131` — stack-margin check has no explicit `capacity > 0` assert.** A degenerate zero capacity is caught only indirectly via the `hwm === 0` canary. Self-defending but opaque. *Fix:* add an explicit `capacity <= 0` failure for a clearer diagnostic.
 
 41. **`scripts/check_screenshots.mjs:23-24` / `scripts/effect_roster.mjs:46` — screenshot freshness compare is case-sensitive.** A casing mismatch is masked on the case-insensitive Windows dev FS but can diverge on Linux CI. *Fix:* normalize-compare and flag case-only differences.
 
