@@ -82,7 +82,7 @@ Findings are numbered sequentially for the `code-review-fix` workflow. Each is r
 
 11. ✅ **`MeshMorph` pole detection ignores `v.y`, mis-flagging non-pole vertices** — `core/animation.h:2011`. `abs(v.z) > 0.99 && abs(v.x) < 0.01` can be satisfied by a large-`y` vertex that is not a pole, spuriously selecting the alternate twist axis. Both axes are valid tie-breakers so output stays correct, but the predicate does not express "is a pole." Fix: add the missing `abs(v.y) < 0.01` clause.
 
-12. **`writer.flush()` bypasses the active `URLSync` authority** — `daydream/gui.js:97`. `flush()` calls `commit()` (direct `history.replaceState`), bypassing the single-writer merge the writer body funnels through. Currently dead code (no caller). Fix: remove it, or make it route through `getActiveURLSync()`.
+12. ✅ **`writer.flush()` bypasses the active `URLSync` authority** — `daydream/gui.js:97`. `flush()` calls `commit()` (direct `history.replaceState`), bypassing the single-writer merge the writer body funnels through. Currently dead code (no caller). Fix: remove it, or make it route through `getActiveURLSync()`.
 
 13. **`selectMimeType` JSDoc block is detached from its function** — `daydream/recorder.js:20-31`. `RECORDER_TIMESLICE_MS` is declared between the doc comment and `export function selectMimeType`, so tooling associates the docs with the const, not the function. Fix: move the const above the JSDoc (or below the function).
 
