@@ -5,6 +5,7 @@
 #include "platform.h"
 #include "3dmath.h"
 #include "memory.h"
+#include <cassert>
 #include <cmath>
 
 namespace ReactionGraph {
@@ -137,6 +138,8 @@ struct CubemapLUT {
    *         ReactionDiffusionBase::refine_nearest_node in effects/).
    */
   int lookup(const Vector &p) const {
+    // debug-only: device hot path stays a single load (assert compiles out).
+    assert(std::fabs(p.x * p.x + p.y * p.y + p.z * p.z - 1.0f) < 1e-3f);
     float ax = fabsf(p.x), ay = fabsf(p.y), az = fabsf(p.z);
     int face = 0;
     float u = 0, v = 0;
