@@ -51,6 +51,14 @@ class KDTree {
 public:
   static constexpr int MAX_K = 5; /**< Maximum number of neighbors a query may request. */
 
+  /**
+   * @brief Upper bound on source points, set by the int16_t node-link range.
+   * @details One node per point, and node indices flow through int16_t
+   * left/right links, so the point count must fit in [0, INT16_MAX]. This also
+   * bounds original_index (uint16_t) since indices stay below the count.
+   */
+  static constexpr size_t MAX_POINTS = static_cast<size_t>(INT16_MAX) + 1;
+
   ArenaVector<KDNode> nodes; /**< Arena-backed node pool, one entry per point. */
   int root_index = -1;       /**< Index of the root node, or -1 if empty. */
 
@@ -78,7 +86,7 @@ public:
     // Scope the scratch index array so the arena offset rewinds once build()
     // returns, rather than leaking ~count*4 bytes for the arena's lifetime.
     ScratchScope scratch(arena);
-    HS_CHECK(count <= static_cast<size_t>(INT16_MAX) + 1,
+    HS_CHECK(count <= MAX_POINTS,
              "KDTree source point count exceeds int16_t child-link index range");
     int *indices = (int *)arena.allocate(count * sizeof(int), alignof(int));
     for (size_t i = 0; i < count; ++i)
@@ -197,11 +205,12 @@ private:
     int median_idx = indices[mid];
 
     int new_node_idx = static_cast<int>(nodes.size());
-    // left/right are int16_t (-1 sentinel); original_index is uint16_t.
-    HS_CHECK(new_node_idx <= INT16_MAX,
+    // left/right are int16_t (-1 sentinel); original_index is uint16_t. Both
+    // ranges are covered by MAX_POINTS, which the source count is capped to.
+    HS_CHECK(static_cast<size_t>(new_node_idx) < MAX_POINTS,
              "KDTree node index exceeds int16_t child-link range");
-    HS_CHECK(median_idx <= UINT16_MAX,
-             "KDTree vertex index exceeds uint16_t original_index range");
+    HS_CHECK(static_cast<size_t>(median_idx) < MAX_POINTS,
+             "KDTree vertex index exceeds original_index range");
     nodes.emplace_back();
     nodes[new_node_idx].point = points[median_idx];
     nodes[new_node_idx].original_index = (uint16_t)median_idx;
