@@ -148,7 +148,7 @@ sequential across the whole list.
 
 45. ✅ **`daydream/state.js:236-237` — `URLSync.reset()` clears the debounce timer but doesn't null it.** Asymmetric with `schedule()`/`dispose()`; harmless but a latent footgun. *Fix:* `this.timer = null;` after the `clearTimeout`.
 
-46. **`daydream/segment_controller.js:533,541` — compositor pre-pass doesn't reject degenerate rects.** It guards `x1 > w`/`y1 > h` but not `x1 <= x0`/`y1 <= y0`, so an inverted/empty rect yields a zero/negative `expectedLen` that masks layout corruption instead of faulting. `computeSegmentRange` doesn't emit such today. *Fix:* `if (r.x1 <= r.x0 || r.y1 <= r.y0) { onWorkerFault(s, 'degenerate segment rect'); return 0; }`.
+46. ✅ **`daydream/segment_controller.js:533,541` — compositor pre-pass doesn't reject degenerate rects.** It guards `x1 > w`/`y1 > h` but not `x1 <= x0`/`y1 <= y0`, so an inverted/empty rect yields a zero/negative `expectedLen` that masks layout corruption instead of faulting. `computeSegmentRange` doesn't emit such today. *Fix:* `if (r.x1 <= r.x0 || r.y1 <= r.y0) { onWorkerFault(s, 'degenerate segment rect'); return 0; }`.
 
 47. **`daydream/segment_worker.js:96` — `init` applies pause via `if (msg.paused)`.** It can only ever enable pause and can't distinguish `false` from omitted, unlike the explicit-boolean `setAnimationsPaused` handler. Benign (engine defaults unpaused). *Fix:* `if (typeof msg.paused === 'boolean') engine.setAnimationsPaused(msg.paused);`.
 
