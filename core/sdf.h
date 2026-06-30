@@ -322,6 +322,24 @@ concept SDFShape = requires(const T &t) {
 };
 
 /**
+ * @brief Axis components plus its scan-plane projection: XZ-projection length
+ * R_val and azimuth alpha_angle.
+ */
+struct AxisProjection {
+  float nx, ny, nz, R_val, alpha_angle;
+};
+
+/**
+ * @brief Decomposes an axis into components and its scan-plane projection.
+ * @param axis The axis vector.
+ * @return Components nx/ny/nz, XZ-projection length R_val, azimuth alpha_angle.
+ */
+inline AxisProjection project_axis(const Vector &axis) {
+  return {axis.x, axis.y, axis.z, sqrtf(axis.x * axis.x + axis.z * axis.z),
+          atan2f(axis.z, axis.x)};
+}
+
+/**
  * @brief Emit the single horizontal interval where a row crosses a great-circle
  * "cap" of half-angle `acos(cos_cap)` centred on an axis whose projection onto
  * the scan plane is (ny, R_val, alpha_angle). Shared by PlanarPolygon /
@@ -512,9 +530,10 @@ struct Ring {
     normal = basis.v;
     u = basis.u;
     w = basis.w;
-    nx = normal.x;
-    ny = normal.y;
-    nz = normal.z;
+    AxisProjection ap = project_axis(normal);
+    nx = ap.nx;
+    ny = ap.ny;
+    nz = ap.nz;
 
     target_angle = radius * (PI_F / 2.0f);
     center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
@@ -530,9 +549,8 @@ struct Ring {
                         target_angle < PI_F - POLE_SAFE_MARGIN);
     inv_sin_target = safe_approx ? (1.0f / sin_target) : 0.0f;
 
-    // For get_horizontal_bounds
-    r_val = sqrtf(nx * nx + nz * nz);
-    alpha_angle = atan2f(nz, nx);
+    r_val = ap.R_val;
+    alpha_angle = ap.alpha_angle;
   }
 
   /**
@@ -711,15 +729,16 @@ struct DistortedRing {
     normal = basis.v;
     u = basis.u;
     w = basis.w;
-    nx = normal.x;
-    ny = normal.y;
-    nz = normal.z;
+    AxisProjection ap = project_axis(normal);
+    nx = ap.nx;
+    ny = ap.ny;
+    nz = ap.nz;
     target_angle = radius * (PI_F / 2.0f);
     center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
     max_thickness = thickness + max_distortion;
 
-    r_val = sqrtf(nx * nx + nz * nz);
-    alpha_angle = atan2f(nz, nx);
+    r_val = ap.R_val;
+    alpha_angle = ap.alpha_angle;
 
     float ang_min = std::max(0.0f, target_angle - max_thickness);
     float ang_max = std::min(PI_F, target_angle + max_thickness);
@@ -2371,11 +2390,12 @@ struct PlanarPolygon {
       : basis(b), thickness(th), sides(s), phase(ph) {
     HS_CHECK(sides > 0);
     apothem = thickness * cosf(PI_F / sides);
-    nx = basis.v.x;
-    ny = basis.v.y;
-    nz = basis.v.z;
-    R_val = sqrtf(nx * nx + nz * nz);
-    alpha_angle = atan2f(nz, nx);
+    AxisProjection ap = project_axis(basis.v);
+    nx = ap.nx;
+    ny = ap.ny;
+    nz = ap.nz;
+    R_val = ap.R_val;
+    alpha_angle = ap.alpha_angle;
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
     float margin = thickness + BOUNDS_MARGIN_WIDE;
@@ -2522,11 +2542,12 @@ struct SphericalPolygon {
     edge_nu = dot(en, basis.u);
 
     // Vertical/horizontal bounds (same as SDF::PlanarPolygon)
-    nx = basis.v.x;
-    ny = basis.v.y;
-    nz = basis.v.z;
-    R_val = sqrtf(nx * nx + nz * nz);
-    alpha_angle = atan2f(nz, nx);
+    AxisProjection ap = project_axis(basis.v);
+    nx = ap.nx;
+    ny = ap.ny;
+    nz = ap.nz;
+    R_val = ap.R_val;
+    alpha_angle = ap.alpha_angle;
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
     float margin = circumradius + BOUNDS_MARGIN_WIDE;
@@ -2655,11 +2676,12 @@ struct Star {
     plane_d = -(nx * v_t);
     thickness = outer_radius;
 
-    scan_nx = basis.v.x;
-    scan_ny = basis.v.y;
-    scan_nz = basis.v.z;
-    scan_r = sqrtf(scan_nx * scan_nx + scan_nz * scan_nz);
-    scan_alpha = atan2f(scan_nz, scan_nx);
+    AxisProjection ap = project_axis(basis.v);
+    scan_nx = ap.nx;
+    scan_ny = ap.ny;
+    scan_nz = ap.nz;
+    scan_r = ap.R_val;
+    scan_alpha = ap.alpha_angle;
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, basis.v.y)));
     float margin = outer_radius + BOUNDS_MARGIN_WIDE;
@@ -2778,11 +2800,12 @@ struct Flower {
     thickness = outer;
     antipode = -basis.v;
 
-    scan_nx = antipode.x;
-    scan_ny = antipode.y;
-    scan_nz = antipode.z;
-    scan_R = sqrtf(scan_nx * scan_nx + scan_nz * scan_nz);
-    scan_alpha = atan2f(scan_nz, scan_nx);
+    AxisProjection ap = project_axis(antipode);
+    scan_nx = ap.nx;
+    scan_ny = ap.ny;
+    scan_nz = ap.nz;
+    scan_R = ap.R_val;
+    scan_alpha = ap.alpha_angle;
 
     float center_phi = acosf(std::max(-1.0f, std::min(1.0f, antipode.y)));
     float margin = thickness + BOUNDS_MARGIN_WIDE;
