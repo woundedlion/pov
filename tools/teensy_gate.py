@@ -412,9 +412,11 @@ def main(argv: list[str] | None = None) -> int:
               file=sys.stderr)
         return 2
 
+    used_size_a_fallback = False
     if args.teensy_size:
         sizes = parse_teensy_size(Path(args.teensy_size).read_text(encoding="utf-8"))
     elif args.size_a:
+        used_size_a_fallback = True
         totals = region_totals_from_size_a(
             Path(args.size_a).read_text(encoding="utf-8"))
         ram1 = totals.get("ITCM", 0) + totals.get("DTCM", 0)
@@ -431,6 +433,15 @@ def main(argv: list[str] | None = None) -> int:
                 if args.readelf_secs else {})
 
     result = evaluate(args.env, budgets[args.env], sizes, symbols, sections)
+    if used_size_a_fallback:
+        # Region totals are bucketed by start VMA, so a section straddling a
+        # region boundary is mis-measured; the region PASS/FAIL is advisory here.
+        # teensy_size does the correct LMA accounting for a calibrated verdict.
+        result.notes.insert(0,
+            "ADVISORY: `size -A` fallback in use (teensy_size unavailable). Region "
+            "ceilings/floors are bucketed by start VMA and can mis-measure a "
+            "boundary-straddling section, so this region verdict is NOT calibrated "
+            "- run with teensy_size for an authoritative ceiling decision.")
     print(render_report(result, github=args.github))
     return 0 if result.passed else 1
 
