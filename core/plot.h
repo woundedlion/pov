@@ -556,16 +556,20 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   // polylines already carry the rendered arc, so this is skipped for them.
   const bool override_uv = (planar_basis != nullptr);
   float total_arc = 0.0f;
-  // Per-segment rendered arc length, reused by the draw-loop cumulant below.
+  // Per-segment rendered arc length and antipode-seam flag, reused by the draw
+  // loop below so the seam decision is taken in exactly one place.
   ArenaVector<float> seg_arc_cache;
+  ArenaVector<uint8_t> seg_seam_cache;
   if (override_uv) {
     seg_arc_cache.bind(scratch_arena_a, count);
+    seg_seam_cache.bind(scratch_arena_a, count);
     const Vector &pcenter = planar_basis->v;
     for (size_t i = 0; i < count; i++) {
       const Vector &a = points[i].pos;
       const Vector &b = points[(i + 1) % len].pos;
       const bool seam = dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
                         dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
+      seg_seam_cache.push_back(seam ? 1 : 0);
       float seg = seam ? angle_between(a, b)
                        : planar_arc_length(a, b, *planar_basis);
       seg_arc_cache.push_back(seg);
@@ -738,13 +742,11 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // so a segment with an endpoint there would project to a garbage azimuth and
     // interpolate wildly. Fall back to a (well-defined) geodesic edge for that
     // segment — near the antipode the "straight in projection" intent is
-    // meaningless anyway. Two dot products on the planar path only; no cost to
-    // the geodesic callers. Decided before the cull so the row-span bound below
-    // matches the arc shape that will actually be rendered.
-    const Vector *pc = planar_basis ? &planar_basis->v : nullptr;
-    const bool antipodal_seam =
-        pc && (dot(curr.pos, *pc) < -COS_PLANAR_ANTIPODE ||
-               dot(next.pos, *pc) < -COS_PLANAR_ANTIPODE);
+    // meaningless anyway. The seam flag was decided once in the arc pre-pass (so
+    // the cached arc metric and the rendered strategy cannot disagree) and is
+    // reused here, before the cull, so the row-span bound below matches the arc
+    // shape that will actually be rendered.
+    const bool antipodal_seam = override_uv && seg_seam_cache[i];
     const bool use_planar = planar_basis && !antipodal_seam;
 
     // Advance the rendered-arc accumulator for EVERY segment (drawn or culled) so
