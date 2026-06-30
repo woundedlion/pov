@@ -316,8 +316,8 @@ private:
     float g = (ca.color.g * a + cb.color.g * b + cc.color.g * c) * inv;
     float bl = (ca.color.b * a + cb.color.b * b + cc.color.b * c) * inv;
 
-    return Pixel(static_cast<uint16_t>(r), static_cast<uint16_t>(g),
-                 static_cast<uint16_t>(bl));
+    return Pixel(static_cast<uint16_t>(r + 0.5f), static_cast<uint16_t>(g + 0.5f),
+                 static_cast<uint16_t>(bl + 0.5f));
   }
 
   /**
