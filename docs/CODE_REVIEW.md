@@ -314,7 +314,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A reader expecting a non-linear ramp (e.g. ease-in) is misled; someone could 'fix' a perceived bug or wrongly assume the curve shape when tuning.  
    - **Fix:** Either describe it as a linear ramp, or if a non-linear curve is intended, pass the real easing function; ease_linear here is a no-op that the comment contradicts.
 
-27. **README hardware-ID description (2-bit, pins 21-22) lags the code, which supports up to 3 straps / N=8 (pins 21/22/23)** — `Low` · _Documentation_ · Hardware / device layer  
+27. ✅ **README hardware-ID description (2-bit, pins 21-22) lags the code, which supports up to 3 straps / N=8 (pins 21/22/23)** — `Low` · _Documentation_ · Hardware / device layer  
    - **Where:** `hardware/pov_segmented.h` — PIN_ID2 / kIdStraps (lines 99-106, 367-372) vs README.md line 1235/1287  
    - **Issue:** The code decodes the segment ID from up to three GPIO straps (PIN_ID0=21, PIN_ID1=22, PIN_ID2=23) with kIdStraps = log2(N) selecting how many are read, and the static_assert permits N up to 8. The README §Phantasm hardware-ID section states a flat '2-bit ID from GPIO pins 21-22' and 'ID[1:0] straps', describing only the N<=4 case.  
    - **Impact:** A maintainer extending Phantasm to N=8 (8 boards) would find the wiring/strap documentation in the README incomplete or contradictory, and pin 23 (ID2) usage undocumented at the architecture level. Purely a doc-vs-code drift; no runtime effect.  
