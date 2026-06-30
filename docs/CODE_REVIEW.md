@@ -82,7 +82,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 7. ✅ **Dead branch in `srgb_to_linear_interp` after the clamp** — `core/color.h:355-368` *(Holosphere · maintainability)*. Post-clamp `f∈[0,255]`, so `if (f <= 0.0f) return lut[0];` can only fire at `f==0`, which the `i=0`/`frac=0` path already yields. **Fix:** remove the redundant early return (keep the required `i>=255` guard).
 
-8. **`ScratchScope` doc claims a temporary-`ArenaVector` factory that does not exist** — `core/memory.h:808-816` *(Holosphere · documentation)*. The class is offset save/restore only; the "@details … typed factory" sentence misleads. **Fix:** delete the factory sentence (or add the method).
+8. ✅ **`ScratchScope` doc claims a temporary-`ArenaVector` factory that does not exist** — `core/memory.h:808-816` *(Holosphere · documentation)*. The class is offset save/restore only; the "@details … typed factory" sentence misleads. **Fix:** delete the factory sentence (or add the method).
 
 9. **`ScratchScope` section banner still says "Factory"** — `core/memory.h:804-806` *(Holosphere · documentation)*. Same drift in the header. **Fix:** rename to "RAII Arena Offset Guard".
 

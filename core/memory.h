@@ -806,8 +806,6 @@ void configure_arenas_default();
 
 /**
  * @brief RAII guard that saves/restores an arena offset.
- * @details Also provides a typed factory for temporary ArenaVectors scoped to
- * this block; the saved offset is restored on destruction.
  * @note Only allocations made after construction are reclaimed: anything bound
  * to the arena before the scope opens sits below the saved offset and survives.
  * An operator that produces output in the same arena it scratches (e.g. the
