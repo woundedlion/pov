@@ -2009,7 +2009,7 @@ public:
     Vector twist_axis = Vector(0.0f, 0.0f, 1.0f);
     bool has_poles = false;
     for (const auto &v : source.vertices) {
-      if (std::abs(v.z) > 0.99f && std::abs(v.x) < 0.01f)
+      if (std::abs(v.z) > 0.99f && std::abs(v.x) < 0.01f && std::abs(v.y) < 0.01f)
         has_poles = true;
     }
     if (has_poles) {
