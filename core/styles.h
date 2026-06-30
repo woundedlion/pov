@@ -149,8 +149,13 @@ struct Style {
    */
   void sync_hue() {
     float angle = hue_shift * (2.0f * PI_F);
-    hue_ca = fast_cosf(angle);
-    hue_sa = fast_sinf(angle);
+    float ca = fast_cosf(angle);
+    float sa = fast_sinf(angle);
+    // fast trig is non-orthonormal; renormalize so hue_rotate preserves chroma
+    // (else the scaling compounds per frame under feedback).
+    float inv = 1.0f / sqrtf(ca * ca + sa * sa);
+    hue_ca = ca * inv;
+    hue_sa = sa * inv;
   }
 
   /**
