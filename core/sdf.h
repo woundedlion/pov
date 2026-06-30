@@ -1614,6 +1614,7 @@ struct Face {
   std::span<EdgePacked> packed_edges;               /**< Packed per-edge data. */
   static constexpr int LUT_N = FaceScratchBuffer::LUT_N; /**< Max distance-LUT resolution per axis. */
   static constexpr int kMinLutN = 6;   /**< Floor for the adaptive per-face LUT resolution. */
+  static_assert(kMinLutN >= 2, "build_distance_lut divides by (n-1)");
   const float *dist_lut = nullptr;     /**< Pointer into the scratch distance LUT. */
   float lut_cx = 0.0f, lut_cy = 0.0f;  /**< LUT bounding-box center. */
   float lut_Rx = 0.0f, lut_Ry = 0.0f;  /**< LUT bounding-box half-extents. */
