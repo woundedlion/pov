@@ -130,7 +130,7 @@ sequential across the whole list.
 
 36. **`hardware/pov_sync.h:1499-1523` — master commit anchors to a self-censored epoch boundary.** When a master `ZERO_EPOCH` symbol is censored (late), `on_epoch_symbol` has already opened the commit window, so the master's commit is anchored one crossing earlier than the boundary downstream boards decode. *Fix:* defer the content-side scheduling until the epoch symbol is confirmed onto the wire — validate against the sync spec before changing.
 
-37. **`tests/test_harness.h:212-222` (+ standalone `*_check.cpp` mains) — a zero-assertion module reports pass.** Nothing guarantees a registered module actually executed an assertion, so an emptied runner stays green. *Fix:* treat `passed + failed == 0 && skipped == 0` as a module failure.
+37. ✅ **`tests/test_harness.h:212-222` (+ standalone `*_check.cpp` mains) — a zero-assertion module reports pass.** Nothing guarantees a registered module actually executed an assertion, so an emptied runner stays green. *Fix:* treat `passed + failed == 0 && skipped == 0` as a module failure.
 
 38. **`tests/test_memory.h:212-224,577-588` — NDEBUG-gated coverage vanishes silently.** The Arena generation-bump / stale-binding tests compile out under NDEBUG with no `++skipped`; the canonical preset is Debug so they run today, but a Release test build drops them invisibly. *Fix:* emit `++skipped` + a banner in the NDEBUG branch.
 

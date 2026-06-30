@@ -213,6 +213,12 @@ inline int end_module(const ModuleScope &m) {
   int passed = stats().passed - m.passed_before;
   int failed = stats().failed - m.failed_before;
   int skipped = stats().skipped - m.skipped_before;
+  // A module that ran no assertion and skipped nothing did no work; count it as
+  // a failure so an emptied runner goes red instead of silently green.
+  if (passed + failed == 0 && skipped == 0) {
+    std::printf("=== %s: NO ASSERTIONS RAN — counting as FAILURE ===\n", m.name);
+    return 1;
+  }
   if (skipped > 0)
     std::printf("=== %s: %d passed, %d failed, %d SKIPPED ===\n", m.name, passed,
                 failed, skipped);
