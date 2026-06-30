@@ -146,7 +146,7 @@ sequential across the whole list.
 
 44. ✅ **`daydream/recorder.js:33-47` + `daydream.js:646-647` — explicit MP4/WebM silently falls back.** When the chosen container is unsupported, `selectMimeType` returns `''`, `mimeType` is omitted, and `MediaRecorder` records the browser default with no warning. *Fix:* `console.warn` (or explicit fallback) when an explicit format is unsupported.
 
-45. **`daydream/state.js:236-237` — `URLSync.reset()` clears the debounce timer but doesn't null it.** Asymmetric with `schedule()`/`dispose()`; harmless but a latent footgun. *Fix:* `this.timer = null;` after the `clearTimeout`.
+45. ✅ **`daydream/state.js:236-237` — `URLSync.reset()` clears the debounce timer but doesn't null it.** Asymmetric with `schedule()`/`dispose()`; harmless but a latent footgun. *Fix:* `this.timer = null;` after the `clearTimeout`.
 
 46. **`daydream/segment_controller.js:533,541` — compositor pre-pass doesn't reject degenerate rects.** It guards `x1 > w`/`y1 > h` but not `x1 <= x0`/`y1 <= y0`, so an inverted/empty rect yields a zero/negative `expectedLen` that masks layout corruption instead of faulting. `computeSegmentRange` doesn't emit such today. *Fix:* `if (r.x1 <= r.x0 || r.y1 <= r.y0) { onWorkerFault(s, 'degenerate segment rect'); return 0; }`.
 
