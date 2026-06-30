@@ -89,3 +89,11 @@ teensy-size:
 # ratchet — pure Python, no ARM toolchain (spec §9.1). Mirrors the CI job.
 teensy-gate-test:
     python -m unittest discover -s tools/teensy_gate_tests
+
+# Regenerate the PHANTASM PCB outputs into hardware/phantasm/gen/out/ (all
+# gitignored) from the COMMITTED board. It never re-runs the schematic/PCB
+# generators, which would discard the routing + silk; needs kicad-cli on PATH
+# (or set KICAD_CLI to its full path).
+# Outputs: Gerbers + Excellon drill, JLCPCB upload zip, assembly BOM + CPL, DRC.
+pcb:
+    python hardware/phantasm/gen/fab.py
