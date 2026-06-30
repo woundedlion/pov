@@ -158,7 +158,7 @@ sequential across the whole list.
 
 50. ✅ **`daydream/tests/segment_crosscheck.test.js:52-60` — the C++ reference port mismodels `>2` Y-bands per arm.** `cppSegmentMap` branches only `armSeg === 0` vs else, collapsing every non-zero slot onto one reversed strip; correct only because the sweep caps at `N=4`. *Fix:* guard/assert the `≤2`-bands precondition or compute the band offset generally.
 
-51. **`daydream/tools/shared.js:36-48` — `showFatalError` is untested.** The user-facing WASM-load-failure banner on every tool page is pure, idempotent DOM logic with no test. *Fix:* extract it (or use a DOM stub like the existing tests) and assert one banner with the latest message.
+51. ✅ **`daydream/tools/shared.js:36-48` — `showFatalError` is untested.** The user-facing WASM-load-failure banner on every tool page is pure, idempotent DOM logic with no test. *Fix:* extract it (or use a DOM stub like the existing tests) and assert one banner with the latest message.
 
 ---
 
