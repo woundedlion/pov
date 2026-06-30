@@ -134,7 +134,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 30. ✅ **`position()` overflow assert has a blind spot for `elapsed >= 2^31`** — `hardware/pov_sync.h:604-615` *(Holosphere · correctness)*. The `int32` cast wraps negative and slips under the positive threshold (host-only; `NDEBUG` strips it). *Note: the naïve unsigned-cast fix is unsound — it false-traps the legitimate negative-delta snap path.* **Fix:** evaluate the guard on the 64-bit/unsigned elapsed magnitude **before** narrowing, preserving the negative-delta range.
 
-31. **`run_tests.cpp` include list is unpinned against the X-macro roster** — `tests/run_tests.cpp:9-104` *(Holosphere · testing)*. A roster row missing its include is a compile error, but an include left behind after a module is removed compiles silently (header-only `#pragma once`, unused inline), compiling dead test source with no signal. **Fix:** emit the includes from `HS_TEST_MODULE_LIST` via the X-macro, or add a CTest that diffs the include set against the roster.
+31. ✅ **`run_tests.cpp` include list is unpinned against the X-macro roster** — `tests/run_tests.cpp:9-104` *(Holosphere · testing)*. A roster row missing its include is a compile error, but an include left behind after a module is removed compiles silently (header-only `#pragma once`, unused inline), compiling dead test source with no signal. **Fix:** emit the includes from `HS_TEST_MODULE_LIST` via the X-macro, or add a CTest that diffs the include set against the roster.
 
 #### daydream simulator — application & segmented workers
 

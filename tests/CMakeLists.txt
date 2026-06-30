@@ -110,6 +110,12 @@ endforeach()
 add_test(NAME unit_module_roster
     COMMAND run_tests --check-modules ${_hs_test_modules})
 
+# Pin run_tests.cpp's per-module include block against the roster, catching an
+# include left behind after a module is removed (which compiles silently).
+add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
+    -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake)
+
 # Pin core/color_luts.h against its generator; skips (exit 77) without Python.
 find_program(HS_PYTHON NAMES python3 python)
 add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
