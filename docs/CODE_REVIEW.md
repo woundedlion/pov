@@ -159,7 +159,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
 
 ### Priority 2 — Medium (4 items)
 
-2. **display_buffer() fast path silently bypasses any get_pixel override that forgets to flip overrides_get_pixel()** — `Medium` · _Maintainability_ · Core: rendering pipeline  
+2. ✅ **display_buffer() fast path silently bypasses any get_pixel override that forgets to flip overrides_get_pixel()** — `Medium` · _Maintainability_ · Core: rendering pipeline  
    - **Where:** `core/canvas.h` — Effect::display_buffer (211-213), overrides_get_pixel (225), get_pixel (190-198)  
    - **Issue:** ISR/readback fast paths may index display_buffer() directly only when overrides_get_pixel() returns false; an effect that overrides get_pixel for a per-pixel transform (e.g. RingTwist) must ALSO override overrides_get_pixel()->true. Nothing ties the two together: an author can override get_pixel and forget the companion flag, and the fast path will then read raw buffer pixels, silently dropping the transform with no diagnostic. This is the same forgotten-override footgun family as needs_full_frame.  
    - **Impact:** A future scrolling/transforming effect renders correctly through get_pixel in tests but wrong on the device ISR fast path (which uses display_buffer), a hard-to-spot divergence.  
