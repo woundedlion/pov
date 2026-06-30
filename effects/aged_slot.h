@@ -22,11 +22,12 @@ struct AgedSlot {
    * @brief Linear growth radius using the age+1 endpoint convention.
    * @param max_radius Peak radius reached at the end of the growth window.
    * @param grow_frames Frames over which the radius grows from a non-zero first
-   *        step to max_radius, after which it holds.
+   *        step to max_radius, after which it holds. Must be > 0.
    * @return Radius in [0, max_radius]: non-zero on the first drawn frame and
    *         exactly max_radius once age + 1 == grow_frames.
    */
   float radius_at(float max_radius, int grow_frames) const {
+    HS_CHECK(grow_frames > 0, "AgedSlot::radius_at: grow_frames must be > 0");
     float t = hs::clamp(static_cast<float>(age + 1) / grow_frames, 0.0f, 1.0f);
     return max_radius * t;
   }
