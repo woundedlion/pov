@@ -757,8 +757,6 @@ public:
   void flush(const WorldTrailFn &trailFn, float alpha, PassFnT &&pass) {
     for (size_t i = 0; i < count_; ++i) {
       const auto &item = at(i);
-      if (item.ttl == 0)
-        continue;
       Vector v = decode(item);
       float t = hs::clamp(
           1.0f - (static_cast<float>(item.ttl) / static_cast<float>(lifetime)),
