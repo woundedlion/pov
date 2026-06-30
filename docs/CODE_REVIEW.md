@@ -383,7 +383,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A param-count skew (e.g. a stale activeEffect.paramNames after an async effect change) mis-binds animation-tracked sliders silently rather than surfacing, unlike the export path which warns.  
    - **Fix:** Make syncGUI consistent with export(): when names.length !== values.length, log once and skip the sync rather than silently truncating to the shorter length, so a definition/value drift is observable.
 
-38. **URLSync.flush/reset rebuild the URL from pathname only, dropping any location.hash** — `Low` · _Portability_ · daydream: engine & state  
+38. ✅ **URLSync.flush/reset rebuild the URL from pathname only, dropping any location.hash** — `Low` · _Portability_ · daydream: engine & state  
    - **Where:** `state.js` — flush (303), reset (258)  
    - **Issue:** Both write `${window.location.pathname}?${qs}` (or just pathname), reconstructing the URL from pathname + query and silently discarding window.location.hash if one were present. The daydream app currently uses no hash fragment, so this is latent, but URLSync is written as a general, reusable 'single owner of URL writes' layer (its JSDoc emphasizes reuse across consumers), and a consumer that relies on a hash would lose it on every debounced flush.  
    - **Impact:** Latent only for the current app; a real defect for any future page/consumer that uses a URL hash, given URLSync presents itself as a general layer.  
