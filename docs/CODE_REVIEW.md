@@ -74,7 +74,7 @@ sequential across the whole list.
 
 8. ✅ **`core/filter.h:1077,1102` — `Blur::plot` has the same unwrapped-tap boundary gap as item 3** (`cx = round(x)` un-wrapped, `cx+1 == 2W`). *Fix:* pre-wrap the center, then offset: `int cxw = fast_wrap(cx, W); … fast_wrap(cxw + dx, W)`.
 
-9. **`core/filter.h:933-935` — `Screen::Trails` overrides `crosses_segments = false` without explaining why.** The override is correct (screen-trail points are seeded from and re-emitted into the same band) but contradicts the `Is2DWithHistory` fail-safe default with no comment, unlike `Blur` which explains its opposite choice. *Fix:* add the one-line rationale comment.
+9. ✅ **`core/filter.h:933-935` — `Screen::Trails` overrides `crosses_segments = false` without explaining why.** The override is correct (screen-trail points are seeded from and re-emitted into the same band) but contradicts the `Is2DWithHistory` fail-safe default with no comment, unlike `Blur` which explains its opposite choice. *Fix:* add the one-line rationale comment.
 
 10. **`core/filter.h:1213-1214` — `Feedback` coarse-grid `cy_hi` clamp is load-bearing on the per-pixel `HS_CHECK`.** Correct as written, but a thin single-coarse-row band relies on the trap rather than producing a valid field. *Fix:* assert `cy_hi >= cy_lo` right after the clamp so a future `ds`/clip change traps at the cheap setup site.
 
