@@ -398,7 +398,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** Visible black flicker/stutter in the live segmented preview on slow effects, even though the equivalent single-engine and recorded outputs are clean. The last good composite is discarded rather than held.  
    - **Fix:** Retain the previous composite on overrun: either skip the fill(0) in segmented mode while pendingFrame is false and a prior composite exists, or re-blit the last results (they remain valid since the generation is unchanged) so the preview holds the last frame instead of flashing black.
 
-41. **Recorder mid-stream write-failure truncation path is untested** — `Low` · _Test coverage & quality_ · daydream: segment pipeline  
+41. ✅ **Recorder mid-stream write-failure truncation path is untested** — `Low` · _Test coverage & quality_ · daydream: segment pipeline  
    - **Where:** `recorder.js` — openSink() finish() lines 388-408 (failed-mid-stream branch 397-401)  
    - **Issue:** recorder.test.js covers codec selection, offscreen sizing, toggle, unsupported, chunk download, stale onstop, and the happy streaming path, but not the branch where a streaming write fails mid-session: subsequent chunks are dropped (write() line 379), and finish() closes the writable and reports truncation without downloading. This is a deliberate, user-visible data-loss decision (saved file truncated to the pre-failure prefix) with no regression test pinning it.  
    - **Impact:** A future refactor could silently change the post-failure behavior (e.g. start downloading the partial tail as if complete, or double-write) with no test catching it.  
