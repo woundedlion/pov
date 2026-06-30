@@ -88,15 +88,15 @@ public:
       frag.color = c;
     };
 
-    const int points = (int)params.points;
+    // Clamp to [1, MAX_POINTS]: a sub-1 value would no-op or desync the cache,
+    // and MAX_POINTS is the spiral-cache capacity.
+    const int points = hs::clamp((int)params.points, 1, MAX_POINTS);
     const float radius = params.star_radius;
     const int sides = (int)params.star_sides;
 
     // The base spiral depends only on (points, i) — the warp and orientation
     // animate downstream — so rebuild the trig-heavy fib_spiral only when
     // "Points" changes.
-    HS_CHECK(points <= MAX_POINTS,
-             "GnomonicStars: Points exceeds spiral-cache capacity");
     if (points != cached_points_) {
       for (int i = 0; i < points; i++) {
         spiral_cache_[i] = fib_spiral(points, /*eps=*/0.0f, i);

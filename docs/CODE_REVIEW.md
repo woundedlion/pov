@@ -116,7 +116,7 @@ sequential across the whole list.
 
 29. ✅ **`effects/MobiusGrid.h:206` — redundant per-ring basis rebuild.** `draw_axis_rings` recomputes the identical `make_basis(Quaternion(), normal)` for every ring every frame (`normal` is constant). *Fix:* hoist the basis above the draw-curves call.
 
-30. **`effects/GnomonicStars.h:91` — `points` read with only an upper-bound check.** `(int)params.points` is `HS_CHECK`ed against `MAX_POINTS` but has no lower clamp; a sub-minimum value would no-op or desync the cache. Not animated today. *Fix:* `hs::clamp((int)params.points, 1, MAX_POINTS)`.
+30. ✅ **`effects/GnomonicStars.h:91` — `points` read with only an upper-bound check.** `(int)params.points` is `HS_CHECK`ed against `MAX_POINTS` but has no lower clamp; a sub-minimum value would no-op or desync the cache. Not animated today. *Fix:* `hs::clamp((int)params.points, 1, MAX_POINTS)`.
 
 31. **`effects/DreamBalls.h:289` — undocumented sprite/ping-pong overlap margin.** The two-slot `param_slots_`/`baked_palettes_` ping-pong is safe only while at most two sprites overlap (sprite life 320 < 2×period 576). True today with comfortable margin, but the dependency is load-bearing and unstated. *Fix:* add a `static_assert`/comment pinning `sprite_life < 2 * period`.
 
