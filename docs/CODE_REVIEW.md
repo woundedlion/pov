@@ -138,7 +138,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 #### daydream simulator — application & segmented workers
 
-32. **Resolution dropdown not re-synced when the engine rejects a resolution change** — `daydream.js:457,582-584` *(daydream · correctness)*. The global GUI controller is bound to an unretained object literal; after a rejected `setResolution` reverts state, nothing calls `updateDisplay()`, so the dropdown keeps showing the rejected value (latent — both shipped presets are supported). **Fix:** retain the controller and `setValue()`/`updateDisplay()` it in the revert branch.
+32. ✅ **Resolution dropdown not re-synced when the engine rejects a resolution change** — `daydream.js:457,582-584` *(daydream · correctness)*. The global GUI controller is bound to an unretained object literal; after a rejected `setResolution` reverts state, nothing calls `updateDisplay()`, so the dropdown keeps showing the rejected value (latent — both shipped presets are supported). **Fix:** retain the controller and `setValue()`/`updateDisplay()` it in the revert branch.
 
 33. **Aborted `start()` leaves the offscreen canvas latched, so a later `targetHeight` change records at stale dimensions** — `recorder.js:121-191` *(daydream · memory-safety)*. Three abort paths return without `cleanup()`, and `ensureOffscreen` only recreates `if (!this.offscreen)`, so a subsequent `start()` reuses the stale buffer at the old size (plus a small canvas/context leak). **Fix:** call `this.cleanup()` (or null the offscreen/ctx) on every post-acquire abort.
 
