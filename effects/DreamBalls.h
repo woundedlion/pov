@@ -154,6 +154,13 @@ private:
    *          colors. The non-color live params stay shared on purpose
    *          (Copies/Radius/Speed/Alpha slider liveness).
    */
+  static constexpr int SPRITE_LIFE = 320;  /**< Visible frames per sprite. */
+  static constexpr int SPAWN_PERIOD = 288; /**< Frames between spawns. */
+  // The two-slot ping-pong is safe only while at most two sprites overlap, i.e.
+  // a sprite finishes before the spawn two periods later reuses its slot.
+  static_assert(SPRITE_LIFE < 2 * SPAWN_PERIOD,
+                "DreamBalls ping-pong needs at most two overlapping sprites");
+
   BakedPalette baked_palettes_[2];
   int active_bake_ = 0; /**< Index of the slot the next spawn rebakes into. */
   /**
@@ -267,7 +274,7 @@ private:
       params = entries[safe_idx].params;
       last_preset_idx_ = safe_idx;
     }
-    int period = 288;
+    int period = SPAWN_PERIOD;
     // Ping-pong to the inactive slot so the still-fading previous sprite keeps
     // its palette and params (sprites overlap at most pairwise, so the slot two
     // spawns back is already gone). Seed this sprite's param snapshot from the
@@ -301,7 +308,7 @@ private:
     };
 
     timeline
-        .add(0, Animation::Sprite(draw_fn, 320, 32, ease_in_out_sin, 32,
+        .add(0, Animation::Sprite(draw_fn, SPRITE_LIFE, 32, ease_in_out_sin, 32,
                                   ease_in_out_sin))
         .add(period,
              Animation::PeriodicTimer(
