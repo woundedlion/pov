@@ -318,9 +318,7 @@ struct MeshState {
         face_counts_view(other.face_counts_view),
         faces_view(other.faces_view),
         face_offsets_view(other.face_offsets_view) {
-    other.face_counts_view = {};
-    other.faces_view = {};
-    other.face_offsets_view = {};
+    other.clear_views();
   }
 
   /**
@@ -339,9 +337,7 @@ struct MeshState {
       face_counts_view = other.face_counts_view;
       faces_view = other.faces_view;
       face_offsets_view = other.face_offsets_view;
-      other.face_counts_view = {};
-      other.faces_view = {};
-      other.face_offsets_view = {};
+      other.clear_views();
     }
     return *this;
   }
@@ -355,9 +351,7 @@ struct MeshState {
     faces.clear();
     face_offsets.clear();
     topology.clear();
-    face_counts_view = {};
-    faces_view = {};
-    face_offsets_view = {};
+    clear_views();
   }
 
   /**
@@ -436,12 +430,8 @@ struct MeshState {
    * @details Required by Cloneable.
    */
   static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
-    // A reused dst may still carry borrowed views; clone produces an owned-mode
-    // mesh, so clear them up front lest a stale view shadow an unbound owned
-    // vector via the owned-first accessors.
-    dst.face_counts_view = {};
-    dst.faces_view = {};
-    dst.face_offsets_view = {};
+    // Reused dst may carry stale views; clone produces an owned-mode mesh.
+    dst.clear_views();
     copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
     copy_vector(dst.face_counts, src.get_face_counts_data(),
                 src.get_face_counts_size(), arena);
@@ -449,5 +439,13 @@ struct MeshState {
     copy_vector(dst.face_offsets, src.get_face_offsets_data(),
                 src.get_face_offsets_size(), arena);
     copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
+  }
+
+private:
+  /// Nulls the three borrowed views, restoring owned-mode discrimination.
+  void clear_views() {
+    face_counts_view = {};
+    faces_view = {};
+    face_offsets_view = {};
   }
 };
