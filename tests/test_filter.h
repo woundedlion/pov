@@ -309,6 +309,36 @@ inline void test_antialias_seam_wraps_left_column() {
 }
 
 /**
+ * @brief Verifies a sample at the upper end of the [-W, 2W) x-contract
+ *        (x_floor == 2W-1) wraps both taps in range instead of deriving the
+ *        right tap from an unwrapped 2W column.
+ * @details At x_floor == 2W-1 the second tap's source column is 2W, one past
+ *          fast_wrap's x < 2W precondition: it traps the debug assert and writes
+ *          column W (out of bounds) in release. The taps must wrap onto W-1 and 0.
+ */
+inline void test_antialias_far_seam_wraps_both_taps() {
+  constexpr int W = 64, H = 64;
+  Filter::Screen::AntiAlias<W, H> aa;
+
+  const float in_alpha = 1.0f;
+  float sum = 0.0f;
+  bool all_in_range = true, saw_w_minus_1 = false, saw_zero = false;
+  aa.plot(2.0f * W - 0.3f, 32.0f, Pixel(1, 1, 1), 0.0f, in_alpha,
+          [&](float x, float y, const Pixel &, float, float a) {
+            (void)y;
+            sum += a;
+            if (x < 0.0f || x >= static_cast<float>(W)) all_in_range = false;
+            int xi = static_cast<int>(x);
+            if (xi == W - 1) saw_w_minus_1 = true;
+            if (xi == 0) saw_zero = true;
+          });
+  HS_EXPECT_TRUE(all_in_range);
+  HS_EXPECT_TRUE(saw_w_minus_1);
+  HS_EXPECT_TRUE(saw_zero);
+  HS_EXPECT_NEAR(sum, in_alpha, 1e-4f);
+}
+
+/**
  * @brief Verifies AntiAlias CLIPS a virtual sub-pole sample (y >= H) instead of
  *        clamping it onto the last physical row — the device-only H_OFFSET path.
  * @details On the device, H_OFFSET appends virtual rows below the LED ring so a
@@ -1656,6 +1686,7 @@ inline int run_filter_tests() {
   test_antialias_weights_partition();
   test_antialias_integer_coord_single_tap();
   test_antialias_seam_wraps_left_column();
+  test_antialias_far_seam_wraps_both_taps();
   test_antialias_clips_virtual_subpole_row();
 
   test_blur_factor_zero_is_identity();

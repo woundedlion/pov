@@ -896,7 +896,7 @@ public:
     int y0 = yi;
     int y1 = y0 + 1;
     int x0 = fast_wrap(static_cast<int>(x_floor), W);
-    int x1 = fast_wrap(static_cast<int>(x_floor) + 1, W);
+    int x1 = fast_wrap(x0 + 1, W);
 
     bool y0_ok = y0 >= 0 && y0 < H;
     bool y1_ok = y1 >= 0 && y1 < H;
