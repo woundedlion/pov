@@ -116,9 +116,12 @@ public:
         cycle_timer_->set_period(2 * cd);
     });
 
-    // `palette` only changes while a ColorWipe is in flight; skip the rebake
-    // otherwise.
-    if (wipe_frames_remaining_ > 0) {
+    // `palette` changes only while a ColorWipe steps. The wipe is armed mid-step
+    // and first steps next frame, so skip the redundant rebake on the arming
+    // frame.
+    if (wipe_pending_) {
+      wipe_pending_ = false;
+    } else if (wipe_frames_remaining_ > 0) {
       baked_palette.rebake(palette);
       --wipe_frames_remaining_;
     }
@@ -207,8 +210,8 @@ private:
                           BrightnessProfile::ASCENDING);
     timeline.add(0, Animation::ColorWipe(palette, next_palette_, WIPE_FRAMES,
                                          ease_linear));
-    // +1 covers the arming frame before the wipe first steps.
-    wipe_frames_remaining_ = WIPE_FRAMES + 1;
+    wipe_frames_remaining_ = WIPE_FRAMES;
+    wipe_pending_ = true;
   }
 
   static constexpr int WIPE_FRAMES = 48; /**< Duration of a palette cross-fade ColorWipe, in frames. */
@@ -245,6 +248,7 @@ private:
   Animation::PeriodicTimer *cycle_timer_ = nullptr; /**< Handle to the timer that rolls path/palette over. */
   int last_cycle_dur_ = -1; /**< Last applied Cycle Dur, in frames; -1 forces a first apply. */
   int wipe_frames_remaining_ = 0; /**< Frames left to rebake `palette` for the in-flight wipe. */
+  bool wipe_pending_ = false; /**< Wipe armed this frame; it first steps next frame. */
 
   /**
    * @brief User-tunable parameters exposed as effect sliders.
