@@ -297,7 +297,8 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A maintainer extending the fiber math can easily wire a new term to the wrong angle. This is a clarity landmine, not a current bug.  
    - **Fix:** Drop the swap: read `float polar = sph.phi; float azimuth = sph.theta;` and use those names through the fold/twist/lift, matching Spherical's documented field semantics.
 
-24. **Flyby keeps a dead 7-field preset in a TODO comment that no longer matches the 6-field Params** — `Low` · _Maintainability_ · Effects (group A)  
+24. ✅ **Flyby keeps a dead 7-field preset in a TODO comment that no longer matches the 6-field Params** — `Low` · _Maintainability_ · Effects (group A)  
+   - **Resolution:** Corrected (not deleted) the TODO to the 6-field layout. The 7-value string was a GUI Export dump (daydream `export()` emits every registered slider in order); its 6th value `0.9240f` is the standalone **Drift** live control, which is not a `Params` preset field — dropping it gives the valid 6-field preset.  
    - **Where:** `effects/Flyby.h` — init(), line 45  
    - **Issue:** The `// TODO: Good preset for later: { 100.0000f, 8.6700f, 1.0000f, 0.5860f, 3.4320f, 0.9240f, 0.6360f }` comment lists seven floats, but Params is now six fields (the static_assert at line 217 pins N==6, and the live preset table at lines 230-235 has six floats per row). The commented preset is stale and would not compile if pasted in.  
    - **Impact:** A maintainer who copies the suggested preset hits the field-count static_assert and has to reverse-engineer which field to drop. Dead/incorrect TODO data.  
