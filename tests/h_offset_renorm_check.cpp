@@ -10,8 +10,17 @@
 
 int main() {
   const int failed = hs_test::h_offset_renorm::run_h_offset_renorm_tests();
+  const int total = hs_test::stats().passed + hs_test::stats().failed;
   std::printf("=== h_offset_renorm: %d passed, %d failed "
               "(HS_TEST_H_OFFSET=3) ===\n",
               hs_test::stats().passed, hs_test::stats().failed);
+  // Floor against silent drift: bump when adding assertions.
+  constexpr int kMinAssertions = 108;
+  if (total < kMinAssertions) {
+    std::printf("=== h_offset_renorm: only %d assertions ran, expected >= %d "
+                "(a check was dropped) ===\n",
+                total, kMinAssertions);
+    return 1;
+  }
   return failed ? 1 : 0;
 }
