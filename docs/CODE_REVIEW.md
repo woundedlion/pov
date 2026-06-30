@@ -114,7 +114,7 @@ sequential across the whole list.
 
 28. ✅ **`effects/MobiusGrid.h:55` — `spawn_pinned()` return value dropped.** Sibling `GnomonicStars` `HS_CHECK`s the identical pinned-spawn handle; here it is ignored (cannot fail at `CAPACITY 1` today, but a latent null-handle and a cross-effect inconsistency). *Fix:* capture and `HS_CHECK` the handle.
 
-29. **`effects/MobiusGrid.h:206` — redundant per-ring basis rebuild.** `draw_axis_rings` recomputes the identical `make_basis(Quaternion(), normal)` for every ring every frame (`normal` is constant). *Fix:* hoist the basis above the draw-curves call.
+29. ✅ **`effects/MobiusGrid.h:206` — redundant per-ring basis rebuild.** `draw_axis_rings` recomputes the identical `make_basis(Quaternion(), normal)` for every ring every frame (`normal` is constant). *Fix:* hoist the basis above the draw-curves call.
 
 30. **`effects/GnomonicStars.h:91` — `points` read with only an upper-bound check.** `(int)params.points` is `HS_CHECK`ed against `MAX_POINTS` but has no lower clamp; a sub-minimum value would no-op or desync the cache. Not animated today. *Fix:* `hs::clamp((int)params.points, 1, MAX_POINTS)`.
 
