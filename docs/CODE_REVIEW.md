@@ -178,11 +178,12 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A regression in a newly-added NaN/Inf-sensitive cast would pass under default-IEEE run_tests yet be wrong in the shipped fast-math WASM build — exactly the gap this TU exists to close.  
    - **Fix:** Drive the fast-math TU off a shared list/registry of clamp-before-cast cases that test_color.h also iterates (an X-macro or a function-pointer table), so adding a case automatically extends both the IEEE and fast-math passes; or at minimum add a comment-pinned invariant test that fails when test_color.h gains a clamp test not mirrored here.
 
-5. **daydream.js orchestration (applyEffect / applyResolution / adapter) is untested** — `Medium` · _Test coverage & quality_ · daydream: engine & state  
+5. ❌ **daydream.js orchestration (applyEffect / applyResolution / adapter) is untested** — `Medium` · _Test coverage & quality_ · daydream: engine & state  
    - **Where:** `daydream.js` — applyEffect (202-391), applyResolution (406-449), host.adapter (483-536)  
    - **Issue:** The most stateful, highest-churn file in the component has no unit tests, while its dependencies (resolveParamSync, AppState/URLSync, EngineHost, pixel_view) are all well covered. The intricate cross-cutting logic — preserveParams hydration, effect-resolution-on-resize, the alias self-heal in drawFrame, the export/length-skew guards, the pause-takeover on animated-slider edit — is verified only by manual browsing. This is the code most likely to regress on edit (the surrounding memory notes describe repeated CRF churn here).  
    - **Impact:** Regressions in effect/resolution switching, param hydration, or alias re-pointing would ship undetected by the test suite.  
    - **Fix:** Extract the testable decision logic from applyEffect/applyResolution into pure helpers (as was already done for resolveParamSync and sidebar_logic.resolveActiveEffect) — e.g. a function that, given (engineAcceptedEffect, appStateEffect), returns the revert action — and unit-test those. At minimum add a test for the setEffect-failure revert once Finding 1 is fixed.
+   - **Rejected (deferred):** The valid fix is a substantial refactor — extracting pure decision helpers out of the component's highest-churn, most stateful orchestration, which the finding itself notes is "not easily testable as written" — in the separate `daydream` repo whose browser-bound paths cannot be runtime-verified here. Doing it as a minimal automated change would risk regressing exactly the code most prone to it. This is dedicated test-architecture work, not a one-commit fix; recommend tackling it as a focused task.
 
 ### Priority 3 — Low (45 items)
 
