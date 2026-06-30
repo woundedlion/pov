@@ -1089,6 +1089,7 @@ struct Multiline {
  */
 template <typename PosFn>
 inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
+  HS_CHECK(num_verts >= 1);
   float cumulative_len = 0.0f;
   size_t start_idx = points.size();
   for (int i = 0; i < num_verts; i++) {
