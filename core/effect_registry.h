@@ -146,6 +146,8 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
  *          used+retain attributes keep the dynamic initializer from being
  *          discarded under LTO / --gc-sections. On non-WASM targets this macro
  *          expands to nothing.
+ * @note `effects.h` must be included by exactly one TU per binary; a second
+ *       includer registers every effect twice and trips the startup count check.
  */
 #define REGISTER_EFFECT(ClassName)                                     \
   namespace {                                                          \
