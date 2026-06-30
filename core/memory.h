@@ -801,7 +801,7 @@ void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b);
 void configure_arenas_default();
 
 // ============================================================================
-// 5. ScratchScope — RAII Guard + Factory for Temporary Memory
+// 5. ScratchScope — RAII Arena Offset Guard
 // ============================================================================
 
 /**

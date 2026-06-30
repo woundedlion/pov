@@ -84,7 +84,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 8. ✅ **`ScratchScope` doc claims a temporary-`ArenaVector` factory that does not exist** — `core/memory.h:808-816` *(Holosphere · documentation)*. The class is offset save/restore only; the "@details … typed factory" sentence misleads. **Fix:** delete the factory sentence (or add the method).
 
-9. **`ScratchScope` section banner still says "Factory"** — `core/memory.h:804-806` *(Holosphere · documentation)*. Same drift in the header. **Fix:** rename to "RAII Arena Offset Guard".
+9. ✅ **`ScratchScope` section banner still says "Factory"** — `core/memory.h:804-806` *(Holosphere · documentation)*. Same drift in the header. **Fix:** rename to "RAII Arena Offset Guard".
 
 10. **`Plot::rasterize` planar pre-pass and draw loop recompute the seam test from different sources** — `core/plot.h:564-573, 744-748` *(Holosphere · maintainability)*. The cached arc-length metric (for `v0`) and the drawn strategy use duplicated, currently-identical seam predicates; a future tweak to one silently desyncs `v0`/`v1` from the rendered position. **Fix:** compute the per-segment seam/planar decision once and consume it in both places.
 
