@@ -10,6 +10,8 @@
 
 namespace ReactionGraph {
 
+// Changing RD_N requires regenerating neighbors[] (generate_reaction_graph.py)
+// and re-pasting D_AVG below — both are guarded, neither is auto-derived.
 static constexpr int RD_N = 7680;
 static constexpr int RD_K = 6;
 

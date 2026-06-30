@@ -285,7 +285,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** Minor navigation/onboarding friction; the doc points at a symbol absent from the file/namespace it documents.  
    - **Fix:** Qualify the reference (e.g. "see ReactionDiffusionBase::refine_nearest_node in effects/") so the pointer is resolvable from within core/.
 
-22. **D_AVG is a hand-pasted float literal coupled to RD_N only by a runtime/static guard** — `Low` · _Maintainability_ · Core: simulation kernels  
+22. ✅ **D_AVG is a hand-pasted float literal coupled to RD_N only by a runtime/static guard** — `Low` · _Maintainability_ · Core: simulation kernels  
    - **Where:** `core/reaction_graph.h` — D_AVG definition and its static_assert, lines 21-30  
    - **Issue:** D_AVG = sqrt(4*pi/RD_N) is stored as a frozen literal because std::sqrt is not constexpr here. The static_assert (squared multiply-only form) and test_d_avg_matches_rd_n do catch divergence, so this is guarded — but it remains a manual coupling: bumping RD_N requires regenerating neighbors[] AND re-pasting D_AVG by hand, and the only thing stopping a stale value is the assert/test. This is a maintainability landmine rather than a defect.  
    - **Impact:** An RD_N change that forgets the D_AVG re-paste fails loudly (good), but the manual step is easy to miss during regeneration and the failure surfaces only at build/test time, not at edit time.  
