@@ -407,43 +407,45 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A future refactor could silently change the post-failure behavior (e.g. start downloading the partial tail as if complete, or double-write) with no test catching it.  
    - **Fix:** Add a recorder test that opens the streaming sink, succeeds on the first write, then makes writable.write throw on a later chunk, and asserts the writable is closed, no anchor download fires, and the truncation error is logged.
 
-42. **Color URL-hydration sets a string, then replays it to onChange handlers that expect the bound color type** — `Low` · _Correctness & robustness_ · daydream: UI layer _(severity adjusted by verifier)_  
+42. ❌ **Color URL-hydration sets a string, then replays it to onChange handlers that expect the bound color type** — `Low` · _Correctness & robustness_ · daydream: UI layer _(severity adjusted by verifier)_  
    - **Where:** `gui.js` — addColor() lines 309-318 (object[prop] = urlVal) and attachUrlWriter() lines 182-196 (applyOnLoad replay)  
    - **Issue:** When a color param is hydrated from the URL, addColor assigns object[prop] = urlVal, a raw string, regardless of the control's original bound type (a THREE.Color-like object, a [r,g,b] array, or a hex number). The applyUrlWriter then replays each newly-registered onChange handler with controller.getValue(), which now returns that string. A handler written for the bound type (e.g. one calling v.getHexString() or v[0]) receives a string and will misbehave or throw. The serializer at lines 324-335 also assumes the live value keeps its original type, so after a URL-driven swap to string it would take the string branch instead of the object/array branch.  
    - **Impact:** Any color control wired with .onChange and deep-linked would receive the wrong value type at load time. Currently latent because addColor is unused in the app, but it is a public method of the GUI wrapper and a footgun for future use.  
    - **Fix:** Coerce the hydrated URL color into the same representation as the existing object[prop] (e.g. parse into a new THREE.Color when the bound value is a Color, or an [r,g,b] array when it is an array) before assignment, or document that addColor only supports string-valued color bindings.
+   - **Rejected:** Obsoleted by removing addColor as dead code (finding 43). The type-hydration bug lived entirely inside addColor; with that method gone there is no live code path to fix.
 
-43. **addColor is dead code (defined and tested-by-omission, never used by the app)** — `Low` · _Maintainability_ · daydream: UI layer  
+43. ✅ **addColor is dead code (defined and tested-by-omission, never used by the app)** — `Low` · _Maintainability_ · daydream: UI layer  
    - **Where:** `gui.js` — addColor() lines 304-345  
    - **Issue:** DeepLinkGUI.addColor is fully implemented (URL validation, serialization for Color/array/number/string, updateDisplay) but no caller exists: a repo-wide search for .addColor( finds only the gui.js definition and unrelated three.js vendor code. The gui.test.js suite never exercises it either, so its several serialization branches and the type-hydration issue above are untested.  
    - **Impact:** Carries an untested, subtly-buggy surface that future callers will trust. Per the project's prefer-deleting-dead-code guidance, this is a candidate for removal.  
    - **Fix:** Either remove addColor until a color control is actually needed, or add a caller plus tests covering its serialization and hydration branches (and fix the type-inconsistency finding).
 
-44. **isValidColorString accepts out-of-range and fractional rgb() components** — `Low` · _Error handling & safety_ · daydream: UI layer  
+44. ❌ **isValidColorString accepts out-of-range and fractional rgb() components** — `Low` · _Error handling & safety_ · daydream: UI layer  
    - **Where:** `gui.js` — isValidColorString() lines 34-37 (the rgb() regex)  
    - **Issue:** The rgb() validator matches any non-negative decimal in each channel: rgb(999, 1.5, .3) passes. lil-gui's parser expects integer 0-255 components, so an out-of-range or fractional deep link is accepted by the gate yet may render a clamped or unexpected swatch — defeating the stated purpose of the validator (rejecting malformed links before the parser renders a broken swatch). The serializer only emits 0-255 integers, so legitimate round-tripped links are unaffected; only hand-edited/garbage links slip through.  
    - **Impact:** A hand-crafted deep link with bad rgb() values bypasses validation and may produce an incorrect color, the exact case the validator was added to prevent.  
    - **Fix:** Tighten the rgb() regex to integer 0-255 components (e.g. (?:25[0-5]|2[0-4]\d|1?\d?\d)) and reject fractions, matching what the serializer emits and what lil-gui consumes.
+   - **Rejected:** Obsoleted by removing addColor as dead code (finding 43). isValidColorString was used only by addColor and was removed with it, so the lax regex no longer gates anything.
 
-45. **Circular module dependency between geometry.js and driver.js** — `Low` · _Architecture & design elegance_ · daydream: UI layer  
+45. ✅ **Circular module dependency between geometry.js and driver.js** — `Low` · _Architecture & design elegance_ · daydream: UI layer  
    - **Where:** `geometry.js` — line 7 (import { Daydream } from "./driver.js") combined with driver.js:9 (import { pixelToSpherical } from "./geometry.js")  
    - **Issue:** geometry.js imports Daydream from driver.js while driver.js imports pixelToSpherical from geometry.js, forming an import cycle. It is currently safe only because geometry.js touches Daydream lazily inside pixelToSpherical (a live binding read at call time), not at module-evaluation time. Any future top-level use of Daydream in geometry.js, or a reorder that evaluates geometry first, would observe Daydream as undefined.  
    - **Impact:** Fragile coupling: a seemingly innocuous refactor (e.g. hoisting a Daydream constant to module scope in geometry.js) would break the simulator with a hard-to-diagnose undefined error.  
    - **Fix:** Break the cycle by passing the needed geometry constants (W, H, H_OFFSET) into pixelToSpherical as parameters, or by extracting those constants into a small shared module that both files import, so geometry.js no longer depends on driver.js.
 
-46. **Gradient-shape enum defined twice and must be kept in sync by hand** — `Low` · _Maintainability_ · daydream: shared utilities  
+46. ✅ **Gradient-shape enum defined twice and must be kept in sync by hand** — `Low` · _Maintainability_ · daydream: shared utilities  
    - **Where:** `tools/palette_math.js` — GRADIENT_SHAPE_INDEX (line 51) vs GRADIENT_SHAPES Set (line 412)  
    - **Issue:** The GradientShape enumerator set is encoded in two independent literals: GRADIENT_SHAPE_INDEX = {STRAIGHT:0,CIRCULAR:1,VIGNETTE:2,FALLOFF:3} (used by the GenerativePalette constructor to look up the bake index) and the exported GRADIENT_SHAPES Set (used by generativePaletteCpp to reject unknown tokens). Both mirror core/color.h's enum order but neither derives from the other.  
    - **Impact:** Adding/reordering a gradient shape in the engine requires editing both literals plus the C++; updating one and not the other yields a tool that validates a token but bakes the wrong (or undefined) shape index, or vice versa, with no test catching the divergence.  
    - **Fix:** Derive one from the other — e.g. build GRADIENT_SHAPES from Object.keys(GRADIENT_SHAPE_INDEX) (preserving insertion order) so there is a single source of truth for the shape enumerators.
 
-47. **GenerativePalette profile validation diverges from the exported validation Sets** — `Low` · _Architecture & design elegance_ · daydream: shared utilities  
+47. ✅ **GenerativePalette profile validation diverges from the exported validation Sets** — `Low` · _Architecture & design elegance_ · daydream: shared utilities  
    - **Where:** `tools/palette_math.js` — GenerativePalette constructor satProfile/brightnessProfile switches (lines 226-269) vs SATURATION_PROFILES/BRIGHTNESS_PROFILES (lines 414-415) used by generativePaletteCpp (lines 437-440)  
    - **Issue:** The same four profile vocabularies are validated through two unrelated mechanisms: the class constructor uses inline switch `default: throw` arms (and validates harmonyType only later, inside calcHues), while generativePaletteCpp validates against the exported Sets with a shared reject() helper. The constructor's error messages do not enumerate the allowed values the way calcHues and the codegen path do.  
    - **Impact:** The runtime preview (class) and the C++ export (generativePaletteCpp) can accept/reject slightly different inputs, and a new profile value must be added in two places with inconsistent error UX. This is a latent inconsistency rather than a current bug.  
    - **Fix:** Have the constructor validate against the same exported Sets (e.g. a shared assertMember(label, token, set) used by both the class and generativePaletteCpp), so the preview and the export share one vocabulary and one error format.
 
-48. **createSlider validates bounds/step/scale but not the initial value** — `Low` · _Error handling & safety_ · daydream: shared utilities  
+48. ✅ **createSlider validates bounds/step/scale but not the initial value** — `Low` · _Error handling & safety_ · daydream: shared utilities  
    - **Where:** `tools/slider.js` — createSlider, clampedValue at line 71 (cfg.value consumed lines 71, 85, 91)  
    - **Issue:** min/max/step/scale are validated with NaN-rejecting guards that throw, but cfg.value is not. A NaN (or non-numeric) value flows through Math.min(max, Math.max(min, NaN)) === NaN, so slider.value becomes String(Math.round(NaN)) === 'NaN' (which <input type=range> silently coerces to the range midpoint) and valueSpan.textContent becomes 'NaN'.toFixed(...) which throws or shows 'NaN'.  
    - **Impact:** A caller passing an undefined/NaN initial value gets a silently mispositioned slider and/or a 'NaN' readout instead of the clear, named error the other invalid-config cases produce. Low impact because callers normally pass valid numbers.  
