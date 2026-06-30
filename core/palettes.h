@@ -112,6 +112,14 @@ struct MeshPaletteBank {
   static constexpr int N = BakedPaletteBank::N; // 5
 
   /**
+   * @brief Arena bytes bake_all() consumes, including worst-case per-palette
+   *        alignment padding.
+   */
+  static constexpr size_t required_arena_bytes() {
+    return N * BakedPalette::required_arena_bytes();
+  }
+
+  /**
    * @brief Standard source palettes, in slot order.
    * @return Array of pointers to the constexpr source palettes. The size is
    *         deduced from the list (CTAD) — not fixed to N — so a list that
