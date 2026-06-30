@@ -187,11 +187,12 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
 
 ### Priority 3 — Low (45 items)
 
-6. **DistortedRing max_distortion underestimate silently culls geometry on device (debug-only guard)** — `Low` · _Correctness & robustness_ · Core: math & geometry _(severity adjusted by verifier)_  
+6. ❌ **DistortedRing max_distortion underestimate silently culls geometry on device (debug-only guard)** — `Low` · _Correctness & robustness_ · Core: math & geometry _(severity adjusted by verifier)_  
    - **Where:** `core/sdf.h` — DistortedRing ctor, lines 707-743 (esp. the #ifndef NDEBUG sampling guard 729-742)  
    - **Issue:** max_distortion must be a true upper bound on |shift_fn|; it widens the row, column, and per-pixel reject bands. An underestimate silently culls genuine arcs with no runtime diagnostic. The only protection is a 256-sample sweep compiled out under NDEBUG (device + release), and a coarse sample grid can still miss a sharp peak even in debug. This is the one SDF shape carrying a load-bearing numeric precondition with no always-on guard and no soft margin.  
    - **Impact:** A future caller (or a parameter-driven shift_fn whose peak the 256-sample grid misses) drops visible arcs only on hardware/release, where it is hardest to diagnose. The failure is silent under-coverage, not a trap.  
    - **Fix:** Either bake a small fixed safety margin into the band widening (e.g. use max_distortion * 1.05 + small_eps for cos_*_limit) so a modest underestimate degrades to slight over-scan instead of dropped geometry, or document at every call site that max_distortion is a hard correctness contract and add the exact bound to a shared constant. At minimum increase kBoundSamples or note the peak-miss risk in the @param.
+   - **Rejected:** max_distortion is a constructor-time caller contract already swept by the 256-sample debug guard. The proposed always-on fixes trade a never-observed Low risk for real cost: a baked safety margin widens the per-pixel reject bands (over-scan on the rasterizer-bound hot path, against the band-narrowing the scan path is built around), and a larger kBoundSamples only grows setup cost without making the guard always-on. Consistent with the codebase's deliberate unenforced-hot-path-precondition philosophy.
 
 7. ✅ **MeshState owned-vs-borrowed accessors discriminate on is_bound(), a fragile coupling easy to break** — `Low` · _Maintainability_ · Core: math & geometry _(severity adjusted by verifier)_  
    - **Where:** `core/spatial.h` — MeshState::get_face_counts_data/size, get_faces_data/size, get_face_offsets_data/size (lines 377-418); clone (438-452)  
