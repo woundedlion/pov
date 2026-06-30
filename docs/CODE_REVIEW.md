@@ -152,7 +152,7 @@ sequential across the whole list.
 
 47. ✅ **`daydream/segment_worker.js:96` — `init` applies pause via `if (msg.paused)`.** It can only ever enable pause and can't distinguish `false` from omitted, unlike the explicit-boolean `setAnimationsPaused` handler. Benign (engine defaults unpaused). *Fix:* `if (typeof msg.paused === 'boolean') engine.setAnimationsPaused(msg.paused);`.
 
-48. **`daydream/segment_controller.js:530` vs `665` — compositor and stats loop over two different length sources.** `composite` uses `results.length`, `updateStats` uses `this.count`; equal via `create()` today but a fragile dual source. *Fix:* use one `const n = this.count` (or assert the invariant).
+48. ✅ **`daydream/segment_controller.js:530` vs `665` — compositor and stats loop over two different length sources.** `composite` uses `results.length`, `updateStats` uses `this.count`; equal via `create()` today but a fragile dual source. *Fix:* use one `const n = this.count` (or assert the invariant).
 
 49. **`daydream/tools/color.js:97-117` — dead OKLCH mirror.** `srgbToOklch`/`oklchToLinearRgb` (and their `oklab↔oklch` helpers) are imported into `palettes.html` but never called — the browser bakes via WASM — yet `color.test.js` pins them with no WASM-parity justification. *Fix:* drop the unused exports/imports and their tests, or add a header note that they are not yet wired.
 
