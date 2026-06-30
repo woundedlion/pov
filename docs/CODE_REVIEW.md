@@ -308,7 +308,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** A future third caller of this shared utility could pass grow_frames == 0 and get a silently-wrong full radius instead of a fail-fast trap, contrary to the project's fail-fast philosophy for invariant violations.  
    - **Fix:** State the `grow_frames > 0` precondition in the @param doc and/or add `HS_CHECK(grow_frames > 0)` so the contract is enforced at the shared helper rather than relied on per-caller.
 
-26. **AgedSlot::radius_at doc says 'Eased' but applies the identity easing ease_linear** — `Low` · _Documentation_ · Effects (group B)  
+26. ✅ **AgedSlot::radius_at doc says 'Eased' but applies the identity easing ease_linear** — `Low` · _Documentation_ · Effects (group B)  
    - **Where:** `effects/aged_slot.h` — radius_at() @brief line 23 and body line 32  
    - **Issue:** The @brief reads 'Eased growth radius' and RingShower/Thrusters repeat 'eased radius' / 'one eased step in', but the implementation multiplies by ease_linear(t), which is the identity — the growth is purely linear in age. The 'eased' wording implies a non-linear curve that does not exist.  
    - **Impact:** A reader expecting a non-linear ramp (e.g. ease-in) is misled; someone could 'fix' a perceived bug or wrongly assume the curve shape when tuning.  

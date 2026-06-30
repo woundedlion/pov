@@ -106,9 +106,9 @@ private:
     Ring() : normal(random_vector()) {}
 
     /**
-     * @brief Eased radius for the frame currently being drawn.
+     * @brief Linear radius for the frame currently being drawn.
      * @return Radius in world units, in [0, RADIUS_MAX].
-     * @details Uses age + 1 (not age) so the first draw renders one eased step
+     * @details Uses age + 1 (not age) so the first draw renders one linear step
      *          in rather than radius 0, and the ring reaches RADIUS_MAX on its
      *          final visible frame (age + 1 == life).
      */
@@ -188,7 +188,7 @@ private:
   }
 
   /**
-   * @brief Draws one ring slot at its current eased radius and opacity.
+   * @brief Draws one ring slot at its current radius and opacity.
    * @param canvas Target canvas for this frame.
    * @param opacity Per-frame opacity multiplier in [0, 1] from opacity_at().
    * @param index Slot index into the rings array.
