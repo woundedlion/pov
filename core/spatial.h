@@ -102,10 +102,9 @@ public:
   StaticCircularBuffer<Neighbor, MAX_K> nearest(const Vector &target,
                                                 size_t k = 1) const {
     StaticCircularBuffer<Neighbor, MAX_K> result;
+    HS_CHECK(k <= static_cast<size_t>(MAX_K));
     if (root_index == -1 || k == 0) // k is size_t; only k == 0 is the empty case
       return result;
-
-    HS_CHECK(k <= static_cast<size_t>(MAX_K));
 
     // Bounded scratch buffer of the k best candidates so far, kept unsorted.
     struct Candidate {
