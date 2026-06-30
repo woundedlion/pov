@@ -2331,7 +2331,7 @@ struct TimelineEvent {
   static constexpr size_t MAX_ANIM_SIZE = 112;
 #endif
 
-  int start = 0; /**< Global frame at which the animation begins stepping. */
+  uint32_t start = 0; /**< Global frame at which the animation begins stepping. */
   /**
    * @brief Whether this event's inline animation pointer was handed out via
    * Timeline::add_get().
@@ -2429,7 +2429,7 @@ static constexpr int TIMELINE_MAX_EVENTS = 64;
 extern DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];
 // True while a Timeline instance is alive (guards the single-singleton invariant).
 extern bool global_timeline_live;
-extern int global_timeline_t;          // current global frame count
+extern uint32_t global_timeline_t;     // current global frame count
 extern int global_timeline_num_events; // current number of active events
 
 /**
@@ -2659,7 +2659,7 @@ public:
    *          than a parallel per-effect counter that can silently desync if it
    *          isn't advanced in exact lockstep with step().
    */
-  int frame() const { return global_timeline_t; }
+  uint32_t frame() const { return global_timeline_t; }
 
   static constexpr int MAX_EVENTS =
       TIMELINE_MAX_EVENTS; /**< Must match global_timeline_events array size. */

@@ -766,11 +766,11 @@ inline void test_timeline_clear_resets_state() {
   tl.add(0, Animation::Transition(a, 10.0f, 5, ease_linear));
   tl.step(fake_canvas());
   HS_EXPECT_EQ(global_timeline_num_events, 1);
-  HS_EXPECT_EQ(global_timeline_t, 1);
+  HS_EXPECT_EQ(global_timeline_t, 1u);
 
   tl.clear();
   HS_EXPECT_EQ(global_timeline_num_events, 0);
-  HS_EXPECT_EQ(global_timeline_t, 0); // cursor rewound
+  HS_EXPECT_EQ(global_timeline_t, 0u); // cursor rewound
 
   // Reusable after clear().
   float b = 0.0f;

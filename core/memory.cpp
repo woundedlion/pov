@@ -123,7 +123,7 @@ bool global_timeline_live = false;
  * @details Free global so every Timeline instance reads/writes the same cursor
  * (see animation.h).
  */
-int global_timeline_t = 0;
+uint32_t global_timeline_t = 0;
 /**
  * @brief Shared singleton event count for global_timeline_events.
  * @details Free global so every Timeline instance reads/writes the same count
