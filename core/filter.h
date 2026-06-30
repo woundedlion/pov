@@ -974,6 +974,9 @@ public:
     float ttl = static_cast<float>(lifetime) - age;
     if (ttl > 0.0f && points_) {
       if (num_pixels == MAX_PIXELS) {
+        // At capacity: O(1) drop of an arbitrary slot. Saturation eviction
+        // order is intentionally undefined (World::Trails swap-removes
+        // likewise); per-point ttl fade absorbs the transient.
         num_pixels--;
         points_[0] = points_[num_pixels];
       }
