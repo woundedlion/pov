@@ -78,7 +78,7 @@ public:
     Canvas canvas(*this);
 
     // Mirror the slider into the warp before the timeline advances it.
-    warp_->speed = params.warp_speed;
+    warp_->set_speed(params.warp_speed);
 
     timeline.step(canvas);
 
