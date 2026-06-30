@@ -524,9 +524,12 @@ inline Vector logPolarToVector(float rho, float theta) {
 inline LogPolar vectorToLogPolar(const Vector &v) {
   HS_CHECK(std::abs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
   // rho = 0.5*log((1+y)/(1-y)) diverges to ±inf at the poles (v.y -> ±1); clamp
-  // each to a finite sentinel so no non-finite rho leaks downstream.
-  const float numer = 1.0f + v.y;
-  const float denom = 1.0f - v.y;
+  // each to a finite sentinel so no non-finite rho leaks downstream. y is clamped
+  // first: the unit-vector tolerance admits |v.y| slightly >1, which would drive
+  // numer/denom negative and logf to NaN.
+  const float y = hs::clamp(v.y, -1.0f, 1.0f);
+  const float numer = 1.0f + y;
+  const float denom = 1.0f - y;
   if (std::abs(denom) < math::EPS_GEOMETRIC) {
     return {LOGPOLAR_RHO_SENTINEL, 0.0f}; // North pole sentinel (rho -> +inf)
   }
