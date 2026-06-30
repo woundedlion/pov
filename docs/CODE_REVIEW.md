@@ -211,7 +211,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** Latent footgun: topology populated before finalize would vanish, and the consumer would re-derive or get an empty topology with no diagnostic.  
    - **Fix:** Either copy topology in finalize_solid for symmetry with clone()/to_polymesh, or add a brief comment stating that finalize intentionally drops topology because it is always (re)classified downstream, so the omission reads as deliberate.
 
-10. **vector_to_pixel's unit-vector precondition is unenforced and a non-unit input returns a silently-wrong row** — `Low` · _Error handling & safety_ · Core: math & geometry  
+10. ✅ **vector_to_pixel's unit-vector precondition is unenforced and a non-unit input returns a silently-wrong row** — `Low` · _Error handling & safety_ · Core: math & geometry  
    - **Where:** `core/geometry.h` — vector_to_pixel<W,H>, lines 488-494 (contract documented 471-486)  
    - **Issue:** vector_to_pixel computes phi = fast_acos(clamp(v.y,...)), which is the correct latitude only when |v| == 1; the clamp only keeps acos in-domain, it does not correct a non-unit input. The docblock is explicit that this is an unenforced caller contract withheld from the per-pixel hot path by the fail-fast doctrine. That reasoning is sound for the device, but there is no debug-only assert (unlike the sibling pixel_to_vector overloads, which carry assert() range checks) to catch a non-unit v in native/WASM-debug builds.  
    - **Impact:** A caller that forgets to normalize before projecting gets a wrong row with no signal even in debug, where pixel_to_vector would have asserted. Easy to misattribute downstream rendering artifacts.  
