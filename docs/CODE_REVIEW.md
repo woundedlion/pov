@@ -172,7 +172,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 46. ✅ **Init `paused` branch in the worker is never covered** — `tests/segment_worker.test.js:116-129` *(daydream · testing)*. `init` with `paused:true` calls `setAnimationsPaused(true)`, but tests never pass it, so a regression resuming animation on a paused-pool rebuild wouldn't be caught. **Fix:** dispatch `init` with `paused:true` and assert `paused === true`.
 
-47. **`engine_contract_wasm` pins `getParamValues` existence but not its array-of-numbers shape** — `tests/engine_contract_wasm.test.js:22-31` *(daydream · testing)*. The worker/controller depend on it being array-like of numbers (real binding returns a `Float32Array` view, `FakeEngine` a plain array), but the contract test never invokes it. **Fix:** call it after `drawFrame()` and assert `.length` is numeric and every element is a number.
+47. ✅ **`engine_contract_wasm` pins `getParamValues` existence but not its array-of-numbers shape** — `tests/engine_contract_wasm.test.js:22-31` *(daydream · testing)*. The worker/controller depend on it being array-like of numbers (real binding returns a `Float32Array` view, `FakeEngine` a plain array), but the contract test never invokes it. **Fix:** call it after `drawFrame()` and assert `.length` is numeric and every element is a number.
 
 48. **`setParameter` contract is skipped when an effect exposes no params** — `tests/engine_contract_wasm.test.js:44-57` *(daydream · testing)*. The pin is gated behind `if (defs.length > 0)`; a zero-param default silently skips it (reads as passing). **Fix:** assert `defs.length > 0` for the bootstrap effect, or pick an effect known to expose a parameter.
 
