@@ -27,9 +27,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # Shards partition all registered module tests plus the four standalone
-        # checks (color_luts provenance, fastmath_clamp release-flag,
-        # h_offset_renorm device-offset, stack_budget) so every registered test
+        # Shards partition all registered module tests plus the standalone
+        # checks (color_luts provenance + its generator --check, fastmath_clamp
+        # release-flag, h_offset_renorm device-offset, stack_budget, and the
+        # module_roster / module_includes roster pins) so every registered test
         # runs in exactly one job.
         # SINGLE SOURCE OF TRUTH: the sanitizers job references this same anchored
         # list (*shard_matrix), and the shard-coverage job (which references the
@@ -38,9 +39,9 @@ jobs:
         # running in zero Linux/sanitizer jobs. Adjust groupings here only.
         include: &shard_matrix
           - shard: 1
-            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|hankin|geometry)$"
+            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|hankin|geometry|module_roster|module_includes)$"
           - shard: 2
-            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|palettes|easing_waves|platform|filter|plot_scan|fastmath_clamp)$"
+            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|palettes|easing_waves|platform|filter|plot_scan|fastmath_clamp)$"
           - shard: 3
             test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|generators|animation|effects|h_offset_renorm|stack_budget)$"
           - shard: 4
