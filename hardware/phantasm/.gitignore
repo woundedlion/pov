@@ -1,0 +1,15 @@
+# KiCad lock / autosave / backup files
+*.lck
+~*.lck
+*.kicad_prl
+*-bak
+*.bak
+fp-info-cache
+# generated reports / outputs / renders
+*.net
+*.rpt
+*.pdf
+gen/out/
+renders/
+# IDE local history
+.history/
