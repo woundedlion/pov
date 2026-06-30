@@ -168,7 +168,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 44. ✅ **`computeSegmentRange`'s height-vs-bands guard is never exercised** — `tests/segment_layout.test.js:65-75` *(daydream · testing)*. No test passes a valid even total with `h < total/2` to hit the "height must be >= N y-segments per arm" throw. **Fix:** add `computeSegmentRange(0, 8, 96, 3)` expecting the `/y-segments per arm/` throw.
 
-45. **Worker render-time length & bounds invariant throws are untested** — `tests/segment_worker.test.js:144-170` *(daydream · testing)*. `FakeEngine.getPixels` always returns the exact-size buffer, so the only protection against a silently-short buffer (the throw — `extractSegment` clamps rather than throws) has no test. **Fix:** override `getPixels` to return a wrong-length buffer and assert the rethrow throws `/pixel buffer length/`.
+45. ✅ **Worker render-time length & bounds invariant throws are untested** — `tests/segment_worker.test.js:144-170` *(daydream · testing)*. `FakeEngine.getPixels` always returns the exact-size buffer, so the only protection against a silently-short buffer (the throw — `extractSegment` clamps rather than throws) has no test. **Fix:** override `getPixels` to return a wrong-length buffer and assert the rethrow throws `/pixel buffer length/`.
 
 46. **Init `paused` branch in the worker is never covered** — `tests/segment_worker.test.js:116-129` *(daydream · testing)*. `init` with `paused:true` calls `setAnimationsPaused(true)`, but tests never pass it, so a regression resuming animation on a paused-pool rebuild wouldn't be caught. **Fix:** dispatch `init` with `paused:true` and assert `paused === true`.
 
