@@ -154,7 +154,7 @@ sequential across the whole list.
 
 48. ✅ **`daydream/segment_controller.js:530` vs `665` — compositor and stats loop over two different length sources.** `composite` uses `results.length`, `updateStats` uses `this.count`; equal via `create()` today but a fragile dual source. *Fix:* use one `const n = this.count` (or assert the invariant).
 
-49. **`daydream/tools/color.js:97-117` — dead OKLCH mirror.** `srgbToOklch`/`oklchToLinearRgb` (and their `oklab↔oklch` helpers) are imported into `palettes.html` but never called — the browser bakes via WASM — yet `color.test.js` pins them with no WASM-parity justification. *Fix:* drop the unused exports/imports and their tests, or add a header note that they are not yet wired.
+49. ✅ **`daydream/tools/color.js:97-117` — dead OKLCH mirror.** `srgbToOklch`/`oklchToLinearRgb` (and their `oklab↔oklch` helpers) are imported into `palettes.html` but never called — the browser bakes via WASM — yet `color.test.js` pins them with no WASM-parity justification. *Fix:* drop the unused exports/imports and their tests, or add a header note that they are not yet wired.
 
 50. **`daydream/tests/segment_crosscheck.test.js:52-60` — the C++ reference port mismodels `>2` Y-bands per arm.** `cppSegmentMap` branches only `armSeg === 0` vs else, collapsing every non-zero slot onto one reversed strip; correct only because the sweep caps at `N=4`. *Fix:* guard/assert the `≤2`-bands precondition or compute the band offset generally.
 
