@@ -242,7 +242,7 @@ Each finding is numbered sequentially. Severity reflects the verifier's adjudica
    - **Impact:** Every effect pays the full parse/instantiation cost of all animation machinery; the file is hard to navigate and a change to one animation type forces recompilation of everything that includes the engine umbrella.  
    - **Fix:** Split along seams — e.g. animation_core.h (IAnimation/AnimationBase/Timeline/TimelineEvent), animation_scalars.h (Transition/Mutation/Driver/Lerp/timers), animation_orientation.h (Motion/Rotation/RandomWalk/trails), animation_mesh.h (MeshMorph/MeshCarousel/Mobius*) — keeping engine.h as the umbrella.
 
-15. **Host divide-by-zero parity depends on an unset-by-default hardware control bit** — `Low` · _Portability_ · Core: engine & runtime  
+15. ✅ **Host divide-by-zero parity depends on an unset-by-default hardware control bit** — `Low` · _Portability_ · Core: engine & runtime  
    - **Where:** `core/platform.h` — map() lines 591-602, addmod8() lines 866-880  
    - **Issue:** The host mocks guard divide-by-zero (in_max==in_min, m==0) to return a value matching what the Cortex-M7 produces, but the device behavior is stated to rely on CCR.DIV_0_TRP remaining at its clear reset default ('which the firmware never sets'). The parity contract is therefore only valid as long as no current or future firmware/library code ever enables the divide-by-zero trap. There is no compile-time or runtime assertion pinning that assumption.  
    - **Impact:** If any library (or a future bring-up change) sets CCR.DIV_0_TRP, the device would fault on these divides while the host silently returns the guarded value — a sim/device divergence that the deterministic-parity tests cannot catch because they run only on host.  
