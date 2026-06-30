@@ -114,7 +114,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 #### C++ effects
 
-22. **`init_lattice()` capacity guard checks total capacity, not remaining space** — `effects/ReactionDiffusionBase.h:204-213` *(Holosphere · error-handling)*. `get_capacity()` ignores bytes already consumed by `cube_lut`/`state`/`palette`, so the documented "under-sized arena" failure is not actually caught here — it falls through to the generic OOM trap. **Fix:** compare `get_capacity() - get_offset() >= RD_N*sizeof(Vector)`.
+22. ✅ **`init_lattice()` capacity guard checks total capacity, not remaining space** — `effects/ReactionDiffusionBase.h:204-213` *(Holosphere · error-handling)*. `get_capacity()` ignores bytes already consumed by `cube_lut`/`state`/`palette`, so the documented "under-sized arena" failure is not actually caught here — it falls through to the generic OOM trap. **Fix:** compare `get_capacity() - get_offset() >= RD_N*sizeof(Vector)`.
 
 23. **`MobiusGrid` binds `mobius_gen`'s timeline reference before `timeline` is constructed** — `effects/MobiusGrid.h:33,270,284` *(Holosphere · maintainability)*. Member init order constructs `mobius_gen` (decl 270) before `timeline` (decl 284); well-defined only because the ctor merely stores the reference, and inconsistent with `IslamicStars`'s deliberate ordering. **Fix:** declare `timeline` before `mobius_gen`.
 
