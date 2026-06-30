@@ -92,7 +92,7 @@ sequential across all priorities. `repo/component` and category are tagged inlin
 
 #### C++ engine — animation, mesh, infra, pipeline
 
-12. **Timeline global frame counter is a signed `int` with long-run overflow UB** — `core/animation.h:2432,2535,2556,2662` (`memory.cpp:126`) *(Holosphere · correctness)*. The per-animation counter was deliberately made `uint32_t` for defined wrap; the shared clock was not, so `++global_timeline_t` reaches signed-overflow UB (~276 days @90fps) and corrupts `< e.start` comparisons. **Fix:** make `global_timeline_t` `uint32_t` (extern + definition + arithmetic).
+12. ✅ **Timeline global frame counter is a signed `int` with long-run overflow UB** — `core/animation.h:2432,2535,2556,2662` (`memory.cpp:126`) *(Holosphere · correctness)*. The per-animation counter was deliberately made `uint32_t` for defined wrap; the shared clock was not, so `++global_timeline_t` reaches signed-overflow UB (~276 days @90fps) and corrupts `< e.start` comparisons. **Fix:** make `global_timeline_t` `uint32_t` (extern + definition + arithmetic).
 
 13. **`Timeline::add`/`add_get` take `in_frames` as `float` then truncate to `int`** — `core/animation.h:2491,2514,2535` *(Holosphere · api-design)*. The float advertises sub-frame precision the integer `e.start` cannot honor; a fractional delay is silently truncated and an out-of-`int` float is UB. No caller passes a float. **Fix:** change the parameter type to `int`.
 
