@@ -134,7 +134,7 @@ sequential across the whole list.
 
 38. ✅ **`tests/test_memory.h:212-224,577-588` — NDEBUG-gated coverage vanishes silently.** The Arena generation-bump / stale-binding tests compile out under NDEBUG with no `++skipped`; the canonical preset is Debug so they run today, but a Release test build drops them invisibly. *Fix:* emit `++skipped` + a banner in the NDEBUG branch.
 
-39. **`tests/CMakeLists.txt:146-158,170-180` — standalone check executables are not roster/include-pinned.** `fastmath_clamp_check` / `h_offset_renorm_check` hand-list their `test_*` calls with none of the drift protection `run_tests` gets. *Fix:* assert a minimum expected assertion count in each `main()`.
+39. ✅ **`tests/CMakeLists.txt:146-158,170-180` — standalone check executables are not roster/include-pinned.** `fastmath_clamp_check` / `h_offset_renorm_check` hand-list their `test_*` calls with none of the drift protection `run_tests` gets. *Fix:* assert a minimum expected assertion count in each `main()`.
 
 40. **`scripts/wasm_smoke.mjs:131` — stack-margin check has no explicit `capacity > 0` assert.** A degenerate zero capacity is caught only indirectly via the `hwm === 0` canary. Self-defending but opaque. *Fix:* add an explicit `capacity <= 0` failure for a clearer diagnostic.
 

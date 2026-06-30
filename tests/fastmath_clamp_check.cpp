@@ -16,8 +16,18 @@ int main() {
   test_mobius_longitude_singularity_saturates_to_endpoint();
 
   const int failed = hs_test::stats().failed;
+  const int total = hs_test::stats().passed + failed;
   std::printf("=== fastmath_clamp: %d passed, %d failed (-ffast-math "
               "-fno-finite-math-only) ===\n",
               hs_test::stats().passed, failed);
+  // Floor against silent drift: this TU hand-lists its checks, so a dropped call
+  // would otherwise stay green. Bump when adding assertions.
+  constexpr int kMinAssertions = 26;
+  if (total < kMinAssertions) {
+    std::printf("=== fastmath_clamp: only %d assertions ran, expected >= %d "
+                "(a check was dropped) ===\n",
+                total, kMinAssertions);
+    return 1;
+  }
   return failed ? 1 : 0;
 }
