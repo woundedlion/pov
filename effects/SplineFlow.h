@@ -22,6 +22,16 @@ public:
   static constexpr int MAX_POINTS = 12;
   static constexpr int lifetime = 60;
 
+  // The trail pool dominates the persistent partition (~234 KiB at 30000×8 B).
+  // Effect keeps the default arena split, so it must fit the device budget.
+  static constexpr size_t kTrailBytes =
+      MAX_TRAILS * sizeof(typename Filter::World::Trails<W, MAX_TRAILS>::Item);
+  static constexpr size_t kPersistentBudget =
+      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+  static_assert(kTrailBytes <= kPersistentBudget,
+                "SplineFlow trail pool exceeds the default persistent "
+                "partition; retune MAX_TRAILS or carve arenas");
+
   /**
    * @brief Tunable parameters exposed to the UI sliders.
    */
