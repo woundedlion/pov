@@ -89,14 +89,8 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // Rebake the two 256-entry OKLCH palette LUTs only while a wipe is in
-    // flight. Wipes run back-to-back (timer period == WIPE_FRAMES), so this
-    // skips the rebake only before the first wipe arms, not between wipes.
-    if (wipe_frames_remaining_ > 0) {
-      base_baked.rebake(base_palette);
-      int_baked.rebake(int_palette);
-      --wipe_frames_remaining_;
-    }
+    base_baked.rebake(base_palette);
+    int_baked.rebake(int_palette);
 
     // Counter-rotate the two layers (opposite-signed axes) so their rings beat
     // against each other, producing the moire interference.
@@ -128,8 +122,6 @@ private:
                                          WIPE_FRAMES, ease_linear));
     timeline.add(0, Animation::ColorWipe(int_palette, int_next_palette,
                                          WIPE_FRAMES, ease_linear));
-    // +1 covers the arming frame before the wipes first step.
-    wipe_frames_remaining_ = WIPE_FRAMES + 1;
   }
 
   static constexpr int WIPE_FRAMES = 80; /**< Duration of a palette cross-fade ColorWipe, in frames. */
@@ -182,7 +174,6 @@ private:
   } params;
 
   float rotation = 0.0f; /**< Current layer rotation angle in radians. */
-  int wipe_frames_remaining_ = 0; /**< Frames left to rebake the palettes for an in-flight wipe. */
 
   GenerativePalette base_palette;      /**< Live source palette for the base layer. */
   GenerativePalette base_next_palette; /**< Wipe target palette for the base layer. */
