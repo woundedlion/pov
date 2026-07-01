@@ -224,7 +224,8 @@ template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds_[S];
 // DMAMEM section attribute.
 // POVSegmented carries the same contract (see targets/Phantasm/Phantasm.ino).
 #define HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM)                            \
-  template <> DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController_
+  template <>                                                                  \
+  DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController_ {}
 #endif
 
 #endif // ARDUINO

@@ -20,6 +20,7 @@ Import("env")  # noqa: F821  (SCons global injected by PlatformIO)
 
 SKETCH = {
     "holosphere": os.path.join("targets", "Holosphere", "Holosphere.ino"),
+    "holosphere_dma": os.path.join("targets", "Holosphere", "Holosphere.ino"),
     "phantasm": os.path.join("targets", "Phantasm", "Phantasm.ino"),
 }
 

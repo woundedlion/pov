@@ -18,6 +18,11 @@
 static constexpr int NUM_PIXELS = 40;
 static constexpr unsigned int RPM = 480;
 
+#ifdef USE_DMA_LEDS
+// Explicit specialization keeps ledController_'s DMAMEM section (pov_single.h).
+HS_DEFINE_POV_SINGLE_LED_CONTROLLER(NUM_PIXELS, RPM);
+#endif
+
 namespace {
 POVDisplay<NUM_PIXELS, RPM> *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
 }
