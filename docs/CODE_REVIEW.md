@@ -92,7 +92,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 4. ✅ **`shortest_distance` / `fwd_distance` have divergent range-reduction contracts.** Same signature shape, but `shortest_distance` fully reduces arbitrary input while `fwd_distance` silently requires `|b-a| < m` (guarded only by a debug-stripped assert). No live misuse today (`fwd_distance` has no callers), but a footgun. *Fix:* either make `fwd_distance` robust with the same double-`fmod` reduction, or rename it `fwd_distance_one_period`. (`core/util.h:114-137`)
 
-5. **`frac_to_q16` wraps to 0 on `frac > 1` instead of saturating.** Unlike its siblings (`blend_alpha`, `float_to_pixel16`) it casts without clamping, so `~1.0001 → 65536 → 0` (the opposite endpoint). All current callers keep `frac` safe. *Fix:* clamp inside the helper to match its siblings (hot-path-neutral). (`core/color.h:218-220`)
+5. ✅ **`frac_to_q16` wraps to 0 on `frac > 1` instead of saturating.** Unlike its siblings (`blend_alpha`, `float_to_pixel16`) it casts without clamping, so `~1.0001 → 65536 → 0` (the opposite endpoint). All current callers keep `frac` safe. *Fix:* clamp inside the helper to match its siblings (hot-path-neutral). (`core/color.h:218-220`)
 
 6. **Base pipeline sink recomputes the cylindrical x-clip (two modulos) per plotted pixel.** The terminal `Pipeline<W,H>::plot` calls `contains_x()` (two `% w`) per emitted sub-sample, amplified by multi-tap filters, while the scan/sdf hot loops already use the precomputed modulo-free `XClip`. Only bites partial-arc segment clips (multi-board Phantasm). *Fix:* build an `XClip` once per draw at the sink, mirroring `scan.h`. (`core/filter.h:142-147,166-170`)
 
