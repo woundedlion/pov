@@ -41,7 +41,9 @@ const WAIT_MS = numEnv('WAIT_MS', 30000);
 const MAX_ATTEMPTS = Math.max(1, numEnv('MAX_ATTEMPTS', 6));
 const RETRY_WAIT_MS = numEnv('RETRY_WAIT_MS', 4000);
 const MIN_LIT = numEnv('MIN_LIT', 0.004);
-const BLANK_FLOOR = numEnv('BLANK_FLOOR', 0.0005);
+// Clamped to MIN_LIT so a frame that cleared MIN_LIT (and stopped early) can
+// never also be flagged STILL BLANK.
+const BLANK_FLOOR = Math.min(numEnv('BLANK_FLOOR', 0.0005), MIN_LIT);
 
 // The effect roster (and the docs/screenshots freshness gate that mirrors it)
 // is parsed from the HS_EFFECT_LIST X-macro by scripts/effect_roster.mjs.
