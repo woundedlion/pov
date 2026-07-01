@@ -676,6 +676,58 @@ inline void test_emitter() {
   }
 }
 
+// ── Master beacon late-coast bound (§6.4) ───────────────────────────────────
+
+/**
+ * @brief Verifies a masked-ISR coast that reaches the beacon point late does
+ *        not queue a beacon whose tail overruns HALF and trips the emitter's
+ *        wire-busy trap on the on-time HALF symbol.
+ * @details Drives a master across the beacon-due revolution, resuming its first
+ *          post-ZERO tick at a chosen column to model the coast. A start at
+ *          W/4 schedules and fully emits the frame before HALF; a start past
+ *          W/4 + 17 (worst-case 55-col frame must clear HALF at column 144) is
+ *          censored — no pulses in the beacon window and no trap at HALF.
+ */
+inline void test_beacon_late_coast() {
+  const Config cfg = test_config();
+  const uint32_t period = cfg.cycles_per_half_rev;
+
+  // Resume the master's first post-ZERO tick of the beacon-due revolution at
+  // `resume_col`; return the pulses emitted with column in [W/4, W/2) (purely
+  // beacon — the ZERO boundary symbol drained at columns 0..4 below W/4).
+  auto run = [&](int32_t resume_col) -> int {
+    SyncBoard m(cfg);
+    const uint32_t t0 = 1000000u;
+    m.seed(t0, /*is_master=*/true);
+    // One tick a full revolution ahead folds HALF then ZERO in a single wake,
+    // landing boundary ZERO with rev_in_effect == 1 (a beacon-due rev under
+    // test_config's epoch repeats). epoch1 is that ZERO instant.
+    const uint32_t epoch1 = t0 + 2u * period;
+    m.tick(epoch1, nullptr);
+    // Drain the rev-1 ZERO symbol's remaining pulses (columns 2, 4) so the
+    // emitter is idle before the coast, as it would be on real hardware.
+    m.tick(epoch1 + 2u * kCol, nullptr);
+    m.tick(epoch1 + 4u * kCol, nullptr);
+
+    int pulses = 0;
+    for (int32_t c = resume_col; c <= 150; ++c) {
+      const TickActions a =
+          m.tick(epoch1 + static_cast<uint32_t>(c) * kCol, nullptr);
+      if (a.pulse && c >= cfg.W / 4 && c < cfg.W / 2)
+        ++pulses;
+    }
+    return pulses;
+  };
+
+  // On-time at the beacon point: the frame schedules and emits fully (proves
+  // the beacon is due so the late-start contrast below is meaningful).
+  HS_EXPECT_GT(run(cfg.W / 4), 0);
+  // Late start past the safe bound: censored — no beacon pulses, and the HALF
+  // crossing at column 144 schedules without tripping the wire-busy trap (a
+  // trap would __builtin_trap the whole suite).
+  HS_EXPECT_EQ(run(cfg.W / 4 + 20), 0);
+}
+
 // ── Multi-board simulator ───────────────────────────────────────────────────
 
 /**
@@ -2031,6 +2083,7 @@ inline int run_pov_sync_tests() {
   test_flywheel_position();
   test_snap_gate();
   test_emitter();
+  test_beacon_late_coast();
 
   test_sim_boot_and_phase();
   test_sim_epoch_commit();
