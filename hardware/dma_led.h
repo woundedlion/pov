@@ -218,6 +218,8 @@ inline TeensySPIDMA* TeensySPIDMA::instance_ = nullptr;
 /**
  * @brief High-level double-buffered DMA LED controller for HD107S strips.
  * @tparam N Number of pixels.
+ * @note One instance per firmware image: it drives the singleton TeensySPIDMA
+ *       backing the shared DMA-completion ISR, so a second begin() traps.
  *
  * Typical ISR usage (per column):
  *   auto& f = controller.backFrame();  // back buffer (not being DMA'd)
