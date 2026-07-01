@@ -543,6 +543,21 @@ struct DeathEffect : public Effect {
 };
 
 /**
+ * @brief Death case: a second simultaneously-live Effect must trap.
+ * @details Canvas surface — the structural twin of case_timeline_double_construct.
+ *          Every Effect aliases the same two static framebuffers and double-buffer
+ *          indices, so a second live instance would scribble over the first's
+ *          frames; the construction guard traps instead. The real app builds the
+ *          next effect only after destroying the outgoing one.
+ */
+inline void case_effect_double_construct() {
+  DeathEffect a;
+  DeathEffect b; // second live Effect ctor -> HS_CHECK(!s_alive) -> trap
+  if (opaque(a.strobe_columns()))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: overflowing the fixed 32-slot ParamList must trap.
  * @details Canvas surface — registerParam traps rather than silently dropping a
  *          registration, which would desync the GUI and, on WASM, break the
@@ -801,6 +816,7 @@ inline const Case *all_cases(int &n) {
       {"timeline_handled_relocation", case_timeline_handled_relocation},
       {"timeline_handled_completion", case_timeline_handled_completion},
       {"timeline_double_construct", case_timeline_double_construct},
+      {"effect_double_construct", case_effect_double_construct},
       {"mesh_narrow_index", case_mesh_narrow_index},
       {"slerp_nan", case_slerp_nan},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan},
