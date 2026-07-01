@@ -779,7 +779,12 @@ inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
 
 inline Color4 hue_rotate(const Color4 &c, float amount) {
   float angle = amount * (2.0f * PI_F);
-  return hue_rotate(c, fast_cosf(angle), fast_sinf(angle));
+  float ca = fast_cosf(angle);
+  float sa = fast_sinf(angle);
+  // renormalize fast trig so the rotation preserves chroma (else the scaling
+  // compounds per frame under feedback).
+  float inv = 1.0f / sqrtf(ca * ca + sa * sa);
+  return hue_rotate(c, ca * inv, sa * inv);
 }
 
 /**
