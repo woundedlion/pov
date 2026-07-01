@@ -119,24 +119,6 @@ inline float shortest_distance(float a, float b, float m) {
 }
 
 /**
- * @brief Calculates the forward (positive direction) distance from point a to
- * point b on a circular domain.
- * @param a The starting position.
- * @param b The ending position.
- * @param m The modulo base (length of the domain).
- * @return The forward distance in the range [0, m).
- */
-constexpr float fwd_distance(float a, float b, float m) {
-  auto d = b - a;
-  // Single +m correction below assumes |b - a| < m (one period).
-  assert(d >= -m && d < m);
-  if (d < 0) {
-    d += m;
-  }
-  return d;
-}
-
-/**
  * @brief Invokes `apply(current)` only when `current` differs from `last`,
  * then latches `last = current`.
  * @details Encodes the "live-apply a slider value, but only on change" idiom:

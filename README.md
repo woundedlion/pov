@@ -195,7 +195,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── generators.h            Universal generate() wrapper for procedural geometry
 │   ├── presets.h               Generic Presets<Params, Size> template
 │   ├── styles.h                Feedback::Style named presets + space/color transform functions
-│   ├── util.h                  wrap(), fast_wrap(), shortest/fwd_distance, apply_if_changed
+│   ├── util.h                  wrap(), fast_wrap(), shortest_distance, apply_if_changed
 │   ├── reaction_graph.h/.cpp   Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
 │   ├── FastNoiseLite.h         Third-party: single-header noise library
 │   └── FastNoiseLite_config.h  FastNoiseLite build configuration
