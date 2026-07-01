@@ -1096,6 +1096,11 @@ inline int run_death_tests() {
   int n;
   const Case *cs = all_cases(n);
 
+  // Floor against a silently dropped case: the roster must not shrink below its
+  // known size. Bump when adding cases.
+  constexpr int kMinDeathCases = 38;
+  HS_EXPECT_GE(n, kMinDeathCases);
+
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
   // dedicated always-trapping sentinel rather than a real case. A real case that
   // regressed to not trapping would otherwise corrupt shape detection and skip
