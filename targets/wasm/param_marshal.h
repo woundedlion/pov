@@ -61,7 +61,10 @@ inline void collect_param_views(const Effect &effect,
  * @param out Destination vector, cleared (retaining capacity) then filled so
  *            that out[i] corresponds to collect_param_views()'s view[i].
  * @details Iterates the identical Effect::getParameters() sequence, so
- *          values[i] always corresponds to view[i]. `out.clear()` retains
+ *          values[i] always corresponds to view[i]. The stream carries raw
+ *          floats even for is_bool params (a bool is emitted as 0.0/1.0, not a
+ *          JS boolean); consumers key off the definition type from
+ *          collect_param_views(), not this value. `out.clear()` retains
  *          capacity, so a caller that has reserved MAX-params up front gets a
  *          zero-reallocation guarantee for the per-frame memory-view contract.
  */
