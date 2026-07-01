@@ -509,7 +509,7 @@ inline void test_index_assignment() {
  * @return The module's failure count (number of failed assertions).
  */
 inline int run_static_circular_buffer_tests() {
-  hs_test::ModuleFixture fixture("static_circular_buffer");
+  hs_test::ModuleFixture fixture("scb");
 
   test_default_state();
   test_initializer_list_within_capacity();
