@@ -66,7 +66,6 @@ public:
                      GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
                      BrightnessProfile::FLAT, SaturationProfile::MID, 42});
 
-    params = presets.get();
     next_preset();
   }
 

@@ -124,7 +124,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 20. ✅ **`CompiledHankin::clone` duplicates the shared `copy_vector` deep-copy loop.** Uses a local `push` lambda instead of the shared helper that `MeshState::clone`/`MeshOps::clone` use — a third arena-deep-copy idiom that can drift. *Fix:* route all six vectors through `copy_vector`. (`core/hankin.h:66-79`)
 
-21. **Redundant `params = presets.get()` in `Flyby::init` before the first preset lerp overwrites it.** The immediately-scheduled `Lerp` re-derives the start from `prev_get()`, so the assignment is never observed on the render path (dead). *Fix:* drop the line (per prefer-delete-dead-code). (`effects/Flyby.h:69-70`)
+21. ✅ **Redundant `params = presets.get()` in `Flyby::init` before the first preset lerp overwrites it.** The immediately-scheduled `Lerp` re-derives the start from `prev_get()`, so the assignment is never observed on the render path (dead). *Fix:* drop the line (per prefer-delete-dead-code). (`effects/Flyby.h:69-70`)
 
 22. **`BZ::blend_species` unclamped `uint16` cast relies on an implicit precondition.** Safe as a true convex blend for the sole caller, but a future caller passing pre-scaled weights would overflow silently; the doc omits the precondition. *Fix:* tighten the doc to state `a+b+c` must equal the normalizing `wsum` (or clamp before the cast). (`effects/BZReactionDiffusion.h:307-325`)
 
