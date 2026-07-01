@@ -31,7 +31,7 @@
 // a TX-only buffer must reach RAM but stay resident for the next frame's write.
 // No DMA on host builds, so the flush is a no-op there.
 #ifndef ARDUINO
-static inline void arm_dcache_flush(void *, size_t) {}
+static inline void arm_dcache_flush(void *, uint32_t) {}
 #endif
 
 // ============================================================================
