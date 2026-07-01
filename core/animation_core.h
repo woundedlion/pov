@@ -8,7 +8,6 @@
 #include <cmath>
 #include <functional>
 
-#include <numeric> // for std::iota
 #include <array>
 #include <new> // std::launder
 #include <type_traits>
