@@ -531,19 +531,30 @@ void deep_tween(const Tweenable auto &trail, TweenFn callback) {
     return;
   }
 
-  float span = static_cast<float>(last + 1);
+  // An interior length-1 frame holds only the boundary it shares with the prior
+  // frame, so it emits nothing; counting it in the span would leave a hole in the
+  // age ramp. Normalize against, and index by, the frames that actually contribute.
+  size_t num_active = 0;
+  for (size_t i = 0; i <= last; ++i)
+    if (i == 0 || trail.get(i).length() > 1)
+      ++num_active;
+  float span = static_cast<float>(num_active);
 
+  size_t active_idx = 0;
   for (size_t i = 0; i <= last; ++i) {
     const auto &frame = trail.get(i);
     size_t frame_size = frame.length();
+    if (i != 0 && frame_size <= 1)
+      continue;
     size_t start_j = (i == 0) ? 0 : 1;
 
     for (size_t j = start_j; j < frame_size; ++j) {
       const auto &q = frame.get(j);
       float sub_t =
           (frame_size > 1) ? static_cast<float>(j) / (frame_size - 1) : 0.0f;
-      float global_t = (static_cast<float>(i) + sub_t) / span;
+      float global_t = (static_cast<float>(active_idx) + sub_t) / span;
       callback(q, global_t);
     }
+    ++active_idx;
   }
 }

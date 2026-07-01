@@ -1283,6 +1283,42 @@ inline void test_deep_tween_all_collapsed_reaches_one() {
 }
 
 /**
+ * @brief Verifies a motionless interior frame leaves no hole in the age ramp.
+ * @details A moving / motionless / moving trail: the length-1 interior frame
+ * contributes no sample and is excluded from the span, so the remaining moving
+ * frames stay evenly spaced across [0,1] instead of straddling a ~1/span gap.
+ */
+inline void test_deep_tween_interior_motionless_frame_no_gap() {
+  using Ori = Orientation<8>;
+  Animation::OrientationTrail<Ori, 8> trail;
+  {
+    Ori o;
+    o.push(make_rotation(Z_AXIS, 0.3f));
+    o.upsample(3);
+    trail.record(o);
+  }
+  {
+    Ori still; // length 1 — no motion this interior frame
+    trail.record(still);
+  }
+  {
+    Ori o;
+    o.push(make_rotation(Z_AXIS, 0.6f));
+    o.upsample(3);
+    trail.record(o);
+  }
+
+  std::vector<float> gts;
+  deep_tween(trail,
+             [&](const Quaternion &, float gt) { gts.push_back(gt); });
+
+  const float expected[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+  HS_EXPECT_EQ(gts.size(), static_cast<size_t>(5));
+  for (size_t i = 0; i < gts.size(); ++i)
+    HS_EXPECT_NEAR(gts[i], expected[i], 1e-6f);
+}
+
+/**
  * @brief Verifies a single-sample VectorTrail reads t = 1.0 (the lone trail
  * head), while a multi-sample sweep ramps 0 -> 1 oldest -> newest.
  * @details A freshly spawned or dying particle holds one history point; that
@@ -1701,6 +1737,7 @@ inline int run_animation_tests() {
   test_deep_tween_global_t_spans_unit_interval();
   test_deep_tween_collapsed_newest_frame_reaches_one();
   test_deep_tween_all_collapsed_reaches_one();
+  test_deep_tween_interior_motionless_frame_no_gap();
   test_tween_vectortrail_single_sample_reaches_one();
 
   test_meshmorph_identity_self_map_and_crossfade();
