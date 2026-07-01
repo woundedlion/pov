@@ -83,6 +83,11 @@ public:
     constexpr size_t kPersistentBytes = 165 * 1024;
     static_assert(kCubeLutBytes + kStateBytes + kNodeBytes <= kPersistentBytes,
                   "BZ persistent arena too small for LUT + state + nodes");
+    // render() carves 3 uint8 + 3 float species buffers from scratch_a.
+    constexpr size_t kScratchBytes =
+        3u * RD_N * sizeof(uint8_t) + 3u * RD_N * sizeof(float);
+    static_assert(kScratchBytes <= GLOBAL_ARENA_SIZE - kPersistentBytes,
+                  "BZ scratch arena too small for render()'s species buffers");
     configure_arenas(kPersistentBytes, GLOBAL_ARENA_SIZE - kPersistentBytes, 0);
 
     // "Compete" is the Lotka-Volterra predation coefficient, not an opacity. Its
