@@ -154,7 +154,7 @@ private:
 
     for (int vi = 0; vi < NUM_VERTS; ++vi) {
       Vector vertex = camera.orient(Solids::Dodecahedron::vertices[vi]);
-      Vector view_dir(-vertex.x, -vertex.y, -vertex.z);
+      Vector ray_dir(-vertex.x, -vertex.y, -vertex.z);
 
       Quaternion world_q = camera.get() * raw_quats[vi] * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
@@ -176,7 +176,7 @@ private:
 
       Scan::TransformedVolume vol(torus, vertex, world_q);
       Scan::Volume::draw<W, H>(pipeline, canvas, vertex, bounds_radius,
-                               view_dir, vol, frag_fn, max_steps, aa_width);
+                               ray_dir, vol, frag_fn, max_steps, aa_width);
     }
   }
 
