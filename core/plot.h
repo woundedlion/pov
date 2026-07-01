@@ -676,8 +676,10 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       // normalized replay stretch the cached steps over the rest of the segment
       // — coarser sampling on an extreme arc is fine (and far better than
       // trapping a live show). Normal segments never reach this.
-      if (steps_cache.size() >= steps_cache.capacity())
+      if (steps_cache.size() >= steps_cache.capacity()) {
+        HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
         break;
+      }
       steps_cache.push_back(step);
       sim_dist += step;
 
