@@ -212,15 +212,15 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
 }
 
 // ---------------------------------------------------------------------------
-// Single source of truth for the (W,H) resolutions the WASM factory can build.
-// setResolution()/setEffect()/getEffectSizes() all dispatch through this list
-// via the X-macro below, so the supported set can never drift between them.
-// To support a new resolution, add one row here (the effect templates must also
-// be instantiable at that <W,H>).
+// The (W,H) resolutions the WASM factory can build. Aliased to the registry's
+// HS_RESOLUTIONS (core/effect_registry.h) so the runtime dispatch here and the
+// per-resolution fill functions the registry generates share one list and
+// cannot drift: a resolution the registry can build is dispatchable here with no
+// second edit. setResolution()/setEffect()/getEffectSizes() all expand this via
+// the X-macro below. A new resolution is one edit, in HS_RESOLUTIONS (the effect
+// templates must also be instantiable at that <W,H>).
 // ---------------------------------------------------------------------------
-#define HS_WASM_RESOLUTIONS(X)                                                  \
-  X(96, 20)                                                                     \
-  X(288, 144)
+#define HS_WASM_RESOLUTIONS(X) HS_RESOLUTIONS(X)
 
 // Pin every resolution row to the MAX_W×MAX_H pixel-buffer bound.
 #define X(W, H)                                                                 \
