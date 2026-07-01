@@ -299,7 +299,7 @@ public:
   void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
             float alpha) const {
     plot3d_(ctx_, cv, v, c, age, alpha);
-  };
+  }
 };
 
 using PlotFn = Fn<Vector(float), 16>;

@@ -62,7 +62,7 @@ public:
    * (effect switch) is admitted. Ordering is safe because every effect-swap
    * path destroys the outgoing instance before building its replacement.
    */
-  virtual ~Effect() { s_alive = false; };
+  virtual ~Effect() { s_alive = false; }
 
   /**
    * @brief Post-construction initialization. Override to move heavy

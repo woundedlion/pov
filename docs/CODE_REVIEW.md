@@ -98,7 +98,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 7. **Redundant per-pixel y-bounds re-check in `plot_virtual`.** After `contains_y(y)` passes, `y` is provably in `[0,h)`, so `plot_virtual`'s `y>=0 && y<height()` re-test is always-true dead work on every composited pixel. *Fix:* drop the guard at the (already y-clipped) sink call sites, or inline the write. (`core/filter.h:94-98,142-146,158-170`)
 
-8. **Stray trailing semicolons after member-function bodies.** `PipelineRef::plot(...) const { ... };` and `~Effect() { s_alive = false; };` are harmless empty declarations (no warning under the current flags). *Fix:* remove the trailing `;`. (`core/concepts.h:302`, `core/canvas.h:65`)
+8. ✅ **Stray trailing semicolons after member-function bodies.** `PipelineRef::plot(...) const { ... };` and `~Effect() { s_alive = false; };` are harmless empty declarations (no warning under the current flags). *Fix:* remove the trailing `;`. (`core/concepts.h:302`, `core/canvas.h:65`)
 
 9. **`DistortedRing` `max_distortion` is a load-bearing bound with no device-build guard.** The 256-sample sanity check is wrapped in `#ifndef NDEBUG`, so on device/wasm an underestimate silently culls genuine arcs — the lone SDF shape whose precondition is NDEBUG-gated while every sibling uses always-on `HS_CHECK`. Current caller passes an exact bound. *Fix:* replace the `#ifndef NDEBUG` sample check with an always-on cold-path `HS_CHECK`. (`core/sdf.h:725-761`)
 
