@@ -317,11 +317,11 @@ using EasingFn = float (*)(float);
  * Orientation). get()'s return type is left deduced but contractually must be a
  * slerp/lerp-able orientation (Quaternion or Orientation); a container yielding
  * anything else satisfies this concept yet fails deep inside slerp/lerp with a
- * worse diagnostic. length() is consumed as a count (used as size_t), so a
- * signed return must be non-negative.
+ * worse diagnostic. length() is consumed as a count, so it must be an unsigned
+ * integral — a signed type could wrap negative into a huge loop bound.
  */
 template <typename T>
 concept Tweenable = requires(const T &t, size_t i) {
-  { t.length() } -> std::convertible_to<size_t>;
+  { t.length() } -> std::unsigned_integral;
   { t.get(i) }; // Return type is deduced (Quaternion or Orientation)
 };

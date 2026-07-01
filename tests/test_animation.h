@@ -584,7 +584,7 @@ inline void test_timeline_shared_orientation_composes_motion_blur() {
   tl.add(0, Animation::Rotation<288, 16>(o, Z_AXIS, PI_F / 2, 1, ease_linear));
   tl.step(fake_canvas());
 
-  HS_EXPECT_GE(o.length(), 2);
+  HS_EXPECT_GE(o.length(), static_cast<size_t>(2));
   // Oldest sub-frame is the pre-frame orientation (identity): +X stays +X.
   Vector oldest = o.orient(X_AXIS, 0);
   HS_EXPECT_NEAR(oldest.x, 1.0f, 1e-3f);
@@ -812,10 +812,10 @@ inline void test_timeline_full_guard_rejects_overflow() {
 inline void test_orientation_upsample_then_collapse() {
   Orientation<8> o; // identity, 1 frame
   o.push(make_rotation(Z_AXIS, PI_F / 2)); // 2 frames: identity, +90 about Z
-  HS_EXPECT_EQ(o.length(), 2);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(2));
 
   o.upsample(5);
-  HS_EXPECT_EQ(o.length(), 5);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(5));
 
   // Endpoints preserved: frame 0 ~ identity (+X stays +X); frame 4 ~ the +90
   // rotation about Z (+X -> +Y).
@@ -833,7 +833,7 @@ inline void test_orientation_upsample_then_collapse() {
   }
 
   o.collapse();
-  HS_EXPECT_EQ(o.length(), 1);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(1));
   Vector c = o.orient(X_AXIS, 0);
   HS_EXPECT_NEAR(c.y, 1.0f, 1e-3f);
 }
