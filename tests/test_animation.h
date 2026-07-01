@@ -1673,6 +1673,132 @@ inline void test_random_walk_stays_unit_and_travels() {
   HS_EXPECT_GT(travel, 0.0f);
 }
 
+// ============================================================================
+// Previously-uncovered public animation APIs
+// ============================================================================
+
+/**
+ * @brief Verifies a non-repeating RandomTimer fires exactly once, at a frame
+ * within the requested inclusive [min, max] delay window.
+ */
+inline void test_random_timer_fires_within_range() {
+  hs::random().seed(1337);
+  Timeline tl;
+  struct {
+    int fires = 0;
+    int fire_frame = -1;
+    int frame = 0;
+  } st; // one capture keeps the callback inside TimerFn's inplace budget
+  tl.add(0, Animation::RandomTimer(3, 7, [&st](Canvas &) {
+              st.fires++;
+              st.fire_frame = st.frame;
+            }));
+  for (st.frame = 1; st.frame <= 12; ++st.frame)
+    tl.step(fake_canvas());
+  HS_EXPECT_EQ(st.fires, 1);
+  HS_EXPECT_GE(st.fire_frame, 3);
+  HS_EXPECT_LE(st.fire_frame, 7);
+}
+
+/**
+ * @brief Verifies PeriodicTimer::set_period reschedules the next trigger from
+ * now (t + new_period), not from the original schedule.
+ * @details Starts at period 5 (next trigger t=5); after one frame the period is
+ * shortened to 3, so reset() moves the trigger to t=1+3=4.
+ */
+inline void test_periodic_timer_set_period_reschedules_from_now() {
+  struct {
+    int fire_frame = -1;
+    int fires = 0;
+    int frame = 0;
+  } st; // one capture keeps the callback inside TimerFn's inplace budget
+  Animation::PeriodicTimer timer(
+      5,
+      [&st](Canvas &) {
+        st.fires++;
+        st.fire_frame = st.frame;
+      },
+      /*repeat=*/true);
+  st.frame = 1;
+  timer.step(fake_canvas()); // t=1, no trigger (next=5)
+  timer.set_period(3);       // reschedule: next = 1 + 3 = 4
+  for (st.frame = 2; st.frame <= 4; ++st.frame)
+    timer.step(fake_canvas());
+  HS_EXPECT_EQ(st.fires, 1);
+  HS_EXPECT_EQ(st.fire_frame, 4);
+}
+
+/**
+ * @brief Verifies MobiusFlow::step keeps the transform's a·d product at unity
+ * (a and d are conjugate-reciprocal) while actually moving the parameters.
+ */
+inline void test_mobiusflow_step_preserves_unit_product() {
+  MobiusParams params;
+  const float rings = 2.0f, lines = 4.0f;
+  const int duration = 8;
+  Animation::MobiusFlow flow(params, rings, lines, duration, /*repeat=*/false);
+  for (int i = 0; i < duration; ++i) {
+    flow.step(fake_canvas());
+    const float re = params.a.re * params.d.re - params.a.im * params.d.im;
+    const float im = params.a.re * params.d.im + params.a.im * params.d.re;
+    HS_EXPECT_NEAR(re, 1.0f, 1e-4f);
+    HS_EXPECT_NEAR(im, 0.0f, 1e-4f);
+  }
+  HS_EXPECT_GT(std::abs(params.a.im), 1e-3f); // moved off the identity
+}
+
+/**
+ * @brief Verifies a registered emitter runs on every ParticleSystem::step and
+ * can spawn into the pool.
+ */
+inline void test_particle_system_emitter_dispatch() {
+  hs::random().seed(1337);
+  static uint8_t buf[256 * 1024];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 4> ps;
+  ps.init(arena);
+  int calls = 0;
+  ps.add_emitter([&](Animation::ParticleSystem<32, 4> &sys) {
+    calls++;
+    sys.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
+  });
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(calls, 1);
+  HS_EXPECT_GT(static_cast<int>(ps.active_count), 0);
+  ps.step(fake_canvas());
+  HS_EXPECT_EQ(calls, 2); // runs every frame
+}
+
+/**
+ * @brief Verifies Motion::set_duration reanchors the baseline so a mid-path
+ * duration change advances the head incrementally rather than teleporting it.
+ * @details A great-circle path stepped 30 frames of a 60-frame loop sits at
+ * phase 0.5; shortening to 120 frames must not snap the head by the phase gap
+ * between the two parameterizations — the post-change step stays a small move.
+ */
+inline void test_motion_set_duration_reanchors_no_teleport() {
+  using Ori = Orientation<16>;
+  ProceduralPath path;
+  path.f = [](float t) {
+    float a = 2.0f * PI_F * t;
+    return Vector(std::cos(a), std::sin(a), 0.0f);
+  };
+  Ori o; // identity
+  Animation::Motion<288, 16> motion(o, path, 60, /*repeat=*/true);
+
+  const Vector probe = Z_AXIS;
+  for (int i = 0; i < 30; ++i)
+    motion.step(fake_canvas());
+  const Vector before = o.orient(probe);
+
+  motion.set_duration(120);
+  motion.step(fake_canvas());
+  const Vector after = o.orient(probe);
+
+  // Incremental (reanchored) step is a few degrees; a teleport would be ~π/2.
+  HS_EXPECT_LT(angle_between(before, after), 0.5f);
+}
+
 /**
  * @brief Runs every animation/easing test case in this module.
  * @return The module's failure count.
@@ -1754,6 +1880,12 @@ inline int run_animation_tests() {
   test_noise_publishes_time_and_is_perpetual();
 
   test_random_walk_stays_unit_and_travels();
+
+  test_random_timer_fires_within_range();
+  test_periodic_timer_set_period_reschedules_from_now();
+  test_mobiusflow_step_preserves_unit_product();
+  test_particle_system_emitter_dispatch();
+  test_motion_set_duration_reanchors_no_teleport();
 
   const int result = fixture.result();
   // Unpublish before fake_cv/fake_fx destruct below.
