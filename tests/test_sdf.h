@@ -924,29 +924,59 @@ inline void test_union_seam_straddle_merges_overlapping_intervals() {
 
 /**
  * @brief Verifies SmoothUnion's k-padded union welds overlapping seam-straddling spans.
- * @details Each child interval is inflated by pad_px = k·W/2π before the merge, so
- *   a tiny k keeps the bounds near the raw spans while still routing through the
- *   pad path; two overlapping seam-straddling bands must coalesce to one padded
- *   span rather than two overlapping spans.
+ * @details Each child interval is inflated by pad_px = k·W/(2π·sinφ) before the
+ *   merge, so a tiny k keeps the bounds near the raw spans while still routing
+ *   through the pad path; two overlapping seam-straddling bands must coalesce to
+ *   one padded span rather than two overlapping spans. The pad mirrors the
+ *   latitude-scaled production formula at the sampled row.
  */
 inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
-  constexpr int W = 256;
+  constexpr int W = 256, H = 128;
+  init_geometry_luts<W, H>(); // fill sin_phi; scan_region does this in production
+  const int row = H / 2; // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
   const float k = 0.02f;
-  const float pad = k * W / (2.0f * PI_F);
+  const float sin_phi = TrigLUT<W, H>::sin_phi[row];
+  const float pad =
+      std::min(k * W / (2.0f * PI_F) / sin_phi, static_cast<float>(W));
   std::vector<P> a_ivs = {{-10.0f, 6.0f}};
   std::vector<P> b_ivs = {{2.0f, 12.0f}};
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::SmoothUnion<Mock, Mock> su(A, B, k);
 
   std::vector<P> out;
-  bool ok = su.get_horizontal_intervals<W, 128>(
-      0, [&](float st, float en) { out.push_back({st, en}); });
+  bool ok = su.get_horizontal_intervals<W, H>(
+      row, [&](float st, float en) { out.push_back({st, en}); });
   HS_EXPECT_TRUE(ok);
   HS_EXPECT_EQ(out.size(), static_cast<size_t>(1));
   HS_EXPECT_NEAR(out[0].first, -10.0f - pad, 1e-4f);
   HS_EXPECT_NEAR(out[0].second, 12.0f + pad, 1e-4f);
+}
+
+/**
+ * @brief Verifies the weld pad widens toward the poles by the 1/sinφ factor.
+ * @details A point interval's emitted span is exactly twice the row pad. Sampling
+ *   a near-pole row (small sinφ) against the equator (sinφ ≈ 1) must yield a
+ *   strictly wider span, so near-pole welds are not clipped to the equatorial pad.
+ */
+inline void test_smooth_union_pad_widens_toward_pole() {
+  using P = std::pair<float, float>;
+  using Mock = sdf_subtract_detail::MockIntervalShape;
+  constexpr int W = 256, H = 128;
+  init_geometry_luts<W, H>(); // fill sin_phi; scan_region does this in production
+  const float k = 0.05f;
+  std::vector<P> ivs = {{100.0f, 100.0f}}; // a point; only the pad sets width
+  Mock A{&ivs}, B{&ivs};
+  SDF::SmoothUnion<Mock, Mock> su(A, B, k);
+
+  auto span_at = [&](int row) {
+    std::vector<P> out;
+    su.get_horizontal_intervals<W, H>(
+        row, [&](float st, float en) { out.push_back({st, en}); });
+    return out.empty() ? 0.0f : out[0].second - out[0].first;
+  };
+  HS_EXPECT_GT(span_at(1), span_at(H / 2));
 }
 
 // ============================================================================
@@ -1490,6 +1520,7 @@ inline int run_sdf_tests() {
   test_union_merges_overlapping_intervals();
   test_union_seam_straddle_merges_overlapping_intervals();
   test_smooth_union_seam_straddle_merges_padded_intervals();
+  test_smooth_union_pad_widens_toward_pole();
 
   test_angular_repeat_matches_base_at_zero_angle();
   test_angular_repeat_creates_copies();

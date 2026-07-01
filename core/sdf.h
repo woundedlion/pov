@@ -1017,7 +1017,14 @@ template <typename A, typename B> struct SmoothUnion {
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
     MergedIntervalBuffer merged;
-    float pad_px = k * W / (2 * PI_F);
+    // Great-circle weld radius k spans k/sin(phi) columns of azimuth; the
+    // equatorial conversion under-covers toward the poles. Clamp to full width
+    // where the latitude factor diverges.
+    float sin_phi = TrigLUT<W, H>::sin_phi[y];
+    float pad_px = sin_phi > INTERVAL_DENOM_EPS
+                       ? std::min(k * W / (2 * PI_F) / sin_phi,
+                                  static_cast<float>(W))
+                       : static_cast<float>(W);
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
