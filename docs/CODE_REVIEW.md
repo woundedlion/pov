@@ -154,7 +154,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 35. ✅ **Worker "unknown message type" only warns; a protocol-drift `setX` is silently dropped.** Contradicts the file's own fail-fast posture (it throws on pixel/bounds mismatch, posts `initFailed` on a bad resolution). A cross-version-drift state-changing message keeps the worker rendering stale under the current generation, invisible to the fence. *Fix:* throw (→ `onerror` → fault) or post an `initFailed`-style fault on the default case. (`daydream/segment_worker.js:219-221`)
 
-36. **Listbox keyboard nav omits Home/End.** The WAI-ARIA listbox pattern expects jump-to-first/last; today they fall through to page scroll with no focus move. *Fix:* add `Home→0` / `End→len-1` to `navTargetIndex` (the wiring already actions any non-`-1` return) and extend the test. (`daydream/sidebar_logic.js:40-49`)
+36. ✅ **Listbox keyboard nav omits Home/End.** The WAI-ARIA listbox pattern expects jump-to-first/last; today they fall through to page scroll with no focus move. *Fix:* add `Home→0` / `End→len-1` to `navTargetIndex` (the wiring already actions any non-`-1` return) and extend the test. (`daydream/sidebar_logic.js:40-49`)
 
 37. **Both scroll arrows hidden when content overflows by less than the 4px deadzone.** For `0 < maxScroll ≤ 4`, neither arrow shows though the list is scrollable (cosmetic; scrolling still works). *Fix:* gate the deadzone against `maxScroll` (e.g. `scrollLeft < maxScroll - Math.min(4, maxScroll)`), add a small-overflow test. (`daydream/sidebar_logic.js:78-85`)
 
