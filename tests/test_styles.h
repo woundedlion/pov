@@ -286,7 +286,7 @@ inline void test_hue_fade_nonzero_shift_rotates_saturated() {
                     std::abs((int)rotated.b - (int)plain.b);
   HS_EXPECT_TRUE(delta > 1000);
 
-  Pixel ref = hue_rotate(Color4(red * fade, 1.0f), s.hue_shift).color;
+  Pixel ref = hue_rotate(Color4(red * fade, 1.0f), s.hue_ca, s.hue_sa).color;
   HS_EXPECT_EQ(rotated.r, ref.r);
   HS_EXPECT_EQ(rotated.g, ref.g);
   HS_EXPECT_EQ(rotated.b, ref.b);
