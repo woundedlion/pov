@@ -118,7 +118,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 17. ✅ **Stale arena-budget figure in header comment (335 KB vs the real 330 KiB).** The load-bearing sizing comment's headline contradicts `DEVICE_GLOBAL_ARENA_SIZE`, the rest of the same block, and the README. *Fix:* change "335 KB" to "330 KiB". (`core/memory.h:17`)
 
-18. **`classify_faces_impl` reimplements half-edge pairing that `HalfEdgeMesh` already computes.** ~30 lines of parallel connectivity build (`he_to_face`/`pair_array`/records) that can drift from the single tested builder. *Fix:* build a `HalfEdgeMesh` and read neighbor faces via `half_edges[half_edges[hidx].pair].face`; re-measure scratch high-water. (`core/mesh.h:637-687`)
+18. ❌ (already de-drifted — the edge keying/pairing goes through the same shared `fill_edge_record`/`pair_half_edges` helpers the `HalfEdgeMesh` builder uses; only a lean face-neighbor scan remains, and a full `HalfEdgeMesh` build would raise cold-path scratch high-water ~4I→~10I+ for no drift benefit) **`classify_faces_impl` reimplements half-edge pairing that `HalfEdgeMesh` already computes.** ~30 lines of parallel connectivity build (`he_to_face`/`pair_array`/records) that can drift from the single tested builder. *Fix:* build a `HalfEdgeMesh` and read neighbor faces via `half_edges[half_edges[hidx].pair].face`; re-measure scratch high-water. (`core/mesh.h:637-687`)
 
 19. **`narrow_index()` (uint16_t) stored into a local `int` in expand/chamfer/snub.** Value-preserving but inconsistent with `ambo`/`truncate` and the `uint16_t` sinks; obscures the topology-index type intent. *Fix:* declare `uint16_t idx = narrow_index(...)`. (`core/conway.h:764,853,1081`)
 
