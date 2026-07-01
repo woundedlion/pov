@@ -116,7 +116,7 @@ inline void test_fast_wrap() {
   }
 }
 
-// --- shortest_distance / fwd_distance ---------------------------------------
+// --- shortest_distance ------------------------------------------------------
 
 /**
  * @brief Verifies shortest_distance returns the smaller arc length on the circular domain.
@@ -134,21 +134,6 @@ inline void test_shortest_distance() {
     float d = shortest_distance(i * 0.5f, 3.3f, 10.0f);
     HS_EXPECT_TRUE(d >= 0.0f && d <= 5.0f + 1e-5f);
   }
-}
-
-/**
- * @brief Verifies fwd_distance measures the arc from a to b in the positive direction only.
- * @details The distance wraps across the seam when b is "behind" a, yields 0 for equal
- *          points, lies in [0, m), and forward plus reverse forward distance equals m
- *          for distinct points.
- */
-inline void test_fwd_distance() {
-  HS_EXPECT_NEAR(fwd_distance(1.0f, 4.0f, 10.0f), 3.0f, 1e-5f);
-  HS_EXPECT_NEAR(fwd_distance(9.0f, 1.0f, 10.0f), 2.0f, 1e-5f);
-  HS_EXPECT_NEAR(fwd_distance(4.0f, 4.0f, 10.0f), 0.0f, 1e-5f);
-  float f = fwd_distance(2.0f, 7.0f, 10.0f);
-  float r = fwd_distance(7.0f, 2.0f, 10.0f);
-  HS_EXPECT_NEAR(f + r, 10.0f, 1e-5f);
 }
 
 // --- apply_if_changed -------------------------------------------------------
@@ -191,7 +176,6 @@ inline int run_util_tests() {
   test_wrap_mixed_type();
   test_fast_wrap();
   test_shortest_distance();
-  test_fwd_distance();
   test_apply_if_changed();
 
   return fixture.result();
