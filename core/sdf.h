@@ -1016,6 +1016,8 @@ template <typename A, typename B> struct SmoothUnion {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
     MergedIntervalBuffer merged;
     // Great-circle weld radius k spans k/sin(phi) columns of azimuth; the
     // equatorial conversion under-covers toward the poles. Clamp to full width
