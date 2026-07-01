@@ -114,7 +114,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 15. ✅ **`MeshMorph` nearest-vertex correspondence assumes unit-length vertices.** "Greatest dot == nearest" and `slerp` both require unit inputs; all current mesh sources are on the unit sphere, but the invariant is implicit/unchecked. *Fix:* add a one-time cold-path `HS_CHECK` for unit-length at construction (or normalize before the dot/slerp). (`core/animation_mesh.h:308-320`)
 
-16. **`ParticleSystem` event-horizon steering can stall a friction-drained particle.** Inside the horizon it redirects existing speed without adding acceleration, and friction has already damped it, so a slow particle can fail to reach `kill_radius` before its speed collapses (it is still reclaimed by the life timer). *Fix:* add a minimum inward pull / floor the steering speed, or document the friction stall. (`core/animation_orientation.h:345-349`)
+16. ✅ **`ParticleSystem` event-horizon steering can stall a friction-drained particle.** Inside the horizon it redirects existing speed without adding acceleration, and friction has already damped it, so a slow particle can fail to reach `kill_radius` before its speed collapses (it is still reclaimed by the life timer). *Fix:* add a minimum inward pull / floor the steering speed, or document the friction stall. (`core/animation_orientation.h:345-349`)
 
 17. **Stale arena-budget figure in header comment (335 KB vs the real 330 KiB).** The load-bearing sizing comment's headline contradicts `DEVICE_GLOBAL_ARENA_SIZE`, the rest of the same block, and the README. *Fix:* change "335 KB" to "330 KiB". (`core/memory.h:17`)
 
