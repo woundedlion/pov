@@ -663,14 +663,15 @@ struct Complex {
   /**
    * @brief Complex division.
    * @param b The divisor.
-   * @return The quotient of this and `b`; a near-zero divisor yields the
-   * infinity sentinel scaled along the numerator's direction.
+   * @return The quotient of this and `b`; a quotient whose magnitude would reach
+   * STEREO_INF collapses to the infinity sentinel scaled along the numerator's
+   * direction, so a merely small (non-singular) divisor still yields a finite
+   * point.
    */
   Complex operator/(const Complex &b) const {
     float denom = b.re * b.re + b.im * b.im;
-    if (denom < math::EPS_LEN_SQ) {
-      // Near-zero denominator → point at infinity, along the numerator direction.
-      float num_mag = re * re + im * im;
+    float num_mag = re * re + im * im;
+    if (num_mag >= denom * (STEREO_INF * STEREO_INF)) {
       if (num_mag < STEREO_DIV_NUM_EPS_SQ)
         return Complex(0, 0); // 0/0 → indeterminate, keep zero
       float scale = STEREO_INF / sqrtf(num_mag);

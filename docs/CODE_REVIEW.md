@@ -77,7 +77,7 @@ _None._
 
 ### Priority: Low
 
-4. **Complex::operator/ divisor threshold can emit STEREO_INF for merely small (not singular) denominators** (`Correctness`, `core/3dmath.h:669-681`) — denom < EPS_LEN_SQ (1e-6) triggers the infinity-sentinel branch. A denominator at |b| ~ 3e-4 (denom ~ 1e-7) is force-snapped to STEREO_INF magnitude, discarding a finite quotient of magnitude ~O(3e3). Mobius chains near a pole may quantize a valid finite point to infinity. _Fix:_ Gate the sentinel on the resulting magnitude exceeding STEREO_INF rather than on denom alone, or document the pole-radius this threshold implies.
+4. ✅ **Complex::operator/ divisor threshold can emit STEREO_INF for merely small (not singular) denominators** (`Correctness`, `core/3dmath.h:669-681`) — denom < EPS_LEN_SQ (1e-6) triggers the infinity-sentinel branch. A denominator at |b| ~ 3e-4 (denom ~ 1e-7) is force-snapped to STEREO_INF magnitude, discarding a finite quotient of magnitude ~O(3e3). Mobius chains near a pole may quantize a valid finite point to infinity. _Fix:_ Gate the sentinel on the resulting magnitude exceeding STEREO_INF rather than on denom alone, or document the pole-radius this threshold implies.
 
 5. **wrap() template NDEBUG fallback masks a non-positive modulo base instead of trapping** (`Correctness`, `core/util.h:45-60`) — For m <= 0 the debug assert fires, but under NDEBUG fmax(m, min()) floors m to ~1e-38, so wrap(x, 0) returns near-zero garbage in [0, 1e-38) rather than a diagnosable error. Given the fail-fast philosophy (HS_CHECK survives NDEBUG), a bad modulo base is silently masked. _Fix:_ Use `HS_CHECK(m > 0)` if wrap can receive a caller-derived m; the fmax floor then only guards NaN, not a logic bug.
 
