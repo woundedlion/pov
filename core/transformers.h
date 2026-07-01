@@ -464,9 +464,11 @@ inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
                                           float pole_fade, float time) {
   float atten = pole_attenuation(r_sq, pole_fade);
   float s = strength * atten;
+  constexpr float kChannelOffset = 100.0f; // decorrelates dy's field from dx's
   float dx = noise.GetNoise(z.re * scale, z.im * scale, time) * s;
-  float dy =
-      noise.GetNoise(z.re * scale + 100.0f, z.im * scale + 100.0f, time) * s;
+  float dy = noise.GetNoise(z.re * scale + kChannelOffset,
+                            z.im * scale + kChannelOffset, time) *
+             s;
   return {Complex(z.re + dx, z.im + dy), sqrtf(dx * dx + dy * dy)};
 }
 
