@@ -718,8 +718,7 @@ struct DistortedRing {
    * @param md Maximum magnitude of sf over t in [0,1) (radians). PRECONDITION:
    *           md must be a true upper bound on |sf|. It widens the row, column,
    *           and per-pixel reject bands, so an underestimate silently culls
-   *           genuine arcs with no diagnostic — unlike the sibling shapes, this
-   *           one carries no guard. All shipped callers pass an exact bound.
+   *           genuine arcs. Enforced by an always-on sample-trap in the ctor.
    * @param ph Azimuth phase offset (radians).
    */
   DistortedRing(const Basis &b, float r, float th, ScalarFn sf, float md,
@@ -745,12 +744,10 @@ struct DistortedRing {
     cos_max_limit = cosf(ang_min);
     cos_min_limit = cosf(ang_max);
 
-#ifndef NDEBUG
-    // max_distortion is a load-bearing upper bound on |shift_fn| (see @param md):
-    // an underestimate silently culls genuine arcs. Sample-and-trap on the debug
-    // host — a one-sided check (never false-positives; a coarse grid can still
-    // miss a sharp peak). Device builds compile this out, so the per-frame
-    // construction path pays nothing.
+    // max_distortion is a load-bearing upper bound on |shift_fn| (see @param
+    // md): an underestimate silently culls genuine arcs. One-sided sample-trap
+    // (never false-positives; a coarse grid can still miss a sharp peak), run
+    // once per cold-path construction.
     constexpr int kBoundSamples = 256;
     float worst = 0.0f;
     for (int i = 0; i < kBoundSamples; ++i)
@@ -758,7 +755,6 @@ struct DistortedRing {
                        std::abs(shift_fn(static_cast<float>(i) / kBoundSamples)));
     HS_CHECK(worst <= max_distortion * 1.001f + 1e-4f,
              "DistortedRing max_distortion underestimates |shift_fn|");
-#endif
   }
 
   /**
