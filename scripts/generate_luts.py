@@ -152,6 +152,9 @@ def check():
 def main():
     if "--check" in sys.argv[1:]:
         sys.exit(1 if check() else 0)
+    if check():
+        sys.stderr.write("generate_luts: self-test failed; refusing to emit\n")
+        sys.exit(1)
     buf = StringIO()
     render(buf)
     text = buf.getvalue()
