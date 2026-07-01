@@ -211,8 +211,8 @@ struct Pixel16 {
 using Pixel = Pixel16;
 
 /**
- * @brief Quantizes a [0,1) interpolation fraction to a 16-bit lerp16 weight.
- * @param frac Blend fraction, assumed in [0, 1) (caller-guaranteed; not clamped).
+ * @brief Quantizes a [0,1] interpolation fraction to a 16-bit lerp16 weight.
+ * @param frac Blend fraction, assumed in [0, 1] (caller-guaranteed; not clamped).
  * @return The fraction as a 16-bit weight in [0, 65535], rounded.
  */
 inline uint16_t frac_to_q16(float frac) {
