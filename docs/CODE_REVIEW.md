@@ -120,7 +120,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 18. ❌ (already de-drifted — the edge keying/pairing goes through the same shared `fill_edge_record`/`pair_half_edges` helpers the `HalfEdgeMesh` builder uses; only a lean face-neighbor scan remains, and a full `HalfEdgeMesh` build would raise cold-path scratch high-water ~4I→~10I+ for no drift benefit) **`classify_faces_impl` reimplements half-edge pairing that `HalfEdgeMesh` already computes.** ~30 lines of parallel connectivity build (`he_to_face`/`pair_array`/records) that can drift from the single tested builder. *Fix:* build a `HalfEdgeMesh` and read neighbor faces via `half_edges[half_edges[hidx].pair].face`; re-measure scratch high-water. (`core/mesh.h:637-687`)
 
-19. **`narrow_index()` (uint16_t) stored into a local `int` in expand/chamfer/snub.** Value-preserving but inconsistent with `ambo`/`truncate` and the `uint16_t` sinks; obscures the topology-index type intent. *Fix:* declare `uint16_t idx = narrow_index(...)`. (`core/conway.h:764,853,1081`)
+19. ✅ **`narrow_index()` (uint16_t) stored into a local `int` in expand/chamfer/snub.** Value-preserving but inconsistent with `ambo`/`truncate` and the `uint16_t` sinks; obscures the topology-index type intent. *Fix:* declare `uint16_t idx = narrow_index(...)`. (`core/conway.h:764,853,1081`)
 
 20. **`CompiledHankin::clone` duplicates the shared `copy_vector` deep-copy loop.** Uses a local `push` lambda instead of the shared helper that `MeshState::clone`/`MeshOps::clone` use — a third arena-deep-copy idiom that can drift. *Fix:* route all six vectors through `copy_vector`. (`core/hankin.h:66-79`)
 
