@@ -88,10 +88,12 @@ public:
     timeline.step(canvas);
     advance_tumble();
 
-    for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
-      Vector v = hopf_project(i);
-      // Store unoriented — oriented at render time.
-      trails[i].record(v);
+    if (!animationsPaused()) {
+      for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
+        Vector v = hopf_project(i);
+        // Store unoriented — oriented at render time.
+        trails[i].record(v);
+      }
     }
 
     render_trails(canvas);

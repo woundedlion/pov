@@ -128,7 +128,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 22. ✅ **`BZ::blend_species` unclamped `uint16` cast relies on an implicit precondition.** Safe as a true convex blend for the sole caller, but a future caller passing pre-scaled weights would overflow silently; the doc omits the precondition. *Fix:* tighten the doc to state `a+b+c` must equal the normalizing `wsum` (or clamp before the cast). (`effects/BZReactionDiffusion.h:307-325`)
 
-23. **`HopfFibration` records trails every frame while paused, collapsing them to a point.** With flow/tumble Drivers frozen, the trail ring fills with identical points over paused frames and each polyline becomes a dot; regrows over `TRAIL_LEN` frames on resume. *Fix:* gate the record loop on `!animationsPaused()` (keep rendering). (`effects/HopfFibration.h:91-95`)
+23. ✅ **`HopfFibration` records trails every frame while paused, collapsing them to a point.** With flow/tumble Drivers frozen, the trail ring fills with identical points over paused frames and each polyline becomes a dot; regrows over `TRAIL_LEN` frames on resume. *Fix:* gate the record loop on `!animationsPaused()` (keep rendering). (`effects/HopfFibration.h:91-95`)
 
 24. **`Moire` wipe-rebake gate never turns off in steady state (dead logic).** Wipes run back-to-back so `wipe_frames_remaining_` is re-armed before reaching 0; the per-frame decrement/guard only saves work before the first wipe. *Fix:* drop the gate and always rebake (the LUT rebakes are cheap, per the existing comment). (`effects/Moire.h:94-99`)
 
