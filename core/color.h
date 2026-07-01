@@ -212,11 +212,11 @@ using Pixel = Pixel16;
 
 /**
  * @brief Quantizes a [0,1] interpolation fraction to a 16-bit lerp16 weight.
- * @param frac Blend fraction, assumed in [0, 1] (caller-guaranteed; not clamped).
+ * @param frac Blend fraction; clamped to [0, 1].
  * @return The fraction as a 16-bit weight in [0, 65535], rounded.
  */
 inline uint16_t frac_to_q16(float frac) {
-  return static_cast<uint16_t>(frac * 65535.0f + 0.5f);
+  return static_cast<uint16_t>(hs::clamp(frac, 0.0f, 1.0f) * 65535.0f + 0.5f);
 }
 
 /**
