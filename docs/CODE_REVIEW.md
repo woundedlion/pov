@@ -130,7 +130,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 23. ✅ **`HopfFibration` records trails every frame while paused, collapsing them to a point.** With flow/tumble Drivers frozen, the trail ring fills with identical points over paused frames and each polyline becomes a dot; regrows over `TRAIL_LEN` frames on resume. *Fix:* gate the record loop on `!animationsPaused()` (keep rendering). (`effects/HopfFibration.h:91-95`)
 
-24. **`Moire` wipe-rebake gate never turns off in steady state (dead logic).** Wipes run back-to-back so `wipe_frames_remaining_` is re-armed before reaching 0; the per-frame decrement/guard only saves work before the first wipe. *Fix:* drop the gate and always rebake (the LUT rebakes are cheap, per the existing comment). (`effects/Moire.h:94-99`)
+24. ✅ **`Moire` wipe-rebake gate never turns off in steady state (dead logic).** Wipes run back-to-back so `wipe_frames_remaining_` is re-armed before reaching 0; the per-frame decrement/guard only saves work before the first wipe. *Fix:* drop the gate and always rebake (the LUT rebakes are cheap, per the existing comment). (`effects/Moire.h:94-99`)
 
 25. **`SplineFlow` `MAX_TRAILS=30000` reserves ~240 KB of the 330 KB device arena as a bare literal.** ~80% of the persistent budget with no compile-time guard, unlike the project-wide convention (HopfFibration/MindSplatter/Voronoi/GS/BZ all `static_assert` their footprint). *Fix:* add `static_assert(MAX_TRAILS*sizeof(Item) <= budget)` mirroring the sibling effects, and a cost comment. (`effects/SplineFlow.h:21`)
 
