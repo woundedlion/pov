@@ -249,7 +249,7 @@ private:
    */
   void draw_particles(Canvas &canvas, float opacity = 1.0f) {
     // cos(event_horizon) per attractor for the dot-product fast-reject below.
-    std::array<float, AttractSolid::NUM_VERTS> cos_eh;
+    std::array<float, AttractSolid::NUM_VERTS> cos_eh{};
     for (size_t i = 0; i < particle_system.attractors.size(); ++i) {
       cos_eh[i] = fast_cosf(particle_system.attractors[i].event_horizon);
     }
