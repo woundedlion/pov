@@ -1617,7 +1617,7 @@ Spherical Voronoi diagram with animated seed positions. Cells are always filled 
 
 Polyline rings drift pole-to-pole through an inverse stereographic projection, each wobbled into petal lobes and twisted by an angle that grows with its position; rasterized via Plot.
 
-**Parameters**: Twist, Speed, Alpha
+**Parameters**: Twist, Speed, Alpha, Density
 
 </td></tr></table>
 
