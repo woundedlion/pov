@@ -62,16 +62,14 @@ public:
     }
 
     init_fibers();
-    // Ambient spin is left ungated (runs while paused); the flow/tumble Drivers
-    // below are gated so Pause freezes the fiber motion.
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_linear, true));
     timeline.add(0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE,
-                                      true, &anims_paused_));
+                                      true));
     timeline.add(0, Animation::Driver(tumble_angle_x, &params.tumble_speed,
-                                      TUMBLE_X_RATE, true, &anims_paused_));
+                                      TUMBLE_X_RATE, true));
     timeline.add(0, Animation::Driver(tumble_angle_y, &params.tumble_speed,
-                                      TUMBLE_Y_RATE, true, &anims_paused_));
+                                      TUMBLE_Y_RATE, true));
   }
 
   /// POV column-strobe flag; strobes (see Effect::strobe_columns).
@@ -88,12 +86,10 @@ public:
     timeline.step(canvas);
     advance_tumble();
 
-    if (!animationsPaused()) {
-      for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
-        Vector v = hopf_project(i);
-        // Store unoriented — oriented at render time.
-        trails[i].record(v);
-      }
+    for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
+      Vector v = hopf_project(i);
+      // Store unoriented — oriented at render time.
+      trails[i].record(v);
     }
 
     render_trails(canvas);

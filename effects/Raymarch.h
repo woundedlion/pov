@@ -48,10 +48,9 @@ public:
     // radians by *2pi where consumed.
     constexpr float kTwoPi = 2.0f * PI_F;
     timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
-                                      1.5f / (60.0f * kTwoPi), true,
-                                      &anims_paused_));
+                                      1.5f / (60.0f * kTwoPi), true));
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
-                                      0.05f / 60.0f, true, &anims_paused_));
+                                      0.05f / 60.0f, true));
 
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float opacity) {
