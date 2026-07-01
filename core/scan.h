@@ -1311,12 +1311,12 @@ struct Volume {
               // covers — lay the shaded background down, then blend the foreground
               // over it by the edge coverage. Smooth, vs. fading to black (fringe)
               // or snapping to opaque (jagged).
+              Fragment bg;
+              bg.pos = occ.behind;
+              bg.size = 0.0f;
+              frag_fn(occ.behind, bg);
+              pipeline.plot(canvas, p, bg.color.color, 0.0f, bg.color.alpha);
               if (frag.color.alpha > 0.001f) {
-                Fragment bg;
-                bg.pos = occ.behind;
-                bg.size = 0.0f;
-                frag_fn(occ.behind, bg);
-                pipeline.plot(canvas, p, bg.color.color, 0.0f, bg.color.alpha);
                 pipeline.plot(canvas, p, frag.color.color, 0.0f,
                               frag.color.alpha * edge_alpha);
               }
