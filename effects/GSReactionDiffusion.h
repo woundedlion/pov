@@ -86,6 +86,11 @@ public:
                       kPersistentBytes,
                   "GS persistent arena too small for LUT + state + nodes + "
                   "palette");
+    // render() carves 2 uint16 + 2 float species buffers from scratch_a.
+    constexpr size_t kScratchBytes =
+        2u * RD_N * sizeof(uint16_t) + 2u * RD_N * sizeof(float);
+    static_assert(kScratchBytes <= GLOBAL_ARENA_SIZE - kPersistentBytes,
+                  "GS scratch arena too small for render()'s species buffers");
     configure_arenas(kPersistentBytes, GLOBAL_ARENA_SIZE - kPersistentBytes, 0);
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
