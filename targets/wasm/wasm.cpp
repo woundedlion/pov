@@ -1183,7 +1183,9 @@ struct PaletteOps {
    * @param s3 Third key saturation.
    * @param v3 Third key value.
    * @return JS Uint8Array view over 256*3 sRGB bytes; entry i is the palette
-   *         sampled at t = i/255.
+   *         sampled at t = i/255. Aliases the shared `lut` buffer (same
+   *         memory-view contract as getPixels): read it before the next bakeLut
+   *         call, which overwrites the buffer in place.
    */
   val bakeLut(int gradientShape, int h1, int s1, int v1, int h2, int s2, int v2,
               int h3, int s3, int v3) {
