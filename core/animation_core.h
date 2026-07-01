@@ -8,7 +8,6 @@
 #include <cmath>
 #include <functional>
 
-#include <array>
 #include <new> // std::launder
 #include <type_traits>
 #include "3dmath.h"
