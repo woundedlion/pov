@@ -338,6 +338,14 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 // so any change here must be measured against the configured arena split, not
 // applied for uniformity.
 //
+// MANIFOLD PRECONDITION (per operator):
+//   - dual / ambo / truncate / expand / chamfer / snub -> require a closed
+//     manifold; require_closed_manifold traps on a boundary mesh.
+//   - kis                                              -> per-face, no manifold
+//     requirement.
+//   - relax                                            -> tolerates a boundary
+//     mesh (skips unpaired-twin vertices, partial relaxation).
+//
 // COMPOSITION POLARITY (load-bearing — do not "fix" for contract uniformity):
 // Composed operators (gyro, meta, needle, zip, bevel) are written
 // as op2(op1(mesh, target, temp), temp, target) so they reuse the SAME ping-pong
