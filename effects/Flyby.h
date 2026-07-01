@@ -42,7 +42,6 @@ public:
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    // TODO: Good preset for later: { 100.0000f, 8.6700f, 1.0000f, 0.5860f, 3.4320f, 0.6360f }
     registerParam("Warp Scale", &params.warp_scale, 0.1f, 100.0f);
     registerParam("Warp Strength", &params.warp_strength, 0.0f, 30.0f);
     registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
@@ -227,11 +226,12 @@ private:
   };
   Params params;
 
-  Presets<Params, 4> presets = {{{
+  Presets<Params, 5> presets = {{{
       {{47.752f, 11.55f, 2.7f, 0.586f, 1.55f, 0.097f}},
       {{0.1f, 0.87f, 14.262f, 0.586f, 3.527f, 0.097f}},
       {{1.5f, 0.5f, 8.0f, 0.30f, 2.0f, 0.15f}},
       {{47.752f, 2.55f, 7.878f, 0.562f, 2.843f, 0.0f}},
+      {{100.0f, 8.67f, 1.0f, 0.586f, 3.432f, 0.636f}},
   }}};
 };
 
