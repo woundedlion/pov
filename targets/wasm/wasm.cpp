@@ -738,6 +738,7 @@ private:
  *          check_live().
  */
 struct MeshOpsWrapper {
+private:
   PolyMesh mesh; /**< The wrapped mesh, stored in the tooling arena. */
   /**
    * Generation of the tooling arena this mesh was built into; compared against
@@ -745,6 +746,7 @@ struct MeshOpsWrapper {
    */
   uint32_t generation_ = tooling_generation;
 
+public:
   /**
    * @brief Constructs an empty wrapper recording the current tooling generation.
    */
@@ -1161,12 +1163,14 @@ struct MeshOpsWrapper {
  *          touched, so calling this never perturbs a live engine's render stream.
  */
 struct PaletteOps {
+private:
   // 256 sRGB entries (R,G,B) backing the typed_memory_view bakeLut returns.
   // Sized once at construction so the view's ArrayBuffer never reallocates
   // between calls (same contract as HolosphereEngine::getPixels): JS must read
   // the result before the next bakeLut call.
   std::vector<uint8_t> lut;
 
+public:
   PaletteOps() : lut(256 * 3, 0) {}
 
   /**
