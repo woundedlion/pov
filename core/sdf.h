@@ -990,10 +990,16 @@ template <typename A, typename B> struct SmoothUnion {
     constexpr int H_VIRT = H + hs::H_OFFSET;
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
-    int lo = std::min(b1.y_min, b2.y_min);
-    int hi = std::max(b1.y_max, b2.y_max);
-    if (lo > hi)
+    // A culled child returns {1,0}; folding its sentinel via min/max would
+    // annex rows neither child occupies.
+    bool a_culled = b1.y_min > b1.y_max;
+    bool b_culled = b2.y_min > b2.y_max;
+    if (a_culled && b_culled)
       return {1, 0};
+    int lo = a_culled ? b2.y_min : b_culled ? b1.y_min
+                                            : std::min(b1.y_min, b2.y_min);
+    int hi = a_culled ? b2.y_max : b_culled ? b1.y_max
+                                            : std::max(b1.y_max, b2.y_max);
     // Expand by the blend radius k (radians) converted to rows: phi spans [0,π]
     // over (H_VIRT-1) rows.
     int pad = std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / PI_F)));

@@ -106,7 +106,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 11. ✅ **`sort_intervals_by_start` uses a signed `int` index over a `size_t` count.** Casts to `int` to decrement to `-1` as the shift terminator in a shared helper; capacities are tiny so no overflow today, but it couples correctness to `N < INT_MAX`. *Fix:* rewrite with an unsigned-safe idiom (`j` from `i` down while `j>0`). (`core/sdf.h:135-143`)
 
-12. **`SmoothUnion` vertical-bounds fold leaks a culled child's `{1,0}` sentinel into the band.** A culled child folded via `min/max` can annex rows neither child occupies. Purely conservative over-scan (no coverage/visual defect); the plain `Union` fold shares it. *Fix:* short-circuit `y_min>y_max` children before folding, mirroring the existing `lo>hi` case. (`core/sdf.h:993-1005`)
+12. ✅ **`SmoothUnion` vertical-bounds fold leaks a culled child's `{1,0}` sentinel into the band.** A culled child folded via `min/max` can annex rows neither child occupies. Purely conservative over-scan (no coverage/visual defect); the plain `Union` fold shares it. *Fix:* short-circuit `y_min>y_max` children before folding, mirroring the existing `lo>hi` case. (`core/sdf.h:993-1005`)
 
 13. ✅ **`MobiusWarp`/`MobiusWarpCircular` `set_scale()`/`set_easing()` are dead API.** Four setters with no callers anywhere (the live path is `bind_scale()`); one even documents a contract no caller exercises. *Fix:* delete the four unused setters (keep `bind_scale`). (`core/animation_mesh.h:154-158,201-205`)
 
