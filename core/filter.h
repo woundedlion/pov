@@ -85,19 +85,6 @@ struct Is3DWithHistory {
 template <int W, int H, typename... Filters> struct Pipeline;
 
 /**
- * @brief Plots a color to the canvas, clipping the y-coordinate to bounds.
- * @param canvas Target canvas to write into.
- * @param x Column index (assumed already wrapped into range).
- * @param y Row index; the write is skipped unless y is in [0, height).
- * @param c Color to store at (x, y).
- */
-inline void plot_virtual(Canvas &canvas, int x, int y, const Pixel &c) {
-  if (y >= 0 && y < canvas.height()) {
-    canvas(x, y) = c;
-  }
-}
-
-/**
  * @brief Terminal node of the pipeline (base case). Writes final pixels to the
  * Canvas.
  * @tparam W Canvas width in pixels.
@@ -142,8 +129,7 @@ template <int W, int H> struct Pipeline<W, H> {
     if (!cv.clip().contains_y(y)) return;
     int xi = fast_wrap(x, W);
     if (!cv.clip().contains_x(xi)) return;
-    Pixel p = blend_alpha(alpha)(cv(xi, y), c);
-    plot_virtual(cv, xi, y, p);
+    cv(xi, y) = blend_alpha(alpha)(cv(xi, y), c);
   }
 
   /**
@@ -166,8 +152,7 @@ template <int W, int H> struct Pipeline<W, H> {
     if (!cv.clip().contains_y(yi)) return;
     xi = fast_wrap(xi, W);
     if (!cv.clip().contains_x(xi)) return;
-    Pixel p = blend_alpha(alpha)(cv(xi, yi), c);
-    plot_virtual(cv, xi, yi, p);
+    cv(xi, yi) = blend_alpha(alpha)(cv(xi, yi), c);
   }
 
   /**

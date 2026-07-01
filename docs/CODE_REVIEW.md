@@ -96,7 +96,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 6. ❌ **Base pipeline sink recomputes the cylindrical x-clip (two modulos) per plotted pixel.** The terminal `Pipeline<W,H>::plot` calls `contains_x()` (two `% w`) per emitted sub-sample, amplified by multi-tap filters, while the scan/sdf hot loops already use the precomputed modulo-free `XClip`. Only bites partial-arc segment clips (multi-board Phantasm). *Fix:* build an `XClip` once per draw at the sink, mirroring `scan.h`. (`core/filter.h:142-147,166-170`)
 
-7. **Redundant per-pixel y-bounds re-check in `plot_virtual`.** After `contains_y(y)` passes, `y` is provably in `[0,h)`, so `plot_virtual`'s `y>=0 && y<height()` re-test is always-true dead work on every composited pixel. *Fix:* drop the guard at the (already y-clipped) sink call sites, or inline the write. (`core/filter.h:94-98,142-146,158-170`)
+7. ✅ **Redundant per-pixel y-bounds re-check in `plot_virtual`.** After `contains_y(y)` passes, `y` is provably in `[0,h)`, so `plot_virtual`'s `y>=0 && y<height()` re-test is always-true dead work on every composited pixel. *Fix:* drop the guard at the (already y-clipped) sink call sites, or inline the write. (`core/filter.h:94-98,142-146,158-170`)
 
 8. ✅ **Stray trailing semicolons after member-function bodies.** `PipelineRef::plot(...) const { ... };` and `~Effect() { s_alive = false; };` are harmless empty declarations (no warning under the current flags). *Fix:* remove the trailing `;`. (`core/concepts.h:302`, `core/canvas.h:65`)
 
