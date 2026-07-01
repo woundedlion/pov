@@ -761,7 +761,7 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
           Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
           Vector new_v = v + (centroid - v) * t;
           out_mesh.vertices.push_back(new_v);
-          int idx = narrow_index(out_mesh.vertices.size() - 1);
+          uint16_t idx = narrow_index(out_mesh.vertices.size() - 1);
           he_to_vert_idx[he_idx] = idx;
 
           if (well_formed)
@@ -1078,7 +1078,7 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
           }
 
           out_mesh.vertices.push_back(new_v);
-          int idx = narrow_index(out_mesh.vertices.size() - 1);
+          uint16_t idx = narrow_index(out_mesh.vertices.size() - 1);
           he_to_vert_idx[he_idx] = idx;
 
           if (well_formed)
