@@ -52,11 +52,10 @@ public:
     Animation::OrientationTrail<Orientation<>, TRAIL_LENGTH> trail;
     FastNoiseLite noise;
     /**
-     * @brief Constructs a ring with the given plane normal and palette.
-     * @param n Unit normal of the ring's great-circle plane.
+     * @brief Constructs a ring on the Y-axis great-circle plane.
      * @param p Baked palette used to color the ring's trail.
      */
-    Ring(const Vector &n, BakedPalette *p) : normal(n), palette(p) {}
+    Ring(BakedPalette *p) : normal(Y_AXIS), palette(p) {}
   };
 
   /**
@@ -158,7 +157,7 @@ private:
     if (num_rings >= NUM_RINGS)
       return;
     Ring &r = rings[num_rings];
-    new (&r) Ring(Y_AXIS, palette);
+    new (&r) Ring(palette);
     num_rings++;
     timeline.add(0, Animation::RandomWalk<W>(
                         r.orientation, r.normal, r.noise,
