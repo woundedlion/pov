@@ -1394,6 +1394,101 @@ inline void test_voronoi_coherence_equivalence() {
 }
 
 /**
+ * @brief Minimal Effect owning a Canvas, so a mesh can be rasterized in a test.
+ */
+struct BudgetCanvasFx : public Effect {
+  /**
+   * @brief Constructs the fixture with a canvas of the given size.
+   * @param w Canvas width in pixels.
+   * @param h Canvas height in pixels.
+   */
+  BudgetCanvasFx(int w, int h) : Effect(w, h) {}
+  /** @brief No-op per-frame hook; the mesh draw under test lights the canvas. */
+  void draw_frame() override {}
+  /** @brief Paints no background. @return Always false. */
+  bool strobe_columns() const override { return false; }
+};
+
+/**
+ * @brief Gates HankinSolids' hand-tuned scratch budgets against the real
+ *        generate+classify+render+compaction peak of every simple solid at the
+ *        device height (H=144).
+ * @details HankinSolids::init sizes scratch_a=24 KB / scratch_b=32 KB for "the
+ *          heaviest hankin mesh", but the effect's random morph never
+ *          deterministically reaches every solid within a smoke window, so an
+ *          under-sized budget would trap only on hardware. This reproduces the
+ *          effect's per-solid arena discipline (load_shape → classify → draw_mesh
+ *          → morph compaction) for all Platonic+Archimedean solids in
+ *          headroomed arenas and asserts each scratch high-water fits its budget.
+ */
+inline void test_hankinsolids_arena_budget_covers_every_solid() {
+  constexpr int W = 288, H = 144;
+  constexpr size_t kScratchA = 24 * 1024, kScratchB = 32 * 1024;
+  constexpr size_t kMeasure = 1024 * 1024; // headroom so a peak never traps here
+  constexpr float kAngle = PI_F / 4.0f;
+
+  auto solids = Solids::Collections::get_simple_solids();
+  for (size_t idx = 0; idx < solids.size(); ++idx) {
+    configure_arenas(GLOBAL_ARENA_SIZE - 2 * kMeasure, kMeasure, kMeasure);
+
+    MeshPaletteBank palette_bank;
+    palette_bank.bake_all(persistent_arena);
+
+    MeshState mesh;
+    CompiledHankin hankin;
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      PolyMesh base = Solids::finalize_solid(solids[idx].generate(a, b), a);
+      hankin = CompiledHankin();
+      MeshOps::compile_hankin(base, hankin, target, a);
+      mesh.clear();
+      MeshOps::update_hankin(hankin, mesh, target, kAngle);
+    });
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
+                                          persistent_arena);
+    }
+
+    // Render peak: transform into scratch_a, then Scan::Mesh::draw stacks a
+    // FaceScratchBuffer on top (the scratch_a-binding path per init's comment).
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      Orientation<> orientation;
+      OrientTransformer camera(orientation);
+      MeshState rotated;
+      MeshOps::transform(mesh, rotated, scratch_arena_a, camera);
+      BudgetCanvasFx fx(W, H);
+      Canvas canvas(fx);
+      Pipeline<W, H> filters;
+      auto frag = [](const Vector &, Fragment &f) {
+        f.color = Color4(Pixel(1000, 1000, 1000), 1.0f);
+      };
+      Scan::Mesh::draw<W, H>(filters, canvas, rotated, frag, scratch_arena_a);
+    }
+
+    // Morph compaction peak: the CompiledHankin + palette bank survive into
+    // scratch_b, the mesh into scratch_a, then persistent is reset — the same
+    // Persist discipline start_morph_cycle uses to compact between solids.
+    {
+      Persist<CompiledHankin> ph(hankin, scratch_arena_b, persistent_arena);
+      Persist<MeshState> pf(mesh, scratch_arena_a, persistent_arena);
+      Persist<MeshPaletteBank> pp(palette_bank, scratch_arena_b, persistent_arena);
+      persistent_arena.reset();
+    }
+
+    const size_t a_peak = scratch_arena_a.get_high_water_mark();
+    const size_t b_peak = scratch_arena_b.get_high_water_mark();
+    if (a_peak > kScratchA || b_peak > kScratchB)
+      std::printf("  HankinSolids arena OVER BUDGET solid[%zu] '%s': "
+                  "scratchA=%zu/%zu scratchB=%zu/%zu\n",
+                  idx, solids[idx].name, a_peak, kScratchA, b_peak, kScratchB);
+    HS_EXPECT_TRUE(a_peak <= kScratchA);
+    HS_EXPECT_TRUE(b_peak <= kScratchB);
+  }
+}
+
+/**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Runs the SH-decode check, then both smoke and determinism passes over
@@ -1435,6 +1530,7 @@ inline int run_effects_tests() {
   test_flowfield_time_and_pool_bounded();
   test_ringspin_pool_clamped();
   test_shapeshifter_shape_cut_lifecycle();
+  test_hankinsolids_arena_budget_covers_every_solid();
 
   // Smoke every registered effect. The list is generated from the single-source
   // roster in core/effects.h (HS_EFFECT_LIST), so it cannot drift from the
