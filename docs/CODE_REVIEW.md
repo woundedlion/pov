@@ -69,7 +69,7 @@ _None._
 
 ### Priority: Medium
 
-1. **Device-resolution arena high-water is unverified by CI** (`Testing`, `effects/HankinSolids.h:31-38`) — The scratch_a (24KB)/scratch_b (32KB) budgets are hand-tuned and the comment states the device H=144 high-water "isn't in CI; confirm the peak on hardware". An under-sized arena traps (fail-fast) at runtime on device, a class of regression CI cannot catch for this effect. _Fix:_ Add a host test exercising the heaviest hankin mesh at device H to gate the scratch peaks, or a static worst-case bound.
+1. ✅ **Device-resolution arena high-water is unverified by CI** (`Testing`, `effects/HankinSolids.h:31-38`) — The scratch_a (24KB)/scratch_b (32KB) budgets are hand-tuned and the comment states the device H=144 high-water "isn't in CI; confirm the peak on hardware". An under-sized arena traps (fail-fast) at runtime on device, a class of regression CI cannot catch for this effect. _Fix:_ Add a host test exercising the heaviest hankin mesh at device H to gate the scratch peaks, or a static worst-case bound.
 
 2. **Liquid2D time accumulators keep advancing while animations are paused** (`Correctness`, `effects/Liquid2D.h:60-65, 108-121`) — The accumulated_time and cycle_phase Drivers are added without the `&anims_paused_` gate, and sin_phase/cos_phase are advanced unconditionally in draw_frame by params.time_speed. Touching the animated Time/Cycle sliders engages "Pause Animation", yet the warp and trig motion never freeze, so the user cannot tweak a static frame. Raymarch's Drivers pass `&anims_paused_`. _Fix:_ Pass `&anims_paused_` to both Drivers and gate the sin_phase/cos_phase advance on `!animationsPaused()`, matching Raymarch.
 
