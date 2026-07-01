@@ -18,8 +18,8 @@
  * @return A lambda mapping time t to the wave value.
  */
 inline auto sin_wave(float from, float to, float freq, float phase) {
-  // Hoist only 2π·phase: reassociating freq·t·2π could shift the last bit, and
-  // the wave must stay bit-identical between sim and device.
+  // Hoist only 2π·phase: reassociating freq·t·2π could shift the last bit,
+  // perturbing determinism for a given target (sinf's libm differs per target).
   const float phase_term = 2 * PI_F * phase;
   return [=](float t) -> float {
     // −π/2 anchors t=0, phase=0 at the trough.
