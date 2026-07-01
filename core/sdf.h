@@ -916,6 +916,10 @@ template <typename A, typename B> struct Union {
     if (merged.is_empty())
       return true;
 
+    // Emitted spans may straddle θ=0 and are not seam-normalized to [0,W): the
+    // union merge is frame-tolerant, so scan_region's wrap+coalesce is the seam
+    // authority. Subtract/Intersection normalize first only because their
+    // pairwise span comparison is frame-sensitive.
     merge_intervals(merged, out);
     return true;
   }
@@ -1047,6 +1051,10 @@ template <typename A, typename B> struct SmoothUnion {
     if (merged.is_empty())
       return true;
 
+    // Emitted spans may straddle θ=0 and are not seam-normalized to [0,W): the
+    // union merge is frame-tolerant, so scan_region's wrap+coalesce is the seam
+    // authority. Subtract/Intersection normalize first only because their
+    // pairwise span comparison is frame-sensitive.
     merge_intervals(merged, out);
     return true;
   }
