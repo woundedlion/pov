@@ -343,9 +343,10 @@ private:
 
         if (dist_sq > 0.0000001f) {
           if (dist_sq < attr.event_horizon * attr.event_horizon) {
-            // Steer into center
+            // Steer into center. Floor the speed so a friction-drained particle
+            // still advances inward to kill_radius instead of stalling.
             Vector torque = (attr.position - pos).normalized();
-            float speed = p.velocity.magnitude();
+            float speed = std::max(p.velocity.magnitude(), max_delta);
             p.velocity = torque * speed;
           } else {
             // Gravity. pos and the attractor can be ~antipodal (undefined cross
