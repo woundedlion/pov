@@ -194,8 +194,11 @@ target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
 add_test(NAME unit_stack_budget COMMAND stack_measure)
 
-# Arena high-water probe: reports per-effect global-arena usage to size
-# GLOBAL_ARENA_SIZE. Not a CTest (informational, like perf_bench).
+# Arena high-water gate across every effect. Reports per-effect global-arena
+# usage to size GLOBAL_ARENA_SIZE, and exits non-zero if the worst single-effect
+# total exceeds the device budget — catching an arena regression before it can
+# OOM-trap on hardware (see arena_measure.cpp header). Host figures are a
+# conservative upper bound vs the 32-bit device, so a host pass implies device.
 add_executable(arena_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/arena_measure.cpp
   ${HS_ROOT}/core/memory.cpp
@@ -203,6 +206,7 @@ add_executable(arena_measure
 target_compile_definitions(arena_measure PRIVATE HS_TEST_BUILD)
 target_include_directories(arena_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
+add_test(NAME unit_arena_budget COMMAND arena_measure)
 
 # Render micro-benchmark, built at two opt levels to bracket the size config's
 # per-pixel codegen cost (perf_bench.cpp). Not CTests — wall time is noisy.
