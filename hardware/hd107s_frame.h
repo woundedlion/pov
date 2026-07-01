@@ -142,6 +142,8 @@ public:
 
   /**
    * @brief Loads pixel data into the buffer with full color correction.
+   * @note Host/test bulk path (a CRGB parity guard), not the device path; the
+   *       shipped driver packs via packPixel().
    * @param pixels Source CRGB array (sRGB 8-bit).
    * @param count  Number of pixels to load; must be in [0, N].
    * @details All corrections are applied in linear 16-bit space using the

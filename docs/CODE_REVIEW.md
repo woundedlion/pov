@@ -136,7 +136,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 26. ✅ **`Voronoi::shade()` takes the nearest index as `int` while KD/CellId use `uint16_t`.** Harmless at `MAX_SITES=400`, but diverges from the deliberate `uint16_t` index typing elsewhere in the file. *Fix:* change `i0`/`i1` to `uint16_t`. (`effects/Voronoi.h:98`)
 
-27. **`HD107SFrame::load()` is effectively test-only surface in the shipped header.** Shipped drivers pack via `packPixel()` only; `load()` (a second flush-owning CRGB path) is exercised only by a parity test and can be mistaken for a device path. It is a load-bearing parity guard, so keep it. *Fix:* add a one-line "host/test bulk path, not the device path" marker to `load()`'s doc. (`hardware/hd107s_frame.h:156-185`)
+27. ✅ **`HD107SFrame::load()` is effectively test-only surface in the shipped header.** Shipped drivers pack via `packPixel()` only; `load()` (a second flush-owning CRGB path) is exercised only by a parity test and can be mistaken for a device path. It is a load-bearing parity guard, so keep it. *Fix:* add a one-line "host/test bulk path, not the device path" marker to `load()`'s doc. (`hardware/hd107s_frame.h:156-185`)
 
 28. **`TeensySPIDMA` single-instance invariant is enforced only at runtime.** A hard global-singleton constraint (backing the shared DMA-completion ISR dispatch) is invisible at the `DMALEDController<N>` API; two controllers compile fine and trap only at the second `begin()`. Never fires on current single-controller targets. *Fix:* document the one-per-image limit in `DMALEDController`'s class doxygen. (`hardware/dma_led.h:75-100`)
 
