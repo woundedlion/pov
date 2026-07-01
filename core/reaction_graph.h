@@ -26,6 +26,9 @@ static constexpr float D_AVG = 0.0404505398f; // sqrt(4π / 7680)
 // node()'s `(RD_N - 1)` divisor degenerates (divide-by-zero) when RD_N <= 1.
 static_assert(RD_N >= 2, "node() lattice mapping degenerates when RD_N <= 1");
 
+// neighbors[] elements and stored node indices are int16_t.
+static_assert(RD_N <= INT16_MAX, "node index must fit int16_t");
+
 // D_AVG = sqrt(4π / RD_N), so D_AVG*D_AVG*RD_N must equal 4π (12.566...). sqrtf
 // isn't constexpr here, so check the squared, multiply-only form.
 static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
