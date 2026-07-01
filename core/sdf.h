@@ -1645,6 +1645,10 @@ struct Face {
   int build_height;                            /**< Canvas height the bounds were computed for. */
   std::span<std::pair<float, float>> intervals; /**< Azimuth coverage intervals (radians). */
   bool full_width;                             /**< True when the face spans all columns. */
+  float cap_theta = 0.0f;   /**< Face-center longitude (radians, [0, 2*pi)). */
+  float cap_cos_phi = 0.0f; /**< cos of the face-center colatitude. */
+  float cap_sin_phi = 0.0f; /**< sin of the face-center colatitude. */
+  float cap_cos_rho = 1.0f; /**< cos of the cull-cap angular radius atan(max_dist). */
   static constexpr bool is_solid = true;       /**< Face renders as a filled region. */
 
   // Packed edge data + LUT for distance computation
@@ -1689,6 +1693,13 @@ struct Face {
 
     setup_frame_and_polygon(vertices, indices, scratch);
     compute_inradius(scratch);
+
+    cap_theta = fast_atan2(center.z, center.x);
+    if (cap_theta < 0)
+      cap_theta += 2 * PI_F;
+    cap_cos_phi = hs::clamp(center.y, -1.0f, 1.0f);
+    cap_sin_phi = sqrtf(1.0f - cap_cos_phi * cap_cos_phi);
+    cap_cos_rho = 1.0f / sqrtf(1.0f + max_dist_sq);
 
     // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
     // span misses the great-circle edge bulge toward a pole, leaving near-pole
@@ -2016,12 +2027,10 @@ struct Face {
    * Note this is intentionally coarse: the test is binary on the *single* largest
    * gap, so the only tightening it can produce is excising that one gap. A face
    * whose largest inter-vertex gap is <= pi is treated as full-width even when its
-   * actual azimuth coverage is well under 2*pi (e.g. a face spanning ~0.6*2*pi
-   * with no gap wider than pi scans the full row width every row). Unlike the
-   * ring/polygon vertical-bounds paths, there is no intermediate between "excise
-   * the one big gap" and "full width" — the per-row scan simply over-covers in
-   * that band. This is a deliberate cost/precision trade (one sort + one pass,
-   * no multi-gap interval union) on a hot bounds path, not an oversight.
+   * actual azimuth coverage is well under 2*pi. This is a deliberate
+   * cost/precision trade (one sort + one pass, no multi-gap interval union) on a
+   * hot bounds path; get_horizontal_intervals further clips each row to the
+   * face's bounding-cap span, which bounds the over-coverage.
    */
   __attribute__((always_inline)) void
   compute_azimuth_intervals(FaceScratchBuffer &scratch) {
@@ -2266,19 +2275,63 @@ struct Face {
    * @tparam W Canvas width in columns.
    * @tparam H Canvas height in rows.
    * @tparam OutputIt Sink type invoked as out(float start, float end).
+   * @param y Row index in [0, H).
    * @param out Sink accepting (float start, float end).
-   * @return True if intervals were emitted; false (full scan) for full-width faces.
+   * @return True if intervals were emitted; false for a full-row scan.
+   * @details The static azimuth intervals are intersected with the face's
+   * bounding-cap span at this row (spherical law of cosines, as
+   * Scan::BoundingSphere::get_intervals). The cap radius is atan(max_dist), so
+   * every pixel outside it is one the distance() max_dist_sq cull rejects;
+   * the tightening never drops a shadeable pixel.
    */
   template <int W, int H, typename OutputIt>
-  bool get_horizontal_intervals(int, OutputIt out) const {
-    if (full_width)
-      return false;
+  bool get_horizontal_intervals(int y, OutputIt out) const {
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    float sin_phi = TrigLUT<W, H>::sin_phi[y];
+    float cos_phi = TrigLUT<W, H>::cos_phi[y];
+    // denom <= 0 only at a pole (this row or the cap center), where the cap
+    // spans the whole row; that branch also dodges the 0/0 -> NaN.
+    float denom = sin_phi * cap_sin_phi;
+    float cos_dtheta =
+        denom > 0.0f ? (cap_cos_rho - cos_phi * cap_cos_phi) / denom : -1.0f;
     // Pad each interval by one pixel so the outer AA fringe is scanned.
     float pixel_width = 2.0f * PI_F / W;
+    if (cos_dtheta <= -1.0f) {
+      // Cap spans the whole row; only the static intervals bound it.
+      if (full_width)
+        return false;
+      for (const auto &iv : intervals) {
+        float f_x1 = (iv.first - pixel_width) * W / (2 * PI_F);
+        float f_x2 = (iv.second + pixel_width) * W / (2 * PI_F);
+        out(floorf(f_x1), ceilf(f_x2));
+      }
+      return true;
+    }
+    float dtheta = acosf(cos_dtheta < 1.0f ? cos_dtheta : 1.0f);
+    // Pixel-space cap arc; the +1 absorbs edge round-off and the asymmetric
+    // W/2 clamps bound the span at W (scan_region's producer contract), as in
+    // BoundingSphere::get_intervals.
+    float center_col = cap_theta * W / (2.0f * PI_F);
+    int span = static_cast<int>(ceilf(dtheta * W / (2.0f * PI_F))) + 1;
+    int x_lo = std::min(W / 2, span);
+    int x_hi = std::min((W + 1) / 2, span);
+    float cap_lo = center_col - x_lo;
+    float cap_hi = center_col + x_hi;
+    if (full_width) {
+      out(cap_lo, cap_hi);
+      return true;
+    }
     for (const auto &iv : intervals) {
-      float f_x1 = (iv.first - pixel_width) * W / (2 * PI_F);
-      float f_x2 = (iv.second + pixel_width) * W / (2 * PI_F);
-      out(floorf(f_x1), ceilf(f_x2));
+      float f_x1 = floorf((iv.first - pixel_width) * W / (2 * PI_F));
+      float f_x2 = ceilf((iv.second + pixel_width) * W / (2 * PI_F));
+      // The cap arc may straddle the seam; intersect at each wrap offset.
+      for (int k = -W; k <= W; k += W) {
+        float lo = f_x1 > cap_lo + k ? f_x1 : cap_lo + k;
+        float hi = f_x2 < cap_hi + k ? f_x2 : cap_hi + k;
+        if (lo < hi)
+          out(lo, hi);
+      }
     }
     return true;
   }
