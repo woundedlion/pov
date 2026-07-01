@@ -151,12 +151,6 @@ public:
    */
   void bind_scale(const float &live_scale) { scale_ref_ = &live_scale; }
 
-  /** @brief Sets the warp magnitude (ignored while a live scale is bound). */
-  void set_scale(float scale) { scale_ = scale; }
-
-  /** @brief Sets the easing curve. */
-  void set_easing(EasingFn easing) { easing_ = easing; }
-
   /**
    * @brief Steps the animation, updating param b.
    * @param canvas The canvas buffer (forwarded to the base step).
@@ -197,12 +191,6 @@ public:
         easing_(easing) {
     HS_CHECK(duration >= 0, "MobiusWarpCircular duration must be >= 0");
   }
-
-  /** @brief Sets the warp magnitude. */
-  void set_scale(float scale) { scale_ = scale; }
-
-  /** @brief Sets the easing curve. */
-  void set_easing(EasingFn easing) { easing_ = easing; }
 
   /**
    * @brief Steps the animation, updating param b.

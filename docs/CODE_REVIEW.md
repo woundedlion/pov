@@ -108,7 +108,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 12. **`SmoothUnion` vertical-bounds fold leaks a culled child's `{1,0}` sentinel into the band.** A culled child folded via `min/max` can annex rows neither child occupies. Purely conservative over-scan (no coverage/visual defect); the plain `Union` fold shares it. *Fix:* short-circuit `y_min>y_max` children before folding, mirroring the existing `lo>hi` case. (`core/sdf.h:993-1005`)
 
-13. **`MobiusWarp`/`MobiusWarpCircular` `set_scale()`/`set_easing()` are dead API.** Four setters with no callers anywhere (the live path is `bind_scale()`); one even documents a contract no caller exercises. *Fix:* delete the four unused setters (keep `bind_scale`). (`core/animation_mesh.h:154-158,201-205`)
+13. ✅ **`MobiusWarp`/`MobiusWarpCircular` `set_scale()`/`set_easing()` are dead API.** Four setters with no callers anywhere (the live path is `bind_scale()`); one even documents a contract no caller exercises. *Fix:* delete the four unused setters (keep `bind_scale`). (`core/animation_mesh.h:154-158,201-205`)
 
 14. ✅ **Indefinite `Sprite` (`duration = -1`) never fires `.then()`, undocumented.** Peer perpetual animations (`RandomWalk`, `MobiusWarpEvolving`) warn about this exact footgun; `Sprite`'s doc mentions the indefinite case only for fade-out. *Fix:* add the one-line `.then()`-never-fires note to `Sprite`'s doc. (`core/animation_scalars.h:437-471`)
 
