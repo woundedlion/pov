@@ -30,7 +30,7 @@ public:
                 BrightnessProfile::FLAT),
         next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                      BrightnessProfile::FLAT),
-        mobius_gen(timeline), holeN(Z_AXIS), holeS(-Z_AXIS),
+        mobius_gen(timeline), holeN(Y_AXIS), holeS(-Y_AXIS),
         filters(Filter::World::HoleRef<W>(holeN, 1.2f),
                 Filter::World::HoleRef<W>(holeS, 1.2f),
                 Filter::World::Orient<W>(orientation),
