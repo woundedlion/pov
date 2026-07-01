@@ -1128,10 +1128,10 @@ public:
     case BrightnessProfile::ASCENDING:
       v1 = hs::rand_int(25, 76);
       v2 = hs::rand_int(127, 178);
-      v3 = hs::rand_int(204, 255);
+      v3 = hs::rand_int(204, 256);
       break;
     case BrightnessProfile::DESCENDING:
-      v1 = hs::rand_int(204, 255);
+      v1 = hs::rand_int(204, 256);
       v2 = hs::rand_int(127, 178);
       v3 = hs::rand_int(25, 76);
       break;
@@ -1140,11 +1140,11 @@ public:
       break;
     case BrightnessProfile::BELL:
       v1 = hs::rand_int(51, 127);
-      v2 = hs::rand_int(178, 255);
+      v2 = hs::rand_int(178, 256);
       v3 = v1;
       break;
     case BrightnessProfile::CUP:
-      v1 = hs::rand_int(178, 255);
+      v1 = hs::rand_int(178, 256);
       v2 = hs::rand_int(51, 127);
       v3 = v1;
       break;
