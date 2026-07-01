@@ -126,7 +126,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 21. ✅ **Redundant `params = presets.get()` in `Flyby::init` before the first preset lerp overwrites it.** The immediately-scheduled `Lerp` re-derives the start from `prev_get()`, so the assignment is never observed on the render path (dead). *Fix:* drop the line (per prefer-delete-dead-code). (`effects/Flyby.h:69-70`)
 
-22. **`BZ::blend_species` unclamped `uint16` cast relies on an implicit precondition.** Safe as a true convex blend for the sole caller, but a future caller passing pre-scaled weights would overflow silently; the doc omits the precondition. *Fix:* tighten the doc to state `a+b+c` must equal the normalizing `wsum` (or clamp before the cast). (`effects/BZReactionDiffusion.h:307-325`)
+22. ✅ **`BZ::blend_species` unclamped `uint16` cast relies on an implicit precondition.** Safe as a true convex blend for the sole caller, but a future caller passing pre-scaled weights would overflow silently; the doc omits the precondition. *Fix:* tighten the doc to state `a+b+c` must equal the normalizing `wsum` (or clamp before the cast). (`effects/BZReactionDiffusion.h:307-325`)
 
 23. **`HopfFibration` records trails every frame while paused, collapsing them to a point.** With flow/tumble Drivers frozen, the trail ring fills with identical points over paused frames and each polyline becomes a dot; regrows over `TRAIL_LEN` frames on resume. *Fix:* gate the record loop on `!animationsPaused()` (keep rendering). (`effects/HopfFibration.h:91-95`)
 

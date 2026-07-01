@@ -304,7 +304,9 @@ private:
    * @param ca Palette color for species A.
    * @param cb Palette color for species B.
    * @param cc Palette color for species C.
-   * @return Composited RGB pixel; the convex blend keeps each 16-bit channel in [0, 65535] without clamping.
+   * @return Composited RGB pixel. Requires non-negative @p a, @p b, @p c: the
+   *         blend then normalizes by their sum into a convex combination, which
+   *         keeps each 16-bit channel in [0, 65535] so the cast needs no clamp.
    * @details Concentration-weighted average of the three species colors:
    *          (ca·a + cb·b + cc·c) / (a + b + c). Each species contributes in
    *          proportion to its local concentration with no order bias.
