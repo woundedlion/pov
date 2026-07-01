@@ -156,7 +156,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 36. ✅ **Listbox keyboard nav omits Home/End.** The WAI-ARIA listbox pattern expects jump-to-first/last; today they fall through to page scroll with no focus move. *Fix:* add `Home→0` / `End→len-1` to `navTargetIndex` (the wiring already actions any non-`-1` return) and extend the test. (`daydream/sidebar_logic.js:40-49`)
 
-37. **Both scroll arrows hidden when content overflows by less than the 4px deadzone.** For `0 < maxScroll ≤ 4`, neither arrow shows though the list is scrollable (cosmetic; scrolling still works). *Fix:* gate the deadzone against `maxScroll` (e.g. `scrollLeft < maxScroll - Math.min(4, maxScroll)`), add a small-overflow test. (`daydream/sidebar_logic.js:78-85`)
+37. ✅ **Both scroll arrows hidden when content overflows by less than the 4px deadzone.** For `0 < maxScroll ≤ 4`, neither arrow shows though the list is scrollable (cosmetic; scrolling still works). *Fix:* gate the deadzone against `maxScroll` (e.g. `scrollLeft < maxScroll - Math.min(4, maxScroll)`), add a small-overflow test. (`daydream/sidebar_logic.js:78-85`)
 
 38. **`label_format` constant `g` is an opaque name for the inverse golden ratio.** `g = 1/PHI`, then `1/g` is used to recover `PHI` — a confusing double-inversion (and needless reciprocal round-trip) in a file whose purpose is symbolic clarity. *Fix:* use `PHI` / `1/PHI` (or `INV_PHI`) directly and drop `g`. (`daydream/label_format.js:12`)
 
