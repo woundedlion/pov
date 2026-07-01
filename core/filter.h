@@ -638,6 +638,7 @@ public:
     }
   }
 
+private:
   std::array<Quaternion, N> rotations; /**< Rotation from vertices[0] to each vertex. */
 };
 
