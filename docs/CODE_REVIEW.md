@@ -134,7 +134,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 25. ✅ **`SplineFlow` `MAX_TRAILS=30000` reserves ~240 KB of the 330 KB device arena as a bare literal.** ~80% of the persistent budget with no compile-time guard, unlike the project-wide convention (HopfFibration/MindSplatter/Voronoi/GS/BZ all `static_assert` their footprint). *Fix:* add `static_assert(MAX_TRAILS*sizeof(Item) <= budget)` mirroring the sibling effects, and a cost comment. (`effects/SplineFlow.h:21`)
 
-26. **`Voronoi::shade()` takes the nearest index as `int` while KD/CellId use `uint16_t`.** Harmless at `MAX_SITES=400`, but diverges from the deliberate `uint16_t` index typing elsewhere in the file. *Fix:* change `i0`/`i1` to `uint16_t`. (`effects/Voronoi.h:98`)
+26. ✅ **`Voronoi::shade()` takes the nearest index as `int` while KD/CellId use `uint16_t`.** Harmless at `MAX_SITES=400`, but diverges from the deliberate `uint16_t` index typing elsewhere in the file. *Fix:* change `i0`/`i1` to `uint16_t`. (`effects/Voronoi.h:98`)
 
 27. **`HD107SFrame::load()` is effectively test-only surface in the shipped header.** Shipped drivers pack via `packPixel()` only; `load()` (a second flush-owning CRGB path) is exercised only by a parity test and can be mistaken for a device path. It is a load-bearing parity guard, so keep it. *Fix:* add a one-line "host/test bulk path, not the device path" marker to `load()`'s doc. (`hardware/hd107s_frame.h:156-185`)
 
