@@ -134,12 +134,12 @@ sort_intervals_by_start(StaticCircularBuffer<std::pair<float, float>, N> &buf) {
   size_t n = buf.size();
   for (size_t i = 1; i < n; ++i) {
     auto key = data[i];
-    int j = static_cast<int>(i) - 1;
-    while (j >= 0 && data[j].first > key.first) {
-      data[j + 1] = data[j];
+    size_t j = i;
+    while (j > 0 && data[j - 1].first > key.first) {
+      data[j] = data[j - 1];
       --j;
     }
-    data[j + 1] = key;
+    data[j] = key;
   }
 }
 
