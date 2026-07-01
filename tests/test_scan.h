@@ -756,6 +756,29 @@ struct SphereSDF {
 };
 
 /**
+ * @brief Analytic SDF of two spheres unioned by min(): a small foreground sphere
+ *        floating in front of a larger background sphere along the view axis.
+ * @details The foreground silhouette has empty space immediately behind its edge
+ * and the background surface a short march deeper, so a grazing ray at that edge
+ * self-occludes the background — the case Volume::draw's occluder probe handles.
+ */
+struct TwoSphereSDF {
+  Vector fg_center; /**< Foreground sphere centre (nearer the camera). */
+  float fg_radius;  /**< Foreground sphere radius. */
+  Vector bg_center; /**< Background sphere centre (deeper along the ray). */
+  float bg_radius;  /**< Background sphere radius. */
+  /**
+   * @brief Signed distance to the union of the two spheres.
+   * @param p Query point in local space.
+   * @return The nearer of the two surface distances.
+   */
+  float distance(const Vector &p) const {
+    return std::min((p - fg_center).length() - fg_radius,
+                    (p - bg_center).length() - bg_radius);
+  }
+};
+
+/**
  * @brief Capturing volume sink: records every plotted world position and its
  *        composited alpha.
  * @details Provides BOTH plot() overloads so it can back the type-erased
@@ -874,6 +897,71 @@ inline void test_volume_raymarch_silhouette_and_registers() {
   HS_EXPECT_GT(centroid.z, 0.1f);
 }
 
+/**
+ * @brief Verifies Volume::draw antialiases a self-occlusion edge over the surface
+ *        behind it rather than fading the edge to black.
+ * @details A small foreground sphere floats in front of a larger background sphere.
+ * Around the foreground silhouette the grazing ray lands in the AA band while the
+ * background sits a short march deeper, so probe_occluder reports a solid surface
+ * and Volume::draw takes the occluded-edge branch: it lays the shaded background
+ * down, then blends the foreground over it by the edge coverage — emitting TWO
+ * plots at the same world position (background first, foreground second). This
+ * pins that branch (the most intricate, previously untested logic in scan.h): the
+ * duplicate-position signature must appear, the background must be laid down
+ * opaque, and the foreground must be a partial (0<α<1) blend over it, not a fade
+ * to black.
+ */
+inline void test_volume_draw_occluded_edge_blends_over_background() {
+  constexpr int W = 96, H = 64;
+  const Vector center(0.0f, 0.0f, 1.0f);
+  const Vector view_dir(0.0f, 0.0f, -1.0f); // rays travel along -Z
+  const float bounds_radius = 0.50f;
+  const float aa_width = 0.01f;
+
+  // Small foreground sphere nearer the camera (+Z local); larger background
+  // sphere deeper and wider so it sits behind the whole foreground silhouette.
+  // The modest step budget lets the grazing ray stall on the foreground edge
+  // (landing in the AA band) rather than reaching the background solidly, so the
+  // occluder probe — not the main trace — is what discovers the surface behind.
+  TwoSphereSDF shape{Vector(0.0f, 0.0f, 0.20f), 0.18f,
+                     Vector(0.0f, 0.0f, -0.20f), 0.30f};
+  Scan::TransformedVolume vol(shape, center, Quaternion());
+
+  ScanFx fx(W, H);
+  VolumeSink sink;
+  {
+    Canvas c(fx);
+    Scan::Volume::draw<W, H>(
+        sink, c, center, bounds_radius, view_dir, vol,
+        [&](const Vector &, Fragment &frag) {
+          frag.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+        },
+        /*max_steps=*/12, aa_width);
+  }
+
+  // The occluder branch is the only path that plots the same world position
+  // twice back-to-back (background then foreground); every other path plots each
+  // pixel once, and distinct pixels never share a world position.
+  int occ_pairs = 0;
+  float bg_alpha = 0.0f, fg_alpha = 1.0f;
+  for (size_t i = 1; i < sink.plotted.size(); ++i) {
+    if ((sink.plotted[i] - sink.plotted[i - 1]).length() < 1e-5f) {
+      ++occ_pairs;
+      if (occ_pairs == 1) {
+        bg_alpha = sink.alpha[i - 1];
+        fg_alpha = sink.alpha[i];
+      }
+    }
+  }
+
+  HS_EXPECT_GT(occ_pairs, 0);
+  // Background laid down opaque; foreground blended over it as a partial edge, so
+  // the edge reads over the surface instead of fading to black.
+  HS_EXPECT_GT(bg_alpha, 0.5f);
+  HS_EXPECT_GT(fg_alpha, 0.0f);
+  HS_EXPECT_LT(fg_alpha, bg_alpha);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -906,6 +994,7 @@ inline int run_scan_tests() {
 
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();
+  test_volume_draw_occluded_edge_blends_over_background();
 
   return fixture.result();
 }
