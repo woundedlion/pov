@@ -534,7 +534,9 @@ jobs:
       - name: Build + size + layout gate (both targets)
         # The extra_script (tools/teensy_gate_extra.py) enforces per-env budgets
         # and sets a non-zero exit on any violation, emitting ::error:: annotations.
-        run: pio run -e holosphere -e phantasm
+        # holosphere_dma is an ungated compile+link drift check for pov_single.h's
+        # USE_DMA_LEDS path, which no shipping image builds (see platformio.ini).
+        run: pio run -e holosphere -e phantasm -e holosphere_dma
       - name: Upload firmware artifacts
         if: always()
         uses: actions/upload-artifact@v4

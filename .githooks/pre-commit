@@ -90,8 +90,8 @@ fi
 # or via HS_SKIP_TEENSY=1.
 if [ -n "$TEENSY" ] && [ -z "$HS_SKIP_TEENSY" ]; then
   if command -v pio >/dev/null 2>&1; then
-    echo "[pre-commit] Teensy size/layout gate (pio run -e holosphere -e phantasm)..."
-    if ! pio run -e holosphere -e phantasm; then
+    echo "[pre-commit] Teensy size/layout gate (pio run -e holosphere -e phantasm -e holosphere_dma)..."
+    if ! pio run -e holosphere -e phantasm -e holosphere_dma; then
       echo "[pre-commit] Teensy size/layout gate FAILED — commit aborted."
       echo "[pre-commit] (bypass once with: HS_SKIP_TEENSY=1 git commit  /  --no-verify)"
       exit 1
