@@ -246,7 +246,7 @@ private:
         },
         [&](int, float opacity, Fragment &f_val) {
           float t_line = f_val.v0;
-          float z = sinf(t_line * 2.0f * PI_F);
+          float z = fast_sinf(t_line * 2.0f * PI_F);
 
           // Conformal radius R = sqrt((1+z)/(1-z)) is singular at the poles
           // z = +/-1. Branch on the pole before the division so no non-finite
