@@ -213,6 +213,16 @@ struct Config {
   constexpr uint32_t interdigit_timeout_cycles() const {
     return col_cycles(beacon_interdigit_timeout_cols);
   }
+  /**
+   * @brief Worst-case beacon frame span (first to last pulse), in columns.
+   * @return Columns spanned by five base-8 digit bursts of value 7.
+   * @details Mirrors schedule_beacon's per-digit advance: four (7-pulse +
+   * inter-burst gap) steps plus the final burst's 7-pulse span.
+   */
+  constexpr int32_t beacon_span_cols() const {
+    return 4 * (7 * beacon_pitch_cols + (gap_timeout_cols + 1)) +
+           7 * beacon_pitch_cols;
+  }
 
   /**
    * @brief Boot-time sanity check for the driver's HS_CHECK.
@@ -1536,15 +1546,19 @@ private:
     // index, and a board joining off it would adopt stale identity.
     if (content_.commit_pending)
       return;
-    // Frame span (≤55 cols at base-8 digits) ends well short of HALF even when a
-    // masked window pushes the start later; no separate beacon-start late-bound.
+    // Bound the beacon start: a masked-ISR coast can land the master anywhere in
+    // [W/4, W/2), but the worst-case frame must finish before HALF — a tail past
+    // the boundary leaves the wire busy when the on-time HALF symbol schedules,
+    // tripping the emitter's overlap trap. Skip a too-late start, mirroring the
+    // boundary symbol's own lateness self-censor.
     //
-    // A coalesced coast can jump position from < W/4 straight past the beacon
-    // point (and even past HALF) in one wake, leaving beacon_done_this_rev_ unset
-    // while current_boundary() has already advanced — so this revolution emits no
-    // beacon. That is an accepted skip, not a missed-emission bug: the protocol
-    // self-heals on the next due beacon (≤ 2 s).
-    if (fly_.position(now) < cfg_.W / 4)
+    // A coalesced coast can also jump position from < W/4 straight past the
+    // beacon point (and even past HALF) in one wake, leaving beacon_done_this_rev_
+    // unset while current_boundary() has already advanced — so this revolution
+    // emits no beacon. That is an accepted skip, not a missed-emission bug: the
+    // protocol self-heals on the next due beacon (≤ 2 s).
+    const int32_t x = fly_.position(now);
+    if (x < cfg_.W / 4 || x + cfg_.beacon_span_cols() >= cfg_.W / 2)
       return;
     beacon_done_this_rev_ = true;
     const uint32_t rev = content_.rev_in_effect;
