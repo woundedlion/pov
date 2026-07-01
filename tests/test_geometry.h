@@ -555,7 +555,7 @@ inline void test_get_antipode_long_arc_flips() {
  */
 inline void test_orientation_default_is_identity() {
   Orientation<8> o;
-  HS_EXPECT_EQ(o.length(), 1);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(1));
   HS_EXPECT_QUAT(o.get(), Quaternion(1, 0, 0, 0), 1e-6f);
 }
 
@@ -567,11 +567,11 @@ inline void test_orientation_set_clears_history() {
   Orientation<8> o;
   o.push(make_rotation(Vector(0, 1, 0), 0.5f));
   o.push(make_rotation(Vector(0, 1, 0), 1.0f));
-  HS_EXPECT_EQ(o.length(), 3);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(3));
 
   Quaternion target = make_rotation(Vector(1, 0, 0), 0.7f);
   o.set(target);
-  HS_EXPECT_EQ(o.length(), 1);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(1));
   HS_EXPECT_QUAT(o.get(), target, 1e-6f);
 }
 
@@ -585,7 +585,7 @@ inline void test_orientation_push_tracks_history() {
   Quaternion q2 = make_rotation(Vector(0, 1, 0), 0.2f);
   o.push(q1);
   o.push(q2);
-  HS_EXPECT_EQ(o.length(), 3); // identity + 2 pushes
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(3)); // identity + 2 pushes
   HS_EXPECT_QUAT(o.get(1), q1, 1e-6f);
   HS_EXPECT_QUAT(o.get(2), q2, 1e-6f);
   HS_EXPECT_QUAT(o.get(), q2, 1e-6f);
@@ -614,10 +614,10 @@ inline void test_orientation_collapse_keeps_latest() {
   Quaternion q2 = make_rotation(Vector(0, 1, 0), 0.2f);
   o.push(q1);
   o.push(q2);
-  HS_EXPECT_EQ(o.length(), 3);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(3));
 
   o.collapse();
-  HS_EXPECT_EQ(o.length(), 1);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(1));
   HS_EXPECT_QUAT(o.get(), q2, 1e-6f);
 }
 
@@ -631,10 +631,10 @@ inline void test_orientation_upsample_preserves_endpoints() {
   Quaternion end = make_rotation(Vector(0, 1, 0), PI_F * 0.5f);
   o.set(start);
   o.push(end);
-  HS_EXPECT_EQ(o.length(), 2);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(2));
 
   o.upsample(8);
-  HS_EXPECT_EQ(o.length(), 8);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(8));
   // slerp may flip sign — same orientation.
   HS_EXPECT_NEAR(std::abs(dot(o.get(0), start)), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(std::abs(dot(o.get(7), end)), 1.0f, 1e-3f);
@@ -649,8 +649,8 @@ inline void test_orientation_upsample_noop_if_already_long() {
   o.push(make_rotation(Vector(0, 1, 0), 0.1f));
   o.push(make_rotation(Vector(0, 1, 0), 0.2f));
   o.push(make_rotation(Vector(0, 1, 0), 0.3f));
-  int before = o.length();
-  o.upsample(before - 1);
+  size_t before = o.length();
+  o.upsample(static_cast<int>(before) - 1);
   HS_EXPECT_EQ(o.length(), before);
 }
 
@@ -666,7 +666,7 @@ inline void test_orientation_upsample_clamps_past_capacity() {
   o.push(end);
 
   o.upsample(100);
-  HS_EXPECT_EQ(o.length(), 4);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(4));
   // slerp may flip sign — same orientation.
   HS_EXPECT_NEAR(std::abs(dot(o.get(0), start)), 1.0f, 1e-3f);
   HS_EXPECT_NEAR(std::abs(dot(o.get(3), end)), 1.0f, 1e-3f);

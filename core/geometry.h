@@ -586,7 +586,7 @@ public:
    * @brief Gets the number of recorded orientation frames in the current step.
    * @return The number of frames.
    */
-  int length() const { return num_frames; }
+  size_t length() const { return static_cast<size_t>(num_frames); }
 
   /**
    * @brief Rotates a vector by the current (latest) orientation.
