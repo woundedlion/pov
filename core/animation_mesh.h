@@ -290,6 +290,13 @@ public:
     }
     Quaternion twist = make_rotation(twist_axis, 0.05f);
 
+    // Nearest-vertex matching (greatest dot) and per-frame slerp both require
+    // unit-length inputs; all mesh sources sit on the unit sphere.
+    for (const auto &v : source.vertices)
+      HS_CHECK(std::abs(dot(v, v) - 1.0f) < 1e-3f, "MeshMorph source vertex not unit-length");
+    for (const auto &v : dest.vertices)
+      HS_CHECK(std::abs(dot(v, v) - 1.0f) < 1e-3f, "MeshMorph dest vertex not unit-length");
+
     // Build nearest-vertex correspondence: an O(V_dest * V_source) brute force,
     // run once at construction. Matched by greatest dot product against the
     // twist-biased dest vertex (the twist breaks ties on symmetric meshes).

@@ -112,7 +112,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 14. ✅ **Indefinite `Sprite` (`duration = -1`) never fires `.then()`, undocumented.** Peer perpetual animations (`RandomWalk`, `MobiusWarpEvolving`) warn about this exact footgun; `Sprite`'s doc mentions the indefinite case only for fade-out. *Fix:* add the one-line `.then()`-never-fires note to `Sprite`'s doc. (`core/animation_scalars.h:437-471`)
 
-15. **`MeshMorph` nearest-vertex correspondence assumes unit-length vertices.** "Greatest dot == nearest" and `slerp` both require unit inputs; all current mesh sources are on the unit sphere, but the invariant is implicit/unchecked. *Fix:* add a one-time cold-path `HS_CHECK` for unit-length at construction (or normalize before the dot/slerp). (`core/animation_mesh.h:308-320`)
+15. ✅ **`MeshMorph` nearest-vertex correspondence assumes unit-length vertices.** "Greatest dot == nearest" and `slerp` both require unit inputs; all current mesh sources are on the unit sphere, but the invariant is implicit/unchecked. *Fix:* add a one-time cold-path `HS_CHECK` for unit-length at construction (or normalize before the dot/slerp). (`core/animation_mesh.h:308-320`)
 
 16. **`ParticleSystem` event-horizon steering can stall a friction-drained particle.** Inside the horizon it redirects existing speed without adding acceleration, and friction has already damped it, so a slow particle can fail to reach `kill_radius` before its speed collapses (it is still reclaimed by the life timer). *Fix:* add a minimum inward pull / floor the steering speed, or document the friction stall. (`core/animation_orientation.h:345-349`)
 
