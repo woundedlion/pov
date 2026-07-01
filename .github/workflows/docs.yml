@@ -46,6 +46,9 @@ jobs:
     # Pinned image (not ubuntu-latest) so the doxygen/graphviz versions are
     # deterministic, matching the rest of CI.
     runs-on: ubuntu-24.04
+    # Bound the job so a stalled tarball download or a doxygen/graphviz hang
+    # can't hold a runner to the 6h default.
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v5
 
@@ -84,6 +87,7 @@ jobs:
     needs: build
     if: github.event_name == 'push'
     runs-on: ubuntu-24.04
+    timeout-minutes: 5
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
