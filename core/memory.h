@@ -14,7 +14,7 @@
 #include <concepts>
 #include "platform.h"
 
-// Device/simulator arena budget is 335 KB. The native unit-test build
+// Device/simulator arena budget is 330 KiB. The native unit-test build
 // (HS_TEST_BUILD) widens it so the effect smoke harness can exercise every
 // effect's full render path regardless of per-effect arena tuning; the device
 // footprint is unchanged. NOTE: the native harness is a 64-bit build, so
