@@ -102,7 +102,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 9. ✅ **`DistortedRing` `max_distortion` is a load-bearing bound with no device-build guard.** The 256-sample sanity check is wrapped in `#ifndef NDEBUG`, so on device/wasm an underestimate silently culls genuine arcs — the lone SDF shape whose precondition is NDEBUG-gated while every sibling uses always-on `HS_CHECK`. Current caller passes an exact bound. *Fix:* replace the `#ifndef NDEBUG` sample check with an always-on cold-path `HS_CHECK`. (`core/sdf.h:725-761`)
 
-10. **Duplicated `STAR_INNER_RATIO` constant across `sdf.h` and `plot.h`.** The filled star and stroked star share `0.382f` by hand-copy ("mirrors SDF::…"), enforced by nothing; the only test pins Plot's value against itself. *Fix:* hoist one definition into `constants.h` (both headers include it) and delete the duplicate. (`core/plot.h:27`, `core/sdf.h:33`)
+10. ✅ **Duplicated `STAR_INNER_RATIO` constant across `sdf.h` and `plot.h`.** The filled star and stroked star share `0.382f` by hand-copy ("mirrors SDF::…"), enforced by nothing; the only test pins Plot's value against itself. *Fix:* hoist one definition into `constants.h` (both headers include it) and delete the duplicate. (`core/plot.h:27`, `core/sdf.h:33`)
 
 11. **`sort_intervals_by_start` uses a signed `int` index over a `size_t` count.** Casts to `int` to decrement to `-1` as the shift terminator in a shared helper; capacities are tiny so no overflow today, but it couples correctness to `N < INT_MAX`. *Fix:* rewrite with an unsigned-safe idiom (`j` from `i` down while `j>0`). (`core/sdf.h:135-143`)
 

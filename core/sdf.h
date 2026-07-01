@@ -29,8 +29,8 @@ static constexpr float MIN_HORIZONTAL_PROJ = 0.01f;
 static constexpr float INTERVAL_DENOM_EPS = 1e-6f;
 /** Threshold for near-pole ring approximation safety. */
 static constexpr float POLE_SAFE_MARGIN = 0.05f;
-/** Inner/outer radius ratio for star shapes (1/φ² ≈ 0.382). */
-static constexpr float STAR_INNER_RATIO = 0.382f;
+/** Inner/outer radius ratio for star shapes. */
+static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
 /** Minimum inradius-to-circumradius ratio used to floor Face::size,
  *  preventing degenerate near-zero inradii from collapsing AA. */
 static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;

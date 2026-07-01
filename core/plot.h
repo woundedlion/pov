@@ -22,9 +22,8 @@ namespace Plot {
 
 /**
  * @brief Inner/outer radius ratio for star shapes.
- * @details 1/φ² ≈ 0.382; mirrors SDF::STAR_INNER_RATIO.
  */
-static constexpr float STAR_INNER_RATIO = 0.382f;
+static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
 
 /**
  * @brief Geodesic segment shorter than this (radians) collapses to a point.
