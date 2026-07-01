@@ -140,7 +140,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 28. ✅ **`TeensySPIDMA` single-instance invariant is enforced only at runtime.** A hard global-singleton constraint (backing the shared DMA-completion ISR dispatch) is invisible at the `DMALEDController<N>` API; two controllers compile fine and trap only at the second `begin()`. Never fires on current single-controller targets. *Fix:* document the one-per-image limit in `DMALEDController`'s class doxygen. (`hardware/dma_led.h:75-100`)
 
-29. **`MeshOpsWrapper`/`PaletteOps` expose implementation state as public data members.** `mesh`/`generation_`/`lut` are public though embind binds only the methods; broader than necessary and weakens the `generation_` invariant. *Fix:* make the members private. (`targets/wasm/wasm.cpp:740-746,1168`)
+29. ✅ **`MeshOpsWrapper`/`PaletteOps` expose implementation state as public data members.** `mesh`/`generation_`/`lut` are public though embind binds only the methods; broader than necessary and weakens the `generation_` invariant. *Fix:* make the members private. (`targets/wasm/wasm.cpp:740-746,1168`)
 
 30. **`kMinAssertions` floors in the auxiliary TUs require manual bumping.** Hand-counted magic numbers (26, 108) that drift unless someone remembers the manual step; the guard only catches wholesale gutting. *Fix:* derive the floor from the shared case list where feasible, or at least keep the "bump when adding" note tight. (`tests/fastmath_clamp_check.cpp:24-31`, `tests/h_offset_renorm_check.cpp`)
 
