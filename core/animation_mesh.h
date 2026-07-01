@@ -276,6 +276,7 @@ public:
       : AnimationBase(duration, false), easing_fn(easing_fn),
         draw_outgoing(draw_outgoing), draw_incoming(draw_incoming) {
     HS_CHECK(!source.vertices.is_empty());
+    HS_CHECK(!dest.vertices.is_empty());
     buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
 
