@@ -88,7 +88,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 ### Low
 
-3. **`slerp(Vector)` antipodal branch tests a threshold finer than `fast_acos`'s own error.** The branch uses `theta = fast_acos(d) > PI_F - TOLERANCE` with `TOLERANCE=1e-4`, narrower than `fast_acos`'s ~1.3e-4 rad envelope; the sibling quaternion slerp deliberately uses exact `acosf`. Output stays finite/unit-length, so impact is negligible. *Fix:* gate the antipodal decision on the raw dot `d` (e.g. `d < -1+k`) so it does not depend on the approximation. (`core/3dmath.h:1225-1232`)
+3. ✅ **`slerp(Vector)` antipodal branch tests a threshold finer than `fast_acos`'s own error.** The branch uses `theta = fast_acos(d) > PI_F - TOLERANCE` with `TOLERANCE=1e-4`, narrower than `fast_acos`'s ~1.3e-4 rad envelope; the sibling quaternion slerp deliberately uses exact `acosf`. Output stays finite/unit-length, so impact is negligible. *Fix:* gate the antipodal decision on the raw dot `d` (e.g. `d < -1+k`) so it does not depend on the approximation. (`core/3dmath.h:1225-1232`)
 
 4. **`shortest_distance` / `fwd_distance` have divergent range-reduction contracts.** Same signature shape, but `shortest_distance` fully reduces arbitrary input while `fwd_distance` silently requires `|b-a| < m` (guarded only by a debug-stripped assert). No live misuse today (`fwd_distance` has no callers), but a footgun. *Fix:* either make `fwd_distance` robust with the same double-`fmod` reduction, or rename it `fwd_distance_one_period`. (`core/util.h:114-137`)
 

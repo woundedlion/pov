@@ -1223,7 +1223,9 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
     return (v1 + (v2 - v1) * t).normalized();
   }
   float theta = fast_acos(d);
-  if (theta > PI_F - math::TOLERANCE) {
+  // cos(π - TOLERANCE) ≈ -1 + TOLERANCE²/2; test raw dot so the antipodal
+  // decision does not depend on fast_acos's error envelope.
+  if (d < -1.0f + math::TOLERANCE * math::TOLERANCE * 0.5f) {
     // Antipodal: v1 + v2 cancels so the standard blend is non-monotone
     // (collapses to ~v1 for all t). Rotate v1 by t*theta about an arbitrary
     // perpendicular axis — a monotone half-turn landing within TOLERANCE of v2.
