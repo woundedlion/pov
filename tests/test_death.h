@@ -36,6 +36,7 @@
 #include "core/color.h"
 #include "core/geometry.h"
 #include "core/filter.h"
+#include "core/led.h"
 #include "core/memory.h"
 #include "core/mesh.h"
 #include "core/plot.h"
@@ -558,6 +559,20 @@ inline void case_effect_double_construct() {
 }
 
 /**
+ * @brief Death case: a second simultaneously-live correction guard must trap.
+ * @details LED surface — NoColorCorrection and NoTempCorrection share one depth
+ *          counter and set the global FastLED correction/temperature, so a second
+ *          live guard of either type would leave the wrong baseline on the earlier
+ *          guard's exit; the construction guard traps instead.
+ */
+inline void case_correction_guard_double_construct() {
+  NoColorCorrection a;
+  NoColorCorrection b; // second live guard -> HS_CHECK(depth == 0) -> trap
+  if (correction_guard_depth() == opaque(42))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: overflowing the fixed 32-slot ParamList must trap.
  * @details Canvas surface — registerParam traps rather than silently dropping a
  *          registration, which would desync the GUI and, on WASM, break the
@@ -817,6 +832,8 @@ inline const Case *all_cases(int &n) {
       {"timeline_handled_completion", case_timeline_handled_completion},
       {"timeline_double_construct", case_timeline_double_construct},
       {"effect_double_construct", case_effect_double_construct},
+      {"correction_guard_double_construct",
+       case_correction_guard_double_construct},
       {"mesh_narrow_index", case_mesh_narrow_index},
       {"slerp_nan", case_slerp_nan},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan},
