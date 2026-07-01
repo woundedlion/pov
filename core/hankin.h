@@ -65,16 +65,17 @@ struct CompiledHankin {
    */
   static void clone(const CompiledHankin &src, CompiledHankin &dst,
                     Arena &arena) {
-    auto push = [&arena](const auto &s_vec, auto &d_vec) {
-      d_vec.bind(arena, s_vec.size());
-      d_vec.append_bulk(s_vec.data(), s_vec.size());
-    };
-    push(src.base_vertices, dst.base_vertices);
-    push(src.static_vertices, dst.static_vertices);
-    push(src.dynamic_vertices, dst.dynamic_vertices);
-    push(src.dynamic_instructions, dst.dynamic_instructions);
-    push(src.face_counts, dst.face_counts);
-    push(src.faces, dst.faces);
+    copy_vector(dst.base_vertices, src.base_vertices.data(),
+                src.base_vertices.size(), arena);
+    copy_vector(dst.static_vertices, src.static_vertices.data(),
+                src.static_vertices.size(), arena);
+    copy_vector(dst.dynamic_vertices, src.dynamic_vertices.data(),
+                src.dynamic_vertices.size(), arena);
+    copy_vector(dst.dynamic_instructions, src.dynamic_instructions.data(),
+                src.dynamic_instructions.size(), arena);
+    copy_vector(dst.face_counts, src.face_counts.data(),
+                src.face_counts.size(), arena);
+    copy_vector(dst.faces, src.faces.data(), src.faces.size(), arena);
     dst.static_offset = src.static_offset;
   }
 };

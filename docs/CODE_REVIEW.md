@@ -122,7 +122,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 19. ✅ **`narrow_index()` (uint16_t) stored into a local `int` in expand/chamfer/snub.** Value-preserving but inconsistent with `ambo`/`truncate` and the `uint16_t` sinks; obscures the topology-index type intent. *Fix:* declare `uint16_t idx = narrow_index(...)`. (`core/conway.h:764,853,1081`)
 
-20. **`CompiledHankin::clone` duplicates the shared `copy_vector` deep-copy loop.** Uses a local `push` lambda instead of the shared helper that `MeshState::clone`/`MeshOps::clone` use — a third arena-deep-copy idiom that can drift. *Fix:* route all six vectors through `copy_vector`. (`core/hankin.h:66-79`)
+20. ✅ **`CompiledHankin::clone` duplicates the shared `copy_vector` deep-copy loop.** Uses a local `push` lambda instead of the shared helper that `MeshState::clone`/`MeshOps::clone` use — a third arena-deep-copy idiom that can drift. *Fix:* route all six vectors through `copy_vector`. (`core/hankin.h:66-79`)
 
 21. **Redundant `params = presets.get()` in `Flyby::init` before the first preset lerp overwrites it.** The immediately-scheduled `Lerp` re-derives the start from `prev_get()`, so the assignment is never observed on the render path (dead). *Fix:* drop the line (per prefer-delete-dead-code). (`effects/Flyby.h:69-70`)
 
