@@ -997,7 +997,8 @@ public:
   /** @brief True at most once per `period_` ms; stamps the trigger when it fires. */
   bool ready() {
     unsigned long now = millis();
-    if (now - last_ >= period_) {
+    // 32-bit modular elapsed: matches the device's uint32 millis() wrap on LP64 hosts.
+    if (static_cast<uint32_t>(now - last_) >= period_) {
       last_ = now;
       return true;
     }
