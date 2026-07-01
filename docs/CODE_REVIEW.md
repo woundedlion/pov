@@ -155,7 +155,7 @@ _None._
 
 42. ✅ **Duplicated `/* Navigation Tabs */` comment** (`Style`, `daydream/styles/index.css:11-12`) — The "Navigation Tabs" section comment is repeated on two consecutive lines. Harmless but a copy-paste artifact. _Fix:_ Delete the duplicate comment line.
 
-43. **showFatalError duplicated between palettes.html and shared.js** (`Maintainability`, `daydream/tools/palettes.html:388-398`) — palettes.html inlines its own showFatalError (to avoid pulling three via shared.js), duplicating the banner logic and inline styles from shared.js. The two can drift. Extracting the banner into the dependency-free clipboard.js (already imported here) would let both share one implementation. _Fix:_ Move showFatalError into a THREE-free module (e.g. clipboard.js or a new banner.js); import it in both shared.js and palettes.html.
+43. ✅ **showFatalError duplicated between palettes.html and shared.js** (`Maintainability`, `daydream/tools/palettes.html:388-398`) — palettes.html inlines its own showFatalError (to avoid pulling three via shared.js), duplicating the banner logic and inline styles from shared.js. The two can drift. Extracting the banner into the dependency-free clipboard.js (already imported here) would let both share one implementation. _Fix:_ Move showFatalError into a THREE-free module (e.g. clipboard.js or a new banner.js); import it in both shared.js and palettes.html.
 
 ---
 
