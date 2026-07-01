@@ -158,7 +158,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 37. ✅ **Both scroll arrows hidden when content overflows by less than the 4px deadzone.** For `0 < maxScroll ≤ 4`, neither arrow shows though the list is scrollable (cosmetic; scrolling still works). *Fix:* gate the deadzone against `maxScroll` (e.g. `scrollLeft < maxScroll - Math.min(4, maxScroll)`), add a small-overflow test. (`daydream/sidebar_logic.js:78-85`)
 
-38. **`label_format` constant `g` is an opaque name for the inverse golden ratio.** `g = 1/PHI`, then `1/g` is used to recover `PHI` — a confusing double-inversion (and needless reciprocal round-trip) in a file whose purpose is symbolic clarity. *Fix:* use `PHI` / `1/PHI` (or `INV_PHI`) directly and drop `g`. (`daydream/label_format.js:12`)
+38. ✅ **`label_format` constant `g` is an opaque name for the inverse golden ratio.** `g = 1/PHI`, then `1/g` is used to recover `PHI` — a confusing double-inversion (and needless reciprocal round-trip) in a file whose purpose is symbolic clarity. *Fix:* use `PHI` / `1/PHI` (or `INV_PHI`) directly and drop `g`. (`daydream/label_format.js:12`)
 
 39. **Sidebar click handlers and appended DOM nodes are not detached in `dispose()`.** `dispose()` removes the observers/listeners but leaves per-button `onclick` closures and appended nodes; harmless today (app-lifetime singleton) but a latent asymmetric-teardown footgun if the container is ever reused. *Fix:* make teardown symmetric (clear `innerHTML`, null `onclick` refs, remove appended nodes) or document that `dispose()` assumes the container is discarded. (`daydream/sidebar.js:82-88`)
 
