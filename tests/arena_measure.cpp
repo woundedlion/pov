@@ -7,7 +7,13 @@
  * Reads Arena::get_high_water_mark() for the three global arenas after running
  * each effect's init + a few frames, to size the device GLOBAL_ARENA_SIZE
  * against what effects actually touch. The host build uses an 8 MB global arena
- * (memory.h, HS_TEST_BUILD) so nothing OOMs mid-measure. Not a CTest.
+ * (memory.h, HS_TEST_BUILD) so nothing OOMs mid-measure.
+ *
+ * CI gate: fails (non-zero exit) if the worst single-effect total (persistent +
+ * both scratch arenas, the three partitions of the one device pool) exceeds
+ * DEVICE_GLOBAL_ARENA_SIZE. The host is 64-bit, so pointer-bearing pooled
+ * headers inflate this figure above the 32-bit device (memory.h) — the gate is
+ * therefore a conservative upper bound: a host pass guarantees the device fits.
  */
 #include <cstdint>
 #include <cstdio>
@@ -62,5 +68,12 @@ int main() {
               g_worst_name);
   std::printf("sum of per-arena maxima  = %zu B   (device GLOBAL = %zu B)\n",
               g_max_p + g_max_a + g_max_b, DEVICE_GLOBAL_ARENA_SIZE);
-  return 0;
+  const bool over = g_worst_total > DEVICE_GLOBAL_ARENA_SIZE;
+  std::printf("WORST total %zu B   budget %zu B   [%s]\n", g_worst_total,
+              DEVICE_GLOBAL_ARENA_SIZE, over ? "FAIL" : "PASS");
+  if (over)
+    std::printf("  arena budget exceeded — %s outgrew the device global arena; "
+                "see tests/arena_measure.cpp header.\n",
+                g_worst_name);
+  return over ? 1 : 0;
 }
