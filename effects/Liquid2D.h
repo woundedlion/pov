@@ -58,11 +58,11 @@ public:
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
     timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
     timeline.add(0, Animation::Driver(accumulated_time, &params.time_speed, 1.0f,
-                                      false));
+                                      false, &anims_paused_));
     // wrap=false: cycle_phase is wrapped by hand to 2pi in draw_frame; the
     // Driver's [0,1) wrap is the wrong period for fast_sinf.
     timeline.add(0, Animation::Driver(cycle_phase, &params.cycle_speed, 1.0f,
-                                      false));
+                                      false, &anims_paused_));
 
     palette.bake(persistent_arena,
                  GenerativePalette{
@@ -112,7 +112,7 @@ public:
     // seam would spike.
     constexpr float kTwoPi = 2.0f * PI_F;
     float dt = params.time_speed;
-    if (!std::isfinite(dt))
+    if (!std::isfinite(dt) || animationsPaused())
       dt = 0.0f;
     sin_phase = fmodf(sin_phase + dt, kTwoPi);
     cos_phase = fmodf(cos_phase + 0.8f * dt, kTwoPi);
