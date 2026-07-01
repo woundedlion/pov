@@ -158,7 +158,7 @@ protected:
    * count and fixed-point width, so both systems share one substep driver.
    */
   template <typename T, size_t N, typename StepFn>
-  void advance_substeps(int steps, const std::array<T *, N> &persistent,
+  static void advance_substeps(int steps, const std::array<T *, N> &persistent,
                         const std::array<T *, N> &scratch, StepFn &&step) {
     std::array<T *, N> cur = persistent;
     std::array<T *, N> nxt = scratch;
