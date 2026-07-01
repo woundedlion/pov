@@ -95,7 +95,7 @@ public:
     // Resolves the final color from the already-identified nearest pair: the
     // nearest site index i0 and its dot d0 (the larger), and — when a second
     // neighbor exists — the second site index i1 and its dot d1.
-    auto shade = [&](int i0, float d0, bool hasSecond, int i1,
+    auto shade = [&](uint16_t i0, float d0, bool hasSecond, uint16_t i1,
                      float d1) -> Color4 {
       const Site &bestSite = sites_buffer[i0];
       float maxDot1 = d0;
@@ -216,7 +216,7 @@ public:
         } else {
           // Cell seam / dense block: full k=2 query.
           auto knn = tree.nearest(p, 2);
-          int i0 = knn[0].original_index;
+          uint16_t i0 = knn[0].original_index;
           float d0 = dot(p, knn[0].point);
           if (knn.size() > 1)
             sample = shade(i0, d0, true, knn[1].original_index,
