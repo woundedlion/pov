@@ -34,7 +34,6 @@ public:
   };
 
   ParamsT template_params;              /**< Template params copied into each new entity on spawn. */
-  std::array<Entity, CAPACITY> entities; /**< Fixed-capacity pool of transformation slots. */
   Timeline &timeline;                   /**< Timeline that schedules and steps the spawned animations. */
 
   /**
@@ -89,6 +88,8 @@ private:
    */
   std::array<int, CAPACITY> active_slots_{};
   int active_count_ = 0; /**< Number of valid entries at the front of active_slots_. */
+
+  std::array<Entity, CAPACITY> entities; /**< Fixed-capacity pool of transformation slots. */
 
   /**
    * @brief Inserts a slot index into active_slots_ keeping it ascending.
