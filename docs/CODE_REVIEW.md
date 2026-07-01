@@ -116,7 +116,7 @@ Every confirmed finding, numbered sequentially. Each is eligible for the `code-r
 
 16. ✅ **`ParticleSystem` event-horizon steering can stall a friction-drained particle.** Inside the horizon it redirects existing speed without adding acceleration, and friction has already damped it, so a slow particle can fail to reach `kill_radius` before its speed collapses (it is still reclaimed by the life timer). *Fix:* add a minimum inward pull / floor the steering speed, or document the friction stall. (`core/animation_orientation.h:345-349`)
 
-17. **Stale arena-budget figure in header comment (335 KB vs the real 330 KiB).** The load-bearing sizing comment's headline contradicts `DEVICE_GLOBAL_ARENA_SIZE`, the rest of the same block, and the README. *Fix:* change "335 KB" to "330 KiB". (`core/memory.h:17`)
+17. ✅ **Stale arena-budget figure in header comment (335 KB vs the real 330 KiB).** The load-bearing sizing comment's headline contradicts `DEVICE_GLOBAL_ARENA_SIZE`, the rest of the same block, and the README. *Fix:* change "335 KB" to "330 KiB". (`core/memory.h:17`)
 
 18. **`classify_faces_impl` reimplements half-edge pairing that `HalfEdgeMesh` already computes.** ~30 lines of parallel connectivity build (`he_to_face`/`pair_array`/records) that can drift from the single tested builder. *Fix:* build a `HalfEdgeMesh` and read neighbor faces via `half_edges[half_edges[hidx].pair].face`; re-measure scratch high-water. (`core/mesh.h:637-687`)
 
