@@ -416,6 +416,10 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
+    // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher speed)
+    // float can't represent consecutive frames and the phase freezes; this
+    // animation is perpetual (duration == -1). A modulo/accumulator fix only
+    // trades the slow drift for a sharp artifact.
     float time = t * speed_;
     float s = scale_;
 
