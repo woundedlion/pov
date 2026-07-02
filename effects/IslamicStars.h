@@ -119,9 +119,6 @@ private:
   // Per-slot palette indices; value-init so a missed shuffle reads palette 0,
   // not garbage.
   std::array<int, NUM_PALETTES> palettes_slots[2] = {};
-  // Per-slot congruence-class LUT bakes (persistent-arena residents; rebuilt
-  // whenever the arena is compacted, see spawn_shape).
-  MeshOps::MeshClassBake class_bakes[2];
 
   /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
@@ -140,23 +137,6 @@ private:
   }
 
   /**
-   * @brief (Re)builds the congruence-class LUT bake for one carousel slot.
-   * @param slot Slot index (0 or 1); an empty or unclassified slot leaves the
-   *        bake empty (draw falls back to the exact path).
-   * @details Bakes live in the persistent arena, so this must run after every
-   * compaction as well as after every regeneration.
-   */
-  void bake_classes(int slot) {
-    class_bakes[slot] = MeshOps::MeshClassBake();
-    const MeshState &mesh = carousel.slot(slot);
-    if (!mesh.is_bound() || mesh.topology.size() != mesh.num_faces())
-      return;
-    ScratchScope a_guard(scratch_arena_a);
-    MeshOps::build_mesh_class_bake(mesh, scratch_arena_a, persistent_arena,
-                                   2.0f * PI_F / W, class_bakes[slot]);
-  }
-
-  /**
    * @brief Orients, ripple-distorts, and segue-shapes base_state, then
    *        rasterizes it with a per-face palette lookup.
    * @param canvas Render target receiving the rasterized mesh.
@@ -165,13 +145,15 @@ private:
    * @param base_state Undistorted source mesh to transform and draw.
    * @param faceIndices Maps each face to its topology class.
    * @param palette_idx Assigns a palette per topology class.
-   * @param bake The slot's congruence-class bake (transform preserves face
-   *        order, so the baked records index the transformed mesh directly).
+   * @note Draws on the exact SDF path, not the congruence-class LUT
+   * (mesh_classes.h): ripple and the warping segues deform the mesh most
+   * frames, and a canonical LUT under deformation either mis-shades the
+   * interior gradient or pops when a face switches to the exact path. The
+   * facility is for effects whose meshes hold still.
    */
   void draw_shape(Canvas &canvas, float phase, const MeshState &base_state,
                   const ArenaVector<int> &faceIndices,
-                  const std::array<int, NUM_PALETTES> &palette_idx,
-                  const MeshOps::MeshClassBake &bake) {
+                  const std::array<int, NUM_PALETTES> &palette_idx) {
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
@@ -225,7 +207,7 @@ private:
     };
 
     Scan::Mesh::draw<W, H>(filters, canvas, transformed_state, fragment_shader,
-                           scratch_arena_a, params.debug_bb, &bake);
+                           scratch_arena_a, params.debug_bb);
   }
 
   /**
@@ -245,19 +227,13 @@ private:
     auto draw_fn = [this, back](Canvas &canvas, float phase) {
       const MeshState &mesh = carousel.slot(back);
       this->draw_shape(canvas, phase, mesh, mesh.topology,
-                       palettes_slots[back], class_bakes[back]);
+                       palettes_slots[back]);
     };
 
     // Compact the back slot, rebaking palettes into the fresh arena rather than
     // tracking them through the evacuation.
     carousel.compact_keep_front(
         [this](Arena &arena) { palette_bank_.bake_all(arena); });
-
-    // The compaction reset the persistent arena, killing both slots' class
-    // bakes. Rebake the surviving front unconditionally so the fading mesh
-    // keeps its LUT path through the cross-fade; the back slot is rebaked
-    // below once its new mesh is classified.
-    bake_classes(carousel.front_index());
 
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh mesh = solids[idx].generate(a, b);
@@ -273,7 +249,6 @@ private:
       MeshOps::classify_faces_by_topology(carousel.slot(back), scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
-    bake_classes(back);
 
     // Flip front eagerly for the overlapping sprite.
     carousel.set_front(back);

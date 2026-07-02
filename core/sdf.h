@@ -1604,13 +1604,19 @@ template <typename Shape> struct AngularRepeat {
 static constexpr float ALIGN_MIN_CORR_SQ = 0.25f;
 /** Maximum per-vertex deviation from the aligned canonical shape, as a
  *  multiple of the LUT cell diagonal, beyond which a face keeps the exact
- *  path. The deviation bounds the canonical field's VALUE error over the
- *  face interior, not just its sign: a bent face served from its canonical
- *  shape shades a visibly misplaced gradient (stars swim under ripple), so
- *  the cap sits at one cell diagonal (~0.35 px) — the same sub-pixel
- *  envelope as the campaign's other approximations — and a rippling face
- *  drops to the exact path until the wavefront passes. */
-static constexpr float ALIGN_MAX_DEV_DIAGS = 1.0f;
+ *  path. Two effects pin this to a small fraction of a diagonal. Accuracy:
+ *  the deviation bounds the canonical field's VALUE error over the face
+ *  interior, not just its sign — a bent face served from its canonical
+ *  shape shades a visibly misplaced gradient, and a face switching between
+ *  the LUT and exact fields pops. Cost: the deviation widens the
+ *  sign-purity band, and on a concave star even one extra cell diagonal of
+ *  band swallows most of the interior, leaving probes to pay the lookup
+ *  AND the exact walk — slower than no LUT at all. A face is either
+ *  essentially congruent this frame (the static congruence residual is
+ *  ~0.005 px, 20x under this cap) or fully exact; never in between. This
+ *  is why the facility fits only effects whose meshes hold still per spawn
+ *  (see mesh_classes.h). */
+static constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
 
 /**
  * @brief Canonical congruence-class signed-distance LUT, baked once per

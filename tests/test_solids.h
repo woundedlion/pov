@@ -27,7 +27,6 @@
 #include <cmath>
 #include <cstdint>
 #include "core/mesh.h"
-#include "core/mesh_classes.h"
 #include "core/palettes.h"
 #include "core/solids.h"
 #include "tests/mesh_test_util.h"
@@ -443,7 +442,6 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
 
   size_t slot_bytes[Solids::NUM_ENTRIES];
   size_t worst_slot = 0, worst_v = 0, worst_f = 0, worst_k = 0;
-  size_t worst_mesh = 0;
   for (size_t k = 0; k < N; ++k) {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh raw = build_index(base + k, geom);
@@ -456,15 +454,6 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
     MeshState slot;
     MeshOps::compile(raw, slot, slot_arena);
     MeshOps::classify_faces_by_topology(slot, sa, sb, slot_arena);
-    const size_t mesh_bytes = slot_arena.get_high_water_mark();
-    // The congruence-class bake is a per-slot persistent resident too
-    // (spawn_shape bakes both slots), so its footprint counts toward the
-    // cross-fade pair. It is NOT part of the compact_keep_front evacuation
-    // (bakes are rebuilt after the reset), so the scratch_b check below uses
-    // the mesh-only figure.
-    MeshOps::MeshClassBake bake;
-    MeshOps::build_mesh_class_bake(slot, sa, slot_arena, 2.0f * PI_F / 288,
-                                   bake);
 
     slot_bytes[k] = slot_arena.get_high_water_mark();
     if (slot_bytes[k] > worst_slot) {
@@ -473,8 +462,6 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
       worst_f = slot.face_counts.size();
       worst_k = k;
     }
-    if (mesh_bytes > worst_mesh)
-      worst_mesh = mesh_bytes;
   }
 
   // Largest registry-adjacent pair, including the (N-1, 0) cycle wrap.
@@ -495,9 +482,8 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
               worst_pair_i, (worst_pair_i + 1) % N, peak,
               (size_t)kIslamicPersistentBudget);
   HS_EXPECT_LE(peak, (size_t)kIslamicPersistentBudget);
-  // compact_keep_front evacuates the front slot through scratch_b; only the
-  // MeshState travels (its class bake is rebuilt after the reset).
-  HS_EXPECT_LE(worst_mesh, kIslamicScratchBBudget);
+  // compact_keep_front evacuates the front slot through scratch_b.
+  HS_EXPECT_LE(worst_slot, kIslamicScratchBBudget);
 }
 
 // ---------------------------------------------------------------------------
