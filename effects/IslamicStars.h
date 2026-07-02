@@ -28,9 +28,13 @@ public:
    *        first shape.
    */
   void init() override {
-    // scratch arenas + room for BakedPaletteBank (~15KB) in persistent.
-    configure_arenas(GLOBAL_ARENA_SIZE - (120 + 120) * 1024, 120 * 1024,
-                     120 * 1024);
+    // Asymmetric scratch split sized to the measured recipe peaks (worst
+    // generation high-water 112.3 KB in a / 76.5 KB in b; compact_keep_front
+    // evacuates the front slot, up to 63.7 KB, through b). The remainder is
+    // persistent: carousel slots + BakedPaletteBank (~15 KB). Budgets enforced
+    // by test_solids.h's high-water sweeps.
+    configure_arenas(GLOBAL_ARENA_SIZE - (114 + 80) * 1024, 114 * 1024,
+                     80 * 1024);
 
     palette_bank_.bake_all(persistent_arena);
 
