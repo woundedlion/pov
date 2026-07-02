@@ -705,8 +705,9 @@ inline void check_class_lut_render_matches_exact(const MeshState &mesh,
   const float mean = static_cast<float>(delta_sum) / (W * H);
   std::printf("  [%s] delta mean=%.1f max=%d (of 60000)\n", label, mean,
               delta_max);
-  HS_EXPECT_LT(mean, 600.0f);     // ~1% FS: catches convention bugs
-  HS_EXPECT_LT(delta_max, 12000); // ~20% FS: interpolation envelope
+  HS_EXPECT_LT(mean, 300.0f);    // ~0.5% FS: catches convention bugs
+  HS_EXPECT_LT(delta_max, 6000); // ~10% FS: interpolation envelope; rippled
+                                 // must match it too (bent faces go exact)
 }
 
 /**
