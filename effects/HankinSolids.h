@@ -262,7 +262,9 @@ private:
                }));
   }
 
-  MeshCarousel carousel; /**< Double-slot mesh store for front/back solids. */
+  MeshCarousel<> carousel; /**< Double-slot mesh store for front/back solids;
+                                transitions are MeshMorph-driven, so the segue
+                                is unused. */
   CompiledHankin compiled_hankin;         /**< Active during the hankin cycle. */
   CompiledHankin compiled_hankin_staging; /**< Built during the morph cycle. */
   std::array<int, NUM_PALETTES> palettes_slots[2] = {}; /**< Per-slot palette indices; value-init so a missed shuffle reads 0, not garbage. */

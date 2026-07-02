@@ -106,6 +106,11 @@ inline int g_nonblack_effects = 0;
 inline bool effect_may_be_dark(const char *name, int frames) {
   if (std::strcmp(name, "RingShower") == 0)
     return frames < 30;
+  //   IrisBloom segue: fills are inset-masked until the fade window completes
+  //   (default Fade is 32 frames), and small faces have no deep-enough fragment
+  //   before then.
+  if (std::strcmp(name, "IslamicStars<IrisBloom>") == 0)
+    return frames < 40;
   return false;
 }
 
@@ -1488,6 +1493,20 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
   }
 }
 
+// Two-parameter aliases so the segue-instantiated IslamicStars variants fit
+// smoke_one's template-template parameter.
+// clang-format off
+template <int W, int H> using StarsIrisBloom   = IslamicStars<W, H, Segue::IrisBloom>;
+template <int W, int H> using StarsLace        = IslamicStars<W, H, Segue::Lace>;
+template <int W, int H> using StarsTerminator  = IslamicStars<W, H, Segue::TerminatorSweep>;
+template <int W, int H> using StarsShockwave   = IslamicStars<W, H, Segue::Shockwave>;
+template <int W, int H> using StarsSparkle     = IslamicStars<W, H, Segue::Sparkle>;
+template <int W, int H> using StarsDrain       = IslamicStars<W, H, Segue::Drain>;
+template <int W, int H> using StarsVortex      = IslamicStars<W, H, Segue::Vortex>;
+template <int W, int H> using StarsSpinFlip    = IslamicStars<W, H, Segue::SpinFlip>;
+template <int W, int H> using StarsGold        = IslamicStars<W, H, Segue::GoldConvergence>;
+// clang-format on
+
 /**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -1559,6 +1578,21 @@ inline int run_effects_tests() {
 #define HS_DET_ONE_DEV(name) determinism_one<name, kDeviceW, kDeviceH>(#name);
   HS_EFFECT_LIST(HS_DET_ONE_DEV)
 #undef HS_DET_ONE_DEV
+
+  // Segue sweep: IslamicStars instantiated with each non-default transition
+  // policy, at the device resolution (the roster passes above already cover
+  // the default Crossfade at both resolutions). Exercises the segue-templated
+  // warp / per-face / fill / grade render paths end to end.
+  std::printf("  -- IslamicStars segue sweep %dx%d --\n", kDeviceW, kDeviceH);
+  smoke_one<StarsIrisBloom, kDeviceW, kDeviceH>("IslamicStars<IrisBloom>");
+  smoke_one<StarsLace, kDeviceW, kDeviceH>("IslamicStars<Lace>");
+  smoke_one<StarsTerminator, kDeviceW, kDeviceH>("IslamicStars<TerminatorSweep>");
+  smoke_one<StarsShockwave, kDeviceW, kDeviceH>("IslamicStars<Shockwave>");
+  smoke_one<StarsSparkle, kDeviceW, kDeviceH>("IslamicStars<Sparkle>");
+  smoke_one<StarsDrain, kDeviceW, kDeviceH>("IslamicStars<Drain>");
+  smoke_one<StarsVortex, kDeviceW, kDeviceH>("IslamicStars<Vortex>");
+  smoke_one<StarsSpinFlip, kDeviceW, kDeviceH>("IslamicStars<SpinFlip>");
+  smoke_one<StarsGold, kDeviceW, kDeviceH>("IslamicStars<GoldConvergence>");
 
   return fixture.result();
 }

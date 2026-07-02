@@ -256,8 +256,9 @@ private:
   Timeline timeline;
   ProceduralPalette palette;
 
-  // Mesh carousel + morph state
-  MeshCarousel carousel;
+  // Mesh carousel + morph state (transitions are MeshMorph-driven, so the
+  // carousel's segue is unused)
+  MeshCarousel<> carousel;
   int solid_idx = 0;
   bool morphing = false;
 
