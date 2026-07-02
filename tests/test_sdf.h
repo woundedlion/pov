@@ -1332,31 +1332,39 @@ inline void test_face_cull_covers_aa_fringe() {
 
 /**
  * @brief Builds one tilted N-gon face and scans its gnomonic box against an exact oracle.
- * @param sides Number of polygon sides (must be <= 8).
+ * @param sides Number of polygon points (must be <= 8).
  * @param rho Angular circumradius of the face, in radians.
  * @param axis Pole direction the face's basis is built around.
+ * @param rho_inner Inner-vertex radius; > 0 interleaves star points (concave).
  * @return The number of non-culled samples evaluated.
+ * @details A convex face must match the oracle exactly inside and stay within
+ * [0, oracle] outside (the half-plane path underestimates in vertex cones); a
+ * concave face must match the oracle everywhere via the exact walk.
  */
-inline int check_face_distance_oracle(int sides, float rho, const Vector &axis) {
+inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
+                                      float rho_inner = 0.0f) {
   constexpr int H = 144;
   constexpr int HV = H + hs::H_OFFSET;
   HS_EXPECT_TRUE(sides <= 8);
 
   Basis basis = make_basis(Quaternion(), axis);
-  Vector verts3d[8];
-  uint16_t idx[8];
-  for (int i = 0; i < sides; ++i) {
-    float a = (2.0f * PI_F * i) / sides + 0.37f;
-    verts3d[i] = (basis.v * cosf(rho) +
-                  (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(rho))
+  Vector verts3d[16];
+  uint16_t idx[16];
+  const int n_verts = rho_inner > 0.0f ? 2 * sides : sides;
+  for (int i = 0; i < n_verts; ++i) {
+    float a = (2.0f * PI_F * i) / n_verts + 0.37f;
+    float r = (rho_inner > 0.0f && (i & 1)) ? rho_inner : rho;
+    verts3d[i] = (basis.v * cosf(r) +
+                  (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
                      .normalized();
     idx[i] = static_cast<uint16_t>(i);
   }
 
   SDF::FaceScratchBuffer scratch;
-  SDF::Face face(std::span<const Vector>(verts3d, sides),
-                 std::span<const uint16_t>(idx, sides), /*thickness=*/0.0f,
+  SDF::Face face(std::span<const Vector>(verts3d, n_verts),
+                 std::span<const uint16_t>(idx, n_verts), /*thickness=*/0.0f,
                  scratch, HV, H);
+  HS_EXPECT_EQ(face.convex, rho_inner <= 0.0f);
 
   int samples = 0;
   // Gnomonic point normalize(center + u*px + w*py): distance() recovers (px,py)
@@ -1396,7 +1404,14 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis) 
       float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
       float exact_angular = fast_atan2(plane_exact, 1.0f);
 
-      HS_EXPECT_NEAR(res.raw_dist, exact_angular, 1e-4f);
+      if (face.convex && plane_exact > 0.0f) {
+        // Outside a convex face the half-plane max is a lower bound (line
+        // distance, not vertex distance) that never crosses zero.
+        HS_EXPECT_TRUE(res.raw_dist >= -1e-4f);
+        HS_EXPECT_TRUE(res.raw_dist <= exact_angular + 1e-4f);
+      } else {
+        HS_EXPECT_NEAR(res.raw_dist, exact_angular, 1e-4f);
+      }
       ++samples;
     }
   }
@@ -1413,6 +1428,10 @@ inline void test_face_distance_matches_exact_oracle() {
   samples += check_face_distance_oracle(/*sides=*/3, 0.45f, Vector(0.4f, 0.3f, 1.0f));
   samples += check_face_distance_oracle(/*sides=*/5, 0.50f, Vector(0.4f, 0.3f, 1.0f));
   samples += check_face_distance_oracle(/*sides=*/6, 0.40f, Vector(-0.6f, 0.5f, 0.7f));
+  // Concave star: convexity detection must reject it and the exact walk must
+  // reproduce the oracle everywhere.
+  samples += check_face_distance_oracle(/*sides=*/6, 0.50f, Vector(0.4f, 0.3f, 1.0f),
+                                        /*rho_inner=*/0.25f);
   // The grid actually exercised the distance path.
   HS_EXPECT_GT(samples, 1000);
 }
