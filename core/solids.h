@@ -1119,12 +1119,12 @@ inline constexpr Entry catalan_registry[] = {
  * @brief Registry of Islamic star-pattern solids.
  */
 inline constexpr Entry islamic_registry[] = {
-    {"truncatedIcosahedron_hk58_chamfer63",
-     IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63,
-     Category::Complex},
     {"cube_relax_bevel33_relax_hk675_expand5",
      IslamicStarPatterns::
          cube_relax_bevel33_relax_hk675_expand5,
+     Category::Complex},
+    {"truncatedIcosahedron_hk58_chamfer63",
+     IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63,
      Category::Complex},
     {"dodecahedron_ambo_bevel33_relax_hk66",
      IslamicStarPatterns::dodecahedron_ambo_bevel33_relax_hk66,
