@@ -645,25 +645,25 @@ inline void shade_by_distance(const Vector &, Fragment &f) {
 }
 
 /**
- * @brief Renders an islamic mesh with and without the class bake and asserts
- *        the outputs agree within the interpolation envelope.
+ * @brief Renders a mesh twice — exact path vs class bake — and asserts the
+ *        outputs agree within the interpolation envelope.
+ * @param mesh Mesh to draw (possibly deformed after its bake was built).
+ * @param bake Spawn-time congruence bake for the mesh.
+ * @param min_lut_hits Floor asserting the LUT path actually served probes.
+ * @param label Telemetry tag for the printf lines.
  * @details The shader encodes raw distance, so a wrong reflection/offset
- * convention or a mis-rotated alignment would flip interior gradients across
- * whole faces and blow the mean; the per-pixel cap bounds the legitimate
- * bilinear + congruence deviation. Frame-budget-tight deltas are the offline
- * visual gate's job (400-frame dump), not this smoke's.
+ * convention, a mis-rotated alignment, or a sign flip near a deformed edge
+ * (face-separation cracks) blows the mean; the per-pixel cap bounds the
+ * legitimate bilinear + congruence + deformation-margin deviation.
+ * Frame-budget-tight deltas are the offline visual gate's job (400-frame
+ * dump), not this smoke's.
  */
-inline void test_class_lut_render_matches_exact() {
+inline void check_class_lut_render_matches_exact(const MeshState &mesh,
+                                                 const MeshOps::MeshClassBake &bake,
+                                                 uint32_t min_lut_hits,
+                                                 const char *label) {
   constexpr int W = 288, H = 144;
-  configure_arenas_default();
-  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
-  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
-  Arena geom(mr_geom, sizeof(mr_geom));
   Arena scratch(mr_scratch, sizeof(mr_scratch));
-
-  MeshState mesh;
-  MeshOps::MeshClassBake bake;
-  build_islamic_bake(0, seed_a, seed_b, geom, mesh, bake);
 
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
@@ -686,8 +686,8 @@ inline void test_class_lut_render_matches_exact() {
   // The LUT path actually served a meaningful share of the probes.
   const uint32_t lut_hits = hs::g_scan_metrics.lut_hits;
   const uint32_t exact_hits = hs::g_scan_metrics.exact_hits;
-  HS_EXPECT_GT(lut_hits, (uint32_t)5000);
-  std::printf("  [class lut] hits=%u exact=%u share=%.1f%%\n", lut_hits,
+  HS_EXPECT_GT(lut_hits, min_lut_hits);
+  std::printf("  [%s] hits=%u exact=%u share=%.1f%%\n", label, lut_hits,
               exact_hits,
               100.0f * lut_hits / std::max(1u, lut_hits + exact_hits));
 
@@ -703,10 +703,60 @@ inline void test_class_lut_render_matches_exact() {
         delta_max = d;
     }
   const float mean = static_cast<float>(delta_sum) / (W * H);
-  std::printf("  [class lut] delta mean=%.1f max=%d (of 60000)\n", mean,
+  std::printf("  [%s] delta mean=%.1f max=%d (of 60000)\n", label, mean,
               delta_max);
   HS_EXPECT_LT(mean, 600.0f);     // ~1% FS: catches convention bugs
   HS_EXPECT_LT(delta_max, 12000); // ~20% FS: interpolation envelope
+}
+
+/**
+ * @brief Rendered A/B on the undeformed mesh.
+ */
+inline void test_class_lut_render_matches_exact() {
+  configure_arenas_default();
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+
+  MeshState mesh;
+  MeshOps::MeshClassBake bake;
+  build_islamic_bake(0, seed_a, seed_b, geom, mesh, bake);
+  check_class_lut_render_matches_exact(mesh, bake, 5000, "class lut");
+}
+
+/**
+ * @brief Rendered A/B on a rippled mesh against its spawn-time bake — the
+ *        IslamicStars situation (bake once, deform every frame).
+ * @details A synthetic radial ripple at the effect's amplitude scale bends
+ * each face away from its canonical shape. The per-frame alignment must
+ * widen its sign-purity guard by the measured deformation (or drop the LUT
+ * for that face); a fixed one-cell guard flips signs near the true edges and
+ * opens visible cracks between faces.
+ */
+inline void test_class_lut_render_matches_exact_rippled() {
+  configure_arenas_default();
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+
+  MeshState mesh;
+  MeshOps::MeshClassBake bake;
+  build_islamic_bake(0, seed_a, seed_b, geom, mesh, bake);
+
+  // The real transform, at IslamicStars' ceiling (kRippleAmpMax = 0.15,
+  // kRippleThickness = 0.7): a Ricker wavelet that slides vertices
+  // tangentially away from the origin — the steep wavelet slope shears
+  // faces, which is what breaks a rigid canonical alignment.
+  Animation::RippleParams rp;
+  rp.center = Vector(0.3f, 0.8f, -0.52f).normalized();
+  rp.amplitude = 0.15f;
+  rp.thickness = 0.7f;
+  rp.decay = 0.1f;
+  rp.phase = 0.9f; // mid-expansion: wavefront crossing plenty of faces
+  rp.prepare_thresholds();
+  for (size_t i = 0; i < mesh.vertices.size(); ++i)
+    mesh.vertices[i] = ripple_transform(mesh.vertices[i], rp);
+  check_class_lut_render_matches_exact(mesh, bake, 1000, "class lut rippled");
 }
 
 /**
@@ -725,6 +775,7 @@ inline int run_mesh_raster_tests() {
   test_clip_band_matches_full();
   test_class_bake_census_invariants();
   test_class_lut_render_matches_exact();
+  test_class_lut_render_matches_exact_rippled();
 
   return fixture.result();
 }

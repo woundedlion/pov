@@ -277,6 +277,18 @@ measurement:
 - A class whose bake-predicted hit share is under 40% is not kept
   (small faces are mostly fallback band; the LUT would cost its guard on
   every probe and then walk anyway). No registry mesh currently trips this.
+- **§7's fixed one-cell fallback band is not ripple-safe.** The ripple slides
+  vertices tangentially with a steep Ricker slope, so a face can deviate from
+  its rigidly-aligned canonical shape by well over one cell diagonal; the
+  canonical field then serves wrong-SIGNED distances near the true edges and
+  faces visibly separate. Since the true face is exactly the polygon of the
+  displaced vertices, |d_true − d_canon| is bounded by the worst aligned
+  vertex deviation — so bind_class_lut measures that deviation per face per
+  frame (one extra pass over the vertices) and widens the sign-purity guard
+  by it; a face bent beyond 6 cell diagonals keeps the exact path. Pinned by
+  the rippled render A/B (max delta 43% FS before, 5.9% FS after — gradient
+  shift only, no coverage flips). The LUT hit share transiently drops on
+  faces under the wavefront and recovers as it passes.
 
 Gate outcomes:
 
