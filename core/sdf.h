@@ -1658,6 +1658,7 @@ struct Face {
   using HalfPlane = FaceScratchBuffer::HalfPlane;   /**< Convex edge half-plane record type. */
   std::span<const HalfPlane> half_planes; /**< Outward unit edge normals (convex faces). */
   bool convex = false; /**< 2D projection is convex; distance() takes the half-plane path. */
+  bool linear_dist = false; /**< Face is small enough to report plane distance without the atan. */
 
   /**
    * @brief Builds a face's projection, bounds, and edge data.
@@ -1907,6 +1908,7 @@ struct Face {
 
     if (size < radius * MIN_SIZE_RADIUS_RATIO)
       size = radius * MIN_SIZE_RADIUS_RATIO;
+    linear_dist = size < 0.2f;
   }
 
   /**
@@ -2253,11 +2255,13 @@ struct Face {
   bool get_horizontal_intervals(int, OutputIt out) const {
     if (full_width)
       return false;
-    // Pad each interval by one pixel so the outer AA fringe is scanned.
-    float pixel_width = 2.0f * PI_F / W;
+    // Pad by the AA fringe reach (one pixel, in the plane units distance()
+    // reports, slightly wider than angular) plus the fast_atan2 slop in the
+    // vertex thetas the intervals derive from.
+    float pad = 1.25f * (2.0f * PI_F / W);
     for (const auto &iv : intervals) {
-      float f_x1 = (iv.first - pixel_width) * W / (2 * PI_F);
-      float f_x2 = (iv.second + pixel_width) * W / (2 * PI_F);
+      float f_x1 = (iv.first - pad) * W / (2 * PI_F);
+      float f_x2 = (iv.second + pad) * W / (2 * PI_F);
       out(floorf(f_x1), ceilf(f_x2));
     }
     return true;
@@ -2327,16 +2331,15 @@ struct Face {
    * @brief Computes signed distance to the face, writing into res.
    * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
    * @param p Point on sphere (normalized).
-   * @param res Output result; dist = signed angular distance to the edge minus
-   *        thickness, raw_dist = unsigned angular distance, size = inradius.
-   * @note The "angular" distances are an approximation: the face works in its
-   *       gnomonic tangent plane and converts the planar edge distance to an
-   *       angle via `fast_atan2(plane_dist, 1)`, which is exact only at the face
-   *       center (where the gnomonic chart is conformal with unit scale) and
-   *       increasingly compresses toward the face edge. Good enough for the
-   *       thickness band test and shading; do not treat raw_dist as a metric
-   *       geodesic angle. (PlanarPolygon carries the same caveat for its polar
-   *       distance.)
+   * @param res Output result; dist = signed edge distance minus thickness,
+   *        raw_dist = the signed edge distance, size = inradius (gnomonic
+   *        plane units).
+   * @note Distances live in the face's gnomonic tangent plane. Small faces
+   *       (linear_dist) report the plane distance directly — tan(angle) ~
+   *       angle within the AA band and to within size^2/3 of the shading
+   *       gradient. Large faces convert via fast_atan2(plane, 1), keeping
+   *       their atan-compressed gradient. Do not treat raw_dist as a metric
+   *       geodesic angle.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -2364,9 +2367,11 @@ struct Face {
     float plane_dist =
         convex ? plane_dist_convex(px, py) : plane_dist_exact(px, py);
 
-    float angular_dist_raw = fast_atan2(plane_dist, 1.0f);
-    float angular_dist = angular_dist_raw - thickness;
-    res = DistanceResult(angular_dist, 0.0f, angular_dist_raw, 0.0f, size);
+    // Small faces skip the plane->angle conversion: tan(angle) ~ angle to
+    // within size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
+    // Large faces keep the atan-compressed gradient their look is tuned on.
+    float raw = linear_dist ? plane_dist : fast_atan2(plane_dist, 1.0f);
+    res = DistanceResult(raw - thickness, 0.0f, raw, 0.0f, size);
   }
 };
 

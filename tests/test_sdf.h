@@ -1402,15 +1402,16 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
         }
       }
       float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
-      float exact_angular = fast_atan2(plane_exact, 1.0f);
+      float expected =
+          face.linear_dist ? plane_exact : fast_atan2(plane_exact, 1.0f);
 
       if (face.convex && plane_exact > 0.0f) {
         // Outside a convex face the half-plane max is a lower bound (line
         // distance, not vertex distance) that never crosses zero.
         HS_EXPECT_TRUE(res.raw_dist >= -1e-4f);
-        HS_EXPECT_TRUE(res.raw_dist <= exact_angular + 1e-4f);
+        HS_EXPECT_TRUE(res.raw_dist <= expected + 1e-4f);
       } else {
-        HS_EXPECT_NEAR(res.raw_dist, exact_angular, 1e-4f);
+        HS_EXPECT_NEAR(res.raw_dist, expected, 1e-4f);
       }
       ++samples;
     }
