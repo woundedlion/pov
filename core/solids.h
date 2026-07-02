@@ -697,6 +697,20 @@ namespace IslamicStarPatterns {
 static constexpr float D2R = PI_F / 180.0f;
 
 /**
+ * @brief Builds the truncatedIcosahedron_hk58_chamfer63 star pattern
+ * (V=990, F=452, I=2880).
+ * @param a Output arena for the result and even pipeline stages.
+ * @param b Scratch arena for odd pipeline stages.
+ * @return The resulting star-pattern mesh.
+ */
+FLASHMEM static PolyMesh truncatedIcosahedron_hk58_chamfer63(Arena &a,
+                                                             Arena &b) {
+  return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
+      .hankin(58.0f * D2R)
+      .chamfer(0.63f)
+      .build();
+}
+/**
  * @brief Builds the cube_relax_bevel33_relax_hk675_expand5 star pattern.
  * @param a Output arena for the result and even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.
@@ -1105,6 +1119,9 @@ inline constexpr Entry catalan_registry[] = {
  * @brief Registry of Islamic star-pattern solids.
  */
 inline constexpr Entry islamic_registry[] = {
+    {"truncatedIcosahedron_hk58_chamfer63",
+     IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63,
+     Category::Complex},
     {"cube_relax_bevel33_relax_hk675_expand5",
      IslamicStarPatterns::
          cube_relax_bevel33_relax_hk675_expand5,
