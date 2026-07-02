@@ -1602,6 +1602,11 @@ template <typename Shape> struct AngularRepeat {
 /** Minimum squared normalized correlation for a valid class-LUT alignment;
  *  below this the face is too deformed and keeps the exact path. */
 static constexpr float ALIGN_MIN_CORR_SQ = 0.25f;
+/** Maximum per-vertex deviation from the aligned canonical shape, as a
+ *  multiple of the LUT cell diagonal, beyond which a face keeps the exact
+ *  path: the deviation widens the sign-purity guard band (see bind_class_lut),
+ *  and past this much of it the band swallows the face's useful interior. */
+static constexpr float ALIGN_MAX_DEV_DIAGS = 6.0f;
 
 /**
  * @brief Canonical congruence-class signed-distance LUT, baked once per
@@ -2197,6 +2202,40 @@ struct Face {
       return false;
     float inv_r = 1.0f / sqrtf(r2);
     float c = a.rr * inv_r, s = a.ri * inv_r;
+
+    // A rippled face deviates from its rigidly-aligned canonical shape, and
+    // the canonical field is only trustworthy where the true polygon cannot
+    // disagree with it: |d_true - d_canon| is bounded by the worst aligned
+    // vertex deviation (the true face IS the polygon of the deviated
+    // vertices). Widen the sign-purity guard by that bound so a bent face
+    // falls back to the exact walk near its true edges instead of serving
+    // wrong-signed canonical distances (visible as faces separating under
+    // ripple). Faces bent beyond the useful range keep the exact path.
+    float max_dev_sq = 0.0f;
+    {
+      int j = vert_offset;
+      for (int k = 0; k < count; ++k) {
+        float zx = poly_2d[j].x - mx;
+        float zy = poly_2d[j].y - my;
+        if (reflected) {
+          zy = -zy;
+          if (--j < 0)
+            j = count - 1;
+        } else {
+          if (++j == count)
+            j = 0;
+        }
+        float ex = canon_xy[2 * k] - (c * zx - s * zy);
+        float ey = canon_xy[2 * k + 1] - (s * zx + c * zy);
+        float dev_sq = ex * ex + ey * ey;
+        if (dev_sq > max_dev_sq)
+          max_dev_sq = dev_sq;
+      }
+    }
+    float max_dev = sqrtf(max_dev_sq);
+    if (max_dev > ALIGN_MAX_DEV_DIAGS * lut->safe_dist)
+      return false;
+
     // q = rot * (p - m), with the mirror family's conjugation folded into the
     // matrix; then the LUT grid transform (q - box_min) * inv_step folded on
     // top, so the probe loop runs a single affine map on raw (px, py).
@@ -2211,7 +2250,8 @@ struct Face {
     lut_n = lut->n;
     lut_clamp = static_cast<float>(lut->n - 2);
     lut_dequant = lut->dequant;
-    lut_q_safe = static_cast<int32_t>(lut->safe_dist / lut->dequant);
+    lut_q_safe =
+        static_cast<int32_t>((lut->safe_dist + max_dev) / lut->dequant);
     lut_data = lut->data;
     return true;
   }
