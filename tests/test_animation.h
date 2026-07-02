@@ -1190,6 +1190,275 @@ inline void test_sprite_paused_holds_frame() {
 }
 
 // ============================================================================
+// MeshCarousel segues
+// ============================================================================
+
+/**
+ * @brief Verifies Segue::Crossfade schedules one fading sprite through the
+ * carousel seam and returns a next-transition delay that overlaps consecutive
+ * sprites by exactly the fade window.
+ */
+inline void test_crossfade_segue_schedules_overlapping_sprite() {
+  Timeline tl;
+  std::vector<float> ops;
+  const int dur = 10, window = 3;
+  MeshCarousel<Segue::Crossfade> carousel;
+  int next_delay = carousel.schedule_segue(
+      tl, [&](Canvas &, float o) { ops.push_back(o); }, dur, window);
+  HS_EXPECT_EQ(next_delay, dur - window);
+  HS_EXPECT_EQ(global_timeline_num_events, 1);
+
+  for (int i = 0; i < dur; ++i)
+    tl.step(fake_canvas()); // observed at t = 1..10
+
+  HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
+  // Fade-in ramp, full-opacity plateau, transparent on the final frame.
+  HS_EXPECT_LT(ops[0], 1.0f);
+  HS_EXPECT_NEAR(ops[4], 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(ops[dur - 1], 0.0f, 1e-3f);
+  HS_EXPECT_EQ(global_timeline_num_events, 0);
+}
+
+/**
+ * @brief Verifies Segue::Crossfade clamps the fade window to half the duration
+ * so fade windows never overlap and sprites cannot pile up beyond two.
+ */
+inline void test_crossfade_segue_clamps_fade_to_half_duration() {
+  Timeline tl;
+  const int dur = 10, window = 9; // > dur/2, clamps to 5
+  MeshCarousel<Segue::Crossfade> carousel;
+  int next_delay =
+      carousel.schedule_segue(tl, [](Canvas &, float) {}, dur, window);
+  HS_EXPECT_EQ(next_delay, dur - dur / 2);
+}
+
+/**
+ * @brief Verifies the default (Base) scheduling is sequential: the returned
+ * delay equals the full duration, so consecutive sprites never coexist and a
+ * single mesh renders per frame.
+ */
+inline void test_sequential_segue_never_overlaps_sprites() {
+  Timeline tl;
+  std::vector<float> ops;
+  const int dur = 10, window = 3;
+  MeshCarousel<Segue::SpinFlip> carousel;
+  int next_delay = carousel.schedule_segue(
+      tl, [&](Canvas &, float p) { ops.push_back(p); }, dur, window);
+  HS_EXPECT_EQ(next_delay, dur);
+  HS_EXPECT_EQ(global_timeline_num_events, 1);
+
+  for (int i = 0; i < dur; ++i)
+    tl.step(fake_canvas()); // observed at t = 1..10
+
+  HS_EXPECT_EQ(ops.size(), static_cast<size_t>(dur));
+  // Phase ramps up, plateaus at 1, and returns to 0 on the final frame.
+  HS_EXPECT_LT(ops[0], 1.0f);
+  HS_EXPECT_NEAR(ops[4], 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(ops[dur - 1], 0.0f, 1e-3f);
+}
+
+/**
+ * @brief Verifies the Base shading hooks are identities: full opacity and
+ * coverage, unmodified edge distance and color, visible except at ~zero phase.
+ */
+inline void test_segue_base_hooks_are_identity() {
+  Segue::Base base;
+  HS_EXPECT_NEAR(base.opacity(0.3f), 1.0f, 1e-6f);
+  float t = 0.42f;
+  HS_EXPECT_NEAR(base.fill(t, 0.3f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(t, 0.42f, 1e-6f);
+  Color4 c(Pixel(1000, 2000, 3000), 0.5f);
+  Color4 g = base.grade(c, 0.3f);
+  HS_EXPECT_EQ(g.color.r, c.color.r);
+  HS_EXPECT_EQ(g.color.g, c.color.g);
+  HS_EXPECT_EQ(g.color.b, c.color.b);
+  HS_EXPECT_TRUE(base.visible(0.5f));
+  HS_EXPECT_FALSE(base.visible(0.0f));
+}
+
+/**
+ * @brief Verifies IrisBloom's fill contracts faces toward their centers: at
+ * full phase everything survives, at mid phase only fragments deeper than the
+ * inset do, and the surviving core renormalizes to the full gradient.
+ */
+inline void test_iris_bloom_fill_contracts_to_face_centers() {
+  Segue::IrisBloom iris;
+  // Full phase: everything covered, t unchanged.
+  float t = 0.3f;
+  HS_EXPECT_NEAR(iris.fill(t, 1.0f), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(t, 0.3f, 1e-3f);
+  // Mid phase: shallow fragments culled...
+  t = 0.3f;
+  HS_EXPECT_NEAR(iris.fill(t, 0.5f), 0.0f, 1e-6f);
+  // ...deep fragments survive with t renormalized over the shrunken core.
+  t = 0.9f;
+  HS_EXPECT_NEAR(iris.fill(t, 0.5f), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(t, 0.8f, 1e-3f);
+}
+
+/**
+ * @brief Verifies Lace's fill is the inverse mask: only fragments within the
+ * phase-driven band of an edge survive, renormalized across the band.
+ */
+inline void test_lace_fill_keeps_edge_band() {
+  Segue::Lace lace;
+  // Full phase: everything covered.
+  float t = 0.9f;
+  HS_EXPECT_NEAR(lace.fill(t, 1.0f), 1.0f, 1e-3f);
+  // Narrow band: deep fragments culled, near-edge fragments survive.
+  t = 0.5f;
+  HS_EXPECT_NEAR(lace.fill(t, 0.3f), 0.0f, 1e-6f);
+  t = 0.15f;
+  HS_EXPECT_NEAR(lace.fill(t, 0.3f), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(t, 0.5f, 1e-3f);
+}
+
+/**
+ * @brief Verifies the shared sweep front: full everywhere at phase 1, dark
+ * everywhere at phase 0, monotone in phase, and higher offsets extinguish
+ * earlier.
+ */
+inline void test_sweep_phase_front_ordering() {
+  const float band = 0.25f;
+  for (float o : {0.0f, 0.5f, 1.0f}) {
+    HS_EXPECT_NEAR(Segue::sweep_phase(1.0f, o, band), 1.0f, 1e-3f);
+    HS_EXPECT_NEAR(Segue::sweep_phase(0.0f, o, band), 0.0f, 1e-3f);
+  }
+  // Monotone in phase at fixed offset.
+  HS_EXPECT_GT(Segue::sweep_phase(0.6f, 0.5f, band),
+               Segue::sweep_phase(0.4f, 0.5f, band));
+  // At a fixed phase, a higher offset is further extinguished.
+  HS_EXPECT_GT(Segue::sweep_phase(0.5f, 0.2f, band),
+               Segue::sweep_phase(0.5f, 0.8f, band));
+}
+
+/**
+ * @brief Verifies TerminatorSweep orders faces along its axis: the axis pole
+ * extinguishes first (offset 1), the antipode last (offset 0), and the
+ * per-face fade alpha follows the face-local phase.
+ */
+inline void test_terminator_sweep_orders_by_axis() {
+  Segue::TerminatorSweep term;
+  Vector axis = Vector(1.0f, 2.0f, -0.5f).normalized();
+  term.retarget(axis);
+  HS_EXPECT_NEAR(term.face_offset(axis, 0), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(term.face_offset(-axis, 0), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(term.face_offset(cross(axis, X_AXIS).normalized(), 0), 0.5f,
+                 1e-2f);
+  HS_EXPECT_NEAR(term.opacity(0.4f), 0.4f, 1e-6f);
+}
+
+/**
+ * @brief Verifies Shockwave orders faces by angular distance from its origin:
+ * nearest faces extinguish first, the antipode last.
+ */
+inline void test_shockwave_orders_by_distance_from_origin() {
+  Segue::Shockwave wave;
+  Vector origin = Vector(0.3f, -1.0f, 0.7f).normalized();
+  wave.retarget(origin);
+  HS_EXPECT_NEAR(wave.face_offset(origin, 0), 1.0f, 1e-2f);
+  HS_EXPECT_NEAR(wave.face_offset(-origin, 0), 0.0f, 1e-2f);
+  // Equidistant ring sits mid-order.
+  HS_EXPECT_NEAR(wave.face_offset(cross(origin, X_AXIS).normalized(), 0), 0.5f,
+                 2e-2f);
+}
+
+/**
+ * @brief Verifies Sparkle's hashed face order is deterministic, in [0, 1], and
+ * spread across faces (not constant).
+ */
+inline void test_sparkle_offsets_deterministic_and_spread() {
+  Segue::Sparkle sparkle;
+  float lo = 1.0f, hi = 0.0f;
+  for (int i = 0; i < 16; ++i) {
+    float o = sparkle.face_offset(Vector(0, 1, 0), i);
+    HS_EXPECT_GE(o, 0.0f);
+    HS_EXPECT_LE(o, 1.0f);
+    HS_EXPECT_NEAR(o, sparkle.face_offset(Vector(1, 0, 0), i), 1e-6f);
+    lo = std::min(lo, o);
+    hi = std::max(hi, o);
+  }
+  HS_EXPECT_GT(hi - lo, 0.25f); // hashed order actually spreads
+}
+
+/**
+ * @brief Verifies Drain pulls vertices toward its focus as phase falls, stays
+ * on the unit sphere, never fully collapses (kMaxPull < 1), and fades out
+ * before the deepest pile-up.
+ */
+inline void test_drain_pulls_toward_focus_without_collapse() {
+  Segue::Drain drain;
+  Vector focus = Vector(0.0f, 0.2f, 1.0f).normalized();
+  drain.retarget(focus);
+  Vector v = Vector(1.0f, 0.3f, -0.2f).normalized();
+  // Plateau: identity.
+  Vector w1 = drain.warp(v, 1.0f);
+  HS_EXPECT_NEAR((w1 - v).length(), 0.0f, 1e-3f);
+  // Deep in the transition: closer to the focus, still unit, never collapsed.
+  Vector w0 = drain.warp(v, 0.0f);
+  HS_EXPECT_GT(dot(w0, focus), dot(v, focus));
+  HS_EXPECT_NEAR(w0.length(), 1.0f, 1e-3f);
+  HS_EXPECT_LT(dot(w0, focus), 1.0f - 1e-4f);
+  // Faded out before the deepest collapse regime.
+  HS_EXPECT_NEAR(drain.opacity(0.1f), 0.3f, 1e-3f);
+  HS_EXPECT_FALSE(drain.visible(0.01f));
+}
+
+/**
+ * @brief Verifies Vortex shears by latitude: the equator (dot 0 with the axis)
+ * is a fixed set, warped vertices stay unit, and the plateau is the identity.
+ */
+inline void test_vortex_shears_by_latitude() {
+  Segue::Vortex vortex;
+  Vector axis = Vector(0.1f, 1.0f, 0.1f).normalized();
+  vortex.retarget(axis);
+  Vector equator = cross(axis, X_AXIS).normalized();
+  Vector we = vortex.warp(equator, 0.2f);
+  HS_EXPECT_NEAR((we - equator).length(), 0.0f, 1e-3f);
+  Vector v = (axis * 0.6f + equator * 0.8f).normalized();
+  Vector w = vortex.warp(v, 0.2f);
+  HS_EXPECT_NEAR(w.length(), 1.0f, 1e-3f);
+  HS_EXPECT_GT((w - v).length(), 1e-2f); // off-equator actually twists
+  Vector wp = vortex.warp(v, 1.0f);
+  HS_EXPECT_NEAR((wp - v).length(), 0.0f, 1e-3f);
+}
+
+/**
+ * @brief Verifies SpinFlip's warp is rigid: pairwise angles are preserved at
+ * every phase and the plateau is the identity.
+ */
+inline void test_spin_flip_warp_is_rigid() {
+  Segue::SpinFlip spin;
+  spin.retarget(Vector(0.5f, 0.5f, -0.7f).normalized());
+  Vector a = Vector(1.0f, 0.2f, 0.1f).normalized();
+  Vector b = Vector(-0.3f, 0.9f, 0.4f).normalized();
+  Vector wa = spin.warp(a, 0.3f), wb = spin.warp(b, 0.3f);
+  HS_EXPECT_NEAR(dot(wa, wb), dot(a, b), 1e-3f);
+  HS_EXPECT_NEAR(wa.length(), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR((spin.warp(a, 1.0f) - a).length(), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(spin.opacity(0.0f), 1.0f, 1e-6f); // never fades: blur hides the swap
+}
+
+/**
+ * @brief Verifies GoldConvergence grades toward its gold at the swap and is
+ * the identity on the plateau, with the mild opacity dip.
+ */
+inline void test_gold_convergence_grades_to_gold() {
+  Segue::GoldConvergence gc;
+  Color4 c(Pixel(1000, 2000, 3000), 0.8f);
+  Color4 plateau = gc.grade(c, 1.0f);
+  HS_EXPECT_EQ(plateau.color.r, c.color.r);
+  HS_EXPECT_EQ(plateau.color.g, c.color.g);
+  HS_EXPECT_EQ(plateau.color.b, c.color.b);
+  Color4 swap = gc.grade(c, 0.0f);
+  HS_EXPECT_EQ(swap.color.r, gc.gold.r);
+  HS_EXPECT_EQ(swap.color.g, gc.gold.g);
+  HS_EXPECT_EQ(swap.color.b, gc.gold.b);
+  HS_EXPECT_NEAR(gc.opacity(0.0f), 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(gc.opacity(1.0f), 1.0f, 1e-6f);
+}
+
+// ============================================================================
 // deep_tween (global_t span)
 // ----------------------------------------------------------------------------
 // deep_tween walks an OrientationTrail's frames and sub-frames, emitting a
@@ -1859,6 +2128,21 @@ inline int run_animation_tests() {
   test_sprite_fade_in_plateau_fade_out_envelope();
   test_sprite_overlapping_fades_stay_continuous();
   test_sprite_paused_holds_frame();
+
+  test_crossfade_segue_schedules_overlapping_sprite();
+  test_crossfade_segue_clamps_fade_to_half_duration();
+  test_sequential_segue_never_overlaps_sprites();
+  test_segue_base_hooks_are_identity();
+  test_iris_bloom_fill_contracts_to_face_centers();
+  test_lace_fill_keeps_edge_band();
+  test_sweep_phase_front_ordering();
+  test_terminator_sweep_orders_by_axis();
+  test_shockwave_orders_by_distance_from_origin();
+  test_sparkle_offsets_deterministic_and_spread();
+  test_drain_pulls_toward_focus_without_collapse();
+  test_vortex_shears_by_latitude();
+  test_spin_flip_warp_is_rigid();
+  test_gold_convergence_grades_to_gold();
 
   test_deep_tween_global_t_spans_unit_interval();
   test_deep_tween_collapsed_newest_frame_reaches_one();

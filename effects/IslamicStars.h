@@ -6,15 +6,18 @@
 #pragma once
 
 #include "core/engine.h"
-#include <algorithm>
 
 /**
  * @brief Effect that displays a sequence of Islamic-geometry polyhedra,
- *        cross-fading one shape into the next while ripples distort the mesh.
+ *        transitioning one shape into the next while ripples distort the mesh.
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
+ * @tparam SegueT Compile-time transition style (see namespace Segue). The
+ * default Crossfade renders both meshes during the fade window; every other
+ * segue renders a single mesh per frame.
  */
-template <int W, int H> class IslamicStars : public Effect {
+template <int W, int H, typename SegueT = Segue::Crossfade>
+class IslamicStars : public Effect {
 
 public:
   /**
@@ -109,7 +112,7 @@ private:
   FastNoiseLite noise;
   float ripple_duration = 80.0f;
   int solid_idx = -1;
-  MeshCarousel carousel;
+  MeshCarousel<SegueT> carousel;
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
@@ -154,34 +157,71 @@ private:
   }
 
   /**
-   * @brief Orients and ripple-distorts base_state, then rasterizes it with a
-   *        per-face palette lookup.
+   * @brief Orients, ripple-distorts, and segue-shapes base_state, then
+   *        rasterizes it with a per-face palette lookup.
    * @param canvas Render target receiving the rasterized mesh.
-   * @param opacity Sprite's current fade alpha in [0, 1].
+   * @param phase Segue phase in [0, 1] from the sprite envelope: rises over
+   *        the incoming window, holds 1, falls over the outgoing window.
    * @param base_state Undistorted source mesh to transform and draw.
    * @param faceIndices Maps each face to its topology class.
    * @param palette_idx Assigns a palette per topology class.
    * @param bake The slot's congruence-class bake (transform preserves face
    *        order, so the baked records index the transformed mesh directly).
    */
-  void draw_shape(Canvas &canvas, float opacity, const MeshState &base_state,
+  void draw_shape(Canvas &canvas, float phase, const MeshState &base_state,
                   const ArenaVector<int> &faceIndices,
                   const std::array<int, NUM_PALETTES> &palette_idx,
                   const MeshOps::MeshClassBake &bake) {
-    if (opacity <= 0.005f)
+    const SegueT &seg = carousel.segue();
+    if (!seg.visible(phase))
       return;
     ScratchScope a_guard(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer camera(orientation);
-    MeshOps::transform(base_state, transformed_state, scratch_arena_a,
-                       ripple_gen, camera);
+    if constexpr (requires(const Vector &v) { seg.warp(v, 0.0f); }) {
+      // Segue warp first: the warps assume unit-sphere inputs, which the
+      // ripple's radial displacement breaks.
+      auto warp = [&seg, phase](const Vector &v) { return seg.warp(v, phase); };
+      MeshOps::transform(base_state, transformed_state, scratch_arena_a, warp,
+                         ripple_gen, camera);
+    } else {
+      MeshOps::transform(base_state, transformed_state, scratch_arena_a,
+                         ripple_gen, camera);
+    }
 
     const int *raw_indices = faceIndices.data();
-
     const int num_faces = static_cast<int>(faceIndices.size());
+
+    // Per-face segues order faces by world-space center, recomputed per frame
+    // so the sweep front stays fixed in the room while the mesh rotates
+    // through it.
+    constexpr bool kPerFace =
+        requires(const Vector &c) { seg.face_offset(c, 0); };
+    ArenaVector<float> face_offsets;
+    if constexpr (kPerFace) {
+      const size_t faces = transformed_state.num_faces();
+      face_offsets.bind(scratch_arena_a, faces);
+      const uint16_t *fidx = transformed_state.get_faces_data();
+      const uint16_t *foff = transformed_state.get_face_offsets_data();
+      const uint8_t *fcnt = transformed_state.get_face_counts_data();
+      for (size_t f = 0; f < faces; ++f) {
+        Vector c(0.0f, 0.0f, 0.0f);
+        for (int k = 0; k < fcnt[f]; ++k)
+          c = c + transformed_state.vertices[fidx[foff[f] + k]];
+        face_offsets.push_back(
+            seg.face_offset(normalized_or(c, UP), static_cast<int>(f)));
+      }
+    }
+
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
+      float p = phase;
+      if constexpr (kPerFace) {
+        int fi = static_cast<int>(frag.v2);
+        if (fi >= 0 && fi < static_cast<int>(face_offsets.size()))
+          p = seg.face_phase(phase, face_offsets[fi]);
+      }
       frag.color = shade_mesh_topology(frag, raw_indices, num_faces,
-                                       palette_bank_, palette_idx, 1.0f, opacity);
+                                       palette_bank_, palette_idx, 1.0f, seg, p);
     };
 
     Scan::Mesh::draw<W, H>(filters, canvas, transformed_state, fragment_shader,
@@ -190,8 +230,9 @@ private:
 
   /**
    * @brief Advances to the next solid, generates it into the carousel's back
-   *        slot with a freshly shuffled palette, makes it the front, and
-   *        schedules a cross-fading sprite plus the next spawn_shape call.
+   *        slot with a freshly shuffled palette, makes it the front, and lets
+   *        the carousel's segue schedule the transition plus the next
+   *        spawn_shape call.
    */
   void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
@@ -201,9 +242,9 @@ private:
 
     int idx = solid_idx;
 
-    auto draw_fn = [this, back](Canvas &canvas, float opacity) {
+    auto draw_fn = [this, back](Canvas &canvas, float phase) {
       const MeshState &mesh = carousel.slot(back);
-      this->draw_shape(canvas, opacity, mesh, mesh.topology,
+      this->draw_shape(canvas, phase, mesh, mesh.topology,
                        palettes_slots[back], class_bakes[back]);
     };
 
@@ -237,12 +278,15 @@ private:
     // Flip front eagerly for the overlapping sprite.
     carousel.set_front(back);
 
-    // Clamp fade to dur/2 so the fade windows never overlap; a larger fade piles
-    // up sprites.
-    int dur = static_cast<int>(params.duration);
-    int fade = std::min(static_cast<int>(params.fade), dur / 2);
-    timeline.add(0, Animation::Sprite(draw_fn, dur, fade, ease_linear, fade,
-                                      ease_linear));
+    // Segues with a spatial anchor (sweep axis, wave origin, drain focus, spin
+    // axis) get a fresh random one per transition. Safe mid-carousel: those
+    // segues are sequential, so the previous sprite has already finished.
+    if constexpr (requires(SegueT &s, const Vector &v) { s.retarget(v); })
+      carousel.segue().retarget(random_vector());
+
+    int next_delay = carousel.schedule_segue(
+        timeline, draw_fn, static_cast<int>(params.duration),
+        static_cast<int>(params.fade));
 
     // Topology indices left un-reduced: draw_shape applies the modulo at render
     // time, so reducing here would double-modulo.
@@ -252,9 +296,7 @@ private:
             (int)carousel.current().vertices.size(),
             (int)carousel.current().faces.size());
 
-    // Next shape starts one fade-out before this one ends, so the two sprites
-    // overlap during the cross-fade.
-    int next_delay = dur - fade;
+    // The segue decides when the next shape starts relative to this one.
     timeline.add(next_delay,
                  Animation::PeriodicTimer(
                      0, [this](Canvas &) { this->spawn_shape(); }, false));

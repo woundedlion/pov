@@ -69,6 +69,23 @@ inline float fragment_edge_dist(const Fragment &f) {
 }
 
 /**
+ * @brief Resolves a fragment's palette slot from its face's topology class.
+ * @tparam NumPalettes Palette count; the class index wraps modulo this.
+ * @param f Rasterized fragment; v2 carries the integer face index.
+ * @param topology Per-face topology-class indices.
+ * @param num_faces Length of `topology`; an out-of-range face index falls back
+ * to class 0 rather than reading out of bounds.
+ * @return The palette slot in [0, NumPalettes).
+ */
+template <size_t NumPalettes>
+inline int mesh_topology_slot(const Fragment &f, const int *topology,
+                              int num_faces) {
+  int faceIdx = static_cast<int>(f.v2);
+  int topoIdx = (faceIdx >= 0 && faceIdx < num_faces) ? topology[faceIdx] : 0;
+  return wrap(topoIdx, static_cast<int>(NumPalettes));
+}
+
+/**
  * @brief Shared face-topology fragment shading for the mesh effects.
  * @tparam PaletteBank Indexable bank of palettes exposing `bank[i].get(t)`.
  * @tparam NumPalettes Palette count (deduced from `palette_idx`).
@@ -90,12 +107,41 @@ inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
                                   int num_faces, PaletteBank &palette_bank,
                                   const std::array<int, NumPalettes> &palette_idx,
                                   float gain, float opacity) {
-  int faceIdx = static_cast<int>(f.v2);
-  int topoIdx = (faceIdx >= 0 && faceIdx < num_faces) ? topology[faceIdx] : 0;
   float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
-  int slot = wrap(topoIdx, static_cast<int>(NumPalettes));
+  int slot = mesh_topology_slot<NumPalettes>(f, topology, num_faces);
   Color4 c = palette_bank[palette_idx[slot]].get(t);
   c.alpha = opacity;
+  return c;
+}
+
+/**
+ * @brief Segue-aware variant of shade_mesh_topology: routes the edge distance
+ * and resulting color through a segue policy's shading hooks.
+ * @tparam SegueT Segue policy type (see namespace Segue in
+ * animation_timeline.h); duck-typed, so this header needs no dependency on it.
+ * @param f Rasterized fragment; v2 carries the integer face index.
+ * @param topology Per-face topology-class indices.
+ * @param num_faces Length of `topology`.
+ * @param palette_bank Bank of per-class palettes.
+ * @param palette_idx Maps a topology class to a palette slot in the bank.
+ * @param gain Multiplier on the edge-distance gradient before clamping to [0,1].
+ * @param segue Policy whose fill/grade/opacity hooks shape the fragment.
+ * @param phase Segue phase for this fragment (face-local for per-face segues).
+ * @return The shaded color; fully transparent when the segue's fill culls the
+ * fragment.
+ */
+template <typename PaletteBank, size_t NumPalettes, typename SegueT>
+inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
+                                  int num_faces, PaletteBank &palette_bank,
+                                  const std::array<int, NumPalettes> &palette_idx,
+                                  float gain, const SegueT &segue, float phase) {
+  float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
+  float cover = segue.fill(t, phase);
+  if (cover <= 0.0f)
+    return Color4();
+  int slot = mesh_topology_slot<NumPalettes>(f, topology, num_faces);
+  Color4 c = segue.grade(palette_bank[palette_idx[slot]].get(t), phase);
+  c.alpha = cover * segue.opacity(phase);
   return c;
 }
 
