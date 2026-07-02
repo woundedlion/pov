@@ -726,13 +726,14 @@ inline void test_class_lut_render_matches_exact() {
 }
 
 /**
- * @brief Rendered A/B on a rippled mesh against its spawn-time bake — the
- *        IslamicStars situation (bake once, deform every frame).
- * @details A synthetic radial ripple at the effect's amplitude scale bends
- * each face away from its canonical shape. The per-frame alignment must
- * widen its sign-purity guard by the measured deformation (or drop the LUT
- * for that face); a fixed one-cell guard flips signs near the true edges and
- * opens visible cracks between faces.
+ * @brief Rendered A/B on a deformed mesh against its spawn-time bake — the
+ *        facility's deformation safety net.
+ * @details The class-LUT facility is for meshes that hold still (see
+ * mesh_classes.h); this pins what happens when a consumer's mesh deforms
+ * anyway: the per-frame alignment must drop bent faces to the exact path (or
+ * widen its guard) so the output stays inside the static interpolation
+ * envelope. A fixed one-cell guard flips signs near the true edges and opens
+ * visible cracks between faces.
  */
 inline void test_class_lut_render_matches_exact_rippled() {
   configure_arenas_default();
@@ -744,10 +745,11 @@ inline void test_class_lut_render_matches_exact_rippled() {
   MeshOps::MeshClassBake bake;
   build_islamic_bake(0, seed_a, seed_b, geom, mesh, bake);
 
-  // The real transform, at IslamicStars' ceiling (kRippleAmpMax = 0.15,
-  // kRippleThickness = 0.7): a Ricker wavelet that slides vertices
-  // tangentially away from the origin — the steep wavelet slope shears
-  // faces, which is what breaks a rigid canonical alignment.
+  // The real ripple transform at its shipped ceiling (amplitude 0.15,
+  // thickness 0.7): a Ricker wavelet that slides vertices tangentially away
+  // from the origin — the steep wavelet slope shears faces, which is what
+  // breaks a rigid canonical alignment. (Radial displacement would be a
+  // false-pass: the gnomonic projection divides it out.)
   Animation::RippleParams rp;
   rp.center = Vector(0.3f, 0.8f, -0.52f).normalized();
   rp.amplitude = 0.15f;

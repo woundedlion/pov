@@ -26,6 +26,19 @@
  * signed-distance LUT per class (SDF::build_canonical_distance_lut).
  * Scan::Mesh::draw binds the LUTs to faces per frame; Face::distance serves
  * sign-pure probes from a bilinear lookup instead of the exact edge walk.
+ * Measured on the islamic registry: -10..-28% WASM scan time per LUT-bound
+ * mesh, -2..-8% native x86.
+ *
+ * ONLY FOR EFFECTS WHOSE MESHES HOLD STILL between spawns (rigid orientation
+ * is fine — congruence is frame-invariant). A per-frame deformation (ripple,
+ * warping segues, morphs) breaks the canonical premise: a bent face served
+ * from its canonical shape shades a misplaced interior gradient, a face
+ * switching to the exact path pops visibly, and the widened sign guard makes
+ * probes pay the lookup AND the walk. SDF::ALIGN_MAX_DEV_DIAGS therefore
+ * drops any face deviating this frame; an effect that deforms most frames
+ * gains nothing and shimmers — IslamicStars was unwired for exactly this.
+ * No effect currently passes a bake; the pipeline is held by its tests
+ * (test_sdf / test_mesh_raster) for the next static-mesh consumer.
  *
  * The system never depends on clustering succeeding: a face left unassigned
  * (kNoClass), a class without a LUT (singleton, convex, or over budget), or a
@@ -49,10 +62,10 @@ inline constexpr int kClassLutMinN = 32;
 inline constexpr int kClassLutMaxN = 64;
 /** Per-mesh LUT byte budget. Classes are allocated by descending face count
  *  until it is spent; the remainder run kNoClass. Identical on every target
- *  (host/WASM/device) so sim and device output cannot fork. Sized so the
- *  worst adjacent carousel pair (mesh + bake, x2 slots) plus the palette bank
- *  fits IslamicStars' 136 KB device persistent partition — pinned by
- *  test_solids' persistent-budget sweep. */
+ *  (host/WASM/device) so sim and device output cannot fork. Sized so a
+ *  double-buffered pair of bakes plus a palette bank fits a 136 KB device
+ *  persistent partition; a consumer effect must add its bakes to its
+ *  test_solids-style persistent-budget sweep. */
 inline constexpr size_t kClassLutBudget = 18 * 1024;
 /** Minimum bake-predicted hit share for a class LUT to be kept: below this
  *  the probes mostly land in the fallback band and pay the guard for

@@ -1,7 +1,13 @@
 # Congruence-Class Canonical Distance LUTs — Design Spec
 
-Status: IMPLEMENTED — landed with all host-runnable gates green; Teensy
-runtime verification still manual. Measured results in §11.
+Status: FACILITY ONLY — the machinery is landed, tested, and gate-green, but
+NO EFFECT USES IT. IslamicStars, the intended Phase-1 consumer, was unwired:
+its meshes deform most frames (ripple + warping segues), and under
+deformation the canonical premise loses every way it can be played — served
+interiors mis-shade, faces switching to the exact path pop visibly, and a
+widened sign guard makes probes pay the lookup AND the walk (measured slower
+than no LUT during ripple). See §11-12. Available for a future consumer whose
+meshes hold still between spawns.
 Fourth structural lever of the 2026-07-01 rasterizer campaign, and the only
 one of the last four to survive its go/no-go census. Predecessors: per-face
 LUT removal (`6241a24b`), convex half-plane path (`7b4873d9`), small-face atan
@@ -320,3 +326,29 @@ Gate outcomes:
 5. **Teensy**: compile + size gates in CI; runtime on hardware still
    unverified (as for the previous three rasterizer changes). DTCM-resident
    int16 LUTs + in-order VSQRT should favor the LUT even more than WASM.
+
+## 12. Why IslamicStars was unwired (2026-07-02)
+
+The gates above were all run on static meshes. In the app, IslamicStars'
+meshes deform most frames — ripple bursts recur every 96 frames with a broad
+Ricker skirt, and the Segue carousel adds warping transitions — and under
+deformation the canonical premise loses every way it can be played:
+
+- **Serve a bent interior** and the gradient mis-shades: the star's shading
+  swims against its true edges (caught by eye in daydream at a 6-diagonal
+  deviation cap, ~2 px of value error).
+- **Fall back per face** and the switch itself pops: canonical and exact
+  fields differ by the interpolation envelope, so a face crossing the
+  deviation threshold visibly jumps between frames.
+- **Widen the sign guard** to stay crack-free and the band swallows a
+  concave star's interior: probes pay the 4-tap lookup and then walk anyway
+  — ripple frames measured ~3x quiescent, slower than no LUT at all.
+
+A sign-only far-field mode (serve only the cull-ring skirt beyond the AA
+pad, exact interior) is visually lossless and keeps most of the win, but it
+still leaves the mode-transition pop on the interior and adds a third
+serving regime to the hot path — for an effect that deforms most frames the
+complexity is not worth the residual win. The facility remains for effects
+whose meshes hold still between spawns; the deformation guard
+(SDF::ALIGN_MAX_DEV_DIAGS = 0.25 cell diagonals) stays as the safety net
+that keeps any future consumer's deformed frames correct rather than fast.
