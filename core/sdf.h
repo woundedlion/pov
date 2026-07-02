@@ -1612,6 +1612,14 @@ struct FaceScratchBuffer {
     float vx, vy, ex, ey, inv_len_sq, inv_ej, next_vy, pad; /**< Edge origin, vector, reciprocals, next-vertex y, padding. */
   };
   std::array<EdgePacked, MAX_VERTS> packed_edges; /**< Packed per-edge data. */
+
+  /**
+   * @brief Outward unit edge normal and line offset for the convex fast path.
+   */
+  struct HalfPlane {
+    float nx, ny, off, pad; /**< Unit normal, offset (dist = nx*px + ny*py + off), padding to a 16-byte stride. */
+  };
+  std::array<HalfPlane, MAX_VERTS> half_planes; /**< Convex-face edge half-planes. */
 };
 
 /**
@@ -1647,6 +1655,9 @@ struct Face {
 
   using EdgePacked = FaceScratchBuffer::EdgePacked; /**< Packed per-edge record type. */
   std::span<EdgePacked> packed_edges;               /**< Packed per-edge data. */
+  using HalfPlane = FaceScratchBuffer::HalfPlane;   /**< Convex edge half-plane record type. */
+  std::span<const HalfPlane> half_planes; /**< Outward unit edge normals (convex faces). */
+  bool convex = false; /**< 2D projection is convex; distance() takes the half-plane path. */
 
   /**
    * @brief Builds a face's projection, bounds, and edge data.
@@ -1703,6 +1714,7 @@ struct Face {
     }
 
     pack_edges(scratch);
+    build_half_planes(scratch);
   }
 
   /**
@@ -1913,6 +1925,65 @@ struct Face {
       ep.next_vy = poly_2d[i + 1].y;
     }
     packed_edges = std::span<EdgePacked>(scratch.packed_edges.data(), count);
+  }
+
+  /**
+   * @brief Detects a convex 2D projection and builds its edge half-planes.
+   * @param scratch Scratch storage receiving half_planes.
+   * @details For a convex polygon the signed distance is max over edges of the
+   * half-plane distance: exact everywhere inside and in the edge slabs outside;
+   * outside a vertex's normal cone it underestimates (line distance, not vertex
+   * distance), which only softens the AA corner within its ~1-pixel band. A
+   * concave, degenerate-edged, or wrongly-oriented polygon leaves convex false
+   * and distance() on the exact walk.
+   */
+  __attribute__((always_inline)) void
+  build_half_planes(FaceScratchBuffer &scratch) {
+    float area2 = 0.0f;
+    bool pos = false, neg = false;
+    for (int i = 0; i < count; ++i) {
+      const Vector &a = poly_2d[i];
+      const Vector &b = poly_2d[i + 1];
+      area2 += a.x * b.y - b.x * a.y;
+      const Vector &e1 = edge_vectors[i];
+      const Vector &e2 = edge_vectors[(i + 1) % count];
+      float cr = e1.x * e2.y - e1.y * e2.x;
+      // Relative turn test: |sin| > 1e-6 between edge directions.
+      float scale = edge_lengths_sq[i] * edge_lengths_sq[(i + 1) % count];
+      if (cr * cr > 1e-12f * scale) {
+        if (cr > 0)
+          pos = true;
+        else
+          neg = true;
+      }
+    }
+    if (pos && neg)
+      return;
+
+    float sign = area2 >= 0 ? 1.0f : -1.0f;
+    for (int i = 0; i < count; ++i) {
+      float len_sq = edge_lengths_sq[i];
+      if (len_sq < 1e-12f)
+        return;
+      float inv = sign / sqrtf(len_sq);
+      float nx = edge_vectors[i].y * inv;
+      float ny = -edge_vectors[i].x * inv;
+      auto &hp = scratch.half_planes[i];
+      hp.nx = nx;
+      hp.ny = ny;
+      hp.off = -(nx * poly_2d[i].x + ny * poly_2d[i].y);
+    }
+    // The projected face center is the 2D origin; it must be strictly interior
+    // or the winding/orientation is untrustworthy.
+    float d0 = -FLT_MAX;
+    for (int i = 0; i < count; ++i)
+      if (scratch.half_planes[i].off > d0)
+        d0 = scratch.half_planes[i].off;
+    if (d0 >= 0.0f)
+      return;
+    half_planes =
+        std::span<const HalfPlane>(scratch.half_planes.data(), count);
+    convex = true;
   }
 
   /**
@@ -2193,6 +2264,55 @@ struct Face {
   }
 
   /**
+   * @brief Signed planar distance via the convex half-plane max.
+   * @param px Gnomonic x of the query point.
+   * @param py Gnomonic y of the query point.
+   * @return Signed distance in the tangent plane (negative inside).
+   * @details noinline: keeping either edge loop out of the fully-inlined scan
+   * chain avoids a register-spill cliff that slows every probe (measured ~40%
+   * on the whole scan when both loops inline into process_pixel).
+   */
+  __attribute__((noinline)) float plane_dist_convex(float px, float py) const {
+    HS_SCAN_METRIC(hs::g_scan_metrics.convex_hits++);
+    float d = -FLT_MAX;
+    for (int i = 0; i < count; ++i) {
+      const auto &hp = half_planes[i];
+      float di = hp.nx * px + hp.ny * py + hp.off;
+      if (di > d)
+        d = di;
+    }
+    return d;
+  }
+
+  /**
+   * @brief Signed planar distance via the exact per-edge walk.
+   * @param px Gnomonic x of the query point.
+   * @param py Gnomonic y of the query point.
+   * @return Signed distance in the tangent plane (negative inside).
+   * @details noinline: see plane_dist_convex.
+   */
+  __attribute__((noinline)) float plane_dist_exact(float px, float py) const {
+    float d = FLT_MAX;
+    bool inside = false;
+    for (int i = 0; i < count; ++i) {
+      const auto &ep = packed_edges[i];
+      float wx = px - ep.vx, wy = py - ep.vy;
+      float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
+      float cv = hs::clamp(t, 0.0f, 1.0f);
+      float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
+      float dsq = bx * bx + by * by;
+      if (dsq < d)
+        d = dsq;
+      if ((ep.vy > py) != (ep.next_vy > py)) {
+        float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
+        if (px < isx)
+          inside = !inside;
+      }
+    }
+    return (inside ? -1.0f : 1.0f) * sqrtf(d);
+  }
+
+  /**
    * @brief Computes signed distance to the face.
    * @param p Point on sphere (normalized).
    * @return DistanceResult with the signed angular distance and size metric.
@@ -2241,24 +2361,8 @@ struct Face {
     }
 
     HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
-    float d = FLT_MAX;
-    bool inside = false;
-    for (int i = 0; i < count; ++i) {
-      const auto &ep = packed_edges[i];
-      float wx = px - ep.vx, wy = py - ep.vy;
-      float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
-      float cv = hs::clamp(t, 0.0f, 1.0f);
-      float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
-      float dsq = bx * bx + by * by;
-      if (dsq < d)
-        d = dsq;
-      if ((ep.vy > py) != (ep.next_vy > py)) {
-        float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
-        if (px < isx)
-          inside = !inside;
-      }
-    }
-    float plane_dist = (inside ? -1.0f : 1.0f) * sqrtf(d);
+    float plane_dist =
+        convex ? plane_dist_convex(px, py) : plane_dist_exact(px, py);
 
     float angular_dist_raw = fast_atan2(plane_dist, 1.0f);
     float angular_dist = angular_dist_raw - thickness;
