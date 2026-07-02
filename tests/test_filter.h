@@ -1191,6 +1191,88 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   HS_EXPECT_LT(row_sum(R), peak / 4);
 }
 
+/**
+ * @brief Space warp whose longitudinal displacement oscillates across the
+ *        ±W/2 wrap: theta += PI + 0.3*sin(theta). Adjacent coarse warp-field
+ *        columns land on opposite wrap branches while the true (unwrapped)
+ *        field stays smooth.
+ */
+inline Vector antipodal_ripple_warp(const Vector &v, const ::Feedback::Style &) {
+  Spherical s(v);
+  return Vector(Spherical(s.theta + PI_F + 0.3f * std::sin(s.theta), s.phi));
+}
+
+/**
+ * @brief Verifies the warp-field bilerp stays on one wrap branch when the
+ *        coarse taps straddle the ±W/2 cut.
+ * @details The antipodal ripple displaces every column by W/2 ± 1.5px, so the
+ *          step-1 seam wrap flips sign between adjacent coarse columns
+ *          (~ +16px vs ~ -15px at W=32) while the true field is smooth. The
+ *          tap re-centering must unify the four taps onto one branch; a blend
+ *          that sweeps across the cut instead samples near-zero displacements
+ *          — pixels from the wrong side of the sphere, rendering as a
+ *          longitudinal streak of foreign color. The previous frame encodes
+ *          longitude seam-continuously (r=cos, g=sin), so each output pixel's
+ *          actual sample source can be decoded and checked against the warp
+ *          evaluated directly.
+ */
+inline void test_feedback_flush_straddled_taps_stay_on_branch() {
+  constexpr int W = 32, H = 16; // both divisible by the downsample (4)
+  constexpr float TWO_PI = 2.0f * PI_F;
+  PipeFx fx(W, H);
+
+  ::Feedback::Style style{};
+  style.space_fn = &antipodal_ripple_warp;
+  style.color_fn = &::Feedback::plain_fade; // colors must round-trip unchanged
+  style.fade = 1.0f;
+  style.noise = nullptr;
+  style.downsample = 4;
+
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  // Frame 1: seam-continuous longitude encoding becomes the "previous" frame.
+  {
+    Canvas c(fx);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        float th = TWO_PI * x / W;
+        c(x, y) = Pixel(
+            static_cast<uint16_t>((std::cos(th) * 0.5f + 0.5f) * 65535.0f),
+            static_cast<uint16_t>((std::sin(th) * 0.5f + 0.5f) * 65535.0f), 0);
+      }
+  }
+  fx.advance_display();
+
+  // Frame 2: empty buffer; flush pulls the warped prev frame into it.
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  // Decode each pixel's sampled longitude and compare with the warp evaluated
+  // directly. Interior rows dodge the pole rows' vertical clamp; the 2px
+  // tolerance covers the coarse-grid bilerp and int16 quantization, while a
+  // cross-branch sweep is off by ~W/4 at the straddle columns.
+  float max_err = 0.0f;
+  for (int y = 4; y < 12; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &p = fx.get_pixel(x, y);
+      float c = p.r / 65535.0f * 2.0f - 1.0f;
+      float s = p.g / 65535.0f * 2.0f - 1.0f;
+      float decoded_x = std::atan2(s, c) / TWO_PI * W;
+      float th = TWO_PI * x / W;
+      float expected_x = (th + PI_F + 0.3f * std::sin(th)) / TWO_PI * W;
+      float d = std::fmod(decoded_x - expected_x, static_cast<float>(W));
+      if (d > W * 0.5f) d -= W;
+      if (d < -W * 0.5f) d += W;
+      max_err = std::max(max_err, std::fabs(d));
+    }
+  HS_EXPECT_LT(max_err, 2.0f);
+}
+
 // ============================================================================
 // World::Trails — int16 quantization round-trip + ring buffer / ttl lifecycle
 // ============================================================================
@@ -1714,6 +1796,7 @@ inline int run_filter_tests() {
   test_feedback_flush_blends_prev_frame();
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();
+  test_feedback_flush_straddled_taps_stay_on_branch();
 
   test_world_trails_int16_quantization_roundtrip();
   test_world_trails_clamps_out_of_range();
