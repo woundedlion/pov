@@ -1594,7 +1594,6 @@ template <typename Shape> struct AngularRepeat {
  */
 struct FaceScratchBuffer {
   static constexpr int MAX_VERTS = 64; /**< Maximum vertices per face. */
-  static constexpr int LUT_N = 32;     /**< Distance-LUT grid resolution per axis. */
   std::array<Vector, MAX_VERTS + 1> poly_2d; /**< Projected 2D polygon (+1 entry to avoid modulo). */
   std::array<Vector, MAX_VERTS> edge_vectors;       /**< Per-edge 2D vectors. */
   std::array<float, MAX_VERTS> edge_lengths_sq;     /**< Per-edge squared lengths. */
@@ -1605,7 +1604,6 @@ struct FaceScratchBuffer {
   std::array<float, MAX_VERTS> inv_edge_j;          /**< Reciprocal of each edge's y-component. */
   std::array<Vector, MAX_VERTS + 1> verts_3d;       /**< 3D vertices (+1 wrap entry). */
   std::array<Vector, MAX_VERTS> edge_normals;       /**< Per-edge normalized 3D normals. */
-  std::array<float, LUT_N * LUT_N> dist_lut;        /**< Precomputed signed-distance LUT. */
 
   /**
    * @brief Packed per-edge data for the cache-friendly distance() fallback.
@@ -1647,22 +1645,11 @@ struct Face {
   bool full_width;                             /**< True when the face spans all columns. */
   static constexpr bool is_solid = true;       /**< Face renders as a filled region. */
 
-  // Packed edge data + LUT for distance computation
   using EdgePacked = FaceScratchBuffer::EdgePacked; /**< Packed per-edge record type. */
   std::span<EdgePacked> packed_edges;               /**< Packed per-edge data. */
-  static constexpr int LUT_N = FaceScratchBuffer::LUT_N; /**< Max distance-LUT resolution per axis. */
-  static constexpr int kMinLutN = 6;   /**< Floor for the adaptive per-face LUT resolution. */
-  static_assert(kMinLutN >= 2, "build_distance_lut divides by (n-1)");
-  const float *dist_lut = nullptr;     /**< Pointer into the scratch distance LUT. */
-  float lut_cx = 0.0f, lut_cy = 0.0f;  /**< LUT bounding-box center. */
-  float lut_Rx = 0.0f, lut_Ry = 0.0f;  /**< LUT bounding-box half-extents. */
-  float lut_inv_step_x = 0.0f;         /**< Reciprocal LUT cell width. */
-  float lut_inv_step_y = 0.0f;         /**< Reciprocal LUT cell height. */
-  float lut_safe_dist = 0.0f;          /**< Per-face cell diagonal (sign-pure bound). */
-  int lut_n = LUT_N;                   /**< Per-face LUT grid resolution, sized to the row span. */
 
   /**
-   * @brief Builds a face's projection, bounds, edge data, and distance LUT.
+   * @brief Builds a face's projection, bounds, and edge data.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices from the pool.
    * @param th Edge half-width (radians).
@@ -1703,17 +1690,12 @@ struct Face {
     inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
-    // LUT grid is sized off the pre-pole-containment row span; apply_pole_
-    // containment may widen y_min/y_max below, but the gnomonic LUT resolution
-    // must stay what it was before, so snapshot the span now.
-    const int lut_row_span = y_max - y_min;
-
     compute_azimuth_intervals(scratch);
     apply_pole_containment(height);
 
     // Whole-face clip cull: y_min/y_max and the azimuth coverage now match what
     // the scan would draw, so a face disjoint from the clip band yields no
-    // in-band pixel. Skip the LUT build (the dominant per-face cost) for it.
+    // in-band pixel.
     if (clip && clip_rejects(*clip)) {
       y_min = 1;
       y_max = 0;
@@ -1721,7 +1703,6 @@ struct Face {
     }
 
     pack_edges(scratch);
-    build_distance_lut(scratch, lut_row_span);
   }
 
   /**
@@ -1932,78 +1913,6 @@ struct Face {
       ep.next_vy = poly_2d[i + 1].y;
     }
     packed_edges = std::span<EdgePacked>(scratch.packed_edges.data(), count);
-  }
-
-  /**
-   * @brief Precomputes the anisotropic signed-distance LUT over the bounding box.
-   * @param scratch Scratch storage receiving dist_lut.
-   */
-  __attribute__((always_inline)) void
-  build_distance_lut(FaceScratchBuffer &scratch, int lut_row_span) {
-    float bb_min_x = FLT_MAX, bb_max_x = -FLT_MAX;
-    float bb_min_y = FLT_MAX, bb_max_y = -FLT_MAX;
-    for (int i = 0; i < count; ++i) {
-      float vx = poly_2d[i].x, vy = poly_2d[i].y;
-      if (vx < bb_min_x)
-        bb_min_x = vx;
-      if (vx > bb_max_x)
-        bb_max_x = vx;
-      if (vy < bb_min_y)
-        bb_min_y = vy;
-      if (vy > bb_max_y)
-        bb_max_y = vy;
-    }
-    float margin = BOUNDS_MARGIN_WIDE;
-    lut_cx = (bb_min_x + bb_max_x) * 0.5f;
-    lut_cy = (bb_min_y + bb_max_y) * 0.5f;
-    lut_Rx = (bb_max_x - bb_min_x) * 0.5f + margin;
-    lut_Ry = (bb_max_y - bb_min_y) * 0.5f + margin;
-    if (lut_Rx < 0.01f)
-      lut_Rx = 0.01f;
-    if (lut_Ry < 0.01f)
-      lut_Ry = 0.01f;
-    // Size the grid to the face's covered row span rather than a fixed 32x32:
-    // most faces cover far fewer rows, so this cuts the per-face build (the
-    // dominant rasterizer cost) while the exact fallback preserves sub-cell
-    // accuracy near edges.
-    int n = static_cast<int>(
-        hs::clamp(static_cast<float>(lut_row_span) + 2.0f,
-                  static_cast<float>(kMinLutN), static_cast<float>(LUT_N)));
-    lut_n = n;
-    lut_inv_step_x = (n - 1) / (2.0f * lut_Rx);
-    lut_inv_step_y = (n - 1) / (2.0f * lut_Ry);
-    dist_lut = scratch.dist_lut.data();
-    float step_x = (2.0f * lut_Rx) / (n - 1);
-    float step_y = (2.0f * lut_Ry) / (n - 1);
-    // The plane SDF is 1-Lipschitz in (px,py), so a zero anywhere in a cell puts
-    // every corner within one cell diagonal of it; a min corner magnitude above
-    // the diagonal therefore guarantees a sign-pure cell (safe to interpolate).
-    lut_safe_dist = sqrtf(step_x * step_x + step_y * step_y);
-    for (int gy = 0; gy < n; ++gy) {
-      float qy = (lut_cy - lut_Ry) + gy * step_y;
-      for (int gx = 0; gx < n; ++gx) {
-        float qx = (lut_cx - lut_Rx) + gx * step_x;
-        float d_sq = FLT_MAX;
-        bool is_inside = false;
-        for (int i = 0; i < count; ++i) {
-          const auto &ep = packed_edges[i];
-          float wx = qx - ep.vx, wy = qy - ep.vy;
-          float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
-          float cv = hs::clamp(t, 0.0f, 1.0f);
-          float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
-          float dsq = bx * bx + by * by;
-          if (dsq < d_sq)
-            d_sq = dsq;
-          if ((ep.vy > qy) != (ep.next_vy > qy)) {
-            float ix = ep.vx + (qy - ep.vy) * ep.ex * ep.inv_ej;
-            if (qx < ix)
-              is_inside = !is_inside;
-          }
-        }
-        scratch.dist_lut[gy * n + gx] =
-            (is_inside ? -1.0f : 1.0f) * sqrtf(d_sq);
-      }
-    }
   }
 
   /**
@@ -2331,50 +2240,25 @@ struct Face {
       return;
     }
 
-    // LUT lookup + same-sign hybrid
-    float fx = (px - lut_cx + lut_Rx) * lut_inv_step_x;
-    float fy = (py - lut_cy + lut_Ry) * lut_inv_step_y;
-    fx = hs::clamp(fx, 0.0f, (float)(lut_n - 2));
-    fy = hs::clamp(fy, 0.0f, (float)(lut_n - 2));
-    int ix = (int)fx;
-    int iy = (int)fy;
-    float tx = fx - ix;
-    float ty = fy - iy;
-    float d00 = dist_lut[iy * lut_n + ix];
-    float d10 = dist_lut[iy * lut_n + ix + 1];
-    float d01 = dist_lut[(iy + 1) * lut_n + ix];
-    float d11 = dist_lut[(iy + 1) * lut_n + ix + 1];
-
-    bool same_sign = (d00 > 0) == (d10 > 0) && (d00 > 0) == (d01 > 0) &&
-                     (d00 > 0) == (d11 > 0);
-    float min_abs =
-        std::min({std::abs(d00), std::abs(d10), std::abs(d01), std::abs(d11)});
-    float plane_dist;
-    if (same_sign && min_abs > lut_safe_dist) {
-      HS_SCAN_METRIC(hs::g_scan_metrics.lut_hits++);
-      plane_dist = d00 * (1.0f - tx) * (1.0f - ty) + d10 * tx * (1.0f - ty) +
-                   d01 * (1.0f - tx) * ty + d11 * tx * ty;
-    } else {
-      HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
-      float d = FLT_MAX;
-      bool inside = false;
-      for (int i = 0; i < count; ++i) {
-        const auto &ep = packed_edges[i];
-        float wx = px - ep.vx, wy = py - ep.vy;
-        float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
-        float cv = hs::clamp(t, 0.0f, 1.0f);
-        float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
-        float dsq = bx * bx + by * by;
-        if (dsq < d)
-          d = dsq;
-        if ((ep.vy > py) != (ep.next_vy > py)) {
-          float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
-          if (px < isx)
-            inside = !inside;
-        }
+    HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
+    float d = FLT_MAX;
+    bool inside = false;
+    for (int i = 0; i < count; ++i) {
+      const auto &ep = packed_edges[i];
+      float wx = px - ep.vx, wy = py - ep.vy;
+      float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
+      float cv = hs::clamp(t, 0.0f, 1.0f);
+      float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
+      float dsq = bx * bx + by * by;
+      if (dsq < d)
+        d = dsq;
+      if ((ep.vy > py) != (ep.next_vy > py)) {
+        float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
+        if (px < isx)
+          inside = !inside;
       }
-      plane_dist = (inside ? -1.0f : 1.0f) * sqrtf(d);
     }
+    float plane_dist = (inside ? -1.0f : 1.0f) * sqrtf(d);
 
     float angular_dist_raw = fast_atan2(plane_dist, 1.0f);
     float angular_dist = angular_dist_raw - thickness;
