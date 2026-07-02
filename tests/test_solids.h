@@ -358,7 +358,7 @@ inline void test_determinism_complex_islamic() {
 // ---------------------------------------------------------------------------
 // High-water regression at the real shipping arena configuration.
 //
-// IslamicStars::spawn_shape builds each recipe through a 120 KB / 120 KB scratch
+// IslamicStars::spawn_shape builds each recipe through a 114 KB / 80 KB scratch
 // pair that ping-pongs WITHOUT resetting between ops, so a recipe chain's peak is
 // its high-water mark. Over-budget would otherwise surface only as a device-only
 // OOM trap. Scratch is flat POD whose only host/device delta (64-bit pointers)
@@ -366,12 +366,14 @@ inline void test_determinism_complex_islamic() {
 // conservative upper bound on the device figure.
 // ---------------------------------------------------------------------------
 
-constexpr size_t kIslamicScratchBudget =
-    120 * 1024; /**< IslamicStars' per-arena scratch split (symmetric). */
+constexpr size_t kIslamicScratchABudget =
+    114 * 1024; /**< IslamicStars' scratch_a split (mirrors init()). */
+constexpr size_t kIslamicScratchBBudget =
+    80 * 1024; /**< IslamicStars' scratch_b split (mirrors init()). */
 
 /**
  * @brief Runs one Islamic recipe through a real-budget arena pair and asserts
- *        each arena's peak usage stays within IslamicStars' 120 KB split.
+ *        each arena's peak usage stays within IslamicStars' scratch split.
  * @param entry Registry entry whose generator is exercised.
  * @details A fresh arena pair per recipe isolates each measurement; the recipe
  *          builds through (a, b) exactly as IslamicStars::spawn_shape does.
@@ -382,12 +384,12 @@ inline void check_high_water_for_recipe(const Solids::Entry &entry) {
   PolyMesh m = entry.generate(a, b);
   check_nonempty(m);
 
-  HS_EXPECT_LE(a.get_high_water_mark(), kIslamicScratchBudget);
-  HS_EXPECT_LE(b.get_high_water_mark(), kIslamicScratchBudget);
+  HS_EXPECT_LE(a.get_high_water_mark(), kIslamicScratchABudget);
+  HS_EXPECT_LE(b.get_high_water_mark(), kIslamicScratchBBudget);
 }
 
 /**
- * @brief Verifies every Islamic-pattern recipe fits IslamicStars' 120 KB scratch
+ * @brief Verifies every Islamic-pattern recipe fits IslamicStars' scratch
  *        split — the configuration these recipes actually ship through.
  * @details cube_relax_bevel33_relax_hk675_expand5 (the recipe the polarity note
  *          flags as the one running an op on a non-alternating arena) is the
@@ -401,27 +403,28 @@ inline void test_islamic_recipes_fit_islamicstars_budget() {
 // ---------------------------------------------------------------------------
 // Persistent-budget regression for the IslamicStars carousel.
 //
-// Guards the persistent half of IslamicStars' split (~95 KB on the device,
-// GLOBAL_ARENA_SIZE 335 KB minus the two 120 KB scratch pools): the baked palette
-// bank plus the double-buffered carousel. The native 8 MB GLOBAL_ARENA_SIZE means
-// a device persistent overflow can't surface by running the effect here. Peak
-// residents during a cross-fade are the palette bank plus the two adjacent
-// carousel slots that coexist until the swap (spawn_shape cycles idx % N), so the
-// peak is the largest adjacent-pair sum, not twice the largest single slot.
+// Guards the persistent half of IslamicStars' split (device GLOBAL_ARENA_SIZE
+// minus the scratch pools): the baked palette bank plus the double-buffered
+// carousel. The native 8 MB GLOBAL_ARENA_SIZE means a device persistent
+// overflow can't surface by running the effect here. Peak residents during a
+// cross-fade are the palette bank plus the two adjacent carousel slots that
+// coexist until the swap (spawn_shape cycles idx % N), so the peak is the
+// largest adjacent-pair sum, not twice the largest single slot.
 // ---------------------------------------------------------------------------
 
 constexpr size_t kIslamicPersistentBudget =
-    335 * 1024 - 2 * (120 * 1024); /**< Device GLOBAL_ARENA_SIZE minus the two
-                                      120 KB scratch pools = IslamicStars'
-                                      persistent split (~95 KB). */
+    DEVICE_GLOBAL_ARENA_SIZE - kIslamicScratchABudget -
+    kIslamicScratchBBudget; /**< IslamicStars' persistent split. */
 
 /**
  * @brief Verifies the worst adjacent pair of Islamic shapes, plus the palette
- *        bank, fits IslamicStars' ~95 KB persistent carousel split.
+ *        bank, fits IslamicStars' persistent carousel split.
  * @details Compiles + classifies every Islamic solid into a fresh arena exactly
  *          as spawn_shape does, records each slot's footprint, then asserts the
  *          largest registry-adjacent pair (the carousel's worst cross-fade
- *          coexistence) plus one palette bank stays within the device budget.
+ *          coexistence) plus one palette bank stays within the device budget,
+ *          and that the largest single slot fits through scratch_b (the
+ *          compact_keep_front evacuation path).
  */
 inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
   size_t palette_bytes;
@@ -479,6 +482,8 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
               worst_pair_i, (worst_pair_i + 1) % N, peak,
               (size_t)kIslamicPersistentBudget);
   HS_EXPECT_LE(peak, (size_t)kIslamicPersistentBudget);
+  // compact_keep_front evacuates the front slot through scratch_b.
+  HS_EXPECT_LE(worst_slot, kIslamicScratchBBudget);
 }
 
 // ---------------------------------------------------------------------------
