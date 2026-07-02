@@ -32,6 +32,16 @@ endif()
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# Clang < 19 defaults to the pre-P0522 template-template matching rules and
+# rejects an effect with a defaulted extra template parameter (e.g.
+# IslamicStars<W, H, SegueT = Crossfade>) as an argument for the harness's
+# `template <int, int> class E` parameters. GCC and Clang >= 19 apply the
+# C++17 relaxed matching by default; opt older Clang (the CI / deploy-gate
+# apt clang-18) in explicitly. Clang 20 removed the flag, so keep the gate.
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_LESS 19)
+  add_compile_options(-frelaxed-template-template-args)
+endif()
+
 set(HS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 add_executable(run_tests
