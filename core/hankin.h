@@ -246,8 +246,11 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
       } while (curr_idx != start_orbit);
 
       // count is two indices per orbit step (midpoint + dynamic vertex), so it
-      // is twice the edge count; an interior vertex has degree >= 3, so count >= 6.
-      HS_CHECK(count >= 6, "Hankin rosette winding has degree < 3");
+      // is twice the vertex degree. Degree-2 vertices are legal — a Hankin
+      // pattern's own edge midpoints have degree 2, so hankin-of-hankin walks
+      // them — and produce a quad rosette; only degree < 2 would emit a
+      // degenerate digon face.
+      HS_CHECK(count >= 4, "Hankin rosette winding has degree < 2");
       compiled.face_counts.push_back(narrow_face_count(count));
       for (int k = count - 1; k >= 0; --k) {
         compiled.faces.push_back(face_indices[k]);
