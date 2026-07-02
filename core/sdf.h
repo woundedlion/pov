@@ -1604,9 +1604,13 @@ template <typename Shape> struct AngularRepeat {
 static constexpr float ALIGN_MIN_CORR_SQ = 0.25f;
 /** Maximum per-vertex deviation from the aligned canonical shape, as a
  *  multiple of the LUT cell diagonal, beyond which a face keeps the exact
- *  path: the deviation widens the sign-purity guard band (see bind_class_lut),
- *  and past this much of it the band swallows the face's useful interior. */
-static constexpr float ALIGN_MAX_DEV_DIAGS = 6.0f;
+ *  path. The deviation bounds the canonical field's VALUE error over the
+ *  face interior, not just its sign: a bent face served from its canonical
+ *  shape shades a visibly misplaced gradient (stars swim under ripple), so
+ *  the cap sits at one cell diagonal (~0.35 px) — the same sub-pixel
+ *  envelope as the campaign's other approximations — and a rippling face
+ *  drops to the exact path until the wavefront passes. */
+static constexpr float ALIGN_MAX_DEV_DIAGS = 1.0f;
 
 /**
  * @brief Canonical congruence-class signed-distance LUT, baked once per

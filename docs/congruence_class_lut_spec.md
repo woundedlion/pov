@@ -285,10 +285,13 @@ measurement:
   displaced vertices, |d_true − d_canon| is bounded by the worst aligned
   vertex deviation — so bind_class_lut measures that deviation per face per
   frame (one extra pass over the vertices) and widens the sign-purity guard
-  by it; a face bent beyond 6 cell diagonals keeps the exact path. Pinned by
-  the rippled render A/B (max delta 43% FS before, 5.9% FS after — gradient
-  shift only, no coverage flips). The LUT hit share transiently drops on
-  faces under the wavefront and recovers as it passes.
+  by it; a face bent beyond ONE cell diagonal keeps the exact path. The tight
+  cap is a value-accuracy bound, not just a sign bound: a sign-safe but bent
+  face still shades a visibly misplaced interior gradient (stars swim under
+  ripple), so a rippling face goes exact until the wavefront passes. Pinned
+  by the rippled render A/B, whose delta envelope now equals the static one
+  (max 4% FS at a deliberately steep distance-encoding shader; was 43% FS as
+  coverage cracks, then 26% FS as gradient shift at a 6-diagonal cap).
 
 Gate outcomes:
 
