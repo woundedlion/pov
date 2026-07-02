@@ -552,6 +552,163 @@ inline void test_clip_band_matches_full() {
   }
 }
 
+// ============================================================================
+// Congruence-class bake — census invariants + rendered A/B
+//
+// build_mesh_class_bake clusters a spawned mesh's faces into congruence
+// classes (geometric clustering seeded per topology class) and bakes one
+// canonical distance LUT per concave shared class. The census over the whole
+// registry established: every islamic mesh's faces land 100% in shared
+// classes, with <= 24 classes and worst Procrustes residual < 0.25 px at
+// W=288. These tests pin those invariants on registry meshes and verify the
+// LUT-served render matches the exact render.
+// ============================================================================
+
+/**
+ * @brief Generates, compiles, and classifies one islamic registry mesh, then
+ *        builds its congruence-class bake.
+ * @param islamic_idx Index into Solids::Collections::get_islamic_solids().
+ * @param seed_a First generation scratch arena.
+ * @param seed_b Second generation scratch arena.
+ * @param geom Arena receiving the compiled mesh and the bake.
+ * @param mesh Output compiled mesh.
+ * @param bake Output congruence-class bake.
+ */
+inline void build_islamic_bake(size_t islamic_idx, Arena &seed_a, Arena &seed_b,
+                               Arena &geom, MeshState &mesh,
+                               MeshOps::MeshClassBake &bake) {
+  constexpr int W = 288;
+  const auto islamic = Solids::Collections::get_islamic_solids();
+  HS_EXPECT_TRUE(islamic_idx < islamic.size());
+  PolyMesh poly = islamic[islamic_idx].generate(seed_a, seed_b);
+  MeshOps::compile(poly, mesh, geom);
+  MeshOps::classify_faces_by_topology(mesh, seed_a, seed_b, geom);
+  MeshOps::build_mesh_class_bake(mesh, seed_a, geom, 2.0f * PI_F / W, bake);
+}
+
+/**
+ * @brief Verifies the census invariants of the congruence clustering on one
+ *        registry mesh.
+ * @param islamic_idx Index into the islamic registry.
+ * @details 100% of faces in shared classes, class count within the cap, worst
+ * accepted residual under the congruence epsilon, and at least one LUT built.
+ */
+inline void check_class_bake_census(size_t islamic_idx) {
+  configure_arenas_default();
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+
+  MeshState mesh;
+  MeshOps::MeshClassBake bake;
+  build_islamic_bake(islamic_idx, seed_a, seed_b, geom, mesh, bake);
+
+  const size_t F = mesh.num_faces();
+  HS_EXPECT_EQ(bake.face_recs.size(), F);
+  HS_EXPECT_GT(bake.classes.size(), (size_t)0);
+  HS_EXPECT_LE(bake.classes.size(), (size_t)MeshOps::kMaxCongruenceClasses);
+
+  // Every face lands in a class, and every class is shared (>= 2 members).
+  size_t assigned = 0, member_sum = 0;
+  for (size_t f = 0; f < F; ++f)
+    if (bake.face_recs[f].class_id != MeshOps::kNoClass)
+      ++assigned;
+  for (size_t c = 0; c < bake.classes.size(); ++c) {
+    HS_EXPECT_GT(bake.classes[c].members, (uint16_t)1);
+    member_sum += bake.classes[c].members;
+  }
+  HS_EXPECT_EQ(assigned, F);
+  HS_EXPECT_EQ(member_sum, F);
+  HS_EXPECT_EQ(bake.shared_faces, (uint16_t)F);
+
+  HS_EXPECT_LT(bake.worst_residual_px, MeshOps::kCongruenceEpsPx);
+  HS_EXPECT_GT(bake.luts_built, (uint16_t)0);
+}
+
+/**
+ * @brief Census invariants on two registry meshes.
+ */
+inline void test_class_bake_census_invariants() {
+  check_class_bake_census(0);
+  check_class_bake_census(2);
+}
+
+/**
+ * @brief Fragment shader encoding the signed distance (v1) as brightness, so
+ *        interior-gradient deviations become channel deltas.
+ * @param f Fragment whose color is overwritten from its v1 register.
+ */
+inline void shade_by_distance(const Vector &, Fragment &f) {
+  float g = hs::clamp(30000.0f + f.v1 * 200000.0f, 0.0f, 60000.0f);
+  uint16_t q = static_cast<uint16_t>(g);
+  f.color = Color4(Pixel(q, q, q), 1.0f);
+}
+
+/**
+ * @brief Renders an islamic mesh with and without the class bake and asserts
+ *        the outputs agree within the interpolation envelope.
+ * @details The shader encodes raw distance, so a wrong reflection/offset
+ * convention or a mis-rotated alignment would flip interior gradients across
+ * whole faces and blow the mean; the per-pixel cap bounds the legitimate
+ * bilinear + congruence deviation. Frame-budget-tight deltas are the offline
+ * visual gate's job (400-frame dump), not this smoke's.
+ */
+inline void test_class_lut_render_matches_exact() {
+  constexpr int W = 288, H = 144;
+  configure_arenas_default();
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+  Arena scratch(mr_scratch, sizeof(mr_scratch));
+
+  MeshState mesh;
+  MeshOps::MeshClassBake bake;
+  build_islamic_bake(0, seed_a, seed_b, geom, mesh, bake);
+
+  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  {
+    MeshFx exact(W, H);
+    { Canvas c(exact); Pipeline<W, H> pipe;
+      Scan::Mesh::draw<W, H>(pipe, c, mesh, shade_by_distance, scratch); }
+    exact.advance_display();
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        ref[static_cast<size_t>(y) * W + x] = exact.get_pixel(x, y);
+  }
+
+  hs::g_scan_metrics.reset();
+  MeshFx lutted(W, H);
+  { Canvas c(lutted); Pipeline<W, H> pipe;
+    Scan::Mesh::draw<W, H>(pipe, c, mesh, shade_by_distance, scratch,
+                           /*debug_bb=*/false, &bake); }
+  lutted.advance_display();
+
+  // The LUT path actually served a meaningful share of the probes.
+  const uint32_t lut_hits = hs::g_scan_metrics.lut_hits;
+  const uint32_t exact_hits = hs::g_scan_metrics.exact_hits;
+  HS_EXPECT_GT(lut_hits, (uint32_t)5000);
+  std::printf("  [class lut] hits=%u exact=%u share=%.1f%%\n", lut_hits,
+              exact_hits,
+              100.0f * lut_hits / std::max(1u, lut_hits + exact_hits));
+
+  uint64_t delta_sum = 0;
+  int delta_max = 0;
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x) {
+      const Pixel &p = lutted.get_pixel(x, y);
+      const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+      int d = std::abs((int)p.r - (int)r.r);
+      delta_sum += d;
+      if (d > delta_max)
+        delta_max = d;
+    }
+  const float mean = static_cast<float>(delta_sum) / (W * H);
+  std::printf("  [class lut] delta mean=%.1f max=%d (of 60000)\n", mean,
+              delta_max);
+  HS_EXPECT_LT(mean, 600.0f);     // ~1% FS: catches convention bugs
+  HS_EXPECT_LT(delta_max, 12000); // ~20% FS: interpolation envelope
+}
+
 /**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
@@ -566,6 +723,8 @@ inline int run_mesh_raster_tests() {
   test_dodecahedron_wireframe_and_fill();
   test_truncated_icosahedron_wireframe_and_fill();
   test_clip_band_matches_full();
+  test_class_bake_census_invariants();
+  test_class_lut_render_matches_exact();
 
   return fixture.result();
 }

@@ -1438,6 +1438,194 @@ inline void test_face_distance_matches_exact_oracle() {
 }
 
 // ============================================================================
+// Face congruence-class LUT vs the exact oracle
+//
+// Face::distance with a bound ClassLut serves sign-pure probes >= one cell
+// diagonal from the boundary via a bilinear lookup in the canonical class
+// frame; everything else falls back to the exact walk on the true edges. This
+// pins the invariants of the deleted per-face check_face_lut, now across the
+// canonical alignment (cyclic vertex offset, 3D rotation, mirror family):
+//   1. SIGN is always correct on the LUT path (sign-purity guard).
+//   2. The LUT never serves a near-boundary magnitude (>= safe_dist floor).
+//   3. LUT-served values stay within the interpolation bound of the oracle.
+//   4. Fallback samples still match the oracle to float precision.
+// ============================================================================
+
+/**
+ * @brief Rotates a vector about a unit axis by an angle (Rodrigues).
+ * @param v Vector to rotate.
+ * @param k Unit rotation axis.
+ * @param theta Rotation angle (radians).
+ * @return The rotated vector.
+ */
+inline Vector rotate_about(const Vector &v, const Vector &k, float theta) {
+  float c = cosf(theta), s = sinf(theta);
+  return v * c + cross(k, v) * s + k * (dot(k, v) * (1.0f - c));
+}
+
+/**
+ * @brief Bakes a canonical LUT from one concave star face and sweeps a
+ *        transformed congruent copy against the exact oracle.
+ * @param cyc Cyclic shift applied to the copy's vertex order.
+ * @param reflected Mirror the copy (and reverse its order, preserving winding).
+ * @param rot_angle 3D rotation applied to the copy's vertices.
+ * @return The number of samples served by the LUT path.
+ */
+inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
+  constexpr int H = 144;
+  constexpr int HV = H + hs::H_OFFSET;
+  constexpr int sides = 6, n_verts = 2 * sides;
+  constexpr float rho = 0.40f, rho_inner = 0.20f;
+  const Vector axis(0.4f, 0.3f, 1.0f);
+
+  Basis basis = make_basis(Quaternion(), axis);
+  Vector orig[n_verts];
+  for (int i = 0; i < n_verts; ++i) {
+    float a = (2.0f * PI_F * i) / n_verts + 0.37f;
+    float r = (i & 1) ? rho_inner : rho;
+    orig[i] = (basis.v * cosf(r) +
+               (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
+                  .normalized();
+  }
+
+  // Canonical polygon: the untransformed face's own centered 2D projection.
+  SDF::FaceScratchBuffer canon_scratch;
+  uint16_t canon_idx[n_verts];
+  for (int i = 0; i < n_verts; ++i)
+    canon_idx[i] = static_cast<uint16_t>(i);
+  SDF::Face canon_face(std::span<const Vector>(orig, n_verts),
+                       std::span<const uint16_t>(canon_idx, n_verts), 0.0f,
+                       canon_scratch, HV, H);
+  HS_EXPECT_TRUE(!canon_face.convex);
+  float canon[2 * n_verts];
+  float mx = 0.0f, my = 0.0f;
+  for (int i = 0; i < n_verts; ++i) {
+    mx += canon_face.poly_2d[i].x;
+    my += canon_face.poly_2d[i].y;
+  }
+  mx /= n_verts;
+  my /= n_verts;
+  for (int i = 0; i < n_verts; ++i) {
+    canon[2 * i] = canon_face.poly_2d[i].x - mx;
+    canon[2 * i + 1] = canon_face.poly_2d[i].y - my;
+  }
+
+  static int16_t lut_data[64 * 64];
+  SDF::ClassLut lut;
+  SDF::build_canonical_distance_lut(canon, n_verts, 64, lut_data, lut);
+  HS_EXPECT_GT(lut.safe_dist, 0.0f);
+
+  // Congruent copy: rotate the sphere, then reindex. A cyclic shift by cyc
+  // maps canonical vertex k to copy index (n - cyc + k) % n; the mirror family
+  // reverses the order (keeping winding consistent) and binds with offset 0.
+  Vector verts[n_verts];
+  const Vector rot_axis = Vector(0.3f, -0.8f, 0.52f).normalized();
+  for (int j = 0; j < n_verts; ++j) {
+    int src = reflected ? (n_verts - j) % n_verts : (j + cyc) % n_verts;
+    Vector v = rotate_about(orig[src], rot_axis, rot_angle);
+    if (reflected)
+      v.x = -v.x;
+    verts[j] = v;
+  }
+  int off = reflected ? 0 : (n_verts - cyc) % n_verts;
+
+  SDF::FaceScratchBuffer scratch;
+  SDF::Face face(std::span<const Vector>(verts, n_verts),
+                 std::span<const uint16_t>(canon_idx, n_verts), 0.0f, scratch,
+                 HV, H);
+  HS_EXPECT_TRUE(face.bind_class_lut(&lut, canon, off, reflected));
+
+  // A degenerate canonical shape must be rejected by the correlation guard.
+  {
+    SDF::FaceScratchBuffer reject_scratch;
+    static const float zeros[2 * n_verts] = {};
+    SDF::Face reject_face(std::span<const Vector>(verts, n_verts),
+                          std::span<const uint16_t>(canon_idx, n_verts), 0.0f,
+                          reject_scratch, HV, H);
+    HS_EXPECT_TRUE(!reject_face.bind_class_lut(&lut, zeros, 0, false));
+  }
+
+  int lut_samples = 0, sign_mismatches = 0;
+  float min_lut_mag = FLT_MAX;
+  const float reach = face.max_dist * 0.98f;
+  constexpr int G = 96;
+  for (int gi = 0; gi <= G; ++gi) {
+    for (int gj = 0; gj <= G; ++gj) {
+      float px = -reach + (2.0f * reach) * gi / G;
+      float py = -reach + (2.0f * reach) * gj / G;
+      Vector p =
+          (face.basis_v + face.basis_u * px + face.basis_w * py).normalized();
+
+      hs::g_scan_metrics.lut_hits = 0;
+      hs::g_scan_metrics.exact_hits = 0;
+      SDF::DistanceResult res = face.distance(p);
+      bool took_lut = hs::g_scan_metrics.lut_hits > 0;
+      if (!took_lut && hs::g_scan_metrics.exact_hits == 0)
+        continue; // culled
+
+      // Exact oracle on the copy's true edges.
+      float dmin = FLT_MAX;
+      bool inside = false;
+      for (int i = 0; i < face.count; ++i) {
+        const auto &ep = face.packed_edges[i];
+        float wx = px - ep.vx, wy = py - ep.vy;
+        float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
+        float cv = hs::clamp(t, 0.0f, 1.0f);
+        float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
+        float dsq = bx * bx + by * by;
+        if (dsq < dmin)
+          dmin = dsq;
+        if ((ep.vy > py) != (ep.next_vy > py)) {
+          float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
+          if (px < isx)
+            inside = !inside;
+        }
+      }
+      float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
+      float expected =
+          face.linear_dist ? plane_exact : fast_atan2(plane_exact, 1.0f);
+
+      if (took_lut) {
+        ++lut_samples;
+        if ((res.raw_dist < 0.0f) != (expected < 0.0f))
+          ++sign_mismatches;
+        float mag = std::abs(res.raw_dist);
+        if (mag < min_lut_mag)
+          min_lut_mag = mag;
+        // Bilinear over a sign-pure cell of exact corner samples stays within
+        // ~2 cell diagonals of the 1-Lipschitz field; slack covers the int16
+        // quantization and the fast_atan2 conversion.
+        HS_EXPECT_NEAR(res.raw_dist, expected, 3.0f * lut.safe_dist);
+      } else {
+        HS_EXPECT_NEAR(res.raw_dist, expected, 1e-4f);
+      }
+    }
+  }
+  HS_EXPECT_EQ(sign_mismatches, 0);
+  // The sign-purity guard keeps every served magnitude a cell diagonal from
+  // zero — outside the AA ramp.
+  if (lut_samples > 0) {
+    float floor_mag = face.linear_dist ? lut.safe_dist
+                                       : fast_atan2(lut.safe_dist, 1.0f);
+    HS_EXPECT_GT(min_lut_mag, floor_mag - 0.01f);
+  }
+  return lut_samples;
+}
+
+/**
+ * @brief Verifies the class-LUT path across identity, cyclic-offset + 3D
+ *        rotation, and mirror-family bindings.
+ */
+inline void test_face_class_lut_matches_oracle() {
+  int lut_samples = 0;
+  lut_samples += check_face_class_lut(/*cyc=*/0, /*reflected=*/false, 0.0f);
+  lut_samples += check_face_class_lut(/*cyc=*/5, /*reflected=*/false, 1.1f);
+  lut_samples += check_face_class_lut(/*cyc=*/0, /*reflected=*/true, 0.7f);
+  // The sweep actually fired the LUT path.
+  HS_EXPECT_GT(lut_samples, 300);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -1525,6 +1713,7 @@ inline int run_sdf_tests() {
   test_distorted_ring_cull_covers_interior_high_freq();
   test_face_cull_covers_aa_fringe();
   test_face_distance_matches_exact_oracle();
+  test_face_class_lut_matches_oracle();
 
   return fixture.result();
 }
