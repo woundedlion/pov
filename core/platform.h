@@ -1238,9 +1238,10 @@ struct ScanMetrics {
   uint32_t pixels_culled = 0; /**< Count of pixels culled before shading. */
   uint32_t exact_hits = 0;    /**< Count of full distance evaluations. */
   uint32_t convex_hits = 0;   /**< Count of evaluations on the convex half-plane path. */
+  uint32_t lut_hits = 0;      /**< Count of class-LUT bilinear serves. */
   uint32_t plot_backstop_hits = 0; /**< Count of plot() steps_cache capacity-backstop trips. */
   /** @brief Zeroes every counter. */
-  void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = exact_hits = convex_hits = plot_backstop_hits = 0; }
+  void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = exact_hits = convex_hits = lut_hits = plot_backstop_hits = 0; }
 };
 /** @brief Global scanline profiling counters. Compiled in only when
  *  HS_SCAN_METRICS is defined — every reader goes through HS_SCAN_METRIC(...),

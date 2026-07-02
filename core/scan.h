@@ -6,6 +6,7 @@
 
 #include <utility>
 #include "sdf.h"
+#include "mesh_classes.h"
 #include "color.h"
 #include "filter.h"
 #include "static_circular_buffer.h"
@@ -718,11 +719,16 @@ struct Mesh {
    *                        exact only up to 2^24 faces.
    * @param scratch_arena Arena supplying per-face SDF::Face scratch storage.
    * @param debug_bb When true, renders the bounding box for debugging.
+   * @param bake Optional congruence-class bake for this mesh (null = exact
+   *        path everywhere, today's behavior). When present, each face is
+   *        aligned to its canonical class shape after construction and the
+   *        class distance LUT is bound for the probe loop.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
-                   bool debug_bb = false) {
+                   bool debug_bb = false,
+                   const MeshOps::MeshClassBake *bake = nullptr) {
     ScratchScope scope(scratch_arena);
     auto *scratch =
         static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
@@ -733,6 +739,13 @@ struct Mesh {
     const uint16_t *fi = mesh.get_faces_data();
     const uint16_t *fo = mesh.get_face_offsets_data();
     size_t fi_size = mesh.get_faces_size();
+
+    // An empty bake (build skipped) is equivalent to none; a populated one
+    // must cover every face — records are indexed by face order.
+    if (bake && !bake->face_recs.is_bound())
+      bake = nullptr;
+    HS_CHECK(!bake || bake->face_recs.size() == num_f,
+             "mesh class bake face count disagrees with the mesh");
 
     for (size_t i = 0; i < num_f; ++i) {
       size_t count = fc[i];
@@ -753,6 +766,21 @@ struct Mesh {
         return SDF::Face(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H,
                          &canvas.clip());
       }();
+
+      // Bind the face's congruence-class LUT: one complex correlation over the
+      // vertices aligns the current (possibly rippled) projection to the
+      // canonical frame — noise next to the ctor's work. Culled faces
+      // (y_min > y_max) skip it; a class without a LUT or a degenerate
+      // alignment leaves the face on the exact path.
+      if (bake && shape.y_min <= shape.y_max) {
+        const MeshOps::FaceClassRec &rec = bake->face_recs[i];
+        if (rec.class_id != MeshOps::kNoClass) {
+          const MeshOps::CongruenceClass &cls = bake->classes[rec.class_id];
+          if (cls.lut.data && cls.n_verts == shape.count)
+            shape.bind_class_lut(&cls.lut, cls.canon_xy, rec.vert_offset,
+                                 rec.reflected != 0);
+        }
+      }
 
       auto wrapper = [&](const Vector &p, Fragment &f_in) {
         // Exact for i < 2^24 (float mantissa); meshes never approach that face count.

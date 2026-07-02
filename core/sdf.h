@@ -7,6 +7,7 @@
 #include <array>
 #include <algorithm>
 #include <cmath>
+#include <cstdint>
 #include <numeric>
 #include <cfloat>
 #include <span>
@@ -1589,6 +1590,164 @@ template <typename Shape> struct AngularRepeat {
   }
 };
 
+// --- Congruence-class canonical distance LUTs --------------------------------
+// Every islamic mesh's faces are near-exact copies of a handful of canonical 2D
+// shapes (gnomonic projection about each face's own centroid is
+// position-covariant, so congruence is frame-invariant). MeshOps bakes one
+// signed-distance LUT per congruence class at spawn (core/mesh_classes.h);
+// Scan::Mesh binds it to each Face per frame via bind_class_lut, and
+// Face::distance serves sign-pure interior/exterior probes from a bilinear
+// lookup instead of the exact per-edge walk.
+
+/** Minimum squared normalized correlation for a valid class-LUT alignment;
+ *  below this the face is too deformed and keeps the exact path. */
+static constexpr float ALIGN_MIN_CORR_SQ = 0.25f;
+
+/**
+ * @brief Canonical congruence-class signed-distance LUT, baked once per
+ *        spawned mesh.
+ * @details Distances are in canonical gnomonic plane units, quantized to int16
+ * over the LUT box diameter (step ~1e-5 plane units). The domain covers the
+ * canonical polygon's bounding box + BOUNDS_MARGIN_WIDE, matching the
+ * max_dist_sq cull ring, so any probe surviving the cull lands in-domain.
+ */
+struct ClassLut {
+  const int16_t *data = nullptr; /**< n*n quantized signed distances (row-major). */
+  int n = 0;                     /**< Grid resolution per axis. */
+  float cx = 0, cy = 0;          /**< Canonical bounding-box center. */
+  float Rx = 0, Ry = 0;          /**< Half-extents (+ margin). */
+  float inv_step_x = 0;          /**< Reciprocal cell width. */
+  float inv_step_y = 0;          /**< Reciprocal cell height. */
+  float safe_dist = 0;           /**< Cell diagonal (sign-pure interpolation bound). */
+  float dequant = 0;             /**< int16 -> plane-unit scale. */
+};
+
+/**
+ * @brief Accumulated complex correlation between a canonical polygon and a
+ *        centered projection (see align_correlate).
+ */
+struct AlignCorr {
+  float rr, ri; /**< Sum of canon_k * conj(z'_k) (real, imaginary). */
+  float cc, zz; /**< Power terms: sum |canon_k|^2 and sum |z'_k|^2. */
+};
+
+/**
+ * @brief Correlates a canonical polygon against a centered 2D projection under
+ *        a cyclic vertex offset + optional reflection.
+ * @tparam GetZ Accessor invoked as get_z(j, zx, zy), returning the centered
+ *         projection vertex j.
+ * @param canon_xy Canonical centered polygon, x/y pairs, canonical order.
+ * @param count Vertex count.
+ * @param vert_offset Projection index corresponding to canonical vertex 0.
+ * @param reflected Mirror family: conjugate each vertex and walk the
+ *        projection indices in reverse (a mirrored face winds the opposite way
+ *        in a consistently-wound mesh).
+ * @return The correlation sums; the least-squares residual is
+ *         cc + zz - 2*|r|, and the optimal rotation is r / |r|.
+ * @details Single source for the correspondence convention — bake-time
+ * clustering (mesh_classes.h) and the per-frame Face::bind_class_lut both
+ * route through it, so the (offset, reflected) encoding cannot drift.
+ */
+template <typename GetZ>
+inline AlignCorr align_correlate(const float *canon_xy, int count,
+                                 int vert_offset, bool reflected, GetZ get_z) {
+  AlignCorr a{0.0f, 0.0f, 0.0f, 0.0f};
+  int j = vert_offset;
+  for (int k = 0; k < count; ++k) {
+    float zx, zy;
+    get_z(j, zx, zy);
+    if (reflected) {
+      zy = -zy;
+      if (--j < 0)
+        j = count - 1;
+    } else {
+      if (++j == count)
+        j = 0;
+    }
+    float cx = canon_xy[2 * k], cy = canon_xy[2 * k + 1];
+    // canon * conj(z)
+    a.rr += cx * zx + cy * zy;
+    a.ri += cy * zx - cx * zy;
+    a.cc += cx * cx + cy * cy;
+    a.zz += zx * zx + zy * zy;
+  }
+  return a;
+}
+
+/**
+ * @brief Bakes the signed point-to-polygon distance field of a canonical
+ *        centered 2D polygon into an int16 grid.
+ * @param poly_xy Centered polygon vertices, x/y pairs.
+ * @param count Vertex count (>= 3).
+ * @param n Grid resolution per axis (>= 2).
+ * @param out Storage for n*n quantized samples.
+ * @param lut Receives the domain/quantization parameters, with data = out.
+ * @details Exact per-edge walk with crossing-test sign, over the bounding box
+ * + BOUNDS_MARGIN_WIDE. Quantization scale is the box diameter (an upper bound
+ * on any in-box distance: the polygon meets its own bounding box), giving a
+ * step of ~1e-5 plane units — far below the interpolation bound.
+ */
+inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
+                                         int16_t *out, ClassLut &lut) {
+  float bb_min_x = FLT_MAX, bb_max_x = -FLT_MAX;
+  float bb_min_y = FLT_MAX, bb_max_y = -FLT_MAX;
+  for (int i = 0; i < count; ++i) {
+    float vx = poly_xy[2 * i], vy = poly_xy[2 * i + 1];
+    bb_min_x = std::min(bb_min_x, vx);
+    bb_max_x = std::max(bb_max_x, vx);
+    bb_min_y = std::min(bb_min_y, vy);
+    bb_max_y = std::max(bb_max_y, vy);
+  }
+  lut.cx = (bb_min_x + bb_max_x) * 0.5f;
+  lut.cy = (bb_min_y + bb_max_y) * 0.5f;
+  lut.Rx = std::max((bb_max_x - bb_min_x) * 0.5f + BOUNDS_MARGIN_WIDE, 0.01f);
+  lut.Ry = std::max((bb_max_y - bb_min_y) * 0.5f + BOUNDS_MARGIN_WIDE, 0.01f);
+  lut.n = n;
+  lut.inv_step_x = (n - 1) / (2.0f * lut.Rx);
+  lut.inv_step_y = (n - 1) / (2.0f * lut.Ry);
+  float step_x = (2.0f * lut.Rx) / (n - 1);
+  float step_y = (2.0f * lut.Ry) / (n - 1);
+  // The plane SDF is 1-Lipschitz, so a zero anywhere in a cell puts every
+  // corner within one cell diagonal of it; a min corner magnitude above the
+  // diagonal guarantees a sign-pure cell (safe to interpolate).
+  lut.safe_dist = sqrtf(step_x * step_x + step_y * step_y);
+  float dmax = 2.0f * sqrtf(lut.Rx * lut.Rx + lut.Ry * lut.Ry);
+  lut.dequant = dmax / 32767.0f;
+  float quant = 32767.0f / dmax;
+
+  for (int gy = 0; gy < n; ++gy) {
+    float qy = (lut.cy - lut.Ry) + gy * step_y;
+    for (int gx = 0; gx < n; ++gx) {
+      float qx = (lut.cx - lut.Rx) + gx * step_x;
+      float d_sq = FLT_MAX;
+      bool inside = false;
+      for (int i = 0; i < count; ++i) {
+        float vx = poly_xy[2 * i], vy = poly_xy[2 * i + 1];
+        int i2 = (i + 1 == count) ? 0 : i + 1;
+        float ex = poly_xy[2 * i2] - vx, ey = poly_xy[2 * i2 + 1] - vy;
+        float len_sq = ex * ex + ey * ey;
+        float wx = qx - vx, wy = qy - vy;
+        float t = len_sq > 1e-12f
+                      ? hs::clamp((wx * ex + wy * ey) / len_sq, 0.0f, 1.0f)
+                      : 0.0f;
+        float bx = wx - ex * t, by = wy - ey * t;
+        float dsq = bx * bx + by * by;
+        if (dsq < d_sq)
+          d_sq = dsq;
+        if ((vy > qy) != (poly_xy[2 * i2 + 1] > qy)) {
+          float ix = vx + (qy - vy) * ex / ey;
+          if (qx < ix)
+            inside = !inside;
+        }
+      }
+      float d = (inside ? -1.0f : 1.0f) * sqrtf(d_sq);
+      out[gy * n + gx] = static_cast<int16_t>(
+          hs::clamp(d * quant, -32767.0f, 32767.0f));
+    }
+  }
+  lut.data = out;
+}
+
 /**
  * @brief Scratch buffer for Face computations to avoid allocations.
  */
@@ -1659,6 +1818,19 @@ struct Face {
   std::span<const HalfPlane> half_planes; /**< Outward unit edge normals (convex faces). */
   bool convex = false; /**< 2D projection is convex; distance() takes the half-plane path. */
   bool linear_dist = false; /**< Face is small enough to report plane distance without the atan. */
+
+  // Congruence-class LUT binding (bind_class_lut), flattened for the probe
+  // loop: one affine map takes gnomonic (px, py) straight to LUT grid
+  // coordinates (centroid shift, canonical rotation/reflection, and grid
+  // scale folded together), and the sign-purity guard compares raw int16
+  // magnitudes against a pre-divided quantized threshold.
+  const int16_t *lut_data = nullptr; /**< Class LUT samples; null = exact path. */
+  int lut_n = 0;                     /**< LUT grid resolution per axis. */
+  int32_t lut_q_safe = 0;            /**< safe_dist in quantized units. */
+  float lut_ax, lut_bx, lut_cx;      /**< Grid-x affine coefficients. */
+  float lut_ay, lut_by, lut_cy;      /**< Grid-y affine coefficients. */
+  float lut_clamp;                   /**< Grid clamp bound (n - 2). */
+  float lut_dequant;                 /**< int16 -> plane-unit scale. */
 
   /**
    * @brief Builds a face's projection, bounds, and edge data.
@@ -1986,6 +2158,62 @@ struct Face {
     half_planes =
         std::span<const HalfPlane>(scratch.half_planes.data(), count);
     convex = true;
+  }
+
+  /**
+   * @brief Aligns the current projection to a canonical class shape and binds
+   *        its distance LUT.
+   * @param lut Canonical-frame LUT for the face's congruence class.
+   * @param canon_xy Canonical centered 2D polygon, x/y pairs.
+   * @param vert_offset Cyclic offset aligning mesh vertex order to canonical.
+   * @param reflected True for the mirror family.
+   * @return False when the correlation is degenerate (badly deformed face);
+   *         the face then keeps the exact path.
+   * @details One complex correlation over the vertices (~4 flops each)
+   * recovers the in-plane rotation placing the canonical shape at the face's
+   * least-squares pose, so the interior gradient follows the face's rigid
+   * motion through a ripple while edges stay exact (per-frame poly_2d).
+   * Rotational-symmetry ambiguity is harmless: the LUT is invariant under the
+   * shape's own symmetry group.
+   */
+  bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
+                      int vert_offset, bool reflected) {
+    float mx = 0.0f, my = 0.0f;
+    for (int i = 0; i < count; ++i) {
+      mx += poly_2d[i].x;
+      my += poly_2d[i].y;
+    }
+    float inv_n = 1.0f / count;
+    mx *= inv_n;
+    my *= inv_n;
+
+    AlignCorr a = align_correlate(canon_xy, count, vert_offset, reflected,
+                                  [&](int j, float &zx, float &zy) {
+                                    zx = poly_2d[j].x - mx;
+                                    zy = poly_2d[j].y - my;
+                                  });
+    float r2 = a.rr * a.rr + a.ri * a.ri;
+    if (r2 <= ALIGN_MIN_CORR_SQ * a.cc * a.zz)
+      return false;
+    float inv_r = 1.0f / sqrtf(r2);
+    float c = a.rr * inv_r, s = a.ri * inv_r;
+    // q = rot * (p - m), with the mirror family's conjugation folded into the
+    // matrix; then the LUT grid transform (q - box_min) * inv_step folded on
+    // top, so the probe loop runs a single affine map on raw (px, py).
+    float m00 = c, m01 = reflected ? s : -s;
+    float m10 = s, m11 = reflected ? -c : c;
+    lut_ax = m00 * lut->inv_step_x;
+    lut_bx = m01 * lut->inv_step_x;
+    lut_cx = (-(m00 * mx + m01 * my) - lut->cx + lut->Rx) * lut->inv_step_x;
+    lut_ay = m10 * lut->inv_step_y;
+    lut_by = m11 * lut->inv_step_y;
+    lut_cy = (-(m10 * mx + m11 * my) - lut->cy + lut->Ry) * lut->inv_step_y;
+    lut_n = lut->n;
+    lut_clamp = static_cast<float>(lut->n - 2);
+    lut_dequant = lut->dequant;
+    lut_q_safe = static_cast<int32_t>(lut->safe_dist / lut->dequant);
+    lut_data = lut->data;
+    return true;
   }
 
   /**
@@ -2363,9 +2591,44 @@ struct Face {
       return;
     }
 
-    HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
-    float plane_dist =
-        convex ? plane_dist_convex(px, py) : plane_dist_exact(px, py);
+    float plane_dist;
+    if (lut_data) {
+      // Affine map into the canonical LUT grid, then a 4-tap bilinear fetch.
+      // Only sign-pure cells at least one cell diagonal from the boundary are
+      // served; the AA fringe and sign-unsafe cells fall back to the exact
+      // walk on the TRUE per-frame edges, so silhouettes and edge AA are
+      // unaffected by the canonical approximation.
+      float fx = lut_ax * px + lut_bx * py + lut_cx;
+      float fy = lut_ay * px + lut_by * py + lut_cy;
+      fx = hs::clamp(fx, 0.0f, lut_clamp);
+      fy = hs::clamp(fy, 0.0f, lut_clamp);
+      int ix = (int)fx;
+      int iy = (int)fy;
+      const int16_t *cell = lut_data + iy * lut_n + ix;
+      int32_t q00 = cell[0], q10 = cell[1];
+      int32_t q01 = cell[lut_n], q11 = cell[lut_n + 1];
+      // Sign-purity + magnitude guard in quantized integer units.
+      int32_t all_or = q00 | q10 | q01 | q11;
+      int32_t all_and = q00 & q10 & q01 & q11;
+      int32_t min_q = std::min({std::abs(q00), std::abs(q10), std::abs(q01),
+                                std::abs(q11)});
+      if ((all_or >= 0 || all_and < 0) && min_q > lut_q_safe) {
+        HS_SCAN_METRIC(hs::g_scan_metrics.lut_hits++);
+        float tx = fx - ix;
+        float ty = fy - iy;
+        float d0 = q00 + (q10 - q00) * tx;
+        float d1 = q01 + (q11 - q01) * tx;
+        plane_dist = lut_dequant * (d0 + (d1 - d0) * ty);
+      } else {
+        HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
+        plane_dist =
+            convex ? plane_dist_convex(px, py) : plane_dist_exact(px, py);
+      }
+    } else {
+      HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
+      plane_dist =
+          convex ? plane_dist_convex(px, py) : plane_dist_exact(px, py);
+    }
 
     // Small faces skip the plane->angle conversion: tan(angle) ~ angle to
     // within size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
