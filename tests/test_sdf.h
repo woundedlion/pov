@@ -1323,16 +1323,11 @@ inline void test_face_cull_covers_aa_fringe() {
 }
 
 // ============================================================================
-// Face distance LUT vs exact  (LUT bilinear vs an independent exact oracle)
+// Face distance vs an independent exact oracle
 //
-// Face::distance interpolates a 32x32 LUT in sign-pure cells >= one cell-diagonal
-// from any edge, else falls back to the exact per-edge scan. The bilinear error
-// is NOT bounded by the cell-diagonal (in medial-axis creases it can reach ~4x),
-// so this pins two stronger invariants against an exact point-to-polygon oracle:
-//   1. SIGN is always correct (sign-purity guard).
-//   2. The LUT never serves a near-boundary magnitude — every LUT result is
-//      >= cell-diagonal from zero, outside the AA ramp.
-// The exact fallback path must reproduce the oracle to float precision.
+// Face::distance computes the per-edge point-to-polygon distance in the
+// gnomonic tangent plane. This pins it against an independently coded oracle
+// over the face's whole gnomonic box, to float precision.
 // ============================================================================
 
 /**
@@ -1340,10 +1335,9 @@ inline void test_face_cull_covers_aa_fringe() {
  * @param sides Number of polygon sides (must be <= 8).
  * @param rho Angular circumradius of the face, in radians.
  * @param axis Pole direction the face's basis is built around.
- * @return The number of samples that took the LUT path.
- * @details Asserts sign agreement and bounded magnitude error on the LUT path.
+ * @return The number of non-culled samples evaluated.
  */
-inline int check_face_lut(int sides, float rho, const Vector &axis) {
+inline int check_face_distance_oracle(int sides, float rho, const Vector &axis) {
   constexpr int H = 144;
   constexpr int HV = H + hs::H_OFFSET;
   HS_EXPECT_TRUE(sides <= 8);
@@ -1364,11 +1358,7 @@ inline int check_face_lut(int sides, float rho, const Vector &axis) {
                  std::span<const uint16_t>(idx, sides), /*thickness=*/0.0f,
                  scratch, HV, H);
 
-  const float cell_diag = face.lut_safe_dist;
-  HS_EXPECT_GT(cell_diag, 0.0f);
-
-  int lut_samples = 0, sign_mismatches = 0;
-  float min_lut_mag = FLT_MAX;
+  int samples = 0;
   // Gnomonic point normalize(center + u*px + w*py): distance() recovers (px,py)
   // exactly after dividing by dot(p,center).
   const float reach = face.max_dist * 0.98f;
@@ -1380,12 +1370,9 @@ inline int check_face_lut(int sides, float rho, const Vector &axis) {
       Vector p =
           (face.basis_v + face.basis_u * px + face.basis_w * py).normalized();
 
-      hs::g_scan_metrics.lut_hits = 0;
       hs::g_scan_metrics.exact_hits = 0;
       SDF::DistanceResult res = face.distance(p);
-      bool took_lut = hs::g_scan_metrics.lut_hits > 0;
-      bool took_exact = hs::g_scan_metrics.exact_hits > 0;
-      if (!took_lut && !took_exact)
+      if (hs::g_scan_metrics.exact_hits == 0)
         continue; // culled (outside max_dist / behind the center)
 
       // Independent exact oracle: point-to-polygon in the same tangent plane.
@@ -1409,40 +1396,25 @@ inline int check_face_lut(int sides, float rho, const Vector &axis) {
       float plane_exact = (inside ? -1.0f : 1.0f) * sqrtf(dmin);
       float exact_angular = fast_atan2(plane_exact, 1.0f);
 
-      if (took_lut) {
-        ++lut_samples;
-        if ((res.raw_dist < 0.0f) != (exact_angular < 0.0f))
-          ++sign_mismatches;
-        float mag = std::abs(res.raw_dist);
-        if (mag < min_lut_mag)
-          min_lut_mag = mag;
-      } else {
-        HS_EXPECT_NEAR(res.raw_dist, exact_angular, 1e-4f);
-      }
+      HS_EXPECT_NEAR(res.raw_dist, exact_angular, 1e-4f);
+      ++samples;
     }
   }
-  // (1) sign always correct on the LUT path.
-  HS_EXPECT_EQ(sign_mismatches, 0);
-  // (2) LUT magnitude floor ~atan(cell_diagonal); slack for fast_atan2.
-  if (lut_samples > 0) {
-    float floor_mag = fast_atan2(cell_diag, 1.0f) - 0.01f;
-    HS_EXPECT_GT(min_lut_mag, floor_mag);
-  }
-  return lut_samples;
+  return samples;
 }
 
 /**
- * @brief Verifies Face's distance LUT never mis-signs and never serves a near-boundary magnitude.
- * @details Drives check_face_lut across a spread of polygons (triangle, pentagon,
- *   hexagon) and tilts.
+ * @brief Verifies Face::distance reproduces the exact point-to-polygon oracle.
+ * @details Drives check_face_distance_oracle across a spread of polygons
+ *   (triangle, pentagon, hexagon) and tilts.
  */
-inline void test_face_lut_matches_exact_within_cell_diagonal() {
-  int lut_samples = 0;
-  lut_samples += check_face_lut(/*sides=*/3, 0.45f, Vector(0.4f, 0.3f, 1.0f));
-  lut_samples += check_face_lut(/*sides=*/5, 0.50f, Vector(0.4f, 0.3f, 1.0f));
-  lut_samples += check_face_lut(/*sides=*/6, 0.40f, Vector(-0.6f, 0.5f, 0.7f));
-  // The grid actually fired the LUT path.
-  HS_EXPECT_GT(lut_samples, 300);
+inline void test_face_distance_matches_exact_oracle() {
+  int samples = 0;
+  samples += check_face_distance_oracle(/*sides=*/3, 0.45f, Vector(0.4f, 0.3f, 1.0f));
+  samples += check_face_distance_oracle(/*sides=*/5, 0.50f, Vector(0.4f, 0.3f, 1.0f));
+  samples += check_face_distance_oracle(/*sides=*/6, 0.40f, Vector(-0.6f, 0.5f, 0.7f));
+  // The grid actually exercised the distance path.
+  HS_EXPECT_GT(samples, 1000);
 }
 
 // ============================================================================
@@ -1532,7 +1504,7 @@ inline int run_sdf_tests() {
   test_ring_pole_wrap_cull_covers_interior();
   test_distorted_ring_cull_covers_interior_high_freq();
   test_face_cull_covers_aa_fringe();
-  test_face_lut_matches_exact_within_cell_diagonal();
+  test_face_distance_matches_exact_oracle();
 
   return fixture.result();
 }
