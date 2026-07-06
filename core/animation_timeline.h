@@ -412,9 +412,16 @@ inline int schedule_sequential(Timeline &timeline, SpriteFn draw_fn,
  * @param band Softness of the front, in phase units.
  * @return The face-local phase in [0, 1]: 1 everywhere at phase 1, 0
  * everywhere at phase 0, with faces crossing the front in offset order.
+ * @details The sqrt ease keeps the hand-off out of black: sweeps schedule
+ * sequentially (single mesh per frame), so both meshes sit at low phase
+ * around the swap and a linear front would leave the sphere mostly dark for
+ * a large slice of each fade window. Accelerating the front through the
+ * low-phase end compresses that all-dark valley to a blink, while the
+ * endpoints stay exact (phase 1 remains the identity plateau).
  */
 inline float sweep_phase(float phase, float offset, float band) {
-  return hs::clamp((phase - offset * (1.0f - band)) / band, 0.0f, 1.0f);
+  float p = std::sqrt(phase);
+  return hs::clamp((p - offset * (1.0f - band)) / band, 0.0f, 1.0f);
 }
 
 /**
@@ -517,7 +524,12 @@ struct Lace : Base {
  * the terminator stays fixed in the room while the mesh rotates through it.
  */
 struct TerminatorSweep : Base {
-  static constexpr float kBand = 0.25f; /**< Sweep-front softness, in phase units. */
+  /** @brief Sweep-front softness, in phase units. Kept narrow: the twilight
+   * zone spans band/(1-band) of the sphere's area, and the window's first and
+   * last `band` of phase fade that zone in place (the fronts are parked
+   * outside the poles there) — a wide band reads as a quarter-sphere popping
+   * instead of sweeping. */
+  static constexpr float kBand = 0.1f;
   Vector axis = Y_AXIS; /**< World-space sweep axis. */
   void retarget(const Vector &v) { axis = v; }
   float face_offset(const Vector &center, int) const {
@@ -550,65 +562,47 @@ struct Shockwave : Base {
 };
 
 /**
- * @brief Faces wink out individually in a hashed order and the new ones wink
- * back in — a glitter dissolve.
- * @details The order comes from a face-index hash, not geometry, so it is
- * stable across frames (a world-space source would shimmer as the mesh
- * rotates).
+ * @brief The pattern breaks down one topology class at a time: all faces of a
+ * class fade together, each class fully gone before the next starts, in a
+ * random class order reshuffled per transition; the new tessellation
+ * reassembles class by class the same way.
+ * @details Faces group by their palette-slot class (the same topology→slot
+ * mapping the fragment shader uses), so each color family vanishes as a unit.
+ * The class windows are exactly abutting equal slices of the phase range,
+ * linear in time — deliberately not sweep_phase's eased front, so every class
+ * gets an equal share of the window. The kBlackDwell slice nearest the swap
+ * is held fully black: without it the last class's fade runs to the sprite's
+ * final frame and the incoming mesh appears one frame later, so the class
+ * visibly pops instead of completing. The client supplies the class count
+ * and triggers the reshuffle through reorder(), once per transition.
  */
-struct Sparkle : Base {
-  static constexpr float kBand = 0.2f; /**< Per-face fade width, in phase units. */
-  float face_offset(const Vector &, int face) const {
-    uint32_t h = static_cast<uint32_t>(face) * 2654435761u;
-    h ^= h >> 16;
-    return static_cast<float>(h & 0xFFFF) * (1.0f / 65535.0f);
+struct Breakdown : Base {
+  static constexpr int kMaxClasses = 16; /**< rank[] capacity. */
+  static constexpr float kBlackDwell = 0.1f; /**< Phase slice held all-black at the swap end. */
+  int num_classes = 1;            /**< Live class count, set by reorder(). */
+  uint8_t rank[kMaxClasses] = {}; /**< rank[class]: fade position; 0 vanishes first. */
+  /** @brief Re-randomizes the class fade order for the next transition. */
+  void reorder(int classes) {
+    num_classes = hs::clamp(classes, 1, kMaxClasses);
+    for (int i = 0; i < num_classes; ++i)
+      rank[i] = static_cast<uint8_t>(i);
+    std::shuffle(rank, rank + num_classes, hs::random());
+  }
+  float face_offset(const Vector &, int, int cls) const {
+    if (num_classes <= 1)
+      return 0.0f;
+    int r = rank[(cls >= 0 && cls < num_classes) ? cls : 0];
+    return static_cast<float>(num_classes - 1 - r) /
+           static_cast<float>(num_classes - 1);
   }
   float face_phase(float phase, float offset) const {
-    return sweep_phase(phase, offset, kBand);
+    // Class windows tile [kBlackDwell, 1]; phase 1 stays the identity plateau.
+    float band = (1.0f - kBlackDwell) / static_cast<float>(num_classes);
+    return hs::clamp(
+        (phase - kBlackDwell - offset * (1.0f - kBlackDwell - band)) / band,
+        0.0f, 1.0f);
   }
   float opacity(float phase) const { return phase; }
-};
-
-/**
- * @brief The polyhedron drains into a vanishing point like water down a sink,
- * then the next one unfurls from it.
- * @details The pull is capped and the mesh fades out well before full
- * collapse: converging faces stack along the view ray exactly like the ripple
- * self-fold, so the deepest pile-up regime is never rendered.
- */
-struct Drain : Base {
-  static constexpr float kMaxPull = 0.85f; /**< Collapse ceiling; never reaches the focus. */
-  Vector focus = Y_AXIS; /**< Vanishing point on the unit sphere. */
-  void retarget(const Vector &v) { focus = v; }
-  Vector warp(const Vector &v, float phase) const {
-    float pull = 1.0f - phase;
-    return slerp(v, focus, pull * pull * kMaxPull);
-  }
-  float opacity(float phase) const {
-    return hs::clamp(phase * 3.0f, 0.0f, 1.0f);
-  }
-  bool visible(float phase) const { return phase > 0.02f; }
-};
-
-/**
- * @brief The pattern winds into a spiral around an axis, shears apart, swaps,
- * and unwinds as the new tessellation.
- * @details Twist angle scales with latitude (dot with the axis), so the mesh
- * shears rather than rotating rigidly. Turns are capped and the mesh fades
- * before peak wind to bound the shear-fold overdraw.
- */
-struct Vortex : Base {
-  static constexpr float kMaxTurns = 1.5f; /**< Full-wind twist, in revolutions. */
-  Vector axis = Y_AXIS; /**< Twist axis. */
-  void retarget(const Vector &v) { axis = v; }
-  Vector warp(const Vector &v, float phase) const {
-    float wind = 1.0f - phase;
-    float theta = wind * wind * kMaxTurns * 2.0f * PI_F * dot(v, axis);
-    return rotate(v, make_rotation(axis, theta));
-  }
-  float opacity(float phase) const {
-    return hs::clamp(phase * 2.0f, 0.0f, 1.0f);
-  }
 };
 
 /**

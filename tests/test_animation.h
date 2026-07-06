@@ -1324,9 +1324,10 @@ inline void test_sweep_phase_front_ordering() {
     HS_EXPECT_NEAR(Segue::sweep_phase(1.0f, o, band), 1.0f, 1e-3f);
     HS_EXPECT_NEAR(Segue::sweep_phase(0.0f, o, band), 0.0f, 1e-3f);
   }
-  // Monotone in phase at fixed offset.
-  HS_EXPECT_GT(Segue::sweep_phase(0.6f, 0.5f, band),
-               Segue::sweep_phase(0.4f, 0.5f, band));
+  // Monotone in phase at fixed offset, sampled inside the front's ramp
+  // (phase 0.14..0.39 for this offset/band under the sqrt ease).
+  HS_EXPECT_GT(Segue::sweep_phase(0.3f, 0.5f, band),
+               Segue::sweep_phase(0.2f, 0.5f, band));
   // At a fixed phase, a higher offset is further extinguished.
   HS_EXPECT_GT(Segue::sweep_phase(0.5f, 0.2f, band),
                Segue::sweep_phase(0.5f, 0.8f, band));
@@ -1364,63 +1365,41 @@ inline void test_shockwave_orders_by_distance_from_origin() {
 }
 
 /**
- * @brief Verifies Sparkle's hashed face order is deterministic, in [0, 1], and
- * spread across faces (not constant).
+ * @brief Verifies Breakdown fades classes sequentially: reorder() yields a
+ * permutation of the class ranks, offsets follow the ranks, and each class's
+ * fade window is an abutting 1/n slice of the phase range — fully faded
+ * before the next class starts.
  */
-inline void test_sparkle_offsets_deterministic_and_spread() {
-  Segue::Sparkle sparkle;
-  float lo = 1.0f, hi = 0.0f;
-  for (int i = 0; i < 16; ++i) {
-    float o = sparkle.face_offset(Vector(0, 1, 0), i);
-    HS_EXPECT_GE(o, 0.0f);
-    HS_EXPECT_LE(o, 1.0f);
-    HS_EXPECT_NEAR(o, sparkle.face_offset(Vector(1, 0, 0), i), 1e-6f);
-    lo = std::min(lo, o);
-    hi = std::max(hi, o);
+inline void test_breakdown_fades_classes_sequentially() {
+  hs::random().seed(7u);
+  Segue::Breakdown bd;
+  constexpr int n = 5;
+  bd.reorder(n);
+  HS_EXPECT_EQ(bd.num_classes, n);
+  bool seen[n] = {};
+  for (int c = 0; c < n; ++c) {
+    HS_EXPECT_LT(static_cast<int>(bd.rank[c]), n);
+    seen[bd.rank[c]] = true;
   }
-  HS_EXPECT_GT(hi - lo, 0.25f); // hashed order actually spreads
-}
+  for (int r = 0; r < n; ++r)
+    HS_EXPECT_TRUE(seen[r]); // a permutation: every rank assigned once
 
-/**
- * @brief Verifies Drain pulls vertices toward its focus as phase falls, stays
- * on the unit sphere, never fully collapses (kMaxPull < 1), and fades out
- * before the deepest pile-up.
- */
-inline void test_drain_pulls_toward_focus_without_collapse() {
-  Segue::Drain drain;
-  Vector focus = Vector(0.0f, 0.2f, 1.0f).normalized();
-  drain.retarget(focus);
-  Vector v = Vector(1.0f, 0.3f, -0.2f).normalized();
-  // Plateau: identity.
-  Vector w1 = drain.warp(v, 1.0f);
-  HS_EXPECT_NEAR((w1 - v).length(), 0.0f, 1e-3f);
-  // Deep in the transition: closer to the focus, still unit, never collapsed.
-  Vector w0 = drain.warp(v, 0.0f);
-  HS_EXPECT_GT(dot(w0, focus), dot(v, focus));
-  HS_EXPECT_NEAR(w0.length(), 1.0f, 1e-3f);
-  HS_EXPECT_LT(dot(w0, focus), 1.0f - 1e-4f);
-  // Faded out before the deepest collapse regime.
-  HS_EXPECT_NEAR(drain.opacity(0.1f), 0.3f, 1e-3f);
-  HS_EXPECT_FALSE(drain.visible(0.01f));
-}
-
-/**
- * @brief Verifies Vortex shears by latitude: the equator (dot 0 with the axis)
- * is a fixed set, warped vertices stay unit, and the plateau is the identity.
- */
-inline void test_vortex_shears_by_latitude() {
-  Segue::Vortex vortex;
-  Vector axis = Vector(0.1f, 1.0f, 0.1f).normalized();
-  vortex.retarget(axis);
-  Vector equator = cross(axis, X_AXIS).normalized();
-  Vector we = vortex.warp(equator, 0.2f);
-  HS_EXPECT_NEAR((we - equator).length(), 0.0f, 1e-3f);
-  Vector v = (axis * 0.6f + equator * 0.8f).normalized();
-  Vector w = vortex.warp(v, 0.2f);
-  HS_EXPECT_NEAR(w.length(), 1.0f, 1e-3f);
-  HS_EXPECT_GT((w - v).length(), 1e-2f); // off-equator actually twists
-  Vector wp = vortex.warp(v, 1.0f);
-  HS_EXPECT_NEAR((wp - v).length(), 0.0f, 1e-3f);
+  Vector any(0.0f, 1.0f, 0.0f);
+  for (int c = 0; c < n; ++c) {
+    float o = bd.face_offset(any, 0, c);
+    int r = bd.rank[c];
+    HS_EXPECT_NEAR(o, static_cast<float>(n - 1 - r) / (n - 1), 1e-6f);
+    // Class rank r fades linearly over one band of [kBlackDwell, 1]: gone at
+    // the floor, untouched at the ceiling, abutting its neighbors' windows,
+    // and every class is fully black through the dwell before the swap.
+    float band = (1.0f - Segue::Breakdown::kBlackDwell) / n;
+    float floor_p = Segue::Breakdown::kBlackDwell + (n - 1 - r) * band;
+    HS_EXPECT_NEAR(bd.face_phase(floor_p, o), 0.0f, 1e-5f);
+    HS_EXPECT_NEAR(bd.face_phase(floor_p + band, o), 1.0f, 1e-5f);
+    HS_EXPECT_NEAR(bd.face_phase(Segue::Breakdown::kBlackDwell, o), 0.0f,
+                   1e-5f);
+    HS_EXPECT_NEAR(bd.face_phase(0.0f, o), 0.0f, 1e-6f);
+  }
 }
 
 /**
@@ -2138,9 +2117,7 @@ inline int run_animation_tests() {
   test_sweep_phase_front_ordering();
   test_terminator_sweep_orders_by_axis();
   test_shockwave_orders_by_distance_from_origin();
-  test_sparkle_offsets_deterministic_and_spread();
-  test_drain_pulls_toward_focus_without_collapse();
-  test_vortex_shears_by_latitude();
+  test_breakdown_fades_classes_sequentially();
   test_spin_flip_warp_is_rigid();
   test_gold_convergence_grades_to_gold();
 

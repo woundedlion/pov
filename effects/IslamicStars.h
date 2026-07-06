@@ -5,6 +5,7 @@
  */
 #pragma once
 
+#include "core/animation_timeline.h"
 #include "core/engine.h"
 
 /**
@@ -12,11 +13,11 @@
  *        transitioning one shape into the next while ripples distort the mesh.
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
- * @tparam SegueT Compile-time transition style (see namespace Segue). The
- * default Crossfade renders both meshes during the fade window; every other
- * segue renders a single mesh per frame.
+ * @tparam SegueT Compile-time transition style (see namespace Segue).
+ * Crossfade renders both meshes during the fade window; every other segue
+ * renders a single mesh per frame.
  */
-template <int W, int H, typename SegueT = Segue::Crossfade>
+template <int W, int H, typename SegueT = Segue::Breakdown>
 class IslamicStars : public Effect {
 
 public:
@@ -27,8 +28,7 @@ public:
 
   /**
    * @brief Bakes palettes, registers the UI sliders, and seeds the timeline
-   *        with the orientation walk, the recurring ripple bursts, and the
-   *        first shape.
+   *        with the orientation walk and the first shape.
    */
   void init() override {
     // Asymmetric scratch split sized to the measured recipe peaks (worst
@@ -49,7 +49,6 @@ public:
     ripple_gen.template_params.thickness = kRippleThickness;
     ripple_gen.template_params.decay = 0.1f;
 
-    registerParam("Duration", &params.duration, 48.0f, 192.0f);
     registerParam("Fade", &params.fade, 0.0f, 96.0f);
     // Burst/Ripp Dur ranges are clamped to the ripple pool capacity invariant
     // (see the kRipple* constants below).
@@ -64,12 +63,6 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
 
-    // One immediate burst, then a recurring one every kRippleRecurrenceFrames.
-    timeline.add(0, Animation::PeriodicTimer(
-                        0, [this](Canvas &canvas) { ripple(canvas); }, false));
-    timeline.add(0, Animation::PeriodicTimer(
-                        kRippleRecurrenceFrames,
-                        [this](Canvas &canvas) { ripple(canvas); }, true));
     spawn_shape();
   }
 
@@ -87,21 +80,17 @@ public:
 
 private:
   // Ripple-pool sizing: a slot is held from spawn() until the staggered ripple
-  // completes, so a burst holds kBurstMax slots for
-  // (kBurstMax-1)*kRippleStaggerFrames + kRippleDurationMax frames. Keeping that
-  // span under two recurrence windows bounds the live set to two bursts, so
-  // 2*kBurstMax slots suffice and spawn() never drops a ripple.
+  // completes. Bursts are scheduled one per shape and each shape's duration is
+  // sized so its burst ends a full still window before the next one can start,
+  // so only one burst is normally live; the pool holds two so a Ripp Dur/Burst
+  // slider change mid-burst still cannot drop a spawn.
   static constexpr int kRipplePoolSize = 8;
   static constexpr int kRippleStaggerFrames = 16;
-  static constexpr int kRippleRecurrenceFrames = 96;
   static constexpr int kRippleDurationMax = 143;
   static constexpr int kBurstMax = 4;
+  static constexpr int kStillFrames = 16; /**< 1 s hold (16 fps) between fade and ripple stages. */
   static constexpr float kRippleThickness = 0.7f; /**< Fixed ripple wavelet width (radians). */
   static constexpr float kRippleAmpMax = 0.15f;   /**< Fold-free amplitude ceiling at kRippleThickness (amp/thickness < ~0.2 self-fold onset). */
-  static_assert((kBurstMax - 1) * kRippleStaggerFrames + kRippleDurationMax <
-                    2 * kRippleRecurrenceFrames,
-                "IslamicStars: ripple lifespan must stay under two recurrence "
-                "windows so at most two bursts overlap");
   static_assert(2 * kBurstMax <= kRipplePoolSize,
                 "IslamicStars: ripple pool must hold two overlapping bursts");
 
@@ -176,9 +165,12 @@ private:
 
     // Per-face segues order faces by world-space center, recomputed per frame
     // so the sweep front stays fixed in the room while the mesh rotates
-    // through it.
+    // through it. Class-ordered segues take a third argument: the face's
+    // palette-slot class, mapped exactly as the fragment shader maps it.
+    constexpr bool kPerFaceClass =
+        requires(const Vector &c) { seg.face_offset(c, 0, 0); };
     constexpr bool kPerFace =
-        requires(const Vector &c) { seg.face_offset(c, 0); };
+        kPerFaceClass || requires(const Vector &c) { seg.face_offset(c, 0); };
     ArenaVector<float> face_offsets;
     if constexpr (kPerFace) {
       const size_t faces = transformed_state.num_faces();
@@ -190,8 +182,16 @@ private:
         Vector c(0.0f, 0.0f, 0.0f);
         for (int k = 0; k < fcnt[f]; ++k)
           c = c + transformed_state.vertices[fidx[foff[f] + k]];
-        face_offsets.push_back(
-            seg.face_offset(normalized_or(c, UP), static_cast<int>(f)));
+        if constexpr (kPerFaceClass) {
+          int cls = (f < static_cast<size_t>(num_faces))
+                        ? wrap(raw_indices[f], NUM_PALETTES)
+                        : 0;
+          face_offsets.push_back(
+              seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls));
+        } else {
+          face_offsets.push_back(
+              seg.face_offset(normalized_or(c, UP), static_cast<int>(f)));
+        }
       }
     }
 
@@ -212,9 +212,9 @@ private:
 
   /**
    * @brief Advances to the next solid, generates it into the carousel's back
-   *        slot with a freshly shuffled palette, makes it the front, and lets
-   *        the carousel's segue schedule the transition plus the next
-   *        spawn_shape call.
+   *        slot with a freshly shuffled palette, makes it the front, schedules
+   *        the segue and the shape's mid-display ripple burst, and queues the
+   *        next spawn_shape call.
    */
   void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
@@ -253,18 +253,31 @@ private:
     // Flip front eagerly for the overlapping sprite.
     carousel.set_front(back);
 
-    // Segues with a spatial anchor (sweep axis, wave origin, drain focus, spin
-    // axis) get a fresh random one per transition. Safe mid-carousel: those
-    // segues are sequential, so the previous sprite has already finished.
+    // Segues with a spatial anchor (sweep axis, wave origin, spin axis) get a
+    // fresh random one per transition. Safe mid-carousel: those segues are
+    // sequential, so the previous sprite has already finished.
     if constexpr (requires(SegueT &s, const Vector &v) { s.retarget(v); })
       carousel.segue().retarget(random_vector());
 
-    int next_delay = carousel.schedule_segue(
-        timeline, draw_fn, static_cast<int>(params.duration),
-        static_cast<int>(params.fade));
+    // Class-ordered segues get a fresh random class fade order per transition.
+    if constexpr (requires(SegueT &s) { s.reorder(1); })
+      carousel.segue().reorder(NUM_PALETTES);
 
-    // Topology indices left un-reduced: draw_shape applies the modulo at render
-    // time, so reducing here would double-modulo.
+    // Per-shape choreography: segue in, hold still one second, ripple, settle
+    // one second, segue out. Duration is derived from the stage lengths so the
+    // stages never overlap; the segue warps are identity on the phase-1
+    // plateau, so the mesh only moves during its own stage.
+    int fade = static_cast<int>(params.fade);
+    int burst_span =
+        (static_cast<int>(params.burst_size) - 1) * kRippleStaggerFrames +
+        static_cast<int>(ripple_duration);
+    int duration = fade + kStillFrames + burst_span + kStillFrames + fade;
+
+    int next_delay = carousel.schedule_segue(timeline, draw_fn, duration, fade);
+
+    timeline.add(fade + kStillFrames,
+                 Animation::PeriodicTimer(
+                     0, [this](Canvas &canvas) { ripple(canvas); }, false));
 
     const auto &entry = solids[solid_idx];
     hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
@@ -281,8 +294,7 @@ private:
    * @brief Slider-backed runtime parameters for the effect.
    */
   struct Params {
-    float duration = 160.0f; /**< Shape display period, in frames. */
-    float fade = 32.0f; /**< Cross-fade window length, in frames. */
+    float fade = 32.0f; /**< Segue window length, in frames. */
     float burst_size = 4.0f; /**< Ripples per burst; float-backed for registerParam. */
     bool debug_bb = false; /**< Whether to draw mesh bounding boxes. */
   } params;
