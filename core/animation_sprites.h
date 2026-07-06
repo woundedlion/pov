@@ -4,106 +4,105 @@
  */
 #pragma once
 
-#include "animation_core.h"
+#ifndef HS_ANIMATION_INTERNAL
+#error internal fragment of animation.h; include "animation.h" instead
+#endif
 
 namespace Animation {
 
 /**
- * @brief Manages a history of Orientation states.
- * @tparam OrientationType The orientation snapshot type stored in the trail.
- * @tparam CAPACITY The maximum number of snapshots to keep.
+ * @brief An animation that draws a sprite while managing its fade-in/out
+ * effects.
+ * @details Computes opacity inline rather than embedding Transition objects.
+ * An indefinite sprite (duration -1) never completes, so a `.then()` callback
+ * attached to it never fires.
  */
-template <typename OrientationType, int CAPACITY> class OrientationTrail {
+class Sprite : public AnimationBase<Sprite> {
 public:
   /**
-   * @brief Records a snapshot of the current orientation state.
-   * @param source The orientation to copy.
+   * @brief Constructs a Sprite animation.
+   * @param draw_fn The function to call each frame for drawing (`void
+   * draw_fn(Canvas&, float opacity)`).
+   * @param duration The duration the sprite is fully visible (-1 for
+   * indefinite).
+   * @param fade_in_duration Frames for fading in.
+   * @param fade_in_easing_fn Easing for fade-in.
+   * @param fade_out_duration Frames for fading out.
+   * @param fade_out_easing_fn Easing for fade-out.
+   * @param paused Optional pause gate; null = always runs.
    */
-  void record(const OrientationType &source) { snapshots.push_back(source); }
+  Sprite(SpriteFn draw_fn, int duration, int fade_in_duration = 0,
+         EasingFn fade_in_easing_fn = ease_linear, int fade_out_duration = 0,
+         EasingFn fade_out_easing_fn = ease_linear, const bool *paused = nullptr)
+      : AnimationBase(duration, false), draw_fn(std::move(draw_fn)),
+        fade_in_duration(fade_in_duration),
+        fade_out_duration(fade_out_duration),
+        fade_in_easing(std::move(fade_in_easing_fn)),
+        fade_out_easing(std::move(fade_out_easing_fn)), paused_(paused) {
+    HS_CHECK(fade_in_duration >= 0, "Sprite fade-in duration must be >= 0");
+    HS_CHECK(fade_out_duration >= 0, "Sprite fade-out duration must be >= 0");
+    // Overlapping windows (durations are independent GUI sliders): scale both
+    // fades proportionally to fit the visible duration, so the envelope still
+    // peaks at full opacity and stays a continuous triangle (definite sprites
+    // only; indefinite ones skip fade-out).
+    int fade_total = this->fade_in_duration + this->fade_out_duration;
+    if (duration >= 0 && fade_total > duration) {
+      this->fade_in_duration =
+          static_cast<long long>(duration) * this->fade_in_duration / fade_total;
+      this->fade_out_duration = duration - this->fade_in_duration;
+    }
+  }
 
   /**
-   * @brief Gets the number of recorded snapshots.
-   * @return Count of live snapshots in the trail.
+   * @brief Updates the drawing function used by the sprite.
+   * @param new_draw_fn The new per-frame drawing functor.
    */
-  size_t length() const { return snapshots.size(); }
+  void rebind_draw(SpriteFn new_draw_fn) { draw_fn = std::move(new_draw_fn); }
 
   /**
-   * @brief Gets a specific snapshot.
-   * @param i Index into the history: 0 is the OLDEST snapshot, length()-1 the
-   *          newest. (record() appends the newest at the end of the underlying
-   *          ring buffer, whose operator[](0) is the oldest live element.)
-   *          Matches the JS simulator's trail ordering.
-   * @return Const reference to the requested snapshot.
+   * @brief Steps the animation, computes the current opacity inline, and calls
+   * the draw function.
+   * @param canvas The canvas buffer passed to the draw function.
    */
-  const OrientationType &get(size_t i) const { return snapshots[i]; }
+  void step(Canvas &canvas) override {
+    // Paused: hold the frame (don't advance the timer) but keep drawing at the
+    // current opacity.
+    if (!is_paused(paused_))
+      AnimationBase::step(canvas);
 
-  /**
-   * @brief Gets a specific snapshot (mutable). 0 is oldest, length()-1 newest.
-   * @param i Index into the history (0 oldest, length()-1 newest).
-   * @return Mutable reference to the requested snapshot.
-   */
-  OrientationType &get(size_t i) { return snapshots[i]; }
+    // Trapezoid envelope as the MIN of an independent fade-in and fade-out ramp.
+    // Computing both keeps opacity continuous when the windows overlap (the
+    // durations are independent GUI sliders), degrading to a triangle.
+    float fade_in = 1.0f;
+    if (fade_in_duration > 0 && t < static_cast<uint32_t>(fade_in_duration)) {
+      float progress = static_cast<float>(t) / fade_in_duration;
+      fade_in = fade_in_easing(hs::clamp(progress, 0.0f, 1.0f));
+    }
 
-  /**
-   * @brief Clears the history.
-   */
-  void clear() { snapshots.clear(); }
+    // An indefinite sprite (duration < 0) has no end frame to fade toward, so
+    // the `duration >= 0` guard skips fade-out for it (load-bearing, not just
+    // overflow safety).
+    float fade_out = 1.0f;
+    if (duration >= 0 && fade_out_duration > 0 &&
+        t + static_cast<uint32_t>(fade_out_duration) >=
+            static_cast<uint32_t>(duration)) {
+      float elapsed = static_cast<float>(t + static_cast<uint32_t>(fade_out_duration) -
+                                         static_cast<uint32_t>(duration));
+      float progress = elapsed / fade_out_duration;
+      fade_out = 1.0f - fade_out_easing(hs::clamp(progress, 0.0f, 1.0f));
+    }
 
-  /**
-   * @brief Removes the oldest snapshot.
-   */
-  void expire() { snapshots.pop(); }
+    draw_fn(canvas, std::min(fade_in, fade_out));
+  }
 
 private:
-  StaticCircularBuffer<OrientationType, CAPACITY> snapshots;
-};
-
-/**
- * @brief Manages a history of world-space Vector positions.
- * @tparam CAPACITY The maximum number of snapshots to keep.
- */
-template <int CAPACITY> class VectorTrail {
-public:
-  static constexpr int kCapacity = CAPACITY; /**< Max retained snapshots. */
-
-  /**
-   * @brief Records a world-space position snapshot.
-   * @param source The position to copy into the trail.
-   */
-  void record(const Vector &source) { snapshots.push_back(source); }
-
-  /**
-   * @brief Gets the number of recorded snapshots.
-   * @return Count of live positions in the trail.
-   */
-  size_t length() const { return snapshots.size(); }
-
-  /**
-   * @brief Gets a specific position snapshot.
-   * @param i Index into the history (0 oldest, length()-1 newest).
-   * @return Const reference to the requested position.
-   */
-  const Vector &get(size_t i) const { return snapshots[i]; }
-
-  /**
-   * @brief Gets a specific position snapshot (mutable).
-   * @param i Index into the history (0 oldest, length()-1 newest).
-   * @return Mutable reference to the requested position.
-   */
-  Vector &get(size_t i) { return snapshots[i]; }
-
-  /**
-   * @brief Clears the history.
-   */
-  void clear() { snapshots.clear(); }
-
-  /**
-   * @brief Removes the oldest snapshot.
-   */
-  void expire() { snapshots.pop(); }
-
-private:
-  StaticCircularBuffer<Vector, CAPACITY> snapshots;
+  SpriteFn draw_fn;         /**< The drawing function functor. */
+  int fade_in_duration;     /**< Duration of fade-in phase in frames. */
+  int fade_out_duration;    /**< Duration of fade-out phase in frames. */
+  EasingFn fade_in_easing;  /**< Easing curve for fade-in. */
+  EasingFn fade_out_easing; /**< Easing curve for fade-out. */
+  const bool *paused_ = nullptr; /**< Optional pause gate; holds the frame (no
+                                    timer advance, still draws) when set. */
 };
 
 /**

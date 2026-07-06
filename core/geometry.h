@@ -118,7 +118,7 @@ inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
  * @brief Segue-aware variant of shade_mesh_topology: routes the edge distance
  * and resulting color through a segue policy's shading hooks.
  * @tparam SegueT Segue policy type (see namespace Segue in
- * animation_timeline.h); duck-typed, so this header needs no dependency on it.
+ * animation_mesh.h); duck-typed, so this header needs no dependency on it.
  * @param f Rasterized fragment; v2 carries the integer face index.
  * @param topology Per-face topology-class indices.
  * @param num_faces Length of `topology`.
