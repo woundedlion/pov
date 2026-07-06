@@ -179,7 +179,14 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
 │   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
 │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
-│   ├── animation.h             Timeline + all Animation:: types (umbrella over the animation_*.h fragments)
+│   ├── animation.h             IAnimation/AnimationBase contract + umbrella over the fragments below
+│   ├── animation_timers.h      RandomTimer / PeriodicTimer callback timers
+│   ├── animation_params.h      Parameter-writing animations (Transition, Mutation, Driver, Lerp, ColorWipe, Mobius*, Ripple, Noise)
+│   ├── animation_motion.h      Path/ProceduralPath + the Orientation drivers (Motion, Rotation, RandomWalk)
+│   ├── animation_trails.h      OrientationTrail/VectorTrail history + tween/deep_tween traversal
+│   ├── animation_sprites.h     Sprite draw envelope, Particle/ParticleSystem
+│   ├── animation_timeline.h    TimelineEvent inline storage + the Timeline scheduler
+│   ├── animation_mesh.h        Mesh-to-mesh transitions: MeshMorph, Segue policies, MeshCarousel
 │   ├── transformers.h          Ripple, Noise, Möbius warp geometry transformers
 │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 │   ├── waves.h                 sin_wave / tri_wave / square_wave generators
@@ -769,6 +776,20 @@ All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<F
 ### 7.3 The Animation System (`animation.h`)
 
 The `Timeline` class manages a list of running `IAnimation` objects. Each frame, `timeline.step(canvas)` advances all active animations. Finished animations are removed; repeating animations are rewound. All animation types inherit from `AnimationBase` and support method chaining via `.then()` for sequencing.
+
+`animation.h` defines the contract every animation implements — `IAnimation`, the CRTP `AnimationBase`, and `Animation::Space` — and then includes seven fragment headers grouped by what they animate:
+
+| Header | Subject | Contents |
+|---|---|---|
+| `animation_timers.h` | Callbacks on a clock | `RandomTimer`, `PeriodicTimer` |
+| `animation_params.h` | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Driver`, `Lerp`, `ColorWipe`, the `Mobius*` family, `Ripple`, `Noise` |
+| `animation_motion.h` | An `Orientation` driven through space | `Path`/`ProceduralPath`, `Motion`, `Rotation`, `RandomWalk` |
+| `animation_trails.h` | Recorded history | `OrientationTrail`, `VectorTrail`, the `tween`/`deep_tween` traversals |
+| `animation_sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
+| `animation_timeline.h` | Scheduling | `TimelineEvent`, `Timeline` |
+| `animation_mesh.h` | Mesh-to-mesh transitions | `MeshMorph`, the `Segue` policies, `MeshCarousel` |
+
+The fragments compile only inside `animation.h` (a direct include fails with an `#error`); consumers include `animation.h` alone.
 
 #### Animation Types
 
