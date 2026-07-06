@@ -179,7 +179,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
 │   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
 │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
-│   ├── animation.h             Timeline, all Animation:: types, ParticleSystem
+│   ├── animation.h             Timeline + all Animation:: types (umbrella over the animation_*.h fragments)
 │   ├── transformers.h          Ripple, Noise, Möbius warp geometry transformers
 │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 │   ├── waves.h                 sin_wave / tri_wave / square_wave generators

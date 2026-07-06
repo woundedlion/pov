@@ -4,7 +4,111 @@
  */
 #pragma once
 
-#include "animation_core.h"
+#ifndef HS_ANIMATION_INTERNAL
+#error internal fragment of animation.h; include "animation.h" instead
+#endif
+
+/**
+ * @brief Represents a customizable path.
+ * @tparam W Display width (carried for downstream sizing).
+ * @tparam RESOLUTION Capacity of the internal point ring buffer.
+ * @details Retains an internal buffer for state, but draws to the pipeline.
+ */
+template <int W, int RESOLUTION = 1024> class Path {
+public:
+  /**
+   * @brief Constructs an empty path.
+   */
+  Path() {}
+
+  /**
+   * @brief Appends a procedurally generated segment to the path.
+   * @param plot The function generating points.
+   * @param domain The input domain scale.
+   * @param samples The number of sample intervals to take (>= 1); the loop
+   *        emits samples + 1 points so the endpoint easing(1.0) is always hit.
+   * @param easing The easing function for sample distribution.
+   * @return Reference to self for chaining.
+   */
+  Path &append_segment(PlotFn plot, float domain, int samples,
+                       ScalarFn easing) {
+    // samples >= 1 also keeps the t / samples divide below non-zero.
+    HS_CHECK(samples >= 1);
+    // Account for the pop_back below: a non-empty path drops its last point
+    // before appending samples + 1, so the final size is (size - 1) + samples + 1.
+    size_t retained = points.is_empty() ? points.size() : points.size() - 1;
+    HS_CHECK(retained + static_cast<size_t>(samples) + 1 <= RESOLUTION);
+    if (!points.is_empty())
+      points.pop_back();
+    for (int t = 0; t <= samples; t++) {
+      points.push_back(plot(easing(static_cast<float>(t) / samples) * domain));
+    }
+    return *this;
+  }
+
+  /**
+   * @brief Retrieves a point along the path by interpolation.
+   * @param t Progress along the path (0.0 to 1.0).
+   * @return The interpolated vector.
+   */
+  Vector get_point(float t) const {
+    if (points.is_empty())
+      return Vector(0, 0, 0);
+    // Clamp: a negative t makes raw_index negative, and casting that to size_t
+    // is UB (t > 1 is caught by the i >= size-1 guard below, t < 0 is not).
+    t = hs::clamp(t, 0.0f, 1.0f);
+    float raw_index = t * (points.size() - 1);
+    size_t i = static_cast<size_t>(raw_index);
+    float f = raw_index - i;
+    if (i >= points.size() - 1)
+      return points.back();
+    const Vector &p1 = points[i];
+    const Vector &p2 = points[i + 1];
+    return p1 * (1.0f - f) + p2 * f;
+  }
+
+  /**
+   * @brief Collapses the path to its newest point only.
+   */
+  void collapse() {
+    // Clear in place rather than assigning a fresh buffer: a full
+    // StaticCircularBuffer temporary (~12.3 KB) overflows the WASM 8 KB stack.
+    if (points.size() > 1) {
+      Vector last = points.back();
+      points.clear();
+      points.push_back(last);
+    }
+  }
+
+private:
+  StaticCircularBuffer<Vector, RESOLUTION> points;
+};
+
+/**
+ * @brief Represents a path defined by a single procedural function.
+ * @details Matches the interface of Path for use in Motion animations.
+ */
+struct ProceduralPath {
+  PlotFn f; /**< The procedural function mapping t to a point. */
+
+  /**
+   * @brief Constructs an empty procedural path.
+   */
+  ProceduralPath() = default;
+
+  /**
+   * @brief Constructs a procedural path from a plotting function.
+   * @param path_fn Function mapping a parameter to a point on the path.
+   */
+  ProceduralPath(PlotFn path_fn) : f(std::move(path_fn)) {}
+
+  /**
+   * @brief Evaluates the path at a given parameter.
+   * @param t Path parameter.
+   * @return The point produced by the procedural function at t.
+   */
+  Vector get_point(float t) const { return f(t); }
+};
 
 namespace Animation {
 

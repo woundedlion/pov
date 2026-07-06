@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/animation_timeline.h"
+#include "core/animation.h"
 #include "core/engine.h"
 
 /**
