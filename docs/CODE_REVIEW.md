@@ -152,7 +152,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 12. ✅ **Ad-hoc epsilon literal in `gnomonic()`.** `core/math/3dmath.h:787` hardcodes `1e-9f` twice for the equator divisor floor. **Fix:** add a named `STEREO_EQUATOR_EPS`; do not reuse the coincidentally-equal `math::EPS_NORMAL_SQ` (unrelated meaning).
 
-13. **Header comment references a nonexistent "back" easing variant.** `core/math/easing.h:16` mentions `cubic/back/elastic` overshoot; no `ease_*_back` exists. **Fix:** drop "back/" from the comment.
+13. ✅ **Header comment references a nonexistent "back" easing variant.** `core/math/easing.h:16` mentions `cubic/back/elastic` overshoot; no `ease_*_back` exists. **Fix:** drop "back/" from the comment.
 
 14. **Dead `face_offsets` branch in generic `clone`.** `core/mesh/mesh.h:500-519`: the `if constexpr (requires { dst.face_offsets; })` block can never instantiate — `MeshState` returns early, `PolyMesh` lacks the member — and implies a nonexistent accessor contract. **Fix:** delete only that block; keep the live topology branch.
 
