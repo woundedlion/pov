@@ -146,7 +146,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 9. ✅ **`Transformer` relies on a prose-only non-relocation invariant.** `core/engine/transformers.h:134-190`: one-shot `then()` callbacks capture `this`/`idx`, justified by "never moves," but the class remains move/copy-*constructible* (only assignment is deleted by the reference member). **Fix:** `= delete` the copy and move constructors to make the guarantee structural; no current owner moves it.
 
-10. **`EveryNMillis::ready()` diverges host vs device for >~49.7-day intervals.** `core/engine/platform.h:998-1006` compares a `uint32_t` elapsed against a 64-bit `period_` on LP64, so huge intervals never fire on host while the 32-bit device wraps and fires. Negligible in practice (largest real interval is 10 s). **Fix:** cast both operands to `uint32_t` (or narrow `period_`), documenting the ~49.7-day ceiling via the type.
+10. ✅ **`EveryNMillis::ready()` diverges host vs device for >~49.7-day intervals.** `core/engine/platform.h:998-1006` compares a `uint32_t` elapsed against a 64-bit `period_` on LP64, so huge intervals never fire on host while the 32-bit device wraps and fires. Negligible in practice (largest real interval is 10 s). **Fix:** cast both operands to `uint32_t` (or narrow `period_`), documenting the ~49.7-day ceiling via the type.
 
 11. **Ad-hoc epsilon literal in `stereo()`.** `core/math/3dmath.h:736` uses a bare `1e-12f` pole-azimuth guard despite the file's rule that all tolerances route through named `math::EPS_*`/`STEREO_*` constants (and the identically-valued `STEREO_DIV_NUM_EPS_SQ` is a *squared* threshold, not reusable). **Fix:** add a named `STEREO_AZIMUTH_EPS` (documented as a length) and use it.
 

@@ -992,7 +992,7 @@ inline unsigned long millis() {
 class EveryNMillis {
 public:
   explicit EveryNMillis(unsigned long period)
-      : last_(millis()), period_(period) {}
+      : last_(millis()), period_(static_cast<uint32_t>(period)) {}
 
   /** @brief True at most once per `period_` ms; stamps the trigger when it fires. */
   bool ready() {
@@ -1010,7 +1010,7 @@ public:
 
 private:
   unsigned long last_;
-  unsigned long period_;
+  uint32_t period_; // 32-bit: matches the device wrap; caps the interval at ~49.7 days.
 };
 /**
  * @brief Returns microseconds since an arbitrary epoch (host micros()).
