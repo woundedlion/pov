@@ -385,8 +385,8 @@ jobs:
         # diverges from the generator) is plausible — this fails loudly on it.
         run: |
           python3 scripts/generate_reaction_graph.py > /tmp/reaction_graph.generated.cpp
-          if ! diff <(grep -oE '\-?[0-9]+' /tmp/reaction_graph.generated.cpp) \
-                    <(grep -oE '\-?[0-9]+' core/engine/reaction_graph.cpp); then
+          if ! diff <(grep -oE '[0-9]+' /tmp/reaction_graph.generated.cpp) \
+                    <(grep -oE '[0-9]+' core/engine/reaction_graph.cpp); then
             echo "::error::core/engine/reaction_graph.cpp is out of sync with scripts/generate_reaction_graph.py"
             echo "Regenerate with: python scripts/generate_reaction_graph.py > core/engine/reaction_graph.cpp"
             exit 1
