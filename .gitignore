@@ -1,9 +1,7 @@
 # CMake / build outputs
 /build/
 /build_debug/
-/build_release/
 /build_test/
-/build_test_cmake/
 *.obj
 *.o
 *.pdb
