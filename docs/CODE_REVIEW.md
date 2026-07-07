@@ -180,7 +180,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 26. ✅ **`linear_to_srgb` LUT (65,536 evals) computed twice per emit.** `scripts/generate_luts.py:155-160`: `check()` and `render()` each rebuild the tables; the CI provenance job pays it every push. **Fix:** build `fwd`/`rev` once in `main()` and pass them to both.
 
-27. **Reaction-graph completeness guard is `-O`-strippable.** `scripts/generate_reaction_graph.py:91-94` enforces its "fail loudly, never ship a biased table" invariant with a bare `assert`, which `python -O` removes. **Fix:** replace with an explicit `if not (...): raise RuntimeError(...)`.
+27. ✅ **Reaction-graph completeness guard is `-O`-strippable.** `scripts/generate_reaction_graph.py:91-94` enforces its "fail loudly, never ship a biased table" invariant with a bare `assert`, which `python -O` removes. **Fix:** replace with an explicit `if not (...): raise RuntimeError(...)`.
 
 28. **Shader black-pixel cull also drops the dimmest lit pixels.** `daydream/driver.js:668-672`: the `dot < 1e-8` cull on normalized `uint16` color discards channels 1–6 (≈0.009% brightness) that the engine legitimately emits on fades. **Fix:** test for exact zero (buffer is `fill(0)`'d and normalized 0 → 0.0), e.g. `== 0.0` or a `< 1 LSB²` threshold like `1e-10`.
 
