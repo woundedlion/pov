@@ -156,6 +156,10 @@ private:
      * @param t Interpolation factor in [0, 1].
      */
     void lerp(const Params &start, const Params &target, float t) {
+      // Trips if the field set changes, so a new preset float can't silently go
+      // un-interpolated (engine-written active_count is excluded on purpose).
+      static_assert(sizeof(Params) == 5 * sizeof(float),
+                    "MindSplatter::Params field set changed — update lerp");
       friction = start.friction + (target.friction - start.friction) * t;
       well_strength = start.well_strength +
                       (target.well_strength - start.well_strength) * t;
