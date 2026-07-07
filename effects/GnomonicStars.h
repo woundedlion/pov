@@ -61,6 +61,8 @@ public:
     HS_CHECK(warp_, "GnomonicStars: pinned warp spawn must succeed");
     registerParam("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
 
+    baked_palette.bake(persistent_arena, Palettes::mangoPeel);
+
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
@@ -82,9 +84,9 @@ public:
 
     timeline.step(canvas);
 
-    auto fragment_shader = [](const Vector &p, Fragment &frag) {
+    auto fragment_shader = [this](const Vector &p, Fragment &frag) {
       float t = (p.y + 1.0f) * 0.5f; // Y in [-1, 1] -> gradient t in [0, 1]
-      Color4 c = Palettes::mangoPeel.get(t);
+      Color4 c = baked_palette.get(t);
       frag.color = c;
     };
 
@@ -127,6 +129,7 @@ private:
 
   Vector *spiral_cache_ = nullptr;  /**< Persistent base lattice, MAX_POINTS slots. */
   int cached_points_ = 0;           /**< Point count the cache holds (0 = unbuilt). */
+  BakedPalette baked_palette;       /**< LUT-baked mangoPeel sampled by the shader. */
 
   MobiusWarpGnomonicTransformer<1> transformer; /**< Evolving Möbius warp applied per point. */
   Animation::MobiusWarpEvolving *warp_ = nullptr; /**< Pinned warp handle; mirrors params.warp_speed each frame. */

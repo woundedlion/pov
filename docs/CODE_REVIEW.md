@@ -130,7 +130,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 2. ✅ **FlowField evaluates a virtual palette per fragment on the MCU hot path.** `effects/FlowField.h:147` calls `palette.get()` (virtual + OKLCH lerp + `fast_sinf` + colorspace convert) once per trail fragment (~600 particles × 14 trail, per AA splat). **Fix:** add a `BakedPalette` member, bake once in `init()`, sample the LUT in the shader — matching every sibling effect (~4 KB persistent arena).
 
-3. **GnomonicStars evaluates a virtual palette per covered pixel.** `effects/GnomonicStars.h:85-88` calls `Palettes::mangoPeel.get(t)` per fragment per star (up to 2,000 stars). `mangoPeel` is `constexpr` and never mutated. **Fix:** add a `BakedPalette` member, bake `mangoPeel` in `init()`, sample the LUT in the shader.
+3. ✅ **GnomonicStars evaluates a virtual palette per covered pixel.** `effects/GnomonicStars.h:85-88` calls `Palettes::mangoPeel.get(t)` per fragment per star (up to 2,000 stars). `mangoPeel` is `constexpr` and never mutated. **Fix:** add a `BakedPalette` member, bake `mangoPeel` in `init()`, sample the LUT in the shader.
 
 4. **Segmented tiling advertises N≤8 but only implements N≤4.** `hardware/pov_segment_map.h:51-66` maps only `arm_seg==0` to the top strip; for N=8 (`SEGS_PER_ARM=4`) segments 1–3 all collapse onto the same reversed bottom band, triple-painting rows [108,143] and leaving [0,107] dark — yet `pov_segmented.h:90` `static_assert`s N≤8 and the README advertises an 8-segment build. Latent (only `POVSegmented<288,4,480>` ships). **Fix:** tighten the `static_assert`, README, and strap rationale to N≤4 to match the math (per the remove-dead-over-document norm); only generalize `segment_map()` if an 8-Teensy build is actually planned.
 
