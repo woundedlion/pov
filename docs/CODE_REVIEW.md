@@ -151,7 +151,7 @@ Every surviving defect, numbered sequentially. Higher priority = fix first.
 12. ✅ SHA-pin the `actions/*` steps and the `doxygen-awesome-css` clone, prioritizing `docs.yml` (which carries `pages: write` + `id-token: write`).
 13. ✅ daydream `deploy.yml` (~145): replace `path: '.'` with an explicit site/dist allowlist so `.git/`, `node_modules/`, `tests/`, and vendored `three.js/` are not published to Pages.
 14. ✅ Collapse the duplicated docs-theme logic shared between `justfile` and `docs.yml` (or add a light recipe-smoke) so the `justfile` cannot bit-rot against CI.
-15. (Optional, low) Add a single host-GCC native shard as a canary to cover GCC + sanitizer UB the arm-gcc build and clang sanitizers don't; only if the maintenance cost is judged worthwhile.
+15. ❌ (Optional, low) Add a single host-GCC native shard as a canary to cover GCC + sanitizer UB the arm-gcc build and clang sanitizers don't; only if the maintenance cost is judged worthwhile. — Rejected: the shipped arm-gcc cross-build already recompiles the shared `core/` headers every push, so the residual gap (host-GCC + sanitizers) doesn't justify a new CI shard's maintenance cost.
 
 ### Priority 5 — Test coverage
 
