@@ -1500,7 +1500,7 @@ template <int W, int H> using StarsCrossfade   = IslamicStars<W, H, Segue::Cross
 template <int W, int H> using StarsIrisBloom   = IslamicStars<W, H, Segue::IrisBloom>;
 template <int W, int H> using StarsLace        = IslamicStars<W, H, Segue::Lace>;
 template <int W, int H> using StarsShockwave   = IslamicStars<W, H, Segue::Shockwave>;
-template <int W, int H> using StarsTerminator  = IslamicStars<W, H, Segue::TerminatorSweep>;
+template <int W, int H> using StarsBreakdown   = IslamicStars<W, H, Segue::Breakdown>;
 template <int W, int H> using StarsSpinFlip    = IslamicStars<W, H, Segue::SpinFlip>;
 template <int W, int H> using StarsGold        = IslamicStars<W, H, Segue::GoldConvergence>;
 // clang-format on
@@ -1579,14 +1579,14 @@ inline int run_effects_tests() {
 
   // Segue sweep: IslamicStars instantiated with each non-default transition
   // policy, at the device resolution (the roster passes above already cover
-  // the default Breakdown at both resolutions). Exercises the segue-templated
-  // warp / per-face / fill / grade render paths end to end.
+  // the default TerminatorSweep at both resolutions). Exercises the
+  // segue-templated warp / per-face / fill / grade render paths end to end.
   std::printf("  -- IslamicStars segue sweep %dx%d --\n", kDeviceW, kDeviceH);
   smoke_one<StarsCrossfade, kDeviceW, kDeviceH>("IslamicStars<Crossfade>");
   smoke_one<StarsIrisBloom, kDeviceW, kDeviceH>("IslamicStars<IrisBloom>");
   smoke_one<StarsLace, kDeviceW, kDeviceH>("IslamicStars<Lace>");
   smoke_one<StarsShockwave, kDeviceW, kDeviceH>("IslamicStars<Shockwave>");
-  smoke_one<StarsTerminator, kDeviceW, kDeviceH>("IslamicStars<TerminatorSweep>");
+  smoke_one<StarsBreakdown, kDeviceW, kDeviceH>("IslamicStars<Breakdown>");
   smoke_one<StarsSpinFlip, kDeviceW, kDeviceH>("IslamicStars<SpinFlip>");
   smoke_one<StarsGold, kDeviceW, kDeviceH>("IslamicStars<GoldConvergence>");
 

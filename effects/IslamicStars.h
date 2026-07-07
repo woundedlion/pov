@@ -17,7 +17,7 @@
  * Crossfade renders both meshes during the fade window; every other segue
  * renders a single mesh per frame.
  */
-template <int W, int H, typename SegueT = Segue::Breakdown>
+template <int W, int H, typename SegueT = Segue::TerminatorSweep>
 class IslamicStars : public Effect {
 
 public:
