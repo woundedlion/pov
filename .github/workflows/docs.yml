@@ -73,11 +73,7 @@ jobs:
           git -C .doxygen-awesome remote add origin https://github.com/jothepro/doxygen-awesome-css.git
           git -C .doxygen-awesome fetch -q --depth 1 origin 568f56cde6ac78b6dfcc14acd380b2e745c301ea
           git -C .doxygen-awesome checkout -q FETCH_HEAD
-          {
-            echo "HTML_EXTRA_STYLESHEET = .doxygen-awesome/doxygen-awesome.css .doxygen-awesome/doxygen-awesome-sidebar-only.css docs/doxygen-custom.css"
-            echo "HTML_COLORSTYLE       = DARK"
-            echo "HTML_COLORSTYLE_GAMMA = 160"
-          } >> Doxyfile
+          cat docs/doxygen-theme.cfg >> Doxyfile
 
       - name: Generate docs
         run: mkdir -p build/docs && doxygen Doxyfile
