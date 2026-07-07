@@ -233,10 +233,6 @@ def main():
     print(f"\nDone. {len(assembled)} assembled SMD parts; "
           f"{len(groups)} BOM lines (fill LCSC where blank).")
     print(f"  fab package: {zpath}")
-    missing = [r for r in assembled if not comps[r]["lcsc"]]
-    if missing:
-        print(f"  NOTE: {len(missing)} parts have no LCSC number yet "
-              f"(add an 'LCSC' field in the schematic).")
 
 
 if __name__ == "__main__":
