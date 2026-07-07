@@ -11,7 +11,7 @@ import { fileURLToPath } from 'node:url';
 export const REPO_ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 
 export async function loadEffectRoster() {
-  const src = await readFile(join(REPO_ROOT, 'core', 'effects.h'), 'utf8');
+  const src = await readFile(join(REPO_ROOT, 'core', 'engine', 'effects.h'), 'utf8');
   // Capture the macro body by following its backslash line-continuations rather
   // than relying on a blank line terminating the block (which a reformat could
   // remove). The body runs from `#define HS_EFFECT_LIST(X)` through the last
