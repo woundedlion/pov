@@ -8,7 +8,7 @@
  */
 #pragma once
 
-#include "core/mesh.h"
+#include "core/mesh/mesh.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {

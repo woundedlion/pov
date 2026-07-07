@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/animation.h and core/easing.h.
+ * Unit tests for core/animation/animation.h and core/math/easing.h.
  *
  * Scope: the PURE, non-render parts of the animation system. The animations
  * exercised here (Transition, Mutation, Lerp, Driver, Rotation) take a `Canvas&`
@@ -35,10 +35,10 @@
 #include <cstddef>
 #include <limits>
 #include <vector>
-#include "core/animation.h"
-#include "core/canvas.h"
-#include "core/easing.h"
-#include "core/mesh.h" // PolyMesh, MeshOps::compile (MeshMorph fixtures)
+#include "core/animation/animation.h"
+#include "core/render/canvas.h"
+#include "core/math/easing.h"
+#include "core/mesh/mesh.h" // PolyMesh, MeshOps::compile (MeshMorph fixtures)
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

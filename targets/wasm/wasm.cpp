@@ -7,9 +7,9 @@
 
 #include <emscripten/bind.h>
 #include <emscripten/stack.h>
-#include "effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
-#include "core/effect_registry.h"
-#include "platform.h"
+#include "engine/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
+#include "core/engine/effect_registry.h"
+#include "engine/platform.h"
 #include "targets/wasm/param_marshal.h"    // pure, host-tested param marshaling
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
 #include <algorithm> // std::fill_n — blank-frame clear in drawFrame
@@ -61,7 +61,7 @@ static size_t stack_high_water_mark() {
 using namespace emscripten;
 
 // Upper bound on a single effect's exposed parameters. Mirrors the fixed
-// `std::array<ParamDef, 32>` backing `Effect::ParamList` (core/canvas.h). Used
+// `std::array<ParamDef, 32>` backing `Effect::ParamList` (core/render/canvas.h). Used
 // to pre-reserve the getParamValues() backing store so it never reallocates.
 static constexpr size_t MAX_PARAMS = 32;
 
@@ -213,7 +213,7 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
 
 // ---------------------------------------------------------------------------
 // The (W,H) resolutions the WASM factory can build. Aliased to the registry's
-// HS_RESOLUTIONS (core/effect_registry.h) so the runtime dispatch here and the
+// HS_RESOLUTIONS (core/engine/effect_registry.h) so the runtime dispatch here and the
 // per-resolution fill functions the registry generates share one list and
 // cannot drift: a resolution the registry can build is dispatchable here with no
 // second edit. setResolution()/setEffect()/getEffectSizes() all expand this via
@@ -728,7 +728,7 @@ private:
 // MESH OPS BINDINGS
 // ==========================================================================================
 
-#include "solids.h"
+#include "mesh/solids.h"
 
 /**
  * @brief JS-facing wrapper around a PolyMesh and the Conway/Goldberg operators.

@@ -4,7 +4,7 @@
 // not only the default-IEEE-semantics build.
 #include <cstdio>
 
-#include "core/engine.h"
+#include "core/engine/engine.h"
 #include "tests/test_color.h"
 
 int main() {

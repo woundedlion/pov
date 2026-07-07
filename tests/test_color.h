@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/color.h.
+ * Unit tests for core/color/color.h.
  *
  * Coverage:
  *   - Pixel16::lerp16 (endpoints + midpoint)
@@ -18,8 +18,8 @@
 #include <cstdint>
 #include <limits>
 
-#include "core/color.h"
-#include "core/util.h"
+#include "core/color/color.h"
+#include "core/engine/util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

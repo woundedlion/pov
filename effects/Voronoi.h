@@ -5,8 +5,8 @@
  */
 #pragma once
 
-#include "core/engine.h"
-#include "core/spatial.h"
+#include "core/engine/engine.h"
+#include "core/mesh/spatial.h"
 
 #include <cmath>
 #include <span>
@@ -335,5 +335,5 @@ public:
   }
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(Voronoi)

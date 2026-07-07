@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/engine.h"
+#include "core/engine/engine.h"
 #include <cmath>
 #include <utility>
 
@@ -366,5 +366,5 @@ private:
   float morph_alpha = 0.0f;   /**< Morph progress in [0, 1] from current to next. */
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(SphericalHarmonics)

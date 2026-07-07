@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/canvas.h — the Effect double-buffer state machine, the
+ * Unit tests for core/render/canvas.h — the Effect double-buffer state machine, the
  * parameter system (registerParam / updateParameter / ParamList), the clip
  * setters, and the Canvas scoped drawing context.
  *
@@ -16,7 +16,7 @@
 #include <chrono>
 #include <thread>
 
-#include "core/canvas.h"
+#include "core/render/canvas.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

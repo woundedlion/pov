@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include "core/filter.h"
+#include "core/render/filter.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

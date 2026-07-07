@@ -4,7 +4,7 @@
  * permission.
  */
 #pragma once
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 /**
  * @brief Renders a rotating sphere of latitude rings and longitude lines warped
@@ -296,5 +296,5 @@ private:
       filters;
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(MobiusGrid)

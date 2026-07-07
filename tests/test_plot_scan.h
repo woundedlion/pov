@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/plot.h (and the pure helpers reached via scan.h's
+ * Unit tests for core/render/plot.h (and the pure helpers reached via scan.h's
  * dependency on constants.h ClipRegion).
  *
  * Focus: PURE sampling / geometry paths that produce Fragments from geometry
@@ -25,10 +25,10 @@
  */
 #pragma once
 
-#include "core/plot.h"
-#include "core/scan.h"
-#include "core/geometry.h"
-#include "core/canvas.h"
+#include "core/render/plot.h"
+#include "core/render/scan.h"
+#include "core/math/geometry.h"
+#include "core/render/canvas.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

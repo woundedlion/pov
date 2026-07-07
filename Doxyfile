@@ -14,7 +14,7 @@ INPUT                  = README.md core effects hardware targets
 FILE_PATTERNS          = *.h *.cpp
 RECURSIVE              = YES
 # Vendored (FastNoiseLite) and generated (color LUTs) — never document these.
-EXCLUDE                = core/FastNoiseLite.h core/color_luts.h
+EXCLUDE                = core/vendor/FastNoiseLite.h core/color/color_luts.h
 
 EXTRACT_ALL            = YES
 EXTRACT_STATIC         = YES

@@ -38,7 +38,7 @@
 #include <new> // std::nothrow — fail-fast OOM check on the POV allocation below
 
 #include "pov_segmented.h"
-#include "effects.h"
+#include "engine/effects.h"
 
 static constexpr int TOTAL_PIXELS = 288;
 static constexpr int NUM_SEGMENTS = 4;

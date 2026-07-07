@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/memory.h — Arena, TriangularBitset, ArenaVector,
+ * Unit tests for core/engine/memory.h — Arena, TriangularBitset, ArenaVector,
  * ArenaSpan, ScratchScope, and Persist<T>.
  *
  * The always-on HS_CHECK traps are driven (in forked child processes) by the
@@ -28,7 +28,7 @@
 #include <cstdint>
 #include <cstring>
 #include <utility>
-#include "core/memory.h"
+#include "core/engine/memory.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

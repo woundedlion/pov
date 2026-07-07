@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/filter.h.
+ * Unit tests for core/render/filter.h.
  *
  * Focus: compile-time trait machinery + pure per-call helper logic that runs
  * without a live Canvas/Effect render.
@@ -40,8 +40,8 @@
 #include <array>
 #include <span>
 
-#include "core/filter.h"
-#include "core/canvas.h"
+#include "core/render/filter.h"
+#include "core/render/canvas.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

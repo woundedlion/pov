@@ -37,7 +37,7 @@
 #include <cassert>
 #include <cstdint>
 
-#include "core/platform.h" // HS_CHECK used in Flywheel's constructor guard
+#include "core/engine/platform.h" // HS_CHECK used in Flywheel's constructor guard
 
 // Forward declaration of the unit-test accessor that reaches EdgeMailbox's
 // private split consumer path (burst_complete()/claim()); see EdgeMailbox.

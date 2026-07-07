@@ -46,18 +46,18 @@ set(HS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/..)
 
 add_executable(run_tests
   ${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
-  ${HS_ROOT}/core/memory.cpp
-  ${HS_ROOT}/core/reaction_graph.cpp)
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
 
 # HS_TEST_BUILD widens the test-only inline/arena budgets (MSVC STL's
 # std::function is larger than libc++/inplace_function on the device); the
-# device footprint is unchanged. See core/animation.h and core/memory.h.
+# device footprint is unchanged. See core/animation/animation.h and core/engine/memory.h.
 #
 # HS_SCAN_METRICS compiles the per-pixel g_scan_metrics counters back in (off in
 # the device/WASM release build, where they would be a per-pixel global store on
 # the hot loop). The Face distance-oracle test reads exact_hits to tell culled
 # samples from evaluated ones, so the suite needs them live. See
-# core/platform.h (HS_SCAN_METRIC) and core/sdf.h Face::distance.
+# core/engine/platform.h (HS_SCAN_METRIC) and core/render/sdf.h Face::distance.
 target_compile_definitions(run_tests PRIVATE HS_TEST_BUILD HS_SCAN_METRICS)
 
 # Headers are included as "tests/..." and "core/..." from the repo root.
@@ -126,12 +126,12 @@ add_test(NAME unit_module_includes COMMAND ${CMAKE_COMMAND}
     -DSRC=${CMAKE_CURRENT_SOURCE_DIR}/run_tests.cpp
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_includes.cmake)
 
-# Pin core/color_luts.h against its generator; skips (exit 77) without Python.
+# Pin core/color/color_luts.h against its generator; skips (exit 77) without Python.
 find_program(HS_PYTHON NAMES python3 python)
 add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
     -DPYTHON_EXE=${HS_PYTHON}
     -DGENERATOR=${HS_ROOT}/scripts/generate_luts.py
-    -DCOMMITTED=${HS_ROOT}/core/color_luts.h
+    -DCOMMITTED=${HS_ROOT}/core/color/color_luts.h
     -DGENERATED=${CMAKE_CURRENT_BINARY_DIR}/color_luts.generated.h
     -DSKIP_CODE=77
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts.cmake)
@@ -152,16 +152,16 @@ endif()
 # separate executable recompiles the same clamp-before-cast assertions under
 # those exact release math flags so the contract is verified against the shipping
 # codegen. It complements (does not replace) the compile-time #error guard in
-# core/platform.h that fails any build where -fno-finite-math-only is lost.
+# core/engine/platform.h that fails any build where -fno-finite-math-only is lost.
 add_executable(fastmath_clamp_check
   ${CMAKE_CURRENT_SOURCE_DIR}/fastmath_clamp_check.cpp
-  ${HS_ROOT}/core/memory.cpp
-  ${HS_ROOT}/core/reaction_graph.cpp)
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(fastmath_clamp_check PRIVATE HS_TEST_BUILD)
 target_include_directories(fastmath_clamp_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 # The WASM release math flags (CMakeLists.txt). -fno-finite-math-only MUST follow
 # -ffast-math: it re-enables the NaN/Inf semantics the contract needs. If a future
-# edit drops it, core/platform.h's #error makes this TU fail to compile — exactly
+# edit drops it, core/engine/platform.h's #error makes this TU fail to compile — exactly
 # the regression signal we want.
 target_compile_options(fastmath_clamp_check PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
@@ -175,12 +175,12 @@ add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 # console. This executable recompiles the same engine with HS_TEST_H_OFFSET=3 so
 # the whole pipeline carries the device offset and the renorm runs against an
 # energy-conservation oracle. It MUST be its own TU: an offset-3 and an offset-0
-# PhiLUT<H>/TrigLUT<W,H> instantiation would clash under ODR (see core/platform.h
+# PhiLUT<H>/TrigLUT<W,H> instantiation would clash under ODR (see core/engine/platform.h
 # and tests/test_h_offset_renorm.h).
 add_executable(h_offset_renorm_check
   ${CMAKE_CURRENT_SOURCE_DIR}/h_offset_renorm_check.cpp
-  ${HS_ROOT}/core/memory.cpp
-  ${HS_ROOT}/core/reaction_graph.cpp)
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(h_offset_renorm_check PRIVATE HS_TEST_BUILD HS_TEST_H_OFFSET=3)
 target_include_directories(h_offset_renorm_check PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 # No -Werror here (matching fastmath_clamp_check): this single-purpose TU pulls in
@@ -197,8 +197,8 @@ add_test(NAME unit_h_offset_renorm COMMAND h_offset_renorm_check)
 # catching a regression before it can overflow the device's MPU-guarded stack.
 add_executable(stack_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/stack_measure.cpp
-  ${HS_ROOT}/core/memory.cpp
-  ${HS_ROOT}/core/reaction_graph.cpp)
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(stack_measure PRIVATE HS_TEST_BUILD)
 target_include_directories(stack_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(stack_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
@@ -211,8 +211,8 @@ add_test(NAME unit_stack_budget COMMAND stack_measure)
 # conservative upper bound vs the 32-bit device, so a host pass implies device.
 add_executable(arena_measure
   ${CMAKE_CURRENT_SOURCE_DIR}/arena_measure.cpp
-  ${HS_ROOT}/core/memory.cpp
-  ${HS_ROOT}/core/reaction_graph.cpp)
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(arena_measure PRIVATE HS_TEST_BUILD)
 target_include_directories(arena_measure PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-only)
@@ -223,7 +223,7 @@ add_test(NAME unit_arena_budget COMMAND arena_measure)
 foreach(_opt Os O3)
   add_executable(perf_bench_${_opt}
     ${CMAKE_CURRENT_SOURCE_DIR}/perf_bench.cpp
-    ${HS_ROOT}/core/memory.cpp ${HS_ROOT}/core/reaction_graph.cpp)
+    ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
   target_compile_definitions(perf_bench_${_opt} PRIVATE HS_TEST_BUILD)
   target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
   target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)

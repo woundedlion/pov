@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 // Unit-test accessor verifying each authored Lissajous entry closes
 // (path_fn(domain) == path_fn(0)).
@@ -263,5 +263,5 @@ private:
   } params; /**< Live parameter block bound to the registered sliders. */
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(Comets)

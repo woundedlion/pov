@@ -22,10 +22,10 @@
 #include <cstring>
 
 
-#include "core/platform.h" // HS_CHECK, hs::log, FASTRUN — used directly below;
+#include "core/engine/platform.h" // HS_CHECK, hs::log, FASTRUN — used directly below;
                            // included explicitly rather than relying on color.h
                            // pulling it (this header is independently host-tested)
-#include "core/color.h" // Pixel16, CRGB, srgb_to_linear_lut / linear_to_srgb_lut
+#include "core/color/color.h" // Pixel16, CRGB, srgb_to_linear_lut / linear_to_srgb_lut
 
 // arm_dcache_flush (Arduino.h) cleans dirty D-cache lines without invalidating:
 // a TX-only buffer must reach RAM but stay resident for the next frame's write.

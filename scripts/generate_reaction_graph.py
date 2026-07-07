@@ -1,23 +1,23 @@
 #!/usr/bin/env python3
-"""Regenerate core/reaction_graph.cpp — the Fibonacci-lattice K-NN adjacency table.
+"""Regenerate core/engine/reaction_graph.cpp — the Fibonacci-lattice K-NN adjacency table.
 
 The reaction-diffusion effects (BZ / Gray-Scott) diffuse over a 7680-point
-Fibonacci lattice on the unit sphere. core/reaction_graph.cpp is the checked-in
+Fibonacci lattice on the unit sphere. core/engine/reaction_graph.cpp is the checked-in
 K-nearest-neighbor table for that lattice: neighbors[i][k] is the index of the
 k-th nearest node to node i, ordered by increasing distance. This script is its
-generator of record. The runtime node() in core/reaction_graph.h MUST reproduce
+generator of record. The runtime node() in core/engine/reaction_graph.h MUST reproduce
 the same lattice positions this script uses, or find_nearest_node / CubemapLUT
 would descend a table built from points that disagree with the ones it samples.
 
 Provenance — DOUBLE PRECISION. node(i) is evaluated in IEEE double here, and the
 committed table reproduces bit-for-bit ONLY in double: computing y / radius in
 float32 (as a naive runtime port would) flips the sort order of a handful of rows
-at near-tie distances. core/reaction_graph.h::node() therefore folds y, radius,
+at near-tie distances. core/engine/reaction_graph.h::node() therefore folds y, radius,
 and theta in double and narrows once into the float Vector, symmetric with this
 generator. Keep the two in lockstep: any edit to golden_angle / RD_N / the node()
 formula must be made in BOTH places and the table regenerated.
 
-Lattice (mirrors core/reaction_graph.h::node):
+Lattice (mirrors core/engine/reaction_graph.h::node):
 
   y(i)      = 1 - i/(RD_N-1) * 2                  # +1 at the north pole down to -1
   radius(i) = sqrt(1 - y*y)
@@ -28,7 +28,7 @@ neighbors[i] = the RD_K indices j != i minimizing |node(i) - node(j)|^2, sorted
 by (distance, index) so ties break deterministically toward the lower index.
 
 Usage:
-  python scripts/generate_reaction_graph.py > core/reaction_graph.cpp
+  python scripts/generate_reaction_graph.py > core/engine/reaction_graph.cpp
 
 The CI provenance gate (.github/workflows/ci.yml :: reaction-graph-provenance)
 re-runs this and diffs the numeric tokens against the committed file, so a drift

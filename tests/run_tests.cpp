@@ -4,7 +4,7 @@
 // Pull in the engine barrel first, exactly as a real target does, so geometry.h
 // (which defines Orientation<CAP=4>) is ordered ahead of filter.h and the
 // effects for the whole translation unit.
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 // One include per registered module, paired 1:1 with a row in
 // HS_TEST_MODULE_LIST below; keep the two in sync when adding a module.
@@ -62,7 +62,7 @@ struct TestModule {
 
 // Single source of truth for the roster: expands into both kModules[] and the
 // derived HS_TEST_MODULE_COUNT below. Adding a module means an #include above
-// AND one X(...) row here. Mirrors core/effects.h's HS_EFFECT_LIST.
+// AND one X(...) row here. Mirrors core/engine/effects.h's HS_EFFECT_LIST.
 #define HS_TEST_MODULE_LIST(X)                                                  \
   X("3dmath", hs_test::math3d::run_3dmath_tests)                               \
   X("concepts", hs_test::concepts_tests::run_concepts_tests)                   \

@@ -7,7 +7,7 @@
 
 #include <algorithm>
 #include <cstring>
-#include "core/engine.h"
+#include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
 // Unit-test accessor (tests/test_effects.h) reaching the private Q16
@@ -325,5 +325,5 @@ private:
   } params;
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(GSReactionDiffusion)

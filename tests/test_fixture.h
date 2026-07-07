@@ -10,9 +10,9 @@
  */
 #pragma once
 
-#include "core/animation.h"
-#include "core/memory.h"
-#include "core/platform.h"
+#include "core/animation/animation.h"
+#include "core/engine/memory.h"
+#include "core/engine/platform.h"
 #include "tests/test_harness.h"
 
 namespace hs_test {

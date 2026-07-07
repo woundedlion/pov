@@ -7,7 +7,7 @@
 
 #include <cmath>
 #include <algorithm>
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 // Unit-test accessor for the spawn-gap accumulator and hue-cursor wrap invariants.
 namespace hs_test {
@@ -302,5 +302,5 @@ private:
   }
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(PetalFlow)

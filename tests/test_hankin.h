@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/hankin.h.
+ * Unit tests for core/mesh/hankin.h.
  *
  * Coverage:
  *   - compile_hankin builds base_vertices, static_vertices, dynamic_vertices,
@@ -15,8 +15,8 @@
 #pragma once
 
 #include <cstdint>
-#include "core/hankin.h"
-#include "core/solids.h"
+#include "core/mesh/hankin.h"
+#include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_conway.h" // check_euler_genus0, check_consistent_winding
 #include "tests/test_fixture.h"

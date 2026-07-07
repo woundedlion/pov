@@ -27,8 +27,8 @@
 #include <SPI.h>
 #include <DMAChannel.h>
 #include <atomic>
-#include "core/platform.h" // HS_CHECK / hs::log used below; explicit, not via color.h
-#include "core/color.h"
+#include "core/engine/platform.h" // HS_CHECK / hs::log used below; explicit, not via color.h
+#include "core/color/color.h"
 
 // HD107SFrame (protocol buffer + color correction) lives in its own header so
 // its wire-format / correction math is host-unit-testable without the Teensy

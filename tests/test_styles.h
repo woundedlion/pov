@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Direct unit tests for core/styles.h — the Feedback::Style POD: named presets,
+ * Direct unit tests for core/engine/styles.h — the Feedback::Style POD: named presets,
  * scalar lerp with function-pointer/discrete snapping, the transform functions
  * (identity/noise/melt warp — both the unbound identity path and the bound-noise
  * production branch — plain/hue fade), and sync_noise().
@@ -11,7 +11,7 @@
  */
 #pragma once
 
-#include "core/styles.h"
+#include "core/engine/styles.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

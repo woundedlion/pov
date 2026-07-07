@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 /**
  * @brief Ray-marches a twisted torus SDF once per dodecahedron vertex, shading
@@ -207,5 +207,5 @@ private:
   BakedPalette baked_palette;
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(Raymarch)

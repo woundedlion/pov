@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/solids.h.
+ * Unit tests for core/mesh/solids.h.
  *
  * Coverage:
  *   - Registry integrity: every registered solid (simple + catalan + islamic)
@@ -26,9 +26,9 @@
 
 #include <cmath>
 #include <cstdint>
-#include "core/mesh.h"
-#include "core/palettes.h"
-#include "core/solids.h"
+#include "core/mesh/mesh.h"
+#include "core/color/palettes.h"
+#include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"

@@ -1,6 +1,6 @@
 // Single source of truth for the effect roster shared by the screenshot tools
 // (capture_screenshots.mjs and check_screenshots.mjs): parse the HS_EFFECT_LIST
-// X-macro in core/effects.h rather than hand-maintaining a list. That macro is
+// X-macro in core/engine/effects.h rather than hand-maintaining a list. That macro is
 // the same roster the WASM startup check and the native smoke suite are derived
 // from, so the gallery — and its CI freshness gate — can never silently drift
 // from the registered effect set when an effect is added or removed.
@@ -17,7 +17,7 @@ export async function loadEffectRoster() {
   // remove). The body runs from `#define HS_EFFECT_LIST(X)` through the last
   // continued line (the first line that does not end in a backslash).
   const block = src.match(/#define HS_EFFECT_LIST\(X\)((?:.*\\\r?\n)*.*)/);
-  if (!block) throw new Error('Could not locate HS_EFFECT_LIST in core/effects.h');
+  if (!block) throw new Error('Could not locate HS_EFFECT_LIST in core/engine/effects.h');
   // Strip /* */ block comments then // line comments before extracting names: a
   // commented-out `X(Foo)` row is not in the registered roster, so capturing it
   // would red the gallery run for an otherwise-correct build. Block comments are
@@ -36,8 +36,8 @@ export async function loadEffectRoster() {
 // independent witness the HS_EFFECT_LIST roster is cross-checked against — a
 // header that registers an effect the X-macro list never names (or vice versa)
 // is roster drift the WASM count check cannot see, because an effect never
-// #included from core/effects.h is absent from both the registry and the count.
-// The REGISTER_EFFECT *macro definition* lives in core/effect_registry.h (not
+// #included from core/engine/effects.h is absent from both the registry and the count.
+// The REGISTER_EFFECT *macro definition* lives in core/engine/effect_registry.h (not
 // effects/), so globbing effects/*.h captures only call sites.
 export async function loadRegisteredEffects() {
   const dir = join(REPO_ROOT, 'effects');

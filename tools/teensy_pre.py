@@ -5,7 +5,7 @@ ONLY by globbing `$PROJECT_SRC_DIR/*.ino` at the top level (pioino.FindInoNodes)
 and IGNORES build_src_filter. With src_dir = repo root and the two sketches under
 targets/<X>/, that glob finds nothing, so setup()/loop() never link.
 
-We keep src_dir = the repo root — so the shared core/*.cpp build as NORMAL project
+We keep src_dir = the repo root — so the shared core/engine/*.cpp build as NORMAL project
 sources and inherit the LDF-resolved library include paths (FastLED, and the
 framework's SPI) they need — and simply override FindInoNodes to return exactly
 this env's sketch. PlatformIO then converts it to targets/<X>/<X>.ino.cpp, which

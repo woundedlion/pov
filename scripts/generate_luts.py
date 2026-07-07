@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
-"""Regenerate core/color_luts.h — the sRGB transfer-function lookup tables.
+"""Regenerate core/color/color_luts.h — the sRGB transfer-function lookup tables.
 
 The device and simulator both convert between 8-bit sRGB and the engine's
 16-bit linear working space through two checked-in tables (so the hot path is a
 single load, never a powf). This script is their generator of record; it mirrors
-the reference implementations in core/color.h:
+the reference implementations in core/color/color.h:
 
   srgb_to_linear(s) = s/12.92                       if s <= 0.04045
                       ((s+0.055)/1.055) ** 2.4       otherwise
@@ -23,7 +23,7 @@ is correct; computing in float32 flips one srgb_to_linear entry at an LSB
 rounding boundary.
 
 Usage:
-  python scripts/generate_luts.py > core/color_luts.h
+  python scripts/generate_luts.py > core/color/color_luts.h
 
 The generator self-formats: it pipes its output through clang-format (using the
 repo .clang-format) so the result is already in committed style — no separate
@@ -164,7 +164,7 @@ def main():
         # is never skipped silently. The numeric data is correct regardless.
         sys.stderr.write(
             "generate_luts: WARNING - clang-format not found; emitting "
-            "UNFORMATTED output. Run `clang-format -i core/color_luts.h` before "
+            "UNFORMATTED output. Run `clang-format -i core/color/color_luts.h` before "
             "committing, or set CLANG_FORMAT to the binary path.\n")
         sys.stdout.write(text)
     else:

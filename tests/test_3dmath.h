@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/3dmath.h.
+ * Unit tests for core/math/3dmath.h.
  *
  * Usage:
  *   #include "tests/test_3dmath.h"
@@ -14,8 +14,8 @@
  */
 #pragma once
 
-#include "core/3dmath.h"
-#include "core/rotate.h"
+#include "core/math/3dmath.h"
+#include "core/math/rotate.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -1026,7 +1026,7 @@ inline void test_spline_catmull_rom() {
 }
 
 // ============================================================================
-// wrap_index (core/rotate.h) — folds a float index into [0, m)
+// wrap_index (core/math/rotate.h) — folds a float index into [0, m)
 // ============================================================================
 
 /**

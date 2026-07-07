@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/conway.h.
+ * Unit tests for core/mesh/conway.h.
  *
  * Builds a small input PolyMesh (a unit-sphere cube from Solids::Cube),
  * runs each Conway operator, and verifies structural invariants:
@@ -19,8 +19,8 @@
 #include <cstdint>
 #include <map>
 #include <vector>
-#include "core/conway.h"
-#include "core/solids.h"
+#include "core/mesh/conway.h"
+#include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"

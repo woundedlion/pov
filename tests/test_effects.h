@@ -12,9 +12,9 @@
  */
 #pragma once
 
-#include "core/effects.h"
-#include "core/canvas.h"
-#include "core/memory.h"
+#include "core/engine/effects.h"
+#include "core/render/canvas.h"
+#include "core/engine/memory.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -1518,7 +1518,7 @@ inline int run_effects_tests() {
   // the self-registering effect count (each header's REGISTER_EFFECT) must equal
   // the static HS_EFFECT_LIST roster, or an effect present in one and missing from
   // the other silently drops smoke coverage below. Active because the test build
-  // defines HS_TEST_BUILD (see core/effect_registry.h).
+  // defines HS_TEST_BUILD (see core/engine/effect_registry.h).
   HS_EXPECT_EQ(EffectRegistry::entries().size(),
                static_cast<size_t>(HS_EFFECT_COUNT));
 
@@ -1550,7 +1550,7 @@ inline int run_effects_tests() {
   test_hankinsolids_arena_budget_covers_every_solid();
 
   // Smoke every registered effect. The list is generated from the single-source
-  // roster in core/effects.h (HS_EFFECT_LIST), so it cannot drift from the
+  // roster in core/engine/effects.h (HS_EFFECT_LIST), so it cannot drift from the
   // shipped set.
   g_nonblack_effects = 0;
 #define HS_SMOKE_ONE(name) smoke_one<name>(#name);

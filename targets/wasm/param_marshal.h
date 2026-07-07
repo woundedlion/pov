@@ -18,7 +18,7 @@
 
 #include <vector>
 
-#include "core/canvas.h" // Effect, Effect::ParamDef
+#include "core/render/canvas.h" // Effect, Effect::ParamDef
 
 namespace hs_wasm {
 
