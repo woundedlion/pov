@@ -92,7 +92,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 4. ✅ **WebGL context restore does not request a repaint, leaving a blank sphere while paused** — `driver.js:300-304` · _correctness_
    Fix: In onContextRestored, set this.needsRender = true (or call this.invalidate()) so the next animation-loop tick repaints and re-uploads instanceColor/instanceMatrix after the context comes back.
 
-5. **Spline point-drag can get stuck when the mouse is released outside the canvas** — `tools/splines.html:413-415, onMouseUp/onMouseMove` · _correctness_
+5. ✅ **Spline point-drag can get stuck when the mouse is released outside the canvas** — `tools/splines.html:413-415, onMouseUp/onMouseMove` · _correctness_
    Fix: Attach the drag-continuation listeners to document: register onMouseMove and onMouseUp on document (keep mousedown on the canvas). Alternatively, use Pointer Events with setPointerCapture on the canvas so release is always delivered.
 
 6. **stack_measure hand-rolls reset_globals() instead of sharing it; silently drifts when the canonical reset grows** — `tests/stack_measure.cpp:55-56 (and 63-64)` · _maintainability_
