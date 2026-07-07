@@ -138,7 +138,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 6. ✅ **Segment render watchdog can misclassify a slow frame as a permanent fault.** `daydream/segment_controller.js:39,541-550`: `RENDER_WATCHDOG_MS = 8 × SLOW_FRAME_MS = 496 ms` is a single deadline armed at dispatch; a heavy effect on a throttled/mobile GPU can legitimately exceed it, latching `this.faulted` permanently with a message ("never replied") that is factually wrong for a slow-but-progressing worker. **Fix:** make the deadline adaptive — re-arm whenever any worker reports a frame while `pending > 0` — or raise the bound substantially, and correct the fault message.
 
-7. **JS unit suite has no `pull_request` CI trigger.** `daydream/.github/workflows/deploy.yml` runs `npm test` only as a *deploy gate* on push-to-master and `workflow_dispatch`; no PR trigger exists anywhere, so a PR can regress ~30 test files undetected until after merge. **Fix:** add a small standalone `pull_request` workflow (checkout, setup-node 22, `npm ci`, `npm test`) mirroring the existing job; keep `deploy.yml` push-gated.
+7. ✅ **JS unit suite has no `pull_request` CI trigger.** `daydream/.github/workflows/deploy.yml` runs `npm test` only as a *deploy gate* on push-to-master and `workflow_dispatch`; no PR trigger exists anywhere, so a PR can regress ~30 test files undetected until after merge. **Fix:** add a small standalone `pull_request` workflow (checkout, setup-node 22, `npm ci`, `npm test`) mirroring the existing job; keep `deploy.yml` push-gated.
 
 ### Priority 2 — Low (polish / hardening)
 
