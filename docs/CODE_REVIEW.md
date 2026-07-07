@@ -260,7 +260,7 @@ None. No high-severity or critical defect was identified in scope.
 
 6. ✅ **Route the RingSpin ring pool through `Arena::allocate_n`** — `effects/RingSpin.h:73-74`. The pool is allocated as raw bytes + placement-new instead of the typed `allocate_n<Ring>` idiom introduced to centralize exactly this pattern. No correctness impact (persistent arena, never freed); consistency only.
 
-7. **Add a one-line note on sub-frame fade-in truncation** — `core/animation/sprites.h:49-53`. When `fade_total > duration`, the integer rescale `(long long)duration * fade_in / fade_total` floors to 0 at tiny durations (e.g. `duration=1`), dropping the fade-in. `fade_out` stays non-negative, so there is no UB — this is acceptable degradation; document the truncation rather than change behavior.
+7. ✅ **Add a one-line note on sub-frame fade-in truncation** — `core/animation/sprites.h:49-53`. When `fade_total > duration`, the integer rescale `(long long)duration * fade_in / fade_total` floors to 0 at tiny durations (e.g. `duration=1`), dropping the fade-in. `fade_out` stays non-negative, so there is no UB — this is acceptable degradation; document the truncation rather than change behavior.
 
 8. **Drop the dead `-?` branch in the reaction-graph provenance regex** — `.github/workflows/ci.yml:382`. Fibonacci-lattice neighbor indices are always in `[0, 7679]`, so `grep -oE '-?[0-9]+'` never matches a sign; simplify to `[0-9]+` (matching the sibling LUT job) so the pattern doesn't imply signed data that doesn't exist.
 
