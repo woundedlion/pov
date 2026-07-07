@@ -176,7 +176,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 24. ✅ **Arena-budget gate passes green on an empty effect roster.** `tests/arena_measure.cpp:60-79` gates only on `g_worst_total > budget`; an emptied `HS_EFFECT_LIST` (or dropped `measure()` calls) leaves it 0 and PASS. `stack_measure.cpp` has the same gap. **Fix:** count measured effects and assert `g_measured == HS_EFFECT_COUNT` (the constexpr is already available).
 
-25. **Stale `--assume-filename` path in the LUT generator.** `scripts/generate_luts.py:114` points clang-format at `core/color_luts.h` (moved to `core/color/`); works only incidentally via the single root `.clang-format`, and would silently diverge if a directory-scoped config were ever added. **Fix:** point it at `core/color/color_luts.h`.
+25. ✅ **Stale `--assume-filename` path in the LUT generator.** `scripts/generate_luts.py:114` points clang-format at `core/color_luts.h` (moved to `core/color/`); works only incidentally via the single root `.clang-format`, and would silently diverge if a directory-scoped config were ever added. **Fix:** point it at `core/color/color_luts.h`.
 
 26. **`linear_to_srgb` LUT (65,536 evals) computed twice per emit.** `scripts/generate_luts.py:155-160`: `check()` and `render()` each rebuild the tables; the CI provenance job pays it every push. **Fix:** build `fwd`/`rev` once in `main()` and pass them to both.
 

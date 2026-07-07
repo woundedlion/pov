@@ -111,7 +111,7 @@ def clang_format(text):
     cf = os.environ.get("CLANG_FORMAT") or shutil.which("clang-format")
     if not cf:
         return None
-    header = Path(__file__).resolve().parent.parent / "core" / "color_luts.h"
+    header = Path(__file__).resolve().parent.parent / "core" / "color" / "color_luts.h"
     result = subprocess.run(
         [cf, "--assume-filename=" + str(header)],
         input=text, capture_output=True, text=True)
