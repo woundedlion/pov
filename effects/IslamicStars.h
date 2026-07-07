@@ -163,23 +163,28 @@ private:
     const int *raw_indices = faceIndices.data();
     const int num_faces = static_cast<int>(faceIndices.size());
 
-    // Per-face segues order faces by world-space center, recomputed per frame
-    // so the sweep front stays fixed in the room while the mesh rotates
-    // through it. The third argument is the face's palette-slot class, mapped
-    // exactly as the fragment shader maps it; class-agnostic sweeps ignore it.
+    // Per-face segues order faces by their center, recomputed per frame: from
+    // world space by default (the front stays fixed in the room while the
+    // mesh rotates through it), or from the untransformed mesh for segues
+    // declaring kLocalSweep (the front rides the mesh). The third argument is
+    // the face's palette-slot class, mapped exactly as the fragment shader
+    // maps it; class-agnostic sweeps ignore it.
     constexpr bool kPerFace =
         requires(const Vector &c) { seg.face_offset(c, 0, 0); };
     ArenaVector<float> face_offsets;
     if constexpr (kPerFace) {
-      const size_t faces = transformed_state.num_faces();
+      constexpr bool kLocalSweep = requires { requires SegueT::kLocalSweep; };
+      const MeshState &sweep_state =
+          kLocalSweep ? base_state : transformed_state;
+      const size_t faces = sweep_state.num_faces();
       face_offsets.bind(scratch_arena_a, faces);
-      const uint16_t *fidx = transformed_state.get_faces_data();
-      const uint16_t *foff = transformed_state.get_face_offsets_data();
-      const uint8_t *fcnt = transformed_state.get_face_counts_data();
+      const uint16_t *fidx = sweep_state.get_faces_data();
+      const uint16_t *foff = sweep_state.get_face_offsets_data();
+      const uint8_t *fcnt = sweep_state.get_face_counts_data();
       for (size_t f = 0; f < faces; ++f) {
         Vector c(0.0f, 0.0f, 0.0f);
         for (int k = 0; k < fcnt[f]; ++k)
-          c = c + transformed_state.vertices[fidx[foff[f] + k]];
+          c = c + sweep_state.vertices[fidx[foff[f] + k]];
         int cls = (f < static_cast<size_t>(num_faces))
                       ? wrap(raw_indices[f], NUM_PALETTES)
                       : 0;
