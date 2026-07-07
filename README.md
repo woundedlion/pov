@@ -202,13 +202,13 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   │   └── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase contract + umbrella over the fragments below
-│   │   ├── animation_timers.h      RandomTimer / PeriodicTimer callback timers
-│   │   ├── animation_params.h      Parameter-writing animations (Transition, Mutation, Driver, Lerp, ColorWipe, Mobius*, Ripple, Noise)
-│   │   ├── animation_motion.h      Path/ProceduralPath + the Orientation drivers (Motion, Rotation, RandomWalk)
-│   │   ├── animation_trails.h      OrientationTrail/VectorTrail history + tween/deep_tween traversal
-│   │   ├── animation_sprites.h     Sprite draw envelope, Particle/ParticleSystem
-│   │   ├── animation_timeline.h    TimelineEvent inline storage + the Timeline scheduler
-│   │   └── animation_mesh.h        Mesh-to-mesh transitions: MeshMorph, Segue policies, MeshCarousel
+│   │   ├── timers.h                RandomTimer / PeriodicTimer callback timers
+│   │   ├── params.h                Parameter-writing animations (Transition, Mutation, Driver, Lerp, ColorWipe, Mobius*, Ripple, Noise)
+│   │   ├── motion.h                Path/ProceduralPath + the Orientation drivers (Motion, Rotation, RandomWalk)
+│   │   ├── trails.h                OrientationTrail/VectorTrail history + tween/deep_tween traversal
+│   │   ├── sprites.h               Sprite draw envelope, Particle/ParticleSystem
+│   │   ├── timeline.h              TimelineEvent inline storage + the Timeline scheduler
+│   │   └── mesh.h                  Mesh-to-mesh transitions: MeshMorph, Segue policies, MeshCarousel
 │   └── vendor/                 Third-party code
 │       ├── FastNoiseLite.h         Single-header noise library
 │       └── FastNoiseLite_config.h  FastNoiseLite build configuration
@@ -787,13 +787,13 @@ The `Timeline` class manages a list of running `IAnimation` objects. Each frame,
 
 | Header | Subject | Contents |
 |---|---|---|
-| `animation_timers.h` | Callbacks on a clock | `RandomTimer`, `PeriodicTimer` |
-| `animation_params.h` | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Driver`, `Lerp`, `ColorWipe`, the `Mobius*` family, `Ripple`, `Noise` |
-| `animation_motion.h` | An `Orientation` driven through space | `Path`/`ProceduralPath`, `Motion`, `Rotation`, `RandomWalk` |
-| `animation_trails.h` | Recorded history | `OrientationTrail`, `VectorTrail`, the `tween`/`deep_tween` traversals |
-| `animation_sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
-| `animation_timeline.h` | Scheduling | `TimelineEvent`, `Timeline` |
-| `animation_mesh.h` | Mesh-to-mesh transitions | `MeshMorph`, the `Segue` policies, `MeshCarousel` |
+| `timers.h` | Callbacks on a clock | `RandomTimer`, `PeriodicTimer` |
+| `params.h` | A caller-owned parameter, written each frame | `Transition`, `Mutation`, `Driver`, `Lerp`, `ColorWipe`, the `Mobius*` family, `Ripple`, `Noise` |
+| `motion.h` | An `Orientation` driven through space | `Path`/`ProceduralPath`, `Motion`, `Rotation`, `RandomWalk` |
+| `trails.h` | Recorded history | `OrientationTrail`, `VectorTrail`, the `tween`/`deep_tween` traversals |
+| `sprites.h` | Visible things | `Sprite`, `Particle`/`ParticleSystem` |
+| `timeline.h` | Scheduling | `TimelineEvent`, `Timeline` |
+| `mesh.h` | Mesh-to-mesh transitions | `MeshMorph`, the `Segue` policies, `MeshCarousel` |
 
 The fragments compile only inside `animation.h` (a direct include fails with an `#error`); consumers include `animation.h` alone.
 
