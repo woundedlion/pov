@@ -52,7 +52,7 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Install Clang + Ninja + ccache
         run: |
@@ -68,7 +68,7 @@ jobs:
       # The shard-agnostic restore-key means any prior shard's warm cache is
       # accepted on a cache miss (all shards compile the same TUs).
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-tests-${{ github.run_id }}-${{ matrix.shard }}
@@ -137,7 +137,7 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Install Clang + Ninja + ccache
         run: |
@@ -149,7 +149,7 @@ jobs:
       # change the compile command, so object caches must not collide).
       # Per-shard slot for the same reason as the tests job above.
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-sanitizers-${{ github.run_id }}-${{ matrix.shard }}
@@ -184,7 +184,7 @@ jobs:
     # "no VS prompt required" promise the README makes.
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       # emsdk ships the Clang the toolchain prefers AND the lld.exe it aliases to
       # lld-link.exe — using it (rather than the runner's preinstalled LLVM)
@@ -217,7 +217,7 @@ jobs:
     env:
       CCACHE_DIR: ${{ github.workspace }}/.ccache
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Install Ninja + ccache
         run: sudo apt-get update && sudo apt-get install -y ninja-build ccache
@@ -236,7 +236,7 @@ jobs:
       # ccache also fronts emcc (CMAKE_CXX_COMPILER_LAUNCHER applies to both
       # modes), so cache it here too.
       - name: Cache ccache
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ${{ env.CCACHE_DIR }}
           key: ccache-wasm-${{ github.run_id }}
@@ -325,7 +325,7 @@ jobs:
           echo "Provenance trio produced and artifact hash verified."
 
       - name: Upload WASM artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: holosphere_wasm
           path: |
@@ -337,8 +337,8 @@ jobs:
     name: Generated LUTs match committed header
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6        # pin the interpreter, like the teensy jobs
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the teensy jobs
         with:
           python-version: '3.12'
 
@@ -370,8 +370,8 @@ jobs:
     # pathological RD_N/W change can't hang a runner indefinitely.
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6        # pin the interpreter, like the teensy jobs
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # pin the interpreter, like the teensy jobs
         with:
           python-version: '3.12'
 
@@ -405,7 +405,7 @@ jobs:
     # still relies on a manual `npm run screenshots` re-capture.
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       # Node is preinstalled on the runner; the scripts have no runtime deps
       # (the freshness gate never launches a browser).
@@ -436,7 +436,7 @@ jobs:
       SHARD3: *shard3_re
       SHARD4: *shard4_re
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
 
       - name: Install Clang + Ninja
         run: |
@@ -485,8 +485,8 @@ jobs:
     # on every push regardless of whether the firmware build is enabled yet.
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6
         with:
           python-version: '3.12'
       - name: Run gate parser/layout/warning self-tests
@@ -505,12 +505,12 @@ jobs:
     # promoting this to a REQUIRED check in branch protection is the follow-up.
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6        # PlatformIO is a Python package
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # PlatformIO is a Python package
         with:
           python-version: '3.12'
       - name: Cache PlatformIO toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.platformio
           # Target-agnostic (one toolchain serves both envs). The exact key
@@ -523,7 +523,7 @@ jobs:
           key: pio-teensy-${{ hashFiles('platformio.ini') }}
           restore-keys: pio-teensy-
       - name: Cache build objects               # mirrors ci.yml's ccache discipline
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           # build_cache_dir from platformio.ini — without this the 7,685-line
           # reaction_graph.cpp + FastLED recompile from scratch every run, ×2 envs.
@@ -545,7 +545,7 @@ jobs:
         run: pio run -e holosphere -e phantasm -e holosphere_dma
       - name: Upload firmware artifacts
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: teensy-firmware
           path: .pio/build/*/firmware.*
@@ -562,15 +562,15 @@ jobs:
     # warnings.
     runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-python@v6        # PlatformIO is a Python package
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6        # PlatformIO is a Python package
         with:
           python-version: '3.12'
       # Toolchain cache is safe to share with teensy-size (it only holds the
       # downloaded compiler/framework, not built objects). The build-objects
       # cache is deliberately NOT restored here.
       - name: Cache PlatformIO toolchain
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.platformio
           key: pio-teensy-${{ hashFiles('platformio.ini') }}
