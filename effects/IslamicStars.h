@@ -47,6 +47,10 @@ public:
     ripple_gen.template_params.decay = 0.1f;
 
     registerParam("Fade", &params.fade, 0.0f, 96.0f);
+    // Per-face fade length range (frames): each face draws a random fade from
+    // [lo, hi] as the terminator reaches it, fraying the sweep front.
+    registerParam("Face Fade Lo", &carousel.segue().fade_frames_min, 0.0f, 32.0f);
+    registerParam("Face Fade Hi", &carousel.segue().fade_frames_max, 0.0f, 32.0f);
     // Burst/Ripp Dur ranges are clamped to the ripple pool capacity invariant
     // (see the RIPPLE* constants below).
     registerParam("Burst", &params.burst_size, 1.0f, (float)BURST_MAX);
@@ -162,12 +166,14 @@ private:
     constexpr bool PER_FACE =
         requires(const Vector &c) { seg.face_offset(c, 0, 0); };
     ArenaVector<float> face_offsets;
+    ArenaVector<float> face_fades;
     if constexpr (PER_FACE) {
       constexpr bool LOCAL_SWEEP = requires { requires SegueT::LOCAL_SWEEP; };
       const MeshState &sweep_state =
           LOCAL_SWEEP ? base_state : transformed_state;
       const size_t faces = sweep_state.num_faces();
       face_offsets.bind(scratch_arena_a, faces);
+      face_fades.bind(scratch_arena_a, faces);
       const uint16_t *fidx = sweep_state.get_faces_data();
       const uint16_t *foff = sweep_state.get_face_offsets_data();
       const uint8_t *fcnt = sweep_state.get_face_counts_data();
@@ -180,6 +186,7 @@ private:
                       : 0;
         face_offsets.push_back(
             seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls));
+        face_fades.push_back(seg.face_fade_frac(static_cast<int>(f)));
       }
     }
 
@@ -188,7 +195,7 @@ private:
       if constexpr (PER_FACE) {
         int fi = static_cast<int>(frag.v2);
         if (fi >= 0 && fi < static_cast<int>(face_offsets.size()))
-          p = seg.face_phase(phase, face_offsets[fi]);
+          p = seg.face_phase(phase, face_offsets[fi], face_fades[fi]);
       }
       frag.color = shade_mesh_topology(frag, raw_indices, num_faces,
                                        palette_bank_, palette_idx, 1.0f, seg, p);

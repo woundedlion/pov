@@ -181,7 +181,8 @@ private:
  *   void   retarget(v)               — re-randomize per-transition state
  *   Vector warp(v, phase)            — pre-ripple unit-sphere vertex warp
  *   float  face_offset(center, i, cls) — per-face sweep ordering in [0, 1]
- *   float  face_phase(phase, offset) — face-local phase from the sweep front
+ *   float  face_fade_frac(i)          — per-face fade length as a window fraction
+ *   float  face_phase(phase, offset[, fade_frac]) — face-local phase from the front
  *
  * A per-face policy may also declare `static constexpr bool LOCAL_SWEEP =
  * true` to order faces by the untransformed mesh instead of world-space
@@ -228,6 +229,19 @@ inline int schedule_sequential(Timeline &timeline, SpriteFn draw_fn,
 inline float sweep_phase(float phase, float offset, float band) {
   float p = std::sqrt(phase);
   return hs::clamp((p - offset * (1.0f - band)) / band, 0.0f, 1.0f);
+}
+
+/**
+ * @brief Stable hash of an index and seed to a float in [0, 1).
+ * @details PCG output hash (RXS-M-XS). Stateless, so a per-face value stays
+ * fixed across the frames of a transition — unlike a draw from the global RNG,
+ * which advances every frame and would make the value jitter.
+ */
+inline float hash01(uint32_t i, uint32_t seed) {
+  uint32_t h = (i ^ seed) * 747796405u + 2891336453u;
+  h = ((h >> ((h >> 28) + 4u)) ^ h) * 277803737u;
+  h = (h >> 22) ^ h;
+  return static_cast<float>(h) * (1.0f / 4294967296.0f);
 }
 
 /**
@@ -325,37 +339,53 @@ struct Lace : Base {
 
 /**
  * @brief A day/night line pinned to the mesh sweeps across it at constant
- * speed; the moment it reaches a face, that face fades over FADE_FRAMES
- * frames. The extinguishing sweep takes the old pattern, the return sweep
- * ignites the new.
+ * speed; the moment it reaches a face, that face fades over a per-face random
+ * length drawn from [fade_frames_min, fade_frames_max] frames. The
+ * extinguishing sweep takes the old pattern, the return sweep ignites the new.
  * @details LOCAL_SWEEP anchors the line to the untransformed mesh, so it
- * rotates with the mesh rather than the mesh rotating through it. The front
- * crosses the sphere over the fade window minus one per-face fade, so the
- * last-touched face still completes: face phases are exactly 1 at phase 1
- * and 0 at phase 0.
+ * rotates with the mesh rather than the mesh rotating through it. Each face's
+ * fade length is a stable per-transition hash of its index, so the front frays
+ * into an irregular edge instead of a hard line. The front crosses the sphere
+ * over the fade window minus one face fade, so the last-touched face still
+ * completes: face phases are exactly 1 at phase 1 and 0 at phase 0 for every
+ * per-face fade length.
  */
 struct TerminatorSweep : Base {
   static constexpr bool LOCAL_SWEEP = true; /**< Sweep in mesh-local space. */
-  static constexpr int FADE_FRAMES = 8; /**< Per-face fade length, in frames, from the front's touch (0.5 s at 16 fps). */
-  Vector axis = Y_AXIS;    /**< Mesh-local sweep axis. */
-  float fade_frac = 0.11f; /**< FADE_FRAMES over the scheduled fade window; set by schedule(). */
+  Vector axis = Y_AXIS;          /**< Mesh-local sweep axis. */
+  float fade_frames_min = 4.0f;  /**< Shortest per-face fade length, in frames. */
+  float fade_frames_max = 12.0f; /**< Longest per-face fade length, in frames. */
+  float fade_frac_min = 0.06f; /**< fade_frames_min over the scheduled window; set by schedule(). */
+  float fade_frac_max = 0.17f; /**< fade_frames_max over the scheduled window; set by schedule(). */
+  uint32_t fade_seed = 0x9e3779b9u; /**< Per-transition seed for the per-face fade hash; rolled by retarget(). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
     int fade = std::min(window, duration / 2);
-    fade_frac = std::min(1.0f, static_cast<float>(FADE_FRAMES) /
-                                   static_cast<float>(std::max(fade, 1)));
+    float inv = 1.0f / static_cast<float>(std::max(fade, 1));
+    fade_frac_min = std::min(1.0f, fade_frames_min * inv);
+    fade_frac_max = std::min(1.0f, fade_frames_max * inv);
     return schedule_sequential(timeline, std::move(draw_fn), duration, window);
   }
-  void retarget(const Vector &v) { axis = v; }
+  void retarget(const Vector &v) {
+    axis = v;
+    fade_seed = static_cast<uint32_t>(hs::random()());
+  }
   float face_offset(const Vector &center, int, int) const {
     return 0.5f * (1.0f + dot(center, axis));
   }
-  float face_phase(float phase, float offset) const {
-    return hs::clamp((phase - offset * (1.0f - fade_frac)) / fade_frac, 0.0f,
-                     1.0f);
+  /** @brief Per-face fade length as a window fraction: a stable hash of the
+   * face index into [fade_frac_min, fade_frac_max]. Computed once per face (not
+   * per fragment), so it must stay a pure function of the index and seed. */
+  float face_fade_frac(int i) const {
+    float t = hash01(static_cast<uint32_t>(i), fade_seed);
+    return fade_frac_min + (fade_frac_max - fade_frac_min) * t;
+  }
+  float face_phase(float phase, float offset, float fade_frac) const {
+    float ff = std::max(fade_frac, 1e-4f);
+    return hs::clamp((phase - offset * (1.0f - ff)) / ff, 0.0f, 1.0f);
   }
   /** @brief Squared: alpha scales linear-light color, where a linear ramp
    * reads mostly-bright almost immediately; the square spreads the perceived
-   * fade across the full FADE_FRAMES. */
+   * fade across the face's fade window. */
   float opacity(float phase) const { return phase * phase; }
 };
 

@@ -1354,31 +1354,65 @@ inline void test_terminator_sweep_orders_by_axis() {
 
 /**
  * @brief Verifies TerminatorSweep's per-face fade is time-based: schedule()
- * derives the fade fraction so each face ramps over exactly FADE_FRAMES of the
- * fade window once the front reaches it, with exact 0/1 window endpoints, and
- * a window shorter than FADE_FRAMES degrades to one whole-sphere fade.
+ * derives the fade fractions so a face ramps over its fade length once the
+ * front reaches it, with exact 0/1 window endpoints, and a window shorter than
+ * the fade length degrades to one whole-sphere fade. Pins the range to a single
+ * length so the per-face random collapses to one deterministic fraction.
  */
 inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
   Timeline tl;
   const int dur = 200, window = 32;
   MeshCarousel<Segue::TerminatorSweep> carousel;
+  carousel.segue().fade_frames_min = 8.0f;
+  carousel.segue().fade_frames_max = 8.0f;
   int next_delay =
       carousel.schedule_segue(tl, [](Canvas &, float) {}, dur, window);
   HS_EXPECT_EQ(next_delay, dur); // sequential: one mesh per frame
   const Segue::TerminatorSweep &term = carousel.segue();
-  const float f =
-      static_cast<float>(Segue::TerminatorSweep::FADE_FRAMES) / window;
-  HS_EXPECT_NEAR(term.fade_frac, f, 1e-6f);
+  const float f = 8.0f / window;
+  HS_EXPECT_NEAR(term.fade_frac_min, f, 1e-6f);
+  HS_EXPECT_NEAR(term.fade_frac_max, f, 1e-6f);
   for (float o : {0.0f, 0.5f, 1.0f}) {
     float touch = o * (1.0f - f); // phase at which the front reaches the face
-    HS_EXPECT_NEAR(term.face_phase(touch, o), 0.0f, 1e-5f);
-    HS_EXPECT_NEAR(term.face_phase(touch + 0.5f * f, o), 0.5f, 1e-5f);
-    HS_EXPECT_NEAR(term.face_phase(touch + f, o), 1.0f, 1e-5f);
-    HS_EXPECT_NEAR(term.face_phase(1.0f, o), 1.0f, 1e-5f);
-    HS_EXPECT_NEAR(term.face_phase(0.0f, o), 0.0f, 1e-5f);
+    HS_EXPECT_NEAR(term.face_phase(touch, o, f), 0.0f, 1e-5f);
+    HS_EXPECT_NEAR(term.face_phase(touch + 0.5f * f, o, f), 0.5f, 1e-5f);
+    HS_EXPECT_NEAR(term.face_phase(touch + f, o, f), 1.0f, 1e-5f);
+    HS_EXPECT_NEAR(term.face_phase(1.0f, o, f), 1.0f, 1e-5f);
+    HS_EXPECT_NEAR(term.face_phase(0.0f, o, f), 0.0f, 1e-5f);
   }
   carousel.schedule_segue(tl, [](Canvas &, float) {}, 8, 2);
-  HS_EXPECT_NEAR(carousel.segue().fade_frac, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(carousel.segue().fade_frac_max, 1.0f, 1e-6f);
+}
+
+/**
+ * @brief Verifies TerminatorSweep draws each face's fade length randomly from
+ * [fade_frames_min, fade_frames_max]: the fractions stay in range, are stable
+ * for a given index, differ across faces, and preserve exact 0/1 window
+ * endpoints for every per-face fade length.
+ */
+inline void test_terminator_sweep_per_face_fade_random_in_range() {
+  hs::random().seed(1337);
+  Timeline tl;
+  const int dur = 400, window = 64;
+  MeshCarousel<Segue::TerminatorSweep> carousel;
+  carousel.segue().retarget(Y_AXIS); // rolls the per-face fade seed
+  carousel.segue().fade_frames_min = 4.0f;
+  carousel.segue().fade_frames_max = 16.0f;
+  carousel.schedule_segue(tl, [](Canvas &, float) {}, dur, window);
+  const Segue::TerminatorSweep &term = carousel.segue();
+  const float lo = 4.0f / window, hi = 16.0f / window;
+  const float first = term.face_fade_frac(0);
+  bool varied = false;
+  for (int i = 0; i < 256; ++i) {
+    float ff = term.face_fade_frac(i);
+    HS_EXPECT_TRUE(ff >= lo - 1e-6f && ff <= hi + 1e-6f);
+    HS_EXPECT_NEAR(term.face_fade_frac(i), ff, 0.0f); // stable per index
+    HS_EXPECT_NEAR(term.face_phase(1.0f, 0.7f, ff), 1.0f, 1e-5f);
+    HS_EXPECT_NEAR(term.face_phase(0.0f, 0.7f, ff), 0.0f, 1e-5f);
+    if (std::fabs(ff - first) > 1e-4f)
+      varied = true;
+  }
+  HS_EXPECT_TRUE(varied);
 }
 
 /**
@@ -2149,6 +2183,7 @@ inline int run_animation_tests() {
   test_sweep_phase_front_ordering();
   test_terminator_sweep_orders_by_axis();
   test_terminator_sweep_fades_faces_over_fixed_frames();
+  test_terminator_sweep_per_face_fade_random_in_range();
   test_shockwave_orders_by_distance_from_origin();
   test_breakdown_fades_classes_sequentially();
   test_spin_flip_warp_is_rigid();
