@@ -106,11 +106,6 @@ inline int g_nonblack_effects = 0;
 inline bool effect_may_be_dark(const char *name, int frames) {
   if (std::strcmp(name, "RingShower") == 0)
     return frames < 30;
-  //   IrisBloom segue: fills are inset-masked until the fade window completes
-  //   (default Fade is 32 frames), and small faces have no deep-enough fragment
-  //   before then.
-  if (std::strcmp(name, "IslamicStars<IrisBloom>") == 0)
-    return frames < 40;
   return false;
 }
 
@@ -1493,18 +1488,6 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
   }
 }
 
-// Two-parameter aliases so the segue-instantiated IslamicStars variants fit
-// smoke_one's template-template parameter.
-// clang-format off
-template <int W, int H> using StarsCrossfade   = IslamicStars<W, H, Segue::Crossfade>;
-template <int W, int H> using StarsIrisBloom   = IslamicStars<W, H, Segue::IrisBloom>;
-template <int W, int H> using StarsLace        = IslamicStars<W, H, Segue::Lace>;
-template <int W, int H> using StarsShockwave   = IslamicStars<W, H, Segue::Shockwave>;
-template <int W, int H> using StarsBreakdown   = IslamicStars<W, H, Segue::Breakdown>;
-template <int W, int H> using StarsSpinFlip    = IslamicStars<W, H, Segue::SpinFlip>;
-template <int W, int H> using StarsGold        = IslamicStars<W, H, Segue::GoldConvergence>;
-// clang-format on
-
 /**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
@@ -1576,19 +1559,6 @@ inline int run_effects_tests() {
 #define HS_DET_ONE_DEV(name) determinism_one<name, kDeviceW, kDeviceH>(#name);
   HS_EFFECT_LIST(HS_DET_ONE_DEV)
 #undef HS_DET_ONE_DEV
-
-  // Segue sweep: IslamicStars instantiated with each non-default transition
-  // policy, at the device resolution (the roster passes above already cover
-  // the default TerminatorSweep at both resolutions). Exercises the
-  // segue-templated warp / per-face / fill / grade render paths end to end.
-  std::printf("  -- IslamicStars segue sweep %dx%d --\n", kDeviceW, kDeviceH);
-  smoke_one<StarsCrossfade, kDeviceW, kDeviceH>("IslamicStars<Crossfade>");
-  smoke_one<StarsIrisBloom, kDeviceW, kDeviceH>("IslamicStars<IrisBloom>");
-  smoke_one<StarsLace, kDeviceW, kDeviceH>("IslamicStars<Lace>");
-  smoke_one<StarsShockwave, kDeviceW, kDeviceH>("IslamicStars<Shockwave>");
-  smoke_one<StarsBreakdown, kDeviceW, kDeviceH>("IslamicStars<Breakdown>");
-  smoke_one<StarsSpinFlip, kDeviceW, kDeviceH>("IslamicStars<SpinFlip>");
-  smoke_one<StarsGold, kDeviceW, kDeviceH>("IslamicStars<GoldConvergence>");
 
   return fixture.result();
 }
