@@ -128,7 +128,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 ### Priority 1 — Medium (fix soon)
 
-2. **FlowField evaluates a virtual palette per fragment on the MCU hot path.** `effects/FlowField.h:147` calls `palette.get()` (virtual + OKLCH lerp + `fast_sinf` + colorspace convert) once per trail fragment (~600 particles × 14 trail, per AA splat). **Fix:** add a `BakedPalette` member, bake once in `init()`, sample the LUT in the shader — matching every sibling effect (~4 KB persistent arena).
+2. ✅ **FlowField evaluates a virtual palette per fragment on the MCU hot path.** `effects/FlowField.h:147` calls `palette.get()` (virtual + OKLCH lerp + `fast_sinf` + colorspace convert) once per trail fragment (~600 particles × 14 trail, per AA splat). **Fix:** add a `BakedPalette` member, bake once in `init()`, sample the LUT in the shader — matching every sibling effect (~4 KB persistent arena).
 
 3. **GnomonicStars evaluates a virtual palette per covered pixel.** `effects/GnomonicStars.h:85-88` calls `Palettes::mangoPeel.get(t)` per fragment per star (up to 2,000 stars). `mangoPeel` is `constexpr` and never mutated. **Fix:** add a `BakedPalette` member, bake `mangoPeel` in `init()`, sample the LUT in the shader.
 
