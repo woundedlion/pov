@@ -250,7 +250,7 @@ None. No high-severity or critical defect was identified in scope.
 
 2. ✅ **Correct the stale `~75%` gate figure** — `core/mesh/mesh_classes.h:107,356`. Two comments describing the class-LUT retention gate say "~75%", but the actual constant is `kMinClassHitShare = 0.4f` (a 40% floor). Restate the comments as ~40% / reference `kMinClassHitShare` so a future tuner isn't misled into thinking the bar is nearly double what it is.
 
-3. **Fix the stale uniform name in the strobe doc comment** — `daydream/driver.js:569`. The `setStrobeColumns` JSDoc says the mode is applied via `uColumnFillScale`, but no such uniform exists — the real uniform is `uColumnFillArc` (a repo-wide grep for `uColumnFillScale` returns zero hits). Rename in the comment.
+3. ✅ **Fix the stale uniform name in the strobe doc comment** — `daydream/driver.js:569`. The `setStrobeColumns` JSDoc says the mode is applied via `uColumnFillScale`, but no such uniform exists — the real uniform is `uColumnFillArc` (a repo-wide grep for `uColumnFillScale` returns zero hits). Rename in the comment.
 
 4. **Runtime-smoke the debug WASM build in CI** — `.github/workflows/ci.yml:260-267`. `wasm-debug` is compiled (with `-sASSERTIONS=1`) but never run; `wasm_smoke.mjs` already accepts a `WASM_JS` override, so an assertion-guarded regression on a debug-only branch currently rides a green build. Add one `node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js` step.
 
