@@ -124,7 +124,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 ### Priority 0 — Critical (fix immediately)
 
-1. **Stale header path breaks the roster scripts and the screenshot-gallery CI job.** `scripts/effect_roster.mjs:14` reads `core/effects.h`, but commit `ec36e8eb` moved the file to `core/engine/effects.h`; every consumer (`capture_screenshots.mjs`, `check_screenshots.mjs`, `check_effect_roster.mjs`) crashes with ENOENT, so the CI screenshot-gallery job is red on current master. **Fix:** change the path constant to `join(REPO_ROOT, 'core', 'engine', 'effects.h')` (the surrounding comments are already correct).
+1. ✅ **Stale header path breaks the roster scripts and the screenshot-gallery CI job.** `scripts/effect_roster.mjs:14` reads `core/effects.h`, but commit `ec36e8eb` moved the file to `core/engine/effects.h`; every consumer (`capture_screenshots.mjs`, `check_screenshots.mjs`, `check_effect_roster.mjs`) crashes with ENOENT, so the CI screenshot-gallery job is red on current master. **Fix:** change the path constant to `join(REPO_ROOT, 'core', 'engine', 'effects.h')` (the surrounding comments are already correct).
 
 ### Priority 1 — Medium (fix soon)
 
