@@ -154,7 +154,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 13. ✅ **Header comment references a nonexistent "back" easing variant.** `core/math/easing.h:16` mentions `cubic/back/elastic` overshoot; no `ease_*_back` exists. **Fix:** drop "back/" from the comment.
 
-14. **Dead `face_offsets` branch in generic `clone`.** `core/mesh/mesh.h:500-519`: the `if constexpr (requires { dst.face_offsets; })` block can never instantiate — `MeshState` returns early, `PolyMesh` lacks the member — and implies a nonexistent accessor contract. **Fix:** delete only that block; keep the live topology branch.
+14. ✅ **Dead `face_offsets` branch in generic `clone`.** `core/mesh/mesh.h:500-519`: the `if constexpr (requires { dst.face_offsets; })` block can never instantiate — `MeshState` returns early, `PolyMesh` lacks the member — and implies a nonexistent accessor contract. **Fix:** delete only that block; keep the live topology branch.
 
 15. **Untyped `arena.allocate` + `static_cast` idiom repeated ~18× per file.** `core/mesh/conway.h:423-428` (and across `mesh.h`, `filter.h`, `render/*`, `reaction_graph.h`) spells element type, count, `sizeof`, and `alignof` independently, so a copy-paste can silently mis-size a buffer. **Fix:** add `template<class T> T* Arena::allocate_n(size_t n)` and route the sites through it.
 
