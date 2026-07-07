@@ -284,8 +284,8 @@ public:
 
   /**
    * @brief Reports whether logical index 0 maps to backing slot 0.
-   * @return True when head == 0, so the live elements are contiguous from
-   * `&buf[0]` and raw linear indexing matches the logical order.
+   * @return True when head == 0, so operator[] visits the live elements in
+   * backing-slot order and linear indexing matches the logical order.
    */
   constexpr bool is_linear() const { return head == 0U; }
 
