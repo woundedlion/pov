@@ -44,6 +44,7 @@
 #include "tests/test_util.h"
 #include "tests/test_presets.h"
 #include "tests/test_styles.h"
+#include "tests/test_shading.h"
 #include "tests/test_death.h"
 
 /**
@@ -101,6 +102,7 @@ struct TestModule {
   X("util", hs_test::util_tests::run_util_tests)                               \
   X("presets", hs_test::presets_tests::run_presets_tests)                      \
   X("styles", hs_test::styles_tests::run_styles_tests)                         \
+  X("shading", hs_test::shading_tests::run_shading_tests)                       \
   X("death", hs_test::death::run_death_tests)
 
 #define HS_TEST_MODULE_ENTRY(name, fn) {name, fn},
