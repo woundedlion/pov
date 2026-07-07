@@ -42,6 +42,11 @@ public:
    */
   Transformer(Timeline &tl) : timeline(tl) {}
 
+  // spawn_impl's one-shot callbacks capture this+slot index; relocation would
+  // dangle them, so the object is fixed in place.
+  Transformer(const Transformer &) = delete;
+  Transformer(Transformer &&) = delete;
+
   /**
    * @brief Spawns a new transformation animation.
    * @tparam Args Constructor argument types forwarded to the Animation.
