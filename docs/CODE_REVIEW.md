@@ -165,7 +165,7 @@ Every surviving defect, numbered sequentially. Higher priority = fix first.
 20. ✅ Reword the `static_circular_buffer.h` `is_linear()` comment so it references the public `operator[]` + `is_linear()` contract rather than implying the private `buffer` is exposed.
 21. ✅ Delete the dead `.gitignore` entries `/build_release/` and `/build_test_cmake/`.
 22. ✅ Fix the `fast_atan2` comment (core/math/3dmath.h:334) re: IEEE negative-zero at the −π endpoint.
-23. Add a min-file-count guard to daydream's `node --test "tests/*.test.js"` so an emptied glob cannot pass CI green.
+23. ✅ Add a min-file-count guard to daydream's `node --test "tests/*.test.js"` so an emptied glob cannot pass CI green.
 24. (Info) Note or reconcile the `recorder.js` sim-frame vs. wall-clock `elapsedFormatted` drift in the timed-fallback path.
 
 ---
