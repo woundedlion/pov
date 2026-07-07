@@ -5,7 +5,6 @@
  */
 #pragma once
 #include "core/engine/engine.h"
-#include "effects/aged_slot.h"
 
 // Forward declaration of the unit-test accessor (tests/test_effects.h) that
 // pins Ring::radius_at's age+1 endpoint convention (reaches RADIUS_MAX on the
@@ -67,7 +66,7 @@ public:
 
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       Ring &ring = rings[i];
-      if (ring.expired(ring.life))
+      if (ring.expired())
         continue; // free slot
       draw_ring(canvas, ring.opacity_at(), i);
       ++ring.age;
@@ -83,7 +82,7 @@ private:
    * @details A slot is free when age >= life and is reused by spawn_ring without
    *          reallocating.
    */
-  struct Ring : AgedSlot {
+  struct Ring {
     static constexpr int FADE_IN_FRAMES = 4; /**< Frames spent fading in from 0 to full opacity; opacity then holds (no fade-out). */
     static constexpr float RADIUS_MAX = 2.0f; /**< Maximum radius; the ring grows from 0 to this over its whole life. */
     static constexpr int LIFE_MIN = 8;   /**< Minimum lifetime in frames (>0: guards the radius_at divisor). */
@@ -98,6 +97,7 @@ private:
      *          after spawn).
      */
     BakedPalette palette;
+    int age = 0;  /**< Frames elapsed since (re)spawn. */
     int life = 0; /**< Total visible frames; the slot is free once age >= life. */
 
     /**
@@ -112,7 +112,16 @@ private:
      *          in rather than radius 0, and the ring reaches RADIUS_MAX on its
      *          final visible frame (age + 1 == life).
      */
-    float radius_at() const { return AgedSlot::radius_at(RADIUS_MAX, life); }
+    float radius_at() const {
+      HS_CHECK(life > 0, "RingShower::Ring::radius_at: life must be > 0");
+      float t = hs::clamp(static_cast<float>(age + 1) / life, 0.0f, 1.0f);
+      return RADIUS_MAX * t;
+    }
+
+    /**
+     * @brief Whether the slot has outlived its life and is recyclable/free.
+     */
+    bool expired() const { return age >= life; }
 
     /**
      * @brief Opacity multiplier for the frame currently being drawn.
@@ -175,7 +184,7 @@ private:
    */
   void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {
-      if (rings[i].expired(rings[i].life)) { // free slot
+      if (rings[i].expired()) { // free slot
         Ring &ring = rings[i];
         ring.normal = random_vector();
         ring.life = static_cast<int>(hs::rand_f() * Ring::LIFE_SPAN +
