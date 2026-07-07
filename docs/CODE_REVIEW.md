@@ -168,7 +168,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 20. ✅ **Duplicated safety trap across commit/join adoption paths.** `hardware/pov_segmented.h:544-557`: both branches carry a character-identical `HS_CHECK(!p->overrides_get_pixel(), …)`; a future change must be mirrored by hand. **Fix:** extract just that invariant into a tiny `assert_render_column_safe(Effect*)` helper; keep the divergent policy inline.
 
-21. **Unreachable divergence branch in `drawFrame()`.** `targets/wasm/wasm.cpp:450-455`: the width/height mismatch guard can never fire (resolution is bound at construction; `setResolution` nulls the effect). **Fix:** delete the branch and its comment (do *not* replace with a trap — this path deliberately reject-and-returns).
+21. ✅ **Unreachable divergence branch in `drawFrame()`.** `targets/wasm/wasm.cpp:450-455`: the width/height mismatch guard can never fire (resolution is bound at construction; `setResolution` nulls the effect). **Fix:** delete the branch and its comment (do *not* replace with a trap — this path deliberately reject-and-returns).
 
 22. **`getRenderUs()` returns stale timing on the (dead) divergence path.** `targets/wasm/wasm.cpp:498-500,437-455`: `render_us` is reset only on the normal path, so the divergence-blank frame reports the prior frame's time. **Fix:** hoist `render_us = 0.0` above the divergence check (moot if #21 lands).
 
