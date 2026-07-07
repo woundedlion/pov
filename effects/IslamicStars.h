@@ -292,7 +292,7 @@ private:
    * @brief Slider-backed runtime parameters for the effect.
    */
   struct Params {
-    float fade = 32.0f; /**< Segue window length, in frames. */
+    float fade = 72.0f; /**< Segue window length, in frames: a 64-frame (4 s) sweep crossing plus one per-face fade tail. */
     float burst_size = 4.0f; /**< Ripples per burst; float-backed for registerParam. */
     bool debug_bb = false; /**< Whether to draw mesh bounding boxes. */
   } params;
