@@ -262,7 +262,7 @@ None. No high-severity or critical defect was identified in scope.
 
 7. ✅ **Add a one-line note on sub-frame fade-in truncation** — `core/animation/sprites.h:49-53`. When `fade_total > duration`, the integer rescale `(long long)duration * fade_in / fade_total` floors to 0 at tiny durations (e.g. `duration=1`), dropping the fade-in. `fade_out` stays non-negative, so there is no UB — this is acceptable degradation; document the truncation rather than change behavior.
 
-8. **Drop the dead `-?` branch in the reaction-graph provenance regex** — `.github/workflows/ci.yml:382`. Fibonacci-lattice neighbor indices are always in `[0, 7679]`, so `grep -oE '-?[0-9]+'` never matches a sign; simplify to `[0-9]+` (matching the sibling LUT job) so the pattern doesn't imply signed data that doesn't exist.
+8. ✅ **Drop the dead `-?` branch in the reaction-graph provenance regex** — `.github/workflows/ci.yml:382`. Fibonacci-lattice neighbor indices are always in `[0, 7679]`, so `grep -oE '-?[0-9]+'` never matches a sign; simplify to `[0-9]+` (matching the sibling LUT job) so the pattern doesn't imply signed data that doesn't exist.
 
 9. **Give the roster-check scripts local npm entries** — `package.json` / `scripts/check_effect_roster.mjs` / `scripts/check_screenshots.mjs`. These run only from the `screenshot-gallery` CI job (so they are wired into CI, not orphaned), but a developer cannot cheaply reproduce the gate before pushing. Add `check-roster` / `check-screenshots` npm scripts for parity with `screenshots` and `wasm-smoke`.
 
