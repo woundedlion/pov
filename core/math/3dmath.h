@@ -618,6 +618,13 @@ static constexpr float STEREO_POLE_EPS = 1e-4f;
 static constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
 
 /**
+ * @brief Radius (a length, not squared) in the (x,z) plane below which the
+ * north-pole azimuth is treated as undefined, so stereo() falls back to the
+ * +real axis instead of scaling a near-zero direction.
+ */
+static constexpr float STEREO_AZIMUTH_EPS = 1e-12f;
+
+/**
  * @brief Represents a Complex number.
  */
 struct Complex {
@@ -733,7 +740,7 @@ inline Complex stereo(const Vector &v) {
     // Mobius map pulling the pole finite preserves the swirl. At the exact pole
     // (x = z = 0) the azimuth is undefined → +real fallback.
     float r = sqrtf(v.x * v.x + v.z * v.z);
-    if (r < 1e-12f)
+    if (r < STEREO_AZIMUTH_EPS)
       return Complex(STEREO_INF, 0.0f);
     float scale = STEREO_INF / r;
     return Complex(v.x * scale, v.z * scale);
