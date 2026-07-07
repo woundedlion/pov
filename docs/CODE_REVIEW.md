@@ -258,7 +258,7 @@ None. No high-severity or critical defect was identified in scope.
 
 5. ❌ **De-duplicate the `kMaxRings` constant** — `effects/Moire.h:134` and `effects/ShapeShifter.h:32`. Rejected: these are different effects with independent per-effect raster budgets that happen to share a formula today; coupling them through a shared helper would falsely tie two unrelated tuning knobs together.
 
-6. **Route the RingSpin ring pool through `Arena::allocate_n`** — `effects/RingSpin.h:73-74`. The pool is allocated as raw bytes + placement-new instead of the typed `allocate_n<Ring>` idiom introduced to centralize exactly this pattern. No correctness impact (persistent arena, never freed); consistency only.
+6. ✅ **Route the RingSpin ring pool through `Arena::allocate_n`** — `effects/RingSpin.h:73-74`. The pool is allocated as raw bytes + placement-new instead of the typed `allocate_n<Ring>` idiom introduced to centralize exactly this pattern. No correctness impact (persistent arena, never freed); consistency only.
 
 7. **Add a one-line note on sub-frame fade-in truncation** — `core/animation/sprites.h:49-53`. When `fade_total > duration`, the integer rescale `(long long)duration * fade_in / fade_total` floors to 0 at tiny durations (e.g. `duration=1`), dropping the fade-in. `fade_out` stays non-negative, so there is no UB — this is acceptable degradation; document the truncation rather than change behavior.
 

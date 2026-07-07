@@ -70,8 +70,7 @@ public:
    * the initial set of rings.
    */
   void init() override {
-    rings = static_cast<Ring *>(
-        persistent_arena.allocate(NUM_RINGS * sizeof(Ring), alignof(Ring)));
+    rings = persistent_arena.allocate_n<Ring>(NUM_RINGS);
 
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Thickness", &params.thickness, 0.01f, 10.0f);
