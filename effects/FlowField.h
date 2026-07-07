@@ -87,8 +87,9 @@ public:
         }
 
         // Three force channels decorrelated by large x-offsets (0/100/200, past
-        // the lattice correlation length). All share the z input (p.z*scale + t)
-        // so time advances the field along z, since FastNoiseLite is only 3D.
+        // the lattice correlation length). All share the z input
+        // (p.position.z * params.noise_scale + t) so time advances the field
+        // along z, since FastNoiseLite is only 3D.
         constexpr float kChannelDecorrelationOffset1 = 100.0f;
         constexpr float kChannelDecorrelationOffset2 = 200.0f;
         float fx =
