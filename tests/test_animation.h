@@ -1336,7 +1336,8 @@ inline void test_sweep_phase_front_ordering() {
 /**
  * @brief Verifies TerminatorSweep orders faces along its axis: the axis pole
  * extinguishes first (offset 1), the antipode last (offset 0), and the
- * per-face fade alpha follows the face-local phase.
+ * per-face fade alpha is the perceptual square of the face-local phase with
+ * exact endpoints.
  */
 inline void test_terminator_sweep_orders_by_axis() {
   Segue::TerminatorSweep term;
@@ -1346,7 +1347,9 @@ inline void test_terminator_sweep_orders_by_axis() {
   HS_EXPECT_NEAR(term.face_offset(-axis, 0, 0), 0.0f, 1e-3f);
   HS_EXPECT_NEAR(term.face_offset(cross(axis, X_AXIS).normalized(), 0, 0), 0.5f,
                  1e-2f);
-  HS_EXPECT_NEAR(term.opacity(0.4f), 0.4f, 1e-6f);
+  HS_EXPECT_NEAR(term.opacity(0.4f), 0.16f, 1e-6f);
+  HS_EXPECT_NEAR(term.opacity(0.0f), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(term.opacity(1.0f), 1.0f, 1e-6f);
 }
 
 /**
