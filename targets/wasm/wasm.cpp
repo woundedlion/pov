@@ -816,26 +816,26 @@ public:
   }
 
   /**
-   * @brief Returns the mesh faces as a JS array of arrays.
-   * @return JS array where each element is an array of one face's vertex
-   *         indices, unflattening the mesh's parallel faces/face_counts storage.
+   * @brief Returns the mesh faces as flat index + per-face side-count buffers.
+   * @return JS object `{ indices: Uint16Array, counts: Uint8Array }`; JS
+   *         unflattens the parallel arrays into per-face index lists. Both are
+   *         copied out of WASM memory (same tooling-arena lifetime contract as
+   *         getVertices()), so they are safe to hold across later mesh ops.
    */
   val getFaces() const {
     check_live();
-    val faces_arr = val::array();
-    size_t flat_idx = 0;
-    for (size_t i = 0; i < mesh.face_counts.size(); ++i) {
-      val face = val::array();
-      size_t count = mesh.face_counts[i];
-      for (size_t c = 0; c < count; ++c) {
-        HS_CHECK(flat_idx < mesh.faces.size());
-        face.call<void>("push", mesh.faces[flat_idx++]);
-      }
-      faces_arr.set(i, face);
-    }
-    HS_CHECK(flat_idx == mesh.faces.size(),
-             "getFaces: face_counts undercount left flat indices unconsumed");
-    return faces_arr;
+    size_t total = 0;
+    for (size_t i = 0; i < mesh.get_face_counts_size(); ++i)
+      total += mesh.get_face_counts_data()[i];
+    HS_CHECK(total == mesh.get_faces_size(),
+             "getFaces: face_counts sum disagrees with the flat index count");
+    val out = val::object();
+    out.set("indices", val::global("Uint16Array").new_(val(typed_memory_view(
+                           mesh.get_faces_size(), mesh.get_faces_data()))));
+    out.set("counts",
+            val::global("Uint8Array").new_(val(typed_memory_view(
+                mesh.get_face_counts_size(), mesh.get_face_counts_data()))));
+    return out;
   }
 
   /**
