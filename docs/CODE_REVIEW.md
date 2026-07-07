@@ -166,7 +166,7 @@ Every surviving defect, numbered sequentially. Higher priority = fix first.
 21. ✅ Delete the dead `.gitignore` entries `/build_release/` and `/build_test_cmake/`.
 22. ✅ Fix the `fast_atan2` comment (core/math/3dmath.h:334) re: IEEE negative-zero at the −π endpoint.
 23. ✅ Add a min-file-count guard to daydream's `node --test "tests/*.test.js"` so an emptied glob cannot pass CI green.
-24. (Info) Note or reconcile the `recorder.js` sim-frame vs. wall-clock `elapsedFormatted` drift in the timed-fallback path.
+24. ❌ (Info) Note or reconcile the `recorder.js` sim-frame vs. wall-clock `elapsedFormatted` drift in the timed-fallback path. — Already handled: the drift is documented in the `elapsedFormatted` doc-comment; reconciling it (a wall-clock counter on the timed-fallback path) is a disproportionate behavior change to a note the review itself calls acceptable as-is.
 
 ---
 
