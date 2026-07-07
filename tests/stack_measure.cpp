@@ -17,6 +17,7 @@
 
 #include "engine/effects.h"
 #include "engine/memory.h"
+#include "tests/test_fixture.h"
 
 namespace {
 
@@ -52,10 +53,7 @@ __attribute__((noinline)) void paint(int chunks) {
 
 // One effect through the smoke_one(test_effects.h) sequence.
 template <typename Effect> __attribute__((noinline)) void run_effect() {
-  hs::random().seed(1337u);
-  configure_arenas_default();
-  Timeline().clear();
-  global_timeline_t = 0;
+  hs_test::reset_globals();
   Effect effect;
   effect.init();
   for (int f = 0; f < kFrames; ++f) {

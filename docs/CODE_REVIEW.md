@@ -95,7 +95,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 5. ✅ **Spline point-drag can get stuck when the mouse is released outside the canvas** — `tools/splines.html:413-415, onMouseUp/onMouseMove` · _correctness_
    Fix: Attach the drag-continuation listeners to document: register onMouseMove and onMouseUp on document (keep mousedown on the canvas). Alternatively, use Pointer Events with setPointerCapture on the canvas so release is always delivered.
 
-6. **stack_measure hand-rolls reset_globals() instead of sharing it; silently drifts when the canonical reset grows** — `tests/stack_measure.cpp:55-56 (and 63-64)` · _maintainability_
+6. ✅ **stack_measure hand-rolls reset_globals() instead of sharing it; silently drifts when the canonical reset grows** — `tests/stack_measure.cpp:55-56 (and 63-64)` · _maintainability_
    Fix: Include tests/test_fixture.h in stack_measure.cpp and replace the four inlined reset lines with hs_test::reset_globals(); (matching arena_measure.cpp / perf_bench.cpp). test_fixture.h is header-only and pulls no extra link deps beyond what stack_measure already links (memory.cpp / reaction_graph.cpp). This also deletes the dead global_timeline_t assignment.
 
 7. **build_half_edge_mesh does not validate face indices against num_verts before indexing out.vertices[v]** — `core/mesh/mesh.h:288-299` · _memory-safety_
