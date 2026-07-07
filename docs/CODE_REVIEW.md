@@ -128,7 +128,7 @@ Every surviving defect, numbered sequentially. Higher priority = fix first.
 
 ### Priority 1 — Correctness & fail-fast integrity
 
-1. `Transformer::spawn_impl` (core/engine/transformers.h ~143–196): roll back `e.active = true` / `add_active(idx)` on the `timeline.add_get() == nullptr` path so a full timeline pool cannot permanently leak a transformer slot (and stop it composing a stale transform every frame).
+1. ✅ `Transformer::spawn_impl` (core/engine/transformers.h ~143–196): roll back `e.active = true` / `add_active(idx)` on the `timeline.add_get() == nullptr` path so a full timeline pool cannot permanently leak a transformer slot (and stop it composing a stale transform every frame).
 2. `ArenaVector`/`ArenaSpan` element accessors (core/engine/memory.h:339, 532, 543, 570, 580, 758): replace the device-stripped bare `assert` bounds checks with `HS_CHECK` (or a bounds-checked accessor variant) so out-of-bounds arena reads trap on hardware, consistent with `StaticCircularBuffer` and the fail-fast doctrine. Measure the per-pixel hot-path cost first and confirm with the maintainer before trading any performance.
 
 ### Priority 2 — Numerical & latent robustness

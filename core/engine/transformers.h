@@ -192,6 +192,11 @@ private:
               }
             });
           }
+        } else {
+          // Timeline pool full: undo the activation so the slot is not leaked
+          // (its reclaim callback above never registered).
+          e.active = false;
+          remove_active(idx);
         }
         return p;
       }
