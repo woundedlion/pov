@@ -274,4 +274,4 @@ None. No high-severity or critical defect was identified in scope.
 
 13. ✅ **Add a dedicated `shading.h` test module** — `tests/`. `Fragment`/null-shader helpers are covered only incidentally through rasterizer tests; a small isolated module would pin their contract directly.
 
-14. **Extend the cross-run determinism frame-diff to the `<96,20>` device resolution** — `tests/`. The byte-identical determinism oracle runs only at 288×144; the `<96,20>` specialization gets a smoke pass but no frame-diff, so `PhiLUT<20>`/`H_OFFSET`-specific nondeterminism would not be caught by the determinism oracle.
+14. ❌ **Extend the cross-run determinism frame-diff to the `<96,20>` device resolution** — `tests/`. Rejected: already handled. `tests/test_effects.h` runs `determinism_one<name, kDeviceW, kDeviceH>` (kDeviceW=96, kDeviceH=20) over the full `HS_EFFECT_LIST` via `HS_DET_ONE_DEV`, immediately after the 288×144 pass — the byte-identical frame-diff oracle already covers the `<96,20>` specialization.
