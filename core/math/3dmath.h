@@ -319,8 +319,9 @@ struct Vector {
  * @brief Fast atan2 using the 0.273-Hastings polynomial.
  * @param y Y (numerator) coordinate.
  * @param x X (denominator) coordinate.
- * @return The angle in radians in [-π, π], matching std::atan2; the −π
- * endpoint is attained for x<0 as y→0⁻.
+ * @return The angle in radians in [-π, π]. Matches std::atan2 except at
+ * negative zero: `-0.0f < 0.0f` is false, so `x<0, y==-0.0f` returns +π where
+ * std::atan2 gives -π; -π is reached only for strictly negative y.
  * @details Peak abs error ~0.0038 rad (~0.22°) measured over a dense sweep;
  * worst near r ~= 0.7 in each octant. The two-branch split at |x|==|y| is C0 at
  * the exact diagonal but the +1e-10f bias on abs_y makes the branches disagree
