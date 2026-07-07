@@ -49,6 +49,8 @@ public:
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
     registerParam("Time Spd", &params.time_scale, 0.001f, 0.05f);
 
+    baked_palette.bake(persistent_arena, palette);
+
     noise_generator.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     noise_generator.SetSeed(hs::rand_int(0, 65536));
 
@@ -144,7 +146,7 @@ public:
       // directly as the per-fragment trail fade alpha.
       float alpha = f.v0;
       float palette_t = (v.y + 1.0f) / 2.0f;
-      Color4 c = palette.get(palette_t);
+      Color4 c = baked_palette.get(palette_t);
       c.alpha = c.alpha * alpha * params.alpha;
       f.color = c;
     };
@@ -190,6 +192,7 @@ private:
   FastNoiseLite noise_generator; /**< Generator for the flow-field force noise. */
   FastNoiseLite orient_noise; /**< Dedicated generator for the orientation drift. */
   GenerativePalette palette; /**< Latitude-mapped trail color palette. */
+  BakedPalette baked_palette; /**< LUT-baked copy of `palette` sampled by the shader. */
   ParticleSystem particle_system; /**< Pool of advected particles and trails. */
   Orientation<> orientation; /**< Whole-sphere drift consumed by the Orient stage. */
   Timeline timeline; /**< Drives the orientation RandomWalk animation. */
