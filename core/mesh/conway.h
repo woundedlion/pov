@@ -420,12 +420,10 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
       out_mesh.vertices.push_back(normalized_or(c, first_v));
     }
 
-    bool *visited_verts = static_cast<bool *>(
-        target.allocate(V * sizeof(bool), alignof(bool)));
+    bool *visited_verts = target.allocate_n<bool>(V);
 
     // Per-orbit scratch buffer sized to the absolute upper bound on valence.
-    uint16_t *orbit_buf = static_cast<uint16_t *>(
-        target.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
     // One face per source vertex: its orbit's incident faces become the dual
     // face's vertices.
@@ -516,15 +514,12 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
     require_closed_manifold(he_mesh, "ambo");
 
     uint16_t *edge_to_vert =
-        static_cast<uint16_t *>(target.allocate(
-            I * sizeof(uint16_t), alignof(uint16_t)));
+        target.allocate_n<uint16_t>(I);
     std::fill_n(edge_to_vert, I, HE_NONE);
 
-    bool *visited_verts = static_cast<bool *>(
-        target.allocate(V * sizeof(bool), alignof(bool)));
+    bool *visited_verts = target.allocate_n<bool>(V);
 
-    uint16_t *orbit_buf = static_cast<uint16_t *>(
-        target.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
     // 3. Populate Vertices
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
@@ -633,17 +628,12 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &tem
     // Per-edge cut-vertex pair, unset = {HE_NONE, HE_NONE} (matches the other
     // operators' he->new-vertex maps so the unset test reads identically).
     std::pair<uint16_t, uint16_t> *edge_to_vert =
-        static_cast<std::pair<uint16_t, uint16_t> *>(
-            target.allocate(
-                I * sizeof(std::pair<uint16_t, uint16_t>),
-                alignof(std::pair<uint16_t, uint16_t>)));
+        target.allocate_n<std::pair<uint16_t, uint16_t>>(I);
     std::fill_n(edge_to_vert, I, std::pair<uint16_t, uint16_t>(HE_NONE, HE_NONE));
 
-    bool *visited_verts = static_cast<bool *>(
-        target.allocate(V * sizeof(bool), alignof(bool)));
+    bool *visited_verts = target.allocate_n<bool>(V);
 
-    uint16_t *orbit_buf = static_cast<uint16_t *>(
-        target.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
       if (edge_to_vert[i].first == HE_NONE) {
@@ -729,18 +719,14 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
     require_closed_manifold(he_mesh, "expand");
     // he->new-vertex map, unset = HE_NONE (matches ambo/snub/chamfer so the
     // unset test reads identically across every operator).
-    uint16_t *he_to_vert_idx = static_cast<uint16_t *>(
-        target.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    uint16_t *he_to_vert_idx = target.allocate_n<uint16_t>(I);
     std::fill_n(he_to_vert_idx, I, HE_NONE);
 
-    bool *visited_verts = static_cast<bool *>(
-        target.allocate(V * sizeof(bool), alignof(bool)));
+    bool *visited_verts = target.allocate_n<bool>(V);
 
-    bool *visited_edges = static_cast<bool *>(
-        target.allocate(I * sizeof(bool), alignof(bool)));
+    bool *visited_edges = target.allocate_n<bool>(I);
 
-    uint16_t *orbit_buf = static_cast<uint16_t *>(
-        target.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
     for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
       int count;
@@ -817,8 +803,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp
     require_closed_manifold(he_mesh, "chamfer");
 
     uint16_t *he_to_new_v =
-        static_cast<uint16_t *>(temp.allocate(
-            I * sizeof(uint16_t), alignof(uint16_t)));
+        temp.allocate_n<uint16_t>(I);
     std::fill_n(he_to_new_v, I, HE_NONE);
 
     // 1. Copy original vertices
@@ -862,8 +847,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp
     }
 
     // 3. Generate Hexagon faces for edges
-    bool *visited_edges = static_cast<bool *>(
-        temp.allocate(I * sizeof(bool), alignof(bool)));
+    bool *visited_edges = temp.allocate_n<bool>(I);
 
     for_each_edge(he_mesh, visited_edges, I,
                   [&](uint16_t he_idx, const HalfEdge &he) {
@@ -1032,12 +1016,10 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "snub");
     uint16_t *he_to_vert_idx =
-        static_cast<uint16_t *>(temp.allocate(
-            I * sizeof(uint16_t), alignof(uint16_t)));
+        temp.allocate_n<uint16_t>(I);
     std::fill_n(he_to_vert_idx, I, HE_NONE);
 
-    uint16_t *orbit_buf = static_cast<uint16_t *>(
-        temp.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    uint16_t *orbit_buf = temp.allocate_n<uint16_t>(I);
 
     for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
       int count;
@@ -1089,16 +1071,14 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
       }
     }
 
-    bool *visited_verts = static_cast<bool *>(
-        temp.allocate(V * sizeof(bool), alignof(bool)));
+    bool *visited_verts = temp.allocate_n<bool>(V);
     emit_vertex_orbit_faces<'N'>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/true,
         [&](uint16_t idx) {
           return he_to_vert_idx[he_mesh.half_edges[idx].prev];
         });
 
-    bool *visited_edges = static_cast<bool *>(
-        temp.allocate(I * sizeof(bool), alignof(bool)));
+    bool *visited_edges = temp.allocate_n<bool>(I);
 
     for_each_edge(he_mesh, visited_edges, I,
                   [&](uint16_t he_idx, const HalfEdge &he) {

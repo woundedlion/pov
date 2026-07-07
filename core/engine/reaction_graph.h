@@ -110,8 +110,7 @@ struct CubemapLUT {
     // node() is double-precision trig; precompute every lattice point once into
     // scratch so the hill-climb reads a table instead of recomputing per hop.
     ScratchScope lattice_guard(arena);
-    Vector *lattice = static_cast<Vector *>(
-        arena.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+    Vector *lattice = arena.allocate_n<Vector>(RD_N);
     for (int i = 0; i < RD_N; ++i)
       lattice[i] = node(i);
     for (int face = 0; face < 6; ++face) {

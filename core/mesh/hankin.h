@@ -128,11 +128,9 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
 
     require_closed_manifold(he_mesh, "compile_hankin");
 
-    uint16_t *he_to_midpoint_idx = static_cast<uint16_t *>(
-        temp_arena.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    uint16_t *he_to_midpoint_idx = temp_arena.allocate_n<uint16_t>(I);
     std::fill_n(he_to_midpoint_idx, I, HE_NONE);
-    uint16_t *he_to_dynamic_idx = static_cast<uint16_t *>(
-        temp_arena.allocate(I * sizeof(uint16_t), alignof(uint16_t)));
+    uint16_t *he_to_dynamic_idx = temp_arena.allocate_n<uint16_t>(I);
     std::fill_n(he_to_dynamic_idx, I, HE_NONE);
 
     // Return the shared midpoint index for a half-edge, lazily creating and
@@ -208,15 +206,13 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
     }
 
     // Rosette faces
-    bool *visited_verts = static_cast<bool *>(
-        temp_arena.allocate(V * sizeof(bool), alignof(bool)));
+    bool *visited_verts = temp_arena.allocate_n<bool>(V);
     std::fill_n(visited_verts, V, false);
 
     // Per-orbit scratch buffer. Each orbit step appends two indices (a
     // midpoint and a dynamic vertex), so the absolute upper bound on entries
     // is twice the total half-edge count.
-    int16_t *face_indices = static_cast<int16_t *>(
-        temp_arena.allocate(2 * I * sizeof(int16_t), alignof(int16_t)));
+    int16_t *face_indices = temp_arena.allocate_n<int16_t>(2 * I);
 
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
       uint16_t he_start_idx = static_cast<uint16_t>(i);

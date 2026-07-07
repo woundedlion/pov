@@ -156,7 +156,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 14. ✅ **Dead `face_offsets` branch in generic `clone`.** `core/mesh/mesh.h:500-519`: the `if constexpr (requires { dst.face_offsets; })` block can never instantiate — `MeshState` returns early, `PolyMesh` lacks the member — and implies a nonexistent accessor contract. **Fix:** delete only that block; keep the live topology branch.
 
-15. **Untyped `arena.allocate` + `static_cast` idiom repeated ~18× per file.** `core/mesh/conway.h:423-428` (and across `mesh.h`, `filter.h`, `render/*`, `reaction_graph.h`) spells element type, count, `sizeof`, and `alignof` independently, so a copy-paste can silently mis-size a buffer. **Fix:** add `template<class T> T* Arena::allocate_n(size_t n)` and route the sites through it.
+15. ✅ **Untyped `arena.allocate` + `static_cast` idiom repeated ~18× per file.** `core/mesh/conway.h:423-428` (and across `mesh.h`, `filter.h`, `render/*`, `reaction_graph.h`) spells element type, count, `sizeof`, and `alignof` independently, so a copy-paste can silently mis-size a buffer. **Fix:** add `template<class T> T* Arena::allocate_n(size_t n)` and route the sites through it.
 
 16. **Envelope trig inconsistency in `GenerativePalette`.** `core/color/color.h`: `key_oklch` (1219) authors with exact `sinf`, while recovery (1278) and `get()` (1358) use `fast_sinf`. Masked today by an 8-bit sRGB round-trip. **Fix:** switch `key_oklch` (cold path) to `fast_sinf` so all three envelope sites agree, or add a note.
 
