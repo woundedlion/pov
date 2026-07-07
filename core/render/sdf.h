@@ -885,7 +885,17 @@ template <typename A, typename B> struct Union {
   template <int H> Bounds get_vertical_bounds() const {
     auto b1 = a.template get_vertical_bounds<H>();
     auto b2 = b.template get_vertical_bounds<H>();
-    return {std::min(b1.y_min, b2.y_min), std::max(b1.y_max, b2.y_max)};
+    // A culled child returns {1,0}; folding its sentinel via min/max would
+    // annex rows neither child occupies.
+    bool a_culled = b1.y_min > b1.y_max;
+    bool b_culled = b2.y_min > b2.y_max;
+    if (a_culled && b_culled)
+      return {1, 0};
+    int lo = a_culled ? b2.y_min : b_culled ? b1.y_min
+                                            : std::min(b1.y_min, b2.y_min);
+    int hi = a_culled ? b2.y_max : b_culled ? b1.y_max
+                                            : std::max(b1.y_max, b2.y_max);
+    return {lo, hi};
   }
 
   /**
