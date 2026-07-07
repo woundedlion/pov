@@ -81,7 +81,7 @@ def emit_array(out, decl, values, per_row):
     out.write("};\n")
 
 
-def render(out):
+def render(out, fwd, rev):
     out.write("#pragma once\n")
     out.write('#include "platform.h"\n')
     out.write("// Generated LUTs for color conversion\n")
@@ -93,11 +93,11 @@ def render(out):
     # limit, so these values never reach committed output. They are chosen to
     # keep the no-clang-format fallback readable (~one terminal line per row).
     emit_array(out, f"inline const uint16_t srgb_to_linear_lut[{SRGB_LEVELS}] PROGMEM",
-               srgb_to_linear_lut(), 11)
+               fwd, 11)
     out.write("\n")
     out.write("// Linear (0-65535) -> sRGB (0-255)\n")
     emit_array(out, f"inline const uint8_t linear_to_srgb_lut[{LINEAR_LEVELS}] PROGMEM",
-               linear_to_srgb_lut(), 15)
+               rev, 15)
 
 
 def clang_format(text):
@@ -121,7 +121,7 @@ def clang_format(text):
     return result.stdout
 
 
-def check():
+def check(fwd, rev):
     """Self-validate the tables: monotonicity and round-trip fidelity.
 
     Both transfer functions are monotonic non-decreasing, so each table must be
@@ -130,8 +130,6 @@ def check():
     number of failures (0 == pass).
     """
     fails = 0
-    fwd = srgb_to_linear_lut()
-    rev = linear_to_srgb_lut()
     for name, table in (("srgb_to_linear_lut", fwd), ("linear_to_srgb_lut", rev)):
         for i in range(1, len(table)):
             if table[i] < table[i - 1]:
@@ -150,13 +148,15 @@ def check():
 
 
 def main():
+    fwd = srgb_to_linear_lut()
+    rev = linear_to_srgb_lut()
     if "--check" in sys.argv[1:]:
-        sys.exit(1 if check() else 0)
-    if check():
+        sys.exit(1 if check(fwd, rev) else 0)
+    if check(fwd, rev):
         sys.stderr.write("generate_luts: self-test failed; refusing to emit\n")
         sys.exit(1)
     buf = StringIO()
-    render(buf)
+    render(buf, fwd, rev)
     text = buf.getvalue()
     formatted = clang_format(text)
     if formatted is None:

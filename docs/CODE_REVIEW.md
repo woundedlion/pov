@@ -178,7 +178,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 25. ✅ **Stale `--assume-filename` path in the LUT generator.** `scripts/generate_luts.py:114` points clang-format at `core/color_luts.h` (moved to `core/color/`); works only incidentally via the single root `.clang-format`, and would silently diverge if a directory-scoped config were ever added. **Fix:** point it at `core/color/color_luts.h`.
 
-26. **`linear_to_srgb` LUT (65,536 evals) computed twice per emit.** `scripts/generate_luts.py:155-160`: `check()` and `render()` each rebuild the tables; the CI provenance job pays it every push. **Fix:** build `fwd`/`rev` once in `main()` and pass them to both.
+26. ✅ **`linear_to_srgb` LUT (65,536 evals) computed twice per emit.** `scripts/generate_luts.py:155-160`: `check()` and `render()` each rebuild the tables; the CI provenance job pays it every push. **Fix:** build `fwd`/`rev` once in `main()` and pass them to both.
 
 27. **Reaction-graph completeness guard is `-O`-strippable.** `scripts/generate_reaction_graph.py:91-94` enforces its "fail loudly, never ship a biased table" invariant with a bare `assert`, which `python -O` removes. **Fix:** replace with an explicit `if not (...): raise RuntimeError(...)`.
 
