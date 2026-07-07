@@ -264,7 +264,7 @@ None. No high-severity or critical defect was identified in scope.
 
 8. ✅ **Drop the dead `-?` branch in the reaction-graph provenance regex** — `.github/workflows/ci.yml:382`. Fibonacci-lattice neighbor indices are always in `[0, 7679]`, so `grep -oE '-?[0-9]+'` never matches a sign; simplify to `[0-9]+` (matching the sibling LUT job) so the pattern doesn't imply signed data that doesn't exist.
 
-9. **Give the roster-check scripts local npm entries** — `package.json` / `scripts/check_effect_roster.mjs` / `scripts/check_screenshots.mjs`. These run only from the `screenshot-gallery` CI job (so they are wired into CI, not orphaned), but a developer cannot cheaply reproduce the gate before pushing. Add `check-roster` / `check-screenshots` npm scripts for parity with `screenshots` and `wasm-smoke`.
+9. ✅ **Give the roster-check scripts local npm entries** — `package.json` / `scripts/check_effect_roster.mjs` / `scripts/check_screenshots.mjs`. These run only from the `screenshot-gallery` CI job (so they are wired into CI, not orphaned), but a developer cannot cheaply reproduce the gate before pushing. Add `check-roster` / `check-screenshots` npm scripts for parity with `screenshots` and `wasm-smoke`.
 
 10. **Pick one carousel slot-clear idiom** — `effects/MeshFeedback.h:103,211`. `init()` uses `carousel.slot(...).clear()` while `start_morph()` uses `carousel.slot(new_slot) = MeshState();`; the two achieve the same "empty before compile" goal by different means and would diverge if `MeshState` assignment and `clear()` ever differ (e.g. one retains capacity). Standardize on one.
 

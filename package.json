@@ -3,7 +3,9 @@
   "private": true,
   "scripts": {
     "screenshots": "node scripts/capture_screenshots.mjs",
-    "wasm-smoke": "node scripts/wasm_smoke.mjs"
+    "wasm-smoke": "node scripts/wasm_smoke.mjs",
+    "check-roster": "node scripts/check_effect_roster.mjs",
+    "check-screenshots": "node scripts/check_screenshots.mjs"
   },
   "devDependencies": {
     "playwright": "1.60.0"
