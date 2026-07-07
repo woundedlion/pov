@@ -541,14 +541,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   #endif
 
   size_t count = close_loop ? len : len - 1;
-  // SCRATCH ARENA CONTRACT (load-bearing): this rasterizer and
-  // Pixel::Feedback::flush (filter.h) both checkpoint scratch_arena_a. Sharing
-  // it is safe by construction — scratch_arena_a is a LIFO bump allocator, so
-  // stack-nested scopes (whether plot-inside-flush or flush-inside-plot) rewind
-  // in order and never clobber a live allocation; ~ScratchScope HS_CHECKs that
-  // LIFO discipline (memory.h). The residual rule the allocator can't enforce:
-  // do not let a raw scratch_arena_a pointer outlive the scope that produced it
-  // (e.g. across a plot/flush boundary) — read it only within its scope.
+  // SCRATCH ARENA CONTRACT (load-bearing): scratch_arena_a is a LIFO bump
+  // allocator shared with Pixel::Feedback::flush; do not let a raw pointer into
+  // it outlive the scope that produced it.
   ScratchScope sc_guard(scratch_arena_a);
   ArenaVector<float> steps_cache;
   // The cache holds ONE segment's adaptive sub-steps (cleared per segment). Each
@@ -559,15 +554,10 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   size_t max_cache = std::max((size_t)64, (size_t)(2 * W));
   steps_cache.bind(scratch_arena_a, max_cache);
 
-  // PLANAR ARC REGISTERS (v0/v1). The sample functions store v0 as a vertex
-  // fraction and v1 as the GEODESIC chord cumulant. Under planar (azimuthal-
-  // equidistant) interpolation the rendered edge bows LONGER than that chord, so
-  // the stored values disagree with the drawn position. When a planar basis is in
-  // force, re-derive v0/v1 from the TRUE rendered arc: `cumul` tracks the rendered
-  // arc reached so far, `seg_base` snapshots a segment's start for the draw
-  // lambda, and `total_arc` (one cold pre-pass over the segments, matching the
-  // per-segment strategy the draw loop picks) normalizes v0 to [0,1]. Geodesic
-  // polylines already carry the rendered arc, so this is skipped for them.
+  // PLANAR ARC REGISTERS (v0/v1). Under a planar basis the rendered edge bows
+  // longer than the geodesic chord the samplers store, so re-derive v0/v1 from
+  // the true rendered arc: `cumul`/`seg_base` track it and `total_arc` (a cold
+  // pre-pass) normalizes v0. Skipped for geodesic polylines.
   const bool override_uv = (planar_basis != nullptr);
   float total_arc = 0.0f;
   // Per-segment rendered arc length and antipode-seam flag, reused by the draw
@@ -699,13 +689,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
     // 2. DRAWING PHASE
     //
-    // sample()'s pos builds interpolated points with fast_sinf/fast_cosf,
-    // which don't satisfy sin²+cos²=1 — so the result is ~0.04% non-unit. The
-    // sink's vector_to_pixel skips normalization and takes phi = acos(v.y)
-    // directly; near the pole acos has infinite slope, so a y of 0.9996 instead
-    // of 1.0 lands ~1.3 rows below the pole. Re-normalize the interpolated
-    // positions here (the sampled vertices are already unit) so polar samples
-    // map to the correct row. Plot-path only; one sqrt per drawn sample.
+    // sample().pos is ~0.04% non-unit (fast_sinf/cosf); vector_to_pixel takes
+    // phi = acos(v.y) directly, where near the pole that error offsets the row.
+    // Re-normalize the interpolated positions (sampled vertices are already unit).
     {
       Vector start_pos = sample(0.0f).pos.normalized();
       Fragment f = Fragment::lerp(curr, next, 0.0f);

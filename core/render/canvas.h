@@ -37,13 +37,8 @@ public:
    * @param H The height (resolution) of the effect.
    */
   Effect(int W, int H) : persist_pixels(false), width_(W), height_(H) {
-    // Single-live-Effect precondition (see buffer_a/buffer_b): every Effect
-    // aliases the same two static buffers, so two simultaneously-live instances
-    // would scribble over each other's frames. The contract holds everywhere
-    // today — WASM resets currentEffect before constructing the next, the device
-    // driver deletes the old effect before building its successor, and the test
-    // harness constructs effects one at a time — so this traps a future overlap
-    // loudly at the cold construction site instead of silently tearing frames.
+    // Single-live-Effect precondition: every Effect aliases the same two static
+    // buffers (buffer_a/buffer_b), so a second live instance corrupts both frames.
     HS_CHECK(!s_alive,
              "Effect: a second Effect was constructed while one is still alive; "
              "buffer_a/buffer_b are shared static storage (one live Effect only)");
@@ -80,11 +75,9 @@ public:
    *        black immediately after it is shown, instead of persisting on the
    *        strip until the next column is drawn.
    *
-   * Read ONLY on the hardware column-draw path (hardware/pov_single.h,
-   * hardware/pov_segmented.h), once per swept column. It governs inter-column
-   * behavior on the spinning strip, NOT framebuffer contents: it never clears
-   * or persists the canvas — that is `persist_pixels` (see advance_buffer),
-   * an orthogonal mechanism the two were historically conflated with.
+   * Read on the hardware column-draw path once per swept column. Governs
+   * inter-column strip behavior, not framebuffer contents (that is
+   * `persist_pixels`).
    *
    * @return true  to strobe: after a column is lit the strip is re-shown black
    *               (FastLED.showColor / a trailing all-black DMA frame), so each
@@ -139,16 +132,9 @@ public:
    * @param x1 Exclusive end column of the owned segment.
    */
   void set_clip(int y0, int y1, int x0, int x1) {
-    // Cold setup-time guard on the invariants the render-bound helpers assume
-    // (ClipRegion::render_*): a non-inverted band with non-negative origins.
-    // render_x_start's single-period `+ w` mod only corrects one period of
-    // underflow (needs x_start >= 0), and render_y_start/end clamp just one
-    // side each, relying on y_start <= y_end. An inverted band silently yields
-    // an empty/malformed render region with no breadcrumb at this site.
-    // The UPPER bound (x1 <= w) is deliberately NOT checked here: an x_end past
-    // the canvas is caught downstream by the per-draw LUT-domain HS_CHECK in
-    // Scan::Shader::draw (the layer that actually indexes the trig LUTs), and a
-    // death test depends on that being where it traps.
+    // Guard the render-bound helpers' invariant: non-inverted band, non-negative
+    // origins. The upper bound (x1 <= w) is checked downstream at the LUT-domain
+    // HS_CHECK in Scan::Shader::draw, not here.
     HS_CHECK(y0 >= 0 && y0 <= y1 && x0 >= 0 && x0 <= x1,
              "set_clip band must be non-inverted with non-negative origins");
     clip.y_start = y0;
@@ -290,19 +276,10 @@ public:
 
   /**
    * @brief Queues the newly drawn frame to be displayed.
-   * @details Publishes `cur_` as the new `next_` so the ISR picks it up at the
-   * next frame boundary. The stores are RELAXED on purpose, and correctness does
-   * NOT come from the atomics — it comes from `hs::disable_interrupts()`. The
-   * load-bearing requirement is that every pixel-payload write into `bufs_[cur_]`
-   * (the just-drawn frame) is visible to the ISR before `next_` flips to point at
-   * it. On the single-core target there is no inter-core reordering to fence;
-   * what we need is that the compiler not sink a buffer write past this
-   * publication. `disable_interrupts()` is a compiler barrier (and momentarily
-   * masks the display ISR), so the buffer is fully written before the flip is
-   * observable. This is a deliberate dependency on `platform.h`'s
-   * `disable_interrupts()` being a barrier — if that ever becomes a no-op, or
-   * this is ported to a multi-core target, these stores must become release/
-   * acquire (or carry an explicit barrier) instead.
+   * @details Publishes `cur_` as the new `next_`. Correctness relies on
+   * `hs::disable_interrupts()` being a compiler barrier (single-core target), not
+   * on the relaxed atomics: the drawn buffer is fully written before the flip is
+   * observable to the ISR.
    */
   inline void queue_frame() {
     hs::disable_interrupts();
@@ -376,15 +353,9 @@ public:
    * memory-view invariant; capacity 32 is enforced at registration time.
    */
   struct ParamList {
-    // Effect is the sole trusted mutator. registerParam fills the array and
-    // markAnimated/markReadonly/updateParameter reach the writable handles in the
-    // private section below; befriending Effect keeps those engine methods able
-    // to mutate. Every OTHER caller — effect subclasses, and the WASM bridge via
-    // the const getParameters() — sees only the public const overloads and so
-    // gets a read-only ParamDef. A const handle cannot call the non-const
-    // ParamDef::set(), so updateParameter (with its readonly/finite/[min,max]
-    // gate) stays the single value-write path: the mutable bypass handle is no
-    // longer reachable from outside the engine's own trusted methods.
+    // Effect is the sole trusted mutator; the writable accessors below are
+    // private so every other caller sees only the const overloads and must route
+    // value writes through updateParameter.
     friend class Effect;
 
     std::array<ParamDef, 32> elements; /**< Fixed-capacity backing storage. */
@@ -420,13 +391,9 @@ public:
     size_t size() const { return count; }
 
   private:
-    // Writable accessors — reachable only by the friended Effect (see the note at
-    // the top of the struct). They bypass updateParameter's write gate by design:
-    // registerParam builds the list through `elements`/`count` and
-    // markAnimated/markReadonly flip flags via the mutable find(). Kept private so
-    // a UI/animation value write cannot reach a writable handle here and must
-    // route through updateParameter, keeping the value contract single-sourced.
-    // See ParamDef::set().
+    // Writable accessors, reachable only by the friended Effect (see the note at
+    // the top of the struct). Kept private so value writes route through
+    // updateParameter.
     ParamDef *begin() { return elements.data(); }
     ParamDef *end() { return elements.data() + count; }
     ParamDef *find(const char *name) {
@@ -449,14 +416,9 @@ public:
     auto *def = parameters.find(name);
     if (def == nullptr)
       return false;
-    // This is the (untrusted) JS boundary — the only caller is WASM
-    // setParameter. Reject writes the GUI is not allowed to make: readonly
-    // params are engine-written telemetry the GUI shows live but disables
-    // editing, so a write here is a stale/malicious frontend — drop it rather
-    // than trust the client. Then reject non-finite input outright (a NaN/Inf
-    // would silently poison render math), and clamp floats to the registered
-    // [min,max] the GUI advertises. Bools are not range-clamped (set()
-    // thresholds them at 0.5).
+    // Untrusted JS boundary (WASM setParameter): reject readonly-param writes and
+    // non-finite input, and clamp floats to [min,max]. Bools are thresholded at
+    // 0.5 by set(), not range-clamped.
     if (def->readonly)
       return false;
     if (!std::isfinite(value))
@@ -547,11 +509,8 @@ protected:
     // (implementation-defined), pinning the slider to garbage. Trap the
     // authoring bug at this cold init seam, like the capacity/duplicate guards.
     HS_CHECK(min <= max, "registerParam: min must be <= max");
-    // The captured default is *ptr verbatim — registration never clamps it. Every
-    // later updateParameter clamps into [min,max], so a default authored outside
-    // the range would advertise an out-of-range value that snaps on the first GUI
-    // edit. Trap that authoring mismatch at this cold init seam rather than ship a
-    // self-inconsistent default. (NaN fails the comparison and traps too.)
+    // Trap a default *ptr outside [min,max]: registration captures it verbatim but
+    // every later updateParameter clamps, so it would snap on the first GUI edit.
     HS_CHECK(*ptr >= min && *ptr <= max,
              "registerParam: default *ptr outside [min,max]");
     parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
@@ -620,12 +579,9 @@ private:
   std::atomic<int> next_{0}; /**< Last completed frame, queued for display. */
   int width_;                /**< The width of the effect. */
   int height_;               /**< The height of the effect. */
-  // Shared static storage for the double buffer. PRECONDITION: at most one
-  // Effect may be live at a time — every instance points bufs_ at these same two
-  // arrays, so a second concurrent Effect would corrupt both frames and the
-  // prev_/cur_/next_ indices would alias a shared buffer. The Effect ctor/dtor
-  // enforce this with the s_alive guard below; there is no RAM for per-instance
-  // buffers (or a third buffer — see Canvas).
+  // Shared static storage for the double buffer. PRECONDITION: at most one Effect
+  // live at a time (enforced by the s_alive guard); a second would alias these
+  // arrays and the prev_/cur_/next_ indices.
   static DMAMEM Pixel
       buffer_a[MAX_W * MAX_H]; /**< Static storage for buffer A (shared). */
   static DMAMEM Pixel
@@ -652,37 +608,15 @@ public:
    * @param effect The effect instance owning the buffer.
    */
   Canvas(Effect &effect) : effect_(effect) {
-    // NOT a TOCTOU race, despite the check-then-advance running outside an
-    // interrupts-disabled window. Single-core Teensy, strict index ownership:
-    // the main loop solely writes cur_/next_ (advance_buffer/queue_frame); the
-    // ISR solely writes prev_ (advance_display: prev_ = next_). buffer_free()
-    // (prev_ == next_) can only be *falsified* by the main loop's next
-    // queue_frame() — this same thread, after this Canvas is destroyed. The
-    // ISR's advance_display is idempotent once prev_ == next_, so it cannot
-    // invalidate the gate between the check and the flip. advance_buffer() then
-    // moves cur_ to the OTHER of the two buffers, which — since prev_ == next_
-    // pins one — is guaranteed != prev_: the write buffer is never the ISR's
-    // read buffer. Relaxed atomics suffice (the ISR preempts the main loop =
-    // same observer; no multi-core reordering to fence). The 2-buffer + this
-    // gate is correct by design — there is no RAM for a third buffer, and the
-    // gate (not a third buffer) is what prevents tearing.
+    // Not a TOCTOU race: single-core, strict index ownership — the main loop
+    // writes cur_/next_, the ISR only sets prev_ = next_ (idempotent once
+    // prev_==next_), so the gate can't be falsified between check and flip.
+    // advance_buffer() then picks the other buffer, guaranteed != prev_.
     //
-    // Watchdog: buffer_free() is re-satisfied only when the display ISR runs
-    // advance_display() at a frame boundary — at most once per revolution. An
-    // unbounded wait here means that ISR stopped advancing (stalled rotor,
-    // detached timer, priority inversion): a silent headless freeze, which the
-    // fail-fast doctrine says must trap, not hang. The bound is far above one
-    // revolution at any sane RPM, so a slow spin-up never false-trips (the
-    // first frame doesn't wait at all — prev_==next_==0 at construction). On
-    // timeout, route through HS_CHECK so the failure flows through the project's
-    // single check_fail() trap path (log + flush + file:line breadcrumb +
-    // __builtin_trap) rather than open-coding it; check_fail's breadcrumb names
-    // the site, so the trap is no longer a bare illegal instruction with no
-    // message. The outer buffer_free() guard skips the whole block — and thus
-    // every micros() read — on the common no-wait path, keeping this zero-cost
-    // when the buffer is already free. On the slow path, wait_start is sampled
-    // once at wait entry; the deadline is then re-evaluated via micros() inside
-    // the spin on every iteration, so the bound measures from wait entry.
+    // Watchdog: buffer_free() is re-satisfied only when the display ISR advances
+    // at a frame boundary; an unbounded wait means that ISR stalled, so trap
+    // (fail-fast) rather than hang. The outer buffer_free() guard skips the
+    // micros() reads on the common no-wait path.
     if (!effect_.buffer_free()) {
       const unsigned long wait_start = micros();
       while (!effect_.buffer_free()) {

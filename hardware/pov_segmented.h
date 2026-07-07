@@ -128,20 +128,11 @@ class POVSegmented {
   /**
    * @brief Flywheel wake-up oversampling factor.
    *
-   * Wake-ups are advisory (position comes from the cycle counter), so the
-   * only cost of a coarse wake grid is quantization: a board renders column
-   * k at its first wake after k's instant, and the master emits a symbol's
-   * first pulse at its first wake after the boundary instant. The timer grid
-   * is not phase-locked to the flywheel, so at 1 wake per column both lags
-   * reach a full column. Waking 8× per column drops the lag to ⅛ column on the
-   * cheap position-only wakes. The bound is looser on the wakes that actually
-   * render or emit: a column render (~96 µs, README:1265) overruns the ~54 µs
-   * wake grid and the PIT ISR cannot re-enter, so the next 1–2 grid slots
-   * coalesce onto it and that column's lag is closer to ~2/8 column. Still far
-   * inside the §5.2 self-censor budget and below any visible seam, and the
-   * design is unaffected — position is time-derived and tick() is idempotent /
-   * skip-tolerant. The remaining ~18 kHz of wakes are near-empty (a position
-   * computation and compare).
+   * Wakes are advisory (position comes from the cycle counter); a coarse grid
+   * only quantizes when a column renders/emits. 8× per column keeps that lag
+   * well inside the §5.2 self-censor budget. position() is time-derived and
+   * tick() is idempotent/skip-tolerant, so the exact grid does not affect
+   * correctness.
    */
   static constexpr int kOversample = 8;
 
@@ -151,10 +142,8 @@ class POVSegmented {
   /**
    * @brief HD107S SPI clock for the Phantasm DMA path, in Hz.
    *
-   * 24 MHz (vs the TeensySPIDMA 12 MHz default) roughly halves the per-column
-   * transfer time, restoring the ~2× headroom the README §1 Phantasm table
-   * documents over the ~434 µs column period. HD107S (APA102-compatible) parts
-   * clock well past this; the column ISR, not the strip, is the binding budget.
+   * 24 MHz (vs the 12 MHz default) halves the per-column transfer time. The
+   * column ISR, not the strip, is the binding budget.
    */
   static constexpr uint32_t SPI_CLOCK_HZ = 24000000;
 
@@ -379,22 +368,13 @@ private:
   /**
    * @brief Reads the hardware segment ID from the GPIO straps (log2(N) bits).
    *
-   * Straps are INPUT_PULLUP, so a floating strap reads HIGH and a grounded one
-   * reads LOW. The raw reading is inverted, so a grounded strap contributes a 1
-   * and all-floating = ID 0 (master). ID0 must be a positively driven strap (a
-   * board grounding it, or a deliberate pull-up to elect master); a floating/cold
-   * ID0 inverts toward ID 0 and elects a phantom second master.
+   * Straps are INPUT_PULLUP; the raw reading is inverted, so a grounded strap
+   * contributes a 1 and all-floating = ID 0 (master). A floating/cold strap
+   * therefore elects a phantom second master and drives the push-pull sync wire
+   * into contention — the triple-sample debounce below traps on that instability.
    *
-   * A floating or cold-soldered strap reads HIGH, which inverts toward ID 0 —
-   * silently promoting the board to a second master and driving the shared
-   * sync wire into contention. To catch unstable straps we sample three
-   * times and trap on disagreement: a stable strap is an invariant.
-   *
-   * Note: this validates *this* board's strap only. It cannot detect a *peer*
-   * holding the same ID — the sync wire is push-pull, so a duplicate master
-   * is not observable from a single board without a dedicated (open-drain)
-   * arbitration line. That cross-check is intentionally out of scope; the
-   * debounce above removes the most likely cause (a floating pin).
+   * Validates *this* board's strap only: a peer holding the same ID is not
+   * observable on a push-pull wire, so that cross-check is out of scope.
    */
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
@@ -659,16 +639,10 @@ private:
    *          pair is the teardown handshake (foreground bumps req, ISR drops the
    *          live pointer and copies req to ack).
    *
-   *          pending_effect_ is published with a release store and consumed with
-   *          an acquire load: the release/acquire edge — not the IRQ bracket's
-   *          compiler barrier alone — is what orders the freshly-constructed
-   *          instance's member writes (vtable, buffers) before the ISR
-   *          dereferences it. The interrupts-off bracket still makes the
-   *          (effect, gen) publish atomic with respect to the ISR. The acquire
-   *          load runs only at a commit/join boundary, never on the per-column
-   *          hot path (which reads the plain, ISR-owned live_effect_), so the
-   *          ordering carries no hot-path cost. Mirrors Canvas's std::atomic
-   *          ISR handoff rather than the bare volatile it replaces.
+   *          pending_effect_ is published release / consumed acquire: that edge
+   *          (not the IRQ bracket's compiler barrier) orders the constructed
+   *          instance's member writes before the ISR dereferences it. The IRQ
+   *          bracket makes the (effect, gen) publish atomic w.r.t. the ISR.
    */
   static Effect *live_effect_;             /**< Effect the ISR renders; ISR-owned.       */
   static std::atomic<Effect *> pending_effect_; /**< Next effect awaiting commit; foreground-written (release), ISR-read (acquire). */

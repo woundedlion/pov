@@ -36,11 +36,8 @@ static_assert(MAX_VERTS <= INT16_MAX,
               "MAX_VERTS must fit int16_t vertex indices");
 static_assert(MAX_INDICES <= UINT16_MAX,
               "MAX_INDICES must fit uint16_t half-edge indices");
-// KDTree::KDNode::original_index (spatial.h) is uint16_t and stores indices
-// into vertex arrays bounded by MAX_VERTS. The int16_t assert above implies
-// this today, but they are independent index types: widening the topology path
-// to int32 would relax that assert and leave KDNode the silent truncator. Keep
-// the coupling explicit here so a MAX_VERTS bump is caught at compile time.
+// KDNode::original_index (spatial.h) is uint16_t and holds MAX_VERTS-bounded
+// indices; assert it independently of the int16_t bound above.
 static_assert(MAX_VERTS <= UINT16_MAX,
               "MAX_VERTS must fit KDNode::original_index (uint16_t)");
 
@@ -213,15 +210,10 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
 /**
  * @brief Fluent builder for chaining Conway operators with automatic arena
  * swapping.
- * @details Each method runs `mesh_ = op(mesh_, a_, b_)` then std::swap(a_, b_) —
- * a single swap per call that assumes the PRIMITIVE polarity (output lands in
- * `target`). The composed ops (gyro, meta, needle, zip, bevel) return their
- * output in `temp` instead (see COMPOSITION POLARITY in conway.h), so the op
- * immediately following a composed op runs with its input and output on the
- * same arena — no asymmetric split for that one step — before alternation
- * self-restores. This is measured to fit the tuned arena pair; skipping the
- * swap after a composed op would re-balance it but relocates every downstream
- * allocation and must be re-measured before adopting.
+ * @details Each method runs `mesh_ = op(mesh_, a_, b_)` then std::swap(a_, b_),
+ * one swap per call assuming the PRIMITIVE polarity. Composed ops return in
+ * `temp` (see COMPOSITION POLARITY in conway.h), so the op after a composed op
+ * runs input+output on the same arena for one step before alternation restores.
  */
 class SolidBuilder {
   PolyMesh mesh_;     /**< Mesh being built; updated in place by each operator. */
@@ -1196,11 +1188,8 @@ inline constexpr int NUM_ENTRIES =
     sizeof(catalan_registry) / sizeof(catalan_registry[0]) +
     sizeof(islamic_registry) / sizeof(islamic_registry[0]);
 
-// simple_registry is laid out as [Platonic | Archimedean]. The Collections
-// slices below derive their offsets/counts from these named constants, and the
-// static_assert cross-checks that the two spans exactly tile the registry — so a
-// boundary move that keeps the total at 18 is a compile error, not a silent
-// mis-slice.
+// simple_registry is [Platonic | Archimedean]; the static_assert checks the two
+// counts exactly tile it so a boundary move can't silently mis-slice.
 inline constexpr size_t PLATONIC_COUNT = 5;
 inline constexpr size_t ARCHIMEDEAN_COUNT = 13;
 static_assert(PLATONIC_COUNT + ARCHIMEDEAN_COUNT == std::size(simple_registry),
@@ -1299,10 +1288,9 @@ inline const Entry &get_entry(size_t index) {
  * @param b Scratch arena for odd pipeline stages.
  * @param index Registry index in [0, NUM_ENTRIES).
  * @return The finalized solid mesh owned by geom.
- * @details EMSCRIPTEN-only: the JS/WASM bridge enumerates the registry by
- *   index. Firmware is name-driven and must use `get_by_name` instead — the
- *   `#else` branch below makes an index call on the device a clear "use of
- *   deleted function" error rather than a confusing "no such function".
+ * @details EMSCRIPTEN-only: the JS/WASM bridge enumerates by index. Firmware is
+ *   name-driven; the `#else` branch deletes this so an index call names
+ *   get_by_name.
  */
 FLASHMEM static PolyMesh get(Arena &geom, Arena &a, Arena &b, int index) {
   return finalize_solid(get_entry(index).generate(a, b), geom);

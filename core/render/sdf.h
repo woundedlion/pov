@@ -1078,15 +1078,9 @@ template <typename A, typename B> struct SmoothUnion {
    * @param p Point on sphere (normalized).
    * @param res Output result; the nearer child's result with its dist reduced by
    *        the cubic smin blend term.
-   * @note Only `dist` is blended across the weld; the surviving auxiliary
-   *       registers (`t`/`raw_dist`/`size` and any UV in `v0…`) snap to whichever
-   *       child is nearer, so they step discontinuously through the seam even
-   *       where the visible surface is smooth. A shader keying off those
-   *       registers (not just `dist`) sees a hard edge through the weld. This is
-   *       intentional — blending every register would cost a second set of lerps
-   *       on the SDF hot path for a feature no shipped geometry reads — but, like
-   *       the AngularRepeat UV note, it is called out here so a future consumer
-   *       does not mistake the register seam for a bug.
+   * @note Only `dist` is blended across the weld; the auxiliary registers
+   *       (`t`/`raw_dist`/`size`/UVs) snap to the nearer child, so a shader keying
+   *       off them sees a hard edge through the weld. Intentional, not a bug.
    * @warning The cubic smin pulls `dist` below the true distance near the weld,
    *          so this SDF is not sphere-tracing-safe (unlike WarpedVolume's
    *          Lipschitz-corrected distance) — scanline rasterization only.
@@ -1603,20 +1597,10 @@ template <typename Shape> struct AngularRepeat {
 /** Minimum squared normalized correlation for a valid class-LUT alignment;
  *  below this the face is too deformed and keeps the exact path. */
 static constexpr float ALIGN_MIN_CORR_SQ = 0.25f;
-/** Maximum per-vertex deviation from the aligned canonical shape, as a
- *  multiple of the LUT cell diagonal, beyond which a face keeps the exact
- *  path. Two effects pin this to a small fraction of a diagonal. Accuracy:
- *  the deviation bounds the canonical field's VALUE error over the face
- *  interior, not just its sign — a bent face served from its canonical
- *  shape shades a visibly misplaced gradient, and a face switching between
- *  the LUT and exact fields pops. Cost: the deviation widens the
- *  sign-purity band, and on a concave star even one extra cell diagonal of
- *  band swallows most of the interior, leaving probes to pay the lookup
- *  AND the exact walk — slower than no LUT at all. A face is either
- *  essentially congruent this frame (the static congruence residual is
- *  ~0.005 px, 20x under this cap) or fully exact; never in between. This
- *  is why the facility fits only effects whose meshes hold still per spawn
- *  (see mesh_classes.h). */
+/** Maximum per-vertex deviation from the aligned canonical shape (as a multiple
+ *  of the LUT cell diagonal) before a face keeps the exact path. Widening it
+ *  bounds the canonical field's value error but swallows the interior on concave
+ *  shapes; the facility fits only meshes that hold still per spawn (mesh_classes.h). */
 static constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
 
 /**
@@ -2274,15 +2258,8 @@ struct Face {
    * face does not wrap, so the complementary horizontal interval(s) are emitted.
    * Otherwise the face spans the full width.
    *
-   * Note this is intentionally coarse: the test is binary on the *single* largest
-   * gap, so the only tightening it can produce is excising that one gap. A face
-   * whose largest inter-vertex gap is <= pi is treated as full-width even when its
-   * actual azimuth coverage is well under 2*pi (e.g. a face spanning ~0.6*2*pi
-   * with no gap wider than pi scans the full row width every row). Unlike the
-   * ring/polygon vertical-bounds paths, there is no intermediate between "excise
-   * the one big gap" and "full width" — the per-row scan simply over-covers in
-   * that band. This is a deliberate cost/precision trade (one sort + one pass,
-   * no multi-gap interval union) on a hot bounds path, not an oversight.
+   * Intentionally coarse: only the single largest gap can be excised, so a face
+   * with no gap wider than pi is treated as full-width and the scan over-covers.
    */
   __attribute__((always_inline)) void
   compute_azimuth_intervals(FaceScratchBuffer &scratch) {

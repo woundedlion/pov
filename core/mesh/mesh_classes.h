@@ -18,32 +18,17 @@
  * @file mesh_classes.h
  * @brief Congruence-class clustering + canonical distance-LUT bake.
  *
- * Every islamic mesh's faces are near-exact copies (sub-pixel Procrustes
- * residual) of a handful of canonical 2D shapes. This module clusters a
- * spawned mesh's faces into congruence classes — geometric clustering seeded
- * per topology class, since a topology class can contain 2-3 distinct
- * congruent families (mirror pairs, separate symmetry orbits) — and bakes one
- * signed-distance LUT per class (SDF::build_canonical_distance_lut).
- * Scan::Mesh::draw binds the LUTs to faces per frame; Face::distance serves
- * sign-pure probes from a bilinear lookup instead of the exact edge walk.
- * Measured on the islamic registry: -10..-28% WASM scan time per LUT-bound
- * mesh, -2..-8% native x86.
+ * Clusters a mesh's faces into congruence classes (geometric clustering seeded
+ * per topology class) and bakes one signed-distance LUT per class
+ * (SDF::build_canonical_distance_lut); Face::distance then serves sign-pure
+ * probes from a bilinear lookup instead of the exact edge walk.
  *
- * ONLY FOR EFFECTS WHOSE MESHES HOLD STILL between spawns (rigid orientation
- * is fine — congruence is frame-invariant). A per-frame deformation (ripple,
- * warping segues, morphs) breaks the canonical premise: a bent face served
- * from its canonical shape shades a misplaced interior gradient, a face
- * switching to the exact path pops visibly, and the widened sign guard makes
- * probes pay the lookup AND the walk. SDF::ALIGN_MAX_DEV_DIAGS therefore
- * drops any face deviating this frame; an effect that deforms most frames
- * gains nothing and shimmers — IslamicStars was unwired for exactly this.
- * No effect currently passes a bake; the pipeline is held by its tests
- * (test_sdf / test_mesh_raster) for the next static-mesh consumer.
+ * ONLY FOR EFFECTS WHOSE MESHES HOLD STILL between spawns (rigid orientation is
+ * fine — congruence is frame-invariant). Per-frame deformation breaks the
+ * canonical premise, so SDF::ALIGN_MAX_DEV_DIAGS drops deviating faces.
  *
- * The system never depends on clustering succeeding: a face left unassigned
- * (kNoClass), a class without a LUT (singleton, convex, or over budget), or a
- * degenerate per-frame alignment all degrade gracefully to the status-quo
- * exact path.
+ * Clustering is never depended on: an unassigned face (kNoClass), a class
+ * without a LUT, or a degenerate alignment all degrade to the exact path.
  */
 namespace MeshOps {
 

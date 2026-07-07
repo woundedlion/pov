@@ -312,63 +312,27 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 // ---------------------------------------------------------------------------
 // Conway operators
 //
-// All operators take a const PolyMesh& input. PRIMITIVE operators (dual,
-// kis, ambo, truncate, expand, chamfer, snub, relax) return a fresh PolyMesh in
-// `target`. Both arenas are checkpointed via ScratchScope, so all scratch (the
-// HalfEdgeMesh build plus, for most primitives, the per-orbit index/flag buffers
-// — kis and relax allocate none; see the SCRATCH ARENA CONTRACT below) is
-// reclaimed when the operator returns — only the output mesh persists. COMPOSED
-// operators
-// return in `temp`, not `target`; see COMPOSITION POLARITY below.
+// All operators take a const PolyMesh& input and checkpoint both arenas via
+// ScratchScope; only the output mesh persists.
 //
-// SCRATCH ARENA CONTRACT (load-bearing — do not "standardize" blindly):
-// The HalfEdgeMesh always builds in `temp`. The per-orbit index/flag buffers,
-// however, are deliberately split:
+// SCRATCH ARENA CONTRACT (load-bearing): the HalfEdgeMesh always builds in
+// `temp`; the per-orbit index/flag buffers are split by design to balance the
+// asymmetric arena pair — not drift. Measure against the configured split
+// before moving one:
 //   - dual / ambo / truncate / expand  -> index buffers in `target`
 //   - chamfer / snub                   -> index buffers in `temp`
 //   - kis / relax                      -> no extra index buffers
-// This is NOT drift. SolidBuilder ping-pongs the two arenas (target/temp swap
-// each op) WITHOUT resetting between ops, so every intermediate mesh accumulates
-// until the chain ends — and the two arenas can be small and ASYMMETRIC
-// (HankinSolids runs the whole chain through a 16 KB / 32 KB pair). At the peak
-// op `temp` already carries the live input mesh + the HalfEdgeMesh, so placing
-// the index buffers in `target` SPLITS the transient load across both arenas
-// instead of piling it onto the already-loaded side. Moving a buffer between
-// arenas shifts that arena's high-water mark and can overflow the tight budget,
-// so any change here must be measured against the configured arena split, not
-// applied for uniformity.
 //
-// MANIFOLD PRECONDITION (per operator):
-//   - dual / ambo / truncate / expand / chamfer / snub -> require a closed
-//     manifold; require_closed_manifold traps on a boundary mesh.
-//   - kis                                              -> per-face, no manifold
-//     requirement.
-//   - relax                                            -> tolerates a boundary
-//     mesh (skips unpaired-twin vertices, partial relaxation).
+// MANIFOLD PRECONDITION: dual/ambo/truncate/expand/chamfer/snub require a
+// closed manifold (require_closed_manifold traps otherwise); kis is per-face;
+// relax tolerates a boundary mesh (partial relaxation).
 //
-// COMPOSITION POLARITY (load-bearing — do not "fix" for contract uniformity):
-// Composed operators (gyro, meta, needle, zip, bevel) are written
-// as op2(op1(mesh, target, temp), temp, target) so they reuse the SAME ping-pong
-// internally and need NO extra arena: op1 writes to `target`, then op2 reads
-// from `target` and writes to the swapped side. The consequence is that a
-// two-op composition lands its output in `temp`, the OPPOSITE arena from a
-// primitive — this is intended, not a contract slip. SolidBuilder swaps once per
-// op (solids.h), which assumes the primitive polarity, so the single op
-// FOLLOWING a composed op runs with its input and output on the same arena
-// (no asymmetric split) for that one step before alternation self-restores. In
-// the shipping recipes this happens once — the relax() after bevel() in
-// IslamicStarPatterns::cube_relax_bevel33_relax_hk675_expand5 — and is
-// covered by a high-water regression test
-// (test_islamic_recipes_fit_islamicstars_budget in tests/test_solids.h) that
-// asserts every Islamic recipe fits the 120 KB / 120 KB scratch split
-// IslamicStars actually ships them through. Making SolidBuilder skip the swap
-// after a composed op would restore healthy alternation but RELOCATES every
-// downstream allocation between the two arenas, so re-run that test before
-// adopting, not applied blindly.
+// COMPOSITION POLARITY (load-bearing): composed ops op2(op1(mesh,target,temp),
+// temp,target) reuse the same ping-pong, so their output lands in `temp`, the
+// OPPOSITE arena from a primitive. Intended — the single op following a
+// composed op then runs input+output on one arena for one step.
 //
-// Per-vertex orbit construction uses an arena scratch buffer sized to the
-// maximum possible valence (= total half-edges), so high-valence vertices
-// never overflow.
+// Per-vertex orbit buffers are sized to the max valence (= total half-edges).
 // ---------------------------------------------------------------------------
 
 /**

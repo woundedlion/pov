@@ -16,11 +16,8 @@
 #include "render/led.h"   // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
 #include "pov_single_map.h"  // pure strip index math (host-tested)
 
-// Like POVSegmented, this driver is Arduino-only: it depends on IntervalTimer,
-// FastLED/DMA, and the Teensy runtime, and is instantiated solely by the
-// Holosphere .ino target. The pure strip index math it relies on lives in
-// pov_single_map.h (above, host-tested); the class itself is compiled out off
-// device so there is no half-built non-Arduino path to misuse.
+// Arduino-only: depends on IntervalTimer, FastLED/DMA, and the Teensy runtime.
+// Pure strip index math is in pov_single_map.h (host-tested).
 #ifdef ARDUINO
 #include <Arduino.h>
   #ifdef USE_DMA_LEDS
@@ -51,9 +48,7 @@ public:
    * separate hs::random() mt19937(1337) reproduced by the simulator.
    */
   POVDisplay() {
-    // Seeds FastLED's LCG only (legacy effects); modern effects draw from
-    // hs::random() mt19937(1337). See the determinism contract in platform.h.
-    randomSeed(1337);
+    randomSeed(1337); // FastLED LCG only; modern effects use hs::random() (platform.h)
   #ifdef USE_DMA_LEDS
     ledController_.begin();
     ledController_.setCorrection(255, 176, 240);  // TypicalLEDStrip
@@ -165,10 +160,8 @@ private:
       frame.packPixel(pov::strip_bottom_led(y, S),
           slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
-    // submitFrame()'s overrun result is intentionally discarded here: at the
-    // single-board column period (~1.3 ms) a DMA overrun is realistically
-    // impossible, so this path runs without the overrun watchdog the segmented
-    // driver keeps (it tracks getOverrunCount()).
+    // Overrun result discarded: at the ~1.3 ms single-board column period a DMA
+    // overrun cannot occur, so no overrun watchdog here.
     (void)ledController_.submitFrame(effect_->strobe_columns());
 #else
     for (int y = 0; y < S / 2; ++y) {

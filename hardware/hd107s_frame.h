@@ -45,16 +45,10 @@ static inline void arm_dcache_flush(void *, uint32_t) {}
  * HD107S frame layout:
  *   Start frame : 4 bytes of 0x00
  *   Per pixel   : [0xFF] [B] [G] [R]   (brightness byte fixed at max)
- *   End frame   : ceil(N/16) bytes of 0x00. Each LED re-clocks the data one
+ *   End frame   : ceil(N/16) = (N+15)/16 bytes of 0x00. Each LED re-clocks one
  *                 half-cycle later, so the last pixel needs ceil(N/2) extra
- *                 clocks to latch. At 8 clocks/byte that is ceil(ceil(N/2)/8)
- *                 bytes, which equals ceil(N/16) = (N+15)/16 *exactly* by the
- *                 nested-ceiling identity ceil(ceil(x/a)/b) = ceil(x/(a·b)) for
- *                 integer a,b>0 — not a coincidence of the two ceilings. The only
- *                 slack is byte granularity: a whole-byte end frame can carry up
- *                 to 7 more zero clocks than the ceil(N/2) minimum at small N,
- *                 which is harmless (extra 0x00 clocks just keep latching zeros).
- *                 0x00 (not 0xFF) per the SK9822/HD107S latch.
+ *                 clocks; at 8 clocks/byte that is ceil(N/16) bytes. Whole-byte
+ *                 granularity may add up to 7 harmless extra zero clocks.
  *
  * Color correction pipeline (all in linear 16-bit space):
  *   1. sRGB 8-bit → linear 16-bit   (srgb_to_linear_lut, PROGMEM)
@@ -70,10 +64,8 @@ static inline void arm_dcache_flush(void *, uint32_t) {}
 template <int N>
 class HD107SFrame {
 public:
-  /** End-frame latch per the SK9822/HD107S spec: ceil(N/2) extra clocks to push
-       data through the chain, packed 8 clocks/byte → ceil(ceil(N/2)/8) =
-       ceil(N/16) = (N+15)/16 bytes of 0x00 (exact via the nested-ceiling
-       identity; see the layout note above for the byte-granularity slack). */
+  /** End-frame latch: ceil(N/16) = (N+15)/16 bytes of 0x00 (see the layout
+      note above for the derivation). */
   static constexpr int END_FRAME_BYTES = (N + 15) / 16;
   /** Single-frame buffer size in bytes. */
   static constexpr int BUFFER_SIZE = 4 + (N * 4) + END_FRAME_BYTES;
@@ -117,14 +109,10 @@ public:
    * @param g In/out green channel, already-linear 16-bit (0..65535).
    * @param b In/out blue channel, already-linear 16-bit (0..65535).
    * @details Shared by load() (CRGB path) and packPixel() (Pixel16 path) so the
-   *          two cannot drift. FASTRUN/inline because packPixel() calls it on
-   *          the per-column ISR hot path. No output clamp is needed: factor()
-   *          caps every multiplier at 256 (×1.0), so each (v * f) >> 8 stage with
-   *          v ≤ 65535 yields ≤ v. The result therefore never grows past the
-   *          16-bit input and stays a valid index into linear_to_srgb_lut (a
-   *          65536-entry table). The public API cannot express a >1.0 factor; if
-   *          one were ever added (by widening factor()'s domain), a clamp to
-   *          65535 would become live here and must be reinstated.
+   *          two cannot drift. FASTRUN/inline: packPixel() calls it on the
+   *          per-column ISR hot path. No output clamp needed — factor() caps
+   *          every multiplier at 256 (×1.0), so each (v*f)>>8 with v ≤ 65535
+   *          stays a valid index into the 65536-entry linear_to_srgb_lut.
    */
   FASTRUN inline void correct(uint32_t& r, uint32_t& g, uint32_t& b) const {
     r = (r * corrR_) >> 8;
@@ -188,17 +176,11 @@ public:
 
   /**
    * @brief Packs a single Pixel16 directly into the buffer with corrections.
-   * @param index LED index, must be in [0, N). Unchecked on the device hot path:
-   *              the write is `buffer_ + 4 + index*4` with no clamp, so an
-   *              out-of-range index corrupts the trailing black frame or runs off
-   *              the composite buffer (UB). Callers own the bound; the cold
-   *              effect-height HS_CHECK at the bind site backstops the shipped
-   *              caller. The assert below is a host-build trip-wire for future
-   *              callers — stripped on the device by NDEBUG (zero ISR cost).
-   *              Deliberately a stripped `assert`, NOT the always-on `HS_CHECK`
-   *              that `load()` uses for its cold one-shot bind: this is the
-   *              per-pixel ISR hot path, where an always-on trap would cost
-   *              cycles on every LED. Do not "harmonize" the two onto HS_CHECK.
+   * @param index LED index, must be in [0, N). Unchecked on the device hot path
+   *              (no clamp: an out-of-range index is UB); callers own the bound.
+   *              The assert below is a host-only trip-wire — a stripped assert,
+   *              not HS_CHECK, since this per-pixel ISR path can't afford an
+   *              always-on trap.
    * @param p     Linear 16-bit pixel.
    * @details Applies color/temperature/brightness corrections in linear 16-bit
    *          space then converts to sRGB 8-bit in a single pass (no intermediate
@@ -221,16 +203,10 @@ public:
 
   /**
    * @brief Flushes data cache so DMA sees the buffer. Call after packPixel().
-   * @details Flushes the full COMPOSITE_SIZE (image + trailing black frame)
-   *          even though a non-withBg submitFrame DMAs only the image half:
-   *          flush()/load() run before submitFrame and do not know which range
-   *          it will pick, so flushing the superset keeps the cache coherent for
-   *          either transfer. The extra cost is one dcache pass over the bg half;
-   *          under-flushing would instead risk DMAing a stale composite buffer.
-   *          Uses arm_dcache_flush (clean, no invalidate): the buffer is TX-only
-   *          (DMA reads, never writes it), so the lines need only be written back
-   *          to RAM, not evicted — keeping them resident saves the next frame's
-   *          re-read/re-write a cache miss.
+   * @details Flushes the full COMPOSITE_SIZE superset — flush() runs before
+   *          submitFrame picks a range, so cover either transfer. Uses
+   *          arm_dcache_flush (clean, no invalidate): the buffer is TX-only, so
+   *          the lines need write-back, not eviction.
    */
   void flush() {
     arm_dcache_flush(buffer_, COMPOSITE_SIZE);
@@ -290,10 +266,8 @@ private:
    *        used by correct()'s `(v * f) >> 8`.
    * @param f Public 8-bit scale factor (255 = ×1.0, 0 = off).
    * @return Internal multiplier (256 = exact unity, 0 = off).
-   * @details Maps f to (f+1)/256, not the nominal f/255: exact at the endpoints
-   *          (0→off, 255→×1.0) and ~1/256 high at intermediate values. Storing
-   *          f+1 keeps full brightness reachable as exact ×256/256 unity; 0 stays
-   *          0 to zero the channel exactly.
+   * @details Maps f to (f+1)/256 (not f/255): exact at both endpoints
+   *          (0→off, 255→×256/256 unity), ~1/256 high in between.
    */
   static constexpr uint16_t factor(uint8_t f) {
     return f == 0 ? 0u : static_cast<uint16_t>(f) + 1u;

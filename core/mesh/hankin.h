@@ -94,10 +94,7 @@ namespace MeshOps {
  */
 HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
                                     Arena &target_arena, Arena &temp_arena) {
-  // Topology counts must come through the unified accessors: a borrowed-mode
-  // MeshState serves face_counts/faces via its *_view spans with the owned
-  // vectors empty, so a direct read would yield F == I == 0. vertices is always
-  // owned.
+  // Topology via accessors (borrowed-mode safe); vertices is always owned.
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
@@ -106,12 +103,8 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
   for (size_t i = 0; i < V; ++i) {
     compiled.base_vertices.push_back(mesh.vertices[i]);
   }
-  // Closed manifold: each undirected edge shares 2 half-edges emitting one
-  // midpoint, so the static pool is exactly I/2 and the largest emitted index is
-  // static_offset + (I - 1) = (I/2) + (I - 1). The guard adds 1 to both sides —
-  // checking (I/2) + I <= INT16_MAX + 1 — to dodge the unsigned underflow of
-  // I - 1 at I == 0; it is the same bound against narrow_index()'s INT16_MAX
-  // ceiling.
+  // Static pool is I/2 midpoints; largest emitted index is (I/2)+(I-1). Guard
+  // adds 1 to both sides to dodge the unsigned underflow of I-1 at I == 0.
   HS_CHECK((I / 2) + I <= static_cast<size_t>(INT16_MAX) + 1,
            "Hankin output vertex count exceeds int16_t index range "
            "(MAX_INDICES raised too high?)");
@@ -241,11 +234,8 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
         curr_idx = next_edge_idx;
       } while (curr_idx != start_orbit);
 
-      // count is two indices per orbit step (midpoint + dynamic vertex), so it
-      // is twice the vertex degree. Degree-2 vertices are legal — a Hankin
-      // pattern's own edge midpoints have degree 2, so hankin-of-hankin walks
-      // them — and produce a quad rosette; only degree < 2 would emit a
-      // degenerate digon face.
+      // count = 2 * vertex degree. Degree-2 is legal (hankin-of-hankin walks
+      // its own degree-2 midpoints -> quad rosette); only degree < 2 degenerates.
       HS_CHECK(count >= 4, "Hankin rosette winding has degree < 2");
       compiled.face_counts.push_back(narrow_face_count(count));
       for (int k = count - 1; k >= 0; --k) {
