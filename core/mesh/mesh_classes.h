@@ -325,6 +325,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     size_t bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
     if (bytes > budget) {
       n = static_cast<int>(sqrtf(static_cast<float>(budget) / sizeof(int16_t)));
+      n = std::min(n, kClassLutMaxN); // staging buffer is kClassLutMaxN²
       bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
       if (n < kClassLutMinN) {
         ++dropped_classes;
