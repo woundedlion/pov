@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/spatial.h — KDTree, MeshState.
+ * Unit tests for core/mesh/spatial.h — KDTree, MeshState.
  *
  * Tests deliberately avoid invoking the asserts in dependent types
  * (out-of-bounds, unbound access).
@@ -14,7 +14,7 @@
 #include <cmath>
 #include <cstdint>
 #include <random>
-#include "core/spatial.h"
+#include "core/mesh/spatial.h"
 #include "tests/test_3dmath.h" // re-uses approx_vec / HS_EXPECT_VEC
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"

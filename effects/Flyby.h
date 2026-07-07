@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 // Unit-test accessor for the noise-time and trig-phase wrap invariants.
 namespace hs_test {
@@ -234,5 +234,5 @@ private:
   }}};
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(Flyby)

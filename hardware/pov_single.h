@@ -13,7 +13,7 @@
  *   #include "../../hardware/pov_single.h"
  */
 #pragma once
-#include "led.h"   // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
+#include "render/led.h"   // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
 #include "pov_single_map.h"  // pure strip index math (host-tested)
 
 // Like POVSegmented, this driver is Arduino-only: it depends on IntervalTimer,
@@ -28,9 +28,9 @@
   #else
     #include <FastLED.h>
   #endif
-#include "canvas.h"
-#include "geometry.h"
-#include "memory.h"
+#include "render/canvas.h"
+#include "math/geometry.h"
+#include "engine/memory.h"
 
 /**
  * @brief Manages the display loop for a single-Teensy POV rig.

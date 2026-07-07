@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for the host-side FastLED / Arduino mocks in core/platform.h.
+ * Unit tests for the host-side FastLED / Arduino mocks in core/engine/platform.h.
  *
  * These mocks stand in for <FastLED.h> and the Arduino runtime in the native
  * and WASM builds, so any divergence from the device's integer semantics makes
@@ -17,7 +17,7 @@
  */
 #pragma once
 
-#include "core/platform.h"
+#include "core/engine/platform.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

@@ -4,7 +4,7 @@
  * permission.
  */
 #pragma once
-#include "core/engine.h"
+#include "core/engine/engine.h"
 #include "effects/aged_slot.h"
 
 // Forward declaration of the unit-test accessor (tests/test_effects.h) that
@@ -224,5 +224,5 @@ private:
   } params;
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(RingShower)

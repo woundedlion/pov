@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/generators.h — the generate() wrapper that scopes the two
+ * Unit tests for core/engine/generators.h — the generate() wrapper that scopes the two
  * global scratch arenas around a procedural-geometry callback. Verifies the
  * deterministic arena lifecycle contract:
  *   - fn receives (target, scratch_arena_a, scratch_arena_b, args...);
@@ -15,8 +15,8 @@
  */
 #pragma once
 
-#include "core/generators.h"
-#include "core/memory.h"
+#include "core/engine/generators.h"
+#include "core/engine/memory.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

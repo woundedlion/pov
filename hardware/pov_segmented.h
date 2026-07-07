@@ -42,7 +42,7 @@
  *   #include "../../hardware/pov_segmented.h"
  */
 #pragma once
-#include "led.h"
+#include "render/led.h"
 #include "pov_segment_map.h" // pure index math (host-testable; see that file)
 #include "pov_sync.h"        // pure sync protocol (host-testable; see that file)
 
@@ -55,9 +55,9 @@
   #error "POVSegmented requires USE_DMA_LEDS (the Phantasm DMA LED transport): the FastLED fallback cannot honor the master sync pulse-width contract (spec §5.2)."
 #endif
 
-#include "canvas.h"
-#include "geometry.h"
-#include "memory.h"
+#include "render/canvas.h"
+#include "math/geometry.h"
+#include "engine/memory.h"
 
 #include <atomic>
 

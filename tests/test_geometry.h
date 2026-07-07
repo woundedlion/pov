@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/geometry.h.
+ * Unit tests for core/math/geometry.h.
  *
  * Coverage:
  *   - Axis constants (X/Y/Z_AXIS, UP)
@@ -17,7 +17,7 @@
  */
 #pragma once
 
-#include "core/geometry.h"
+#include "core/math/geometry.h"
 #include "tests/test_3dmath.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"

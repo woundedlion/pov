@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 /**
  * @brief Scatters polygon "stars" over a Fibonacci spiral on the sphere and
@@ -132,5 +132,5 @@ private:
   Animation::MobiusWarpEvolving *warp_ = nullptr; /**< Pinned warp handle; mirrors params.warp_speed each frame. */
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(GnomonicStars)

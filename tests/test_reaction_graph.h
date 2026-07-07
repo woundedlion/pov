@@ -4,7 +4,7 @@
  *
  * Integrity tests for core/reaction_graph.{h,cpp}.
  *
- * The neighbor table (core/reaction_graph.cpp) is a 92 KB machine-generated
+ * The neighbor table (core/engine/reaction_graph.cpp) is a 92 KB machine-generated
  * K-NN adjacency array; scripts/generate_reaction_graph.py is its generator of
  * record and CI (reaction-graph-provenance) diffs the two, so regeneration is
  * checked. These tests additionally guard the in-tree table's content:
@@ -19,7 +19,7 @@
 
 #include <algorithm> // for std::min
 
-#include "core/reaction_graph.h"
+#include "core/engine/reaction_graph.h"
 #include "tests/test_3dmath.h" // for HS_EXPECT_VEC
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"

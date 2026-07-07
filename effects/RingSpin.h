@@ -6,7 +6,7 @@
 #pragma once
 
 #include <array>
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 // Unit-test accessor for the live ring-count pool-bound invariant.
 namespace hs_test {
@@ -181,5 +181,5 @@ private:
   } params;
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(RingSpin)

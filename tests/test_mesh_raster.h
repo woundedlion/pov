@@ -19,13 +19,13 @@
 #include <cmath>
 #include <vector>
 
-#include "core/canvas.h"
-#include "core/geometry.h"
-#include "core/mesh.h"
-#include "core/memory.h"
-#include "core/plot.h"
-#include "core/scan.h"
-#include "core/solids.h"
+#include "core/render/canvas.h"
+#include "core/math/geometry.h"
+#include "core/mesh/mesh.h"
+#include "core/engine/memory.h"
+#include "core/render/plot.h"
+#include "core/render/scan.h"
+#include "core/mesh/solids.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/presets.h — the Presets<> preset-cycle container
+ * Unit tests for core/engine/presets.h — the Presets<> preset-cycle container
  * (get/next/prev/apply/prev_get, wraparound, and CTAD deduction).
  *
  * Self-contained header. run_presets_tests() returns the module failure count.
@@ -11,7 +11,7 @@
 
 #include <array>
 
-#include "core/presets.h"
+#include "core/engine/presets.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

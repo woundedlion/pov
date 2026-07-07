@@ -4,7 +4,7 @@
  * permission.
  */
 #pragma once
-#include "core/platform.h"
+#include "core/engine/platform.h"
 
 /**
  * @brief Shared age-driven lifecycle for recyclable ring slots.

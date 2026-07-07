@@ -5,8 +5,8 @@
  */
 #pragma once
 
-#include "core/animation.h"
-#include "core/engine.h"
+#include "core/animation/animation.h"
+#include "core/engine/engine.h"
 
 /**
  * @brief Effect that displays a sequence of Islamic-geometry polyhedra,
@@ -300,5 +300,5 @@ private:
   } params;
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(IslamicStars)

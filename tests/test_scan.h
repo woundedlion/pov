@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for the core/scan.h rasterizer. Exercises two entry points end to
+ * Unit tests for the core/render/scan.h rasterizer. Exercises two entry points end to
  * end into a live Canvas:
  *   - Scan::Shader::draw  : full-sphere per-pixel shader (constant, positional,
  *                           and clip-respecting).
@@ -12,11 +12,11 @@
  */
 #pragma once
 
-#include "core/scan.h"
-#include "core/plot.h"
-#include "core/filter.h"
-#include "core/canvas.h"
-#include "core/geometry.h"
+#include "core/render/scan.h"
+#include "core/render/plot.h"
+#include "core/render/filter.h"
+#include "core/render/canvas.h"
+#include "core/math/geometry.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

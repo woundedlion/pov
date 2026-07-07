@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/palettes.h — the named generative/OKLCH palette layer.
+ * Unit tests for core/color/palettes.h — the named generative/OKLCH palette layer.
  *
  * Coverage:
  *   - Named ProceduralPalette endpoints: pinned 16-bit linear colors at t=0/1,
@@ -17,8 +17,8 @@
 #include <array>
 #include <cmath>
 
-#include "core/color.h"
-#include "core/palettes.h"
+#include "core/color/color.h"
+#include "core/color/palettes.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

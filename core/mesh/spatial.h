@@ -1,0 +1,451 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the Polyform Noncommercial License 1.0.0
+ */
+#pragma once
+
+#include <cstdint>
+#include "math/3dmath.h"
+#include <algorithm>
+#include <array>
+#include <cmath>
+#include <span>
+
+#include <cfloat>
+#include "engine/static_circular_buffer.h"
+#include "engine/memory.h"
+
+/**
+ * @brief A single node of the KDTree.
+ */
+struct KDNode {
+  /**
+   * @brief Copy of the split point (not an index into the source array) to
+   * avoid lifetime dependence on that array.
+   */
+  Vector point;
+  uint16_t original_index = 0; /**< Index of this point in the source array. */
+  int16_t axis = 0;            /**< Splitting axis: 0=x, 1=y, 2=z. */
+  int16_t left = -1;           /**< Left child node index, or -1 if none. */
+  int16_t right = -1;          /**< Right child node index, or -1 if none. */
+};
+
+/**
+ * @brief A single neighbor returned by KDTree::nearest().
+ * @details A slim result view: the point and its source index plus the squared
+ * distance the search already computed (callers needing distance would otherwise
+ * recompute it). Deliberately excludes KDNode's internal tree links
+ * (`axis`/`left`/`right`), which are meaningless outside the tree.
+ */
+struct Neighbor {
+  Vector point;                /**< Copy of the neighbor's position. */
+  uint16_t original_index = 0; /**< Index of this point in the source array. */
+  float d_sq = 0.0f;           /**< Squared distance from the query point. */
+};
+
+/**
+ * @brief k-d Tree over 3D points using arena storage; supports k-nearest
+ * neighbor search.
+ */
+class KDTree {
+public:
+  static constexpr int MAX_K = 5; /**< Maximum number of neighbors a query may request. */
+
+  /**
+   * @brief Upper bound on source points, set by the int16_t node-link range.
+   * @details One node per point, and node indices flow through int16_t
+   * left/right links, so the point count must fit in [0, INT16_MAX]. This also
+   * bounds original_index (uint16_t) since indices stay below the count.
+   */
+  static constexpr size_t MAX_POINTS = static_cast<size_t>(INT16_MAX) + 1;
+
+  ArenaVector<KDNode> nodes; /**< Arena-backed node pool, one entry per point. */
+  int root_index = -1;       /**< Index of the root node, or -1 if empty. */
+
+  /**
+   * @brief Constructs an empty tree with no nodes.
+   */
+  KDTree() = default;
+
+  /**
+   * @brief Builds the tree from a span of points using arena storage.
+   * @param arena Arena used for node storage and temporary index sorting.
+   * @param points Source points; std::span<const Vector> so callers need not
+   * const_cast read-only vertex arrays.
+   * @details Allocates one node per point in the arena. The scratch index array
+   * is scoped to a ScratchScope so its arena offset rewinds once build() returns.
+   */
+  KDTree(Arena &arena, std::span<const Vector> points) {
+    clear();
+    if (points.empty())
+      return;
+
+    size_t count = points.size();
+    nodes.bind(arena, count);
+
+    // Scope the scratch index array so the arena offset rewinds once build()
+    // returns, rather than leaking ~count*4 bytes for the arena's lifetime.
+    ScratchScope scratch(arena);
+    HS_CHECK(count <= MAX_POINTS,
+             "KDTree source point count exceeds int16_t child-link index range");
+    int *indices = (int *)arena.allocate(count * sizeof(int), alignof(int));
+    for (size_t i = 0; i < count; ++i)
+      indices[i] = (int)i;
+
+    root_index = build(points, indices, count, 0);
+  }
+
+  /**
+   * @brief Resets the tree to empty by dropping the root reference.
+   */
+  void clear() { root_index = -1; }
+
+  /**
+   * @brief Finds the k nearest neighbors of target, sorted closest-first.
+   * @param target Query point, in world units.
+   * @param k Number of neighbors to return; MUST be <= MAX_K (traps via HS_CHECK
+   *        otherwise). Soft-capped only at the point count.
+   * @return Buffer of neighbors (point + source index + squared distance), closest first.
+   */
+  StaticCircularBuffer<Neighbor, MAX_K> nearest(const Vector &target,
+                                                size_t k = 1) const {
+    StaticCircularBuffer<Neighbor, MAX_K> result;
+    HS_CHECK(k <= static_cast<size_t>(MAX_K));
+    if (root_index == -1 || k == 0) // k is size_t; only k == 0 is the empty case
+      return result;
+
+    // Bounded scratch buffer of the k best candidates so far, kept unsorted.
+    struct Candidate {
+      float d_sq;
+      int idx;
+    };
+    StaticCircularBuffer<Candidate, MAX_K> best;
+
+    // Cached pruning bound: the largest squared distance in `best` and its slot,
+    // FLT_MAX until the set fills to k so nothing prunes early.
+    // Recomputed only when `best` changes, keeping the per-node prune test O(1).
+    float worst_d_sq = FLT_MAX;
+    size_t worst_i = 0;
+    auto recompute_worst = [&]() {
+      worst_d_sq = -1.0f;
+      worst_i = 0;
+      for (size_t i = 0; i < best.size(); ++i) {
+        if (best[i].d_sq > worst_d_sq) {
+          worst_d_sq = best[i].d_sq;
+          worst_i = i;
+        }
+      }
+    };
+
+    // Offer a candidate to the k-best set: append while under k, otherwise
+    // displace the cached worst entry if this one is closer.
+    auto offer_candidate = [&](float d_sq, int idx) {
+      if (best.size() < static_cast<size_t>(k)) {
+        best.push_back({d_sq, idx});
+        if (best.size() == static_cast<size_t>(k))
+          recompute_worst(); // set just filled: cache its worst for pruning
+      } else if (d_sq < worst_d_sq) {
+        best[worst_i] = {d_sq, idx};
+        recompute_worst(); // worst displaced: refresh the cache
+      }
+    };
+
+    // Pruning bound: the cached largest squared distance held (FLT_MAX until the
+    // set holds k entries, so nothing is pruned before it fills).
+    auto get_worst_dist = [&]() -> float { return worst_d_sq; };
+
+    search_k(root_index, target, offer_candidate, get_worst_dist);
+
+    std::sort(
+        best.begin(), best.end(),
+        [](const Candidate &a, const Candidate &b) { return a.d_sq < b.d_sq; });
+
+    for (const auto &c : best) {
+      const KDNode &n = nodes[c.idx];
+      result.push_back({n.point, n.original_index, c.d_sq});
+    }
+    return result;
+  }
+
+private:
+  /**
+   * @brief Recursively builds a balanced subtree over indices[0..count).
+   * @param points Source points indexed by entries of `indices`.
+   * @param indices Scratch index array, partitioned in place by this call.
+   * @param count Number of indices in this subtree.
+   * @param depth Recursion depth; selects the split axis as depth % 3.
+   * @return Root node index of the built subtree, or -1 if empty.
+   * @details Cycles the split axis by depth%3, partitioning around the median
+   * along that axis and reordering `indices` in place.
+   */
+  int build(std::span<const Vector> points, int *indices, int count, int depth) {
+    if (count <= 0)
+      return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
+    // Trap rather than return -1: a -1 here is indistinguishable from the
+    // empty-subtree sentinel above, so exhaustion would silently drop a subtree.
+    HS_CHECK(nodes.size() < nodes.capacity(),
+             "KDTree node pool exhausted during build");
+
+    int axis = depth % 3;
+    int mid = count / 2;
+
+    auto *start = indices;
+    auto *end = indices + count;
+
+    std::nth_element(start, start + mid, end, [&](int a, int b) {
+      float va = (axis == 0)   ? points[a].x
+                 : (axis == 1) ? points[a].y
+                               : points[a].z;
+      float vb = (axis == 0)   ? points[b].x
+                 : (axis == 1) ? points[b].y
+                               : points[b].z;
+      return va < vb;
+    });
+
+    int median_idx = indices[mid];
+
+    int new_node_idx = static_cast<int>(nodes.size());
+    // left/right are int16_t (-1 sentinel); original_index is uint16_t. Both
+    // ranges are covered by MAX_POINTS, which the source count is capped to.
+    HS_CHECK(static_cast<size_t>(new_node_idx) < MAX_POINTS,
+             "KDTree node index exceeds int16_t child-link range");
+    HS_CHECK(static_cast<size_t>(median_idx) < MAX_POINTS,
+             "KDTree vertex index exceeds original_index range");
+    nodes.emplace_back();
+    nodes[new_node_idx].point = points[median_idx];
+    nodes[new_node_idx].original_index = (uint16_t)median_idx;
+    nodes[new_node_idx].axis = (int16_t)axis;
+
+    nodes[new_node_idx].left = (int16_t)build(points, start, mid, depth + 1);
+    nodes[new_node_idx].right =
+        (int16_t)build(points, start + mid + 1, count - mid - 1, depth + 1);
+
+    return new_node_idx;
+  }
+
+  /**
+   * @brief Recursive k-NN traversal of the subtree rooted at node_idx.
+   * @tparam PushFn Callable offering a (d_sq, idx) candidate to the k-best set.
+   * @tparam MaxDistFn Callable returning the current worst squared distance bound.
+   * @param node_idx Subtree root node index, or -1 to terminate.
+   * @param target Query point, in world units.
+   * @param offer_candidate Callback that records a candidate in the k-best set.
+   * @param get_worst_dist Callback returning the current pruning bound (squared distance).
+   * @details Descends the near child first, then prunes the far child when the
+   * splitting plane is farther than the current worst hit. The k-best set and k
+   * itself are reached only through the callbacks, which capture them by
+   * reference in nearest().
+   */
+  template <typename PushFn, typename MaxDistFn>
+  void search_k(int node_idx, const Vector &target, PushFn &&offer_candidate,
+                MaxDistFn &&get_worst_dist) const {
+    if (node_idx == -1)
+      return;
+
+    const KDNode &node = nodes[node_idx];
+    float d_sq = distance_squared(node.point, target);
+
+    if (d_sq < get_worst_dist())
+      offer_candidate(d_sq, node_idx);
+
+    float axis_dist = (node.axis == 0)   ? (target.x - node.point.x)
+                     : (node.axis == 1) ? (target.y - node.point.y)
+                                        : (target.z - node.point.z);
+
+    int near = axis_dist < 0 ? node.left : node.right;
+    int far = axis_dist < 0 ? node.right : node.left;
+
+    search_k(near, target, offer_candidate, get_worst_dist);
+
+    // Re-query the worst bound: the near subtree may have filled the k-best set
+    // and tightened it, so the far side can be pruned.
+    if ((axis_dist * axis_dist) < get_worst_dist()) {
+      search_k(far, target, offer_candidate, get_worst_dist);
+    }
+  }
+};
+
+/**
+ * @brief Deep-copies n contiguous elements into a freshly-bound ArenaVector.
+ * @tparam T Element type.
+ * @param dst Destination vector, bound to exactly n elements from arena.
+ * @param src Pointer to the first source element (ignored when n == 0).
+ * @param n Number of elements to copy.
+ * @param arena Arena supplying storage for dst.
+ * @details Shared by MeshState::clone and MeshOps::clone/compile so the
+ * arena deep-copy loops cannot drift. Per-element push_back preserves the exact
+ * semantics of the loops it replaces.
+ */
+template <typename T>
+inline void copy_vector(ArenaVector<T> &dst, const T *src, size_t n,
+                        Arena &arena) {
+  dst.bind(arena, n);
+  for (size_t i = 0; i < n; ++i)
+    dst.push_back(src[i]);
+}
+
+/**
+ * @brief Represents the state of a mesh using arena storage to avoid heap
+ * allocations.
+ */
+struct MeshState {
+  ArenaVector<Vector> vertices;        /**< Owned vertex positions, in world units. */
+  ArenaVector<uint8_t> face_counts;    /**< Owned per-face vertex counts. */
+  ArenaVector<uint16_t> faces;         /**< Owned flattened face vertex indices. */
+  ArenaVector<uint16_t> face_offsets;  /**< Owned start offset of each face into faces. */
+  ArenaVector<int> topology;           /**< Owned adjacency/topology data. */
+
+  ArenaSpan<uint8_t> face_counts_view;   /**< Borrowed face-counts view, populated by MeshOps::transform. */
+  ArenaSpan<uint16_t> faces_view;        /**< Borrowed faces view, populated by MeshOps::transform. */
+  ArenaSpan<uint16_t> face_offsets_view; /**< Borrowed face-offsets view, populated by MeshOps::transform. */
+
+  /**
+   * @brief Constructs an empty, unbound mesh.
+   */
+  MeshState() = default;
+
+  /**
+   * @brief Move-constructs, transferring owned buffers and views.
+   * @param other Source mesh; its borrowed views are cleared so it holds no
+   * dangling borrows.
+   */
+  MeshState(MeshState &&other) noexcept
+      : vertices(std::move(other.vertices)),
+        face_counts(std::move(other.face_counts)),
+        faces(std::move(other.faces)),
+        face_offsets(std::move(other.face_offsets)),
+        topology(std::move(other.topology)),
+        face_counts_view(other.face_counts_view),
+        faces_view(other.faces_view),
+        face_offsets_view(other.face_offsets_view) {
+    other.clear_views();
+  }
+
+  /**
+   * @brief Move-assigns, transferring owned buffers and views.
+   * @param other Source mesh; its borrowed views are cleared so the moved-from
+   * mesh holds no dangling borrows.
+   * @return Reference to this mesh.
+   */
+  MeshState &operator=(MeshState &&other) noexcept {
+    if (this != &other) {
+      vertices = std::move(other.vertices);
+      face_counts = std::move(other.face_counts);
+      faces = std::move(other.faces);
+      face_offsets = std::move(other.face_offsets);
+      topology = std::move(other.topology);
+      face_counts_view = other.face_counts_view;
+      faces_view = other.faces_view;
+      face_offsets_view = other.face_offsets_view;
+      other.clear_views();
+    }
+    return *this;
+  }
+
+  /**
+   * @brief Resets to empty: clears owned buffers and drops the borrowed views.
+   */
+  void clear() {
+    vertices.clear();
+    face_counts.clear();
+    faces.clear();
+    face_offsets.clear();
+    topology.clear();
+    clear_views();
+  }
+
+  /**
+   * @brief Checks whether any member vector is bound (has been allocated).
+   * @return True if the mesh owns allocated storage.
+   */
+  bool is_bound() const { return vertices.is_bound(); }
+
+  /**
+   * @brief Returns the face-counts pointer for the active mode.
+   * @return Owned data in owned mode, otherwise the borrowed view pointer.
+   * @details Discriminates on is_bound() (which mode this is), NOT on empty():
+   * an owned-but-legitimately-empty mesh is bound with size 0, and gating on
+   * empty() would wrongly fall through to a stale/unset borrowed view. The same
+   * rationale applies to the sibling accessors below.
+   */
+  const uint8_t *get_face_counts_data() const {
+    return face_counts.is_bound() ? face_counts.data() : face_counts_view.data();
+  }
+  /**
+   * @brief Returns the number of face counts for the active mode.
+   * @return Owned size in owned mode, otherwise the borrowed view size.
+   */
+  size_t get_face_counts_size() const {
+    return face_counts.is_bound() ? face_counts.size() : face_counts_view.size();
+  }
+
+  /**
+   * @brief Returns the faces pointer for the active mode.
+   * @return Owned data in owned mode, otherwise the borrowed view pointer.
+   */
+  const uint16_t *get_faces_data() const {
+    return faces.is_bound() ? faces.data() : faces_view.data();
+  }
+  /**
+   * @brief Returns the number of face indices for the active mode.
+   * @return Owned size in owned mode, otherwise the borrowed view size.
+   */
+  size_t get_faces_size() const {
+    return faces.is_bound() ? faces.size() : faces_view.size();
+  }
+
+  /**
+   * @brief Returns the face-offsets pointer for the active mode.
+   * @return Owned data in owned mode, otherwise the borrowed view pointer.
+   */
+  const uint16_t *get_face_offsets_data() const {
+    return face_offsets.is_bound() ? face_offsets.data()
+                                   : face_offsets_view.data();
+  }
+  /**
+   * @brief Returns the number of face offsets for the active mode.
+   * @return Owned size in owned mode, otherwise the borrowed view size.
+   */
+  size_t get_face_offsets_size() const {
+    return face_offsets.is_bound() ? face_offsets.size()
+                                   : face_offsets_view.size();
+  }
+
+  /**
+   * @brief Returns the number of vertices in the mesh.
+   * @return Vertex count.
+   */
+  size_t num_vertices() const { return vertices.size(); }
+  /**
+   * @brief Returns the number of faces in the mesh.
+   * @return Face count (equal to the active face-counts size).
+   */
+  size_t num_faces() const { return get_face_counts_size(); }
+
+  /**
+   * @brief Deep-copies all owned data from src into dst using a target arena.
+   * @param src Source mesh to copy from.
+   * @param dst Destination mesh to populate.
+   * @param arena Arena providing storage for the destination buffers.
+   * @details Required by Cloneable.
+   */
+  static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
+    // Reused dst may carry stale views; clone produces an owned-mode mesh.
+    dst.clear_views();
+    copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
+    copy_vector(dst.face_counts, src.get_face_counts_data(),
+                src.get_face_counts_size(), arena);
+    copy_vector(dst.faces, src.get_faces_data(), src.get_faces_size(), arena);
+    copy_vector(dst.face_offsets, src.get_face_offsets_data(),
+                src.get_face_offsets_size(), arena);
+    copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
+  }
+
+private:
+  /// Nulls the three borrowed views, restoring owned-mode discrimination.
+  void clear_views() {
+    face_counts_view = {};
+    faces_view = {};
+    face_offsets_view = {};
+  }
+};

@@ -2,15 +2,15 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/concepts.h — the type-erased callable wrappers.
+ * Unit tests for core/engine/concepts.h — the type-erased callable wrappers.
  */
 #pragma once
 
 #include <type_traits>
 #include <utility>
 
-#include "core/platform.h" // Fn = hs::inplace_function (defined before concepts.h)
-#include "core/concepts.h"
+#include "core/engine/platform.h" // Fn = hs::inplace_function (defined before concepts.h)
+#include "core/engine/concepts.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

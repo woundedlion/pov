@@ -15,8 +15,8 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "effects.h"
-#include "memory.h"
+#include "engine/effects.h"
+#include "engine/memory.h"
 
 namespace {
 

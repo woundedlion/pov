@@ -1,4 +1,4 @@
-# Regenerate core/color_luts.h via scripts/generate_luts.py and compare numeric
+# Regenerate core/color/color_luts.h via scripts/generate_luts.py and compare numeric
 # tokens against the committed file (whitespace/clang-format wrapping ignored).
 # Skips with SKIP_CODE when no Python is available.
 # -D args: PYTHON_EXE, GENERATOR, COMMITTED, GENERATED, SKIP_CODE.
@@ -30,9 +30,9 @@ _numeric_tokens("${COMMITTED}" _com_toks)
 
 if(NOT _gen_toks STREQUAL _com_toks)
   message(FATAL_ERROR
-    "core/color_luts.h is out of sync with scripts/generate_luts.py.\n"
-    "Regenerate with: python scripts/generate_luts.py > core/color_luts.h "
-    "&& clang-format -i core/color_luts.h")
+    "core/color/color_luts.h is out of sync with scripts/generate_luts.py.\n"
+    "Regenerate with: python scripts/generate_luts.py > core/color/color_luts.h "
+    "&& clang-format -i core/color/color_luts.h")
 endif()
 
 message(STATUS "color_luts pin: numeric tokens match the generator")

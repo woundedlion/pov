@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 /**
  * @brief Renders concentric rings of a morphing shape in Plot and Scan modes.
@@ -278,5 +278,5 @@ private:
   int frame_count_ = 0;    /**< Frame phase in [0, 48) — gates shape cycling; never overflows. */
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(ShapeShifter)

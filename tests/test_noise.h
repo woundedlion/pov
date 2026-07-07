@@ -19,9 +19,9 @@
 #include <cstdint>
 #include <cstring>
 
-#include "core/FastNoiseLite.h"
-#include "core/animation.h"
-#include "core/transformers.h"
+#include "core/vendor/FastNoiseLite.h"
+#include "core/animation/animation.h"
+#include "core/engine/transformers.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

@@ -5,7 +5,7 @@
 // PhiLUT<H>/TrigLUT<W,H> would clash under ODR.
 #include <cstdio>
 
-#include "core/engine.h"
+#include "core/engine/engine.h"
 #include "tests/test_h_offset_renorm.h"
 
 int main() {

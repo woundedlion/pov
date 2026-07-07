@@ -159,53 +159,59 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 
 ```
 ├── core/                       Rendering engine
-│   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
-│   ├── constants.h             MAX_W, MAX_H + ClipRegion segment clip rectangle
-│   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
-│   ├── engine.h                Engine API umbrella — included by every effect
-│   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
-│   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
-│   ├── effect_registry.h       Self-registering factory: REGISTER_EFFECT macro
-│   ├── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
-│   │
-│   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
-│   ├── geometry.h              Fragment, Dots/Points, PhiLUT/TrigLUT, coord conversions
-│   ├── color.h                 Pixel16 (16-bit linear), Color4, blend helpers, palettes
-│   ├── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
-│   ├── color_luts.h            Precomputed sRGB ↔ linear LUTs
-│   │
-│   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
-│   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pix
-│   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
-│   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
-│   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
-│   ├── animation.h             IAnimation/AnimationBase contract + umbrella over the fragments below
-│   ├── animation_timers.h      RandomTimer / PeriodicTimer callback timers
-│   ├── animation_params.h      Parameter-writing animations (Transition, Mutation, Driver, Lerp, ColorWipe, Mobius*, Ripple, Noise)
-│   ├── animation_motion.h      Path/ProceduralPath + the Orientation drivers (Motion, Rotation, RandomWalk)
-│   ├── animation_trails.h      OrientationTrail/VectorTrail history + tween/deep_tween traversal
-│   ├── animation_sprites.h     Sprite draw envelope, Particle/ParticleSystem
-│   ├── animation_timeline.h    TimelineEvent inline storage + the Timeline scheduler
-│   ├── animation_mesh.h        Mesh-to-mesh transitions: MeshMorph, Segue policies, MeshCarousel
-│   ├── transformers.h          Ripple, Noise, Möbius warp geometry transformers
-│   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
-│   ├── waves.h                 sin_wave / tri_wave / square_wave generators
-│   │
-│   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>
-│   ├── mesh.h                  PolyMesh, HalfEdgeMesh, MeshOps (compile, clone, etc.)
-│   ├── conway.h                Conway operators (dual, kis, ambo, truncate, etc.)
-│   ├── hankin.h                Hankin pattern compilation and update system
-│   ├── solids.h                Platonic + Archimedean + Catalan + Islamic solid registry
-│   ├── spatial.h               KDTree, k-nearest-neighbor, MeshState (+ speculative AABB)
-│   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
-│   ├── rotate.h                Quaternion projection helpers
-│   ├── generators.h            Universal generate() wrapper for procedural geometry
-│   ├── presets.h               Generic Presets<Params, Size> template
-│   ├── styles.h                Feedback::Style named presets + space/color transform functions
-│   ├── util.h                  wrap(), fast_wrap(), shortest_distance, apply_if_changed
-│   ├── reaction_graph.h/.cpp   Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
-│   ├── FastNoiseLite.h         Third-party: single-header noise library
-│   └── FastNoiseLite_config.h  FastNoiseLite build configuration
+│   ├── engine/                 Machinery: platform layer, memory, callables, rosters, effect support
+│   │   ├── platform.h              Arduino vs. WASM vs. Desktop abstraction layer
+│   │   ├── constants.h             MAX_W, MAX_H + ClipRegion segment clip rectangle
+│   │   ├── engine.h                Engine API umbrella — included by every effect
+│   │   ├── effects.h               Effect roster (includes each effect + HS_EFFECT_LIST)
+│   │   ├── effects_legacy.h        Pre-engine effects (TheMatrix, Spirals, etc.)
+│   │   ├── effect_registry.h       Self-registering factory: REGISTER_EFFECT macro
+│   │   ├── concepts.h              FunctionRef/Fn callable wrappers, PipelineRef type erasure, Tweenable concept
+│   │   ├── inplace_function.h      Fixed-capacity in-place callable storage behind Fn
+│   │   ├── memory.h / memory.cpp   Arena allocator, ScratchScope, Persist<T>
+│   │   ├── static_circular_buffer.h Fixed-capacity non-allocating circular buffer
+│   │   ├── generators.h            Universal generate() wrapper for procedural geometry
+│   │   ├── util.h                  wrap(), fast_wrap(), shortest_distance, apply_if_changed
+│   │   ├── transformers.h          Ripple, Noise, Möbius warp geometry transformers
+│   │   ├── styles.h                Feedback::Style named presets + space/color transform functions
+│   │   ├── presets.h               Generic Presets<Params, Size> template
+│   │   └── reaction_graph.h/.cpp   Precomputed Fibonacci-lattice K-NN graph (90 KiB / 92,160-byte table)
+│   ├── math/                   Vector/quaternion math and scalar curves
+│   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
+│   │   ├── rotate.h                Quaternion projection helpers
+│   │   ├── geometry.h              Fragment, Dots/Points, PhiLUT/TrigLUT, coord conversions
+│   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
+│   │   └── waves.h                 sin_wave / tri_wave / square_wave generators
+│   ├── mesh/                   Polyhedral meshes and their operators
+│   │   ├── mesh.h                  PolyMesh, HalfEdgeMesh, MeshOps (compile, clone, etc.)
+│   │   ├── mesh_classes.h          Congruence-class clustering + canonical distance-LUT bake
+│   │   ├── spatial.h               KDTree, k-nearest-neighbor, MeshState (+ speculative AABB)
+│   │   ├── conway.h                Conway operators (dual, kis, ambo, truncate, etc.)
+│   │   ├── hankin.h                Hankin pattern compilation and update system
+│   │   └── solids.h                Platonic + Archimedean + Catalan + Islamic solid registry
+│   ├── color/                  Color math and palettes
+│   │   ├── color.h                 Pixel16 (16-bit linear), Color4, blend helpers, palettes
+│   │   ├── color_luts.h            Precomputed sRGB ↔ linear LUTs
+│   │   └── palettes.h              Named ProceduralPalette instances + shared MeshPaletteBank
+│   ├── render/                 Canvas, rasterizers, and the filter pipeline
+│   │   ├── canvas.h                Effect base class + Canvas RAII write-buffer guard
+│   │   ├── scan.h                  Rasterization primitives (Ring, Circle, Star, Mesh, etc.)
+│   │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
+│   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pix
+│   │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
+│   │   └── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
+│   ├── animation/              Timeline scheduler + the animation type families
+│   │   ├── animation.h             IAnimation/AnimationBase contract + umbrella over the fragments below
+│   │   ├── animation_timers.h      RandomTimer / PeriodicTimer callback timers
+│   │   ├── animation_params.h      Parameter-writing animations (Transition, Mutation, Driver, Lerp, ColorWipe, Mobius*, Ripple, Noise)
+│   │   ├── animation_motion.h      Path/ProceduralPath + the Orientation drivers (Motion, Rotation, RandomWalk)
+│   │   ├── animation_trails.h      OrientationTrail/VectorTrail history + tween/deep_tween traversal
+│   │   ├── animation_sprites.h     Sprite draw envelope, Particle/ParticleSystem
+│   │   ├── animation_timeline.h    TimelineEvent inline storage + the Timeline scheduler
+│   │   └── animation_mesh.h        Mesh-to-mesh transitions: MeshMorph, Segue policies, MeshCarousel
+│   └── vendor/                 Third-party code
+│       ├── FastNoiseLite.h         Single-header noise library
+│       └── FastNoiseLite_config.h  FastNoiseLite build configuration
 │
 ├── effects/                    27 effects (28 headers incl. the shared ReactionDiffusionBase.h):
 │                                BZReactionDiffusion.h, HopfFibration.h, IslamicStars.h,
@@ -231,7 +237,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 ├── CMakeLists.txt              Emscripten build (outputs holosphere_wasm.js + .wasm)
 ├── tests/                      Unit tests (CMake subdirectory)
 ├── scripts/                    Build + CI tooling
-│   ├── generate_luts.py        sRGB ↔ linear LUT generator of record (emits core/color_luts.h)
+│   ├── generate_luts.py        sRGB ↔ linear LUT generator of record (emits core/color/color_luts.h)
 │   ├── wasm_smoke.mjs          Runtime WASM smoke: drives every effect at both resolutions (CI)
 │   └── capture_screenshots.mjs Headless gallery capture for docs/screenshots/
 └── justfile                    Task runner: `just build` / `build-debug` / `test` / `install`
@@ -2073,7 +2079,7 @@ static constexpr int NUM_PIXELS = 40;
 static constexpr unsigned int RPM = 480;
 ```
 
-Pin assignments are in `core/led.h` (also included by `hardware/pov_single.h`):
+Pin assignments are in `core/render/led.h` (also included by `hardware/pov_single.h`):
 ```cpp
 static constexpr int PIN_DATA   = 11;
 static constexpr int PIN_CLOCK  = 13;
@@ -2093,7 +2099,7 @@ cmake --build  --preset wasm-release-install    # build + install into ../daydre
 Use `wasm-debug` for an unoptimized build with assertions (`-sASSERTIONS=1`). Build outputs go to `build/<preset>/`. The `justfile` provides cross-platform shortcuts that forward to these presets: `just build` (release), `just build-debug`, and `just install` (release + install into `../daydream`).
 
 The WASM target (`CMakeLists.txt`, `EMSCRIPTEN` branch) configures:
-- Source paths: `targets/wasm/wasm.cpp`, `core/memory.cpp`, `core/reaction_graph.cpp`
+- Source paths: `targets/wasm/wasm.cpp`, `core/engine/memory.cpp`, `core/engine/reaction_graph.cpp`
 - Include paths: project root (for `effects/`, `hardware/`) and `core/` (for engine headers)
 - `-sALLOW_MEMORY_GROWTH=1` — WASM heap can grow for large meshes
 - `-sMODULARIZE=1 -sEXPORT_ES6=1` — ES6 module output

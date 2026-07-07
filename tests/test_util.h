@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/util.h — the circular-domain wrap/distance helpers and
+ * Unit tests for core/engine/util.h — the circular-domain wrap/distance helpers and
  * the apply_if_changed live-slider idiom.
  *
  * Self-contained header — no external framework. run_util_tests() returns the
@@ -10,7 +10,7 @@
  */
 #pragma once
 
-#include "core/util.h"
+#include "core/engine/util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

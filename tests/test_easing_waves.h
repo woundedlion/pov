@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Unit tests for core/easing.h and core/waves.h.
+ * Unit tests for core/math/easing.h and core/math/waves.h.
  *
  * Asserts the defining contract of each easing curve (anchored endpoints,
  * finiteness, monotonicity where the curve is monotone) and the bounded/shape
@@ -11,8 +11,8 @@
  */
 #pragma once
 
-#include "core/easing.h"
-#include "core/waves.h"
+#include "core/math/easing.h"
+#include "core/math/waves.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 

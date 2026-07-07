@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 /**
  * @brief Concentric rings warped by an animated sinusoidal radial displacement.
@@ -134,5 +134,5 @@ private:
   Orientation<> orientation;
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(DistortedRing)

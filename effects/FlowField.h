@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 // Unit-test accessor for the noise-time wrap and particle-pool bound invariants.
 namespace hs_test {
@@ -199,5 +199,5 @@ private:
       filters;
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(FlowField)

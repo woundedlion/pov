@@ -34,8 +34,8 @@ if(EMSCRIPTEN)
   set(TARGET_NAME holosphere_wasm)
   add_executable(${TARGET_NAME}
     targets/wasm/wasm.cpp
-    core/memory.cpp
-    core/reaction_graph.cpp)
+    core/engine/memory.cpp
+    core/engine/reaction_graph.cpp)
 
   target_include_directories(${TARGET_NAME} PRIVATE
     ${CMAKE_CURRENT_SOURCE_DIR}

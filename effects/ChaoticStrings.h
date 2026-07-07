@@ -5,7 +5,7 @@
  */
 #pragma once
 
-#include "core/engine.h"
+#include "core/engine/engine.h"
 
 /**
  * @brief Undulating string of orientation trails drawn as an anti-aliased
@@ -193,5 +193,5 @@ private:
   NoiseTransformer<1> noise_xform; /**< Warps the trail with noise each frame. */
 };
 
-#include "core/effect_registry.h"
+#include "core/engine/effect_registry.h"
 REGISTER_EFFECT(ChaoticStrings)
