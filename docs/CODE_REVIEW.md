@@ -83,7 +83,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 
 ### Medium priority
 
-2. **Final LCSC 'missing' NOTE always fires for every assembled part (ignores LCSC_BY_REF)** — `hardware/phantasm/gen/fab.py:230-233` · _correctness_
+2. ✅ **Final LCSC 'missing' NOTE always fires for every assembled part (ignores LCSC_BY_REF)** — `hardware/phantasm/gen/fab.py:230-233` · _correctness_
    Fix: Delete the redundant lines 230-233, or recompute using the override: missing = [r for r in assembled if not (LCSC_BY_REF.get(r) or comps[r]['lcsc'])] — matching the logic on line 194-195.
 
 3. **CPL export uses --side front only; bottom-placed SMD get blank coordinates** — `hardware/phantasm/gen/fab.py:178-218` · _correctness_
