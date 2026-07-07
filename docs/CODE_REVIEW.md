@@ -266,7 +266,7 @@ None. No high-severity or critical defect was identified in scope.
 
 9. ✅ **Give the roster-check scripts local npm entries** — `package.json` / `scripts/check_effect_roster.mjs` / `scripts/check_screenshots.mjs`. These run only from the `screenshot-gallery` CI job (so they are wired into CI, not orphaned), but a developer cannot cheaply reproduce the gate before pushing. Add `check-roster` / `check-screenshots` npm scripts for parity with `screenshots` and `wasm-smoke`.
 
-10. **Pick one carousel slot-clear idiom** — `effects/MeshFeedback.h:103,211`. `init()` uses `carousel.slot(...).clear()` while `start_morph()` uses `carousel.slot(new_slot) = MeshState();`; the two achieve the same "empty before compile" goal by different means and would diverge if `MeshState` assignment and `clear()` ever differ (e.g. one retains capacity). Standardize on one.
+10. ✅ **Pick one carousel slot-clear idiom** — `effects/MeshFeedback.h:103,211`. `init()` uses `carousel.slot(...).clear()` while `start_morph()` uses `carousel.slot(new_slot) = MeshState();`; the two achieve the same "empty before compile" goal by different means and would diverge if `MeshState` assignment and `clear()` ever differ (e.g. one retains capacity). Standardize on one.
 
 11. **Handle a bogus explicit `CLANG_FORMAT` override gracefully** — `scripts/generate_luts.py:115`. `subprocess.run([cf, ...])` raises an uncaught `FileNotFoundError` if `CLANG_FORMAT` points at a non-existent path (the auto-detect path degrades with a warning). Arguably fail-loud-is-correct for a power-user override; catch and emit a clear message if a friendlier failure is wanted.
 
