@@ -160,7 +160,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 16. ✅ **Envelope trig inconsistency in `GenerativePalette`.** `core/color/color.h`: `key_oklch` (1219) authors with exact `sinf`, while recovery (1278) and `get()` (1358) use `fast_sinf`. Masked today by an 8-bit sRGB round-trip. **Fix:** switch `key_oklch` (cold path) to `fast_sinf` so all three envelope sites agree, or add a note.
 
-17. **FlowField comment drift.** `effects/FlowField.h:90-108`: comment says `p.z*scale + t` but the code samples `p.position.z * params.noise_scale + t` (no `p.z` member). **Fix:** update the comment to the real expression.
+17. ✅ **FlowField comment drift.** `effects/FlowField.h:90-108`: comment says `p.z*scale + t` but the code samples `p.position.z * params.noise_scale + t` (no `p.z` member). **Fix:** update the comment to the real expression.
 
 18. **`MindSplatter::Params::lerp` lacks the `sizeof` guard its sibling has.** `effects/MindSplatter.h:158-166` hand-enumerates fields with no `static_assert(sizeof(Params) == N*sizeof(float))`, unlike `Liquid2D`; adding/reordering a preset float would silently leave it un-interpolated. **Fix:** add the matching `sizeof` `static_assert` (do not factor a shared helper — the divergent per-effect lerp strategy is intentional).
 
