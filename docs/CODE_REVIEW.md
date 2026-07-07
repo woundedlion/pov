@@ -268,7 +268,7 @@ None. No high-severity or critical defect was identified in scope.
 
 10. ✅ **Pick one carousel slot-clear idiom** — `effects/MeshFeedback.h:103,211`. `init()` uses `carousel.slot(...).clear()` while `start_morph()` uses `carousel.slot(new_slot) = MeshState();`; the two achieve the same "empty before compile" goal by different means and would diverge if `MeshState` assignment and `clear()` ever differ (e.g. one retains capacity). Standardize on one.
 
-11. **Handle a bogus explicit `CLANG_FORMAT` override gracefully** — `scripts/generate_luts.py:115`. `subprocess.run([cf, ...])` raises an uncaught `FileNotFoundError` if `CLANG_FORMAT` points at a non-existent path (the auto-detect path degrades with a warning). Arguably fail-loud-is-correct for a power-user override; catch and emit a clear message if a friendlier failure is wanted.
+11. ✅ **Handle a bogus explicit `CLANG_FORMAT` override gracefully** — `scripts/generate_luts.py:115`. `subprocess.run([cf, ...])` raises an uncaught `FileNotFoundError` if `CLANG_FORMAT` points at a non-existent path (the auto-detect path degrades with a warning). Arguably fail-loud-is-correct for a power-user override; catch and emit a clear message if a friendlier failure is wanted.
 
 12. **Add isolated pixel-output tests for `Pixel::ChromaticShift` and `Screen::Blur`** — `tests/`. Both filters are exercised only transitively through effect smoke tests; add direct functional tests that assert their pixel output on a known input.
 

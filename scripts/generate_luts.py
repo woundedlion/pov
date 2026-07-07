@@ -112,9 +112,15 @@ def clang_format(text):
     if not cf:
         return None
     header = Path(__file__).resolve().parent.parent / "core" / "color" / "color_luts.h"
-    result = subprocess.run(
-        [cf, "--assume-filename=" + str(header)],
-        input=text, capture_output=True, text=True)
+    try:
+        result = subprocess.run(
+            [cf, "--assume-filename=" + str(header)],
+            input=text, capture_output=True, text=True)
+    except FileNotFoundError:
+        sys.stderr.write(
+            "generate_luts: clang-format not found at '" + cf + "'"
+            " (check the CLANG_FORMAT override)\n")
+        sys.exit(1)
     if result.returncode != 0:
         sys.stderr.write("generate_luts: clang-format failed:\n" + result.stderr)
         sys.exit(1)
