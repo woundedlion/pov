@@ -182,7 +182,7 @@ def main():
          "-o", net, SCH])
     pos = os.path.join(OUT, "_fab_pos.csv")
     run([KCLI, "pcb", "export", "pos", "--format", "csv", "--units", "mm",
-         "--side", "front", "--use-drill-file-origin", "-o", pos, PCB])
+         "--use-drill-file-origin", "-o", pos, PCB])
     comps = parse_components(net)
     posrows = {}
     with open(pos, newline='', encoding="utf-8") as fh:
