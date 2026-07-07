@@ -183,6 +183,11 @@ private:
  *   float  face_offset(center, i, cls) — per-face sweep ordering in [0, 1]
  *   float  face_phase(phase, offset) — face-local phase from the sweep front
  *
+ * A per-face policy may also declare `static constexpr bool kLocalSweep =
+ * true` to order faces by the untransformed mesh instead of world-space
+ * centers: the front then rides the mesh's rotation rather than staying
+ * fixed in the room.
+ *
  * Policies are resolved at compile time (no virtuals); Base's identity hooks
  * inline to nothing.
  */
@@ -319,18 +324,20 @@ struct Lace : Base {
 };
 
 /**
- * @brief A world-fixed day/night line sweeps the sphere at constant speed; the
- * moment it reaches a face, that face fades over kFadeFrames frames. The
- * extinguishing sweep takes the old pattern, the return sweep ignites the new.
- * @details Face offsets are recomputed from world-space centers each frame, so
- * the terminator stays fixed in the room while the mesh rotates through it.
- * The front crosses the sphere over the fade window minus one per-face fade,
- * so the last-touched face still completes: face phases are exactly 1 at
- * phase 1 and 0 at phase 0.
+ * @brief A day/night line pinned to the mesh sweeps across it at constant
+ * speed; the moment it reaches a face, that face fades over kFadeFrames
+ * frames. The extinguishing sweep takes the old pattern, the return sweep
+ * ignites the new.
+ * @details kLocalSweep anchors the line to the untransformed mesh, so it
+ * rotates with the mesh rather than the mesh rotating through it. The front
+ * crosses the sphere over the fade window minus one per-face fade, so the
+ * last-touched face still completes: face phases are exactly 1 at phase 1
+ * and 0 at phase 0.
  */
 struct TerminatorSweep : Base {
+  static constexpr bool kLocalSweep = true; /**< Sweep in mesh-local space. */
   static constexpr int kFadeFrames = 16; /**< Per-face fade length, in frames, from the front's touch (1 s at 16 fps). */
-  Vector axis = Y_AXIS;   /**< World-space sweep axis. */
+  Vector axis = Y_AXIS;   /**< Mesh-local sweep axis. */
   float fade_frac = 0.5f; /**< kFadeFrames over the scheduled fade window; set by schedule(). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
     int fade = std::min(window, duration / 2);
