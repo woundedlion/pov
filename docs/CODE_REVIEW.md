@@ -194,7 +194,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 33. ✅ **URLSync's auto-flush-on-change path has no end-to-end test.** `daydream/tests/state.test.js:187-205` only tests manual `flush()` and the cancel case, never `set(trackedKey) → tick(200) → exactly one replaceState`. **Fix:** add a `mock.timers` test asserting the debounced write fires once with the new value.
 
-34. **Boolean threshold at exactly 0.5 is untested.** `daydream/tests/param_sync.test.js:25-30` probes 0/1/0.6/0.4 but not 0.5 — the one input where `>` vs `>=` flips. **Fix:** add a case pinning `resolveParamSync(true, 0.5, …)` → `false`.
+34. ✅ **Boolean threshold at exactly 0.5 is untested.** `daydream/tests/param_sync.test.js:25-30` probes 0/1/0.6/0.4 but not 0.5 — the one input where `>` vs `>=` flips. **Fix:** add a case pinning `resolveParamSync(true, 0.5, …)` → `false`.
 
 35. **Recorder toggle test's post-`onstop` assertion is trivially satisfied.** `daydream/tests/recorder.test.js:213-220`: `isRecording` is already false after synchronous `stop()`, so the assertion validates nothing about `onstop` teardown. **Fix:** assert the observable teardown effects (`mediaRecorder === null`, track stopped), mirroring the stronger test at line 243.
 
