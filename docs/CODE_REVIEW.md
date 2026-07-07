@@ -170,7 +170,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 21. ✅ **Unreachable divergence branch in `drawFrame()`.** `targets/wasm/wasm.cpp:450-455`: the width/height mismatch guard can never fire (resolution is bound at construction; `setResolution` nulls the effect). **Fix:** delete the branch and its comment (do *not* replace with a trap — this path deliberately reject-and-returns).
 
-22. **`getRenderUs()` returns stale timing on the (dead) divergence path.** `targets/wasm/wasm.cpp:498-500,437-455`: `render_us` is reset only on the normal path, so the divergence-blank frame reports the prior frame's time. **Fix:** hoist `render_us = 0.0` above the divergence check (moot if #21 lands).
+22. ✅ **`getRenderUs()` returns stale timing on the (dead) divergence path.** `targets/wasm/wasm.cpp:498-500,437-455`: `render_us` is reset only on the normal path, so the divergence-blank frame reports the prior frame's time. **Fix:** hoist `render_us = 0.0` above the divergence check (moot if #21 lands).
 
 23. **`getFaces()` marshals one embind `push()` per index.** `targets/wasm/wasm.cpp:835-851` does O(total indices) C++→JS crossings; `getVertices`/`classifyFaces` bulk-copy via `typed_memory_view`. Tooling-only. **Fix:** emit a flattened faces buffer + face-counts array as two typed-memory-view copies and unflatten in JS.
 
