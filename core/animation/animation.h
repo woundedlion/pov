@@ -263,13 +263,13 @@ private:
 // Internal fragments, in dependency order: every animation type derives from
 // AnimationBase above; sprites builds on trails, mesh on timeline and sprites.
 #define HS_ANIMATION_INTERNAL
-#include "animation/animation_timers.h"
-#include "animation/animation_params.h"
-#include "animation/animation_motion.h"
-#include "animation/animation_trails.h"
-#include "animation/animation_sprites.h"
-#include "animation/animation_timeline.h"
-#include "animation/animation_mesh.h"
+#include "animation/timers.h"
+#include "animation/params.h"
+#include "animation/motion.h"
+#include "animation/trails.h"
+#include "animation/sprites.h"
+#include "animation/timeline.h"
+#include "animation/mesh.h"
 #undef HS_ANIMATION_INTERNAL
 
 // Device inline-storage budget audit. The per-type static_assert in
