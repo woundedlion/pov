@@ -144,7 +144,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 8. ✅ **`SpriteFn`/`TimerFn` doc drift.** `core/engine/concepts.h:305-307` define these as `Fn<…,16>` with a literal, but `platform.h` and `inplace_function.h` cite them as the canonical `sizeof(void*)`-sized callsite — an idiom used nowhere. **Fix:** make the sizing explicit (`Fn<…, 2 * sizeof(void*)>`) so the documented rule actually holds and 64-bit headroom is intentional, or correct the comments.
 
-9. **`Transformer` relies on a prose-only non-relocation invariant.** `core/engine/transformers.h:134-190`: one-shot `then()` callbacks capture `this`/`idx`, justified by "never moves," but the class remains move/copy-*constructible* (only assignment is deleted by the reference member). **Fix:** `= delete` the copy and move constructors to make the guarantee structural; no current owner moves it.
+9. ✅ **`Transformer` relies on a prose-only non-relocation invariant.** `core/engine/transformers.h:134-190`: one-shot `then()` callbacks capture `this`/`idx`, justified by "never moves," but the class remains move/copy-*constructible* (only assignment is deleted by the reference member). **Fix:** `= delete` the copy and move constructors to make the guarantee structural; no current owner moves it.
 
 10. **`EveryNMillis::ready()` diverges host vs device for >~49.7-day intervals.** `core/engine/platform.h:998-1006` compares a `uint32_t` elapsed against a 64-bit `period_` on LP64, so huge intervals never fire on host while the 32-bit device wraps and fires. Negligible in practice (largest real interval is 10 s). **Fix:** cast both operands to `uint32_t` (or narrow `period_`), documenting the ~49.7-day ceiling via the type.
 
