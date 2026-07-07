@@ -88,10 +88,11 @@ def build_neighbors():
         # it cannot lie outside the index window. If this ever fails, W is too
         # small for the current RD_N — fail loudly rather than ship a biased table.
         farthest_d2 = chosen[-1][0]
-        assert math.sqrt(farthest_d2) < window_half_y, (
-            f"node {i}: neighbor window too small (chord "
-            f"{math.sqrt(farthest_d2):.4f} >= half-width {window_half_y:.4f}); "
-            "raise W in generate_reaction_graph.py")
+        if math.sqrt(farthest_d2) >= window_half_y:
+            raise RuntimeError(
+                f"node {i}: neighbor window too small (chord "
+                f"{math.sqrt(farthest_d2):.4f} >= half-width {window_half_y:.4f}); "
+                "raise W in generate_reaction_graph.py")
         table.append([j for _, j in chosen])
     return table
 
