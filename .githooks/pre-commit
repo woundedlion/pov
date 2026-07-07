@@ -64,6 +64,37 @@ if [ -z "$NATIVE" ] && [ -z "$TEENSY" ]; then
   exit 0
 fi
 
+# ─── clang-format check (first-party C++ only) ──────────────────────────────
+# Verify staged C++ matches the committed .clang-format. Scoped to first-party
+# sources: core/vendor/ and the generated color_luts.h / reaction_graph.cpp are
+# excluded. Checks the working-tree file (same partial-staging caveat as the
+# suite above). Skipped if clang-format is absent (a contributor without it still
+# commits — no CI counterpart yet) or via HS_SKIP_FORMAT=1.
+if [ -z "$HS_SKIP_FORMAT" ]; then
+  FORMAT="$(printf '%s\n' "$CHANGED" \
+    | grep -E '\.(h|hpp|cpp|cc|inl)$' \
+    | grep -vE '(^|/)core/vendor/|(^|/)core/color/color_luts\.h$|(^|/)core/engine/reaction_graph\.cpp$' || true)"
+  if [ -n "$FORMAT" ]; then
+    if command -v clang-format >/dev/null 2>&1; then
+      echo "[pre-commit] Checking clang-format on staged first-party C++..."
+      unformatted=
+      for f in $FORMAT; do
+        [ -f "$f" ] || continue     # deleted/renamed-away path: nothing to check
+        clang-format --dry-run --Werror --style=file "$f" >/dev/null 2>&1 \
+          || unformatted="$unformatted $f"
+      done
+      if [ -n "$unformatted" ]; then
+        echo "[pre-commit] clang-format found unformatted files:$unformatted"
+        echo "[pre-commit] (fix with: clang-format -i$unformatted, or bypass once with HS_SKIP_FORMAT=1 / --no-verify)"
+        exit 1
+      fi
+      echo "[pre-commit] clang-format clean."
+    else
+      echo "[pre-commit] clang-format not found — skipping format check (install it to enable)."
+    fi
+  fi
+fi
+
 # Caveat: emscripten-only TUs (e.g. targets/wasm/wasm.cpp, guarded entirely by
 # #ifdef __EMSCRIPTEN__) match the grep above and so trigger this hook, but they
 # are NOT part of the native test target — none of their changed code is compiled
