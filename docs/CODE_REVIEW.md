@@ -161,7 +161,7 @@ Every surviving defect, numbered sequentially. Higher priority = fix first.
 ### Priority 6 — Cleanliness, comments, dead code
 
 18. ✅ Trim the essay-length justification comments in `color.h` (141–153, 673–682, 119–128, 2045–2049) to terse fact statements, and soften `lerp16`'s "round" claim to "round-to-nearest within 1 LSB."
-19. Remove the unused `hsvToRgb`/`CPixel` imports from daydream `palettes.html` (384) (keep the exports for the tests).
+19. ✅ Remove the unused `hsvToRgb`/`CPixel` imports from daydream `palettes.html` (384) (keep the exports for the tests).
 20. ✅ Reword the `static_circular_buffer.h` `is_linear()` comment so it references the public `operator[]` + `is_linear()` contract rather than implying the private `buffer` is exposed.
 21. ✅ Delete the dead `.gitignore` entries `/build_release/` and `/build_test_cmake/`.
 22. ✅ Fix the `fast_atan2` comment (core/math/3dmath.h:334) re: IEEE negative-zero at the −π endpoint.
