@@ -109,6 +109,18 @@ public:
   }
 
   /**
+   * @brief Bump-allocate storage for `n` elements of `T`, typed.
+   * @tparam T Element type; sizes and aligns the block from the type.
+   * @param n Element count (must be > 0, per allocate()).
+   * @return Pointer to the block, cast to `T*`.
+   * @details Thin wrapper over allocate() that derives `sizeof`/`alignof` from
+   * `T` so a call site cannot mis-pair them. Does not construct the elements.
+   */
+  template <typename T> T *allocate_n(size_t n) {
+    return static_cast<T *>(allocate(n * sizeof(T), alignof(T)));
+  }
+
+  /**
    * @brief Returns the current allocation offset.
    * @return Bytes consumed from the buffer so far.
    */

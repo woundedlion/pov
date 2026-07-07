@@ -88,7 +88,7 @@ public:
     ScratchScope scratch(arena);
     HS_CHECK(count <= MAX_POINTS,
              "KDTree source point count exceeds int16_t child-link index range");
-    int *indices = (int *)arena.allocate(count * sizeof(int), alignof(int));
+    int *indices = arena.allocate_n<int>(count);
     for (size_t i = 0; i < count; ++i)
       indices[i] = (int)i;
 

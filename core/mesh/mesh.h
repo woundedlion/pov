@@ -274,9 +274,7 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
   {
     ScratchScope arena_guard(arena);
     HalfEdgePairRecord *records =
-        static_cast<HalfEdgePairRecord *>(arena.allocate(
-            total_indices * sizeof(HalfEdgePairRecord),
-            alignof(HalfEdgePairRecord)));
+        arena.allocate_n<HalfEdgePairRecord>(total_indices);
 
     for (size_t fi = 0; fi < num_faces; ++fi) {
       int count = counts[fi];
@@ -428,8 +426,7 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
   constexpr uint16_t kReferenced = 0xFFFE;
   ScratchScope scratch_guard(scratch_arena_a);
   const size_t src_vertex_count = src.vertices.size();
-  uint16_t *remap = static_cast<uint16_t *>(scratch_arena_a.allocate(
-      src_vertex_count * sizeof(uint16_t), alignof(uint16_t)));
+  uint16_t *remap = scratch_arena_a.allocate_n<uint16_t>(src_vertex_count);
   for (size_t i = 0; i < src_vertex_count; ++i)
     remap[i] = kUnreferenced;
 
@@ -630,18 +627,15 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
              "classify_faces_by_topology exceeds 16-bit index range");
 
     uint16_t *he_to_face =
-        static_cast<uint16_t *>(scratch_a.allocate(
-            I * sizeof(uint16_t), alignof(uint16_t)));
+        scratch_a.allocate_n<uint16_t>(I);
     uint16_t *pair_array =
-        static_cast<uint16_t *>(scratch_a.allocate(
-            I * sizeof(uint16_t), alignof(uint16_t)));
+        scratch_a.allocate_n<uint16_t>(I);
     std::fill_n(pair_array, I, HE_NONE);
 
     {
       ScratchScope temp_records(scratch_b);
       HalfEdgePairRecord *records =
-          static_cast<HalfEdgePairRecord *>(scratch_b.allocate(
-              I * sizeof(HalfEdgePairRecord), alignof(HalfEdgePairRecord)));
+          scratch_b.allocate_n<HalfEdgePairRecord>(I);
 
       size_t he_idx = 0;
       size_t face_offset = 0;
@@ -689,8 +683,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     uint32_t hash;    /**< Final topology hash for the face. */
     int original_face; /**< Index of the face in the original mesh order. */
   };
-  HashNode *nodes = static_cast<HashNode *>(
-      scratch_a.allocate(F * sizeof(HashNode), alignof(HashNode)));
+  HashNode *nodes = scratch_a.allocate_n<HashNode>(F);
 
   for (size_t fi = 0; fi < F; ++fi) {
     nodes[fi] = {final_hashes[fi], static_cast<int>(fi)};

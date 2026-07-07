@@ -2174,8 +2174,7 @@ public:
    * @details Works for a runtime Palette or a compile-time StaticPalette alike.
    */
   template <typename Source> void bake(Arena &arena, const Source &source) {
-    lut_ = static_cast<Color4 *>(
-        arena.allocate(LUT_SIZE * sizeof(Color4), alignof(Color4)));
+    lut_ = arena.allocate_n<Color4>(LUT_SIZE);
     rebake(source);
   }
 
@@ -2220,8 +2219,7 @@ public:
    */
   void clone_from(const BakedPalette &src, Arena &arena) {
     HS_CHECK(src.lut_ != nullptr, "BakedPalette::clone_from before src bake()");
-    lut_ = static_cast<Color4 *>(
-        arena.allocate(LUT_SIZE * sizeof(Color4), alignof(Color4)));
+    lut_ = arena.allocate_n<Color4>(LUT_SIZE);
     memcpy(lut_, src.lut_, LUT_SIZE * sizeof(Color4));
   }
 

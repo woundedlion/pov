@@ -701,8 +701,7 @@ public:
    * aren't ready yet).
    */
   void init_storage(Arena &arena) {
-    items_ = static_cast<Item *>(
-        arena.allocate(Capacity * sizeof(Item), alignof(Item)));
+    items_ = arena.allocate_n<Item>(Capacity);
     head_ = tail_ = count_ = 0;
   }
 
@@ -933,8 +932,7 @@ public:
    * @param arena Persistent arena supplying MAX_PIXELS DecayPixel slots.
    */
   void init_storage(Arena &arena) {
-    points_ = static_cast<DecayPixel *>(
-        arena.allocate(MAX_PIXELS * sizeof(DecayPixel), alignof(DecayPixel)));
+    points_ = arena.allocate_n<DecayPixel>(MAX_PIXELS);
     num_pixels = 0;
   }
 
@@ -1176,10 +1174,8 @@ public:
 
     // LIFO scope reclaims dx/dy on return; must not be read after that.
     ScratchScope scope(scratch_arena_a);
-    auto *dx = static_cast<int16_t *>(scope.get_arena().allocate(
-        hh * hw * sizeof(int16_t), alignof(int16_t)));
-    auto *dy = static_cast<int16_t *>(scope.get_arena().allocate(
-        hh * hw * sizeof(int16_t), alignof(int16_t)));
+    auto *dx = scope.get_arena().allocate_n<int16_t>(hh * hw);
+    auto *dy = scope.get_arena().allocate_n<int16_t>(hh * hw);
 
     const auto &cr = cv.clip();
     const int y_lo = cr.render_y_start();

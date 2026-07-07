@@ -181,10 +181,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
 
   // Arena-hosted (not stack): this runs inside the effect spawn path, whose
   // stack high-water is budget-gated (tests/stack_measure.cpp).
-  float *zx = static_cast<float *>(
-      scratch.allocate(MAX_VERTS * sizeof(float), alignof(float)));
-  float *zy = static_cast<float *>(
-      scratch.allocate(MAX_VERTS * sizeof(float), alignof(float)));
+  float *zx = scratch.allocate_n<float>(MAX_VERTS);
+  float *zy = scratch.allocate_n<float>(MAX_VERTS);
   float worst_res_px = 0.0f;
 
   for (size_t f = 0; f < F; ++f) {
@@ -271,8 +269,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       continue; // degrade to kNoClass; the exact path is always correct
 
     // Found a new class from this face's own centered projection.
-    float *canon = static_cast<float *>(
-        persistent.allocate(2 * count * sizeof(float), alignof(float)));
+    float *canon = persistent.allocate_n<float>(2 * count);
     for (int k = 0; k < count; ++k) {
       canon[2 * k] = zx[k];
       canon[2 * k + 1] = zy[k];
@@ -317,8 +314,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   // Staging buffer: LUTs are built here first and promoted to the persistent
   // arena only if their predicted hit share clears the quality bar, so a
   // low-value LUT never spends persistent budget.
-  int16_t *staging = static_cast<int16_t *>(scratch.allocate(
-      kClassLutMaxN * kClassLutMaxN * sizeof(int16_t), alignof(int16_t)));
+  int16_t *staging = scratch.allocate_n<int16_t>(kClassLutMaxN * kClassLutMaxN);
   for (int e = 0; e < n_elig; ++e) {
     CongruenceClass &cls = out.classes[order[e]];
     out.concave_faces += cls.members;
