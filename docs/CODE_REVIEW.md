@@ -140,7 +140,7 @@ Every surviving defect, numbered sequentially. Higher priority = fix first.
 
 ### Priority 3 — daydream runtime robustness
 
-7. `worker_protocol.js`: add a protocol version field to `init`/`booted` so a stale-cached worker against updated glue fails fast instead of drifting on a reshaped same-name message.
+7. ✅ `worker_protocol.js`: add a protocol version field to `init`/`booted` so a stale-cached worker against updated glue fails fast instead of drifting on a reshaped same-name message. — Fixed on daydream master: a shared `PROTOCOL_VERSION` is stamped on `init` (controller → worker) and `booted` (worker → controller); each side faults on a mismatch. The mismatch is a messaged fault, so the boot-retry path does not treat it as retryable.
 8. ❌ `segment_worker.js` (232–240): register `self.onerror` (or verify the controller wires `worker.onerror`) so the documented "controller faults on worker error" contract actually holds; otherwise soften the comment. — **Rejected (already handled):** the controller wires `worker.onerror` (segment_controller.js), which calls `onWorkerFault`. The worker's `setTimeout(throw)` rethrow surfaces as the worker's error event and propagates to that handler, so the contract holds without a `self.onerror`.
 9. ✅ `state.js` (154): coerce URL-seeded tracked keys per a type hint (or document that tracked keys are string-valued) so a future numeric tracked key is not silently a string. — Took the **coerce** option (daydream master): `URLSync` now coerces a URL-seeded tracked key to its seeded default's type, keeping the default on a non-finite parse; string-valued keys round-trip unchanged.
 
