@@ -266,6 +266,12 @@ jobs:
           cmake --preset wasm-debug -DDAYDREAM_DIR="${{ runner.temp }}/daydream-install"
           cmake --build --preset wasm-debug
 
+      - name: Runtime-smoke WASM debug
+        # The debug build carries -sASSERTIONS=1 and a distinct 64 KB stack;
+        # instantiate and drive it so an assertion-guarded or debug-only
+        # regression fails here instead of riding a green compile-only build.
+        run: node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js
+
       # Verify ccache actually fronts em++ here (the comment above claims it
       # does via CMAKE_CXX_COMPILER_LAUNCHER). Stats were zeroed before the
       # builds, so a nonzero cacheable-call count (hits + misses) proves ccache

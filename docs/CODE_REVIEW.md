@@ -252,7 +252,7 @@ None. No high-severity or critical defect was identified in scope.
 
 3. ✅ **Fix the stale uniform name in the strobe doc comment** — `daydream/driver.js:569`. The `setStrobeColumns` JSDoc says the mode is applied via `uColumnFillScale`, but no such uniform exists — the real uniform is `uColumnFillArc` (a repo-wide grep for `uColumnFillScale` returns zero hits). Rename in the comment.
 
-4. **Runtime-smoke the debug WASM build in CI** — `.github/workflows/ci.yml:260-267`. `wasm-debug` is compiled (with `-sASSERTIONS=1`) but never run; `wasm_smoke.mjs` already accepts a `WASM_JS` override, so an assertion-guarded regression on a debug-only branch currently rides a green build. Add one `node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js` step.
+4. ✅ **Runtime-smoke the debug WASM build in CI** — `.github/workflows/ci.yml:260-267`. `wasm-debug` is compiled (with `-sASSERTIONS=1`) but never run; `wasm_smoke.mjs` already accepts a `WASM_JS` override, so an assertion-guarded regression on a debug-only branch currently rides a green build. Add one `node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js` step.
 
 ### Priority 3 — Low / Informational
 
