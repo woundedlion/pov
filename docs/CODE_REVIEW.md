@@ -150,7 +150,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 11. ✅ **Ad-hoc epsilon literal in `stereo()`.** `core/math/3dmath.h:736` uses a bare `1e-12f` pole-azimuth guard despite the file's rule that all tolerances route through named `math::EPS_*`/`STEREO_*` constants (and the identically-valued `STEREO_DIV_NUM_EPS_SQ` is a *squared* threshold, not reusable). **Fix:** add a named `STEREO_AZIMUTH_EPS` (documented as a length) and use it.
 
-12. **Ad-hoc epsilon literal in `gnomonic()`.** `core/math/3dmath.h:787` hardcodes `1e-9f` twice for the equator divisor floor. **Fix:** add a named `STEREO_EQUATOR_EPS`; do not reuse the coincidentally-equal `math::EPS_NORMAL_SQ` (unrelated meaning).
+12. ✅ **Ad-hoc epsilon literal in `gnomonic()`.** `core/math/3dmath.h:787` hardcodes `1e-9f` twice for the equator divisor floor. **Fix:** add a named `STEREO_EQUATOR_EPS`; do not reuse the coincidentally-equal `math::EPS_NORMAL_SQ` (unrelated meaning).
 
 13. **Header comment references a nonexistent "back" easing variant.** `core/math/easing.h:16` mentions `cubic/back/elastic` overshoot; no `ease_*_back` exists. **Fix:** drop "back/" from the comment.
 
