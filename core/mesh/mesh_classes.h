@@ -104,7 +104,7 @@ struct MeshClassBake {
   ArenaVector<CongruenceClass> classes; /**< Congruence classes, dense ids. */
   ArenaVector<FaceClassRec> face_recs;  /**< Per-face records, mesh face order. */
   float worst_residual_px = 0.0f;   /**< Worst accepted RMS residual (pixels). */
-  float predicted_hit_share = 0.0f; /**< Safe-cell share on LUT-bound faces (quality; gate >= ~75%). */
+  float predicted_hit_share = 0.0f; /**< Safe-cell share on LUT-bound faces (quality; gate >= kMinClassHitShare). */
   float lut_face_share = 0.0f;      /**< Faces bound to a LUT / all faces (coverage). */
   uint16_t shared_faces = 0;        /**< Faces in classes with >= 2 members. */
   uint16_t concave_faces = 0;       /**< Faces in concave (LUT-eligible) classes. */
@@ -353,7 +353,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     // Predicted hit share: fraction of cells inside the cull disk whose four
     // corners are sign-pure and beyond the interpolation guard, weighted by
     // the class's face count. A bake-time proxy for the runtime lut_hits
-    // ratio on LUT-bound faces (gate: >= ~75%).
+    // ratio on LUT-bound faces (gate: >= kMinClassHitShare).
     float circ = 0.0f;
     for (int k = 0; k < cls.n_verts; ++k) {
       float r2 = cls.canon_xy[2 * k] * cls.canon_xy[2 * k] +

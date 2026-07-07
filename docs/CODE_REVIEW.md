@@ -248,7 +248,7 @@ None. No high-severity or critical defect was identified in scope.
 
 1. ✅ **Unify the `Segue` policy hook signature** — `core/animation/mesh.h:392` vs `232,336,355`. `Segue::Breakdown::face_offset(const Vector&, int, int cls)` takes three params while `Base`/`TerminatorSweep`/`Shockwave` take two; because policies are duck-typed (no `virtual`/`override`), the divergence is invisible until a call site instantiates against the specific policy, and nothing structurally guarantees a uniform contract. Give all policies one signature (pass the class index everywhere, defaulting `cls` in `Base`) so the contract is compiler-checkable.
 
-2. **Correct the stale `~75%` gate figure** — `core/mesh/mesh_classes.h:107,356`. Two comments describing the class-LUT retention gate say "~75%", but the actual constant is `kMinClassHitShare = 0.4f` (a 40% floor). Restate the comments as ~40% / reference `kMinClassHitShare` so a future tuner isn't misled into thinking the bar is nearly double what it is.
+2. ✅ **Correct the stale `~75%` gate figure** — `core/mesh/mesh_classes.h:107,356`. Two comments describing the class-LUT retention gate say "~75%", but the actual constant is `kMinClassHitShare = 0.4f` (a 40% floor). Restate the comments as ~40% / reference `kMinClassHitShare` so a future tuner isn't misled into thinking the bar is nearly double what it is.
 
 3. **Fix the stale uniform name in the strobe doc comment** — `daydream/driver.js:569`. The `setStrobeColumns` JSDoc says the mode is applied via `uColumnFillScale`, but no such uniform exists — the real uniform is `uColumnFillArc` (a repo-wide grep for `uColumnFillScale` returns zero hits). Rename in the comment.
 
