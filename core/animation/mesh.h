@@ -207,7 +207,7 @@ inline int schedule_sequential(Timeline &timeline, SpriteFn draw_fn,
 }
 
 /**
- * @brief Soft sweep front shared by the per-face segues.
+ * @brief Soft sweep front used by Shockwave.
  * @param phase Global segue phase in [0, 1].
  * @param offset Face's sweep ordering in [0, 1]; larger extinguishes earlier.
  * @param band Softness of the front, in phase units.
@@ -319,25 +319,32 @@ struct Lace : Base {
 };
 
 /**
- * @brief A world-fixed day/night line sweeps the sphere, extinguishing the old
- * pattern face by face; the return sweep ignites the new one.
+ * @brief A world-fixed day/night line sweeps the sphere at constant speed; the
+ * moment it reaches a face, that face fades over kFadeFrames frames. The
+ * extinguishing sweep takes the old pattern, the return sweep ignites the new.
  * @details Face offsets are recomputed from world-space centers each frame, so
  * the terminator stays fixed in the room while the mesh rotates through it.
+ * The front crosses the sphere over the fade window minus one per-face fade,
+ * so the last-touched face still completes: face phases are exactly 1 at
+ * phase 1 and 0 at phase 0.
  */
 struct TerminatorSweep : Base {
-  /** @brief Sweep-front softness, in phase units. Kept narrow: the twilight
-   * zone spans band/(1-band) of the sphere's area, and the window's first and
-   * last `band` of phase fade that zone in place (the fronts are parked
-   * outside the poles there) — a wide band reads as a quarter-sphere popping
-   * instead of sweeping. */
-  static constexpr float kBand = 0.1f;
-  Vector axis = Y_AXIS; /**< World-space sweep axis. */
+  static constexpr int kFadeFrames = 4; /**< Per-face fade length, in frames, from the front's touch. */
+  Vector axis = Y_AXIS;     /**< World-space sweep axis. */
+  float fade_frac = 0.125f; /**< kFadeFrames over the scheduled fade window; set by schedule(). */
+  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
+    int fade = std::min(window, duration / 2);
+    fade_frac = std::min(1.0f, static_cast<float>(kFadeFrames) /
+                                   static_cast<float>(std::max(fade, 1)));
+    return schedule_sequential(timeline, std::move(draw_fn), duration, window);
+  }
   void retarget(const Vector &v) { axis = v; }
   float face_offset(const Vector &center, int, int) const {
     return 0.5f * (1.0f + dot(center, axis));
   }
   float face_phase(float phase, float offset) const {
-    return sweep_phase(phase, offset, kBand);
+    return hs::clamp((phase - offset * (1.0f - fade_frac)) / fade_frac, 0.0f,
+                     1.0f);
   }
   float opacity(float phase) const { return phase; }
 };
