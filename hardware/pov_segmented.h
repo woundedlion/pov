@@ -474,6 +474,14 @@ private:
     sync_.on_sync_edge(ARM_DWT_CYCCNT);
   }
 
+  // render_column samples the raw display buffer, bypassing get_pixel(), so a
+  // get_pixel-overriding effect must never go live on either adoption path.
+  static FASTRUN void assert_render_column_safe(Effect *p) {
+    HS_CHECK(!p->overrides_get_pixel(),
+             "segmented render_column bypasses get_pixel(); a get_pixel-"
+             "overriding effect cannot run on this path");
+  }
+
   /**
    * @brief Flywheel ISR: the sole owner of all sync state (spec §8).
    *
@@ -531,11 +539,7 @@ private:
       HS_CHECK(p && pending_gen_.load(std::memory_order_relaxed) ==
                         pov::sync::SyncBoard::build_gen_of(sync_.build_word()),
                "epoch commit: effect init exceeded the K-revolution window");
-      // render_column samples the raw display buffer, bypassing get_pixel(), so
-      // a get_pixel-overriding effect must never go live here.
-      HS_CHECK(!p->overrides_get_pixel(),
-               "segmented render_column bypasses get_pixel(); a get_pixel-"
-               "overriding effect cannot run on this path");
+      assert_render_column_safe(p);
       live_effect_ = p;
       consumed_gen_.store(pending_gen_.load(std::memory_order_relaxed),
                           std::memory_order_relaxed);
@@ -546,9 +550,7 @@ private:
       const uint32_t pg = pending_gen_.load(std::memory_order_relaxed);
       if (p && pg != consumed_gen_.load(std::memory_order_relaxed) &&
           pg == pov::sync::SyncBoard::build_gen_of(sync_.build_word())) {
-        HS_CHECK(!p->overrides_get_pixel(),
-                 "segmented render_column bypasses get_pixel(); a get_pixel-"
-                 "overriding effect cannot run on this path");
+        assert_render_column_safe(p);
         live_effect_ = p;
         consumed_gen_.store(pg, std::memory_order_relaxed);
       }
