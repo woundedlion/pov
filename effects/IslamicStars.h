@@ -165,12 +165,10 @@ private:
 
     // Per-face segues order faces by world-space center, recomputed per frame
     // so the sweep front stays fixed in the room while the mesh rotates
-    // through it. Class-ordered segues take a third argument: the face's
-    // palette-slot class, mapped exactly as the fragment shader maps it.
-    constexpr bool kPerFaceClass =
-        requires(const Vector &c) { seg.face_offset(c, 0, 0); };
+    // through it. The third argument is the face's palette-slot class, mapped
+    // exactly as the fragment shader maps it; class-agnostic sweeps ignore it.
     constexpr bool kPerFace =
-        kPerFaceClass || requires(const Vector &c) { seg.face_offset(c, 0); };
+        requires(const Vector &c) { seg.face_offset(c, 0, 0); };
     ArenaVector<float> face_offsets;
     if constexpr (kPerFace) {
       const size_t faces = transformed_state.num_faces();
@@ -182,16 +180,11 @@ private:
         Vector c(0.0f, 0.0f, 0.0f);
         for (int k = 0; k < fcnt[f]; ++k)
           c = c + transformed_state.vertices[fidx[foff[f] + k]];
-        if constexpr (kPerFaceClass) {
-          int cls = (f < static_cast<size_t>(num_faces))
-                        ? wrap(raw_indices[f], NUM_PALETTES)
-                        : 0;
-          face_offsets.push_back(
-              seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls));
-        } else {
-          face_offsets.push_back(
-              seg.face_offset(normalized_or(c, UP), static_cast<int>(f)));
-        }
+        int cls = (f < static_cast<size_t>(num_faces))
+                      ? wrap(raw_indices[f], NUM_PALETTES)
+                      : 0;
+        face_offsets.push_back(
+            seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls));
       }
     }
 

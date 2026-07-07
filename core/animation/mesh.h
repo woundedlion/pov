@@ -180,7 +180,7 @@ private:
  *
  *   void   retarget(v)               — re-randomize per-transition state
  *   Vector warp(v, phase)            — pre-ripple unit-sphere vertex warp
- *   float  face_offset(center, i)    — per-face sweep ordering in [0, 1]
+ *   float  face_offset(center, i, cls) — per-face sweep ordering in [0, 1]
  *   float  face_phase(phase, offset) — face-local phase from the sweep front
  *
  * Policies are resolved at compile time (no virtuals); Base's identity hooks
@@ -333,7 +333,7 @@ struct TerminatorSweep : Base {
   static constexpr float kBand = 0.1f;
   Vector axis = Y_AXIS; /**< World-space sweep axis. */
   void retarget(const Vector &v) { axis = v; }
-  float face_offset(const Vector &center, int) const {
+  float face_offset(const Vector &center, int, int) const {
     return 0.5f * (1.0f + dot(center, axis));
   }
   float face_phase(float phase, float offset) const {
@@ -352,7 +352,7 @@ struct Shockwave : Base {
   static constexpr float kBand = 0.3f; /**< Wave-front softness, in phase units. */
   Vector origin = Y_AXIS; /**< World-space wave origin. */
   void retarget(const Vector &v) { origin = v; }
-  float face_offset(const Vector &center, int) const {
+  float face_offset(const Vector &center, int, int) const {
     float angle = fast_acos(hs::clamp(dot(center, origin), -1.0f, 1.0f));
     return 1.0f - angle * (1.0f / PI_F);
   }

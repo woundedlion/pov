@@ -1342,9 +1342,9 @@ inline void test_terminator_sweep_orders_by_axis() {
   Segue::TerminatorSweep term;
   Vector axis = Vector(1.0f, 2.0f, -0.5f).normalized();
   term.retarget(axis);
-  HS_EXPECT_NEAR(term.face_offset(axis, 0), 1.0f, 1e-3f);
-  HS_EXPECT_NEAR(term.face_offset(-axis, 0), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(term.face_offset(cross(axis, X_AXIS).normalized(), 0), 0.5f,
+  HS_EXPECT_NEAR(term.face_offset(axis, 0, 0), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(term.face_offset(-axis, 0, 0), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(term.face_offset(cross(axis, X_AXIS).normalized(), 0, 0), 0.5f,
                  1e-2f);
   HS_EXPECT_NEAR(term.opacity(0.4f), 0.4f, 1e-6f);
 }
@@ -1357,10 +1357,10 @@ inline void test_shockwave_orders_by_distance_from_origin() {
   Segue::Shockwave wave;
   Vector origin = Vector(0.3f, -1.0f, 0.7f).normalized();
   wave.retarget(origin);
-  HS_EXPECT_NEAR(wave.face_offset(origin, 0), 1.0f, 1e-2f);
-  HS_EXPECT_NEAR(wave.face_offset(-origin, 0), 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(wave.face_offset(origin, 0, 0), 1.0f, 1e-2f);
+  HS_EXPECT_NEAR(wave.face_offset(-origin, 0, 0), 0.0f, 1e-2f);
   // Equidistant ring sits mid-order.
-  HS_EXPECT_NEAR(wave.face_offset(cross(origin, X_AXIS).normalized(), 0), 0.5f,
+  HS_EXPECT_NEAR(wave.face_offset(cross(origin, X_AXIS).normalized(), 0, 0), 0.5f,
                  2e-2f);
 }
 
