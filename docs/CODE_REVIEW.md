@@ -272,6 +272,6 @@ None. No high-severity or critical defect was identified in scope.
 
 12. ❌ **Add isolated pixel-output tests for `Pixel::ChromaticShift` and `Screen::Blur`** — `tests/`. Rejected: already handled. `tests/test_filter.h` has direct functional tests asserting the emitted taps/pixel output on known inputs — `test_blur_factor_zero_is_identity`, `test_blur_full_kernel_sums_to_alpha`, `test_blur_update_changes_kernel`, `test_blur_pole_row_renormalizes`, and `test_chromatic_shift_fanout`. The premise ("only transitively through effect smoke tests") is not accurate.
 
-13. **Add a dedicated `shading.h` test module** — `tests/`. `Fragment`/null-shader helpers are covered only incidentally through rasterizer tests; a small isolated module would pin their contract directly.
+13. ✅ **Add a dedicated `shading.h` test module** — `tests/`. `Fragment`/null-shader helpers are covered only incidentally through rasterizer tests; a small isolated module would pin their contract directly.
 
 14. **Extend the cross-run determinism frame-diff to the `<96,20>` device resolution** — `tests/`. The byte-identical determinism oracle runs only at 288×144; the `<96,20>` specialization gets a smoke pass but no frame-diff, so `PhiLUT<20>`/`H_OFFSET`-specific nondeterminism would not be caught by the determinism oracle.
