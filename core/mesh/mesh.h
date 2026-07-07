@@ -287,6 +287,8 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
       for (int i = 0; i < count; ++i) {
         uint16_t u = faces_arr[face_offset + i];
         uint16_t v = faces_arr[face_offset + (i + 1) % count];
+        HS_CHECK(u < num_verts && v < num_verts,
+                 "half-edge mesh face index out of range");
 
         uint16_t he_index = static_cast<uint16_t>(face_start_he_idx + i);
         HalfEdge &he = out.half_edges[he_index];
