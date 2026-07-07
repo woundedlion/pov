@@ -47,6 +47,7 @@ public:
     // only; indefinite ones skip fade-out).
     int fade_total = this->fade_in_duration + this->fade_out_duration;
     if (duration >= 0 && fade_total > duration) {
+      // Integer floor drops fade_in to 0 at tiny durations (fade_out stays >= 0).
       this->fade_in_duration =
           static_cast<long long>(duration) * this->fade_in_duration / fade_total;
       this->fade_out_duration = duration - this->fade_in_duration;
