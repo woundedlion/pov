@@ -64,19 +64,18 @@ _doxygen-theme:
 _doxygen-theme:
     if not exist .doxygen-awesome git clone --depth 1 --branch v2.3.4 https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
 
-# Synthesize Doxyfile.local = Doxyfile + theme overrides (mirrors docs.yml). The
-# heredoc-style append is shell-specific, so it's split per-OS.
+# Synthesize Doxyfile.local = Doxyfile + docs/doxygen-theme.cfg (the same theme
+# overrides docs.yml appends). The copy+append is shell-specific, so it's split
+# per-OS; the appended content is shared, not duplicated.
 [unix]
 _doxyfile-local:
     cp Doxyfile Doxyfile.local
-    { echo "HTML_EXTRA_STYLESHEET = .doxygen-awesome/doxygen-awesome.css .doxygen-awesome/doxygen-awesome-sidebar-only.css docs/doxygen-custom.css"; echo "HTML_COLORSTYLE       = DARK"; echo "HTML_COLORSTYLE_GAMMA = 160"; } >> Doxyfile.local
+    cat docs/doxygen-theme.cfg >> Doxyfile.local
 
 [windows]
 _doxyfile-local:
     copy /y Doxyfile Doxyfile.local
-    (echo HTML_EXTRA_STYLESHEET = .doxygen-awesome/doxygen-awesome.css .doxygen-awesome/doxygen-awesome-sidebar-only.css docs/doxygen-custom.css) >> Doxyfile.local
-    (echo HTML_COLORSTYLE       = DARK) >> Doxyfile.local
-    (echo HTML_COLORSTYLE_GAMMA = 160) >> Doxyfile.local
+    type docs\doxygen-theme.cfg >> Doxyfile.local
 
 # WASM release build + install the module into ../daydream.
 install:
