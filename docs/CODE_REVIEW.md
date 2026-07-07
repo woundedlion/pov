@@ -89,7 +89,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 3. ✅ **CPL export uses --side front only; bottom-placed SMD get blank coordinates** — `hardware/phantasm/gen/fab.py:178-218` · _correctness_
    Fix: Export both sides (drop `--side front`, or run front+back) so bottom parts carry real coordinates, and pass through the exporter's Side column (already read as p.get('Side','top')). If the fab policy truly is top-only assembly, assert/skip bottom-side assembled parts loudly instead of emitting blank-coordinate CPL rows.
 
-4. **WebGL context restore does not request a repaint, leaving a blank sphere while paused** — `driver.js:300-304` · _correctness_
+4. ✅ **WebGL context restore does not request a repaint, leaving a blank sphere while paused** — `driver.js:300-304` · _correctness_
    Fix: In onContextRestored, set this.needsRender = true (or call this.invalidate()) so the next animation-loop tick repaints and re-uploads instanceColor/instanceMatrix after the context comes back.
 
 5. **Spline point-drag can get stuck when the mouse is released outside the canvas** — `tools/splines.html:413-415, onMouseUp/onMouseMove` · _correctness_
