@@ -100,7 +100,7 @@ public:
                                                      Arena &b) {
         return Solids::finalize_solid(solids[solid_idx].generate(a, b), target);
       });
-      carousel.slot(carousel.front_index()).clear();
+      carousel.slot(carousel.front_index()) = MeshState();
       MeshOps::compile(poly, carousel.slot(carousel.front_index()),
                        persistent_arena);
     }
