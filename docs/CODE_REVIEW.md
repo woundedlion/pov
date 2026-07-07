@@ -98,7 +98,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 6. ✅ **stack_measure hand-rolls reset_globals() instead of sharing it; silently drifts when the canonical reset grows** — `tests/stack_measure.cpp:55-56 (and 63-64)` · _maintainability_
    Fix: Include tests/test_fixture.h in stack_measure.cpp and replace the four inlined reset lines with hs_test::reset_globals(); (matching arena_measure.cpp / perf_bench.cpp). test_fixture.h is header-only and pulls no extra link deps beyond what stack_measure already links (memory.cpp / reaction_graph.cpp). This also deletes the dead global_timeline_t assignment.
 
-7. **build_half_edge_mesh does not validate face indices against num_verts before indexing out.vertices[v]** — `core/mesh/mesh.h:288-299` · _memory-safety_
+7. ✅ **build_half_edge_mesh does not validate face indices against num_verts before indexing out.vertices[v]** — `core/mesh/mesh.h:288-299` · _memory-safety_
    Fix: In the per-index loop, add HS_CHECK(u < num_verts && v < num_verts, "half-edge mesh face index out of range"); before writing out.vertices[v].half_edge (or validate once when reading faces_arr[face_offset + i]).
 
 
