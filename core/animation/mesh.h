@@ -353,7 +353,10 @@ struct TerminatorSweep : Base {
     return hs::clamp((phase - offset * (1.0f - fade_frac)) / fade_frac, 0.0f,
                      1.0f);
   }
-  float opacity(float phase) const { return phase; }
+  /** @brief Squared: alpha scales linear-light color, where a linear ramp
+   * reads mostly-bright almost immediately; the square spreads the perceived
+   * fade across the full kFadeFrames. */
+  float opacity(float phase) const { return phase * phase; }
 };
 
 /**
