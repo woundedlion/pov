@@ -162,7 +162,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 17. ✅ **FlowField comment drift.** `effects/FlowField.h:90-108`: comment says `p.z*scale + t` but the code samples `p.position.z * params.noise_scale + t` (no `p.z` member). **Fix:** update the comment to the real expression.
 
-18. **`MindSplatter::Params::lerp` lacks the `sizeof` guard its sibling has.** `effects/MindSplatter.h:158-166` hand-enumerates fields with no `static_assert(sizeof(Params) == N*sizeof(float))`, unlike `Liquid2D`; adding/reordering a preset float would silently leave it un-interpolated. **Fix:** add the matching `sizeof` `static_assert` (do not factor a shared helper — the divergent per-effect lerp strategy is intentional).
+18. ✅ **`MindSplatter::Params::lerp` lacks the `sizeof` guard its sibling has.** `effects/MindSplatter.h:158-166` hand-enumerates fields with no `static_assert(sizeof(Params) == N*sizeof(float))`, unlike `Liquid2D`; adding/reordering a preset float would silently leave it un-interpolated. **Fix:** add the matching `sizeof` `static_assert` (do not factor a shared helper — the divergent per-effect lerp strategy is intentional).
 
 19. **`segment_map()` doc bound contradicts the driver/README.** `hardware/pov_segment_map.h:44` documents N≤4 while the `static_assert`/README say N≤8. **Fix:** reconcile toward the true limit (N≤4) as part of #4/#5.
 
