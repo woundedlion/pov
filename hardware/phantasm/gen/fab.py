@@ -74,6 +74,12 @@ DESC_BY_LCSC = {
 }
 
 
+def _kicad_version_key(path):
+    """(major, minor) of a KiCad install path; (0, 0) if unversioned."""
+    m = re.search(r"KiCad[\\/](\d+)\.(\d+)", path)
+    return (int(m.group(1)), int(m.group(2))) if m else (0, 0)
+
+
 def find_kicad_cli():
     env = os.environ.get("KICAD_CLI")
     if env and os.path.exists(env):
@@ -86,9 +92,9 @@ def find_kicad_cli():
         "/usr/local/bin/kicad-cli",
     ]
     for p in pats:
-        hits = sorted(glob.glob(p))
+        hits = glob.glob(p)
         if hits:
-            return hits[-1]            # newest version
+            return max(hits, key=_kicad_version_key)   # newest version
     return "kicad-cli"                 # assume on PATH
 
 
