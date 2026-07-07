@@ -196,7 +196,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 34. ✅ **Boolean threshold at exactly 0.5 is untested.** `daydream/tests/param_sync.test.js:25-30` probes 0/1/0.6/0.4 but not 0.5 — the one input where `>` vs `>=` flips. **Fix:** add a case pinning `resolveParamSync(true, 0.5, …)` → `false`.
 
-35. **Recorder toggle test's post-`onstop` assertion is trivially satisfied.** `daydream/tests/recorder.test.js:213-220`: `isRecording` is already false after synchronous `stop()`, so the assertion validates nothing about `onstop` teardown. **Fix:** assert the observable teardown effects (`mediaRecorder === null`, track stopped), mirroring the stronger test at line 243.
+35. ✅ **Recorder toggle test's post-`onstop` assertion is trivially satisfied.** `daydream/tests/recorder.test.js:213-220`: `isRecording` is already false after synchronous `stop()`, so the assertion validates nothing about `onstop` teardown. **Fix:** assert the observable teardown effects (`mediaRecorder === null`, track stopped), mirroring the stronger test at line 243.
 
 ---
 
