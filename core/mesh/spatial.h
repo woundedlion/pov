@@ -32,10 +32,8 @@ struct KDNode {
 
 /**
  * @brief A single neighbor returned by KDTree::nearest().
- * @details A slim result view: the point and its source index plus the squared
- * distance the search already computed (callers needing distance would otherwise
- * recompute it). Deliberately excludes KDNode's internal tree links
- * (`axis`/`left`/`right`), which are meaningless outside the tree.
+ * @details Carries the squared distance the search already computed; excludes
+ * KDNode's internal tree links, which are meaningless outside the tree.
  */
 struct Neighbor {
   Vector point;                /**< Copy of the neighbor's position. */

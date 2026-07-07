@@ -68,9 +68,8 @@ public:
    * @brief Initializes SPI and DMA hardware. Must be called from setup(),
    *        not from global constructors (peripherals may not be ready yet).
    *
-   * Call exactly once. A second call would re-run SPI.begin() and leak the
-   * already-open SPI transaction, so re-initialization is a programming error
-   * that fail-fast traps rather than silently corrupting the peripheral state.
+   * Call exactly once; a second call traps (re-running SPI.begin() would leak
+   * the open transaction).
    */
   void init() {
     HS_CHECK(!initialized_, "TeensySPIDMA::init() called twice");
@@ -134,13 +133,8 @@ public:
    * @brief Surfaces a permanently wedged DMA channel from the overrun-drop path.
    * @details submitFrame() drops on overrun rather than spinning, so a channel
    *          whose completion ISR never fires would otherwise stay masked
-   *          forever. Traps once the in-flight transfer outlives the watchdog
-   *          bound (healthy transfers finish in single-digit ms).
-   *
-   *          Coverage gap, by design: fires only while submitFrame() is being
-   *          called. A wedge during a sustained dark-latched window (POVSegmented
-   *          stops submitting) is not surfaced until column work resumes — the
-   *          symptom (a dark strip) is indistinguishable from intended dark.
+   *          forever. Traps once the in-flight transfer outlives the watchdog.
+   *          Only fires while submitFrame() is being called.
    */
   void checkStaleTransfer() {
     if (transferComplete_.load(std::memory_order_relaxed)) return;
@@ -153,10 +147,8 @@ public:
 
 private:
   /**
-   * @brief Watchdog bound for checkStaleTransfer(), in µs.
-   * @details A full-frame DMA is single-digit ms even for the largest strips at
-   *          12 MHz; 100 ms is far above any real transfer, so only a wedged DMA
-   *          channel trips it.
+   * @brief Watchdog bound for checkStaleTransfer(), in µs. Far above any real
+   *        full-frame DMA (single-digit ms), so only a wedged channel trips it.
    */
   static constexpr unsigned long kTransferWatchdogUs = 100000UL;
 
@@ -175,12 +167,9 @@ private:
   /**
    * @brief Completion flag handed between the DMA-completion ISR and the
    *        main/column thread.
-   * @details Single-core Cortex-M7 relaxed-atomic invariant: ISR and thread are
-   *          one observer (the ISR preempts), so relaxed ordering is sufficient —
-   *          acquire/release would only add DMB cost. This flag does NOT order
-   *          the buffer for the DMA engine; the caller's arm_dcache_flush()
-   *          (clean + DSB) before transmitAsync() provides that coherence,
-   *          independent of the atomic's memory_order.
+   * @details Single-observer (ISR preempts the thread), so relaxed ordering
+   *          suffices. Does NOT order the buffer for the DMA engine — the
+   *          caller's arm_dcache_flush() before transmitAsync() does that.
    */
   std::atomic<bool> transferComplete_;
   /**
@@ -259,11 +248,9 @@ public:
    * Call after all packPixel() calls on backFrame().
    * @param withBg If true, DMAs the composite buffer (image + trailing
    *               black frame) in a single transfer — zero gap, no spin.
-   * @return true if the frame was handed to the DMA engine; false if it was
-   *         dropped on overrun (prior transfer still in flight). Callers that
-   *         must KNOW a specific frame landed — e.g. the fail-dark latch, which
-   *         may not hold a stale bright column — gate on this; the steady-state
-   *         column path ignores it (a dropped image column self-heals next tick).
+   * @return true if the frame was handed to the DMA engine; false if dropped on
+   *         overrun (prior transfer still in flight). The fail-dark latch gates
+   *         on this; the steady-state column path ignores it (self-heals).
    */
   [[nodiscard]] bool submitFrame(bool withBg = false) {
     if (!spi_.isComplete()) {
@@ -337,25 +324,14 @@ private:
   TeensySPIDMA spi_; /**< Low-level async DMA+SPI driver for this strip. */
   /**
    * @brief Index (0/1) of the front buffer currently being DMA'd.
-   * @details Plain int, no atomic/volatile needed: every access lives in the
-   *          single column-ISR context — the reads in backFrame()/submitFrame()
-   *          and the write in submitFrame() all run from show_col(). The
-   *          DMA-completion ISR touches only transferComplete_, never this
-   *          index, so there is no cross-context reader to synchronize and a
-   *          barrier here would be pure cost (same single-observer model as the
-   *          transferComplete_/instance_ notes). The frames_[] buffer it selects
-   *          is made coherent for the DMA engine by the caller's cache flush
-   *          before transmitAsync() (submitFrame() cleans frames_[back] via
-   *          flush()), not by this index.
+   * @details Plain int: every access is in the single column-ISR context; the
+   *          completion ISR never touches it, so no barrier is needed.
    */
   int activeBuffer_;
   /**
    * @brief Monotonic count of frames successfully handed to the DMA engine.
-   * @details Atomic, not volatile: incremented in the column-ISR context (show/
-   *          submitFrame) and read elsewhere; volatile makes neither the RMW nor
-   *          the cross-context read well-defined. Relaxed ordering suffices —
-   *          these are independent monotonic counters, not a happens-before
-   *          signal.
+   * @details Atomic (ISR RMW + cross-context read); relaxed — an independent
+   *          counter, not a happens-before signal.
    */
   std::atomic<uint32_t> transferCount_;
   std::atomic<uint32_t> overrunCount_; /**< Monotonic count of frames dropped on overrun. */

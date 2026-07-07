@@ -117,9 +117,8 @@ struct HalfEdgePairRecord {
  * @param u One edge endpoint vertex index.
  * @param v The other edge endpoint vertex index.
  * @param he The half-edge index this record represents.
- * @details Centralizes the (min_v, max_v) key construction so the two record-
- * building loops (HalfEdgeMesh::build_from_flat and classify_faces_by_topology)
- * cannot drift if the key convention ever changes. Inline — no call overhead.
+ * @details Single source of the (min_v, max_v) key for both record-building
+ * loops (build_half_edge_mesh, classify_faces_by_topology).
  */
 inline void fill_edge_record(HalfEdgePairRecord &rec, uint16_t u, uint16_t v,
                              uint16_t he) {
@@ -135,11 +134,8 @@ inline void fill_edge_record(HalfEdgePairRecord &rec, uint16_t u, uint16_t v,
  * @param records Array of half-edge pair records; sorted in place by edge key.
  * @param n Number of records in the array.
  * @param set_pair Callback linking the two half-edges of each interior edge.
- * @details The lambda-independent record sort is factored into the non-template
- * sort_edge_records (internal linkage: each including TU gets its own copy, which
- * the linker may identical-code-fold); only the tiny pairing scan is templated +
- * inlined per set_pair. Traps on a non-manifold
- * edge (>2 half-edges sharing one undirected edge).
+ * @details Traps on a non-manifold edge (>2 half-edges sharing one undirected
+ * edge).
  */
 [[maybe_unused]] HS_COLD static void
 sort_edge_records(HalfEdgePairRecord *records, size_t n) {
@@ -172,11 +168,8 @@ inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
  * @brief Non-owning (pointer + size) view exposing just the size()/operator[]
  * surface build_from_flat needs.
  * @tparam T Element type of the viewed array.
- * @details Lets the MeshState ctor feed topology through the unified
- * get_*_data()/get_*_size() accessors: a borrowed-mode MeshState serves its
- * topology through the view spans with the owned face_counts/faces left empty,
- * so reading the owned vectors directly would silently build an empty half-edge
- * mesh. POD by value — inlines away, no per-element cost.
+ * @details Lets build_from_flat read topology through the unified accessors so
+ * a borrowed-mode MeshState (owned face_counts/faces empty) works.
  */
 template <typename T> struct FlatView {
   const T *ptr; /**< Pointer to the first viewed element. */
@@ -208,9 +201,8 @@ class HalfEdgeMesh;
  * @param faces_arr Flat per-face vertex index list.
  * @param total_indices Length of @p faces_arr.
  * @details Emits one half-edge per face index, links each face's next/prev loop,
- * then pairs opposite half-edges by undirected vertex key. Kept non-template so
- * HS_COLD relocates the body to flash; the HalfEdgeMesh ctors are thin accessor
- * adapters onto it. Traps on a 16-bit index overflow or a zero-side face.
+ * then pairs opposite half-edges by undirected vertex key. Traps on a 16-bit
+ * index overflow or a zero-side face.
  */
 [[maybe_unused]] HS_COLD static void
 build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
@@ -333,17 +325,10 @@ namespace MeshOps {
  * type, trapping on a budget bump that pushes it past the representable range.
  * @param i Container index to narrow.
  * @return The index as a uint16_t.
- * @details Vertex/face indices are stored as uint16_t (faces, with
- * HE_NONE=0xFFFF as the sentinel) and, in some operators' scratch, as int16_t
- * (-1 sentinel; see `hankin.h` `face_indices`). The input range is checked at
- * mesh build, but each operator's
- * OUTPUT index is captured via static_cast<...>(vertices.size() - 1), which
- * silently wraps if a future MAX_VERTS bump makes the count exceed the index
- * type. Routing those casts through here converts that silent geometry
- * corruption into a bench-time trap. Bound is INT16_MAX — the narrowest type
- * these indices land in (matches the MAX_VERTS <= INT16_MAX static_assert in
- * solids.h). Cold path: once per emitted vertex during a rebuild, never per
- * pixel.
+ * @details Bounds to INT16_MAX, the narrowest type these indices reach (some
+ * operators' scratch uses int16_t with a -1 sentinel; matches the
+ * MAX_VERTS <= INT16_MAX static_assert in solids.h). Converts a silent
+ * capture-wrap on a MAX_VERTS bump into a trap.
  */
 inline uint16_t narrow_index(size_t i) {
   HS_CHECK(i <= static_cast<size_t>(INT16_MAX),
@@ -355,16 +340,9 @@ inline uint16_t narrow_index(size_t i) {
  * @brief Trapping int -> uint8_t cast for a face's side count.
  * @param count Face side count to narrow.
  * @return The side count as a uint8_t.
- * @details The Conway/Hankin operators accumulate a face's vertex count in an
- * int, then push it into the uint8_t face_counts array. A face wider than 255
- * sides — reachable as a high-valence vertex orbit (orbit_count), a doubled
- * edge count (count * 2 in snub), or a long Hankin rosette walk (bounded only
- * by 2*I) — would silently wrap, corrupting the face topology. Parallel to
- * narrow_index in intent — route the cast through here so an over-wide value
- * traps at the bench instead of emitting garbage geometry — but a distinct
- * guard: this takes an int and bounds it to [0, UINT8_MAX] (side count), where
- * narrow_index takes a size_t and bounds it to INT16_MAX (vertex index). Cold
- * path: once per emitted face during a rebuild, never per pixel.
+ * @details A face side count wider than 255 (high-valence orbit, count*2 in
+ * snub, a long Hankin rosette walk) would silently wrap the uint8_t
+ * face_counts array; bounds to [0, UINT8_MAX] and traps instead.
  */
 inline uint8_t narrow_face_count(int count) {
   HS_CHECK(count >= 0 && count <= UINT8_MAX,
@@ -376,13 +354,8 @@ inline uint8_t narrow_face_count(int count) {
  * @brief Trap if the mesh has a boundary (any unpaired half-edge).
  * @param he_mesh Half-edge connectivity to validate.
  * @param op Operator name, interpolated into the trap message on failure.
- * @details The Conway/Hankin operators size their output pools assuming a closed
- * manifold — E = I/2 undirected edges — and walk complete edge orbits. An
- * unpaired half-edge undersizes those pools and the operator overruns them,
- * surfacing far from the cause as a generic "capacity exceeded" trap. Check the
- * precondition explicitly and up front so a boundary mesh fails with a
- * self-explanatory message. Cold path: once per operator at build time, never in
- * a per-element loop.
+ * @details Operators size output pools assuming a closed manifold (E = I/2); an
+ * unpaired half-edge would otherwise overrun them and trap far from the cause.
  */
 inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
                                     const char *op) {
@@ -552,9 +525,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
                     Arena &persistent) {
   ScratchScope scratch_a_guard(scratch_a);
 
-  // Read topology through the unified accessors: a borrowed-mode MeshState
-  // serves face_counts/faces via its view spans with the owned vectors empty.
-  // Vertices and topology are always owned, so they stay direct.
+  // Topology via accessors (borrowed-mode safe); vertices/topology are direct.
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();
   const uint8_t *face_counts = mesh.get_face_counts_data();

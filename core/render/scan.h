@@ -41,12 +41,9 @@ namespace Scan {
  * @param debug_bb When true, forces plotting and tints the bounding box.
  * @param result_scratch Reused DistanceResult scratch (avoids per-pixel alloc).
  * @param frag_scratch Reused Fragment scratch (avoids per-pixel alloc).
- * @details The shader and pipeline are intentionally type-erased
- * (FragmentShaderFn / PipelineRef), so the two per-pixel indirect calls below —
- * the shader at fragment_shader() and the plot at pipeline.plot() — do not
- * inline. This is a deliberate code-size tradeoff (one scanline instantiation
- * per <W,H> rather than per shader/pipeline combination); see the PipelineRef
- * note in concepts.h.
+ * @details The shader and pipeline are type-erased (FragmentShaderFn /
+ * PipelineRef) so the scanline instantiates once per <W,H> rather than per
+ * shader/pipeline; see the PipelineRef note in concepts.h.
  */
 template <int W, int H, bool ComputeUVs = true,
           typename PipelineT = PipelineRef>
@@ -1156,25 +1153,12 @@ struct Volume {
   probe_occluder(const Shape &shape, const Vector &closest_local,
                  const Vector &local_vd, float bounds_radius, float hit_threshold,
                  float aa_width) {
-    // Seed from the closest approach (not the march's terminal local_p — the loop
-    // can exit having stepped past the bounding sphere) and march forward for a
-    // surface this foreground halo occludes. A solid hit means the halo is a
-    // self-occlusion edge, not a true silhouette, so the caller antialiases it over
-    // that surface instead of fading it to black.
-    //
-    // closest_local sits near the FRONT of the volume, so a background feature can
-    // lie up to a full diameter (2*bounds_radius) deeper; the probe must reach that
-    // far or it falsely reports "no surface behind". The step is floored to punch
-    // past the foreground surface the main trace stalled on (a pure sphere trace
-    // would crawl its tangent halo): fine in the near field so a background just
-    // behind the foreground (two features first crossing) isn't jumped over, coarse
-    // beyond it so the budget still reaches a deep back face. Termination is the
-    // back face of the bounding sphere (matching trace_closest's early-out).
-    //
-    // With no solid hit, a background edge can still graze in the AA band at the
-    // corner where two edges meet (never pd < hit_threshold); detect it as a local
-    // minimum of pd (rise then fall, robust when the gap is too thin for pd to
-    // clear the band) and report its coverage for the corner fill.
+    // March forward from the closest approach for a surface this halo occludes: a
+    // solid hit means a self-occlusion edge (antialias over it), not a silhouette.
+    // The step is floored to punch past the stalled foreground surface (fine near
+    // field, coarse beyond); termination is the bounding sphere's back face. With
+    // no solid hit, detect a grazed background edge as a local minimum of pd and
+    // report its coverage for the corner fill.
     Vector probe = closest_local;
     float prev = FLT_MAX;  // previous step's distance
     bool climbing = false; // pd has risen off the foreground graze
