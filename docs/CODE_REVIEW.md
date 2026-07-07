@@ -182,7 +182,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 27. ✅ **Reaction-graph completeness guard is `-O`-strippable.** `scripts/generate_reaction_graph.py:91-94` enforces its "fail loudly, never ship a biased table" invariant with a bare `assert`, which `python -O` removes. **Fix:** replace with an explicit `if not (...): raise RuntimeError(...)`.
 
-28. **Shader black-pixel cull also drops the dimmest lit pixels.** `daydream/driver.js:668-672`: the `dot < 1e-8` cull on normalized `uint16` color discards channels 1–6 (≈0.009% brightness) that the engine legitimately emits on fades. **Fix:** test for exact zero (buffer is `fill(0)`'d and normalized 0 → 0.0), e.g. `== 0.0` or a `< 1 LSB²` threshold like `1e-10`.
+28. ✅ **Shader black-pixel cull also drops the dimmest lit pixels.** `daydream/driver.js:668-672`: the `dot < 1e-8` cull on normalized `uint16` color discards channels 1–6 (≈0.009% brightness) that the engine legitimately emits on fades. **Fix:** test for exact zero (buffer is `fill(0)`'d and normalized 0 → 0.0), e.g. `== 0.0` or a `< 1 LSB²` threshold like `1e-10`.
 
 29. **`setPixelRatio` capped at 1 makes recordings soft with no escape hatch.** `daydream/driver.js:160,388`: unconditional `min(devicePixelRatio, 1)`; `recorder.js` captures the same 1× backing store, so exports can't recover detail. **Fix:** allow a higher ratio while recording (e.g. `min(dpr, 2)`) or a config toggle; at minimum document the intentional fill-rate tradeoff at both sites.
 
