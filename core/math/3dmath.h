@@ -761,8 +761,9 @@ inline Complex stereo(const Vector &v) {
  * @return The corresponding point on the unit sphere.
  */
 inline Vector inv_stereo(const Complex &z) {
-  // |z| >= STEREO_INF_RECOGNIZE is the infinity sentinel → North Pole (squared
-  // compare avoids a sqrt).
+  // |z| >= STEREO_INF_RECOGNIZE → North Pole. Catches the infinity sentinel and
+  // also any genuine point within ~1.1° of the pole, whose magnitude clears the
+  // half-sentinel floor (squared compare avoids a sqrt).
   float r2 = z.re * z.re + z.im * z.im;
   if (r2 >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE)
     return Vector(0.0f, 1.0f, 0.0f);
