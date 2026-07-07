@@ -118,14 +118,10 @@ struct Pixel16 {
    * @brief Scales every channel by a float factor (saturated).
    * @param s Scale factor; may be any finite float (NaN maps to the hi bound).
    * @return A new pixel with each channel clamped to [0, 65535].
-   * @details Rounds to nearest (+0.5f) rather than truncating, matching the
-   * +0.5f / +32768 round-to-nearest parity used by the rest of this file (this
-   * is the per-frame fade multiply, so truncation would systematically bias
-   * every faded channel down each frame). Clamps in float before the cast
-   * because r*s can exceed INT_MAX and float->int conversion is UB out of
-   * range; hs::clamp also maps a NaN scale to the hi bound instead of letting
-   * NaN reach the cast. The +0.5f sits inside the clamp so the saturating hi
-   * bound stays exactly 65535.
+   * @details Rounds to nearest (+0.5f, inside the clamp so the hi bound stays
+   * exactly 65535). Clamps in float before the cast: r*s can exceed INT_MAX and
+   * float->int is UB out of range; hs::clamp also maps a NaN scale to the hi
+   * bound before it can reach the cast.
    */
   Pixel16 operator*(float s) const {
     return Pixel16((uint16_t)hs::clamp(r * s + 0.5f, 0.0f, 65535.0f),
@@ -139,18 +135,10 @@ struct Pixel16 {
    * @param frac Blend weight in [0, 65535]; 0 yields this pixel, 65535 yields other.
    * @return The interpolated pixel, round-to-nearest per channel.
    * @details Round-to-nearest div-by-65535 via shifts:
-   *   round(x/65535) == (x + (x>>16) + 32768) >> 16. The (x + (x>>16)) term
-   * reconstructs x*65536/65535 to within <1 LSB; adding half the divisor
-   * (32768) before the >>16 rounds instead of truncating, matching the +0.5f
-   * round-to-nearest parity used by the rest of this file. Still exact at the
-   * endpoints (frac 0/65535 -> a/b) because the bias stays strictly below one
-   * output quantum. The two channel products use plain 32-bit MACs on every
-   * target rather than a packed `smlad`: `smlad` is a *signed* 16x16 dual-MAC,
-   * so any operand >= 32768 reads as negative and the product is wrong across
-   * the upper half of the range. On a Cortex-M7 a `mul` + `mla` per channel is
-   * single-cycle and dual-issuable, so the portable form costs at most a cycle
-   * or two. (The unsigned `uqadd16` in operator+= is fine — only signed
-   * multiply is unsound for unsigned operands.)
+   *   (x + (x>>16) + 32768) >> 16, within 1 LSB of round(x/65535) and exact at
+   * the endpoints (frac 0/65535 -> a/b). Uses plain 32-bit MACs, not a packed
+   * `smlad`: `smlad` is a signed 16x16 dual-MAC, so an operand >= 32768 reads
+   * as negative and the product is wrong over the upper half of the range.
    */
   Pixel16 lerp16(const Pixel16 &other, uint16_t frac) const {
     uint16_t inv = 65535 - frac;
@@ -670,16 +658,11 @@ inline bool linear_rgb_in_gamut(float r, float g, float b) {
  * linear_rgb_in_gamut) and with L in [0,1].
  * @return An OKLab color with the same L and hue but chroma scaled down until it
  * is just inside the display cube.
- * @details Binary-searches a uniform scale s in [0,1] on the (a,b) chroma axes.
- * Scaling (a,b) uniformly leaves hue = atan2(b,a) and L untouched and shrinks
- * chroma C = hypot(a,b) by s, so this is a pure chroma reduction. s = 0 is the
- * achromatic color at L — always in gamut for L in [0,1], since the gray axis
- * maps to r=g=b=L^3 — which gives the search a guaranteed in-gamut floor; s = 1
- * is the out-of-gamut input. 16 bisections pin s to < 2^-16, below one 16-bit
- * output quantum. This is the chroma-preserving alternative to a per-channel RGB
- * clip, which twists hue on saturated colors — the drift that accumulates in the
- * hue-rotate feedback loop. Cold path only: the per-pixel hot path reaches it
- * solely for the rare pixel that leaves gamut.
+ * @details Binary-searches a uniform scale s in [0,1] on the (a,b) chroma axes:
+ * scaling (a,b) holds hue = atan2(b,a) and L fixed while shrinking chroma by s.
+ * s = 0 is the achromatic color at L (in gamut for L in [0,1]: gray maps to
+ * r=g=b=L^3), a guaranteed in-gamut floor; s = 1 is the input. 16 bisections
+ * pin s below one 16-bit output quantum.
  */
 inline OKLab gamut_clip_preserve_chroma(OKLab lab) {
   float lo = 0.0f, hi = 1.0f;
@@ -2042,10 +2025,9 @@ public:
    * @param src Source palette; must not be null.
    * @param cms Coordinate-modifier pointers, one per CMods entry; none null.
    * @param xms Color-modifier pointers, one per XMods entry; none null.
-   * @details Cold wiring (init only): get() guards source_ with a debug-only
-   * assert (stripped on-device), and a null member read does not fault on
-   * Teensy 4.x, so the whole chain is trapped always-on here at the cold seam
-   * (empty packs fold to true) for zero hot-path cost.
+   * @details get()'s source_ assert is stripped on-device and a null member
+   * read does not fault on Teensy 4.x, so null binds are trapped here instead
+   * (always-on HS_CHECK; empty packs fold to true) at the cold init seam.
    */
   void bind(const Source *src, const CMods *...cms, const XMods *...xms) {
     HS_CHECK(src != nullptr, "StaticPalette bound to null source");
