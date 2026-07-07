@@ -192,7 +192,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 32. ✅ **Unreachable second clamp in `linearRgbToHex`.** `daydream/tools/color.js:45-46`: the input is already clamped to [0,1] and `linearToSrgbFloat` maps into [0,1], so the `[0,255]` clamp on the byte can never fire. **Fix:** drop the redundant clamp.
 
-33. **URLSync's auto-flush-on-change path has no end-to-end test.** `daydream/tests/state.test.js:187-205` only tests manual `flush()` and the cancel case, never `set(trackedKey) → tick(200) → exactly one replaceState`. **Fix:** add a `mock.timers` test asserting the debounced write fires once with the new value.
+33. ✅ **URLSync's auto-flush-on-change path has no end-to-end test.** `daydream/tests/state.test.js:187-205` only tests manual `flush()` and the cancel case, never `set(trackedKey) → tick(200) → exactly one replaceState`. **Fix:** add a `mock.timers` test asserting the debounced write fires once with the new value.
 
 34. **Boolean threshold at exactly 0.5 is untested.** `daydream/tests/param_sync.test.js:25-30` probes 0/1/0.6/0.4 but not 0.5 — the one input where `>` vs `>=` flips. **Fix:** add a case pinning `resolveParamSync(true, 0.5, …)` → `false`.
 
