@@ -13,11 +13,8 @@
  *        transitioning one shape into the next while ripples distort the mesh.
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
- * @tparam SegueT Compile-time transition style (see namespace Segue).
- * Crossfade renders both meshes during the fade window; every other segue
- * renders a single mesh per frame.
  */
-template <int W, int H, typename SegueT = Segue::TerminatorSweep>
+template <int W, int H>
 class IslamicStars : public Effect {
 
 public:
@@ -101,6 +98,7 @@ private:
   FastNoiseLite noise;
   float ripple_duration = 80.0f;
   int solid_idx = -1;
+  using SegueT = Segue::TerminatorSweep;
   MeshCarousel<SegueT> carousel;
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
@@ -149,16 +147,8 @@ private:
     ScratchScope a_guard(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer camera(orientation);
-    if constexpr (requires(const Vector &v) { seg.warp(v, 0.0f); }) {
-      // Segue warp first: the warps assume unit-sphere inputs, which the
-      // ripple's radial displacement breaks.
-      auto warp = [&seg, phase](const Vector &v) { return seg.warp(v, phase); };
-      MeshOps::transform(base_state, transformed_state, scratch_arena_a, warp,
-                         ripple_gen, camera);
-    } else {
-      MeshOps::transform(base_state, transformed_state, scratch_arena_a,
-                         ripple_gen, camera);
-    }
+    MeshOps::transform(base_state, transformed_state, scratch_arena_a,
+                       ripple_gen, camera);
 
     const int *raw_indices = faceIndices.data();
     const int num_faces = static_cast<int>(faceIndices.size());
@@ -256,10 +246,6 @@ private:
     // sequential, so the previous sprite has already finished.
     if constexpr (requires(SegueT &s, const Vector &v) { s.retarget(v); })
       carousel.segue().retarget(random_vector());
-
-    // Class-ordered segues get a fresh random class fade order per transition.
-    if constexpr (requires(SegueT &s) { s.reorder(1); })
-      carousel.segue().reorder(NUM_PALETTES);
 
     // Per-shape choreography: segue in, hold still one second, ripple, settle
     // one second, segue out. Duration is derived from the stage lengths so the
