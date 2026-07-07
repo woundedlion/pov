@@ -31,6 +31,7 @@ constexpr size_t kBudgetBytes = 12288;
 
 volatile uint8_t *g_lo;
 volatile uint8_t *g_hi;
+int g_measured = 0;
 
 // Descend painting kSentinel, then unwind. After return the region [g_lo, g_hi)
 // is painted and sits below the caller's SP (free stack).
@@ -66,6 +67,7 @@ template <typename Effect> __attribute__((noinline)) void run_effect() {
 }
 
 template <typename Effect> size_t measure(const char *name) {
+  ++g_measured;
   g_lo = nullptr;
   g_hi = nullptr;
   paint(220); // ~440 KB painted region, then unwind
@@ -108,6 +110,12 @@ int main() {
   }
   HS_EFFECT_LIST(HS_MEASURE_ONE)
 #undef HS_MEASURE_ONE
+  if (g_measured != HS_EFFECT_COUNT) {
+    std::printf("measured %d effects but HS_EFFECT_COUNT = %d — roster empty or "
+                "measure() calls dropped\n",
+                g_measured, HS_EFFECT_COUNT);
+    return 1;
+  }
   const bool over = worst > kBudgetBytes;
   std::printf("\nWORST: %s = %zu B (%.1f KB)   budget %zu B   [%s]\n", worst_name,
               worst, worst / 1024.0, kBudgetBytes, over ? "FAIL" : "PASS");

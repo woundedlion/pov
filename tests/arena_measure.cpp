@@ -28,8 +28,10 @@ constexpr int kFrames = 8;
 
 size_t g_max_p = 0, g_max_a = 0, g_max_b = 0, g_worst_total = 0;
 const char *g_worst_name = "";
+int g_measured = 0;
 
 template <typename Effect> void measure(const char *name) {
+  ++g_measured;
   hs_test::reset_globals();
   persistent_arena.reset_high_water_mark();
   scratch_arena_a.reset_high_water_mark();
@@ -62,6 +64,12 @@ int main() {
 #define HS_ARENA_ONE(name) measure<name<W, H>>(#name);
   HS_EFFECT_LIST(HS_ARENA_ONE)
 #undef HS_ARENA_ONE
+  if (g_measured != HS_EFFECT_COUNT) {
+    std::printf("measured %d effects but HS_EFFECT_COUNT = %d — roster empty or "
+                "measure() calls dropped\n",
+                g_measured, HS_EFFECT_COUNT);
+    return 1;
+  }
   std::printf("\nMAX persist=%zu  scratchA=%zu  scratchB=%zu\n", g_max_p,
               g_max_a, g_max_b);
   std::printf("WORST single-effect total = %zu B (%s)\n", g_worst_total,
