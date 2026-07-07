@@ -490,10 +490,10 @@ inline void test_transformer_spawn_applies_and_composes() {
   }
 
   HS_EXPECT_TRUE(nt.spawn_pinned(0) != nullptr);
-  constexpr size_t kN = sizeof(samples) / sizeof(samples[0]);
-  Vector single[kN];
+  constexpr size_t N = sizeof(samples) / sizeof(samples[0]);
+  Vector single[N];
   float total_moved = 0.0f;
-  for (size_t i = 0; i < kN; ++i) {
+  for (size_t i = 0; i < N; ++i) {
     const Vector &v = samples[i];
     single[i] = nt.transform(v);
     HS_EXPECT_TRUE(finite_vec(single[i]));
@@ -505,7 +505,7 @@ inline void test_transformer_spawn_applies_and_composes() {
 
   HS_EXPECT_TRUE(nt.spawn_pinned(0) != nullptr);
   float total_divergence = 0.0f;
-  for (size_t i = 0; i < kN; ++i) {
+  for (size_t i = 0; i < N; ++i) {
     const Vector &v = samples[i];
     Vector r = nt.transform(v);
     HS_EXPECT_TRUE(finite_vec(r));

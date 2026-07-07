@@ -606,12 +606,12 @@ inline void check_class_bake_census(size_t islamic_idx) {
   const size_t F = mesh.num_faces();
   HS_EXPECT_EQ(bake.face_recs.size(), F);
   HS_EXPECT_GT(bake.classes.size(), (size_t)0);
-  HS_EXPECT_LE(bake.classes.size(), (size_t)MeshOps::kMaxCongruenceClasses);
+  HS_EXPECT_LE(bake.classes.size(), (size_t)MeshOps::MAX_CONGRUENCE_CLASSES);
 
   // Every face lands in a class, and every class is shared (>= 2 members).
   size_t assigned = 0, member_sum = 0;
   for (size_t f = 0; f < F; ++f)
-    if (bake.face_recs[f].class_id != MeshOps::kNoClass)
+    if (bake.face_recs[f].class_id != MeshOps::NO_CLASS)
       ++assigned;
   for (size_t c = 0; c < bake.classes.size(); ++c) {
     HS_EXPECT_GT(bake.classes[c].members, (uint16_t)1);
@@ -621,7 +621,7 @@ inline void check_class_bake_census(size_t islamic_idx) {
   HS_EXPECT_EQ(member_sum, F);
   HS_EXPECT_EQ(bake.shared_faces, (uint16_t)F);
 
-  HS_EXPECT_LT(bake.worst_residual_px, MeshOps::kCongruenceEpsPx);
+  HS_EXPECT_LT(bake.worst_residual_px, MeshOps::CONGRUENCE_EPS_PX);
   HS_EXPECT_GT(bake.luts_built, (uint16_t)0);
 }
 

@@ -10,7 +10,7 @@
  * per-frame gaps, so an untouched window is mostly-sentinel and a written one is
  * not). Built -Os + the device math flags so codegen tracks the size build.
  *
- * CI gate: fails (non-zero exit) if the worst effect exceeds kBudgetBytes.
+ * CI gate: fails (non-zero exit) if the worst effect exceeds BUDGET_BYTES.
  */
 #include <cstdint>
 #include <cstdio>
@@ -23,25 +23,25 @@ namespace {
 
 constexpr int W = 288; // Phantasm device canvas
 constexpr int H = 144;
-constexpr int kFrames = 8;
-constexpr uint8_t kSentinel = 0xA5;
-constexpr int kChunk = 2048;
+constexpr int FRAMES = 8;
+constexpr uint8_t SENTINEL = 0xA5;
+constexpr int CHUNK = 2048;
 
 // Below the 16 KB device stack reservation minus the ISR allowance.
-constexpr size_t kBudgetBytes = 12288;
+constexpr size_t BUDGET_BYTES = 12288;
 
 volatile uint8_t *g_lo;
 volatile uint8_t *g_hi;
 int g_measured = 0;
 
-// Descend painting kSentinel, then unwind. After return the region [g_lo, g_hi)
+// Descend painting SENTINEL, then unwind. After return the region [g_lo, g_hi)
 // is painted and sits below the caller's SP (free stack).
 __attribute__((noinline)) void paint(int chunks) {
-  volatile uint8_t buf[kChunk];
-  for (int i = 0; i < kChunk; ++i)
-    buf[i] = kSentinel;
+  volatile uint8_t buf[CHUNK];
+  for (int i = 0; i < CHUNK; ++i)
+    buf[i] = SENTINEL;
   uint8_t *lo = const_cast<uint8_t *>(buf);
-  uint8_t *hi = lo + kChunk;
+  uint8_t *hi = lo + CHUNK;
   if (!g_lo || lo < g_lo)
     g_lo = lo;
   if (hi > g_hi)
@@ -56,7 +56,7 @@ template <typename Effect> __attribute__((noinline)) void run_effect() {
   hs_test::reset_globals();
   Effect effect;
   effect.init();
-  for (int f = 0; f < kFrames; ++f) {
+  for (int f = 0; f < FRAMES; ++f) {
     effect.draw_frame();
     effect.advance_display();
   }
@@ -74,15 +74,15 @@ template <typename Effect> size_t measure(const char *name) {
   run_effect<Effect>();
   // Deepest reach by sentinel density: an untouched 256-B window is mostly
   // sentinel (paint gaps aside), a workload-written one is not.
-  constexpr size_t kWin = 256;
-  constexpr size_t kWrittenMax = kWin / 4;
+  constexpr size_t WIN = 256;
+  constexpr size_t WRITTEN_MAX = WIN / 4;
   size_t peak = 0;
-  for (uint8_t *p = const_cast<uint8_t *>(g_lo); p + kWin < top; p += kWin) {
+  for (uint8_t *p = const_cast<uint8_t *>(g_lo); p + WIN < top; p += WIN) {
     size_t s = 0;
-    for (size_t i = 0; i < kWin; ++i)
-      if (p[i] == kSentinel)
+    for (size_t i = 0; i < WIN; ++i)
+      if (p[i] == SENTINEL)
         ++s;
-    if (s < kWrittenMax) {
+    if (s < WRITTEN_MAX) {
       peak = static_cast<size_t>(top - p);
       break;
     }
@@ -114,9 +114,9 @@ int main() {
                 g_measured, HS_EFFECT_COUNT);
     return 1;
   }
-  const bool over = worst > kBudgetBytes;
+  const bool over = worst > BUDGET_BYTES;
   std::printf("\nWORST: %s = %zu B (%.1f KB)   budget %zu B   [%s]\n", worst_name,
-              worst, worst / 1024.0, kBudgetBytes, over ? "FAIL" : "PASS");
+              worst, worst / 1024.0, BUDGET_BYTES, over ? "FAIL" : "PASS");
   if (over)
     std::printf("  stack budget exceeded — a deep call chain grew; see "
                 "tests/stack_measure.cpp header.\n");

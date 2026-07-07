@@ -87,11 +87,11 @@ the effect's persistent slot. `MeshState` itself is untouched.
 ### Canonical shape and rep selection
 
 Cluster greedily within each topology class (census algorithm): assign a face
-to the first sub-class rep within `kCongruenceEpsPx = 0.25` px residual, else
+to the first sub-class rep within `CONGRUENCE_EPS_PX = 0.25` px residual, else
 it founds a new sub-class. Rep = the founding face's centered 2D polygon;
 optionally refine to the aligned class mean (halves worst deviation — do this
 if the visual gate is marginal, not before). A face whose sub-class stays
-size 1 gets `class_id = kNoClass` and keeps today's per-face path — the
+size 1 gets `class_id = NO_CLASS` and keeps today's per-face path — the
 system degrades gracefully to the status quo, never depends on clustering
 succeeding.
 
@@ -122,7 +122,7 @@ rot = r / |r|                           # (cos, sin) stored on the Face
 
 ~4 flops/vertex, ~25 flops/face/frame — noise next to the ctor's existing
 work. Guard: `|r| < kAlignMinCorr` (degenerate correlation) ⇒ treat the face
-as `kNoClass` this frame. Rotational-symmetry ambiguity (regular n-gons admit
+as `NO_CLASS` this frame. Rotational-symmetry ambiguity (regular n-gons admit
 n equivalent rotations) is harmless: the LUT is invariant under the shape's
 own symmetry group, so any group element aligns correctly.
 
@@ -174,7 +174,7 @@ bb ~0.15 tan units that lands n ≈ 64–96.
   fits typical meshes (~23–65 KB/mesh is over for the big ones ×2 slots).
   Device policy: fixed per-mesh LUT budget (e.g. 20 KB/slot); allocate
   classes by descending `faces × concave` benefit until the budget is spent;
-  remaining classes run `kNoClass`. Graceful, measurable, no cull required.
+  remaining classes run `NO_CLASS`. Graceful, measurable, no cull required.
   (Quantization error ~1e-5 plane units ≈ 5e-4 px — irrelevant.)
 - Bit-identity note: int16-on-device vs f32-on-host would fork sim/device
   output. Use the **same format on both targets** (int16) unless the visual
@@ -252,7 +252,7 @@ out of scope).
   (per-mesh regressions, especially the no-bake path and no-LUT meshes).
 - **Arena lifecycle**: bakes live in the persistent arena and die at every
   `compact_keep_front`; the rebake-both-slots step must be unconditional or
-  the fading front mesh silently degrades to `kNoClass` (correct but slower —
+  the fading front mesh silently degrades to `NO_CLASS` (correct but slower —
   acceptable as the failure mode, assert-logged).
 - **Class-count cap**: u8 ids cap classes at 255; census max is 24. Trap at
   bake if exceeded (fail-fast, per project philosophy).

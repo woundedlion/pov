@@ -75,20 +75,20 @@ public:
    *        and seeds the initial spiral nuclei.
    */
   void init() override {
-    constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
+    constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
                                      ReactionGraph::CubemapLUT::RES *
                                      sizeof(uint16_t); // cube_lut.build
-    constexpr size_t kStateBytes = 3u * RD_N * sizeof(uint8_t); // allocate_state
-    constexpr size_t kNodeBytes = RD_N * sizeof(Vector);        // build_nodes
-    constexpr size_t kPersistentBytes = 165 * 1024;
-    static_assert(kCubeLutBytes + kStateBytes + kNodeBytes <= kPersistentBytes,
+    constexpr size_t STATE_BYTES = 3u * RD_N * sizeof(uint8_t); // allocate_state
+    constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);        // build_nodes
+    constexpr size_t PERSISTENT_BYTES = 165 * 1024;
+    static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES <= PERSISTENT_BYTES,
                   "BZ persistent arena too small for LUT + state + nodes");
     // render() carves 3 uint8 + 3 float species buffers from scratch_a.
-    constexpr size_t kScratchBytes =
+    constexpr size_t SCRATCH_BYTES =
         3u * RD_N * sizeof(uint8_t) + 3u * RD_N * sizeof(float);
-    static_assert(kScratchBytes <= GLOBAL_ARENA_SIZE - kPersistentBytes,
+    static_assert(SCRATCH_BYTES <= GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
                   "BZ scratch arena too small for render()'s species buffers");
-    configure_arenas(kPersistentBytes, GLOBAL_ARENA_SIZE - kPersistentBytes, 0);
+    configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
 
     // "Compete" is the Lotka-Volterra predation coefficient, not an opacity. Its
     // reaction term is bounded only by to_q8's [0,1] clamp, not the diffusion

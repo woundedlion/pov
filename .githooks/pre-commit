@@ -22,7 +22,7 @@
 # is the authoritative gate for that case; this hook is a fast local pre-filter.
 #
 # COVERAGE GAP (frame-cyclic paths): this hook runs the suite with the default
-# HS_SMOKE_FRAMES (8 — see kDefaultFrames in tests/test_effects.h), which never
+# HS_SMOKE_FRAMES (8 — see DEFAULT_FRAMES in tests/test_effects.h), which never
 # reaches the long cyclic windows: effect morph cycles, particle/trail wraps,
 # FIFO/slot expiry (Thrusters, RingShower), ShapeShifter's 48-frame cut, and
 # arena compaction. CI sets HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to

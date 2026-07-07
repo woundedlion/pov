@@ -169,8 +169,8 @@ public:
     // corner grid inside the scratch budget the static_assert below pins.
     const float cell_px =
         (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites_buffer.size()));
-    const int B = hs::clamp(static_cast<int>(cell_px), kCoherenceBlockMin,
-                            kCoherenceBlock);
+    const int B = hs::clamp(static_cast<int>(cell_px), COHERENCE_BLOCK_MIN,
+                            COHERENCE_BLOCK);
     const int nbx = (x1 - x0 - 1) / B + 2; // corner columns spanning [x0, x1)
     const int nby = (y1 - y0 - 1) / B + 2; // corner rows spanning    [y0, y1)
     CellId *cells = static_cast<CellId *>(
@@ -242,12 +242,12 @@ public:
 
   static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
                                              is allocated once at this size. */
-  static constexpr int kCoherenceBlock = 8; /**< Coarse-coherence block edge in
+  static constexpr int COHERENCE_BLOCK = 8; /**< Coarse-coherence block edge in
       pixels at low site counts: a pixel whose surrounding block corners agree on
       the nearest pair skips the per-pixel KD query. Smaller is safer (fewer
       missed sub-block cells) but skips fewer queries; the render path shrinks the
-      block toward kCoherenceBlockMin as the site count rises. */
-  static constexpr int kCoherenceBlockMin = 4; /**< Smallest adaptive block edge.
+      block toward COHERENCE_BLOCK_MIN as the site count rises. */
+  static constexpr int COHERENCE_BLOCK_MIN = 4; /**< Smallest adaptive block edge.
       Floors the per-frame block so the corner grid stays within the scratch
       budget (pinned by the static_assert below); ~matches the cell pixel size at
       MAX_SITES. */
@@ -266,23 +266,23 @@ public:
   // transient peaks share that arena, with positions + KD nodes live across both:
   //   build:   positions + KD nodes + KD build-index scratch
   //   shading: positions + KD nodes + coarse-grid corner cells
-  static constexpr size_t kScratchABytes = 64 * 1024;
-  static constexpr size_t kPositionsBytes = size_t(MAX_SITES) * sizeof(Vector);
-  static constexpr size_t kKdNodesBytes = size_t(MAX_SITES) * sizeof(KDNode);
-  static constexpr size_t kKdBuildScratchBytes = size_t(MAX_SITES) * sizeof(int);
+  static constexpr size_t SCRATCH_A_BYTES = 64 * 1024;
+  static constexpr size_t POSITIONS_BYTES = size_t(MAX_SITES) * sizeof(Vector);
+  static constexpr size_t KD_NODES_BYTES = size_t(MAX_SITES) * sizeof(KDNode);
+  static constexpr size_t KD_BUILD_SCRATCH_BYTES = size_t(MAX_SITES) * sizeof(int);
   // Corner grid spans the full canvas in block-px steps, +2 for the inclusive
   // [0,W)/[0,H) end corners (mirrors render()'s nbx/nby at full clip). Sized at
-  // kCoherenceBlockMin — the worst case (most corners) the adaptive block hits.
-  static constexpr size_t kCornerCols = size_t((W - 1) / kCoherenceBlockMin + 2);
-  static constexpr size_t kCornerRows = size_t((H - 1) / kCoherenceBlockMin + 2);
-  static constexpr size_t kCellsBytes = kCornerCols * kCornerRows * sizeof(CellId);
-  static constexpr size_t kScratchHighWater =
-      kPositionsBytes + kKdNodesBytes +
-      (kKdBuildScratchBytes > kCellsBytes ? kKdBuildScratchBytes : kCellsBytes);
-  static_assert(kScratchHighWater <= kScratchABytes,
+  // COHERENCE_BLOCK_MIN — the worst case (most corners) the adaptive block hits.
+  static constexpr size_t CORNER_COLS = size_t((W - 1) / COHERENCE_BLOCK_MIN + 2);
+  static constexpr size_t CORNER_ROWS = size_t((H - 1) / COHERENCE_BLOCK_MIN + 2);
+  static constexpr size_t CELLS_BYTES = CORNER_COLS * CORNER_ROWS * sizeof(CellId);
+  static constexpr size_t SCRATCH_HIGH_WATER =
+      POSITIONS_BYTES + KD_NODES_BYTES +
+      (KD_BUILD_SCRATCH_BYTES > CELLS_BYTES ? KD_BUILD_SCRATCH_BYTES : CELLS_BYTES);
+  static_assert(SCRATCH_HIGH_WATER <= SCRATCH_A_BYTES,
                 "Voronoi scratch_arena_a budget (64 KB) too small for MAX_SITES "
                 "positions + KD-tree + coarse-grid cells; raise the reserve in "
-                "init() or lower MAX_SITES / coarsen kCoherenceBlock");
+                "init() or lower MAX_SITES / coarsen COHERENCE_BLOCK");
 
   int current_num_sites = 0; /**< Count currently seeded; re-seeds (clear +
                                   refill, no realloc) when the slider changes. */

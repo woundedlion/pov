@@ -33,12 +33,12 @@ namespace effects_tests {
  * configuration effects are exercised at in deployment, so it is the
  * representative smoke target.
  */
-constexpr int kW = 288;
+constexpr int DEFAULT_W = 288;
 /**
  * @brief Primary production render height in pixels.
- * @details Paired with kW for the full-sphere production resolution.
+ * @details Paired with DEFAULT_W for the full-sphere production resolution.
  */
-constexpr int kH = 144;
+constexpr int DEFAULT_H = 144;
 
 /**
  * @brief Holosphere device render width in pixels.
@@ -49,12 +49,12 @@ constexpr int kH = 144;
  * small-aspect arena sizing, H_OFFSET interactions) that bypass every
  * assert-enabled layer otherwise. Both are in HS_WASM_RESOLUTIONS (wasm.cpp).
  */
-constexpr int kDeviceW = 96;
+constexpr int DEVICE_W = 96;
 /**
  * @brief Holosphere device render height in pixels.
- * @details Paired with kDeviceW for the <96,20> device specialization.
+ * @details Paired with DEVICE_W for the <96,20> device specialization.
  */
-constexpr int kDeviceH = 20;
+constexpr int DEVICE_H = 20;
 
 /**
  * @brief Default per-effect smoke frame count.
@@ -69,11 +69,11 @@ constexpr int kDeviceH = 20;
  * exercise them on every push/PR while local commits keep the fast 8-frame
  * path.
  */
-constexpr int kDefaultFrames = 8;
+constexpr int DEFAULT_FRAMES = 8;
 
 /**
  * @brief Resolves the per-effect frame count from the environment.
- * @return HS_SMOKE_FRAMES if set to a positive int, else kDefaultFrames.
+ * @return HS_SMOKE_FRAMES if set to a positive int, else DEFAULT_FRAMES.
  */
 inline int smoke_frames() {
 #pragma clang diagnostic push
@@ -83,7 +83,7 @@ inline int smoke_frames() {
     int n = std::atoi(e);
     if (n > 0) return n;
   }
-  return kDefaultFrames;
+  return DEFAULT_FRAMES;
 }
 
 /**
@@ -112,15 +112,15 @@ inline bool effect_may_be_dark(const char *name, int frames) {
 /**
  * @brief Drives one effect type through construct -> init -> render -> read-back.
  * @tparam E Effect class template, instantiated as E<W, H>.
- * @tparam W Render width in pixels (defaults to kW).
- * @tparam H Render height in pixels (defaults to kH).
+ * @tparam W Render width in pixels (defaults to DEFAULT_W).
+ * @tparam H Render height in pixels (defaults to DEFAULT_H).
  * @param name Effect name used in the [ok] / diagnostic output.
  * @details Verifies the effect constructs, init's, renders smoke_frames()
  * frames, and reads back every pixel without tripping an assert/OOB/hang, and
  * that get_pixel is a stable pure accessor. Runs the dead-slider lint once on
- * the primary <kW,kH> pass.
+ * the primary <DEFAULT_W,DEFAULT_H> pass.
  */
-template <template <int, int> class E, int W = kW, int H = kH>
+template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void smoke_one(const char *name) {
   // Deterministic RNG so a given effect takes the same code path each run.
   hs::random().seed(1337u);
@@ -174,7 +174,7 @@ inline void smoke_one(const char *name) {
   }
 
   // The dead-slider lint is resolution-independent; run it once on the primary pass.
-  if constexpr (W == kW && H == kH)
+  if constexpr (W == DEFAULT_W && H == DEFAULT_H)
     lint_dead_sliders(effect, name);
 }
 
@@ -232,24 +232,24 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
  * hs::millis/micros or beatsin* is reproduced exactly rather than tracking the
  * wall clock.
  */
-constexpr unsigned long kFrameMs = 33;
+constexpr unsigned long FRAME_MS = 33;
 /**
- * @brief Per-frame clock advance in microseconds, paired with kFrameMs.
+ * @brief Per-frame clock advance in microseconds, paired with FRAME_MS.
  */
-constexpr unsigned long kFrameUs = 33000;
+constexpr unsigned long FRAME_US = 33000;
 
 /**
  * @brief Renders one effect under the injected clock and copies the final buffer out.
  * @tparam E Effect class template, instantiated as E<W, H>.
- * @tparam W Render width in pixels (defaults to kW).
- * @tparam H Render height in pixels (defaults to kH).
+ * @tparam W Render width in pixels (defaults to DEFAULT_W).
+ * @tparam H Render height in pixels (defaults to DEFAULT_H).
  * @param out Receives the final displayed frame, sized W*H pixels (row-major).
  * @param frames Number of frames to render before capture.
  * @details Resets every shared global the smoke path does (RNG seed, arenas,
  * Timeline) plus the generative-hue cursor and mock clock, so two calls start
  * from an identical state.
  */
-template <template <int, int> class E, int W = kW, int H = kH>
+template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void render_capture(std::vector<Pixel> &out, int frames) {
   hs::random().seed(1337u);
   configure_arenas_default();
@@ -263,8 +263,8 @@ inline void render_capture(std::vector<Pixel> &out, int frames) {
   E<W, H> effect;
   effect.init();
   for (int f = 0; f < frames; ++f) {
-    hs::set_mock_time(static_cast<unsigned long>(f) * kFrameMs,
-                      static_cast<unsigned long>(f) * kFrameUs);
+    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                      static_cast<unsigned long>(f) * FRAME_US);
     effect.draw_frame();
     effect.advance_display();
   }
@@ -278,8 +278,8 @@ inline void render_capture(std::vector<Pixel> &out, int frames) {
 /**
  * @brief Cross-run determinism test: renders an effect twice and requires byte-identical frames.
  * @tparam E Effect class template, instantiated as E<W, H>.
- * @tparam W Render width in pixels (defaults to kW).
- * @tparam H Render height in pixels (defaults to kH).
+ * @tparam W Render width in pixels (defaults to DEFAULT_W).
+ * @tparam H Render height in pixels (defaults to DEFAULT_H).
  * @param name Effect name used in the NONDETERMINISTIC diagnostic output.
  * @details The clock seam neutralizes wall-time, so a divergence here is real
  * nondeterminism (uninitialized read, stale global, address-dependent path) —
@@ -306,7 +306,7 @@ inline void perturb_determinism_globals() {
   GenerativePalette::reset_hue_seed(199); // off the zero hue cursor
 }
 
-template <template <int, int> class E, int W = kW, int H = kH>
+template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void determinism_one(const char *name) {
   const int frames = smoke_frames();
   std::vector<Pixel> a, b;
@@ -384,7 +384,7 @@ inline void test_sh_decode_lm_valid_order() {
  *          is used arbitrarily.
  */
 struct GSWhiteBox {
-  using GS = GSReactionDiffusion<kDeviceW, kDeviceH>;
+  using GS = GSReactionDiffusion<DEVICE_W, DEVICE_H>;
   static constexpr int N = GS::RD_N;
 
   static uint16_t to_q16(float v) { return GS::to_q16(v); }
@@ -527,7 +527,7 @@ inline void test_gs_evolution_stays_bounded() {
  *          arbitrarily.
  */
 struct BZWhiteBox {
-  using BZ = BZReactionDiffusion<kDeviceW, kDeviceH>;
+  using BZ = BZReactionDiffusion<DEVICE_W, DEVICE_H>;
   static constexpr int N = BZ::RD_N;
 
   static uint8_t to_q8(float v) { return BZ::to_q8(v); }
@@ -683,15 +683,15 @@ inline void test_bz_perturb_state_saturates_and_nudges() {
 inline void test_bz_perturb_state_draw_count_pinned() {
   const int expected_draws = 2 * BZWhiteBox::num_perturbations();
 
-  constexpr uint64_t kSeed = 1337u;
-  hs::random().seed(kSeed);
+  constexpr uint64_t SEED = 1337u;
+  hs::random().seed(SEED);
   std::vector<uint8_t> a(BZWhiteBox::N, 0), b(BZWhiteBox::N, 0),
       c(BZWhiteBox::N, 0);
   BZWhiteBox::perturb(a.data(), b.data(), c.data());
 
   // A private generator from the same seed, advanced by the contracted count,
   // must now be at the same stream position as the global generator.
-  hs::Pcg32 ref(kSeed);
+  hs::Pcg32 ref(SEED);
   for (int i = 0; i < expected_draws; ++i)
     (void)ref();
   HS_EXPECT_EQ(hs::random()(), ref());
@@ -786,8 +786,8 @@ inline void test_bz_odd_substep_lands_in_state() {
  *          resolution-independent.
  */
 struct DreamBallsWhiteBox {
-  using DB = DreamBalls<kDeviceW, kDeviceH>;
-  static constexpr int kPresets = 4;
+  using DB = DreamBalls<DEVICE_W, DEVICE_H>;
+  static constexpr int PRESETS = 4;
 
   static int active_bake(const DB &db) { return db.active_bake_; }
   static int last_preset_idx(const DB &db) { return db.last_preset_idx_; }
@@ -833,7 +833,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   for (int idx = 1; idx <= 8; ++idx) {
     WB::spawn(db, idx);
     expect_bake ^= 1;
-    const int safe = idx % WB::kPresets;
+    const int safe = idx % WB::PRESETS;
     HS_EXPECT_EQ(WB::active_bake(db), expect_bake);
     HS_EXPECT_EQ(WB::last_preset_idx(db), safe);
     HS_EXPECT_EQ(db.params.solid_name, WB::preset_name(db, safe));
@@ -904,7 +904,7 @@ struct CometsWhiteBox {
    *          guard keeps the head moving rather than freezing at path_fn(0)).
    */
   static void check_paths_close() {
-    using C = Comets<kW, kH>;
+    using C = Comets<DEFAULT_W, DEFAULT_H>;
     int idx = 0;
     for (const LissajousParams &cfg : C::functions) {
       const float cd = C::closing_domain(cfg);
@@ -936,7 +936,7 @@ struct ThrustersWhiteBox {
    * @brief Verifies warp_decay peaks at 0.7 at t=0 and relaxes to exactly 0 at t=1.
    */
   static void check_warp_endpoints() {
-    using T = Thrusters<kW, kH>;
+    using T = Thrusters<DEFAULT_W, DEFAULT_H>;
     HS_EXPECT_NEAR(T::warp_decay(0.0f), 0.7f, 1e-6f); // peak at fire
     HS_EXPECT_NEAR(T::warp_decay(1.0f), 0.0f, 1e-6f); // full relaxation by end
   }
@@ -955,7 +955,7 @@ struct RingShowerWhiteBox {
    *        on the first.
    */
   static void check_radius_endpoints() {
-    using RS = RingShower<kW, kH>;
+    using RS = RingShower<DEFAULT_W, DEFAULT_H>;
     typename RS::Ring ring;
     ring.life = 50;
     ring.age = ring.life - 1; // final visible frame: age+1 == life -> t == 1
@@ -990,7 +990,7 @@ struct DynamoWhiteBox {
     Timeline().clear();
     global_timeline_t = 0;
 
-    Dynamo<kW, kH> effect;
+    Dynamo<DEFAULT_W, DEFAULT_H> effect;
     effect.init();
 
     // Two overlapping wipes -> two live boundaries (each pushed at the front at
@@ -1012,9 +1012,9 @@ struct DynamoWhiteBox {
     // palette_normal is Z_AXIS (set in the ctor, untouched since the timeline is
     // not stepped), so v = (sin theta, 0, cos theta) sweeps angle_between(v,
     // normal) across the full [0, PI] band span.
-    constexpr int kSteps = 256;
-    for (int i = 0; i <= kSteps; ++i) {
-      float theta = PI_F * static_cast<float>(i) / static_cast<float>(kSteps);
+    constexpr int STEPS = 256;
+    for (int i = 0; i <= STEPS; ++i) {
+      float theta = PI_F * static_cast<float>(i) / static_cast<float>(STEPS);
       Vector v(std::sin(theta), 0.0f, std::cos(theta));
       Color4 c = effect.color(v, 0.5f);
       HS_EXPECT_TRUE(std::isfinite(c.alpha));
@@ -1049,7 +1049,7 @@ inline void reset_effect_globals() {
  *        (befriended in effects/PetalFlow.h).
  */
 struct PetalFlowWhiteBox {
-  using PF = PetalFlow<kW, kH>;
+  using PF = PetalFlow<DEFAULT_W, DEFAULT_H>;
   static float gap(const PF &pf) { return pf.gap_accumulator; }
   static float spacing() { return PF::SPACING; }
   static float next_hue(const PF &pf) { return pf.next_hue; }
@@ -1091,7 +1091,7 @@ inline void test_petalflow_spawn_gap_bounded() {
  *        arrays (befriended in effects/MindSplatter.h).
  */
 struct MindSplatterWhiteBox {
-  using MS = MindSplatter<kW, kH>;
+  using MS = MindSplatter<DEFAULT_W, DEFAULT_H>;
   static size_t num_emitters() { return MS::EmitSolid::NUM_VERTS; }
   static float emit_phase(const MS &ms, size_t i) { return ms.emit_phases[i]; }
   static float hue(const MS &ms, size_t i) { return ms.emitter_hues[i]; }
@@ -1133,7 +1133,7 @@ inline void test_mindsplatter_emit_phase_wrapped() {
  *        (befriended in effects/Flyby.h).
  */
 struct FlybyWhiteBox {
-  using FB = Flyby<kW, kH>;
+  using FB = Flyby<DEFAULT_W, DEFAULT_H>;
   static float noise_time(const FB &fb) { return fb.noise_time; }
   static float time_period() { return FB::TIME_PERIOD; }
   static float sin_phase(const FB &fb) { return fb.sin_phase; }
@@ -1159,8 +1159,8 @@ inline void test_flyby_phase_wrapped() {
   const float two_pi = 2.0f * PI_F;
   const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
   for (int f = 0; f < frames; ++f) {
-    hs::set_mock_time(static_cast<unsigned long>(f) * kFrameMs,
-                      static_cast<unsigned long>(f) * kFrameUs);
+    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                      static_cast<unsigned long>(f) * FRAME_US);
     fb.draw_frame();
     fb.advance_display();
     const float nt = WB::noise_time(fb);
@@ -1181,7 +1181,7 @@ inline void test_flyby_phase_wrapped() {
  *        (befriended in effects/FlowField.h).
  */
 struct FlowFieldWhiteBox {
-  using FF = FlowField<kW, kH>;
+  using FF = FlowField<DEFAULT_W, DEFAULT_H>;
   static float noise_time(const FF &ff) { return ff.t; }
   static float time_period() { return FF::TIME_PERIOD; }
   static uint16_t active_count(const FF &ff) {
@@ -1224,7 +1224,7 @@ inline void test_flowfield_time_and_pool_bounded() {
  *        effects/RingSpin.h).
  */
 struct RingSpinWhiteBox {
-  using RS = RingSpin<kW, kH>;
+  using RS = RingSpin<DEFAULT_W, DEFAULT_H>;
   static int num_rings(const RS &rs) { return rs.num_rings; }
   static int max_rings() { return RS::NUM_RINGS; }
   static void spawn(RS &rs) { rs.spawn_ring(&rs.baked_palettes[0]); }
@@ -1262,19 +1262,19 @@ inline void test_ringspin_pool_clamped() {
 inline void test_shapeshifter_shape_cut_lifecycle() {
   reset_effect_globals();
   hs::set_mock_time(0, 0);
-  ShapeShifter<kW, kH> ss;
+  ShapeShifter<DEFAULT_W, DEFAULT_H> ss;
   ss.init();
 
   const int period = 48;
   const int frames = smoke_frames() < 2 * period ? 2 * period : smoke_frames();
   for (int f = 0; f < frames; ++f) {
-    hs::set_mock_time(static_cast<unsigned long>(f) * kFrameMs,
-                      static_cast<unsigned long>(f) * kFrameUs);
+    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                      static_cast<unsigned long>(f) * FRAME_US);
     ss.draw_frame();
     ss.advance_display();
     uint64_t acc = 0;
-    for (int y = 0; y < kH; ++y)
-      for (int x = 0; x < kW; ++x) {
+    for (int y = 0; y < DEFAULT_H; ++y)
+      for (int x = 0; x < DEFAULT_W; ++x) {
         const Pixel &p = ss.get_pixel(x, y);
         acc += static_cast<uint64_t>(p.r) + p.g + p.b;
       }
@@ -1314,20 +1314,20 @@ inline void test_needs_full_frame_gate() {
   };
 
   // Cross-segment stateful effects -> full-frame.
-  { reset(); MeshFeedback<kW, kH> fx; check(fx, true, "MeshFeedback"); }
-  { reset(); Dynamo<kW, kH> fx;       check(fx, true, "Dynamo"); }
-  { reset(); SplineFlow<kW, kH> fx;   check(fx, true, "SplineFlow"); }
+  { reset(); MeshFeedback<DEFAULT_W, DEFAULT_H> fx; check(fx, true, "MeshFeedback"); }
+  { reset(); Dynamo<DEFAULT_W, DEFAULT_H> fx;       check(fx, true, "Dynamo"); }
+  { reset(); SplineFlow<DEFAULT_W, DEFAULT_H> fx;   check(fx, true, "SplineFlow"); }
 
   // Representative non-stateful effects -> keep band clipping (default false).
-  { reset(); Voronoi<kW, kH> fx;  check(fx, false, "Voronoi"); }
-  { reset(); RingSpin<kW, kH> fx; check(fx, false, "RingSpin"); }
+  { reset(); Voronoi<DEFAULT_W, DEFAULT_H> fx;  check(fx, false, "Voronoi"); }
+  { reset(); RingSpin<DEFAULT_W, DEFAULT_H> fx; check(fx, false, "RingSpin"); }
 }
 
 /**
  * @brief Pins Voronoi's coarse-coherence equivalence: where a block's four
  *        corners share the canonical nearest-pair, every interior pixel resolves
  *        to that same pair under a full k=2 query.
- * @details Mirrors Voronoi::draw_frame's corner sampling (kCoherenceBlock stride,
+ * @details Mirrors Voronoi::draw_frame's corner sampling (COHERENCE_BLOCK stride,
  *          clamped corners, order-independent {lo,hi} pair) over the public
  *          KDTree at the production resolution, using six maximally separated
  *          (octahedral) sites so no cell is smaller than a block — the regime in
@@ -1336,8 +1336,8 @@ inline void test_needs_full_frame_gate() {
  *          high-density limitation) would break this invariant.
  */
 inline void test_voronoi_coherence_equivalence() {
-  constexpr int W = kW, H = kH;
-  constexpr int B = 8; // Voronoi<W, H>::kCoherenceBlock
+  constexpr int W = DEFAULT_W, H = DEFAULT_H;
+  constexpr int B = 8; // Voronoi<W, H>::COHERENCE_BLOCK
 
   static uint8_t buf[64 * 1024];
   Arena arena(buf, sizeof(buf));
@@ -1364,24 +1364,24 @@ inline void test_voronoi_coherence_equivalence() {
     return x.lo == y.lo && x.hi == y.hi && x.hasSecond == y.hasSecond;
   };
 
-  constexpr int kNbx = (W - 1) / B + 2;
-  constexpr int kNby = (H - 1) / B + 2;
-  static Pair corners[kNbx * kNby];
+  constexpr int NBX = (W - 1) / B + 2;
+  constexpr int NBY = (H - 1) / B + 2;
+  static Pair corners[NBX * NBY];
   auto cx = [&](int j) { return std::min(j * B, W - 1); };
   auto cy = [&](int k) { return std::min(k * B, H - 1); };
-  for (int k = 0; k < kNby; ++k)
-    for (int j = 0; j < kNbx; ++j)
-      corners[k * kNbx + j] = classify(pixel_to_vector<W, H>(cx(j), cy(k)));
+  for (int k = 0; k < NBY; ++k)
+    for (int j = 0; j < NBX; ++j)
+      corners[k * NBX + j] = classify(pixel_to_vector<W, H>(cx(j), cy(k)));
 
   int fast_pixels = 0;
   for (int y = 0; y < H; ++y) {
     const int ky = y / B;
     for (int x = 0; x < W; ++x) {
       const int jx = x / B;
-      const Pair &c00 = corners[ky * kNbx + jx];
-      const Pair &c10 = corners[ky * kNbx + (jx + 1)];
-      const Pair &c01 = corners[(ky + 1) * kNbx + jx];
-      const Pair &c11 = corners[(ky + 1) * kNbx + (jx + 1)];
+      const Pair &c00 = corners[ky * NBX + jx];
+      const Pair &c10 = corners[ky * NBX + (jx + 1)];
+      const Pair &c01 = corners[(ky + 1) * NBX + jx];
+      const Pair &c11 = corners[(ky + 1) * NBX + (jx + 1)];
       // Seam/dense block -> the effect takes the full query; nothing to pin.
       if (!(same(c00, c10) && same(c00, c01) && same(c00, c11)))
         continue;
@@ -1423,13 +1423,13 @@ struct BudgetCanvasFx : public Effect {
  */
 inline void test_hankinsolids_arena_budget_covers_every_solid() {
   constexpr int W = 288, H = 144;
-  constexpr size_t kScratchA = 24 * 1024, kScratchB = 32 * 1024;
-  constexpr size_t kMeasure = 1024 * 1024; // headroom so a peak never traps here
-  constexpr float kAngle = PI_F / 4.0f;
+  constexpr size_t SCRATCH_A = 24 * 1024, SCRATCH_B = 32 * 1024;
+  constexpr size_t MEASURE = 1024 * 1024; // headroom so a peak never traps here
+  constexpr float ANGLE = PI_F / 4.0f;
 
   auto solids = Solids::Collections::get_simple_solids();
   for (size_t idx = 0; idx < solids.size(); ++idx) {
-    configure_arenas(GLOBAL_ARENA_SIZE - 2 * kMeasure, kMeasure, kMeasure);
+    configure_arenas(GLOBAL_ARENA_SIZE - 2 * MEASURE, MEASURE, MEASURE);
 
     MeshPaletteBank palette_bank;
     palette_bank.bake_all(persistent_arena);
@@ -1441,7 +1441,7 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
       hankin = CompiledHankin();
       MeshOps::compile_hankin(base, hankin, target, a);
       mesh.clear();
-      MeshOps::update_hankin(hankin, mesh, target, kAngle);
+      MeshOps::update_hankin(hankin, mesh, target, ANGLE);
     });
     {
       ScratchScope a_guard(scratch_arena_a);
@@ -1479,12 +1479,12 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
 
     const size_t a_peak = scratch_arena_a.get_high_water_mark();
     const size_t b_peak = scratch_arena_b.get_high_water_mark();
-    if (a_peak > kScratchA || b_peak > kScratchB)
+    if (a_peak > SCRATCH_A || b_peak > SCRATCH_B)
       std::printf("  HankinSolids arena OVER BUDGET solid[%zu] '%s': "
                   "scratchA=%zu/%zu scratchB=%zu/%zu\n",
-                  idx, solids[idx].name, a_peak, kScratchA, b_peak, kScratchB);
-    HS_EXPECT_TRUE(a_peak <= kScratchA);
-    HS_EXPECT_TRUE(b_peak <= kScratchB);
+                  idx, solids[idx].name, a_peak, SCRATCH_A, b_peak, SCRATCH_B);
+    HS_EXPECT_TRUE(a_peak <= SCRATCH_A);
+    HS_EXPECT_TRUE(b_peak <= SCRATCH_B);
   }
 }
 
@@ -1548,15 +1548,15 @@ inline int run_effects_tests() {
 #undef HS_DET_ONE
 
   // Repeat both passes at the Holosphere device resolution <96,20>, the only
-  // place that specialization runs under native asserts (see kDeviceW/kDeviceH).
-  std::printf("  -- device resolution %dx%d --\n", kDeviceW, kDeviceH);
+  // place that specialization runs under native asserts (see DEVICE_W/DEVICE_H).
+  std::printf("  -- device resolution %dx%d --\n", DEVICE_W, DEVICE_H);
   g_nonblack_effects = 0;
-#define HS_SMOKE_ONE_DEV(name) smoke_one<name, kDeviceW, kDeviceH>(#name);
+#define HS_SMOKE_ONE_DEV(name) smoke_one<name, DEVICE_W, DEVICE_H>(#name);
   HS_EFFECT_LIST(HS_SMOKE_ONE_DEV)
 #undef HS_SMOKE_ONE_DEV
   // The device <96,20> specialization is a distinct codepath; require it lights up too.
   HS_EXPECT_GT(g_nonblack_effects, 0);
-#define HS_DET_ONE_DEV(name) determinism_one<name, kDeviceW, kDeviceH>(#name);
+#define HS_DET_ONE_DEV(name) determinism_one<name, DEVICE_W, DEVICE_H>(#name);
   HS_EFFECT_LIST(HS_DET_ONE_DEV)
 #undef HS_DET_ONE_DEV
 

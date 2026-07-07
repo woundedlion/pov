@@ -27,11 +27,11 @@ using hs_test::math3d::approx_vec;
 // Module-scope scratch buffer; each test re-bases the bump pointer by
 // constructing a fresh Arena over it at entry. Do NOT retain an ArenaVector or
 // pointer into this buffer past its own test scope.
-inline constexpr size_t kSpatialBufBytes = 128 * 1024;
-inline uint8_t spatial_buf[kSpatialBufBytes];
+inline constexpr size_t SPATIAL_BUF_BYTES = 128 * 1024;
+inline uint8_t spatial_buf[SPATIAL_BUF_BYTES];
 
 // Split offset for the one test needing two disjoint arenas over this buffer.
-inline constexpr size_t kSpatialBufSplit = kSpatialBufBytes / 2;
+inline constexpr size_t SPATIAL_BUF_SPLIT = SPATIAL_BUF_BYTES / 2;
 
 // ============================================================================
 // KDTree
@@ -327,9 +327,9 @@ inline void test_meshstate_default_unbound() {
  * @details The copy is value-equal yet backed by separate storage.
  */
 inline void test_meshstate_clone_deep_copies() {
-  Arena src_arena(spatial_buf, kSpatialBufSplit);
-  Arena dst_arena(spatial_buf + kSpatialBufSplit,
-                  kSpatialBufBytes - kSpatialBufSplit);
+  Arena src_arena(spatial_buf, SPATIAL_BUF_SPLIT);
+  Arena dst_arena(spatial_buf + SPATIAL_BUF_SPLIT,
+                  SPATIAL_BUF_BYTES - SPATIAL_BUF_SPLIT);
 
   MeshState src;
   src.vertices.bind(src_arena, 3);

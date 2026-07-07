@@ -74,7 +74,7 @@ template <typename E> Effect *construct_effect() {
 // Generated from the single-source effect roster (HS_EFFECT_LIST); the table
 // order IS the playlist order, identical on all four boards (spec §6.1).
 #define HS_FACTORY_ONE(name) &construct_effect<name<288, 144>>,
-const POV::EffectFactory kEffectFactories[] = {
+const POV::EffectFactory EFFECT_FACTORIES[] = {
   HS_EFFECT_LIST(HS_FACTORY_ONE)
 };
 #undef HS_FACTORY_ONE
@@ -99,5 +99,5 @@ void setup() {
 void loop() {
   // Never returns: the driver runs the epoch-synchronized show forever
   // (every effect plays for the same 960 revolutions = 120 s).
-  g_pov->run_show(kEffectFactories, HS_EFFECT_COUNT);
+  g_pov->run_show(EFFECT_FACTORIES, HS_EFFECT_COUNT);
 }

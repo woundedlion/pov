@@ -74,24 +74,24 @@ public:
    * and seeds the A/B state, and builds the cubemap LUT and lattice nodes once.
    */
   void init() override {
-    constexpr size_t kCubeLutBytes = 6u * ReactionGraph::CubemapLUT::RES *
+    constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
                                      ReactionGraph::CubemapLUT::RES *
                                      sizeof(uint16_t); // cube_lut.build
-    constexpr size_t kStateBytes = 2u * RD_N * sizeof(uint16_t); // A + B, Q16
-    constexpr size_t kNodeBytes = RD_N * sizeof(Vector);         // build_nodes
-    constexpr size_t kPaletteBytes =
+    constexpr size_t STATE_BYTES = 2u * RD_N * sizeof(uint16_t); // A + B, Q16
+    constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);         // build_nodes
+    constexpr size_t PALETTE_BYTES =
         BakedPalette::LUT_SIZE * sizeof(Color4); // palette.bake
-    constexpr size_t kPersistentBytes = 174 * 1024;
-    static_assert(kCubeLutBytes + kStateBytes + kNodeBytes + kPaletteBytes <=
-                      kPersistentBytes,
+    constexpr size_t PERSISTENT_BYTES = 174 * 1024;
+    static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES + PALETTE_BYTES <=
+                      PERSISTENT_BYTES,
                   "GS persistent arena too small for LUT + state + nodes + "
                   "palette");
     // render() carves 2 uint16 + 2 float species buffers from scratch_a.
-    constexpr size_t kScratchBytes =
+    constexpr size_t SCRATCH_BYTES =
         2u * RD_N * sizeof(uint16_t) + 2u * RD_N * sizeof(float);
-    static_assert(kScratchBytes <= GLOBAL_ARENA_SIZE - kPersistentBytes,
+    static_assert(SCRATCH_BYTES <= GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
                   "GS scratch arena too small for render()'s species buffers");
-    configure_arenas(kPersistentBytes, GLOBAL_ARENA_SIZE - kPersistentBytes, 0);
+    configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
 
     registerParam("Feed", &params.feed, 0.0f, 0.1f);
     registerParam("Kill", &params.k, 0.0f, 0.1f);

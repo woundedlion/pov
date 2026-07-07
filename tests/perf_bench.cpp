@@ -19,25 +19,25 @@
 
 namespace {
 constexpr int W = 288, H = 144;
-constexpr int kFrames = 60, kWarm = 10;
+constexpr int FRAMES = 60, WARM = 10;
 
 template <typename Effect> double bench(const char *name) {
   hs_test::reset_globals();
   Effect effect;
   effect.init();
-  for (int i = 0; i < kWarm; ++i) {
+  for (int i = 0; i < WARM; ++i) {
     effect.draw_frame();
     effect.advance_display();
   }
   auto t0 = std::chrono::steady_clock::now();
-  for (int i = 0; i < kFrames; ++i) {
+  for (int i = 0; i < FRAMES; ++i) {
     effect.draw_frame();
     effect.advance_display();
   }
   auto t1 = std::chrono::steady_clock::now();
   double us =
       std::chrono::duration_cast<std::chrono::nanoseconds>(t1 - t0).count() /
-      1000.0 / kFrames;
+      1000.0 / FRAMES;
   volatile auto px = effect.get_pixel(0, 0); // keep the render live
   (void)px;
   std::printf("  %-22s %9.1f us/frame\n", name, us);
@@ -52,7 +52,7 @@ int main() {
   const char *opt = "-O3";
 #endif
   std::printf("=== perf_bench [%s] us/frame, %dx%d (%d frames) ===\n", opt, W, H,
-              kFrames);
+              FRAMES);
   double total = 0;
 #define HS_BENCH_ONE(name) total += bench<name<W, H>>(#name);
   HS_EFFECT_LIST(HS_BENCH_ONE)

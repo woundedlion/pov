@@ -1159,7 +1159,7 @@ inline float max_chain_deflection(const std::vector<Vector> &pts,
 }
 
 /** @brief Four non-coplanar control points shared by the SplineChain tests. */
-inline const Vector kChainCps[4] = {Vector(1, 0, 0), Vector(0, 1, 0),
+inline const Vector CHAIN_CPS[4] = {Vector(1, 0, 0), Vector(0, 1, 0),
                                     Vector(0, 0, 1), Vector(-1, 0, 0)};
 
 /**
@@ -1175,7 +1175,7 @@ inline void test_spline_chain_passes_through_control_points() {
   ScratchScope sc(plot_arena());
   Fragments cps;
   cps.bind(plot_arena(), 8);
-  for (const Vector &v : kChainCps) {
+  for (const Vector &v : CHAIN_CPS) {
     Fragment f;
     f.pos = v;
     cps.push_back(f);
@@ -1191,7 +1191,7 @@ inline void test_spline_chain_passes_through_control_points() {
   fx.advance_display();
 
   HS_EXPECT_GT(pipe.plotted.size(), (size_t)20);
-  for (const Vector &v : kChainCps)
+  for (const Vector &v : CHAIN_CPS)
     HS_EXPECT_LE(min_angle_to(pipe.plotted, v), 0.06f);
 }
 
@@ -1213,7 +1213,7 @@ inline void test_spline_chain_tension_deflects() {
     ScratchScope sc(plot_arena());
     Fragments cps;
     cps.bind(plot_arena(), 8);
-    for (const Vector &v : kChainCps) {
+    for (const Vector &v : CHAIN_CPS) {
       Fragment f;
       f.pos = v;
       cps.push_back(f);
@@ -1226,7 +1226,7 @@ inline void test_spline_chain_tension_deflects() {
                                     /*samples_per_segment=*/24);
     }
     fx.advance_display();
-    return max_chain_deflection(pipe.plotted, kChainCps, 4);
+    return max_chain_deflection(pipe.plotted, CHAIN_CPS, 4);
   };
 
   const float geo_defl = run(0.0f);

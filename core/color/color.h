@@ -1167,22 +1167,22 @@ public:
 
   // Peak OKLCH chroma at mid-lightness; the saturation profile scales it and a
   // sin(pi*L) envelope (key_oklch / get()) tapers it toward the lightness extremes.
-  static constexpr float kChromaPeak = 0.23f;
+  static constexpr float CHROMA_PEAK = 0.23f;
 
   // Hue torsion: radians of hue rotation per unit lightness, applied in get() as
-  // h += kHueTorsion * (L - 0.5), so shadows and highlights shift along the ramp.
-  static constexpr float kHueTorsion = 0.35f;
+  // h += HUE_TORSION * (L - 0.5), so shadows and highlights shift along the ramp.
+  static constexpr float HUE_TORSION = 0.35f;
 
   // 8-bit hue wheel: harmony companion hues are fractions of the 256-value ring.
-  static constexpr int kHueWheel = 256;
-  static constexpr int kHueTriadic = kHueWheel / 3;    // 1/3 turn (85)
-  static constexpr int kHueComplement = kHueWheel / 2; // 1/2 turn (128)
+  static constexpr int HUE_WHEEL = 256;
+  static constexpr int HUE_TRIADIC = HUE_WHEEL / 3;    // 1/3 turn (85)
+  static constexpr int HUE_COMPLEMENT = HUE_WHEEL / 2; // 1/2 turn (128)
 
-  // Perceptual lightness band a key's HSV value maps into: L = kLightnessFloor +
-  // (val/255) * kLightnessSpan, i.e. [0.12, 0.67] — below L=1 where the sRGB
+  // Perceptual lightness band a key's HSV value maps into: L = LIGHTNESS_FLOOR +
+  // (val/255) * LIGHTNESS_SPAN, i.e. [0.12, 0.67] — below L=1 where the sRGB
   // gamut starves of chroma (see key_oklch).
-  static constexpr float kLightnessFloor = 0.12f;
-  static constexpr float kLightnessSpan = 0.55f;
+  static constexpr float LIGHTNESS_FLOOR = 0.12f;
+  static constexpr float LIGHTNESS_SPAN = 0.55f;
 
   /**
    * @brief OKLCH coordinates for one HSV-authored key. Single source of truth
@@ -1196,10 +1196,10 @@ public:
     // Even perceptual hue spacing: integer harmony offsets become true OKLCH-hue
     // offsets (triadic is a real 120deg).
     float h = (hue / 256.0f) * (2.0f * PI_F);
-    float L = kLightnessFloor + (val / 255.0f) * kLightnessSpan;
+    float L = LIGHTNESS_FLOOR + (val / 255.0f) * LIGHTNESS_SPAN;
     // Chroma co-varies with lightness via a sin(pi*L) envelope; get() re-applies
     // the same envelope at the interpolated L.
-    float C = (sat / 255.0f) * kChromaPeak * fast_sinf(PI_F * L);
+    float C = (sat / 255.0f) * CHROMA_PEAK * fast_sinf(PI_F * L);
     return {L, C, h};
   }
 
@@ -1246,7 +1246,7 @@ public:
     default:
       HS_CHECK(false, "GenerativePalette: unknown gradient_shape");
     }
-    HS_CHECK(size <= kMaxStops,
+    HS_CHECK(size <= MAX_STOPS,
              "GenerativePalette: stop count exceeds parallel-array capacity");
     for (int i = 0; i < size; ++i) {
       colors_oklch[i] = srgb_to_oklch(colors[i].r, colors[i].g, colors[i].b);
@@ -1340,7 +1340,7 @@ public:
     float cmax = colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
     blended.C = cmax * fast_sinf(PI_F * blended.L);
     // Hue torsion: drift hue with lightness, centered at L=0.5.
-    blended.h += kHueTorsion * (blended.L - 0.5f);
+    blended.h += HUE_TORSION * (blended.L - 0.5f);
     return Color4(oklch_to_pixel(blended), 1.0f);
   }
 
@@ -1382,18 +1382,18 @@ private:
     const int h1_int = h1;
     switch (harmony_type) {
     case HarmonyType::TRIADIC:
-      h2 = wrap_hue(h1_int + kHueTriadic);
-      h3 = wrap_hue(h1_int + 2 * kHueTriadic);
+      h2 = wrap_hue(h1_int + HUE_TRIADIC);
+      h3 = wrap_hue(h1_int + 2 * HUE_TRIADIC);
       break;
     case HarmonyType::SPLIT_COMPLEMENTARY: {
-      const int complement = wrap_hue(h1_int + kHueComplement);
+      const int complement = wrap_hue(h1_int + HUE_COMPLEMENT);
       const int offset = 21;
       h2 = wrap_hue(complement - offset);
       h3 = wrap_hue(complement + offset);
       break;
     }
     case HarmonyType::COMPLEMENTARY: {
-      h2 = wrap_hue(h1_int + kHueComplement);
+      h2 = wrap_hue(h1_int + HUE_COMPLEMENT);
       const int offset = hs::rand_int(-7, 8);
       h3 = wrap_hue(h1_int + offset);
       break;
@@ -1420,9 +1420,9 @@ private:
 
   // Single capacity bound for the parallel per-stop arrays below; `size` (set
   // only by update_stops) selects the live prefix shared by all of them.
-  static constexpr int kMaxStops = 5;
-  std::array<float, kMaxStops> shape;
-  std::array<CPixel, kMaxStops> colors;
+  static constexpr int MAX_STOPS = 5;
+  std::array<float, MAX_STOPS> shape;
+  std::array<CPixel, MAX_STOPS> colors;
   /**
    * @brief OKLCH forms of `colors`, cached by update_stops().
    * @details Lets the per-sample get() hot path skip the sRGB->OKLCH conversion
@@ -1430,7 +1430,7 @@ private:
    * construction and in lerp(), both of which route through update_stops(), so
    * this stays in sync.
    */
-  std::array<OKLCH, kMaxStops> colors_oklch;
+  std::array<OKLCH, MAX_STOPS> colors_oklch;
   /**
    * @brief Per-stop chroma ceiling, cached by update_stops().
    * @details Each stop's chroma is authored as C = cmax * sin(pi*L) (the
@@ -1438,7 +1438,7 @@ private:
    * so get() can re-apply the envelope at the interpolated L, keeping midpoints
    * on the sin curve rather than the straight chroma chord a plain lerp gives.
    */
-  std::array<float, kMaxStops> colors_cmax{};
+  std::array<float, MAX_STOPS> colors_cmax{};
   int size = 0;
 };
 

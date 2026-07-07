@@ -209,8 +209,8 @@ private:
         rings[i].active = true;
         rings[i].rho = initial_rho;
         rings[i].hue = next_hue;
-        constexpr float kHueStep = 0.13f;
-        next_hue = wrap(next_hue + kHueStep, 1.0f);
+        constexpr float HUE_STEP = 0.13f;
+        next_hue = wrap(next_hue + HUE_STEP, 1.0f);
         return;
       }
     }

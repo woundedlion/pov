@@ -394,16 +394,16 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
   }
 
   // Old->new vertex remap on scratch (LIFO bump, restored on scope exit).
-  // kUnreferenced is an unused slot, kReferenced a vertex seen on a surviving
+  // UNREFERENCED is an unused slot, REFERENCED a vertex seen on a surviving
   // face but not yet numbered; both sit above the INT16_MAX index bound
   // narrow_index enforces, so neither aliases a real compacted index.
-  constexpr uint16_t kUnreferenced = 0xFFFF;
-  constexpr uint16_t kReferenced = 0xFFFE;
+  constexpr uint16_t UNREFERENCED = 0xFFFF;
+  constexpr uint16_t REFERENCED = 0xFFFE;
   ScratchScope scratch_guard(scratch_arena_a);
   const size_t src_vertex_count = src.vertices.size();
   uint16_t *remap = scratch_arena_a.allocate_n<uint16_t>(src_vertex_count);
   for (size_t i = 0; i < src_vertex_count; ++i)
-    remap[i] = kUnreferenced;
+    remap[i] = UNREFERENCED;
 
   // Flag every vertex referenced by a surviving face.
   size_t referenced_vertices = 0;
@@ -415,8 +415,8 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
         for (int k = 0; k < count; ++k) {
           uint16_t v = src.faces[scan_offset + k];
           HS_CHECK(v < src_vertex_count, "mesh face index out of range");
-          if (remap[v] == kUnreferenced) {
-            remap[v] = kReferenced;
+          if (remap[v] == UNREFERENCED) {
+            remap[v] = REFERENCED;
             referenced_vertices++;
           }
         }
@@ -428,7 +428,7 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
   // Number and copy the referenced vertices in source order, dropping orphans.
   dst.vertices.bind(geom_arena, referenced_vertices);
   for (size_t i = 0; i < src_vertex_count; ++i) {
-    if (remap[i] == kReferenced) {
+    if (remap[i] == REFERENCED) {
       remap[i] = narrow_index(dst.vertices.size());
       dst.vertices.push_back(src.vertices[i]);
     }

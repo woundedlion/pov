@@ -17,7 +17,7 @@ selects it instead. The build now compiles `core/*.cpp` + the converted sketch c
 
 **The gate earned its keep, then went green (2026-06).** The first headless device build surfaced
 **real device-only breakage** invisible to the WASM/native CI; all of it is now FIXED (§16):
-Arduino `TWO_PI` macro collisions (renamed to `kTwoPi` in `effects/{Flyby,Liquid2D,Raymarch}.h`),
+Arduino `TWO_PI` macro collisions (renamed to `TWO_PI` in `effects/{Flyby,Liquid2D,Raymarch}.h`),
 the wrong FastLED pin (3.10.3 → the bench's **3.4.0**, which moved types into `namespace fl`),
 `effects_legacy.h` `Pixel16`→`CRGB` explicit-conversion bit-rot, an ambiguous `pov` vs the `namespace
 pov` (sketch var → `g_pov`), and a `color.h` include collision with FastLED's own `color.h`
@@ -920,7 +920,7 @@ Pinned: `platform = teensy@5.0.0`, `platformio == 6.1.19`, `fastled/FastLED @ 3.
 cannot see.** Each was fixed; the device build is the first thing to compile this code under
 `Arduino.h` + arm-gcc:
 - **Arduino `TWO_PI` macro collision** — `effects/{Flyby,Liquid2D,Raymarch}.h` declared a local
-  `constexpr float TWO_PI`, colliding with `wiring.h`'s `#define TWO_PI`. **Fixed:** renamed → `kTwoPi`.
+  `constexpr float TWO_PI`, colliding with `wiring.h`'s `#define TWO_PI`. **Fixed:** renamed → `TWO_PI`.
 - **Wrong FastLED pin** — I first pinned 3.10.3; the bench/Teensyduino 1.59 bundles **FastLED 3.4.0**,
   and 3.7+ moved `CHSVPalette16`/`HUE_RED`/`CEveryNMillis` and `CRGB`/`CHSV` into `namespace fl`.
   **Fixed:** pinned `FastLED@3.4.0` (§4.1 parity) — cleared a whole error class at once.

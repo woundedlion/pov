@@ -216,14 +216,14 @@ inline void test_max_degree_bounds_laplacian() {
  */
 inline void test_neighbors_are_local() {
   // ~11 deg upper bound for a listed neighbor → chord^2 < 0.037.
-  const float kMaxChord2 = 0.037f;
+  const float MAX_CHORD2 = 0.037f;
   int far = 0;
   for (int i = 0; i < RD_N; i += 7) {
     Vector p = node(i);
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
       if (ni < 0) continue;
-      if (chord2(p, node(ni)) > kMaxChord2)
+      if (chord2(p, node(ni)) > MAX_CHORD2)
         ++far;
     }
   }
@@ -341,9 +341,9 @@ inline void test_cubemap_lut_offlattice() {
 
   std::mt19937 rng(20240607u);
   std::uniform_real_distribution<float> uni(-1.0f, 1.0f);
-  const int kSamples = 400;
+  const int SAMPLES = 400;
   int exact = 0, near = 0, miss = 0;
-  for (int s = 0; s < kSamples; ++s) {
+  for (int s = 0; s < SAMPLES; ++s) {
     // Reject near-origin draws that normalize unstably.
     Vector q;
     float len2;
@@ -369,10 +369,10 @@ inline void test_cubemap_lut_offlattice() {
     if (adjacent) ++near; else ++miss;
   }
   std::printf("  [info] cubemap off-lattice: %d exact, %d neighbor, %d miss / %d\n",
-              exact, near, miss, kSamples);
+              exact, near, miss, SAMPLES);
   // 0 misses across the 400 fixed-seed off-lattice probes; allow at most 5%.
   HS_EXPECT_GT(exact + near, 0);
-  HS_EXPECT_LE(miss, kSamples / 20);
+  HS_EXPECT_LE(miss, SAMPLES / 20);
 }
 
 /**
@@ -395,10 +395,10 @@ inline void test_cubemap_lut_equatorial() {
   ReactionGraph::CubemapLUT lut;
   lut.build(arena);
 
-  const int kLongitudes = 720;
+  const int LONGITUDES = 720;
   int exact = 0, near = 0, miss = 0;
-  for (int j = 0; j < kLongitudes; ++j) {
-    float lon = (j + 0.5f) / kLongitudes * 2.0f * static_cast<float>(PI);
+  for (int j = 0; j < LONGITUDES; ++j) {
+    float lon = (j + 0.5f) / LONGITUDES * 2.0f * static_cast<float>(PI);
     // |y| just off the equator: the maximal-latitude seed distance from a node
     // whose longitude is unrelated to the seed's.
     float y = (j & 1) ? 1e-4f : -1e-4f;
@@ -420,9 +420,9 @@ inline void test_cubemap_lut_equatorial() {
     if (adjacent) ++near; else ++miss;
   }
   std::printf("  [info] cubemap equatorial: %d exact, %d neighbor, %d miss / %d\n",
-              exact, near, miss, kLongitudes);
+              exact, near, miss, LONGITUDES);
   HS_EXPECT_GT(exact + near, 0);
-  HS_EXPECT_LE(miss, kLongitudes / 20);
+  HS_EXPECT_LE(miss, LONGITUDES / 20);
 }
 
 // ---------------------------------------------------------------------------

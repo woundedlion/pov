@@ -260,8 +260,8 @@ inline void test_double_buffer_handoff_concurrent() {
   hs::clear_mock_time(); // real wall clock keeps the ctor's spin watchdog live
   TestEffect fx(8, 4);
   const int N = 8 * 4;
-  const int kFrames = 3000;
-  // r holds the frame index (kFrames < 65536, so r alone is a unique sentinel).
+  const int FRAMES = 3000;
+  // r holds the frame index (FRAMES < 65536, so r alone is a unique sentinel).
   auto sentinel = [](int f) { return Pixel((uint16_t)f, 0, 0); };
 
   std::atomic<bool> producer_done{false};
@@ -270,7 +270,7 @@ inline void test_double_buffer_handoff_concurrent() {
   std::atomic<int> distinct_displayed{0};
 
   std::thread producer([&] {
-    for (int f = 0; f < kFrames; ++f) {
+    for (int f = 0; f < FRAMES; ++f) {
       Canvas c(fx); // blocks until the consumer frees the buffer
       for (int i = 0; i < N; ++i) c(i) = sentinel(f);
     } // ~Canvas queues the frame
@@ -280,7 +280,7 @@ inline void test_double_buffer_handoff_concurrent() {
   std::thread consumer([&] {
     int last_sentinel = -1;
     int promoted = 0;
-    while (promoted < kFrames) {
+    while (promoted < FRAMES) {
       if (fx.buffer_free()) {
         // Nothing queued; if the producer has finished there is no more work.
         if (producer_done.load(std::memory_order_acquire) && fx.buffer_free())
@@ -308,7 +308,7 @@ inline void test_double_buffer_handoff_concurrent() {
   HS_EXPECT_FALSE(torn_read.load(std::memory_order_relaxed));
   HS_EXPECT_FALSE(out_of_order.load(std::memory_order_relaxed));
   // The gate admits no coalescing, so every queued frame is displayed once.
-  HS_EXPECT_EQ(distinct_displayed.load(std::memory_order_relaxed), kFrames);
+  HS_EXPECT_EQ(distinct_displayed.load(std::memory_order_relaxed), FRAMES);
 }
 
 /**

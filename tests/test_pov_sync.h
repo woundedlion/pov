@@ -62,8 +62,8 @@ inline Config test_config(int effects = 4) {
   return c;
 }
 
-constexpr uint32_t kPeriod = 37500000u; /**< Cycles per half-rev at full rate. */
-constexpr uint32_t kCol = kPeriod / 144u; /**< Cycles per column at full rate. */
+constexpr uint32_t PERIOD = 37500000u; /**< Cycles per half-rev at full rate. */
+constexpr uint32_t COL = PERIOD / 144u; /**< Cycles per column at full rate. */
 
 // ── Pure helpers ────────────────────────────────────────────────────────────
 
@@ -84,8 +84,8 @@ inline void test_helpers() {
 
   const Config c = test_config();
   HS_EXPECT_TRUE(c.valid());
-  HS_EXPECT_EQ(c.cycles_per_half_rev, kPeriod); // 600e6·30/480, exact
-  HS_EXPECT_EQ(c.cycles_per_column(), kCol);
+  HS_EXPECT_EQ(c.cycles_per_half_rev, PERIOD); // 600e6·30/480, exact
+  HS_EXPECT_EQ(c.cycles_per_column(), COL);
   HS_EXPECT_EQ(c.glitch_filter_cycles, 60000u); // 100 µs
 
   // The beacon's 6-bit rev field resyncs a slip only in (-32, +32), so the
@@ -163,38 +163,38 @@ inline void test_flip_gate() {
  *        snapshots count + first/last edge.
  */
 inline void test_mailbox() {
-  const uint32_t kGlitch = 60000u;
+  const uint32_t GLITCH = 60000u;
   EdgeMailbox m;
-  HS_EXPECT_FALSE(burst_complete(m, 0, 4 * kCol));
-  m.on_edge(1000, kGlitch);
-  m.on_edge(1000 + 2 * kCol, kGlitch);
-  m.on_edge(1000 + 4 * kCol, kGlitch);
+  HS_EXPECT_FALSE(burst_complete(m, 0, 4 * COL));
+  m.on_edge(1000, GLITCH);
+  m.on_edge(1000 + 2 * COL, GLITCH);
+  m.on_edge(1000 + 4 * COL, GLITCH);
   // EMI spike < 100 µs after an accepted edge is rejected…
-  m.on_edge(1000 + 4 * kCol + kGlitch / 2, kGlitch);
+  m.on_edge(1000 + 4 * COL + GLITCH / 2, GLITCH);
   // …and does not reset the filter reference.
-  m.on_edge(1000 + 6 * kCol, kGlitch);
-  HS_EXPECT_FALSE(burst_complete(m, 1000 + 7 * kCol, 4 * kCol));
-  HS_EXPECT_TRUE(burst_complete(m, 1000 + 10 * kCol + 1, 4 * kCol));
+  m.on_edge(1000 + 6 * COL, GLITCH);
+  HS_EXPECT_FALSE(burst_complete(m, 1000 + 7 * COL, 4 * COL));
+  HS_EXPECT_TRUE(burst_complete(m, 1000 + 10 * COL + 1, 4 * COL));
   const BurstSnapshot s = claim(m);
   HS_EXPECT_EQ(s.count, 4u);
   HS_EXPECT_EQ(s.first_cycles, 1000u);
-  HS_EXPECT_EQ(s.last_cycles, 1000u + 6 * kCol);
+  HS_EXPECT_EQ(s.last_cycles, 1000u + 6 * COL);
   // Claim resets; the glitch filter still applies across bursts.
-  HS_EXPECT_FALSE(burst_complete(m, 1000 + 10 * kCol + 2, 4 * kCol));
-  m.on_edge(1000 + 6 * kCol + kGlitch - 1, kGlitch); // too close: rejected
-  HS_EXPECT_FALSE(burst_complete(m, 1000 + 20 * kCol, 4 * kCol));
+  HS_EXPECT_FALSE(burst_complete(m, 1000 + 10 * COL + 2, 4 * COL));
+  m.on_edge(1000 + 6 * COL + GLITCH - 1, GLITCH); // too close: rejected
+  HS_EXPECT_FALSE(burst_complete(m, 1000 + 20 * COL, 4 * COL));
 
   EdgeMailbox tc;
   BurstSnapshot out;
-  HS_EXPECT_FALSE(tc.try_claim(0, 4 * kCol, &out)); // no burst yet
-  tc.on_edge(1000, kGlitch);
-  tc.on_edge(1000 + 2 * kCol, kGlitch);
-  HS_EXPECT_FALSE(tc.try_claim(1000 + 3 * kCol, 4 * kCol, &out)); // gap too short
-  HS_EXPECT_TRUE(tc.try_claim(1000 + 6 * kCol + 1, 4 * kCol, &out));
+  HS_EXPECT_FALSE(tc.try_claim(0, 4 * COL, &out)); // no burst yet
+  tc.on_edge(1000, GLITCH);
+  tc.on_edge(1000 + 2 * COL, GLITCH);
+  HS_EXPECT_FALSE(tc.try_claim(1000 + 3 * COL, 4 * COL, &out)); // gap too short
+  HS_EXPECT_TRUE(tc.try_claim(1000 + 6 * COL + 1, 4 * COL, &out));
   HS_EXPECT_EQ(out.count, 2u);
   HS_EXPECT_EQ(out.first_cycles, 1000u);
-  HS_EXPECT_EQ(out.last_cycles, 1000u + 2 * kCol);
-  HS_EXPECT_FALSE(tc.try_claim(1000 + 7 * kCol, 4 * kCol, &out)); // reset
+  HS_EXPECT_EQ(out.last_cycles, 1000u + 2 * COL);
+  HS_EXPECT_FALSE(tc.try_claim(1000 + 7 * COL, 4 * COL, &out)); // reset
 }
 
 /**
@@ -205,16 +205,16 @@ inline void test_mailbox() {
  *          difference.
  */
 inline void test_mailbox_prior_staleness() {
-  const uint32_t kGlitch = 60000u;
+  const uint32_t GLITCH = 60000u;
 
   // age_prior leaves a within-window reference intact: a genuine spike that
   // arrives before a poll has aged the prior is still suppressed.
   {
     EdgeMailbox m;
-    m.on_edge(1000, kGlitch);
-    m.age_prior(1000 + kGlitch / 2, kGlitch); // still within the window: kept
-    m.on_edge(1000 + kGlitch / 2 + 1, kGlitch); // too close to 1000: rejected
-    HS_EXPECT_TRUE(burst_complete(m, 1000 + 100 * kGlitch, 1));
+    m.on_edge(1000, GLITCH);
+    m.age_prior(1000 + GLITCH / 2, GLITCH); // still within the window: kept
+    m.on_edge(1000 + GLITCH / 2 + 1, GLITCH); // too close to 1000: rejected
+    HS_EXPECT_TRUE(burst_complete(m, 1000 + 100 * GLITCH, 1));
     HS_EXPECT_EQ(claim(m).count, 1u);
   }
 
@@ -224,17 +224,17 @@ inline void test_mailbox_prior_staleness() {
   {
     EdgeMailbox m;
     const uint32_t prior = 1000u;
-    m.on_edge(prior, kGlitch); // a one-edge burst…
-    HS_EXPECT_TRUE(burst_complete(m, prior + 10 * kCol, kCol));
+    m.on_edge(prior, GLITCH); // a one-edge burst…
+    HS_EXPECT_TRUE(burst_complete(m, prior + 10 * COL, COL));
     HS_EXPECT_EQ(claim(m).count, 1u); // …claimed; the prior persists across it.
     // The flywheel keeps polling during the silence and retires the stale
-    // reference within a column (kCol > kGlitch), long before the counter wraps.
-    m.age_prior(prior + 11 * kCol, kGlitch);
+    // reference within a column (COL > GLITCH), long before the counter wraps.
+    m.age_prior(prior + 11 * COL, GLITCH);
     // A real edge after the counter has wrapped: its modular distance to the
-    // old prior is only kGlitch/2, which the un-aged filter would reject.
-    const uint32_t wrapped = prior + kGlitch / 2;
-    m.on_edge(wrapped, kGlitch);
-    HS_EXPECT_TRUE(burst_complete(m, wrapped + 10 * kCol, kCol));
+    // old prior is only GLITCH/2, which the un-aged filter would reject.
+    const uint32_t wrapped = prior + GLITCH / 2;
+    m.on_edge(wrapped, GLITCH);
+    HS_EXPECT_TRUE(burst_complete(m, wrapped + 10 * COL, COL));
     HS_EXPECT_EQ(claim(m).count, 1u); // accepted as a fresh one-edge burst.
   }
 }
@@ -294,11 +294,11 @@ inline void test_beacon_codec() {
         v = static_cast<uint8_t>((v + 1) & 7);
       if (corrupt_checksum && i == 4)
         v = static_cast<uint8_t>((v + 1) & 7);
-      BurstSnapshot s{static_cast<uint32_t>(v) + 1u, t, t + v * kCol};
+      BurstSnapshot s{static_cast<uint32_t>(v) + 1u, t, t + v * COL};
       bool r = false;
       got = p.feed(s, cfg, out, &r);
       rejected = rejected || r;
-      t += 12 * kCol;
+      t += 12 * COL;
     }
     return got && !rejected;
   };
@@ -333,9 +333,9 @@ inline void test_beacon_codec() {
     BeaconParser p;
     BeaconFrame g{};
     bool r = false;
-    BurstSnapshot s1{3, 1000, 1000 + 2 * kCol};
+    BurstSnapshot s1{3, 1000, 1000 + 2 * COL};
     HS_EXPECT_FALSE(p.feed(s1, cfg, &g, &r));
-    BurstSnapshot s2{9, 1000 + 12 * kCol, 1000 + 20 * kCol}; // count > 8
+    BurstSnapshot s2{9, 1000 + 12 * COL, 1000 + 20 * COL}; // count > 8
     HS_EXPECT_FALSE(p.feed(s2, cfg, &g, &r));
     HS_EXPECT_TRUE(r);
     HS_EXPECT_FALSE(p.active());
@@ -347,18 +347,18 @@ inline void test_beacon_codec() {
     BeaconParser p;
     BeaconFrame g{};
     bool r = false;
-    BurstSnapshot s1{4, 1000, 1000 + 3 * kCol};
+    BurstSnapshot s1{4, 1000, 1000 + 3 * COL};
     p.feed(s1, cfg, &g, &r);
     encode_beacon_digits(5, 7, d);
-    uint32_t t = 1000 + 200 * kCol; // far past the interdigit timeout
+    uint32_t t = 1000 + 200 * COL; // far past the interdigit timeout
     bool got = false;
     bool any_reject = false;
     for (int i = 0; i < 5; ++i) {
-      BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, t, t + d[i] * kCol};
+      BurstSnapshot s{static_cast<uint32_t>(d[i]) + 1u, t, t + d[i] * COL};
       bool rr = false;
       got = p.feed(s, cfg, &g, &rr);
       any_reject = any_reject || (rr && i > 0);
-      t += 12 * kCol;
+      t += 12 * COL;
     }
     HS_EXPECT_TRUE(got);
     HS_EXPECT_FALSE(any_reject);
@@ -436,7 +436,7 @@ inline void test_flywheel_position() {
   // Position over one half-rev, at nominal and trim-extreme periods
   // (±40 ppm ≈ ±1500 cycles): zero truncation drift vs the reference.
   for (int32_t trim : {0, +1500, -1500}) {
-    const uint32_t period = kPeriod + trim;
+    const uint32_t period = PERIOD + trim;
     Flywheel f(cfg);
     f.set_cycles_per_half_rev(period);
     f.seed(1000000u);
@@ -456,8 +456,8 @@ inline void test_flywheel_position() {
   {
     Flywheel f(cfg);
     f.seed(5000000u);
-    HS_EXPECT_EQ(f.position(5000000u - kCol), 287);
-    HS_EXPECT_EQ(f.position(5000000u - 3 * kCol - kCol / 2), 284);
+    HS_EXPECT_EQ(f.position(5000000u - COL), 287);
+    HS_EXPECT_EQ(f.position(5000000u - 3 * COL - COL / 2), 284);
   }
 
   // Fold cadence: exactly one crossing per half-rev, boundaries alternate,
@@ -465,20 +465,20 @@ inline void test_flywheel_position() {
   {
     Flywheel f(cfg);
     f.seed(1000u);
-    HS_EXPECT_FALSE(f.fold(1000u + kPeriod - 1).crossed);
-    const Crossing c1 = f.fold(1000u + kPeriod);
+    HS_EXPECT_FALSE(f.fold(1000u + PERIOD - 1).crossed);
+    const Crossing c1 = f.fold(1000u + PERIOD);
     HS_EXPECT_TRUE(c1.crossed);
     HS_EXPECT_TRUE(c1.boundary == Boundary::HALF);
-    HS_EXPECT_EQ(c1.at_cycles, 1000u + kPeriod);
-    HS_EXPECT_FALSE(f.fold(1000u + kPeriod).crossed);
+    HS_EXPECT_EQ(c1.at_cycles, 1000u + PERIOD);
+    HS_EXPECT_FALSE(f.fold(1000u + PERIOD).crossed);
     // Coast 2.5 half-revs: two more crossings at exact instants.
-    const uint32_t late = 1000u + kPeriod + 2 * kPeriod + kPeriod / 2;
+    const uint32_t late = 1000u + PERIOD + 2 * PERIOD + PERIOD / 2;
     const Crossing c2 = f.fold(late);
     HS_EXPECT_TRUE(c2.crossed && c2.boundary == Boundary::ZERO);
-    HS_EXPECT_EQ(c2.at_cycles, 1000u + 2 * kPeriod);
+    HS_EXPECT_EQ(c2.at_cycles, 1000u + 2 * PERIOD);
     const Crossing c3 = f.fold(late);
     HS_EXPECT_TRUE(c3.crossed && c3.boundary == Boundary::HALF);
-    HS_EXPECT_EQ(c3.at_cycles, 1000u + 3 * kPeriod);
+    HS_EXPECT_EQ(c3.at_cycles, 1000u + 3 * PERIOD);
     HS_EXPECT_FALSE(f.fold(late).crossed);
     HS_EXPECT_EQ(f.position(late), 144 + 72);
   }
@@ -488,11 +488,11 @@ inline void test_flywheel_position() {
   // and the epoch stays an exact integer multiple ahead.
   {
     Flywheel f(cfg);
-    uint32_t t = 0xFFFFFFFFu - kPeriod / 3; // wrap almost immediately
+    uint32_t t = 0xFFFFFFFFu - PERIOD / 3; // wrap almost immediately
     f.seed(t);
     bool ok = true;
     for (int k = 1; k <= 5000; ++k) { // ~5.2 minutes of mock time, 43 wraps
-      t += kPeriod;
+      t += PERIOD;
       const Crossing c = f.fold(t);
       if (!c.crossed || c.at_cycles != t || f.fold(t).crossed ||
           f.position(t) != boundary_column(c.boundary, 288)) {
@@ -526,22 +526,22 @@ inline void test_snap_gate() {
     f.force_lock();
     int32_t err = 0;
     // True HALF arrives 2 columns "early" by local reckoning: accept.
-    HS_EXPECT_TRUE(f.snap(Boundary::HALF, 1000000u + kPeriod - 2 * kCol,
+    HS_EXPECT_TRUE(f.snap(Boundary::HALF, 1000000u + PERIOD - 2 * COL,
                           &err) == Flywheel::SnapOutcome::ACCEPTED);
     HS_EXPECT_EQ(err, 2);
-    HS_EXPECT_EQ(f.position(1000000u + kPeriod - 2 * kCol), 144);
+    HS_EXPECT_EQ(f.position(1000000u + PERIOD - 2 * COL), 144);
 
     // Forged ZERO at the HALF position: W/2 correction → reject ×R → ACQUIRE.
-    uint32_t t = 1000000u + kPeriod - 2 * kCol;
+    uint32_t t = 1000000u + PERIOD - 2 * COL;
     Flywheel::SnapOutcome last = Flywheel::SnapOutcome::ACCEPTED;
     for (int i = 0; i < cfg.reject_fallback; ++i) {
-      t += 10 * kCol;
+      t += 10 * COL;
       last = f.snap(Boundary::ZERO, t, &err);
     }
     HS_EXPECT_TRUE(last == Flywheel::SnapOutcome::REJECTED_FELL_BACK);
     HS_EXPECT_TRUE(f.lock() == LockState::ACQUIRE);
     // ACQUIRE: hard snap, relocks.
-    t += 10 * kCol;
+    t += 10 * COL;
     HS_EXPECT_TRUE(f.snap(Boundary::ZERO, t, &err) ==
                    Flywheel::SnapOutcome::ACCEPTED);
     HS_EXPECT_TRUE(f.lock() == LockState::LOCKED);
@@ -558,10 +558,10 @@ inline void test_snap_gate() {
     // accepted during ACQUIRE).
     int32_t err = 0;
     f.seed(1000000u);
-    f.snap(Boundary::HALF, 1000000u + 72 * kCol, &err); // W/4 off
+    f.snap(Boundary::HALF, 1000000u + 72 * COL, &err); // W/4 off
     f.force_lock();
     // Real boundary stream: ZERO at k·rev, HALF at k·rev + half.
-    uint32_t t = 1000000u + kPeriod; // true HALF instant
+    uint32_t t = 1000000u + PERIOD; // true HALF instant
     Boundary b = Boundary::HALF;
     int accepted_at = -1;
     for (int i = 0; i < cfg.reject_fallback + 1; ++i) {
@@ -569,7 +569,7 @@ inline void test_snap_gate() {
         accepted_at = i;
         break;
       }
-      t += kPeriod;
+      t += PERIOD;
       b = opposite(b);
     }
     HS_EXPECT_EQ(accepted_at, cfg.reject_fallback); // R rejections, then snap
@@ -595,9 +595,9 @@ inline void test_emitter() {
   {
     SymbolEmitter e;
     const uint32_t b = 1000000u;
-    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO, b, b + kCol / 8, cfg));
+    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO, b, b + COL / 8, cfg));
     std::vector<uint32_t> pulses;
-    for (uint32_t t = b + kCol / 8; t < b + 8 * kCol; t += kCol / 8) {
+    for (uint32_t t = b + COL / 8; t < b + 8 * COL; t += COL / 8) {
       if (e.tick(t, cfg, &aborted))
         pulses.push_back(t);
       HS_EXPECT_FALSE(aborted);
@@ -605,9 +605,9 @@ inline void test_emitter() {
     HS_EXPECT_EQ(pulses.size(), static_cast<size_t>(3));
     if (pulses.size() == 3) {
       // Each pulse within an oversample step of its scheduled slot.
-      HS_EXPECT_LE(pulses[0] - b, kCol / 8);
-      HS_EXPECT_LE(pulses[1] - (b + 2 * kCol), kCol / 8);
-      HS_EXPECT_LE(pulses[2] - (b + 4 * kCol), kCol / 8);
+      HS_EXPECT_LE(pulses[0] - b, COL / 8);
+      HS_EXPECT_LE(pulses[1] - (b + 2 * COL), COL / 8);
+      HS_EXPECT_LE(pulses[2] - (b + 4 * COL), COL / 8);
     }
   }
 
@@ -641,7 +641,7 @@ inline void test_emitter() {
     HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO_EPOCH, b, b, cfg));
     HS_EXPECT_TRUE(e.tick(b, cfg, &aborted)); // pulse 1 on time
     // Next due at b+2col; first wake after the mask is way late.
-    HS_EXPECT_FALSE(e.tick(b + 2 * kCol + cfg.late_censor_cycles() + 1, cfg,
+    HS_EXPECT_FALSE(e.tick(b + 2 * COL + cfg.late_censor_cycles() + 1, cfg,
                            &aborted));
     HS_EXPECT_TRUE(aborted);
     HS_EXPECT_TRUE(e.idle());
@@ -659,7 +659,7 @@ inline void test_emitter() {
     e.schedule_beacon(d, t0, cfg);
     BeaconFrame f{};
     bool got = false, rejected = false;
-    for (uint32_t t = t0; t < t0 + 100 * kCol; t += kCol / 8) {
+    for (uint32_t t = t0; t < t0 + 100 * COL; t += COL / 8) {
       if (e.tick(t, cfg, &aborted))
         m.on_edge(t, cfg.glitch_filter_cycles);
       if (burst_complete(m, t, cfg.gap_timeout_cycles())) {
@@ -706,13 +706,13 @@ inline void test_beacon_late_coast() {
     m.tick(epoch1, nullptr);
     // Drain the rev-1 ZERO symbol's remaining pulses (columns 2, 4) so the
     // emitter is idle before the coast, as it would be on real hardware.
-    m.tick(epoch1 + 2u * kCol, nullptr);
-    m.tick(epoch1 + 4u * kCol, nullptr);
+    m.tick(epoch1 + 2u * COL, nullptr);
+    m.tick(epoch1 + 4u * COL, nullptr);
 
     int pulses = 0;
     for (int32_t c = resume_col; c <= 150; ++c) {
       const TickActions a =
-          m.tick(epoch1 + static_cast<uint32_t>(c) * kCol, nullptr);
+          m.tick(epoch1 + static_cast<uint32_t>(c) * COL, nullptr);
       if (a.pulse && c >= cfg.W / 4 && c < cfg.W / 2)
         ++pulses;
     }
@@ -1078,7 +1078,7 @@ inline void test_sim_boot_and_phase() {
   const int32_t ppm[4] = {0, 20, -20, 40};
   // Local clocks start just below the 32-bit wrap: every board's CYCCNT
   // wraps ~10 revolutions in, mid-run (§12 timebase arithmetic).
-  Sim sim(cfg, 4, ppm, 0xFFFFFFFFull - 10ull * 2 * kPeriod + 12345);
+  Sim sim(cfg, 4, ppm, 0xFFFFFFFFull - 10ull * 2 * PERIOD + 12345);
 
   // All boards lock within the first revolution (two boundary symbols).
   HS_EXPECT_TRUE(sim.run_until(
@@ -1099,7 +1099,7 @@ inline void test_sim_boot_and_phase() {
     // within a couple of columns of global time of each other.
     const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
                        static_cast<int64_t>(sim.boards[0].swap_g);
-    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * kCol);
+    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
   }
 
   // Run through the cycle-counter wrap and beyond; check phase + flip
@@ -1181,7 +1181,7 @@ inline void test_sim_epoch_commit() {
   for (int i = 1; i < 4; ++i) {
     const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
                        static_cast<int64_t>(sim.boards[0].swap_g);
-    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * kCol);
+    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
   // Post-epoch: full content coherence (index AND t) including the master.
@@ -1213,7 +1213,7 @@ inline void test_sim_commit_deadline_trap() {
   const int32_t ppm[4] = {0, 0, 0, 0};
   Sim sim(cfg, 4, ppm);
   sim.boards[2].init_delay =
-      static_cast<uint64_t>(3) * 2 * kPeriod; // 3 revs > K = 2
+      static_cast<uint64_t>(3) * 2 * PERIOD; // 3 revs > K = 2
   // Boot joins are NOT deadline-bound: board 2 simply goes live ~3 revs
   // after the others (next join-grid boundary), without trapping.
   sim.run_revs(double(cfg.join_grid_revs) * 3);
@@ -1246,17 +1246,17 @@ inline void test_sim_masked_windows() {
   // pin latch), so its decoder sees truncated counts: the symbol must
   // degrade to "missed" (invalid/discarded), never "misclassified".
   // Masks start after boot join so acquisition is clean.
-  const uint64_t rev = 2ull * kPeriod;
+  const uint64_t rev = 2ull * PERIOD;
   for (int k = 8; k < 28; ++k) {
     const uint64_t b0 = k * rev; // master ZERO crossings ≈ k·rev (ppm 0)
     sim.boards[2].masks.push_back(
-        {b0 - kCol / 2, b0 + 2 * kCol + kCol / 2});
+        {b0 - COL / 2, b0 + 2 * COL + COL / 2});
   }
   // Board 3: mid-revolution masks (no boundary, no symbol) — pure wake
   // coalescing; the flywheel resumes at the time-correct column.
   for (int k = 8; k < 28; ++k) {
-    const uint64_t m0 = k * rev + 40 * kCol;
-    sim.boards[3].masks.push_back({m0, m0 + 5 * kCol});
+    const uint64_t m0 = k * rev + 40 * COL;
+    sim.boards[3].masks.push_back({m0, m0 + 5 * COL});
   }
 
   sim.run_revs(30.0);
@@ -1279,7 +1279,7 @@ inline void test_sim_masked_windows() {
   Sim sim2(cfg, 2, ppm);
   sim2.run_revs(8.0);
   const uint64_t b0 = (static_cast<uint64_t>(sim2.g / rev) + 2) * rev;
-  sim2.boards[0].masks.push_back({b0 - kCol / 4, b0 + 2 * kCol});
+  sim2.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
   sim2.run_revs(6.0);
   const Telemetry &tm0 = sim2.boards[0].board.telemetry();
   HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted, 0u);
@@ -1300,7 +1300,7 @@ inline void test_sim_emi() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 20, -30, 5};
   Sim sim(cfg, 4, ppm);
-  const uint64_t rev = 2ull * kPeriod;
+  const uint64_t rev = 2ull * PERIOD;
 
   // Isolated spurious edges on board 1, ~1 per revolution at varied
   // mid-revolution offsets (away from boundaries): each forms a 1-pulse
@@ -1309,17 +1309,17 @@ inline void test_sim_emi() {
   uint32_t lcg = 12345;
   for (int k = 8; k < 40; ++k) {
     lcg = lcg * 1664525u + 1013904223u;
-    const uint64_t off = (20 + lcg % 100) * static_cast<uint64_t>(kCol);
+    const uint64_t off = (20 + lcg % 100) * static_cast<uint64_t>(COL);
     sim.emi.push_back({k * rev + off, 1});
   }
   // Two edges injected INSIDE master ZERO bursts on board 2 (count 3 → 4):
   // even count = invalid, discarded whole; the crossing flip covers it.
-  sim.emi.push_back({10 * rev + kCol, 2});
-  sim.emi.push_back({14 * rev + kCol, 2});
+  sim.emi.push_back({10 * rev + COL, 2});
+  sim.emi.push_back({14 * rev + COL, 2});
   // One edge within G of board 3's predicted HALF boundary: the §9.1
   // accepted-EMI case — a ≤G-column seam for ≤½ rev, re-snapped by the next
   // real symbol. It must not unlock or misclassify anything.
-  sim.emi.push_back({12 * rev + (kPeriod - 2ull * kCol), 3});
+  sim.emi.push_back({12 * rev + (PERIOD - 2ull * COL), 3});
   std::sort(sim.emi.begin(), sim.emi.end());
 
   sim.run_revs(42.0);
@@ -1350,7 +1350,7 @@ inline void test_sim_drops_and_missed_epoch() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 35, -35, 20};
   Sim sim(cfg, 4, ppm);
-  const uint64_t rev = 2ull * kPeriod;
+  const uint64_t rev = 2ull * PERIOD;
 
   // Boot join first.
   HS_EXPECT_TRUE(boot_join(sim, cfg));
@@ -1447,7 +1447,7 @@ inline void test_sim_forged_burst() {
   const int32_t ppm[2] = {0, 10};
   Sim sim(cfg, 2, ppm);
   sim.run_revs(10.0);
-  const uint64_t rev = 2ull * kPeriod;
+  const uint64_t rev = 2ull * PERIOD;
 
   // A spurious flip needs a forged burst that is simultaneously valid,
   // plausible, and boundary-consistent (§5.3). Forge the strongest cheap
@@ -1456,7 +1456,7 @@ inline void test_sim_forged_burst() {
   // quiet-before guard, far from both predicted boundaries. It must be held
   // as a suspect and counted as a rejection, never snapped or flipped.
   const uint64_t b0 = (sim.g / rev + 2) * rev; // a future master ZERO
-  sim.emi.push_back({b0 + 30 * static_cast<uint64_t>(kCol), 1});
+  sim.emi.push_back({b0 + 30 * static_cast<uint64_t>(COL), 1});
   sim.emi_pos = 0;
   std::sort(sim.emi.begin(), sim.emi.end());
 
@@ -1489,7 +1489,7 @@ inline void test_sim_forged_burst() {
  */
 inline void test_sim_epoch_repeat_lockstep() {
   const Config cfg = test_config();
-  const uint64_t rev = 2ull * kPeriod;
+  const uint64_t rev = 2ull * PERIOD;
 
   /**
    * @brief Predicate: all boards have committed to effect 1.
@@ -1514,7 +1514,7 @@ inline void test_sim_epoch_repeat_lockstep() {
       // within a couple of columns of global time, never a revolution apart.
       const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
                          static_cast<int64_t>(sim.boards[0].swap_g);
-      HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * kCol);
+      HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
       HS_EXPECT_FALSE(sim.boards[i].trapped);
     }
     sim.run_revs(2.0);
@@ -1531,7 +1531,7 @@ inline void test_sim_epoch_repeat_lockstep() {
     Sim sim(cfg, 4, ppm);
     HS_EXPECT_TRUE(boot_join(sim, cfg));
     HS_EXPECT_TRUE(to_pre_train(sim, cfg));
-    sim.boards[2].drop_from = sim.g + rev - 4 * kCol;
+    sim.boards[2].drop_from = sim.g + rev - 4 * COL;
     sim.boards[2].drop_to = sim.g + rev + rev / 4; // before the B+1 repeat
     HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
     expect_lockstep(sim);
@@ -1546,7 +1546,7 @@ inline void test_sim_epoch_repeat_lockstep() {
     HS_EXPECT_TRUE(boot_join(sim, cfg));
     HS_EXPECT_TRUE(to_pre_train(sim, cfg));
     const uint64_t b0 = sim.g + rev;
-    sim.boards[0].masks.push_back({b0 - kCol / 4, b0 + 2 * kCol});
+    sim.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
     HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
     const Telemetry &tm0 = sim.boards[0].board.telemetry();
     HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted, 0u);
@@ -1573,7 +1573,7 @@ inline void test_sim_rev_resync() {
   const Config cfg = test_config();
   const int32_t ppm[4] = {0, 20, -20, 10};
   Sim sim(cfg, 4, ppm);
-  const uint64_t rev = 2ull * kPeriod;
+  const uint64_t rev = 2ull * PERIOD;
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   // Settle past the boot beacons (revs 1–3), then slip board 3's counter
   // by +2: at the next train it would over-count j by 2 and commit 2
@@ -1602,7 +1602,7 @@ inline void test_sim_rev_resync() {
                s.cfg.revs_per_effect - 1;
       },
       double(cfg.revs_per_effect) + 4));
-  sim.boards[3].drop_from = sim.g + rev - 4 * kCol;
+  sim.boards[3].drop_from = sim.g + rev - 4 * COL;
   sim.boards[3].drop_to = sim.g + rev + rev / 4;
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
@@ -1616,7 +1616,7 @@ inline void test_sim_rev_resync() {
   for (int i = 1; i < 4; ++i) {
     const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
                        static_cast<int64_t>(sim.boards[0].swap_g);
-    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * kCol);
+    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
   sim.run_revs(2.0);
@@ -1835,7 +1835,7 @@ inline void test_budget_lost_symbol() {
   // Deafen board 1 for exactly one half-rev, aligned mid-half: it misses
   // exactly one boundary symbol (the HALF, 104 columns ahead).
   sim.boards[1].drop_from = sim.g;
-  sim.boards[1].drop_to = sim.g + kPeriod;
+  sim.boards[1].drop_to = sim.g + PERIOD;
   const Telemetry &tm = sim.boards[1].board.telemetry();
   const uint32_t acc_before = tm.symbols_accepted;
 
@@ -1869,10 +1869,10 @@ inline void test_budget_emi_accepted_seam() {
   // The master HALF boundary is 104 columns ahead. Censor the real symbol
   // for board 1 and forge an edge 3 columns early: isolated, valid count,
   // within G of the predicted boundary — the §9.1 accepted case.
-  const uint64_t h = sim.g + 104ull * kCol;
-  sim.boards[1].drop_from = h - kCol;
-  sim.boards[1].drop_to = h + 8 * kCol;
-  sim.emi.push_back({h - 3 * kCol, 1});
+  const uint64_t h = sim.g + 104ull * COL;
+  sim.boards[1].drop_from = h - COL;
+  sim.boards[1].drop_to = h + 8 * COL;
+  sim.emi.push_back({h - 3 * COL, 1});
   sim.emi_pos = 0;
   std::sort(sim.emi.begin(), sim.emi.end());
 
@@ -1918,7 +1918,7 @@ inline void test_budget_corrupted_timebase() {
   SimBoard &b2 = sim.boards[2];
   const int32_t bogus = floor_mod(sim.board_pos(2) + 72, cfg.W);
   b2.board.flywheel_mut().seed(Sim::local_now(b2, sim.g) -
-                               static_cast<uint32_t>(bogus) * kCol);
+                               static_cast<uint32_t>(bogus) * COL);
   b2.board.flywheel_mut().force_lock();
   HS_EXPECT_GE(circ_dist(sim.board_pos(2), sim.board_pos(0), cfg.W), 60);
 
@@ -1949,7 +1949,7 @@ inline void test_budget_corrupted_timebase() {
   for (int i = 1; i < 4; ++i) {
     const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
                        static_cast<int64_t>(sim.boards[0].swap_g);
-    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * kCol);
+    HS_EXPECT_LE(dg < 0 ? -dg : dg, int64_t(3) * COL);
     HS_EXPECT_FALSE(sim.boards[i].trapped);
   }
   sim.run_revs(2.0);
@@ -1979,8 +1979,8 @@ inline void test_budget_beacon_corruption() {
   // pulses at relative columns 16 and 17. One EMI edge between them on
   // board 1 (clear of the 100 µs glitch filter) makes that digit read 2:
   // checksum mismatch, whole frame dropped.
-  const uint64_t train = sim.g + 72ull * kCol;
-  sim.emi.push_back({train + 16ull * kCol + kCol / 2, 1});
+  const uint64_t train = sim.g + 72ull * COL;
+  sim.emi.push_back({train + 16ull * COL + COL / 2, 1});
   sim.emi_pos = 0;
   std::sort(sim.emi.begin(), sim.emi.end());
 
@@ -2019,7 +2019,7 @@ inline void test_budget_wire_dead() {
   const int32_t ppm[3] = {0, 40, -25};
   // Local clocks start ~30 revs below the 32-bit wrap: the wrap lands ~22
   // revs into the snap-free coast.
-  Sim sim(cfg, 3, ppm, 0xFFFFFFFFull - 30ull * 2 * kPeriod + 999);
+  Sim sim(cfg, 3, ppm, 0xFFFFFFFFull - 30ull * 2 * PERIOD + 999);
   HS_EXPECT_TRUE(boot_join(sim, cfg));
   sim.run_revs(2.0);
   // Cut the wire at a quiet point (mid-half, no beacon this rev) so no

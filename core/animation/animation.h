@@ -286,13 +286,13 @@ template <typename... Ts> constexpr size_t largest_sizeof() {
 
 // Add every new non-templated Animation type to this pack; the audit folds over
 // it, so the static_assert tracks the list automatically.
-constexpr size_t kLargestConcreteAnimSize = largest_sizeof<
+constexpr size_t LARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<
     Animation::RandomTimer, Animation::PeriodicTimer, Animation::Transition,
     Animation::Mutation, Animation::Driver, Animation::Lerp, Animation::Sprite,
     Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusWarp,
     Animation::MobiusWarpCircular, Animation::MeshMorph,
     Animation::MobiusWarpEvolving, Animation::Ripple, Animation::Noise>();
-static_assert(kLargestConcreteAnimSize <= TimelineEvent::MAX_ANIM_SIZE,
+static_assert(LARGEST_CONCRETE_ANIM_SIZE <= TimelineEvent::MAX_ANIM_SIZE,
               "A concrete animation type exceeds the TimelineEvent inline-storage "
               "budget (on the 32-bit WASM/device build MAX_ANIM_SIZE is the "
               "112-byte device budget); shrink the type or raise the budget.");

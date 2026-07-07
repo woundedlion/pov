@@ -168,10 +168,10 @@ struct SamplePT {
   Vector tan;
 };
 
-constexpr int kPlanarLenSamples = 4;
+constexpr int PLANAR_LEN_SAMPLES = 4;
 
 /**
- * @brief Cumulative on-sphere arc length at kPlanarLenSamples+1 evenly-spaced
+ * @brief Cumulative on-sphere arc length at PLANAR_LEN_SAMPLES+1 evenly-spaced
  *        PROJECTION samples of the azimuthal-equidistant straight edge whose
  *        projection starts at `proj` and spans (dx, dy).
  * @details arc_cumul[0] = 0; arc_cumul.back() is the full rendered length. The
@@ -183,11 +183,11 @@ constexpr int kPlanarLenSamples = 4;
 static inline void
 planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
                  const Basis &planar_basis,
-                 std::array<float, kPlanarLenSamples + 1> &arc_cumul) {
+                 std::array<float, PLANAR_LEN_SAMPLES + 1> &arc_cumul) {
   arc_cumul[0] = 0.0f;
   Vector prev = azimuthal_unproject(proj.first, proj.second, planar_basis);
-  for (int k = 1; k <= kPlanarLenSamples; ++k) {
-    float p = static_cast<float>(k) / kPlanarLenSamples;
+  for (int k = 1; k <= PLANAR_LEN_SAMPLES; ++k) {
+    float p = static_cast<float>(k) / PLANAR_LEN_SAMPLES;
     Vector cur = azimuthal_unproject(proj.first + dx * p, proj.second + dy * p,
                                      planar_basis);
     arc_cumul[k] = arc_cumul[k - 1] + angle_between(prev, cur);
@@ -241,24 +241,24 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
   // cluster/gap samples. The inversion makes planar sampling arc-uniform —
   // matching the geodesic strategy — at the cost of a trig-free table scan per
   // sample (no new trig anywhere).
-  std::array<float, kPlanarLenSamples + 1> arc_cumul;
+  std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
   planar_arc_cumul(proj1, dx, dy, planar_basis, arc_cumul);
-  const float dist = arc_cumul[kPlanarLenSamples];
+  const float dist = arc_cumul[PLANAR_LEN_SAMPLES];
 
   // Arc-length parameterization: s is the arc fraction in [0,1]. Invert the
   // piecewise-linear cumulative-arc table to a projection parameter, then
-  // unproject. A short scan over kPlanarLenSamples floats — no trig.
+  // unproject. A short scan over PLANAR_LEN_SAMPLES floats — no trig.
   auto map_planar = [=](float s) -> Vector {
     if (dist < math::EPS_GEOMETRIC)
       return unproject(s);
     float target = s * dist;
     int k = 0;
-    while (k < kPlanarLenSamples - 1 && arc_cumul[k + 1] < target)
+    while (k < PLANAR_LEN_SAMPLES - 1 && arc_cumul[k + 1] < target)
       ++k;
     float seg = arc_cumul[k + 1] - arc_cumul[k];
     float frac =
         (seg > math::EPS_GEOMETRIC) ? (target - arc_cumul[k]) / seg : 0.0f;
-    float p = (static_cast<float>(k) + frac) / kPlanarLenSamples;
+    float p = (static_cast<float>(k) + frac) / PLANAR_LEN_SAMPLES;
     return unproject(std::min(1.0f, std::max(0.0f, p)));
   };
 
@@ -291,10 +291,10 @@ static inline float planar_arc_length(const Vector &a, const Vector &b,
                                       const Basis &planar_basis) {
   auto p1 = azimuthal_project(a, planar_basis);
   auto p2 = azimuthal_project(b, planar_basis);
-  std::array<float, kPlanarLenSamples + 1> arc_cumul;
+  std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
   planar_arc_cumul(p1, p2.first - p1.first, p2.second - p1.second, planar_basis,
                    arc_cumul);
-  return arc_cumul[kPlanarLenSamples];
+  return arc_cumul[PLANAR_LEN_SAMPLES];
 }
 
 /**
@@ -1865,7 +1865,7 @@ struct Mesh {
    * path), not a recoverable case. Sized for a TriangularBitset of 128*127/2
    * bits = 1016 bytes.
    */
-  static constexpr int kDedupCapacity = 128;
+  static constexpr int DEDUP_CAPACITY = 128;
 
   /**
    * @brief Sample, shade, and rasterize one wireframe edge.
@@ -1924,7 +1924,7 @@ struct Mesh {
    */
   template <typename MeshT, typename Fn>
   static void for_each_unique_edge(const MeshT &mesh,
-                                   TriangularBitset<kDedupCapacity> &visited,
+                                   TriangularBitset<DEDUP_CAPACITY> &visited,
                                    Fn &&fn) {
     visited.clear();
 
@@ -1952,7 +1952,7 @@ struct Mesh {
         // with no valid recovery: silently dropping the edge would mask it and
         // leave a wireframe with missing lines. Trap on the cold setup path
         // (platform.h).
-        HS_CHECK(large < kDedupCapacity);
+        HS_CHECK(large < DEDUP_CAPACITY);
 
         if (!visited.test_and_set(small, large))
           fn(u, v);
@@ -1984,8 +1984,8 @@ struct Mesh {
     // independent, so the heavily-used render scratch keeps its full headroom.
     ScratchScope visited_guard(scratch_arena_b);
     auto &visited = *new (scratch_arena_b.allocate(
-        sizeof(TriangularBitset<kDedupCapacity>),
-        alignof(TriangularBitset<kDedupCapacity>))) TriangularBitset<kDedupCapacity>();
+        sizeof(TriangularBitset<DEDUP_CAPACITY>),
+        alignof(TriangularBitset<DEDUP_CAPACITY>))) TriangularBitset<DEDUP_CAPACITY>();
 
     for_each_unique_edge(mesh, visited, [&](int u, int v) {
       // mesh.vertices[] only asserts in bounds (stripped under NDEBUG on the
@@ -2040,8 +2040,8 @@ struct Mesh {
     // (persistent), so scratch_arena_b here cannot disturb it.
     ScratchScope visited_guard(scratch_arena_b);
     auto &visited = *new (scratch_arena_b.allocate(
-        sizeof(TriangularBitset<kDedupCapacity>),
-        alignof(TriangularBitset<kDedupCapacity>))) TriangularBitset<kDedupCapacity>();
+        sizeof(TriangularBitset<DEDUP_CAPACITY>),
+        alignof(TriangularBitset<DEDUP_CAPACITY>))) TriangularBitset<DEDUP_CAPACITY>();
 
     for_each_unique_edge(mesh, visited, [&](int u, int v) {
       edges.push_back({(uint16_t)u, (uint16_t)v});
@@ -2109,7 +2109,7 @@ struct ParticleSystem {
       Fragments trail;
       // tween emits at most one fragment per retained trail position.
       trail.bind(scratch_arena_a,
-                 std::remove_cvref_t<decltype(p.history)>::kCapacity);
+                 std::remove_cvref_t<decltype(p.history)>::CAPACITY);
       float cumulative_len = 0.0f;
       Vector last_pos;
       bool first = true;

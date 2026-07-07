@@ -46,7 +46,7 @@ public:
     baked_sunset.bake(persistent_arena, Palettes::richSunset);
 
     // Whole footprint lives in the persistent arena with no per-frame scratch, so
-    // keep the default split (no configure_arenas()); kFootprintBytes asserts it
+    // keep the default split (no configure_arenas()); FOOTPRINT_BYTES asserts it
     // fits the device default partition.
     fibers = static_cast<Spherical *>(persistent_arena.allocate(
         ACTUAL_FIBERS * sizeof(Spherical), alignof(Spherical)));
@@ -113,16 +113,16 @@ private:
 
   // Persistent allocations: palette LUT + one Spherical, one phase, and one
   // trail per fiber.
-  static constexpr size_t kFootprintBytes =
+  static constexpr size_t FOOTPRINT_BYTES =
       BakedPalette::LUT_SIZE * sizeof(Color4) +
       ACTUAL_FIBERS * sizeof(Spherical) +
       ACTUAL_FIBERS * sizeof(float) +
       ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a RINGS/PER_RING/TRAIL_LEN retune.
-  static constexpr size_t kPersistentBudget =
+  static constexpr size_t PERSISTENT_BUDGET =
       DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
-  static_assert(kFootprintBytes <= kPersistentBudget,
+  static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET,
                 "HopfFibration persistent footprint exceeds the default "
                 "partition; retune RINGS/PER_RING/TRAIL_LEN or carve arenas");
 
@@ -172,13 +172,13 @@ private:
    * re-deriving per frame.
    */
   void init_fibers() {
-    constexpr float kPhaseStep = PI_F / ACTUAL_FIBERS;
+    constexpr float PHASE_STEP = PI_F / ACTUAL_FIBERS;
     int idx = 0;
     for (int i = 0; i < RINGS; ++i) {
       float polar = PI_F * (i + 0.5f) / RINGS;
       for (int j = 0; j < PER_RING; ++j) {
         float azimuth = 2 * PI_F * j / PER_RING;
-        fiber_phase[idx] = idx * kPhaseStep;
+        fiber_phase[idx] = idx * PHASE_STEP;
         std::construct_at(&fibers[idx], azimuth, polar);
         ++idx;
       }

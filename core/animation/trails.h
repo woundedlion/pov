@@ -62,11 +62,11 @@ private:
 
 /**
  * @brief Manages a history of world-space Vector positions.
- * @tparam CAPACITY The maximum number of snapshots to keep.
+ * @tparam CAP The maximum number of snapshots to keep.
  */
-template <int CAPACITY> class VectorTrail {
+template <int CAP> class VectorTrail {
 public:
-  static constexpr int kCapacity = CAPACITY; /**< Max retained snapshots. */
+  static constexpr int CAPACITY = CAP; /**< Max retained snapshots. */
 
   /**
    * @brief Records a world-space position snapshot.
@@ -105,7 +105,7 @@ public:
   void expire() { snapshots.pop(); }
 
 private:
-  StaticCircularBuffer<Vector, CAPACITY> snapshots;
+  StaticCircularBuffer<Vector, CAP> snapshots;
 };
 
 } // namespace Animation

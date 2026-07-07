@@ -147,18 +147,18 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   // chain. Per-call bump scope; norm is cleared per row below.
   //
   // intervals holds a top-level shape's full per-row emission. The widest top
-  // node is Subtract/Intersection with both children at kIntervalSpanCap:
-  // |A|+|B|+2 == 2*kIntervalSpanCap+2. norm holds one seam-split per span, so 2x.
+  // node is Subtract/Intersection with both children at INTERVAL_SPAN_CAP:
+  // |A|+|B|+2 == 2*INTERVAL_SPAN_CAP+2. norm holds one seam-split per span, so 2x.
   ScratchScope scratch(scratch_arena_b);
-  static constexpr size_t kTopSpanCap = 2 * SDF::kIntervalSpanCap + 2;
+  static constexpr size_t TOP_SPAN_CAP = 2 * SDF::INTERVAL_SPAN_CAP + 2;
   using IntervalBuf =
-      StaticCircularBuffer<std::pair<float, float>, kTopSpanCap>;
+      StaticCircularBuffer<std::pair<float, float>, TOP_SPAN_CAP>;
   using NormBuf =
-      StaticCircularBuffer<std::pair<float, float>, 2 * kTopSpanCap>;
-  static_assert(IntervalBuf::kCapacity >= SDF::MergedIntervalBuffer::kCapacity,
+      StaticCircularBuffer<std::pair<float, float>, 2 * TOP_SPAN_CAP>;
+  static_assert(IntervalBuf::CAPACITY >= SDF::MergedIntervalBuffer::CAPACITY,
                 "scan_region intervals must hold the largest top-level CSG "
                 "emission (Subtract/Intersection: |A|+|B|+2)");
-  static_assert(NormBuf::kCapacity == 2 * IntervalBuf::kCapacity,
+  static_assert(NormBuf::CAPACITY == 2 * IntervalBuf::CAPACITY,
                 "norm must hold 2 spans per input interval (seam split)");
   auto &intervals = *new (scratch_arena_b.allocate(
       sizeof(IntervalBuf), alignof(IntervalBuf))) IntervalBuf();
@@ -771,7 +771,7 @@ struct Mesh {
       // alignment leaves the face on the exact path.
       if (bake && shape.y_min <= shape.y_max) {
         const MeshOps::FaceClassRec &rec = bake->face_recs[i];
-        if (rec.class_id != MeshOps::kNoClass) {
+        if (rec.class_id != MeshOps::NO_CLASS) {
           const MeshOps::CongruenceClass &cls = bake->classes[rec.class_id];
           if (cls.lut.data && cls.n_verts == shape.count)
             shape.bind_class_lut(&cls.lut, cls.canon_xy, rec.vert_offset,

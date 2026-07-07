@@ -42,7 +42,7 @@ public:
 
   /** @brief Compile-time fixed capacity, for static_asserts binding two buffers'
    *  sizes (e.g. scan_region's seam-split `norm` == 2x its input span buffer). */
-  static constexpr size_t kCapacity = N;
+  static constexpr size_t CAPACITY = N;
 
   // back() and the iterators form `head + count - 1` (intermediate up to 2N-2)
   // before the `% N` fold. head/count are uint32_t, so cap N to keep that sum

@@ -49,18 +49,18 @@ inline void check_clip_bounds() {
  * @brief Exercises clamp_relax_iterations across negative, in-range, and over.
  */
 inline void check_relax_clamp() {
-  constexpr int kMax = 1000;
+  constexpr int MAX = 1000;
 
   // In-range counts pass through unchanged.
-  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(0, kMax), 0);
-  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(1, kMax), 1);
-  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(kMax, kMax), kMax);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(0, MAX), 0);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(1, MAX), 1);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(MAX, MAX), MAX);
   // Negative floors at 0.
-  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(-1, kMax), 0);
-  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(-1000000, kMax), 0);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(-1, MAX), 0);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(-1000000, MAX), 0);
   // Over-large counts clamp to the cap (relax(1e9) would freeze the thread).
-  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(kMax + 1, kMax), kMax);
-  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(1000000000, kMax), kMax);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(MAX + 1, MAX), MAX);
+  HS_EXPECT_EQ(hs_wasm::clamp_relax_iterations(1000000000, MAX), MAX);
 }
 
 /**
