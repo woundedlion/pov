@@ -174,7 +174,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 23. ✅ **`getFaces()` marshals one embind `push()` per index.** `targets/wasm/wasm.cpp:835-851` does O(total indices) C++→JS crossings; `getVertices`/`classifyFaces` bulk-copy via `typed_memory_view`. Tooling-only. **Fix:** emit a flattened faces buffer + face-counts array as two typed-memory-view copies and unflatten in JS.
 
-24. **Arena-budget gate passes green on an empty effect roster.** `tests/arena_measure.cpp:60-79` gates only on `g_worst_total > budget`; an emptied `HS_EFFECT_LIST` (or dropped `measure()` calls) leaves it 0 and PASS. `stack_measure.cpp` has the same gap. **Fix:** count measured effects and assert `g_measured == HS_EFFECT_COUNT` (the constexpr is already available).
+24. ✅ **Arena-budget gate passes green on an empty effect roster.** `tests/arena_measure.cpp:60-79` gates only on `g_worst_total > budget`; an emptied `HS_EFFECT_LIST` (or dropped `measure()` calls) leaves it 0 and PASS. `stack_measure.cpp` has the same gap. **Fix:** count measured effects and assert `g_measured == HS_EFFECT_COUNT` (the constexpr is already available).
 
 25. **Stale `--assume-filename` path in the LUT generator.** `scripts/generate_luts.py:114` points clang-format at `core/color_luts.h` (moved to `core/color/`); works only incidentally via the single root `.clang-format`, and would silently diverge if a directory-scoped config were ever added. **Fix:** point it at `core/color/color_luts.h`.
 
