@@ -172,7 +172,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 22. ✅ **`getRenderUs()` returns stale timing on the (dead) divergence path.** `targets/wasm/wasm.cpp:498-500,437-455`: `render_us` is reset only on the normal path, so the divergence-blank frame reports the prior frame's time. **Fix:** hoist `render_us = 0.0` above the divergence check (moot if #21 lands).
 
-23. **`getFaces()` marshals one embind `push()` per index.** `targets/wasm/wasm.cpp:835-851` does O(total indices) C++→JS crossings; `getVertices`/`classifyFaces` bulk-copy via `typed_memory_view`. Tooling-only. **Fix:** emit a flattened faces buffer + face-counts array as two typed-memory-view copies and unflatten in JS.
+23. ✅ **`getFaces()` marshals one embind `push()` per index.** `targets/wasm/wasm.cpp:835-851` does O(total indices) C++→JS crossings; `getVertices`/`classifyFaces` bulk-copy via `typed_memory_view`. Tooling-only. **Fix:** emit a flattened faces buffer + face-counts array as two typed-memory-view copies and unflatten in JS.
 
 24. **Arena-budget gate passes green on an empty effect roster.** `tests/arena_measure.cpp:60-79` gates only on `g_worst_total > budget`; an emptied `HS_EFFECT_LIST` (or dropped `measure()` calls) leaves it 0 and PASS. `stack_measure.cpp` has the same gap. **Fix:** count measured effects and assert `g_measured == HS_EFFECT_COUNT` (the constexpr is already available).
 
