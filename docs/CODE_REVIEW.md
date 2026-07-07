@@ -149,7 +149,7 @@ Every surviving defect, numbered sequentially. Higher priority = fix first.
 10. ✅ `Doxyfile` (52) / `docs.yml` (20–22): set `WARN_AS_ERROR = FAIL_ON_WARNINGS` so dropped-anchor / missing-`@param` regressions actually fail the PR — or soften the docs.yml comment to match current behavior.
 11. ✅ Add a `clang-format --dry-run --Werror` check (scoped to first-party dirs, excluding `core/vendor/` and generated headers) to CI or the pre-commit hook, since a `.clang-format` exists but is enforced nowhere.
 12. ✅ SHA-pin the `actions/*` steps and the `doxygen-awesome-css` clone, prioritizing `docs.yml` (which carries `pages: write` + `id-token: write`).
-13. daydream `deploy.yml` (~145): replace `path: '.'` with an explicit site/dist allowlist so `.git/`, `node_modules/`, `tests/`, and vendored `three.js/` are not published to Pages.
+13. ✅ daydream `deploy.yml` (~145): replace `path: '.'` with an explicit site/dist allowlist so `.git/`, `node_modules/`, `tests/`, and vendored `three.js/` are not published to Pages.
 14. Collapse the duplicated docs-theme logic shared between `justfile` and `docs.yml` (or add a light recipe-smoke) so the `justfile` cannot bit-rot against CI.
 15. (Optional, low) Add a single host-GCC native shard as a canary to cover GCC + sanitizer UB the arm-gcc build and clang sanitizers don't; only if the maintenance cost is judged worthwhile.
 
