@@ -188,7 +188,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 30. ✅ **`sortItems` name ordering uses the ambient locale.** `daydream/sidebar_logic.js:22-28`: `localeCompare` with no locale arg; a pin test exists but collation is environment-dependent. **Fix:** `localeCompare(b.name, 'en')` (avoid `sensitivity`/`numeric` options, which change semantics).
 
-31. **`copyWithFeedback` permanently drops the idle color class when `revertText` is empty.** `daydream/tools/clipboard.js:100`: idle classes are removed unconditionally but restored only when `original` is truthy; `lissajous.html` and `palettes.html` pass `revertText: ''`, so after the first copy the span loses `text-gray-500` for good. **Fix:** drop the `&& original` condition from the restore, fix the JSDoc, and add a `revertText: ''` test (with a `classList`-tracking stub).
+31. ✅ **`copyWithFeedback` permanently drops the idle color class when `revertText` is empty.** `daydream/tools/clipboard.js:100`: idle classes are removed unconditionally but restored only when `original` is truthy; `lissajous.html` and `palettes.html` pass `revertText: ''`, so after the first copy the span loses `text-gray-500` for good. **Fix:** drop the `&& original` condition from the restore, fix the JSDoc, and add a `revertText: ''` test (with a `classList`-tracking stub).
 
 32. **Unreachable second clamp in `linearRgbToHex`.** `daydream/tools/color.js:45-46`: the input is already clamped to [0,1] and `linearToSrgbFloat` maps into [0,1], so the `[0,255]` clamp on the byte can never fire. **Fix:** drop the redundant clamp.
 
