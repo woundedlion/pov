@@ -1276,10 +1276,10 @@ inline ScanMetrics g_scan_metrics;
 // Cap is a hard inline byte budget on both backends: a capture that overflows it
 // is a compile error, not a heap allocation. Because Cap counts bytes, a closure
 // that captures pointers is wider on the 64-bit host than on the 32-bit
-// device/WASM. The rare callsite whose device-tuned Cap is too tight for 64-bit
-// pointers sizes its Cap by sizeof(void*) rather than inflating every Fn here
-// (which would push Fn-bearing types past TimelineEvent::MAX_ANIM_SIZE). See
-// SpriteFn in concepts.h.
+// device/WASM. A pointer-capturing callsite picks a fixed byte Cap with headroom
+// for the wider 64-bit-host closure (e.g. SpriteFn's 16 B holds two host pointers)
+// rather than inflating every Fn here (which would push Fn-bearing types past
+// TimelineEvent::MAX_ANIM_SIZE). See SpriteFn in concepts.h.
 // ---------------------------------------------------------------------------
 #ifdef ARDUINO
 #include <inplace_function.h>
