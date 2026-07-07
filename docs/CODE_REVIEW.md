@@ -158,7 +158,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 15. ✅ **Untyped `arena.allocate` + `static_cast` idiom repeated ~18× per file.** `core/mesh/conway.h:423-428` (and across `mesh.h`, `filter.h`, `render/*`, `reaction_graph.h`) spells element type, count, `sizeof`, and `alignof` independently, so a copy-paste can silently mis-size a buffer. **Fix:** add `template<class T> T* Arena::allocate_n(size_t n)` and route the sites through it.
 
-16. **Envelope trig inconsistency in `GenerativePalette`.** `core/color/color.h`: `key_oklch` (1219) authors with exact `sinf`, while recovery (1278) and `get()` (1358) use `fast_sinf`. Masked today by an 8-bit sRGB round-trip. **Fix:** switch `key_oklch` (cold path) to `fast_sinf` so all three envelope sites agree, or add a note.
+16. ✅ **Envelope trig inconsistency in `GenerativePalette`.** `core/color/color.h`: `key_oklch` (1219) authors with exact `sinf`, while recovery (1278) and `get()` (1358) use `fast_sinf`. Masked today by an 8-bit sRGB round-trip. **Fix:** switch `key_oklch` (cold path) to `fast_sinf` so all three envelope sites agree, or add a note.
 
 17. **FlowField comment drift.** `effects/FlowField.h:90-108`: comment says `p.z*scale + t` but the code samples `p.position.z * params.noise_scale + t` (no `p.z` member). **Fix:** update the comment to the real expression.
 

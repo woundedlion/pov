@@ -1216,7 +1216,7 @@ public:
     float L = kLightnessFloor + (val / 255.0f) * kLightnessSpan;
     // Chroma co-varies with lightness via a sin(pi*L) envelope; get() re-applies
     // the same envelope at the interpolated L.
-    float C = (sat / 255.0f) * kChromaPeak * sinf(PI_F * L);
+    float C = (sat / 255.0f) * kChromaPeak * fast_sinf(PI_F * L);
     return {L, C, h};
   }
 
