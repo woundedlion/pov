@@ -186,7 +186,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 29. ❌ **`setPixelRatio` capped at 1 makes recordings soft with no escape hatch.** `daydream/driver.js:160,388`: unconditional `min(devicePixelRatio, 1)`; `recorder.js` captures the same 1× backing store, so exports can't recover detail. **Fix:** allow a higher ratio while recording (e.g. `min(dpr, 2)`) or a config toggle; at minimum document the intentional fill-rate tradeoff at both sites. **Rejected:** the 1× cap is a deliberate fill-rate/perf tradeoff; a higher ratio carries a real GPU cost and the record-toggle re-apply plumbing it needs was judged disproportionate — the cap stays.
 
-30. **`sortItems` name ordering uses the ambient locale.** `daydream/sidebar_logic.js:22-28`: `localeCompare` with no locale arg; a pin test exists but collation is environment-dependent. **Fix:** `localeCompare(b.name, 'en')` (avoid `sensitivity`/`numeric` options, which change semantics).
+30. ✅ **`sortItems` name ordering uses the ambient locale.** `daydream/sidebar_logic.js:22-28`: `localeCompare` with no locale arg; a pin test exists but collation is environment-dependent. **Fix:** `localeCompare(b.name, 'en')` (avoid `sensitivity`/`numeric` options, which change semantics).
 
 31. **`copyWithFeedback` permanently drops the idle color class when `revertText` is empty.** `daydream/tools/clipboard.js:100`: idle classes are removed unconditionally but restored only when `original` is truthy; `lissajous.html` and `palettes.html` pass `revertText: ''`, so after the first copy the span loses `text-gray-500` for good. **Fix:** drop the `&& original` condition from the restore, fix the JSDoc, and add a `revertText: ''` test (with a `classList`-tracking stub).
 
