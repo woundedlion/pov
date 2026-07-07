@@ -184,7 +184,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 28. ✅ **Shader black-pixel cull also drops the dimmest lit pixels.** `daydream/driver.js:668-672`: the `dot < 1e-8` cull on normalized `uint16` color discards channels 1–6 (≈0.009% brightness) that the engine legitimately emits on fades. **Fix:** test for exact zero (buffer is `fill(0)`'d and normalized 0 → 0.0), e.g. `== 0.0` or a `< 1 LSB²` threshold like `1e-10`.
 
-29. **`setPixelRatio` capped at 1 makes recordings soft with no escape hatch.** `daydream/driver.js:160,388`: unconditional `min(devicePixelRatio, 1)`; `recorder.js` captures the same 1× backing store, so exports can't recover detail. **Fix:** allow a higher ratio while recording (e.g. `min(dpr, 2)`) or a config toggle; at minimum document the intentional fill-rate tradeoff at both sites.
+29. ❌ **`setPixelRatio` capped at 1 makes recordings soft with no escape hatch.** `daydream/driver.js:160,388`: unconditional `min(devicePixelRatio, 1)`; `recorder.js` captures the same 1× backing store, so exports can't recover detail. **Fix:** allow a higher ratio while recording (e.g. `min(dpr, 2)`) or a config toggle; at minimum document the intentional fill-rate tradeoff at both sites. **Rejected:** the 1× cap is a deliberate fill-rate/perf tradeoff; a higher ratio carries a real GPU cost and the record-toggle re-apply plumbing it needs was judged disproportionate — the cap stays.
 
 30. **`sortItems` name ordering uses the ambient locale.** `daydream/sidebar_logic.js:22-28`: `localeCompare` with no locale arg; a pin test exists but collation is environment-dependent. **Fix:** `localeCompare(b.name, 'en')` (avoid `sensitivity`/`numeric` options, which change semantics).
 
