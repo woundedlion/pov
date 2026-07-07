@@ -87,23 +87,23 @@ class POVSegmented {
       "Segment count must be even (equal split across two arms)");
   static_assert(S >= N,
       "Must have at least one pixel per segment");
-  static_assert((N & (N - 1)) == 0 && N <= 8,
-      "Segment ID is decoded from up to 3 GPIO straps as (raw & (N-1)); that "
-      "requires N to be a power of two and N <= 8 (up to 3 ID bits, pins 21/22/23)");
+  static_assert((N & (N - 1)) == 0 && N <= 4,
+      "N must be a power of two and <= 4: segment_map() distinguishes only a top "
+      "and a bottom strip per arm, so an arm holds at most two segments. ID is "
+      "decoded from 2 GPIO straps as (raw & (N-1)), pins 21/22");
 
   // ── Pin assignments ─────────────────────────────────────────────────
 
   /**
    * @brief GPIO straps for hardware ID (active-low with internal pull-up).
-   * Up to three straps decode N <= 8 segments; the build reads kIdStraps =
-   * log2(N) of them. ID2 (pin 23) is reserved-but-unread at N <= 4.
+   * Two straps decode N <= 4 segments; the build reads kIdStraps = log2(N) of
+   * them.
    */
   static constexpr int PIN_ID0 = 21;
   static constexpr int PIN_ID1 = 22;
-  static constexpr int PIN_ID2 = 23;
 
   /** @brief Number of ID straps actually read = log2(N). */
-  static constexpr int kIdStraps = (N <= 2) ? 1 : (N <= 4) ? 2 : 3;
+  static constexpr int kIdStraps = (N <= 2) ? 1 : 2;
 
   /**
    * @brief Shared sync wire: master drives it OUTPUT (symbol bursts),
@@ -373,7 +373,6 @@ private:
   int sample_strap_() const {
     int raw = digitalReadFast(PIN_ID0);
     if constexpr (kIdStraps >= 2) raw |= digitalReadFast(PIN_ID1) << 1;
-    if constexpr (kIdStraps >= 3) raw |= digitalReadFast(PIN_ID2) << 2;
     return raw;
   }
 
@@ -400,7 +399,6 @@ private:
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
     if constexpr (kIdStraps >= 2) pinMode(PIN_ID1, INPUT_PULLUP);
-    if constexpr (kIdStraps >= 3) pinMode(PIN_ID2, INPUT_PULLUP);
     delay(10);  // settle time for pull-ups
 
     // Debounce: three samples ~5 ms apart must agree; an unstable strap reads as
