@@ -329,9 +329,9 @@ struct Lace : Base {
  * phase 1 and 0 at phase 0.
  */
 struct TerminatorSweep : Base {
-  static constexpr int kFadeFrames = 4; /**< Per-face fade length, in frames, from the front's touch. */
-  Vector axis = Y_AXIS;     /**< World-space sweep axis. */
-  float fade_frac = 0.125f; /**< kFadeFrames over the scheduled fade window; set by schedule(). */
+  static constexpr int kFadeFrames = 16; /**< Per-face fade length, in frames, from the front's touch (1 s at 16 fps). */
+  Vector axis = Y_AXIS;   /**< World-space sweep axis. */
+  float fade_frac = 0.5f; /**< kFadeFrames over the scheduled fade window; set by schedule(). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
     int fade = std::min(window, duration / 2);
     fade_frac = std::min(1.0f, static_cast<float>(kFadeFrames) /
