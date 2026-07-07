@@ -30,7 +30,8 @@
 #include "render/canvas.h"
 #include "engine/static_circular_buffer.h"
 
-#include "math/geometry.h" // Provides Fragment and defines Orientation<CAP = 4>
+#include "math/geometry.h"
+#include "render/shading.h" // Fragment + mesh-topology shading
 #include "engine/reaction_graph.h"
 #include "engine/concepts.h" // Concepts needs fragment
 #include "color/color.h"
