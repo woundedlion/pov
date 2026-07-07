@@ -183,7 +183,7 @@ private:
  *   float  face_offset(center, i, cls) — per-face sweep ordering in [0, 1]
  *   float  face_phase(phase, offset) — face-local phase from the sweep front
  *
- * A per-face policy may also declare `static constexpr bool kLocalSweep =
+ * A per-face policy may also declare `static constexpr bool LOCAL_SWEEP =
  * true` to order faces by the untransformed mesh instead of world-space
  * centers: the front then rides the mesh's rotation rather than staying
  * fixed in the room.
@@ -294,12 +294,12 @@ struct Crossfade : Base {
  * palette gradient as it shrinks.
  */
 struct IrisBloom : Base {
-  static constexpr float kSoft = 0.08f; /**< Soft rim width, in edge-distance units. */
+  static constexpr float SOFT = 0.08f; /**< Soft rim width, in edge-distance units. */
   float fill(float &t, float phase) const {
     float inset = 1.0f - phase;
-    if (t < inset - kSoft)
+    if (t < inset - SOFT)
       return 0.0f;
-    float cover = hs::clamp((t - (inset - kSoft)) / kSoft, 0.0f, 1.0f);
+    float cover = hs::clamp((t - (inset - SOFT)) / SOFT, 0.0f, 1.0f);
     t = hs::clamp((t - inset) / std::max(phase, 1e-3f), 0.0f, 1.0f);
     return cover;
   }
@@ -313,11 +313,11 @@ struct IrisBloom : Base {
  * jarring than filled regions changing, which hides the swap.
  */
 struct Lace : Base {
-  static constexpr float kSoft = 0.08f; /**< Soft band-edge width, in edge-distance units. */
+  static constexpr float SOFT = 0.08f; /**< Soft band-edge width, in edge-distance units. */
   float fill(float &t, float phase) const {
-    if (t > phase + kSoft)
+    if (t > phase + SOFT)
       return 0.0f;
-    float cover = hs::clamp((phase + kSoft - t) / kSoft, 0.0f, 1.0f);
+    float cover = hs::clamp((phase + SOFT - t) / SOFT, 0.0f, 1.0f);
     t = hs::clamp(t / std::max(phase, 1e-3f), 0.0f, 1.0f);
     return cover;
   }
@@ -325,23 +325,23 @@ struct Lace : Base {
 
 /**
  * @brief A day/night line pinned to the mesh sweeps across it at constant
- * speed; the moment it reaches a face, that face fades over kFadeFrames
+ * speed; the moment it reaches a face, that face fades over FADE_FRAMES
  * frames. The extinguishing sweep takes the old pattern, the return sweep
  * ignites the new.
- * @details kLocalSweep anchors the line to the untransformed mesh, so it
+ * @details LOCAL_SWEEP anchors the line to the untransformed mesh, so it
  * rotates with the mesh rather than the mesh rotating through it. The front
  * crosses the sphere over the fade window minus one per-face fade, so the
  * last-touched face still completes: face phases are exactly 1 at phase 1
  * and 0 at phase 0.
  */
 struct TerminatorSweep : Base {
-  static constexpr bool kLocalSweep = true; /**< Sweep in mesh-local space. */
-  static constexpr int kFadeFrames = 8; /**< Per-face fade length, in frames, from the front's touch (0.5 s at 16 fps). */
+  static constexpr bool LOCAL_SWEEP = true; /**< Sweep in mesh-local space. */
+  static constexpr int FADE_FRAMES = 8; /**< Per-face fade length, in frames, from the front's touch (0.5 s at 16 fps). */
   Vector axis = Y_AXIS;    /**< Mesh-local sweep axis. */
-  float fade_frac = 0.11f; /**< kFadeFrames over the scheduled fade window; set by schedule(). */
+  float fade_frac = 0.11f; /**< FADE_FRAMES over the scheduled fade window; set by schedule(). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
     int fade = std::min(window, duration / 2);
-    fade_frac = std::min(1.0f, static_cast<float>(kFadeFrames) /
+    fade_frac = std::min(1.0f, static_cast<float>(FADE_FRAMES) /
                                    static_cast<float>(std::max(fade, 1)));
     return schedule_sequential(timeline, std::move(draw_fn), duration, window);
   }
@@ -355,7 +355,7 @@ struct TerminatorSweep : Base {
   }
   /** @brief Squared: alpha scales linear-light color, where a linear ramp
    * reads mostly-bright almost immediately; the square spreads the perceived
-   * fade across the full kFadeFrames. */
+   * fade across the full FADE_FRAMES. */
   float opacity(float phase) const { return phase * phase; }
 };
 
@@ -366,7 +366,7 @@ struct TerminatorSweep : Base {
  * expands. Pairs naturally with the effect's ripple bursts sharing the origin.
  */
 struct Shockwave : Base {
-  static constexpr float kBand = 0.3f; /**< Wave-front softness, in phase units. */
+  static constexpr float BAND = 0.3f; /**< Wave-front softness, in phase units. */
   Vector origin = Y_AXIS; /**< World-space wave origin. */
   void retarget(const Vector &v) { origin = v; }
   float face_offset(const Vector &center, int, int) const {
@@ -374,7 +374,7 @@ struct Shockwave : Base {
     return 1.0f - angle * (1.0f / PI_F);
   }
   float face_phase(float phase, float offset) const {
-    return sweep_phase(phase, offset, kBand);
+    return sweep_phase(phase, offset, BAND);
   }
   float opacity(float phase) const { return phase; }
 };
@@ -388,20 +388,20 @@ struct Shockwave : Base {
  * mapping the fragment shader uses), so each color family vanishes as a unit.
  * The class windows are exactly abutting equal slices of the phase range,
  * linear in time — deliberately not sweep_phase's eased front, so every class
- * gets an equal share of the window. The kBlackDwell slice nearest the swap
+ * gets an equal share of the window. The BLACK_DWELL slice nearest the swap
  * is held fully black: without it the last class's fade runs to the sprite's
  * final frame and the incoming mesh appears one frame later, so the class
  * visibly pops instead of completing. The client supplies the class count
  * and triggers the reshuffle through reorder(), once per transition.
  */
 struct Breakdown : Base {
-  static constexpr int kMaxClasses = 16; /**< rank[] capacity. */
-  static constexpr float kBlackDwell = 0.1f; /**< Phase slice held all-black at the swap end. */
+  static constexpr int MAX_CLASSES = 16; /**< rank[] capacity. */
+  static constexpr float BLACK_DWELL = 0.1f; /**< Phase slice held all-black at the swap end. */
   int num_classes = 1;            /**< Live class count, set by reorder(). */
-  uint8_t rank[kMaxClasses] = {}; /**< rank[class]: fade position; 0 vanishes first. */
+  uint8_t rank[MAX_CLASSES] = {}; /**< rank[class]: fade position; 0 vanishes first. */
   /** @brief Re-randomizes the class fade order for the next transition. */
   void reorder(int classes) {
-    num_classes = hs::clamp(classes, 1, kMaxClasses);
+    num_classes = hs::clamp(classes, 1, MAX_CLASSES);
     for (int i = 0; i < num_classes; ++i)
       rank[i] = static_cast<uint8_t>(i);
     std::shuffle(rank, rank + num_classes, hs::random());
@@ -414,10 +414,10 @@ struct Breakdown : Base {
            static_cast<float>(num_classes - 1);
   }
   float face_phase(float phase, float offset) const {
-    // Class windows tile [kBlackDwell, 1]; phase 1 stays the identity plateau.
-    float band = (1.0f - kBlackDwell) / static_cast<float>(num_classes);
+    // Class windows tile [BLACK_DWELL, 1]; phase 1 stays the identity plateau.
+    float band = (1.0f - BLACK_DWELL) / static_cast<float>(num_classes);
     return hs::clamp(
-        (phase - kBlackDwell - offset * (1.0f - kBlackDwell - band)) / band,
+        (phase - BLACK_DWELL - offset * (1.0f - BLACK_DWELL - band)) / band,
         0.0f, 1.0f);
   }
   float opacity(float phase) const { return phase; }
@@ -430,12 +430,12 @@ struct Breakdown : Base {
  * never fades; the swap hides in the motion blur.
  */
 struct SpinFlip : Base {
-  static constexpr float kRevs = 3.0f; /**< Extra revolutions at peak spin. */
+  static constexpr float REVS = 3.0f; /**< Extra revolutions at peak spin. */
   Vector axis = Y_AXIS; /**< Spin axis. */
   void retarget(const Vector &v) { axis = v; }
   Vector warp(const Vector &v, float phase) const {
     float wind = 1.0f - phase;
-    return rotate(v, make_rotation(axis, wind * wind * kRevs * 2.0f * PI_F));
+    return rotate(v, make_rotation(axis, wind * wind * REVS * 2.0f * PI_F));
   }
 };
 

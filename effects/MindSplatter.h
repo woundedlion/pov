@@ -52,12 +52,12 @@ public:
 
     // Compile-time device-budget guard: GLOBAL_ARENA_SIZE is inflated on the
     // host test build, so check against the real device arena literal.
-    static constexpr size_t kDeviceArenaBytes = DEVICE_GLOBAL_ARENA_SIZE;
-    static constexpr size_t kPoolBytes =
-        sizeof(Animation::Particle<kTrailLen>) * NUM_PARTICLES;
-    static constexpr size_t kAuxReserveBytes = 6 * 1024;
-    static_assert(kPoolBytes + kAuxReserveBytes <=
-                      kDeviceArenaBytes - SCRATCH_BYTES,
+    static constexpr size_t DEVICE_ARENA_BYTES = DEVICE_GLOBAL_ARENA_SIZE;
+    static constexpr size_t POOL_BYTES =
+        sizeof(Animation::Particle<TRAIL_LEN>) * NUM_PARTICLES;
+    static constexpr size_t AUX_RESERVE_BYTES = 6 * 1024;
+    static_assert(POOL_BYTES + AUX_RESERVE_BYTES <=
+                      DEVICE_ARENA_BYTES - SCRATCH_BYTES,
                   "MindSplatter particle pool + palette/aux overflow the device "
                   "persistent arena");
 
@@ -116,7 +116,7 @@ private:
   friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
 
   /** @brief Per-particle trail length (feeds the pool footprint below). */
-  static constexpr int kTrailLen = 23;
+  static constexpr int TRAIL_LEN = 23;
 
   /**
    * @brief Fixed particle pool capacity.
@@ -133,7 +133,7 @@ private:
   typedef Solids::Cube EmitSolid;
   typedef Solids::Octahedron AttractSolid;
 
-  typedef Animation::ParticleSystem<W, NUM_PARTICLES, kTrailLen,
+  typedef Animation::ParticleSystem<W, NUM_PARTICLES, TRAIL_LEN,
                                     EmitSolid::NUM_VERTS, AttractSolid::NUM_VERTS>
       ParticleSystem;
 

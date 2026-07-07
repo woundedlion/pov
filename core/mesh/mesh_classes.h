@@ -27,41 +27,41 @@
  * fine — congruence is frame-invariant). Per-frame deformation breaks the
  * canonical premise, so SDF::ALIGN_MAX_DEV_DIAGS drops deviating faces.
  *
- * Clustering is never depended on: an unassigned face (kNoClass), a class
+ * Clustering is never depended on: an unassigned face (NO_CLASS), a class
  * without a LUT, or a degenerate alignment all degrade to the exact path.
  */
 namespace MeshOps {
 
 /** Sentinel class id: face keeps the per-face exact path. */
-inline constexpr uint8_t kNoClass = 0xFF;
+inline constexpr uint8_t NO_CLASS = 0xFF;
 /** Congruence-class capacity per mesh (census max over the registry is 24;
- *  overflow degrades the excess faces to kNoClass, it never traps). */
-inline constexpr int kMaxCongruenceClasses = 32;
+ *  overflow degrades the excess faces to NO_CLASS, it never traps). */
+inline constexpr int MAX_CONGRUENCE_CLASSES = 32;
 /** Procrustes RMS residual (pixels) under which two faces are congruent. */
-inline constexpr float kCongruenceEpsPx = 0.25f;
+inline constexpr float CONGRUENCE_EPS_PX = 0.25f;
 /** Target LUT cell diagonal in pixels: the sign-unsafe fallback band is one
  *  cell diagonal, so this pins it to a small fraction of a pixel. */
-inline constexpr float kLutTargetDiagPx = 0.35f;
+inline constexpr float LUT_TARGET_DIAG_PX = 0.35f;
 /** Per-class LUT grid resolution bounds. */
-inline constexpr int kClassLutMinN = 32;
-inline constexpr int kClassLutMaxN = 64;
+inline constexpr int CLASS_LUT_MIN_N = 32;
+inline constexpr int CLASS_LUT_MAX_N = 64;
 /** Per-mesh LUT byte budget. Classes are allocated by descending face count
- *  until it is spent; the remainder run kNoClass. Identical on every target
+ *  until it is spent; the remainder run NO_CLASS. Identical on every target
  *  (host/WASM/device) so sim and device output cannot fork. Sized so a
  *  double-buffered pair of bakes plus a palette bank fits a 136 KB device
  *  persistent partition; a consumer effect must add its bakes to its
  *  test_solids-style persistent-budget sweep. */
-inline constexpr size_t kClassLutBudget = 18 * 1024;
+inline constexpr size_t CLASS_LUT_BUDGET = 18 * 1024;
 /** Minimum bake-predicted hit share for a class LUT to be kept: below this
  *  the probes mostly land in the fallback band and pay the guard for
  *  nothing (small faces relative to the cell diagonal). */
-inline constexpr float kMinClassHitShare = 0.4f;
+inline constexpr float MIN_CLASS_HIT_SHARE = 0.4f;
 
 /**
  * @brief Per-face congruence record, baked once per spawned mesh.
  */
 struct FaceClassRec {
-  uint8_t class_id;    /**< Congruence class, or kNoClass. */
+  uint8_t class_id;    /**< Congruence class, or NO_CLASS. */
   uint8_t vert_offset; /**< Cyclic offset aligning mesh vertex order to canonical. */
   uint8_t reflected;   /**< Non-zero for the mirror family. */
 };
@@ -83,13 +83,13 @@ struct CongruenceClass {
  * @brief Congruence-class bake for one spawned mesh (persistent-arena owned).
  * @details Lives in the effect's persistent arena and dies at every arena
  * compaction — rebake unconditionally after compact_keep_front or the fading
- * mesh silently degrades to kNoClass (correct but slower).
+ * mesh silently degrades to NO_CLASS (correct but slower).
  */
 struct MeshClassBake {
   ArenaVector<CongruenceClass> classes; /**< Congruence classes, dense ids. */
   ArenaVector<FaceClassRec> face_recs;  /**< Per-face records, mesh face order. */
   float worst_residual_px = 0.0f;   /**< Worst accepted RMS residual (pixels). */
-  float predicted_hit_share = 0.0f; /**< Safe-cell share on LUT-bound faces (quality; gate >= kMinClassHitShare). */
+  float predicted_hit_share = 0.0f; /**< Safe-cell share on LUT-bound faces (quality; gate >= MIN_CLASS_HIT_SHARE). */
   float lut_face_share = 0.0f;      /**< Faces bound to a LUT / all faces (coverage). */
   uint16_t shared_faces = 0;        /**< Faces in classes with >= 2 members. */
   uint16_t concave_faces = 0;       /**< Faces in concave (LUT-eligible) classes. */
@@ -137,13 +137,13 @@ inline bool polygon_is_concave(const float *xy, int count) {
  * @param out Freshly default-constructed bake to populate.
  * @details Greedy clustering seeded per topology class: a face joins the
  * first class whose canonical polygon aligns (over cyclic offset x reflection
- * x optimal rotation) within kCongruenceEpsPx RMS, else founds a new class
+ * x optimal rotation) within CONGRUENCE_EPS_PX RMS, else founds a new class
  * from its own centered projection. Gnomonic projection about each face's own
  * centroid is position-covariant, so the clustering is valid for any mesh
  * orientation and is baked once per spawn.
  *
  * LUTs are built for concave classes with >= 2 members, largest first, until
- * kClassLutBudget is spent. Logs the census telemetry (classes, coverage,
+ * CLASS_LUT_BUDGET is spent. Logs the census telemetry (classes, coverage,
  * worst residual, predicted hit share) at the end.
  */
 [[maybe_unused]] HS_COLD static void
@@ -158,11 +158,11 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   HS_CHECK(mesh.topology.size() == F,
            "build_mesh_class_bake requires classify_faces_by_topology first");
 
-  out.classes.bind(persistent, kMaxCongruenceClasses);
+  out.classes.bind(persistent, MAX_CONGRUENCE_CLASSES);
   out.face_recs.bind(persistent, F);
 
   constexpr int MAX_VERTS = SDF::FaceScratchBuffer::MAX_VERTS;
-  const float eps_plane = kCongruenceEpsPx * pixel_width;
+  const float eps_plane = CONGRUENCE_EPS_PX * pixel_width;
 
   // Arena-hosted (not stack): this runs inside the effect spawn path, whose
   // stack high-water is budget-gated (tests/stack_measure.cpp).
@@ -172,7 +172,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
 
   for (size_t f = 0; f < F; ++f) {
     const int count = fc[f];
-    out.face_recs.push_back({kNoClass, 0, 0});
+    out.face_recs.push_back({NO_CLASS, 0, 0});
     FaceClassRec &rec = out.face_recs[f];
     if (count < 3 || count > MAX_VERTS)
       continue;
@@ -250,8 +250,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
       continue;
     }
 
-    if (out.classes.size() >= kMaxCongruenceClasses)
-      continue; // degrade to kNoClass; the exact path is always correct
+    if (out.classes.size() >= MAX_CONGRUENCE_CLASSES)
+      continue; // degrade to NO_CLASS; the exact path is always correct
 
     // Found a new class from this face's own centered projection.
     float *canon = persistent.allocate_n<float>(2 * count);
@@ -277,7 +277,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
 
   // LUT build: concave shared classes only (convex faces already have the
   // ~lookup-cheap half-plane path), largest first until the budget is spent.
-  int order[kMaxCongruenceClasses];
+  int order[MAX_CONGRUENCE_CLASSES];
   int n_elig = 0;
   for (size_t c = 0; c < out.classes.size(); ++c) {
     const CongruenceClass &cls = out.classes[c];
@@ -292,14 +292,14 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     order[pos] = static_cast<int>(c);
   }
 
-  size_t budget = kClassLutBudget;
-  const float target_diag = kLutTargetDiagPx * pixel_width;
+  size_t budget = CLASS_LUT_BUDGET;
+  const float target_diag = LUT_TARGET_DIAG_PX * pixel_width;
   float hit_share_acc = 0.0f;
   int dropped_classes = 0, dropped_faces = 0, lowq_classes = 0;
   // Staging buffer: LUTs are built here first and promoted to the persistent
   // arena only if their predicted hit share clears the quality bar, so a
   // low-value LUT never spends persistent budget.
-  int16_t *staging = scratch.allocate_n<int16_t>(kClassLutMaxN * kClassLutMaxN);
+  int16_t *staging = scratch.allocate_n<int16_t>(CLASS_LUT_MAX_N * CLASS_LUT_MAX_N);
   for (int e = 0; e < n_elig; ++e) {
     CongruenceClass &cls = out.classes[order[e]];
     out.concave_faces += cls.members;
@@ -317,17 +317,17 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     float Ry = (bmax_y - bmin_y) * 0.5f + SDF::BOUNDS_MARGIN_WIDE;
     int n = static_cast<int>(
         hs::clamp(ceilf(2.0f * sqrtf(Rx * Rx + Ry * Ry) / target_diag) + 1.0f,
-                  static_cast<float>(kClassLutMinN),
-                  static_cast<float>(kClassLutMaxN)));
+                  static_cast<float>(CLASS_LUT_MIN_N),
+                  static_cast<float>(CLASS_LUT_MAX_N)));
     // Degrade resolution before dropping a class: a coarser grid on more
     // classes buys more served probes than a fine grid on fewer (the fallback
     // band widens with the cell diagonal, but only near the boundary).
     size_t bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
     if (bytes > budget) {
       n = static_cast<int>(sqrtf(static_cast<float>(budget) / sizeof(int16_t)));
-      n = std::min(n, kClassLutMaxN); // staging buffer is kClassLutMaxN²
+      n = std::min(n, CLASS_LUT_MAX_N); // staging buffer is kClassLutMaxN²
       bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
-      if (n < kClassLutMinN) {
+      if (n < CLASS_LUT_MIN_N) {
         ++dropped_classes;
         dropped_faces += cls.members;
         continue;
@@ -339,7 +339,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     // Predicted hit share: fraction of cells inside the cull disk whose four
     // corners are sign-pure and beyond the interpolation guard, weighted by
     // the class's face count. A bake-time proxy for the runtime lut_hits
-    // ratio on LUT-bound faces (gate: >= kMinClassHitShare).
+    // ratio on LUT-bound faces (gate: >= MIN_CLASS_HIT_SHARE).
     float circ = 0.0f;
     for (int k = 0; k < cls.n_verts; ++k) {
       float r2 = cls.canon_xy[2 * k] * cls.canon_xy[2 * k] +
@@ -374,7 +374,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     // A class serving too few probes costs the guard on every probe and then
     // walks anyway (small faces are mostly fallback band) — keep the exact
     // path instead of paying for a LUT that rarely fires.
-    if (safe_frac < kMinClassHitShare) {
+    if (safe_frac < MIN_CLASS_HIT_SHARE) {
       ++lowq_classes;
       cls.lut = SDF::ClassLut();
       continue;

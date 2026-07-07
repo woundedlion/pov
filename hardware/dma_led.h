@@ -138,7 +138,7 @@ public:
    */
   void checkStaleTransfer() {
     if (transferComplete_.load(std::memory_order_relaxed)) return;
-    if (dma::transfer_stale(transferStartUs_, micros(), kTransferWatchdogUs)) {
+    if (dma::transfer_stale(transferStartUs_, micros(), TRANSFER_WATCHDOG_US)) {
       hs::log("FATAL: DMA channel wedged — in-flight transfer outlived the "
               "watchdog on the overrun-drop path; completion ISR never fired");
       __builtin_trap();
@@ -150,7 +150,7 @@ private:
    * @brief Watchdog bound for checkStaleTransfer(), in µs. Far above any real
    *        full-frame DMA (single-digit ms), so only a wedged channel trips it.
    */
-  static constexpr unsigned long kTransferWatchdogUs = 100000UL;
+  static constexpr unsigned long TRANSFER_WATCHDOG_US = 100000UL;
 
   /**
    * @brief DMA completion ISR: clears the interrupt and marks the transfer done.

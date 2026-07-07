@@ -579,12 +579,12 @@ public:
       : period_(cfg.cycles_per_half_rev), w_(cfg.W), gate_cols_(cfg.gate_cols),
         reject_fallback_(cfg.reject_fallback) {
     // position() reinterprets (at - epoch_cycles_) as int32, so the elapsed term
-    // must never reach 2^31 cycles. Require at least kMinSafeHalfRevs half-revs
+    // must never reach 2^31 cycles. Require at least MIN_SAFE_HALF_REVS half-revs
     // of coast to fit inside that window.
     HS_CHECK(period_ > 0 &&
-                 period_ <= static_cast<uint32_t>(INT32_MAX) / kMinSafeHalfRevs,
+                 period_ <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS,
              "Flywheel: cycles_per_half_rev too large — position()'s int32 "
-             "elapsed window would overflow before kMinSafeHalfRevs of coast");
+             "elapsed window would overflow before MIN_SAFE_HALF_REVS of coast");
   }
 
   /**
@@ -621,7 +621,7 @@ public:
     // forward elapsed past the window wraps to a spurious small-negative int32 that
     // would slip under a signed bound.
     [[maybe_unused]] const uint32_t bound =
-        static_cast<uint32_t>(kMinSafeHalfRevs) * period_;
+        static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period_;
     assert((elapsed < bound || elapsed >= 0u - bound) &&
            "Flywheel::position: unfolded coast — int32 elapsed cast overflowed");
     const int64_t delta = static_cast<int32_t>(elapsed);
@@ -730,7 +730,7 @@ public:
 
 private:
   // Min coast (in half-revs) position()'s int32 elapsed cast must survive.
-  static constexpr uint32_t kMinSafeHalfRevs = 16;
+  static constexpr uint32_t MIN_SAFE_HALF_REVS = 16;
 
   uint32_t period_;       /**< cycles_per_half_rev (optionally trimmed). */
   int32_t w_;

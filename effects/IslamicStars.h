@@ -42,20 +42,20 @@ public:
     // Amplitude is held below the self-fold onset: above amplitude/thickness ~0.2
     // the rippled mesh folds over itself, so faces stop tiling the sphere and
     // stack along the view ray, multiplying rasterizer overdraw (self-occlusion).
-    ripple_gen.template_params.amplitude = kRippleAmpMax;
-    ripple_gen.template_params.thickness = kRippleThickness;
+    ripple_gen.template_params.amplitude = RIPPLE_AMP_MAX;
+    ripple_gen.template_params.thickness = RIPPLE_THICKNESS;
     ripple_gen.template_params.decay = 0.1f;
 
     registerParam("Fade", &params.fade, 0.0f, 96.0f);
     // Burst/Ripp Dur ranges are clamped to the ripple pool capacity invariant
-    // (see the kRipple* constants below).
-    registerParam("Burst", &params.burst_size, 1.0f, (float)kBurstMax);
+    // (see the RIPPLE* constants below).
+    registerParam("Burst", &params.burst_size, 1.0f, (float)BURST_MAX);
     // Amplitude slider capped at the fold-free ceiling; thickness is fixed (not a
     // slider) so amplitude/thickness can never cross the self-fold onset.
     registerParam("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f,
-                  kRippleAmpMax);
+                  RIPPLE_AMP_MAX);
     registerParam("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
-    registerParam("Ripp Dur", &ripple_duration, 30.0f, (float)kRippleDurationMax);
+    registerParam("Ripp Dur", &ripple_duration, 30.0f, (float)RIPPLE_DURATION_MAX);
     registerParam("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
@@ -81,20 +81,20 @@ private:
   // sized so its burst ends a full still window before the next one can start,
   // so only one burst is normally live; the pool holds two so a Ripp Dur/Burst
   // slider change mid-burst still cannot drop a spawn.
-  static constexpr int kRipplePoolSize = 8;
-  static constexpr int kRippleStaggerFrames = 16;
-  static constexpr int kRippleDurationMax = 143;
-  static constexpr int kBurstMax = 4;
-  static constexpr int kStillFrames = 16; /**< 1 s hold (16 fps) between fade and ripple stages. */
-  static constexpr float kRippleThickness = 0.7f; /**< Fixed ripple wavelet width (radians). */
-  static constexpr float kRippleAmpMax = 0.15f;   /**< Fold-free amplitude ceiling at kRippleThickness (amp/thickness < ~0.2 self-fold onset). */
-  static_assert(2 * kBurstMax <= kRipplePoolSize,
+  static constexpr int RIPPLE_POOL_SIZE = 8;
+  static constexpr int RIPPLE_STAGGER_FRAMES = 16;
+  static constexpr int RIPPLE_DURATION_MAX = 143;
+  static constexpr int BURST_MAX = 4;
+  static constexpr int STILL_FRAMES = 16; /**< 1 s hold (16 fps) between fade and ripple stages. */
+  static constexpr float RIPPLE_THICKNESS = 0.7f; /**< Fixed ripple wavelet width (radians). */
+  static constexpr float RIPPLE_AMP_MAX = 0.15f;   /**< Fold-free amplitude ceiling at RIPPLE_THICKNESS (amp/thickness < ~0.2 self-fold onset). */
+  static_assert(2 * BURST_MAX <= RIPPLE_POOL_SIZE,
                 "IslamicStars: ripple pool must hold two overlapping bursts");
 
   Orientation<> orientation;
   Timeline timeline;
   Pipeline<W, H> filters;
-  RippleTransformer<kRipplePoolSize> ripple_gen;
+  RippleTransformer<RIPPLE_POOL_SIZE> ripple_gen;
   FastNoiseLite noise;
   float ripple_duration = 80.0f;
   int solid_idx = -1;
@@ -109,14 +109,14 @@ private:
 
   /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
-   *        staggered kRippleStaggerFrames apart, each expanding over ripple_duration
+   *        staggered RIPPLE_STAGGER_FRAMES apart, each expanding over ripple_duration
    *        frames.
    * @param canvas Unused render target for the timer callback signature.
    */
   void ripple(Canvas &) {
     Vector origin = random_vector();
     for (int i = 0; i < (int)params.burst_size; i++) {
-      if (!ripple_gen.spawn(i * kRippleStaggerFrames, origin,
+      if (!ripple_gen.spawn(i * RIPPLE_STAGGER_FRAMES, origin,
                             PI_F / ripple_duration,
                             static_cast<int>(ripple_duration)))
         hs::log("IslamicStars: ripple pool full, dropping spawn");
@@ -156,16 +156,16 @@ private:
     // Per-face segues order faces by their center, recomputed per frame: from
     // world space by default (the front stays fixed in the room while the
     // mesh rotates through it), or from the untransformed mesh for segues
-    // declaring kLocalSweep (the front rides the mesh). The third argument is
+    // declaring LOCAL_SWEEP (the front rides the mesh). The third argument is
     // the face's palette-slot class, mapped exactly as the fragment shader
     // maps it; class-agnostic sweeps ignore it.
-    constexpr bool kPerFace =
+    constexpr bool PER_FACE =
         requires(const Vector &c) { seg.face_offset(c, 0, 0); };
     ArenaVector<float> face_offsets;
-    if constexpr (kPerFace) {
-      constexpr bool kLocalSweep = requires { requires SegueT::kLocalSweep; };
+    if constexpr (PER_FACE) {
+      constexpr bool LOCAL_SWEEP = requires { requires SegueT::LOCAL_SWEEP; };
       const MeshState &sweep_state =
-          kLocalSweep ? base_state : transformed_state;
+          LOCAL_SWEEP ? base_state : transformed_state;
       const size_t faces = sweep_state.num_faces();
       face_offsets.bind(scratch_arena_a, faces);
       const uint16_t *fidx = sweep_state.get_faces_data();
@@ -185,7 +185,7 @@ private:
 
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
       float p = phase;
-      if constexpr (kPerFace) {
+      if constexpr (PER_FACE) {
         int fi = static_cast<int>(frag.v2);
         if (fi >= 0 && fi < static_cast<int>(face_offsets.size()))
           p = seg.face_phase(phase, face_offsets[fi]);
@@ -253,13 +253,13 @@ private:
     // plateau, so the mesh only moves during its own stage.
     int fade = static_cast<int>(params.fade);
     int burst_span =
-        (static_cast<int>(params.burst_size) - 1) * kRippleStaggerFrames +
+        (static_cast<int>(params.burst_size) - 1) * RIPPLE_STAGGER_FRAMES +
         static_cast<int>(ripple_duration);
-    int duration = fade + kStillFrames + burst_span + kStillFrames + fade;
+    int duration = fade + STILL_FRAMES + burst_span + STILL_FRAMES + fade;
 
     int next_delay = carousel.schedule_segue(timeline, draw_fn, duration, fade);
 
-    timeline.add(fade + kStillFrames,
+    timeline.add(fade + STILL_FRAMES,
                  Animation::PeriodicTimer(
                      0, [this](Canvas &canvas) { ripple(canvas); }, false));
 

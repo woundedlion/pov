@@ -867,7 +867,7 @@ inline const Case *all_cases(int &n) {
  *          shape matches theirs, but it can never regress to not-trapping the way
  *          a real case might — so shape detection never rests on a real case.
  */
-inline constexpr const char *kShapeProbeCase = "__shape_probe__";
+inline constexpr const char *SHAPE_PROBE_CASE = "__shape_probe__";
 
 /**
  * @brief Child entry point: runs exactly one named death case, then returns.
@@ -881,7 +881,7 @@ inline void run_child_case(const char *name) {
 #if defined(_WIN32)
   SetErrorMode(0x0001u | 0x0002u);
 #endif
-  if (std::strcmp(name, kShapeProbeCase) == 0) {
+  if (std::strcmp(name, SHAPE_PROBE_CASE) == 0) {
     HS_CHECK(false, "death-harness trap-shape probe"); // always traps
     return;
   }
@@ -986,7 +986,7 @@ inline int spawn_child(const char *name) {
  * @details An unhandled trap sets it as the process exit code, which _spawnv()
  *          returns directly to the parent.
  */
-inline constexpr int kTrapStatus = static_cast<int>(0xC000001D);
+inline constexpr int TRAP_STATUS = static_cast<int>(0xC000001D);
 #endif
 
 /**
@@ -1013,7 +1013,7 @@ enum class TrapShape { None, Signal, Exit128 };
  */
 inline TrapShape classify_trap(int rc) {
 #if defined(_WIN32)
-  return rc == kTrapStatus ? TrapShape::Signal : TrapShape::None;
+  return rc == TRAP_STATUS ? TrapShape::Signal : TrapShape::None;
 #else
   if (rc == -1)
     return TrapShape::None;
@@ -1115,15 +1115,15 @@ inline int run_death_tests() {
 
   // Floor against a silently dropped case: the roster must not shrink below its
   // known size. Bump when adding cases.
-  constexpr int kMinDeathCases = 38;
-  HS_EXPECT_GE(n, kMinDeathCases);
+  constexpr int MIN_DEATH_CASES = 38;
+  HS_EXPECT_GE(n, MIN_DEATH_CASES);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
   // dedicated always-trapping sentinel rather than a real case. A real case that
   // regressed to not trapping would otherwise corrupt shape detection and skip
   // the whole suite, instead of failing just that case in the loop below. The
   // sentinel traps through the same HS_CHECK path, so its shape matches the cases.
-  TrapShape shape = classify_trap(spawn_child(kShapeProbeCase));
+  TrapShape shape = classify_trap(spawn_child(SHAPE_PROBE_CASE));
   if (shape == TrapShape::None) {
     report_unrunnable("trap-shape sentinel did not trap; cannot classify trap status",
                       0);

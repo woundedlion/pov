@@ -28,13 +28,13 @@
 namespace hs_test {
 namespace param_marshal_tests {
 
-constexpr int kW = 288;
-constexpr int kH = 144;
+constexpr int DEFAULT_W = 288;
+constexpr int DEFAULT_H = 144;
 
 /**
  * @brief Marshals one effect through the WASM bridge and asserts the definition
  *        and value streams stay consistent with the source params.
- * @tparam E Effect template, instantiated at the test canvas size kW x kH.
+ * @tparam E Effect template, instantiated at the test canvas size DEFAULT_W x DEFAULT_H.
  * @param unnamed Effect name (unused; kept for call-site symmetry with the
  *        HS_EFFECT_LIST macro expansion).
  * @details Checks equal length, index-aligned name/value/type, and a
@@ -45,7 +45,7 @@ template <template <int, int> class E>
 inline bool check_one(const char *) {
   reset_globals();
 
-  E<kW, kH> effect;
+  E<DEFAULT_W, DEFAULT_H> effect;
   effect.init();
 
   std::vector<hs_wasm::ParamView> views;
@@ -108,7 +108,7 @@ inline bool check_one(const char *) {
 
 /**
  * @brief Tallies an effect's parameter count, tracking the roster maximum.
- * @tparam E Effect template, instantiated at the test canvas size kW x kH.
+ * @tparam E Effect template, instantiated at the test canvas size DEFAULT_W x DEFAULT_H.
  * @param max_count In/out running maximum; updated if this effect has more
  *        parameters, so the stability pass can size its reserve to the worst
  *        case.
@@ -117,7 +117,7 @@ template <template <int, int> class E>
 inline void count_one(size_t &max_count) {
   reset_globals();
 
-  E<kW, kH> effect;
+  E<DEFAULT_W, DEFAULT_H> effect;
   effect.init();
 
   size_t n = 0;
@@ -132,7 +132,7 @@ inline void count_one(size_t &max_count) {
 /**
  * @brief Verifies the per-frame memory-view stability contract: refilling the
  *        reserved stream vectors never reallocates their backing storage.
- * @tparam E Effect template, instantiated at the test canvas size kW x kH.
+ * @tparam E Effect template, instantiated at the test canvas size DEFAULT_W x DEFAULT_H.
  * @param views Reusable definition-stream vector, pre-reserved by the caller.
  * @param values Reusable value-stream vector, pre-reserved by the caller.
  * @param view_data Expected backing pointer of @p views (its .data() before
@@ -159,7 +159,7 @@ inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
                                 size_t value_cap) {
   reset_globals();
 
-  E<kW, kH> effect;
+  E<DEFAULT_W, DEFAULT_H> effect;
   effect.init();
 
   hs_wasm::collect_param_views(effect, views);
@@ -186,14 +186,14 @@ inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
  *   marshaling below both only guarantee the COUNT and within-effect index
  *   alignment; neither notices a reorder. This independent golden list turns any
  *   reorder/insertion/removal into a deliberate, reviewable diff — if it fires,
- *   update kGoldenRoster on purpose to match the new HS_EFFECT_LIST order.
+ *   update GOLDEN_ROSTER on purpose to match the new HS_EFFECT_LIST order.
  *   (Sliders bind by parameter name, so a reorder does not mis-bind a slider; it
  *   shifts the effect ordinal, which is what this pins.)
  */
 inline void check_roster_order_pinned() {
   // Independent hand-maintained copy of the intended roster order. Must NOT be
   // generated from HS_EFFECT_LIST, or the comparison becomes a tautology.
-  static const char *const kGoldenRoster[] = {
+  static const char *const GOLDEN_ROSTER[] = {
       "BZReactionDiffusion", "ChaoticStrings",     "Comets",
       "DistortedRing",       "DreamBalls",         "Dynamo",
       "FlowField",           "Flyby",              "GnomonicStars",
@@ -204,19 +204,19 @@ inline void check_roster_order_pinned() {
       "RingSpin",            "ShapeShifter",       "SphericalHarmonics",
       "SplineFlow",          "Thrusters",          "Voronoi"};
   // Actual roster, expanded straight from the X-macro source of truth.
-  static const char *const kActualRoster[] = {
+  static const char *const ACTUAL_ROSTER[] = {
 #define HS_EFFECT_NAME(name) #name,
       HS_EFFECT_LIST(HS_EFFECT_NAME)
 #undef HS_EFFECT_NAME
   };
-  constexpr size_t kGoldenN = sizeof(kGoldenRoster) / sizeof(kGoldenRoster[0]);
-  constexpr size_t kActualN = sizeof(kActualRoster) / sizeof(kActualRoster[0]);
-  HS_EXPECT_EQ(kActualN, kGoldenN);
-  HS_EXPECT_EQ(static_cast<int>(kActualN), HS_EFFECT_COUNT);
-  const size_t n = kActualN < kGoldenN ? kActualN : kGoldenN;
+  constexpr size_t GOLDEN_N = sizeof(GOLDEN_ROSTER) / sizeof(GOLDEN_ROSTER[0]);
+  constexpr size_t ACTUAL_N = sizeof(ACTUAL_ROSTER) / sizeof(ACTUAL_ROSTER[0]);
+  HS_EXPECT_EQ(ACTUAL_N, GOLDEN_N);
+  HS_EXPECT_EQ(static_cast<int>(ACTUAL_N), HS_EFFECT_COUNT);
+  const size_t n = ACTUAL_N < GOLDEN_N ? ACTUAL_N : GOLDEN_N;
   for (size_t i = 0; i < n; ++i)
-    HS_EXPECT_TRUE(std::string_view(kActualRoster[i]) ==
-                   std::string_view(kGoldenRoster[i]));
+    HS_EXPECT_TRUE(std::string_view(ACTUAL_ROSTER[i]) ==
+                   std::string_view(GOLDEN_ROSTER[i]));
 }
 
 inline int run_param_marshal_tests() {

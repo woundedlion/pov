@@ -216,7 +216,7 @@ inline void test_euler_platonic_solids() {
   struct Counts {
     int v, e, f;
   };
-  static constexpr Counts kPlatonic[] = {
+  static constexpr Counts PLATONIC[] = {
       {4, 6, 4},    // tetrahedron
       {8, 12, 6},   // cube
       {6, 12, 8},   // octahedron
@@ -224,9 +224,9 @@ inline void test_euler_platonic_solids() {
       {12, 30, 20}, // icosahedron
   };
   const auto platonic = Solids::Collections::get_platonic_solids();
-  HS_EXPECT_EQ(platonic.size(), sizeof(kPlatonic) / sizeof(kPlatonic[0]));
+  HS_EXPECT_EQ(platonic.size(), sizeof(PLATONIC) / sizeof(PLATONIC[0]));
   for (size_t i = 0; i < platonic.size(); ++i)
-    check_euler_for_index(i, kPlatonic[i].v, kPlatonic[i].e, kPlatonic[i].f);
+    check_euler_for_index(i, PLATONIC[i].v, PLATONIC[i].e, PLATONIC[i].f);
 }
 
 /**
@@ -366,9 +366,9 @@ inline void test_determinism_complex_islamic() {
 // conservative upper bound on the device figure.
 // ---------------------------------------------------------------------------
 
-constexpr size_t kIslamicScratchABudget =
+constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
     114 * 1024; /**< IslamicStars' scratch_a split (mirrors init()). */
-constexpr size_t kIslamicScratchBBudget =
+constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
     80 * 1024; /**< IslamicStars' scratch_b split (mirrors init()). */
 
 /**
@@ -384,8 +384,8 @@ inline void check_high_water_for_recipe(const Solids::Entry &entry) {
   PolyMesh m = entry.generate(a, b);
   check_nonempty(m);
 
-  HS_EXPECT_LE(a.get_high_water_mark(), kIslamicScratchABudget);
-  HS_EXPECT_LE(b.get_high_water_mark(), kIslamicScratchBBudget);
+  HS_EXPECT_LE(a.get_high_water_mark(), ISLAMIC_SCRATCH_A_BUDGET);
+  HS_EXPECT_LE(b.get_high_water_mark(), ISLAMIC_SCRATCH_B_BUDGET);
 }
 
 /**
@@ -412,9 +412,9 @@ inline void test_islamic_recipes_fit_islamicstars_budget() {
 // largest adjacent-pair sum, not twice the largest single slot.
 // ---------------------------------------------------------------------------
 
-constexpr size_t kIslamicPersistentBudget =
-    DEVICE_GLOBAL_ARENA_SIZE - kIslamicScratchABudget -
-    kIslamicScratchBBudget; /**< IslamicStars' persistent split. */
+constexpr size_t ISLAMIC_PERSISTENT_BUDGET =
+    DEVICE_GLOBAL_ARENA_SIZE - ISLAMIC_SCRATCH_A_BUDGET -
+    ISLAMIC_SCRATCH_B_BUDGET; /**< IslamicStars' persistent split. */
 
 /**
  * @brief Verifies the worst adjacent pair of Islamic shapes, plus the palette
@@ -480,10 +480,10 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
               "budget=%zu B\n",
               palette_bytes, worst_slot, worst_k, worst_v, worst_f, worst_pair,
               worst_pair_i, (worst_pair_i + 1) % N, peak,
-              (size_t)kIslamicPersistentBudget);
-  HS_EXPECT_LE(peak, (size_t)kIslamicPersistentBudget);
+              (size_t)ISLAMIC_PERSISTENT_BUDGET);
+  HS_EXPECT_LE(peak, (size_t)ISLAMIC_PERSISTENT_BUDGET);
   // compact_keep_front evacuates the front slot through scratch_b.
-  HS_EXPECT_LE(worst_slot, kIslamicScratchBBudget);
+  HS_EXPECT_LE(worst_slot, ISLAMIC_SCRATCH_B_BUDGET);
 }
 
 // ---------------------------------------------------------------------------
@@ -507,9 +507,9 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
 // figure, so the host high-water mark is a conservative upper bound.
 // ---------------------------------------------------------------------------
 
-constexpr size_t kHankinScratchABudget = 24 * 1024; /**< HankinSolids scratch_a. */
-constexpr size_t kHankinScratchBBudget = 32 * 1024; /**< HankinSolids scratch_b. */
-constexpr float kHankinAngle = PI_F / 4.0f; /**< Mid-sweep; counts are angle-independent. */
+constexpr size_t HANKIN_SCRATCH_A_BUDGET = 24 * 1024; /**< HankinSolids scratch_a. */
+constexpr size_t HANKIN_SCRATCH_B_BUDGET = 32 * 1024; /**< HankinSolids scratch_b. */
+constexpr float HANKIN_ANGLE = PI_F / 4.0f; /**< Mid-sweep; counts are angle-independent. */
 
 /**
  * @brief Runs one simple solid through HankinSolids' full load AND render paths
@@ -530,7 +530,7 @@ inline void check_hankin_high_water_for_solid(const Solids::Entry &entry) {
   CompiledHankin hankin;
   MeshOps::compile_hankin(base, hankin, persist, a);
   MeshState mesh;
-  MeshOps::update_hankin(hankin, mesh, persist, kHankinAngle);
+  MeshOps::update_hankin(hankin, mesh, persist, HANKIN_ANGLE);
   size_t a_peak = a.get_high_water_mark();
   size_t b_peak = b.get_high_water_mark();
 
@@ -558,8 +558,8 @@ inline void check_hankin_high_water_for_solid(const Solids::Entry &entry) {
   if (a.get_high_water_mark() > a_peak)
     a_peak = a.get_high_water_mark();
 
-  HS_EXPECT_LE(a_peak, kHankinScratchABudget);
-  HS_EXPECT_LE(b_peak, kHankinScratchBBudget);
+  HS_EXPECT_LE(a_peak, HANKIN_SCRATCH_A_BUDGET);
+  HS_EXPECT_LE(b_peak, HANKIN_SCRATCH_B_BUDGET);
 }
 
 /**
@@ -584,7 +584,7 @@ inline void test_hankin_solids_fit_hankinsolids_scratch_budget() {
 // twice the largest single solid.
 // ---------------------------------------------------------------------------
 
-constexpr size_t kHankinPersistentBudget =
+constexpr size_t HANKIN_PERSISTENT_BUDGET =
     DEVICE_GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024; /**< ~274 KB on device. */
 
 /**
@@ -618,7 +618,7 @@ inline void test_hankin_solids_fit_hankinsolids_persistent_budget() {
     CompiledHankin hankin;
     MeshOps::compile_hankin(base, hankin, slot, a);
     MeshState mesh;
-    MeshOps::update_hankin(hankin, mesh, slot, kHankinAngle);
+    MeshOps::update_hankin(hankin, mesh, slot, HANKIN_ANGLE);
     MeshOps::classify_faces_by_topology(mesh, a, b, slot);
 
     slot_bytes[k] = slot.get_high_water_mark();
@@ -643,8 +643,8 @@ inline void test_hankin_solids_fit_hankinsolids_persistent_budget() {
               "adj pair=%zu B (%s+%s), peak=%zu B / budget=%zu B\n",
               palette_bytes, worst_slot, simple[worst_k].name, worst_pair,
               simple[worst_pair_i].name, simple[(worst_pair_i + 1) % N].name,
-              peak, (size_t)kHankinPersistentBudget);
-  HS_EXPECT_LE(peak, (size_t)kHankinPersistentBudget);
+              peak, (size_t)HANKIN_PERSISTENT_BUDGET);
+  HS_EXPECT_LE(peak, (size_t)HANKIN_PERSISTENT_BUDGET);
 }
 
 // ---------------------------------------------------------------------------

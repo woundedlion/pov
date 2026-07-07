@@ -390,16 +390,16 @@ inline Vector noise_transform(const Vector &v, const NoiseParams &params) {
   // exceeds the noise correlation length, not because the per-axis offsets
   // differ. The same time_val drives the z input of all three, so they animate
   // together in time.
-  constexpr float kChannelYOffset = 100.0f; // channel 2 (ny) field shift
-  constexpr float kChannelZOffset = 200.0f; // channel 3 (nz) field shift
+  constexpr float CHANNEL_Y_OFFSET = 100.0f; // channel 2 (ny) field shift
+  constexpr float CHANNEL_Z_OFFSET = 200.0f; // channel 3 (nz) field shift
   float nx =
       params.noise.GetNoise(v.x * scale, v.y * scale, v.z * scale + time_val);
-  float ny = params.noise.GetNoise(v.x * scale + kChannelYOffset,
-                                   v.y * scale + kChannelYOffset,
-                                   v.z * scale + time_val + kChannelYOffset);
-  float nz = params.noise.GetNoise(v.x * scale + kChannelZOffset,
-                                   v.y * scale + kChannelZOffset,
-                                   v.z * scale + time_val + kChannelZOffset);
+  float ny = params.noise.GetNoise(v.x * scale + CHANNEL_Y_OFFSET,
+                                   v.y * scale + CHANNEL_Y_OFFSET,
+                                   v.z * scale + time_val + CHANNEL_Y_OFFSET);
+  float nz = params.noise.GetNoise(v.x * scale + CHANNEL_Z_OFFSET,
+                                   v.y * scale + CHANNEL_Z_OFFSET,
+                                   v.z * scale + time_val + CHANNEL_Z_OFFSET);
 
   Vector raw_noise = Vector(nx, ny, nz) * (params.amplitude * 0.05f);
 
@@ -475,10 +475,10 @@ inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
                                           float pole_fade, float time) {
   float atten = pole_attenuation(r_sq, pole_fade);
   float s = strength * atten;
-  constexpr float kChannelOffset = 100.0f; // decorrelates dy's field from dx's
+  constexpr float CHANNEL_OFFSET = 100.0f; // decorrelates dy's field from dx's
   float dx = noise.GetNoise(z.re * scale, z.im * scale, time) * s;
-  float dy = noise.GetNoise(z.re * scale + kChannelOffset,
-                            z.im * scale + kChannelOffset, time) *
+  float dy = noise.GetNoise(z.re * scale + CHANNEL_OFFSET,
+                            z.im * scale + CHANNEL_OFFSET, time) *
              s;
   return {Complex(z.re + dx, z.im + dy), sqrtf(dx * dx + dy * dy)};
 }

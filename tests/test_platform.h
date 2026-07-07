@@ -29,7 +29,7 @@
 namespace hs_test {
 namespace platform_tests {
 
-static constexpr double kTwoPi = 6.283185307179586;
+static constexpr double TWO_PI = 6.283185307179586;
 
 /**
  * @brief Verifies sin8 is bit-exact with FastLED's sin8_C LUT and tracks the
@@ -48,7 +48,7 @@ inline void test_sin8_golden() {
 
   int max_err = 0;
   for (int t = 0; t < 256; ++t) {
-    double truth = 128.0 + 127.0 * std::sin(kTwoPi * t / 256.0);
+    double truth = 128.0 + 127.0 * std::sin(TWO_PI * t / 256.0);
     int err = std::abs(static_cast<int>(sin8(static_cast<uint8_t>(t))) -
                        static_cast<int>(std::lround(truth)));
     if (err > max_err) max_err = err;
@@ -75,7 +75,7 @@ inline void test_sin16_golden() {
 
   int max_err = 0;
   for (int t = 0; t < 65536; t += 3) {
-    double truth = 32767.0 * std::sin(kTwoPi * t / 65536.0);
+    double truth = 32767.0 * std::sin(TWO_PI * t / 65536.0);
     int err = std::abs(static_cast<int>(sin16(static_cast<uint16_t>(t))) -
                        static_cast<int>(std::lround(truth)));
     if (err > max_err) max_err = err;
@@ -255,15 +255,15 @@ inline void test_serial_printf_formats_varargs() {
  *          unchanged.
  */
 inline void test_rand_f_half_open() {
-  constexpr uint32_t kMax = 0xFFFFFFFFu; // hs::Pcg32::max()
+  constexpr uint32_t MAX = 0xFFFFFFFFu; // hs::Pcg32::max()
   // The boundary case: the naive ratio is 1.0f, the clamp pulls it to the float
   // just below.
-  HS_EXPECT_LT(hs::random_to_unit(kMax, kMax), 1.0f);
-  HS_EXPECT_EQ(hs::random_to_unit(kMax, kMax), 0x1.fffffep-1f);
-  HS_EXPECT_LT(hs::random_to_unit(kMax - 64, kMax), 1.0f); // rest of the top band
+  HS_EXPECT_LT(hs::random_to_unit(MAX, MAX), 1.0f);
+  HS_EXPECT_EQ(hs::random_to_unit(MAX, MAX), 0x1.fffffep-1f);
+  HS_EXPECT_LT(hs::random_to_unit(MAX - 64, MAX), 1.0f); // rest of the top band
   // Ordinary draws pass through unchanged.
-  HS_EXPECT_EQ(hs::random_to_unit(0, kMax), 0.0f);
-  HS_EXPECT_NEAR(hs::random_to_unit(kMax / 2, kMax), 0.5f, 1e-6f);
+  HS_EXPECT_EQ(hs::random_to_unit(0, MAX), 0.0f);
+  HS_EXPECT_NEAR(hs::random_to_unit(MAX / 2, MAX), 0.5f, 1e-6f);
   // And the live generator never escapes [0, 1) across a long sweep.
   for (int i = 0; i < 100000; ++i) {
     float r = hs::rand_f();

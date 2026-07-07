@@ -234,7 +234,7 @@ async function main() {
         if (trunc) trunc.delete();
 
         // relax(int) + its C++-side clamp: relax(1e9) (INT32-valid) must clamp to
-        // kMaxRelaxIterations, not loop a billion times. Exercises the C++ clamp
+        // MAX_RELAX_ITERATIONS, not loop a billion times. Exercises the C++ clamp
         // only, not embind's double->int coercion near INT32_MAX.
         const relaxed = solid.relax(1);
         if (!isValidMesh(relaxed)) fail(`${solidName}.relax(1) did not produce a valid mesh`);

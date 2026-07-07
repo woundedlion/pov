@@ -620,7 +620,7 @@ public:
     if (!effect_.buffer_free()) {
       const unsigned long wait_start = micros();
       while (!effect_.buffer_free()) {
-        HS_CHECK(micros() - wait_start < kBufferFreeWatchdogUs,
+        HS_CHECK(micros() - wait_start < BUFFER_FREE_WATCHDOG_US,
                  "buffer_free watchdog timeout — display ISR stalled");
 #ifdef HS_TEST_BUILD
         s_buffer_free_spins.fetch_add(1, std::memory_order_relaxed);
@@ -753,7 +753,7 @@ private:
   /** Watchdog bound for the ctor buffer_free() spin (µs). One display
    *  revolution is tens-to-hundreds of ms even at low RPM; 2 s is well above
    *  that, so only a genuinely stalled display ISR trips it. */
-  static constexpr unsigned long kBufferFreeWatchdogUs = 2000000UL;
+  static constexpr unsigned long BUFFER_FREE_WATCHDOG_US = 2000000UL;
   Effect &effect_; /**< Reference to the owning Effect instance. */
 #ifdef HS_TEST_BUILD
   inline static std::atomic<unsigned long> s_buffer_free_spins{0};

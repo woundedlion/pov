@@ -148,8 +148,8 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
 
 // --- Deep (multi-level) reentrant nesting -----------------------------------
 
-inline constexpr int kDeepLevels = 5;
-inline size_t g_deep_a_entry[kDeepLevels];
+inline constexpr int DEEP_LEVELS = 5;
+inline size_t g_deep_a_entry[DEEP_LEVELS];
 
 /**
  * @brief Recursive generate() body for the deep-nesting stress.
@@ -188,20 +188,20 @@ inline int gen_deep_level(Arena &t, Arena &a, Arena &b, int level,
 /**
  * @brief Stress-tests the reentrant scratch protocol across many nested levels.
  * @details The single-nest test proves one inner call does not clobber its
- * caller; this drives kDeepLevels stacked frames and verifies each one stacked
+ * caller; this drives DEEP_LEVELS stacked frames and verifies each one stacked
  * strictly above the previous level's live high-water (the reset fires only at
  * the outermost call) and that the outermost scope rolled both arenas back to
  * empty. Per-level sentinel survival is asserted inside gen_deep_level.
  */
 inline void test_generate_deep_nesting_stacks_and_unwinds() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
-  for (int i = 0; i < kDeepLevels; ++i)
+  for (int i = 0; i < DEEP_LEVELS; ++i)
     g_deep_a_entry[i] = 999;
 
-  (void)generate(target, gen_deep_level, 0, kDeepLevels);
+  (void)generate(target, gen_deep_level, 0, DEEP_LEVELS);
 
   HS_EXPECT_EQ(g_deep_a_entry[0], (size_t)0);
-  for (int level = 1; level < kDeepLevels; ++level)
+  for (int level = 1; level < DEEP_LEVELS; ++level)
     HS_EXPECT_GT(g_deep_a_entry[level], g_deep_a_entry[level - 1]);
 
   HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);

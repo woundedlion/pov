@@ -61,7 +61,7 @@ struct TestModule {
   int (*run)();     /**< Entry point; returns the module's failure count. */
 };
 
-// Single source of truth for the roster: expands into both kModules[] and the
+// Single source of truth for the roster: expands into both MODULES[] and the
 // derived HS_TEST_MODULE_COUNT below. Adding a module means an #include above
 // AND one X(...) row here. Mirrors core/engine/effects.h's HS_EFFECT_LIST.
 #define HS_TEST_MODULE_LIST(X)                                                  \
@@ -106,14 +106,14 @@ struct TestModule {
   X("death", hs_test::death::run_death_tests)
 
 #define HS_TEST_MODULE_ENTRY(name, fn) {name, fn},
-static const TestModule kModules[] = {HS_TEST_MODULE_LIST(HS_TEST_MODULE_ENTRY)};
+static const TestModule MODULES[] = {HS_TEST_MODULE_LIST(HS_TEST_MODULE_ENTRY)};
 #undef HS_TEST_MODULE_ENTRY
 
 #define HS_TEST_MODULE_COUNT_ADD(name, fn) +1
 constexpr int HS_TEST_MODULE_COUNT = 0 HS_TEST_MODULE_LIST(HS_TEST_MODULE_COUNT_ADD);
 #undef HS_TEST_MODULE_COUNT_ADD
-static_assert(sizeof(kModules) / sizeof(kModules[0]) == HS_TEST_MODULE_COUNT,
-              "kModules and HS_TEST_MODULE_COUNT disagree: both derive from "
+static_assert(sizeof(MODULES) / sizeof(MODULES[0]) == HS_TEST_MODULE_COUNT,
+              "MODULES and HS_TEST_MODULE_COUNT disagree: both derive from "
               "HS_TEST_MODULE_LIST, so this fires only if the list is malformed.");
 
 /**
@@ -121,7 +121,7 @@ static_assert(sizeof(kModules) / sizeof(kModules[0]) == HS_TEST_MODULE_COUNT,
  * @param out Destination stream (e.g. stdout for --list, stderr on error).
  */
 static void print_modules(std::FILE *out) {
-  for (const TestModule &m : kModules)
+  for (const TestModule &m : MODULES)
     std::fprintf(out, "  %s\n", m.name);
 }
 
@@ -129,14 +129,14 @@ static void print_modules(std::FILE *out) {
  * @brief Verifies an expected module set on argv matches the roster exactly.
  * @param argc Count of trailing names (argv past --check-modules).
  * @param argv The expected module names.
- * @return 0 if the set matches kModules exactly, 3 on any divergence.
+ * @return 0 if the set matches MODULES exactly, 3 on any divergence.
  * @details Both directions are checked so a roster/expected-list drift in either
- * direction fails: every kModules name must appear in argv, and every argv name
+ * direction fails: every MODULES name must appear in argv, and every argv name
  * must be a roster module. Used by the CTest that pins _hs_test_modules.
  */
 static int check_modules(int argc, char **argv) {
   int mismatches = 0;
-  for (const TestModule &m : kModules) {
+  for (const TestModule &m : MODULES) {
     bool found = false;
     for (int i = 0; i < argc; ++i)
       if (std::strcmp(m.name, argv[i]) == 0) {
@@ -152,7 +152,7 @@ static int check_modules(int argc, char **argv) {
   }
   for (int i = 0; i < argc; ++i) {
     bool found = false;
-    for (const TestModule &m : kModules)
+    for (const TestModule &m : MODULES)
       if (std::strcmp(m.name, argv[i]) == 0) {
         found = true;
         break;
@@ -213,7 +213,7 @@ int main(int argc, char **argv) {
       return check_modules(argc - 2, argv + 2);
     for (int i = 1; i < argc; ++i) {
       const TestModule *match = nullptr;
-      for (const TestModule &m : kModules) {
+      for (const TestModule &m : MODULES) {
         if (std::strcmp(m.name, argv[i]) == 0) {
           match = &m;
           break;
@@ -228,7 +228,7 @@ int main(int argc, char **argv) {
       failures += match->run();
     }
   } else {
-    for (const TestModule &m : kModules)
+    for (const TestModule &m : MODULES)
       failures += m.run();
   }
   // Collapse to 0/1: a process exit status is only 8 bits on POSIX, so

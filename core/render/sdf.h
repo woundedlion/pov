@@ -42,18 +42,18 @@ static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
  *  (Subtract/Intersection: 2x this + 2), and its seam-split `norm` buffer is
  *  2x intervals (one span can split in two at the x=0 seam); see the
  *  static_asserts there. */
-inline constexpr size_t kIntervalSpanCap = 32;
+inline constexpr size_t INTERVAL_SPAN_CAP = 32;
 
 /** Per-row scanline interval buffer for a single shape. Fixed capacity,
  *  accumulate-only. */
 using IntervalBuffer =
-    StaticCircularBuffer<std::pair<float, float>, kIntervalSpanCap>;
+    StaticCircularBuffer<std::pair<float, float>, INTERVAL_SPAN_CAP>;
 
 /** Per-row accumulator for a binary CSG op that merges BOTH children's spans
  *  into one buffer (Union/SmoothUnion). Each child can contribute up to
- *  kIntervalSpanCap spans, so the union accumulator is sized to hold both. */
+ *  INTERVAL_SPAN_CAP spans, so the union accumulator is sized to hold both. */
 using MergedIntervalBuffer =
-    StaticCircularBuffer<std::pair<float, float>, 2 * kIntervalSpanCap>;
+    StaticCircularBuffer<std::pair<float, float>, 2 * INTERVAL_SPAN_CAP>;
 
 // Forward-declared so the span-count trait below can pattern-match the binary
 // CSG ops (defined later in this header) before their full definitions.
@@ -63,7 +63,7 @@ template <typename A, typename B> struct Subtract;
 template <typename A, typename B> struct Intersection;
 
 /** Compile-time upper bound on the number of scanline spans a shape may emit to
- *  its parent in one row. A leaf shape is capped at kIntervalSpanCap by its own
+ *  its parent in one row. A leaf shape is capped at INTERVAL_SPAN_CAP by its own
  *  IntervalBuffer. Union/SmoothUnion merge BOTH children into one
  *  MergedIntervalBuffer before any fallback decision, so their bound is the SUM
  *  of the children's (merging never grows the count). Union/SmoothUnion
@@ -71,7 +71,7 @@ template <typename A, typename B> struct Intersection;
  *  overflow MergedIntervalBuffer and trap at runtime is rejected at compile
  *  time instead. */
 template <typename T> struct sdf_max_spans {
-  static constexpr size_t value = kIntervalSpanCap;
+  static constexpr size_t value = INTERVAL_SPAN_CAP;
 };
 template <typename A, typename B> struct sdf_max_spans<Union<A, B>> {
   static constexpr size_t value =
@@ -750,11 +750,11 @@ struct DistortedRing {
     // md): an underestimate silently culls genuine arcs. One-sided sample-trap
     // (never false-positives; a coarse grid can still miss a sharp peak), run
     // once per cold-path construction.
-    constexpr int kBoundSamples = 256;
+    constexpr int BOUND_SAMPLES = 256;
     float worst = 0.0f;
-    for (int i = 0; i < kBoundSamples; ++i)
+    for (int i = 0; i < BOUND_SAMPLES; ++i)
       worst = std::max(worst,
-                       std::abs(shift_fn(static_cast<float>(i) / kBoundSamples)));
+                       std::abs(shift_fn(static_cast<float>(i) / BOUND_SAMPLES)));
     HS_CHECK(worst <= max_distortion * 1.001f + 1e-4f,
              "DistortedRing max_distortion underestimates |shift_fn|");
   }
@@ -864,9 +864,9 @@ template <typename A, typename B> struct Union {
                 "CSG Union children must be SDF shapes "
                 "(is_solid/thickness)");
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
-                    2 * kIntervalSpanCap,
+                    2 * INTERVAL_SPAN_CAP,
                 "nested CSG union exceeds MergedIntervalBuffer capacity; flatten "
-                "the union or raise kIntervalSpanCap");
+                "the union or raise INTERVAL_SPAN_CAP");
 
   /**
    * @brief Builds a union of two child shapes.
@@ -981,9 +981,9 @@ template <typename A, typename B> struct SmoothUnion {
                 "CSG SmoothUnion children must be SDF shapes "
                 "(is_solid/thickness)");
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
-                    2 * kIntervalSpanCap,
+                    2 * INTERVAL_SPAN_CAP,
                 "nested CSG smooth-union exceeds MergedIntervalBuffer capacity; "
-                "flatten the union or raise kIntervalSpanCap");
+                "flatten the union or raise INTERVAL_SPAN_CAP");
 
   /**
    * @brief Builds a smooth union of two child shapes.
@@ -1128,13 +1128,13 @@ template <typename A, typename B> struct Subtract {
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Subtract children must be SDF shapes "
                 "(is_solid/thickness)");
-  // Each child is collected into an IntervalBuffer (cap kIntervalSpanCap) before
+  // Each child is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP) before
   // differencing, so a child that could emit more spans must be rejected at
   // compile time rather than trapping in push_interval at runtime.
-  static_assert(sdf_max_spans<A>::value <= kIntervalSpanCap &&
-                    sdf_max_spans<B>::value <= kIntervalSpanCap,
+  static_assert(sdf_max_spans<A>::value <= INTERVAL_SPAN_CAP &&
+                    sdf_max_spans<B>::value <= INTERVAL_SPAN_CAP,
                 "nested CSG Subtract child exceeds IntervalBuffer capacity; "
-                "flatten the nesting or raise kIntervalSpanCap");
+                "flatten the nesting or raise INTERVAL_SPAN_CAP");
 
   /**
    * @brief Builds a subtraction (shape_a minus shape_b).
@@ -1189,10 +1189,10 @@ template <typename A, typename B> struct Subtract {
     // horizontal culling, so Subtract<solid, stroke> pays full A-coverage shading
     // — the expensive CSG combination.
     if constexpr (!B::is_solid) {
-      constexpr size_t kSeamSplitCap = 2 * kIntervalSpanCap;
-      static_assert(2 * sdf_max_spans<A>::value <= kSeamSplitCap,
+      constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
+      static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP,
                     "post-seam-split span count exceeds norm buffer capacity");
-      StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_a;
+      StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP> norm_a;
       normalize_intervals_to_range<W>(intervals_a, norm_a);
       sort_intervals_by_start(norm_a);
       for (size_t i = 0; i < norm_a.size(); ++i)
@@ -1229,18 +1229,18 @@ template <typename A, typename B> struct Subtract {
     // Output bound: the set difference splits an A span once per enclosed B span,
     // and the B spans are disjoint, so it emits at most |norm_a| + |norm_b| spans
     // (the sdf_max_spans<Subtract> bound). The top-level consumer is scan_region's
-    // `intervals` buffer (2*kIntervalSpanCap). The conservative bound can exceed
+    // `intervals` buffer (2*INTERVAL_SPAN_CAP). The conservative bound can exceed
     // that, but only one span per child actually straddles θ=0 in a row, so the
     // real maximum is sdf_max_spans<A> + sdf_max_spans<B> + 2; reaching even
-    // 2*kIntervalSpanCap would require both children to emit kIntervalSpanCap
+    // 2*INTERVAL_SPAN_CAP would require both children to emit INTERVAL_SPAN_CAP
     // disjoint arcs in a single row, which no SDF shape does. push_interval traps
     // (fail-fast) if that ever holds.
-    constexpr size_t kSeamSplitCap = 2 * kIntervalSpanCap;
-    static_assert(2 * sdf_max_spans<A>::value <= kSeamSplitCap &&
-                      2 * sdf_max_spans<B>::value <= kSeamSplitCap,
+    constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
+    static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP &&
+                      2 * sdf_max_spans<B>::value <= SEAM_SPLIT_CAP,
                   "post-seam-split span count exceeds norm buffer capacity");
-    StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_a;
-    StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_b;
+    StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP> norm_a;
+    StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP> norm_b;
     normalize_intervals_to_range<W>(intervals_a, norm_a);
     normalize_intervals_to_range<W>(intervals_b, norm_b);
 
@@ -1332,13 +1332,13 @@ template <typename A, typename B> struct Intersection {
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Intersection children must be SDF shapes "
                 "(is_solid/thickness)");
-  // Each child is collected into an IntervalBuffer (cap kIntervalSpanCap) before
+  // Each child is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP) before
   // the merge-sweep, so a child that could emit more spans must be rejected at
   // compile time rather than trapping in push_interval at runtime.
-  static_assert(sdf_max_spans<A>::value <= kIntervalSpanCap &&
-                    sdf_max_spans<B>::value <= kIntervalSpanCap,
+  static_assert(sdf_max_spans<A>::value <= INTERVAL_SPAN_CAP &&
+                    sdf_max_spans<B>::value <= INTERVAL_SPAN_CAP,
                 "nested CSG Intersection child exceeds IntervalBuffer capacity; "
-                "flatten the nesting or raise kIntervalSpanCap");
+                "flatten the nesting or raise INTERVAL_SPAN_CAP");
 
   /**
    * @brief Builds an intersection of two child shapes.
@@ -1403,12 +1403,12 @@ template <typename A, typename B> struct Intersection {
     // then miss the shared coverage and under-report at the seam. Splitting into
     // a common [0, W) frame makes the comparison correct. Seam-splitting at most
     // doubles each child's span count, so the buffers are sized 2x.
-    constexpr size_t kSeamSplitCap = 2 * kIntervalSpanCap;
-    static_assert(2 * sdf_max_spans<A>::value <= kSeamSplitCap &&
-                      2 * sdf_max_spans<B>::value <= kSeamSplitCap,
+    constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
+    static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP &&
+                      2 * sdf_max_spans<B>::value <= SEAM_SPLIT_CAP,
                   "post-seam-split span count exceeds norm buffer capacity");
-    StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_a;
-    StaticCircularBuffer<std::pair<float, float>, kSeamSplitCap> norm_b;
+    StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP> norm_a;
+    StaticCircularBuffer<std::pair<float, float>, SEAM_SPLIT_CAP> norm_b;
     normalize_intervals_to_range<W>(intervals_a, norm_a);
     normalize_intervals_to_range<W>(intervals_b, norm_b);
 

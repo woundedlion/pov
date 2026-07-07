@@ -24,7 +24,7 @@
 
 namespace {
 constexpr int W = 288, H = 144;
-constexpr int kFrames = 8;
+constexpr int FRAMES = 8;
 
 size_t g_max_p = 0, g_max_a = 0, g_max_b = 0, g_worst_total = 0;
 const char *g_worst_name = "";
@@ -39,7 +39,7 @@ template <typename Effect> void measure(const char *name) {
 
   Effect effect;
   effect.init();
-  for (int f = 0; f < kFrames; ++f) {
+  for (int f = 0; f < FRAMES; ++f) {
     effect.draw_frame();
     effect.advance_display();
   }

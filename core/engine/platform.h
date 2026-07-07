@@ -79,7 +79,7 @@ public:
    */
   void seed(uint64_t s) {
     state_ = 0u;
-    inc_ = (kStreamSeq << 1u) | 1u; // stream id must be odd
+    inc_ = (STREAM_SEQ << 1u) | 1u; // stream id must be odd
     (*this)();
     state_ += s;
     (*this)();
@@ -96,7 +96,7 @@ public:
 private:
   uint64_t state_ = 0u;
   uint64_t inc_ = 0u;
-  static constexpr uint64_t kStreamSeq = 0x14057b7ef767814fULL;
+  static constexpr uint64_t STREAM_SEQ = 0x14057b7ef767814fULL;
 };
 } // namespace hs
 
@@ -1132,8 +1132,8 @@ namespace hs {
  */
 inline float random_to_unit(uint32_t value, uint32_t max) {
   float r = static_cast<float>(value) / static_cast<float>(max);
-  constexpr float kJustBelowOne = 0x1.fffffep-1f; // nextafterf(1.0f, 0.0f)
-  return r > kJustBelowOne ? kJustBelowOne : r;
+  constexpr float JUST_BELOW_ONE = 0x1.fffffep-1f; // nextafterf(1.0f, 0.0f)
+  return r > JUST_BELOW_ONE ? JUST_BELOW_ONE : r;
 }
 
 /**

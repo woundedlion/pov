@@ -273,13 +273,13 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
   // drip rate; amplitude controls noise wobble.
   static constexpr Vector NORTH = {0.0f, 1.0f, 0.0f};
   // Slerp fraction toward the pole per frame at speed=1 (preset speeds scale it).
-  static constexpr float kMeltStepPerFrame = 0.04f;
+  static constexpr float MELT_STEP_PER_FRAME = 0.04f;
   // Amplitude floor below which the noise wobble is skipped.
-  static constexpr float kMeltNoiseAmpFloor = 0.001f;
-  float drip = s.speed * kMeltStepPerFrame;
+  static constexpr float MELT_NOISE_AMP_FLOOR = 0.001f;
+  float drip = s.speed * MELT_STEP_PER_FRAME;
   Vector drifted = slerp(v, NORTH, drip);
 
-  if (s.noise && s.amplitude > kMeltNoiseAmpFloor) {
+  if (s.noise && s.amplitude > MELT_NOISE_AMP_FLOOR) {
     return noise_transform(drifted, *s.noise);
   }
   return drifted;

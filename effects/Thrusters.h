@@ -158,8 +158,8 @@ private:
    *          by a unit test the smoke harness cannot see.
    */
   static float warp_decay(float t) {
-    constexpr float kFloor = 0.1353352832f; // expf(-2)
-    return 0.7f * (expf(-2.0f * t) - kFloor) / (1.0f - kFloor);
+    constexpr float FLOOR = 0.1353352832f; // expf(-2)
+    return 0.7f * (expf(-2.0f * t) - FLOOR) / (1.0f - FLOOR);
   }
 
   /**

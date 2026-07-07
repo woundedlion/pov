@@ -96,14 +96,14 @@ class POVSegmented {
 
   /**
    * @brief GPIO straps for hardware ID (active-low with internal pull-up).
-   * Two straps decode N <= 4 segments; the build reads kIdStraps = log2(N) of
+   * Two straps decode N <= 4 segments; the build reads ID_STRAPS = log2(N) of
    * them.
    */
   static constexpr int PIN_ID0 = 21;
   static constexpr int PIN_ID1 = 22;
 
   /** @brief Number of ID straps actually read = log2(N). */
-  static constexpr int kIdStraps = (N <= 2) ? 1 : 2;
+  static constexpr int ID_STRAPS = (N <= 2) ? 1 : 2;
 
   /**
    * @brief Shared sync wire: master drives it OUTPUT (symbol bursts),
@@ -122,7 +122,7 @@ class POVSegmented {
   // ── Flywheel timing ─────────────────────────────────────────────────
 
   /** @brief Nominal column period in µs (T0 ≈ 434 µs at 480 RPM × 288). */
-  static constexpr float kColumnUs =
+  static constexpr float COLUMN_US =
       1000000.0f * 60.0f / (float(RPM) * float(CANVAS_W));
 
   /**
@@ -134,9 +134,9 @@ class POVSegmented {
    * tick() is idempotent/skip-tolerant, so the exact grid does not affect
    * correctness.
    */
-  static constexpr int kOversample = 8;
+  static constexpr int OVERSAMPLE = 8;
 
-  static_assert(kColumnUs / float(kOversample) >= 1.0f,
+  static_assert(COLUMN_US / float(OVERSAMPLE) >= 1.0f,
       "Flywheel wake period must be >= 1 us for IntervalTimer::begin");
 
   /**
@@ -250,7 +250,7 @@ public:
       attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC),
                       sync_edge_isr, RISING);
     }
-    HS_CHECK(timer_.begin(flywheel_isr, kColumnUs / float(kOversample)),
+    HS_CHECK(timer_.begin(flywheel_isr, COLUMN_US / float(OVERSAMPLE)),
              "flywheel IntervalTimer failed to start (no PIT channel)");
 
     // ── Foreground: construct effects on request, render, report ────────
@@ -356,12 +356,12 @@ private:
   // ── Hardware ID ─────────────────────────────────────────────────────
 
   /**
-   * @brief Samples the raw ID straps (kIdStraps bits, LSB = ID0).
+   * @brief Samples the raw ID straps (ID_STRAPS bits, LSB = ID0).
    * @return Raw reading; floating (HIGH) bits set, grounded bits clear.
    */
   int sample_strap_() const {
     int raw = digitalReadFast(PIN_ID0);
-    if constexpr (kIdStraps >= 2) raw |= digitalReadFast(PIN_ID1) << 1;
+    if constexpr (ID_STRAPS >= 2) raw |= digitalReadFast(PIN_ID1) << 1;
     return raw;
   }
 
@@ -378,7 +378,7 @@ private:
    */
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
-    if constexpr (kIdStraps >= 2) pinMode(PIN_ID1, INPUT_PULLUP);
+    if constexpr (ID_STRAPS >= 2) pinMode(PIN_ID1, INPUT_PULLUP);
     delay(10);  // settle time for pull-ups
 
     // Debounce: three samples ~5 ms apart must agree; an unstable strap reads as
@@ -465,7 +465,7 @@ private:
   /**
    * @brief Flywheel ISR: the sole owner of all sync state (spec §8).
    *
-   * Paced by an IntervalTimer at T0/kOversample as a wake-up only — the
+   * Paced by an IntervalTimer at T0/OVERSAMPLE as a wake-up only — the
    * cycle counter decides which column it is (spec §4.1), so a late, early,
    * or coalesced wake-up cannot inject drift: the ISR is idempotent when the
    * column is unchanged and skip-tolerant when it jumped (the skipped

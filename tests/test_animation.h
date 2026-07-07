@@ -1354,9 +1354,9 @@ inline void test_terminator_sweep_orders_by_axis() {
 
 /**
  * @brief Verifies TerminatorSweep's per-face fade is time-based: schedule()
- * derives the fade fraction so each face ramps over exactly kFadeFrames of the
+ * derives the fade fraction so each face ramps over exactly FADE_FRAMES of the
  * fade window once the front reaches it, with exact 0/1 window endpoints, and
- * a window shorter than kFadeFrames degrades to one whole-sphere fade.
+ * a window shorter than FADE_FRAMES degrades to one whole-sphere fade.
  */
 inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
   Timeline tl;
@@ -1367,7 +1367,7 @@ inline void test_terminator_sweep_fades_faces_over_fixed_frames() {
   HS_EXPECT_EQ(next_delay, dur); // sequential: one mesh per frame
   const Segue::TerminatorSweep &term = carousel.segue();
   const float f =
-      static_cast<float>(Segue::TerminatorSweep::kFadeFrames) / window;
+      static_cast<float>(Segue::TerminatorSweep::FADE_FRAMES) / window;
   HS_EXPECT_NEAR(term.fade_frac, f, 1e-6f);
   for (float o : {0.0f, 0.5f, 1.0f}) {
     float touch = o * (1.0f - f); // phase at which the front reaches the face
@@ -1421,14 +1421,14 @@ inline void test_breakdown_fades_classes_sequentially() {
     float o = bd.face_offset(any, 0, c);
     int r = bd.rank[c];
     HS_EXPECT_NEAR(o, static_cast<float>(n - 1 - r) / (n - 1), 1e-6f);
-    // Class rank r fades linearly over one band of [kBlackDwell, 1]: gone at
+    // Class rank r fades linearly over one band of [BLACK_DWELL, 1]: gone at
     // the floor, untouched at the ceiling, abutting its neighbors' windows,
     // and every class is fully black through the dwell before the swap.
-    float band = (1.0f - Segue::Breakdown::kBlackDwell) / n;
-    float floor_p = Segue::Breakdown::kBlackDwell + (n - 1 - r) * band;
+    float band = (1.0f - Segue::Breakdown::BLACK_DWELL) / n;
+    float floor_p = Segue::Breakdown::BLACK_DWELL + (n - 1 - r) * band;
     HS_EXPECT_NEAR(bd.face_phase(floor_p, o), 0.0f, 1e-5f);
     HS_EXPECT_NEAR(bd.face_phase(floor_p + band, o), 1.0f, 1e-5f);
-    HS_EXPECT_NEAR(bd.face_phase(Segue::Breakdown::kBlackDwell, o), 0.0f,
+    HS_EXPECT_NEAR(bd.face_phase(Segue::Breakdown::BLACK_DWELL, o), 0.0f,
                    1e-5f);
     HS_EXPECT_NEAR(bd.face_phase(0.0f, o), 0.0f, 1e-6f);
   }

@@ -252,7 +252,7 @@ scheme. N must be a power of two ≤ 8.
 | **2** | slave | open | **→ GND** |
 | **3** | slave | **→ GND** | **→ GND** |
 
-At N = 4, **ID2 (pin 23) stays open** and is unread (`kIdStraps = log2(4) = 2`). For an **N = 8** build,
+At N = 4, **ID2 (pin 23) stays open** and is unread (`ID_STRAPS = log2(4) = 2`). For an **N = 8** build,
 ground **ID2** to add bit 2 → segments 4–7 follow the same "ground to set the bit" pattern; firmware
 widens the mask to `& 7` automatically.
 

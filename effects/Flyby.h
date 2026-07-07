@@ -107,9 +107,9 @@ public:
     noise_time = fmodf(noise_time + params.speed, TIME_PERIOD);
     // Wrap the trig phases to 2pi so fast_sinf/fast_cosf keep precise range
     // reduction; each tracks its own coefficient (sin +t, cos -drift*t).
-    constexpr float kTwoPi = 2.0f * PI_F;
-    sin_phase = fmodf(sin_phase + params.speed, kTwoPi);
-    drift_phase = fmodf(drift_phase + params.speed * drift, kTwoPi);
+    constexpr float TWO_PI = 2.0f * PI_F;
+    sin_phase = fmodf(sin_phase + params.speed, TWO_PI);
+    drift_phase = fmodf(drift_phase + params.speed * drift, TWO_PI);
 
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);

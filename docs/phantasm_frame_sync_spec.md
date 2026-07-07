@@ -216,7 +216,7 @@ The `IntervalTimer` is therefore only a *wake-up*, not the source of truth:
 it paces ISR entry, but the cycle counter decides which column it is. A late,
 early, or coalesced wake-up cannot inject drift.
 
-**Wake-ups are oversampled 8× per column** (`kOversample` in
+**Wake-ups are oversampled 8× per column** (`OVERSAMPLE` in
 `pov_segmented.h`; the timer runs at T0/8 ≈ 54 µs). The timer grid is not
 phase-locked to the flywheel — a snap shifts the flywheel's boundary instants
 but not the timer — so at one wake per column, both the rendered column and

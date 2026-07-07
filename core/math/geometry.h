@@ -313,8 +313,8 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
     TrigLUT<W, H>::init();
   }
   // Local avoids the comma in TrigLUT<W, H> inside the assert macro.
-  [[maybe_unused]] constexpr int kHVirt = TrigLUT<W, H>::H_VIRT;
-  assert(x >= 0 && x < W && y >= 0 && y < kHVirt);
+  [[maybe_unused]] constexpr int H_VIRT = TrigLUT<W, H>::H_VIRT;
+  assert(x >= 0 && x < W && y >= 0 && y < H_VIRT);
   float sp = TrigLUT<W, H>::sin_phi[y];
   return Vector(sp * TrigLUT<W, H>::cos_theta(x), TrigLUT<W, H>::cos_phi[y],
                 sp * TrigLUT<W, H>::sin_theta[x]);

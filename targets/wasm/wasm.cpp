@@ -73,8 +73,8 @@ static_assert(MAX_PARAMS ==
 // only by MeshOpsWrapper. malloc'd lazily on first MeshOps use (start at
 // capacity 0) so engine/worker instances that never touch MeshOps don't reserve
 // 16 MB; the block lives for the module's lifetime (reset via clearToolingMemory).
-static constexpr size_t kToolingArenaBytes = 8 * 1024 * 1024;
-static constexpr size_t kToolingScratchBytes = 4 * 1024 * 1024;
+static constexpr size_t TOOLING_ARENA_BYTES = 8 * 1024 * 1024;
+static constexpr size_t TOOLING_SCRATCH_BYTES = 4 * 1024 * 1024;
 static Arena tooling_arena(nullptr, 0);
 // Transient single-op scratch, shared module-globally. Every MeshOps entry
 // point reset()s both at its head; valid only within one synchronous call. A
@@ -113,13 +113,13 @@ struct ToolingOpGuard {
 static void ensure_tooling_arenas() {
   if (tooling_arena.get_capacity() != 0)
     return;
-  const size_t total = kToolingArenaBytes + 2 * kToolingScratchBytes;
+  const size_t total = TOOLING_ARENA_BYTES + 2 * TOOLING_SCRATCH_BYTES;
   uint8_t *block = static_cast<uint8_t *>(std::malloc(total));
   HS_CHECK(block != nullptr); // 16 MB tooling block — fail-fast on OOM
-  tooling_arena.rebind(block, kToolingArenaBytes);
-  tooling_scratch_a.rebind(block + kToolingArenaBytes, kToolingScratchBytes);
-  tooling_scratch_b.rebind(block + kToolingArenaBytes + kToolingScratchBytes,
-                           kToolingScratchBytes);
+  tooling_arena.rebind(block, TOOLING_ARENA_BYTES);
+  tooling_scratch_a.rebind(block + TOOLING_ARENA_BYTES, TOOLING_SCRATCH_BYTES);
+  tooling_scratch_b.rebind(block + TOOLING_ARENA_BYTES + TOOLING_SCRATCH_BYTES,
+                           TOOLING_SCRATCH_BYTES);
 }
 
 /**
@@ -289,7 +289,7 @@ public:
     // Pre-size the view-backed readback buffers ONCE: under ALLOW_MEMORY_GROWTH
     // a reallocation detaches the ArrayBuffer behind a typed_memory_view, so the
     // buffers returned as views (getPixels/getParamValues) must never move.
-    pixelBuffer.assign(MAX_W * MAX_H * kChannels, 0);
+    pixelBuffer.assign(MAX_W * MAX_H * CHANNELS, 0);
     paramValues.reserve(MAX_PARAMS);
     paramViews.reserve(MAX_PARAMS); // not view-backed; reserve is amortization only
 
@@ -437,7 +437,7 @@ public:
     if (!currentEffect) {
       // No active effect: clear the active prefix so getPixels() hands JS a
       // blank frame at the current resolution, not stale content.
-      const int count = pixel_width * pixel_height * kChannels;
+      const int count = pixel_width * pixel_height * CHANNELS;
       std::fill_n(pixelBuffer.data(), count, uint16_t{0});
       return;
     }
@@ -448,7 +448,7 @@ public:
 
     // Readback copies the FULL canvas regardless of any clip; segment_worker.js
     // extracts its quadrant JS-side (README §10.7).
-    static_assert(static_cast<long long>(MAX_W) * MAX_H * kChannels <= INT_MAX,
+    static_assert(static_cast<long long>(MAX_W) * MAX_H * CHANNELS <= INT_MAX,
                   "drawFrame pixel-index accumulators are int");
     int idx = 0;
     const int count = pixel_width * pixel_height;
@@ -517,7 +517,7 @@ public:
    *          daydream.js::refreshPixelView mirrors this expectation.
    */
   val getPixels() {
-    return val(typed_memory_view(pixel_width * pixel_height * kChannels,
+    return val(typed_memory_view(pixel_width * pixel_height * CHANNELS,
                                  pixelBuffer.data()));
   }
 
@@ -526,7 +526,7 @@ public:
    * @return Number of uint16 elements in the active view (pixel_width *
    *         pixel_height * 3, three channels per pixel).
    */
-  int getBufferLength() { return pixel_width * pixel_height * kChannels; }
+  int getBufferLength() { return pixel_width * pixel_height * CHANNELS; }
 
   /**
    * @brief Updates one named effect parameter.
@@ -702,7 +702,7 @@ public:
 
 private:
   /** Channels per pixel in the readback buffer (linear RGB triples). */
-  static constexpr int kChannels = 3;
+  static constexpr int CHANNELS = 3;
 
   std::unique_ptr<Effect> currentEffect; /**< Currently active effect, or null. */
   std::vector<uint16_t> pixelBuffer; /**< 16-bit linear RGB readback buffer. */
@@ -989,12 +989,12 @@ public:
    * callers that bypass the editor. The two numbers are intentionally
    * different, not a mismatch.
    */
-  static constexpr int kMaxRelaxIterations = 1000;
+  static constexpr int MAX_RELAX_ITERATIONS = 1000;
 
   /**
    * @brief Applies relax smoothing passes to the mesh.
    * @param iterations Number of smoothing passes; floored at 0 and clamped to
-   *        kMaxRelaxIterations.
+   *        MAX_RELAX_ITERATIONS.
    * @return Owning pointer to a new wrapper holding the relaxed mesh.
    * @details Explicit (not a MESHOP_* macro) because its int iteration count
    *          crosses the JS boundary unbounded: relax(1e9) would freeze the main
@@ -1002,7 +1002,7 @@ public:
    *          trusted.
    */
   std::unique_ptr<MeshOpsWrapper> relax(int iterations) const {
-    int clamped = hs_wasm::clamp_relax_iterations(iterations, kMaxRelaxIterations);
+    int clamped = hs_wasm::clamp_relax_iterations(iterations, MAX_RELAX_ITERATIONS);
     if (clamped != iterations)
       hs::log("WASM: MeshOps::relax clamped %d iterations to %d", iterations,
               clamped);

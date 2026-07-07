@@ -131,7 +131,7 @@ private:
    * the per-layer ring count is capped at one ring per row to skip overdraw at
    * high Density.
    */
-  static constexpr int kMaxRings = H > 1 ? H : 1;
+  static constexpr int MAX_RINGS = H > 1 ? H : 1;
 
   /**
    * @brief Draws one stack of concentric DistortedRings for a layer.
@@ -144,8 +144,8 @@ private:
   void draw_layer(Canvas &canvas, Quaternion layer_rotation,
                   const BakedPalette &pal) {
     int count = static_cast<int>(std::ceil(params.density));
-    if (count > kMaxRings)
-      count = kMaxRings;
+    if (count > MAX_RINGS)
+      count = MAX_RINGS;
     Basis basis = make_basis(layer_rotation, Z_AXIS);
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       Color4 c = pal.get(f.v0);

@@ -60,10 +60,10 @@ public:
                         orientation, random_vector(), orient_noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
-    constexpr float kFriction = 0.96f;
-    constexpr float kGravity = 0.0f;
-    constexpr float kMaxLife = 300.0f;
-    particle_system.init(persistent_arena, kFriction, kGravity, kMaxLife);
+    constexpr float FRICTION = 0.96f;
+    constexpr float GRAVITY = 0.0f;
+    constexpr float MAX_LIFE = 300.0f;
+    particle_system.init(persistent_arena, FRICTION, GRAVITY, MAX_LIFE);
 
     particle_system.add_emitter([this](ParticleSystem &sys) mutable {
       while (sys.active_count < sys.pool.capacity()) {
@@ -79,8 +79,8 @@ public:
           continue;
 
         // Rare random respawn so particles caught in field sinks redistribute.
-        constexpr float kRespawnProb = 0.005f;
-        if (hs::rand_f() < kRespawnProb) {
+        constexpr float RESPAWN_PROB = 0.005f;
+        if (hs::rand_f() < RESPAWN_PROB) {
           p.position = random_vector();
           p.velocity = Vector(0, 0, 0);
           p.history.clear();
@@ -90,8 +90,8 @@ public:
         // the lattice correlation length). All share the z input
         // (p.position.z * params.noise_scale + t) so time advances the field
         // along z, since FastNoiseLite is only 3D.
-        constexpr float kChannelDecorrelationOffset1 = 100.0f;
-        constexpr float kChannelDecorrelationOffset2 = 200.0f;
+        constexpr float CHANNEL_DECORRELATION_OFFSET1 = 100.0f;
+        constexpr float CHANNEL_DECORRELATION_OFFSET2 = 200.0f;
         float fx =
             noise_generator.GetNoise(p.position.x * params.noise_scale,
                                      p.position.y * params.noise_scale,
@@ -99,13 +99,13 @@ public:
             params.force_scale;
         float fy =
             noise_generator.GetNoise(p.position.x * params.noise_scale +
-                                         kChannelDecorrelationOffset1,
+                                         CHANNEL_DECORRELATION_OFFSET1,
                                      p.position.y * params.noise_scale,
                                      p.position.z * params.noise_scale + t) *
             params.force_scale;
         float fz =
             noise_generator.GetNoise(p.position.x * params.noise_scale +
-                                         kChannelDecorrelationOffset2,
+                                         CHANNEL_DECORRELATION_OFFSET2,
                                      p.position.y * params.noise_scale,
                                      p.position.z * params.noise_scale + t) *
             params.force_scale;
