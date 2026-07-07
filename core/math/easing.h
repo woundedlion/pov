@@ -13,7 +13,7 @@
 // Convention for the easings below: t is the normalized time factor in [0, 1].
 // Most are UNCLAMPED by design (matching the easings.net reference they mirror):
 // they neither clamp t nor bound the output, so an out-of-[0,1] t extrapolates
-// the curve — the cubic/back/elastic variants in particular can return values
+// the curve — the cubic/elastic variants in particular can return values
 // outside [0, 1]. The exceptions carry only the guards their math requires:
 // ease_in_circ/ease_out_circ floor the radicand (1 - t*t < 0 -> sqrt NaN), and
 // ease_out_expo/ease_out_elastic pin their exact endpoints and floor the
