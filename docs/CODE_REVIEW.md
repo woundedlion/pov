@@ -77,7 +77,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 
 ### High priority
 
-1. **find_kicad_cli picks KiCad 9 over 10 due to lexical version sort** — `hardware/phantasm/gen/fab.py:88-92` · _portability-build_
+1. ✅ **find_kicad_cli picks KiCad 9 over 10 due to lexical version sort** — `hardware/phantasm/gen/fab.py:88-92` · _portability-build_
    Fix: Sort by a parsed numeric version key, e.g. key=lambda p: tuple(int(x) for x in re.findall(r'\\KiCad\\(\d+)\.(\d+)\\', p)[0]) with a safe fallback, or extract the version directory and compare as (major,minor) ints. Then take max() of that key rather than lexical [-1].
 
 
