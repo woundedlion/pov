@@ -625,6 +625,13 @@ static constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
 static constexpr float STEREO_AZIMUTH_EPS = 1e-12f;
 
 /**
+ * @brief |v.y| (a length) at or below which gnomonic() floors the projection
+ * divisor to avoid div-by-zero at the equator, clamping the result to the
+ * sentinel. Unrelated to the coincidentally-equal math::EPS_NORMAL_SQ.
+ */
+static constexpr float STEREO_EQUATOR_EPS = 1e-9f;
+
+/**
  * @brief Represents a Complex number.
  */
 struct Complex {
@@ -791,7 +798,9 @@ inline Complex gnomonic(const Vector &v) {
   // |v.z| ≈ O(1), so it clamps to the sentinel; inv_gnomonic snaps any magnitude
   // at/above STEREO_INF_RECOGNIZE (half the sentinel) back to the pole, so the
   // equator collapses to the pole just inside |v.y| ~ 1.4e-4.
-  float div = (std::abs(v.y) < 1e-9f) ? 1e-9f * (v.y >= 0 ? 1.0f : -1.0f) : v.y;
+  float div = (std::abs(v.y) < STEREO_EQUATOR_EPS)
+                  ? STEREO_EQUATOR_EPS * (v.y >= 0 ? 1.0f : -1.0f)
+                  : v.y;
   float gx = v.x / div;
   float gz = v.z / div;
   gx = hs::clamp(gx, -STEREO_INF, STEREO_INF);
