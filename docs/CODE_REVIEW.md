@@ -270,7 +270,7 @@ None. No high-severity or critical defect was identified in scope.
 
 11. ✅ **Handle a bogus explicit `CLANG_FORMAT` override gracefully** — `scripts/generate_luts.py:115`. `subprocess.run([cf, ...])` raises an uncaught `FileNotFoundError` if `CLANG_FORMAT` points at a non-existent path (the auto-detect path degrades with a warning). Arguably fail-loud-is-correct for a power-user override; catch and emit a clear message if a friendlier failure is wanted.
 
-12. **Add isolated pixel-output tests for `Pixel::ChromaticShift` and `Screen::Blur`** — `tests/`. Both filters are exercised only transitively through effect smoke tests; add direct functional tests that assert their pixel output on a known input.
+12. ❌ **Add isolated pixel-output tests for `Pixel::ChromaticShift` and `Screen::Blur`** — `tests/`. Rejected: already handled. `tests/test_filter.h` has direct functional tests asserting the emitted taps/pixel output on known inputs — `test_blur_factor_zero_is_identity`, `test_blur_full_kernel_sums_to_alpha`, `test_blur_update_changes_kernel`, `test_blur_pole_row_renormalizes`, and `test_chromatic_shift_fanout`. The premise ("only transitively through effect smoke tests") is not accurate.
 
 13. **Add a dedicated `shading.h` test module** — `tests/`. `Fragment`/null-shader helpers are covered only incidentally through rasterizer tests; a small isolated module would pin their contract directly.
 
