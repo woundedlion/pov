@@ -164,7 +164,7 @@ Findings are numbered sequentially. Priority reflects severity and blast radius:
 
 18. ✅ **`MindSplatter::Params::lerp` lacks the `sizeof` guard its sibling has.** `effects/MindSplatter.h:158-166` hand-enumerates fields with no `static_assert(sizeof(Params) == N*sizeof(float))`, unlike `Liquid2D`; adding/reordering a preset float would silently leave it un-interpolated. **Fix:** add the matching `sizeof` `static_assert` (do not factor a shared helper — the divergent per-effect lerp strategy is intentional).
 
-19. **`segment_map()` doc bound contradicts the driver/README.** `hardware/pov_segment_map.h:44` documents N≤4 while the `static_assert`/README say N≤8. **Fix:** reconcile toward the true limit (N≤4) as part of #4/#5.
+19. ❌ **`segment_map()` doc bound contradicts the driver/README.** `hardware/pov_segment_map.h:44` documents N≤4 while the `static_assert`/README say N≤8. **Fix:** reconcile toward the true limit (N≤4) as part of #4/#5. *Rejected: the cited line already states the true limit (N≤4); the remaining `static_assert`/README reconciliation is finding #4's prescribed fix and out of this batch's scope (8–19) — fixing it here would preempt #4.*
 
 20. **Duplicated safety trap across commit/join adoption paths.** `hardware/pov_segmented.h:544-557`: both branches carry a character-identical `HS_CHECK(!p->overrides_get_pixel(), …)`; a future change must be mirrored by hand. **Fix:** extract just that invariant into a tiny `assert_render_column_safe(Effect*)` helper; keep the divergent policy inline.
 
