@@ -179,7 +179,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── math/                   Vector/quaternion math and scalar curves
 │   │   ├── 3dmath.h                Vector, Quaternion, Spherical, Complex, Möbius math
 │   │   ├── rotate.h                Quaternion projection helpers
-│   │   ├── geometry.h              Fragment, Dots/Points, PhiLUT/TrigLUT, coord conversions
+│   │   ├── geometry.h              Dots/Points, PhiLUT/TrigLUT, coord conversions
 │   │   ├── easing.h                Easing functions (cubic, sine, elastic, expo, etc.)
 │   │   └── waves.h                 sin_wave / tri_wave / square_wave generators
 │   ├── mesh/                   Polyhedral meshes and their operators
@@ -199,6 +199,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   │   ├── plot.h                  Line/curve rasterizer with geodesic/planar strategies
 │   │   ├── filter.h                Composable render pipeline + all Filter::World/Screen/Pix
 │   │   ├── sdf.h                   SDF shape primitives, CSG operations, distance queries
+│   │   ├── shading.h               Fragment + mesh-topology shading helpers, null shaders
 │   │   └── led.h                   LED pin constants + color-correction RAII guards (driver in hardware/pov_single.h)
 │   ├── animation/              Timeline scheduler + the animation type families
 │   │   ├── animation.h             IAnimation/AnimationBase contract + umbrella over the fragments below
@@ -600,7 +601,7 @@ All rasterizers — SDF scanline, curve plotting, mesh, volumetric, and full-scr
 
 #### The Fragment
 
-A `Fragment` (`geometry.h`) is the data packet exchanged between rasterizers and shaders. It carries the pixel position, four general-purpose float registers, and the output color:
+A `Fragment` (`render/shading.h`) is the data packet exchanged between rasterizers and shaders. It carries the pixel position, four general-purpose float registers, and the output color:
 
 ```cpp
 struct Fragment {

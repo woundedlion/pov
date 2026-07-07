@@ -13,6 +13,7 @@
 #include <emscripten.h>
 #endif
 #include "math/geometry.h"
+#include "render/shading.h"
 #include "color/color.h"
 #include "engine/constants.h"
 #include "render/canvas.h"

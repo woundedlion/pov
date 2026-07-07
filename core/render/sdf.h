@@ -12,6 +12,7 @@
 #include <cfloat>
 #include <span>
 #include "math/geometry.h"
+#include "render/shading.h"
 #include "engine/constants.h"
 #include "engine/concepts.h"
 #include "engine/static_circular_buffer.h"
