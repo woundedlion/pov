@@ -14,7 +14,7 @@
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { loadEffectRoster } from './effect_roster.mjs';
+import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
 
 // A malformed env value silently disables or distorts the timing it controls,
 // so fall back to the default on anything that isn't a finite, non-negative
@@ -27,7 +27,7 @@ function numEnv(name, def) {
 }
 
 const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
-const OUT_DIR = join('docs', 'screenshots');
+const OUT_DIR = join(REPO_ROOT, 'docs', 'screenshots');
 const WAIT_MS = numEnv('WAIT_MS', 30000);
 // A single toDataURL grab samples one instant, so for sparse/strobing effects
 // (e.g. RingShower) it can land on an empty frame and ship an all-black

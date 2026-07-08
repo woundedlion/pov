@@ -96,7 +96,7 @@ All 19 items are low-severity. Priority reflects *type of impact*, not urgency. 
 
 8. ✅ **`check.py` extra-net filter references a removed component (`Q_GATE`) and a renamed node (`CLF`)** — `hardware/phantasm/gen/check.py:64`. The board now uses a Schottky `Q_REV` and an `LF_DAMP` node, so both suppression prefixes are dead and could mask a genuinely unexpected net. Drop `"CLF"` and `"Q_GATE"` from the `startswith()` list.
 
-9. **`capture_screenshots.mjs` and `check_screenshots.mjs` resolve the screenshots directory against different roots** — `scripts/capture_screenshots.mjs:30`. Capture writes to a `process.cwd()`-relative `docs/screenshots`; the freshness gate reads a script-anchored `REPO_ROOT/docs/screenshots`. If ever run from another cwd they diverge silently. Anchor capture on `REPO_ROOT` too.
+9. ✅ **`capture_screenshots.mjs` and `check_screenshots.mjs` resolve the screenshots directory against different roots** — `scripts/capture_screenshots.mjs:30`. Capture writes to a `process.cwd()`-relative `docs/screenshots`; the freshness gate reads a script-anchored `REPO_ROOT/docs/screenshots`. If ever run from another cwd they diverge silently. Anchor capture on `REPO_ROOT` too.
 
 10. **`Quaternion` degeneracy guards use raw `float` epsilon instead of the module's named `EPS_*` constants** — `core/math/3dmath.h:511,549,562`. Three different un-named thresholds for the same "too small to normalize" decision (one even compares a squared magnitude against an unsquared epsilon), while the `Vector` path uses `math::EPS_NORMALIZE_SQ`. The header's own doc block asks that tolerances be reviewed in one place. Route all three through a named constant.
 
