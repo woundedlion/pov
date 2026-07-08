@@ -142,7 +142,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 19. ✅ **advanceFrameClock only consumes one frame interval per rAF, so a recovered backlog is capped to real-time regardless of catchup budget** — `driver.js:450-461` · _correctness_ _(severity revised down by validator)_
    Fix: Either loop the interval-consume inside stepSimulation up to the catchup budget to actually replay backlog, or simplify to a plain 'step when >= interval' and update the comment to say missed frames are dropped (not caught up). Pick one and make code+comment agree.
 
-20. **URLSync seeds 0 for an empty numeric URL param, diverging from gui.js's parseFloat coercion** — `state.js:157-160` · _correctness_
+20. ✅ **URLSync seeds 0 for an empty numeric URL param, diverging from gui.js's parseFloat coercion** — `state.js:157-160` · _correctness_
    Fix: Use parseFloat(raw) instead of Number(raw) in the URLSync numeric branch so both deserializers agree, e.g. `const num = parseFloat(raw); if (!Number.isFinite(num)) continue;`.
 
 21. **URLSync does not type-coerce boolean tracked keys, seeding a raw string into a boolean-typed key** — `state.js:156-163` · _correctness_
