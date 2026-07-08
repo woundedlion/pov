@@ -189,7 +189,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 34. **read_id() reports a strap fault via HS_CHECK trap but the two same-ID boards it cannot detect drive bus contention silently** — `hardware/pov_segmented.h:379-396` · _error-handling_
    Fix: No code change on the hot path; expand the read_id() doc to state that a duplicated-ID master electrically shorts the sync bus driver, so the field procedure must strap unique IDs, or move PIN_MASTER_EN to gate an open-drain/tri-stateable sync driver so a second master cannot source-fight the bus. If open-drain is adopted, the contention becomes benign and detectable.
 
-35. **Streaming recorder can silently produce a zero-byte download when close() succeeds but no data was written** — `recorder.js:399-424` · _error-handling_
+35. ✅ **Streaming recorder can silently produce a zero-byte download when close() succeeds but no data was written** — `recorder.js:399-424` · _error-handling_
    Fix: Guard the download calls on chunk presence, e.g. in finish's `if (!writable)` branch and the plain fallback: `if (chunks.length) this.download(...)` (the catch branch at line 423 already does this), and/or log a warning when a session ends with no data.
 
 36. **getNormalizedX yields NaN when the color strip has zero width** — `tools/palettes.html:641-650 (getNormalizedX)` · _error-handling_
