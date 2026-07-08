@@ -336,7 +336,11 @@ public:
             const GenerativePalette &to_palette, int duration,
             EasingFn easing_fn)
       : AnimationBase(duration, false), cur_palette(from_palette),
-        to_snap(to_palette.snapshot()), easing_fn(std::move(easing_fn)) {}
+        to_snap(to_palette.snapshot()), easing_fn(std::move(easing_fn)) {
+    // Reject the perpetual -1 the base permits: step() would clamp amount to 0
+    // forever, silently freezing the palette instead of driving it.
+    HS_CHECK(duration >= 0, "ColorWipe duration must be >= 0");
+  }
 
   /**
    * @brief Steps the animation, blending the palette's colors based on the time
