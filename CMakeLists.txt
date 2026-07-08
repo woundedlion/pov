@@ -58,9 +58,9 @@ if(EMSCRIPTEN)
     target_compile_options(${TARGET_NAME} PRIVATE "-O0" "-g")
     # 64 KB stack for debug only. -O0 disables inlining and stack-slot
     # coalescing, inflating frame sizes severalfold over the -O3 release build,
-    # so the tight release budget overflows under no optimization. The debug
-    # preset is never exercised by CI or the smoke script, so size it generously
-    # rather than rely on -sASSERTIONS to merely report the abort.
+    # so the tight release budget overflows under no optimization. CI does
+    # runtime-smoke this debug build, so size it generously to hold the inflated
+    # -O0 frames rather than rely on -sASSERTIONS to merely report the abort.
     target_link_options(${TARGET_NAME} PRIVATE "-O0" "-g" "-sASSERTIONS=1"
       "-sSTACK_SIZE=65536")
   else()

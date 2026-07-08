@@ -177,7 +177,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 30. ✅ **Doxygen block for pair_half_edges is misattached to sort_edge_records** — `core/mesh/mesh.h:130-165` · _documentation_
    Fix: Move the doc block (lines 130-139) down to immediately precede the pair_half_edges template at line 148, and give sort_edge_records its own one-line brief describing that it only sorts records in place by (min_v,max_v).
 
-31. **CMakeLists debug-stack rationale contradicts CI: the wasm-debug module IS smoke-driven** — `CMakeLists.txt:62-63` · _documentation_
+31. ✅ **CMakeLists debug-stack rationale contradicts CI: the wasm-debug module IS smoke-driven** — `CMakeLists.txt:62-63` · _documentation_
    Fix: Update the comment to reflect that CI does runtime-smoke the debug build (ci.yml 'Runtime-smoke WASM debug'), and keep the generous 64 KB sizing justified by -O0 frame inflation rather than by 'never exercised'.
 
 32. **Ripple constructor does not validate `speed` finiteness; a NaN speed silently freezes the wave phase** — `core/animation/params.h:651-660 (Ripple ctor), 675 (params.phase += speed)` · _error-handling_
