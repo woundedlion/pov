@@ -159,6 +159,52 @@ inline void test_null_fragment_shader_is_transparent() {
   HS_EXPECT_EQ(out.color.b, 0);
 }
 
+// --- shade_blinn_phong ------------------------------------------------------
+
+/**
+ * @brief Pins the metallic Blinn-Phong factor term by term against independently
+ *        computed goldens: the ambient floor, the half-Lambert diffuse, the
+ *        five-squaring ^32 specular, and the cubed Fresnel rim.
+ */
+inline void test_shade_blinn_phong() {
+  const Vector up(0, 0, 1);
+  const Vector zero(0, 0, 0);
+
+  // All weights zero leaves only the 0.05 ambient base.
+  HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, Vector(1, 0, 0), 0.0f, 0.0f, 0.0f),
+                 0.05f, 1e-6f);
+
+  // Half-Lambert diffuse: (n·l * 0.5 + 0.5)^2, specular/fresnel off.
+  HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, zero, 1.0f, 0.0f, 0.0f), 1.05f,
+                 1e-6f); // n·l = 1 -> diffuse = 1
+  HS_EXPECT_NEAR(
+      shade_blinn_phong(up, Vector(1, 0, 0), up, zero, 1.0f, 0.0f, 0.0f), 0.30f,
+      1e-6f); // n·l = 0 -> diffuse = 0.25
+  HS_EXPECT_NEAR(
+      shade_blinn_phong(up, Vector(0, 0, -1), up, zero, 1.0f, 0.0f, 0.0f), 0.05f,
+      1e-6f); // n·l = -1 -> diffuse = 0
+
+  // Specular ^32: light == view is a unit vector with z = 0.8, so the half
+  // vector is that same vector and n·h = 0.8, giving spec = 0.8^32.
+  const Vector u(0.6f, 0, 0.8f);
+  HS_EXPECT_NEAR(shade_blinn_phong(up, u, u, zero, 0.0f, 1.0f, 0.0f),
+                 0.05f + 0.0007922816251426434f, 1e-6f);
+  // Headlight peak: half == normal -> n·h = 1 -> spec = 1.
+  HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, zero, 0.0f, 1.0f, 0.0f), 1.05f,
+                 1e-6f);
+
+  // Cubed Fresnel rim: (1 - clamp(n·v))^3.
+  HS_EXPECT_NEAR(
+      shade_blinn_phong(up, up, Vector(1, 0, 0), zero, 0.0f, 0.0f, 1.0f), 1.05f,
+      1e-6f); // n·v = 0 -> fresnel = 1
+  HS_EXPECT_NEAR(shade_blinn_phong(up, up, up, zero, 0.0f, 0.0f, 1.0f), 0.05f,
+                 1e-6f); // n·v = 1 -> fresnel = 0
+
+  // All three terms weighted: 0.05 + 0.81*0.5 + 0.8^32*0.3 + 0.2^3*0.2.
+  HS_EXPECT_NEAR(shade_blinn_phong(up, u, u, zero, 0.5f, 0.3f, 0.2f),
+                 0.45683768f, 1e-5f);
+}
+
 /**
  * @brief Runs every shading test case.
  * @return The module's failure count.
@@ -174,6 +220,7 @@ inline int run_shading_tests() {
   test_mesh_topology_slot_out_of_range_falls_back();
   test_null_vertex_shader_is_identity();
   test_null_fragment_shader_is_transparent();
+  test_shade_blinn_phong();
 
   return fixture.result();
 }
