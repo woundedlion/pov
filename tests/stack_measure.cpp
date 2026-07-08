@@ -4,11 +4,13 @@
  *
  * Host stack high-water-mark gate across every effect.
  *
- * Method: stack painting. Descend writing a sentinel, unwind (the painted region
- * is now free stack below SP), run one effect (which descends into it), then find
- * the deepest point it reached by sentinel DENSITY (painting leaves small
- * per-frame gaps, so an untouched window is mostly-sentinel and a written one is
- * not). Built -Os + the device math flags so codegen tracks the size build.
+ * Method: stack painting. Descend writing an address-keyed pattern, unwind (the
+ * painted region is now free stack below SP), run one effect (which descends into
+ * it), then find the deepest point it reached by paint DENSITY (painting leaves
+ * small per-frame gaps, so an untouched window is mostly-painted and a written one
+ * is not). Keying each byte to its address stops a frame that writes runs of one
+ * value from reading as unpainted. Built -Os + the device math flags so codegen
+ * tracks the size build.
  *
  * CI gate: fails (non-zero exit) if the worst effect exceeds BUDGET_BYTES.
  */
@@ -24,7 +26,6 @@ namespace {
 constexpr int W = 288; // Phantasm device canvas
 constexpr int H = 144;
 constexpr int FRAMES = 8;
-constexpr uint8_t SENTINEL = 0xA5;
 constexpr int CHUNK = 2048;
 
 // Below the 16 KB device stack reservation minus the ISR allowance.
@@ -34,12 +35,19 @@ volatile uint8_t *g_lo;
 volatile uint8_t *g_hi;
 int g_measured = 0;
 
-// Descend painting SENTINEL, then unwind. After return the region [g_lo, g_hi)
-// is painted and sits below the caller's SP (free stack).
+// Paint value for a byte, keyed to its address so an incidental workload byte
+// matches only ~1/256 of the time.
+inline uint8_t paint_byte(const volatile uint8_t *a) {
+  uintptr_t x = reinterpret_cast<uintptr_t>(a);
+  return static_cast<uint8_t>((x ^ (x >> 7)) * 0x2Bu + 0xA5u);
+}
+
+// Descend painting the address-keyed pattern, then unwind. After return the
+// region [g_lo, g_hi) is painted and sits below the caller's SP (free stack).
 __attribute__((noinline)) void paint(int chunks) {
   volatile uint8_t buf[CHUNK];
   for (int i = 0; i < CHUNK; ++i)
-    buf[i] = SENTINEL;
+    buf[i] = paint_byte(&buf[i]);
   uint8_t *lo = const_cast<uint8_t *>(buf);
   uint8_t *hi = lo + CHUNK;
   if (!g_lo || lo < g_lo)
@@ -72,15 +80,15 @@ template <typename Effect> size_t measure(const char *name) {
   volatile uint8_t topmark;
   uint8_t *top = const_cast<uint8_t *>(&topmark);
   run_effect<Effect>();
-  // Deepest reach by sentinel density: an untouched 256-B window is mostly
-  // sentinel (paint gaps aside), a workload-written one is not.
+  // Deepest reach by paint density: an untouched 256-B window is mostly still
+  // painted (paint gaps aside), a workload-written one is not.
   constexpr size_t WIN = 256;
   constexpr size_t WRITTEN_MAX = WIN / 4;
   size_t peak = 0;
   for (uint8_t *p = const_cast<uint8_t *>(g_lo); p + WIN < top; p += WIN) {
     size_t s = 0;
     for (size_t i = 0; i < WIN; ++i)
-      if (p[i] == SENTINEL)
+      if (p[i] == paint_byte(p + i))
         ++s;
     if (s < WRITTEN_MAX) {
       peak = static_cast<size_t>(top - p);

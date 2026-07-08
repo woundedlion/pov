@@ -241,7 +241,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
    Fix: Scale the creep budget by build type — e.g. accept an env override (STACK_HWM_CEILING_BYTES) that ci.yml sets higher for the debug run, or derive the ceiling from stack.capacity so the -O0 build is measured against a proportionate budget rather than the release-tuned absolute.
    Rejected: the 2048-byte gate is a deliberate creep tripwire (documented as "not a bound"), independent of stack capacity by design; scaling it to the -O0 build's larger frames would only loosen the tripwire on the build most prone to creep, so no code change adds value.
 
-52. **stack-measure sentinel-density heuristic can under-report peak depth if a workload frame happens to write the 0xA5 byte densely** — `tests/stack_measure.cpp:79-91` · _testing_
+52. ✅ **stack-measure sentinel-density heuristic can under-report peak depth if a workload frame happens to write the 0xA5 byte densely** — `tests/stack_measure.cpp:79-91` · _testing_
    Fix: Reduce false-sentinel probability by painting a 4-byte rotating pattern (or a per-address value) instead of a single repeated byte, so a workload's incidental 0xA5 runs cannot masquerade as unpainted; alternatively widen the margin by requiring several consecutive 'written' windows before accepting a peak, or add an assertion that the region immediately below top is written (catches a scan that stopped at frame 0). Keep the -Os build so codegen still tracks the size config.
 
 
