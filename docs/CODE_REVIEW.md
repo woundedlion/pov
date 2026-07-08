@@ -78,7 +78,7 @@ All 19 items are low-severity. Priority reflects *type of impact*, not urgency. 
 
 ### Priority 1 — Correctness & Robustness (latent behavior)
 
-1. **`ColorWipe` is missing the `duration >= 0` guard its sibling tweens enforce** — `core/animation/params.h:335-339`. A perpetual (`-1`) duration is stored verbatim; `step()` then clamps `t/-1` to 0 forever, silently freezing the palette and never firing `.then()` or being removed. `Transition` and `Mutation` both `HS_CHECK(duration >= 0, ...)`. Add the same check to `ColorWipe`.
+1. ✅ **`ColorWipe` is missing the `duration >= 0` guard its sibling tweens enforce** — `core/animation/params.h:335-339`. A perpetual (`-1`) duration is stored verbatim; `step()` then clamps `t/-1` to 0 forever, silently freezing the palette and never firing `.then()` or being removed. `Transition` and `Mutation` both `HS_CHECK(duration >= 0, ...)`. Add the same check to `ColorWipe`.
 
 2. **`Screen::Trails::plot` drops the current-frame sample downstream for `alpha <= 0.001`, unlike every other filter** — `core/render/filter.h:952-971`. The early-return happens *before* `pass()`, so a dim live pixel is removed from the pipeline entirely rather than merely excluded from the trail buffer (the sibling `World::Trails` forwards it). Call `pass(...)` unconditionally, then gate only the history-seeding block.
 
