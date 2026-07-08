@@ -237,8 +237,9 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 50. ✅ **URLSync numeric coercion uses Number() but the empty-string/whitespace coercion edge is untested** — `tests/state.test.js:98-110` · _testing_
    Fix: Add a case asserting the intended behavior for `?count=` (empty) — either that it is rejected and keeps the default (if that is desired, which would require switching the coercion or adding a `raw === '' ` guard in state.js) or that it deliberately coerces to 0. Pinning it documents the Number()-vs-parseFloat choice.
 
-51. **Smoke-test stack creep gate is a fixed 2048 bytes but runs against both 8 KB release and 64 KB -O0 debug builds** — `scripts/wasm_smoke.mjs:26-27,109-120` · _testing_
+51. ❌ **Smoke-test stack creep gate is a fixed 2048 bytes but runs against both 8 KB release and 64 KB -O0 debug builds** — `scripts/wasm_smoke.mjs:26-27,109-120` · _testing_
    Fix: Scale the creep budget by build type — e.g. accept an env override (STACK_HWM_CEILING_BYTES) that ci.yml sets higher for the debug run, or derive the ceiling from stack.capacity so the -O0 build is measured against a proportionate budget rather than the release-tuned absolute.
+   Rejected: the 2048-byte gate is a deliberate creep tripwire (documented as "not a bound"), independent of stack capacity by design; scaling it to the -O0 build's larger frames would only loosen the tripwire on the build most prone to creep, so no code change adds value.
 
 52. **stack-measure sentinel-density heuristic can under-report peak depth if a workload frame happens to write the 0xA5 byte densely** — `tests/stack_measure.cpp:79-91` · _testing_
    Fix: Reduce false-sentinel probability by painting a 4-byte rotating pattern (or a per-address value) instead of a single repeated byte, so a workload's incidental 0xA5 runs cannot masquerade as unpainted; alternatively widen the margin by requiring several consecutive 'written' windows before accepting a peak, or add an assertion that the region immediately below top is written (catches a scan that stopped at frame 0). Keep the -Os build so codegen still tracks the size config.
