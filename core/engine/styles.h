@@ -114,10 +114,12 @@ struct Style {
   NoiseParams *noise = nullptr;
 
   // --- Per-frame derived cache (NOT a preset; refreshed by sync_hue) ---
-  // cos/sin of hue_shift's turn angle, read by hue_fade. Defaults to the
-  // identity rotation (angle 0) until the first sync_hue().
+  // cos/sin of hue_shift's turn angle plus its cbrt-LMS rotation matrix, read
+  // by hue_fade. Defaults to the identity rotation (angle 0) until the first
+  // sync_hue().
   float hue_ca = 1.0f;
   float hue_sa = 0.0f;
+  float hue_k[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
 
   /**
    * @brief Interpolate this Style between two endpoints.
@@ -143,9 +145,10 @@ struct Style {
   }
 
   /**
-   * @brief Precompute hue_shift's rotation (cos/sin) into hue_ca/hue_sa.
-   * @details Caches the frame-constant rotation for the per-pixel hue_fade hot
-   * path. Call once per frame before the feedback sampling loop.
+   * @brief Precompute hue_shift's rotation into hue_ca/hue_sa and hue_k.
+   * @details Caches the frame-constant rotation (cos/sin and its cbrt-LMS
+   * matrix) for the per-pixel hue_fade hot path. Call once per frame before
+   * the feedback sampling loop.
    */
   void sync_hue() {
     float angle = hue_shift * (2.0f * PI_F);
@@ -156,6 +159,7 @@ struct Style {
     float inv = 1.0f / sqrtf(ca * ca + sa * sa);
     hue_ca = ca * inv;
     hue_sa = sa * inv;
+    hue_rotate_lms_matrix(hue_ca, hue_sa, hue_k);
   }
 
   /**
@@ -285,9 +289,16 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
   return drifted;
 }
 
-// Uses the rotation precomputed once per frame by Style::sync_hue.
+// Uses the rotation matrix precomputed once per frame by Style::sync_hue.
+// The fade and the u16 normalization fold into the cbrt-LMS domain:
+// cbrt(fade/65535 * LMS) = cbrt(fade/65535) * cbrt(LMS).
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s) {
-  return hue_rotate(Color4(p * fade, 1.0f), s.hue_ca, s.hue_sa).color;
+  float sc = fast_cbrt(fade * (1.0f / 65535.0f));
+  LMS lms = linear_rgb_to_lms(p.r, p.g, p.b);
+  float r, g, b;
+  lms_cbrt_transform_rgb(s.hue_k, fast_cbrt(lms.l) * sc, fast_cbrt(lms.m) * sc,
+                         fast_cbrt(lms.s) * sc, r, g, b);
+  return Pixel(float_to_pixel16(r), float_to_pixel16(g), float_to_pixel16(b));
 }
 
 } // namespace Feedback

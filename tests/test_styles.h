@@ -270,7 +270,7 @@ inline void test_sync_hue_caches_rotation() {
  * @details Unlike the gray-pixel zero-shift case, a saturated pixel has chroma to
  *          rotate: the rotated result must diverge from the plain (hue-preserving)
  *          fade, and must match an independent per-call rotation by the same
- *          amount — pinning that hue_fade consumes hue_ca/hue_sa correctly.
+ *          amount — pinning that hue_fade consumes the sync_hue cache correctly.
  */
 inline void test_hue_fade_nonzero_shift_rotates_saturated() {
   Pixel red(50000, 2000, 2000);
@@ -285,11 +285,52 @@ inline void test_hue_fade_nonzero_shift_rotates_saturated() {
                     std::abs((int)rotated.g - (int)plain.g) +
                     std::abs((int)rotated.b - (int)plain.b);
   HS_EXPECT_TRUE(delta > 1000);
+}
 
-  Pixel ref = hue_rotate(Color4(red * fade, 1.0f), s.hue_ca, s.hue_sa).color;
-  HS_EXPECT_EQ(rotated.r, ref.r);
-  HS_EXPECT_EQ(rotated.g, ref.g);
-  HS_EXPECT_EQ(rotated.b, ref.b);
+/**
+ * @brief Verifies the identity rotation's cbrt-LMS matrix is the identity.
+ * @details hue_rotate_lms_matrix folds oklab_to_lms_cbrt . rotate .
+ *          lms_to_oklab; at rotation zero the fold must reduce to the identity
+ *          within float error of the two OKLab matrices, which pins them as
+ *          mutual inverses.
+ */
+inline void test_hue_rotate_lms_matrix_identity() {
+  float k[9];
+  hue_rotate_lms_matrix(1.0f, 0.0f, k);
+  for (int i = 0; i < 9; ++i)
+    HS_EXPECT_NEAR(k[i], (i % 4 == 0) ? 1.0f : 0.0f, 1e-5f);
+}
+
+/**
+ * @brief Parity sweep: hue_fade's folded cbrt-LMS path vs the reference
+ *        fade-then-hue_rotate composition.
+ * @details The fold changes only float association and drops the fade's
+ *          intermediate u16 quantization, so results must track the reference
+ *          within a few 16-bit LSB. The sweep crosses saturated primaries
+ *          (which exercise the gamut-clip slow path), a dark and a gray tone
+ *          with every preset-range fade/shift combination. The measured max
+ *          delta on this sweep is 19 LSB; the tolerance carries ~3x margin.
+ */
+inline void test_hue_fade_matches_rotate_reference() {
+  constexpr float HS_HUE_FADE_TOL = 64.0f;
+  const Pixel colors[] = {Pixel(65535, 0, 0),     Pixel(0, 65535, 0),
+                          Pixel(0, 0, 65535),     Pixel(65535, 65535, 0),
+                          Pixel(50000, 2000, 2000), Pixel(300, 200, 100),
+                          Pixel(20000, 20000, 20000)};
+  const float fades[] = {0.0f, 0.58f, 0.9f, 0.99f};
+  const float shifts[] = {0.0f, 0.01f, 0.05f, 0.1f, 0.33f};
+  for (const Pixel &c : colors)
+    for (float fade : fades)
+      for (float shift : shifts) {
+        Feedback::Style s{};
+        s.hue_shift = shift;
+        s.sync_hue();
+        Pixel got = Feedback::hue_fade(c, fade, s);
+        Pixel ref = hue_rotate(Color4(c * fade, 1.0f), s.hue_ca, s.hue_sa).color;
+        HS_EXPECT_NEAR((float)got.r, (float)ref.r, HS_HUE_FADE_TOL);
+        HS_EXPECT_NEAR((float)got.g, (float)ref.g, HS_HUE_FADE_TOL);
+        HS_EXPECT_NEAR((float)got.b, (float)ref.b, HS_HUE_FADE_TOL);
+      }
 }
 
 // --- sync_noise -------------------------------------------------------------
@@ -340,6 +381,8 @@ inline int run_styles_tests() {
   test_hue_fade_zero_shift_preserves_gray();
   test_sync_hue_caches_rotation();
   test_hue_fade_nonzero_shift_rotates_saturated();
+  test_hue_rotate_lms_matrix_identity();
+  test_hue_fade_matches_rotate_reference();
   test_sync_noise_pushes_scalars();
 
   return fixture.result();

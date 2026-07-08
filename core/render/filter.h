@@ -1309,15 +1309,19 @@ public:
     // quantization at the write); an arbitrary ColorFn keeps the Pixel
     // interface, so the sample is quantized first.
     if (style_->color_fn == &::Feedback::hue_fade) {
-      const float scale = fade * (1.0f / 65535.0f);
-      const float ca = style_->hue_ca, sa = style_->hue_sa;
+      // Pre-scale the frame-constant rotation by cbrt(fade/65535), folding the
+      // fade and the u16 normalization into the one matrix (see hue_fade).
+      float k[9];
+      const float sc = fast_cbrt(fade * (1.0f / 65535.0f));
+      for (int i = 0; i < 9; ++i)
+        k[i] = style_->hue_k[i] * sc;
       composite([&](float r, float g, float b) {
-        r *= scale;
-        g *= scale;
-        b *= scale;
-        hue_rotate_rgb(r, g, b, ca, sa);
-        return ::Pixel(float_to_pixel16(r), float_to_pixel16(g),
-                       float_to_pixel16(b));
+        LMS lms = linear_rgb_to_lms(r, g, b);
+        float rr, gg, bb;
+        lms_cbrt_transform_rgb(k, fast_cbrt(lms.l), fast_cbrt(lms.m),
+                               fast_cbrt(lms.s), rr, gg, bb);
+        return ::Pixel(float_to_pixel16(rr), float_to_pixel16(gg),
+                       float_to_pixel16(bb));
       });
     } else if (style_->color_fn == &::Feedback::plain_fade) {
       composite([&](float r, float g, float b) {
