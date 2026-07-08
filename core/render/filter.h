@@ -1175,11 +1175,6 @@ public:
 
     if (!any_pixel_lit(cv)) return;
 
-    // LIFO scope reclaims dx/dy on return; must not be read after that.
-    ScratchScope scope(scratch_arena_a);
-    auto *dx = scope.get_arena().allocate_n<int16_t>(hh * hw);
-    auto *dy = scope.get_arena().allocate_n<int16_t>(hh * hw);
-
     const auto &cr = cv.clip();
     const int y_lo = cr.render_y_start();
     const int y_hi = cr.render_y_end();
@@ -1197,13 +1192,52 @@ public:
       }
     }
 
-    // 1) Populate coarse warp field as seam-continuous deltas (int16 1/128 px).
     constexpr float Q = 128.0f;
     const int cy_lo = y_lo / ds;
     int cy_hi = ((y_hi - 1) / ds) + 1;
     if (cy_hi > hh - 1) cy_hi = hh - 1;
     HS_CHECK(cy_hi >= cy_lo, "feedback coarse band inverted: [%d,%d]", cy_lo,
              cy_hi);
+
+    // The warp field is a pure function of the key's fields for the stock
+    // space transforms (their only time axis is noise time * speed), so equal
+    // keys mean the cached field can be reused verbatim. Static presets
+    // (speed 0) then skip the whole space_fn pass. An arbitrary user SpaceFn
+    // may read state the key can't see; never cache it.
+    const NoiseParams *np = style_->noise;
+    const bool cacheable =
+        warp_dx_ && !xc.active && ds == CACHE_DS &&
+        (style_->space_fn == &::Feedback::noise_warp ||
+         style_->space_fn == &::Feedback::melt_warp ||
+         style_->space_fn == &::Feedback::identity_warp);
+    const WarpKey key{style_->space_fn,
+                      np,
+                      style_->amplitude,
+                      style_->frequency,
+                      style_->speed,
+                      style_->scale,
+                      np ? np->time * np->speed : 0.0f,
+                      cy_lo,
+                      cy_hi};
+
+    // LIFO scope reclaims a scratch dx/dy on return; must not be read after
+    // that. Cacheable flushes use the init_storage() arrays instead.
+    ScratchScope scope(scratch_arena_a);
+    int16_t *dx, *dy;
+    bool populate = true;
+    if (cacheable) {
+      dx = warp_dx_;
+      dy = warp_dy_;
+      populate = !(warp_cache_valid_ && key == warp_key_);
+      warp_key_ = key;
+      warp_cache_valid_ = true;
+    } else {
+      dx = scope.get_arena().allocate_n<int16_t>(hh * hw);
+      dy = scope.get_arena().allocate_n<int16_t>(hh * hw);
+    }
+
+    // 1) Populate coarse warp field as seam-continuous deltas (int16 1/128 px).
+    if (populate)
     for (int cy = cy_lo; cy <= cy_hi; ++cy) {
       int y = cy * ds;
       for (int cx = 0; cx < hw; ++cx) {
@@ -1348,6 +1382,20 @@ public:
   void set_enabled(bool e) { enabled_ = e; }
 
   /**
+   * @brief Allocates the warp-field cache from the persistent arena.
+   * @param arena Persistent arena supplying 2 * CACHE_CELLS int16 slots.
+   * @details Must be called from effect init(), not the constructor (arenas
+   * aren't ready yet), and again after any compaction that resets the arena —
+   * the cache is derived data, so it just re-populates on the next flush.
+   * Without storage every flush renders uncached.
+   */
+  void init_storage(Arena &arena) {
+    warp_dx_ = arena.allocate_n<int16_t>(CACHE_CELLS);
+    warp_dy_ = arena.allocate_n<int16_t>(CACHE_CELLS);
+    warp_cache_valid_ = false;
+  }
+
+  /**
    * @brief Accesses the bound Style.
    * @return Mutable reference to the bound feedback Style.
    */
@@ -1427,8 +1475,28 @@ private:
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 65535.0f) + 0.5f);
   }
 
+  /** @brief Coarse grid downsample the warp cache is sized for (the default
+   *  Style's; every preset keeps it). Other values render uncached. */
+  static constexpr int CACHE_DS = ::Feedback::Style{}.downsample;
+  /** @brief Cell count of the cached coarse grid. */
+  static constexpr int CACHE_CELLS = (W / CACHE_DS) * (H / CACHE_DS);
+
+  /** @brief Inputs the coarse warp field is a pure function of (stock
+   *  transforms only); equal keys make the cached field reusable. */
+  struct WarpKey {
+    ::Feedback::SpaceFn space_fn;
+    const NoiseParams *noise;
+    float amplitude, frequency, speed, scale, time;
+    int cy_lo, cy_hi;
+    bool operator==(const WarpKey &) const = default;
+  };
+
   ::Feedback::Style *style_;  /**< Bound feedback Style (non-owning). */
   bool enabled_ = true;       /**< When false, flush() is skipped entirely. */
+  WarpKey warp_key_{};        /**< Key the cached warp field was built for. */
+  bool warp_cache_valid_ = false; /**< True once warp_dx_/warp_dy_ hold a field. */
+  int16_t *warp_dx_ = nullptr; /**< Arena-owned cached column deltas. */
+  int16_t *warp_dy_ = nullptr; /**< Arena-owned cached row deltas. */
 };
 
 /**
