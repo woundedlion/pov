@@ -154,7 +154,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 23. **prettify's symbolic snapping uses an absolute 1e-5 tolerance that is too coarse near small constants and too fine near large ones** — `label_format.js:21-38` · _correctness_ _(severity revised down by validator)_
    Fix: If tighter consistency is wanted, compare against the same precision the fallback uses (snap only when r.toFixed(3) equals the constant's toFixed(3)), or use a relative tolerance `Math.abs(r - k) <= 1e-5 * Math.max(1, Math.abs(k))`. Otherwise document that 1e-5 is a deliberate visual-only threshold.
 
-24. **renderParallel() leaves stale timings/renderUs/arenas for segments that never reported this frame** — `segment_controller.js:629-644, 810-849` · _correctness_
+24. ✅ **renderParallel() leaves stale timings/renderUs/arenas for segments that never reported this frame** — `segment_controller.js:629-644, 810-849` · _correctness_
    Fix: In renderParallel(), when opening a fresh dispatch, also reset the per-segment stat arrays that updateStats() reads (e.g. this.timings.fill(0), this.renderUs.fill(0), this.arenas.fill(null)) so a fenced-out or non-reporting segment shows '-'/0 rather than a stale prior-generation value. Alternatively gate updateStats() cells on results[s] being non-null (which already tracks the current generation).
 
 25. **computeSegmentRange silently drops the trailing column for odd canvas widths** — `segment_layout.js:65-67` · _correctness_
