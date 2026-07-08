@@ -3430,6 +3430,72 @@ struct Torus {
 };
 
 /**
+ * @brief 3D superquadric signed distance field: the p-norm level set
+ *        (|x|^p + |y|^p + |z|^p)^(1/p) = s.
+ *
+ * The exponent selects the solid: p = 1 an octahedron, p = 2 a sphere,
+ * p -> inf a cube (corners round off at finite p). The p-norm is not
+ * 1-Lipschitz for p < 2, so distance() divides by the exact gradient-norm
+ * bound 3^(1/p - 1/2), keeping the field sphere-tracing-safe.
+ */
+struct Superquadric {
+  float s;       /**< Scale: level-set value; axis vertices sit at distance s. */
+  float p;       /**< Exponent selecting the solid. */
+  float inv_p;   /**< Precomputed 1/p. */
+  float inv_lip; /**< Reciprocal of the p-norm's max gradient norm. */
+
+  /**
+   * @brief Constructs a superquadric of scale s and exponent p.
+   * @param s_ Scale (level-set value); must be > 0.
+   * @param p_ Exponent; must be >= 1. Below 1 the p-norm gradient is unbounded
+   *        near the coordinate planes, so no constant divisor can make
+   *        distance() sphere-tracing-safe. Guarded at the (cold) construction
+   *        site like Warp::Twist's R > 0 check.
+   */
+  Superquadric(float s_, float p_) : s(s_), p(p_), inv_p(1.0f / p_) {
+    HS_CHECK(s > 0.0f && p >= 1.0f);
+    inv_lip = powf(3.0f, std::min(0.0f, 0.5f - inv_p));
+  }
+
+  /**
+   * @brief Maximum Euclidean distance from the origin to the surface.
+   * @return s for p <= 2 (axis vertices); grows toward s*sqrt(3) as p -> inf
+   *         (cube corners on the diagonals).
+   */
+  float circumradius() const {
+    return s * powf(3.0f, std::max(0.0f, 0.5f - inv_p));
+  }
+
+  /**
+   * @brief Sphere-tracing-safe signed distance to the surface.
+   * @param q Query point in Cartesian ray-space.
+   * @return Lipschitz-corrected signed distance (negative inside).
+   */
+  float distance(const Vector &q) const {
+    float n = powf(powf(fabsf(q.x), p) + powf(fabsf(q.y), p) +
+                       powf(fabsf(q.z), p),
+                   inv_p);
+    return (n - s) * inv_lip;
+  }
+
+  /**
+   * @brief Surface normal at a point near the surface.
+   * @param q Query point in Cartesian ray-space.
+   * @return Unit outward normal (the p-norm's gradient direction).
+   */
+  Vector normal(const Vector &q) const {
+    float e = p - 1.0f;
+    Vector g(copysignf(powf(fabsf(q.x), e), q.x),
+             copysignf(powf(fabsf(q.y), e), q.y),
+             copysignf(powf(fabsf(q.z), e), q.z));
+    float len = g.length();
+    if (len < TOLERANCE)
+      return Vector(0.0f, 1.0f, 0.0f);
+    return g / len;
+  }
+};
+
+/**
  * @brief Domain warp functions for composing with WarpedSDF.
  */
 namespace Warp {
