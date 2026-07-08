@@ -104,7 +104,7 @@ All 19 items are low-severity. Priority reflects *type of impact*, not urgency. 
 
 ### Priority 3 — Test Coverage Gaps
 
-12. **Death-case floor (`MIN_DEATH_CASES`) is one below the actual count, so a single dropped case passes silently** — `tests/test_death.h:1118-1119`. `MIN_DEATH_CASES = 38` but the table has 39 cases; deleting one still satisfies `>= 38`, defeating the anti-shrink guard for the common single-deletion mistake. Set it to the exact count (39) or derive it from a compile-time `ALL_CASES_COUNT`.
+12. ✅ **Death-case floor (`MIN_DEATH_CASES`) is one below the actual count, so a single dropped case passes silently** — `tests/test_death.h:1118-1119`. `MIN_DEATH_CASES = 38` but the table has 39 cases; deleting one still satisfies `>= 38`, defeating the anti-shrink guard for the common single-deletion mistake. Set it to the exact count (39) or derive it from a compile-time `ALL_CASES_COUNT`.
 
 13. **`EngineHost.refresh()` has no direct test for the detached-view re-fetch — the module's raison d'être** — `tests/engine_host.test.js:28-41` (daydream). Null-view and live-view paths are tested; the detached (heap-grown) path is only pinned one layer down in `pixel_view.test.js`. Add a test seeding a detached view and asserting `refresh()` re-fetches and fires `onViewRefreshed`.
 
