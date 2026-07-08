@@ -1237,6 +1237,10 @@ public:
     const bool black_skips_color =
         style_->color_fn == &::Feedback::hue_fade ||
         style_->color_fn == &::Feedback::plain_fade;
+    // lerp16 at frac 65535 returns the source exactly, so full alpha is a
+    // plain store.
+    const auto blend = blend_alpha(alpha);
+    const bool opaque = alpha >= 1.0f;
     for (int y = y_lo; y < y_hi; ++y) {
       int cy0 = y / ds;
       int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;
@@ -1289,7 +1293,7 @@ public:
                           : style_->color_fn(sample, fade, *style_);
 
           // write black too, to overwrite the stale double-buffer frame
-          cv(x, y) = blend_alpha(alpha)(cv(x, y), p);
+          cv(x, y) = opaque ? p : blend(cv(x, y), p);
         }
 
         if (++sub == ds) { sub = 0; ++cx0; }
