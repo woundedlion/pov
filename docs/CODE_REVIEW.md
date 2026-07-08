@@ -192,7 +192,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 35. ✅ **Streaming recorder can silently produce a zero-byte download when close() succeeds but no data was written** — `recorder.js:399-424` · _error-handling_
    Fix: Guard the download calls on chunk presence, e.g. in finish's `if (!writable)` branch and the plain fallback: `if (chunks.length) this.download(...)` (the catch branch at line 423 already does this), and/or log a warning when a session ends with no data.
 
-36. **getNormalizedX yields NaN when the color strip has zero width** — `tools/palettes.html:641-650 (getNormalizedX)` · _error-handling_
+36. ✅ **getNormalizedX yields NaN when the color strip has zero width** — `tools/palettes.html:641-650 (getNormalizedX)` · _error-handling_
    Fix: Guard the divisor: `return rect.width > 0 ? Math.max(0, Math.min(1, x / rect.width)) : 0;`
 
 37. **update_hankin is_flat path can trap on a zero-length base vertex without the degenerate guard the non-flat path has** — `core/mesh/hankin.h:279-281` · _error-handling_ _(severity revised down by validator)_
