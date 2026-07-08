@@ -1302,8 +1302,7 @@ using Fn = hs::inplace_function<Sig, Cap>;
 #endif
 
 // Detect x86 / x64 architecture (Desktop/Simulator)
-#if defined(__x86_64__) || defined(_M_X64) || defined(__i386__) ||             \
-    defined(_M_IX86)
+#if defined(__x86_64__) || defined(__i386__)
 #include <xmmintrin.h> // Required for SSE intrinsics
 #define HS_ARCH_X86
 #endif
