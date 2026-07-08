@@ -168,7 +168,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 27. ✅ **truncate's ambo short-circuit tolerance (1e-4) silently redirects a narrow band of near-0.5 t values** — `core/mesh/conway.h:571-573` · _correctness_
    Fix: Either tighten the comparison to an exact `t == 0.5f` (safe here because callers pass literal constants) or update the truncate doc to state the +/-TOLERANCE snap band explicitly.
 
-28. **expand/chamfer/snub emit an edge face even when an adjacent primary face was degenerate, silently producing a malformed quad/triangle** — `core/mesh/conway.h:730-738` · _correctness_
+28. ✅ **expand/chamfer/snub emit an edge face even when an adjacent primary face was degenerate, silently producing a malformed quad/triangle** — `core/mesh/conway.h:730-738` · _correctness_
    Fix: This is a design tradeoff for the intentional self-intersecting cases and may be acceptable; at minimum document that edge/orbit faces are NOT gated on well_formed so a future maintainer does not assume the whole operator degrades cleanly on sub-3-gons. No perf cost to a comment.
 
 29. **apply_pole_containment ray-cast can divide through inv_edge_j == 0 for a near-horizontal straddling edge, yielding a degenerate intercept** — `core/render/sdf.h:2325-2327, 2345-2347` · _correctness_
