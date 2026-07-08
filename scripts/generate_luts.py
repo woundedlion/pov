@@ -83,7 +83,7 @@ def emit_array(out, decl, values, per_row):
 
 def render(out, fwd, rev):
     out.write("#pragma once\n")
-    out.write('#include "platform.h"\n')
+    out.write('#include "engine/platform.h"\n')
     out.write("// Generated LUTs for color conversion\n")
     out.write("// Source: scripts/generate_luts.py (Precise sRGB Transfer Function)\n")
     out.write("\n")
