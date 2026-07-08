@@ -8,7 +8,7 @@
 #include "core/engine/engine.h"
 
 /**
- * @brief Ray-marches a twisted torus SDF once per dodecahedron vertex, shading
+ * @brief Ray-marches a twisted torus SDF once per dodecahedron face, shading
  *        each with a metallic headlight model and a baked OKLCH palette.
  * @tparam W Effect render width in pixels.
  * @tparam H Effect render height in pixels.
@@ -21,13 +21,15 @@ public:
   FLASHMEM Raymarch() : Effect(W, H) {}
 
   /**
-   * @brief Registers tunable params, precomputes per-vertex quaternions, bakes
-   *        the palette LUT, and installs the camera walk and per-frame draw on
-   *        the timeline.
+   * @brief Registers tunable params, precomputes per-face centers and
+   *        quaternions, bakes the palette LUT, and installs the camera walk and
+   *        per-frame draw on the timeline.
    */
   void init() override {
     registerParam("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
-    registerParam("Core Size", &params.core_size, 0.1f, 0.8f);
+    // Upper bound keeps the largest torus below half the 63.4° face-center
+    // spacing, so no slider setting overlaps a neighbour.
+    registerParam("Core Size", &params.core_size, 0.1f, 0.62f);
     registerParam("Max Steps", &params.max_steps, 4.0f, 30.0f);
     registerParam("Diffuse", &params.diffuse, 0.0f, 1.0f);
     registerParam("Specular", &params.specular, 0.0f, 1.5f);
@@ -35,8 +37,15 @@ public:
     registerParam("Twist", &params.twist, 0.0f, 8.0f);
     registerParam("AA Width", &params.aa_mult, 0.1f, 1.5f);
 
-    for (int i = 0; i < NUM_VERTS; ++i) {
-      raw_quats[i] = make_rotation(Y_AXIS, Solids::Dodecahedron::vertices[i]);
+    for (int fi = 0, base = 0; fi < NUM_FACES; ++fi) {
+      int count = Solids::Dodecahedron::face_counts[fi];
+      Vector sum(0, 0, 0);
+      for (int k = 0; k < count; ++k)
+        sum = sum + Solids::Dodecahedron::vertices[
+                        Solids::Dodecahedron::faces[base + k]];
+      face_centers[fi] = sum.normalized();
+      raw_quats[fi] = make_rotation(Y_AXIS, face_centers[fi]);
+      base += count;
     }
 
     baked_palette.bake(persistent_arena, palette);
@@ -121,11 +130,11 @@ private:
            fresnel * params.fresnel;
   }
 
-  static constexpr int NUM_VERTS = Solids::Dodecahedron::NUM_VERTS;
+  static constexpr int NUM_FACES = Solids::Dodecahedron::NUM_FACES;
 
   /**
    * @brief Ray-marches and shades the twisted torus at every dodecahedron
-   *        vertex for the current frame.
+   *        face center for the current frame.
    * @param canvas Render target for this frame's fragments.
    * @param opacity Sprite fade alpha in [0, 1], written into each fragment's
    *                color.
@@ -151,30 +160,30 @@ private:
     float spin_angle = spin_phase * TWO_PI_F;
     Quaternion spin_q = make_rotation(X_AXIS, spin_angle);
 
-    for (int vi = 0; vi < NUM_VERTS; ++vi) {
-      Vector vertex = camera.orient(Solids::Dodecahedron::vertices[vi]);
-      Vector ray_dir(-vertex.x, -vertex.y, -vertex.z);
+    for (int fi = 0; fi < NUM_FACES; ++fi) {
+      Vector center = camera.orient(face_centers[fi]);
+      Vector ray_dir(-center.x, -center.y, -center.z);
 
-      Quaternion world_q = camera.get() * raw_quats[vi] * spin_q;
+      Quaternion world_q = camera.get() * raw_quats[fi] * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
 
       auto frag_fn = [&](const Vector &loc, Fragment &frag) {
         Vector n_local = torus.normal(loc);
         Vector n_world = rotate(n_local, world_q);
         // Headlight model: light coincides with the viewer, so the view vector
-        // `vertex` serves as both light_dir and view_dir.
-        float shade = shadeBlinnPhong(n_world, vertex, vertex, tangent);
+        // `center` serves as both light_dir and view_dir.
+        float shade = shadeBlinnPhong(n_world, center, center, tangent);
 
         float ring_angle = (atan2f(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
         float palette_t = fmodf(
-            ring_angle + palette_phase + static_cast<float>(vi) / NUM_VERTS,
+            ring_angle + palette_phase + static_cast<float>(fi) / NUM_FACES,
             1.0f);
         Color4 c = baked_palette.get(palette_t);
         frag.color = Color4(c.color * shade, opacity);
       };
 
-      Scan::TransformedVolume vol(torus, vertex, world_q);
-      Scan::Volume::draw<W, H>(pipeline, canvas, vertex, bounds_radius,
+      Scan::TransformedVolume vol(torus, center, world_q);
+      Scan::Volume::draw<W, H>(pipeline, canvas, center, bounds_radius,
                                ray_dir, vol, frag_fn, max_steps, aa_width);
     }
   }
@@ -184,7 +193,7 @@ private:
    */
   struct Params {
     float pulse_speed = 5.0f;
-    float core_size = 0.4f;
+    float core_size = 0.58f;
     float max_steps = 18.0f;
     float diffuse = 0.4f;
     float specular = 1.2f;
@@ -198,7 +207,8 @@ private:
   Orientation<> camera;
   float spin_phase = 0.0f;    // torus tumble phase, [0,1) -> [0,2pi) radians
   float palette_phase = 0.0f; // baked-palette scroll offset, [0,1) cycles
-  std::array<Quaternion, NUM_VERTS> raw_quats;
+  std::array<Vector, NUM_FACES> face_centers;
+  std::array<Quaternion, NUM_FACES> raw_quats;
   Timeline timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
