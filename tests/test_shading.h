@@ -205,6 +205,68 @@ inline void test_shade_blinn_phong() {
                  0.45683768f, 1e-5f);
 }
 
+// --- shade_mesh_topology (segue overload) -----------------------------------
+
+/** @brief Palette stub whose get(t) tags the color's red channel with its id. */
+struct StubSeguePalette {
+  int id = 0;
+  Color4 get(float) const {
+    return Color4(Pixel(static_cast<uint16_t>(id), 0, 0), 1.0f);
+  }
+};
+
+/** @brief Indexable bank of palette stubs, slot i carrying id i. */
+struct StubSegueBank {
+  StubSeguePalette pals[4];
+  const StubSeguePalette &operator[](int i) const { return pals[i]; }
+};
+
+/**
+ * @brief Segue policy stub: fill() returns a fixed cover, grade() stamps the
+ *        green channel so the routing is observable, opacity() a fixed value.
+ */
+struct StubSegue {
+  float cover;
+  float op;
+  float fill(float, float) const { return cover; }
+  Color4 grade(Color4 c, float) const {
+    c.color.g = 777;
+    return c;
+  }
+  float opacity(float) const { return op; }
+};
+
+/**
+ * @brief Verifies the segue shade_mesh_topology overload routes cover/grade/
+ *        opacity: a non-positive cover culls to transparent, otherwise the
+ *        resolved palette slot is graded and alpha becomes cover * opacity.
+ */
+inline void test_shade_mesh_topology_segue() {
+  const int topology[] = {2}; // face 0 -> topology class 2
+  std::array<int, 4> palette_idx = {0, 0, 3, 0}; // class 2 -> bank slot 3
+  StubSegueBank bank;
+  for (int i = 0; i < 4; ++i)
+    bank.pals[i].id = i;
+
+  Fragment f;
+  f.v1 = -0.5f;
+  f.size = 1.0f; // fragment_edge_dist = 0.5
+  f.v2 = 0.0f;   // face index 0
+
+  StubSegue culler{0.0f, 1.0f};
+  Color4 culled =
+      shade_mesh_topology(f, topology, 1, bank, palette_idx, 1.0f, culler, 0.0f);
+  HS_EXPECT_NEAR(culled.alpha, 0.0f, 1e-6f);
+  HS_EXPECT_EQ(culled.color.r, 0);
+
+  StubSegue pass{0.5f, 0.8f};
+  Color4 out =
+      shade_mesh_topology(f, topology, 1, bank, palette_idx, 1.0f, pass, 0.0f);
+  HS_EXPECT_EQ(out.color.r, 3);           // slot 3 palette -> id 3
+  HS_EXPECT_EQ(out.color.g, 777);         // grade() stamped
+  HS_EXPECT_NEAR(out.alpha, 0.4f, 1e-6f); // cover 0.5 * opacity 0.8
+}
+
 /**
  * @brief Runs every shading test case.
  * @return The module's failure count.
@@ -221,6 +283,7 @@ inline int run_shading_tests() {
   test_null_vertex_shader_is_identity();
   test_null_fragment_shader_is_transparent();
   test_shade_blinn_phong();
+  test_shade_mesh_topology_segue();
 
   return fixture.result();
 }
