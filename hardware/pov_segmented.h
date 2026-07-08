@@ -673,7 +673,7 @@ private:
   static bool sync_low_pending_;           /**< ISR-owned: dark-path pulse drop deferred to next wake. */
   static std::atomic<uint8_t> live_window_left_; /**< ISR-written: 1 when the open display window sweeps arm-A columns [0,CANVAS_W/2). */
 
-  static int segment_id_;                  /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
+  static int segment_id_;                  /**< Decoded hardware segment ID (up to 2 strap bits, 0..N-1). */
   static bool arm_b_;                      /**< True if this segment lives on arm B (x + W/2). */
   static int y_base_;                      /**< Canvas row of this segment's LED 0.      */
   static int y_step_;                      /**< Row stride per LED: +1 (top) or -1 (bottom, reversed). */

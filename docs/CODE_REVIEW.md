@@ -114,7 +114,7 @@ All 19 items are low-severity. Priority reflects *type of impact*, not urgency. 
 
 ### Priority 4 — Documentation & Style
 
-16. **`segment_id_` comment overstates strap-bit count ("up to 3") — design supports at most 2** — `hardware/pov_segmented.h:676`. `ID_STRAPS` is `(N<=2)?1:2` with `N<=4`; the surrounding docs already say 2. Correct the isolated comment.
+16. ✅ **`segment_id_` comment overstates strap-bit count ("up to 3") — design supports at most 2** — `hardware/pov_segmented.h:676`. `ID_STRAPS` is `(N<=2)?1:2` with `N<=4`; the surrounding docs already say 2. Correct the isolated comment.
 
 17. **Antipodal-detection basis differs between `Vector` slerp and `make_rotation(from,to)`** — `core/math/3dmath.h:1108,1244`. One gates on the raw dot `d < -1 + TOLERANCE`, the other on `fast_acos(d) > PI - TOLERANCE`; `fast_acos`'s ~1.3e-4 error exceeds `TOLERANCE`, so the two gates are non-equivalent. Harmless (the fall-through stays finite) but a reader expects them phrased identically. Key slerp's branch off the raw dot.
 
