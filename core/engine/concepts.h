@@ -9,6 +9,7 @@
 #include "render/canvas.h"
 #include "color/color.h"    // Pixel
 #include "engine/platform.h" // Fn
+#include <cassert>
 
 // ---------------------------------------------------------------------------
 // Callable wrappers — two complementary types:
