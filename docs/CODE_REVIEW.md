@@ -145,7 +145,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 20. ✅ **URLSync seeds 0 for an empty numeric URL param, diverging from gui.js's parseFloat coercion** — `state.js:157-160` · _correctness_
    Fix: Use parseFloat(raw) instead of Number(raw) in the URLSync numeric branch so both deserializers agree, e.g. `const num = parseFloat(raw); if (!Number.isFinite(num)) continue;`.
 
-21. **URLSync does not type-coerce boolean tracked keys, seeding a raw string into a boolean-typed key** — `state.js:156-163` · _correctness_
+21. ✅ **URLSync does not type-coerce boolean tracked keys, seeding a raw string into a boolean-typed key** — `state.js:156-163` · _correctness_
    Fix: Mirror gui.js's boolean parsing in the URLSync constructor for `typeof current === 'boolean'` keys (accept true/1/yes/on and false/0/no/off, else skip), so the sync-layer coercion matches the GUI-layer coercion for all primitive types.
 
 22. **sidebar onKeyDown Enter/Space selects the focused option without moving the roving tabindex to it** — `sidebar.js:289-294` · _correctness_
