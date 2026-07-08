@@ -1320,16 +1320,15 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
  * @brief Verifies the DistortedRing cull drops no interior arc column under
  *        high-frequency centerline shifts with exact max_distortion bounds.
  * @details max_distortion widens the row/column/per-pixel reject bands; an
- *   underestimate silently culls genuine arcs. The ctor's NDEBUG-off sampler can
- *   miss a sharp peak, so a passed bound that is exact-but-spiky must still cover
- *   every interior pixel. Sweeps shift_fns whose peak sits between the sampler's
- *   256 grid points (high harmonics, off-grid phase) at exact bounds and asserts
- *   expect_cull_covers_interior — a full-canvas distance() reference — drops none.
+ *   underestimate silently culls genuine arcs. This is the pin that the caller's
+ *   analytic amplitude is a true bound: sweeps spiky high-harmonic, off-grid-phase
+ *   shift_fns at their exact analytic peak and asserts expect_cull_covers_interior
+ *   — a full-canvas distance() reference — drops no interior column.
  */
 inline void test_distorted_ring_cull_covers_interior_high_freq() {
   constexpr int W = 256, H = 128;
-  // Harmonic / off-grid-phase pairs whose |shift| peak falls between the ctor
-  // sampler's i/256 grid points; the bound passed is the exact analytic peak.
+  // Spiky harmonic / off-grid-phase shift_fns; the bound passed is the exact
+  // analytic peak.
   struct Cfg { float amp; int harmonic; float phase_frac; };
   const Cfg cfgs[] = {
       {0.18f, 127, 0.5f / 256.0f}, {0.20f, 255, 0.5f / 256.0f},
