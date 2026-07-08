@@ -164,11 +164,9 @@ public:
         1.0f);
 
     if (!morphing) {
+      Color4 shade = palette.get(0.0f);
       Plot::Mesh::draw<W, H>(filters, canvas, carousel.current(),
-                             [&](const Vector &v, Fragment &f) {
-                               float t_val = (v.y + 1.0f) * 0.5f;
-                               f.color = palette.get(t_val);
-                             });
+                             [&](const Vector &, Fragment &f) { f.color = shade; });
     }
 
     timeline.step(canvas);
@@ -273,10 +271,10 @@ private:
   /** @brief Morph draw callback; Fn member gives FunctionRef a stable lifetime. */
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_fn_{
       [this](Canvas &c, const MeshState &m, float opacity) {
+        Color4 shade = palette.get(0.0f);
         Plot::Mesh::draw<W, H>(filters, c, m,
-                               [this, opacity](const Vector &v, Fragment &f) {
-                                 float t_val = (v.y + 1.0f) * 0.5f;
-                                 f.color = palette.get(t_val);
+                               [shade, opacity](const Vector &, Fragment &f) {
+                                 f.color = shade;
                                  f.color.alpha *= opacity;
                                });
       }};
