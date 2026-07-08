@@ -162,7 +162,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
    Fix: No code change needed for current resolutions. If defensiveness is wanted, computeSegmentRange could throw on odd w (the GUI never exposes one), converting a silent dark column into a fail-fast — consistent with the module's other Number.isInteger/positive guards. Otherwise leave as documented.
    Rejected: the floor(w/2) split intentionally matches the firmware's w/2 partition and is already documented; all shipped resolutions are even, and throwing would diverge from hardware behavior on the one path that must stay bit-identical.
 
-26. **kis emits degenerate triangles for <3-side faces instead of skipping them like every sibling operator** — `core/mesh/conway.h:428-449` · _correctness_ _(severity revised down by validator)_
+26. ✅ **kis emits degenerate triangles for <3-side faces instead of skipping them like every sibling operator** — `core/mesh/conway.h:428-449` · _correctness_ _(severity revised down by validator)_
    Fix: Tighten the guard to `HS_CHECK(count >= 3, "kis: degenerate face (< 3 sides)")`, matching relax's identical guard at line 864; costs nothing on the hot path (this is HS_COLD).
 
 27. **truncate's ambo short-circuit tolerance (1e-4) silently redirects a narrow band of near-0.5 t values** — `core/mesh/conway.h:571-573` · _correctness_
