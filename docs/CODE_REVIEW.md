@@ -201,7 +201,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 38. **PeriodicTimer public `period` clamp is duplicated between ctor and set_period instead of shared** — `core/animation/timers.h:81 (ctor), 98-99 (set_period)` · _maintainability_
    Fix: Have the constructor delegate the clamp to set_period-style logic, or extract a `static int clamp_period(int p){ return p < 1 ? 1 : p; }` used by both. No runtime cost.
 
-39. **GenerativePalette::colors[] is a write-only member; could be a local in update_stops** — `core/color/color.h:1425 (decl), 1228-1265 (update_stops)` · _maintainability_
+39. ✅ **GenerativePalette::colors[] is a write-only member; could be a local in update_stops** — `core/color/color.h:1425 (decl), 1228-1265 (update_stops)` · _maintainability_
    Fix: Make colors a local std::array<CPixel,kMaxStops> inside update_stops() instead of a member; the switch fills it and the loop consumes it in the same scope. No perf change (same fill/read), and it shrinks GenerativePalette by kMaxStops*3 bytes.
 
 40. **HopfFibration lacks a scratch-budget static_assert that its sibling arena-configuring effects carry** — `effects/HopfFibration.h:116-127, 257-289 (render_trails)` · _maintainability_
