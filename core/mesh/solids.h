@@ -1329,4 +1329,44 @@ inline bool has_name(std::string_view name) {
   return find_entry(name) != nullptr;
 }
 
+/**
+ * @brief Builds a registry solid's unit vertex directions plus per-vertex
+ *        orientation quaternions and nearest-neighbour gaps.
+ * @param geom Arena backing the intermediate mesh (typically a caller scratch
+ *        scope; nothing is retained after return).
+ * @param scratch Scratch arena for odd pipeline stages.
+ * @param name Registry name of the solid; traps if unknown.
+ * @param max_points Capacity of the output arrays; traps if exceeded.
+ * @param points Out: vertex directions projected onto the unit sphere (Catalan
+ *        vertices sit at multiple radii).
+ * @param quats Out: per-vertex Y-axis-to-direction rotations.
+ * @param nn_angle Out: per-vertex nearest-neighbour angle (radians), for
+ *        sizing per-vertex geometry to its local gap.
+ * @return The vertex count written.
+ * @details Shared by the volume-scatter effects (Raymarch, MorphBlob). HS_COLD:
+ * setup-only, keeps the build loops out of ITCM.
+ */
+HS_COLD static int build_vertex_directions(Arena &geom, Arena &scratch,
+                                           std::string_view name,
+                                           int max_points, Vector *points,
+                                           Quaternion *quats,
+                                           float *nn_angle) {
+  PolyMesh mesh = get_by_name(geom, geom, scratch, name);
+  int count = static_cast<int>(mesh.vertices.size());
+  HS_CHECK(count <= max_points,
+           "build_vertex_directions: vertex count exceeds capacity");
+  for (int i = 0; i < count; ++i) {
+    points[i] = mesh.vertices[i].normalized();
+    quats[i] = make_rotation(Y_AXIS, points[i]);
+  }
+  for (int i = 0; i < count; ++i) {
+    float max_dot = -1.0f;
+    for (int j = 0; j < count; ++j)
+      if (j != i)
+        max_dot = std::max(max_dot, dot(points[i], points[j]));
+    nn_angle[i] = acosf(hs::clamp(max_dot, -1.0f, 1.0f));
+  }
+  return count;
+}
+
 } // namespace Solids

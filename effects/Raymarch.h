@@ -81,30 +81,15 @@ private:
    * @brief Builds the disdyakis-dodecahedron vertex directions and per-vertex
    *        orientation quaternions and nearest-neighbour gaps.
    * @details Generates the solid from the registry into the scratch arenas
-   *          (reclaimed on scope exit), projects each vertex onto the unit sphere
-   *          (Catalan vertices sit at three radii), and records each vertex's
-   *          nearest-neighbour angle so drawFn can size every torus to its own
-   *          local gap.
+   *          (reclaimed on scope exit) via the shared HS_COLD builder, so drawFn
+   *          can size every torus to its own local gap.
    */
   void build_points() {
     ScratchScope a_guard(scratch_arena_a);
     ScratchScope b_guard(scratch_arena_b);
-    PolyMesh mesh = Solids::get_by_name(scratch_arena_a, scratch_arena_a,
-                                        scratch_arena_b, "disdyakisDodecahedron");
-    active_count = std::min(static_cast<int>(mesh.vertices.size()), MAX_POINTS);
-    HS_CHECK(static_cast<int>(mesh.vertices.size()) <= MAX_POINTS,
-             "disdyakis vertex count exceeds MAX_POINTS");
-    for (int i = 0; i < active_count; ++i) {
-      points[i] = mesh.vertices[i].normalized();
-      raw_quats[i] = make_rotation(Y_AXIS, points[i]);
-    }
-    for (int i = 0; i < active_count; ++i) {
-      float max_dot = -1.0f;
-      for (int j = 0; j < active_count; ++j)
-        if (j != i)
-          max_dot = std::max(max_dot, dot(points[i], points[j]));
-      nn_angle[i] = acosf(hs::clamp(max_dot, -1.0f, 1.0f));
-    }
+    active_count = Solids::build_vertex_directions(
+        scratch_arena_a, scratch_arena_b, "disdyakisDodecahedron", MAX_POINTS,
+        points.data(), raw_quats.data(), nn_angle.data());
   }
 
   /**
