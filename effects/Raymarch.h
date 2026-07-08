@@ -178,7 +178,7 @@ private:
    */
   struct Params {
     float pulse_speed = 5.0f;
-    float fill = 0.9f;
+    float fill = 0.75f;
     float max_steps = 18.0f;
     float diffuse = 0.4f;
     float specular = 1.2f;
