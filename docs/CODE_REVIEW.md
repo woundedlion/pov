@@ -108,7 +108,7 @@ All 19 items are low-severity. Priority reflects *type of impact*, not urgency. 
 
 13. ✅ **`EngineHost.refresh()` has no direct test for the detached-view re-fetch — the module's raison d'être** — `tests/engine_host.test.js:28-41` (daydream). Null-view and live-view paths are tested; the detached (heap-grown) path is only pinned one layer down in `pixel_view.test.js`. Add a test seeding a detached view and asserting `refresh()` re-fetches and fires `onViewRefreshed`.
 
-14. **`banner.js` has no dedicated test while every other `tools/` module does** — `tools/banner.js:24` (daydream). `require-tests.mjs` only checks the glob is non-empty, so the gap is silent. `showFatalError` has real logic (idempotent reuse, `textContent`-not-`innerHTML` injection safety, `document.body` guard). Add `tests/banner.test.js`.
+14. ✅ **`banner.js` has no dedicated test while every other `tools/` module does** — `tools/banner.js:24` (daydream). `require-tests.mjs` only checks the glob is non-empty, so the gap is silent. `showFatalError` has real logic (idempotent reuse, `textContent`-not-`innerHTML` injection safety, `document.body` guard). Add `tests/banner.test.js`.
 
 15. **`sidebar_dom.test.js` exercises only Enter/Space, not the arrow/Home/End DOM focus wiring of `onKeyDown`** — `tests/sidebar_dom.test.js:38-50` (daydream). The navigation *math* is covered in `sidebar_logic.test.js`, but the DOM binding (focus the target button, `preventDefault` on arrows) is not. A right-index/wrong-element regression would pass both suites. Drive the arrow keys against a multi-button fake and assert focus + `preventDefault`.
 
