@@ -198,7 +198,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 37. ✅ **update_hankin is_flat path can trap on a zero-length base vertex without the degenerate guard the non-flat path has** — `core/mesh/hankin.h:279-281` · _error-handling_ _(severity revised down by validator)_
    Fix: Use the same fallback shape as the non-flat branch, e.g. `compiled.dynamic_vertices[i] = normalized_or(p_corner, p_corner);` or reuse the existing fallback vector, keeping the branch cost identical.
 
-38. **PeriodicTimer public `period` clamp is duplicated between ctor and set_period instead of shared** — `core/animation/timers.h:81 (ctor), 98-99 (set_period)` · _maintainability_
+38. ✅ **PeriodicTimer public `period` clamp is duplicated between ctor and set_period instead of shared** — `core/animation/timers.h:81 (ctor), 98-99 (set_period)` · _maintainability_
    Fix: Have the constructor delegate the clamp to set_period-style logic, or extract a `static int clamp_period(int p){ return p < 1 ? 1 : p; }` used by both. No runtime cost.
 
 39. ✅ **GenerativePalette::colors[] is a write-only member; could be a local in update_stops** — `core/color/color.h:1425 (decl), 1228-1265 (update_stops)` · _maintainability_

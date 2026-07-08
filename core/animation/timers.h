@@ -78,7 +78,7 @@ public:
    * @param repeat If true, the timer resets after calling the function.
    */
   PeriodicTimer(int period, TimerFn f, bool repeat = false)
-      : AnimationBase(-1, repeat), period(period < 1 ? 1 : period),
+      : AnimationBase(-1, repeat), period(clamp_period(period)),
         f(std::move(f)) {
     reset();
   }
@@ -96,7 +96,7 @@ public:
    * which fires the callback every frame (and re-triggers on its own reset).
    */
   void set_period(int new_period) {
-    period = (new_period < 1 ? 1 : new_period);
+    period = clamp_period(new_period);
     reset();
   }
 
@@ -118,6 +118,8 @@ public:
   }
 
 private:
+  static int clamp_period(int p) { return p < 1 ? 1 : p; }
+
   int period;    /**< The interval in frames. */
   TimerFn f;     /**< The callback function. */
   uint32_t next; /**< The target frame count for the next trigger. */
