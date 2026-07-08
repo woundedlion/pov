@@ -944,7 +944,8 @@ public:
    * @param y Row coordinate in pixels.
    * @param color Source color, forwarded unchanged this frame.
    * @param age Incoming age (frames); ttl = lifetime - age, seeded only if positive.
-   * @param alpha Blend alpha in [0, 1]; samples with alpha <= 0.001 are dropped.
+   * @param alpha Blend alpha in [0, 1]; samples with alpha <= 0.001 seed no
+   * trail point but are still forwarded downstream.
    * @tparam PassFnT Downstream callback type; a forwarding reference so the
    * filter chain inlines with no per-point indirect call.
    * @param pass Downstream 2D callback.
@@ -952,10 +953,10 @@ public:
   template <typename PassFnT>
   void plot(float x, float y, const Pixel &color, float age, float alpha,
             PassFnT &&pass) {
+    pass(x, y, color, age, alpha);
+
     if (alpha <= 0.001f)
       return;
-
-    pass(x, y, color, age, alpha);
 
     float ttl = static_cast<float>(lifetime) - age;
     if (ttl > 0.0f && points_) {
