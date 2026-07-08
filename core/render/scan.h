@@ -944,6 +944,12 @@ struct Shader {
     // Only 1 and 4 are supported (see the single-callback overload).
     static_assert(SAMPLES == 1 || SAMPLES == 4,
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
+    // Cold (once per draw), not per-pixel: trap null shaders here so they fail
+    // deterministically instead of calling a null thunk under NDEBUG.
+    HS_CHECK(vertex_shader,
+             "Scan::Shader::draw requires a non-null vertex_shader");
+    HS_CHECK(fragment_shader,
+             "Scan::Shader::draw requires a non-null fragment_shader");
     // frag_base is per pixel, not per draw: each pixel starts from a default
     // Fragment, so a vertex shader writing only some registers (v0-v3/size/age/
     // color) can't inherit the previous pixel's values.
