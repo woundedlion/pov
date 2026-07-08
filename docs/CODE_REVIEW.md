@@ -120,7 +120,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 12. ✅ **telemetry() health poll runs long hs::log() under __enable_irq() unconditionally, re-enabling IRQs even if the foreground path expected them masked** — `hardware/pov_segmented.h:316-350` · _concurrency_
    Fix: Save/restore PRIMASK instead of unconditional __enable_irq(): `uint32_t m = __get_PRIMASK(); __disable_irq(); tm = sync_.telemetry(); __set_PRIMASK(m);`. Zero added cost on the hot path (this is a 1 Hz debug branch).
 
-13. **MobiusFlow floors num_rings/num_lines but doesn't guard non-finite (NaN/Inf) live scalars, which propagate into a/d and poison MobiusParams** — `core/animation/params.h:399-420 (MobiusFlow::step)` · _correctness_ _(severity revised down by validator)_
+13. ✅ **MobiusFlow floors num_rings/num_lines but doesn't guard non-finite (NaN/Inf) live scalars, which propagate into a/d and poison MobiusParams** — `core/animation/params.h:399-420 (MobiusFlow::step)` · _correctness_ _(severity revised down by validator)_
    Fix: Replace the sign clamps with finite-and-range clamps, e.g. `float rings = std::isfinite((float)num_rings) ? std::max(0.0f, (float)num_rings) : 0.0f;` and similarly `lines = std::isfinite((float)num_lines) ? std::max(1.0f, (float)num_lines) : 1.0f;`. Two `isfinite` checks per frame on a cold animation step (not a per-pixel loop) are free relative to the expf/cos/sin already there.
 
 14. **MobiusWarp/MobiusWarpCircular do not guard a non-finite `scale`/live `scale_ref_`, unlike MobiusFlow and Driver** — `core/animation/params.h:468-476 (MobiusWarp::step), 509-516 (MobiusWarpCircular::step)` · _correctness_

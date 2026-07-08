@@ -399,18 +399,19 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
-    // Floor rings at 0 so the divisor rings + 1 stays >= 1 (num_rings == -1 would
-    // make logPeriod inf and poison a/d).
+    // Floor rings at 0 so the divisor rings + 1 stays >= 1; a non-finite or -1
+    // rings would make logPeriod inf and poison a/d.
     float rings = num_rings;
-    if (rings < 0.0f)
+    if (!std::isfinite(rings) || rings < 0.0f)
       rings = 0.0f;
     float logPeriod = 5.0f / (rings + 1);
     float flowParam = progress * logPeriod;
     float scale = expf(flowParam);
     float s = sqrtf(scale);
-    // Clamp lines to >= 1 before dividing (the slider bottoms out at 0 → 2π/0).
+    // Clamp lines to >= 1 before dividing (the slider bottoms out at 0 → 2π/0);
+    // a non-finite lines falls back to 1.
     float lines = num_lines;
-    if (lines < 1.0f)
+    if (!std::isfinite(lines) || lines < 1.0f)
       lines = 1.0f;
     float angle = progress * (2 * PI_F / lines);
 
