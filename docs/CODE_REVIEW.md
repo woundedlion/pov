@@ -204,7 +204,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 39. ✅ **GenerativePalette::colors[] is a write-only member; could be a local in update_stops** — `core/color/color.h:1425 (decl), 1228-1265 (update_stops)` · _maintainability_
    Fix: Make colors a local std::array<CPixel,kMaxStops> inside update_stops() instead of a member; the switch fills it and the loop consumes it in the same scope. No perf change (same fill/read), and it shrinks GenerativePalette by kMaxStops*3 bytes.
 
-40. **HopfFibration lacks a scratch-budget static_assert that its sibling arena-configuring effects carry** — `effects/HopfFibration.h:116-127, 257-289 (render_trails)` · _maintainability_
+40. ✅ **HopfFibration lacks a scratch-budget static_assert that its sibling arena-configuring effects carry** — `effects/HopfFibration.h:116-127, 257-289 (render_trails)` · _maintainability_
    Fix: Either extend the retune-guard comment to state that TRAIL_LEN is bounded for scratch by the 16KB default scratch_a (not by kFootprintBytes), or add a small static_assert that TRAIL_LEN * sizeof(Fragment) <= DEFAULT_SCRATCH_A_SIZE so a TRAIL_LEN retune is genuinely fail-fast like the sibling effects. No perf impact (compile-time only).
 
 41. **syncGUI/export length-skew guard uses paramNames vs values but export uses params vs values — an off-by-source mismatch** — `daydream.js:116-124` · _maintainability_

@@ -126,6 +126,13 @@ private:
                 "HopfFibration persistent footprint exceeds the default "
                 "partition; retune RINGS/PER_RING/TRAIL_LEN or carve arenas");
 
+  // render_trails stages one fiber's points (up to TRAIL_LEN) in scratch_a at a
+  // time, so the trail length is bounded by the default scratch budget, not by
+  // FOOTPRINT_BYTES; a retune past it should fail to compile, not overflow.
+  static_assert(TRAIL_LEN * sizeof(Fragment) <= DEFAULT_SCRATCH_A_SIZE,
+                "HopfFibration trail staging exceeds the default scratch_a "
+                "budget; retune TRAIL_LEN or carve a larger scratch arena");
+
   // Keeps the projection denominator (1 + eps) - q3 positive at the pole
   // (q3 == 1); only needed to keep the pre-normalize direction NaN-free, since
   // normalized_or() substitutes its fallback axis there.
