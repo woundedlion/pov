@@ -74,7 +74,7 @@ Every surviving defect is listed exactly once, numbered sequentially. No defect 
 ### Low Priority
 
 18. ✅ **Unqualified `floor()` forces double promotion in a per-pixel path** — `core/math/geometry.h:340`. `floor(x)/floor(y)` bind to `::floor(double)` in `pixel_to_vector(float,float)`, wasting double work on the render hot loop. Fix: use `std::floor` (float overload), matching line 189.
-19. **`CycleCounter::log_node` truncates 64-bit µs to 32-bit** — `core/engine/platform.h:1492`. `(unsigned long)us` re-introduces the wrap the 64-bit accumulator was chosen to avoid, after ~71 min of summed profiled time. Fix: print with `%llu` / `(unsigned long long)`.
+19. ✅ **`CycleCounter::log_node` truncates 64-bit µs to 32-bit** — `core/engine/platform.h:1492`. `(unsigned long)us` re-introduces the wrap the 64-bit accumulator was chosen to avoid, after ~71 min of summed profiled time. Fix: print with `%llu` / `(unsigned long long)`.
 20. **`presets.h` pulls heavy `platform.h` for a nonexistent `HS_CHECK`** — `core/engine/presets.h:11`. No `HS_CHECK` is used; only `size_t` is actually needed. Fix: replace with `#include <cstddef>`.
 21. **`concepts.h` uses `assert()` without `#include <cassert>`** — `core/engine/concepts.h:162`. Relies on transitive inclusion; a non-self-contained header. Fix: add `#include <cassert>` after the `platform.h` include (NDEBUG ordering).
 22. **`inplace_function` cross-type copy/move assignment untested** — `core/engine/inplace_function.h:166`. The destroy-then-construct path between two populated functions holding different closures has no test. Fix: add a case to `test_fn_copy_move_empty` (already in CI).

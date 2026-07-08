@@ -1489,9 +1489,9 @@ private:
     int indent = depth * 2;
     int name_w = 22 - indent;
     if (name_w < 1) name_w = 1;
-    hs::log("%*s%-*s %lu us (%lu%%)  %lu calls",
+    hs::log("%*s%-*s %llu us (%lu%%)  %lu calls",
             indent, "", name_w, node->name,
-            (unsigned long)us, (unsigned long)pct, (unsigned long)node->count);
+            (unsigned long long)us, (unsigned long)pct, (unsigned long)node->count);
     for (auto* c = head_; c; c = c->next)
       if (c->parent == node) log_node(c, depth + 1);
   }
