@@ -5,10 +5,9 @@
 #pragma once
 
 #include <array>
+#include <cstddef>
 #include <span>
 #include <utility>
-
-#include "engine/platform.h" // HS_CHECK
 
 /**
  * @brief Standalone entry wrapping a single Params preset.
