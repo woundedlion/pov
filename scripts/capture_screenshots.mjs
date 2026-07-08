@@ -76,163 +76,166 @@ try {
   await new Promise((resolve) => process.stderr.write('', resolve));
   process.exit();
 }
-const ctx = await browser.newContext({
-  ignoreHTTPSErrors: true,
-  viewport: { width: 1600, height: 1200 },
-  deviceScaleFactor: 2,
-});
-// Force preserveDrawingBuffer:true on any WebGL context so we can read the
-// drawn frame via canvas.toDataURL after rendering.
-await ctx.addInitScript(() => {
-  const origGet = HTMLCanvasElement.prototype.getContext;
-  HTMLCanvasElement.prototype.getContext = function(type, attrs) {
-    if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
-      attrs = Object.assign({}, attrs || {}, { preserveDrawingBuffer: true });
-    }
-    return origGet.call(this, type, attrs);
-  };
-});
-
-const page = await ctx.newPage();
-
-page.on('console', msg => {
-  const t = msg.type();
-  if (t === 'error' || t === 'warning') console.log(`[${t}]`, msg.text());
-});
-
-// Read the app's supported resolutions instead of hard-coding a display label
-// (the same anti-drift goal as the effect roster above). The resolution
-// control's options are built from the app's supported resolutions; return them
-// sorted by pixel area (largest/highest-detail first). Each effect is then
-// captured at the FIRST resolution that actually offers it — not blindly at the
-// global largest, because the effect set is resolution-specific (e.g. RingShower
-// and Dynamo are only registered at the low-res Holosphere preset). Requesting
-// an effect at a resolution that doesn't offer it makes the app silently fall
-// back to its default effect, which would save that default under the wrong
-// filename. On any failure, return [] so each effect is captured with no
-// resolution param (the app picks its own default).
-async function resolveResolutions() {
-  try {
-    await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });
-    await page.waitForSelector('select', { timeout: 30000 });
-    const labels = await page.evaluate(() => {
-      const re = /\((\d+)x(\d+)\)/; // resolution labels embed their dimensions
-      const seen = new Map();
-      for (const opt of document.querySelectorAll('option')) {
-        const text = (opt.textContent || '').trim();
-        const m = re.exec(text);
-        if (m) seen.set(text, Number(m[1]) * Number(m[2]));
-      }
-      return [...seen.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
-    });
-    if (labels.length) return labels;
-    console.warn('capture_screenshots: found no resolution options on the page; ' +
-      'using the app default resolution');
-  } catch (e) {
-    console.warn(`capture_screenshots: could not read resolutions from the page ` +
-      `(${e.message}); using the app default resolution`);
-  }
-  return [];
-}
-
-// Resolutions to try per effect, largest first; [null] means "no param, app
-// default". When the app exposes its presets we try each from highest to lowest
-// detail and keep the first that honors the requested effect.
-const RESOLUTIONS = await resolveResolutions();
-const RES_TRY = RESOLUTIONS.length ? RESOLUTIONS : [null];
-console.log(`Capture resolutions (high→low): ${RESOLUTIONS.join(', ') || '(app default)'}`);
-
-const targets = process.argv.slice(2).length ? process.argv.slice(2) : EFFECTS;
-
-// Grab the current #canvas frame and measure how much of it is lit. With
-// preserveDrawingBuffer:true forced via addInitScript, toDataURL is safe after
-// rendering settles. Coverage is measured on a small downscale (cheap, and the
-// thumbnail is downscaled anyway): the fraction of pixels above a near-black
-// floor. Daydream's driver suppresses the PiP under navigator.webdriver, so no
-// post-crop is needed.
-async function grabFrame() {
-  return await page.evaluate(() => {
-    const canvas = document.querySelector('#canvas');
-    const SW = 96, SH = 72;
-    const off = document.createElement('canvas');
-    off.width = SW; off.height = SH;
-    const g = off.getContext('2d');
-    g.drawImage(canvas, 0, 0, SW, SH);
-    const data = g.getImageData(0, 0, SW, SH).data;
-    let lit = 0;
-    for (let i = 0; i < data.length; i += 4) {
-      if (data[i] > 12 || data[i + 1] > 12 || data[i + 2] > 12) lit++;
-    }
-    return { dataUrl: canvas.toDataURL('image/png'), lit: lit / (SW * SH) };
+try {
+  const ctx = await browser.newContext({
+    ignoreHTTPSErrors: true,
+    viewport: { width: 1600, height: 1200 },
+    deviceScaleFactor: 2,
   });
-}
+  // Force preserveDrawingBuffer:true on any WebGL context so we can read the
+  // drawn frame via canvas.toDataURL after rendering.
+  await ctx.addInitScript(() => {
+    const origGet = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function(type, attrs) {
+      if (type === 'webgl' || type === 'webgl2' || type === 'experimental-webgl') {
+        attrs = Object.assign({}, attrs || {}, { preserveDrawingBuffer: true });
+      }
+      return origGet.call(this, type, attrs);
+    };
+  });
 
-// The app rewrites the URL's effect param to whatever it actually selected, so
-// after navigating we can detect a silent fallback (requested effect not offered
-// at this resolution) by comparing the rewritten param to what we asked for.
-async function selectedEffect() {
-  return await page.evaluate(() =>
-    new URLSearchParams(location.search).get('effect'));
-}
+  const page = await ctx.newPage();
 
-let failures = 0;
-const blanks = [];
-const wrongRes = [];
-for (const effect of targets) {
-  process.stdout.write(`Capturing ${effect}... `);
-  try {
-    // Try resolutions high→low; keep the first that actually offers this effect.
-    let usedRes = null, honored = false;
-    for (const res of RES_TRY) {
-      const params = new URLSearchParams({ effect });
-      if (res) params.set('resolution', res);
-      await page.goto(`${BASE_URL}?${params.toString()}`,
-        { waitUntil: 'load', timeout: 60000 });
-      await page.waitForSelector('#canvas', { timeout: 30000 });
-      // The fallback rewrite happens during hydration, before the settle wait.
-      await page.waitForTimeout(500);
-      usedRes = res;
-      if (res === null || (await selectedEffect()) === effect) { honored = true; break; }
+  page.on('console', msg => {
+    const t = msg.type();
+    if (t === 'error' || t === 'warning') console.log(`[${t}]`, msg.text());
+  });
+
+  // Read the app's supported resolutions instead of hard-coding a display label
+  // (the same anti-drift goal as the effect roster above). The resolution
+  // control's options are built from the app's supported resolutions; return them
+  // sorted by pixel area (largest/highest-detail first). Each effect is then
+  // captured at the FIRST resolution that actually offers it — not blindly at the
+  // global largest, because the effect set is resolution-specific (e.g. RingShower
+  // and Dynamo are only registered at the low-res Holosphere preset). Requesting
+  // an effect at a resolution that doesn't offer it makes the app silently fall
+  // back to its default effect, which would save that default under the wrong
+  // filename. On any failure, return [] so each effect is captured with no
+  // resolution param (the app picks its own default).
+  async function resolveResolutions() {
+    try {
+      await page.goto(BASE_URL, { waitUntil: 'load', timeout: 60000 });
+      await page.waitForSelector('select', { timeout: 30000 });
+      const labels = await page.evaluate(() => {
+        const re = /\((\d+)x(\d+)\)/; // resolution labels embed their dimensions
+        const seen = new Map();
+        for (const opt of document.querySelectorAll('option')) {
+          const text = (opt.textContent || '').trim();
+          const m = re.exec(text);
+          if (m) seen.set(text, Number(m[1]) * Number(m[2]));
+        }
+        return [...seen.entries()].sort((a, b) => b[1] - a[1]).map(e => e[0]);
+      });
+      if (labels.length) return labels;
+      console.warn('capture_screenshots: found no resolution options on the page; ' +
+        'using the app default resolution');
+    } catch (e) {
+      console.warn(`capture_screenshots: could not read resolutions from the page ` +
+        `(${e.message}); using the app default resolution`);
     }
-    // Offered at no resolution: the canvas shows the app's fallback effect.
-    // Saving it would overwrite a (possibly correct) existing PNG with a
-    // thumbnail of the WRONG effect — worse than leaving the stale one. Skip the
-    // save and flag it; the prior PNG stays untouched.
-    if (!honored) {
-      wrongRes.push(effect);
-      console.log(`SKIPPED — offered at no resolution (app fell back); kept existing PNG`);
-      continue;
-    }
-
-    // Let the effect settle/animate at the chosen resolution.
-    await page.waitForTimeout(WAIT_MS);
-
-    // Sample several frames and keep the busiest, re-rolling empty grabs.
-    let best = null, bestLit = -1, attempts = 0;
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      attempts = attempt;
-      const { dataUrl, lit } = await grabFrame();
-      if (lit > bestLit) { bestLit = lit; best = dataUrl; }
-      if (lit >= MIN_LIT) break;
-      if (attempt < MAX_ATTEMPTS) await page.waitForTimeout(RETRY_WAIT_MS);
-    }
-
-    const b64 = best.split(',', 2)[1];
-    const buf = Buffer.from(b64, 'base64');
-    const out = join(OUT_DIR, `${effect}.png`);
-    await writeFile(out, buf);
-    const pct = (bestLit * 100).toFixed(2);
-    if (bestLit < BLANK_FLOOR) blanks.push(effect);
-    console.log(`saved ${out} @ ${usedRes || 'default'} (${pct}% lit, ` +
-      `${attempts} attempt(s)` +
-      `${bestLit < BLANK_FLOOR ? ', STILL BLANK' : ''})`);
-  } catch (e) {
-    failures++;
-    console.log(`FAILED: ${e.message}`);
+    return [];
   }
-}
 
-await browser.close();
+  // Resolutions to try per effect, largest first; [null] means "no param, app
+  // default". When the app exposes its presets we try each from highest to lowest
+  // detail and keep the first that honors the requested effect.
+  const RESOLUTIONS = await resolveResolutions();
+  const RES_TRY = RESOLUTIONS.length ? RESOLUTIONS : [null];
+  console.log(`Capture resolutions (high→low): ${RESOLUTIONS.join(', ') || '(app default)'}`);
+
+  const targets = process.argv.slice(2).length ? process.argv.slice(2) : EFFECTS;
+
+  // Grab the current #canvas frame and measure how much of it is lit. With
+  // preserveDrawingBuffer:true forced via addInitScript, toDataURL is safe after
+  // rendering settles. Coverage is measured on a small downscale (cheap, and the
+  // thumbnail is downscaled anyway): the fraction of pixels above a near-black
+  // floor. Daydream's driver suppresses the PiP under navigator.webdriver, so no
+  // post-crop is needed.
+  async function grabFrame() {
+    return await page.evaluate(() => {
+      const canvas = document.querySelector('#canvas');
+      const SW = 96, SH = 72;
+      const off = document.createElement('canvas');
+      off.width = SW; off.height = SH;
+      const g = off.getContext('2d');
+      g.drawImage(canvas, 0, 0, SW, SH);
+      const data = g.getImageData(0, 0, SW, SH).data;
+      let lit = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (data[i] > 12 || data[i + 1] > 12 || data[i + 2] > 12) lit++;
+      }
+      return { dataUrl: canvas.toDataURL('image/png'), lit: lit / (SW * SH) };
+    });
+  }
+
+  // The app rewrites the URL's effect param to whatever it actually selected, so
+  // after navigating we can detect a silent fallback (requested effect not offered
+  // at this resolution) by comparing the rewritten param to what we asked for.
+  async function selectedEffect() {
+    return await page.evaluate(() =>
+      new URLSearchParams(location.search).get('effect'));
+  }
+
+  let failures = 0;
+  const blanks = [];
+  const wrongRes = [];
+  for (const effect of targets) {
+    process.stdout.write(`Capturing ${effect}... `);
+    try {
+      // Try resolutions high→low; keep the first that actually offers this effect.
+      let usedRes = null, honored = false;
+      for (const res of RES_TRY) {
+        const params = new URLSearchParams({ effect });
+        if (res) params.set('resolution', res);
+        await page.goto(`${BASE_URL}?${params.toString()}`,
+          { waitUntil: 'load', timeout: 60000 });
+        await page.waitForSelector('#canvas', { timeout: 30000 });
+        // The fallback rewrite happens during hydration, before the settle wait.
+        await page.waitForTimeout(500);
+        usedRes = res;
+        if (res === null || (await selectedEffect()) === effect) { honored = true; break; }
+      }
+      // Offered at no resolution: the canvas shows the app's fallback effect.
+      // Saving it would overwrite a (possibly correct) existing PNG with a
+      // thumbnail of the WRONG effect — worse than leaving the stale one. Skip the
+      // save and flag it; the prior PNG stays untouched.
+      if (!honored) {
+        wrongRes.push(effect);
+        console.log(`SKIPPED — offered at no resolution (app fell back); kept existing PNG`);
+        continue;
+      }
+
+      // Let the effect settle/animate at the chosen resolution.
+      await page.waitForTimeout(WAIT_MS);
+
+      // Sample several frames and keep the busiest, re-rolling empty grabs.
+      let best = null, bestLit = -1, attempts = 0;
+      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+        attempts = attempt;
+        const { dataUrl, lit } = await grabFrame();
+        if (lit > bestLit) { bestLit = lit; best = dataUrl; }
+        if (lit >= MIN_LIT) break;
+        if (attempt < MAX_ATTEMPTS) await page.waitForTimeout(RETRY_WAIT_MS);
+      }
+
+      const b64 = best.split(',', 2)[1];
+      const buf = Buffer.from(b64, 'base64');
+      const out = join(OUT_DIR, `${effect}.png`);
+      await writeFile(out, buf);
+      const pct = (bestLit * 100).toFixed(2);
+      if (bestLit < BLANK_FLOOR) blanks.push(effect);
+      console.log(`saved ${out} @ ${usedRes || 'default'} (${pct}% lit, ` +
+        `${attempts} attempt(s)` +
+        `${bestLit < BLANK_FLOOR ? ', STILL BLANK' : ''})`);
+    } catch (e) {
+      failures++;
+      console.log(`FAILED: ${e.message}`);
+    }
+  }
+
+} finally {
+  if (browser) await browser.close();
+}
 
 // resolveResolutions() returned [], so the per-capture URLs omitted the
 // resolution param and the WHOLE gallery was captured at whatever the app
