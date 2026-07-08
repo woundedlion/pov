@@ -118,7 +118,7 @@ All 19 items are low-severity. Priority reflects *type of impact*, not urgency. 
 
 17. ✅ **Antipodal-detection basis differs between `Vector` slerp and `make_rotation(from,to)`** — `core/math/3dmath.h:1108,1244`. One gates on the raw dot `d < -1 + TOLERANCE`, the other on `fast_acos(d) > PI - TOLERANCE`; `fast_acos`'s ~1.3e-4 error exceeds `TOLERANCE`, so the two gates are non-equivalent. Harmless (the fall-through stays finite) but a reader expects them phrased identically. Key slerp's branch off the raw dot.
 
-18. **Color-strip marker uses `t*width` while the gradient is sampled over `width-1`, causing a sub-pixel marker/color offset** — `tools/palettes.html:905,933` (daydream). Cosmetic drift, worst at the right edge. Use `Math.round(t * (width - 1))` to match the gradient denominator.
+18. ✅ **Color-strip marker uses `t*width` while the gradient is sampled over `width-1`, causing a sub-pixel marker/color offset** — `tools/palettes.html:905,933` (daydream). Cosmetic drift, worst at the right edge. Use `Math.round(t * (width - 1))` to match the gradient denominator.
 
 19. ✅ **Trailing-underscore member convention is applied inconsistently across sibling animation classes** — `core/animation/params.h:69-76`. Adjacent classes doing the same job mix `params_`/`scale_` with bare `params`/`from`/`to`. Purely cosmetic; pick one convention and apply it uniformly within the file.
 
