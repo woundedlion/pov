@@ -409,21 +409,31 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
     // exact closed-form y range of the rendered arc — the endpoint y values are
     // the rendered endpoints, and y_to_row is monotonic in y — so there is no
     // project/unproject round-trip to leave the cull a sub-pixel short.
-    Vector axis = cross(a, b);
-    float L2 = dot(axis, axis);
-    if (L2 > math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
-      Vector n = axis * (1.0f / sqrtf(L2));
-      float t0 = cross(n, a).y; // forward tangent y at a
-      float t1 = cross(n, b).y; // forward tangent y at b
-      if ((t0 > 0.0f) != (t1 > 0.0f)) {
-        // std::max(0, ...) absorbs the tiny negative that fast-math
-        // renormalization of n can produce when |n.y| ≈ 1 (a near-polar
-        // arc pole), keeping the sqrt domain-safe.
-        float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
-        float rp = y_to_row(t0 > 0.0f ? peak : -peak);
-        row_lo = std::min(row_lo, rp);
-        row_hi = std::max(row_hi, rp);
-      }
+    // Arc pole, chosen exactly as the renderer's slerp axis
+    // (rasterize_geodesic_strategy): a near-antipodal edge collapses
+    // cross(a, b) to garbage, so fall back to the same stable perpendicular the
+    // renderer bulges the semicircle about — an endpoint-only span would cull
+    // the rendered diameter on a Y-band board.
+    Vector n;
+    if (std::abs(PI_F - angle_between(a, b)) < TOLERANCE) {
+      n = stable_perpendicular_axis(a);
+    } else {
+      Vector axis = cross(a, b);
+      float L2 = dot(axis, axis);
+      if (L2 <= math::EPS_GEOMETRIC * math::EPS_GEOMETRIC)
+        return;
+      n = axis * (1.0f / sqrtf(L2));
+    }
+    float t0 = cross(n, a).y; // forward tangent y at a
+    float t1 = cross(n, b).y; // forward tangent y at b
+    if ((t0 > 0.0f) != (t1 > 0.0f)) {
+      // std::max(0, ...) absorbs the tiny negative that fast-math
+      // renormalization of n can produce when |n.y| ≈ 1 (a near-polar
+      // arc pole), keeping the sqrt domain-safe.
+      float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
+      float rp = y_to_row(t0 > 0.0f ? peak : -peak);
+      row_lo = std::min(row_lo, rp);
+      row_hi = std::max(row_hi, rp);
     }
   } else {
     // Planar edge: an azimuthal-equidistant straight line is not a great circle,

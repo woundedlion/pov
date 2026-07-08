@@ -472,6 +472,33 @@ inline void test_edge_row_span_covers_arc_bulge() {
 
   // Non-vacuity guard: the sweep must produce many genuine bulge cases.
   HS_EXPECT_GT(bulge_cases, 500);
+
+  // Exact-antipodal geodesic edges: cross(a, b) collapses, so the renderer
+  // slerps the semicircle about stable_perpendicular_axis. Ground truth is
+  // built about that same axis; an endpoint-only span would cull the arc.
+  for (int trial = 0; trial < 500; ++trial) {
+    Vector ra(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+    if (ra.length() < 0.1f) continue;
+    Vector a = ra.normalized();
+    Vector b = a * -1.0f;
+    Vector axis = Plot::stable_perpendicular_axis(a);
+    Vector vperp = cross(axis, a);
+
+    float t_lo = 1e9f, t_hi = -1e9f;
+    constexpr int N = 2000;
+    for (int i = 0; i <= N; ++i) {
+      float t = static_cast<float>(i) / N;
+      Vector p = a * cosf(PI_F * t) + vperp * sinf(PI_F * t);
+      float r = row_of(p);
+      t_lo = std::min(t_lo, r);
+      t_hi = std::max(t_hi, r);
+    }
+
+    float n_lo, n_hi;
+    Plot::edge_row_span<TW, TH>(a, b, nullptr, n_lo, n_hi);
+    HS_EXPECT_LE(n_lo, t_lo + 0.25f);
+    HS_EXPECT_GE(n_hi, t_hi - 0.25f);
+  }
 }
 
 // ============================================================================
