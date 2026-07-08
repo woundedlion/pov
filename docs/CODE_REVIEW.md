@@ -228,7 +228,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 47. ✅ **rasterize() recomputes screen_step for the first sub-step it already computed as first_step** — `core/render/plot.h:626-627, 661-662` · _performance_
    Fix: Seed the loop with the already-computed first_step for the first iteration instead of recomputing: e.g. use `float step = (steps_cache.empty()) ? first_step : screen_step<W,H>(smp.pos, smp.tan, base_step);` or restructure so first_step is pushed before the loop. Keeps behavior bit-identical (same inputs -> same output) with one fewer sqrt/divide per segment.
 
-48. **x86 clamp backend uses GNU always_inline attribute but the arch guard also admits MSVC (_M_X64/_M_IX86)** — `core/engine/platform.h:1305-1306 arch guard; 1352 clamp` · _portability-build_
+48. ✅ **x86 clamp backend uses GNU always_inline attribute but the arch guard also admits MSVC (_M_X64/_M_IX86)** — `core/engine/platform.h:1305-1306 arch guard; 1352 clamp` · _portability-build_
    Fix: Drop `_M_X64`/`_M_IX86` from the arch guard (the engine builds only with GCC/Clang/emscripten), or gate the attribute behind a portable HS_ALWAYS_INLINE macro if MSVC is genuinely intended. Minimal: remove the two MSVC tokens so the guard matches actual targets.
 
 49. **FakeEngine.getParamValues returns a plain array, so the worker's Array.from() copy-out is never exercised** — `tests/segment_worker.test.js:54, 248-261` · _testing_
