@@ -661,6 +661,7 @@ public:
       : AnimationBase(duration, false), params(params), speed(speed),
         peak_amplitude(params.amplitude) {
     HS_CHECK(duration >= 0, "Ripple duration must be >= 0");
+    HS_CHECK(std::isfinite(speed), "Ripple speed must be finite");
     this->params.get().center = center;
     this->params.get().phase = 0.0f;
     // Start at 0 to prevent 1-frame singularity before first step()
