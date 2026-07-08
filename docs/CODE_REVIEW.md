@@ -195,7 +195,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 36. ✅ **getNormalizedX yields NaN when the color strip has zero width** — `tools/palettes.html:641-650 (getNormalizedX)` · _error-handling_
    Fix: Guard the divisor: `return rect.width > 0 ? Math.max(0, Math.min(1, x / rect.width)) : 0;`
 
-37. **update_hankin is_flat path can trap on a zero-length base vertex without the degenerate guard the non-flat path has** — `core/mesh/hankin.h:279-281` · _error-handling_ _(severity revised down by validator)_
+37. ✅ **update_hankin is_flat path can trap on a zero-length base vertex without the degenerate guard the non-flat path has** — `core/mesh/hankin.h:279-281` · _error-handling_ _(severity revised down by validator)_
    Fix: Use the same fallback shape as the non-flat branch, e.g. `compiled.dynamic_vertices[i] = normalized_or(p_corner, p_corner);` or reuse the existing fallback vector, keeping the branch cost identical.
 
 38. **PeriodicTimer public `period` clamp is duplicated between ctor and set_period instead of shared** — `core/animation/timers.h:81 (ctor), 98-99 (set_period)` · _maintainability_
