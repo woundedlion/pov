@@ -104,7 +104,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 
 ### Low priority
 
-8. **Motion holds a bare Fn path adapter over a borrowed path, but only the temporary-rejecting overload guards lifetime; a captured non-temporary that outlives the path still dangles** — `core/animation/motion.h:160, 169-172` · _api-design_
+8. ✅ **Motion holds a bare Fn path adapter over a borrowed path, but only the temporary-rejecting overload guards lifetime; a captured non-temporary that outlives the path still dangles** — `core/animation/motion.h:160, 169-172` · _api-design_
    Fix: No code change is warranted if the borrow contract is considered sufficient (consistent with the rest of the engine). If tightening is desired, document the lvalue-lifetime requirement on the surviving ctor as explicitly as MeshMorph's, or (debug-only) stash a generation token; do not add per-frame checks on the hot path.
 
 9. **DMALEDController::setBrightness/setCorrection/setTemperature mutate HD107SFrame<N> statics, silently coupling any two controllers sharing N** — `hardware/dma_led.h:290-320` · _api-design_ _(severity revised down by validator)_

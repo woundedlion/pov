@@ -149,6 +149,9 @@ public:
    * @param duration The duration in frames.
    * @param repeat If true, the motion repeats.
    * @param space Coordinate space for the applied rotations.
+   * @note `path_obj` is borrowed by reference and read every frame, so it must
+   *       outlive this Motion; a temporary is rejected at compile time (the
+   *       rvalue overload is deleted).
    */
   // No ctor emptiness guard (P is generic): an empty/origin-crossing path traps
   // downstream when step() feeds the origin into angle_between()/normalized().
