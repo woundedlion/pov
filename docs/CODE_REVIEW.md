@@ -151,8 +151,9 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 22. ✅ **sidebar onKeyDown Enter/Space selects the focused option without moving the roving tabindex to it** — `sidebar.js:289-294` · _correctness_
    Fix: In the Enter/Space branch, call `this.setRovingTabbable(focused)` before `this.onSelect(...)`, matching the arrow-key path so the tab stop always tracks the last-acted option.
 
-23. **prettify's symbolic snapping uses an absolute 1e-5 tolerance that is too coarse near small constants and too fine near large ones** — `label_format.js:21-38` · _correctness_ _(severity revised down by validator)_
+23. ❌ **prettify's symbolic snapping uses an absolute 1e-5 tolerance that is too coarse near small constants and too fine near large ones** — `label_format.js:21-38` · _correctness_ _(severity revised down by validator)_
    Fix: If tighter consistency is wanted, compare against the same precision the fallback uses (snap only when r.toFixed(3) equals the constant's toFixed(3)), or use a relative tolerance `Math.abs(r - k) <= 1e-5 * Math.max(1, Math.abs(k))`. Otherwise document that 1e-5 is a deliberate visual-only threshold.
+   Rejected: every snapped constant is O(1) magnitude, so the fixed 1e-5 absolute tolerance is already appropriate and the JSDoc documents it; a relative tolerance would alter label output for no visible benefit.
 
 24. ✅ **renderParallel() leaves stale timings/renderUs/arenas for segments that never reported this frame** — `segment_controller.js:629-644, 810-849` · _correctness_
    Fix: In renderParallel(), when opening a fresh dispatch, also reset the per-segment stat arrays that updateStats() reads (e.g. this.timings.fill(0), this.renderUs.fill(0), this.arenas.fill(null)) so a fenced-out or non-reporting segment shows '-'/0 rather than a stale prior-generation value. Alternatively gate updateStats() cells on results[s] being non-null (which already tracks the current generation).
