@@ -210,7 +210,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 41. ✅ **syncGUI/export length-skew guard uses paramNames vs values but export uses params vs values — an off-by-source mismatch** — `daydream.js:116-124` · _maintainability_
    Fix: Have both syncGUI and export derive the expected length from one authority (e.g. the engine's live definition count or a single cached count on activeEffect), rather than one from paramNames and the other from the params closure.
 
-42. **size sort is not tie-broken by name, so equal-size effects list in arbitrary (insertion) order** — `sidebar_logic.js:24-27` · _maintainability_
+42. ✅ **size sort is not tie-broken by name, so equal-size effects list in arbitrary (insertion) order** — `sidebar_logic.js:24-27` · _maintainability_
    Fix: Add a name tiebreaker: `if (key === 'size') { const d = a.size - b.size; return (d || a.name.localeCompare(b.name, 'en')) * mul; }` (or apply the name compare unsigned so ties always sort A→Z regardless of direction).
 
 43. **Arena-metrics setTimeout loop keeps rescheduling forever after an engine trap** — `tools/solids.html:751-766 (updateArenaMetrics)` · _maintainability_
