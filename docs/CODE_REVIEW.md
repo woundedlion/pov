@@ -139,7 +139,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 18. ✅ **Flywheel::position() overflow guard is a stripped assert only; a genuinely unfolded coast wraps int32 and mis-columns silently under NDEBUG** — `hardware/pov_sync.h:615-630` · _correctness_
    Fix: Replace the assert() with HS_CHECK (always-on cold trap) so an unfolded-coast invariant break traps on the device instead of silently returning a wrong column under NDEBUG. It is one branch per wake-up, not per pixel, so it fits the cold-path trap policy.
 
-19. **advanceFrameClock only consumes one frame interval per rAF, so a recovered backlog is capped to real-time regardless of catchup budget** — `driver.js:450-461` · _correctness_ _(severity revised down by validator)_
+19. ✅ **advanceFrameClock only consumes one frame interval per rAF, so a recovered backlog is capped to real-time regardless of catchup budget** — `driver.js:450-461` · _correctness_ _(severity revised down by validator)_
    Fix: Either loop the interval-consume inside stepSimulation up to the catchup budget to actually replay backlog, or simplify to a plain 'step when >= interval' and update the comment to say missed frames are dropped (not caught up). Pick one and make code+comment agree.
 
 20. **URLSync seeds 0 for an empty numeric URL param, diverging from gui.js's parseFloat coercion** — `state.js:157-160` · _correctness_
