@@ -94,7 +94,7 @@ All 19 items are low-severity. Priority reflects *type of impact*, not urgency. 
 
 7. ✅ **`check.py` / `shorts.py` default to a hardcoded machine-specific schematic path** — `hardware/phantasm/gen/check.py:9`, `shorts.py:6`. Both default `SCH` to `c:\work\Holosphere\...\phantasm.kicad_sch`, which only resolves on the author's checkout, unlike `pcb.py`/`fab.py` which derive from `__file__`. Compute the default from the script location.
 
-8. **`check.py` extra-net filter references a removed component (`Q_GATE`) and a renamed node (`CLF`)** — `hardware/phantasm/gen/check.py:64`. The board now uses a Schottky `Q_REV` and an `LF_DAMP` node, so both suppression prefixes are dead and could mask a genuinely unexpected net. Drop `"CLF"` and `"Q_GATE"` from the `startswith()` list.
+8. ✅ **`check.py` extra-net filter references a removed component (`Q_GATE`) and a renamed node (`CLF`)** — `hardware/phantasm/gen/check.py:64`. The board now uses a Schottky `Q_REV` and an `LF_DAMP` node, so both suppression prefixes are dead and could mask a genuinely unexpected net. Drop `"CLF"` and `"Q_GATE"` from the `startswith()` list.
 
 9. **`capture_screenshots.mjs` and `check_screenshots.mjs` resolve the screenshots directory against different roots** — `scripts/capture_screenshots.mjs:30`. Capture writes to a `process.cwd()`-relative `docs/screenshots`; the freshness gate reads a script-anchored `REPO_ROOT/docs/screenshots`. If ever run from another cwd they diverge silently. Anchor capture on `REPO_ROOT` too.
 

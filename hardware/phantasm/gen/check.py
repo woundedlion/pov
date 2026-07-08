@@ -61,8 +61,7 @@ for name, g in got.items():
         continue
     # intentional intermediate-node labels (named so autoplacers show readable nets)
     INTERMEDIATE = {"DATA_SRC", "CLK_SRC", "SYNC_SRC", "+5V_IN", "+5V_PROT", "LF_DAMP"}
-    if name not in EXPECT and name not in INTERMEDIATE \
-            and not name.startswith(("CLF", "Q_GATE")):
+    if name not in EXPECT and name not in INTERMEDIATE:
         print(f"NOTE extra named net {name}: {sorted(g)}")
 print("NETLIST OK" if ok else "NETLIST MISMATCH")
 sys.exit(0 if ok else 1)
