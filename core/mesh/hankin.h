@@ -275,10 +275,9 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const auto &instr = compiled.dynamic_instructions[i];
     Vector p_corner = compiled.base_vertices[instr.v_corner];
-    Vector cn = normalized_or(p_corner, p_corner);
 
     if (is_flat) {
-      compiled.dynamic_vertices[i] = cn;
+      compiled.dynamic_vertices[i] = normalized_or(p_corner, p_corner);
       continue;
     }
 
@@ -292,7 +291,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
 
     if (dot(cross1, cross1) < math::EPS_CROSS_SQ ||
         dot(cross2, cross2) < math::EPS_CROSS_SQ) {
-      compiled.dynamic_vertices[i] = cn;
+      compiled.dynamic_vertices[i] = normalized_or(p_corner, p_corner);
       continue; // zero length edge
     }
 
@@ -314,6 +313,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     Vector intersect = cross(n_hankin1, n_hankin2);
     float len_sq = dot(intersect, intersect);
     if (len_sq < math::EPS_LEN_SQ) {
+      Vector cn = normalized_or(p_corner, p_corner);
       Vector fallback = normalized_or(m1 + m2, cn);
       if (dot(fallback, p_corner) < 0)
         fallback = -fallback;
