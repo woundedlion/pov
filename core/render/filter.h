@@ -1290,10 +1290,12 @@ public:
             float ddy = (dy[i00] * w00 + dy[i10] * w10
                        + dy[i01] * w01 + dy[i11] * w11) * INV_Q;
 
-            ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
-            ::Pixel p = (black_skips_color && !(sample.r | sample.g | sample.b))
-                            ? sample
-                            : color_px(sample);
+            float sr, sg, sb;
+            sample_bilinear_prev(cv, x + ddx, y + ddy, sr, sg, sb);
+            ::Pixel p =
+                (black_skips_color && sr == 0.0f && sg == 0.0f && sb == 0.0f)
+                    ? ::Pixel(0, 0, 0)
+                    : color_px(sr, sg, sb);
 
             // write black too, to overwrite the stale double-buffer frame
             cv(x, y) = opaque ? p : blend(cv(x, y), p);
@@ -1303,17 +1305,30 @@ public:
         }
       }
     };
+    // The stock transforms run on the sampler's float channels directly (one
+    // quantization at the write); an arbitrary ColorFn keeps the Pixel
+    // interface, so the sample is quantized first.
     if (style_->color_fn == &::Feedback::hue_fade) {
-      composite([&](const ::Pixel &s) {
-        return ::Feedback::hue_fade(s, fade, *style_);
+      const float scale = fade * (1.0f / 65535.0f);
+      const float ca = style_->hue_ca, sa = style_->hue_sa;
+      composite([&](float r, float g, float b) {
+        r *= scale;
+        g *= scale;
+        b *= scale;
+        hue_rotate_rgb(r, g, b, ca, sa);
+        return ::Pixel(float_to_pixel16(r), float_to_pixel16(g),
+                       float_to_pixel16(b));
       });
     } else if (style_->color_fn == &::Feedback::plain_fade) {
-      composite([&](const ::Pixel &s) {
-        return ::Feedback::plain_fade(s, fade, *style_);
+      composite([&](float r, float g, float b) {
+        return ::Pixel(quantize16(r * fade), quantize16(g * fade),
+                       quantize16(b * fade));
       });
     } else {
-      composite([&](const ::Pixel &s) {
-        return style_->color_fn(s, fade, *style_);
+      composite([&](float r, float g, float b) {
+        return style_->color_fn(
+            ::Pixel(quantize16(r), quantize16(g), quantize16(b)), fade,
+            *style_);
       });
     }
   }
@@ -1361,9 +1376,12 @@ private:
    * @param bx Fractional column in [-W, 2W) (producer contract); wrapped across
    *   the longitude seam by the family's single-step fast_wrap.
    * @param by Fractional row; out-of-range rows contribute black.
-   * @return Bilinearly interpolated pixel color, round-to-nearest per channel.
+   * @param r Out: interpolated red on the [0, 65535] scale, unquantized.
+   * @param g Out: interpolated green.
+   * @param b Out: interpolated blue.
    */
-  ::Pixel sample_bilinear_prev(const Canvas &cv, float bx, float by) const {
+  void sample_bilinear_prev(const Canvas &cv, float bx, float by, float &r,
+                            float &g, float &b) const {
     float fy0 = std::floor(by);
     int y0 = static_cast<int>(fy0);
     int y1 = y0 + 1;
@@ -1389,13 +1407,16 @@ private:
     float w01 = (1.0f - fx) * fy;
     float w11 = fx * fy;
 
+    r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
+    g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
+    b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
+  }
+
+  /** @brief Quantizes an unclamped [0, 65535]-scale channel to a Pixel
+   *  component, round-to-nearest; NaN maps to the hi bound. */
+  static uint16_t quantize16(float v) {
     // clamp guards the cast against overshoot and maps NaN to the hi bound.
-    float r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
-    float g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
-    float b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
-    return ::Pixel(static_cast<uint16_t>(hs::clamp(r, 0.0f, 65535.0f) + 0.5f),
-                   static_cast<uint16_t>(hs::clamp(g, 0.0f, 65535.0f) + 0.5f),
-                   static_cast<uint16_t>(hs::clamp(b, 0.0f, 65535.0f) + 0.5f));
+    return static_cast<uint16_t>(hs::clamp(v, 0.0f, 65535.0f) + 0.5f);
   }
 
   ::Feedback::Style *style_;  /**< Bound feedback Style (non-owning). */

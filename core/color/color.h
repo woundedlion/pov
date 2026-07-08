@@ -733,30 +733,37 @@ inline uint8_t linear_float_to_srgb8(float l) {
       255.0f));
 }
 
-// Rotates the (a,b) chroma plane in OKLab, preserving perceived lightness
-// exactly and chroma to within fast-trig accuracy. Hot path: fast_cbrt forward,
-// exact cubes inverse, direct 2D rotation of (a,b) (no atan2/sqrt OKLCH polar
-// round-trip).
+/**
+ * @brief Rotates the (a,b) chroma plane in OKLab on a linear-RGB float triple.
+ * @param r In/out: linear red in [0, 1].
+ * @param g In/out: linear green.
+ * @param b In/out: linear blue.
+ * @param ca Cosine of the rotation angle.
+ * @param sa Sine of the rotation angle.
+ * @details Preserves perceived lightness exactly and chroma to within fast-trig
+ * accuracy. Hot path: fast_cbrt forward, exact cubes inverse, direct 2D
+ * rotation of (a,b) (no atan2/sqrt OKLCH polar round-trip).
+ */
+inline void hue_rotate_rgb(float &r, float &g, float &b, float ca, float sa) {
+  LMS lms = linear_rgb_to_lms(r, g, b);
+  OKLab lab = lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
+
+  float a2 = lab.a * ca - lab.b * sa;
+  float b2 = lab.a * sa + lab.b * ca;
+
+  oklab_to_linear_rgb_gamut({lab.L, a2, b2}, r, g, b);
+}
+
 inline Color4 hue_rotate(const Color4 &c, float ca, float sa) {
   constexpr float INV16 = 1.0f / 65535.0f;
   float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
 
-  // linear RGB -> OKLab, fast_cbrt for the forward nonlinearity (hot path).
-  LMS lms = linear_rgb_to_lms(r, g, b);
-  OKLab lab = lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
-  float L = lab.L, A = lab.a, B = lab.b;
-
-  // Rotate the chroma plane by (ca, sa); preserves L exactly and |(A,B)| to
-  // within fast-trig accuracy (non-orthonormal (ca,sa) scales chroma slightly).
-  float A2 = A * ca - B * sa;
-  float B2 = A * sa + B * ca;
-
-  LinRGB rgb = oklab_to_linear_rgb_gamut({L, A2, B2});
+  hue_rotate_rgb(r, g, b, ca, sa);
 
   Color4 result = c;
-  result.color.r = float_to_pixel16(rgb.r);
-  result.color.g = float_to_pixel16(rgb.g);
-  result.color.b = float_to_pixel16(rgb.b);
+  result.color.r = float_to_pixel16(r);
+  result.color.g = float_to_pixel16(g);
+  result.color.b = float_to_pixel16(b);
   return result;
 }
 
