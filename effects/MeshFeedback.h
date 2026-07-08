@@ -37,7 +37,7 @@ public:
   static constexpr float FREQ_MIN = 0.01f, FREQ_MAX = 1.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float SCALE_MIN = 0.1f, SCALE_MAX = 50.0f;
-  static constexpr float HUE_MIN = 0.0f,   HUE_MAX = 0.1f;
+  static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 0.1f;
 
   /** @brief True iff every preset-driven field of @p s lies within its
    *  registered slider range (see the range constants above). */
@@ -47,7 +47,7 @@ public:
            s.frequency >= FREQ_MIN && s.frequency <= FREQ_MAX &&
            s.speed >= SPEED_MIN && s.speed <= SPEED_MAX &&
            s.scale >= SCALE_MIN && s.scale <= SCALE_MAX &&
-           s.hue_shift >= HUE_MIN && s.hue_shift <= HUE_MAX;
+           s.hue_shift >= HUE_SHIFT_MIN && s.hue_shift <= HUE_SHIFT_MAX;
   }
   static_assert(preset_in_ranges(Style::SlowTwist()) &&
                     preset_in_ranges(Style::Churn()) &&
@@ -110,7 +110,8 @@ public:
     registerAnimatedParam("Distort Freq", &style.frequency, FREQ_MIN, FREQ_MAX);
     registerAnimatedParam("Distort Speed", &style.speed, SPEED_MIN, SPEED_MAX);
     registerAnimatedParam("Noise Scale", &style.scale, SCALE_MIN, SCALE_MAX);
-    registerAnimatedParam("Hue Shift", &style.hue_shift, HUE_MIN, HUE_MAX);
+    registerAnimatedParam("Hue Shift", &style.hue_shift, HUE_SHIFT_MIN,
+                          HUE_SHIFT_MAX);
     registerParam("Feedback", &feedback_enabled);
 
     timeline.add(0, Animation::Noise(noise_params));

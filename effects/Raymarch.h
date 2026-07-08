@@ -46,9 +46,9 @@ public:
     // spin_phase / palette_phase are effect-owned accumulators wrapped to [0,1)
     // each step, so the trig argument never grows. spin_phase is scaled to
     // radians by *2pi where consumed.
-    constexpr float TWO_PI = 2.0f * PI_F;
+    constexpr float TWO_PI_F = 2.0f * PI_F;
     timeline.add(0, Animation::Driver(spin_phase, &params.pulse_speed,
-                                      1.5f / (60.0f * TWO_PI), true));
+                                      1.5f / (60.0f * TWO_PI_F), true));
     timeline.add(0, Animation::Driver(palette_phase, &params.pulse_speed,
                                       0.05f / 60.0f, true));
 
@@ -131,7 +131,7 @@ private:
    *                color.
    */
   void drawFn(Canvas &canvas, float opacity) {
-    constexpr float TWO_PI = 2.0f * PI_F;
+    constexpr float TWO_PI_F = 2.0f * PI_F;
 
     float major_r = params.core_size * 0.45f;
     float minor_r = params.core_size * 0.14f;
@@ -148,7 +148,7 @@ private:
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
 
     // spin_phase rides in [0,1); scale to radians for make_rotation.
-    float spin_angle = spin_phase * TWO_PI;
+    float spin_angle = spin_phase * TWO_PI_F;
     Quaternion spin_q = make_rotation(X_AXIS, spin_angle);
 
     for (int vi = 0; vi < NUM_VERTS; ++vi) {
