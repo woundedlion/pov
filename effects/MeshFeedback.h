@@ -114,6 +114,9 @@ public:
                           HUE_SHIFT_MAX);
     registerParam("Feedback", &feedback_enabled);
 
+    filters.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
+        persistent_arena);
+
     timeline.add(0, Animation::Noise(noise_params));
     timeline.add(
         0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise_params.noise));
@@ -225,6 +228,10 @@ private:
                  morphing = false;
                  carousel.set_front(new_slot);
                  carousel.compact();
+                 // compact() reset the persistent arena; re-allocate the warp
+                 // cache there (it re-populates on the next flush).
+                 filters.template get<Filter::Pixel::Feedback<W, H>>()
+                     .init_storage(persistent_arena);
                  arm_hold_timer();
                }));
   }

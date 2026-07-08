@@ -44,6 +44,7 @@
 #include "core/render/canvas.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include <vector>
 
 namespace hs_test {
 namespace filter_tests {
@@ -1192,6 +1193,86 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
 }
 
 /**
+ * @brief Warp-cache parity: an init_storage'd Feedback filter must render
+ *        exactly what an uncached one does, frame for frame.
+ * @details Drives a cached and an uncached pipeline through identical frames:
+ *          a static style (later frames hit the cache), a key-field mutation
+ *          (amplitude), advancing noise time under nonzero speed (key changes
+ *          every frame), and a mid-run init_storage() re-allocation (the
+ *          effect's post-compaction path). Every frame must match the
+ *          uncached reference pixel-exactly — reuse serves the same int16
+ *          deltas the populate pass would have written.
+ */
+inline void test_feedback_warp_cache_matches_uncached() {
+  constexpr int W = 64, H = 64; // both divisible by the downsample (4)
+  constexpr int FRAMES = 8;
+
+  // Only one Effect may be alive at a time (shared static buffers), so the
+  // two pipelines run sequentially over recorded frames.
+  auto run = [&](bool cached) {
+    std::vector<std::vector<Pixel>> frames;
+    PipeFx fx(W, H);
+    NoiseParams np;
+    ::Feedback::Style s{};
+    s.noise = &np;
+    s.amplitude = 3.0f;
+    s.frequency = 0.3f;
+    s.speed = 0.0f;
+    s.scale = 5.0f;
+    s.fade = 0.9f;
+
+    Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+        Filter::Pixel::Feedback<W, H>(s)};
+    if (cached)
+      pipe.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
+          persistent_arena);
+
+    auto trail = [](float, float, float) {
+      return Color4(Pixel(0, 0, 0), 0.0f);
+    };
+    {
+      Canvas c(fx);
+      for (int y = 20; y <= 44; ++y)
+        for (int x = 8; x < W; x += 3)
+          c(x, y) = Pixel(40000, 20000 + 400 * y, 60000);
+    }
+    fx.advance_display();
+
+    for (int frame = 0; frame < FRAMES; ++frame) {
+      if (frame == 3) s.amplitude = 4.5f; // key change: repopulate
+      if (frame == 5) s.speed = 1.0f;     // time-varying: miss every frame
+      if (frame == 6 && cached)           // post-compaction re-allocation
+        pipe.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
+            persistent_arena);
+      s.sync_noise();
+
+      {
+        Canvas c(fx);
+        pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+      }
+      fx.advance_display();
+
+      frames.emplace_back();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          frames.back().push_back(fx.get_pixel(x, y));
+
+      np.time += 1.0f;
+    }
+    return frames;
+  };
+
+  auto ref = run(false);
+  auto got = run(true);
+  for (int frame = 0; frame < FRAMES; ++frame) {
+    int mismatches = 0;
+    for (size_t i = 0; i < ref[frame].size(); ++i)
+      if (!(ref[frame][i] == got[frame][i])) ++mismatches;
+    HS_EXPECT_EQ(mismatches, 0);
+  }
+}
+
+/**
  * @brief Space warp whose longitudinal displacement oscillates across the
  *        ±W/2 wrap: theta += PI + 0.3*sin(theta). Adjacent coarse warp-field
  *        columns land on opposite wrap branches while the true (unwrapped)
@@ -1796,6 +1877,7 @@ inline int run_filter_tests() {
   test_feedback_flush_blends_prev_frame();
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();
+  test_feedback_warp_cache_matches_uncached();
   test_feedback_flush_straddled_taps_stay_on_branch();
 
   test_world_trails_int16_quantization_roundtrip();
