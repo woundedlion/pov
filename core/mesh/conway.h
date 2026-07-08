@@ -727,6 +727,8 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
           return he_to_vert_idx[he_mesh.half_edges[idx].prev];
         });
 
+    // Edge and orbit faces are emitted regardless of primary-face
+    // well-formedness (unlike the shrunk primary face above).
     for_each_edge(he_mesh, visited_edges, I,
                   [&](uint16_t he_idx, const HalfEdge &he) {
                     out_mesh.face_counts.push_back(4);
