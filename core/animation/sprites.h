@@ -47,9 +47,12 @@ public:
     // only; indefinite ones skip fade-out).
     int fade_total = this->fade_in_duration + this->fade_out_duration;
     if (duration >= 0 && fade_total > duration) {
-      // Integer floor drops fade_in to 0 at tiny durations (fade_out stays >= 0).
+      const int requested_fade_in = this->fade_in_duration;
       this->fade_in_duration =
           static_cast<long long>(duration) * this->fade_in_duration / fade_total;
+      // Keep a requested fade-in visible when the integer scale floors it to 0.
+      if (this->fade_in_duration == 0 && requested_fade_in > 0 && duration >= 2)
+        this->fade_in_duration = 1;
       this->fade_out_duration = duration - this->fade_in_duration;
     }
   }
