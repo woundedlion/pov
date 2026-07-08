@@ -337,8 +337,8 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
  * near-integer; otherwise builds the vector analytically from spherical angles.
  */
 template <int W, int H> Vector pixel_to_vector(float x, float y) {
-  if (std::abs(x - floor(x)) < TOLERANCE &&
-      std::abs(y - floor(y)) < TOLERANCE) {
+  if (std::abs(x - std::floor(x)) < TOLERANCE &&
+      std::abs(y - std::floor(y)) < TOLERANCE) {
     return pixel_to_vector<W, H>(static_cast<int>(x), static_cast<int>(y));
   }
   // y_to_phi<H> already accounts for H_OFFSET internally; pass H, not H_VIRT.
