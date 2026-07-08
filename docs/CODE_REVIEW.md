@@ -120,7 +120,7 @@ All 19 items are low-severity. Priority reflects *type of impact*, not urgency. 
 
 18. **Color-strip marker uses `t*width` while the gradient is sampled over `width-1`, causing a sub-pixel marker/color offset** — `tools/palettes.html:905,933` (daydream). Cosmetic drift, worst at the right edge. Use `Math.round(t * (width - 1))` to match the gradient denominator.
 
-19. **Trailing-underscore member convention is applied inconsistently across sibling animation classes** — `core/animation/params.h:69-76`. Adjacent classes doing the same job mix `params_`/`scale_` with bare `params`/`from`/`to`. Purely cosmetic; pick one convention and apply it uniformly within the file.
+19. ✅ **Trailing-underscore member convention is applied inconsistently across sibling animation classes** — `core/animation/params.h:69-76`. Adjacent classes doing the same job mix `params_`/`scale_` with bare `params`/`from`/`to`. Purely cosmetic; pick one convention and apply it uniformly within the file.
 
 ---
 

@@ -94,7 +94,7 @@ public:
   Mutation(float &mutant, ScalarFn f, int duration, EasingFn easing_fn,
            bool repeat = false, const bool *paused = nullptr)
       : AnimationBase(duration, repeat), mutant(mutant), f(std::move(f)),
-        easing_fn(std::move(easing_fn)), paused_(paused) {
+        easing_fn(std::move(easing_fn)), paused(paused) {
     // Reject the perpetual -1 the base permits: step() would clamp t_norm to 0
     // forever, silently freezing the curve instead of driving it.
     HS_CHECK(duration >= 0, "Mutation duration must be >= 0");
@@ -109,7 +109,7 @@ public:
    * user's value holds. Resuming hands the member back to the curve.
    */
   void step(Canvas &canvas) override {
-    if (is_paused(paused_))
+    if (is_paused(paused))
       return;
     AnimationBase::step(canvas);
     auto t_norm = hs::clamp(static_cast<float>(this->t) / duration, 0.0f, 1.0f);
@@ -127,7 +127,7 @@ private:
       mutant; /**< Reference to the float variable being modified. */
   ScalarFn f; /**< The custom function to apply. */
   EasingFn easing_fn; /**< Easing curve. */
-  const bool *paused_; /**< Optional pause gate; freezes the mutation when set
+  const bool *paused; /**< Optional pause gate; freezes the mutation when set
                           and true. Null = always runs. */
 };
 
@@ -151,8 +151,8 @@ public:
    */
   Driver(float &mutant, float speed, bool wrap = true,
          const bool *paused = nullptr)
-      : AnimationBase(1, true), mutant(mutant), speed(speed), wrap_(wrap),
-        paused_(paused) {
+      : AnimationBase(1, true), mutant(mutant), speed(speed), wrap(wrap),
+        paused(paused) {
     // A non-finite speed permanently poisons `mutant` (wrap_t can't recover NaN).
     HS_CHECK(std::isfinite(speed), "Driver: fixed speed must be finite");
   }
@@ -175,8 +175,8 @@ public:
   // overload is needed.
   Driver(float &mutant, const float *speed_src, float scale, bool wrap = true,
          const bool *paused = nullptr)
-      : AnimationBase(1, true), mutant(mutant), speed(0.0f), wrap_(wrap),
-        paused_(paused), speed_src_(speed_src), scale_(scale) {
+      : AnimationBase(1, true), mutant(mutant), speed(0.0f), wrap(wrap),
+        paused(paused), speed_src(speed_src), scale(scale) {
     HS_CHECK(speed_src != nullptr, "Driver: live speed_src is null");
     // On a non-finite initial read keep the 0.0f seed (see step()).
     float s = *speed_src * scale;
@@ -190,18 +190,18 @@ public:
    * @details Freezes while a wired pause flag is set (see Mutation::step).
    */
   void step(Canvas &canvas) override {
-    if (is_paused(paused_))
+    if (is_paused(paused))
       return;
     AnimationBase::step(canvas);
     // Re-read the live source, keeping the last good speed on a non-finite read:
     // a one-frame NaN/Inf would otherwise poison `mutant` permanently.
-    if (speed_src_) {
-      float s = *speed_src_ * scale_;
+    if (speed_src) {
+      float s = *speed_src * scale;
       if (std::isfinite(s))
         speed = s;
     }
     mutant.get() += speed;
-    if (wrap_) {
+    if (wrap) {
       mutant.get() = wrap_t(mutant.get());
     }
   }
@@ -225,7 +225,7 @@ public:
    *   speed each frame from the source.
    */
   void set_speed(float new_speed) {
-    HS_CHECK(!speed_src_, "Driver::set_speed with a live speed_src bound");
+    HS_CHECK(!speed_src, "Driver::set_speed with a live speed_src bound");
     speed = new_speed;
   }
 
@@ -238,12 +238,12 @@ public:
 private:
   std::reference_wrapper<float> mutant; /**< Reference to the float variable. */
   float speed;                          /**< Amount added per frame. */
-  bool wrap_;                           /**< If true, wraps value to 0-1 range. */
-  const bool *paused_; /**< Optional pause gate; freezes the driver when set and
+  bool wrap;                            /**< If true, wraps value to 0-1 range. */
+  const bool *paused; /**< Optional pause gate; freezes the driver when set and
                           true. Null = always runs. */
-  const float *speed_src_ =
-      nullptr;            /**< Live speed source; null = fixed speed. */
-  float scale_ = 1.0f;   /**< Multiplier applied to *speed_src_. */
+  const float *speed_src =
+      nullptr;        /**< Live speed source; null = fixed speed. */
+  float scale = 1.0f; /**< Multiplier applied to *speed_src. */
 };
 
 /**
@@ -270,7 +270,7 @@ public:
        Easing easing_fn, const bool *paused = nullptr)
       : AnimationBase(duration, false), subject_ptr(&subject),
         start_ptr(&start), target_ptr(&target), easing(easing_fn),
-        paused_(paused) {
+        paused(paused) {
     do_lerp = [](void *subj, const void *s, const void *tgt, float t) {
       static_cast<T *>(subj)->lerp(*static_cast<const T *>(s),
                                    *static_cast<const T *>(tgt), t);
@@ -301,7 +301,7 @@ public:
    * subject holds.
    */
   void step(Canvas &canvas) override {
-    if (is_paused(paused_))
+    if (is_paused(paused))
       return;
     AnimationBase::step(canvas);
     float progress = hs::clamp(static_cast<float>(t) / duration, 0.0f, 1.0f);
@@ -315,7 +315,7 @@ private:
   EasingFn easing;         /**< Easing curve applied to progress. */
   /** @brief Type-erased lerp thunk. */
   void (*do_lerp)(void *, const void *, const void *, float);
-  const bool *paused_ = nullptr; /**< Optional pause gate; null = always runs. */
+  const bool *paused = nullptr; /**< Optional pause gate; null = always runs. */
 };
 
 /**
@@ -449,8 +449,8 @@ public:
    */
   MobiusWarp(MobiusParams &params, float scale, int duration,
              bool repeat = true, EasingFn easing = ease_in_out_sin)
-      : AnimationBase(duration, repeat), params_(params), scale_(scale),
-        easing_(easing) {
+      : AnimationBase(duration, repeat), params(params), scale(scale),
+        easing(easing) {
     HS_CHECK(duration >= 0, "MobiusWarp duration must be >= 0");
     HS_CHECK(std::isfinite(scale), "MobiusWarp scale must be finite");
   }
@@ -465,7 +465,7 @@ public:
    * member). This avoids retaining the animation pointer across frames, which
    * would dangle under timeline compaction.
    */
-  void bind_scale(const float &live_scale) { scale_ref_ = &live_scale; }
+  void bind_scale(const float &live_scale) { scale_ref = &live_scale; }
 
   /**
    * @brief Steps the animation, updating param b.
@@ -474,23 +474,23 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     float t_norm = static_cast<float>(t) / duration;
-    float progress = easing_(hs::clamp(t_norm, 0.0f, 1.0f));
+    float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
-    float s = scale_;
-    if (scale_ref_) {
-      float s2 = *scale_ref_;
+    float s = scale;
+    if (scale_ref) {
+      float s2 = *scale_ref;
       if (std::isfinite(s2))
         s = s2;
     }
-    params_.get().b.re = s * (cosf(angle) - 1.0f);
-    params_.get().b.im = s * sinf(angle);
+    params.get().b.re = s * (cosf(angle) - 1.0f);
+    params.get().b.im = s * sinf(angle);
   }
 
 private:
-  std::reference_wrapper<MobiusParams> params_; /**< Mobius params to animate. */
-  float scale_;                      /**< Warp magnitude. */
-  EasingFn easing_;                  /**< Easing curve. */
-  const float *scale_ref_ = nullptr; /**< Optional live magnitude source. */
+  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
+  float scale;                      /**< Warp magnitude. */
+  EasingFn easing;                  /**< Easing curve. */
+  const float *scale_ref = nullptr; /**< Optional live magnitude source. */
 };
 
 /**
@@ -508,8 +508,8 @@ public:
    */
   MobiusWarpCircular(MobiusParams &params, float scale, int duration,
                      bool repeat = true, EasingFn easing = ease_in_out_sin)
-      : AnimationBase(duration, repeat), params_(params), scale_(scale),
-        easing_(easing) {
+      : AnimationBase(duration, repeat), params(params), scale(scale),
+        easing(easing) {
     HS_CHECK(duration >= 0, "MobiusWarpCircular duration must be >= 0");
     HS_CHECK(std::isfinite(scale), "MobiusWarpCircular scale must be finite");
   }
@@ -521,16 +521,16 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     float t_norm = static_cast<float>(t) / duration;
-    float progress = easing_(hs::clamp(t_norm, 0.0f, 1.0f));
+    float progress = easing(hs::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
-    params_.get().b.re = scale_ * cosf(angle);
-    params_.get().b.im = -scale_ * sinf(angle);
+    params.get().b.re = scale * cosf(angle);
+    params.get().b.im = -scale * sinf(angle);
   }
 
 private:
-  std::reference_wrapper<MobiusParams> params_; /**< Mobius params to animate. */
-  float scale_;    /**< Warp magnitude. */
-  EasingFn easing_; /**< Easing curve. */
+  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
+  float scale;     /**< Warp magnitude. */
+  EasingFn easing; /**< Easing curve. */
 };
 
 /**
@@ -559,14 +559,14 @@ public:
    */
   MobiusWarpEvolving(MobiusParams &params, float scale = 0.5f,
                      float speed = 0.01f)
-      : params_(params), speed_(speed), scale_(scale), base(params),
+      : params(params), speed(speed), scale(scale), base(params),
         seed(hs::random()()) {}
 
   /** @brief Sets the modulation speed (radians of phase per frame unit). */
-  void set_speed(float speed) { speed_ = speed; }
+  void set_speed(float speed) { this->speed = speed; }
 
   /** @brief Sets the per-channel modulation magnitude. */
-  void set_scale(float scale) { scale_ = scale; }
+  void set_scale(float scale) { this->scale = scale; }
 
   /**
    * @brief Derives a per-channel phase offset from the seed and channel index.
@@ -588,27 +588,27 @@ public:
     // float can't represent consecutive frames and the phase freezes; this
     // animation is perpetual (duration == -1). A modulo/accumulator fix only
     // trades the slow drift for a sharp artifact.
-    float time = t * speed_;
-    float s = scale_;
+    float time = t * speed;
+    float s = scale;
 
     // Use prime-ish number ratios for frequencies to minimize repetition cycle
-    params_.get().a.re = base.a.re + sinf(time * 1.0f + phase(0)) * s;
-    params_.get().a.im = base.a.im + cosf(time * 1.13f + phase(1)) * s;
+    params.get().a.re = base.a.re + sinf(time * 1.0f + phase(0)) * s;
+    params.get().a.im = base.a.im + cosf(time * 1.13f + phase(1)) * s;
 
-    params_.get().b.re = base.b.re + sinf(time * 1.27f + phase(2)) * s;
-    params_.get().b.im = base.b.im + cosf(time * 1.39f + phase(3)) * s;
+    params.get().b.re = base.b.re + sinf(time * 1.27f + phase(2)) * s;
+    params.get().b.im = base.b.im + cosf(time * 1.39f + phase(3)) * s;
 
-    params_.get().c.re = base.c.re + sinf(time * 0.71f + phase(4)) * s;
-    params_.get().c.im = base.c.im + cosf(time * 0.83f + phase(5)) * s;
+    params.get().c.re = base.c.re + sinf(time * 0.71f + phase(4)) * s;
+    params.get().c.im = base.c.im + cosf(time * 0.83f + phase(5)) * s;
 
-    params_.get().d.re = base.d.re + sinf(time * 0.97f + phase(6)) * s;
-    params_.get().d.im = base.d.im + cosf(time * 1.09f + phase(7)) * s;
+    params.get().d.re = base.d.re + sinf(time * 0.97f + phase(6)) * s;
+    params.get().d.im = base.d.im + cosf(time * 1.09f + phase(7)) * s;
   }
 
 private:
-  std::reference_wrapper<MobiusParams> params_; /**< Mobius params to animate. */
-  float speed_; /**< Animation speed (radians of phase per frame unit). */
-  float scale_; /**< Magnitude of the per-channel modulation. */
+  std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
+  float speed; /**< Animation speed (radians of phase per frame unit). */
+  float scale; /**< Magnitude of the per-channel modulation. */
   MobiusParams base; /**< Baseline params captured at construction. */
   uint32_t seed;     /**< Seed for the per-channel phase offsets. */
 };
