@@ -209,7 +209,14 @@ async function main() {
         if (!verts || verts.length === 0 || verts.length % 3 !== 0) {
           fail(`${solidName} getVertices(): ${verts && verts.length} floats (want nonzero multiple of 3)`);
         }
-        if (solid.getFaces().length === 0) fail(`${solidName} getFaces() returned no faces`);
+        // getFaces() returns parallel flat buffers: { indices, counts }.
+        const faces = solid.getFaces();
+        if (!faces || !faces.counts || faces.counts.length === 0) {
+          fail(`${solidName} getFaces() returned no faces`);
+        } else if (faces.indices.length !== faces.counts.reduce((sum, n) => sum + n, 0)) {
+          fail(`${solidName} getFaces(): indices length ${faces.indices.length} ` +
+            `disagrees with the counts sum`);
+        }
 
         // Conway operator path: dual() runs apply()/finalize into the tooling arena.
         const dual = solid.dual();
@@ -224,9 +231,14 @@ async function main() {
         // Drive the parameterized operators (float-arg truncate, int-arg relax
         // with its clamp, finite-arg hankin reject) — arg-marshaling seams not
         // exercised above.
-        const isValidMesh = (w) =>
-          w && w.getVertices().length > 0 && w.getVertices().length % 3 === 0 &&
-          w.getFaces().length > 0;
+        const isValidMesh = (w) => {
+          if (!w) return false;
+          const v = w.getVertices();
+          const f = w.getFaces();
+          return v.length > 0 && v.length % 3 === 0 &&
+            f && f.counts && f.counts.length > 0 &&
+            f.indices.length === f.counts.reduce((sum, n) => sum + n, 0);
+        };
 
         // MESHOP_1F(truncate): marshals a float arg and finalizes a new mesh.
         const trunc = solid.truncate(0.3);
