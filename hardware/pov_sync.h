@@ -620,10 +620,10 @@ public:
     // sized the int32 cast for. Check the unsigned magnitude before narrowing: a
     // forward elapsed past the window wraps to a spurious small-negative int32 that
     // would slip under a signed bound.
-    [[maybe_unused]] const uint32_t bound =
+    const uint32_t bound =
         static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period_;
-    assert((elapsed < bound || elapsed >= 0u - bound) &&
-           "Flywheel::position: unfolded coast — int32 elapsed cast overflowed");
+    HS_CHECK(elapsed < bound || elapsed >= 0u - bound,
+             "Flywheel::position: unfolded coast — int32 elapsed cast overflowed");
     const int64_t delta = static_cast<int32_t>(elapsed);
     const int64_t cols = floor_div(delta * (w_ / 2), period_);
     return floor_mod(boundary_column(boundary_, w_) + cols, w_);
