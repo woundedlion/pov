@@ -7,10 +7,12 @@
 #include "core/engine/engine.h"
 
 /**
- * @brief Sphere-traces a morphing superquadric at each cube vertex: the
- *        exponent sweeps octahedron -> sphere -> cube and back, phase-offset
- *        by latitude so the morph travels pole-to-pole as a wave. Shaded with
- *        the metallic headlight model and a baked OKLCH palette.
+ * @brief Sphere-traces a morphing superquadric at each vertex of a rhombic
+ *        triacontahedron: the exponent sweeps octahedron -> sphere -> cube and
+ *        back, phase-offset by latitude so the morph travels pole-to-pole as a
+ *        wave. Each blob is auto-sized to its own nearest-neighbour gap (scaled
+ *        by the live Fill param), so they pack without overlap. Shaded with the
+ *        metallic headlight model and a baked OKLCH palette.
  * @tparam W Effect render width in pixels.
  * @tparam H Effect render height in pixels.
  */
@@ -22,16 +24,16 @@ public:
   FLASHMEM MorphBlob() : Effect(W, H) {}
 
   /**
-   * @brief Registers tunable params, precomputes per-vertex quaternions, bakes
-   *        the palette LUT, and installs the camera walk and per-frame draw on
-   *        the timeline.
+   * @brief Registers tunable params, builds the rhombic-triacontahedron vertex
+   *        set, bakes the palette LUT, and installs the camera walk and
+   *        per-frame draw on the timeline.
    */
   void init() override {
     registerParam("Morph Speed", &params.morph_speed, 0.0f, 10.0f);
-    // Upper bound keeps the cube-end circumradius (s * 3^(1/2 - 1/8) at max
-    // Boxiness) below half the 70.5° vertex spacing, so no slider setting
-    // overlaps a neighbour.
-    registerParam("Core Size", &params.core_size, 0.1f, 0.38f);
+    // Fraction of the half nearest-neighbour gap the blob's widest sweep extent
+    // (the cube end's corner circumradius) reaches: < 1 leaves a gap, 1 makes
+    // neighbours touch, > 1 overlaps them deliberately.
+    registerParam("Fill", &params.fill, 0.3f, 1.3f);
     registerParam("Spike", &params.spike, 1.0f, 2.0f);
     registerParam("Boxiness", &params.boxiness, 2.0f, 8.0f);
     registerParam("Wave", &params.wave, 0.0f, 1.0f);
@@ -41,8 +43,7 @@ public:
     registerParam("Fresnel", &params.fresnel, 0.0f, 1.0f);
     registerParam("AA Width", &params.aa_mult, 0.1f, 1.5f);
 
-    for (int i = 0; i < NUM_VERTS; ++i)
-      raw_quats[i] = make_rotation(Y_AXIS, Solids::Cube::vertices[i]);
+    build_points();
 
     baked_palette.bake(persistent_arena, palette);
 
@@ -78,11 +79,27 @@ public:
   }
 
 private:
-  static constexpr int NUM_VERTS = Solids::Cube::NUM_VERTS;
+  /** Vertex-array capacity; the rhombic triacontahedron has 32. */
+  static constexpr int MAX_POINTS = 32;
 
   /**
-   * @brief Ray-marches and shades the morphing superquadric at every cube
-   *        vertex for the current frame.
+   * @brief Builds the rhombic-triacontahedron vertex directions and per-vertex
+   *        orientation quaternions and nearest-neighbour gaps.
+   * @details Generates the solid from the registry into the scratch arenas
+   *          (reclaimed on scope exit) via the shared HS_COLD builder, so drawFn
+   *          can size every blob to its own local gap.
+   */
+  void build_points() {
+    ScratchScope a_guard(scratch_arena_a);
+    ScratchScope b_guard(scratch_arena_b);
+    active_count = Solids::build_vertex_directions(
+        scratch_arena_a, scratch_arena_b, "rhombicTriacontahedron", MAX_POINTS,
+        points.data(), raw_quats.data(), nn_angle.data());
+  }
+
+  /**
+   * @brief Ray-marches and shades the morphing superquadric at every vertex for
+   *        the current frame.
    * @param canvas Render target for this frame's fragments.
    * @param opacity Sprite fade alpha in [0, 1], written into each fragment's
    *                color.
@@ -90,32 +107,35 @@ private:
   void drawFn(Canvas &canvas, float opacity) {
     constexpr float TWO_PI_F = 2.0f * PI_F;
 
-    float s = params.core_size;
-    // Bounds must cover the widest shape of the sweep: the cube end's
-    // circumradius at the Boxiness exponent.
-    float bounds_radius =
-        s * powf(3.0f, std::max(0.0f, 0.5f - 1.0f / params.boxiness));
-    float aa_width = s * 0.15f * params.aa_mult;
+    // Widest sweep extent per unit scale: the cube end's corner circumradius.
+    float diag_k = powf(3.0f, std::max(0.0f, 0.5f - 1.0f / params.boxiness));
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
     float log_ratio = logf(params.boxiness / params.spike);
 
     // spin_phase rides in [0,1); scale to radians for make_rotation.
     Quaternion spin_q = make_rotation(X_AXIS, spin_phase * TWO_PI_F);
 
-    for (int vi = 0; vi < NUM_VERTS; ++vi) {
-      Vector home = Solids::Cube::vertices[vi];
+    for (int i = 0; i < active_count; ++i) {
       // Latitude phase offset: the morph sweeps pole-to-pole as a wave.
-      float phase_i =
-          morph_phase + params.wave * (0.5f + 0.5f * home.y);
+      float phase_i = morph_phase + params.wave * (0.5f + 0.5f * points[i].y);
       float t = 0.5f + 0.5f * fast_sinf(TWO_PI_F * phase_i);
       // Exponential exponent lerp: Spike at t=0, Boxiness at t=1, crossing
       // the sphere (p=2) between the two pointy extremes.
-      SDF::Superquadric blob(s, params.spike * expf(t * log_ratio));
+      float p = params.spike * expf(t * log_ratio);
 
-      Vector center = camera.orient(home);
+      // Per-vertex auto-size: fit the cube end's circumradius to `fill` of this
+      // vertex's half nearest-neighbour gap, so open regions get large blobs
+      // and tight ones stay small; at fill 1 mutual neighbours just touch.
+      float outer_r = sinf(0.5f * nn_angle[i] * params.fill);
+      float s = outer_r / diag_k;
+      SDF::Superquadric blob(s, p);
+      float aa_width = s * 0.15f * params.aa_mult;
+      float bounds_radius = outer_r + aa_width;
+
+      Vector center = camera.orient(points[i]);
       Vector ray_dir(-center.x, -center.y, -center.z);
 
-      Quaternion world_q = camera.get() * raw_quats[vi] * spin_q;
+      Quaternion world_q = camera.get() * raw_quats[i] * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
 
       auto frag_fn = [&](const Vector &loc, Fragment &frag) {
@@ -127,9 +147,9 @@ private:
                                         params.fresnel);
 
         float axis_angle = (fast_atan2(loc.z, loc.x) + PI_F) / TWO_PI_F;
-        float palette_t = fmodf(
-            axis_angle + palette_phase + static_cast<float>(vi) / NUM_VERTS,
-            1.0f);
+        float palette_t = fmodf(axis_angle + palette_phase +
+                                    static_cast<float>(i) / active_count,
+                                1.0f);
         Color4 c = baked_palette.get(palette_t);
         frag.color = Color4(c.color * shade, opacity);
       };
@@ -145,10 +165,10 @@ private:
    */
   struct Params {
     float morph_speed = 5.0f;
-    float core_size = 0.3f;
+    float fill = 0.8f;
     float spike = 1.0f;
     float boxiness = 6.0f;
-    float wave = 0.35f;
+    float wave = 0.5f;
     float max_steps = 18.0f;
     float diffuse = 0.4f;
     float specular = 1.2f;
@@ -162,7 +182,10 @@ private:
   float morph_phase = 0.0f;   // exponent sweep phase, [0,1) cycles
   float spin_phase = 0.0f;    // blob tumble phase, [0,1) -> [0,2pi) radians
   float palette_phase = 0.0f; // baked-palette scroll offset, [0,1) cycles
-  std::array<Quaternion, NUM_VERTS> raw_quats;
+  int active_count = 0;       // vertices built (rhombic triacontahedron = 32)
+  std::array<Vector, MAX_POINTS> points;
+  std::array<Quaternion, MAX_POINTS> raw_quats;
+  std::array<float, MAX_POINTS> nn_angle; // per-vertex nearest-neighbour gap (rad)
   Timeline timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::TRIADIC,
