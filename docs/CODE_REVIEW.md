@@ -225,7 +225,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 46. **Per-frame syncGUI does a full Map lookup + resolveParamSync over every param even for non-animated effects** — `daydream.js:101-140` · _performance_
    Fix: Store hasAnimated (or the list of animated controllers) on activeEffect and early-return from syncGUI when there are no animated params, skipping the getParamValues() call entirely.
 
-47. **rasterize() recomputes screen_step for the first sub-step it already computed as first_step** — `core/render/plot.h:626-627, 661-662` · _performance_
+47. ✅ **rasterize() recomputes screen_step for the first sub-step it already computed as first_step** — `core/render/plot.h:626-627, 661-662` · _performance_
    Fix: Seed the loop with the already-computed first_step for the first iteration instead of recomputing: e.g. use `float step = (steps_cache.empty()) ? first_step : screen_step<W,H>(smp.pos, smp.tan, base_step);` or restructure so first_step is pushed before the loop. Keeps behavior bit-identical (same inputs -> same output) with one fewer sqrt/divide per segment.
 
 48. **x86 clamp backend uses GNU always_inline attribute but the arch guard also admits MSVC (_M_X64/_M_IX86)** — `core/engine/platform.h:1305-1306 arch guard; 1352 clamp` · _portability-build_

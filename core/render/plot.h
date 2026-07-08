@@ -659,7 +659,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     float sim_dist = 0.0f;
 
     while (sim_dist < total_dist) {
-      float step = screen_step<W, H>(smp.pos, smp.tan, base_step);
+      float step = steps_cache.is_empty()
+                       ? first_step
+                       : screen_step<W, H>(smp.pos, smp.tan, base_step);
 
       // Backstop: a pathological segment (e.g. a huge-radius shape wrapping the
       // sphere) could still exceed the 2*W cache. Stop subdividing and let the
