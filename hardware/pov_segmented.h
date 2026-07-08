@@ -373,8 +373,27 @@ private:
    * therefore elects a phantom second master and drives the push-pull sync wire
    * into contention — the triple-sample debounce below traps on that instability.
    *
-   * Validates *this* board's strap only: a peer holding the same ID is not
-   * observable on a push-pull wire, so that cross-check is out of scope.
+   * Validates *this* board's strap only. Two failure modes exist; only the
+   * first is trappable on the push-pull sync bus (U1 74AHCT125, ch C):
+   *
+   *   1. Unstable/cold strap on this board — a flaky link momentarily reads as
+   *      ID 0 and enables this board's bus driver. The triple-sample debounce
+   *      below catches the instability and traps.
+   *
+   *   2. A *peer* stably strapped to the same ID 0 — undetectable here. Both
+   *      boards read a clean ID 0, both assert MASTER_EN, and both push-pull
+   *      ch-C drivers source-fight on the shared wire. The two 100 ohm source
+   *      resistors (R_S) current-limit the fight to ~22 mA (no part damage),
+   *      but the bus parks near mid-rail and sync is silently corrupted — no
+   *      trap fires, because each board's own strap reads valid.
+   *
+   * Mode 2 is an assembly/wiring fault the firmware cannot observe on this
+   * board revision: the push-pull driver source-fights instead of wired-ANDing
+   * (an open-drain bus would make a duplicate master benign and read-back
+   * detectable, but that is a board respin, not the shipped design). It is
+   * prevented procedurally — one board strapped master (both straps open) and
+   * unique soldered ID links elsewhere, per PCB rules R-ID-2 (soldered links)
+   * and R-ID-4 (silkscreen truth table).
    */
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
