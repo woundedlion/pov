@@ -7,7 +7,7 @@
  * Coverage:
  *   - clamp_phi utility
  *   - Spherical SDF primitives (Ring, PlanarPolygon, SphericalPolygon, Star, Line)
- *   - 3D Torus
+ *   - 3D Torus, Superquadric
  *   - CSG operators (Union, SmoothUnion, Subtract, Intersection)
  *   - AngularRepeat
  *
@@ -340,6 +340,105 @@ inline void test_torus_normal_points_outward_on_top() {
   SDF::Torus t{2.0f, 0.5f};
   Vector n = t.normal(Vector(2.0f, 0.5f, 0));
   HS_EXPECT_VEC(n, Vector(0, 1, 0), 1e-4f);
+}
+
+// ============================================================================
+// Superquadric (3D volumetric)
+// ============================================================================
+
+/** @brief Verifies axis vertices sit on the surface and canonical inside/outside
+ *  points read the right sign for octahedron, sphere, and cube-ward exponents. */
+inline void test_superquadric_containment_across_exponents() {
+  for (float p : {1.0f, 1.5f, 2.0f, 4.0f, 8.0f}) {
+    SDF::Superquadric sq(0.5f, p);
+    HS_EXPECT_LT(sq.distance(Vector(0, 0, 0)), 0.0f);
+    HS_EXPECT_NEAR(sq.distance(Vector(0.5f, 0, 0)), 0.0f, 1e-5f);
+    HS_EXPECT_NEAR(sq.distance(Vector(0, -0.5f, 0)), 0.0f, 1e-5f);
+    HS_EXPECT_GT(sq.distance(Vector(0.6f, 0.6f, 0.6f)), 0.0f);
+  }
+}
+
+/** @brief Verifies p = 2 reduces to the exact Euclidean sphere SDF. */
+inline void test_superquadric_p2_is_sphere() {
+  SDF::Superquadric sq(0.5f, 2.0f);
+  for (Vector q : {Vector(0.9f, 0.2f, -0.4f), Vector(0.1f, 0.1f, 0.1f),
+                   Vector(-0.3f, 0.7f, 0.2f)})
+    HS_EXPECT_NEAR(sq.distance(q), q.length() - 0.5f, 1e-5f);
+}
+
+/** @brief Verifies distance() is invariant under the octahedral symmetry group
+ *  (coordinate permutations and sign flips). */
+inline void test_superquadric_octahedral_symmetry() {
+  for (float p : {1.0f, 3.0f}) {
+    SDF::Superquadric sq(0.5f, p);
+    Vector q(0.3f, 0.5f, 0.7f);
+    float d = sq.distance(q);
+    HS_EXPECT_NEAR(sq.distance(Vector(0.5f, 0.7f, 0.3f)), d, 1e-6f);
+    HS_EXPECT_NEAR(sq.distance(Vector(0.7f, 0.3f, 0.5f)), d, 1e-6f);
+    HS_EXPECT_NEAR(sq.distance(Vector(-0.3f, 0.5f, -0.7f)), d, 1e-6f);
+  }
+}
+
+/** @brief Verifies the Lipschitz divisor makes distance() 1-Lipschitz (sphere-
+ *  trace safe) by finite differences over a grid of points and directions. */
+inline void test_superquadric_distance_is_one_lipschitz() {
+  const Vector dirs[] = {Vector(1, 0, 0), Vector(0, 0, 1),
+                         Vector(0.5774f, 0.5774f, 0.5774f),
+                         Vector(0.2673f, -0.5345f, 0.8018f)};
+  constexpr float H = 1e-2f;
+  for (float p : {1.0f, 1.3f, 2.0f, 4.0f, 8.0f}) {
+    SDF::Superquadric sq(0.5f, p);
+    for (float x = -1.0f; x <= 1.0f; x += 0.25f)
+      for (float y = -1.0f; y <= 1.0f; y += 0.25f)
+        for (float z = -1.0f; z <= 1.0f; z += 0.25f) {
+          Vector q(x, y, z);
+          float d = sq.distance(q);
+          for (const Vector &u : dirs) {
+            float d2 = sq.distance(q + u * H);
+            HS_EXPECT_LE(fabsf(d2 - d), H * 1.001f + 1e-5f);
+          }
+        }
+  }
+}
+
+/** @brief Verifies circumradius() matches the diagonal surface point's Euclidean
+ *  norm and reduces to s for p <= 2. */
+inline void test_superquadric_circumradius() {
+  HS_EXPECT_NEAR(SDF::Superquadric(0.5f, 1.0f).circumradius(), 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(SDF::Superquadric(0.5f, 2.0f).circumradius(), 0.5f, 1e-6f);
+  SDF::Superquadric sq(0.5f, 6.0f);
+  // Diagonal surface point: 3·d^p = s^p → d = s·3^(-1/p).
+  float d = 0.5f * powf(3.0f, -1.0f / 6.0f);
+  Vector corner(d, d, d);
+  HS_EXPECT_NEAR(sq.distance(corner), 0.0f, 1e-5f);
+  HS_EXPECT_NEAR(sq.circumradius(), corner.length(), 1e-5f);
+}
+
+/** @brief Verifies normal() matches the normalized finite-difference gradient at
+ *  generic (off-edge) surface points and is unit length. */
+inline void test_superquadric_normal_matches_gradient() {
+  constexpr float H = 1e-3f;
+  for (float p : {1.0f, 2.0f, 5.0f}) {
+    SDF::Superquadric sq(0.5f, p);
+    for (Vector q : {Vector(0.35f, 0.2f, 0.1f), Vector(-0.2f, 0.3f, -0.25f)}) {
+      Vector n = sq.normal(q);
+      HS_EXPECT_NEAR(n.length(), 1.0f, 1e-4f);
+      Vector g(sq.distance(q + Vector(H, 0, 0)) - sq.distance(q - Vector(H, 0, 0)),
+               sq.distance(q + Vector(0, H, 0)) - sq.distance(q - Vector(0, H, 0)),
+               sq.distance(q + Vector(0, 0, H)) - sq.distance(q - Vector(0, 0, H)));
+      HS_EXPECT_VEC(n, g.normalized(), 1e-2f);
+    }
+  }
+}
+
+/** @brief Verifies the octahedron face normal is ±(1,1,1)/√3 at p = 1. */
+inline void test_superquadric_octahedron_face_normal() {
+  SDF::Superquadric sq(0.5f, 1.0f);
+  constexpr float INV_SQRT3 = 0.57735027f;
+  Vector n = sq.normal(Vector(0.2f, 0.2f, 0.1f));
+  HS_EXPECT_VEC(n, Vector(INV_SQRT3, INV_SQRT3, INV_SQRT3), 1e-4f);
+  Vector m = sq.normal(Vector(-0.2f, 0.1f, -0.2f));
+  HS_EXPECT_VEC(m, Vector(-INV_SQRT3, INV_SQRT3, -INV_SQRT3), 1e-4f);
 }
 
 // ============================================================================
@@ -1668,6 +1767,14 @@ inline int run_sdf_tests() {
   test_torus_origin_is_outside_hole();
   test_torus_normal_points_outward_on_outer_rim();
   test_torus_normal_points_outward_on_top();
+
+  test_superquadric_containment_across_exponents();
+  test_superquadric_p2_is_sphere();
+  test_superquadric_octahedral_symmetry();
+  test_superquadric_distance_is_one_lipschitz();
+  test_superquadric_circumradius();
+  test_superquadric_normal_matches_gradient();
+  test_superquadric_octahedron_face_normal();
 
   test_twist_apply_displaces_y();
   test_twist_lipschitz_identity_and_closed_form();
