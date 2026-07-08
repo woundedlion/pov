@@ -1100,8 +1100,8 @@ public:
           Solids::get_entry(i).generate(tooling_scratch_a, tooling_scratch_b);
 
       int v = static_cast<int>(temp.vertices.size());
-      int f = static_cast<int>(temp.face_counts.size());
-      int idxs = static_cast<int>(temp.faces.size());
+      int f = static_cast<int>(temp.get_face_counts_size());
+      int idxs = static_cast<int>(temp.get_faces_size());
 
       if (v > max_v) {
         max_v = v;
