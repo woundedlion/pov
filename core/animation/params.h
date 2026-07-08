@@ -448,6 +448,7 @@ public:
       : AnimationBase(duration, repeat), params_(params), scale_(scale),
         easing_(easing) {
     HS_CHECK(duration >= 0, "MobiusWarp duration must be >= 0");
+    HS_CHECK(std::isfinite(scale), "MobiusWarp scale must be finite");
   }
 
   /**
@@ -471,7 +472,12 @@ public:
     float t_norm = static_cast<float>(t) / duration;
     float progress = easing_(hs::clamp(t_norm, 0.0f, 1.0f));
     float angle = progress * 2 * PI_F;
-    float s = scale_ref_ ? *scale_ref_ : scale_;
+    float s = scale_;
+    if (scale_ref_) {
+      float s2 = *scale_ref_;
+      if (std::isfinite(s2))
+        s = s2;
+    }
     params_.get().b.re = s * (cosf(angle) - 1.0f);
     params_.get().b.im = s * sinf(angle);
   }
@@ -501,6 +507,7 @@ public:
       : AnimationBase(duration, repeat), params_(params), scale_(scale),
         easing_(easing) {
     HS_CHECK(duration >= 0, "MobiusWarpCircular duration must be >= 0");
+    HS_CHECK(std::isfinite(scale), "MobiusWarpCircular scale must be finite");
   }
 
   /**
