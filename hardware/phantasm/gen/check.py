@@ -6,7 +6,8 @@ import os
 sys.path.insert(0, os.path.dirname(__file__))
 import sexp
 
-SCH = sys.argv[1] if len(sys.argv) > 1 else r"c:\work\Holosphere\hardware\phantasm\phantasm.kicad_sch"
+SCH = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "phantasm.kicad_sch")
 KCLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
 NET = os.path.join(os.path.dirname(SCH), "_check.net")
 

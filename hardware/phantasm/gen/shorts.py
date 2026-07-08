@@ -1,9 +1,11 @@
 """Union-find connectivity check over raw schematic geometry.
 Reports edges that merge two DIFFERENT named nets (labels / power)."""
+import os
 import sys
 import sexp
 
-path = sys.argv[1] if len(sys.argv) > 1 else r"c:\work\Holosphere\hardware\phantasm\phantasm.kicad_sch"
+path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "phantasm.kicad_sch")
 root = sexp.parse(open(path, encoding="utf-8").read())[0]
 
 
