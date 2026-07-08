@@ -148,7 +148,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 21. ✅ **URLSync does not type-coerce boolean tracked keys, seeding a raw string into a boolean-typed key** — `state.js:156-163` · _correctness_
    Fix: Mirror gui.js's boolean parsing in the URLSync constructor for `typeof current === 'boolean'` keys (accept true/1/yes/on and false/0/no/off, else skip), so the sync-layer coercion matches the GUI-layer coercion for all primitive types.
 
-22. **sidebar onKeyDown Enter/Space selects the focused option without moving the roving tabindex to it** — `sidebar.js:289-294` · _correctness_
+22. ✅ **sidebar onKeyDown Enter/Space selects the focused option without moving the roving tabindex to it** — `sidebar.js:289-294` · _correctness_
    Fix: In the Enter/Space branch, call `this.setRovingTabbable(focused)` before `this.onSelect(...)`, matching the arrow-key path so the tab stop always tracks the last-acted option.
 
 23. **prettify's symbolic snapping uses an absolute 1e-5 tolerance that is too coarse near small constants and too fine near large ones** — `label_format.js:21-38` · _correctness_ _(severity revised down by validator)_
