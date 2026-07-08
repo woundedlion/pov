@@ -174,7 +174,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 29. ✅ **apply_pole_containment ray-cast can divide through inv_edge_j == 0 for a near-horizontal straddling edge, yielding a degenerate intercept** — `core/render/sdf.h:2325-2327, 2345-2347` · _correctness_
    Fix: Skip the crossing contribution when inv_edge_j[i] == 0.0f (guard the intercept branch with a nonzero check), matching build_canonical_distance_lut/plane_dist_exact which rely on a real ey; a horizontal edge contributes no crossing anyway. No hot-path cost (this is cold ctor code).
 
-30. **Doxygen block for pair_half_edges is misattached to sort_edge_records** — `core/mesh/mesh.h:130-165` · _documentation_
+30. ✅ **Doxygen block for pair_half_edges is misattached to sort_edge_records** — `core/mesh/mesh.h:130-165` · _documentation_
    Fix: Move the doc block (lines 130-139) down to immediately precede the pair_half_edges template at line 148, and give sort_edge_records its own one-line brief describing that it only sorts records in place by (min_v,max_v).
 
 31. **CMakeLists debug-stack rationale contradicts CI: the wasm-debug module IS smoke-driven** — `CMakeLists.txt:62-63` · _documentation_
