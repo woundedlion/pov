@@ -77,11 +77,14 @@ public:
 
     // Symmetry-breaking twist to avoid degenerate nearest-vertex mapping
     Vector twist_axis = Vector(0.0f, 0.0f, 1.0f);
-    bool has_poles = false;
-    for (const auto &v : source.vertices) {
-      if (std::abs(v.z) > 0.99f && std::abs(v.x) < 0.01f && std::abs(v.y) < 0.01f)
-        has_poles = true;
-    }
+    auto has_pole = [](const MeshState &m) {
+      for (const auto &v : m.vertices)
+        if (std::abs(v.z) > 0.99f && std::abs(v.x) < 0.01f &&
+            std::abs(v.y) < 0.01f)
+          return true;
+      return false;
+    };
+    bool has_poles = has_pole(source) || has_pole(dest);
     if (has_poles) {
       twist_axis = Vector(1.0f, 1.0f, 1.0f).normalized();
     }
