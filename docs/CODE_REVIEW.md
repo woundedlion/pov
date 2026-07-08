@@ -207,7 +207,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 40. ✅ **HopfFibration lacks a scratch-budget static_assert that its sibling arena-configuring effects carry** — `effects/HopfFibration.h:116-127, 257-289 (render_trails)` · _maintainability_
    Fix: Either extend the retune-guard comment to state that TRAIL_LEN is bounded for scratch by the 16KB default scratch_a (not by kFootprintBytes), or add a small static_assert that TRAIL_LEN * sizeof(Fragment) <= DEFAULT_SCRATCH_A_SIZE so a TRAIL_LEN retune is genuinely fail-fast like the sibling effects. No perf impact (compile-time only).
 
-41. **syncGUI/export length-skew guard uses paramNames vs values but export uses params vs values — an off-by-source mismatch** — `daydream.js:116-124` · _maintainability_
+41. ✅ **syncGUI/export length-skew guard uses paramNames vs values but export uses params vs values — an off-by-source mismatch** — `daydream.js:116-124` · _maintainability_
    Fix: Have both syncGUI and export derive the expected length from one authority (e.g. the engine's live definition count or a single cached count on activeEffect), rather than one from paramNames and the other from the params closure.
 
 42. **size sort is not tie-broken by name, so equal-size effects list in arbitrary (insertion) order** — `sidebar_logic.js:24-27` · _maintainability_
