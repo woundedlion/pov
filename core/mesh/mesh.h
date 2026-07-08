@@ -128,14 +128,7 @@ inline void fill_edge_record(HalfEdgePairRecord &rec, uint16_t u, uint16_t v,
 }
 
 /**
- * @brief Sorts half-edge records by (min_v, max_v) and calls set_pair(heA, heB)
- * once per matched opposite-edge pair.
- * @tparam SetPairFn Callable invoked as set_pair(heA, heB) to link a matched pair.
- * @param records Array of half-edge pair records; sorted in place by edge key.
- * @param n Number of records in the array.
- * @param set_pair Callback linking the two half-edges of each interior edge.
- * @details Traps on a non-manifold edge (>2 half-edges sharing one undirected
- * edge).
+ * @brief Sorts half-edge pair records in place by (min_v, max_v).
  */
 [[maybe_unused]] HS_COLD static void
 sort_edge_records(HalfEdgePairRecord *records, size_t n) {
@@ -145,6 +138,16 @@ sort_edge_records(HalfEdgePairRecord *records, size_t n) {
               return a.max_v < b.max_v;
             });
 }
+/**
+ * @brief Sorts half-edge records by (min_v, max_v) and calls set_pair(heA, heB)
+ * once per matched opposite-edge pair.
+ * @tparam SetPairFn Callable invoked as set_pair(heA, heB) to link a matched pair.
+ * @param records Array of half-edge pair records; sorted in place by edge key.
+ * @param n Number of records in the array.
+ * @param set_pair Callback linking the two half-edges of each interior edge.
+ * @details Traps on a non-manifold edge (>2 half-edges sharing one undirected
+ * edge).
+ */
 template <typename SetPairFn>
 inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
                             SetPairFn set_pair) {
