@@ -8,8 +8,10 @@
 #include "core/engine/engine.h"
 
 /**
- * @brief Ray-marches a twisted torus SDF once per dodecahedron face, shading
- *        each with a metallic headlight model and a baked OKLCH palette.
+ * @brief Ray-marches a twisted torus SDF at each point of a spherical Fibonacci
+ *        lattice, shading each with a metallic headlight model and a baked OKLCH
+ *        palette. Count and fill are live params; the tori are auto-sized to the
+ *        lattice spacing so they never overlap.
  * @tparam W Effect render width in pixels.
  * @tparam H Effect render height in pixels.
  */
@@ -21,15 +23,17 @@ public:
   FLASHMEM Raymarch() : Effect(W, H) {}
 
   /**
-   * @brief Registers tunable params, precomputes per-face centers and
-   *        quaternions, bakes the palette LUT, and installs the camera walk and
-   *        per-frame draw on the timeline.
+   * @brief Registers tunable params, builds the initial Fibonacci lattice, bakes
+   *        the palette LUT, and installs the camera walk and per-frame draw on
+   *        the timeline.
    */
   void init() override {
     registerParam("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
-    // Default sits below half the 63.4° face-center spacing (no overlap); the
-    // upper range intentionally pushes tori into their neighbours.
-    registerParam("Core Size", &params.core_size, 0.1f, 0.8f);
+    registerParam("Count", &params.count, static_cast<float>(MIN_SOLIDS),
+                  static_cast<float>(MAX_SOLIDS));
+    // Fraction of the half-spacing each torus fills; < 1 leaves a gap so no two
+    // ever touch.
+    registerParam("Fill", &params.fill, 0.3f, 0.9f);
     registerParam("Max Steps", &params.max_steps, 4.0f, 30.0f);
     registerParam("Diffuse", &params.diffuse, 0.0f, 1.0f);
     registerParam("Specular", &params.specular, 0.0f, 1.5f);
@@ -37,16 +41,7 @@ public:
     registerParam("Twist", &params.twist, 0.0f, 8.0f);
     registerParam("AA Width", &params.aa_mult, 0.1f, 1.5f);
 
-    for (int fi = 0, base = 0; fi < NUM_FACES; ++fi) {
-      int count = Solids::Dodecahedron::face_counts[fi];
-      Vector sum(0, 0, 0);
-      for (int k = 0; k < count; ++k)
-        sum = sum + Solids::Dodecahedron::vertices[
-                        Solids::Dodecahedron::faces[base + k]];
-      face_centers[fi] = sum.normalized();
-      raw_quats[fi] = make_rotation(Y_AXIS, face_centers[fi]);
-      base += count;
-    }
+    rebuild_lattice(static_cast<int>(params.count + 0.5f));
 
     baked_palette.bake(persistent_arena, palette);
 
@@ -81,11 +76,34 @@ public:
   }
 
 private:
-  static constexpr int NUM_FACES = Solids::Dodecahedron::NUM_FACES;
+  static constexpr int MIN_SOLIDS = 6;
+  static constexpr int MAX_SOLIDS = 64;
 
   /**
-   * @brief Ray-marches and shades the twisted torus at every dodecahedron
-   *        face center for the current frame.
+   * @brief Rebuilds the Fibonacci-spiral lattice for @p n points, refreshing
+   *        each point's orientation quaternion and the global minimum spacing.
+   * @param n Requested point count; clamped to [MIN_SOLIDS, MAX_SOLIDS].
+   * @details Points come from fib_spiral (near-uniform at any n). min_spacing is
+   *          the smallest pairwise angle (via the largest dot), which auto-sizing
+   *          uses so tori scale with density.
+   */
+  void rebuild_lattice(int n) {
+    n = hs::clamp(n, MIN_SOLIDS, MAX_SOLIDS);
+    for (int i = 0; i < n; ++i) {
+      points[i] = fib_spiral(n, 0.0f, i);
+      raw_quats[i] = make_rotation(Y_AXIS, points[i]);
+    }
+    float max_dot = -1.0f;
+    for (int i = 0; i < n; ++i)
+      for (int j = i + 1; j < n; ++j)
+        max_dot = std::max(max_dot, dot(points[i], points[j]));
+    min_spacing = acosf(hs::clamp(max_dot, -1.0f, 1.0f));
+    active_count = n;
+  }
+
+  /**
+   * @brief Ray-marches and shades the twisted torus at every lattice point for
+   *        the current frame.
    * @param canvas Render target for this frame's fragments.
    * @param opacity Sprite fade alpha in [0, 1], written into each fragment's
    *                color.
@@ -93,17 +111,27 @@ private:
   void drawFn(Canvas &canvas, float opacity) {
     constexpr float TWO_PI_F = 2.0f * PI_F;
 
-    float major_r = params.core_size * 0.45f;
-    float minor_r = params.core_size * 0.14f;
+    int want = hs::clamp(static_cast<int>(params.count + 0.5f), MIN_SOLIDS,
+                         MAX_SOLIDS);
+    if (want != active_count)
+      rebuild_lattice(want);
+
+    // Auto-size: each torus fills `fill` of the half-spacing, so two neighbours'
+    // angular radii sum to fill·min_spacing < min_spacing and never overlap. The
+    // bounding radius is sin of that angle; the torus proportions below scale to
+    // hit it (UNIT_BOUNDS is the bounding radius at scale 1).
+    constexpr float MAJOR_K = 0.45f, MINOR_K = 0.14f, TWIST_K = 0.35f;
+    constexpr float UNIT_BOUNDS = 0.826003f; // √((MAJOR_K+MINOR_K)²+TWIST_K²)+MINOR_K
+    float bounds_radius = sinf(0.5f * min_spacing * params.fill);
+    float scale = bounds_radius / UNIT_BOUNDS;
+    float major_r = scale * MAJOR_K;
+    float minor_r = scale * MINOR_K;
     int twist_n = static_cast<int>(params.twist);
-    float twist_amp = minor_r * 2.5f;
+    float twist_amp = scale * TWIST_K;
 
     SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
         {major_r, minor_r}, {twist_n, twist_amp, major_r}};
 
-    float bounds_radius = sqrtf((major_r + minor_r) * (major_r + minor_r) +
-                                twist_amp * twist_amp) +
-                          minor_r;
     float aa_width = minor_r * params.aa_mult;
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
 
@@ -111,11 +139,11 @@ private:
     float spin_angle = spin_phase * TWO_PI_F;
     Quaternion spin_q = make_rotation(X_AXIS, spin_angle);
 
-    for (int fi = 0; fi < NUM_FACES; ++fi) {
-      Vector center = camera.orient(face_centers[fi]);
+    for (int i = 0; i < active_count; ++i) {
+      Vector center = camera.orient(points[i]);
       Vector ray_dir(-center.x, -center.y, -center.z);
 
-      Quaternion world_q = camera.get() * raw_quats[fi] * spin_q;
+      Quaternion world_q = camera.get() * raw_quats[i] * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
 
       auto frag_fn = [&](const Vector &loc, Fragment &frag) {
@@ -128,9 +156,9 @@ private:
                                         params.fresnel);
 
         float ring_angle = (atan2f(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
-        float palette_t = fmodf(
-            ring_angle + palette_phase + static_cast<float>(fi) / NUM_FACES,
-            1.0f);
+        float palette_t = fmodf(ring_angle + palette_phase +
+                                    static_cast<float>(i) / active_count,
+                                1.0f);
         Color4 c = baked_palette.get(palette_t);
         frag.color = Color4(c.color * shade, opacity);
       };
@@ -146,7 +174,8 @@ private:
    */
   struct Params {
     float pulse_speed = 5.0f;
-    float core_size = 0.58f;
+    float count = 24.0f;
+    float fill = 0.6f;
     float max_steps = 18.0f;
     float diffuse = 0.4f;
     float specular = 1.2f;
@@ -160,8 +189,10 @@ private:
   Orientation<> camera;
   float spin_phase = 0.0f;    // torus tumble phase, [0,1) -> [0,2pi) radians
   float palette_phase = 0.0f; // baked-palette scroll offset, [0,1) cycles
-  std::array<Vector, NUM_FACES> face_centers;
-  std::array<Quaternion, NUM_FACES> raw_quats;
+  int active_count = 0;       // lattice size the points/quats were built for
+  float min_spacing = 0.0f;   // smallest pairwise point angle (radians)
+  std::array<Vector, MAX_SOLIDS> points;
+  std::array<Quaternion, MAX_SOLIDS> raw_quats;
   Timeline timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,
