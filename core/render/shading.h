@@ -143,6 +143,56 @@ inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
 }
 
 /**
+ * @brief Metallic Blinn-Phong shade factor: half-Lambert diffuse, tight
+ *        specular, Fresnel rim.
+ * @param normal_w Surface normal in world space (unit length).
+ * @param light_dir Direction toward the light in world space (unit length).
+ * @param view_dir Direction toward the viewer in world space (unit length).
+ * @param tangent Surface tangent used to tilt the specular highlight off-axis.
+ * @param diffuse_w Weight of the half-Lambert diffuse term.
+ * @param specular_w Weight of the specular term.
+ * @param fresnel_w Weight of the Fresnel rim term.
+ * @return Scalar shade factor (ambient base plus weighted diffuse/specular/
+ *         Fresnel terms); the caller multiplies it by the surface color for
+ *         the metallic look.
+ * @details Headlight callers pass the same vector for light_dir and view_dir;
+ *          the two parameters are kept distinct to preserve the standard
+ *          Blinn-Phong signature should the light ever decouple from the
+ *          camera.
+ */
+inline float shade_blinn_phong(const Vector &normal_w, const Vector &light_dir,
+                               const Vector &view_dir, const Vector &tangent,
+                               float diffuse_w, float specular_w,
+                               float fresnel_w) {
+  // Diffuse: half-Lambert wrap using light direction
+  float ndotl = dot(normal_w, light_dir);
+  float half_lam = ndotl * 0.5f + 0.5f;
+  float diffuse = half_lam * half_lam;
+
+  // Specular: light tilted off-axis along tangent for a visible highlight.
+  Vector light = light_dir + tangent * 0.3f;
+  float ll = light.length();
+  if (ll > TOLERANCE)
+    light /= ll;
+  Vector half = light + view_dir;
+  float hl = half.length();
+  if (hl > TOLERANCE)
+    half /= hl;
+  float ndoth = std::max(0.0f, dot(normal_w, half));
+  // ndoth^32 via repeated squaring
+  float spec = ndoth * ndoth; // ^2
+  spec *= spec;               // ^4
+  spec *= spec;               // ^8
+  spec *= spec;               // ^16
+  spec *= spec;               // ^32
+
+  float fresnel = 1.0f - hs::clamp(dot(normal_w, view_dir), 0.0f, 1.0f);
+  fresnel = fresnel * fresnel * fresnel;
+
+  return 0.05f + diffuse * diffuse_w + spec * specular_w + fresnel * fresnel_w;
+}
+
+/**
  * @brief A list of fragments, equivalent to 'Points' in the JS context but with
  * full register support.
  */

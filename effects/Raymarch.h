@@ -81,55 +81,6 @@ public:
   }
 
 private:
-  // --- Helper functions ---
-
-  /**
-   * @brief Metallic Blinn-Phong shade factor: half-Lambert diffuse, tight
-   *        specular, Fresnel rim.
-   * @param normal_w Surface normal in world space (unit length).
-   * @param light_dir Direction toward the light in world space (unit length).
-   * @param view_dir Direction toward the viewer in world space (unit length).
-   * @param tangent Surface tangent used to tilt the specular highlight off-axis.
-   * @return Scalar shade factor (ambient base plus weighted diffuse/specular/
-   *         Fresnel terms); the caller multiplies it by the surface color for
-   *         the metallic look.
-   * @details The sole caller uses a headlight model — the light and the viewer
-   *          coincide, so it passes the same view vector for both light_dir and
-   *          view_dir. The two parameters are kept distinct to preserve the
-   *          standard Blinn-Phong signature should the light ever decouple from
-   *          the camera.
-   */
-  float shadeBlinnPhong(const Vector &normal_w, const Vector &light_dir,
-                        const Vector &view_dir, const Vector &tangent) {
-    // Diffuse: half-Lambert wrap using light direction
-    float ndotl = dot(normal_w, light_dir);
-    float half_lam = ndotl * 0.5f + 0.5f;
-    float diffuse = half_lam * half_lam;
-
-    // Specular: light tilted off-axis along tangent for a visible highlight.
-    Vector light = light_dir + tangent * 0.3f;
-    float ll = light.length();
-    if (ll > TOLERANCE)
-      light /= ll;
-    Vector half = light + view_dir;
-    float hl = half.length();
-    if (hl > TOLERANCE)
-      half /= hl;
-    float ndoth = std::max(0.0f, dot(normal_w, half));
-    // ndoth^32 via repeated squaring
-    float spec = ndoth * ndoth; // ^2
-    spec *= spec;               // ^4
-    spec *= spec;               // ^8
-    spec *= spec;               // ^16
-    spec *= spec;               // ^32
-
-    float fresnel = 1.0f - hs::clamp(dot(normal_w, view_dir), 0.0f, 1.0f);
-    fresnel = fresnel * fresnel * fresnel;
-
-    return 0.05f + diffuse * params.diffuse + spec * params.specular +
-           fresnel * params.fresnel;
-  }
-
   static constexpr int NUM_FACES = Solids::Dodecahedron::NUM_FACES;
 
   /**
@@ -172,7 +123,9 @@ private:
         Vector n_world = rotate(n_local, world_q);
         // Headlight model: light coincides with the viewer, so the view vector
         // `center` serves as both light_dir and view_dir.
-        float shade = shadeBlinnPhong(n_world, center, center, tangent);
+        float shade = shade_blinn_phong(n_world, center, center, tangent,
+                                        params.diffuse, params.specular,
+                                        params.fresnel);
 
         float ring_angle = (atan2f(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
         float palette_t = fmodf(
