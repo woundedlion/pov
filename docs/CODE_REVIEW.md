@@ -231,7 +231,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 48. ✅ **x86 clamp backend uses GNU always_inline attribute but the arch guard also admits MSVC (_M_X64/_M_IX86)** — `core/engine/platform.h:1305-1306 arch guard; 1352 clamp` · _portability-build_
    Fix: Drop `_M_X64`/`_M_IX86` from the arch guard (the engine builds only with GCC/Clang/emscripten), or gate the attribute behind a portable HS_ALWAYS_INLINE macro if MSVC is genuinely intended. Minimal: remove the two MSVC tokens so the guard matches actual targets.
 
-49. **FakeEngine.getParamValues returns a plain array, so the worker's Array.from() copy-out is never exercised** — `tests/segment_worker.test.js:54, 248-261` · _testing_
+49. ✅ **FakeEngine.getParamValues returns a plain array, so the worker's Array.from() copy-out is never exercised** — `tests/segment_worker.test.js:54, 248-261` · _testing_
    Fix: Have FakeEngine.getParamValues() return a stateful object that is NOT a plain array snapshot (e.g. a Uint16Array-like view whose contents mutate after the call, or an object that throws when structured-cloned), then assert the posted paramValues is a detached plain array equal to the value at call time. This forces the Array.from() copy to be load-bearing.
 
 50. **URLSync numeric coercion uses Number() but the empty-string/whitespace coercion edge is untested** — `tests/state.test.js:98-110` · _testing_
