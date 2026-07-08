@@ -110,15 +110,15 @@ public:
     // dt is the live Time Speed slider, not (t - prev): the Driver adds that speed
     // each step so it IS this frame's advance, and differencing across the wrap
     // seam would spike.
-    constexpr float TWO_PI = 2.0f * PI_F;
+    constexpr float TWO_PI_F = 2.0f * PI_F;
     float dt = params.time_speed;
     if (!std::isfinite(dt))
       dt = 0.0f;
-    sin_phase = fmodf(sin_phase + dt, TWO_PI);
-    cos_phase = fmodf(cos_phase + 0.8f * dt, TWO_PI);
+    sin_phase = fmodf(sin_phase + dt, TWO_PI_F);
+    cos_phase = fmodf(cos_phase + 0.8f * dt, TWO_PI_F);
     // cycle_phase feeds BreatheModifier's fast_sinf, so wrap to 2pi by hand (the
     // Driver's [0,1) wrap is the wrong domain for a radians consumer).
-    cycle_phase = fmodf(cycle_phase, TWO_PI);
+    cycle_phase = fmodf(cycle_phase, TWO_PI_F);
 
     auto shader = [&](const Vector &v) -> Color4 {
       Complex z = project(v);
