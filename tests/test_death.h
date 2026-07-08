@@ -573,6 +573,20 @@ inline void case_correction_guard_double_construct() {
 }
 
 /**
+ * @brief Death case: a live NoColorCorrection plus a NoTempCorrection must trap.
+ * @details LED surface — the two guard types share the one depth counter, so a
+ *          second live guard of the OTHER type is as unsafe as a same-type
+ *          double-construct; this is the case the shared "either type" contract
+ *          exists to guarantee. The construction guard traps on either.
+ */
+inline void case_correction_guard_cross_type() {
+  NoColorCorrection a;
+  NoTempCorrection b; // second live guard of a different type -> trap
+  if (correction_guard_depth() == opaque(42))
+    std::printf("x");
+}
+
+/**
  * @brief Death case: overflowing the fixed 32-slot ParamList must trap.
  * @details Canvas surface — registerParam traps rather than silently dropping a
  *          registration, which would desync the GUI and, on WASM, break the
@@ -834,6 +848,7 @@ inline const Case *all_cases(int &n) {
       {"effect_double_construct", case_effect_double_construct},
       {"correction_guard_double_construct",
        case_correction_guard_double_construct},
+      {"correction_guard_cross_type", case_correction_guard_cross_type},
       {"mesh_narrow_index", case_mesh_narrow_index},
       {"slerp_nan", case_slerp_nan},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan},
