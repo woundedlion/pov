@@ -165,7 +165,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 26. ✅ **kis emits degenerate triangles for <3-side faces instead of skipping them like every sibling operator** — `core/mesh/conway.h:428-449` · _correctness_ _(severity revised down by validator)_
    Fix: Tighten the guard to `HS_CHECK(count >= 3, "kis: degenerate face (< 3 sides)")`, matching relax's identical guard at line 864; costs nothing on the hot path (this is HS_COLD).
 
-27. **truncate's ambo short-circuit tolerance (1e-4) silently redirects a narrow band of near-0.5 t values** — `core/mesh/conway.h:571-573` · _correctness_
+27. ✅ **truncate's ambo short-circuit tolerance (1e-4) silently redirects a narrow band of near-0.5 t values** — `core/mesh/conway.h:571-573` · _correctness_
    Fix: Either tighten the comparison to an exact `t == 0.5f` (safe here because callers pass literal constants) or update the truncate doc to state the +/-TOLERANCE snap band explicitly.
 
 28. **expand/chamfer/snub emit an edge face even when an adjacent primary face was degenerate, silently producing a malformed quad/triangle** — `core/mesh/conway.h:730-738` · _correctness_
