@@ -1241,63 +1241,80 @@ public:
     // plain store.
     const auto blend = blend_alpha(alpha);
     const bool opaque = alpha >= 1.0f;
-    for (int y = y_lo; y < y_hi; ++y) {
-      int cy0 = y / ds;
-      int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;
-      // bilerping uninitialized scratch is silent corruption, not a crash
-      HS_CHECK(cy0 >= cy_lo && cy1 <= cy_hi,
-               "feedback warp row %d outside populated band [%d,%d]", cy1, cy_lo,
-               cy_hi);
-      float fy = (y - cy0 * ds) * inv_ds;
-      float wy0 = 1.0f - fy, wy1 = fy;
-      const int row0 = cy0 * hw, row1 = cy1 * hw;
+    // Dispatch the color transform once per flush so the stock transforms
+    // inline into the pixel loop instead of an indirect call per pixel.
+    auto composite = [&](auto &&color_px) {
+      for (int y = y_lo; y < y_hi; ++y) {
+        int cy0 = y / ds;
+        int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;
+        // bilerping uninitialized scratch is silent corruption, not a crash
+        HS_CHECK(cy0 >= cy_lo && cy1 <= cy_hi,
+                 "feedback warp row %d outside populated band [%d,%d]", cy1,
+                 cy_lo, cy_hi);
+        float fy = (y - cy0 * ds) * inv_ds;
+        float wy0 = 1.0f - fy, wy1 = fy;
+        const int row0 = cy0 * hw, row1 = cy1 * hw;
 
-      int cx0 = 0, sub = 0;
-      for (int x = 0; x < W; ++x) {
-        int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
-        float fx = sub * inv_ds;
+        int cx0 = 0, sub = 0;
+        for (int x = 0; x < W; ++x) {
+          int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
+          float fx = sub * inv_ds;
 
-        if (!xc.clipped(x)) {
-          float wx0 = 1.0f - fx, wx1 = fx;
+          if (!xc.clipped(x)) {
+            float wx0 = 1.0f - fx, wx1 = fx;
 
-          int i00 = row0 + cx0;
-          int i10 = row0 + cx1;
-          int i01 = row1 + cx0;
-          int i11 = row1 + cx1;
+            int i00 = row0 + cx0;
+            int i10 = row0 + cx1;
+            int i01 = row1 + cx0;
+            int i11 = row1 + cx1;
 
-          float w00 = wx0 * wy0, w10 = wx1 * wy0;
-          float w01 = wx0 * wy1, w11 = wx1 * wy1;
+            float w00 = wx0 * wy0, w10 = wx1 * wy0;
+            float w01 = wx0 * wy1, w11 = wx1 * wy1;
 
-          // Unify the four taps onto one wrap branch before blending: pull
-          // each within W/2 of d00. The anchor must be one of the taps —
-          // anchoring on any tap shifts the blend only by a whole multiple of
-          // W, which the sampling wrap absorbs, whereas a computed mid-value
-          // (mean/median) can land halfway between two branches, within W/2 of
-          // both, and unify nothing: the blend then sweeps across the cut and
-          // samples the far side of the sphere.
-          constexpr float WQ = static_cast<float>(W) * Q;
-          constexpr float HALF_WQ = WQ * 0.5f;
-          float d00 = dx[i00], d10 = dx[i10], d01 = dx[i01], d11 = dx[i11];
-          d10 += (d10 - d00 > HALF_WQ) ? -WQ : (d10 - d00 < -HALF_WQ ? WQ : 0.0f);
-          d01 += (d01 - d00 > HALF_WQ) ? -WQ : (d01 - d00 < -HALF_WQ ? WQ : 0.0f);
-          d11 += (d11 - d00 > HALF_WQ) ? -WQ : (d11 - d00 < -HALF_WQ ? WQ : 0.0f);
+            // Unify the four taps onto one wrap branch before blending: pull
+            // each within W/2 of d00. The anchor must be one of the taps —
+            // anchoring on any tap shifts the blend only by a whole multiple
+            // of W, which the sampling wrap absorbs, whereas a computed
+            // mid-value (mean/median) can land halfway between two branches,
+            // within W/2 of both, and unify nothing: the blend then sweeps
+            // across the cut and samples the far side of the sphere.
+            constexpr float WQ = static_cast<float>(W) * Q;
+            constexpr float HALF_WQ = WQ * 0.5f;
+            float d00 = dx[i00], d10 = dx[i10], d01 = dx[i01], d11 = dx[i11];
+            d10 += (d10 - d00 > HALF_WQ) ? -WQ : (d10 - d00 < -HALF_WQ ? WQ : 0.0f);
+            d01 += (d01 - d00 > HALF_WQ) ? -WQ : (d01 - d00 < -HALF_WQ ? WQ : 0.0f);
+            d11 += (d11 - d00 > HALF_WQ) ? -WQ : (d11 - d00 < -HALF_WQ ? WQ : 0.0f);
 
-          float ddx = (d00 * w00 + d10 * w10
-                     + d01 * w01 + d11 * w11) * INV_Q;
-          float ddy = (dy[i00] * w00 + dy[i10] * w10
-                     + dy[i01] * w01 + dy[i11] * w11) * INV_Q;
+            float ddx = (d00 * w00 + d10 * w10
+                       + d01 * w01 + d11 * w11) * INV_Q;
+            float ddy = (dy[i00] * w00 + dy[i10] * w10
+                       + dy[i01] * w01 + dy[i11] * w11) * INV_Q;
 
-          ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
-          ::Pixel p = (black_skips_color && !(sample.r | sample.g | sample.b))
-                          ? sample
-                          : style_->color_fn(sample, fade, *style_);
+            ::Pixel sample = sample_bilinear_prev(cv, x + ddx, y + ddy);
+            ::Pixel p = (black_skips_color && !(sample.r | sample.g | sample.b))
+                            ? sample
+                            : color_px(sample);
 
-          // write black too, to overwrite the stale double-buffer frame
-          cv(x, y) = opaque ? p : blend(cv(x, y), p);
+            // write black too, to overwrite the stale double-buffer frame
+            cv(x, y) = opaque ? p : blend(cv(x, y), p);
+          }
+
+          if (++sub == ds) { sub = 0; ++cx0; }
         }
-
-        if (++sub == ds) { sub = 0; ++cx0; }
       }
+    };
+    if (style_->color_fn == &::Feedback::hue_fade) {
+      composite([&](const ::Pixel &s) {
+        return ::Feedback::hue_fade(s, fade, *style_);
+      });
+    } else if (style_->color_fn == &::Feedback::plain_fade) {
+      composite([&](const ::Pixel &s) {
+        return ::Feedback::plain_fade(s, fade, *style_);
+      });
+    } else {
+      composite([&](const ::Pixel &s) {
+        return style_->color_fn(s, fade, *style_);
+      });
     }
   }
 
