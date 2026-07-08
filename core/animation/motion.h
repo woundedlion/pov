@@ -286,19 +286,28 @@ public:
    * the travel direction tangent to the sphere, and body +Z to their cross.
    * @details A pure function of s, so consecutive-frame deltas telescope over a
    * cycle (no drift). The tangent is a forward finite difference with a fixed
-   * step, so it depends only on s — not on the per-frame substep spacing. A
-   * degenerate tangent (a momentarily stationary path point) falls back to a
-   * deterministic perpendicular of the point, keeping path_frame a pure function
-   * of s rather than reaching for prior state.
+   * step, so it depends only on s — not on the per-frame substep spacing. When
+   * the forward tangent vanishes (a clamped path endpoint, or a momentarily
+   * stationary point) it falls back to a backward difference, then to a
+   * deterministic perpendicular of the point — each a pure function of s, never
+   * reaching for prior state.
    */
   Quaternion path_frame(float s) const {
     Vector point = path_fn(s).normalized();
     Vector ahead = path_fn(s + FRAME_TANGENT_H).normalized();
-    Vector travel = ahead - point;
-    Vector tangent = travel - dot(travel, point) * point;
-    // Fallback when the tangent vanishes.
+    Vector tangent = ahead - point;
+    tangent = tangent - dot(tangent, point) * point;
     Vector seed = least_parallel_axis(point);
-    Vector b1 = normalized_or(tangent, cross(seed, point).normalized());
+    Vector b1;
+    if (dot(tangent, tangent) < math::EPS_NORMALIZE_SQ) {
+      // Forward tangent degenerate (clamped endpoint): use the backward one.
+      Vector behind = path_fn(s - FRAME_TANGENT_H).normalized();
+      Vector back = point - behind;
+      back = back - dot(back, point) * point;
+      b1 = normalized_or(back, cross(seed, point).normalized());
+    } else {
+      b1 = tangent.normalized();
+    }
     Vector b2 = cross(point, b1);
     return quaternion_from_basis(point, b1, b2);
   }
