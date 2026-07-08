@@ -58,7 +58,7 @@ Every surviving defect is listed exactly once, numbered sequentially. No defect 
 
 ### Medium Priority
 
-6. **Leftover single-step credits fast-forward the sim after unpausing** — `driver.js:410`. Queued Right-arrow `stepFrames` while paused are still spent after pressing space, producing a brief ~60 fps fast-forward. Fix: reset `this.stepFrames = 0` when transitioning to running.
+6. ✅ **Leftover single-step credits fast-forward the sim after unpausing** — `driver.js:410`. Queued Right-arrow `stepFrames` while paused are still spent after pressing space, producing a brief ~60 fps fast-forward. Fix: reset `this.stepFrames = 0` when transitioning to running.
 7. **`MeshMorph` pole-symmetry twist checks the wrong mesh** — `core/animation/mesh.h:81`. `has_poles` scans `source` but the twist is applied to `dest` query vertices, so a cube→octahedron morph never gets its tie-break and produces a degenerate vertex correspondence. Fix: detect poles on the dest (query) set (or both).
 8. **`Motion::path_frame` roll degenerates at `s≥1` for a buffer Path** — `core/animation/motion.h:296`. The forward finite-difference tangent vanishes at the clamped endpoint, giving the final/seam orientation an arbitrary roll (a per-cycle "up" snap for closed repeating paths). Fix: fall back to a backward difference only when the forward tangent is degenerate.
 9. **One-shot timers report `is_finite()==false`, holing the pin-safety guard** — `core/animation/timers.h:25`. A non-repeating timer *is* removed on trigger, but the timeline add-time guard treats it as perpetual, converting a clear add-time diagnostic into a confusing deferred `move_into` trap. Fix: override `is_finite() { return !repeat; }` in `RandomTimer`/`PeriodicTimer`.
