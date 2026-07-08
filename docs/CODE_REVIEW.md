@@ -158,8 +158,9 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 24. ✅ **renderParallel() leaves stale timings/renderUs/arenas for segments that never reported this frame** — `segment_controller.js:629-644, 810-849` · _correctness_
    Fix: In renderParallel(), when opening a fresh dispatch, also reset the per-segment stat arrays that updateStats() reads (e.g. this.timings.fill(0), this.renderUs.fill(0), this.arenas.fill(null)) so a fenced-out or non-reporting segment shows '-'/0 rather than a stale prior-generation value. Alternatively gate updateStats() cells on results[s] being non-null (which already tracks the current generation).
 
-25. **computeSegmentRange silently drops the trailing column for odd canvas widths** — `segment_layout.js:65-67` · _correctness_
+25. ❌ **computeSegmentRange silently drops the trailing column for odd canvas widths** — `segment_layout.js:65-67` · _correctness_
    Fix: No code change needed for current resolutions. If defensiveness is wanted, computeSegmentRange could throw on odd w (the GUI never exposes one), converting a silent dark column into a fail-fast — consistent with the module's other Number.isInteger/positive guards. Otherwise leave as documented.
+   Rejected: the floor(w/2) split intentionally matches the firmware's w/2 partition and is already documented; all shipped resolutions are even, and throwing would diverge from hardware behavior on the one path that must stay bit-identical.
 
 26. **kis emits degenerate triangles for <3-side faces instead of skipping them like every sibling operator** — `core/mesh/conway.h:428-449` · _correctness_ _(severity revised down by validator)_
    Fix: Tighten the guard to `HS_CHECK(count >= 3, "kis: degenerate face (< 3 sides)")`, matching relax's identical guard at line 864; costs nothing on the hot path (this is HS_COLD).
