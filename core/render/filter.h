@@ -669,7 +669,7 @@ public:
   struct Item {
     int16_t x, y, z; /**< Quantized unit vector components (6 bytes). */
     uint8_t ttl;     /**< Remaining lifetime in frames (1 byte). */
-    uint8_t pad_;    /**< Padding for 8-byte alignment (1 byte). */
+    uint8_t pad;     /**< Padding for 8-byte alignment (1 byte). */
   };
   static_assert(sizeof(Item) == 8, "World::Trails::Item must be 8 bytes");
 
@@ -701,8 +701,8 @@ public:
    * aren't ready yet).
    */
   void init_storage(Arena &arena) {
-    items_ = arena.allocate_n<Item>(Capacity);
-    head_ = tail_ = count_ = 0;
+    items = arena.allocate_n<Item>(Capacity);
+    head = tail = count = 0;
   }
 
   /**
@@ -722,7 +722,7 @@ public:
 
     // round, not truncate (ttl is an integer byte)
     int ttl = lifetime - static_cast<int>(age + 0.5f);
-    if (ttl > 0 && items_) {
+    if (ttl > 0 && items) {
       push_back(encode(v, static_cast<uint8_t>(ttl)));
     }
   }
@@ -740,7 +740,7 @@ public:
    */
   template <typename PassFnT>
   void flush(const WorldTrailFn &trailFn, float alpha, PassFnT &&pass) {
-    for (size_t i = 0; i < count_; ++i) {
+    for (size_t i = 0; i < count; ++i) {
       const auto &item = at(i);
       Vector v = decode(item);
       float t = hs::clamp(
@@ -756,14 +756,16 @@ public:
       }
     }
 
-    for (size_t i = 0; i < count_;) {
+    for (size_t i = 0; i < count;) {
       Item &item = at(i);
       if (item.ttl > 0)
         item.ttl--;
       if (item.ttl == 0) {
-        item = at(count_ - 1);
-        tail_ = (tail_ + Capacity - 1) % Capacity;
-        count_--;
+        // swap-remove the logical-last live item (index count-1) into the dead
+        // slot; only tail retreats, head stays put.
+        item = at(count - 1);
+        tail = (tail + Capacity - 1) % Capacity;
+        count--;
       } else {
         ++i;
       }
@@ -774,11 +776,11 @@ public:
    * @brief Returns the number of live trail points currently buffered.
    * @return Count of buffered Item entries.
    */
-  size_t size() const { return count_; }
+  size_t size() const { return count; }
 
 private:
-  Item *items_ = nullptr;                 /**< Ring-buffer storage (arena-owned). */
-  size_t head_ = 0, tail_ = 0, count_ = 0; /**< Ring-buffer head, tail, and live count. */
+  Item *items = nullptr;                 /**< Ring-buffer storage (arena-owned). */
+  size_t head = 0, tail = 0, count = 0; /**< Ring-buffer head, tail, and live count. */
   int lifetime;                           /**< Per-frame fade divisor in frames. */
 
   static constexpr float Q = 32767.0f;    /**< Quantization scale for unit-vector components. */
@@ -808,34 +810,34 @@ private:
 
   /**
    * @brief Returns the i-th live item by age (0 = oldest).
-   * @param i Index into the live range [0, count_).
+   * @param i Index into the live range [0, count).
    * @return Mutable reference to the buffered Item.
    */
-  Item &at(size_t i) { return items_[(head_ + i) % Capacity]; }
+  Item &at(size_t i) { return items[(head + i) % Capacity]; }
   /**
    * @brief Returns the i-th live item by age (0 = oldest).
-   * @param i Index into the live range [0, count_).
+   * @param i Index into the live range [0, count).
    * @return Const reference to the buffered Item.
    */
-  const Item &at(size_t i) const { return items_[(head_ + i) % Capacity]; }
+  const Item &at(size_t i) const { return items[(head + i) % Capacity]; }
 
   /**
    * @brief Appends an item, evicting the oldest when at capacity.
    * @param item Encoded trail sample to push.
    */
   void push_back(const Item &item) {
-    if (count_ == Capacity) {
+    if (count == Capacity) {
       pop_front();
     }
-    items_[tail_] = item;
-    tail_ = (tail_ + 1) % Capacity;
-    count_++;
+    items[tail] = item;
+    tail = (tail + 1) % Capacity;
+    count++;
   }
 
   /** @brief Drops the oldest buffered item. */
   void pop_front() {
-    head_ = (head_ + 1) % Capacity;
-    count_--;
+    head = (head + 1) % Capacity;
+    count--;
   }
 };
 

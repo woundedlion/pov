@@ -219,7 +219,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 44. ✅ **vector_to_pixel unit-length assert uses a bare 1e-3f literal instead of the named EPS_UNIT_VEC_SQ tolerance** — `core/math/geometry.h:374` · _maintainability_
    Fix: Replace the literal with the named constant: assert(std::fabs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ); (debug-only assert, zero device cost, aligns the slack with the other unit-vector checks).
 
-45. **World::Trails leaves head_ member effectively unused after init, but flush() swap-remove relies on tail_ moving in lockstep** — `core/render/filter.h:742-770, 814-839` · _maintainability_ _(severity revised down by validator)_
+45. ✅ **World::Trails leaves head_ member effectively unused after init, but flush() swap-remove relies on tail_ moving in lockstep** — `core/render/filter.h:742-770, 814-839` · _maintainability_ _(severity revised down by validator)_
    Fix: Add a one-line comment at the flush() cull loop noting that the live element being overwritten is the logical last (index count_-1 == (tail_-1)%Capacity) so only tail_ retreats and head_ must stay put. Documentation only; no behavior change.
 
 46. **Per-frame syncGUI does a full Map lookup + resolveParamSync over every param even for non-animated effects** — `daydream.js:101-140` · _performance_
