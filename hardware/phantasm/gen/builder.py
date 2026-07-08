@@ -142,7 +142,6 @@ class Builder:
             corner = (x2, y1)
             self._seg(p1, corner)
             self._seg(corner, p2)
-            self.junctions.append((x2, y1))  # may be pruned later
         return p2
 
     def _seg(self, p1, p2):
