@@ -167,31 +167,6 @@ inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
   }
 }
 
-/**
- * @brief Non-owning (pointer + size) view exposing just the size()/operator[]
- * surface build_from_flat needs.
- * @tparam T Element type of the viewed array.
- * @details Lets build_from_flat read topology through the unified accessors so
- * a borrowed-mode MeshState (owned face_counts/faces empty) works.
- */
-template <typename T> struct FlatView {
-  const T *ptr; /**< Pointer to the first viewed element. */
-  size_t n;     /**< Number of viewed elements. */
-
-  /**
-   * @brief Returns the number of viewed elements.
-   * @return Element count of the view.
-   */
-  size_t size() const { return n; }
-
-  /**
-   * @brief Returns the element at the given index.
-   * @param i Index in [0, size()).
-   * @return Const reference to the viewed element.
-   */
-  const T &operator[](size_t i) const { return ptr[i]; }
-};
-
 class HalfEdgeMesh;
 /**
  * @brief Fills a HalfEdgeMesh's connectivity arrays from a flat (vertex count,
