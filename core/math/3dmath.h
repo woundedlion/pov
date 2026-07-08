@@ -508,7 +508,7 @@ struct Quaternion {
    */
   [[nodiscard]] Quaternion inverse() const {
     float sq_mag = squared_magnitude();
-    HS_CHECK(sq_mag > std::numeric_limits<float>::epsilon());
+    HS_CHECK(sq_mag >= math::EPS_NORMALIZE_SQ);
     return conjugate() / sq_mag;
   }
 
@@ -545,8 +545,9 @@ struct Quaternion {
    * @brief Normalizes the quaternion in place (scales to unit magnitude).
    */
   void normalize() {
-    auto m = magnitude();
-    HS_CHECK(m > std::numeric_limits<float>::epsilon());
+    float m2 = squared_magnitude();
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+    float m = sqrtf(m2);
     r = r / m;
     v = v / m;
   }
@@ -558,8 +559,9 @@ struct Quaternion {
    * logic bug.
    */
   [[nodiscard]] Quaternion normalized() const {
-    float m = magnitude();
-    HS_CHECK(m > std::numeric_limits<float>::epsilon());
+    float m2 = squared_magnitude();
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+    float m = sqrtf(m2);
     return Quaternion(r / m, v / m);
   }
 
