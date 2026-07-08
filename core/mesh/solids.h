@@ -1280,27 +1280,6 @@ inline const Entry &get_entry(size_t index) {
   __builtin_unreachable();
 }
 
-#ifdef EMSCRIPTEN
-/**
- * @brief Builds the solid at the given registry index into the geometry arena.
- * @param geom Long-lived arena that backs the returned mesh.
- * @param a Output arena for even pipeline stages.
- * @param b Scratch arena for odd pipeline stages.
- * @param index Registry index in [0, NUM_ENTRIES).
- * @return The finalized solid mesh owned by geom.
- * @details EMSCRIPTEN-only: the JS/WASM bridge enumerates by index. Firmware is
- *   name-driven; the `#else` branch deletes this so an index call names
- *   get_by_name.
- */
-FLASHMEM static PolyMesh get(Arena &geom, Arena &a, Arena &b, int index) {
-  return finalize_solid(get_entry(index).generate(a, b), geom);
-}
-#else
-// Index-based get() is the WASM bridge's enumeration path; firmware builds by
-// name. Deleted (not absent) so a stray firmware index call names get_by_name.
-static PolyMesh get(Arena &geom, Arena &a, Arena &b, int index) = delete;
-#endif
-
 /**
  * @brief Builds the solid with the given name into the geometry arena.
  * @param geom Long-lived arena that backs the returned mesh.
