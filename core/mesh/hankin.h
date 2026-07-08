@@ -277,7 +277,7 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     Vector p_corner = compiled.base_vertices[instr.v_corner];
 
     if (is_flat) {
-      compiled.dynamic_vertices[i] = p_corner.normalized();
+      compiled.dynamic_vertices[i] = normalized_or(p_corner, p_corner);
       continue;
     }
 
