@@ -117,7 +117,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 11. ✅ **wire() adds a junction dot at every L-bend corner (promised pruning never happens)** — `hardware/phantasm/gen/builder.py:141-146` · _code-style_
    Fix: Do not emit a junction at an L-bend corner — remove the self.junctions.append((x2,y1)) on line 145 (a corner where exactly two collinear-per-axis segments meet needs no junction), or if kept for safety, actually implement the promised pruning that drops junctions with degree < 3. Update or delete the misleading 'may be pruned later' comment.
 
-12. **telemetry() health poll runs long hs::log() under __enable_irq() unconditionally, re-enabling IRQs even if the foreground path expected them masked** — `hardware/pov_segmented.h:316-350` · _concurrency_
+12. ✅ **telemetry() health poll runs long hs::log() under __enable_irq() unconditionally, re-enabling IRQs even if the foreground path expected them masked** — `hardware/pov_segmented.h:316-350` · _concurrency_
    Fix: Save/restore PRIMASK instead of unconditional __enable_irq(): `uint32_t m = __get_PRIMASK(); __disable_irq(); tm = sync_.telemetry(); __set_PRIMASK(m);`. Zero added cost on the hot path (this is a 1 Hz debug branch).
 
 13. **MobiusFlow floors num_rings/num_lines but doesn't guard non-finite (NaN/Inf) live scalars, which propagate into a/d and poison MobiusParams** — `core/animation/params.h:399-420 (MobiusFlow::step)` · _correctness_ _(severity revised down by validator)_
