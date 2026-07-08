@@ -1132,7 +1132,7 @@ All Conway *geometry* operators (`dual` through `bevel` below) take `(const Poly
 
 #### Solids Library (`solids.h`)
 
-`solids.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for Archimedean, Catalan, and Islamic Star Pattern families. The solids are organized into three registries, accessed by name via `Solids::get_by_name(arena, a, b, name)` (the firmware entry point) or by registry index via `Solids::get(arena, a, b, index)` — the latter is compiled only for the WASM build (`#ifdef EMSCRIPTEN`), where the geometry tools drive solids by numeric index:
+`solids.h` provides constexpr vertex/face data for all Platonic solids plus procedural generators for Archimedean, Catalan, and Islamic Star Pattern families. The solids are organized into three registries. A solid is built by name via `Solids::get_by_name(arena, a, b, name)` (the shared firmware and WASM entry point); the WASM geometry tools enumerate the registries by index with `Solids::get_entry(index)` to populate the picker, then build the selected solid by name:
 
 | Registry | Count | Description |
 |---|---|---|
