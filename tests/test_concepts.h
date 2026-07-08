@@ -135,8 +135,10 @@ inline void test_stored_functionref_rvalue_rejection() {
  * @brief Verifies Fn (hs::inplace_function) copy/move/empty value semantics.
  * @details Default and nullptr construction read empty; a copy leaves the source
  *          live; a move leaves the source empty; assignment from a callable then
- *          back to nullptr toggles the empty state. The empty-state CALL trap is
- *          covered separately by the death harness (case_empty_fn_call).
+ *          back to nullptr toggles the empty state. Copy- and move-assigning one
+ *          populated Fn onto another (each holding a different closure) exercises
+ *          the destroy-then-construct path in operator=. The empty-state CALL
+ *          trap is covered separately by the death harness (case_empty_fn_call).
  */
 inline void test_fn_copy_move_empty() {
   Fn<int(int), 16> def;
@@ -163,6 +165,17 @@ inline void test_fn_copy_move_empty() {
   HS_EXPECT_EQ(a(3), 6);
   a = nullptr;
   HS_EXPECT_FALSE((bool)a);
+
+  Fn<int(int), 16> p = [](int x) { return x + 100; };
+  Fn<int(int), 16> q = [mul = 3](int x) { return x * mul; };
+  p = q;
+  HS_EXPECT_EQ(p(4), 12);
+  HS_EXPECT_EQ(q(4), 12); // copy leaves the source live
+
+  Fn<int(int), 16> r = [](int x) { return x - 7; };
+  r = std::move(q);
+  HS_EXPECT_EQ(r(4), 12);
+  HS_EXPECT_FALSE((bool)q); // move leaves the source empty
 }
 
 /**
