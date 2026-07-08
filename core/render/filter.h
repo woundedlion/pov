@@ -1307,8 +1307,11 @@ public:
     };
     // The stock transforms run on the sampler's float channels directly (one
     // quantization at the write); an arbitrary ColorFn keeps the Pixel
-    // interface, so the sample is quantized first.
-    if (style_->color_fn == &::Feedback::hue_fade) {
+    // interface, so the sample is quantized first. An identity hue rotation
+    // makes hue_fade a pure fade, so it takes the plain path.
+    const bool hue_identity =
+        style_->hue_ca == 1.0f && style_->hue_sa == 0.0f;
+    if (style_->color_fn == &::Feedback::hue_fade && !hue_identity) {
       // Pre-scale the frame-constant rotation by cbrt(fade/65535), folding the
       // fade and the u16 normalization into the one matrix (see hue_fade).
       float k[9];
@@ -1323,7 +1326,8 @@ public:
         return ::Pixel(float_to_pixel16(rr), float_to_pixel16(gg),
                        float_to_pixel16(bb));
       });
-    } else if (style_->color_fn == &::Feedback::plain_fade) {
+    } else if (style_->color_fn == &::Feedback::plain_fade ||
+               style_->color_fn == &::Feedback::hue_fade) {
       composite([&](float r, float g, float b) {
         return ::Pixel(quantize16(r * fade), quantize16(g * fade),
                        quantize16(b * fade));
