@@ -88,7 +88,7 @@ All 19 items are low-severity. Priority reflects *type of impact*, not urgency. 
 
 5. ❌ **`computeSegmentRange` leaves an unrendered trailing column on odd-width canvases** — `segment_layout.js:65` (daydream). `armW = floor(w/2)` leaves column `w-1` uncovered (permanent black) for odd `w`, with no diagnostic. Unreachable via the two shipped even-width presets (96, 288). Either reject odd `w` in validation (symmetric with the existing height check) or extend the last arm's `x1` to `w`. *Rejected: the floor(w/2) drop mirrors the firmware's w/2 partition and is already documented as intentional at the call site; odd `w` is unreachable via the shipped presets, so no change.*
 
-6. **`prettify()` renders `NaN` / `Infinity` as literal strings on labels** — `label_format.js:39-40` (daydream). Non-finite inputs fall through every symbolic branch to `r.toFixed(3)`, surfacing `"NaN"` in the coordinate readout for a degenerate (e.g. zero-length-direction) label point. Add an early `if (!Number.isFinite(r)) return '—';`.
+6. ❌ **`prettify()` renders `NaN` / `Infinity` as literal strings on labels** — `label_format.js:39-40` (daydream). Non-finite inputs fall through every symbolic branch to `r.toFixed(3)`, surfacing `"NaN"` in the coordinate readout for a degenerate (e.g. zero-length-direction) label point. Add an early `if (!Number.isFinite(r)) return '—';`. *Rejected: the literal `NaN`/`Infinity` readout is the preferred behavior — it surfaces a degenerate label point rather than masking it with a placeholder.*
 
 ### Priority 2 — Portability, Consistency & Maintainability
 
