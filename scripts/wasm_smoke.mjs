@@ -23,12 +23,20 @@ const FRAMES_PER_EFFECT = 3;
 // budget instead (meaningful against any build's stack size); the min with the
 // capacity fraction covers a hypothetical sub-ceiling stack. Creep tripwire, not
 // a bound: the HWM under-reports (see stack_high_water_mark() in wasm.cpp).
-const STACK_HWM_CEILING_BYTES = 2048;
+// The 2048 default is calibrated on the -O3 release build; -O0 debug frames run
+// severalfold larger, so ci.yml overrides via WASM_SMOKE_STACK_CEILING.
+const STACK_HWM_CEILING_BYTES = Number(process.env.WASM_SMOKE_STACK_CEILING ?? 2048);
 const STACK_MAX_FILL = 0.75;
 
 // main() lets a fatal precondition set exitCode and return, so buffered stdout
 // flushes rather than being cut off by process.exit().
 async function main() {
+  if (!Number.isInteger(STACK_HWM_CEILING_BYTES) || STACK_HWM_CEILING_BYTES <= 0) {
+    console.error(`wasm_smoke: WASM_SMOKE_STACK_CEILING must be a positive integer, ` +
+      `got "${process.env.WASM_SMOKE_STACK_CEILING}"`);
+    process.exitCode = 1;
+    return;
+  }
   try {
     await access(jsPath);
   } catch {

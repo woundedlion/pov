@@ -270,6 +270,11 @@ jobs:
         # The debug build carries -sASSERTIONS=1 and a distinct 64 KB stack;
         # instantiate and drive it so an assertion-guarded or debug-only
         # regression fails here instead of riding a green compile-only build.
+        # -O0 disables inlining and stack-slot coalescing, so debug frames run
+        # severalfold larger than the -O3 frames the default 2 KB stack-creep
+        # tripwire is calibrated for; give the debug smoke its own fixed ceiling.
+        env:
+          WASM_SMOKE_STACK_CEILING: 4096
         run: node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js
 
       # Verify ccache actually fronts em++ here (the comment above claims it
