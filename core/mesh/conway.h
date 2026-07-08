@@ -427,7 +427,7 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target, Arena &temp) {
     size_t offset = 0;
     for (size_t fi = 0; fi < F; ++fi) {
       int count = face_counts[fi];
-      HS_CHECK(count > 0, "kis: zero-vertex face");
+      HS_CHECK(count >= 3, "kis: degenerate face (< 3 sides)");
       Vector centroid(0, 0, 0);
       for (int k = 0; k < count; ++k) {
         centroid = centroid + mesh.vertices[faces[offset + k]];
