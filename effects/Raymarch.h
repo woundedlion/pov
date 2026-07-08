@@ -27,9 +27,9 @@ public:
    */
   void init() override {
     registerParam("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
-    // Upper bound keeps the largest torus below half the 63.4° face-center
-    // spacing, so no slider setting overlaps a neighbour.
-    registerParam("Core Size", &params.core_size, 0.1f, 0.62f);
+    // Default sits below half the 63.4° face-center spacing (no overlap); the
+    // upper range intentionally pushes tori into their neighbours.
+    registerParam("Core Size", &params.core_size, 0.1f, 0.8f);
     registerParam("Max Steps", &params.max_steps, 4.0f, 30.0f);
     registerParam("Diffuse", &params.diffuse, 0.0f, 1.0f);
     registerParam("Specular", &params.specular, 0.0f, 1.5f);
