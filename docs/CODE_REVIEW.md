@@ -216,7 +216,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 43. ✅ **Arena-metrics setTimeout loop keeps rescheduling forever after an engine trap** — `tools/solids.html:751-766 (updateArenaMetrics)` · _maintainability_
    Fix: Return without rescheduling when MeshOpsWasm is null (the engine is halted and metrics can never update again), e.g. `if (!MeshOpsWasm) return;` before the setTimeout, and re-arm from update() if the module is ever reloaded.
 
-44. **vector_to_pixel unit-length assert uses a bare 1e-3f literal instead of the named EPS_UNIT_VEC_SQ tolerance** — `core/math/geometry.h:374` · _maintainability_
+44. ✅ **vector_to_pixel unit-length assert uses a bare 1e-3f literal instead of the named EPS_UNIT_VEC_SQ tolerance** — `core/math/geometry.h:374` · _maintainability_
    Fix: Replace the literal with the named constant: assert(std::fabs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ); (debug-only assert, zero device cost, aligns the slack with the other unit-vector checks).
 
 45. **World::Trails leaves head_ member effectively unused after init, but flush() swap-remove relies on tail_ moving in lockstep** — `core/render/filter.h:742-770, 814-839` · _maintainability_ _(severity revised down by validator)_

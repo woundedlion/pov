@@ -371,7 +371,7 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  */
 template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
   // phi = acos(v.y) is the true latitude only when |v| == 1; trap non-unit v in debug.
-  assert(std::fabs(dot(v, v) - 1.0f) < 1e-3f);
+  assert(std::fabs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
   float theta = fast_atan2(v.z, v.x);
   float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
   // phi_to_y<H> derives H_VIRT internally, mirroring pixel_to_vector's y_to_phi<H>.
