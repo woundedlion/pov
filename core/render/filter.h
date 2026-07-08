@@ -1266,11 +1266,18 @@ public:
     // and persist; trap it here rather than flash the buffer.
     HS_CHECK(std::isfinite(fade), "feedback fade is non-finite");
     style_->sync_hue();
-    // The stock color transforms map black to black exactly, so black samples
-    // can skip them; an arbitrary user ColorFn may not (e.g. a glow floor).
+    // The stock color transforms map black to black exactly, so near-black
+    // samples can skip them and write black; an arbitrary user ColorFn may
+    // not (e.g. a glow floor), so it sees every sample.
     const bool black_skips_color =
         style_->color_fn == &::Feedback::hue_fade ||
         style_->color_fn == &::Feedback::plain_fade;
+    // Samples with every channel below this are invisible (~0.1% linear,
+    // ~3/255 sRGB), yet round-to-nearest fade keeps them alive forever (at
+    // FADE_MAX 0.99, v*fade re-rounds to v for v < 50): without the cut the
+    // buffer saturates with immortal dim trails that defeat the skip and
+    // never let a region go dark.
+    constexpr float NEAR_BLACK = 64.0f;
     // lerp16 at frac 65535 returns the source exactly, so full alpha is a
     // plain store.
     const auto blend = blend_alpha(alpha);
@@ -1326,10 +1333,10 @@ public:
 
             float sr, sg, sb;
             sample_bilinear_prev(cv, x + ddx, y + ddy, sr, sg, sb);
-            ::Pixel p =
-                (black_skips_color && sr == 0.0f && sg == 0.0f && sb == 0.0f)
-                    ? ::Pixel(0, 0, 0)
-                    : color_px(sr, sg, sb);
+            ::Pixel p = (black_skips_color && sr < NEAR_BLACK &&
+                         sg < NEAR_BLACK && sb < NEAR_BLACK)
+                            ? ::Pixel(0, 0, 0)
+                            : color_px(sr, sg, sb);
 
             // write black too, to overwrite the stale double-buffer frame
             cv(x, y) = opaque ? p : blend(cv(x, y), p);
