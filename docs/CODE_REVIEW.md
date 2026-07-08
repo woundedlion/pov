@@ -234,7 +234,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 49. ✅ **FakeEngine.getParamValues returns a plain array, so the worker's Array.from() copy-out is never exercised** — `tests/segment_worker.test.js:54, 248-261` · _testing_
    Fix: Have FakeEngine.getParamValues() return a stateful object that is NOT a plain array snapshot (e.g. a Uint16Array-like view whose contents mutate after the call, or an object that throws when structured-cloned), then assert the posted paramValues is a detached plain array equal to the value at call time. This forces the Array.from() copy to be load-bearing.
 
-50. **URLSync numeric coercion uses Number() but the empty-string/whitespace coercion edge is untested** — `tests/state.test.js:98-110` · _testing_
+50. ✅ **URLSync numeric coercion uses Number() but the empty-string/whitespace coercion edge is untested** — `tests/state.test.js:98-110` · _testing_
    Fix: Add a case asserting the intended behavior for `?count=` (empty) — either that it is rejected and keeps the default (if that is desired, which would require switching the coercion or adding a `raw === '' ` guard in state.js) or that it deliberately coerces to 0. Pinning it documents the Number()-vs-parseFloat choice.
 
 51. **Smoke-test stack creep gate is a fixed 2048 bytes but runs against both 8 KB release and 64 KB -O0 debug builds** — `scripts/wasm_smoke.mjs:26-27,109-120` · _testing_
