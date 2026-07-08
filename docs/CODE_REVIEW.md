@@ -114,7 +114,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 10. ✅ **SphericalHarmonics negative-lobe green scale truncates instead of rounding** — `effects/SphericalHarmonics.h:276-278` · _code-style_
    Fix: Add +0.5f before the cast: static_cast<uint16_t>(pos.color.g * NEG_LOBE_GREEN_SCALE + 0.5f). No perf impact (cold per-pixel shade already does float math here).
 
-11. **wire() adds a junction dot at every L-bend corner (promised pruning never happens)** — `hardware/phantasm/gen/builder.py:141-146` · _code-style_
+11. ✅ **wire() adds a junction dot at every L-bend corner (promised pruning never happens)** — `hardware/phantasm/gen/builder.py:141-146` · _code-style_
    Fix: Do not emit a junction at an L-bend corner — remove the self.junctions.append((x2,y1)) on line 145 (a corner where exactly two collinear-per-axis segments meet needs no junction), or if kept for safety, actually implement the promised pruning that drops junctions with degree < 3. Update or delete the misleading 'may be pruned later' comment.
 
 12. **telemetry() health poll runs long hs::log() under __enable_irq() unconditionally, re-enabling IRQs even if the foreground path expected them masked** — `hardware/pov_segmented.h:316-350` · _concurrency_
