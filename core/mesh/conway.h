@@ -568,7 +568,7 @@ inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
 HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &temp,
                                   float t = 0.25f) {
   HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
-  if (std::abs(t - 0.5f) < math::TOLERANCE) {
+  if (t == 0.5f) {
     return ambo(mesh, target, temp);
   }
 
