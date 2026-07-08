@@ -613,16 +613,41 @@ inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
  * @param g Out: linear green in [0, 1].
  * @param b Out: linear blue in [0, 1].
  */
-inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
-  float l_ = lab.L + 0.3963377774f * lab.a + 0.2158037573f * lab.b;
-  float m_ = lab.L - 0.1055613458f * lab.a - 0.0638541728f * lab.b;
-  float s_ = lab.L - 0.0894841775f * lab.a - 1.2914855480f * lab.b;
+/**
+ * @brief Converts OKLab to cube-rooted LMS (the inverse OKLab matrix).
+ * @param lab Source color in OKLab space.
+ * @param l_ Out: cube-rooted l cone response.
+ * @param m_ Out: cube-rooted m cone response.
+ * @param s_ Out: cube-rooted s cone response.
+ */
+inline void oklab_to_lms_cbrt(OKLab lab, float &l_, float &m_, float &s_) {
+  l_ = lab.L + 0.3963377774f * lab.a + 0.2158037573f * lab.b;
+  m_ = lab.L - 0.1055613458f * lab.a - 0.0638541728f * lab.b;
+  s_ = lab.L - 0.0894841775f * lab.a - 1.2914855480f * lab.b;
+}
 
+/**
+ * @brief Converts cube-rooted LMS to linear RGB [0,1] (cube + RGB matrix).
+ * @param l_ Cube-rooted l cone response.
+ * @param m_ Cube-rooted m cone response.
+ * @param s_ Cube-rooted s cone response.
+ * @param r Out: linear red (may exit gamut before clamping).
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
+ */
+inline void lms_cbrt_to_linear_rgb(float l_, float m_, float s_, float &r,
+                                   float &g, float &b) {
   float l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
 
   r = +4.0767416621f * l - 3.3077115913f * m + 0.2309699292f * s;
   g = -1.2684380046f * l + 2.6097574011f * m - 0.3413193965f * s;
   b = -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s;
+}
+
+inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
+  float l_, m_, s_;
+  oklab_to_lms_cbrt(lab, l_, m_, s_);
+  lms_cbrt_to_linear_rgb(l_, m_, s_, r, g, b);
 }
 
 /**
@@ -708,6 +733,56 @@ inline LinRGB oklab_to_linear_rgb_gamut(OKLab lab) {
   LinRGB rgb;
   oklab_to_linear_rgb_gamut(lab, rgb.r, rgb.g, rgb.b);
   return rgb;
+}
+
+/**
+ * @brief Builds the cbrt-LMS-space 3x3 equivalent to an OKLab chroma rotation.
+ * @param ca Cosine of the rotation angle.
+ * @param sa Sine of the rotation angle.
+ * @param k Out: row-major 3x3 acting on cube-rooted LMS.
+ * @details The OKLab a/b rotation is linear in cube-rooted LMS, so
+ * oklab_to_lms_cbrt . rotate . lms_to_oklab folds into one matrix. Columns are
+ * derived by pushing basis vectors through those functions, keeping their
+ * coefficients the single source of truth.
+ */
+inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
+  for (int i = 0; i < 3; ++i) {
+    OKLab lab = lms_to_oklab(i == 0 ? 1.0f : 0.0f, i == 1 ? 1.0f : 0.0f,
+                             i == 2 ? 1.0f : 0.0f);
+    float a2 = lab.a * ca - lab.b * sa;
+    float b2 = lab.a * sa + lab.b * ca;
+    float l_, m_, s_;
+    oklab_to_lms_cbrt({lab.L, a2, b2}, l_, m_, s_);
+    k[i] = l_;
+    k[3 + i] = m_;
+    k[6 + i] = s_;
+  }
+}
+
+/**
+ * @brief Applies a cbrt-LMS 3x3 (from hue_rotate_lms_matrix, optionally
+ * uniformly scaled) and converts to linear RGB with gamut mapping.
+ * @param k Row-major 3x3 acting on cube-rooted LMS.
+ * @param l_ Cube-rooted l cone response.
+ * @param m_ Cube-rooted m cone response.
+ * @param s_ Cube-rooted s cone response.
+ * @param r Out: gamut-mapped linear red (may sit a hair past the bound;
+ * callers still clamp).
+ * @param g Out: linear green.
+ * @param b Out: linear blue.
+ * @details In-gamut colors (the overwhelming majority) never leave cbrt-LMS;
+ * the OKLab form is recomputed only on the chroma-clip slow path.
+ */
+inline void lms_cbrt_transform_rgb(const float k[9], float l_, float m_,
+                                   float s_, float &r, float &g, float &b) {
+  float ul = k[0] * l_ + k[1] * m_ + k[2] * s_;
+  float um = k[3] * l_ + k[4] * m_ + k[5] * s_;
+  float us = k[6] * l_ + k[7] * m_ + k[8] * s_;
+  lms_cbrt_to_linear_rgb(ul, um, us, r, g, b);
+  if (!linear_rgb_in_gamut(r, g, b)) {
+    OKLab lab = lms_to_oklab(ul, um, us);
+    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r, g, b);
+  }
 }
 
 /**
