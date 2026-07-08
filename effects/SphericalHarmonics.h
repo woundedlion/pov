@@ -274,7 +274,7 @@ public:
       constexpr float NEG_LOBE_GREEN_SCALE = 0.8f;
       Color4 neg = Color4(
           Pixel(pos.color.b,
-                static_cast<uint16_t>(pos.color.g * NEG_LOBE_GREEN_SCALE),
+                static_cast<uint16_t>(pos.color.g * NEG_LOBE_GREEN_SCALE + 0.5f),
                 pos.color.r),
           pos.alpha);
 

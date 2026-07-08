@@ -111,7 +111,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
    Fix: Make the correction state per-instance (move tempR_/corrR_/brightness_ etc. out of the HD107SFrame statics into DMALEDController members passed to correct()), or add the same singleton-per-N trap the SPI driver has. The per-instance move costs nothing on the hot path (the factors are still read once per pixel) and removes the hidden aliasing.
    Rejected: the aliasing is unreachable in a shipped image — DMALEDController is one-per-image and a second controller's begin() already traps at TeensySPIDMA's single-instance guard (dma_led.h:76) before any second controller can exist to share the statics. The per-instance move would ripple the correction-factor storage through the FASTRUN correct() path and all 12 static call sites in test_hd107s_frame.h for a latent-only condition, disproportionate to a Low finding.
 
-10. **SphericalHarmonics negative-lobe green scale truncates instead of rounding** — `effects/SphericalHarmonics.h:276-278` · _code-style_
+10. ✅ **SphericalHarmonics negative-lobe green scale truncates instead of rounding** — `effects/SphericalHarmonics.h:276-278` · _code-style_
    Fix: Add +0.5f before the cast: static_cast<uint16_t>(pos.color.g * NEG_LOBE_GREEN_SCALE + 0.5f). No perf impact (cold per-pixel shade already does float math here).
 
 11. **wire() adds a junction dot at every L-bend corner (promised pruning never happens)** — `hardware/phantasm/gen/builder.py:141-146` · _code-style_
