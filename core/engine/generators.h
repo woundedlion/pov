@@ -22,6 +22,8 @@ inline int &generate_depth() {
 }
 } // namespace hs_detail
 
+constexpr int MAX_GENERATE_DEPTH = 16;
+
 /**
  * @brief Universal generation wrapper for procedural geometry.
  * @tparam GenerateFn The generation function or callable type.
@@ -56,6 +58,7 @@ auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
   ScratchScope a_guard(scratch_arena_a);
   ScratchScope b_guard(scratch_arena_b);
   ++depth;
+  HS_CHECK(depth <= MAX_GENERATE_DEPTH, "generate: recursion too deep");
   /**
    * @brief RAII guard that decrements the nesting depth on scope exit.
    */

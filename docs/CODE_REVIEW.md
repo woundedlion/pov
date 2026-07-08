@@ -183,7 +183,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 32. ✅ **Ripple constructor does not validate `speed` finiteness; a NaN speed silently freezes the wave phase** — `core/animation/params.h:651-660 (Ripple ctor), 675 (params.phase += speed)` · _error-handling_
    Fix: Add `HS_CHECK(std::isfinite(speed), "Ripple speed must be finite");` alongside the existing duration check in the constructor.
 
-33. **generate() recursion depth has no upper bound / overflow guard** — `core/engine/generators.h:51-58 (generate_depth / ++depth)` · _error-handling_
+33. ✅ **generate() recursion depth has no upper bound / overflow guard** — `core/engine/generators.h:51-58 (generate_depth / ++depth)` · _error-handling_
    Fix: After ++depth add HS_CHECK(depth <= kMaxGenerateDepth, "generate: recursion too deep") with a generous compile-time ceiling (e.g. 16). Zero hot-path cost (cold generation-time path).
 
 34. **read_id() reports a strap fault via HS_CHECK trap but the two same-ID boards it cannot detect drive bus contention silently** — `hardware/pov_segmented.h:379-396` · _error-handling_
