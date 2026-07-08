@@ -201,7 +201,8 @@ private:
    * @param initial_rho Position along the path at which to place the ring, in
    * rho units.
    * @details Assigns the next hue and advances the hue cursor. No-op if all
-   * slots are in use.
+   * slots are in use: the MAX_RINGS pool can saturate at high Speed×Density, and
+   * the dropped spawn is an accepted transient (a missed ring is invisible).
    */
   void spawn_ring_at_pos(float initial_rho) {
     for (int i = 0; i < MAX_RINGS; ++i) {

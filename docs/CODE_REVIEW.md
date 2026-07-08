@@ -129,7 +129,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 15. ✅ **Sprite constructor's fade re-scaling can strand a caller-requested fade-in at 0 frames with no diagnostic** — `core/animation/sprites.h:48-54` · _correctness_
    Fix: Optional: when the scaled fade_in floors to 0 while the requested value was >0 and duration>=2, bias one frame back to fade_in (e.g. round instead of floor) so both fades survive; keep the fade_total>duration branch otherwise unchanged. Purely a UX nicety, not a correctness fix.
 
-16. **PetalFlow can spawn more rings than the MAX_RINGS pool holds at high Speed×Density, silently dropping the excess with no visible density guarantee** — `effects/PetalFlow.h:185-217 (check_spawn / spawn_ring_at_pos)` · _correctness_
+16. ✅ **PetalFlow can spawn more rings than the MAX_RINGS pool holds at high Speed×Density, silently dropping the excess with no visible density guarantee** — `effects/PetalFlow.h:185-217 (check_spawn / spawn_ring_at_pos)` · _correctness_
    Fix: Add a one-line comment on spawn_ring_at_pos()'s no-free-slot return path stating the pool can saturate at high Speed×Density and the dropped spawn is an accepted transient (as RingShower documents), so the MAX_RINGS sizing rationale is discoverable. No code change; purely the missing rationale that the rest of the file otherwise supplies everywhere.
 
 17. **Ricker wavelet is hard-truncated at the fast-reject band edge, producing a displacement discontinuity** — `core/engine/transformers.h:338-353` · _correctness_ _(severity revised down by validator)_
