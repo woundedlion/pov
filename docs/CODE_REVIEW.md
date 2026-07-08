@@ -126,7 +126,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 14. ✅ **MobiusWarp/MobiusWarpCircular do not guard a non-finite `scale`/live `scale_ref_`, unlike MobiusFlow and Driver** — `core/animation/params.h:468-476 (MobiusWarp::step), 509-516 (MobiusWarpCircular::step)` · _correctness_
    Fix: Add `HS_CHECK(std::isfinite(scale))` in both constructors (cold path, mirrors Driver), and in MobiusWarp::step keep the last good scale on a non-finite live read (`if (scale_ref_) { float s2=*scale_ref_; if (std::isfinite(s2)) s=s2; }`), mirroring Driver::step.
 
-15. **Sprite constructor's fade re-scaling can strand a caller-requested fade-in at 0 frames with no diagnostic** — `core/animation/sprites.h:48-54` · _correctness_
+15. ✅ **Sprite constructor's fade re-scaling can strand a caller-requested fade-in at 0 frames with no diagnostic** — `core/animation/sprites.h:48-54` · _correctness_
    Fix: Optional: when the scaled fade_in floors to 0 while the requested value was >0 and duration>=2, bias one frame back to fade_in (e.g. round instead of floor) so both fades survive; keep the fade_total>duration branch otherwise unchanged. Purely a UX nicety, not a correctness fix.
 
 16. **PetalFlow can spawn more rings than the MAX_RINGS pool holds at high Speed×Density, silently dropping the excess with no visible density guarantee** — `effects/PetalFlow.h:185-217 (check_spawn / spawn_ring_at_pos)` · _correctness_
