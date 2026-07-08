@@ -245,20 +245,20 @@ private:
   }
 
   FastNoiseLite noise; /**< Noise source driving the camera RandomWalk. */
-  Timeline timeline;   /**< Fixed five-slot animation timeline. */
   Orientation<> camera; /**< Global camera orientation, tumbled each frame. */
   /**
    * @brief Shared Plot-mode tumble orientation; every Plot ring rides it.
-   * @details Declared after `timeline` so it outlives the Rotations that point
+   * @details Declared before `timeline` so it outlives the Rotations that point
    * here, which ~Timeline clears on teardown.
    */
   Orientation<> plot_orient_;
   /**
    * @brief Shared Scan-mode tumble orientation; every Scan ring rides it.
-   * @details Declared after `timeline` so it outlives the Rotations that point
+   * @details Declared before `timeline` so it outlives the Rotations that point
    * here, which ~Timeline clears on teardown.
    */
   Orientation<> scan_orient_;
+  Timeline timeline;   /**< Fixed five-slot animation timeline. */
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters; /**< Anti-aliased filter pipeline for Plot mode. */
   Pipeline<W, H> scan_filters; /**< Filter pipeline for Scan mode. */
 
