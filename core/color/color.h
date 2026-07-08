@@ -1222,6 +1222,7 @@ public:
    */
   void update_stops() {
     const CPixel vignette_color(0, 0, 0);
+    std::array<CPixel, MAX_STOPS> colors;
     switch (gradient_shape) {
     case GradientShape::VIGNETTE:
       shape = {0, 0.1f, 0.5f, 0.9f, 1.0f};
@@ -1422,7 +1423,6 @@ private:
   // only by update_stops) selects the live prefix shared by all of them.
   static constexpr int MAX_STOPS = 5;
   std::array<float, MAX_STOPS> shape;
-  std::array<CPixel, MAX_STOPS> colors;
   /**
    * @brief OKLCH forms of `colors`, cached by update_stops().
    * @details Lets the per-sample get() hot path skip the sRGB->OKLCH conversion
