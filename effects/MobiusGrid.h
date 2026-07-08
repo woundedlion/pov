@@ -48,6 +48,8 @@ public:
   void init() override {
     configure_arenas(GLOBAL_ARENA_SIZE - 128 * 1024, 64 * 1024, 64 * 1024);
 
+    baked_palette.bake(persistent_arena, palette);
+
     registerAnimatedParam("Rings", &params.num_rings, 0.0f, 20.0f);
     registerAnimatedParam("Lines", &params.num_lines, 0.0f, 20.0f);
     registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
@@ -76,6 +78,16 @@ public:
   void draw_frame() override {
     Canvas canvas(*this);
     timeline.step(canvas);
+
+    // `palette` mutates only while a ColorWipe steps; rebake the LUT the
+    // longitude shader samples for the wipe's duration. The wipe is armed
+    // mid-step and first steps next frame, so skip the arming frame.
+    if (wipe_pending_) {
+      wipe_pending_ = false;
+    } else if (wipe_frames_remaining_ > 0) {
+      baked_palette.rebake(palette);
+      --wipe_frames_remaining_;
+    }
 
     // int % 120 before the float cast: a float frame counter would lose integer
     // precision past 2^24.
@@ -112,7 +124,10 @@ private:
     next_palette = GenerativePalette(GradientShape::CIRCULAR,
                                      HarmonyType::SPLIT_COMPLEMENTARY,
                                      BrightnessProfile::FLAT);
-    timeline.add(0, Animation::ColorWipe(palette, next_palette, 60, ease_linear));
+    timeline.add(
+        0, Animation::ColorWipe(palette, next_palette, WIPE_FRAMES, ease_linear));
+    wipe_frames_remaining_ = WIPE_FRAMES;
+    wipe_pending_ = true;
   }
 
   /**
@@ -263,14 +278,19 @@ private:
             float t = (log_r - log_min) / (log_max - log_min);
             coord = wrap(t - phase, 1.0f);
           }
-          Color4 c = palette.get(coord);
+          Color4 c = baked_palette.get(coord);
           c.alpha *= opacity * params.alpha;
           f_val.color = c;
         });
   }
 
+  static constexpr int WIPE_FRAMES = 60; /**< Palette cross-fade duration, in frames. */
+
   GenerativePalette palette;      /**< Currently displayed palette. */
   GenerativePalette next_palette; /**< Palette being cross-faded toward. */
+  BakedPalette baked_palette;     /**< LUT-baked copy of `palette` the shaders sample. */
+  int wipe_frames_remaining_ = 0; /**< Frames left to rebake `palette` for an in-flight wipe. */
+  bool wipe_pending_ = false;     /**< Wipe armed this frame; it first steps next frame. */
   Timeline timeline;         /**< Drives spin, palette wipe, and mutations. */
   MobiusWarpCircularTransformer<1> mobius_gen; /**< Möbius warp generator. */
 
