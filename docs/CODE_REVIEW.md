@@ -213,7 +213,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 42. ✅ **size sort is not tie-broken by name, so equal-size effects list in arbitrary (insertion) order** — `sidebar_logic.js:24-27` · _maintainability_
    Fix: Add a name tiebreaker: `if (key === 'size') { const d = a.size - b.size; return (d || a.name.localeCompare(b.name, 'en')) * mul; }` (or apply the name compare unsigned so ties always sort A→Z regardless of direction).
 
-43. **Arena-metrics setTimeout loop keeps rescheduling forever after an engine trap** — `tools/solids.html:751-766 (updateArenaMetrics)` · _maintainability_
+43. ✅ **Arena-metrics setTimeout loop keeps rescheduling forever after an engine trap** — `tools/solids.html:751-766 (updateArenaMetrics)` · _maintainability_
    Fix: Return without rescheduling when MeshOpsWasm is null (the engine is halted and metrics can never update again), e.g. `if (!MeshOpsWasm) return;` before the setTimeout, and re-arm from update() if the module is ever reloaded.
 
 44. **vector_to_pixel unit-length assert uses a bare 1e-3f literal instead of the named EPS_UNIT_VEC_SQ tolerance** — `core/math/geometry.h:374` · _maintainability_
