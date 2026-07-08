@@ -59,6 +59,9 @@ public:
     }
   }
 
+  /** @brief A one-shot timer is removed on its single trigger, so it is finite. */
+  bool is_finite() const override { return !repeat; }
+
 private:
   int min;   /**< Minimum frame delay. */
   int max;   /**< Maximum frame delay. */
@@ -116,6 +119,9 @@ public:
       }
     }
   }
+
+  /** @brief A one-shot timer is removed on its single trigger, so it is finite. */
+  bool is_finite() const override { return !repeat; }
 
 private:
   static int clamp_period(int p) { return p < 1 ? 1 : p; }
