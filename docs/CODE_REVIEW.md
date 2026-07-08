@@ -123,7 +123,7 @@ All 52 confirmed findings, grouped by priority and numbered sequentially. Severi
 13. ✅ **MobiusFlow floors num_rings/num_lines but doesn't guard non-finite (NaN/Inf) live scalars, which propagate into a/d and poison MobiusParams** — `core/animation/params.h:399-420 (MobiusFlow::step)` · _correctness_ _(severity revised down by validator)_
    Fix: Replace the sign clamps with finite-and-range clamps, e.g. `float rings = std::isfinite((float)num_rings) ? std::max(0.0f, (float)num_rings) : 0.0f;` and similarly `lines = std::isfinite((float)num_lines) ? std::max(1.0f, (float)num_lines) : 1.0f;`. Two `isfinite` checks per frame on a cold animation step (not a per-pixel loop) are free relative to the expf/cos/sin already there.
 
-14. **MobiusWarp/MobiusWarpCircular do not guard a non-finite `scale`/live `scale_ref_`, unlike MobiusFlow and Driver** — `core/animation/params.h:468-476 (MobiusWarp::step), 509-516 (MobiusWarpCircular::step)` · _correctness_
+14. ✅ **MobiusWarp/MobiusWarpCircular do not guard a non-finite `scale`/live `scale_ref_`, unlike MobiusFlow and Driver** — `core/animation/params.h:468-476 (MobiusWarp::step), 509-516 (MobiusWarpCircular::step)` · _correctness_
    Fix: Add `HS_CHECK(std::isfinite(scale))` in both constructors (cold path, mirrors Driver), and in MobiusWarp::step keep the last good scale on a non-finite live read (`if (scale_ref_) { float s2=*scale_ref_; if (std::isfinite(s2)) s=s2; }`), mirroring Driver::step.
 
 15. **Sprite constructor's fade re-scaling can strand a caller-requested fade-in at 0 frames with no diagnostic** — `core/animation/sprites.h:48-54` · _correctness_
