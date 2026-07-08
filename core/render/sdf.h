@@ -2322,7 +2322,8 @@ struct Face {
       float ppy = basis_w.y * inv_c;
       bool pole_inside = false;
       for (int i = 0; i < count; ++i) {
-        if ((poly_2d[i].y > ppy) != (poly_2d[i + 1].y > ppy)) {
+        if (inv_edge_j[i] != 0.0f &&
+            (poly_2d[i].y > ppy) != (poly_2d[i + 1].y > ppy)) {
           float ix = poly_2d[i].x +
                      (ppy - poly_2d[i].y) * edge_vectors[i].x * inv_edge_j[i];
           if (ppx < ix)
@@ -2342,7 +2343,8 @@ struct Face {
       float ppy = -basis_w.y * inv_c;
       bool pole_inside = false;
       for (int i = 0; i < count; ++i) {
-        if ((poly_2d[i].y > ppy) != (poly_2d[i + 1].y > ppy)) {
+        if (inv_edge_j[i] != 0.0f &&
+            (poly_2d[i].y > ppy) != (poly_2d[i + 1].y > ppy)) {
           float ix = poly_2d[i].x +
                      (ppy - poly_2d[i].y) * edge_vectors[i].x * inv_edge_j[i];
           if (ppx < ix)
