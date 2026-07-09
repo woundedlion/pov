@@ -22,9 +22,14 @@
 #include "tests/test_harness.h"
 
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
-#include <sstream>
 #include <string>
+#if defined(_WIN32)
+#include <io.h> // _dup / _dup2 / _close / _fileno
+#else
+#include <unistd.h> // dup / dup2 / close
+#endif
 
 namespace hs_test {
 namespace platform_tests {
@@ -239,11 +244,42 @@ inline void test_beatsin16_golden() {
  *        than emitting the raw format string.
  */
 inline void test_serial_printf_formats_varargs() {
-  std::ostringstream cap;
-  std::streambuf *saved = std::cout.rdbuf(cap.rdbuf());
+  // SerialMock writes to C stdout, so redirect fd 1 to a file to capture it
+  // (same fd-swap idiom as test_death.h's spawn muting).
+  const char *path = "serial_printf_capture.tmp";
+  std::fflush(stdout);
+#if defined(_WIN32)
+  int saved_out = _dup(1);
+  std::FILE *cap = nullptr;
+  fopen_s(&cap, path, "w+");
+#else
+  int saved_out = dup(1);
+  std::FILE *cap = std::fopen(path, "w+");
+#endif
+  HS_EXPECT(cap != nullptr && saved_out >= 0, "capture file opened");
+  if (cap == nullptr || saved_out < 0)
+    return;
+#if defined(_WIN32)
+  _dup2(_fileno(cap), 1);
+#else
+  dup2(fileno(cap), 1);
+#endif
   Serial.printf("req %u / cap %u", 12u, 48u);
-  std::cout.rdbuf(saved);
-  HS_EXPECT(cap.str() == std::string("req 12 / cap 48"), "printf expands args");
+  std::fflush(stdout);
+#if defined(_WIN32)
+  _dup2(saved_out, 1);
+  _close(saved_out);
+#else
+  dup2(saved_out, 1);
+  close(saved_out);
+#endif
+  std::rewind(cap);
+  char buf[64] = {0};
+  size_t n = std::fread(buf, 1, sizeof(buf) - 1, cap);
+  buf[n] = '\0';
+  std::fclose(cap);
+  std::remove(path);
+  HS_EXPECT(std::string(buf) == std::string("req 12 / cap 48"), "printf expands args");
 }
 
 /**

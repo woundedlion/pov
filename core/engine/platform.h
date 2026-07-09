@@ -235,7 +235,7 @@ static constexpr int H_OFFSET = 3;
 
 #include <cstring>
 #include <chrono>
-#include <iostream>
+#include <cstdio>
 
 // ---------------------------------------------------------------------------
 // Test-only injectable clock (host builds only).
@@ -605,7 +605,7 @@ inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
 
 // --- System Mock ---
 /**
- * @brief Mock of Arduino's Serial that writes to std::cout on the host.
+ * @brief Mock of Arduino's Serial that writes to stdout on the host.
  */
 struct SerialMock {
   /**
@@ -616,37 +616,37 @@ struct SerialMock {
    * @brief Writes a C string without a trailing newline.
    * @param msg Text to write.
    */
-  void print(const char *msg) { std::cout << msg; }
+  void print(const char *msg) { fputs(msg, stdout); }
   /**
    * @brief Writes a signed integer without a trailing newline.
    * @param val Value to write.
    */
-  void print(int val) { std::cout << val; }
+  void print(int val) { printf("%d", val); }
   /**
    * @brief Writes an unsigned long without a trailing newline.
    * @param val Value to write.
    */
-  void print(unsigned long val) { std::cout << val; }
+  void print(unsigned long val) { printf("%lu", val); }
   /**
    * @brief Writes a float without a trailing newline.
    * @param val Value to write.
    */
-  void print(float val) { std::cout << val; }
+  void print(float val) { printf("%g", static_cast<double>(val)); }
   /**
    * @brief Writes a C string followed by a newline.
    * @param msg Text to write.
    */
-  void println(const char *msg) { std::cout << msg << std::endl; }
+  void println(const char *msg) { printf("%s\n", msg); }
   /**
    * @brief Writes a signed integer followed by a newline.
    * @param val Value to write.
    */
-  void println(int val) { std::cout << val << std::endl; }
+  void println(int val) { printf("%d\n", val); }
   /**
    * @brief Writes an unsigned long followed by a newline.
    * @param val Value to write.
    */
-  void println(unsigned long val) { std::cout << val << std::endl; }
+  void println(unsigned long val) { printf("%lu\n", val); }
   /**
    * @brief Formats and writes a printf-style message (Arduino Serial.printf).
    * @param fmt printf-style format string.
@@ -666,7 +666,7 @@ struct SerialMock {
     va_start(args, fmt);
     vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
-    std::cout << buf;
+    fputs(buf, stdout);
   }
 };
 inline SerialMock Serial;
