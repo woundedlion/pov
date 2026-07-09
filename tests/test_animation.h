@@ -1435,7 +1435,10 @@ inline void test_breakdown_fades_classes_sequentially() {
   hs::random().seed(7u);
   Segue::Breakdown bd;
   constexpr int n = 5;
-  bd.reorder(n);
+  // Per-face classes (dense [0, n), out of order with repeats); reorder derives
+  // num_classes = max + 1 = n from them rather than taking a declared count.
+  const std::vector<uint8_t> face_classes{2, 0, 4, 1, 3, 4, 0};
+  bd.reorder(face_classes);
   HS_EXPECT_EQ(bd.num_classes, n);
   bool seen[n] = {};
   for (int c = 0; c < n; ++c) {
