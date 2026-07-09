@@ -77,22 +77,6 @@ using Dots = StaticCircularBuffer<Dot, 1024>;
 using Points = StaticCircularBuffer<Vector, 1024>;
 
 /**
- * @brief Struct to hold Log-Polar coordinates.
- */
-struct LogPolar {
-  float rho;   /**< Log-radius (natural log of the complex-plane radius). */
-  float theta; /**< Angle in radians. */
-};
-
-/**
- * @brief Finite stand-in for the infinite log-radius at a stereographic pole.
- * @details `rho = 0.5*log((1+y)/(1-y))` tends to ±inf at the poles (v.y → ±1);
- * `vectorToLogPolar` clamps each pole to ±this sentinel so no non-finite rho
- * leaks into downstream arithmetic.
- */
-static constexpr float LOGPOLAR_RHO_SENTINEL = 10.0f;
-
-/**
  * @brief Converts a pixel y-coordinate to a spherical phi angle.
  * @param y The pixel y-coordinate [0, h_virt - 1].
  * @param h_virt The virtual height.
@@ -377,54 +361,6 @@ template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
   // phi_to_y<H> derives H_VIRT internally, mirroring pixel_to_vector's y_to_phi<H>.
   PixelCoords p({wrap((theta * W) / (2 * PI_F), W), phi_to_y<H>(phi)});
   return p;
-}
-
-/**
- * @brief Converts Log-Polar coordinates (rho, theta) to a vector on the unit
- * sphere. Maps: Log-Polar -> Complex Plane -> Inverse Stereographic -> Sphere
- * @param rho The log-radius (natural logarithm of the radius on the complex
- * plane).
- * @param theta The angle in radians.
- * @return Unit vector on the sphere (unit by construction).
- * @note Setup-time generator; exact trig is intentional (not a per-pixel path).
- */
-inline Vector logPolarToVector(float rho, float theta) {
-  const float R = expf(rho);
-  const float R2 = R * R;
-  const float y = (R2 - 1.0f) / (R2 + 1.0f);
-  const float r_xz = sqrtf(std::max(0.0f, 1.0f - y * y));
-  // Unit by construction (r_xz^2 + y^2 = 1), so no normalize().
-  return Vector(r_xz * cosf(theta), y, r_xz * sinf(theta));
-}
-
-/**
- * @brief Converts a vector on the unit sphere to Log-Polar coordinates.
- * Maps: Sphere -> Stereographic -> Complex Plane -> Log-Polar
- * @param v Normalized vector on the unit sphere.
- * @pre `v` is unit length. A non-unit `v.y > 1` drives `1 - v.y` negative and
- *   `logf(numer/denom)` to NaN; trap-enforced below. Unlike the per-pixel
- *   `vector_to_pixel`, this is a cold path (no hot-loop caller), so the check
- *   stays on.
- * @return Log-Polar coordinates.
- */
-inline LogPolar vectorToLogPolar(const Vector &v) {
-  HS_CHECK(std::abs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
-  // rho = 0.5*log((1+y)/(1-y)) diverges to ±inf at the poles (v.y -> ±1); clamp
-  // each to a finite sentinel so no non-finite rho leaks downstream. y is clamped
-  // first: the unit-vector tolerance admits |v.y| slightly >1, which would drive
-  // numer/denom negative and logf to NaN.
-  const float y = hs::clamp(v.y, -1.0f, 1.0f);
-  const float numer = 1.0f + y;
-  const float denom = 1.0f - y;
-  if (std::abs(denom) < math::EPS_GEOMETRIC) {
-    return {LOGPOLAR_RHO_SENTINEL, 0.0f}; // North pole sentinel (rho -> +inf)
-  }
-  if (std::abs(numer) < math::EPS_GEOMETRIC) {
-    return {-LOGPOLAR_RHO_SENTINEL, 0.0f}; // South pole sentinel (rho -> -inf)
-  }
-  const float rho = 0.5f * logf(numer / denom);
-  const float theta = fast_atan2(v.z, v.x);
-  return {rho, theta};
 }
 
 /**
