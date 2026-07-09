@@ -697,6 +697,16 @@ struct Basis {
 };
 
 /**
+ * @brief Rotates a basis by a unit quaternion; the axes stay orthonormal.
+ * @param b Basis to rotate.
+ * @param q Unit rotation quaternion.
+ * @return The basis with every axis rotated by @p q.
+ */
+inline Basis rotate(const Basis &b, const Quaternion &q) {
+  return {rotate(b.u, q), rotate(b.v, q), rotate(b.w, q)};
+}
+
+/**
  * @brief Creates a basis { u, v, w } from an orientation and normal.
  * @param orientation The orientation quaternion; MUST be unit length
  *   (HS_CHECK-trapped below — a non-unit quaternion would scale/shear the frame).
