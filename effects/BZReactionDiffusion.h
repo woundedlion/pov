@@ -79,10 +79,15 @@ public:
                                      ReactionGraph::CubemapLUT::RES *
                                      sizeof(uint16_t); // cube_lut.build
     constexpr size_t STATE_BYTES = 3u * RD_N * sizeof(uint8_t); // allocate_state
+    // NODE_BYTES double-serves: the resident node array AND the equal-size
+    // transient lattice cube_lut.build() carves and rewinds before init_lattice()
+    // allocates the resident one. The peak persistent footprint is during build()
+    // (state + LUT + transient lattice), so this bounds it only while build()
+    // precedes init_lattice() and its transient stays <= NODE_BYTES.
     constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);        // build_nodes
     constexpr size_t PERSISTENT_BYTES = 165 * 1024;
     static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES <= PERSISTENT_BYTES,
-                  "BZ persistent arena too small for LUT + state + nodes");
+                  "BZ persistent arena too small for LUT + state + build peak");
     // render() carves 3 uint8 + 3 float species buffers from scratch_a.
     constexpr size_t SCRATCH_BYTES =
         3u * RD_N * sizeof(uint8_t) + 3u * RD_N * sizeof(float);
