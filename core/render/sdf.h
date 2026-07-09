@@ -2470,8 +2470,9 @@ struct Face {
         min_phi = phi_val;
       if (phi_val > max_phi)
         max_phi = phi_val;
-      // Arc Extrema Logic
-      if (planes_count > 0)
+      // Arc Extrema Logic: only when this edge pushed its own plane, else
+      // planes[planes_count - 1] is a prior edge's normal against these endpoints.
+      if (len_sq > 1e-12f)
         refine_phi_from_arc_extremum(scratch.planes[planes_count - 1], v1, v2,
                                      min_phi, max_phi);
       float theta = fast_atan2(v1.z, v1.x);
