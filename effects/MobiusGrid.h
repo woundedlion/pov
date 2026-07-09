@@ -43,7 +43,7 @@ public:
    *          out-of-phase sine mutations driving the ring/line counts.
    */
   void init() override {
-    configure_arenas(GLOBAL_ARENA_SIZE - 128 * 1024, 64 * 1024, 64 * 1024);
+    configure_arenas(GLOBAL_ARENA_SIZE - 8 * 1024, 8 * 1024, 0);
 
     baked_palette.bake(persistent_arena, palette);
 
