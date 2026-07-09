@@ -108,8 +108,8 @@ public:
    */
   void transmitAsync(const uint8_t* data, size_t len) {
     // Trap rather than spin on an in-flight transfer: this runs in the column
-    // ISR, where spinning would deadlock — the DMA-completion ISR that clears
-    // transferComplete_ cannot preempt an equal/lower-priority ISR.
+    // ISR, where spinning would deadlock — the DMA-completion ISR that marks
+    // transferComplete_ true cannot preempt an equal/lower-priority ISR.
     if (!transferComplete_.load(std::memory_order_relaxed)) {
       hs::log("FATAL: transmitAsync entered with a transfer still in flight — "
               "submitFrame() must guard with isComplete()");
