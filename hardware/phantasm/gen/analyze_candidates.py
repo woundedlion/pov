@@ -133,12 +133,12 @@ def analyze(path):
 
     netlen, netseg, netlayers = {}, {}, {}
     total_len = 0.0
-    for b in segs + arcs:
+    for b, is_arc in [(s, False) for s in segs] + [(a, True) for a in arcs]:
         st, en = xy(b, "start"), xy(b, "end")
         if not st or not en:
             continue
         dl = dist(st, en)
-        if b in arcs:
+        if is_arc:
             mid = xy(b, "mid")
             if mid:
                 dl = dist(st, mid) + dist(mid, en)
