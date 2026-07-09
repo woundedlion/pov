@@ -34,7 +34,7 @@ public:
     // stacks an SDF::FaceScratchBuffer on top), which for the heaviest hankin
     // mesh exceeds the generation/classify peak. scratch_b (32 KB) covers the
     // larger of generation intermediates or the morph-cycle Persist set. The
-    // device H=144 high-water isn't in CI; confirm the peak on hardware.
+    // per-solid H=144 scratch high-water is gated in CI by the arena-budget test.
     configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
                      32 * 1024);
     register_param("Intensity", &params.intensity, 0.0f, 5.0f);
