@@ -312,6 +312,8 @@ private:
    * @return Composited RGB pixel. Requires non-negative @p a, @p b, @p c: the
    *         blend then normalizes by their sum into a convex combination, which
    *         keeps each 16-bit channel in [0, 65535] so the cast needs no clamp.
+   * @pre a + b + c >= SPECIES_EMPTY_EPS (the sole caller returns transparent
+   *      below that floor), so the reciprocal is finite.
    * @details Concentration-weighted average of the three species colors:
    *          (ca·a + cb·b + cc·c) / (a + b + c). Each species contributes in
    *          proportion to its local concentration with no order bias.
@@ -320,10 +322,7 @@ private:
    */
   static Pixel blend_species(float a, float b, float c, const Color4 &ca,
                              const Color4 &cb, const Color4 &cc) {
-    float wsum = a + b + c;
-    if (wsum < SPECIES_EMPTY_EPS)
-      return Pixel(0, 0, 0);
-    float inv = 1.0f / wsum;
+    float inv = 1.0f / (a + b + c);
     float r = (ca.color.r * a + cb.color.r * b + cc.color.r * c) * inv;
     float g = (ca.color.g * a + cb.color.g * b + cc.color.g * c) * inv;
     float bl = (ca.color.b * a + cb.color.b * b + cc.color.b * c) * inv;
