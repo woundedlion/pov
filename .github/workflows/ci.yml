@@ -85,6 +85,14 @@ jobs:
       - name: Build
         run: cmake --build --preset tests
 
+      # perf_bench is EXCLUDE_FROM_ALL (its wall-time run is too noisy to gate as
+      # a ctest), so the default build never compiles it and an API rename can
+      # ride green everywhere while silently breaking perf_bench.cpp. Compile it
+      # here (build-only, once on shard 1) to keep it from bit-rotting.
+      - name: Build perf_bench (compile coverage only)
+        if: matrix.shard == 1
+        run: cmake --build --preset tests --target perf_bench_Os perf_bench_O3
+
       # Reverse-direction roster guard (finding 596): every module in the
       # run_tests roster must map to a unit_<name> CTest registration, else it
       # runs in no ctest test and is silently uncovered. (The forward direction
