@@ -47,7 +47,6 @@ FLASHMEM static void run_show_sequence() {
 
   pov->show<ChaoticStrings<288, 144>>(120);0
   pov->show<Raymarch<288, 144>>(120);
-  pov->show<MorphBlob<288, 144>>(120);
   pov->show<SplineFlow<288, 144>>(120);
   pov->show<Voronoi<288, 144>>(120);
   pov->show<MobiusGrid<288, 144>>(120);

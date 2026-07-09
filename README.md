@@ -712,7 +712,6 @@ The `process_pixel` function applies anti-aliasing based on shape type:
 | `SDF::Face` | Planar polygon face (used for mesh rendering) |
 | `SDF::Torus` | 3D volumetric torus SDF with configurable major/minor radii (Cartesian ray-space, not a 2D sphere-surface shape) |
 | `SDF::Warp::Twist` | Domain warp composed with a volumetric SDF via `SDF::WarpedVolume<Shape, Warp>` — e.g. `WarpedVolume<Torus, Warp::Twist>` twists a torus by oscillating Y around the ring azimuth, with an analytic Lipschitz bound for safe sphere-tracing (used by Raymarch) |
-| `SDF::Warp::Lobe` | Radial harmonic bump warp for `SDF::WarpedVolume` — `r -> r − amplitude·cos(lobes·θ)·sin^lobes(φ)·cos(bands·φ)` grows equatorial lobes and polar ridges on any volumetric SDF, with an analytic Lipschitz bound for safe sphere-tracing (used by MorphBlob) |
 
 #### CSG Operations (`sdf.h`)
 

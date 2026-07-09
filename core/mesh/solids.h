@@ -1322,7 +1322,7 @@ inline bool has_name(std::string_view name) {
  * @param nn_angle Out: per-vertex nearest-neighbour angle (radians), for
  *        sizing per-vertex geometry to its local gap.
  * @return The vertex count written.
- * @details Shared by the volume-scatter effects (Raymarch, MorphBlob). HS_COLD:
+ * @details Shared by the volume-scatter effects (Raymarch). HS_COLD:
  * setup-only, keeps the build loops out of ITCM.
  */
 HS_COLD static int build_vertex_directions(Arena &geom, Arena &scratch,
