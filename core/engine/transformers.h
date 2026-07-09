@@ -329,7 +329,8 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
  */
 inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
   // Between ripples the envelope drives amplitude to 0; skip the whole
-  // per-pixel wavelet (fast_acos + two expf) when there is nothing to displace.
+  // per-pixel wavelet (fast_acos + two fast_expf) when there is nothing to
+  // displace.
   if (params.amplitude <= 0.001f)
     return v;
 
@@ -350,10 +351,10 @@ inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
   float t = (dist_from_peak / half_width) * 2.0f;
 
   // Ricker Wavelet: (1 - t^2) * e^(-t^2/2)
-  float ricker = (1.0f - t * t) * expf(-0.5f * t * t);
+  float ricker = (1.0f - t * t) * fast_expf(-0.5f * t * t);
 
   // Distance attenuation (ripples get smaller as they spread)
-  float attenuation = expf(-params.decay * d);
+  float attenuation = fast_expf(-params.decay * d);
 
   float theta = params.amplitude * ricker * attenuation;
 
