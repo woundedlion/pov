@@ -343,9 +343,7 @@ inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
   float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
   float dist_from_peak = d - params.phase;
 
-  float half_width = params.thickness * 0.5f;
-  if (half_width < 0.001f)
-    half_width = 0.001f;
+  float half_width = params.half_width();
 
   // Normalize distance (-2 to 2 range covers the whole wavelet)
   float t = (dist_from_peak / half_width) * 2.0f;
