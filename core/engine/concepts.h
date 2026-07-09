@@ -5,6 +5,9 @@
 
 #pragma once
 #include <concepts>
+#include <cstddef> // std::nullptr_t
+#include <memory>  // std::addressof
+#include <utility> // std::forward
 #include "math/3dmath.h"
 #include "render/canvas.h"
 #include "color/color.h"    // Pixel
