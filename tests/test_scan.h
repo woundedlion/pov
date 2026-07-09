@@ -41,11 +41,6 @@ struct ScanFx : public Effect {
    * @brief Per-frame draw hook; intentionally does nothing for these tests.
    */
   void draw_frame() override {}
-  /**
-   * @brief Reports whether the effect renders a background.
-   * @return Always false, so the canvas starts black.
-   */
-  bool strobe_columns() const override { return false; }
 };
 
 /**

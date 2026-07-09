@@ -61,7 +61,7 @@ public:
   /**
    * @brief Constructs the effect at the W x H canvas resolution.
    */
-  FLASHMEM RingSpin() : Effect(W, H) {}
+  FLASHMEM RingSpin() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.
@@ -97,9 +97,6 @@ public:
       spawn_ring(&baked_palettes[p_idx]);
     }
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances the timeline and draws each ring's trail.

@@ -28,7 +28,7 @@ public:
    * @brief Constructs the effect, seeding the preset table and filters.
    */
   FLASHMEM MindSplatter()
-      : Effect(W, H),
+      : Effect(W, H, {.strobe = true}),
         // well_strength is pre-scaled by friction (0.85) because the integrator
         // applies v <- friction*v + impulse, dragging velocity before the
         // attractor impulse.
@@ -87,9 +87,6 @@ public:
     baked_palette_.bake(persistent_arena, base_palette);
     start_warp();
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Steps the timeline, pushes live params into the particle system,

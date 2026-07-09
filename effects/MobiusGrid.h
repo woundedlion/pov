@@ -25,7 +25,7 @@ public:
    *          the rasterized lines.
    */
   FLASHMEM MobiusGrid()
-      : Effect(W, H),
+      : Effect(W, H, {.strobe = true}),
         palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                 BrightnessProfile::FLAT),
         next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
@@ -35,9 +35,6 @@ public:
                 Filter::World::HoleRef<W>(holeS, 1.2f),
                 Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Sizes the arenas, exposes the user params, and arms the timeline

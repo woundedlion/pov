@@ -31,7 +31,7 @@ public:
   /**
    * @brief Constructs the effect at W x H and disables pixel persistence.
    */
-  FLASHMEM Flyby() : Effect(W, H) { persist_pixels = false; }
+  FLASHMEM Flyby() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Initializes animated params, orientation, palette, and preset loop.
@@ -81,15 +81,6 @@ public:
                                     LERP_FRAMES, ease_in_out_sin, &anims_paused_)
                         .then([this]() { next_preset(); }));
   }
-
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return true; the strip blanks to black after each column so the bright
-   * stereographic pattern stands as sharp slices against a dark sweep instead of
-   * smearing over the previous revolution. The shader overwrites every pixel, so
-   * no persistent background buffer is blended in.
-   */
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances animation phases and shades every pixel for one frame.

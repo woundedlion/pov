@@ -824,11 +824,6 @@ struct PipeFx : public Effect {
    * @brief Draws one frame (no-op; the tests populate the Canvas directly).
    */
   void draw_frame() override {}
-  /**
-   * @brief Reports whether the effect paints a background.
-   * @return Always false (tests rely on a black backdrop).
-   */
-  bool strobe_columns() const override { return false; }
 };
 
 /**

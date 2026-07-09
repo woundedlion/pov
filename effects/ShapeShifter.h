@@ -37,12 +37,10 @@ public:
    */
   FLASHMEM ShapeShifter()
       : Effect(W, H,
-               decltype(plot_filters)::any_crosses_segments ||
-                   decltype(scan_filters)::any_crosses_segments),
+               {.strobe = true,
+                .full_frame = decltype(plot_filters)::any_crosses_segments ||
+                              decltype(scan_filters)::any_crosses_segments}),
         current_shape(ShapeType::PlanarPolygon) {}
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Registers tunable params and builds the animation timeline.

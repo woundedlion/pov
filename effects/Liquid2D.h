@@ -38,7 +38,7 @@ public:
    * @details The shader writes every pixel each frame, so no persistence is
    * needed.
    */
-  FLASHMEM Liquid2D() : Effect(W, H) { persist_pixels = false; }
+  FLASHMEM Liquid2D() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Initializes sliders, timeline drivers, palette, and preset cycling.
@@ -94,9 +94,6 @@ public:
 
     params = presets.get();
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances the timeline and shades every pixel for one frame.

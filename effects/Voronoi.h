@@ -33,7 +33,7 @@ public:
   /**
    * @brief Constructs the effect with the templated framebuffer dimensions.
    */
-  FLASHMEM Voronoi() : Effect(W, H) {}
+  FLASHMEM Voronoi() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Configures arenas, registers GUI params, allocates the sites buffer,
@@ -53,9 +53,6 @@ public:
     sites_buffer.bind(persistent_arena, MAX_SITES);
     seed_sites();
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Animates the sites, builds a per-frame KD-tree, and shades each

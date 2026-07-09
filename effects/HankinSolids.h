@@ -22,7 +22,7 @@ public:
   /**
    * @brief Constructs the effect with a W x H canvas and empty filter pipeline.
    */
-  FLASHMEM HankinSolids() : Effect(W, H), filters() {}
+  FLASHMEM HankinSolids() : Effect(W, H, {.strobe = true}), filters() {}
 
   /**
    * @brief Sizes arenas, registers params, loads the first solid, and starts
@@ -56,8 +56,6 @@ public:
     start_hankin_cycle();
   }
 
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
   /**
    * @brief Advances the timeline by one frame and renders into the canvas.
    */

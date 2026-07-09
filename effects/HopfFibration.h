@@ -26,9 +26,8 @@ public:
    * screen-space anti-alias filter sized to W x H.
    */
   FLASHMEM HopfFibration()
-      : Effect(W, H), trail_pipeline(Filter::Screen::AntiAlias<W, H>()) {
-    persist_pixels = false;
-  }
+      : Effect(W, H, {.strobe = true}),
+        trail_pipeline(Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
    * @brief Initializes params, buffers, fibers, and timeline animations.
@@ -71,9 +70,6 @@ public:
     timeline.add(0, Animation::Driver(tumble_angle_y, &params.tumble_speed,
                                       TUMBLE_Y_RATE, true));
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances one frame: steps animations, records and renders trails.
