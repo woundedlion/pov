@@ -417,6 +417,12 @@ private:
     size_t m_index;  /**< Logical position, front-to-back. */
 
     /**
+     * @brief Constructs a singular iterator, satisfying std::semiregular so the
+     *        type models std::random_access_iterator.
+     */
+    CircularIterBase() : m_buffer(nullptr), m_index(0) {}
+
+    /**
      * @brief Constructs an iterator over a buffer at a logical position.
      * @param buffer Buffer to traverse.
      * @param idx Logical index, measured from the front.
