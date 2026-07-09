@@ -246,9 +246,9 @@ protected:
   int duration; /**< Total length of the animation in frames. */
   bool repeat;  /**< Flag indicating if the animation should repeat. */
   uint32_t t = 0; /**< Internal frame counter. Finite animations bound it by
-                     `duration`; perpetual ones (duration == -1:
-                     RandomTimer/PeriodicTimer/Driver/RandomWalk) increment it
-                     forever. Unsigned so `t++` and the `t >= next` trigger
+                     `duration`; never-rewound perpetual ones (duration == -1:
+                     RandomTimer/PeriodicTimer/RandomWalk/Noise/MobiusWarpEvolving)
+                     increment it forever. Unsigned so `t++` and the `t >= next` trigger
                      comparisons wrap with defined behavior past 2^32 frames
                      (~552 days at 90 fps) rather than incurring signed-overflow
                      UB. Restart before then if uptime can approach that bound. */
