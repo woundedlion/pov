@@ -885,11 +885,14 @@ struct Shader {
                   "Scan::Shader SSAA supports only SAMPLES == 1 or 4");
     const auto &cr = canvas.clip();
     check_lut_domain<W, H>(cr);
+    const auto xc = cr.x_clip();
 
     if constexpr (SAMPLES == 1) {
       ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
-        for (int x = cr.x_start; x < cr.x_end; ++x) {
+        for (int x = 0; x < W; ++x) {
+          if (xc.clipped(x))
+            continue;
           Vector v = pixel_to_vector<W, H>(x, y);
           Color4 sample = shader(v);
           canvas(x, y) = sample.color * sample.alpha;
@@ -901,7 +904,9 @@ struct Shader {
 
       ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
-        for (int x = cr.x_start; x < cr.x_end; ++x) {
+        for (int x = 0; x < W; ++x) {
+          if (xc.clipped(x))
+            continue;
           // Premultiplied SSAA: accumulate each sample's coverage-weighted color
           // (color * alpha * 1/N) and write it directly, matching the SAMPLES==1
           // path (sample.color * sample.alpha).
@@ -956,9 +961,12 @@ struct Shader {
     if constexpr (SAMPLES == 1) {
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
+      const auto xc = cr.x_clip();
       ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
-        for (int x = cr.x_start; x < cr.x_end; ++x) {
+        for (int x = 0; x < W; ++x) {
+          if (xc.clipped(x))
+            continue;
           Vector center_v = pixel_to_vector<W, H>(x, y);
           Fragment frag_base;
           frag_base.pos = center_v;
@@ -975,9 +983,12 @@ struct Shader {
 
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
+      const auto xc = cr.x_clip();
       ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
-        for (int x = cr.x_start; x < cr.x_end; ++x) {
+        for (int x = 0; x < W; ++x) {
+          if (xc.clipped(x))
+            continue;
           Vector center_v = pixel_to_vector<W, H>(x, y);
 
           Fragment frag_base;
