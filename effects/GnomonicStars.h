@@ -119,6 +119,17 @@ private:
   /** @brief Spiral-cache capacity; equals the "Points" slider's upper bound. */
   static constexpr int MAX_POINTS = 2000;
 
+  // Persistent allocations: the MAX_POINTS spiral lattice plus the palette LUT.
+  // Effect keeps the default arena split, so the footprint must fit the device
+  // persistent partition. Guards a MAX_POINTS bump.
+  static constexpr size_t FOOTPRINT_BYTES =
+      MAX_POINTS * sizeof(Vector) + BakedPalette::LUT_SIZE * sizeof(Color4);
+  static constexpr size_t PERSISTENT_BUDGET =
+      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+  static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET,
+                "GnomonicStars persistent footprint exceeds the default "
+                "partition; retune MAX_POINTS or carve arenas");
+
   Orientation<> orientation;        /**< Current field orientation quaternion. */
   FastNoiseLite noise;              /**< Noise source driving the RandomWalk. */
   Timeline timeline;                /**< Animation timeline for warp and walk. */
