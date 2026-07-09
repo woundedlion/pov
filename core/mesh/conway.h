@@ -939,9 +939,12 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
             (out_mesh.vertices[i] + movements[i]).normalized();
       }
 
-      // Stop early once the largest per-vertex spring force settles below ~1e-4
-      // (a sub-pixel angular step on the unit sphere).
-      constexpr float RELAX_CONVERGE_EPS_SQ = 1e-8f;
+      // Stop early once the largest per-vertex spring step settles below ~3e-4
+      // rad on the unit sphere. Every roster mesh converges by ~40 passes and
+      // its residual at this gate stays far under a display pixel, so the
+      // generous caps (relax(50)/relax(100)/relax(217)) are never reached; a
+      // tighter gate only spends more passes chasing sub-pixel motion.
+      constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
       if (max_move_sq < RELAX_CONVERGE_EPS_SQ)
         break;
     }
