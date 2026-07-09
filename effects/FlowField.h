@@ -65,7 +65,7 @@ public:
     constexpr float MAX_LIFE = 300.0f;
     particle_system.init(persistent_arena, FRICTION, GRAVITY, MAX_LIFE);
 
-    particle_system.add_emitter([this](ParticleSystem &sys) mutable {
+    particle_system.add_emitter([this](ParticleSystem &sys) {
       while (sys.active_count < sys.pool.capacity()) {
         sys.spawn(random_vector(), Vector(0, 0, 0), 0);
       }
