@@ -457,8 +457,7 @@ public:
       const Pixel *buf = currentEffect->display_buffer();
       static_assert(sizeof(Pixel) == 3 * sizeof(uint16_t),
                     "fast-path memcpy assumes packed RGB16 Pixel layout");
-      std::memcpy(&pixelBuffer[idx], buf, static_cast<size_t>(count) * sizeof(Pixel));
-      idx += count * CHANNELS;
+      std::memcpy(pixelBuffer.data(), buf, static_cast<size_t>(count) * sizeof(Pixel));
     } else {
       for (int y = 0; y < pixel_height; y++) {
         for (int x = 0; x < pixel_width; x++) {
