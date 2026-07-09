@@ -35,8 +35,13 @@ public:
    * @brief Constructs an Effect instance.
    * @param W The width (resolution) of the effect.
    * @param H The height (resolution) of the effect.
+   * @param needs_full_frame Whether the driver must render the full canvas
+   *        instead of clipping to a segment band; pass the effect's filter
+   *        pipeline `any_crosses_segments` trait (defaults to false).
    */
-  Effect(int W, int H) : persist_pixels(false), width_(W), height_(H) {
+  Effect(int W, int H, bool needs_full_frame = false)
+      : persist_pixels(false), full_frame(needs_full_frame), width_(W),
+        height_(H) {
     // Single-live-Effect precondition: every Effect aliases the same two static
     // buffers (buffer_a/buffer_b), so a second live instance corrupts both frames.
     HS_CHECK(!s_alive,
@@ -96,13 +101,12 @@ public:
    *         only on that band, which keeps segmented rendering's clipping win.
    * @details Read by the WASM segment driver (targets/wasm/wasm.cpp setClip) and
    *          the device driver (hardware/pov_segmented.h clip_to_segment) to leave
-   *          the clip at full canvas for stateful effects. An effect derives the
-   *          answer from its filter pipeline's compile-time `any_crosses_segments`
-   *          fold (see core/render/filter.h and docs/segmented_stateful_effects_spec.md).
-   *          The base default is false; only effects with a cross-segment filter
-   *          override it.
+   *          the clip at full canvas for stateful effects. Set once at
+   *          construction from the effect's filter pipeline compile-time
+   *          `any_crosses_segments` fold (see core/render/filter.h and
+   *          docs/segmented_stateful_effects_spec.md); defaults to false.
    */
-  [[nodiscard]] virtual bool needs_full_frame() const { return false; }
+  [[nodiscard]] bool needs_full_frame() const { return full_frame; }
 
   /**
    * @brief Whether this effect copies its previous frame forward (trails/decay).
@@ -457,6 +461,11 @@ protected:
    * the new buffer (for trails/decay).
    */
   bool persist_pixels;
+  /**
+   * @brief Full-canvas render gate (see needs_full_frame()); set once at
+   * construction from the filter pipeline `any_crosses_segments` trait.
+   */
+  bool full_frame;
   ParamList parameters; /**< List of parameters. */
   bool anims_paused_ = false; /**< Pause gate for parameter-driving animations;
                                  pass `&anims_paused_` to Mutation/Driver. */

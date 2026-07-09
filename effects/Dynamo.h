@@ -56,7 +56,7 @@ public:
    *        and filter pipeline.
    */
   FLASHMEM Dynamo()
-      : Effect(W, H),
+      : Effect(W, H, decltype(filters)::any_crosses_segments),
         palettes{make_palette()},
         palette_normal(Z_AXIS),
         filters(Filter::World::Trails<W, TRAIL_CAPACITY>(
@@ -67,18 +67,6 @@ public:
 
   /// POV column-strobe flag; strobes (see Effect::strobe_columns).
   bool strobe_columns() const override { return true; }
-
-  /**
-   * @brief Forces full-canvas rendering per simulator worker.
-   * @return decltype(filters)::any_crosses_segments — true, because the
-   *         World::Trails stage reprojects trail samples under rotation and so
-   *         moves state across segment bands; a band-clipped worker would drop
-   *         cross-band trails. Trait-derived, so adding/removing a filter keeps
-   *         the gate correct. See docs/segmented_stateful_effects_spec.md.
-   */
-  bool needs_full_frame() const override {
-    return decltype(filters)::any_crosses_segments;
-  }
 
   /**
    * @brief Registers sliders, seeds node rows, primes the baked-palette LUT
