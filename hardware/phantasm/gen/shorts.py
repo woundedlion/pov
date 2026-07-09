@@ -70,15 +70,26 @@ def on_seg(p, a, b):
     return abs((x2 - x1) * (y - y1) - (y2 - y1) * (x - x1)) < 0.02
 
 
-allpts = set(named)  # plus wire endpoints
+# junction dots explicitly connect crossing/T wires that only touch mid-span.
+junctions = []
+for c in F(root, "junction"):
+    at = sexp._val(c, "at")
+    if at:
+        junctions.append(R(at))
+
+allpts = set(named)  # plus wire endpoints and junction dots
 for a, b in wires:
     allpts.add(a); allpts.add(b)
+allpts.update(junctions)
 
 for a, b in wires:
     union(a, b, f"wire {a}-{b}")
-    for p in list(named):
+    # Any point colinear on this span is on the wire: a named pin, another wire's
+    # endpoint landing mid-span (a T-junction), or an explicit junction dot.
+    for p in allpts:
         if p != a and p != b and on_seg(p, a, b):
-            union(p, a, f"label/power {named[p]} on wire {a}-{b}")
+            tag = f"label/power {named[p]}" if p in named else "junction"
+            union(p, a, f"{tag} on wire {a}-{b}")
 
 # same-coordinate merges already same key
 
