@@ -102,6 +102,12 @@ def dist(a, b):
     return math.hypot(a[0] - b[0], a[1] - b[1])
 
 
+def real_faults(by_type):
+    """Count DRC entries that are NOT refill-fixable zone artifacts -- real
+    shorts/crossings/opens that disqualify a candidate."""
+    return sum(v for t, v in by_type.items() if t not in REFILL_FIXABLE)
+
+
 def run_drc(pcb_path):
     """Run kicad-cli DRC; return dict(errors, unconnected, by_type Counter) or None
     if kicad-cli is unavailable. Errors are bucketed by rule so refill-fixable zone
@@ -115,13 +121,10 @@ def run_drc(pcb_path):
         txt = open(rpt, encoding="utf-8").read()
     except (subprocess.SubprocessError, OSError):
         return None
-    errors = int((re.search(r"Found (\d+) DRC violation", txt) or [0, 0])[1]) \
-        if re.search(r"Found (\d+) DRC violation", txt) else \
-        sum(1 for _ in re.finditer(r"^\[", txt, re.M))
+    by_type = Counter(re.findall(r"^\[(\w+)\]", txt, re.M))
     m = re.search(r"Found (\d+) unconnected", txt)
     unconnected = int(m.group(1)) if m else 0
-    by_type = Counter(re.findall(r"^\[(\w+)\]", txt, re.M))
-    return dict(errors=errors, unconnected=unconnected, by_type=by_type)
+    return dict(errors=sum(by_type.values()), unconnected=unconnected, by_type=by_type)
 
 
 def analyze(path):
@@ -244,7 +247,7 @@ def main(argv):
         if drc_ran:
             dc = r["drc"] or {}
             err, unc = dc.get("errors", 0), dc.get("unconnected", 0)
-            real = sum(v for t, v in dc.get("by_type", {}).items() if t not in REFILL_FIXABLE)
+            real = real_faults(dc.get("by_type", {}))
             if err == 0 and unc == 0:
                 flag = "clean"
             elif real == 0 and unc == 0:
@@ -316,7 +319,7 @@ def main(argv):
         dc = R[k].get("drc")
         if dc is None:
             return "?"
-        real = sum(v for t, v in dc["by_type"].items() if t not in REFILL_FIXABLE)
+        real = real_faults(dc["by_type"])
         if dc["errors"] == 0 and dc["unconnected"] == 0:
             return "ok"
         return "REAL" if (real or dc["unconnected"]) else "refill"
