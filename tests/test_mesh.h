@@ -431,6 +431,38 @@ inline void test_classify_faces_cube_uniform_topology() {
 }
 
 /**
+ * @brief Verifies classify_faces_by_topology on an UNCOMPILED PolyMesh with a
+ *        degenerate 2-gon neither self-pairs it nor trips the non-manifold trap.
+ * @details compile() drops sub-triangle faces, but the public PolyMesh overload
+ *          runs on raw input. A 2-gon reusing the triangle's edge would put a
+ *          third half-edge on that edge and trap without the record-loop
+ *          side-count guard; the guard leaves the degenerate edges unpaired so
+ *          the triangle still classifies.
+ */
+inline void test_classify_faces_uncompiled_degenerate() {
+  Arena geom(mesh_arena_a, sizeof(mesh_arena_a));
+  Arena scratch_a(mesh_arena_b, sizeof(mesh_arena_b) / 2);
+  Arena scratch_b(mesh_arena_b + sizeof(mesh_arena_b) / 2,
+                  sizeof(mesh_arena_b) / 2);
+
+  PolyMesh m;
+  m.vertices.bind(geom, 3);
+  m.face_counts.bind(geom, 2);
+  m.faces.bind(geom, 5);
+  m.vertices.push_back(Vector(1, 0, 0));
+  m.vertices.push_back(Vector(0, 1, 0));
+  m.vertices.push_back(Vector(0, 0, 1));
+  m.face_counts.push_back(3);
+  m.face_counts.push_back(2);
+  m.faces.push_back(0); m.faces.push_back(1); m.faces.push_back(2);
+  m.faces.push_back(0); m.faces.push_back(1);
+
+  MeshOps::classify_faces_by_topology(m, scratch_a, scratch_b, geom);
+  HS_EXPECT_EQ(m.topology.size(), m.face_counts.size());
+  HS_EXPECT_TRUE(m.topology[0] >= 0);
+}
+
+/**
  * @brief Verifies a tetrahedron's 4 faces, being mutually equivalent triangles,
  *        all classify into the same class (0).
  */
@@ -636,6 +668,7 @@ inline int run_mesh_tests() {
   test_clone_polymesh_deep_copies();
 
   test_classify_faces_cube_uniform_topology();
+  test_classify_faces_uncompiled_degenerate();
   test_classify_faces_tetrahedron_uniform_topology();
   test_classify_faces_truncated_cube_distinct_topology();
   test_classify_faces_roster_hash_collision_free();

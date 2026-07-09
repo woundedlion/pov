@@ -592,6 +592,21 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
       size_t face_offset = 0;
       for (size_t fi = 0; fi < F; ++fi) {
         int count = face_counts[fi];
+        if (count < 3) {
+          // A degenerate face has no real edges; reserve its half-edge slots
+          // with a self-unique key (the he index) so the neighbor-fold indexing
+          // stays aligned while pair_half_edges leaves them unpaired — a 2-gon's
+          // two opposite directed edges would otherwise self-pair.
+          for (int k = 0; k < count; ++k) {
+            fill_edge_record(records[he_idx], static_cast<uint16_t>(he_idx),
+                             static_cast<uint16_t>(he_idx),
+                             static_cast<uint16_t>(he_idx));
+            he_to_face[he_idx] = static_cast<uint16_t>(fi);
+            he_idx++;
+          }
+          face_offset += count;
+          continue;
+        }
         for (int k = 0; k < count; ++k) {
           uint16_t u = faces[face_offset + k];
           uint16_t v = faces[face_offset + (k + 1) % count];
