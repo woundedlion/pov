@@ -277,12 +277,14 @@ inline void expect_xclip_parity(const ClipRegion &cr) {
 /**
  * @brief Exercises the cylindrical x-clip predicates (render_x_*, contains_x,
  *        x_clip/XClip) across every documented band topology.
- * @details Covers a non-wrapping sub-band, a seam-crossing band (rs > re), the
- *          wrap-to-full fold (rs == re forcing active == false), and the
+ * @details Covers a non-wrapping sub-band, a partial seam-crossing band
+ *          (rs > re), the wrap-to-full fold (rs == re forcing active == false),
+ *          an over-wrap band whose display width plus both margins exceeds w
+ *          (must read as full coverage, not a thin wrap sliver), and the
  *          explicit full-width band (x_end - x_start >= w). Each case checks the
  *          XClip flags and membership at the band edges, then asserts
  *          contains_x()/XClip parity over all columns. Uses the hardware-like
- *          w = 96 from the finding so margin (<= 8) exercises a real seam cross.
+ *          w = 96 so a small margin exercises a real seam cross.
  */
 inline void test_clip_x_band_topologies() {
   constexpr int W = 96;
@@ -316,21 +318,21 @@ inline void test_clip_x_band_topologies() {
     expect_xclip_parity(cr);
   }
 
-  // 2) Seam-crossing band: [2,90) expanded by 8 -> render band wraps to
-  //    [90, w) U [0, 2), i.e. rs (90) > re (2).
+  // 2) Partial seam-crossing band: [2,90) expanded by 3 -> render band wraps to
+  //    [95, w) U [0, 93), i.e. rs (95) > re (93); the 2-column gap {93,94} stays
+  //    clipped (display width + both margins = 94 < w, so it is a true sub-arc).
   {
-    ClipRegion cr = make(2, 90, 8);
-    HS_EXPECT_EQ(cr.render_x_start(), 90);
-    HS_EXPECT_EQ(cr.render_x_end(), 2);
+    ClipRegion cr = make(2, 90, 3);
+    HS_EXPECT_EQ(cr.render_x_start(), 95);
+    HS_EXPECT_EQ(cr.render_x_end(), 93);
     const ClipRegion::XClip xc = cr.x_clip();
     HS_EXPECT_TRUE(xc.active);
     HS_EXPECT_TRUE(xc.wrap);
     HS_EXPECT_TRUE(cr.contains_x(0));
-    HS_EXPECT_TRUE(cr.contains_x(1));
-    HS_EXPECT_FALSE(cr.contains_x(2));  // re exclusive
-    HS_EXPECT_FALSE(cr.contains_x(89)); // interior of the clipped gap
-    HS_EXPECT_TRUE(cr.contains_x(90));  // rs inclusive
-    HS_EXPECT_TRUE(cr.contains_x(95));
+    HS_EXPECT_TRUE(cr.contains_x(92));  // last column before the gap
+    HS_EXPECT_FALSE(cr.contains_x(93)); // re exclusive
+    HS_EXPECT_FALSE(cr.contains_x(94)); // interior of the clipped gap
+    HS_EXPECT_TRUE(cr.contains_x(95));  // rs inclusive
     expect_xclip_parity(cr);
   }
 
@@ -358,6 +360,23 @@ inline void test_clip_x_band_topologies() {
     HS_EXPECT_FALSE(xc.active);
     HS_EXPECT_TRUE(cr.contains_x(0));
     HS_EXPECT_TRUE(cr.contains_x(W - 1));
+    expect_xclip_parity(cr);
+  }
+
+  // 5) Over-wrap to full coverage: [2,90) expanded by 8 gives display width 88 +
+  //    both margins = 104 >= w, so every column renders. render_x_start (90) !=
+  //    render_x_end (2) would otherwise fold to an 8-column sliver and wrongly
+  //    clip the display band's own interior; the full-coverage test forbids it.
+  {
+    ClipRegion cr = make(2, 90, 8);
+    HS_EXPECT_EQ(cr.render_x_start(), 90);
+    HS_EXPECT_EQ(cr.render_x_end(), 2);
+    const ClipRegion::XClip xc = cr.x_clip();
+    HS_EXPECT_FALSE(xc.active);
+    HS_EXPECT_TRUE(cr.contains_x(2));  // display left edge
+    HS_EXPECT_TRUE(cr.contains_x(50)); // display interior
+    HS_EXPECT_TRUE(cr.contains_x(89)); // display right edge
+    HS_EXPECT_TRUE(cr.contains_x(90)); // gap, but reached from both margins
     expect_xclip_parity(cr);
   }
 }
