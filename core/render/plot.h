@@ -880,8 +880,10 @@ struct Line {
     // Same coincident-endpoint threshold as rasterize_geodesic_strategy: below
     // it the slerp axis is unstable, so collapse to a dot.
     if (angle < EPS_GEODESIC_SEGMENT) {
-      points.push_back(f1);
-      points.push_back(f1); // draw at least a dot
+      Fragment f = f1;
+      f.v0 = f.v1 = f.v2 = 0.0f;
+      points.push_back(f);
+      points.push_back(f); // draw at least a dot
       return;
     }
 
