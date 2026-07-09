@@ -424,17 +424,32 @@ struct Shockwave : Base {
  * gets an equal share of the window. The BLACK_DWELL slice nearest the swap
  * is held fully black: without it the last class's fade runs to the sprite's
  * final frame and the incoming mesh appears one frame later, so the class
- * visibly pops instead of completing. The client supplies the class count
- * and triggers the reshuffle through reorder(), once per transition.
+ * visibly pops instead of completing. The client hands reorder() the mesh's
+ * per-face classes once per transition; the class count is derived from them,
+ * never declared separately, so it can never disagree with the mesh.
  */
 struct Breakdown : Base {
   static constexpr int MAX_CLASSES = 16; /**< rank[] capacity. */
   static constexpr float BLACK_DWELL = 0.1f; /**< Phase slice held all-black at the swap end. */
-  int num_classes = 1;            /**< Live class count, set by reorder(). */
+  int num_classes = 1;            /**< Live class count, derived by reorder(). */
   uint8_t rank[MAX_CLASSES] = {}; /**< rank[class]: fade position; 0 vanishes first. */
-  /** @brief Re-randomizes the class fade order for the next transition. */
-  void reorder(int classes) {
-    num_classes = hs::clamp(classes, 1, MAX_CLASSES);
+  /**
+   * @brief Derives the class count from the per-face classes and re-randomizes
+   *        the fade order for the next transition.
+   * @param face_classes Per-face class ids (dense [0, k), the same values
+   *        face_offset receives). num_classes is set to max+1, so a caller can
+   *        never mis-declare it. A face class at or past MAX_CLASSES folds into
+   *        rank[0] (face_offset's out-of-range branch).
+   */
+  template <typename Classes>
+  void reorder(const Classes &face_classes) {
+    int detected = 1;
+    for (size_t i = 0; i < face_classes.size(); ++i) {
+      int c = static_cast<int>(face_classes[i]) + 1;
+      if (c > detected)
+        detected = c;
+    }
+    num_classes = hs::clamp(detected, 1, MAX_CLASSES);
     for (int i = 0; i < num_classes; ++i)
       rank[i] = static_cast<uint8_t>(i);
     std::shuffle(rank, rank + num_classes, hs::random());
