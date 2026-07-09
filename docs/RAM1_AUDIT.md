@@ -63,12 +63,12 @@ These run per-pixel / per-frame; moving them to flash **would** cost performance
 | 1,200 ×8 | `Scan::scan_region<288,144,…>` (SDF Flower/Star/Ring/SphericalPolygon/PlanarPolygon/DistortedRing/Face) |
 | 1,172 | `Voronoi<288,144>::draw_frame` |
 | 1,152 | `usb_isr` (ISR — must stay) |
-| 1,082 | `ShapeShifter<288,144>::dispatchScan` |
+| 1,082 | `ShapeShifter<288,144>::dispatch_scan` |
 | 872 / 796 | `Scan::scan_region` / `Scan::Volume::draw` (torus/twist) |
 | 764 | `FastNoiseLite::SingleOpenSimplex2<float>` (per-pixel noise) |
 | 708 ×2 | `SDF::Face::distance` / `SDF::SphericalPolygon` ctor |
 | 660 | `pov::sync::SyncBoard::tick` |
-| 652 | `DistortedRing::drawFn`, `Liquid2D::draw_frame` shader |
+| 652 | `DistortedRing::draw_fn`, `Liquid2D::draw_frame` shader |
 | 644 | `Animation::ParticleSystem::step_particle` |
 
 ### 2b. Setup-only (COLD) code currently in ITCM — relocate to flash, zero perf cost

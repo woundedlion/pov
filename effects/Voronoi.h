@@ -44,11 +44,11 @@ public:
     // KD-tree (positions + nodes + build indices).
     configure_arenas(GLOBAL_ARENA_SIZE - 64 * 1024, 64 * 1024, 0);
 
-    registerParam("Num Sites", &params.num_sites, 1.0f,
+    register_param("Num Sites", &params.num_sites, 1.0f,
                   static_cast<float>(MAX_SITES));
-    registerParam("Speed", &params.speed, 0.0f, 100.0f);
-    registerParam("Sharpness", &params.sharpness, 1.0f, 500.0f);
-    registerParam("Border Thick", &params.borderThickness, 0.0f, 0.1f);
+    register_param("Speed", &params.speed, 0.0f, 100.0f);
+    register_param("Sharpness", &params.sharpness, 1.0f, 500.0f);
+    register_param("Border Thick", &params.border_thickness, 0.0f, 0.1f);
 
     sites_buffer.bind(persistent_arena, MAX_SITES);
     seed_sites();
@@ -92,35 +92,35 @@ public:
     // Resolves the final color from the already-identified nearest pair: the
     // nearest site index i0 and its dot d0 (the larger), and — when a second
     // neighbor exists — the second site index i1 and its dot d1.
-    auto shade = [&](uint16_t i0, float d0, bool hasSecond, uint16_t i1,
+    auto shade = [&](uint16_t i0, float d0, bool has_second, uint16_t i1,
                      float d1) -> Color4 {
-      const Site &bestSite = sites_buffer[i0];
-      float maxDot1 = d0;
-      float maxDot2 = hasSecond ? d1 : -2.0f;
+      const Site &best_site = sites_buffer[i0];
+      float max_dot1 = d0;
+      float max_dot2 = has_second ? d1 : -2.0f;
 
-      Color4 c = bestSite.color;
+      Color4 c = best_site.color;
 
       // Border sharpening: a larger sharpness saturates `factor` for smaller
       // nearest/second-nearest gaps, shrinking the cross-cell blend band.
-      if (hasSecond && params.sharpness > 0.0f) {
-        const Site &secSite = sites_buffer[i1];
-        float diff = maxDot1 - maxDot2;
+      if (has_second && params.sharpness > 0.0f) {
+        const Site &sec_site = sites_buffer[i1];
+        float diff = max_dot1 - max_dot2;
         float factor = std::min(1.0f, diff * params.sharpness);
         factor = quintic_kernel(factor);
         float t = 0.5f + 0.5f * factor;
 
         uint16_t frac = static_cast<uint16_t>(t * 65535.0f + 0.5f);
-        c.color = secSite.color.color.lerp16(bestSite.color.color, frac);
+        c.color = sec_site.color.color.lerp16(best_site.color.color, frac);
       }
 
       // Borders — driven entirely by the "Border Thick" slider: a thickness of
       // 0 disables them (and skips the two acosf calls below), any positive
       // value paints the seam between the nearest two sites. d0 is the nearest,
-      // so maxDot1 >= maxDot2 → dist1 <= dist2 and the cell gap is non-negative.
-      if (params.borderThickness > 0.0f && hasSecond) {
-        float dist1 = acosf(hs::clamp(maxDot1, -1.0f, 1.0f));
-        float dist2 = acosf(hs::clamp(maxDot2, -1.0f, 1.0f));
-        if (dist2 - dist1 < params.borderThickness) {
+      // so max_dot1 >= max_dot2 → dist1 <= dist2 and the cell gap is non-negative.
+      if (params.border_thickness > 0.0f && has_second) {
+        float dist1 = acosf(hs::clamp(max_dot1, -1.0f, 1.0f));
+        float dist2 = acosf(hs::clamp(max_dot2, -1.0f, 1.0f));
+        if (dist2 - dist1 < params.border_thickness) {
           // Paint the seam black. The Scan sink writes color*alpha, so an
           // alpha-0 fragment collapses to (0,0,0) regardless of its RGB.
           c = Color4(0, 0, 0, 0);
@@ -136,12 +136,12 @@ public:
     auto classify = [&](const Vector &p) -> CellId {
       auto knn = tree.nearest(p, 2);
       uint16_t a = knn[0].original_index;
-      bool hasSecond = knn.size() > 1;
-      uint16_t b = hasSecond ? knn[1].original_index : a;
-      return {std::min(a, b), std::max(a, b), hasSecond};
+      bool has_second = knn.size() > 1;
+      uint16_t b = has_second ? knn[1].original_index : a;
+      return {std::min(a, b), std::max(a, b), has_second};
     };
     auto same_cell = [](const CellId &x, const CellId &y) {
-      return x.lo == y.lo && x.hi == y.hi && x.hasSecond == y.hasSecond;
+      return x.lo == y.lo && x.hi == y.hi && x.has_second == y.has_second;
     };
 
     // Coarse-grid coherence: the nearest-pair identity is piecewise-constant
@@ -203,7 +203,7 @@ public:
           // dots and order them (nearest = larger dot) — bit-identical to the
           // full query whenever no third site is actually nearest here.
           float da = dot(p, sites_buffer[c00.lo].pos);
-          if (c00.hasSecond) {
+          if (c00.has_second) {
             float db = dot(p, sites_buffer[c00.hi].pos);
             sample = (da >= db) ? shade(c00.lo, da, true, c00.hi, db)
                                 : shade(c00.hi, db, true, c00.lo, da);
@@ -234,7 +234,7 @@ public:
     float speed = 20.0f;          /**< Site spin rate (GUI slider). */
     float sharpness = 100.0f;     /**< Edge sharpening; larger narrows the
                                        border blend band. */
-    float borderThickness = 0.0f; /**< Cell-seam border width; 0 disables. */
+    float border_thickness = 0.0f; /**< Cell-seam border width; 0 disables. */
   } params;
 
   static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
@@ -256,7 +256,7 @@ public:
   struct CellId {
     uint16_t lo;    /**< min(nearest, second) site index. */
     uint16_t hi;    /**< max(nearest, second) site index. */
-    bool hasSecond; /**< Whether a second neighbor exists (>= 2 sites). */
+    bool has_second; /**< Whether a second neighbor exists (>= 2 sites). */
   };
 
   // Compile-time high-water check for the 64 KB scratch_arena_a reserve. Two
@@ -303,7 +303,7 @@ public:
     const int n = active_site_count();
     sites_buffer.clear();
 
-    const float goldenAngle = PI_F * (3.0f - sqrtf(5.0f));
+    const float golden_angle = PI_F * (3.0f - sqrtf(5.0f));
 
     for (int i = 0; i < n; i++) {
       // Guard n == 1: a 0 denominator would give NaN y. A single site sits at
@@ -311,7 +311,7 @@ public:
       int span = n > 1 ? n - 1 : 1;
       float y = 1.0f - (i / (float)span) * 2.0f;
       float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
-      float theta = goldenAngle * i;
+      float theta = golden_angle * i;
 
       float x = cosf(theta) * radius;
       float z = sinf(theta) * radius;
@@ -324,7 +324,7 @@ public:
       Vector axis = Vector(rx, ry, rz).normalized();
 
       float t = i / (float)(n > 1 ? n - 1 : 1);
-      Color4 color = Palettes::richSunset.get(t);
+      Color4 color = Palettes::RICH_SUNSET.get(t);
 
       sites_buffer.push_back({pos, axis, color});
     }

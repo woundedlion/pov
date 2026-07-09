@@ -62,13 +62,13 @@ public:
     filters.template get<Filter::World::Trails<W, MAX_TRAILS>>().init_storage(
         persistent_arena);
 
-    baked_palette_.bake(persistent_arena, Palettes::lavenderLake);
+    baked_palette_.bake(persistent_arena, Palettes::LAVENDER_LAKE);
 
-    registerParam("Tension", &params.tension, 0.0f, 1.0f);
-    registerParam("Speed", &params.speed, 0.01f, 0.2f);
-    registerParam("Drift", &params.drift, 0.0f, 1.0f);
-    registerParam("Num Pts", &params.num_points, 4.0f, 12.0f);
-    registerParam("Alpha", &params.alpha, 0.1f, 1.0f);
+    register_param("Tension", &params.tension, 0.0f, 1.0f);
+    register_param("Speed", &params.speed, 0.01f, 0.2f);
+    register_param("Drift", &params.drift, 0.0f, 1.0f);
+    register_param("Num Pts", &params.num_points, 4.0f, 12.0f);
+    register_param("Alpha", &params.alpha, 0.1f, 1.0f);
 
     // Animated control points driven by independent random walks. All MAX_POINTS
     // walks are seeded and stepped every frame regardless of the live Num Pts —

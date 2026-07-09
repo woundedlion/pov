@@ -519,7 +519,7 @@ inline void case_driver_null_speed_src() {
 /**
  * @brief Concrete Effect for the canvas/scan death cases.
  * @details Fixed 32x16 so its trig LUTs match the well-exercised host config;
- *          exposes registerParam (via reg) and set_clip.
+ *          exposes register_param (via reg) and set_clip.
  */
 struct DeathEffect : public Effect {
   /**
@@ -531,11 +531,11 @@ struct DeathEffect : public Effect {
    */
   void draw_frame() override {}
   /**
-   * @brief Registers a parameter over the unit range, exposing registerParam.
+   * @brief Registers a parameter over the unit range, exposing register_param.
    * @param n Parameter name.
    * @param p Pointer to the backing float storage.
    */
-  void reg(const char *n, float *p) { registerParam(n, p, 0.0f, 1.0f); }
+  void reg(const char *n, float *p) { register_param(n, p, 0.0f, 1.0f); }
 };
 
 /**
@@ -583,7 +583,7 @@ inline void case_correction_guard_cross_type() {
 
 /**
  * @brief Death case: overflowing the fixed 32-slot ParamList must trap.
- * @details Canvas surface — registerParam traps rather than silently dropping a
+ * @details Canvas surface — register_param traps rather than silently dropping a
  *          registration, which would desync the GUI and, on WASM, break the
  *          no-realloc memory-view invariant.
  */

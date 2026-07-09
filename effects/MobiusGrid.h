@@ -30,9 +30,9 @@ public:
                 BrightnessProfile::FLAT),
         next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                      BrightnessProfile::FLAT),
-        mobius_gen(timeline), holeN(Y_AXIS), holeS(-Y_AXIS),
-        filters(Filter::World::HoleRef<W>(holeN, 1.2f),
-                Filter::World::HoleRef<W>(holeS, 1.2f),
+        mobius_gen(timeline), hole_n(Y_AXIS), hole_s(-Y_AXIS),
+        filters(Filter::World::HoleRef<W>(hole_n, 1.2f),
+                Filter::World::HoleRef<W>(hole_s, 1.2f),
                 Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
 
@@ -47,9 +47,9 @@ public:
 
     baked_palette.bake(persistent_arena, palette);
 
-    registerAnimatedParam("Rings", &params.num_rings, 0.0f, 20.0f);
-    registerAnimatedParam("Lines", &params.num_lines, 0.0f, 20.0f);
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_animated_param("Rings", &params.num_rings, 0.0f, 20.0f);
+    register_animated_param("Lines", &params.num_lines, 0.0f, 20.0f);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     auto *warp = mobius_gen.spawn_pinned(0, 1.0f, 160, true);
     HS_CHECK(warp, "MobiusGrid: pinned warp spawn must succeed");
@@ -105,8 +105,8 @@ public:
       q = make_rotation(mid, Z_AXIS);
     }
 
-    holeN = normalized_or(rotate(n_trans, q), Vector(1, 0, 0));
-    holeS = normalized_or(rotate(s_trans, q), Vector(1, 0, 0));
+    hole_n = normalized_or(rotate(n_trans, q), Vector(1, 0, 0));
+    hole_s = normalized_or(rotate(s_trans, q), Vector(1, 0, 0));
 
     draw_axis_rings(canvas, Y_AXIS, params.num_rings, phase, q);
     draw_longitudes(canvas, params.num_lines, phase, q);
@@ -304,8 +304,8 @@ private:
 
   Orientation<> orientation; /**< Spinning render orientation. */
 
-  Vector holeN; /**< North hole origin, tracking the rotated geometry. */
-  Vector holeS; /**< South hole origin, tracking the rotated geometry. */
+  Vector hole_n; /**< North hole origin, tracking the rotated geometry. */
+  Vector hole_s; /**< South hole origin, tracking the rotated geometry. */
 
   /** @brief Render filter pipeline: two hole fades, orientation, anti-alias. */
   Pipeline<W, H, Filter::World::HoleRef<W>, Filter::World::HoleRef<W>,

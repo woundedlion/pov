@@ -71,7 +71,7 @@ public:
   FLASHMEM MeshFeedback()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}), noise_params(),
         orientation(), timeline(),
-        palette(Palettes::peachPop),
+        palette(Palettes::PEACH_POP),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>(),
                 Filter::Pixel::Feedback<W, H>(style)) {}
@@ -106,14 +106,14 @@ public:
                        persistent_arena);
     }
 
-    registerAnimatedParam("Fade", &style.fade, FADE_MIN, FADE_MAX);
-    registerAnimatedParam("Distort Amp", &style.amplitude, AMP_MIN, AMP_MAX);
-    registerAnimatedParam("Distort Freq", &style.frequency, FREQ_MIN, FREQ_MAX);
-    registerAnimatedParam("Distort Speed", &style.speed, SPEED_MIN, SPEED_MAX);
-    registerAnimatedParam("Noise Scale", &style.scale, SCALE_MIN, SCALE_MAX);
-    registerAnimatedParam("Hue Shift", &style.hue_shift, HUE_SHIFT_MIN,
+    register_animated_param("Fade", &style.fade, FADE_MIN, FADE_MAX);
+    register_animated_param("Distort Amp", &style.amplitude, AMP_MIN, AMP_MAX);
+    register_animated_param("Distort Freq", &style.frequency, FREQ_MIN, FREQ_MAX);
+    register_animated_param("Distort Speed", &style.speed, SPEED_MIN, SPEED_MAX);
+    register_animated_param("Noise Scale", &style.scale, SCALE_MIN, SCALE_MAX);
+    register_animated_param("Hue Shift", &style.hue_shift, HUE_SHIFT_MIN,
                           HUE_SHIFT_MAX);
-    registerParam("Feedback", &feedback_enabled);
+    register_param("Feedback", &feedback_enabled);
 
     filters.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
         persistent_arena);
@@ -125,7 +125,7 @@ public:
     timeline.add(0, Animation::PeriodicTimer(
                         PRESET_FRAMES,
                         [this](Canvas &) {
-                          if (animationsPaused())
+                          if (animations_paused())
                             return;
                           presets.next();
                           presets.apply(style);
@@ -176,7 +176,7 @@ private:
         0, Animation::PeriodicTimer(
                NO_MORPH_FRAMES,
                [this](Canvas &) {
-                 if (animationsPaused()) {
+                 if (animations_paused()) {
                    arm_hold_timer();
                    return;
                  }

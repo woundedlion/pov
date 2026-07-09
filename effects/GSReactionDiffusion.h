@@ -59,7 +59,7 @@ class GSReactionDiffusion
   using Base::orientation;
   using Base::RD_N;
   using Base::refine_nearest_node;
-  using Base::registerParam;
+  using Base::register_param;
   using Base::seed_face_lut;
 
 public:
@@ -93,14 +93,14 @@ public:
                   "GS scratch arena too small for render()'s species buffers");
     configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
 
-    registerParam("Feed", &params.feed, 0.0f, 0.1f);
-    registerParam("Kill", &params.k, 0.0f, 0.1f);
+    register_param("Feed", &params.feed, 0.0f, 0.1f);
+    register_param("Kill", &params.k, 0.0f, 0.1f);
     // dA/dB cap at 0.05: explicit Euler is stable only while dt·D·λmax ≤ 2. The
     // graph Laplacian on a degree-RD_K lattice has |λ|max ≤ 2·RD_K (= 12 at
     // RD_K=6), giving 3·0.05·12 = 1.8 ≤ 2 at Speed top.
-    registerParam("dA", &params.dA, 0.0f, 0.05f);
-    registerParam("dB", &params.dB, 0.0f, 0.05f);
-    registerParam("Speed", &params.dt, 0.1f, 3.0f);
+    register_param("dA", &params.d_a, 0.0f, 0.05f);
+    register_param("dB", &params.d_b, 0.0f, 0.05f);
+    register_param("Speed", &params.dt, 0.1f, 3.0f);
 
     state.A = static_cast<uint16_t *>(
         persistent_arena.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
@@ -195,40 +195,40 @@ private:
 
   /**
    * @brief Advances one Gray-Scott substep into the next buffers (Jacobi).
-   * @param cA Current A field (read-only), Q16 per node.
-   * @param cB Current B field (read-only), Q16 per node.
-   * @param nA Next A field (write target), Q16 per node.
-   * @param nB Next B field (write target), Q16 per node.
-   * @param fA Float scratch (RD_N) for the current A generation.
-   * @param fB Float scratch (RD_N) for the current B generation.
+   * @param c_a Current A field (read-only), Q16 per node.
+   * @param c_b Current B field (read-only), Q16 per node.
+   * @param n_a Next A field (write target), Q16 per node.
+   * @param n_b Next B field (write target), Q16 per node.
+   * @param f_a Float scratch (RD_N) for the current A generation.
+   * @param f_b Float scratch (RD_N) for the current B generation.
    * @details Gray-Scott: dA/dt = dA·∇²A - A·B² + feed·(1-A);
    * dB/dt = dB·∇²B + A·B² - (k+feed)·B. Pure double-buffered (Jacobi) step:
    * reads the current buffers, writes the next ones. The caller owns the
    * ping-pong so the result can be landed back in the persistent state
    * regardless of substep parity (see render()). The current generation is
-   * pre-converted into fA/fB once, so the neighbor loop reads floats instead of
+   * pre-converted into f_a/f_b once, so the neighbor loop reads floats instead of
    * reconverting each node's Q16 value on every neighbor visit (~6-7x per node).
    */
-  void step_physics(const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
-                    uint16_t *nB, float *fA, float *fB) {
+  void step_physics(const uint16_t *c_a, const uint16_t *c_b, uint16_t *n_a,
+                    uint16_t *n_b, float *f_a, float *f_b) {
     for (int i = 0; i < RD_N; i++) {
-      fA[i] = from_q16(cA[i]);
-      fB[i] = from_q16(cB[i]);
+      f_a[i] = from_q16(c_a[i]);
+      f_b[i] = from_q16(c_b[i]);
     }
     for (int i = 0; i < RD_N; i++) {
-      float a = fA[i];
-      float b = fB[i];
+      float a = f_a[i];
+      float b = f_b[i];
 
-      float lA = 0, lB = 0;
+      float l_a = 0, l_b = 0;
       for_each_neighbor(i, [&](int ni) {
-        lA += fA[ni] - a;
-        lB += fB[ni] - b;
+        l_a += f_a[ni] - a;
+        l_b += f_b[ni] - b;
       });
 
       float abb = a * b * b;
-      nA[i] = to_q16(a + (params.dA * lA - abb + params.feed * (1.0f - a)) *
+      n_a[i] = to_q16(a + (params.d_a * l_a - abb + params.feed * (1.0f - a)) *
                              params.dt);
-      nB[i] = to_q16(b + (params.dB * lB + abb - (params.k + params.feed) * b) *
+      n_b[i] = to_q16(b + (params.d_b * l_b + abb - (params.k + params.feed) * b) *
                              params.dt);
     }
   }
@@ -263,20 +263,20 @@ private:
    */
   void render(Canvas &canvas) {
     ScratchScope frame_guard(scratch_arena_a);
-    uint16_t *sA = static_cast<uint16_t *>(
+    uint16_t *s_a = static_cast<uint16_t *>(
         scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-    uint16_t *sB = static_cast<uint16_t *>(
+    uint16_t *s_b = static_cast<uint16_t *>(
         scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-    float *fA = static_cast<float *>(
+    float *f_a = static_cast<float *>(
         scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-    float *fB = static_cast<float *>(
+    float *f_b = static_cast<float *>(
         scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
 
     advance_substeps(STEPS_PER_FRAME,
                      std::array<uint16_t *, 2>{state.A, state.B},
-                     std::array<uint16_t *, 2>{sA, sB},
+                     std::array<uint16_t *, 2>{s_a, s_b},
                      [&](auto &cur, auto &nxt) {
-                       step_physics(cur[0], cur[1], nxt[0], nxt[1], fA, fB);
+                       step_physics(cur[0], cur[1], nxt[0], nxt[1], f_a, f_b);
                      });
 
     // Seed the cubemap lookup once per pixel center; it only feeds
@@ -319,8 +319,8 @@ private:
   struct Params {
     float feed = 0.04f; /**< Feed rate of A. */
     float k = 0.06f;    /**< Kill rate of B. */
-    float dA = 0.02f;   /**< Diffusion coefficient of A. */
-    float dB = 0.01f;   /**< Diffusion coefficient of B. */
+    float d_a = 0.02f;   /**< Diffusion coefficient of A. */
+    float d_b = 0.01f;   /**< Diffusion coefficient of B. */
     float dt = 2.5f;    /**< Integration timestep (Speed slider). */
   } params;
 };

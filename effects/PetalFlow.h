@@ -57,10 +57,10 @@ public:
    * (re)init.
    */
   void init() override {
-    registerParam("Twist", &params.twist_factor, 0.0f, 5.0f);
-    registerParam("Speed", &params.speed, 0.0f, 20.0f);
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Density", &params.density, 0.5f, 2.5f);
+    register_param("Twist", &params.twist_factor, 0.0f, 5.0f);
+    register_param("Speed", &params.speed, 0.0f, 20.0f);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Density", &params.density, 0.5f, 2.5f);
 
     for (int i = 0; i < MAX_RINGS; ++i) {
       rings[i].active = false;

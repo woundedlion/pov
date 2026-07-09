@@ -73,10 +73,10 @@ public:
     filters.template get<Filter::World::Trails<W, TRAIL_CAPACITY>>()
         .init_storage(persistent_arena);
 
-    registerParam("Speed", &params.speed, -10.0f, 10.0f);
-    registerParam("Gap", &params.gap, 1.0f, GAP_MAX);
-    registerParam("Trail Len", &params.trail_length, 1.0f, 100.0f);
-    registerParam("Wipe Dur", &params.wipe_duration, 1.0f, 100.0f);
+    register_param("Speed", &params.speed, -10.0f, 10.0f);
+    register_param("Gap", &params.gap, 1.0f, GAP_MAX);
+    register_param("Trail Len", &params.trail_length, 1.0f, 100.0f);
+    register_param("Wipe Dur", &params.wipe_duration, 1.0f, 100.0f);
 
     for (size_t i = 0; i < NUM_NODES; ++i) {
       nodes[i].y = i;

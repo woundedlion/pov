@@ -27,7 +27,7 @@ public:
 
   /**
    * @brief Maximum rings the raster can resolve: one per row. Rings spaced finer
-   * than a row apart collapse, so this bounds both the Count slider and drawAll.
+   * than a row apart collapse, so this bounds both the Count slider and draw_all.
    */
   static constexpr int MAX_RINGS = H > 1 ? H : 1;
 
@@ -46,13 +46,13 @@ public:
    * @brief Registers tunable params and builds the animation timeline.
    */
   void init() override {
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Count", &params.num_shapes, 1.0f,
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Count", &params.num_shapes, 1.0f,
                   static_cast<float>(MAX_RINGS));
-    registerParam("Radius", &params.radius, 0.1f, 5.0f);
-    registerParam("Sides", &params.sides, 3.0f, 12.0f);
-    registerAnimatedParam("Twist", &params.twist, -5.0f, 5.0f);
-    registerParam("Debug BB", &params.debug_bb);
+    register_param("Radius", &params.radius, 0.1f, 5.0f);
+    register_param("Sides", &params.sides, 3.0f, 12.0f);
+    register_animated_param("Twist", &params.twist, -5.0f, 5.0f);
+    register_param("Debug BB", &params.debug_bb);
 
     build();
   }
@@ -111,7 +111,7 @@ public:
     // Single draw event reading Count live. Added last so it steps after the
     // rotations have collapsed.
     timeline.add(0, Animation::Sprite(
-                        [this](Canvas &canvas, float) { drawAll(canvas); }, -1,
+                        [this](Canvas &canvas, float) { draw_all(canvas); }, -1,
                         0, ease_linear, 0, ease_linear));
   }
 
@@ -121,7 +121,7 @@ public:
    * @details Computes the shared per-mode basis once per frame (all rings of a
    * mode share orientation and a fixed normal) instead of once per ring.
    */
-  void drawAll(Canvas &canvas) {
+  void draw_all(Canvas &canvas) {
     int count = static_cast<int>(params.num_shapes);
     if (count < 1)
       count = 1;
@@ -136,9 +136,9 @@ public:
       // (i+1)/count maps layers to (0, 1]; i/(count-1) would give the i=0 layer
       // radius 0 and render nothing at Count=1.
       float t = static_cast<float>(i + 1) / count;
-      Color4 color = Palettes::richSunset.get(t);
-      drawRing(canvas, plot_basis, RenderMode::Plot, t, color, i);
-      drawRing(canvas, scan_basis, RenderMode::Scan, t, color, i);
+      Color4 color = Palettes::RICH_SUNSET.get(t);
+      draw_ring(canvas, plot_basis, RenderMode::Plot, t, color, i);
+      draw_ring(canvas, scan_basis, RenderMode::Scan, t, color, i);
     }
   }
 
@@ -153,7 +153,7 @@ public:
    * @details Scales the radius by `scale`, twists the ring by its layer index,
    * and applies a per-fragment alpha shader.
    */
-  void drawRing(Canvas &canvas, const Basis &basis, RenderMode mode, float scale,
+  void draw_ring(Canvas &canvas, const Basis &basis, RenderMode mode, float scale,
                 const Color4 &color, int layer_index) {
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       Color4 c = color;
@@ -165,9 +165,9 @@ public:
     float r = this->params.radius * scale;
     int sides_int = (int)params.sides;
     if (mode == RenderMode::Plot) {
-      dispatchPlot(canvas, basis, r, sides_int, fragment_shader, phase);
+      dispatch_plot(canvas, basis, r, sides_int, fragment_shader, phase);
     } else {
-      dispatchScan(canvas, basis, r, sides_int, fragment_shader, phase);
+      dispatch_scan(canvas, basis, r, sides_int, fragment_shader, phase);
     }
   }
 
@@ -186,7 +186,7 @@ private:
    */
   template <typename F>
   __attribute__((noinline)) void
-  dispatchPlot(Canvas &canvas, const Basis &basis, float r, int sides_int,
+  dispatch_plot(Canvas &canvas, const Basis &basis, float r, int sides_int,
                const F &fragment_shader, float phase) {
     switch (current_shape) {
     case ShapeType::Flower:
@@ -222,7 +222,7 @@ private:
    */
   template <typename F>
   __attribute__((noinline)) void
-  dispatchScan(Canvas &canvas, const Basis &basis, float r, int sides_int,
+  dispatch_scan(Canvas &canvas, const Basis &basis, float r, int sides_int,
                const F &fragment_shader, float phase) {
     switch (current_shape) {
     case ShapeType::Flower:

@@ -28,16 +28,16 @@ public:
    *        draw on the timeline.
    */
   void init() override {
-    registerParam("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
+    register_param("Pulse Speed", &params.pulse_speed, 0.0f, 10.0f);
     // Fraction of the half nearest-neighbour gap the ring's outer edge reaches:
     // < 1 leaves a gap, 1 makes neighbours touch, > 1 overlaps them deliberately.
-    registerParam("Fill", &params.fill, 0.3f, 1.3f);
-    registerParam("Max Steps", &params.max_steps, 4.0f, 30.0f);
-    registerParam("Diffuse", &params.diffuse, 0.0f, 1.0f);
-    registerParam("Specular", &params.specular, 0.0f, 1.5f);
-    registerParam("Fresnel", &params.fresnel, 0.0f, 1.0f);
-    registerParam("Twist", &params.twist, 0.0f, 8.0f);
-    registerParam("AA Width", &params.aa_mult, 0.1f, 1.5f);
+    register_param("Fill", &params.fill, 0.3f, 1.3f);
+    register_param("Max Steps", &params.max_steps, 4.0f, 30.0f);
+    register_param("Diffuse", &params.diffuse, 0.0f, 1.0f);
+    register_param("Specular", &params.specular, 0.0f, 1.5f);
+    register_param("Fresnel", &params.fresnel, 0.0f, 1.0f);
+    register_param("Twist", &params.twist, 0.0f, 8.0f);
+    register_param("AA Width", &params.aa_mult, 0.1f, 1.5f);
 
     build_points();
 
@@ -56,7 +56,7 @@ public:
 
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float opacity) {
-                          this->drawFn(canvas, opacity);
+                          this->draw_fn(canvas, opacity);
                         },
                         -1));
   }
@@ -78,7 +78,7 @@ private:
    * @brief Builds the disdyakis-dodecahedron vertex directions and per-vertex
    *        orientation quaternions and nearest-neighbour gaps.
    * @details Generates the solid from the registry into the scratch arenas
-   *          (reclaimed on scope exit) via the shared HS_COLD builder, so drawFn
+   *          (reclaimed on scope exit) via the shared HS_COLD builder, so draw_fn
    *          can size every torus to its own local gap.
    */
   void build_points() {
@@ -96,7 +96,7 @@ private:
    * @param opacity Sprite fade alpha in [0, 1], written into each fragment's
    *                color.
    */
-  void drawFn(Canvas &canvas, float opacity) {
+  void draw_fn(Canvas &canvas, float opacity) {
     constexpr float TWO_PI_F = 2.0f * PI_F;
 
     // Torus proportions at scale 1: VIS_K is the visible outer ring radius,
@@ -156,7 +156,7 @@ private:
   }
 
   /**
-   * @brief Tunable shader and animation parameters exposed via registerParam.
+   * @brief Tunable shader and animation parameters exposed via register_param.
    */
   struct Params {
     float pulse_speed = 5.0f;

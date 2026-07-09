@@ -24,7 +24,7 @@ public:
    */
   FLASHMEM DistortedRing()
       : Effect(W, H, {.strobe = true}),
-        ringPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
+        ring_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                     BrightnessProfile::FLAT),
         normal(X_AXIS) {}
 
@@ -38,17 +38,17 @@ public:
     const float px = 2.0f * PI_F / W;
     params.thickness = 4.0f * px;
 
-    ringBaked.bake(persistent_arena, ringPalette);
+    ring_baked.bake(persistent_arena, ring_palette);
 
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("MaxAmplitude", &params.max_amplitude, 0.0f, 2.0f);
-    registerParam("Thickness", &params.thickness, 2.0f * px, 12.0f * px);
-    registerParam("Rings", &params.num_rings, 1.0f, 10.0f);
-    registerParam("Show Bounding", &params.debug_bb);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("MaxAmplitude", &params.max_amplitude, 0.0f, 2.0f);
+    register_param("Thickness", &params.thickness, 2.0f * px, 12.0f * px);
+    register_param("Rings", &params.num_rings, 1.0f, 10.0f);
+    register_param("Show Bounding", &params.debug_bb);
 
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float opacity) {
-                          this->drawFn(canvas, opacity);
+                          this->draw_fn(canvas, opacity);
                         },
                         -1, 48, ease_linear, 0, ease_linear));
 
@@ -79,20 +79,20 @@ public:
    * @details Ring radii are evenly spaced and the displacement wave amplitude
    * tracks the animated `amplitude` field.
    */
-  void drawFn(Canvas &canvas, float opacity) {
-    int nRings = static_cast<int>(params.num_rings);
+  void draw_fn(Canvas &canvas, float opacity) {
+    int n_rings = static_cast<int>(params.num_rings);
 
-    auto shiftFn = [this](float t) {
+    auto shift_fn = [this](float t) {
       return sin_wave(-amplitude, amplitude, 4.0f, 0.0f)(t);
     };
 
     Basis basis = make_basis(orientation.get(), normal);
-    for (int i = 0; i < nRings; ++i) {
-      float radius = 2.0f / (nRings + 1) * (i + 1);
+    for (int i = 0; i < n_rings; ++i) {
+      float radius = 2.0f / (n_rings + 1) * (i + 1);
       auto fragment_shader = [&](const Vector &, Fragment &f) {
         // f.v0 = normalized azimuth (0..1), f.v1 = distance from center line,
         // f.size = thickness.
-        f.color = ringBaked.get(f.v0);
+        f.color = ring_baked.get(f.v0);
 
         float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
         float falloff = quintic_kernel(1.0f - norm_dist);
@@ -101,7 +101,7 @@ public:
       };
 
       Scan::DistortedRing::draw<W, H>(
-          filters, canvas, basis, radius, params.thickness, shiftFn,
+          filters, canvas, basis, radius, params.thickness, shift_fn,
           std::abs(amplitude), fragment_shader, 0.0f, params.debug_bb);
     }
   }
@@ -125,8 +125,8 @@ private:
 
   float amplitude = 0;
 
-  GenerativePalette ringPalette;
-  BakedPalette ringBaked;
+  GenerativePalette ring_palette;
+  BakedPalette ring_baked;
   Vector normal;
   Orientation<> orientation;
 };

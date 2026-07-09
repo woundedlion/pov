@@ -60,8 +60,8 @@ inline float wrap_hue(float dh) {
 inline void test_named_procedural_palette_endpoints() {
   // darkRainbow: c={1,1,1}, d={0,0.33,0.67}. Red arg = 2*PI*(t) hits cos=1 at
   // both ends, so t=0 and t=1 must produce the identical pinned color.
-  Color4 dr0 = Palettes::darkRainbow.get(0.0f);
-  Color4 dr1 = Palettes::darkRainbow.get(1.0f);
+  Color4 dr0 = Palettes::DARK_RAINBOW.get(0.0f);
+  Color4 dr1 = Palettes::DARK_RAINBOW.get(1.0f);
   HS_EXPECT_EQ(dr0.color.r, 47426); // 0.367 + 0.5*cos(0) = 0.867 sRGB
   HS_EXPECT_EQ(dr0.color.g, 954);
   HS_EXPECT_EQ(dr0.color.b, 954);
@@ -72,14 +72,14 @@ inline void test_named_procedural_palette_endpoints() {
 
   // mauveFade: a_r=0.583 b_r=1, a_b=0.583 b_b=1 -> 1.583 clamped to 1.0 at t=0
   // (cos=1). Green has b_g=0, so it is the constant a_g=0 -> black.
-  Color4 mf0 = Palettes::mauveFade.get(0.0f);
+  Color4 mf0 = Palettes::MAUVE_FADE.get(0.0f);
   HS_EXPECT_EQ(mf0.color.r, 65535);
   HS_EXPECT_EQ(mf0.color.g, 0);
   HS_EXPECT_EQ(mf0.color.b, 65535);
 
   // fireGlow / peachPop: fully golden-pinned (fast_cosf channels).
-  Color4 fg0 = Palettes::fireGlow.get(0.0f);
-  Color4 fg1 = Palettes::fireGlow.get(1.0f);
+  Color4 fg0 = Palettes::FIRE_GLOW.get(0.0f);
+  Color4 fg1 = Palettes::FIRE_GLOW.get(1.0f);
   HS_EXPECT_EQ(fg0.color.r, 108);
   HS_EXPECT_EQ(fg0.color.g, 0);
   HS_EXPECT_EQ(fg0.color.b, 0);
@@ -87,7 +87,7 @@ inline void test_named_procedural_palette_endpoints() {
   HS_EXPECT_EQ(fg1.color.g, 9961);
   HS_EXPECT_EQ(fg1.color.b, 0);
 
-  Color4 pp0 = Palettes::peachPop.get(0.0f);
+  Color4 pp0 = Palettes::PEACH_POP.get(0.0f);
   HS_EXPECT_EQ(pp0.color.r, 65535);
   HS_EXPECT_EQ(pp0.color.g, 28156);
   HS_EXPECT_EQ(pp0.color.b, 0);
@@ -104,8 +104,8 @@ inline void test_named_procedural_palette_endpoints() {
  *          contract the named generative palettes rely on.
  */
 inline void test_named_palette_hue_short_arc() {
-  OKLCH a = color_to_oklch(Palettes::undersea.get(0.0f));
-  OKLCH b = color_to_oklch(Palettes::undersea.get(1.0f));
+  OKLCH a = color_to_oklch(Palettes::UNDERSEA.get(0.0f));
+  OKLCH b = color_to_oklch(Palettes::UNDERSEA.get(1.0f));
   // Precondition: endpoints really do straddle the seam (numeric gap > PI).
   HS_EXPECT_GT(std::fabs(b.h - a.h), PI_F);
 
@@ -141,7 +141,7 @@ inline void test_mesh_palette_bank_lookup() {
   HS_EXPECT_EQ(s1.color.g, 9703);
   HS_EXPECT_EQ(s1.color.b, 157);
   // The baked slot reproduces the embers source it was baked from.
-  Color4 e0 = Palettes::embers.get(0.0f);
+  Color4 e0 = Palettes::EMBERS.get(0.0f);
   HS_EXPECT_EQ(s0.color.r, e0.color.r);
   HS_EXPECT_EQ(s0.color.g, e0.color.g);
   HS_EXPECT_EQ(s0.color.b, e0.color.b);

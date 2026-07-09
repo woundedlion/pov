@@ -51,13 +51,13 @@ public:
     base_baked.bake(persistent_arena, base_palette);
     int_baked.bake(persistent_arena, int_palette);
 
-    // Set before registerParam, which snapshots *ptr as the reset-to-default:
+    // Set before register_param, which snapshots *ptr as the reset-to-default:
     // the resolution-dependent default must be in place first.
     params.density = W <= 96 ? 10.0f : 45.0f;
 
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Density", &params.density, 1.0f, 100.0f);
-    registerAnimatedParam("Amp", &params.amp, 0.0f, 1.0f);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Density", &params.density, 1.0f, 100.0f);
+    register_animated_param("Amp", &params.amp, 0.0f, 1.0f);
 
     timeline
         .add(0,

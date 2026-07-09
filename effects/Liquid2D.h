@@ -48,19 +48,19 @@ public:
   void init() override {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    registerParam("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
-    registerParam("Warp Strength", &params.warp_strength, 0.0f, 3.0f);
-    registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
-    registerParam("Time Speed", &params.time_speed, 0.1f, 5.0f);
-    registerParam("Complexity", &params.complexity, 0.5f, 3.0f);
-    registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
-    registerParam("Cycle Speed", &params.cycle_speed, 0.0f, 1.0f);
+    register_param("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
+    register_param("Warp Strength", &params.warp_strength, 0.0f, 3.0f);
+    register_param("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
+    register_param("Time Speed", &params.time_speed, 0.1f, 5.0f);
+    register_param("Complexity", &params.complexity, 0.5f, 3.0f);
+    register_param("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
+    register_param("Cycle Speed", &params.cycle_speed, 0.0f, 1.0f);
     // Flag every preset-driven param so "Pause Animation" lets the user take a
     // slider over.
     for (const char *n :
          {"Warp Scale", "Warp Strength", "Pattern Freq", "Time Speed",
           "Complexity", "Pole Fade", "Cycle Speed"})
-      markAnimated(n);
+      mark_animated(n);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
     timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
@@ -81,7 +81,7 @@ public:
     timeline.add(0, Animation::RandomTimer(
                         90, 150,
                         [this](Canvas &) {
-                          if (animationsPaused())
+                          if (animations_paused())
                             return;
                           presets.next();
                           timeline.add(0, Animation::Lerp(params,
