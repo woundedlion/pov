@@ -1075,11 +1075,11 @@ struct Multiline {
   static void draw(PipelineRef pipeline, Canvas &canvas, const auto &vertices,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, bool closed = false) {
-    // We manually close the loop in sample() if requested, so pass false to
-    // rasterize (close_loop).
+    // sample() appends the wrap vertex carrying the v0=1 seam register;
+    // close_loop drops the resulting degenerate closing edge.
     draw_fragments<W, H>(
         pipeline, canvas, vertex_shader, fragment_shader,
-        {.capacity = vertices.size() + 2},
+        {.capacity = vertices.size() + 2, .close_loop = closed},
         [&](Fragments &points) { sample(points, vertices, closed); });
   }
 
