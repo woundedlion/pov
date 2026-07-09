@@ -103,8 +103,29 @@ inline int g_nonblack_effects = 0;
 // windows (e.g. CI's HS_SMOKE_FRAMES=120) where output is mandatory.
 //   RingShower: rings expand from zero radius; nothing is lit until ~frame 30,
 //   so the default 8-frame local window is black by design (it lights by 120).
+// Compile-time streq, so the exemption name below is pinned to the roster.
+constexpr bool roster_name_eq(const char *a, const char *b) {
+  while (*a && *a == *b) {
+    ++a;
+    ++b;
+  }
+  return *a == *b;
+}
+
+// True when `name` is one of the HS_EFFECT_LIST roster class names.
+constexpr bool is_roster_effect(const char *name) {
+#define HS_ROSTER_NAME_MATCH(cls) || roster_name_eq(name, #cls)
+  return false HS_EFFECT_LIST(HS_ROSTER_NAME_MATCH);
+#undef HS_ROSTER_NAME_MATCH
+}
+
 inline bool effect_may_be_dark(const char *name, int frames) {
-  if (std::strcmp(name, "RingShower") == 0)
+  // Renaming the effect class turns the exemption into a build error here
+  // rather than a silently stale strcmp that drops the smoke assertion.
+  static constexpr const char *kExemptDark = "RingShower";
+  static_assert(is_roster_effect(kExemptDark),
+                "all-black smoke exemption names a non-roster effect");
+  if (std::strcmp(name, kExemptDark) == 0)
     return frames < 30;
   return false;
 }
