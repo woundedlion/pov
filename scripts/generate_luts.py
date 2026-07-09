@@ -46,8 +46,8 @@ def srgb_to_linear(s):
     return s / 12.92 if s <= 0.04045 else ((s + 0.055) / 1.055) ** 2.4
 
 
-def linear_to_srgb(l):
-    return l * 12.92 if l <= 0.0031308 else 1.055 * l ** (1.0 / 2.4) - 0.055
+def linear_to_srgb(lin):
+    return lin * 12.92 if lin <= 0.0031308 else 1.055 * lin ** (1.0 / 2.4) - 0.055
 
 
 # Axis sizes / quantization maxima. The 8-bit sRGB byte axis has 256 levels
