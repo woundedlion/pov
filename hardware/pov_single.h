@@ -107,6 +107,10 @@ private:
     // when the effect's canvas height equals the strip's half-height.
     HS_CHECK(effect_->height() == S / 2,
              "POVDisplay: effect canvas height must equal S/2");
+    // strip_opposite_col's (x + w/2) % w antipode and the x == w/2 swap cadence
+    // both truncate w/2 on odd width, misregistering the bottom hemisphere.
+    HS_CHECK(effect_->width() % 2 == 0,
+             "POVDisplay: effect canvas width must be even");
     x_ = 0;
     IntervalTimer timer;
     // One column sweep period (µs), rounded to nearest; a pathological RPM/width
