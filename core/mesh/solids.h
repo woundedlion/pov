@@ -1028,10 +1028,11 @@ dodecahedron_ambo_bevel33_relax_hk66(Arena &a, Arena &b) {
 } // namespace IslamicStarPatterns
 
 /**
- * @brief Cost class of a solid's generator.
- * @details Complex marks solids whose generator runs a long operator/relax
- * pipeline, letting callers gate the heavier shapes (e.g. skip on constrained
- * hardware).
+ * @brief Coarse generator-cost hint surfaced to the picker UI.
+ * @details A display label only: Complex marks the Islamic star-pattern
+ * registry (multi-stage hankin/relax pipelines), Simple everything else. No
+ * runtime path gates on it — the Platonic/Archimedean generators, relax caps
+ * included, all converge in tens of passes and build cheaply.
  */
 enum class Category { Simple, Complex };
 
