@@ -647,6 +647,21 @@ inline void test_emitter() {
     HS_EXPECT_TRUE(e.idle());
   }
 
+  // A beacon still in flight when a boundary crossing arrives is a stale overrun
+  // (a masked-ISR coast past HALF); drop_overrun_beacon clears it so the on-time
+  // boundary symbol schedules without tripping the overlap trap.
+  {
+    SymbolEmitter e;
+    HS_EXPECT_FALSE(e.drop_overrun_beacon()); // idle: nothing to drop
+    uint8_t d[5];
+    encode_beacon_digits(3, 9, d);
+    e.schedule_beacon(d, 2000000u, cfg);
+    HS_EXPECT_FALSE(e.idle());
+    HS_EXPECT_TRUE(e.drop_overrun_beacon()); // stale beacon dropped
+    HS_EXPECT_TRUE(e.idle());
+    HS_EXPECT_TRUE(e.schedule_boundary(Symbol::HALF, 2000000u, 2000000u, cfg));
+  }
+
   // Beacon: emitter → mailbox → parser closes the loop; inter-burst gaps
   // terminate digits; the decoded frame matches the encoded one.
   {

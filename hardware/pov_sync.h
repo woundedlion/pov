@@ -1062,6 +1062,23 @@ public:
    */
   bool idle() const { return pulses_left_ == 0 && !queue_pending(); }
 
+  /**
+   * @brief Drops any in-flight or queued burst so a boundary symbol can schedule.
+   * @return True if a burst was dropped (an overrun beacon; caller telemetry).
+   * @details At a boundary crossing the only emission that can still be in flight
+   * is a beacon that overran its pre-HALF window under a masked-ISR coast —
+   * boundary symbols are half a revolution apart, far longer than any burst. The
+   * overrun beacon is stale; dropping it keeps the on-time boundary symbol from
+   * tripping schedule_boundary's overlap trap (degrade to missed, never to wrong).
+   */
+  bool drop_overrun_beacon() {
+    if (pulses_left_ == 0 && queue_pos_ >= queue_len_)
+      return false;
+    pulses_left_ = 0;
+    queue_len_ = queue_pos_ = 0;
+    return true;
+  }
+
 private:
   /** @brief Whether a queued beacon burst is still waiting to be emitted. */
   bool queue_pending() const { return queue_pos_ < queue_len_; }
@@ -1533,6 +1550,11 @@ private:
         sym = Symbol::ZERO;
       }
     }
+    // A wire still busy at a boundary is a beacon that overran its pre-HALF
+    // window under a masked-ISR coast; drop it so the on-time boundary symbol is
+    // not blocked by the emitter's overlap trap.
+    if (emitter_.drop_overrun_beacon())
+      ++telemetry_.emit_aborted;
     // Spend a redundancy repeat only on a symbol that actually reaches the wire;
     // a censored ZERO_EPOCH never propagated.
     if (!emitter_.schedule_boundary(sym, c.at_cycles, now, cfg_))
