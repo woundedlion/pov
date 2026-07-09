@@ -2320,7 +2320,8 @@ struct SplineChain {
         (closed ? n : (n - 1)) * samples_per_segment + 1;
 
     draw_fragments<W, H>(
-        pipeline, canvas, vertex_shader, fragment_shader, {.capacity = frag_count},
+        pipeline, canvas, vertex_shader, fragment_shader,
+        {.capacity = frag_count, .close_loop = closed},
         [&](Fragments &points) {
           float cumulative_len = 0.0f;
           Vector last_pos;
