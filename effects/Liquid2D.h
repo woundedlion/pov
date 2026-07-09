@@ -7,6 +7,13 @@
 
 #include "core/engine/engine.h"
 
+// Unit-test accessor for the noise-time and trig-phase wrap invariants.
+namespace hs_test {
+namespace effects_tests {
+struct Liquid2DWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Full-sphere liquid effect over a breathing generative palette.
  * @tparam W Canvas width in pixels.
@@ -131,6 +138,9 @@ public:
   }
 
 private:
+  // Test seam: reaches the noise-time and trig-phase wrap invariants.
+  friend struct ::hs_test::effects_tests::Liquid2DWhiteBox;
+
   /**
    * @brief Projects a sphere direction to the stereographic plane.
    * @param v Unit direction vector on the sphere.

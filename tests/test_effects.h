@@ -1177,6 +1177,66 @@ inline void test_flyby_phase_wrapped() {
 }
 
 /**
+ * @brief White-box accessor for Liquid2D's noise-time and trig-phase
+ *        accumulators (befriended in effects/Liquid2D.h).
+ */
+struct Liquid2DWhiteBox {
+  using L2 = Liquid2D<DEFAULT_W, DEFAULT_H>;
+  static float time_period() { return L2::TIME_PERIOD; }
+  static float accumulated_time(const L2 &l2) { return l2.accumulated_time; }
+  static float sin_phase(const L2 &l2) { return l2.sin_phase; }
+  static float cos_phase(const L2 &l2) { return l2.cos_phase; }
+  static float cycle_phase(const L2 &l2) { return l2.cycle_phase; }
+  static void seed_accumulators(L2 &l2, float v) {
+    l2.accumulated_time = v;
+    l2.sin_phase = v;
+    l2.cos_phase = v;
+    l2.cycle_phase = v;
+  }
+};
+
+/**
+ * @brief Verifies Liquid2D's noise-time stays in [0, TIME_PERIOD) and all three
+ *        trig phases stay in [0, 2pi) once wrapped.
+ * @details draw_frame wraps accumulated_time by fmodf(., TIME_PERIOD) and the
+ *          sin/cos/cycle phases by fmodf(., 2pi); a dropped wrap freezes the
+ *          field (ULP) or bands fast_sinf range reduction. Seeding every
+ *          accumulator past its ceiling makes a removed fmodf fail on frame 0.
+ */
+inline void test_liquid2d_phase_wrapped() {
+  using WB = Liquid2DWhiteBox;
+  reset_effect_globals();
+  hs::set_mock_time(0, 0);
+  WB::L2 l2;
+  l2.init();
+
+  const float period = WB::time_period();
+  const float two_pi = 2.0f * PI_F;
+  WB::seed_accumulators(l2, period * 4.0f);
+
+  const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
+  for (int f = 0; f < frames; ++f) {
+    hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                      static_cast<unsigned long>(f) * FRAME_US);
+    l2.draw_frame();
+    l2.advance_display();
+    const float at = WB::accumulated_time(l2);
+    HS_EXPECT_GE(at, 0.0f);
+    HS_EXPECT_LT(at, period);
+    const float sp = WB::sin_phase(l2);
+    HS_EXPECT_GE(sp, 0.0f);
+    HS_EXPECT_LT(sp, two_pi);
+    const float cp = WB::cos_phase(l2);
+    HS_EXPECT_GE(cp, 0.0f);
+    HS_EXPECT_LT(cp, two_pi);
+    const float cyp = WB::cycle_phase(l2);
+    HS_EXPECT_GE(cyp, 0.0f);
+    HS_EXPECT_LT(cyp, two_pi);
+  }
+  hs::clear_mock_time();
+}
+
+/**
  * @brief White-box accessor for FlowField's noise-time and particle pool
  *        (befriended in effects/FlowField.h).
  */
@@ -1527,6 +1587,7 @@ inline int run_effects_tests() {
   test_petalflow_spawn_gap_bounded();
   test_mindsplatter_emit_phase_wrapped();
   test_flyby_phase_wrapped();
+  test_liquid2d_phase_wrapped();
   test_flowfield_time_and_pool_bounded();
   test_ringspin_pool_clamped();
   test_shapeshifter_shape_cut_lifecycle();
