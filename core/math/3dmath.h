@@ -1290,8 +1290,11 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
   float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
   if (sin_theta < math::TOLERANCE) {
-    Quaternion r = p + t * (q - p);
-    return r.normalized();
+    // Antipodal (theta ~ pi): p + t(q - p) collapses to the zero quaternion at
+    // t = 0.5. Sweep a great-circle turn from p toward an arbitrary orthogonal
+    // unit quaternion instead (mirrors the Vector overload's antipodal path).
+    Quaternion n(-p.v.x, p.r, -p.v.z, p.v.y);
+    return (cosf(t * theta) * p + sinf(t * theta) * n).normalized();
   }
   float s1 = sinf((1 - t) * theta) / sin_theta;
   float s2 = sinf(t * theta) / sin_theta;
