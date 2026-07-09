@@ -736,10 +736,6 @@ private:
 
 public:
   /**
-   * @brief Constructs an empty wrapper recording the current tooling generation.
-   */
-  MeshOpsWrapper() {}
-  /**
    * @brief Constructs a wrapper taking ownership of an existing mesh.
    * @param m Mesh to move into this wrapper.
    */
