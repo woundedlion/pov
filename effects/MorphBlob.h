@@ -14,7 +14,7 @@
  *        lobes and polar bands on each blob. Each blob is auto-sized to its
  *        own nearest-neighbour gap (scaled by the live Fill param), so they
  *        pack without overlap. Shaded with the metallic headlight model and a
- *        baked OKLCH palette.
+ *        baked OKLCH palette indexed by surface radius.
  * @tparam W Effect render width in pixels.
  * @tparam H Effect render height in pixels.
  */
@@ -140,11 +140,13 @@ private:
       float outer_r = sinf(0.5f * nn_angle[i] * params.fill);
       float s = outer_r / (diag_k + params.lobe_depth);
       float lobe_amp = s * params.lobe_depth;
-      // r_floor: the octahedron end's inradius s/√3 bounds every exponent in
-      // the sweep from below.
+      // r_lo: the octahedron end's inradius s/√3 bounds every exponent in the
+      // sweep from below; doubles as the warp's r_floor and the palette's
+      // radius-zero anchor.
+      float r_lo = s * INV_SQRT3 - lobe_amp;
+      float inv_r_span = 1.0f / (outer_r - r_lo);
       SDF::WarpedVolume<SDF::Superquadric, SDF::Warp::Lobe> blob{
-          {s, p},
-          {lobes_n, bands_n, lobe_amp, s * INV_SQRT3 - lobe_amp}};
+          {s, p}, {lobes_n, bands_n, lobe_amp, r_lo}};
       float aa_width = s * 0.15f * params.aa_mult;
       float bounds_radius = outer_r + aa_width;
 
@@ -162,8 +164,11 @@ private:
                                         params.diffuse, params.specular,
                                         params.fresnel);
 
-        float axis_angle = (fast_atan2(loc.z, loc.x) + PI_F) / TWO_PI_F;
-        float palette_t = fmodf(axis_angle + palette_phase +
+        // Palette indexed by surface radius: valleys at r_lo, lobe crests and
+        // cube corners toward outer_r.
+        float radius_t =
+            hs::clamp((loc.length() - r_lo) * inv_r_span, 0.0f, 1.0f);
+        float palette_t = fmodf(radius_t + palette_phase +
                                     static_cast<float>(i) / active_count,
                                 1.0f);
         Color4 c = baked_palette.get(palette_t);
