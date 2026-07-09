@@ -78,7 +78,7 @@ public:
     // Expire finished thrusters from the front (FIFO: all share the same LIFE,
     // so the front always expires first).
     while (!thrusters.is_empty() && thrusters.front().expired()) {
-      thrusters.pop();
+      thrusters.pop_front();
     }
 
     // Advance and draw each live thruster; radius and opacity are pure
@@ -214,7 +214,7 @@ private:
    */
   void spawn_thruster(const Vector &point) {
     if (thrusters.is_full())
-      thrusters.pop();
+      thrusters.pop_front();
     thrusters.push_back(ThrusterContext());
     thrusters.back().reset(orientation, point);
   }

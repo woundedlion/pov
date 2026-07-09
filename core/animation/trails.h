@@ -54,7 +54,7 @@ public:
   /**
    * @brief Removes the oldest snapshot.
    */
-  void expire() { snapshots.pop(); }
+  void expire() { snapshots.pop_front(); }
 
 private:
   StaticCircularBuffer<OrientationType, CAPACITY> snapshots;
@@ -102,7 +102,7 @@ public:
   /**
    * @brief Removes the oldest snapshot.
    */
-  void expire() { snapshots.pop(); }
+  void expire() { snapshots.pop_front(); }
 
 private:
   StaticCircularBuffer<Vector, CAP> snapshots;
