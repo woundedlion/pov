@@ -284,7 +284,7 @@ inline void test_emplace_constructs_non_assignable_type() {
  */
 inline void test_pop_removes_front() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3};
-  buf.pop();
+  buf.pop_front();
   HS_EXPECT_EQ(buf.size(), (size_t)2);
   HS_EXPECT_EQ(buf.front(), 2);
   HS_EXPECT_EQ(buf.back(), 3);
@@ -307,7 +307,7 @@ inline void test_pop_back_removes_last() {
  */
 inline void test_pop_on_empty_is_noop() {
   StaticCircularBuffer<int, 4> buf;
-  buf.pop();
+  buf.pop_front();
   buf.pop_back();
   HS_EXPECT_TRUE(buf.is_empty());
   HS_EXPECT_EQ(buf.size(), (size_t)0);
@@ -339,7 +339,7 @@ inline void test_alternating_push_pop_wraps() {
   StaticCircularBuffer<int, 3> buf;
   for (int i = 0; i < 10; ++i) {
     buf.push_back(i);
-    if (i % 2 == 1) buf.pop();
+    if (i % 2 == 1) buf.pop_front();
   }
   // Final window after the wrap: push 9 fills [7,8,9], then the i=9 pop drops 7.
   HS_EXPECT_EQ(buf.size(), (size_t)2);

@@ -192,7 +192,7 @@ public:
    * @brief Removes the front element.
    * @details No-op when the buffer is empty.
    */
-  void pop() {
+  void pop_front() {
     if (is_empty())
       return;
     pop_front_internal();
