@@ -23,7 +23,7 @@ public:
    * ring normal.
    */
   FLASHMEM DistortedRing()
-      : Effect(W, H),
+      : Effect(W, H, {.strobe = true}),
         ringPalette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                     BrightnessProfile::FLAT),
         normal(X_AXIS) {}
@@ -62,9 +62,6 @@ public:
                         },
                         32, ease_linear, true));
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances and renders the timeline for one frame.

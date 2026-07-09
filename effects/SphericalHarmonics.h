@@ -223,7 +223,7 @@ public:
   /**
    * @brief Construct the visualizer with the display dimensions.
    */
-  FLASHMEM SphericalHarmonics() : Effect(W, H), filters() {}
+  FLASHMEM SphericalHarmonics() : Effect(W, H, {.strobe = true}), filters() {}
 
   /**
    * @brief One-time setup of params, palette, shape, spin, and first morph.
@@ -244,9 +244,6 @@ public:
 
     start_morph();
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Render one frame of the morphing harmonic.

@@ -61,7 +61,7 @@ public:
    *          curve in init().
    */
   FLASHMEM ChaoticStrings()
-      : Effect(W, H), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
+      : Effect(W, H, {.strobe = true}), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([](float) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
 
@@ -115,9 +115,6 @@ public:
 
     last_cycle_duration_ = params.cycle_duration;
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances and renders one frame of the effect.

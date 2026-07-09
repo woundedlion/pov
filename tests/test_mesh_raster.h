@@ -60,11 +60,6 @@ struct MeshFx : public Effect {
    * @brief Per-frame draw hook; intentionally a no-op for this test fixture.
    */
   void draw_frame() override {}
-  /**
-   * @brief Reports whether the effect paints a background.
-   * @return Always false, so only the mesh draw produces lit pixels.
-   */
-  bool strobe_columns() const override { return false; }
 };
 
 /**

@@ -57,7 +57,7 @@ public:
    * @details Initializes the base Effect with the W x H dimensions and selects
    *          the first path/palette function table entry.
    */
-  FLASHMEM Comets() : Effect(W, H), cur_function_idx(0) {}
+  FLASHMEM Comets() : Effect(W, H, {.strobe = true}), cur_function_idx(0) {}
 
   /**
    * @brief Allocates state and wires up the animation timeline.
@@ -97,9 +97,6 @@ public:
                },
                true));
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances and renders one frame of the comet.

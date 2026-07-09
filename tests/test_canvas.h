@@ -42,11 +42,6 @@ struct TestEffect : public Effect {
    * @brief Per-frame draw hook; intentionally a no-op for these tests.
    */
   void draw_frame() override {}
-  /**
-   * @brief Whether the effect requests a background fill.
-   * @return Always false (tests drive buffers directly).
-   */
-  bool strobe_columns() const override { return false; }
 
   /**
    * @brief Toggles frame-to-frame pixel persistence.

@@ -44,7 +44,7 @@ public:
    * accumulates gap.
    */
   FLASHMEM PetalFlow()
-      : Effect(W, H),
+      : Effect(W, H, {.strobe = true}),
         palette({0.029f, 0.029f, 0.029f}, {0.500f, 0.500f, 0.500f},
                 {0.461f, 0.461f, 0.461f}, {0.539f, 0.701f, 0.809f}),
         orientation(), filters(Filter::World::Orient<W>(orientation),
@@ -70,9 +70,6 @@ public:
     build_shift_table();
     init_timeline();
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Steps the timeline (rotation + spawner), then advances and renders

@@ -37,7 +37,7 @@ public:
    *          Möbius transformer to the timeline.
    */
   FLASHMEM GnomonicStars()
-      : Effect(W, H), orientation(), timeline(), transformer(timeline) {}
+      : Effect(W, H, {.strobe = true}), orientation(), timeline(), transformer(timeline) {}
 
   /**
    * @brief Registers the user params and arms the timeline.
@@ -67,9 +67,6 @@ public:
                         orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances the timeline and renders the warped star field.

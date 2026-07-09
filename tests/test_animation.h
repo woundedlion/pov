@@ -68,11 +68,6 @@ struct FakeEffect : public Effect {
    * @brief Draws nothing; the animations under test never render.
    */
   void draw_frame() override {}
-  /**
-   * @brief Reports that no background is drawn.
-   * @return Always false.
-   */
-  bool strobe_columns() const override { return false; }
 };
 
 /**

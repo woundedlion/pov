@@ -529,7 +529,6 @@ inline void test_transformer_spawn_applies_and_composes() {
 struct RecycleFakeEffect : public Effect {
   RecycleFakeEffect() : Effect(8, 8) {}
   void draw_frame() override {}
-  bool strobe_columns() const override { return false; }
 };
 
 /**

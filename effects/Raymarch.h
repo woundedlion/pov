@@ -20,7 +20,7 @@ public:
   /**
    * @brief Constructs the effect at the templated render dimensions.
    */
-  FLASHMEM Raymarch() : Effect(W, H) {}
+  FLASHMEM Raymarch() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Registers tunable params, builds the disdyakis-dodecahedron vertex
@@ -60,9 +60,6 @@ public:
                         },
                         -1));
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Steps the timeline against a fresh canvas, driving the per-frame ray

@@ -83,7 +83,6 @@ struct CapturePipeline {
 struct RasterFx : public Effect {
   RasterFx(int W, int H) : Effect(W, H) {}
   void draw_frame() override {}
-  bool strobe_columns() const override { return false; }
 };
 
 /** @brief Identity fragment shader (leaves the fragment untouched). */

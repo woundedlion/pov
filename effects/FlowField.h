@@ -31,7 +31,7 @@ public:
    *          filter pipeline; noise seeding and emitter setup happen in init().
    */
   FLASHMEM FlowField()
-      : Effect(W, H), palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
+      : Effect(W, H, {.strobe = true}), palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
                               BrightnessProfile::ASCENDING),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
@@ -120,9 +120,6 @@ public:
       }
     });
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances the simulation and plots the particle trails for one frame.

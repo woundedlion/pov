@@ -39,10 +39,7 @@ public:
    * @details Each frame is fully repainted from lattice state, so the
    * framebuffer need not persist between frames.
    */
-  ReactionDiffusionBase() : Effect(W, H) { persist_pixels = false; }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
+  ReactionDiffusionBase() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Advances one animation frame and dispatches to the derived renderer.

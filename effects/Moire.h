@@ -26,7 +26,7 @@ public:
    *          + screen anti-alias filter pipeline.
    */
   FLASHMEM Moire()
-      : Effect(W, H),
+      : Effect(W, H, {.strobe = true}),
         base_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                      BrightnessProfile::BELL),
         base_next_palette(GradientShape::CIRCULAR,
@@ -39,9 +39,6 @@ public:
                          BrightnessProfile::CUP),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief One-time setup of arenas, palette LUTs, params, and animations.

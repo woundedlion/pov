@@ -47,7 +47,7 @@ public:
    * @brief Constructs the effect and wires up the trail/orient/anti-alias filters.
    */
   FLASHMEM SplineFlow()
-      : Effect(W, H, decltype(filters)::any_crosses_segments),
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         filters(Filter::World::Trails<W, MAX_TRAILS>(lifetime),
                               Filter::World::Orient<W>(orientation),
                               Filter::Screen::AntiAlias<W, H>()) {}
@@ -91,9 +91,6 @@ public:
 
     timeline.add(0, Animation::Driver(draw_head, &params.speed, 1.0f, true));
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances animations, rebuilds the closed spline from the drifting

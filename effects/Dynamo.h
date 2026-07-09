@@ -56,7 +56,7 @@ public:
    *        and filter pipeline.
    */
   FLASHMEM Dynamo()
-      : Effect(W, H, decltype(filters)::any_crosses_segments),
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         palettes{make_palette()},
         palette_normal(Z_AXIS),
         filters(Filter::World::Trails<W, TRAIL_CAPACITY>(
@@ -64,9 +64,6 @@ public:
                 Filter::World::Replicate<W>(3),
                 Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Registers sliders, seeds node rows, primes the baked-palette LUT

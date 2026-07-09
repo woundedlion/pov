@@ -1469,14 +1469,11 @@ Every visual effect inherits from `Effect`:
 template <int W, int H>
 class MyEffect : public Effect {
 public:
-    MyEffect() : Effect(W, H), filters(...) {}
+    MyEffect() : Effect(W, H, {.strobe = true}), filters(...) {}
 
     void init() override {
         registerParam("Speed", &speed, 0.0f, 10.0f);
-        persist_pixels = false;   // clear buffer each frame (this is the default)
     }
-
-    bool strobe_columns() const override { return false; }
 
     void draw_frame() override {
         Canvas canvas(*this);       // acquire write buffer
@@ -1509,9 +1506,9 @@ registerParam("Enabled", &params.enabled);              // boolean toggle (bool*
 
 The parameter list (`ParamList` — a fixed `std::array<ParamDef, 32>`) is accessible via `getParameters()`, and `updateParameter(name, float)` sets values at runtime. Parameters support both `float*` and `bool*` targets via `std::variant`, with automatic bool threshold at 0.5. The animation system can also write to these parameters, allowing effects to animate their own exposed controls.
 
-### The `persist_pixels` Flag
+### The `EffectConfig` Flags
 
-When `persist_pixels = true`, `Canvas` copies the previous frame's buffer into the new write buffer before rendering. This enables trail/decay effects without explicit trail storage — each frame partially overwrites the last. When `false` (the default), the buffer is zeroed each frame.
+An effect passes construction-time flags to its base as `Effect(W, H, {.strobe = ..., .persist = ..., .full_frame = ...})`; all default to false. With `{.persist = true}`, `Canvas` copies the previous frame's buffer into the new write buffer before rendering, enabling trail/decay effects without explicit trail storage — each frame partially overwrites the last. When false (the default), the buffer is zeroed each frame. `.strobe` drives the POV column strobe (`strobe_columns()`) and `.full_frame` forces full-canvas rendering under segmented drivers (`needs_full_frame()`).
 
 ---
 

@@ -47,7 +47,7 @@ public:
    *          in step.
    */
   FLASHMEM DreamBalls()
-      : Effect(W, H), filters(Filter::Screen::AntiAlias<W, H>()),
+      : Effect(W, H, {.strobe = true}), filters(Filter::Screen::AntiAlias<W, H>()),
         mobius_gen(timeline) {}
 
   /**
@@ -85,9 +85,6 @@ public:
     timeline.add(0, Animation::Driver(orbit_phase, &params.offset_speed, 0.01f,
                                       /*wrap=*/true));
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances the timeline, which drives all spawning and rendering.

@@ -28,7 +28,7 @@ public:
   /**
    * @brief Constructs the effect at the templated canvas dimensions.
    */
-  FLASHMEM RingShower() : Effect(W, H) {}
+  FLASHMEM RingShower() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Registers parameters, bakes per-slot palette LUTs, and arms the
@@ -46,9 +46,6 @@ public:
     timeline.add(0, Animation::RandomTimer(
                         4, 48, [this](Canvas &) { this->spawn_ring(); }, true));
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances and draws every live ring for the current frame.

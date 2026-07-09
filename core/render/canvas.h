@@ -21,6 +21,16 @@
 class Canvas;
 
 /**
+ * @brief Construction-time flags for an Effect (see the accessors of the same
+ *        name). Defaults suit a plain, non-strobing, band-clippable effect.
+ */
+struct EffectConfig {
+  bool strobe = false;     /**< POV column strobe (Effect::strobe_columns). */
+  bool persist = false;    /**< Copy previous frame forward (persists_pixels). */
+  bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
+};
+
+/**
  * @brief Base class for all visual effects.
  * @details Manages double buffering, persistence, and provides an interface for
  * drawing a frame.
@@ -35,13 +45,12 @@ public:
    * @brief Constructs an Effect instance.
    * @param W The width (resolution) of the effect.
    * @param H The height (resolution) of the effect.
-   * @param needs_full_frame Whether the driver must render the full canvas
-   *        instead of clipping to a segment band; pass the effect's filter
-   *        pipeline `any_crosses_segments` trait (defaults to false).
+   * @param cfg Construction-time flags (strobe / persist / full-frame); see
+   *        EffectConfig. Defaults to a plain band-clippable effect.
    */
-  Effect(int W, int H, bool needs_full_frame = false)
-      : persist_pixels(false), full_frame(needs_full_frame), width_(W),
-        height_(H) {
+  Effect(int W, int H, EffectConfig cfg = {})
+      : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
+        strobe(cfg.strobe), width_(W), height_(H) {
     // Single-live-Effect precondition: every Effect aliases the same two static
     // buffers (buffer_a/buffer_b), so a second live instance corrupts both frames.
     HS_CHECK(!s_alive,
@@ -90,7 +99,7 @@ public:
    * @return false to persist: the lit column is held on the strip until the
    *               next column overwrites it, filling its full angular cell.
    */
-  virtual bool strobe_columns() const { return false; }
+  [[nodiscard]] bool strobe_columns() const { return strobe; }
 
   /**
    * @brief Whether this effect must render the FULL canvas per simulator worker
@@ -466,6 +475,10 @@ protected:
    * construction from the filter pipeline `any_crosses_segments` trait.
    */
   bool full_frame;
+  /**
+   * @brief POV column-strobe flag (see strobe_columns()); set at construction.
+   */
+  bool strobe;
   ParamList parameters; /**< List of parameters. */
   bool anims_paused_ = false; /**< Pause gate for parameter-driving animations;
                                  pass `&anims_paused_` to Mutation/Driver. */

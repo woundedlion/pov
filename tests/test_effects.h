@@ -1465,8 +1465,6 @@ struct BudgetCanvasFx : public Effect {
   BudgetCanvasFx(int w, int h) : Effect(w, h) {}
   /** @brief No-op per-frame hook; the mesh draw under test lights the canvas. */
   void draw_frame() override {}
-  /** @brief Paints no background. @return Always false. */
-  bool strobe_columns() const override { return false; }
 };
 
 /**

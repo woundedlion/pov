@@ -256,19 +256,12 @@ public:
   /**
    * @brief Constructs the effect and seeds one dot per row at column 0.
    */
-  FLASHMEM ChainWiggle() : Effect(W, H), osc(1, 4) {
-    persist_pixels = true;
+  FLASHMEM ChainWiggle() : Effect(W, H, {.persist = true}), osc(1, 4) {
     for (size_t i = 0; i < (sizeof(dots) / sizeof(Dot)); ++i) {
       dots[i] = Dot(0, i, 0);
     }
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
-   */
-  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the chained-bead animation.
@@ -449,8 +442,7 @@ public:
   /**
    * @brief Constructs the effect and paints COUNT_ seed spokes.
    */
-  FLASHMEM RingTwist() : Effect(W, H), seed_(CHSV(104, 0, 255)) {
-    persist_pixels = true;
+  FLASHMEM RingTwist() : Effect(W, H, {.persist = true}), seed_(CHSV(104, 0, 255)) {
     randomSeed(analogRead(PIN_RANDOM));
     Canvas c(*this);
     for (int x = 0; x < W; x += W / COUNT_) {
@@ -460,12 +452,6 @@ public:
     }
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
-   */
-  bool strobe_columns() const { return false; }
 
   /**
    * @brief Samples a pixel with each row scrolled by its own offset.
@@ -649,18 +635,11 @@ public:
   /**
    * @brief Constructs the effect and clears the intensity field.
    */
-  FLASHMEM TheMatrix() : Effect(W, H) {
+  FLASHMEM TheMatrix() : Effect(W, H, {.strobe = true}) {
     random16_add_entropy(random());
     memset(pixels_, 0, sizeof(pixels_));
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return true; the strip blanks to black immediately after each column is
-   *         shown, so every column reads as a sharp slice with dark gaps
-   *         between columns rather than persisting across the sweep.
-   */
-  bool strobe_columns() const { return true; }
 
   /**
    * @brief Renders one frame of digital rain.
@@ -721,20 +700,13 @@ public:
   /**
    * @brief Constructs the effect and builds the warm gradient palette.
    */
-  FLASHMEM Curves() : Effect(W, H) {
-    persist_pixels = true;
+  FLASHMEM Curves() : Effect(W, H, {.persist = true}) {
     fill_gradient<CHSV>(palette_, sizeof(palette_) / sizeof(CHSV),
                         rgb2hsv_approximate(CRGB(6, 4, 47)),
                         rgb2hsv_approximate(CRGB(162, 84, 84)),
                         rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
-   */
-  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of mirrored sweeping strokes.
@@ -803,15 +775,8 @@ public:
   /**
    * @brief Constructs the effect with persistent pixels.
    */
-  FLASHMEM StarsFade() : Effect(W, H), hue_(0) { persist_pixels = true; }
+  FLASHMEM StarsFade() : Effect(W, H, {.strobe = true, .persist = true}), hue_(0) {}
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return true; the strip blanks to black immediately after each column is
-   *         shown, so every column reads as a sharp slice with dark gaps
-   *         between columns rather than persisting across the sweep.
-   */
-  bool strobe_columns() const { return true; }
 
   /**
    * @brief Renders one frame of fading stars.
@@ -849,18 +814,11 @@ public:
   /**
    * @brief Constructs the effect, fills the palette, and paints the pattern.
    */
-  FLASHMEM Spiral() : Effect(W, H) {
+  FLASHMEM Spiral() : Effect(W, H, {.strobe = true}) {
     fill_rainbow(palette_.entries, 16, 0, 256 / 16);
     draw_frame();
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return true; the strip blanks to black immediately after each column is
-   *         shown, so every column reads as a sharp slice with dark gaps
-   *         between columns rather than persisting across the sweep.
-   */
-  bool strobe_columns() const { return true; }
 
   /**
    * @brief Paints the diagonal spiral pattern.
@@ -892,14 +850,8 @@ public:
   /**
    * @brief Constructs the effect with persistent pixels.
    */
-  FLASHMEM WaveTrails() : Effect(W, H) { persist_pixels = true; }
+  FLASHMEM WaveTrails() : Effect(W, H, {.persist = true}) {}
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
-   */
-  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the three wave trails.
@@ -934,8 +886,7 @@ public:
   /**
    * @brief Constructs the effect, builds the palette, and clears the TTL field.
    */
-  FLASHMEM RingTrails() : Effect(W, H), dot(0) {
-    persist_pixels = true;
+  FLASHMEM RingTrails() : Effect(W, H, {.persist = true}), dot(0) {
     fill_gradient<CHSV>(palette, sizeof(palette) / sizeof(CHSV),
                         rgb2hsv_approximate(CRGB(6, 4, 47)),
                         rgb2hsv_approximate(CRGB(162, 84, 84)),
@@ -947,12 +898,6 @@ public:
     }
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
-   */
-  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the tumbling ring.
@@ -1007,17 +952,10 @@ public:
   /**
    * @brief Constructs the effect and fills the rainbow palette.
    */
-  FLASHMEM Kaleidoscope() : Effect(W, H) {
-    persist_pixels = true;
+  FLASHMEM Kaleidoscope() : Effect(W, H, {.persist = true}) {
     fill_rainbow(palette_.entries, 16, 0, 256 / 16);
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
-   */
-  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the kaleidoscope.
@@ -1086,12 +1024,6 @@ public:
     fill_rainbow(pal.entries, 256, HUE_RED, 1);
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
-   */
-  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the three tumbling rings.
@@ -1172,7 +1104,7 @@ public:
   /**
    * @brief Constructs the effect and shuffles the pixel ignition order.
    */
-  FLASHMEM Burnout() : Effect(W, H), timer_(30), burn_idx_(0) {
+  FLASHMEM Burnout() : Effect(W, H, {.strobe = true}), timer_(30), burn_idx_(0) {
     random16_add_entropy(random());
     memset8(pixels_, INIT, sizeof(pixels_));
     fill_seq(burn_, W * H);
@@ -1204,13 +1136,6 @@ public:
     }
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return true; the strip blanks to black immediately after each column is
-   *         shown, so every column reads as a sharp slice with dark gaps
-   *         between columns rather than persisting across the sweep.
-   */
-  bool strobe_columns() const { return true; }
 
 private:
   /**
@@ -1300,12 +1225,6 @@ public:
    */
   FLASHMEM Fire() : Effect(W, H) { random16_add_entropy(random()); }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
-   */
-  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of fire.
@@ -1377,8 +1296,7 @@ public:
   /**
    * @brief Constructs the effect and seeds one dot per row.
    */
-  FLASHMEM DotTrails() : Effect(W, H) {
-    persist_pixels = true;
+  FLASHMEM DotTrails() : Effect(W, H, {.persist = true}) {
     random16_add_entropy(random());
     for (int i = 0; i < H - 1; ++i) {
       bool rev = i % 2 == 0;
@@ -1387,12 +1305,6 @@ public:
     }
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
-   */
-  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the circling dots.
@@ -1491,12 +1403,6 @@ public:
     palette2_[1] = palette2_[9] = CHSV(HUE_BLUE, 255, 255);
   }
 
-  /**
-   * @brief POV column-strobe flag — see Effect::strobe_columns.
-   * @return false; each lit column persists in the POV sweep until the next
-   *         column overwrites it, with no black strobe between columns.
-   */
-  bool strobe_columns() const { return false; }
 
   /**
    * @brief Renders one frame of the scrolling bands.

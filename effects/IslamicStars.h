@@ -21,7 +21,7 @@ public:
   /**
    * @brief Constructs the effect, binding the ripple generator to the timeline.
    */
-  FLASHMEM IslamicStars() : Effect(W, H), filters(), ripple_gen(timeline) {}
+  FLASHMEM IslamicStars() : Effect(W, H, {.strobe = true}), filters(), ripple_gen(timeline) {}
 
   /**
    * @brief Bakes palettes, registers the UI sliders, and seeds the timeline
@@ -66,9 +66,6 @@ public:
 
     spawn_shape();
   }
-
-  /// POV column-strobe flag; strobes (see Effect::strobe_columns).
-  bool strobe_columns() const override { return true; }
 
   /**
    * @brief Advances ripple state once and runs the timeline for this frame.
