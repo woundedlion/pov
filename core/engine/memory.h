@@ -76,6 +76,13 @@ public:
       : buffer(buf), capacity(size), offset(0), high_water_mark(0) {}
 
   /**
+   * @brief Non-copyable: a copy would alias one buffer under two independent
+   * offsets, handing out overlapping allocations with no trap.
+   */
+  Arena(const Arena &) = delete;
+  Arena &operator=(const Arena &) = delete;
+
+  /**
    * @brief Bump-allocate `size` bytes aligned to `align`, advancing the offset.
    * @param size Number of bytes to allocate.
    * @param align Required alignment in bytes; defaults to max_align_t.
