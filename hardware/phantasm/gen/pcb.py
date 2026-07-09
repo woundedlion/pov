@@ -10,13 +10,14 @@ import subprocess
 import sys
 import uuid as _uuid
 import sexp
+import fab
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.dirname(HERE)
 SCH = os.path.join(OUT, "phantasm.kicad_sch")
 FP_DIR = os.environ.get("KICAD_FOOTPRINT_DIR",
                         r"C:\Program Files\KiCad\10.0\share\kicad\footprints")
-KCLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
+KCLI = fab.find_kicad_cli()
 PCB_W = 32.0  # board width (mm); within the R-MECH-6 cap (<=35), trimmed to part extent
 
 

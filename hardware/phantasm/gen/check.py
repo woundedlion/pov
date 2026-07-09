@@ -5,10 +5,11 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(__file__))
 import sexp
+import fab
 
 SCH = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "phantasm.kicad_sch")
-KCLI = r"C:\Program Files\KiCad\10.0\bin\kicad-cli.exe"
+KCLI = fab.find_kicad_cli()
 NET = os.path.join(os.path.dirname(SCH), "_check.net")
 
 # expected: named net -> set of component refs (per spec section 10)
