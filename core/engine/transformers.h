@@ -213,8 +213,8 @@ public:
    * frame where an active entity's params were *live-updated* since they were
    * last prepared (e.g. a GUI slider moved this frame). It re-reads live config
    * from template_params (NoiseParams::refresh_from, when provided) and refreshes
-   * each active entity's derived state (RippleParams::prepare_thresholds /
-   * NoiseParams::sync). transform() reads that state but cannot verify it is
+   * each active entity's derived state (NoiseParams::sync). transform() reads
+   * that state but cannot verify it is
    * current: the dependency is value-dependent (did the params change?), not
    * structural, so it is a caller contract, not a compile-time/assert invariant.
    * It is intentionally NOT required when there are no active entities (transform
@@ -231,13 +231,9 @@ public:
       if constexpr (requires { e.params.refresh_from(template_params); }) {
         e.params.refresh_from(template_params);
       }
-      if constexpr (requires { e.params.prepare_thresholds(); }) {
-        e.params.prepare_thresholds();
-      }
-      // Symmetric to prepare_thresholds for RippleParams: NoiseParams::sync()
-      // pushes the (possibly live-updated) frequency into the embedded
-      // FastNoiseLite. Centralizing it here means a noise effect cannot render a
-      // stale frequency by forgetting a per-entity sync loop.
+      // NoiseParams::sync() pushes the (possibly live-updated) frequency into
+      // the embedded FastNoiseLite. Centralizing it here means a noise effect
+      // cannot render a stale frequency by forgetting a per-entity sync loop.
       if constexpr (requires { e.params.sync(); }) {
         e.params.sync();
       }
