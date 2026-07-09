@@ -271,6 +271,9 @@ public:
       : AnimationBase(duration, false), subject_ptr(&subject),
         start_ptr(&start), target_ptr(&target), easing(easing_fn),
         paused(paused) {
+    // Reject the perpetual -1 the base permits: step() would clamp t_norm to 0
+    // forever, silently freezing the lerp instead of driving it.
+    HS_CHECK(duration >= 0, "Lerp duration must be >= 0");
     do_lerp = [](void *subj, const void *s, const void *tgt, float t) {
       static_cast<T *>(subj)->lerp(*static_cast<const T *>(s),
                                    *static_cast<const T *>(tgt), t);
