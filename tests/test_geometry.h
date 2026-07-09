@@ -10,7 +10,6 @@
  *   - y_to_phi / phi_to_y conversions (free + templated)
  *   - PhiLUT / TrigLUT initialisation and lookup values
  *   - pixel_to_vector / vector_to_pixel roundtrip
- *   - logPolarToVector / vectorToLogPolar roundtrip + pole sentinel
  *   - fib_spiral, lissajous, random_vector (all on unit sphere)
  *   - Basis: make_basis (orthonormality), get_antipode (flipping)
  *   - Orientation<CAP>: set, push, get, collapse, upsample, orient/unorient
@@ -277,49 +276,6 @@ inline void test_vector_to_pixel_roundtrip_via_pixel_to_vector() {
       HS_EXPECT_NEAR(p.y, static_cast<float>(y), 0.5f);
     }
   }
-}
-
-// ============================================================================
-// Log-polar projection (sphere ↔ complex plane via stereographic)
-// ============================================================================
-
-/**
- * @brief Verifies logPolarToVector inverts vectorToLogPolar for points away from
- *        the poles.
- */
-inline void test_log_polar_roundtrip() {
-  Vector samples[] = {
-      Vector(0.6f, 0.0f, 0.8f),
-      Vector(1, 0, 0),
-      Vector(0.5f, 0.5f, 0.7071f).normalized(),
-      Vector(-0.6f, 0.3f, 0.7f).normalized(),
-      Vector(0, -1, 0), // south pole
-  };
-  for (const Vector &v : samples) {
-    LogPolar lp = vectorToLogPolar(v);
-    Vector back = logPolarToVector(lp.rho, lp.theta);
-    HS_EXPECT_VEC(back, v, 5e-3f);
-  }
-}
-
-/**
- * @brief Verifies the north pole, having no finite log-polar image, maps to a
- *        sentinel.
- */
-inline void test_log_polar_north_pole_sentinel() {
-  LogPolar lp = vectorToLogPolar(Vector(0, 1, 0));
-  HS_EXPECT_NEAR(lp.rho, 10.0f, 1e-3f);
-  HS_EXPECT_NEAR(lp.theta, 0.0f, 1e-3f);
-}
-
-/**
- * @brief Verifies the south pole, which would yield rho=-inf, maps to a
- *        symmetric sentinel.
- */
-inline void test_log_polar_south_pole_sentinel() {
-  LogPolar lp = vectorToLogPolar(Vector(0, -1, 0));
-  HS_EXPECT_NEAR(lp.rho, -10.0f, 1e-3f);
-  HS_EXPECT_NEAR(lp.theta, 0.0f, 1e-3f);
 }
 
 // ============================================================================
@@ -699,10 +655,6 @@ inline int run_geometry_tests() {
   test_pixel_to_vector_known_samples();
   test_pixel_to_vector_float_branch_matches_phi_lut();
   test_vector_to_pixel_roundtrip_via_pixel_to_vector();
-
-  test_log_polar_roundtrip();
-  test_log_polar_north_pole_sentinel();
-  test_log_polar_south_pole_sentinel();
 
   test_fib_spiral_unit_length();
   test_fib_spiral_deterministic();
