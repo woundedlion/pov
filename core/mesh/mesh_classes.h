@@ -95,6 +95,11 @@ struct MeshClassBake {
   uint16_t concave_faces = 0;       /**< Faces in concave (LUT-eligible) classes. */
   uint16_t lut_faces = 0;           /**< Faces whose class received a LUT. */
   uint16_t luts_built = 0;          /**< Classes that received a LUT. */
+  uint16_t degraded_classes = 0;    /**< Eligible classes whose grid was shrunk to fit the budget, then built. */
+  uint16_t dropped_classes = 0;     /**< Eligible classes denied a LUT once the budget could not fit even the min grid. */
+  uint16_t dropped_faces = 0;       /**< Faces in dropped classes (kept the exact path). */
+  uint16_t lowq_classes = 0;        /**< Classes whose built LUT missed MIN_CLASS_HIT_SHARE and was discarded. */
+  size_t lut_bytes = 0;             /**< Persistent bytes charged to kept LUTs (<= the byte budget). */
 };
 
 /**
@@ -148,7 +153,8 @@ inline bool polygon_is_concave(const float *xy, int count) {
  */
 [[maybe_unused]] HS_COLD static void
 build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
-                      float pixel_width, MeshClassBake &out) {
+                      float pixel_width, MeshClassBake &out,
+                      size_t budget_bytes = CLASS_LUT_BUDGET) {
   ScratchScope scratch_guard(scratch);
 
   const size_t F = mesh.get_face_counts_size();
@@ -292,8 +298,9 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     order[pos] = static_cast<int>(c);
   }
 
-  size_t budget = CLASS_LUT_BUDGET;
+  size_t budget = budget_bytes;
   const float target_diag = LUT_TARGET_DIAG_PX * pixel_width;
+  int degraded_classes = 0;
   float hit_share_acc = 0.0f;
   int dropped_classes = 0, dropped_faces = 0, lowq_classes = 0;
   // Staging buffer: LUTs are built here first and promoted to the persistent
@@ -332,6 +339,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
         dropped_faces += cls.members;
         continue;
       }
+      ++degraded_classes;
     }
     SDF::build_canonical_distance_lut(cls.canon_xy, cls.n_verts, n, staging,
                                       cls.lut);
@@ -381,6 +389,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     }
 
     budget -= bytes;
+    out.lut_bytes += bytes;
     int16_t *data = static_cast<int16_t *>(
         persistent.allocate(bytes, alignof(int16_t)));
     std::copy(staging, staging + static_cast<size_t>(n) * n, data);
@@ -389,6 +398,10 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     out.lut_faces += cls.members;
     hit_share_acc += cls.members * safe_frac;
   }
+  out.degraded_classes = static_cast<uint16_t>(degraded_classes);
+  out.dropped_classes = static_cast<uint16_t>(dropped_classes);
+  out.dropped_faces = static_cast<uint16_t>(dropped_faces);
+  out.lowq_classes = static_cast<uint16_t>(lowq_classes);
   out.predicted_hit_share =
       out.lut_faces > 0 ? hit_share_acc / out.lut_faces : 0.0f;
   out.lut_face_share = F > 0 ? static_cast<float>(out.lut_faces) / F : 0.0f;
