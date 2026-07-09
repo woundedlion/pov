@@ -176,6 +176,11 @@ public:
     // point indexes the trig LUT.
     auto corner_x = [&](int j) { return std::min(x0 + j * B, x1 - 1); };
     auto corner_y = [&](int k) { return std::min(y0 + k * B, y1 - 1); };
+
+    // Timer spans the corner-classification pre-pass too: its ~W*H/B^2 KD
+    // queries are the dense regime's dominant cost, so getRenderUs must include
+    // them.
+    Scan::ScopedRenderTimer timer_guard(canvas);
     for (int k = 0; k < nby; ++k)
       for (int j = 0; j < nbx; ++j)
         cells[k * nbx + j] =
@@ -185,7 +190,6 @@ public:
     // heavy to supersample. Mirrors Scan::Shader::draw<W, H, 1>'s clip iteration
     // and telemetry (open-coded only because the coarse grid needs the integer
     // pixel coordinates the generic shader callback does not expose).
-    Scan::ScopedRenderTimer timer_guard(canvas);
     for (int y = y0; y < y1; ++y) {
       const int ky = (y - y0) / B;
       for (int x = x0; x < x1; ++x) {
