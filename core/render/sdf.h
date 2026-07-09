@@ -3584,6 +3584,181 @@ struct Twist {
   }
 };
 
+/**
+ * @brief Displaces the radius by a tapered spherical-harmonic bump:
+ *        r -> r - amplitude·cos(lobes·θ)·sin^lobes(φ)·cos(bands·φ), with
+ *        θ = atan2(z, x) and φ the polar angle from +Y.
+ *
+ * Composed with a convex base it grows `lobes` bumps around the equator and
+ * `bands` ridges pole-to-pole. The sin^lobes(φ) sectoral taper bounds the
+ * azimuthal gradient at the poles, giving an analytical Lipschitz bound for
+ * safe sphere tracing.
+ */
+struct Lobe {
+  int lobes;       /**< Azimuthal bump count (>= 0). */
+  int bands;       /**< Polar ridge count (>= 0). */
+  float amplitude; /**< Radial displacement magnitude. */
+  float r_floor;   /**< Lower bound on any on-or-outside point's radius. */
+  float grad_amp;  /**< Precomputed |amplitude|·(max angular gradient of B + 1). */
+
+  /**
+   * @brief Constructs a lobe warp with the given angular mode counts.
+   * @param lobes_ Azimuthal bump count; must be >= 0.
+   * @param bands_ Polar ridge count; must be >= 0.
+   * @param amplitude_ Radial displacement magnitude.
+   * @param r_floor_ Lower bound on the radius of any point on or outside the
+   *        warped surface; must be > 0. Pass the base's inradius minus
+   *        |amplitude|: anything closer to the origin is strictly interior, so
+   *        lipschitz() can floor its denominator there without losing march
+   *        safety. Guarded at the (cold) construction site like Twist's R > 0.
+   */
+  Lobe(int lobes_, int bands_, float amplitude_, float r_floor_)
+      : lobes(lobes_), bands(bands_), amplitude(amplitude_), r_floor(r_floor_) {
+    HS_CHECK(lobes >= 0 && bands >= 0 && r_floor > 0.0f);
+    // |∇B| bound on the unit sphere: azimuthal <= lobes, polar <= lobes + bands.
+    float k = static_cast<float>(lobes);
+    float m = static_cast<float>(bands);
+    grad_amp = fabsf(amplitude) * (sqrtf(k * k + (k + m) * (k + m)) + 1.0f);
+  }
+
+  /** @brief Precomputed context: r = |p|, shared across apply/lipschitz. */
+  using Ctx = float;
+
+  /**
+   * @brief Precomputes the shared per-point context r = |p|.
+   * @param p Query point.
+   * @return The Euclidean distance from the origin.
+   */
+  Ctx make_ctx(const Vector &p) const { return p.length(); }
+
+  /**
+   * @brief cos/sin of n·angle from cos/sin of the angle by angle addition —
+   *        trig-free for the small integer mode counts.
+   * @param n Multiple (>= 1).
+   * @param c1 cos of the angle.
+   * @param s1 sin of the angle.
+   * @param cn Output cos(n·angle).
+   * @param sn Output sin(n·angle).
+   */
+  static void angle_multiple(int n, float c1, float s1, float &cn, float &sn) {
+    cn = c1;
+    sn = s1;
+    for (int i = 1; i < n; ++i) {
+      float c = cn * c1 - sn * s1;
+      sn = sn * c1 + cn * s1;
+      cn = c;
+    }
+  }
+
+  /**
+   * @brief The bump B(θ, φ) at p's direction.
+   * @param p Query point.
+   * @param r Precomputed |p| (> 0).
+   * @return cos(lobes·θ)·sin^lobes(φ)·cos(bands·φ), in [-1, 1].
+   */
+  float bump(const Vector &p, float r) const {
+    float inv_r = 1.0f / r;
+    float s = sqrtf(p.x * p.x + p.z * p.z);
+    float sin_phi = s * inv_r;
+    float b = 1.0f;
+    if (lobes > 0) {
+      // The sin^lobes(φ) taper zeroes the bump on the polar axis, where θ is
+      // undefined.
+      if (s < TOLERANCE)
+        return 0.0f;
+      float sk;
+      angle_multiple(lobes, p.x / s, p.z / s, b, sk);
+      for (int i = 0; i < lobes; ++i)
+        b *= sin_phi;
+    }
+    if (bands > 0) {
+      float cm, sm;
+      angle_multiple(bands, p.y * inv_r, sin_phi, cm, sm);
+      b *= cm;
+    }
+    return b;
+  }
+
+  /**
+   * @brief Warps the domain by pulling the radius in by amplitude·B(θ, φ).
+   * @param p Query point.
+   * @param r Precomputed context (|p|).
+   * @return The warped point (unchanged at the origin).
+   */
+  Vector apply(const Vector &p, Ctx r) const {
+    if (r < TOLERANCE)
+      return p;
+    return p * (1.0f - amplitude * bump(p, r) / r);
+  }
+
+  /**
+   * @brief Analytical Lipschitz constant of the warp at radius r.
+   * @param r Precomputed context (|p|).
+   * @return Operator-norm bound of the warp Jacobian (>= 1).
+   * @details ‖J - I‖ <= |∇h| + |h|/r <= grad_amp/r for h = amplitude·B; B
+   *          depends only on direction, so r·|∇B| is r-free and the bound
+   *          needs no per-point trig. r floors at r_floor (every point on or
+   *          outside the surface satisfies r >= r_floor).
+   */
+  float lipschitz(const Vector & /*p*/, Ctx r) const {
+    return 1.0f + grad_amp / std::max(r, r_floor);
+  }
+
+  /**
+   * @brief Maximum possible inflation of the bounding volume.
+   * @return |amplitude| (radians of XYZ space).
+   */
+  float bounding_inflation() const { return fabsf(amplitude); }
+
+  /**
+   * @brief Analytical normal correction via the chain rule (once per hit).
+   * @param p Query point.
+   * @param base_n Unwarped surface normal at the warped point.
+   * @param r Precomputed context (|p|).
+   * @return The corrected unit normal Jᵀ·base_n, renormalized.
+   */
+  Vector correct_normal(const Vector &p, const Vector &base_n, Ctx r) const {
+    if (fabsf(amplitude) < TOLERANCE || r < TOLERANCE)
+      return base_n;
+    float s = sqrtf(p.x * p.x + p.z * p.z);
+    // Pole: the (e_θ, e_φ) tangent frame is undefined there.
+    if (s < TOLERANCE)
+      return base_n;
+    float inv_r = 1.0f / r;
+    float inv_s = 1.0f / s;
+    float sin_phi = s * inv_r;
+    float cos_phi = p.y * inv_r;
+
+    float k = static_cast<float>(lobes);
+    float m = static_cast<float>(bands);
+    float cos_kt = 1.0f, sin_kt = 0.0f, pow_km1 = 1.0f;
+    if (lobes > 0) {
+      angle_multiple(lobes, p.x * inv_s, p.z * inv_s, cos_kt, sin_kt);
+      for (int i = 1; i < lobes; ++i)
+        pow_km1 *= sin_phi;
+    }
+    float cos_mp = 1.0f, sin_mp = 0.0f;
+    if (bands > 0)
+      angle_multiple(bands, cos_phi, sin_phi, cos_mp, sin_mp);
+
+    float sin_k = (lobes > 0) ? pow_km1 * sin_phi : 1.0f; // sin^lobes(φ)
+    float b = cos_kt * sin_k * cos_mp;
+    // Tangential gradient of B: e_θ·(∂θB / sinφ) + e_φ·∂φB.
+    float bt = -k * sin_kt * pow_km1 * cos_mp;
+    float bp = cos_kt * (k * pow_km1 * cos_phi * cos_mp - m * sin_k * sin_mp);
+
+    Vector e_t(-p.z * inv_s, 0.0f, p.x * inv_s);
+    Vector e_p(cos_phi * p.x * inv_s, -sin_phi, cos_phi * p.z * inv_s);
+
+    // Jᵀ·n for J = I - u·∇hᵀ - (h/r)(I - u·uᵀ), h = amplitude·B.
+    Vector grad_h = (e_t * bt + e_p * bp) * (amplitude * inv_r);
+    float h_over_r = amplitude * b * inv_r;
+    Vector u = p * inv_r;
+    float un = dot(u, base_n);
+    return (base_n - grad_h * un - (base_n - u * un) * h_over_r).normalized();
+  }
+};
+
 } // namespace Warp
 
 /**

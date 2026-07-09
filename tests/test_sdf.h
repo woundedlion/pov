@@ -8,6 +8,7 @@
  *   - clamp_phi utility
  *   - Spherical SDF primitives (Ring, PlanarPolygon, SphericalPolygon, Star, Line)
  *   - 3D Torus, Superquadric
+ *   - WarpedVolume with Warp::Twist and Warp::Lobe
  *   - CSG operators (Union, SmoothUnion, Subtract, Intersection)
  *   - AngularRepeat
  *
@@ -538,6 +539,152 @@ inline void test_twist_correct_normal_unit_length() {
       Vector c = tw.correct_normal(p, base_n, tw.make_ctx(p));
       HS_EXPECT_NEAR(c.length(), 1.0f, 1e-4f);
     }
+}
+
+// ============================================================================
+// Warp::Lobe (radial harmonic bump, Lipschitz bound, normal correction)
+// ============================================================================
+
+/** @brief Verifies Lobe::apply displaces the radius by amplitude·B: inward at a
+ *  crest (B = 1), outward at a trough (B = -1), untouched at a tapered pole. */
+inline void test_lobe_apply_displaces_radius() {
+  SDF::Warp::Lobe lb{/*lobes=*/4, /*bands=*/0, /*amplitude=*/0.2f,
+                     /*r_floor=*/0.3f};
+
+  // θ = 0, φ = π/2: B = 1 → radius pulled in by amplitude.
+  Vector a(1.0f, 0.0f, 0.0f);
+  HS_EXPECT_VEC(lb.apply(a, lb.make_ctx(a)), Vector(0.8f, 0.0f, 0.0f), 1e-3f);
+
+  // θ = π/4: cos(4θ) = -1 → radius pushed out by amplitude.
+  float d = sqrtf(0.5f);
+  Vector b(d, 0.0f, d);
+  HS_EXPECT_NEAR(lb.apply(b, lb.make_ctx(b)).length(), 1.2f, 1e-2f);
+
+  // Pole: sin^4(φ) = 0 → untouched.
+  Vector c(0.0f, 1.0f, 0.0f);
+  HS_EXPECT_VEC(lb.apply(c, lb.make_ctx(c)), c, 1e-6f);
+}
+
+/** @brief Verifies bands modulate the polar angle: B = cos(bands·φ) at lobes 0. */
+inline void test_lobe_bands_modulate_polar() {
+  SDF::Warp::Lobe lb{0, 2, 0.1f, 0.3f};
+
+  // Pole φ = 0: cos(0) = 1 → radius pulled in.
+  Vector a(0.0f, 1.0f, 0.0f);
+  HS_EXPECT_VEC(lb.apply(a, lb.make_ctx(a)), Vector(0.0f, 0.9f, 0.0f), 1e-3f);
+
+  // Equator φ = π/2: cos(π) = -1 → pushed out.
+  Vector b(1.0f, 0.0f, 0.0f);
+  HS_EXPECT_VEC(lb.apply(b, lb.make_ctx(b)), Vector(1.1f, 0.0f, 0.0f), 1e-3f);
+}
+
+/** @brief Verifies Lobe::lipschitz is 1 at amplitude 0 and otherwise matches
+ *  1 + |a|·(√(k² + (k+m)²) + 1) / max(r, r_floor), flooring below r_floor. */
+inline void test_lobe_lipschitz_closed_form_and_floor() {
+  SDF::Warp::Lobe flat{4, 2, 0.0f, 0.3f};
+  HS_EXPECT_NEAR(flat.lipschitz(Vector(1, 0, 0), 1.0f), 1.0f, 1e-6f);
+
+  SDF::Warp::Lobe lb{3, 2, 0.2f, 0.5f};
+  float g = sqrtf(3.0f * 3.0f + 5.0f * 5.0f) + 1.0f;
+  HS_EXPECT_NEAR(lb.lipschitz(Vector(2, 0, 0), 2.0f), 1.0f + 0.2f * g / 2.0f,
+                 1e-5f);
+  HS_EXPECT_NEAR(lb.lipschitz(Vector(0.1f, 0, 0), 0.1f), 1.0f + 0.2f * g / 0.5f,
+                 1e-5f);
+}
+
+/** @brief Verifies Lobe::bounding_inflation returns |amplitude|. */
+inline void test_lobe_bounding_inflation() {
+  SDF::Warp::Lobe lb{5, 1, 0.35f, 0.3f};
+  HS_EXPECT_NEAR(lb.bounding_inflation(), 0.35f, 1e-6f);
+  SDF::Warp::Lobe neg{5, 1, -0.35f, 0.3f};
+  HS_EXPECT_NEAR(neg.bounding_inflation(), 0.35f, 1e-6f);
+}
+
+/** @brief Verifies the corrected lobe-warped distance never exceeds the raw
+ *  warped distance on a sample grid (sphere-trace safety). */
+inline void test_lobe_warped_distance_is_sphere_trace_safe() {
+  SDF::WarpedVolume<SDF::Superquadric, SDF::Warp::Lobe> wv{
+      SDF::Superquadric(0.5f, 2.0f),
+      SDF::Warp::Lobe{4, 1, 0.12f, 0.5f * 0.5773f - 0.12f}};
+  for (float x = -1.0f; x <= 1.0f; x += 0.25f)
+    for (float y = -1.0f; y <= 1.0f; y += 0.25f)
+      for (float z = -1.0f; z <= 1.0f; z += 0.25f) {
+        Vector q(x, y, z);
+        HS_EXPECT_TRUE(wv.distance(q) <= wv.raw_distance(q) + 1e-4f);
+      }
+}
+
+/** @brief Sphere-traces rays through a lobed superquadric with the corrected
+ *  distance and verifies the march never tunnels into the interior (the raw
+ *  warped distance stays non-negative at every visited point). */
+inline void test_lobe_warped_march_never_tunnels() {
+  for (float p : {1.0f, 2.0f, 6.0f}) {
+    SDF::WarpedVolume<SDF::Superquadric, SDF::Warp::Lobe> wv{
+        SDF::Superquadric(0.5f, p),
+        SDF::Warp::Lobe{5, 2, 0.15f, 0.5f * 0.5773f - 0.15f}};
+    for (int i = 0; i < 64; ++i) {
+      // Rays from a radius-2 sphere aimed at jittered near-center targets.
+      float az = (i % 8) * (2.0f * PI_F / 8.0f) + 0.19f;
+      float el = ((i / 8) - 3.5f) * 0.35f;
+      Vector origin(2.0f * cosf(el) * cosf(az), 2.0f * sinf(el),
+                    2.0f * cosf(el) * sinf(az));
+      Vector target(0.1f * sinf(az * 3.0f), 0.1f * cosf(az * 2.0f), 0.0f);
+      Vector dir = (target - origin).normalized();
+      Vector pos = origin;
+      for (int step = 0; step < 200; ++step) {
+        float d = wv.distance(pos);
+        HS_EXPECT_GT(wv.raw_distance(pos), -1e-3f);
+        if (d < 1e-4f)
+          break;
+        pos = pos + dir * d;
+        if ((pos - origin).length() > 4.0f)
+          break;
+      }
+    }
+  }
+}
+
+/** @brief Verifies Lobe::correct_normal matches the normalized finite-difference
+ *  gradient of the composite raw distance at near-surface points. */
+inline void test_lobe_correct_normal_matches_fd_gradient() {
+  SDF::WarpedVolume<SDF::Superquadric, SDF::Warp::Lobe> wv{
+      SDF::Superquadric(0.5f, 2.0f), SDF::Warp::Lobe{3, 2, 0.1f, 0.15f}};
+  constexpr float H = 1e-3f;
+  for (Vector dir : {Vector(0.8f, 0.35f, 0.5f), Vector(-0.3f, 0.6f, 0.75f),
+                     Vector(0.55f, -0.7f, 0.45f)}) {
+    Vector u = dir.normalized();
+    // Bisect the raw distance along the ray for a surface point.
+    float lo = 0.2f, hi = 0.9f;
+    for (int it = 0; it < 40; ++it) {
+      float mid = 0.5f * (lo + hi);
+      if (wv.raw_distance(u * mid) < 0.0f)
+        lo = mid;
+      else
+        hi = mid;
+    }
+    Vector q = u * (0.5f * (lo + hi));
+    Vector n = wv.normal(q);
+    HS_EXPECT_NEAR(n.length(), 1.0f, 1e-4f);
+    Vector g(
+        wv.raw_distance(q + Vector(H, 0, 0)) - wv.raw_distance(q - Vector(H, 0, 0)),
+        wv.raw_distance(q + Vector(0, H, 0)) - wv.raw_distance(q - Vector(0, H, 0)),
+        wv.raw_distance(q + Vector(0, 0, H)) - wv.raw_distance(q - Vector(0, 0, H)));
+    HS_EXPECT_VEC(n, g.normalized(), 2e-2f);
+  }
+}
+
+/** @brief Verifies correct_normal is the identity at amplitude 0 and at the
+ *  poles, where the tangent frame degenerates. */
+inline void test_lobe_correct_normal_identity_cases() {
+  Vector base_n(0.6f, 0.8f, 0.0f);
+  SDF::Warp::Lobe flat{4, 2, 0.0f, 0.3f};
+  Vector p(1.0f, 0.2f, 0.5f);
+  HS_EXPECT_VEC(flat.correct_normal(p, base_n, flat.make_ctx(p)), base_n, 1e-6f);
+
+  SDF::Warp::Lobe lb{4, 2, 0.2f, 0.3f};
+  Vector pole(0.0f, 1.0f, 0.0f);
+  HS_EXPECT_VEC(lb.correct_normal(pole, base_n, lb.make_ctx(pole)), base_n,
+                1e-6f);
 }
 
 // ============================================================================
@@ -1781,6 +1928,15 @@ inline int run_sdf_tests() {
   test_warped_volume_distance_is_sphere_trace_safe();
   test_warped_volume_distance_matches_lipschitz_correction();
   test_twist_correct_normal_unit_length();
+
+  test_lobe_apply_displaces_radius();
+  test_lobe_bands_modulate_polar();
+  test_lobe_lipschitz_closed_form_and_floor();
+  test_lobe_bounding_inflation();
+  test_lobe_warped_distance_is_sphere_trace_safe();
+  test_lobe_warped_march_never_tunnels();
+  test_lobe_correct_normal_matches_fd_gradient();
+  test_lobe_correct_normal_identity_cases();
 
   test_union_picks_closest_shape();
   test_union_thickness_is_max();
