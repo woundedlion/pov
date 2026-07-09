@@ -1780,9 +1780,9 @@ A Fibonacci-spiral field of star-polygon SDFs, continuously deformed by an evolv
 
 #### Raymarch
 
-Volumetric raymarcher that renders twisted tori at the 20 vertices of a dodecahedron. Each torus is ray-marched with `Scan::Volume::draw` and lit with metallic Blinn-Phong shading (half-Lambert diffuse, specular highlights, Fresnel rim). A random-walk animation drives the camera orientation.
+Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyakis dodecahedron. Each torus is ray-marched with `Scan::Volume::draw` and lit with metallic Blinn-Phong shading (half-Lambert diffuse, specular highlights, Fresnel rim). A random-walk animation drives the camera orientation.
 
-**Parameters**: Pulse Speed, Core Size, Max Steps, Diffuse, Specular, Fresnel, Twist, AA Width
+**Parameters**: Pulse Speed, Fill, Max Steps, Diffuse, Specular, Fresnel, Twist, AA Width
 
 </td></tr></table>
 
