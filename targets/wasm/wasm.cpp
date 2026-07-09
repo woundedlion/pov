@@ -961,15 +961,20 @@ public:
  *          truncate, bevel, and chamfer use _OP1U: each has a documented [0,1]
  *          domain (truncate/bevel additionally reach an always-on engine trap).
  *          expand takes an unbounded factor, so it stays _OP1F. relax, hankin,
- *          and snub are bound explicitly — their signatures fit none of the
- *          generators (snub takes two float controls) — so they stay out of this
- *          list.
+ *          and snub have bespoke signatures/validation (snub takes two float
+ *          controls), so their wrapper methods are hand-written; their names
+ *          live in MESHOP_IRREGULAR_LIST below and their bindings expand from
+ *          it, so a new irregular op is bound the moment it joins the list.
  */
 #define MESHOP_LIST(_OP0, _OP1F, _OP1U)                                         \
   _OP0(kis) _OP0(ambo) _OP0(gyro) _OP0(dual) _OP0(meta)                         \
   _OP0(needle) _OP0(zip)                                                        \
   _OP1F(expand)                                                                 \
   _OP1U(truncate) _OP1U(bevel) _OP1U(chamfer)
+
+// Irregular ops: hand-written wrapper methods (custom signatures/validation),
+// enumerated here so their embind bindings expand from one list.
+#define MESHOP_IRREGULAR_LIST(_) _(relax) _(hankin) _(snub)
 
   MESHOP_LIST(MESHOP_0, MESHOP_1F, MESHOP_1U)
 
@@ -1302,13 +1307,13 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getVertices", &MeshOpsWrapper::getVertices)
       .function("getFaces", &MeshOpsWrapper::getFaces)
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
-      // Bound from the same MESHOP_LIST that generates the wrapper methods.
+      // Bound from the same MESHOP_LIST that generates the wrapper methods, plus
+      // MESHOP_IRREGULAR_LIST for the hand-written ops.
 #define MESHOP_BIND(name) .function(#name, &MeshOpsWrapper::name)
       MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
+      MESHOP_IRREGULAR_LIST(MESHOP_BIND);
 #undef MESHOP_BIND
-      .function("snub", &MeshOpsWrapper::snub)
-      .function("hankin", &MeshOpsWrapper::hankin)
-      .function("relax", &MeshOpsWrapper::relax);
+#undef MESHOP_IRREGULAR_LIST
 #undef MESHOP_LIST
 
   class_<PaletteOps>("PaletteOps")
