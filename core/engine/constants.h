@@ -91,12 +91,13 @@ struct ClipRegion {
    * @brief Pixel-level horizontal containment against the render (margin-expanded) bounds.
    * @param x Column index, in pixels.
    * @return True when x lies within the cylindrical render band.
-   * @details Bands wider than w cover everything; a band whose ends coincide
-   *          (rs == re) is a full-width wrap; otherwise the band may cross the
-   *          seam, so test as a wrapped interval.
+   * @details A render band spanning >= w columns (display width + both margins)
+   *          covers everything; a band whose ends coincide (rs == re) is a
+   *          full-width wrap; otherwise the band may cross the seam, so test as
+   *          a wrapped interval.
    */
   bool contains_x(int x) const {
-    if (x_end - x_start >= w) return true;
+    if ((x_end - x_start) + 2 * margin >= w) return true;
     int rs = render_x_start();
     int re = render_x_end();
     if (rs == re) return true; // margin expansion wrapped to full width
@@ -105,10 +106,11 @@ struct ClipRegion {
 
   /**
    * @brief Precomputed cylindrical x-clip predicate built once per draw, then queried per fragment.
-   * @details The full-width case and the wrap-to-full case (a sub-arc whose
-   *          margin expansion sums to exactly w, so rs == re) both fold into
-   *          `active == false`, so hot loops can't accidentally blank a full
-   *          segment by treating rs == re as an empty band.
+   * @details The full-coverage case (display width + both margins >= w) and the
+   *          wrap-to-full case (a sub-arc whose margin expansion sums to exactly
+   *          w, so rs == re) both fold into `active == false`, so hot loops
+   *          can't accidentally blank a full segment by treating rs == re as an
+   *          empty band.
    */
   struct XClip {
     int  rs     = 0;     /**< Render band start column, in pixels, in [0, w). */
@@ -135,7 +137,7 @@ struct ClipRegion {
     XClip c;
     c.rs     = render_x_start();
     c.re     = render_x_end();
-    c.active = (x_end - x_start) < w && c.rs != c.re;
+    c.active = (x_end - x_start) + 2 * margin < w && c.rs != c.re;
     c.wrap   = c.rs > c.re;
     return c;
   }
