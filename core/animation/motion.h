@@ -528,15 +528,15 @@ public:
              int seed = 0)
       : AnimationBase<RandomWalk<W, CAP>>(-1, false), orientation(orientation),
         v(Vector(v_start).normalized()), options(options),
-        noiseGenerator(noise) {
+        noise_generator(noise) {
     Vector u = least_parallel_axis(v);
     direction = cross(v, u).normalized();
-    noiseGenerator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    noiseGenerator.get().SetFrequency(options.noise_scale);
+    noise_generator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    noise_generator.get().SetFrequency(options.noise_scale);
     if (seed == 0) {
-      noiseGenerator.get().SetSeed(static_cast<int>(hs::random()()));
+      noise_generator.get().SetSeed(static_cast<int>(hs::random()()));
     } else {
-      noiseGenerator.get().SetSeed(seed);
+      noise_generator.get().SetSeed(seed);
     }
   }
 
@@ -576,7 +576,7 @@ public:
     // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher drift)
     // float can't represent consecutive frames and the drift coordinate freezes.
     float target_pivot =
-        noiseGenerator.get().GetNoise(
+        noise_generator.get().GetNoise(
             v.x * 100.0f, v.y * 100.0f,
             v.z * 100.0f + static_cast<float>(this->t) * options.drift) *
         options.pivot_strength;
@@ -603,7 +603,7 @@ private:
   Options options;  /**< Configuration options. */
   float angular_velocity = 0.0f; /**< Smoothed pivot rate (angular momentum). */
   std::reference_wrapper<FastNoiseLite>
-      noiseGenerator; /**< External noise generator. */
+      noise_generator; /**< External noise generator. */
 };
 
 

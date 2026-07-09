@@ -247,7 +247,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 42. ✅ `README.md:1901` — §10.2 omits the bridge's eight color/palette/lissajous free exports and the `PaletteOps`/`bakeLut` class; document them.
 43. ✅ `core/mesh/mesh_classes.h:335` — a comment references the nonexistent `kClassLutMaxN`; use the real `CLASS_LUT_MAX_N`.
 44. ✅ `effects/HankinSolids.h:36` — the comment says the H=144 arena high-water "isn't in CI"; it is (`test_hankinsolids_arena_budget_covers_every_solid`). Fix the stale comment.
-45. `core/animation/motion.h:606` — rename the camelCase `noiseGenerator` member to `noise_generator` to match the file's snake_case convention.
+45. ✅ `core/animation/motion.h:606` — rename the camelCase `noiseGenerator` member to `noise_generator` to match the file's snake_case convention.
 46. ✅ `targets/wasm/wasm.cpp:1186` — `bakeLut`'s boundary clamps are inline and host-untested, breaking the extract-pure-logic pattern this scope establishes; move them into a `wasm_predicates.h`-style header with tests.
 47. `hardware/phantasm/gen/pcb.py:19` / `check.py:11` — hardcode the Windows KiCad 10.0 path with no env override; reuse `fab.find_kicad_cli()` / `KICAD_CLI`.
 48. ✅ `tests/CMakeLists.txt:224` — `perf_bench` is `EXCLUDE_FROM_ALL` with no test wiring, so it can bit-rot silently; keep one opt level in the default build as a compile guard.
