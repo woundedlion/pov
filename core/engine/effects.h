@@ -27,7 +27,6 @@
 #include "effects/MindSplatter.h"
 #include "effects/MobiusGrid.h"
 #include "effects/Moire.h"
-#include "effects/MorphBlob.h"
 #include "effects/PetalFlow.h"
 #include "effects/Raymarch.h"
 #include "effects/RingShower.h"
@@ -73,7 +72,6 @@
   X(MindSplatter)                                                               \
   X(MobiusGrid)                                                                 \
   X(Moire)                                                                      \
-  X(MorphBlob)                                                                  \
   X(PetalFlow)                                                                  \
   X(Raymarch)                                                                   \
   X(RingShower)                                                                 \
