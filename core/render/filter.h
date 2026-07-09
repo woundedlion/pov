@@ -31,7 +31,10 @@ using PassFn3D =
 /**
  * @brief Trait indicating a filter operates in 2D screen space.
  * @details `is_terminal`: writes the Canvas directly in flush() and ignores its
- * `pass` callback (must be the last stage). `emits_nonunit_world` /
+ * `pass` callback (must be the last stage). `terminal_replaces`: a terminal that
+ * overwrites the whole frame (Feedback's opaque store), so no history-bearing
+ * stage may precede it — its flush emissions would be clobbered.
+ * `emits_nonunit_world` /
  * `requires_unit_world_input`: a non-unit-emitting world stage must not precede
  * a unit-assuming one. `crosses_segments`: per-frame state reads pixels outside
  * the worker's segment band, so the effect must render the full canvas; defaults
@@ -41,6 +44,7 @@ struct Is2D {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = false;
   static constexpr bool is_terminal = false;
+  static constexpr bool terminal_replaces = false;
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
@@ -50,6 +54,7 @@ struct Is3D {
   static constexpr bool is_2d = false;
   static constexpr bool has_history = false;
   static constexpr bool is_terminal = false;
+  static constexpr bool terminal_replaces = false;
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
@@ -60,6 +65,7 @@ struct Is2DWithHistory {
   static constexpr bool is_2d = true;
   static constexpr bool has_history = true;
   static constexpr bool is_terminal = false;
+  static constexpr bool terminal_replaces = false;
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
@@ -70,6 +76,7 @@ struct Is3DWithHistory {
   static constexpr bool is_2d = false;
   static constexpr bool has_history = true;
   static constexpr bool is_terminal = false;
+  static constexpr bool terminal_replaces = false;
   static constexpr bool emits_nonunit_world = false;
   static constexpr bool requires_unit_world_input = false;
   static constexpr bool crosses_segments = has_history;
@@ -368,6 +375,13 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
       !Head::is_terminal || sizeof...(Tail) == 0,
       "A terminal filter (e.g. Pixel::Feedback) writes the Canvas directly and "
       "ignores downstream filters — it must be the last stage in the Pipeline.");
+
+  static_assert(
+      !Head::has_history || !(... || Tail::terminal_replaces),
+      "Filter ordering: a history-bearing stage's flush emissions would be "
+      "overwritten by a frame-replacing terminal filter (Pixel::Feedback's "
+      "opaque store owns the whole frame). Drop the history stage, or run the "
+      "terminal in a compositing mode.");
 
   static_assert(
       !Head::is_2d || (... && Tail::is_2d),
@@ -1224,6 +1238,8 @@ class Feedback : public Is2DWithHistory {
 public:
   /** @brief Marks this as terminal: flush() writes the Canvas and ignores `pass`. */
   static constexpr bool is_terminal = true;
+  /** @brief Opaque store owns the frame: no history stage may precede it. */
+  static constexpr bool terminal_replaces = true;
 
   // Covers only the default-constructed Style; a runtime-swapped style's
   // downsample is validated in flush() (the HS_CHECK below).
