@@ -1003,7 +1003,7 @@ Twenty-one named `ProceduralPalette` instances are pre-defined: `darkRainbow`, `
 
 #### OKLCH Perceptual Color
 
-All palette interpolation and procedural color generation is performed in the OKLCH perceptual color space. The pipeline:
+Procedural color generation and animated palette interpolation (e.g. `GenerativePalette`) are performed in the OKLCH perceptual color space; `Gradient` is the exception, interpolating its stops in linear-light RGB. The pipeline:
 
 ```
 Pixel (sRGB 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, h)
