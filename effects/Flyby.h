@@ -42,20 +42,20 @@ public:
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    registerParam("Warp Scale", &params.warp_scale, 0.1f, 100.0f);
-    registerParam("Warp Strength", &params.warp_strength, 0.0f, 30.0f);
-    registerParam("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
-    registerParam("Speed", &params.speed, 0.0f, 2.0f);
-    registerParam("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
-    registerParam("Drift", &drift, 0.0f, 2.0f);
-    registerParam("Hue Shift", &params.hue_shift, 0.0f, 1.0f);
+    register_param("Warp Scale", &params.warp_scale, 0.1f, 100.0f);
+    register_param("Warp Strength", &params.warp_strength, 0.0f, 30.0f);
+    register_param("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
+    register_param("Speed", &params.speed, 0.0f, 2.0f);
+    register_param("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
+    register_param("Drift", &drift, 0.0f, 2.0f);
+    register_param("Hue Shift", &params.hue_shift, 0.0f, 1.0f);
     // Flag every preset-driven param so "Pause Animation" lets the user take a
     // slider over. Drift is a standalone live control, not preset-driven, so it
     // is omitted and edits apply during normal playback.
     for (const char *n :
          {"Warp Scale", "Warp Strength", "Pattern Freq", "Speed", "Pole Fade",
           "Hue Shift"})
-      markAnimated(n);
+      mark_animated(n);
 
     orientation.set(make_rotation(Vector(0, 0, -1), Vector(0, -1, 0)));
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 300,

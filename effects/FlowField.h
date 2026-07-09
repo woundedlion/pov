@@ -43,11 +43,11 @@ public:
    *          full and advances particles along the noise force field each step.
    */
   void init() override {
-    registerParam("Scale", &params.noise_scale, 0.1f, 10.0f);
-    registerParam("Force", &params.force_scale, 0.001f, 0.05f);
-    registerParam("Max Spd", &params.max_speed, 0.01f, 0.1f);
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Time Spd", &params.time_scale, 0.001f, 0.05f);
+    register_param("Scale", &params.noise_scale, 0.1f, 10.0f);
+    register_param("Force", &params.force_scale, 0.001f, 0.05f);
+    register_param("Max Spd", &params.max_speed, 0.01f, 0.1f);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Time Spd", &params.time_scale, 0.001f, 0.05f);
 
     baked_palette.bake(persistent_arena, palette);
 

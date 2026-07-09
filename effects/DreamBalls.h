@@ -58,21 +58,21 @@ public:
     setup_presets();
 
     // Bind before any preset bakes through it.
-    bloodStreamComposition.bind(&bloodStreamPalette, &bloodStreamFade);
+    blood_stream_composition.bind(&blood_stream_palette, &blood_stream_fade);
 
     params = preset_manager.get();
     baked_palettes_[0].bake(persistent_arena, *params.palette);
     baked_palettes_[1].bake(persistent_arena, *params.palette);
 
-    registerParam("Copies", &params.num_copies, 1.0f, 20.0f);
-    registerParam("Radius", &params.offset_radius, 0.0f, 1.0f);
-    registerParam("Speed", &params.offset_speed, 0.0f, 5.0f);
-    registerParam("Warp", &params.warp_scale, 0.0f, 5.0f);
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Copies", &params.num_copies, 1.0f, 20.0f);
+    register_param("Radius", &params.offset_radius, 0.0f, 1.0f);
+    register_param("Speed", &params.offset_speed, 0.0f, 5.0f);
+    register_param("Warp", &params.warp_scale, 0.0f, 5.0f);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     // Flag the preset-reseeded params so "Pause Animation" lets the user take
     // over.
     for (const char *n : {"Copies", "Radius", "Speed", "Warp", "Alpha"})
-      markAnimated(n);
+      mark_animated(n);
 
     timeline.add(0, Animation::PeriodicTimer(
                         160, [this](Canvas &) { this->spin_slices(); }, true));
@@ -171,8 +171,8 @@ private:
    */
   Params param_slots_[2];
 
-  ProceduralPalette bloodStreamPalette = Palettes::bloodStream;
-  AlphaFalloffShade bloodStreamFade{[](float t) { return 1.0f - t; }};
+  ProceduralPalette blood_stream_palette = Palettes::BLOOD_STREAM;
+  AlphaFalloffShade blood_stream_fade{[](float t) { return 1.0f - t; }};
   /**
    * @brief Composition of the bloodStream palette under the alpha falloff
    *        shade.
@@ -183,19 +183,19 @@ private:
    */
   StaticPalette<ProceduralPalette, Coords<>, Colors<AlphaFalloffShade>,
                 /*Wrap=*/false>
-      bloodStreamComposition;
-  PaletteFacade<decltype(bloodStreamComposition)> bloodStreamFalloff{
-      &bloodStreamComposition};
+      blood_stream_composition;
+  PaletteFacade<decltype(blood_stream_composition)> blood_stream_falloff{
+      &blood_stream_composition};
 
   Presets<Params, 4> preset_manager{std::array<PresetEntry<Params>, 4>{{
       {{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
-        &bloodStreamFalloff, 0.7f}},
+        &blood_stream_falloff, 0.7f}},
       {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
-        &bloodStreamFalloff, 0.7f}},
+        &blood_stream_falloff, 0.7f}},
       {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
-        &Palettes::richSunset, 0.3f}},
+        &Palettes::RICH_SUNSET, 0.3f}},
       {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
-        &Palettes::lavenderLake, 0.3f}}}}};
+        &Palettes::LAVENDER_LAKE, 0.3f}}}}};
 
   /**
    * @brief Generates each preset's solid and bakes its geometry into the
@@ -315,7 +315,7 @@ private:
                    // advance to the next one. Pass the wrapped index so the
                    // re-passed value stays bounded instead of incrementing an int
                    // without limit.
-                   this->spawn_sprite(animationsPaused() ? safe_idx
+                   this->spawn_sprite(animations_paused() ? safe_idx
                                                          : safe_idx + 1);
                  },
                  false));
@@ -351,10 +351,10 @@ private:
       float phase = i * VERTEX_PHASE_STAGGER;
       float angle = orbit_phase * 2 * PI_F + phase + angle_offset;
 
-      float cosA = fast_cosf(angle);
-      float sinA = fast_sinf(angle);
+      float cos_a = fast_cosf(angle);
+      float sin_a = fast_sinf(angle);
 
-      Vector disp = v + (tan.u * cosA + tan.v * sinA) * r;
+      Vector disp = v + (tan.u * cos_a + tan.v * sin_a) * r;
       target.vertices[i] = disp.normalized();
     }
   }

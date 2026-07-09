@@ -3,7 +3,7 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
  * Unit tests for core/render/canvas.h — the Effect double-buffer state machine, the
- * parameter system (registerParam / updateParameter / ParamList), the clip
+ * parameter system (register_param / updateParameter / ParamList), the clip
  * setters, and the Canvas scoped drawing context.
  *
  * Frame protocol note: a Canvas spins in its ctor while !buffer_free(), so every
@@ -25,7 +25,7 @@ namespace canvas_tests {
 
 /**
  * @brief Minimal concrete Effect for exercising the base-class machinery.
- * @details Exposes the protected hooks (registerParam / persist_pixels) needed
+ * @details Exposes the protected hooks (register_param / persist_pixels) needed
  * by the tests.
  */
 struct TestEffect : public Effect {
@@ -56,7 +56,7 @@ struct TestEffect : public Effect {
    * @param mx Maximum allowed value.
    */
   void add_float(const char *n, float *p, float mn, float mx) {
-    registerParam(n, p, mn, mx);
+    register_param(n, p, mn, mx);
   }
   /**
    * @brief Registers a bool parameter, seeding its default first.
@@ -65,8 +65,8 @@ struct TestEffect : public Effect {
    * @param d Default value written into *p before registration.
    */
   void add_bool(const char *n, bool *p, bool d) {
-    *p = d; // registerParam(bool) captures *ptr as the default; set it first
-    registerParam(n, p);
+    *p = d; // register_param(bool) captures *ptr as the default; set it first
+    register_param(n, p);
   }
   /**
    * @brief Marks a registered parameter as readonly (engine-written).
@@ -400,7 +400,7 @@ inline void test_canvas_2d_and_1d_access_and_prev() {
 // ============================================================================
 
 /**
- * @brief Verifies registerParam captures each param's current pointee as its
+ * @brief Verifies register_param captures each param's current pointee as its
  * default and exposes type, value, and min/max through getParameters().
  * @details Also checks that find() of an unregistered name returns null.
  */
@@ -423,7 +423,7 @@ inline void test_register_float_and_bool_params() {
   HS_EXPECT_TRUE(fl != nullptr);
   HS_EXPECT_TRUE(fl->is_bool());
   HS_EXPECT_NEAR(fl->get(), 1.0f, 1e-6f); // captured *ptr (true) → reads as 1.0
-  HS_EXPECT_TRUE(fx.flag);                // registerParam(bool) leaves *ptr as-is
+  HS_EXPECT_TRUE(fx.flag);                // register_param(bool) leaves *ptr as-is
 
   HS_EXPECT_TRUE(params.find("Missing") == nullptr);
 }
@@ -482,7 +482,7 @@ inline void test_update_parameter_rejects_readonly() {
 inline void test_paramlist_fills_to_capacity() {
   TestEffect fx(4, 4);
   static float vals[32];
-  // Unique names "pNN": registerParam traps on duplicates, and ParamDef stores
+  // Unique names "pNN": register_param traps on duplicates, and ParamDef stores
   // the char* by pointer, so the names need static storage.
   static char names[32][4];
   for (int i = 0; i < 32; ++i) {

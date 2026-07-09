@@ -462,7 +462,7 @@ public:
    * @brief Reports whether parameter-driving animations are paused.
    * @return True if those animations are currently frozen.
    */
-  bool animationsPaused() const { return anims_paused_; }
+  bool animations_paused() const { return anims_paused_; }
 
 protected:
   /**
@@ -486,14 +486,14 @@ protected:
   /**
    * @brief Flag a registered param as animation-driven.
    * @details The GUI renders flagged params as auto-pausing sliders (touching
-   * one engages "Pause Animation"). Call after the matching registerParam.
+   * one engages "Pause Animation"). Call after the matching register_param.
    */
-  void markAnimated(const char *name) {
+  void mark_animated(const char *name) {
     auto *def = parameters.find(name);
     // A misspelled name silently no-ops, leaving the param un-flagged and the
     // "Pause Animation" gate broken with no diagnostic. Trap instead — this is
     // cold setup code, the fail-fast doctrine's intended home.
-    HS_CHECK(def, "markAnimated: unknown parameter name");
+    HS_CHECK(def, "mark_animated: unknown parameter name");
     def->animated = true;
   }
 
@@ -515,26 +515,26 @@ protected:
    * @param min Minimum value.
    * @param max Maximum value.
    */
-  void registerParam(const char *name, float *ptr, float min = 0.0f,
+  void register_param(const char *name, float *ptr, float min = 0.0f,
                      float max = 1.0f) {
     // Overflowing the fixed ParamList is an effect-authoring bug (too many
     // params); silently dropping the registration hides it and desyncs the GUI.
     // Trap instead. (Also upholds the WASM no-realloc memory-view invariant.)
     HS_CHECK(parameters.count < parameters.elements.size(),
-             "registerParam: exceeded ParamList capacity");
+             "register_param: exceeded ParamList capacity");
     // A duplicate name is an authoring bug: find() returns the FIRST match, so a
     // second registration silently shadows (its slot is unreachable by name and
     // any UI/animation write lands on the first). Trap at this cold init seam.
     HS_CHECK(parameters.find(name) == nullptr,
-             "registerParam: duplicate parameter name");
+             "register_param: duplicate parameter name");
     // An inverted range feeds hs::clamp(value, min, max) with lo > hi
     // (implementation-defined), pinning the slider to garbage. Trap the
     // authoring bug at this cold init seam, like the capacity/duplicate guards.
-    HS_CHECK(min <= max, "registerParam: min must be <= max");
+    HS_CHECK(min <= max, "register_param: min must be <= max");
     // Trap a default *ptr outside [min,max]: registration captures it verbatim but
     // every later updateParameter clamps, so it would snap on the first GUI edit.
     HS_CHECK(*ptr >= min && *ptr <= max,
-             "registerParam: default *ptr outside [min,max]");
+             "register_param: default *ptr outside [min,max]");
     parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
   }
 
@@ -545,39 +545,39 @@ protected:
    *   default. Registration never mutates the target — symmetric with the float
    *   overload, which likewise captures `*ptr` and leaves it untouched.
    */
-  void registerParam(const char *name, bool *ptr) {
+  void register_param(const char *name, bool *ptr) {
     HS_CHECK(parameters.count < parameters.elements.size(),
-             "registerParam: exceeded ParamList capacity");
+             "register_param: exceeded ParamList capacity");
     // Duplicate name guard, see the float overload.
     HS_CHECK(parameters.find(name) == nullptr,
-             "registerParam: duplicate parameter name");
+             "register_param: duplicate parameter name");
     parameters.elements[parameters.count++] = {name, ptr, 0.0f, 1.0f,
                                                (float)*ptr};
   }
 
   /**
    * @brief Registers a float param and flags it animation-driven in one call.
-   * @details Convenience for the registerParam + markAnimated pair, so the name
+   * @details Convenience for the register_param + mark_animated pair, so the name
    * literal is written once instead of twice (a typo in the second copy would
    * silently leave the param un-flagged — a dead-slider lint failure rather than
    * a compile error). Flags the just-registered element directly, skipping the
-   * name lookup markAnimated would redo.
+   * name lookup mark_animated would redo.
    */
-  void registerAnimatedParam(const char *name, float *ptr, float min = 0.0f,
+  void register_animated_param(const char *name, float *ptr, float min = 0.0f,
                              float max = 1.0f) {
-    registerParam(name, ptr, min, max);
+    register_param(name, ptr, min, max);
     parameters.elements[parameters.count - 1].animated = true;
   }
 
   /**
    * @brief Registers a float param and flags it engine-written telemetry in one
    * call.
-   * @details Convenience for the registerParam + markReadonly pair; see
-   * registerAnimatedParam for the single-source-the-literal rationale.
+   * @details Convenience for the register_param + markReadonly pair; see
+   * register_animated_param for the single-source-the-literal rationale.
    */
-  void registerReadonlyParam(const char *name, float *ptr, float min = 0.0f,
+  void register_readonly_param(const char *name, float *ptr, float min = 0.0f,
                              float max = 1.0f) {
-    registerParam(name, ptr, min, max);
+    register_param(name, ptr, min, max);
     parameters.elements[parameters.count - 1].readonly = true;
   }
 

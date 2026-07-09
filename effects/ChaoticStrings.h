@@ -31,11 +31,11 @@ public:
   struct Params {
     float alpha = 1.0f;          /**< Overall trail opacity in [0, 1]. */
     float cycle_duration = 80.0f; /**< Motion cycle duration in frames. */
-    float jitterAmp = 1.7f;      /**< Noise displacement amplitude. */
+    float jitter_amp = 1.7f;      /**< Noise displacement amplitude. */
     float speed = 0.04f;         /**< Noise field evolution speed. */
-    float noiseFreq = 0.32f;     /**< Noise spatial frequency. */
-    float scaleFactor = 200.0f;  /**< Palette coordinate scale factor. */
-    float cycleSpeed = 0.1f;     /**< Palette cycle phase advance per step. */
+    float noise_freq = 0.32f;     /**< Noise spatial frequency. */
+    float scale_factor = 200.0f;  /**< Palette coordinate scale factor. */
+    float cycle_speed = 0.1f;     /**< Palette cycle phase advance per step. */
   } params;
 
   /**
@@ -87,18 +87,18 @@ public:
     new (node) Node();
 
     static_palette.bind(&palette_variant, &scale_mod, &cycle_mod);
-    palette_variant = Palettes::fireAndIce;
+    palette_variant = Palettes::FIRE_AND_ICE;
 
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
-    registerParam("Speed", &params.speed, 0.0f, 5.0f);
-    registerParam("Jitter Amp", &params.jitterAmp, 0.0f, 10.0f);
-    registerParam("Noise Freq", &params.noiseFreq, 0.01f, 10.0f);
-    registerParam("Scale Factor", &params.scaleFactor, 1.0f, 500.0f);
-    registerParam("Cycle Speed", &params.cycleSpeed, 0.0f, 1.0f);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
+    register_param("Speed", &params.speed, 0.0f, 5.0f);
+    register_param("Jitter Amp", &params.jitter_amp, 0.0f, 10.0f);
+    register_param("Noise Freq", &params.noise_freq, 0.01f, 10.0f);
+    register_param("Scale Factor", &params.scale_factor, 1.0f, 500.0f);
+    register_param("Cycle Speed", &params.cycle_speed, 0.0f, 1.0f);
 
-    noise_xform.template_params.amplitude = params.jitterAmp;
-    noise_xform.template_params.frequency = params.noiseFreq;
+    noise_xform.template_params.amplitude = params.jitter_amp;
+    noise_xform.template_params.frequency = params.noise_freq;
     noise_xform.template_params.speed = params.speed;
     noise_xform.template_params.sync();
 
@@ -111,7 +111,7 @@ public:
         0, Animation::Motion<W, ORIENTATION_SUBSTEPS>(
                node->orientation, path, (int)params.cycle_duration, true));
 
-    timeline.add(0, Animation::Driver(cycle_phase, &params.cycleSpeed, 1.0f));
+    timeline.add(0, Animation::Driver(cycle_phase, &params.cycle_speed, 1.0f));
 
     last_cycle_duration_ = params.cycle_duration;
   }
@@ -131,8 +131,8 @@ public:
 
     // Push live slider values onto the noise template; prepare_frame() copies
     // them into each active entity (refresh_from) and re-syncs the generator.
-    noise_xform.template_params.frequency = params.noiseFreq;
-    noise_xform.template_params.amplitude = params.jitterAmp;
+    noise_xform.template_params.frequency = params.noise_freq;
+    noise_xform.template_params.amplitude = params.jitter_amp;
     noise_xform.template_params.speed = params.speed;
     noise_xform.prepare_frame();
 
@@ -178,7 +178,7 @@ private:
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters; /**< Anti-aliasing render pipeline. */
   ProceduralPath path;    /**< Lissajous path the node follows. */
   Orientation<> orientation; /**< Random-walk orientation reference frame. */
-  ScaleModifier scale_mod{200.0f, &params.scaleFactor}; /**< Palette scale coordinate modifier. */
+  ScaleModifier scale_mod{200.0f, &params.scale_factor}; /**< Palette scale coordinate modifier. */
   CycleModifier cycle_mod{&cycle_phase}; /**< Palette cycle coordinate modifier. */
   ProceduralPalette palette_variant; /**< Active palette variant. */
   StaticPalette<ProceduralPalette, Coords<ScaleModifier, CycleModifier>>

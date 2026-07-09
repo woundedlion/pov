@@ -183,11 +183,11 @@ inline void smoke_one(const char *name) {
  * @param effect Effect instance whose editable params are probed.
  * @param name Effect name used in DEAD SLIDER diagnostic output.
  * @details Contract: a registered, editable param — one NOT flagged
- * markAnimated() and NOT flagged markReadonly() — must be genuinely
+ * mark_animated() and NOT flagged markReadonly() — must be genuinely
  * user-controllable, i.e. a value written through updateParameter() must persist
  * across frames. If the engine overwrites it every frame (a Mutation/Driver/Lerp
  * bound to the same member, or output-only telemetry), the slider is dead: the
- * author must drive a private member and markAnimated() it, or markReadonly()
+ * author must drive a private member and mark_animated() it, or markReadonly()
  * pure telemetry. This is the build-time gate for the theme-4 dead-slider class
  * (it catches the per-frame overwrite mechanism behind
  * MobiusGrid/ShapeShifter/the preset-lerp group; a value that merely has no
@@ -219,7 +219,7 @@ inline void lint_dead_sliders(Effect &effect, const char *name) {
         fabsf(now - target) <= eps && fabsf(now - target) < fabsf(now - cur);
     if (!persisted)
       std::printf("  DEAD SLIDER %s::%s — wrote %.4f, engine reverted to %.4f "
-                  "(markAnimated / markReadonly / drive a private member)\n",
+                  "(mark_animated / markReadonly / drive a private member)\n",
                   name, def.name, static_cast<double>(target),
                   static_cast<double>(now));
     HS_EXPECT(persisted, "editable param must persist across frames");
@@ -393,8 +393,8 @@ struct GSWhiteBox {
                          float dt) {
     gs.params.feed = feed;
     gs.params.k = k;
-    gs.params.dA = dA;
-    gs.params.dB = dB;
+    gs.params.d_a = dA;
+    gs.params.d_b = dB;
     gs.params.dt = dt;
   }
   static void step(GS &gs, const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
@@ -857,7 +857,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
  * @brief End-to-end check that the 288-frame re-spawn timer actually fires and
  *        honors the pause gate, by rendering past one period.
  * @details Covers the part the white-box driver cannot: the PeriodicTimer wiring
- *          and the animationsPaused()?idx:idx+1 hold-vs-advance decision in the
+ *          and the animations_paused()?idx:idx+1 hold-vs-advance decision in the
  *          scheduler lambda. Renders 300 frames (one period is 288; the next
  *          re-spawn is another 288 away, so exactly one fires). Unpaused, the
  *          preset advances 0 -> 1; paused, it re-spawns the same preset and holds.

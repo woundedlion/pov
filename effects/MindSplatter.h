@@ -61,11 +61,11 @@ public:
                   "MindSplatter particle pool + palette/aux overflow the device "
                   "persistent arena");
 
-    registerAnimatedParam("Friction", &params.friction, 0.5f, 1.0f);
-    registerAnimatedParam("Well Str", &params.well_strength, 0.0f, 20.0f);
-    registerAnimatedParam("Init Spd", &params.initial_speed, 0.0f, 0.1f);
-    registerAnimatedParam("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
-    registerReadonlyParam("Particles", &params.active_count, 0.0f,
+    register_animated_param("Friction", &params.friction, 0.5f, 1.0f);
+    register_animated_param("Well Str", &params.well_strength, 0.0f, 20.0f);
+    register_animated_param("Init Spd", &params.initial_speed, 0.0f, 0.1f);
+    register_animated_param("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
+    register_readonly_param("Particles", &params.active_count, 0.0f,
                           (float)NUM_PARTICLES);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise));
@@ -73,7 +73,7 @@ public:
     auto preset_timer = Animation::PeriodicTimer(
         160,
         [this](Canvas &) {
-          if (animationsPaused())
+          if (animations_paused())
             return;
           presets.next();
           timeline.add(0, Animation::Lerp(params, presets.prev_get(),
@@ -259,7 +259,7 @@ private:
     // apply the Mobius warp and orientation to the fragment position.
     auto vertex_shader = [&](Fragment &f) {
       Vector original_pos = f.pos;
-      float holeAlpha = 1.0f;
+      float hole_alpha = 1.0f;
       for (size_t ai = 0; ai < particle_system.attractors.size(); ++ai) {
         const auto &attr = particle_system.attractors[ai];
         float cos_d = dot(original_pos, attr.position);
@@ -267,12 +267,12 @@ private:
           continue;
         float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
         float t = d / attr.event_horizon;
-        holeAlpha *= quintic_kernel(t);
+        hole_alpha *= quintic_kernel(t);
       }
 
       f.pos = mobius_transform(f.pos, mobius);
       f.pos = orientation.orient(f.pos);
-      f.v3 *= holeAlpha;
+      f.v3 *= hole_alpha;
     };
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {

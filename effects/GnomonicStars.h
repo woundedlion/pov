@@ -50,18 +50,18 @@ public:
     spiral_cache_ = static_cast<Vector *>(persistent_arena.allocate(
         MAX_POINTS * sizeof(Vector), alignof(Vector)));
 
-    registerParam("Points", &params.points, 100.0f, 2000.0f);
-    registerParam("Radius", &params.star_radius, 0.01f, 0.1f);
-    registerParam("Sides", &params.star_sides, 3.0f, 8.0f);
-    registerParam("Debug BB", &params.debug_bb);
+    register_param("Points", &params.points, 100.0f, 2000.0f);
+    register_param("Radius", &params.star_radius, 0.01f, 0.1f);
+    register_param("Sides", &params.star_sides, 3.0f, 8.0f);
+    register_param("Debug BB", &params.debug_bb);
 
     // Args are (scale, speed): fixed 0.5 magnitude; speed is a don't-care here
     // since draw_frame mirrors params.warp_speed into the warp every frame.
     warp_ = transformer.spawn_pinned(0, 0.5f, 0.0f);
     HS_CHECK(warp_, "GnomonicStars: pinned warp spawn must succeed");
-    registerParam("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
+    register_param("Warp Speed", &params.warp_speed, 0.0f, 1.0f);
 
-    baked_palette.bake(persistent_arena, Palettes::mangoPeel);
+    baked_palette.bake(persistent_arena, Palettes::MANGO_PEEL);
 
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, Y_AXIS, noise,

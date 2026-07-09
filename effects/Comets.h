@@ -72,10 +72,10 @@ public:
 
     baked_palette.bake(persistent_arena, palette);
 
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Thickness", &params.thickness, 0.0f, 0.5f);
-    registerParam("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
-    registerParam("Debug BB", &params.debug_bb);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Thickness", &params.thickness, 0.0f, 0.5f);
+    register_param("Cycle Dur", &params.cycle_duration, 10.0f, 200.0f);
+    register_param("Debug BB", &params.debug_bb);
 
     // Runs before motion_ exists, so its reanchor() is a no-op here; the path it
     // sets is still live because Motion below captures `path` by reference.

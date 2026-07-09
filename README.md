@@ -1472,7 +1472,7 @@ public:
     MyEffect() : Effect(W, H, {.strobe = true}), filters(...) {}
 
     void init() override {
-        registerParam("Speed", &speed, 0.0f, 10.0f);
+        register_param("Speed", &speed, 0.0f, 10.0f);
     }
 
     void draw_frame() override {
@@ -1497,11 +1497,11 @@ Effects register themselves into a global registry using the `REGISTER_EFFECT(Cl
 
 ### Parameter Registration
 
-Effects expose live-adjustable parameters via `registerParam()`. These are reflected into the WASM bridge and auto-generate GUI controls in the simulator:
+Effects expose live-adjustable parameters via `register_param()`. These are reflected into the WASM bridge and auto-generate GUI controls in the simulator:
 
 ```cpp
-registerParam("Twist",   &params.twist, -5.0f, 5.0f);   // float slider (min, max)
-registerParam("Enabled", &params.enabled);              // boolean toggle (bool* overload takes no range)
+register_param("Twist",   &params.twist, -5.0f, 5.0f);   // float slider (min, max)
+register_param("Enabled", &params.enabled);              // boolean toggle (bool* overload takes no range)
 ```
 
 The parameter list (`ParamList` — a fixed `std::array<ParamDef, 32>`) is accessible via `getParameters()`, and `updateParameter(name, float)` sets values at runtime. Parameters support both `float*` and `bool*` targets via `std::variant`, with automatic bool threshold at 0.5. The animation system can also write to these parameters, allowing effects to animate their own exposed controls.
@@ -1964,7 +1964,7 @@ The left-edge effect list is a small custom widget:
 
 ### 10.6 GUI Auto-Generation
 
-The effect parameter panel is entirely driven by what C++ registers via `registerParam()`. When an effect is loaded, the simulator calls `getParameterDefinitions()` and builds `lil-gui` controls:
+The effect parameter panel is entirely driven by what C++ registers via `register_param()`. When an effect is loaded, the simulator calls `getParameterDefinitions()` and builds `lil-gui` controls:
 
 ```js
 params.forEach(p => {

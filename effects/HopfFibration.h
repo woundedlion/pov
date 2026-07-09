@@ -36,13 +36,13 @@ public:
    * wires the ambient spin plus the phase-driver animations onto the timeline.
    */
   void init() override {
-    registerParam("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
-    registerParam("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
-    registerParam("Folding", &params.folding, 0.0f, 2.0f);
-    registerParam("Twist", &params.twist, -5.0f, 5.0f);
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Flow Spd", &params.flow_speed, 0.0f, 20.0f);
+    register_param("Tumble Spd", &params.tumble_speed, 0.0f, 10.0f);
+    register_param("Folding", &params.folding, 0.0f, 2.0f);
+    register_param("Twist", &params.twist, -5.0f, 5.0f);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
-    baked_sunset.bake(persistent_arena, Palettes::richSunset);
+    baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
 
     // Whole footprint lives in the persistent arena with no per-frame scratch, so
     // keep the default split (no configure_arenas()); FOOTPRINT_BYTES asserts it

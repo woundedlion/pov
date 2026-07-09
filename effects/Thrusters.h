@@ -45,8 +45,8 @@ public:
    *          thrusters every 16-48 frames.
    */
   void init() override {
-    registerParam("Radius", &params.radius, 0.1f, 2.0f);
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Radius", &params.radius, 0.1f, 2.0f);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     ring_vec.normalize();
 
@@ -298,7 +298,7 @@ private:
   Orientation<> orientation;        /**< Global orientation, spun by each fire. */
 
   /**
-   * @brief User-tunable parameters exposed via registerParam.
+   * @brief User-tunable parameters exposed via register_param.
    */
   struct Params {
     float radius = 1.0f; /**< Ring radius in unit-sphere units. */

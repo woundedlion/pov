@@ -72,9 +72,9 @@ public:
   void init() override {
     rings = persistent_arena.allocate_n<Ring>(NUM_RINGS);
 
-    registerParam("Alpha", &params.alpha, 0.0f, 1.0f);
-    registerParam("Thickness", &params.thickness, 0.01f, 10.0f);
-    registerParam("Show Bounding", &params.show_bounding_box);
+    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
+    register_param("Thickness", &params.thickness, 0.01f, 10.0f);
+    register_param("Show Bounding", &params.show_bounding_box);
 
     // Inset the source into the middle band, then fade alpha at the edges.
     // Wrap=false so the top edge resolves to the source's last stop
@@ -82,8 +82,8 @@ public:
     InsetModifier inset;
     EdgeAlphaShade edge_fade;
     const ProceduralPalette sources[NUM_PALETTES] = {
-        Palettes::iceMelt, Palettes::undersea, Palettes::mangoPeel,
-        Palettes::richSunset};
+        Palettes::ICE_MELT, Palettes::UNDERSEA, Palettes::MANGO_PEEL,
+        Palettes::RICH_SUNSET};
     for (int i = 0; i < NUM_PALETTES; ++i) {
       StaticPalette<ProceduralPalette, Coords<InsetModifier>,
                     Colors<EdgeAlphaShade>, /*Wrap=*/false>

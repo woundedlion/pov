@@ -61,7 +61,7 @@ class BZReactionDiffusion
   using Base::orientation;
   using Base::RD_N;
   using Base::refine_nearest_node;
-  using Base::registerParam;
+  using Base::register_param;
   using Base::seed_face_lut;
 
 public:
@@ -94,12 +94,12 @@ public:
     // reaction term is bounded only by to_q8's [0,1] clamp, not the diffusion
     // stability bound below, so a high Compete intentionally saturates (hard
     // banding) rather than diverging.
-    registerParam("Compete", &params.alpha, 0.0f, 4.0f);
+    register_param("Compete", &params.alpha, 0.0f, 4.0f);
     // Explicit Euler is stable only while dt·D·λmax ≤ 2. The graph Laplacian on a
     // degree-RD_K lattice has |λ|max ≤ 2·RD_K (= 12 at RD_K=6), bounding these
     // Diff/Speed tops.
-    registerParam("Diff", &params.D, 0.001f, 0.1f);
-    registerParam("Speed", &params.dt, 0.0f, 1.0f);
+    register_param("Diff", &params.D, 0.001f, 0.1f);
+    register_param("Speed", &params.dt, 0.0f, 1.0f);
 
     allocate_state();
     cube_lut.build(persistent_arena);
@@ -223,9 +223,9 @@ private:
 
   /**
    * @brief Applies stochastic perturbations to prevent convergence.
-   * @param nA Species A buffer to nudge (Q8, modified in place).
-   * @param nB Species B buffer to nudge (Q8, modified in place).
-   * @param nC Species C buffer to nudge (Q8, modified in place).
+   * @param n_a Species A buffer to nudge (Q8, modified in place).
+   * @param n_b Species B buffer to nudge (Q8, modified in place).
+   * @param n_c Species C buffer to nudge (Q8, modified in place).
    * @details Nudges NUM_PERTURBATIONS random nodes by PERTURB_AMOUNT (Q8),
    *          saturating at 255, to keep the dynamics from settling on the
    *          closed manifold.
@@ -235,11 +235,11 @@ private:
    *       effect's stream position to the substep count: retuning the draw count
    *       is a global-determinism change.
    */
-  static void perturb_state(uint8_t *nA, uint8_t *nB, uint8_t *nC) {
+  static void perturb_state(uint8_t *n_a, uint8_t *n_b, uint8_t *n_c) {
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
       int idx = hs::rand_int(0, RD_N);
       int s = hs::rand_int(0, 3);
-      uint8_t *t = (s == 0) ? nA : (s == 1) ? nB : nC;
+      uint8_t *t = (s == 0) ? n_a : (s == 1) ? n_b : n_c;
       t[idx] = static_cast<uint8_t>(
           std::min(static_cast<int>(t[idx]) + PERTURB_AMOUNT, 255));
     }
@@ -247,49 +247,49 @@ private:
 
   /**
    * @brief Runs one full physics step: reaction-diffusion plus perturbation.
-   * @param cA Current species A buffer (Q8, read-only).
-   * @param cB Current species B buffer (Q8, read-only).
-   * @param cC Current species C buffer (Q8, read-only).
-   * @param nA Next species A buffer (Q8, written).
-   * @param nB Next species B buffer (Q8, written).
-   * @param nC Next species C buffer (Q8, written).
-   * @param fA Float scratch (RD_N) for the current A generation.
-   * @param fB Float scratch (RD_N) for the current B generation.
-   * @param fC Float scratch (RD_N) for the current C generation.
+   * @param c_a Current species A buffer (Q8, read-only).
+   * @param c_b Current species B buffer (Q8, read-only).
+   * @param c_c Current species C buffer (Q8, read-only).
+   * @param n_a Next species A buffer (Q8, written).
+   * @param n_b Next species B buffer (Q8, written).
+   * @param n_c Next species C buffer (Q8, written).
+   * @param f_a Float scratch (RD_N) for the current A generation.
+   * @param f_b Float scratch (RD_N) for the current B generation.
+   * @param f_c Float scratch (RD_N) for the current C generation.
    * @details Pure double-buffered (Jacobi): reads the current buffers, writes
    *          the next ones. The caller owns the ping-pong so the result can be
    *          landed back in the persistent state regardless of substep parity
    *          (see render()). The current generation is pre-converted into
-   *          fA/fB/fC once, so the neighbor loop reads floats instead of
+   *          f_a/f_b/f_c once, so the neighbor loop reads floats instead of
    *          reconverting each node's Q8 value on every neighbor visit (~6-7x
    *          per node).
    */
-  void step_physics(const uint8_t *cA, const uint8_t *cB, const uint8_t *cC,
-                    uint8_t *nA, uint8_t *nB, uint8_t *nC, float *fA, float *fB,
-                    float *fC) {
+  void step_physics(const uint8_t *c_a, const uint8_t *c_b, const uint8_t *c_c,
+                    uint8_t *n_a, uint8_t *n_b, uint8_t *n_c, float *f_a, float *f_b,
+                    float *f_c) {
     for (int i = 0; i < RD_N; i++) {
-      fA[i] = from_q8(cA[i]);
-      fB[i] = from_q8(cB[i]);
-      fC[i] = from_q8(cC[i]);
+      f_a[i] = from_q8(c_a[i]);
+      f_b[i] = from_q8(c_b[i]);
+      f_c[i] = from_q8(c_c[i]);
     }
     for (int i = 0; i < RD_N; i++) {
-      float a = fA[i];
-      float b = fB[i];
-      float c = fC[i];
+      float a = f_a[i];
+      float b = f_b[i];
+      float c = f_c[i];
 
-      float lA = 0, lB = 0, lC = 0;
+      float l_a = 0, l_b = 0, l_c = 0;
       for_each_neighbor(i, [&](int ni) {
-        lA += fA[ni] - a;
-        lB += fB[ni] - b;
-        lC += fC[ni] - c;
+        l_a += f_a[ni] - a;
+        l_b += f_b[ni] - b;
+        l_c += f_c[ni] - c;
       });
 
-      nA[i] = advance_species(a, c, lA);
-      nB[i] = advance_species(b, a, lB);
-      nC[i] = advance_species(c, b, lC);
+      n_a[i] = advance_species(a, c, l_a);
+      n_b[i] = advance_species(b, a, l_b);
+      n_c[i] = advance_species(c, b, l_c);
     }
 
-    perturb_state(nA, nB, nC);
+    perturb_state(n_a, n_b, n_c);
   }
 
   // ---------------------------------------------------------------------------
@@ -374,22 +374,22 @@ private:
   void render(Canvas &canvas) {
     ScratchScope frame_guard(scratch_arena_a);
 
-    uint8_t *sA = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
-    uint8_t *sB = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
-    uint8_t *sC = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
-    float *fA = static_cast<float *>(
+    uint8_t *s_a = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
+    uint8_t *s_b = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
+    uint8_t *s_c = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
+    float *f_a = static_cast<float *>(
         scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-    float *fB = static_cast<float *>(
+    float *f_b = static_cast<float *>(
         scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-    float *fC = static_cast<float *>(
+    float *f_c = static_cast<float *>(
         scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
 
     advance_substeps(STEPS_PER_FRAME,
                      std::array<uint8_t *, 3>{state.A, state.B, state.C},
-                     std::array<uint8_t *, 3>{sA, sB, sC},
+                     std::array<uint8_t *, 3>{s_a, s_b, s_c},
                      [&](auto &cur, auto &nxt) {
                        step_physics(cur[0], cur[1], cur[2],
-                                    nxt[0], nxt[1], nxt[2], fA, fB, fC);
+                                    nxt[0], nxt[1], nxt[2], f_a, f_b, f_c);
                      });
 
     const Color4 &ca = color_a;

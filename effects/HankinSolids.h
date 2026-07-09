@@ -37,9 +37,9 @@ public:
     // device H=144 high-water isn't in CI; confirm the peak on hardware.
     configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
                      32 * 1024);
-    registerParam("Intensity", &params.intensity, 0.0f, 5.0f);
-    registerAnimatedParam("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
-    registerParam("Debug BB", &params.debug_bb);
+    register_param("Intensity", &params.intensity, 0.0f, 5.0f);
+    register_animated_param("Angle", &params.hankin_angle, 0.0f, PI_F / 2.0f);
+    register_param("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, Y_AXIS, noise,

@@ -34,7 +34,7 @@ inline float factorial(int n) {
  * @details Uses the standard upward recurrence: seed P_m^m, then P_{m+1}^m,
  * then recur in l.
  */
-inline float associatedLegendre(int l, int m, float x) {
+inline float associated_legendre(int l, int m, float x) {
   float pmm = 1.0f;
   if (m > 0) {
     float somx2 = sqrtf(std::max(0.0f, (1.0f - x) * (1.0f + x)));
@@ -67,9 +67,9 @@ inline float associatedLegendre(int l, int m, float x) {
  * @return Normalization factor N, constant per shape.
  */
 inline float normalization(int l, int m) {
-  int absM = std::abs(m);
+  int abs_m = std::abs(m);
   float N = sqrtf(((2.0f * l + 1.0f) / (4.0f * PI_F)) *
-                  (factorial(l - absM) / factorial(l + absM)));
+                  (factorial(l - abs_m) / factorial(l + abs_m)));
   return (m != 0) ? sqrtf(2.0f) * N : N;
 }
 
@@ -83,10 +83,10 @@ inline float normalization(int l, int m) {
  * @return The harmonic value.
  * @details Takes cos_phi directly to avoid a cosf(acos(x)) roundtrip.
  */
-inline float sphericalHarmonic(int l, int m, float theta, float cos_phi, float N) {
-  int absM = std::abs(m);
-  float P = associatedLegendre(l, absM, cos_phi);
-  return N * P * ((m > 0) ? fast_cosf(m * theta) : (m < 0) ? fast_sinf(absM * theta) : 1.0f);
+inline float spherical_harmonic(int l, int m, float theta, float cos_phi, float N) {
+  int abs_m = std::abs(m);
+  float P = associated_legendre(l, abs_m, cos_phi);
+  return N * P * ((m > 0) ? fast_cosf(m * theta) : (m < 0) ? fast_sinf(abs_m * theta) : 1.0f);
 }
 
 /**
@@ -198,20 +198,20 @@ public:
         theta += 2 * PI_F;
       // local.y is cos(phi) in the LOCAL frame: the shape spins about an
       // arbitrary axis, so cos_phi varies across a screen row even though the
-      // WORLD latitude is row-constant. Hoisting the associatedLegendre(cos_phi)
+      // WORLD latitude is row-constant. Hoisting the associated_legendre(cos_phi)
       // term to a per-row precompute is therefore invalid.
       float cos_phi = hs::clamp(local.y, -1.0f, 1.0f);
 
-      // Per-pixel cost: associatedLegendre runs once here, and again for the
+      // Per-pixel cost: associated_legendre runs once here, and again for the
       // blend target, with no horizontal-interval narrowing
       // (get_horizontal_intervals returns false) and full-height vertical
       // bounds — the heaviest per-pixel evaluation in the harmonic group. Left
       // uncapped because morph indices are drawn from [1, 24] (start_morph), so
       // l = floor(sqrt(idx)) <= 4 keeps the Legendre recurrence short and the
       // cost bounded.
-      float val = SHMath::sphericalHarmonic(l1, m1, theta, cos_phi, N1);
+      float val = SHMath::spherical_harmonic(l1, m1, theta, cos_phi, N1);
       if (blend > 0.001f) {
-        float val2 = SHMath::sphericalHarmonic(l2, m2, theta, cos_phi, N2);
+        float val2 = SHMath::spherical_harmonic(l2, m2, theta, cos_phi, N2);
         val += (val2 - val) * blend;
       }
 
@@ -231,10 +231,10 @@ public:
    * continuous spin, and kicks off the first morph.
    */
   void init() override {
-    registerParam("Amplitude", &params.amplitude, 0.1f, 10.0f);
-    registerParam("Debug BB", &params.debug_bb);
+    register_param("Amplitude", &params.amplitude, 0.1f, 10.0f);
+    register_param("Debug BB", &params.debug_bb);
 
-    baked_palette.bake(persistent_arena, Palettes::richSunset);
+    baked_palette.bake(persistent_arena, Palettes::RICH_SUNSET);
 
     current_idx = SEED_MODE_IDX;
 

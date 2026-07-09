@@ -38,7 +38,7 @@ public:
 
     palette_bank_.bake_all(persistent_arena);
 
-    // Set BEFORE registering: registerParam snaps *ptr as the slider default.
+    // Set BEFORE registering: register_param snaps *ptr as the slider default.
     // Amplitude is held below the self-fold onset: above amplitude/thickness ~0.2
     // the rippled mesh folds over itself, so faces stop tiling the sphere and
     // stack along the view ray, multiplying rasterizer overdraw (self-occlusion).
@@ -46,21 +46,21 @@ public:
     ripple_gen.template_params.thickness = RIPPLE_THICKNESS;
     ripple_gen.template_params.decay = 0.1f;
 
-    registerParam("Fade", &params.fade, 0.0f, 96.0f);
+    register_param("Fade", &params.fade, 0.0f, 96.0f);
     // Per-face fade length range (frames): each face draws a random fade from
     // [lo, hi] as the terminator reaches it, fraying the sweep front.
-    registerParam("Face Fade Lo", &carousel.segue().fade_frames_min, 0.0f, 32.0f);
-    registerParam("Face Fade Hi", &carousel.segue().fade_frames_max, 0.0f, 32.0f);
+    register_param("Face Fade Lo", &carousel.segue().fade_frames_min, 0.0f, 32.0f);
+    register_param("Face Fade Hi", &carousel.segue().fade_frames_max, 0.0f, 32.0f);
     // Burst/Ripp Dur ranges are clamped to the ripple pool capacity invariant
     // (see the RIPPLE* constants below).
-    registerParam("Burst", &params.burst_size, 1.0f, (float)BURST_MAX);
+    register_param("Burst", &params.burst_size, 1.0f, (float)BURST_MAX);
     // Amplitude slider capped at the fold-free ceiling; thickness is fixed (not a
     // slider) so amplitude/thickness can never cross the self-fold onset.
-    registerParam("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f,
+    register_param("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f,
                   RIPPLE_AMP_MAX);
-    registerParam("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
-    registerParam("Ripp Dur", &ripple_duration, 30.0f, (float)RIPPLE_DURATION_MAX);
-    registerParam("Debug BB", &params.debug_bb);
+    register_param("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
+    register_param("Ripp Dur", &ripple_duration, 30.0f, (float)RIPPLE_DURATION_MAX);
+    register_param("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
 
@@ -131,7 +131,7 @@ private:
    * @param phase Segue phase in [0, 1] from the sprite envelope: rises over
    *        the incoming window, holds 1, falls over the outgoing window.
    * @param base_state Undistorted source mesh to transform and draw.
-   * @param faceIndices Maps each face to its topology class.
+   * @param face_indices Maps each face to its topology class.
    * @param palette_idx Assigns a palette per topology class.
    * @note Draws on the exact SDF path, not the congruence-class LUT
    * (mesh_classes.h): ripple and the warping segues deform the mesh most
@@ -140,7 +140,7 @@ private:
    * facility is for effects whose meshes hold still.
    */
   void draw_shape(Canvas &canvas, float phase, const MeshState &base_state,
-                  const ArenaVector<int> &faceIndices,
+                  const ArenaVector<int> &face_indices,
                   const std::array<int, NUM_PALETTES> &palette_idx) {
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
@@ -151,8 +151,8 @@ private:
     MeshOps::transform(base_state, transformed_state, scratch_arena_a,
                        ripple_gen, camera);
 
-    const int *raw_indices = faceIndices.data();
-    const int num_faces = static_cast<int>(faceIndices.size());
+    const int *raw_indices = face_indices.data();
+    const int num_faces = static_cast<int>(face_indices.size());
 
     // Per-face segues order faces by their center, recomputed per frame: from
     // world space by default (the front stays fixed in the room while the
@@ -283,7 +283,7 @@ private:
    */
   struct Params {
     float fade = 72.0f; /**< Segue window length, in frames: a 64-frame (4 s) sweep crossing plus one per-face fade tail. */
-    float burst_size = 4.0f; /**< Ripples per burst; float-backed for registerParam. */
+    float burst_size = 4.0f; /**< Ripples per burst; float-backed for register_param. */
     bool debug_bb = false; /**< Whether to draw mesh bounding boxes. */
   } params;
 };
