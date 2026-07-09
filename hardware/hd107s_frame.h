@@ -51,7 +51,8 @@ static inline void arm_dcache_flush(void *, uint32_t) {}
  *                 granularity may add up to 7 harmless extra zero clocks.
  *
  * Color correction pipeline (all in linear 16-bit space):
- *   1. sRGB 8-bit → linear 16-bit   (srgb_to_linear_lut, PROGMEM)
+ *   1. sRGB 8-bit → linear 16-bit   (srgb_to_linear_lut, PROGMEM) — load() only;
+ *      packPixel() takes already-linear Pixel16 input and enters at step 2.
  *   2. Color correction multiply     (TypicalLEDStrip equivalent)
  *   3. Temperature correction multiply (Candle equivalent)
  *   4. Brightness scaling
