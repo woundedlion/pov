@@ -107,6 +107,7 @@ set(_hs_test_modules
     3dmath concepts memory spatial scb sdf conway hankin geometry mesh solids
     reaction_graph color palettes easing_waves platform filter plot_scan canvas
     scan mesh_raster transformers noise generators animation effects dma_core hd107s
+    dma_controller
     pov_segmented pov_single pov_sync param_marshal wasm_predicates util
     presets styles shading death)
 foreach(_mod IN LISTS _hs_test_modules)

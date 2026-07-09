@@ -45,6 +45,7 @@
 #include "core/mesh/spatial.h"
 #include "core/engine/static_circular_buffer.h"
 #include "core/engine/transformers.h"
+#include "hardware/dma_led_controller.h"
 #include "hardware/hd107s_frame.h"
 
 #if !defined(_WIN32)
@@ -783,6 +784,52 @@ inline void case_hd107s_load_count_over_range() {
 }
 
 /**
+ * @brief A wedged transport: never completes, and traps on the watchdog consult.
+ * @details Stands in for a TeensySPIDMA whose completion ISR never fires. Its
+ *          checkStaleTransfer() plays the role the real driver's watchdog does on
+ *          the overrun-drop path — trapping a permanently in-flight channel.
+ */
+struct WedgedStrip {
+  /**
+   * @brief Matches the transport ctor contract; the clock is unused.
+   */
+  explicit WedgedStrip(uint32_t) {}
+  /**
+   * @brief No-op init.
+   */
+  void init() {}
+  /**
+   * @brief Always reports the channel busy, so every submit hits the overrun path.
+   * @return Always false.
+   */
+  bool isComplete() const { return false; }
+  /**
+   * @brief Traps: a wedged channel surfaced from the overrun-drop path.
+   */
+  void checkStaleTransfer() { HS_CHECK(false, "DMA channel wedged"); }
+  /**
+   * @brief Unreachable here (the overrun path returns before transmitting).
+   */
+  void transmitAsync(const uint8_t *, size_t) {}
+};
+
+/**
+ * @brief Death case: submitFrame() consults the watchdog on overrun, so a wedged
+ *        channel traps rather than dropping frames forever.
+ * @details Controller surface — pins the ordering that the overrun-drop branch
+ *          calls checkStaleTransfer() before bumping the counter and returning
+ *          false. The transfer-stale predicate itself is covered in-process by
+ *          test_dma_core.h; this proves the controller wires the drop path into
+ *          the watchdog so a permanently in-flight transport fails fast.
+ */
+inline void case_dma_controller_wedged_overrun() {
+  static DMALEDController<8, WedgedStrip> ctl;
+  bool ok = ctl.submitFrame(opaque(false)); // busy -> checkStaleTransfer -> trap
+  if (ok)
+    std::printf("x");
+}
+
+/**
  * @brief Death case: calling an empty (default-constructed) Fn must trap.
  * @details Concepts surface — hs::inplace_function routes an empty-state call
  *          through ipf_empty_ops::invoke, which fail-fast traps via check_fail
@@ -863,6 +910,7 @@ inline const Case *all_cases(int &n) {
       {"gradient_stops_unsorted", case_gradient_stops_unsorted},
       {"random_timer_inverted_range", case_random_timer_inverted_range},
       {"hd107s_load_count_over_range", case_hd107s_load_count_over_range},
+      {"dma_controller_wedged_overrun", case_dma_controller_wedged_overrun},
       {"empty_fn_call", case_empty_fn_call},
   };
   n = static_cast<int>(sizeof(cases) / sizeof(cases[0]));
@@ -1124,7 +1172,7 @@ inline int run_death_tests() {
 
   // Floor against a silently dropped case: the roster must not shrink below its
   // known size. Bump when adding cases.
-  constexpr int MIN_DEATH_CASES = 39;
+  constexpr int MIN_DEATH_CASES = 40;
   HS_EXPECT_GE(n, MIN_DEATH_CASES);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
