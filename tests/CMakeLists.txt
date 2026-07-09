@@ -221,7 +221,7 @@ add_test(NAME unit_arena_budget COMMAND arena_measure)
 # Render micro-benchmark, built at two opt levels to bracket the size config's
 # per-pixel codegen cost (perf_bench.cpp). Not CTests — wall time is noisy.
 foreach(_opt Os O3)
-  add_executable(perf_bench_${_opt}
+  add_executable(perf_bench_${_opt} EXCLUDE_FROM_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/perf_bench.cpp
     ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
   target_compile_definitions(perf_bench_${_opt} PRIVATE HS_TEST_BUILD)
