@@ -224,7 +224,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 22. `core/render/shading.h:204` — `NullVertexShader`/`NullFragmentShader` are referenced only by their own tests; wire them in as canonical no-op defaults or delete both.
 23. `core/mesh/solids.h:1213` — `Collections::get_archimedean_solids()` is a dead accessor (its four siblings are live); delete it (and its README mention).
 24. `effects/HopfFibration.h:184` — `fiber_phase[i]` is always `i * PHASE_STEP`; delete the 840-byte array + init loop and compute the phase inline.
-25. `hardware/pov_sync.h:1535` — `master_on_crossing` takes an unused `TickActions&`; drop the parameter and update the single call site.
+25. ✅ `hardware/pov_sync.h:1535` — `master_on_crossing` takes an unused `TickActions&`; drop the parameter and update the single call site.
 26. `targets/wasm/wasm.cpp:461` — dead store `idx += count*CHANNELS;` on the memcpy fast path (and `&pixelBuffer[idx]` where `idx==0`); delete the store and use `pixelBuffer.data()`.
 27. `daydream/daydream.js:8` — `SLOW_FRAME_MS` is imported but never used; drop it from the import.
 28. `daydream/driver.js:206` — `this.resources = []` is never read or written; delete the field.

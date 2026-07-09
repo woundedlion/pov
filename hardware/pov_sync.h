@@ -1259,7 +1259,7 @@ public:
       }
       apply_flip(c.boundary, a);
       if (is_master_)
-        master_on_crossing(c, now, a);
+        master_on_crossing(c, now);
     }
 
     if (is_master_)
@@ -1529,10 +1529,8 @@ private:
    * the epoch-train schedule.
    * @param c The crossing just folded.
    * @param now Current timestamp, in cycles.
-   * @details The unnamed TickActions parameter is reserved for symmetry with
-   * the receive path.
    */
-  void master_on_crossing(const Crossing &c, uint32_t now, TickActions &) {
+  void master_on_crossing(const Crossing &c, uint32_t now) {
     Symbol sym = Symbol::HALF;
     if (c.boundary == Boundary::ZERO) {
       // Conductor (spec §6.1): when the effect's revolutions elapse, start an
