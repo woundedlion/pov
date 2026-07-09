@@ -455,11 +455,10 @@ public:
     if (!currentEffect->overrides_get_pixel()) {
       // Fast path: display_buffer()[i] == get_pixel(x, y), so copy directly.
       const Pixel *buf = currentEffect->display_buffer();
-      for (int i = 0; i < count; i++) {
-        pixelBuffer[idx++] = buf[i].r;
-        pixelBuffer[idx++] = buf[i].g;
-        pixelBuffer[idx++] = buf[i].b;
-      }
+      static_assert(sizeof(Pixel) == 3 * sizeof(uint16_t),
+                    "fast-path memcpy assumes packed RGB16 Pixel layout");
+      std::memcpy(&pixelBuffer[idx], buf, static_cast<size_t>(count) * sizeof(Pixel));
+      idx += count * CHANNELS;
     } else {
       for (int y = 0; y < pixel_height; y++) {
         for (int x = 0; x < pixel_width; x++) {
