@@ -7,12 +7,14 @@
 #include "core/engine/engine.h"
 
 /**
- * @brief Sphere-traces a morphing superquadric at each vertex of a rhombic
- *        triacontahedron: the exponent sweeps octahedron -> sphere -> cube and
- *        back, phase-offset by latitude so the morph travels pole-to-pole as a
- *        wave. Each blob is auto-sized to its own nearest-neighbour gap (scaled
- *        by the live Fill param), so they pack without overlap. Shaded with the
- *        metallic headlight model and a baked OKLCH palette.
+ * @brief Sphere-traces a morphing lobed superquadric at each vertex of a
+ *        rhombic triacontahedron: the exponent sweeps octahedron -> sphere ->
+ *        cube and back, phase-offset by latitude so the morph travels
+ *        pole-to-pole as a wave, while a radial harmonic warp grows azimuthal
+ *        lobes and polar bands on each blob. Each blob is auto-sized to its
+ *        own nearest-neighbour gap (scaled by the live Fill param), so they
+ *        pack without overlap. Shaded with the metallic headlight model and a
+ *        baked OKLCH palette.
  * @tparam W Effect render width in pixels.
  * @tparam H Effect render height in pixels.
  */
@@ -31,11 +33,15 @@ public:
   void init() override {
     registerParam("Morph Speed", &params.morph_speed, 0.0f, 10.0f);
     // Fraction of the half nearest-neighbour gap the blob's widest sweep extent
-    // (the cube end's corner circumradius) reaches: < 1 leaves a gap, 1 makes
-    // neighbours touch, > 1 overlaps them deliberately.
+    // (the cube end's corner circumradius plus the lobe crest) reaches: < 1
+    // leaves a gap, 1 makes neighbours touch, > 1 overlaps them deliberately.
     registerParam("Fill", &params.fill, 0.3f, 1.3f);
     registerParam("Spike", &params.spike, 1.0f, 2.0f);
     registerParam("Boxiness", &params.boxiness, 2.0f, 8.0f);
+    registerParam("Lobes", &params.lobes, 0.0f, 8.0f);
+    registerParam("Bands", &params.bands, 0.0f, 4.0f);
+    // Cap below 1/√3: the warp's r_floor = s/√3 - amplitude must stay positive.
+    registerParam("Lobe Depth", &params.lobe_depth, 0.0f, 0.4f);
     registerParam("Wave", &params.wave, 0.0f, 1.0f);
     registerParam("Max Steps", &params.max_steps, 4.0f, 30.0f);
     registerParam("Diffuse", &params.diffuse, 0.0f, 1.0f);
@@ -81,6 +87,8 @@ public:
 private:
   /** Vertex-array capacity; the rhombic triacontahedron has 32. */
   static constexpr int MAX_POINTS = 32;
+  /** Octahedron inradius per unit scale (the exponent sweep's minimum). */
+  static constexpr float INV_SQRT3 = 0.5773503f;
 
   /**
    * @brief Builds the rhombic-triacontahedron vertex directions and per-vertex
@@ -111,6 +119,8 @@ private:
     float diag_k = powf(3.0f, std::max(0.0f, 0.5f - 1.0f / params.boxiness));
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
     float log_ratio = logf(params.boxiness / params.spike);
+    int lobes_n = static_cast<int>(params.lobes + 0.5f);
+    int bands_n = static_cast<int>(params.bands + 0.5f);
 
     // spin_phase rides in [0,1); scale to radians for make_rotation.
     Quaternion spin_q = make_rotation(X_AXIS, spin_phase * TWO_PI_F);
@@ -123,12 +133,18 @@ private:
       // the sphere (p=2) between the two pointy extremes.
       float p = params.spike * expf(t * log_ratio);
 
-      // Per-vertex auto-size: fit the cube end's circumradius to `fill` of this
-      // vertex's half nearest-neighbour gap, so open regions get large blobs
-      // and tight ones stay small; at fill 1 mutual neighbours just touch.
+      // Per-vertex auto-size: fit the widest extent (cube-corner circumradius
+      // plus lobe crest) to `fill` of this vertex's half nearest-neighbour
+      // gap, so open regions get large blobs and tight ones stay small; at
+      // fill 1 mutual neighbours just touch.
       float outer_r = sinf(0.5f * nn_angle[i] * params.fill);
-      float s = outer_r / diag_k;
-      SDF::Superquadric blob(s, p);
+      float s = outer_r / (diag_k + params.lobe_depth);
+      float lobe_amp = s * params.lobe_depth;
+      // r_floor: the octahedron end's inradius s/√3 bounds every exponent in
+      // the sweep from below.
+      SDF::WarpedVolume<SDF::Superquadric, SDF::Warp::Lobe> blob{
+          {s, p},
+          {lobes_n, bands_n, lobe_amp, s * INV_SQRT3 - lobe_amp}};
       float aa_width = s * 0.15f * params.aa_mult;
       float bounds_radius = outer_r + aa_width;
 
@@ -168,6 +184,9 @@ private:
     float fill = 0.8f;
     float spike = 1.0f;
     float boxiness = 6.0f;
+    float lobes = 5.0f;
+    float bands = 2.0f;
+    float lobe_depth = 0.25f;
     float wave = 0.5f;
     float max_steps = 18.0f;
     float diffuse = 0.4f;
