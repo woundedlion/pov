@@ -285,6 +285,9 @@ public:
                  "POVSegmented: effect canvas height must equal S/2 (ROWS)");
         HS_CHECK(cur->width() == CANVAS_W,
                  "POVSegmented: effect canvas width must equal CANVAS_W");
+        HS_CHECK(!cur->overrides_get_pixel(),
+                 "POVSegmented: effect must not override get_pixel(); the "
+                 "segmented render_column path bypasses it");
         // The first frame commits on a ZERO boundary, an arm-A-left window.
         clip_to_segment(cur, /*arm_a_left=*/true);
         cur->draw_frame();
