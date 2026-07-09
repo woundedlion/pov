@@ -233,7 +233,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 31. ✅ `core/math/3dmath.h:19` — an unused `#include "vendor/FastNoiseLite.h"` in the universal math header; delete the line (consumers get it from `engine.h`/`animation.h`).
 32. ✅ `hardware/phantasm/gen/analyze_candidates.py:141` — arc-vs-segment classification is `O(n²)` via `if b in arcs`; tag the kind while iterating instead.
 33. ✅ `effects/GnomonicStars.h:50` — add the persistent-footprint `static_assert` its sibling effects use, so a future `MAX_POINTS` bump fails at compile time rather than trapping at runtime.
-34. `hardware/phantasm/gen/shorts.py:79` — the geometric short-checker ignores T-junctions and `(junction …)` records, so it can't fulfill its stated guarantee (false "clean"); union wire endpoints colinear on other spans, or narrow the docstring and defer to `check.py`.
+34. ✅ `hardware/phantasm/gen/shorts.py:79` — the geometric short-checker ignores T-junctions and `(junction …)` records, so it can't fulfill its stated guarantee (false "clean"); union wire endpoints colinear on other spans, or narrow the docstring and defer to `check.py`.
 
 ### Priority 3 — Documentation, tests, tooling & naming
 
