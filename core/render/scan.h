@@ -838,8 +838,10 @@ struct Shader {
    * @param px Sub-pixel column (pixel index + corner offset).
    * @param py Sub-pixel row (pixel index + corner offset).
    * @return World-space unit vector for the sub-pixel sample.
-   * @details Uses explicit theta/phi trig (matching the non-SSAA
-   * pixel_to_vector path so SSAA output stays byte-for-byte stable).
+   * @details Uses the same spherical parameterization as pixel_to_vector
+   * (theta = 2*pi*px/W, phi = py*pi/(H_VIRT-1)) but with direct libm trig rather
+   * than the trig LUT, so samples stay geometrically consistent with the
+   * non-SSAA path without being bit-identical to its LUT lookup.
    */
   template <int W, int H>
   static inline Vector ssaa_sample_vector(float px, float py) {
