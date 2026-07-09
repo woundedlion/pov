@@ -1712,6 +1712,8 @@ A head traces a fixed 12:5 spherical Lissajous figure whose long trail is contin
 
 Platonic solid mesh faces rendered with `Plot::Mesh`, given a noise-distorted, feedback-loop appearance via `Filter::Pixel::Feedback`. Cycles through the Platonic solid library, crossfade-morphing between shapes with `Animation::MeshMorph`, while a `Presets` cycle hard-cuts the feedback/distortion style parameters.
 
+**Parameters**: Fade, Distort Amp, Distort Freq, Distort Speed, Noise Scale, Hue Shift, Feedback
+
 </td></tr></table>
 
 <table border="0"><tr>
