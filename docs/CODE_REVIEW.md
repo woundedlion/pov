@@ -228,7 +228,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 26. ✅ `targets/wasm/wasm.cpp:461` — dead store `idx += count*CHANNELS;` on the memcpy fast path (and `&pixelBuffer[idx]` where `idx==0`); delete the store and use `pixelBuffer.data()`.
 27. `daydream/daydream.js:8` — `SLOW_FRAME_MS` is imported but never used; drop it from the import.
 28. `daydream/driver.js:206` — `this.resources = []` is never read or written; delete the field.
-29. `core/engine/transformers.h:346` + `core/animation/params.h:640` — the ripple half-width floor is duplicated across two files with a load-bearing coupling; extract a single `RippleParams::half_width()` accessor used by both.
+29. ✅ `core/engine/transformers.h:346` + `core/animation/params.h:640` — the ripple half-width floor is duplicated across two files with a load-bearing coupling; extract a single `RippleParams::half_width()` accessor used by both.
 30. `core/engine/transformers.h:234` — `prepare_thresholds()` runs twice per frame per ripple (`Transformer::prepare_frame` and `Ripple::step`); drop the redundant call from the ripple path.
 31. `core/math/3dmath.h:19` — an unused `#include "vendor/FastNoiseLite.h"` in the universal math header; delete the line (consumers get it from `engine.h`/`animation.h`).
 32. `hardware/phantasm/gen/analyze_candidates.py:141` — arc-vs-segment classification is `O(n²)` via `if b in arcs`; tag the kind while iterating instead.

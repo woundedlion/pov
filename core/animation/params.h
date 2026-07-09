@@ -632,14 +632,21 @@ struct RippleParams {
   float cos_threshold_max = -1.0f;
 
   /**
+   * @brief Ricker wavelet half-width, floored so the distance normalization
+   * never divides by zero.
+   */
+  float half_width() const {
+    float hw = thickness * 0.5f;
+    return hw < 0.001f ? 0.001f : hw;
+  }
+
+  /**
    * @brief Recomputes the cos(angle) fast-reject bounds for the wavelet's
    * current phase and thickness, so the renderer can skip points outside the
    * ring.
    */
   void prepare_thresholds() {
-    float hw = thickness * 0.5f;
-    if (hw < 0.001f)
-      hw = 0.001f;
+    float hw = half_width();
     // Clamp into [0,π]: the active ring lies within the sphere's angular range,
     // so cos(clamped) keeps the fast-reject band engaged past phase=π instead of
     // collapsing both bounds to accept-all. cos(0)=1 and cos(π)=-1 reproduce the
