@@ -16,7 +16,6 @@
 // on a prior TU having pulled in platform.h, making this header non-self-sufficient.
 #include "engine/platform.h"
 #include <cassert>
-#include "vendor/FastNoiseLite.h"
 
 /**
  * @brief The Golden Ratio constant (Phi).
