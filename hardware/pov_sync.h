@@ -1217,6 +1217,15 @@ public:
         ++telemetry_.lock_transitions;
     }
 
+    // Age out a stale previous-burst timestamp once the wire has been quiet past
+    // the ACQUIRE window; otherwise a cycle-counter wrap collapses the quiet-gap
+    // difference and misroutes the first post-silence symbol. Signed re-check
+    // rejects a wrapped modular difference.
+    if (have_prev_burst_ &&
+        (now - prev_burst_end_) > cfg_.acquire_quiet_cycles() &&
+        static_cast<int32_t>(now - prev_burst_end_) > 0)
+      have_prev_burst_ = false;
+
     // Fold every locally-crossed boundary (usually 0 or 1; several after a
     // long masked coast).
     for (;;) {
