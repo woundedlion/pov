@@ -1384,30 +1384,24 @@ inline void test_needs_full_frame_gate() {
 }
 
 /**
- * @brief Pins Voronoi's coarse-coherence equivalence: where a block's four
- *        corners share the canonical nearest-pair, every interior pixel resolves
- *        to that same pair under a full k=2 query.
- * @details Mirrors Voronoi::draw_frame's corner sampling (COHERENCE_BLOCK stride,
- *          clamped corners, order-independent {lo,hi} pair) over the public
- *          KDTree at the production resolution, using six maximally separated
- *          (octahedral) sites so no cell is smaller than a block — the regime in
- *          which the in-effect "bit-identical to the full query" fast path is
- *          exact. A sub-block cell dropped by all four corners (the documented
- *          high-density limitation) would break this invariant.
+ * @brief Classifies the coarse-coherence grid at the effect's adaptive block
+ *        size and asserts every interior pixel of an all-corners-agree block
+ *        resolves to that block's canonical nearest-pair under a full k=2 query.
+ * @tparam W,H Render resolution.
+ * @param sites Site positions on the unit sphere.
+ * @return The number of fast-path (corners-agree) pixels pinned.
+ * @details Mirrors Voronoi::draw_frame's coherence path: the block edge B is
+ *          derived from the same cell-size estimate and clamped to the effect's
+ *          own COHERENCE_BLOCK_MIN/COHERENCE_BLOCK, so the check tracks the
+ *          production block sizing at any density instead of a fixed stride. A
+ *          sub-block cell dropped by all four corners (the documented
+ *          high-density limitation) would break the invariant.
  */
-inline void test_voronoi_coherence_equivalence() {
-  constexpr int W = DEFAULT_W, H = DEFAULT_H;
-  constexpr int B = 8; // Voronoi<W, H>::COHERENCE_BLOCK
-
-  static uint8_t buf[64 * 1024];
+template <int W, int H>
+inline int voronoi_coherence_fast_pixels(std::span<const Vector> sites) {
+  static uint8_t buf[256 * 1024];
   Arena arena(buf, sizeof(buf));
-
-  const Vector sites[] = {
-      Vector(1, 0, 0),  Vector(-1, 0, 0), Vector(0, 1, 0),
-      Vector(0, -1, 0), Vector(0, 0, 1),  Vector(0, 0, -1),
-  };
-  constexpr int N = sizeof(sites) / sizeof(sites[0]);
-  KDTree tree(arena, std::span<const Vector>(sites, N));
+  KDTree tree(arena, sites);
 
   struct Pair {
     uint16_t lo, hi;
@@ -1424,24 +1418,32 @@ inline void test_voronoi_coherence_equivalence() {
     return x.lo == y.lo && x.hi == y.hi && x.hasSecond == y.hasSecond;
   };
 
-  constexpr int NBX = (W - 1) / B + 2;
-  constexpr int NBY = (H - 1) / B + 2;
-  static Pair corners[NBX * NBY];
+  // Mirror of Voronoi::draw_frame's block-edge derivation (effects/Voronoi.h).
+  const float cell_px =
+      (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites.size()));
+  const int B = std::clamp(static_cast<int>(cell_px),
+                           Voronoi<W, H>::COHERENCE_BLOCK_MIN,
+                           Voronoi<W, H>::COHERENCE_BLOCK);
+
+  const int nbx = (W - 1) / B + 2;
+  const int nby = (H - 1) / B + 2;
+  Pair *corners = static_cast<Pair *>(
+      arena.allocate(size_t(nbx) * nby * sizeof(Pair), alignof(Pair)));
   auto cx = [&](int j) { return std::min(j * B, W - 1); };
   auto cy = [&](int k) { return std::min(k * B, H - 1); };
-  for (int k = 0; k < NBY; ++k)
-    for (int j = 0; j < NBX; ++j)
-      corners[k * NBX + j] = classify(pixel_to_vector<W, H>(cx(j), cy(k)));
+  for (int k = 0; k < nby; ++k)
+    for (int j = 0; j < nbx; ++j)
+      corners[k * nbx + j] = classify(pixel_to_vector<W, H>(cx(j), cy(k)));
 
   int fast_pixels = 0;
   for (int y = 0; y < H; ++y) {
     const int ky = y / B;
     for (int x = 0; x < W; ++x) {
       const int jx = x / B;
-      const Pair &c00 = corners[ky * NBX + jx];
-      const Pair &c10 = corners[ky * NBX + (jx + 1)];
-      const Pair &c01 = corners[(ky + 1) * NBX + jx];
-      const Pair &c11 = corners[(ky + 1) * NBX + (jx + 1)];
+      const Pair &c00 = corners[ky * nbx + jx];
+      const Pair &c10 = corners[ky * nbx + (jx + 1)];
+      const Pair &c01 = corners[(ky + 1) * nbx + jx];
+      const Pair &c11 = corners[(ky + 1) * nbx + (jx + 1)];
       // Seam/dense block -> the effect takes the full query; nothing to pin.
       if (!(same(c00, c10) && same(c00, c01) && same(c00, c11)))
         continue;
@@ -1449,8 +1451,49 @@ inline void test_voronoi_coherence_equivalence() {
       ++fast_pixels;
     }
   }
+  return fast_pixels;
+}
+
+/**
+ * @brief Pins Voronoi's coarse-coherence equivalence across the adaptive block
+ *        regime: where a block's four corners share the canonical nearest-pair,
+ *        every interior pixel resolves to that same pair under a full k=2 query.
+ * @details Runs the check at both ends of the production range — six maximally
+ *          separated octahedral sites (low density, block clamps to
+ *          COHERENCE_BLOCK) and a full MAX_SITES Fibonacci-sphere spread (the
+ *          default/dense regime, where the block shrinks to COHERENCE_BLOCK_MIN).
+ *          The dense case exercises the adaptive block sizing the low-density
+ *          fixed-stride case never reached: a regression that let a block
+ *          straddle a whole cell would drop coverage there.
+ */
+inline void test_voronoi_coherence_equivalence() {
+  constexpr int W = DEFAULT_W, H = DEFAULT_H;
+
+  const Vector octahedral[] = {
+      Vector(1, 0, 0),  Vector(-1, 0, 0), Vector(0, 1, 0),
+      Vector(0, -1, 0), Vector(0, 0, 1),  Vector(0, 0, -1),
+  };
+  const int octa_fast = voronoi_coherence_fast_pixels<W, H>(
+      std::span<const Vector>(octahedral, sizeof(octahedral) / sizeof(octahedral[0])));
   // The fast path must actually be exercised, else the test pins nothing.
-  HS_EXPECT_GT(fast_pixels, 0);
+  HS_EXPECT_GT(octa_fast, 0);
+
+  // Dense regime: seed MAX_SITES on a Fibonacci sphere exactly as
+  // Voronoi::seed_sites places them, so the adaptive block floors at
+  // COHERENCE_BLOCK_MIN.
+  constexpr int N = Voronoi<W, H>::MAX_SITES;
+  static Vector fib[N];
+  const float golden_angle = PI_F * (3.0f - sqrtf(5.0f));
+  for (int i = 0; i < N; ++i) {
+    const int span = N > 1 ? N - 1 : 1;
+    const float y = 1.0f - (i / static_cast<float>(span)) * 2.0f;
+    const float radius = sqrtf(std::max(0.0f, 1.0f - y * y));
+    const float theta = golden_angle * i;
+    fib[i] = Vector(cosf(theta) * radius, y, sinf(theta) * radius);
+  }
+  const int fib_fast =
+      voronoi_coherence_fast_pixels<W, H>(std::span<const Vector>(fib, N));
+  HS_EXPECT_GT(fib_fast, 0);
 }
 
 /**
