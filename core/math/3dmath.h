@@ -383,6 +383,7 @@ inline float fast_cbrt(float x) {
 inline float fast_acos(float x);
 inline float fast_sinf(float x);
 inline float fast_cosf(float x);
+inline float fast_expf(float x);
 
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
@@ -1192,6 +1193,33 @@ inline float fast_acos(float x) {
       sqrtf(1.0f - ax) *
       (1.5707963f + ax * (-0.2121144f + ax * (0.0742610f + ax * -0.0187293f)));
   return x < 0.0f ? PI_F - result : result;
+}
+
+/**
+ * @brief Fast exp for non-positive arguments.
+ * @param x Argument; the domain is x <= 0.
+ * @return An approximation of e^x.
+ * @details exp(x) = 2^(x*log2e), split into an integer power built from the
+ * float exponent bits and a fractional 2^f evaluated by a quartic minimax on
+ * [0,1]. Peak rel error ~7.4e-4 over [-30, 0]; ~10 FPU ops vs ~100-200 cycles
+ * for newlib expf on a Cortex-M7 (no HW transcendentals). Large-magnitude x
+ * saturates to 0.
+ * @warning For x > 0 the exponent assembly overflows; callers must keep x <= 0.
+ */
+inline float fast_expf(float x) {
+  float y = x * 1.442695041f; // log2(e)
+  float fi = floorf(y);
+  float f = y - fi; // [0, 1)
+  float p =
+      1.0f +
+      f * (0.6931472f + f * (0.2402212f + f * (0.0554676f + f * 0.0096784f)));
+  int i = (int)fi;
+  if (i < -126)
+    return 0.0f;
+  uint32_t bits = (uint32_t)(i + 127) << 23;
+  float scale;
+  std::memcpy(&scale, &bits, sizeof(scale));
+  return p * scale;
 }
 
 /**
