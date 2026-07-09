@@ -47,7 +47,8 @@ public:
    * @brief Constructs the effect and wires up the trail/orient/anti-alias filters.
    */
   FLASHMEM SplineFlow()
-      : Effect(W, H), filters(Filter::World::Trails<W, MAX_TRAILS>(lifetime),
+      : Effect(W, H, decltype(filters)::any_crosses_segments),
+        filters(Filter::World::Trails<W, MAX_TRAILS>(lifetime),
                               Filter::World::Orient<W>(orientation),
                               Filter::Screen::AntiAlias<W, H>()) {}
 
@@ -93,18 +94,6 @@ public:
 
   /// POV column-strobe flag; strobes (see Effect::strobe_columns).
   bool strobe_columns() const override { return true; }
-
-  /**
-   * @brief Forces full-canvas rendering per simulator worker.
-   * @return decltype(filters)::any_crosses_segments — true, because the
-   *         World::Trails stage reprojects trail samples under rotation and so
-   *         moves state across segment bands; a band-clipped worker would drop
-   *         cross-band trails. Trait-derived, so adding/removing a filter keeps
-   *         the gate correct. See docs/segmented_stateful_effects_spec.md.
-   */
-  bool needs_full_frame() const override {
-    return decltype(filters)::any_crosses_segments;
-  }
 
   /**
    * @brief Advances animations, rebuilds the closed spline from the drifting

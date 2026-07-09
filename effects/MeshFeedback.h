@@ -69,7 +69,8 @@ public:
    * declared ahead of filters.
    */
   FLASHMEM MeshFeedback()
-      : Effect(W, H), noise_params(), orientation(), timeline(),
+      : Effect(W, H, decltype(filters)::any_crosses_segments), noise_params(),
+        orientation(), timeline(),
         palette(Palettes::peachPop),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>(),
@@ -136,18 +137,6 @@ public:
 
   /// POV column-strobe flag; strobes (see Effect::strobe_columns).
   bool strobe_columns() const override { return true; }
-
-  /**
-   * @brief Forces full-canvas rendering per simulator worker.
-   * @return True — the Feedback stage reads `cv.prev` at unbounded warp offsets,
-   *         so a band-clipped worker would drop cross-band trails (see
-   *         docs/segmented_stateful_effects_spec.md). Derived from the pipeline's
-   *         compile-time trait so a future filter change can't silently regress
-   *         the gate.
-   */
-  bool needs_full_frame() const override {
-    return decltype(filters)::any_crosses_segments;
-  }
 
   /**
    * @brief Renders one frame.
