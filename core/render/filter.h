@@ -178,6 +178,18 @@ template <int W, int H> struct Pipeline<W, H> {
    * @details Unused Canvas, WorldTrailFn and alpha parameters.
    */
   void flush(Canvas &, const WorldTrailFn &, float) {}
+
+  /**
+   * @brief Clip-cull terminal: the edge has cleared every world stage, so run
+   *        the rasterizer's row-span vs clip-band test on it.
+   * @tparam Pred Predicate `bool(const Vector&, const Vector&, const Basis*)`.
+   * @return pred(a, b, planar_basis).
+   */
+  template <typename Pred>
+  bool could_intersect_clip(const Vector &a, const Vector &b,
+                            const Basis *planar_basis, Pred &&pred) const {
+    return pred(a, b, planar_basis);
+  }
 };
 
 /**
@@ -313,6 +325,30 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
     }
   }
 
+  /**
+   * @brief Clip-cull: routes the edge through Head's world transform, then Tail.
+   * @tparam Pred Predicate `bool(const Vector&, const Vector&, const Basis*)`.
+   * @details A stage that moves world geometry (World::Orient) overrides
+   *          cull_edge to re-emit the edge under each rotation it applies at
+   *          plot() time, so the rasterizer culls by the RENDERED latitude, not
+   *          the source geometry; every other stage forwards the edge unchanged.
+   *          Returns true once any transformed copy could intersect the band.
+   */
+  template <typename Pred>
+  bool could_intersect_clip(const Vector &a, const Vector &b,
+                            const Basis *planar_basis, Pred &&pred) const {
+    auto forward = [&](const Vector &fa, const Vector &fb, const Basis *fpb) {
+      return next.could_intersect_clip(fa, fb, fpb, pred);
+    };
+    if constexpr (requires {
+                    std::declval<const Head &>().cull_edge(a, b, planar_basis,
+                                                           forward);
+                  })
+      return Head::cull_edge(a, b, planar_basis, forward);
+    else
+      return forward(a, b, planar_basis);
+  }
+
   static_assert(
       !Head::has_history || Head::is_2d ||
           requires(Head h, const WorldTrailFn &w, PassFn3D p) {
@@ -417,6 +453,36 @@ public:
     });
   }
 
+  /**
+   * @brief Re-emits a clip-cull edge under the rotation(s) applied at plot time.
+   * @tparam FwdFn Downstream cull continuation
+   *         `bool(const Vector&, const Vector&, const Basis*)`.
+   * @param a,b Edge endpoints in world space (pre-rotation).
+   * @param pb Optional planar basis, rotated alongside the endpoints.
+   * @param forward Tail-of-pipeline cull continuation.
+   * @return True if any tweened copy of the edge could intersect the clip band.
+   * @details Mirrors plot()'s tween so the cull spans the same motion-blur sweep
+   *          the renderer draws. Without it the rasterizer would cull by the
+   *          un-rotated latitude and drop geometry an off-axis orientation moves
+   *          into a segment band (docs/segmented_stateful_effects_spec.md).
+   */
+  template <typename FwdFn>
+  bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,
+                 FwdFn &&forward) const {
+    bool hit = false;
+    tween(orientation, [&](const Quaternion &q, float) {
+      if (hit)
+        return;
+      if (pb) {
+        Basis rb = rotate(*pb, q);
+        hit = forward(rotate(a, q), rotate(b, q), &rb);
+      } else {
+        hit = forward(rotate(a, q), rotate(b, q), nullptr);
+      }
+    });
+    return hit;
+  }
+
 private:
   Orientation<> &orientation; /**< Live orientation source driving the rotation. */
 };
@@ -473,6 +539,40 @@ public:
     tween(q, [&](const Quaternion &rot, float tween_t) {
       pass(rotate(v, rot), color, age + (1.0f - tween_t), alpha);
     });
+  }
+
+  /**
+   * @brief Re-emits a clip-cull edge under every candidate slice's rotation.
+   * @tparam FwdFn Downstream cull continuation
+   *         `bool(const Vector&, const Vector&, const Basis*)`.
+   * @param a,b Edge endpoints in world space (pre-rotation).
+   * @param pb Optional planar basis, rotated alongside the endpoints.
+   * @param forward Tail-of-pipeline cull continuation.
+   * @return True if any candidate slice's tweened copy could intersect the band.
+   * @details The endpoints may fall in different slices, so bound conservatively
+   *          over all candidates rather than replicating the per-point selector.
+   */
+  template <typename FwdFn>
+  bool cull_edge(const Vector &a, const Vector &b, const Basis *pb,
+                 FwdFn &&forward) const {
+    if (!enabled || orientations.empty())
+      return forward(a, b, pb);
+    for (const Orientation<> &o : orientations) {
+      bool hit = false;
+      tween(o, [&](const Quaternion &q, float) {
+        if (hit)
+          return;
+        if (pb) {
+          Basis rb = rotate(*pb, q);
+          hit = forward(rotate(a, q), rotate(b, q), &rb);
+        } else {
+          hit = forward(rotate(a, q), rotate(b, q), nullptr);
+        }
+      });
+      if (hit)
+        return true;
+    }
+    return false;
   }
 
   /**

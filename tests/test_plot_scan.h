@@ -27,6 +27,7 @@
 
 #include "core/render/plot.h"
 #include "core/render/scan.h"
+#include "core/render/filter.h"
 #include "core/math/geometry.h"
 #include "core/render/canvas.h"
 #include "tests/test_fixture.h"
@@ -1338,6 +1339,61 @@ inline void test_particle_system_draws_active_trails_with_registers() {
   HS_EXPECT_NEAR(v3_hi, 0.6f, 1e-3f);
 }
 
+/**
+ * @brief The segment cull follows a filter-chain orientation: an edge the
+ *        World::Orient stage rotates into a clip band is drawn, not culled.
+ * @details When orientation lives in the filter chain (FlowField) the rasterizer
+ *          must bound the edge by its RENDERED latitude, so the cull is routed
+ *          through the pipeline. 90° about X maps the equatorial +X->+Z arc onto
+ *          a polar meridian, so the rendered arc reaches the bottom band the
+ *          source arc never touches; a band-clipped worker there must match the
+ *          full render. Without the pipeline-routed cull the edge is bounded by
+ *          its un-rotated (equatorial) latitude and dropped — the segmented-mode
+ *          FlowField clipping bug (docs/segmented_stateful_effects_spec.md).
+ */
+inline void test_rasterize_cull_follows_filter_orientation() {
+  constexpr int W = 128, H = 64;
+  constexpr int BAND = H / 4; // bottom band [H-BAND, H) the rotated arc enters
+
+  Orientation<> orientation(make_rotation(X_AXIS, PI_F / 2.0f));
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), 1.0f);
+  };
+
+  auto band_lit = [&](int cy0, int cy1) -> int {
+    RasterFx fx(W, H);
+    fx.set_clip(cy0, cy1, 0, W);
+    Pipeline<W, H, Filter::World::Orient<W>> filters{
+        Filter::World::Orient<W>(orientation)};
+    {
+      ScratchScope sc(plot_arena());
+      Fragments pts;
+      pts.bind(plot_arena(), 4);
+      Fragment a, b;
+      a.pos = Vector(1, 0, 0); // equator (+X)
+      b.pos = Vector(0, 0, 1); // equator (+Z); 90° about X sends it to -Y (pole)
+      pts.push_back(a);
+      pts.push_back(b);
+      Canvas c(fx);
+      Plot::rasterize<W, H>(filters, c, pts, shade, /*close_loop=*/false);
+    }
+    fx.advance_display();
+    int lit = 0;
+    for (int y = H - BAND; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        Pixel p = fx.get_pixel(x, y);
+        if (p.r | p.g | p.b)
+          ++lit;
+      }
+    return lit;
+  };
+
+  int full = band_lit(0, H);          // full canvas: rotated arc reaches the band
+  int banded = band_lit(H - BAND, H); // worker clipped to that band
+  HS_EXPECT_GT(full, 0);
+  HS_EXPECT_EQ(banded, full); // routed cull keeps the edge; identical in the band
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -1381,6 +1437,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_antipodal_seam_planar_falls_back_geodesic();
   test_rasterize_planar_segment_gap_free_arclength();
   test_rasterize_planar_arc_registers_track_drawn_arc();
+  test_rasterize_cull_follows_filter_orientation();
 
   test_spline_chain_passes_through_control_points();
   test_spline_chain_tension_deflects();

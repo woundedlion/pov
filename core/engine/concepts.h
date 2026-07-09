@@ -11,6 +11,8 @@
 #include "engine/platform.h" // Fn
 #include <cassert>
 
+struct Basis; // core/math/geometry.h; used only as const Basis* below
+
 // ---------------------------------------------------------------------------
 // Callable wrappers — two complementary types:
 //
@@ -218,6 +220,11 @@ using VertexShaderRef = FunctionRef<void(Fragment &)>;
 using BlendFn = FunctionRef<Pixel(const Pixel &, const Pixel &)>;
 using TweenFn = FunctionRef<void(const Quaternion &, float)>;
 using VectorTweenFn = FunctionRef<void(const Vector &, float)>;
+// Rasterizer's clip-cull predicate: does the (world-transformed) edge a-b, with
+// optional planar basis, intersect the clip band? Routed through the pipeline so
+// world stages transform the edge before it is tested.
+using CullEdgePredRef =
+    FunctionRef<bool(const Vector &, const Vector &, const Basis *)>;
 
 /**
  * @brief Non-owning, type-erased handle to a rasterizer pipeline.
@@ -236,6 +243,8 @@ class PipelineRef {
   void *ctx_;
   void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float);
   void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float, float);
+  bool (*cull_)(void *, const Vector &, const Vector &, const Basis *,
+                CullEdgePredRef);
 
 public:
   /**
@@ -257,6 +266,18 @@ public:
     plot3d_ = [](void *ctx, Canvas &cv, const Vector &v, const Pixel &c,
                  float age, float alpha) {
       static_cast<T *>(ctx)->plot(cv, v, c, age, alpha);
+    };
+    cull_ = [](void *ctx, const Vector &a, const Vector &b, const Basis *pb,
+               CullEdgePredRef pred) -> bool {
+      // Real pipelines route the edge through their world stages; a bare
+      // plot-provider (test stub) has no world transform, so test it directly.
+      if constexpr (requires {
+                      static_cast<T *>(ctx)->could_intersect_clip(a, b, pb,
+                                                                  pred);
+                    })
+        return static_cast<T *>(ctx)->could_intersect_clip(a, b, pb, pred);
+      else
+        return pred(a, b, pb);
     };
   }
 
@@ -300,6 +321,20 @@ public:
   void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
             float alpha) const {
     plot3d_(ctx_, cv, v, c, age, alpha);
+  }
+
+  /**
+   * @brief Clip-cull query forwarded to the wrapped pipeline.
+   * @param a Edge start (unit sphere point, pre-world-transform).
+   * @param b Edge end (unit sphere point, pre-world-transform).
+   * @param pb Optional planar basis for the edge (null = geodesic).
+   * @param pred Rasterizer's screen-row-span vs clip-band test.
+   * @return Whether any world-transformed copy of the edge could intersect the
+   *         clip band (see Pipeline::could_intersect_clip).
+   */
+  bool could_intersect_clip(const Vector &a, const Vector &b, const Basis *pb,
+                            CullEdgePredRef pred) const {
+    return cull_(ctx_, a, b, pb, pred);
   }
 };
 

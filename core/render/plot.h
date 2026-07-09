@@ -774,12 +774,26 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     }
 
     // Tier 3: Segment culling — skip if the edge's full screen-row span (arc
-    // latitude bulge included) lies outside the clip band.
+    // latitude bulge included) lies outside the clip band. The test is routed
+    // through the pipeline so a filter-chain orientation (World::Orient) is
+    // culled by the RENDERED latitude, not the source point; a pipeline that
+    // does not answer the query (a bare plot stub) falls back to the raw edge.
     if (clip_active) {
-      float row_lo, row_hi;
-      edge_row_span<W, H>(curr.pos, next.pos, use_planar ? planar_basis : nullptr,
-                          row_lo, row_hi);
-      if (!cr.could_intersect_y(row_lo, row_hi))
+      const Basis *pb = use_planar ? planar_basis : nullptr;
+      auto pred = [&](const Vector &a, const Vector &b, const Basis *bp) {
+        float row_lo, row_hi;
+        edge_row_span<W, H>(a, b, bp, row_lo, row_hi);
+        return cr.could_intersect_y(row_lo, row_hi);
+      };
+      bool visible;
+      if constexpr (requires {
+                      pipeline.could_intersect_clip(curr.pos, next.pos, pb,
+                                                    pred);
+                    })
+        visible = pipeline.could_intersect_clip(curr.pos, next.pos, pb, pred);
+      else
+        visible = pred(curr.pos, next.pos, pb);
+      if (!visible)
         continue;
     }
 
