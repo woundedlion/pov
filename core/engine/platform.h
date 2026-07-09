@@ -600,7 +600,12 @@ inline int random(int min, int max) {
  */
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
   if (in_max == in_min) return out_min;
-  return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+  // Intermediate is int32_t so the host reproduces the device's 32-bit `long`
+  // overflow/truncation instead of computing in 64-bit `long` on LP64 hosts.
+  const int32_t scaled = static_cast<int32_t>(x - in_min) *
+                         static_cast<int32_t>(out_max - out_min) /
+                         static_cast<int32_t>(in_max - in_min);
+  return scaled + out_min;
 }
 
 // --- System Mock ---
