@@ -758,6 +758,117 @@ inline void test_class_lut_render_matches_exact_rippled() {
 }
 
 /**
+ * @brief Scalar snapshot of one class-bake's budget accounting, copied out so it
+ *        survives the arena reset the next bake performs.
+ */
+struct BakeAccounting {
+  uint16_t luts_built, degraded, dropped_cls, dropped_faces, lowq, lut_faces;
+  size_t lut_bytes, budget, n_elig, elig_faces;
+};
+
+/**
+ * @brief Bakes islamic mesh `idx` at a scaled pixel width and a chosen byte
+ *        budget, returning the accounting counters.
+ * @param pixel_scale Multiplies the natural pixel width (2*pi/W): < 1 refines
+ *        the LUT grid (larger n), making the shrink/drop branches reachable.
+ */
+inline BakeAccounting bake_with_budget(size_t idx, float pixel_scale,
+                                       size_t budget_bytes) {
+  configure_arenas_default();
+  Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
+  Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
+  Arena geom(mr_geom, sizeof(mr_geom));
+  constexpr int W = 288;
+  const auto islamic = Solids::Collections::get_islamic_solids();
+  HS_EXPECT_TRUE(idx < islamic.size());
+  PolyMesh poly = islamic[idx].generate(seed_a, seed_b);
+  MeshState mesh;
+  MeshOps::compile(poly, mesh, geom);
+  MeshOps::classify_faces_by_topology(mesh, seed_a, seed_b, geom);
+  MeshOps::MeshClassBake bake;
+  MeshOps::build_mesh_class_bake(mesh, seed_a, geom,
+                                 pixel_scale * (2.0f * PI_F / W), bake,
+                                 budget_bytes);
+  BakeAccounting a{};
+  a.luts_built = bake.luts_built;
+  a.degraded = bake.degraded_classes;
+  a.dropped_cls = bake.dropped_classes;
+  a.dropped_faces = bake.dropped_faces;
+  a.lowq = bake.lowq_classes;
+  a.lut_faces = bake.lut_faces;
+  a.lut_bytes = bake.lut_bytes;
+  a.budget = budget_bytes;
+  for (size_t c = 0; c < bake.classes.size(); ++c) {
+    const auto &cl = bake.classes[c];
+    if (cl.members >= 2 && cl.concave) {
+      ++a.n_elig;
+      a.elig_faces += cl.members;
+    }
+  }
+  return a;
+}
+
+/**
+ * @brief Every eligible (concave, shared) class ends built, low-quality, or
+ *        dropped, and no run over-spends its byte budget.
+ */
+inline void expect_bake_partition(const BakeAccounting &a) {
+  HS_EXPECT_EQ((size_t)a.luts_built + a.lowq + a.dropped_cls, a.n_elig);
+  HS_EXPECT_LE(a.lut_bytes, a.budget);
+}
+
+/**
+ * @brief Exercises the LUT-budget branches (shrink recompute, class drop,
+ *        low-quality discard) that the census tests leave uncovered.
+ */
+inline void test_class_bake_budget_accounting() {
+  const size_t min_lut =
+      (size_t)MeshOps::CLASS_LUT_MIN_N * MeshOps::CLASS_LUT_MIN_N * 2;
+
+  BakeAccounting full = bake_with_budget(0, 1.0f, MeshOps::CLASS_LUT_BUDGET);
+  BakeAccounting none = bake_with_budget(0, 1.0f, 0);
+  BakeAccounting fine_full = bake_with_budget(0, 0.25f, MeshOps::CLASS_LUT_BUDGET);
+  BakeAccounting fine_tight = bake_with_budget(0, 0.25f, min_lut);
+  BakeAccounting fine_none = bake_with_budget(0, 0.25f, 0);
+
+  auto show = [](const char *tag, const BakeAccounting &a) {
+    std::printf("  [budget %s] n_elig=%zu built=%u degraded=%u dropped=%u/%uf "
+                "lowq=%u lut_faces=%u bytes=%zu/%zu\n",
+                tag, a.n_elig, a.luts_built, a.degraded, a.dropped_cls,
+                a.dropped_faces, a.lowq, a.lut_faces, a.lut_bytes, a.budget);
+  };
+  show("full", full);
+  show("none", none);
+  show("fine_full", fine_full);
+  show("fine_tight", fine_tight);
+  show("fine_none", fine_none);
+
+  for (const auto &a : {full, none, fine_full, fine_tight, fine_none})
+    expect_bake_partition(a);
+
+  // Natural budget builds LUTs; the mesh has eligible classes to bind.
+  HS_EXPECT_GT(full.n_elig, (size_t)0);
+  HS_EXPECT_GT(full.luts_built, (uint16_t)0);
+
+  // Zero budget drops every eligible class before any grid is sized: the drop
+  // branch fires exactly, charging nothing.
+  HS_EXPECT_EQ(none.luts_built, (uint16_t)0);
+  HS_EXPECT_EQ(none.degraded, (uint16_t)0);
+  HS_EXPECT_EQ(none.lut_bytes, (size_t)0);
+  HS_EXPECT_EQ((size_t)none.dropped_cls, none.n_elig);
+  HS_EXPECT_EQ((size_t)none.dropped_faces, none.elig_faces);
+  HS_EXPECT_EQ(fine_none.luts_built, (uint16_t)0);
+  HS_EXPECT_EQ((size_t)fine_none.dropped_cls, fine_none.n_elig);
+
+  // Fine grid forces every class to the CLASS_LUT_MAX_N ceiling, so a
+  // one-LUT budget must shrink the first class (degrade branch) and drop the
+  // rest once the budget is spent.
+  HS_EXPECT_GT(fine_full.n_elig, (size_t)0);
+  HS_EXPECT_GT(fine_tight.degraded, (uint16_t)0);
+  HS_EXPECT_LE(fine_tight.lut_bytes, min_lut);
+}
+
+/**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
  */
@@ -772,6 +883,7 @@ inline int run_mesh_raster_tests() {
   test_truncated_icosahedron_wireframe_and_fill();
   test_clip_band_matches_full();
   test_class_bake_census_invariants();
+  test_class_bake_budget_accounting();
   test_class_lut_render_matches_exact();
   test_class_lut_render_matches_exact_rippled();
 
