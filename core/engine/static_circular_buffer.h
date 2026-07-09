@@ -383,10 +383,10 @@ private:
    * replaceable (e.g. one with const/reference members), where reusing the prior
    * object's address is otherwise UB.
    * @warning The old object is destroyed before the new one is constructed, so a
-   * throwing constructor leaves the slot holding no live object. The emplace
-   * callers keep the size invariant intact in that case, but the slot must not be
-   * read or re-destroyed until a later construct succeeds; supply a T whose
-   * constructor does not throw to keep every slot continuously live.
+   * throwing element constructor leaves the slot holding no live object with no
+   * recovery contract: a later construct_in_place re-destroys the dead slot (UB),
+   * so a throwing T is unsupported. Unreachable on device (-fno-exceptions,
+   * trivial T); supply a T whose constructor does not throw.
    */
   template <typename... Args>
   T &construct_in_place(uint32_t idx, Args &&...args) {
