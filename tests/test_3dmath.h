@@ -770,6 +770,11 @@ inline void test_quaternion_slerp() {
   Quaternion mid_short = slerp(id, q, 0.5f, false);
   Quaternion mid_long = slerp(id, q, 0.5f, true);
   HS_EXPECT_FALSE(approx_quat(mid_short, mid_long, 1e-2f));
+
+  // Identical endpoints on the long arc drive d to -1 via the sign fixup, the
+  // case that once collapsed to the zero quaternion; the fallback must stay unit.
+  Quaternion long_degenerate = slerp(q, q, 0.5f, true);
+  HS_EXPECT_NEAR(long_degenerate.magnitude(), 1.0f, 1e-3f);
 }
 
 /**
