@@ -176,7 +176,6 @@ protected:
    * random-walk animation to the timeline.
    */
   void init_orientation_animation() {
-    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     timeline.add(0, Animation::RandomWalk<W>(
                         orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
