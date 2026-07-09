@@ -150,9 +150,10 @@ void tween(const Animation::VectorTrail<CAPACITY> &trail,
 }
 
 /**
- * @brief Helper to iterate over any Tweenable object (Orientation or
- * Animation::OrientationTrail).
- * @param trail The Tweenable object to iterate.
+ * @brief Helper to iterate over an Animation::OrientationTrail, flattening its
+ * per-frame sub-positions. A bare Orientation has no per-frame structure to
+ * flatten — use tween() for that.
+ * @param trail The OrientationTrail to iterate.
  * @param callback The function to call for each step: `void(const T&, float
  * t)`.
  */
