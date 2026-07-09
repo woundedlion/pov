@@ -243,7 +243,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 38. ✅ `core/color/color.h:1061` / `README.md:1008` — README §7.6's "all palette interpolation in OKLCH" is false for `Gradient` (linear-light); qualify the claim.
 39. ✅ `core/render/scan.h:844` — `ssaa_sample_vector`'s doc claims byte-for-byte parity with `pixel_to_vector`, but the two use different trig paths; correct the comment to state the actual (harmless) invariant.
 40. ✅ `README.md:1785` — the §9 Raymarch entry names "20 vertices of a dodecahedron / Core Size"; the code builds a 26-vertex disdyakis dodecahedron with a "Fill" param. Fix both.
-41. `README.md:1715` — the §9 MeshFeedback entry omits its **Parameters** line (Fade, Distort Amp/Freq/Speed, Noise Scale, Hue Shift, Feedback); add it.
+41. ✅ `README.md:1715` — the §9 MeshFeedback entry omits its **Parameters** line (Fade, Distort Amp/Freq/Speed, Noise Scale, Hue Shift, Feedback); add it.
 42. `README.md:1901` — §10.2 omits the bridge's eight color/palette/lissajous free exports and the `PaletteOps`/`bakeLut` class; document them.
 43. `core/mesh/mesh_classes.h:335` — a comment references the nonexistent `kClassLutMaxN`; use the real `CLASS_LUT_MAX_N`.
 44. `effects/HankinSolids.h:36` — the comment says the H=144 arena high-water "isn't in CI"; it is (`test_hankinsolids_arena_budget_covers_every_solid`). Fix the stale comment.
