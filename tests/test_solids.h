@@ -230,6 +230,28 @@ inline void test_euler_platonic_solids() {
 }
 
 /**
+ * @brief Verifies every Archimedean and Catalan entry is a closed 2-manifold
+ *        (V-E+F==2).
+ * @details Extends the topological oracle over the two spherical families
+ *          between the Platonic block and the Islamic block. Archimedean indices
+ *          follow the Platonic block inside the simple registry; Catalan indices
+ *          follow the whole simple block. Exact per-entry counts are not pinned
+ *          here — the Euler invariant catches a generator regression that opens a
+ *          seam, drops a face, or duplicates geometry.
+ */
+inline void test_euler_archimedean_catalan_solids() {
+  const size_t archimedean_base =
+      Solids::Collections::get_platonic_solids().size();
+  for (size_t k = 0;
+       k < Solids::Collections::get_archimedean_solids().size(); ++k)
+    check_euler_for_index(archimedean_base + k);
+
+  const size_t catalan_base = Solids::Collections::get_simple_solids().size();
+  for (size_t k = 0; k < Solids::Collections::get_catalan_solids().size(); ++k)
+    check_euler_for_index(catalan_base + k);
+}
+
+/**
  * @brief Verifies every Islamic-pattern entry is a closed 2-manifold (V-E+F==2).
  * @details Stronger than test_islamic_registry_solids_are_valid's check_basic
  *          (finite / consistent / in-range), which a wrong-but-self-consistent
@@ -665,6 +687,7 @@ inline int run_solids_tests() {
   test_islamic_registry_solids_are_valid();
 
   test_euler_platonic_solids();
+  test_euler_archimedean_catalan_solids();
   test_islamic_registry_solids_are_closed();
 
   test_get_entry_last_valid_index_builds();
