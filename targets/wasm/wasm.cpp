@@ -1253,12 +1253,24 @@ static val eval_cubic_spline(Vector (*fn)(const Vector &, const Vector &,
                              float p0x, float p0y, float p0z, float p1x,
                              float p1y, float p1z, float p2x, float p2y,
                              float p2z, float p3x, float p3y, float p3z,
-                             float t) {
-  // Reject non-finite input at the boundary (it would abort the slerp normalize).
+                             float t, bool reject_degenerate = false) {
+  // Reject non-finite input at the boundary: it would abort the slerp normalize.
   if (!all_finite({p0x, p0y, p0z, p1x, p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z,
                    t})) {
     hs::log("WASM: cubic spline got a non-finite argument — returning zero");
     return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
+  }
+  // slerp normalizes each control point; a finite zero-length one would trip the
+  // strict normalized() and abort the module, so reject it at the boundary too.
+  if (reject_degenerate) {
+    const Vector pts[4] = {{p0x, p0y, p0z}, {p1x, p1y, p1z},
+                           {p2x, p2y, p2z}, {p3x, p3y, p3z}};
+    for (const Vector &p : pts) {
+      if (p.x * p.x + p.y * p.y + p.z * p.z < math::EPS_NORMALIZE_SQ) {
+        hs::log("WASM: cubic spline got a degenerate control point — returning zero");
+        return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
+      }
+    }
   }
   return vector_to_xyz(fn({p0x, p0y, p0z}, {p1x, p1y, p1z}, {p2x, p2y, p2z},
                           {p3x, p3y, p3z}, t));
@@ -1340,7 +1352,8 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                                 float p2z, float p3x, float p3y, float p3z,
                                 float t) -> val {
              return eval_cubic_spline(&Spline::cubic_slerp, p0x, p0y, p0z, p1x,
-                                      p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z, t);
+                                      p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z, t,
+                                      true);
            }));
   /**
    * @brief Registers spline_catmull_rom_tangents: Catmull-Rom tangent estimation.
