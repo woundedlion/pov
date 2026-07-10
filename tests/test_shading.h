@@ -126,39 +126,6 @@ inline void test_mesh_topology_slot_out_of_range_falls_back() {
   HS_EXPECT_EQ((mesh_topology_slot<4>(neg, topology, 3)), 0);
 }
 
-// --- null shaders -----------------------------------------------------------
-
-/**
- * @brief Verifies NullVertexShader leaves every fragment register untouched.
- */
-inline void test_null_vertex_shader_is_identity() {
-  Fragment f;
-  f.pos = Vector(0.3f, -0.4f, 0.866f);
-  f.v0 = 7.0f; f.size = 9.0f; f.age = 11.0f;
-  f.color = Color4(Pixel(1, 2, 3), 0.5f);
-
-  NullVertexShader()(f);
-  HS_EXPECT_NEAR(f.pos.x, 0.3f, 1e-6f);
-  HS_EXPECT_NEAR(f.v0, 7.0f, 1e-6f);
-  HS_EXPECT_NEAR(f.size, 9.0f, 1e-6f);
-  HS_EXPECT_NEAR(f.age, 11.0f, 1e-6f);
-  HS_EXPECT_NEAR(f.color.alpha, 0.5f, 1e-6f);
-}
-
-/**
- * @brief Verifies NullFragmentShader emits a fully transparent color regardless
- *        of input.
- */
-inline void test_null_fragment_shader_is_transparent() {
-  Fragment f;
-  f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-  Color4 out = NullFragmentShader()(Vector(1, 0, 0), f);
-  HS_EXPECT_NEAR(out.alpha, 0.0f, 1e-6f);
-  HS_EXPECT_EQ(out.color.r, 0);
-  HS_EXPECT_EQ(out.color.g, 0);
-  HS_EXPECT_EQ(out.color.b, 0);
-}
-
 // --- shade_blinn_phong ------------------------------------------------------
 
 /**
@@ -280,8 +247,6 @@ inline int run_shading_tests() {
   test_fragment_edge_dist_degenerate_face();
   test_mesh_topology_slot_in_range_wraps();
   test_mesh_topology_slot_out_of_range_falls_back();
-  test_null_vertex_shader_is_identity();
-  test_null_fragment_shader_is_transparent();
   test_shade_blinn_phong();
   test_shade_mesh_topology_segue();
 

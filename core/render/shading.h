@@ -197,28 +197,3 @@ inline float shade_blinn_phong(const Vector &normal_w, const Vector &light_dir,
  * full register support.
  */
 using Fragments = ArenaVector<Fragment>;
-
-/**
- * @brief No-op vertex shader; leaves every fragment unchanged.
- */
-struct NullVertexShader {
-  /**
-   * @brief Does nothing to the fragment (ignored).
-   */
-  void operator()(Fragment &) const {}
-};
-
-/**
- * @brief No-op fragment shader; emits a fully transparent color.
- * @details Used where a shader slot is required but no shading is wanted.
- */
-struct NullFragmentShader {
-  /**
-   * @brief Returns a transparent color regardless of input.
-   * @details The sample position and source fragment are ignored.
-   * @return Transparent black Color4(0, 0, 0, 0).
-   */
-  Color4 operator()(const Vector &, const Fragment &) const {
-    return Color4(0, 0, 0, 0);
-  }
-};
