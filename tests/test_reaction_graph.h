@@ -18,6 +18,9 @@
 #pragma once
 
 #include <algorithm> // for std::min
+#include <cmath>     // for std::sqrt
+#include <cstdio>    // for std::printf
+#include <random>    // for std::mt19937, std::uniform_real_distribution
 
 #include "core/engine/reaction_graph.h"
 #include "tests/test_3dmath.h" // for HS_EXPECT_VEC
