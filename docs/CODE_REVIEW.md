@@ -100,7 +100,7 @@ files land in the daydream repo; all others land in Holosphere.
 
 ### P3 — minor quality, documentation, and test-coverage defects
 
-3. **A duration-1 Sprite with any fade-out renders fully invisible on its only
+3. ✅ **A duration-1 Sprite with any fade-out renders fully invisible on its only
    frame** — `core/animation/sprites.h:54`. `step()` increments `t` before drawing,
    so a duration-1 sprite's sole frame is `t==1==duration`; the constructor routes
    all of `duration` into `fade_out` (fade-in floored to 0, and the floor-to-1
