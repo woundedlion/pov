@@ -156,7 +156,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 13. ✅ **`Transition::from(mutant)` ctor initializer is dead, overwritten before any read** — `core/animation/params.h:29`.
     `from` is private, read only in `step()`, which unconditionally re-snapshots it on the first call (`captured` starts false). The ctor-time capture has no observable effect and is inconsistent with `ColorWipe`'s lazy `from_snap{}` idiom in the same file. Fix: default-initialize `from` and rely on the lazy capture.
 
-14. **`builder.py`'s `transform()` docstring cites a nonexistent `calib.py`** — `hardware/phantasm/gen/builder.py:18`.
+14. ✅ **`builder.py`'s `transform()` docstring cites a nonexistent `calib.py`** — `hardware/phantasm/gen/builder.py:18`.
     "Verified empirically … (see calib.py)"; no `calib.py` exists in the repo (never committed), leaving a maintainer with no artifact to re-verify the load-bearing coordinate transform. Fix: commit the calibration script or replace the parenthetical with a concrete re-verification recipe.
 
 15. **Dead static constants on `Daydream` (`PIXEL_WIDTH`, `UP`, `DOT_COLOR`)** — `daydream/driver.js:116`.
