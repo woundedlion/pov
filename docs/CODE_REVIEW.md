@@ -98,7 +98,7 @@ items.
 
 20. ✅ **[Holosphere] `core/color/color.h:344` — `srgb_to_linear_interp` `@param` claims callers must clamp, but the body clamps internally.** The doc says "callers must clamp before calling"; the body unconditionally does `hs::clamp(...)` (required for float→int UB safety). A maintainer trusting the contract could remove the internal clamp and reintroduce the exact UB the inline comment warns against. Fix: reword the `@param` to state that out-of-range/NaN inputs are clamped.
 
-21. **[daydream] `tests/mobius_transforms.test.js:179` — incorrect magnitude in a `cdiv` guard comment.** The comment reads `|q|² = 4e-7`, but `q = {re: 4e-4}` gives `1.6e-7`. The assertion still holds (the test is valid); only the stated value is wrong and would mislead anyone recomputing the threshold margin. Fix: change `4e-7` to `1.6e-7`.
+21. ✅ **[daydream] `tests/mobius_transforms.test.js:179` — incorrect magnitude in a `cdiv` guard comment.** The comment reads `|q|² = 4e-7`, but `q = {re: 4e-4}` gives `1.6e-7`. The assertion still holds (the test is valid); only the stated value is wrong and would mislead anyone recomputing the threshold margin. Fix: change `4e-7` to `1.6e-7`.
 
 ---
 
