@@ -162,7 +162,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 15. ✅ **Dead static constants on `Daydream` (`PIXEL_WIDTH`, `UP`, `DOT_COLOR`)** — `daydream/driver.js:116`.
     None are read anywhere; `PIXEL_WIDTH` is even kept in sync on every `updateResolution()` with no observer, and `DOT_COLOR` misleadingly reads as if it configures dot color (the material has no `color` option; color comes from the WASM `instanceColor` buffer). Fix: delete the three fields and the `PIXEL_WIDTH` reassignment.
 
-16. **`setResolution(w,h)` vs `updateResolution(h,w,…)` use opposite argument order in the same function** — `daydream/daydream.js:436`.
+16. ✅ **`setResolution(w,h)` vs `updateResolution(h,w,…)` use opposite argument order in the same function** — `daydream/daydream.js:436`.
     Both calls are individually correct today, but the two "set the sphere resolution" entry points in `applyResolution()` disagree on parameter order — one transposition away from silently swapping W/H in a future refactor. Fix: align `updateResolution`'s signature to `(w, h, dotSize)` (matching the WASM bridge and `geometry.js` dims), or comment the intentional mismatch at both call sites.
 
 17. **`composite()` return-value doc doesn't cover the fault case** — `daydream/segment_controller.js:657`.
