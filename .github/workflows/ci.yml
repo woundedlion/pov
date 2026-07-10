@@ -310,7 +310,10 @@ jobs:
         # embind signature mismatch, an 8 KB stack overflow, or an
         # ALLOW_MEMORY_GROWTH detachment regression fails here instead of riding
         # a green build to deploy. (Node is preinstalled on the runner; the
-        # script has no dependencies.)
+        # script has no dependencies.) 120 frames so the shipped module reaches
+        # late-lifecycle events (frame-48 ShapeShifter cut, arena compaction).
+        env:
+          WASM_SMOKE_FRAMES: 120
         run: node scripts/wasm_smoke.mjs build/wasm-release/holosphere_wasm.js
 
       - name: Exercise install + provenance path
