@@ -140,7 +140,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
       Vector p_a = mesh.vertices[he_mesh.half_edges[he.prev].vertex];
       Vector p_b = mesh.vertices[he.vertex];
       Vector mid = (p_a + p_b) * 0.5f;
-      mid.normalize();
+      mid = normalized_or(mid, p_a);
 
       compiled.static_vertices.push_back(mid);
       uint16_t idx = narrow_index(compiled.static_vertices.size() - 1);
