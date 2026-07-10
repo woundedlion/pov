@@ -188,7 +188,7 @@ files land in the daydream repo; all others land in Holosphere.
     on every load and never cleans itself. Fix: set `valClamped=true` in both reject
     branches so invalid params are stripped like the enum path.
 
-14. **Cancelling the native Save dialog still auto-downloads the recording** —
+14. ✅ **Cancelling the native Save dialog still auto-downloads the recording** —
     `daydream/recorder.js:382`. `openSink()` detects the `showSaveFilePicker`
     `AbortError` only to mute a warning, not for the save decision: on cancel
     `handle` stays null, chunks buffer, and `finish()` falls through to
