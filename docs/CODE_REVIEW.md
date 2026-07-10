@@ -306,7 +306,7 @@ _None._
    unboundedly for a session that will be thrown away. *Fix:* add `if (aborted) return;` at the top of `write()`'s
    awaited body so cancelled sessions drop chunks instead of hoarding them.
 
-9. **Exhausted-retry / message-less worker fault latches an `undefined` message** —
+9. ✅ **Exhausted-retry / message-less worker fault latches an `undefined` message** —
    `c:/work/daydream/segment_controller.js:357` — When module-load retries are exhausted, control falls through
    to a branch that formats `e.message`/`e.filename` on a bare `Event`, latching `faultInfo.message = undefined`
    and (via the `!this.faulted` guard) suppressing the boot watchdog's rich missing-glue diagnostic; the same
