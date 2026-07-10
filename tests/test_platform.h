@@ -26,9 +26,10 @@
 #include <cstdlib>
 #include <string>
 #if defined(_WIN32)
-#include <io.h> // _dup / _dup2 / _close / _fileno
+#include <io.h>      // _dup / _dup2 / _close / _fileno
+#include <process.h> // _getpid
 #else
-#include <unistd.h> // dup / dup2 / close
+#include <unistd.h> // dup / dup2 / close / getpid
 #endif
 
 namespace hs_test {
@@ -246,7 +247,13 @@ inline void test_beatsin16_golden() {
 inline void test_serial_printf_formats_varargs() {
   // SerialMock writes to C stdout, so redirect fd 1 to a file to capture it
   // (same fd-swap idiom as test_death.h's spawn muting).
-  const char *path = "serial_printf_capture.tmp";
+  // Unique per-process name so concurrent runs don't collide on a shared CWD.
+  char path[64];
+#if defined(_WIN32)
+  std::snprintf(path, sizeof(path), "serial_printf_capture_%d.tmp", _getpid());
+#else
+  std::snprintf(path, sizeof(path), "serial_printf_capture_%d.tmp", getpid());
+#endif
   std::fflush(stdout);
 #if defined(_WIN32)
   int saved_out = _dup(1);
@@ -257,8 +264,20 @@ inline void test_serial_printf_formats_varargs() {
   std::FILE *cap = std::fopen(path, "w+");
 #endif
   HS_EXPECT(cap != nullptr && saved_out >= 0, "capture file opened");
-  if (cap == nullptr || saved_out < 0)
+  if (cap == nullptr || saved_out < 0) {
+    if (cap != nullptr) {
+      std::fclose(cap);
+      std::remove(path);
+    }
+    if (saved_out >= 0) {
+#if defined(_WIN32)
+      _close(saved_out);
+#else
+      close(saved_out);
+#endif
+    }
     return;
+  }
 #if defined(_WIN32)
   _dup2(_fileno(cap), 1);
 #else
