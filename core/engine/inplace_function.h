@@ -112,13 +112,13 @@ class inplace_function<R(Args...), Capacity, Alignment> {
 
 public:
   /** @brief Constructs an empty function; calling it traps. */
-  // storage_ is value-initialized to zero only on the empty-state ctors so the
-  // empty buffer holds defined bytes rather than indeterminate ones (a future
-  // op that reads the buffer of an empty function is then well-defined). The
+  // storage_ is value-initialized to zero only on the empty-state ctors so their
+  // empty buffer holds defined bytes rather than indeterminate ones. The
   // value-carrying ctors below deliberately omit storage_ from their init list:
   // they placement-new / copy into it, so zeroing first would be wasted work on
   // the construction hot path. (A moved-from buffer holds the moved-from object,
-  // not garbage, so it needs no zeroing either.)
+  // not garbage; a copy or move OF an already-empty function leaves the buffer
+  // indeterminate, but no op ever reads an empty function's buffer.)
   inplace_function() noexcept : storage_{} {}
   /** @brief Constructs an empty function (nullptr overload). */
   inplace_function(std::nullptr_t) noexcept : storage_{} {}
