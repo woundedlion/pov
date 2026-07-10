@@ -669,6 +669,10 @@ inline void test_ring_sample_lut_matches_direct() {
   HS_EXPECT_NEAR(points.back().pos.y, points[0].pos.y, 1e-3f);
   HS_EXPECT_NEAR(points.back().pos.z, points[0].pos.z, 1e-3f);
   HS_EXPECT_NEAR(points.back().v0, 1.0f, 1e-6f);
+
+  // Close vertex carries the full-perimeter arc length: the ring's true
+  // great-circle circumference 2*pi*sin(theta_eq).
+  HS_EXPECT_NEAR(points.back().v1, 2.0f * PI_F * r_val, 2e-3f);
 }
 
 // ============================================================================

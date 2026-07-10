@@ -76,7 +76,7 @@ items.
 
 ### P3 — Test coverage, maintainability, API & documentation (low)
 
-10. **[Holosphere] `tests/test_plot_scan.h:666` — the Ring `v1` arc-length test is tautological.** It recomputes `arc_scale = sinf(wr)` and asserts `v1 == theta*arc_scale`, checking the code against a copy of its own (wrong) formula — so it passes despite finding #1. Fix: assert Ring's full-perimeter `v1` against the true great-circle arc (`2π·sinf(theta_eq)`) or against `DistortedRing::sample`'s `v1`.
+10. ✅ **[Holosphere] `tests/test_plot_scan.h:666` — the Ring `v1` arc-length test is tautological.** It recomputes `arc_scale = sinf(wr)` and asserts `v1 == theta*arc_scale`, checking the code against a copy of its own (wrong) formula — so it passes despite finding #1. Fix: assert Ring's full-perimeter `v1` against the true great-circle arc (`2π·sinf(theta_eq)`) or against `DistortedRing::sample`'s `v1`.
 
 11. **[Holosphere] `effects/Liquid2D.h:189` — the hand-derived glitch-lens rational map has no unit-norm/pole regression test.** `apply_glitch_lens` is a degree-3 rational map (hemisphere fold + triple-θ + `R²<1e-6` pole branch) on the live per-pixel path; it is currently correct but a sign/coefficient slip would be invisible to the positive-frame-sum smoke harness, and the existing white-box seam doesn't reach it. Fix: add a unit test asserting `|apply_glitch_lens(v)| ≈ 1` over a spread of directions plus the pole-branch return.
 
