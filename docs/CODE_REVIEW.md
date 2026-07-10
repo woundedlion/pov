@@ -220,7 +220,7 @@ files land in the daydream repo; all others land in Holosphere.
     middle-readonly case (e.g. params `[A,B(readonly),C]`, values `[0.1,0.2,0.3]`)
     asserting `{ 0.1f, 0.3f }`.
 
-18. **Paused-drain invariant is untested; the fixture clock is not actually
+18. ✅ **Paused-drain invariant is untested; the fixture clock is not actually
     "one-shot"** — `daydream/tests/driver_clock.test.js:26`. `advanceFrameClock`
     calls `this.clock.getDelta()` *before* the paused-return specifically to drain
     the clock each frame; the fixture's `getDelta` is stateless and the paused test
