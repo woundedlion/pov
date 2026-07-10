@@ -1229,7 +1229,8 @@ namespace Pixel {
  * @tparam H Canvas height in pixels.
  * @details The Style's spatial warp is computed on a coarse W/DS x H/DS grid
  * (DS = style.downsample, allocated from scratch_arena_a per flush) and
- * bilinearly upsampled. Operates on the full canvas during flush(). TERMINAL:
+ * bilinearly upsampled. flush() iterates the full pixel grid within the active
+ * clip band. TERMINAL:
  * flush() composites directly into the Canvas and ignores its `pass` callback,
  * so it must be the last Pipeline stage.
  */
