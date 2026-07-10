@@ -159,10 +159,7 @@ template <int W, int H> const std::vector<FactoryEntry> &get_factory() {
     for (size_t i = 0; i < regs.size(); ++i)
       get_fill_fn<W, H>(regs[i])(t[i]);
     // Duplicate names silently shadow (lookups return the first match); the
-    // names aren't known until the fill functions run, so trap here. The O(n²)
-    // pairwise scan is deliberate: the table is built once per (W,H) and the
-    // roster is tiny (~27), so a sort-and-adjacent-compare or a set buys no
-    // measurable time and adds code.
+    // names aren't known until the fill functions run, so trap here.
     for (size_t i = 0; i < t.size(); ++i)
       for (size_t j = i + 1; j < t.size(); ++j)
         HS_CHECK(t[i].name != t[j].name,
@@ -238,8 +235,7 @@ HS_WASM_RESOLUTIONS(X)
  * @details One shared expansion of the resolution list for every runtime
  *          dispatch site (setEffect validate/create, resolution checks), so they
  *          can never drift and a new per-resolution step lands in exactly one
- *          place. Fully inlined at -O2 — identical codegen to an open-coded
- *          X-macro, no runtime cost.
+ *          place.
  */
 template <typename F> static bool dispatch_resolution(int w, int h, F &&f) {
 #define X(W, H)                                                                 \
@@ -743,8 +739,7 @@ public:
    * @brief Traps if this wrapper outlived a clearToolingMemory() wipe.
    * @details Its mesh would alias reclaimed arena storage, which release builds
    *          would otherwise read back as silently wrong geometry. Called at
-   *          every entry point that touches `mesh`. This is JS-editor tooling,
-   *          never the render loop, so the compare is free.
+   *          every entry point that touches `mesh`.
    */
   void check_live() const {
     HS_CHECK(generation_ == tooling_generation,
@@ -869,8 +864,7 @@ public:
    * @return Owning pointer to a new wrapper holding the finalized result mesh.
    * @details Captures the shared operator boilerplate: reset both tooling scratch
    *          arenas, run the op into a fresh PolyMesh, finalize it into
-   *          tooling_arena, and hand back a new wrapper. This is tooling, never
-   *          the render loop, and every lambda inlines, so there is no added cost.
+   *          tooling_arena, and hand back a new wrapper.
    */
   template <typename Op>
   std::unique_ptr<MeshOpsWrapper> apply(Op &&op) const {
@@ -982,11 +976,9 @@ public:
 #undef MESHOP_1U
 
   /**
-   * Engine-enforced ceiling on relax smoothing passes. The editor
-   * (solids.html) caps its slider at 500; this 1000 is deliberate headroom
-   * above that cap, an independent defense-in-depth limit for direct/API
-   * callers that bypass the editor. The two numbers are intentionally
-   * different, not a mismatch.
+   * Engine-enforced ceiling on relax smoothing passes: an independent
+   * defense-in-depth limit for direct/API callers that bypass the editor's
+   * 500-pass slider cap.
    */
   static constexpr int MAX_RELAX_ITERATIONS = 1000;
 
@@ -1036,8 +1028,8 @@ public:
    * @return Owning pointer to a new wrapper, or null if either arg is non-finite.
    * @details Explicit (not a MESHOP_* macro) because MeshOps::snub takes TWO
    *          float controls, which neither the zero-arg nor the one-float
-   *          generator can express. Binding it via MESHOP_0 (as it was) hardcodes
-   *          the (0.5, 0.0) defaults and leaves both controls unreachable from JS;
+   *          generator can express. Binding it via MESHOP_0 hardcodes the
+   *          (0.5, 0.0) defaults and leaves both controls unreachable from JS;
    *          this 2-arg form exposes them to the solids editor.
    */
   std::unique_ptr<MeshOpsWrapper> snub(float t, float twist) const {
