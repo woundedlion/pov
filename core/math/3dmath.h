@@ -11,9 +11,8 @@
 #include <cstring>
 #include <limits>
 #include <algorithm>
-// platform.h first: on device it defines NDEBUG, which must be set before
-// <cassert> expands the assert macro — otherwise assert-stripping would depend
-// on a prior TU having pulled in platform.h, making this header non-self-sufficient.
+// platform.h defines NDEBUG on device; include before <cassert> so assert
+// stripping does not depend on include order.
 #include "engine/platform.h"
 #include <cassert>
 
@@ -28,9 +27,7 @@ static constexpr float INV_PHI = 1 / PHI;
 /**
  * @brief Named tolerances for floating-point geometry comparisons.
  *
- * Use these named constants instead of ad-hoc literals so that
- * tolerance decisions are reviewed in one place. The naming reflects
- * what is being compared, not the magnitude:
+ * The naming reflects what is being compared, not the magnitude:
  *
  *   EPS_UNIT       — unit-vector length test (1e-3f)
  *   TOLERANCE      — generic float compare (1e-4f)
@@ -55,15 +52,13 @@ static constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
 static constexpr float EPS_UNIT_VEC_SQ  = 0.02f;
 /**
  * @brief Cosine above which a vector is treated as parallel to a reference axis.
- * @details Too aligned to cross with it safely, so callers pick an alternate
- * axis to avoid a near-zero (degenerate) cross when building a frame. Switches
- * only when truly near-parallel (~0.8°) — the minimal-necessary guard.
+ * @details Above this callers pick an alternate axis to avoid a near-zero
+ * (degenerate) cross when building a frame. Switches only near-parallel (~0.8°).
  */
 static constexpr float COS_AXIS_PARALLEL = 1.0f - TOLERANCE;
 }
 /**
- * @brief Global alias for math::TOLERANCE; prefer the namespaced name in new
- * code.
+ * @brief Global alias for math::TOLERANCE.
  */
 static constexpr float TOLERANCE = math::TOLERANCE;
 /**
@@ -97,9 +92,6 @@ struct Spherical {
    * @brief Constructs a Spherical coordinate from a 3D Vector.
    * @param v The Cartesian vector (must be non-degenerate; normalize() traps
    *          on a zero/near-zero-length input below normalized()'s epsilon).
-   * @details explicit: a coordinate-space change must be spelled out
-   * (`Spherical{v}`) so a Cartesian vector cannot silently bind where a
-   * Spherical is expected, and vice versa.
    */
   explicit Spherical(const Vector &v);
 
@@ -118,11 +110,9 @@ struct Vector {
   constexpr Vector() {}
   /**
    * @brief Constructs a zero vector from a null-pointer tag.
-   * @details Exists only for the device `teensy::inplace_function`, whose empty
-   * state synthesizes a return value as `Vector(0)`. Taking `std::nullptr_t`
-   * still accepts that literal `0` (a null-pointer constant) while rejecting the
-   * `Vector(5)` footgun the old `Vector(int)` allowed — a literal int that
-   * silently collapsed to the zero vector, discarding its value.
+   * @details For the device `teensy::inplace_function` empty state, which
+   * synthesizes `Vector(0)`; `nullptr_t` accepts the literal `0` while rejecting
+   * the `Vector(int)` footgun.
    */
   explicit constexpr Vector(std::nullptr_t)
       : x(0), y(0), z(0) {} // inplace_function empty-state compat
@@ -136,28 +126,19 @@ struct Vector {
   /**
    * @brief Copy constructor (defaulted, trivial).
    * @param v The vector to copy.
-   * @details Defaulted so Vector stays trivially copyable — required for the
-   * memcpy fast paths (ArenaVector::append_bulk, MeshState bulk copies) to be
-   * well-defined, and lets the optimizer vectorize bulk copies.
+   * @details Defaulted to keep Vector trivially copyable, required for the
+   * memcpy/vectorized bulk-copy fast paths to be well-defined.
    */
   constexpr Vector(const Vector &v) = default;
   /**
    * @brief Constructs a vector from Spherical coordinates.
    * @param s The spherical coordinate.
-   * @details explicit: callers use the named from_spherical() factory for the
-   * intended spherical->unit-vector path, so block any implicit conversion that
-   * would let a Spherical silently bind where a Cartesian Vector is expected.
    */
   explicit Vector(const Spherical &s)
       : x(sinf(s.phi) * cosf(s.theta)), y(cosf(s.phi)),
         z(sinf(s.phi) * sinf(s.theta)) {}
   /**
    * @brief Builds a unit vector from spherical angles.
-   *
-   * A named factory rather than a 2-arg constructor on purpose: `Vector(a, b)`
-   * would be ambiguous with a Cartesian point (z=0), and the spherical reading
-   * normalizes onto the unit sphere — two distinct meanings the call site must
-   * not confuse. The factory forces the spherical intent to be spelled out.
    * @param theta Azimuthal angle.
    * @param phi Polar angle.
    * @return Unit vector at (theta, phi).
@@ -170,8 +151,7 @@ struct Vector {
    * @brief Copy assignment (defaulted, trivial).
    * @param v The vector to copy from.
    * @return Reference to this vector.
-   * @details Defaulted so Vector stays trivially copyable, keeping the memcpy
-   * fast paths well-defined.
+   * @details Defaulted to keep Vector trivially copyable.
    */
   constexpr Vector &operator=(const Vector &v) = default;
 
@@ -275,10 +255,8 @@ struct Vector {
   /**
    * @brief Returns a unit-length copy without mutating `this`.
    * @return A unit-length vector in the same direction.
-   * @details Traps on a zero-length vector — a degenerate input is a logic bug.
-   * Sites where a zero vector is a legitimate geometric edge (antipodal/
-   * coincident/pole/singularity) must use normalized_or() with an explicit
-   * fallback.
+   * @details Traps on a zero-length vector. Sites where a zero vector is a
+   * legitimate geometric edge must use normalized_or() with an explicit fallback.
    */
   [[nodiscard]] Vector normalized() const {
     float m2 = x * x + y * y + z * z;
@@ -298,11 +276,9 @@ struct Vector {
  * @param v The vector to normalize.
  * @param fallback Direction returned when `v` has near-zero length.
  * @return A unit-length copy of `v`, or `fallback` if `v` is degenerate.
- * @details The strict Vector::normalized() traps on a zero-length input so that
- * an unexpected zero surfaces as a bug. Use this variant at the handful of sites
- * where a zero vector is a *legitimate* geometric edge that arises during normal
- * animation — antipodal endpoints, a Hopf-fiber pole, a Möbius singularity — so
- * the degeneracy degrades gracefully to a stable direction.
+ * @details Use where a zero vector is a legitimate geometric edge (antipodal
+ * endpoints, a Hopf-fiber pole, a Möbius singularity), unlike the trapping
+ * Vector::normalized().
  */
 [[nodiscard]] inline Vector normalized_or(const Vector &v,
                                           const Vector &fallback) {
@@ -321,16 +297,12 @@ struct Vector {
  * @return The angle in radians in [-π, π]. Matches std::atan2 except at
  * negative zero: `-0.0f < 0.0f` is false, so `x<0, y==-0.0f` returns +π where
  * std::atan2 gives -π; -π is reached only for strictly negative y.
- * @details Peak abs error ~0.0038 rad (~0.22°) measured over a dense sweep;
- * worst near r ~= 0.7 in each octant. The two-branch split at |x|==|y| is C0 at
- * the exact diagonal but the +1e-10f bias on abs_y makes the branches disagree
- * by ~6e-7 rad right at the octant boundaries — far below the polynomial error
- * and harmless for all callers (hue/azimuth lookups).
+ * @details Peak abs error ~0.0038 rad (~0.22°), worst near r ~= 0.7 in each
+ * octant.
  */
 inline float fast_atan2(float y, float x) {
   // +1e-10f keeps abs_y strictly positive so the (0,0) origin stays finite
-  // (~PI/2 from the abs_x<abs_y branch) instead of NaN; callers tolerate an
-  // arbitrary angle at the undefined origin.
+  // instead of NaN; callers tolerate an arbitrary angle at the undefined origin.
   float abs_y = std::abs(y) + 1e-10f;
   float abs_x = std::abs(x);
   float r, angle;
@@ -358,12 +330,8 @@ inline float fast_atan2(float y, float x) {
  * below that the bit-hack seed degrades and the result collapses toward 0.
  * @return An approximation of the cube root of `x`.
  * @details Bit-hack initial guess (divide the float exponent by three) refined
- * by ONE Halley step (cubic convergence). Peak relative error ~2.3e-5 measured
- * against cbrtf for x >= 1e-6 — vs ~1e-3 for a single Newton step — for ~2 extra
- * multiplies and the same single division; the bit-hack seed degrades in the
- * denormal/tiny-normal tail, far below the inputs this serves. Avoids the
- * ~100-200-cycle soft-float cbrtf in the per-pixel OKLab hue path (see
- * hue_rotate).
+ * by ONE Halley step. Peak relative error ~2.3e-5 against cbrtf for x >= 1e-6;
+ * the seed degrades in the denormal/tiny-normal tail.
  */
 inline float fast_cbrt(float x) {
   if (x <= 0.0f)
@@ -387,9 +355,8 @@ inline float fast_expf(float x);
 inline Spherical::Spherical(const Vector &v) {
   Vector n(v);
   n.normalize();
-  // At the poles (n.y == ±1) theta is arbitrary but harmless: phi==0 or π
-  // collapses the azimuth so every theta maps to the same point.
-  // theta is fast_atan2's [-π, π], not [0,2π); consumers needing the latter wrap.
+  // At the poles (n.y == ±1) theta is arbitrary but harmless. theta is
+  // fast_atan2's [-π, π], not [0,2π); consumers needing the latter wrap.
   theta = fast_atan2(n.z, n.x);
   phi = fast_acos(hs::clamp(n.y, -1.0f, 1.0f));
 }
@@ -573,34 +540,28 @@ struct Quaternion {
  * @brief Conventional representation of the point at infinity on the complex
  * plane.
  * @details Single source of truth for the pole sentinel: every forward
- * projection that hits a singularity (stereo() at the north pole, gnomonic() at
- * the equator, Complex::operator/ on a near-zero denominator) emits a value of
- * this magnitude, and every inverse projection recognizes it (see the two
- * thresholds below).
+ * projection that hits a singularity emits this magnitude, and every inverse
+ * projection recognizes it (see the two thresholds below).
  */
 static constexpr float STEREO_INF = 1e4f;
 
 /**
  * @brief |z| at/above which inv_stereo() treats its input as the infinity
  * sentinel.
- * @details Half of STEREO_INF on purpose: stereo() and Complex::operator/ emit
- * exactly STEREO_INF, but an intervening Mobius map can scale that toward (but
- * not past) zero, so the inverse needs margin below the emitted magnitude to
- * still snap a Mobius-shrunk sentinel back to the pole. (Squared in the
- * comparison to avoid a sqrt on the hot path.)
+ * @details Half of STEREO_INF: an intervening Mobius map can scale the emitted
+ * sentinel toward (not past) zero, so the inverse needs margin below the emitted
+ * magnitude to still snap it back to the pole. (Squared to avoid a sqrt.)
  */
 static constexpr float STEREO_INF_RECOGNIZE = STEREO_INF * 0.5f;
 
 /**
  * @brief Soft-limit for a stereographic coordinate fed (times a pattern
  * frequency) into fast_sinf/fast_cosf, beyond which range reduction bands.
- * @details stereo() emits magnitudes up to STEREO_INF (1e4); multiplied by a
- * shader's pattern frequency this drives trig arguments toward ~2e5, where a
- * float's ULP (~0.02 rad) makes fast_sinf's range reduction visibly shimmer/band
- * near the pole. Clamping the trig argument to ±this bound holds the reduction
- * error to ~5e-4 rad. The clamped band is the pole cap, which the stereographic
- * shaders pole-attenuate toward the background anyway, so freezing the pattern
- * there is invisible; non-pole coordinates (|z| ~ O(10)) never reach the bound.
+ * @details Unclamped, stereo()'s up-to-1e4 magnitudes times a pattern frequency
+ * drive trig arguments toward ~2e5, where a float's ULP (~0.02 rad) makes
+ * fast_sinf's range reduction band near the pole. Clamping to ±this bound holds
+ * the reduction error to ~5e-4 rad in the pole cap; non-pole coordinates
+ * (|z| ~ O(10)) never reach it.
  */
 static constexpr float STEREO_PATTERN_ARG_LIMIT = 4096.0f;
 
@@ -613,10 +574,8 @@ static constexpr float STEREO_POLE_EPS = 1e-4f;
 /**
  * @brief Squared numerator magnitude below which Complex::operator/ treats a
  * near-zero-divided-by-near-zero quotient as the indeterminate 0/0 form and
- * returns zero, rather than scaling the numerator's direction by the infinity
- * sentinel. Tighter than math::EPS_LEN_SQ (the divisor-degeneracy threshold)
- * on purpose: only a numerator that is essentially exactly zero should lose its
- * direction.
+ * returns zero. Tighter than math::EPS_LEN_SQ so only a numerator essentially
+ * exactly zero loses its direction.
  */
 static constexpr float STEREO_DIV_NUM_EPS_SQ = 1e-12f;
 
@@ -746,9 +705,8 @@ struct MobiusParams {
 inline Complex stereo(const Vector &v) {
   float denom = 1.0f - v.y;
   if (denom < STEREO_POLE_EPS) {
-    // North-pole cap: emit the infinity sentinel but keep the (x,z) azimuth so a
-    // Mobius map pulling the pole finite preserves the swirl. At the exact pole
-    // (x = z = 0) the azimuth is undefined → +real fallback.
+    // North-pole cap: emit the sentinel but keep the (x,z) azimuth. At the exact
+    // pole (x = z = 0) the azimuth is undefined → +real fallback.
     float r = sqrtf(v.x * v.x + v.z * v.z);
     if (r < STEREO_AZIMUTH_EPS)
       return Complex(STEREO_INF, 0.0f);
@@ -764,9 +722,8 @@ inline Complex stereo(const Vector &v) {
  * @return The corresponding point on the unit sphere.
  */
 inline Vector inv_stereo(const Complex &z) {
-  // |z| >= STEREO_INF_RECOGNIZE → North Pole. Catches the infinity sentinel and
-  // also any genuine point within ~1.1° of the pole, whose magnitude clears the
-  // half-sentinel floor (squared compare avoids a sqrt).
+  // |z| >= STEREO_INF_RECOGNIZE → North Pole (catches the sentinel and any point
+  // within ~1.1° of the pole; squared compare avoids a sqrt).
   float r2 = z.re * z.re + z.im * z.im;
   if (r2 >= STEREO_INF_RECOGNIZE * STEREO_INF_RECOGNIZE)
     return Vector(0.0f, 1.0f, 0.0f);
@@ -797,11 +754,9 @@ inline Complex mobius(const Complex &z, const MobiusParams &params) {
  * inv_gnomonic's `original_sign`.
  */
 inline Complex gnomonic(const Vector &v) {
-  // Equator handling: floor the divisor to ±1e-9 to avoid div-by-zero at
-  // v.y == 0, then clamp to ±STEREO_INF. A near-equator point has |v.x| or
-  // |v.z| ≈ O(1), so it clamps to the sentinel; inv_gnomonic snaps any magnitude
-  // at/above STEREO_INF_RECOGNIZE (half the sentinel) back to the pole, so the
-  // equator collapses to the pole just inside |v.y| ~ 1.4e-4.
+  // Floor the divisor to ±STEREO_EQUATOR_EPS to avoid div-by-zero at v.y == 0,
+  // then clamp to ±STEREO_INF. A near-equator point clamps to the sentinel,
+  // which inv_gnomonic snaps back to the pole.
   float div = (std::abs(v.y) < STEREO_EQUATOR_EPS)
                   ? STEREO_EQUATOR_EPS * (v.y >= 0 ? 1.0f : -1.0f)
                   : v.y;
@@ -820,10 +775,8 @@ inline Complex gnomonic(const Vector &v) {
  * @return The corresponding point on the unit sphere.
  */
 inline Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
-  // Clamped-to-infinity → pole, recognized from STEREO_INF_RECOGNIZE (half the
-  // sentinel) like inv_stereo: a Mobius map between gnomonic() and here can
-  // scale the exact ±STEREO_INF clamp toward (but not past) zero, so the margin
-  // still snaps a shrunk sentinel back to the pole.
+  // Clamped-to-infinity → pole, recognized from STEREO_INF_RECOGNIZE like
+  // inv_stereo (margin snaps a Mobius-shrunk sentinel back to the pole).
   if (std::abs(z.re) >= STEREO_INF_RECOGNIZE ||
       std::abs(z.im) >= STEREO_INF_RECOGNIZE)
     return Vector(0.0f, original_sign, 0.0f);
@@ -893,9 +846,9 @@ constexpr Vector operator*(const Vector &v, float s) {
  */
 constexpr Vector operator*(float s, const Vector &v) { return v * s; }
 
-// Hot-path primitive: the device build has no s == 0 trap (yields ±Inf/NaN);
-// callers guard with HS_CHECK when s may be zero. The debug-only assert surfaces
-// unguarded misuse in native/WASM-debug at zero device cost.
+// Hot-path primitive: no device-build s == 0 trap (yields ±Inf/NaN); callers
+// guard with HS_CHECK when s may be zero. The debug assert surfaces unguarded
+// misuse at zero device cost.
 constexpr Vector operator/(const Vector &v, float s) {
   assert(s != 0.0f);
   return Vector(v.x / s, v.y / s, v.z / s);
@@ -1018,11 +971,10 @@ constexpr Quaternion operator*(float s, const Quaternion &q) { return q * s; }
  * @param s Scalar.
  * @return The resulting quaternion.
  *
- * Like operator/(Vector, float), the device build deliberately does NOT trap on
- * s == 0 (hot path; HS_CHECK is cold-path only). Callers that divide by a
- * magnitude which could be zero must guard themselves — e.g.
- * Quaternion::inverse() HS_CHECKs the squared magnitude before dividing. The
- * debug-only assert surfaces unguarded misuse at zero device cost.
+ * Like operator/(Vector, float), no device-build s == 0 trap; callers dividing
+ * by a possibly-zero magnitude must guard themselves (e.g. Quaternion::inverse()
+ * HS_CHECKs the squared magnitude first). The debug assert surfaces unguarded
+ * misuse at zero device cost.
  */
 constexpr Quaternion operator/(const Quaternion &q, float s) {
   assert(s != 0.0f);
@@ -1057,12 +1009,10 @@ inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
  * @param theta The angle of rotation in radians.
  * @return The resulting unit rotation quaternion.
  * @pre `axis` is unit length and non-zero. A zero/degenerate axis collapses the
- *      quaternion's vector part to zero; at `theta = pi` the scalar part
- *      `cos(pi/2)` is also ~0, so the whole quaternion's magnitude falls below
- *      `normalized()`'s epsilon threshold (not exact zero) and it traps. This
- *      is deliberate fail-fast on a
- *      precondition violation, not a soft fallback — callers that may produce a
- *      degenerate axis must guard it (e.g. via `normalized_or`) before calling.
+ *      quaternion's vector part to zero; at `theta = pi` the scalar part is also
+ *      ~0, so the magnitude falls below `normalized()`'s epsilon and it traps.
+ *      Callers that may produce a degenerate axis must guard it (e.g. via
+ *      `normalized_or`) first.
  */
 inline Quaternion make_rotation(const Vector &axis, float theta) {
   return Quaternion(cosf(theta / 2), sinf(theta / 2) * axis).normalized();
@@ -1074,11 +1024,8 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
  * @return +X unless @p v is near-parallel to it, in which case +Y.
  * @details Seed for building a cross-product frame around @p v: crossing @p v
  *          with a near-parallel axis collapses to ~zero, so pick the axis that
- *          is safely off-axis. Centralizes the reference-axis pick that the
- *          path/walk frame builders and make_rotation's antiparallel branch
- *          would otherwise spell out by hand. (Lives here, not in geometry.h
- *          with X_AXIS/Y_AXIS, so make_rotation below can use it without an
- *          include cycle; dot(v, X_AXIS) is just v.x.)
+ *          is safely off-axis. (Lives here, not in geometry.h with X_AXIS/Y_AXIS,
+ *          so make_rotation below can use it without an include cycle.)
  */
 inline Vector least_parallel_axis(const Vector &v) {
   // Scale-invariant: compare v.x^2 against the threshold scaled by |v|^2, so a
@@ -1092,13 +1039,11 @@ inline Vector least_parallel_axis(const Vector &v) {
  * @param from The source vector (must be unit vector).
  * @param to The destination vector (must be unit vector).
  * @return The resulting unit rotation quaternion.
- * @details Near-parallel inputs snap to identity: when d = dot(from,to) exceeds
- * 1 - TOLERANCE the shortest-arc angle is below ~0.81° (1 - cos θ < 1e-4), so the
- * rotation is dropped rather than divided through a near-zero cross product. Sub-
- * 0.81° rotations are therefore silently lost — harmless for the orientation-level
- * callers here, but a caller needing exact tiny rotations must not route them
- * through this overload. The antiparallel case (d < -1 + TOLERANCE) instead
- * synthesizes a stable perpendicular axis and rotates by π.
+ * @details Near-parallel inputs (d > 1 - TOLERANCE, shortest arc < ~0.81°) snap
+ * to identity rather than dividing through a near-zero cross, so sub-0.81°
+ * rotations are silently lost — a caller needing exact tiny rotations must not
+ * use this overload. The antiparallel case (d < -1 + TOLERANCE) synthesizes a
+ * stable perpendicular axis and rotates by π.
  */
 inline Quaternion make_rotation(const Vector &from, const Vector &to) {
   HS_CHECK(std::abs(dot(from, from) - 1.0f) < math::EPS_UNIT_VEC_SQ &&
@@ -1131,21 +1076,14 @@ inline Quaternion make_rotation(const Vector &from, const Vector &to) {
  * @param cz Image of the body +Z axis (must be unit, = cross(cx, cy)).
  * @return The unit quaternion q with rotate(X_AXIS, q) == cx, etc.
  * @details Shepperd's method: pick the largest of the four (1 ± trace terms) so
- * the divisor is never near zero. Unlike composing two shortest-arc rotations,
- * this is singular-free for every orientation — there is no antipodal axis to
- * guard. An orientation-level op (per object per frame, never per pixel), so the
- * one sqrt + branch is immaterial. Inputs are assumed orthonormal. A mildly
- * skewed basis silently yields a non-rotation (the trailing `normalized()` still
- * succeeds, but `q` no longer reproduces the intended frame), so callers must
- * hand it a true frame. A *near-singular* basis (collinear/degenerate axes)
- * drives the chosen Shepperd divisor — and hence `q` — toward zero magnitude, at
- * which point the final `normalized()` traps (fail-fast). The two regimes are not
- * a contradiction: the silent path is the skewed-but-nondegenerate one; the trap
- * is reserved for a basis too degenerate to normalize at all.
+ * the divisor is never near zero; singular-free for every orientation. Inputs
+ * are assumed orthonormal — a mildly skewed basis silently yields a non-rotation
+ * (callers must hand it a true frame), while a near-singular basis drives the
+ * divisor and `q` toward zero magnitude and the final `normalized()` traps.
  */
 inline Quaternion quaternion_from_basis(const Vector &cx, const Vector &cy,
                                         const Vector &cz) {
-  // m[col] = image of that body axis; mIJ is row I, col J of the rotation matrix.
+  // mIJ is row I, col J of the rotation matrix (column = image of a body axis).
   const float m00 = cx.x, m10 = cx.y, m20 = cx.z;
   const float m01 = cy.x, m11 = cy.y, m21 = cy.z;
   const float m02 = cz.x, m12 = cz.y, m22 = cz.z;
@@ -1199,11 +1137,9 @@ inline float fast_acos(float x) {
  * @brief Fast exp for non-positive arguments.
  * @param x Argument; the domain is x <= 0.
  * @return An approximation of e^x.
- * @details exp(x) = 2^(x*log2e), split into an integer power built from the
- * float exponent bits and a fractional 2^f evaluated by a quartic minimax on
- * [0,1]. Peak rel error ~7.4e-4 over [-30, 0]; ~10 FPU ops vs ~100-200 cycles
- * for newlib expf on a Cortex-M7 (no HW transcendentals). Large-magnitude x
- * saturates to 0.
+ * @details exp(x) = 2^(x*log2e), split into an integer power from the float
+ * exponent bits and a fractional 2^f via a quartic minimax on [0,1]. Peak rel
+ * error ~7.4e-4 over [-30, 0]; large-magnitude x saturates to 0.
  * @warning For x > 0 the exponent assembly overflows; callers must keep x <= 0.
  */
 inline float fast_expf(float x) {
@@ -1228,8 +1164,7 @@ inline float fast_expf(float x) {
  * @brief Fast sine using the Bhaskara I approximation.
  * @param x Angle in radians (range-reduced internally).
  * @return The approximate sine of `x`.
- * @details Max error ~0.17% (~0.1 degrees); ~8 FPU ops vs ~80-120 cycles for
- * newlib sinf.
+ * @details Max error ~0.17% (~0.1 degrees).
  * @warning Accuracy degrades for large |x|: the `x - floor(x/2π)·2π` range
  * reduction loses precision as a float's ULP grows past the period, so callers
  * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).
@@ -1274,16 +1209,15 @@ inline Vector slerp(const Vector &v1, const Vector &v2, float t) {
   }
   float theta = fast_acos(d);
   if (theta > PI_F - math::TOLERANCE) {
-    // Antipodal: v1 + v2 cancels so the standard blend is non-monotone
-    // (collapses to ~v1 for all t). Rotate v1 by t*theta about an arbitrary
-    // perpendicular axis — a monotone half-turn landing within TOLERANCE of v2.
+    // Antipodal: v1 + v2 cancels so the standard blend is non-monotone. Rotate
+    // v1 by t*theta about an arbitrary perpendicular axis for a monotone
+    // half-turn landing within TOLERANCE of v2.
     Vector axis = cross(least_parallel_axis(v1), v1).normalized();
     return rotate(v1, make_rotation(axis, t * theta));
   }
-  // The 1/sinθ factor in the slerp weights cancels under the final normalize(),
-  // so it is omitted (also dodging a divide by a small sin(θ) near θ→π).
-  // Fast trig here (vs the exact sinf/acosf in the Quaternion overload): a
-  // direction blend tolerates fast_sinf's bounded error; orientation slerp does not.
+  // The 1/sinθ factor cancels under the final normalize(), so it is omitted
+  // (also dodging a divide by a small sin(θ) near θ→π). Fast trig here tolerates
+  // the bounded error a direction blend permits.
   float s1 = fast_sinf((1 - t) * theta);
   float s2 = fast_sinf(t * theta);
   return ((s1 * v1) + (s2 * v2)).normalized();
@@ -1303,8 +1237,8 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
   Quaternion p(q1);
   Quaternion q(q2);
 
-  // At d == 0 (orthogonal endpoints) the >=/< split sends each mode to the arc
-  // its name promises: long_way takes the 270° arc, short-path the 90° arc.
+  // At d == 0 (orthogonal endpoints) the >=/< split sends long_way to the 270°
+  // arc and short-path to the 90° arc.
   if ((long_way && d >= 0) || (!long_way && d < 0)) {
     p = -p;
     d = -d;
@@ -1315,14 +1249,14 @@ inline Quaternion slerp(const Quaternion &q1, const Quaternion &q2, float t,
     return r.normalized();
   }
 
-  // Exact acosf/sinf (vs fast_* in the Vector overload): orientation interpolation
-  // is more sensitive to angular error than a direction blend.
+  // Exact acosf/sinf here: orientation interpolation is more sensitive to
+  // angular error than a direction blend.
   float theta = acosf(hs::clamp(d, -1.0f, 1.0f));
   float sin_theta = sinf(theta);
   if (sin_theta < math::TOLERANCE) {
     // Antipodal (theta ~ pi): p + t(q - p) collapses to the zero quaternion at
     // t = 0.5. Sweep a great-circle turn from p toward an arbitrary orthogonal
-    // unit quaternion instead (mirrors the Vector overload's antipodal path).
+    // unit quaternion instead.
     Quaternion n(-p.v.x, p.r, -p.v.z, p.v.y);
     return (cosf(t * theta) * p + sinf(t * theta) * n).normalized();
   }
@@ -1356,8 +1290,7 @@ inline Vector cubic_fast(const Vector &p0, const Vector &p1, const Vector &p2,
   float tt = t * t;
   Vector blended = p0 * (uu * u) + p1 * (3.0f * uu * t) + p2 * (3.0f * u * tt) +
                    p3 * (tt * t);
-  // Antipodal/coincident control points can sum to ~zero (a legitimate edge),
-  // so degrade to p1 rather than trapping in strict normalized().
+  // Antipodal/coincident control points can sum to ~zero, so degrade to p1.
   return normalized_or(blended, p1);
 }
 
@@ -1408,9 +1341,8 @@ inline Vector cubic(const Vector &p0, const Vector &p1, const Vector &p2,
  * @param cp1 Output: first Bézier control point for the start→end segment.
  * @param cp2 Output: second Bézier control point for the start→end segment.
  * @details smoothing=0 produces geodesic (linear) segments; smoothing=1
- * produces full Catmull-Rom smoothing. Named `smoothing` rather than the
- * conventional Catmull-Rom `tension` because the sense is inverted from that
- * convention (where τ=0 is the standard cardinal spline).
+ * produces full Catmull-Rom smoothing (inverted from the conventional `tension`,
+ * hence the different name).
  */
 inline void catmull_rom_tangents(const Vector &prev, const Vector &start,
                                  const Vector &end, const Vector &next,
