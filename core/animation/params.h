@@ -26,7 +26,7 @@ public:
    */
   Transition(float &mutant, float to, int duration, EasingFn easing_fn,
              bool quantized = false, bool repeat = false)
-      : AnimationBase(duration, repeat), mutant(mutant), from(mutant), to(to),
+      : AnimationBase(duration, repeat), mutant(mutant), from(0.0f), to(to),
         easing_fn(std::move(easing_fn)), quantized(quantized) {
     // Reject the perpetual -1 the base permits: step() would clamp t_norm to 0
     // forever, silently freezing the tween instead of driving it.
