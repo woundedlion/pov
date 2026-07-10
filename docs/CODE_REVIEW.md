@@ -180,7 +180,7 @@ files land in the daydream repo; all others land in Holosphere.
     first ~second is lost. Fix: after constructing `host.recorder`, push the current
     `recSettings` into it.
 
-13. **Invalid numeric/boolean URL params are neither applied nor cleaned, so they
+13. ✅ **Invalid numeric/boolean URL params are neither applied nor cleaned, so they
     persist and re-warn every load** — `daydream/gui.js:285`. In `DeepLinkGUI.add()`,
     a URL param that fails to parse as a number/boolean sets `urlApplied=false` but
     leaves `valClamped=false`, so the URL-rewrite gate never fires — unlike the enum
