@@ -49,8 +49,6 @@ public:
     // fits the device default partition.
     fibers = static_cast<Spherical *>(persistent_arena.allocate(
         ACTUAL_FIBERS * sizeof(Spherical), alignof(Spherical)));
-    fiber_phase = static_cast<float *>(
-        persistent_arena.allocate(ACTUAL_FIBERS * sizeof(float), alignof(float)));
 
     trails = static_cast<Animation::VectorTrail<TRAIL_LEN> *>(
         persistent_arena.allocate(ACTUAL_FIBERS *
@@ -106,13 +104,12 @@ private:
   static constexpr int RINGS = 15;
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
+  static constexpr float PHASE_STEP = PI_F / ACTUAL_FIBERS;
 
-  // Persistent allocations: palette LUT + one Spherical, one phase, and one
-  // trail per fiber.
+  // Persistent allocations: palette LUT + one Spherical and one trail per fiber.
   static constexpr size_t FOOTPRINT_BYTES =
       BakedPalette::LUT_SIZE * sizeof(Color4) +
       ACTUAL_FIBERS * sizeof(Spherical) +
-      ACTUAL_FIBERS * sizeof(float) +
       ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a RINGS/PER_RING/TRAIL_LEN retune.
@@ -152,7 +149,6 @@ private:
   float tumble_angle_x = 0.0f;
   float tumble_angle_y = 0.0f;
   Spherical *fibers = nullptr;
-  float *fiber_phase = nullptr;
   Animation::VectorTrail<TRAIL_LEN> *trails = nullptr;
 
   // Per-frame values reused across all fibers (refreshed in advance_tumble).
@@ -170,18 +166,15 @@ private:
   /**
    * @brief Seeds the base fibers as a spherical lattice.
    * @details Lays out a RINGS x PER_RING grid of spherical coordinates, evenly
-   * spaced in polar bands and azimuth around each band. Stored as Spherical,
-   * plus a per-fiber S3 phase, so hopf_project reuses them directly instead of
-   * re-deriving per frame.
+   * spaced in polar bands and azimuth around each band. Stored as Spherical;
+   * hopf_project derives each fiber's S3 phase inline.
    */
   void init_fibers() {
-    constexpr float PHASE_STEP = PI_F / ACTUAL_FIBERS;
     int idx = 0;
     for (int i = 0; i < RINGS; ++i) {
       float polar = PI_F * (i + 0.5f) / RINGS;
       for (int j = 0; j < PER_RING; ++j) {
         float azimuth = 2 * PI_F * j / PER_RING;
-        fiber_phase[idx] = idx * PHASE_STEP;
         std::construct_at(&fibers[idx], azimuth, polar);
         ++idx;
       }
@@ -228,7 +221,7 @@ private:
     azimuth += eta * params.twist;
 
     // S3 point
-    float beta = flow_rad + fiber_phase[i];
+    float beta = flow_rad + static_cast<float>(i) * PHASE_STEP;
     float cos_eta = fast_cosf(eta), sin_eta = fast_sinf(eta);
     float q0 = cos_eta * fast_cosf(azimuth + beta);
     float q1 = cos_eta * fast_sinf(azimuth + beta);
