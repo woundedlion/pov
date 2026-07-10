@@ -148,7 +148,7 @@ files land in the daydream repo; all others land in Holosphere.
    helper between the comment and its function. Fix: move the 610-616 block to
    immediately above line 648.
 
-9. **`check_spawn` comment misstates the ring's first drawn position** —
+9. ✅ **`check_spawn` comment misstates the ring's first drawn position** —
    `effects/PetalFlow.h:190`. The comment claims the first drawn position is
    `START_RHO + gap`; the ring actually spawns at
    `START_RHO + gap_accumulator - move` and `update_and_draw_rings` adds one move
