@@ -512,7 +512,7 @@ struct Ring {
   float phase;        /**< Azimuth phase offset (radians). */
 
   Vector normal, u, w; /**< Ring axis and the two in-plane basis vectors. */
-  float nx, ny, nz;    /**< Components of the ring axis. */
+  float ny; /**< y-component of the ring axis. */
   float target_angle, center_phi; /**< Centerline polar angle and axis colatitude. */
   float cos_max, cos_min, cos_target, inv_sin_target, sin_target; /**< Precomputed band trig. */
 
@@ -533,9 +533,7 @@ struct Ring {
     u = basis.u;
     w = basis.w;
     AxisProjection ap = project_axis(normal);
-    nx = ap.nx;
     ny = ap.ny;
-    nz = ap.nz;
 
     target_angle = radius * (PI_F / 2.0f);
     center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
@@ -702,7 +700,7 @@ struct DistortedRing {
   float phase;            /**< Azimuth phase offset (radians). */
 
   Vector normal, u, w;            /**< Ring axis and the two in-plane basis vectors. */
-  float nx, ny, nz;               /**< Components of the ring axis. */
+  float ny; /**< y-component of the ring axis. */
   float target_angle, center_phi; /**< Centerline polar angle and axis colatitude. */
   float max_thickness;            /**< thickness + max_distortion (radians). */
 
@@ -732,9 +730,7 @@ struct DistortedRing {
     u = basis.u;
     w = basis.w;
     AxisProjection ap = project_axis(normal);
-    nx = ap.nx;
     ny = ap.ny;
-    nz = ap.nz;
     target_angle = radius * (PI_F / 2.0f);
     center_phi = acosf(std::max(-1.0f, std::min(1.0f, ny)));
     max_thickness = thickness + max_distortion;
@@ -2680,7 +2676,7 @@ struct PlanarPolygon {
   int sides;                           /**< Number of polygon sides. */
   float phase;                         /**< Azimuth phase offset (radians). */
   float apothem;                       /**< Precomputed inradius (radians). */
-  float nx, ny, nz, R_val, alpha_angle; /**< Axis components, XZ projection length and azimuth. */
+  float ny, R_val, alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
   float phi_min, phi_max;              /**< Vertical bounds as an angular band (radians). */
   static constexpr bool is_solid = true; /**< Polygon renders as a filled region. */
 
@@ -2696,9 +2692,7 @@ struct PlanarPolygon {
     HS_CHECK(sides > 0);
     apothem = thickness * cosf(PI_F / sides);
     AxisProjection ap = project_axis(basis.v);
-    nx = ap.nx;
     ny = ap.ny;
-    nz = ap.nz;
     R_val = ap.R_val;
     alpha_angle = ap.alpha_angle;
 
@@ -2802,7 +2796,7 @@ struct SphericalPolygon {
   float edge_nv;          /**< Edge normal dotted with the center axis. */
   float edge_nu;          /**< Edge normal dotted with the u-axis. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
-  float nx, ny, nz, R_val, alpha_angle; /**< Axis components, XZ projection length and azimuth. */
+  float ny, R_val, alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
   static constexpr bool is_solid = true; /**< Polygon renders as a filled region. */
 
   /**
@@ -2848,9 +2842,7 @@ struct SphericalPolygon {
 
     // Vertical/horizontal bounds (same as SDF::PlanarPolygon)
     AxisProjection ap = project_axis(basis.v);
-    nx = ap.nx;
     ny = ap.ny;
-    nz = ap.nz;
     R_val = ap.R_val;
     alpha_angle = ap.alpha_angle;
 
@@ -2951,7 +2943,7 @@ struct Star {
   float nx, ny, plane_d; /**< 2D edge plane (normal and offset) for one point. */
   float thickness;       /**< Outer radius / AA scale (radians). */
 
-  float scan_ny, scan_nx, scan_nz, scan_r, scan_alpha; /**< Axis components, XZ projection length and azimuth. */
+  float scan_ny, scan_r, scan_alpha; /**< Axis y-component, XZ projection length and azimuth. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
 
   /**
@@ -2982,9 +2974,7 @@ struct Star {
     thickness = outer_radius;
 
     AxisProjection ap = project_axis(basis.v);
-    scan_nx = ap.nx;
     scan_ny = ap.ny;
-    scan_nz = ap.nz;
     scan_r = ap.R_val;
     scan_alpha = ap.alpha_angle;
 
@@ -3086,7 +3076,7 @@ struct Flower {
   float thickness;    /**< Outer radius / AA scale (radians). */
   float apothem;      /**< Petal inradius offset (PI - outer radius). */
   Vector antipode;    /**< Antipode of the flower axis (scan origin). */
-  float scan_nx, scan_ny, scan_nz, scan_R, scan_alpha; /**< Antipode components, XZ projection length and azimuth. */
+  float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection length and azimuth. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   static constexpr bool is_solid = true; /**< Flower renders as a filled region. */
 
@@ -3106,9 +3096,7 @@ struct Flower {
     antipode = -basis.v;
 
     AxisProjection ap = project_axis(antipode);
-    scan_nx = ap.nx;
     scan_ny = ap.ny;
-    scan_nz = ap.nz;
     scan_R = ap.R_val;
     scan_alpha = ap.alpha_angle;
 
