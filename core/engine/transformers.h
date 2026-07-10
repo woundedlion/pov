@@ -341,7 +341,7 @@ inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
 
   float half_width = params.half_width();
 
-  // Normalize distance (-2 to 2 range covers the whole wavelet)
+  // Normalize distance; within the accept band |t| reaches 4 (−2..2 is the primary lobe)
   float t = (dist_from_peak / half_width) * 2.0f;
 
   // Ricker Wavelet: (1 - t^2) * e^(-t^2/2)
