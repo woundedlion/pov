@@ -599,14 +599,15 @@ inline int random(int min, int max) {
  *          if any library starts touching SCB->CCR.
  */
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
-  if (in_max == in_min) return out_min;
   // Device computes in 32-bit `long`. Multiply in uint32_t (defined wrap mod
   // 2^32) and reinterpret to int32_t to reproduce its two's-complement
   // truncation without 64-bit widening (LP64) or signed-overflow UB.
+  const int32_t divisor = static_cast<int32_t>(in_max - in_min);
+  if (divisor == 0) return out_min;
   const int32_t product = static_cast<int32_t>(
       static_cast<uint32_t>(x - in_min) *
       static_cast<uint32_t>(out_max - out_min));
-  const int32_t scaled = product / static_cast<int32_t>(in_max - in_min);
+  const int32_t scaled = product / divisor;
   return scaled + out_min;
 }
 
