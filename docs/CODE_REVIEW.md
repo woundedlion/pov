@@ -216,7 +216,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 ### Priority 2 — Dead code, simplification & efficiency
 
 16. ✅ `core/math/geometry.h:391` — the log-polar trio (`LogPolar`, `LOGPOLAR_RHO_SENTINEL`, `logPolarToVector`, `vectorToLogPolar`) has zero production callers; delete it and its tests (it also carries a latent over-wide pole cap).
-17. `daydream/tools/palette_math.js:165` — `hsvToRgb` + `CPixel` are dead production code kept alive only by a WASM parity test; delete them and drop the orphaned assertions.
+17. ✅ `daydream/tools/palette_math.js:165` — `hsvToRgb` + `CPixel` are dead production code kept alive only by a WASM parity test; delete them and drop the orphaned assertions. (Dead JS mirror deleted; the two mirror-dependent parity tests replaced with a golden absolute-pin on the live `hsv_to_rgb` WASM export so its coverage — otherwise untested — is retained.)
 18. ✅ `core/mesh/solids.h:61` — `finalize_solid` copies `temp.topology`, which no generator ever populates (it's filled later by `classify_faces_by_topology`); drop the two topology lines.
 19. ✅ `core/color/color.h:943` — the `Pixel lerp_oklch(CPixel,CPixel,float)` overload has no callers; delete it.
 20. ✅ `core/render/sdf.h:515` — per-shape `nx`/`nz` (and Star/Flower `scan_nx`/`scan_nz`) are stored but never read; drop the dead members and their construction-time assignments.
