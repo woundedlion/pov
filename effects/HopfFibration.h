@@ -26,7 +26,7 @@ public:
    * screen-space anti-alias filter sized to W x H.
    */
   FLASHMEM HopfFibration()
-      : Effect(W, H, {.strobe = true}),
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(trail_pipeline)::any_crosses_segments}),
         trail_pipeline(Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
