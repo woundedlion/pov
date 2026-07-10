@@ -220,9 +220,15 @@ target_compile_options(arena_measure PRIVATE -Os -ffast-math -fno-finite-math-on
 add_test(NAME unit_arena_budget COMMAND arena_measure)
 
 # Render micro-benchmark, built at two opt levels to bracket the size config's
-# per-pixel codegen cost (perf_bench.cpp). Not CTests — wall time is noisy.
+# per-pixel codegen cost (perf_bench.cpp). Not CTests — wall time is noisy. The
+# O3 variant stays in the default build as a compile guard so perf_bench.cpp
+# can't bit-rot silently; the Os variant is built on demand.
 foreach(_opt Os O3)
-  add_executable(perf_bench_${_opt} EXCLUDE_FROM_ALL
+  set(_perf_exclude EXCLUDE_FROM_ALL)
+  if(_opt STREQUAL "O3")
+    set(_perf_exclude "")
+  endif()
+  add_executable(perf_bench_${_opt} ${_perf_exclude}
     ${CMAKE_CURRENT_SOURCE_DIR}/perf_bench.cpp
     ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
   target_compile_definitions(perf_bench_${_opt} PRIVATE HS_TEST_BUILD)
