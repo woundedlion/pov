@@ -988,6 +988,40 @@ inline void test_volume_trace_closest_stops_at_first_graze() {
   }
 }
 
+/**
+ * @brief Verifies probe_occluder reports the grazed background edge's own
+ *        closest-approach point, so the corner fill is shaded on the background
+ *        surface rather than reusing the foreground fragment.
+ * @details The ray passes through the corner where the two spheres' silhouettes
+ * cross, inside both AA bands but hitting neither: the trace grazes the
+ * foreground sphere, and the probe must come back non-solid with the graze
+ * coverage and a `behind` point at the background sphere's edge (negative z),
+ * not the foreground graze it was seeded with.
+ */
+inline void test_volume_probe_occluder_reports_background_graze_point() {
+  const float aa_width = 0.01f;
+  const float hit_threshold = aa_width * 0.1f;
+  TwoSphereSDF shape{Vector(0.0f, 0.0f, 0.20f), 0.18f,
+                     Vector(0.28f, 0.0f, -0.20f), 0.30f};
+
+  // Silhouette-crossing corner, offset outward of both circles by ~0.004.
+  const Vector ro(0.0357f, 0.1797f, 1.0f);
+  const Vector vd(0.0f, 0.0f, -1.0f);
+
+  Vector closest_local;
+  float closest_d = Scan::Volume::trace_closest(shape, ro, vd, 0.6f, 40,
+                                                aa_width, closest_local);
+  HS_EXPECT_GT(closest_d, hit_threshold);
+  HS_EXPECT_LT(closest_d, aa_width);
+  HS_EXPECT_GT(closest_local.z, 0.1f);
+
+  auto occ = Scan::Volume::probe_occluder(shape, closest_local, vd, 0.6f,
+                                          hit_threshold, aa_width);
+  HS_EXPECT_FALSE(occ.solid);
+  HS_EXPECT_GT(occ.soft, 0.2f);
+  HS_EXPECT_LT(occ.behind.z, -0.05f);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -1022,6 +1056,7 @@ inline int run_scan_tests() {
   test_volume_raymarch_silhouette_and_registers();
   test_volume_draw_occluded_edge_blends_over_background();
   test_volume_trace_closest_stops_at_first_graze();
+  test_volume_probe_occluder_reports_background_graze_point();
 
   return fixture.result();
 }

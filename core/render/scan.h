@@ -1161,7 +1161,8 @@ struct Volume {
    */
   struct Occluder {
     bool solid;    /**< A solid surface sits behind the halo (behind is valid). */
-    Vector behind; /**< Its local-space hit point (only when solid). */
+    Vector behind; /**< Local-space hit point when solid, else the grazed
+                        background edge's closest approach when soft > 0. */
     float soft;    /**< Coverage of a grazed background edge, for the corner fill. */
   };
 
@@ -1174,8 +1175,9 @@ struct Volume {
    * @param bounds_radius Bounding sphere radius (probe reach + step floor).
    * @param hit_threshold Solid-hit distance threshold.
    * @param aa_width Anti-aliasing band half-width (soft-occlusion falloff scale).
-   * @return An Occluder: a solid hit point to antialias the edge over, or a soft
-   *         coverage for the corner where two edges meet.
+   * @return An Occluder: a solid hit point to antialias the edge over, or a
+   *         grazed edge's closest approach and coverage for the corner where
+   *         two edges meet.
    */
   template <typename Shape>
   static __attribute__((always_inline)) Occluder
@@ -1192,6 +1194,7 @@ struct Volume {
     float prev = FLT_MAX;  // previous step's distance
     bool climbing = false; // pd has risen off the foreground graze
     float min_behind = FLT_MAX;
+    Vector min_pos = closest_local;
     for (int i = 0; i < 24; ++i) {
       // Stop at the back of the bounding sphere: nothing left to occlude this halo.
       if (probe.x * local_vd.x + probe.y * local_vd.y + probe.z * local_vd.z >
@@ -1202,8 +1205,10 @@ struct Volume {
         return {true, probe, 0.0f}; // solid surface behind the edge
       if (pd > prev)
         climbing = true; // moving away from the foreground graze
-      else if (climbing)
-        min_behind = std::min(min_behind, pd); // descending toward a surface behind
+      else if (climbing && pd < min_behind) {
+        min_behind = pd; // descending toward a surface behind
+        min_pos = probe;
+      }
       prev = pd;
       float floor = bounds_radius * (i < 6 ? 0.04f : 0.12f);
       float step = std::max(pd * 0.9f, floor);
@@ -1215,7 +1220,7 @@ struct Volume {
                      ? quintic_kernel(1.0f - (min_behind - hit_threshold) /
                                                  (aa_width - hit_threshold))
                      : 0.0f;
-    return {false, closest_local, soft};
+    return {false, min_pos, soft};
   }
 
   /**
@@ -1363,8 +1368,17 @@ struct Volume {
               }
               return;
             }
-            // No solid behind; a grazed background edge fills the corner ("over").
-            edge_alpha += (1.0f - edge_alpha) * occ.soft;
+            // No solid behind; a grazed background edge fills the corner,
+            // shaded at its own point so the fill carries the background's
+            // color, then the foreground blends over it.
+            if (occ.soft > 0.001f) {
+              Fragment bg;
+              bg.pos = occ.behind;
+              bg.size = 0.0f;
+              frag_fn(occ.behind, bg);
+              pipeline.plot(canvas, p, bg.color.color, 0.0f,
+                            bg.color.alpha * occ.soft);
+            }
           }
 
           if (frag.color.alpha * edge_alpha > 0.001f) {
