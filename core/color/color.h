@@ -608,13 +608,6 @@ inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
 }
 
 /**
- * @brief Converts OKLab to linear RGB [0,1].
- * @param lab Source color in OKLab space.
- * @param r Out: linear red in [0, 1] (may exit gamut before clamping).
- * @param g Out: linear green in [0, 1].
- * @param b Out: linear blue in [0, 1].
- */
-/**
  * @brief Converts OKLab to cube-rooted LMS (the inverse OKLab matrix).
  * @param lab Source color in OKLab space.
  * @param l_ Out: cube-rooted l cone response.
@@ -645,6 +638,13 @@ inline void lms_cbrt_to_linear_rgb(float l_, float m_, float s_, float &r,
   b = -0.0041960863f * l - 0.7034186147f * m + 1.7076147010f * s;
 }
 
+/**
+ * @brief Converts OKLab to linear RGB [0,1].
+ * @param lab Source color in OKLab space.
+ * @param r Out: linear red in [0, 1] (may exit gamut before clamping).
+ * @param g Out: linear green in [0, 1].
+ * @param b Out: linear blue in [0, 1].
+ */
 inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
   float l_, m_, s_;
   oklab_to_lms_cbrt(lab, l_, m_, s_);
