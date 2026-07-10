@@ -282,7 +282,7 @@ _None._
    breaks `require_closed_manifold` (`unit_conway` traps). `classify_faces_impl`'s guard is safe only because
    its consumer tolerates boundaries; `build_half_edge_mesh`'s consumer (`MeshOps::expand`) does not.
 
-5. **compile_hankin star-face walk lacks the anti-hang guard its sibling loops carry** —
+5. ✅ **compile_hankin star-face walk lacks the anti-hang guard its sibling loops carry** —
    `c:/work/Holosphere/core/mesh/hankin.h:168` — This half-edge `.next` walk is the sole one in the mesh
    layer without an always-on step-counter trap; a corrupt in-range cyclic chain would spin forever instead
    of trapping cleanly. *Fix:* add `HS_CHECK(walked++ < (int)he_mesh.half_edges.size(), ...)` as the first

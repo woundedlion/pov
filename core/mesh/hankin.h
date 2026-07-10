@@ -161,11 +161,14 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
       uint16_t he_idx = face.half_edge;
       uint16_t start_he = he_idx;
       int count = 0;
+      int walked = 0;
 
       if (he_idx == HE_NONE)
         continue;
 
       do {
+        HS_CHECK(walked++ < (int)he_mesh.half_edges.size(),
+                 "hankin star-face walk exceeded half-edge count");
         count += 2;
         HalfEdge &curr_he = he_mesh.half_edges[he_idx];
         uint16_t prev_idx = curr_he.prev;
