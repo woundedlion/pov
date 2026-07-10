@@ -127,7 +127,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 4. ✅ **`RandomWalk` silently freezes when the per-frame angle is below `TOLERANCE`** — `core/animation/motion.h:594`.
    `RandomWalk::step()` calls `Rotation::animate()`, which constructs a fresh one-shot `Rotation` (with `last_angle=0`) each frame. `Rotation::step()`'s sub-`TOLERANCE` accumulation relies on `last_angle` persisting across frames; with a new object per frame, any `options.speed` below `1e-4` rad/frame is dropped forever — the exact "freeze very slow rotations" case the mechanism exists to prevent. Reachable via the public `set_speed()`. Fix: drive the `Orientation` directly (unconditional `make_rotation`) or give `RandomWalk` a persistent `Rotation<W,CAP>` member.
 
-5. **`Ripple` with duration 0 or 1 never becomes visible** — `core/animation/params.h:707`.
+5. ✅ **`Ripple` with duration 0 or 1 never becomes visible** — `core/animation/params.h:707`.
    `AnimationBase` normalizes duration 0→1, and `step()` increments `t` to 1 on the first call, so the envelope branch `if (t < duration)` never executes for a one-frame `Ripple`; `params.amplitude` stays 0 for its whole life with no error signal. The only shipping caller clamps to ≥30 frames, so it is latent, but `Ripple` is a general-purpose class with a public constructor. Fix: trap on a degenerate duration in the ctor, e.g. `HS_CHECK(duration == 0 || duration >= 2, ...)` — note the value is normalized, so both 0 and 1 must be rejected.
 
 6. **`MeshMorph` silently mishandles an indefinite (`duration == -1`) construction** — `core/animation/mesh.h:58`.

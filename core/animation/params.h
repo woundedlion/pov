@@ -684,7 +684,7 @@ public:
          int duration = 100)
       : AnimationBase(duration, false), params(params), speed(speed),
         peak_amplitude(params.amplitude) {
-    HS_CHECK(duration >= 0, "Ripple duration must be >= 0");
+    HS_CHECK(duration >= 2, "Ripple duration must be >= 2");
     HS_CHECK(std::isfinite(speed), "Ripple speed must be finite");
     this->params.get().center = center;
     this->params.get().phase = 0.0f;
