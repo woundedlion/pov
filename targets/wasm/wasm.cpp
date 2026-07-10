@@ -1182,25 +1182,21 @@ public:
               int h3, int s3, int v3) {
     // Out-of-range gradientShape is UB when cast into the enum; clamp and log
     // rather than trap at the JS boundary.
-    if (gradientShape < 0 ||
-        gradientShape > static_cast<int>(GradientShape::FALLOFF)) {
+    const int straight = static_cast<int>(GradientShape::STRAIGHT);
+    const int falloff = static_cast<int>(GradientShape::FALLOFF);
+    if (hs_wasm::gradient_shape_out_of_range(gradientShape, straight, falloff)) {
       hs::log("WASM: bakeLut gradientShape %d out of range — using STRAIGHT",
               gradientShape);
-      gradientShape = static_cast<int>(GradientShape::STRAIGHT);
     }
+    gradientShape =
+        hs_wasm::clamp_gradient_shape(gradientShape, straight, falloff);
     // h/s/v keys arrive as untyped JS ints; clamp to the documented [0,255]
     // rather than letting the uint8_t cast wrap mod 256.
     bool clamped = false;
     auto u8 = [&clamped](int v) -> uint8_t {
-      if (v < 0) {
+      if (hs_wasm::hsv_key_out_of_range(v))
         clamped = true;
-        return 0;
-      }
-      if (v > 255) {
-        clamped = true;
-        return 255;
-      }
-      return static_cast<uint8_t>(v);
+      return hs_wasm::clamp_hsv_key(v);
     };
     GenerativePalette pal = GenerativePalette::from_hsv_keys(
         static_cast<GradientShape>(gradientShape), u8(h1), u8(s1), u8(v1),

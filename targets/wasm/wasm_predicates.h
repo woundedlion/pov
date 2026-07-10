@@ -14,6 +14,8 @@
  */
 #pragma once
 
+#include <cstdint>
+
 namespace hs_wasm {
 
 /**
@@ -51,6 +53,40 @@ inline int clamp_relax_iterations(int iterations, int max_iterations) {
   if (iterations > max_iterations)
     return max_iterations;
   return iterations;
+}
+
+/**
+ * @brief True when a gradient-shape index falls outside [lo, hi].
+ * @details bakeLut casts the JS int into the GradientShape enum; an out-of-range
+ *          value is UB, so the boundary clamps it to the default shape (lo).
+ */
+inline bool gradient_shape_out_of_range(int shape, int lo, int hi) {
+  return shape < lo || shape > hi;
+}
+
+/**
+ * @brief Clamps an out-of-range gradient-shape index to lo (the default shape).
+ */
+inline int clamp_gradient_shape(int shape, int lo, int hi) {
+  return gradient_shape_out_of_range(shape, lo, hi) ? lo : shape;
+}
+
+/**
+ * @brief True when an untyped HSV key byte falls outside [0, 255].
+ */
+inline bool hsv_key_out_of_range(int v) { return v < 0 || v > 255; }
+
+/**
+ * @brief Clamps an untyped HSV key into [0, 255] before the uint8_t narrowing.
+ * @details Without the clamp the uint8_t cast would wrap mod 256, turning an
+ *          out-of-range hue/sat/value into a wrong-but-valid byte.
+ */
+inline uint8_t clamp_hsv_key(int v) {
+  if (v < 0)
+    return 0;
+  if (v > 255)
+    return 255;
+  return static_cast<uint8_t>(v);
 }
 
 } // namespace hs_wasm
