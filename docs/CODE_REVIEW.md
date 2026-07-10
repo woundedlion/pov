@@ -197,7 +197,7 @@ files land in the daydream repo; all others land in Holosphere.
     `finish()`, discard buffered chunks without downloading when aborted (still fall
     back to download for genuinely-unavailable/`createWritable`-failed cases).
 
-15. **Drag-to-zoom on the Generative tab silently corrupts the hidden Procedural
+15. ✅ **Drag-to-zoom on the Generative tab silently corrupts the hidden Procedural
     params** — `daydream/tools/palettes.html:734`. `handleDragEnd()`'s zoom branch
     calls `zoomPalette()` with no `activeTab` check; on the Generative tab it has no
     visible effect but rewrites the Procedural tab's `C_R..D_B` parameters. Switching
