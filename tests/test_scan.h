@@ -957,6 +957,37 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
   HS_EXPECT_LT(fg_alpha, bg_alpha);
 }
 
+/**
+ * @brief Verifies trace_closest stops at the first silhouette graze instead of
+ *        letting an occluded surface behind it steal the closest approach.
+ * @details A ray grazes the foreground sphere's edge inside the AA band and then
+ * passes solidly through the background sphere. The returned distance must be
+ * the foreground graze and the returned point must sit on the foreground
+ * silhouette, independent of the step budget — with a generous budget an
+ * unguarded march reaches the background, collapsing the edge alpha to opaque
+ * and moving the shading point to the wrong surface.
+ */
+inline void test_volume_trace_closest_stops_at_first_graze() {
+  const float aa_width = 0.01f;
+  TwoSphereSDF shape{Vector(0.0f, 0.0f, 0.20f), 0.18f,
+                     Vector(0.0f, 0.0f, -0.20f), 0.30f};
+
+  // Grazing ray: passes 0.005 outside the foreground silhouette, then through
+  // the background sphere's interior.
+  const Vector ro(0.185f, 0.0f, 1.0f);
+  const Vector vd(0.0f, 0.0f, -1.0f);
+
+  for (int max_steps : {14, 40}) {
+    Vector closest_local;
+    float closest_d = Scan::Volume::trace_closest(shape, ro, vd, 0.5f,
+                                                  max_steps, aa_width,
+                                                  closest_local);
+    HS_EXPECT_GT(closest_d, 0.003f);
+    HS_EXPECT_LT(closest_d, 0.0075f);
+    HS_EXPECT_GT(closest_local.z, 0.1f);
+  }
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -990,6 +1021,7 @@ inline int run_scan_tests() {
   test_transformed_volume_world_local_roundtrip();
   test_volume_raymarch_silhouette_and_registers();
   test_volume_draw_occluded_edge_blends_over_background();
+  test_volume_trace_closest_stops_at_first_graze();
 
   return fixture.result();
 }
