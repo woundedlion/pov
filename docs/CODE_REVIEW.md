@@ -204,7 +204,7 @@ files land in the daydream repo; all others land in Holosphere.
     back shows unexpectedly changed values. Fix: guard the zoom branch with
     `if (activeTab !== 'procedural') return;`.
 
-16. **Lock R,G,B is bypassed by keyboard adjustment of a single channel slider** —
+16. ✅ **Lock R,G,B is bypassed by keyboard adjustment of a single channel slider** —
     `daydream/tools/palettes.html:533`. The locked relative-movement branch only
     activates when `lockedDragStartValues` is non-empty, and that map is seeded only
     by `mousedown`/`touchstart`. A user who Tabs to a locked slider and arrows it
