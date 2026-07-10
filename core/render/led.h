@@ -98,6 +98,8 @@ struct NoColorCorrection {
    * not the correction active at construction).
    */
   ~NoColorCorrection() { restore_correction_baseline(); }
+  NoColorCorrection(const NoColorCorrection &) = delete;
+  NoColorCorrection &operator=(const NoColorCorrection &) = delete;
 };
 
 /**
@@ -123,5 +125,7 @@ struct NoTempCorrection {
    * not the correction active at construction).
    */
   ~NoTempCorrection() { restore_correction_baseline(); }
+  NoTempCorrection(const NoTempCorrection &) = delete;
+  NoTempCorrection &operator=(const NoTempCorrection &) = delete;
 };
 #endif // !USE_DMA_LEDS
