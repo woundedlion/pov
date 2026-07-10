@@ -253,7 +253,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 48. ✅ `tests/CMakeLists.txt:224` — `perf_bench` is `EXCLUDE_FROM_ALL` with no test wiring, so it can bit-rot silently; keep one opt level in the default build as a compile guard.
 49. ✅ `tests/test_death.h:1175` — `MIN_DEATH_CASES = 40` sits one below the 41 registered cases, defeating the anti-drop floor for a single deletion; set it to 41.
 50. ✅ `tests/CMakeLists.txt:143` — `unit_color_luts_check` vanishes with no skip marker when Python is absent (unlike its sibling); register it unconditionally and route the no-Python case through `SKIP_RETURN_CODE 77`.
-51. `tests/test_platform.h:260` — `test_serial_printf` leaks its temp file + `FILE*` on the `dup` failure path and uses a fixed CWD-relative name; close/remove before the early return and use a unique name.
+51. ✅ `tests/test_platform.h:260` — `test_serial_printf` leaks its temp file + `FILE*` on the `dup` failure path and uses a fixed CWD-relative name; close/remove before the early return and use a unique name.
 52. `daydream/sidebar.js:83` — the DOM-lifecycle/leak-prevention methods (`dispose`/`setEffects`/`applySortOrder`/`setActive`/`updateScrollArrows`) are untested; add a fake-stub test (no jsdom — the runner is plain `node --test`).
 53. `daydream/tests/geometry.test.js:21` — `pixelToSpherical` is validated only against a co-located re-derivation of the same formula; add 2–3 hardcoded golden `[x,y,z]` pins from an independent source (as the other perceptual ports do).
 54. `daydream/daydream.js:417` — the 790-line app orchestrator has no test; extract the pure `applyEffect`/`applyResolution` sequencing + skew-guard predicates into a testable module (mirroring `resolveParamSync`).
