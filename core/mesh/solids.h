@@ -209,9 +209,11 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
  * @brief Fluent builder for chaining Conway operators with automatic arena
  * swapping.
  * @details Each method runs `mesh_ = op(mesh_, a_, b_)` then std::swap(a_, b_),
- * one swap per call assuming the PRIMITIVE polarity. Composed ops return in
- * `temp` (see COMPOSITION POLARITY in conway.h), so the op after a composed op
- * runs input+output on the same arena for one step before alternation restores.
+ * one swap per call assuming the PRIMITIVE polarity. Even-length composed ops
+ * (gyro/needle/zip/bevel) return in `temp` (see COMPOSITION POLARITY in
+ * conway.h), so the op after one runs input+output on the same arena for one
+ * step before alternation restores; odd-length ones (meta) return in `target`,
+ * like a primitive.
  */
 class SolidBuilder {
   PolyMesh mesh_;     /**< Mesh being built; updated in place by each operator. */
