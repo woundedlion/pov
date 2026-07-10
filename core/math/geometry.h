@@ -548,10 +548,6 @@ public:
     if (num_frames >= count)
       return;
 
-    // count == 1 has nothing to interpolate and would make t = i/(count-1) a 0/0.
-    if (count < 2)
-      return;
-
     std::array<Quaternion, CAPACITY> old_orientations;
     std::copy(orientations.begin(), orientations.begin() + num_frames,
               old_orientations.begin());
