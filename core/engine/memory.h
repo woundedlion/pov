@@ -124,6 +124,8 @@ public:
    * `T` so a call site cannot mis-pair them. Does not construct the elements.
    */
   template <typename T> T *allocate_n(size_t n) {
+    HS_CHECK(n <= SIZE_MAX / sizeof(T),
+             "Arena::allocate_n element count overflows size_t");
     return static_cast<T *>(allocate(n * sizeof(T), alignof(T)));
   }
 
