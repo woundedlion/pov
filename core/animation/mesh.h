@@ -244,7 +244,7 @@ inline float hash01(uint32_t i, uint32_t seed) {
   uint32_t h = (i ^ seed) * 747796405u + 2891336453u;
   h = ((h >> ((h >> 28) + 4u)) ^ h) * 277803737u;
   h = (h >> 22) ^ h;
-  return static_cast<float>(h) * (1.0f / 4294967296.0f);
+  return static_cast<float>(h >> 8) * (1.0f / 16777216.0f);
 }
 
 /**
