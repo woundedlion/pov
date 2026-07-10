@@ -272,12 +272,15 @@ _None._
    squared magnitudes against a named `EPS_LEN_SQ` (consistency-only, no behavioral change since the result
    is clamped to [-1,1]).
 
-4. **build_half_edge_mesh lets a 2-gon self-pair, unlike classify_faces_impl which guards it** —
+4. ❌ **build_half_edge_mesh lets a 2-gon self-pair, unlike classify_faces_impl which guards it** —
    `c:/work/Holosphere/core/mesh/mesh.h:265` — A degenerate 2-gon's two directed half-edges produce the same
    undirected key, so `pair_half_edges` links them as each other's opposite, silently corrupting `.pair`
    without tripping `require_closed_manifold`. *Fix:* mirror `classify_faces_impl` — for `count<3` faces write
    self-unique keys `(he_idx,he_idx)` so degenerate half-edges are left unpaired (latent; no live caller feeds
-   a digon).
+   a digon). **Rejected:** the premise is false — a live Conway path *does* feed a 2-gon here, and its
+   self-pairing is load-bearing: it closes the digon into a valid manifold. Leaving those half-edges unpaired
+   breaks `require_closed_manifold` (`unit_conway` traps). `classify_faces_impl`'s guard is safe only because
+   its consumer tolerates boundaries; `build_half_edge_mesh`'s consumer (`MeshOps::expand`) does not.
 
 5. **compile_hankin star-face walk lacks the anti-hang guard its sibling loops carry** —
    `c:/work/Holosphere/core/mesh/hankin.h:168` — This half-edge `.next` walk is the sole one in the mesh
