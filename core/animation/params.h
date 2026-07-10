@@ -564,13 +564,22 @@ public:
   MobiusWarpEvolving(MobiusParams &params, float scale = 0.5f,
                      float speed = 0.01f)
       : params(params), speed(speed), scale(scale), base(params),
-        seed(hs::random()()) {}
+        seed(hs::random()()) {
+    HS_CHECK(std::isfinite(scale) && std::isfinite(speed),
+             "MobiusWarpEvolving scale and speed must be finite");
+  }
 
   /** @brief Sets the modulation speed (radians of phase per frame unit). */
-  void set_speed(float speed) { this->speed = speed; }
+  void set_speed(float speed) {
+    if (std::isfinite(speed))
+      this->speed = speed;
+  }
 
   /** @brief Sets the per-channel modulation magnitude. */
-  void set_scale(float scale) { this->scale = scale; }
+  void set_scale(float scale) {
+    if (std::isfinite(scale))
+      this->scale = scale;
+  }
 
   /**
    * @brief Derives a per-channel phase offset from the seed and channel index.
