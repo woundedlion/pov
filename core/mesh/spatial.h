@@ -82,7 +82,7 @@ public:
     nodes.bind(arena, count);
 
     // Scope the scratch index array so the arena offset rewinds once build()
-    // returns, rather than leaking ~count*4 bytes for the arena's lifetime.
+    // returns.
     ScratchScope scratch(arena);
     HS_CHECK(count <= MAX_POINTS,
              "KDTree source point count exceeds int16_t child-link index range");
@@ -148,8 +148,6 @@ public:
       }
     };
 
-    // Pruning bound: the cached largest squared distance held (FLT_MAX until the
-    // set holds k entries, so nothing is pruned before it fills).
     auto get_worst_dist = [&]() -> float { return worst_d_sq; };
 
     search_k(root_index, target, offer_candidate, get_worst_dist);
@@ -270,9 +268,7 @@ private:
  * @param src Pointer to the first source element (ignored when n == 0).
  * @param n Number of elements to copy.
  * @param arena Arena supplying storage for dst.
- * @details Shared by MeshState::clone and MeshOps::clone/compile so the
- * arena deep-copy loops cannot drift. Per-element push_back preserves the exact
- * semantics of the loops it replaces.
+ * @details Shared by MeshState::clone and MeshOps::clone/compile.
  */
 template <typename T>
 inline void copy_vector(ArenaVector<T> &dst, const T *src, size_t n,
@@ -363,8 +359,8 @@ struct MeshState {
    * @return Owned data in owned mode, otherwise the borrowed view pointer.
    * @details Discriminates on is_bound() (which mode this is), NOT on empty():
    * an owned-but-legitimately-empty mesh is bound with size 0, and gating on
-   * empty() would wrongly fall through to a stale/unset borrowed view. The same
-   * rationale applies to the sibling accessors below.
+   * empty() would wrongly fall through to a stale/unset borrowed view (same for
+   * the sibling accessors below).
    */
   const uint8_t *get_face_counts_data() const {
     return face_counts.is_bound() ? face_counts.data() : face_counts_view.data();

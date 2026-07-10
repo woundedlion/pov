@@ -333,8 +333,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
                   static_cast<float>(CLASS_LUT_MIN_N),
                   static_cast<float>(CLASS_LUT_MAX_N)));
     // Degrade resolution before dropping a class: a coarser grid on more
-    // classes buys more served probes than a fine grid on fewer (the fallback
-    // band widens with the cell diagonal, but only near the boundary).
+    // classes buys more served probes than a fine grid on fewer.
     size_t bytes = static_cast<size_t>(n) * n * sizeof(int16_t);
     if (bytes > budget) {
       n = static_cast<int>(sqrtf(static_cast<float>(budget) / sizeof(int16_t)));
@@ -385,9 +384,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     }
     float safe_frac = in_disk > 0 ? static_cast<float>(safe) / in_disk : 0.0f;
 
-    // A class serving too few probes costs the guard on every probe and then
-    // walks anyway (small faces are mostly fallback band) — keep the exact
-    // path instead of paying for a LUT that rarely fires.
+    // A class serving too few probes pays the guard on every probe then walks
+    // anyway — keep the exact path instead of a LUT that rarely fires.
     if (safe_frac < MIN_CLASS_HIT_SHARE) {
       ++lowq_classes;
       cls.lut = SDF::ClassLut();
