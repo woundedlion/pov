@@ -400,6 +400,20 @@ private:
    */
   std::array<BakedPalette, MAX_PALETTES> baked_palettes_;
 
+  // init() allocates the Trails ring buffer plus one baked palette LUT per live
+  // palette slot from the persistent arena.
+  static constexpr size_t FOOTPRINT_BYTES =
+      TRAIL_CAPACITY *
+          sizeof(typename Filter::World::Trails<W, TRAIL_CAPACITY>::Item) +
+      MAX_PALETTES * BakedPalette::LUT_SIZE * sizeof(Color4);
+  // Effect keeps the default arena split, so the footprint must fit the device
+  // persistent partition. Guards a TRAIL_CAPACITY/MAX_PALETTES retune.
+  static constexpr size_t PERSISTENT_BUDGET =
+      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+  static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET,
+                "Dynamo persistent footprint exceeds the default partition; "
+                "retune TRAIL_CAPACITY/MAX_PALETTES or carve arenas");
+
   Vector palette_normal; /**< Reference axis for band angle selection. */
   std::array<Node, NUM_NODES> nodes; /**< The strand nodes. */
 
