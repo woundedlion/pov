@@ -117,7 +117,7 @@ files land in the daydream repo; all others land in Holosphere.
    indefinite `Sprite`. A reader auditing the 2^32 wrap could wrongly conclude they
    are bounded. Fix: add both to the enumeration.
 
-5. **`ripple_transform` comment understates the wavelet's normalized range** —
+5. ✅ **`ripple_transform` comment understates the wavelet's normalized range** —
    `core/engine/transformers.h:344`. Comment says "−2 to 2 range covers the whole
    wavelet," but `RippleParams::prepare_thresholds` sets the accept band to
    `phase ± half_width()*2`, and `t = (dist_from_peak/half_width)*2`, so within the
