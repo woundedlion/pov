@@ -87,32 +87,6 @@ inline void apply_vertex_shader(VertexShaderRef vertex_shader, Fragments &pts) {
   }
 }
 
-/**
- * @brief Single point primitive.
- */
-struct Point {
-  /**
-   * @brief Draws a single point.
-   * @param pipeline Render pipeline.
-   * @param canvas Target canvas.
-   * @param f Fragment to plot.
-   * @param fragment_shader Shader function applied before plotting; must be
-   *        non-null (a default-constructed FunctionRef would invoke a null
-   *        thunk under NDEBUG, where operator()'s assert is stripped).
-   */
-  static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f,
-                   FragmentShaderFn fragment_shader) {
-    // Cold (once per point), not per-pixel: trap a null shader here so it fails
-    // deterministically instead of calling a null thunk under NDEBUG.
-    HS_CHECK(fragment_shader, "Point::draw requires a non-null fragment_shader");
-    Fragment f_copy = f;
-    f_copy.color = Color4(0, 0, 0, 0);
-    fragment_shader(f_copy.pos, f_copy);
-    pipeline.plot(canvas, f_copy.pos, f_copy.color.color, f_copy.age,
-                  f_copy.color.alpha);
-  }
-};
-
 // --- Strategy Helpers ---
 // Core rasterization logic for 3D lines and curves adapts step size based on
 // screen-space density to avoid aliasing.
@@ -946,33 +920,6 @@ struct Line {
   static void draw(PipelineRef pipeline, Canvas &canvas, const Fragment &f1,
                    const Fragment &f2, FragmentShaderFn fragment_shader) {
     draw<W, H>(pipeline, canvas, f1, f2, fragment_shader, {});
-  }
-};
-
-/**
- * @brief Draws vertices without connection.
- */
-struct Vertices {
-  /**
-   * @brief Draws a list of vertices as points.
-   * @param pipeline Render pipeline.
-   * @param canvas Target canvas.
-   * @param points List of points.
-   * @param fragment_shader Shader function; must be non-null (the per-vertex
-   *        call below is unguarded and operator()'s assert is NDEBUG-stripped).
-   */
-  static void draw(PipelineRef pipeline, Canvas &canvas, const auto &points,
-                   FragmentShaderFn fragment_shader) {
-    // Cold (once per call), not per-pixel: trap a null shader before the loop.
-    HS_CHECK(fragment_shader,
-             "Vertices::draw requires a non-null fragment_shader");
-    for (const Fragment &p : points) {
-      Fragment f = p;
-      f.color = Color4(0, 0, 0, 0);
-
-      fragment_shader(f.pos, f);
-      pipeline.plot(canvas, f.pos, f.color.color, f.age, f.color.alpha);
-    }
   }
 };
 
