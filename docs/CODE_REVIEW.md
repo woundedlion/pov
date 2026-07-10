@@ -202,7 +202,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 3. ✅ `core/engine/memory.h:126` — `allocate_n<T>(n)` computes `n*sizeof(T)` with no overflow guard; add `HS_CHECK(n <= SIZE_MAX / sizeof(T), …)` mirroring `ArenaVector::bind`.
 4. ✅ `core/animation/params.h:563` — `MobiusWarpEvolving` guards no finiteness; add `HS_CHECK(std::isfinite(scale) && std::isfinite(speed))` in the ctor and clamp-to-last-good in `set_speed`/`set_scale` (siblings already do this).
 5. ✅ `core/animation/mesh.h:247` — `Segue::hash01` can return exactly `1.0f`, breaking its `[0,1)` contract; use the top 24 bits: `float(h >> 8) * (1.0f/16777216.0f)`.
-6. `effects/ShapeShifter.h:204` — `SphericalPolygon` is routed through `default:` in both dispatch switches, suppressing `-Wswitch`; use an explicit `case` so a future `ShapeType` fails to compile until wired.
+6. ✅ `effects/ShapeShifter.h:204` — `SphericalPolygon` is routed through `default:` in both dispatch switches, suppressing `-Wswitch`; use an explicit `case` so a future `ShapeType` fails to compile until wired.
 7. `effects/Thrusters.h:34` / `effects/RingShower.h:31` — hardcode `full_frame` instead of `decltype(filters)::any_crosses_segments`; derive it (as ShapeShifter/SplineFlow do) so a later segment-crossing filter can't silently tear on Phantasm.
 8. `core/mesh/mesh_classes.h:282` — `build_mesh_class_bake` census counters accumulate with `+=` and never reset at entry; zero the five scalars so a documented in-place rebake doesn't double-count telemetry.
 9. `tests/test_mesh.h:554` — `face_topo_record`'s `HS_EXPECT_TRUE(count<=24)` doesn't halt, so a future >24-side face overruns `int angles[24]`; make it a hard early-out (or size the array to the true max + `static_assert`).

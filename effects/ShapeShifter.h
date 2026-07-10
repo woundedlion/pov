@@ -201,7 +201,7 @@ private:
       Plot::PlanarPolygon::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
                                       fragment_shader, phase);
       break;
-    default:
+    case ShapeType::SphericalPolygon:
       Plot::SphericalPolygon::draw<W, H>(plot_filters, canvas, basis, r,
                                          sides_int, fragment_shader, phase);
       break;
@@ -237,7 +237,7 @@ private:
       Scan::PlanarPolygon::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
                                       fragment_shader, phase, params.debug_bb);
       break;
-    default: // SphericalPolygon
+    case ShapeType::SphericalPolygon:
       Scan::SphericalPolygon::draw<W, H>(scan_filters, canvas, basis, r,
                                          sides_int, fragment_shader, phase,
                                          params.debug_bb);
