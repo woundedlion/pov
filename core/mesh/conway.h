@@ -488,7 +488,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
 
     uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
 
-    // 3. Populate Vertices
+    // Populate Vertices
     for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
       if (edge_to_vert[i] == HE_NONE) {
         const HalfEdge &he = he_mesh.half_edges[i];
@@ -505,7 +505,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
       }
     }
 
-    // 4. Reconstruct Original Faces (Shrunk)
+    // Reconstruct Original Faces (Shrunk)
     for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
       uint16_t start = he_mesh.faces[fi].half_edge;
       int count = face_side_count(he_mesh, start);
@@ -521,7 +521,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
       }
     }
 
-    // 5. Build Vertex Orbits (New Faces)
+    // Build Vertex Orbits (New Faces)
     emit_vertex_orbit_faces<'P'>(
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) { return edge_to_vert[idx]; });
@@ -775,12 +775,12 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp
         temp.allocate_n<uint16_t>(I);
     std::fill_n(he_to_new_v, I, HE_NONE);
 
-    // 1. Copy original vertices
+    // Copy original vertices
     for (size_t i = 0; i < V; ++i) {
       out_mesh.vertices.push_back(mesh.vertices[i]);
     }
 
-    // 2. Generate new vertices and shrunk faces
+    // Generate new vertices and shrunk faces
     for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
       int count;
       Vector centroid = face_centroid(he_mesh, mesh, fi, count);
@@ -815,7 +815,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp
       }
     }
 
-    // 3. Generate Hexagon faces for edges
+    // Generate Hexagon faces for edges
     bool *visited_edges = temp.allocate_n<bool>(I);
 
     for_each_edge(he_mesh, visited_edges, I,

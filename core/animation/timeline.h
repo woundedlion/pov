@@ -259,7 +259,7 @@ public:
     for (int i = 0; i < active_cnt; ++i) {
       auto &e = global_timeline_events[i];
 
-      // 1. Check start time
+      // Check start time
       if (global_timeline_t < e.start) {
         if (i != write_idx) {
           e.move_into(global_timeline_events[write_idx]);
@@ -268,12 +268,12 @@ public:
         continue;
       }
 
-      // 2. Step (Orientation already collapsed once-per-frame above)
+      // Step (Orientation already collapsed once-per-frame above)
       IAnimation *anim = e.animation();
       HS_CHECK(anim);
       anim->step(canvas);
 
-      // 4. Completion & Cleanup
+      // Completion & Cleanup
       bool is_done = anim->done();
       bool keep = true;
 
@@ -302,7 +302,7 @@ public:
       }
     }
 
-    // 5. Move new events (added during callbacks) to fill the gap left by
+    // Move new events (added during callbacks) to fill the gap left by
     //    completed ones. A pinned event spawned inside a callback would trap in
     //    move_into here; callback-spawners use pin=false, so this is safe.
     int new_vals_count = global_timeline_num_events - active_cnt;

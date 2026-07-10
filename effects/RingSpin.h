@@ -143,11 +143,8 @@ private:
    * @brief Constructs one more ring and starts its energetic random-walk.
    * @param palette Baked palette used to color the new ring's trail.
    * @details Adds the ring to the timeline with an energetic random-walk
-   * orientation; no-op once NUM_RINGS rings are already live. Append-one
-   * primitive: `num_rings` tracks the live count and the `>= NUM_RINGS` guard
-   * bounds it against the pool. init() spawns all NUM_RINGS up front so the
-   * guard never fires today — it exists to support runtime spawning (a future
-   * slider/event) without overrunning `rings`.
+   * orientation; no-op once NUM_RINGS rings are live. `num_rings` tracks the live
+   * count and the `>= NUM_RINGS` guard bounds it against the `rings` pool.
    */
   void spawn_ring(BakedPalette *palette) {
     if (num_rings >= NUM_RINGS)
