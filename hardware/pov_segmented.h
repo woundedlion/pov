@@ -90,7 +90,7 @@ class POVSegmented {
   static_assert((N & (N - 1)) == 0 && N <= 4,
       "N must be a power of two and <= 4: segment_map() distinguishes only a top "
       "and a bottom strip per arm, so an arm holds at most two segments. ID is "
-      "decoded from 2 GPIO straps as (raw & (N-1)), pins 21/22");
+      "decoded from 2 GPIO straps as (~raw) & (N-1), pins 21/22");
 
   // ── Pin assignments ─────────────────────────────────────────────────
 
