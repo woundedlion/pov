@@ -31,7 +31,8 @@ public:
    *          filter pipeline; noise seeding and emitter setup happen in init().
    */
   FLASHMEM FlowField()
-      : Effect(W, H, {.strobe = true}), palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
+        palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
                               BrightnessProfile::ASCENDING),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>()) {}

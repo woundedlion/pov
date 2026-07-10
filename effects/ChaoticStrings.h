@@ -61,7 +61,8 @@ public:
    *          curve in init().
    */
   FLASHMEM ChaoticStrings()
-      : Effect(W, H, {.strobe = true}), timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
+        timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([](float) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
 

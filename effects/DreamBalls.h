@@ -47,8 +47,8 @@ public:
    *          in step.
    */
   FLASHMEM DreamBalls()
-      : Effect(W, H, {.strobe = true}), filters(Filter::Screen::AntiAlias<W, H>()),
-        mobius_gen(timeline) {}
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
+        filters(Filter::Screen::AntiAlias<W, H>()), mobius_gen(timeline) {}
 
   /**
    * @brief Builds mesh data, bakes palette LUTs, registers live sliders, and
