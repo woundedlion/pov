@@ -168,7 +168,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 17. ✅ **`composite()` return-value doc doesn't cover the fault case** — `daydream/segment_controller.js:657`.
     Doc says `0` means "every result was null/empty (a fully-fenced frame)," but `composite()` also returns 0 when the pre-pass rejects a segment (out-of-bounds/empty/inverted rect, pixel-length mismatch) and latches a fault — a distinct condition a maintainer could misdiagnose. Fix: extend the doc to note the fault path.
 
-18. **Dead CSS for a removed slide-up code panel** — `daydream/tools/solids.html:139`.
+18. ✅ **Dead CSS for a removed slide-up code panel** — `daydream/tools/solids.html:139`.
     `#code-panel`, `#code-panel.open`, and bare `textarea` rules (139–169) style elements that no longer exist (the tool exports via per-item Copy buttons now). Fix: delete the three rule blocks.
 
 19. **Leading-underscore variable name breaks the codebase's no-underscore-prefix JS convention** — `daydream/tools/solids.html:2082`.
