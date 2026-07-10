@@ -798,7 +798,7 @@ public:
    * @brief Reports whether the span is empty.
    * @return True iff size() == 0.
    */
-  bool empty() const { return size_ == 0; }
+  bool is_empty() const { return size_ == 0; }
   /**
    * @brief Returns a pointer to the borrowed storage.
    * @return Const pointer to the first element.
