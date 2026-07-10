@@ -613,9 +613,8 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // FAST PATH: the whole segment spans ≤ one screen step (~SCREEN_STEP_PX px),
     // so a single dot covers it — skip the simulation. Keyed on SCREEN length
     // (via screen_step), NOT arc length: a base_step arc can still cross several
-    // pixels on a steep or near-polar segment, where an arc-length test (the old
-    // `total_dist < base_step`) would skip the sub-stepping the curve needs and
-    // render it as a beaded line.
+    // pixels on a steep or near-polar segment, which an arc-length test would
+    // undersample into a beaded line.
     if (total_dist <= first_step) {
       Fragment f = curr;
       f.color = Color4(0, 0, 0, 0);
@@ -633,12 +632,11 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       return;
     }
 
-    // 1. SIMULATION PHASE — size each sub-step so consecutive samples land
+    // SIMULATION PHASE — size each sub-step so consecutive samples land
     // ~SCREEN_STEP_PX apart in SCREEN space (screen_step), using the strategy's
-    // unit tangent at the step's start. This tracks the true 2-D screen speed
-    // rather than the old sin(φ) longitudinal-only proxy, so the curve is
-    // sampled ~one pixel per step everywhere instead of unevenly (see
-    // screen_step's note). `smp`/`first_step` above seed the first iteration.
+    // unit tangent at the step's start. Tracking the full 2-D screen speed (not
+    // just longitudinal pole-crowding) samples ~one pixel per step everywhere
+    // (see screen_step's note). `smp`/`first_step` above seed the first iteration.
     steps_cache.clear();
     float sim_dist = 0.0f;
 
@@ -673,7 +671,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     float scale = total_dist / sim_dist;
     bool omitLast = (close_loop) ? true : !isLastSegment;
 
-    // 2. DRAWING PHASE
+    // DRAWING PHASE
     //
     // sample().pos is ~0.04% non-unit (fast_sinf/cosf); vector_to_pixel takes
     // phi = acos(v.y) directly, where near the pole that error offsets the row.

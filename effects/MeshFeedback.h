@@ -161,15 +161,10 @@ public:
 private:
   /**
    * @brief Arms the one-shot hold timer that triggers the next shape morph.
-   * @details The shape carousel is a chain of non-repeating hold timers: each
-   * fires once after NO_MORPH_FRAMES, starts a morph, and the completed morph
-   * re-arms the next hold. Both the initial arm (init()) and the post-morph
-   * re-arm route through here, so the pause behaviour is identical on both
-   * paths. While paused the callback re-arms the hold instead of starting a
-   * morph: a one-shot that merely returned would leave the chain with no
-   * successor and permanently stall the carousel until the effect reloads.
-   * Re-arming keeps the carousel halted for the whole pause and resumes it
-   * within one hold once "Pause Animation" is released.
+   * @details The shape carousel is a chain of one-shot hold timers: each fires
+   * after NO_MORPH_FRAMES, starts a morph, and the completed morph re-arms the
+   * next. While paused the callback re-arms instead of morphing, so the chain
+   * keeps its successor and resumes within one hold on unpause.
    */
   void arm_hold_timer() {
     timeline.add(

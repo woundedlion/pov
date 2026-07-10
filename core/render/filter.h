@@ -1353,7 +1353,7 @@ public:
       dy = scope.get_arena().allocate_n<int16_t>(hh * hw);
     }
 
-    // 1) Populate coarse warp field as seam-continuous deltas (int16 1/128 px).
+    // Populate coarse warp field as seam-continuous deltas (int16 1/128 px).
     if (populate)
     for (int cy = cy_lo; cy <= cy_hi; ++cy) {
       int y = cy * ds;
@@ -1375,7 +1375,7 @@ public:
       }
     }
 
-    // 2) Sample at full res, bilerping the coarse warp field per pixel.
+    // Sample at full res, bilerping the coarse warp field per pixel.
     constexpr float INV_Q = 1.0f / Q;
     const float inv_ds = 1.0f / ds;
     const float fade = style_->fade;
@@ -1429,13 +1429,9 @@ public:
             float w00 = wx0 * wy0, w10 = wx1 * wy0;
             float w01 = wx0 * wy1, w11 = wx1 * wy1;
 
-            // Unify the four taps onto one wrap branch before blending: pull
-            // each within W/2 of d00. The anchor must be one of the taps —
-            // anchoring on any tap shifts the blend only by a whole multiple
-            // of W, which the sampling wrap absorbs, whereas a computed
-            // mid-value (mean/median) can land halfway between two branches,
-            // within W/2 of both, and unify nothing: the blend then sweeps
-            // across the cut and samples the far side of the sphere.
+            // Unify the four taps onto one wrap branch (each within W/2 of d00)
+            // before blending; the anchor must be a tap — a computed mid-value can
+            // unify nothing and sweep the blend across the seam to the far hemisphere.
             constexpr float WQ = static_cast<float>(W) * Q;
             constexpr float HALF_WQ = WQ * 0.5f;
             float d00 = dx[i00], d10 = dx[i10], d01 = dx[i01], d11 = dx[i11];

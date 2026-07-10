@@ -87,7 +87,7 @@ public:
    */
   static int add(EffectRegistration reg) {
     entries().push_back(reg);
-    return 0; // dummy return for static-init expression
+    return 0;
   }
 };
 

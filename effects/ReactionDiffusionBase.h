@@ -59,13 +59,9 @@ protected:
   static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R); /**< Reciprocal of the squared support radius. */
   /**
    * @brief Total-weight floor below which a sampled kernel is treated as empty.
-   * @details The center node alone contributes w = (1 - d²·INV_R2)² where d is
-   * the query-to-nearest-node distance. Since the nearest lattice node is always
-   * well within KERNEL_R (spacing ≈ D_AVG, radius = 1.5·D_AVG), that center
-   * weight stays near ~0.8 for every on-sphere query, so the real total weight is
-   * O(1) and never legitimately approaches this floor. The guard therefore only
-   * trips on a degenerate/empty walk; it sits far below the smallest legitimate
-   * total weight, not between two live values, so it cannot cull a real pixel.
+   * @details Sits far below the smallest legitimate total weight (the center
+   * node alone contributes ~0.8 for any on-sphere query), so it only trips on a
+   * degenerate/empty walk and never culls a real pixel.
    */
   static constexpr float KERNEL_MIN_TOTAL_WEIGHT = 1e-4f;
 
@@ -214,16 +210,10 @@ protected:
    * @tparam Fn Callable accepting a neighbor node id.
    * @param node Center node id whose neighbors are visited.
    * @param fn Callable invoked once per valid neighbor index.
-   * @details The lambda inlines, so this is identical codegen to a hand-written
-   * neighbor loop. Systems needing several fields per node fuse them into one
-   * walk here rather than re-reading the neighbor list once per species.
-   *
-   * Negative entries are the K-NN sentinel for an unfilled slot and are skipped,
-   * so the effective Laplacian degree is the count of valid neighbors (≤ RD_K).
-   * A deficient node diffuses slower, but is strictly on the stable side of the
-   * explicit-Euler bound (which assumes full degree RD_K). The shipped Fibonacci
-   * lattice is full-degree (pinned by test_indices_in_range), so this is a
-   * robustness path, not an active inhomogeneity today.
+   * @details Negative entries are the K-NN sentinel for an unfilled slot and are
+   * skipped, so the effective Laplacian degree is the count of valid neighbors
+   * (≤ RD_K); a deficient node stays on the stable side of the explicit-Euler
+   * bound. The shipped Fibonacci lattice is full-degree (test_indices_in_range).
    */
   template <typename Fn> static void for_each_neighbor(int node, Fn &&fn) {
     for (int k = 0; k < RD_K; ++k) {

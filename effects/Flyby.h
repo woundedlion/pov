@@ -194,10 +194,7 @@ private:
      * @param a Source params (t = 0).
      * @param b Destination params (t = 1).
      * @param t Blend factor in [0, 1].
-     * @details Every field morphs simultaneously over t. A straight
-     * simultaneous blend keeps the fly-through fluid, because each preset reads
-     * as a single coherent camera/warp pose; sequencing the fields one at a
-     * time would make the motion stutter field by field.
+     * @details Every field morphs simultaneously over t.
      */
     void lerp(const Params &a, const Params &b, float t) {
       constexpr int N = 6;

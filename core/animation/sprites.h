@@ -319,10 +319,9 @@ private:
    * BEFORE this frame's attractor impulse is added (v <- friction*v + impulse),
    * so a force applied this frame is not also damped the same frame; the drag
    * still precedes the move, which uses the post-impulse velocity. Per-frame
-   * impulse magnitude therefore scales with the attractor `strength` alone, no
-   * longer with `friction`. Effect presets carry the matching strength (e.g.
-   * MindSplatter's Well Str is pre-scaled by its friction) so the shipped look
-   * is preserved across this correction.
+   * impulse magnitude therefore scales with the attractor `strength` alone (not
+   * `friction`); presets pre-scale their strength to match (e.g. MindSplatter's
+   * Well Str).
    */
   bool step_particle(Particle<TRAIL_LEN> &p, float max_delta) {
     bool active = p.life > 0;

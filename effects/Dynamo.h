@@ -186,11 +186,9 @@ public:
     constexpr float NO_NEXT_BOUNDARY = 100.0f;
     float a = angle_between(v, palette_normal);
 
-    // The scan assumes palette_boundaries is monotonically non-decreasing. A live
-    // Wipe-Dur change can transiently invert that (newer, shorter wipe overtakes
-    // an older one), so the early-return below can pick a stale palette for some
-    // directions for a few frames. Accepted: cosmetic, self-heals as wipes drain,
-    // stays in bounds — not worth the per-pixel cost of a non-monotonic scan.
+    // The scan assumes palette_boundaries is monotonically non-decreasing; a live
+    // Wipe-Dur change can transiently invert it, picking a stale palette for a few
+    // frames. Stays in bounds and self-heals as wipes drain.
     for (size_t i = 0; i < palette_boundaries.size(); ++i) {
       float boundary = palette_boundaries[i];
       auto lower_edge = boundary - blend_width;
@@ -354,11 +352,8 @@ private:
    * @brief Computes the unit travel direction for a signed speed.
    * @param speed Signed speed value.
    * @return -1 for negative speed, otherwise +1.
-   * @note `speed == 0` maps to +1, not a "stand still" direction, but this is
-   *       unobservable: the sole caller pull() only runs dir() on frames with a
-   *       whole step to take (|effective_speed| >= 1). The +1 tie-break is a
-   *       harmless default; a future caller passing exactly 0 should handle its
-   *       own stationary case rather than rely on it.
+   * @note `speed == 0` maps to +1, but this is unobservable: the sole caller
+   *       pull() only invokes dir() when |effective_speed| >= 1.
    */
   int dir(float speed) const { return speed < 0 ? -1 : 1; }
 

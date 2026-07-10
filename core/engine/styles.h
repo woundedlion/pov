@@ -166,12 +166,6 @@ struct Style {
    * @brief Push this Style's scalar params into the bound NoiseParams.
    * @details No-op if no NoiseParams is bound. Copies amplitude, frequency,
    * speed, and scale, then calls NoiseParams::sync().
-   *
-   * `const` while sibling sync_hue() is not: the constness reflects what each
-   * writes, not a sync/no-sync distinction. sync_noise() leaves this Style's own
-   * members untouched and writes only *through* the bound `noise` pointer (which
-   * the pointed-to object's own constness, not ours, governs), so it is const.
-   * sync_hue() mutates this Style's own hue_ca/hue_sa cache, so it cannot be.
    */
   void sync_noise() const {
     if (!noise) return;

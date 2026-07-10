@@ -139,10 +139,8 @@ private:
                                                     init. */
   /**
    * @brief Physics substeps advanced per rendered frame.
-   * @details GS morphogenesis is slow per step, so 16 substeps/frame are needed
-   * for the pattern to grow at a visible rate. Each substep stays inside the
-   * explicit-Euler stability bound (see the "Speed" param), so the higher count
-   * is pure throughput, not a stability risk.
+   * @details 16 substeps/frame advance the slow GS morphogenesis at a visible
+   * rate; each stays within the explicit-Euler stability bound (see "Speed").
    */
   static constexpr int STEPS_PER_FRAME = 16;
   /**
