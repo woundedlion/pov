@@ -165,7 +165,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 16. ✅ **`setResolution(w,h)` vs `updateResolution(h,w,…)` use opposite argument order in the same function** — `daydream/daydream.js:436`.
     Both calls are individually correct today, but the two "set the sphere resolution" entry points in `applyResolution()` disagree on parameter order — one transposition away from silently swapping W/H in a future refactor. Fix: align `updateResolution`'s signature to `(w, h, dotSize)` (matching the WASM bridge and `geometry.js` dims), or comment the intentional mismatch at both call sites.
 
-17. **`composite()` return-value doc doesn't cover the fault case** — `daydream/segment_controller.js:657`.
+17. ✅ **`composite()` return-value doc doesn't cover the fault case** — `daydream/segment_controller.js:657`.
     Doc says `0` means "every result was null/empty (a fully-fenced frame)," but `composite()` also returns 0 when the pre-pass rejects a segment (out-of-bounds/empty/inverted rect, pixel-length mismatch) and latches a fault — a distinct condition a maintainer could misdiagnose. Fix: extend the doc to note the fault path.
 
 18. **Dead CSS for a removed slide-up code panel** — `daydream/tools/solids.html:139`.
