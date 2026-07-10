@@ -469,6 +469,7 @@ public:
    * would dangle under timeline compaction.
    */
   void bind_scale(const float &live_scale) { scale_ref = &live_scale; }
+  void bind_scale(const float &&) = delete;
 
   /**
    * @brief Steps the animation, updating param b.
