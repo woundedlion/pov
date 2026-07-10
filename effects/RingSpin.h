@@ -21,18 +21,12 @@ struct RingSpinWhiteBox;
  * @tparam H Canvas height in pixels.
  * @details Each ring's orientation follows a random-walk over the sphere and
  * leaves a motion-blur trail that fades in color and alpha along its length.
- * @note Sibling trail effects `Comets` and `ChaoticStrings` share the same
- *       scaffolding (orientation random-walk → motion-blur/fading trail), but
- *       only the common `OrientationTrail::record` + `deep_tween` skeleton lives
- *       in the engine; the per-effect bodies diverge in draw primitive,
- *       transform, color/fade, and accumulate-vs-draw model, so each renders
- *       independently — propagate trail-rendering fixes by hand across all three.
- *       Two intentional differences from the siblings:
- *         - No `Screen::AntiAlias` filter.
- *         - `Orientation<>` (CAP 4) instead of `Orientation<16>`: a full
- *           great-circle ring is spatially huge and its successive trail frames
- *           overlap almost completely, so 4 sub-frames read identically to 16,
- *           where the siblings smear a fast-moving point/string.
+ * @note Sibling trail effects `Comets` and `ChaoticStrings` share the
+ *       record + deep_tween skeleton; their bodies diverge, so propagate trail
+ *       fixes by hand. Differences here: no `Screen::AntiAlias`, and
+ *       `Orientation<>` (CAP 4) not `Orientation<16>` — a great-circle ring's
+ *       successive trail frames overlap almost completely, so 4 sub-frames read
+ *       identically to 16.
  */
 template <int W, int H> class RingSpin : public Effect {
 public:

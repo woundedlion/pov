@@ -21,15 +21,11 @@ struct Liquid2DWhiteBox;
  * @details Domain-warped OpenSimplex noise feeds a cross-coupled sinusoidal
  * pattern, stereographically projected and colored through a breathing
  * generative palette. Presets cycle on a random timer.
- * @note `Flyby` is the sibling stereographic effect. Both build on the same
- *       core primitives — `stereo()`, `stereo_noise_warp()`, `pole_attenuation()`,
- *       `pole_normalize_pattern()` — but the per-effect `project()`, the
- *       `sample()` pattern, and `Params::lerp` are intentionally different (here:
- *       dual orientation + a glitch lens, a cross-coupled pattern, and a
- *       staggered per-field lerp). They are independent effects, NOT hand-synced
- *       copies of one shader: a change here is not expected to propagate to
- *       Flyby. The common per-pixel code (the `STEREO_PATTERN_ARG_LIMIT` clamp
- *       and the pole-attenuated normalize) lives in core.
+ * @note `Flyby` is the sibling stereographic effect, sharing the core primitives
+ *       but with its own `project()` (dual orientation + glitch lens), a
+ *       cross-coupled `sample()`, and a staggered `Params::lerp`; the two are
+ *       independent, so changes need not propagate. Common per-pixel code lives
+ *       in core.
  */
 template <int W, int H> class Liquid2D : public Effect {
 public:
@@ -284,9 +280,8 @@ private:
 
   /**
    * @brief Preset bank cycled by the timeline timer.
-   * @details All 7 Params fields are listed explicitly per preset. Omitting the
-   * trailing cycle_speed would silently fall back to its default member
-   * initializer rather than the preset's intent.
+   * @details All 7 Params fields are listed explicitly; a trailing omission would
+   * silently fall back to the default member initializer, not the preset's value.
    */
   Presets<Params, 2> presets = {{{
       {{1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.4f, 0.05f}},

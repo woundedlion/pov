@@ -21,10 +21,8 @@ struct FlybyWhiteBox;
  * @details Projects a noise-warped Cartesian grid onto a sphere, rotating
  * around Y, blending continuously between camera/warp presets.
  * @note `Liquid2D` is the sibling stereographic effect, sharing the core
- *       primitives (`stereo()`, `stereo_noise_warp()`, `pole_attenuation()`,
- *       `pole_normalize_pattern()`) but with its own `project()`, `sample()`
- *       pattern, and `Params::lerp`; the two are independent effects, so a
- *       change here need not propagate there.
+ *       primitives but with its own `project()`, `sample()` pattern, and
+ *       `Params::lerp`; the two are independent, so changes need not propagate.
  */
 template <int W, int H> class Flyby : public Effect {
 public:

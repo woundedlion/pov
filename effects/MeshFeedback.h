@@ -63,10 +63,9 @@ public:
 
   /**
    * @brief Wires up palette, noise, orientation, and the filter pipeline.
-   * @details The Feedback pixel filter reads `style` by reference. Initializers
-   * run in member-DECLARATION order, and `style` is declared before `filters`,
-   * so style is fully constructed before filters binds its reference. Keep style
-   * declared ahead of filters.
+   * @details The Feedback filter binds `style` by reference; keep `style`
+   * declared before `filters` so it is constructed first (member-declaration
+   * init order).
    */
   FLASHMEM MeshFeedback()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}), noise_params(),

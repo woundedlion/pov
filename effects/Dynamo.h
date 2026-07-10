@@ -40,11 +40,8 @@ public:
   };
 
   /**
-   * @brief The effect's canonical generative-palette recipe.
-   * @details The initial palette and every color-wipe palette share the same
-   *          VIGNETTE / ANALOGOUS / ASCENDING recipe; centralized here so the
-   *          three construction arguments are not duplicated across the
-   *          constructor and color_wipe().
+   * @brief The effect's canonical generative-palette recipe, shared by the
+   *        initial palette and every color-wipe palette.
    */
   static GenerativePalette make_palette() {
     return GenerativePalette(GradientShape::VIGNETTE, HarmonyType::ANALOGOUS,
@@ -99,10 +96,8 @@ public:
 
   /**
    * @brief Flips travel direction via a private sign.
-   * @details Toggles speed_direction_ rather than mutating the registered
-   *          "Speed" slider, so animation never overwrites the user's value.
-   *          Effective speed is params.speed * speed_direction_ (applied in
-   *          draw_frame).
+   * @details Toggles speed_direction_ so animation never overwrites the "Speed"
+   *          slider; effective speed is params.speed * speed_direction_.
    */
   void reverse() { speed_direction_ *= -1; }
 
@@ -130,9 +125,8 @@ public:
     // push_front shifts every logical index, so rebake the whole active range.
     rebake_active_palettes();
 
-    // Stamp this wipe's own boundary slot with WIPE_COMPLETE on completion rather
-    // than pop_back: overlapping wipes can finish out of order, and a pop_back
-    // would evict the oldest still-animating boundary.
+    // Stamp WIPE_COMPLETE on completion (not pop_back): overlapping wipes can
+    // finish out of order, so pop_back would evict a still-animating boundary.
     float *boundary_slot = &palette_boundaries.front();
     timeline.add(0, Animation::Transition(palette_boundaries.front(), PI_F,
                                           (int)params.wipe_duration, ease_linear)
@@ -142,11 +136,9 @@ public:
   /**
    * @brief Collapses color wipes whose Transition has finished (boundary
    *        stamped with WIPE_COMPLETE).
-   * @details Pops only from the back (oldest first), so a wipe that finished
-   *          early while an older one is still animating waits its FIFO turn
-   *          and no live boundary is ever evicted. pop_back removes the highest
-   *          logical index, leaving the front-indexed palettes and their baked
-   *          LUTs in place, so no rebake is needed.
+   * @details Pops only from the back (FIFO, oldest first), so a wipe that
+   *          finished early waits its turn and no live boundary is evicted;
+   *          front-indexed palettes and LUTs stay in place, needing no rebake.
    */
   void reap_completed_wipes() {
     while (!palette_boundaries.is_empty() &&
@@ -158,10 +150,8 @@ public:
 
   /**
    * @brief Refills the baked LUT pool from the live GenerativePalettes so the
-   *        hot per-pixel color() path is a table lookup instead of a per-call
-   *        OKLCH lerp.
-   * @details Called only when the palette set changes (a wipe push/pop) — never
-   *          per frame and never per pixel.
+   *        per-pixel color() path is a table lookup, not an OKLCH lerp.
+   * @details Called only on a palette-set change (wipe push/pop), never per frame.
    */
   void rebake_active_palettes() {
     for (size_t i = 0; i < palettes.size(); ++i)
@@ -380,23 +370,17 @@ private:
   static constexpr size_t NUM_NODES = H_VIRT; /**< Strand node count. */
   /**
    * @brief Compile-time Trails storage capacity (max buffered trail points).
-   * @details Deliberate memory-budget cap, not the worst case: emission is
-   *          slider-driven (up to floor(|Speed|) full-strand plots per frame,
-   *          each kept up to 100 frames), so the true worst case has no honest
-   *          small compile-time bound. Over-budget is graceful — World::Trails'
-   *          ring drops the OLDEST point when full, only shortening the visible
-   *          tail. 10000 holds the trail at typical settings.
+   * @details Memory-budget cap, not a worst-case bound; over-budget is graceful
+   *          (World::Trails' ring drops the oldest point, shortening the tail).
    */
   static constexpr int TRAIL_CAPACITY = 10000;
   StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes; /**< Live palettes. */
   StaticCircularBuffer<float, MAX_PALETTES - 1> palette_boundaries; /**< Wipe boundary angles. */
   /**
    * @brief Baked 256-entry LUTs mirroring palettes[] in logical order.
-   * @details The per-pixel color() path reads these (fast lerp16 table lookup)
-   *          instead of evaluating GenerativePalette's per-call OKLCH lerp
-   *          thousands of times per frame. Kept in sync by
-   *          rebake_active_palettes() on every wipe push/pop; one slot per
-   *          possible live palette so churn never reallocates.
+   * @details Read by the per-pixel color() path (lerp16 lookup, not OKLCH lerp);
+   *          kept in sync by rebake_active_palettes() on every wipe push/pop, one
+   *          slot per possible live palette so churn never reallocates.
    */
   std::array<BakedPalette, MAX_PALETTES> baked_palettes_;
 
@@ -418,9 +402,8 @@ private:
   std::array<Node, NUM_NODES> nodes; /**< The strand nodes. */
 
   /**
-   * @brief Travel direction toggled by reverse().
-   * @details Kept separate from the registered "Speed" slider so animation
-   *          never clobbers the user's value.
+   * @brief Travel direction toggled by reverse(); kept separate from the "Speed"
+   *        slider so animation never clobbers the user's value.
    */
   int speed_direction_ = 1;
   /**

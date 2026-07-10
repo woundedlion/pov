@@ -49,13 +49,10 @@ public:
 
   /**
    * @brief Advances and draws every live ring for the current frame.
-   * @details Steps the spawn timer, then advances and draws each live ring
-   *          directly from its slot. Radius growth, fade-in and lifetime are
-   *          pure functions of `age` computed here rather than by per-ring
-   *          Sprite/Transition animations capturing the slot: a slot is
-   *          recyclable, so an animation outliving its reuse would draw whatever
-   *          ring later lands in it. Driving everything from `age` makes the
-   *          slot's lifetime explicit and self-contained (mirrors Thrusters).
+   * @details Steps the spawn timer, then advances and draws each live ring from
+   *          its slot. Radius, fade-in, and lifetime are pure functions of `age`,
+   *          not per-ring animations capturing the slot: a slot is recyclable, so
+   *          a stale animation would draw whatever ring later lands in it.
    */
   void draw_frame() override {
     Canvas canvas(*this);
@@ -89,9 +86,8 @@ private:
     /**
      * @brief 256-entry palette LUT, allocated once in init() and rebaked in
      *        place each spawn.
-     * @details The per-fragment lookup is then a cheap LUT read rather than a
-     *          full GenerativePalette OKLCH evaluation (the palette is immutable
-     *          after spawn).
+     * @details Per-fragment lookup is then a LUT read, not a GenerativePalette
+     *          OKLCH evaluation (the palette is immutable after spawn).
      */
     BakedPalette palette;
     int age = 0;  /**< Frames elapsed since (re)spawn. */
@@ -146,13 +142,11 @@ private:
   /**
    * @brief Bake-time adapter that maps the LUT coordinate from the cos domain
    *        into the source's angle parameter.
-   * @details Baking through this lets the per-fragment lookup key the LUT by the
-   *          raw dot product d = dot(X, v) directly: dot_key(d) yields the LUT
-   *          coordinate so the d -> acos(d)/PI radial mapping is folded into the
-   *          bake (256 acos calls per spawn) instead of one acos per fragment.
-   *          dot_key inverts: u in [0,1] -> d = 1 - 2u, and get(u) returns the
-   *          source color at acos(d)/PI, so LUT entry i holds the original color
-   *          for cos-value 1 - 2*(i/255).
+   * @details Baking through this folds the d -> acos(d)/PI radial mapping into
+   *          the bake (256 acos per spawn, not one per fragment): the fragment
+   *          lookup keys the LUT by the raw dot product via dot_key(d). dot_key
+   *          inverts DotKeyed: u -> d = 1 - 2u, get(u) returns the source at
+   *          acos(d)/PI.
    */
   template <typename Source> struct DotKeyed {
     const Source &source;

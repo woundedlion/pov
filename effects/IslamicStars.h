@@ -39,9 +39,7 @@ public:
     palette_bank_.bake_all(persistent_arena);
 
     // Set BEFORE registering: register_param snaps *ptr as the slider default.
-    // Amplitude is held below the self-fold onset: above amplitude/thickness ~0.2
-    // the rippled mesh folds over itself, so faces stop tiling the sphere and
-    // stack along the view ray, multiplying rasterizer overdraw (self-occlusion).
+    // Amplitude starts at the fold-free ceiling (see RIPPLE_AMP_MAX).
     ripple_gen.template_params.amplitude = RIPPLE_AMP_MAX;
     ripple_gen.template_params.thickness = RIPPLE_THICKNESS;
     ripple_gen.template_params.decay = 0.1f;
@@ -78,10 +76,8 @@ public:
 
 private:
   // Ripple-pool sizing: a slot is held from spawn() until the staggered ripple
-  // completes. Bursts are scheduled one per shape and each shape's duration is
-  // sized so its burst ends a full still window before the next one can start,
-  // so only one burst is normally live; the pool holds two so a Ripp Dur/Burst
-  // slider change mid-burst still cannot drop a spawn.
+  // completes. Only one burst is normally live; the pool holds two so a Ripp
+  // Dur/Burst slider change mid-burst cannot drop a spawn.
   static constexpr int RIPPLE_POOL_SIZE = 8;
   static constexpr int RIPPLE_STAGGER_FRAMES = 16;
   static constexpr int RIPPLE_DURATION_MAX = 143;
@@ -134,10 +130,8 @@ private:
    * @param face_indices Maps each face to its topology class.
    * @param palette_idx Assigns a palette per topology class.
    * @note Draws on the exact SDF path, not the congruence-class LUT
-   * (mesh_classes.h): ripple and the warping segues deform the mesh most
-   * frames, and a canonical LUT under deformation either mis-shades the
-   * interior gradient or pops when a face switches to the exact path. The
-   * facility is for effects whose meshes hold still.
+   * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
+   * or pop. The facility is for effects whose meshes hold still.
    */
   void draw_shape(Canvas &canvas, float phase, const MeshState &base_state,
                   const ArenaVector<int> &face_indices,

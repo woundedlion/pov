@@ -154,11 +154,9 @@ private:
    * @param t Normalized progress through the warp Mutation, 0 at fire, 1 at end.
    * @return Warp amplitude: exactly 0.7 at t=0, decaying to exactly 0 at t=1.
    * @details A bare 0.7*exp(-2t) bottoms out at 0.7*e^-2 ~= 0.095 and, once
-   *          done() freezes it, leaves a residual wobble until the next fire; the
-   *          shift-and-renormalize below lands it on zero at t=1 so the ring
-   *          fully relaxes between fires. Exposed as a named static (rather than
-   *          an inline lambda) so the t=0/t=1 endpoint invariants can be pinned
-   *          by a unit test the smoke harness cannot see.
+   *          done() freezes it, leaves a residual wobble; the shift-and-
+   *          renormalize below lands it on zero at t=1 so the ring fully relaxes
+   *          between fires.
    */
   static float warp_decay(float t) {
     constexpr float FLOOR = 0.1353352832f; // expf(-2)

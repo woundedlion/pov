@@ -24,9 +24,8 @@
  * representation, seeding, params, palette, and rendering are fundamentally
  * different and stay in the derived classes.
  *
- * Dispatch is static (CRTP): draw_frame() forwards to Derived::render() with no
- * virtual call, so the abstraction is zero-overhead. Derived classes befriend
- * this base so render() can stay private.
+ * Dispatch is static (CRTP): draw_frame() forwards to Derived::render(); derived
+ * classes befriend this base so render() can stay private.
  */
 template <typename Derived, int W, int H>
 class ReactionDiffusionBase : public Effect {
