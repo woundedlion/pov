@@ -133,7 +133,7 @@ files land in the daydream repo; all others land in Holosphere.
    formula a prior fix corrected in README/CODE_REVIEW but left stale in the header.
    Fix: change the message to `(~raw) & (N-1)`.
 
-7. **Dead write-only global in the stack-measurement harness** —
+7. ✅ **Dead write-only global in the stack-measurement harness** —
    `tests/stack_measure.cpp:35`. `volatile uint8_t *g_hi` is written in `paint()`
    (line 56) and reset in `measure()` (line 78) but never read; the deepest-reach
    scan (line 88) bounds itself with `top`, not `g_hi`. Its partner `g_lo` is

@@ -32,7 +32,6 @@ constexpr int CHUNK = 2048;
 constexpr size_t BUDGET_BYTES = 12288;
 
 volatile uint8_t *g_lo;
-volatile uint8_t *g_hi;
 int g_measured = 0;
 
 // Paint value for a byte, keyed to its address so an incidental workload byte
@@ -43,17 +42,14 @@ inline uint8_t paint_byte(const volatile uint8_t *a) {
 }
 
 // Descend painting the address-keyed pattern, then unwind. After return the
-// region [g_lo, g_hi) is painted and sits below the caller's SP (free stack).
+// painted region starts at g_lo and sits below the caller's SP (free stack).
 __attribute__((noinline)) void paint(int chunks) {
   volatile uint8_t buf[CHUNK];
   for (int i = 0; i < CHUNK; ++i)
     buf[i] = paint_byte(&buf[i]);
   uint8_t *lo = const_cast<uint8_t *>(buf);
-  uint8_t *hi = lo + CHUNK;
   if (!g_lo || lo < g_lo)
     g_lo = lo;
-  if (hi > g_hi)
-    g_hi = hi;
   if (chunks > 1)
     paint(chunks - 1);
   asm volatile("" ::"r"(lo) : "memory"); // defeat tail-call / dead-store elision
@@ -75,7 +71,6 @@ template <typename Effect> __attribute__((noinline)) void run_effect() {
 template <typename Effect> size_t measure(const char *name) {
   ++g_measured;
   g_lo = nullptr;
-  g_hi = nullptr;
   paint(220); // ~440 KB painted region, then unwind
   volatile uint8_t topmark;
   uint8_t *top = const_cast<uint8_t *>(&topmark);
