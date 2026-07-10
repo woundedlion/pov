@@ -16,7 +16,9 @@ const DEFAULT_JS = 'build/wasm-release/holosphere_wasm.js';
 const jsArg = process.argv[2] || process.env.WASM_JS || DEFAULT_JS;
 const jsPath = isAbsolute(jsArg) ? jsArg : join(process.cwd(), jsArg);
 
-const FRAMES_PER_EFFECT = 3;
+// CI overrides via WASM_SMOKE_FRAMES to reach late-lifecycle events the
+// 3-frame default never hits (frame-48 ShapeShifter cut, arena compaction).
+const FRAMES_PER_EFFECT = Number(process.env.WASM_SMOKE_FRAMES ?? 3);
 
 // The stack has no allocator trap and stack_high_water_mark() saturates at
 // capacity, so `hwm > capacity` can never fire for it. Gate on an absolute byte
@@ -34,6 +36,12 @@ async function main() {
   if (!Number.isInteger(STACK_HWM_CEILING_BYTES) || STACK_HWM_CEILING_BYTES <= 0) {
     console.error(`wasm_smoke: WASM_SMOKE_STACK_CEILING must be a positive integer, ` +
       `got "${process.env.WASM_SMOKE_STACK_CEILING}"`);
+    process.exitCode = 1;
+    return;
+  }
+  if (!Number.isInteger(FRAMES_PER_EFFECT) || FRAMES_PER_EFFECT <= 0) {
+    console.error(`wasm_smoke: WASM_SMOKE_FRAMES must be a positive integer, ` +
+      `got "${process.env.WASM_SMOKE_FRAMES}"`);
     process.exitCode = 1;
     return;
   }
