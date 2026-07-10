@@ -11,17 +11,19 @@
 namespace Animation {
 
 /**
- * @brief Manages a history of Orientation states.
- * @tparam OrientationType The orientation snapshot type stored in the trail.
- * @tparam CAPACITY The maximum number of snapshots to keep.
+ * @brief Fixed-capacity history of snapshots over a StaticCircularBuffer.
+ * @tparam T The snapshot type stored in the trail.
+ * @tparam CAP The maximum number of snapshots to keep.
  */
-template <typename OrientationType, int CAPACITY> class OrientationTrail {
+template <typename T, int CAP> class Trail {
 public:
+  static constexpr int CAPACITY = CAP; /**< Max retained snapshots. */
+
   /**
-   * @brief Records a snapshot of the current orientation state.
-   * @param source The orientation to copy.
+   * @brief Records a snapshot.
+   * @param source The value to copy into the trail.
    */
-  void record(const OrientationType &source) { snapshots.push_back(source); }
+  void record(const T &source) { snapshots.push_back(source); }
 
   /**
    * @brief Gets the number of recorded snapshots.
@@ -37,14 +39,14 @@ public:
    *          Matches the JS simulator's trail ordering.
    * @return Const reference to the requested snapshot.
    */
-  const OrientationType &get(size_t i) const { return snapshots[i]; }
+  const T &get(size_t i) const { return snapshots[i]; }
 
   /**
    * @brief Gets a specific snapshot (mutable). 0 is oldest, length()-1 newest.
    * @param i Index into the history (0 oldest, length()-1 newest).
    * @return Mutable reference to the requested snapshot.
    */
-  OrientationType &get(size_t i) { return snapshots[i]; }
+  T &get(size_t i) { return snapshots[i]; }
 
   /**
    * @brief Clears the history.
@@ -57,56 +59,15 @@ public:
   void expire() { snapshots.pop_front(); }
 
 private:
-  StaticCircularBuffer<OrientationType, CAPACITY> snapshots;
+  StaticCircularBuffer<T, CAP> snapshots;
 };
 
-/**
- * @brief Manages a history of world-space Vector positions.
- * @tparam CAP The maximum number of snapshots to keep.
- */
-template <int CAP> class VectorTrail {
-public:
-  static constexpr int CAPACITY = CAP; /**< Max retained snapshots. */
+/** @brief History of Orientation states. */
+template <typename OrientationType, int CAPACITY>
+using OrientationTrail = Trail<OrientationType, CAPACITY>;
 
-  /**
-   * @brief Records a world-space position snapshot.
-   * @param source The position to copy into the trail.
-   */
-  void record(const Vector &source) { snapshots.push_back(source); }
-
-  /**
-   * @brief Gets the number of recorded snapshots.
-   * @return Count of live positions in the trail.
-   */
-  size_t length() const { return snapshots.size(); }
-
-  /**
-   * @brief Gets a specific position snapshot.
-   * @param i Index into the history (0 oldest, length()-1 newest).
-   * @return Const reference to the requested position.
-   */
-  const Vector &get(size_t i) const { return snapshots[i]; }
-
-  /**
-   * @brief Gets a specific position snapshot (mutable).
-   * @param i Index into the history (0 oldest, length()-1 newest).
-   * @return Mutable reference to the requested position.
-   */
-  Vector &get(size_t i) { return snapshots[i]; }
-
-  /**
-   * @brief Clears the history.
-   */
-  void clear() { snapshots.clear(); }
-
-  /**
-   * @brief Removes the oldest snapshot.
-   */
-  void expire() { snapshots.pop_front(); }
-
-private:
-  StaticCircularBuffer<Vector, CAP> snapshots;
-};
+/** @brief History of world-space Vector positions. */
+template <int CAP> using VectorTrail = Trail<Vector, CAP>;
 
 } // namespace Animation
 
