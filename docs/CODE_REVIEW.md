@@ -86,7 +86,7 @@ cosmetic nits.
 
 ### Priority 3 — Documentation & Cosmetic
 
-18. [Low] **`core/color/color.h:820–832, 355`** — `hue_rotate_rgb`'s doc claims it "preserves perceived lightness exactly," but the forward transform uses `fast_cbrt` while the inverse uses exact cubes, so a null rotation is not an identity round-trip (~6 LSB at 16-bit) and can drift lightness if fed back per-frame. Fix: soften the comment to "…to within `fast_cbrt` accuracy" (an exact round-trip would need `cbrtf` forward, rejected on perf grounds).
+18. ✅ [Low] **`core/color/color.h:820–832, 355`** — `hue_rotate_rgb`'s doc claims it "preserves perceived lightness exactly," but the forward transform uses `fast_cbrt` while the inverse uses exact cubes, so a null rotation is not an identity round-trip (~6 LSB at 16-bit) and can drift lightness if fed back per-frame. Fix: soften the comment to "…to within `fast_cbrt` accuracy" (an exact round-trip would need `cbrtf` forward, rejected on perf grounds).
 19. [Info] **`core/color/color.h:1823–1830`** — `QuantizeModifier::modify` returns `roundf(t*s)/s`, yielding `s+1` distinct levels over `[0,1]`, not the `s` implied by "N steps." Purely a doc clarification.
 20. [Nit] **`core/render/scan.h:308–316`** — `BoundingSphere::get_intervals` justifies its asymmetric `x_lo/x_hi` caps as reaching a full row "for odd W," but `TrigLUT` `static_assert`s `W % 4 == 0`, so the odd-W branch of the reasoning is unreachable dead rationale (no behavioral bug). Fix: drop the odd-W clause (or simplify both caps to `W/2`).
 21. [Nit] **`core/render/shading.h:175, 179`** — bare `TOLERANCE` where the surrounding code uses `math::TOLERANCE`; compiles via a global alias but is inconsistent qualification. Fix: qualify for uniformity.
