@@ -28,7 +28,7 @@ public:
   /**
    * @brief Constructs the effect at the templated canvas dimensions.
    */
-  FLASHMEM RingShower() : Effect(W, H, {.strobe = true}) {}
+  FLASHMEM RingShower() : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}) {}
 
   /**
    * @brief Registers parameters, bakes per-slot palette LUTs, and arms the
