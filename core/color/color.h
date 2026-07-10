@@ -333,7 +333,8 @@ inline uint16_t srgb_to_linear(uint8_t srgb) {
 
 /**
  * @brief sRGB float [0,1] -> 16-bit linear, interpolating the 256-entry LUT.
- * @param s_srgb sRGB value in [0, 1]; callers must clamp before calling.
+ * @param s_srgb sRGB value; out-of-range or NaN inputs are clamped to [0, 1]
+ * internally (required for float->int cast safety).
  * @return 16-bit linear channel value.
  * @details Lerps between the two bracketing LUT entries by the fractional part
  * of s*255, recovering sub-8-bit resolution at the cost of a LUT lookup + lerp
