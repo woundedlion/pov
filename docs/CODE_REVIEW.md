@@ -171,7 +171,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 18. ✅ **Dead CSS for a removed slide-up code panel** — `daydream/tools/solids.html:139`.
     `#code-panel`, `#code-panel.open`, and bare `textarea` rules (139–169) style elements that no longer exist (the tool exports via per-item Copy buttons now). Fix: delete the three rule blocks.
 
-19. **Leading-underscore variable name breaks the codebase's no-underscore-prefix JS convention** — `daydream/tools/solids.html:2082`.
+19. ✅ **Leading-underscore variable name breaks the codebase's no-underscore-prefix JS convention** — `daydream/tools/solids.html:2082`.
     `_labelCam` is a plain module-scoped cache object, not a WASM export or numeric/string-data token, so it falls outside the documented underscore exception; it is the sole offender in `tools/`. Fix: rename to `labelCam` (and its references).
 
 ---
