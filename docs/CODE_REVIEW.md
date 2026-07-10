@@ -172,7 +172,7 @@ files land in the daydream repo; all others land in Holosphere.
     keeps a stale theme until an unrelated push rebuilds. Fix: add
     `- 'docs/doxygen-theme.cfg'` to both `paths:` lists.
 
-12. **Recording settings changed before WASM load are silently dropped** —
+12. ✅ **Recording settings changed before WASM load are silently dropped** —
     `daydream/daydream.js:555`. The Recording GUI controls are created
     synchronously and are interactive during the async WASM-load window, but their
     setters early-return while `host.recorder` is null, and construction at line 555
