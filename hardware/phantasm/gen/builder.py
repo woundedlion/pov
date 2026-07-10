@@ -15,7 +15,8 @@ def uid():
 def transform(sx, sy, rot, mirror, lx, ly):
     """Map a symbol-local pin coord to its global schematic coord.
 
-    Verified empirically against kicad-cli netlist export (see calib.py).
+    Verified empirically against a kicad-cli netlist export (place the symbols,
+    export the schematic netlist, and confirm pins land on the expected nets).
     """
     # Library Y is up; schematic Y is down -> flip Y first.
     x, y = lx, -ly
