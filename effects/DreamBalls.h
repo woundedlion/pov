@@ -211,44 +211,45 @@ private:
       const auto &p = entry.params;
       auto &data = loaded_presets[preset_idx];
 
-      PolyMesh m = generate(persistent_arena, Solids::get_by_name,
-                            std::string_view(p.solid_name));
+      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+        // Build the raw solid into scratch; only the deep copy below, bound to
+        // the persistent target, outlives this generate() call.
+        PolyMesh m = Solids::get_by_name(a, a, b, std::string_view(p.solid_name));
 
-      // Deep-copy into the persistent arena; the generator's scratch mesh does
-      // not outlive this loop.
-      data.mesh_state.vertices.bind(persistent_arena, m.vertices.size());
-      for (const auto &v : m.vertices) {
-        data.mesh_state.vertices.push_back(v);
-      }
-
-      data.mesh_state.faces.bind(persistent_arena, m.faces.size());
-      data.mesh_state.face_counts.bind(persistent_arena, m.face_counts.size());
-
-      int flat_idx = 0;
-      for (size_t i = 0; i < m.face_counts.size(); ++i) {
-        int count = m.face_counts[i];
-        data.mesh_state.face_counts.push_back((uint8_t)count);
-        for (int c = 0; c < count; ++c) {
-          data.mesh_state.faces.push_back(m.faces[flat_idx++]);
+        data.mesh_state.vertices.bind(target, m.vertices.size());
+        for (const auto &v : m.vertices) {
+          data.mesh_state.vertices.push_back(v);
         }
-      }
 
-      // Per-vertex tangent frame; seed with X_AXIS near the poles to avoid a
-      // degenerate cross product with the near-parallel Y_AXIS.
-      data.tangents.bind(persistent_arena, data.mesh_state.vertices.size());
-      for (const auto &v : data.mesh_state.vertices) {
-        Vector axis = (std::abs(v.y) > 0.99f) ? X_AXIS : Y_AXIS;
-        Vector u = cross(v, axis).normalized();
-        Vector frame_v = cross(v, u).normalized();
-        data.tangents.push_back({u, frame_v});
-      }
+        data.mesh_state.faces.bind(target, m.faces.size());
+        data.mesh_state.face_counts.bind(target, m.face_counts.size());
 
-      // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
-      size_t edge_count = data.mesh_state.faces.size() / 2;
-      data.edges.bind(persistent_arena, edge_count);
-      Plot::Mesh::extract_edges(data.mesh_state, data.edges);
-      HS_CHECK(data.edges.size() == edge_count,
-               "DreamBalls edge extraction over/under-filled the edge bind");
+        int flat_idx = 0;
+        for (size_t i = 0; i < m.face_counts.size(); ++i) {
+          int count = m.face_counts[i];
+          data.mesh_state.face_counts.push_back((uint8_t)count);
+          for (int c = 0; c < count; ++c) {
+            data.mesh_state.faces.push_back(m.faces[flat_idx++]);
+          }
+        }
+
+        // Per-vertex tangent frame; seed with X_AXIS near the poles to avoid a
+        // degenerate cross product with the near-parallel Y_AXIS.
+        data.tangents.bind(target, data.mesh_state.vertices.size());
+        for (const auto &v : data.mesh_state.vertices) {
+          Vector axis = (std::abs(v.y) > 0.99f) ? X_AXIS : Y_AXIS;
+          Vector u = cross(v, axis).normalized();
+          Vector frame_v = cross(v, u).normalized();
+          data.tangents.push_back({u, frame_v});
+        }
+
+        // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
+        size_t edge_count = data.mesh_state.faces.size() / 2;
+        data.edges.bind(target, edge_count);
+        Plot::Mesh::extract_edges(data.mesh_state, data.edges);
+        HS_CHECK(data.edges.size() == edge_count,
+                 "DreamBalls edge extraction over/under-filled the edge bind");
+      });
 
       preset_idx++;
     }
