@@ -167,6 +167,12 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   out.classes.bind(persistent, MAX_CONGRUENCE_CLASSES);
   out.face_recs.bind(persistent, F);
 
+  out.shared_faces = 0;
+  out.concave_faces = 0;
+  out.lut_faces = 0;
+  out.luts_built = 0;
+  out.lut_bytes = 0;
+
   constexpr int MAX_VERTS = SDF::FaceScratchBuffer::MAX_VERTS;
   const float eps_plane = CONGRUENCE_EPS_PX * pixel_width;
 
