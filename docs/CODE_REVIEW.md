@@ -164,7 +164,7 @@ files land in the daydream repo; all others land in Holosphere.
     includes them explicitly for identical usage, so this violates the project's
     own self-contained-header convention. Fix: add the three includes.
 
-11. **`docs.yml` paths filter omits `docs/doxygen-theme.cfg`, a real build input** —
+11. ✅ **`docs.yml` paths filter omits `docs/doxygen-theme.cfg`, a real build input** —
     `.github/workflows/docs.yml:13`. The push and pull_request `paths:` filters
     gate `doxygen-custom.css` but not `doxygen-theme.cfg`, which is `cat`'d onto the
     Doxyfile (line 76) and sets `HTML_COLORSTYLE`, gamma, and the stylesheet list. A
