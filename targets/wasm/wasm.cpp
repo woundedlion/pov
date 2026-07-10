@@ -1374,6 +1374,20 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                v.set("cp2", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
                return v;
              }
+             const Vector cps[4] = {{prevx, prevy, prevz},
+                                    {startx, starty, startz},
+                                    {endx, endy, endz},
+                                    {nextx, nexty, nextz}};
+             for (const Vector &p : cps) {
+               if (p.x * p.x + p.y * p.y + p.z * p.z < math::EPS_NORMALIZE_SQ) {
+                 hs::log("WASM: catmull_rom_tangents got a degenerate control "
+                         "point — returning zero");
+                 val v = val::object();
+                 v.set("cp1", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
+                 v.set("cp2", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
+                 return v;
+               }
+             }
              Vector cp1, cp2;
              Spline::catmull_rom_tangents({prevx, prevy, prevz},
                                           {startx, starty, startz},
