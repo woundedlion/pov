@@ -156,7 +156,7 @@ files land in the daydream repo; all others land in Holosphere.
    `[0, gap)`). Steady-state spacing is correct; the comment misleads. Fix: reword
    to reference `gap_accumulator`.
 
-10. **`test_reaction_graph.h` is not self-contained** —
+10. ✅ **`test_reaction_graph.h` is not self-contained** —
     `tests/test_reaction_graph.h:20`. Uses `std::mt19937`,
     `std::uniform_real_distribution`, `std::sqrt`, and `std::printf` without
     including `<random>`, `<cmath>`, or `<cstdio>`; compiles only because
