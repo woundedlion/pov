@@ -64,6 +64,43 @@ inline void check_relax_clamp() {
 }
 
 /**
+ * @brief Exercises the bakeLut gradient-shape range check and clamp.
+ */
+inline void check_gradient_shape_clamp() {
+  constexpr int LO = 0, HI = 3; // STRAIGHT .. FALLOFF
+
+  // In-range shapes pass through untouched and read as in range.
+  for (int s = LO; s <= HI; ++s) {
+    HS_EXPECT_TRUE(!hs_wasm::gradient_shape_out_of_range(s, LO, HI));
+    HS_EXPECT_EQ(hs_wasm::clamp_gradient_shape(s, LO, HI), s);
+  }
+  // Out-of-range (below and above) is flagged and folds to the default (LO).
+  HS_EXPECT_TRUE(hs_wasm::gradient_shape_out_of_range(-1, LO, HI));
+  HS_EXPECT_TRUE(hs_wasm::gradient_shape_out_of_range(HI + 1, LO, HI));
+  HS_EXPECT_EQ(hs_wasm::clamp_gradient_shape(-1, LO, HI), LO);
+  HS_EXPECT_EQ(hs_wasm::clamp_gradient_shape(HI + 1, LO, HI), LO);
+  HS_EXPECT_EQ(hs_wasm::clamp_gradient_shape(1000000, LO, HI), LO);
+}
+
+/**
+ * @brief Exercises the bakeLut HSV-key range check and [0,255] clamp.
+ */
+inline void check_hsv_key_clamp() {
+  // In-range keys, including the boundaries, pass through unchanged.
+  HS_EXPECT_TRUE(!hs_wasm::hsv_key_out_of_range(0));
+  HS_EXPECT_TRUE(!hs_wasm::hsv_key_out_of_range(255));
+  HS_EXPECT_EQ(hs_wasm::clamp_hsv_key(0), 0);
+  HS_EXPECT_EQ(hs_wasm::clamp_hsv_key(128), 128);
+  HS_EXPECT_EQ(hs_wasm::clamp_hsv_key(255), 255);
+  // Out-of-range keys are flagged and saturate rather than wrap mod 256.
+  HS_EXPECT_TRUE(hs_wasm::hsv_key_out_of_range(-1));
+  HS_EXPECT_TRUE(hs_wasm::hsv_key_out_of_range(256));
+  HS_EXPECT_EQ(hs_wasm::clamp_hsv_key(-1), 0);
+  HS_EXPECT_EQ(hs_wasm::clamp_hsv_key(256), 255);
+  HS_EXPECT_EQ(hs_wasm::clamp_hsv_key(300), 255);
+}
+
+/**
  * @brief Module entry point: runs the boundary-predicate checks.
  * @return The module's failure count.
  */
@@ -71,6 +108,8 @@ inline int run_wasm_predicates_tests() {
   hs_test::ModuleFixture fixture("wasm_predicates");
   check_clip_bounds();
   check_relax_clamp();
+  check_gradient_shape_clamp();
+  check_hsv_key_clamp();
   return fixture.result();
 }
 
