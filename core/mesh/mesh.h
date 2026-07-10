@@ -211,10 +211,10 @@ public:
   /**
    * @brief Builds the half-edge connectivity from a MeshState.
    * @param arena Arena supplying storage for the half-edge arrays.
-   * @param mesh Source mesh; vertices are owned but topology may be borrowed.
-   * @details MeshState's vertices are always owned, but its topology may be
-   * borrowed (view spans); route it through the unified accessors so both
-   * owned and borrowed modes work.
+   * @param mesh Source mesh; vertices are owned but face connectivity may be borrowed.
+   * @details MeshState's vertices are always owned, but its face connectivity
+   * (face counts/indices) may be borrowed (view spans); route it through the
+   * unified accessors so both owned and borrowed modes work.
    */
   explicit HalfEdgeMesh(Arena &arena, const MeshState &mesh) {
     build_half_edge_mesh(*this, arena, mesh.vertices.size(),

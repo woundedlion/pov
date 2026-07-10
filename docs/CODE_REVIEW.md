@@ -141,7 +141,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 8. ✅ **Dead unreachable guard with a misleading comment in `Orientation::upsample`** — `core/math/geometry.h:551`.
    The `if (count < 2) return;` block is unreachable: `num_frames >= 1` is a class invariant and the earlier `if (num_frames >= count) return;` already returns whenever `count == 1`. The comment describes a `0/0` path that cannot occur. Fix: delete the dead block (551–553).
 
-9. **`HalfEdgeMesh(Arena&, const MeshState&)` doc claims topology "may be borrowed," but topology is always owned and this ctor never reads it** — `core/mesh/mesh.h:211`.
+9. ✅ **`HalfEdgeMesh(Arena&, const MeshState&)` doc claims topology "may be borrowed," but topology is always owned and this ctor never reads it** — `core/mesh/mesh.h:211`.
    `MeshState::topology` has no borrowed-view counterpart (only `face_counts`/`faces`/`face_offsets` do), and the ctor body never touches `mesh.topology`. Fix: reword to describe face-connectivity borrowing and drop the word "topology."
 
 10. **`SolidBuilder::needle()` docstring describes the wrong operator** — `core/mesh/solids.h:332`.
