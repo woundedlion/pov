@@ -177,6 +177,20 @@ private:
   typedef Animation::ParticleSystem<W, k_num_particles, k_trail_length, 1, 0>
       ParticleSystem;
 
+  // Persistent allocations from the default persistent_arena: baked palette LUT,
+  // the particle pool, and the single emitter slot (zero attractors here).
+  static constexpr size_t FOOTPRINT_BYTES =
+      BakedPalette::LUT_SIZE * sizeof(Color4) +
+      k_num_particles * sizeof(Animation::Particle<k_trail_length>) +
+      sizeof(typename ParticleSystem::EmitterFn);
+  // Effect keeps the default arena split, so the footprint must fit the device
+  // persistent partition. Guards a k_num_particles/k_trail_length retune.
+  static constexpr size_t PERSISTENT_BUDGET =
+      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+  static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET,
+                "FlowField persistent footprint exceeds the default partition; "
+                "retune k_num_particles/k_trail_length or carve arenas");
+
   /** @brief User-tunable parameters exposed through the effect UI. */
   struct Params {
     float noise_scale = 2.0f; /**< Noise sampling frequency over the sphere. */
