@@ -84,8 +84,12 @@ inline Pixel plain_fade(const Pixel &p, float fade, const Style &) {
  * @brief Named feedback preset: spatial/color transforms plus scalar params.
  * @details POD-copyable so it can live in Presets<> and be lerped. The lerpable
  * scalar fields blend continuously while function pointers and discrete tuning
- * snap at the lerp midpoint. Bound state (noise) and per-frame caches are not
- * preset data.
+ * snap at the lerp midpoint. The bound noise pointer and the per-frame hue cache
+ * are not preset data: lerp() preserves them, but a full-struct copy or
+ * assignment (Presets::apply, `style = Style::Churn()`) carries only the source
+ * preset's fields — resetting noise to nullptr (degrading noise_warp to
+ * identity) and the hue cache to the identity rotation. Re-bind the noise
+ * pointer and call sync_hue() after any such copy.
  */
 struct Style {
   // --- Lerpable scalar params ---
