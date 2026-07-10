@@ -1111,7 +1111,8 @@ struct Ring {
    * @param phase Rotation phase (radians).
    * @details Runtime sample count for the polygon samplers, whose vertex counts
    * do not match the TrigLUT grid; appends an overlap-close vertex. v1 is the
-   * analytic arc length (theta·sin(radius)).
+   * analytic arc length (theta·sin(theta_eq), theta_eq being the ring's
+   * colatitude).
    */
   static void sample(Fragments &points, const Basis &basis, float radius,
                      int num_samples, float phase = 0) {
@@ -1127,7 +1128,6 @@ struct Ring {
     const float theta_eq = work_radius * (PI_F / 2.0f);
     const float r_val = sinf(theta_eq);
     const float d_val = cosf(theta_eq);
-    const float arc_scale = sinf(work_radius);
 
     const float step = 2.0f * PI_F / num_samples;
 
@@ -1142,7 +1142,7 @@ struct Ring {
       if (i == 0)
         first_pos = f.pos;
       f.v0 = static_cast<float>(i) / num_samples;
-      f.v1 = theta * arc_scale;
+      f.v1 = theta * r_val;
       f.v2 = static_cast<float>(i);
       f.age = 0;
 
@@ -1156,7 +1156,7 @@ struct Ring {
       Fragment f;
       f.pos = first_pos;
       f.v0 = 1.0f;
-      f.v1 = 2.0f * PI_F * arc_scale;
+      f.v1 = 2.0f * PI_F * r_val;
       f.v2 = static_cast<float>(num_samples);
       f.age = 0;
       points.push_back(f);
@@ -1174,7 +1174,7 @@ struct Ring {
    * angle grid (i*2π/W) is exactly TrigLUT<W,H>::cos_theta/sin_theta, so the
    * per-sample libm cosf(θ+φ)/sinf(θ+φ) becomes the precomputed θ-grid plus one
    * angle-addition against cos/sin(φ) — saving ~2*(W+1) libm trig calls per ring
-   * per frame. Keeps Ring's analytic arc length (θ*arc_scale) and its own
+   * per frame. Keeps Ring's analytic arc length (θ*sin(theta_eq)) and its own
    * overlap close; see sample_closed_ring's note on why Ring is not folded into
    * that helper. The runtime int-num_samples overload above stays for the
    * polygon samplers, whose vertex counts (num_sides, W/4, …) do not match the
@@ -1194,7 +1194,6 @@ struct Ring {
     const float theta_eq = work_radius * (PI_F / 2.0f);
     const float r_val = sinf(theta_eq);
     const float d_val = cosf(theta_eq);
-    const float arc_scale = sinf(work_radius);
 
     const float step = 2.0f * PI_F / W;
 
@@ -1214,7 +1213,7 @@ struct Ring {
       Fragment f;
       f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
       f.v0 = static_cast<float>(i) / W;
-      f.v1 = (i * step) * arc_scale;
+      f.v1 = (i * step) * r_val;
       f.v2 = static_cast<float>(i);
       f.age = 0;
 
@@ -1226,7 +1225,7 @@ struct Ring {
     Vector u_temp = (u * cos_phase) + (w * sin_phase);
     f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
     f.v0 = 1.0f;
-    f.v1 = (2.0f * PI_F) * arc_scale;
+    f.v1 = (2.0f * PI_F) * r_val;
     f.v2 = static_cast<float>(W);
     f.age = 0;
     points.push_back(f);

@@ -651,7 +651,6 @@ inline void test_ring_sample_lut_matches_direct() {
   const float theta_eq = wr * (PI_F / 2.0f);
   const float r_val = sinf(theta_eq);
   const float d_val = cosf(theta_eq);
-  const float arc_scale = sinf(wr);
   const float step = 2.0f * PI_F / W;
 
   for (int i = 0; i < W; ++i) {
@@ -663,7 +662,7 @@ inline void test_ring_sample_lut_matches_direct() {
     HS_EXPECT_NEAR(points[i].pos.y, expected.y, 2e-3f);
     HS_EXPECT_NEAR(points[i].pos.z, expected.z, 2e-3f);
     HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 1e-3f);
-    HS_EXPECT_NEAR(points[i].v1, theta * arc_scale, 2e-3f);
+    HS_EXPECT_NEAR(points[i].v1, theta * r_val, 2e-3f);
   }
 
   HS_EXPECT_NEAR(points.back().pos.x, points[0].pos.x, 1e-3f);
