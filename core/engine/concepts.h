@@ -122,7 +122,7 @@ public:
    */
   template <typename Callable>
     requires std::invocable<Callable &, Args...> &&
-             (!std::same_as<std::decay_t<Callable>, FunctionRef>)
+             (!std::is_base_of_v<FunctionRef, std::decay_t<Callable>>)
   FunctionRef(Callable &callable) noexcept : ctx_(std::addressof(callable)) {
     thunk_ = [](void *ptr, Args... args) -> Ret {
       return (*static_cast<Callable *>(ptr))(std::forward<Args>(args)...);
@@ -147,7 +147,7 @@ public:
    */
   template <typename Callable>
     requires std::invocable<const Callable &, Args...> &&
-             (!std::same_as<std::decay_t<Callable>, FunctionRef>)
+             (!std::is_base_of_v<FunctionRef, std::decay_t<Callable>>)
   FunctionRef(const Callable &callable) noexcept
       : ctx_(const_cast<void *>(
             static_cast<const void *>(std::addressof(callable)))) {
