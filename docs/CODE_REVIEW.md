@@ -87,7 +87,7 @@ files land in the daydream repo; all others land in Holosphere.
 
 ### P2 — latent edge case
 
-2. **Non-integer relax iteration count is accepted, then breaks C++ export with a
+2. ✅ **Non-integer relax iteration count is accepted, then breaks C++ export with a
    silent copy failure** — `daydream/tools/solids.html:1447`. `updateOpParam()`
    clamps a param to `[min,max]` but never enforces integrality, even for relax's
    count-typed `iter`. Typing `2.5` stores `iter=2.5` in `state.ops`; on export
