@@ -116,7 +116,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 1. ✅ **Phantasm effect-swap uses throwing `new` with no null/exception handling on a `-fno-exceptions` build** — `targets/Phantasm/Phantasm.ino:68`.
    `construct_effect<E>()` runs on every effect switch (~every 120 s for the life of the device) and does `E *e = new E();` with no `std::nothrow` and no null check, then immediately calls `e->init()`; `hardware/pov_segmented.h:283` derefs it again (`cur->height()`). `platformio.ini` builds with `-fno-exceptions`, so on OOM there is either an abort with no diagnostic or a silent `nullptr` → hard-fault null-deref. The file's own `setup()` guards `g_pov` against exactly this two lines earlier. Fix: mirror that pattern — `E *e = new (std::nothrow) E(); HS_CHECK(e != nullptr, "effect allocation failed (OOM)");` before `init()`.
 
-2. **`capture_screenshots.mjs` crashes with `ReferenceError` in its own summary block on every run** — `scripts/capture_screenshots.mjs:79`.
+2. ✅ **`capture_screenshots.mjs` crashes with `ReferenceError` in its own summary block on every run** — `scripts/capture_screenshots.mjs:79`.
    `RESOLUTIONS`, `targets`, `failures`, `blanks`, `wrongRes` are `const`/`let`-declared *inside* the `try` block (79–238) but read at module top level (240–292), so the entire diagnostic/gating section is dead and every run — success or failure — throws after `browser.close()` and exits non-zero with a raw stack trace. The CI guard (`node --check`) is syntax-only and cannot catch this. Fix: hoist those declarations above the `try {` and convert the inner `const` to assignments; re-run `npm run screenshots` to confirm the summary executes and only fails on a real failure/blank/wrong-resolution.
 
 ### Medium priority

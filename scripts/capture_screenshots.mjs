@@ -76,6 +76,14 @@ try {
   await new Promise((resolve) => process.stderr.write('', resolve));
   process.exit();
 }
+// Declared out here, not inside the try below: the summary/gating section after
+// the finally reads them, so block-scoping them to the try would leave every run
+// throwing a ReferenceError past browser.close().
+let RESOLUTIONS = [];
+let targets = [];
+let failures = 0;
+const blanks = [];
+const wrongRes = [];
 try {
   const ctx = await browser.newContext({
     ignoreHTTPSErrors: true,
@@ -139,11 +147,11 @@ try {
   // Resolutions to try per effect, largest first; [null] means "no param, app
   // default". When the app exposes its presets we try each from highest to lowest
   // detail and keep the first that honors the requested effect.
-  const RESOLUTIONS = await resolveResolutions();
+  RESOLUTIONS = await resolveResolutions();
   const RES_TRY = RESOLUTIONS.length ? RESOLUTIONS : [null];
   console.log(`Capture resolutions (high→low): ${RESOLUTIONS.join(', ') || '(app default)'}`);
 
-  const targets = process.argv.slice(2).length ? process.argv.slice(2) : EFFECTS;
+  targets = process.argv.slice(2).length ? process.argv.slice(2) : EFFECTS;
 
   // Grab the current #canvas frame and measure how much of it is lit. With
   // preserveDrawingBuffer:true forced via addInitScript, toDataURL is safe after
@@ -176,9 +184,6 @@ try {
       new URLSearchParams(location.search).get('effect'));
   }
 
-  let failures = 0;
-  const blanks = [];
-  const wrongRes = [];
   for (const effect of targets) {
     process.stdout.write(`Capturing ${effect}... `);
     try {
