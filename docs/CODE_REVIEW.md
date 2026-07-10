@@ -300,7 +300,7 @@ _None._
    `--depth`, corrupting the shared counter and tripping a later spurious trap. *Fix:* delete copy ctor and
    copy-assign on both types (move is then implicitly suppressed), matching `Canvas`'s convention.
 
-8. **Cancelled save dialog buffers the entire recording in memory before discarding it** —
+8. ✅ **Cancelled save dialog buffers the entire recording in memory before discarding it** —
    `c:/work/daydream/recorder.js:400` — If the user cancels the File System Access picker, `handle` stays null
    and every subsequent chunk is accumulated into an in-memory array that `finish()` then discards, growing RAM
    unboundedly for a session that will be thrown away. *Fix:* add `if (aborted) return;` at the top of `write()`'s
