@@ -159,7 +159,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 14. ✅ **`builder.py`'s `transform()` docstring cites a nonexistent `calib.py`** — `hardware/phantasm/gen/builder.py:18`.
     "Verified empirically … (see calib.py)"; no `calib.py` exists in the repo (never committed), leaving a maintainer with no artifact to re-verify the load-bearing coordinate transform. Fix: commit the calibration script or replace the parenthetical with a concrete re-verification recipe.
 
-15. **Dead static constants on `Daydream` (`PIXEL_WIDTH`, `UP`, `DOT_COLOR`)** — `daydream/driver.js:116`.
+15. ✅ **Dead static constants on `Daydream` (`PIXEL_WIDTH`, `UP`, `DOT_COLOR`)** — `daydream/driver.js:116`.
     None are read anywhere; `PIXEL_WIDTH` is even kept in sync on every `updateResolution()` with no observer, and `DOT_COLOR` misleadingly reads as if it configures dot color (the material has no `color` option; color comes from the WASM `instanceColor` buffer). Fix: delete the three fields and the `PIXEL_WIDTH` reassignment.
 
 16. **`setResolution(w,h)` vs `updateResolution(h,w,…)` use opposite argument order in the same function** — `daydream/daydream.js:436`.
