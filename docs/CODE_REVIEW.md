@@ -210,7 +210,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 11. ✅ `daydream/segment_controller.js:564` — `setEffect()` leaves `this.animationsPaused` stale, so a pool rebuilt after an effect switch re-pauses while the main sphere animates; reset it to `false` alongside `this.paramValues = null`.
 12. ❌ `daydream/driver.js:616` — the picture-in-picture camera copies the main camera's position+orientation, rendering a duplicate of the front instead of the opposite hemisphere; reflect the camera through the orbit target and `lookAt(target)` (back view valid only with `cullBackSphere` off). **Rejected (by design):** the PiP is a deliberate far-away view of the same front, not an opposite-hemisphere view.
 13. ✅ `daydream/gui.js:145` — `DeepLinkGUI.getKey` collides deep-link keys for sibling folders sharing a non-empty name; disambiguate only genuine duplicates (or fail-fast on duplicate names) — do **not** change the key format unconditionally (breaks existing shared links).
-14. `daydream/label_format.js:39` — `prettify` renders `NaN`/`Infinity` as literal text on sphere labels; add `if (!Number.isFinite(r)) return "—";`.
+14. ❌ `daydream/label_format.js:39` — `prettify` renders `NaN`/`Infinity` as literal text on sphere labels; add `if (!Number.isFinite(r)) return "—";`. **Rejected (intended):** surfacing the literal `NaN`/`Infinity` is preferred for debugging over masking a bad value with an em dash.
 15. `daydream/tools/slider.js:94` — the initial readout uses the raw value while the thumb uses the rounded value, so first paint can disagree; derive the readout from the same rounded value.
 
 ### Priority 2 — Dead code, simplification & efficiency
