@@ -31,7 +31,7 @@ public:
    *          amp*cos(2π(freq*t + phase)).
    */
   FLASHMEM Thrusters()
-      : Effect(W, H, {.strobe = true}), palette(/*bias*/ {0.5f, 0.5f, 0.5f},
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}), palette(/*bias*/ {0.5f, 0.5f, 0.5f},
                               /*amp*/ {0.5f, 0.5f, 0.5f},
                               /*freq*/ {0.3f, 0.3f, 0.3f},
                               /*phase*/ {0.0f, 0.2f, 0.6f}),
