@@ -168,10 +168,9 @@ private:
    * @brief Converts a float concentration to a clamped, rounded Q16 value.
    * @param v Concentration as a float (clamped to [0, 1]).
    * @return Q16 value in [0, 65535].
-   * @details Rounds to nearest (+0.5f), not truncate: plain truncation drops
-   * every sub-LSB positive update while still applying negative ones, biasing
-   * the RD dynamics downward into a diffusion dead-zone. clamp keeps the product
-   * in [0, 65535], so +0.5f tops out at 65535.5 -> 65535 with no overflow.
+   * @details Rounds to nearest (+0.5f); truncating would bias the dynamics down
+   * by dropping sub-LSB positive updates. clamp bounds the input so 65535.5 ->
+   * 65535 with no overflow.
    */
   static inline uint16_t to_q16(float v) {
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * Q16_SCALE + 0.5f);
@@ -200,12 +199,10 @@ private:
    * @param f_a Float scratch (RD_N) for the current A generation.
    * @param f_b Float scratch (RD_N) for the current B generation.
    * @details Gray-Scott: dA/dt = dA·∇²A - A·B² + feed·(1-A);
-   * dB/dt = dB·∇²B + A·B² - (k+feed)·B. Pure double-buffered (Jacobi) step:
-   * reads the current buffers, writes the next ones. The caller owns the
-   * ping-pong so the result can be landed back in the persistent state
-   * regardless of substep parity (see render()). The current generation is
-   * pre-converted into f_a/f_b once, so the neighbor loop reads floats instead of
-   * reconverting each node's Q16 value on every neighbor visit (~6-7x per node).
+   * dB/dt = dB·∇²B + A·B² - (k+feed)·B. Double-buffered Jacobi: reads current
+   * buffers, writes next; the caller owns the ping-pong (see render()).
+   * Pre-converts the current generation into f_a/f_b once so the neighbor loop
+   * reads floats.
    */
   void step_physics(const uint16_t *c_a, const uint16_t *c_b, uint16_t *n_a,
                     uint16_t *n_b, float *f_a, float *f_b) {

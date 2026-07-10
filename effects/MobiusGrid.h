@@ -151,8 +151,7 @@ private:
    * @details For each curve it asks curve_fn(i) for the {basis, radius}, samples
    *          a spherical polygon, warps every point through the Möbius transform
    *          plus counter-rotation q, then rasterizes via shade. The two
-   *          callbacks are all that differs between the ring and longitude
-   *          passes; templating on them keeps the helper fully inlined.
+   *          callbacks are all that differs between the ring and longitude passes.
    */
   template <typename CurveFn, typename ShadeFn>
   void draw_curves(Canvas &canvas, float num, const Quaternion &q,

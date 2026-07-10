@@ -79,11 +79,9 @@ public:
                                      ReactionGraph::CubemapLUT::RES *
                                      sizeof(uint16_t); // cube_lut.build
     constexpr size_t STATE_BYTES = 3u * RD_N * sizeof(uint8_t); // allocate_state
-    // NODE_BYTES double-serves: the resident node array AND the equal-size
-    // transient lattice cube_lut.build() carves and rewinds before init_lattice()
-    // allocates the resident one. The peak persistent footprint is during build()
-    // (state + LUT + transient lattice), so this bounds it only while build()
-    // precedes init_lattice() and its transient stays <= NODE_BYTES.
+    // NODE_BYTES bounds both the resident node array and the equal-size transient
+    // lattice cube_lut.build() carves and rewinds before init_lattice() allocates
+    // the resident one; the build() peak (state + LUT + transient) is the max.
     constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);        // build_nodes
     constexpr size_t PERSISTENT_BYTES = 165 * 1024;
     static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES <= PERSISTENT_BYTES,
@@ -95,10 +93,8 @@ public:
                   "BZ scratch arena too small for render()'s species buffers");
     configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
 
-    // "Compete" is the Lotka-Volterra predation coefficient, not an opacity. Its
-    // reaction term is bounded only by to_q8's [0,1] clamp, not the diffusion
-    // stability bound below, so a high Compete intentionally saturates (hard
-    // banding) rather than diverging.
+    // Lotka-Volterra predation coefficient; bounded only by to_q8's [0,1] clamp
+    // (not the diffusion stability bound below), so a high value saturates.
     register_param("Compete", &params.alpha, 0.0f, 4.0f);
     // Explicit Euler is stable only while dt·D·λmax ≤ 2. The graph Laplacian on a
     // degree-RD_K lattice has |λ|max ≤ 2·RD_K (= 12 at RD_K=6), bounding these
@@ -134,12 +130,9 @@ private:
 
   /**
    * @brief Concentration-sum floor below which a location is treated as empty.
-   * @details The kernel-blended species concentrations are in [0, 1]; when their
-   * sum falls below this, every species has decayed to ~0 there, so blend_species
-   * has no hue to mix and sample_kernel culls to transparent. Distinct from
-   * KERNEL_MIN_TOTAL_WEIGHT (which guards the Wendland weight sum, not the
-   * concentrations): a kernel can carry full weight yet still average to ~0 if
-   * all three species are absent at the covered nodes.
+   * @details Distinct from KERNEL_MIN_TOTAL_WEIGHT: that guards the Wendland
+   * weight sum, this the blended concentration (a full-weight kernel can still
+   * average to ~0 if all species are absent), and sample_kernel culls below it.
    */
   static constexpr float SPECIES_EMPTY_EPS = 1e-6f;
 
@@ -153,10 +146,9 @@ private:
    * @brief Converts a normalized concentration to a Q8 fixed-point byte.
    * @param v Concentration; clamped to [0.0, 1.0] before scaling.
    * @return Q8 value in [0, 255], rounded to nearest.
-   * @details Rounds to nearest (+0.5f) rather than truncating: truncation loses
-   *          every sub-LSB positive update while negatives still decrement,
-   *          biasing the dynamics downward. clamp bounds the product to
-   *          [0, 255], so +0.5f tops out at 255.5 -> 255 with no overflow.
+   * @details Rounds to nearest (+0.5f); truncating would bias the dynamics down
+   *          by dropping sub-LSB positive updates. clamp bounds the input so
+   *          255.5 -> 255 with no overflow.
    */
   static inline uint8_t to_q8(float v) {
     return static_cast<uint8_t>(hs::clamp(v, 0.0f, 1.0f) * Q8_SCALE + 0.5f);
@@ -234,11 +226,8 @@ private:
    * @details Nudges NUM_PERTURBATIONS random nodes by PERTURB_AMOUNT (Q8),
    *          saturating at 255, to keep the dynamics from settling on the
    *          closed manifold.
-   * @note Draws from the global deterministic RNG, so this advances the shared
-   *       stream by exactly 2*NUM_PERTURBATIONS draws (idx + species each
-   *       iteration). Keeps sim-vs-device byte-determinism but couples this
-   *       effect's stream position to the substep count: retuning the draw count
-   *       is a global-determinism change.
+   * @note Draws from the global deterministic RNG (2*NUM_PERTURBATIONS draws per
+   *       call), so retuning the draw count is a global-determinism change.
    */
   static void perturb_state(uint8_t *n_a, uint8_t *n_b, uint8_t *n_c) {
     for (int p = 0; p < NUM_PERTURBATIONS; p++) {
@@ -261,13 +250,9 @@ private:
    * @param f_a Float scratch (RD_N) for the current A generation.
    * @param f_b Float scratch (RD_N) for the current B generation.
    * @param f_c Float scratch (RD_N) for the current C generation.
-   * @details Pure double-buffered (Jacobi): reads the current buffers, writes
-   *          the next ones. The caller owns the ping-pong so the result can be
-   *          landed back in the persistent state regardless of substep parity
-   *          (see render()). The current generation is pre-converted into
-   *          f_a/f_b/f_c once, so the neighbor loop reads floats instead of
-   *          reconverting each node's Q8 value on every neighbor visit (~6-7x
-   *          per node).
+   * @details Double-buffered Jacobi: reads current buffers, writes next; the
+   *          caller owns the ping-pong (see render()). Pre-converts the current
+   *          generation into f_a/f_b/f_c once so the neighbor loop reads floats.
    */
   void step_physics(const uint8_t *c_a, const uint8_t *c_b, const uint8_t *c_c,
                     uint8_t *n_a, uint8_t *n_b, uint8_t *n_c, float *f_a, float *f_b,
@@ -314,11 +299,8 @@ private:
    *         keeps each 16-bit channel in [0, 65535] so the cast needs no clamp.
    * @pre a + b + c >= SPECIES_EMPTY_EPS (the sole caller returns transparent
    *      below that floor), so the reciprocal is finite.
-   * @details Concentration-weighted average of the three species colors:
-   *          (ca·a + cb·b + cc·c) / (a + b + c). Each species contributes in
-   *          proportion to its local concentration with no order bias.
-   *          Normalizing by total concentration makes the output a pure mix of
-   *          the palette colors (hue-driven), not concentration-dimmed.
+   * @details Concentration-weighted average: (ca·a + cb·b + cc·c) / (a + b + c),
+   *          a hue-driven mix that is not concentration-dimmed.
    */
   static Pixel blend_species(float a, float b, float c, const Color4 &ca,
                              const Color4 &cb, const Color4 &cc) {

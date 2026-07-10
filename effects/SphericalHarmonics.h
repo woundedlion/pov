@@ -120,11 +120,9 @@ template <int W, int H> class SphericalHarmonics : public Effect {
 public:
   /**
    * @brief Field sampler that evaluates the (blended) harmonic at a world point.
-   * @details Intentionally NOT a deforming SDF: on the unit-sphere display every
-   * pixel samples r=1, so a lobe-radius distance would only modulate coverage
-   * near the harmonic's nodes. We want full coverage and let the shader paint
-   * the harmonic value, so distance() reports a constant "fully inside" and the
-   * field value rides out through raw_dist (frag.v1).
+   * @details Not a deforming SDF: distance() reports a constant "fully inside" so
+   * the whole sphere is covered, and the field value rides out through raw_dist
+   * (frag.v1) for the shader to paint.
    */
   struct HarmonicField {
     int l1, m1;

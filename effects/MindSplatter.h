@@ -97,9 +97,8 @@ public:
     timeline.step(canvas);
 
     particle_system.friction = params.friction;
-    // All attractors are deliberately uniform, slaved to the one live (and
-    // preset-animated) Well Str slider; the per-attractor strength passed at
-    // add_attractor time is just an initial seed this overwrites each frame.
+    // All attractors share the one live (preset-animated) Well Str slider; the
+    // strength passed at add_attractor time is just a seed overwritten here.
     for (size_t i = 0; i < particle_system.attractors.size(); ++i)
       particle_system.attractors[i].strength = params.well_strength;
     particle_system.step(canvas);
@@ -117,13 +116,10 @@ private:
 
   /**
    * @brief Fixed particle pool capacity.
-   * @details Footprint is identical on the 32-bit device and 64-bit native build
-   *          (VectorTrail's circular-buffer indices are uint32_t): 316 B/particle
-   *          × 1024 = 316 KiB of the 330 KiB device arena, leaving ~8 KiB after
-   *          the scratch carve (gross; ~2 KiB after the aux reserve) for the
-   *          baked palette and attractor/emitter vectors. The static_assert in
-   *          init() enforces this at compile time against the device arena
-   *          literal (GLOBAL_ARENA_SIZE is inflated on the host test build).
+   * @details Footprint is host/device-identical (VectorTrail indices are
+   *          uint32_t): ~316 B/particle × 1024 = 316 KiB of the 330 KiB device
+   *          arena. init()'s static_assert enforces the budget at compile time
+   *          against the real device arena literal.
    */
   static const int NUM_PARTICLES = 1024;
 

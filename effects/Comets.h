@@ -24,12 +24,9 @@ struct CometsWhiteBox;
  * @details The path function and color palette periodically roll over to the
  *          next entry in the function table, cross-fading via a ColorWipe.
  * @note Sibling trail effects `ChaoticStrings` and `RingSpin` share only the
- *       record + deep_tween skeleton (in the engine); their bodies diverge in
- *       draw primitive, transform chain, and color/fade, so each renders
- *       independently and trail-rendering fixes must be propagated by hand.
- *       Comets uses an empty pipeline (no Screen::AntiAlias): it draws glowing
- *       points via Scan::Point with their own softness, so an AA pass would only
- *       blur the glow.
+ *       record + deep_tween skeleton; their draw/transform/fade diverge, so
+ *       trail fixes must be propagated by hand. Comets uses an empty pipeline
+ *       (no Screen::AntiAlias) since Scan::Point glows carry their own softness.
  */
 template <int W, int H> class Comets : public Effect {
 public:
@@ -150,16 +147,11 @@ private:
    * @param config The Lissajous parameters whose domain is being snapped.
    * @return The closing domain: lissajous(m1, m2, a, closed_domain) equals the
    *         t=0 start (0,1,0) up to float error.
-   * @details A spherical Lissajous point is (sin(m2 t)*cos(...), cos(m2 t),
-   *          sin(m2 t)*sin(...)), so it returns to the t=0 start (0,1,0) only when
-   *          sin(m2 t)=0 and cos(m2 t)=1, i.e. when m2*domain is an exact multiple
-   *          of 2*PI (the m1/phase terms drop out once sin(m2 t)=0). The authored
-   *          domains miss that by up to ~1.4 deg. Snapping to the nearest closing
-   *          length is a <0.3% domain nudge, invisible to the shape. Floor the
-   *          cycle count at 1: when m2*domain < PI the round() collapses to 0,
-   *          which would zero the result and freeze the head at path_fn(0). All 12
-   *          current entries clear the threshold, but the table is authored data
-   *          that gets extended.
+   * @details A spherical Lissajous point returns to the t=0 start (0,1,0) only
+   *          when m2*domain is an exact multiple of 2*PI. Authored domains miss
+   *          that by up to ~1.4 deg; snapping is a <0.3% nudge. Floor the cycle
+   *          count at 1 so m2*domain < PI does not round to 0 and freeze the head
+   *          at path_fn(0) (the table is authored data that gets extended).
    */
   static float closing_domain(const LissajousParams &config) {
     float closing_cycles = std::round(config.m2 * config.domain / (2 * PI_F));
