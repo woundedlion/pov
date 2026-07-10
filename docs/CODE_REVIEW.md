@@ -140,7 +140,7 @@ files land in the daydream repo; all others land in Holosphere.
    genuinely read. Per the project's remove-dead-code convention, delete `g_hi`
    (lines 35, 55-56, 78, and the `[g_lo, g_hi)` comment reference).
 
-8. **Misplaced doc block leaves `oklab_to_linear_rgb` undocumented** —
+8. ✅ **Misplaced doc block leaves `oklab_to_linear_rgb` undocumented** —
    `core/color/color.h:610`. The doxygen block at 610-616 documents the
    3-out-param `oklab_to_linear_rgb`, but is immediately followed by the block for
    `oklab_to_lms_cbrt`, so Doxygen attaches it to the wrong function and the actual
