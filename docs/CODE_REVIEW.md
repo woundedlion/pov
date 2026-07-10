@@ -265,7 +265,7 @@ _None._
    comment relies on. *Fix:* do the multiply in `uint32_t` (defined wrap mod 2^32), reinterpret to `int32_t`
    before the signed divide, preserving exact device bit-pattern parity.
 
-3. **angle_between(Vector) uses an ad-hoc FLT epsilon instead of a named tolerance** —
+3. ✅ **angle_between(Vector) uses an ad-hoc FLT epsilon instead of a named tolerance** —
    `c:/work/Holosphere/core/math/3dmath.h:960` — The file documents a doctrine to route all tolerances
    through named `EPS_*` constants; this is the only degeneracy guard not drawn from the table, and it is
    loose enough that ~3.4e-4-length operands still enter a poorly-conditioned division. *Fix:* compare
