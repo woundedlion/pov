@@ -287,16 +287,34 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
   return drifted;
 }
 
-// Uses the rotation matrix precomputed once per frame by Style::sync_hue.
+/**
+ * @brief Applies a cbrt-LMS rotation to linear-RGB channels.
+ * @param k Rotation matrix already scaled by cbrt(fade/65535) (see hue_fade and
+ *          the Feedback::flush fast path, which both prescale their fade here).
+ * @param r Linear red channel (u16 magnitude, as float).
+ * @param g Linear green channel.
+ * @param b Linear blue channel.
+ * @return The rotated, faded pixel.
+ * @details Single source for the built-in hue-fade color math so hue_fade() and
+ *          the flush() fast path that bypasses it cannot drift.
+ */
+inline Pixel hue_fade_apply(const float k[9], float r, float g, float b) {
+  LMS lms = linear_rgb_to_lms(r, g, b);
+  float rr, gg, bb;
+  lms_cbrt_transform_rgb(k, fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s),
+                         rr, gg, bb);
+  return Pixel(float_to_pixel16(rr), float_to_pixel16(gg), float_to_pixel16(bb));
+}
+
 // The fade and the u16 normalization fold into the cbrt-LMS domain:
-// cbrt(fade/65535 * LMS) = cbrt(fade/65535) * cbrt(LMS).
+// cbrt(fade/65535 * LMS) = cbrt(fade/65535) * cbrt(LMS). Uses the rotation
+// matrix precomputed once per frame by Style::sync_hue.
 inline Pixel hue_fade(const Pixel &p, float fade, const Style &s) {
-  float sc = fast_cbrt(fade * (1.0f / 65535.0f));
-  LMS lms = linear_rgb_to_lms(p.r, p.g, p.b);
-  float r, g, b;
-  lms_cbrt_transform_rgb(s.hue_k, fast_cbrt(lms.l) * sc, fast_cbrt(lms.m) * sc,
-                         fast_cbrt(lms.s) * sc, r, g, b);
-  return Pixel(float_to_pixel16(r), float_to_pixel16(g), float_to_pixel16(b));
+  const float sc = fast_cbrt(fade * (1.0f / 65535.0f));
+  float k[9];
+  for (int i = 0; i < 9; ++i)
+    k[i] = s.hue_k[i] * sc;
+  return hue_fade_apply(k, p.r, p.g, p.b);
 }
 
 } // namespace Feedback
