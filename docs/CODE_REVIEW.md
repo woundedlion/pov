@@ -238,7 +238,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 ### Priority 3 — Documentation, tests, tooling & naming
 
 35. ✅ `core/math/3dmath.h:1209` — `fast_expf` (a per-pixel bit-hack approximation) has no accuracy test while every sibling `fast_*` does; add a dense-grid relative-error sweep vs `expf` plus boundary cases.
-36. `core/render/plot.h:495` — `screen_step`'s adaptive-density / pole-clamp formula has no direct regression pin; add a unit test comparing against the analytic `SCREEN_STEP_PX/|v_screen|` in an unclamped regime (sign is squared into speed — test magnitude, not sign).
+36. ✅ `core/render/plot.h:495` — `screen_step`'s adaptive-density / pole-clamp formula has no direct regression pin; add a unit test comparing against the analytic `SCREEN_STEP_PX/|v_screen|` in an unclamped regime (sign is squared into speed — test magnitude, not sign).
 37. `tests/test_solids.h:214` — the Euler oracle (`V−E+F==2`) runs only on Platonic + Islamic slices; extend it over the Archimedean and Catalan registries.
 38. `core/color/color.h:1061` / `README.md:1008` — README §7.6's "all palette interpolation in OKLCH" is false for `Gradient` (linear-light); qualify the claim.
 39. `core/render/scan.h:844` — `ssaa_sample_vector`'s doc claims byte-for-byte parity with `pixel_to_vector`, but the two use different trig paths; correct the comment to state the actual (harmless) invariant.

@@ -521,6 +521,77 @@ inline void test_edge_row_span_covers_arc_bulge() {
 }
 
 // ============================================================================
+// Plot::screen_step — adaptive-density sub-step
+// ============================================================================
+
+/**
+ * @brief Pins screen_step against an independent screen-velocity oracle in the
+ *        unclamped regime.
+ * @details Reconstructs the pixel speed by finite-differencing the canvas map
+ *          (x = longitude·W/2π, y = colatitude·(H_VIRT-1)/π) along a small
+ *          geodesic step in the tangent direction, then asserts screen_step
+ *          returns SCREEN_STEP_PX/|v_screen|. Inputs are chosen so the result
+ *          lands strictly between the pole and equator clamps. Because the speed
+ *          squares the velocity components, flipping the tangent's sign leaves
+ *          the step unchanged — checked here.
+ */
+inline void test_screen_step_matches_analytic_unclamped() {
+  constexpr int W = 288, H = 144;
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  constexpr float base_step = (2.0f * PI_F) / W;
+  const float KX = W / (2.0f * PI_F);
+  const float KY = (H_VIRT - 1) / PI_F;
+
+  auto screen_speed = [&](const Vector &pos, const Vector &tan) {
+    const float ds = 1e-4f;
+    auto xy = [&](const Vector &p) {
+      float phi = std::acos(hs::clamp(p.y, -1.0f, 1.0f));
+      float lam = std::atan2(p.z, p.x);
+      return std::pair<float, float>(lam * KX, phi * KY);
+    };
+    Vector pp = (pos * std::cos(ds) + tan * std::sin(ds)).normalized();
+    Vector pm = (pos * std::cos(ds) - tan * std::sin(ds)).normalized();
+    auto a = xy(pp);
+    auto b = xy(pm);
+    float dx = (a.first - b.first) / (2.0f * ds);
+    float dy = (a.second - b.second) / (2.0f * ds);
+    return std::sqrt(dx * dx + dy * dy);
+  };
+
+  struct Case {
+    Vector pos, tan;
+  };
+  // The tangent must be perpendicular to pos (a genuine arc-length tangent), or
+  // the geodesic oracle and screen_step's formula parametrize differently.
+  const Vector pos_off(std::sqrt(0.75f), 0.5f, 0.0f);
+  const Vector raw(0.0f, 1.0f, 1.0f); // arbitrary; projected onto the tangent plane
+  const Vector tan_mixed = (raw - pos_off * dot(raw, pos_off)).normalized();
+  // Equatorial longitudinal, off-equator longitudinal, and a mixed (colatitude +
+  // longitude) tangent — all verified below to land inside the clamp window.
+  const Case cases[] = {
+      {Vector(1.0f, 0.0f, 0.0f), Vector(0.0f, 0.0f, 1.0f)},
+      {pos_off, Vector(0.0f, 0.0f, 1.0f)},
+      {pos_off, tan_mixed},
+  };
+
+  const float lo = base_step * Plot::MIN_POLE_SCALE;
+  for (const Case &c : cases) {
+    float speed = screen_speed(c.pos, c.tan);
+    float expected = Plot::SCREEN_STEP_PX / speed;
+    // Unclamped regime guard: the analytic step sits strictly inside the window.
+    HS_EXPECT_GT(expected, lo);
+    HS_EXPECT_LT(expected, base_step);
+
+    float got = Plot::screen_step<W, H>(c.pos, c.tan, base_step);
+    HS_EXPECT_NEAR(got, expected, expected * 2e-3f);
+
+    // Speed squares the tangent, so the sign drops out.
+    float flipped = Plot::screen_step<W, H>(c.pos, c.tan * -1.0f, base_step);
+    HS_EXPECT_NEAR(flipped, got, 1e-6f);
+  }
+}
+
+// ============================================================================
 // Plot::Ring::sample
 // ============================================================================
 
@@ -1433,6 +1504,7 @@ inline int run_plot_scan_tests() {
   test_clip_could_intersect_y();
   test_clip_x_band_topologies();
   test_edge_row_span_covers_arc_bulge();
+  test_screen_step_matches_analytic_unclamped();
 
   test_ring_sample_unit_length_and_progress();
   test_ring_sample_lut_matches_direct();
