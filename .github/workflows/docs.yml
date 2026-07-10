@@ -16,6 +16,7 @@ on:
       - 'README.md'
       - 'Doxyfile'
       - 'docs/doxygen-custom.css'
+      - 'docs/doxygen-theme.cfg'
       - '.github/workflows/docs.yml'
   # Build-only presubmit on PRs touching the same inputs: a fatal Doxygen parse
   # error fails the PR instead of publishing silently after merge. Non-fatal
@@ -29,6 +30,7 @@ on:
       - 'README.md'
       - 'Doxyfile'
       - 'docs/doxygen-custom.css'
+      - 'docs/doxygen-theme.cfg'
       - '.github/workflows/docs.yml'
 
 # Pages deployment needs write + OIDC; nothing else is granted.
