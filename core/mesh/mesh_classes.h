@@ -197,7 +197,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     Vector center(0, 0, 0);
     for (int k = 0; k < count; ++k)
       center = center + mesh.vertices[idx[k]];
-    center.normalize();
+    center = normalized_or(center, mesh.vertices[idx[0]]);
     Vector u = cross(center, least_parallel_axis(center)).normalized();
     Vector w = cross(center, u).normalized();
     float mx = 0.0f, my = 0.0f;
