@@ -329,7 +329,7 @@ public:
     return *this;
   }
   /**
-   * @brief Applies the needle operator (dual of truncate).
+   * @brief Applies the needle operator (kis of the dual; n = kd).
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &needle() {

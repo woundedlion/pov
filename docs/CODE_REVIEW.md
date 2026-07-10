@@ -144,7 +144,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 9. ✅ **`HalfEdgeMesh(Arena&, const MeshState&)` doc claims topology "may be borrowed," but topology is always owned and this ctor never reads it** — `core/mesh/mesh.h:211`.
    `MeshState::topology` has no borrowed-view counterpart (only `face_counts`/`faces`/`face_offsets` do), and the ctor body never touches `mesh.topology`. Fix: reword to describe face-connectivity borrowing and drop the word "topology."
 
-10. **`SolidBuilder::needle()` docstring describes the wrong operator** — `core/mesh/solids.h:332`.
+10. ✅ **`SolidBuilder::needle()` docstring describes the wrong operator** — `core/mesh/solids.h:332`.
     Says "(dual of truncate)"; `MeshOps::needle` is `kis(dual(...))` — Hart's `n = kd`, no truncate involved. Fix: change to "kis of the dual; n = kd" to match `conway.h`.
 
 11. **README §7.7 miscounts the `islamic_registry` (23 vs actual 24) and the total (54 vs 55)** — `README.md:1139`.
