@@ -250,7 +250,7 @@ _None._
 
 ## Medium
 
-1. **spline_catmull_rom_tangents lacks the degenerate-input guard its slerp sibling has** —
+1. ✅ **spline_catmull_rom_tangents lacks the degenerate-input guard its slerp sibling has** —
    `c:/work/Holosphere/targets/wasm/wasm.cpp:1377` — The export validates only finiteness, so a finite
    zero-length control point with tension≈0 drives `slerp` to a zero vector whose strict `normalized()`
    traps and aborts the entire WASM module. *Fix:* before calling `Spline::catmull_rom_tangents`, reject any
