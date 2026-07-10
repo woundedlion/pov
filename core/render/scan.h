@@ -1195,6 +1195,12 @@ struct Volume {
     bool climbing = false; // pd has risen off the foreground graze
     float min_behind = FLT_MAX;
     Vector min_pos = closest_local;
+    // Bracket samples around the running minimum, as offsets along the ray from
+    // min_pos, for the parabolic refinement below.
+    float s = 0.0f, prev_s = 0.0f, min_s = 0.0f;
+    float bef_s = 0.0f, bef_pd = FLT_MAX;
+    float aft_s = 0.0f, aft_pd = FLT_MAX;
+    bool need_aft = false;
     for (int i = 0; i < 24; ++i) {
       // Stop at the back of the bounding sphere: nothing left to occlude this halo.
       if (probe.x * local_vd.x + probe.y * local_vd.y + probe.z * local_vd.z >
@@ -1203,17 +1209,57 @@ struct Volume {
       float pd = shape.distance(probe);
       if (pd < hit_threshold)
         return {true, probe, 0.0f}; // solid surface behind the edge
+      if (need_aft) {
+        aft_s = s;
+        aft_pd = pd;
+        need_aft = false;
+      }
       if (pd > prev)
         climbing = true; // moving away from the foreground graze
       else if (climbing && pd < min_behind) {
         min_behind = pd; // descending toward a surface behind
         min_pos = probe;
+        min_s = s;
+        bef_s = prev_s;
+        bef_pd = prev;
+        need_aft = true;
+        aft_pd = FLT_MAX;
       }
       prev = pd;
+      prev_s = s;
       float floor = bounds_radius * (i < 6 ? 0.04f : 0.12f);
       float step = std::max(pd * 0.9f, floor);
       probe = Vector(probe.x + local_vd.x * step, probe.y + local_vd.y * step,
                      probe.z + local_vd.z * step);
+      s += step;
+    }
+
+    // The coarse floored stride quantizes the graze minimum, and the sampling
+    // phase shifts every frame — corner coverage shimmers under motion. One
+    // parabolic-interpolation step through the bracket tightens the minimum
+    // (one extra distance eval, graze pixels only) and recovers a thin solid
+    // chord the stride stepped over.
+    if (min_behind < 2.0f * aa_width && bef_pd != FLT_MAX &&
+        aft_pd != FLT_MAX) {
+      float p = min_s - bef_s;
+      float q = min_s - aft_s;
+      float yb = bef_pd - min_behind;
+      float ya = aft_pd - min_behind;
+      float den = q * yb - p * ya;
+      if (den < -1e-12f) {
+        float ds = -0.5f * (q * q * yb - p * p * ya) / den;
+        if (ds > -p && ds < -q) {
+          Vector rp(min_pos.x + local_vd.x * ds, min_pos.y + local_vd.y * ds,
+                    min_pos.z + local_vd.z * ds);
+          float rpd = shape.distance(rp);
+          if (rpd < min_behind) {
+            min_behind = rpd;
+            min_pos = rp;
+          }
+          if (min_behind < hit_threshold)
+            return {true, min_pos, 0.0f};
+        }
+      }
     }
 
     float soft = (min_behind < aa_width)

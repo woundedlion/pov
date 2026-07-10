@@ -1018,7 +1018,11 @@ inline void test_volume_probe_occluder_reports_background_graze_point() {
   auto occ = Scan::Volume::probe_occluder(shape, closest_local, vd, 0.6f,
                                           hit_threshold, aa_width);
   HS_EXPECT_FALSE(occ.solid);
-  HS_EXPECT_GT(occ.soft, 0.2f);
+  // The ray passes 0.0033 outside the background sphere, so the analytic
+  // coverage is quintic(1 - (0.0033 - 0.001)/0.009) ~= 0.89; the parabolic
+  // refinement must land near it (the coarse stride alone reads ~0.65).
+  HS_EXPECT_GT(occ.soft, 0.8f);
+  HS_EXPECT_LT(occ.soft, 0.95f);
   HS_EXPECT_LT(occ.behind.z, -0.05f);
 }
 
