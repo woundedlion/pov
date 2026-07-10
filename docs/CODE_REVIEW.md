@@ -212,7 +212,7 @@ files land in the daydream repo; all others land in Holosphere.
     checkbox. Fix: also seed `lockedDragStartValues` on `keydown`/`focus`, or apply
     the locked-group delta on the empty-map keyboard case.
 
-17. **`export_params` readonly-skip test only covers a trailing readonly param** —
+17. ✅ **`export_params` readonly-skip test only covers a trailing readonly param** —
     `daydream/tests/export_params.test.js:16`. `formatExportParams` indexes
     `values[]` by the `params` index, so correctness under readonly params hinges on
     the arrays staying aligned. The sole test places the readonly param last, where a
