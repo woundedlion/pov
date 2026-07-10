@@ -1817,7 +1817,8 @@ struct QuantizeModifier {
       : dynamic_steps(d_steps), base_steps(steps) {}
 
   /**
-   * @brief Snaps the coordinate to the nearest of N steps.
+   * @brief Snaps the coordinate to the nearest multiple of 1/steps (steps+1
+   * distinct levels over [0,1]).
    * @param t Input coordinate.
    * @return The quantized coordinate.
    */
