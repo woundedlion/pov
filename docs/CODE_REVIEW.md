@@ -70,7 +70,7 @@ files land in the daydream repo; all others land in Holosphere.
 
 ### P1 — functional bug on a live path
 
-1. **Conway `meta` operator computes `kis(ambo)` instead of `kis(dual(ambo))`** —
+1. ✅ **Conway `meta` operator computes `kis(ambo)` instead of `kis(dual(ambo))`** —
    `core/mesh/conway.h:1105`. `MeshOps::meta` is `kis(ambo(...))` with a comment
    asserting the false identity "join = ambo". Conway's join is `j = da` (dual of
    ambo), so `meta = kj = kda`, not `ka`. For a cube these differ (kis of the

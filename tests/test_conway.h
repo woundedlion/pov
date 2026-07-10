@@ -17,6 +17,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <limits>
 #include <map>
 #include <vector>
 #include "core/mesh/conway.h"
@@ -760,8 +761,9 @@ inline void test_bevel_cube() {
 }
 
 // ---------------------------------------------------------------------------
-// Composition polarity: a primitive operator returns its output in `target`; a
-// composed operator (gyro/meta/needle/zip/bevel) returns it in `temp`.
+// Composition polarity: a primitive operator returns its output in `target`; an
+// even-length composed operator (gyro/needle/zip/bevel) returns it in `temp`,
+// while an odd-length one (meta = kda, three steps) returns it in `target`.
 // ---------------------------------------------------------------------------
 
 /**
@@ -781,9 +783,10 @@ inline bool ptr_in_buffer(const void *p, const uint8_t *buf, size_t n) {
 
 /**
  * @brief Verifies the primitive-vs-composed arena polarity in conway.h.
- * @details A primitive (dual) must return its output in `target`; each composed
- *          operator (gyro/meta/needle/zip/bevel) must return its output in
- *          `temp`. The seed is built in `temp` for every case, matching the
+ * @details A primitive (dual) must return its output in `target`; each
+ *          even-length composed operator (gyro/needle/zip/bevel) must return it
+ *          in `temp`, while odd-length meta returns in `target` like a
+ *          primitive. The seed is built in `temp` for every case, matching the
  *          per-operator tests and SolidBuilder's calling convention. Each output
  *          also satisfies the basic structural invariants, so the polarity check
  *          is asserted on a genuinely valid mesh.
@@ -806,7 +809,19 @@ inline void test_conway_composition_polarity() {
     HS_EXPECT_FALSE(ptr_in_buffer(&d.vertices[0], tmp, tmp_n));
   }
 
-  // Each composed operator returns in `temp`.
+  // Odd-length meta (three steps) returns in `target` like a primitive.
+  {
+    Arena target(conway_target_buf, sizeof(conway_target_buf));
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, temp);
+    PolyMesh m = MeshOps::meta(cube, target, temp);
+    check_basic_invariants(m);
+    HS_EXPECT_TRUE(ptr_in_buffer(&m.vertices[0], tgt, tgt_n));
+    HS_EXPECT_FALSE(ptr_in_buffer(&m.vertices[0], tmp, tmp_n));
+  }
+
+  // Each even-length composed operator returns in `temp`.
 #define HS_POLARITY_COMPOSED(CALL)                                             \
   do {                                                                         \
     Arena target(conway_target_buf, sizeof(conway_target_buf));               \
@@ -820,11 +835,77 @@ inline void test_conway_composition_polarity() {
   } while (0)
 
   HS_POLARITY_COMPOSED(gyro(seed, target, temp));
-  HS_POLARITY_COMPOSED(meta(seed, target, temp));
   HS_POLARITY_COMPOSED(needle(seed, target, temp));
   HS_POLARITY_COMPOSED(zip(seed, target, temp));
   HS_POLARITY_COMPOSED(bevel(seed, target, temp));
 #undef HS_POLARITY_COMPOSED
+}
+
+/**
+ * @brief Snapshots a mesh's vertex positions into a host vector.
+ * @param m Mesh whose vertices are copied out (so its arena can be reused).
+ * @return Copy of m's vertex positions in order.
+ */
+inline std::vector<Vector> collect_vertices(const PolyMesh &m) {
+  std::vector<Vector> out;
+  out.reserve(m.vertices.size());
+  for (size_t i = 0; i < m.vertices.size(); ++i)
+    out.push_back(m.vertices[i]);
+  return out;
+}
+
+/**
+ * @brief Largest per-vertex distance between two ordered vertex lists.
+ * @param a First vertex list.
+ * @param b Second vertex list.
+ * @return Max Euclidean distance between corresponding vertices, or infinity if
+ *   the lists differ in length.
+ */
+inline float max_vertex_delta(const std::vector<Vector> &a,
+                              const std::vector<Vector> &b) {
+  if (a.size() != b.size())
+    return std::numeric_limits<float>::infinity();
+  float worst = 0.0f;
+  for (size_t i = 0; i < a.size(); ++i)
+    worst = std::max(worst, (a[i] - b[i]).length());
+  return worst;
+}
+
+/**
+ * @brief Pins meta to kis(dual(ambo)), not the same-count kis(ambo).
+ * @details meta and kis(ambo) share vertex/edge/face counts on the cube, so the
+ *          structural test cannot tell them apart. This rebuilds both references
+ *          via SolidBuilder — with the same arena ping-pong meta uses internally,
+ *          so the correct one matches vertex-for-vertex — and asserts meta equals
+ *          kis(dual(ambo)) while differing from kis(ambo).
+ */
+inline void test_meta_is_kis_dual_ambo() {
+  std::vector<Vector> meta_verts, kda_verts, ka_verts;
+  {
+    Arena target(conway_target_buf, sizeof(conway_target_buf));
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, temp);
+    meta_verts = collect_vertices(MeshOps::meta(cube, target, temp));
+  }
+  {
+    Arena target(conway_target_buf, sizeof(conway_target_buf));
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, temp);
+    kda_verts = collect_vertices(
+        Solids::SolidBuilder(std::move(cube), target, temp).ambo().dual().kis().build());
+  }
+  {
+    Arena target(conway_target_buf, sizeof(conway_target_buf));
+    Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, temp);
+    ka_verts = collect_vertices(
+        Solids::SolidBuilder(std::move(cube), target, temp).ambo().kis().build());
+  }
+  HS_EXPECT_NEAR(max_vertex_delta(meta_verts, kda_verts), 0.0f, 1e-5f);
+  HS_EXPECT_TRUE(max_vertex_delta(meta_verts, ka_verts) > 0.1f);
 }
 
 // ---------------------------------------------------------------------------
@@ -1128,6 +1209,7 @@ inline int run_conway_tests() {
   test_relax_reduces_edge_variance();
   test_relax_open_mesh_finite();
   test_meta_cube();
+  test_meta_is_kis_dual_ambo();
   test_needle_cube();
   test_zip_cube();
   test_bevel_cube();

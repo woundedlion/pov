@@ -327,10 +327,13 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 // closed manifold (require_closed_manifold traps otherwise); kis is per-face;
 // relax tolerates a boundary mesh (partial relaxation).
 //
-// COMPOSITION POLARITY (load-bearing): composed ops op2(op1(mesh,target,temp),
-// temp,target) reuse the same ping-pong, so their output lands in `temp`, the
-// OPPOSITE arena from a primitive. Intended — the single op following a
-// composed op then runs input+output on one arena for one step.
+// COMPOSITION POLARITY (load-bearing): a composition alternates the ping-pong
+// once per primitive step, so its output lands in the arena that backed the
+// last step's `target` — `temp` for an even-length composition (gyro/needle/
+// zip/bevel), back in `target` for an odd-length one (meta = kda, three steps),
+// the same arena as a primitive. After an even composition the single op that
+// follows runs input+output on one arena for one step; after an odd one the
+// ping-pong is already in primitive phase.
 //
 // Per-vertex orbit buffers are sized to the max valence (= total half-edges).
 // ---------------------------------------------------------------------------
@@ -1084,25 +1087,26 @@ HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
 //
 // These are defined as compositions of primitive operators. Equivalences are
 // from Hart's reference implementation. Memory-wise, each composition reuses
-// the standard ping-pong of (target, temp) arenas with no extra allocation, and
-// as a result returns its output in `temp`, not `target` (see COMPOSITION
-// POLARITY at the top of the operator block).
-//   meta   m = kj = kis of ambo (j = a)
+// the standard ping-pong of (target, temp) arenas with no extra allocation; an
+// even-length composition returns its output in `temp`, an odd-length one back
+// in `target` (see COMPOSITION POLARITY at the top of the operator block).
+//   meta   m = kj = kda = kis of dual of ambo (j = da)
 //   needle n = kd = kis of dual
 //   zip    z = dk = dual of kis (truncated dual)
 //   bevel  b = ta = truncate of ambo (rectify-then-truncate)
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Meta operator (Hart's `m`): kis of ambo (m = kj, j = a).
+ * @brief Meta operator (Hart's `m`): kis of dual of ambo (m = kj = kda, j = da).
  * @param mesh Source mesh.
  * @param target Arena used as the ping-pong source for the composition.
  * @param temp Arena used as the ping-pong destination for the composition.
- * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
- *   POLARITY at the top of the operator block).
+ * @return Composed PolyMesh; being a three-step (odd) composition its output
+ *   lands in `target`, like a primitive (see COMPOSITION POLARITY at the top of
+ *   the operator block).
  */
 HS_COLD static PolyMesh meta(const PolyMesh &mesh, Arena &target, Arena &temp) {
-  return kis(ambo(mesh, target, temp), temp, target);
+  return kis(dual(ambo(mesh, target, temp), temp, target), target, temp);
 }
 
 /**
