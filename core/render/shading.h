@@ -172,11 +172,11 @@ inline float shade_blinn_phong(const Vector &normal_w, const Vector &light_dir,
   // Specular: light tilted off-axis along tangent for a visible highlight.
   Vector light = light_dir + tangent * 0.3f;
   float ll = light.length();
-  if (ll > TOLERANCE)
+  if (ll > math::TOLERANCE)
     light /= ll;
   Vector half = light + view_dir;
   float hl = half.length();
-  if (hl > TOLERANCE)
+  if (hl > math::TOLERANCE)
     half /= hl;
   float ndoth = std::max(0.0f, dot(normal_w, half));
   // ndoth^32 via repeated squaring
