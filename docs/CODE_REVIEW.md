@@ -1,345 +1,135 @@
-# Holosphere + daydream — Definitive Code Quality Review
+# Holosphere + daydream — Code Quality Review
 
-## Introduction
+**Scope:** the Holosphere C++ rendering engine + firmware (`core/`, `effects/`,
+`hardware/`, `targets/`, `tests/`, `tools/`, build system) and the daydream web
+simulator (`*.js`, `tools/`, `tests/`). Out of scope per instruction:
+`effects_legacy.h`, `Holosphere.ino`, `rotate.h`.
 
-This report is the consolidated, lead-reviewer synthesis of a full-codebase audit of
-**Holosphere** (a templated C++ persistence-of-vision LED-sphere rendering engine and
-firmware) and **daydream** (its Three.js/WebAssembly browser simulator, GUI, recorder,
-segmented-POV Web Workers, and standalone geometry tools). The two repositories ship as a
-single product: Holosphere compiles the identical rendering C++ to WASM and installs the
-artifacts into daydream, so the browser and the device run the same pixels.
-
-The review covered every core subsystem across 24 reviewer shards: the memory arena and
-platform layer, callables/registry/effect support, transformers and the reaction graph, the
-math library, the mesh system (PolyMesh/HalfEdge, Conway operators, Hankin patterns, solids,
-spatial index), color, the SDF/scan/plot rasterizers, the filter/canvas/LED pipeline, the
-animation and motion systems, all effects (reaction-diffusion, mesh/pattern, rings/particles/
-fields), the hardware drivers (DMA LED, HD107S, POV single/segmented, 1-wire sync), the WASM
-bindings and build/CI, the C++ test harness, and the entire daydream JS surface (app entry,
-Three.js driver, GUI/sidebar, recorder, segmented workers, geometry tools, and JS test suite).
-
-**Scope exclusions.** By instruction, the following were not reviewed and are excluded from
-all grades: `effects_legacy.h`, `Holosphere.ino`, `rotate.h`, and any vendored or generated
-files (e.g. the compiled `holosphere_wasm.{js,wasm}` artifacts, importmap-vendored Three.js).
+**Method:** the codebase was partitioned into 13 component scopes, each reviewed
+in depth by a dedicated agent. Every candidate finding was adversarially
+validated against the cited code before inclusion — a finding survives only if
+its failure mode is reproducible from the source. The great majority of drafted
+candidates were *disproved* during validation (the surrounding code already
+guarded them) and dropped. What remains below is the residue that survived that
+filter: there are **no Critical or High-severity defects**, and no reproducible
+crash / out-of-bounds / use-after-free / data-race anywhere in scope. The
+findings are latent guards, silent-divergence hazards, CI coverage gaps, and
+documentation nits.
 
 ---
 
-## Executive Summary
+## Overall Grade: **A**
 
-**Overall grade: A**
+This is, by defect density, one of the cleanest codebases of its size and
+ambition one is likely to review: ~55k lines of hard real-time, arena-allocated,
+compile-time-specialized C++ (plus a WASM bridge and a threaded JS simulator)
+in which a deliberately adversarial multi-agent pass could not manufacture a
+single qualifying correctness bug. The engineering discipline — fail-fast
+invariants verified by a death-harness, single-source-of-truth rosters pinned by
+CI, host-testable extraction of every load-bearing algorithm, and a filter
+pipeline whose legality is enforced at compile time — is at or above
+professional / state-of-the-art standard for embedded creative-coding engines.
 
-This is among the highest-quality codebases of its size and complexity we have reviewed. It is
-defensively engineered end to end: a fail-fast philosophy (always-on `HS_CHECK`/`__builtin_trap`
-that survives `NDEBUG`) converts invariant violations into located crashes rather than silent
-corruption, the render path never touches the heap (a single 330 KiB partitioned arena with
-RAII scratch scopes and type-level owned-vs-borrowed spans), and host/device numeric parity is
-engineered deliberately and pinned by CI. Documentation is exceptional — nearly every non-obvious
-decision carries a rationale comment stating the failure mode it guards — and test coverage is
-broad and unusually sophisticated (out-of-process death harness, executed WASM-vs-JS parity plus
-independent goldens, X-macro single-source rosters that make drift a compile error). Across the
-entire audit only **nine confirmed defects** surfaced, none above Medium severity, and every one
-is a latent or diagnostic-quality gap rather than a live correctness or memory-safety bug. The
-codebase's own stated engineering doctrines are applied with remarkable consistency; the handful
-of findings are precisely the places where a single site departs from a discipline the rest of the
-code already follows.
+The only systemic weaknesses are matters of *consistency* and *comment
+volume*, not correctness: a convention (a compile-time budget guard, a
+trait-derived config flag, a graceful-normalize fallback) that is applied in most
+places but omitted in a few, and rationale comments dense enough to risk drift
+from the code they annotate.
 
----
+### Grades by dimension
 
-## Quality Dimensions
-
-| Dimension | Grade |
-|---|---|
-| Correctness / Reliability | A |
-| Memory Safety | A |
-| Performance / Efficiency | A |
-| Architectural Elegance | A |
-| Interface Expressiveness / API Design | A |
-| Readability & Naming | A |
-| Documentation | A+ |
-| Testing & Coverage | A |
-| Error Handling | A |
-| Portability | A- |
-| Consistency / Maintainability | A |
-| Build / Tooling / CI | A |
-| Security | A |
-
-### Correctness / Reliability — A
-
-Correctness is the codebase's strongest guarantee alongside memory safety. Reviewers traced the
-hardest paths analytically against the coordinate and protocol contracts in the README —
-projection forward/inverse round-trips, Shepperd-branch quaternion conditioning, antipodal-slerp
-orthogonality, the full hardware sync epoch/refractory/gate/beacon state machine, reaction-diffusion
-stability bounds, Conway operator capacity math against emission counts (E=I/2 for closed manifolds),
-and adaptive curve-rasterizer cull-vs-render agreement — and found each either provably correct or an
-explicitly documented, in-bounds design tradeoff. Degenerate inputs (zero amplitude, coincident ripple
-centers, antipodal endpoints, pole singularities, empty pools, zero-length edges) are handled or
-deliberately fail-fast. The only genuine correctness defect is finding 4, a latent 2-gon self-pairing
-gap in `build_half_edge_mesh` that no live caller can reach today; the JS-boundary abort (finding 1)
-is filed under error handling but is equally a reliability concern for the WASM module. Neither dents
-the render path.
-
-### Memory Safety — A
-
-The arena model is the spine of the codebase's memory safety and it is close to exemplary. A single
-330 KiB block is partitioned into persistent + two scratch pools; every allocation guards
-`size*sizeof(T)` for overflow before any pointer math, bounds checks are written in wrap-proof
-subtractive form, and `ArenaVector`/`ArenaSpan` encode owned-vs-borrowed at the type level with a
-debug generation counter and per-vector rebind stamps that convert silent dangles into faults. The
-render path is entirely heap-free — inline-storage callables, placement-new type erasure with
-`std::launder`, fixed-capacity circular buffers sized by `static_assert` against traits with runtime
-`push_interval` traps as a backstop. On the JS side the zero-copy WASM memory views honor the
-`ALLOW_MEMORY_GROWTH` detachment contract (never held across a growth) and are copied out before
-reuse, a boundary the tests explicitly pin by mutating the source after a post. The lone confirmed
-memory-safety issue (finding 8) is a bounded RAM-waste path in the recorder when a save dialog is
-cancelled — wasteful, not unsafe.
-
-### Performance / Efficiency — A
-
-The hot loop pays for nothing it does not use. `HS_CHECK` and profiling/scan-metric macros are
-cold-path-only or compile out entirely; there are no per-pixel branches or reconvert-in-loop costs.
-Effect-specific tuning is measured and documented, not speculative: split trig LUTs (~145× memory
-reduction), branchless range reduction, baked palette LUTs replacing per-pixel OKLCH lerps, ripple
-fast-reject via cached cosine thresholds that skips `acos`/`exp` for ~90–95% of vertices, `noinline`
-edge loops that dodge a measured register-spill cliff, KDTree worst-distance caching for O(1) prune
-tests, and a congruence-class distance LUT (deliberately not wired to deforming effects, per the
-project's own resolved analysis). On the browser side: on-demand fixed-timestep rendering, label
-pooling, dot-LOD decay, DPR capping, and row-bulk `TypedArray.set` copies in the segmented compositor.
-No performance defects surfaced.
-
-### Architectural Elegance — A
-
-The architecture is genuinely elegant, not merely organized, and this is a subjective judgment the
-reviewers converged on independently. The three-arena partition with RAII `ScratchScope`/`Persist`
-and an explicit-borrow type system forms a minimal, coherent memory model. X-macro single-source
-rosters (`HS_RESOLUTIONS`, `HS_EFFECT_LIST`, `MESHOP_LIST`) give one authority over resolutions,
-the effect roster, and the WASM bindings so include/list/dispatch drift is structurally impossible.
-The rendering side composes cleanly: a uniform SDF shape concept lets CSG combinators be generic over
-leaves, a single `scan_region` seam/coalesce authority, a CRTP reaction-diffusion base factoring shared
-lattice/ping-pong scaffolding, and the primitive-vs-composition arena ping-pong polarity in the Conway
-layer is a legitimately clever memory design. On the hardware side the pure-math-core / device-shell
-split makes protocol logic host-testable. daydream mirrors this discipline by severing DOM-free
-decision logic (`resolveParamSync`, `planResolutionApply`, layout math) into small, individually-tested
-modules. The only mild wart noted anywhere is a shared static correction-state singleton in the LED
-layer, documented as one-controller-per-image.
-
-### Interface Expressiveness / API Design — A
-
-APIs make intent legible and misuse hard. Ownership is encoded in types: `ArenaVector` (owned,
-move-only) vs `ArenaSpan` (borrowed, deleted-from-temporary), `StoredFunctionRef` rejecting rvalues,
-`spawn` vs `spawn_pinned` encoding the retained-handle contract in the call itself, deleted rvalue
-`Motion`/animation ctors. Named factories and explicit ctors block coordinate-space confusion, and
-`normalized()` vs `normalized_or()` distinguishes trap-vs-graceful intent. On the JS boundary, return
-shapes like `{update,value}` and `{view,refreshed}` let callers avoid re-coercion, and the typed
-discriminated-union worker message protocol with a `PROTOCOL_VERSION` handshake faults on drift. The
-honest blemishes are minor and self-documented: `DistanceResult`'s per-shape overloaded registers are
-an inherently loose contract (mitigated by per-shape docblocks), the `pin=true` default on public
-`add_get` is a subtle footgun, and daydream's effect contract (`getLabels`/`getArenaMetrics`) is
-duck-typed rather than declared, with slightly inconsistent guarding.
-
-### Readability & Naming — A
-
-Names map directly to meaning and domain vocabulary (`cos_threshold_min` by distance not cos-value,
-`worst_d_sq`, `canon_sq`, `screen_step`, `liveParamValues`, `paramValueSkew`), control flow is linear,
-and helpers are small and single-purpose. The one recurring cost, noted across several C++ shards, is
-comment density: several files carry 15–20 line rationale blocks that occasionally read as more essay
-than code. This is load-bearing here — the invariants are subtle and the comments let a verifier check
-the tricky paths — but it does border on over-commenting in places. A few genuinely dense bodies
-(`Feedback::flush`'s warp/composite, the injected cull/column-fill shader) demand careful reading, and
-they are heavily and accurately commented to compensate.
-
-### Documentation — A+
-
-Documentation is the standout dimension and the reason the trickiest paths were verifiable at all.
-Nearly every function carries Doxygen/JSDoc, and — more valuably — nearly every non-obvious decision
-carries a rationale comment that states the *failure mode* it guards rather than restating the code:
-DMAMEM placement footguns, host/device divergence points, the SCRATCH ARENA and COMPOSITION POLARITY
-contracts, why `SmoothUnion` is not sphere-tracing-safe, the WASM memory-view detachment hazard mirrored
-into daydream, the pi/2−theta chirality note in the geometry tools, and engine-parity caveats in the JS
-math ports. The README itself is a full design spec whose waveform/timing tables match the code constants.
-The only nitpicks anywhere are a single grouping imprecision in an animation overflow note and a couple of
-transitive-include hygiene items. This is reference-quality documentation throughout.
-
-### Testing & Coverage — A
-
-Coverage is broad and the *architecture* of the test suites is unusually sophisticated. The C++ side is
-a self-defending harness: 39 unit modules spanning math/geometry/memory/color/mesh/rasterizer/animation
-plus device concerns (POV sync/tiling, HD107S wire format, DMA controller, WASM param marshaling),
-reinforced by an effect smoke+determinism+perturbation sweep, white-box friend seams reaching otherwise-
-dead paths, an out-of-process death harness verifying every trap fires by exact illegal-instruction shape,
-and X-macro rosters triple-cross-checked so a missing registration is a failing CTest. The suite refuses
-to go green silently (no-assertions-ran is a failure). daydream's ~34-file, 328-test Node suite adds
-defense-in-depth parity: executed WASM-vs-JS *plus* independent hardcoded goldens, a FakeEngine-vs-real-
-engine contract test, a web-tiler↔firmware segment-map cross-check, and GLSL-transpiled-to-JS shader
-parity. The residual gaps are honest and mostly browser-bound glue (daydream.js orchestration, driver.js's
-render loop) or effects that lean on smoke rather than white-box hooks; several rasterizer regions are
-documented as genuinely hard to A/B.
-
-### Error Handling — A
-
-The fail-fast doctrine is applied with rare consistency: cold-path invariant violations trap loudly with
-a located breadcrumb (OOM logs the numbers before trapping), while genuinely runtime-legitimate conditions
-(pool full, dropped ring/particle spawn) degrade softly with a log. Division and non-finite paths are
-guarded at every float→int cast, and normalization distinguishes trap-vs-graceful at legitimate geometric
-edges. On the JS side, fault injection is systematic and the UI degrades gracefully (log-and-keep-last-good,
-narrow try/catch scoping). Three of the nine findings live here and each is a single site departing from a
-sibling's discipline: the WASM catmull-rom export missing the degenerate-input guard its slerp sibling
-applies (finding 1), the copyable correction guard that can corrupt its shared depth counter (finding 7),
-and the exhausted-retry worker fault that latches an `undefined` message and masks the rich diagnostic
-(finding 9). All are contained and low-to-medium impact.
-
-### Portability — A-
-
-Host/device parity is meticulously engineered — 32-bit narrowing of `millis`/`micros`, div-by-zero guards
-matching the Cortex-M7, bit-hacks via `memcpy` to avoid aliasing UB, Teensy registers isolated behind
-`#ifdef ARDUINO` with host stubs, and determinism concerns explicitly reasoned about — and the JS side
-feature-detects `captureStream`/`showSaveFilePicker`/clipboard/`unref` and runs DOM-free helpers under
-`file://`. This dimension is docked, and it is the lowest C++ grade, for two concrete UB/hygiene items:
-the host `map()` shim relies on signed-integer-overflow UB to reproduce the device's 32-bit wrap
-(finding 2), and `color.h` uses an unqualified `memcpy` that depends on transitive `<cstring>` inclusion
-and global-namespace injection (finding 6). Both are latent and host-only, but a UBSan build or an include-
-graph refactor would surface them. A handful of files also lean on transitive `<limits>`/`<cstring>` includes,
-and a few test files use unguarded `#pragma clang diagnostic` that would fail a GCC `-Werror` build.
-
-### Consistency / Maintainability — A
-
-Guard idioms (subtractive bounds, cold-path `HS_CHECK`, uint32 index widths for layout parity), operator
-shapes, deep-copy helpers, and narrowing casts are applied uniformly, and cross-cutting invariants are
-pinned by `static_assert` (registry counts, index budgets, ping-pong overlap, preset field order, largest-
-sizeof inline-storage audits) so drift is caught mechanically. Every one of the nine findings is,
-fundamentally, a local consistency lapse against a discipline the codebase itself establishes elsewhere —
-which is why they are small: the 2-gon guard exists in `classify_faces_impl` but not `build_half_edge_mesh`;
-the anti-hang counter exists in every sibling walk but one; the copy/move deletion exists on `Canvas` but not
-the LED correction guards; the degenerate-input reject exists on one spline export but not its twin; the
-named-EPS doctrine is followed everywhere but one `angle_between` guard. Documented maintenance seams (the
-hand-propagated trail skeleton across three sibling effects) are called out in-code.
-
-### Build / Tooling / CI — A
-
-The build and CI story is strong and self-defending. CMake single-sources against drift, the WASM build
-installs artifacts into the sibling daydream checkout so both repos serve the same README, and CI now
-compiles both Teensy images via PlatformIO with size/layout gates (only on-hardware runtime remains manual).
-The native suite is the ASan/UBSan carrier, roster/screenshot gates prevent drift, dedicated executables
-re-compile fastmath-clamp and H_OFFSET renorm under shipping `-Os`+fast-math codegen, and a pre-commit hook
-runs the native suite. The JS side gates on `node --test` with a require-tests glob guard that refuses a green
-run on an empty tests directory. A non-FF master ref hook (recently hardened to actually block) protects the
-shared branch. The only tooling nits are CI-portability items: unguarded `#pragma clang diagnostic` in a few
-test files would fail a GCC build under `-Werror`, and a Node ≥22.3 requirement for module mocks.
-
-### Security — A
-
-This is an offline embedded/graphics codebase with a narrow untrusted surface, and that surface is handled
-well. The primary attack surface is the untyped JS↔WASM boundary, where integer inputs are validated and
-clamped and non-finite floats rejected — with finding 1 the one gap (a crafted zero-length control point can
-abort the module, a denial-of-service on the tooling page rather than a memory-corruption vector, since the
-render path is heap-free and bounds-trapped). There is no network-facing parsing, no deserialization of
-untrusted data, no secrets handling in-scope. The recorder's File System Access usage is permissioned by the
-browser. No memory-corruption, injection, or privilege defects were found; the fail-fast/no-heap/bounds-trap
-architecture is itself the strongest security property.
+| Dimension | Grade | Rationale |
+|---|---|---|
+| **Correctness** | **A** | No reproducible defect across the entire surface; every numerical / topological / concurrency edge is either provably bounded or fail-fast guarded. Only latent, currently-unreachable gaps remain. |
+| **Architecture & Elegance** | **A** | Principled and cohesive: World/Screen/Pixel domain-typed filter pipeline, CRTP animation/pipeline chains that inline to zero overhead, pure host-testable cores behind thin platform shells, X-macro single-sourcing. Hardware driver split and compile-time-legal filter chain are **A+** pockets. |
+| **Interface Expressiveness** | **A−** | Intent is largely encoded in the type system (owned-vs-borrowed vectors, `Tweenable`/`SDFShape` concepts, deleted rvalue overloads, `explicit` coordinate-space ctors). Docked one notch for a few conventions that live in prose rather than types (Fragment `v0–v3` / `DistanceResult` register meanings, `Path::get_point`'s non-unit return, composition polarity, `Style` copy-vs-lerp asymmetry). |
+| **Error Handling & Robustness** | **A** | Disciplined two-tier policy: always-on `HS_CHECK` traps at cold invariant/capacity seams, stripped `assert` on hot paths backed by cold setup traps, and reject-and-log at untrusted JS/WASM boundaries. The distinction is reasoned at each site. |
+| **Performance** | **A** | Measured, not guessed: interpolated LUTs, ARM SIMD color packing, warp-field caching keyed on purity, active-slot compaction, deliberate `noinline` to dodge a measured register-spill cliff. No render-path heap. Color path is **A+**. |
+| **Testing & Verification** | **A** | Death-harness asserting traps actually fire, ASan/UBSan, byte-identical determinism replay, size/layout gates recompiled under shipping flags, a mock-transport DMA suite and an event-driven multi-board sync simulator, host-test cross-checks of the JS/C++ boundary. Rosters triple-pinned against silent drift. |
+| **Build / CI / Tooling** | **A** | Sharded matrix with single-source anchors + a shard-coverage guard, pinned toolchains, full-SHA-pinned third-party actions, ccache-engagement assertions, gates that gate *themselves* on broken fixtures. A couple of narrow coverage gaps (below). |
+| **Maintainability** | **A−** | Excellent structure and drift-prevention pins, but comment density is extreme — several headers are majority prose, occasionally heavier than the code they annotate — which raises edit cost and drift risk. A handful of convention divergences are the kind of thing that erodes over time. |
+| **Documentation** | **A** | Reference-quality Doxygen and a genuinely exceptional (if enormous) README that matches the code, including honest statements of numerical limits. Docked only for a few doc claims that overreach their code (below). |
+| **Security / Safety** | **A** | Limited attack surface (no network, no untrusted deserialization); the one boundary that matters — the WASM/JS ABI — validates and clamps every untyped input, and DOM overlays use XSS-safe text nodes. |
 
 ---
 
-## Prioritized Defects to Fix
+## Prioritized Fix List
 
-## Critical
+Every defect found is listed below, numbered sequentially. Severity is in
+brackets. Nothing here is release-blocking; Priority 1 items are those with a
+real (if low-probability) behavioral or safety-net consequence, Priority 2 are
+latent-guard / robustness / convention items, Priority 3 are documentation and
+cosmetic nits.
 
-_None._
+### Priority 1 — Behavioral & Safety-Net Integrity
 
-## High
+1. [Low] **`daydream/segment_worker.js:126–137`** — a `setResolution(...) === false` rejection `break`s silently instead of faulting, asymmetric with the `'init'` path's `initFailed`. The worker keeps stale `canvasW/canvasH/segRange`; on an *enlarging* resize its old-geometry frame passes the controller's generation fence and composites a wrong-size quadrant with no fault. The unchecked `engine.setEffect(msg.name)` in the `'setEffect'` handler is the same class. Fix: post a fault message (mirroring the init path) on rejection.
+2. [Low] **`effects/ChaoticStrings.h:64`, `effects/FlowField.h:33–37`, `effects/HopfFibration.h:28–30`, `effects/DreamBalls.h:49–51`** — `EffectConfig` hardcodes `{.strobe = true}` without wiring `.full_frame = decltype(filters)::any_crosses_segments` as the sibling convention does. Correct today (their filters are history-free), but swapping in a history-bearing stage would silently clip a stateful effect to one segment band with no compile error and no test coverage. Fix: use the trait-derived flag.
+3. [Low] **`core/engine/styles.h:90–122, 135–145`** — `Style` mixes lerpable preset data with per-instance *bound* state (the `noise` pointer + `hue_*` cache). `lerp()` deliberately preserves `noise`, but a full-struct copy (`Presets::apply`, `style = Style::Churn()`) resets it to `nullptr`, degrading `noise_warp` to identity. The two ways to mutate a `Style` diverge silently, and the doc ("POD-copyable — safe to store in `Presets<>` and lerp") invites the unsafe path. Fix: split bound state out of the lerpable payload, or document the bind-before-`apply` invariant on the struct.
+4. [Low] **`core/engine/styles.h:77, 289`** — the stock `plain_fade` / `hue_fade` function *bodies* are dead on the render path: `Filter::Pixel::Feedback::flush()` (`filter.h ~1468–1488`) special-cases their addresses and runs its own inlined copy of the math. Editing `styles.h::hue_fade` silently no-ops for the built-in styles, with no test catching the divergence. Fix: have the fast path and the free function share one `static` helper so they cannot drift (the address is load-bearing and cannot be deleted).
+5. [Low] **`core/render/filter.h:1148`** — `Screen::Blur::crosses_segments = true` is an unnecessary full-frame pessimization, inconsistent with the identical-situation `Screen::AntiAlias` (`= false`). Any pipeline containing a `Blur` stage disables segmented rendering, forcing every board to render the full 288×144 instead of its quadrant — a throughput loss on a real-time target. Fix: set `= false` and drop the stale comment. *Caveat:* validate against the segment driver's "render full geometry, clip output per band" model before landing.
+6. [Low] **`.github/workflows/ci.yml:600`** (teensy-warnings) — the ratchet builds `-e holosphere -e phantasm` but not `holosphere_dma`, leaving `pov_single.h`'s `USE_DMA_LEDS` single-board branch un-ratcheted (the `teensy-size` job builds it but is object-cached, so it emits no warnings). A new `-Wall/-Wextra` warning in that slice compiles green everywhere. Fix: add `-e holosphere_dma` to the teensy-warnings `pio run` line.
+7. [Low] **`scripts/wasm_smoke.mjs:19`** — `FRAMES_PER_EFFECT = 3` versus the native suite's `HS_SMOKE_FRAMES = 120`. The WASM smoke is the *only* runtime exercise of the shipped `.wasm` (embind seams, `ALLOW_MEMORY_GROWTH` detachment, 8 KB stack, per-frame arena high-water gate), but at 3 frames it never reaches late-lifecycle events (e.g. the frame-48 ShapeShifter cut, arena compaction), so a WASM-only regression tied to one can ride a green deploy. Fix: honor a `WASM_SMOKE_FRAMES` env override and set it to ~120 in the wasm job.
 
-_None._
+### Priority 2 — Latent Guards, Robustness & Convention
 
-## Medium
+8. [Low] **`core/mesh/hankin.h:142–144`** — `compile_hankin`'s edge-midpoint `mid.normalize()` is unguarded, unlike the identical computation in `ambo` (`conway.h:498–499`, which uses `normalized_or`). A near-antipodal edge collapses the midpoint to the origin and traps instead of degrading gracefully. Unreachable on the current roster (short edges). Fix: `mid = normalized_or(mid, p_a);`.
+9. [Low] **`core/mesh/mesh_classes.h:197–200`** — `build_mesh_class_bake`'s face-centroid `center.normalize()` is unguarded, unlike every Conway sibling that normalizes a centroid. A centrally-symmetric face (vertex sum ≈ 0) traps. Facility is currently unwired to a live effect. Fix: `center = normalized_or(center, mesh.vertices[idx[0]]);`.
+10. [Low] **`effects/Comets.h:68–99`** — omits the `static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET)` compile-time budget guard its siblings (FlowField/GnomonicStars/HopfFibration) carry, despite using the default arena split and a compile-time-computable footprint (`OrientationTrail<…, TRAIL_LENGTH>` + baked LUT). Bumping `TRAIL_LENGTH` would overflow the device partition as a runtime trap rather than a build failure. Fix: add the sibling static_assert idiom.
+11. [Low] **`effects/Dynamo.h`** (near the `TRAIL_CAPACITY` declaration, ~line 390) — same missing `FOOTPRINT_BYTES <= PERSISTENT_BUDGET` guard; current footprint ~126 KB / 298 KB so no live overflow, but `TRAIL_CAPACITY` is explicitly documented as a tunable and host tests inflate the arena to 8 MB, so a device overflow would surface only as a hardware trap. Fix: add the static_assert.
+12. [Low] **`effects/MeshFeedback.h`** — lacks the persistent-budget `static_assert` its siblings (MindSplatter/SplineFlow/Voronoi) carry. Not a real overflow (the warp cache is ~40 KB against the ~324 KB partition and fail-fasts at `init()`), so this is a consistency/maintainability item completing the theme of items 10–11. Fix: add the guard for uniformity.
+13. [Low] **`core/engine/platform.h:601–611`** — `map()` guards only `in_max == in_min`, then divides by `static_cast<int32_t>(in_max - in_min)`. On the LP64 native/test host a range difference that is a nonzero multiple of 2³² truncates to 0 → SIGFPE. Not reachable on the 32-bit device. Fix: compute the divisor once and guard it before dividing.
+14. [Low] **`core/engine/util.h:84–88`** — `wrap(int, int)` lacks the `m == 0` device-parity guard its siblings `map()` and `addmod8()` carry; on the host `wrap(x, 0)` is a SIGFPE while the Cortex-M7 `SDIV` returns `x`. `m > 0` is a documented precondition, so this is a sim/device divergence rather than a live bug. Fix: `if (m == 0) return x;` (or treat the precondition as authoritative and close it).
+15. [Low] **`core/animation/motion.h:54–68`** — `Path::get_point` interpolates adjacent unit-sphere samples linearly, returning a sub-sphere chord point (magnitude < 1) with non-uniform angular speed, inconsistent with the codebase's otherwise-spherical interpolation discipline. Impact is bounded (callers re-normalize), but the contract is unstated. Fix: slerp adjacent points, or document the non-unit return so callers normalize.
+16. [Low] **`daydream/daydream.js:711–714`** — the `.rec-duration` div is appended to `#canvas-container` but not removed in `disposeApp()`, unlike every other owned resource. Harmless on a real `pagehide`, but breaks the file's meticulous teardown symmetry and would accumulate under SPA-style re-mounts. Fix: `durationEl.remove()` in `disposeApp()`.
+17. [Low] **`tests/test_death.h:1175`** — `MIN_DEATH_CASES = 41` pins the roster *count*, not its *identity*; a remove-one/add-one edit keeps `n == 41` and silently drops the removed case's trap coverage. Every other roster in the repo is cross-pinned to an independent witness. Genuinely harder here (no independent source of truth), so this is a noted design tradeoff. Fix (optional): assert the exact set of case names.
 
-1. ✅ **spline_catmull_rom_tangents lacks the degenerate-input guard its slerp sibling has** —
-   `c:/work/Holosphere/targets/wasm/wasm.cpp:1377` — The export validates only finiteness, so a finite
-   zero-length control point with tension≈0 drives `slerp` to a zero vector whose strict `normalized()`
-   traps and aborts the entire WASM module. *Fix:* before calling `Spline::catmull_rom_tangents`, reject any
-   of the four control points whose squared length `< math::EPS_NORMALIZE_SQ` and return a zero `{cp1,cp2}`,
-   mirroring `eval_cubic_spline`'s `reject_degenerate` block (tooling path only, no render-path cost).
+### Priority 3 — Documentation & Cosmetic
 
-## Low
-
-2. ✅ **map() relies on signed-integer-overflow UB to reproduce device 32-bit wrap** —
-   `c:/work/Holosphere/core/engine/platform.h:605` — The host shim multiplies two `int32_t` operands in
-   `int`; a product over `INT_MAX` is signed-overflow UB rather than the defined two's-complement wrap the
-   comment relies on. *Fix:* do the multiply in `uint32_t` (defined wrap mod 2^32), reinterpret to `int32_t`
-   before the signed divide, preserving exact device bit-pattern parity.
-
-3. ✅ **angle_between(Vector) uses an ad-hoc FLT epsilon instead of a named tolerance** —
-   `c:/work/Holosphere/core/math/3dmath.h:960` — The file documents a doctrine to route all tolerances
-   through named `EPS_*` constants; this is the only degeneracy guard not drawn from the table, and it is
-   loose enough that ~3.4e-4-length operands still enter a poorly-conditioned division. *Fix:* compare
-   squared magnitudes against a named `EPS_LEN_SQ` (consistency-only, no behavioral change since the result
-   is clamped to [-1,1]).
-
-4. ❌ **build_half_edge_mesh lets a 2-gon self-pair, unlike classify_faces_impl which guards it** —
-   `c:/work/Holosphere/core/mesh/mesh.h:265` — A degenerate 2-gon's two directed half-edges produce the same
-   undirected key, so `pair_half_edges` links them as each other's opposite, silently corrupting `.pair`
-   without tripping `require_closed_manifold`. *Fix:* mirror `classify_faces_impl` — for `count<3` faces write
-   self-unique keys `(he_idx,he_idx)` so degenerate half-edges are left unpaired (latent; no live caller feeds
-   a digon). **Rejected:** the premise is false — a live Conway path *does* feed a 2-gon here, and its
-   self-pairing is load-bearing: it closes the digon into a valid manifold. Leaving those half-edges unpaired
-   breaks `require_closed_manifold` (`unit_conway` traps). `classify_faces_impl`'s guard is safe only because
-   its consumer tolerates boundaries; `build_half_edge_mesh`'s consumer (`MeshOps::expand`) does not.
-
-5. ✅ **compile_hankin star-face walk lacks the anti-hang guard its sibling loops carry** —
-   `c:/work/Holosphere/core/mesh/hankin.h:168` — This half-edge `.next` walk is the sole one in the mesh
-   layer without an always-on step-counter trap; a corrupt in-range cyclic chain would spin forever instead
-   of trapping cleanly. *Fix:* add `HS_CHECK(walked++ < (int)he_mesh.half_edges.size(), ...)` as the first
-   do-block statement, mirroring the siblings (cannot trigger on validated registry inputs; defense-in-depth).
-
-6. ✅ **Unqualified memcpy in BakedPalette::clone_from relies on transitive <cstring>** —
-   `c:/work/Holosphere/core/color/color.h:2262` — `color.h` never includes `<cstring>`; the call compiles only
-   because other headers transitively inject `memcpy` into the global namespace, which is implementation-defined.
-   *Fix:* add `#include <cstring>` to `color.h` (a stricter libc++ config or include-graph refactor would
-   otherwise break the build).
-
-7. ✅ **Correction RAII guards are copyable/movable and share a single depth counter** —
-   `c:/work/Holosphere/core/render/led.h:84` — `NoColorCorrection`/`NoTempCorrection` declare a user ctor+dtor
-   but do not delete copy/move; a defaulted copy skips the `++depth` body yet its destructor still runs
-   `--depth`, corrupting the shared counter and tripping a later spurious trap. *Fix:* delete copy ctor and
-   copy-assign on both types (move is then implicitly suppressed), matching `Canvas`'s convention.
-
-8. ✅ **Cancelled save dialog buffers the entire recording in memory before discarding it** —
-   `c:/work/daydream/recorder.js:400` — If the user cancels the File System Access picker, `handle` stays null
-   and every subsequent chunk is accumulated into an in-memory array that `finish()` then discards, growing RAM
-   unboundedly for a session that will be thrown away. *Fix:* add `if (aborted) return;` at the top of `write()`'s
-   awaited body so cancelled sessions drop chunks instead of hoarding them.
-
-9. ✅ **Exhausted-retry / message-less worker fault latches an `undefined` message** —
-   `c:/work/daydream/segment_controller.js:357` — When module-load retries are exhausted, control falls through
-   to a branch that formats `e.message`/`e.filename` on a bare `Event`, latching `faultInfo.message = undefined`
-   and (via the `!this.faulted` guard) suppressing the boot watchdog's rich missing-glue diagnostic; the same
-   lines also dereference `e` without the null check the retry branch applies. *Fix:* compute a safe detail
-   string (fall back to a "module load failed after N attempts — commonly a missing/renamed holosphere_wasm.js"
-   message) before logging/faulting, and guard the null-`e` dereference.
+18. [Low] **`core/color/color.h:820–832, 355`** — `hue_rotate_rgb`'s doc claims it "preserves perceived lightness exactly," but the forward transform uses `fast_cbrt` while the inverse uses exact cubes, so a null rotation is not an identity round-trip (~6 LSB at 16-bit) and can drift lightness if fed back per-frame. Fix: soften the comment to "…to within `fast_cbrt` accuracy" (an exact round-trip would need `cbrtf` forward, rejected on perf grounds).
+19. [Info] **`core/color/color.h:1823–1830`** — `QuantizeModifier::modify` returns `roundf(t*s)/s`, yielding `s+1` distinct levels over `[0,1]`, not the `s` implied by "N steps." Purely a doc clarification.
+20. [Nit] **`core/render/scan.h:308–316`** — `BoundingSphere::get_intervals` justifies its asymmetric `x_lo/x_hi` caps as reaching a full row "for odd W," but `TrigLUT` `static_assert`s `W % 4 == 0`, so the odd-W branch of the reasoning is unreachable dead rationale (no behavioral bug). Fix: drop the odd-W clause (or simplify both caps to `W/2`).
+21. [Nit] **`core/render/shading.h:175, 179`** — bare `TOLERANCE` where the surrounding code uses `math::TOLERANCE`; compiles via a global alias but is inconsistent qualification. Fix: qualify for uniformity.
+22. [Info] **`core/animation/sprites.h:75–104`** — increment-first stepping means the first *drawn* frame is `t == 1`, so a fade-in of duration `F` begins at `easing(1/F)` rather than ~0, and `fade_in_duration == 1` shows no fade at all. Consistent with the shared increment-first convention (not a bug); reported for completeness. No fix needed for correctness.
+23. [Info] **`daydream/driver.js:895–903`** — `coordsLabel()` allocates a fresh `THREE.Vector3` + template string per call, so an effect returning many labelled points allocates per-point-per-frame. Not fixable without changing the `getLabels` return contract (the position must outlive the call); awareness note only.
+24. [Low] **`daydream/tests/solid_codegen.test.js:53`** — a JSDoc comment claims a `relax` default of 100; the actual default is 8 in both the JS generator (`solid_codegen.js:145`) and the C++ it mirrors (`solids.h:319`), and the very next test asserts 8. A maintainer trusting the comment could "fix" the generator and diverge every emitted recipe. Fix: change "the default 100" to "the default 8."
 
 ---
 
-## Closing Note: Highest-Leverage Improvements
+## Notable Strengths (validated, not merely asserted)
 
-The codebase is already at a very high quality bar, so the highest-leverage work is closing the small
-consistency gaps that let a single site drift from a discipline the rest of the code enforces — these
-are cheap and each removes a latent footgun:
+- **The safety net is verified, not assumed.** A death harness asserts that
+  `HS_CHECK` traps actually fire (`SIGILL` / `STATUS_ILLEGAL_INSTRUCTION`), so
+  the fail-fast philosophy is tested rather than trusted.
+- **Silent drift is structurally prevented.** Effect / resolution / death /
+  module rosters are single-sourced via X-macros and cross-pinned against
+  independent witnesses (`check_includes.cmake`, `check_effect_roster.mjs`, the
+  WASM `HS_EFFECT_COUNT` startup trap, `--check-modules`).
+- **The DMAMEM-on-template-static hazard is closed.** Both POV drivers emit an
+  explicit specialization with strong linkage so DMA buffers land in OCRAM, and
+  both targets actually invoke it — the exact footgun that silently misplaces
+  memory on GCC was pre-empted.
+- **Compile-time-legal pipelines.** The `Pipeline<W,H,Filters...>` chain
+  enforces stage ordering (2D-after-3D, terminal-last, history-vs-replacing)
+  with `static_assert`s, turning an entire class of composition errors into
+  build failures.
+- **The WASM/JS boundary is hardened.** Every untyped JS entry validates and
+  clamps before reaching engine math; memory-view detachment across
+  `ALLOW_MEMORY_GROWTH` is respected by pre-sizing view-backed vectors once.
 
-1. **Land finding 1 first.** It is the only Medium and the only one that can abort a running WASM module.
-   Mirroring the existing `reject_degenerate` block on the catmull-rom export is a few lines on a cold
-   tooling path and closes the one real gap in the JS-boundary hardening the bridge exists to provide.
+---
 
-2. **Sweep the "guard exists on the sibling but not here" class as a batch** (findings 4, 5, 7).
-   These share a root cause — an always-on trap/deletion applied at every analogous site except one — and
-   fixing them together restores the fail-fast net's uniformity. Consider a brief grep-audit for other
-   half-edge `.next` walks and RAII guards to confirm the two enumerated cases are the only survivors.
+## Cross-Cutting Themes for the Maintainer
 
-3. **Eliminate the two host-only UB/hygiene items (findings 2, 6) to keep sanitizer builds clean.** The
-   `map()` signed-overflow reliance is the single genuine UB in the engine; converting it to a defined
-   unsigned multiply preserves exact device parity and keeps a UBSan CI lane green, which protects the
-   parity contract the whole host/device story depends on.
-
-4. **Improve the two diagnostic-quality gaps (findings 8, 9)** as low-priority polish — they degrade UX and
-   RAM behavior on failure paths, not correctness, but both are one-liner fixes that make real-world failure
-   modes (cancelled save, missing WASM glue) legible instead of silent.
-
-No architectural rework is warranted anywhere. The memory model, the fail-fast doctrine, the X-macro
-single-source rosters, and the defense-in-depth parity testing are the right foundations and should be
-preserved and extended, not revisited.
+1. **Convention completion.** Several findings (2 EffectConfig flags, 3 missing
+   budget `static_assert`s, 2 unguarded `normalize()`s) are the same underlying
+   issue: an established, correct convention applied *almost* everywhere. A
+   short sweep to make each convention uniform (or a lint that enforces it)
+   removes a whole latent-defect class.
+2. **Comment density vs. drift.** The near-universal maintainability ding is
+   rationale volume. The already-in-progress trimming of over-commented blocks
+   is the right direction; the silent-divergence hazards (items 3–4) are
+   precisely where a comment at the edit site would *not* help — the fix is
+   structural (shared helpers), not more prose.
+3. **Two CI coverage seams** (items 6–7) are worth closing because they are the
+   difference between "the safety net caught it" and "it shipped green."
