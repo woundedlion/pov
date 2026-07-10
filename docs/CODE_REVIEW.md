@@ -110,7 +110,7 @@ files land in the daydream repo; all others land in Holosphere.
    callers. Fix: clamp `fade_out_duration` to at most `duration-1`, or special-case
    `duration==1` to skip fade-out.
 
-4. **Perpetual-type enumeration in the `AnimationBase::t` comment omits
+4. ✅ **Perpetual-type enumeration in the `AnimationBase::t` comment omits
    ParticleSystem** — `core/animation/animation.h:250`. The comment lists the
    never-rewound (`duration==-1`) animations whose `t` increments unbounded, but
    omits `ParticleSystem` (constructed `(-1, false)`, `sprites.h:190-193`) and an
