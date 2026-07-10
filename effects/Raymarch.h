@@ -141,7 +141,7 @@ private:
                                         params.diffuse, params.specular,
                                         params.fresnel);
 
-        float ring_angle = (atan2f(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
+        float ring_angle = (fast_atan2(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
         float palette_t = fmodf(ring_angle + palette_phase +
                                     static_cast<float>(i) / active_count,
                                 1.0f);
