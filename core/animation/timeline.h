@@ -190,8 +190,9 @@ public:
     }
     if (pin) {
       // A finite, non-repeating predecessor is removed on completion and would
-      // relocate this pinned event (move_into traps). Repeating or infinite
-      // predecessors are never removed, so they are safe to precede a pin.
+      // relocate this pinned event, so reject it up front. A repeating/infinite
+      // predecessor can still be removed if cancel()ed later; the move_into
+      // HS_CHECK is the real backstop for that case.
       for (int i = 0; i < global_timeline_num_events; ++i) {
         IAnimation *prev = global_timeline_events[i].animation();
         HS_CHECK(!prev || !prev->is_finite() || prev->repeats(),
