@@ -1473,12 +1473,7 @@ public:
       for (int i = 0; i < 9; ++i)
         k[i] = style_->hue_k[i] * sc;
       composite([&](float r, float g, float b) {
-        LMS lms = linear_rgb_to_lms(r, g, b);
-        float rr, gg, bb;
-        lms_cbrt_transform_rgb(k, fast_cbrt(lms.l), fast_cbrt(lms.m),
-                               fast_cbrt(lms.s), rr, gg, bb);
-        return ::Pixel(float_to_pixel16(rr), float_to_pixel16(gg),
-                       float_to_pixel16(bb));
+        return ::Feedback::hue_fade_apply(k, r, g, b);
       });
     } else if (style_->color_fn == &::Feedback::plain_fade ||
                style_->color_fn == &::Feedback::hue_fade) {
