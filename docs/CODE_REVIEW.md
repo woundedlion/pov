@@ -294,7 +294,7 @@ _None._
    *Fix:* add `#include <cstring>` to `color.h` (a stricter libc++ config or include-graph refactor would
    otherwise break the build).
 
-7. **Correction RAII guards are copyable/movable and share a single depth counter** —
+7. ✅ **Correction RAII guards are copyable/movable and share a single depth counter** —
    `c:/work/Holosphere/core/render/led.h:84` — `NoColorCorrection`/`NoTempCorrection` declare a user ctor+dtor
    but do not delete copy/move; a defaulted copy skips the `++depth` body yet its destructor still runs
    `--depth`, corrupting the shared counter and tripping a later spurious trap. *Fix:* delete copy ctor and
