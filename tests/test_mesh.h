@@ -551,7 +551,7 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh, const uint16_t *idx
   rec.count = count;
   for (int k = 0; k < 24; ++k)
     rec.angles[k] = 0;
-  HS_EXPECT_TRUE(count <= 24);
+  HS_CHECK(count <= 24, "face_topo_record: face with >24 sides overruns angles[]");
   uint32_t h = 0x12345678;
   MeshOps::hash_combine(h, static_cast<uint32_t>(count));
   if (count >= 3) {
