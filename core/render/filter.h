@@ -1592,6 +1592,11 @@ private:
   /** @brief Cell count of the cached coarse grid. */
   static constexpr int CACHE_CELLS = (W / CACHE_DS) * (H / CACHE_DS);
 
+public:
+  /** @brief Persistent bytes init_storage() reserves (two int16 warp fields). */
+  static constexpr size_t STORAGE_BYTES = 2 * CACHE_CELLS * sizeof(int16_t);
+
+private:
   /** @brief Inputs the coarse warp field is a pure function of (stock
    *  transforms only); equal keys make the cached field reusable. */
   struct WarpKey {

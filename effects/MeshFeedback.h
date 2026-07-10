@@ -263,6 +263,13 @@ private:
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
            Filter::Pixel::Feedback<W, H>>
       filters;
+
+  // init() allocates the Feedback warp-field cache from the persistent arena.
+  static constexpr size_t PERSISTENT_BUDGET =
+      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+  static_assert(Filter::Pixel::Feedback<W, H>::STORAGE_BYTES <= PERSISTENT_BUDGET,
+                "MeshFeedback warp cache exceeds the default persistent "
+                "partition; retune the feedback downsample or carve arenas");
 };
 
 #include "core/engine/effect_registry.h"
