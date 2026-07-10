@@ -612,7 +612,7 @@ struct Fragment {
   float v3 = 0.0f;        // Register 3: auxiliary
   float size = 1.0f;      // Size metric for normalization
   float age = 0.0f;       // Age (for trail decay / motion blur)
-  Color4 color = Color4(0, 0, 0, 0); // Output: shader writes RGBA here; defaults to transparent black (Color4()'s default is opaque)
+  Color4 color = Color4(0, 0, 0, 0); // Output: shader writes RGBA here; defaults to transparent black (alpha 0.0)
 };
 ```
 
