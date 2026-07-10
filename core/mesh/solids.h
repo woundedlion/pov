@@ -58,8 +58,6 @@ FLASHMEM static PolyMesh finalize_solid(const PolyMesh &temp, Arena &geom) {
                                      temp.face_counts.size());
   final_mesh.faces.bind(geom, temp.faces.size());
   final_mesh.faces.append_bulk(temp.faces.data(), temp.faces.size());
-  final_mesh.topology.bind(geom, temp.topology.size());
-  final_mesh.topology.append_bulk(temp.topology.data(), temp.topology.size());
   return final_mesh;
 }
 
