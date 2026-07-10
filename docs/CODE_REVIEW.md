@@ -259,7 +259,7 @@ _None._
 
 ## Low
 
-2. **map() relies on signed-integer-overflow UB to reproduce device 32-bit wrap** —
+2. ✅ **map() relies on signed-integer-overflow UB to reproduce device 32-bit wrap** —
    `c:/work/Holosphere/core/engine/platform.h:605` — The host shim multiplies two `int32_t` operands in
    `int`; a product over `INT_MAX` is signed-overflow UB rather than the defined two's-complement wrap the
    comment relies on. *Fix:* do the multiply in `uint32_t` (defined wrap mod 2^32), reinterpret to `int32_t`

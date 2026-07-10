@@ -600,11 +600,13 @@ inline int random(int min, int max) {
  */
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
   if (in_max == in_min) return out_min;
-  // Intermediate is int32_t so the host reproduces the device's 32-bit `long`
-  // overflow/truncation instead of computing in 64-bit `long` on LP64 hosts.
-  const int32_t scaled = static_cast<int32_t>(x - in_min) *
-                         static_cast<int32_t>(out_max - out_min) /
-                         static_cast<int32_t>(in_max - in_min);
+  // Device computes in 32-bit `long`. Multiply in uint32_t (defined wrap mod
+  // 2^32) and reinterpret to int32_t to reproduce its two's-complement
+  // truncation without 64-bit widening (LP64) or signed-overflow UB.
+  const int32_t product = static_cast<int32_t>(
+      static_cast<uint32_t>(x - in_min) *
+      static_cast<uint32_t>(out_max - out_min));
+  const int32_t scaled = product / static_cast<int32_t>(in_max - in_min);
   return scaled + out_min;
 }
 
