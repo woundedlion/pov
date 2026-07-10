@@ -126,10 +126,12 @@ cosmetic nits.
    issue: an established, correct convention applied *almost* everywhere. A
    short sweep to make each convention uniform (or a lint that enforces it)
    removes a whole latent-defect class.
-2. **Comment density vs. drift.** The near-universal maintainability ding is
-   rationale volume. The already-in-progress trimming of over-commented blocks
-   is the right direction; the silent-divergence hazards (items 3–4) are
-   precisely where a comment at the edit site would *not* help — the fix is
-   structural (shared helpers), not more prose.
+2. ✅ **Comment density vs. drift.** The near-universal maintainability ding was
+   rationale volume. A codebase-wide sweep condensed the justification essays and
+   multi-paragraph `@details` to their load-bearing facts across `core/`,
+   `effects/`, `hardware/`, and the WASM boundary — ~1.8k lines of prose trimmed,
+   comments only, compiled code byte-identical. The silent-divergence hazards
+   (items 3–4) are separate: a comment at the edit site would *not* help there —
+   the fix is structural (shared helpers), not more prose.
 3. **Two CI coverage seams** (items 6–7) are worth closing because they are the
    difference between "the safety net caught it" and "it shipped green."
