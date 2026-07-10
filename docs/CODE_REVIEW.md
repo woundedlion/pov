@@ -133,7 +133,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 6. ✅ **`MeshMorph` silently mishandles an indefinite (`duration == -1`) construction** — `core/animation/mesh.h:58`.
    `AnimationBase` advertises `-1` as the legal "perpetual" sentinel, but `MeshMorph::step()` unconditionally computes `t/duration`; for `-1` that clamps to 0 forever, freezing the morph at its start pose with `done()` never true. Every sibling progress animation carries `HS_CHECK(duration >= 0, ...)`; `MeshMorph` is the lone omission. Fix: add `HS_CHECK(duration >= 1, "MeshMorph duration must be a positive frame count");` in the ctor.
 
-7. **Liquid2D preset drives "Time Speed" below its registered slider minimum** — `effects/Liquid2D.h:293`.
+7. ✅ **Liquid2D preset drives "Time Speed" below its registered slider minimum** — `effects/Liquid2D.h:293`.
    `register_param("Time Speed", &params.time_speed, 0.1f, 5.0f)` declares `[0.1, 5.0]`, but preset row 2 sets `time_speed=0.05f`, and `Presets::apply()`/`Lerp` write it without clamping. While that preset is active the live value sits outside the slider range, and the first GUI edit snaps it up to 0.1 — the exact drift `register_param`'s range-assert exists to prevent, and which `MeshFeedback` guards against with a compile-time `preset_in_ranges()` `static_assert`. Fix: raise the preset to `0.1f` or widen the registered minimum to `0.05f`, and consider adding a `preset_in_ranges()` guard.
 
 ### Low priority

@@ -51,7 +51,7 @@ public:
     register_param("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
     register_param("Warp Strength", &params.warp_strength, 0.0f, 3.0f);
     register_param("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
-    register_param("Time Speed", &params.time_speed, 0.1f, 5.0f);
+    register_param("Time Speed", &params.time_speed, 0.05f, 5.0f);
     register_param("Complexity", &params.complexity, 0.5f, 3.0f);
     register_param("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
     register_param("Cycle Speed", &params.cycle_speed, 0.0f, 1.0f);
