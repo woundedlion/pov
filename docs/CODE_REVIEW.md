@@ -125,7 +125,7 @@ files land in the daydream repo; all others land in Holosphere.
    is correct (the wider band is a deliberate margin); the comment misleads. Fix:
    state the band reaches `|t|=4` (or that −2..2 is only the primary lobe).
 
-6. **`static_assert` message prints the hardware-ID decode without its active-low
+6. ✅ **`static_assert` message prints the hardware-ID decode without its active-low
    inversion** — `hardware/pov_segmented.h:93`. The message documents the decode as
    `(raw & (N-1))`, but `read_id()` computes `(~raw0) & (N-1)` (line 417) because
    the straps are `INPUT_PULLUP`/active-low — contradicting the adjacent
