@@ -934,19 +934,6 @@ inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
 }
 
 /**
- * @brief Interpolates two sRGB CPixels in OKLCH space to a 16-bit linear Pixel.
- * @param c1 Start color at t == 0.
- * @param c2 End color at t == 1.
- * @param t Blend weight.
- * @return The interpolated color as a linear-space Pixel.
- */
-inline Pixel lerp_oklch(const CPixel &c1, const CPixel &c2, float t) {
-  OKLCH a = srgb_to_oklch(c1.r, c1.g, c1.b);
-  OKLCH b = srgb_to_oklch(c2.r, c2.g, c2.b);
-  return oklch_to_pixel(lerp_oklch(a, b, t));
-}
-
-/**
  * @brief Converts an OKLCH color to an 8-bit sRGB CPixel, chroma-reducing
  *        out-of-gamut colors to hold hue and lightness (Ottosson clip).
  * @param lch Source color in OKLCH space.
