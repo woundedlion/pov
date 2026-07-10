@@ -1206,15 +1206,17 @@ inline float fast_acos(float x) {
  * @warning For x > 0 the exponent assembly overflows; callers must keep x <= 0.
  */
 inline float fast_expf(float x) {
+  assert(x <= 0.0f);
   float y = x * 1.442695041f; // log2(e)
   float fi = floorf(y);
   float f = y - fi; // [0, 1)
   float p =
       1.0f +
       f * (0.6931472f + f * (0.2402212f + f * (0.0554676f + f * 0.0096784f)));
-  int i = (int)fi;
-  if (i < -126)
+  // Range-check in float space: an out-of-range fi would make (int)fi UB.
+  if (fi < -126.0f)
     return 0.0f;
+  int i = (int)fi;
   uint32_t bits = (uint32_t)(i + 127) << 23;
   float scale;
   std::memcpy(&scale, &bits, sizeof(scale));
