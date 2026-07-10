@@ -55,6 +55,10 @@ public:
         this->fade_in_duration = 1;
       this->fade_out_duration = duration - this->fade_in_duration;
     }
+    // A duration-1 sprite's sole frame is t==duration, where the fade-out ramp
+    // reaches 0; drop fade-out so that frame isn't drawn fully transparent.
+    if (duration == 1)
+      this->fade_out_duration = 0;
   }
 
   /**
