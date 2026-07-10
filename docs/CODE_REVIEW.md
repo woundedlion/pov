@@ -153,7 +153,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 12. ✅ **`Filter::Pixel::Feedback` class doc claims `flush()` covers the full canvas, but it honors the clip band** — `core/render/filter.h:1232`.
     `flush()` restricts every pass to `cv.clip()`'s render band, and `test_feedback_flush_respects_clip` pins exactly that; the class-level `@details` contradicts both. Fix: reword to "iterates the full pixel grid *within the active clip band*."
 
-13. **`Transition::from(mutant)` ctor initializer is dead, overwritten before any read** — `core/animation/params.h:29`.
+13. ✅ **`Transition::from(mutant)` ctor initializer is dead, overwritten before any read** — `core/animation/params.h:29`.
     `from` is private, read only in `step()`, which unconditionally re-snapshots it on the first call (`captured` starts false). The ctor-time capture has no observable effect and is inconsistent with `ColorWipe`'s lazy `from_snap{}` idiom in the same file. Fix: default-initialize `from` and rely on the lazy capture.
 
 14. **`builder.py`'s `transform()` docstring cites a nonexistent `calib.py`** — `hardware/phantasm/gen/builder.py:18`.
