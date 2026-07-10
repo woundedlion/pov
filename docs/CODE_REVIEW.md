@@ -221,7 +221,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 19. ✅ `core/color/color.h:943` — the `Pixel lerp_oklch(CPixel,CPixel,float)` overload has no callers; delete it.
 20. ✅ `core/render/sdf.h:515` — per-shape `nx`/`nz` (and Star/Flower `scan_nx`/`scan_nz`) are stored but never read; drop the dead members and their construction-time assignments.
 21. ✅ `core/render/plot.h:93` — `Plot::Point` and `Plot::Vertices` are unreferenced in both repos; delete them (and their README rows).
-22. `core/render/shading.h:204` — `NullVertexShader`/`NullFragmentShader` are referenced only by their own tests; wire them in as canonical no-op defaults or delete both.
+22. ✅ `core/render/shading.h:204` — `NullVertexShader`/`NullFragmentShader` are referenced only by their own tests; wire them in as canonical no-op defaults or delete both.
 23. `core/mesh/solids.h:1213` — `Collections::get_archimedean_solids()` is a dead accessor (its four siblings are live); delete it (and its README mention).
 24. `effects/HopfFibration.h:184` — `fiber_phase[i]` is always `i * PHASE_STEP`; delete the 840-byte array + init loop and compute the phase inline.
 25. ✅ `hardware/pov_sync.h:1535` — `master_on_crossing` takes an unused `TickActions&`; drop the parameter and update the single call site.
