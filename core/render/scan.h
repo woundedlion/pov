@@ -1093,7 +1093,8 @@ template <typename SDF> struct TransformedVolume {
  */
 struct Volume {
   /**
-   * @brief Sphere-traces a ray in local space, recording the closest approach.
+   * @brief Sphere-traces a ray in local space, recording the closest approach
+   *        to the first surface reached.
    * @param shape Volume shape providing distance().
    * @param local_ro Ray origin in local space.
    * @param local_vd Unit ray direction in local space.
@@ -1102,6 +1103,11 @@ struct Volume {
    * @param aa_width Anti-aliasing band half-width (deep-hit early-out).
    * @param closest_local Output: local-space point of closest approach.
    * @return Signed distance at the closest approach (FLT_MAX if never sampled).
+   * @details Once inside the AA band the trace stops at the first rising local
+   * minimum — the silhouette graze that owns the pixel's coverage — leaving any
+   * occluded surface behind it to probe_occluder. Marching on would let that
+   * deeper surface steal the closest approach, corrupting both the edge alpha
+   * and the shading position.
    */
   template <typename Shape>
   static __attribute__((always_inline)) float
@@ -1130,6 +1136,10 @@ struct Volume {
       if (d < closest_d) {
         closest_d = d;
         closest_local = local_p;
+      } else if (closest_d < aa_width) {
+        // Rising past the first in-band local minimum: stop before a surface
+        // behind the graze steals the closest approach.
+        break;
       }
 
       if (d < -aa_width)
