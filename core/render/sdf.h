@@ -1905,11 +1905,11 @@ struct Face {
     if (!xc.active)
       return false;
     const int Wd = cr.w;
-    const float pw = 2.0f * PI_F / static_cast<float>(Wd);
+    const float pw = 1.25f * (2.0f * PI_F / static_cast<float>(Wd));
     const int band_len = ((xc.re - xc.rs) % Wd + Wd) % Wd;
     for (const auto &iv : intervals) {
-      // Same radians->column mapping (and 1-pixel AA pad) get_horizontal_
-      // intervals scans with, so the cull matches the emitted columns exactly.
+      // Same radians->column mapping and AA pad get_horizontal_intervals scans
+      // with, so the cull matches the emitted columns exactly.
       int a = static_cast<int>(floorf((iv.first - pw) * Wd / (2.0f * PI_F)));
       int b = static_cast<int>(ceilf((iv.second + pw) * Wd / (2.0f * PI_F)));
       int len = b - a;
