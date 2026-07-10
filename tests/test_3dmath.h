@@ -191,6 +191,27 @@ inline void test_fast_cbrt() {
 }
 
 /**
+ * @brief Verifies fast_expf anchors, the large-magnitude saturation to 0, and
+ *        the documented ~7.4e-4 peak relative error over the x<=0 domain.
+ */
+inline void test_fast_expf() {
+  HS_EXPECT_NEAR(fast_expf(0.0f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(fast_expf(-1.0f), std::exp(-1.0f), 7.5e-4f);
+  HS_EXPECT_NEAR(fast_expf(-10.0f), std::exp(-10.0f), 7.5e-4f * std::exp(-10.0f));
+
+  for (int i = 0; i <= 512; ++i) {
+    float x = -30.0f + (30.0f * i) / 512.0f;
+    float ref = std::exp(x);
+    float rel = std::abs(fast_expf(x) - ref) / ref;
+    HS_EXPECT_TRUE(rel <= 7.5e-4f);
+  }
+
+  // Large-magnitude arguments saturate to 0.
+  HS_EXPECT_NEAR(fast_expf(-100.0f), 0.0f, 1e-30f);
+  HS_EXPECT_NEAR(fast_expf(-200.0f), 0.0f, 1e-30f);
+}
+
+/**
  * @brief Verifies fast_sinf/fast_cosf at key angles, the Pythagorean identity,
  *        and periodicity.
  * @details The periodicity check exercises range reduction beyond ±2π.
@@ -1079,6 +1100,7 @@ inline int run_3dmath_tests() {
   test_fast_acos();
   test_fast_sinf_cosf();
   test_fast_cbrt();
+  test_fast_expf();
 
   test_vector_construction();
   test_vector_spherical_construction();
