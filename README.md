@@ -995,7 +995,7 @@ FastLED output ← CRGB(gamma encode) ← linear→sRGB ← Pixel16
 | Type | Description |
 |---|---|
 | `ProceduralPalette` | Cosine palette: `a + b*cos(2π*(c*t + d))` per channel. Defined by 4 vec3 coefficients. |
-| `Gradient` | Linear interpolation between a sorted list of (position, color) stops. |
+| `Gradient` | OKLCH interpolation between a sorted list of (position, color) stops. |
 | `GenerativePalette` | Procedurally generated palette from harmony rules (triadic, analogous, etc.) combined with brightness/saturation profiles. Supports snapshot/lerp for animated transitions. |
 | `SolidColorPalette` | Constant color, adapts to the `Palette` interface. |
 
@@ -1003,7 +1003,7 @@ Twenty-one named `ProceduralPalette` instances are pre-defined: `darkRainbow`, `
 
 #### OKLCH Perceptual Color
 
-Procedural color generation and animated palette interpolation (e.g. `GenerativePalette`) are performed in the OKLCH perceptual color space; `Gradient` is the exception, interpolating its stops in linear-light RGB. The pipeline:
+Palette interpolation is performed in the OKLCH perceptual color space: both `Gradient` (color-stop interpolation) and `GenerativePalette` (harmony-key interpolation and animated transitions) build their tables in OKLCH. The cosine `ProceduralPalette` is the exception — it evaluates its per-channel waveform directly in sRGB. The pipeline:
 
 ```
 Pixel (sRGB 16-bit) → linear RGB float → OKLab (L, a, b) → OKLCH (L, C, h)
