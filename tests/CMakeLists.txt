@@ -139,11 +139,14 @@ add_test(NAME unit_color_luts COMMAND ${CMAKE_COMMAND}
 set_tests_properties(unit_color_luts PROPERTIES SKIP_RETURN_CODE 77)
 
 # Run the generator's own --check self-validation (monotonicity + sRGB
-# round-trip), which CI ran only as a shell step. Absent without Python.
-if(HS_PYTHON)
-  add_test(NAME unit_color_luts_check
-      COMMAND ${HS_PYTHON} ${HS_ROOT}/scripts/generate_luts.py --check)
-endif()
+# round-trip), which CI ran only as a shell step. Registered unconditionally;
+# skips (exit 77) without Python, mirroring unit_color_luts.
+add_test(NAME unit_color_luts_check COMMAND ${CMAKE_COMMAND}
+    -DPYTHON_EXE=${HS_PYTHON}
+    -DGENERATOR=${HS_ROOT}/scripts/generate_luts.py
+    -DSKIP_CODE=77
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts_selfcheck.cmake)
+set_tests_properties(unit_color_luts_check PROPERTIES SKIP_RETURN_CODE 77)
 
 # Finding 369: the run_tests build sets NO math flags, so its NaN-clamp
 # assertions run under default IEEE semantics where the hs::clamp NaN->hi
