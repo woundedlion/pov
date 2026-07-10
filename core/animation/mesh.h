@@ -60,6 +60,7 @@ public:
             EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(duration, false), easing_fn(easing_fn),
         draw_outgoing(draw_outgoing), draw_incoming(draw_incoming) {
+    HS_CHECK(duration >= 1, "MeshMorph duration must be a positive frame count");
     HS_CHECK(!source.vertices.is_empty());
     HS_CHECK(!dest.vertices.is_empty());
     buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))

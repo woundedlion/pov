@@ -130,7 +130,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 5. ✅ **`Ripple` with duration 0 or 1 never becomes visible** — `core/animation/params.h:707`.
    `AnimationBase` normalizes duration 0→1, and `step()` increments `t` to 1 on the first call, so the envelope branch `if (t < duration)` never executes for a one-frame `Ripple`; `params.amplitude` stays 0 for its whole life with no error signal. The only shipping caller clamps to ≥30 frames, so it is latent, but `Ripple` is a general-purpose class with a public constructor. Fix: trap on a degenerate duration in the ctor, e.g. `HS_CHECK(duration == 0 || duration >= 2, ...)` — note the value is normalized, so both 0 and 1 must be rejected.
 
-6. **`MeshMorph` silently mishandles an indefinite (`duration == -1`) construction** — `core/animation/mesh.h:58`.
+6. ✅ **`MeshMorph` silently mishandles an indefinite (`duration == -1`) construction** — `core/animation/mesh.h:58`.
    `AnimationBase` advertises `-1` as the legal "perpetual" sentinel, but `MeshMorph::step()` unconditionally computes `t/duration`; for `-1` that clamps to 0 forever, freezing the morph at its start pose with `done()` never true. Every sibling progress animation carries `HS_CHECK(duration >= 0, ...)`; `MeshMorph` is the lone omission. Fix: add `HS_CHECK(duration >= 1, "MeshMorph duration must be a positive frame count");` in the ctor.
 
 7. **Liquid2D preset drives "Time Speed" below its registered slider minimum** — `effects/Liquid2D.h:293`.
