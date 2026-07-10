@@ -199,7 +199,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 
 1. ✅ `core/animation/params.h:471` — `MobiusWarp::bind_scale(const float&)` stores the address of a parameter that binds to a temporary; add `void bind_scale(const float&&) = delete;` (matches the file's Lerp/MobiusFlow discipline).
 2. ✅ `effects/DreamBalls.h:214` — each preset strands its raw `PolyMesh` (~5 KB total) in the persistent arena; build the raw solid into scratch via `generate(persistent, [&](target,a,b){…})` like IslamicStars, and fix the misleading "does not outlive this loop" comment.
-3. `core/engine/memory.h:126` — `allocate_n<T>(n)` computes `n*sizeof(T)` with no overflow guard; add `HS_CHECK(n <= SIZE_MAX / sizeof(T), …)` mirroring `ArenaVector::bind`.
+3. ✅ `core/engine/memory.h:126` — `allocate_n<T>(n)` computes `n*sizeof(T)` with no overflow guard; add `HS_CHECK(n <= SIZE_MAX / sizeof(T), …)` mirroring `ArenaVector::bind`.
 4. `core/animation/params.h:563` — `MobiusWarpEvolving` guards no finiteness; add `HS_CHECK(std::isfinite(scale) && std::isfinite(speed))` in the ctor and clamp-to-last-good in `set_speed`/`set_scale` (siblings already do this).
 5. `core/animation/mesh.h:247` — `Segue::hash01` can return exactly `1.0f`, breaking its `[0,1)` contract; use the top 24 bits: `float(h >> 8) * (1.0f/16777216.0f)`.
 6. `effects/ShapeShifter.h:204` — `SphericalPolygon` is routed through `default:` in both dispatch switches, suppressing `-Wswitch`; use an explicit `case` so a future `ShapeType` fails to compile until wired.
