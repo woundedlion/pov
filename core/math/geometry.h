@@ -53,9 +53,7 @@ struct Dot {
 
   /**
    * @brief Copy constructor — defaulted to keep Dot trivially copyable so the
-   * 1024-deep StaticCircularBuffer can memcpy/vectorize copies. A hand-written
-   * member-wise body is identical in effect but defeats that (see Vector's
-   * defaulted-copy rationale in 3dmath.h).
+   * 1024-deep StaticCircularBuffer can memcpy/vectorize copies.
    */
   Dot(const Dot &d) = default;
 
@@ -92,10 +90,9 @@ inline float y_to_phi(float y, int h_virt) {
  * @param phi The spherical phi angle in radians.
  * @param h_virt The virtual height.
  * @return The pixel y-coordinate in [0, h_virt - 1] for phi in [0, pi], EXCEPT at
- *   the south pole (phi == PI_F) the `*(h_virt-1)/PI_F` float round-trip can land
- *   a hair *above* `h_virt - 1`. Left un-snapped on the hot-path grounds
- *   `vector_to_pixel` documents; a caller indexing a row buffer with `(int)y`
- *   must clamp or floor first.
+ *   the south pole (phi == PI_F) the float round-trip can land a hair *above*
+ *   `h_virt - 1`; a caller indexing a row buffer with `(int)y` must clamp or
+ *   floor first.
  */
 inline float phi_to_y(float phi, int h_virt) {
   HS_CHECK(h_virt > 1, "phi_to_y: h_virt must be > 1");
@@ -123,8 +120,8 @@ template <int H> inline float phi_to_y(float phi) {
 template <int H> struct PhiLUT {
   static constexpr int H_VIRT = H + hs::H_OFFSET;
   static std::array<float, H_VIRT> data; /**< phi per virtual row, radians. */
-  // The `if (!initialized) init()` pattern is a non-atomic check-then-set, safe
-  // only because rendering is single-threaded; it is NOT a concurrency guard.
+  // Lazy-init check-then-set is non-atomic; safe only because rendering is
+  // single-threaded, NOT a concurrency guard.
   static bool initialized; /**< Lazy-init guard; true once data is filled. */
   /**
    * @brief Fills the phi table for every virtual row and marks it initialized.
@@ -162,12 +159,9 @@ template <int H> inline float y_to_phi(int y) {
  * @param y Fractional pixel row.
  * @return The spherical phi angle in radians.
  * @details Snaps to the LUT for near-integer y; otherwise computes the angle
- * analytically. Unchecked by design: unlike the integer `y_to_phi<H>(int)`
- * overload (which HS_CHECKs y in [0, H_VIRT)), this fractional overload does NOT
- * clamp or trap an out-of-range y — only the in-bounds near-integer case takes
- * the LUT, and any other y (fractional, or outside the row range) falls through
- * to the analytic formula, which extrapolates linearly. Callers feed sub-pixel
- * rows here intentionally; an out-of-range row is the caller's responsibility.
+ * analytically. Unlike the integer overload, does NOT clamp or trap an
+ * out-of-range y — the analytic branch extrapolates linearly, and keeping y in
+ * range is the caller's responsibility.
  */
 template <int H> inline float y_to_phi(float y) {
   if (std::abs(y - std::floor(y)) < TOLERANCE) {
@@ -178,8 +172,7 @@ template <int H> inline float y_to_phi(float y) {
   }
   constexpr int H_VIRT = H + hs::H_OFFSET;
   static_assert(H_VIRT > 1, "phi<->y mapping degenerates when H_VIRT <= 1");
-  // Debug parity with the integer overload's range trap; device hot path stays
-  // unguarded (assert compiles out under NDEBUG).
+  // Debug parity with the integer overload's range trap; compiles out under NDEBUG.
   assert(y >= 0.0f && y <= H_VIRT - 1);
   return (y * PI_F) / (H_VIRT - 1);
 }
@@ -188,9 +181,9 @@ template <int H> inline float y_to_phi(float y) {
  * @brief Split trig lookup tables for efficient vector reconstruction.
  * @tparam W Width (column count).
  * @tparam H Logical height; phi tables have H_VIRT = H + hs::H_OFFSET entries.
- * @details Caches sin/cos for theta (per column) and phi (per row) separately.
- * Reconstructs vectors with 3 multiplies instead of storing full Vectors.
- * Memory: ~(4*W + 4*H_VIRT) floats vs W*H_VIRT Vectors — a ~145x reduction.
+ * @details Caches sin/cos for theta (per column) and phi (per row) separately,
+ * reconstructing vectors with 3 multiplies. Memory: ~(4*W + 4*H_VIRT) floats vs
+ * W*H_VIRT Vectors — a ~145x reduction.
  */
 template <int W, int H> struct TrigLUT {
   static_assert(W % 4 == 0,
@@ -203,7 +196,6 @@ template <int W, int H> struct TrigLUT {
   static std::array<float, W_EXT> sin_theta; /**< sin(theta); cos via +W/4. */
   static std::array<float, H_VIRT> sin_phi;  /**< sin(phi) per virtual row. */
   static std::array<float, H_VIRT> cos_phi;  /**< cos(phi) per virtual row. */
-  // Same single-thread check-then-set contract as PhiLUT::initialized.
   static bool initialized; /**< Lazy-init guard; true once tables are filled. */
   /**
    * @brief cos(theta) for column x, recovered from the extended sin table.
@@ -244,17 +236,12 @@ template <int W, int H> bool TrigLUT<W, H>::initialized = false;
  * @brief Eagerly fill the scanline LUTs for resolution <W, H>.
  * @tparam W Width (column count).
  * @tparam H Logical height.
- * @details Engine setup calls this once, before the first frame, so the tables
- * are fully populated before any rendering — and, on hardware, before the
- * column-sweep ISR could ever observe a partially-filled table. With eager
- * init in place the per-call `if (!initialized) init()` guards scattered
- * through the scanline rasterizers (Scan/Plot/SDF/Filter, `pixel_to_vector`)
- * are never the *first* touch in production; they remain only as a
- * lazy fallback for unit tests and offline tools that render at other
- * resolutions without going through engine setup. Those guards are a
- * non-atomic check-then-set, NOT a concurrency safeguard: their correctness
- * rests on this eager call and on the single-render-thread assumption (see the
- * THREAD-SAFETY CONTRACT on PhiLUT/TrigLUT::initialized). Idempotent.
+ * @details Engine setup calls this once before the first frame so the tables are
+ * populated before any rendering — and, on hardware, before the column-sweep ISR
+ * could observe a partially-filled table. The per-call `if (!initialized) init()`
+ * guards in the rasterizers then remain only as a lazy fallback for unit tests
+ * and offline tools; their non-atomic check-then-set relies on this eager call
+ * and the single-render-thread assumption. Idempotent.
  */
 template <int W, int H> inline void init_geometry_luts() {
   PhiLUT<H>::init();
@@ -310,12 +297,9 @@ template <int W, int H> Vector pixel_to_vector(int x, int y) {
  * @tparam H Height.
  * @param x Fractional X coordinate (column).
  * @param y Fractional Y coordinate (row); the analytic branch passes it straight
- *   to `y_to_phi<H>` with NO clamp. Unlike the integer overload (which traps on
- *   an out-of-range row), a sub-pixel `y` outside [0, H_VIRT-1] extrapolates phi
- *   past [0, pi] by analytic continuity. This is the intended contract for valid
- *   in-canvas sub-pixel sampling; callers must keep `y` in range. Left unclamped
- *   on purpose — this is a per-pixel reconstruction path, so a clamp would tax
- *   the hot loop for an out-of-range input the rasterizer never produces.
+ *   to `y_to_phi<H>` with NO clamp. A sub-pixel `y` outside [0, H_VIRT-1]
+ *   extrapolates phi past [0, pi] by analytic continuity; callers must keep `y`
+ *   in range (this is a per-pixel path, so no clamp).
  * @return Unit vector on the sphere.
  * @details Snaps to the integer LUT path when both coordinates are
  * near-integer; otherwise builds the vector analytically from spherical angles.
@@ -336,22 +320,13 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  *   bit-exactly invert the exact-trig `pixel_to_vector`.
  * @tparam W The width.
  * @tparam H The height.
- * @param v The input vector; MUST be unit length. This is an unenforced caller
- *   contract: `phi = acos(v.y)` is only the true latitude when |v| == 1, so a
- *   non-unit `v` returns a silently-wrong row (the `clamp(v.y)` only keeps the
- *   `acos` in-domain, it does not correct the angle). Left unguarded on purpose
- *   — this runs in the per-pixel hot loop, from which `HS_CHECK` is withheld by
- *   the engine's fail-fast doctrine; callers normalize before projecting.
- * @return The 2D PixelCoords. The `y` field is a float in `[0, H_VIRT-1]`, but at
- *   the south pole it can land a hair *above* `H_VIRT-1`: `fast_acos` returns
- *   `PI_F` there and `phi_to_y` computes `(PI_F*(H_VIRT-1))/PI_F`, whose float
- *   multiply-then-divide need not round back to exactly `H_VIRT-1`. This is the
- *   `vector→pixel` counterpart of the unchecked `y` contract `pixel_to_vector`
- *   documents at the inverse end — left unclamped on the same hot-path grounds; a
- *   caller that indexes a row buffer with `(int)y` must clamp or floor first.
- *   The `x` field carries the symmetric hazard: `wrap()` returns `[0, W)`, but a
- *   value a hair under `W` rounds up to `W`, so a caller must floor (not round)
- *   `x` before indexing a width-`W` column buffer.
+ * @param v The input vector; MUST be unit length (unenforced): `phi = acos(v.y)`
+ *   is the true latitude only when |v| == 1, so a non-unit `v` returns a
+ *   silently-wrong row. Unguarded per-pixel path; callers normalize first.
+ * @return The 2D PixelCoords. The `y` field is a float in `[0, H_VIRT-1]` but at
+ *   the south pole can land a hair *above* `H_VIRT-1` (float round-trip), and `x`
+ *   from `wrap()` can round up to `W`; a caller indexing a row/column buffer must
+ *   floor (not round) first.
  */
 template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
   // phi = acos(v.y) is the true latitude only when |v| == 1; trap non-unit v in debug.
@@ -524,26 +499,17 @@ public:
    * Slerp-resampling the existing frames (uniform in source index, not arc
    * length).
    * @param count The target number of steps in the history.
-   * @note When `count > CAPACITY` the trail is upsampled to `CAPACITY` instead.
-   * This is intentional graceful degradation, not a trap: a `count` past
-   * capacity means the per-frame angular speed exceeds what the trail can
-   * sub-sample within the `MAX_ANGLE` (one-column) smoothness threshold — a
-   * transient artistic input (e.g. a cranked speed slider), not a structural
-   * invariant violation. The clamp keeps the write provably in-bounds, the
-   * current orientation is always exact (`collapse()` retains the latest), and
-   * the only consequence is that the motion-blur smear is sampled more coarsely
-   * at extreme speed. Fail-fast (`HS_CHECK`) is reserved for cold seams and
-   * memory/structural invariants; this is a per-frame hot path and the bounded
-   * soft-degrade is the correct response here (cf. the DMA overrun-drop). To
-   * trade RAM + per-frame slerp work for a smoother fast smear, raise `CAP` on
-   * the affected `Orientation` rather than reintroducing a trap.
+   * @note When `count > CAPACITY` the trail is upsampled to `CAPACITY` instead:
+   * graceful degradation (the write stays in-bounds, the current orientation
+   * stays exact, only the motion-blur smear samples more coarsely), not a trap.
+   * Raise `CAP` to trade RAM for a smoother fast smear.
    * @note A single-frame source (`num_frames == 1`, the common post-`set()`/
    * `collapse()` state) upsamples to a flat smear of that one frame; real motion
    * blur requires >=2 pushed frames.
    */
   void upsample(int count) {
     HS_CHECK(count >= 1);
-    if (count > CAPACITY) // soft-degrade past capacity — see @note above
+    if (count > CAPACITY) // soft-degrade past capacity
       count = CAPACITY;
     if (num_frames >= count)
       return;
@@ -608,9 +574,8 @@ struct LissajousParams {
  * Lissajous curve.
  * @param m1 Frequency coefficient for XZ plane.
  * @param m2 Frequency coefficient for Y axis.
- * @param a Phase shift in radians, used as-is. Matches the daydream lissajous
- *          designer (tools/lissajous.html), whose radians-labelled slider and
- *          exported snippet feed straight into this function.
+ * @param a Phase shift in radians, used as-is (matches the daydream lissajous
+ *          designer tools/lissajous.html).
  * @param t Time variable (or position along the domain).
  * @return The calculated 3D point (unit vector).
  * @note Setup-time generator; exact trig is intentional (not a per-pixel path).
@@ -643,10 +608,8 @@ inline Basis rotate(const Basis &b, const Quaternion &q) {
  * @param orientation The orientation quaternion; MUST be unit length
  *   (HS_CHECK-trapped below — a non-unit quaternion would scale/shear the frame).
  * @param normal The normal vector; after rotation it becomes the 'v' axis. MUST
- *   be non-zero: a zero (or rotation-collapsed) normal is trap-enforced by the
- *   `normalized()` of `v` below, deliberately fail-fast rather than soft-degraded
- *   to `normalized_or` — a degenerate frame here is a caller bug, not a
- *   legitimate geometric edge.
+ *   be non-zero — a zero (or rotation-collapsed) normal traps in the
+ *   `normalized()` of `v` below.
  * @return The constructed Basis.
  */
 inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
@@ -654,7 +617,7 @@ inline Basis make_basis(const Quaternion &orientation, const Vector &normal) {
            math::EPS_UNIT_QUAT_SQ);
   Vector v = rotate(normal, orientation).normalized();
   // rotate preserves dot, so least_parallel_axis(normal) picks the same body
-  // axis the rotated-frame test would; rotate it into the frame for the cross.
+  // axis as the rotated frame; rotate it into the frame for the cross.
   Vector ref = rotate(least_parallel_axis(normal), orientation).normalized();
   Vector u = cross(v, ref).normalized();
   Vector w = cross(v, u).normalized();

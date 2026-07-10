@@ -10,15 +10,12 @@
 #include <cmath>
 #include "math/3dmath.h"
 
-// Convention for the easings below: t is the normalized time factor in [0, 1].
-// Most are UNCLAMPED by design (matching the easings.net reference they mirror):
-// they neither clamp t nor bound the output, so an out-of-[0,1] t extrapolates
-// the curve — the cubic/elastic variants in particular can return values
-// outside [0, 1]. The exceptions carry only the guards their math requires:
-// ease_in_circ/ease_out_circ floor the radicand (1 - t*t < 0 -> sqrt NaN), and
-// ease_out_expo/ease_out_elastic pin their exact endpoints and floor the
-// negative-t branch. Callers that feed an unbounded drive (or index a fixed
-// table with the result) must still clamp t, or the output, themselves.
+// Convention: t is the normalized time factor in [0, 1]. Most easings are
+// UNCLAMPED (matching the easings.net reference) — an out-of-[0,1] t
+// extrapolates and cubic/elastic variants can return values outside [0, 1]. The
+// exceptions carry only the guards their math requires (circ floors the radicand
+// against sqrt NaN; expo/elastic pin exact endpoints and floor the negative-t
+// branch). Callers feeding an unbounded drive must clamp t (or the output).
 
 /**
  * @brief Easing function: Cubic Interpolation (In-Out).

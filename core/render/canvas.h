@@ -4,9 +4,8 @@
  */
 #pragma once
 
-// platform.h first: on device it defines NDEBUG, which must be set before
-// <cassert> expands the assert macro — otherwise assert-stripping would depend
-// on a prior TU having pulled in platform.h, making this header non-self-sufficient.
+// platform.h defines NDEBUG on device; include before <cassert> so assert
+// stripping does not depend on include order.
 #include "engine/platform.h"
 #include <cstring>
 #include <cassert>
@@ -52,7 +51,7 @@ public:
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
         strobe(cfg.strobe), width_(W), height_(H) {
     // Single-live-Effect precondition: every Effect aliases the same two static
-    // buffers (buffer_a/buffer_b), so a second live instance corrupts both frames.
+    // buffers, so a second live instance corrupts both frames.
     HS_CHECK(!s_alive,
              "Effect: a second Effect was constructed while one is still alive; "
              "buffer_a/buffer_b are shared static storage (one live Effect only)");
@@ -67,9 +66,8 @@ public:
 
   /**
    * @brief Destroys the Effect instance.
-   * @details Clears the single-live-Effect guard so the next construction
-   * (effect switch) is admitted. Ordering is safe because every effect-swap
-   * path destroys the outgoing instance before building its replacement.
+   * @details Clears the single-live-Effect guard so the next construction is
+   * admitted; every effect-swap path destroys the outgoing instance first.
    */
   virtual ~Effect() { s_alive = false; }
 
@@ -86,18 +84,10 @@ public:
   virtual void draw_frame() = 0;
   /**
    * @brief POV-display strobe control: whether each LED column is blanked to
-   *        black immediately after it is shown, instead of persisting on the
-   *        strip until the next column is drawn.
-   *
-   * Read on the hardware column-draw path once per swept column. Governs
-   * inter-column strip behavior, not framebuffer contents (that is
-   * `persist_pixels`).
-   *
-   * @return true  to strobe: after a column is lit the strip is re-shown black
-   *               (FastLED.showColor / a trailing all-black DMA frame), so each
-   *               column reads as a sharp slice with dark inter-column gaps.
-   * @return false to persist: the lit column is held on the strip until the
-   *               next column overwrites it, filling its full angular cell.
+   *        black immediately after it is shown. Governs inter-column strip
+   *        behavior, not framebuffer contents (that is `persist_pixels`).
+   * @return true to strobe (each column a sharp slice with dark gaps); false to
+   *         persist the lit column until the next overwrites it.
    */
   [[nodiscard]] bool strobe_columns() const { return strobe; }
 
@@ -108,12 +98,9 @@ public:
    *         pixels outside the band — e.g. MeshFeedback's unbounded warp);
    *         false (the default) for every effect whose output in a band depends
    *         only on that band, which keeps segmented rendering's clipping win.
-   * @details Read by the WASM segment driver (targets/wasm/wasm.cpp setClip) and
-   *          the device driver (hardware/pov_segmented.h clip_to_segment) to leave
-   *          the clip at full canvas for stateful effects. Set once at
-   *          construction from the effect's filter pipeline compile-time
-   *          `any_crosses_segments` fold (see core/render/filter.h and
-   *          docs/segmented_stateful_effects_spec.md); defaults to false.
+   * @details Read by the segment drivers to leave the clip at full canvas for
+   *          stateful effects. Set once at construction from the filter
+   *          pipeline's `any_crosses_segments` fold; defaults to false.
    */
   [[nodiscard]] bool needs_full_frame() const { return full_frame; }
 
@@ -121,8 +108,8 @@ public:
    * @brief Whether this effect copies its previous frame forward (trails/decay).
    * @return True when persist_pixels is set.
    * @details The segmented device driver leaves a persisting effect at full
-   *          canvas: its per-frame arm-half alternation would break trail
-   *          continuity if the render were clipped to one quadrant.
+   *          canvas, else its per-frame arm-half alternation breaks trail
+   *          continuity.
    */
   [[nodiscard]] bool persists_pixels() const { return persist_pixels; }
 
@@ -145,9 +132,8 @@ public:
    * @param x1 Exclusive end column of the owned segment.
    */
   void set_clip(int y0, int y1, int x0, int x1) {
-    // Guard the render-bound helpers' invariant: non-inverted band, non-negative
-    // origins. The upper bound (x1 <= w) is checked downstream at the LUT-domain
-    // HS_CHECK in Scan::Shader::draw, not here.
+    // Non-inverted band, non-negative origins. The upper bound (x1 <= w) is
+    // checked downstream at the LUT-domain HS_CHECK in Scan::Shader::draw.
     HS_CHECK(y0 >= 0 && y0 <= y1 && x0 >= 0 && x0 <= x1,
              "set_clip band must be non-inverted with non-negative origins");
     clip.y_start = y0;
@@ -158,16 +144,13 @@ public:
   /**
    * @brief Update only the horizontal clip band, leaving the y bounds intact.
    *
-   * No device driver calls this — the firmware sets the full segment once via
-   * set_clip(). It exists for callers that retune just the x-band (the web
-   * simulator's segment-mode bridge writes the clip through set_clip(); the
-   * canvas unit tests exercise this narrowing path directly).
+   * For callers that retune just the x-band (canvas unit tests); no device
+   * driver calls this.
    * @param x0 Inclusive start column of the horizontal clip band.
    * @param x1 Exclusive end column of the horizontal clip band.
    */
   void set_clip_x(int x0, int x1) {
-    // Same non-inverted/non-negative invariant as set_clip (x-band only); the
-    // upper bound is likewise deferred to the downstream LUT-domain guard.
+    // Same non-inverted/non-negative invariant as set_clip (x-band only).
     HS_CHECK(x0 >= 0 && x0 <= x1,
              "set_clip_x band must be non-inverted with a non-negative origin");
     clip.x_start = x0;
@@ -176,12 +159,10 @@ public:
   /**
    * @brief Effect sets render margin for stateful filters.
    * @param m Render margin width in pixels.
-   * @details Cold setup-time guard: ClipRegion's cylindrical wrap
-   *          (render_x_start/render_x_end) only corrects a single period of
-   *          underflow, so its documented [0, w) contract holds only while
-   *          margin < w. Trap a margin that would wrap past the seam here, at
-   *          configuration time, rather than letting a negative column leak into
-   *          the per-fragment clip predicates on the hot path.
+   * @details ClipRegion's cylindrical wrap only corrects a single period of
+   *          underflow, so its [0, w) contract holds only while margin < w. Trap
+   *          a wrapping margin here rather than let a negative column leak into
+   *          the per-fragment clip predicates.
    */
   void set_margin(int m) {
     HS_CHECK(m >= 0 && m < clip.w,
@@ -200,11 +181,8 @@ public:
    *       bypass the transform.
    */
   virtual const Pixel &get_pixel(int x, int y) const {
-    // Debug-only bounds guard, matching the write-path accessors
-    // (operator()/prev): stripped on the device (NDEBUG, "No bounds checking"),
-    // so it adds nothing to the ISR/WASM readback in release, but catches an
-    // out-of-range display read in the test/sim build the same way the sibling
-    // paths do.
+    // Debug-only bounds guard, matching the write-path accessors (stripped on
+    // device, catches an out-of-range display read in test/sim).
     assert(x >= 0 && x < width_ && y >= 0 && y < height_);
     return bufs_[prev_.load(std::memory_order_relaxed)][y * width_ + x];
   }
@@ -214,11 +192,10 @@ public:
    *        `width()` stride): `display_buffer()[y * width() + x]` equals
    *        `get_pixel(x, y)` for any effect that does not override `get_pixel`.
    *
-   * ISR fast path: lets a column loop index pixels directly and skip the
-   * per-pixel virtual `get_pixel` dispatch. Valid only until the next
-   * `advance_display()` flip — re-fetch after one. Effects that override
-   * `get_pixel` (e.g. the RingTwist scroller) must NOT use this, as it bypasses
-   * their transform; check `overrides_get_pixel()` first.
+   * ISR fast path: index pixels directly, skipping the virtual `get_pixel`
+   * dispatch. Valid only until the next `advance_display()` flip. Effects that
+   * override `get_pixel` must NOT use this (it bypasses their transform); check
+   * `overrides_get_pixel()` first.
    */
   [[nodiscard]] const Pixel *display_buffer() const {
     return bufs_[prev_.load(std::memory_order_relaxed)];
@@ -229,10 +206,9 @@ public:
    *        that display_buffer() does NOT reflect.
    *
    * Base effects return false: `display_buffer()[y * width() + x]` equals
-   * `get_pixel(x, y)`, so ISR fast paths may index the buffer directly. The
-   * RingTwist scroller reads through a per-row offset in its get_pixel override
-   * and returns true here, forcing those fast paths to fall back to virtual
-   * dispatch. One cheap virtual call per column gates the bulk loop.
+   * `get_pixel(x, y)`, so ISR fast paths may index the buffer directly. An
+   * override that reads through a per-pixel transform (e.g. the RingTwist
+   * scroller) returns true, forcing those paths back to virtual dispatch.
    */
   [[nodiscard]] virtual bool overrides_get_pixel() const { return false; }
 
@@ -269,18 +245,15 @@ public:
    */
   inline void advance_buffer() {
     int c = cur_.load(std::memory_order_relaxed) ? 0 : 1;
-    // The new write buffer must not be the one the ISR is currently scanning out
-    // (prev_). With two physical buffers this holds only if buffer_free() gated
-    // the advance; a caller that skips that gate would aim writes at the live
-    // display buffer. Trap it here (once per frame, cold) instead of tearing.
+    // The new write buffer must not be the one the ISR is scanning out (prev_);
+    // with two buffers this holds only if buffer_free() gated the advance. Trap
+    // it here (once per frame, cold) instead of tearing.
     HS_CHECK(c != prev_.load(std::memory_order_relaxed));
     cur_.store(c, std::memory_order_relaxed);
     if (persist_pixels) {
-      // The trail base is the last COMPLETED frame (next_), not the one the ISR
-      // is currently displaying (prev_). The buffer_free() gate that must precede
-      // every advance forces prev_ == next_, so the two coincide here — copy from
-      // next_ and assert the equality, rather than read prev_ and depend on the
-      // gate silently across methods.
+      // The trail base is the last COMPLETED frame (next_). The buffer_free()
+      // gate forces prev_ == next_, so copy from next_ and assert the equality
+      // rather than depend on the gate silently across methods.
       int last = next_.load(std::memory_order_relaxed);
       HS_CHECK(last == prev_.load(std::memory_order_relaxed));
       memcpy(bufs_[c], bufs_[last], sizeof(Pixel) * width_ * height_);
@@ -291,8 +264,7 @@ public:
    * @brief Queues the newly drawn frame to be displayed.
    * @details Publishes `cur_` as the new `next_`. Correctness relies on
    * `hs::disable_interrupts()` being a compiler barrier (single-core target), not
-   * on the relaxed atomics: the drawn buffer is fully written before the flip is
-   * observable to the ISR.
+   * on the relaxed atomics.
    */
   inline void queue_frame() {
     hs::disable_interrupts();
@@ -335,11 +307,10 @@ public:
     /**
      * @brief Write a float value (bool threshold at 0.5).
      * @param v Value to store; a bool target is set true when v > 0.5.
-     * @warning Raw write: applies no readonly/finite/[min,max] gate. The
-     * readonly-reject, non-finite-reject and range-clamp contract lives solely
-     * in Effect::updateParameter — any value write originating outside trusted
-     * engine code (UI bridge, animation driver) must route through there, not
-     * call set() on a handle from ParamList::find().
+     * @warning Raw write: applies no readonly/finite/[min,max] gate. That
+     * contract lives solely in Effect::updateParameter — any write from outside
+     * trusted engine code must route through there, not call set() on a handle
+     * from ParamList::find().
      */
     void set(float v) {
       std::visit(
@@ -363,12 +334,12 @@ public:
   /**
    * @brief Fixed-capacity registry of an effect's runtime parameters.
    * @details Stack-allocated array (no heap) to uphold the WASM no-realloc
-   * memory-view invariant; capacity 32 is enforced at registration time.
+   * memory-view invariant; capacity 32 enforced at registration time.
    */
   struct ParamList {
     // Effect is the sole trusted mutator; the writable accessors below are
-    // private so every other caller sees only the const overloads and must route
-    // value writes through updateParameter.
+    // private so other callers see only the const overloads and route value
+    // writes through updateParameter.
     friend class Effect;
 
     std::array<ParamDef, 32> elements; /**< Fixed-capacity backing storage. */
@@ -419,19 +390,16 @@ public:
    * @brief Updates a parameter's value by name.
    * @param name The name of the parameter.
    * @param value The new value (mapped to bool if necessary).
-   * @return true if the value was applied; false if the name is unknown (a
-   *         stale/typo'd UI string), the parameter is readonly (engine-written
-   *         telemetry), or the value was rejected as non-finite. The WASM bridge
-   *         propagates this so the frontend can detect a no-op rather than
-   *         silently dropping the write.
+   * @return true if the value was applied; false if the name is unknown, the
+   *         parameter is readonly, or the value was non-finite. The WASM bridge
+   *         propagates this so the frontend can detect a no-op.
    */
   bool updateParameter(const char *name, float value) {
     auto *def = parameters.find(name);
     if (def == nullptr)
       return false;
-    // Untrusted JS boundary (WASM setParameter): reject readonly-param writes and
-    // non-finite input, and clamp floats to [min,max]. Bools are thresholded at
-    // 0.5 by set(), not range-clamped.
+    // Untrusted JS boundary: reject readonly-param writes and non-finite input,
+    // and clamp floats to [min,max]. Bools are thresholded at 0.5 by set().
     if (def->readonly)
       return false;
     if (!std::isfinite(value))
@@ -451,10 +419,9 @@ public:
   /**
    * @brief Pause/resume the effect's parameter-driving animations.
    * @details Wired to the `Mutation`/`Driver` gate via `anims_paused_`. Paused,
-   * those animations freeze and the GUI slider bound to the same member is the
-   * sole writer, so a user edit holds; resuming hands the member back to the
-   * animation. Ambient motion (rotation/camera/palette) is not gated and keeps
-   * running. The GUI surfaces this as the standard "Pause Animation" toggle.
+   * those animations freeze and the bound GUI slider is the sole writer, so a
+   * user edit holds; resuming hands the member back. Ambient motion
+   * (rotation/camera/palette) is not gated.
    * @param paused True to freeze parameter-driving animations, false to resume.
    */
   void setAnimationsPaused(bool paused) { anims_paused_ = paused; }
@@ -490,9 +457,8 @@ protected:
    */
   void mark_animated(const char *name) {
     auto *def = parameters.find(name);
-    // A misspelled name silently no-ops, leaving the param un-flagged and the
-    // "Pause Animation" gate broken with no diagnostic. Trap instead — this is
-    // cold setup code, the fail-fast doctrine's intended home.
+    // A misspelled name would silently no-op and leave the param un-flagged; trap
+    // instead (cold setup code).
     HS_CHECK(def, "mark_animated: unknown parameter name");
     def->animated = true;
   }
@@ -517,22 +483,18 @@ protected:
    */
   void register_param(const char *name, float *ptr, float min = 0.0f,
                      float max = 1.0f) {
-    // Overflowing the fixed ParamList is an effect-authoring bug (too many
-    // params); silently dropping the registration hides it and desyncs the GUI.
-    // Trap instead. (Also upholds the WASM no-realloc memory-view invariant.)
+    // Overflowing the fixed ParamList is an authoring bug (also upholds the WASM
+    // no-realloc memory-view invariant).
     HS_CHECK(parameters.count < parameters.elements.size(),
              "register_param: exceeded ParamList capacity");
-    // A duplicate name is an authoring bug: find() returns the FIRST match, so a
-    // second registration silently shadows (its slot is unreachable by name and
-    // any UI/animation write lands on the first). Trap at this cold init seam.
+    // A duplicate name shadows: find() returns the FIRST match, so a second
+    // registration's slot is unreachable by name.
     HS_CHECK(parameters.find(name) == nullptr,
              "register_param: duplicate parameter name");
-    // An inverted range feeds hs::clamp(value, min, max) with lo > hi
-    // (implementation-defined), pinning the slider to garbage. Trap the
-    // authoring bug at this cold init seam, like the capacity/duplicate guards.
+    // An inverted range feeds hs::clamp() lo > hi (implementation-defined).
     HS_CHECK(min <= max, "register_param: min must be <= max");
-    // Trap a default *ptr outside [min,max]: registration captures it verbatim but
-    // every later updateParameter clamps, so it would snap on the first GUI edit.
+    // A default *ptr outside [min,max] is captured verbatim but would snap on the
+    // first GUI edit (every updateParameter clamps).
     HS_CHECK(*ptr >= min && *ptr <= max,
              "register_param: default *ptr outside [min,max]");
     parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
@@ -558,10 +520,8 @@ protected:
   /**
    * @brief Registers a float param and flags it animation-driven in one call.
    * @details Convenience for the register_param + mark_animated pair, so the name
-   * literal is written once instead of twice (a typo in the second copy would
-   * silently leave the param un-flagged — a dead-slider lint failure rather than
-   * a compile error). Flags the just-registered element directly, skipping the
-   * name lookup mark_animated would redo.
+   * literal is written once. Flags the just-registered element directly, skipping
+   * the name lookup mark_animated would redo.
    */
   void register_animated_param(const char *name, float *ptr, float min = 0.0f,
                              float max = 1.0f) {
@@ -584,10 +544,9 @@ protected:
 private:
   /**
    * @brief Points bufs_ at the shared static storage and zeroes both buffers.
-   * @details noinline so the two full-frame fills are emitted once instead of
-   * being inlined into both GCC constructor variants (C1/C2). Invoked from the
-   * ctor rather than init() because the clear must run for every Effect and
-   * derived init() overrides do not chain to a base Effect::init().
+   * @details noinline so the two full-frame fills are emitted once, not inlined
+   * into both GCC constructor variants (C1/C2). Invoked from the ctor (not init())
+   * because derived init() overrides do not chain to Effect::init().
    */
   void __attribute__((noinline)) clear_buffers() {
     bufs_[0] = buffer_a;
@@ -602,8 +561,8 @@ private:
   int width_;                /**< The width of the effect. */
   int height_;               /**< The height of the effect. */
   // Shared static storage for the double buffer. PRECONDITION: at most one Effect
-  // live at a time (enforced by the s_alive guard); a second would alias these
-  // arrays and the prev_/cur_/next_ indices.
+  // live at a time (s_alive guard); a second would alias these arrays and the
+  // prev_/cur_/next_ indices.
   static DMAMEM Pixel
       buffer_a[MAX_W * MAX_H]; /**< Static storage for buffer A (shared). */
   static DMAMEM Pixel
@@ -611,8 +570,7 @@ private:
   Pixel *bufs_[2]; /**< Pointers to the two buffer storage locations. */
   // True while an Effect is constructed-but-not-destroyed. Guards the
   // single-live-Effect precondition on the shared buffer_a/buffer_b: the ctor
-  // traps if it is already set, the dtor clears it. Cold path (effect switch
-  // only), so the load/store is free.
+  // traps if already set, the dtor clears it.
   static bool s_alive;
 };
 
@@ -631,14 +589,13 @@ public:
    */
   Canvas(Effect &effect) : effect_(effect) {
     // Not a TOCTOU race: single-core, strict index ownership — the main loop
-    // writes cur_/next_, the ISR only sets prev_ = next_ (idempotent once
-    // prev_==next_), so the gate can't be falsified between check and flip.
-    // advance_buffer() then picks the other buffer, guaranteed != prev_.
+    // writes cur_/next_, the ISR only sets prev_ = next_, so the gate can't be
+    // falsified between check and flip.
     //
     // Watchdog: buffer_free() is re-satisfied only when the display ISR advances
     // at a frame boundary; an unbounded wait means that ISR stalled, so trap
-    // (fail-fast) rather than hang. The outer buffer_free() guard skips the
-    // micros() reads on the common no-wait path.
+    // rather than hang. The outer buffer_free() guard skips the micros() reads on
+    // the no-wait path.
     if (!effect_.buffer_free()) {
       const unsigned long wait_start = micros();
       while (!effect_.buffer_free()) {
@@ -672,10 +629,9 @@ public:
    * @return Reference to the Pixel.
    */
   inline Pixel &operator()(int x, int y) {
-    // Use assert here, NOT HS_CHECK — this is the one hot-loop exception. The
-    // bounds guard is debug-only by design (stripped on the device, as the
-    // README documents — "No bounds checking"); an always-on HS_CHECK branch on
-    // every pixel access is the single place HS_CHECK's own contract forbids it.
+    // assert, NOT HS_CHECK — the one hot-loop exception: a debug-only bounds
+    // guard (stripped on device), since an always-on branch on every pixel access
+    // is the single place HS_CHECK's contract forbids it.
     assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);
     return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)]
                         [y * effect_.width_ + x];
@@ -686,11 +642,10 @@ public:
    * @param x The horizontal coordinate.
    * @param y The vertical coordinate.
    * @return Copy of the Pixel from the previous frame.
-   * @details Returns by value, unlike `operator()`'s by-reference access to the
-   *          current buffer: the previous frame is read-only (the next frame is
-   *          composed in the current buffer), so handing out a reference into it
-   *          would invite an accidental write to a buffer that is about to be
-   *          recycled. A Pixel is small enough that the copy is free.
+   * @details Returns by value, unlike `operator()`: the previous frame is
+   *          read-only, so a reference into it would invite an accidental write
+   *          to a buffer about to be recycled. A Pixel is small enough the copy
+   *          is free.
    */
   inline Pixel prev(int x, int y) const {
     assert(x >= 0 && x < effect_.width_ && y >= 0 && y < effect_.height_);

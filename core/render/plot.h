@@ -73,10 +73,8 @@ static constexpr float COS_PLANAR_ANTIPODE = 0.999f;
  * @tparam Fragments Fragment container type.
  * @param vertex_shader Vertex shader to run on each fragment; no-op if null.
  * @param pts Fragment container mutated in place.
- * @details Zero-cost inline replacement for the identical
- * `if (vertex_shader) for (auto &p : pts) vertex_shader(p);` block repeated
- * across the primitives. The FunctionRef is passed by value (two pointers) and
- * the whole thing inlines away at -O3.
+ * @details Shared inline replacement for the per-primitive
+ * `if (vertex_shader) for (auto &p : pts) vertex_shader(p);` block.
  */
 template <typename Fragments>
 inline void apply_vertex_shader(VertexShaderRef vertex_shader, Fragments &pts) {
@@ -129,13 +127,8 @@ static inline Vector azimuthal_unproject(float Px, float Py,
 /**
  * @brief A rasterized sample: its unit-sphere position and unit tangent.
  * @details `tan` is the curve's unit tangent with respect to ARC LENGTH at the
- * sample, used by screen_step() to size the next sub-step from screen velocity.
- * The geodesic strategy fills it in closed form (free from the slerp's sin/cos);
- * the planar strategy finite-differences it. Zero for a degenerate edge: a
- * coincident one (< EPS_GEOMETRIC) is plotted as a single dot before any
- * sampling, while a near-coincident geodesic one (< EPS_GEODESIC_SEGMENT, where
- * the slerp axis is unstable) does reach screen_step, whose speed floor maps the
- * zero tangent to a base_step (one-dot) step.
+ * sample, used by screen_step() to size the next sub-step. Zero for a degenerate
+ * edge, where screen_step's speed floor maps it to a base_step (one-dot) step.
  */
 struct SamplePT {
   Vector pos;
@@ -180,10 +173,9 @@ planar_arc_cumul(const std::pair<float, float> &proj, float dx, float dy,
  *                        finite-difference unit tangent), endpoints, on-sphere
  *                        length (radians), and the last-segment flag.
  * @details The path is a straight line in the azimuthal-equidistant projection.
- * Projection-uniform stepping is NOT arc-uniform under the anisotropic
- * azimuthal metric, so a short cumulative-arc table (LEN_SAMPLES samples) is
- * inverted to turn an arc-length fraction into a projection parameter, making
- * planar sampling arc-uniform (matching the geodesic strategy) with no new trig.
+ * Projection-uniform stepping is NOT arc-uniform under the anisotropic metric,
+ * so a short cumulative-arc table is inverted to turn an arc-length fraction into
+ * a projection parameter, making planar sampling arc-uniform with no new trig.
  */
 template <typename ProcessSegmentFn>
 static void
@@ -202,19 +194,10 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
                                planar_basis);
   };
 
-  // Cumulative on-sphere arc length at evenly-spaced PROJECTION samples.
-  // total_dist drives the step count, so it must be the path's true on-sphere
-  // length: the projected chord over-estimates it (the stretched tangential
-  // metric) while the geodesic arc under-estimates it. Summing great-circle
-  // arcs between a few samples gives the real length.
-  //
-  // The table additionally lets map() take an ARC-length fraction and invert it
-  // back to a projection parameter. Projection-uniform stepping is NOT
-  // arc-uniform under the anisotropic azimuthal metric, so feeding the
-  // rasterizer's arc-fraction t straight into the projection-linear map would
-  // cluster/gap samples. The inversion makes planar sampling arc-uniform —
-  // matching the geodesic strategy — at the cost of a trig-free table scan per
-  // sample (no new trig anywhere).
+  // Cumulative on-sphere arc length at evenly-spaced PROJECTION samples: the
+  // path's true length, which drives the step count and lets map() invert an
+  // arc-length fraction back to a projection parameter (projection-uniform
+  // stepping is not arc-uniform under the anisotropic metric).
   std::array<float, PLANAR_LEN_SAMPLES + 1> arc_cumul;
   planar_arc_cumul(proj1, dx, dy, planar_basis, arc_cumul);
   const float dist = arc_cumul[PLANAR_LEN_SAMPLES];
@@ -237,11 +220,9 @@ rasterize_planar_strategy(const Fragment &curr, const Fragment &next,
   };
 
   // The azimuthal map has no closed-form tangent, so take it from a short forward
-  // difference (backward at the s=1 end) — within a single arc-uniform linear
-  // piece the difference direction is the unit tangent regardless of its
-  // magnitude; a difference spanning a knot blends two pieces, approximating the
-  // tangent there. Feeds the same screen-velocity sub-step sampler as the
-  // geodesic path.
+  // difference (backward at the s=1 end); the difference direction is the unit
+  // tangent regardless of magnitude. Feeds the same screen-velocity sub-step
+  // sampler as the geodesic path.
   auto sample_planar = [=](float s) -> SamplePT {
     Vector p = map_planar(s);
     bool fwd = (s + PLANAR_TAN_DT <= 1.0f);
@@ -352,14 +333,11 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
  * @param planar_basis Non-null: edge is azimuthal-equidistant; null: geodesic.
  * @param row_lo Output: minimum screen row touched by the edge.
  * @param row_hi Output: maximum screen row touched by the edge.
- * @details The clip cull must not test endpoints alone: a great-circle (or
- * planar-projected) edge between two points outside a clip band can still bulge
- * through it, and an endpoint-only test silently drops the arc — a gap at a
- * segment boundary on Phantasm hardware, where each board renders a Y-band.
- * Rows are computed via the canvas mapping row = phi_to_y(acos(y)); the endpoint
- * rows are extended by the arc's interior latitude extremum (closed-form for the
- * geodesic case, sampled with a Lipschitz margin for the planar case). Runs once
- * per coarse edge on the clip-only path.
+ * @details The clip cull must not test endpoints alone: an edge between two
+ * points outside a clip band can still bulge through it. Rows come from
+ * row = phi_to_y(acos(y)); the endpoint rows are extended by the arc's interior
+ * latitude extremum (closed-form for geodesic, sampled with a Lipschitz margin
+ * for planar). Runs once per coarse edge on the clip-only path.
  */
 template <int W, int H>
 static inline void edge_row_span(const Vector &a, const Vector &b,
@@ -375,19 +353,13 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
   row_hi = std::max(ra, rb);
 
   if (planar_basis == nullptr) {
-    // Geodesic edge: the arc y(t) = a.y·cos + v_perp.y·sin has its turning
-    // point inside the span iff the forward tangent's y-component flips sign
-    // between the endpoints. The extremal |y| is the great circle's peak
-    // latitude sqrt(1 - n.y²) (n = arc pole), reached only when present.
-    // No one-row epsilon here (unlike the planar branch below): the span is the
-    // exact closed-form y range of the rendered arc — the endpoint y values are
-    // the rendered endpoints, and y_to_row is monotonic in y — so there is no
-    // project/unproject round-trip to leave the cull a sub-pixel short.
-    // Arc pole, chosen exactly as the renderer's slerp axis
-    // (rasterize_geodesic_strategy): a near-antipodal edge collapses
-    // cross(a, b) to garbage, so fall back to the same stable perpendicular the
-    // renderer bulges the semicircle about — an endpoint-only span would cull
-    // the rendered diameter on a Y-band board.
+    // Geodesic edge: the arc y(t) has a turning point inside the span iff the
+    // forward tangent's y-component flips sign between the endpoints; the
+    // extremal |y| is the great circle's peak latitude sqrt(1 - n.y²) (n = arc
+    // pole). The span is the exact closed-form y range, so no one-row epsilon.
+    // n is the renderer's slerp axis (rasterize_geodesic_strategy): a
+    // near-antipodal edge collapses cross(a, b), so fall back to the same stable
+    // perpendicular the renderer bulges the semicircle about.
     Vector n;
     if (std::abs(PI_F - angle_between(a, b)) < TOLERANCE) {
       n = stable_perpendicular_axis(a);
@@ -410,19 +382,13 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
       row_hi = std::max(row_hi, rp);
     }
   } else {
-    // Planar edge: an azimuthal-equidistant straight line is not a great circle,
-    // so there is no closed-form latitude extremum. Sample the arc through the
-    // same unprojection MAP the rasterizer uses, then widen by the arc's
-    // Lipschitz bound. The cull and the renderer do NOT take bit-identical
-    // samples — the cull steps uniformly in PROJECTION space (p = k/SAMPLES)
-    // while the renderer sub-steps adaptively in ARC length — so gap-freeness
-    // comes from the Lipschitz + one-row margin below, not from matching sample
-    // points. Working in row space keeps the margin uniform (it would blow up
-    // near the poles in y): phi is 1-Lipschitz in angular distance, so between
-    // samples |Δrow| ≤ (Δarc)·(H_VIRT−1)/π, and the projected chord length
-    // over-estimates the on-sphere arc (the projection stretches tangential
-    // distance). That margin makes the span provably gap-free without dense
-    // sampling.
+    // Planar edge: no closed-form latitude extremum, so sample the arc through
+    // the rasterizer's unprojection MAP then widen by the arc's Lipschitz bound.
+    // The cull and renderer do NOT take bit-identical samples, so gap-freeness
+    // comes from the Lipschitz + one-row margin below. Row space keeps the margin
+    // uniform: phi is 1-Lipschitz in angular distance, so between samples
+    // |Δrow| ≤ (Δarc)·(H_VIRT−1)/π, and the projected chord over-estimates the
+    // on-sphere arc.
     auto p1 = azimuthal_project(a, *planar_basis);
     auto p2 = azimuthal_project(b, *planar_basis);
     float dX = p2.first - p1.first;
@@ -517,8 +483,8 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   size_t len = points.size();
   if (len < 2)
     return;
-  // Cold (once per polyline), not per-pixel: trap a null shader here so the
-  // many per-pixel fragment_shader() calls below can't invoke a null thunk.
+  // Trap a null shader once per polyline so the per-pixel fragment_shader()
+  // calls below can't invoke a null thunk.
   HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
   #ifdef __EMSCRIPTEN__
   double plot_t0 = emscripten_get_now();
@@ -538,10 +504,10 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   size_t max_cache = std::max((size_t)64, (size_t)(2 * W));
   steps_cache.bind(scratch_arena_a, max_cache);
 
-  // PLANAR ARC REGISTERS (v0/v1). Under a planar basis the rendered edge bows
-  // longer than the geodesic chord the samplers store, so re-derive v0/v1 from
-  // the true rendered arc: `cumul`/`seg_base` track it and `total_arc` (a cold
-  // pre-pass) normalizes v0. Skipped for geodesic polylines.
+  // PLANAR ARC REGISTERS (v0/v1): under a planar basis the rendered edge bows
+  // longer than the geodesic chord, so re-derive v0/v1 from the true rendered
+  // arc (`cumul`/`seg_base` track it, `total_arc` normalizes v0). Skipped for
+  // geodesic polylines.
   const bool override_uv = (planar_basis != nullptr);
   float total_arc = 0.0f;
   // Per-segment rendered arc length and antipode-seam flag, reused by the draw
@@ -585,11 +551,10 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       if (total_arc > math::EPS_GEOMETRIC)
         f.v0 = arc / total_arc;
     };
-    // The degenerate and fast paths below plot curr.pos/next.pos directly, without
-    // the renormalize the DRAWING PHASE applies further down: these are the
-    // original sampled vertices (already unit), not the fast_sinf/cosf-interpolated
-    // sample().pos outputs that drift ~0.04% off the unit sphere. Precondition:
-    // callers pass unit fragment positions.
+    // The degenerate and fast paths plot curr.pos/next.pos directly (original
+    // sampled vertices, already unit), without the DRAWING PHASE renormalize that
+    // corrects sample().pos's ~0.04% drift. Precondition: callers pass unit
+    // fragment positions.
     // Degenerate (coincident endpoints): plot at most a single dot.
     if (total_dist < math::EPS_GEOMETRIC) {
       bool shouldOmit = (close_loop) ? true : !isLastSegment;
@@ -610,11 +575,10 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     SamplePT smp = sample(0.0f);
     float first_step = screen_step<W, H>(smp.pos, smp.tan, base_step);
 
-    // FAST PATH: the whole segment spans ≤ one screen step (~SCREEN_STEP_PX px),
-    // so a single dot covers it — skip the simulation. Keyed on SCREEN length
-    // (via screen_step), NOT arc length: a base_step arc can still cross several
-    // pixels on a steep or near-polar segment, which an arc-length test would
-    // undersample into a beaded line.
+    // FAST PATH: the whole segment spans ≤ one screen step, so a single dot
+    // covers it. Keyed on SCREEN length, not arc length: a base_step arc can
+    // still cross several pixels on a steep/near-polar segment, which an
+    // arc-length test would undersample into a beaded line.
     if (total_dist <= first_step) {
       Fragment f = curr;
       f.color = Color4(0, 0, 0, 0);
@@ -633,10 +597,8 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     }
 
     // SIMULATION PHASE — size each sub-step so consecutive samples land
-    // ~SCREEN_STEP_PX apart in SCREEN space (screen_step), using the strategy's
-    // unit tangent at the step's start. Tracking the full 2-D screen speed (not
-    // just longitudinal pole-crowding) samples ~one pixel per step everywhere
-    // (see screen_step's note). `smp`/`first_step` above seed the first iteration.
+    // ~SCREEN_STEP_PX apart in SCREEN space (screen_step). `smp`/`first_step`
+    // above seed the first iteration.
     steps_cache.clear();
     float sim_dist = 0.0f;
 
@@ -645,11 +607,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
                        ? first_step
                        : screen_step<W, H>(smp.pos, smp.tan, base_step);
 
-      // Backstop: a pathological segment (e.g. a huge-radius shape wrapping the
-      // sphere) could still exceed the 2*W cache. Stop subdividing and let the
-      // normalized replay stretch the cached steps over the rest of the segment
-      // — coarser sampling on an extreme arc is fine (and far better than
-      // trapping a live show). Normal segments never reach this.
+      // Backstop: a pathological segment could exceed the 2*W cache. Stop
+      // subdividing and let the normalized replay stretch the cached steps over
+      // the rest of the segment (coarser sampling on an extreme arc is fine).
       if (steps_cache.size() >= steps_cache.capacity()) {
         HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
         break;
@@ -662,20 +622,18 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       }
     }
 
-    // The final step normally overshoots total_dist slightly, so sim_dist >=
-    // total_dist and scale <= 1 — the normalized replay stretches the cached
-    // steps back to exactly total_dist, correcting the overshoot. On the
-    // capacity-backstop break path sim_dist can fall short (scale > 1) and the
-    // replay stretches the cached steps over the remaining segment instead.
+    // The final step normally overshoots total_dist (scale <= 1) and the
+    // normalized replay stretches the cached steps back to exactly total_dist.
+    // On the backstop break path sim_dist can fall short (scale > 1) and the
+    // replay stretches over the remaining segment instead.
     HS_CHECK(sim_dist > 0.0f);
     float scale = total_dist / sim_dist;
     bool omitLast = (close_loop) ? true : !isLastSegment;
 
     // DRAWING PHASE
     //
-    // sample().pos is ~0.04% non-unit (fast_sinf/cosf); vector_to_pixel takes
-    // phi = acos(v.y) directly, where near the pole that error offsets the row.
-    // Re-normalize the interpolated positions (sampled vertices are already unit).
+    // sample().pos is ~0.04% non-unit; vector_to_pixel's phi = acos(v.y) offsets
+    // the row near the pole, so re-normalize the interpolated positions.
     {
       Vector start_pos = sample(0.0f).pos.normalized();
       Fragment f = Fragment::lerp(curr, next, 0.0f);
@@ -695,17 +653,14 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       float step = steps_cache[j] * scale;
       current_dist += step;
 
-      // total_dist > 0 here: HS_CHECK(sim_dist > 0) above implies >=1 sim step,
-      // which the loop only takes while sim_dist < total_dist.
+      // total_dist > 0 here (HS_CHECK(sim_dist > 0) implies >=1 sim step).
       float t = current_dist / total_dist;
 
       // `t` (hence the drawn POSITION) is parameterized by the RENDERED arc
-      // length. The registers are lerped from the control points; under a planar
-      // basis set_arc_uv then rewrites v0/v1 from the true rendered arc (current_dist
-      // is the planar arc walked so far, since the planar sampler is arc-uniform),
-      // so a shader keying off v1/v0 as an arc-length proxy tracks the drawn
-      // position even across the planar edge's bow away from the great-circle
-      // chord. Geodesic edges keep the lerped registers (already the rendered arc).
+      // length. Registers are lerped from the control points; under a planar
+      // basis set_arc_uv rewrites v0/v1 from the true rendered arc so a shader
+      // keying off them as an arc-length proxy tracks the drawn position across
+      // the planar bow. Geodesic edges keep the lerped registers.
       Vector p = sample(t).pos.normalized();
       Fragment f = Fragment::lerp(curr, next, t);
       f.pos = p;
@@ -727,13 +682,10 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
     // --- Interpolation Strategy Selection ---
     // Branch-cut guard: the planar projection is singular at the basis antipode,
-    // so a segment with an endpoint there would project to a garbage azimuth and
-    // interpolate wildly. Fall back to a (well-defined) geodesic edge for that
-    // segment — near the antipode the "straight in projection" intent is
-    // meaningless anyway. The seam flag was decided once in the arc pre-pass (so
-    // the cached arc metric and the rendered strategy cannot disagree) and is
-    // reused here, before the cull, so the row-span bound below matches the arc
-    // shape that will actually be rendered.
+    // so a segment with an endpoint there falls back to a geodesic edge. The seam
+    // flag was decided once in the arc pre-pass (so the cached arc metric and the
+    // rendered strategy cannot disagree) and is reused here, before the cull, so
+    // the row-span bound matches the rendered arc shape.
     const bool antipodal_seam = override_uv && seg_seam_cache[i];
     const bool use_planar = planar_basis && !antipodal_seam;
 
@@ -746,10 +698,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     }
 
     // Tier 3: Segment culling — skip if the edge's full screen-row span (arc
-    // latitude bulge included) lies outside the clip band. The test is routed
-    // through the pipeline so a filter-chain orientation (World::Orient) is
-    // culled by the RENDERED latitude, not the source point; a pipeline that
-    // does not answer the query (a bare plot stub) falls back to the raw edge.
+    // bulge included) lies outside the clip band. Routed through the pipeline so
+    // a filter-chain orientation is culled by the RENDERED latitude; a pipeline
+    // that does not answer the query falls back to the raw edge.
     if (clip_active) {
       const Basis *pb = use_planar ? planar_basis : nullptr;
       auto pred = [&](const Vector &a, const Vector &b, const Basis *bp) {
@@ -784,11 +735,8 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 /**
  * @brief Per-primitive geometry/rasterization options for draw_fragments.
  *
- * Groups the three settings that vary per primitive into a named aggregate so
- * call sites read as designated initializers (`{.capacity = …, .close_loop =
- * …}`) instead of an unlabeled `size_t, bool, const Basis*` trio. `close_loop`
- * and `planar_basis` default to the common (geodesic, open) case, so most
- * primitives only spell out `.capacity`.
+ * `close_loop` and `planar_basis` default to the common (geodesic, open) case,
+ * so most primitives only spell out `.capacity`.
  */
 struct FragmentDrawParams {
   size_t capacity;            /**< Fragment buffer reservation (per-primitive). */
@@ -801,12 +749,11 @@ struct FragmentDrawParams {
  *
  * Every Plot primitive opens a ScratchScope, binds a Fragments buffer, fills it,
  * applies the optional vertex shader, and rasterizes. The ScratchScope must
- * outlive the rasterize call (the arena backs the fragments), so the whole
- * sequence lives in one helper rather than being split.
+ * outlive the rasterize call (the arena backs the fragments).
  *
  * @tparam W,H Rasterization resolution (pixel grid).
  * @tparam FillFn Callable (Fragments &) -> void supplying the primitive's
- *                sampling; inlines at -O3 for a zero-cost per-primitive copy.
+ *                sampling.
  * @param pipeline Render pipeline.
  * @param canvas Target canvas.
  * @param vertex_shader Optional per-vertex shader.
@@ -927,12 +874,11 @@ struct Line {
  *  v0: Path Progress (0.0 -> 1.0)
  *  v1: Cumulative Arc Length (radians) — geodesic chord-polygon length
  *  v2: Vertex Index
- * @note v0/v1 accumulate the GEODESIC (great-circle) distance between
- *       consecutive control points — the chord-polygon parameterization, which is
- *       the rendered arc under Multiline's geodesic edges. If a `planar_basis` is
- *       passed to the draw call, the rasterizer re-derives v0/v1 from the longer
- *       azimuthal-equidistant arc it actually draws, so the registers track the
- *       rendered position in either mode.
+ * @note v0/v1 accumulate the GEODESIC distance between consecutive control
+ *       points (the rendered arc under Multiline's geodesic edges). With a
+ *       `planar_basis` the rasterizer re-derives v0/v1 from the longer
+ *       azimuthal-equidistant arc, so the registers track the rendered position
+ *       either way.
  */
 struct Multiline {
   /**
@@ -966,9 +912,8 @@ struct Multiline {
     }
 
     if (total_len < math::EPS_GEOMETRIC) {
-      // Avoid divide-by-zero on a degenerate (sub-epsilon) path. v0 then
-      // collapses toward 0 for every vertex (current_len << total_len==1); the
-      // path is geometrically a point, so the lost progress parameter is moot.
+      // Avoid divide-by-zero on a degenerate path; v0 collapses toward 0, but the
+      // path is geometrically a point so the lost progress parameter is moot.
       total_len = 1.0f;
     }
 
@@ -1056,13 +1001,11 @@ struct Multiline {
  * @details Each vertex carries the standard ring registers — v0: perimeter
  * progress (i / num_verts), v1: accumulated great-circle arc length from vertex
  * 0, v2: vertex index, age: 0. The trailing close vertex duplicates vertex 0's
- * position with v0 = 1, the arc length continued across the wrap edge, and
- * v2 = num_verts, so a `close_loop` rasterize draws the final edge back to the
- * start without a UV seam. This is the shared skeleton for the accumulated-arc
- * closed rings (Star, Flower, DistortedRing); Ring itself uses an analytic arc
- * length and keeps its own loop. For the PLANAR callers (Star, Flower) the
- * rasterizer overrides v0/v1 with the true rendered azimuthal arc, so these
- * stored geodesic values then seed only the optional vertex shader.
+ * position with v0 = 1 and the arc length continued across the wrap edge, so a
+ * `close_loop` rasterize draws the final edge without a UV seam. Shared skeleton
+ * for the accumulated-arc closed rings (Star, Flower, DistortedRing); Ring keeps
+ * its own analytic-arc loop. For the PLANAR callers the rasterizer overrides
+ * v0/v1, so these geodesic values seed only the optional vertex shader.
  */
 template <typename PosFn>
 inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
@@ -1147,9 +1090,9 @@ struct Ring {
       points.push_back(f);
     }
 
-    // Manual Close (Overlap): the close vertex sits at theta == 2π, whose
-    // position is identical to the i == 0 vertex (cos/sin(2π+φ) == cos/sin(φ));
-    // reusing it also avoids the float error a literal 2π+φ argument introduces.
+    // Manual Close (Overlap): the close vertex at theta == 2π has the same
+    // position as the i == 0 vertex; reusing it also avoids the float error a
+    // literal 2π+φ argument introduces.
     if (num_samples > 0) {
       Fragment f;
       f.pos = first_pos;
@@ -1168,15 +1111,12 @@ struct Ring {
    * @param basis Orientation basis.
    * @param radius Ring radius (radians).
    * @param phase Rotation phase (radians).
-   * @details Ring::draw's only sampling configuration is num_samples == W, whose
-   * angle grid (i*2π/W) is exactly TrigLUT<W,H>::cos_theta/sin_theta, so the
-   * per-sample libm cosf(θ+φ)/sinf(θ+φ) becomes the precomputed θ-grid plus one
-   * angle-addition against cos/sin(φ) — saving ~2*(W+1) libm trig calls per ring
-   * per frame. Keeps Ring's analytic arc length (θ*sin(theta_eq)) and its own
-   * overlap close; see sample_closed_ring's note on why Ring is not folded into
-   * that helper. The runtime int-num_samples overload above stays for the
-   * polygon samplers, whose vertex counts (num_sides, W/4, …) do not match the
-   * LUT grid.
+   * @details For num_samples == W the angle grid (i*2π/W) is exactly
+   * TrigLUT<W,H>::cos_theta/sin_theta, so per-sample cosf(θ+φ)/sinf(θ+φ) becomes
+   * the precomputed θ-grid plus one angle-addition against cos/sin(φ), saving
+   * ~2*(W+1) libm trig calls per ring per frame. Keeps Ring's analytic arc length
+   * and overlap close. The runtime int-num_samples overload stays for the polygon
+   * samplers, whose vertex counts do not match the LUT grid.
    */
   template <int W, int H>
   static void sample(Fragments &points, const Basis &basis, float radius,
@@ -1273,11 +1213,10 @@ struct Ring {
  *  v0: Perimeter progress (0.0 -> 1.0)
  *  v1: Arc Length (radians) — cumulative rendered planar arc
  *  v2: Vertex index
- * @note This shape always renders with PLANAR (azimuthal-equidistant) edges, which
- *       bow LONGER than the great-circle chord between vertices. The rasterizer
- *       re-derives v0/v1 from that true rendered arc (v0 the [0,1] fraction of the
- *       planar perimeter, v1 the cumulative planar arc in radians), so both track
- *       the drawn position rather than the shorter chord polygon.
+ * @note Always renders with PLANAR (azimuthal-equidistant) edges, which bow
+ *       LONGER than the great-circle chord. The rasterizer re-derives v0/v1 from
+ *       that true rendered arc, so both track the drawn position rather than the
+ *       shorter chord polygon.
  */
 struct PlanarPolygon {
   /**
@@ -1311,8 +1250,8 @@ struct PlanarPolygon {
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
     // Far-field radii (> 1) need the planar chart centered on the opposite pole,
-    // else the azimuthal projection bows the polygon edges instead of keeping
-    // them straight. radius <= 1 keeps the supplied chart unchanged.
+    // else the azimuthal projection bows the polygon edges. radius <= 1 keeps the
+    // supplied chart unchanged.
     Basis planar_basis = basis;
     if (radius > 1.0f) {
       planar_basis = planar_chart_basis(-basis.v);
@@ -1632,11 +1571,10 @@ struct Spiral {
  *  v0: Perimeter progress (0.0 -> 1.0)
  *  v1: Arc Length (radians) — cumulative rendered planar arc
  *  v2: Vertex index
- * @note This shape always renders with PLANAR (azimuthal-equidistant) edges, which
- *       bow LONGER than the great-circle chord between vertices. The rasterizer
- *       re-derives v0/v1 from that true rendered arc (v0 the [0,1] fraction of the
- *       planar perimeter, v1 the cumulative planar arc in radians), so both track
- *       the drawn position rather than the shorter chord polygon.
+ * @note Always renders with PLANAR (azimuthal-equidistant) edges, which bow
+ *       LONGER than the great-circle chord. The rasterizer re-derives v0/v1 from
+ *       that true rendered arc, so both track the drawn position rather than the
+ *       shorter chord polygon.
  */
 struct Star {
   /**
@@ -1729,11 +1667,10 @@ struct Star {
  *  v0: Perimeter progress (0.0 -> 1.0)
  *  v1: Arc Length (radians) — cumulative rendered planar arc
  *  v2: Vertex index
- * @note This shape always renders with PLANAR (azimuthal-equidistant) edges, which
- *       bow LONGER than the great-circle chord between vertices. The rasterizer
- *       re-derives v0/v1 from that true rendered arc (v0 the [0,1] fraction of the
- *       planar perimeter, v1 the cumulative planar arc in radians), so both track
- *       the drawn position rather than the shorter chord polygon.
+ * @note Always renders with PLANAR (azimuthal-equidistant) edges, which bow
+ *       LONGER than the great-circle chord. The rasterizer re-derives v0/v1 from
+ *       that true rendered arc, so both track the drawn position rather than the
+ *       shorter chord polygon.
  */
 struct Flower {
   /**
@@ -1790,9 +1727,9 @@ struct Flower {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    // Center the chart on the antipode pole, opposite the petal ring (colatitude
-    // apothem = PI - outer >= PI/2): projecting the constant-radius ring through
-    // the far-pole chart (R -> PI) bows its straight edges outward into petals.
+    // Center the chart on the antipode pole, opposite the petal ring: projecting
+    // the constant-radius ring through the far-pole chart bows its straight edges
+    // outward into petals.
     Basis planar_basis = planar_chart_basis(get_antipode(basis, radius).first.v);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
@@ -1833,9 +1770,8 @@ struct Flower {
 struct Mesh {
   /**
    * @brief Max distinct vertices the edge-dedup bitset can track.
-   * @details A mesh exceeding this is a sizing bug (traps on the cold setup
-   * path), not a recoverable case. Sized for a TriangularBitset of 128*127/2
-   * bits = 1016 bytes.
+   * @details A mesh exceeding this traps on the cold setup path. Sized for a
+   * TriangularBitset of 128*127/2 bits = 1016 bytes.
    */
   static constexpr int DEDUP_CAPACITY = 128;
 
@@ -1920,10 +1856,8 @@ struct Mesh {
         int small = std::min(u, v);
         int large = std::max(u, v);
 
-        // A vertex index past the dedup bitset's capacity is a mesh-sizing bug
-        // with no valid recovery: silently dropping the edge would mask it and
-        // leave a wireframe with missing lines. Trap on the cold setup path
-        // (platform.h).
+        // A vertex index past the dedup bitset's capacity is a mesh-sizing bug;
+        // trap on the cold setup path rather than drop the edge.
         HS_CHECK(large < DEDUP_CAPACITY);
 
         if (!visited.test_and_set(small, large))
@@ -1949,24 +1883,18 @@ struct Mesh {
                    VertexShaderRef vertex_shader) {
     int edge_index = 0;
 
-    // O(1) edge dedup in a 1016-byte triangular bit matrix over 128 vertices,
-    // arena-allocated rather than stack-resident: this is on the deep mesh
-    // render chain and Phantasm's DTCM stack is tight. Held in scratch_arena_b
-    // for the whole call; the per-edge scratch_arena_a scopes below are
-    // independent, so the heavily-used render scratch keeps its full headroom.
+    // O(1) edge dedup in a 1016-byte triangular bit matrix, arena-allocated (deep
+    // render chain, tight DTCM stack). Held in scratch_arena_b so the per-edge
+    // scratch_arena_a scopes below keep their headroom.
     ScratchScope visited_guard(scratch_arena_b);
     auto &visited = *new (scratch_arena_b.allocate(
         sizeof(TriangularBitset<DEDUP_CAPACITY>),
         alignof(TriangularBitset<DEDUP_CAPACITY>))) TriangularBitset<DEDUP_CAPACITY>();
 
     for_each_unique_edge(mesh, visited, [&](int u, int v) {
-      // mesh.vertices[] only asserts in bounds (stripped under NDEBUG on the
-      // device), so a malformed face index would read OOB silently on hardware.
-      // This is the per-edge setup boundary, not a per-pixel path, so an
-      // always-on HS_CHECK is contract-appropriate (platform.h). Checking only
-      // the larger index covers both endpoints: u and v are read from uint16_t
-      // face data, so they are non-negative — max(u,v) in bounds implies both
-      // vertices[u] and vertices[v] are valid.
+      // mesh.vertices[] only asserts in bounds (stripped on device), so guard the
+      // per-edge setup boundary here. u,v come from uint16_t face data (non-
+      // negative), so max(u,v) in bounds implies both endpoints are valid.
       HS_CHECK(static_cast<size_t>(std::max(u, v)) < mesh.vertices.size());
 
       draw_edge<W, H>(pipeline, canvas, mesh, u, v, edge_index, fragment_shader,
@@ -2007,9 +1935,9 @@ struct Mesh {
    */
   template <typename MeshT>
   static void extract_edges(const MeshT &mesh, ArenaVector<Edge> &edges) {
-    // Dedup bitset (1016 B) in the arena, not on the stack: this runs at setup
-    // on the deep mesh-build chain. The output `edges` lives in a separate arena
-    // (persistent), so scratch_arena_b here cannot disturb it.
+    // Dedup bitset (1016 B) in the arena, not the stack (deep setup chain). The
+    // output `edges` lives in a separate persistent arena, so scratch_arena_b
+    // cannot disturb it.
     ScratchScope visited_guard(scratch_arena_b);
     auto &visited = *new (scratch_arena_b.allocate(
         sizeof(TriangularBitset<DEDUP_CAPACITY>),

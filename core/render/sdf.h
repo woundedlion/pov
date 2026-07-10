@@ -62,14 +62,11 @@ template <typename A, typename B> struct SmoothUnion;
 template <typename A, typename B> struct Subtract;
 template <typename A, typename B> struct Intersection;
 
-/** Compile-time upper bound on the number of scanline spans a shape may emit to
- *  its parent in one row. A leaf shape is capped at INTERVAL_SPAN_CAP by its own
- *  IntervalBuffer. Union/SmoothUnion merge BOTH children into one
- *  MergedIntervalBuffer before any fallback decision, so their bound is the SUM
- *  of the children's (merging never grows the count). Union/SmoothUnion
- *  static_assert this sum against the buffer capacity so a nesting that would
- *  overflow MergedIntervalBuffer and trap at runtime is rejected at compile
- *  time instead. */
+/** Compile-time upper bound on the scanline spans a shape may emit to its parent
+ *  in one row. A leaf is capped at INTERVAL_SPAN_CAP; Union/SmoothUnion merge
+ *  both children into one MergedIntervalBuffer, so their bound is the SUM of the
+ *  children's, static_asserted against the buffer capacity to reject an
+ *  overflowing nesting at compile time. */
 template <typename T> struct sdf_max_spans {
   static constexpr size_t value = INTERVAL_SPAN_CAP;
 };
@@ -82,18 +79,16 @@ template <typename A, typename B> struct sdf_max_spans<SmoothUnion<A, B>> {
       sdf_max_spans<A>::value + sdf_max_spans<B>::value;
 };
 // Intersection seam-splits each child into a [0, W) frame, then merge-sweeps the
-// two start-sorted lists, emitting at most one span per advance. Only the single
-// span containing θ=0 can split, so each child grows by at most one, and the
-// sweep advances |norm_a| + |norm_b| times: bound |A| + |B| + 2.
+// two start-sorted lists (one span per advance). Each child grows by at most one
+// and the sweep advances |norm_a| + |norm_b| times: bound |A| + |B| + 2.
 template <typename A, typename B> struct sdf_max_spans<Intersection<A, B>> {
   static constexpr size_t value =
       sdf_max_spans<A>::value + sdf_max_spans<B>::value + 2;
 };
-// Subtract seam-splits each child into a [0, W) frame before differencing. Only
-// the single span containing θ=0 can split, so each child grows by at most one
-// (norm_a <= |A|+1, norm_b <= |B|+1). The set difference splits an A span once
-// per B span that falls inside it, and the B spans are disjoint, so the total
-// output is bounded by |norm_a| + |norm_b| = |A| + |B| + 2.
+// Subtract seam-splits each child into a [0, W) frame before differencing; each
+// child grows by at most one (norm_a <= |A|+1, norm_b <= |B|+1). The set
+// difference splits an A span once per enclosed (disjoint) B span, so the output
+// is bounded by |norm_a| + |norm_b| = |A| + |B| + 2.
 template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
   static constexpr size_t value =
       sdf_max_spans<A>::value + sdf_max_spans<B>::value + 2;
@@ -106,12 +101,9 @@ template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
  * @param buf Per-row interval buffer to append to.
  * @param start Interval start column (float).
  * @param end Interval end column (float).
- * @details The CSG ops and scan_region accumulate per-row intervals into a
- * fixed-capacity buffer. StaticCircularBuffer::push_back evicts the OLDEST entry
- * when full (correct for trails, wrong here) — so an overflow would silently
- * drop geometry. A row exceeding the capacity is a sizing bug (e.g. a deeply
- * nested CSG producing more disjoint spans than budgeted), so trap at the
- * violation site instead of dropping coverage (fail-fast).
+ * @details StaticCircularBuffer::push_back evicts the OLDEST entry when full
+ * (correct for trails, wrong here), so an overflow would silently drop geometry.
+ * A row exceeding capacity is a sizing bug, so trap at the violation site.
  */
 template <size_t N>
 inline void push_interval(StaticCircularBuffer<std::pair<float, float>, N> &buf,
@@ -123,9 +115,8 @@ inline void push_interval(StaticCircularBuffer<std::pair<float, float>, N> &buf,
 /**
  * @brief Insertion-sort an interval buffer in place by start coordinate.
  * @param buf Per-row interval buffer to sort in place.
- * @details Uses raw-pointer indexing (the buffer is freshly built, head == 0, so
- * it is contiguous from index 0), avoiding the per-access modulo. Shared by
- * merge_intervals and the Subtract set-difference.
+ * @details Raw-pointer indexing (buffer freshly built, head == 0, contiguous)
+ * avoids the per-access modulo. Shared by merge_intervals and Subtract.
  */
 template <size_t N>
 inline void
@@ -221,10 +212,9 @@ merge_intervals(StaticCircularBuffer<std::pair<float, float>, N> &merged,
  * @param x Angle in radians (any finite value).
  * @return Folded angle in [0, π].
  * @details cos is even and 2π-periodic, so fold the sign, reduce mod 2π, then
- *          reflect the upper half-period across the south pole. The single-
- *          reflection short form is only correct on [-π, 2π]; this full fold is
- *          what makes the "acosf(cosf(x))" equivalence hold for any input (e.g. a
- *          Ring radius > 2 driving center_phi ± target_angle past that range).
+ *          reflect the upper half-period across the south pole. The full fold
+ *          (not the [-π, 2π]-only short form) holds the equivalence for any input
+ *          (e.g. a Ring radius > 2 driving center_phi ± target_angle past range).
  */
 inline float clamp_phi(float x) {
   x = fabsf(x);             // cos(-x) = cos(x): fold negatives
@@ -272,18 +262,15 @@ struct Bounds {
  * @brief Result of a signed distance query.
  *
  * `dist` and `size` have fixed meanings, but `t`, `raw_dist` and `aux` are
- * deliberately overloaded per shape — each shape packs whatever supplementary
- * value its fragment shader needs into them, so the authoritative meaning for a
- * given shape is that shape's own "Returns:" docblock (e.g. Ring, Flower,
- * SphericalPolygon). The scan rasterizer copies them straight into the Fragment
- * register file with no reinterpretation (see Scan::process_pixel):
+ * overloaded per shape — the authoritative meaning is that shape's own "Returns:"
+ * docblock. The scan rasterizer copies them into the Fragment register file with
+ * no reinterpretation (see Scan::process_pixel):
  *   t        -> Fragment::v0
  *   raw_dist -> Fragment::v1
  *   aux      -> Fragment::v3
  *   size     -> Fragment::size
- * (Fragment::v2 is reserved and always 0 at this layer. Scan::Mesh injects a
- *  face index into Fragment::v2 downstream via a rasterizer wrapper — see
- *  scan.h and README §7.0 — so a shape's DistanceResult never carries v2.)
+ * (Fragment::v2 is reserved and always 0 here; Scan::Mesh injects a face index
+ *  downstream, so a shape's DistanceResult never carries v2.)
  */
 struct DistanceResult {
   float dist;        /**< Signed distance (negative inside); always this meaning. */
@@ -313,9 +300,8 @@ struct DistanceResult {
  * a static is_solid flag and an AA-falloff thickness.
  * @tparam T Candidate shape type.
  * @details The CSG combinators assert this on their children so a wrong-type
- * argument fails at the boundary, not deep inside the combinator body. distance()
- * and the scanline members vary by render path (the scanline-only test mocks omit
- * distance()) and are not part of the shared contract.
+ * argument fails at the boundary. distance() and the scanline members vary by
+ * render path and are not part of the shared contract.
  */
 template <typename T>
 concept SDFShape = requires(const T &t) {
@@ -399,12 +385,9 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
  * @param height Canvas height in rows.
  * @return Inclusive row bounds covering the band.
  * @details phi spans [0,π] over (h_virt-1) virtual rows; the lower edge floors
- * and the upper edge ceils so a partially-covered row is never dropped.
- * Out-of-range phi needs no pre-clamp: the row clamps fold a sub-0 lower edge to
- * 0 and a past-π upper edge to height-1. This runtime form is the single source
- * for the floor/ceil conversion — the templated `phi_bounds_to_rows<H>` and the
- * Face's construction-time bounds (which only know `h_virt`/`height` at runtime)
- * both route through it.
+ * and the upper edge ceils so a partially-covered row is never dropped, and the
+ * row clamps fold out-of-range phi. Single source for the floor/ceil conversion,
+ * routed through by `phi_bounds_to_rows<H>` and the Face's construction bounds.
  */
 inline Bounds phi_bounds_to_rows(float phi_min, float phi_max, int h_virt,
                                  int height) {
@@ -596,10 +579,10 @@ struct Ring {
     float C_target = (cos_target - ny_cos_phi) / denom;
     float scale = W / (2.0f * PI_F);
 
-    // Pole-wrap: when a band edge arc collapses within one column (2π/W) of a
-    // pole, emit_annular_band merges its two arcs but the centerline fast path
-    // below emits them unmerged, leaving a seam gap. cos decreases with angle,
-    // so the near edge cos_max gives the smaller angle.
+    // Pole-wrap: when a band edge arc collapses within one column of a pole,
+    // emit_annular_band merges its two arcs but the centerline fast path below
+    // emits them unmerged, leaving a seam gap. cos decreases with angle, so the
+    // near edge cos_max gives the smaller angle.
     float C_band_near = (cos_max - ny_cos_phi) / denom;
     float C_band_far = (cos_min - ny_cos_phi) / denom;
     float cos_pole = cosf(2.0f * PI_F / W);
@@ -615,9 +598,9 @@ struct Ring {
       // -ffast-math (sqrtf(NaN)); the floor also caps half_width on grazing rows.
       float sin_cross = sqrtf(std::max(1.0f - C_target * C_target, 1e-6f));
       float acos_C = fast_acos(C_target);
-      // Full thickness: the scan interval must span the stroke-AA footprint,
-      // which process_pixel derives from full `size`; an inset here clips the
-      // outermost AA column on grazing rows.
+      // Full thickness: the scan interval must span the stroke-AA footprint
+      // process_pixel derives from full `size`, else the outermost AA column
+      // clips on grazing rows.
       float half_width = thickness * sin_target / (denom * sin_cross);
 
       float hw_px = half_width * scale;
@@ -625,7 +608,7 @@ struct Ring {
       float t2 = (alpha_angle + acos_C) * scale;
 
       // Both padded twin arcs can straddle θ=0; the seam merge is left to
-      // scan_region's [0,W) wrap/coalesce pass (mirrors pole_wrap above).
+      // scan_region's [0,W) wrap/coalesce pass.
       out(floorf(t1 - hw_px), ceilf(t1 + hw_px));
       out(floorf(t2 - hw_px), ceilf(t2 + hw_px));
       return true;
@@ -716,10 +699,9 @@ struct DistortedRing {
    * @param th Half-width of the stroke (radians).
    * @param sf Per-azimuth centerline shift function, t in [0,1) -> radians.
    * @param md Maximum magnitude of sf over t in [0,1) (radians). PRECONDITION:
-   *           md must be a true upper bound on |sf|. It widens the row, column,
-   *           and per-pixel reject bands, so an underestimate silently culls
-   *           genuine arcs. Callers pass the analytic amplitude of their shift
-   *           function; the bound is pinned by the cull tests, not checked here.
+   *           md must be a true upper bound on |sf|. It widens the reject bands,
+   *           so an underestimate silently culls genuine arcs. Pinned by the cull
+   *           tests, not checked here.
    * @param ph Azimuth phase offset (radians).
    */
   DistortedRing(const Basis &b, float r, float th, ScalarFn sf, float md,
@@ -915,8 +897,8 @@ template <typename A, typename B> struct Union {
 
     // Emitted spans may straddle θ=0 and are not seam-normalized to [0,W): the
     // union merge is frame-tolerant, so scan_region's wrap+coalesce is the seam
-    // authority. Subtract/Intersection normalize first only because their
-    // pairwise span comparison is frame-sensitive.
+    // authority (Subtract/Intersection normalize first because their pairwise
+    // span comparison is frame-sensitive).
     merge_intervals(merged, out);
     return true;
   }
@@ -1050,8 +1032,8 @@ template <typename A, typename B> struct SmoothUnion {
 
     // Emitted spans may straddle θ=0 and are not seam-normalized to [0,W): the
     // union merge is frame-tolerant, so scan_region's wrap+coalesce is the seam
-    // authority. Subtract/Intersection normalize first only because their
-    // pairwise span comparison is frame-sensitive.
+    // authority (Subtract/Intersection normalize first because their pairwise
+    // span comparison is frame-sensitive).
     merge_intervals(merged, out);
     return true;
   }
@@ -1166,13 +1148,11 @@ template <typename A, typename B> struct Subtract {
     // start-sorted intervals; a multi-interval child can emit them out of order.
     sort_intervals_by_start(intervals_a);
 
-    // A stroke subtrahend's edge-bands can coalesce into one chord interval that
-    // spans the stroke's hollow interior; subtracting that would carve A's
-    // interior, and scan_region never re-fills the skipped columns. So for a
-    // non-solid B, emit A's spans (seam-split into [0, W)) and let per-pixel
-    // max(A, -B) carve exactly the stroke band. Cost note: the carve gets no
-    // horizontal culling, so Subtract<solid, stroke> pays full A-coverage shading
-    // — the expensive CSG combination.
+    // A stroke subtrahend's edge-bands can coalesce into one chord spanning the
+    // stroke's hollow interior; subtracting that would carve A's interior. So for
+    // a non-solid B, emit A's spans (seam-split into [0, W)) and let per-pixel
+    // max(A, -B) carve exactly the stroke band — with no horizontal culling, so
+    // Subtract<solid, stroke> pays full A-coverage shading.
     if constexpr (!B::is_solid) {
       constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
       static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP,
@@ -1194,10 +1174,7 @@ template <typename A, typename B> struct Subtract {
     if (!has_b)
       return false;
 
-    // B produced no intervals: it removes nothing, so pass A through raw. The
-    // difference branches seam-split into [0, W) only because their in-frame
-    // comparison needs it; emitted spans need not lie in [0, W) — scan_region is
-    // the seam authority and wraps/splits them.
+    // B produced no intervals: it removes nothing, so pass A through raw.
     if (intervals_b.is_empty()) {
       for (size_t i = 0; i < intervals_a.size(); ++i)
         out(intervals_a[i].first, intervals_a[i].second);
@@ -1205,19 +1182,16 @@ template <typename A, typename B> struct Subtract {
     }
 
     // Normalize both children into [0, W) (seam-split) before differencing: a
-    // band straddling θ=0 can be emitted by A and B in different wrap frames
-    // (A as [-5, 5], B as [W-5, W+5]), and the raw-coordinate disjointness test
-    // below would then miss the overlap and under-carve at the seam. Splitting
-    // into a common [0, W) frame makes the comparison correct. Seam-splitting at
-    // most doubles each child's span count, so the buffers are sized 2x.
+    // band straddling θ=0 can be emitted by A and B in different wrap frames, and
+    // the raw-coordinate disjointness test below would then miss the overlap and
+    // under-carve at the seam. Seam-splitting at most doubles each child's span
+    // count, so the buffers are sized 2x.
     //
-    // Output bound: the set difference splits an A span once per enclosed B span,
-    // and the B spans are disjoint, so it emits at most |norm_a| + |norm_b| spans
-    // (the sdf_max_spans<Subtract> bound). The top-level consumer is scan_region's
-    // `intervals` buffer (2*INTERVAL_SPAN_CAP). The conservative bound can exceed
-    // that, but only one span per child actually straddles θ=0 in a row, so the
-    // real maximum is sdf_max_spans<A> + sdf_max_spans<B> + 2; reaching even
-    // 2*INTERVAL_SPAN_CAP would require both children to emit INTERVAL_SPAN_CAP
+    // Output bound: the set difference splits an A span once per enclosed B span
+    // (B spans disjoint), so at most |norm_a| + |norm_b| spans. Only one span per
+    // child straddles θ=0 in a row, so the real maximum is
+    // sdf_max_spans<A> + sdf_max_spans<B> + 2; reaching even 2*INTERVAL_SPAN_CAP
+    // would require both children to emit INTERVAL_SPAN_CAP
     // disjoint arcs in a single row, which no SDF shape does. push_interval traps
     // (fail-fast) if that ever holds.
     constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
@@ -1460,12 +1434,10 @@ template <typename A, typename B> struct Intersection {
  * @details Folds the azimuthal angle to create N copies of a shape around an
  * arbitrary axis for constant cost (a single distance evaluation).
  *
- * UV semantics: because distance() evaluates the child at the *folded* point,
- * the child's UV registers (DistanceResult.t / Fragment::v0, the azimuth for
- * rings) are sector-local, not global — t measures azimuth within one sector
- * and resets discontinuously at every sector boundary. This is intentional
- * (each copy reuses the child's full UV range); shaders keying off t see the
- * per-copy azimuth, not the global one.
+ * UV semantics: distance() evaluates the child at the *folded* point, so the
+ * child's UV registers (DistanceResult.t / Fragment::v0) are sector-local — t
+ * measures azimuth within one sector and resets at every sector boundary (each
+ * copy reuses the child's full UV range).
  */
 template <typename Shape> struct AngularRepeat {
   const Shape &shape; /**< Child shape being repeated. */
@@ -1582,20 +1554,18 @@ template <typename Shape> struct AngularRepeat {
 
 // --- Congruence-class canonical distance LUTs --------------------------------
 // Every islamic mesh's faces are near-exact copies of a handful of canonical 2D
-// shapes (gnomonic projection about each face's own centroid is
-// position-covariant, so congruence is frame-invariant). MeshOps bakes one
-// signed-distance LUT per congruence class at spawn (core/mesh/mesh_classes.h);
-// Scan::Mesh binds it to each Face per frame via bind_class_lut, and
-// Face::distance serves sign-pure interior/exterior probes from a bilinear
-// lookup instead of the exact per-edge walk.
+// shapes (gnomonic projection about each face's centroid is position-covariant).
+// MeshOps bakes one signed-distance LUT per congruence class at spawn
+// (core/mesh/mesh_classes.h); Scan::Mesh binds it per frame via bind_class_lut,
+// and Face::distance serves sign-pure probes from a bilinear lookup instead of
+// the exact per-edge walk.
 
 /** Minimum squared normalized correlation for a valid class-LUT alignment;
  *  below this the face is too deformed and keeps the exact path. */
 static constexpr float ALIGN_MIN_CORR_SQ = 0.25f;
 /** Maximum per-vertex deviation from the aligned canonical shape (as a multiple
- *  of the LUT cell diagonal) before a face keeps the exact path. Widening it
- *  bounds the canonical field's value error but swallows the interior on concave
- *  shapes; the facility fits only meshes that hold still per spawn (mesh_classes.h). */
+ *  of the LUT cell diagonal) before a face keeps the exact path. The facility
+ *  fits only meshes that hold still per spawn (mesh_classes.h). */
 static constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
 
 /**
@@ -2164,12 +2134,11 @@ struct Face {
    * @param reflected True for the mirror family.
    * @return False when the correlation is degenerate (badly deformed face);
    *         the face then keeps the exact path.
-   * @details One complex correlation over the vertices (~4 flops each)
-   * recovers the in-plane rotation placing the canonical shape at the face's
-   * least-squares pose, so the interior gradient follows the face's rigid
-   * motion through a ripple while edges stay exact (per-frame poly_2d).
-   * Rotational-symmetry ambiguity is harmless: the LUT is invariant under the
-   * shape's own symmetry group.
+   * @details One complex correlation over the vertices recovers the in-plane
+   * rotation placing the canonical shape at the face's least-squares pose, so the
+   * interior gradient follows the face's rigid motion through a ripple while edges
+   * stay exact. Rotational-symmetry ambiguity is harmless (the LUT is invariant
+   * under the shape's symmetry group).
    */
   bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
                       int vert_offset, bool reflected) {
@@ -2193,14 +2162,11 @@ struct Face {
     float inv_r = 1.0f / sqrtf(r2);
     float c = a.rr * inv_r, s = a.ri * inv_r;
 
-    // A rippled face deviates from its rigidly-aligned canonical shape, and
-    // the canonical field is only trustworthy where the true polygon cannot
-    // disagree with it: |d_true - d_canon| is bounded by the worst aligned
-    // vertex deviation (the true face IS the polygon of the deviated
-    // vertices). Widen the sign-purity guard by that bound so a bent face
-    // falls back to the exact walk near its true edges instead of serving
-    // wrong-signed canonical distances (visible as faces separating under
-    // ripple). Faces bent beyond the useful range keep the exact path.
+    // |d_true - d_canon| is bounded by the worst aligned vertex deviation, so
+    // widen the sign-purity guard by that bound: a bent face falls back to the
+    // exact walk near its true edges instead of serving wrong-signed canonical
+    // distances (faces separating under ripple). Faces bent beyond range keep the
+    // exact path.
     float max_dev_sq = 0.0f;
     {
       int j = vert_offset;
@@ -2250,11 +2216,8 @@ struct Face {
    * @brief Computes the face's azimuth coverage intervals.
    * @param scratch Scratch storage holding thetas and receiving intervals.
    * @details Finds the largest angular gap between vertices; if it exceeds pi the
-   * face does not wrap, so the complementary horizontal interval(s) are emitted.
-   * Otherwise the face spans the full width.
-   *
-   * Intentionally coarse: only the single largest gap can be excised, so a face
-   * with no gap wider than pi is treated as full-width and the scan over-covers.
+   * face does not wrap, so the complementary horizontal interval(s) are emitted,
+   * else it spans full width. Coarse: only the single largest gap is excised.
    */
   __attribute__((always_inline)) void
   compute_azimuth_intervals(FaceScratchBuffer &scratch) {
@@ -2589,11 +2552,9 @@ struct Face {
    *        raw_dist = the signed edge distance, size = inradius (gnomonic
    *        plane units).
    * @note Distances live in the face's gnomonic tangent plane. Small faces
-   *       (linear_dist) report the plane distance directly — tan(angle) ~
-   *       angle within the AA band and to within size^2/3 of the shading
-   *       gradient. Large faces convert via fast_atan2(plane, 1), keeping
-   *       their atan-compressed gradient. Do not treat raw_dist as a metric
-   *       geodesic angle.
+   *       (linear_dist) report the plane distance directly; large faces convert
+   *       via fast_atan2(plane, 1). Do not treat raw_dist as a metric geodesic
+   *       angle.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -2621,9 +2582,8 @@ struct Face {
     if (lut_data) {
       // Affine map into the canonical LUT grid, then a 4-tap bilinear fetch.
       // Only sign-pure cells at least one cell diagonal from the boundary are
-      // served; the AA fringe and sign-unsafe cells fall back to the exact
-      // walk on the TRUE per-frame edges, so silhouettes and edge AA are
-      // unaffected by the canonical approximation.
+      // served; the AA fringe and sign-unsafe cells fall back to the exact walk
+      // on the TRUE per-frame edges.
       float fx = lut_ax * px + lut_bx * py + lut_cx;
       float fy = lut_ay * px + lut_by * py + lut_cy;
       fx = hs::clamp(fx, 0.0f, lut_clamp);
@@ -2656,9 +2616,8 @@ struct Face {
           convex ? plane_dist_convex(px, py) : plane_dist_exact(px, py);
     }
 
-    // Small faces skip the plane->angle conversion: tan(angle) ~ angle to
-    // within size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
-    // Large faces keep the atan-compressed gradient their look is tuned on.
+    // Small faces skip the plane->angle conversion: tan(angle) ~ angle to within
+    // size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
     float raw = linear_dist ? plane_dist : fast_atan2(plane_dist, 1.0f);
     res = DistanceResult(raw - thickness, 0.0f, raw, 0.0f, size);
   }
@@ -2828,9 +2787,8 @@ struct SphericalPolygon {
     if (len > 1e-9f) {
       en = en * (1.0f / len);
     } else {
-      // Degenerate canonical edge (circumradius near 0 or PI, or a near-collinear
-      // low-sides polygon): both limits drive en toward ±u, so substitute the
-      // sector bisector as a defined unit normal and collapse to center.
+      // Degenerate canonical edge (circumradius near 0 or PI): both limits drive
+      // en toward ±u, so substitute the sector bisector as a defined unit normal.
       en = basis.u;
     }
     // Ensure outward: dot(center, n) should be negative
@@ -3310,9 +3268,8 @@ struct Line {
 
     float dist_seg = 0.0f;
     // Two geodesic metrics, C0-continuous at the join: in-segment the foot lies
-    // on the arc so asinf(|d_plane|) (perpendicular to the great circle) is exact;
-    // past an endpoint the closest point is that cap. Using asinf(|d_plane|) alone
-    // would measure the whole great circle and lose the caps.
+    // on the arc so asinf(|d_plane|) is exact; past an endpoint the closest point
+    // is that cap (asinf(|d_plane|) alone would measure the whole great circle).
     if (ang_a + ang_b <= len + 1e-4f) {
       dist_seg = asinf(std::abs(d_plane));
     } else {
@@ -3394,9 +3351,9 @@ struct Torus {
    * @param p Query point in Cartesian ray-space.
    * @param frag Output fragment; v0 = ring angle (0-1, for palette lookup),
    *        v1/v2/v3 = surface normal (x, y, z).
-   * @note This is the volumetric register convention (README "Volumetric
-   *        Path"), distinct from the SDF-scanline register table — writing the
-   *        normal into v2 here does not violate that path's "v2 reserved" rule.
+   * @note Volumetric register convention (README "Volumetric Path"), distinct
+   *        from the SDF-scanline register table — the normal in v2 here does not
+   *        violate that path's "v2 reserved" rule.
    */
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
@@ -3429,10 +3386,8 @@ struct Twist {
    * @param twist_ Number of oscillations around the ring.
    * @param amplitude_ Vertical displacement magnitude.
    * @param R_ Major radius; must be > 0. lipschitz() divides by
-   *        std::max(s, R*0.5f), so a degenerate R == 0 floors the divisor to 0
-   *        on the XZ axis and yields a div-by-zero gamma. Guarded at the
-   *        (cold) construction site like Star/AngularRepeat's sides>0 checks,
-   *        not per-call on the sphere-tracing hot path.
+   *        std::max(s, R*0.5f), so R == 0 yields a div-by-zero gamma on the XZ
+   *        axis. Guarded at the cold construction site, not per-call.
    */
   Twist(int twist_, float amplitude_, float R_)
       : twist(twist_), amplitude(amplitude_), R(R_) {
@@ -3587,9 +3542,9 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @brief Populates a Fragment's registers for shading.
    * @param p Query point in Cartesian ray-space.
    * @param frag Output fragment; v0 = ring angle (0-1), v1/v2/v3 = surface normal.
-   * @note This is the volumetric register convention (README "Volumetric
-   *        Path"), distinct from the SDF-scanline register table — writing the
-   *        normal into v2 here does not violate that path's "v2 reserved" rule.
+   * @note Volumetric register convention (README "Volumetric Path"), distinct
+   *        from the SDF-scanline register table — the normal in v2 here does not
+   *        violate that path's "v2 reserved" rule.
    */
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
