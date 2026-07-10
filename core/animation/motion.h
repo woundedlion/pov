@@ -411,10 +411,11 @@ public:
         easing_fn(static_cast<float>(this->t) / this->duration) * total_angle;
     float delta = target_angle - last_angle;
 
-    if (std::abs(delta) < TOLERANCE) {
-      // Leave last_angle untouched so this sub-threshold increment accumulates
-      // into delta and is applied once the sum crosses TOLERANCE; advancing it
-      // would freeze very slow rotations.
+    // Sub-threshold increments accumulate across a multi-frame sweep: last_angle
+    // persists until the sum crosses TOLERANCE. A one-shot (duration 1, the
+    // animate() path) has no next frame to accumulate into, so it must apply
+    // unconditionally or a very slow per-frame driver freezes forever.
+    if (this->duration > 1 && std::abs(delta) < TOLERANCE) {
       return;
     }
 

@@ -124,7 +124,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 3. ✅ **`Face::clip_rejects` uses a narrower AA pad than `get_horizontal_intervals`, contradicting its own comment** — `core/render/sdf.h:1908`.
    `clip_rejects` widens each azimuth interval by `2π/W` (one pixel) while `get_horizontal_intervals` widens by `1.25·(2π/W)` (one pixel + `fast_atan2` slop). A face whose reach falls in that 0.25px gap can be whole-face-culled on segmented/clipped renders, silently dropping an edge column. Fix: make `clip_rejects` use `pw = 1.25f * (2.0f * PI_F / Wd)` so the emit/cull windows agree exactly.
 
-4. **`RandomWalk` silently freezes when the per-frame angle is below `TOLERANCE`** — `core/animation/motion.h:594`.
+4. ✅ **`RandomWalk` silently freezes when the per-frame angle is below `TOLERANCE`** — `core/animation/motion.h:594`.
    `RandomWalk::step()` calls `Rotation::animate()`, which constructs a fresh one-shot `Rotation` (with `last_angle=0`) each frame. `Rotation::step()`'s sub-`TOLERANCE` accumulation relies on `last_angle` persisting across frames; with a new object per frame, any `options.speed` below `1e-4` rad/frame is dropped forever — the exact "freeze very slow rotations" case the mechanism exists to prevent. Reachable via the public `set_speed()`. Fix: drive the `Orientation` directly (unconditional `make_rotation`) or give `RandomWalk` a persistent `Rotation<W,CAP>` member.
 
 5. **`Ripple` with duration 0 or 1 never becomes visible** — `core/animation/params.h:707`.
