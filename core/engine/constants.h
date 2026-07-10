@@ -39,10 +39,9 @@ struct ClipRegion {
    * @return First render row (inclusive), in pixels.
    * @details Only the low side is clamped: `y_start - margin` can underflow past
    *          0, but no high-side clamp is needed because `y_start <= h` holds by
-   *          the driver's display-bounds invariant (with `margin >= 0`). That
-   *          same invariant gives `y_start <= y_end`, so paired with render_y_end
-   *          the result range never inverts — there is deliberately no separate
-   *          `y_start <= y_end` guard here, only the two single-sided clamps.
+   *          the driver's display-bounds invariant (with `margin >= 0`). That same
+   *          invariant gives `y_start <= y_end`, so paired with render_y_end the
+   *          range never inverts; only the two single-sided clamps are needed.
    */
   int render_y_start() const { return y_start - margin > 0 ? y_start - margin : 0; }
   /**
@@ -56,13 +55,10 @@ struct ClipRegion {
    * @brief Render-region left edge: display left expanded by `margin`, wrapped mod w (cylindrical).
    * @return First render column, in pixels, in [0, w).
    * @pre margin < w. The single `+ w` corrects only one period of underflow, so
-   *      the [0, w) result holds only while margin <= x_start + w. The
-   *      Canvas::set_margin trap is the stricter `margin < w`, which is
-   *      *sufficient* for that precondition rather than weaker: since
-   *      x_start >= 0, `margin < w` implies `margin < x_start + w` (strictly
-   *      stronger whenever x_start > 0, exactly the bound when x_start == 0).
-   *      Kept single-period (not a double-mod) to avoid extra work on the
-   *      per-fragment contains_x() path.
+   *      the [0, w) result holds only while margin <= x_start + w; the
+   *      Canvas::set_margin trap's stricter `margin < w` is sufficient since
+   *      x_start >= 0. Kept single-period (not a double-mod) to avoid extra work on
+   *      the per-fragment contains_x() path.
    */
   int render_x_start() const { return (x_start - margin + w) % w; }
   /**
@@ -107,10 +103,9 @@ struct ClipRegion {
   /**
    * @brief Precomputed cylindrical x-clip predicate built once per draw, then queried per fragment.
    * @details The full-coverage case (display width + both margins >= w) and the
-   *          wrap-to-full case (a sub-arc whose margin expansion sums to exactly
-   *          w, so rs == re) both fold into `active == false`, so hot loops
-   *          can't accidentally blank a full segment by treating rs == re as an
-   *          empty band.
+   *          wrap-to-full case (rs == re) both fold into `active == false`, so hot
+   *          loops can't accidentally blank a full segment by treating rs == re as
+   *          an empty band.
    */
   struct XClip {
     int  rs     = 0;     /**< Render band start column, in pixels, in [0, w). */

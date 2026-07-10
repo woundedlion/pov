@@ -16,24 +16,17 @@
 
 // Device/simulator arena budget is 330 KiB. The native unit-test build
 // (HS_TEST_BUILD) widens it so the effect smoke harness can exercise every
-// effect's full render path regardless of per-effect arena tuning; the device
-// footprint is unchanged. NOTE: the native harness is a 64-bit build, so
-// per-effect arena footprints measured there can be LARGER than on the 32-bit
-// device wherever a pooled struct embeds a POINTER (8 B host / 4 B device:
-// ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut_). Index/count
-// widths match across builds — StaticCircularBuffer uses uint32_t, so the big
-// pooled structs (Particle/VectorTrail/OrientationTrail) are byte-identical on
-// both builds. Pointer-bearing container HEADERS are not multiplied across pool
-// elements, so the residual host/device delta is small but nonzero; do not
-// treat the host high-water mark as an exact device figure. Effects tune their
-// own split via configure_arenas() to fit the device budget.
-// The real device FlexRAM (RAM1) arena. Sized from the measured worst-effect
+// effect's full render path; the device footprint is unchanged. The native
+// harness is a 64-bit build, so per-effect footprints measured there can be
+// LARGER than on the 32-bit device wherever a pooled struct embeds a POINTER
+// (ArenaVector's data ptr, Fn's callable ptr, BakedPalette::lut_); do not treat
+// the host high-water mark as an exact device figure. Effects tune their own
+// split via configure_arenas() to fit the device budget.
+// The real device FlexRAM (RAM1) arena, sized from the measured worst-effect
 // high-water (tests/arena_measure.cpp): MindSplatter is the binding tenant at
-// ~327 KiB persistent + a 6 KiB scratch carve. 330 KiB clears that with the
-// MindSplatter pool's compile-time margin intact while returning ~5 KiB of RAM1
-// to the stack. A distinct always-defined constant (not the host-inflated
-// GLOBAL_ARENA_SIZE below) so device-budget static_asserts — MindSplatter's
-// particle pool — check the real figure even in the host suite.
+// ~327 KiB persistent + a 6 KiB scratch carve. A distinct always-defined constant
+// (not the host-inflated GLOBAL_ARENA_SIZE below) so device-budget static_asserts
+// check the real figure even in the host suite.
 constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = 330 * 1024;
 #ifdef HS_TEST_BUILD
 constexpr size_t GLOBAL_ARENA_SIZE = 8 * 1024 * 1024;
@@ -88,12 +81,9 @@ public:
    * @param align Required alignment in bytes; defaults to max_align_t.
    * @return Pointer into the buffer for the allocated block.
    * @details Traps (HS_CHECK) on over-allocation rather than returning null.
-   * Updates the high-water mark. `size` must be > 0: a zero-size request would
-   * return a valid bump pointer that reserves no storage (it aliases the next
-   * allocation's address), so a caller treating it as ownable would silently
-   * overlap. Every real caller passes a positive byte count (ArenaVector::bind
-   * guards `exact_capacity > 0` before calling), so trap a zero request as the
-   * misuse it is rather than hand back a non-owning pointer.
+   * Updates the high-water mark. `size` must be > 0: a zero-size request returns a
+   * bump pointer that reserves no storage (it aliases the next allocation's
+   * address), so it is trapped as misuse rather than handed back as ownable.
    */
   void *allocate(size_t size, size_t align = alignof(std::max_align_t)) {
     HS_CHECK(size > 0, "Arena::allocate: zero-size request");
@@ -148,14 +138,12 @@ public:
   /**
    * @brief Rewinds the offset to a previously saved mark.
    * @param new_offset Offset to rewind to; must be <= the current offset.
-   * @details A mark is only valid as a rewind target: jumping the offset
-   * *forward* would hand out backing bytes that were never reserved by an
-   * allocate() call. Trap any non-rewind at the source rather than letting it
-   * silently resurrect or over-run storage. (new_offset <= offset also implies
-   * new_offset <= capacity, preserving the no-wrap bounds math in allocate().)
-   * Alignment is not re-checked here: allocate() recomputes leading padding from
-   * the true address on every call, so restoring an unaligned mark (e.g. a
-   * ScratchScope save) is safe — the next allocation realigns itself.
+   * @details A mark is only valid as a rewind target: jumping the offset *forward*
+   * would hand out backing bytes never reserved by an allocate() call, so any
+   * non-rewind traps. (new_offset <= offset also implies new_offset <= capacity,
+   * preserving the no-wrap bounds math in allocate().) Alignment is not re-checked:
+   * allocate() recomputes leading padding from the true address on every call, so
+   * restoring an unaligned mark is safe.
    */
   void set_offset(size_t new_offset) {
     HS_CHECK(new_offset <= offset);
@@ -217,11 +205,10 @@ public:
  * Total storage: MAX_V * (MAX_V - 1) / 2 bits.
  */
 template <int MAX_V> struct TriangularBitset {
-  // BITS (here) and index() below both form an intermediate product on the
-  // order of MAX_V^2 in `int` before halving. For MAX_V >= ~46341 that product
-  // overflows int32 and silently corrupts the bit layout. No current
-  // instantiation is anywhere near this; the static_assert pins the ceiling so
-  // a future large-mesh instantiation fails at compile time, not at runtime.
+  // BITS (here) and index() below form an intermediate product ~MAX_V^2 in `int`;
+  // for MAX_V >= ~46341 that overflows int32 and corrupts the bit layout. The
+  // static_assert pins the ceiling so a future large-mesh instantiation fails at
+  // compile time, not at runtime.
   static_assert(static_cast<long long>(MAX_V) * MAX_V <= INT_MAX,
                 "TriangularBitset: MAX_V too large; index() product overflows int");
   static constexpr int BITS = MAX_V * (MAX_V - 1) / 2;
@@ -242,13 +229,9 @@ template <int MAX_V> struct TriangularBitset {
    */
   static int index(int small, int large) {
     // The triangular layout is only valid for an ordered, in-range pair: a
-    // swapped pair silently aliases the wrong bit (dedup corruption) and an
-    // out-of-range one writes adjacent memory. HS_CHECK (survives NDEBUG, traps
-    // on device) matches every sibling write primitive in memory.h, so an
-    // unordered or out-of-range caller fails fast instead of corrupting memory.
-    // index() feeds test()/test_and_set() on the per-edge mesh-dedup setup path
-    // (plot.h draw()), not a per-pixel loop, and that caller already runs
-    // always-on HS_CHECKs alongside it, so the guard is contract-appropriate.
+    // swapped pair aliases the wrong bit (dedup corruption) and an out-of-range
+    // one writes adjacent memory. HS_CHECK (survives NDEBUG) fails fast; this runs
+    // on the per-edge mesh-dedup setup path (plot.h draw()), not a per-pixel loop.
     HS_CHECK(small >= 0 && small < large && large < MAX_V);
     return small * (2 * MAX_V - small - 1) / 2 + (large - small - 1);
   }
@@ -289,10 +272,9 @@ template <int MAX_V> struct TriangularBitset {
 /**
  * @brief Whether T is a sanctioned inline callable safe to store in an
  * ArenaVector despite not being trivially destructible.
- * @details hs::inplace_function owns only its inline buffer, and Fn<>'s captures
+ * @details hs::inplace_function owns only its inline buffer and Fn<>'s captures
  * are required to be trivial, so its erased destructor frees nothing outside the
- * arena. Device (ARDUINO) has no STL heap, so the leak this guards is host/WASM
- * only; the trait and its static_assert are scoped there.
+ * arena. Device (ARDUINO) has no STL heap, so this trait is host/WASM-scoped.
  */
 template <typename T> struct is_arena_inplace_fn : std::false_type {};
 template <typename R, typename... Args, size_t Cap, size_t Align>
@@ -303,20 +285,16 @@ struct is_arena_inplace_fn<hs::inplace_function<R(Args...), Cap, Align>>
 /**
  * @brief Fixed-capacity, arena-backed vector. Move-only; no dynamic growth.
  * @tparam T Element type; must satisfy the element destructor contract below.
- * @details ELEMENT DESTRUCTOR CONTRACT: ArenaVector deliberately does NOT run
- * element destructors. clear(), move, move-assign, and going out of scope all
- * leave stored elements un-destructed — storage is owned and reclaimed by the
- * arena (reset/compaction), not by this handle. This is a hard requirement of
- * the arena model, not an oversight: an arena can be reset out from under a
- * still-live ArenaVector (see bind()'s stale-binding handling), so a
- * handle-driven destructor pass could run on already-reclaimed memory.
- * Consequently, only store types whose destructor need not run for correctness
- * — trivially-destructible PODs, or Fn<> (inline-storage on both backends) whose
- * stored captures are themselves trivial, so the callable owns no external
- * resource regardless of size. A type that owns heap/handles outside the arena
- * must not be stored in an ArenaVector — notably a raw std::function, which
- * heap-allocates any capture past its small-buffer size and would leak when this
- * handle skips its destructor.
+ * @details ELEMENT DESTRUCTOR CONTRACT: ArenaVector does NOT run element
+ * destructors — clear(), move, move-assign and going out of scope all leave
+ * stored elements un-destructed. Storage is owned and reclaimed by the arena
+ * (reset/compaction), not by this handle, and an arena can be reset out from
+ * under a still-live ArenaVector (see bind()'s stale-binding handling), so a
+ * handle-driven destructor pass could run on already-reclaimed memory. Only store
+ * types whose destructor need not run for correctness: trivially-destructible
+ * PODs, or Fn<> whose stored captures are themselves trivial. A type owning
+ * heap/handles outside the arena must not be stored here — notably a raw
+ * std::function, which would leak when this handle skips its destructor.
  */
 template <typename T> class ArenaVector {
   // ArenaSpan borrows our backing data and (in debug builds) our arena
@@ -627,12 +605,10 @@ public:
   /**
    * @brief Returns a pointer to the backing storage.
    * @return Mutable pointer to the first element, or nullptr if unbound/empty.
-   * @details No check_bound() on data()/begin()/end() on purpose: an unbound
-   * (or moved-from) vector is data_==nullptr with size_==0, i.e. a well-defined
-   * EMPTY range. Callers rely on that idiom — mesh.h/spatial.h's *_data()
-   * accessors, std::span(vertices.data(), size()), and std::sort(data(),
-   * data()+count) all pass these on a size-0 vector. A bound-precondition here
-   * would false-fire on correct code. The use-after-free guard (check_alive)
+   * @details No check_bound() on data()/begin()/end() on purpose: an unbound (or
+   * moved-from) vector is data_==nullptr with size_==0, a well-defined EMPTY range
+   * that callers rely on (std::span(vertices.data(), size()), std::sort(data(),
+   * data()+count) on a size-0 vector). The use-after-free guard (check_alive)
    * still applies.
    */
   T *data() {
@@ -691,21 +667,15 @@ public:
 /**
  * @brief A read-only, non-owning view into arena-allocated data.
  * @tparam T Element type viewed by the span.
- * @details Makes the distinction between owned (ArenaVector) and borrowed data
- * visible at the type level.
+ * @details Makes owned (ArenaVector) vs borrowed data visible at the type level.
  *
  * LIFETIME CONTRACT: a span snapshots its source vector's data_ pointer at
- * construction. In debug builds two independent stamps fault on a stale span:
- * the arena generation catches an arena RESET out from under the span, and the
- * source vector's per-vector rebind counter catches a bind()-driven RE-GROW (a
- * grow allocates a fresh block and rebinds data_ WITHOUT bumping the arena
- * generation, so the rebind counter is the only signal). Re-taking the span
- * after a grow is still the right pattern; the counter just converts a silent
- * dangle into a debug fault.
- *
- * A MOVE of the source vector is not tracked: the span keeps its snapshotted
- * data_ (runtime-safe), but its debug stamps reference the moved-from husk, so
- * re-take the span after moving its source.
+ * construction. In debug builds two independent stamps fault on a stale span: the
+ * arena generation catches an arena RESET, and the source vector's per-vector
+ * rebind counter catches a bind()-driven RE-GROW (a grow rebinds data_ WITHOUT
+ * bumping the arena generation). A MOVE of the source vector is not tracked: the
+ * span keeps its snapshotted data_ (runtime-safe) but its debug stamps reference
+ * the moved-from husk, so re-take the span after growing or moving its source.
  */
 template <typename T> class ArenaSpan {
   const T *data_; /**< Snapshotted pointer to the borrowed data. */
@@ -769,12 +739,9 @@ public:
 
   /**
    * @brief Copy and copy-assignment duplicate the borrow verbatim.
-   * @details Explicitly defaulted (not left implicit) to document intent: a span
-   * copy carries the same data pointer, size, and — in debug — the source's
-   * lifetime stamps, so the copy trips the same staleness check as the original.
-   * "Re-take the same view" is the supported pattern; only construction from a
-   * temporary ArenaVector (above) is forbidden, since copying an existing,
-   * already-validated span borrows nothing new.
+   * @details A span copy carries the same data pointer, size, and (in debug) the
+   * source's lifetime stamps, so the copy trips the same staleness check as the
+   * original. Only construction from a temporary ArenaVector (above) is forbidden.
    */
   ArenaSpan(const ArenaSpan &) = default;
   ArenaSpan &operator=(const ArenaSpan &) = default;
@@ -866,18 +833,12 @@ struct ScratchScope {
   ScratchScope(Arena &a) : arena(a), saved_offset(a.get_offset()) {}
   /**
    * @brief Destroys the scope, rewinding the arena to the saved offset.
-   * @details Enforces LIFO scope discipline before rewinding. A bump allocator
-   * makes stack-nested scopes on the SAME arena always safe: an inner scope
-   * saves a mark above the outer's allocations and rewinds to exactly where they
-   * end, so nesting never clobbers a live allocation. That safety holds for ALL
-   * stack-nested uses (e.g. the multiple scratch_arena_a scopes Plot::rasterize
-   * and Pixel::Feedback::flush hold) — the ONE way to break it is non-LIFO
-   * teardown: a scope rewinding while a still-live inner allocation, or an outer
-   * scope, sits above it. That shows up here as the arena offset having dropped
-   * BELOW saved_offset (an outer rewind or reset() ran while this scope was
-   * live). Trap it instead of letting set_offset() resurrect freed bytes. This
-   * is the structural enforcement of the scratch-arena temporal-overlap contract
-   * documented at Pixel::Feedback::flush (filter.h) and Plot::rasterize.
+   * @details Enforces LIFO scope discipline before rewinding. Stack-nested scopes
+   * on the SAME arena are always safe: an inner scope rewinds to exactly where the
+   * outer's allocations end, so nesting never clobbers a live allocation. The one
+   * way to break it is non-LIFO teardown: an outer rewind or reset() ran while
+   * this scope was live, dropping the offset BELOW saved_offset. Trap it instead
+   * of letting set_offset() resurrect freed bytes.
    */
   ~ScratchScope() {
     HS_CHECK(arena.get_offset() >= saved_offset);
@@ -911,8 +872,7 @@ struct ScratchScope {
  * @note Cloneable only constrains the clone hook. `Persist<T>` needs more (T
  *       default-initializable and assignable, because ~Persist does
  *       `target_ = T()` before restoring) and enforces those extra requirements
- *       with its own static_asserts rather than widening this concept, which is
- *       reused wherever a clone hook alone is the contract.
+ *       with its own static_asserts rather than widening this concept.
  */
 template <typename T>
 concept Cloneable = requires(const T &src, T &dst, Arena &arena) {
@@ -944,10 +904,8 @@ template <Cloneable T> class Persist {
   T backup_;             /**< Cloned backup of the target in scratch memory. */
 
   // ~Persist does `target_ = T()` before re-cloning the backup, so T needs more
-  // than Cloneable (which only requires a clone hook). Assert the extra
-  // requirements here so a Cloneable-but-not-default-constructible/assignable T
-  // fails with a clear message at instantiation instead of an opaque error
-  // buried inside the destructor body.
+  // than Cloneable. Assert the extra requirements here so a Cloneable-but-not-
+  // default-constructible/assignable T fails with a clear message at instantiation.
   static_assert(std::default_initializable<T>,
                 "Persist<T>: ~Persist resets target_ = T() before restoring, so "
                 "T must be default-initializable (Cloneable does not imply this).");
@@ -974,30 +932,14 @@ public:
 
   /**
    * @brief Restores the target by cloning the backup into the persistent arena.
-   * @details The restore clones into `persistent_` at its *current* offset, so
-   * it only reconstructs the object usefully if the caller rewound the
-   * persistent arena during the scope (the canonical `persistent_arena.reset()`
-   * in the usage example). Without that reset the clone appends a second copy
-   * and grows the arena rather than restoring. The dtor traps *after* the
-   * restore unless the persistent arena ends no larger than it was at
-   * construction.
-   *
-   * The check is post-restore and uses `<=` (not a pre-restore `<`) on purpose:
-   * (1) the Persist ctor allocates only in *scratch*, so the captured watermark
-   * is the persistent high-water mark when the block was entered, and a correct
-   * reset+restore — even one that compacts and relocates the object — must end
-   * at or below it; (2) callers legitimately STACK several Persists over one
-   * `reset()` (e.g. HankinSolids' mesh compaction), and their reverse-order
-   * restores append onto the compacted base, so an individual restore's offset
-   * is only meaningful against the entry watermark, post-clone. A forgot-to-
-   * reset restore instead appends beyond the live original, pushing the offset
-   * past the watermark — exactly what this traps.
-   *
-   * Scope of the guarantee: this is a backstop, not a proof. It reliably catches
-   * the common single-Persist forgot-to-reset (the offset clears the watermark).
-   * In a stack it can miss a per-Persist mistake whose growth happens to land at
-   * or below the entry watermark — e.g. a later restore that compacts below it
-   * masks an earlier one's overrun. It bounds the aggregate, not each restore.
+   * @details The restore clones into `persistent_` at its *current* offset, so it
+   * only reconstructs the object usefully if the caller rewound the persistent
+   * arena during the scope (the canonical `persistent_arena.reset()`). Without
+   * that reset the clone appends a second copy and grows the arena. The
+   * post-restore `<=` check traps a forgot-to-reset restore, which pushes the
+   * offset past the construction watermark. Callers may legitimately STACK several
+   * Persists over one `reset()`, so the check bounds the aggregate, not each
+   * individual restore — a backstop, not a proof.
    */
   ~Persist() {
     target_ = T();

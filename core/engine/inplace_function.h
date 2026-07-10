@@ -1,14 +1,14 @@
 #pragma once
 // ---------------------------------------------------------------------------
 // hs::inplace_function — heap-free, inline-storage callable for the host/WASM
-// build. A drop-in replacement for the std::function fallback behind Fn<Sig,Cap>
-// (see platform.h), modeled on SG14 stdext::inplace_function.
+// build, behind Fn<Sig,Cap> (see platform.h); modeled on SG14
+// stdext::inplace_function.
 //
 // The buffer is fixed at Capacity bytes: a closure that overflows it is a hard
-// *compile error*, not a silent heap allocation. Because Capacity counts bytes,
-// a pointer-capturing closure is wider on the 64-bit host than on the 32-bit
-// device; callsites pick a fixed Cap with headroom for the wider host closure
-// (see SpriteFn in concepts.h).
+// *compile error*, not a silent heap allocation. Because Capacity counts bytes, a
+// pointer-capturing closure is wider on the 64-bit host than on the 32-bit device;
+// callsites pick a fixed Cap with headroom for the wider host closure (see
+// SpriteFn in concepts.h).
 //
 // Included only from platform.h's non-ARDUINO branch, after hs::check_fail is
 // declared.
@@ -23,10 +23,9 @@ namespace hs {
 
 // Alignment defaults to a pointer, not max_align_t: the captures here are
 // pointers/ints/floats/small PODs (max align == a pointer), so pointer alignment
-// keeps the object to one pointer of overhead (e.g. a 16 B capture is 24 B total,
-// matching teensy's footprint) instead of rounding every Fn up to 16 B and
-// inflating Fn-bearing animation types past TimelineEvent::MAX_ANIM_SIZE. A
-// rare over-aligned capture trips the alignof(D) <= Alignment static_assert below.
+// keeps the object to one pointer of overhead instead of rounding every Fn up to
+// 16 B and inflating Fn-bearing animation types past TimelineEvent::MAX_ANIM_SIZE.
+// A rare over-aligned capture trips the alignof(D) <= Alignment static_assert below.
 template <typename Signature, size_t Capacity = 16,
           size_t Alignment = alignof(void *)>
 class inplace_function; // primary template intentionally undefined
@@ -113,12 +112,9 @@ class inplace_function<R(Args...), Capacity, Alignment> {
 public:
   /** @brief Constructs an empty function; calling it traps. */
   // storage_ is value-initialized to zero only on the empty-state ctors so their
-  // empty buffer holds defined bytes rather than indeterminate ones. The
-  // value-carrying ctors below deliberately omit storage_ from their init list:
-  // they placement-new / copy into it, so zeroing first would be wasted work on
-  // the construction hot path. (A moved-from buffer holds the moved-from object,
-  // not garbage; a copy or move OF an already-empty function leaves the buffer
-  // indeterminate, but no op ever reads an empty function's buffer.)
+  // empty buffer holds defined bytes. The value-carrying ctors below omit storage_
+  // from their init list (they placement-new / copy into it, so zeroing first would
+  // be wasted work). No op ever reads an empty function's buffer.
   inplace_function() noexcept : storage_{} {}
   /** @brief Constructs an empty function (nullptr overload). */
   inplace_function(std::nullptr_t) noexcept : storage_{} {}
@@ -165,9 +161,8 @@ public:
 
   inplace_function &operator=(const inplace_function &o) noexcept {
     if (this != &o) {
-      // Destroy-then-copy is safe only because the converting constructor's
-      // is_nothrow_copy_constructible_v static_assert guarantees copy() cannot
-      // throw — otherwise this would leave the buffer half-constructed.
+      // Destroy-then-copy is safe only because the converting ctor's
+      // is_nothrow_copy_constructible_v static_assert guarantees copy() cannot throw.
       vtable_->destroy(storage_);
       vtable_ = o.vtable_;
       vtable_->copy(storage_, o.storage_);

@@ -35,10 +35,9 @@ public:
   /**
    * @brief Builds a selector over the given entries, starting at index 0.
    * @param e The preset entries; copied into the container.
-   * @details Non-explicit so brace-init (`Presets p = {{...}}`) and the CTAD
-   * guide below keep working. The indices are deliberately NOT constructor
-   * inputs — they start at 0 and only next()/prev() ever move them, which is
-   * what keeps them in [0, Size) (see the private section).
+   * @details Non-explicit so brace-init (`Presets p = {{...}}`) and the CTAD guide
+   * below keep working. Indices are not constructor inputs — they start at 0 and
+   * only next()/prev() move them, keeping them in [0, Size).
    */
   constexpr Presets(std::array<Entry, Size> e) : entries(std::move(e)) {}
 

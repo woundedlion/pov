@@ -34,11 +34,10 @@ struct FactoryEntry {
   size_t size;                                    /**< sizeof the effect at this resolution, in bytes. */
 };
 
-// Single source of truth for the supported render resolutions. Adding a
-// resolution is now ONE edit here: the EffectRegistration fields, the
-// get_fill_fn dispatch, and the REGISTER_EFFECT fill-pointer list below all
-// expand from this X-macro, so they can no longer drift out of sync (a missing
-// field used to value-init to a null FillFn that only faulted at table build).
+// Single source of truth for the supported render resolutions. Adding a resolution
+// is ONE edit here: the EffectRegistration fields, the get_fill_fn dispatch, and
+// the REGISTER_EFFECT fill-pointer list below all expand from this X-macro, so they
+// cannot drift out of sync.
 #define HS_RESOLUTIONS(X)                                                      \
   X(96, 20)                                                                    \
   X(288, 144)
@@ -75,15 +74,12 @@ public:
    * @brief Appends a registration to the global table.
    * @param reg Registration record to append.
    * @return Dummy 0, so this can be used as a static-init expression.
-   * @warning The append order here is the static-init order of the
-   *          REGISTER_EFFECT objects, which is link/translation-unit-order
-   *          dependent and therefore NOT stable across builds, toolchains, or a
-   *          reordered link line. The index of an entry in `entries()` carries
-   *          no meaning. Today this is safe — dispatch is by name and the
-   *          rosters use the `HS_EFFECT_LIST` X-macro as the single source of
-   *          truth — but do NOT introduce a positional, persisted, or
-   *          transmitted index over this table: drive any stable ordering from
-   *          `HS_EFFECT_LIST` instead, or sort `entries()` by name at use.
+   * @warning The append order is the static-init order of the REGISTER_EFFECT
+   *          objects, which is link/translation-unit-order dependent and therefore
+   *          NOT stable across builds. The index of an entry in `entries()` carries
+   *          no meaning: do NOT introduce a positional, persisted, or transmitted
+   *          index over this table — drive any stable ordering from `HS_EFFECT_LIST`
+   *          instead, or sort `entries()` by name at use.
    */
   static int add(EffectRegistration reg) {
     entries().push_back(reg);
@@ -120,13 +116,11 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
   }
 }
 
-// Anchor attribute for the self-registration object. `used` (always available
-// on this WASM clang) keeps the compiler from eliding the unreferenced static
-// and roots it for wasm-ld via llvm.used; `retain` additionally survives an ELF
-// linker's --gc-sections. `retain` is newer (Clang 13+ / GCC 11+), so guard it
-// behind __has_attribute and fall back to `used` alone — wasm-ld is not an ELF
-// linker, so `used` is what actually anchors the registrar here and the fallback
-// stays correct on any toolchain that predates `retain`.
+// Anchor attribute for the self-registration object. `used` keeps the compiler
+// from eliding the unreferenced static and roots it for wasm-ld via llvm.used;
+// `retain` additionally survives an ELF linker's --gc-sections but is newer
+// (Clang 13+ / GCC 11+), so guard it behind __has_attribute and fall back to
+// `used` alone.
 #if defined(__has_attribute) && __has_attribute(retain)
 #define HS_REGISTRAR_ANCHOR __attribute__((used, retain))
 #else
@@ -156,10 +150,8 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
       e.size = sizeof(ClassName<W, H>);                                \
     }                                                                  \
     /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references _reg, so  \
-     * under LTO / --gc-sections the dynamic initializer (and thus the whole   \
-     * registration side effect) could be discarded, silently dropping the     \
-     * effect from the registry. See the macro definition above for the        \
-     * used / retain rationale and the pre-`retain` fallback. */               \
+     * under LTO / --gc-sections the dynamic initializer could be discarded,   \
+     * silently dropping the effect from the registry. */                      \
     HS_REGISTRAR_ANCHOR                                                       \
     static inline int _reg = EffectRegistry::add({                     \
       HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)                          \
@@ -169,8 +161,7 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
 
 // Emits one `&fill<W, H>,` per resolution for the REGISTER_EFFECT initializer
 // above. Defined outside the macro (preprocessor directives can't live inside a
-// macro body) and left defined because REGISTER_EFFECT expands it in every
-// effect translation unit. The trailing comma is harmless in a braced-init list.
+// macro body). The trailing comma is harmless in a braced-init list.
 #define HS_DETAIL_REG_FILL_PTR(W, H) &fill<W, H>,
 
 #else
