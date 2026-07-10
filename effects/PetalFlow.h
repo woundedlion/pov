@@ -186,7 +186,8 @@ private:
 
     // update_and_draw_rings() advances every ring by one move this same frame,
     // so spawn one move short to land each ring's first drawn position at
-    // START_RHO + gap rather than START_RHO + gap + move.
+    // START_RHO + gap_accumulator (the residual in [0, gap)) rather than one
+    // move beyond it.
     while (gap_accumulator >= gap) {
       gap_accumulator -= gap;
       spawn_ring_at_pos(START_RHO + gap_accumulator - move);
