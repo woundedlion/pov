@@ -288,7 +288,7 @@ _None._
    of trapping cleanly. *Fix:* add `HS_CHECK(walked++ < (int)he_mesh.half_edges.size(), ...)` as the first
    do-block statement, mirroring the siblings (cannot trigger on validated registry inputs; defense-in-depth).
 
-6. **Unqualified memcpy in BakedPalette::clone_from relies on transitive <cstring>** —
+6. ✅ **Unqualified memcpy in BakedPalette::clone_from relies on transitive <cstring>** —
    `c:/work/Holosphere/core/color/color.h:2262` — `color.h` never includes `<cstring>`; the call compiles only
    because other headers transitively inject `memcpy` into the global namespace, which is implementation-defined.
    *Fix:* add `#include <cstring>` to `color.h` (a stricter libc++ config or include-graph refactor would
