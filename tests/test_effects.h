@@ -1214,6 +1214,7 @@ struct Liquid2DWhiteBox {
     l2.cos_phase = v;
     l2.cycle_phase = v;
   }
+  static Vector glitch_lens(const Vector &v) { return L2::apply_glitch_lens(v); }
 };
 
 /**
@@ -1255,6 +1256,36 @@ inline void test_liquid2d_phase_wrapped() {
     HS_EXPECT_LT(cyp, two_pi);
   }
   hs::clear_mock_time();
+}
+
+/**
+ * @brief Verifies Liquid2D::apply_glitch_lens maps unit directions to unit
+ *        directions and returns the pole axis on its near-axis guard branch.
+ * @details The lens is a hand-derived degree-3 rational sphere automorphism on
+ *          the live per-pixel path; the positive-frame-sum smoke harness cannot
+ *          catch a sign/coefficient slip, so pin |lens(v)| == 1 across a spread
+ *          of directions plus the R^2 < 1e-6 pole return.
+ */
+inline void test_liquid2d_glitch_lens_unit_norm() {
+  using WB = Liquid2DWhiteBox;
+  const Vector dirs[] = {Vector(1, 0, 0),
+                         Vector(0, 0, 1),
+                         Vector(-1, 0, 0),
+                         Vector(0, 0, -1),
+                         Vector(1, 1, 1).normalized(),
+                         Vector(-1, 2, -3).normalized(),
+                         Vector(3, -1, 2).normalized(),
+                         Vector(0.2f, -0.9f, 0.4f).normalized(),
+                         Vector(-0.7f, 0.1f, 0.7f).normalized()};
+  for (const Vector &v : dirs) {
+    HS_EXPECT_NEAR(WB::glitch_lens(v).length(), 1.0f, 1e-3f);
+  }
+
+  // On-axis input (x = z = 0) trips the pole guard and returns the up vector.
+  Vector pole = WB::glitch_lens(Vector(0, -1, 0));
+  HS_EXPECT_NEAR(pole.x, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(pole.y, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(pole.z, 0.0f, 1e-6f);
 }
 
 /**
@@ -1650,6 +1681,7 @@ inline int run_effects_tests() {
   test_mindsplatter_emit_phase_wrapped();
   test_flyby_phase_wrapped();
   test_liquid2d_phase_wrapped();
+  test_liquid2d_glitch_lens_unit_norm();
   test_flowfield_time_and_pool_bounded();
   test_ringspin_pool_clamped();
   test_shapeshifter_shape_cut_lifecycle();
