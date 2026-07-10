@@ -215,6 +215,18 @@ private:
 
   static constexpr int WIPE_FRAMES = 48; /**< Duration of a palette cross-fade ColorWipe, in frames. */
 
+  // init() allocates the comet Node (holds the OrientationTrail) and one baked
+  // palette LUT from the persistent arena.
+  static constexpr size_t FOOTPRINT_BYTES =
+      BakedPalette::LUT_SIZE * sizeof(Color4) + sizeof(Node);
+  // Effect keeps the default arena split, so the footprint must fit the device
+  // persistent partition. Guards a TRAIL_LENGTH retune.
+  static constexpr size_t PERSISTENT_BUDGET =
+      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+  static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET,
+                "Comets persistent footprint exceeds the default partition; "
+                "retune TRAIL_LENGTH or carve arenas");
+
   FastNoiseLite noise; /**< Noise source driving the head's RandomWalk. */
   Timeline timeline; /**< Animation timeline owning all scheduled animations. */
   Pipeline<W, H> filters; /**< Render filter pipeline applied to drawn fragments. */
