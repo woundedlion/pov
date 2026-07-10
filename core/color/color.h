@@ -985,8 +985,8 @@ public:
 
 /**
  * @brief A palette backed by a precomputed 256-entry linear-RGB lookup table,
- * filled at construction by interpolating between the color stops in linear
- * space.
+ * filled at construction by interpolating between the color stops in OKLCH
+ * perceptual space.
  */
 class Gradient : public Palette {
 public:
@@ -1019,14 +1019,13 @@ public:
     float prevPos = it->first;
     CPixel prevColor = it->second;
 
-    // Fill start. Float conversion path (not the 8-bit LUT) so a flat-region
-    // entry is bit-identical to an adjacent segment at the shared stop.
+    // Flat fills bake through the same OKLCH path as the segment endpoints, so
+    // a flat region matches its adjacent segment at the shared stop.
     int firstStop = static_cast<int>(prevPos * 255.0f + 0.5f);
-    Pixel prevLinear(float_to_pixel16(srgb_to_linear_float(prevColor.r / 255.0f)),
-                     float_to_pixel16(srgb_to_linear_float(prevColor.g / 255.0f)),
-                     float_to_pixel16(srgb_to_linear_float(prevColor.b / 255.0f)));
+    Pixel prevSolid =
+        oklch_to_pixel(srgb_to_oklch(prevColor.r, prevColor.g, prevColor.b));
     for (int i = 0; i <= firstStop; i++)
-      entries[i] = prevLinear;
+      entries[i] = prevSolid;
 
     it++;
     while (it != points.end()) {
@@ -1039,21 +1038,11 @@ public:
       // end == start (two stops quantizing to the same index) is the intended
       // "hard stop" — an abrupt color boundary, not a dropped stop.
       if (end > start) {
-        float pr = srgb_to_linear_float(prevColor.r / 255.0f);
-        float pg = srgb_to_linear_float(prevColor.g / 255.0f);
-        float pb = srgb_to_linear_float(prevColor.b / 255.0f);
-        float nr = srgb_to_linear_float(nextColor.r / 255.0f);
-        float ng = srgb_to_linear_float(nextColor.g / 255.0f);
-        float nb = srgb_to_linear_float(nextColor.b / 255.0f);
+        OKLCH a = srgb_to_oklch(prevColor.r, prevColor.g, prevColor.b);
+        OKLCH b = srgb_to_oklch(nextColor.r, nextColor.g, nextColor.b);
         for (int i = start; i < end; i++) {
           float t = static_cast<float>(i - start) / (end - start);
-
-          float r_lin = pr * (1.0f - t) + nr * t;
-          float g_lin = pg * (1.0f - t) + ng * t;
-          float b_lin = pb * (1.0f - t) + nb * t;
-
-          entries[i] = Pixel(float_to_pixel16(r_lin), float_to_pixel16(g_lin),
-                             float_to_pixel16(b_lin));
+          entries[i] = oklch_to_pixel(lerp_oklch(a, b, t));
         }
       }
       prevPos = nextPos;
@@ -1061,13 +1050,11 @@ public:
       it++;
     }
 
-    // Fill end. Same float conversion path as the start-fill.
     int lastStop = static_cast<int>(prevPos * 255.0f + 0.5f);
-    Pixel lastLinear(float_to_pixel16(srgb_to_linear_float(prevColor.r / 255.0f)),
-                     float_to_pixel16(srgb_to_linear_float(prevColor.g / 255.0f)),
-                     float_to_pixel16(srgb_to_linear_float(prevColor.b / 255.0f)));
+    Pixel lastSolid =
+        oklch_to_pixel(srgb_to_oklch(prevColor.r, prevColor.g, prevColor.b));
     for (int i = lastStop; i < 256; i++)
-      entries[i] = lastLinear;
+      entries[i] = lastSolid;
   }
 
   /**
