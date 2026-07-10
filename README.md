@@ -764,9 +764,7 @@ All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<F
 
 | Primitive | Description |
 |---|---|
-| `Plot::Point` | Single plotted point |
 | `Plot::Line` | Geodesic line segment between two points |
-| `Plot::Vertices` | Vertex set rendering |
 | `Plot::Multiline` | Connected line strip from a sequence of fragments |
 | `Plot::Ring` | Circle rasterized as a plotted polyline |
 | `Plot::PlanarPolygon` | Regular N-gon in the tangent plane |
