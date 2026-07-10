@@ -147,7 +147,7 @@ All 19 findings, grouped by priority and numbered sequentially. Each cites
 10. ✅ **`SolidBuilder::needle()` docstring describes the wrong operator** — `core/mesh/solids.h:332`.
     Says "(dual of truncate)"; `MeshOps::needle` is `kis(dual(...))` — Hart's `n = kd`, no truncate involved. Fix: change to "kis of the dual; n = kd" to match `conway.h`.
 
-11. **README §7.7 miscounts the `islamic_registry` (23 vs actual 24) and the total (54 vs 55)** — `README.md:1139`.
+11. ✅ **README §7.7 miscounts the `islamic_registry` (23 vs actual 24) and the total (54 vs 55)** — `README.md:1139`.
     `islamic_registry` has 24 entries; total is 18+13+24 = 55. `NUM_ENTRIES` is computed at compile time so runtime is unaffected. Fix: update lines 1139 ("24 entries") and 1141 ("55 registered solids").
 
 12. **`Filter::Pixel::Feedback` class doc claims `flush()` covers the full canvas, but it honors the clip band** — `core/render/filter.h:1232`.
