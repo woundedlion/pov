@@ -76,13 +76,15 @@ inline float wrap_t(float t) {
 
 /**
  * @brief Wraps an integer value around a modulo base (m).
- * @details Ensures the result is always non-negative.
  * @param x The value to wrap.
  * @param m The modulo base.
- * @return The wrapped value in the range [0, m).
+ * @return The wrapped value in the range [0, m), or x when m == 0.
+ * @details A zero modulus SIGFPEs on the host while the Cortex-M7 SDIV returns
+ *          x; return x to match the device, mirroring the m == 0 guards in
+ *          map()/addmod8().
  */
 inline int wrap(int x, int m) {
-  assert(m > 0);
+  if (m == 0) return x;
   int r = x % m;
   return r < 0 ? r + m : r;
 }
