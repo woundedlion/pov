@@ -817,9 +817,10 @@ inline uint8_t linear_float_to_srgb8(float l) {
  * @param b In/out: linear blue.
  * @param ca Cosine of the rotation angle.
  * @param sa Sine of the rotation angle.
- * @details Preserves perceived lightness exactly and chroma to within fast-trig
- * accuracy. Hot path: fast_cbrt forward, exact cubes inverse, direct 2D
- * rotation of (a,b) (no atan2/sqrt OKLCH polar round-trip).
+ * @details Preserves perceived lightness to within fast_cbrt accuracy and
+ * chroma to within fast-trig accuracy. Hot path: fast_cbrt forward, exact
+ * cubes inverse, direct 2D rotation of (a,b) (no atan2/sqrt OKLCH polar
+ * round-trip).
  */
 inline void hue_rotate_rgb(float &r, float &g, float &b, float ca, float sa) {
   LMS lms = linear_rgb_to_lms(r, g, b);
