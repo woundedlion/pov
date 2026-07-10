@@ -65,7 +65,8 @@ template <typename E> Effect *construct_effect() {
   // Effect constructors must not allocate from the engine arenas: here they run
   // before configure_arenas_default() (WASM's setEffect configures first), so an
   // arena allocation in a ctor would corrupt on Teensy yet pass on WASM.
-  E *e = new E();
+  E *e = new (std::nothrow) E();
+  HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
   configure_arenas_default(); // Reset before init so effects can override
   e->init();
   return e;
