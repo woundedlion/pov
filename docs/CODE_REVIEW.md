@@ -218,7 +218,7 @@ rule targets, and **Priority 3** is documentation, test, tooling, and naming hyg
 16. ✅ `core/math/geometry.h:391` — the log-polar trio (`LogPolar`, `LOGPOLAR_RHO_SENTINEL`, `logPolarToVector`, `vectorToLogPolar`) has zero production callers; delete it and its tests (it also carries a latent over-wide pole cap).
 17. `daydream/tools/palette_math.js:165` — `hsvToRgb` + `CPixel` are dead production code kept alive only by a WASM parity test; delete them and drop the orphaned assertions.
 18. ✅ `core/mesh/solids.h:61` — `finalize_solid` copies `temp.topology`, which no generator ever populates (it's filled later by `classify_faces_by_topology`); drop the two topology lines.
-19. `core/color/color.h:943` — the `Pixel lerp_oklch(CPixel,CPixel,float)` overload has no callers; delete it.
+19. ✅ `core/color/color.h:943` — the `Pixel lerp_oklch(CPixel,CPixel,float)` overload has no callers; delete it.
 20. `core/render/sdf.h:515` — per-shape `nx`/`nz` (and Star/Flower `scan_nx`/`scan_nz`) are stored but never read; drop the dead members and their construction-time assignments.
 21. `core/render/plot.h:93` — `Plot::Point` and `Plot::Vertices` are unreferenced in both repos; delete them (and their README rows).
 22. `core/render/shading.h:204` — `NullVertexShader`/`NullFragmentShader` are referenced only by their own tests; wire them in as canonical no-op defaults or delete both.
