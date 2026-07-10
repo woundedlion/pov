@@ -185,9 +185,6 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
  * @param he_mesh Half-edge connectivity describing the face loop.
  * @param start_he First half-edge of the face, or HE_NONE for an empty face.
  * @return Number of sides; 0 for an empty face (start_he == HE_NONE).
- * @details The shared "how many sides does this face have" walk used by ambo/
- *   truncate before they re-walk to emit; matches the counting half of
- *   face_centroid without the position accumulation.
  */
 inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
   int count = 0;
@@ -212,10 +209,8 @@ inline int face_side_count(const HalfEdgeMesh &he_mesh, uint16_t start_he) {
  * @param visited_edges Caller-allocated bool[I] scratch (filled here).
  * @param I Half-edge count (size of visited_edges).
  * @param visitor Invoked once per undirected interior edge.
- * @details The shared edge-dedup scaffold behind expand/chamfer/snub's "new
- *   face per edge" pass: each half-edge and its pair are marked visited so an
- *   undirected edge is emitted exactly once, and boundary edges (no pair) are
- *   skipped, matching the callers that never produced an edge face for them.
+ * @details Marks each half-edge and its pair visited so an undirected edge is
+ *   visited exactly once; boundary edges (no pair) are skipped.
  */
 template <typename VisitorFn>
 inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
@@ -316,9 +311,8 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 // ScratchScope; only the output mesh persists.
 //
 // SCRATCH ARENA CONTRACT (load-bearing): the HalfEdgeMesh always builds in
-// `temp`; the per-orbit index/flag buffers are split by design to balance the
-// asymmetric arena pair — not drift. Measure against the configured split
-// before moving one:
+// `temp`; the per-orbit index/flag buffers are split to balance the asymmetric
+// arena pair:
 //   - dual / ambo / truncate / expand  -> index buffers in `target`
 //   - chamfer / snub                   -> index buffers in `temp`
 //   - kis / relax                      -> no extra index buffers
@@ -330,10 +324,7 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 // COMPOSITION POLARITY (load-bearing): a composition alternates the ping-pong
 // once per primitive step, so its output lands in the arena that backed the
 // last step's `target` — `temp` for an even-length composition (gyro/needle/
-// zip/bevel), back in `target` for an odd-length one (meta = kda, three steps),
-// the same arena as a primitive. After an even composition the single op that
-// follows runs input+output on one arena for one step; after an odd one the
-// ping-pong is already in primitive phase.
+// zip/bevel), back in `target` for an odd-length one (meta = kda, three steps).
 //
 // Per-vertex orbit buffers are sized to the max valence (= total half-edges).
 // ---------------------------------------------------------------------------
@@ -592,8 +583,7 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &tem
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "truncate");
 
-    // Per-edge cut-vertex pair, unset = {HE_NONE, HE_NONE} (matches the other
-    // operators' he->new-vertex maps so the unset test reads identically).
+    // Per-edge cut-vertex pair; unset = {HE_NONE, HE_NONE}.
     std::pair<uint16_t, uint16_t> *edge_to_vert =
         target.allocate_n<std::pair<uint16_t, uint16_t>>(I);
     std::fill_n(edge_to_vert, I, std::pair<uint16_t, uint16_t>(HE_NONE, HE_NONE));
@@ -684,8 +674,7 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
 
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "expand");
-    // he->new-vertex map, unset = HE_NONE (matches ambo/snub/chamfer so the
-    // unset test reads identically across every operator).
+    // he->new-vertex map; unset = HE_NONE.
     uint16_t *he_to_vert_idx = target.allocate_n<uint16_t>(I);
     std::fill_n(he_to_vert_idx, I, HE_NONE);
 
@@ -943,10 +932,7 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
       }
 
       // Stop early once the largest per-vertex spring step settles below ~3e-4
-      // rad on the unit sphere. Every roster mesh converges by ~40 passes and
-      // its residual at this gate stays far under a display pixel, so the
-      // generous caps (relax(50)/relax(100)/relax(217)) are never reached; a
-      // tighter gate only spends more passes chasing sub-pixel motion.
+      // rad on the unit sphere.
       constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
       if (max_move_sq < RELAX_CONVERGE_EPS_SQ)
         break;
@@ -1085,11 +1071,9 @@ HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
 // ---------------------------------------------------------------------------
 // Compositional operators (Hart's notation)
 //
-// These are defined as compositions of primitive operators. Equivalences are
-// from Hart's reference implementation. Memory-wise, each composition reuses
-// the standard ping-pong of (target, temp) arenas with no extra allocation; an
-// even-length composition returns its output in `temp`, an odd-length one back
-// in `target` (see COMPOSITION POLARITY at the top of the operator block).
+// Compositions of primitive operators (equivalences from Hart's reference
+// implementation); each reuses the standard (target, temp) ping-pong with no
+// extra allocation (see COMPOSITION POLARITY at the top of the operator block).
 //   meta   m = kj = kda = kis of dual of ambo (j = da)
 //   needle n = kd = kis of dual
 //   zip    z = dk = dual of kis (truncated dual)

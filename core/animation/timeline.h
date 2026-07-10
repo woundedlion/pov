@@ -28,8 +28,7 @@ struct TimelineEvent {
    * @brief Whether this event's inline animation pointer was handed out via
    * Timeline::add_get().
    * @details Compaction must never relocate such an event — doing so dangles the
-   * caller's cached pointer. (Occupies existing alignment padding before
-   * `storage`, so it costs no extra bytes.)
+   * caller's cached pointer.
    */
   bool handled = false;
   alignas(std::max_align_t) uint8_t storage[MAX_ANIM_SIZE]; /**< Inline
@@ -48,9 +47,7 @@ struct TimelineEvent {
    * @details reinterpret_cast<IAnimation*> on the raw storage would be formally
    * UB: animation types are non-standard-layout (virtual functions), so the
    * standard does not guarantee the IAnimation base subobject sits at offset 0
-   * — only a properly-typed upcast performs the (here-zero, but not
-   * portably-zero) base adjustment. Trails `manager` so it lands in the existing
-   * tail padding (no extra bytes).
+   * — only a properly-typed upcast performs the base adjustment.
    */
   IAnimation *iface = nullptr;
 

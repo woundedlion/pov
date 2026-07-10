@@ -20,25 +20,22 @@ namespace Animation {
  * no destructor that reclaims the arena, so the transient bytes persist in the
  * arena until the caller compacts or resets it.
  *
- * Crossfade contract (intentional): only the incoming mesh (mesh_B, carrying
- * dest topology) morphs — each frame its vertices SLERP from their nearest
- * source vertex toward their dest position. The outgoing mesh (mesh_A, a clone
- * of source) holds its geometry and fades out via opacity (op_A = 1 - alpha)
- * while the incoming fades in; the opacities sum to 1 for constant total
- * brightness across the topology swap. The source is cloned (not borrowed) so
- * the animation is self-contained against the caller recycling/mutating source
- * mid-morph, consistent with the borrow contract enforced on the draw callbacks
- * below. The separate draw_outgoing/draw_incoming callbacks exist precisely to
- * shade the two halves independently (see HankinSolids).
+ * Crossfade contract: only the incoming mesh (mesh_B, carrying dest topology)
+ * morphs — each frame its vertices SLERP from their nearest source vertex toward
+ * their dest position. The outgoing mesh (mesh_A, a clone of source) holds its
+ * geometry and fades out via opacity (op_A = 1 - alpha) while the incoming fades
+ * in; the opacities sum to 1 for constant total brightness across the swap. The
+ * source is cloned (not borrowed) so the animation is self-contained against the
+ * caller recycling source mid-morph. The separate draw_outgoing/draw_incoming
+ * callbacks shade the two halves independently (see HankinSolids).
  */
 class MeshMorph : public AnimationBase<MeshMorph> {
 public:
   /**
    * @brief Non-owning per-half draw callback: `void(Canvas&, const MeshState&,
-   * float opacity)`. A StoredFunctionRef (not a plain FunctionRef) because it is
-   * held as a member and invoked across many frames: the type rejects rvalue
-   * temporaries so a dangling inline lambda is a compile error, not a silent
-   * use-after-free (see the borrow contract below).
+   * float opacity)`. A StoredFunctionRef (held as a member, invoked across many
+   * frames) rejects rvalue temporaries, so a dangling inline lambda is a compile
+   * error rather than a silent use-after-free.
    */
   using MorphDrawFn = StoredFunctionRef<void(Canvas &, const MeshState &, float)>;
 
@@ -223,12 +220,10 @@ inline int schedule_sequential(Timeline &timeline, SpriteFn draw_fn,
  * @param band Softness of the front, in phase units.
  * @return The face-local phase in [0, 1]: 1 everywhere at phase 1, 0
  * everywhere at phase 0, with faces crossing the front in offset order.
- * @details The sqrt ease keeps the hand-off out of black: sweeps schedule
- * sequentially (single mesh per frame), so both meshes sit at low phase
- * around the swap and a linear front would leave the sphere mostly dark for
- * a large slice of each fade window. Accelerating the front through the
- * low-phase end compresses that all-dark valley to a blink, while the
- * endpoints stay exact (phase 1 remains the identity plateau).
+ * @details The sqrt ease keeps the hand-off out of black: both meshes sit at low
+ * phase around the swap, so a linear front would leave the sphere mostly dark;
+ * accelerating the front through the low-phase end compresses that to a blink.
+ * Endpoints stay exact (phase 1 remains the identity plateau).
  */
 inline float sweep_phase(float phase, float offset, float band) {
   float p = std::sqrt(phase);

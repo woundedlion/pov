@@ -130,11 +130,8 @@ public:
    * @brief Checks if the animation should repeat after finishing.
    * @return True if repeating.
    * @details A canceled animation must not repeat: done() is permanently true
-   * once canceled, so without the !canceled guard Timeline::step would see
-   * done()&&repeats(), rewind it, fire its .then() every frame, and never remove
-   * it — a per-frame zombie. Dropping repeat here routes cancel through the
-   * removal branch (fires post_callback once, then erased), exactly as a
-   * canceled one-shot already behaves.
+   * once canceled, so without the !canceled guard Timeline::step would rewind it
+   * and re-fire its .then() every frame, never removing it — a per-frame zombie.
    */
   bool repeats() const override { return repeat && !canceled; }
   /**
@@ -163,24 +160,17 @@ public:
   /**
    * @brief Sets a callback fired at the end of each completion cycle.
    *
-   * "Completion" is per-cycle, not strictly once. The callback runs every time
-   * the animation reaches done():
-   *   - One-shot animation (repeat=false): fires exactly once, then the
-   *     animation is removed.
-   *   - Repeating animation (repeat=true): fires at the end of every cycle,
-   *     just after the timer rewinds. RandomTimer/PeriodicTimer never reach
-   *     done() (duration=-1, self-resetting), so they fire this hook directly
-   *     from their own step() on each trigger to keep the contract.
-   *   - Driver (perpetual, one-frame cycle): fires once per frame, since each
-   *     step completes a cycle. See the Driver class doc.
-   * This is one polymorphic hook by design — per-cycle is the only framing that
-   * generalizes across all three, since a driver's "cycle" is a single
-   * increment. Do not attach a one-shot callback to a repeating target.
+   * The callback runs every time the animation reaches done():
+   *   - One-shot (repeat=false): fires once, then the animation is removed.
+   *   - Repeating (repeat=true): fires at the end of every cycle, just after the
+   *     timer rewinds. RandomTimer/PeriodicTimer never reach done()
+   *     (duration=-1, self-resetting), so they fire this hook from their own
+   *     step() on each trigger.
+   *   - Driver (perpetual, one-frame cycle): fires once per frame.
+   * Do not attach a one-shot callback to a repeating target.
    *
-   * There is a single post slot: then() refuses (HS_CHECK) to overwrite an
-   * already-registered callback rather than silently dropping it — e.g. the
-   * Transformer attaches a slot-recycling callback to every spawned animation,
-   * so a second then() on that handle would leak the slot.
+   * Single post slot: then() refuses (HS_CHECK) to overwrite an already-
+   * registered callback rather than silently dropping it.
    *
    * @param callback The function to execute at each completion.
    * @return LValue Reference to the derived animation object.
@@ -246,9 +236,8 @@ protected:
   int duration; /**< Total length of the animation in frames. */
   bool repeat;  /**< Flag indicating if the animation should repeat. */
   uint32_t t = 0; /**< Internal frame counter. Finite animations bound it by
-                     `duration`; never-rewound perpetual ones (duration == -1:
-                     RandomTimer/PeriodicTimer/RandomWalk/Noise/MobiusWarpEvolving/
-                     ParticleSystem, and an indefinite Sprite) increment it forever. Unsigned so `t++` and the `t >= next` trigger
+                     `duration`; perpetual ones (duration == -1) increment it
+                     forever. Unsigned so `t++` and the `t >= next` trigger
                      comparisons wrap with defined behavior past 2^32 frames
                      (~552 days at 90 fps) rather than incurring signed-overflow
                      UB. Restart before then if uptime can approach that bound. */
@@ -274,11 +263,9 @@ private:
 
 // Device inline-storage budget audit. The per-type static_assert in
 // Timeline::add only fires for types actually add()ed in this build, so pin the
-// largest concrete animation type here so it is checked in every build that
-// includes this header. Compared against MAX_ANIM_SIZE (not a literal 112) so it
-// is the real 112 B device budget on the 32-bit WASM/device build and a no-op
-// headroom check on the wider native host. (Templated animations stay covered at
-// their add() sites.)
+// largest concrete animation type here to check it in every build that includes
+// this header. Compared against MAX_ANIM_SIZE (the real 112 B device budget on
+// the 32-bit WASM/device build, a no-op on the wider native host).
 /** @brief Largest sizeof over a pack of types. */
 template <typename... Ts> constexpr size_t largest_sizeof() {
   return std::max({sizeof(Ts)...});

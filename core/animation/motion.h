@@ -198,12 +198,11 @@ public:
    * @brief Live-updates the traversal duration (frames per path loop).
    * @param frames New duration in frames; any value below 1 is clamped to 1.
    * @details Guards against 0 (which would divide-by-zero in step()'s
-   * `t / duration`) and negatives (which would walk the path backward),
-   * matching PeriodicTimer::set_period's `frames < 1 ? 1` floor that this
-   * direct write would otherwise bypass. A changed duration also reanchors the
-   * baseline (see reanchor()): the carried prev_frame_ was sampled under the old
-   * parameterization, so without this the next step's first delta would teleport
-   * the Orientation by the gap between the two duration curves.
+   * `t / duration`) and negatives (which would walk the path backward). A
+   * changed duration also reanchors the baseline (see reanchor()): the carried
+   * prev_frame_ was sampled under the old parameterization, so without this the
+   * next step's first delta would teleport the Orientation by the gap between
+   * the two duration curves.
    */
   void set_duration(int frames) {
     int clamped = (frames < 1 ? 1 : frames);
@@ -216,16 +215,11 @@ public:
    * @brief Discards the carried baseline frame so the next step re-seeds it from
    * the current path.
    * @details step() integrates the path as RELATIVE deltas off `prev_frame_`,
-   * the frame it last drove to. That is seamless across a repeat seam because the
-   * loop reuses the same path. But when the borrowed path FUNCTION is swapped out
-   * from under the animation (the path is held by reference; its body changes),
-   * `prev_frame_` still holds the OLD function's frame, so the first post-swap
-   * delta is `frame_new(s) * frame_old(s)^-1` — a one-frame jump that teleports
-   * the bound Orientation by the gap between the two shapes' frames. Calling this
-   * right after the swap forces the next step to re-seed the baseline from the new
-   * path, making that first delta incremental: the head continues from where it
-   * is and flows into the new shape instead of jumping. Costs nothing — a single
-   * bool clear, no per-pixel/per-frame work.
+   * the frame it last drove to. When the borrowed path FUNCTION is swapped out
+   * from under the animation, `prev_frame_` still holds the OLD function's frame,
+   * so the first post-swap delta teleports the bound Orientation by the gap
+   * between the two shapes' frames. Calling this right after the swap re-seeds
+   * the baseline from the new path, making that first delta incremental.
    */
   void reanchor() { have_prev_frame_ = false; }
 
@@ -320,9 +314,7 @@ private:
       2 * PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
   /** Forward step (in path-parameter space) used to finite-difference the
-   * travel tangent in path_frame(). Fixed so the frame is a pure function of s;
-   * small enough to track curvature, large enough to clear float cancellation on
-   * unit-vector differences. */
+   * travel tangent in path_frame(). Fixed so the frame is a pure function of s. */
   static constexpr float FRAME_TANGENT_H = 1e-3f;
   std::reference_wrapper<Orientation<CAP>>
       orientation;               /**< Reference to the Orientation state. */
@@ -480,15 +472,13 @@ private:
  * across the sphere's surface.
  * @details Uses Perlin noise to create continuous, turbulent pivoting motion.
  *
- * PERPETUAL — never completes: it runs with duration = -1 and does NOT repeat
- * or self-reset, so it never reaches done(). A `.then()` callback attached to a
- * RandomWalk therefore NEVER fires (unlike RandomTimer/PeriodicTimer, which are
- * also indefinite but self-trigger their per-cycle hook from step()). Do not
- * chain sequencing logic off a RandomWalk's `.then()`; drive follow-on behavior
- * from a finite animation or cancel() the walk explicitly. (The Transformer's
- * slot-recycling `.then()` likewise will not fire for a spawned RandomWalk, so
- * its slot is never reclaimed — a repeating spawn of RandomWalks leaks slots
- * until the pool is exhausted; cancel() each walk or spawn finite animations.)
+ * PERPETUAL — never completes (duration = -1, no repeat or self-reset), so a
+ * `.then()` callback attached to a RandomWalk NEVER fires (unlike
+ * RandomTimer/PeriodicTimer, which self-trigger their per-cycle hook from
+ * step()). Drive follow-on behavior from a finite animation or cancel() the walk
+ * explicitly. The Transformer's slot-recycling `.then()` likewise never fires
+ * for a spawned RandomWalk, so a repeating spawn of them leaks slots until the
+ * pool is exhausted.
  * @tparam W The width of the LED display.
  * @tparam CAP Orientation sub-frame capacity.
  */
@@ -575,8 +565,8 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase<RandomWalk<W, CAP>>::step(canvas);
     // noise_scale is applied once, via SetFrequency() in the ctor; the 100x is a
-    // fixed base sample scale. Multiplying the coordinates by noise_scale here too
-    // would make the effective spatial frequency quadratic in noise_scale.
+    // fixed base sample scale (scaling the coordinates by noise_scale here too
+    // would make the spatial frequency quadratic in it).
     // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher drift)
     // float can't represent consecutive frames and the drift coordinate freezes.
     float target_pivot =
