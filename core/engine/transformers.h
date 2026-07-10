@@ -84,12 +84,10 @@ public:
 private:
   /**
    * @brief Compact, ascending list of the slots currently active.
-   * @details transform() and prepare_frame() are hot (transform runs per
-   * pixel), so they iterate only the active slots — O(active) instead of
-   * O(CAPACITY). Kept sorted so the transform composition order matches a
-   * low-to-high slot scan; the warps are not all commutative, so the order is
-   * load-bearing. Maintenance is O(active) but cold: once per spawn and once
-   * per finished animation, never per pixel.
+   * @details transform() and prepare_frame() are hot (transform runs per pixel),
+   * so they iterate only the active slots — O(active) instead of O(CAPACITY). Kept
+   * sorted so the transform composition order matches a low-to-high slot scan; the
+   * warps are not all commutative, so the order is load-bearing.
    */
   std::array<int, CAPACITY> active_slots_{};
   int active_count_ = 0; /**< Number of valid entries at the front of active_slots_. */
@@ -144,38 +142,30 @@ private:
         e.params = template_params;
         e.active = true;
         add_active(idx);
-        // Create animation with reference to the stable entity params. The
-        // completion callback captures `this` + the slot index (both stable:
-        // the Transformer is effect-owned and holds a Timeline& so it never
-        // moves) to deactivate the slot and drop it from the active list.
+        // Completion callback captures `this` + the slot index (both stable) to
+        // deactivate the slot and drop it from the active list.
         auto anim = AnimT(e.params, std::forward<Args>(args)...);
         AnimT *p = timeline.add_get(in_frames, std::move(anim), pin);
         if (p) {
-          // A non-pinned spawn keeps no retained handle, so the slot is
-          // reclaimed only by the one-shot then() below — which fires only when
-          // the animation reaches done() once and is removed. That happens only
-          // for a finite, non-repeating animation: an infinite one never reaches
-          // done(), and a repeating one rewinds instead of being removed, so
-          // either would hold its slot for the effect's life with no handle to
-          // cancel it (and after CAPACITY such spawns the pool returns nullptr).
-          // Those must use spawn_pinned and the retained-handle contract.
+          // A non-pinned spawn keeps no retained handle, so the slot is reclaimed
+          // only by the one-shot then() below, which fires when the animation
+          // reaches done() once. A finite, non-repeating animation is required: an
+          // infinite one never reaches done() and a repeating one rewinds instead
+          // of being removed, so either would hold its slot for the effect's life
+          // (nullptr after CAPACITY spawns) — use spawn_pinned.
           if (!pin)
             HS_CHECK(p->is_finite() && !p->repeats(),
                      "Transformer::spawn needs a finite, non-repeating "
                      "animation; infinite or repeating spawns leak their pool "
                      "slot — use spawn_pinned");
-          // Recycle the pool slot at the animation's final removal. The callback
-          // must tell a removal apart from a mid-repeat post fire, which it reads
-          // from repeats(); how it reads repeats() differs by pin because the two
-          // paths have opposite handle stability:
-          //   - Pinned: the event never relocates (add_get traps on moving a
-          //     handled event) and may be cancel()ed through the retained
-          //     pointer, flipping repeats() to false. Re-query live through p so
-          //     a post-cancel teardown routes through the free branch.
-          //   - Non-pinned: the event is compacted (relocated) by step() when an
-          //     earlier event completes, so p must not be retained. The transient
-          //     handle is never cancel()ed, so repeats() is fixed at spawn —
-          //     snapshot it rather than dereference a possibly-relocated slot.
+          // Recycle the pool slot at final removal. The callback tells a removal
+          // apart from a mid-repeat post fire via repeats(), read differently by
+          // pin because the paths have opposite handle stability:
+          //   - Pinned: the event never relocates and may be cancel()ed through
+          //     the retained pointer (flipping repeats() to false), so re-query
+          //     live through p.
+          //   - Non-pinned: the event is compacted (relocated) by step(), so p
+          //     must not be retained; repeats() is fixed at spawn, so snapshot it.
           if (pin) {
             p->then([this, idx, p]() {
               if (!p->repeats()) {
@@ -210,30 +200,26 @@ public:
   /**
    * @brief Prepares per-frame cached state for all active entities.
    * @details ORDERING CONTRACT: call once per frame, before transform(), in any
-   * frame where an active entity's params were *live-updated* since they were
-   * last prepared (e.g. a GUI slider moved this frame). It re-reads live config
-   * from template_params (NoiseParams::refresh_from, when provided) and refreshes
-   * each active entity's derived state (NoiseParams::sync). transform() reads
-   * that state but cannot verify it is
-   * current: the dependency is value-dependent (did the params change?), not
-   * structural, so it is a caller contract, not a compile-time/assert invariant.
-   * It is intentionally NOT required when there are no active entities (transform
-   * is then the identity) or when an entity's params have not changed since spawn
-   * (the spawn-time copy already prepared them) — both are exercised by the unit
-   * tests, so a blanket "prepared this frame" assert would be a false positive.
+   * frame where an active entity's params were *live-updated* (e.g. a GUI slider
+   * moved). It re-reads live config from template_params (NoiseParams::refresh_from)
+   * and refreshes each active entity's derived state (NoiseParams::sync).
+   * transform() reads that state but cannot verify it is current: the dependency is
+   * value-dependent, so it is a caller contract, not an assert. NOT required when
+   * there are no active entities (transform is then the identity) or when params
+   * have not changed since spawn.
    */
   void prepare_frame() {
     for (int k = 0; k < active_count_; ++k) {
       Entity &e = entities[active_slots_[k]];
-      // Pull live-tunable config from template_params into the spawned entity:
-      // slider edits land on template_params, not the spawn-time copy. Runs
+      // Pull live-tunable config from template_params into the spawned entity
+      // (slider edits land on template_params, not the spawn-time copy); runs
       // before sync() so the refreshed frequency reaches the generator.
       if constexpr (requires { e.params.refresh_from(template_params); }) {
         e.params.refresh_from(template_params);
       }
-      // NoiseParams::sync() pushes the (possibly live-updated) frequency into
-      // the embedded FastNoiseLite. Centralizing it here means a noise effect
-      // cannot render a stale frequency by forgetting a per-entity sync loop.
+      // sync() pushes the (possibly live-updated) frequency into the embedded
+      // FastNoiseLite. Centralizing it here means a noise effect cannot render a
+      // stale frequency by forgetting a per-entity sync loop.
       if constexpr (requires { e.params.sync(); }) {
         e.params.sync();
       }
@@ -324,9 +310,8 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
  * @return The displaced vector.
  */
 inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
-  // Between ripples the envelope drives amplitude to 0; skip the whole
-  // per-pixel wavelet (fast_acos + two fast_expf) when there is nothing to
-  // displace.
+  // Between ripples the envelope drives amplitude to 0; skip the whole per-pixel
+  // wavelet (fast_acos + two fast_expf) when there is nothing to displace.
   if (params.amplitude <= 0.001f)
     return v;
 
@@ -498,15 +483,13 @@ using MobiusWarpTransformer =
  * @brief Performs circular Mobius warps that stay warped throughout, suitable
  * for repeating animations.
  * @tparam CAPACITY Maximum number of concurrent circular Mobius warps.
- * @warning This variant deliberately never returns to identity — unlike
- * MobiusWarpTransformer (which uses the same `mobius_transform` but an animation
- * that eases back to identity), `Animation::MobiusWarpCircular` traces a closed
- * loop in parameter space that holds the warp at full strength. That makes it
- * correct ONLY in a repeating slot, where the loop re-enters seamlessly. In a
- * non-repeating slot it freezes off-identity on the final composed frame, so the
- * teardown is a one-frame discontinuity (the warp snaps away when the slot ends)
- * rather than a smooth relax-to-identity. Use MobiusWarpTransformer for one-shot
- * slots that must land back on the unwarped sphere.
+ * @warning This variant never returns to identity — unlike MobiusWarpTransformer
+ * (same `mobius_transform` but an animation that eases back to identity),
+ * `Animation::MobiusWarpCircular` traces a closed loop that holds the warp at full
+ * strength. Correct ONLY in a repeating slot, where the loop re-enters seamlessly;
+ * in a non-repeating slot it freezes off-identity on the final composed frame (a
+ * one-frame teardown discontinuity). Use MobiusWarpTransformer for one-shot slots
+ * that must land back on the unwarped sphere.
  */
 template <int CAPACITY>
 using MobiusWarpCircularTransformer =

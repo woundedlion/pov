@@ -17,12 +17,11 @@
  * @brief A fixed-size circular buffer optimized for stability.
  * @details
  * - No dynamic memory allocation (prevents heap fragmentation).
- * - "Delete Oldest" strategy on overflow (never stops processing) — overflow is
- *   a designed, non-fatal condition.
- * - Misuse — front()/back() on an empty buffer, or operator[] out of range — is
- *   an invariant violation with no valid recovery, so it HS_CHECK-traps
- *   (survives NDEBUG, pulls in no stdio) rather than reading garbage. Fail-fast,
- *   consistent with the rest of the engine.
+ * - "Delete Oldest" strategy on overflow (never stops processing) — overflow is a
+ *   designed, non-fatal condition.
+ * - Misuse — front()/back() on an empty buffer, or operator[] out of range — is an
+ *   invariant violation with no valid recovery, so it HS_CHECK-traps (survives
+ *   NDEBUG) rather than reading garbage.
  */
 template <typename T, size_t N> class StaticCircularBuffer {
   // Defined privately at the bottom; surfaced through the public usings below so
@@ -44,10 +43,8 @@ public:
    *  sizes (e.g. scan_region's seam-split `norm` == 2x its input span buffer). */
   static constexpr size_t CAPACITY = N;
 
-  // back() and the iterators form `head + count - 1` (intermediate up to 2N-2)
-  // before the `% N` fold. head/count are uint32_t, so cap N to keep that sum
-  // from overflowing 2^32. No real buffer comes within many orders of magnitude
-  // of this bound; the assert just documents and pins it.
+  // back() and the iterators form `head + count - 1` (up to 2N-2) before the `% N`
+  // fold; head/count are uint32_t, so cap N to keep that sum from overflowing 2^32.
   static_assert(N <= (UINT32_MAX - 1) / 2,
                 "StaticCircularBuffer N too large: head+count could overflow");
 
@@ -63,15 +60,11 @@ public:
    * @details Taking the elements as a parameter pack (rather than a runtime
    * std::initializer_list) makes the count a compile-time constant, so an
    * over-capacity list is rejected by static_assert instead of being silently
-   * truncated: a literal initializer that exceeds N is always a programmer error,
-   * unlike a runtime push_back stream where overflow is the designed non-fatal
-   * condition. The is_constructible guard keeps this from shadowing the copy,
-   * move, and default constructors — a StaticCircularBuffer is not constructible
-   * into a T, and the zero-argument case routes to the default constructor.
-   * Elements are built with T{...} so narrowing conversions stay diagnosed, as
-   * they were under brace list-initialization.
-   * `explicit` so the greedy forwarding pack cannot be picked as an implicit
-   * single-argument conversion to StaticCircularBuffer.
+   * truncated. The is_constructible guard keeps this from shadowing the copy, move,
+   * and default constructors (the zero-argument case routes to the default ctor).
+   * Elements are built with T{...} so narrowing conversions stay diagnosed.
+   * `explicit` so the forwarding pack cannot be an implicit single-argument
+   * conversion to StaticCircularBuffer.
    */
   template <typename... Args,
             typename = std::enable_if_t<(sizeof...(Args) > 0) &&
@@ -327,11 +320,10 @@ public:
 
 private:
   // Indices are uint32_t, not size_t, so pooled structs (Particle, VectorTrail,
-  // OrientationTrail) have an identical layout on the 32-bit device and the
-  // 64-bit native build — size_t would widen these three fields to 8 B on the
-  // host and make per-effect arena footprints unrepresentative of the device
-  // (see memory.h:15-22). On the device size_t IS uint32_t, so this is a
-  // host-only narrowing with identical codegen and behavior on hardware.
+  // OrientationTrail) have an identical layout on the 32-bit device and the 64-bit
+  // native build (size_t would widen these three fields to 8 B on the host and make
+  // per-effect arena footprints unrepresentative of the device; see memory.h). On
+  // the device size_t IS uint32_t, so this is a host-only narrowing.
   static_assert(N <= 0xFFFFFFFFu, "StaticCircularBuffer capacity exceeds uint32_t");
   // N == 0 would make every `% N` index update a division-by-zero (UB); all
   // instantiations use N >= 1, so trap a zero-capacity buffer at compile time.
@@ -343,12 +335,11 @@ private:
 
   /**
    * @brief Removes the back element without an emptiness check.
-   * @details Caller-guaranteed contract: the buffer must be non-empty. No
-   * HS_CHECK guards count here because every caller gates first — pop_back() on
-   * is_empty(), and the push_front/emplace_front eviction paths on is_full(). On
-   * an empty buffer this would decrement count past 0, wrapping it to a huge
-   * value (count is uint32_t) and corrupting size(); the caller gating is
-   * therefore load-bearing, not optional.
+   * @details Caller-guaranteed contract: the buffer must be non-empty. Every caller
+   * gates first (pop_back() on is_empty(), the push_front/emplace_front eviction
+   * paths on is_full()); on an empty buffer this would decrement count past 0,
+   * wrapping it to a huge value (uint32_t) and corrupting size(), so the caller
+   * gating is load-bearing.
    */
   void pop_back_internal() {
     tail = (tail + N - 1) % N; // + N first: never underflows (tail is uint32_t)
@@ -357,12 +348,11 @@ private:
 
   /**
    * @brief Removes the front element without an emptiness check.
-   * @details Caller-guaranteed contract: the buffer must be non-empty. No
-   * HS_CHECK guards count here because every caller gates first — pop()/clear()
-   * on is_empty(), and the push_back/emplace_back/push eviction paths on
-   * is_full(). On an empty buffer this would decrement count past 0, wrapping it
-   * to a huge value (count is uint32_t) and corrupting size(); the caller gating
-   * is therefore load-bearing, not optional.
+   * @details Caller-guaranteed contract: the buffer must be non-empty. Every caller
+   * gates first (pop()/clear() on is_empty(), the push_back/emplace_back eviction
+   * paths on is_full()); on an empty buffer this would decrement count past 0,
+   * wrapping it to a huge value (uint32_t) and corrupting size(), so the caller
+   * gating is load-bearing.
    */
   void pop_front_internal() {
     head = (head + 1) % N;
@@ -375,18 +365,16 @@ private:
    * @param idx Slot index in [0, N) whose object is replaced.
    * @param args Arguments forwarded to T's constructor.
    * @return Reference to the newly constructed element.
-   * @details The existing object's lifetime is ended and the new value is
-   * constructed directly in its storage. Unlike `buffer[idx] = T(args...)` this
-   * builds no temporary and requires only that T be constructible from Args, not
-   * assignable. The placement-new result is passed through std::launder so the
-   * returned reference is valid even for a T that is not transparently
-   * replaceable (e.g. one with const/reference members), where reusing the prior
-   * object's address is otherwise UB.
+   * @details Ends the existing object's lifetime and constructs the new value
+   * directly in its storage. Unlike `buffer[idx] = T(args...)` this builds no
+   * temporary and requires only that T be constructible from Args, not assignable.
+   * The placement-new result is passed through std::launder so the returned
+   * reference is valid even for a T that is not transparently replaceable (e.g. one
+   * with const/reference members).
    * @warning The old object is destroyed before the new one is constructed, so a
-   * throwing element constructor leaves the slot holding no live object with no
-   * recovery contract: a later construct_in_place re-destroys the dead slot (UB),
-   * so a throwing T is unsupported. Unreachable on device (-fno-exceptions,
-   * trivial T); supply a T whose constructor does not throw.
+   * throwing element constructor leaves the slot with no live object and a later
+   * construct_in_place re-destroys the dead slot (UB) — a throwing T is
+   * unsupported. Unreachable on device (-fno-exceptions, trivial T).
    */
   template <typename... Args>
   T &construct_in_place(uint32_t idx, Args &&...args) {

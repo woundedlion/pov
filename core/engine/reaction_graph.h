@@ -39,23 +39,18 @@ static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
  * @brief Computes Fibonacci-lattice node i as a unit vector on the sphere.
  * @param i Node index in [0, RD_N), ordered from north pole (i=0) southward.
  * @return Unit-length direction for lattice point i.
- * @details Recomputed on demand to avoid storing 90KB in flash. Only ever called
- *          at init, so the double-precision folding below is off the per-frame
- *          render path (zero per-frame cost); see the implementation note for why
- *          the wider math is needed.
+ * @details Recomputed on demand to avoid storing 90KB in flash. Only called at
+ *          init, so the double-precision folding below is off the per-frame render
+ *          path; see the implementation note for why the wider math is needed.
  */
 inline Vector node(int i) {
   // Must fold y, radius, and theta in double to reproduce neighbors[] bit-for-bit:
   // float32 flips near-tie sort order, and theta = golden_angle*i reaches ~18,400
-  // rad at i=RD_N-1 where a float holds only ~1e-3 rad of azimuth.
-  //
-  // Bit-exact reproduction of the generated neighbors[] is a CI-pinned-toolchain
-  // provenance contract, not a portable runtime guarantee: it needs host x86,
-  // device ARM, and the numpy table generator to agree to the last ULP on
-  // cos/sin/fmod, which is not promised for transcendentals across libms. The
-  // runtime tolerates disagreement — find_nearest_node is a nearest-node search,
-  // not a table-index equality — so a ULP drift degrades seeding quality at
-  // worst, never correctness.
+  // rad at i=RD_N-1 where a float holds only ~1e-3 rad of azimuth. Bit-exact
+  // reproduction is a CI-pinned-toolchain provenance contract, not a portable
+  // runtime guarantee; the runtime tolerates drift (find_nearest_node is a
+  // nearest-node search, not a table-index equality), so a ULP drift degrades
+  // seeding quality at worst, never correctness.
   constexpr double golden_angle = 2.399963229728653;
   constexpr double two_pi = 6.283185307179586;
   double y = 1.0 - (static_cast<double>(i) / (RD_N - 1)) * 2.0;
@@ -70,14 +65,12 @@ inline Vector node(int i) {
 
 /**
  * @brief Precomputed K-nearest-neighbor indices for every lattice node.
- * @details neighbors[i][k] is the node index of the k-th nearest neighbor of
- *          node i. Every entry is a valid index in [0, RD_N): the RD_N=7680
- *          lattice always yields a full RD_K-neighbor ring, so the table is fully
- *          populated and the `ni < 0` guard in find_nearest_node is a defensive
- *          belt-and-suspenders, not a live table state. Total size 92160 bytes
- *          (RD_N × RD_K × 2B). PROGMEM matches the generated definition; it is a
- *          no-op on the supported flat-address targets, where the direct
- *          `neighbors[i][k]` subscripting below is intentional.
+ * @details neighbors[i][k] is the node index of the k-th nearest neighbor of node
+ *          i, always a valid index in [0, RD_N): the RD_N=7680 lattice yields a
+ *          full RD_K-neighbor ring, so the `ni < 0` guard in find_nearest_node is
+ *          defensive, not a live table state. Total size 92160 bytes
+ *          (RD_N × RD_K × 2B). PROGMEM is a no-op on the supported flat-address
+ *          targets, where direct `neighbors[i][k]` subscripting works.
  */
 extern PROGMEM const int16_t neighbors[RD_N][RD_K];
 
@@ -97,10 +90,9 @@ struct CubemapLUT {
    * @brief Allocates and populates the LUT from the given arena (48 KB
    *        persistent + ~90 KB transient).
    * @param arena Arena providing backing storage for the 6×RES² table (48 KB,
-   *        retained) plus a transient RD_N×sizeof(Vector) (~90 KB) lattice
-   *        scratch, scoped to build() and rewound on return. A caller must
-   *        provision for the peak (~138 KB), not the 48 KB persistent table
-   *        alone, or this traps mid-build.
+   *        retained) plus a transient ~90 KB lattice scratch, scoped to build() and
+   *        rewound on return. A caller must provision for the peak (~138 KB), not
+   *        the 48 KB persistent table alone, or this traps mid-build.
    * @details The triple loop visits texels in linear (face, y, x) order — exactly
    *          the index (face*RES+y)*RES+x used by lookup() — so sequential
    *          push_back fills the table in place with no random-access writes.
@@ -128,16 +120,14 @@ struct CubemapLUT {
   /**
    * @brief O(1) cubemap lookup projecting a unit vector to an approximately
    *        nearest lattice node.
-   * @param p Query direction; MUST be unit-length. This precondition is
-   *        load-bearing for the divide below: the dominant-axis magnitude is
-   *        used as the divisor with no zero-guard, and only a unit `p`
-   *        guarantees that axis is `>= 1/sqrt(3)` (~0.577), so the reciprocal
-   *        never blows up. A zero or denormal `p` would divide by ~0.
-   * @return A seed lattice node index in [0, RD_N) close to p — the texel's
-   *         precomputed node. Two approximations stack: the table is built from
-   *         find_nearest_node (a hill-climb local minimum, not a global argmin)
-   *         and the query is quantized to a face cell, so the result can be off
-   *         by a neighbor. Callers needing the true nearest node must refine
+   * @param p Query direction; MUST be unit-length. Load-bearing for the divide
+   *        below: the dominant-axis magnitude is the divisor with no zero-guard,
+   *        and only a unit `p` guarantees that axis is `>= 1/sqrt(3)` (~0.577), so
+   *        the reciprocal never blows up.
+   * @return A seed lattice node index in [0, RD_N) close to p. Two approximations
+   *         stack (the table is built from find_nearest_node's hill-climb local
+   *         minimum, and the query is quantized to a face cell), so the result can
+   *         be off by a neighbor. Callers needing the true nearest node must refine
    *         among the seed and its neighbors (see
    *         ReactionDiffusionBase::refine_nearest_node in effects/).
    */
@@ -172,10 +162,9 @@ private:
    * @brief Texel-to-node table, indexed (face*RES+y)*RES+x.
    * @details Arena-backed rather than a bare uint16_t*: inherits ArenaVector's
    *          debug generation tracking (use-after-free if the arena is reset out
-   *          from under the LUT) and bound-check (lookup() before build() traps
-   *          via operator[]'s check_bound, instead of a silent null/garbage
-   *          read). On device (NDEBUG) the checks compile out, so lookup() is a
-   *          single load.
+   *          from under the LUT) and bound-check (lookup() before build() traps via
+   *          check_bound, not a silent garbage read). On device (NDEBUG) the checks
+   *          compile out, so lookup() is a single load.
    */
   ArenaVector<uint16_t> data;
 
@@ -208,24 +197,20 @@ private:
    *        node id; built once by the caller to avoid recomputing node()'s trig
    *        per hop.
    * @return Lattice node index in [0, RD_N) at a local distance minimum.
-   * @details Hill-climbs toward closer neighbors and stops at a local minimum, so
-   *          on the near-uniform Fibonacci sphere this lands on the true nearest
-   *          node in practice but is not guaranteed to — it is not a global
-   *          argmin.
+   * @details Hill-climbs toward closer neighbors and stops at a local minimum; on
+   *          the near-uniform Fibonacci sphere this lands on the true nearest node
+   *          in practice but is not guaranteed to (not a global argmin).
    *
-   *          LOAD-BEARING: the inner loop reassigns `cur` (and `best_d`) the
-   *          instant it sees a closer neighbor, so each later `k` reads
-   *          `neighbors[cur]` of the just-updated node — one `iter` therefore
-   *          chains through several nodes, not one. This is not a textbook
-   *          best-of-neighbors step and the 64-iteration cap depends on it: the
-   *          seed is latitude-only, so for an equatorial query the true node can
-   *          sit dozens of hops away around the longitude circle (the RD_N=7680
-   *          lattice has long iso-latitude rings). A refactor that scanned all
-   *          RD_K neighbors of a fixed `cur` before moving would advance one hop
-   *          per iter, exceed 64 hops near the equator, and silently return a
-   *          wrong node — which the round-trip test cannot catch because it seeds
-   *          at the answer. Do not convert this to best-of-neighbors without also
-   *          raising the cap.
+   *          LOAD-BEARING: the inner loop reassigns `cur` (and `best_d`) the instant
+   *          it sees a closer neighbor, so each later `k` reads `neighbors[cur]` of
+   *          the just-updated node — one `iter` chains through several nodes. The
+   *          64-iteration cap depends on this: the seed is latitude-only, so an
+   *          equatorial query's true node can sit dozens of hops around the
+   *          longitude circle. A refactor that scanned all RD_K neighbors of a fixed
+   *          `cur` before moving would advance one hop per iter, exceed 64 near the
+   *          equator, and silently return a wrong node (the round-trip test cannot
+   *          catch it — it seeds at the answer). Do not convert to best-of-neighbors
+   *          without also raising the cap.
    */
   static int find_nearest_node(const Vector &p, const Vector *lattice) {
     auto dist2 = [](const Vector &a, const Vector &b) {

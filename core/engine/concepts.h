@@ -89,17 +89,12 @@ public:
    * @brief Wraps a plain function pointer.
    * @param func Function pointer with signature Ret(Args...); stored in ctx_.
    * @details The function-pointer <-> void* round-trip is only
-   * *conditionally-supported* by the standard ([expr.reinterpret.cast]), but it
-   * holds on every target this engine builds for — ARM Cortex-M7, x86-64
-   * (native tests), and wasm32 all use a single pointer width. The static_assert
-   * turns any future target where that stops being true into a compile error
-   * instead of silent corruption.
-   *
-   * A null `func` produces an *empty* ref (thunk_ stays null), matching a
-   * default-constructed FunctionRef: `operator bool` reads false and the
-   * operator() null-check catches the misuse. Without this guard a null func
-   * would install a non-null thunk that dereferences null on the first call.
-   * The branch is on the cold construction path, not the per-call hot path.
+   * *conditionally-supported* by the standard ([expr.reinterpret.cast]) but holds
+   * on every target this engine builds for (ARM Cortex-M7, x86-64, wasm32 all
+   * share pointer width); the static_assert turns any future target where that
+   * stops being true into a compile error. A null `func` produces an *empty* ref
+   * (thunk_ stays null), matching a default-constructed FunctionRef, so a null
+   * func cannot install a thunk that dereferences null on the first call.
    */
   FunctionRef(Ret (*func)(Args...)) noexcept
       : ctx_(reinterpret_cast<void *>(func)) {
@@ -131,19 +126,16 @@ public:
 
   /**
    * @brief Wraps a const lvalue callable (functor or lambda).
-   * @tparam Callable Type of the callable; must be *const*-invocable with
-   * Args... (the constraint mirrors the thunk, which invokes it through a
-   * `const Callable*`, so a non-const-only callable — e.g. a `mutable` lambda —
-   * is cleanly rejected here rather than failing inside the thunk) and not
-   * itself a FunctionRef.
+   * @tparam Callable Type of the callable; must be *const*-invocable with Args...
+   * (the thunk invokes it through a `const Callable*`, so a mutable-only callable
+   * is rejected here rather than failing inside the thunk) and not itself a
+   * FunctionRef.
    * @param callable Const callable whose address is stored; must outlive this
    * ref. The const is cast away into ctx_ and restored in the thunk.
-   * @details This overload deliberately binds rvalues (temporary lambdas) too,
-   * so the idiomatic immediate-use borrow — `take_callback([](...){ ... })` for
-   * a parameter invoked only during the call — keeps working. That is the whole
-   * purpose of a function_ref-style type; an `= delete`d rvalue overload would
-   * outlaw the safe common case to catch the rarer store-past-its-lifetime
-   * misuse, which the class-level lifetime contract already documents.
+   * @details This overload also binds rvalues (temporary lambdas), so the
+   * immediate-use borrow `take_callback([](...){ ... })` keeps working — the whole
+   * purpose of a function_ref-style type. StoredFunctionRef refuses temporaries
+   * for callables kept past the call.
    */
   template <typename Callable>
     requires std::invocable<const Callable &, Args...> &&
@@ -180,14 +172,12 @@ public:
  * @brief A FunctionRef meant to be STORED past the call that builds it (e.g. a
  * class member invoked across many frames), not just borrowed for one call.
  * @tparam Signature The callable signature `Ret(Args...)`.
- * @details Identical to FunctionRef except it refuses to bind an rvalue
- * temporary. FunctionRef's const-lvalue ctor deliberately accepts temporaries so
- * call-scoped parameter borrows stay ergonomic (see FunctionRef), but binding a
- * temporary into something kept alive past the full expression is a dangling
- * reference. Storing sites use this type so the lifetime contract is enforced by
- * the type instead of a hand-rolled `= delete` at each site; plain FunctionRef
- * stays the right choice for call-scoped parameters. Adds no data members, so it
- * remains the same two-pointer trivially-copyable payload as FunctionRef.
+ * @details Identical to FunctionRef except it refuses to bind an rvalue temporary:
+ * binding a temporary into something kept alive past the full expression dangles.
+ * Storing sites use this type so the lifetime contract is enforced by the type
+ * instead of a hand-rolled `= delete` at each site; plain FunctionRef stays right
+ * for call-scoped parameters. Adds no data members, so it remains the same
+ * two-pointer trivially-copyable payload as FunctionRef.
  */
 template <typename Signature> class StoredFunctionRef;
 
@@ -205,14 +195,12 @@ public:
   StoredFunctionRef(Callable &&) = delete;
 };
 
-// These aliases are plain (borrow-only) FunctionRefs: they accept a temporary
-// so call-scoped parameters stay ergonomic, and the codebase uses them only as
-// by-value/by-const-ref function parameters borrowed for the duration of the
-// call. Enforcement of borrow-vs-store is by convention, not the type system —
-// a class member that keeps a callable alive across calls (frames) must instead
-// be typed StoredFunctionRef<Signature>, which `= delete`s the rvalue overload
-// so a dangling bind to a temporary fails to compile (see the Timeline's tween
-// members in animation.h for the canonical storing site).
+// These aliases are plain (borrow-only) FunctionRefs: they accept a temporary so
+// call-scoped parameters stay ergonomic, and are used only as by-value/by-const-ref
+// borrowed parameters. A class member that keeps a callable alive across frames
+// must instead be typed StoredFunctionRef<Signature>, which `= delete`s the rvalue
+// overload so a dangling bind to a temporary fails to compile (see the Timeline's
+// tween members in animation.h for the canonical storing site).
 using ScreenTrailFn = FunctionRef<Color4(float, float, float)>;
 using WorldTrailFn = FunctionRef<Color4(const Vector &, float)>;
 using TransformFn = FunctionRef<Vector(const Vector &)>;
@@ -233,14 +221,10 @@ using CullEdgePredRef =
  * @brief Non-owning, type-erased handle to a rasterizer pipeline.
  * @details Forwards plot() calls (2D screen-space or 3D world-space) to the
  * wrapped object's plot() methods. Like FunctionRef, it borrows the target and
- * must not outlive it. Used by the Plot and Scan draw() entry points so call
- * sites can pass any pipeline without templating. This erasure is a deliberate code-size
- * choice: erasing the pipeline here (and the shader, via FragmentShaderFn) at
- * the draw() boundary costs one indirect plot() call per pixel, but instantiates
- * the whole scanline machine once per <W,H> instead of once per (shape x
- * shader-lambda x filter-stack) — the latter would explode device flash / wasm
- * size across the 27 effects' distinct shader closures and variadic filter-stack
- * types. Per-pixel inlining is intentionally traded for a bounded binary.
+ * must not outlive it. The erasure is a code-size choice: one indirect plot() call
+ * per pixel, but the scanline machine instantiates once per <W,H> instead of once
+ * per (shape x shader-lambda x filter-stack), which would explode device flash /
+ * wasm size across the effects' distinct shader closures and filter-stack types.
  */
 class PipelineRef {
   void *ctx_;
@@ -353,11 +337,10 @@ using EasingFn = float (*)(float);
  * by index.
  * @tparam T Candidate type; must expose length() and get(index).
  * @details Matches Orientation (get -> Quaternion) and OrientationTrail (get ->
- * Orientation). get()'s return type is left deduced but contractually must be a
- * slerp/lerp-able orientation (Quaternion or Orientation); a container yielding
- * anything else satisfies this concept yet fails deep inside slerp/lerp with a
- * worse diagnostic. length() is consumed as a count, so it must be an unsigned
- * integral — a signed type could wrap negative into a huge loop bound.
+ * Orientation). get()'s return type is deduced but must be a slerp/lerp-able
+ * orientation (Quaternion or Orientation). length() is consumed as a count, so it
+ * must be an unsigned integral — a signed type could wrap negative into a huge
+ * loop bound.
  */
 template <typename T>
 concept Tweenable = requires(const T &t, size_t i) {

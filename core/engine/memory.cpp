@@ -1,19 +1,18 @@
 #include "engine/memory.h"
 #include "animation/animation.h"
 
-// Stubs to prevent the linker pulling in the C++ demangler (~15KB) on the
-// device. Chain: std::function -> __cxa_throw -> __verbose_terminate_handler ->
-// d_print_*. Only the Arduino/Teensy build needs them: on host (native tests,
-// WASM) the toolchain's real handlers are correct, and defining these would
-// shadow them. A pure-virtual call or a terminate is a fatal invariant
-// violation — flush the log and trap (fail-fast), never spin in while(1), which
-// freezes the display with no breadcrumb and is the hardest failure to diagnose.
+// Stubs to prevent the linker pulling in the C++ demangler (~15KB) on the device
+// (chain: std::function -> __cxa_throw -> __verbose_terminate_handler). Only the
+// Arduino/Teensy build needs them: on host the toolchain's real handlers are
+// correct and defining these would shadow them. A pure-virtual call or terminate
+// is a fatal invariant violation — flush the log and trap (fail-fast), never spin
+// in while(1), which freezes the display with no breadcrumb.
 #ifdef ARDUINO
 /**
  * @brief Fail-fast handler for a pure-virtual call on the device.
- * @details Flushes the log then traps; never spins in while(1), which would
- * freeze the display with no breadcrumb. Arduino/Teensy-only override so the
- * host toolchain's real handlers stay in effect on native/WASM builds.
+ * @details Flushes the log then traps; never spins in while(1). Arduino/Teensy-
+ * only override so the host toolchain's real handlers stay in effect on
+ * native/WASM builds.
  */
 extern "C" void __cxa_pure_virtual() {
   hs::flush_log();
@@ -35,20 +34,13 @@ void __verbose_terminate_handler() {
 
 /**
  * @brief Single contiguous memory block that all arenas partition.
- * @details alignas keeps the block's base (and thus persistent_arena's base)
- * maximally aligned, so Arena::allocate's first allocation in each arena needs
- * no leading padding; configure_arenas() likewise aligns the inter-arena
- * boundaries.
- *
- * Placement: this block carries NO DMAMEM qualifier, which is deliberate. The
- * arena is the engine's hot per-frame render memory (every effect's persistent
- * and scratch allocations live inside it) and is never a DMA target, so on the
- * device it lands in the default .bss — DTCM, the Cortex-M7's zero-wait tightly-
- * coupled RAM, the fastest memory available. This is the single largest RAM
- * decision in the engine (GLOBAL_ARENA_SIZE = 330 KiB). The buffers below that
- * the LED-output DMA must reach (buffer_a/buffer_b, the timeline events) instead
- * carry DMAMEM precisely because the DMA engine cannot access DTCM; the arena,
- * touched only by the CPU, has the opposite requirement and stays in DTCM.
+ * @details alignas keeps the block's base maximally aligned, so each arena's
+ * first allocation needs no leading padding; configure_arenas() likewise aligns
+ * the inter-arena boundaries. Carries NO DMAMEM: the arena is CPU-only hot render
+ * memory and never a DMA target, so on the device it lands in .bss/DTCM, the
+ * Cortex-M7's fastest zero-wait RAM. The DMA-reachable buffers below (buffer_a/
+ * buffer_b, the timeline events) carry DMAMEM instead because the DMA engine
+ * cannot access DTCM.
  */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
@@ -66,14 +58,11 @@ Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
  * @brief Re-partitions the single global block into persistent plus two scratch
  * arenas of the requested byte sizes.
  * @details Called once at init() so an effect can tune the split to the device
- * budget. Each inter-arena boundary is aligned up to max_align_t so every arena
- * base is maximally aligned (the block base already is, via alignas); for the
- * real callers all sizes are multiples of 1 KiB, so these rounds are no-ops and
- * the layout is byte-identical. The budget check uses the aligned end so
- * rounding cannot silently overrun. An over-subscribed partition is a
- * sizing/config bug, not a recoverable condition, so it traps at init() rather
- * than silently scaling down (which would relocate the corruption into the
- * rendered output); the log preserves the numbers for diagnosis before the trap.
+ * budget. Each inter-arena boundary is aligned up to max_align_t (the real callers
+ * pass 1 KiB multiples, so these rounds are no-ops); the budget check uses the
+ * aligned end so rounding cannot silently overrun. An over-subscribed partition is
+ * a sizing/config bug, not recoverable, so it traps at init() rather than silently
+ * scaling down; the log preserves the numbers before the trap.
  */
 void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
   // Bound each input so the align_up()/sum arithmetic below cannot wrap size_t.
@@ -103,12 +92,11 @@ void configure_arenas_default() {
                    DEFAULT_SCRATCH_B_SIZE);
 }
 
-// The large statically-allocated buffers below are defined here, not next to
-// their declarations, on purpose: memory.cpp is the one TU compiled into every
-// target, so co-locating them with the arena block keeps every DMAMEM/large-
-// static placement decision in one file the linker map points at — at the cost
-// of this TU pulling in the animation and effect headers. Look here, not in
-// animation.h / effect.h, for where the storage actually lands.
+// The large static buffers below are defined here, not next to their
+// declarations: memory.cpp is the one TU compiled into every target, so
+// co-locating them with the arena block keeps every DMAMEM/large-static placement
+// decision in one file the linker map points at. Look here, not in animation.h /
+// effect.h, for where the storage actually lands.
 
 /** @brief Shared event array backing every Timeline instance. */
 DMAMEM TimelineEvent global_timeline_events[TIMELINE_MAX_EVENTS];

@@ -18,27 +18,11 @@
  * @brief Always-on invariant trap that survives NDEBUG and pulls in no stdio.
  * @param cond Condition that must hold; the macro traps when it is false.
  * @param ... Optional printf-style format string and arguments for the message.
- * @details Unlike assert(), HS_CHECK is NOT stripped by NDEBUG, so it still
- *          fires in the optimized device build — where platform.h defines
- *          NDEBUG to keep newlib's __assert_func -> fprintf out of the image.
- *          Use it on COLD paths only (container growth, arena OOM, capacity
- *          guards), where an invariant violation is a logic/sizing bug with no
- *          valid recovery: trapping at the violation site is strictly better
- *          than silently writing out of bounds, and a corrupted arena that ships
- *          garbage is the worst outcome. It compiles to a single
- *          predicted-not-taken branch — never place it in the per-pixel hot
- *          loop. Reserve bounded/soft handling for genuine transient conditions
- *          (DMA overrun, dropped frame); those are not invariant violations.
- *
- *          On failure it logs "HS_CHECK failed: <file>:<line>: (<cond>) <msg>"
- *          and flushes the log before trapping, so a release/device build leaves
- *          a breadcrumb identifying exactly which check fired. Usage:
- *            HS_CHECK(i < n);
- *            HS_CHECK(i < n, "index out of range");
- *            HS_CHECK(i < n, "i=%d n=%d", i, n);
- *          hs::check_fail is defined later in this header; the macro only
- *          expands in translation units that include the whole file, so the
- *          forward use is fine.
+ * @details Not stripped by NDEBUG, so it still fires in the optimized device
+ *          build. Cold paths only (container growth, arena OOM, capacity guards):
+ *          compiles to a single predicted-not-taken branch, never the per-pixel
+ *          hot loop. On failure it logs a located breadcrumb and flushes before
+ *          trapping.
  */
 #define HS_CHECK(cond, ...)                                                     \
   do {                                                                          \
@@ -53,16 +37,12 @@
 namespace hs {
 /**
  * @brief Small deterministic PRNG (PCG XSH-RR 64/32) — the process-wide RNG.
- * @details The engine behind hs::random(): 16 B of DTCM (RAM1) state and a short
- *          critical path. Models a UniformRandomBitGenerator (result_type /
- *          min() / max() / operator()), so std::shuffle and hs::rand_* consume it
- *          unchanged.
- *
- *          DETERMINISM CONTRACT: device and host both instantiate this identical
- *          type seeded with 1337, so the draw stream stays bit-identical across
- *          the two builds — the sim/device parity invariant. Nothing may depend
- *          on the specific values, only on reproducibility. Reference
- *          implementation by Melissa O'Neill (pcg32).
+ * @details Models a UniformRandomBitGenerator, so std::shuffle and hs::rand_*
+ *          consume it unchanged. DETERMINISM CONTRACT: device and host both seed
+ *          this identical type with 1337, so the draw stream stays bit-identical
+ *          across the two builds (the sim/device parity invariant); nothing may
+ *          depend on the specific values, only on reproducibility. Reference:
+ *          pcg32 by Melissa O'Neill.
  */
 class Pcg32 {
 public:
@@ -74,8 +54,7 @@ public:
 
   /**
    * @brief Re-initializes the generator to the deterministic state for `s`.
-   * @param s Seed value (mirrors std::mt19937::seed so callers pinning a known
-   *          stream — the determinism tests — work unchanged).
+   * @param s Seed value (mirrors std::mt19937::seed).
    */
   void seed(uint64_t s) {
     state_ = 0u;
@@ -113,12 +92,9 @@ namespace hs {
 /**
  * @brief Logs one formatted line to Serial on the device.
  * @param msg printf-style format string; trailing args supply the values.
- * @details Formats into a fixed 256-byte stack buffer with vsniprintf (no heap),
- *          then writes one line. Sized to hold a full check_fail() breadcrumb
- *          ("HS_CHECK failed: file:line: (cond) msg") without truncating the
- *          message tail. The integer-only vsniprintf is deliberate: it keeps
- *          newlib's float formatter (_dtoa_r + the %f/%g bignum helpers, ~5 KB)
- *          out of ITCM. The device never logs a float, so this costs nothing.
+ * @details Formats into a fixed 256-byte stack buffer (no heap) via the
+ *          integer-only vsniprintf, which keeps newlib's float formatter out of
+ *          ITCM — the device never logs a float.
  */
 inline void log(const char *msg, ...) __attribute__((format(printf, 1, 2)));
 inline void log(const char *msg, ...) {
@@ -137,30 +113,15 @@ inline void flush_log() { Serial.flush(); }
  * @brief Returns the global deterministic random number generator.
  * @return Reference to the process-wide Pcg32 seeded with 1337.
  * @details DETERMINISM CONTRACT: this `Pcg32(1337)` is the only RNG that is
- *          bit-identical device-vs-simulator — the host build (see the `#else`
- *          branch below) returns the same seeded `Pcg32`. Effects that must
- *          render identically on hardware and in the byte-deterministic
- *          simulator therefore draw through this generator: `hs::random()`,
- *          `hs::rand_f`, `hs::rand_int`.
+ *          bit-identical device-vs-simulator; parity-sensitive effects must draw
+ *          through it via `hs::random()`/`hs::rand_f`/`hs::rand_int`, not the
+ *          FastLED `random8()`/`random16()`/Arduino `random()` path (that
+ *          resolves to FastLED's LCG on device but this Pcg32 on the host mocks,
+ *          so the two diverge; legacy effects only).
  *
- *          The bare FastLED `random8()`/`random16()`/Arduino `random()` are NOT
- *          covered by this contract: on device they resolve to FastLED's LCG
- *          (seeded by `randomSeed(1337)` in pov_single.h), but the host mocks
- *          route them through this `Pcg32` — a different algorithm, so the two
- *          diverge. Only legacy effects (`effects_legacy.h`) use that path;
- *          modern effects must not, and the cheap LCG is deliberately not
- *          adopted on the hot path because it would break this contract for no
- *          measurable gain (RNG is spawn/setup-time, never per-pixel). Pcg32 is
- *          itself a fast deterministic PRNG, so a future per-pixel RNG need can
- *          draw from here rather than reaching for the platform LCG.
- *
- *          REENTRANCY CONTRACT: the generator is a function-local `static`, so
- *          advancing it mutates shared state with no lock. It is therefore
- *          main-loop-only — never call `hs::random()`/`rand_f`/`rand_int` from an
- *          ISR or any preemptive context. Interleaving a draw from an interrupt
- *          would both corrupt the generator's internal state (a torn multi-word
- *          update) and desync the deterministic stream from the simulator. Safe
- *          today only because every caller runs on the render/setup path.
+ *          REENTRANCY CONTRACT: the generator is a function-local `static`, so it
+ *          is main-loop-only — never call it from an ISR or any preemptive
+ *          context.
  */
 inline Pcg32& random() {
   static Pcg32 gen(1337);
@@ -194,16 +155,13 @@ inline bool debug = false;
 
 /**
  * @brief Virtual rows appended below the physical LED ring (device value 3).
- * @details The latitude mapping is phi = y * PI / (H + H_OFFSET - 1), so the
- *          bottom physical row y = H-1 lands short of PI: the image is clipped
- *          (not stretched) where the LEDs stop short of the south pole. The
- *          host/sim build deliberately sets H_OFFSET = 0 (see the other
- *          definition in the non-Arduino branch below), so the simulator maps
- *          the full sphere and does not reproduce this bottom clipping — an
- *          intentional device/host divergence. Because the native build cannot
- *          observe a non-zero offset, the regression tests inject the hardware
- *          value explicitly (see tests/test_geometry.h). Callers pass H (not
- *          H + H_OFFSET) to y_to_phi<H>(), which adds the offset internally.
+ * @details The latitude mapping phi = y * PI / (H + H_OFFSET - 1) lands the
+ *          bottom physical row short of PI, clipping (not stretching) the image
+ *          where the LEDs stop short of the south pole. The host/sim build sets
+ *          H_OFFSET = 0, an intentional device/host divergence; regression tests
+ *          inject the hardware value explicitly (see tests/test_geometry.h).
+ *          Callers pass H (not H + H_OFFSET) to y_to_phi<H>(), which adds the
+ *          offset internally.
  */
 static constexpr int H_OFFSET = 3;
 } // namespace hs
@@ -238,19 +196,12 @@ static constexpr int H_OFFSET = 3;
 #include <cstdio>
 
 // ---------------------------------------------------------------------------
-// Test-only injectable clock (host builds only).
-//
-// Animation timing on host reads the wall clock (hs::millis / hs::micros /
-// beatsin*), so the same frame rendered twice sees a different time and cannot
-// be compared byte-for-byte. Tests enable this seam to pin time to a fixed
-// per-frame schedule, which is what makes the cross-run determinism check in
-// tests/test_effects.h possible.
-//
-// OFF by default: with use_mock_time == false the helpers return the real wall
-// clock, so the simulator / WASM build is bit-for-bit unchanged. The seam does
-// not exist in the device (ARDUINO) branch at all, so hardware is untouched.
-// The single predicted-not-taken branch lives only in millis/micros, which are
-// per-frame calls — never the per-pixel hot loop.
+// Test-only injectable clock (host builds only). Host timing reads the wall
+// clock, so tests pin time to a fixed per-frame schedule to make the cross-run
+// determinism check in tests/test_effects.h possible. OFF by default (real wall
+// clock, so sim/WASM is bit-for-bit unchanged); absent from the device (ARDUINO)
+// branch. The predicted-not-taken branch lives only in millis/micros (per-frame),
+// never the per-pixel hot loop.
 namespace hs {
 inline bool use_mock_time = false;        /**< When true, millis/micros return mock values. */
 inline unsigned long mock_millis_value = 0; /**< Pinned millisecond time when mocking. */
@@ -553,9 +504,9 @@ enum ColorOrder { RGB };
 #define DATA_RATE_MHZ(x) (x)
 
 // --- Mock Arduino Functions ---
-// These are deliberately at global scope to mirror Arduino/FastLED, which
-// expose random()/map() as free globals; unqualified callers (e.g. the legacy
-// effects) must resolve identically on host and device.
+// Global scope mirrors Arduino/FastLED, which expose random()/map() as free
+// globals; unqualified callers (e.g. the legacy effects) must resolve
+// identically on host and device.
 /**
  * @brief Returns a pseudo-random integer in [0, max) (Arduino random()).
  * @param max Exclusive upper bound.
@@ -588,15 +539,11 @@ inline int random(int min, int max) {
  * @param out_max Upper bound of the output range.
  * @return x scaled from [in_min, in_max] onto [out_min, out_max]; out_min when
  *         the input range is degenerate (in_max == in_min).
- * @details Arduino's map() divides by (in_max - in_min) with no guard. A
- *          degenerate input range raises SIGFPE on the host (x86 integer
- *          div-by-zero) while the Cortex-M7 device returns 0 from the divide
- *          (SDIV-by-zero traps are off — relies on CCR.DIV_0_TRP staying at its
- *          clear reset default, which the firmware never sets), so map() there
- *          yields out_min. Match the device rather than crashing only in the
- *          simulator. This parity holds only while DIV_0_TRP is clear; verify it
- *          at the device boot path (targets/Holosphere/Holosphere.ino setup())
- *          if any library starts touching SCB->CCR.
+ * @details Degenerate input range (in_max == in_min) returns out_min: Arduino's
+ *          map() divides with no guard, which SIGFPEs on the host while the
+ *          Cortex-M7 returns 0 from the divide (relies on CCR.DIV_0_TRP staying
+ *          at its clear reset default). Match the device rather than crashing
+ *          only in the simulator.
  */
 inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
   // Device computes in 32-bit `long`. Multiply in uint32_t (defined wrap mod
@@ -711,22 +658,19 @@ inline uint16_t random16() { return hs::random()() % 65536; }
  */
 inline void random16_add_entropy(uint16_t) {}
 
-// FastLED fixed-point sine + scaling primitives. The device build pulls these
-// from <FastLED.h>; the host mock reproduces their exact integer semantics (LUT
-// sine, 8.8 beat sawtooth, scale8 range fit) so the simulator predicts the
-// device instead of approximating it with a smooth float sine of a different
-// shape, phase convention, and parameter order.
+// FastLED fixed-point sine + scaling primitives. The device pulls these from
+// <FastLED.h>; the host mock reproduces their exact integer semantics (LUT sine,
+// 8.8 beat sawtooth, scale8 range fit) so the simulator predicts the device
+// rather than approximating with a float sine.
 
 /**
  * @brief Unsigned 8-bit fractional scale, scale8(i, sc) = i * (1 + sc) / 256.
  * @param i Value to scale, in [0, 255].
  * @param sc Scale factor, in [0, 255].
  * @return i scaled by sc/256 in the SCALE8_FIXED sense, in [0, 255].
- * @details The (1 + sc) is FastLED's SCALE8_FIXED form (default in modern
- *          releases): it makes scale8(x, 255) == x, so a full-scale fade is the
- *          identity. The device pulls the FIXED variant from <FastLED.h>;
- *          matching it here keeps the simulator bit-exact rather than 1 LSB low
- *          on every fade.
+ * @details The (1 + sc) is FastLED's SCALE8_FIXED form, so scale8(x, 255) == x
+ *          (a full-scale fade is the identity). Matching it keeps the simulator
+ *          bit-exact rather than 1 LSB low on every fade.
  */
 inline uint8_t scale8(uint8_t i, uint8_t sc) {
   return (static_cast<uint16_t>(i) * (1 + static_cast<uint16_t>(sc))) >> 8;
@@ -788,21 +732,12 @@ inline int16_t sin16(uint16_t theta) {
  * @param bpm88 Tempo as an 8.8 fixed-point beats-per-minute value.
  * @param timebase Millisecond offset for the zero of time.
  * @return The current phase in [0, 65535].
- * @details Sourced from hs::millis() so the test time-injection seam keeps
- *          beats deterministic. The * 280 constant is FastLED's
- *          (≈ 65536 * 1000 / 60000) ms→phase scale.
- *
- *          Sim/device wrap: the intermediate `(millis-timebase)*bpm88*280` is
- *          `unsigned long`, which is 32-bit on the device (and Win32 host) but
- *          64-bit on a LP64 host, so the device wraps it mod 2^32 while a LP64
- *          host does not. This does NOT diverge: the function returns only the
- *          uint16_t formed by `>>16`, i.e. bits 16..31 of the product, and by
- *          the modular-multiply identity those bits are identical whether the
- *          product is taken mod 2^32 (device) or in full (LP64) — the high bits
- *          a 64-bit intermediate keeps are exactly the ones the uint16_t cast
- *          discards. Verified exhaustively over random millis/timebase/bpm88
- *          (incl. the timebase>millis underflow case). Hence no uint32_t cast is
- *          needed; the host beat/beatsin phases match the device bit-for-bit.
+ * @details Sourced from hs::millis() so the test time-injection seam keeps beats
+ *          deterministic. The * 280 constant is FastLED's ms->phase scale
+ *          (~65536 * 1000 / 60000). The `unsigned long` intermediate wraps mod
+ *          2^32 on the device but not on a LP64 host; harmless because only bits
+ *          16..31 (the `>>16` result) are returned, and those are identical
+ *          either way.
  */
 inline uint16_t beat88(uint16_t bpm88, uint32_t timebase = 0) {
   return ((hs::millis() - timebase) * bpm88 * 280) >> 16;
@@ -812,10 +747,8 @@ inline uint16_t beat88(uint16_t bpm88, uint32_t timebase = 0) {
  * @param bpm Tempo in beats per minute.
  * @param timebase Millisecond offset for the zero of time.
  * @return The current phase in [0, 65535].
- * @pre bpm <= 255. bpm << 8 is truncated to 16 bits, so bpm >= 256 wraps
- *      (e.g. beat16(300) == beat16(44)). Parity-faithful to FastLED's own
- *      beat16; >255 BPM is musically nonsensical, hence a precondition not a
- *      guard.
+ * @pre bpm <= 255. bpm << 8 truncates to 16 bits, so bpm >= 256 wraps
+ *      (e.g. beat16(300) == beat16(44)), matching FastLED's own beat16.
  */
 inline uint16_t beat16(uint16_t bpm, uint32_t timebase = 0) {
   return beat88(static_cast<uint16_t>(bpm << 8), timebase);
@@ -839,9 +772,8 @@ inline uint8_t beat8(uint16_t bpm, uint32_t timebase = 0) {
  * @param phase_offset Phase shift added to the wave, in [0, 255].
  * @return An 8-bit value oscillating within [lowest, highest].
  * @pre lowest <= highest. The `highest - lowest` span is an unsigned subtraction,
- *      so passing lowest > highest underflows and escapes the documented range.
- *      This matches device <FastLED.h>, which subtracts identically and is not
- *      guarded either — clamping here would diverge the host from the device.
+ *      so passing lowest > highest underflows and escapes the documented range,
+ *      matching the unguarded device <FastLED.h>.
  * @details The parameter order and LUT match <FastLED.h>, and the scale8 range
  *          fit keeps the result within [lowest, highest].
  */
@@ -877,12 +809,10 @@ inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
  * @param b Second addend.
  * @param m Modulus.
  * @return (a + b) mod m, or (a + b) when m == 0.
- * @details A zero modulus SIGFPEs on the host (x86 integer div-by-zero) while
- *          the Cortex-M7 device returns the unreduced sum: UDIV-by-zero yields a
- *          0 quotient (traps off; same CCR.DIV_0_TRP reset-default dependence as
- *          map(), verified at the device boot path), so the remainder reduces to
- *          (a + b). Match the device rather than crashing only in the simulator,
- *          mirroring the m == 0 guards in map()/random8().
+ * @details Zero modulus SIGFPEs on the host while the Cortex-M7 returns the
+ *          unreduced sum (UDIV-by-zero yields a 0 quotient, so the remainder
+ *          reduces to a + b; same CCR.DIV_0_TRP dependence as map()). Match the
+ *          device rather than crashing only in the simulator.
  */
 inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) {
   if (m == 0) return static_cast<uint8_t>(a + b);
@@ -936,16 +866,13 @@ inline uint8_t triwave8(uint8_t in) {
 /**
  * @brief Executes the guarded block at most once every N milliseconds.
  * @param N Interval in milliseconds.
- * @details Expands to a static throttle object plus one `if`, the SAME two-token
+ * @details Expands to a static throttle object plus one `if`, the same two-token
  * shape as the device's class-based FastLED macro (`static CEveryNMillis o(N);
- * if (o)`), so the body lines up statement-for-statement with the device's. As
- * on the device, the trailing `if` is what the following braced block attaches
- * to; like FastLED's, this still cannot serve as the *unbraced* body of an outer
- * control statement (a leading `static` decl is not a valid lone substatement).
- * The throttle object is named from `__COUNTER__` (consumed once via the _I
- * indirection), so it is unique per expansion and two uses on one source line do
- * not collide — matching FastLED, which also counts. See hs::EveryNMillis for
- * the timing semantics.
+ * if (o)`), so the body lines up statement-for-statement with the device's. Like
+ * FastLED's, it cannot serve as the *unbraced* body of an outer control statement
+ * (a leading `static` decl is not a valid lone substatement). The throttle object
+ * is named from `__COUNTER__` so two uses on one source line do not collide. See
+ * hs::EveryNMillis for the timing semantics.
  */
 #define EVERY_N_MILLIS_I(NAME, N)                                              \
   static hs::EveryNMillis NAME((N));                                           \
@@ -967,14 +894,10 @@ namespace hs {
 /**
  * @brief Returns milliseconds since an arbitrary epoch (host millis()).
  * @return Monotonic millisecond count, or the injected mock time when enabled.
- * @details Uses steady_clock (monotonic), matching micros(): a wall-clock
- *          source would let an NTP step or manual clock change make millis()
- *          jump or go backward, so the unsigned `now - last` in EVERY_N_MILLIS
- *          wraps huge and the beat/beatsin phases jump. The device millis() is
- *          monotonic; the simulator must match. The count is narrowed through
- *          uint32_t so it wraps at 2^32 ms (~49 days) on every host, matching
- *          the device's 32-bit return rather than wrapping at a host-bitness-
- *          dependent point (never on LP64).
+ * @details Uses steady_clock (monotonic) so an NTP step or clock change cannot
+ *          make millis() jump backward and wrap the unsigned `now - last` in
+ *          EVERY_N_MILLIS. Narrowed through uint32_t so it wraps at 2^32 ms
+ *          (~49 days), matching the device's 32-bit return on every host.
  */
 inline unsigned long millis() {
   if (use_mock_time) return mock_millis_value;
@@ -986,16 +909,10 @@ inline unsigned long millis() {
 
 /**
  * @brief Host throttle backing EVERY_N_MILLIS, mirroring FastLED's CEveryNMillis.
- * @details Class-based like the device's FastLED macro so EVERY_N_MILLIS can
- * expand to a single guarded statement (`static EveryNMillis o(N); if (o)`),
- * keeping the host structurally in step with the device and nesting correctly in
- * control flow.
- *
- * `last_` is seeded to `millis()` at construction, so the first evaluation does
- * not fire until a full period elapses — matching the device, whose FastLED
- * `CEveryNMillis` stamps its trigger from `millis()` in its constructor. The
- * stamp is never reset across effect switches (the object is a function-local
- * `static`), and the period is captured at construction.
+ * @details Class-based like the device's FastLED macro so EVERY_N_MILLIS expands
+ * to a single guarded statement. `last_` is seeded to `millis()` at construction
+ * so the first evaluation waits a full period, matching the device; the stamp is
+ * never reset across effect switches (function-local `static`).
  */
 class EveryNMillis {
 public:
@@ -1023,9 +940,8 @@ private:
 /**
  * @brief Returns microseconds since an arbitrary epoch (host micros()).
  * @return Monotonic microsecond count, or the injected mock time when enabled.
- * @details Narrowed through uint32_t so it wraps at 2^32 us (~71 min) on every
- *          host, matching the device's 32-bit return instead of a host-bitness-
- *          dependent wrap point.
+ * @details Narrowed through uint32_t so it wraps at 2^32 us (~71 min), matching
+ *          the device's 32-bit return on every host.
  */
 inline unsigned long micros() {
   if (use_mock_time) return mock_micros_value;
@@ -1047,23 +963,15 @@ inline bool debug = false;
 /**
  * @brief Virtual rows appended below the physical LED ring; 0 on host/sim.
  * @details The simulator has no physical LED ring to clip against, so it maps
- *          the full sphere. This intentionally diverges from the device's
- *          H_OFFSET = 3 (see the CORE_TEENSY definition above for the full
- *          rationale), so vertical sphere coverage is not bit-identical to
- *          hardware.
+ *          the full sphere — an intentional divergence from the device's
+ *          H_OFFSET = 3 (see the CORE_TEENSY definition above).
  *
- *          HS_TEST_H_OFFSET override: the south-pole Y-clip renormalization in
- *          the rasterizer (the bilinear-tap fold in Screen::AntiAlias::plot, and
- *          the H_VIRT handling threaded through geometry/scan/plot/sdf) only does
- *          real work when H_OFFSET > 0, which never happens on a normal host
- *          build. A dedicated host test executable defines HS_TEST_H_OFFSET=3 so
- *          the WHOLE pipeline compiles with the hardware offset and the renorm
- *          path runs against an energy-conservation oracle (see
- *          tests/test_h_offset_renorm.h, tests/CMakeLists.txt). This is the same
- *          recompile-under-device-config tactic as the fastmath_clamp_check TU.
- *          It MUST live in its own translation unit/executable: an offset-3 and
- *          an offset-0 instantiation of the same PhiLUT<H>/TrigLUT<W,H> would
- *          otherwise have different static-array sizes and clash under ODR.
+ *          HS_TEST_H_OFFSET override: a dedicated host test executable defines it
+ *          to 3 so the whole pipeline compiles with the hardware offset and the
+ *          south-pole renorm path runs against an energy-conservation oracle (see
+ *          tests/test_h_offset_renorm.h). It MUST live in its own translation
+ *          unit: offset-3 and offset-0 instantiations of PhiLUT<H>/TrigLUT<W,H>
+ *          have different static-array sizes and would clash under ODR.
  */
 #if defined(HS_TEST_H_OFFSET)
 static constexpr int H_OFFSET = HS_TEST_H_OFFSET;
@@ -1087,19 +995,12 @@ inline unsigned long micros() { return hs::micros(); }
 #endif
 
 // ---------------------------------------------------------------------------
-// Keep a setup-only function off the fast ITCM FlexRAM banks (RAM1). It carries
-// FLASHMEM (the ldscript routes .flashmem to FLASH) plus noinline + noclone, and
-// the latter two do the real work for cold operators that the optimizer would
-// otherwise replicate across ITCM: noinline collapses the per-call-site inline
-// copies a hot caller would stamp out (every solid factory inlining the same
-// Conway operator), and noclone blocks the .constprop / .isra IPA clones — which
-// drop the section attribute and so land in ITCM regardless, as
-// classify_faces_by_topology did with FLASHMEM + noinline alone. Apply ONLY to
-// internal-linkage (`static`) free functions on cold paths (mesh/solid
-// construction): a section attribute on a COMDAT (inline/template member)
-// function is a section-type conflict, and the per-frame render path must never
-// pay flash latency. Off-device FLASHMEM is empty and noclone is GCC-only, so
-// the macro degrades to a no-op for the host/simulator build.
+// HS_COLD: keep a setup-only function off the fast ITCM banks. FLASHMEM routes it
+// to FLASH; noinline collapses per-call-site inline copies and noclone blocks the
+// .constprop/.isra IPA clones (which drop the section attribute and land in ITCM
+// regardless). Apply ONLY to internal-linkage (`static`) free functions on cold
+// paths (mesh/solid construction): a section attribute on a COMDAT (inline/template
+// member) function is a section-type conflict. Off-device it degrades to a no-op.
 // ---------------------------------------------------------------------------
 #if defined(__GNUC__) && !defined(__clang__)
 #define HS_COLD FLASHMEM __attribute__((noinline, noclone))
@@ -1109,7 +1010,7 @@ inline unsigned long micros() { return hs::micros(); }
 
 // ---------------------------------------------------------------------------
 // Platform-agnostic hs:: helpers (defined once; both branches above provide
-// hs::random()). Hoisted out of the per-platform #if to remove duplication.
+// hs::random()).
 // ---------------------------------------------------------------------------
 namespace hs {
 
@@ -1129,14 +1030,11 @@ namespace hs {
  *      divisor. rand_f()'s static_assert enforces it for the global RNG.
  * @return A float in [0.0, 1.0), clamped just below 1.0f at the top band.
  * @details The naive value/max can land on exactly 1.0f for the top band of
- *          draws because both operands — value and the divisor max, which is
- *          2^32-1 (UINT32_MAX), not 2^32 — round UP to 2^32 in float32 (2^32-1
- *          is not representable there), so (int)(u * N) would
- *          occasionally index N — one past the end. Clamp only those top draws
- *          to the float just below 1.0f; no float is representable between that
- *          constant and 1.0f, so every other draw is byte-for-byte unchanged and
- *          the stream stays deterministic. Pure so the boundary is unit-testable
- *          without driving the global RNG to its (rare) max.
+ *          draws: both value and the divisor 2^32-1 round UP to 2^32 in float32
+ *          (2^32-1 is not representable there), so (int)(u * N) would index N —
+ *          one past the end. Clamp only those top draws to the float just below
+ *          1.0f; every other draw is byte-for-byte unchanged. Pure so the
+ *          boundary is unit-testable without driving the global RNG to its max.
  */
 inline float random_to_unit(uint32_t value, uint32_t max) {
   float r = static_cast<float>(value) / static_cast<float>(max);
@@ -1252,22 +1150,19 @@ struct ScanMetrics {
   void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = exact_hits = convex_hits = lut_hits = plot_backstop_hits = 0; }
 };
 /** @brief Global scanline profiling counters. Compiled in only when
- *  HS_SCAN_METRICS is defined — every reader goes through HS_SCAN_METRIC(...),
- *  which expands to nothing in the release build, so the global would otherwise
- *  be dead storage there. */
+ *  HS_SCAN_METRICS is defined; otherwise HS_SCAN_METRIC(...) expands to nothing
+ *  and this would be dead storage. */
 #ifdef HS_SCAN_METRICS
 inline ScanMetrics g_scan_metrics;
 #endif
 
 } // namespace hs
 
-// Per-pixel scan instrumentation is OFF by default. The README's engineering
-// philosophy requires the per-pixel hot loop to stay lean, and a g_scan_metrics
-// increment is a non-atomic global load-modify-store on a shared cache line for
-// every pixel. Define HS_SCAN_METRICS to compile the counters back in — the
-// native test build does, to assert which Face::distance path each sample took;
-// the device/WASM release build leaves it undefined so HS_SCAN_METRIC(...)
-// expands to nothing and the hot loop pays nothing.
+// Per-pixel scan instrumentation is OFF by default: a g_scan_metrics increment is
+// a non-atomic global load-modify-store on a shared cache line for every pixel.
+// Define HS_SCAN_METRICS to compile the counters in (the native test build does,
+// to assert which Face::distance path each sample took); otherwise
+// HS_SCAN_METRIC(...) expands to nothing.
 #ifdef HS_SCAN_METRICS
 #define HS_SCAN_METRIC(stmt) do { (stmt); } while (0)
 #else
@@ -1275,19 +1170,17 @@ inline ScanMetrics g_scan_metrics;
 #endif
 
 // ---------------------------------------------------------------------------
-// Fn<Sig, Cap> — platform-aware callable wrapper. BOTH backends use heap-free
+// Fn<Sig, Cap> — platform-aware callable wrapper. Both backends use heap-free
 // inline storage, so a captured closure is never heap-allocated (which, stored in
 // an ArenaVector that never destroys its elements, would leak under LSan).
 //   Teensy:     teensy::inplace_function
 //   Host/WASM:  hs::inplace_function
 //
-// Cap is a hard inline byte budget on both backends: a capture that overflows it
-// is a compile error, not a heap allocation. Because Cap counts bytes, a closure
-// that captures pointers is wider on the 64-bit host than on the 32-bit
-// device/WASM. A pointer-capturing callsite picks a fixed byte Cap with headroom
-// for the wider 64-bit-host closure (e.g. SpriteFn's 16 B holds two host pointers)
-// rather than inflating every Fn here (which would push Fn-bearing types past
-// TimelineEvent::MAX_ANIM_SIZE). See SpriteFn in concepts.h.
+// Cap is a hard inline byte budget: a capture that overflows it is a compile
+// error, not a heap allocation. A pointer capture is wider on the 64-bit host, so
+// a pointer-capturing callsite picks a fixed byte Cap with headroom for the wider
+// host closure (e.g. SpriteFn's 16 B holds two host pointers) rather than
+// inflating every Fn here. See SpriteFn in concepts.h.
 // ---------------------------------------------------------------------------
 #ifdef ARDUINO
 #include <inplace_function.h>
@@ -1318,18 +1211,13 @@ using Fn = hs::inplace_function<Sig, Cap>;
 namespace hs {
 
 // The clamp NaN->hi contract below is load-bearing for engine-wide float->int
-// domain safety: Spherical, vector_to_pixel, blend_alpha, Gradient::get, and
-// every palette lookup feed a possibly-NaN value through clamp as a saturating
-// guard before a float->int cast. That guard survives only under real IEEE
-// (non-finite) semantics. -ffinite-math-only — which a bare -ffast-math implies
-// — licenses the compiler to assume no NaN/Inf exists and fold the guard away,
-// silently reintroducing the cast UB across the whole renderer. The WASM release
-// build keeps the contract solely by re-applying -fno-finite-math-only after
-// -ffast-math (see CMakeLists.txt). Trap at compile time, on every target, if
-// that protection is ever lost (flag reorder, toolchain default change, or an
-// -ffinite-math-only sub-target) so the regression is a build error here rather
-// than silent corruption on the sphere. The native fastmath clamp test
-// (tests/CMakeLists.txt) exercises the contract under the real flags.
+// domain safety: Spherical, vector_to_pixel, blend_alpha, Gradient::get and every
+// palette lookup feed a possibly-NaN value through clamp as a saturating guard
+// before a float->int cast. -ffinite-math-only (implied by a bare -ffast-math)
+// lets the compiler assume no NaN/Inf and fold the guard away, reintroducing the
+// cast UB engine-wide; the WASM build keeps the contract by re-applying
+// -fno-finite-math-only after -ffast-math (see CMakeLists.txt). The #error below
+// traps at compile time on every target if that protection is ever lost.
 #if defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ != 0
 #error "hs::clamp NaN->hi contract requires -fno-finite-math-only: a bare -ffast-math (or -ffinite-math-only) makes the compiler assume no NaN and folds the saturating clamp guard away, reintroducing float->int cast UB engine-wide."
 #endif
@@ -1344,28 +1232,15 @@ namespace hs {
  * @return v clamped to [lo, hi]; hi when v is NaN.
  * @details CONTRACT (load-bearing): computes max(lo, min(v, hi)) with v as the
  *          FIRST operand to the inner min. The x86 minss instruction returns its
- *          SECOND source operand whenever either input is NaN, so min(NaN, hi)
- *          == hi and then max(lo, hi) == hi. This backend is therefore
- *          REORDER-SENSITIVE: swapping to min(hi, v) would make min(hi, NaN) ==
- *          NaN and break the contract — hence the do-not-reorder note. (The
- *          fminf backend below reaches the same hi by a different rule, IEEE
- *          NaN-suppression, and is reorder-insensitive; see its note.) Callers
- *          feed a possibly-NaN value through this as a saturating guard before a
- *          float->int cast (e.g. blend_alpha and Gradient::get; see
- *          test_blend_alpha_clamps_before_cast and
- *          test_gradient_get_clamps_out_of_range). Do not reorder the min
- *          operands.
+ *          SECOND source operand on any NaN, so min(NaN, hi) == hi. This backend
+ *          is REORDER-SENSITIVE: swapping to min(hi, v) would yield NaN and break
+ *          the contract. Do not reorder the min operands.
  */
 inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
-  // Load floats into the 128-bit SSE registers
   __m128 mv = _mm_set_ss(v);
   __m128 mlo = _mm_set_ss(lo);
   __m128 mhi = _mm_set_ss(hi);
-
-  // Hardware execution: max(lo, min(v, hi))
   __m128 res = _mm_max_ss(mlo, _mm_min_ss(mv, mhi));
-
-  // Extract the result back to a standard C++ float
   return _mm_cvtss_f32(res);
 }
 
@@ -1377,16 +1252,12 @@ inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
  * @param lo Lower bound.
  * @param hi Upper bound.
  * @return v clamped to [lo, hi]; hi when v is NaN.
- * @details On Cortex-M7 compiles directly to VMIN.F32 / VMAX.F32. The NaN
- *          contract holds for a DIFFERENT reason than the x86 backend: IEEE
- *          __builtin_fminf/fmaxf are NaN-SUPPRESSING — they return the non-NaN
- *          operand regardless of its position — so min(NaN, hi) == hi (and
- *          min(hi, NaN) would too), then max(lo, hi) == hi. This backend is thus
- *          REORDER-INSENSITIVE; the operand order is kept identical to the x86
- *          overload only for parity, not for correctness here. See the x86
- *          overload for the caller contract. (NaN-suppression relies on
- *          -fno-finite-math-only surviving after -ffast-math; the compile-time
- *          __FINITE_MATH_ONLY__ #error above guards exactly that.)
+ * @details On Cortex-M7 compiles directly to VMIN.F32 / VMAX.F32. IEEE
+ *          __builtin_fminf/fmaxf are NaN-SUPPRESSING (return the non-NaN operand
+ *          regardless of position), so min(NaN, hi) == hi; this backend is
+ *          REORDER-INSENSITIVE, operand order kept identical to the x86 overload
+ *          only for parity. NaN-suppression relies on -fno-finite-math-only
+ *          surviving after -ffast-math (the __FINITE_MATH_ONLY__ #error guards it).
  */
 inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
                                                             float hi) {
@@ -1561,10 +1432,9 @@ struct CycleScope {
 /**
  * @brief Times the enclosing scope into a named cycle counter.
  * @param label Counter name (used both as the identifier suffix and log label).
- * @details Compiled in only under HS_PROFILE_ENABLE. Off by default so regular
- *          builds pay nothing: the active-counter bookkeeping (and, on-device,
- *          the per-scope CYCCNT read) runs on every hot-path face/pixel scope,
- *          which is pure overhead outside a profiling run.
+ * @details Compiled in only under HS_PROFILE_ENABLE; off by default so regular
+ *          builds pay nothing for the per-scope bookkeeping and CYCCNT read on
+ *          every hot-path face/pixel scope.
  */
 #ifdef HS_PROFILE_ENABLE
 #define HS_PROFILE(label) \
