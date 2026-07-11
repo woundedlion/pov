@@ -11,6 +11,7 @@
  */
 #pragma once
 
+#include "hardware/pov_handoff.h"
 #include "hardware/pov_segment_map.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -20,6 +21,7 @@
 namespace hs_test {
 namespace pov_segmented_tests {
 
+using pov::EffectHandoff;
 using pov::segment_clip;
 using pov::segment_map;
 using pov::SegmentClip;
@@ -191,6 +193,173 @@ inline void test_segment_clip() {
   }
 }
 
+// Stand-in for Effect: the handoff never dereferences the pointee, only tracks
+// ownership by address, so an empty tag type exercises every code path.
+struct FakeEffect {};
+
+/**
+ * @brief Teardown handshake: request, then ISR service acks and drops the live
+ * pointer.
+ * @details The foreground bumps the request counter and spins on
+ * release_complete(); a single ISR service_release() must ack and null the live
+ * pointer — the use-after-free guard, since the foreground frees the instance
+ * only once the ISR can no longer reach it.
+ */
+inline void test_release_handshake() {
+  EffectHandoff<FakeEffect> h;
+  FakeEffect e;
+  h.adopt(&e, 7);
+  HS_EXPECT_EQ(h.live(), &e);
+
+  h.request_release();
+  HS_EXPECT_FALSE(h.release_complete()); // req bumped, not yet acked
+  HS_EXPECT_EQ(h.live(), &e);            // ISR still holds it until serviced
+
+  h.service_release();
+  HS_EXPECT_TRUE(h.release_complete());
+  HS_EXPECT_EQ(h.live(), nullptr); // dropped before the foreground frees it
+
+  // A second service with no outstanding request is a no-op.
+  h.service_release();
+  HS_EXPECT_TRUE(h.release_complete());
+  HS_EXPECT_EQ(h.live(), nullptr);
+}
+
+/**
+ * @brief Two release requests before a single service still reconcile.
+ * @details ISR wakes are advisory; several foreground requests may accumulate
+ * before one service runs. The ack copies the whole request count, so one
+ * service clears the backlog.
+ */
+inline void test_release_backlog_reconciles() {
+  EffectHandoff<FakeEffect> h;
+  FakeEffect e;
+  h.adopt(&e, 1);
+  h.request_release();
+  h.request_release();
+  HS_EXPECT_FALSE(h.release_complete());
+  h.service_release();
+  HS_EXPECT_TRUE(h.release_complete());
+  HS_EXPECT_EQ(h.live(), nullptr);
+}
+
+/**
+ * @brief Commit path: publish then adopt with a matching generation.
+ * @details committable() is the commit-time use-after-free guard — true only
+ * when the pending slot holds an effect whose generation matches the wire's
+ * advertised build.
+ */
+inline void test_commit_adopt_matching_gen() {
+  EffectHandoff<FakeEffect> h;
+  FakeEffect e;
+  h.publish(&e, 42);
+
+  const auto p = h.pending_acquire();
+  HS_EXPECT_EQ(p.effect, &e);
+  HS_EXPECT_EQ(p.gen, 42u);
+  HS_EXPECT_TRUE(h.committable(p, 42));
+  HS_EXPECT_FALSE(h.committable(p, 43)); // stale wire generation
+
+  h.adopt(p.effect, p.gen);
+  HS_EXPECT_EQ(h.live(), &e);
+  HS_EXPECT_TRUE(h.consumed(42));
+  HS_EXPECT_FALSE(h.consumed(41));
+}
+
+/**
+ * @brief Commit guard trips on an empty or stale pending slot.
+ * @details After clear_pending() the slot is null, so committable() is false —
+ * the commit-time HS_CHECK that would otherwise trap on a use-after-free.
+ */
+inline void test_commit_guard_rejects_empty_and_stale() {
+  EffectHandoff<FakeEffect> h;
+  const auto empty = h.pending_acquire();
+  HS_EXPECT_EQ(empty.effect, nullptr);
+  HS_EXPECT_FALSE(h.committable(empty, 0));
+
+  FakeEffect e;
+  h.publish(&e, 5);
+  h.clear_pending();
+  const auto cleared = h.pending_acquire();
+  HS_EXPECT_EQ(cleared.effect, nullptr);
+  HS_EXPECT_FALSE(h.committable(cleared, 5));
+}
+
+/**
+ * @brief Join path: adopt only a present, unconsumed, wire-matching generation.
+ * @details A late joiner takes the pending effect live, but only when its
+ * generation still matches the wire and has not already been consumed; a
+ * mismatch simply waits for the next join grid step.
+ */
+inline void test_join_adopt_and_gen_gating() {
+  EffectHandoff<FakeEffect> h;
+  FakeEffect e;
+  h.publish(&e, 9);
+
+  const auto p = h.pending_acquire();
+  HS_EXPECT_FALSE(h.joinable(p, 8)); // wire advertises a different generation
+  HS_EXPECT_TRUE(h.joinable(p, 9));
+
+  h.adopt(p.effect, p.gen);
+  HS_EXPECT_EQ(h.live(), &e);
+
+  // Already consumed: the same generation must not re-adopt.
+  const auto again = h.pending_acquire();
+  HS_EXPECT_FALSE(h.joinable(again, 9));
+}
+
+/**
+ * @brief Full teardown→publish→commit cycle across two generations.
+ * @details Mirrors the run_show/flywheel_isr loop single-threaded: adopt gen1,
+ * tear it down via the handshake, clear, publish gen2, commit gen2. Exercises
+ * the ordering the device relies on without a live effect ever being adopted
+ * while a release is outstanding.
+ */
+inline void test_full_handoff_cycle() {
+  EffectHandoff<FakeEffect> h;
+  FakeEffect e1, e2;
+
+  // Generation 1 goes live.
+  h.publish(&e1, 1);
+  auto p1 = h.pending_acquire();
+  HS_EXPECT_TRUE(h.committable(p1, 1));
+  h.adopt(p1.effect, p1.gen);
+  HS_EXPECT_EQ(h.live(), &e1);
+  HS_EXPECT_TRUE(h.consumed(1));
+
+  // Foreground tears e1 down before freeing it.
+  h.request_release();
+  h.service_release();
+  HS_EXPECT_TRUE(h.release_complete());
+  HS_EXPECT_EQ(h.live(), nullptr);
+  h.clear_pending();
+  HS_EXPECT_EQ(h.pending_acquire().effect, nullptr);
+
+  // Generation 2 is built, published, and committed.
+  h.publish(&e2, 2);
+  auto p2 = h.pending_acquire();
+  HS_EXPECT_EQ(p2.effect, &e2);
+  HS_EXPECT_TRUE(h.committable(p2, 2));
+  h.adopt(p2.effect, p2.gen);
+  HS_EXPECT_EQ(h.live(), &e2);
+  HS_EXPECT_TRUE(h.consumed(2));
+}
+
+/**
+ * @brief Display-window (clip) alternation publishes the swept half.
+ * @details The window defaults to arm-A-left (1); a ZERO-crossing flip keeps it
+ * 1, a HALF flip clears it to 0 — the value the foreground reads to clip the
+ * next frame to the opposite quadrant.
+ */
+inline void test_window_alternation() {
+  EffectHandoff<FakeEffect> h;
+  HS_EXPECT_EQ(h.window_left(), 1u); // default: arm-A-left
+  h.set_window_left(false);          // HALF flip
+  HS_EXPECT_EQ(h.window_left(), 0u);
+  h.set_window_left(true); // ZERO flip
+  HS_EXPECT_EQ(h.window_left(), 1u);
+}
+
 /**
  * @brief Module entry point: run the segmented-POV cases.
  * @return Number of failures recorded by the module.
@@ -201,6 +370,14 @@ inline int run_pov_segmented_tests() {
   test_segment_derivation();
   test_arm_b_offset();
   test_segment_clip();
+
+  test_release_handshake();
+  test_release_backlog_reconciles();
+  test_commit_adopt_matching_gen();
+  test_commit_guard_rejects_empty_and_stale();
+  test_join_adopt_and_gen_gating();
+  test_full_handoff_cycle();
+  test_window_alternation();
 
   // Full-canvas tiling across representative rotation columns, including the
   // x=0 and x=w/2 frame boundaries and the wrap seam.
