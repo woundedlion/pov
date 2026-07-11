@@ -92,7 +92,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 9. ✅ **Holosphere/effects/Flyby.h:214** (and **effects/Liquid2D.h:280**) — Unlike MeshFeedback/MindSplatter, the Flyby and Liquid2D preset tables have no compile-time `preset_in_ranges` + `static_assert` proving each preset value lies inside its registered slider range; a future range tightening could silently push a param out of range with no build failure. *Fix:* add the sibling effects' `preset_in_ranges` helper and `static_assert`.
 
-10. **Holosphere/effects/MobiusGrid.h:259** — The conformal-radius pole branch and the counter-rotation singularity guard are hand-derived numeric branches that still render a plausible frame if wrong, and have only generic smoke coverage. *Fix:* add a `MobiusGridWhiteBox` seam and a test sweeping `z→±1` (finite coord in [0,1]) and `mid≈0` (q stays identity), mirroring `test_liquid2d_glitch_lens_unit_norm`.
+10. ✅ **Holosphere/effects/MobiusGrid.h:259** — The conformal-radius pole branch and the counter-rotation singularity guard are hand-derived numeric branches that still render a plausible frame if wrong, and have only generic smoke coverage. *Fix:* add a `MobiusGridWhiteBox` seam and a test sweeping `z→±1` (finite coord in [0,1]) and `mid≈0` (q stays identity), mirroring `test_liquid2d_glitch_lens_unit_norm`.
 
 11. **Holosphere/core/color/composition.h:999** — `BakedPalette::clone_from` (raw LUT memcpy, reached via arena compaction) and `step_wipe_rebake` (ColorWipe arming-skip + per-frame rebake) have no direct unit test; a wrong size or missed allocation would only surface at runtime after compaction. *Fix:* add a clone-and-compare test and a small `step_wipe_rebake` skip-once/decrement test.
 
