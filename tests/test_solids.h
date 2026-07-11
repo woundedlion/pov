@@ -313,6 +313,26 @@ inline void test_get_by_name_known_returns_that_solid() {
   HS_EXPECT_EQ(m.face_counts.size(), (size_t)8);
 }
 
+/**
+ * @brief Verifies registry names are globally unique and index/name lookups agree.
+ * @details The WASM picker enumerates solids by global index but builds them by
+ *          first-name match, so a name duplicated across the three registries
+ *          would make those two paths silently diverge. Assert every name is
+ *          distinct and that find_entry(get_entry(i).name) resolves back to that
+ *          same entry.
+ */
+inline void test_registry_names_unique_and_roundtrip() {
+  for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
+    const Solids::Entry &ei = Solids::get_entry(i);
+    HS_EXPECT_TRUE(ei.name != nullptr);
+    HS_EXPECT_TRUE(Solids::find_entry(ei.name) == &ei);
+    for (int j = i + 1; j < Solids::NUM_ENTRIES; ++j) {
+      HS_EXPECT_TRUE(std::string_view(ei.name) !=
+                     std::string_view(Solids::get_entry(j).name));
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Determinism: building the same entry twice yields identical geometry. We use
 // two distinct geometry arenas so the two results coexist for comparison.
@@ -692,6 +712,7 @@ inline int run_solids_tests() {
 
   test_get_entry_last_valid_index_builds();
   test_get_by_name_known_returns_that_solid();
+  test_registry_names_unique_and_roundtrip();
 
   test_determinism_hardcoded_platonic();
   test_determinism_archimedean_with_conway_ops();

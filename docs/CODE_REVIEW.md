@@ -96,7 +96,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 11. ✅ **Holosphere/core/color/composition.h:999** — `BakedPalette::clone_from` (raw LUT memcpy, reached via arena compaction) and `step_wipe_rebake` (ColorWipe arming-skip + per-frame rebake) have no direct unit test; a wrong size or missed allocation would only surface at runtime after compaction. *Fix:* add a clone-and-compare test and a small `step_wipe_rebake` skip-once/decrement test.
 
-12. **Holosphere/core/mesh/solids.h:1250** — Nothing enforces that registry names are unique across the three registries; the WASM picker enumerates by index but builds by first-name-match, so a future duplicate name would make the two paths silently diverge. *Fix:* add a test (or constexpr check) asserting name uniqueness and `get_entry(i).name` round-trips through `find_entry`.
+12. ✅ **Holosphere/core/mesh/solids.h:1250** — Nothing enforces that registry names are unique across the three registries; the WASM picker enumerates by index but builds by first-name-match, so a future duplicate name would make the two paths silently diverge. *Fix:* add a test (or constexpr check) asserting name uniqueness and `get_entry(i).name` round-trips through `find_entry`.
 
 13. **daydream/scripts/require-tests.mjs:7** — The zero-test guard hardcodes `'tests'` and `'.test.js'` independently of the `package.json` test glob; changing the glob while stale files remain lets the guard pass while `node --test` runs nothing. *Fix:* derive the pattern from the `package.json` `test` script instead of restating literals.
 
