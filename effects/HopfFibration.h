@@ -33,7 +33,7 @@ public:
    * @details Disables pixel persistence and seeds the trail pipeline with a
    * screen-space anti-alias filter sized to W x H.
    */
-  FLASHMEM HopfFibration()
+  HS_COLD_MEMBER HopfFibration()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(trail_pipeline)::any_crosses_segments}),
         trail_pipeline(Filter::Screen::AntiAlias<W, H>()) {}
 

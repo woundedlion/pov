@@ -55,7 +55,7 @@ public:
   /**
    * @brief Constructs the effect at the W x H canvas resolution.
    */
-  FLASHMEM RingSpin() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER RingSpin() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Allocates rings, registers params, bakes palettes, and spawns rings.
@@ -140,7 +140,7 @@ private:
    * orientation; no-op once NUM_RINGS rings are live. `num_rings` tracks the live
    * count and the `>= NUM_RINGS` guard bounds it against the `rings` pool.
    */
-  void spawn_ring(BakedPalette *palette) {
+  HS_COLD_MEMBER void spawn_ring(BakedPalette *palette) {
     if (num_rings >= NUM_RINGS)
       return;
     Ring &r = rings[num_rings];

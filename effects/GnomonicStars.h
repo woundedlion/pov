@@ -23,7 +23,7 @@ public:
    * @details Default-initializes the orientation and timeline and binds the
    *          Möbius transformer to the timeline.
    */
-  FLASHMEM GnomonicStars()
+  HS_COLD_MEMBER GnomonicStars()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         orientation(), timeline(), transformer(timeline) {}
 

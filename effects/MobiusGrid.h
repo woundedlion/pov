@@ -24,7 +24,7 @@ public:
    *          holes; Orient applies the spinning orientation; AntiAlias smooths
    *          the rasterized lines.
    */
-  FLASHMEM MobiusGrid()
+  HS_COLD_MEMBER MobiusGrid()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                 BrightnessProfile::FLAT),

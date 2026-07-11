@@ -20,7 +20,7 @@ public:
   /**
    * @brief Constructs the effect at the templated render dimensions.
    */
-  FLASHMEM Raymarch() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER Raymarch() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Registers tunable params, builds the disdyakis-dodecahedron vertex

@@ -33,7 +33,7 @@ public:
   /**
    * @brief Constructs the effect with the templated framebuffer dimensions.
    */
-  FLASHMEM Voronoi() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER Voronoi() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Configures arenas, registers GUI params, allocates the sites buffer,

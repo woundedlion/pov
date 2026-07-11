@@ -217,7 +217,7 @@ public:
   /**
    * @brief Construct the visualizer with the display dimensions.
    */
-  FLASHMEM SphericalHarmonics() : Effect(W, H, {.strobe = true}), filters() {}
+  HS_COLD_MEMBER SphericalHarmonics() : Effect(W, H, {.strobe = true}), filters() {}
 
   /**
    * @brief One-time setup of params, palette, shape, spin, and first morph.

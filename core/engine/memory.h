@@ -946,7 +946,7 @@ public:
    * @param scratch Scratch arena to hold the backup.
    * @param persistent Persistent arena the target is restored into.
    */
-  Persist(T &target, Arena &scratch, Arena &persistent)
+  HS_COLD_MEMBER Persist(T &target, Arena &scratch, Arena &persistent)
       : target_(target), persistent_(persistent),
         persistent_offset_at_ctor_(persistent.get_offset()), scratch_(scratch) {
     HS_CHECK(&scratch != &persistent,

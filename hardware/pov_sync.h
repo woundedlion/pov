@@ -1151,7 +1151,7 @@ public:
    * @brief Constructs a board from protocol config.
    * @param cfg Protocol configuration.
    */
-  explicit SyncBoard(const Config &cfg)
+  HS_COLD_MEMBER explicit SyncBoard(const Config &cfg)
       : cfg_(cfg), fly_(cfg) {}
 
   /**

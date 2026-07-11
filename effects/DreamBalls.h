@@ -46,7 +46,7 @@ public:
    * @details The Mobius generator hangs off the timeline so its warps animate
    *          in step.
    */
-  FLASHMEM DreamBalls()
+  HS_COLD_MEMBER DreamBalls()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         filters(Filter::Screen::AntiAlias<W, H>()), mobius_gen(timeline) {}
 
@@ -192,7 +192,7 @@ private:
    * @details Bakes vertices, faces, tangent frames, and the unique edge list
    *          for every entry in the preset table.
    */
-  FLASHMEM void setup_presets() {
+  HS_COLD_MEMBER void setup_presets() {
     const auto &entries = preset_manager.get_entries();
 
     int preset_idx = 0;
@@ -251,7 +251,7 @@ private:
    * @details Rebakes the inactive palette slot, arms a Mobius warp, and reseeds
    *          the live params only when the preset actually changes.
    */
-  void spawn_sprite(int idx) {
+  HS_COLD_MEMBER void spawn_sprite(int idx) {
     auto entries = preset_manager.get_entries();
     int safe_idx = idx % entries.size();
 

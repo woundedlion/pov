@@ -30,7 +30,7 @@ public:
    * @details The Inigo Quilez cosine palette is color(t) = bias +
    *          amp*cos(2π(freq*t + phase)).
    */
-  FLASHMEM Thrusters()
+  HS_COLD_MEMBER Thrusters()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}), palette(/*bias*/ {0.5f, 0.5f, 0.5f},
                               /*amp*/ {0.5f, 0.5f, 0.5f},
                               /*freq*/ {0.3f, 0.3f, 0.3f},
@@ -170,7 +170,7 @@ private:
    *          about the axis derived from the thrust point, and spawns both
    *          thrusters.
    */
-  void on_fire_thruster() {
+  HS_COLD_MEMBER void on_fire_thruster() {
     warp_phase = hs::rand_f() * 2 * PI_F;
 
     // Snapshot the warp state into the closure so the thrust-point geometry
@@ -210,7 +210,7 @@ private:
    * @brief Pushes a fresh thruster at `point`, evicting the oldest if full.
    * @param point Thrust point on the unit sphere where the ring spawns.
    */
-  void spawn_thruster(const Vector &point) {
+  HS_COLD_MEMBER void spawn_thruster(const Vector &point) {
     if (thrusters.is_full())
       thrusters.pop_front();
     thrusters.push_back(ThrusterContext());

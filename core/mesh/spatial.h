@@ -73,7 +73,7 @@ public:
    * @details Allocates one node per point in the arena. The scratch index array
    * is scoped to a ScratchScope so its arena offset rewinds once build() returns.
    */
-  KDTree(Arena &arena, std::span<const Vector> points) {
+  HS_COLD_MEMBER KDTree(Arena &arena, std::span<const Vector> points) {
     clear();
     if (points.empty())
       return;

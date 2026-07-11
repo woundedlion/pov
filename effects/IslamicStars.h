@@ -21,7 +21,7 @@ public:
   /**
    * @brief Constructs the effect, binding the ripple generator to the timeline.
    */
-  FLASHMEM IslamicStars() : Effect(W, H, {.strobe = true}), filters(), ripple_gen(timeline) {}
+  HS_COLD_MEMBER IslamicStars() : Effect(W, H, {.strobe = true}), filters(), ripple_gen(timeline) {}
 
   /**
    * @brief Bakes palettes, registers the UI sliders, and seeds the timeline
@@ -202,7 +202,7 @@ private:
    *        the segue and the shape's mid-display ripple burst, and queues the
    *        next spawn_shape call.
    */
-  void spawn_shape() {
+  HS_COLD_MEMBER void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
     int back = 1 - carousel.front_index();

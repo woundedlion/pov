@@ -52,7 +52,7 @@ public:
    * @param cfg Construction-time flags (strobe / persist / full-frame); see
    *        EffectConfig. Defaults to a plain band-clippable effect.
    */
-  Effect(int W, int H, EffectConfig cfg = {})
+  HS_COLD_MEMBER Effect(int W, int H, EffectConfig cfg = {})
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
         strobe(cfg.strobe), width_(W), height_(H) {
     // Single-live-Effect precondition: every Effect aliases the same two static

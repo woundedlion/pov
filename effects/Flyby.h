@@ -29,7 +29,7 @@ public:
   /**
    * @brief Constructs the effect at W x H and disables pixel persistence.
    */
-  FLASHMEM Flyby() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER Flyby() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Initializes animated params, orientation, palette, and preset loop.

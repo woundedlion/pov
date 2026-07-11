@@ -52,7 +52,7 @@ public:
    * @brief Constructs the effect, seeding the initial palette, palette normal,
    *        and filter pipeline.
    */
-  FLASHMEM Dynamo()
+  HS_COLD_MEMBER Dynamo()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         palettes{make_palette()},
         palette_normal(Z_AXIS),

@@ -28,7 +28,7 @@ public:
   /**
    * @brief Constructs the effect at the templated canvas dimensions.
    */
-  FLASHMEM RingShower() : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}) {}
+  HS_COLD_MEMBER RingShower() : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}) {}
 
   /**
    * @brief Registers parameters, bakes per-slot palette LUTs, and arms the
@@ -173,7 +173,7 @@ private:
    *          against the shower), NOT an invariant violation — do not convert
    *          this to an HS_CHECK.
    */
-  void spawn_ring() {
+  HS_COLD_MEMBER void spawn_ring() {
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       if (rings[i].expired()) { // free slot
         Ring &ring = rings[i];

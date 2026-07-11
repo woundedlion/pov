@@ -1001,11 +1001,17 @@ inline unsigned long micros() { return hs::micros(); }
 // regardless). Apply ONLY to internal-linkage (`static`) free functions on cold
 // paths (mesh/solid construction): a section attribute on a COMDAT (inline/template
 // member) function is a section-type conflict. Off-device it degrades to a no-op.
+// HS_COLD_MEMBER is the COMDAT-safe variant for inline/template member functions:
+// `cold` prefixes the per-function section (.text.unlikely.*) instead of naming a
+// shared one, and tools/phantasm.ld routes .text.unlikely* to FLASH. Elsewhere it
+// only marks the function cold (holosphere ITCM has slack; host ignores it).
 // ---------------------------------------------------------------------------
 #if defined(__GNUC__) && !defined(__clang__)
 #define HS_COLD FLASHMEM __attribute__((noinline, noclone))
+#define HS_COLD_MEMBER __attribute__((cold, noinline, noclone))
 #else
 #define HS_COLD FLASHMEM
+#define HS_COLD_MEMBER
 #endif
 
 // ---------------------------------------------------------------------------

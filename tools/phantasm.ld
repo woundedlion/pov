@@ -53,6 +53,24 @@ SECTIONS
 		 * (~every 120 s), never per frame — route to flash too. */
 		*(.text._ZN*4initEv)
 		*(.text._ZN*13setup_presetsEv)
+		/* HS_COLD_MEMBER (attribute cold) sections. */
+		*(.text.unlikely*)
+		/* Annotation-unreachable cold code: compiler-generated ctors
+		 * (Animation graph nodes, PolyMesh), sort instantiations from
+		 * classify_faces_impl, setup_presets/compile_hankin inner lambdas
+		 * (preset/geometry builders only -- stored draw callbacks must not
+		 * be defined inside them), and framework one-time setup. */
+		*(.text._ZN9Animation*C1E*)
+		*(.text._ZN9Animation*C2E*)
+		*(.text._ZN8PolyMeshC1E*)
+		*(.text._ZN8PolyMeshC2E*)
+		*(.text.*classify_faces_impl*)
+		*(.text._ZZN*13setup_presetsEv*)
+		*(.text.*compile_hankin*)
+		*(.text.set_arm_clock)
+		*(.text._ZN8SPIClass5beginEv)
+		*(.text._ZN13IntervalTimer11beginCycles*)
+		*(.text._ZN10DMAChannel5begin*)
 		. = ALIGN(4);
 		KEEP(*(.init))
 		__preinit_array_start = .;

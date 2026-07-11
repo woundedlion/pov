@@ -33,7 +33,7 @@ public:
   /**
    * @brief Constructs the effect and wires up the trail/orient/anti-alias filters.
    */
-  FLASHMEM SplineFlow()
+  HS_COLD_MEMBER SplineFlow()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         filters(Filter::World::Trails<W, MAX_TRAILS>(lifetime),
                               Filter::World::Orient<W>(orientation),

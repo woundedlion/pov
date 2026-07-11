@@ -169,7 +169,7 @@ public:
    *          singleton), so the "after core init" precondition always holds. Do
    *          not promote this object to a global or construct it before setup().
    */
-  POVSegmented() {
+  HS_COLD_MEMBER POVSegmented() {
     read_id();
     configure_segment();
 
