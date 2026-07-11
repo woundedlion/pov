@@ -191,6 +191,21 @@ public:
    * @return Generation counter, bumped on each reset/rebind.
    */
   uint32_t get_generation() const { return generation_; }
+
+  /**
+   * @brief Tests whether a byte region still lies within the live extent.
+   * @param p First byte of the region.
+   * @param bytes Region length in bytes.
+   * @return True iff [p, p+bytes) falls within [buffer, buffer+offset).
+   * @details A set_offset() rewind reclaims bytes without bumping the
+   * generation, so this is the only signal an ArenaSpan has that its borrowed
+   * region was freed by a rewind of the source arena.
+   */
+  bool covers(const void *p, size_t bytes) const {
+    uintptr_t base = reinterpret_cast<uintptr_t>(buffer);
+    uintptr_t q = reinterpret_cast<uintptr_t>(p);
+    return q >= base && (q - base) <= offset && bytes <= offset - (q - base);
+  }
 #endif
 };
 
@@ -697,6 +712,10 @@ template <typename T> class ArenaSpan {
     if (source_vec_ &&
         source_vec_->rebind_generation_ != source_rebind_generation_) {
       assert(false && "ArenaSpan source vector re-grown out from under span!");
+    }
+    if (source_arena_ && size_ > 0 &&
+        !source_arena_->covers(data_, size_ * sizeof(T))) {
+      assert(false && "ArenaSpan use-after-free (arena rewound below span)!");
     }
   }
 #else

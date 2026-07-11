@@ -230,6 +230,34 @@ inline void test_arena_generation_bumps() {
 #endif
 
 /**
+ * @brief Verifies covers() reports a byte region live until the arena is
+ *        rewound below it, backing ArenaSpan's rewind-staleness detection.
+ * @details Debug builds only: covers() is `#ifndef NDEBUG`. A set_offset()
+ *          rewind reclaims bytes without bumping the generation, so covers() is
+ *          the only signal a borrowed span has that a rewind freed its region.
+ */
+#ifndef NDEBUG
+inline void test_arena_covers() {
+  Arena a(test_buf_a, sizeof(test_buf_a));
+  a.allocate(32); // live storage below the mark
+  size_t mark = a.get_offset();
+  void *p = a.allocate(64); // borrowed region lives above the mark
+  HS_EXPECT_TRUE(a.covers(p, 64));
+
+  a.allocate(64); // further allocations above p leave it covered
+  HS_EXPECT_TRUE(a.covers(p, 64));
+
+  a.set_offset(mark); // rewind below p reclaims its bytes
+  HS_EXPECT_FALSE(a.covers(p, 64));
+}
+#else
+inline void test_arena_covers() {
+  ++hs_test::stats().skipped;
+  std::printf("  [SKIPPED] test_arena_covers: covers() is NDEBUG-gated\n");
+}
+#endif
+
+/**
  * @brief Verifies configure_arenas() repartitions the global block into three
  *        arenas of exactly the requested sizes, packed contiguously and
  *        non-overlapping within the block.
@@ -862,6 +890,7 @@ inline int run_memory_tests() {
   test_arena_rebind();
   test_arena_reset_high_water_mark();
   test_arena_generation_bumps();
+  test_arena_covers();
   test_configure_arenas_repartition();
 
   test_tribitset_sizes();
