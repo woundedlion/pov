@@ -270,47 +270,22 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
 }
 
 /**
- * @brief Copies a mesh's topology (as views) and vertices into a target mesh.
- * @param local_state The source mesh state (centered around origin).
- * @param world_state The destination mesh state to populate.
+ * @brief Copies a mesh's topology (as views) and vertices into a target mesh,
+ *   applying each transformer to every vertex in order.
+ * @tparam Transformers Types of the vertex transformers (possibly none).
+ * @param mesh The source mesh state.
+ * @param transformed The destination mesh state to populate.
  * @param arena The memory arena from which to allocate vertices.
- * @details Base case of the variadic overload below: with no transformers,
- *   vertices are copied verbatim.
+ * @param transformers Vertex transformers, applied left to right and unrolled at
+ *   compile time via a fold; with none, vertices are copied verbatim.
  * @note Mesh utility, not a Conway operator.
  * @note Input must be owned-mode (its topology is exposed as borrowed views in
  *   the output). The output is borrowed-mode, so it cannot be re-fed as input:
  *   transform(transform(x)) is unsupported and traps at the owned-mode check.
  */
-inline void transform(const MeshState &local_state, MeshState &world_state,
-                      Arena& arena) {
-  HS_CHECK(local_state.face_counts.is_bound(),
-           "MeshOps::transform: source mesh must be owned-mode");
-  world_state.set_view(ArenaSpan(local_state.face_counts),
-                       ArenaSpan(local_state.faces),
-                       ArenaSpan(local_state.face_offsets));
-
-  world_state.vertices.bind(arena, local_state.vertices.size());
-
-  world_state.vertices.append_bulk(local_state.vertices.data(),
-                                   local_state.vertices.size());
-}
-
-/**
- * @brief Copies a mesh's topology (as views) and vertices into a target mesh,
- *   applying each transformer to every vertex in order.
- * @tparam T1 Type of the first vertex transformer.
- * @tparam Transformers Types of the remaining vertex transformers.
- * @param mesh The source mesh state.
- * @param transformed The destination mesh state to populate.
- * @param arena The memory arena from which to allocate vertices.
- * @param first_transformer First vertex transformer, applied first.
- * @param transformers Remaining vertex transformers, applied left to right and
- *   unrolled at compile time via a fold.
- */
-template <typename T1, typename... Transformers>
-inline void transform(const MeshState &mesh, MeshState &transformed, Arena& arena,
-                      const T1 &first_transformer,
-                      const Transformers &...transformers) {
+template <typename... Transformers>
+inline void transform(const MeshState &mesh, MeshState &transformed,
+                      Arena &arena, const Transformers &...transformers) {
   HS_CHECK(mesh.face_counts.is_bound(),
            "MeshOps::transform: source mesh must be owned-mode");
   transformed.set_view(ArenaSpan(mesh.face_counts), ArenaSpan(mesh.faces),
@@ -318,14 +293,15 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
 
   transformed.vertices.bind(arena, mesh.vertices.size());
 
-  for (size_t i = 0; i < mesh.vertices.size(); ++i) {
-    Vector v = mesh.vertices[i];
-
-    v = first_transformer(v);
-
-    (..., (v = transformers(v)));
-
-    transformed.vertices.push_back(v);
+  if constexpr (sizeof...(Transformers) == 0) {
+    transformed.vertices.append_bulk(mesh.vertices.data(),
+                                     mesh.vertices.size());
+  } else {
+    for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+      Vector v = mesh.vertices[i];
+      (..., (v = transformers(v)));
+      transformed.vertices.push_back(v);
+    }
   }
 }
 
