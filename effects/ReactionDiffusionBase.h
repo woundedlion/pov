@@ -93,28 +93,48 @@ protected:
   }
 
   /**
-   * @brief Refines a cubemap-LUT seed to its closest lattice node.
+   * @brief Refines a cubemap-LUT seed to the nearest node and runs the
+   *        Wendland C2 kernel walk in one stencil pass.
+   * @tparam OnWeight Callable accepting (node_index, weight).
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
-   * @param center_node Seed node id from the cubemap LUT.
-   * @return Node id of the genuine nearest node among the seed and its neighbors.
-   * @details The CubemapLUT quantizes the query direction to a face cell, so its
-   * seed can be a not-quite-nearest node; centering the kernel on the genuine
-   * nearest node removes that quantization bias. Shared by both systems; without
-   * it the interpolation inherits the cubemap grid artifact.
+   * @param seed Seed node id from the cubemap LUT.
+   * @param on_weight Callable invoked as `on_weight(node_index, weight)` for
+   * every node inside the support radius.
+   * @details The CubemapLUT quantizes the query direction to a face cell, so
+   * its seed can be a not-quite-nearest node; centering the kernel on the
+   * genuine nearest node removes that quantization bias. The seed stencil's
+   * squared distances are computed once, tracking the argmin: when the seed is
+   * already nearest (the common case — a LUT cell is finer than a lattice
+   * cell) they feed the kernel weights directly; otherwise the kernel re-walks
+   * the refined center's stencil.
    */
-  static int refine_nearest_node(const Vector &rv, const Vector *nodes,
-                                 int center_node) {
-    float best_d = dist2(rv, nodes[center_node]);
-    int best_node = center_node;
-    for_each_neighbor(center_node, [&](int ni) {
+  template <typename OnWeight>
+  static void refine_and_accumulate(const Vector &rv, const Vector *nodes,
+                                    int seed, OnWeight &&on_weight) {
+    float d2s[RD_K + 1];
+    int ids[RD_K + 1];
+    d2s[0] = dist2(rv, nodes[seed]);
+    ids[0] = seed;
+    int n = 1;
+    int best = 0;
+    for_each_neighbor(seed, [&](int ni) {
       float d = dist2(rv, nodes[ni]);
-      if (d < best_d) {
-        best_d = d;
-        best_node = ni;
-      }
+      ids[n] = ni;
+      d2s[n] = d;
+      if (d < d2s[best])
+        best = n;
+      ++n;
     });
-    return best_node;
+    if (best == 0) {
+      for (int i = 0; i < n; ++i) {
+        float u = 1.0f - d2s[i] * INV_R2;
+        if (u > 0)
+          on_weight(ids[i], u * u);
+      }
+      return;
+    }
+    kernel_accumulate(rv, nodes, ids[best], on_weight);
   }
 
   /**

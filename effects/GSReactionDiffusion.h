@@ -53,12 +53,11 @@ class GSReactionDiffusion
   using Base::cube_lut;
   using Base::for_each_neighbor;
   using Base::init_lattice;
-  using Base::kernel_accumulate;
   using Base::nodes;
   using Base::orientation;
   using Base::RD_K;
   using Base::RD_N;
-  using Base::refine_nearest_node;
+  using Base::refine_and_accumulate;
   using Base::register_param;
   using Base::seed_face_lut;
 
@@ -239,14 +238,15 @@ private:
   /**
    * @brief Kernel-weighted sample of the B concentration at a point.
    * @param p Query point on the sphere.
-   * @param nearest Precomputed index of the nearest lattice node to seed from.
+   * @param seed Seed node id from the cubemap LUT, refined to the true nearest
+   * inside the fused stencil walk.
    * @param nodes Node positions in the same frame as `p`.
    * @return Support-radius weighted average of B in [0, 1]; 0 if no node is
    * within the support radius.
    */
-  float interpolate_b(const Vector &p, int nearest, const Vector *nodes) const {
+  float interpolate_b(const Vector &p, int seed, const Vector *nodes) const {
     float tw = 0, wb = 0;
-    kernel_accumulate(p, nodes, nearest, [&](int i, float w) {
+    refine_and_accumulate(p, nodes, seed, [&](int i, float w) {
       wb += from_q16(state.B[i]) * w;
       tw += w;
     });
@@ -296,11 +296,7 @@ private:
     auto vertex_shader = [this](Fragment &frag) { seed_face_lut(frag); };
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
-      // The CubemapLUT seed is quantized to a face cell; refine to the true
-      // nearest node.
-      int nearest =
-          refine_nearest_node(v, world_nodes, static_cast<int>(frag.v0));
-      float b = interpolate_b(v, nearest, world_nodes);
+      float b = interpolate_b(v, static_cast<int>(frag.v0), world_nodes);
 
       if (b < B_CULL_THRESHOLD) {
         frag.color = Color4(Pixel(0, 0, 0), 0.0f);
