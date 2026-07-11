@@ -97,7 +97,7 @@ _Latent correctness / robustness (real behavior under a reachable condition):_
 
 3. ✅ **[animation] `core/animation/timeline.h:305-317`** — `new_vals_count = global_timeline_num_events - active_cnt` assumes callbacks only *add* events; a `.then()`/timer callback that calls `Timeline::clear()` mid-step drives the count negative and corrupts subsequent steps. *Fix:* add `HS_CHECK(global_timeline_num_events >= active_cnt)` after the loop, or document that callbacks must not clear/shrink the timeline.
 
-4. **[animation] `core/animation/params.h:685-693`** — `Ripple` ctor snapshots `peak_amplitude(params.amplitude)` then zeroes `params.amplitude`; a caller who sets `params.amplitude` *after* constructing gets a silent no-op ripple. *Fix:* take the peak as an explicit ctor argument, or document that `params.amplitude` is read at construction and must be set beforehand.
+4. ✅ **[animation] `core/animation/params.h:685-693`** — `Ripple` ctor snapshots `peak_amplitude(params.amplitude)` then zeroes `params.amplitude`; a caller who sets `params.amplitude` *after* constructing gets a silent no-op ripple. *Fix:* take the peak as an explicit ctor argument, or document that `params.amplitude` is read at construction and must be set beforehand.
 
 5. **[daydream] `daydream/daydream.js:461-477`** — The runtime effect/resolution-switch path calls `setEffect`/`getParameterDefinitions`/`setResolution` unguarded, unlike the initial-load path (try/catch at line 567). A WASM abort/`BindingError` (rather than the expected `false` return) propagates through `AppState.notify`, leaving state half-updated. *Fix:* wrap the `applyEffect()`/`applyResolution()` bodies in the same try/catch used on load.
 
