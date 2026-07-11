@@ -122,7 +122,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 23. ✅ **Holosphere/hardware/phantasm/gen/sexp.py:119** — `_find` is defined but no module calls it (all callers use `_val`); it can drift out of sync. *Fix:* delete it, or add a caller/test if it is intended public API.
 
-24. **Holosphere/targets/wasm/wasm.cpp:1373** — The `spline_catmull_rom_tangents` binding re-implements the finite-check + `EPS_NORMALIZE_SQ` degeneracy loop that `eval_cubic_spline` centralizes for the other spline exports, so a future guard change must be made twice or the catmull export diverges. *Fix:* extract a shared `spline_inputs_valid` predicate and call it from both.
+24. ✅ **Holosphere/targets/wasm/wasm.cpp:1373** — The `spline_catmull_rom_tangents` binding re-implements the finite-check + `EPS_NORMALIZE_SQ` degeneracy loop that `eval_cubic_spline` centralizes for the other spline exports, so a future guard change must be made twice or the catmull export diverges. *Fix:* extract a shared `spline_inputs_valid` predicate and call it from both.
 
 25. **Holosphere/hardware/phantasm/gen/pcb.py:34** — The `kicad-cli` netlist-export sequence and the `F(n,k)`/`fmt`/`uid` helpers are duplicated across `pcb.py`, `check.py`, `shorts.py`, and `builder.py`; a KiCad-flag or schema change drifts the copies. *Fix:* hoist `export_netlist` and the pure helpers into a shared module and import them.
 
