@@ -695,7 +695,7 @@ inline bool linear_rgb_in_gamut(float r, float g, float b) {
  * @brief Maps an out-of-gamut OKLab color into the sRGB cube by reducing chroma,
  * holding hue and lightness fixed (Ottosson's preserve-chroma projection).
  * @param lab Source color, assumed out of gamut (callers gate on
- * linear_rgb_in_gamut) and with L in [0,1].
+ * linear_rgb_in_gamut); L is clamped to [0,1] internally.
  * @return An OKLab color with the same L and hue but chroma scaled down until it
  * is just inside the display cube.
  * @details Binary-searches a uniform scale s in [0,1] on the (a,b) chroma axes,
@@ -704,6 +704,9 @@ inline bool linear_rgb_in_gamut(float r, float g, float b) {
  * one 16-bit output quantum.
  */
 inline OKLab gamut_clip_preserve_chroma(OKLab lab) {
+  // The s=0 achromatic floor is in gamut only for L in [0,1]; an out-of-range L
+  // would leave even the floor out of gamut and return a non-gamut color.
+  lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
   float lo = 0.0f, hi = 1.0f;
   for (int i = 0; i < 16; ++i) {
     float mid = 0.5f * (lo + hi);
