@@ -181,7 +181,7 @@ _Cosmetic and documentation-only:_
 
 42. **[daydream] `daydream/sidebar_logic.js:89-92`** — `scrollArrowState` uses `deadzone = min(4, maxScroll/2)`, so at exactly `scrollLeft === maxScroll/2` both arrows hide even though content overflows both directions, and the two can never show simultaneously in the small-overflow regime (undercutting the header comment). *Fix:* use a strict deadzone only for the right edge, or `min(4, (maxScroll-1)/2)`.
 
-43. **[tests] `scripts/wasm_smoke.mjs:259`** — Comment reads "MESHOP_1F(truncate)" but `truncate` is bound via the `_OP1U` [0,1]-clamped tier, not `_OP1F`. *Fix:* relabel to `MESHOP_1U(truncate)`.
+43. ✅ **[tests] `scripts/wasm_smoke.mjs:259`** — Comment reads "MESHOP_1F(truncate)" but `truncate` is bound via the `_OP1U` [0,1]-clamped tier, not `_OP1F`. *Fix:* relabel to `MESHOP_1U(truncate)`.
 
 ---
 

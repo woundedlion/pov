@@ -256,7 +256,7 @@ async function main() {
             f.indices.length === f.counts.reduce((sum, n) => sum + n, 0);
         };
 
-        // MESHOP_1F(truncate): marshals a float arg and finalizes a new mesh.
+        // MESHOP_1U(truncate): marshals a [0,1]-clamped arg and finalizes a new mesh.
         const trunc = solid.truncate(0.3);
         if (!isValidMesh(trunc)) fail(`${solidName}.truncate(0.3) did not produce a valid mesh`);
         if (trunc) trunc.delete();
