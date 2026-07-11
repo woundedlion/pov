@@ -849,7 +849,7 @@ inline uint8_t triwave8(uint8_t in) {
 #define FASTRUN
 
 // Mock EVERY_N_MILLIS using a simple static checker.
-// Two-level macro for proper __LINE__ token pasting.
+// Two-level macro so __COUNTER__ expands before pasting.
 /**
  * @brief Pastes two tokens after expanding them (inner stage).
  * @param a Left token.
