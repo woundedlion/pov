@@ -57,6 +57,7 @@ class GSReactionDiffusion
   using Base::kernel_accumulate;
   using Base::nodes;
   using Base::orientation;
+  using Base::RD_K;
   using Base::RD_N;
   using Base::refine_nearest_node;
   using Base::register_param;
@@ -214,11 +215,13 @@ private:
       float a = f_a[i];
       float b = f_b[i];
 
-      float l_a = 0, l_b = 0;
+      float sum_a = 0, sum_b = 0;
       for_each_neighbor(i, [&](int ni) {
-        l_a += f_a[ni] - a;
-        l_b += f_b[ni] - b;
+        sum_a += f_a[ni];
+        sum_b += f_b[ni];
       });
+      float l_a = sum_a - RD_K * a;
+      float l_b = sum_b - RD_K * b;
 
       float abb = a * b * b;
       n_a[i] = to_q16(a + (params.d_a * l_a - abb + params.feed * (1.0f - a)) *
