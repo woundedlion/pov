@@ -25,7 +25,7 @@ public:
    *          the rasterized lines.
    */
   FLASHMEM MobiusGrid()
-      : Effect(W, H, {.strobe = true}),
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                 BrightnessProfile::FLAT),
         next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,

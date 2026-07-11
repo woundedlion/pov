@@ -24,7 +24,7 @@ public:
    *          distinct. Wires the world-orient + screen anti-alias pipeline.
    */
   FLASHMEM Moire()
-      : Effect(W, H, {.strobe = true}),
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         base_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                      BrightnessProfile::BELL),
         base_next_palette(GradientShape::CIRCULAR,

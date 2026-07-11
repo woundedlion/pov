@@ -37,7 +37,8 @@ public:
    *          Möbius transformer to the timeline.
    */
   FLASHMEM GnomonicStars()
-      : Effect(W, H, {.strobe = true}), orientation(), timeline(), transformer(timeline) {}
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
+        orientation(), timeline(), transformer(timeline) {}
 
   /**
    * @brief Registers the user params and arms the timeline.
