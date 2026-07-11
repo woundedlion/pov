@@ -1017,6 +1017,8 @@ public:
     float v01 = (1 - xs) * wy1;
     float v11 = xs * wy1;
 
+    // Skip negligible splats. Cutoff is looser in Blur (1e-5): these are raw
+    // bilinear coverage products, Blur's are normalized 3x3 kernel taps.
     if (y0_ok && v00 > 1e-8f)
       pass(static_cast<float>(x0), static_cast<float>(y0), c, age, alpha * v00);
     if (y0_ok && v10 > 1e-8f)
@@ -1200,6 +1202,8 @@ public:
       if (ny >= 0 && ny < H) {
         for (int dx = -1; dx <= 1; dx++) {
           float weight = kernel[k++] * inv;
+          // Normalized kernel tap; cutoff is tighter in AntiAlias (1e-8) whose
+          // weights are raw bilinear coverage products.
           if (weight > 1e-5f) {
             pass(static_cast<float>(fast_wrap(cx + dx, W)),
                  static_cast<float>(ny), color, age, alpha * weight);
