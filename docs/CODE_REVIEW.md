@@ -133,7 +133,7 @@ _Observability, diagnostics, and test coverage:_
 
 20. ✅ **[hardware] `hardware/pov_sync.h:1272,1555`** — `telemetry_.emit_aborted` is incremented for two distinct events (mid-burst lateness self-censor vs. dropping a stale overrun beacon), but its doc describes only the first, so a rising `abrt` in field telemetry conflates two root causes. *Fix:* add a distinct `beacons_overrun_dropped` counter, or amend the doc to state it counts both.
 
-21. **[daydream] `daydream/tools/*.html` (lissajous:39, mobius:254, solids:471, splines:75)** — The interactive 3D viewport `<canvas>` elements have no text alternative, unlike `index.html` (`role="img"` + `aria-label`); a screen reader announces a bare "canvas." *Fix:* add an `aria-label` naming each viewport.
+21. ✅ **[daydream] `daydream/tools/*.html` (lissajous:39, mobius:254, solids:471, splines:75)** — The interactive 3D viewport `<canvas>` elements have no text alternative, unlike `index.html` (`role="img"` + `aria-label`); a screen reader announces a bare "canvas." *Fix:* add an `aria-label` naming each viewport.
 
 22. **[daydream] `daydream/tools/splines.html:94,99` and `palettes.html:229,327`** — Range inputs are labeled only by an adjacent `<span>` with no programmatic association. *Fix:* give the label span an `id` and add `aria-labelledby` (or `aria-label`) to the input.
 
