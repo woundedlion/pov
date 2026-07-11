@@ -79,13 +79,13 @@ public:
       return;
 
     size_t count = points.size();
+    HS_CHECK(count <= MAX_POINTS,
+             "KDTree source point count exceeds int16_t child-link index range");
     nodes.bind(arena, count);
 
     // Scope the scratch index array so the arena offset rewinds once build()
     // returns.
     ScratchScope scratch(arena);
-    HS_CHECK(count <= MAX_POINTS,
-             "KDTree source point count exceeds int16_t child-link index range");
     int *indices = arena.allocate_n<int>(count);
     for (size_t i = 0; i < count; ++i)
       indices[i] = (int)i;
