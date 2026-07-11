@@ -198,6 +198,12 @@ protected:
     // contract here rather than as a later generic allocation OOM.
     HS_CHECK(persistent_arena.get_capacity() - persistent_arena.get_offset() >=
              RD_N * sizeof(Vector));
+    // for_each_neighbor and the RD_K-degree Laplacian read every neighbor slot
+    // unguarded; trap a deficient lattice here instead of on the hot path.
+    for (int i = 0; i < RD_N; ++i)
+      for (int k = 0; k < RD_K; ++k)
+        HS_CHECK(ReactionGraph::neighbors[i][k] >= 0 &&
+                 ReactionGraph::neighbors[i][k] < RD_N);
     nodes = static_cast<Vector *>(
         persistent_arena.allocate(RD_N * sizeof(Vector), alignof(Vector)));
     build_nodes(nodes);
@@ -205,21 +211,16 @@ protected:
   }
 
   /**
-   * @brief Invokes `fn(ni)` for each valid K-NN neighbor index of `node`.
+   * @brief Invokes `fn(ni)` for each of the RD_K neighbor indices of `node`.
    * @tparam Fn Callable accepting a neighbor node id.
    * @param node Center node id whose neighbors are visited.
-   * @param fn Callable invoked once per valid neighbor index.
-   * @details Negative entries are the K-NN sentinel for an unfilled slot and are
-   * skipped, so the effective Laplacian degree is the count of valid neighbors
-   * (≤ RD_K); a deficient node stays on the stable side of the explicit-Euler
-   * bound. The shipped Fibonacci lattice is full-degree (test_indices_in_range).
+   * @param fn Callable invoked once per neighbor index.
+   * @details Reads all RD_K slots unguarded: the lattice is full-degree, with
+   * every slot a valid node index (verified at init_lattice).
    */
   template <typename Fn> static void for_each_neighbor(int node, Fn &&fn) {
-    for (int k = 0; k < RD_K; ++k) {
-      int ni = ReactionGraph::neighbors[node][k];
-      if (ni >= 0)
-        fn(ni);
-    }
+    for (int k = 0; k < RD_K; ++k)
+      fn(ReactionGraph::neighbors[node][k]);
   }
 
   /**
