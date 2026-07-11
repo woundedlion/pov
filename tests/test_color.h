@@ -1534,6 +1534,39 @@ inline void test_chroma_pulse_shade() {
 }
 
 /**
+ * @brief Verifies LightnessGrainShade's hue-exact brightness grain.
+ * @details Each sample must match the reference uniform gain, keep channel
+ *          ratios (hue) within rounding, leave alpha alone, and be an identity
+ *          at zero amplitude.
+ */
+inline void test_lightness_grain_shade() {
+  Color4 base(Pixel(40000, 16000, 8000), 0.5f);
+  float time = 6.4f;
+  LightnessGrainShade grain(&time, 8.0f, 0.25f, 13u);
+
+  for (int i = 0; i <= 20; ++i) {
+    float t = i * 0.05f;
+    float n = value_noise_2d(t * 8.0f, time, 13u);
+    float gain = 1.0f + 0.25f * (2.0f * n - 1.0f);
+    Color4 got = grain.shade(base, t);
+    Pixel ref = base.color * gain;
+    HS_EXPECT_EQ(got.color.r, ref.r);
+    HS_EXPECT_EQ(got.color.g, ref.g);
+    HS_EXPECT_EQ(got.color.b, ref.b);
+    HS_EXPECT_NEAR(got.alpha, 0.5f, 1e-6f);
+    // Uniform gain preserves the channel ratio (hue) up to rounding.
+    HS_EXPECT_NEAR(static_cast<float>(got.color.r) / got.color.g,
+                   static_cast<float>(base.color.r) / base.color.g, 0.01f);
+  }
+
+  LightnessGrainShade still(&time, 8.0f, 0.0f);
+  Color4 same = still.shade(base, 0.3f);
+  HS_EXPECT_EQ(same.color.r, base.color.r);
+  HS_EXPECT_EQ(same.color.g, base.color.g);
+  HS_EXPECT_EQ(same.color.b, base.color.b);
+}
+
+/**
  * @brief Verifies StaticPalette folds its modifier chain then queries the source.
  * @details Applies the modifier chain in order before sampling the source.
  */
@@ -1715,6 +1748,7 @@ inline int run_color_tests() {
   test_hue_wobble_shade();
   test_sparkle_shade();
   test_chroma_pulse_shade();
+  test_lightness_grain_shade();
   test_static_palette_composition();
   test_palette_wrappers();
 
