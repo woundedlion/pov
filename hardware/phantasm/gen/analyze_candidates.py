@@ -114,13 +114,23 @@ def run_drc(pcb_path):
     artifacts are distinguishable from real shorts/crossings."""
     if not KCLI or not os.path.exists(KCLI):
         return None
-    rpt = os.path.join(tempfile.gettempdir(), "_cand_drc.rpt")
+    # Unique report per call + returncode check: a shared fixed path lets a
+    # kicad-cli early-exit leave a stale neighbor's report to be misattributed.
+    fd, rpt = tempfile.mkstemp(suffix=".rpt", prefix="cand_drc_")
+    os.close(fd)
     try:
-        subprocess.run([KCLI, "pcb", "drc", "--severity-error", pcb_path, "-o", rpt],
-                       capture_output=True, timeout=120, check=False)
+        r = subprocess.run([KCLI, "pcb", "drc", "--severity-error", pcb_path, "-o", rpt],
+                           capture_output=True, timeout=120, check=False)
+        if r.returncode != 0:
+            return None
         txt = open(rpt, encoding="utf-8").read()
     except (subprocess.SubprocessError, OSError):
         return None
+    finally:
+        try:
+            os.remove(rpt)
+        except OSError:
+            pass
     by_type = Counter(re.findall(r"^\[(\w+)\]", txt, re.M))
     m = re.search(r"Found (\d+) unconnected", txt)
     unconnected = int(m.group(1)) if m else 0
