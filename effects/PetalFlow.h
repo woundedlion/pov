@@ -33,7 +33,7 @@ public:
    * @details The spawner fires every frame to emit new rings as the flow
    * accumulates gap.
    */
-  FLASHMEM PetalFlow()
+  HS_COLD_MEMBER PetalFlow()
       : Effect(W, H,
                {.strobe = true,
                 .full_frame = decltype(filters)::any_crosses_segments}),
@@ -128,7 +128,7 @@ private:
    * @details The radial wobble is a function of the normalized angle alone, so
    * its exponential is constant across rings and frames.
    */
-  FLASHMEM void build_shift_table() {
+  HS_COLD_MEMBER void build_shift_table() {
     for (int i = 0; i < NUM_SAMPLES; ++i) {
       float t_norm = static_cast<float>(i) / NUM_SAMPLES;
       float shift = PETAL_DEPTH * std::abs(fast_sinf(PETAL_LOBES * PI_F * t_norm));
@@ -142,7 +142,7 @@ private:
    * pre-fills the entire path with evenly spaced rings so the flow is full from
    * frame zero rather than filling in over time.
    */
-  FLASHMEM void init_timeline() {
+  HS_COLD_MEMBER void init_timeline() {
     timeline.add(0, Animation::Rotation<W>(orientation, UP, PI_F / 4.0f, 160,
                                            ease_linear, true));
     gap_accumulator = 0.0f;
@@ -194,7 +194,7 @@ private:
    * slots are in use: the MAX_RINGS pool can saturate at high Speed×Density, and
    * the dropped spawn is an accepted transient (a missed ring is invisible).
    */
-  void spawn_ring_at_pos(float initial_rho) {
+  HS_COLD_MEMBER void spawn_ring_at_pos(float initial_rho) {
     for (int i = 0; i < MAX_RINGS; ++i) {
       if (!rings[i].active) {
         rings[i].active = true;

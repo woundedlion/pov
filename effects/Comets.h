@@ -54,7 +54,7 @@ public:
    * @details Initializes the base Effect with the W x H dimensions and selects
    *          the first path/palette function table entry.
    */
-  FLASHMEM Comets() : Effect(W, H, {.strobe = true}), cur_function_idx(0) {}
+  HS_COLD_MEMBER Comets() : Effect(W, H, {.strobe = true}), cur_function_idx(0) {}
 
   /**
    * @brief Allocates state and wires up the animation timeline.

@@ -605,7 +605,7 @@ public:
    * @param source Source palette or composition to sample.
    * @details Works for a runtime Palette or a compile-time StaticPalette alike.
    */
-  template <typename Source> void bake(Arena &arena, const Source &source) {
+  template <typename Source> HS_COLD_MEMBER void bake(Arena &arena, const Source &source) {
     lut_ = arena.allocate_n<Color4>(LUT_SIZE);
     rebake(source);
   }

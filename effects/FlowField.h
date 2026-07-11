@@ -30,7 +30,7 @@ public:
    * @details Builds the analogous-harmony palette and the Orient + AntiAlias
    *          filter pipeline; noise seeding and emitter setup happen in init().
    */
-  FLASHMEM FlowField()
+  HS_COLD_MEMBER FlowField()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         palette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
                               BrightnessProfile::ASCENDING),

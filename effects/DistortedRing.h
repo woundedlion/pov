@@ -22,7 +22,7 @@ public:
    * @details Configures a circular split-complementary palette and an X-axis
    * ring normal.
    */
-  FLASHMEM DistortedRing()
+  HS_COLD_MEMBER DistortedRing()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         ring_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                     BrightnessProfile::FLAT),

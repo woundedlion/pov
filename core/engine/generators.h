@@ -44,7 +44,7 @@ constexpr int MAX_GENERATE_DEPTH = 16;
  *   above the outer allocations rather than clobbering them.
  */
 template <typename GenerateFn, typename... Args>
-auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
+HS_COLD_MEMBER auto generate(Arena &target, GenerateFn &&fn, Args &&...args) {
   HS_CHECK(&target != &scratch_arena_a && &target != &scratch_arena_b,
            "generate: target must not alias an engine scratch arena");
   int &depth = hs_detail::generate_depth();

@@ -67,7 +67,7 @@ public:
    * declared before `filters` so it is constructed first (member-declaration
    * init order).
    */
-  FLASHMEM MeshFeedback()
+  HS_COLD_MEMBER MeshFeedback()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}), noise_params(),
         orientation(), timeline(),
         palette(Palettes::PEACH_POP),

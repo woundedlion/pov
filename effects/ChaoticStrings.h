@@ -47,7 +47,7 @@ public:
    * @details The path seeds to +Y until update_path() installs the Lissajous
    *          curve in init().
    */
-  FLASHMEM ChaoticStrings()
+  HS_COLD_MEMBER ChaoticStrings()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([](float) { return Vector(0, 1, 0); }), orientation(),

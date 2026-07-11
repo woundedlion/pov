@@ -34,7 +34,7 @@ public:
    * @details The shader writes every pixel each frame, so no persistence is
    * needed.
    */
-  FLASHMEM Liquid2D() : Effect(W, H, {.strobe = true}) {}
+  HS_COLD_MEMBER Liquid2D() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Initializes sliders, timeline drivers, palette, and preset cycling.

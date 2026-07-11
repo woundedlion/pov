@@ -1094,7 +1094,7 @@ public:
   /**
    * @brief Default-constructs a straight, analogous, flat-brightness palette.
    */
-  GenerativePalette()
+  HS_COLD_MEMBER GenerativePalette()
       : GenerativePalette(GradientShape::STRAIGHT, HarmonyType::ANALOGOUS,
                           BrightnessProfile::FLAT) {}
 
@@ -1107,7 +1107,7 @@ public:
    * @details RNG-free: the keys are supplied directly rather than sampled from
    *          profiles.
    */
-  GenerativePalette(GradientShape gradient_shape, const CPixel &ka,
+  HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape, const CPixel &ka,
                     const CPixel &kb, const CPixel &kc)
       : gradient_shape(gradient_shape) {
     a = ka;
@@ -1129,7 +1129,7 @@ public:
    * @details The base hue comes from manual_seed when >= 0, else from the global
    * golden-ratio hue cursor (which is then advanced).
    */
-  GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type,
+  HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type,
                     BrightnessProfile profile,
                     SaturationProfile sat_profile = SaturationProfile::MID,
                     int manual_seed = -1)

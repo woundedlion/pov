@@ -27,7 +27,7 @@ public:
   /**
    * @brief Constructs the effect, seeding the preset table and filters.
    */
-  FLASHMEM MindSplatter()
+  HS_COLD_MEMBER MindSplatter()
       : Effect(W, H,
                {.strobe = true,
                 .full_frame = decltype(filters)::any_crosses_segments}),
@@ -229,7 +229,7 @@ private:
    *          seeds emitter hues/phases, and installs an emitter at each cube
    *          vertex.
    */
-  FLASHMEM void rebuild() {
+  HS_COLD_MEMBER void rebuild() {
     particle_system.init(persistent_arena, params.friction, 0.001f, 160.0f);
 
     for (const auto &v : AttractSolid::vertices) {
