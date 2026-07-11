@@ -168,7 +168,7 @@ Every validated defect is listed below, numbered sequentially and grouped by pri
 47. [Low] **Effects (group 2) — MindSplatter vestigial `opacity` parameter** always passed `1.0` (`MindSplatter.h:247`). Per the repo's remove-dead-code-over-documenting rule, drop the parameter.
 48. ✅ **Effects — Dynamo `color()` is O(boundaries) per plotted/trail point** (`Dynamo.h:171-214`); bounded (≤15) but the one non-lookup per-fragment path. Add a `size == 0` fast path or note the typical count.
 49. ✅ [Low] **Color — operator asymmetry.** `Pixel16` has `operator*` but no `operator+`; `Color4` has `operator+=`/`*=` but no free `+`/`*`. Callers can only accumulate in place. Round out the set.
-50. [Low] **Color — split the 2,289-line `color.h`.** The modifier/`StaticPalette` composition layer (~900 lines) is logically separable from the color-math core and would ease navigation.
+50. ✅ [Low] **Color — split the 2,289-line `color.h`.** The modifier/`StaticPalette` composition layer (~900 lines) is logically separable from the color-math core and would ease navigation.
 51. [Low] **Animation — motion-blur virtuals leak into the universal interface.** `collapse_orientation`/`orientation_id` sit on `IAnimation` but only ~2 of ~20 families implement them (`animation.h:87-96`). Isolate via an `OrientedAnimation` mixin.
 52. [Low] **Animation — single-slot `.then()` traps a second chain** (`HS_CHECK(!post)`, `animation.h:178`) rather than composing; limits sequencing expressiveness.
 53. [Low] **Geometry — `angle_between` overloads have asymmetric accuracy.** The `Vector` overload uses `fast_acos`; the `Quaternion` overload uses exact `acosf` (`3dmath.h:927`,`:1018`) — same name, silently different precision. Rename one or share a policy parameter.
