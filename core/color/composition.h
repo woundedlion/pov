@@ -116,6 +116,41 @@ struct RippleModifier {
 };
 
 /**
+ * @brief Warps the palette coordinate with smooth value noise — the organic,
+ * aperiodic counterpart to RippleModifier's sine: colors wander and smear
+ * instead of oscillating.
+ */
+struct NoiseWarpModifier {
+  const float *time;
+  float frequency;
+  float amplitude;
+  uint32_t seed;
+
+  /**
+   * @brief Constructs with a mandatory time driver, frequency, and amplitude.
+   * @param time Pointer to the per-frame noise time axis; must not be null.
+   * @param freq Spatial frequency of the noise over t; defaults to 3.0.
+   * @param amp Peak displacement of the coordinate; defaults to 0.1.
+   * @param seed Noise stream selector; defaults to 0.
+   */
+  NoiseWarpModifier(const float *time, float freq = 3.0f, float amp = 0.1f,
+                    uint32_t seed = 0)
+      : time(time), frequency(freq), amplitude(amp), seed(seed) {
+    HS_CHECK(time, "NoiseWarpModifier: time driver must not be null");
+  }
+
+  /**
+   * @brief Displaces the coordinate by centered 2D noise at (t*frequency, time).
+   * @param t Input coordinate.
+   * @return t plus a displacement in [-amplitude, amplitude].
+   */
+  float modify(float t) const {
+    return t +
+           (value_noise_2d(t * frequency, *time, seed) - 0.5f) * 2.0f * amplitude;
+  }
+};
+
+/**
  * @brief Folds the palette back and forth like a kaleidoscope.
  * A folds value of 2.0 maps [0...1] to [1 -> 0 -> 1] (one full bounce);
  * each unit of folds adds another half-bounce.
