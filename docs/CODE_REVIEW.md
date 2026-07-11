@@ -139,7 +139,7 @@ _Observability, diagnostics, and test coverage:_
 
 _Consistency and maintainability:_
 
-23. **[render] `core/render/canvas.h` (397/417/427/471 vs 458/484/105)** — The public `Effect` API mixes camelCase (`updateParameter`, `getParameters`, `setAnimationsPaused`, `markReadonly`) with snake_case (`register_param`, `mark_animated`, `needs_full_frame`, `set_clip`) in one widely-derived base class. *Fix:* settle on the file's dominant snake_case, or document the split explicitly.
+23. ✅ **[render] `core/render/canvas.h` (397/417/427/471 vs 458/484/105)** — The public `Effect` API mixes camelCase (`updateParameter`, `getParameters`, `setAnimationsPaused`, `markReadonly`) with snake_case (`register_param`, `mark_animated`, `needs_full_frame`, `set_clip`) in one widely-derived base class. *Resolved:* documented the split at the `Effect` class doc — the camelCase names are the JS/embind boundary (bound in `wasm.cpp`), snake_case is the internal C++ API; renaming would break the WASM bridge.
 
 24. **[render] `core/render/led.h:39-43`** — The `USE_DMA_LEDS` stubs `NoColorCorrection`/`NoTempCorrection` are empty/trivial, whereas the real guards delete copy and have non-trivial dtors, so copy-init call sites compile only in the non-DMA build and unused stubs risk `-Wunused-variable`. *Fix:* give the stubs `= default` dtors + deleted copy for identical semantics, or mark call sites `[[maybe_unused]]`.
 
