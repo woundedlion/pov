@@ -554,7 +554,11 @@ inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
   const int32_t product = static_cast<int32_t>(
       static_cast<uint32_t>(x - in_min) *
       static_cast<uint32_t>(out_max - out_min));
-  const int32_t scaled = product / divisor;
+  // INT32_MIN / -1 overflows (host UB) but ARM SDIV returns INT32_MIN; negate
+  // mod 2^32 to reproduce the device result without trapping.
+  const int32_t scaled = divisor == -1
+                             ? static_cast<int32_t>(0u - static_cast<uint32_t>(product))
+                             : product / divisor;
   return scaled + out_min;
 }
 
