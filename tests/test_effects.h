@@ -1045,6 +1045,93 @@ struct DynamoWhiteBox {
   }
 };
 
+/**
+ * @brief White-box accessor for HopfFibration's S3-lift + stereographic
+ *        projection (befriended in effects/HopfFibration.h).
+ * @details The smoke/determinism harness only proves the effect renders and
+ *          reproduces; it never pins hopf_project()'s numeric output. This seam
+ *          sets the private per-frame cache (tumble sines/cosines, fold/flow/
+ *          tumble-y phases) and a fiber's base coordinates, then calls the real
+ *          projection so a test can compare it to the closed form.
+ */
+struct HopfWhiteBox {
+  using HF = HopfFibration<DEFAULT_W, DEFAULT_H>;
+  static size_t fiber_count() { return HF::ACTUAL_FIBERS; }
+  static Vector project(HF &fx, size_t i) { return fx.hopf_project(i); }
+  static void set_fiber(HF &fx, size_t i, float azimuth, float polar) {
+    fx.fibers[i] = Spherical(azimuth, polar);
+  }
+  static void set_cache(HF &fx, float cx, float sx, float cy, float sy,
+                        float fold_base, float flow_rad, float ty_rad) {
+    fx.cx = cx;
+    fx.sx = sx;
+    fx.cy = cy;
+    fx.sy = sy;
+    fx.fold_base = fold_base;
+    fx.flow_rad = flow_rad;
+    fx.ty_rad = ty_rad;
+  }
+};
+
+/**
+ * @brief Pins HopfFibration::hopf_project against a closed form and asserts its
+ *        unit-direction/finite invariant under a nontrivial 4D tumble.
+ * @details Identity tumble with zero folding and twist reduces fiber 0
+ *          (beta == 0) to a plain S3 lift, whose stereographic image is the
+ *          normalized (q0, q1, q2); the check uses the same fast trig the effect
+ *          does so it pins the projection, not the trig approximation. The second
+ *          pass exercises every fiber under active tumble/fold/twist and requires
+ *          each result be finite, unit-length (normalized_or), and deterministic.
+ */
+inline void test_hopf_projection_math() {
+  // init() bakes from persistent_arena and schedules on the shared timeline, so
+  // reset the shared globals as smoke_one does.
+  hs::random().seed(1337u);
+  configure_arenas_default();
+  Timeline().clear();
+  global_timeline_t = 0;
+  using WB = HopfWhiteBox;
+
+  HopfFibration<DEFAULT_W, DEFAULT_H> fx;
+  fx.init();
+
+  // Identity tumble + no folding/twist: fiber 0 has beta == 0, so q3 == 0 and the
+  // projection collapses to the normalized (q0, q1, q2).
+  fx.params.folding = 0.0f;
+  fx.params.twist = 0.0f;
+  WB::set_cache(fx, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
+
+  const float polar = 1.2f, azimuth = 0.7f;
+  WB::set_fiber(fx, 0, azimuth, polar);
+  const Vector v = WB::project(fx, 0);
+
+  const float eta = polar * 0.5f;
+  const float ce = fast_cosf(eta), se = fast_sinf(eta);
+  const Vector expected =
+      Vector(ce * fast_cosf(azimuth), ce * fast_sinf(azimuth), se).normalized();
+  HS_EXPECT_NEAR(v.x, expected.x, 1e-4f);
+  HS_EXPECT_NEAR(v.y, expected.y, 1e-4f);
+  HS_EXPECT_NEAR(v.z, expected.z, 1e-4f);
+  HS_EXPECT_NEAR(v.magnitude(), 1.0f, 1e-4f);
+
+  // Every fiber projects to a finite unit direction under active tumble/fold/twist.
+  const float ax = 0.9f, ay = 0.4f;
+  WB::set_cache(fx, fast_cosf(ax), fast_sinf(ax), fast_cosf(ay), fast_sinf(ay),
+                fast_sinf(ax * 0.5f) * 0.5f, 0.3f, ay);
+  fx.params.folding = 0.5f;
+  fx.params.twist = 2.0f;
+  for (size_t i = 0; i < WB::fiber_count(); ++i) {
+    const Vector p = WB::project(fx, i);
+    HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
+                   std::isfinite(p.z));
+    HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-3f);
+    const Vector again = WB::project(fx, i); // pure fn of the cache -> repeatable
+    HS_EXPECT_NEAR(p.x, again.x, 1e-6f);
+    HS_EXPECT_NEAR(p.y, again.y, 1e-6f);
+    HS_EXPECT_NEAR(p.z, again.z, 1e-6f);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Drift-prone effects: spawn-gap / emit-phase / pool-bound white-box pins.
 //
@@ -1677,6 +1764,7 @@ inline int run_effects_tests() {
   ThrustersWhiteBox::check_warp_endpoints();
   RingShowerWhiteBox::check_radius_endpoints();
   DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
+  test_hopf_projection_math();
   test_petalflow_spawn_gap_bounded();
   test_mindsplatter_emit_phase_wrapped();
   test_flyby_phase_wrapped();
