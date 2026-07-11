@@ -134,7 +134,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 ### Priority 4 — Documentation & Cosmetic
 
-29. **Holosphere/core/render/filter.h:1080** — The `Screen::Trails` saturation-eviction comment claims `World::Trails` "swap-removes likewise" at saturation, but `World::Trails` evicts the oldest via FIFO `pop_front()`; it only swap-removes dead slots during `flush()` (an unrelated aging path). No runtime effect. *Fix:* reword to state World=FIFO-oldest, Screen=drops slot 0, both acceptable because per-point ttl fade absorbs the transient.
+29. ✅ **Holosphere/core/render/filter.h:1080** — The `Screen::Trails` saturation-eviction comment claims `World::Trails` "swap-removes likewise" at saturation, but `World::Trails` evicts the oldest via FIFO `pop_front()`; it only swap-removes dead slots during `flush()` (an unrelated aging path). No runtime effect. *Fix:* reword to state World=FIFO-oldest, Screen=drops slot 0, both acceptable because per-point ttl fade absorbs the transient.
 
 30. **Holosphere/README.md:1002** — README §7.6 lists palettes as camelCase code identifiers (`darkRainbow`, …) in backticks, but the constants are `Palettes::DARK_RAINBOW` (SCREAMING_SNAKE); a copied identifier fails to compile. The camelCase spellings also leak into `DreamBalls.h`/`GnomonicStars.h` prose. *Fix:* rewrite to the real identifiers, or drop the backticks and mark them informal display names.
 
