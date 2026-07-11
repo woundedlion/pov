@@ -131,7 +131,7 @@ _None. No defect produces wrong rendered output, breaks a public contract, or co
 ### Medium Priority
 _Latent correctness / robustness / convention defects: no observable impact under current usage, but each is a real gap worth hardening._
 
-1. **dual's degenerate-centroid fallback can emit an off-sphere vertex** — `core/mesh/conway.h:379` (Holosphere)  
+1. ✅ **dual's degenerate-centroid fallback can emit an off-sphere vertex** — `core/mesh/conway.h:379` (Holosphere)  
    dual() is the only operator that does not call normalize(out_mesh) before returning; its per-vertex output relies on normalized_or(c, first_v) to land on the unit sphere. When the face centroid c is (near-)zero (a centrally-symmetric face), normalized_or returns the fallback first_v verbatim, and first_v is the raw face vertex, never re-normalized. kis/ambo use the same raw-fallback pattern but are saved by their trailing normalize(); dual is not. On the shipped registry dual is always fed unit meshes so first_v is unit and the branch never fires, making this latent — but the code documents no unit-input precondition and the sibling operators all self-correct.  
    *Fix:* Either pass a normalized fallback (normalized_or(c, first_v.normalized()) guarded, or first project) or add a trailing normalize(out_mesh) to dual for parity with the other operators.
 2. **Dynamo drops sub-step motion-blur age on strand-body line segments** — `effects/Dynamo.h:291` (Holosphere)  
