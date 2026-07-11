@@ -330,7 +330,8 @@ class Rotation : public AnimationBase<Rotation<W, CAP>> {
 
 public:
   /**
-   * @brief Default constructor. Creates an inactive/identity rotation.
+   * @brief Creates an inactive, unbound rotation (must be reassigned before
+   *        stepping; stepping an unbound Rotation traps).
    */
   Rotation()
       : AnimationBase<Rotation<W, CAP>>(0, false), orientation(nullptr),
