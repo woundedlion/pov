@@ -86,7 +86,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 7. ✅ **Holosphere/tests/test_effects.h:1250** — `test_distorted_ring_palette_mod_selection` calls `hs::set_mock_time()` but never `hs::clear_mock_time()`, leaking a frozen clock into the next test (and the smoke/determinism roster) until the first `render_capture` re-pins it. Harmless today only by luck of the downstream effect being frame-clocked. *Fix:* add `hs::clear_mock_time();` at the end, matching sibling wrapped-phase tests.
 
-8. **daydream/segment_controller.js:976** — On the overrun re-blit tick, `updateStats()` runs after the next generation's `renderParallel()` has zeroed the per-segment arrays, so a multi-tick effect shows `Range='?'` / `0.0 ms` for not-yet-landed segments while a real previous-generation image is on screen. Debug-overlay only; compositing is unaffected. *Fix:* skip `updateStats()` on the re-blit branch, or source its columns from a publish-time snapshot.
+8. ✅ **daydream/segment_controller.js:976** — On the overrun re-blit tick, `updateStats()` runs after the next generation's `renderParallel()` has zeroed the per-segment arrays, so a multi-tick effect shows `Range='?'` / `0.0 ms` for not-yet-landed segments while a real previous-generation image is on screen. Debug-overlay only; compositing is unaffected. *Fix:* skip `updateStats()` on the re-blit branch, or source its columns from a publish-time snapshot.
 
 ### Priority 2 — Test Coverage & Robustness Gaps
 
