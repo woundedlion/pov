@@ -220,7 +220,7 @@ private:
    * neighbors) so the otherwise-uniform A=1/B=0 field has nucleation sites for
    * the GS instability to grow from.
    */
-  void seed_clusters() {
+  HS_COLD_MEMBER void seed_clusters() {
     for (int i = 0; i < NUM_SEED_CLUSTERS; i++) {
       int idx = hs::rand_int(0, RD_N);
       state.B[idx] = 65535;

@@ -43,7 +43,7 @@ static_assert(D_AVG * D_AVG * RD_N - 12.566370614f < 0.0006f &&
  *          init, so the double-precision folding below is off the per-frame render
  *          path; see the implementation note for why the wider math is needed.
  */
-inline Vector node(int i) {
+HS_COLD_MEMBER inline Vector node(int i) {
   // Must fold y, radius, and theta in double to reproduce neighbors[] bit-for-bit:
   // float32 flips near-tie sort order, and theta = golden_angle*i reaches ~18,400
   // rad at i=RD_N-1 where a float holds only ~1e-3 rad of azimuth. Bit-exact
@@ -97,7 +97,7 @@ struct CubemapLUT {
    *          the index (face*RES+y)*RES+x used by lookup() — so sequential
    *          push_back fills the table in place with no random-access writes.
    */
-  void build(Arena &arena) {
+  HS_COLD_MEMBER void build(Arena &arena) {
     data.bind(arena, 6 * RES * RES);
     // node() is double-precision trig; precompute every lattice point once into
     // scratch so the hill-climb reads a table instead of recomputing per hop.
@@ -212,7 +212,7 @@ private:
    *          catch it — it seeds at the answer). Do not convert to best-of-neighbors
    *          without also raising the cap.
    */
-  static int find_nearest_node(const Vector &p, const Vector *lattice) {
+  HS_COLD_MEMBER static int find_nearest_node(const Vector &p, const Vector *lattice) {
     auto dist2 = [](const Vector &a, const Vector &b) {
       float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
       return dx * dx + dy * dy + dz * dz;
