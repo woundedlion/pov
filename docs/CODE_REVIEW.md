@@ -165,7 +165,7 @@ _Consistency and maintainability:_
 
 35. ✅ **[animation] `core/animation/sprites.h:112`** — The pause-gate member is `paused_` in `Sprite` but `paused` in `Mutation`/`Driver`/`Lerp`. *Fix:* rename to `paused` for module consistency.
 
-36. **[mesh] `core/mesh/mesh.h:561`** — Topology hashing quantizes interior angles with `std::round(ang*180/PI)` to whole degrees, so two congruent faces whose angles straddle a 0.5° rounding boundary (float noise) can land in different `topo_id` bins and never merge — smaller classes, reduced LUT coverage (never incorrect output). *Fix:* if class-merge robustness matters, compare on a coarser or hysteretic angle key.
+36. ❌ **[mesh] `core/mesh/mesh.h:561`** — Topology hashing quantizes interior angles with `std::round(ang*180/PI)` to whole degrees, so two congruent faces whose angles straddle a 0.5° rounding boundary (float noise) can land in different `topo_id` bins and never merge — smaller classes, reduced LUT coverage (never incorrect output). *Fix:* if class-merge robustness matters, compare on a coarser or hysteretic angle key. *Rejected:* never produces incorrect output; the congruence-class LUT that consumes `topo_id` is an unwired facility, so reduced merge coverage is inert on shipped output. Coarsening/hysteretic keying changes classification results and risks reclassification churn against tests pinning class counts, for no shipped benefit — disproportionate.
 
 _Cosmetic and documentation-only:_
 
