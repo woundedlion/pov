@@ -988,8 +988,6 @@ FastLED output ← CRGB(gamma encode) ← linear→sRGB ← Pixel16
 
 `Color4` wraps `Pixel` with a float alpha channel. The canvas sink composites with a single straight-alpha "over" operation — `blend_alpha(α)`, i.e. `dst = src * α + dst * (1-α)`, applied in 16-bit linear light (see `filter.h`). There is no selectable blend-mode tag.
 
-`color.h` additionally provides standalone compositing helpers — `blend_over`, `blend_under`, `blend_add` (with an ARM `uqadd16` saturating-add path), `blend_max`, and `blend_mean` — as building blocks for additive/max/mean mixing. They are not wired into the canvas sink; an effect calls them directly when blending its own intermediate buffers.
-
 #### Palette Types
 
 | Type | Description |
