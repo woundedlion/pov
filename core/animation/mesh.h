@@ -12,22 +12,17 @@ namespace Animation {
 
 /**
  * @brief Animates a vertex-interpolated crossfade between two meshes.
- * @details Owns its transient state (cloned meshes + SLERP buffers) via a
- * pointer to arena-allocated storage — keeps inline size small for
- * TimelineEvent. The caller provides source/dest MeshState references and an
- * Arena; MeshMorph clones both, builds nearest-vertex correspondence, and
- * interpolates each frame. Destruction runs only member destructors — there is
- * no destructor that reclaims the arena, so the transient bytes persist in the
- * arena until the caller compacts or resets it.
+ * @details Owns transient state (cloned meshes + SLERP buffers) via a pointer to
+ * arena-allocated storage to keep inline size small for TimelineEvent. No
+ * destructor reclaims the arena, so the transient bytes persist until the caller
+ * compacts or resets it.
  *
- * Crossfade contract: only the incoming mesh (mesh_B, carrying dest topology)
- * morphs — each frame its vertices SLERP from their nearest source vertex toward
- * their dest position. The outgoing mesh (mesh_A, a clone of source) holds its
- * geometry and fades out via opacity (op_A = 1 - alpha) while the incoming fades
- * in; the opacities sum to 1 for constant total brightness across the swap. The
- * source is cloned (not borrowed) so the animation is self-contained against the
- * caller recycling source mid-morph. The separate draw_outgoing/draw_incoming
- * callbacks shade the two halves independently (see HankinSolids).
+ * Crossfade contract: only the incoming mesh (mesh_B, dest topology) morphs —
+ * its vertices SLERP from their nearest source vertex toward their dest each
+ * frame. The outgoing mesh_A (source clone) holds geometry and fades via opacity
+ * (op_A = 1 - alpha); the opacities sum to 1 for constant brightness. source is
+ * cloned, not borrowed, so the animation survives the caller recycling it.
+ * draw_outgoing/draw_incoming shade the two halves independently.
  */
 class MeshMorph : public AnimationBase<MeshMorph> {
 public:
@@ -337,17 +332,14 @@ struct Lace : Base {
 };
 
 /**
- * @brief A day/night line pinned to the mesh sweeps across it at constant
- * speed; the moment it reaches a face, that face fades over a per-face random
- * length drawn from [fade_frames_min, fade_frames_max] frames. The
- * extinguishing sweep takes the old pattern, the return sweep ignites the new.
- * @details LOCAL_SWEEP anchors the line to the untransformed mesh, so it
- * rotates with the mesh rather than the mesh rotating through it. Each face's
+ * @brief A day/night line pinned to the mesh sweeps across it; when it reaches a
+ * face, that face fades over a per-face random length in [fade_frames_min,
+ * fade_frames_max] frames.
+ * @details LOCAL_SWEEP anchors the line to the untransformed mesh. Each face's
  * fade length is a stable per-transition hash of its index, so the front frays
- * into an irregular edge instead of a hard line. The front crosses the sphere
- * over the fade window minus one face fade, so the last-touched face still
- * completes: face phases are exactly 1 at phase 1 and 0 at phase 0 for every
- * per-face fade length.
+ * into an irregular edge. The front crosses over the fade window minus one face
+ * fade, so face phases are exactly 1 at phase 1 and 0 at phase 0 for every fade
+ * length.
  */
 struct TerminatorSweep : Base {
   static constexpr bool LOCAL_SWEEP = true; /**< Sweep in mesh-local space. */
@@ -413,16 +405,12 @@ struct Shockwave : Base {
  * class fade together, each class fully gone before the next starts, in a
  * random class order reshuffled per transition; the new tessellation
  * reassembles class by class the same way.
- * @details Faces group by their palette-slot class (the same topology→slot
- * mapping the fragment shader uses), so each color family vanishes as a unit.
- * The class windows are exactly abutting equal slices of the phase range,
- * linear in time — deliberately not sweep_phase's eased front, so every class
- * gets an equal share of the window. The BLACK_DWELL slice nearest the swap
- * is held fully black: without it the last class's fade runs to the sprite's
- * final frame and the incoming mesh appears one frame later, so the class
- * visibly pops instead of completing. The client hands reorder() the mesh's
- * per-face classes once per transition; the class count is derived from them,
- * never declared separately, so it can never disagree with the mesh.
+ * @details Faces group by palette-slot class, so each color family vanishes as
+ * a unit. Class windows are abutting equal slices of the phase range (linear,
+ * not sweep_phase's eased front). The BLACK_DWELL slice nearest the swap is held
+ * fully black so the last class completes before the incoming mesh appears,
+ * instead of popping. reorder() derives the class count from the per-face
+ * classes, so it can never disagree with the mesh.
  */
 struct Breakdown : Base {
   static constexpr int MAX_CLASSES = 16; /**< rank[] capacity. */
@@ -507,9 +495,8 @@ struct GoldConvergence : Base {
  * Clients that run their own transition animations (e.g. a `MeshMorph`) keep
  * the default and simply never call it.
  * @details Holds two MeshState slots in `persistent_arena` and a front/back
- * index. Effects still own generation and drawing — they generate into a
- * slot, flip the front index, and reclaim the old slot's space — while the
- * segue owns the transition's animation scheduling.
+ * index. Effects own generation and drawing (generate into a slot, flip the
+ * front index, reclaim the old slot); the segue owns transition scheduling.
  *
  * Usage:
  *   MeshCarousel<Segue::Crossfade> carousel;  // in effect members

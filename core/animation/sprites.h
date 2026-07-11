@@ -311,24 +311,17 @@ private:
    * than one column per frame (trail/motion-blur aliasing).
    * @return True once the particle is dead AND its trail has fully drained (so
    * the caller can remove it).
-   * @details Ages it, drags the carried velocity, applies attractor
-   * gravity/steering, rotates position+velocity along the surface, and updates
-   * its trail.
+   * @details Ages, drags velocity, applies attractor gravity/steering, rotates
+   * position+velocity along the surface, and updates the trail.
    *
-   * Integration is forward Euler with an implicit dt = 1 (one step == one
-   * frame): forces and the rotation step are applied per-frame with no dt
-   * scaling, so the motion is frame-rate dependent — the same emitter/attractor
-   * config evolves faster or slower if the step cadence changes. This is
-   * intentional for a fixed-cadence display driver; it is NOT a wall-clock
-   * physics sim.
+   * Integration is forward Euler with implicit dt = 1 (one step == one frame),
+   * so motion is frame-rate dependent — intentional for a fixed-cadence display
+   * driver, not a wall-clock physics sim.
    *
-   * Ordering: `friction` damps the velocity CARRIED IN from previous frames
-   * BEFORE this frame's attractor impulse is added (v <- friction*v + impulse),
-   * so a force applied this frame is not also damped the same frame; the drag
-   * still precedes the move, which uses the post-impulse velocity. Per-frame
-   * impulse magnitude therefore scales with the attractor `strength` alone (not
-   * `friction`); presets pre-scale their strength to match (e.g. MindSplatter's
-   * Well Str).
+   * Ordering: friction damps the carried-in velocity BEFORE this frame's impulse
+   * (v <- friction*v + impulse), so the impulse is not damped the same frame.
+   * Impulse magnitude scales with the attractor `strength` alone; presets
+   * pre-scale their strength to match (e.g. MindSplatter's Well Str).
    */
   bool step_particle(Particle<TRAIL_LEN> &p, float max_delta) {
     bool active = p.life > 0;

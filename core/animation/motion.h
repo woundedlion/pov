@@ -137,10 +137,9 @@ inline int rotation_substeps(float angle, float max_angle) {
  */
 template <int W, int CAP = 4>
 class Motion : public AnimationBase<Motion<W, CAP>> {
-  // Motion/Rotation interpolate across (len-1) sub-intervals of the bound
-  // Orientation, where len <= CAP. CAP == 1 collapses to len == 1, leaving the
-  // sweep with zero sub-intervals (Motion's loop never runs, Rotation divides by
-  // zero). At least two sub-frames are required for any motion to be applied.
+  // Interpolates across (len-1) sub-intervals, len <= CAP. CAP == 1 collapses to
+  // len == 1: zero sub-intervals (Motion's loop never runs, Rotation divides by
+  // zero).
   static_assert(CAP >= 2, "Motion requires an Orientation capacity >= 2");
 
 public:
@@ -197,12 +196,10 @@ public:
   /**
    * @brief Live-updates the traversal duration (frames per path loop).
    * @param frames New duration in frames; any value below 1 is clamped to 1.
-   * @details Guards against 0 (which would divide-by-zero in step()'s
-   * `t / duration`) and negatives (which would walk the path backward). A
-   * changed duration also reanchors the baseline (see reanchor()): the carried
-   * prev_frame_ was sampled under the old parameterization, so without this the
-   * next step's first delta would teleport the Orientation by the gap between
-   * the two duration curves.
+   * @details Clamps to 1 to avoid a divide-by-zero (0) or backward walk
+   * (negative). A changed duration reanchors the baseline (see reanchor()): the
+   * carried prev_frame_ was sampled under the old parameterization, so the next
+   * delta would otherwise teleport the Orientation.
    */
   void set_duration(int frames) {
     int clamped = (frames < 1 ? 1 : frames);
@@ -214,12 +211,10 @@ public:
   /**
    * @brief Discards the carried baseline frame so the next step re-seeds it from
    * the current path.
-   * @details step() integrates the path as RELATIVE deltas off `prev_frame_`,
-   * the frame it last drove to. When the borrowed path FUNCTION is swapped out
-   * from under the animation, `prev_frame_` still holds the OLD function's frame,
-   * so the first post-swap delta teleports the bound Orientation by the gap
-   * between the two shapes' frames. Calling this right after the swap re-seeds
-   * the baseline from the new path, making that first delta incremental.
+   * @details step() integrates the path as RELATIVE deltas off `prev_frame_`.
+   * After the borrowed path is swapped, prev_frame_ still holds the old
+   * function's frame, so call this to re-seed the baseline and keep the first
+   * delta incremental.
    */
   void reanchor() { have_prev_frame_ = false; }
 
@@ -231,10 +226,10 @@ public:
   void step(Canvas &canvas) override {
     AnimationBase<Motion<W, CAP>>::step(canvas);
 
-    // Motion advances the Orientation by RELATIVE deltas only (never its absolute
-    // state), so it composes with any co-driver of the same Orientation. Each
-    // delta's frame is a pure function of the path parameter (see path_frame),
-    // so the baseline never accumulates and per-frame deltas telescope drift-free.
+    // Motion advances the Orientation by RELATIVE deltas only, so it composes
+    // with any co-driver of the same Orientation. Each delta's frame is a pure
+    // function of the path parameter (see path_frame), so deltas telescope
+    // drift-free.
     float t_prev = static_cast<float>(this->t - 1);
     Vector current_v = path_fn(t_prev / this->duration);
     float t_curr = static_cast<float>(this->t);
@@ -245,11 +240,10 @@ public:
     orientation.get().upsample(num_steps + 1);
     int len = orientation.get().length();
 
-    // Baseline = the frame Motion last drove to, carried across frames (not
-    // recomputed from t-1). At a repeat seam the phase rewinds while the
-    // Orientation still sits at the end-of-cycle frame, so the carried baseline
-    // makes the first delta a relative jump-back that a co-driver rides along.
-    // The i==0 delta is identity, so the loop starts at i==1.
+    // Baseline = the frame Motion last drove to, carried across frames. At a
+    // repeat seam the carried baseline makes the first delta a relative jump-back
+    // a co-driver rides along. The i==0 delta is identity, so the loop starts at
+    // i==1.
     if (!have_prev_frame_) {
       prev_frame_ = path_frame(t_prev / this->duration);
       have_prev_frame_ = true;
@@ -281,13 +275,10 @@ public:
    * @param s Normalized path parameter (the value passed to path_fn).
    * @return A unit quaternion mapping body +X to the point path(s), body +Y to
    * the travel direction tangent to the sphere, and body +Z to their cross.
-   * @details A pure function of s, so consecutive-frame deltas telescope over a
-   * cycle (no drift). The tangent is a forward finite difference with a fixed
-   * step, so it depends only on s — not on the per-frame substep spacing. When
-   * the forward tangent vanishes (a clamped path endpoint, or a momentarily
-   * stationary point) it falls back to a backward difference, then to a
-   * deterministic perpendicular of the point — each a pure function of s, never
-   * reaching for prior state.
+   * @details A pure function of s, so consecutive-frame deltas telescope (no
+   * drift). Tangent is a fixed-step forward difference; on a vanishing forward
+   * tangent it falls back to a backward difference, then to a deterministic
+   * perpendicular of the point.
    */
   Quaternion path_frame(float s) const {
     Vector point = path_fn(s).normalized();
@@ -472,13 +463,10 @@ private:
  * across the sphere's surface.
  * @details Uses Perlin noise to create continuous, turbulent pivoting motion.
  *
- * PERPETUAL — never completes (duration = -1, no repeat or self-reset), so a
- * `.then()` callback attached to a RandomWalk NEVER fires (unlike
- * RandomTimer/PeriodicTimer, which self-trigger their per-cycle hook from
- * step()). Drive follow-on behavior from a finite animation or cancel() the walk
- * explicitly. The Transformer's slot-recycling `.then()` likewise never fires
- * for a spawned RandomWalk, so a repeating spawn of them leaks slots until the
- * pool is exhausted.
+ * PERPETUAL (duration -1, no repeat or self-reset): never reaches done(), so a
+ * `.then()` callback NEVER fires and a repeating spawn leaks recycled slots.
+ * Drive follow-on behavior from a finite animation or cancel() the walk
+ * explicitly.
  * @tparam W The width of the LED display.
  * @tparam CAP Orientation sub-frame capacity.
  */
@@ -564,9 +552,9 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase<RandomWalk<W, CAP>>::step(canvas);
-    // noise_scale is applied once, via SetFrequency() in the ctor; the 100x is a
-    // fixed base sample scale (scaling the coordinates by noise_scale here too
-    // would make the spatial frequency quadratic in it).
+    // noise_scale is applied once via SetFrequency() in the ctor; the 100x is a
+    // fixed base sample scale (scaling coords by noise_scale here too would make
+    // the spatial frequency quadratic in it).
     // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher drift)
     // float can't represent consecutive frames and the drift coordinate freezes.
     float target_pivot =

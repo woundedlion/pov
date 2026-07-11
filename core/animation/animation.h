@@ -63,10 +63,9 @@ public:
   /**
    * @brief Reports whether the animation was explicitly canceled.
    * @return True if cancel() drove it to done(); false for a natural end.
-   * @details Lets Timeline distinguish a deliberate teardown (a held handle
-   * calling cancel()) from a natural completion. Only the latter is misuse for a
-   * pinned event, so the pin-completion guard exempts cancellation. Defaults to
-   * false for animations that have no cancel concept.
+   * @details Lets Timeline distinguish a deliberate teardown from a natural
+   * completion (the pin-completion guard exempts cancellation). Defaults to
+   * false for animations with no cancel concept.
    */
   virtual bool is_canceled() const { return false; }
 
@@ -160,17 +159,13 @@ public:
   /**
    * @brief Sets a callback fired at the end of each completion cycle.
    *
-   * The callback runs every time the animation reaches done():
-   *   - One-shot (repeat=false): fires once, then the animation is removed.
-   *   - Repeating (repeat=true): fires at the end of every cycle, just after the
-   *     timer rewinds. RandomTimer/PeriodicTimer never reach done()
-   *     (duration=-1, self-resetting), so they fire this hook from their own
-   *     step() on each trigger.
-   *   - Driver (perpetual, one-frame cycle): fires once per frame.
+   * Fires when the animation reaches done(): once for a one-shot, per cycle for
+   * a repeating one, once per frame for a Driver. RandomTimer/PeriodicTimer
+   * never reach done() (duration=-1), so they fire it from their own step().
    * Do not attach a one-shot callback to a repeating target.
    *
-   * Single post slot: then() refuses (HS_CHECK) to overwrite an already-
-   * registered callback rather than silently dropping it.
+   * Single post slot: then() traps (HS_CHECK) rather than overwrite an existing
+   * callback.
    *
    * @param callback The function to execute at each completion.
    * @return LValue Reference to the derived animation object.

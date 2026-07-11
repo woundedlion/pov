@@ -57,12 +57,10 @@ public:
   /**
    * @brief Rebinds the reference to the float variable being mutated.
    * @param new_mutant The new float variable to modify.
-   * @details Rebinds only the target reference; the `from` snapshot and the
-   * `captured` flag are deliberately retained. This is therefore safe for
-   * *relocating* the binding to a variable holding the same value (e.g. a moved
-   * params struct), but NOT for *retargeting* mid-flight to a variable with a
-   * different start value — the in-flight interpolation would still run from the
-   * original `from` toward `to`. Retargeting requires a fresh Transition.
+   * @details Retains the `from` snapshot and `captured` flag: safe to relocate
+   * the binding to a same-value variable, but not to retarget mid-flight (the
+   * tween still runs from the original `from`). Retargeting needs a fresh
+   * Transition.
    */
   void rebind_mutant(float &new_mutant) { mutant = new_mutant; }
 
@@ -103,10 +101,8 @@ public:
   /**
    * @brief Performs one step of the mutation.
    * @param canvas The canvas buffer (forwarded to the base step).
-   * @details When wired to a pause flag (an effect's `anims_paused_`), the
-   * mutation freezes while paused: it neither advances its timer nor writes the
-   * mutant, so a GUI slider bound to the same member is the sole writer and the
-   * user's value holds. Resuming hands the member back to the curve.
+   * @details While the wired pause flag is set, freezes: neither advances the
+   * timer nor writes the mutant, so a GUI slider bound to the same member holds.
    */
   void step(Canvas &canvas) override {
     if (is_paused(paused))
@@ -134,11 +130,9 @@ private:
 /**
  * @brief An animation that continuously increments a float variable over time.
  *
- * A Driver is perpetual with a one-frame cycle (duration 1, repeat true): it has
- * no natural completion, so a `.then()` callback attached to it fires once PER
- * FRAME (after each step + rewind). That is intentional — for a per-frame
- * incrementer, a per-frame hook is the only meaningful interpretation of
- * `.then()`. Do not attach a one-shot callback expecting a single fire.
+ * Perpetual, one-frame cycle (duration 1, repeat true): a `.then()` callback
+ * fires once PER FRAME. Do not attach a one-shot callback expecting a single
+ * fire.
  */
 class Driver : public AnimationBase<Driver> {
 public:
@@ -165,14 +159,11 @@ public:
    * @param scale Per-unit multiplier applied to *speed_src.
    * @param wrap If true, wraps the value back into the [0,1) range each step.
    * @param paused Optional pause gate; null = always runs.
-   * @details The Driver pulls the slider itself each step, so callers can
-   *   `timeline.add(...)` and drop the handle rather than re-syncing the speed
-   *   via set_speed() every frame.
+   * @details Re-reads speed_src each step, so callers need not set_speed() per
+   *   frame.
    */
-  // Borrow contract: speed_src is stored and dereferenced every step, so the
-  // referent must outlive the Driver (e.g. an effect's registered param). A
-  // pointer parameter already rejects a temporary at compile time, so no deleted
-  // overload is needed.
+  // Borrow contract: speed_src is dereferenced every step, so the referent must
+  // outlive the Driver (e.g. an effect's registered param).
   Driver(float &mutant, const float *speed_src, float scale, bool wrap = true,
          const bool *paused = nullptr)
       : AnimationBase(1, true), mutant(mutant), speed(0.0f), wrap(wrap),
@@ -280,10 +271,8 @@ public:
     };
   }
 
-  // Borrow contract: subject/start/target are stored as pointers and read across
-  // many frames, so they must outlive the Timeline. These deleted overloads
-  // reject a temporary start/target at compile time; the defaulted `paused`
-  // mirrors the real ctor so the 6-arg paused call is rejected too.
+  // Borrow contract: subject/start/target are read across many frames, so they
+  // must outlive the Timeline; these deleted overloads reject a temporary.
   template <typename T, typename Easing>
   Lerp(T &subject, const T &&start, const T &target, int duration,
        Easing easing_fn, const bool *paused = nullptr) = delete;
@@ -297,11 +286,8 @@ public:
   /**
    * @brief Performs one step of the interpolation.
    * @param canvas The canvas buffer (forwarded to the base step).
-   * @details Freezes while a wired pause flag is set (see Mutation::step).
-   * Preset-cycling effects pass an Effect's `anims_paused_` so a paused lerp
-   * neither advances nor writes its subject, and (for `.then`-chained lerps)
-   * never completes — so the whole preset chain halts and the slider-bound
-   * subject holds.
+   * @details Freezes while a wired pause flag is set (see Mutation::step). A
+   * paused, `.then`-chained lerp never completes, so the whole chain halts.
    */
   void step(Canvas &canvas) override {
     if (is_paused(paused))
@@ -461,12 +447,8 @@ public:
   /**
    * @brief Binds the warp magnitude to a live external float.
    * @param live_scale The external float to read each frame as the magnitude.
-   * @details By default the magnitude is the `scale` captured at construction.
-   * Binding makes step() read the referent every frame instead, so a GUI slider
-   * wired to that float takes effect immediately rather than only at the next
-   * (re)spawn. The referent must outlive the animation (e.g. an effect's param
-   * member). This avoids retaining the animation pointer across frames, which
-   * would dangle under timeline compaction.
+   * @details Binding makes step() read the referent every frame, so a wired GUI
+   * slider takes effect immediately. The referent must outlive the animation.
    */
   void bind_scale(const float &live_scale) { scale_ref = &live_scale; }
   void bind_scale(const float &&) = delete;
@@ -541,12 +523,8 @@ private:
  * @brief Continuously modulates Mobius parameters to create an evolving warp.
  * @details Uses multiple frequencies for non-repeating chaos.
  *
- * PERPETUAL — never completes: the default AnimationBase ctor gives it
- * duration = -1 with no repeat, so it never reaches done() and a `.then()`
- * callback attached to it NEVER fires (same hazard documented on RandomWalk).
- * Do not chain sequencing logic off its `.then()`, and note the Transformer's
- * slot-recycling `.then()` likewise will not fire for a spawned
- * MobiusWarpEvolving — drive follow-on behavior from a finite animation or
+ * PERPETUAL (duration -1, no repeat): never reaches done(), so a `.then()`
+ * callback NEVER fires. Drive follow-on behavior from a finite animation or
  * cancel() it explicitly.
  */
 class MobiusWarpEvolving : public AnimationBase<MobiusWarpEvolving> {
@@ -556,10 +534,8 @@ public:
    * @param params The params to animate.
    * @param scale Magnitude of modulation.
    * @param speed Speed of the animation.
-   * @note `base` snapshots `params` at construction; MobiusParams has no
-   * refresh_from, so Transformer::prepare_frame() never re-reads it from
-   * template_params. The baseline is latched at spawn — live edits to it
-   * require a respawn (live `scale`/`speed` are mutated via the setters).
+   * @note `base` snapshots `params` at construction and is latched at spawn;
+   * live edits require a respawn (live `scale`/`speed` go through the setters).
    */
   MobiusWarpEvolving(MobiusParams &params, float scale = 0.5f,
                      float speed = 0.01f)
@@ -599,8 +575,7 @@ public:
     AnimationBase::step(canvas);
     // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher speed)
     // float can't represent consecutive frames and the phase freezes; this
-    // animation is perpetual (duration == -1). A modulo/accumulator fix only
-    // trades the slow drift for a sharp artifact.
+    // animation is perpetual (duration == -1).
     float time = t * speed;
     float s = scale;
 
@@ -757,10 +732,9 @@ struct NoiseParams {
   /**
    * @brief Refreshes live-tunable config from a template snapshot.
    * @param t Template params carrying the current slider values.
-   * @details Copies the slider-driven fields (amplitude, speed, frequency,
-   * scale) but not the animation-advanced `time` axis or the backing generator,
-   * so a live edit reaches an already-spawned entity without resetting its
-   * phase. prepare_frame() invokes this before sync().
+   * @details Copies the slider-driven fields but not the `time` axis or the
+   * backing generator, so a live edit reaches a spawned entity without resetting
+   * its phase. prepare_frame() invokes this before sync().
    */
   void refresh_from(const NoiseParams &t) {
     amplitude = t.amplitude;
@@ -778,10 +752,9 @@ public:
   /**
    * @brief Constructs a Noise animation.
    * @param params Reference to the NoiseParams to animate.
-   * @param duration Duration in frames (-1 for indefinite). Finite durations
-   *   are not recommended: this animation repeats, so a finite duration rewinds
-   *   t to 0 each cycle and snaps params.time backward — a sawtooth that breaks
-   *   the smooth forward flow the time axis exists for. Use -1 (the default).
+   * @param duration Duration in frames (-1 for indefinite). Use -1: this
+   *   repeats, so a finite duration rewinds t each cycle and snaps params.time
+   *   backward.
    */
   Noise(NoiseParams &params, int duration = -1)
       : AnimationBase(duration, true), params(params) {}
@@ -794,7 +767,6 @@ public:
     AnimationBase::step(canvas);
     // Accepted limit: past t == 2^24 (~77 h at 60 fps, sooner at higher speed)
     // float can't represent consecutive frames and the noise time axis freezes.
-    // A modulo/accumulator fix only trades the slow drift for a sharp artifact.
     params.get().time = static_cast<float>(t);
   }
 

@@ -443,10 +443,9 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
  * @param src Source mesh to copy from.
  * @param dst Destination mesh, populated in place from the given arena.
  * @param arena Arena supplying storage for the destination arrays.
- * @details Safe for memory compaction and bouncing between arenas. For
- * MeshState this delegates to MeshState::clone (the Cloneable interface used by
- * Persist) so the two implementations can't drift; the generic body below
- * handles PolyMesh (which has no face_offsets).
+ * @details Safe for memory compaction and bouncing between arenas. MeshState
+ * delegates to MeshState::clone (the Cloneable interface used by Persist) so the
+ * two can't drift; the generic body handles PolyMesh (no face_offsets).
  */
 template <typename MeshT>
 inline void clone(const MeshT &src, MeshT &dst, Arena &arena) {

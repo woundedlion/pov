@@ -82,14 +82,11 @@ inline Pixel plain_fade(const Pixel &p, float fade, const Style &) {
 
 /**
  * @brief Named feedback preset: spatial/color transforms plus scalar params.
- * @details POD-copyable so it can live in Presets<> and be lerped. The lerpable
- * scalar fields blend continuously while function pointers and discrete tuning
- * snap at the lerp midpoint. The bound noise pointer and the per-frame hue cache
- * are not preset data: lerp() preserves them, but a full-struct copy or
- * assignment (Presets::apply, `style = Style::Churn()`) carries only the source
- * preset's fields — resetting noise to nullptr (degrading noise_warp to
- * identity) and the hue cache to the identity rotation. Re-bind the noise
- * pointer and call sync_hue() after any such copy.
+ * @details POD-copyable for Presets<> and lerp. Non-preset state (bound noise
+ * pointer, per-frame hue cache) survives lerp() but a full-struct copy or
+ * assignment (Presets::apply, `style = Style::Churn()`) resets noise to nullptr
+ * (noise_warp degrades to identity) and the hue cache to identity. Re-bind noise
+ * and call sync_hue() after any such copy.
  */
 struct Style {
   // --- Lerpable scalar params ---
@@ -107,10 +104,9 @@ struct Style {
   // --- Filter tuning (snap during lerp) ---
   /**
    * Coarse-grid downsample factor for the warp field. Higher = cheaper
-   * (~DS^2 fewer space_fn / atan2 / acos calls) but loses detail in
-   * high-frequency warps. Pick smaller values (2) for sharp noise,
-   * larger (8) for slow swirling warps. Scratch arena must hold
-   * (W/DS) * (H/DS) * 4 bytes — at 288x144, DS=4 ≈ 10KB, DS=2 ≈ 41KB.
+   * (~DS^2 fewer space_fn / atan2 / acos calls), lower = more detail. Scratch
+   * arena must hold (W/DS) * (H/DS) * 4 bytes — at 288x144, DS=4 ≈ 10KB,
+   * DS=2 ≈ 41KB.
    */
   int downsample = 4;
 
@@ -130,11 +126,10 @@ struct Style {
    * @param a Style at t = 0.
    * @param b Style at t = 1.
    * @param t Interpolation fraction in [0, 1].
-   * @details Scalar params blend continuously while function pointers and
-   * discrete tuning snap at the midpoint (t = 0.5). The bound noise pointer is
-   * left untouched: it is effect-owned state set at init, not preset data, so
-   * pulling it from a preset would overwrite it with that preset's nullptr and
-   * silently degrade noise_warp to identity.
+   * @details Scalar params blend continuously; function pointers and discrete
+   * tuning snap at t = 0.5. The bound noise pointer is left untouched (effect-
+   * owned state, not preset data; pulling it from a preset would null it and
+   * degrade noise_warp to identity).
    */
   void lerp(const Style &a, const Style &b, float t) {
     fade      = hs::lerp(a.fade,      b.fade,      t);
