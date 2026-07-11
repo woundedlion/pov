@@ -256,6 +256,7 @@ if (RESOLUTIONS.length === 0) {
   console.warn('(unverified). Re-run once the page resolution selector is');
   console.warn('reachable to capture at a pinned resolution.');
   console.warn('========================================================');
+  process.exitCode = 1;
 }
 
 // An effect that the app offered at no available resolution was SKIPPED (its
