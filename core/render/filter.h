@@ -1274,7 +1274,7 @@ public:
 
   /**
    * @brief Blends the distorted previous frame into the current frame.
-   * @param cv Target canvas (reads cv.prev, writes the front buffer).
+   * @param cv Target canvas (reads cv.prev, writes the back (current-draw) buffer).
    * @param alpha Global blend alpha in [0, 1].
    * @details Computes a coarse warp field via the Style's space_fn, bilinearly
    * upsamples it, then composites the warped previous frame, honoring the

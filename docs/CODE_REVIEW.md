@@ -246,7 +246,7 @@ _Documentation inaccuracies, missing tests for real behavior, dead code, and cos
 37. ✅ **Stale source-file reference in effect_registry.h doc comment** — `core/engine/effect_registry.h:7` (Holosphere)  
    The header comment states the self-registering factory eliminates "the hand-maintained list in wasm_bridge.cpp", but no wasm_bridge.cpp exists anywhere in the tree — the WASM entry/bindings live in targets/wasm/wasm.cpp (verified: a repo-wide search for `wasm_bridge` returns only this comment, and targets/wasm/ contains wasm.cpp). The dangling reference misdirects anyone tracing where the registry replaced the old manual roster.  
    *Fix:* Change `wasm_bridge.cpp` in the comment to `targets/wasm/wasm.cpp`.
-38. **Feedback::flush doc says it writes the front buffer; it writes the back buffer** — `core/render/filter.h:1277` (Holosphere)  
+38. ✅ **Feedback::flush doc says it writes the front buffer; it writes the back buffer** — `core/render/filter.h:1277` (Holosphere)  
    The @param on Feedback::flush reads 'Target canvas (reads cv.prev, writes the front buffer).' The method reads the front/displayed buffer via cv.prev(x,y) but writes the current draw target via cv(x,y), which is the BACK buffer (bufs_[cur_]). README section 5 and the filter's own class doc correctly describe sampling the front buffer and compositing into the back buffer, so this @param contradicts the rest of the documentation and could mislead a reader into thinking flush mutates the displayed frame.  
    *Fix:* Change 'writes the front buffer' to 'writes the back (current-draw) buffer'.
 39. **RingShower FADE_IN_FRAMES doc says opacity fades "from 0" but the first drawn frame is 0.25** — `effects/RingShower.h:80` (Holosphere)  
