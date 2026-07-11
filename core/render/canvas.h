@@ -298,6 +298,11 @@ public:
                                surfaces these as auto-pausing sliders. */
     bool readonly = false;  /**< True if this is engine-written telemetry; the
                                GUI shows it live but disables editing. */
+    const char *const *options = nullptr; /**< Option labels for an enumerated
+                               param (GUI dropdown), or null for a plain param.
+                               Must outlive the effect (string literals). */
+    int option_count = 0;   /**< Number of option labels; > 0 marks an enum whose
+                               float target holds the selected index. */
 
     /**
      * @brief Read the current value as float (bool maps to 0/1).
@@ -340,6 +345,12 @@ public:
      * @return True if the target is a bool pointer, false if a float pointer.
      */
     bool is_bool() const { return std::holds_alternative<bool *>(target); }
+
+    /**
+     * @brief Check if this parameter is enumerated (renders as a dropdown).
+     * @return True if option labels are attached.
+     */
+    bool is_enum() const { return option_count > 0; }
   };
 
   /**
@@ -415,6 +426,10 @@ public:
       return false;
     if (!std::isfinite(value))
       return false;
+    // Enum targets hold an option index: snap a fractional write (e.g. a stale
+    // deep link) to the nearest option before the range clamp.
+    if (def->is_enum())
+      value = roundf(value);
     if (!def->is_bool())
       value = hs::clamp(value, def->min, def->max);
     def->set(value);
@@ -509,6 +524,24 @@ protected:
     HS_CHECK(*ptr >= min && *ptr <= max,
              "register_param: default *ptr outside [min,max]");
     parameters.elements[parameters.count++] = {name, ptr, min, max, *ptr};
+  }
+
+  /**
+   * @brief Registers an enumerated parameter, rendered by the GUI as a dropdown.
+   * @param name The name to expose.
+   * @param ptr Pointer to the float variable holding the selected option index;
+   *   its current value becomes the GUI default.
+   * @param options Array of option labels indexed by the target's value; must
+   *   outlive the effect (string literals).
+   * @param option_count Number of labels; the value range is [0, option_count-1].
+   */
+  void register_param(const char *name, float *ptr,
+                      const char *const *options, int option_count) {
+    HS_CHECK(options != nullptr && option_count > 0,
+             "register_param: enum needs at least one option");
+    register_param(name, ptr, 0.0f, static_cast<float>(option_count - 1));
+    parameters.elements[parameters.count - 1].options = options;
+    parameters.elements[parameters.count - 1].option_count = option_count;
   }
 
   /**

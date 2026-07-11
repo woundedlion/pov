@@ -73,6 +73,17 @@ struct TestEffect : public Effect {
    * @param n Parameter name to mark.
    */
   void mark_readonly(const char *n) { markReadonly(n); }
+  /**
+   * @brief Registers an enumerated parameter with the base Effect.
+   * @param n Parameter name.
+   * @param p Pointer to the float backing store holding the option index.
+   * @param options Option label array (static storage).
+   * @param count Number of labels.
+   */
+  void add_enum(const char *n, float *p, const char *const *options,
+                int count) {
+    register_param(n, p, options, count);
+  }
 };
 
 /**
@@ -477,6 +488,43 @@ inline void test_update_parameter_rejects_readonly() {
 }
 
 /**
+ * @brief Verifies enum registration derives its range from the option count and
+ * exposes the labels, and that updateParameter snaps writes to a valid index.
+ * @details Fractional writes round to the nearest option; out-of-range writes
+ *          clamp to the ends, so the target always holds a real option index.
+ */
+inline void test_register_and_update_enum_param() {
+  TestEffect fx(4, 4);
+  static const char *const MODES[] = {"None", "Warp", "Sparkle"};
+  float mode = 1.0f;
+  fx.add_enum("Mode", &mode, MODES, 3);
+
+  const auto *def = fx.getParameters().find("Mode");
+  HS_EXPECT_TRUE(def != nullptr);
+  HS_EXPECT_TRUE(def->is_enum());
+  HS_EXPECT_FALSE(def->is_bool());
+  HS_EXPECT_EQ(def->option_count, 3);
+  HS_EXPECT_TRUE(def->options == MODES);
+  HS_EXPECT_NEAR(def->min, 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(def->max, 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(def->get(), 1.0f, 1e-6f); // captured current value as default
+
+  // A fractional write snaps to the nearest option index.
+  HS_EXPECT_TRUE(fx.updateParameter("Mode", 1.7f));
+  HS_EXPECT_NEAR(mode, 2.0f, 1e-6f);
+
+  // Out-of-range writes clamp to the option range.
+  HS_EXPECT_TRUE(fx.updateParameter("Mode", 9.0f));
+  HS_EXPECT_NEAR(mode, 2.0f, 1e-6f);
+  HS_EXPECT_TRUE(fx.updateParameter("Mode", -3.0f));
+  HS_EXPECT_NEAR(mode, 0.0f, 1e-6f);
+
+  // Plain params stay non-enum.
+  fx.add_float("Speed", &fx.speed, 0.0f, 10.0f);
+  HS_EXPECT_FALSE(fx.getParameters().find("Speed")->is_enum());
+}
+
+/**
  * @brief Verifies ParamList holds its full capacity of registered params.
  */
 inline void test_paramlist_fills_to_capacity() {
@@ -607,6 +655,7 @@ inline int run_canvas_tests() {
   test_register_float_and_bool_params();
   test_update_parameter_by_name();
   test_update_parameter_rejects_readonly();
+  test_register_and_update_enum_param();
   test_paramlist_fills_to_capacity();
   test_clip_setters();
   test_pipeline_ref_copy_is_independent_of_source();
