@@ -480,6 +480,48 @@ struct HueWobbleShade {
 };
 
 /**
+ * @brief Ignites sparse traveling glints: where an evolving noise field over
+ * the domain exceeds a threshold, the sample lerps toward white.
+ */
+struct SparkleShade {
+  const float *time;
+  float frequency;
+  float threshold;
+  uint32_t seed;
+
+  /**
+   * @brief Constructs with a mandatory time driver, density, and threshold.
+   * @param time Pointer to the per-frame noise time axis; must not be null.
+   * @param freq Glint density over the domain; defaults to 24.0.
+   * @param threshold Noise level in [0, 1) above which a glint ignites; higher
+   *        is sparser. Defaults to 0.75.
+   * @param seed Noise stream selector; defaults to 0.
+   */
+  SparkleShade(const float *time, float freq = 24.0f, float threshold = 0.75f,
+               uint32_t seed = 0)
+      : time(time), frequency(freq), threshold(threshold), seed(seed) {
+    HS_CHECK(time, "SparkleShade: time driver must not be null");
+    HS_CHECK(threshold >= 0.0f && threshold < 1.0f,
+             "SparkleShade: threshold must be in [0, 1)");
+  }
+
+  /**
+   * @brief Whitens the sample where the noise field exceeds the threshold.
+   * @param c Sample color to reshape.
+   * @param t Coordinate locating the sample in the glint field.
+   * @return The sample, lerped toward white by the over-threshold excess.
+   */
+  Color4 shade(Color4 c, float t) const {
+    float n = value_noise_2d(t * frequency, *time, seed);
+    if (n <= threshold)
+      return c;
+    float w = (n - threshold) / (1.0f - threshold);
+    c.color = c.color.lerp16(Pixel(65535, 65535, 65535), frac_to_q16(w));
+    return c;
+  }
+};
+
+/**
  * @brief Scales alpha by a caller-supplied falloff curve over the coordinate.
  */
 struct AlphaFalloffShade {
