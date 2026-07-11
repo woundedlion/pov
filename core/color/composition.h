@@ -660,6 +660,27 @@ private:
 };
 
 /**
+ * @brief Steps a palette cross-fade rebake for one frame.
+ * @tparam Source Palette type exposing Color4 get(float) const.
+ * @param wipe_pending Set when a wipe was just armed; consumes the arming frame.
+ * @param wipe_frames_remaining Frames left to rebake; decremented per step.
+ * @param baked LUT rebaked from the wipe-mutated source while the wipe runs.
+ * @param source Palette mutated in place by the in-flight ColorWipe.
+ * @details A ColorWipe is armed mid-step and first steps next frame, so the
+ * arming frame is skipped; each later frame rebakes the LUT the shader samples.
+ */
+template <typename Source>
+inline void step_wipe_rebake(bool &wipe_pending, int &wipe_frames_remaining,
+                             BakedPalette &baked, const Source &source) {
+  if (wipe_pending) {
+    wipe_pending = false;
+  } else if (wipe_frames_remaining > 0) {
+    baked.rebake(source);
+    --wipe_frames_remaining;
+  }
+}
+
+/**
  * @brief Bank of N baked palettes for bulk Persist/clone operations.
  */
 struct BakedPaletteBank {

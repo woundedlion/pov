@@ -112,15 +112,7 @@ public:
         cycle_timer_->set_period(2 * cd);
     });
 
-    // `palette` changes only while a ColorWipe steps. The wipe is armed mid-step
-    // and first steps next frame, so skip the redundant rebake on the arming
-    // frame.
-    if (wipe_pending_) {
-      wipe_pending_ = false;
-    } else if (wipe_frames_remaining_ > 0) {
-      baked_palette.rebake(palette);
-      --wipe_frames_remaining_;
-    }
+    step_wipe_rebake(wipe_pending_, wipe_frames_remaining_, baked_palette, palette);
 
     node->trail.record(node->orientation);
 

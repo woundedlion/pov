@@ -76,15 +76,7 @@ public:
     Canvas canvas(*this);
     timeline.step(canvas);
 
-    // `palette` mutates only while a ColorWipe steps; rebake the LUT the
-    // longitude shader samples for the wipe's duration. The wipe is armed
-    // mid-step and first steps next frame, so skip the arming frame.
-    if (wipe_pending_) {
-      wipe_pending_ = false;
-    } else if (wipe_frames_remaining_ > 0) {
-      baked_palette.rebake(palette);
-      --wipe_frames_remaining_;
-    }
+    step_wipe_rebake(wipe_pending_, wipe_frames_remaining_, baked_palette, palette);
 
     // int % 120 before the float cast: a float frame counter would lose integer
     // precision past 2^24.
