@@ -522,6 +522,62 @@ struct SparkleShade {
 };
 
 /**
+ * @brief Breathes the palette's saturation: scales OKLab chroma by
+ * 1 + depth * sin(phase), swinging every sample between pastel and vivid.
+ */
+struct ChromaPulseShade {
+  const float *phase;
+  float depth;
+  /**
+   * @brief Per-instance memo of the frame's chroma scale.
+   * @details *phase is frame-constant, so the sine is recomputed once per
+   * frame, not per sample. mutable so const shade() can update the memo.
+   */
+  mutable float cached_phase = 0.0f;
+  mutable float cached_scale = 1.0f; /**< Memoized scale at cached_phase. */
+  mutable bool primed = false;       /**< Whether the memo has been populated. */
+
+  /**
+   * @brief Constructs with a mandatory phase driver and pulse depth.
+   * @param phase Pointer to the per-frame phase; must not be null.
+   * @param depth Pulse depth in [0, 1]: chroma swings over [1-depth, 1+depth].
+   *        Defaults to 0.5.
+   */
+  ChromaPulseShade(const float *phase, float depth = 0.5f)
+      : phase(phase), depth(depth) {
+    HS_CHECK(phase, "ChromaPulseShade: phase driver must not be null");
+    HS_CHECK(depth >= 0.0f && depth <= 1.0f,
+             "ChromaPulseShade: depth must be in [0, 1]");
+  }
+
+  /**
+   * @brief Scales the sample's OKLab chroma by the frame's pulse factor,
+   * holding lightness and hue; over-gamut results chroma-clip.
+   * @param c Sample color to reshape.
+   * @param t Unused; the pulse is uniform over the domain.
+   * @return The chroma-scaled sample, alpha untouched.
+   */
+  Color4 shade(Color4 c, float) const {
+    if (!primed || *phase != cached_phase) {
+      cached_phase = *phase;
+      cached_scale = 1.0f + depth * fast_sinf(cached_phase);
+      primed = true;
+    }
+    constexpr float INV16 = 1.0f / 65535.0f;
+    float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
+    LMS lms = linear_rgb_to_lms(r, g, b);
+    OKLab lab =
+        lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
+    lab.a *= cached_scale;
+    lab.b *= cached_scale;
+    oklab_to_linear_rgb_gamut(lab, r, g, b);
+    c.color = Pixel(float_to_pixel16(r), float_to_pixel16(g),
+                    float_to_pixel16(b));
+    return c;
+  }
+};
+
+/**
  * @brief Scales alpha by a caller-supplied falloff curve over the coordinate.
  */
 struct AlphaFalloffShade {
