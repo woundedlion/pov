@@ -135,7 +135,7 @@ _Observability, diagnostics, and test coverage:_
 
 21. ✅ **[daydream] `daydream/tools/*.html` (lissajous:39, mobius:254, solids:471, splines:75)** — The interactive 3D viewport `<canvas>` elements have no text alternative, unlike `index.html` (`role="img"` + `aria-label`); a screen reader announces a bare "canvas." *Fix:* add an `aria-label` naming each viewport.
 
-22. **[daydream] `daydream/tools/splines.html:94,99` and `palettes.html:229,327`** — Range inputs are labeled only by an adjacent `<span>` with no programmatic association. *Fix:* give the label span an `id` and add `aria-labelledby` (or `aria-label`) to the input.
+22. ✅ **[daydream] `daydream/tools/splines.html:94,99` and `palettes.html:229,327`** — Range inputs are labeled only by an adjacent `<span>` with no programmatic association. *Fix:* give the label span an `id` and add `aria-labelledby` (or `aria-label`) to the input.
 
 _Consistency and maintainability:_
 
