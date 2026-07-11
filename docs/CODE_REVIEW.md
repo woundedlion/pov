@@ -154,7 +154,7 @@ Every validated defect is listed below, numbered sequentially and grouped by pri
 ### Priority 4 — Duplication, consistency & maintainability
 
 35. ✅ [Low] **Mesh — "shrunk primary face" re-walk copy-pasted across `expand`/`chamfer`/`snub`** (~60 lines, `conway.h:691-736`,`:776-808`,`:1006-1033`); differs only by the vertex-position formula. Factor an `emit_shrunk_face(...)` helper.
-36. [Low] **Mesh — two `transform` overloads duplicate view-setup/vertex-bind** (`conway.h:247-305`); the zero-transformer base is a prefix of the variadic body and could delegate with an empty fold.
+36. ✅ [Low] **Mesh — two `transform` overloads duplicate view-setup/vertex-bind** (`conway.h:247-305`); the zero-transformer base is a prefix of the variadic body and could delegate with an empty fold.
 37. [Low] **Mesh — `Candidate` duplicates `Neighbor` in `nearest()`** (`spatial.h:116-163`): collect-sort-rebuild in two passes when `Neighbor` already carries the fields. Remove the intermediate type.
 38. [Low] **Render — `apply_pole_containment` duplicates the N/S point-in-polygon block** (`sdf.h:2266-2307`), two ~18-line loops differing only by `center.y` sign. Factor a helper.
 39. [Low] **Effects — duplicated engine-level facts across effects:** the `full_frame` restatement (Fix #4), `MAX_RINGS = H>1?H:1` (Moire + ShapeShifter), the footprint-budget boilerplate (`GnomonicStars`/`SplineFlow`/`HopfFibration`/`Dynamo`), and `radius_at()` growth math (RingShower + Thrusters). Hoist to engine helpers.
