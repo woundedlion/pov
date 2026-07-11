@@ -138,7 +138,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 30. ✅ **Holosphere/README.md:1002** — README §7.6 lists palettes as camelCase code identifiers (`darkRainbow`, …) in backticks, but the constants are `Palettes::DARK_RAINBOW` (SCREAMING_SNAKE); a copied identifier fails to compile. The camelCase spellings also leak into `DreamBalls.h`/`GnomonicStars.h` prose. *Fix:* rewrite to the real identifiers, or drop the backticks and mark them informal display names.
 
-31. **Holosphere/core/mesh/solids.h:690** — `truncatedIcosahedron_hk58_chamfer63`'s `@brief` pins exact counts `(V=990, F=452, I=2880)` — the only recipe that does — which contradicts the project's own stance (`test_solids.h` deliberately does *not* golden per-entry counts because the generators are actively tuned). A retune silently makes the doc lie. *Fix:* drop the parenthetical to match the other 23 briefs.
+31. ✅ **Holosphere/core/mesh/solids.h:690** — `truncatedIcosahedron_hk58_chamfer63`'s `@brief` pins exact counts `(V=990, F=452, I=2880)` — the only recipe that does — which contradicts the project's own stance (`test_solids.h` deliberately does *not* golden per-entry counts because the generators are actively tuned). A retune silently makes the doc lie. *Fix:* drop the parenthetical to match the other 23 briefs.
 
 32. **Holosphere/effects/SphericalHarmonics.h:344** — The `MAX_DEGREE` comment claims `factorial()` "loses precision at 14!"; float loses exact-integer representation above 2^24 (by 13!), so the stated headroom is wrong (functionally harmless at the shipped `MAX_DEGREE=4`, whose max argument is 8). *Fix:* correct the comment to describe the real bound (≈7 sig-digit relative precision; exact-integer loss above 2^24; overflow near 35!).
 
