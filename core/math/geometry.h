@@ -317,7 +317,7 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  * @brief Projects a unit vector to its pixel column (azimuth only).
  * @tparam W The width.
  * @param v Unit vector on the sphere; only its x/z azimuth is read.
- * @return The `x` pixel coordinate in `[0, W]` (can round up to `W`; floor before indexing).
+ * @return The `x` pixel coordinate in `[0, W)` (wrap() strictly excludes W).
  */
 template <int W> float vector_to_theta(const Vector &v) {
   return wrap((fast_atan2(v.z, v.x) * W) / (2 * PI_F), W);
@@ -334,9 +334,9 @@ template <int W> float vector_to_theta(const Vector &v) {
  *   is the true latitude only when |v| == 1, so a non-unit `v` returns a
  *   silently-wrong row. Unguarded per-pixel path; callers normalize first.
  * @return The 2D PixelCoords. The `y` field is a float in `[0, H_VIRT-1]` but at
- *   the south pole can land a hair *above* `H_VIRT-1` (float round-trip), and `x`
- *   from `wrap()` can round up to `W`; a caller indexing a row/column buffer must
- *   floor (not round) first.
+ *   the south pole can land a hair *above* `H_VIRT-1` (float round-trip), while `x`
+ *   from `wrap()` is in `[0, W)` (strictly excludes W); a caller indexing a
+ *   row/column buffer must floor (not round) first.
  */
 template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
   // phi = acos(v.y) is the true latitude only when |v| == 1; trap non-unit v in debug.
