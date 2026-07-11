@@ -203,6 +203,11 @@ def fp_bbox(node):
                 v = sexp._val(c, k)
                 if v:
                     xs.append(float(v[0])); ys.append(float(v[1]))
+            pts = sexp._val(c, "pts")
+            if pts:
+                for p in pts:
+                    if isinstance(p, list) and p and p[0] == "xy":
+                        xs.append(float(p[1])); ys.append(float(p[2]))
     if not xs:
         return (-1.0, -1.0, 1.0, 1.0)
     return (min(xs), min(ys), max(xs), max(ys))
