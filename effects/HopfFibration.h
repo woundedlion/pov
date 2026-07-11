@@ -8,6 +8,14 @@
 #include "core/engine/engine.h"
 #include <array>
 
+// Unit-test accessor reaching the private per-frame cache and hopf_project() to
+// pin the S3-lift + stereographic projection math directly.
+namespace hs_test {
+namespace effects_tests {
+struct HopfWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Animated Hopf fibration effect.
  * @tparam W Render width in pixels.
@@ -101,6 +109,8 @@ public:
   } params;
 
 private:
+  friend struct ::hs_test::effects_tests::HopfWhiteBox;
+
   static constexpr int RINGS = 15;
   static constexpr int PER_RING = 14;
   static constexpr size_t ACTUAL_FIBERS = RINGS * PER_RING;
