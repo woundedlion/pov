@@ -99,12 +99,12 @@ public:
                         [](float t) { return (PI_F / 4.0f) * sinf(t * PI_F); },
                         480, ease_linear, true, &anims_paused_));
 
-    // Shared tumbles: every Plot ring rides plot_orient_ (+X), every Scan ring
-    // rides scan_orient_ (-X).
-    timeline.add(0, Animation::Rotation<W>(plot_orient_, X_AXIS, 2 * PI_F, 160,
+    // Shared tumbles: every Plot ring rides plot_orient (+X), every Scan ring
+    // rides scan_orient (-X).
+    timeline.add(0, Animation::Rotation<W>(plot_orient, X_AXIS, 2 * PI_F, 160,
                                            ease_linear, true,
                                            Animation::Space::Local));
-    timeline.add(0, Animation::Rotation<W>(scan_orient_, -X_AXIS, 2 * PI_F, 160,
+    timeline.add(0, Animation::Rotation<W>(scan_orient, -X_AXIS, 2 * PI_F, 160,
                                            ease_linear, true,
                                            Animation::Space::Local));
 
@@ -129,8 +129,8 @@ public:
       count = MAX_RINGS;
 
     Quaternion cam_q = camera.get();
-    Basis plot_basis = make_basis(cam_q * plot_orient_.get(), X_AXIS);
-    Basis scan_basis = make_basis(cam_q * scan_orient_.get(), -X_AXIS);
+    Basis plot_basis = make_basis(cam_q * plot_orient.get(), X_AXIS);
+    Basis scan_basis = make_basis(cam_q * scan_orient.get(), -X_AXIS);
 
     for (int i = count - 1; i >= 0; --i) {
       // (i+1)/count maps layers to (0, 1]; i/(count-1) would give the i=0 layer
@@ -252,13 +252,13 @@ private:
    * @details Declared before `timeline` so it outlives the Rotations that point
    * here, which ~Timeline clears on teardown.
    */
-  Orientation<> plot_orient_;
+  Orientation<> plot_orient;
   /**
    * @brief Shared Scan-mode tumble orientation; every Scan ring rides it.
    * @details Declared before `timeline` so it outlives the Rotations that point
    * here, which ~Timeline clears on teardown.
    */
-  Orientation<> scan_orient_;
+  Orientation<> scan_orient;
   Timeline timeline;   /**< Fixed five-slot animation timeline. */
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters; /**< Anti-aliased filter pipeline for Plot mode. */
   Pipeline<W, H> scan_filters; /**< Filter pipeline for Scan mode. */
