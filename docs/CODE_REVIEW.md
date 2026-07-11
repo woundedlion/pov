@@ -182,7 +182,7 @@ Every validated defect is listed below, numbered sequentially and grouped by pri
 61. ✅ [Low] **daydream workers — `setEffect`/`setParameter`/`setAnimationsPaused` don't rebuild a faulted pool** the way `setResolution` does (`segment_controller.js:568-603`); the action produces no render and the fault overlay stays frozen. Route them through the same rebuild-on-fault path or document the asymmetry.
 62. [Low] **daydream workers — per-frame `Uint16Array` transfer-buffer allocation** (`segment_worker.js:191`,`:236`); unavoidable without a controller→worker return channel, but a per-worker per-frame GC source worth eliminating if worker churn shows in profiling.
 63. ✅ [Low] **daydream workers — stats freeze during overruns** (`segment_controller.js:938-952`); only the `pendingFrame` branch calls `updateStats()`. Cosmetic.
-64. [Low] **Targets — `getArenaMetrics` stack "usage" is sampled at the metrics call, not render peak** (`wasm.cpp:637`), misleading next to the cumulative arena usage. Only `high_water_mark` is meaningful; drop or relabel the field.
+64. ✅ [Low] **Targets — `getArenaMetrics` stack "usage" is sampled at the metrics call, not render peak** (`wasm.cpp:637`), misleading next to the cumulative arena usage. Only `high_water_mark` is meaningful; drop or relabel the field.
 65. [Low] **Targets — `capture_screenshots.mjs` brittly scrapes daydream's `<option>` text and `?effect=` URL scheme** with no cross-repo version pin (`capture_screenshots.mjs:129`,`:182`); a daydream UI change silently degrades the gallery. Fails safe with a loud summary, but an asserted contract would harden it.
 
 ### Priority 5 — Documentation & comment discipline

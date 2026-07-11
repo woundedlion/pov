@@ -622,19 +622,18 @@ public:
 
   /**
    * @brief Reports engine arena and stack metrics for the JS memory HUD.
-   * @return JS object of arena metrics plus a "stack" entry, each in the
-   *         {usage, high_water_mark, capacity} shape, all in bytes.
+   * @return JS object of arena metrics ({usage, high_water_mark, capacity})
+   *         plus a "stack" entry ({high_water_mark, capacity}), all in bytes.
    */
   val getArenaMetrics() {
     val metrics = collect_arena_metrics();
 
-    // Stack metrics (same format as arenas)
+    // Stack region. No running usage: the live depth at this call is outside any
+    // render, so only the high-water mark is meaningful.
     {
       uintptr_t base = emscripten_stack_get_base();
       uintptr_t end = emscripten_stack_get_end();
-      uintptr_t sp = emscripten_stack_get_current();
       val m = val::object();
-      m.set("usage", static_cast<size_t>(base >= sp ? base - sp : 0));
       m.set("high_water_mark", static_cast<size_t>(stack_high_water_mark()));
       m.set("capacity", static_cast<size_t>(base >= end ? base - end : 0));
       metrics.set("stack", m);
