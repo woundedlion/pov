@@ -34,8 +34,12 @@ EXPECT = {
                    "JP_SHLD", "R2", "R_PD", "U1", "U_MCU"},
 }
 
-subprocess.run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
-                "-o", NET, SCH], check=True, capture_output=True)
+try:
+    subprocess.run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
+                    "-o", NET, SCH], check=True, capture_output=True, text=True)
+except subprocess.CalledProcessError as e:
+    sys.stderr.write(e.stderr or "")
+    raise
 root = sexp.parse(open(NET, encoding="utf-8").read())[0]
 os.remove(NET)
 

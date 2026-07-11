@@ -32,8 +32,12 @@ def fmt(v):
 # ---------------------------------------------------------------- netlist
 def export_netlist():
     net = os.path.join(OUT, "_pcb.net")
-    subprocess.run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
-                    "-o", net, SCH], check=True, capture_output=True)
+    try:
+        subprocess.run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
+                        "-o", net, SCH], check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        sys.stderr.write(e.stderr or "")
+        raise
     root = sexp.parse(open(net, encoding="utf-8").read())[0]
     os.remove(net)
     return root
