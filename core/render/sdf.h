@@ -2264,6 +2264,27 @@ struct Face {
   }
 
   /**
+   * @brief Ray-crossing test of a projected pole against the 2D face polygon.
+   * @param ppx Projected pole x in the face's 2D basis.
+   * @param ppy Projected pole y in the face's 2D basis.
+   * @return true if (ppx, ppy) lies inside the polygon.
+   */
+  __attribute__((always_inline)) bool pole_inside_polygon(float ppx,
+                                                          float ppy) const {
+    bool inside = false;
+    for (int i = 0; i < count; ++i) {
+      if (inv_edge_j[i] != 0.0f &&
+          (poly_2d[i].y > ppy) != (poly_2d[i + 1].y > ppy)) {
+        float ix = poly_2d[i].x +
+                   (ppy - poly_2d[i].y) * edge_vectors[i].x * inv_edge_j[i];
+        if (ppx < ix)
+          inside = !inside;
+      }
+    }
+    return inside;
+  }
+
+  /**
    * @brief Extends the vertical bounds when the face encircles a pole.
    * @param height Canvas height in rows.
    * @details If the face encircles the north or south pole, the vertical bounds
@@ -2272,40 +2293,15 @@ struct Face {
   __attribute__((always_inline)) void apply_pole_containment(int height) {
     if (center.y > 0.01f) {
       float inv_c = 1.0f / center.y;
-      float ppx = basis_u.y * inv_c;
-      float ppy = basis_w.y * inv_c;
-      bool pole_inside = false;
-      for (int i = 0; i < count; ++i) {
-        if (inv_edge_j[i] != 0.0f &&
-            (poly_2d[i].y > ppy) != (poly_2d[i + 1].y > ppy)) {
-          float ix = poly_2d[i].x +
-                     (ppy - poly_2d[i].y) * edge_vectors[i].x * inv_edge_j[i];
-          if (ppx < ix)
-            pole_inside = !pole_inside;
-        }
-      }
-      if (pole_inside) {
+      if (pole_inside_polygon(basis_u.y * inv_c, basis_w.y * inv_c)) {
         y_min = 0;
         full_width = true;
       }
     }
     // South pole (0, -1, 0)
     if (center.y < -0.01f) {
-      float cos_sp = -center.y;
-      float inv_c = 1.0f / cos_sp;
-      float ppx = -basis_u.y * inv_c;
-      float ppy = -basis_w.y * inv_c;
-      bool pole_inside = false;
-      for (int i = 0; i < count; ++i) {
-        if (inv_edge_j[i] != 0.0f &&
-            (poly_2d[i].y > ppy) != (poly_2d[i + 1].y > ppy)) {
-          float ix = poly_2d[i].x +
-                     (ppy - poly_2d[i].y) * edge_vectors[i].x * inv_edge_j[i];
-          if (ppx < ix)
-            pole_inside = !pole_inside;
-        }
-      }
-      if (pole_inside) {
+      float inv_c = 1.0f / -center.y;
+      if (pole_inside_polygon(-basis_u.y * inv_c, -basis_w.y * inv_c)) {
         y_max = height - 1;
         full_width = true;
       }
