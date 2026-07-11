@@ -113,6 +113,17 @@ struct Pixel16 {
   }
 
   /**
+   * @brief Saturated per-channel sum of two pixels.
+   * @param rhs Pixel to add.
+   * @return A new pixel with each channel clamped to the 16-bit max.
+   */
+  Pixel16 operator+(const Pixel16 &rhs) const {
+    Pixel16 out = *this;
+    out += rhs;
+    return out;
+  }
+
+  /**
    * @brief Scales every channel by a float factor (saturated).
    * @param s Scale factor; may be any finite float (NaN maps to the hi bound).
    * @return A new pixel with each channel clamped to [0, 65535].
@@ -293,6 +304,30 @@ struct Color4 {
    */
   explicit operator CRGB() const { return static_cast<CRGB>(color); }
 };
+
+/**
+ * @brief Sums two colors, pixel and alpha both saturating (see operator+=).
+ * @param lhs First color (taken by value as the accumulator).
+ * @param rhs Color to add.
+ * @return The saturated sum.
+ */
+inline Color4 operator+(Color4 lhs, const Color4 &rhs) { return lhs += rhs; }
+
+/**
+ * @brief Scales a color's pixel and alpha by a float (see operator*=).
+ * @param lhs Color to scale (taken by value).
+ * @param s Scale factor.
+ * @return The scaled color.
+ */
+inline Color4 operator*(Color4 lhs, float s) { return lhs *= s; }
+
+/**
+ * @brief Scales a color's pixel and alpha by a float (see operator*=).
+ * @param s Scale factor.
+ * @param rhs Color to scale.
+ * @return The scaled color.
+ */
+inline Color4 operator*(float s, const Color4 &rhs) { return rhs * s; }
 
 /**
  * @brief Perceptual (OKLab) hue rotation with a precomputed rotation.
