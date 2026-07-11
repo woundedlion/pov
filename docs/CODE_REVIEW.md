@@ -82,7 +82,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 5. ✅ **Holosphere/hardware/phantasm/gen/shorts.py:106** — The script detects real shorts via union-find and prints them but always exits 0, so it cannot act as an automated gate despite being listed as a validation step. *Fix:* count surviving conflict groups and `sys.exit(1)` when nonzero.
 
-6. **Holosphere/core/engine/platform.h:557** — The host `map()` mock's final signed division is UB for `product == INT32_MIN && divisor == -1` (reachable with an inverted range differing by 1), despite the comment claiming it avoids signed-overflow UB; the device's ARM SDIV returns `INT_MIN` without trapping. Latent (only legacy effects call unqualified `map()`). *Fix:* guard `divisor == -1` (or divide in `int64_t`) to match the device's non-trapping result.
+6. ✅ **Holosphere/core/engine/platform.h:557** — The host `map()` mock's final signed division is UB for `product == INT32_MIN && divisor == -1` (reachable with an inverted range differing by 1), despite the comment claiming it avoids signed-overflow UB; the device's ARM SDIV returns `INT_MIN` without trapping. Latent (only legacy effects call unqualified `map()`). *Fix:* guard `divisor == -1` (or divide in `int64_t`) to match the device's non-trapping result.
 
 7. **Holosphere/tests/test_effects.h:1250** — `test_distorted_ring_palette_mod_selection` calls `hs::set_mock_time()` but never `hs::clear_mock_time()`, leaking a frozen clock into the next test (and the smoke/determinism roster) until the first `render_capture` re-pins it. Harmless today only by luck of the downstream effect being frame-clocked. *Fix:* add `hs::clear_mock_time();` at the end, matching sibling wrapped-phase tests.
 
