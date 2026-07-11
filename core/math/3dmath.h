@@ -790,7 +790,7 @@ inline Complex gnomonic(const Vector &v) {
  * to restore the hemisphere the forward projection collapsed.
  * @return The corresponding point on the unit sphere.
  */
-inline Vector inv_gnomonic(const Complex &z, float original_sign = 1.0f) {
+inline Vector inv_gnomonic(const Complex &z, float original_sign) {
   // Clamped-to-infinity → pole, recognized from STEREO_INF_RECOGNIZE like
   // inv_stereo (margin snaps a Mobius-shrunk sentinel back to the pole).
   if (std::abs(z.re) >= STEREO_INF_RECOGNIZE ||
