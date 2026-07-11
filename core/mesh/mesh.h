@@ -350,15 +350,16 @@ inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * @param src Source dynamic mesh to compile.
  * @param dst Destination MeshState, cleared and populated in place.
  * @param geom_arena Arena supplying storage for the destination arrays.
+ * @param scratch Scratch arena for the transient old->new vertex remap
+ * (LIFO-restored before return).
  * @details Removes degenerate faces (faces with < 3 vertices), then compacts
  * the vertex array to the set the surviving faces reference, so the compiled
  * vertex count matches what vertex-count consumers (e.g. MeshMorph) see rather
  * than carrying orphans left by the stripped faces. Traps if the cumulative
- * face offset exceeds the 16-bit range. Borrows scratch_arena_a for a transient
- * old->new vertex remap.
+ * face offset exceeds the 16-bit range.
  */
 HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
-                                    Arena &geom_arena) {
+                                    Arena &geom_arena, Arena &scratch) {
   dst.clear();
 
   size_t valid_faces = 0;
@@ -377,9 +378,9 @@ HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
   // narrow_index enforces, so neither aliases a real compacted index.
   constexpr uint16_t UNREFERENCED = 0xFFFF;
   constexpr uint16_t REFERENCED = 0xFFFE;
-  ScratchScope scratch_guard(scratch_arena_a);
+  ScratchScope scratch_guard(scratch);
   const size_t src_vertex_count = src.vertices.size();
-  uint16_t *remap = scratch_arena_a.allocate_n<uint16_t>(src_vertex_count);
+  uint16_t *remap = scratch.allocate_n<uint16_t>(src_vertex_count);
   for (size_t i = 0; i < src_vertex_count; ++i)
     remap[i] = UNREFERENCED;
 

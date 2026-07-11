@@ -1700,8 +1700,8 @@ inline void test_meshmorph_identity_self_map_and_crossfade() {
   PolyMesh poly;
   build_octahedron(poly, arena);
   MeshState src, dst;
-  MeshOps::compile(poly, src, arena);
-  MeshOps::compile(poly, dst, arena);
+  MeshOps::compile(poly, src, arena, scratch_arena_a);
+  MeshOps::compile(poly, dst, arena, scratch_arena_a);
 
   const int duration = 8;
   float opA = -1.0f, alpha = -1.0f;

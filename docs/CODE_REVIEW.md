@@ -145,7 +145,7 @@ _Consistency and maintainability:_
 
 25. ✅ **[render] `core/render/filter.h:1020 vs 1203,1192`** — Near-zero splat weight cutoffs diverge: `AntiAlias` uses `1e-8f`, `Blur` uses `1e-5f`. No artifact, but the magic numbers obscure intent. *Resolved:* commented why they differ at each site (raw bilinear coverage products vs. normalized 3x3 kernel taps) — not unified, the divergence is intentional.
 
-26. **[mesh] `core/mesh/mesh.h:360-382`** — `compile()`'s signature advertises only `geom_arena` yet silently consumes global `scratch_arena_a`, breaking the explicit-`(target, temp)` convention that `classify_faces_by_topology` follows and hurting reentrancy/testability. *Fix:* accept an explicit scratch `Arena&`.
+26. ✅ **[mesh] `core/mesh/mesh.h:360-382`** — `compile()`'s signature advertises only `geom_arena` yet silently consumes global `scratch_arena_a`, breaking the explicit-`(target, temp)` convention that `classify_faces_by_topology` follows and hurting reentrancy/testability. *Fix:* accept an explicit scratch `Arena&`.
 
 27. **[mesh] `core/mesh/mesh.h:503`** — `classify_faces_impl` is `always_inline` but is a ~180-line cold routine force-inlined into two `HS_COLD` wrappers, duplicating cold code with no perf benefit on the memory-tight Teensy image. *Fix:* drop `always_inline` and emit once.
 
