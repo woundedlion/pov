@@ -10,11 +10,10 @@
 
 /**
  * @brief Represents a customizable path.
- * @tparam W Display width (carried for downstream sizing).
  * @tparam RESOLUTION Capacity of the internal point ring buffer.
  * @details Retains an internal buffer for state, but draws to the pipeline.
  */
-template <int W, int RESOLUTION = 1024> class Path {
+template <int RESOLUTION = 1024> class Path {
 public:
   /**
    * @brief Constructs an empty path.
