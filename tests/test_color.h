@@ -1368,6 +1368,48 @@ inline void test_drift_modifier() {
 }
 
 /**
+ * @brief Verifies HueSpinShade against the hue_rotate reference.
+ * @details The folded-matrix path must agree with hue_rotate(c, amount), leave
+ *          grays achromatic, preserve alpha, and refresh its memo when the
+ *          driver moves.
+ */
+inline void test_hue_spin_shade() {
+  Color4 vivid(Pixel(52000, 9000, 3000), 0.8f);
+
+  float amount = 0.25f;
+  HueSpinShade spin(&amount);
+  Color4 spun = spin.shade(vivid, 0.5f);
+  Color4 ref = hue_rotate(vivid, amount);
+  HS_EXPECT_NEAR(static_cast<float>(spun.color.r),
+                 static_cast<float>(ref.color.r), 96.0f);
+  HS_EXPECT_NEAR(static_cast<float>(spun.color.g),
+                 static_cast<float>(ref.color.g), 96.0f);
+  HS_EXPECT_NEAR(static_cast<float>(spun.color.b),
+                 static_cast<float>(ref.color.b), 96.0f);
+  HS_EXPECT_NEAR(spun.alpha, 0.8f, 1e-6f);
+
+  // A quarter turn visibly moves the color off its input.
+  HS_EXPECT_GT(std::abs(static_cast<int>(spun.color.r) -
+                        static_cast<int>(vivid.color.r)),
+               2000);
+
+  // Gray has no chroma to rotate.
+  Color4 gray(Pixel(30000, 30000, 30000), 1.0f);
+  Color4 spun_gray = spin.shade(gray, 0.0f);
+  HS_EXPECT_NEAR(static_cast<float>(spun_gray.color.r),
+                 static_cast<float>(spun_gray.color.g), 700.0f);
+  HS_EXPECT_NEAR(static_cast<float>(spun_gray.color.g),
+                 static_cast<float>(spun_gray.color.b), 700.0f);
+
+  // Moving the driver refreshes the memoized matrix.
+  amount = 0.5f;
+  Color4 half = spin.shade(vivid, 0.5f);
+  HS_EXPECT_GT(std::abs(static_cast<int>(half.color.r) -
+                        static_cast<int>(spun.color.r)),
+               2000);
+}
+
+/**
  * @brief Verifies StaticPalette folds its modifier chain then queries the source.
  * @details Applies the modifier chain in order before sampling the source.
  */
@@ -1545,6 +1587,7 @@ inline int run_color_tests() {
   test_palette_modifiers();
   test_noise_warp_modifier();
   test_drift_modifier();
+  test_hue_spin_shade();
   test_static_palette_composition();
   test_palette_wrappers();
 
