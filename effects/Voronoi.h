@@ -294,7 +294,7 @@ public:
    * @return Slider value rounded to an integer and clamped to [1, MAX_SITES].
    */
   int active_site_count() const {
-    return std::clamp(static_cast<int>(params.num_sites), 1, MAX_SITES);
+    return hs::clamp(static_cast<int>(params.num_sites), 1, MAX_SITES);
   }
 
   /**
