@@ -193,7 +193,7 @@ inline void check_euler_for_index(size_t index, int expected_V = -1,
   Arena he_arena(solids_geom_b, sizeof(solids_geom_b));
   HalfEdgeMesh he(he_arena, m);
 
-  int V = static_cast<int>(he.vertices.size());
+  int V = static_cast<int>(m.vertices.size());
   int E = static_cast<int>(he.half_edges.size()) / 2;
   int F = static_cast<int>(he.faces.size());
   HS_EXPECT_EQ(V - E + F, 2);

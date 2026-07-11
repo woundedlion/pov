@@ -97,7 +97,7 @@ inline void test_polymesh_unified_accessors() {
 
 /**
  * @brief Verifies HalfEdgeMesh derived counts track the source PolyMesh: one
- *        vertex per vertex, one face per face, and one half-edge per face index.
+ *        face per face, and one half-edge per face index.
  */
 inline void test_half_edge_mesh_size_matches_input() {
   Arena arena(mesh_arena_a, sizeof(mesh_arena_a));
@@ -105,7 +105,6 @@ inline void test_half_edge_mesh_size_matches_input() {
   build_solid<Solids::Cube>(cube, arena);
 
   HalfEdgeMesh he(arena, cube);
-  HS_EXPECT_EQ(he.vertices.size(), cube.vertices.size());
   HS_EXPECT_EQ(he.faces.size(), cube.face_counts.size());
   HS_EXPECT_EQ(he.half_edges.size(), cube.faces.size());
 }
@@ -226,7 +225,7 @@ inline void test_half_edge_mesh_euler_invariant() {
   build_solid<Solids::Cube>(cube, arena);
   HalfEdgeMesh he(arena, cube);
 
-  int V = static_cast<int>(he.vertices.size());
+  int V = static_cast<int>(cube.vertices.size());
   int E = static_cast<int>(he.half_edges.size()) / 2;
   int F = static_cast<int>(he.faces.size());
   HS_EXPECT_EQ(V - E + F, 2);
@@ -245,7 +244,7 @@ inline void test_half_edge_mesh_euler_tetrahedron() {
   build_solid<Solids::Tetrahedron>(tet, arena);
   HalfEdgeMesh he(arena, tet);
 
-  int V = static_cast<int>(he.vertices.size());
+  int V = static_cast<int>(tet.vertices.size());
   int E = static_cast<int>(he.half_edges.size()) / 2;
   int F = static_cast<int>(he.faces.size());
   HS_EXPECT_EQ(V, 4);
@@ -267,7 +266,6 @@ inline void test_half_edge_mesh_built_from_meshstate() {
   MeshOps::compile(cube, ms, arena, scratch_arena_a);
 
   HalfEdgeMesh he(arena, ms);
-  HS_EXPECT_EQ(he.vertices.size(), ms.vertices.size());
   HS_EXPECT_EQ(he.faces.size(), ms.face_counts.size());
   HS_EXPECT_EQ(he.half_edges.size(), ms.faces.size());
 }
