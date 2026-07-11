@@ -1394,7 +1394,8 @@ public:
     // Re-derive chroma on the envelope at the interpolated L (see colors_cmax).
     // fast_sinf matches update_stops().
     float cmax = colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
-    blended.C = cmax * fast_sinf(PI_F * blended.L);
+    // Floor at 0: a small negative from fast_sinf would flip hue 180° in oklch_to_oklab.
+    blended.C = std::max(0.0f, cmax * fast_sinf(PI_F * blended.L));
     // Hue torsion: drift hue with lightness, centered at L=0.5.
     blended.h += HUE_TORSION * (blended.L - 0.5f);
     return Color4(oklch_to_pixel(blended), 1.0f);
