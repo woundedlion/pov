@@ -169,6 +169,9 @@ public:
    *          oldest to find the band containing the angle.
    */
   Color4 color(const Vector &v, float t) {
+    if (palette_boundaries.size() == 0)
+      return baked_palettes_[0].get(t);
+
     // Cross-fade half-width per boundary side, in radians.
     constexpr float blend_width = PI_F / 4;
     // Sentinel for "no next boundary": `a` is in [0, PI], so any value above PI
