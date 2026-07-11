@@ -15,7 +15,9 @@
  *                               prepared-threshold fast-reject band applies
  *                               in-band points and rejects off-band ones.
  *   - noise_transform         : amplitude≈0 is a no-op; otherwise stays unit.
- *   - Transformer<>           : no active entities → identity.
+ *   - Transformer<>           : no active entities → identity; a spawned entity
+ *                               applies and multiple entities compose; a recycled
+ *                               freed slot composes in spawn order, not slot order.
  */
 #pragma once
 
@@ -569,6 +571,67 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
 }
 
 // ============================================================================
+// Transformer<> composition order follows spawn order across slot recycling
+// ============================================================================
+
+/**
+ * @brief Params carrying only a spawn-order tag, for the composition-order test.
+ */
+struct OrderParams {
+  int order = 0; /**< Composition tag written by TagAnim at spawn. */
+};
+
+/**
+ * @brief Shifts a base-10 digit of the tag into x on each application, so the
+ *        final x reads back the exact order the warps composed in.
+ */
+inline Vector order_transform(const Vector &v, const OrderParams &p) {
+  return Vector(v.x * 10.0f + static_cast<float>(p.order), v.y, v.z);
+}
+
+/**
+ * @brief Minimal animation that stamps its spawn-order tag into the params.
+ * @details Finite and non-repeating so spawn() accepts it and a short duration
+ *          frees its pool slot on completion.
+ */
+struct TagAnim : public Animation::AnimationBase<TagAnim> {
+  TagAnim(OrderParams &params, int order, int duration)
+      : Animation::AnimationBase<TagAnim>(duration, false) {
+    params.order = order;
+  }
+};
+
+/**
+ * @brief Verifies a recycled freed slot composes its new warp in spawn order
+ *        (last), not slot-index order (first).
+ * @details A short-lived warp holds slot 0 while a long-lived one takes slot 1;
+ *          stepping frees slot 0, then a third warp recycles it. Composition
+ *          must follow spawn order (long-lived tag 1, then recycled tag 2), so x
+ *          reads 12 — slot-index order would compose the recycled slot 0 first
+ *          and read 21.
+ */
+inline void test_transformer_recycled_slot_composes_in_spawn_order() {
+  Timeline tl;
+  global_timeline_t = 0;
+  RecycleFakeEffect fx;
+  Canvas cv(fx);
+
+  Transformer<OrderParams, TagAnim, order_transform, 2> tr(tl);
+
+  HS_EXPECT_TRUE(tr.spawn(0, /*order=*/9, /*duration=*/2) != nullptr);   // slot 0
+  HS_EXPECT_TRUE(tr.spawn(0, /*order=*/1, /*duration=*/100) != nullptr); // slot 1
+
+  // Step until the short warp completes and frees slot 0; the long one survives.
+  for (int i = 0; i < 5; ++i)
+    tl.step(cv);
+
+  HS_EXPECT_TRUE(tr.spawn(0, /*order=*/2, /*duration=*/100) != nullptr); // recycles slot 0
+
+  const Vector r = tr.transform(Vector(0, 0, 0));
+  HS_EXPECT_NEAR(r.x, 12.0f, 1e-4f);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -597,6 +660,7 @@ inline int run_transformers_tests() {
   test_transformer_no_entities_is_identity();
   test_transformer_spawn_applies_and_composes();
   test_transformer_nonpinned_slot_reclaimed_after_compaction();
+  test_transformer_recycled_slot_composes_in_spawn_order();
 
   return fixture.result();
 }
