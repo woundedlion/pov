@@ -36,11 +36,21 @@ static constexpr int PIN_CLOCK = 13;
 /**
  * @brief No-op stub: the DMA pipeline applies no color/temperature correction.
  */
-struct NoColorCorrection {};
+struct NoColorCorrection {
+  NoColorCorrection() = default;
+  ~NoColorCorrection() = default;
+  NoColorCorrection(const NoColorCorrection &) = delete;
+  NoColorCorrection &operator=(const NoColorCorrection &) = delete;
+};
 /**
  * @brief No-op stub: the DMA pipeline applies no temperature correction.
  */
-struct NoTempCorrection {};
+struct NoTempCorrection {
+  NoTempCorrection() = default;
+  ~NoTempCorrection() = default;
+  NoTempCorrection(const NoTempCorrection &) = delete;
+  NoTempCorrection &operator=(const NoTempCorrection &) = delete;
+};
 #else
 // CONTRACT — restore-to-baseline, NOT save/restore: the destructors reinstate
 // the engine's canonical baseline (TypicalLEDStrip color, Candle temperature),
