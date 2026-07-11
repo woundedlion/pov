@@ -70,7 +70,8 @@ namespace detail {
 /**
  * @brief Structural detection for the engine's small value types so
  * print_operand can show components without test_harness.h depending on the
- * engine headers. Pixel/Pixel16 expose r/g/b; Vector exposes x/y/z.
+ * engine headers. Pixel/Pixel16 expose r/g/b; Vector exposes x/y/z; Quaternion
+ * exposes r/v; Color4 exposes color/alpha.
  */
 template <class T, class = void> struct has_rgb : std::false_type {};
 template <class T>
@@ -85,6 +86,19 @@ struct has_xyz<T, std::void_t<decltype(std::declval<const T &>().x),
                               decltype(std::declval<const T &>().y),
                               decltype(std::declval<const T &>().z)>>
     : std::true_type {};
+
+template <class T, class = void> struct has_r_v : std::false_type {};
+template <class T>
+struct has_r_v<T, std::void_t<decltype(std::declval<const T &>().r),
+                              decltype(std::declval<const T &>().v)>>
+    : std::true_type {};
+
+template <class T, class = void> struct has_color_alpha : std::false_type {};
+template <class T>
+struct has_color_alpha<T,
+                       std::void_t<decltype(std::declval<const T &>().color),
+                                   decltype(std::declval<const T &>().alpha)>>
+    : std::true_type {};
 } // namespace detail
 
 /**
@@ -93,10 +107,10 @@ struct has_xyz<T, std::void_t<decltype(std::declval<const T &>().x),
  * engine's r/g/b and x/y/z value types are formatted specially.
  * @param v The operand value to print.
  * @details Lets a failing HS_EXPECT_* line show the actual values, not just the
- * stringified expr. Pixel/Pixel16 (r,g,b) and Vector (x,y,z) are detected
- * structurally — so an HS_EXPECT_EQ/CMP on those prints components rather than
- * "?" — and their fields recurse through this same printer. Any other
- * non-arithmetic operand still falls back to "?".
+ * stringified expr. Pixel/Pixel16 (r,g,b), Vector (x,y,z), Quaternion (r,v),
+ * and Color4 (color,alpha) are detected structurally — so an HS_EXPECT_EQ/CMP on
+ * those prints components rather than "?" — and their fields recurse through this
+ * same printer. Any other non-arithmetic operand still falls back to "?".
  */
 template <class T> inline void print_operand(const T &v) {
   if constexpr (std::is_same_v<T, bool>) {
@@ -129,6 +143,18 @@ template <class T> inline void print_operand(const T &v) {
     print_operand(v.y);
     std::printf(" z=");
     print_operand(v.z);
+    std::printf(")");
+  } else if constexpr (detail::has_r_v<T>::value) {
+    std::printf("(r=");
+    print_operand(v.r);
+    std::printf(" v=");
+    print_operand(v.v);
+    std::printf(")");
+  } else if constexpr (detail::has_color_alpha<T>::value) {
+    std::printf("(color=");
+    print_operand(v.color);
+    std::printf(" alpha=");
+    print_operand(v.alpha);
     std::printf(")");
   } else {
     std::printf("?");
