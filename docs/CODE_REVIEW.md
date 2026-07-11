@@ -76,7 +76,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 2. ✅ **daydream/recorder.js:387** — The `showSaveFilePicker().catch(AbortError)` branch calls `this.stop()` unguarded, so a cancelled save dialog from session A can tear down a superseding session B. Diverges from the module's `if (this.mediaRecorder === recorder)` per-session discipline. *Fix:* guard the abort-path stop with the same session check.
 
-3. **Holosphere/hardware/pov_single.h:78** — Single-board `show()` constructs the effect with unguarded `new E()`/`delete`, diverging from Phantasm's `new (std::nothrow)` + `HS_CHECK(e != nullptr, ...)` fail-fast OOM guard; an OOM here aborts with no diagnostic. *Fix:* mirror the segmented path's nothrow + named trap.
+3. ✅ **Holosphere/hardware/pov_single.h:78** — Single-board `show()` constructs the effect with unguarded `new E()`/`delete`, diverging from Phantasm's `new (std::nothrow)` + `HS_CHECK(e != nullptr, ...)` fail-fast OOM guard; an OOM here aborts with no diagnostic. *Fix:* mirror the segmented path's nothrow + named trap.
 
 4. **Holosphere/hardware/phantasm/gen/analyze_candidates.py:117** — `run_drc` writes every candidate's report to one fixed path with `check=False`, so a `kicad-cli` early-exit makes a stale neighbor's DRC verdict be attributed to the current candidate — a broken candidate can be scored "clean" and recommended. *Fix:* per-candidate temp file (or `os.remove` first) and verify the return code / that the report was rewritten before parsing.
 

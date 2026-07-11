@@ -28,6 +28,7 @@
 #include "render/canvas.h"
 #include "math/geometry.h"
 #include "engine/memory.h"
+#include <new> // std::nothrow — fail-fast OOM check on the effect allocation
 
 /**
  * @brief Manages the display loop for a single-Teensy POV rig.
@@ -73,7 +74,8 @@ public:
    */
   template <typename E> void show(unsigned long duration) {
     GeometryResolution<E>::init();
-    E *e = new E();
+    E *e = new (std::nothrow) E();
+    HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
     configure_arenas_default(); // Reset before init so effects can override
     e->init();
     run(e, duration);
