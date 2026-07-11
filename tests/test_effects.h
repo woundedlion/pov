@@ -459,8 +459,19 @@ struct GSWhiteBox {
   }
   static void step(GS &gs, const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
                    uint16_t *nB) {
-    std::vector<float> fA(N), fB(N);
-    gs.step_physics(cA, cB, nA, nB, fA.data(), fB.data());
+    // The production substep is float-resident; this seam keeps the tests'
+    // Q16-in/Q16-out contract by converting at the edges, as render() does
+    // once per frame.
+    std::vector<float> fA(N), fB(N), gA(N), gB(N);
+    for (int i = 0; i < N; ++i) {
+      fA[i] = GS::from_q16(cA[i]);
+      fB[i] = GS::from_q16(cB[i]);
+    }
+    gs.step_physics(fA.data(), fB.data(), gA.data(), gB.data());
+    for (int i = 0; i < N; ++i) {
+      nA[i] = GS::to_q16(gA[i]);
+      nB[i] = GS::to_q16(gB[i]);
+    }
   }
 };
 
