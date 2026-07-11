@@ -171,7 +171,7 @@ _Documentation inaccuracies, missing tests for real behavior, dead code, and cos
 12. ✅ **kicad-cli subprocess failures swallow stderr, yielding opaque gate errors** — `hardware/phantasm/gen/pcb.py:35` (Holosphere)  
    export_netlist() (and identically check.py:37) run kicad-cli with check=True, capture_output=True. On a nonzero exit the raised CalledProcessError does not print the captured stderr, so a missing/failed kicad-cli surfaces only as 'Command ... returned non-zero exit status 1' with no reason — poor for a CI validation gate and for operators reproducing locally.  
    *Fix:* Wrap the run in try/except subprocess.CalledProcessError and print e.stderr (or run with check=False and report result.stderr on a nonzero returncode) before re-raising/exiting.
-13. **Exported temp netlist leaks on failure and is written into the source tree** — `hardware/phantasm/gen/check.py:13` (Holosphere)  
+13. ✅ **Exported temp netlist leaks on failure and is written into the source tree** — `hardware/phantasm/gen/check.py:13` (Holosphere)  
    check.py writes _check.net (and pcb.py writes _pcb.net) next to the schematic in the source tree, then os.remove()s it after parsing. Because the kicad-cli run uses check=True, any subprocess failure raises before os.remove, leaving the temp file behind in the repo working tree.  
    *Fix:* Write the netlist to tempfile.NamedTemporaryFile / a tempdir, or remove it in a try/finally so a subprocess failure cannot strand it in the source tree.
 14. **prettify passes non-finite input through to a raw 'NaN'/'Infinity' label** — `label_format.js:39` (daydream)  

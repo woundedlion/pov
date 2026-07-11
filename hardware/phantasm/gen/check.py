@@ -3,6 +3,7 @@ by component-ref membership (pin-number agnostic, so it catches any short/break)
 import subprocess
 import sys
 import os
+import tempfile
 sys.path.insert(0, os.path.dirname(__file__))
 import sexp
 import fab
@@ -10,7 +11,6 @@ import fab
 SCH = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "phantasm.kicad_sch")
 KCLI = fab.find_kicad_cli()
-NET = os.path.join(os.path.dirname(SCH), "_check.net")
 
 # expected: named net -> set of component refs (per spec section 10)
 EXPECT = {
@@ -34,14 +34,18 @@ EXPECT = {
                    "JP_SHLD", "R2", "R_PD", "U1", "U_MCU"},
 }
 
+_netfd, NET = tempfile.mkstemp(suffix=".net")
+os.close(_netfd)
 try:
     subprocess.run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
                     "-o", NET, SCH], check=True, capture_output=True, text=True)
+    root = sexp.parse(open(NET, encoding="utf-8").read())[0]
 except subprocess.CalledProcessError as e:
     sys.stderr.write(e.stderr or "")
     raise
-root = sexp.parse(open(NET, encoding="utf-8").read())[0]
-os.remove(NET)
+finally:
+    if os.path.exists(NET):
+        os.remove(NET)
 
 
 def F(n, k):
