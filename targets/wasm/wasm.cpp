@@ -586,6 +586,13 @@ public:
         entry.set("value", v.value);
         entry.set("min", v.min);
         entry.set("max", v.max);
+        if (v.option_count > 0) {
+          // Enum: label array indexed by value; the frontend renders a dropdown.
+          val opts = val::array();
+          for (int k = 0; k < v.option_count; ++k)
+            opts.set(k, val(v.options[k]));
+          entry.set("options", opts);
+        }
       }
       entry.set("animated", val(v.animated));
       entry.set("readonly", val(v.readonly));
