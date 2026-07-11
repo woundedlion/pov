@@ -672,8 +672,7 @@ namespace IslamicStarPatterns {
 static constexpr float D2R = PI_F / 180.0f;
 
 /**
- * @brief Builds the truncatedIcosahedron_hk58_chamfer63 star pattern
- * (V=990, F=452, I=2880).
+ * @brief Builds the truncatedIcosahedron_hk58_chamfer63 star pattern.
  * @param a Output arena for the result and even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.
  * @return The resulting star-pattern mesh.
