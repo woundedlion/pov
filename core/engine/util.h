@@ -102,6 +102,9 @@ inline int fast_wrap(int x, int W) {
  */
 inline float shortest_distance(float a, float b, float m) {
   assert(m > 0.0f);
+  // Floor the modulus so a non-positive m returns a finite value under NDEBUG
+  // rather than a NaN from fmod by ~0.
+  m = std::fmax(m, 1e-6f);
   // Double-fmod for full range reduction of an arbitrary a - b into [0, m).
   float d = std::fmod(std::fmod(a - b, m) + m, m);
   return std::min(d, m - d);
