@@ -243,7 +243,7 @@ _Documentation inaccuracies, missing tests for real behavior, dead code, and cos
 36. **"quadrant" terminology is inaccurate for 6/8-segment layouts** — `c:/work/daydream/segment_controller.js:686` (daydream)  
    Multiple doc comments describe segments as "quadrants" and composite() as the "quadrant model" (lines 8, 686, and the FrameResult typedef), but computeSegmentRange explicitly supports total in {2,6,8}, where segments are halves/sixths/eighths, not quadrants. The wording understates the supported layouts and can mislead a maintainer into assuming a fixed 4-way split.  
    *Fix:* Replace "quadrant"/"quadrant model" with "segment rectangle"/"segment-rectangle model" in the segment_controller.js comments.
-37. **Stale source-file reference in effect_registry.h doc comment** — `core/engine/effect_registry.h:7` (Holosphere)  
+37. ✅ **Stale source-file reference in effect_registry.h doc comment** — `core/engine/effect_registry.h:7` (Holosphere)  
    The header comment states the self-registering factory eliminates "the hand-maintained list in wasm_bridge.cpp", but no wasm_bridge.cpp exists anywhere in the tree — the WASM entry/bindings live in targets/wasm/wasm.cpp (verified: a repo-wide search for `wasm_bridge` returns only this comment, and targets/wasm/ contains wasm.cpp). The dangling reference misdirects anyone tracing where the registry replaced the old manual roster.  
    *Fix:* Change `wasm_bridge.cpp` in the comment to `targets/wasm/wasm.cpp`.
 38. **Feedback::flush doc says it writes the front buffer; it writes the back buffer** — `core/render/filter.h:1277` (Holosphere)  
