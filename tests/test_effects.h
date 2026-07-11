@@ -266,12 +266,17 @@ constexpr unsigned long FRAME_US = 33000;
  * @tparam H Render height in pixels (defaults to DEFAULT_H).
  * @param out Receives the final displayed frame, sized W*H pixels (row-major).
  * @param frames Number of frames to render before capture.
+ * @param frame_fold Optional out-param receiving an FNV-1a running checksum
+ * folded over every displayed frame (not just the last). Lets a caller detect
+ * mid-run nondeterminism that reconverges before the final frame, which the
+ * final-buffer copy alone cannot see. Ignored when nullptr.
  * @details Resets every shared global the smoke path does (RNG seed, arenas,
  * Timeline) plus the generative-hue cursor and mock clock, so two calls start
  * from an identical state.
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
-inline void render_capture(std::vector<Pixel> &out, int frames) {
+inline void render_capture(std::vector<Pixel> &out, int frames,
+                           uint64_t *frame_fold = nullptr) {
   hs::random().seed(1337u);
   configure_arenas_default();
   Timeline().clear();
@@ -281,6 +286,12 @@ inline void render_capture(std::vector<Pixel> &out, int frames) {
   GenerativePalette::reset_hue_seed(0);
   hs::set_mock_time(0, 0);
 
+  uint64_t fold = 1469598103934665603ull; // FNV-1a offset basis
+  const auto fold_byte = [&fold](uint8_t byte) {
+    fold ^= byte;
+    fold *= 1099511628211ull; // FNV-1a prime
+  };
+
   E<W, H> effect;
   effect.init();
   for (int f = 0; f < frames; ++f) {
@@ -288,7 +299,17 @@ inline void render_capture(std::vector<Pixel> &out, int frames) {
                       static_cast<unsigned long>(f) * FRAME_US);
     effect.draw_frame();
     effect.advance_display();
+    if (frame_fold)
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x) {
+          const Pixel p = effect.get_pixel(x, y);
+          fold_byte(p.r);
+          fold_byte(p.g);
+          fold_byte(p.b);
+        }
   }
+  if (frame_fold)
+    *frame_fold = fold;
 
   out.resize(static_cast<size_t>(W) * H);
   for (int y = 0; y < H; ++y)
@@ -331,10 +352,22 @@ template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void determinism_one(const char *name) {
   const int frames = smoke_frames();
   std::vector<Pixel> a, b;
-  render_capture<E, W, H>(a, frames);
+  uint64_t fold_a = 0, fold_b = 0;
+  render_capture<E, W, H>(a, frames, &fold_a);
   perturb_determinism_globals();
-  render_capture<E, W, H>(b, frames);
+  render_capture<E, W, H>(b, frames, &fold_b);
   hs::clear_mock_time();
+
+  // Per-frame fold catches mid-run divergence that reconverges by the final
+  // frame; the final-buffer comparison below alone would miss it.
+  if (fold_a != fold_b)
+    std::printf("  NONDETERMINISTIC %-20s per-frame checksum %llu != %llu over "
+                "%d frames\n",
+                name, static_cast<unsigned long long>(fold_a),
+                static_cast<unsigned long long>(fold_b), frames);
+  HS_EXPECT(fold_a == fold_b,
+            "effect must render identically every frame across runs under a "
+            "fixed clock");
 
   int first_diff = -1;
   for (size_t i = 0; i < a.size(); ++i)
