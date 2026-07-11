@@ -192,7 +192,9 @@ private:
       leds_[S]; /**< Array holding the CRGB data for the physical LED strip. */
 #endif
   static Effect
-      *effect_; /**< Pointer to the currently running effect instance. */
+      *effect_; /**< Currently running effect; the ISR only reads it. Written by
+                     run() solely while the column timer is detached (before
+                     begin(), after end()), never mid-show. */
   static int
       x_; /**< Current column index being displayed (virtual position). */
 #if defined(USE_DMA_LEDS)
