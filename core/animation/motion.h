@@ -441,7 +441,7 @@ public:
    * @param space The coordinate space for rotation.
    */
   static void animate(Canvas &canvas, Orientation<CAP> &orientation,
-                      const Vector &axis, float_t angle, EasingFn easing_fn,
+                      const Vector &axis, float angle, EasingFn easing_fn,
                       Space space = Space::World) {
     Rotation<W, CAP> r(orientation, axis, angle, 1, easing_fn, false, space);
     r.step(canvas);
