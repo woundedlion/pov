@@ -123,9 +123,7 @@ private:
       ACTUAL_FIBERS * sizeof(Animation::VectorTrail<TRAIL_LEN>);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a RINGS/PER_RING/TRAIL_LEN retune.
-  static constexpr size_t PERSISTENT_BUDGET =
-      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
-  static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET,
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "HopfFibration persistent footprint exceeds the default "
                 "partition; retune RINGS/PER_RING/TRAIL_LEN or carve arenas");
 

@@ -38,6 +38,11 @@ constexpr size_t DEFAULT_SCRATCH_A_SIZE = 16 * 1024;
 constexpr size_t DEFAULT_SCRATCH_B_SIZE = 16 * 1024;
 constexpr size_t DEFAULT_PERSISTENT_SIZE =
     GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+// Persistent budget on the real device split (from DEVICE_GLOBAL_ARENA_SIZE, not
+// the host-inflated GLOBAL_ARENA_SIZE) so an effect's default-split footprint
+// static_assert checks the true device figure even in the host suite.
+constexpr size_t DEVICE_PERSISTENT_BUDGET =
+    DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
 
 // ============================================================================
 // 1. Core Arena Allocator

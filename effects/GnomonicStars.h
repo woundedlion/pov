@@ -125,9 +125,7 @@ private:
   // persistent partition. Guards a MAX_POINTS bump.
   static constexpr size_t FOOTPRINT_BYTES =
       MAX_POINTS * sizeof(Vector) + BakedPalette::LUT_SIZE * sizeof(Color4);
-  static constexpr size_t PERSISTENT_BUDGET =
-      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
-  static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET,
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "GnomonicStars persistent footprint exceeds the default "
                 "partition; retune MAX_POINTS or carve arenas");
 
