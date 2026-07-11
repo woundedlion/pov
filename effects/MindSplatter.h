@@ -28,7 +28,10 @@ public:
    * @brief Constructs the effect, seeding the preset table and filters.
    */
   FLASHMEM MindSplatter()
-      : Effect(W, H, {.strobe = true}), presets{PRESETS},
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
+        presets{PRESETS},
         filters(Filter::Screen::AntiAlias<W, H>()),
         particle_system() {}
 
