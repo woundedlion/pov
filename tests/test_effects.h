@@ -306,9 +306,12 @@ inline void render_capture(std::vector<Pixel> &out, int frames,
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x) {
           const Pixel p = effect.get_pixel(x, y);
-          fold_byte(p.r);
-          fold_byte(p.g);
-          fold_byte(p.b);
+          fold_byte(p.r & 0xFF);
+          fold_byte(p.r >> 8);
+          fold_byte(p.g & 0xFF);
+          fold_byte(p.g >> 8);
+          fold_byte(p.b & 0xFF);
+          fold_byte(p.b >> 8);
         }
   }
   if (frame_fold)
