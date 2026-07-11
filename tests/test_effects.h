@@ -131,6 +131,19 @@ inline bool effect_may_be_dark(const char *name, int frames) {
 }
 
 /**
+ * @brief Resets the process-global effect state (RNG seed, arenas, timeline) to
+ *        a clean per-effect baseline.
+ * @details Every effect aliases the same static double buffer, global RNG,
+ *          arenas, and timeline; without this reset leftover events reference
+ *          the previous (destroyed) effect instance.
+ */
+inline void reset_effect_globals() {
+  hs::random().seed(1337u);
+  configure_arenas_default();
+  Timeline().clear();
+}
+
+/**
  * @brief Drives one effect type through construct -> init -> render -> read-back.
  * @tparam E Effect class template, instantiated as E<W, H>.
  * @tparam W Render width in pixels (defaults to DEFAULT_W).
@@ -143,14 +156,7 @@ inline bool effect_may_be_dark(const char *name, int frames) {
  */
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void smoke_one(const char *name) {
-  // Deterministic RNG so a given effect takes the same code path each run.
-  hs::random().seed(1337u);
-  // Fresh arena layout for every effect (each effect's init() may reconfigure).
-  configure_arenas_default();
-  // Timeline state is global/static and shared across effects: without this
-  // reset, leftover events reference the previous (destroyed) effect instance.
-  Timeline().clear();
-  global_timeline_t = 0;
+  reset_effect_globals();
 
   E<W, H> effect;
   effect.init();
@@ -277,10 +283,7 @@ constexpr unsigned long FRAME_US = 33000;
 template <template <int, int> class E, int W = DEFAULT_W, int H = DEFAULT_H>
 inline void render_capture(std::vector<Pixel> &out, int frames,
                            uint64_t *frame_fold = nullptr) {
-  hs::random().seed(1337u);
-  configure_arenas_default();
-  Timeline().clear();
-  global_timeline_t = 0;
+  reset_effect_globals();
   // Pin the global generative-hue cursor so both runs start identical (it
   // drifts across palette constructions by design; see GenerativePalette).
   GenerativePalette::reset_hue_seed(0);
@@ -867,10 +870,7 @@ struct DreamBallsWhiteBox {
  */
 inline void test_dreamballs_preset_cycle_bookkeeping() {
   using WB = DreamBallsWhiteBox;
-  hs::random().seed(1337u);
-  configure_arenas_default();
-  Timeline().clear();
-  global_timeline_t = 0;
+  reset_effect_globals();
 
   WB::DB db;
   db.init(); // runs spawn_sprite(0)
@@ -921,10 +921,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
 inline void test_dreamballs_respawn_fires_and_honors_pause() {
   using WB = DreamBallsWhiteBox;
   auto run = [](bool paused) {
-    hs::random().seed(1337u);
-    configure_arenas_default();
-    Timeline().clear();
-    global_timeline_t = 0;
+    reset_effect_globals();
     WB::DB db;
     db.init();
     db.setAnimationsPaused(paused);
@@ -1041,10 +1038,7 @@ struct DynamoWhiteBox {
   static void check_overlapping_wipes_stay_in_range() {
     // Dynamo::init() bakes from persistent_arena and schedules on the shared
     // global timeline, so reset the shared globals as smoke_one does.
-    hs::random().seed(1337u);
-    configure_arenas_default();
-    Timeline().clear();
-    global_timeline_t = 0;
+    reset_effect_globals();
 
     Dynamo<DEFAULT_W, DEFAULT_H> effect;
     effect.init();
@@ -1123,10 +1117,7 @@ struct HopfWhiteBox {
 inline void test_hopf_projection_math() {
   // init() bakes from persistent_arena and schedules on the shared timeline, so
   // reset the shared globals as smoke_one does.
-  hs::random().seed(1337u);
-  configure_arenas_default();
-  Timeline().clear();
-  global_timeline_t = 0;
+  reset_effect_globals();
   using WB = HopfWhiteBox;
 
   HopfFibration<DEFAULT_W, DEFAULT_H> fx;
@@ -1178,16 +1169,6 @@ inline void test_hopf_projection_math() {
 // silent drift that still renders a plausible (wrong) frame. These seams reach
 // the private state and assert the bound holds on every frame.
 // ---------------------------------------------------------------------------
-
-/**
- * @brief Shared per-effect setup mirroring smoke_one's global reset.
- */
-inline void reset_effect_globals() {
-  hs::random().seed(1337u);
-  configure_arenas_default();
-  Timeline().clear();
-  global_timeline_t = 0;
-}
 
 /**
  * @brief White-box accessor for PetalFlow's spawn-gap accumulator and hue cursor
@@ -1536,10 +1517,7 @@ inline void test_needs_full_frame_gate() {
   // reconfigures the shared arenas/timeline in init(), so construct one at a
   // time with the same fresh setup smoke_one uses.
   auto reset = [] {
-    hs::random().seed(1337u);
-    configure_arenas_default();
-    Timeline().clear();
-    global_timeline_t = 0;
+    reset_effect_globals();
   };
   auto check = [&](Effect &fx, bool expected, const char *name) {
     fx.init();
