@@ -288,8 +288,8 @@ private:
           f.color = color(v, 0);
           f.color.alpha *= 0.5f;
         };
-        Fragment f_from; f_from.pos = from;
-        Fragment f_to;   f_to.pos = to;
+        Fragment f_from; f_from.pos = from; f_from.age = age;
+        Fragment f_to;   f_to.pos = to;   f_to.age = age;
         Plot::Line::draw<W, H>(filters, canvas, f_from, f_to,
                                fragment_shader);
       }
