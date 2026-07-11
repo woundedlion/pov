@@ -516,7 +516,7 @@ struct GoldConvergence : Base {
  *
  *   // Build the initial shape directly into the front slot:
  *   carousel.current().clear();
- *   MeshOps::compile(mesh, carousel.current(), persistent_arena);
+ *   MeshOps::compile(mesh, carousel.current(), persistent_arena, scratch_arena_a);
  *
  *   // To transition: generate into the back slot, flip, then let the segue
  *   // schedule the animation via schedule_segue (see

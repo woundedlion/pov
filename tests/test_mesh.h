@@ -264,7 +264,7 @@ inline void test_half_edge_mesh_built_from_meshstate() {
   build_solid<Solids::Cube>(cube, arena);
 
   MeshState ms;
-  MeshOps::compile(cube, ms, arena);
+  MeshOps::compile(cube, ms, arena, scratch_arena_a);
 
   HalfEdgeMesh he(arena, ms);
   HS_EXPECT_EQ(he.vertices.size(), ms.vertices.size());
@@ -288,7 +288,7 @@ inline void test_compile_polymesh_to_meshstate_basic() {
   build_solid<Solids::Cube>(cube, src);
 
   MeshState ms;
-  MeshOps::compile(cube, ms, dst);
+  MeshOps::compile(cube, ms, dst, scratch_arena_a);
 
   HS_EXPECT_EQ(ms.vertices.size(), cube.vertices.size());
   HS_EXPECT_EQ(ms.face_counts.size(), cube.face_counts.size());
@@ -332,7 +332,7 @@ inline void test_compile_drops_degenerate_faces() {
   m.faces.push_back(1); m.faces.push_back(3);
 
   MeshState ms;
-  MeshOps::compile(m, ms, dst);
+  MeshOps::compile(m, ms, dst, scratch_arena_a);
   HS_EXPECT_EQ(ms.face_counts.size(), (size_t)1);
   HS_EXPECT_EQ(ms.faces.size(), (size_t)3);
   HS_EXPECT_EQ(ms.face_counts[0], (uint8_t)3);
@@ -360,7 +360,7 @@ inline void test_clone_meshstate_deep_copies() {
   PolyMesh cube;
   build_solid<Solids::Cube>(cube, src_arena);
   MeshState src;
-  MeshOps::compile(cube, src, src_arena);
+  MeshOps::compile(cube, src, src_arena, scratch_arena_a);
 
   MeshState dst;
   MeshOps::clone(src, dst, dst_arena);

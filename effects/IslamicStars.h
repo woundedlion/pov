@@ -224,7 +224,7 @@ private:
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh mesh = solids[idx].generate(a, b);
       carousel.slot(back).clear();
-      MeshOps::compile(mesh, carousel.slot(back), target);
+      MeshOps::compile(mesh, carousel.slot(back), target, scratch_arena_a);
     });
 
     // ScratchScope frees only this call's own allocations, preserving prior

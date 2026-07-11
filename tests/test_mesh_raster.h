@@ -300,7 +300,7 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
 
   // Compile to a MeshState; the solid scan path needs face_offsets.
   MeshState mesh;
-  MeshOps::compile(poly, mesh, geom);
+  MeshOps::compile(poly, mesh, geom, scratch_arena_a);
 
   MeshFx fx(W, H);
   {
@@ -407,7 +407,7 @@ template <int W, int H>
 inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom, Arena &scratch) {
   configure_arenas_default();
   MeshState mesh;
-  MeshOps::compile(poly, mesh, geom);
+  MeshOps::compile(poly, mesh, geom, scratch_arena_a);
 
   MeshFx fx(W, H);
   {
@@ -509,7 +509,7 @@ inline void test_clip_band_matches_full() {
 
   PolyMesh poly = Solids::Archimedean::truncatedIcosahedron(seed_a, seed_b);
   MeshState mesh;
-  MeshOps::compile(poly, mesh, geom);
+  MeshOps::compile(poly, mesh, geom, scratch_arena_a);
 
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
@@ -576,7 +576,7 @@ inline void build_islamic_bake(size_t islamic_idx, Arena &seed_a, Arena &seed_b,
   const auto islamic = Solids::Collections::get_islamic_solids();
   HS_EXPECT_TRUE(islamic_idx < islamic.size());
   PolyMesh poly = islamic[islamic_idx].generate(seed_a, seed_b);
-  MeshOps::compile(poly, mesh, geom);
+  MeshOps::compile(poly, mesh, geom, scratch_arena_a);
   MeshOps::classify_faces_by_topology(mesh, seed_a, seed_b, geom);
   MeshOps::build_mesh_class_bake(mesh, seed_a, geom, 2.0f * PI_F / W, bake);
 }
@@ -783,7 +783,7 @@ inline BakeAccounting bake_with_budget(size_t idx, float pixel_scale,
   HS_EXPECT_TRUE(idx < islamic.size());
   PolyMesh poly = islamic[idx].generate(seed_a, seed_b);
   MeshState mesh;
-  MeshOps::compile(poly, mesh, geom);
+  MeshOps::compile(poly, mesh, geom, scratch_arena_a);
   MeshOps::classify_faces_by_topology(mesh, seed_a, seed_b, geom);
   MeshOps::MeshClassBake bake;
   MeshOps::build_mesh_class_bake(mesh, seed_a, geom,

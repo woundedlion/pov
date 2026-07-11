@@ -102,7 +102,7 @@ public:
       });
       carousel.slot(carousel.front_index()) = MeshState();
       MeshOps::compile(poly, carousel.slot(carousel.front_index()),
-                       persistent_arena);
+                       persistent_arena, scratch_arena_a);
     }
 
     register_animated_param("Fade", &style.fade, FADE_MIN, FADE_MAX);
@@ -195,7 +195,8 @@ private:
                                                    Arena &b) {
       return Solids::finalize_solid(solids[solid_idx].generate(a, b), target);
     });
-    MeshOps::compile(poly, carousel.slot(new_slot), persistent_arena);
+    MeshOps::compile(poly, carousel.slot(new_slot), persistent_arena,
+                     scratch_arena_a);
 
     morphing = true;
     timeline.add(

@@ -474,7 +474,7 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
     Arena sa(solids_scratch_b, sizeof(solids_scratch_b));
     Arena sb(solids_geom_b, sizeof(solids_geom_b));
     MeshState slot;
-    MeshOps::compile(raw, slot, slot_arena);
+    MeshOps::compile(raw, slot, slot_arena, scratch_arena_a);
     MeshOps::classify_faces_by_topology(slot, sa, sb, slot_arena);
 
     slot_bytes[k] = slot_arena.get_high_water_mark();
