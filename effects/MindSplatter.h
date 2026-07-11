@@ -104,7 +104,7 @@ public:
     particle_system.step(canvas);
     params.active_count = (float)particle_system.active();
 
-    draw_particles(canvas, 1.0f);
+    draw_particles(canvas);
   }
 
 private:
