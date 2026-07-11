@@ -1488,6 +1488,52 @@ inline void test_sparkle_shade() {
 }
 
 /**
+ * @brief Verifies ChromaPulseShade scales chroma while holding L, hue, and alpha.
+ * @details Positive sine lobes boost measured OKLCH chroma, negative lobes cut
+ *          it, a zero lobe is a near-identity, and grays stay achromatic.
+ */
+inline void test_chroma_pulse_shade() {
+  Color4 mid(Pixel(30000, 12000, 6000), 0.7f);
+  auto oklch_of = [](const Color4 &c) {
+    constexpr float INV16 = 1.0f / 65535.0f;
+    return oklab_to_oklch(linear_rgb_to_oklab(
+        c.color.r * INV16, c.color.g * INV16, c.color.b * INV16));
+  };
+  OKLCH before = oklch_of(mid);
+
+  // sin(pi/2) = 1: chroma scales up by 1 + depth.
+  float phase = PI_F * 0.5f;
+  ChromaPulseShade pulse(&phase, 0.3f);
+  Color4 boosted = pulse.shade(mid, 0.2f);
+  OKLCH after = oklch_of(boosted);
+  HS_EXPECT_GT(after.C, before.C * 1.1f);
+  HS_EXPECT_NEAR(after.L, before.L, 0.02f);
+  HS_EXPECT_NEAR(boosted.alpha, 0.7f, 1e-6f);
+
+  // sin(-pi/2) = -1: chroma scales down toward gray.
+  float neg_phase = -PI_F * 0.5f;
+  ChromaPulseShade cut(&neg_phase, 0.3f);
+  HS_EXPECT_LT(oklch_of(cut.shade(mid, 0.2f)).C, before.C * 0.9f);
+
+  // sin(0) = 0: pass-through within fast_cbrt round-trip tolerance.
+  float zero = 0.0f;
+  ChromaPulseShade flat(&zero, 0.3f);
+  Color4 same = flat.shade(mid, 0.2f);
+  HS_EXPECT_NEAR(static_cast<float>(same.color.r),
+                 static_cast<float>(mid.color.r), 700.0f);
+  HS_EXPECT_NEAR(static_cast<float>(same.color.g),
+                 static_cast<float>(mid.color.g), 700.0f);
+
+  // Gray has no chroma to scale.
+  Color4 gray(Pixel(20000, 20000, 20000), 1.0f);
+  Color4 pulsed_gray = pulse.shade(gray, 0.0f);
+  HS_EXPECT_NEAR(static_cast<float>(pulsed_gray.color.r),
+                 static_cast<float>(pulsed_gray.color.g), 700.0f);
+  HS_EXPECT_NEAR(static_cast<float>(pulsed_gray.color.g),
+                 static_cast<float>(pulsed_gray.color.b), 700.0f);
+}
+
+/**
  * @brief Verifies StaticPalette folds its modifier chain then queries the source.
  * @details Applies the modifier chain in order before sampling the source.
  */
@@ -1668,6 +1714,7 @@ inline int run_color_tests() {
   test_hue_spin_shade();
   test_hue_wobble_shade();
   test_sparkle_shade();
+  test_chroma_pulse_shade();
   test_static_palette_composition();
   test_palette_wrappers();
 
