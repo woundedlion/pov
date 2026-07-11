@@ -61,6 +61,15 @@ public:
                 "scratch arena A must fit the vertices buffer and the "
                 "Multiline-draw fragment buffer at once");
 
+  // init() allocates the single Node (Orientation + OrientationTrail) from the
+  // persistent partition; static_palette binds in place with no arena storage.
+  static constexpr size_t FOOTPRINT_BYTES = sizeof(Node);
+  // The custom split (configure_arenas) leaves GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES
+  // for the persistent partition. Guards a TRAIL_LENGTH/ORIENTATION_SUBSTEPS retune.
+  static_assert(FOOTPRINT_BYTES <= GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
+                "ChaoticStrings persistent footprint exceeds its partition; "
+                "retune TRAIL_LENGTH/ORIENTATION_SUBSTEPS or enlarge the split");
+
   /**
    * @brief Carves arenas, allocates the node, binds the palette, registers
    *        sliders, and wires up the timeline animations.
