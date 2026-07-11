@@ -888,9 +888,6 @@ template <typename A, typename B> struct Union {
     bool has_b = b.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) { push_interval(merged, start, end); });
 
-    if (!has_a && !has_b)
-      return false;
-
     // One child fell back to full width: the whole row needs the full scan.
     if (!has_a || !has_b)
       return false;
