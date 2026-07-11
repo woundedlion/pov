@@ -134,6 +134,10 @@ public:
                   "Fn<Sig,Cap> capacity or shrink the capture");
     static_assert(alignof(D) <= Alignment,
                   "callable over-aligned for inplace_function storage");
+    static_assert(std::is_trivially_destructible_v<D>,
+                  "inplace_function stores callables in an ArenaVector whose "
+                  "destructor-skipping contract never runs the callable's "
+                  "destructor — store only trivially destructible callables.");
     static_assert(std::is_copy_constructible_v<D>,
                   "inplace_function requires a copy-constructible callable");
     static_assert(std::is_nothrow_move_constructible_v<D>,
