@@ -40,10 +40,9 @@ struct BZWhiteBox;
  *   - State:  3 arrays × 7680 × 1B = 23,040 B
  *   - Node XYZ: 7680 × 12B         = 92,160 B  (fixed lattice, built once)
  *
- * Scratch arena (per frame):
- *   - Physics ping-pong: 3 × 7680 × 1B   = 23,040 B
- *   - Float pre-convert: 3 × 7680 × 4B   = 92,160 B
- *   - Total:    115,200 B (113 KB)
+ * Scratch arena (per frame, disjoint phases):
+ *   - Physics: ping-pong 3 × 7680 × 1B + float pre-convert 3 × 7680 × 4B = 115,200 B
+ *   - Raster:  oriented lattice 7680 × 12B                               =  92,160 B
  */
 template <int W, int H>
 class BZReactionDiffusion
@@ -87,11 +86,17 @@ public:
     constexpr size_t PERSISTENT_BYTES = 165 * 1024;
     static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES <= PERSISTENT_BYTES,
                   "BZ persistent arena too small for LUT + state + build peak");
-    // render() carves 3 uint8 + 3 float species buffers from scratch_a.
-    constexpr size_t SCRATCH_BYTES =
+    // render()'s scratch peaks at the larger of the physics phase (3 uint8 +
+    // 3 float species buffers) and the raster phase (the oriented lattice);
+    // the two run under disjoint scopes.
+    constexpr size_t PHYSICS_SCRATCH_BYTES =
         3u * RD_N * sizeof(uint8_t) + 3u * RD_N * sizeof(float);
+    constexpr size_t RASTER_SCRATCH_BYTES = RD_N * sizeof(Vector);
+    constexpr size_t SCRATCH_BYTES =
+        PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
+                                                     : RASTER_SCRATCH_BYTES;
     static_assert(SCRATCH_BYTES <= GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
-                  "BZ scratch arena too small for render()'s species buffers");
+                  "BZ scratch arena too small for render()'s phase peak");
     configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
 
     // Lotka-Volterra predation coefficient; bounded only by to_q8's [0,1] clamp
@@ -319,8 +324,8 @@ private:
 
   /**
    * @brief Samples the kernel-interpolated color at a world-space point.
-   * @param rv World-space query direction (un-oriented onto the lattice).
-   * @param nodes Fixed Fibonacci-lattice node positions.
+   * @param rv World-space query direction.
+   * @param nodes Node positions in the same frame as `rv`.
    * @param best_node Index of the nearest lattice node to rv.
    * @param ca Palette color for species A.
    * @param cb Palette color for species B.
@@ -363,24 +368,32 @@ private:
    */
   void render(Canvas &canvas) {
     ScratchScope frame_guard(scratch_arena_a);
+    {
+      ScratchScope physics_guard(scratch_arena_a);
+      uint8_t *s_a = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
+      uint8_t *s_b = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
+      uint8_t *s_c = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
+      float *f_a = static_cast<float *>(
+          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+      float *f_b = static_cast<float *>(
+          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+      float *f_c = static_cast<float *>(
+          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
 
-    uint8_t *s_a = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
-    uint8_t *s_b = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
-    uint8_t *s_c = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
-    float *f_a = static_cast<float *>(
-        scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-    float *f_b = static_cast<float *>(
-        scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-    float *f_c = static_cast<float *>(
-        scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+      advance_substeps(STEPS_PER_FRAME,
+                       std::array<uint8_t *, 3>{state.A, state.B, state.C},
+                       std::array<uint8_t *, 3>{s_a, s_b, s_c},
+                       [&](auto &cur, auto &nxt) {
+                         step_physics(cur[0], cur[1], cur[2],
+                                      nxt[0], nxt[1], nxt[2], f_a, f_b, f_c);
+                       });
+    }
 
-    advance_substeps(STEPS_PER_FRAME,
-                     std::array<uint8_t *, 3>{state.A, state.B, state.C},
-                     std::array<uint8_t *, 3>{s_a, s_b, s_c},
-                     [&](auto &cur, auto &nxt) {
-                       step_physics(cur[0], cur[1], cur[2],
-                                    nxt[0], nxt[1], nxt[2], f_a, f_b, f_c);
-                     });
+    // Physics scratch is popped; the raster phase reuses the arena for the
+    // oriented lattice so the kernel walks stay in world space.
+    Vector *world_nodes = static_cast<Vector *>(
+        scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+    orient_nodes(nodes, world_nodes, RD_N, orientation.get());
 
     const Color4 &ca = color_a;
     const Color4 &cb = color_b;
@@ -390,9 +403,8 @@ private:
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
       int center_node = static_cast<int>(frag.v0);
-      Vector rv = orientation.unorient(v);
-      int best_node = refine_nearest_node(rv, nodes, center_node);
-      frag.color = sample_kernel(rv, nodes, best_node, ca, cb, cc);
+      int best_node = refine_nearest_node(v, world_nodes, center_node);
+      frag.color = sample_kernel(v, world_nodes, best_node, ca, cb, cc);
     };
 
     Scan::Shader::draw<W, H, 4>(canvas, fragment_shader, vertex_shader);
