@@ -302,6 +302,9 @@ public:
     // Move new events (added during callbacks) to fill the gap left by
     //    completed ones. A pinned event spawned inside a callback would trap in
     //    move_into here; callback-spawners use pin=false, so this is safe.
+    HS_CHECK(global_timeline_num_events >= active_cnt,
+             "callback shrank the timeline mid-step (e.g. clear()); "
+             "new_vals_count would go negative");
     int new_vals_count = global_timeline_num_events - active_cnt;
     // Each kept event advances write_idx by one, so it never outruns the events
     // scanned: the source span [active_cnt, ...) and the gap-fill destination
