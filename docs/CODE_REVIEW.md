@@ -104,7 +104,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 15. ✅ **Holosphere/.github/workflows/ci.yml:284** — The debug WASM runtime-smoke (the only `-sASSERTIONS=1` build) omits `WASM_SMOKE_FRAMES` and runs 3 frames, never reaching the frame-48 ShapeShifter cut / arena compaction that the release smoke bumps to 120 frames to hit — so no CI config exercises late-lifecycle code *with assertions on*. *Fix:* set `WASM_SMOKE_FRAMES: 120` (or ≥60) on that step.
 
-16. **Holosphere/tests/test_color.h:597** — `test_oklch_to_pixel_bounded` asserts each `uint16_t` channel is `<= 65535`, a tautology that passes for any implementation including a broken overflowing cast. *Fix:* assert a non-tautological property (a deeply out-of-gamut color saturates a channel to exactly 65535, or round-trips in-gamut), or delete it as redundant with the two clamp tests that already have teeth.
+16. ✅ **Holosphere/tests/test_color.h:597** — `test_oklch_to_pixel_bounded` asserts each `uint16_t` channel is `<= 65535`, a tautology that passes for any implementation including a broken overflowing cast. *Fix:* assert a non-tautological property (a deeply out-of-gamut color saturates a channel to exactly 65535, or round-trips in-gamut), or delete it as redundant with the two clamp tests that already have teeth.
 
 ### Priority 3 — Maintainability: Dead Code & Duplication
 

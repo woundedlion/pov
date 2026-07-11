@@ -512,14 +512,24 @@ inline void test_lerp_oklch_extrapolation_clamped() {
 }
 
 /**
- * @brief Verifies an out-of-gamut OKLCH clamps into [0,65535] per channel.
+ * @brief Verifies oklch_to_pixel saturates out-of-gamut and preserves in-gamut.
+ * @details `p.channel <= 65535` is a tautology for any uint16_t implementation,
+ *          so instead pin real behavior: a deeply out-of-gamut high-lightness
+ *          color must clamp at least one channel to exactly 65535 (a wrapping
+ *          overflow cast would not), and an in-gamut neutral gray must land
+ *          strictly inside the range with its three channels equal.
  */
-inline void test_oklch_to_pixel_bounded() {
-  OKLCH vivid{0.7f, 0.4f, 1.0f};
-  Pixel p = oklch_to_pixel(vivid);
-  HS_EXPECT_LE(p.r, 65535);
-  HS_EXPECT_LE(p.g, 65535);
-  HS_EXPECT_LE(p.b, 65535);
+inline void test_oklch_to_pixel_saturates_and_preserves_in_gamut() {
+  OKLCH vivid{1.0f, 0.4f, 1.0f};
+  Pixel hi = oklch_to_pixel(vivid);
+  HS_EXPECT_TRUE(hi.r == 65535 || hi.g == 65535 || hi.b == 65535);
+
+  OKLCH gray{0.5f, 0.0f, 0.0f};
+  Pixel mid = oklch_to_pixel(gray);
+  HS_EXPECT_GT(mid.r, 0);
+  HS_EXPECT_LT(mid.r, 65535);
+  HS_EXPECT_EQ(mid.r, mid.g);
+  HS_EXPECT_EQ(mid.g, mid.b);
 }
 
 // ============================================================================
@@ -1728,7 +1738,7 @@ inline int run_color_tests() {
   test_lerp_oklch_shortest_arc_midpoint();
   test_lerp_oklch_endpoints();
   test_lerp_oklch_extrapolation_clamped();
-  test_oklch_to_pixel_bounded();
+  test_oklch_to_pixel_saturates_and_preserves_in_gamut();
   test_gamut_clip_preserves_hue();
   test_oklch_to_pixel_holds_hue_out_of_gamut();
 
