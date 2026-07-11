@@ -285,14 +285,14 @@ namespace MeshOps {
  * type, trapping on a budget bump that pushes it past the representable range.
  * @param i Container index to narrow.
  * @return The index as a uint16_t.
- * @details Bounds to INT16_MAX, the narrowest type these indices reach (some
- * operators' scratch uses int16_t with a -1 sentinel; matches the
- * MAX_VERTS <= INT16_MAX static_assert in solids.h). Converts a silent
- * capture-wrap on a MAX_VERTS bump into a trap.
+ * @details Mesh vertex indices must fit int16_t: some operators' scratch uses
+ * int16_t with a -1 sentinel, so INT16_MAX is the narrowest type these indices
+ * reach. This trap enforces that invariant, converting a silent capture-wrap on
+ * an oversized mesh into a crash.
  */
 inline uint16_t narrow_index(size_t i) {
   HS_CHECK(i <= static_cast<size_t>(INT16_MAX),
-           "mesh index exceeds int16_t topology range (MAX_VERTS bumped?)");
+           "mesh index exceeds int16_t topology range (oversized mesh?)");
   return static_cast<uint16_t>(i);
 }
 

@@ -25,20 +25,6 @@ static constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
 
 namespace Solids {
 
-static constexpr int MAX_VERTS = 8700;
-static constexpr int MAX_INDICES = 20000;
-// Budgets must fit the narrowest topology index width or they silently truncate.
-// INT16_MAX is the narrowest a vertex index reaches (some operators' scratch uses
-// int16_t with a -1 sentinel; see narrow_index in mesh.h).
-static_assert(MAX_VERTS <= INT16_MAX,
-              "MAX_VERTS must fit int16_t vertex indices");
-static_assert(MAX_INDICES <= UINT16_MAX,
-              "MAX_INDICES must fit uint16_t half-edge indices");
-// KDNode::original_index (spatial.h) is uint16_t and holds MAX_VERTS-bounded
-// indices; assert it independently of the int16_t bound above.
-static_assert(MAX_VERTS <= UINT16_MAX,
-              "MAX_VERTS must fit KDNode::original_index (uint16_t)");
-
 /**
  * @brief Copies a freshly-generated mesh into the long-lived geometry arena.
  * @param temp Mesh built in the scratch arena pair.
