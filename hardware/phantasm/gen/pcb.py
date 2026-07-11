@@ -8,6 +8,7 @@ Placement is a rough starting arrangement; route/refine interactively in Pcbnew.
 import os
 import subprocess
 import sys
+import tempfile
 import uuid as _uuid
 import sexp
 import fab
@@ -31,16 +32,18 @@ def fmt(v):
 
 # ---------------------------------------------------------------- netlist
 def export_netlist():
-    net = os.path.join(OUT, "_pcb.net")
+    fd, net = tempfile.mkstemp(suffix=".net")
+    os.close(fd)
     try:
         subprocess.run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
                         "-o", net, SCH], check=True, capture_output=True, text=True)
+        return sexp.parse(open(net, encoding="utf-8").read())[0]
     except subprocess.CalledProcessError as e:
         sys.stderr.write(e.stderr or "")
         raise
-    root = sexp.parse(open(net, encoding="utf-8").read())[0]
-    os.remove(net)
-    return root
+    finally:
+        if os.path.exists(net):
+            os.remove(net)
 
 
 def build_nets(nlroot):
