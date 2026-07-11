@@ -79,6 +79,8 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
       float aa_thickness = result_scratch.size;
       if (aa_thickness > 0) {
         alpha = quintic_kernel(-d / aa_thickness);
+      } else {
+        alpha = 0.0f;
       }
     }
 
