@@ -1227,6 +1227,68 @@ inline void test_petalflow_spawn_gap_bounded() {
 }
 
 /**
+ * @brief White-box accessor for DistortedRing's palette-modifier drivers
+ *        (befriended in effects/DistortedRing.h).
+ */
+struct DistortedRingWhiteBox {
+  using DR = DistortedRing<DEFAULT_W, DEFAULT_H>;
+  static float spin(const DR &dr) { return dr.spin_amount; }
+  static float phase(const DR &dr) { return dr.mod_phase; }
+  static int mode_count() {
+    return static_cast<int>(sizeof(DR::PALETTE_MODS) /
+                            sizeof(DR::PALETTE_MODS[0]));
+  }
+};
+
+/**
+ * @brief Verifies every "Palette Mod" dropdown option renders a frame stream
+ *        distinct from "None", and the periodic drivers stay wrapped.
+ * @details Identical seeds and mock clock per run, so the only degree of
+ *          freedom is the selected composition — a differing frame fold proves
+ *          the selected modifier actually shades the rings.
+ */
+inline void test_distorted_ring_palette_mod_selection() {
+  using WB = DistortedRingWhiteBox;
+  const int frames = 12;
+
+  auto fold_for = [&](float mode) -> uint64_t {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    WB::DR dr;
+    dr.init();
+    HS_EXPECT_TRUE(dr.updateParameter("Palette Mod", mode));
+    for (int f = 0; f < frames; ++f) {
+      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                        static_cast<unsigned long>(f) * FRAME_US);
+      dr.draw_frame();
+      dr.advance_display();
+    }
+    HS_EXPECT_GE(WB::spin(dr), 0.0f);
+    HS_EXPECT_LT(WB::spin(dr), 1.0f);
+    HS_EXPECT_GE(WB::phase(dr), 0.0f);
+    HS_EXPECT_LT(WB::phase(dr), 2.0f * PI_F);
+
+    uint64_t fold = 1469598103934665603ull; // FNV-1a offset basis
+    for (int y = 0; y < DEFAULT_H; ++y)
+      for (int x = 0; x < DEFAULT_W; ++x) {
+        const Pixel p = dr.get_pixel(x, y);
+        for (uint16_t c : {p.r, p.g, p.b}) {
+          fold ^= c & 0xFF;
+          fold *= 1099511628211ull; // FNV-1a prime
+          fold ^= c >> 8;
+          fold *= 1099511628211ull;
+        }
+      }
+    return fold;
+  };
+
+  const uint64_t base = fold_for(0.0f);
+  for (int mode = 1; mode < WB::mode_count(); ++mode)
+    HS_EXPECT_TRUE(fold_for(static_cast<float>(mode)) != base);
+}
+
+/**
  * @brief White-box accessor for MindSplatter's per-emitter emit-phase and hue
  *        arrays (befriended in effects/MindSplatter.h).
  */
@@ -1819,6 +1881,7 @@ inline int run_effects_tests() {
   DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
   test_hopf_projection_math();
   test_petalflow_spawn_gap_bounded();
+  test_distorted_ring_palette_mod_selection();
   test_mindsplatter_emit_phase_wrapped();
   test_flyby_phase_wrapped();
   test_liquid2d_phase_wrapped();

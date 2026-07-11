@@ -7,13 +7,20 @@
 
 #include "core/engine/engine.h"
 
+namespace hs_test {
+namespace effects_tests {
+struct DistortedRingWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Concentric rings warped by an animated sinusoidal radial displacement.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Rings are drawn in ring-space and warped by a sinusoidal radial
  * displacement whose amplitude is animated. Orientation random-walks over time
- * and each ring is shaded from a circular split-complementary palette.
+ * and each ring is shaded from a circular split-complementary palette, viewed
+ * through a GUI-selectable palette-modifier composition.
  */
 template <int W, int H> class DistortedRing : public Effect {
 public:
@@ -40,10 +47,22 @@ public:
 
     ring_baked.bake(persistent_arena, ring_palette);
 
+    warp_palette.bind(&ring_baked, &warp_mod);
+    drift_palette.bind(&ring_baked, &drift_mod);
+    spin_palette.bind(&ring_baked, &spin_shade);
+    wobble_palette.bind(&ring_baked, &wobble_shade);
+    sparkle_palette.bind(&ring_baked, &sparkle_shade);
+    pulse_palette.bind(&ring_baked, &pulse_shade);
+    grain_palette.bind(&ring_baked, &grain_shade);
+    sheen_palette.bind(&ring_baked, &sheen_shade);
+
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("MaxAmplitude", &params.max_amplitude, 0.0f, 2.0f);
     register_param("Thickness", &params.thickness, 2.0f * px, 12.0f * px);
     register_param("Rings", &params.num_rings, 1.0f, 10.0f);
+    register_param("Palette Mod", &params.palette_mod, PALETTE_MODS,
+                   static_cast<int>(sizeof(PALETTE_MODS) /
+                                    sizeof(PALETTE_MODS[0])));
     register_param("Show Bounding", &params.debug_bb);
 
     timeline.add(0, Animation::Sprite(
@@ -67,6 +86,7 @@ public:
    * @brief Advances and renders the timeline for one frame.
    */
   void draw_frame() override {
+    step_mod_drivers();
     Canvas canvas(*this);
     timeline.step(canvas);
   }
@@ -92,7 +112,7 @@ public:
       auto fragment_shader = [&](const Vector &, Fragment &f) {
         // f.v0 = normalized azimuth (0..1), f.v1 = distance from center line,
         // f.size = thickness.
-        f.color = ring_baked.get(f.v0);
+        f.color = sample_palette(f.v0);
 
         float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
         float falloff = quintic_kernel(1.0f - norm_dist);
@@ -107,6 +127,42 @@ public:
   }
 
 private:
+  friend struct ::hs_test::effects_tests::DistortedRingWhiteBox;
+
+  /**
+   * @brief Samples the ring palette through the selected modifier composition.
+   * @param t Palette coordinate (normalized ring azimuth).
+   * @return The sample of the composition selected by params.palette_mod.
+   * @details Case order matches PALETTE_MODS.
+   */
+  Color4 sample_palette(float t) const {
+    switch (static_cast<int>(params.palette_mod)) {
+    case 1: return warp_palette.get(t);
+    case 2: return drift_palette.get(t);
+    case 3: return spin_palette.get(t);
+    case 4: return wobble_palette.get(t);
+    case 5: return sparkle_palette.get(t);
+    case 6: return pulse_palette.get(t);
+    case 7: return grain_palette.get(t);
+    case 8: return sheen_palette.get(t);
+    default: return ring_baked.get(t);
+    }
+  }
+
+  /**
+   * @brief Advances the palette-modifier drivers one frame, keeping the
+   * periodic ones wrapped.
+   */
+  void step_mod_drivers() {
+    mod_time += MOD_TIME_STEP;
+    mod_phase += MOD_PHASE_STEP;
+    if (mod_phase >= 2.0f * PI_F)
+      mod_phase -= 2.0f * PI_F;
+    spin_amount += SPIN_STEP;
+    if (spin_amount >= 1.0f)
+      spin_amount -= 1.0f;
+  }
+
   FastNoiseLite noise;
   Timeline timeline;
   Pipeline<W, H> filters;
@@ -120,6 +176,7 @@ private:
     float max_amplitude = 0.3f; /**< Peak radial displacement; the animated wave sweeps [-max_amplitude, +max_amplitude]. */
     float thickness = 1.0f;     /**< Ring stroke width, in radians of azimuth; init() reseeds it to 4 px scaled by resolution. */
     float num_rings = 1.0f;     /**< Number of evenly spaced concentric rings (truncated to int when drawn). */
+    float palette_mod = 0.0f;   /**< Selected palette-modifier option index (see PALETTE_MODS). */
     bool debug_bb = false;      /**< When true, draws each fragment's bounding box for debugging. */
   } params;
 
@@ -129,6 +186,44 @@ private:
   BakedPalette ring_baked;
   Vector normal;
   Orientation<> orientation;
+
+  /**
+   * @brief Dropdown labels for the palette-modifier selection, in
+   * sample_palette() case order.
+   */
+  static constexpr const char *PALETTE_MODS[] = {
+      "None",        "Noise Warp", "Drift",           "Hue Spin",
+      "Hue Wobble",  "Sparkle",    "Chroma Pulse",    "Lightness Grain",
+      "Iridescent"};
+
+  static constexpr float MOD_TIME_STEP = 0.02f;  /**< Noise-time advance per frame. */
+  static constexpr float MOD_PHASE_STEP = 0.03f; /**< Phase advance per frame (radians). */
+  static constexpr float SPIN_STEP = 0.002f;     /**< Hue-spin advance per frame (turns). */
+
+  // Drivers must precede the modifiers below, whose constructors take their
+  // addresses.
+  float mod_time = 0.0f;
+  float mod_phase = 0.0f;
+  float spin_amount = 0.0f;
+
+  NoiseWarpModifier warp_mod{&mod_time};
+  DriftModifier drift_mod{&mod_time, 0.25f, 0.25f, 1u};
+  HueSpinShade spin_shade{&spin_amount};
+  HueWobbleShade wobble_shade{&mod_phase, 1.0f, 0.15f};
+  SparkleShade sparkle_shade{&mod_time, 24.0f, 0.75f, 2u};
+  ChromaPulseShade pulse_shade{&mod_phase, 0.6f};
+  LightnessGrainShade grain_shade{&mod_time, 12.0f, 0.35f, 3u};
+  IridescentShade sheen_shade{&mod_phase, 3.0f, 0.3f};
+
+  StaticPalette<BakedPalette, Coords<NoiseWarpModifier>> warp_palette;
+  StaticPalette<BakedPalette, Coords<DriftModifier>> drift_palette;
+  StaticPalette<BakedPalette, Coords<>, Colors<HueSpinShade>> spin_palette;
+  StaticPalette<BakedPalette, Coords<>, Colors<HueWobbleShade>> wobble_palette;
+  StaticPalette<BakedPalette, Coords<>, Colors<SparkleShade>> sparkle_palette;
+  StaticPalette<BakedPalette, Coords<>, Colors<ChromaPulseShade>> pulse_palette;
+  StaticPalette<BakedPalette, Coords<>, Colors<LightnessGrainShade>>
+      grain_palette;
+  StaticPalette<BakedPalette, Coords<>, Colors<IridescentShade>> sheen_palette;
 };
 
 #include "core/engine/effect_registry.h"
