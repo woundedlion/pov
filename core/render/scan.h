@@ -262,10 +262,7 @@ template <int W, int H> struct BoundingSphere {
    */
   BoundingSphere(const Vector &center, float bounds_radius)
       : angular_radius(asinf(std::min(bounds_radius, 1.0f))) {
-    PixelCoords center_px = vector_to_pixel<W, H>(center);
-    center_theta = center_px.x;
-    // phi = acos(y) from the world y directly, not from center_px.y (avoids
-    // compounding vector_to_pixel's phi_to_y rounding).
+    center_theta = vector_to_theta<W>(center);
     float center_phi = acosf(hs::clamp(center.y, -1.0f, 1.0f));
     cos_rho = cosf(angular_radius);
     cos_center_phi = cosf(center_phi);
