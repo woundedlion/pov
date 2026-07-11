@@ -33,6 +33,11 @@ struct EffectConfig {
  * @brief Base class for all visual effects.
  * @details Manages double buffering, persistence, and provides an interface for
  * drawing a frame.
+ *
+ * Naming split: methods on the JS/embind boundary (updateParameter,
+ * getParameters, setAnimationsPaused, markReadonly) are camelCase to match the
+ * WASM bridge; the internal C++ API (register_param, mark_animated,
+ * needs_full_frame, set_clip) is snake_case.
  */
 class Effect {
   friend class Canvas;
