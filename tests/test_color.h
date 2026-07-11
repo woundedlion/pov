@@ -991,6 +991,68 @@ inline void test_baked_palette_in_range() {
   }
 }
 
+/**
+ * @brief Verifies clone_from deep-copies the LUT so both palettes sample equal.
+ * @details clone_from (raw memcpy into a fresh arena allocation) is reached only
+ *          via arena compaction, so a wrong size or missed allocation would only
+ *          surface at runtime. Bake a ramp, clone it, and assert both palettes
+ *          reproduce the same color at every sample.
+ */
+inline void test_baked_palette_clone_from_matches_source() {
+  Gradient grad{{0.0f, CPixel(0u, 0u, 0u)}, {1.0f, CPixel(255u, 255u, 255u)}};
+
+  alignas(std::max_align_t) static uint8_t
+      buf[2 * BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+
+  BakedPalette src;
+  src.bake(arena, grad);
+  BakedPalette dst;
+  dst.clone_from(src, arena);
+
+  for (int i = 0; i <= 64; ++i) {
+    float t = i / 64.0f;
+    Color4 a = src.get(t);
+    Color4 b = dst.get(t);
+    HS_EXPECT_EQ(a.color.r, b.color.r);
+    HS_EXPECT_EQ(a.color.g, b.color.g);
+    HS_EXPECT_EQ(a.color.b, b.color.b);
+    HS_EXPECT_NEAR(a.alpha, b.alpha, 1e-6f);
+  }
+}
+
+/**
+ * @brief Verifies step_wipe_rebake skips the arming frame, then decrements.
+ * @details A ColorWipe is armed mid-step and first steps next frame, so the
+ *          arming frame must be consumed without touching the frame counter;
+ *          each later frame decrements it, and the count never underflows once
+ *          exhausted.
+ */
+inline void test_step_wipe_rebake_skips_arming_then_decrements() {
+  SolidColorPalette src(Color4(Pixel(1000, 2000, 3000), 1.0f));
+
+  alignas(std::max_align_t) static uint8_t
+      buf[BakedPalette::required_arena_bytes()];
+  Arena arena(buf, sizeof(buf));
+  BakedPalette baked;
+  baked.bake(arena, src);
+
+  bool wipe_pending = true;
+  int frames = 2;
+
+  step_wipe_rebake(wipe_pending, frames, baked, src);
+  HS_EXPECT_FALSE(wipe_pending);
+  HS_EXPECT_EQ(frames, 2);
+
+  step_wipe_rebake(wipe_pending, frames, baked, src);
+  HS_EXPECT_EQ(frames, 1);
+  step_wipe_rebake(wipe_pending, frames, baked, src);
+  HS_EXPECT_EQ(frames, 0);
+
+  step_wipe_rebake(wipe_pending, frames, baked, src);
+  HS_EXPECT_EQ(frames, 0);
+}
+
 // ============================================================================
 // Palette layer: source palettes, modifiers, compositions, and wrappers
 // ============================================================================
@@ -1691,6 +1753,8 @@ inline int run_color_tests() {
 
   test_baked_palette_matches_source_endpoints();
   test_baked_palette_in_range();
+  test_baked_palette_clone_from_matches_source();
+  test_step_wipe_rebake_skips_arming_then_decrements();
 
   test_procedural_palette_cosine();
   test_mutating_palette_blends_endpoints();

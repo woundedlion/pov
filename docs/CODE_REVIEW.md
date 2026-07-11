@@ -94,7 +94,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 10. ✅ **Holosphere/effects/MobiusGrid.h:259** — The conformal-radius pole branch and the counter-rotation singularity guard are hand-derived numeric branches that still render a plausible frame if wrong, and have only generic smoke coverage. *Fix:* add a `MobiusGridWhiteBox` seam and a test sweeping `z→±1` (finite coord in [0,1]) and `mid≈0` (q stays identity), mirroring `test_liquid2d_glitch_lens_unit_norm`.
 
-11. **Holosphere/core/color/composition.h:999** — `BakedPalette::clone_from` (raw LUT memcpy, reached via arena compaction) and `step_wipe_rebake` (ColorWipe arming-skip + per-frame rebake) have no direct unit test; a wrong size or missed allocation would only surface at runtime after compaction. *Fix:* add a clone-and-compare test and a small `step_wipe_rebake` skip-once/decrement test.
+11. ✅ **Holosphere/core/color/composition.h:999** — `BakedPalette::clone_from` (raw LUT memcpy, reached via arena compaction) and `step_wipe_rebake` (ColorWipe arming-skip + per-frame rebake) have no direct unit test; a wrong size or missed allocation would only surface at runtime after compaction. *Fix:* add a clone-and-compare test and a small `step_wipe_rebake` skip-once/decrement test.
 
 12. **Holosphere/core/mesh/solids.h:1250** — Nothing enforces that registry names are unique across the three registries; the WASM picker enumerates by index but builds by first-name-match, so a future duplicate name would make the two paths silently diverge. *Fix:* add a test (or constexpr check) asserting name uniqueness and `get_entry(i).name` round-trips through `find_entry`.
 
