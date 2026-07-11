@@ -249,8 +249,8 @@ private:
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
     auto fragment_shader = [this, opacity](const Vector &, Fragment &f) {
       f.color = Color4(CRGB(255, 255, 255));
-      // Apply opacity to both color and alpha (a quadratic edge falloff) for the
-      // additive thruster glow.
+      // Opacity drives both color and alpha (a quadratic edge falloff) for the
+      // alpha-blended thruster fade.
       f.color.color = f.color.color * opacity;
       f.color.alpha = opacity * params.alpha;
     };
