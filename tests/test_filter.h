@@ -889,7 +889,7 @@ inline void test_pipeline_sink_2d_plot_blends_wraps_clips() {
   // A second frame: a plot outside the clip band is dropped.
   PipeFx fx2(W, H);
   fx2.set_clip(2, 5, 0, W); // rows [2,5)
-  fx2.clip.margin = 0;
+  fx2.set_margin(0);
   {
     Canvas c(fx2);
     pipe.plot(c, 8, 6, Pixel(500, 0, 0), 0.0f, 1.0f); // row 6 outside band

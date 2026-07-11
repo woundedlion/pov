@@ -63,10 +63,10 @@ public:
     s_alive = true;
     // Point bufs_ at the shared static storage and clear both buffers.
     clear_buffers();
-    clip.w = W;
-    clip.h = H;
-    clip.y_end = H;
-    clip.x_end = W;
+    clip_.w = W;
+    clip_.h = H;
+    clip_.y_end = H;
+    clip_.x_end = W;
   }
 
   /**
@@ -118,8 +118,12 @@ public:
    */
   [[nodiscard]] bool persists_pixels() const { return persist_pixels; }
 
-  /** @brief Segment clip region (display + render margin). */
-  ClipRegion clip;
+  /**
+   * @brief The effect's current clip region (display band + render margin).
+   * @return Const reference to the clip region; mutate only through set_clip(),
+   *         set_clip_x(), and set_margin(), which enforce its invariants.
+   */
+  [[nodiscard]] const ClipRegion &clip() const { return clip_; }
 
   /** @brief Accumulated rasterization time for the current frame (µs).
    *  WASM-only telemetry: only emscripten builds stamp and read it (the
@@ -141,10 +145,10 @@ public:
     // checked downstream at the LUT-domain HS_CHECK in Scan::Shader::draw.
     HS_CHECK(y0 >= 0 && y0 <= y1 && x0 >= 0 && x0 <= x1,
              "set_clip band must be non-inverted with non-negative origins");
-    clip.y_start = y0;
-    clip.y_end = y1;
-    clip.x_start = x0;
-    clip.x_end = x1;
+    clip_.y_start = y0;
+    clip_.y_end = y1;
+    clip_.x_start = x0;
+    clip_.x_end = x1;
   }
   /**
    * @brief Update only the horizontal clip band, leaving the y bounds intact.
@@ -158,8 +162,8 @@ public:
     // Same non-inverted/non-negative invariant as set_clip (x-band only).
     HS_CHECK(x0 >= 0 && x0 <= x1,
              "set_clip_x band must be non-inverted with a non-negative origin");
-    clip.x_start = x0;
-    clip.x_end = x1;
+    clip_.x_start = x0;
+    clip_.x_end = x1;
   }
   /**
    * @brief Effect sets render margin for stateful filters.
@@ -170,9 +174,9 @@ public:
    *          the per-fragment clip predicates.
    */
   void set_margin(int m) {
-    HS_CHECK(m >= 0 && m < clip.w,
+    HS_CHECK(m >= 0 && m < clip_.w,
              "render margin must be in [0, canvas width)");
-    clip.margin = m;
+    clip_.margin = m;
   }
 
   /**
@@ -565,6 +569,7 @@ private:
   std::atomic<int> next_{0}; /**< Last completed frame, queued for display. */
   int width_;                /**< The width of the effect. */
   int height_;               /**< The height of the effect. */
+  ClipRegion clip_;          /**< Segment clip region (display + render margin). */
   // Shared static storage for the double buffer. PRECONDITION: at most one Effect
   // live at a time (s_alive guard); a second would alias these arrays and the
   // prev_/cur_/next_ indices.
@@ -691,7 +696,7 @@ public:
    * @brief Gets the effect's current clip region.
    * @return Const reference to the clip region (display + render margin).
    */
-  [[nodiscard]] inline const ClipRegion &clip() const { return effect_.clip; }
+  [[nodiscard]] inline const ClipRegion &clip() const { return effect_.clip_; }
 
 #ifdef __EMSCRIPTEN__
   // WASM-only render-time telemetry (see Effect::render_us). Compiled out on the

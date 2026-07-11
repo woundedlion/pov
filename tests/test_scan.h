@@ -151,7 +151,7 @@ inline void test_shader_respects_clip_band() {
   constexpr int W = 32, H = 16;
   ScanFx fx(W, H);
   fx.set_clip(5, 10, 0, W); // rows [5,10)
-  fx.clip.margin = 0;       // no render-margin expansion
+  fx.set_margin(0);       // no render-margin expansion
 
   {
     Canvas c(fx);
@@ -257,7 +257,7 @@ inline void test_ring_rasterize_empty_clip_draws_nothing() {
 
   // Degenerate clip (y_start > y_end) → rasterize must early-out, plot nothing.
   fx.set_clip(30, 30, 0, W);
-  fx.clip.margin = 0;
+  fx.set_margin(0);
 
   {
     Canvas c(fx);
