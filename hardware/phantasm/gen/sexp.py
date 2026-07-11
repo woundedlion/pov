@@ -116,10 +116,6 @@ def get_symbol(libname, name):
     raise KeyError(f"{libname}:{name} not found")
 
 
-def _find(node, key):
-    return [c for c in node if isinstance(c, list) and c and c[0] == key]
-
-
 def _val(node, key, default=None):
     for c in node:
         if isinstance(c, list) and c and c[0] == key:
