@@ -110,9 +110,13 @@ for a, b, reason in causes:
         print("  ", reason)
 
 print("\n=== conflict group members (excl PWR_FLAG) ===")
+real = 0
 for g, nets in groups.items():
     if len(nets) > 1 and nets != {'GND','PWR_FLAG'} and 'PWR_FLAG' not in nets:
+        real += 1
         print("GROUP", sorted(nets))
         for p, net in sorted(named.items()):
             if find(p) == g:
                 print("   ", net, "@", p)
+
+sys.exit(1 if real else 0)
