@@ -1410,6 +1410,45 @@ inline void test_hue_spin_shade() {
 }
 
 /**
+ * @brief Verifies HueWobbleShade's t-dependent rotation contract.
+ * @details Each sample must match hue_rotate at the wobble's local angle;
+ *          opposite sine lobes rotate in opposite directions; zero depth is a
+ *          pass-through of the rotation's near-identity.
+ */
+inline void test_hue_wobble_shade() {
+  Color4 vivid(Pixel(52000, 9000, 3000), 0.6f);
+  float phase = 0.3f;
+  HueWobbleShade wobble(&phase, 1.0f, 0.2f);
+
+  for (float t : {0.0f, 0.25f, 0.6f}) {
+    Color4 got = wobble.shade(vivid, t);
+    Color4 ref =
+        hue_rotate(vivid, 0.2f * fast_sinf(t * PI_F * 2.0f + phase));
+    HS_EXPECT_EQ(got.color.r, ref.color.r);
+    HS_EXPECT_EQ(got.color.g, ref.color.g);
+    HS_EXPECT_EQ(got.color.b, ref.color.b);
+    HS_EXPECT_NEAR(got.alpha, 0.6f, 1e-6f);
+  }
+
+  // Opposite sine lobes (t=0.25 vs t=0.75 at phase 0) spin opposite ways.
+  float phase0 = 0.0f;
+  HueWobbleShade sym(&phase0, 1.0f, 0.2f);
+  Color4 up = sym.shade(vivid, 0.25f);
+  Color4 down = sym.shade(vivid, 0.75f);
+  HS_EXPECT_GT(std::abs(static_cast<int>(up.color.g) -
+                        static_cast<int>(down.color.g)),
+               2000);
+
+  // Zero depth rotates by 0 turns: near-identity within fast-trig tolerance.
+  HueWobbleShade flat(&phase0, 1.0f, 0.0f);
+  Color4 same = flat.shade(vivid, 0.4f);
+  HS_EXPECT_NEAR(static_cast<float>(same.color.r),
+                 static_cast<float>(vivid.color.r), 700.0f);
+  HS_EXPECT_NEAR(static_cast<float>(same.color.g),
+                 static_cast<float>(vivid.color.g), 700.0f);
+}
+
+/**
  * @brief Verifies StaticPalette folds its modifier chain then queries the source.
  * @details Applies the modifier chain in order before sampling the source.
  */
@@ -1588,6 +1627,7 @@ inline int run_color_tests() {
   test_noise_warp_modifier();
   test_drift_modifier();
   test_hue_spin_shade();
+  test_hue_wobble_shade();
   test_static_palette_composition();
   test_palette_wrappers();
 

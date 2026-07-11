@@ -445,6 +445,41 @@ struct HueSpinShade {
 };
 
 /**
+ * @brief Rotates hue by an amount that varies along the palette domain, so
+ * different parts of the gradient drift in opposite directions (iridescence).
+ * @details Builds a rotation per sample; suited to bake-time sampling
+ * (BakedPalette::rebake) rather than tight per-pixel loops.
+ */
+struct HueWobbleShade {
+  const float *phase;
+  float frequency;
+  float depth;
+
+  /**
+   * @brief Constructs with a mandatory phase driver, frequency, and depth.
+   * @param phase Pointer to the per-frame phase; must not be null.
+   * @param freq Wobble frequency over the domain; defaults to 1.0.
+   * @param depth Peak hue rotation in turns; defaults to 0.1.
+   */
+  HueWobbleShade(const float *phase, float freq = 1.0f, float depth = 0.1f)
+      : phase(phase), frequency(freq), depth(depth) {
+    HS_CHECK(phase, "HueWobbleShade: phase driver must not be null");
+  }
+
+  /**
+   * @brief Rotates the sample's hue by depth * sin(t*frequency*2pi + phase)
+   * turns, preserving alpha.
+   * @param c Sample color to reshape.
+   * @param t Coordinate driving the wobble.
+   * @return The hue-rotated sample.
+   */
+  Color4 shade(Color4 c, float t) const {
+    return hue_rotate(c,
+                      depth * fast_sinf(t * frequency * PI_F * 2.0f + *phase));
+  }
+};
+
+/**
  * @brief Scales alpha by a caller-supplied falloff curve over the coordinate.
  */
 struct AlphaFalloffShade {
