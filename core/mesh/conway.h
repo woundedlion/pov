@@ -181,6 +181,43 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
 }
 
 /**
+ * @brief Emit a face's shrunk corner vertices (via pos_fn) and, when the face is
+ *   well-formed (>=3 sides), the shrunk primary face itself.
+ * @tparam PosFn Callable (uint16_t he_idx) -> Vector giving a corner's new pos.
+ * @tparam MapFn Callable (uint16_t he_idx, uint16_t out_idx) recording the map.
+ * @param he_mesh Half-edge connectivity to walk.
+ * @param out_mesh Destination mesh receiving the new vertices and face.
+ * @param start First half-edge of the face, or HE_NONE for an empty face.
+ * @param count Side count of the face (from face_centroid).
+ * @param pos_fn Maps a corner half-edge to its shrunk output vertex.
+ * @param map_fn Records the new vertex index for a corner half-edge.
+ * @details New vertices and the half-edge->vertex map are emitted for every
+ *   corner unconditionally; the shrunk primary face is emitted only for a
+ *   well-formed (>=3-side) face.
+ */
+template <typename PosFn, typename MapFn>
+inline void emit_shrunk_face(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
+                             uint16_t start, int count, PosFn &&pos_fn,
+                             MapFn &&map_fn) {
+  const bool well_formed = count >= 3;
+  if (well_formed)
+    out_mesh.face_counts.push_back(narrow_face_count(count));
+  uint16_t he_idx = start;
+  if (he_idx == HE_NONE)
+    return;
+  int walked = 0; // anti-hang guard: face has `count` half-edges
+  do {
+    HS_CHECK(walked++ < count, "face re-walk overran side count");
+    out_mesh.vertices.push_back(pos_fn(he_idx));
+    uint16_t idx = narrow_index(out_mesh.vertices.size() - 1);
+    map_fn(he_idx, idx);
+    if (well_formed)
+      out_mesh.faces.push_back(idx);
+    he_idx = he_mesh.half_edges[he_idx].next;
+  } while (he_idx != HE_NONE && he_idx != start);
+}
+
+/**
  * @brief Count the sides of a face by walking its half-edge loop.
  * @param he_mesh Half-edge connectivity describing the face loop.
  * @param start_he First half-edge of the face, or HE_NONE for an empty face.
@@ -680,29 +717,13 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
       int count;
       Vector centroid = face_centroid(he_mesh, mesh, fi, count);
       uint16_t start = he_mesh.faces[fi].half_edge;
-      uint16_t he_idx = start;
-
-      // Emit the shrunk primary face only when well-formed (>=3 sides); new
-      // vertices and the he->vertex mapping are still created unconditionally.
-      const bool well_formed = count >= 3;
-      if (well_formed)
-        out_mesh.face_counts.push_back(narrow_face_count(count));
-      he_idx = start;
-      if (he_idx != HE_NONE) {
-        int walked = 0; // anti-hang guard: face has `count` half-edges
-        do {
-          HS_CHECK(walked++ < count, "face re-walk overran side count");
-          Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
-          Vector new_v = v + (centroid - v) * t;
-          out_mesh.vertices.push_back(new_v);
-          uint16_t idx = narrow_index(out_mesh.vertices.size() - 1);
-          he_to_vert_idx[he_idx] = idx;
-
-          if (well_formed)
-            out_mesh.faces.push_back(idx);
-          he_idx = he_mesh.half_edges[he_idx].next;
-        } while (he_idx != HE_NONE && he_idx != start);
-      }
+      emit_shrunk_face(
+          he_mesh, out_mesh, start, count,
+          [&](uint16_t he_idx) {
+            Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
+            return v + (centroid - v) * t;
+          },
+          [&](uint16_t he_idx, uint16_t idx) { he_to_vert_idx[he_idx] = idx; });
     }
 
     emit_vertex_orbit_faces<'N'>(
@@ -766,34 +787,15 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp
       int count;
       Vector centroid = face_centroid(he_mesh, mesh, fi, count);
       uint16_t start = he_mesh.faces[fi].half_edge;
-      uint16_t he_idx = start;
-
-      // Emit the shrunk primary face only when well-formed (>=3 sides); new
-      // vertices and the he->vertex mapping are created unconditionally.
-      const bool well_formed = count >= 3;
-      if (well_formed)
-        out_mesh.face_counts.push_back(narrow_face_count(count));
-      he_idx = start;
-
-      if (he_idx != HE_NONE) {
-        int walked = 0; // anti-hang guard: face has `count` half-edges
-        do {
-          HS_CHECK(walked++ < count, "face re-walk overran side count");
-          uint16_t vi =
-              he_mesh.half_edges[he_mesh.half_edges[he_idx].prev].vertex;
-          Vector v = mesh.vertices[vi];
-          Vector new_v = v + (centroid - v) * t;
-
-          out_mesh.vertices.push_back(new_v);
-          uint16_t idx = narrow_index(out_mesh.vertices.size() - 1);
-          he_to_new_v[he_idx] = idx;
-
-          if (well_formed)
-            out_mesh.faces.push_back(idx);
-
-          he_idx = he_mesh.half_edges[he_idx].next;
-        } while (he_idx != HE_NONE && he_idx != start);
-      }
+      emit_shrunk_face(
+          he_mesh, out_mesh, start, count,
+          [&](uint16_t he_idx) {
+            uint16_t vi =
+                he_mesh.half_edges[he_mesh.half_edges[he_idx].prev].vertex;
+            Vector v = mesh.vertices[vi];
+            return v + (centroid - v) * t;
+          },
+          [&](uint16_t he_idx, uint16_t idx) { he_to_new_v[he_idx] = idx; });
     }
 
     // Generate Hexagon faces for edges
@@ -975,7 +977,6 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
       int count;
       Vector centroid = face_centroid(he_mesh, mesh, fi, count);
       uint16_t start = he_mesh.faces[fi].half_edge;
-      uint16_t he_idx = start;
 
       // Newell's method face normal — robust for sphere-projected faces.
       Vector normal_raw = face_normal(he_mesh, mesh, fi);
@@ -991,34 +992,18 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
       if (do_twist)
         twist_q = make_rotation(normal, twist);
 
-      // Emit the twisted primary face only when well-formed (>=3 sides); new
-      // vertices and the he->vertex mapping are created unconditionally.
-      const bool well_formed = count >= 3;
-      if (well_formed)
-        out_mesh.face_counts.push_back(narrow_face_count(count));
-      he_idx = start;
-      if (he_idx != HE_NONE) {
-        int walked = 0; // anti-hang guard: face has `count` half-edges
-        do {
-          HS_CHECK(walked++ < count, "face re-walk overran side count");
-          Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
-          Vector new_v = v + (centroid - v) * t;
-
-          if (do_twist) {
-            Vector local = new_v - centroid;
-            new_v = centroid + rotate(local, twist_q);
-          }
-
-          out_mesh.vertices.push_back(new_v);
-          uint16_t idx = narrow_index(out_mesh.vertices.size() - 1);
-          he_to_vert_idx[he_idx] = idx;
-
-          if (well_formed)
-            out_mesh.faces.push_back(idx);
-
-          he_idx = he_mesh.half_edges[he_idx].next;
-        } while (he_idx != HE_NONE && he_idx != start);
-      }
+      emit_shrunk_face(
+          he_mesh, out_mesh, start, count,
+          [&](uint16_t he_idx) {
+            Vector v = mesh.vertices[he_mesh.half_edges[he_idx].vertex];
+            Vector new_v = v + (centroid - v) * t;
+            if (do_twist) {
+              Vector local = new_v - centroid;
+              new_v = centroid + rotate(local, twist_q);
+            }
+            return new_v;
+          },
+          [&](uint16_t he_idx, uint16_t idx) { he_to_vert_idx[he_idx] = idx; });
     }
 
     bool *visited_verts = temp.allocate_n<bool>(V);
