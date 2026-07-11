@@ -444,7 +444,8 @@ struct PlanarPolygon {
     auto res = get_antipode(basis, radius);
     float thickness = res.second * (PI_F / 2.0f);
 
-    SDF::PlanarPolygon shape(res.first, thickness, sides, phase);
+    SDF::PlanarPolygon shape(res.first, thickness, sides, phase,
+                             radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
@@ -631,7 +632,7 @@ struct Star {
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = get_antipode(basis, radius);
-    SDF::Star shape(res.first, res.second, sides, phase);
+    SDF::Star shape(res.first, res.second, sides, phase, radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
@@ -660,7 +661,7 @@ struct Flower {
                    float radius, int sides, FragmentShaderFn fragment_shader,
                    float phase = 0, bool debug_bb = false) {
     auto res = get_antipode(basis, radius);
-    SDF::Flower shape(res.first, res.second, sides, phase);
+    SDF::Flower shape(res.first, res.second, sides, phase, radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
@@ -690,7 +691,8 @@ struct SphericalPolygon {
     auto res = get_antipode(basis, radius);
     float offset = PI_F / sides;
 
-    SDF::SphericalPolygon shape(res.first, res.second, sides, phase + offset);
+    SDF::SphericalPolygon shape(res.first, res.second, sides, phase + offset,
+                                radius > 1.0f);
     Scan::rasterize<W, H>(pipeline, canvas, shape, fragment_shader, debug_bb);
   }
 };
