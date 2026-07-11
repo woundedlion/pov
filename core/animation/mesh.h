@@ -226,19 +226,6 @@ inline float sweep_phase(float phase, float offset, float band) {
 }
 
 /**
- * @brief Stable hash of an index and seed to a float in [0, 1).
- * @details PCG output hash (RXS-M-XS). Stateless, so a per-face value stays
- * fixed across the frames of a transition — unlike a draw from the global RNG,
- * which advances every frame and would make the value jitter.
- */
-inline float hash01(uint32_t i, uint32_t seed) {
-  uint32_t h = (i ^ seed) * 747796405u + 2891336453u;
-  h = ((h >> ((h >> 28) + 4u)) ^ h) * 277803737u;
-  h = (h >> 22) ^ h;
-  return static_cast<float>(h >> 8) * (1.0f / 16777216.0f);
-}
-
-/**
  * @brief Identity hooks every segue inherits; a policy shadows only the hooks
  * its transition uses.
  */

@@ -1087,6 +1087,67 @@ inline void test_wrap_index() {
   }
 }
 
+/**
+ * @brief Verifies hash01 determinism, range, and seed independence.
+ */
+inline void test_hash01() {
+  HS_EXPECT_EQ(hash01(42u, 7u), hash01(42u, 7u));
+  for (uint32_t i = 0; i < 256; ++i) {
+    float h = hash01(i, 0u);
+    HS_EXPECT_GE(h, 0.0f);
+    HS_EXPECT_LT(h, 1.0f);
+  }
+  int differing = 0;
+  for (uint32_t i = 0; i < 32; ++i)
+    if (hash01(i, 1u) != hash01(i, 2u))
+      differing++;
+  HS_EXPECT_GT(differing, 24);
+}
+
+/**
+ * @brief Verifies value noise hits lattice hashes at integers, stays in range,
+ *        and is continuous — including across the x=0 cell boundary, where the
+ *        negative-coordinate int cast could break adjacency.
+ */
+inline void test_value_noise() {
+  // Integer coordinates sample the lattice hash exactly.
+  HS_EXPECT_NEAR(value_noise_1d(3.0f, 5u), hash01(3u, 5u), 1e-6f);
+  HS_EXPECT_NEAR(value_noise_1d(-2.0f, 5u),
+                 hash01(static_cast<uint32_t>(-2), 5u), 1e-6f);
+
+  // Range and determinism over positive and negative coordinates.
+  for (int i = -50; i <= 50; ++i) {
+    float x = i * 0.173f;
+    float n = value_noise_1d(x, 9u);
+    HS_EXPECT_GE(n, 0.0f);
+    HS_EXPECT_LT(n, 1.0f);
+    HS_EXPECT_EQ(n, value_noise_1d(x, 9u));
+    float n2 = value_noise_2d(x, x * 0.7f, 9u);
+    HS_EXPECT_GE(n2, 0.0f);
+    HS_EXPECT_LT(n2, 1.0f);
+  }
+
+  // Continuity: adjacent samples differ by a bounded step, including at 0.
+  for (int i = -400; i < 400; ++i) {
+    float x = i * 0.005f;
+    HS_EXPECT_LT(std::fabs(value_noise_1d(x + 0.005f, 3u) -
+                           value_noise_1d(x, 3u)),
+                 0.05f);
+    HS_EXPECT_LT(std::fabs(value_noise_2d(x + 0.005f, 0.4f, 3u) -
+                           value_noise_2d(x, 0.4f, 3u)),
+                 0.05f);
+    HS_EXPECT_LT(std::fabs(value_noise_2d(0.4f, x + 0.005f, 3u) -
+                           value_noise_2d(0.4f, x, 3u)),
+                 0.05f);
+  }
+
+  // Not constant, and seeds decorrelate.
+  HS_EXPECT_TRUE(value_noise_1d(0.5f, 0u) != value_noise_1d(7.5f, 0u) ||
+                 value_noise_1d(2.5f, 0u) != value_noise_1d(9.5f, 0u));
+  HS_EXPECT_TRUE(value_noise_2d(0.5f, 0.5f, 1u) !=
+                 value_noise_2d(0.5f, 0.5f, 2u));
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -1101,6 +1162,8 @@ inline int run_3dmath_tests() {
 
   test_constants();
   test_quintic_kernel();
+  test_hash01();
+  test_value_noise();
 
   test_fast_atan2();
   test_fast_acos();
