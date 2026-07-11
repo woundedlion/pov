@@ -578,6 +578,47 @@ struct ChromaPulseShade {
 };
 
 /**
+ * @brief Grains the palette's brightness with an evolving noise field —
+ * a subtler, hue-exact shimmer than SparkleShade's white glints.
+ * @details Scales all three linear channels uniformly, so hue and saturation
+ * ratios are preserved exactly; no OKLab round-trip.
+ */
+struct LightnessGrainShade {
+  const float *time;
+  float frequency;
+  float amplitude;
+  uint32_t seed;
+
+  /**
+   * @brief Constructs with a mandatory time driver, grain density, and depth.
+   * @param time Pointer to the per-frame noise time axis; must not be null.
+   * @param freq Grain density over the domain; defaults to 12.0.
+   * @param amp Gain swing in [0, 1]: brightness scales over [1-amp, 1+amp].
+   *        Defaults to 0.25.
+   * @param seed Noise stream selector; defaults to 0.
+   */
+  LightnessGrainShade(const float *time, float freq = 12.0f, float amp = 0.25f,
+                      uint32_t seed = 0)
+      : time(time), frequency(freq), amplitude(amp), seed(seed) {
+    HS_CHECK(time, "LightnessGrainShade: time driver must not be null");
+    HS_CHECK(amplitude >= 0.0f && amplitude <= 1.0f,
+             "LightnessGrainShade: amplitude must be in [0, 1]");
+  }
+
+  /**
+   * @brief Scales the sample's brightness by the local noise gain.
+   * @param c Sample color to reshape.
+   * @param t Coordinate locating the sample in the grain field.
+   * @return The gain-scaled sample, alpha untouched.
+   */
+  Color4 shade(Color4 c, float t) const {
+    float n = value_noise_2d(t * frequency, *time, seed);
+    c.color = c.color * (1.0f + amplitude * (2.0f * n - 1.0f));
+    return c;
+  }
+};
+
+/**
  * @brief Scales alpha by a caller-supplied falloff curve over the coordinate.
  */
 struct AlphaFalloffShade {
