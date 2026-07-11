@@ -1013,10 +1013,9 @@ constexpr float dot(const Quaternion &q1, const Quaternion &q2) {
  * @param q1 First unit quaternion.
  * @param q2 Second unit quaternion.
  * @return The angle in radians.
- * @note Exact `acosf`, unlike the Vector overload's `fast_acos`.
  */
 inline float angle_between(const Quaternion &q1, const Quaternion &q2) {
-  return acosf(hs::clamp(dot(q1, q2), -1.0f, 1.0f));
+  return fast_acos(hs::clamp(dot(q1, q2), -1.0f, 1.0f));
 }
 
 /**
