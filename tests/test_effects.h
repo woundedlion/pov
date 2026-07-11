@@ -1515,6 +1515,30 @@ inline void test_shapeshifter_shape_cut_lifecycle() {
 }
 
 /**
+ * @brief Drives ShapeShifter at the Radius slider maximum through a full shape
+ *        cycle, covering the antipode-folded (radius > 1) path of every shape.
+ * @details The Radius range must stay within the angular-radius domain [0, 2]
+ *          (past 2 the fold hands the SDFs a negative radius, which the Star
+ *          constructor traps); pin the registered maximum and render four
+ *          48-frame cut periods so every shape draws at the extreme.
+ */
+inline void test_shapeshifter_max_radius_survives_cycle() {
+  reset_effect_globals();
+  ShapeShifter<DEVICE_W, DEVICE_H> ss;
+  ss.init();
+
+  for (const auto &def : ss.getParameters())
+    if (std::strcmp(def.name, "Radius") == 0)
+      HS_EXPECT_LE(def.max, 2.0f);
+  HS_EXPECT_TRUE(ss.updateParameter("Radius", 2.0f));
+
+  for (int f = 0; f < 4 * 48 + 1; ++f) {
+    ss.draw_frame();
+    ss.advance_display();
+  }
+}
+
+/**
  * @brief Verifies the segmented-mode full-frame gate on the real effect roster.
  * @details Effect::needs_full_frame() must report true for exactly the effects
  *          whose filter pipeline crosses segment bands (its trait-derived
@@ -1802,6 +1826,7 @@ inline int run_effects_tests() {
   test_flowfield_time_and_pool_bounded();
   test_ringspin_pool_clamped();
   test_shapeshifter_shape_cut_lifecycle();
+  test_shapeshifter_max_radius_survives_cycle();
   test_hankinsolids_arena_budget_covers_every_solid();
 
   // Smoke every registered effect. The list is generated from the single-source
