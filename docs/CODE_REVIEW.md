@@ -120,7 +120,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 22. ✅ **Holosphere/core/mesh/solids.h:28** — `MAX_VERTS`/`MAX_INDICES` are documented capacity budgets whose only references are their own self-referential `static_assert`s; they size no arena and validate no mesh (runtime enforcement is `narrow_index` against `INT16_MAX`). *Fix:* wire them into the counts they claim to bound, or remove them and keep the index-width relationship documented at `narrow_index`.
 
-23. **Holosphere/hardware/phantasm/gen/sexp.py:119** — `_find` is defined but no module calls it (all callers use `_val`); it can drift out of sync. *Fix:* delete it, or add a caller/test if it is intended public API.
+23. ✅ **Holosphere/hardware/phantasm/gen/sexp.py:119** — `_find` is defined but no module calls it (all callers use `_val`); it can drift out of sync. *Fix:* delete it, or add a caller/test if it is intended public API.
 
 24. **Holosphere/targets/wasm/wasm.cpp:1373** — The `spline_catmull_rom_tangents` binding re-implements the finite-check + `EPS_NORMALIZE_SQ` degeneracy loop that `eval_cubic_spline` centralizes for the other spline exports, so a future guard change must be made twice or the catmull export diverges. *Fix:* extract a shared `spline_inputs_valid` predicate and call it from both.
 
