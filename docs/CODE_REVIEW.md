@@ -126,7 +126,7 @@ current normal path but defeat an invariant the codebase otherwise enforces.
 
 ### Priority 4 — Documentation Accuracy
 
-9. **`set_view()` doc overloads the word "topology," clashing with the member of that name** — `core/mesh/spatial.h:439`. The comment says it "unbinds the owned topology," but the body unbinds `face_counts`/`faces`/`face_offsets` and deliberately preserves the member literally named `topology` (the int adjacency array). The wording reads as if that member is cleared, which is false and misleading to anyone reasoning about owned/borrowed lifetime. Fix: name the actual arrays and reserve "topology" for the member.
+9. ✅ **`set_view()` doc overloads the word "topology," clashing with the member of that name** — `core/mesh/spatial.h:439`. The comment says it "unbinds the owned topology," but the body unbinds `face_counts`/`faces`/`face_offsets` and deliberately preserves the member literally named `topology` (the int adjacency array). The wording reads as if that member is cleared, which is false and misleading to anyone reasoning about owned/borrowed lifetime. Fix: name the actual arrays and reserve "topology" for the member.
 
 10. **`DreamBalls::active_bake_` doc contradicts the ping-pong semantics** — `effects/DreamBalls.h:157`. Documented as "the slot the next spawn rebakes into," but `spawn_sprite()` does `active_bake_ ^= 1;` *then* bakes into `active_bake_`, so the next spawn rebakes into `active_bake_ ^ 1`; between spawns the member names the *current* (most-recent) sprite's slot — exactly how `draw_frame()` uses it. The comment contradicts both the flip logic and its only other use site, on the subtle two-slot code a maintainer is most likely to read before editing. Fix: reword to describe the current-slot semantics.
 

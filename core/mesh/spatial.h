@@ -436,8 +436,9 @@ struct MeshState {
   }
 
   /**
-   * @brief Switches to borrowed mode: unbinds the owned topology so it cannot
-   *   shadow the views, then points the three topology views at the given spans.
+   * @brief Switches to borrowed mode: drops the owned face_counts/faces/
+   *   face_offsets arrays so they cannot shadow the views, then points the three
+   *   views at the given spans.
    * @param face_counts_span Borrowed per-face vertex counts.
    * @param faces_span Borrowed flattened face vertex indices.
    * @param face_offsets_span Borrowed per-face start offsets into faces.
