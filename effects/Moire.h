@@ -164,7 +164,7 @@ private:
    */
   struct Params {
     float alpha = 0.2f;   /**< Per-ring opacity in [0, 1]. */
-    float density = 10.0f; /**< Ring count per layer in [1, 100]. Overridden per-resolution in init(), so this default never reaches a live frame. */
+    float density = 0.0f; /**< Ring count per layer in [1, 100]; init() reseeds it per-resolution before register_param. Seeded below the slider floor so dropping that reseed traps at registration instead of going live silently. */
     float amp = 0.0f;     /**< Wobble amplitude in [0, 1]. */
   } params;
 
