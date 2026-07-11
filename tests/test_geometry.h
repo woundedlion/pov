@@ -628,6 +628,34 @@ inline void test_orientation_upsample_clamps_past_capacity() {
   HS_EXPECT_NEAR(std::abs(dot(o.get(3), end)), 1.0f, 1e-3f);
 }
 
+/**
+ * @brief Verifies the by-index accessors: orient(v,i)/unorient(v,i) match
+ *        rotate(v, get(i)) and its conjugate, and at(i) aliases the stored
+ *        quaternion.
+ */
+inline void test_orientation_historical_index_accessors() {
+  Orientation<8> o;
+  Quaternion q0 = make_rotation(Vector(1, 0, 0), 0.3f);
+  Quaternion q1 = make_rotation(Vector(0, 1, 0), 0.7f);
+  Quaternion q2 = make_rotation(Vector(0, 0, 1), 1.1f);
+  o.set(q0);
+  o.push(q1);
+  o.push(q2);
+  HS_EXPECT_EQ(o.length(), static_cast<size_t>(3));
+
+  const Vector v(0.2f, 0.4f, 0.9f);
+  for (int i = 0; i < 3; ++i) {
+    HS_EXPECT_VEC(o.orient(v, i), rotate(v, o.get(i)), 1e-5f);
+    HS_EXPECT_VEC(o.unorient(v, i), rotate(v, o.get(i).conjugate()), 1e-5f);
+  }
+
+  // at(i) aliases the stored quaternion: a write through it is seen by get(i).
+  Quaternion q_new = make_rotation(Vector(0, 1, 0), 0.25f);
+  o.at(1) = q_new;
+  HS_EXPECT_QUAT(o.get(1), q_new, 1e-6f);
+  HS_EXPECT_VEC(o.orient(v, 1), rotate(v, q_new), 1e-5f);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -680,6 +708,7 @@ inline int run_geometry_tests() {
   test_orientation_upsample_preserves_endpoints();
   test_orientation_upsample_noop_if_already_long();
   test_orientation_upsample_clamps_past_capacity();
+  test_orientation_historical_index_accessors();
 
   return fixture.result();
 }
