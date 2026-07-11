@@ -390,6 +390,7 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
         he_mesh, out_mesh, visited_verts, orbit_buf, V, I, /*reverse=*/false,
         [&](uint16_t idx) { return he_mesh.half_edges[idx].face; });
   }
+  normalize(out_mesh);
   return out_mesh;
 }
 
