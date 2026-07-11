@@ -38,7 +38,7 @@ public:
         fade_in_duration(fade_in_duration),
         fade_out_duration(fade_out_duration),
         fade_in_easing(std::move(fade_in_easing_fn)),
-        fade_out_easing(std::move(fade_out_easing_fn)), paused_(paused) {
+        fade_out_easing(std::move(fade_out_easing_fn)), paused(paused) {
     HS_CHECK(fade_in_duration >= 0, "Sprite fade-in duration must be >= 0");
     HS_CHECK(fade_out_duration >= 0, "Sprite fade-out duration must be >= 0");
     // Overlapping windows (durations are independent GUI sliders): scale both
@@ -75,7 +75,7 @@ public:
   void step(Canvas &canvas) override {
     // Paused: hold the frame (don't advance the timer) but keep drawing at the
     // current opacity.
-    if (!is_paused(paused_))
+    if (!is_paused(paused))
       AnimationBase::step(canvas);
 
     // Trapezoid envelope as the MIN of an independent fade-in and fade-out ramp.
@@ -109,7 +109,7 @@ private:
   int fade_out_duration;    /**< Duration of fade-out phase in frames. */
   EasingFn fade_in_easing;  /**< Easing curve for fade-in. */
   EasingFn fade_out_easing; /**< Easing curve for fade-out. */
-  const bool *paused_ = nullptr; /**< Optional pause gate; holds the frame (no
+  const bool *paused = nullptr; /**< Optional pause gate; holds the frame (no
                                     timer advance, still draws) when set. */
 };
 

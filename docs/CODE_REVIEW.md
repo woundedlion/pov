@@ -163,7 +163,7 @@ _Consistency and maintainability:_
 
 34. **[daydream] `daydream/tools/slider.js:35`** — `createSlider` returns `null` on a missing container while siblings (`initScene`, `formatFloatCpp`, codegen helpers) throw named errors; a caller that forgets the null-check gets an opaque `Cannot read properties of null`. *Fix:* throw a named `container #id not found` error for parity, or document the soft return.
 
-35. **[animation] `core/animation/sprites.h:112`** — The pause-gate member is `paused_` in `Sprite` but `paused` in `Mutation`/`Driver`/`Lerp`. *Fix:* rename to `paused` for module consistency.
+35. ✅ **[animation] `core/animation/sprites.h:112`** — The pause-gate member is `paused_` in `Sprite` but `paused` in `Mutation`/`Driver`/`Lerp`. *Fix:* rename to `paused` for module consistency.
 
 36. **[mesh] `core/mesh/mesh.h:561`** — Topology hashing quantizes interior angles with `std::round(ang*180/PI)` to whole degrees, so two congruent faces whose angles straddle a 0.5° rounding boundary (float noise) can land in different `topo_id` bins and never merge — smaller classes, reduced LUT coverage (never incorrect output). *Fix:* if class-merge robustness matters, compare on a coarser or hysteretic angle key.
 
