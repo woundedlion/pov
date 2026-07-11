@@ -162,7 +162,7 @@ _Latent correctness / robustness / convention defects: no observable impact unde
 ### Low Priority
 _Documentation inaccuracies, missing tests for real behavior, dead code, and cosmetic/style nits._
 
-10. **Message-less HS_CHECK on KDTree::nearest k>MAX_K precondition** — `core/mesh/spatial.h:111` (Holosphere)  
+10. ✅ **Message-less HS_CHECK on KDTree::nearest k>MAX_K precondition** — `core/mesh/spatial.h:111` (Holosphere)  
    The public-API precondition trap `HS_CHECK(k <= static_cast<size_t>(MAX_K));` carries no message, unlike every other HS_CHECK in these three files (e.g. lines 82, 194, 268 in spatial/mesh). On a caller misusing nearest() with k>5 the trap fires with no context string, making the fail-fast crash harder to diagnose on device where there is no stdio.  
    *Fix:* Add a message, e.g. `HS_CHECK(k <= static_cast<size_t>(MAX_K), "KDTree::nearest k exceeds MAX_K");`.
 11. **ChaoticStrings lacks the persistent-footprint static_assert its sibling trail effects carry** — `effects/ChaoticStrings.h:73` (Holosphere)  
