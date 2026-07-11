@@ -118,7 +118,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 21. ✅ **Holosphere/core/color/color.h:397** — `blend_max`/`blend_over`/`blend_under`/`blend_mean` and the free `blend_add` have no production callers (only `blend_alpha` is on the render path); vestigial from a removed selectable-blend-mode feature. *Fix:* delete them (and their orphaned tests), or document them as an intentionally-retained public library.
 
-22. **Holosphere/core/mesh/solids.h:28** — `MAX_VERTS`/`MAX_INDICES` are documented capacity budgets whose only references are their own self-referential `static_assert`s; they size no arena and validate no mesh (runtime enforcement is `narrow_index` against `INT16_MAX`). *Fix:* wire them into the counts they claim to bound, or remove them and keep the index-width relationship documented at `narrow_index`.
+22. ✅ **Holosphere/core/mesh/solids.h:28** — `MAX_VERTS`/`MAX_INDICES` are documented capacity budgets whose only references are their own self-referential `static_assert`s; they size no arena and validate no mesh (runtime enforcement is `narrow_index` against `INT16_MAX`). *Fix:* wire them into the counts they claim to bound, or remove them and keep the index-width relationship documented at `narrow_index`.
 
 23. **Holosphere/hardware/phantasm/gen/sexp.py:119** — `_find` is defined but no module calls it (all callers use `_val`); it can drift out of sync. *Fix:* delete it, or add a caller/test if it is intended public API.
 
