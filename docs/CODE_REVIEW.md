@@ -108,7 +108,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 ### Priority 3 — Maintainability: Dead Code & Duplication
 
-17. **Holosphere/core/math/3dmath.h:44** — `math::EPS_UNIT` (scalar unit-length tolerance) is declared and documented but referenced nowhere; live checks use the squared-length `EPS_UNIT_VEC_SQ`/`EPS_UNIT_QUAT_SQ`. Reads as a live knob and invites the wrong (non-squared) tolerance. *Fix:* delete it and its doc-block line.
+17. ✅ **Holosphere/core/math/3dmath.h:44** — `math::EPS_UNIT` (scalar unit-length tolerance) is declared and documented but referenced nowhere; live checks use the squared-length `EPS_UNIT_VEC_SQ`/`EPS_UNIT_QUAT_SQ`. Reads as a live knob and invites the wrong (non-squared) tolerance. *Fix:* delete it and its doc-block line.
 
 18. **Holosphere/core/engine/transformers.h:170** — In `spawn_impl`'s non-pinned reclaim callback, the `repeats` snapshot and `if (!repeats)` guard are dead: an always-on `HS_CHECK(!p->repeats())` a few lines above proves `repeats` is always false here. *Fix:* drop the snapshot and unconditionally deactivate; keep the pinned branch's live re-query.
 
