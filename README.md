@@ -1049,6 +1049,8 @@ Coordinate modifiers (`modify(float) -> float`):
 | `ReverseModifier` | Mirrors the lookup parameter (1.0 - t) |
 | `MirrorModifier` | Maps [0,1] to [0,1,0] for a seamless symmetric loop |
 | `InsetModifier` | Compresses the source domain into an inset window, clamping outside |
+| `NoiseWarpModifier` | Displaces the lookup parameter with smooth value noise — the aperiodic counterpart to `RippleModifier` |
+| `DriftModifier` | Meanders the whole palette along a per-frame noise walk (wanders, hesitates, reverses) |
 
 Color modifiers (`shade(Color4, float) -> Color4`):
 
@@ -1057,6 +1059,21 @@ Color modifiers (`shade(Color4, float) -> Color4`):
 | `AlphaFalloffShade` | Scales alpha by a caller-supplied falloff curve over the coordinate |
 | `EdgeFadeShade` | Fades the sample color to black near the edges (opaque vignette) |
 | `EdgeAlphaShade` | Fades the sample alpha near the edges (transparent vignette) |
+| `HueSpinShade` | Rotates every sample's hue in OKLab by a driver amount (continuous hue cycling); the rotation folds into a per-frame memoized 3×3 |
+| `HueWobbleShade` | Rotates hue by an amount that varies along the domain (iridescent drift); per-sample cost suits bake-time sampling |
+| `SparkleShade` | Ignites sparse traveling glints where an evolving noise field exceeds a threshold |
+| `ChromaPulseShade` | Breathes OKLab chroma between pastel and vivid on a per-frame memoized pulse |
+| `LightnessGrainShade` | Grains brightness with evolving noise; uniform linear-RGB gain, so hue is preserved exactly |
+| `IridescentShade` | Adds a thin-film cosine sheen with per-channel phase offsets, saturating at white |
+
+The noise-driven modifiers sample the deterministic `value_noise_1d`/`value_noise_2d`
+hash lattice (`3dmath.h`) with a per-instance seed, so two modifiers on the same
+driver decorrelate by seed. Frame-constant work memoizes against the driver
+value (`HueSpinShade`'s rotation matrix, `ChromaPulseShade`'s pulse factor,
+`DriftModifier`'s walk offset). The OKLab shades still pay a per-sample
+conversion, so they pair well with `BakedPalette::rebake`, which re-samples a
+256-entry LUT once per frame; the noise and cosine shades are cheap enough for
+live per-pixel paths.
 
 ```cpp
 // Compose a baked palette with a breathing coordinate modifier
@@ -1065,6 +1082,11 @@ StaticPalette<BakedPalette, Coords<BreatheModifier>> palette;
 // A transparent vignette: inset the source, fade alpha at the edges
 StaticPalette<ProceduralPalette, Coords<InsetModifier>,
               Colors<EdgeAlphaShade>, /*Wrap=*/false> vignette;
+
+// Psychedelic composite: noise-warped coordinate, continuously spinning hue,
+// glints riding on top
+StaticPalette<ProceduralPalette, Coords<NoiseWarpModifier>,
+              Colors<HueSpinShade, SparkleShade>> lava;
 ```
 
 #### Additional Palette Types
