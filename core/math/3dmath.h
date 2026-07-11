@@ -29,7 +29,6 @@ static constexpr float INV_PHI = 1 / PHI;
  *
  * The naming reflects what is being compared, not the magnitude:
  *
- *   EPS_UNIT       — unit-vector length test (1e-3f)
  *   TOLERANCE      — generic float compare (1e-4f)
  *   EPS_GEOMETRIC  — geometric near-equality (positions, angles) (1e-5f)
  *   EPS_LEN_SQ     — degenerate squared edge length (1e-6f)
@@ -41,7 +40,6 @@ static constexpr float INV_PHI = 1 / PHI;
  *   EPS_UNIT_VEC_SQ  — generous |v|^2 is-unit assertion slack (0.02f)
  */
 namespace math {
-static constexpr float EPS_UNIT       = 1e-3f;
 static constexpr float TOLERANCE      = 1e-4f;
 static constexpr float EPS_GEOMETRIC  = 1e-5f;
 static constexpr float EPS_LEN_SQ     = 1e-6f;
