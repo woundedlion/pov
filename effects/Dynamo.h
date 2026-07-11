@@ -392,9 +392,7 @@ private:
       MAX_PALETTES * BakedPalette::LUT_SIZE * sizeof(Color4);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a TRAIL_CAPACITY/MAX_PALETTES retune.
-  static constexpr size_t PERSISTENT_BUDGET =
-      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
-  static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET,
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "Dynamo persistent footprint exceeds the default partition; "
                 "retune TRAIL_CAPACITY/MAX_PALETTES or carve arenas");
 

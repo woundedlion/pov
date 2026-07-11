@@ -186,9 +186,7 @@ private:
       sizeof(typename ParticleSystem::EmitterFn);
   // Effect keeps the default arena split, so the footprint must fit the device
   // persistent partition. Guards a k_num_particles/k_trail_length retune.
-  static constexpr size_t PERSISTENT_BUDGET =
-      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
-  static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET,
+  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "FlowField persistent footprint exceeds the default partition; "
                 "retune k_num_particles/k_trail_length or carve arenas");
 
