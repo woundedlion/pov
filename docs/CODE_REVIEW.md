@@ -194,7 +194,7 @@ Every validated defect is listed below, numbered sequentially and grouped by pri
 70. ✅ **Hardware — single-board `pov_single.h` reads `effect_` in the column ISR as a plain static pointer** (`pov_single.h:194`), relying implicitly on `IntervalTimer` begin/end quiescence. Add the one-line ownership-contract comment its segmented sibling has, to deter a future mid-show mutation.
 71. ✅ **Tests — `print_operand` prints "?" for Quaternion/Color4-shaped aggregates** (`test_harness.h:133-135`); a failing `HS_EXPECT_EQ` on a quaternion shows "? vs ?" in a math-heavy suite. Add a `w`-component/tuple-like branch.
 72. ❌ **daydream tests — `@ts-check`/`@ts-nocheck` split on the DI-heavy files** (`segment_worker`, `segment_controller`, `engine_contract_wasm`) loses type-safety exactly where the mocked contract most needs to track the real one. Rejected: the repo has no `tsconfig`/`@types/node` and no CI typecheck, so enabling `@ts-check` on these files pulls the generated `holosphere_wasm.js` blob and node globals into checking (hundreds of unfixable errors) for editor-only benefit — disproportionate; the `@ts-nocheck` pragma is deliberate.
-73. [Low] **daydream tests — `gui.test.js` window-teardown flake** is largely mitigated (mock timers, `afterEach` window restore) but worth keeping as a watch item, not treated as resolved.
+73. ❌ **daydream tests — `gui.test.js` window-teardown flake** is largely mitigated (mock timers, `afterEach` window restore) but worth keeping as a watch item, not treated as resolved. Rejected: no code change warranted — the finding is itself a watch note on already-mitigated behavior.
 
 ### Accepted / known gaps (documented; no action required — listed for completeness)
 
