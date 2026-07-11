@@ -619,6 +619,45 @@ struct LightnessGrainShade {
 };
 
 /**
+ * @brief Adds a thin-film sheen: a phase-offset cosine overlay (the
+ * ProceduralPalette waveform with per-channel thirds offsets) blended
+ * additively over the sample, saturating at white.
+ */
+struct IridescentShade {
+  const float *phase;
+  float frequency;
+  float weight;
+
+  /**
+   * @brief Constructs with a mandatory phase driver, frequency, and weight.
+   * @param phase Pointer to the per-frame phase; must not be null.
+   * @param freq Sheen frequency over the domain; defaults to 3.0.
+   * @param weight Overlay strength; defaults to 0.25.
+   */
+  IridescentShade(const float *phase, float freq = 3.0f, float weight = 0.25f)
+      : phase(phase), frequency(freq), weight(weight) {
+    HS_CHECK(phase, "IridescentShade: phase driver must not be null");
+  }
+
+  /**
+   * @brief Adds the weighted cosine sheen to the sample.
+   * @param c Sample color to reshape.
+   * @param t Coordinate locating the sample along the sheen.
+   * @return The sample plus the overlay (per-channel saturating), alpha
+   *         untouched.
+   */
+  Color4 shade(Color4 c, float t) const {
+    float arg = t * frequency * PI_F * 2.0f + *phase;
+    constexpr float THIRD = 2.0f * PI_F / 3.0f;
+    Pixel sheen(srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg)),
+                srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + THIRD)),
+                srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + 2.0f * THIRD)));
+    c.color += sheen * weight;
+    return c;
+  }
+};
+
+/**
  * @brief Scales alpha by a caller-supplied falloff curve over the coordinate.
  */
 struct AlphaFalloffShade {

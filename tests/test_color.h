@@ -1567,6 +1567,48 @@ inline void test_lightness_grain_shade() {
 }
 
 /**
+ * @brief Verifies IridescentShade's additive cosine overlay.
+ * @details On black the output must equal the weighted sheen reference with the
+ *          per-channel thirds phase offsets; the add saturates at white; zero
+ *          weight and alpha are pass-throughs.
+ */
+inline void test_iridescent_shade() {
+  float phase = 0.7f;
+  IridescentShade sheen(&phase, 2.0f, 0.4f);
+
+  Color4 black(Pixel(0, 0, 0), 0.3f);
+  for (float t : {0.0f, 0.3f, 0.85f}) {
+    float arg = t * 2.0f * PI_F * 2.0f + phase;
+    constexpr float THIRD = 2.0f * PI_F / 3.0f;
+    Pixel ref =
+        Pixel(srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg)),
+              srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + THIRD)),
+              srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + 2.0f * THIRD))) *
+        0.4f;
+    Color4 got = sheen.shade(black, t);
+    HS_EXPECT_EQ(got.color.r, ref.r);
+    HS_EXPECT_EQ(got.color.g, ref.g);
+    HS_EXPECT_EQ(got.color.b, ref.b);
+    HS_EXPECT_NEAR(got.alpha, 0.3f, 1e-6f);
+  }
+
+  // The overlay saturates instead of wrapping on a near-white input.
+  Color4 bright(Pixel(65000, 65000, 65000), 1.0f);
+  Color4 sat = sheen.shade(bright, 0.1f);
+  HS_EXPECT_GE(sat.color.r, bright.color.r);
+  HS_EXPECT_GE(sat.color.g, bright.color.g);
+  HS_EXPECT_GE(sat.color.b, bright.color.b);
+
+  // Zero weight adds nothing.
+  IridescentShade off(&phase, 2.0f, 0.0f);
+  Color4 mid(Pixel(12345, 23456, 34567), 1.0f);
+  Color4 same = off.shade(mid, 0.5f);
+  HS_EXPECT_EQ(same.color.r, mid.color.r);
+  HS_EXPECT_EQ(same.color.g, mid.color.g);
+  HS_EXPECT_EQ(same.color.b, mid.color.b);
+}
+
+/**
  * @brief Verifies StaticPalette folds its modifier chain then queries the source.
  * @details Applies the modifier chain in order before sampling the source.
  */
@@ -1749,6 +1791,7 @@ inline int run_color_tests() {
   test_sparkle_shade();
   test_chroma_pulse_shade();
   test_lightness_grain_shade();
+  test_iridescent_shade();
   test_static_palette_composition();
   test_palette_wrappers();
 
