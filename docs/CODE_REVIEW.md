@@ -125,7 +125,7 @@ _Latent correctness / robustness (real behavior under a reachable condition):_
 
 17. **[engine] `core/engine/memory.h:538-543,576-591`** — `ArenaVector`'s per-element access guards (`operator[]`, `back()`) use `assert` (NDEBUG-stripped on device), whereas the sibling `StaticCircularBuffer` uses always-on `HS_CHECK`; an out-of-range device index is silent arena corruption instead of a fail-fast trap. *Fix:* promote the index guards to `HS_CHECK` for parity, or document the intentional hot-access `assert` choice at the site.
 
-18. **[effects] `effects/DreamBalls.h:57-71`** — Unlike every sibling (Comets/Dynamo/FlowField/BZ/GS), `DreamBalls` has no compile-time persistent-arena budget `static_assert`; adding a preset or a larger solid would overrun the default partition as a runtime trap instead of a build error. *Fix:* `static_assert(2 * BakedPalette::LUT_SIZE * sizeof(Color4) <= PERSISTENT_BUDGET, ...)` with a note that the mesh geometry is runtime-bounded.
+18. ✅ **[effects] `effects/DreamBalls.h:57-71`** — Unlike every sibling (Comets/Dynamo/FlowField/BZ/GS), `DreamBalls` has no compile-time persistent-arena budget `static_assert`; adding a preset or a larger solid would overrun the default partition as a runtime trap instead of a build error. *Fix:* `static_assert(2 * BakedPalette::LUT_SIZE * sizeof(Color4) <= PERSISTENT_BUDGET, ...)` with a note that the mesh geometry is runtime-bounded.
 
 _Observability, diagnostics, and test coverage:_
 

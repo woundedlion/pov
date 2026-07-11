@@ -159,6 +159,14 @@ private:
                 "DreamBalls ping-pong needs at most two overlapping sprites");
 
   BakedPalette baked_palettes_[2];
+  // Two ping-ponged palette LUTs live in the persistent arena; the preset mesh
+  // geometry is runtime-bounded and not counted here.
+  static constexpr size_t FOOTPRINT_BYTES =
+      2 * BakedPalette::LUT_SIZE * sizeof(Color4);
+  static constexpr size_t PERSISTENT_BUDGET =
+      DEVICE_GLOBAL_ARENA_SIZE - DEFAULT_SCRATCH_A_SIZE - DEFAULT_SCRATCH_B_SIZE;
+  static_assert(FOOTPRINT_BYTES <= PERSISTENT_BUDGET,
+                "DreamBalls persistent footprint exceeds the default partition");
   int active_bake_ = 0; /**< Index of the slot the next spawn rebakes into. */
   /**
    * @brief Per-sprite render-param snapshots, ping-ponged with baked_palettes_.
