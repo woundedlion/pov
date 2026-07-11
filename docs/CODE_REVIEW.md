@@ -62,13 +62,13 @@ Grades are the reviewing agent's assessment of each subsystem on the same eight 
 | dd-tools | A− | A | A | A− | A− | A | A | A+ |
 | dd-tests | A | A+ | A | A+ | A | A | A | A+ |
 
-> The two low outliers in the matrix are worth reading in context: render-plot's **C in testing** reflects that `plot.h`'s subtle dual-metric arc math is validated indirectly through scan/effect tests rather than a dedicated `plot.h` numerical suite; pcb-gen's **C+ / B** reflect ungated diagnostics and a stale-report bug in the *candidate-analysis tooling*, not the emitted schematic/board, which round-trips clean through KiCad's own netlist exporter.
+> The two low outliers in the matrix are worth reading in context: render-plot's **C in testing** reflected that `plot.h`'s subtle dual-metric arc math was validated only indirectly through scan/effect tests; finding 35 adds the dedicated `plot.h` numerical suite that pins it against independent oracles. pcb-gen's **C+ / B** reflect ungated diagnostics and a stale-report bug in the *candidate-analysis tooling*, not the emitted schematic/board, which round-trips clean through KiCad's own netlist exporter.
 
 ---
 
 ## Prioritized Fix List
 
-All 34 items are low-severity; the tiers below rank by impact, not by any critical/high classification. Numbering is sequential across all tiers.
+All 34 items are low-severity; the tiers below rank by impact, not by any critical/high classification. Numbering is sequential across all tiers. (Finding 35, added after the review, is a test-coverage follow-up rather than a defect.)
 
 ### Priority 1 — Correctness & Functional Risk
 
@@ -145,6 +145,10 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 33. ✅ **Holosphere/core/animation/motion.h:17** — `Path<W, RESOLUTION>`'s first parameter `W` is never used; every instantiation writes `Path<32>`, so `32` binds to the dead `W` and `RESOLUTION` silently defaults to 1024 (a 12 KiB ring, not the apparent 32-point path). The `@tparam W` doc is inaccurate; the class is also unused in production (effects use `ProceduralPath`). *Fix:* drop `W`, make `RESOLUTION` the sole first parameter, update the four test instantiations — or reconsider whether the test-only `Path` earns its place.
 
 34. ✅ **daydream/daydream.js:74** — `resolutionPresets` keys read H×W (`"Phantasm (144x288)"`) while the rest of the project uses W×H (README "288×144", `setResolution(p.w, p.h)`); the label is also the user-visible `?resolution=` deep-link token. Internal math is consistent — UI/doc only. *Fix:* relabel to W×H, optionally with a one-time alias map for old deep-links (validators already reject unknown values gracefully).
+
+### Priority 5 — Test Coverage (post-review follow-up)
+
+35. ✅ **Holosphere/core/render/plot.h:150** — The dual-metric planar-arc primitives (`azimuthal_project`/`azimuthal_unproject`, `planar_arc_cumul`/`planar_arc_length`) were validated only indirectly: existing tests reuse them as their own ground-truth helpers or pin the rasterizer against `planar_arc_length` itself, so a systematic error in the projection or the anisotropic arc-length integral would move oracle and code together and stay green — the gap behind render-plot's C testing grade. *Fix:* add a dedicated numerical suite to `test_plot_scan.h` pinning the projection round-trip, the projection-radius = geodesic-angle identity, unprojection against an independent libm great-circle reconstruction, `planar_arc_length` against a fine libm quadrature, and the radial-isometric vs azimuthal-bow dual-metric discriminator.
 
 ---
 
