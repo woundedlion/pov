@@ -72,7 +72,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 ### Priority 1 — Correctness & Functional Risk
 
-1. **daydream/tools/palettes.html:767** — Keyboard zoom (Shift+ArrowRight) on the Generative tab silently corrupts the hidden Procedural `C_R..D_B` params. The mouse drag-zoom path guards with `if (activeTab !== 'procedural') return;` but `zoomAroundPhase()` does not. *Fix:* add the same guard as the first line of `zoomAroundPhase()`.
+1. ✅ **daydream/tools/palettes.html:767** — Keyboard zoom (Shift+ArrowRight) on the Generative tab silently corrupts the hidden Procedural `C_R..D_B` params. The mouse drag-zoom path guards with `if (activeTab !== 'procedural') return;` but `zoomAroundPhase()` does not. *Fix:* add the same guard as the first line of `zoomAroundPhase()`.
 
 2. **daydream/recorder.js:387** — The `showSaveFilePicker().catch(AbortError)` branch calls `this.stop()` unguarded, so a cancelled save dialog from session A can tear down a superseding session B. Diverges from the module's `if (this.mediaRecorder === recorder)` per-session discipline. *Fix:* guard the abort-path stop with the same session check.
 
