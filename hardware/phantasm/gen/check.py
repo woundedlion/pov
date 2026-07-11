@@ -1,12 +1,11 @@
 """Gate: export netlist via kicad-cli and verify named nets match spec section 10
 by component-ref membership (pin-number agnostic, so it catches any short/break)."""
-import subprocess
 import sys
 import os
-import tempfile
 sys.path.insert(0, os.path.dirname(__file__))
 import sexp
 import fab
+from kicad_common import F, export_netlist
 
 SCH = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "phantasm.kicad_sch")
@@ -34,23 +33,7 @@ EXPECT = {
                    "JP_SHLD", "R2", "R_PD", "U1", "U_MCU"},
 }
 
-_netfd, NET = tempfile.mkstemp(suffix=".net")
-os.close(_netfd)
-try:
-    subprocess.run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
-                    "-o", NET, SCH], check=True, capture_output=True, text=True)
-    root = sexp.parse(open(NET, encoding="utf-8").read())[0]
-except subprocess.CalledProcessError as e:
-    sys.stderr.write(e.stderr or "")
-    raise
-finally:
-    if os.path.exists(NET):
-        os.remove(NET)
-
-
-def F(n, k):
-    return [c for c in n if isinstance(c, list) and c and c[0] == k]
-
+root = export_netlist(KCLI, SCH)
 
 got = {}
 for nb in F(root, "nets"):

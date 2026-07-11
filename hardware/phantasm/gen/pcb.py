@@ -6,12 +6,10 @@ linearly inside a <=30 mm-wide board outline (R-MECH-6), and declares the nets.
 Placement is a rough starting arrangement; route/refine interactively in Pcbnew.
 """
 import os
-import subprocess
 import sys
-import tempfile
-import uuid as _uuid
 import sexp
 import fab
+from kicad_common import uid, fmt, F, export_netlist
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.dirname(HERE)
@@ -22,33 +20,7 @@ KCLI = fab.find_kicad_cli()
 PCB_W = 32.0  # board width (mm); within the R-MECH-6 cap (<=35), trimmed to part extent
 
 
-def uid():
-    return str(_uuid.uuid4())
-
-
-def fmt(v):
-    return str(int(v)) if float(v) == int(v) else f"{v:.4f}".rstrip("0").rstrip(".")
-
-
-# ---------------------------------------------------------------- netlist
-def export_netlist():
-    fd, net = tempfile.mkstemp(suffix=".net")
-    os.close(fd)
-    try:
-        subprocess.run([KCLI, "sch", "export", "netlist", "--format", "kicadsexpr",
-                        "-o", net, SCH], check=True, capture_output=True, text=True)
-        return sexp.parse(open(net, encoding="utf-8").read())[0]
-    except subprocess.CalledProcessError as e:
-        sys.stderr.write(e.stderr or "")
-        raise
-    finally:
-        if os.path.exists(net):
-            os.remove(net)
-
-
 def build_nets(nlroot):
-    def F(n, k):
-        return [c for c in n if isinstance(c, list) and c and c[0] == k]
     pad_net = {}            # (ref, pad) -> netname
     names = []
     for nb in F(nlroot, "nets"):
@@ -67,8 +39,6 @@ def build_nets(nlroot):
 
 def build_paths(nlroot):
     """ref -> footprint (path) linking to the schematic symbol, from netlist tstamps."""
-    def F(n, k):
-        return [c for c in n if isinstance(c, list) and c and c[0] == k]
     out = {}
     for cb in F(nlroot, "components"):
         for comp in F(cb, "comp"):
@@ -376,7 +346,7 @@ def unplaced_layout(bxs, L, width, margin=2.0, gap=2.0):
 
 
 def main(unplaced=False):
-    nlroot = export_netlist()
+    nlroot = export_netlist(KCLI, SCH)
     pad_net, netid = build_nets(nlroot)
     paths = build_paths(nlroot)                   # ref -> schematic-symbol path
     comps = {r: (r, fp, v) for r, fp, v in schematic_components()}

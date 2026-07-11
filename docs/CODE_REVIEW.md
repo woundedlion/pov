@@ -124,7 +124,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 24. ✅ **Holosphere/targets/wasm/wasm.cpp:1373** — The `spline_catmull_rom_tangents` binding re-implements the finite-check + `EPS_NORMALIZE_SQ` degeneracy loop that `eval_cubic_spline` centralizes for the other spline exports, so a future guard change must be made twice or the catmull export diverges. *Fix:* extract a shared `spline_inputs_valid` predicate and call it from both.
 
-25. **Holosphere/hardware/phantasm/gen/pcb.py:34** — The `kicad-cli` netlist-export sequence and the `F(n,k)`/`fmt`/`uid` helpers are duplicated across `pcb.py`, `check.py`, `shorts.py`, and `builder.py`; a KiCad-flag or schema change drifts the copies. *Fix:* hoist `export_netlist` and the pure helpers into a shared module and import them.
+25. **Holosphere/hardware/phantasm/gen/pcb.py:34** — The `kicad-cli` netlist-export sequence and the `F(n,k)`/`fmt`/`uid` helpers are duplicated across `pcb.py`, `check.py`, `shorts.py`, and `builder.py`; a KiCad-flag or schema change drifts the copies. *Fix:* hoist `export_netlist` and the pure helpers into a shared module and import them. ✅
 
 26. **Holosphere/core/render/plot.h:1445** — `Ring::sample` and `DistortedRing::sample` contain byte-identical angle-addition-from-`TrigLUT` blocks plus the tangent-plane vector build; a future LUT-recovery correction must be applied in both or they diverge. *Fix:* extract a `static inline` helper (kept `inline` so codegen is unchanged).
 

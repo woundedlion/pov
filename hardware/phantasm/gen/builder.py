@@ -1,14 +1,10 @@
 """KiCad 10 schematic builder: place stock symbols, draw wires/labels, emit .kicad_sch."""
 import copy
 import math
-import uuid as _uuid
 import sexp
+from kicad_common import uid, fmt
 
 VERSION = "20250114"
-
-
-def uid():
-    return str(_uuid.uuid4())
 
 
 # ---------- transform: library local coords -> schematic screen coords ----------
@@ -281,12 +277,6 @@ def _prop(name, value, x, y, hide=False, angle=0):
            '\t\t\t(effects (font (size 1.27 1.27))' + (' (hide yes)' if hide else '') + ')',
            '\t\t)']
     return out
-
-
-def fmt(v):
-    if v == int(v):
-        return str(int(v))
-    return f"{v:.4f}".rstrip("0").rstrip(".")
 
 
 def _dedup(pts):
