@@ -144,7 +144,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 33. ✅ **Holosphere/core/animation/motion.h:17** — `Path<W, RESOLUTION>`'s first parameter `W` is never used; every instantiation writes `Path<32>`, so `32` binds to the dead `W` and `RESOLUTION` silently defaults to 1024 (a 12 KiB ring, not the apparent 32-point path). The `@tparam W` doc is inaccurate; the class is also unused in production (effects use `ProceduralPath`). *Fix:* drop `W`, make `RESOLUTION` the sole first parameter, update the four test instantiations — or reconsider whether the test-only `Path` earns its place.
 
-34. **daydream/daydream.js:74** — `resolutionPresets` keys read H×W (`"Phantasm (144x288)"`) while the rest of the project uses W×H (README "288×144", `setResolution(p.w, p.h)`); the label is also the user-visible `?resolution=` deep-link token. Internal math is consistent — UI/doc only. *Fix:* relabel to W×H, optionally with a one-time alias map for old deep-links (validators already reject unknown values gracefully).
+34. ✅ **daydream/daydream.js:74** — `resolutionPresets` keys read H×W (`"Phantasm (144x288)"`) while the rest of the project uses W×H (README "288×144", `setResolution(p.w, p.h)`); the label is also the user-visible `?resolution=` deep-link token. Internal math is consistent — UI/doc only. *Fix:* relabel to W×H, optionally with a one-time alias map for old deep-links (validators already reject unknown values gracefully).
 
 ---
 

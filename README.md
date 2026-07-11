@@ -1965,7 +1965,7 @@ The `Daydream` class owns the entire render side. Features:
 Daydream uses a tiny pub/sub state container plus a URL-syncing wrapper:
 
 ```js
-const appState = new AppState({ effect: 'IslamicStars', resolution: 'Phantasm (144x288)' });
+const appState = new AppState({ effect: 'IslamicStars', resolution: 'Phantasm (288x144)' });
 new URLSync(appState, ['effect', 'resolution']);  // mirrors keys to query string
 
 appState.subscribe((key, value, old) => {
@@ -1975,7 +1975,7 @@ appState.subscribe((key, value, old) => {
 ```
 
 - **`AppState`** — flat key→value store with a `subscribe(callback)` API. Setting a key fires the callback only if the value actually changed. The sidebar and lil-gui both write through `appState.set(...)`, so they stay in sync without explicit coupling.
-- **`URLSync`** — reads tracked keys from `window.location.search` on construction (URL beats default), then debounces writes back to the query string via `history.replaceState`. Shareable links like `?effect=Raymarch&resolution=Phantasm%20(144x288)` work out of the box.
+- **`URLSync`** — reads tracked keys from `window.location.search` on construction (URL beats default), then debounces writes back to the query string via `history.replaceState`. Shareable links like `?effect=Raymarch&resolution=Phantasm%20(288x144)` work out of the box.
 
 ### 10.5 The Effect Sidebar (`sidebar.js`)
 
@@ -2044,8 +2044,8 @@ Codec priority is MP4/H.264 → WebM/VP9 → WebM/VP8, with optional offscreen-c
 
 | Name | Width × Height | Notes |
 |---|---|---|
-| `Holosphere (20x96)` | 96 × 20 | Matches the original Holosphere hardware |
-| `Phantasm (144x288)` | 288 × 144 | Matches Phantasm; default in the web simulator |
+| `Holosphere (96x20)` | 96 × 20 | Matches the original Holosphere hardware |
+| `Phantasm (288x144)` | 288 × 144 | Matches Phantasm; default in the web simulator |
 
 Switching presets does a full WASM reset: `setResolution(w, h)` updates the active width/height and drops the current effect — the pixel buffer is pre-sized to `MAX_W × MAX_H` and deliberately never resized (a realloc could move its backing store under `ALLOW_MEMORY_GROWTH` and detach every outstanding `getPixels()` view), so `getPixels()` returns a view over just the active prefix. `setEffect(name)` then rebuilds the effect at the new template instantiation. The sidebar swaps to the matching favorites list (§10.5).
 
@@ -2163,7 +2163,7 @@ python3 -m http.server 8080
 
 URL parameters control the initial state (mirrored back by `URLSync`, §10.4):
 ```
-?effect=IslamicStars&resolution=Phantasm%20(144x288)
+?effect=IslamicStars&resolution=Phantasm%20(288x144)
 ```
 
 **Optional local vendor checkout.** The simulator runs against jsdelivr CDN by default. To work offline (and to get the WebGPU renderer file, which isn't in npm), populate the local vendor dirs:
