@@ -227,6 +227,34 @@ inline void test_spherical_polygon_far_outside() {
   HS_EXPECT_TRUE(r.dist > 0.0f);
 }
 
+/**
+ * @brief Verifies the spherical-polygon center reads the negated geodesic
+ *        inradius, and a point on an edge midpoint reads dist 0 there.
+ * @details Regular-spherical-polygon inradius r and circumradius R relate by
+ *   tan(r) = tan(R)·cos(π/n) (Napier, right triangle center-midpoint-vertex).
+ *   The edge bisector lies along +u, so the point at polar angle r on +u sits on
+ *   an edge great circle: dist 0, raw_dist = r.
+ */
+inline void test_spherical_polygon_center_and_edge_magnitude() {
+  Basis b = equator_basis();
+  const int sides = 5;
+  const float radius = 0.5f;
+  SDF::SphericalPolygon sp(b, radius, sides, 0.0f);
+
+  const float R = radius * (PI_F / 2.0f);
+  const float inradius = std::atan(std::tan(R) * std::cos(PI_F / sides));
+
+  auto center = sp.distance(Vector(0, 1, 0));
+  HS_EXPECT_NEAR(center.dist, -inradius, 1e-2f);
+  HS_EXPECT_NEAR(center.raw_dist, 0.0f, 1e-3f);
+
+  // Edge midpoint: polar angle = inradius along +u (the sector bisector).
+  Vector edge_mid(std::sin(inradius), std::cos(inradius), 0.0f);
+  auto em = sp.distance(edge_mid);
+  HS_EXPECT_NEAR(em.dist, 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(em.raw_dist, inradius, 1e-2f);
+}
+
 // ============================================================================
 // Star
 // ============================================================================
@@ -245,6 +273,71 @@ inline void test_star_far_outside() {
   SDF::Star star(b, 0.4f, 5, 0.0f);
   auto r = star.distance(Vector(0, -1, 0));
   HS_EXPECT_TRUE(r.dist > 0.0f);
+}
+
+/**
+ * @brief Verifies a star point tip lies on the boundary (dist 0) at the outer
+ *        radius along a sector bisector.
+ * @details A tip sits at polar angle outer_radius = radius·π/2 along +u (with
+ *   phase 0 the sector folds azimuth 0 to the tip bisector), so its distance to
+ *   the point edge is exactly 0 and raw_dist equals the outer radius.
+ */
+inline void test_star_tip_on_boundary() {
+  Basis b = equator_basis();
+  const float radius = 0.6f;
+  SDF::Star star(b, radius, /*sides=*/5, 0.0f);
+
+  const float outer = radius * (PI_F / 2.0f);
+  Vector tip(std::sin(outer), std::cos(outer), 0.0f);
+  auto r = star.distance(tip);
+  HS_EXPECT_NEAR(r.dist, 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(r.raw_dist, outer, 1e-2f);
+}
+
+// ============================================================================
+// Flower  (petals radiating from the axis antipode)
+// ============================================================================
+
+/**
+ * @brief Verifies an interior point on a petal bisector reads dist = scan_dist −
+ *        outer radius.
+ * @details The flower is scanned from the antipode of basis.v. Along a petal
+ *   bisector (+u from the antipode) at scan distance s the petal-edge distance is
+ *   s − outer (negative for s < outer). The exact antipode is avoided: azimuth is
+ *   undefined at the pole, so the sector fold there is degenerate.
+ */
+inline void test_flower_interior_along_petal() {
+  Basis b = equator_basis();
+  const float radius = 0.6f;
+  SDF::Flower flower(b, radius, /*sides=*/6, 0.0f);
+
+  const float outer = radius * (PI_F / 2.0f);
+  const float s = 0.1f;
+  // From the antipode (-Y), step s toward +u (+X): interior of a petal.
+  Vector p(std::sin(s), -std::cos(s), 0.0f);
+  auto r = flower.distance(p);
+  HS_EXPECT_NEAR(r.dist, s - outer, 1e-2f);
+  HS_EXPECT_NEAR(r.raw_dist, s, 1e-3f);
+}
+
+/**
+ * @brief Verifies a petal tip sits on the boundary (dist 0) at the outer radius
+ *        along a petal bisector.
+ * @details A petal bisector runs along +u from the antipode; at scan distance
+ *   outer = radius·π/2 the petal-edge distance is exactly 0 and raw_dist equals
+ *   that scan distance.
+ */
+inline void test_flower_petal_tip_on_boundary() {
+  Basis b = equator_basis();
+  const float radius = 0.6f;
+  SDF::Flower flower(b, radius, /*sides=*/6, 0.0f);
+
+  const float outer = radius * (PI_F / 2.0f);
+  // From the antipode (-Y), step `outer` toward +u (+X).
+  Vector tip(std::sin(outer), -std::cos(outer), 0.0f);
+  auto r = flower.distance(tip);
+  HS_EXPECT_NEAR(r.dist, 0.0f, 1e-2f);
+  HS_EXPECT_NEAR(r.raw_dist, outer, 1e-2f);
 }
 
 // ============================================================================
@@ -1651,9 +1744,14 @@ inline int run_sdf_tests() {
 
   test_spherical_polygon_center_inside();
   test_spherical_polygon_far_outside();
+  test_spherical_polygon_center_and_edge_magnitude();
 
   test_star_center_inside();
   test_star_far_outside();
+  test_star_tip_on_boundary();
+
+  test_flower_interior_along_petal();
+  test_flower_petal_tip_on_boundary();
 
   test_line_on_arc_is_inside();
   test_line_endpoint_is_on_line();
