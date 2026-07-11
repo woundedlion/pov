@@ -3474,7 +3474,7 @@ struct Twist {
  *
  * The Warp must provide:
  *   Ctx make_ctx(const Vector &p) const;
- *   Vector apply(const Vector &p, const Ctx &ctx) const;
+ *   Vector apply(const Vector &p, Ctx ctx) const;
  *   float lipschitz(const Vector &p, const Ctx &ctx) const;
  *   float bounding_inflation() const;
  * Optionally:
