@@ -108,7 +108,7 @@ set(_hs_test_modules
     reaction_graph color palettes easing_waves platform filter plot_scan canvas
     scan mesh_raster transformers noise generators animation effects dma_core hd107s
     dma_controller
-    pov_segmented pov_single pov_sync param_marshal wasm_predicates util
+    pov_segmented pov_single pov_sync param_marshal wasm_predicates util led
     presets styles shading death)
 foreach(_mod IN LISTS _hs_test_modules)
     add_test(NAME unit_${_mod} COMMAND run_tests ${_mod})

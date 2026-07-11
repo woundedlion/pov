@@ -43,6 +43,7 @@
 #include "tests/test_param_marshal.h"
 #include "tests/test_wasm_predicates.h"
 #include "tests/test_util.h"
+#include "tests/test_led.h"
 #include "tests/test_presets.h"
 #include "tests/test_styles.h"
 #include "tests/test_shading.h"
@@ -102,6 +103,7 @@ struct TestModule {
   X("wasm_predicates",                                                         \
     hs_test::wasm_predicates_tests::run_wasm_predicates_tests)                 \
   X("util", hs_test::util_tests::run_util_tests)                               \
+  X("led", hs_test::led_tests::run_led_tests)                                  \
   X("presets", hs_test::presets_tests::run_presets_tests)                      \
   X("styles", hs_test::styles_tests::run_styles_tests)                         \
   X("shading", hs_test::shading_tests::run_shading_tests)                       \
