@@ -1286,6 +1286,7 @@ inline void test_distorted_ring_palette_mod_selection() {
   const uint64_t base = fold_for(0.0f);
   for (int mode = 1; mode < WB::mode_count(); ++mode)
     HS_EXPECT_TRUE(fold_for(static_cast<float>(mode)) != base);
+  hs::clear_mock_time();
 }
 
 /**
