@@ -40,13 +40,13 @@ public:
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    register_param("Warp Scale", &params.warp_scale, 0.1f, 100.0f);
-    register_param("Warp Strength", &params.warp_strength, 0.0f, 30.0f);
-    register_param("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
-    register_param("Speed", &params.speed, 0.0f, 2.0f);
-    register_param("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
+    register_param("Warp Scale", &params.warp_scale, WARP_SCALE_MIN, WARP_SCALE_MAX);
+    register_param("Warp Strength", &params.warp_strength, WARP_STRENGTH_MIN, WARP_STRENGTH_MAX);
+    register_param("Pattern Freq", &params.pattern_freq, PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
+    register_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
+    register_param("Pole Fade", &params.pole_fade, POLE_FADE_MIN, POLE_FADE_MAX);
     register_param("Drift", &drift, 0.0f, 2.0f);
-    register_param("Hue Shift", &params.hue_shift, 0.0f, 1.0f);
+    register_param("Hue Shift", &params.hue_shift, HUE_SHIFT_MIN, HUE_SHIFT_MAX);
     // Flag every preset-driven param so "Pause Animation" lets the user take a
     // slider over. Drift is a standalone live control, not preset-driven, so it
     // is omitted and edits apply during normal playback.
@@ -211,13 +211,43 @@ private:
   };
   Params params;
 
-  Presets<Params, 5> presets = {{{
+  static constexpr float WARP_SCALE_MIN = 0.1f, WARP_SCALE_MAX = 100.0f;
+  static constexpr float WARP_STRENGTH_MIN = 0.0f, WARP_STRENGTH_MAX = 30.0f;
+  static constexpr float PATTERN_FREQ_MIN = 1.0f, PATTERN_FREQ_MAX = 20.0f;
+  static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 2.0f;
+  static constexpr float POLE_FADE_MIN = 1.0f, POLE_FADE_MAX = 20.0f;
+  static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 1.0f;
+
+  /** @brief True iff every preset-driven field of @p p lies within its
+   *  registered slider range (see the range constants above). */
+  static constexpr bool preset_in_ranges(const Params &p) {
+    return p.warp_scale >= WARP_SCALE_MIN && p.warp_scale <= WARP_SCALE_MAX &&
+           p.warp_strength >= WARP_STRENGTH_MIN &&
+           p.warp_strength <= WARP_STRENGTH_MAX &&
+           p.pattern_freq >= PATTERN_FREQ_MIN &&
+           p.pattern_freq <= PATTERN_FREQ_MAX &&
+           p.speed >= SPEED_MIN && p.speed <= SPEED_MAX &&
+           p.pole_fade >= POLE_FADE_MIN && p.pole_fade <= POLE_FADE_MAX &&
+           p.hue_shift >= HUE_SHIFT_MIN && p.hue_shift <= HUE_SHIFT_MAX;
+  }
+
+  static constexpr std::array<PresetEntry<Params>, 5> PRESETS = {{
       {{47.752f, 11.55f, 2.7f, 0.586f, 1.55f, 0.097f}},
       {{0.1f, 0.87f, 14.262f, 0.586f, 3.527f, 0.097f}},
       {{1.5f, 0.5f, 8.0f, 0.30f, 2.0f, 0.15f}},
       {{47.752f, 2.55f, 7.878f, 0.562f, 2.843f, 0.0f}},
       {{100.0f, 8.67f, 1.0f, 0.586f, 3.432f, 0.636f}},
-  }}};
+  }};
+  static_assert(preset_in_ranges(PRESETS[0].params) &&
+                    preset_in_ranges(PRESETS[1].params) &&
+                    preset_in_ranges(PRESETS[2].params) &&
+                    preset_in_ranges(PRESETS[3].params) &&
+                    preset_in_ranges(PRESETS[4].params),
+                "a Flyby preset drives a param outside its registered slider "
+                "range; widen the range to accommodate the preset (the range "
+                "exposes the presets, it does not clamp them)");
+
+  Presets<Params, 5> presets{PRESETS};
 };
 
 #include "core/engine/effect_registry.h"
