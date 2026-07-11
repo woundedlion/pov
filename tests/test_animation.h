@@ -963,17 +963,17 @@ inline void test_particle_system_spawn_and_capacity_guard() {
   Arena arena(buf, sizeof(buf));
   Animation::ParticleSystem<32, 4> ps; // CAPACITY = 4
   ps.init(arena);
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 0);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 0);
 
   ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
   ps.spawn(Vector(0, 1, 0), Vector(0, 0, 0), 1);
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 2);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 2);
 
   ps.spawn(Vector(0, 0, 1), Vector(0, 0, 0), 2);
   ps.spawn(Vector(-1, 0, 0), Vector(0, 0, 0), 3);
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 4);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 4);
   ps.spawn(Vector(0, -1, 0), Vector(0, 0, 0), 4); // capacity is 4 — rejected
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 4);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 4);
 }
 
 /**
@@ -991,17 +991,17 @@ inline void test_particle_system_expires_after_life_and_trail_drain() {
   ps.spawn(Vector(1, 0, 0), Vector(0, 0, 0), 0);
 
   ps.step(fake_canvas());
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
 
   // life=3 records 2 trail frames (life stays >0 after the decrement on frames
   // 1,2), then drains one per frame: reclaimed exactly on frame 2*(life-1)=4.
   const int reclaim_frame = 2 * (3 - 1);
   for (int frame = 2; frame < reclaim_frame; ++frame) {
     ps.step(fake_canvas());
-    HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
+    HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
   }
   ps.step(fake_canvas()); // frame reclaim_frame
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 0);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 0);
 }
 
 /**
@@ -1019,10 +1019,10 @@ inline void test_particle_system_attractor_kills_within_radius() {
   // not life expiry (life is 600).
   ps.add_attractor(Vector(1, 0, 0), /*strength=*/1.0f, /*kill_radius=*/0.5f,
                    /*event_horizon=*/2.0f);
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
 
   ps.step(fake_canvas());
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 0);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 0);
 }
 
 /**
@@ -1047,7 +1047,7 @@ inline void test_particle_system_spawn_initializes_and_steps() {
   const Vector pos(0.6f, 0.0f, 0.8f);
   const Vector vel(0.0f, 0.01f, 0.0f);
   ps.spawn(pos, vel, /*seed=*/42);
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
 
   const auto &p = ps.pool[0];
   HS_EXPECT_NEAR(p.position.x, pos.x, 0.0f);
@@ -1061,7 +1061,7 @@ inline void test_particle_system_spawn_initializes_and_steps() {
   HS_EXPECT_EQ(static_cast<int>(p.history_length()), 0);
 
   ps.step(fake_canvas());
-  HS_EXPECT_EQ(static_cast<int>(ps.active_count), 1);
+  HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
   HS_EXPECT_EQ(static_cast<int>(ps.pool[0].life), 119);        // life-- per step
   HS_EXPECT_GT(static_cast<int>(ps.pool[0].history_length()), 0);
 }
@@ -1090,7 +1090,7 @@ inline void test_particle_system_attractor_kill_radius_boundary() {
     ps.add_attractor(Vector(1.0f + dist, 0, 0), /*strength=*/1.0f,
                      /*kill_radius=*/kr, /*event_horizon=*/0.0f);
     ps.step(fake_canvas());
-    return ps.active_count == 1;
+    return ps.active() == 1;
   };
 
   HS_EXPECT_FALSE(survives(kr - 0.01f)); // inside the radius → killed
@@ -2076,7 +2076,7 @@ inline void test_particle_system_emitter_dispatch() {
   });
   ps.step(fake_canvas());
   HS_EXPECT_EQ(calls, 1);
-  HS_EXPECT_GT(static_cast<int>(ps.active_count), 0);
+  HS_EXPECT_GT(static_cast<int>(ps.active()), 0);
   ps.step(fake_canvas());
   HS_EXPECT_EQ(calls, 2); // runs every frame
 }

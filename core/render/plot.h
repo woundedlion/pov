@@ -2001,7 +2001,7 @@ struct ParticleSystem {
   static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
-    int count = system.active_count;
+    int count = system.active();
 
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];

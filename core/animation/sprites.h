@@ -167,7 +167,12 @@ public:
                 "active_count is uint16_t; CAPACITY must fit in it");
 
   ArenaVector<Particle<TRAIL_LEN>> pool; /**< Backing pool of particles. */
-  uint16_t active_count = 0; /**< Number of live particles in the pool prefix. */
+
+  /**
+   * @brief Number of live particles in the pool prefix.
+   * @return Count of currently active particles.
+   */
+  uint16_t active() const { return active_count; }
 
   float friction = 0.85f;  /**< Per-frame velocity damping factor. */
   float gravity = 0.001f;  /**< Base gravitational constant for attractors. */
@@ -296,6 +301,8 @@ public:
   }
 
 private:
+  uint16_t active_count = 0; /**< Number of live particles in the pool prefix. */
+
   /**
    * @brief Advances one particle on the sphere surface for one frame.
    * @param p The particle to advance (modified in place).

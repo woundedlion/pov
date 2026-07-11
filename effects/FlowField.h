@@ -67,11 +67,11 @@ public:
     particle_system.init(persistent_arena, FRICTION, GRAVITY, MAX_LIFE);
 
     particle_system.add_emitter([this](ParticleSystem &sys) {
-      while (sys.active_count < sys.pool.capacity()) {
+      while (sys.active() < sys.pool.capacity()) {
         sys.spawn(random_vector(), Vector(0, 0, 0), 0);
       }
 
-      for (size_t i = 0; i < sys.active_count; ++i) {
+      for (size_t i = 0; i < sys.active(); ++i) {
         auto &p = sys.pool[i];
 
         // Dead-but-draining slot: step_particle ignores its velocity, so skip

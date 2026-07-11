@@ -1369,6 +1369,7 @@ struct StubSystem {
   std::vector<StubParticle> pool; /**< Pool; pool[i] read for i < active_count. */
   int active_count = 0;           /**< Live prefix length. */
   uint16_t max_life = 0;          /**< Life normaliser for v3. */
+  int active() const { return active_count; }
 };
 
 /**

@@ -1297,7 +1297,7 @@ struct FlowFieldWhiteBox {
   static float noise_time(const FF &ff) { return ff.t; }
   static float time_period() { return FF::TIME_PERIOD; }
   static uint16_t active_count(const FF &ff) {
-    return ff.particle_system.active_count;
+    return ff.particle_system.active();
   }
   static size_t pool_capacity(const FF &ff) {
     return ff.particle_system.pool.capacity();
