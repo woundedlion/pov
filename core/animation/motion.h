@@ -357,6 +357,7 @@ public:
         orientation(&orientation), axis(axis.normalized()), total_angle(angle),
         easing_fn(std::move(easing_fn)), last_angle(0), space(space) {
     HS_CHECK(duration >= 0, "Rotation duration must be >= 0");
+    HS_CHECK(std::isfinite(angle), "Rotation angle must be finite");
   }
 
   /**
