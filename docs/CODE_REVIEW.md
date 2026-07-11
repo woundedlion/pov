@@ -179,7 +179,7 @@ _Cosmetic and documentation-only:_
 
 41. ✅ **[daydream] `daydream/segment_controller.js:645-646`** — `renderParallel()` resets `timings`/`renderUs`/`arenas` each dispatch but not `results`, and `updateStats()` derives the per-segment "Range" cell from `results[s]`, so a fenced/not-yet-reported frame shows the prior generation's rectangle while the other columns show 0 (cosmetic). *Fix:* clear `results` alongside the other per-segment arrays at dispatch, or gate the range cell on `frameSeen[s]`. *(Done via the `frameSeen[s]` gate; clearing `results` at dispatch would break the overrun re-blit that re-uses the prior frame's `results`.)*
 
-42. **[daydream] `daydream/sidebar_logic.js:89-92`** — `scrollArrowState` uses `deadzone = min(4, maxScroll/2)`, so at exactly `scrollLeft === maxScroll/2` both arrows hide even though content overflows both directions, and the two can never show simultaneously in the small-overflow regime (undercutting the header comment). *Fix:* use a strict deadzone only for the right edge, or `min(4, (maxScroll-1)/2)`.
+42. ✅ **[daydream] `daydream/sidebar_logic.js:89-92`** — `scrollArrowState` uses `deadzone = min(4, maxScroll/2)`, so at exactly `scrollLeft === maxScroll/2` both arrows hide even though content overflows both directions, and the two can never show simultaneously in the small-overflow regime (undercutting the header comment). *Fix:* use a strict deadzone only for the right edge, or `min(4, (maxScroll-1)/2)`.
 
 43. ✅ **[tests] `scripts/wasm_smoke.mjs:259`** — Comment reads "MESHOP_1F(truncate)" but `truncate` is bound via the `_OP1U` [0,1]-clamped tier, not `_OP1F`. *Fix:* relabel to `MESHOP_1U(truncate)`.
 
