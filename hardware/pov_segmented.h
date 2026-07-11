@@ -45,6 +45,7 @@
 #include "render/led.h"
 #include "pov_segment_map.h" // pure index math (host-testable; see that file)
 #include "pov_sync.h"        // pure sync protocol (host-testable; see that file)
+#include "pov_handoff.h"     // pure effect-handoff state machine (host-testable)
 
 #ifdef ARDUINO
 #include <Arduino.h>
@@ -268,14 +269,13 @@ public:
       if (gen != built_gen) {
         // The ISR owns the live-effect pointer; ask it to let go before the
         // old instance is destroyed (it acknowledges within one wake-up).
-        release_req_.fetch_add(1, std::memory_order_relaxed);
+        handoff_.request_release();
         const unsigned long t0 = micros();
-        while (release_ack_.load(std::memory_order_relaxed) !=
-               release_req_.load(std::memory_order_relaxed)) {
+        while (!handoff_.release_complete()) {
           HS_CHECK(micros() - t0 < 100000UL,
                    "flywheel ISR failed to release the live effect");
         }
-        pending_effect_.store(nullptr, std::memory_order_release);
+        handoff_.clear_pending();
         delete cur;
         // Restart the shared RNG stream per effect so frames match the
         // simulator and across boards regardless of boot/join history (spec §2).
@@ -292,19 +292,18 @@ public:
         clip_to_segment(cur, /*arm_a_left=*/true);
         cur->draw_frame();
         hs::disable_interrupts();
-        // Release store last so the (effect, gen) pair publishes atomically and
-        // orders every constructor/draw_frame() write before the ISR sees it.
-        pending_gen_.store(gen, std::memory_order_relaxed);
-        pending_effect_.store(cur, std::memory_order_release);
+        // Publish under IRQ-off so the (effect, gen) pair reaches the ISR
+        // atomically; publish()'s release store orders every constructor/
+        // draw_frame() write before the ISR's acquire load.
+        handoff_.publish(cur, gen);
         hs::enable_interrupts();
         built_gen = gen;
       }
 
-      if (cur && consumed_gen_.load(std::memory_order_relaxed) == built_gen) {
+      if (cur && handoff_.consumed(built_gen)) {
         // Render the quadrant the next display window paints: the live window's
         // opposite half (windows alternate ZERO/HALF).
-        clip_to_segment(cur,
-                        live_window_left_.load(std::memory_order_relaxed) == 0);
+        clip_to_segment(cur, handoff_.window_left() == 0);
         const unsigned long f0 = micros();
         cur->draw_frame();
         if (hs::debug) {
@@ -526,36 +525,27 @@ private:
 
     // Release handshake: the foreground wants the live pointer dropped so it
     // can destroy the instance (epoch teardown / beacon rebuild).
-    if (release_ack_.load(std::memory_order_relaxed) !=
-        release_req_.load(std::memory_order_relaxed)) {
-      live_effect_ = nullptr;
-      release_ack_.store(release_req_.load(std::memory_order_relaxed),
-                         std::memory_order_relaxed);
-    }
+    handoff_.service_release();
 
     // Swap in the foreground-constructed pending effect, only ever at a ZERO
     // boundary. Two paths: commit (the B+K epoch deadline, spec §6.1) and join
     // (first display: boot / beacon join / index correction, taken at the next
     // join-grid boundary so all boards go live at the same crossing).
     if (a.commit) {
-      Effect *p = pending_effect_.load(std::memory_order_acquire);
-      HS_CHECK(p && pending_gen_.load(std::memory_order_relaxed) ==
-                        pov::sync::SyncBoard::build_gen_of(sync_.build_word()),
+      const auto p = handoff_.pending_acquire();
+      HS_CHECK(handoff_.committable(
+                   p, pov::sync::SyncBoard::build_gen_of(sync_.build_word())),
                "epoch commit: effect init exceeded the K-revolution window");
-      assert_render_column_safe(p);
-      live_effect_ = p;
-      consumed_gen_.store(pending_gen_.load(std::memory_order_relaxed),
-                          std::memory_order_relaxed);
-    } else if (a.join_boundary && !a.dark && live_effect_ == nullptr) {
+      assert_render_column_safe(p.effect);
+      handoff_.adopt(p.effect, p.gen);
+    } else if (a.join_boundary && !a.dark && handoff_.live() == nullptr) {
       // Adopt only an effect still matching the wire's advertised generation; a
       // visibility lag that fails the match simply joins one grid step later.
-      Effect *p = pending_effect_.load(std::memory_order_acquire);
-      const uint32_t pg = pending_gen_.load(std::memory_order_relaxed);
-      if (p && pg != consumed_gen_.load(std::memory_order_relaxed) &&
-          pg == pov::sync::SyncBoard::build_gen_of(sync_.build_word())) {
-        assert_render_column_safe(p);
-        live_effect_ = p;
-        consumed_gen_.store(pg, std::memory_order_relaxed);
+      const auto p = handoff_.pending_acquire();
+      if (handoff_.joinable(
+              p, pov::sync::SyncBoard::build_gen_of(sync_.build_word()))) {
+        assert_render_column_safe(p.effect);
+        handoff_.adopt(p.effect, p.gen);
       }
     }
 
@@ -563,12 +553,11 @@ private:
     // clips the next frame to the quadrant this segment will paint: a ZERO flip
     // opens the arm-A-left [0,W/2) half-rev, a HALF flip opens [W/2,W).
     if (a.flip)
-      live_window_left_.store(a.zero_crossing ? 1u : 0u,
-                              std::memory_order_relaxed);
+      handoff_.set_window_left(a.zero_crossing);
 
     // Flip whenever the effect is live, even during the dark commit window:
     // advance_display() is what releases a foreground blocked in buffer_free().
-    Effect *e = live_effect_;
+    Effect *e = handoff_.live();
     if (a.flip && e)
       e->advance_display();
 
@@ -654,28 +643,16 @@ private:
   static const EffectFactory *factories_;  /**< Roster of effect constructors (HS_EFFECT_LIST order). */
 
   /**
-   * @brief Effect handoff state between the foreground and the ISR.
-   * @details Ownership: the foreground constructs and deletes; the ISR only ever
-   *          dereferences the instance it has been handed. live_effect_ is
-   *          ISR-written only; pending_* are foreground-written only (published
-   *          under a brief interrupts-off bracket); the release_req_/release_ack_
-   *          pair is the teardown handshake (foreground bumps req, ISR drops the
-   *          live pointer and copies req to ack).
-   *
-   *          pending_effect_ is published release / consumed acquire: that edge
-   *          (not the IRQ bracket's compiler barrier) orders the constructed
-   *          instance's member writes before the ISR dereferences it. The IRQ
-   *          bracket makes the (effect, gen) publish atomic w.r.t. the ISR.
+   * @brief Effect handoff state machine between the foreground and the ISR.
+   * @details The teardown handshake, the acquire/release publish/adopt of the
+   *          pending effect, the consumed-generation gate, and the display-window
+   *          alternation live in pov_handoff.h (host-tested). Ownership: the
+   *          foreground constructs and deletes; the ISR only ever dereferences
+   *          the instance it has been handed via live().
    */
-  static Effect *live_effect_;             /**< Effect the ISR renders; ISR-owned.       */
-  static std::atomic<Effect *> pending_effect_; /**< Next effect awaiting commit; foreground-written (release), ISR-read (acquire). */
-  static std::atomic<uint32_t> pending_gen_;   /**< Build generation of pending_effect_; foreground-written. */
-  static std::atomic<uint32_t> consumed_gen_;  /**< Build generation taken live; ISR-written.  */
-  static std::atomic<uint32_t> release_req_;   /**< Teardown request counter; foreground-written. */
-  static std::atomic<uint32_t> release_ack_;   /**< Teardown acknowledge counter; ISR-written.  */
+  static pov::EffectHandoff<Effect> handoff_;
   static bool dark_latched_;               /**< True once the black frame has latched; ISR-owned. */
   static bool sync_low_pending_;           /**< ISR-owned: dark-path pulse drop deferred to next wake. */
-  static std::atomic<uint8_t> live_window_left_; /**< ISR-written: 1 when the open display window sweeps arm-A columns [0,CANVAS_W/2). */
 
   static int segment_id_;                  /**< Decoded hardware segment ID (up to 2 strap bits, 0..N-1). */
   static bool arm_b_;                      /**< True if this segment lives on arm B (x + W/2). */
@@ -699,31 +676,13 @@ const typename POVSegmented<S, N, RPM>::EffectFactory
     *POVSegmented<S, N, RPM>::factories_ = nullptr;
 
 template <int S, int N, int RPM>
-Effect *POVSegmented<S, N, RPM>::live_effect_ = nullptr;
-
-template <int S, int N, int RPM>
-std::atomic<Effect *> POVSegmented<S, N, RPM>::pending_effect_{nullptr};
-
-template <int S, int N, int RPM>
-std::atomic<uint32_t> POVSegmented<S, N, RPM>::pending_gen_{0};
-
-template <int S, int N, int RPM>
-std::atomic<uint32_t> POVSegmented<S, N, RPM>::consumed_gen_{0};
-
-template <int S, int N, int RPM>
-std::atomic<uint32_t> POVSegmented<S, N, RPM>::release_req_{0};
-
-template <int S, int N, int RPM>
-std::atomic<uint32_t> POVSegmented<S, N, RPM>::release_ack_{0};
+pov::EffectHandoff<Effect> POVSegmented<S, N, RPM>::handoff_;
 
 template <int S, int N, int RPM>
 bool POVSegmented<S, N, RPM>::dark_latched_ = false;
 
 template <int S, int N, int RPM>
 bool POVSegmented<S, N, RPM>::sync_low_pending_ = false;
-
-template <int S, int N, int RPM>
-std::atomic<uint8_t> POVSegmented<S, N, RPM>::live_window_left_{1};
 
 template <int S, int N, int RPM>
 int POVSegmented<S, N, RPM>::segment_id_ = 0;
