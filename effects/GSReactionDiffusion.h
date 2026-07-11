@@ -20,6 +20,38 @@ struct GSWhiteBox;
 } // namespace hs_test
 
 /**
+ * @brief Builds per-node two-ring "renderable" flags for the B field.
+ * @param b Per-node B concentrations, Q16.
+ * @param hot1 Scratch: per-node flag, set when any of {node, neighbors}
+ *        reaches the threshold.
+ * @param hot2 Output: per-node flag, set when any node within two hops
+ *        reaches the threshold.
+ * @param count Node count.
+ * @param threshold Q16 render floor.
+ * @details A kernel sample is a convex average over the refined stencil and
+ * the refined center is at most one hop from the seed, so a seed whose
+ * two-ring sits entirely below the floor cannot produce a renderable sample —
+ * culling on !hot2[seed] is exact, not approximate. Non-template so HS_COLD
+ * reliably keeps the once-per-frame pass off ITCM.
+ */
+[[maybe_unused]] HS_COLD static void
+fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2, int count,
+               uint16_t threshold) {
+  for (int i = 0; i < count; ++i) {
+    bool hot = b[i] >= threshold;
+    for (int k = 0; k < ReactionGraph::RD_K && !hot; ++k)
+      hot = b[ReactionGraph::neighbors[i][k]] >= threshold;
+    hot1[i] = hot;
+  }
+  for (int i = 0; i < count; ++i) {
+    bool hot = hot1[i];
+    for (int k = 0; k < ReactionGraph::RD_K && !hot; ++k)
+      hot = hot1[ReactionGraph::neighbors[i][k]];
+    hot2[i] = hot;
+  }
+}
+
+/**
  * @brief Gray-Scott reaction-diffusion on a Fibonacci lattice sphere.
  *
  * @tparam W Canvas width in pixels.
@@ -40,7 +72,7 @@ struct GSWhiteBox;
  *
  * Scratch arena (per frame, disjoint phases):
  *   - Physics: ping-pong 2 × 7680 × 2B + float pre-convert 2 × 7680 × 4B = 92,160 B
- *   - Raster:  oriented lattice 7680 × 12B                               = 92,160 B
+ *   - Raster:  oriented lattice 7680 × 12B + cull flags 2 × 7680 × 1B    = 107,520 B
  */
 template <int W, int H>
 class GSReactionDiffusion
@@ -90,7 +122,8 @@ public:
     // the two run under disjoint scopes.
     constexpr size_t PHYSICS_SCRATCH_BYTES =
         2u * RD_N * sizeof(uint16_t) + 2u * RD_N * sizeof(float);
-    constexpr size_t RASTER_SCRATCH_BYTES = RD_N * sizeof(Vector);
+    constexpr size_t RASTER_SCRATCH_BYTES =
+        RD_N * sizeof(Vector) + 2u * RD_N * sizeof(uint8_t);
     constexpr size_t SCRATCH_BYTES =
         PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
                                                      : RASTER_SCRATCH_BYTES;
@@ -286,17 +319,30 @@ private:
     }
 
     // Physics scratch is popped; the raster phase reuses the arena for the
-    // oriented lattice so the kernel walks stay in world space.
+    // oriented lattice so the kernel walks stay in world space, plus the
+    // two-ring cull flags.
     Vector *world_nodes = static_cast<Vector *>(
         scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
     orient_nodes(nodes, world_nodes, RD_N, orientation.get());
+    uint8_t *hot1 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
+    uint8_t *hot2 = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
+    fill_hot_flags(state.B, hot1, hot2, RD_N, to_q16(B_CULL_THRESHOLD));
 
-    // Seed the cubemap lookup once per pixel center; it only feeds
-    // refine_nearest_node, which re-finds the true nearest per sub-sample.
-    auto vertex_shader = [this](Fragment &frag) { seed_face_lut(frag); };
+    // Seed the cubemap lookup once per pixel center; a seed whose two-ring
+    // sits below the render floor is culled for the whole pixel (v0 = -1).
+    auto vertex_shader = [&](Fragment &frag) {
+      seed_face_lut(frag);
+      if (!hot2[static_cast<int>(frag.v0)])
+        frag.v0 = -1.0f;
+    };
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
-      float b = interpolate_b(v, static_cast<int>(frag.v0), world_nodes);
+      int seed = static_cast<int>(frag.v0);
+      if (seed < 0) {
+        frag.color = Color4(Pixel(0, 0, 0), 0.0f);
+        return;
+      }
+      float b = interpolate_b(v, seed, world_nodes);
 
       if (b < B_CULL_THRESHOLD) {
         frag.color = Color4(Pixel(0, 0, 0), 0.0f);
