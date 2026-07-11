@@ -173,7 +173,7 @@ _Cosmetic and documentation-only:_
 
 38. ✅ **[color] `core/color/color.h:1536-1544`** — `ProceduralPalette::get` clamps each channel to `[0,1]` then passes it to `srgb_to_linear_interp`, which re-clamps internally — a redundant per-channel clamp on the cold/bake path. *Fix:* drop the outer clamp, or comment the intent.
 
-39. **[render] `core/render/scan.h:263-279`** — `BoundingSphere` ctor computes the full `vector_to_pixel(center)` for `center_theta` but discards `center_px.y` and recomputes `center_phi` from `center.y`, wasting a `phi_to_y` (cold path, negligible). *Fix:* use a theta-only projection helper.
+39. ✅ **[render] `core/render/scan.h:263-279`** — `BoundingSphere` ctor computes the full `vector_to_pixel(center)` for `center_theta` but discards `center_px.y` and recomputes `center_phi` from `center.y`, wasting a `phi_to_y` (cold path, negligible). *Fix:* use a theta-only projection helper.
 
 40. **[daydream] `daydream/driver.js:511-539,895-903`** — `refreshLabels` allocates a fresh `labels` array and spreads `getLabels()` every rendered frame, and `coordsLabel` allocates a new `THREE.Vector3` per call, defeating the CSS2DObject pooling's intent. *Fix:* reuse a persisted labels array (`length = 0` + push) and write `coordsLabel` into a caller-supplied out-vector (mirroring `pixelToSpherical(out)`).
 

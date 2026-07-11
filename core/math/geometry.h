@@ -314,6 +314,16 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
 }
 
 /**
+ * @brief Projects a unit vector to its pixel column (azimuth only).
+ * @tparam W The width.
+ * @param v Unit vector on the sphere; only its x/z azimuth is read.
+ * @return The `x` pixel coordinate in `[0, W]` (can round up to `W`; floor before indexing).
+ */
+template <int W> float vector_to_theta(const Vector &v) {
+  return wrap((fast_atan2(v.z, v.x) * W) / (2 * PI_F), W);
+}
+
+/**
  * @brief Converts a 3D unit vector back to 2D pixel coordinates.
  * @note Derives `theta`/`phi` with the approximate `fast_atan2`/`fast_acos`, so
  *   the projection is sub-pixel inexact and `vector → pixel → vector` does not
@@ -331,10 +341,9 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
 template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
   // phi = acos(v.y) is the true latitude only when |v| == 1; trap non-unit v in debug.
   assert(std::fabs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
-  float theta = fast_atan2(v.z, v.x);
   float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
   // phi_to_y<H> derives H_VIRT internally, mirroring pixel_to_vector's y_to_phi<H>.
-  PixelCoords p({wrap((theta * W) / (2 * PI_F), W), phi_to_y<H>(phi)});
+  PixelCoords p({vector_to_theta<W>(v), phi_to_y<H>(phi)});
   return p;
 }
 
