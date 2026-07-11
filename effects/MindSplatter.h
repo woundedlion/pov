@@ -102,7 +102,7 @@ public:
     for (size_t i = 0; i < particle_system.attractors.size(); ++i)
       particle_system.attractors[i].strength = params.well_strength;
     particle_system.step(canvas);
-    params.active_count = (float)particle_system.active_count;
+    params.active_count = (float)particle_system.active();
 
     draw_particles(canvas, 1.0f);
   }
@@ -229,7 +229,7 @@ private:
 
         emitter_hues[i] = fmodf(emitter_hues[i] + INV_PHI * 0.1f, 1.0f);
 
-        if (particle_system.active_count < particle_system.pool.capacity()) {
+        if (particle_system.active() < particle_system.pool.capacity()) {
           uint16_t seed_u16 = static_cast<uint16_t>(emitter_hues[i] * 65535.0f);
           particle_system.spawn(EmitSolid::vertices[i], vel, seed_u16);
         }
@@ -274,12 +274,12 @@ private:
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       float alpha = std::min(f.v0, f.v3);
       size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
-      // Fragments only exist for live particles, so active_count >= 1 here; the
-      // clamp keeps a float-rounding overshoot in range. The active_count guard
+      // Fragments only exist for live particles, so active() >= 1 here; the
+      // clamp keeps a float-rounding overshoot in range. The active() guard
       // avoids an unsigned underflow to SIZE_MAX if that precondition is ever
       // violated.
-      if (particle_system.active_count)
-        p_idx = std::min<size_t>(p_idx, particle_system.active_count - 1);
+      if (particle_system.active())
+        p_idx = std::min<size_t>(p_idx, particle_system.active() - 1);
 
       const auto &p = particle_system.pool[p_idx];
       float seed_f = static_cast<float>(p.color_seed) / 65535.0f;
@@ -289,7 +289,7 @@ private:
       f.color = c;
     };
 
-    HS_CHECK(particle_system.active_count <= particle_system.pool.capacity(),
+    HS_CHECK(particle_system.active() <= particle_system.pool.capacity(),
              "MindSplatter particle index space exceeds pool capacity");
     Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
                                      fragment_shader, vertex_shader);
