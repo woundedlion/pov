@@ -102,9 +102,9 @@ inline void test_construction_dims_and_clear() {
   HS_EXPECT_EQ(fx.height(), 20);
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(10, 5), 0, 0, 0));
   HS_EXPECT_TRUE(fx.buffer_free());
-  HS_EXPECT_TRUE(fx.clip.is_full());
-  HS_EXPECT_EQ(fx.clip.y_end, 20);
-  HS_EXPECT_EQ(fx.clip.x_end, 96);
+  HS_EXPECT_TRUE(fx.clip().is_full());
+  HS_EXPECT_EQ(fx.clip().y_end, 20);
+  HS_EXPECT_EQ(fx.clip().x_end, 96);
 }
 
 // ============================================================================
@@ -514,19 +514,19 @@ inline void test_paramlist_fills_to_capacity() {
 inline void test_clip_setters() {
   TestEffect fx(96, 20);
   fx.set_clip(2, 10, 5, 40);
-  HS_EXPECT_EQ(fx.clip.y_start, 2);
-  HS_EXPECT_EQ(fx.clip.y_end, 10);
-  HS_EXPECT_EQ(fx.clip.x_start, 5);
-  HS_EXPECT_EQ(fx.clip.x_end, 40);
-  HS_EXPECT_FALSE(fx.clip.is_full());
+  HS_EXPECT_EQ(fx.clip().y_start, 2);
+  HS_EXPECT_EQ(fx.clip().y_end, 10);
+  HS_EXPECT_EQ(fx.clip().x_start, 5);
+  HS_EXPECT_EQ(fx.clip().x_end, 40);
+  HS_EXPECT_FALSE(fx.clip().is_full());
 
   fx.set_clip_x(7, 50);
-  HS_EXPECT_EQ(fx.clip.x_start, 7);
-  HS_EXPECT_EQ(fx.clip.x_end, 50);
-  HS_EXPECT_EQ(fx.clip.y_start, 2);
+  HS_EXPECT_EQ(fx.clip().x_start, 7);
+  HS_EXPECT_EQ(fx.clip().x_end, 50);
+  HS_EXPECT_EQ(fx.clip().y_start, 2);
 
   fx.set_margin(3);
-  HS_EXPECT_EQ(fx.clip.margin, 3);
+  HS_EXPECT_EQ(fx.clip().margin, 3);
 }
 
 /**
