@@ -843,9 +843,8 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
     HalfEdgeMesh he_mesh(temp, out_mesh);
 
     // Per-vertex orbit start: an outgoing half-edge (pair of an interior
-    // incoming edge). vertices[i].half_edge holds only the last incoming edge
-    // written; if that one is a boundary its 1-ring would be dropped even when a
-    // paired incoming edge exists, so scan for one.
+    // incoming edge). Scanning the half-edges finds a paired incoming edge per
+    // vertex; a boundary incoming edge would otherwise drop the 1-ring.
     ArenaVector<uint16_t> orbit_start;
     orbit_start.bind(temp, V);
     for (size_t i = 0; i < V; ++i)

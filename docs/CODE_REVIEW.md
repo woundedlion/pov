@@ -112,7 +112,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 18. ✅ **Holosphere/core/engine/transformers.h:170** — In `spawn_impl`'s non-pinned reclaim callback, the `repeats` snapshot and `if (!repeats)` guard are dead: an always-on `HS_CHECK(!p->repeats())` a few lines above proves `repeats` is always false here. *Fix:* drop the snapshot and unconditionally deactivate; keep the pinned branch's live re-query.
 
-19. **Holosphere/core/mesh/mesh.h:196** — `HEVertex::half_edge` (and the whole `HalfEdgeMesh::vertices` array) is written on every build but never read; the `relax` operator explicitly scans `half_edges` directly instead. Wastes budget-sensitive temp arena on each Conway build. *Fix:* remove the struct, member, and its bind/populate loop.
+19. ✅ **Holosphere/core/mesh/mesh.h:196** — `HEVertex::half_edge` (and the whole `HalfEdgeMesh::vertices` array) is written on every build but never read; the `relax` operator explicitly scans `half_edges` directly instead. Wastes budget-sensitive temp arena on each Conway build. *Fix:* remove the struct, member, and its bind/populate loop.
 
 20. **Holosphere/core/render/sdf.h:1764** — `Face::max_r2` is a persistent member written and read only inside `setup_frame_and_polygon`; it enlarges every `Face` and implies post-construction validity it doesn't have. *Fix:* make it a local; `radius`/`max_dist_sq` are the real persisted derivatives.
 
