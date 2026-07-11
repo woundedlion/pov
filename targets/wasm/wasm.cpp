@@ -1246,6 +1246,24 @@ static bool all_finite(std::initializer_list<float> args) {
   return true;
 }
 
+// Boundary validity of four spline control points plus a scalar (t / tension).
+// NonFinite would abort the slerp normalize; a finite zero-length control point
+// (checked only when check_degenerate) would trip the strict normalized().
+enum class SplineInputStatus { Valid, NonFinite, Degenerate };
+
+static SplineInputStatus spline_input_status(const Vector (&cps)[4], float scalar,
+                                             bool check_degenerate) {
+  if (!all_finite({cps[0].x, cps[0].y, cps[0].z, cps[1].x, cps[1].y, cps[1].z,
+                   cps[2].x, cps[2].y, cps[2].z, cps[3].x, cps[3].y, cps[3].z,
+                   scalar}))
+    return SplineInputStatus::NonFinite;
+  if (check_degenerate)
+    for (const Vector &p : cps)
+      if (p.x * p.x + p.y * p.y + p.z * p.z < math::EPS_NORMALIZE_SQ)
+        return SplineInputStatus::Degenerate;
+  return SplineInputStatus::Valid;
+}
+
 /**
  * @brief Evaluates a four-control-point cubic spline (cubic_fast/cubic_slerp)
  *        from the 13 flat floats Embind passes, returning the point as {x,y,z}.
@@ -1259,26 +1277,18 @@ static val eval_cubic_spline(Vector (*fn)(const Vector &, const Vector &,
                              float p1y, float p1z, float p2x, float p2y,
                              float p2z, float p3x, float p3y, float p3z,
                              float t, bool reject_degenerate = false) {
-  // Reject non-finite input at the boundary: it would abort the slerp normalize.
-  if (!all_finite({p0x, p0y, p0z, p1x, p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z,
-                   t})) {
+  const Vector cps[4] = {{p0x, p0y, p0z}, {p1x, p1y, p1z},
+                         {p2x, p2y, p2z}, {p3x, p3y, p3z}};
+  const SplineInputStatus st = spline_input_status(cps, t, reject_degenerate);
+  if (st == SplineInputStatus::NonFinite) {
     hs::log("WASM: cubic spline got a non-finite argument — returning zero");
     return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
   }
-  // slerp normalizes each control point; a finite zero-length one would trip the
-  // strict normalized() and abort the module, so reject it at the boundary too.
-  if (reject_degenerate) {
-    const Vector pts[4] = {{p0x, p0y, p0z}, {p1x, p1y, p1z},
-                           {p2x, p2y, p2z}, {p3x, p3y, p3z}};
-    for (const Vector &p : pts) {
-      if (p.x * p.x + p.y * p.y + p.z * p.z < math::EPS_NORMALIZE_SQ) {
-        hs::log("WASM: cubic spline got a degenerate control point — returning zero");
-        return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
-      }
-    }
+  if (st == SplineInputStatus::Degenerate) {
+    hs::log("WASM: cubic spline got a degenerate control point — returning zero");
+    return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
   }
-  return vector_to_xyz(fn({p0x, p0y, p0z}, {p1x, p1y, p1z}, {p2x, p2y, p2z},
-                          {p3x, p3y, p3z}, t));
+  return vector_to_xyz(fn(cps[0], cps[1], cps[2], cps[3], t));
 }
 
 /**
@@ -1370,35 +1380,27 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
                                 float startx, float starty, float startz,
                                 float endx, float endy, float endz, float nextx,
                                 float nexty, float nextz, float tension) -> val {
-             if (!all_finite({prevx, prevy, prevz, startx, starty, startz, endx,
-                              endy, endz, nextx, nexty, nextz, tension})) {
-               hs::log("WASM: catmull_rom_tangents got a non-finite argument — "
-                       "returning zero");
+             const Vector cps[4] = {{prevx, prevy, prevz},
+                                    {startx, starty, startz},
+                                    {endx, endy, endz},
+                                    {nextx, nexty, nextz}};
+             const SplineInputStatus st =
+                 spline_input_status(cps, tension, true);
+             if (st != SplineInputStatus::Valid) {
+               if (st == SplineInputStatus::NonFinite)
+                 hs::log("WASM: catmull_rom_tangents got a non-finite argument — "
+                         "returning zero");
+               else
+                 hs::log("WASM: catmull_rom_tangents got a degenerate control "
+                         "point — returning zero");
                val v = val::object();
                v.set("cp1", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
                v.set("cp2", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
                return v;
              }
-             const Vector cps[4] = {{prevx, prevy, prevz},
-                                    {startx, starty, startz},
-                                    {endx, endy, endz},
-                                    {nextx, nexty, nextz}};
-             for (const Vector &p : cps) {
-               if (p.x * p.x + p.y * p.y + p.z * p.z < math::EPS_NORMALIZE_SQ) {
-                 hs::log("WASM: catmull_rom_tangents got a degenerate control "
-                         "point — returning zero");
-                 val v = val::object();
-                 v.set("cp1", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
-                 v.set("cp2", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
-                 return v;
-               }
-             }
              Vector cp1, cp2;
-             Spline::catmull_rom_tangents({prevx, prevy, prevz},
-                                          {startx, starty, startz},
-                                          {endx, endy, endz},
-                                          {nextx, nexty, nextz}, tension, cp1,
-                                          cp2);
+             Spline::catmull_rom_tangents(cps[0], cps[1], cps[2], cps[3],
+                                          tension, cp1, cp2);
              val v = val::object();
              v.set("cp1", vector_to_xyz(cp1));
              v.set("cp2", vector_to_xyz(cp2));
