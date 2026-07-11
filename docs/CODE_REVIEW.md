@@ -100,7 +100,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 13. ✅ **daydream/scripts/require-tests.mjs:7** — The zero-test guard hardcodes `'tests'` and `'.test.js'` independently of the `package.json` test glob; changing the glob while stale files remain lets the guard pass while `node --test` runs nothing. *Fix:* derive the pattern from the `package.json` `test` script instead of restating literals.
 
-14. **daydream/.github/workflows/js-tests.yml:8** — The PR test workflow has no `concurrency` group, so rapid pushes spawn overlapping redundant runs and a stale run can report after a newer one. *Fix:* add `concurrency: { group: js-tests-${{ github.ref }}, cancel-in-progress: true }`.
+14. ✅ **daydream/.github/workflows/js-tests.yml:8** — The PR test workflow has no `concurrency` group, so rapid pushes spawn overlapping redundant runs and a stale run can report after a newer one. *Fix:* add `concurrency: { group: js-tests-${{ github.ref }}, cancel-in-progress: true }`.
 
 15. **Holosphere/.github/workflows/ci.yml:284** — The debug WASM runtime-smoke (the only `-sASSERTIONS=1` build) omits `WASM_SMOKE_FRAMES` and runs 3 frames, never reaching the frame-48 ShapeShifter cut / arena compaction that the release smoke bumps to 120 frames to hit — so no CI config exercises late-lifecycle code *with assertions on*. *Fix:* set `WASM_SMOKE_FRAMES: 120` (or ≥60) on that step.
 
