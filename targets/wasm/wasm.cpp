@@ -477,7 +477,7 @@ public:
    *       "not instrumented," not "free"; it is not a reliable cross-effect cost
    *       metric for those effects.
    */
-  double getRenderUs() {
+  double getRenderUs() const {
     return currentEffect ? currentEffect->render_us : 0.0;
   }
 
@@ -520,7 +520,7 @@ public:
    * @return Number of uint16 elements in the active view (pixel_width *
    *         pixel_height * 3, three channels per pixel).
    */
-  int getBufferLength() { return pixel_width * pixel_height * CHANNELS; }
+  int getBufferLength() const { return pixel_width * pixel_height * CHANNELS; }
 
   /**
    * @brief Updates one named effect parameter.
