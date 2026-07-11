@@ -1449,6 +1449,45 @@ inline void test_hue_wobble_shade() {
 }
 
 /**
+ * @brief Verifies SparkleShade whitens only over-threshold noise sites.
+ * @details Sub-threshold samples pass through bit-exact; over-threshold samples
+ *          match the reference lerp toward white and never darken; alpha is
+ *          untouched. A 0.5 threshold guarantees both cases occur in a domain
+ *          sweep.
+ */
+inline void test_sparkle_shade() {
+  Color4 base(Pixel(20000, 8000, 30000), 0.9f);
+  float time = 3.1f;
+  SparkleShade sparkle(&time, 16.0f, 0.5f, 21u);
+
+  int lit = 0, dark = 0;
+  for (int i = 0; i <= 100; ++i) {
+    float t = i * 0.01f;
+    float n = value_noise_2d(t * 16.0f, time, 21u);
+    Color4 got = sparkle.shade(base, t);
+    HS_EXPECT_NEAR(got.alpha, 0.9f, 1e-6f);
+    if (n <= 0.5f) {
+      dark++;
+      HS_EXPECT_EQ(got.color.r, base.color.r);
+      HS_EXPECT_EQ(got.color.g, base.color.g);
+      HS_EXPECT_EQ(got.color.b, base.color.b);
+    } else {
+      lit++;
+      float w = (n - 0.5f) / 0.5f;
+      Pixel ref = base.color.lerp16(Pixel(65535, 65535, 65535), frac_to_q16(w));
+      HS_EXPECT_EQ(got.color.r, ref.r);
+      HS_EXPECT_EQ(got.color.g, ref.g);
+      HS_EXPECT_EQ(got.color.b, ref.b);
+      HS_EXPECT_GE(got.color.r, base.color.r);
+      HS_EXPECT_GE(got.color.g, base.color.g);
+      HS_EXPECT_GE(got.color.b, base.color.b);
+    }
+  }
+  HS_EXPECT_GT(lit, 0);
+  HS_EXPECT_GT(dark, 0);
+}
+
+/**
  * @brief Verifies StaticPalette folds its modifier chain then queries the source.
  * @details Applies the modifier chain in order before sampling the source.
  */
@@ -1628,6 +1667,7 @@ inline int run_color_tests() {
   test_drift_modifier();
   test_hue_spin_shade();
   test_hue_wobble_shade();
+  test_sparkle_shade();
   test_static_palette_composition();
   test_palette_wrappers();
 
