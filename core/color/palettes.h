@@ -158,13 +158,19 @@ struct MeshPaletteBank {
    * @return Const reference to the baked palette; hot-path lookup is
    *         bank[slot].get(t).
    */
-  const BakedPalette &operator[](int i) const { return bank.entries[i]; }
+  const BakedPalette &operator[](int i) const {
+    HS_CHECK(i >= 0 && i < N, "MeshPaletteBank index out of range");
+    return bank.entries[i];
+  }
   /**
    * @brief Returns the baked LUT for a slot index.
    * @param i Slot index in [0, N).
    * @return Mutable reference to the baked palette.
    */
-  BakedPalette &operator[](int i) { return bank.entries[i]; }
+  BakedPalette &operator[](int i) {
+    HS_CHECK(i >= 0 && i < N, "MeshPaletteBank index out of range");
+    return bank.entries[i];
+  }
 
   /**
    * @brief Cloneable hook so effects can Persist<MeshPaletteBank> across

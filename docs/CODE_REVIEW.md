@@ -105,7 +105,7 @@ _Latent correctness / robustness (real behavior under a reachable condition):_
 
 7. **[daydream] `daydream/recorder.js:383-386`** — Cancelling the Save-As dialog sets `aborted=true` but does not stop the already-started `MediaRecorder`; the session keeps capturing while every chunk is discarded, and stop yields no file with only a console warning. *Fix:* call `this.stop()` in the `opened.catch` `AbortError` branch so a cancelled save ends the session.
 
-8. **[color] `core/color/palettes.h:161,167`** — `MeshPaletteBank::operator[](int i)` indexes the 5-element array with no bounds trap, against the codebase's fail-fast convention (all sibling palette accessors check). Safe only because current indices come from `shuffle_indices`. *Fix:* add `HS_CHECK(i >= 0 && i < N, ...)` to both overloads (off the per-pixel path).
+8. ✅ **[color] `core/color/palettes.h:161,167`** — `MeshPaletteBank::operator[](int i)` indexes the 5-element array with no bounds trap, against the codebase's fail-fast convention (all sibling palette accessors check). Safe only because current indices come from `shuffle_indices`. *Fix:* add `HS_CHECK(i >= 0 && i < N, ...)` to both overloads (off the per-pixel path).
 
 9. **[engine] `core/engine/inplace_function.h:137-149`** — `ArenaVector`'s destructor-skipping contract relies on captured callables being trivially destructible, but `inplace_function`'s converting ctor only `static_assert`s copy/nothrow-move/nothrow-copy — never trivial destructibility. A nothrow-copyable callable owning an external resource could be stored and silently leaked. *Fix:* add `static_assert(std::is_trivially_destructible_v<D>, ...)` to the converting ctor (all current captures already satisfy it).
 
