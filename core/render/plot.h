@@ -1042,6 +1042,22 @@ inline void sample_closed_ring(Fragments &points, int num_verts, PosFn pos_fn) {
 }
 
 /**
+ * @brief Tangent-plane vector at LUT index i rotated by phase.
+ * @details Angle-addition identity: cos/sin(θ+φ) from the precomputed θ-grid,
+ * then (u·cos_t + w·sin_t). Shared by the LUT-optimized Ring and DistortedRing
+ * samplers so a future LUT-recovery correction stays in one place.
+ */
+template <int W, int H>
+static inline Vector ring_tangent(int i, const Vector &u, const Vector &w,
+                                  float cos_phase, float sin_phase) {
+  float cos_t = TrigLUT<W, H>::cos_theta(i) * cos_phase -
+                TrigLUT<W, H>::sin_theta[i] * sin_phase;
+  float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase +
+                TrigLUT<W, H>::cos_theta(i) * sin_phase;
+  return (u * cos_t) + (w * sin_t);
+}
+
+/**
  * @brief Ring primitives.
  * Registers:
  *  v0: Angular progress (0.0 -> 1.0)
@@ -1147,12 +1163,7 @@ struct Ring {
     const float sin_phase = sinf(phase);
 
     for (int i = 0; i < W; i++) {
-      // Angle-addition identity: cos/sin(θ+φ) from the precomputed θ-grid.
-      float cos_t = TrigLUT<W, H>::cos_theta(i) * cos_phase -
-                    TrigLUT<W, H>::sin_theta[i] * sin_phase;
-      float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase +
-                    TrigLUT<W, H>::cos_theta(i) * sin_phase;
-      Vector u_temp = (u * cos_t) + (w * sin_t);
+      Vector u_temp = ring_tangent<W, H>(i, u, w, cos_phase, sin_phase);
 
       Fragment f;
       f.pos = ((v * d_val) + (u_temp * r_val)).normalized();
@@ -1441,12 +1452,7 @@ struct DistortedRing {
     // length accumulation, and overlap close are the shared closed-ring skeleton.
     sample_closed_ring(points, num_samples, [&](int i) {
       float theta = i * step;
-      // Angle-addition identity: cos/sin(θ+φ) from precomputed LUT
-      float cos_t = TrigLUT<W, H>::cos_theta(i) * cos_phase -
-                    TrigLUT<W, H>::sin_theta[i] * sin_phase;
-      float sin_t = TrigLUT<W, H>::sin_theta[i] * cos_phase +
-                    TrigLUT<W, H>::cos_theta(i) * sin_phase;
-      Vector u_temp = (u * cos_t) + (w * sin_t);
+      Vector u_temp = ring_tangent<W, H>(i, u, w, cos_phase, sin_phase);
 
       float shift = shift_fn(theta / (2.0f * PI_F));
       float cos_shift = cosf(shift);

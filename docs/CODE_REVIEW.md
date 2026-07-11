@@ -126,7 +126,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 25. **Holosphere/hardware/phantasm/gen/pcb.py:34** — The `kicad-cli` netlist-export sequence and the `F(n,k)`/`fmt`/`uid` helpers are duplicated across `pcb.py`, `check.py`, `shorts.py`, and `builder.py`; a KiCad-flag or schema change drifts the copies. *Fix:* hoist `export_netlist` and the pure helpers into a shared module and import them. ✅
 
-26. **Holosphere/core/render/plot.h:1445** — `Ring::sample` and `DistortedRing::sample` contain byte-identical angle-addition-from-`TrigLUT` blocks plus the tangent-plane vector build; a future LUT-recovery correction must be applied in both or they diverge. *Fix:* extract a `static inline` helper (kept `inline` so codegen is unchanged).
+26. ✅ **Holosphere/core/render/plot.h:1445** — `Ring::sample` and `DistortedRing::sample` contain byte-identical angle-addition-from-`TrigLUT` blocks plus the tangent-plane vector build; a future LUT-recovery correction must be applied in both or they diverge. *Fix:* extract a `static inline` helper (kept `inline` so codegen is unchanged).
 
 27. **Holosphere/core/render/plot.h:521** — Each planar edge endpoint is run through `azimuthal_project` (acos + fast_atan2 + fast_cosf/sinf) up to 3× per frame across the arc pre-pass, clip cull, and draw. Per-coarse-segment (not per-pixel), so cost is small. *Fix:* cache the per-vertex projection once in the pre-pass and have all three consume it.
 
