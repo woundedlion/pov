@@ -132,7 +132,7 @@ Every validated defect is listed below, numbered sequentially and grouped by pri
 
 ### Priority 3 — Robustness hardening (prefer trap/guard over silent degradation)
 
-17. [Low] **Geometry — `inv_gnomonic(z, original_sign = 1.0f)` defaults the lossy path.** Forward `gnomonic` collapses antipodes; a caller who forgets the sign silently gets the northern hemisphere for every southern point (`3dmath.h:793`). Make the hemisphere argument required.
+17. ✅ [Low] **Geometry — `inv_gnomonic(z, original_sign = 1.0f)` defaults the lossy path.** Forward `gnomonic` collapses antipodes; a caller who forgets the sign silently gets the northern hemisphere for every southern point (`3dmath.h:793`). Make the hemisphere argument required.
 18. [Low] **Geometry — `Style` copy silently drops the `noise` binding + hue cache.** `Style` is trivially assignable, but a full-struct copy (`style = Style::Churn()`, `Presets::apply`) resets `noise` to `nullptr` (degrading `noise_warp` → identity) until `sync_noise()`/`sync_hue()` re-run — an unwarped, un-hue-shifted frame with no error (`styles.h:94`).
 19. [Low] **Color — `gamut_clip_preserve_chroma` hinges on an unenforced `L ∈ [0,1]`.** For L slightly out of range even the achromatic floor is out of gamut and the search returns a silently out-of-gamut color (`color.h:694`). Add a guard.
 20. [Low] **Color — `GenerativePalette::get` re-derived chroma not floored at 0.** A small negative `C` from `fast_sinf` flips hue 180° in `oklch_to_oklab` (`color.h:1401`). Mirror the `std::max(0.0f, …)` already used in `lerp_oklch`.
