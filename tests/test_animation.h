@@ -1742,6 +1742,76 @@ inline void test_meshmorph_identity_self_map_and_crossfade() {
 }
 
 // ============================================================================
+// MeshCarousel arena compaction (compact / compact_keep_front)
+// ----------------------------------------------------------------------------
+// Both evacuate slots to a scratch arena, reset the persistent arena, and
+// restore on scope exit. compact() keeps both slots; compact_keep_front() drops
+// the back slot and runs after_reset before the front restore.
+// ============================================================================
+
+/**
+ * @brief Verifies compact() evacuates and restores BOTH slots across the
+ * persistent-arena reset, preserving each slot's geometry.
+ */
+inline void test_meshcarousel_compact_retains_both_slots() {
+  persistent_arena.reset();
+  static uint8_t polybuf[1 << 14];
+  Arena polyarena(polybuf, sizeof(polybuf));
+  PolyMesh poly;
+  build_octahedron(poly, polyarena);
+
+  MeshCarousel<Segue::Crossfade> carousel;
+  MeshOps::compile(poly, carousel.slot(0), persistent_arena, scratch_arena_a);
+  MeshOps::compile(poly, carousel.slot(1), persistent_arena, scratch_arena_a);
+  const size_t v0 = carousel.slot(0).vertices.size();
+  const size_t v1 = carousel.slot(1).vertices.size();
+  HS_EXPECT_EQ(v0, static_cast<size_t>(6));
+  HS_EXPECT_EQ(v1, static_cast<size_t>(6));
+
+  carousel.compact();
+
+  HS_EXPECT_TRUE(carousel.slot(0).is_bound());
+  HS_EXPECT_TRUE(carousel.slot(1).is_bound());
+  HS_EXPECT_EQ(carousel.slot(0).vertices.size(), v0);
+  HS_EXPECT_EQ(carousel.slot(1).vertices.size(), v1);
+  HS_EXPECT_VEC(carousel.slot(0).vertices[0], Vector(1, 0, 0), 1e-5f);
+  HS_EXPECT_VEC(carousel.slot(1).vertices[0], Vector(1, 0, 0), 1e-5f);
+}
+
+/**
+ * @brief Verifies compact_keep_front() drops the back slot, restores the front,
+ * and runs after_reset BEFORE the front restore — a re-bake lands beneath the
+ * restored front geometry in the arena.
+ */
+inline void test_meshcarousel_compact_keep_front_drops_back() {
+  persistent_arena.reset();
+  static uint8_t polybuf[1 << 14];
+  Arena polyarena(polybuf, sizeof(polybuf));
+  PolyMesh poly;
+  build_octahedron(poly, polyarena);
+
+  MeshCarousel<Segue::Crossfade> carousel; // front slot 0
+  MeshOps::compile(poly, carousel.slot(0), persistent_arena, scratch_arena_a);
+  MeshOps::compile(poly, carousel.slot(1), persistent_arena, scratch_arena_a);
+  const size_t v_front = carousel.current().vertices.size();
+
+  bool after_reset_ran = false;
+  const void *bake_ptr = nullptr;
+  carousel.compact_keep_front([&](Arena &a) {
+    after_reset_ran = true;
+    bake_ptr = a.allocate(64);
+  });
+
+  HS_EXPECT_TRUE(after_reset_ran);
+  HS_EXPECT_TRUE(carousel.current().is_bound());
+  HS_EXPECT_EQ(carousel.current().vertices.size(), v_front);
+  HS_EXPECT_VEC(carousel.current().vertices[0], Vector(1, 0, 0), 1e-5f);
+  HS_EXPECT_FALSE(carousel.slot(1).is_bound());
+  HS_EXPECT_GT(reinterpret_cast<uintptr_t>(&carousel.current().vertices[0]),
+               reinterpret_cast<uintptr_t>(bake_ptr));
+}
+
+// ============================================================================
 // ColorWipe
 // ----------------------------------------------------------------------------
 // Snapshots the source palette's keys on the first step (mirroring Transition),
@@ -2194,6 +2264,8 @@ inline int run_animation_tests() {
   test_tween_vectortrail_single_sample_reaches_one();
 
   test_meshmorph_identity_self_map_and_crossfade();
+  test_meshcarousel_compact_retains_both_slots();
+  test_meshcarousel_compact_keep_front_drops_back();
 
   test_colorwipe_reaches_target_keys();
   test_colorwipe_snapshots_on_first_step();
