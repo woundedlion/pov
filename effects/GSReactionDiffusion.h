@@ -7,6 +7,7 @@
 
 #include <algorithm>
 #include <cstring>
+#include <utility>
 #include "core/engine/engine.h"
 #include "effects/ReactionDiffusionBase.h"
 
@@ -60,7 +61,8 @@ fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2, int count,
  * @details
  * Two species (A, B) evolve via Gray-Scott dynamics (A·B² autocatalysis with
  * feed/kill) on the shared 7680-node lattice, producing spots/stripes/mazes.
- * State is Q16 (uint16_t) for the cubic reaction-term precision. Shared
+ * Persistent state is Q16 (uint16_t) for the cubic reaction-term precision;
+ * substeps integrate in float and quantize back once per frame. Shared
  * lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
  *
  * Memory budget (persistent arena, configured 174 KB):
@@ -71,7 +73,7 @@ fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2, int count,
  *   - Total:                                       175,104 B (171 KB)
  *
  * Scratch arena (per frame, disjoint phases):
- *   - Physics: ping-pong 2 × 7680 × 2B + float pre-convert 2 × 7680 × 4B = 92,160 B
+ *   - Physics: float ping-pong 4 × 7680 × 4B                             = 122,880 B
  *   - Raster:  oriented lattice 7680 × 12B + cull flags 2 × 7680 × 1B    = 107,520 B
  */
 template <int W, int H>
@@ -81,7 +83,6 @@ class GSReactionDiffusion
   friend Base; // draw_frame() forwards to render()
 
   // Bring dependent-base names into scope (template base requires this).
-  using Base::advance_substeps;
   using Base::cube_lut;
   using Base::for_each_neighbor;
   using Base::init_lattice;
@@ -117,11 +118,10 @@ public:
                       PERSISTENT_BYTES,
                   "GS persistent arena too small for LUT + state + nodes + "
                   "palette");
-    // render()'s scratch peaks at the larger of the physics phase (2 uint16 +
-    // 2 float species buffers) and the raster phase (the oriented lattice);
-    // the two run under disjoint scopes.
-    constexpr size_t PHYSICS_SCRATCH_BYTES =
-        2u * RD_N * sizeof(uint16_t) + 2u * RD_N * sizeof(float);
+    // render()'s scratch peaks at the larger of the physics phase (4 float
+    // ping-pong buffers) and the raster phase (the oriented lattice + cull
+    // flags); the two run under disjoint scopes.
+    constexpr size_t PHYSICS_SCRATCH_BYTES = 4u * RD_N * sizeof(float);
     constexpr size_t RASTER_SCRATCH_BYTES =
         RD_N * sizeof(Vector) + 2u * RD_N * sizeof(uint8_t);
     constexpr size_t SCRATCH_BYTES =
@@ -230,41 +230,39 @@ private:
 
   /**
    * @brief Advances one Gray-Scott substep into the next buffers (Jacobi).
-   * @param c_a Current A field (read-only), Q16 per node.
-   * @param c_b Current B field (read-only), Q16 per node.
-   * @param n_a Next A field (write target), Q16 per node.
-   * @param n_b Next B field (write target), Q16 per node.
-   * @param f_a Float scratch (RD_N) for the current A generation.
-   * @param f_b Float scratch (RD_N) for the current B generation.
+   * @param c_a Current A field (read-only), float in [0, 1] per node.
+   * @param c_b Current B field (read-only), float in [0, 1] per node.
+   * @param n_a Next A field (write target), float in [0, 1] per node.
+   * @param n_b Next B field (write target), float in [0, 1] per node.
    * @details Gray-Scott: dA/dt = dA·∇²A - A·B² + feed·(1-A);
    * dB/dt = dB·∇²B + A·B² - (k+feed)·B. Double-buffered Jacobi: reads current
-   * buffers, writes next; the caller owns the ping-pong (see render()).
-   * Pre-converts the current generation into f_a/f_b once so the neighbor loop
-   * reads floats.
+   * buffers, writes next; the caller owns the ping-pong (see render()). The
+   * [0, 1] clamp saturates explicit-Euler overshoot past the stability bound
+   * (see "Speed"); substeps stay in float so the Q16 state quantizes once per
+   * frame, not once per substep.
    */
-  void step_physics(const uint16_t *c_a, const uint16_t *c_b, uint16_t *n_a,
-                    uint16_t *n_b, float *f_a, float *f_b) {
+  void step_physics(const float *c_a, const float *c_b, float *n_a,
+                    float *n_b) {
     for (int i = 0; i < RD_N; i++) {
-      f_a[i] = from_q16(c_a[i]);
-      f_b[i] = from_q16(c_b[i]);
-    }
-    for (int i = 0; i < RD_N; i++) {
-      float a = f_a[i];
-      float b = f_b[i];
+      float a = c_a[i];
+      float b = c_b[i];
 
       float sum_a = 0, sum_b = 0;
       for_each_neighbor(i, [&](int ni) {
-        sum_a += f_a[ni];
-        sum_b += f_b[ni];
+        sum_a += c_a[ni];
+        sum_b += c_b[ni];
       });
       float l_a = sum_a - RD_K * a;
       float l_b = sum_b - RD_K * b;
 
       float abb = a * b * b;
-      n_a[i] = to_q16(a + (params.d_a * l_a - abb + params.feed * (1.0f - a)) *
-                             params.dt);
-      n_b[i] = to_q16(b + (params.d_b * l_b + abb - (params.k + params.feed) * b) *
-                             params.dt);
+      n_a[i] = hs::clamp(
+          a + (params.d_a * l_a - abb + params.feed * (1.0f - a)) * params.dt,
+          0.0f, 1.0f);
+      n_b[i] = hs::clamp(
+          b + (params.d_b * l_b + abb - (params.k + params.feed) * b) *
+                  params.dt,
+          0.0f, 1.0f);
     }
   }
 
@@ -300,22 +298,31 @@ private:
   void render(Canvas &canvas) {
     ScratchScope frame_guard(scratch_arena_a);
     {
+      // The substeps ping-pong in float; the Q16 state converts in once and
+      // quantizes back once per frame, not once per substep.
       ScratchScope physics_guard(scratch_arena_a);
-      uint16_t *s_a = static_cast<uint16_t *>(
-          scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-      uint16_t *s_b = static_cast<uint16_t *>(
-          scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-      float *f_a = static_cast<float *>(
+      float *cur_a = static_cast<float *>(
           scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-      float *f_b = static_cast<float *>(
+      float *cur_b = static_cast<float *>(
+          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+      float *nxt_a = static_cast<float *>(
+          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+      float *nxt_b = static_cast<float *>(
           scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
 
-      advance_substeps(STEPS_PER_FRAME,
-                       std::array<uint16_t *, 2>{state.A, state.B},
-                       std::array<uint16_t *, 2>{s_a, s_b},
-                       [&](auto &cur, auto &nxt) {
-                         step_physics(cur[0], cur[1], nxt[0], nxt[1], f_a, f_b);
-                       });
+      for (int i = 0; i < RD_N; i++) {
+        cur_a[i] = from_q16(state.A[i]);
+        cur_b[i] = from_q16(state.B[i]);
+      }
+      for (int k = 0; k < STEPS_PER_FRAME; k++) {
+        step_physics(cur_a, cur_b, nxt_a, nxt_b);
+        std::swap(cur_a, nxt_a);
+        std::swap(cur_b, nxt_b);
+      }
+      for (int i = 0; i < RD_N; i++) {
+        state.A[i] = to_q16(cur_a[i]);
+        state.B[i] = to_q16(cur_b[i]);
+      }
     }
 
     // Physics scratch is popped; the raster phase reuses the arena for the
