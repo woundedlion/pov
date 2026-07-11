@@ -44,13 +44,13 @@ public:
   void init() override {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    register_animated_param("Warp Scale", &params.warp_scale, 0.1f, 10.0f);
-    register_animated_param("Warp Strength", &params.warp_strength, 0.0f, 3.0f);
-    register_animated_param("Pattern Freq", &params.pattern_freq, 1.0f, 20.0f);
-    register_animated_param("Time Speed", &params.time_speed, 0.05f, 5.0f);
-    register_animated_param("Complexity", &params.complexity, 0.5f, 3.0f);
-    register_animated_param("Pole Fade", &params.pole_fade, 1.0f, 20.0f);
-    register_animated_param("Cycle Speed", &params.cycle_speed, 0.0f, 1.0f);
+    register_animated_param("Warp Scale", &params.warp_scale, WARP_SCALE_MIN, WARP_SCALE_MAX);
+    register_animated_param("Warp Strength", &params.warp_strength, WARP_STRENGTH_MIN, WARP_STRENGTH_MAX);
+    register_animated_param("Pattern Freq", &params.pattern_freq, PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
+    register_animated_param("Time Speed", &params.time_speed, TIME_SPEED_MIN, TIME_SPEED_MAX);
+    register_animated_param("Complexity", &params.complexity, COMPLEXITY_MIN, COMPLEXITY_MAX);
+    register_animated_param("Pole Fade", &params.pole_fade, POLE_FADE_MIN, POLE_FADE_MAX);
+    register_animated_param("Cycle Speed", &params.cycle_speed, CYCLE_SPEED_MIN, CYCLE_SPEED_MAX);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
     timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
@@ -272,15 +272,44 @@ private:
   float sin_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's +t term. */
   float cos_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's 0.8*t term. */
 
+  static constexpr float WARP_SCALE_MIN = 0.1f, WARP_SCALE_MAX = 10.0f;
+  static constexpr float WARP_STRENGTH_MIN = 0.0f, WARP_STRENGTH_MAX = 3.0f;
+  static constexpr float PATTERN_FREQ_MIN = 1.0f, PATTERN_FREQ_MAX = 20.0f;
+  static constexpr float TIME_SPEED_MIN = 0.05f, TIME_SPEED_MAX = 5.0f;
+  static constexpr float COMPLEXITY_MIN = 0.5f, COMPLEXITY_MAX = 3.0f;
+  static constexpr float POLE_FADE_MIN = 1.0f, POLE_FADE_MAX = 20.0f;
+  static constexpr float CYCLE_SPEED_MIN = 0.0f, CYCLE_SPEED_MAX = 1.0f;
+
+  /** @brief True iff every preset-driven field of @p p lies within its
+   *  registered slider range (see the range constants above). */
+  static constexpr bool preset_in_ranges(const Params &p) {
+    return p.warp_scale >= WARP_SCALE_MIN && p.warp_scale <= WARP_SCALE_MAX &&
+           p.warp_strength >= WARP_STRENGTH_MIN &&
+           p.warp_strength <= WARP_STRENGTH_MAX &&
+           p.pattern_freq >= PATTERN_FREQ_MIN &&
+           p.pattern_freq <= PATTERN_FREQ_MAX &&
+           p.time_speed >= TIME_SPEED_MIN && p.time_speed <= TIME_SPEED_MAX &&
+           p.complexity >= COMPLEXITY_MIN && p.complexity <= COMPLEXITY_MAX &&
+           p.pole_fade >= POLE_FADE_MIN && p.pole_fade <= POLE_FADE_MAX &&
+           p.cycle_speed >= CYCLE_SPEED_MIN && p.cycle_speed <= CYCLE_SPEED_MAX;
+  }
+
   /**
    * @brief Preset bank cycled by the timeline timer.
    * @details All 7 Params fields are listed explicitly; a trailing omission would
    * silently fall back to the default member initializer, not the preset's value.
    */
-  Presets<Params, 2> presets = {{{
+  static constexpr std::array<PresetEntry<Params>, 2> PRESETS = {{
       {{1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.4f, 0.05f}},
       {{1.5f, 0.5f, 1.2f, 0.05f, 3.0f, 1.4f, 0.05f}},
-  }}};
+  }};
+  static_assert(preset_in_ranges(PRESETS[0].params) &&
+                    preset_in_ranges(PRESETS[1].params),
+                "a Liquid2D preset drives a param outside its registered slider "
+                "range; widen the range to accommodate the preset (the range "
+                "exposes the presets, it does not clamp them)");
+
+  Presets<Params, 2> presets{PRESETS};
 };
 
 #include "core/engine/effect_registry.h"

@@ -90,7 +90,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 ### Priority 2 — Test Coverage & Robustness Gaps
 
-9. **Holosphere/effects/Flyby.h:214** (and **effects/Liquid2D.h:280**) — Unlike MeshFeedback/MindSplatter, the Flyby and Liquid2D preset tables have no compile-time `preset_in_ranges` + `static_assert` proving each preset value lies inside its registered slider range; a future range tightening could silently push a param out of range with no build failure. *Fix:* add the sibling effects' `preset_in_ranges` helper and `static_assert`.
+9. ✅ **Holosphere/effects/Flyby.h:214** (and **effects/Liquid2D.h:280**) — Unlike MeshFeedback/MindSplatter, the Flyby and Liquid2D preset tables have no compile-time `preset_in_ranges` + `static_assert` proving each preset value lies inside its registered slider range; a future range tightening could silently push a param out of range with no build failure. *Fix:* add the sibling effects' `preset_in_ranges` helper and `static_assert`.
 
 10. **Holosphere/effects/MobiusGrid.h:259** — The conformal-radius pole branch and the counter-rotation singularity guard are hand-derived numeric branches that still render a plausible frame if wrong, and have only generic smoke coverage. *Fix:* add a `MobiusGridWhiteBox` seam and a test sweeping `z→±1` (finite coord in [0,1]) and `mid≈0` (q stays identity), mirroring `test_liquid2d_glitch_lens_unit_norm`.
 
