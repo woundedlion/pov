@@ -151,14 +151,13 @@ private:
                      "Transformer::spawn needs a finite, non-repeating "
                      "animation; infinite or repeating spawns leak their pool "
                      "slot — use spawn_pinned");
-          // Recycle the pool slot at final removal. The callback tells a removal
-          // apart from a mid-repeat post fire via repeats(), read differently by
-          // pin because the paths have opposite handle stability:
+          // Recycle the pool slot at final removal. The paths differ by handle
+          // stability:
           //   - Pinned: the event never relocates and may be cancel()ed through
           //     the retained pointer (flipping repeats() to false), so re-query
-          //     live through p.
-          //   - Non-pinned: the event is compacted (relocated) by step(), so p
-          //     must not be retained; repeats() is fixed at spawn, so snapshot it.
+          //     live through p to tell a removal from a mid-repeat post fire.
+          //   - Non-pinned: p must not be retained (step() compacts the event),
+          //     and the HS_CHECK above pins repeats() false, so fire once at done().
           if (pin) {
             p->then([this, idx, p]() {
               if (!p->repeats()) {
@@ -167,12 +166,9 @@ private:
               }
             });
           } else {
-            const bool repeats = p->repeats();
-            p->then([this, idx, repeats]() {
-              if (!repeats) {
-                entities[idx].active = false;
-                remove_active(idx);
-              }
+            p->then([this, idx]() {
+              entities[idx].active = false;
+              remove_active(idx);
             });
           }
         } else {
