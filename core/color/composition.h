@@ -393,6 +393,58 @@ struct InsetModifier {
 ///////////////////////////////////////////////////////////////////////////////
 
 /**
+ * @brief Rotates every sample's hue in OKLab by a driver amount, turning any
+ * static palette into a continuously hue-cycling one.
+ */
+struct HueSpinShade {
+  const float *amount; /**< Rotation driver in turns (0..1 = full turn). */
+  /**
+   * @brief Per-instance memo of the rotation folded into a cbrt-LMS 3x3.
+   * @details *amount is frame-constant, so the matrix is rebuilt once per
+   * frame; the per-sample cost is three fast_cbrt plus the folded transform.
+   * mutable so const shade() can update the memo.
+   */
+  mutable float matrix[9] = {};
+  mutable float cached_amount = 0.0f; /**< Driver value the memo was built at. */
+  mutable bool primed = false;        /**< Whether the memo has been populated. */
+
+  /**
+   * @brief Constructs with a mandatory rotation driver.
+   * @param amount Pointer to the per-frame rotation in turns; must not be null.
+   */
+  HueSpinShade(const float *amount) : amount(amount) {
+    HS_CHECK(amount, "HueSpinShade: amount driver must not be null");
+  }
+
+  /**
+   * @brief Rotates the sample's hue by the driver amount, preserving alpha.
+   * @param c Sample color to reshape.
+   * @param t Unused; the rotation is uniform over the domain.
+   * @return The hue-rotated sample.
+   */
+  Color4 shade(Color4 c, float) const {
+    if (!primed || *amount != cached_amount) {
+      cached_amount = *amount;
+      float angle = cached_amount * (2.0f * PI_F);
+      float ca = fast_cosf(angle);
+      float sa = fast_sinf(angle);
+      // renormalize fast trig so the rotation preserves chroma
+      float inv = 1.0f / sqrtf(ca * ca + sa * sa);
+      hue_rotate_lms_matrix(ca * inv, sa * inv, matrix);
+      primed = true;
+    }
+    constexpr float INV16 = 1.0f / 65535.0f;
+    float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
+    LMS lms = linear_rgb_to_lms(r, g, b);
+    lms_cbrt_transform_rgb(matrix, fast_cbrt(lms.l), fast_cbrt(lms.m),
+                           fast_cbrt(lms.s), r, g, b);
+    c.color = Pixel(float_to_pixel16(r), float_to_pixel16(g),
+                    float_to_pixel16(b));
+    return c;
+  }
+};
+
+/**
  * @brief Scales alpha by a caller-supplied falloff curve over the coordinate.
  */
 struct AlphaFalloffShade {
