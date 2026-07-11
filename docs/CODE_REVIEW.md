@@ -123,7 +123,7 @@ _Latent correctness / robustness (real behavior under a reachable condition):_
 
 16. **[daydream] `daydream/tools/banner.js:35`** — `showFatalError` appends the banner only when `document.body` is truthy; a fatal error before `<body>` exists builds the element but never inserts it, and later calls' `getElementById` return null, so the banner is silently lost. *Fix:* `(document.body || document.documentElement).appendChild(el)`.
 
-17. **[engine] `core/engine/memory.h:538-543,576-591`** — `ArenaVector`'s per-element access guards (`operator[]`, `back()`) use `assert` (NDEBUG-stripped on device), whereas the sibling `StaticCircularBuffer` uses always-on `HS_CHECK`; an out-of-range device index is silent arena corruption instead of a fail-fast trap. *Fix:* promote the index guards to `HS_CHECK` for parity, or document the intentional hot-access `assert` choice at the site.
+17. ❌ **[engine] `core/engine/memory.h:538-543,576-591`** — Rejected: `ArenaVector::operator[]` is on the per-pixel path (`core/render/plot.h:653` indexes `steps_cache[j]` once per plotted point, ~48k plots/frame), so promoting `assert`→`HS_CHECK` would add an always-on branch per plotted pixel — a perf regression. The `assert` is the intentional hot-access choice; the sibling `StaticCircularBuffer` is not on that path.
 
 18. ✅ **[effects] `effects/DreamBalls.h:57-71`** — Unlike every sibling (Comets/Dynamo/FlowField/BZ/GS), `DreamBalls` has no compile-time persistent-arena budget `static_assert`; adding a preset or a larger solid would overrun the default partition as a runtime trap instead of a build error. *Fix:* `static_assert(2 * BakedPalette::LUT_SIZE * sizeof(Color4) <= PERSISTENT_BUDGET, ...)` with a note that the mesh geometry is runtime-bounded.
 
