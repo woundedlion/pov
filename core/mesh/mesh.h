@@ -14,7 +14,6 @@
 #include <type_traits>
 
 // Forward declarations
-struct HEVertex;
 struct HEFace;
 struct HalfEdge;
 
@@ -82,17 +81,6 @@ struct HalfEdge {
   uint16_t next = HE_NONE;   /**< Next half-edge in the face loop. */
   uint16_t prev = HE_NONE;   /**< Previous half-edge in the face loop. */
   uint16_t pair = HE_NONE;   /**< Opposite half-edge. */
-};
-
-/**
- * @brief Mesh vertex; entry point into the half-edge ring around it.
- */
-struct HEVertex {
-  uint16_t half_edge =
-      HE_NONE; /**< An incoming half-edge at this vertex (the last one written
-                    during build). On a boundary mesh this is not a reliable
-                    orbit start — the one-ring walk can break at the boundary;
-                    closed manifolds are unaffected. */
 };
 
 /**
@@ -193,7 +181,6 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
  */
 class HalfEdgeMesh {
 public:
-  ArenaVector<HEVertex> vertices;   /**< Per-vertex half-edge ring entry points. */
   ArenaVector<HEFace> faces;        /**< Per-face half-edge loop entry points. */
   ArenaVector<HalfEdge> half_edges; /**< Directed half-edges with next/prev/pair links. */
 
@@ -229,11 +216,6 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
                      const uint16_t *faces_arr, size_t total_indices) {
   HS_CHECK(num_verts <= UINT16_MAX && total_indices <= UINT16_MAX,
            "half-edge mesh exceeds 16-bit index range");
-
-  out.vertices.bind(arena, num_verts);
-  for (size_t i = 0; i < num_verts; ++i) {
-    out.vertices.push_back({HE_NONE});
-  }
 
   out.faces.bind(arena, num_faces);
   out.half_edges.bind(arena, total_indices);
@@ -275,8 +257,6 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
         he.next = static_cast<uint16_t>(face_start_he_idx + (i + 1) % count);
         he.prev =
             static_cast<uint16_t>(face_start_he_idx + (i - 1 + count) % count);
-
-        out.vertices[v].half_edge = he_index;
 
         fill_edge_record(records[he_idx], u, v, he_index);
 
