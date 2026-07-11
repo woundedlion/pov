@@ -54,6 +54,7 @@ public:
     register_animated_param("Twist", &params.twist, -5.0f, 5.0f);
     register_param("Debug BB", &params.debug_bb);
 
+    baked_sunset.bake(persistent_arena, Palettes::RICH_SUNSET);
     build();
   }
 
@@ -136,7 +137,7 @@ public:
       // (i+1)/count maps layers to (0, 1]; i/(count-1) would give the i=0 layer
       // radius 0 and render nothing at Count=1.
       float t = static_cast<float>(i + 1) / count;
-      Color4 color = Palettes::RICH_SUNSET.get(t);
+      Color4 color = baked_sunset.get(t);
       draw_ring(canvas, plot_basis, RenderMode::Plot, t, color, i);
       draw_ring(canvas, scan_basis, RenderMode::Scan, t, color, i);
     }
@@ -265,6 +266,7 @@ private:
   Timeline timeline;   /**< Fixed five-slot animation timeline. */
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters; /**< Anti-aliased filter pipeline for Plot mode. */
   Pipeline<W, H> scan_filters; /**< Filter pipeline for Scan mode. */
+  BakedPalette baked_sunset;   /**< LUT-baked RICH_SUNSET sampled per layer. */
 
   /**
    * @brief Tunable rendering parameters exposed to the GUI.
