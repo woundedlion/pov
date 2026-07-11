@@ -340,8 +340,9 @@ private:
   // The seed and the roll bound below derive from MAX_DEGREE so they cannot
   // drift from it (widen MAX_DEGREE alone to extend the visual range).
   static constexpr int MAX_DEGREE = 4;
-  // factorial(2*MAX_DEGREE) must stay in float's exact-integer range; it loses
-  // precision at 14! and overflows to inf at 35!.
+  // normalization() divides factorials of up to 2*MAX_DEGREE; float keeps ~7
+  // significant digits, holds exact integers only up to 2^24 (first exceeded at
+  // 11!), and overflows to inf at 35!.
   static_assert(2 * MAX_DEGREE <= 12,
                 "MAX_DEGREE too large: factorial(2*MAX_DEGREE) exceeds float "
                 "precision in normalization()");
