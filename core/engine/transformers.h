@@ -315,7 +315,10 @@ inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
   if (params.amplitude <= 0.001f)
     return v;
 
-  // fast reject
+  // Fast reject outside the [d_min, d_max] angular band. cos decreases with
+  // angle, so cos_threshold_min holds the LARGER cosine (nearest angle d_min)
+  // and cos_threshold_max the smaller (farthest d_max) — the ordering reads
+  // inverted but is correct; do not "fix" it.
   float cos_d = dot(v, params.center);
   if (cos_d > params.cos_threshold_min || cos_d < params.cos_threshold_max) {
     return v;
