@@ -64,15 +64,11 @@ public:
     baked_palettes_[0].bake(persistent_arena, *params.palette);
     baked_palettes_[1].bake(persistent_arena, *params.palette);
 
-    register_param("Copies", &params.num_copies, 1.0f, 20.0f);
-    register_param("Radius", &params.offset_radius, 0.0f, 1.0f);
-    register_param("Speed", &params.offset_speed, 0.0f, 5.0f);
-    register_param("Warp", &params.warp_scale, 0.0f, 5.0f);
-    register_param("Alpha", &params.alpha, 0.0f, 1.0f);
-    // Flag the preset-reseeded params so "Pause Animation" lets the user take
-    // over.
-    for (const char *n : {"Copies", "Radius", "Speed", "Warp", "Alpha"})
-      mark_animated(n);
+    register_animated_param("Copies", &params.num_copies, 1.0f, 20.0f);
+    register_animated_param("Radius", &params.offset_radius, 0.0f, 1.0f);
+    register_animated_param("Speed", &params.offset_speed, 0.0f, 5.0f);
+    register_animated_param("Warp", &params.warp_scale, 0.0f, 5.0f);
+    register_animated_param("Alpha", &params.alpha, 0.0f, 1.0f);
 
     timeline.add(0, Animation::PeriodicTimer(
                         160, [this](Canvas &) { this->spin_slices(); }, true));
