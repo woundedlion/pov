@@ -283,6 +283,9 @@ jobs:
         # tripwire is calibrated for; give the debug smoke its own fixed ceiling.
         env:
           WASM_SMOKE_STACK_CEILING: 4096
+          # Reach the frame-48 ShapeShifter cut / arena compaction under
+          # -sASSERTIONS=1; the 3-frame default never gets there.
+          WASM_SMOKE_FRAMES: 120
         run: node scripts/wasm_smoke.mjs build/wasm-debug/holosphere_wasm.js
 
       # Verify ccache actually fronts em++ here (the comment above claims it
