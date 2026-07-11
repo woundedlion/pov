@@ -199,12 +199,12 @@ template <typename PosFn, typename MapFn>
 inline void emit_shrunk_face(const HalfEdgeMesh &he_mesh, PolyMesh &out_mesh,
                              uint16_t start, int count, PosFn &&pos_fn,
                              MapFn &&map_fn) {
+  if (start == HE_NONE)
+    return;
   const bool well_formed = count >= 3;
   if (well_formed)
     out_mesh.face_counts.push_back(narrow_face_count(count));
   uint16_t he_idx = start;
-  if (he_idx == HE_NONE)
-    return;
   int walked = 0; // anti-hang guard: face has `count` half-edges
   do {
     HS_CHECK(walked++ < count, "face re-walk overran side count");
