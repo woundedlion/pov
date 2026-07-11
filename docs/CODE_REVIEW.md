@@ -166,7 +166,7 @@ Every validated defect is listed below, numbered sequentially and grouped by pri
 45. [Low] **Effects (group 1) — Voronoi dead `sharpness > 0` guard** (`Voronoi.h:105`): the slider floor is `1.0`, so the branch is unreachable. Lower the floor or drop the comparison.
 46. [Low] **Effects (group 1) — Moire dead struct-default silently duplicated** with the `W<=96` branch value (`Moire.h:169`,`:56`); if the resolution branch is removed, the stale default becomes live with no warning.
 47. [Low] **Effects (group 2) — MindSplatter vestigial `opacity` parameter** always passed `1.0` (`MindSplatter.h:247`). Per the repo's remove-dead-code-over-documenting rule, drop the parameter.
-48. [Low] **Effects — Dynamo `color()` is O(boundaries) per plotted/trail point** (`Dynamo.h:171-214`); bounded (≤15) but the one non-lookup per-fragment path. Add a `size == 0` fast path or note the typical count.
+48. ✅ **Effects — Dynamo `color()` is O(boundaries) per plotted/trail point** (`Dynamo.h:171-214`); bounded (≤15) but the one non-lookup per-fragment path. Add a `size == 0` fast path or note the typical count.
 49. [Low] **Color — operator asymmetry.** `Pixel16` has `operator*` but no `operator+`; `Color4` has `operator+=`/`*=` but no free `+`/`*`. Callers can only accumulate in place. Round out the set.
 50. [Low] **Color — split the 2,289-line `color.h`.** The modifier/`StaticPalette` composition layer (~900 lines) is logically separable from the color-math core and would ease navigation.
 51. [Low] **Animation — motion-blur virtuals leak into the universal interface.** `collapse_orientation`/`orientation_id` sit on `IAnimation` but only ~2 of ~20 families implement them (`animation.h:87-96`). Isolate via an `OrientedAnimation` mixin.
