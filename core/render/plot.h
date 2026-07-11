@@ -714,8 +714,14 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
                                                     pred);
                     })
         visible = pipeline.could_intersect_clip(curr.pos, next.pos, pb, pred);
-      else
+      else {
+        // A filter pipeline (has any_crosses_segments) must answer the clip
+        // query; a signature drift would else silently fall back to raw culling.
+        static_assert(!requires { PipelineT::any_crosses_segments; },
+                      "pipeline exposes any_crosses_segments but not "
+                      "could_intersect_clip (signature drift)");
         visible = pred(curr.pos, next.pos, pb);
+      }
       if (!visible)
         continue;
     }

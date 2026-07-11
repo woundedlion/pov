@@ -263,8 +263,16 @@ public:
                                                                   pred);
                     })
         return static_cast<T *>(ctx)->could_intersect_clip(a, b, pb, pred);
-      else
+      else {
+        // A filter pipeline (has any_crosses_segments) must answer the clip
+        // query; only a bare plot stub legitimately falls through to pred. Catch
+        // a could_intersect_clip signature drift that would else silently
+        // degrade world-aware culling to raw-geometry culling.
+        static_assert(!requires { T::any_crosses_segments; },
+                      "pipeline exposes any_crosses_segments but not "
+                      "could_intersect_clip (signature drift)");
         return pred(a, b, pb);
+      }
     };
   }
 
