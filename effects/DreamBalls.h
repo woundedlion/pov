@@ -154,7 +154,8 @@ private:
       2 * BakedPalette::LUT_SIZE * sizeof(Color4);
   static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
                 "DreamBalls persistent footprint exceeds the default partition");
-  int active_bake_ = 0; /**< Index of the slot the next spawn rebakes into. */
+  int active_bake_ = 0; /**< Slot of the current (most-recently baked) sprite;
+                             the next spawn flips this before baking. */
   /**
    * @brief Per-sprite render-param snapshots, ping-ponged with baked_palettes_.
    * @details Each sprite renders from its spawn-time slot; draw_frame() mirrors
