@@ -235,6 +235,9 @@ struct Config {
            gate_cols < W / 4 && reject_fallback > 0 && glitch_filter_cycles > 0 &&
            pulse_pitch_cols > 0 && gap_timeout_cols > pulse_pitch_cols &&
            beacon_pitch_cols > 0 && gap_timeout_cols > beacon_pitch_cols &&
+           // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case
+           // beacon span must clear W/4 or no beacon is ever scheduled.
+           beacon_span_cols() < W / 4 &&
            acquire_quiet_cols > 0 && beacon_interdigit_timeout_cols > 0 &&
            effect_count > 0 && effect_count <= 64 && commit_revs > 0 &&
            // Gate epoch_repeats >= 0 first: a negative value casts to a huge
