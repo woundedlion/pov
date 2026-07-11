@@ -174,7 +174,7 @@ _Documentation inaccuracies, missing tests for real behavior, dead code, and cos
 13. ✅ **Exported temp netlist leaks on failure and is written into the source tree** — `hardware/phantasm/gen/check.py:13` (Holosphere)  
    check.py writes _check.net (and pcb.py writes _pcb.net) next to the schematic in the source tree, then os.remove()s it after parsing. Because the kicad-cli run uses check=True, any subprocess failure raises before os.remove, leaving the temp file behind in the repo working tree.  
    *Fix:* Write the netlist to tempfile.NamedTemporaryFile / a tempdir, or remove it in a try/finally so a subprocess failure cannot strand it in the source tree.
-14. **prettify passes non-finite input through to a raw 'NaN'/'Infinity' label** — `label_format.js:39` (daydream)  
+14. ✅ **prettify passes non-finite input through to a raw 'NaN'/'Infinity' label** — `label_format.js:39` (daydream)  
    prettify has no guard for non-finite input: every symbolic Math.abs comparison is false for NaN, and r.toFixed(3) yields 'NaN' (or 'Infinity' for +/-Infinity), so a degenerate geometry value would render the literal text 'NaN' on an on-sphere axis label rather than a sane placeholder. It is unlikely to be hit in practice but is a trivially closable gap and is the one input the label_format test suite does not cover.  
    *Fix:* Add `if (!Number.isFinite(r)) return "0";` (or return an empty/placeholder string) at the top of prettify and add a test for it.
 15. ✅ **Orientation historical-index accessors orient(v,i)/unorient(v,i)/at(i) are untested** — `core/math/geometry.h:412` (Holosphere)  
