@@ -675,7 +675,9 @@ class Ripple : public AnimationBase<Ripple> {
 public:
   /**
    * @brief Constructs a Ripple animation.
-   * @param params Reference to the params struct to animate.
+   * @param params Reference to the params struct to animate. `params.amplitude`
+   *        is captured here as the ripple's peak and then reset to 0; set it
+   *        before constructing, as later writes are ignored.
    * @param center The center point of the ripple.
    * @param speed How fast the waves travel.
    * @param duration How long the ripple lasts in frames.
