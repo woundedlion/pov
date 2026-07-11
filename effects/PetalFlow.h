@@ -44,7 +44,9 @@ public:
    * accumulates gap.
    */
   FLASHMEM PetalFlow()
-      : Effect(W, H, {.strobe = true}),
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
         palette({0.029f, 0.029f, 0.029f}, {0.500f, 0.500f, 0.500f},
                 {0.461f, 0.461f, 0.461f}, {0.539f, 0.701f, 0.809f}),
         orientation(), filters(Filter::World::Orient<W>(orientation),
