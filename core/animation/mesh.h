@@ -533,14 +533,20 @@ public:
    * @param i Slot index (0 or 1).
    * @return Const reference to the requested MeshState slot.
    */
-  const MeshState &slot(int i) const { return slots_[i]; }
+  const MeshState &slot(int i) const {
+    HS_CHECK(i == 0 || i == 1, "MeshCarousel slot index out of range");
+    return slots_[i];
+  }
 
   /**
    * @brief Direct slot access by index (mutable).
    * @param i Slot index (0 or 1).
    * @return Mutable reference to the requested MeshState slot.
    */
-  MeshState &slot(int i) { return slots_[i]; }
+  MeshState &slot(int i) {
+    HS_CHECK(i == 0 || i == 1, "MeshCarousel slot index out of range");
+    return slots_[i];
+  }
 
   /**
    * @brief Gets the front slot index (for capture in lambdas).
@@ -553,7 +559,10 @@ public:
    * themselves).
    * @param idx The new front slot index (0 or 1).
    */
-  void set_front(int idx) { front_ = idx; }
+  void set_front(int idx) {
+    HS_CHECK(idx == 0 || idx == 1, "MeshCarousel front index out of range");
+    front_ = idx;
+  }
 
   /**
    * @brief Schedules the segue's transition animation for the (already
