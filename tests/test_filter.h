@@ -643,6 +643,36 @@ inline void test_world_hole_masks_cap() {
 }
 
 /**
+ * @brief Verifies HoleRef tracks a mutable referenced origin: masking the point
+ *        at the current center, then following the center after it moves.
+ */
+inline void test_world_hole_ref_follows_origin() {
+  constexpr int W = 32;
+  Vector center(0, 1, 0); // start at +Y
+  Filter::World::HoleRef<W> hole(std::cref(center), 0.5f);
+
+  // At the initial center the point is fully masked (quintic_kernel(0) = 0).
+  Tap3D got{};
+  hole.plot(center, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
+            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
+  HS_EXPECT_EQ((int)got.c.r, 0);
+  HS_EXPECT_EQ((int)got.c.g, 0);
+
+  // The old center now lies well outside -> verbatim passthrough.
+  center = Vector(0, -1, 0); // move the referenced origin to -Y
+  hole.plot(Vector(0, 1, 0), Pixel(10000, 20000, 30000), 0.0f, 1.0f,
+            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
+  HS_EXPECT_EQ((int)got.c.r, 10000);
+  HS_EXPECT_EQ((int)got.c.g, 20000);
+
+  // The new center is masked to black, confirming the mask followed the origin.
+  hole.plot(center, Pixel(10000, 20000, 30000), 0.0f, 1.0f,
+            [&](const Vector &, const Pixel &c, float, float) { got.c = c; });
+  HS_EXPECT_EQ((int)got.c.r, 0);
+  HS_EXPECT_EQ((int)got.c.g, 0);
+}
+
+/**
  * @brief Verifies Orient rotates by the bound Orientation, and a single-frame
  *        (stationary) orientation emits one tap with age left untouched.
  * @details A lone snapshot is the newest sub-position (t = 1), so the (1 - t)
@@ -1858,6 +1888,7 @@ inline int run_filter_tests() {
   test_feedback_plot_is_passthrough();
 
   test_world_hole_masks_cap();
+  test_world_hole_ref_follows_origin();
   test_world_orient_rotates_and_offsets_age();
   test_world_orient_motion_blur_sweep_ages();
   test_world_orient_slice_selects_by_projection();
