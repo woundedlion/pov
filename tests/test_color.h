@@ -1318,6 +1318,33 @@ inline void test_palette_modifiers() {
 }
 
 /**
+ * @brief Verifies NoiseWarpModifier's displacement contract.
+ * @details The warp must match the value-noise reference, stay within
+ *          +/-amplitude, evolve with the time driver, and vanish at zero
+ *          amplitude.
+ */
+inline void test_noise_warp_modifier() {
+  float time = 1.7f;
+  NoiseWarpModifier warp(&time, 3.0f, 0.1f, 5u);
+
+  for (int i = 0; i <= 20; ++i) {
+    float t = i * 0.05f;
+    float expected =
+        t + (value_noise_2d(t * 3.0f, time, 5u) - 0.5f) * 2.0f * 0.1f;
+    HS_EXPECT_NEAR(warp.modify(t), expected, 1e-6f);
+    HS_EXPECT_LE(std::fabs(warp.modify(t) - t), 0.1f + 1e-6f);
+  }
+
+  // The warp field evolves as the time driver advances.
+  float before = warp.modify(0.3f);
+  time = 4.9f;
+  HS_EXPECT_TRUE(warp.modify(0.3f) != before);
+
+  NoiseWarpModifier still(&time, 3.0f, 0.0f);
+  HS_EXPECT_NEAR(still.modify(0.42f), 0.42f, 1e-6f);
+}
+
+/**
  * @brief Verifies StaticPalette folds its modifier chain then queries the source.
  * @details Applies the modifier chain in order before sampling the source.
  */
@@ -1493,6 +1520,7 @@ inline int run_color_tests() {
   test_generative_palette_auto_seed_advances();
   test_generative_palette_snapshot_lerp();
   test_palette_modifiers();
+  test_noise_warp_modifier();
   test_static_palette_composition();
   test_palette_wrappers();
 
