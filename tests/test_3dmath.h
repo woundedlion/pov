@@ -868,8 +868,9 @@ inline void test_stereo_roundtrip() {
 // ============================================================================
 
 /**
- * @brief Verifies Complex +, -, *, / including the division-by-zero
- *        conventions (0/0 -> 0, nonzero/0 -> large magnitude).
+ * @brief Verifies Complex +, -, *, / (ordinary complex division) and
+ *        project_div's projection conventions (0/0 -> 0, nonzero/0 -> large
+ *        magnitude in the numerator direction).
  */
 inline void test_complex_arithmetic() {
   Complex a(1, 2), b(3, 4);
@@ -879,17 +880,22 @@ inline void test_complex_arithmetic() {
   // (1+2i)(3+4i) = 3 + 4i + 6i + 8i² = -5 + 10i
   HS_EXPECT_COMPLEX(a * b, Complex(-5, 10), 1e-5f);
 
-  // (a / b) * b ≈ a
+  // operator/ is ordinary complex division: (a / b) * b ≈ a.
   Complex q = a / b;
   HS_EXPECT_COMPLEX(q * b, a, 1e-4f);
 
   HS_EXPECT_COMPLEX(a * Complex(1, 0), a, 1e-6f);
 
-  // 0 / 0 → 0 by convention.
-  HS_EXPECT_COMPLEX(Complex(0, 0) / Complex(0, 0), Complex(0, 0), 1e-6f);
+  // project_div matches ordinary division away from the singularity.
+  HS_EXPECT_COMPLEX(project_div(a, b), a / b, 1e-6f);
 
-  // Nonzero / 0 → large magnitude in the numerator direction.
-  Complex inf_dir = Complex(1, 0) / Complex(0, 0);
+  // project_div convention: 0 / 0 → 0.
+  HS_EXPECT_COMPLEX(project_div(Complex(0, 0), Complex(0, 0)), Complex(0, 0),
+                    1e-6f);
+
+  // project_div convention: nonzero / 0 → large magnitude in the numerator
+  // direction.
+  Complex inf_dir = project_div(Complex(1, 0), Complex(0, 0));
   HS_EXPECT_TRUE(std::abs(inf_dir.re) > 1e3f);
 }
 
