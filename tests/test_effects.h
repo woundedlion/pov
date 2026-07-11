@@ -850,6 +850,8 @@ struct DreamBallsWhiteBox {
   static const char *preset_name(const DB &db, int idx) {
     return db.preset_manager.get_entries()[idx].params.solid_name;
   }
+  static const char *live_solid(const DB &db) { return db.params.solid_name; }
+  static float &num_copies(DB &db) { return db.params.num_copies; }
 };
 
 /**
@@ -877,7 +879,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   // flipped the bake slot once (0 -> 1).
   HS_EXPECT_EQ(WB::last_preset_idx(db), 0);
   HS_EXPECT_EQ(WB::active_bake(db), 1);
-  HS_EXPECT_EQ(db.params.solid_name, WB::preset_name(db, 0));
+  HS_EXPECT_EQ(WB::live_solid(db), WB::preset_name(db, 0));
 
   // Not-paused advance chain: the periodic callback re-invokes spawn_sprite(idx+1),
   // so idx grows unbounded and the preset is idx % 4. Drive a full cycle plus a
@@ -890,20 +892,20 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
     const int safe = idx % WB::PRESETS;
     HS_EXPECT_EQ(WB::active_bake(db), expect_bake);
     HS_EXPECT_EQ(WB::last_preset_idx(db), safe);
-    HS_EXPECT_EQ(db.params.solid_name, WB::preset_name(db, safe));
+    HS_EXPECT_EQ(WB::live_solid(db), WB::preset_name(db, safe));
   }
 
   // Paused-hold path: the callback re-spawns the SAME idx, so the reseed guard
   // (safe_idx == last_preset_idx_) holds and a live slider edit must survive the
   // re-spawn — while the bake slot still flips. last_preset_idx_ is now 0
   // (idx 8 % 4); re-spawn idx 8 again with a sentinel edit in place.
-  const float sentinel = db.params.num_copies + 5.0f;
-  db.params.num_copies = sentinel;
+  const float sentinel = WB::num_copies(db) + 5.0f;
+  WB::num_copies(db) = sentinel;
   const int held_idx = WB::last_preset_idx(db);
   expect_bake ^= 1;
   WB::spawn(db, 8); // 8 % 4 == held_idx: the paused re-spawn of the same preset
   HS_EXPECT_EQ(WB::last_preset_idx(db), held_idx); // preset unchanged
-  HS_EXPECT_EQ(db.params.num_copies, sentinel);    // live edit preserved
+  HS_EXPECT_EQ(WB::num_copies(db), sentinel);    // live edit preserved
   HS_EXPECT_EQ(WB::active_bake(db), expect_bake);  // bake slot still flipped
 }
 
@@ -1104,6 +1106,8 @@ struct HopfWhiteBox {
     fx.flow_rad = flow_rad;
     fx.ty_rad = ty_rad;
   }
+  static void set_folding(HF &fx, float v) { fx.params.folding = v; }
+  static void set_twist(HF &fx, float v) { fx.params.twist = v; }
 };
 
 /**
@@ -1130,8 +1134,8 @@ inline void test_hopf_projection_math() {
 
   // Identity tumble + no folding/twist: fiber 0 has beta == 0, so q3 == 0 and the
   // projection collapses to the normalized (q0, q1, q2).
-  fx.params.folding = 0.0f;
-  fx.params.twist = 0.0f;
+  WB::set_folding(fx, 0.0f);
+  WB::set_twist(fx, 0.0f);
   WB::set_cache(fx, 1.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 0.0f);
 
   const float polar = 1.2f, azimuth = 0.7f;
@@ -1151,8 +1155,8 @@ inline void test_hopf_projection_math() {
   const float ax = 0.9f, ay = 0.4f;
   WB::set_cache(fx, fast_cosf(ax), fast_sinf(ax), fast_cosf(ay), fast_sinf(ay),
                 fast_sinf(ax * 0.5f) * 0.5f, 0.3f, ay);
-  fx.params.folding = 0.5f;
-  fx.params.twist = 2.0f;
+  WB::set_folding(fx, 0.5f);
+  WB::set_twist(fx, 2.0f);
   for (size_t i = 0; i < WB::fiber_count(); ++i) {
     const Vector p = WB::project(fx, i);
     HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&

@@ -97,17 +97,6 @@ public:
     render_trails(canvas);
   }
 
-  /**
-   * @brief User-tunable parameters controlling fiber motion and shading.
-   */
-  struct Params {
-    float flow_speed = 10.0f;  /**< Flow phase advance rate, in tuning units. */
-    float folding = 0.2f;      /**< Fold modulation depth, dimensionless. */
-    float tumble_speed = 2.0f; /**< 4D tumble rate, in tuning units. */
-    float twist = 4.0f;        /**< Twist applied to azimuth per fold, dimensionless. */
-    float alpha = 1.0f;        /**< Global trail opacity multiplier in [0, 1]. */
-  } params;
-
 private:
   friend struct ::hs_test::effects_tests::HopfWhiteBox;
 
@@ -291,6 +280,17 @@ private:
       Plot::rasterize<W, H>(trail_pipeline, canvas, points, shader);
     }
   }
+
+  /**
+   * @brief User-tunable parameters controlling fiber motion and shading.
+   */
+  struct Params {
+    float flow_speed = 10.0f;  /**< Flow phase advance rate, in tuning units. */
+    float tumble_speed = 2.0f; /**< 4D tumble rate, in tuning units. */
+    float folding = 0.2f;      /**< Fold modulation depth, dimensionless. */
+    float twist = 4.0f;        /**< Twist applied to azimuth per fold, dimensionless. */
+    float alpha = 1.0f;        /**< Global trail opacity multiplier in [0, 1]. */
+  } params;
 };
 
 #include "core/engine/effect_registry.h"

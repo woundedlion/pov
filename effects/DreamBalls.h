@@ -94,9 +94,6 @@ public:
     timeline.step(canvas);
   }
 
-  /** @brief Live, slider-bound render parameters for the active preset. */
-  Params params;
-
 private:
   friend struct ::hs_test::effects_tests::DreamBallsWhiteBox;
 
@@ -398,6 +395,9 @@ private:
     timeline.add(0, Animation::Rotation<W>(global_orientation, axis, 2 * PI_F,
                                            80, ease_in_out_sin, false));
   }
+
+  /** @brief Live, slider-bound render parameters for the active preset. */
+  Params params;
 };
 
 #include "core/engine/effect_registry.h"
