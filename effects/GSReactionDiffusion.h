@@ -38,10 +38,9 @@ struct GSWhiteBox;
  *   - Palette LUT: 256 × 12B                     =  3,072 B  (the extra tenant vs BZ)
  *   - Total:                                       175,104 B (171 KB)
  *
- * Scratch arena (per frame, STEPS_PER_FRAME = 16):
- *   - Physics ping-pong: 2 × 7680 × 2B   = 30,720 B
- *   - Float pre-convert: 2 × 7680 × 4B   = 61,440 B
- *   - Total:    92,160 B (90 KB)
+ * Scratch arena (per frame, disjoint phases):
+ *   - Physics: ping-pong 2 × 7680 × 2B + float pre-convert 2 × 7680 × 4B = 92,160 B
+ *   - Raster:  oriented lattice 7680 × 12B                               = 92,160 B
  */
 template <int W, int H>
 class GSReactionDiffusion
@@ -87,11 +86,17 @@ public:
                       PERSISTENT_BYTES,
                   "GS persistent arena too small for LUT + state + nodes + "
                   "palette");
-    // render() carves 2 uint16 + 2 float species buffers from scratch_a.
-    constexpr size_t SCRATCH_BYTES =
+    // render()'s scratch peaks at the larger of the physics phase (2 uint16 +
+    // 2 float species buffers) and the raster phase (the oriented lattice);
+    // the two run under disjoint scopes.
+    constexpr size_t PHYSICS_SCRATCH_BYTES =
         2u * RD_N * sizeof(uint16_t) + 2u * RD_N * sizeof(float);
+    constexpr size_t RASTER_SCRATCH_BYTES = RD_N * sizeof(Vector);
+    constexpr size_t SCRATCH_BYTES =
+        PHYSICS_SCRATCH_BYTES > RASTER_SCRATCH_BYTES ? PHYSICS_SCRATCH_BYTES
+                                                     : RASTER_SCRATCH_BYTES;
     static_assert(SCRATCH_BYTES <= GLOBAL_ARENA_SIZE - PERSISTENT_BYTES,
-                  "GS scratch arena too small for render()'s species buffers");
+                  "GS scratch arena too small for render()'s phase peak");
     configure_arenas(PERSISTENT_BYTES, GLOBAL_ARENA_SIZE - PERSISTENT_BYTES, 0);
 
     register_param("Feed", &params.feed, 0.0f, 0.1f);
@@ -233,9 +238,9 @@ private:
 
   /**
    * @brief Kernel-weighted sample of the B concentration at a point.
-   * @param p Query point on the sphere (unoriented lattice space).
+   * @param p Query point on the sphere.
    * @param nearest Precomputed index of the nearest lattice node to seed from.
-   * @param nodes Fixed lattice node-position array.
+   * @param nodes Node positions in the same frame as `p`.
    * @return Support-radius weighted average of B in [0, 1]; 0 if no node is
    * within the support radius.
    */
@@ -261,33 +266,41 @@ private:
    */
   void render(Canvas &canvas) {
     ScratchScope frame_guard(scratch_arena_a);
-    uint16_t *s_a = static_cast<uint16_t *>(
-        scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-    uint16_t *s_b = static_cast<uint16_t *>(
-        scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
-    float *f_a = static_cast<float *>(
-        scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
-    float *f_b = static_cast<float *>(
-        scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+    {
+      ScratchScope physics_guard(scratch_arena_a);
+      uint16_t *s_a = static_cast<uint16_t *>(
+          scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
+      uint16_t *s_b = static_cast<uint16_t *>(
+          scratch_arena_a.allocate(RD_N * sizeof(uint16_t), alignof(uint16_t)));
+      float *f_a = static_cast<float *>(
+          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
+      float *f_b = static_cast<float *>(
+          scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
 
-    advance_substeps(STEPS_PER_FRAME,
-                     std::array<uint16_t *, 2>{state.A, state.B},
-                     std::array<uint16_t *, 2>{s_a, s_b},
-                     [&](auto &cur, auto &nxt) {
-                       step_physics(cur[0], cur[1], nxt[0], nxt[1], f_a, f_b);
-                     });
+      advance_substeps(STEPS_PER_FRAME,
+                       std::array<uint16_t *, 2>{state.A, state.B},
+                       std::array<uint16_t *, 2>{s_a, s_b},
+                       [&](auto &cur, auto &nxt) {
+                         step_physics(cur[0], cur[1], nxt[0], nxt[1], f_a, f_b);
+                       });
+    }
+
+    // Physics scratch is popped; the raster phase reuses the arena for the
+    // oriented lattice so the kernel walks stay in world space.
+    Vector *world_nodes = static_cast<Vector *>(
+        scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
+    orient_nodes(nodes, world_nodes, RD_N, orientation.get());
 
     // Seed the cubemap lookup once per pixel center; it only feeds
     // refine_nearest_node, which re-finds the true nearest per sub-sample.
     auto vertex_shader = [this](Fragment &frag) { seed_face_lut(frag); };
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
-      Vector rv = orientation.unorient(v);
       // The CubemapLUT seed is quantized to a face cell; refine to the true
       // nearest node.
       int nearest =
-          refine_nearest_node(rv, nodes, static_cast<int>(frag.v0));
-      float b = interpolate_b(rv, nearest, nodes);
+          refine_nearest_node(v, world_nodes, static_cast<int>(frag.v0));
+      float b = interpolate_b(v, nearest, world_nodes);
 
       if (b < B_CULL_THRESHOLD) {
         frag.color = Color4(Pixel(0, 0, 0), 0.0f);

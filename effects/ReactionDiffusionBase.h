@@ -12,6 +12,23 @@
 #include <utility>
 
 /**
+ * @brief Rotates the lattice nodes into world space by one quaternion.
+ * @param nodes Lattice-space node positions, count entries.
+ * @param world Output world-space positions, count entries.
+ * @param count Node count.
+ * @param q Lattice-to-world rotation (the current view orientation).
+ * @details Rotating the lattice once per frame lets the per-sub-sample kernel
+ * walks compare world-space queries directly instead of un-orienting every
+ * query. Non-template so HS_COLD reliably keeps the loop off ITCM.
+ */
+[[maybe_unused]] HS_COLD static void
+orient_nodes(const Vector *nodes, Vector *world, int count,
+             const Quaternion &q) {
+  for (int i = 0; i < count; ++i)
+    world[i] = rotate(nodes[i], q);
+}
+
+/**
  * @brief CRTP base for the spherical reaction-diffusion effects (BZ, Gray-Scott).
  * @tparam Derived Concrete effect supplying the system-specific render().
  * @tparam W Framebuffer width in pixels.
@@ -78,7 +95,7 @@ protected:
   /**
    * @brief Refines a cubemap-LUT seed to its closest lattice node.
    * @param rv Query direction (unit vector on the sphere).
-   * @param nodes Cached lattice node positions, indexed by node id.
+   * @param nodes Node positions in the same frame as `rv`, indexed by node id.
    * @param center_node Seed node id from the cubemap LUT.
    * @return Node id of the genuine nearest node among the seed and its neighbors.
    * @details The CubemapLUT quantizes the query direction to a face cell, so its
@@ -227,7 +244,7 @@ protected:
    * @brief Wendland C2 kernel walk over `center` and its neighbors.
    * @tparam OnWeight Callable accepting (node_index, weight).
    * @param rv Query direction (unit vector on the sphere).
-   * @param nodes Cached lattice node positions, indexed by node id.
+   * @param nodes Node positions in the same frame as `rv`, indexed by node id.
    * @param center Center node id of the kernel.
    * @param on_weight Callable invoked as `on_weight(node_index, weight)` for
    * every node inside the support radius.
