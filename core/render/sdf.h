@@ -2637,6 +2637,7 @@ struct PlanarPolygon {
   float apothem;                       /**< Precomputed inradius (radians). */
   float ny, R_val, alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
   float phi_min, phi_max;              /**< Vertical bounds as an angular band (radians). */
+  float sign;                          /**< +1 fills the polygon, -1 its complement. */
   static constexpr bool is_solid = true; /**< Polygon renders as a filled region. */
 
   /**
@@ -2645,9 +2646,12 @@ struct PlanarPolygon {
    * @param th Polygon radius / apothem scale (radians).
    * @param s Number of polygon sides (must be > 0).
    * @param ph Azimuth phase offset (radians).
+   * @param invert When true, fill the complement (a shape spanning more than a
+   *        hemisphere, rendered via its antipodal fold).
    */
-  PlanarPolygon(const Basis &b, float th, int s, float ph)
-      : basis(b), thickness(th), sides(s), phase(ph) {
+  PlanarPolygon(const Basis &b, float th, int s, float ph, bool invert = false)
+      : basis(b), thickness(th), sides(s), phase(ph),
+        sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides > 0);
     apothem = thickness * cosf(PI_F / sides);
     AxisProjection ap = project_axis(basis.v);
@@ -2659,6 +2663,10 @@ struct PlanarPolygon {
     float margin = thickness + BOUNDS_MARGIN_WIDE;
     phi_min = std::max(0.0f, center_phi - margin);
     phi_max = std::min(PI_F, center_phi + margin);
+    if (invert) {
+      phi_min = 0.0f;
+      phi_max = PI_F;
+    }
   }
 
   /**
@@ -2681,6 +2689,8 @@ struct PlanarPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
+    if (sign < 0.0f) // the complement wraps every row
+      return false;
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     // Pad the cap by one pixel so the outer AA fringe is scanned.
@@ -2735,7 +2745,7 @@ struct PlanarPolygon {
     if constexpr (ComputeUVs)
       t_val = polar / thickness;
 
-    res = DistanceResult(dist_edge, t_val, polar, 0.0f, apothem);
+    res = DistanceResult(sign * dist_edge, t_val, polar, 0.0f, apothem);
   }
 };
 
@@ -2756,6 +2766,7 @@ struct SphericalPolygon {
   float edge_nu;          /**< Edge normal dotted with the u-axis. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float ny, R_val, alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  float sign;             /**< +1 fills the polygon, -1 its complement. */
   static constexpr bool is_solid = true; /**< Polygon renders as a filled region. */
 
   /**
@@ -2764,9 +2775,12 @@ struct SphericalPolygon {
    * @param radius Polygon radius as a fraction of the hemisphere.
    * @param s Number of polygon sides (must be > 0).
    * @param ph Azimuth phase offset (radians).
+   * @param invert When true, fill the complement (a shape spanning more than a
+   *        hemisphere, rendered via its antipodal fold).
    */
-  SphericalPolygon(const Basis &b, float radius, int s, float ph)
-      : basis(b), sides(s), phase(ph) {
+  SphericalPolygon(const Basis &b, float radius, int s, float ph,
+                   bool invert = false)
+      : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides > 0);
     circumradius = radius * (PI_F / 2.0f);
 
@@ -2808,6 +2822,10 @@ struct SphericalPolygon {
     float margin = circumradius + BOUNDS_MARGIN_WIDE;
     phi_min = std::max(0.0f, center_phi - margin);
     phi_max = std::min(PI_F, center_phi + margin);
+    if (invert) {
+      phi_min = 0.0f;
+      phi_max = PI_F;
+    }
   }
 
   /**
@@ -2830,6 +2848,8 @@ struct SphericalPolygon {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
+    if (sign < 0.0f) // the complement wraps every row
+      return false;
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     // Pad the cap by one pixel so the outer AA fringe is scanned.
@@ -2882,7 +2902,7 @@ struct SphericalPolygon {
     float t_val = 0.0f;
     if constexpr (ComputeUVs)
       t_val = polar / circumradius;
-    res = DistanceResult(dist_edge, t_val, polar, 0.0f, circumradius);
+    res = DistanceResult(sign * dist_edge, t_val, polar, 0.0f, circumradius);
   }
 };
 
@@ -2903,6 +2923,7 @@ struct Star {
 
   float scan_ny, scan_r, scan_alpha; /**< Axis y-component, XZ projection length and azimuth. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+  float sign;             /**< +1 fills the star, -1 its complement. */
 
   /**
    * @brief Builds a star from its basis, radius, point count, and phase.
@@ -2910,9 +2931,11 @@ struct Star {
    * @param radius Outer radius as a fraction of the hemisphere.
    * @param s Number of star points (must be > 0).
    * @param ph Azimuth phase offset (radians).
+   * @param invert When true, fill the complement (a shape spanning more than a
+   *        hemisphere, rendered via its antipodal fold).
    */
-  Star(const Basis &b, float radius, int s, float ph)
-      : basis(b), sides(s), phase(ph) {
+  Star(const Basis &b, float radius, int s, float ph, bool invert = false)
+      : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides > 0);
     HS_CHECK(radius > 0.0f); // zero radius -> zero-length edge normal (NaN)
     float outer_radius = radius * (PI_F / 2.0f);
@@ -2940,6 +2963,10 @@ struct Star {
     float margin = outer_radius + BOUNDS_MARGIN_WIDE;
     phi_min = std::max(0.0f, center_phi - margin);
     phi_max = std::min(PI_F, center_phi + margin);
+    if (invert) {
+      phi_min = 0.0f;
+      phi_max = PI_F;
+    }
   }
 
   /**
@@ -2963,6 +2990,8 @@ struct Star {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
+    if (sign < 0.0f) // the complement wraps every row
+      return false;
     // Bounding circle; pad the cap by one pixel and reject full-width rows.
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
@@ -3017,7 +3046,7 @@ struct Star {
     float t = 0.0f;
     if constexpr (ComputeUVs)
       t = wrap_t(azimuth / (2 * PI_F));
-    res = DistanceResult(-dist_to_edge, t, scan_dist, 0.0f, thickness);
+    res = DistanceResult(sign * -dist_to_edge, t, scan_dist, 0.0f, thickness);
   }
 };
 
@@ -3036,6 +3065,7 @@ struct Flower {
   Vector antipode;    /**< Antipode of the flower axis (scan origin). */
   float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection length and azimuth. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+  float sign;             /**< +1 fills the flower, -1 its complement. */
   static constexpr bool is_solid = true; /**< Flower renders as a filled region. */
 
   /**
@@ -3044,9 +3074,11 @@ struct Flower {
    * @param radius Outer radius as a fraction of the hemisphere.
    * @param s Number of petals (must be > 0).
    * @param ph Azimuth phase offset (radians).
+   * @param invert When true, fill the complement (a shape spanning more than a
+   *        hemisphere, rendered via its antipodal fold).
    */
-  Flower(const Basis &b, float radius, int s, float ph)
-      : basis(b), sides(s), phase(ph) {
+  Flower(const Basis &b, float radius, int s, float ph, bool invert = false)
+      : basis(b), sides(s), phase(ph), sign(invert ? -1.0f : 1.0f) {
     HS_CHECK(sides > 0);
     float outer = radius * (PI_F / 2.0f);
     apothem = PI_F - outer;
@@ -3062,6 +3094,10 @@ struct Flower {
     float margin = thickness + BOUNDS_MARGIN_WIDE;
     phi_min = std::max(0.0f, center_phi - margin);
     phi_max = std::min(PI_F, center_phi + margin);
+    if (invert) {
+      phi_min = 0.0f;
+      phi_max = PI_F;
+    }
   }
 
   /**
@@ -3084,6 +3120,8 @@ struct Flower {
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
+    if (sign < 0.0f) // the complement wraps every row
+      return false;
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     float cos_phi = TrigLUT<W, H>::cos_phi[y];
@@ -3143,7 +3181,7 @@ struct Flower {
     if constexpr (ComputeUVs)
       t_val = scan_dist / thickness;
 
-    res = DistanceResult(-dist_edge, t_val, scan_dist, 0.0f, thickness);
+    res = DistanceResult(sign * -dist_edge, t_val, scan_dist, 0.0f, thickness);
   }
 };
 

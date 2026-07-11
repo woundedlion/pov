@@ -341,6 +341,67 @@ inline void test_flower_petal_tip_on_boundary() {
 }
 
 // ============================================================================
+// Inverted (complement) fill — radius past the hemisphere
+// ============================================================================
+
+/**
+ * @brief Verifies the inverted fill keeps a radius > 1 shape centered on its
+ *        original axis instead of jumping to the antipode.
+ * @details Builds each solid shape the way the Scan wrappers do for radius 1.5:
+ *   antipode-folded basis, folded radius 0.5, invert = true. The fill must
+ *   cover the shape's own center side and exclude the folded (small) shape;
+ *   Flower's fill is centered on the antipode of its axis, so its sides swap.
+ */
+inline void test_inverted_fill_stays_centered() {
+  Basis b = equator_basis();
+  const float radius = 1.5f;
+  auto res = get_antipode(b, radius);
+  const Basis &fb = res.first;
+  const float fr = res.second;
+  HS_EXPECT_NEAR(fr, 0.5f, 1e-6f);
+
+  const Vector center(0, 1, 0);
+  const Vector far_side(0, -1, 0);
+
+  SDF::SphericalPolygon sp(fb, fr, 5, 0.0f, /*invert=*/true);
+  HS_EXPECT_TRUE(sp.distance(center).dist < 0.0f);
+  HS_EXPECT_TRUE(sp.distance(far_side).dist > 0.0f);
+
+  SDF::Star star(fb, fr, 5, 0.0f, /*invert=*/true);
+  HS_EXPECT_TRUE(star.distance(center).dist < 0.0f);
+  HS_EXPECT_TRUE(star.distance(far_side).dist > 0.0f);
+
+  SDF::PlanarPolygon pp(fb, fr * (PI_F / 2.0f), 6, 0.0f, /*invert=*/true);
+  HS_EXPECT_TRUE(pp.distance(center).dist < 0.0f);
+  HS_EXPECT_TRUE(pp.distance(far_side).dist > 0.0f);
+
+  // Flower fills around the antipode of its axis, so the sides swap; sample
+  // off the exact poles (azimuth is degenerate there).
+  SDF::Flower fl(fb, fr, 6, 0.0f, /*invert=*/true);
+  Vector near_far(std::sin(0.1f), -std::cos(0.1f), 0.0f);
+  Vector near_center(std::sin(0.1f), std::cos(0.1f), 0.0f);
+  HS_EXPECT_TRUE(fl.distance(near_far).dist < 0.0f);
+  HS_EXPECT_TRUE(fl.distance(near_center).dist > 0.0f);
+}
+
+/**
+ * @brief Verifies an inverted shape scans the whole sphere: full row bounds and
+ *        a full-row (unbounded) interval request per scanline.
+ */
+inline void test_inverted_fill_scans_full_sphere() {
+  Basis b = equator_basis();
+  auto res = get_antipode(b, 1.5f);
+
+  SDF::SphericalPolygon sp(res.first, res.second, 5, 0.0f, /*invert=*/true);
+  auto bounds = sp.get_vertical_bounds<144>();
+  HS_EXPECT_EQ(bounds.y_min, 0);
+  HS_EXPECT_EQ(bounds.y_max, 143);
+  bool handled =
+      sp.get_horizontal_intervals<288, 144>(72, [](float, float) {});
+  HS_EXPECT_TRUE(!handled);
+}
+
+// ============================================================================
 // Line
 // ============================================================================
 
@@ -1752,6 +1813,9 @@ inline int run_sdf_tests() {
 
   test_flower_interior_along_petal();
   test_flower_petal_tip_on_boundary();
+
+  test_inverted_fill_stays_centered();
+  test_inverted_fill_scans_full_sphere();
 
   test_line_on_arc_is_inside();
   test_line_endpoint_is_on_line();
