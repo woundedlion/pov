@@ -63,6 +63,7 @@ public:
     register_param("Palette Mod", &params.palette_mod, PALETTE_MODS,
                    static_cast<int>(sizeof(PALETTE_MODS) /
                                     sizeof(PALETTE_MODS[0])));
+    register_param("Mod Depth", &params.mod_depth, 0.0f, 1.0f);
     register_param("Show Bounding", &params.debug_bb);
 
     timeline.add(0, Animation::Sprite(
@@ -150,17 +151,26 @@ private:
   }
 
   /**
-   * @brief Advances the palette-modifier drivers one frame, keeping the
-   * periodic ones wrapped.
+   * @brief Advances the palette-modifier drivers one frame and applies the
+   * Mod Depth slider to every modifier's strength knob.
    */
   void step_mod_drivers() {
     mod_time += MOD_TIME_STEP;
     mod_phase += MOD_PHASE_STEP;
     if (mod_phase >= 2.0f * PI_F)
       mod_phase -= 2.0f * PI_F;
-    spin_amount += SPIN_STEP;
+    spin_amount += SPIN_RATE * params.mod_depth;
     if (spin_amount >= 1.0f)
       spin_amount -= 1.0f;
+
+    const float d = params.mod_depth;
+    warp_mod.amplitude = WARP_AMP * d;
+    drift_mod.amplitude = DRIFT_AMP * d;
+    wobble_shade.depth = WOBBLE_DEPTH * d;
+    sparkle_shade.threshold = 1.0f - SPARKLE_SPAN * d;
+    pulse_shade.depth = PULSE_DEPTH * d;
+    grain_shade.amplitude = GRAIN_AMP * d;
+    sheen_shade.weight = SHEEN_WEIGHT * d;
   }
 
   FastNoiseLite noise;
@@ -177,6 +187,7 @@ private:
     float thickness = 1.0f;     /**< Ring stroke width, in radians of azimuth; init() reseeds it to 4 px scaled by resolution. */
     float num_rings = 1.0f;     /**< Number of evenly spaced concentric rings (truncated to int when drawn). */
     float palette_mod = 0.0f;   /**< Selected palette-modifier option index (see PALETTE_MODS). */
+    float mod_depth = 0.75f;    /**< Strength of the selected palette modifier in [0, 1]. */
     bool debug_bb = false;      /**< When true, draws each fragment's bounding box for debugging. */
   } params;
 
@@ -196,24 +207,35 @@ private:
       "Hue Wobble",  "Sparkle",    "Chroma Pulse",    "Lightness Grain",
       "Iridescent"};
 
-  static constexpr float MOD_TIME_STEP = 0.02f;  /**< Noise-time advance per frame. */
-  static constexpr float MOD_PHASE_STEP = 0.03f; /**< Phase advance per frame (radians). */
-  static constexpr float SPIN_STEP = 0.002f;     /**< Hue-spin advance per frame (turns). */
+  static constexpr float MOD_TIME_STEP = 0.05f;  /**< Noise-time advance per frame. */
+  static constexpr float MOD_PHASE_STEP = 0.04f; /**< Phase advance per frame (radians). */
+
+  // Per-modifier strength at Mod Depth = 1; step_mod_drivers() scales each by
+  // the slider every frame.
+  static constexpr float SPIN_RATE = 0.006f;   /**< Hue-spin turns per frame. */
+  static constexpr float WARP_AMP = 0.5f;      /**< Noise-warp peak displacement. */
+  static constexpr float DRIFT_AMP = 0.5f;     /**< Drift-walk peak offset. */
+  static constexpr float WOBBLE_DEPTH = 0.35f; /**< Hue-wobble peak rotation (turns). */
+  static constexpr float SPARKLE_SPAN = 0.45f; /**< Sparkle threshold drop below 1. */
+  static constexpr float PULSE_DEPTH = 1.0f;   /**< Chroma-pulse swing. */
+  static constexpr float GRAIN_AMP = 0.7f;     /**< Lightness-grain gain swing. */
+  static constexpr float SHEEN_WEIGHT = 0.6f;  /**< Iridescent overlay strength. */
 
   // Drivers must precede the modifiers below, whose constructors take their
-  // addresses.
+  // addresses. Strength knobs are placeholders here; step_mod_drivers()
+  // overwrites them from Mod Depth before the first frame draws.
   float mod_time = 0.0f;
   float mod_phase = 0.0f;
   float spin_amount = 0.0f;
 
-  NoiseWarpModifier warp_mod{&mod_time};
-  DriftModifier drift_mod{&mod_time, 0.25f, 0.25f, 1u};
+  NoiseWarpModifier warp_mod{&mod_time, 5.0f, 0.0f};
+  DriftModifier drift_mod{&mod_time, 0.25f, 0.0f, 1u};
   HueSpinShade spin_shade{&spin_amount};
-  HueWobbleShade wobble_shade{&mod_phase, 1.0f, 0.15f};
-  SparkleShade sparkle_shade{&mod_time, 24.0f, 0.75f, 2u};
-  ChromaPulseShade pulse_shade{&mod_phase, 0.6f};
-  LightnessGrainShade grain_shade{&mod_time, 12.0f, 0.35f, 3u};
-  IridescentShade sheen_shade{&mod_phase, 3.0f, 0.3f};
+  HueWobbleShade wobble_shade{&mod_phase, 2.0f, 0.0f};
+  SparkleShade sparkle_shade{&mod_time, 32.0f, 0.99f, 2u};
+  ChromaPulseShade pulse_shade{&mod_phase, 0.0f};
+  LightnessGrainShade grain_shade{&mod_time, 20.0f, 0.0f, 3u};
+  IridescentShade sheen_shade{&mod_phase, 6.0f, 0.0f};
 
   StaticPalette<BakedPalette, Coords<NoiseWarpModifier>> warp_palette;
   StaticPalette<BakedPalette, Coords<DriftModifier>> drift_palette;
