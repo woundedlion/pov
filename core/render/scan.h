@@ -787,6 +787,46 @@ struct Mesh {
   }
 };
 /**
+ * @brief Fills per-column sin/cos(theta) for one SSAA column offset.
+ * @param sin_t Output sin(theta) per column, w entries.
+ * @param cos_t Output cos(theta) per column, w entries.
+ * @param w Canvas width in pixels.
+ * @param offset Sub-pixel column offset in pixel units.
+ * @details Non-template so HS_COLD reliably keeps the fill loop off ITCM
+ * (section attributes are silently dropped on template members).
+ */
+[[maybe_unused]] HS_COLD static void
+fill_ssaa_theta(float *sin_t, float *cos_t, int w, float offset) {
+  float w_float = static_cast<float>(w);
+  for (int x = 0; x < w; ++x) {
+    float theta = ((static_cast<float>(x) + offset) * 2.0f * PI_F) / w_float;
+    sin_t[x] = sinf(theta);
+    cos_t[x] = cosf(theta);
+  }
+}
+
+/**
+ * @brief Fills the two phi trig pairs for pixel row y.
+ * @param sin_p Output sin(phi) at the two row offsets.
+ * @param cos_p Output cos(phi) at the two row offsets.
+ * @param y Pixel row.
+ * @param h_virt_minus_1 Virtual height minus one (phi domain divisor).
+ * @param offset0 Sub-pixel row offset in pixel units for entry 0.
+ * @param offset1 Sub-pixel row offset in pixel units for entry 1.
+ */
+[[maybe_unused]] HS_COLD static void
+fill_ssaa_phi(float *sin_p, float *cos_p, int y, float h_virt_minus_1,
+              float offset0, float offset1) {
+  const float offsets[2] = {offset0, offset1};
+  for (int j = 0; j < 2; ++j) {
+    float phi =
+        ((static_cast<float>(y) + offsets[j]) * PI_F) / h_virt_minus_1;
+    sin_p[j] = sinf(phi);
+    cos_p[j] = cosf(phi);
+  }
+}
+
+/**
  * @brief Full-screen per-pixel shader with SAMPLES× SSAA.
  *
  * Accepts a single callable ShaderFn(const Vector &v) -> Color4
@@ -827,26 +867,50 @@ struct Shader {
   }
 
   /**
-   * @brief Projects a sub-pixel coordinate to its world-space unit vector.
+   * @brief Per-draw trig tables for the 2×2 SSAA sample grid.
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
-   * @param px Sub-pixel column (pixel index + corner offset).
-   * @param py Sub-pixel row (pixel index + corner offset).
-   * @return World-space unit vector for the sub-pixel sample.
-   * @details Uses the same spherical parameterization as pixel_to_vector
-   * (theta = 2*pi*px/W, phi = py*pi/(H_VIRT-1)) but with direct libm trig rather
-   * than the trig LUT, so samples stay geometrically consistent with the
-   * non-SSAA path without being bit-identical to its LUT lookup.
+   * @details theta depends only on the sub-pixel column and phi only on the
+   * sub-pixel row, so per-column sin/cos(theta) tables built once per draw
+   * plus two per-row phi pairs replace four libm calls per sub-sample. Uses
+   * the same spherical parameterization as pixel_to_vector
+   * (theta = 2*pi*px/W, phi = py*pi/(H_VIRT-1)) but with direct libm trig
+   * rather than the trig LUT, so samples stay geometrically consistent with
+   * the non-SSAA path without being bit-identical to its LUT lookup.
    */
-  template <int W, int H>
-  static inline Vector ssaa_sample_vector(float px, float py) {
-    constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
-    constexpr float w_float = static_cast<float>(W);
-    float theta = (px * 2.0f * PI_F) / w_float;
-    float phi = (py * PI_F) / h_virt_minus_1;
-    float sin_phi = sinf(phi);
-    return Vector(sin_phi * cosf(theta), cosf(phi), sin_phi * sinf(theta));
-  }
+  template <int W, int H> struct SsaaGrid {
+    float sin_theta[2][W]; /**< Per-column sin(theta) at x+0.25 [0] / x-0.25 [1]. */
+    float cos_theta[2][W]; /**< Per-column cos(theta) at x+0.25 [0] / x-0.25 [1]. */
+    float sin_phi[2];      /**< Current row's sin(phi) at y+0.25 [0] / y-0.25 [1]. */
+    float cos_phi[2];      /**< Current row's cos(phi) at y+0.25 [0] / y-0.25 [1]. */
+
+    SsaaGrid() {
+      constexpr auto offsets = make_sample_offsets<4>();
+      fill_ssaa_theta(sin_theta[0], cos_theta[0], W, offsets.x[0]);
+      fill_ssaa_theta(sin_theta[1], cos_theta[1], W, offsets.x[1]);
+    }
+
+    /** @brief Loads the two phi trig pairs for pixel row y. */
+    void set_row(int y) {
+      constexpr auto offsets = make_sample_offsets<4>();
+      constexpr float h_virt_minus_1 = static_cast<float>(H + hs::H_OFFSET - 1);
+      fill_ssaa_phi(sin_phi, cos_phi, y, h_virt_minus_1, offsets.y[0],
+                    offsets.y[2]);
+    }
+
+    /**
+     * @brief World-space unit vector for sample i of pixel x in the current
+     *        row (see set_row).
+     * @param x Pixel column.
+     * @param i Sample index in [0, 4); the low bit selects the column offset
+     * and bit 1 the row offset, matching make_sample_offsets.
+     */
+    Vector at(int x, int i) const {
+      float sp = sin_phi[(i >> 1) & 1];
+      return Vector(sp * cos_theta[i & 1][x], cos_phi[(i >> 1) & 1],
+                    sp * sin_theta[i & 1][x]);
+    }
+  };
 
   /**
    * @brief Validates the LUT-domain invariant shared by both draw overloads.
@@ -897,10 +961,11 @@ struct Shader {
       }
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
-      constexpr auto offsets = make_sample_offsets<SAMPLES>();
+      SsaaGrid<W, H> grid;
 
       ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+        grid.set_row(y);
         for (int x = 0; x < W; ++x) {
           if (xc.clipped(x))
             continue;
@@ -909,11 +974,7 @@ struct Shader {
           Pixel accum(0, 0, 0);
 
           for (int i = 0; i < SAMPLES; ++i) {
-            Vector v = ssaa_sample_vector<W, H>(
-                static_cast<float>(x) + offsets.x[i],
-                static_cast<float>(y) + offsets.y[i]);
-
-            Color4 sample = shader(v);
+            Color4 sample = shader(grid.at(x, i));
             accum += sample.color * (sample.alpha * inv_samples);
           }
 
@@ -974,13 +1035,14 @@ struct Shader {
       }
     } else {
       constexpr float inv_samples = 1.0f / SAMPLES;
-      constexpr auto offsets = make_sample_offsets<SAMPLES>();
+      SsaaGrid<W, H> grid;
 
       const auto &cr = canvas.clip();
       check_lut_domain<W, H>(cr);
       const auto xc = cr.x_clip();
       ScopedRenderTimer timer_guard(canvas);
       for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+        grid.set_row(y);
         for (int x = 0; x < W; ++x) {
           if (xc.clipped(x))
             continue;
@@ -995,9 +1057,7 @@ struct Shader {
           Pixel accum(0, 0, 0);
 
           for (int i = 0; i < SAMPLES; ++i) {
-            Vector v = ssaa_sample_vector<W, H>(
-                static_cast<float>(x) + offsets.x[i],
-                static_cast<float>(y) + offsets.y[i]);
+            Vector v = grid.at(x, i);
 
             Fragment sub_frag = frag_base;
             sub_frag.pos = v;
