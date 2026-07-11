@@ -339,6 +339,98 @@ async function main() {
   }
   console.log('  splines: cubic_fast, cubic_slerp, catmull_rom_tangents OK');
 
+  // ── Color / palette / lissajous exports ─────────────────────────────────────
+  // These free functions and PaletteOps.bakeLut back the JS tool ports but are
+  // never touched by the engine loop above; pin numeric behavior so a
+  // transposed-arg or wrong-target binding fails here instead of shipping green.
+  console.log('\nColor / palette / lissajous:');
+
+  const approx = (a, b, eps = 1e-3) => Number.isFinite(a) && Math.abs(a - b) <= eps;
+
+  // sRGB transfer and its inverse: pinned endpoints plus a round-trip.
+  {
+    const s2l = Module.srgb_to_linear_float, l2s = Module.linear_to_srgb_float;
+    if (!approx(s2l(0), 0) || !approx(s2l(1), 1)) fail(`srgb_to_linear_float endpoints off: ${s2l(0)}, ${s2l(1)}`);
+    if (!approx(l2s(0), 0) || !approx(l2s(1), 1)) fail(`linear_to_srgb_float endpoints off: ${l2s(0)}, ${l2s(1)}`);
+    const mid = s2l(0.5);
+    if (!(mid > 0 && mid < 1)) fail(`srgb_to_linear_float(0.5) = ${mid}, expected interior (0,1)`);
+    if (!approx(l2s(s2l(0.5)), 0.5, 2e-3)) fail(`sRGB transfer round-trip broken: ${l2s(s2l(0.5))}`);
+  }
+
+  // 16-bit linear interp LUT: 0 at black, saturating near 65535 at white, monotone.
+  {
+    const f0 = Module.srgb_to_linear_interp(0), f1 = Module.srgb_to_linear_interp(1),
+      fm = Module.srgb_to_linear_interp(0.5);
+    if (f0 !== 0) fail(`srgb_to_linear_interp(0) = ${f0}, expected 0`);
+    if (!(f1 > 60000 && f1 <= 65535)) fail(`srgb_to_linear_interp(1) = ${f1}, expected near 65535`);
+    if (!(fm > f0 && fm < f1)) fail(`srgb_to_linear_interp not monotone: ${f0} ${fm} ${f1}`);
+  }
+
+  // OKLab: white maps to L~1, a~0, b~0; an asymmetric color round-trips through both.
+  {
+    const white = Module.linear_rgb_to_oklab(1, 1, 1);
+    if (!white || !approx(white.L, 1) || !approx(white.a, 0, 3e-3) || !approx(white.b, 0, 3e-3)) {
+      fail(`linear_rgb_to_oklab(1,1,1) = ${JSON.stringify(white)}, expected ~{L:1,a:0,b:0}`);
+    }
+    // Round-trip an asymmetric linear color: catches r/g/b transposition either way.
+    const lab = Module.linear_rgb_to_oklab(0.6, 0.3, 0.1);
+    const rgb = lab && Module.oklab_to_linear_rgb(lab.L, lab.a, lab.b);
+    if (!rgb || !approx(rgb.r, 0.6, 2e-3) || !approx(rgb.g, 0.3, 2e-3) || !approx(rgb.b, 0.1, 2e-3)) {
+      fail(`OKLab round-trip broke: (0.6,0.3,0.1) -> ${JSON.stringify(rgb)}`);
+    }
+  }
+
+  // HSV sextant path: s=0 is value-driven gray; a saturated hue-0 is red-dominant.
+  {
+    const gray = Module.hsv_to_rgb(0, 0, 200);
+    if (!gray || gray.r !== gray.g || gray.g !== gray.b || !(gray.r > 150)) {
+      fail(`hsv_to_rgb(0,0,200) = ${JSON.stringify(gray)}, expected value-driven gray`);
+    }
+    const black = Module.hsv_to_rgb(0, 0, 0);
+    if (!black || black.r !== 0 || black.g !== 0 || black.b !== 0) {
+      fail(`hsv_to_rgb(0,0,0) = ${JSON.stringify(black)}, expected (0,0,0)`);
+    }
+    const red = Module.hsv_to_rgb(0, 255, 255);
+    if (!red || !(red.r > red.g && red.r > red.b)) {
+      fail(`hsv_to_rgb(0,255,255) = ${JSON.stringify(red)}, expected red-dominant`);
+    }
+  }
+
+  // Procedural cosine palette: an r-only cosine leaves g/b dark, pinning the channel target.
+  {
+    const c = Module.procedural_palette_linear(0, 0, 0, 0.5, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    if (!c || !(c.r > 0) || c.g !== 0 || c.b !== 0) {
+      fail(`procedural_palette_linear r-only = ${JSON.stringify(c)}, expected r>0, g=b=0`);
+    }
+  }
+
+  // Lissajous is unit-by-construction; t=0 is (0,1,0) for any m1,m2,a.
+  {
+    const p0 = Module.lissajous(3, 2, 0.5, 0);
+    if (!approxVec(p0, 0, 1, 0)) fail(`lissajous(t=0) = ${JSON.stringify(p0)}, expected (0,1,0)`);
+    // m1=1,m2=2,a=0,t=π/4 -> (cos π/4, 0, sin π/4); distinguishes m1/m2/a and target axes.
+    const pq = Module.lissajous(1, 2, 0, Math.PI / 4);
+    if (!approxVec(pq, Math.SQRT1_2, 0, Math.SQRT1_2)) {
+      fail(`lissajous(1,2,0,π/4) = ${JSON.stringify(pq)}, expected (0.7071, 0, 0.7071)`);
+    }
+  }
+
+  // PaletteOps.bakeLut: 256*3 sRGB bytes; a two-key gradient must vary end to end.
+  {
+    const po = new Module.PaletteOps();
+    try {
+      const lut = po.bakeLut(0, 0, 255, 255, 160, 255, 255, 160, 255, 255);
+      if (!lut || lut.length !== 256 * 3) {
+        fail(`bakeLut length ${lut && lut.length}, expected ${256 * 3}`);
+      } else if (lut[0] === lut[765] && lut[1] === lut[766] && lut[2] === lut[767]) {
+        fail(`bakeLut gradient is flat end-to-end: [${lut[0]},${lut[1]},${lut[2]}]`);
+      }
+    } finally {
+      po.delete();
+    }
+  }
+  console.log('  color/palette/lissajous: transfer, interp, OKLab, HSV, procedural, lissajous, bakeLut OK');
+
   if (failures > 0) {
     console.error(`\nwasm_smoke: ${failures} failure(s)`);
     process.exitCode = 1;

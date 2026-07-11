@@ -129,7 +129,7 @@ _Latent correctness / robustness (real behavior under a reachable condition):_
 
 _Observability, diagnostics, and test coverage:_
 
-19. **[tests] `scripts/wasm_smoke.mjs`** — The CI embind smoke harness exercises `HolosphereEngine`/`MeshOps`/the spline exports but never touches `PaletteOps.bakeLut` or the 8 color/lissajous free-function exports registered in `wasm.cpp`, so a wrong-target/transposed-arg binding there ships green through Holosphere CI (only daydream's separate parity tests cover it). *Fix:* add one call + finite-result assertion per uncovered export, mirroring the spline block.
+19. ✅ **[tests] `scripts/wasm_smoke.mjs`** — The CI embind smoke harness exercises `HolosphereEngine`/`MeshOps`/the spline exports but never touches `PaletteOps.bakeLut` or the 8 color/lissajous free-function exports registered in `wasm.cpp`, so a wrong-target/transposed-arg binding there ships green through Holosphere CI (only daydream's separate parity tests cover it). *Fix:* add one call + finite-result assertion per uncovered export, mirroring the spline block.
 
 20. **[hardware] `hardware/pov_sync.h:1272,1555`** — `telemetry_.emit_aborted` is incremented for two distinct events (mid-burst lateness self-censor vs. dropping a stale overrun beacon), but its doc describes only the first, so a rising `abrt` in field telemetry conflates two root causes. *Fix:* add a distinct `beacons_overrun_dropped` counter, or amend the doc to state it counts both.
 
