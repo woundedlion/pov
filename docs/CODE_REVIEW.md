@@ -161,7 +161,7 @@ _Consistency and maintainability:_
 
 33. ✅ **[engine] `core/engine/transformers.h:320`** — `cos_threshold_min`/`cos_threshold_max` invert intuitive cosine ordering (`min` holds the *larger* cosine / nearest angle); the comparison is correct but reads backwards and a maintainer could "fix" it and silently break the ripple fast-reject band (no test would catch a perf-only regression). *Fix:* rename to `cos_near`/`cos_far`, or add a clarifying comment at the comparison site.
 
-34. **[daydream] `daydream/tools/slider.js:35`** — `createSlider` returns `null` on a missing container while siblings (`initScene`, `formatFloatCpp`, codegen helpers) throw named errors; a caller that forgets the null-check gets an opaque `Cannot read properties of null`. *Fix:* throw a named `container #id not found` error for parity, or document the soft return.
+34. ✅ **[daydream] `daydream/tools/slider.js:35`** — `createSlider` returns `null` on a missing container while siblings (`initScene`, `formatFloatCpp`, codegen helpers) throw named errors; a caller that forgets the null-check gets an opaque `Cannot read properties of null`. *Fix:* throw a named `container #id not found` error for parity, or document the soft return.
 
 35. ✅ **[animation] `core/animation/sprites.h:112`** — The pause-gate member is `paused_` in `Sprite` but `paused` in `Mutation`/`Driver`/`Lerp`. *Fix:* rename to `paused` for module consistency.
 
