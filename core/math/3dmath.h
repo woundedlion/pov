@@ -639,24 +639,40 @@ struct Complex {
   /**
    * @brief Complex division.
    * @param b The divisor.
-   * @return The quotient of this and `b`; a quotient whose magnitude would reach
-   * STEREO_INF collapses to the infinity sentinel scaled along the numerator's
-   * direction, so a merely small (non-singular) divisor still yields a finite
-   * point.
+   * @return The quotient of this and `b`. This is ordinary complex division:
+   * a zero divisor yields non-finite components. For the stereographic/Mobius
+   * point-at-infinity conventions (magnitude clamp, 0/0 -> 0) use project_div().
    */
   Complex operator/(const Complex &b) const {
     float denom = b.re * b.re + b.im * b.im;
-    float num_mag = re * re + im * im;
-    if (num_mag >= denom * (STEREO_INF * STEREO_INF)) {
-      if (num_mag < STEREO_DIV_NUM_EPS_SQ)
-        return Complex(0, 0); // 0/0 → indeterminate, keep zero
-      float scale = STEREO_INF / sqrtf(num_mag);
-      return Complex(re * scale, im * scale);
-    }
     return Complex((re * b.re + im * b.im) / denom,
                    (im * b.re - re * b.im) / denom);
   }
 };
+
+/**
+ * @brief Projection-domain complex division for the stereographic/Mobius maps.
+ * @param num Numerator.
+ * @param den Divisor.
+ * @return num/den, except a quotient whose magnitude would reach STEREO_INF
+ * collapses to the infinity sentinel scaled along the numerator's direction (so
+ * a near-singular divisor still yields a finite point), and 0/0 returns (0,0).
+ * @details NOT general complex division (see Complex::operator/): the STEREO_INF
+ * clamp and the 0/0 -> 0 case are the point-at-infinity conventions the sphere
+ * projections depend on.
+ */
+inline Complex project_div(const Complex &num, const Complex &den) {
+  float denom = den.re * den.re + den.im * den.im;
+  float num_mag = num.re * num.re + num.im * num.im;
+  if (num_mag >= denom * (STEREO_INF * STEREO_INF)) {
+    if (num_mag < STEREO_DIV_NUM_EPS_SQ)
+      return Complex(0, 0);
+    float scale = STEREO_INF / sqrtf(num_mag);
+    return Complex(num.re * scale, num.im * scale);
+  }
+  return Complex((num.re * den.re + num.im * den.im) / denom,
+                 (num.im * den.re - num.re * den.im) / denom);
+}
 
 /**
  * @brief Coefficients of a Mobius transform f(z) = (az + b) / (cz + d).
@@ -739,7 +755,7 @@ inline Vector inv_stereo(const Complex &z) {
 inline Complex mobius(const Complex &z, const MobiusParams &params) {
   Complex num = (params.a * z) + params.b;
   Complex den = (params.c * z) + params.d;
-  return num / den;
+  return project_div(num, den);
 }
 
 /**
