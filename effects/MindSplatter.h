@@ -28,17 +28,7 @@ public:
    * @brief Constructs the effect, seeding the preset table and filters.
    */
   FLASHMEM MindSplatter()
-      : Effect(W, H, {.strobe = true}),
-        // well_strength is pre-scaled by friction (0.85) because the integrator
-        // applies v <- friction*v + impulse, dragging velocity before the
-        // attractor impulse.
-        presets{std::array<PresetEntry<Params>, 5>{{
-                    {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.2f}},
-                    {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.52f}},
-                    {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.92f}},
-                    {{.friction = 0.85f, .well_strength = 1.7f, .initial_speed = 0.094f, .angular_speed = 0.2f}},
-                    {{.friction = 0.85f, .well_strength = 2.55f, .initial_speed = 0.035f, .angular_speed = 1.0f}},
-                }}},
+      : Effect(W, H, {.strobe = true}), presets{PRESETS},
         filters(Filter::Screen::AntiAlias<W, H>()),
         particle_system() {}
 
@@ -162,6 +152,42 @@ private:
                       (target.angular_speed - start.angular_speed) * t;
     }
   } params;
+
+  static constexpr float FRICTION_MIN = 0.5f, FRICTION_MAX = 1.0f;
+  static constexpr float WELL_STRENGTH_MIN = 0.0f, WELL_STRENGTH_MAX = 20.0f;
+  static constexpr float INITIAL_SPEED_MIN = 0.0f, INITIAL_SPEED_MAX = 0.1f;
+  static constexpr float ANGULAR_SPEED_MIN = 0.0f, ANGULAR_SPEED_MAX = 1.0f;
+
+  /** @brief True iff every preset-driven field of @p p lies within its
+   *  registered slider range (see the range constants above). */
+  static constexpr bool preset_in_ranges(const Params &p) {
+    return p.friction >= FRICTION_MIN && p.friction <= FRICTION_MAX &&
+           p.well_strength >= WELL_STRENGTH_MIN &&
+           p.well_strength <= WELL_STRENGTH_MAX &&
+           p.initial_speed >= INITIAL_SPEED_MIN &&
+           p.initial_speed <= INITIAL_SPEED_MAX &&
+           p.angular_speed >= ANGULAR_SPEED_MIN &&
+           p.angular_speed <= ANGULAR_SPEED_MAX;
+  }
+
+  // well_strength is pre-scaled by friction (0.85) because the integrator
+  // applies v <- friction*v + impulse, dragging velocity before the attractor
+  // impulse.
+  static constexpr std::array<PresetEntry<Params>, 5> PRESETS{{
+      {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.2f}},
+      {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.52f}},
+      {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.92f}},
+      {{.friction = 0.85f, .well_strength = 1.7f, .initial_speed = 0.094f, .angular_speed = 0.2f}},
+      {{.friction = 0.85f, .well_strength = 2.55f, .initial_speed = 0.035f, .angular_speed = 1.0f}},
+  }};
+  static_assert(preset_in_ranges(PRESETS[0].params) &&
+                    preset_in_ranges(PRESETS[1].params) &&
+                    preset_in_ranges(PRESETS[2].params) &&
+                    preset_in_ranges(PRESETS[3].params) &&
+                    preset_in_ranges(PRESETS[4].params),
+                "a MindSplatter preset drives a param outside its registered "
+                "slider range; widen the range to accommodate the preset (the "
+                "range exposes the presets, it does not clamp them)");
 
   Presets<Params, 5> presets;
 
