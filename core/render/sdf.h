@@ -825,7 +825,7 @@ template <typename A, typename B> struct Union {
   const A &a;         /**< First child shape. */
   const B &b;         /**< Second child shape. */
   float thickness;    /**< Max child thickness (drives AA falloff). */
-  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the union keeps both interiors. */
+  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the union keeps both interiors. Mixing a solid and a stroke child is unsupported: a non-solid winner still renders via the solid AA branch, not its size-based falloff. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Union children must be SDF shapes "
@@ -942,7 +942,7 @@ template <typename A, typename B> struct SmoothUnion {
   const B &b;         /**< Second child shape. */
   float k;            /**< Smoothing radius in radians (e.g. 0.1). */
   float thickness;    /**< Max child thickness (drives AA falloff). */
-  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the smooth union keeps both interiors. */
+  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the smooth union keeps both interiors. Mixing a solid and a stroke child is unsupported: a non-solid winner still renders via the solid AA branch, not its size-based falloff. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG SmoothUnion children must be SDF shapes "
