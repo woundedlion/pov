@@ -77,7 +77,7 @@ private:
    *          reallocating.
    */
   struct Ring {
-    static constexpr int FADE_IN_FRAMES = 4; /**< Frames spent fading in from 0 to full opacity; opacity then holds (no fade-out). */
+    static constexpr int FADE_IN_FRAMES = 4; /**< Fade-in span; opacity uses age+1 so the first draw starts one linear step in (0.25 at 4) rather than 0, then holds at full (no fade-out). */
     static constexpr float RADIUS_MAX = 2.0f; /**< Maximum radius; the ring grows from 0 to this over its whole life. */
     static constexpr int LIFE_MIN = 8;   /**< Minimum lifetime in frames (>0: guards the radius_at divisor). */
     static constexpr int LIFE_SPAN = 72; /**< Width of the random lifetime range, in frames. */

@@ -249,7 +249,7 @@ _Documentation inaccuracies, missing tests for real behavior, dead code, and cos
 38. ✅ **Feedback::flush doc says it writes the front buffer; it writes the back buffer** — `core/render/filter.h:1277` (Holosphere)  
    The @param on Feedback::flush reads 'Target canvas (reads cv.prev, writes the front buffer).' The method reads the front/displayed buffer via cv.prev(x,y) but writes the current draw target via cv(x,y), which is the BACK buffer (bufs_[cur_]). README section 5 and the filter's own class doc correctly describe sampling the front buffer and compositing into the back buffer, so this @param contradicts the rest of the documentation and could mislead a reader into thinking flush mutates the displayed frame.  
    *Fix:* Change 'writes the front buffer' to 'writes the back (current-draw) buffer'.
-39. **RingShower FADE_IN_FRAMES doc says opacity fades "from 0" but the first drawn frame is 0.25** — `effects/RingShower.h:80` (Holosphere)  
+39. ✅ **RingShower FADE_IN_FRAMES doc says opacity fades "from 0" but the first drawn frame is 0.25** — `effects/RingShower.h:80` (Holosphere)  
    The FADE_IN_FRAMES member comment states "Frames spent fading in from 0 to full opacity", but opacity_at() returns ease_linear((age+1)/FADE_IN_FRAMES), so the first visible frame (age 0) yields ease_linear(1/4) = 0.25, and the fade runs 0.25 -> 0.5 -> 0.75 -> 1.0. The ring never renders at opacity 0 (this is intentional and mirrors radius_at()'s age+1 "one step in" convention, which is correctly documented at line 108). Only this one comment overstates the starting value.  
    *Fix:* Reword line 80 to say the fade-in starts one linear step in (0.25 at FADE_IN_FRAMES=4) rather than at 0, matching the age+1 convention already documented on radius_at().
 
