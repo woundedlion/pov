@@ -36,6 +36,9 @@ struct ParamView {
   bool is_bool;     /**< True if the parameter is a boolean toggle. */
   bool animated;    /**< True if the parameter is currently animated. */
   bool readonly;    /**< True if the parameter is read-only (not editable). */
+  const char *const *options; /**< Enum option labels, or null for a plain
+                                 param; the value is the selected index. */
+  int option_count; /**< Number of option labels; > 0 marks an enum. */
 };
 
 /**
@@ -50,7 +53,8 @@ inline void collect_param_views(const Effect &effect,
   out.clear();
   for (const auto &def : effect.getParameters()) {
     out.push_back(ParamView{def.name, def.get(), def.min, def.max,
-                            def.is_bool(), def.animated, def.readonly});
+                            def.is_bool(), def.animated, def.readonly,
+                            def.options, def.option_count});
   }
 }
 

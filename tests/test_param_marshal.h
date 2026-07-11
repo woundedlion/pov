@@ -71,6 +71,13 @@ inline bool check_one(const char *) {
     HS_EXPECT_EQ(views[i].value, values[i]);
     HS_EXPECT_EQ(views[i].is_bool, def.is_bool());
     HS_EXPECT_EQ(views[i].value, def.get());
+    HS_EXPECT_TRUE(views[i].options == def.options);
+    HS_EXPECT_EQ(views[i].option_count, def.option_count);
+    // An enum's current value is always a valid option index.
+    if (def.option_count > 0) {
+      HS_EXPECT_GE(views[i].value, 0.0f);
+      HS_EXPECT_LE(views[i].value, static_cast<float>(def.option_count - 1));
+    }
     ++i;
   }
 
