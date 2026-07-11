@@ -78,7 +78,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 3. ✅ **Holosphere/hardware/pov_single.h:78** — Single-board `show()` constructs the effect with unguarded `new E()`/`delete`, diverging from Phantasm's `new (std::nothrow)` + `HS_CHECK(e != nullptr, ...)` fail-fast OOM guard; an OOM here aborts with no diagnostic. *Fix:* mirror the segmented path's nothrow + named trap.
 
-4. **Holosphere/hardware/phantasm/gen/analyze_candidates.py:117** — `run_drc` writes every candidate's report to one fixed path with `check=False`, so a `kicad-cli` early-exit makes a stale neighbor's DRC verdict be attributed to the current candidate — a broken candidate can be scored "clean" and recommended. *Fix:* per-candidate temp file (or `os.remove` first) and verify the return code / that the report was rewritten before parsing.
+4. ✅ **Holosphere/hardware/phantasm/gen/analyze_candidates.py:117** — `run_drc` writes every candidate's report to one fixed path with `check=False`, so a `kicad-cli` early-exit makes a stale neighbor's DRC verdict be attributed to the current candidate — a broken candidate can be scored "clean" and recommended. *Fix:* per-candidate temp file (or `os.remove` first) and verify the return code / that the report was rewritten before parsing.
 
 5. **Holosphere/hardware/phantasm/gen/shorts.py:106** — The script detects real shorts via union-find and prints them but always exits 0, so it cannot act as an automated gate despite being listed as a validation step. *Fix:* count surviving conflict groups and `sys.exit(1)` when nonzero.
 
