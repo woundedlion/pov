@@ -1761,7 +1761,6 @@ struct Face {
   int count;                        /**< Vertex/edge count. */
   float thickness;                  /**< Edge half-width (radians). */
   float size;                       /**< Inradius metric for AA normalization. */
-  float max_r2 = 0.0f;              /**< Max squared 2D vertex radius. */
   float radius = 0.0f;              /**< Circumradius in the 2D projection. */
   float max_dist = 0.0f;            /**< Cull radius (circumradius plus margin). */
   float max_dist_sq = 0.0f;         /**< Squared cull radius. */
@@ -1981,7 +1980,7 @@ struct Face {
     basis_u = cross(center, ref).normalized();
     basis_w = cross(center, basis_u).normalized();
 
-    max_r2 = 0.0f;
+    float max_r2 = 0.0f;
     for (int i = 0; i < count; ++i) {
       const Vector &v = vertices[indices[i]];
       // Gnomonic projection divides by d = cos(angle from face center), singular
