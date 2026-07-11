@@ -248,15 +248,9 @@ inline void transform(const MeshState &local_state, MeshState &world_state,
                       Arena& arena) {
   HS_CHECK(local_state.face_counts.is_bound(),
            "MeshOps::transform: source mesh must be owned-mode");
-  // Unbind any stale owned topology so the borrowed-mode views set below are not
-  // shadowed by it on a reused output.
-  world_state.face_counts = {};
-  world_state.faces = {};
-  world_state.face_offsets = {};
-
-  world_state.face_counts_view = ArenaSpan(local_state.face_counts);
-  world_state.faces_view = ArenaSpan(local_state.faces);
-  world_state.face_offsets_view = ArenaSpan(local_state.face_offsets);
+  world_state.set_view(ArenaSpan(local_state.face_counts),
+                       ArenaSpan(local_state.faces),
+                       ArenaSpan(local_state.face_offsets));
 
   world_state.vertices.bind(arena, local_state.vertices.size());
 
@@ -282,14 +276,8 @@ inline void transform(const MeshState &mesh, MeshState &transformed, Arena& aren
                       const Transformers &...transformers) {
   HS_CHECK(mesh.face_counts.is_bound(),
            "MeshOps::transform: source mesh must be owned-mode");
-  // Unbind any stale owned topology (see the base overload).
-  transformed.face_counts = {};
-  transformed.faces = {};
-  transformed.face_offsets = {};
-
-  transformed.face_counts_view = ArenaSpan(mesh.face_counts);
-  transformed.faces_view = ArenaSpan(mesh.faces);
-  transformed.face_offsets_view = ArenaSpan(mesh.face_offsets);
+  transformed.set_view(ArenaSpan(mesh.face_counts), ArenaSpan(mesh.faces),
+                       ArenaSpan(mesh.face_offsets));
 
   transformed.vertices.bind(arena, mesh.vertices.size());
 

@@ -312,7 +312,7 @@ struct MeshState {
         face_counts_view(other.face_counts_view),
         faces_view(other.faces_view),
         face_offsets_view(other.face_offsets_view) {
-    other.clear_views();
+    other.set_owned();
   }
 
   /**
@@ -331,7 +331,7 @@ struct MeshState {
       face_counts_view = other.face_counts_view;
       faces_view = other.faces_view;
       face_offsets_view = other.face_offsets_view;
-      other.clear_views();
+      other.set_owned();
     }
     return *this;
   }
@@ -345,7 +345,7 @@ struct MeshState {
     faces.clear();
     face_offsets.clear();
     topology.clear();
-    clear_views();
+    set_owned();
   }
 
   /**
@@ -425,7 +425,7 @@ struct MeshState {
    */
   static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
     // Reused dst may carry stale views; clone produces an owned-mode mesh.
-    dst.clear_views();
+    dst.set_owned();
     copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);
     copy_vector(dst.face_counts, src.get_face_counts_data(),
                 src.get_face_counts_size(), arena);
@@ -435,11 +435,33 @@ struct MeshState {
     copy_vector(dst.topology, src.topology.data(), src.topology.size(), arena);
   }
 
-private:
-  /// Nulls the three borrowed views, restoring owned-mode discrimination.
-  void clear_views() {
+  /**
+   * @brief Switches to owned mode by dropping the borrowed topology views so the
+   *   is_bound() accessors read the owned buffers.
+   * @details Call on a possibly-borrowed MeshState after (re)binding its owned
+   *   topology, so a leftover view can't shadow the owned data.
+   */
+  void set_owned() {
     face_counts_view = {};
     faces_view = {};
     face_offsets_view = {};
+  }
+
+  /**
+   * @brief Switches to borrowed mode: unbinds the owned topology so it cannot
+   *   shadow the views, then points the three topology views at the given spans.
+   * @param face_counts_span Borrowed per-face vertex counts.
+   * @param faces_span Borrowed flattened face vertex indices.
+   * @param face_offsets_span Borrowed per-face start offsets into faces.
+   */
+  void set_view(ArenaSpan<uint8_t> face_counts_span,
+                ArenaSpan<uint16_t> faces_span,
+                ArenaSpan<uint16_t> face_offsets_span) {
+    face_counts = {};
+    faces = {};
+    face_offsets = {};
+    face_counts_view = face_counts_span;
+    faces_view = faces_span;
+    face_offsets_view = face_offsets_span;
   }
 };

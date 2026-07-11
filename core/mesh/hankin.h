@@ -262,12 +262,10 @@ template <typename MeshT>
 inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
                           Arena &target_arena, float angle) {
 
-  // Clear any borrowed-mode view spans a reused MeshState may still carry, so
-  // the owned topology bound below is unambiguous on reuse.
-  if constexpr (requires { out_mesh.face_counts_view; }) {
-    out_mesh.face_counts_view = {};
-    out_mesh.faces_view = {};
-    out_mesh.face_offsets_view = {};
+  // Drop any borrowed-mode views a reused MeshState may still carry, so the
+  // owned topology bound below is unambiguous on reuse.
+  if constexpr (requires { out_mesh.set_owned(); }) {
+    out_mesh.set_owned();
   }
 
   bool is_flat = std::abs(angle) < math::TOLERANCE;
