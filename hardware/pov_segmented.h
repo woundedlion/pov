@@ -318,9 +318,9 @@ public:
       // IRQ-off bracket or a torn read could mis-fire the comparison below.
       if (hs::debug && millis() - last_report >= 1000UL) {
         last_report = millis();
-        __disable_irq();
+        hs::disable_interrupts();
         const pov::sync::Telemetry tm = sync_.telemetry();
-        __enable_irq();
+        hs::enable_interrupts();
         if (memcmp(&tm, &last_tm, sizeof tm) != 0) {
           // hs::log, not Serial.printf: Teensy's printf drags in newlib's float
           // formatter (~5 KB ITCM); these counters are all %lu.
