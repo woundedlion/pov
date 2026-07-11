@@ -117,7 +117,7 @@ _Latent correctness / robustness (real behavior under a reachable condition):_
 
 13. **[render] `core/render/sdf.h:2222-2258`** — `Face::compute_azimuth_intervals` derives azimuth coverage only from per-vertex `atan2`, with no per-edge azimuth-extremum refinement (unlike the vertical bounds). A face with a great-circle edge grazing just outside a pole can leave near-pole columns unscanned, cutting a gap. Latent on shipped compact meshes. *Fix:* force `full_width = true` when any edge's arc extremum enters the phi margin band near a pole.
 
-14. **[effects] `effects/Comets.h:156-161`** — `closing_domain` floors `m2·domain` but not the divisor `config.m2` itself, on a table the class doc explicitly frames as an authored extension point; a future entry with `m2 == 0` yields an infinite domain that freezes the head. *Fix:* floor `m2` or `HS_CHECK(config.m2 > 0)`.
+14. ✅ **[effects] `effects/Comets.h:156-161`** — `closing_domain` floors `m2·domain` but not the divisor `config.m2` itself, on a table the class doc explicitly frames as an authored extension point; a future entry with `m2 == 0` yields an infinite domain that freezes the head. *Fix:* floor `m2` or `HS_CHECK(config.m2 > 0)`.
 
 15. **[effects] `effects/MindSplatter.h:277-284`** — `assert(p_idx < active_count)` runs *before* the defensive clamp the adjacent comment justifies as float-overshoot protection; on builds where the assert is live the clamp is dead, and on device (assert stripped) the safety net is never checked. *Fix:* clamp first, then assert on the clamped value (or drop the assert and keep the `active_count`-guarded clamp).
 

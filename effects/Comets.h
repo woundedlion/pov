@@ -154,6 +154,8 @@ private:
    *          at path_fn(0) (the table is authored data that gets extended).
    */
   static float closing_domain(const LissajousParams &config) {
+    HS_CHECK(config.m2 > 0,
+             "Comets Lissajous entry needs m2 > 0; m2 divides the domain");
     float closing_cycles = std::round(config.m2 * config.domain / (2 * PI_F));
     if (closing_cycles < 1.0f)
       closing_cycles = 1.0f;
