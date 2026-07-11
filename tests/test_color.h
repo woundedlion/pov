@@ -1345,6 +1345,29 @@ inline void test_noise_warp_modifier() {
 }
 
 /**
+ * @brief Verifies DriftModifier's per-frame memoized noise-walk offset.
+ * @details Within one frame the offset is a t-independent constant matching the
+ *          value-noise reference; advancing the time driver refreshes it.
+ */
+inline void test_drift_modifier() {
+  float time = 2.3f;
+  DriftModifier drift(&time, 0.5f, 0.2f, 11u);
+
+  float expected = (value_noise_1d(time * 0.5f, 11u) - 0.5f) * 2.0f * 0.2f;
+  HS_EXPECT_NEAR(drift.modify(0.0f), expected, 1e-6f);
+  HS_EXPECT_LE(std::fabs(expected), 0.2f);
+
+  // Same frame: every coordinate shifts by the identical offset.
+  HS_EXPECT_NEAR(drift.modify(0.7f) - 0.7f, drift.modify(0.1f) - 0.1f, 1e-6f);
+
+  // New frame: the memo refreshes to the new walk position.
+  time = 9.8f;
+  float refreshed = (value_noise_1d(time * 0.5f, 11u) - 0.5f) * 2.0f * 0.2f;
+  HS_EXPECT_NEAR(drift.modify(0.4f), 0.4f + refreshed, 1e-6f);
+  HS_EXPECT_TRUE(refreshed != expected);
+}
+
+/**
  * @brief Verifies StaticPalette folds its modifier chain then queries the source.
  * @details Applies the modifier chain in order before sampling the source.
  */
@@ -1521,6 +1544,7 @@ inline int run_color_tests() {
   test_generative_palette_snapshot_lerp();
   test_palette_modifiers();
   test_noise_warp_modifier();
+  test_drift_modifier();
   test_static_palette_composition();
   test_palette_wrappers();
 

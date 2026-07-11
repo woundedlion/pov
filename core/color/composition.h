@@ -151,6 +151,53 @@ struct NoiseWarpModifier {
 };
 
 /**
+ * @brief Meanders the whole palette along a smooth noise walk — unlike
+ * CycleModifier's linear scroll, the offset wanders, hesitates, and reverses.
+ */
+struct DriftModifier {
+  const float *time;
+  float speed;
+  float amplitude;
+  uint32_t seed;
+  /**
+   * @brief Per-instance memo of the frame's walk offset.
+   * @details *time is frame-constant, so the noise walk is sampled once per
+   * frame, not per pixel. mutable so const modify() can update the memo.
+   */
+  mutable float cached_time = 0.0f;
+  mutable float cached_offset = 0.0f; /**< Memoized offset at cached_time. */
+  mutable bool primed = false;        /**< Whether the memo has been populated. */
+
+  /**
+   * @brief Constructs with a mandatory time driver, walk speed, and amplitude.
+   * @param time Pointer to the per-frame time; must not be null.
+   * @param speed Walk rate in noise cells per time unit; defaults to 0.25.
+   * @param amp Peak offset; defaults to 0.25.
+   * @param seed Noise stream selector; defaults to 0.
+   */
+  DriftModifier(const float *time, float speed = 0.25f, float amp = 0.25f,
+                uint32_t seed = 0)
+      : time(time), speed(speed), amplitude(amp), seed(seed) {
+    HS_CHECK(time, "DriftModifier: time driver must not be null");
+  }
+
+  /**
+   * @brief Shifts the coordinate by the frame's noise-walk offset.
+   * @param t Input coordinate.
+   * @return t plus an offset in [-amplitude, amplitude].
+   */
+  float modify(float t) const {
+    if (!primed || *time != cached_time) {
+      cached_time = *time;
+      cached_offset =
+          (value_noise_1d(cached_time * speed, seed) - 0.5f) * 2.0f * amplitude;
+      primed = true;
+    }
+    return t + cached_offset;
+  }
+};
+
+/**
  * @brief Folds the palette back and forth like a kaleidoscope.
  * A folds value of 2.0 maps [0...1] to [1 -> 0 -> 1] (one full bounce);
  * each unit of folds adds another half-bounce.
