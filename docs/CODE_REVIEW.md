@@ -120,7 +120,7 @@ current normal path but defeat an invariant the codebase otherwise enforces.
 
 ### Priority 3 — Maintainability & Dead Code
 
-7. **Redundant `topology.clear()` immediately after `bind()`** — `core/mesh/mesh.h:667`. `classify_faces_impl` calls `mesh.topology.bind(persistent, F)` (which already resets `size_` to 0 on both the reuse and fresh paths) then `mesh.topology.clear()` (also just sets `size_ = 0`), and the following loop repopulates all `F` entries regardless. The `clear()` adds no behavior. Fix: delete the line (the project prefers removing dead code over keeping it).
+7. ✅ **Redundant `topology.clear()` immediately after `bind()`** — `core/mesh/mesh.h:667`. `classify_faces_impl` calls `mesh.topology.bind(persistent, F)` (which already resets `size_` to 0 on both the reuse and fresh paths) then `mesh.topology.clear()` (also just sets `size_ = 0`), and the following loop repopulates all `F` entries regardless. The `clear()` adds no behavior. Fix: delete the line (the project prefers removing dead code over keeping it).
 
 8. **Redundant `global_timeline_t` reset duplicated across 8 sites instead of the existing helper** — `tests/test_effects.h:153`. The four-line reset block is hand-inlined at eight call sites even though `reset_effect_globals()` (line 1185) encapsulates exactly it, and the trailing `global_timeline_t = 0;` is itself dead because `Timeline::clear()` already zeroes it (twice, via the temporary's destructor). Fix: hoist `reset_effect_globals()` above first use, call it from the eight sites, and drop the dead explicit reset.
 
