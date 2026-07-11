@@ -751,20 +751,17 @@ struct Mesh {
       std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
       std::span<const uint16_t> indices(fi + fo[i], count);
 
-      // The IIFE lets the HS_PROFILE scope close right after the prvalue Face is
-      // constructed in place (guaranteed elision), so it measures construction
-      // alone, not the rasterize below.
+      // IIFE so the HS_PROFILE scope measures Face construction alone (prvalue
+      // elided in place), not the rasterize below.
       SDF::Face shape = [&] {
         HS_PROFILE(scan_face_setup);
         return SDF::Face(verts, indices, 0.0f, *scratch, H + hs::H_OFFSET, H,
                          &canvas.clip());
       }();
 
-      // Bind the face's congruence-class LUT: one complex correlation over the
-      // vertices aligns the current (possibly rippled) projection to the
-      // canonical frame — noise next to the ctor's work. Culled faces
-      // (y_min > y_max) skip it; a class without a LUT or a degenerate
-      // alignment leaves the face on the exact path.
+      // Bind the face's congruence-class LUT: a vertex correlation aligns the
+      // current projection to the canonical frame. Culled faces (y_min > y_max)
+      // skip it; a missing LUT or degenerate alignment stays on the exact path.
       if (bake && shape.y_min <= shape.y_max) {
         const MeshOps::FaceClassRec &rec = bake->face_recs[i];
         if (rec.class_id != MeshOps::NO_CLASS) {
@@ -906,8 +903,7 @@ struct Shader {
           if (xc.clipped(x))
             continue;
           // Premultiplied SSAA: accumulate each sample's coverage-weighted color
-          // (color * alpha * 1/N) and write it directly, matching the SAMPLES==1
-          // path (sample.color * sample.alpha).
+          // (color * alpha / N), matching the SAMPLES==1 path.
           Pixel accum(0, 0, 0);
 
           for (int i = 0; i < SAMPLES; ++i) {
@@ -934,9 +930,8 @@ struct Shader {
    * @param canvas Destination canvas.
    * @param fragment_shader Per-sub-sample shader, called SAMPLES× per pixel.
    * @param vertex_shader Per-pixel shader, called once at the pixel center.
-   * @details Separates expensive per-pixel work (vertex_shader, called once at
-   * pixel center) from per-sub-sample evaluation (fragment_shader, called
-   * SAMPLES×).
+   * @details Splits expensive per-pixel work (vertex_shader, once at pixel
+   * center) from per-sub-sample evaluation (fragment_shader, SAMPLES×).
    *
    * @note SAMPLES defaults to 1 (no SSAA), matching the single-callback overload.
    * Every call site passes SAMPLES explicitly.
@@ -1054,10 +1049,8 @@ template <typename SDF> struct TransformedVolume {
    * @brief Transforms only a ray origin from world to local space.
    * @param ro Ray origin in world space.
    * @return Local-space origin.
-   * @details The per-pixel march needs a fresh local origin every pixel but the
-   * local direction is constant across the draw (vd is fixed), so the volume
-   * loop precomputes it once via ray_to_local() and calls this to skip the
-   * redundant per-pixel direction rotation.
+   * @details The local direction is constant across the draw, so the volume loop
+   * precomputes it once and calls this per pixel to transform only the origin.
    */
   Vector origin_to_local(const Vector &ro) const {
     return rotate(ro - center, q_inv);
@@ -1099,11 +1092,9 @@ struct Volume {
    * @param aa_width Anti-aliasing band half-width (deep-hit early-out).
    * @param closest_local Output: local-space point of closest approach.
    * @return Signed distance at the closest approach (FLT_MAX if never sampled).
-   * @details Once inside the AA band the trace stops at the first rising local
-   * minimum — the silhouette graze that owns the pixel's coverage — leaving any
-   * occluded surface behind it to probe_occluder. Marching on would let that
-   * deeper surface steal the closest approach, corrupting both the edge alpha
-   * and the shading position.
+   * @details Inside the AA band, stops at the first rising local minimum (the
+   * silhouette graze owning the pixel's coverage); marching past it would let a
+   * deeper occluded surface steal the closest approach.
    */
   template <typename Shape>
   static __attribute__((always_inline)) float
@@ -1180,12 +1171,11 @@ struct Volume {
   probe_occluder(const Shape &shape, const Vector &closest_local,
                  const Vector &local_vd, float bounds_radius, float hit_threshold,
                  float aa_width) {
-    // March forward from the closest approach for a surface this halo occludes: a
-    // solid hit means a self-occlusion edge (antialias over it), not a silhouette.
-    // The step is floored to punch past the stalled foreground surface (fine near
-    // field, coarse beyond); termination is the bounding sphere's back face. With
-    // no solid hit, detect a grazed background edge as a local minimum of pd and
-    // report its coverage for the corner fill.
+    // March forward from the closest approach for a surface this halo occludes;
+    // a solid hit is a self-occlusion edge (antialias over it). Step is floored
+    // to punch past the stalled foreground; termination is the bounding sphere's
+    // back face. With no solid hit, report a grazed background edge (local min of
+    // pd) and its coverage for the corner fill.
     Vector probe = closest_local;
     float prev = FLT_MAX;  // previous step's distance
     bool climbing = false; // pd has risen off the foreground graze

@@ -27,11 +27,9 @@ namespace Solids {
 
 static constexpr int MAX_VERTS = 8700;
 static constexpr int MAX_INDICES = 20000;
-// Conway/Hankin store topology indices as uint16_t (faces, HE_NONE=0xFFFF
-// sentinel), but some operators' scratch lands them in int16_t (-1 sentinel), so
-// the budgets must fit those index widths or they would silently truncate.
-// INT16_MAX is the narrowest type a vertex index reaches; see narrow_index in
-// mesh.h.
+// Budgets must fit the narrowest topology index width or they silently truncate.
+// INT16_MAX is the narrowest a vertex index reaches (some operators' scratch uses
+// int16_t with a -1 sentinel; see narrow_index in mesh.h).
 static_assert(MAX_VERTS <= INT16_MAX,
               "MAX_VERTS must fit int16_t vertex indices");
 static_assert(MAX_INDICES <= UINT16_MAX,
@@ -208,12 +206,11 @@ template <typename StaticMeshT> PolyMesh to_polymesh(Arena &target) {
 /**
  * @brief Fluent builder for chaining Conway operators with automatic arena
  * swapping.
- * @details Each method runs `mesh_ = op(mesh_, a_, b_)` then std::swap(a_, b_),
- * one swap per call assuming the PRIMITIVE polarity. Even-length composed ops
+ * @details Each method runs `mesh_ = op(mesh_, a_, b_)` then swaps a_/b_ (one
+ * swap per call, PRIMITIVE polarity). Even-length composed ops
  * (gyro/needle/zip/bevel) return in `temp` (see COMPOSITION POLARITY in
- * conway.h), so the op after one runs input+output on the same arena for one
- * step before alternation restores; odd-length ones (meta) return in `target`,
- * like a primitive.
+ * conway.h), shifting the swap parity for one step; odd-length ones (meta)
+ * behave like a primitive.
  */
 class SolidBuilder {
   PolyMesh mesh_;     /**< Mesh being built; updated in place by each operator. */
@@ -1029,17 +1026,13 @@ dodecahedron_ambo_bevel33_relax_hk66(Arena &a, Arena &b) {
 
 /**
  * @brief Coarse generator-cost hint surfaced to the picker UI.
- * @details A display label only: Complex marks the Islamic star-pattern
- * registry (multi-stage hankin/relax pipelines), Simple everything else. No
- * runtime path gates on it — the Platonic/Archimedean generators, relax caps
- * included, all converge in tens of passes and build cheaply.
+ * @details Display label only (Complex = Islamic star-pattern registry, Simple =
+ * everything else); no runtime path gates on it.
  */
 enum class Category { Simple, Complex };
 
 /**
  * @brief One named solid in a registry.
- * @details Holds its name, the generator that builds it into an arena pair, and
- * its cost category.
  */
 struct Entry {
   const char *name;                        /**< Registry key / display name. */
@@ -1266,8 +1259,6 @@ inline const Entry *find_entry(std::string_view name) {
  * @brief Looks up a registry entry by global index across all three registries.
  * @param index Zero-based index in [0, NUM_ENTRIES); traps if out of range.
  * @return Reference to the entry at that index.
- * @details Maps the flat index onto the simple/catalan/islamic registries in
- * order.
  */
 inline const Entry &get_entry(size_t index) {
   HS_CHECK(index < static_cast<size_t>(NUM_ENTRIES),

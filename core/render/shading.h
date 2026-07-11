@@ -31,10 +31,9 @@ struct Fragment {
    * @param a Start fragment.
    * @param b End fragment.
    * @param t Interpolation factor (0.0 to 1.0).
-   * @return The interpolated fragment. Interpolates pos, v0-v3, age, size, and
-   * color, so a sample between two control points carries every register rather
-   * than resetting size (the fragment_edge_dist denominator) and color to their
-   * struct defaults.
+   * @return The interpolated fragment; pos, v0-v3, age, size, and color are all
+   * interpolated, so no register (notably size, the fragment_edge_dist
+   * denominator) resets to its struct default.
    */
   static Fragment lerp(const Fragment &a, const Fragment &b, float t) {
     Fragment f;
@@ -156,9 +155,7 @@ inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
  *         Fresnel terms); the caller multiplies it by the surface color for
  *         the metallic look.
  * @details Headlight callers pass the same vector for light_dir and view_dir;
- *          the two parameters are kept distinct to preserve the standard
- *          Blinn-Phong signature should the light ever decouple from the
- *          camera.
+ *          kept distinct to preserve the standard Blinn-Phong signature.
  */
 inline float shade_blinn_phong(const Vector &normal_w, const Vector &light_dir,
                                const Vector &view_dir, const Vector &tangent,

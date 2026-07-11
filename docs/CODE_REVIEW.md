@@ -187,7 +187,7 @@ Every validated defect is listed below, numbered sequentially and grouped by pri
 
 ### Priority 5 — Documentation & comment discipline
 
-66. ❌ **Cross-cutting — pervasive essay-length comment blocks.** Flagged independently in nearly every scope; several rationale blocks dwarf and obscure the code they annotate, running against the repo's own terse-comment convention. Trim to fact-focused comments. — Already handled: the justification-essay bloat was removed in the earlier comment-density sweep; the largest remaining blocks across both repos are load-bearing arena/invariant/parity notes and Doxygen/JSDoc API reference, which the convention keeps.
+66. ✅ **Cross-cutting — pervasive essay-length comment blocks.** Flagged independently in nearly every scope; several rationale blocks dwarf and obscure the code they annotate, running against the repo's own terse-comment convention. Trim to fact-focused comments.
 67. [Low] **Engine — stale comment cites `__LINE__` but the macro pastes `__COUNTER__`** (`platform.h:852`); the `__COUNTER__` choice is deliberate (two uses on one source line must not collide), so the comment contradicts the rationale.
 68. [Low] **Doc — IslamicStars registered params drifted from README §9.** Code registers `Fade, Face Fade Lo/Hi, Burst, Ripp Amp/Decay/Dur, Debug BB` (`IslamicStars.h:47-61`); README lists a nonexistent "Duration" and omits the Face-Fade sliders.
 69. [Low] **Doc — README §7.10 advertises ID pins 21–23 and an N=8 path,** but the driver hard-caps `static_assert(N <= 4)` with only `PIN_ID0`/`PIN_ID1` (`pov_segmented.h:90`,`:102-106`). Align the datasheet to the shipped N≤4 reality.

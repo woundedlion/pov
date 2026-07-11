@@ -108,9 +108,8 @@ private:
   float orbit_phase = 0.0f;
   int last_preset_idx_ = -1; /**< Last preset whose values were copied into params. */
 
-  /** Per-vertex phase increment (radians) for the orbit stagger: vertex i
-       leads the next by this much so the surface ripples instead of pulsing in
-       unison. */
+  /** Per-vertex phase increment (radians) for the orbit stagger, so the surface
+       ripples instead of pulsing in unison. */
   static constexpr float VERTEX_PHASE_STAGGER = 0.1f;
 
   /**
@@ -144,12 +143,9 @@ private:
   MobiusWarpTransformer<1> mobius_gen;
   /**
    * @brief Two baked LUTs, ping-ponged per spawn.
-   * @details On a preset change at most two sprites overlap (the outgoing
-   *          fade-out and the incoming fade-in); each sprite captures its own
-   *          slot so the outgoing one keeps the palette it was spawned with
-   *          through its fade instead of hard-cutting to the freshly rebaked
-   *          colors. The non-color live params stay shared on purpose
-   *          (Copies/Radius/Speed/Alpha slider liveness).
+   * @details At most two sprites overlap on a preset change; each captures its
+   *          own slot so an outgoing fade keeps its spawn-time palette. Non-color
+   *          live params stay shared (Copies/Radius/Speed/Alpha liveness).
    */
   static constexpr int SPRITE_LIFE = 320;  /**< Visible frames per sprite. */
   static constexpr int SPAWN_PERIOD = 288; /**< Frames between spawns. */
@@ -170,24 +166,17 @@ private:
   int active_bake_ = 0; /**< Index of the slot the next spawn rebakes into. */
   /**
    * @brief Per-sprite render-param snapshots, ping-ponged with baked_palettes_.
-   * @details Each sprite renders from the slot it was spawned with so an
-   *          outgoing fade keeps its own copy count / radius / warp / alpha
-   *          instead of jumping to the incoming preset's values. draw_frame()
-   *          mirrors the live slider-bound params into the active slot every
-   *          frame, so the incoming sprite stays live-editable while the
-   *          outgoing slot is frozen.
+   * @details Each sprite renders from its spawn-time slot; draw_frame() mirrors
+   *          live sliders into the active slot, so the incoming sprite stays
+   *          editable while the outgoing slot is frozen.
    */
   Params param_slots_[2];
 
   ProceduralPalette blood_stream_palette = Palettes::BLOOD_STREAM;
   AlphaFalloffShade blood_stream_fade{[](float t) { return 1.0f - t; }};
   /**
-   * @brief Composition of the bloodStream palette under the alpha falloff
-   *        shade.
-   * @details Wrap=false samples the source at the raw coordinate (the falloff
-   *          curve owns the [0,1] domain, so no wrap). The facade lets the
-   *          composition sit in the polymorphic preset table beside plain
-   *          palettes; it is only ever baked.
+   * @brief Composition of the bloodStream palette under the alpha falloff shade.
+   * @details Wrap=false: the falloff curve owns the [0,1] domain, so no wrap.
    */
   StaticPalette<ProceduralPalette, Coords<>, Colors<AlphaFalloffShade>,
                 /*Wrap=*/false>
@@ -282,19 +271,15 @@ private:
     }
     int period = SPAWN_PERIOD;
     // Ping-pong to the inactive slot so the still-fading previous sprite keeps
-    // its palette and params (sprites overlap at most pairwise, so the slot two
-    // spawns back is already gone). Seed this sprite's param snapshot from the
-    // current live params; draw_frame() keeps the active slot tracking sliders.
+    // its palette and params. draw_frame() keeps the active slot tracking sliders.
     active_bake_ ^= 1;
     baked_palettes_[active_bake_].rebake(*params.palette);
     const int bake_slot = active_bake_;
     param_slots_[bake_slot] = params;
 
     // Bind the warp magnitude to this spawn's scale so dragging "Warp" takes
-    // effect this frame. The transformer has a single slot, so a crossfade
-    // shares one warp across both sprites; the outgoing warp has relaxed to
-    // identity by the period boundary where the next sprite spawns, so the
-    // shared magnitude is unnoticeable.
+    // effect this frame. The single-slot transformer shares one warp across a
+    // crossfade; the outgoing warp has relaxed to identity by the next spawn.
     if (auto *warp = mobius_gen.spawn(0, param_slots_[bake_slot].warp_scale,
                                       period, false))
       warp->bind_scale(param_slots_[bake_slot].warp_scale);
@@ -305,9 +290,8 @@ private:
       MeshState target_mesh;
       MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
 
-      // This sprite's own param + palette snapshot, so geometry and color both
-      // stay continuous across a preset change instead of snapping to the
-      // incoming preset.
+      // This sprite's own param + palette snapshot keeps geometry and color
+      // continuous across a preset change.
       this->draw_scene(canvas, param_slots_[bake_slot], opacity,
                        preset.mesh_state, target_mesh, preset.tangents,
                        preset.edges, baked_palettes_[bake_slot]);
@@ -321,9 +305,7 @@ private:
                  0,
                  [this, safe_idx](Canvas &) {
                    // Paused: re-spawn the same preset (params hold); otherwise
-                   // advance to the next one. Pass the wrapped index so the
-                   // re-passed value stays bounded instead of incrementing an int
-                   // without limit.
+                   // advance. Pass the wrapped index to keep it bounded.
                    this->spawn_sprite(animations_paused() ? safe_idx
                                                          : safe_idx + 1);
                  },
