@@ -23,7 +23,7 @@ public:
    * ring normal.
    */
   FLASHMEM DistortedRing()
-      : Effect(W, H, {.strobe = true}),
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         ring_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                     BrightnessProfile::FLAT),
         normal(X_AXIS) {}

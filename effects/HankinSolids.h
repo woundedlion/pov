@@ -22,7 +22,9 @@ public:
   /**
    * @brief Constructs the effect with a W x H canvas and empty filter pipeline.
    */
-  FLASHMEM HankinSolids() : Effect(W, H, {.strobe = true}), filters() {}
+  FLASHMEM HankinSolids()
+      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
+        filters() {}
 
   /**
    * @brief Sizes arenas, registers params, loads the first solid, and starts
