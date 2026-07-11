@@ -237,7 +237,7 @@ _Documentation inaccuracies, missing tests for real behavior, dead code, and cos
 34. ✅ **Pure getters getBufferLength()/getRenderUs() are not const** — `targets/wasm/wasm.cpp:480` (Holosphere)  
    getRenderUs() (line 480) and getBufferLength() (line 523) only read state yet are non-const, while the analogous strobeColumns() (line 495) is correctly const; the inconsistency is a minor const-correctness gap (harmless to embind, which does not require const).  
    *Fix:* Mark getRenderUs() and getBufferLength() const to match strobeColumns() and the read-only nature of both methods.
-35. **setActive assigns activeName before confirming the target button exists** — `sidebar.js:163` (daydream)  
+35. ✅ **setActive assigns activeName before confirming the target button exists** — `sidebar.js:163` (daydream)  
    setActive removes the active class/aria-selected from the previous button and unconditionally sets this.activeName = name before checking whether a button for `name` exists in the current roster. If called with a name absent from the current list, it deselects the current option and leaves the listbox with no highlighted/selected option while activeName points at a nonexistent button. It self-heals on the next valid setActive and current call sites always pass an in-list name (resolveActiveEffect guarantees it), but the method's own contract is violated for an off-list argument.  
    *Fix:* Move `this.activeName = name;` into the `if (newBtn)` block (or early-return when the button is missing) so an off-list name doesn't strip the current selection.
 36. **"quadrant" terminology is inaccurate for 6/8-segment layouts** — `c:/work/daydream/segment_controller.js:686` (daydream)  
