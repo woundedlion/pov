@@ -1172,6 +1172,13 @@ public:
    */
   val bakeLut(int gradientShape, int h1, int s1, int v1, int h2, int s2, int v2,
               int h3, int s3, int v3) {
+    // The JS caller passes GradientShape by its integer value; pin the mapping so
+    // a reorder in color.h can't silently remap shapes.
+    static_assert(static_cast<int>(GradientShape::STRAIGHT) == 0 &&
+                      static_cast<int>(GradientShape::CIRCULAR) == 1 &&
+                      static_cast<int>(GradientShape::VIGNETTE) == 2 &&
+                      static_cast<int>(GradientShape::FALLOFF) == 3,
+                  "GradientShape integer values are part of the JS ABI");
     // Out-of-range gradientShape is UB when cast into the enum; clamp and log
     // rather than trap at the JS boundary.
     const int straight = static_cast<int>(GradientShape::STRAIGHT);
