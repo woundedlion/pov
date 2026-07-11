@@ -1465,6 +1465,7 @@ template <typename Shape> struct AngularRepeat {
   AngularRepeat(const Shape &s, int reps, const Vector &ax)
       : shape(s), axis(ax), repetitions(reps), thickness(s.thickness) {
     HS_CHECK(reps > 0);
+    HS_CHECK(fabsf(ax.length() - 1.0f) < 1e-3f);
     // Derive perpendicular plane via Gram-Schmidt
     Vector ref = (fabsf(ax.y) < 0.9f) ? Vector(0, 1, 0) : Vector(1, 0, 0);
     float d = ref.x * ax.x + ref.y * ax.y + ref.z * ax.z;
