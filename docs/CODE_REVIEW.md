@@ -119,7 +119,7 @@ _Latent correctness / robustness (real behavior under a reachable condition):_
 
 14. ✅ **[effects] `effects/Comets.h:156-161`** — `closing_domain` floors `m2·domain` but not the divisor `config.m2` itself, on a table the class doc explicitly frames as an authored extension point; a future entry with `m2 == 0` yields an infinite domain that freezes the head. *Fix:* floor `m2` or `HS_CHECK(config.m2 > 0)`.
 
-15. **[effects] `effects/MindSplatter.h:277-284`** — `assert(p_idx < active_count)` runs *before* the defensive clamp the adjacent comment justifies as float-overshoot protection; on builds where the assert is live the clamp is dead, and on device (assert stripped) the safety net is never checked. *Fix:* clamp first, then assert on the clamped value (or drop the assert and keep the `active_count`-guarded clamp).
+15. ✅ **[effects] `effects/MindSplatter.h:277-284`** — `assert(p_idx < active_count)` runs *before* the defensive clamp the adjacent comment justifies as float-overshoot protection; on builds where the assert is live the clamp is dead, and on device (assert stripped) the safety net is never checked. *Fix:* clamp first, then assert on the clamped value (or drop the assert and keep the `active_count`-guarded clamp).
 
 16. **[daydream] `daydream/tools/banner.js:35`** — `showFatalError` appends the banner only when `document.body` is truthy; a fatal error before `<body>` exists builds the element but never inserts it, and later calls' `getElementById` return null, so the banner is silently lost. *Fix:* `(document.body || document.documentElement).appendChild(el)`.
 
