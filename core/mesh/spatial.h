@@ -112,38 +112,31 @@ public:
     if (root_index == -1 || k == 0) // k is size_t; only k == 0 is the empty case
       return result;
 
-    // Bounded scratch buffer of the k best candidates so far, kept unsorted.
-    struct Candidate {
-      float d_sq;
-      int idx;
-    };
-    StaticCircularBuffer<Candidate, MAX_K> best;
-
-    // Cached pruning bound: the largest squared distance in `best` and its slot,
-    // FLT_MAX until the set fills to k so nothing prunes early.
-    // Recomputed only when `best` changes, keeping the per-node prune test O(1).
+    // Cached pruning bound: the largest squared distance in `result` and its
+    // slot, FLT_MAX until the set fills to k so nothing prunes early.
+    // Recomputed only when `result` changes, keeping the per-node prune test O(1).
     float worst_d_sq = FLT_MAX;
     size_t worst_i = 0;
     auto recompute_worst = [&]() {
       worst_d_sq = -1.0f;
       worst_i = 0;
-      for (size_t i = 0; i < best.size(); ++i) {
-        if (best[i].d_sq > worst_d_sq) {
-          worst_d_sq = best[i].d_sq;
+      for (size_t i = 0; i < result.size(); ++i) {
+        if (result[i].d_sq > worst_d_sq) {
+          worst_d_sq = result[i].d_sq;
           worst_i = i;
         }
       }
     };
 
-    // Offer a candidate to the k-best set: append while under k, otherwise
-    // displace the cached worst entry if this one is closer.
+    // Offer a node to the k-best set: append while under k, otherwise displace
+    // the cached worst entry if this one is closer.
     auto offer_candidate = [&](float d_sq, int idx) {
-      if (best.size() < static_cast<size_t>(k)) {
-        best.push_back({d_sq, idx});
-        if (best.size() == static_cast<size_t>(k))
+      if (result.size() < static_cast<size_t>(k)) {
+        result.push_back({nodes[idx].point, nodes[idx].original_index, d_sq});
+        if (result.size() == static_cast<size_t>(k))
           recompute_worst(); // set just filled: cache its worst for pruning
       } else if (d_sq < worst_d_sq) {
-        best[worst_i] = {d_sq, idx};
+        result[worst_i] = {nodes[idx].point, nodes[idx].original_index, d_sq};
         recompute_worst(); // worst displaced: refresh the cache
       }
     };
@@ -153,13 +146,8 @@ public:
     search_k(root_index, target, offer_candidate, get_worst_dist);
 
     std::sort(
-        best.begin(), best.end(),
-        [](const Candidate &a, const Candidate &b) { return a.d_sq < b.d_sq; });
-
-    for (const auto &c : best) {
-      const KDNode &n = nodes[c.idx];
-      result.push_back({n.point, n.original_index, c.d_sq});
-    }
+        result.begin(), result.end(),
+        [](const Neighbor &a, const Neighbor &b) { return a.d_sq < b.d_sq; });
     return result;
   }
 
