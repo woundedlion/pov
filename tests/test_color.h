@@ -1284,6 +1284,37 @@ inline void test_palette_modifiers() {
   HS_EXPECT_LT(pinched, 0.5f);
   // A null tension driver passes through.
   HS_EXPECT_NEAR(PinchModifier(nullptr).modify(0.3f), 0.3f, 1e-5f);
+
+  // Fold's negative-reduction guard: a negative coordinate must stay in [0,1]
+  // and match an independent triangle-wave reference (abs of the raw fmod).
+  auto tri_ref = [](float x) { return fabsf(1.0f - fabsf(fmodf(x, 2.0f))); };
+  HS_EXPECT_NEAR(fold.modify(-0.25f), tri_ref(-0.5f), 1e-5f);
+  HS_EXPECT_NEAR(fold.modify(-0.9f), tri_ref(-1.8f), 1e-5f);
+  HS_EXPECT_GE(fold.modify(-0.25f), 0.0f);
+  HS_EXPECT_LE(fold.modify(-0.25f), 1.0f);
+
+  // Negative phase driver also reduces into range.
+  float neg_phase = -0.5f;
+  FoldModifier fold_np(2.0f, &neg_phase);
+  HS_EXPECT_NEAR(fold_np.modify(0.0f), tri_ref(-0.5f), 1e-5f);
+  HS_EXPECT_GE(fold_np.modify(-0.3f), 0.0f);
+  HS_EXPECT_LE(fold_np.modify(-0.3f), 1.0f);
+
+  // Non-zero Ripple: sin distorts the coordinate off its input.
+  float rphase_nz = 0.0f;
+  RippleModifier ripple_nz(&rphase_nz, 1.0f, 0.1f);
+  HS_EXPECT_NEAR(ripple_nz.modify(0.25f),
+                 0.25f + fast_sinf(0.25f * PI_F * 2.0f) * 0.1f, 1e-5f);
+
+  // Non-zero Breathe: quarter-turn phase shifts by amplitude.
+  float bphase = PI_F * 0.5f;
+  HS_EXPECT_NEAR(BreatheModifier(&bphase, 0.1f).modify(0.5f), 0.6f, 1e-3f);
+
+  // Pinch with a negative coordinate re-anchors to t's own integer cell.
+  float tension_p = 0.5f;
+  float pinched_neg = PinchModifier(&tension_p).modify(-0.75f);
+  HS_EXPECT_GE(pinched_neg, -1.0f);
+  HS_EXPECT_LE(pinched_neg, 0.0f);
 }
 
 /**
