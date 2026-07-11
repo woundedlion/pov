@@ -83,11 +83,12 @@ public:
 
 private:
   /**
-   * @brief Compact, ascending list of the slots currently active.
+   * @brief Compact list of the active slots, in spawn order.
    * @details transform() and prepare_frame() are hot (transform runs per pixel),
-   * so they iterate only the active slots — O(active) instead of O(CAPACITY). Kept
-   * sorted so the transform composition order matches a low-to-high slot scan; the
-   * warps are not all commutative, so the order is load-bearing.
+   * so they iterate only the active slots — O(active) instead of O(CAPACITY). Held
+   * in spawn order (append on activation, order-preserving removal) so the transform
+   * composition order follows spawn order; the warps are not all commutative, so the
+   * order is load-bearing and must not depend on which freed slot was recycled.
    */
   std::array<int, CAPACITY> active_slots_{};
   int active_count_ = 0; /**< Number of valid entries at the front of active_slots_. */
@@ -95,19 +96,11 @@ private:
   std::array<Entity, CAPACITY> entities; /**< Fixed-capacity pool of transformation slots. */
 
   /**
-   * @brief Inserts a slot index into active_slots_ keeping it ascending.
-   * @param idx Slot index to insert; idx is the lowest free slot, so this
-   * matches the order a 0..CAPACITY scan would have applied it in.
+   * @brief Appends a slot index to active_slots_ in spawn order.
+   * @param idx Slot index to insert; appended at the end so composition order
+   * follows spawn order regardless of which freed slot was recycled.
    */
-  void add_active(int idx) {
-    int pos = active_count_;
-    while (pos > 0 && active_slots_[pos - 1] > idx) {
-      active_slots_[pos] = active_slots_[pos - 1];
-      --pos;
-    }
-    active_slots_[pos] = idx;
-    ++active_count_;
-  }
+  void add_active(int idx) { active_slots_[active_count_++] = idx; }
 
   /**
    * @brief Removes a slot index from active_slots_, preserving order.
