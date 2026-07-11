@@ -234,6 +234,33 @@ inline void test_shade_mesh_topology_segue() {
   HS_EXPECT_NEAR(out.alpha, 0.4f, 1e-6f); // cover 0.5 * opacity 0.8
 }
 
+// --- shade_mesh_topology (direct non-segue overload) ------------------------
+
+/**
+ * @brief Verifies the direct shade_mesh_topology overload (production path for
+ *        IslamicStars gain 1.0 and HankinSolids): the resolved palette slot's
+ *        color is returned with alpha overwritten by the opacity argument,
+ *        regardless of the palette color's own alpha.
+ */
+inline void test_shade_mesh_topology_direct() {
+  const int topology[] = {2}; // face 0 -> topology class 2
+  std::array<int, 4> palette_idx = {0, 0, 3, 0}; // class 2 -> bank slot 3
+  StubSegueBank bank;
+  for (int i = 0; i < 4; ++i)
+    bank.pals[i].id = i;
+
+  Fragment f;
+  f.v1 = -0.5f;
+  f.size = 1.0f; // fragment_edge_dist = 0.5
+  f.v2 = 0.0f;   // face index 0
+
+  // gain 1.0 (IslamicStars production configuration), opacity 0.6.
+  Color4 out =
+      shade_mesh_topology(f, topology, 1, bank, palette_idx, 1.0f, 0.6f);
+  HS_EXPECT_EQ(out.color.r, 3);           // slot 3 palette -> id 3
+  HS_EXPECT_NEAR(out.alpha, 0.6f, 1e-6f); // palette alpha 1.0 overwritten
+}
+
 /**
  * @brief Runs every shading test case.
  * @return The module's failure count.
@@ -249,6 +276,7 @@ inline int run_shading_tests() {
   test_mesh_topology_slot_out_of_range_falls_back();
   test_shade_blinn_phong();
   test_shade_mesh_topology_segue();
+  test_shade_mesh_topology_direct();
 
   return fixture.result();
 }
