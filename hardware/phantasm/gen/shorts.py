@@ -3,14 +3,11 @@ Reports edges that merge two DIFFERENT named nets (labels / power)."""
 import os
 import sys
 import sexp
+from kicad_common import F
 
 path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(
     os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "phantasm.kicad_sch")
 root = sexp.parse(open(path, encoding="utf-8").read())[0]
-
-
-def F(n, k):
-    return [c for c in n if isinstance(c, list) and c and c[0] == k]
 
 
 def R(v):
