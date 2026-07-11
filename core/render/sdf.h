@@ -825,11 +825,14 @@ template <typename A, typename B> struct Union {
   const A &a;         /**< First child shape. */
   const B &b;         /**< Second child shape. */
   float thickness;    /**< Max child thickness (drives AA falloff). */
-  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the union keeps both interiors. Mixing a solid and a stroke child is unsupported: a non-solid winner still renders via the solid AA branch, not its size-based falloff. */
+  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the union keeps both interiors. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Union children must be SDF shapes "
                 "(is_solid/thickness)");
+  static_assert(A::is_solid == B::is_solid,
+                "CSG Union children must share solidity; a solid+stroke mix "
+                "renders the stroke winner through the solid AA branch");
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
                     2 * INTERVAL_SPAN_CAP,
                 "nested CSG union exceeds MergedIntervalBuffer capacity; flatten "
@@ -942,11 +945,14 @@ template <typename A, typename B> struct SmoothUnion {
   const B &b;         /**< Second child shape. */
   float k;            /**< Smoothing radius in radians (e.g. 0.1). */
   float thickness;    /**< Max child thickness (drives AA falloff). */
-  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the smooth union keeps both interiors. Mixing a solid and a stroke child is unsupported: a non-solid winner still renders via the solid AA branch, not its size-based falloff. */
+  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the smooth union keeps both interiors. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG SmoothUnion children must be SDF shapes "
                 "(is_solid/thickness)");
+  static_assert(A::is_solid == B::is_solid,
+                "CSG SmoothUnion children must share solidity; a solid+stroke "
+                "mix renders the stroke winner through the solid AA branch");
   static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
                     2 * INTERVAL_SPAN_CAP,
                 "nested CSG smooth-union exceeds MergedIntervalBuffer capacity; "
