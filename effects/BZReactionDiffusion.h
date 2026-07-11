@@ -191,7 +191,7 @@ private:
    *          ensuring all three species are present so the cyclic competition
    *          can sustain spiral waves.
    */
-  void seed_spiral_nuclei() {
+  HS_COLD_MEMBER void seed_spiral_nuclei() {
     uint8_t *species[] = {state.A, state.B, state.C};
     for (int s = 0; s < 3; s++) {
       for (int k = 0; k < CLUSTERS_PER_SPECIES; k++) {

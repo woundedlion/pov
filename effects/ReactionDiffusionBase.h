@@ -229,7 +229,7 @@ protected:
    * after configure_arenas() and after the derived class's own persistent
    * allocations, since the node array shares the persistent arena.
    */
-  void init_lattice() {
+  HS_COLD_MEMBER void init_lattice() {
     // configure_arenas() must have sized the persistent arena to hold the shared
     // node array before this runs; trap an unconfigured or under-sized arena by
     // contract here rather than as a later generic allocation OOM.
