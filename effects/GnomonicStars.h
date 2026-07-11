@@ -123,7 +123,7 @@ private:
 
   Vector *spiral_cache_ = nullptr;  /**< Persistent base lattice, MAX_POINTS slots. */
   int cached_points_ = 0;           /**< Point count the cache holds (0 = unbuilt). */
-  BakedPalette baked_palette;       /**< LUT-baked mangoPeel sampled by the shader. */
+  BakedPalette baked_palette;       /**< LUT-baked MANGO_PEEL sampled by the shader. */
 
   MobiusWarpGnomonicTransformer<1> transformer; /**< Evolving Möbius warp applied per point. */
   Animation::MobiusWarpEvolving *warp_ = nullptr; /**< Pinned warp handle; mirrors params.warp_speed each frame. */

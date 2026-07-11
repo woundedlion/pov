@@ -997,7 +997,7 @@ FastLED output ← CRGB(gamma encode) ← linear→sRGB ← Pixel16
 | `GenerativePalette` | Procedurally generated palette from harmony rules (triadic, analogous, etc.) combined with brightness/saturation profiles. Supports snapshot/lerp for animated transitions. |
 | `SolidColorPalette` | Constant color, adapts to the `Palette` interface. |
 
-Twenty-one named `ProceduralPalette` instances are pre-defined: `darkRainbow`, `bloodStream`, `vintageSunset`, `richSunset`, `undersea`, `lateSunset`, `mangoPeel`, `iceMelt`, `lemonLime`, `algae`, `embers`, `fireGlow`, `darkPrimary`, `mauveFade`, `lavenderLake`, `desertRose`, `bruisedMoss`, `bruisedBanana`, `brightSunrise`, `fireAndIce`, and `peachPop`.
+Twenty-one named `ProceduralPalette` instances are pre-defined in the `Palettes` namespace: `DARK_RAINBOW`, `BLOOD_STREAM`, `VINTAGE_SUNSET`, `RICH_SUNSET`, `UNDERSEA`, `LATE_SUNSET`, `MANGO_PEEL`, `ICE_MELT`, `LEMON_LIME`, `ALGAE`, `EMBERS`, `FIRE_GLOW`, `DARK_PRIMARY`, `MAUVE_FADE`, `LAVENDER_LAKE`, `DESERT_ROSE`, `BRUISED_MOSS`, `BRUISED_BANANA`, `BRIGHT_SUNRISE`, `FIRE_AND_ICE`, and `PEACH_POP`.
 
 #### OKLCH Perceptual Color
 

@@ -167,7 +167,7 @@ private:
   ProceduralPalette blood_stream_palette = Palettes::BLOOD_STREAM;
   AlphaFalloffShade blood_stream_fade{[](float t) { return 1.0f - t; }};
   /**
-   * @brief Composition of the bloodStream palette under the alpha falloff shade.
+   * @brief Composition of the BLOOD_STREAM palette under the alpha falloff shade.
    * @details Wrap=false: the falloff curve owns the [0,1] domain, so no wrap.
    */
   StaticPalette<ProceduralPalette, Coords<>, Colors<AlphaFalloffShade>,
