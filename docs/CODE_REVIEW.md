@@ -114,7 +114,7 @@ All 34 items are low-severity; the tiers below rank by impact, not by any critic
 
 19. ✅ **Holosphere/core/mesh/mesh.h:196** — `HEVertex::half_edge` (and the whole `HalfEdgeMesh::vertices` array) is written on every build but never read; the `relax` operator explicitly scans `half_edges` directly instead. Wastes budget-sensitive temp arena on each Conway build. *Fix:* remove the struct, member, and its bind/populate loop.
 
-20. **Holosphere/core/render/sdf.h:1764** — `Face::max_r2` is a persistent member written and read only inside `setup_frame_and_polygon`; it enlarges every `Face` and implies post-construction validity it doesn't have. *Fix:* make it a local; `radius`/`max_dist_sq` are the real persisted derivatives.
+20. ✅ **Holosphere/core/render/sdf.h:1764** — `Face::max_r2` is a persistent member written and read only inside `setup_frame_and_polygon`; it enlarges every `Face` and implies post-construction validity it doesn't have. *Fix:* make it a local; `radius`/`max_dist_sq` are the real persisted derivatives.
 
 21. **Holosphere/core/color/color.h:397** — `blend_max`/`blend_over`/`blend_under`/`blend_mean` and the free `blend_add` have no production callers (only `blend_alpha` is on the render path); vestigial from a removed selectable-blend-mode feature. *Fix:* delete them (and their orphaned tests), or document them as an intentionally-retained public library.
 
