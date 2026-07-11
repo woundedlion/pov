@@ -36,7 +36,7 @@ inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
 
 struct Pixel16;
 // Saturating per-channel add packed into two uqadd16 lanes (g|b in one 32-bit
-// word, r alone in another). Shared by Pixel16::operator+= and blend_add.
+// word, r alone in another). Used by Pixel16::operator+=.
 inline Pixel16 pixel16_blend_add_packed(const Pixel16 &c1, const Pixel16 &c2);
 
 /**
@@ -388,50 +388,6 @@ inline Pixel16::operator CRGB() const {
 // Blending Functions
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-/**
- * @brief Blends two pixels by taking the maximum of each component.
- * @param c1 Destination pixel.
- * @param c2 Source pixel.
- * @return The max blend result.
- */
-inline Pixel blend_max(const Pixel &c1, const Pixel &c2) {
-  return Pixel(std::max(c1.r, c2.r), std::max(c1.g, c2.g),
-               std::max(c1.b, c2.b));
-}
-
-/**
- * @brief Blends two pixels by overwriting (Painter's algorithm).
- * @param c2 Source pixel.
- * @return c2 (Source).
- */
-inline Pixel blend_over(const Pixel &, const Pixel &c2) { return c2; }
-
-/**
- * @brief Blends two pixels by keeping the destination (Under).
- * @param c1 Destination pixel.
- * @return c1 (Destination).
- */
-inline Pixel blend_under(const Pixel &c1, const Pixel &) { return c1; }
-
-/**
- * @brief Blends two pixels by additive mixing (saturated).
- * @param c1 Destination pixel.
- * @param c2 Source pixel.
- * @return c1 + c2 (clamped).
- */
-inline Pixel blend_add(const Pixel &c1, const Pixel &c2) {
-#if defined(__ARM_FEATURE_DSP)
-  return pixel16_blend_add_packed(c1, c2);
-#else
-  uint32_t r = (uint32_t)c1.r + c2.r;
-  uint32_t g = (uint32_t)c1.g + c2.g;
-  uint32_t b = (uint32_t)c1.b + c2.b;
-  return Pixel((r > 65535) ? 65535 : (uint16_t)r,
-               (g > 65535) ? 65535 : (uint16_t)g,
-               (b > 65535) ? 65535 : (uint16_t)b);
-#endif
-}
-
 // Packs g|b into the low add lane and r into a separate lane (its high halfword
 // stays 0, so uqadd16's upper add is a harmless 0+0).
 inline Pixel16 pixel16_blend_add_packed(const Pixel16 &c1, const Pixel16 &c2) {
@@ -456,20 +412,6 @@ inline auto blend_alpha(float a) {
   uint16_t ai = (uint16_t)hs::clamp(a * 65535.0f + 0.5f, 0.0f, 65535.0f);
   return [ai](const Pixel &c1, const Pixel &c2) { return c1.lerp16(c2, ai); };
 }
-
-/**
- * @brief Blends two pixels by averaging/mean.
- * @param c1 Destination pixel.
- * @param c2 Source pixel.
- * @return (c1 + c2) / 2, rounded to nearest (matching this file's +0.5f /
- *   +32768 round-to-nearest parity rather than truncating downward).
- */
-inline Pixel blend_mean(const Pixel &c1, const Pixel &c2) {
-  return Pixel((c1.r + c2.r + 1) / 2, (c1.g + c2.g + 1) / 2,
-               (c1.b + c2.b + 1) / 2);
-}
-
-
 
 ///////////////////////////////////////////////////////////////////////////////
 

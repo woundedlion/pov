@@ -151,78 +151,8 @@ inline void test_lerp16_full_range_correct() {
 // ============================================================================
 
 /**
- * @brief Verifies blend_over picks the source and blend_under the destination.
- */
-inline void test_blend_over_under() {
-  Pixel16 dst(100, 200, 300);
-  Pixel16 src(4000, 5000, 6000);
-  HS_EXPECT_TRUE(blend_over(dst, src) == src);
-  HS_EXPECT_TRUE(blend_under(dst, src) == dst);
-}
-
-/**
- * @brief Verifies blend_max takes the per-channel maximum.
- */
-inline void test_blend_max() {
-  Pixel16 a(100, 5000, 300);
-  Pixel16 b(4000, 200, 6000);
-  Pixel16 m = blend_max(a, b);
-  HS_EXPECT_EQ(m.r, 4000);
-  HS_EXPECT_EQ(m.g, 5000);
-  HS_EXPECT_EQ(m.b, 6000);
-}
-
-/**
- * @brief Verifies blend_mean averages the two pixels per channel.
- * @details blend_mean rounds to nearest ((a+b+1)/2), matching this file's
- *          +0.5f / +32768 round-to-nearest parity, not floor. The even-sum
- *          cases below can't tell the two modes apart, so an explicit odd-sum
- *          case pins the rounding contract (mirroring test_lerp16_rounds_to_nearest).
- */
-inline void test_blend_mean() {
-  Pixel16 a(0, 100, 65534);
-  Pixel16 b(65534, 300, 0);
-  Pixel16 m = blend_mean(a, b);
-  // Even sums: floor and round-to-nearest agree.
-  HS_EXPECT_EQ(m.r, 32767);
-  HS_EXPECT_EQ(m.g, 200);
-  HS_EXPECT_EQ(m.b, 32767);
-
-  // Odd sums: blend_mean rounds up to (a+b+1)/2, not (a+b)/2.
-  Pixel16 odd = blend_mean(Pixel16(1, 3, 5), Pixel16(2, 4, 6));
-  HS_EXPECT_EQ(odd.r, 2); // (1+2+1)/2 = 2  (floor would give 1)
-  HS_EXPECT_EQ(odd.g, 4); // (3+4+1)/2 = 4  (floor would give 3)
-  HS_EXPECT_EQ(odd.b, 6); // (5+6+1)/2 = 6  (floor would give 5)
-}
-
-/**
- * @brief Verifies blend_add with black is the identity in either order.
- */
-inline void test_blend_add_identity_with_black() {
-  Pixel16 c(1234, 5678, 9012);
-  Pixel16 black(0, 0, 0);
-  Pixel16 r = blend_add(c, black);
-  HS_EXPECT_TRUE(r == c);
-  Pixel16 r2 = blend_add(black, c);
-  HS_EXPECT_TRUE(r2 == c);
-}
-
-/**
- * @brief Verifies blend_add sums per channel and clamps at 65535, not wrapping.
- */
-inline void test_blend_add_saturates() {
-  Pixel16 a(60000, 60000, 100);
-  Pixel16 b(60000, 1000, 50);
-  Pixel16 r = blend_add(a, b);
-  HS_EXPECT_EQ(r.r, 65535);       // saturated
-  HS_EXPECT_EQ(r.g, 61000);       // no saturation
-  HS_EXPECT_EQ(r.b, 150);
-  HS_EXPECT_LE(r.r, 65535);
-}
-
-/**
  * @brief Pins the device's packed (uqadd16) saturating-add lane layout.
- * @details The device path of operator+= / blend_add packs g|b into one 32-bit
+ * @details The device path of operator+= packs g|b into one 32-bit
  *          uqadd16 lane and r into another, then unpacks. That asm path never
  *          runs on the host, so a transposed g/b lane or a wrong unpack shift
  *          would ship silently (wrong colors, not a crash). pixel16_blend_add_packed
@@ -250,7 +180,6 @@ inline void test_blend_add_packed_lane_layout() {
     Pixel16 acc = c[0];
     acc += c[1];
     HS_EXPECT_TRUE(acc == got);
-    HS_EXPECT_TRUE(blend_add(c[0], c[1]) == got);
   }
 }
 
@@ -303,15 +232,6 @@ inline void test_color4_add_clamps_alpha_and_sums_color() {
   HS_EXPECT_EQ(acc.color.b, 18000); // 72000/4
   HS_EXPECT_NEAR(acc.alpha, 0.75f, 1e-6f); // (1+1+0.5+0.5)/4
   HS_EXPECT_LE(acc.alpha, 1.0f);
-}
-
-/**
- * @brief Verifies blend_max against black is the identity.
- */
-inline void test_blend_max_with_black_identity() {
-  Pixel16 c(111, 222, 333);
-  Pixel16 black(0, 0, 0);
-  HS_EXPECT_TRUE(blend_max(c, black) == c);
 }
 
 /**
@@ -1734,15 +1654,9 @@ inline int run_color_tests() {
   test_lerp16_full_range_correct();
   test_lerp16_bounded();
 
-  test_blend_over_under();
-  test_blend_max();
-  test_blend_mean();
-  test_blend_add_identity_with_black();
-  test_blend_add_saturates();
   test_blend_add_packed_lane_layout();
   test_color4_scale_affects_color_and_alpha();
   test_color4_add_clamps_alpha_and_sums_color();
-  test_blend_max_with_black_identity();
 
   test_oklab_roundtrip();
   test_oklch_roundtrip();
