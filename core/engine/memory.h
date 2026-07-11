@@ -624,7 +624,8 @@ public:
 
   /**
    * @brief Returns a pointer to the backing storage.
-   * @return Mutable pointer to the first element, or nullptr if unbound/empty.
+   * @return Mutable pointer to the first element, or nullptr if unbound or
+   * moved-from.
    * @details No check_bound() on data()/begin()/end() on purpose: an unbound (or
    * moved-from) vector is data_==nullptr with size_==0, a well-defined EMPTY range
    * that callers rely on (std::span(vertices.data(), size()), std::sort(data(),
@@ -637,7 +638,8 @@ public:
   }
   /**
    * @brief Returns a pointer to the backing storage (const).
-   * @return Const pointer to the first element, or nullptr if unbound/empty.
+   * @return Const pointer to the first element, or nullptr if unbound or
+   * moved-from.
    */
   const T *data() const {
     check_alive();
