@@ -664,7 +664,6 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   // backs it with room, and trips bind()'s stale-binding contract if a
   // different arena is passed while capacity happens to suffice.
   mesh.topology.bind(persistent, F);
-  mesh.topology.clear();
   for (size_t i = 0; i < F; ++i) {
     mesh.topology.push_back(0);
   }
