@@ -6,6 +6,14 @@
 #pragma once
 #include "core/engine/engine.h"
 
+// Unit-test accessor for the conformal-radius pole branch and the
+// counter-rotation singularity guard.
+namespace hs_test {
+namespace effects_tests {
+struct MobiusGridWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Renders a rotating sphere of latitude rings and longitude lines warped
  *        through a Möbius transform.
@@ -82,20 +90,9 @@ public:
     // precision past 2^24.
     float phase = static_cast<float>(timeline.frame() % 120) / 120.0f;
 
-    Vector n_in = Y_AXIS;
-    Vector n_trans = mobius_gen.transform(n_in);
-    Vector s_in = -Y_AXIS;
-    Vector s_trans = mobius_gen.transform(s_in);
-    Vector mid = (n_trans + s_trans);
-    // Counter-rotation swinging the pole midpoint back onto +Z. When the two
-    // transformed poles cancel (mid ~ 0 at the strip singularity) the direction
-    // is undefined; leave q at identity rather than feed a zero vector to
-    // make_rotation.
-    Quaternion q;
-    if (mid.length() > 0.001f) {
-      mid.normalize();
-      q = make_rotation(mid, Z_AXIS);
-    }
+    Vector n_trans = mobius_gen.transform(Y_AXIS);
+    Vector s_trans = mobius_gen.transform(-Y_AXIS);
+    Quaternion q = counter_rotation(n_trans + s_trans);
 
     hole_n = normalized_or(rotate(n_trans, q), Vector(1, 0, 0));
     hole_s = normalized_or(rotate(s_trans, q), Vector(1, 0, 0));
@@ -105,6 +102,46 @@ public:
   }
 
 private:
+  // Test seam: reaches the conformal-radius pole branch and the
+  // counter-rotation singularity guard.
+  friend struct ::hs_test::effects_tests::MobiusGridWhiteBox;
+
+  /**
+   * @brief Counter-rotation swinging the transformed-pole midpoint back onto +Z.
+   * @param mid Sum of the two Möbius-transformed poles.
+   * @return Rotation mapping the normalized midpoint to +Z, or identity when the
+   *         two poles cancel (mid ~ 0 at the strip singularity) and the direction
+   *         is undefined — feeding a zero vector to make_rotation is avoided.
+   */
+  static Quaternion counter_rotation(Vector mid) {
+    if (mid.length() > 0.001f) {
+      mid.normalize();
+      return make_rotation(mid, Z_AXIS);
+    }
+    return Quaternion();
+  }
+
+  /**
+   * @brief Maps a longitude height to its scrolled conformal-radius palette
+   *        coordinate.
+   * @param z Longitude height in [-1, 1].
+   * @param phase Scroll offset subtracted from the coordinate.
+   * @return Palette coordinate in [0, 1]; the poles z = +/-1 saturate to 1.0
+   *         before the singular conformal radius R = sqrt((1+z)/(1-z)) is formed,
+   *         so no non-finite intermediate is produced.
+   */
+  static float conformal_coord(float z, float phase) {
+    constexpr float POLE_EPS = 1e-6f;
+    if (1.0f - fabsf(z) < POLE_EPS)
+      return 1.0f;
+    float R = sqrtf((1.0f + z) / (1.0f - z));
+    float log_r = logf(R);
+    const float log_min = -2.5f;
+    const float log_max = 2.5f;
+    float t = (log_r - log_min) / (log_max - log_min);
+    return wrap(t - phase, 1.0f);
+  }
+
   /**
    * @brief Generates a fresh palette and schedules a 60-frame cross-fade into
    *        it.
@@ -248,25 +285,8 @@ private:
           return {Basis{u, v, w}, 1.0f};
         },
         [&](int, float opacity, Fragment &f_val) {
-          float t_line = f_val.v0;
-          float z = fast_sinf(t_line * 2.0f * PI_F);
-
-          // Conformal radius R = sqrt((1+z)/(1-z)) is singular at the poles
-          // z = +/-1. Branch on the pole before the division so no non-finite
-          // intermediate is produced; both poles saturate to coord = 1.0.
-          constexpr float POLE_EPS = 1e-6f;
-          float coord;
-          if (1.0f - fabsf(z) < POLE_EPS) {
-            coord = 1.0f;
-          } else {
-            float R = sqrtf((1.0f + z) / (1.0f - z));
-            float log_r = logf(R);
-            const float log_min = -2.5f;
-            const float log_max = 2.5f;
-            float t = (log_r - log_min) / (log_max - log_min);
-            coord = wrap(t - phase, 1.0f);
-          }
-          Color4 c = baked_palette.get(coord);
+          float z = fast_sinf(f_val.v0 * 2.0f * PI_F);
+          Color4 c = baked_palette.get(conformal_coord(z, phase));
           c.alpha *= opacity * params.alpha;
           f_val.color = c;
         });

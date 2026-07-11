@@ -1471,6 +1471,54 @@ inline void test_liquid2d_glitch_lens_unit_norm() {
 }
 
 /**
+ * @brief White-box accessor for MobiusGrid's conformal-radius pole branch and
+ *        counter-rotation singularity guard (befriended in effects/MobiusGrid.h).
+ */
+struct MobiusGridWhiteBox {
+  using MG = MobiusGrid<DEFAULT_W, DEFAULT_H>;
+  static float conformal_coord(float z, float phase) {
+    return MG::conformal_coord(z, phase);
+  }
+  static Quaternion counter_rotation(const Vector &mid) {
+    return MG::counter_rotation(mid);
+  }
+};
+
+/**
+ * @brief Pins MobiusGrid's two hand-derived numeric branches.
+ * @details The longitude conformal-radius map R = sqrt((1+z)/(1-z)) is singular
+ *          at the poles z = +/-1; the counter-rotation is undefined when the two
+ *          Möbius-transformed poles cancel. A plausible frame renders even if
+ *          either branch is wrong, so sweep z across the poles (coord must stay
+ *          finite in [0,1], poles saturate to 1.0) and check the canceled
+ *          midpoint leaves the rotation at identity while a well-defined one maps
+ *          onto +Z.
+ */
+inline void test_mobiusgrid_conformal_and_counter_rotation() {
+  using WB = MobiusGridWhiteBox;
+
+  const float zs[] = {-1.0f, -0.999999f, -0.5f, 0.0f, 0.5f, 0.999999f, 1.0f};
+  for (float z : zs) {
+    for (float phase : {0.0f, 0.25f, 0.6f, 0.95f}) {
+      float coord = WB::conformal_coord(z, phase);
+      HS_EXPECT_TRUE(std::isfinite(coord));
+      HS_EXPECT_GE(coord, 0.0f);
+      HS_EXPECT_LE(coord, 1.0f);
+    }
+  }
+  HS_EXPECT_NEAR(WB::conformal_coord(1.0f, 0.3f), 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(WB::conformal_coord(-1.0f, 0.7f), 1.0f, 1e-6f);
+
+  HS_EXPECT_TRUE(WB::counter_rotation(Vector(0.0f, 0.0f, 0.0f)) == Quaternion());
+
+  Vector mid(0.3f, -0.7f, 0.4f);
+  Vector r = rotate(mid.normalized(), WB::counter_rotation(mid));
+  HS_EXPECT_NEAR(r.x, 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(r.y, 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(r.z, 1.0f, 1e-3f);
+}
+
+/**
  * @brief White-box accessor for FlowField's noise-time and particle pool
  *        (befriended in effects/FlowField.h).
  */
@@ -1887,6 +1935,7 @@ inline int run_effects_tests() {
   test_flyby_phase_wrapped();
   test_liquid2d_phase_wrapped();
   test_liquid2d_glitch_lens_unit_norm();
+  test_mobiusgrid_conformal_and_counter_rotation();
   test_flowfield_time_and_pool_bounded();
   test_ringspin_pool_clamped();
   test_shapeshifter_shape_cut_lifecycle();
