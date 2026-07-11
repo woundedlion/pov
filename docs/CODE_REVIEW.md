@@ -234,7 +234,7 @@ _Documentation inaccuracies, missing tests for real behavior, dead code, and cos
 33. ✅ **Dead `idx` accumulator declared at function scope in drawFrame fast path** — `targets/wasm/wasm.cpp:449` (Holosphere)  
    `int idx = 0;` is declared before the fast/slow branch but is only ever used inside the `else` (overrides_get_pixel) slow path; when the memcpy fast path is taken it is initialized and never read. It reads as if both branches share the accumulator, which is misleading.  
    *Fix:* Move the `int idx = 0;` declaration inside the `else` block where it is actually used.
-34. **Pure getters getBufferLength()/getRenderUs() are not const** — `targets/wasm/wasm.cpp:480` (Holosphere)  
+34. ✅ **Pure getters getBufferLength()/getRenderUs() are not const** — `targets/wasm/wasm.cpp:480` (Holosphere)  
    getRenderUs() (line 480) and getBufferLength() (line 523) only read state yet are non-const, while the analogous strobeColumns() (line 495) is correctly const; the inconsistency is a minor const-correctness gap (harmless to embind, which does not require const).  
    *Fix:* Mark getRenderUs() and getBufferLength() const to match strobeColumns() and the read-only nature of both methods.
 35. **setActive assigns activeName before confirming the target button exists** — `sidebar.js:163` (daydream)  
