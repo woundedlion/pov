@@ -31,17 +31,6 @@ public:
                 "partition; retune MAX_TRAILS or carve arenas");
 
   /**
-   * @brief Tunable parameters exposed to the UI sliders.
-   */
-  struct Params {
-    float tension = 0.3f;   /**< Catmull-Rom spline tension in [0, 1]. */
-    float speed = 0.05f;    /**< Draw-head phase rate per step. */
-    float drift = 0.5f;     /**< Control-point random-walk speed scale in [0, 1]. */
-    float num_points = 6.0f; /**< Number of active control points in [4, 12]. */
-    float alpha = 0.6f;     /**< Peak trail opacity in [0.1, 1]. */
-  } params;
-
-  /**
    * @brief Constructs the effect and wires up the trail/orient/anti-alias filters.
    */
   FLASHMEM SplineFlow()
@@ -160,6 +149,17 @@ private:
   Pipeline<W, H, Filter::World::Trails<W, MAX_TRAILS>, Filter::World::Orient<W>,
            Filter::Screen::AntiAlias<W, H>>
       filters;
+
+  /**
+   * @brief Tunable parameters exposed to the UI sliders.
+   */
+  struct Params {
+    float tension = 0.3f;   /**< Catmull-Rom spline tension in [0, 1]. */
+    float speed = 0.05f;    /**< Draw-head phase rate per step. */
+    float drift = 0.5f;     /**< Control-point random-walk speed scale in [0, 1]. */
+    float num_points = 6.0f; /**< Number of active control points in [4, 12]. */
+    float alpha = 0.6f;     /**< Peak trail opacity in [0.1, 1]. */
+  } params;
 };
 
 #include "core/engine/effect_registry.h"

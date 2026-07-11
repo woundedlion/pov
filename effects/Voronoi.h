@@ -230,17 +230,6 @@ public:
     }
   }
 
-  /**
-   * @brief Live-tunable GUI parameters for the Voronoi effect.
-   */
-  struct Params {
-    float num_sites = 200.0f;     /**< Live-tunable site count (GUI slider). */
-    float speed = 20.0f;          /**< Site spin rate (GUI slider). */
-    float sharpness = 100.0f;     /**< Edge sharpening; larger narrows the
-                                       border blend band. */
-    float border_thickness = 0.0f; /**< Cell-seam border width; 0 disables. */
-  } params;
-
   static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
                                              is allocated once at this size. */
   static constexpr int COHERENCE_BLOCK = 8; /**< Coarse-coherence block edge in
@@ -334,6 +323,18 @@ public:
     }
     current_num_sites = n;
   }
+
+private:
+  /**
+   * @brief Live-tunable GUI parameters for the Voronoi effect.
+   */
+  struct Params {
+    float num_sites = 200.0f;     /**< Live-tunable site count (GUI slider). */
+    float speed = 20.0f;          /**< Site spin rate (GUI slider). */
+    float sharpness = 100.0f;     /**< Edge sharpening; larger narrows the
+                                       border blend band. */
+    float border_thickness = 0.0f; /**< Cell-seam border width; 0 disables. */
+  } params;
 };
 
 #include "core/engine/effect_registry.h"

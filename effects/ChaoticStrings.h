@@ -26,19 +26,6 @@ public:
   static constexpr int MAX_FRAGMENTS = TRAIL_LENGTH * ORIENTATION_SUBSTEPS;
 
   /**
-   * @brief Live-tunable parameters exposed as sliders.
-   */
-  struct Params {
-    float alpha = 1.0f;          /**< Overall trail opacity in [0, 1]. */
-    float cycle_duration = 80.0f; /**< Motion cycle duration in frames. */
-    float jitter_amp = 1.7f;      /**< Noise displacement amplitude. */
-    float speed = 0.04f;         /**< Noise field evolution speed. */
-    float noise_freq = 0.32f;     /**< Noise spatial frequency. */
-    float scale_factor = 200.0f;  /**< Palette coordinate scale factor. */
-    float cycle_speed = 0.1f;     /**< Palette cycle phase advance per step. */
-  } params;
-
-  /**
    * @brief The single animated body: orientation, rolling trail history, and
    *        base direction vector.
    */
@@ -179,6 +166,21 @@ private:
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters; /**< Anti-aliasing render pipeline. */
   ProceduralPath path;    /**< Lissajous path the node follows. */
   Orientation<> orientation; /**< Random-walk orientation reference frame. */
+
+  /**
+   * @brief Live-tunable parameters exposed as sliders.
+   */
+  struct Params {
+    float alpha = 1.0f;          /**< Overall trail opacity in [0, 1]. */
+    float cycle_duration = 80.0f; /**< Motion cycle duration in frames. */
+    float jitter_amp = 1.7f;      /**< Noise displacement amplitude. */
+    float speed = 0.04f;         /**< Noise field evolution speed. */
+    float noise_freq = 0.32f;     /**< Noise spatial frequency. */
+    float scale_factor = 200.0f;  /**< Palette coordinate scale factor. */
+    float cycle_speed = 0.1f;     /**< Palette cycle phase advance per step. */
+  } params;
+
+  // Precedes scale_mod, which binds &params.scale_factor at construction.
   ScaleModifier scale_mod{200.0f, &params.scale_factor}; /**< Palette scale coordinate modifier. */
   CycleModifier cycle_mod{&cycle_phase}; /**< Palette cycle coordinate modifier. */
   ProceduralPalette palette_variant; /**< Active palette variant. */

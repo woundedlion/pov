@@ -28,16 +28,6 @@ struct PetalFlowWhiteBox;
 template <int W, int H> class PetalFlow : public Effect {
 public:
   /**
-   * @brief User-tunable controls, registered as sliders in init().
-   */
-  struct Params {
-    float twist_factor = 0.35f; /**< Swirl strength applied per unit of rho spacing. */
-    float speed = 2.5f;         /**< Unitless flow rate; scaled by RHO_PER_SPEED into per-frame motion. */
-    float alpha = 0.2f;         /**< Global opacity multiplier. */
-    float density = 1.0f;       /**< Ring packing; live spacing is SPACING / density. */
-  } params;
-
-  /**
    * @brief Constructs the effect, wiring up palette, orientation filters, and
    * the per-frame ring spawner.
    * @details The spawner fires every frame to emit new rings as the flow
@@ -301,6 +291,16 @@ private:
 
     Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
   }
+
+  /**
+   * @brief User-tunable controls, registered as sliders in init().
+   */
+  struct Params {
+    float twist_factor = 0.35f; /**< Swirl strength applied per unit of rho spacing. */
+    float speed = 2.5f;         /**< Unitless flow rate; scaled by RHO_PER_SPEED into per-frame motion. */
+    float alpha = 0.2f;         /**< Global opacity multiplier. */
+    float density = 1.0f;       /**< Ring packing; live spacing is SPACING / density. */
+  } params;
 };
 
 #include "core/engine/effect_registry.h"

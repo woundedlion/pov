@@ -19,19 +19,6 @@
 template <int W, int H> class GnomonicStars : public Effect {
 public:
   /**
-   * @brief Live-tunable controls for the star field.
-   * @details Star count, per-star radius, polygon side count, and a toggle that
-   *          draws each star's bounding box for debugging.
-   */
-  struct Params {
-    float points = 600.0f;    /**< Number of stars scattered on the spiral. */
-    float star_radius = 0.02f; /**< Per-star radius in normalized sphere units. */
-    float star_sides = 4.0f;  /**< Polygon side count per star. */
-    float warp_speed = 0.035f; /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
-    bool debug_bb = false;    /**< When true, draws each star's bounding box. */
-  } params;
-
-  /**
    * @brief Constructs the effect at face resolution W x H.
    * @details Default-initializes the orientation and timeline and binds the
    *          Möbius transformer to the timeline.
@@ -140,6 +127,19 @@ private:
 
   MobiusWarpGnomonicTransformer<1> transformer; /**< Evolving Möbius warp applied per point. */
   Animation::MobiusWarpEvolving *warp_ = nullptr; /**< Pinned warp handle; mirrors params.warp_speed each frame. */
+
+  /**
+   * @brief Live-tunable controls for the star field.
+   * @details Star count, per-star radius, polygon side count, and a toggle that
+   *          draws each star's bounding box for debugging.
+   */
+  struct Params {
+    float points = 600.0f;    /**< Number of stars scattered on the spiral. */
+    float star_radius = 0.02f; /**< Per-star radius in normalized sphere units. */
+    float star_sides = 4.0f;  /**< Polygon side count per star. */
+    float warp_speed = 0.035f; /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
+    bool debug_bb = false;    /**< When true, draws each star's bounding box. */
+  } params;
 };
 
 #include "core/engine/effect_registry.h"
