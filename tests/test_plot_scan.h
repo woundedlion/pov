@@ -1488,6 +1488,253 @@ inline void test_rasterize_cull_follows_filter_orientation() {
 }
 
 // ============================================================================
+// Azimuthal-equidistant projection + dual-metric planar arc length
+//
+// These pin plot.h's dual-metric core directly against independent oracles (a
+// libm great-circle reconstruction, a fine on-sphere quadrature) instead of
+// against the primitives themselves, which the sample()/rasterize() tests reuse
+// as their own ground truth. Radial displacement is isometric on the sphere;
+// azimuthal displacement stretches by R/sin R, and the arc integrator must
+// track that anisotropy.
+// ============================================================================
+
+/** @brief Random unit vector, rejecting near-zero draws. */
+inline Vector az_rand_unit() {
+  for (;;) {
+    Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+    if (r.length() > 0.1f) return r.normalized();
+  }
+}
+
+/**
+ * @brief Full-precision azimuthal unprojection (libm), an oracle independent of
+ *        plot.h's LUT-based fast-trig path.
+ */
+inline Vector az_unproject_exact(float Px, float Py, const Basis &b) {
+  float R = std::sqrt(Px * Px + Py * Py);
+  if (R < math::EPS_GEOMETRIC)
+    return b.v;
+  float th = std::atan2(Py, Px);
+  Vector axis = b.u * std::cos(th) + b.w * std::sin(th);
+  return b.v * std::cos(R) + axis * std::sin(R);
+}
+
+/**
+ * @brief Great-circle angle between two unit vectors, accurate for tiny angles.
+ * @details atan2(|p x q|, p.q) stays well-conditioned near 0 where acos is flat;
+ *          fast_acos (via angle_between) collapses sub-milliradian steps to zero,
+ *          which would corrupt a fine-quadrature reference.
+ */
+inline float az_arc_exact(const Vector &p, const Vector &q) {
+  return std::atan2(cross(p, q).length(), dot(p, q));
+}
+
+/**
+ * @brief azimuthal_project's radius equals the great-circle angle from center.
+ * @details The projection's defining property: |proj| == angle_between(p,
+ *          center). Checked against an independent angle_between, so an axis or
+ *          scale error in the projection would break it.
+ */
+inline void test_azimuthal_project_radius_is_geodesic_angle() {
+  hs::random().seed(0xA21E);
+  int mid = 0;
+  for (int trial = 0; trial < 4000; ++trial) {
+    Basis basis = basis_from_normal(az_rand_unit());
+    Vector p = az_rand_unit();
+    float geo = angle_between(p, basis.v);
+    auto proj = Plot::azimuthal_project(p, basis);
+    float r = std::hypot(proj.first, proj.second);
+    HS_EXPECT_NEAR(r, geo, 5e-3f * (geo + 1.0f));
+    if (geo > 0.3f && geo < PI_F - 0.3f) ++mid;
+  }
+  HS_EXPECT_GT(mid, 1000);
+}
+
+/**
+ * @brief azimuthal_project and azimuthal_unproject invert each other.
+ * @details plane->sphere->plane and sphere->plane->sphere both return the
+ *          input, away from the antipodal band where the azimuth is unstable.
+ */
+inline void test_azimuthal_roundtrip_identity() {
+  hs::random().seed(0xB33F);
+  int fwd = 0, inv = 0;
+  for (int trial = 0; trial < 4000; ++trial) {
+    Basis basis = basis_from_normal(az_rand_unit());
+
+    float R = hs::rand_f(0.05f, PI_F - 0.05f);
+    float th = hs::rand_f(-PI_F, PI_F);
+    float Px = R * std::cos(th), Py = R * std::sin(th);
+    Vector s = Plot::azimuthal_unproject(Px, Py, basis);
+    auto rp = Plot::azimuthal_project(s, basis);
+    HS_EXPECT_NEAR(rp.first, Px, 2e-2f * (R + 1.0f));
+    HS_EXPECT_NEAR(rp.second, Py, 2e-2f * (R + 1.0f));
+    ++inv;
+
+    Vector p = az_rand_unit();
+    if (dot(p, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+      continue;
+    auto proj = Plot::azimuthal_project(p, basis);
+    Vector back = Plot::azimuthal_unproject(proj.first, proj.second, basis);
+    HS_EXPECT_NEAR(angle_between(p, back), 0.0f, 1.5e-2f);
+    ++fwd;
+  }
+  HS_EXPECT_GT(inv, 3000);
+  HS_EXPECT_GT(fwd, 3000);
+}
+
+/**
+ * @brief azimuthal_unproject lands on the great-circle point at (R, theta).
+ * @details Oracle is an independent libm reconstruction
+ *          v*cos(R) + (u*cos(th)+w*sin(th))*sin(R); a sign or axis swap in the
+ *          fast-trig unprojection would diverge from it.
+ */
+inline void test_azimuthal_unproject_hits_great_circle_point() {
+  hs::random().seed(0xC0DE);
+  int n = 0;
+  for (int trial = 0; trial < 4000; ++trial) {
+    Basis basis = basis_from_normal(az_rand_unit());
+    float R = hs::rand_f(0.02f, PI_F - 0.02f);
+    float th = hs::rand_f(-PI_F, PI_F);
+    Vector got =
+        Plot::azimuthal_unproject(R * std::cos(th), R * std::sin(th), basis);
+    Vector axis = basis.u * std::cos(th) + basis.w * std::sin(th);
+    Vector want = basis.v * std::cos(R) + axis * std::sin(R);
+    HS_EXPECT_NEAR(angle_between(got, want), 0.0f, 1e-2f);
+    ++n;
+  }
+  HS_EXPECT_GT(n, 3900);
+}
+
+/**
+ * @brief planar_arc_length matches a fine libm quadrature of the edge.
+ * @details Compares the 4-panel table against a 2000-panel libm reference (a
+ *          full-precision unprojection summed with a small-angle-robust arc) on
+ *          the short polygon-edge regime the primitive is built for. Non-vacuity:
+ *          most edges bow past their great-circle chord. Long edges sweeping near
+ *          the chart center are out of the primitive's domain — 4 samples
+ *          straddle the azimuth singularity — and are excluded, as real polygon
+ *          edges are.
+ */
+inline void test_planar_arc_length_matches_fine_quadrature() {
+  hs::random().seed(0xD41A);
+  int bows = 0;
+  float max_rel_err = 0.0f;
+  for (int trial = 0; trial < 3000; ++trial) {
+    Basis basis = basis_from_normal(az_rand_unit());
+    float R1 = hs::rand_f(0.2f, 1.2f), R2 = hs::rand_f(0.2f, 1.2f);
+    float t1 = hs::rand_f(-PI_F, PI_F), t2 = t1 + hs::rand_f(0.15f, 0.8f);
+    Vector a =
+        Plot::azimuthal_unproject(R1 * std::cos(t1), R1 * std::sin(t1), basis);
+    Vector b =
+        Plot::azimuthal_unproject(R2 * std::cos(t2), R2 * std::sin(t2), basis);
+    if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+        dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+      continue;
+
+    auto p1 = Plot::azimuthal_project(a, basis);
+    auto p2 = Plot::azimuthal_project(b, basis);
+    constexpr int N = 2000;
+    float fine = 0.0f;
+    Vector prev = az_unproject_exact(p1.first, p1.second, basis);
+    for (int i = 1; i <= N; ++i) {
+      float t = static_cast<float>(i) / N;
+      Vector cur = az_unproject_exact(p1.first + (p2.first - p1.first) * t,
+                                      p1.second + (p2.second - p1.second) * t,
+                                      basis);
+      fine += az_arc_exact(prev, cur);
+      prev = cur;
+    }
+    float got = Plot::planar_arc_length(a, b, basis);
+    float geo = az_arc_exact(a, b);
+
+    HS_EXPECT_NEAR(got, fine, 0.05f * fine + 5e-3f);
+    if (fine > geo * 1.005f)
+      ++bows;
+    max_rel_err = std::max(max_rel_err, std::abs(got - fine) / (fine + 1e-4f));
+  }
+  HS_EXPECT_GT(bows, 500);
+  HS_EXPECT_LT(max_rel_err, 0.1f);
+}
+
+/**
+ * @brief The dual metric: radial edges are isometric, azimuthal edges bow.
+ * @details A constant-azimuth edge is a meridian great circle, so its planar
+ *          arc length equals the geodesic angle exactly; a constant-radius edge
+ *          bows strictly past its chord, and the bow grows with radius as the
+ *          azimuthal stretch R/sin R rises. This separates the two metrics
+ *          directly, which the end-to-end tests cannot.
+ */
+inline void test_dual_metric_radial_vs_azimuthal() {
+  hs::random().seed(0xE1A5);
+  int radial = 0, azi = 0;
+  for (int trial = 0; trial < 2000; ++trial) {
+    Basis basis = basis_from_normal(az_rand_unit());
+
+    float th = hs::rand_f(-PI_F, PI_F);
+    float Ra = hs::rand_f(0.1f, 0.6f), Rb = hs::rand_f(0.8f, 1.4f);
+    Vector a =
+        Plot::azimuthal_unproject(Ra * std::cos(th), Ra * std::sin(th), basis);
+    Vector b =
+        Plot::azimuthal_unproject(Rb * std::cos(th), Rb * std::sin(th), basis);
+    HS_EXPECT_NEAR(Plot::planar_arc_length(a, b, basis), angle_between(a, b),
+                   1.2e-2f);
+    ++radial;
+
+    float a1 = hs::rand_f(-PI_F, PI_F), a2 = a1 + 2.4f;
+    auto bow = [&](float rad) {
+      Vector p = Plot::azimuthal_unproject(rad * std::cos(a1),
+                                           rad * std::sin(a1), basis);
+      Vector q = Plot::azimuthal_unproject(rad * std::cos(a2),
+                                           rad * std::sin(a2), basis);
+      return Plot::planar_arc_length(p, q, basis) - angle_between(p, q);
+    };
+    float lo = bow(1.0f), hi = bow(1.3f);
+    HS_EXPECT_GT(lo, 1.5e-2f);
+    HS_EXPECT_GT(hi, lo);
+    ++azi;
+  }
+  HS_EXPECT_GT(radial, 1900);
+  HS_EXPECT_GT(azi, 1900);
+}
+
+/**
+ * @brief planar_arc_cumul is monotone and totals planar_arc_length.
+ * @details Locks the table shared by the rasterizer's pre-pass and per-segment
+ *          accumulator: it starts at 0, rises strictly, and its last entry is
+ *          exactly planar_arc_length, so both consumers sum identical lengths.
+ */
+inline void test_planar_arc_cumul_monotone_and_endpoints() {
+  hs::random().seed(0xF00D);
+  int checked = 0;
+  for (int trial = 0; trial < 2000; ++trial) {
+    Basis basis = basis_from_normal(az_rand_unit());
+    float R1 = hs::rand_f(0.1f, 1.3f), R2 = hs::rand_f(0.1f, 1.3f);
+    float t1 = hs::rand_f(-PI_F, PI_F), t2 = t1 + hs::rand_f(0.3f, 1.5f);
+    Vector a =
+        Plot::azimuthal_unproject(R1 * std::cos(t1), R1 * std::sin(t1), basis);
+    Vector b =
+        Plot::azimuthal_unproject(R2 * std::cos(t2), R2 * std::sin(t2), basis);
+    if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+        dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+      continue;
+
+    auto p1 = Plot::azimuthal_project(a, basis);
+    auto p2 = Plot::azimuthal_project(b, basis);
+    std::array<float, Plot::PLANAR_LEN_SAMPLES + 1> cumul;
+    Plot::planar_arc_cumul(p1, p2.first - p1.first, p2.second - p1.second, basis,
+                           cumul);
+
+    HS_EXPECT_NEAR(cumul[0], 0.0f, 1e-6f);
+    for (int k = 1; k <= Plot::PLANAR_LEN_SAMPLES; ++k)
+      HS_EXPECT_GT(cumul[k], cumul[k - 1]);
+    HS_EXPECT_NEAR(cumul[Plot::PLANAR_LEN_SAMPLES],
+                   Plot::planar_arc_length(a, b, basis), 1e-6f);
+    ++checked;
+  }
+  HS_EXPECT_GT(checked, 1500);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -1536,6 +1783,13 @@ inline int run_plot_scan_tests() {
   test_spline_chain_passes_through_control_points();
   test_spline_chain_tension_deflects();
   test_particle_system_draws_active_trails_with_registers();
+
+  test_azimuthal_project_radius_is_geodesic_angle();
+  test_azimuthal_roundtrip_identity();
+  test_azimuthal_unproject_hits_great_circle_point();
+  test_planar_arc_length_matches_fine_quadrature();
+  test_dual_metric_radial_vs_azimuthal();
+  test_planar_arc_cumul_monotone_and_endpoints();
 
   return fixture.result();
 }
