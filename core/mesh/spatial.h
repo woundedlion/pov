@@ -108,7 +108,7 @@ public:
   StaticCircularBuffer<Neighbor, MAX_K> nearest(const Vector &target,
                                                 size_t k = 1) const {
     StaticCircularBuffer<Neighbor, MAX_K> result;
-    HS_CHECK(k <= static_cast<size_t>(MAX_K));
+    HS_CHECK(k <= static_cast<size_t>(MAX_K), "KDTree::nearest k exceeds MAX_K");
     if (root_index == -1 || k == 0) // k is size_t; only k == 0 is the empty case
       return result;
 
