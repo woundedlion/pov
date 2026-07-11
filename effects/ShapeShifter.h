@@ -49,7 +49,7 @@ public:
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Count", &params.num_shapes, 1.0f,
                   static_cast<float>(MAX_RINGS));
-    register_param("Radius", &params.radius, 0.1f, 5.0f);
+    register_param("Radius", &params.radius, 0.1f, 2.0f);
     register_param("Sides", &params.sides, 3.0f, 12.0f);
     register_animated_param("Twist", &params.twist, -5.0f, 5.0f);
     register_param("Debug BB", &params.debug_bb);
@@ -163,6 +163,9 @@ public:
 
     float phase = layer_index * this->params.twist;
     float r = this->params.radius * scale;
+    // radius 2 is a point at the antipode (the fold hands the SDFs radius 0)
+    if (r >= 2.0f)
+      return;
     int sides_int = (int)params.sides;
     if (mode == RenderMode::Plot) {
       dispatch_plot(canvas, basis, r, sides_int, fragment_shader, phase);
