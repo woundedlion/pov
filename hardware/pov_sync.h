@@ -533,7 +533,8 @@ struct Telemetry {
   uint32_t lock_transitions = 0; /**< ACQUIRE↔LOCKED edges. */
   uint32_t flips = 0;
   uint32_t emit_censored = 0;    /**< Master skipped a late boundary symbol. */
-  uint32_t emit_aborted = 0;     /**< Master stopped emitting mid-burst. */
+  uint32_t emit_aborted = 0;     /**< Master truncated a burst mid-emission. */
+  uint32_t beacons_overrun_dropped = 0; /**< Stale overrun beacon dropped at a boundary. */
   uint32_t max_coast_halves = 0; /**< Longest run of half-revs without a snap. */
 };
 
@@ -1552,7 +1553,7 @@ private:
     // window under a masked-ISR coast; drop it so the on-time boundary symbol is
     // not blocked by the emitter's overlap trap.
     if (emitter_.drop_overrun_beacon())
-      ++telemetry_.emit_aborted;
+      ++telemetry_.beacons_overrun_dropped;
     // Spend a redundancy repeat only on a symbol that actually reaches the wire;
     // a censored ZERO_EPOCH never propagated.
     if (!emitter_.schedule_boundary(sym, c.at_cycles, now, cfg_))

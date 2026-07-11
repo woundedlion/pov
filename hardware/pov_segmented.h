@@ -324,7 +324,7 @@ public:
         if (memcmp(&tm, &last_tm, sizeof tm) != 0) {
           // hs::log, not Serial.printf: Teensy's printf drags in newlib's float
           // formatter (~5 KB ITCM); these counters are all %lu.
-          hs::log("sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu "
+          hs::log("sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu bdrop=%lu "
                   "bok=%lu brej=%lu fix=%lu rmis=%lu lock=%lu "
                   "flip=%lu coast=%lu epi=%lu",
                   (unsigned long)tm.symbols_accepted,
@@ -332,6 +332,7 @@ public:
                   (unsigned long)tm.symbols_discarded_invalid,
                   (unsigned long)tm.emit_censored,
                   (unsigned long)tm.emit_aborted,
+                  (unsigned long)tm.beacons_overrun_dropped,
                   (unsigned long)tm.beacons_ok,
                   (unsigned long)tm.beacons_rejected,
                   (unsigned long)tm.beacon_index_corrections,

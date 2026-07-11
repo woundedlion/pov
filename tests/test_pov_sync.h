@@ -1297,7 +1297,7 @@ inline void test_sim_masked_windows() {
   sim2.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
   sim2.run_revs(6.0);
   const Telemetry &tm0 = sim2.boards[0].board.telemetry();
-  HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted, 0u);
+  HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted + tm0.beacons_overrun_dropped, 0u);
   HS_EXPECT_LE(sim2.max_phase_err(), 2);
   HS_EXPECT_EQ(sim2.boards[1].board.telemetry().symbols_rejected_gate, 0u);
 }
@@ -1564,7 +1564,7 @@ inline void test_sim_epoch_repeat_lockstep() {
     sim.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
     HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
     const Telemetry &tm0 = sim.boards[0].board.telemetry();
-    HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted, 0u);
+    HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted + tm0.beacons_overrun_dropped, 0u);
     expect_lockstep(sim);
   }
 }
