@@ -47,7 +47,7 @@ public:
     register_param("Num Sites", &params.num_sites, 1.0f,
                   static_cast<float>(MAX_SITES));
     register_param("Speed", &params.speed, 0.0f, 100.0f);
-    register_param("Sharpness", &params.sharpness, 1.0f, 500.0f);
+    register_param("Sharpness", &params.sharpness, 0.0f, 500.0f);
     register_param("Border Thick", &params.border_thickness, 0.0f, 0.1f);
 
     sites_buffer.bind(persistent_arena, MAX_SITES);
