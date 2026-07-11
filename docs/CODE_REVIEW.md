@@ -169,7 +169,7 @@ _Consistency and maintainability:_
 
 _Cosmetic and documentation-only:_
 
-37. **[math] `core/math/3dmath.h:726-727`** — `inv_stereo` comment claims `|z| >= 5000` "catches ... any point within ~1.1° of the pole," but `|z| = cot(ε/2)` gives ε ≈ 0.023°, not 1.1° (off by ~50×). *Fix:* change "~1.1°" to "~0.02°".
+37. ✅ **[math] `core/math/3dmath.h:726-727`** — `inv_stereo` comment claims `|z| >= 5000` "catches ... any point within ~1.1° of the pole," but `|z| = cot(ε/2)` gives ε ≈ 0.023°, not 1.1° (off by ~50×). *Fix:* change "~1.1°" to "~0.02°".
 
 38. **[color] `core/color/color.h:1536-1544`** — `ProceduralPalette::get` clamps each channel to `[0,1]` then passes it to `srgb_to_linear_interp`, which re-clamps internally — a redundant per-channel clamp on the cold/bake path. *Fix:* drop the outer clamp, or comment the intent.
 
