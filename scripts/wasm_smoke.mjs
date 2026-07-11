@@ -189,6 +189,83 @@ async function main() {
       }
     }
 
+    // ── Embind write seam: setResolution / setClip / setParameter ─────────────
+    // The per-effect loop above only READS the param streams; drive the write
+    // methods end-to-end through embind so a binding-signature drift on the
+    // setters fails here instead of shipping unseen.
+    {
+      const [w, h] = RESOLUTIONS[0];
+      if (!engine.setResolution(w, h)) {
+        fail(`write-seam: setResolution(${w}, ${h}) rejected a supported size`);
+      }
+      // Rejection path: an unsupported size returns false and keeps the prior
+      // valid state (host predicate tests cover the predicate, not this seam).
+      if (engine.setResolution(1, 1)) {
+        fail('write-seam: setResolution(1, 1) accepted an unsupported size');
+      }
+
+      const effectNames = Object.keys(engine.getEffectSizes());
+      if (effectNames.length === 0) {
+        fail(`write-seam: no effects at ${w}x${h}`);
+      } else {
+        // setClip through embind: an in-range full-canvas band is accepted; a
+        // negative, over-extent, or inverted band is rejected (false), never
+        // trapped. The range check precedes the needs_full_frame branch, so both
+        // outcomes are deterministic regardless of the effect.
+        if (!engine.setEffect(effectNames[0])) {
+          fail(`write-seam: setEffect("${effectNames[0]}") failed`);
+        } else {
+          if (!engine.setClip(0, w, 0, h)) fail('write-seam: setClip in-range full canvas rejected');
+          if (engine.setClip(-1, w, 0, h)) fail('write-seam: setClip accepted a negative bound');
+          if (engine.setClip(0, w + 1, 0, h)) fail('write-seam: setClip accepted x1 past the canvas width');
+          if (engine.setClip(0, w, 0, h + 1)) fail('write-seam: setClip accepted y1 past the canvas height');
+          if (engine.setClip(w, 0, 0, h)) fail('write-seam: setClip accepted an inverted (x0 > x1) band');
+        }
+
+        // setParameter unknown-name rejection.
+        if (engine.setParameter('definitely_not_a_param', 1)) {
+          fail('write-seam: setParameter(unknown name) returned true');
+        }
+
+        // setParameter clamp-readback: find a non-readonly float param with a
+        // finite range, write past each bound, and read the effective value back
+        // through getParameterDefinitions() (no drawFrame between, so animation
+        // cannot move it). setParameter returns true even when it clamps, so the
+        // readback — not the flag — is what proves the clamp took.
+        let clampTested = false;
+        const near = (a, b) => Number.isFinite(a) && Math.abs(a - b) <= 1e-3 * (1 + Math.abs(b));
+        for (const name of effectNames) {
+          if (!engine.setEffect(name)) continue;
+          const defs = engine.getParameterDefinitions();
+          if (!Array.isArray(defs)) continue;
+          const t = defs.find((d) => typeof d.value === 'number' && !d.readonly &&
+            Number.isFinite(d.min) && Number.isFinite(d.max) && d.max > d.min);
+          if (!t) continue;
+          const readBack = () => {
+            const d = engine.getParameterDefinitions().find((e) => e.name === t.name);
+            return d ? d.value : undefined;
+          };
+          const span = t.max - t.min;
+          if (!engine.setParameter(t.name, t.max + span + 1)) {
+            fail(`write-seam: setParameter("${t.name}", above max) was rejected`);
+          } else if (!near(readBack(), t.max)) {
+            fail(`write-seam: setParameter above max not clamped: read ${readBack()}, want ${t.max}`);
+          }
+          if (!engine.setParameter(t.name, t.min - span - 1)) {
+            fail(`write-seam: setParameter("${t.name}", below min) was rejected`);
+          } else if (!near(readBack(), t.min)) {
+            fail(`write-seam: setParameter below min not clamped: read ${readBack()}, want ${t.min}`);
+          }
+          console.log(`  write-seam: setParameter clamp on ${name}."${t.name}" [${t.min}, ${t.max}] OK`);
+          clampTested = true;
+          break;
+        }
+        if (!clampTested) {
+          fail('write-seam: found no float param to exercise the setParameter clamp');
+        }
+      }
+    }
+
     // Log worst-case stack usage as a margin against STACK_SIZE.
     const stack = engine.getArenaMetrics().stack;
     if (!stack) fail('getArenaMetrics() omits the stack region');
