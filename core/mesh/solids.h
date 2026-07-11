@@ -276,7 +276,7 @@ public:
    * @param t Expansion amount; default places square faces at the canonical gap.
    * @return Reference to this builder for chaining.
    */
-  SolidBuilder &expand(float t = 2.0f - SQRT2) {
+  SolidBuilder &expand(float t = MeshOps::EXPAND_DEFAULT_T) {
     mesh_ = MeshOps::expand(mesh_, *a_, *b_, t);
     std::swap(a_, b_);
     return *this;

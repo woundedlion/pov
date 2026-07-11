@@ -151,7 +151,7 @@ _Consistency and maintainability:_
 
 28. ✅ **[mesh] `core/mesh/solids.h:1342-1348`** — `build_vertex_directions` computes per-vertex nearest-neighbor angle by brute-force O(n²) dot products (up to ~76M iterations for a large solid) despite the codebase already shipping a KD-tree for exactly this query. Setup-only/`HS_COLD`, hence Low. *Resolved:* commented that the O(n²) is deliberate — cold setup, small shipped vertex counts, so the KD-tree's build overhead is not worth it.
 
-29. **[mesh] `core/mesh/conway.h:660` vs `core/mesh/solids.h:279`** — The `expand` default factor is spelled two ways: `2.0f - sqrtf(2.0f)` (runtime call in a default argument) vs `2.0f - SQRT2` (constexpr). Values match but invite drift. *Fix:* hoist a shared `constexpr float EXPAND_DEFAULT_T` referenced by both.
+29. ✅ **[mesh] `core/mesh/conway.h:660` vs `core/mesh/solids.h:279`** — The `expand` default factor is spelled two ways: `2.0f - sqrtf(2.0f)` (runtime call in a default argument) vs `2.0f - SQRT2` (constexpr). Values match but invite drift. *Fix:* hoist a shared `constexpr float EXPAND_DEFAULT_T` referenced by both.
 
 30. **[math] `core/math/3dmath.h:647-658`** — `Complex::operator/` is not general complex division: it silently caps magnitude at `STEREO_INF` and returns `(0,0)` for 0/0. Correct/intentional for the stereographic call sites, but the operator carries no name signaling it, so any future generic use gets silently clamped quotients. *Fix:* rename to a free `project_div()` used by `mobius`/`stereo`, or add a "projection-domain only" caveat at the operator itself.
 

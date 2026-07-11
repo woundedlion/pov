@@ -648,16 +648,20 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &tem
   return out_mesh;
 }
 
+/** Default expand/cantellation factor 2-sqrt(2) ~= 0.5857: places new square
+ * faces at the canonical gap. */
+static constexpr float EXPAND_DEFAULT_T = 2.0f - 1.414213562373095f;
+
 /**
  * @brief Expand operator: separates faces (e = aa).
  * @param mesh Source mesh; must be a closed manifold.
  * @param target Arena receiving the output mesh and its index scratch.
  * @param temp Arena holding the transient HalfEdgeMesh.
- * @param t Expansion factor. Default 2-sqrt(2) ~= 0.5857.
+ * @param t Expansion factor. Default EXPAND_DEFAULT_T.
  * @return Fresh expanded PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
-                                float t = 2.0f - sqrtf(2.0f)) {
+                                float t = EXPAND_DEFAULT_T) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
