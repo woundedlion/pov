@@ -55,12 +55,11 @@ class BZReactionDiffusion
   using Base::cube_lut;
   using Base::for_each_neighbor;
   using Base::init_lattice;
-  using Base::kernel_accumulate;
   using Base::nodes;
   using Base::orientation;
   using Base::RD_K;
   using Base::RD_N;
-  using Base::refine_nearest_node;
+  using Base::refine_and_accumulate;
   using Base::register_param;
   using Base::seed_face_lut;
 
@@ -326,20 +325,21 @@ private:
    * @brief Samples the kernel-interpolated color at a world-space point.
    * @param rv World-space query direction.
    * @param nodes Node positions in the same frame as `rv`.
-   * @param best_node Index of the nearest lattice node to rv.
+   * @param seed Seed node id from the cubemap LUT, refined to the true nearest
+   *        inside the fused stencil walk.
    * @param ca Palette color for species A.
    * @param cb Palette color for species B.
    * @param cc Palette color for species C.
    * @return Opaque blended Color4, or transparent black if no kernel weight
    *         accumulates.
-   * @details Accumulates Wendland C2 kernel weights over the neighborhood of
-   *          best_node, normalizes by total weight, and blends the species.
+   * @details Accumulates Wendland C2 kernel weights over the refined
+   *          neighborhood, normalizes by total weight, and blends the species.
    */
-  Color4 sample_kernel(const Vector &rv, const Vector *nodes, int best_node,
+  Color4 sample_kernel(const Vector &rv, const Vector *nodes, int seed,
                        const Color4 &ca, const Color4 &cb,
                        const Color4 &cc) const {
     float tw = 0, wa = 0, wb = 0, wc = 0;
-    kernel_accumulate(rv, nodes, best_node, [&](int i, float w) {
+    refine_and_accumulate(rv, nodes, seed, [&](int i, float w) {
       wa += state.A[i] * w;
       wb += state.B[i] * w;
       wc += state.C[i] * w;
@@ -402,9 +402,8 @@ private:
     auto vertex_shader = [this](Fragment &frag) { seed_face_lut(frag); };
 
     auto fragment_shader = [&](const Vector &v, Fragment &frag) {
-      int center_node = static_cast<int>(frag.v0);
-      int best_node = refine_nearest_node(v, world_nodes, center_node);
-      frag.color = sample_kernel(v, world_nodes, best_node, ca, cb, cc);
+      frag.color = sample_kernel(v, world_nodes, static_cast<int>(frag.v0),
+                                 ca, cb, cc);
     };
 
     Scan::Shader::draw<W, H, 4>(canvas, fragment_shader, vertex_shader);
