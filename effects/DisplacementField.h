@@ -317,14 +317,15 @@ public:
 
       // Quintic-remapped fractions keep the reconstruction smooth across LUT
       // knots and never exceed the knot values, so ring_bound stays a true max.
-      // The slope out-param feeds the rasterizer's slope compensation.
+      // The slope out-param feeds the rasterizer's slope compensation: the
+      // per-cell secant, not the quintic's instantaneous derivative, which dips
+      // to zero at every knot and would pulse the compensated stroke width.
       auto sample_lut = [this, lut_n](float t, float &slope) {
         float x = wrap_t(t) * lut_n;
         int j = static_cast<int>(x);
-        float f = x - j;
         float d = shift_lut[j + 1] - shift_lut[j];
-        slope = quintic_kernel_deriv(f) * d * lut_n;
-        return shift_lut[j] + quintic_kernel(f) * d;
+        slope = d * lut_n;
+        return shift_lut[j] + quintic_kernel(x - j) * d;
       };
 
       float frag_alpha = ring_color.alpha * opacity * params.alpha;
