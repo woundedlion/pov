@@ -89,6 +89,15 @@ public:
   int active_count() const { return active_count_; }
 
   /**
+   * @brief Params of the k-th active entity, in spawn order.
+   * @param k Active index in [0, active_count()).
+   * @return The entity's live params.
+   */
+  const ParamsT &active_params(int k) const {
+    return entities[active_slots_[k]].params;
+  }
+
+  /**
    * @brief Spawns a new transformation animation.
    * @tparam Args Constructor argument types forwarded to the Animation.
    * @param in_frames Delay in frames before the animation starts.
@@ -354,6 +363,26 @@ public:
     float den = 0.0f;
     for (int k = 0; k < this->active_count_; ++k) {
       float f = FieldFunc(p, this->entities[this->active_slots_[k]].params);
+      num += f * f * f;
+      den += f * f;
+    }
+    return den > 1e-9f ? num / den : 0.0f;
+  }
+
+  /**
+   * @brief field_dominant() restricted to a subset of the active entities.
+   * @param p Sample point (unit vector).
+   * @param ks Active indices (as accepted by active_params()).
+   * @param n Number of indices.
+   * @return sum(s_i^3) / sum(s_i^2) over the subset; 0 when empty.
+   * @details Exact when every excluded entity's field is 0 at @p p (zero terms
+   * do not move the blend), so callers can prefilter with per-entity bounds.
+   */
+  float field_dominant(const Vector &p, const int *ks, int n) const {
+    float num = 0.0f;
+    float den = 0.0f;
+    for (int j = 0; j < n; ++j) {
+      float f = FieldFunc(p, this->active_params(ks[j]));
       num += f * f * f;
       den += f * f;
     }
