@@ -229,6 +229,7 @@ using CullEdgePredRef =
 class PipelineRef {
   void *ctx_;
   void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float);
+  void (*plot2d_int)(void *, Canvas &, int, int, const Pixel &, float, float);
   void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float, float);
   bool (*cull_)(void *, const Vector &, const Vector &, const Basis *,
                 CullEdgePredRef);
@@ -248,6 +249,10 @@ public:
   PipelineRef(T &t) : ctx_(std::addressof(t)) {
     plot2d_ = [](void *ctx, Canvas &cv, float x, float y, const Pixel &c,
                  float age, float alpha) {
+      static_cast<T *>(ctx)->plot(cv, x, y, c, age, alpha);
+    };
+    plot2d_int = [](void *ctx, Canvas &cv, int x, int y, const Pixel &c,
+                    float age, float alpha) {
       static_cast<T *>(ctx)->plot(cv, x, y, c, age, alpha);
     };
     plot3d_ = [](void *ctx, Canvas &cv, const Vector &v, const Pixel &c,
@@ -297,13 +302,12 @@ public:
    * @param c Source color to plot.
    * @param age Normalized trail age in [0, 1].
    * @param alpha Coverage/opacity in [0, 1].
-   * @details Promotes the integer coordinates to float and forwards to the 2D
-   * plot thunk.
+   * @details Preserves integer coordinates when forwarding to the wrapped
+   * pipeline.
    */
   void plot(Canvas &cv, int x, int y, const Pixel &c, float age,
             float alpha) const {
-    plot2d_(ctx_, cv, static_cast<float>(x), static_cast<float>(y), c, age,
-            alpha);
+    plot2d_int(ctx_, cv, x, y, c, age, alpha);
   }
   /**
    * @brief Plots a pixel at a 3D world-space position.

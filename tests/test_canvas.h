@@ -577,60 +577,64 @@ inline void test_clip_setters() {
   HS_EXPECT_EQ(fx.clip().margin, 3);
 }
 
-/**
- * @brief Stand-in pipeline target whose plot() overloads record their id.
- * @details Writes its id into a shared counter so a PipelineRef's routing
- * destination is observable.
- */
 struct StubPipe {
-  int id;        /**< Identifier written to *last_hit when plotted. */
-  int *last_hit; /**< Shared sink recording which pipe was last invoked. */
-  /**
-   * @brief Records this pipe's id (scalar-coordinate plot overload).
-   * @param Canvas& Drawing context (unused).
-   * @param float X coordinate (unused).
-   * @param float Y coordinate (unused).
-   * @param Pixel& Color (unused).
-   * @param float First scalar attribute (unused).
-   * @param float Second scalar attribute (unused).
-   */
-  void plot(Canvas &, float, float, const Pixel &, float, float) {
-    *last_hit = id;
+  int integer_hits = 0;
+  int float_hits = 0;
+  int integer_x = 0;
+  int integer_y = 0;
+  float float_x = 0.0f;
+  float float_y = 0.0f;
+
+  void plot(Canvas &, int x, int y, const Pixel &, float, float) {
+    ++integer_hits;
+    integer_x = x;
+    integer_y = y;
   }
-  /**
-   * @brief Records this pipe's id (vector-coordinate plot overload).
-   * @param Canvas& Drawing context (unused).
-   * @param Vector& Position (unused).
-   * @param Pixel& Color (unused).
-   * @param float First scalar attribute (unused).
-   * @param float Second scalar attribute (unused).
-   */
-  void plot(Canvas &, const Vector &, const Pixel &, float, float) {
-    *last_hit = id;
+  void plot(Canvas &, float x, float y, const Pixel &, float, float) {
+    ++float_hits;
+    float_x = x;
+    float_y = y;
   }
+  void plot(Canvas &, const Vector &, const Pixel &, float, float) {}
 };
 
 /**
- * @brief Verifies a PipelineRef copy is a real copy, not a ref-to-a-ref.
- * @details Copying from a non-const lvalue must select the implicit copy ctor
- * (member-wise: same ctx_), not the templated converting ctor (which would wrap
- * the source). Observable without UB: re-point the source after copying; a true
- * copy keeps routing to the original target, a wrapper would follow the source
- * to the new one.
+ * @brief Verifies integer and floating-point coordinates retain their overload.
+ */
+inline void test_pipeline_ref_routes_screen_coordinate_overloads() {
+  StubPipe pipe;
+  PipelineRef pipeline(pipe);
+  TestEffect fx(8, 4);
+  Canvas canvas(fx);
+
+  pipeline.plot(canvas, -3, 7, Pixel(0, 0, 0), 0.0f, 0.0f);
+  HS_EXPECT_EQ(pipe.integer_hits, 1);
+  HS_EXPECT_EQ(pipe.float_hits, 0);
+  HS_EXPECT_EQ(pipe.integer_x, -3);
+  HS_EXPECT_EQ(pipe.integer_y, 7);
+
+  pipeline.plot(canvas, 1.25f, -2.5f, Pixel(0, 0, 0), 0.0f, 0.0f);
+  HS_EXPECT_EQ(pipe.integer_hits, 1);
+  HS_EXPECT_EQ(pipe.float_hits, 1);
+  HS_EXPECT_NEAR(pipe.float_x, 1.25f, 0.0f);
+  HS_EXPECT_NEAR(pipe.float_y, -2.5f, 0.0f);
+}
+
+/**
+ * @brief Verifies a PipelineRef copy remains bound to its original target.
  */
 inline void test_pipeline_ref_copy_is_independent_of_source() {
-  int hit = 0;
-  StubPipe s1{1, &hit}, s2{2, &hit};
+  StubPipe s1, s2;
   PipelineRef a(s1);
-  PipelineRef b(a);    // copy from a non-const lvalue: must copy, not wrap
-  a = PipelineRef(s2); // re-point the source handle at a different pipeline
+  PipelineRef b(a);
+  a = PipelineRef(s2);
   {
     TestEffect fx(8, 4);
     Canvas c(fx);
-    b.plot(c, 0.0f, 0.0f, Pixel(0, 0, 0), 0.0f, 0.0f);
+    b.plot(c, 2, 3, Pixel(0, 0, 0), 0.0f, 0.0f);
   }
-  // A real copy still routes to s1; a ref-to-ref wrapper would follow a -> s2.
-  HS_EXPECT_EQ(hit, 1);
+  HS_EXPECT_EQ(s1.integer_hits, 1);
+  HS_EXPECT_EQ(s2.integer_hits, 0);
 }
 
 // ============================================================================
@@ -658,6 +662,7 @@ inline int run_canvas_tests() {
   test_register_and_update_enum_param();
   test_paramlist_fills_to_capacity();
   test_clip_setters();
+  test_pipeline_ref_routes_screen_coordinate_overloads();
   test_pipeline_ref_copy_is_independent_of_source();
 
   return fixture.result();
