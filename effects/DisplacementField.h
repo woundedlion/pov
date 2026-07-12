@@ -221,10 +221,13 @@ public:
       shift_lut[lut_n] = shift_lut[0];
       hue_lut[lut_n] = hue_lut[0];
 
+      // Quintic-remapped fractions keep the reconstruction smooth across LUT
+      // knots and never exceed the knot values, so ring_bound stays a true max.
       auto sample_lut = [this, lut_n](float t) {
         float x = wrap_t(t) * lut_n;
         int j = static_cast<int>(x);
-        return shift_lut[j] + (x - j) * (shift_lut[j + 1] - shift_lut[j]);
+        float f = quintic_kernel(x - j);
+        return shift_lut[j] + f * (shift_lut[j + 1] - shift_lut[j]);
       };
 
       float frag_alpha = ring_color.alpha * opacity * params.alpha;
@@ -233,8 +236,9 @@ public:
         int j = static_cast<int>(x);
         float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
         float falloff = quintic_kernel(1.0f - norm_dist);
-        f.color = Color4(hue_lut[j].lerp16(hue_lut[j + 1], frac_to_q16(x - j)),
-                         frag_alpha * falloff);
+        f.color = Color4(
+            hue_lut[j].lerp16(hue_lut[j + 1], frac_to_q16(quintic_kernel(x - j))),
+            frag_alpha * falloff);
       };
 
       Scan::DistortedRing::draw<W, H>(filters, canvas, basis, radius,
