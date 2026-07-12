@@ -257,7 +257,14 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
  * @param angle Contact angle in radians. At ~0 the star points collapse onto
  *   their corners (flat tiling); larger angles push the rays out so the rays
  *   from adjacent edges intersect to form sharper star points.
+ * @details A corner whose contact planes are near-parallel has no nearby
+ *   intersection; its star point falls back to the edge-midpoint mean instead
+ *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
  */
+/** Squared ceiling on chord(star point, corner) / chord(corner, midpoint);
+ * measured healthy maximum is ~5.5, degenerate intersections start at ~433. */
+inline constexpr float STAR_FAR_RATIO_SQ = 36.0f;
+
 template <typename MeshT>
 inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
                           Arena &target_arena, float angle) {
@@ -312,19 +319,28 @@ inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
     Vector n_hankin2 = rotate(n_edge2, q2);
 
     Vector intersect = cross(n_hankin1, n_hankin2);
-    float len_sq = dot(intersect, intersect);
-    if (len_sq < math::EPS_LEN_SQ) {
-      Vector cn = normalized_or(p_corner, p_corner);
+    Vector cn = normalized_or(p_corner, p_corner);
+    bool degenerate = dot(intersect, intersect) < math::EPS_LEN_SQ;
+    if (!degenerate) {
+      if (dot(intersect, p_corner) < 0)
+        intersect = -intersect;
+      intersect = intersect.normalized();
+      // Near-parallel contact planes fling the intersection geodesically far
+      // from the corner, yielding a sliver face that renders as a long line.
+      float local_sq = std::max(distance_squared(m1, cn),
+                                distance_squared(m2, cn));
+      degenerate =
+          distance_squared(intersect, cn) > STAR_FAR_RATIO_SQ * local_sq;
+    }
+    if (degenerate) {
       Vector fallback = normalized_or(m1 + m2, cn);
       if (dot(fallback, p_corner) < 0)
         fallback = -fallback;
       compiled.dynamic_vertices[i] = fallback;
       continue;
     }
-    if (dot(intersect, p_corner) < 0)
-      intersect = -intersect;
 
-    compiled.dynamic_vertices[i] = intersect.normalized();
+    compiled.dynamic_vertices[i] = intersect;
   }
 
   out_mesh.vertices.bind(target_arena,
