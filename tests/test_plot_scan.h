@@ -19,8 +19,6 @@
  *                                   direct cos/sin within tolerance.
  *   - Plot::Spiral::sample      : unit-length, monotone arc length.
  *   - Plot::Multiline::sample   : arc-length parameterization, v0 in [0,1].
- *   - Plot::Bezier::sample      : unit-length-ish, monotone arc length,
- *                                 endpoints land on control points.
  *   - Plot::Star::sample / Flower::sample : unit-length, closed loop.
  */
 #pragma once
@@ -67,9 +65,9 @@ inline Arena &plot_arena() {
 /**
  * @brief Pipeline stub: records each plotted position; ignores color/age.
  * @details Carries both plot() overloads so it can also back a type-erased
- * PipelineRef (the Plot::SplineChain / Plot::ParticleSystem draw() entry points
- * take one); only the 3D world-space overload records — the 2D screen-space form
- * is unused by these paths.
+ * PipelineRef (the Plot::ParticleSystem draw() entry points take one); only
+ * the 3D world-space overload records — the 2D screen-space form is unused by
+ * these paths.
  */
 struct CapturePipeline {
   std::vector<Vector> plotted; /**< World positions handed to plot(), in order. */
@@ -814,52 +812,6 @@ inline void test_multiline_sample_arclength_param() {
 }
 
 // ============================================================================
-// Plot::Bezier::sample
-// ============================================================================
-
-/**
- * @brief Verifies Bezier::sample emits N+1 fragments whose endpoints land on the
- *        outer control points, whose samples stay on the unit sphere, whose arc
- *        length is monotone, and whose v0 progress spans 0..1.
- */
-inline void test_bezier_sample_endpoints_and_monotone_arc() {
-  ScratchScope sc(plot_arena());
-  Fragments points;
-  const int N = 24;
-  points.bind(plot_arena(), N + 1);
-
-  Vector p0(1, 0, 0);
-  Vector p1 = Vector(0.7f, 0.7f, 0.0f).normalized();
-  Vector p2 = Vector(0.0f, 0.7f, 0.7f).normalized();
-  Vector p3(0, 0, 1);
-
-  Plot::Bezier::sample(points, p0, p1, p2, p3, N);
-  HS_EXPECT_EQ(points.size(), (size_t)(N + 1));
-
-  HS_EXPECT_NEAR(points[0].pos.x, p0.x, 1e-3f);
-  HS_EXPECT_NEAR(points[0].pos.z, p0.z, 1e-3f);
-  HS_EXPECT_NEAR(points[N].pos.x, p3.x, 1e-3f);
-  HS_EXPECT_NEAR(points[N].pos.z, p3.z, 1e-3f);
-
-  float last_v1 = -1.0f;
-  for (size_t i = 0; i < points.size(); ++i) {
-    HS_EXPECT_NEAR(points[i].pos.length(), 1.0f, 5e-3f);
-    HS_EXPECT_GE(points[i].v1, last_v1);
-    last_v1 = points[i].v1;
-  }
-  HS_EXPECT_NEAR(points[0].v0, 0.0f, 1e-6f);
-  HS_EXPECT_NEAR(points[N].v0, 1.0f, 1e-6f);
-
-  // The cubic bulges toward its interior control points, off the geodesic midpoint.
-  const Vector geo_mid = (p0 + p3).normalized();
-  const Vector &mid = points[N / 2].pos;
-  HS_EXPECT_GT(angle_between(mid, geo_mid), 0.15f);
-  Vector nrm = cross(p0, p3).normalized();
-  if (dot(p1, nrm) < 0.0f) nrm = -nrm; // orient toward the controls
-  HS_EXPECT_GT(dot(mid, nrm), 0.1f);
-}
-
-// ============================================================================
 // Plot::Star::sample / Plot::Flower::sample
 // ============================================================================
 
@@ -1212,21 +1164,8 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
 }
 
 // ============================================================================
-// Plot::SplineChain / Plot::ParticleSystem — chain + trail rasterization
+// Plot::ParticleSystem — trail rasterization
 // ============================================================================
-
-/**
- * @brief Minimum angular distance from any plotted point to a target direction.
- * @param pts Plotted positions.
- * @param target Direction to measure against.
- * @return The smallest angle_between(p, target) over pts (PI if empty).
- */
-inline float min_angle_to(const std::vector<Vector> &pts, const Vector &target) {
-  float best = PI_F;
-  for (const Vector &p : pts)
-    best = std::min(best, angle_between(p, target));
-  return best;
-}
 
 /**
  * @brief Angular distance from a unit point to a geodesic ARC a→b (not the full
@@ -1256,106 +1195,6 @@ inline float dist_to_arc(const Vector &p, const Vector &a, const Vector &b) {
       return std::fabs(std::asin(hs::clamp(dot(p, n), -1.0f, 1.0f)));
   }
   return std::min(angle_between(p, a), angle_between(p, b));
-}
-
-/**
- * @brief Largest deflection of any plotted point off the piecewise-geodesic path
- *        through the control points.
- * @param pts Plotted positions.
- * @param cp Control points.
- * @param n Control-point count.
- * @return max over pts of min over segments of dist_to_arc(p, cp[k], cp[k+1]).
- */
-inline float max_chain_deflection(const std::vector<Vector> &pts,
-                                  const Vector *cp, int n) {
-  float worst = 0.0f;
-  for (const Vector &p : pts) {
-    float nearest = PI_F;
-    for (int k = 0; k + 1 < n; ++k)
-      nearest = std::min(nearest, dist_to_arc(p, cp[k], cp[k + 1]));
-    worst = std::max(worst, nearest);
-  }
-  return worst;
-}
-
-/** @brief Four non-coplanar control points shared by the SplineChain tests. */
-inline const Vector CHAIN_CPS[4] = {Vector(1, 0, 0), Vector(0, 1, 0),
-                                    Vector(0, 0, 1), Vector(-1, 0, 0)};
-
-/**
- * @brief Verifies a Catmull-Rom SplineChain passes through every control point.
- * @details Catmull-Rom interpolates its control points — each span runs from
- * control_points[i] at local_t=0 to control_points[i+1] at local_t=1 — so the
- * rasterized curve must come within ~one sample step of each control vertex. A
- * regression to an approximating spline (uniform B-spline) would miss them.
- */
-inline void test_spline_chain_passes_through_control_points() {
-  constexpr int W = 288, H = 144;
-  RasterFx fx(W, H);
-  ScratchScope sc(plot_arena());
-  Fragments cps;
-  cps.bind(plot_arena(), 8);
-  for (const Vector &v : CHAIN_CPS) {
-    Fragment f;
-    f.pos = v;
-    cps.push_back(f);
-  }
-
-  CapturePipeline pipe;
-  {
-    Canvas c(fx);
-    Plot::SplineChain::draw<W, H>(pipe, c, cps, /*tension=*/0.5f, noop_shader,
-                                  {}, /*closed=*/false,
-                                  /*samples_per_segment=*/24);
-  }
-  fx.advance_display();
-
-  HS_EXPECT_GT(pipe.plotted.size(), (size_t)20);
-  for (const Vector &v : CHAIN_CPS)
-    HS_EXPECT_LE(min_angle_to(pipe.plotted, v), 0.06f);
-}
-
-/**
- * @brief Verifies SplineChain tension actually shapes the curve: tension 0 yields
- *        piecewise-geodesic spans (no off-path bulge) while positive tension
- *        deflects the interior off the chord arcs.
- * @details catmull_rom_tangents collapses to the segment endpoints at tension 0
- * (cp1==start, cp2==end → a geodesic), so the whole chain lies on its segment
- * arcs; raising tension pulls the tangents toward neighbour midpoints, bulging
- * the curve away. Pins that the tension argument is wired through and changes
- * geometry, not merely that *a* curve is drawn.
- */
-inline void test_spline_chain_tension_deflects() {
-  constexpr int W = 288, H = 144;
-  RasterFx fx(W, H);
-
-  auto run = [&](float tension) {
-    ScratchScope sc(plot_arena());
-    Fragments cps;
-    cps.bind(plot_arena(), 8);
-    for (const Vector &v : CHAIN_CPS) {
-      Fragment f;
-      f.pos = v;
-      cps.push_back(f);
-    }
-    CapturePipeline pipe;
-    {
-      Canvas c(fx);
-      Plot::SplineChain::draw<W, H>(pipe, c, cps, tension, noop_shader, {},
-                                    /*closed=*/false,
-                                    /*samples_per_segment=*/24);
-    }
-    fx.advance_display();
-    return max_chain_deflection(pipe.plotted, CHAIN_CPS, 4);
-  };
-
-  const float geo_defl = run(0.0f);
-  const float taut_defl = run(0.9f);
-
-  // Tension 0 is piecewise-geodesic: every point sits on a segment arc.
-  HS_EXPECT_LE(geo_defl, 0.02f);
-  HS_EXPECT_GT(taut_defl, 0.08f);
-  HS_EXPECT_GT(taut_defl, geo_defl + 0.05f);
 }
 
 /** @brief Minimal particle for the ParticleSystem draw concept: trail + life. */
@@ -1764,7 +1603,6 @@ inline int run_plot_scan_tests() {
 
   test_spiral_sample_unit_length_and_monotone_arc();
   test_multiline_sample_arclength_param();
-  test_bezier_sample_endpoints_and_monotone_arc();
 
   test_star_sample_unit_length_closed();
   test_flower_sample_unit_length_closed();
@@ -1780,8 +1618,6 @@ inline int run_plot_scan_tests() {
   test_rasterize_planar_arc_registers_track_drawn_arc();
   test_rasterize_cull_follows_filter_orientation();
 
-  test_spline_chain_passes_through_control_points();
-  test_spline_chain_tension_deflects();
   test_particle_system_draws_active_trails_with_registers();
 
   test_azimuthal_project_radius_is_geodesic_angle();
