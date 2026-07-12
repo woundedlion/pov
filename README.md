@@ -1821,18 +1821,6 @@ Stereographic-projection shader (extends `Effect` directly) with noise-driven wa
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=SplineFlow" target="_blank"><img src="docs/screenshots/SplineFlow.png" alt="SplineFlow" width="280"></a></td>
-<td valign="top">
-
-#### SplineFlow
-
-Catmull-Rom spline curves whose control points drift via independent random walks. Drawn with `Plot::SplineChain` in closed-loop mode through `World::Trails` for persistent trails, producing flowing organic ribbon paths.
-
-**Parameters**: Tension, Speed, Drift, Num Pts, Alpha
-
-</td></tr></table>
-
-<table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=DistortedRing" target="_blank"><img src="docs/screenshots/DistortedRing.png" alt="DistortedRing" width="280"></a></td>
 <td valign="top">
 
@@ -2029,7 +2017,7 @@ drawFrame() {                postMessage({type:'render'})
 Key properties:
 - **Isolated WASM instances per worker** — each segment has its own arena, its own random seed (`Pcg32(1337)` is deterministic, so all workers produce the same result), and its own effect state.
 - **`setClip(x0, x1, y0, y1)`** — for a non-stateful effect the WASM engine restricts *rendering* to the worker's quadrant: the rasterizer's scanline culling skips out-of-clip rows and columns, so out-of-band pixels are never shaded. The pixel readback in `drawFrame()` still copies the full canvas buffer; `segment_worker.js` then extracts just the quadrant rectangle from it (the `pixelsCopy` loop in the render handler) before transferring the result back, so only the quadrant crosses the worker boundary.
-- **Cross-segment stateful effects render full-frame** — an effect whose per-frame state reads pixels *outside* the worker's band (`MeshFeedback`'s feedback warp samples the previous frame at unbounded offsets; `Dynamo`/`SplineFlow` reproject `World::Trails` under rotation) cannot be band-clipped: a clipped worker would have stale/zero history outside its band, so cross-band trails read as black and seams appear. Those effects report `Effect::needs_full_frame()` (derived from a compile-time `any_crosses_segments` filter-pipeline trait), and `setClip` leaves their clip at the full canvas — every worker computes the bit-identical full frame and `segment_worker.js` slices its quadrant from the full readback. This mirrors the device exactly, where each board independently renders the whole canvas; only non-stateful effects keep segmented rendering's clipping win. Design: `docs/segmented_stateful_effects_spec.md`.
+- **Cross-segment stateful effects render full-frame** — an effect whose per-frame state reads pixels *outside* the worker's band (`MeshFeedback`'s feedback warp samples the previous frame at unbounded offsets; `Dynamo` reprojects `World::Trails` under rotation) cannot be band-clipped: a clipped worker would have stale/zero history outside its band, so cross-band trails read as black and seams appear. Those effects report `Effect::needs_full_frame()` (derived from a compile-time `any_crosses_segments` filter-pipeline trait), and `setClip` leaves their clip at the full canvas — every worker computes the bit-identical full frame and `segment_worker.js` slices its quadrant from the full readback. This mirrors the device exactly, where each board independently renders the whole canvas; only non-stateful effects keep segmented rendering's clipping win. Design: `docs/segmented_stateful_effects_spec.md`.
 - **One-frame pipeline** — frame N's render is dispatched fire-and-forget; frame N-1's results are composited synchronously when they arrive. Wall-clock time is measured against the slowest worker — exactly what the multi-Teensy hardware sees.
 - **Boundary overlay** — a "Show Boundaries" toggle paints cyan markers on the segment edges in the composite buffer to make the partition visible.
 

@@ -148,8 +148,8 @@ mean reparenting every filtered effect onto a CRTP base that reads
 strictly more intrusive than the one-liner, so it is not done.
 
 Every effect whose pipeline crosses segments carries the identical override:
-`MeshFeedback` (`Pixel::Feedback`) and the two `World::Trails` effects `Dynamo`
-and `SplineFlow` (→ `true`). Everything else stays `false` by default. The
+`MeshFeedback` (`Pixel::Feedback`) and the `World::Trails` effect `Dynamo`
+(→ `true`). Everything else stays `false` by default. The
 roster test (§8) pins exactly this set so a new cross-segment effect that forgets
 the override is caught.
 
@@ -251,7 +251,7 @@ Implemented in `tests/test_filter.h` and `tests/test_effects.h`:
   stack — so a future filter addition can't silently regress the gate.
 - **Roster gate** (`test_needs_full_frame_gate`, test_effects.h): constructs the
   real effects and asserts `needs_full_frame()` is `true` for exactly the
-  cross-segment set (`MeshFeedback`, `Dynamo`, `SplineFlow`) and `false` for
+  cross-segment set (`MeshFeedback`, `Dynamo`) and `false` for
   representative non-stateful effects. This is the end-to-end equivalent of a
   `setClip` test — the WASM driver reads exactly this query, and `setClip` itself
   lives in the Emscripten-only TU, which the native suite cannot link. A new

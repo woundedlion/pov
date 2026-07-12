@@ -34,7 +34,6 @@
 #include "effects/RingSpin.h"
 #include "effects/ShapeShifter.h"
 #include "effects/SphericalHarmonics.h"
-#include "effects/SplineFlow.h"
 #include "effects/Thrusters.h"
 #include "effects/Voronoi.h"
 
@@ -80,7 +79,6 @@
   X(RingSpin)                                                                   \
   X(ShapeShifter)                                                               \
   X(SphericalHarmonics)                                                         \
-  X(SplineFlow)                                                                 \
   X(Thrusters)                                                                  \
   X(Voronoi)
 

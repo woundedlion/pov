@@ -207,9 +207,6 @@
     <ClInclude Include="..\..\effects\SphericalHarmonics.h">
       <Filter>effects</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\effects\SplineFlow.h">
-      <Filter>effects</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\effects\DistortedRing.h">
       <Filter>effects</Filter>
     </ClInclude>

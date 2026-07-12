@@ -1655,8 +1655,8 @@ inline void test_shapeshifter_max_radius_survives_cycle() {
  *          whose filter pipeline crosses segment bands (its trait-derived
  *          override surfaces the compile-time any_crosses_segments fold), and
  *          false otherwise so non-stateful effects keep the segment clipping
- *          win. Cross-segment today: MeshFeedback (Pixel::Feedback) and the two
- *          World::Trails effects (Dynamo, SplineFlow). This pins the gate end to
+ *          win. Cross-segment today: MeshFeedback (Pixel::Feedback) and the
+ *          World::Trails effect Dynamo. This pins the gate end to
  *          end on constructed effects — the WASM driver reads exactly this query
  *          (targets/wasm/wasm.cpp setClip). See
  *          docs/segmented_stateful_effects_spec.md.
@@ -1679,7 +1679,6 @@ inline void test_needs_full_frame_gate() {
   // Cross-segment stateful effects -> full-frame.
   { reset(); MeshFeedback<DEFAULT_W, DEFAULT_H> fx; check(fx, true, "MeshFeedback"); }
   { reset(); Dynamo<DEFAULT_W, DEFAULT_H> fx;       check(fx, true, "Dynamo"); }
-  { reset(); SplineFlow<DEFAULT_W, DEFAULT_H> fx;   check(fx, true, "SplineFlow"); }
 
   // Representative non-stateful effects -> keep band clipping (default false).
   { reset(); Voronoi<DEFAULT_W, DEFAULT_H> fx;  check(fx, false, "Voronoi"); }

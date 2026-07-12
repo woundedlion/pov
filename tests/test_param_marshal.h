@@ -209,8 +209,7 @@ inline void check_roster_order_pinned() {
       "MindSplatter",        "MobiusGrid",         "Moire",
       "NoiseRings",          "PetalFlow",          "Raymarch",
       "RingShower",          "RingSpin",           "ShapeShifter",
-      "SphericalHarmonics",  "SplineFlow",         "Thrusters",
-      "Voronoi"};
+      "SphericalHarmonics",  "Thrusters",          "Voronoi"};
   // Actual roster, expanded straight from the X-macro source of truth.
   static const char *const ACTUAL_ROSTER[] = {
 #define HS_EFFECT_NAME(name) #name,
