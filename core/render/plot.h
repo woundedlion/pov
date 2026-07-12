@@ -474,12 +474,17 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
  * @param close_loop Also draw the last→first edge.
  * @param planar_basis Non-null selects azimuthal-equidistant interpolation
  *                     (straight in the projection); null uses geodesic edges.
+ * @param omit_end Open lines only: skip the final endpoint plot (each vertex is
+ *                 otherwise plotted once by its outgoing segment), so abutting
+ *                 arcs tile a longer curve without double-plotting the shared
+ *                 vertex.
  */
 template <int W, int H, typename PipelineT = PipelineRef>
 static void rasterize(PipelineT &pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderFn fragment_shader,
                       bool close_loop = false,
-                      const Basis *planar_basis = nullptr) {
+                      const Basis *planar_basis = nullptr,
+                      bool omit_end = false) {
   size_t len = points.size();
   if (len < 2)
     return;
@@ -557,7 +562,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // fragment positions.
     // Degenerate (coincident endpoints): plot at most a single dot.
     if (total_dist < math::EPS_GEOMETRIC) {
-      bool shouldOmit = (close_loop) ? true : !isLastSegment;
+      bool shouldOmit = close_loop || !isLastSegment || omit_end;
       if (!shouldOmit) {
         Fragment f_copy = curr;
         f_copy.color = Color4(0, 0, 0, 0);
@@ -585,7 +590,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       set_arc_uv(f, 0.0f);
       fragment_shader(curr.pos, f);
       pipeline.plot(canvas, curr.pos, f.color.color, f.age, f.color.alpha);
-      if (!close_loop && isLastSegment) {
+      if (!close_loop && isLastSegment && !omit_end) {
         Fragment fl = next;
         fl.color = Color4(0, 0, 0, 0);
         set_arc_uv(fl, total_dist);
@@ -628,7 +633,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // replay stretches over the remaining segment instead.
     HS_CHECK(sim_dist > 0.0f);
     float scale = total_dist / sim_dist;
-    bool omitLast = (close_loop) ? true : !isLastSegment;
+    bool omitLast = close_loop || !isLastSegment || omit_end;
 
     // DRAWING PHASE
     //
@@ -747,6 +752,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 struct FragmentDrawParams {
   size_t capacity;            /**< Fragment buffer reservation (per-primitive). */
   bool close_loop = false;    /**< Passed to rasterize (closes last→first edge). */
+  bool omit_end = false;      /**< Skip the final endpoint plot of an open line, so abutting arcs tile without a double-plot. */
   const Basis *planar_basis = nullptr; /**< Planar projection basis (null = geodesic). */
 };
 
@@ -778,7 +784,7 @@ inline void draw_fragments(PipelineRef pipeline, Canvas &canvas,
   fill(points);
   apply_vertex_shader(vertex_shader, points);
   rasterize<W, H>(pipeline, canvas, points, fragment_shader, params.close_loop,
-                  params.planar_basis);
+                  params.planar_basis, params.omit_end);
 }
 
 /**
@@ -1506,6 +1512,113 @@ struct DistortedRing {
                    FragmentShaderFn fragment_shader, float phase = 0) {
     draw<W, H>(pipeline, canvas, basis, radius, shift_fn, fragment_shader, {},
                phase);
+  }
+
+  /**
+   * @brief Samples a contiguous vertex arc [i_start, i_end] of the ring.
+   * @tparam W,H Rasterization resolution (W is the full ring's vertex grid).
+   * @param points Output fragment list; i_end - i_start + 1 fragments are
+   * appended.
+   * @param basis Orientation basis.
+   * @param radius Base radius.
+   * @param shift_fn Radial distortion sampled per vertex.
+   * @param i_start First vertex index, in [0, W).
+   * @param i_end Last vertex index (inclusive), in (i_start, W]: arcs never
+   * cross the seam — a caller spanning it splits at vertex W and continues
+   * from vertex 0.
+   * @param phase Rotation phase (radians).
+   * @details Every emitted vertex is bit-identical (position, v0, v2) to
+   * sample()'s vertex at the same index — including i_end == W, which
+   * reproduces the closed ring's overlap vertex (v0 = 1) — so an
+   * arc-decomposed ring rasterizes the same pixels with the same interpolated
+   * registers as the closed draw wherever both emit a segment. v1 accumulates
+   * great-circle arc length from the arc's first vertex.
+   */
+  template <int W, int H>
+  static void sample_arc(Fragments &points, const Basis &basis, float radius,
+                         ScalarFn shift_fn, int i_start, int i_end,
+                         float phase = 0) {
+    HS_CHECK(i_start >= 0 && i_start < W && i_end > i_start && i_end <= W,
+             "DistortedRing::sample_arc: bad arc range");
+    auto res = get_antipode(basis, radius);
+    const Basis &work_basis = res.first;
+    float work_radius = res.second;
+
+    const Vector &v = work_basis.v;
+    const Vector &u = work_basis.u;
+    const Vector &w = work_basis.w;
+
+    const float theta_eq = work_radius * (PI_F / 2.0f);
+    const float r_val = sinf(theta_eq);
+    const float d_val = cosf(theta_eq);
+
+    const float step = 2.0f * PI_F / W;
+
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    const float cos_phase = cosf(phase);
+    const float sin_phase = sinf(phase);
+
+    float cumulative_len = 0.0f;
+    for (int i = i_start; i <= i_end; ++i) {
+      // idx folds only the i == W overlap vertex; theta and shift_fn's argument
+      // must be the same floats the closed sample() produced, or the arc drifts
+      // a ulp and rasterizes different pixels.
+      int idx = i % W;
+      float theta = idx * step;
+      Vector u_temp = ring_tangent<W, H>(idx, u, w, cos_phase, sin_phase);
+
+      float shift = shift_fn(theta / (2.0f * PI_F));
+      float cos_shift = cosf(shift);
+      float sin_shift = sinf(shift);
+
+      float v_scale = d_val * cos_shift - r_val * sin_shift;
+      float u_scale = r_val * cos_shift + d_val * sin_shift;
+
+      Fragment f;
+      f.pos = ((v * v_scale) + (u_temp * u_scale)).normalized();
+      if (i > i_start)
+        cumulative_len += angle_between(points.back().pos, f.pos);
+      f.v0 = static_cast<float>(i) / W;
+      f.v1 = cumulative_len;
+      f.v2 = static_cast<float>(i);
+      f.age = 0;
+      points.push_back(f);
+    }
+  }
+
+  /**
+   * @brief Draws one open arc of a distorted ring.
+   * @tparam W,H Rasterization resolution.
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param basis Orientation basis.
+   * @param radius Base radius.
+   * @param shift_fn Distortion function.
+   * @param fragment_shader Shader function.
+   * @param i_start First vertex index, in [0, W).
+   * @param i_end Last vertex index (inclusive); see sample_arc's range contract.
+   * @param phase Rotation phase.
+   * @details Draws segments i_start .. i_end-1 and plots vertices
+   * i_start .. i_end-1 (omit_end skips vertex i_end, which the closed draw
+   * plots via its outgoing segment instead), so abutting arcs — or arcs plus
+   * the closed draw's remaining segments — tile the ring with every vertex
+   * plotted exactly once. A clip-culling caller must therefore only drop arcs
+   * whose omitted end vertex is itself outside the clip.
+   */
+  template <int W, int H>
+  static void draw_arc(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+                       float radius, ScalarFn shift_fn,
+                       FragmentShaderFn fragment_shader, int i_start, int i_end,
+                       float phase = 0) {
+    draw_fragments<W, H>(pipeline, canvas, {}, fragment_shader,
+                         {.capacity = static_cast<size_t>(i_end - i_start + 2),
+                          .close_loop = false,
+                          .omit_end = true},
+                         [&](Fragments &points) {
+                           sample_arc<W, H>(points, basis, radius, shift_fn,
+                                            i_start, i_end, phase);
+                         });
   }
 };
 

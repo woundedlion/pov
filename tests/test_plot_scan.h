@@ -721,6 +721,57 @@ inline void test_distorted_ring_sample_angle_addition_identity() {
   }
 }
 
+/**
+ * @brief Verifies DistortedRing::sample_arc emits vertices bit-identical
+ *        (position, v0, v2) to the closed sample() at the same indices, up to
+ *        and including the i == W overlap vertex, with v1 accumulating from
+ *        the arc start.
+ * @details This identity is what lets a clip-culling caller decompose a ring
+ *          into open arcs (splitting at the seam) without changing any pixel
+ *          the closed draw produces inside the clip.
+ */
+inline void test_distorted_ring_arc_matches_closed() {
+  constexpr int W = 64;
+  constexpr int H = 64;
+
+  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0.3f, 0.8f, 0.5f));
+  const float phase = 0.4f;
+  ScalarFn shift = [](float t) { return 0.2f * sinf(2.0f * PI_F * 3.0f * t); };
+
+  // radius < 1 and > 1 cover both sides of the antipode remap.
+  for (float radius : {0.7f, 1.4f}) {
+    ScratchScope sc(plot_arena());
+    Fragments closed;
+    closed.bind(plot_arena(), W + 2);
+    Plot::DistortedRing::sample<W, H>(closed, b, radius, shift, phase);
+
+    // Interior arc and an arc ending on the seam's overlap vertex.
+    const int ranges[2][2] = {{5, 20}, {W - 8, W}};
+    for (auto &r : ranges) {
+      Fragments arc;
+      arc.bind(plot_arena(), r[1] - r[0] + 2);
+      Plot::DistortedRing::sample_arc<W, H>(arc, b, radius, shift, r[0], r[1],
+                                            phase);
+      HS_EXPECT_EQ(arc.size(), (size_t)(r[1] - r[0] + 1));
+      HS_EXPECT_EQ(arc[0].v1, 0.0f);
+      for (int k = 0; k < (int)arc.size(); ++k) {
+        int i = r[0] + k;
+        HS_EXPECT_EQ(arc[k].pos.x, closed[i].pos.x);
+        HS_EXPECT_EQ(arc[k].pos.y, closed[i].pos.y);
+        HS_EXPECT_EQ(arc[k].pos.z, closed[i].pos.z);
+        HS_EXPECT_EQ(arc[k].v0, closed[i].v0);
+        HS_EXPECT_EQ(arc[k].v2, closed[i].v2);
+      }
+      // v1 re-accumulates the same great-circle steps from the arc's start.
+      float expect_len = 0.0f;
+      for (int k = 1; k < (int)arc.size(); ++k) {
+        expect_len += angle_between(arc[k - 1].pos, arc[k].pos);
+        HS_EXPECT_NEAR(arc[k].v1, expect_len, 1e-5f);
+      }
+    }
+  }
+}
+
 // ============================================================================
 // Plot::Spiral::sample
 // ============================================================================
@@ -1600,6 +1651,7 @@ inline int run_plot_scan_tests() {
   test_ring_sample_lut_matches_direct();
 
   test_distorted_ring_sample_angle_addition_identity();
+  test_distorted_ring_arc_matches_closed();
 
   test_spiral_sample_unit_length_and_monotone_arc();
   test_multiline_sample_arclength_param();
