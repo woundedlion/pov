@@ -8,21 +8,25 @@
 #include "core/engine/engine.h"
 
 /**
- * @brief Stack of evenly spaced plotted rings displaced by a 3D noise field.
+ * @brief Stack of evenly spaced plotted rings displaced by a displacement-field
+ * stack: falling ball bumps, then a 3D noise field.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Rings share one axis and are spaced evenly in colatitude across the
  * whole sphere. Each ring vertex is displaced along the stack axis by the
- * product of two OpenSimplex octaves (independent spatial scale per octave)
- * sampled at the vertex's world-space position: octave 1 envelopes octave 2,
- * so perturbations bunch where the envelope is strong and vanish where it
- * crosses zero. Displacement is coherent across rings, drifts as the field
- * animates, and its direction is
- * uniform across the whole sphere (not mirrored per hemisphere). Fragments are
- * shaded from a circular analogous palette that spins across the stack, with
- * hue rotated proportionally to the local displacement magnitude; a ColorWipe
- * slowly fades the palette to a freshly generated one every few seconds.
- * Orientation random-walks over time.
+ * summed displacement fields sampled at the vertex's world-space position. The
+ * effect opens with a ball-drop phase: cap-shaped bumps spawn at the stack pole
+ * on random meridians and fall to the opposite pole at varying speeds, reading
+ * as balls pushing the rings up from beneath. Once the last ball has fallen,
+ * the noise field fades in from zero amplitude: the product of two OpenSimplex
+ * octaves (independent spatial scale per octave), where octave 1 envelopes
+ * octave 2, so perturbations bunch where the envelope is strong and vanish
+ * where it crosses zero. Displacement is coherent across rings, drifts as the
+ * field animates, and its direction is uniform across the whole sphere (not
+ * mirrored per hemisphere). Fragments are shaded from a circular analogous
+ * palette that spins across the stack, with hue rotated proportionally to the
+ * local displacement magnitude; a ColorWipe slowly fades the palette to a
+ * freshly generated one every few seconds. Orientation random-walks over time.
  */
 template <int W, int H> class NoiseRings : public Effect {
 public:
@@ -31,8 +35,8 @@ public:
    */
   HS_COLD_MEMBER NoiseRings()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
-        palette(make_palette()), next_palette(make_palette()),
-        normal(X_AXIS) {}
+        balls(timeline), noise_field(timeline), palette(make_palette()),
+        next_palette(make_palette()), normal(X_AXIS) {}
 
   /**
    * @brief Registers params, seeds the noise field, and builds the timeline.
@@ -40,9 +44,7 @@ public:
   void init() override {
     ring_baked.bake(persistent_arena, palette);
 
-    field_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
-    field_noise.SetSeed(hs::rand_int(0, 65536));
-    field_noise.SetFrequency(1.0f);
+    noise_field.template_params.noise.SetSeed(hs::rand_int(0, 65536));
 
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Rings", &params.num_rings, 1.0f, 72.0f);
@@ -51,6 +53,9 @@ public:
     register_param("Scale 2", &params.scale2, 0.5f, 8.0f);
     register_param("Hue Rotate", &params.hue_scale, 0.0f, 3.0f);
     register_param("Flow Speed", &params.flow_speed, 0.0f, 0.15f);
+
+    // Pinned first, before any finite event can precede it in the buffer.
+    noise_field.spawn_pinned(0);
 
     timeline.add(0, Animation::Sprite(
                         [this](Canvas &canvas, float opacity) {
@@ -63,16 +68,36 @@ public:
     timeline.add(0, Animation::PeriodicTimer(
                         PALETTE_CYCLE_FRAMES,
                         [this](Canvas &) { this->roll_palette(); }, true));
+
+    timeline.add(0, Animation::RandomTimer(
+                        BALL_SPAWN_MIN_FRAMES, BALL_SPAWN_MAX_FRAMES,
+                        [this](Canvas &) { this->spawn_ball(); }, true));
   }
 
   /**
-   * @brief Advances the noise field and the palette wipe, then renders the
-   * timeline for one frame.
+   * @brief Refreshes the displacement stack from the sliders, hands off from
+   * the ball phase to the noise phase, advances the palette wipe, then renders
+   * the timeline for one frame.
    */
   void draw_frame() override {
-    field_time += params.flow_speed;
     color_spin = wrap_t(color_spin + COLOR_SPIN_RATE);
     step_wipe_rebake(wipe_pending, wipe_frames_remaining, ring_baked, palette);
+
+    balls.template_params.amplitude = params.amplitude;
+    noise_field.template_params.amplitude = params.amplitude * noise_gain;
+    noise_field.template_params.scale1 = params.scale1;
+    noise_field.template_params.scale2 = params.scale2;
+    noise_field.template_params.speed = params.flow_speed;
+    balls.prepare_frame();
+    noise_field.prepare_frame();
+
+    if (!noise_armed && balls_spawned >= BALL_COUNT &&
+        balls.active_count() == 0) {
+      noise_armed = true;
+      timeline.add(0, Animation::Transition(noise_gain, 1.0f,
+                                            NOISE_FADE_FRAMES, ease_in_out_sin));
+    }
+
     Canvas canvas(*this);
     timeline.step(canvas);
   }
@@ -82,12 +107,13 @@ public:
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite's animated fade in [0, 1], multiplied into each
    * fragment's alpha.
-   * @details Per ring, the two-octave displacement product is baked per azimuth
-   * column into shift_lut (sampled in the antipode work frame so the field
-   * tracks the plotted vertices) together with the hue-rotated ring color in
+   * @details Per ring, the summed displacement stack is baked per azimuth
+   * column into shift_lut (sampled in the antipode work frame so the fields
+   * track the plotted vertices) together with the hue-rotated ring color in
    * hue_lut, so fragments lerp a precomputed color instead of building a hue
-   * rotation each. The LUT resolution is adaptive: enough samples for the finer
-   * octave along the ring's actual circumference. Under a partial clip
+   * rotation each. The LUT resolution is adaptive: enough samples for the
+   * finest active feature (noise octave or ball footprint) along the ring's
+   * actual circumference. Under a partial clip
    * (segmented drivers), rings whose displaced band cannot touch the clip are
    * skipped whole, and surviving rings are cut into CULL_CHUNKS azimuth chunks
    * whose bounding caps gate both the bake and the vertex sampling — invisible
@@ -104,8 +130,10 @@ public:
     const bool try_cull = !clip().is_full();
     // World-angle pad absorbing stroke width + AA splat past the clip's margin.
     const float pad = 3.0f * PI_F / H;
-    const float reach = params.amplitude + pad;
-    const float max_scale = std::max(params.scale1, params.scale2);
+    const float reach = balls.field_bound() + noise_field.field_bound() + pad;
+    float max_scale = std::max(params.scale1, params.scale2);
+    if (balls.active_count() > 0)
+      max_scale = std::max(max_scale, 1.0f / BALL_RADIUS_MIN);
 
     for (int i = 0; i < n_rings; ++i) {
       float radius = 2.0f / (n_rings + 1) * (i + 1);
@@ -132,12 +160,7 @@ public:
         float angle = 2.0f * PI_F * x / lut_n;
         Vector p = (work.v * cos_eq) +
                    ((work.u * cosf(angle)) + (work.w * sinf(angle))) * sin_eq;
-        float n1 = field_noise.GetNoise(p.x * params.scale1, p.y * params.scale1,
-                                        p.z * params.scale1 + field_time);
-        float n2 = field_noise.GetNoise(p.x * params.scale2 + OCTAVE2_OFFSET,
-                                        p.y * params.scale2,
-                                        p.z * params.scale2 + field_time);
-        float s = params.amplitude * hemi_sign * n1 * n2;
+        float s = hemi_sign * (balls.field(p) + noise_field.field(p));
         shift_lut[x] = s;
         hue_lut[x] =
             hue_rotate(ring_color, std::fabs(s) * params.hue_scale).color;
@@ -266,6 +289,20 @@ private:
   }
 
   /**
+   * @brief Spawns one falling ball with a random meridian, footprint, and fall
+   * time, until the phase's ball budget is spent.
+   */
+  void spawn_ball() {
+    if (balls_spawned >= BALL_COUNT)
+      return;
+    balls.template_params.radius =
+        hs::rand_f(BALL_RADIUS_MIN, BALL_RADIUS_MAX);
+    if (balls.spawn(0, orientation, normal, hs::rand_f(0.0f, 2.0f * PI_F),
+                    hs::rand_int(BALL_FALL_MIN_FRAMES, BALL_FALL_MAX_FRAMES)))
+      ++balls_spawned;
+  }
+
+  /**
    * @brief Rolls the palette toward a freshly generated one via a ColorWipe.
    * @details Skips while a previous wipe is still in flight so a second wipe
    * cannot clobber the target the live one references.
@@ -281,9 +318,21 @@ private:
   }
 
   FastNoiseLite walk_noise;
-  FastNoiseLite field_noise;
   Timeline timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+
+  static constexpr int MAX_BALLS = 8;   /**< Concurrent falling-ball pool slots. */
+  static constexpr int BALL_COUNT = 12; /**< Total balls the intro phase spawns. */
+  static constexpr int BALL_SPAWN_MIN_FRAMES = 20; /**< Shortest gap between spawns. */
+  static constexpr int BALL_SPAWN_MAX_FRAMES = 55; /**< Longest gap between spawns. */
+  static constexpr int BALL_FALL_MIN_FRAMES = 130; /**< Fastest pole-to-pole fall. */
+  static constexpr int BALL_FALL_MAX_FRAMES = 280; /**< Slowest pole-to-pole fall. */
+  static constexpr float BALL_RADIUS_MIN = 0.35f;  /**< Smallest bump footprint (radians). */
+  static constexpr float BALL_RADIUS_MAX = 0.7f;   /**< Largest bump footprint (radians). */
+  static constexpr int NOISE_FADE_FRAMES = 150; /**< Noise amplitude ramp after the last ball. */
+
+  BallDropTransformer<MAX_BALLS> balls;   /**< Falling-ball displacement fields. */
+  NoiseProductTransformer<1> noise_field; /**< Two-octave noise displacement field. */
 
   GenerativePalette palette;      /**< Active palette (mutated by an in-flight ColorWipe). */
   GenerativePalette next_palette; /**< Target palette the current wipe fades toward. */
@@ -294,18 +343,20 @@ private:
   int wipe_frames_remaining = 0; /**< Frames left to rebake ring_baked for the in-flight wipe. */
   bool wipe_pending = false;     /**< Wipe armed this frame; it first steps next frame. */
 
+  int balls_spawned = 0;   /**< Balls spawned so far, capped at BALL_COUNT. */
+  bool noise_armed = false; /**< Noise fade-in scheduled (fires once, after the last ball). */
+  float noise_gain = 0.0f; /**< Noise amplitude ramp in [0, 1], animated by a Transition. */
+
   static constexpr int PALETTE_CYCLE_FRAMES = 180; /**< Palette rollover period (~3 s at the ~60 fps cadence). */
   static constexpr int PALETTE_WIPE_FRAMES = 168;  /**< Wipe duration; slightly under the cycle so a wipe is never still in flight when the next rollover fires. */
   static constexpr float COLOR_SPIN_RATE = 0.0015f; /**< Palette spin across the stack, in turns per frame. */
-  static constexpr float OCTAVE2_OFFSET = 50.0f;    /**< Spatial offset decorrelating octave 2 from octave 1 at equal scales. */
-  static constexpr float LUT_SAMPLES_PER_UNIT = 4.0f; /**< Bake columns per noise-space unit of ring circumference. */
+  static constexpr float LUT_SAMPLES_PER_UNIT = 4.0f; /**< Bake columns per feature-space unit of ring circumference. */
   static constexpr int LUT_MIN_SAMPLES = 16;          /**< Bake-column floor for tiny/low-scale rings. */
   static constexpr int CULL_CHUNKS = 24; /**< Azimuth chunks per ring for clip culling; must divide W. */
   static constexpr uint32_t CHUNK_FULL_MASK = (1u << CULL_CHUNKS) - 1;
   static_assert(W % CULL_CHUNKS == 0,
                 "chunk-to-vertex mapping requires W divisible by CULL_CHUNKS");
 
-  float field_time = 0.0f; /**< Noise-field time offset, advanced by Flow Speed each frame. */
   float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
   float shift_lut[W + 1] = {}; /**< Per-ring displacement per bake column; entry lut_n repeats entry 0 for seamless lerp. */
   Pixel hue_lut[W + 1] = {};   /**< Hue-rotated ring color per bake column, aligned with shift_lut. */
@@ -317,7 +368,7 @@ private:
   struct Params {
     float alpha = 0.3f;       /**< Overall ring opacity multiplier in [0, 1]. */
     float num_rings = 55.0f;  /**< Number of evenly spaced rings (truncated to int when drawn). */
-    float amplitude = 0.25f;  /**< Peak polar displacement (radians) scaling the noise field. */
+    float amplitude = 0.25f;  /**< Peak polar displacement (radians) scaling every displacement field. */
     float scale1 = 1.5f;      /**< Spatial frequency of the envelope octave; its zero regions leave rings undisturbed. */
     float scale2 = 3.0f;      /**< Spatial frequency of the detail octave, scaled by the envelope octave. */
     float hue_scale = 2.0f;   /**< Hue rotation (turns) per radian of displacement magnitude. */
