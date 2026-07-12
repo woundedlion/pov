@@ -664,6 +664,29 @@ inline void test_hue_rotate_full_turn_identity() {
                  static_cast<float>(c.color.b), 12.0f);
 }
 
+/**
+ * @brief Verifies the precomputed-base hue rotation matches hue_rotate exactly.
+ * @details Both paths run the same op sequence (forward transform hoisted vs
+ *          inline), so the 16-bit channels must match bit-exactly across
+ *          saturated, gamut-clipping, and achromatic bases.
+ */
+inline void test_hue_rotate_base_matches_direct() {
+  const Color4 cases[] = {Color4(Pixel(52000, 9000, 3000), 0.8f),
+                          Color4(Pixel(65535, 0, 40000), 1.0f),
+                          Color4(128, 128, 128, 0.5f)};
+  for (const Color4 &c : cases) {
+    HueRotateBase hb = make_hue_rotate_base(c);
+    for (float amt : {0.0f, 0.1f, 0.37f, 0.5f, 0.93f}) {
+      Color4 direct = hue_rotate(c, amt);
+      Color4 based = hue_rotate(hb, amt);
+      HS_EXPECT_EQ(based.color.r, direct.color.r);
+      HS_EXPECT_EQ(based.color.g, direct.color.g);
+      HS_EXPECT_EQ(based.color.b, direct.color.b);
+      HS_EXPECT_NEAR(based.alpha, direct.alpha, 1e-6f);
+    }
+  }
+}
+
 // ============================================================================
 // sRGB <-> linear LUTs vs. float reference
 // ============================================================================
@@ -1781,6 +1804,7 @@ inline int run_color_tests() {
   test_fast_cbrt_accuracy();
   test_hue_rotate_preserves_gray();
   test_hue_rotate_full_turn_identity();
+  test_hue_rotate_base_matches_direct();
 
   test_srgb_to_linear_endpoints();
   test_linear_to_srgb_endpoints();
