@@ -1845,6 +1845,18 @@ Concentric rings built from per-azimuth distorted ring SDFs, their radii oscilla
 </td></tr></table>
 
 <table border="0"><tr>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=NoiseRings" target="_blank"><img src="docs/screenshots/NoiseRings.png" alt="NoiseRings" width="280"></a></td>
+<td valign="top">
+
+#### NoiseRings
+
+A stack of evenly spaced plotted rings (`Plot::DistortedRing`) sharing one axis, each vertex displaced along the polar direction by a world-space OpenSimplex noise field. The field is anchored in space, so the random walk spins the stack through it while the field itself slowly flows; ring colors sweep a circular analogous palette across the stack.
+
+**Parameters**: Alpha, Rings, Amplitude, Noise Scale, Flow Speed
+
+</td></tr></table>
+
+<table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=ShapeShifter" target="_blank"><img src="docs/screenshots/ShapeShifter.png" alt="ShapeShifter" width="280"></a></td>
 <td valign="top">
 
