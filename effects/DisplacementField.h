@@ -42,10 +42,13 @@ public:
         next_palette(make_palette()), normal(X_AXIS) {}
 
   /**
-   * @brief Registers params, seeds the noise field, and builds the timeline.
+   * @brief Allocates the bake LUTs, registers params, seeds the noise field,
+   * and builds the timeline.
    */
   void init() override {
     ring_baked.bake(persistent_arena, palette);
+    shift_lut = persistent_arena.allocate_n<float>(W + 1);
+    hue_lut = persistent_arena.allocate_n<Pixel>(W + 1);
 
     noise_field.template_params.noise.SetSeed(hs::rand_int(0, 65536));
 
@@ -336,8 +339,8 @@ private:
   static constexpr int LUT_MIN_SAMPLES = 16;          /**< Bake-column floor for tiny/low-scale rings. */
 
   float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
-  float shift_lut[W + 1] = {}; /**< Per-ring displacement per bake column; entry lut_n repeats entry 0 for seamless lerp. */
-  Pixel hue_lut[W + 1] = {};   /**< Hue-rotated ring color per bake column, aligned with shift_lut. */
+  float *shift_lut = nullptr; /**< W + 1 arena-baked displacements, one per bake column; entry lut_n repeats entry 0 for seamless lerp. */
+  Pixel *hue_lut = nullptr;   /**< W + 1 arena-baked hue-rotated ring colors, aligned with shift_lut. */
 
   /**
    * @brief Slider-backed parameters.
