@@ -20,8 +20,9 @@
  * animates, and its direction is
  * uniform across the whole sphere (not mirrored per hemisphere). Fragments are
  * shaded from a circular analogous palette that spins across the stack, with
- * hue rotated proportionally to the local displacement magnitude. Orientation
- * random-walks over time.
+ * hue rotated proportionally to the local displacement magnitude; a ColorWipe
+ * slowly fades the palette to a freshly generated one every few seconds.
+ * Orientation random-walks over time.
  */
 template <int W, int H> class NoiseRings : public Effect {
 public:
@@ -30,15 +31,14 @@ public:
    */
   HS_COLD_MEMBER NoiseRings()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
-        ring_palette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
-                     BrightnessProfile::FLAT),
+        palette(make_palette()), next_palette(make_palette()),
         normal(X_AXIS) {}
 
   /**
    * @brief Registers params, seeds the noise field, and builds the timeline.
    */
   void init() override {
-    ring_baked.bake(persistent_arena, ring_palette);
+    ring_baked.bake(persistent_arena, palette);
 
     field_noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
     field_noise.SetSeed(hs::rand_int(0, 65536));
@@ -59,14 +59,20 @@ public:
                         -1, 24, ease_linear, 0, ease_linear));
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, normal, walk_noise));
+
+    timeline.add(0, Animation::PeriodicTimer(
+                        PALETTE_CYCLE_FRAMES,
+                        [this](Canvas &) { this->roll_palette(); }, true));
   }
 
   /**
-   * @brief Advances the noise field and renders the timeline for one frame.
+   * @brief Advances the noise field and the palette wipe, then renders the
+   * timeline for one frame.
    */
   void draw_frame() override {
     field_time += params.flow_speed;
     color_spin = wrap_t(color_spin + COLOR_SPIN_RATE);
+    step_wipe_rebake(wipe_pending, wipe_frames_remaining, ring_baked, palette);
     Canvas canvas(*this);
     timeline.step(canvas);
   }
@@ -249,16 +255,47 @@ private:
     return d <= dlam + half_w;
   }
 
+  /**
+   * @brief Builds a fresh random palette for the next wipe.
+   * @details Each construction reseeds, so every cycle fades toward a distinct
+   * palette.
+   */
+  static GenerativePalette make_palette() {
+    return GenerativePalette(GradientShape::CIRCULAR, HarmonyType::ANALOGOUS,
+                             BrightnessProfile::FLAT);
+  }
+
+  /**
+   * @brief Rolls the palette toward a freshly generated one via a ColorWipe.
+   * @details Skips while a previous wipe is still in flight so a second wipe
+   * cannot clobber the target the live one references.
+   */
+  void roll_palette() {
+    if (wipe_frames_remaining > 0)
+      return;
+    next_palette = make_palette();
+    timeline.add(0, Animation::ColorWipe(palette, next_palette,
+                                         PALETTE_WIPE_FRAMES, ease_linear));
+    wipe_frames_remaining = PALETTE_WIPE_FRAMES;
+    wipe_pending = true;
+  }
+
   FastNoiseLite walk_noise;
   FastNoiseLite field_noise;
   Timeline timeline;
   Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
 
-  GenerativePalette ring_palette;
-  BakedPalette ring_baked;
+  GenerativePalette palette;      /**< Active palette (mutated by an in-flight ColorWipe). */
+  GenerativePalette next_palette; /**< Target palette the current wipe fades toward. */
+  BakedPalette ring_baked;        /**< LUT the shader samples; rebaked while a wipe runs. */
   Vector normal;
   Orientation<> orientation;
 
+  int wipe_frames_remaining = 0; /**< Frames left to rebake ring_baked for the in-flight wipe. */
+  bool wipe_pending = false;     /**< Wipe armed this frame; it first steps next frame. */
+
+  static constexpr int PALETTE_CYCLE_FRAMES = 180; /**< Palette rollover period (~3 s at the ~60 fps cadence). */
+  static constexpr int PALETTE_WIPE_FRAMES = 168;  /**< Wipe duration; slightly under the cycle so a wipe is never still in flight when the next rollover fires. */
   static constexpr float COLOR_SPIN_RATE = 0.0015f; /**< Palette spin across the stack, in turns per frame. */
   static constexpr float OCTAVE2_OFFSET = 50.0f;    /**< Spatial offset decorrelating octave 2 from octave 1 at equal scales. */
   static constexpr float LUT_SAMPLES_PER_UNIT = 4.0f; /**< Bake columns per noise-space unit of ring circumference. */
