@@ -1237,6 +1237,42 @@ inline void test_generative_palette_snapshot_lerp() {
 }
 
 /**
+ * @brief Verifies the snapshot lerp stays continuous when raw key hue deltas
+ *        straddle the half-turn seam.
+ * @details Independent per-key shortest arcs counter-rotate for these keys,
+ *          sweeping the circular wrap segment's stop gap past pi mid-fade and
+ *          flipping get()'s segment arc — a one-step hue pop. Coherent key
+ *          arcs keep every step small.
+ */
+inline void test_generative_palette_lerp_coherent_hue_path() {
+  GenerativePalette from = GenerativePalette::from_hsv_keys(
+      GradientShape::CIRCULAR, 0, 200, 255, 14, 200, 255, 28, 200, 255);
+  GenerativePalette to = GenerativePalette::from_hsv_keys(
+      GradientShape::CIRCULAR, 142, 200, 255, 128, 200, 255, 114, 200, 255);
+
+  GenerativePalette pal = from;
+  const int STEPS = 64;
+  // Mid-segment sample inside the circular wrap segment (c -> a).
+  const float SAMPLE_T = 0.83f;
+  Pixel prev(0, 0, 0);
+  int max_step = 0;
+  for (int i = 0; i <= STEPS; ++i) {
+    pal.lerp(from.snapshot(), to.snapshot(), static_cast<float>(i) / STEPS);
+    Pixel cur = pal.get(SAMPLE_T).color;
+    if (i > 0) {
+      int dr = std::abs(static_cast<int>(cur.r) - static_cast<int>(prev.r));
+      int dg = std::abs(static_cast<int>(cur.g) - static_cast<int>(prev.g));
+      int db = std::abs(static_cast<int>(cur.b) - static_cast<int>(prev.b));
+      max_step = std::max(max_step, std::max(dr, std::max(dg, db)));
+    }
+    prev = cur;
+  }
+  // A segment-arc flip pops a half-turn of hue in one step (tens of thousands
+  // in 16-bit linear); coherent arcs stay well under this.
+  HS_EXPECT_TRUE(max_step < 12000);
+}
+
+/**
  * @brief Verifies each coordinate modifier's modify() in isolation.
  * @details Modifiers transform the palette coordinate; this exercises Scale,
  *          Cycle, Quantize, Fold, Breathe, Ripple, and Pinch one at a time.
@@ -1771,6 +1807,7 @@ inline int run_color_tests() {
   test_generative_palette_deterministic();
   test_generative_palette_auto_seed_advances();
   test_generative_palette_snapshot_lerp();
+  test_generative_palette_lerp_coherent_hue_path();
   test_palette_modifiers();
   test_noise_warp_modifier();
   test_drift_modifier();
