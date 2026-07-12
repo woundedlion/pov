@@ -49,6 +49,9 @@ public:
     ring_baked.bake(persistent_arena, palette);
     shift_lut = persistent_arena.allocate_n<float>(W + 1);
     hue_lut = persistent_arena.allocate_n<Pixel>(W + 1);
+    ball_colat = persistent_arena.allocate_n<float>(MAX_BALLS);
+    ball_footprint = persistent_arena.allocate_n<float>(MAX_BALLS);
+    ring_balls = persistent_arena.allocate_n<int>(MAX_BALLS);
     balls.init_storage(persistent_arena);
     noise_field.init_storage(persistent_arena);
 
@@ -154,16 +157,19 @@ public:
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite's animated fade in [0, 1], multiplied into each
    * fragment's alpha.
-   * @details Per ring, the summed displacement stack is baked per azimuth
-   * column into shift_lut (the ring's centerline shift) together with the
+   * @details Per ring, the displacement stack is baked per azimuth column
+   * into shift_lut (the ring's centerline shift) together with the
    * hue-rotated ring color in hue_lut, so fragments lerp a precomputed color
-   * instead of building a hue rotation each. The LUT resolution is adaptive:
-   * enough samples for the finest active feature (noise-product bandwidth or
-   * ball footprint) along the ring's actual circumference. Rings rasterize as soft
-   * SDF strokes (Scan::DistortedRing) with a quintic cross-section falloff;
-   * the scan confines work to each ring's own latitude band, and under a
-   * partial clip (segmented drivers) rings whose displaced band cannot touch
-   * the clip are skipped whole.
+   * instead of building a hue rotation each. The bake evaluates only the
+   * balls whose footprints can reach the ring's colatitude (centers and rings
+   * share the stack axis); a ring nothing can displace skips the field/hue
+   * bake for a constant LUT. The LUT resolution is adaptive: enough samples
+   * for the finest active feature (noise-product bandwidth or ball footprint)
+   * along the ring's actual circumference. Rings rasterize as soft SDF
+   * strokes (Scan::DistortedRing) with a quintic cross-section falloff; the
+   * scan confines work to each ring's own latitude band, and under a partial
+   * clip (segmented drivers) rings whose displaced band — bounded per ring by
+   * the touching footprints — cannot touch the clip are skipped whole.
    */
   void draw_fn(Canvas &canvas, float opacity) {
     int n_rings = static_cast<int>(params.num_rings);
@@ -171,60 +177,102 @@ public:
     const bool try_cull = !clip().is_full();
     // World-angle pad absorbing the AA splat past the clip's margin.
     const float pad = 3.0f * PI_F / H;
-    const float bound = balls.field_bound() + noise_field.field_bound();
-    const float reach = bound + params.thickness + pad;
+    const float noise_bound = noise_field.field_bound();
+
+    // Ball centers and rings share the stack axis, so a center's colatitude
+    // difference from a ring's is the min ring-to-center distance: ball b can
+    // displace ring theta only when |theta - colat_b| < footprint_b.
+    const int n_balls = balls.active_count();
+    for (int b = 0; b < n_balls; ++b) {
+      const BumpParams &bp = balls.active_params(b);
+      ball_colat[b] =
+          fast_acos(hs::clamp(dot(basis.v, bp.center), -1.0f, 1.0f));
+      ball_footprint[b] = bp.field_bound();
+    }
+
     // The octave product carries modulation sidebands out to scale1 + scale2.
-    float feature_scale = params.scale1 + params.scale2;
+    const float noise_feature = params.scale1 + params.scale2;
     // 2/R: the clearance arcs vary over half a footprint.
-    if (balls.active_count() > 0)
-      feature_scale = std::max(
-          feature_scale, 2.0f / std::min(params.ball_min, params.ball_max));
+    const float ball_feature =
+        n_balls > 0 ? 2.0f / std::min(params.ball_min, params.ball_max) : 0.0f;
 
     for (int i = 0; i < n_rings; ++i) {
       float radius = 2.0f / (n_rings + 1) * (i + 1);
       float theta = radius * (PI_F / 2.0f);
-      if (try_cull &&
-          !Plot::cap_may_touch_clip<H>(clip(), basis.v, theta + reach))
-        continue;
-      float cos_t = cosf(theta);
-      float sin_t = sinf(theta);
 
-      // Nyquist-safe column count: LUT_SAMPLES_PER_UNIT samples per noise-space
-      // unit along the ring's circumference.
-      int lut_n = hs::clamp(
-          static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f * PI_F *
-                                 feature_scale * sin_t)),
-          LUT_MIN_SAMPLES, W);
+      // Balls that can reach this ring; the dominant blend never exceeds its
+      // largest input, so the max touching footprint bounds the ball shift.
+      int n_local = 0;
+      float ball_bound = 0.0f;
+      for (int b = 0; b < n_balls; ++b) {
+        if (std::fabs(theta - ball_colat[b]) <
+            ball_footprint[b] + BALL_TOUCH_EPS) {
+          ring_balls[n_local++] = b;
+          ball_bound = std::max(ball_bound, ball_footprint[b]);
+        }
+      }
+
+      if (try_cull &&
+          !Plot::cap_may_touch_clip<H>(clip(), basis.v,
+                                       theta + ball_bound + noise_bound +
+                                           params.thickness + pad))
+        continue;
 
       Color4 ring_color =
           ring_baked.get(wrap_t((i + 0.5f) / n_rings + color_spin));
+      HueRotateBase hue_base = make_hue_rotate_base(ring_color);
 
-      // Angle-addition recurrence advancing the tangent (cos, sin) by one
-      // column step, dropping a libm cosf/sinf per bake column.
-      const float dphi = 2.0f * PI_F / lut_n;
-      const float cos_d = cosf(dphi);
-      const float sin_d = sinf(dphi);
-      float cos_a = 1.0f;
-      float sin_a = 0.0f;
-
-      // ring_bound: true max |shift| over this ring's LUT (lerp never exceeds
-      // it); the global field bound would widen every ring's scan band to the
-      // sum of all active bumps.
       float ring_bound = 0.0f;
-      for (int x = 0; x < lut_n; ++x) {
-        Vector p = (basis.v * cos_t) +
-                   ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
-        float s = balls.field_dominant(p) + noise_field.field(p);
-        ring_bound = std::max(ring_bound, std::fabs(s));
-        shift_lut[x] = s;
-        hue_lut[x] =
-            hue_rotate(ring_color, std::fabs(s) * params.hue_scale).color;
-        float next_cos = cos_a * cos_d - sin_a * sin_d;
-        sin_a = sin_a * cos_d + cos_a * sin_d;
-        cos_a = next_cos;
+      int lut_n;
+      if (ball_bound + noise_bound <= 0.0f) {
+        // Nothing can displace this ring: constant zero-shift LUT.
+        lut_n = LUT_MIN_SAMPLES;
+        Pixel flat = hue_rotate(hue_base, 0.0f).color;
+        for (int x = 0; x <= lut_n; ++x) {
+          shift_lut[x] = 0.0f;
+          hue_lut[x] = flat;
+        }
+      } else {
+        float feature_scale = noise_feature;
+        if (n_local > 0)
+          feature_scale = std::max(feature_scale, ball_feature);
+        float cos_t = cosf(theta);
+        float sin_t = sinf(theta);
+
+        // Nyquist-safe column count: LUT_SAMPLES_PER_UNIT samples per
+        // noise-space unit along the ring's circumference.
+        lut_n = hs::clamp(
+            static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f * PI_F *
+                                   feature_scale * sin_t)),
+            LUT_MIN_SAMPLES, W);
+
+        // Angle-addition recurrence advancing the tangent (cos, sin) by one
+        // column step, dropping a libm cosf/sinf per bake column.
+        const float dphi = 2.0f * PI_F / lut_n;
+        const float cos_d = cosf(dphi);
+        const float sin_d = sinf(dphi);
+        float cos_a = 1.0f;
+        float sin_a = 0.0f;
+
+        // ring_bound: true max |shift| over this ring's LUT (lerp never
+        // exceeds it); the global field bound would widen every ring's scan
+        // band to the sum of all active bumps.
+        for (int x = 0; x < lut_n; ++x) {
+          Vector p = (basis.v * cos_t) +
+                     ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
+          float s = balls.field_dominant(p, ring_balls, n_local) +
+                    noise_field.field(p);
+          ring_bound = std::max(ring_bound, std::fabs(s));
+          shift_lut[x] = s;
+          hue_lut[x] =
+              hue_rotate(hue_base, std::fabs(s) * params.hue_scale).color;
+          float next_cos = cos_a * cos_d - sin_a * sin_d;
+          sin_a = sin_a * cos_d + cos_a * sin_d;
+          cos_a = next_cos;
+        }
+        shift_lut[lut_n] = shift_lut[0];
+        hue_lut[lut_n] = hue_lut[0];
       }
-      shift_lut[lut_n] = shift_lut[0];
-      hue_lut[lut_n] = hue_lut[0];
 
       // Quintic-remapped fractions keep the reconstruction smooth across LUT
       // knots and never exceed the knot values, so ring_bound stays a true max.
@@ -343,6 +391,14 @@ private:
   float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
   float *shift_lut = nullptr; /**< W + 1 arena-baked displacements, one per bake column; entry lut_n repeats entry 0 for seamless lerp. */
   Pixel *hue_lut = nullptr;   /**< W + 1 arena-baked hue-rotated ring colors, aligned with shift_lut. */
+  float *ball_colat = nullptr;     /**< MAX_BALLS active-ball center colatitudes about the stack axis (radians), rebuilt per frame. */
+  float *ball_footprint = nullptr; /**< MAX_BALLS active-ball effective footprint radii (radians), rebuilt per frame. */
+  int *ring_balls = nullptr;       /**< MAX_BALLS scratch: active indices of the balls that can reach the current ring. */
+
+  /** Ring-to-ball prefilter pad absorbing fast_acos and tangent-recurrence
+   *  rounding (radians); a ball excluded despite the pad fields exactly 0
+   *  everywhere on the ring. */
+  static constexpr float BALL_TOUCH_EPS = 1e-3f;
 
   /**
    * @brief Slider-backed parameters.
