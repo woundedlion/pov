@@ -854,6 +854,19 @@ inline Pixel oklch_to_pixel(OKLCH lch) {
 }
 
 /**
+ * @brief Wraps an angle in radians to (-pi, pi].
+ * @param x Angle to wrap; any magnitude.
+ * @return The equivalent angle in (-pi, pi].
+ */
+inline float wrap_angle_pi(float x) {
+  while (x > PI_F)
+    x -= 2.0f * PI_F;
+  while (x < -PI_F)
+    x += 2.0f * PI_F;
+  return x;
+}
+
+/**
  * @brief Interpolates two OKLCH colors along the shortest-arc hue.
  * @param a Start color at t == 0.
  * @param b End color at t == 1.
@@ -875,11 +888,7 @@ inline OKLCH lerp_oklch(OKLCH a, OKLCH b, float t) {
   } else if (b.C < 1e-4f) {
     h = a.h;
   } else {
-    // Shortest arc.
-    float dh = b.h - a.h;
-    if (dh > PI_F) dh -= 2.0f * PI_F;
-    if (dh < -PI_F) dh += 2.0f * PI_F;
-    h = a.h + dh * t;
+    h = a.h + wrap_angle_pi(b.h - a.h) * t;
   }
   float L = hs::clamp(a.L + (b.L - a.L) * t, 0.0f, 1.0f);
   float C = std::max(0.0f, a.C + (b.C - a.C) * t);
@@ -900,19 +909,6 @@ inline CPixel oklch_to_cpixel(OKLCH lch) {
   LinRGB rgb = oklab_to_linear_rgb_gamut(oklch_to_oklab(lch));
   return CPixel(linear_float_to_srgb8(rgb.r), linear_float_to_srgb8(rgb.g),
                 linear_float_to_srgb8(rgb.b));
-}
-
-/**
- * @brief Interpolates two sRGB CPixels in OKLCH space to an sRGB CPixel.
- * @param c1 Start color at t == 0.
- * @param c2 End color at t == 1.
- * @param t Blend weight.
- * @return The interpolated color as an 8-bit sRGB CPixel.
- */
-inline CPixel lerp_oklch_srgb(const CPixel &c1, const CPixel &c2, float t) {
-  OKLCH a = srgb_to_oklch(c1.r, c1.g, c1.b);
-  OKLCH b = srgb_to_oklch(c2.r, c2.g, c2.b);
-  return oklch_to_cpixel(lerp_oklch(a, b, t));
 }
 
 /**
@@ -1288,19 +1284,48 @@ public:
   }
 
   /**
-   * @brief Sets keys to the per-key OKLCH interpolation of two snapshots.
+   * @brief Sets keys to the OKLCH interpolation of two snapshots.
    * @param from Source snapshot at amount == 0.
    * @param to Source snapshot at amount == 1.
    * @param amount Blend weight.
-   * @details Rebuilds the stops after interpolating.
+   * @details Key hues travel coherent arcs: key a takes its shortest arc and
+   * b/c rotate with it while their offsets from a morph along their own
+   * shortest arcs. Independent per-key shortest arcs can counter-rotate,
+   * sweeping adjacent stops past a half-turn mid-fade, where get()'s
+   * shortest-arc segment lerp flips direction — a one-frame hue pop. Falls
+   * back to per-key arcs when any key is near-gray (no meaningful hue).
+   * Rebuilds the stops after interpolating.
    */
   void lerp(const Snapshot &from, const Snapshot &to, float amount) {
-    // Clamp before lerp_oklch, which overshoots an extrapolated amount into an
-    // invalid OKLCH (L>1 or C past gamut).
+    // Clamp: an extrapolated amount overshoots into an invalid OKLCH (L > 1
+    // or C past gamut).
     amount = hs::clamp(amount, 0.0f, 1.0f);
-    a = lerp_oklch_srgb(from.a, to.a, amount);
-    b = lerp_oklch_srgb(from.b, to.b, amount);
-    c = lerp_oklch_srgb(from.c, to.c, amount);
+    const OKLCH fk[3] = {srgb_to_oklch(from.a.r, from.a.g, from.a.b),
+                         srgb_to_oklch(from.b.r, from.b.g, from.b.b),
+                         srgb_to_oklch(from.c.r, from.c.g, from.c.b)};
+    const OKLCH tk[3] = {srgb_to_oklch(to.a.r, to.a.g, to.a.b),
+                         srgb_to_oklch(to.b.r, to.b.g, to.b.b),
+                         srgb_to_oklch(to.c.r, to.c.g, to.c.b)};
+    CPixel *keys[3] = {&a, &b, &c};
+    bool chromatic = true;
+    for (int i = 0; i < 3; ++i)
+      chromatic = chromatic && fk[i].C >= 1e-4f && tk[i].C >= 1e-4f;
+    if (chromatic) {
+      float d0 = wrap_angle_pi(tk[0].h - fk[0].h);
+      for (int i = 0; i < 3; ++i) {
+        float d = i == 0 ? d0
+                         : d0 + wrap_angle_pi((tk[i].h - tk[0].h) -
+                                              (fk[i].h - fk[0].h));
+        OKLCH k = {
+            hs::clamp(fk[i].L + (tk[i].L - fk[i].L) * amount, 0.0f, 1.0f),
+            std::max(0.0f, fk[i].C + (tk[i].C - fk[i].C) * amount),
+            fk[i].h + d * amount};
+        *keys[i] = oklch_to_cpixel(k);
+      }
+    } else {
+      for (int i = 0; i < 3; ++i)
+        *keys[i] = oklch_to_cpixel(lerp_oklch(fk[i], tk[i], amount));
+    }
     update_stops();
   }
 
