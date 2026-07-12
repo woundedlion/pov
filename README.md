@@ -274,8 +274,7 @@ The rule is deliberate about *where* it goes: `HS_CHECK` guards **cold** paths o
 │   ├── lissajous.html          Spherical Lissajous curve designer
 │   ├── mobius.html             Möbius transformation visualizer
 │   ├── palettes.html           Procedural palette tuner
-│   ├── solids.html             Conway operator playground (uses MeshOps bridge)
-│   └── splines.html            Catmull-Rom spline designer
+│   └── solids.html             Conway operator playground (uses MeshOps bridge)
 │
 ├── three.js/                   Optional vendored Three.js checkout
 ├── node_modules/lil-gui/       Optional local lil-gui (npm install)
@@ -1920,8 +1919,6 @@ The bridge also exposes a `MeshOps` class — used by the `solids.html` geometry
 
 The bridge also exposes a `PaletteOps` class whose `bakeLut` method authors a three-key OKLCH gradient and returns a zero-copy `Uint8Array` view over a 256-entry sRGB LUT (same read-before-next-call memory-view contract as `getPixels`), used by the palette tool. It touches no global RNG, so calling it never perturbs a live engine's render stream.
 
-Alongside the classes, the bridge exports a few free spline-evaluation functions — `spline_cubic_fast`, `spline_cubic_slerp`, and `spline_catmull_rom_tangents` — used by the `splines.html` tool so its Bézier / Catmull-Rom curves are evaluated by the same engine code the firmware uses rather than a JavaScript reimplementation.
-
 It likewise exports the engine's color, palette, and lissajous math as free functions so the JavaScript tool ports can cross-check against the real implementation rather than a reimplementation: `srgb_to_linear_float`, `linear_to_srgb_float`, `srgb_to_linear_interp` (the interpolated sRGB→16-bit-linear LUT), `linear_rgb_to_oklab`, `oklab_to_linear_rgb`, `hsv_to_rgb` (the device `CHSV` sextant path), `procedural_palette_linear` (the cosine-palette formula), and `lissajous`.
 
 The WASM bridge includes stack high-water-mark instrumentation: `stack_paint_canary()` fills the stack with a known pattern at init time, and `stack_high_water_mark()` scans for the deepest overwrite. This is reported via `getArenaMetrics()` and logged on every effect switch to catch stack-hungry template instantiations early.
@@ -2051,7 +2048,7 @@ Switching presets does a full WASM reset: `setResolution(w, h)` updates the acti
 
 ### 10.11 Geometry Tools (`daydream/tools/`)
 
-Five standalone HTML pages. Four render with their own Three.js scene; `palettes.html` renders with 2D canvas contexts. `solids.html` and `splines.html` are backed by the engine's WASM build so their geometry stays identical to the C++ engine — `solids.html` via the `MeshOps` class, `splines.html` via the exported spline evaluators (`spline_cubic_fast` / `spline_cubic_slerp` / `spline_catmull_rom_tangents`); the other three implement their geometry math directly in JavaScript:
+Four standalone HTML pages. Three render with their own Three.js scene; `palettes.html` renders with 2D canvas contexts. `solids.html` is backed by the engine's WASM build so its geometry stays identical to the C++ engine — via the `MeshOps` class; the other three implement their geometry math directly in JavaScript:
 
 | Tool | What it does |
 |---|---|
@@ -2059,9 +2056,8 @@ Five standalone HTML pages. Four render with their own Three.js scene; `palettes
 | `mobius.html` | Visualizes Möbius transformations on the sphere via stereographic projection; lets you sweep the four complex coefficients and see the warp on a latitude-longitude grid. |
 | `palettes.html` | Tunes `ProceduralPalette` cosine coefficients and `GenerativePalette` harmony rules and exports the C++ initializer; renders its swatches and graphs on 2D canvas contexts rather than a Three.js scene. |
 | `solids.html` | Conway operator playground — chain `truncate`, `kis`, `ambo`, `dual`, etc. on Platonic / Archimedean / Catalan / Islamic-pattern seeds and visualize the result. Backed by the WASM `MeshOps` bridge with dedicated tooling arenas (16 MB, separate from the engine's 330 KiB arena). |
-| `splines.html` | Dual-mode (Bézier / Catmull-Rom) spherical spline designer with closed-loop and open-chain modes; click to add control points, drag to edit, export the control points as a `constexpr std::array<Vector>` or as `Fragment` positions. Spline evaluation runs through the engine's exported WASM spline functions (the tool's single source of truth). |
 
-All five reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`.
+All four reuse `vendor-importmap.js`, so they resolve from the CDN by default or from the local `three.js/` after `npm run importmap:local`.
 
 ---
 

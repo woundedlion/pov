@@ -1219,7 +1219,7 @@ public:
 };
 
 /**
- * @brief Packs a Vector into a JS {x,y,z} object for the spline exports.
+ * @brief Packs a Vector into a JS {x,y,z} object for the free-function exports.
  */
 static val vector_to_xyz(const Vector &r) {
   val v = val::object();
@@ -1233,11 +1233,10 @@ static val vector_to_xyz(const Vector &r) {
  * @brief True iff every argument is finite (no NaN/Inf).
  * @details The exported free functions below take raw JS floats straight into
  *          engine math, unlike the class methods (which gate via finite_arg). A
- *          non-finite value can trip an HS_CHECK deep inside the engine (e.g.
- *          Vector::normalized() on the slerp spline path) and abort the *entire*
- *          WASM module — the exact JS-boundary trap the rest of the bridge
- *          avoids. Gate the free functions the same way: reject non-finite input
- *          and return a benign zero result instead of trapping.
+ *          non-finite value can trip an HS_CHECK deep inside the engine and
+ *          abort the *entire* WASM module — the exact JS-boundary trap the rest
+ *          of the bridge avoids. Gate the free functions the same way: reject
+ *          non-finite input and return a benign zero result instead of trapping.
  */
 static bool all_finite(std::initializer_list<float> args) {
   for (float a : args)
@@ -1246,54 +1245,9 @@ static bool all_finite(std::initializer_list<float> args) {
   return true;
 }
 
-// Boundary validity of four spline control points plus a scalar (t / tension).
-// NonFinite would abort the slerp normalize; a finite zero-length control point
-// (checked only when check_degenerate) would trip the strict normalized().
-enum class SplineInputStatus { Valid, NonFinite, Degenerate };
-
-static SplineInputStatus spline_input_status(const Vector (&cps)[4], float scalar,
-                                             bool check_degenerate) {
-  if (!all_finite({cps[0].x, cps[0].y, cps[0].z, cps[1].x, cps[1].y, cps[1].z,
-                   cps[2].x, cps[2].y, cps[2].z, cps[3].x, cps[3].y, cps[3].z,
-                   scalar}))
-    return SplineInputStatus::NonFinite;
-  if (check_degenerate)
-    for (const Vector &p : cps)
-      if (p.x * p.x + p.y * p.y + p.z * p.z < math::EPS_NORMALIZE_SQ)
-        return SplineInputStatus::Degenerate;
-  return SplineInputStatus::Valid;
-}
-
 /**
- * @brief Evaluates a four-control-point cubic spline (cubic_fast/cubic_slerp)
- *        from the 13 flat floats Embind passes, returning the point as {x,y,z}.
- *
- * Centralizes the {p0..p3} pack and the {x,y,z} marshaling so each binding is
- * a single call and a third interpolator never has to copy it again.
- */
-static val eval_cubic_spline(Vector (*fn)(const Vector &, const Vector &,
-                                          const Vector &, const Vector &, float),
-                             float p0x, float p0y, float p0z, float p1x,
-                             float p1y, float p1z, float p2x, float p2y,
-                             float p2z, float p3x, float p3y, float p3z,
-                             float t, bool reject_degenerate = false) {
-  const Vector cps[4] = {{p0x, p0y, p0z}, {p1x, p1y, p1z},
-                         {p2x, p2y, p2z}, {p3x, p3y, p3z}};
-  const SplineInputStatus st = spline_input_status(cps, t, reject_degenerate);
-  if (st == SplineInputStatus::NonFinite) {
-    hs::log("WASM: cubic spline got a non-finite argument — returning zero");
-    return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
-  }
-  if (st == SplineInputStatus::Degenerate) {
-    hs::log("WASM: cubic spline got a degenerate control point — returning zero");
-    return vector_to_xyz(Vector(0.0f, 0.0f, 0.0f));
-  }
-  return vector_to_xyz(fn(cps[0], cps[1], cps[2], cps[3], t));
-}
-
-/**
- * @brief Registers the HolosphereEngine, MeshOps, and spline bindings with
- *        Embind so JavaScript can construct and call them.
+ * @brief Registers the HolosphereEngine and MeshOps bindings with Embind so
+ *        JavaScript can construct and call them.
  */
 EMSCRIPTEN_BINDINGS(holosphere_engine) {
   class_<HolosphereEngine>("HolosphereEngine")
@@ -1341,71 +1295,6 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   class_<PaletteOps>("PaletteOps")
       .constructor<>()
       .function("bakeLut", &PaletteOps::bakeLut);
-
-  // Spline evaluation — thin wrappers returning val {x,y,z}.
-  /**
-   * @brief Registers spline_cubic_fast: cubic Bézier point at parameter t over
-   *        control points p0..p3.
-   * @return JS {x,y,z} object for the evaluated point.
-   */
-  function("spline_cubic_fast",
-           optional_override([](float p0x, float p0y, float p0z, float p1x,
-                                float p1y, float p1z, float p2x, float p2y,
-                                float p2z, float p3x, float p3y, float p3z,
-                                float t) -> val {
-             return eval_cubic_spline(&Spline::cubic_fast, p0x, p0y, p0z, p1x,
-                                      p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z, t);
-           }));
-  /**
-   * @brief Registers spline_cubic_slerp: spherically-interpolated cubic at
-   *        parameter t over control points p0..p3.
-   * @return JS {x,y,z} object for the evaluated point.
-   */
-  function("spline_cubic_slerp",
-           optional_override([](float p0x, float p0y, float p0z, float p1x,
-                                float p1y, float p1z, float p2x, float p2y,
-                                float p2z, float p3x, float p3y, float p3z,
-                                float t) -> val {
-             return eval_cubic_spline(&Spline::cubic_slerp, p0x, p0y, p0z, p1x,
-                                      p1y, p1z, p2x, p2y, p2z, p3x, p3y, p3z, t,
-                                      true);
-           }));
-  /**
-   * @brief Registers spline_catmull_rom_tangents: Catmull-Rom tangent estimation.
-   * @return JS {cp1:{x,y,z}, cp2:{x,y,z}} giving the two Bézier control points
-   *         for the segment start->end.
-   */
-  function("spline_catmull_rom_tangents",
-           optional_override([](float prevx, float prevy, float prevz,
-                                float startx, float starty, float startz,
-                                float endx, float endy, float endz, float nextx,
-                                float nexty, float nextz, float tension) -> val {
-             const Vector cps[4] = {{prevx, prevy, prevz},
-                                    {startx, starty, startz},
-                                    {endx, endy, endz},
-                                    {nextx, nexty, nextz}};
-             const SplineInputStatus st =
-                 spline_input_status(cps, tension, true);
-             if (st != SplineInputStatus::Valid) {
-               if (st == SplineInputStatus::NonFinite)
-                 hs::log("WASM: catmull_rom_tangents got a non-finite argument — "
-                         "returning zero");
-               else
-                 hs::log("WASM: catmull_rom_tangents got a degenerate control "
-                         "point — returning zero");
-               val v = val::object();
-               v.set("cp1", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
-               v.set("cp2", vector_to_xyz(Vector(0.0f, 0.0f, 0.0f)));
-               return v;
-             }
-             Vector cp1, cp2;
-             Spline::catmull_rom_tangents(cps[0], cps[1], cps[2], cps[3],
-                                          tension, cp1, cp2);
-             val v = val::object();
-             v.set("cp1", vector_to_xyz(cp1));
-             v.set("cp2", vector_to_xyz(cp2));
-             return v;
-           }));
 
   // ── Color / palette / lissajous exports ────────────────────────────────────
   // The real engine math, exported so the JS tool ports can cross-check it.
