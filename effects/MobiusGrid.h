@@ -53,6 +53,7 @@ public:
   void init() override {
     configure_arenas(GLOBAL_ARENA_SIZE - 8 * 1024, 8 * 1024, 0);
 
+    mobius_gen.init_storage(persistent_arena);
     baked_palette.bake(persistent_arena, palette);
 
     register_animated_param("Rings", &params.num_rings, 0.0f, 20.0f);

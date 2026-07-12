@@ -36,6 +36,7 @@ public:
     configure_arenas(GLOBAL_ARENA_SIZE - (114 + 80) * 1024, 114 * 1024,
                      80 * 1024);
 
+    ripple_gen.init_storage(persistent_arena);
     palette_bank_.bake_all(persistent_arena);
 
     // Set BEFORE registering: register_param snaps *ptr as the slider default.
@@ -217,9 +218,12 @@ private:
     };
 
     // Compact the back slot, rebaking palettes into the fresh arena rather than
-    // tracking them through the evacuation.
-    carousel.compact_keep_front(
-        [this](Arena &arena) { palette_bank_.bake_all(arena); });
+    // tracking them through the evacuation. The ripple pool re-claims first so
+    // its slots re-land at their init_storage() addresses.
+    carousel.compact_keep_front([this](Arena &arena) {
+      ripple_gen.reclaim_storage(arena);
+      palette_bank_.bake_all(arena);
+    });
 
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh mesh = solids[idx].generate(a, b);

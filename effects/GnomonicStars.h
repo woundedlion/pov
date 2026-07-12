@@ -34,6 +34,7 @@ public:
    *          RandomWalk that reorients the field.
    */
   void init() override {
+    transformer.init_storage(persistent_arena);
     // Sized to MAX_POINTS so a live "Points" change never reallocates.
     spiral_cache_ = static_cast<Vector *>(persistent_arena.allocate(
         MAX_POINTS * sizeof(Vector), alignof(Vector)));

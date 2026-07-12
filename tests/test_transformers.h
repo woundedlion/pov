@@ -491,6 +491,7 @@ inline void test_transformer_spawn_applies_and_composes() {
   Timeline tl;
   global_timeline_t = 0;
   NoiseTransformer<4> nt(tl);
+  nt.init_storage(persistent_arena);
   nt.template_params.amplitude = 0.6f;
   nt.template_params.scale = 4.0f;
   nt.template_params.time = 1.0f;
@@ -567,6 +568,7 @@ inline void test_transformer_nonpinned_slot_reclaimed_after_compaction() {
   Canvas cv(fx);
 
   RippleTransformer<1> rt(tl);
+  rt.init_storage(persistent_arena);
 
   float dummy = 0.0f;
   tl.add(0, Animation::Transition(dummy, 1.0f, 2, ease_linear));
@@ -632,6 +634,7 @@ inline void test_transformer_recycled_slot_composes_in_spawn_order() {
   Canvas cv(fx);
 
   Transformer<OrderParams, TagAnim, order_transform, 2> tr(tl);
+  tr.init_storage(persistent_arena);
 
   HS_EXPECT_TRUE(tr.spawn(0, /*order=*/9, /*duration=*/2) != nullptr);   // slot 0
   HS_EXPECT_TRUE(tr.spawn(0, /*order=*/1, /*duration=*/100) != nullptr); // slot 1
@@ -706,6 +709,7 @@ inline void test_field_transformer_sums_and_bounds() {
   Timeline tl;
   global_timeline_t = 0;
   TestFieldTransformer ft(tl);
+  ft.init_storage(persistent_arena);
 
   HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
   HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 2.0f, 1e-5f);
@@ -728,6 +732,7 @@ inline void test_field_transformer_field_dominant() {
   Timeline tl;
   global_timeline_t = 0;
   TestFieldTransformer ft(tl);
+  ft.init_storage(persistent_arena);
   HS_EXPECT_NEAR(ft.field_dominant(Vector(1, 0, 0)), 0.0f, 1e-6f);
 
   HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
@@ -745,6 +750,7 @@ inline void test_field_transformer_field_dominant_mixed_sign() {
   Timeline tl;
   global_timeline_t = 0;
   TestFieldTransformer ft(tl);
+  ft.init_storage(persistent_arena);
 
   HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
   HS_EXPECT_TRUE(ft.spawn(0, -3.0f, 100) != nullptr);
@@ -769,6 +775,7 @@ inline void test_field_transformer_slot_reclaimed() {
   RecycleFakeEffect fx;
   Canvas cv(fx);
   TestFieldTransformer ft(tl);
+  ft.init_storage(persistent_arena);
 
   HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 2) != nullptr);
   HS_EXPECT_TRUE(ft.spawn(0, 5.0f, 100) != nullptr);
@@ -781,6 +788,27 @@ inline void test_field_transformer_slot_reclaimed() {
   HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 5.0f, 1e-5f);
   HS_EXPECT_TRUE(ft.spawn(0, 1.0f, 100) != nullptr);
   HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 6.0f, 1e-5f);
+}
+
+/**
+ * @brief Verifies reclaim_storage() carries a live entity across an arena
+ *        rewind: the re-claimed slots keep their addresses and contents.
+ * @details Rewinds via set_offset to the pre-init_storage mark, standing in
+ *          for the reset() a mesh carousel compaction performs, then replays
+ *          the pool allocation as the carousel's after-reset callback does.
+ */
+inline void test_field_transformer_storage_survives_arena_rewind() {
+  Timeline tl;
+  global_timeline_t = 0;
+  const size_t mark = persistent_arena.get_offset();
+  TestFieldTransformer ft(tl);
+  ft.init_storage(persistent_arena);
+  HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
+
+  persistent_arena.set_offset(mark);
+  ft.reclaim_storage(persistent_arena);
+  HS_EXPECT_TRUE(ft.active_count() == 1);
+  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 2.0f, 1e-5f);
 }
 
 // ============================================================================
@@ -935,6 +963,7 @@ inline void test_ball_drop_traverses_and_reclaims() {
   const int duration = 40;
 
   BallDropTransformer<1> balls(tl);
+  balls.init_storage(persistent_arena);
   balls.template_params.radius = 0.5f;
   HS_EXPECT_TRUE(balls.spawn(0, ori, pole, 0.0f, duration) != nullptr);
 
@@ -1015,6 +1044,7 @@ inline int run_transformers_tests() {
   test_field_transformer_field_dominant();
   test_field_transformer_field_dominant_mixed_sign();
   test_field_transformer_slot_reclaimed();
+  test_field_transformer_storage_survives_arena_rewind();
   test_bump_field_drapes_over_ball();
   test_bump_field_round_bulge_along_ring();
   test_bump_field_envelope_gates();
