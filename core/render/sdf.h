@@ -678,8 +678,9 @@ struct DistortedRing {
   const Basis &basis;     /**< Orientation frame (v = ring axis). */
   float radius;           /**< Ring radius as a fraction of the hemisphere. */
   float thickness;        /**< Half-width of the stroke (radians). */
-  ScalarFn shift_fn;      /**< Per-azimuth centerline shift, t in [0,1) -> radians. */
-  float max_distortion;   /**< Maximum magnitude of shift_fn (radians). */
+  ScalarFn shift_fn;      /**< Per-azimuth centerline shift, t in [0,1) -> radians; empty when shift_slope_fn is set. */
+  ShiftSlopeFn shift_slope_fn; /**< Shift plus d(shift)/dt out-param; empty disables slope compensation. */
+  float max_distortion;   /**< Maximum magnitude of the shift (radians). */
   float phase;            /**< Azimuth phase offset (radians). */
 
   Vector normal, u, w;            /**< Ring axis and the two in-plane basis vectors. */
@@ -724,6 +725,26 @@ struct DistortedRing {
     float ang_max = std::min(PI_F, target_angle + max_thickness);
     cos_max_limit = cosf(ang_min);
     cos_min_limit = cosf(ang_max);
+  }
+
+  /**
+   * @brief Builds a slope-compensated distorted ring.
+   * @param b Orientation frame (v = ring axis).
+   * @param r Ring radius as a fraction of the hemisphere.
+   * @param th Half-width of the stroke (radians).
+   * @param ssf Per-azimuth centerline shift function that also writes
+   *            d(shift)/dt (radians per unit t) to its out-param. The distance
+   *            is measured perpendicular to the shifted centerline's tangent
+   *            instead of along the polar direction, so steep shift segments
+   *            keep full stroke width.
+   * @param md Maximum magnitude of the shift over t in [0,1) (radians); same
+   *           true-upper-bound precondition as the ScalarFn overload.
+   * @param ph Azimuth phase offset (radians).
+   */
+  DistortedRing(const Basis &b, float r, float th, ShiftSlopeFn ssf, float md,
+                float ph)
+      : DistortedRing(b, r, th, ScalarFn{}, md, ph) {
+    shift_slope_fn = ssf;
   }
 
   /**
@@ -804,13 +825,27 @@ struct DistortedRing {
       azimuth += 2 * PI_F;
 
     float t_norm = wrap_t((azimuth + phase) / (2 * PI_F));
-    float shift = shift_fn(t_norm);
+    float slope = 0.0f;
+    float shift =
+        shift_slope_fn ? shift_slope_fn(t_norm, slope) : shift_fn(t_norm);
 
     if constexpr (!ComputeUVs)
       t_norm = 0.0f;
 
     float local_target = target_angle + shift;
     float dist = std::abs(polar - local_target);
+    if (slope != 0.0f) {
+      // Project onto the centerline tangent's normal: polar distance alone
+      // thins a steep segment's stroke by cos(slope angle). k converts the
+      // per-unit-t slope to polar radians per azimuth radian; sin2 is the
+      // azimuth-to-arc metric at this latitude. Slopes under ~6 degrees
+      // correct by < 0.5%; skip the sqrt/div there.
+      float k = slope * (1.0f / (2.0f * PI_F));
+      float k2 = k * k;
+      float sin2 = std::max(1.0f - d * d, 0.0f);
+      if (k2 > 0.01f * sin2)
+        dist *= sqrtf(sin2 / (sin2 + k2));
+    }
 
     res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
   }

@@ -166,7 +166,9 @@ public:
    * bake for a constant LUT. The LUT resolution is adaptive: enough samples
    * for the finest active feature (noise-product bandwidth or ball footprint)
    * along the ring's actual circumference. Rings rasterize as soft SDF
-   * strokes (Scan::DistortedRing) with a quintic cross-section falloff; the
+   * strokes (Scan::DistortedRing) with a quintic cross-section falloff and
+   * slope-compensated width, so steeply displaced segments keep full
+   * thickness; the
    * scan confines work to each ring's own latitude band, and under a partial
    * clip (segmented drivers) rings whose displaced band — bounded per ring by
    * the touching footprints — cannot touch the clip are skipped whole.
@@ -315,11 +317,14 @@ public:
 
       // Quintic-remapped fractions keep the reconstruction smooth across LUT
       // knots and never exceed the knot values, so ring_bound stays a true max.
-      auto sample_lut = [this, lut_n](float t) {
+      // The slope out-param feeds the rasterizer's slope compensation.
+      auto sample_lut = [this, lut_n](float t, float &slope) {
         float x = wrap_t(t) * lut_n;
         int j = static_cast<int>(x);
-        float f = quintic_kernel(x - j);
-        return shift_lut[j] + f * (shift_lut[j + 1] - shift_lut[j]);
+        float f = x - j;
+        float d = shift_lut[j + 1] - shift_lut[j];
+        slope = quintic_kernel_deriv(f) * d * lut_n;
+        return shift_lut[j] + quintic_kernel(f) * d;
       };
 
       float frag_alpha = ring_color.alpha * opacity * params.alpha;

@@ -119,10 +119,13 @@ public:
       shift_lut[x] = s;
     }
 
-    auto shift_fn = [this](float t) {
+    // The slope out-param feeds the rasterizer's slope compensation.
+    auto shift_fn = [this](float t, float &slope) {
       float x = wrap_t(t) * W;
       int i = static_cast<int>(x);
-      return shift_lut[i] + (x - i) * (shift_lut[i + 1] - shift_lut[i]);
+      float d = shift_lut[i + 1] - shift_lut[i];
+      slope = d * W;
+      return shift_lut[i] + (x - i) * d;
     };
 
     // True upper bound on |shift_fn|: an underestimate silently culls arcs.
