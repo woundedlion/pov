@@ -31,12 +31,12 @@
  * local displacement magnitude; a ColorWipe slowly fades the palette to a
  * freshly generated one every few seconds. Orientation random-walks over time.
  */
-template <int W, int H> class NoiseRings : public Effect {
+template <int W, int H> class DisplacementField : public Effect {
 public:
   /**
    * @brief Builds the effect with its palette and ring-stack axis.
    */
-  HS_COLD_MEMBER NoiseRings()
+  HS_COLD_MEMBER DisplacementField()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
         balls(timeline), noise_field(timeline), palette(make_palette()),
         next_palette(make_palette()), normal(X_AXIS) {}
@@ -347,4 +347,4 @@ private:
 };
 
 #include "core/engine/effect_registry.h"
-REGISTER_EFFECT(NoiseRings)
+REGISTER_EFFECT(DisplacementField)
