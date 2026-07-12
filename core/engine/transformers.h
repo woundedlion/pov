@@ -6,7 +6,7 @@
 
 #include "math/3dmath.h"
 #include "engine/concepts.h"
-#include <array>
+#include <new>
 #include "vendor/FastNoiseLite.h"
 #include "animation/animation.h"
 
@@ -49,6 +49,38 @@ public:
   // dangle them, so the object is fixed in place.
   TransformerPool(const TransformerPool &) = delete;
   TransformerPool(TransformerPool &&) = delete;
+
+  /**
+   * @brief Allocates the entity pool from the persistent arena.
+   * @param arena Persistent arena supplying CAPACITY entity slots.
+   * @details Must be called from effect init(), not the constructor (arenas
+   * aren't ready yet), after any configure_arenas() and before the first spawn.
+   */
+  HS_COLD_MEMBER void init_storage(Arena &arena) {
+    entities = arena.allocate_n<Entity>(CAPACITY);
+    for (int i = 0; i < CAPACITY; ++i)
+      new (&entities[i]) Entity();
+    active_slots_ = arena.allocate_n<int>(CAPACITY);
+    active_count_ = 0;
+  }
+
+  /**
+   * @brief Re-claims the pool's storage after its arena was reset, preserving
+   * live entities.
+   * @param arena The arena init_storage() allocated from, freshly reset.
+   * @details For arenas that are compacted mid-effect (e.g. a mesh carousel's
+   * after-reset callback). Spawned animations hold Params references into the
+   * slots, so the blocks must re-land at their original addresses — the caller
+   * must replay the same allocation order after the reset as after
+   * init_storage() (asserted). The bytes are left untouched: an arena reset
+   * only rewinds the offset, so live entities carry through.
+   */
+  HS_COLD_MEMBER void reclaim_storage(Arena &arena) {
+    Entity *e = arena.allocate_n<Entity>(CAPACITY);
+    int *s = arena.allocate_n<int>(CAPACITY);
+    HS_CHECK(e == entities && s == active_slots_,
+             "TransformerPool: reclaimed storage moved");
+  }
 
   /**
    * @brief Number of currently active entities.
@@ -99,10 +131,10 @@ protected:
    * composition order follows spawn order; the warps are not all commutative, so the
    * order is load-bearing and must not depend on which freed slot was recycled.
    */
-  std::array<int, CAPACITY> active_slots_{};
+  int *active_slots_ = nullptr;
   int active_count_ = 0; /**< Number of valid entries at the front of active_slots_. */
 
-  std::array<Entity, CAPACITY> entities; /**< Fixed-capacity pool of entity slots. */
+  Entity *entities = nullptr; /**< CAPACITY-slot pool, allocated by init_storage(). */
 
 private:
   /**
@@ -138,6 +170,7 @@ private:
    */
   template <typename... Args>
   AnimT *spawn_impl(bool pin, int in_frames, Args &&...args) {
+    HS_CHECK(entities, "TransformerPool: call init_storage() before spawn");
     // Linear scan for a free slot (cold path).
     for (int idx = 0; idx < CAPACITY; ++idx) {
       Entity &e = entities[idx];

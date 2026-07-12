@@ -55,6 +55,7 @@ public:
    *        starts the spawn/spin/orbit animation chain.
    */
   void init() override {
+    mobius_gen.init_storage(persistent_arena);
     setup_presets();
 
     // Bind before any preset bakes through it.

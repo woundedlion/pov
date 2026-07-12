@@ -79,6 +79,7 @@ public:
 
     configure_arenas(GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES, SCRATCH_A_BYTES, 0);
 
+    noise_xform.init_storage(persistent_arena);
     node = static_cast<Node *>(
         persistent_arena.allocate(sizeof(Node), alignof(Node)));
     new (node) Node();

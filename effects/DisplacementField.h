@@ -49,6 +49,8 @@ public:
     ring_baked.bake(persistent_arena, palette);
     shift_lut = persistent_arena.allocate_n<float>(W + 1);
     hue_lut = persistent_arena.allocate_n<Pixel>(W + 1);
+    balls.init_storage(persistent_arena);
+    noise_field.init_storage(persistent_arena);
 
     noise_field.template_params.noise.SetSeed(hs::rand_int(0, 65536));
 
