@@ -201,14 +201,14 @@ inline void check_roster_order_pinned() {
   // Independent hand-maintained copy of the intended roster order. Must NOT be
   // generated from HS_EFFECT_LIST, or the comparison becomes a tautology.
   static const char *const GOLDEN_ROSTER[] = {
-      "BZReactionDiffusion", "ChaoticStrings",     "Comets",
-      "DistortedRing",       "DreamBalls",         "Dynamo",
-      "FlowField",           "Flyby",              "GnomonicStars",
-      "GSReactionDiffusion", "HankinSolids",       "HopfFibration",
-      "IslamicStars",        "Liquid2D",           "MeshFeedback",
-      "MindSplatter",        "MobiusGrid",         "NoiseRings",
-      "PetalFlow",           "Raymarch",           "RingShower",
-      "RingSpin",            "ShapeShifter",       "SphericalHarmonics",
+      "BZReactionDiffusion", "ChaoticStrings",      "Comets",
+      "DisplacementField",   "DistortedRing",       "DreamBalls",
+      "Dynamo",              "FlowField",           "Flyby",
+      "GnomonicStars",       "GSReactionDiffusion", "HankinSolids",
+      "HopfFibration",       "IslamicStars",        "Liquid2D",
+      "MeshFeedback",        "MindSplatter",        "MobiusGrid",
+      "PetalFlow",           "Raymarch",            "RingShower",
+      "RingSpin",            "ShapeShifter",        "SphericalHarmonics",
       "Thrusters",           "Voronoi"};
   // Actual roster, expanded straight from the X-macro source of truth.
   static const char *const ACTUAL_ROSTER[] = {

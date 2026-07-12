@@ -12,6 +12,7 @@
 #include "effects/BZReactionDiffusion.h"
 #include "effects/ChaoticStrings.h"
 #include "effects/Comets.h"
+#include "effects/DisplacementField.h"
 #include "effects/DistortedRing.h"
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
@@ -26,7 +27,6 @@
 #include "effects/MeshFeedback.h"
 #include "effects/MindSplatter.h"
 #include "effects/MobiusGrid.h"
-#include "effects/NoiseRings.h"
 #include "effects/PetalFlow.h"
 #include "effects/Raymarch.h"
 #include "effects/RingShower.h"
@@ -56,6 +56,7 @@
   X(BZReactionDiffusion)                                                        \
   X(ChaoticStrings)                                                             \
   X(Comets)                                                                     \
+  X(DisplacementField)                                                          \
   X(DistortedRing)                                                              \
   X(DreamBalls)                                                                 \
   X(Dynamo)                                                                     \
@@ -70,7 +71,6 @@
   X(MeshFeedback)                                                               \
   X(MindSplatter)                                                               \
   X(MobiusGrid)                                                                 \
-  X(NoiseRings)                                                                 \
   X(PetalFlow)                                                                  \
   X(Raymarch)                                                                   \
   X(RingShower)                                                                 \

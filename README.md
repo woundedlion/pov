@@ -1816,14 +1816,14 @@ Concentric rings built from per-azimuth distorted ring SDFs, their radii oscilla
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=NoiseRings" target="_blank"><img src="docs/screenshots/NoiseRings.png" alt="NoiseRings" width="280"></a></td>
+<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=DisplacementField" target="_blank"><img src="docs/screenshots/DisplacementField.png" alt="DisplacementField" width="280"></a></td>
 <td valign="top">
 
-#### NoiseRings
+#### DisplacementField
 
-A stack of evenly spaced plotted rings (`Plot::DistortedRing`) sharing one axis, each vertex displaced along the stack axis by the product of two world-space OpenSimplex noise octaves (independent spatial scale per octave) — octave 1 envelopes octave 2, so perturbations turn sparse wherever the envelope runs near zero. The displacement is uniform in direction across the whole sphere and the field is anchored in space, so the random walk spins the stack through it while the field slowly flows; ring colors sweep a circular analogous palette across the stack, with each fragment's hue rotated by the local displacement magnitude, and the palette slowly wipes to a freshly generated one every ~3 seconds.
+A stack of evenly spaced soft-stroked rings (`Scan::DistortedRing`) sharing one axis, each vertex displaced along the stack axis by a stack of displacement fields that alternate between two phases. In the ball phase, cap-shaped bumps spawn at the pole on random meridians and fall to the opposite pole at varying speeds, bowing the rings away from each falling ball; once the last ball lands, a two-octave world-space OpenSimplex noise field (octave 1 envelopes octave 2, so perturbations turn sparse wherever the envelope runs near zero) fades in from zero, dwells at full strength, then fades back out into the next ball phase. Ring colors sweep a circular analogous palette across the stack, with each fragment's hue rotated by the local displacement magnitude, and the palette slowly wipes to a freshly generated one every ~3 seconds.
 
-**Parameters**: Alpha, Rings, Amplitude, Scale 1, Scale 2, Hue Rotate, Flow Speed
+**Parameters**: Alpha, Rings, Thickness, Ball Amp, Noise Amp, Scale 1, Scale 2, Hue Rotate, Flow Speed, Ball Min, Ball Max, Ball Rate, Speed Min, Speed Max
 
 </td></tr></table>
 
