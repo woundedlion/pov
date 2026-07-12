@@ -141,7 +141,6 @@
     <ClInclude Include="..\..\effects\RingShower.h" />
     <ClInclude Include="..\..\effects\RingSpin.h" />
     <ClInclude Include="..\..\effects\SphericalHarmonics.h" />
-    <ClInclude Include="..\..\effects\SplineFlow.h" />
     <ClInclude Include="..\..\effects\DistortedRing.h" />
     <ClInclude Include="..\..\effects\ShapeShifter.h" />
     <ClInclude Include="..\..\effects\Thrusters.h" />

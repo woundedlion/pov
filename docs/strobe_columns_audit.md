@@ -53,7 +53,6 @@ unchanged; the remaining 22 were flipped from `false` to `true`.
 | RingSpin | `true` |
 | ShapeShifter | `true` |
 | SphericalHarmonics | `true` |
-| SplineFlow | `true` |
 | Thrusters | `true` |
 | Voronoi | `true` |
 
