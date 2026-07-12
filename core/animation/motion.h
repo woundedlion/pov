@@ -803,18 +803,24 @@ inline void PoiDance::step(Canvas &canvas) {
   Vector center = (c.anchor[pair] * cosf(rho) + tangent * sinf(rho)) * sign;
   p.center = center;
 
-  // Drape along the dome's instantaneous direction of travel: the tangential
-  // step since last frame. Fall back to a stable tangent when it is stationary.
-  Vector axis = cross(center, least_parallel_axis(center)).normalized();
+  // Drape along the dome's net motion against the random-walking ring frame (the
+  // observer's frame): finite-difference the world-fixed center expressed in the
+  // ring frame, then map that direction back to world. A stationary dome still
+  // drapes when the rings sweep past it. Fall back to a stable tangent when the
+  // apparent motion collapses.
+  const Quaternion &q = orientation->get();
+  Vector ring_center = rotate(center, q.conjugate());
+  Vector dir_ring =
+      cross(ring_center, least_parallel_axis(ring_center)).normalized();
   if (have_prev) {
-    Vector vel = center - prev_center;
-    vel = vel - dot(vel, center) * center;
+    Vector vel = ring_center - prev_center_ring;
+    vel = vel - dot(vel, ring_center) * ring_center;
     float len2 = dot(vel, vel);
     if (len2 > 1e-10f)
-      axis = vel * (1.0f / sqrtf(len2));
+      dir_ring = vel * (1.0f / sqrtf(len2));
   }
-  p.axis = axis;
-  prev_center = center;
+  p.axis = rotate(dir_ring, q);
+  prev_center_ring = ring_center;
   have_prev = true;
 }
 

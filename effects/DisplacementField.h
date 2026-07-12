@@ -30,9 +30,10 @@ struct PoiWhiteBox;
  * octaves (octave 1 envelopes octave 2) and fades in from zero between the two
  * solid-body phases, dwelling at full strength then fading back out; the poi
  * phase is 12 solid domes anchored at the icosahedron vertices in antipodal
- * pairs, tracing epicyclic tangent-plane curves (spirals, figure-8s, flowers)
- * under the sheet, each pushing the rings one way along the stack axis so the
- * sheet slides over the dancers like silk (a comet wake, never a parting).
+ * pairs, tracing smooth epicyclic tangent-plane loops (spirals, roses, trefoils)
+ * under the sheet, each pushing the rings one way along its net motion against
+ * the random-walking ring frame so the sheet slides over the dancers like silk
+ * (a comet wake, never a parting).
  * Fragments are shaded from a circular analogous palette that spins across the
  * stack, with hue rotated proportionally to the local displacement magnitude; a
  * ColorWipe slowly fades the palette to a freshly generated one every few
@@ -480,7 +481,8 @@ private:
       pois.template_params.radius = params.poi_size * jitter[p];
       float canon[3];
       poi_choreo.compute_canon(p, params.dance_speed, canon);
-      pois.spawn(p * PAIR_STAGGER, poi_choreo, k, canon, POI_PHASE_FRAMES);
+      pois.spawn(p * PAIR_STAGGER, poi_choreo, orientation, k, canon,
+                 POI_PHASE_FRAMES);
     }
   }
 
