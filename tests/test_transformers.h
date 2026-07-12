@@ -21,6 +21,15 @@
  *   - FieldTransformer<>      : no active entities → 0; spawned entities sum;
  *                               field_bound sums the per-entity bounds; a
  *                               completed entity's slot is reclaimed.
+ *   - bump_field              : full amplitude at the center, 0 at the cap edge,
+ *                               exactly 0 outside (fast reject), monotonic in
+ *                               between, scaled by the lifecycle envelope.
+ *   - noise_product_field     : matches the hand-computed two-octave product;
+ *                               ~0 amplitude short-circuits to exactly 0.
+ *   - Animation::BallDrop     : center traverses pole to pole along its azimuth
+ *                               meridian; envelope 0 at the poles, 1 mid-fall;
+ *                               the pool slot frees at completion.
+ *   - Animation::NoiseProduct : integrates time by speed per step.
  */
 #pragma once
 
@@ -735,6 +744,151 @@ inline void test_field_transformer_slot_reclaimed() {
 }
 
 // ============================================================================
+// bump_field — cap falloff, fast reject, envelope gating
+// ============================================================================
+
+/**
+ * @brief Verifies the bump falloff: full amplitude at the center, monotonic
+ *        decay, 0 at the cap edge, exactly 0 outside the fast-reject cap.
+ */
+inline void test_bump_field_falloff() {
+  BumpParams p;
+  p.center = Vector(0, 1, 0);
+  p.radius = 0.5f;
+  p.amplitude = 0.3f;
+  p.envelope = 1.0f;
+  p.prepare_threshold();
+
+  auto at = [&](float d) {
+    return bump_field(Vector(std::sin(d), std::cos(d), 0.0f), p);
+  };
+
+  HS_EXPECT_NEAR(at(0.0f), 0.3f, 1e-4f);
+  const float quarter = at(p.radius * 0.25f);
+  const float half = at(p.radius * 0.5f);
+  HS_EXPECT_GT(quarter, half);
+  HS_EXPECT_GT(half, 0.0f);
+  HS_EXPECT_NEAR(at(p.radius), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(at(p.radius + 0.05f), 0.0f, 1e-7f);
+  HS_EXPECT_NEAR(at(PI_F * 0.9f), 0.0f, 1e-7f);
+}
+
+/**
+ * @brief Verifies the lifecycle envelope scales the bump and gates it to
+ *        exactly 0 when fully faded.
+ */
+inline void test_bump_field_envelope_gates() {
+  BumpParams p;
+  p.center = Vector(0, 1, 0);
+  p.radius = 0.5f;
+  p.amplitude = 0.4f;
+  p.prepare_threshold();
+
+  p.envelope = 0.5f;
+  HS_EXPECT_NEAR(bump_field(Vector(0, 1, 0), p), 0.2f, 1e-4f);
+  p.envelope = 0.0f;
+  HS_EXPECT_NEAR(bump_field(Vector(0, 1, 0), p), 0.0f, 1e-7f);
+}
+
+// ============================================================================
+// noise_product_field — two-octave product parity; amplitude short-circuit
+// ============================================================================
+
+/**
+ * @brief Verifies the field matches the hand-computed two-octave product and
+ *        that ~0 amplitude short-circuits to exactly 0.
+ */
+inline void test_noise_product_field_parity() {
+  NoiseProductParams p;
+  p.amplitude = 0.25f;
+  p.scale1 = 1.5f;
+  p.scale2 = 3.0f;
+  p.time = 2.0f;
+  p.noise.SetSeed(1234);
+
+  const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0),
+                            Vector(0.4f, 0.6f, 0.7f).normalized()};
+  float total = 0.0f;
+  for (const Vector &v : samples) {
+    float n1 = p.noise.GetNoise(v.x * p.scale1, v.y * p.scale1,
+                                v.z * p.scale1 + p.time);
+    float n2 = p.noise.GetNoise(
+        v.x * p.scale2 + NoiseProductParams::OCTAVE2_OFFSET, v.y * p.scale2,
+        v.z * p.scale2 + p.time);
+    float expected = p.amplitude * n1 * n2;
+    HS_EXPECT_NEAR(noise_product_field(v, p), expected, 1e-6f);
+    total += std::fabs(expected);
+  }
+  HS_EXPECT_GT(total, 1e-5f);
+
+  p.amplitude = 0.0f;
+  HS_EXPECT_NEAR(noise_product_field(samples[0], p), 0.0f, 1e-7f);
+  HS_EXPECT_NEAR(p.field_bound(), 0.0f, 1e-7f);
+}
+
+// ============================================================================
+// Animation::BallDrop — pole-to-pole traversal, envelope, slot reclaim
+// ============================================================================
+
+/**
+ * @brief Verifies a spawned BallDrop traverses its bump from the frame's pole
+ *        to the opposite pole along the requested meridian, ramps its envelope
+ *        0 → 1 → 0, and frees its pool slot on completion.
+ */
+inline void test_ball_drop_traverses_and_reclaims() {
+  Timeline tl;
+  global_timeline_t = 0;
+  RecycleFakeEffect fx;
+  Canvas cv(fx);
+
+  Orientation<> ori;
+  const Vector pole(0, 1, 0);
+  const int duration = 40;
+
+  BallDropTransformer<1> balls(tl);
+  balls.template_params.amplitude = 0.3f;
+  balls.template_params.radius = 0.5f;
+  HS_EXPECT_TRUE(balls.spawn(0, ori, pole, 0.0f, duration) != nullptr);
+
+  tl.step(cv);
+  const float early = balls.field(pole);
+  HS_EXPECT_NEAR(early, 0.0f, 0.02f);
+
+  for (int i = 1; i < duration / 2; ++i)
+    tl.step(cv);
+  // Mid-fall: the bump sits on the equator at full envelope — at azimuth 0
+  // that is the frame's u axis — so the pole reads ~0 (outside the cap) and
+  // the u axis reads ~full amplitude.
+  HS_EXPECT_NEAR(balls.field(pole), 0.0f, 1e-5f);
+  const Basis frame = make_basis(ori.get(), pole);
+  HS_EXPECT_NEAR(balls.field(frame.u), 0.3f, 0.02f);
+  HS_EXPECT_GT(balls.field_bound(), 0.25f);
+
+  for (int i = duration / 2; i <= duration + 2; ++i)
+    tl.step(cv);
+  HS_EXPECT_TRUE(balls.active_count() == 0);
+  HS_EXPECT_TRUE(balls.spawn(0, ori, pole, 1.0f, duration) != nullptr);
+}
+
+// ============================================================================
+// Animation::NoiseProduct — time integrates by speed
+// ============================================================================
+
+/**
+ * @brief Verifies NoiseProduct advances params.time by speed each step.
+ */
+inline void test_noise_product_integrates_time() {
+  RecycleFakeEffect fx;
+  Canvas cv(fx);
+  NoiseProductParams p;
+  p.speed = 0.03f;
+  Animation::NoiseProduct anim(p);
+  for (int i = 0; i < 5; ++i)
+    anim.step(cv);
+  HS_EXPECT_NEAR(p.time, 5 * 0.03f, 1e-5f);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -767,6 +921,11 @@ inline int run_transformers_tests() {
   test_field_transformer_no_entities_is_zero();
   test_field_transformer_sums_and_bounds();
   test_field_transformer_slot_reclaimed();
+  test_bump_field_falloff();
+  test_bump_field_envelope_gates();
+  test_noise_product_field_parity();
+  test_ball_drop_traverses_and_reclaims();
+  test_noise_product_integrates_time();
 
   return fixture.result();
 }
