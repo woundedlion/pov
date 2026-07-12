@@ -183,6 +183,42 @@ inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
   HS_EXPECT_NEAR(r_off.raw_dist, amp, 1e-2f);
 }
 
+/**
+ * @brief Verifies the ShiftSlopeFn overload rescales the polar distance to the
+ *        perpendicular distance sin/sqrt(sin^2 + k^2), and that the plain
+ *        ScalarFn overload keeps the polar metric.
+ */
+inline void test_distorted_ring_slope_compensation_scales_distance() {
+  Basis b = equator_basis();
+  const float amp = 0.25f;
+  const int harmonic = 8;
+  const float thickness = 0.05f;
+  const float delta = 0.1f;
+  auto shift = [amp](float t) {
+    return amp * std::sin(2 * PI_F * harmonic * t);
+  };
+  auto shift_slope = [amp](float t, float &slope) {
+    slope = amp * 2 * PI_F * harmonic * std::cos(2 * PI_F * harmonic * t);
+    return amp * std::sin(2 * PI_F * harmonic * t);
+  };
+
+  // Azimuth 0: shift = 0 (centerline at π/2), slope is at its 2π·n·amp peak.
+  Vector p(std::sin(PI_F / 2 + delta), std::cos(PI_F / 2 + delta), 0.0f);
+
+  SDF::DistortedRing plain(b, 1.0f, thickness, shift, amp, 0.0f);
+  auto rp = plain.distance(p);
+  HS_EXPECT_NEAR(rp.raw_dist, delta, 1e-2f);
+
+  SDF::DistortedRing comp(b, 1.0f, thickness, shift_slope, amp, 0.0f);
+  auto rc = comp.distance(p);
+  float k = static_cast<float>(harmonic) * amp;
+  float d = std::cos(PI_F / 2 + delta);
+  float sin2 = 1.0f - d * d;
+  float expected = delta * std::sqrt(sin2 / (sin2 + k * k));
+  HS_EXPECT_NEAR(rc.raw_dist, expected, 5e-3f);
+  HS_EXPECT_NEAR(rc.dist, expected - thickness, 5e-3f);
+}
+
 // ============================================================================
 // PlanarPolygon  (Basis at top of sphere; distance to nearest edge)
 // ============================================================================
@@ -1401,6 +1437,18 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
       SDF::DistortedRing ring(basis, /*radius=*/0.6f, /*thickness=*/0.12f, shift,
                               /*max_distortion=*/amp, /*phase=*/0.0f);
       expect_cull_covers_interior<W, H>(ring);
+
+      // Slope compensation widens the interior toward the band edges; every
+      // extra pixel must still fall inside the emitted intervals.
+      auto shift_slope = [amp, harmonic, ph](float t, float &slope) {
+        slope = amp * 2.0f * PI_F * harmonic *
+                std::cos(2.0f * PI_F * (harmonic * t + ph));
+        return amp * std::sin(2.0f * PI_F * (harmonic * t + ph));
+      };
+      SDF::DistortedRing comp(basis, /*radius=*/0.6f, /*thickness=*/0.12f,
+                              shift_slope, /*max_distortion=*/amp,
+                              /*phase=*/0.0f);
+      expect_cull_covers_interior<W, H>(comp);
     }
   }
 }
@@ -1799,6 +1847,7 @@ inline int run_sdf_tests() {
 
   test_distorted_ring_constant_shift_moves_centerline();
   test_distorted_ring_sin_shift_varies_by_azimuth();
+  test_distorted_ring_slope_compensation_scales_distance();
 
   test_polygon_at_center_inside();
   test_polygon_far_point_outside();

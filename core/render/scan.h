@@ -416,6 +416,35 @@ struct DistortedRing {
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
+
+  /**
+   * @brief Rasterizes a circumference-modulated ring with slope-compensated
+   *        stroke width (see SDF::DistortedRing's ShiftSlopeFn overload).
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param basis Orientation basis of the ring plane.
+   * @param radius Ring radius in world units.
+   * @param thickness Ring stroke thickness in world units.
+   * @param shift_slope_fn Modulation function that also writes d(shift)/dt to
+   *        its out-param.
+   * @param amplitude Modulation amplitude in world units.
+   * @param fragment_shader Shader invoked per covered pixel.
+   * @param phase Angular phase offset in radians.
+   * @param debug_bb When true, renders the bounding box for debugging.
+   */
+  template <int W, int H, bool ComputeUVs = true>
+  static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
+                   float radius, float thickness, ShiftSlopeFn shift_slope_fn,
+                   float amplitude, FragmentShaderFn fragment_shader,
+                   float phase = 0, bool debug_bb = false) {
+    SDF::DistortedRing shape(basis, radius, thickness, shift_slope_fn,
+                             amplitude, phase);
+    Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
+                                      debug_bb);
+  }
 };
 
 /**
