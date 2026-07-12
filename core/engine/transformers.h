@@ -14,22 +14,23 @@ using Animation::NoiseParams;
 using Animation::RippleParams;
 
 /**
- * @brief A generic manager for state-based geometry transformations.
+ * @brief Fixed-capacity pool of animation-driven parameter entities.
  * @tparam ParamsT The configuration struct (e.g., RippleParams, MobiusParams).
  * @tparam AnimT The animation class (e.g., Animation::Ripple).
- * @tparam TransformFunc The static function to apply the transformation.
- * @tparam CAPACITY Max number of active transformations.
+ * @tparam CAPACITY Max number of active entities.
+ * @details Owns the entity slots, their timeline lifecycle (spawn, completion
+ * reclaim), and the per-frame param refresh. Derived classes add the hot-path
+ * composition over the active entities (Transformer composes Vector warps,
+ * FieldTransformer sums scalar fields).
  */
-template <typename ParamsT, typename AnimT,
-          Vector (*TransformFunc)(const Vector &, const ParamsT &),
-          int CAPACITY = 32>
-class Transformer {
+template <typename ParamsT, typename AnimT, int CAPACITY = 32>
+class TransformerPool {
 public:
   /**
-   * @brief Per-slot storage for one active transformation.
+   * @brief Per-slot storage for one active entity.
    */
   struct Entity {
-    ParamsT params;         /**< Per-entity configuration the transform reads. */
+    ParamsT params;         /**< Per-entity configuration the composition reads. */
     bool active = false;    /**< Whether this slot currently holds a live animation. */
   };
 
@@ -37,15 +38,21 @@ public:
   Timeline &timeline;                   /**< Timeline that schedules and steps the spawned animations. */
 
   /**
-   * @brief Constructs a transformer bound to a timeline.
+   * @brief Constructs a pool bound to a timeline.
    * @param tl Timeline used to schedule spawned animations; retained by reference.
    */
-  Transformer(Timeline &tl) : timeline(tl) {}
+  TransformerPool(Timeline &tl) : timeline(tl) {}
 
   // spawn_impl's one-shot callbacks capture this+slot index; relocation would
   // dangle them, so the object is fixed in place.
-  Transformer(const Transformer &) = delete;
-  Transformer(Transformer &&) = delete;
+  TransformerPool(const TransformerPool &) = delete;
+  TransformerPool(TransformerPool &&) = delete;
+
+  /**
+   * @brief Number of currently active entities.
+   * @return Count of live pool slots.
+   */
+  int active_count() const { return active_count_; }
 
   /**
    * @brief Spawns a new transformation animation.
@@ -81,20 +88,21 @@ public:
     return spawn_impl(/*pin=*/true, in_frames, std::forward<Args>(args)...);
   }
 
-private:
+protected:
   /**
    * @brief Compact list of the active slots, in spawn order.
-   * @details transform() and prepare_frame() are hot (transform runs per pixel),
-   * so they iterate only the active slots — O(active) instead of O(CAPACITY). Held
-   * in spawn order (append on activation, order-preserving removal) so the transform
+   * @details The derived compositions and prepare_frame() are hot (they run per
+   * pixel), so they iterate only the active slots — O(active) instead of O(CAPACITY).
+   * Held in spawn order (append on activation, order-preserving removal) so the
    * composition order follows spawn order; the warps are not all commutative, so the
    * order is load-bearing and must not depend on which freed slot was recycled.
    */
   std::array<int, CAPACITY> active_slots_{};
   int active_count_ = 0; /**< Number of valid entries at the front of active_slots_. */
 
-  std::array<Entity, CAPACITY> entities; /**< Fixed-capacity pool of transformation slots. */
+  std::array<Entity, CAPACITY> entities; /**< Fixed-capacity pool of entity slots. */
 
+private:
   /**
    * @brief Appends a slot index to active_slots_ in spawn order.
    * @param idx Slot index to insert; appended at the end so composition order
@@ -188,11 +196,12 @@ public:
 
   /**
    * @brief Prepares per-frame cached state for all active entities.
-   * @details ORDERING CONTRACT: call once per frame, before transform(), in any
-   * frame where an active entity's params were *live-updated* (e.g. a GUI slider
-   * moved). It re-reads live config from template_params (NoiseParams::refresh_from)
-   * and refreshes each active entity's derived state (NoiseParams::sync).
-   * transform() reads that state but cannot verify it is current: the dependency is
+   * @details ORDERING CONTRACT: call once per frame, before the derived
+   * composition (transform()/field()), in any frame where an active entity's
+   * params were *live-updated* (e.g. a GUI slider moved). It re-reads live config
+   * from template_params (NoiseParams::refresh_from) and refreshes each active
+   * entity's derived state (NoiseParams::sync). The composition reads that state
+   * but cannot verify it is current: the dependency is
    * value-dependent, so it is a caller contract, not an assert. NOT required when
    * there are no active entities (transform is then the identity) or when params
    * have not changed since spawn.
@@ -215,6 +224,22 @@ public:
     }
   }
 
+};
+
+/**
+ * @brief A generic manager for state-based geometry transformations.
+ * @tparam ParamsT The configuration struct (e.g., RippleParams, MobiusParams).
+ * @tparam AnimT The animation class (e.g., Animation::Ripple).
+ * @tparam TransformFunc The static function to apply the transformation.
+ * @tparam CAPACITY Max number of active transformations.
+ */
+template <typename ParamsT, typename AnimT,
+          Vector (*TransformFunc)(const Vector &, const ParamsT &),
+          int CAPACITY = 32>
+class Transformer : public TransformerPool<ParamsT, AnimT, CAPACITY> {
+public:
+  using TransformerPool<ParamsT, AnimT, CAPACITY>::TransformerPool;
+
   /**
    * @brief Applies all active transformations to a vector, in slot order.
    * @param v Vector to transform.
@@ -224,8 +249,8 @@ public:
    * since last prepared). Per-pixel hot path — no guard here by design.
    */
   Vector transform(Vector v) const {
-    for (int k = 0; k < active_count_; ++k) {
-      v = TransformFunc(v, entities[active_slots_[k]].params);
+    for (int k = 0; k < this->active_count_; ++k) {
+      v = TransformFunc(v, this->entities[this->active_slots_[k]].params);
     }
     return v;
   }
@@ -236,6 +261,60 @@ public:
    * @return The transformed vector.
    */
   Vector operator()(const Vector &v) const { return transform(v); }
+};
+
+/**
+ * @brief A generic manager for animation-driven scalar displacement fields.
+ * @tparam ParamsT The configuration struct (e.g., BumpParams).
+ * @tparam AnimT The animation class (e.g., Animation::BallDrop).
+ * @tparam FieldFunc The static function evaluating one entity's field.
+ * @tparam CAPACITY Max number of active fields.
+ * @details The scalar counterpart of Transformer: entities superpose by
+ * summation instead of composing as warps, so a caller can feed the summed
+ * field into a displacement path (e.g. a DistortedRing shift LUT).
+ */
+template <typename ParamsT, typename AnimT,
+          float (*FieldFunc)(const Vector &, const ParamsT &),
+          int CAPACITY = 32>
+class FieldTransformer : public TransformerPool<ParamsT, AnimT, CAPACITY> {
+public:
+  using TransformerPool<ParamsT, AnimT, CAPACITY>::TransformerPool;
+
+  /**
+   * @brief Sums every active entity's field at a point.
+   * @param p Sample point (unit vector).
+   * @return The superposed field value; 0 with no active entities.
+   * @note Reads each active entity's prepared state; see prepare_frame() for the
+   * ordering contract. Per-sample hot path — no guard here by design.
+   */
+  float field(const Vector &p) const {
+    float s = 0.0f;
+    for (int k = 0; k < this->active_count_; ++k) {
+      s += FieldFunc(p, this->entities[this->active_slots_[k]].params);
+    }
+    return s;
+  }
+
+  /**
+   * @brief Function-call alias for field().
+   * @param p Sample point (unit vector).
+   * @return The superposed field value.
+   */
+  float operator()(const Vector &p) const { return field(p); }
+
+  /**
+   * @brief Upper bound on |field()| over the sphere this frame.
+   * @return Sum of the active entities' per-entity bounds.
+   * @details Requires ParamsT::field_bound() (a true upper bound on
+   * |FieldFunc|); callers use it to size conservative culls.
+   */
+  float field_bound() const {
+    float b = 0.0f;
+    for (int k = 0; k < this->active_count_; ++k) {
+      b += this->entities[this->active_slots_[k]].params.field_bound();
+    }
+    return b;
+  }
 };
 
 /**

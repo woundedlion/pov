@@ -18,6 +18,9 @@
  *   - Transformer<>           : no active entities → identity; a spawned entity
  *                               applies and multiple entities compose; a recycled
  *                               freed slot composes in spawn order, not slot order.
+ *   - FieldTransformer<>      : no active entities → 0; spawned entities sum;
+ *                               field_bound sums the per-entity bounds; a
+ *                               completed entity's slot is reclaimed.
  */
 #pragma once
 
@@ -632,6 +635,106 @@ inline void test_transformer_recycled_slot_composes_in_spawn_order() {
 }
 
 // ============================================================================
+// FieldTransformer<> — scalar fields sum; bounds sum; slots recycle
+// ============================================================================
+
+/**
+ * @brief Params carrying one scalar contribution, for the field tests.
+ */
+struct FieldTestParams {
+  float value = 0.0f; /**< Contribution written by FieldTagAnim at spawn. */
+
+  /**
+   * @brief Upper bound on |field_test_field| for this entity.
+   * @return |value| (the field is value * v.x with |v.x| <= 1).
+   */
+  float field_bound() const { return std::fabs(value); }
+};
+
+/**
+ * @brief Scales the sample's x by the entity's value, so the sum is readable
+ *        and the point argument is proven to reach the field function.
+ */
+inline float field_test_field(const Vector &v, const FieldTestParams &p) {
+  return p.value * v.x;
+}
+
+/**
+ * @brief Minimal animation that stamps its value into the params.
+ * @details Finite and non-repeating so spawn() accepts it and a short duration
+ *          frees its pool slot on completion.
+ */
+struct FieldTagAnim : public Animation::AnimationBase<FieldTagAnim> {
+  FieldTagAnim(FieldTestParams &params, float value, int duration)
+      : Animation::AnimationBase<FieldTagAnim>(duration, false) {
+    params.value = value;
+  }
+};
+
+using TestFieldTransformer =
+    FieldTransformer<FieldTestParams, FieldTagAnim, field_test_field, 2>;
+
+/**
+ * @brief Verifies a field manager with nothing spawned evaluates to 0
+ *        everywhere and reports a 0 bound.
+ */
+inline void test_field_transformer_no_entities_is_zero() {
+  Timeline tl;
+  TestFieldTransformer ft(tl);
+  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(ft.field_bound(), 0.0f, 1e-6f);
+  HS_EXPECT_TRUE(ft.active_count() == 0);
+}
+
+/**
+ * @brief Verifies spawned entities superpose by summation, scaled by the
+ *        sample point, and field_bound sums the per-entity bounds.
+ */
+inline void test_field_transformer_sums_and_bounds() {
+  Timeline tl;
+  global_timeline_t = 0;
+  TestFieldTransformer ft(tl);
+
+  HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
+  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 2.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.field(Vector(-0.5f, 0, 0)), -1.0f, 1e-5f);
+
+  HS_EXPECT_TRUE(ft.spawn(0, -3.0f, 100) != nullptr);
+  HS_EXPECT_TRUE(ft.active_count() == 2);
+  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), -1.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.operator()(Vector(1, 0, 0)), -1.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.field_bound(), 5.0f, 1e-5f);
+}
+
+/**
+ * @brief Verifies a completed field entity's pool slot is reclaimed and a
+ *        fresh spawn reuses it.
+ * @details The pool has CAPACITY 2; both slots are filled (one short-lived),
+ *          so the post-completion spawn succeeding proves the then() reclaim
+ *          fired, and the field dropping the completed contribution proves the
+ *          active list no longer visits the freed slot.
+ */
+inline void test_field_transformer_slot_reclaimed() {
+  Timeline tl;
+  global_timeline_t = 0;
+  RecycleFakeEffect fx;
+  Canvas cv(fx);
+  TestFieldTransformer ft(tl);
+
+  HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 2) != nullptr);
+  HS_EXPECT_TRUE(ft.spawn(0, 5.0f, 100) != nullptr);
+  HS_EXPECT_TRUE(ft.spawn(0, 9.0f, 100) == nullptr);
+
+  for (int i = 0; i < 6; ++i)
+    tl.step(cv);
+
+  HS_EXPECT_TRUE(ft.active_count() == 1);
+  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 5.0f, 1e-5f);
+  HS_EXPECT_TRUE(ft.spawn(0, 1.0f, 100) != nullptr);
+  HS_EXPECT_NEAR(ft.field(Vector(1, 0, 0)), 6.0f, 1e-5f);
+}
+
+// ============================================================================
 // Runner
 // ============================================================================
 
@@ -661,6 +764,9 @@ inline int run_transformers_tests() {
   test_transformer_spawn_applies_and_composes();
   test_transformer_nonpinned_slot_reclaimed_after_compaction();
   test_transformer_recycled_slot_composes_in_spawn_order();
+  test_field_transformer_no_entities_is_zero();
+  test_field_transformer_sums_and_bounds();
+  test_field_transformer_slot_reclaimed();
 
   return fixture.result();
 }
