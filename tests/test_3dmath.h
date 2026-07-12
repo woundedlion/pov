@@ -982,82 +982,6 @@ inline void test_gnomonic_roundtrip() {
 }
 
 // ============================================================================
-// Spline
-// ============================================================================
-
-/**
- * @brief Verifies Spline::cubic_fast and cubic_slerp hit the endpoints, give
- *        unit-length midpoints, and that the cubic() dispatcher routes to the
- *        right variant by mode.
- */
-inline void test_spline_cubic_endpoints() {
-  const Vector p0(1, 0, 0);
-  const Vector p1 = Vector(0.7f, 0.7f, 0).normalized();
-  const Vector p2(0, 1, 0);
-  const Vector p3 = Vector(-0.7f, 0.7f, 0).normalized();
-
-  HS_EXPECT_VEC(Spline::cubic_fast(p0, p1, p2, p3, 0.0f), p0, 1e-3f);
-  HS_EXPECT_VEC(Spline::cubic_fast(p0, p1, p2, p3, 1.0f), p3, 1e-3f);
-
-  HS_EXPECT_VEC(Spline::cubic_slerp(p0, p1, p2, p3, 0.0f), p0, 5e-3f);
-  HS_EXPECT_VEC(Spline::cubic_slerp(p0, p1, p2, p3, 1.0f), p3, 5e-3f);
-
-  Vector mFast = Spline::cubic_fast(p0, p1, p2, p3, 0.5f);
-  Vector mSlerp = Spline::cubic_slerp(p0, p1, p2, p3, 0.5f);
-  HS_EXPECT_NEAR(mFast.length(), 1.0f, 1e-3f);
-  HS_EXPECT_NEAR(mSlerp.length(), 1.0f, 1e-3f);
-
-  // cubic() dispatches by mode.
-  HS_EXPECT_VEC(Spline::cubic(p0, p1, p2, p3, 0.5f, SplineMode::Fast), mFast,
-                1e-4f);
-  HS_EXPECT_VEC(Spline::cubic(p0, p1, p2, p3, 0.5f, SplineMode::Geodesic),
-                mSlerp, 1e-4f);
-}
-
-/**
- * @brief Verifies the cubic_fast degenerate case: control points whose t=0.5
- *        Bezier blend cancels to the zero vector must degrade gracefully to p1
- *        rather than trap in the strict normalized().
- */
-inline void test_spline_cubic_fast_degenerate_fallback() {
-  // Bezier weights at t=0.5 are 0.125/0.375/0.375/0.125, so for these antipodal
-  // control points 0.125*p0 + 0.375*p1 + 0.375*p2 + 0.125*p3 cancels to (0,0,0).
-  const Vector p0(1, 0, 0), p1(1, 0, 0), p2(-1, 0, 0), p3(-1, 0, 0);
-  HS_EXPECT_VEC(Spline::cubic_fast(p0, p1, p2, p3, 0.5f), p1, 1e-6f);
-}
-
-/**
- * @brief Verifies Spline::catmull_rom_tangents: tension 0 gives a geodesic
- *        segment (tangents at the endpoints), tension 1 gives full smoothing
- *        (slerp midpoints), and the emitted control points stay unit-length.
- */
-inline void test_spline_catmull_rom() {
-  const Vector prev(1, 0, 0);
-  Vector start(0.7f, 0.7f, 0);
-  start.normalize();
-  const Vector end(0, 1, 0);
-  Vector next(-0.7f, 0.7f, 0);
-  next.normalize();
-
-  Vector cp1, cp2;
-
-  // tension = 0 → geodesic segment: cp1 = start, cp2 = end
-  Spline::catmull_rom_tangents(prev, start, end, next, 0.0f, cp1, cp2);
-  HS_EXPECT_VEC(cp1, start, 1e-3f);
-  HS_EXPECT_VEC(cp2, end, 1e-3f);
-
-  // tension = 1 → full smoothing: cp1 = midpoint(prev, end),
-  // cp2 = midpoint(start, next)
-  Spline::catmull_rom_tangents(prev, start, end, next, 1.0f, cp1, cp2);
-  HS_EXPECT_VEC(cp1, slerp(prev, end, 0.5f), 1e-3f);
-  HS_EXPECT_VEC(cp2, slerp(start, next, 0.5f), 1e-3f);
-
-  Spline::catmull_rom_tangents(prev, start, end, next, 0.5f, cp1, cp2);
-  HS_EXPECT_NEAR(cp1.length(), 1.0f, 5e-3f);
-  HS_EXPECT_NEAR(cp2.length(), 1.0f, 5e-3f);
-}
-
-// ============================================================================
 // wrap_index (core/math/rotate.h) — folds a float index into [0, m)
 // ============================================================================
 
@@ -1209,9 +1133,6 @@ inline int run_3dmath_tests() {
   test_mobius_transform();
   test_gnomonic_roundtrip();
 
-  test_spline_cubic_endpoints();
-  test_spline_cubic_fast_degenerate_fallback();
-  test_spline_catmull_rom();
 
   test_wrap_index();
 

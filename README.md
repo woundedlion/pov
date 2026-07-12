@@ -421,7 +421,7 @@ A typical effect frame follows a four-stage pipeline. Not every effect uses ever
 
   Solids::get()      MeshOps::transform    Scan::Mesh::draw     Pipeline<W,H,
   MeshOps::hankin    RippleTransformer      Scan::Ring::draw       Orient,
-  generate(arena,fn) NoiseTransformer       Plot::SplineChain      AntiAlias,
+  generate(arena,fn) NoiseTransformer       Plot::Multiline        AntiAlias,
   ParticleSystem     OrientTransformer      Scan::Shader::draw     Feedback>
 ```
 
@@ -664,7 +664,7 @@ struct DistanceResult {
 };
 ```
 
-**Curve Plot Path** (`Plot::Line`, `Plot::Multiline`, `Plot::Ring`, `Plot::PlanarPolygon`, `Plot::SplineChain`, `Plot::Bezier`):
+**Curve Plot Path** (`Plot::Line`, `Plot::Multiline`, `Plot::Ring`, `Plot::PlanarPolygon`):
 
 | Register | Meaning |
 |---|---|
@@ -750,14 +750,12 @@ For drawing lines, curves, and paths, the `Plot` namespace provides a geodesic/p
 
 ```cpp
 Plot::Line::draw<W, H>(pipeline, canvas, start, end, fragment_shader);
-Plot::Bezier::draw<W, H>(pipeline, canvas, p0, p1, p2, p3, fragment_shader);
-Plot::SplineChain::draw<W, H>(pipeline, canvas, control_points, tension, shader);
+Plot::Multiline::draw<W, H>(pipeline, canvas, vertices, fragment_shader);
 ```
 
-All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<Fragment>`) where each fragment carries position, texture registers (v0–v3), age, and color. Two **independent** axes govern how a path is drawn — do not conflate them:
+All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<Fragment>`) where each fragment carries position, texture registers (v0–v3), age, and color.
 
-- **Edge interpolation** — how consecutive fragments are joined. *Geodesic* (the default) walks the great-circle arc between endpoints; *planar* interpolates along an azimuthal-equidistant straight line in a basis's tangent plane (for effects that live in a 2D local space). This is selected by whether a **planar basis** is supplied to the draw call (`null` ⇒ geodesic), **not** by `SplineMode`.
-- **Spline evaluation** (`SplineMode`, the spline primitives `Bezier`/`SplineChain` only) — `SplineMode::Geodesic` (the default) samples control points with spherical, slerp-based cubic interpolation; `SplineMode::Fast` uses a cheaper polynomial-then-normalize approximation that distorts on long arcs. `SplineMode` has only `Fast` and `Geodesic` — there is no `SplineMode::Planar`, and it does not control edge interpolation.
+- **Edge interpolation** — how consecutive fragments are joined. *Geodesic* (the default) walks the great-circle arc between endpoints; *planar* interpolates along an azimuthal-equidistant straight line in a basis's tangent plane (for effects that live in a 2D local space). This is selected by whether a **planar basis** is supplied to the draw call (`null` ⇒ geodesic).
 
 #### Plot Primitives
 
@@ -774,8 +772,6 @@ All `Plot` primitives accept a `Fragments` array (an arena-backed `ArenaVector<F
 | `Plot::Flower` | N-petal flower shape |
 | `Plot::Mesh` | Wireframe mesh rendering with edge deduplication |
 | `Plot::ParticleSystem` | Particle trail rendering from `VectorTrail` history |
-| `Plot::Bezier` | Single cubic Bézier curve on the sphere |
-| `Plot::SplineChain` | Catmull-Rom spline chain through control points with configurable tension |
 
 ### 7.3 The Animation System (`animation.h`)
 
