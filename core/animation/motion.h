@@ -800,10 +800,22 @@ inline void PoiDance::step(Canvas &canvas) {
   int pair = anchor_index % PoiChoreography::NUM_PAIRS;
   float sign = anchor_index < PoiChoreography::NUM_PAIRS ? 1.0f : -1.0f;
   Vector tangent = c.basis_u[pair] * cosf(psi) + c.basis_w[pair] * sinf(psi);
-  Vector center = c.anchor[pair] * cosf(rho) + tangent * sinf(rho);
-  p.center = center * sign;
+  Vector center = (c.anchor[pair] * cosf(rho) + tangent * sinf(rho)) * sign;
+  p.center = center;
 
-  p.axis = make_basis(orientation->get(), normal).v;
+  // Drape along the dome's instantaneous direction of travel: the tangential
+  // step since last frame. Fall back to a stable tangent when it is stationary.
+  Vector axis = cross(center, least_parallel_axis(center)).normalized();
+  if (have_prev) {
+    Vector vel = center - prev_center;
+    vel = vel - dot(vel, center) * center;
+    float len2 = dot(vel, vel);
+    if (len2 > 1e-10f)
+      axis = vel * (1.0f / sqrtf(len2));
+  }
+  p.axis = axis;
+  prev_center = center;
+  have_prev = true;
 }
 
 

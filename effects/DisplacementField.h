@@ -89,7 +89,7 @@ public:
     register_param("Speed Max", &params.ball_speed_max, 0.1f, 3.0f);
     register_param("Poi Amp", &params.poi_amp, 0.0f, 0.8f);
     register_param("Poi Size", &params.poi_size, 0.15f, 0.5f);
-    register_param("Dance Speed", &params.dance_speed, 0.25f, 2.0f);
+    register_param("Dance Speed", &params.dance_speed, 0.0f, 10.0f);
 
     // Pinned first, before any finite event can precede it in the buffer.
     noise_field.spawn_pinned(0);
@@ -468,8 +468,7 @@ private:
       pois.template_params.radius = params.poi_size * jitter[p];
       float canon[3];
       poi_choreo.compute_canon(p, params.dance_speed, canon);
-      pois.spawn(p * PAIR_STAGGER, poi_choreo, orientation, normal, k, canon,
-                 POI_PHASE_FRAMES);
+      pois.spawn(p * PAIR_STAGGER, poi_choreo, k, canon, POI_PHASE_FRAMES);
     }
   }
 
@@ -584,7 +583,7 @@ private:
     float ball_speed_max = 0.85f; /**< Fastest fall (pole-to-pole traversals per second). */
     float poi_amp = 0.25f;    /**< Poi drape strength; scaled by POI_DRAPE_PER_AMPLITUDE into the drape gain. */
     float poi_size = 0.3f;    /**< Poi footprint radius (radians), ±15% pair jitter at spawn. */
-    float dance_speed = 1.0f; /**< Poi base angular speed scale (live). */
+    float dance_speed = 5.0f; /**< Poi base angular speed scale (live). */
   } params;
 };
 

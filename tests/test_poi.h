@@ -303,14 +303,12 @@ inline void test_poi_choreo_pair_symmetry() {
   Animation::PoiChoreography c;
   begin_choreo(c, 11u);
 
-  Orientation<> ori;
-  const Vector normal(0, 1, 0);
   float canon[3];
   c.compute_canon(0, 1.0f, canon);
 
   PoiParams p0, p6;
-  Animation::PoiDance d0(p0, c, ori, normal, 0, canon, 1000);
-  Animation::PoiDance d6(p6, c, ori, normal, 6, canon, 1000);
+  Animation::PoiDance d0(p0, c, 0, canon, 1000);
+  Animation::PoiDance d6(p6, c, 6, canon, 1000);
 
   for (int f = 0; f < 400; ++f) {
     c.step();
@@ -348,11 +346,9 @@ inline void test_poi_choreo_continuity_and_nonrecurrence() {
   Animation::PoiChoreography c;
   begin_choreo(c, 31u);
 
-  Orientation<> ori;
-  const Vector normal(0, 1, 0);
   float canon[3] = {0.0f, 0.0f, 0.0f};
   PoiParams p;
-  Animation::PoiDance d(p, c, ori, normal, 0, canon, 5000);
+  Animation::PoiDance d(p, c, 0, canon, 5000);
 
   Vector prev(0, 0, 0);
   Vector at_start(0, 0, 0);
@@ -373,6 +369,43 @@ inline void test_poi_choreo_continuity_and_nonrecurrence() {
   }
   // One move period after frame 5 the state has drifted (precession + breathe).
   HS_EXPECT_GT(angle_between(at_start, p.center), 1e-3f);
+}
+
+/**
+ * @brief Verifies the push axis is the dome's instantaneous direction of travel:
+ *        a unit tangent at the center aligned with the per-frame center step.
+ */
+inline void test_poi_dance_axis_follows_velocity() {
+  PoiFakeEffect fx;
+  Canvas cv(fx);
+  Animation::PoiChoreography c;
+  begin_choreo(c, 41u);
+  float speed = 5.0f;
+  c.set_speed_source(&speed);
+
+  float canon[3] = {0.0f, 0.0f, 0.0f};
+  PoiParams p;
+  Animation::PoiDance d(p, c, 0, canon, 5000);
+
+  // Warm up so prev_center is seeded and the motion is steady.
+  Vector prev(0, 0, 0);
+  for (int f = 0; f < 20; ++f) {
+    c.step();
+    d.step(cv);
+    prev = p.center;
+  }
+  c.step();
+  d.step(cv);
+  Vector center = p.center;
+
+  Vector vel = center - prev;
+  vel = vel - dot(vel, center) * center;
+  HS_EXPECT_GT(vel.length(), 1e-4f); // moving, so the axis is velocity-derived
+  vel = vel.normalized();
+
+  HS_EXPECT_NEAR(p.axis.length(), 1.0f, 1e-4f);
+  HS_EXPECT_NEAR(dot(p.axis, center), 0.0f, 1e-4f);  // tangent to the sphere
+  HS_EXPECT_GT(dot(p.axis, vel), 0.999f);            // aligned with travel
 }
 
 // ============================================================================
@@ -461,6 +494,7 @@ inline int run_poi_tests() {
   test_poi_choreo_pair_symmetry();
   test_poi_choreo_p_magnitude_bounded();
   test_poi_choreo_continuity_and_nonrecurrence();
+  test_poi_dance_axis_follows_velocity();
   test_poi_effect_phase_cycle();
 
   return fixture.result();
