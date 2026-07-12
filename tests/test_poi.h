@@ -389,9 +389,9 @@ inline void reset_globals() {
 }
 
 /**
- * @brief Verifies the phase machine cycles BALLS → NOISE → POI → NOISE → BALLS,
- *        spawns all 12 dancers on POI entry, and leaves POI only once they all
- *        reclaim their slots.
+ * @brief Verifies the effect opens on POI and cycles POI → NOISE → BALLS →
+ *        NOISE → POI, spawns all 12 dancers on POI entry, and leaves POI only
+ *        once they all reclaim their slots.
  * @details Driven at one ring so each frame is cheap over the multi-thousand
  *        frame cycle; the phase durations are unchanged.
  */
@@ -402,13 +402,13 @@ inline void test_poi_effect_phase_cycle() {
   PoiWhiteBox::set_rings(*e, 1.0f);
 
   const int BALLS = 0, NOISE = 1, POI = 2;
-  HS_EXPECT_EQ(PoiWhiteBox::phase(*e), BALLS);
+  HS_EXPECT_EQ(PoiWhiteBox::phase(*e), POI);
 
-  int seq[8] = {BALLS};
+  int seq[8] = {POI};
   int seq_len = 1;
   int max_poi = 0;
   bool poi_drained_before_exit = true;
-  int prev = BALLS;
+  int prev = POI;
 
   const int MAX_FRAMES = 9000;
   int f = 0;
@@ -429,11 +429,11 @@ inline void test_poi_effect_phase_cycle() {
   }
 
   HS_EXPECT_TRUE(seq_len >= 5);
-  HS_EXPECT_EQ(seq[0], BALLS);
+  HS_EXPECT_EQ(seq[0], POI);
   HS_EXPECT_EQ(seq[1], NOISE);
-  HS_EXPECT_EQ(seq[2], POI);
+  HS_EXPECT_EQ(seq[2], BALLS);
   HS_EXPECT_EQ(seq[3], NOISE);
-  HS_EXPECT_EQ(seq[4], BALLS);
+  HS_EXPECT_EQ(seq[4], POI);
   HS_EXPECT_EQ(max_poi, 12);
   HS_EXPECT_TRUE(poi_drained_before_exit);
 

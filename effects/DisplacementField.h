@@ -22,9 +22,10 @@ struct PoiWhiteBox;
  * @details Rings share one axis and are spaced evenly in colatitude across the
  * whole sphere. Each ring vertex is displaced along
  * the stack axis by the summed displacement fields sampled at the vertex's
- * world-space position. Three phases cycle BALLS -> NOISE -> POI -> NOISE ->
- * BALLS: cap-shaped bumps spawn at the stack pole on random meridians and fall
- * to the opposite pole, bowing the rings away from each ball's center (rings
+ * world-space position. Three phases cycle POI -> NOISE -> BALLS -> NOISE ->
+ * POI, opening on the poi phase: cap-shaped ball bumps spawn at the stack pole
+ * on random meridians and fall to the opposite pole, bowing the rings away from
+ * each ball's center (rings
  * part around each ball); the noise field is the product of two OpenSimplex
  * octaves (octave 1 envelopes octave 2) and fades in from zero between the two
  * solid-body phases, dwelling at full strength then fading back out; the poi
@@ -104,6 +105,9 @@ public:
     timeline.add(0, Animation::PeriodicTimer(
                         PALETTE_CYCLE_FRAMES,
                         [this](Canvas &) { this->roll_palette(); }, true));
+
+    // Open on the poi phase: spawn the troupe now that the pools are live.
+    enter_poi();
   }
 
   /**
@@ -528,8 +532,8 @@ private:
    */
   enum class Phase { BALLS, NOISE, POI };
 
-  Phase phase = Phase::BALLS; /**< Current displacement phase. */
-  bool next_is_poi = false;   /**< Whether the next solid phase after NOISE is POI. */
+  Phase phase = Phase::POI; /**< Current displacement phase; the effect opens on POI (see init). */
+  bool next_is_poi = true;  /**< Whether the next solid phase after NOISE is POI; opens true so POI -> NOISE -> BALLS. */
   int ball_phase_left = BALL_PHASE_FRAMES; /**< Frames left in this ball phase's spawning window. */
   int spawn_cooldown = 0;  /**< Frames until the next ball spawn. */
   float master_gain = 0.0f; /**< Noise fade envelope in [0, 1]; gates the noise field, animated by Transitions. */
