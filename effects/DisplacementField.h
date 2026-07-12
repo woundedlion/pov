@@ -153,8 +153,8 @@ public:
    * column into shift_lut (the ring's centerline shift) together with the
    * hue-rotated ring color in hue_lut, so fragments lerp a precomputed color
    * instead of building a hue rotation each. The LUT resolution is adaptive:
-   * enough samples for the finest active feature (noise octave or ball
-   * footprint) along the ring's actual circumference. Rings rasterize as soft
+   * enough samples for the finest active feature (noise-product bandwidth or
+   * ball footprint) along the ring's actual circumference. Rings rasterize as soft
    * SDF strokes (Scan::DistortedRing) with a quintic cross-section falloff;
    * the scan confines work to each ring's own latitude band, and under a
    * partial clip (segmented drivers) rings whose displaced band cannot touch
@@ -168,11 +168,12 @@ public:
     const float pad = 3.0f * PI_F / H;
     const float bound = balls.field_bound() + noise_field.field_bound();
     const float reach = bound + params.thickness + pad;
-    float max_scale = std::max(params.scale1, params.scale2);
+    // The octave product carries modulation sidebands out to scale1 + scale2.
+    float feature_scale = params.scale1 + params.scale2;
     // 2/R: the clearance arcs vary over half a footprint.
     if (balls.active_count() > 0)
-      max_scale = std::max(
-          max_scale, 2.0f / std::min(params.ball_min, params.ball_max));
+      feature_scale = std::max(
+          feature_scale, 2.0f / std::min(params.ball_min, params.ball_max));
 
     for (int i = 0; i < n_rings; ++i) {
       float radius = 2.0f / (n_rings + 1) * (i + 1);
@@ -184,10 +185,10 @@ public:
       float sin_t = sinf(theta);
 
       // Nyquist-safe column count: LUT_SAMPLES_PER_UNIT samples per noise-space
-      // unit along the ring's circumference in the finer octave.
+      // unit along the ring's circumference.
       int lut_n = hs::clamp(
           static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f * PI_F *
-                                 max_scale * sin_t)),
+                                 feature_scale * sin_t)),
           LUT_MIN_SAMPLES, W);
 
       Color4 ring_color =
@@ -327,7 +328,7 @@ private:
   static constexpr int PALETTE_CYCLE_FRAMES = 180; /**< Palette rollover period (~3 s at the ~60 fps cadence). */
   static constexpr int PALETTE_WIPE_FRAMES = 168;  /**< Wipe duration; slightly under the cycle so a wipe is never still in flight when the next rollover fires. */
   static constexpr float COLOR_SPIN_RATE = 0.0015f; /**< Palette spin across the stack, in turns per frame. */
-  static constexpr float LUT_SAMPLES_PER_UNIT = 4.0f; /**< Bake columns per feature-space unit of ring circumference. */
+  static constexpr float LUT_SAMPLES_PER_UNIT = 8.0f; /**< Bake columns per feature-space unit of ring circumference. */
   static constexpr int LUT_MIN_SAMPLES = 16;          /**< Bake-column floor for tiny/low-scale rings. */
 
   float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
