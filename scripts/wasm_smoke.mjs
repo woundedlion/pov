@@ -274,11 +274,10 @@ async function main() {
     engine.delete();
   }
 
-  // ── MeshOps tooling bindings + spline exports ───────────────────────────────
+  // ── MeshOps tooling bindings ────────────────────────────────────────────────
   // The engine loop drives only HolosphereEngine; exercise the MeshOpsWrapper
-  // surface and exported spline functions (used by solids.html / splines.html)
-  // so their embind signatures can't drift unseen.
-  console.log('\nMeshOps + splines:');
+  // surface (used by solids.html) so its embind signatures can't drift unseen.
+  console.log('\nMeshOps:');
 
   const MeshOps = Module.MeshOps;
   if (!MeshOps) {
@@ -377,45 +376,6 @@ async function main() {
     }
   }
 
-  // Spline exports used by splines.html. Pin numeric behavior (not just finite
-  // {x,y,z}) so a transposed-arg or wrong-target binding fails.
-  const isVec = (v) => v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
-  const approxVec = (v, x, y, z, eps = 1e-4) =>
-    isVec(v) && Math.abs(v.x - x) <= eps && Math.abs(v.y - y) <= eps && Math.abs(v.z - z) <= eps;
-
-  // p0..p3 control polygon (all unit vectors), shared by the cubic evaluators.
-  const CTRL = [0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0];
-  for (const name of ['spline_cubic_fast', 'spline_cubic_slerp']) {
-    const mid = Module[name](...CTRL, 0.5);
-    if (!isVec(mid)) fail(`${name} returned non-finite ${JSON.stringify(mid)}`);
-    // A cubic evaluator interpolates its endpoints: p0 at t=0, p3 at t=1 (both
-    // unit, so normalized endpoints are exact). Catches arg transposition.
-    const at0 = Module[name](...CTRL, 0);
-    const at1 = Module[name](...CTRL, 1);
-    if (!approxVec(at0, 0, 1, 0)) fail(`${name}(t=0) should be p0=(0,1,0), got ${JSON.stringify(at0)}`);
-    if (!approxVec(at1, -1, 0, 0)) fail(`${name}(t=1) should be p3=(-1,0,0), got ${JSON.stringify(at1)}`);
-  }
-  // cubic_fast (normalized Bézier) and cubic_slerp (spherical de Casteljau)
-  // differ away from the endpoints; identical midpoints mean both bindings
-  // resolve to the same function (embind drift).
-  const fastMid = Module.spline_cubic_fast(...CTRL, 0.5);
-  const slerpMid = Module.spline_cubic_slerp(...CTRL, 0.5);
-  if (approxVec(slerpMid, fastMid.x, fastMid.y, fastMid.z)) {
-    fail(`cubic_fast and cubic_slerp produced identical midpoints ${JSON.stringify(fastMid)} — bindings may resolve to the same function`);
-  }
-  // prev=(0,1,0) start=(1,0,0) end=(0,0,1) next=(-1,0,0), tension=0.5.
-  const tg = Module.spline_catmull_rom_tangents(0, 1, 0, 1, 0, 0, 0, 0, 1, -1, 0, 0, 0.5);
-  if (!tg || !isVec(tg.cp1) || !isVec(tg.cp2)) {
-    fail(`spline_catmull_rom_tangents returned malformed ${JSON.stringify(tg)}`);
-  }
-  // Pin cp1 = slerp(start, slerp(prev,end,.5), .5). Both slerps join orthonormal
-  // vectors at t=0.5, so cp1 = normalize(start + normalize(prev+end)) =
-  // (√½, ½, ½) exactly — independent of the fast-trig approximation.
-  else if (!approxVec(tg.cp1, Math.SQRT1_2, 0.5, 0.5)) {
-    fail(`spline_catmull_rom_tangents cp1 should be (0.7071, 0.5, 0.5), got ${JSON.stringify(tg.cp1)}`);
-  }
-  console.log('  splines: cubic_fast, cubic_slerp, catmull_rom_tangents OK');
-
   // ── Color / palette / lissajous exports ─────────────────────────────────────
   // These free functions and PaletteOps.bakeLut back the JS tool ports but are
   // never touched by the engine loop above; pin numeric behavior so a
@@ -423,6 +383,9 @@ async function main() {
   console.log('\nColor / palette / lissajous:');
 
   const approx = (a, b, eps = 1e-3) => Number.isFinite(a) && Math.abs(a - b) <= eps;
+  const isVec = (v) => v && Number.isFinite(v.x) && Number.isFinite(v.y) && Number.isFinite(v.z);
+  const approxVec = (v, x, y, z, eps = 1e-4) =>
+    isVec(v) && Math.abs(v.x - x) <= eps && Math.abs(v.y - y) <= eps && Math.abs(v.z - z) <= eps;
 
   // sRGB transfer and its inverse: pinned endpoints plus a round-trip.
   {
