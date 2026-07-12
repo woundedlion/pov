@@ -938,15 +938,19 @@ public:
    *        are read from the spawn-time copy; set them before constructing.
    * @param choreography Shared choreography stepped once per frame by the effect;
    *        retained by pointer, so it must outlive the animation.
+   * @param orientation The ring stack's orientation (random-walking); retained by
+   *        pointer. The push axis is the dome's net motion against this frame.
    * @param anchor_index Dancer index in [0, 12): index % 6 selects the antipodal
    *        pair, index ≥ 6 marks the mirrored partner.
    * @param canon_offsets Per-term constant phase offsets (the canon lag), copied.
    * @param duration Dance lifetime in frames.
    */
   PoiDance(PoiParams &params, const PoiChoreography &choreography,
-           int anchor_index, const float canon_offsets[3], int duration)
+           const Orientation<> &orientation, int anchor_index,
+           const float canon_offsets[3], int duration)
       : AnimationBase(duration, false), params(params),
-        choreography(&choreography), anchor_index(anchor_index) {
+        choreography(&choreography), orientation(&orientation),
+        anchor_index(anchor_index) {
     HS_CHECK(duration >= 2, "PoiDance duration must be >= 2");
     HS_CHECK(params.radius > 0.0f, "PoiDance needs a positive poi radius");
     canon[0] = canon_offsets[0];
@@ -958,8 +962,9 @@ public:
 
   /**
    * @brief Steps the dance: ramps the lifecycle envelope, reads the shared
-   * choreography to place the dome center, and aligns the push axis with the
-   * dome's instantaneous direction of travel. Defined in motion.h.
+   * choreography to place the world-fixed dome center, and aligns the push axis
+   * with the dome's net motion against the random-walking ring frame (the
+   * observer's frame). Defined in motion.h.
    * @param canvas The canvas buffer (forwarded to the base step).
    */
   void step(Canvas &canvas) override;
@@ -969,10 +974,11 @@ private:
 
   std::reference_wrapper<PoiParams> params; /**< Poi params to animate. */
   const PoiChoreography *choreography; /**< Shared choreography; not owned. */
+  const Orientation<> *orientation; /**< Ring stack frame the motion is measured against; not owned. */
   int anchor_index; /**< Dancer index in [0, 12); index % 6 is the antipodal pair. */
   float canon[3];   /**< Per-term constant canon phase offsets. */
-  Vector prev_center; /**< Dome center last frame, for the velocity push axis. */
-  bool have_prev = false; /**< Whether prev_center is seeded. */
+  Vector prev_center_ring; /**< Dome center last frame in the ring frame, for the net-motion axis. */
+  bool have_prev = false;  /**< Whether prev_center_ring is seeded. */
 };
 
 /**

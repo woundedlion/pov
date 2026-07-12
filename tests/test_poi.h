@@ -331,9 +331,10 @@ inline void test_poi_choreo_pair_symmetry() {
   float canon[3];
   c.compute_canon(0, 1.0f, canon);
 
+  Orientation<> ori;
   PoiParams p0, p6;
-  Animation::PoiDance d0(p0, c, 0, canon, 1000);
-  Animation::PoiDance d6(p6, c, 6, canon, 1000);
+  Animation::PoiDance d0(p0, c, ori, 0, canon, 1000);
+  Animation::PoiDance d6(p6, c, ori, 6, canon, 1000);
 
   for (int f = 0; f < 400; ++f) {
     c.step();
@@ -371,9 +372,10 @@ inline void test_poi_choreo_continuity_and_nonrecurrence() {
   Animation::PoiChoreography c;
   begin_choreo(c, 31u);
 
+  Orientation<> ori;
   float canon[3] = {0.0f, 0.0f, 0.0f};
   PoiParams p;
-  Animation::PoiDance d(p, c, 0, canon, 5000);
+  Animation::PoiDance d(p, c, ori, 0, canon, 5000);
 
   Vector prev(0, 0, 0);
   Vector at_start(0, 0, 0);
@@ -397,8 +399,9 @@ inline void test_poi_choreo_continuity_and_nonrecurrence() {
 }
 
 /**
- * @brief Verifies the push axis is the dome's instantaneous direction of travel:
- *        a unit tangent at the center aligned with the per-frame center step.
+ * @brief Verifies that under an identity (still) ring frame the push axis is the
+ *        dome's world direction of travel: a unit tangent aligned with the
+ *        per-frame center step.
  */
 inline void test_poi_dance_axis_follows_velocity() {
   PoiFakeEffect fx;
@@ -408,11 +411,12 @@ inline void test_poi_dance_axis_follows_velocity() {
   float speed = 5.0f;
   c.set_speed_source(&speed);
 
+  Orientation<> ori; // identity: ring frame == world frame
   float canon[3] = {0.0f, 0.0f, 0.0f};
   PoiParams p;
-  Animation::PoiDance d(p, c, 0, canon, 5000);
+  Animation::PoiDance d(p, c, ori, 0, canon, 5000);
 
-  // Warm up so prev_center is seeded and the motion is steady.
+  // Warm up so prev_center_ring is seeded and the motion is steady.
   Vector prev(0, 0, 0);
   for (int f = 0; f < 20; ++f) {
     c.step();
@@ -431,6 +435,56 @@ inline void test_poi_dance_axis_follows_velocity() {
   HS_EXPECT_NEAR(p.axis.length(), 1.0f, 1e-4f);
   HS_EXPECT_NEAR(dot(p.axis, center), 0.0f, 1e-4f);  // tangent to the sphere
   HS_EXPECT_GT(dot(p.axis, vel), 0.999f);            // aligned with travel
+}
+
+/**
+ * @brief Verifies the push axis is the net motion against the ring frame: a
+ *        world-fixed dome whose rings sweep past still drapes, in the direction
+ *        the observer sees it move relative to the (rotating) rings.
+ * @details Freezes the dance (Dance Speed 0 on the b=0 Orbit move, so the center
+ *        is truly stationary in world space) while spinning the ring orientation
+ *        about +Y. A world-fixed point C seen from a frame rotating about Y has
+ *        apparent tangential motion along normalize(C × Y); the axis must track
+ *        it, not collapse to the stationary-dome fallback.
+ */
+inline void test_poi_dance_axis_against_ring_frame() {
+  PoiFakeEffect fx;
+  Canvas cv(fx);
+  Animation::PoiChoreography c;
+  begin_choreo(c, 61u);
+  float speed = 0.0f; // frozen dance
+  c.set_speed_source(&speed);
+  // Force the Orbit move (b = 0) so breathe is constant and the dome truly
+  // stops — otherwise breathe would still inch |P| and move the center.
+  c.order[0] = 0;
+  c.move_pos = 0;
+  c.move_frame = 0;
+  for (int j = 0; j < 3; ++j) {
+    c.n_from[j] = Animation::PoiChoreography::MOVES[0].n[j];
+    c.r_from[j] = Animation::PoiChoreography::MOVES[0].r[j];
+    c.radii[j] = Animation::PoiChoreography::MOVES[0].r[j];
+  }
+  c.b_from = 0.0f;
+
+  Orientation<> ori;
+  float canon[3] = {0.0f, 0.0f, 0.0f};
+  PoiParams p;
+  Animation::PoiDance d(p, c, ori, 0, canon, 20000);
+
+  const Vector Y(0, 1, 0);
+  for (int f = 0; f < 40; ++f) {
+    c.step();
+    Animation::Rotation<96>::animate(cv, ori, Y, 0.03f, ease_linear);
+    d.step(cv);
+  }
+  const Vector center = p.center;
+  Vector expected = cross(center, Y);
+  HS_EXPECT_GT(expected.length(), 1e-2f); // center not on the spin axis
+  expected = expected.normalized();
+
+  HS_EXPECT_NEAR(p.axis.length(), 1.0f, 1e-3f);
+  HS_EXPECT_NEAR(dot(p.axis, center), 0.0f, 1e-3f);      // tangent to the sphere
+  HS_EXPECT_GT(std::fabs(dot(p.axis, expected)), 0.98f); // along the apparent sweep
 }
 
 // ============================================================================
@@ -521,6 +575,7 @@ inline int run_poi_tests() {
   test_poi_choreo_p_magnitude_bounded();
   test_poi_choreo_continuity_and_nonrecurrence();
   test_poi_dance_axis_follows_velocity();
+  test_poi_dance_axis_against_ring_frame();
   test_poi_effect_phase_cycle();
 
   return fixture.result();
