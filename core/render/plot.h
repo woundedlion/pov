@@ -1387,6 +1387,50 @@ struct SphericalPolygon {
 };
 
 /**
+ * @brief Conservative test: can a spherical cap reach a clip's render region?
+ * @tparam H Canvas height in rows.
+ * @param cr Clip region to test against.
+ * @param dir Cap center direction (unit vector). A ring passes its axis with
+ * half_angle = colatitude + displacement bound (the cap of that radius
+ * contains the ring's band); a ring chunk passes its midpoint with
+ * half_angle = chunk half-arc + displacement bound.
+ * @param half_angle Cap angular radius including stroke/AA pad (radians).
+ * @return False only when no fragment inside the cap can land in the clip's
+ * render region; true is always safe.
+ * @details Rows: the cap's polar range about the display's Y axis is
+ * [beta - t2, beta + t2] (beta = center colatitude). Columns: a cap that
+ * reaches either display pole spans all longitudes; otherwise its longitude
+ * half-width about the center longitude is asin(sin t2 / sin beta), compared
+ * against the clip's column wedge with the clip margin plus one pixel of
+ * slack.
+ */
+template <int H>
+inline bool cap_may_touch_clip(const ClipRegion &cr, const Vector &dir,
+                               float half_angle) {
+  float t2 = std::min(half_angle, PI_F);
+  float beta = acosf(hs::clamp(dir.y, -1.0f, 1.0f));
+
+  float phi_lo = std::max(beta - t2, 0.0f);
+  float phi_hi = std::min(beta + t2, PI_F);
+  if (phi_to_y<H>(phi_hi) < cr.render_y_start() ||
+      phi_to_y<H>(phi_lo) >= cr.render_y_end())
+    return false;
+
+  if (cr.x_start == 0 && cr.x_end == cr.w)
+    return true;
+  if (beta <= t2 || PI_F - beta <= t2)
+    return true;
+  float dlam = asinf(hs::clamp(sinf(t2) / sinf(beta), 0.0f, 1.0f));
+  float lam_v = atan2f(dir.z, dir.x);
+  float width_px = static_cast<float>(cr.x_end - cr.x_start);
+  float half_w = (width_px * 0.5f + cr.margin + 1.0f) * (2.0f * PI_F) / cr.w;
+  float lam_c = (cr.x_start + width_px * 0.5f) * (2.0f * PI_F) / cr.w;
+  float d = std::fabs(wrap_t((lam_v - lam_c) / (2.0f * PI_F) + 0.5f) - 0.5f) *
+            (2.0f * PI_F);
+  return d <= dlam + half_w;
+}
+
+/**
  * @brief Distorted Ring.
  * Registers:
  *  v0: Angular progress (0.0 -> 1.0)
@@ -1619,6 +1663,95 @@ struct DistortedRing {
                            sample_arc<W, H>(points, basis, radius, shift_fn,
                                             i_start, i_end, phase);
                          });
+  }
+
+  /**
+   * @brief Chunk-culled ring draw for partial clips: skips an unreachable ring
+   * whole, otherwise cuts it into CHUNKS azimuth chunks whose bounding caps
+   * gate the draw, emitting visible runs as open arcs.
+   * @tparam W,H Rasterization resolution.
+   * @tparam CHUNKS Azimuth chunks per ring; must divide W and fit a 32-bit mask.
+   * @tparam BakeRun Callable as bake_run(int i0, int i1).
+   * @param pipeline Render pipeline.
+   * @param canvas Target canvas.
+   * @param cr Clip region gating the cull (Effect::clip()).
+   * @param basis Orientation basis.
+   * @param radius Base radius.
+   * @param shift_fn Distortion function.
+   * @param fragment_shader Shader function.
+   * @param reach Upper bound on |shift_fn| plus stroke/AA pad (radians); an
+   * underestimate silently culls genuine arcs.
+   * @param bake_run Called with the inclusive vertex range [i0, i1] whose
+   * shift_fn samples the following draw reads (the full draw receives (0, W)),
+   * so a LUT-backed shift_fn bakes only the ranges that render. A vertex's
+   * parameter can float-round just below i0's LUT cell, so pad a bake one
+   * cell below i0 (and one above i1 for the lerp neighbor), modulo the wrap.
+   * @param phase Rotation phase.
+   * @details Visible runs walk in ascending order — the same segment order the
+   * closed draw rasterizes, which alpha blending's order dependence requires
+   * wherever the ring's own taps overlap. A run touching the last chunk ends at
+   * vertex W, so no arc crosses the seam, and arc vertices are bit-identical to
+   * the closed ring's (see sample_arc), so clipped output matches full-frame
+   * output exactly. A dropped chunk's caps clear the clip by reach, satisfying
+   * draw_arc's contract that an omitted end vertex is itself outside the clip.
+   */
+  template <int W, int H, int CHUNKS = 24, typename BakeRun>
+  static void draw_culled(PipelineRef pipeline, Canvas &canvas,
+                          const ClipRegion &cr, const Basis &basis,
+                          float radius, ScalarFn shift_fn,
+                          FragmentShaderFn fragment_shader, float reach,
+                          BakeRun bake_run, float phase = 0) {
+    static_assert(W % CHUNKS == 0,
+                  "chunk-to-vertex mapping requires W divisible by CHUNKS");
+    static_assert(CHUNKS >= 1 && CHUNKS <= 31, "chunk mask is 32-bit");
+    constexpr uint32_t FULL_MASK = (uint32_t{1} << CHUNKS) - 1;
+
+    auto res = get_antipode(basis, radius);
+    const Basis &work = res.first;
+    float theta_eq = res.second * (PI_F / 2.0f);
+    const bool try_cull = !cr.is_full();
+    if (try_cull && !cap_may_touch_clip<H>(cr, work.v, theta_eq + reach))
+      return;
+
+    uint32_t vis = FULL_MASK;
+    if (try_cull) {
+      float cos_eq = cosf(theta_eq);
+      float sin_eq = sinf(theta_eq);
+      vis = 0;
+      float chunk_reach = (PI_F / CHUNKS) * sin_eq + reach;
+      for (int c = 0; c < CHUNKS; ++c) {
+        // Midpoints carry the phase the drawn vertices apply via ring_tangent.
+        float a = (c + 0.5f) * (2.0f * PI_F / CHUNKS) + phase;
+        Vector mid = (work.v * cos_eq) +
+                     ((work.u * cosf(a)) + (work.w * sinf(a))) * sin_eq;
+        if (cap_may_touch_clip<H>(cr, mid, chunk_reach))
+          vis |= 1u << c;
+      }
+      if (vis == 0)
+        return;
+    }
+
+    if (vis == FULL_MASK) {
+      bake_run(0, W);
+      draw<W, H>(pipeline, canvas, basis, radius, shift_fn, fragment_shader,
+                 phase);
+      return;
+    }
+
+    constexpr int V = W / CHUNKS;
+    int c = 0;
+    while (c < CHUNKS) {
+      while (c < CHUNKS && !(vis & (1u << c)))
+        ++c;
+      if (c == CHUNKS)
+        break;
+      int c0 = c;
+      while (c < CHUNKS && (vis & (1u << c)))
+        ++c;
+      bake_run(c0 * V, c * V);
+      draw_arc<W, H>(pipeline, canvas, basis, radius, shift_fn,
+                     fragment_shader, c0 * V, c * V, phase);
+    }
   }
 };
 

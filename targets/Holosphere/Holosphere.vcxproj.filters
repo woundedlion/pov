@@ -189,9 +189,6 @@
     <ClInclude Include="..\..\effects\MobiusGrid.h">
       <Filter>effects</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\effects\Moire.h">
-      <Filter>effects</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\effects\PetalFlow.h">
       <Filter>effects</Filter>
     </ClInclude>

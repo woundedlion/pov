@@ -772,6 +772,230 @@ inline void test_distorted_ring_arc_matches_closed() {
   }
 }
 
+/**
+ * @brief Verifies DistortedRing::draw_culled renders pixels bit-identical to
+ *        the closed draw inside a partial clip, requests LUT bakes only
+ *        through bake_run, and skips whole a ring that cannot reach the clip.
+ * @details The shift LUT starts at an out-of-reach sentinel, so any draw that
+ *          samples a range bake_run was never given displaces the ring far off
+ *          its band and breaks the pixel identity.
+ */
+inline void test_distorted_ring_draw_culled_matches_closed() {
+  constexpr int W = 96, H = 48;
+  const float pad = 3.0f * PI_F / H;
+  const float MAX_SHIFT = 0.15f;
+  const float SENTINEL = 0.9f; // unbaked reads displace far outside reach
+  const float reach = MAX_SHIFT + pad;
+
+  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0.3f, 0.8f, 0.5f));
+
+  float lut[W + 1];
+  auto reset_lut = [&] {
+    for (int i = 0; i <= W; ++i)
+      lut[i] = SENTINEL;
+  };
+  int bake_calls = 0;
+  auto bake_run = [&](int i0, int i1) {
+    ++bake_calls;
+    // -1/+1 pads cover a parameter rounding just below i0 and the lerp
+    // neighbor above i1; modulo folds a seam-ending run onto the wrap
+    // vertices, mirroring a LUT-baking caller.
+    for (int m = i0 - 1; m <= i1 + 1; ++m) {
+      int idx = ((m % W) + W) % W;
+      lut[idx] = MAX_SHIFT * sinf(2.0f * PI_F * 3.0f * idx / W);
+    }
+    lut[W] = lut[0];
+  };
+  ScalarFn shift = [&](float t) {
+    float x = wrap_t(t) * W;
+    int j = static_cast<int>(x);
+    return lut[j] + (x - j) * (lut[j + 1] - lut[j]);
+  };
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), 0.8f);
+  };
+
+  for (float radius : {0.7f, 1.4f}) {
+    // Reference: full clip routes through the closed-draw path.
+    std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+    {
+      RasterFx fx(W, H);
+      reset_lut();
+      Pipeline<W, H> filters;
+      {
+        Canvas c(fx);
+        Plot::DistortedRing::draw_culled<W, H>(filters, c, fx.clip(), b,
+                                               radius, shift, shade, reach,
+                                               bake_run);
+      }
+      fx.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+    }
+
+    // A row band and a column wedge: interior pixels must match exactly.
+    const int clips[2][4] = {{H / 4, H / 2, 0, W}, {0, H, 10, 34}};
+    for (auto &cl : clips) {
+      RasterFx fx(W, H);
+      fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
+      reset_lut();
+      bake_calls = 0;
+      Pipeline<W, H> filters;
+      {
+        Canvas c(fx);
+        Plot::DistortedRing::draw_culled<W, H>(filters, c, fx.clip(), b,
+                                               radius, shift, shade, reach,
+                                               bake_run);
+      }
+      fx.advance_display();
+      int lit = 0, diff = 0;
+      for (int y = cl[0]; y < cl[1]; ++y)
+        for (int x = cl[2]; x < cl[3]; ++x) {
+          Pixel p = fx.get_pixel(x, y);
+          const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+          if (r.r | r.g | r.b)
+            ++lit;
+          if (p.r != r.r || p.g != r.g || p.b != r.b)
+            ++diff;
+        }
+      HS_EXPECT_GT(lit, 0);
+      HS_EXPECT_EQ(diff, 0);
+      HS_EXPECT_GT(bake_calls, 0);
+    }
+  }
+
+  // A ring whose widened cap cannot reach the clip is skipped whole: no bake.
+  {
+    RasterFx fx(W, H);
+    fx.set_clip(H - H / 8, H, 0, W);
+    reset_lut();
+    bake_calls = 0;
+    Pipeline<W, H> filters;
+    {
+      Canvas c(fx);
+      Basis axis_y = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
+      Plot::DistortedRing::draw_culled<W, H>(filters, c, fx.clip(), axis_y,
+                                             0.3f, shift, shade, reach,
+                                             bake_run);
+    }
+    fx.advance_display();
+    HS_EXPECT_EQ(bake_calls, 0);
+  }
+}
+
+/**
+ * @brief Verifies draw_culled's run decomposition and its remaining knobs: a
+ *        wedge the ring crosses twice yields multiple bake runs that are
+ *        ascending, non-overlapping, and chunk-aligned; a nonzero phase and an
+ *        alternate CHUNKS instantiation both preserve the in-clip pixel
+ *        identity with the closed draw.
+ */
+inline void test_distorted_ring_draw_culled_runs_phase_chunks() {
+  constexpr int W = 96, H = 48;
+  const float pad = 3.0f * PI_F / H;
+  const float MAX_SHIFT = 0.1f;
+  const float reach = MAX_SHIFT + pad;
+  const float phase = 0.6f;
+  const float radius = 1.0f;
+
+  // Near-equatorial axis: the radius-1 ring is a near-polar great circle that
+  // enters and leaves a mid-canvas column wedge in two separate azimuth spans.
+  Basis b = make_basis(Quaternion(1, 0, 0, 0), Vector(0.9f, 0.1f, 0.42f));
+
+  float lut[W + 1];
+  auto reset_lut = [&] {
+    for (int i = 0; i <= W; ++i)
+      lut[i] = 0.9f;
+  };
+  std::vector<std::pair<int, int>> runs;
+  auto bake_run = [&](int i0, int i1) {
+    runs.push_back({i0, i1});
+    for (int m = i0 - 1; m <= i1 + 1; ++m) {
+      int idx = ((m % W) + W) % W;
+      lut[idx] = MAX_SHIFT * sinf(2.0f * PI_F * 2.0f * idx / W);
+    }
+    lut[W] = lut[0];
+  };
+  ScalarFn shift = [&](float t) {
+    float x = wrap_t(t) * W;
+    int j = static_cast<int>(x);
+    return lut[j] + (x - j) * (lut[j + 1] - lut[j]);
+  };
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), 0.8f);
+  };
+
+  // Reference: full clip, same phase.
+  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  {
+    RasterFx fx(W, H);
+    reset_lut();
+    Pipeline<W, H> filters;
+    {
+      Canvas c(fx);
+      Plot::DistortedRing::draw_culled<W, H>(filters, c, fx.clip(), b, radius,
+                                             shift, shade, reach, bake_run,
+                                             phase);
+    }
+    fx.advance_display();
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  }
+
+  const int cx0 = 40, cx1 = 56;
+  for (int chunks_case = 0; chunks_case < 2; ++chunks_case) {
+    const int V = chunks_case == 0 ? W / 24 : W / 8;
+    RasterFx fx(W, H);
+    fx.set_clip(0, H, cx0, cx1);
+    reset_lut();
+    runs.clear();
+    Pipeline<W, H> filters;
+    {
+      Canvas c(fx);
+      if (chunks_case == 0)
+        Plot::DistortedRing::draw_culled<W, H, 24>(filters, c, fx.clip(), b,
+                                                   radius, shift, shade, reach,
+                                                   bake_run, phase);
+      else
+        Plot::DistortedRing::draw_culled<W, H, 8>(filters, c, fx.clip(), b,
+                                                  radius, shift, shade, reach,
+                                                  bake_run, phase);
+    }
+    fx.advance_display();
+
+    // Partial cull engaged (not the full-mask path), and at 24 chunks the two
+    // wedge crossings decompose into separate runs.
+    HS_EXPECT_GT(runs.size(), (size_t)0);
+    if (chunks_case == 0)
+      HS_EXPECT_GT(runs.size(), (size_t)1);
+    HS_EXPECT_TRUE(!(runs.size() == 1 && runs[0].first == 0 &&
+                     runs[0].second == W));
+    for (size_t k = 0; k < runs.size(); ++k) {
+      HS_EXPECT_TRUE(runs[k].first >= 0 && runs[k].second <= W &&
+                     runs[k].first < runs[k].second);
+      HS_EXPECT_EQ(runs[k].first % V, 0);
+      HS_EXPECT_EQ(runs[k].second % V, 0);
+      if (k > 0)
+        HS_EXPECT_TRUE(runs[k - 1].second < runs[k].first);
+    }
+
+    int lit = 0, diff = 0;
+    for (int y = 0; y < H; ++y)
+      for (int x = cx0; x < cx1; ++x) {
+        Pixel p = fx.get_pixel(x, y);
+        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+        if (r.r | r.g | r.b)
+          ++lit;
+        if (p.r != r.r || p.g != r.g || p.b != r.b)
+          ++diff;
+      }
+    HS_EXPECT_GT(lit, 0);
+    HS_EXPECT_EQ(diff, 0);
+  }
+}
+
 // ============================================================================
 // Plot::Spiral::sample
 // ============================================================================
@@ -1652,6 +1876,8 @@ inline int run_plot_scan_tests() {
 
   test_distorted_ring_sample_angle_addition_identity();
   test_distorted_ring_arc_matches_closed();
+  test_distorted_ring_draw_culled_matches_closed();
+  test_distorted_ring_draw_culled_runs_phase_chunks();
 
   test_spiral_sample_unit_length_and_monotone_arc();
   test_multiline_sample_arclength_param();

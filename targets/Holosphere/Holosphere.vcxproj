@@ -135,7 +135,6 @@
     <ClInclude Include="..\..\effects\MeshFeedback.h" />
     <ClInclude Include="..\..\effects\MindSplatter.h" />
     <ClInclude Include="..\..\effects\MobiusGrid.h" />
-    <ClInclude Include="..\..\effects\Moire.h" />
     <ClInclude Include="..\..\effects\PetalFlow.h" />
     <ClInclude Include="..\..\effects\Raymarch.h" />
     <ClInclude Include="..\..\effects\RingShower.h" />

@@ -26,7 +26,6 @@
 #include "effects/MeshFeedback.h"
 #include "effects/MindSplatter.h"
 #include "effects/MobiusGrid.h"
-#include "effects/Moire.h"
 #include "effects/NoiseRings.h"
 #include "effects/PetalFlow.h"
 #include "effects/Raymarch.h"
@@ -71,7 +70,6 @@
   X(MeshFeedback)                                                               \
   X(MindSplatter)                                                               \
   X(MobiusGrid)                                                                 \
-  X(Moire)                                                                      \
   X(NoiseRings)                                                                 \
   X(PetalFlow)                                                                  \
   X(Raymarch)                                                                   \
