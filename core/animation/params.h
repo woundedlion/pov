@@ -804,6 +804,14 @@ struct BumpParams {
    * boundary clearance).
    */
   float field_bound() const { return radius * envelope; }
+
+  /**
+   * @brief Angular extent of the field's support (the cap radius).
+   * @return radius * envelope. Coincides with field_bound() here (the drape push
+   * never exceeds the footprint); the pair exists so a generalized prefilter can
+   * treat balls and the poi field, whose shift can exceed its cap, uniformly.
+   */
+  float support_bound() const { return radius * envelope; }
 };
 
 /**
@@ -859,6 +867,117 @@ private:
   const Orientation<> *orientation; /**< Stack frame the push axis tracks; not owned. */
   Vector normal; /**< Un-oriented stack axis. */
   float azimuth; /**< Fall meridian (radians). */
+};
+
+struct PoiChoreography; // defined in motion.h; PoiDance reads it each frame
+
+/**
+ * @brief Parameters for a unidirectional spherical-cap drape field ("poi").
+ * @details Like BumpParams but the drape pushes rings one way along the stack
+ * axis (never parting them): the sheet slides over each dancer like silk over a
+ * hand. The dome center and lifecycle swell are animated by PoiDance.
+ */
+struct PoiParams {
+  Vector center;           /**< Dome center direction (unit vector). */
+  Vector axis;             /**< Oriented stack axis the drape push acts along. */
+  float radius = 0.3f;     /**< Footprint angular radius (radians), fixed at spawn. */
+  float amplitude = 1.0f;  /**< Drape gain; the weight saturates at full clearance for gains > 1. */
+  float direction = 1.0f;  /**< Push sign σ = ±1, fixed at phase entry. */
+  float envelope = 0.0f;   /**< Lifecycle swell in [0, 1], animated by PoiDance. */
+  float cos_radius = 1.0f; /**< Cached cos(radius) fast-reject bound. */
+
+  /** @brief Peak of the drape profile (1−u)·quintic(u) over u∈[0,1], at u≈0.61. */
+  static constexpr float PROFILE_MAX = 0.28f;
+
+  /**
+   * @brief Recomputes the cos(radius) fast-reject bound after a radius change.
+   */
+  void prepare_threshold() { cos_radius = cosf(std::min(radius, PI_F)); }
+
+  /**
+   * @brief Refreshes live-tunable config from a template snapshot.
+   * @param t Template params carrying the current slider values.
+   * @details Copies only the drape gain; footprint, direction, and lifecycle
+   * belong to the spawned dancer.
+   */
+  void refresh_from(const PoiParams &t) { amplitude = t.amplitude; }
+
+  /**
+   * @brief Upper bound on |poi_field| (the drape shift) for this entity.
+   * @return 2·r_eff·min(PROFILE_MAX·amplitude, 1): the unsaturated arm scales the
+   * profile-max drape by the gain, the saturated arm caps at the full silhouette
+   * shift 2·r_eff. Feeds the clip cull and the scan-band width, so it is kept
+   * tight (the naive 2·r_eff·min(amp,1) is ~3.7× loose below saturation).
+   */
+  float field_bound() const {
+    return 2.0f * radius * envelope * std::min(PROFILE_MAX * amplitude, 1.0f);
+  }
+
+  /**
+   * @brief Angular extent of the field's support (the cap radius).
+   * @return radius * envelope. Distinct from field_bound(): the poi shift can
+   * exceed the cap radius at saturation, so the reach prefilter needs the cap
+   * extent while the band widening needs the shift bound.
+   */
+  float support_bound() const { return radius * envelope; }
+};
+
+/**
+ * @brief Animates one poi dancer: a dome tracing epicyclic tangent-plane curves
+ * under the ring sheet, swelling up from and deflating back under it.
+ * @details The dance center comes from the shared PoiChoreography (read by
+ * pointer each frame) combined with this dancer's canon phase offsets; antipodal
+ * partners (anchor_index ≥ 6) trace the exact point reflection of their primary.
+ * step() is defined out-of-line in motion.h, where PoiChoreography is complete.
+ */
+class PoiDance : public AnimationBase<PoiDance> {
+public:
+  /**
+   * @brief Constructs a PoiDance animation.
+   * @param params Poi params to animate. `params.radius` and `params.direction`
+   *        are read from the spawn-time copy; set them before constructing.
+   * @param choreography Shared choreography stepped once per frame by the effect;
+   *        retained by pointer, so it must outlive the animation.
+   * @param orientation Frame whose oriented normal is the displaced stack's axis;
+   *        retained by pointer. The dance floor itself is world-fixed.
+   * @param normal Un-oriented stack axis.
+   * @param anchor_index Dancer index in [0, 12): index % 6 selects the antipodal
+   *        pair, index ≥ 6 marks the mirrored partner.
+   * @param canon_offsets Per-term constant phase offsets (the canon lag), copied.
+   * @param duration Dance lifetime in frames.
+   */
+  PoiDance(PoiParams &params, const PoiChoreography &choreography,
+           const Orientation<> &orientation, const Vector &normal,
+           int anchor_index, const float canon_offsets[3], int duration)
+      : AnimationBase(duration, false), params(params),
+        choreography(&choreography), orientation(&orientation), normal(normal),
+        anchor_index(anchor_index) {
+    HS_CHECK(duration >= 2, "PoiDance duration must be >= 2");
+    HS_CHECK(params.radius > 0.0f, "PoiDance needs a positive poi radius");
+    canon[0] = canon_offsets[0];
+    canon[1] = canon_offsets[1];
+    canon[2] = canon_offsets[2];
+    params.prepare_threshold();
+    params.envelope = 0.0f;
+  }
+
+  /**
+   * @brief Steps the dance: ramps the lifecycle envelope, reads the shared
+   * choreography to place the dome center, and re-derives the push axis from the
+   * stack's current orientation. Defined in motion.h.
+   * @param canvas The canvas buffer (forwarded to the base step).
+   */
+  void step(Canvas &canvas) override;
+
+private:
+  static constexpr float EDGE_FRACTION = 0.10f; /**< Lifecycle swell window at either end of the dance. */
+
+  std::reference_wrapper<PoiParams> params; /**< Poi params to animate. */
+  const PoiChoreography *choreography; /**< Shared choreography; not owned. */
+  const Orientation<> *orientation;    /**< Stack frame the push axis tracks; not owned. */
+  Vector normal;    /**< Un-oriented stack axis. */
+  int anchor_index; /**< Dancer index in [0, 12); index % 6 is the antipodal pair. */
+  float canon[3];   /**< Per-term constant canon phase offsets. */
 };
 
 /**
