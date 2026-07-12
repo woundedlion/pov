@@ -193,19 +193,29 @@ public:
       Color4 ring_color =
           ring_baked.get(wrap_t((i + 0.5f) / n_rings + color_spin));
 
+      // Angle-addition recurrence advancing the tangent (cos, sin) by one
+      // column step, dropping a libm cosf/sinf per bake column.
+      const float dphi = 2.0f * PI_F / lut_n;
+      const float cos_d = cosf(dphi);
+      const float sin_d = sinf(dphi);
+      float cos_a = 1.0f;
+      float sin_a = 0.0f;
+
       // ring_bound: true max |shift| over this ring's LUT (lerp never exceeds
       // it); the global field bound would widen every ring's scan band to the
       // sum of all active bumps.
       float ring_bound = 0.0f;
       for (int x = 0; x < lut_n; ++x) {
-        float angle = 2.0f * PI_F * x / lut_n;
         Vector p = (basis.v * cos_t) +
-                   ((basis.u * cosf(angle)) + (basis.w * sinf(angle))) * sin_t;
+                   ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
         float s = balls.field_dominant(p) + noise_field.field(p);
         ring_bound = std::max(ring_bound, std::fabs(s));
         shift_lut[x] = s;
         hue_lut[x] =
             hue_rotate(ring_color, std::fabs(s) * params.hue_scale).color;
+        float next_cos = cos_a * cos_d - sin_a * sin_d;
+        sin_a = sin_a * cos_d + cos_a * sin_d;
+        cos_a = next_cos;
       }
       shift_lut[lut_n] = shift_lut[0];
       hue_lut[lut_n] = hue_lut[0];
