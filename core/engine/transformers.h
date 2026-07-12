@@ -305,6 +305,29 @@ public:
   float operator()(const Vector &p) const { return field(p); }
 
   /**
+   * @brief Magnitude-weighted blend of the active entities' fields: the
+   * strongest contribution dominates without stacking.
+   * @param p Sample point (unit vector).
+   * @return sum(s_i^3) / sum(s_i^2); 0 with no active entities.
+   * @details Use instead of field() when overlapping entities must not add
+   * (e.g. solid bodies displacing a shared sheet). Unlike a hard max by
+   * magnitude — which jumps discontinuously where opposite-signed fields cross
+   * in strength — the blend is continuous everywhere: a single entity passes
+   * through exactly, equal same-signed overlaps yield the shared value, and
+   * opposite-signed overlaps cancel smoothly.
+   */
+  float field_dominant(const Vector &p) const {
+    float num = 0.0f;
+    float den = 0.0f;
+    for (int k = 0; k < this->active_count_; ++k) {
+      float f = FieldFunc(p, this->entities[this->active_slots_[k]].params);
+      num += f * f * f;
+      den += f * f;
+    }
+    return den > 1e-9f ? num / den : 0.0f;
+  }
+
+  /**
    * @brief Upper bound on |field()| over the sphere this frame.
    * @return Sum of the active entities' per-entity bounds.
    * @details Requires ParamsT::field_bound() (a true upper bound on
@@ -537,21 +560,44 @@ inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
 }
 
 /**
- * @brief Evaluates a spherical-cap bump: full amplitude at the center falling
- * smoothly to zero at the cap edge.
+ * @brief Evaluates a spherical-cap drape push: rings bow away from the cap
+ * center as if draping over a ball beneath them.
  * @param v Sample point (unit vector).
- * @param params Bump center, footprint, amplitude and lifecycle envelope.
- * @return The bump's displacement contribution at @p v.
+ * @param params Bump center, stack axis, footprint and lifecycle envelope
+ * (the envelope scales the effective footprint, inflating/deflating the cap).
+ * @return The signed polar displacement (radians): the depth inside the cap's
+ * boundary arc, weighted by a drape factor that is zero for the ring through
+ * the center (it rides straight over the top) and zero at the footprint edge
+ * (the ball's equator), peaking between. The amplitude gain scales the drape
+ * weight, saturating at 1 (full clearance to the boundary arc), so the gain
+ * morphs the look from a soft drape toward a solid punch-through. Positive
+ * pushes toward larger colatitude about the axis; points outside the cap are
+ * untouched.
  */
 inline float bump_field(const Vector &v, const BumpParams &params) {
-  float gain = params.amplitude * params.envelope;
-  if (std::fabs(gain) <= 0.001f)
+  float r_eff = params.radius * params.envelope;
+  if (r_eff <= 1e-3f || params.amplitude <= 0.001f)
     return 0.0f;
   float cos_d = dot(v, params.center);
   if (cos_d <= params.cos_radius)
     return 0.0f;
   float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
-  return gain * quintic_kernel(1.0f - d / params.radius);
+  if (d >= r_eff)
+    return 0.0f;
+
+  // Local cap coords: signed polar offset y from the center (positive toward
+  // larger colatitude) and azimuthal offset x, with x^2 = d^2 - y^2 by the
+  // small-cap approximation. The boundary arc at this azimuth sits at
+  // +-sqrt(r_eff^2 - x_sq), so (arc - |y|) is the polar depth inside the cap —
+  // an arc-shaped profile along the ring, which keeps the bulge round.
+  float y = fast_acos(hs::clamp(dot(params.axis, v), -1.0f, 1.0f)) -
+            fast_acos(hs::clamp(dot(params.axis, params.center), -1.0f, 1.0f));
+  float abs_y = std::fabs(y);
+  float x_sq = std::max(d * d - y * y, 0.0f);
+  float depth = sqrtf(std::max(r_eff * r_eff - x_sq, 0.0f)) - abs_y;
+  float drape =
+      std::min(params.amplitude * sinf(PI_F * abs_y / r_eff), 1.0f);
+  return copysignf(depth * drape, y);
 }
 
 /**

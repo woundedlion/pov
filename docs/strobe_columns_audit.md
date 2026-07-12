@@ -42,7 +42,6 @@ unchanged; the remaining 22 were flipped from `false` to `true`.
 | Liquid2D | `true` |
 | MeshFeedback | `true` |
 | MindSplatter | `true` |
-| Moire | `true` |
 | MobiusGrid | `true` |
 | PetalFlow | `true` |
 | Raymarch | `true` |

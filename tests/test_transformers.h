@@ -21,9 +21,12 @@
  *   - FieldTransformer<>      : no active entities → 0; spawned entities sum;
  *                               field_bound sums the per-entity bounds; a
  *                               completed entity's slot is reclaimed.
- *   - bump_field              : full amplitude at the center, 0 at the cap edge,
- *                               exactly 0 outside (fast reject), monotonic in
- *                               between, scaled by the lifecycle envelope.
+ *   - bump_field              : drape push away from the cap center along the
+ *                               polar direction — zero for the ring through the
+ *                               center and at the footprint edge, peaking
+ *                               between (antisymmetric, exactly 0 outside the
+ *                               fast reject); the lifecycle envelope scales the
+ *                               footprint.
  *   - noise_product_field     : matches the hand-computed two-octave product;
  *                               ~0 amplitude short-circuits to exactly 0.
  *   - Animation::BallDrop     : center traverses pole to pole along its azimuth
@@ -716,6 +719,43 @@ inline void test_field_transformer_sums_and_bounds() {
 }
 
 /**
+ * @brief Verifies field_dominant blends without stacking: a single entity
+ *        passes through exactly, equal same-signed entities yield the shared
+ *        value (not the sum), and a mixed-sign overlap gives the
+ *        magnitude-weighted blend sum(s^3)/sum(s^2).
+ */
+inline void test_field_transformer_field_dominant() {
+  Timeline tl;
+  global_timeline_t = 0;
+  TestFieldTransformer ft(tl);
+  HS_EXPECT_NEAR(ft.field_dominant(Vector(1, 0, 0)), 0.0f, 1e-6f);
+
+  HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
+  HS_EXPECT_NEAR(ft.field_dominant(Vector(1, 0, 0)), 2.0f, 1e-5f);
+
+  HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
+  HS_EXPECT_NEAR(ft.field_dominant(Vector(1, 0, 0)), 2.0f, 1e-5f);
+}
+
+/**
+ * @brief Verifies field_dominant's mixed-sign blend and its continuity across
+ *        the strength crossover that a hard max-by-magnitude would jump.
+ */
+inline void test_field_transformer_field_dominant_mixed_sign() {
+  Timeline tl;
+  global_timeline_t = 0;
+  TestFieldTransformer ft(tl);
+
+  HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
+  HS_EXPECT_TRUE(ft.spawn(0, -3.0f, 100) != nullptr);
+  // (2^3 + (-3)^3) / (2^2 + (-3)^2) = -19 / 13.
+  HS_EXPECT_NEAR(ft.field_dominant(Vector(1, 0, 0)), -19.0f / 13.0f, 1e-4f);
+  // Equal-and-opposite fields cancel smoothly to 0 (v.x scales both alike, so
+  // sample where the stronger entity's own sign flips the balance).
+  HS_EXPECT_NEAR(ft.field_dominant(Vector(-1, 0, 0)), 19.0f / 13.0f, 1e-4f);
+}
+
+/**
  * @brief Verifies a completed field entity's pool slot is reclaimed and a
  *        fresh spawn reuses it.
  * @details The pool has CAPACITY 2; both slots are filled (one short-lived),
@@ -748,46 +788,95 @@ inline void test_field_transformer_slot_reclaimed() {
 // ============================================================================
 
 /**
- * @brief Verifies the bump falloff: full amplitude at the center, monotonic
- *        decay, 0 at the cap edge, exactly 0 outside the fast-reject cap.
+ * @brief Verifies the drape push along the axis meridian: zero for the ring
+ *        through the center, peak bow between center and edge, zero at the
+ *        footprint edge, exactly 0 outside the fast-reject cap.
+ * @details The center sits at colatitude 60° about the +y axis, so the
+ *          sampled meridian has room on both sides. On the meridian a point
+ *          at offset y pushes by sign(y) * (R - |y|) * sin(pi |y| / R): at
+ *          |y| = R/2 that is (R/2) * sin(pi/2) = R/2, antisymmetric across
+ *          the center.
  */
-inline void test_bump_field_falloff() {
+inline void test_bump_field_drapes_over_ball() {
+  const float c_lat = PI_F / 3.0f;
   BumpParams p;
-  p.center = Vector(0, 1, 0);
+  p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.axis = Vector(0, 1, 0);
   p.radius = 0.5f;
-  p.amplitude = 0.3f;
+  p.amplitude = 1.0f;
   p.envelope = 1.0f;
   p.prepare_threshold();
 
+  // Sample the meridian at colatitude offset d from the center.
   auto at = [&](float d) {
-    return bump_field(Vector(std::sin(d), std::cos(d), 0.0f), p);
+    return bump_field(
+        Vector(std::sin(c_lat + d), std::cos(c_lat + d), 0.0f), p);
   };
 
-  HS_EXPECT_NEAR(at(0.0f), 0.3f, 1e-4f);
-  const float quarter = at(p.radius * 0.25f);
-  const float half = at(p.radius * 0.5f);
-  HS_EXPECT_GT(quarter, half);
-  HS_EXPECT_GT(half, 0.0f);
-  HS_EXPECT_NEAR(at(p.radius), 0.0f, 1e-3f);
+  HS_EXPECT_NEAR(at(0.0f), 0.0f, 2e-3f);
+  HS_EXPECT_NEAR(at(p.radius * 0.5f), p.radius * 0.5f, 2e-3f);
+  HS_EXPECT_NEAR(at(-p.radius * 0.5f), -p.radius * 0.5f, 2e-3f);
+  HS_EXPECT_NEAR(at(p.radius * 0.98f), 0.0f, 5e-3f);
   HS_EXPECT_NEAR(at(p.radius + 0.05f), 0.0f, 1e-7f);
-  HS_EXPECT_NEAR(at(PI_F * 0.9f), 0.0f, 1e-7f);
+  HS_EXPECT_NEAR(at(-p.radius - 0.05f), 0.0f, 1e-7f);
+
+  // Half gain halves the drape; a huge gain saturates at the full boundary
+  // clearance (R - |y|); zero gain switches the bump off entirely.
+  p.amplitude = 0.5f;
+  HS_EXPECT_NEAR(at(p.radius * 0.5f), p.radius * 0.25f, 2e-3f);
+  p.amplitude = 100.0f;
+  const float y_low = p.radius * 0.1f;
+  HS_EXPECT_NEAR(at(y_low), p.radius - y_low, 2e-3f);
+  p.amplitude = 0.0f;
+  HS_EXPECT_NEAR(at(p.radius * 0.5f), 0.0f, 1e-7f);
 }
 
 /**
- * @brief Verifies the lifecycle envelope scales the bump and gates it to
- *        exactly 0 when fully faded.
+ * @brief Verifies the bulge profile along one ring is the boundary arc scaled
+ *        by the ring's drape weight, so the bow is round rather than pointed.
  */
-inline void test_bump_field_envelope_gates() {
+inline void test_bump_field_round_bulge_along_ring() {
+  const float c_lat = PI_F / 2.0f;
   BumpParams p;
-  p.center = Vector(0, 1, 0);
+  p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.axis = Vector(0, 1, 0);
   p.radius = 0.5f;
-  p.amplitude = 0.4f;
+  p.envelope = 1.0f;
   p.prepare_threshold();
 
-  p.envelope = 0.5f;
-  HS_EXPECT_NEAR(bump_field(Vector(0, 1, 0), p), 0.2f, 1e-4f);
+  // Ring half a footprint below the center (drape weight sin(pi/2) = 1),
+  // sampled at azimuth offset 0.3 rad about the axis. There x ~ 0.3 * sin of
+  // the ring's colatitude, and the push is sqrt(R^2 - x^2) - |y|.
+  const float y = p.radius * 0.5f;
+  const float lat = c_lat + y;
+  const float az = 0.3f;
+  const Vector v(std::sin(lat) * std::cos(az), std::cos(lat),
+                 std::sin(lat) * std::sin(az));
+  const float x = az * std::sin(lat);
+  const float expected = std::sqrt(p.radius * p.radius - x * x) - y;
+  HS_EXPECT_NEAR(bump_field(v, p), expected, 5e-3f);
+}
+
+/**
+ * @brief Verifies the lifecycle envelope scales the footprint (a half-envelope
+ *        cap clears to its shrunken boundary) and gates the field to exactly 0
+ *        when fully faded.
+ */
+inline void test_bump_field_envelope_gates() {
+  const float c_lat = PI_F / 3.0f;
+  BumpParams p;
+  p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.axis = Vector(0, 1, 0);
+  p.radius = 0.5f;
+  p.prepare_threshold();
+
+  // Half the shrunken footprint below the center on the axis meridian.
+  const float d = c_lat + 0.125f;
+  const Vector v(std::sin(d), std::cos(d), 0.0f);
+  p.envelope = 0.5f; // effective radius 0.25
+  HS_EXPECT_NEAR(bump_field(v, p), 0.125f, 2e-3f);
   p.envelope = 0.0f;
-  HS_EXPECT_NEAR(bump_field(Vector(0, 1, 0), p), 0.0f, 1e-7f);
+  HS_EXPECT_NEAR(bump_field(v, p), 0.0f, 1e-7f);
 }
 
 // ============================================================================
@@ -846,7 +935,6 @@ inline void test_ball_drop_traverses_and_reclaims() {
   const int duration = 40;
 
   BallDropTransformer<1> balls(tl);
-  balls.template_params.amplitude = 0.3f;
   balls.template_params.radius = 0.5f;
   HS_EXPECT_TRUE(balls.spawn(0, ori, pole, 0.0f, duration) != nullptr);
 
@@ -856,12 +944,16 @@ inline void test_ball_drop_traverses_and_reclaims() {
 
   for (int i = 1; i < duration / 2; ++i)
     tl.step(cv);
-  // Mid-fall: the bump sits on the equator at full envelope — at azimuth 0
-  // that is the frame's u axis — so the pole reads ~0 (outside the cap) and
-  // the u axis reads ~full amplitude.
+  // Mid-fall: the bump sits at the world equator point (1, 0, 0) (azimuth 0)
+  // at full envelope. The pole reads ~0 (outside the cap); half a footprint
+  // below the center on its meridian, the drape push toward the lower
+  // boundary arc is R - R/2, and the mirrored point above reads its negation.
   HS_EXPECT_NEAR(balls.field(pole), 0.0f, 1e-5f);
-  const Basis frame = make_basis(ori.get(), pole);
-  HS_EXPECT_NEAR(balls.field(frame.u), 0.3f, 0.02f);
+  const float half_r = 0.5f * 0.5f;
+  const Vector below(std::cos(half_r), -std::sin(half_r), 0.0f);
+  const Vector above(std::cos(half_r), std::sin(half_r), 0.0f);
+  HS_EXPECT_NEAR(balls.field(below), half_r, 3e-3f);
+  HS_EXPECT_NEAR(balls.field(above), -half_r, 3e-3f);
   HS_EXPECT_GT(balls.field_bound(), 0.25f);
 
   for (int i = duration / 2; i <= duration + 2; ++i)
@@ -920,8 +1012,11 @@ inline int run_transformers_tests() {
   test_transformer_recycled_slot_composes_in_spawn_order();
   test_field_transformer_no_entities_is_zero();
   test_field_transformer_sums_and_bounds();
+  test_field_transformer_field_dominant();
+  test_field_transformer_field_dominant_mixed_sign();
   test_field_transformer_slot_reclaimed();
-  test_bump_field_falloff();
+  test_bump_field_drapes_over_ball();
+  test_bump_field_round_bulge_along_ring();
   test_bump_field_envelope_gates();
   test_noise_product_field_parity();
   test_ball_drop_traverses_and_reclaims();
