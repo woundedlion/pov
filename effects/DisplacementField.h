@@ -246,8 +246,34 @@ public:
                                    feature_scale * sin_t)),
             LUT_MIN_SAMPLES, W);
 
+        // Azimuth chunk cull under a partial clip: a chunk's cap (its ring
+        // arc widened by the displaced band) contains every pixel whose
+        // ring-frame azimuth falls in the chunk, so a chunk whose cap misses
+        // the clip is never sampled and its columns skip the field/hue bake.
+        // Visibility is padded one chunk per side for boundary interpolation.
+        uint32_t visible = CHUNK_MASK;
+        if (try_cull) {
+          const float chunk_reach = (PI_F / BAKE_CHUNKS) * sin_t + ball_bound +
+                                    noise_bound + params.thickness + pad;
+          uint32_t raw = 0u;
+          for (int c = 0; c < BAKE_CHUNKS; ++c) {
+            float a = (2.0f * c + 1.0f) * (PI_F / BAKE_CHUNKS);
+            Vector mid = (basis.v * cos_t) +
+                         ((basis.u * cosf(a)) + (basis.w * sinf(a))) * sin_t;
+            if (Plot::cap_may_touch_clip<H>(clip(), mid, chunk_reach))
+              raw |= 1u << c;
+          }
+          if (!raw)
+            continue;
+          visible = (raw | (raw << 1) | (raw >> (BAKE_CHUNKS - 1)) |
+                     (raw >> 1) | (raw << (BAKE_CHUNKS - 1))) &
+                    CHUNK_MASK;
+        }
+
         // Angle-addition recurrence advancing the tangent (cos, sin) by one
-        // column step, dropping a libm cosf/sinf per bake column.
+        // column step, dropping a libm cosf/sinf per bake column. It advances
+        // through skipped columns too, so baked values are independent of the
+        // visible set.
         const float dphi = 2.0f * PI_F / lut_n;
         const float cos_d = cosf(dphi);
         const float sin_d = sinf(dphi);
@@ -257,18 +283,31 @@ public:
         // ring_bound: true max |shift| over this ring's LUT (lerp never
         // exceeds it); the global field bound would widen every ring's scan
         // band to the sum of all active bumps.
-        for (int x = 0; x < lut_n; ++x) {
-          Vector p = (basis.v * cos_t) +
-                     ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
-          float s = balls.field_dominant(p, ring_balls, n_local) +
-                    noise_field.field(p);
-          ring_bound = std::max(ring_bound, std::fabs(s));
-          shift_lut[x] = s;
-          hue_lut[x] =
-              hue_rotate(hue_base, std::fabs(s) * params.hue_scale).color;
-          float next_cos = cos_a * cos_d - sin_a * sin_d;
-          sin_a = sin_a * cos_d + cos_a * sin_d;
-          cos_a = next_cos;
+        int x = 0;
+        for (int c = 0; c < BAKE_CHUNKS; ++c) {
+          const int x_end =
+              ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+          if (visible & (1u << c)) {
+            for (; x < x_end; ++x) {
+              Vector p = (basis.v * cos_t) +
+                         ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
+              float s = balls.field_dominant(p, ring_balls, n_local) +
+                        noise_field.field(p);
+              ring_bound = std::max(ring_bound, std::fabs(s));
+              shift_lut[x] = s;
+              hue_lut[x] =
+                  hue_rotate(hue_base, std::fabs(s) * params.hue_scale).color;
+              float next_cos = cos_a * cos_d - sin_a * sin_d;
+              sin_a = sin_a * cos_d + cos_a * sin_d;
+              cos_a = next_cos;
+            }
+          } else {
+            for (; x < x_end; ++x) {
+              float next_cos = cos_a * cos_d - sin_a * sin_d;
+              sin_a = sin_a * cos_d + cos_a * sin_d;
+              cos_a = next_cos;
+            }
+          }
         }
         shift_lut[lut_n] = shift_lut[0];
         hue_lut[lut_n] = hue_lut[0];
@@ -387,6 +426,11 @@ private:
   static constexpr float COLOR_SPIN_RATE = 0.0015f; /**< Palette spin across the stack, in turns per frame. */
   static constexpr float LUT_SAMPLES_PER_UNIT = 8.0f; /**< Bake columns per feature-space unit of ring circumference. */
   static constexpr int LUT_MIN_SAMPLES = 16;          /**< Bake-column floor for tiny/low-scale rings. */
+  static constexpr int BAKE_CHUNKS = 16; /**< Azimuth chunks clip-tested during the bake. */
+  static constexpr uint32_t CHUNK_MASK = (1u << BAKE_CHUNKS) - 1; /**< All-chunks-visible bake mask. */
+  static_assert(LUT_MIN_SAMPLES >= BAKE_CHUNKS,
+                "the one-chunk visibility pad needs at least one LUT column "
+                "per chunk");
 
   float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
   float *shift_lut = nullptr; /**< W + 1 arena-baked displacements, one per bake column; entry lut_n repeats entry 0 for seamless lerp. */

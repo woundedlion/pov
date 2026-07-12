@@ -1316,6 +1316,57 @@ inline void test_distorted_ring_palette_mod_selection() {
 }
 
 /**
+ * @brief Verifies DisplacementField's clipped render tiles the full render:
+ *        under a quadrant clip, every display-region pixel matches the
+ *        full-canvas render bit-exactly, frame by frame.
+ * @details Identical seeds and mock clock per run, so a divergence isolates
+ *          the clip-only paths (the per-ring cap cull and the azimuth-chunk
+ *          bake cull) dropping a reachable fragment or sampling a stale LUT
+ *          entry. The frame window sits inside the ball phase, whose
+ *          footprints drive both culls.
+ */
+inline void test_displacement_field_clip_tiles_full() {
+  struct Quad {
+    int x0, x1, y0, y1;
+  };
+  const Quad quads[] = {{0, DEFAULT_W / 2, 0, DEFAULT_H / 2},
+                        {DEFAULT_W / 2, DEFAULT_W, DEFAULT_H / 2, DEFAULT_H}};
+  const int frames = 60;
+
+  auto fold_region = [&](bool clip, const Quad &q) -> uint64_t {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    DisplacementField<DEFAULT_W, DEFAULT_H> fx;
+    fx.init();
+    if (clip)
+      fx.set_clip(q.y0, q.y1, q.x0, q.x1);
+    uint64_t fold = 1469598103934665603ull; // FNV-1a offset basis
+    for (int f = 0; f < frames; ++f) {
+      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                        static_cast<unsigned long>(f) * FRAME_US);
+      fx.draw_frame();
+      fx.advance_display();
+      for (int y = q.y0; y < q.y1; ++y)
+        for (int x = q.x0; x < q.x1; ++x) {
+          const Pixel p = fx.get_pixel(x, y);
+          for (uint16_t c : {p.r, p.g, p.b}) {
+            fold ^= c & 0xFF;
+            fold *= 1099511628211ull; // FNV-1a prime
+            fold ^= c >> 8;
+            fold *= 1099511628211ull;
+          }
+        }
+    }
+    hs::clear_mock_time();
+    return fold;
+  };
+
+  for (const Quad &q : quads)
+    HS_EXPECT_EQ(fold_region(false, q), fold_region(true, q));
+}
+
+/**
  * @brief White-box accessor for MindSplatter's per-emitter emit-phase and hue
  *        arrays (befriended in effects/MindSplatter.h).
  */
@@ -1966,6 +2017,7 @@ inline int run_effects_tests() {
     test_hopf_projection_math();
     test_petalflow_spawn_gap_bounded();
     test_distorted_ring_palette_mod_selection();
+    test_displacement_field_clip_tiles_full();
     test_mindsplatter_emit_phase_wrapped();
     test_flyby_phase_wrapped();
     test_liquid2d_phase_wrapped();
