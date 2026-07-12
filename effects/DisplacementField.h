@@ -57,6 +57,7 @@ public:
   void init() override {
     ring_baked.bake(persistent_arena, palette);
     shift_lut = persistent_arena.allocate_n<float>(W + 1);
+    slope_lut = persistent_arena.allocate_n<float>(W + 1);
     hue_lut = persistent_arena.allocate_n<Pixel>(W + 1);
     solid_colat = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_reach = persistent_arena.allocate_n<float>(SOLID_MAX);
@@ -281,6 +282,7 @@ private:
         Pixel flat = hue_rotate(hue_base, 0.0f).color;
         for (int x = 0; x <= lut_n; ++x) {
           shift_lut[x] = 0.0f;
+          slope_lut[x] = 0.0f;
           hue_lut[x] = flat;
         }
       } else {
@@ -301,7 +303,8 @@ private:
         // arc widened by the displaced band) contains every pixel whose
         // ring-frame azimuth falls in the chunk, so a chunk whose cap misses
         // the clip is never sampled and its columns skip the field/hue bake.
-        // Visibility is padded one chunk per side for boundary interpolation.
+        // Visibility is padded two chunks per side: one for the position lerp,
+        // one more so the central-difference slope LUT reads valid neighbours.
         uint32_t visible = CHUNK_MASK;
         if (try_cull) {
           const float chunk_reach = (PI_F / BAKE_CHUNKS) * sin_t + band +
@@ -316,8 +319,9 @@ private:
           }
           if (!raw)
             continue;
-          visible = (raw | (raw << 1) | (raw >> (BAKE_CHUNKS - 1)) |
-                     (raw >> 1) | (raw << (BAKE_CHUNKS - 1))) &
+          visible = (raw | (raw << 1) | (raw >> 1) | (raw << 2) | (raw >> 2) |
+                     (raw >> (BAKE_CHUNKS - 1)) | (raw << (BAKE_CHUNKS - 1)) |
+                     (raw >> (BAKE_CHUNKS - 2)) | (raw << (BAKE_CHUNKS - 2))) &
                     CHUNK_MASK;
         }
 
@@ -362,19 +366,27 @@ private:
         }
         shift_lut[lut_n] = shift_lut[0];
         hue_lut[lut_n] = hue_lut[0];
+
+        // Central-difference knot slopes, baked once so the per-pixel path
+        // lerps a smooth d(shift)/dt instead of the piecewise-constant secant,
+        // whose per-cell steps stair-cased the compensated stroke on humps.
+        for (int k = 0; k < lut_n; ++k) {
+          int km = k > 0 ? k - 1 : lut_n - 1;
+          slope_lut[k] = 0.5f * (shift_lut[k + 1] - shift_lut[km]) * lut_n;
+        }
+        slope_lut[lut_n] = slope_lut[0];
       }
 
       // Quintic-remapped fractions keep the reconstruction smooth across LUT
       // knots and never exceed the knot values, so ring_bound stays a true max.
-      // The slope out-param feeds the rasterizer's slope compensation: the
-      // per-cell secant, not the quintic's instantaneous derivative, which dips
-      // to zero at every knot and would pulse the compensated stroke width.
+      // The slope out-param lerps the baked knot slopes so the rasterizer's
+      // stroke compensation varies continuously across cells.
       auto sample_lut = [this, lut_n](float t, float &slope) {
         float x = wrap_t(t) * lut_n;
         int j = static_cast<int>(x);
-        float d = shift_lut[j + 1] - shift_lut[j];
-        slope = d * lut_n;
-        return shift_lut[j] + quintic_kernel(x - j) * d;
+        float f = x - j;
+        slope = slope_lut[j] + f * (slope_lut[j + 1] - slope_lut[j]);
+        return shift_lut[j] + quintic_kernel(f) * (shift_lut[j + 1] - shift_lut[j]);
       };
 
       float frag_alpha = ring_color.alpha * opacity * params.alpha;
@@ -551,6 +563,7 @@ private:
 
   float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
   float *shift_lut = nullptr; /**< W + 1 arena-baked displacements, one per bake column; entry lut_n repeats entry 0 for seamless lerp. */
+  float *slope_lut = nullptr; /**< W + 1 arena-baked knot slopes (central-difference d(shift)/dt), aligned with shift_lut; lerped for smooth stroke compensation. */
   Pixel *hue_lut = nullptr;   /**< W + 1 arena-baked hue-rotated ring colors, aligned with shift_lut. */
   float *solid_colat = nullptr; /**< SOLID_MAX active-body center colatitudes about the stack axis (radians), rebuilt per frame. */
   float *solid_reach = nullptr; /**< SOLID_MAX active-body support extents (radians): the reach prefilter bound. */
