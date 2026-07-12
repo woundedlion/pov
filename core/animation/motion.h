@@ -613,7 +613,7 @@ struct PoiChoreography {
   static constexpr int NUM_MOVES = 6;  /**< Move table length. */
   static constexpr int NUM_TERMS = 3;  /**< Epicycle terms per move. */
   static constexpr int NUM_PAIRS = 6;  /**< Antipodal anchor pairs. */
-  static constexpr float RHO_MAX = 0.45f;   /**< Orbit extent (radians); keeps icosahedral coverage gap-free. */
+  static constexpr float RHO_MAX = 0.6f;    /**< Orbit extent (radians); bigger, looping paths (neighbours may overlap and blend). */
   static constexpr float BASE_OMEGA = 0.02f;/**< Per-frame angular rate at Dance Speed 1 (~5 s/orbit for n=1). */
   static constexpr int MOVE_FRAMES = 300;   /**< Frames a move is held (~5 s). */
   static constexpr int MOVE_XFADE = 75;     /**< Move-to-move crossfade length. */
@@ -625,10 +625,10 @@ struct PoiChoreography {
   static constexpr PoiMove MOVES[NUM_MOVES] = {
       {{1, 0, 0}, {0.95f, 0.0f, 0.0f}, 0.0f},   // Orbit
       {{1, 0, 0}, {0.7f, 0.0f, 0.0f}, 0.4f},    // Spiral
-      {{1, -1, 0}, {0.6f, 0.35f, 0.0f}, 0.0f},  // Cateye
-      {{1, -1, 2}, {0.4f, 0.35f, 0.2f}, 0.0f},  // Figure-8
-      {{1, -3, 0}, {0.6f, 0.35f, 0.0f}, 0.0f},  // Antispin flower
-      {{1, 3, 0}, {0.65f, 0.3f, 0.0f}, 0.0f},   // Inspin flower
+      {{1, -1, 0}, {0.75f, 0.2f, 0.0f}, 0.0f},  // Cateye
+      {{1, 2, 0}, {0.8f, 0.14f, 0.0f}, 0.0f},   // Loops
+      {{1, -2, 0}, {0.8f, 0.14f, 0.0f}, 0.0f},  // Trefoil
+      {{1, 3, 0}, {0.82f, 0.1f, 0.0f}, 0.0f},   // Rose
   };
 
   float theta[NUM_TERMS] = {0.0f, 0.0f, 0.0f}; /**< Integrated epicycle phase per term. */

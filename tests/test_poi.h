@@ -277,6 +277,31 @@ inline void test_poi_move_table_invariant() {
   }
 }
 
+/**
+ * @brief Verifies every move has a velocity-dominant first harmonic and a
+ *        center that never reaches the epicycle origin, so |P| and the travel
+ *        speed stay bounded away from zero — no cusps, so the velocity-derived
+ *        push axis rotates smoothly rather than snapping.
+ * @details A two-term epitrochoid's speed is |Σ n_j r_j e^{iφ}|, minimized at
+ *        ||n1|r1 − Σ_{j≥2}|n_j|r_j|; its radius |P| bottoms out at
+ *        |r1 − Σ_{j≥2} r_j|. Both must clear a margin for the drape direction to
+ *        vary continuously at any dance speed.
+ */
+inline void test_poi_move_no_cusp() {
+  using C = Animation::PoiChoreography;
+  for (int i = 0; i < C::NUM_MOVES; ++i) {
+    const auto &m = C::MOVES[i];
+    float vel_min = std::fabs(m.n[0]) * m.r[0];
+    float pos_min = m.r[0];
+    for (int j = 1; j < C::NUM_TERMS; ++j) {
+      vel_min -= std::fabs(m.n[j]) * m.r[j];
+      pos_min -= m.r[j];
+    }
+    HS_EXPECT_GT(vel_min, 0.2f); // no near-cusp: speed never collapses
+    HS_EXPECT_GT(pos_min, 0.2f); // center never reaches the epicycle origin
+  }
+}
+
 // ============================================================================
 // PoiChoreography
 // ============================================================================
@@ -491,6 +516,7 @@ inline int run_poi_tests() {
   test_poi_field_bounds();
   test_poi_prefilter_exactness();
   test_poi_move_table_invariant();
+  test_poi_move_no_cusp();
   test_poi_choreo_pair_symmetry();
   test_poi_choreo_p_magnitude_bounded();
   test_poi_choreo_continuity_and_nonrecurrence();
