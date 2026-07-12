@@ -21,11 +21,15 @@
  *     (fail-fast), so only the valid boundary (last index) is exercised here.
  *   - Determinism: building the same registry entry twice yields identical
  *     vertex counts and positions.
+ *   - Sliver-face invariant: every Islamic recipe keeps its longest geodesic
+ *     edge within 6x the median edge.
  */
 #pragma once
 
+#include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <vector>
 #include "core/mesh/mesh.h"
 #include "core/color/palettes.h"
 #include "core/mesh/solids.h"
@@ -152,6 +156,40 @@ inline void test_islamic_registry_solids_are_valid() {
     Arena geom(solids_geom_a, sizeof(solids_geom_a));
     PolyMesh m = build_index(base + k, geom);
     check_basic(m);
+  }
+}
+
+/**
+ * @brief Verifies no Islamic-pattern solid has sliver faces: the longest
+ *        geodesic edge stays within 6x the median edge.
+ * @details A hankin contact angle near a resonance (contact planes of one
+ *          corner class near-parallel) slings star points far from their
+ *          corners, producing sliver faces that render as long lines. Healthy
+ *          registry recipes measure at most ~3.4x; the broken hk43 recipe
+ *          measured 23.8x.
+ */
+inline void test_islamic_solids_have_no_sliver_edges() {
+  const size_t base = Solids::Collections::get_simple_solids().size() +
+                      Solids::Collections::get_catalan_solids().size();
+  for (size_t k = 0; k < Solids::Collections::get_islamic_solids().size();
+       ++k) {
+    Arena geom(solids_geom_a, sizeof(solids_geom_a));
+    PolyMesh m = build_index(base + k, geom);
+    std::vector<float> edges;
+    size_t off = 0;
+    for (size_t f = 0; f < m.face_counts.size(); ++f) {
+      int n = m.face_counts[f];
+      for (int i = 0; i < n; ++i) {
+        Vector u = m.vertices[m.faces[off + i]].normalized();
+        Vector v = m.vertices[m.faces[off + (i + 1) % n]].normalized();
+        edges.push_back(std::acos(std::max(-1.0f, std::min(1.0f, dot(u, v)))));
+      }
+      off += n;
+    }
+    std::sort(edges.begin(), edges.end());
+    float median = edges[edges.size() / 2];
+    float max = edges.back();
+    HS_EXPECT_TRUE(max <= 6.0f * median);
   }
 }
 
@@ -705,6 +743,7 @@ inline int run_solids_tests() {
   test_simple_registry_solids_are_spherical_and_valid();
   test_catalan_registry_solids_are_spherical_and_valid();
   test_islamic_registry_solids_are_valid();
+  test_islamic_solids_have_no_sliver_edges();
 
   test_euler_platonic_solids();
   test_euler_archimedean_catalan_solids();
