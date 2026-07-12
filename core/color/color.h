@@ -808,6 +808,59 @@ inline Color4 hue_rotate(const Color4 &c, float amount) {
 }
 
 /**
+ * @brief A Color4 pre-converted to OKLab for repeated hue rotations.
+ * @details Caches the forward linear-RGB -> cbrt-LMS -> OKLab transform of a
+ * fixed base color so each rotation pays only the (a,b) rotation and the
+ * inverse transform; hue_rotate(base, amount) matches hue_rotate(c, amount)
+ * exactly.
+ */
+struct HueRotateBase {
+  OKLab lab;   /**< Base color in OKLab. */
+  Color4 base; /**< Original color; alpha is carried into each result. */
+};
+
+/**
+ * @brief Precomputes the OKLab form of a color for repeated hue rotations.
+ * @param c Base color.
+ * @return The precomputed base for hue_rotate(base, amount).
+ */
+inline HueRotateBase make_hue_rotate_base(const Color4 &c) {
+  constexpr float INV16 = 1.0f / 65535.0f;
+  float r = c.color.r * INV16, g = c.color.g * INV16, b = c.color.b * INV16;
+  LMS lms = linear_rgb_to_lms(r, g, b);
+  return {lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s)),
+          c};
+}
+
+/**
+ * @brief Perceptual (OKLab) hue rotation of a precomputed base color.
+ * @param hb Precomputed base from make_hue_rotate_base().
+ * @param amount Rotation in turns (0..1 = full turn).
+ * @return The hue-rotated color.
+ */
+inline Color4 hue_rotate(const HueRotateBase &hb, float amount) {
+  float angle = amount * (2.0f * PI_F);
+  float ca = fast_cosf(angle);
+  float sa = fast_sinf(angle);
+  // renormalize fast trig so the rotation preserves chroma (else the scaling
+  // compounds per frame under feedback).
+  float inv = 1.0f / sqrtf(ca * ca + sa * sa);
+  ca *= inv;
+  sa *= inv;
+
+  float a2 = hb.lab.a * ca - hb.lab.b * sa;
+  float b2 = hb.lab.a * sa + hb.lab.b * ca;
+  float r, g, b;
+  oklab_to_linear_rgb_gamut({hb.lab.L, a2, b2}, r, g, b);
+
+  Color4 result = hb.base;
+  result.color.r = float_to_pixel16(r);
+  result.color.g = float_to_pixel16(g);
+  result.color.b = float_to_pixel16(b);
+  return result;
+}
+
+/**
  * @brief Converts OKLab (Cartesian a,b) to OKLCH (polar C, h).
  * @param lab Source color in OKLab space.
  * @return The color in OKLCH space; hue h in radians.
