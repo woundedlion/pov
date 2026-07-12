@@ -338,9 +338,6 @@ using SpriteFn = Fn<void(Canvas &, float), 16>;
 using TimerFn = Fn<void(Canvas &), 16>;
 // 32: ScalarFn holds the wave/shift builders' captures, larger than 16 B.
 using ScalarFn = Fn<float(float), 32>;
-// Returns a shift and writes its derivative d(shift)/dt to the out-param; one
-// erased call yields both on per-pixel paths.
-using ShiftSlopeFn = Fn<float(float, float &), 32>;
 using EasingFn = float (*)(float);
 
 /**

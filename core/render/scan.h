@@ -418,8 +418,8 @@ struct DistortedRing {
   }
 
   /**
-   * @brief Rasterizes a circumference-modulated ring with slope-compensated
-   *        stroke width (see SDF::DistortedRing's ShiftSlopeFn overload).
+   * @brief Rasterizes a ring whose centerline is a shift-knot polyline with
+   *        exact stroke distance (see SDF::DistortedRing's knot overload).
    * @tparam W Canvas width in pixels.
    * @tparam H Canvas height in pixels.
    * @tparam ComputeUVs Whether to compute UV coordinates during distance eval.
@@ -428,8 +428,9 @@ struct DistortedRing {
    * @param basis Orientation basis of the ring plane.
    * @param radius Ring radius in world units.
    * @param thickness Ring stroke thickness in world units.
-   * @param shift_slope_fn Modulation function that also writes d(shift)/dt to
-   *        its out-param.
+   * @param knots lut_n + 1 centerline shifts, entry lut_n repeating entry 0;
+   *        must outlive the call.
+   * @param lut_n Number of knot cells.
    * @param amplitude Modulation amplitude in world units.
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
@@ -437,11 +438,12 @@ struct DistortedRing {
    */
   template <int W, int H, bool ComputeUVs = true>
   static void draw(PipelineRef pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, float thickness, ShiftSlopeFn shift_slope_fn,
-                   float amplitude, FragmentShaderFn fragment_shader,
-                   float phase = 0, bool debug_bb = false) {
-    SDF::DistortedRing shape(basis, radius, thickness, shift_slope_fn,
-                             amplitude, phase);
+                   float radius, float thickness, const float *knots,
+                   int lut_n, float amplitude,
+                   FragmentShaderFn fragment_shader, float phase = 0,
+                   bool debug_bb = false) {
+    SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n, amplitude,
+                             phase);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }

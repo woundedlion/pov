@@ -184,39 +184,69 @@ inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
 }
 
 /**
- * @brief Verifies the ShiftSlopeFn overload rescales the polar distance to the
- *        perpendicular distance sin/sqrt(sin^2 + k^2), and that the plain
- *        ScalarFn overload keeps the polar metric.
+ * @brief Verifies the knot overload's raw_dist matches a brute-force geodesic
+ *        minimum over the densely sampled polyline, within the stroke reach.
+ * @details Probes pixels around crests, steep flanks, and the wrap seam of a
+ *   high-harmonic knot polyline on a tilted ring. Accuracy is only contracted
+ *   for true distances below thickness (the outward search stops at that
+ *   reach); every probe is placed inside it.
  */
-inline void test_distorted_ring_slope_compensation_scales_distance() {
-  Basis b = equator_basis();
-  const float amp = 0.25f;
-  const int harmonic = 8;
-  const float thickness = 0.05f;
-  const float delta = 0.1f;
-  auto shift = [amp](float t) {
-    return amp * std::sin(2 * PI_F * harmonic * t);
+template <int LUT_N>
+inline void expect_polyline_distance_matches_bruteforce() {
+  Basis b = make_basis(Quaternion(), Vector(0.3f, 1.0f, 0.2f));
+  const float amp = 0.2f;
+  const int harmonic = 5;
+  const float radius = 0.5f; // target_angle = π/4: curved chart, tilted axis
+  const float thickness = 0.06f;
+  float knots[LUT_N + 1];
+  for (int k = 0; k <= LUT_N; ++k)
+    knots[k] = amp * std::sin(2.0f * PI_F * harmonic * (k % LUT_N) / LUT_N);
+  SDF::DistortedRing ring(b, radius, thickness, knots, LUT_N, amp, 0.0f);
+
+  const float target = radius * (PI_F / 2.0f);
+  auto on_sphere = [&](float t, float dv) {
+    float theta = target + amp * std::sin(2.0f * PI_F * harmonic * t) + dv;
+    float a = 2.0f * PI_F * t;
+    return (b.v * std::cos(theta)) +
+           ((b.u * std::cos(a)) + (b.w * std::sin(a))) * std::sin(theta);
   };
-  auto shift_slope = [amp](float t, float &slope) {
-    slope = amp * 2 * PI_F * harmonic * std::cos(2 * PI_F * harmonic * t);
-    return amp * std::sin(2 * PI_F * harmonic * t);
+  auto brute = [&](const Vector &p) {
+    constexpr int SAMPLES = LUT_N * 64;
+    float best = 100.0f;
+    for (int s = 0; s < SAMPLES; ++s) {
+      int k = s / 64;
+      float f = (s % 64) / 64.0f;
+      float theta = target + knots[k] + f * (knots[k + 1] - knots[k]);
+      float a = 2.0f * PI_F * (k + f) / LUT_N;
+      Vector q = (b.v * std::cos(theta)) +
+                 ((b.u * std::cos(a)) + (b.w * std::sin(a))) * std::sin(theta);
+      best = std::min(best, std::acos(hs::clamp(dot(p, q), -1.0f, 1.0f)));
+    }
+    return best;
   };
 
-  // Azimuth 0: shift = 0 (centerline at π/2), slope is at its 2π·n·amp peak.
-  Vector p(std::sin(PI_F / 2 + delta), std::cos(PI_F / 2 + delta), 0.0f);
+  // t = 0.05: crest (slope zero, curvature max); t = 0.1: steep flank;
+  // t = 0.998: wrap seam. Offsets stay within the thickness reach.
+  const float probes[][2] = {{0.05f, 0.04f},  {0.05f, -0.05f}, {0.1f, 0.05f},
+                             {0.1f, -0.04f},  {0.998f, 0.04f}, {0.25f, 0.05f},
+                             {0.375f, -0.05f}, {0.6f, 0.03f}};
+  for (const auto &pr : probes) {
+    Vector p = on_sphere(pr[0], pr[1]);
+    auto r = ring.distance(p);
+    float expected = brute(p);
+    HS_EXPECT_TRUE(expected < thickness);
+    HS_EXPECT_NEAR(r.raw_dist, expected, 3e-3f);
+  }
+}
 
-  SDF::DistortedRing plain(b, 1.0f, thickness, shift, amp, 0.0f);
-  auto rp = plain.distance(p);
-  HS_EXPECT_NEAR(rp.raw_dist, delta, 1e-2f);
-
-  SDF::DistortedRing comp(b, 1.0f, thickness, shift_slope, amp, 0.0f);
-  auto rc = comp.distance(p);
-  float k = static_cast<float>(harmonic) * amp;
-  float d = std::cos(PI_F / 2 + delta);
-  float sin2 = 1.0f - d * d;
-  float expected = delta * std::sqrt(sin2 / (sin2 + k * k));
-  HS_EXPECT_NEAR(rc.raw_dist, expected, 5e-3f);
-  HS_EXPECT_NEAR(rc.dist, expected - thickness, 5e-3f);
+/**
+ * @brief Runs the brute-force comparison at a chunk-aligned and a
+ *        chunk-straddling knot count (97 is coprime to the prefilter chunks,
+ *        so segments cross chunk boundaries).
+ */
+inline void test_distorted_ring_polyline_distance_matches_bruteforce() {
+  expect_polyline_distance_matches_bruteforce<96>();
+  expect_polyline_distance_matches_bruteforce<97>();
 }
 
 // ============================================================================
@@ -1438,17 +1468,17 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
                               /*max_distortion=*/amp, /*phase=*/0.0f);
       expect_cull_covers_interior<W, H>(ring);
 
-      // Slope compensation widens the interior toward the band edges; every
-      // extra pixel must still fall inside the emitted intervals.
-      auto shift_slope = [amp, harmonic, ph](float t, float &slope) {
-        slope = amp * 2.0f * PI_F * harmonic *
-                std::cos(2.0f * PI_F * (harmonic * t + ph));
-        return amp * std::sin(2.0f * PI_F * (harmonic * t + ph));
-      };
-      SDF::DistortedRing comp(basis, /*radius=*/0.6f, /*thickness=*/0.12f,
-                              shift_slope, /*max_distortion=*/amp,
+      // The knot overload's exact distance widens the interior toward the
+      // band edges; every extra pixel must still fall inside the emitted
+      // intervals.
+      constexpr int LUT_N = 256;
+      float knots[LUT_N + 1];
+      for (int k = 0; k <= LUT_N; ++k)
+        knots[k] = shift(static_cast<float>(k % LUT_N) / LUT_N);
+      SDF::DistortedRing poly(basis, /*radius=*/0.6f, /*thickness=*/0.12f,
+                              knots, LUT_N, /*max_distortion=*/amp,
                               /*phase=*/0.0f);
-      expect_cull_covers_interior<W, H>(comp);
+      expect_cull_covers_interior<W, H>(poly);
     }
   }
 }
@@ -1847,7 +1877,7 @@ inline int run_sdf_tests() {
 
   test_distorted_ring_constant_shift_moves_centerline();
   test_distorted_ring_sin_shift_varies_by_azimuth();
-  test_distorted_ring_slope_compensation_scales_distance();
+  test_distorted_ring_polyline_distance_matches_bruteforce();
 
   test_polygon_at_center_inside();
   test_polygon_far_point_outside();

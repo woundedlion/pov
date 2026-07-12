@@ -678,8 +678,9 @@ struct DistortedRing {
   const Basis &basis;     /**< Orientation frame (v = ring axis). */
   float radius;           /**< Ring radius as a fraction of the hemisphere. */
   float thickness;        /**< Half-width of the stroke (radians). */
-  ScalarFn shift_fn;      /**< Per-azimuth centerline shift, t in [0,1) -> radians; empty when shift_slope_fn is set. */
-  ShiftSlopeFn shift_slope_fn; /**< Shift plus d(shift)/dt out-param; empty disables slope compensation. */
+  ScalarFn shift_fn;      /**< Per-azimuth centerline shift, t in [0,1) -> radians; empty in knot mode. */
+  const float *knots = nullptr; /**< Optional lut_n + 1 shift knots (entry lut_n repeats entry 0); selects exact polyline distance. */
+  int lut_n = 0;          /**< Knot cell count when knots is set. */
   float max_distortion;   /**< Maximum magnitude of the shift (radians). */
   float phase;            /**< Azimuth phase offset (radians). */
 
@@ -728,23 +729,43 @@ struct DistortedRing {
   }
 
   /**
-   * @brief Builds a slope-compensated distorted ring.
+   * @brief Builds a distorted ring whose centerline is a shift-knot polyline.
    * @param b Orientation frame (v = ring axis).
    * @param r Ring radius as a fraction of the hemisphere.
    * @param th Half-width of the stroke (radians).
-   * @param ssf Per-azimuth centerline shift function that also writes
-   *            d(shift)/dt (radians per unit t) to its out-param. The distance
-   *            is measured perpendicular to the shifted centerline's tangent
-   *            instead of along the polar direction, so steep shift segments
-   *            keep full stroke width.
-   * @param md Maximum magnitude of the shift over t in [0,1) (radians); same
-   *           true-upper-bound precondition as the ScalarFn overload.
+   * @param kn n + 1 centerline shifts (radians), one per equal azimuth cell,
+   *           entry n repeating entry 0; must outlive the shape. distance()
+   *           returns the exact distance to this polyline (within the local
+   *           tangent chart), so steep or sharply curved segments render at
+   *           full stroke width with no slope approximation.
+   * @param n Number of knot cells; at least 1.
+   * @param md Maximum magnitude of the knots (radians); same true-upper-bound
+   *           precondition as the ScalarFn overload.
    * @param ph Azimuth phase offset (radians).
    */
-  DistortedRing(const Basis &b, float r, float th, ShiftSlopeFn ssf, float md,
-                float ph)
+  DistortedRing(const Basis &b, float r, float th, const float *kn, int n,
+                float md, float ph)
       : DistortedRing(b, r, th, ScalarFn{}, md, ph) {
-    shift_slope_fn = ssf;
+    knots = kn;
+    lut_n = n;
+    // Per-chunk knot ranges for the per-pixel prefilter. A segment registers
+    // its endpoints in every chunk its azimuth extent touches (a straddling
+    // segment spans two), so the polyline inside a chunk never leaves
+    // [chunk_lo, chunk_hi].
+    for (int c = 0; c < PREFILTER_CHUNKS; ++c) {
+      chunk_lo[c] = 1e9f;
+      chunk_hi[c] = -1e9f;
+    }
+    for (int k = 0; k < n; ++k) {
+      float lo = std::min(kn[k], kn[k + 1]);
+      float hi = std::max(kn[k], kn[k + 1]);
+      int c1 = k * PREFILTER_CHUNKS / n;
+      int c2 = std::min((k + 1) * PREFILTER_CHUNKS / n, PREFILTER_CHUNKS - 1);
+      for (int c = c1; c <= c2; ++c) {
+        chunk_lo[c] = std::min(chunk_lo[c], lo);
+        chunk_hi[c] = std::max(chunk_hi[c], hi);
+      }
+    }
   }
 
   /**
@@ -825,29 +846,133 @@ struct DistortedRing {
       azimuth += 2 * PI_F;
 
     float t_norm = wrap_t((azimuth + phase) / (2 * PI_F));
-    float slope = 0.0f;
-    float shift =
-        shift_slope_fn ? shift_slope_fn(t_norm, slope) : shift_fn(t_norm);
+
+    float dist;
+    if (knots)
+      dist = polyline_distance(t_norm, polar, d);
+    else
+      dist = std::abs(polar - (target_angle + shift_fn(t_norm)));
 
     if constexpr (!ComputeUVs)
       t_norm = 0.0f;
 
-    float local_target = target_angle + shift;
-    float dist = std::abs(polar - local_target);
-    if (slope != 0.0f) {
-      // Project onto the centerline tangent's normal: polar distance alone
-      // thins a steep segment's stroke by cos(slope angle). k converts the
-      // per-unit-t slope to polar radians per azimuth radian; sin2 is the
-      // azimuth-to-arc metric at this latitude. Slopes under ~6 degrees
-      // correct by < 0.5%; skip the sqrt/div there.
-      float k = slope * (1.0f / (2.0f * PI_F));
-      float k2 = k * k;
-      float sin2 = std::max(1.0f - d * d, 0.0f);
-      if (k2 > 0.01f * sin2)
-        dist *= sqrtf(sin2 / (sin2 + k2));
+    res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
+  }
+
+private:
+  static constexpr int MAX_SEARCH_CELLS = 64; /**< Outward search budget per side; only near-pole chart compression approaches it. */
+  static constexpr float POLE_SIN2_FLOOR = 1e-6f; /**< sin^2 floor keeping the chart's azimuth scale positive at the poles. */
+  static constexpr int PREFILTER_CHUNKS = 32; /**< Azimuth chunks in the knot-range prefilter. */
+
+  float chunk_lo[PREFILTER_CHUNKS]; /**< Min knot per azimuth chunk (knot mode). */
+  float chunk_hi[PREFILTER_CHUNKS]; /**< Max knot per azimuth chunk (knot mode). */
+
+  /**
+   * @brief Distance from a pixel to the knot polyline.
+   * @param t_norm Pixel azimuth in [0, 1) (phase applied).
+   * @param polar Pixel polar angle (radians).
+   * @param cos_polar Pixel dot ring axis (= cos(polar)).
+   * @return Geodesic distance to the nearest polyline point (radians), exact
+   *         within the local tangent chart for distances up to `thickness`;
+   *         beyond that reach only the > thickness ordering is preserved.
+   * @details Works in the chart (azimuth * sin(polar), polar) centered on the
+   * pixel: exact point-to-segment distances, searched outward from the
+   * pixel's own cell. A segment o cells away is at least (o - 1) * cell_u
+   * away, so the search stops once that gap exceeds the best distance found
+   * (or the stroke reach, past which alpha is zero regardless). True distance
+   * is 1-Lipschitz in screen position, so the stroke's alpha cannot ripple
+   * along the centerline the way slope-corrected vertical-distance estimates
+   * do at curvature extrema.
+   */
+  float polyline_distance(float t_norm, float polar, float cos_polar) const {
+    float sin_polar =
+        sqrtf(std::max(1.0f - cos_polar * cos_polar, POLE_SIN2_FLOOR));
+    const float base = target_angle - polar; // knot m sits at v = base + knots[m]
+
+    // Prefilter: when a chunk's arc exceeds the stroke reach, only the pixel's
+    // chunk and its neighbours can hold a within-reach curve point; a pixel
+    // whose polar offset clears all three knot ranges by more than thickness
+    // skips the segment search (most band pixels, in a displaced ring).
+    const float chunk_u = (2.0f * PI_F / PREFILTER_CHUNKS) * sin_polar;
+    if (chunk_u >= thickness) {
+      int c = static_cast<int>(t_norm * PREFILTER_CHUNKS);
+      if (c >= PREFILTER_CHUNKS)
+        c = PREFILTER_CHUNKS - 1;
+      int cl = c == 0 ? PREFILTER_CHUNKS - 1 : c - 1;
+      int cr = c == PREFILTER_CHUNKS - 1 ? 0 : c + 1;
+      float lo = std::min(chunk_lo[cl], std::min(chunk_lo[c], chunk_lo[cr]));
+      float hi = std::max(chunk_hi[cl], std::max(chunk_hi[c], chunk_hi[cr]));
+      float gap = std::max(base + lo, -(base + hi));
+      if (gap > thickness)
+        return gap;
     }
 
-    res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
+    float x = t_norm * lut_n;
+    int j = static_cast<int>(x);
+    if (j >= lut_n) // t_norm * lut_n can round up to lut_n at the seam
+      j = lut_n - 1;
+    float f = x - j;
+    const float cell_u = (2.0f * PI_F / lut_n) * sin_polar;
+    const float cell_u2 = cell_u * cell_u;
+
+    // Chart v of knot m relative to the pixel (pixel at the origin).
+    auto knot_v = [&](int m) {
+      if (m >= lut_n)
+        m -= lut_n;
+      else if (m < 0)
+        m += lut_n;
+      return base + knots[m];
+    };
+    // Perpendicular foot on the segment rising cell_u wide from (u0, v0) to
+    // v1; contributes only when the foot lands inside the segment, so the
+    // division is paid roughly once per pixel.
+    auto interior_d2 = [&](float u0, float v0, float v1, float &best2) {
+      float dv = v1 - v0;
+      float numer = -(u0 * cell_u + v0 * dv);
+      float len2 = cell_u2 + dv * dv;
+      if (numer > 0.0f && numer < len2) {
+        float cross = u0 * dv - v0 * cell_u;
+        best2 = std::min(best2, cross * cross / len2);
+      }
+    };
+
+    // Straddling cell first, then knot-by-knot outward on each arm; endpoint
+    // distances are shared between adjacent segments so each step loads one
+    // new knot.
+    float ul = -f * cell_u; // arm frontiers: knots j (left), j + 1 (right)
+    float ur = (1.0f - f) * cell_u;
+    float vl = knot_v(j);
+    float vr = knot_v(j + 1);
+    float best2 = std::min(ul * ul + vl * vl, ur * ur + vr * vr);
+    interior_d2(ul, vl, vr, best2);
+
+    float bound2 = std::min(best2, thickness * thickness);
+    const int max_o = std::min(MAX_SEARCH_CELLS, lut_n / 2 + 1);
+    for (int o = 1; o <= max_o; ++o) {
+      // A segment past a frontier knot can't beat that knot's |u|.
+      bool right = ur * ur < bound2;
+      bool left = ul * ul < bound2;
+      if (!right && !left)
+        break;
+      if (right) {
+        float un = ur + cell_u;
+        float vn = knot_v(j + o + 1);
+        best2 = std::min(best2, un * un + vn * vn);
+        interior_d2(ur, vr, vn, best2);
+        ur = un;
+        vr = vn;
+      }
+      if (left) {
+        float un = ul - cell_u;
+        float vn = knot_v(j - o);
+        best2 = std::min(best2, un * un + vn * vn);
+        interior_d2(un, vn, vl, best2);
+        ul = un;
+        vl = vn;
+      }
+      bound2 = std::min(bound2, best2);
+    }
+    return sqrtf(best2);
   }
 };
 
