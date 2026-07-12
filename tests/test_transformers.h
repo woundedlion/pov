@@ -19,8 +19,9 @@
  *                               applies and multiple entities compose; a recycled
  *                               freed slot composes in spawn order, not slot order.
  *   - FieldTransformer<>      : no active entities → 0; spawned entities sum;
- *                               field_bound sums the per-entity bounds; a
- *                               completed entity's slot is reclaimed.
+ *                               field_bound sums the per-entity bounds; the
+ *                               subset field_dominant matches the full blend;
+ *                               a completed entity's slot is reclaimed.
  *   - bump_field              : drape push away from the cap center along the
  *                               polar direction — zero for the ring through the
  *                               center and at the footprint edge, peaking
@@ -762,6 +763,31 @@ inline void test_field_transformer_field_dominant_mixed_sign() {
 }
 
 /**
+ * @brief Verifies active_params exposes spawned entities in spawn order and
+ *        the subset field_dominant matches the full blend when the subset
+ *        holds every contributing entity, drops excluded contributions, and
+ *        is 0 when empty.
+ */
+inline void test_field_transformer_field_dominant_subset() {
+  Timeline tl;
+  global_timeline_t = 0;
+  TestFieldTransformer ft(tl);
+  ft.init_storage(persistent_arena);
+
+  HS_EXPECT_TRUE(ft.spawn(0, 2.0f, 100) != nullptr);
+  HS_EXPECT_TRUE(ft.spawn(0, -3.0f, 100) != nullptr);
+  HS_EXPECT_NEAR(ft.active_params(0).value, 2.0f, 1e-6f);
+  HS_EXPECT_NEAR(ft.active_params(1).value, -3.0f, 1e-6f);
+
+  Vector p(1, 0, 0);
+  const int both[] = {0, 1};
+  HS_EXPECT_NEAR(ft.field_dominant(p, both, 2), ft.field_dominant(p), 1e-5f);
+  const int first[] = {0};
+  HS_EXPECT_NEAR(ft.field_dominant(p, first, 1), 2.0f, 1e-5f);
+  HS_EXPECT_NEAR(ft.field_dominant(p, nullptr, 0), 0.0f, 1e-6f);
+}
+
+/**
  * @brief Verifies a completed field entity's pool slot is reclaimed and a
  *        fresh spawn reuses it.
  * @details The pool has CAPACITY 2; both slots are filled (one short-lived),
@@ -1043,6 +1069,7 @@ inline int run_transformers_tests() {
   test_field_transformer_sums_and_bounds();
   test_field_transformer_field_dominant();
   test_field_transformer_field_dominant_mixed_sign();
+  test_field_transformer_field_dominant_subset();
   test_field_transformer_slot_reclaimed();
   test_field_transformer_storage_survives_arena_rewind();
   test_bump_field_drapes_over_ball();
