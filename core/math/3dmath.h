@@ -1088,6 +1088,25 @@ inline Quaternion make_rotation(const Vector &axis, float theta) {
 }
 
 /**
+ * @brief Draws a rotation quaternion uniformly at random over SO(3).
+ * @return A unit quaternion sampled with no orientation bias (Shoemake's
+ * subgroup method over three hs::rand_f() draws).
+ * @details Advances the global RNG three times, so the draw jitters frame to
+ * frame like any hs::rand_f() consumer; seed the generator for reproducibility.
+ */
+inline Quaternion random_rotation() {
+  float u1 = hs::rand_f();
+  float u2 = hs::rand_f();
+  float u3 = hs::rand_f();
+  float s1 = sqrtf(1.0f - u1);
+  float s2 = sqrtf(u1);
+  float t2 = 2.0f * PI_F * u2;
+  float t3 = 2.0f * PI_F * u3;
+  return Quaternion(s2 * cosf(t3), s1 * sinf(t2), s1 * cosf(t2), s2 * sinf(t3))
+      .normalized();
+}
+
+/**
  * @brief Returns the canonical body axis least parallel to @p v.
  * @param v Vector to find a well-conditioned reference axis for.
  * @return +X unless @p v is near-parallel to it, in which case +Y.
