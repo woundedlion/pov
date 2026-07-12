@@ -17,9 +17,10 @@ struct DistortedRingWhiteBox;
  * @brief Concentric rings warped by an animated sinusoidal radial displacement.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Rings are drawn in ring-space and warped by a sinusoidal radial
- * displacement whose amplitude is animated. Orientation random-walks over time
- * and each ring is shaded from a circular split-complementary palette, viewed
+ * @details Rings are drawn in ring-space and warped by a sum of sine waves
+ * with different frequencies, each with its own drifting azimuth phase and
+ * independently animated amplitude. Orientation random-walks over time and
+ * each ring is shaded from a circular split-complementary palette, viewed
  * through a GUI-selectable palette-modifier composition.
  */
 template <int W, int H> class DistortedRing : public Effect {
@@ -37,8 +38,8 @@ public:
 
   /**
    * @brief Registers params and builds the timeline.
-   * @details Adds the ring sprite, orientation random walk, and amplitude
-   * mutation animations to the timeline.
+   * @details Adds the ring sprite, orientation random walk, and one amplitude
+   * mutation per distortion wave to the timeline.
    */
   void init() override {
     // One pixel of azimuth in ring-space.
@@ -74,13 +75,16 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, normal, noise));
 
-    timeline.add(0, Animation::Mutation(
-                        amplitude,
-                        [this](float t) {
-                          return sin_wave(-params.max_amplitude,
-                                          params.max_amplitude, 1.0f, 0.0f)(t);
-                        },
-                        32, ease_linear, true));
+    for (int i = 0; i < NUM_WAVES; ++i) {
+      timeline.add(0, Animation::Mutation(
+                          wave_amp[i],
+                          [this, i](float t) {
+                            return sin_wave(-params.max_amplitude,
+                                            params.max_amplitude, 1.0f,
+                                            WAVES[i].env_phase)(t);
+                          },
+                          WAVES[i].env_frames, ease_linear, true));
+    }
   }
 
   /**
@@ -88,6 +92,8 @@ public:
    */
   void draw_frame() override {
     step_mod_drivers();
+    for (int i = 0; i < NUM_WAVES; ++i)
+      wave_phase[i] = wrap_t(wave_phase[i] + WAVES[i].drift);
     Canvas canvas(*this);
     timeline.step(canvas);
   }
@@ -97,15 +103,32 @@ public:
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite's animated fade in [0, 1], multiplied into each
    * fragment's alpha.
-   * @details Ring radii are evenly spaced and the displacement wave amplitude
-   * tracks the animated `amplitude` field.
+   * @details Ring radii are evenly spaced and the displacement is the sum of
+   * the WAVES table's sines, baked into shift_lut once per frame and sampled
+   * by azimuth with linear interpolation.
    */
   void draw_fn(Canvas &canvas, float opacity) {
     int n_rings = static_cast<int>(params.num_rings);
 
+    for (int x = 0; x <= W; ++x) {
+      float t = static_cast<float>(x) / W;
+      float s = 0.0f;
+      for (int i = 0; i < NUM_WAVES; ++i)
+        s += wave_amp[i] * WAVES[i].weight *
+             sinf(2.0f * PI_F * (WAVES[i].freq * t + wave_phase[i]));
+      shift_lut[x] = s;
+    }
+
     auto shift_fn = [this](float t) {
-      return sin_wave(-amplitude, amplitude, 4.0f, 0.0f)(t);
+      float x = wrap_t(t) * W;
+      int i = static_cast<int>(x);
+      return shift_lut[i] + (x - i) * (shift_lut[i + 1] - shift_lut[i]);
     };
+
+    // True upper bound on |shift_fn|: an underestimate silently culls arcs.
+    float max_shift = 0.0f;
+    for (int i = 0; i < NUM_WAVES; ++i)
+      max_shift += std::abs(wave_amp[i]) * WAVES[i].weight;
 
     Basis basis = make_basis(orientation.get(), normal);
     for (int i = 0; i < n_rings; ++i) {
@@ -123,7 +146,7 @@ public:
 
       Scan::DistortedRing::draw<W, H>(
           filters, canvas, basis, radius, params.thickness, shift_fn,
-          std::abs(amplitude), fragment_shader, 0.0f, params.debug_bb);
+          max_shift, fragment_shader, 0.0f, params.debug_bb);
     }
   }
 
@@ -191,7 +214,26 @@ private:
     bool debug_bb = false;      /**< When true, draws each fragment's bounding box for debugging. */
   } params;
 
-  float amplitude = 0;
+  /** @brief One component of the radial displacement sum. */
+  struct Wave {
+    float freq;      /**< Cycles around the ring; integer keeps the wrap seamless. */
+    float weight;    /**< Share of MaxAmplitude; weights sum to 1 so the sum's bound holds. */
+    float drift;     /**< Azimuth phase advance per frame (cycles). */
+    float env_phase; /**< Amplitude-envelope start offset (cycles). */
+    int env_frames;  /**< Amplitude-envelope period (frames). */
+  };
+
+  static constexpr Wave WAVES[] = {
+      {3.0f, 0.5f, 0.008f, 0.0f, 32},
+      {5.0f, 0.3f, -0.013f, 0.33f, 44},
+      {7.0f, 0.2f, 0.021f, 0.67f, 60},
+  };
+  static constexpr int NUM_WAVES =
+      static_cast<int>(sizeof(WAVES) / sizeof(WAVES[0]));
+
+  float wave_amp[NUM_WAVES] = {};   /**< Animated amplitude per wave (radians). */
+  float wave_phase[NUM_WAVES] = {}; /**< Azimuth phase per wave (cycles, [0,1)). */
+  float shift_lut[W + 1] = {};      /**< Per-frame displacement sum at pixel resolution; entry W repeats entry 0 for seamless lerp. */
 
   GenerativePalette ring_palette;
   BakedPalette ring_baked;
