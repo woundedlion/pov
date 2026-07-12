@@ -58,9 +58,10 @@ constexpr int DEVICE_H = 20;
 
 /**
  * @brief Default per-effect smoke frame count.
- * @details Kept small so the effects smoke pass itself stays quick. (The full
- * pre-commit suite still runs ~25 s, dominated by the death-test subprocess
- * spawns and the multi-board sync simulator, not these smoke frames.) Set
+ * @details Kept small so the effects smoke pass itself stays quick. Frame count
+ * is a minor lever here: the module's cost is dominated by full-resolution
+ * software raster (~71 ms/frame at 288x144 x 27 effects), which the QUICK tier
+ * skips entirely (see effects_full_suite()). Set
  * HS_SMOKE_FRAMES=<n> to drive long, cyclic code paths (effect morph cycles,
  * particle/trail wraps, arena compaction, and the effect-lifecycle transitions
  * — RingShower slot reuse, Thrusters fire/FIFO expiry, ShapeShifter's 48-frame
@@ -84,6 +85,31 @@ inline int smoke_frames() {
     if (n > 0) return n;
   }
   return DEFAULT_FRAMES;
+}
+
+/**
+ * @brief Selects the effects test depth tier from the environment.
+ * @return true for the FULL suite (white-box correctness block + the
+ * production-resolution 288x144 roster passes), false for the QUICK tier.
+ * @details The full suite renders all 27 effects at the 288x144 production
+ * resolution across a smoke pass, a determinism pass, and several full-frame
+ * white-box tests — ~40 s, dominated by the ~71 ms/frame software raster of
+ * 41,472-pixel frames (27 effects x N frames, back to back). The QUICK tier
+ * (default) runs only the device-resolution <96,20> smoke + determinism passes,
+ * ~1,920-pixel frames that cover every effect's construct/init/render/read-back
+ * and cross-run determinism in ~2 s — the fast path for the local pre-commit
+ * hook. CI opts into the full suite on every push/PR by setting HS_EFFECTS_FULL=1
+ * (.github/workflows/ci.yml), so the full-resolution passes and the white-box
+ * correctness block are the authoritative gate there, not locally. Set
+ * HS_EFFECTS_FULL=1 to reproduce the CI depth in a local commit.
+ */
+inline bool effects_full_suite() {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+  if (const char *e = std::getenv("HS_EFFECTS_FULL"))
+#pragma clang diagnostic pop
+    return std::atoi(e) != 0;
+  return false;
 }
 
 /**
@@ -1908,56 +1934,65 @@ inline int run_effects_tests() {
   HS_EXPECT_EQ(EffectRegistry::entries().size(),
                static_cast<size_t>(HS_EFFECT_COUNT));
 
-  test_needs_full_frame_gate();
-  test_voronoi_coherence_equivalence();
-  test_sh_decode_lm_valid_order();
-  test_gs_q16_roundtrip();
-  test_gs_rest_state_is_fixed_point();
-  test_gs_substep_signs_and_clamp();
-  test_gs_evolution_stays_bounded();
-  test_bz_q8_roundtrip();
-  test_bz_advance_species_signs_and_clamp();
-  test_bz_perturb_state_saturates_and_nudges();
-  test_bz_perturb_state_draw_count_pinned();
-  test_bz_substep_diffuses();
-  test_bz_odd_substep_lands_in_state();
-  test_dreamballs_preset_cycle_bookkeeping();
-  test_dreamballs_respawn_fires_and_honors_pause();
-  CometsWhiteBox::check_paths_close();
-  ThrustersWhiteBox::check_warp_endpoints();
-  RingShowerWhiteBox::check_radius_endpoints();
-  DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
-  test_hopf_projection_math();
-  test_petalflow_spawn_gap_bounded();
-  test_distorted_ring_palette_mod_selection();
-  test_mindsplatter_emit_phase_wrapped();
-  test_flyby_phase_wrapped();
-  test_liquid2d_phase_wrapped();
-  test_liquid2d_glitch_lens_unit_norm();
-  test_mobiusgrid_conformal_and_counter_rotation();
-  test_flowfield_time_and_pool_bounded();
-  test_ringspin_pool_clamped();
-  test_shapeshifter_shape_cut_lifecycle();
-  test_shapeshifter_max_radius_survives_cycle();
-  test_hankinsolids_arena_budget_covers_every_solid();
+  // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
+  // correctness block and the 288x144 production-resolution roster passes below
+  // are the ~40 s bulk of this module — dominated by full-frame software raster
+  // (see effects_full_suite()). The QUICK tier (default, local pre-commit) skips
+  // straight to the ~2 s device-resolution passes, which already cover every
+  // effect's construct/init/render/read-back and cross-run determinism. So a
+  // green local commit is NOT authoritative for the full-resolution paths or the
+  // white-box invariants — CI is (same split as HS_SMOKE_FRAMES's cyclic-window
+  // coverage; see the pre-commit hook header).
+  if (effects_full_suite()) {
+    test_needs_full_frame_gate();
+    test_voronoi_coherence_equivalence();
+    test_sh_decode_lm_valid_order();
+    test_gs_q16_roundtrip();
+    test_gs_rest_state_is_fixed_point();
+    test_gs_substep_signs_and_clamp();
+    test_gs_evolution_stays_bounded();
+    test_bz_q8_roundtrip();
+    test_bz_advance_species_signs_and_clamp();
+    test_bz_perturb_state_saturates_and_nudges();
+    test_bz_perturb_state_draw_count_pinned();
+    test_bz_substep_diffuses();
+    test_bz_odd_substep_lands_in_state();
+    test_dreamballs_preset_cycle_bookkeeping();
+    test_dreamballs_respawn_fires_and_honors_pause();
+    CometsWhiteBox::check_paths_close();
+    ThrustersWhiteBox::check_warp_endpoints();
+    RingShowerWhiteBox::check_radius_endpoints();
+    DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
+    test_hopf_projection_math();
+    test_petalflow_spawn_gap_bounded();
+    test_distorted_ring_palette_mod_selection();
+    test_mindsplatter_emit_phase_wrapped();
+    test_flyby_phase_wrapped();
+    test_liquid2d_phase_wrapped();
+    test_liquid2d_glitch_lens_unit_norm();
+    test_mobiusgrid_conformal_and_counter_rotation();
+    test_flowfield_time_and_pool_bounded();
+    test_ringspin_pool_clamped();
+    test_shapeshifter_shape_cut_lifecycle();
+    test_shapeshifter_max_radius_survives_cycle();
+    test_hankinsolids_arena_budget_covers_every_solid();
 
-  // Smoke every registered effect. The list is generated from the single-source
-  // roster in core/engine/effects.h (HS_EFFECT_LIST), so it cannot drift from the
-  // shipped set.
-  g_nonblack_effects = 0;
+    // Full production-resolution roster passes (288x144): smoke, then cross-run
+    // determinism under the injected clock.
+    g_nonblack_effects = 0;
 #define HS_SMOKE_ONE(name) smoke_one<name>(#name);
-  HS_EFFECT_LIST(HS_SMOKE_ONE)
+    HS_EFFECT_LIST(HS_SMOKE_ONE)
 #undef HS_SMOKE_ONE
-  // At least one effect must light up, catching a total regression-to-black.
-  HS_EXPECT_GT(g_nonblack_effects, 0);
-
-  // Second pass: cross-run determinism under the injected clock.
+    // At least one effect must light up, catching a total regression-to-black.
+    HS_EXPECT_GT(g_nonblack_effects, 0);
 #define HS_DET_ONE(name) determinism_one<name>(#name);
-  HS_EFFECT_LIST(HS_DET_ONE)
+    HS_EFFECT_LIST(HS_DET_ONE)
 #undef HS_DET_ONE
+  }
 
-  // Repeat both passes at the Holosphere device resolution <96,20>, the only
-  // place that specialization runs under native asserts (see DEVICE_W/DEVICE_H).
+  // Device-resolution <96,20> roster passes — always run; this is the QUICK
+  // tier's core and the only place that specialization runs under native asserts
+  // (see DEVICE_W/DEVICE_H).
   std::printf("  -- device resolution %dx%d --\n", DEVICE_W, DEVICE_H);
   g_nonblack_effects = 0;
 #define HS_SMOKE_ONE_DEV(name) smoke_one<name, DEVICE_W, DEVICE_H>(#name);
