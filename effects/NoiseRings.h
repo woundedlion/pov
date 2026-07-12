@@ -76,18 +76,21 @@ public:
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite's animated fade in [0, 1], multiplied into each
    * fragment's alpha.
-   * @details Per ring, the two-octave displacement product is baked once per
-   * azimuth column into shift_lut (sampled in the antipode work frame so the field
-   * tracks the plotted vertices), then read by both the geometry shift and the
-   * per-fragment hue rotation. The LUT resolution is adaptive: enough samples for
-   * the finer octave along the ring's actual circumference, so small rings and low
-   * scales bake far fewer noise columns. Under a partial clip (segmented drivers),
-   * rings whose displaced band cannot touch the clip are skipped whole — they
-   * could contribute no fragment, so the skip is output-identical.
-   * get_antipode mirrors the polar frame past the equator (radius > 1); hemi_sign
-   * negates the far-side shift so a noise crest displaces every ring the same
-   * world direction along the stack axis. The fragment hue is rotated by the
-   * local |displacement| scaled by Hue Rotate.
+   * @details Per ring, the two-octave displacement product is baked per azimuth
+   * column into shift_lut (sampled in the antipode work frame so the field
+   * tracks the plotted vertices) together with the hue-rotated ring color in
+   * hue_lut, so fragments lerp a precomputed color instead of building a hue
+   * rotation each. The LUT resolution is adaptive: enough samples for the finer
+   * octave along the ring's actual circumference. Under a partial clip
+   * (segmented drivers), rings whose displaced band cannot touch the clip are
+   * skipped whole, and surviving rings are cut into CULL_CHUNKS azimuth chunks
+   * whose bounding caps gate both the bake and the vertex sampling — invisible
+   * chunks bake nothing and emit nothing, and visible runs draw as open arcs
+   * whose vertices are bit-identical to the closed ring's, so clipped output
+   * matches full-frame output exactly. get_antipode mirrors the polar frame
+   * past the equator (radius > 1); hemi_sign negates the far-side shift so a
+   * noise crest displaces every ring the same world direction along the stack
+   * axis.
    */
   void draw_fn(Canvas &canvas, float opacity) {
     int n_rings = static_cast<int>(params.num_rings);
@@ -95,6 +98,7 @@ public:
     const bool try_cull = !clip().is_full();
     // World-angle pad absorbing stroke width + AA splat past the clip's margin.
     const float pad = 3.0f * PI_F / H;
+    const float reach = params.amplitude + pad;
     const float max_scale = std::max(params.scale1, params.scale2);
 
     for (int i = 0; i < n_rings; ++i) {
@@ -102,8 +106,7 @@ public:
       auto res = get_antipode(basis, radius);
       Basis work = res.first;
       float theta_eq = res.second * (PI_F / 2.0f);
-      if (try_cull &&
-          !ring_may_touch_clip(work.v, theta_eq, params.amplitude + pad))
+      if (try_cull && !may_touch_clip(work.v, theta_eq + reach))
         continue;
       float cos_eq = cosf(theta_eq);
       float sin_eq = sinf(theta_eq);
@@ -115,7 +118,11 @@ public:
           static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f * PI_F *
                                  max_scale * sin_eq)),
           LUT_MIN_SAMPLES, W);
-      for (int x = 0; x < lut_n; ++x) {
+
+      Color4 ring_color =
+          ring_baked.get(wrap_t((i + 0.5f) / n_rings + color_spin));
+
+      auto bake_col = [&](int x) {
         float angle = 2.0f * PI_F * x / lut_n;
         Vector p = (work.v * cos_eq) +
                    ((work.u * cosf(angle)) + (work.w * sinf(angle))) * sin_eq;
@@ -124,9 +131,11 @@ public:
         float n2 = field_noise.GetNoise(p.x * params.scale2 + OCTAVE2_OFFSET,
                                         p.y * params.scale2,
                                         p.z * params.scale2 + field_time);
-        shift_lut[x] = params.amplitude * hemi_sign * n1 * n2;
-      }
-      shift_lut[lut_n] = shift_lut[0];
+        float s = params.amplitude * hemi_sign * n1 * n2;
+        shift_lut[x] = s;
+        hue_lut[x] =
+            hue_rotate(ring_color, std::fabs(s) * params.hue_scale).color;
+      };
 
       auto sample_lut = [this, lut_n](float t) {
         float x = wrap_t(t) * lut_n;
@@ -134,40 +143,90 @@ public:
         return shift_lut[j] + (x - j) * (shift_lut[j + 1] - shift_lut[j]);
       };
 
-      Color4 ring_color =
-          ring_baked.get(wrap_t((i + 0.5f) / n_rings + color_spin));
+      float frag_alpha = ring_color.alpha * opacity * params.alpha;
       auto fragment_shader = [&](const Vector &, Fragment &f) {
-        f.color = hue_rotate(ring_color,
-                             std::abs(sample_lut(f.v0)) * params.hue_scale);
-        f.color.alpha *= opacity * params.alpha;
+        float x = wrap_t(f.v0) * lut_n;
+        int j = static_cast<int>(x);
+        f.color = Color4(hue_lut[j].lerp16(hue_lut[j + 1], frac_to_q16(x - j)),
+                         frag_alpha);
       };
 
-      Plot::DistortedRing::draw<W, H>(filters, canvas, basis, radius, sample_lut,
-                                      fragment_shader);
+      uint32_t vis = CHUNK_FULL_MASK;
+      if (try_cull) {
+        vis = 0;
+        float chunk_reach = (PI_F / CULL_CHUNKS) * sin_eq + reach;
+        for (int c = 0; c < CULL_CHUNKS; ++c) {
+          float a = (c + 0.5f) * (2.0f * PI_F / CULL_CHUNKS);
+          Vector mid = (work.v * cos_eq) +
+                       ((work.u * cosf(a)) + (work.w * sinf(a))) * sin_eq;
+          if (may_touch_clip(mid, chunk_reach))
+            vis |= 1u << c;
+        }
+        if (vis == 0)
+          continue;
+      }
+
+      if (vis == CHUNK_FULL_MASK) {
+        for (int x = 0; x < lut_n; ++x)
+          bake_col(x);
+        shift_lut[lut_n] = shift_lut[0];
+        hue_lut[lut_n] = hue_lut[0];
+        Plot::DistortedRing::draw<W, H>(filters, canvas, basis, radius,
+                                        sample_lut, fragment_shader);
+        continue;
+      }
+
+      // Walk visible chunk runs in ascending order — the same segment order
+      // the closed draw rasterizes, which alpha blending's order dependence
+      // requires wherever the ring's own taps overlap. A run touching chunk 23
+      // simply ends at vertex W, so no arc crosses the seam.
+      constexpr int V = W / CULL_CHUNKS;
+      int c = 0;
+      while (c < CULL_CHUNKS) {
+        while (c < CULL_CHUNKS && !(vis & (1u << c)))
+          ++c;
+        if (c == CULL_CHUNKS)
+          break;
+        int c0 = c;
+        while (c < CULL_CHUNKS && (vis & (1u << c)))
+          ++c;
+        int i0 = c0 * V;
+        int i1 = c * V;
+        int lo = static_cast<int>(floorf(static_cast<float>(i0) * lut_n / W));
+        int hi =
+            static_cast<int>(ceilf(static_cast<float>(i1) * lut_n / W)) + 1;
+        for (int m = lo; m <= hi; ++m)
+          bake_col(m % lut_n);
+        shift_lut[lut_n] = shift_lut[0];
+        hue_lut[lut_n] = hue_lut[0];
+        Plot::DistortedRing::draw_arc<W, H>(filters, canvas, basis, radius,
+                                            sample_lut, fragment_shader, i0,
+                                            i1);
+      }
     }
   }
 
 private:
   /**
-   * @brief Conservative test: can the displaced ring reach the current clip?
-   * @param axis Ring axis in the antipode work frame (unit vector).
-   * @param theta_eq Ring colatitude about @p axis (radians).
-   * @param delta Displacement bound plus stroke/AA pad (radians).
-   * @return False only when no fragment of the ring can land inside the clip's
+   * @brief Conservative test: can a spherical cap reach the current clip?
+   * @param dir Cap center direction (unit vector). A displaced ring passes its
+   * work-frame axis with half_angle = colatitude + displacement bound (the cap
+   * of that radius contains the ring's band); a ring chunk passes its midpoint
+   * with half_angle = chunk half-arc + displacement bound.
+   * @param half_angle Cap angular radius including stroke/AA pad (radians).
+   * @return False only when no fragment inside the cap can land in the clip's
    * render region; true is always safe.
-   * @details The displaced ring lies in the band theta_eq ± delta around the
-   * axis. Rows: the band's polar range about the display's Y axis is
-   * [beta - t2, beta + t2] (beta = axis colatitude). Columns: a band that
+   * @details Rows: the cap's polar range about the display's Y axis is
+   * [beta - t2, beta + t2] (beta = center colatitude). Columns: a cap that
    * reaches either display pole spans all longitudes; otherwise its longitude
-   * half-width about the axis longitude is asin(sin t2 / sin beta) (spherical
-   * cap extent), compared against the clip's column wedge with the clip margin
-   * plus one pixel of slack.
+   * half-width about the center longitude is asin(sin t2 / sin beta), compared
+   * against the clip's column wedge with the clip margin plus one pixel of
+   * slack.
    */
-  bool ring_may_touch_clip(const Vector &axis, float theta_eq,
-                           float delta) const {
+  bool may_touch_clip(const Vector &dir, float half_angle) const {
     const ClipRegion &cr = clip();
-    float t2 = std::min(theta_eq + delta, PI_F);
-    float beta = acosf(hs::clamp(axis.y, -1.0f, 1.0f));
+    float t2 = std::min(half_angle, PI_F);
+    float beta = acosf(hs::clamp(dir.y, -1.0f, 1.0f));
 
     float phi_lo = std::max(beta - t2, 0.0f);
     float phi_hi = std::min(beta + t2, PI_F);
@@ -180,7 +239,7 @@ private:
     if (beta <= t2 || PI_F - beta <= t2)
       return true;
     float dlam = asinf(hs::clamp(sinf(t2) / sinf(beta), 0.0f, 1.0f));
-    float lam_v = atan2f(axis.z, axis.x);
+    float lam_v = atan2f(dir.z, dir.x);
     float width_px = static_cast<float>(cr.x_end - cr.x_start);
     float half_w =
         (width_px * 0.5f + cr.margin + 1.0f) * (2.0f * PI_F) / cr.w;
@@ -204,10 +263,15 @@ private:
   static constexpr float OCTAVE2_OFFSET = 50.0f;    /**< Spatial offset decorrelating octave 2 from octave 1 at equal scales. */
   static constexpr float LUT_SAMPLES_PER_UNIT = 4.0f; /**< Bake columns per noise-space unit of ring circumference. */
   static constexpr int LUT_MIN_SAMPLES = 16;          /**< Bake-column floor for tiny/low-scale rings. */
+  static constexpr int CULL_CHUNKS = 24; /**< Azimuth chunks per ring for clip culling; must divide W. */
+  static constexpr uint32_t CHUNK_FULL_MASK = (1u << CULL_CHUNKS) - 1;
+  static_assert(W % CULL_CHUNKS == 0,
+                "chunk-to-vertex mapping requires W divisible by CULL_CHUNKS");
 
   float field_time = 0.0f; /**< Noise-field time offset, advanced by Flow Speed each frame. */
   float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
-  float shift_lut[W + 1] = {}; /**< Per-ring displacement at azimuth resolution; entry W repeats entry 0 for seamless lerp. */
+  float shift_lut[W + 1] = {}; /**< Per-ring displacement per bake column; entry lut_n repeats entry 0 for seamless lerp. */
+  Pixel hue_lut[W + 1] = {};   /**< Hue-rotated ring color per bake column, aligned with shift_lut. */
 
   /**
    * @brief Slider-backed parameters.
