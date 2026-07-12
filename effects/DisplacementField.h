@@ -58,7 +58,6 @@ public:
   void init() override {
     ring_baked.bake(persistent_arena, palette);
     shift_lut = persistent_arena.allocate_n<float>(W + 1);
-    slope_lut = persistent_arena.allocate_n<float>(W + 1);
     hue_lut = persistent_arena.allocate_n<Pixel>(W + 1);
     solid_colat = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_reach = persistent_arena.allocate_n<float>(SOLID_MAX);
@@ -220,9 +219,9 @@ private:
    * coincide. The LUT resolution is adaptive: enough samples for the finest
    * active feature along the ring's actual circumference. Rings rasterize as
    * soft SDF strokes (Scan::DistortedRing) with a quintic cross-section falloff
-   * and slope-compensated width, so steeply displaced segments keep full
-   * thickness; under a partial clip, rings whose displaced band cannot touch the
-   * clip are skipped whole.
+   * against the exact distance to the baked knot polyline, so steeply displaced
+   * or sharply curved segments keep full thickness; under a partial clip, rings
+   * whose displaced band cannot touch the clip are skipped whole.
    */
   template <typename Pool>
   void draw_rings(Canvas &canvas, float opacity, const Pool &pool,
@@ -283,7 +282,6 @@ private:
         Pixel flat = hue_rotate(hue_base, 0.0f).color;
         for (int x = 0; x <= lut_n; ++x) {
           shift_lut[x] = 0.0f;
-          slope_lut[x] = 0.0f;
           hue_lut[x] = flat;
         }
       } else {
@@ -304,12 +302,14 @@ private:
         // arc widened by the displaced band) contains every pixel whose
         // ring-frame azimuth falls in the chunk, so a chunk whose cap misses
         // the clip is never sampled and its columns skip the field/hue bake.
-        // Visibility is padded two chunks per side: one for the position lerp,
-        // one more so the central-difference slope LUT reads valid neighbours.
+        // Visibility is padded by the polyline search's reach: a visible
+        // pixel reads knots up to `thickness` of arc to each side, and the
+        // band's pixels can sit closer to a pole than the ring itself, where
+        // that arc spans more chunks; +1 chunk covers the hue lerp.
         uint32_t visible = CHUNK_MASK;
         if (try_cull) {
-          const float chunk_reach = (PI_F / BAKE_CHUNKS) * sin_t + band +
-                                    noise_bound + params.thickness + pad;
+          const float band_r = band + noise_bound + params.thickness + pad;
+          const float chunk_reach = (PI_F / BAKE_CHUNKS) * sin_t + band_r;
           uint32_t raw = 0u;
           for (int c = 0; c < BAKE_CHUNKS; ++c) {
             float a = (2.0f * c + 1.0f) * (PI_F / BAKE_CHUNKS);
@@ -320,10 +320,24 @@ private:
           }
           if (!raw)
             continue;
-          visible = (raw | (raw << 1) | (raw >> 1) | (raw << 2) | (raw >> 2) |
-                     (raw >> (BAKE_CHUNKS - 1)) | (raw << (BAKE_CHUNKS - 1)) |
-                     (raw >> (BAKE_CHUNKS - 2)) | (raw << (BAKE_CHUNKS - 2))) &
-                    CHUNK_MASK;
+          const float th_lo = theta - band_r;
+          const float th_hi = theta + band_r;
+          int pad_chunks = BAKE_CHUNKS;
+          if (th_lo > 0.0f && th_hi < PI_F) {
+            float sin_lo = std::min(sinf(th_lo), sinf(th_hi));
+            pad_chunks = 1 + static_cast<int>(ceilf(
+                             params.thickness * BAKE_CHUNKS /
+                             (2.0f * PI_F * sin_lo)));
+          }
+          if (2 * pad_chunks >= BAKE_CHUNKS) {
+            visible = CHUNK_MASK;
+          } else {
+            visible = raw;
+            for (int k = 1; k <= pad_chunks; ++k)
+              visible |= (raw << k) | (raw >> (BAKE_CHUNKS - k)) |
+                         (raw >> k) | (raw << (BAKE_CHUNKS - k));
+            visible &= CHUNK_MASK;
+          }
         }
 
         // Angle-addition recurrence advancing the tangent (cos, sin) by one
@@ -336,9 +350,9 @@ private:
         float cos_a = 1.0f;
         float sin_a = 0.0f;
 
-        // ring_bound: true max |shift| over this ring's LUT (lerp never
-        // exceeds it); the global field bound would widen every ring's scan
-        // band to the sum of all active bodies.
+        // ring_bound: true max |shift| over this ring's LUT (the polyline
+        // never exceeds its knots); the global field bound would widen every
+        // ring's scan band to the sum of all active bodies.
         int x = 0;
         for (int c = 0; c < BAKE_CHUNKS; ++c) {
           const int x_end =
@@ -367,28 +381,7 @@ private:
         }
         shift_lut[lut_n] = shift_lut[0];
         hue_lut[lut_n] = hue_lut[0];
-
-        // Central-difference knot slopes, baked once so the per-pixel path
-        // lerps a smooth d(shift)/dt instead of the piecewise-constant secant,
-        // whose per-cell steps stair-cased the compensated stroke on humps.
-        for (int k = 0; k < lut_n; ++k) {
-          int km = k > 0 ? k - 1 : lut_n - 1;
-          slope_lut[k] = 0.5f * (shift_lut[k + 1] - shift_lut[km]) * lut_n;
-        }
-        slope_lut[lut_n] = slope_lut[0];
       }
-
-      // Quintic-remapped fractions keep the reconstruction smooth across LUT
-      // knots and never exceed the knot values, so ring_bound stays a true max.
-      // The slope out-param lerps the baked knot slopes so the rasterizer's
-      // stroke compensation varies continuously across cells.
-      auto sample_lut = [this, lut_n](float t, float &slope) {
-        float x = wrap_t(t) * lut_n;
-        int j = static_cast<int>(x);
-        float f = x - j;
-        slope = slope_lut[j] + f * (slope_lut[j + 1] - slope_lut[j]);
-        return shift_lut[j] + quintic_kernel(f) * (shift_lut[j + 1] - shift_lut[j]);
-      };
 
       float frag_alpha = ring_color.alpha * opacity * params.alpha;
       auto fragment_shader = [&](const Vector &, Fragment &f) {
@@ -402,8 +395,8 @@ private:
       };
 
       Scan::DistortedRing::draw<W, H>(filters, canvas, basis, radius,
-                                      params.thickness, sample_lut, ring_bound,
-                                      fragment_shader);
+                                      params.thickness, shift_lut, lut_n,
+                                      ring_bound, fragment_shader);
     }
   }
 
@@ -564,8 +557,7 @@ private:
                 "per chunk");
 
   float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
-  float *shift_lut = nullptr; /**< W + 1 arena-baked displacements, one per bake column; entry lut_n repeats entry 0 for seamless lerp. */
-  float *slope_lut = nullptr; /**< W + 1 arena-baked knot slopes (central-difference d(shift)/dt), aligned with shift_lut; lerped for smooth stroke compensation. */
+  float *shift_lut = nullptr; /**< W + 1 arena-baked displacement knots, one per bake column; entry lut_n repeats entry 0 to close the polyline. */
   Pixel *hue_lut = nullptr;   /**< W + 1 arena-baked hue-rotated ring colors, aligned with shift_lut. */
   float *solid_colat = nullptr; /**< SOLID_MAX active-body center colatitudes about the stack axis (radians), rebuilt per frame. */
   float *solid_reach = nullptr; /**< SOLID_MAX active-body support extents (radians): the reach prefilter bound. */

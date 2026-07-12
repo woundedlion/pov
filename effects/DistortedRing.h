@@ -104,8 +104,8 @@ public:
    * @param opacity Sprite's animated fade in [0, 1], multiplied into each
    * fragment's alpha.
    * @details Ring radii are evenly spaced and the displacement is the sum of
-   * the WAVES table's sines, baked into shift_lut once per frame and sampled
-   * by azimuth with linear interpolation.
+   * the WAVES table's sines, baked into shift_lut once per frame and rendered
+   * as a knot polyline by the rasterizer.
    */
   void draw_fn(Canvas &canvas, float opacity) {
     int n_rings = static_cast<int>(params.num_rings);
@@ -119,16 +119,7 @@ public:
       shift_lut[x] = s;
     }
 
-    // The slope out-param feeds the rasterizer's slope compensation.
-    auto shift_fn = [this](float t, float &slope) {
-      float x = wrap_t(t) * W;
-      int i = static_cast<int>(x);
-      float d = shift_lut[i + 1] - shift_lut[i];
-      slope = d * W;
-      return shift_lut[i] + (x - i) * d;
-    };
-
-    // True upper bound on |shift_fn|: an underestimate silently culls arcs.
+    // True upper bound on the knots: an underestimate silently culls arcs.
     float max_shift = 0.0f;
     for (int i = 0; i < NUM_WAVES; ++i)
       max_shift += std::abs(wave_amp[i]) * WAVES[i].weight;
@@ -148,7 +139,7 @@ public:
       };
 
       Scan::DistortedRing::draw<W, H>(
-          filters, canvas, basis, radius, params.thickness, shift_fn,
+          filters, canvas, basis, radius, params.thickness, shift_lut, W,
           max_shift, fragment_shader, 0.0f, params.debug_bb);
     }
   }
