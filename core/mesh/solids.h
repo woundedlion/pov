@@ -874,20 +874,22 @@ icosahedron_snub_relax_truncate033_hankin62(Arena &a, Arena &b) {
       .build();
 }
 /**
- * @brief Builds the dodecahedron_hk35_ambo_hk62_ambo_relax_hk43 star pattern.
+ * @brief Builds the dodecahedron_hk35_ambo_hk62_ambo_relax_hk42 star pattern.
  * @param a Output arena for the result and even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.
  * @return The resulting star-pattern mesh.
+ * @details The final contact angle sits clear of the ~43-degree resonance
+ * where one corner class's contact planes go near-parallel.
  */
 FLASHMEM static PolyMesh
-dodecahedron_hk35_ambo_hk62_ambo_relax_hk43(Arena &a, Arena &b) {
+dodecahedron_hk35_ambo_hk62_ambo_relax_hk42(Arena &a, Arena &b) {
   return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .hankin(35.0f * D2R)
       .ambo()
       .hankin(62.0f * D2R)
       .ambo()
       .relax(100)
-      .hankin(43.0f * D2R)
+      .hankin(42.0f * D2R)
       .build();
 }
 /**
@@ -1124,8 +1126,8 @@ inline constexpr Entry islamic_registry[] = {
     {"icosahedron_ambo_truncate033_hankin59",
      IslamicStarPatterns::icosahedron_ambo_truncate033_hankin59,
      Category::Complex},
-    {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk43",
-     IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk43,
+    {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
+     IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk42,
      Category::Complex},
     {"icosahedron_bevel033_hk59",
      IslamicStarPatterns::icosahedron_bevel033_hk59, Category::Complex},
