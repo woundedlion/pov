@@ -1850,7 +1850,7 @@ Concentric rings built from per-azimuth distorted ring SDFs, their radii oscilla
 
 #### NoiseRings
 
-A stack of evenly spaced plotted rings (`Plot::DistortedRing`) sharing one axis, each vertex displaced along the stack axis by a two-octave world-space OpenSimplex noise field (independent spatial scale per octave). The displacement is uniform in direction across the whole sphere and the field is anchored in space, so the random walk spins the stack through it while the field slowly flows; ring colors sweep a circular analogous palette across the stack, with each fragment's hue rotated by the local displacement magnitude.
+A stack of evenly spaced plotted rings (`Plot::DistortedRing`) sharing one axis, each vertex displaced along the stack axis by the product of two world-space OpenSimplex noise octaves (independent spatial scale per octave) — octave 1 envelopes octave 2, so perturbations turn sparse wherever the envelope runs near zero. The displacement is uniform in direction across the whole sphere and the field is anchored in space, so the random walk spins the stack through it while the field slowly flows; ring colors sweep a circular analogous palette across the stack, with each fragment's hue rotated by the local displacement magnitude.
 
 **Parameters**: Alpha, Rings, Amplitude, Scale 1, Scale 2, Hue Rotate, Flow Speed
 

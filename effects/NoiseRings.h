@@ -12,10 +12,12 @@
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Rings share one axis and are spaced evenly in colatitude across the
- * whole sphere. Each ring vertex is displaced along the stack axis by a
- * two-octave OpenSimplex field (independent spatial scale per octave) sampled
- * at the vertex's world-space position, so the displacement is coherent across
- * rings and drifts as the field animates. The displacement direction is
+ * whole sphere. Each ring vertex is displaced along the stack axis by the
+ * product of two OpenSimplex octaves (independent spatial scale per octave)
+ * sampled at the vertex's world-space position: octave 1 envelopes octave 2,
+ * so perturbations bunch where the envelope is strong and vanish where it
+ * crosses zero. Displacement is coherent across rings, drifts as the field
+ * animates, and its direction is
  * uniform across the whole sphere (not mirrored per hemisphere). Fragments are
  * shaded from a circular analogous palette that spins across the stack, with
  * hue rotated proportionally to the local displacement magnitude. Orientation
@@ -74,8 +76,8 @@ public:
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite's animated fade in [0, 1], multiplied into each
    * fragment's alpha.
-   * @details Per ring, the two-octave displacement is baked once per azimuth
-   * column into shift_lut (sampled in the antipode work frame so the field
+   * @details Per ring, the two-octave displacement product is baked once per
+   * azimuth column into shift_lut (sampled in the antipode work frame so the field
    * tracks the plotted vertices), then read by both the geometry shift and the
    * per-fragment hue rotation. get_antipode mirrors the polar frame past the
    * equator (radius > 1); hemi_sign negates the far-side shift so a noise crest
@@ -104,8 +106,7 @@ public:
         float n2 = field_noise.GetNoise(p.x * params.scale2 + OCTAVE2_OFFSET,
                                         p.y * params.scale2,
                                         p.z * params.scale2 + field_time);
-        float n = (n1 + OCTAVE2_WEIGHT * n2) / (1.0f + OCTAVE2_WEIGHT);
-        shift_lut[x] = params.amplitude * hemi_sign * n;
+        shift_lut[x] = params.amplitude * hemi_sign * n1 * n2;
       }
 
       auto sample_lut = [this](float t) {
@@ -139,7 +140,6 @@ private:
   Orientation<> orientation;
 
   static constexpr float COLOR_SPIN_RATE = 0.0015f; /**< Palette spin across the stack, in turns per frame. */
-  static constexpr float OCTAVE2_WEIGHT = 0.5f;     /**< Detail-octave weight relative to the base octave. */
   static constexpr float OCTAVE2_OFFSET = 50.0f;    /**< Spatial offset decorrelating octave 2 from octave 1 at equal scales. */
 
   float field_time = 0.0f; /**< Noise-field time offset, advanced by Flow Speed each frame. */
@@ -152,11 +152,11 @@ private:
    */
   struct Params {
     float alpha = 0.3f;       /**< Overall ring opacity multiplier in [0, 1]. */
-    float num_rings = 8.0f;   /**< Number of evenly spaced rings (truncated to int when drawn). */
+    float num_rings = 55.0f;  /**< Number of evenly spaced rings (truncated to int when drawn). */
     float amplitude = 0.25f;  /**< Peak polar displacement (radians) scaling the noise field. */
-    float scale1 = 1.5f;      /**< Spatial frequency of octave 1 over the unit sphere. */
-    float scale2 = 3.0f;      /**< Spatial frequency of octave 2 over the unit sphere. */
-    float hue_scale = 1.0f;   /**< Hue rotation (turns) per radian of displacement magnitude. */
+    float scale1 = 1.5f;      /**< Spatial frequency of the envelope octave; its zero regions leave rings undisturbed. */
+    float scale2 = 3.0f;      /**< Spatial frequency of the detail octave, scaled by the envelope octave. */
+    float hue_scale = 2.0f;   /**< Hue rotation (turns) per radian of displacement magnitude. */
     float flow_speed = 0.03f; /**< Noise-field time advance per frame. */
   } params;
 };
