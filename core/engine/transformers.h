@@ -10,7 +10,9 @@
 #include "vendor/FastNoiseLite.h"
 #include "animation/animation.h"
 
+using Animation::BumpParams;
 using Animation::NoiseParams;
+using Animation::NoiseProductParams;
 using Animation::RippleParams;
 
 /**
@@ -535,12 +537,67 @@ inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
 }
 
 /**
+ * @brief Evaluates a spherical-cap bump: full amplitude at the center falling
+ * smoothly to zero at the cap edge.
+ * @param v Sample point (unit vector).
+ * @param params Bump center, footprint, amplitude and lifecycle envelope.
+ * @return The bump's displacement contribution at @p v.
+ */
+inline float bump_field(const Vector &v, const BumpParams &params) {
+  float gain = params.amplitude * params.envelope;
+  if (std::fabs(gain) <= 0.001f)
+    return 0.0f;
+  float cos_d = dot(v, params.center);
+  if (cos_d <= params.cos_radius)
+    return 0.0f;
+  float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+  return gain * quintic_kernel(1.0f - d / params.radius);
+}
+
+/**
+ * @brief Evaluates a two-octave product noise field at a point.
+ * @param v Sample point (unit vector).
+ * @param params Octave scales, amplitude, and field time.
+ * @return The field value at @p v.
+ * @details Octave 1 envelopes octave 2, so perturbations bunch where the
+ * envelope is strong and vanish where it crosses zero.
+ */
+inline float noise_product_field(const Vector &v,
+                                 const NoiseProductParams &params) {
+  if (std::fabs(params.amplitude) <= 0.001f)
+    return 0.0f;
+  float n1 = params.noise.GetNoise(v.x * params.scale1, v.y * params.scale1,
+                                   v.z * params.scale1 + params.time);
+  float n2 = params.noise.GetNoise(
+      v.x * params.scale2 + NoiseProductParams::OCTAVE2_OFFSET,
+      v.y * params.scale2, v.z * params.scale2 + params.time);
+  return params.amplitude * n1 * n2;
+}
+
+/**
  * @brief Generates ripples that warp the sphere.
  * @tparam CAPACITY Maximum number of concurrent ripple transformations.
  */
 template <int CAPACITY>
 using RippleTransformer =
     Transformer<RippleParams, Animation::Ripple, ripple_transform, CAPACITY>;
+
+/**
+ * @brief Bump displacement fields that fall pole-to-pole through a frame.
+ * @tparam CAPACITY Maximum number of concurrent falling bumps.
+ */
+template <int CAPACITY>
+using BallDropTransformer =
+    FieldTransformer<BumpParams, Animation::BallDrop, bump_field, CAPACITY>;
+
+/**
+ * @brief A two-octave product noise displacement field.
+ * @tparam CAPACITY Maximum number of concurrent noise fields.
+ */
+template <int CAPACITY>
+using NoiseProductTransformer =
+    FieldTransformer<NoiseProductParams, Animation::NoiseProduct,
+                     noise_product_field, CAPACITY>;
 
 /**
  * @brief Performs Mobius warps that return to the identity.

@@ -774,4 +774,157 @@ private:
   std::reference_wrapper<NoiseParams> params; /**< Noise params to animate. */
 };
 
+/**
+ * @brief Parameters for a spherical-cap bump displacement field.
+ */
+struct BumpParams {
+  Vector center;           /**< Bump center direction (unit vector). */
+  float radius = 0.5f;     /**< Angular radius of the bump footprint (radians). */
+  float amplitude = 0.0f;  /**< Peak displacement at the bump center. */
+  float envelope = 0.0f;   /**< Lifecycle gain in [0, 1], animated by BallDrop. */
+  float cos_radius = 1.0f; /**< Cached cos(radius) fast-reject bound. */
+
+  /**
+   * @brief Recomputes the cos(radius) fast-reject bound after a radius change.
+   */
+  void prepare_threshold() { cos_radius = cosf(std::min(radius, PI_F)); }
+
+  /**
+   * @brief Refreshes live-tunable config from a template snapshot.
+   * @param t Template params carrying the current slider values.
+   * @details Copies only the amplitude; the footprint and lifecycle fields
+   * belong to the spawned fall.
+   */
+  void refresh_from(const BumpParams &t) { amplitude = t.amplitude; }
+
+  /**
+   * @brief Upper bound on |bump_field| for this entity.
+   * @return |amplitude| * envelope (the falloff kernel peaks at 1).
+   */
+  float field_bound() const { return std::fabs(amplitude) * envelope; }
+};
+
+/**
+ * @brief Animates one bump falling from a frame's pole to the opposite pole
+ * along a fixed-azimuth meridian.
+ */
+class BallDrop : public AnimationBase<BallDrop> {
+public:
+  /**
+   * @brief Constructs a BallDrop animation.
+   * @param params Bump params to animate. `params.amplitude` and
+   *        `params.radius` are read from the spawn-time copy; set them before
+   *        constructing.
+   * @param orientation Frame whose oriented normal is the fall axis; retained
+   *        by pointer, so it must outlive the animation.
+   * @param normal Un-oriented pole axis of the falling frame.
+   * @param azimuth Meridian the bump falls along (radians).
+   * @param duration Fall time in frames.
+   */
+  BallDrop(BumpParams &params, const Orientation<> &orientation,
+           const Vector &normal, float azimuth, int duration)
+      : AnimationBase(duration, false), params(params),
+        orientation(&orientation), normal(normal), azimuth(azimuth) {
+    HS_CHECK(duration >= 2, "BallDrop duration must be >= 2");
+    HS_CHECK(params.radius > 0.0f, "BallDrop needs a positive bump radius");
+    params.prepare_threshold();
+    params.envelope = 0.0f;
+  }
+
+  /**
+   * @brief Steps the fall: advances the bump's colatitude, re-derives the
+   * center in the frame's current orientation, and ramps the pole-edge
+   * envelope so the bump emerges from and vanishes into the poles smoothly.
+   */
+  void step(Canvas &canvas) override {
+    AnimationBase::step(canvas);
+    float progress = std::min(static_cast<float>(t) / duration, 1.0f);
+    Basis basis = make_basis(orientation->get(), normal);
+    float phi = progress * PI_F;
+    BumpParams &p = params.get();
+    p.center = basis.v * cosf(phi) +
+               (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) * sinf(phi);
+    p.envelope = quintic_kernel(progress / EDGE_FRACTION) *
+                 quintic_kernel((1.0f - progress) / EDGE_FRACTION);
+  }
+
+private:
+  static constexpr float EDGE_FRACTION = 0.15f; /**< Fade window at either pole, as a fraction of the fall. */
+
+  std::reference_wrapper<BumpParams> params; /**< Bump params to animate. */
+  const Orientation<> *orientation; /**< Frame the fall tracks; not owned. */
+  Vector normal; /**< Un-oriented pole axis. */
+  float azimuth; /**< Fall meridian (radians). */
+};
+
+/**
+ * @brief Parameters for a two-octave product noise field.
+ */
+struct NoiseProductParams {
+  float amplitude = 0.0f; /**< Field output amplitude. */
+  float scale1 = 1.5f;    /**< Spatial frequency of the envelope octave. */
+  float scale2 = 3.0f;    /**< Spatial frequency of the detail octave. */
+  float speed = 0.03f;    /**< Time advance per frame. */
+  float time = 0.0f;      /**< Current field time, integrated by NoiseProduct. */
+  mutable FastNoiseLite noise; /**< Backing generator. */
+
+  /** @brief Spatial offset decorrelating octave 2 from octave 1 at equal scales. */
+  static constexpr float OCTAVE2_OFFSET = 50.0f;
+
+  /**
+   * @brief Constructs params with an OpenSimplex2 generator at frequency 1.
+   */
+  NoiseProductParams() {
+    noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
+    noise.SetFrequency(1.0f);
+  }
+
+  /**
+   * @brief Refreshes live-tunable config from a template snapshot.
+   * @param t Template params carrying the current slider values.
+   * @details Copies the slider-driven fields but not the `time` axis or the
+   * backing generator, so a live edit reaches a spawned entity without
+   * resetting its phase.
+   */
+  void refresh_from(const NoiseProductParams &t) {
+    amplitude = t.amplitude;
+    scale1 = t.scale1;
+    scale2 = t.scale2;
+    speed = t.speed;
+  }
+
+  /**
+   * @brief Upper bound on |noise_product_field| for this entity.
+   * @return |amplitude| (|n1 * n2| <= 1).
+   */
+  float field_bound() const { return std::fabs(amplitude); }
+};
+
+/**
+ * @brief Animates a noise-product field by integrating its time axis.
+ * @details time += speed per frame keeps the field phase continuous under live
+ * speed edits (an absolute time = t * speed would jump the phase).
+ */
+class NoiseProduct : public AnimationBase<NoiseProduct> {
+public:
+  /**
+   * @brief Constructs a NoiseProduct animation (perpetual).
+   * @param params Reference to the NoiseProductParams to animate.
+   */
+  NoiseProduct(NoiseProductParams &params)
+      : AnimationBase(-1, true), params(params) {}
+
+  /**
+   * @brief Steps the animation, integrating the field time.
+   * @param canvas The canvas buffer (forwarded to the base step).
+   */
+  void step(Canvas &canvas) override {
+    AnimationBase::step(canvas);
+    params.get().time += params.get().speed;
+  }
+
+private:
+  std::reference_wrapper<NoiseProductParams> params; /**< Noise params to animate. */
+};
+
 } // namespace Animation
