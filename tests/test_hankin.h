@@ -10,11 +10,16 @@
  *   - update_hankin populates an output PolyMesh for both flat (angle=0)
  *     and twisted (angle≠0) configurations.
  *   - one-shot MeshOps::hankin convenience wrapper produces a valid mesh.
+ *   - the far-star guard keeps star points local at a resonance angle where
+ *     contact planes go near-parallel.
  *   - CompiledHankin::clone makes an independent deep copy.
  */
 #pragma once
 
+#include <algorithm>
+#include <cmath>
 #include <cstdint>
+#include <vector>
 #include "core/mesh/hankin.h"
 #include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
@@ -413,6 +418,60 @@ inline void test_hankin_output_is_genus0_manifold() {
 }
 
 // ---------------------------------------------------------------------------
+// Far-star-point guard
+// ---------------------------------------------------------------------------
+
+inline uint8_t hankin_reso_a[512 * 1024];
+inline uint8_t hankin_reso_b[512 * 1024];
+inline uint8_t hankin_reso_target[512 * 1024];
+
+/**
+ * @brief Verifies star points stay local at a resonance angle.
+ * @details The dodecahedron hk35/ambo/hk62/ambo/relax prefix at a 43-degree
+ *          contact angle puts one corner class's contact planes near-parallel,
+ *          so their ray intersections land ~64 degrees from the corner.
+ *          Without the far-star guard the output grows sliver faces whose
+ *          longest edge is ~24x the median; with it every edge stays within
+ *          the healthy ratio.
+ */
+inline void test_update_hankin_resonance_star_points_stay_local() {
+  Arena target(hankin_reso_target, sizeof(hankin_reso_target));
+  PolyMesh prefix;
+  {
+    Arena a(hankin_reso_a, sizeof(hankin_reso_a));
+    Arena b(hankin_reso_b, sizeof(hankin_reso_b));
+    prefix = Solids::finalize_solid(
+        Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
+            .hankin(35.0f * Solids::IslamicStarPatterns::D2R)
+            .ambo()
+            .hankin(62.0f * Solids::IslamicStarPatterns::D2R)
+            .ambo()
+            .relax(100)
+            .build(),
+        target);
+  }
+  Arena out_arena(hankin_reso_a, sizeof(hankin_reso_a));
+  Arena temp(hankin_reso_b, sizeof(hankin_reso_b));
+  PolyMesh out = MeshOps::hankin(prefix, out_arena, temp, 43.0f * Solids::IslamicStarPatterns::D2R);
+
+  std::vector<float> edges;
+  size_t off = 0;
+  for (size_t f = 0; f < out.face_counts.size(); ++f) {
+    int n = out.face_counts[f];
+    for (int i = 0; i < n; ++i) {
+      Vector u = out.vertices[out.faces[off + i]].normalized();
+      Vector v = out.vertices[out.faces[off + (i + 1) % n]].normalized();
+      edges.push_back(std::acos(std::max(-1.0f, std::min(1.0f, dot(u, v)))));
+    }
+    off += n;
+  }
+  std::sort(edges.begin(), edges.end());
+  float median = edges[edges.size() / 2];
+  float max = edges.back();
+  HS_EXPECT_TRUE(max <= 6.0f * median);
+}
+
+// ---------------------------------------------------------------------------
 // CompiledHankin::clone
 // ---------------------------------------------------------------------------
 
@@ -503,6 +562,8 @@ inline int run_hankin_tests() {
   test_hankin_flat_and_twisted_differ();
 
   test_hankin_output_is_genus0_manifold();
+
+  test_update_hankin_resonance_star_points_stay_local();
 
   test_compiled_hankin_clone_deep_copies();
   test_compiled_hankin_clear();
