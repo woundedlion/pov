@@ -28,7 +28,16 @@
 # arena compaction. CI sets HS_SMOKE_FRAMES=120 (.github/workflows/ci.yml) to
 # exercise them on every push/PR, so a green pre-commit is NOT authoritative for
 # those paths — a regression there fails only in CI, by design (the hook stays
-# fast). To reproduce CI locally: HS_SMOKE_FRAMES=120 ctest --preset tests, or
+# fast).
+#
+# COVERAGE GAP (effects module tier): likewise, the effects module runs its
+# QUICK tier locally (device-resolution <96,20> smoke + determinism only, ~2 s),
+# because its full-resolution 288x144 passes and white-box correctness block cost
+# ~40 s — too slow for the per-commit hook. CI sets HS_EFFECTS_FULL=1 to run that
+# full tier on every push/PR, so a green pre-commit is NOT authoritative for the
+# production-resolution render paths or those white-box invariants (see
+# effects_full_suite() in tests/test_effects.h). Reproduce locally with
+# HS_EFFECTS_FULL=1 git commit. To reproduce CI locally: HS_SMOKE_FRAMES=120 ctest --preset tests, or
 # run the full window through this hook with HS_SMOKE_FRAMES=120 git commit (the
 # env passes through to ctest). The death suite is likewise weaker locally: when
 # the harness cannot self-spawn a child it SKIPS its trap cases here (a loud

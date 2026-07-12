@@ -124,8 +124,15 @@ jobs:
         # transitions: RingShower slot reuse, Thrusters fire/FIFO expiry,
         # ShapeShifter's 48-frame cut). CI runs long enough to cover them so a
         # regression in the slot-recycling defect class fails here, not on-device.
+        #
+        # HS_EFFECTS_FULL=1 opts the effects module into its FULL tier: the
+        # white-box correctness block and the 288x144 production-resolution roster
+        # passes. The local pre-commit default is the QUICK tier (device-resolution
+        # <96,20> passes only, ~2 s); CI is the authoritative gate for the
+        # full-resolution paths (tests/test_effects.h effects_full_suite()).
         env:
           HS_SMOKE_FRAMES: 120
+          HS_EFFECTS_FULL: 1
         run: ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
 
   sanitizers:
@@ -178,8 +185,11 @@ jobs:
       - name: Test
         # Deep smoke pass (see the plain tests job) so the sanitized run reaches
         # the same effect-lifecycle transitions and exercises arena lifetimes.
+        # HS_EFFECTS_FULL=1: run the effects module's full-resolution tier under
+        # the sanitizers too (see the tests job note).
         env:
           HS_SMOKE_FRAMES: 120
+          HS_EFFECTS_FULL: 1
         run: ctest --preset tests --output-on-failure -R "${{ matrix.test_regex }}"
 
   windows-tests:
@@ -215,8 +225,11 @@ jobs:
       - name: Test
         # Deep smoke pass (see the Linux job): cover effect-lifecycle
         # transitions the default 8-frame local run never reaches.
+        # HS_EFFECTS_FULL=1: run the effects module's full-resolution tier here
+        # too (see the tests job note); this job runs the whole suite unsharded.
         env:
           HS_SMOKE_FRAMES: 120
+          HS_EFFECTS_FULL: 1
         run: ctest --preset tests --output-on-failure
 
   wasm:
