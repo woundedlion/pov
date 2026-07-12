@@ -274,7 +274,7 @@ constexpr size_t LARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<
     Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusWarp,
     Animation::MobiusWarpCircular, Animation::MeshMorph,
     Animation::MobiusWarpEvolving, Animation::Ripple, Animation::Noise,
-    Animation::BallDrop, Animation::NoiseProduct>();
+    Animation::BallDrop, Animation::NoiseProduct, Animation::PoiDance>();
 static_assert(LARGEST_CONCRETE_ANIM_SIZE <= TimelineEvent::MAX_ANIM_SIZE,
               "A concrete animation type exceeds the TimelineEvent inline-storage "
               "budget (on the 32-bit WASM/device build MAX_ANIM_SIZE is the "
