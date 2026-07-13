@@ -244,10 +244,10 @@ on the committed image, not the design figure.
 
 ```
 targets/
-├── Holosphere/Holosphere.ino   ← env:holosphere  (board = teensy40; committed 288×144, design 96×20)
-├── Phantasm/Phantasm.ino       ← env:phantasm    (board = teensy40, 288×144, USE_DMA_LEDS, 4 boards)
+├── Holosphere/Holosphere.ino   ← env:holosphere (budgeted) + env:holosphere_dma (compile profile)
+├── Phantasm/Phantasm.ino       ← env:phantasm (budgeted N=4) + env:phantasm8 (compile profile)
 └── wasm/…                       ← untouched (CMake/Emscripten)
-core/        memory.cpp, reaction_graph.cpp, *.h   ← compiled into both (lib or extra source)
+core/        memory.cpp, reaction_graph.cpp, *.h   ← compiled into every firmware profile
 hardware/    *.h                                    ← header-only, on include path
 ```
 
@@ -263,10 +263,11 @@ Key decisions:
 - **`effects_legacy.h` is in scope here even though it's excluded from code review.**
   `Holosphere.ino` includes it, so the firmware image must compile it. (The review-scope
   exclusion in `prompts/analysis.txt` is about *quality grading*, not *buildability*.)
-- **Same board, different flags.** Both envs set `board = teensy40`. Phantasm adds
-  `build_flags += -D USE_DMA_LEDS` to mirror the `#define USE_DMA_LEDS` the `.ino` already sets
+- **Same board, different flags.** All four environments set `board = teensy40`. Phantasm adds
+  `build_flags += -D USE_DMA_LEDS`; `phantasm8` also sets `PHANTASM_NUM_SEGMENTS=8`, while
+  `holosphere_dma` enables the single-board DMA branch. The DMA define mirrors the guarded define the `.ino` already sets
   (keep the `#define` in the `.ino` as the source of truth; the env flag is only needed if a
-  target ever relies on it being set before the first include). The two builds share the same
+  target ever relies on it being set before the first include). The shipping targets share the same
   board and RAM1 footprint but differ in flash *and* in RAM2 (Phantasm's DMA TX buffers, above) —
   so the budgets (§8) share RAM1 but give Phantasm its own flash and RAM2 ceilings.
 
@@ -332,6 +333,12 @@ build_src_filter = ${env.build_src_filter} +<targets/Holosphere/Holosphere.ino>
 board = teensy40                       # 288×144, DMA HD107S path
 build_flags = ${env.build_flags} -D USE_DMA_LEDS
 build_src_filter = ${env.build_src_filter} +<targets/Phantasm/Phantasm.ino>
+
+[env:holosphere_dma]                   # compile/link profile; no size gate
+build_flags = ${env.build_flags} -D USE_DMA_LEDS
+
+[env:phantasm8]                        # compile/link profile; no size gate
+build_flags = ${env.build_flags} -D USE_DMA_LEDS -D PHANTASM_NUM_SEGMENTS=8 -Os
 ```
 
 > **Load-bearing mechanic — de-risk in Phase 0.** This is the one part most likely to misbehave on
@@ -389,9 +396,9 @@ meaningful frame-over-frame.
 ## 7. Validation dimensions
 
 ### 7.1 Build success
-`pio run -e holosphere -e phantasm`. Any compile or link failure fails the job. This alone closes
-the largest part of the gap: device-only `#ifdef ARDUINO` code now has a compiler pointed at it
-on every push.
+`pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8`. Any compile or link failure
+fails the job. `holosphere` and the qualified N=4 `phantasm` image also run size/layout budgets;
+`holosphere_dma` and `phantasm8` are compile/link profiles for otherwise-uncovered device branches.
 
 ### 7.2 Warning hygiene — baseline ratchet *(decided)*
 Policy: **baseline ratchet**, not hard `-Werror`. The tree is not yet known to be warning-clean
@@ -649,10 +656,10 @@ CI test job or a tiny dedicated step — independent of the slow PlatformIO buil
 A new job in `.github/workflows/ci.yml` (it already fans out tests/sanitizers/wasm/provenance;
 this slots in alongside):
 
-A **single job builds both envs** (no matrix) — they share one Teensy toolchain, so a matrix would
-download it twice for marginal isolation. `pio run` builds the envs sequentially and reports per-env
-size, and the gate script fails the step on the first env that violates a budget; this is the same
-invocation the local recipe uses (§11):
+A **single job builds all four environments** (no matrix) — they share one Teensy toolchain, so a
+matrix would download it repeatedly for marginal isolation. `pio run` builds them sequentially;
+the gate script enforces budgets on the two shipping environments, while the two compile profiles
+close device-branch drift gaps. This is the same invocation the local recipe uses (§11):
 
 ```yaml
   teensy-size:
@@ -683,7 +690,7 @@ invocation the local recipe uses (§11):
         uses: actions/cache@v4
         with:
           # build_cache_dir from platformio.ini — without this the 7,685-line
-          # reaction_graph.cpp + FastLED recompile from scratch on every run, ×2 envs.
+          # reaction_graph.cpp + FastLED recompile from scratch in every environment.
           path: .pio/build_cache
           # github.sha makes each commit write a fresh entry, restoring from the newest
           # prefix match — standard, but it does churn the cache (Actions evicts at the
@@ -692,8 +699,8 @@ invocation the local recipe uses (§11):
           restore-keys: pio-objs-<platform-ver>-
       - name: Install pinned PlatformIO
         run: pip install 'platformio==<pinned>'
-      - name: Build + size + layout gate (both targets)
-        run: pio run -e holosphere -e phantasm   # extra_script enforces per-env budgets, sets exit code
+      - name: Build shipping targets + compile profiles
+        run: pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8
       - name: Upload firmware artifacts            # optional: .hex/.elf for inspection
         uses: actions/upload-artifact@v4
         with: { name: firmware, path: .pio/build/*/firmware.* }
@@ -710,7 +717,7 @@ Notes:
 - **Two caches, like `ci.yml`.** `~/.platformio` (toolchain/packages) *and* `build_cache_dir`
   (objects). Without the object cache the big TU + FastLED rebuild cold every run; with it, only
   changed TUs recompile — the same reason `ci.yml` runs ccache.
-- **One job, both envs.** Cold-cache cost is one toolchain download, not two. If per-target
+- **One job, four environments.** Cold-cache cost is one toolchain download. If per-profile
   *independent* failure isolation later proves worth the extra runner, fall back to a matrix — but
   keep the cache key target-agnostic (above) so the warm-cache case still shares one entry.
 - **Cache `~/.platformio`** (the toolchain + framework packages) keyed on the pinned platform
@@ -729,9 +736,9 @@ A developer who flashes via VMicro should be able to run the identical gate befo
 `justfile` recipe (the repo already routes tasks through `just`):
 
 ```
-# Build the Teensy firmware images and enforce size/layout budgets (CI parity).
+# Build budgeted Teensy images and compile/link profiles (CI parity).
 teensy-size:
-    pio run -e holosphere -e phantasm
+    pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8
 ```
 
 `pio` is the only new prerequisite (`pip install platformio`); the Teensy toolchain auto-installs
@@ -795,8 +802,8 @@ it.)
 
 ### 13.1 Acceptance criteria — "the gate is done when…"
 
-1. Both envs (`holosphere`, `phantasm`) build **green** under the pinned toolchain, compiling
-   exactly their `.ino` + the two `core/*.cpp` (filter spike confirmed, §6).
+1. The budgeted `holosphere` and N=4 `phantasm` environments plus compile-only
+   `holosphere_dma` and `phantasm8` profiles build **green** under the pinned toolchain.
 2. The build options reproduce the VMicro image: `-O3`, 600 MHz, `USB_SERIAL`, `gnu++20`, and the
    captured `-fno-*`/`-Wno-*` flags (§4.1).
 3. All layout invariants — arena→DTCM ≈335 KB, framebuffers/DMA-TX→OCRAM, table→FLASH — are
@@ -809,7 +816,7 @@ it.)
    and `just teensy-size` reproduces the CI *pass/fail* locally (§11).
 7. **Wall-clock budget met.** Warm-cache run (toolchain + objects restored) completes under a stated
    target (e.g. **< ~3 min**); cold run (toolchain download + full `-O3` rebuild of the 7,685-line
-   `reaction_graph.cpp` + FastLED × 2 envs) under a looser one. If warm runs blow the target, the
+   `reaction_graph.cpp` + FastLED across four environments) under a looser one. If warm runs blow the target, the
    object cache (§10) isn't engaging — investigate before flipping the check required.
 
 ---
@@ -818,9 +825,9 @@ it.)
 
 All five prior open questions have been decided; the spec body reflects them.
 
-1. **Targets — both.** Gate `Holosphere` *and* `Phantasm` (each currently committed at 288×144) —
-   built in a single job (`pio run -e holosphere -e phantasm`), not a matrix, since both share one
-   toolchain (§10). Both are **Teensy 4.0** (owner-confirmed). They share the RAM1/arena footprint
+1. **Targets — both shipping images plus compile profiles.** Gate `Holosphere` and qualified N=4
+   `Phantasm`; compile `holosphere_dma` and `phantasm8` in the same job, not a matrix, since all share
+   one toolchain (§10). Both targets are **Teensy 4.0** (owner-confirmed). They share the RAM1/arena footprint
    and differ mainly in **flash** (different effects + DMA/USB code); the small OCRAM delta
    (Phantasm's DMA TX buffers) is guarded primarily by the `dma_tx_buffers_section: OCRAM` **layout
    invariant**, with a *separate* numeric RAM2 ceiling only if Phase-0's as-built delta warrants it
@@ -830,8 +837,8 @@ All five prior open questions have been decided; the spec body reflects them.
    core. (§7.2, Phase 2 in §13)
 3. **Size enforcement — absolute ceilings only.** Per-region caps with headroom; no
    regression-delta gate (considered and deferred to avoid a second baseline to churn). (§8)
-4. **Workflow placement — inside `ci.yml`.** A new single `teensy-size` job (both envs in one
-   `pio run`) alongside the existing tests/wasm/provenance jobs; shared triggers/concurrency, no
+4. **Workflow placement — inside `ci.yml`.** A single `teensy-size` job (two budgeted environments
+   plus two compile profiles in one `pio run`) alongside the existing tests/wasm/provenance jobs; shared triggers/concurrency, no
    separate workflow file. (§10)
 5. **Fix the docs — agreed, and a Phase-0 prerequisite for the board pin.** The owner confirms
    **Teensy 4.0** for both (no 4.1). The stale "4× Teensy 4.1" lines in `Phantasm.ino:7` and
@@ -869,7 +876,7 @@ All five prior open questions have been decided; the spec body reflects them.
   CI" ≠ "fits on the bench." Mitigate by pinning those options in `platformio.ini` to the captured
   VMicro selections (§4, Phase-0 deliverable).
 - **Toolchain download weight / flakiness.** Mitigate with `~/.platformio` caching keyed on the
-  pinned platform + FastLED + PIO-Core versions, target-agnostic so one entry serves both envs (§10).
+  pinned platform + FastLED + PIO-Core versions, target-agnostic so one entry serves all profiles (§10).
 - **arm-gcc surfaces warnings Clang/Emscripten don't.** Expected and *valuable* — that's coverage
   the other builds can't give. Phase the warning gate (§13) so it doesn't block landing the build
   gate.

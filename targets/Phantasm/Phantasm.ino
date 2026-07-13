@@ -4,11 +4,11 @@
  *
  * Phantasm — Multi-Teensy segmented POV display (288×144)
  *
- * Target: 4× Teensy 4.0
- * Total physical LEDs: 288 (72 per segment, 144 per arm)
+ * Target: 4× Teensy 4.0 by default; 8× with PHANTASM_NUM_SEGMENTS=8
+ * Total physical LEDs: 288 (72 per default segment, 144 per arm)
  * Virtual canvas: 288×144
  *
- * Each Teensy reads its hardware ID at boot (pins 21, 22) to determine
+ * Each Teensy reads its hardware ID at boot (pins 21–23 as required) to determine
  * which segment of the LED strip it owns.  Segment 0 is the sync master:
  * it emits count-coded symbol bursts on the single sync wire, and every
  * board (master included) generates its own columns from a local flywheel
@@ -16,11 +16,8 @@
  * the master broadcasts an EPOCH mark when an effect's revolutions elapse
  * and all boards switch in lockstep (docs/phantasm_frame_sync_spec.md).
  *
- * Hardware ID assignment (active-low, ground to set):
- *   ID 0: both floating  — arm A outer (sync master)
- *   ID 1: pin 21 grounded — arm A inner
- *   ID 2: pin 22 grounded — arm B outer
- *   ID 3: both grounded   — arm B inner
+ * Hardware ID assignment is active-low (ground to set). IDs [0, N/2) map
+ * arm A; IDs [N/2, N) map arm B. ID 0 has all straps open and is the master.
  */
 
 // Select the DMA HD107S output path. Must precede any include that pulls in
@@ -33,6 +30,10 @@
 #define USE_DMA_LEDS
 #endif
 
+#ifndef PHANTASM_NUM_SEGMENTS
+#define PHANTASM_NUM_SEGMENTS 4
+#endif
+
 #include <FastLED.h>
 #include <SPI.h>
 #include <new> // std::nothrow — fail-fast OOM check on the POV allocation below
@@ -41,7 +42,7 @@
 #include "engine/effects.h"
 
 static constexpr int TOTAL_PIXELS = 288;
-static constexpr int NUM_SEGMENTS = 4;
+static constexpr int NUM_SEGMENTS = PHANTASM_NUM_SEGMENTS;
 static constexpr unsigned int RPM = 480;
 
 using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
@@ -77,7 +78,7 @@ template <typename E> Effect *construct_effect() {
 }
 
 // Generated from the single-source effect roster (HS_EFFECT_LIST); the table
-// order IS the playlist order, identical on all four boards (spec §6.1).
+// order IS the playlist order, identical on every board (spec §6.1).
 #define HS_FACTORY_ONE(name) &construct_effect<name<288, 144>>,
 const POV::EffectFactory EFFECT_FACTORIES[] = {
   HS_EFFECT_LIST(HS_FACTORY_ONE)

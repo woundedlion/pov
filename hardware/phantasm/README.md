@@ -2,12 +2,14 @@
 
 KiCad 10 schematic for the per-segment carrier board specified in
 [../../docs/phantasm_pcb_spec.md](../../docs/phantasm_pcb_spec.md). One identical
-PCB is built ×4; a solder strap selects each board's role (segment 0 =
-master/conductor, 1–3 = flywheel slaves). The built config is **N = 4** (ID0/ID1 via
-`JP_ID0` / `JP_ID1`); `JP_ID2` (pin 23) is broken out so a recompiled **N = 8** build
-decodes segments 4–7 (R-ID-1). The card is **logic-only (~0.15 A)** — the strips'
-4.3 A LED power is injected **off-board** (spec §2.3), so nothing here carries high
-current.
+PCB is built ×4 for the qualified configuration; a solder strap selects each
+board's role (segment 0 = master/conductor, 1–3 = flywheel slaves). The default
+firmware is **N = 4** (ID0/ID1 via `JP_ID0` / `JP_ID1`). The compile-tested
+**N = 8** profile uses eight boards and reads `JP_ID2` (pin 23) for segments 4–7.
+Its rotor mounting, balance, cabling, and swept envelope are not mechanically
+qualified. The card is **logic-only (~0.15 A)** — each strip draws about 4.3 A
+at N=4 or 2.2 A at N=8, injected **off-board** (spec §2.3), so nothing here
+carries high current.
 
 Contains the **schematic** (electrical design), a **fully-routed PCB**, and an **unplaced
 PCB** variant for autoplacement (Quilter) — see [Files](#files) and [Status](#status).
@@ -33,6 +35,8 @@ footprint come from the project `phantasm.kicad_sym` / `phantasm.pretty`.
 
 Both checks run via `kicad-cli` (KiCad 10.0):
 
+- **N=8 firmware:** `pio run -e phantasm8` compiles and links the optional
+  eight-board profile; this is firmware validation, not rotor qualification.
 - **ERC: 0 violations** (`kicad-cli sch erc --severity-error --severity-warning`).
 - **Netlist matches spec §10** — exported with `kicad-cli sch export netlist` and
   diffed against the net table in the spec (see `gen/check.py`). Every net in §10 is
@@ -83,19 +87,19 @@ the netlist is what's verified.
 | `J2` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | strip **signal only**: DI / CI / SIG_GND (no power) |
 | `J3A/J3B` | `Connector_Generic:Conn_01x03` | `PinHeader_1x03_P2.54mm` | Belden 8451 daisy |
 | `J4` | `Connector_Generic:Conn_01x04` | `PinHeader_1x04_P2.54mm` | debug/serial |
-| `JP_SHLD/JP_ID0/JP_ID1/JP_ID2` | `Jumper:SolderJumper_2_Open` | `SolderJumper-2_P1.3mm_Open_...` | shield (master only) / ID straps (JP_ID2 = N=8) |
+| `JP_SHLD/JP_ID0/JP_ID1/JP_ID2` | `Jumper:SolderJumper_2_Open` | `SolderJumper-2_P1.3mm_Open_...` | shield (master only) / ID straps (JP_ID2 read at N=8) |
 
 ## Notes / deviations from the spec
 
 - **Reverse protection is a series Schottky** (`Q_REV`, SOD-123). §R-PWR-7 permits
-  "a small series Schottky **or** P-FET" now that the 4.3 A LED current is off the card;
+  "a small series Schottky **or** P-FET" because segment LED current is off the card;
   at ~0.15 A the ideal-diode P-FET (and its gate resistor / SOT pinout ambiguity) is
   unnecessary, so the simpler Schottky is used. Ref kept as `Q_REV` per spec §9/§10.
   The ~0.3 V forward drop at 0.15 A leaves U1 Vcc ≈ 4.7 V, inside the AHCT 4.5–5.5 V
   window; swap to a small SOT-23 P-FET if you want the extra headroom.
 - **DNP parts** (`R_ID0`, `D_BUS`) carry the KiCad DNP flag — footprints present,
   not populated, per §R-ASM-4. `JP_SHLD` is populated **on the master board only**;
-  `JP_ID2` is left open at N = 4 (stuff for N = 8).
+  `JP_ID2` is unread at N = 4 and carries the high segment-ID bit at N = 8.
 - **LED power is off-board (§2.3).** There is **no `C_BULK` and no `+5V_MAIN` heavy
   rail on the card** — the 1000 µF bulk lives at the strip injection point off-board
   (R-PWR-11), and `J2` carries **signal only** (DI/CI/SIG_GND, no +5 V). `C_IN`

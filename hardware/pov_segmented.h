@@ -5,10 +5,10 @@
  * @file pov_segmented.h
  * @brief Multi-Teensy segmented POV display driver for Phantasm.
  *
- * Phantasm uses N Teensys (typically 4), each controlling a contiguous
- * segment of LEDs on a single arm of the POV spinner.  Two Teensys sit
- * on each arm — one driving the top half (N pole toward junction) and
- * one driving the bottom half (S pole toward junction).
+ * Phantasm uses N Teensys (4 by default, up to 8), each controlling a
+ * contiguous segment of LEDs on a single arm of the POV spinner. Northern
+ * segments run toward the junction in increasing canvas-row order; southern
+ * segments run toward it in decreasing order.
  *
  * Physical strip layout (N=4, S=288, H=144):
  *
@@ -68,10 +68,9 @@
  * @tparam N   Number of Teensy segments (must be even; N/2 per arm).
  * @tparam RPM Rotations per minute of the spinner.
  *
- * Each segment drives S/N LEDs on a single arm.  The top segment on each
- * arm starts at the N pole (y=0) and counts upward.  The bottom segment
- * starts at the S pole (y=H-1) and counts downward — its strip is
- * physically reversed.
+ * Each segment drives S/N LEDs on a single arm. Northern segments count
+ * upward; southern segments count downward from the S pole toward the
+ * junction. N=2 assigns one forward strip to each complete arm.
  */
 template <int S, int N, int RPM>
 class POVSegmented {
@@ -89,23 +88,22 @@ class POVSegmented {
       "Segment count must be even (equal split across two arms)");
   static_assert(S >= N,
       "Must have at least one pixel per segment");
-  static_assert((N & (N - 1)) == 0 && N <= 4,
-      "N must be a power of two and <= 4: segment_map() distinguishes only a top "
-      "and a bottom strip per arm, so an arm holds at most two segments. ID is "
-      "decoded from 2 GPIO straps as (~raw) & (N-1), pins 21/22");
+  static_assert((N & (N - 1)) == 0 && N <= 8,
+      "N must be a power of two and <= 8: ID is decoded from up to 3 GPIO "
+      "straps as (~raw) & (N-1), pins 21/22/23");
 
   // ── Pin assignments ─────────────────────────────────────────────────
 
   /**
    * @brief GPIO straps for hardware ID (active-low with internal pull-up).
-   * Two straps decode N <= 4 segments; the build reads ID_STRAPS = log2(N) of
-   * them.
+   * Up to three straps decode N <= 8 segments; the build reads log2(N) of them.
    */
   static constexpr int PIN_ID0 = 21;
   static constexpr int PIN_ID1 = 22;
+  static constexpr int PIN_ID2 = 23;
 
   /** @brief Number of ID straps actually read = log2(N). */
-  static constexpr int ID_STRAPS = (N <= 2) ? 1 : 2;
+  static constexpr int ID_STRAPS = pov::segment_id_strap_count(N);
 
   /**
    * @brief Shared sync wire: master drives it OUTPUT (symbol bursts),
@@ -186,7 +184,7 @@ public:
     Serial.print("[Phantasm] Segment ");
     Serial.print(segment_id_);
     Serial.print(arm_b_ ? " arm-B" : " arm-A");
-    Serial.print(y_step_ < 0 ? " (bottom, reversed)" : " (top)");
+    Serial.print(y_step_ < 0 ? " (-y, reversed)" : " (+y)");
     Serial.print(segment_id_ == 0 ? " MASTER" : "");
     Serial.print(" | y_base=");
     Serial.print(y_base_);
@@ -366,6 +364,7 @@ private:
   int sample_strap_() const {
     int raw = digitalReadFast(PIN_ID0);
     if constexpr (ID_STRAPS >= 2) raw |= digitalReadFast(PIN_ID1) << 1;
+    if constexpr (ID_STRAPS >= 3) raw |= digitalReadFast(PIN_ID2) << 2;
     return raw;
   }
 
@@ -395,13 +394,14 @@ private:
    * board revision: the push-pull driver source-fights instead of wired-ANDing
    * (an open-drain bus would make a duplicate master benign and read-back
    * detectable, but that is a board respin, not the shipped design). It is
-   * prevented procedurally — one board strapped master (both straps open) and
+   * prevented procedurally — one board strapped master (all ID straps open) and
    * unique soldered ID links elsewhere, per PCB rules R-ID-2 (soldered links)
    * and R-ID-4 (silkscreen truth table).
    */
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
     if constexpr (ID_STRAPS >= 2) pinMode(PIN_ID1, INPUT_PULLUP);
+    if constexpr (ID_STRAPS >= 3) pinMode(PIN_ID2, INPUT_PULLUP);
     delay(10);  // settle time for pull-ups
 
     // Debounce: three samples ~5 ms apart must agree; an unstable strap reads as
@@ -415,29 +415,15 @@ private:
 
     // Invert the reading (all-floating pull-ups => ID 0), then mask to log2(N)
     // bits; the mask is load-bearing.
-    segment_id_ = (~raw0) & (N - 1);
+    segment_id_ = pov::decode_segment_id(raw0, N);
   }
 
   // ── Segment mapping ─────────────────────────────────────────────────
 
   /**
    * @brief Computes the precomputed ISR mapping from hardware segment ID.
-   *
-   * Layout (N=4, SEGS_PER_ARM=2, ROWS=144):
-   *
-   *   Segments 0 .. SEGS_PER_ARM-1  →  arm A (x column)
-   *   Segments SEGS_PER_ARM .. N-1   →  arm B (x + W/2 column)
-   *
-   *   Within each arm (arm_seg 0 = top, arm_seg 1 = bottom):
-   *
-   *     arm_seg 0 (top):    LED 0 at N pole (y=0), strip runs toward junction.
-   *                         y_base = 0, y_step = +1  →  y ∈ [0, PPS-1]
-   *
-   *     arm_seg 1 (bottom): LED 0 at S pole (y=ROWS-1), strip runs toward junction.
-   *                         y_base = ROWS-1, y_step = -1, descending over the PPS
-   *                         rows  →  y ∈ [ROWS-PPS, ROWS-1] (strip physically
-   *                         reversed). The lower bound is ROWS-PPS for any S/N;
-   *                         it only coincides with PPS in the N=4 case (ROWS=2*PPS).
+   * @details IDs [0, N/2) map to arm A and [N/2, N) map to arm B. Each arm's
+   * northern bands advance in +y; its southern bands advance in -y.
    */
   void configure_segment() {
     const pov::SegmentMap m = pov::segment_map(segment_id_, S, N);
@@ -655,10 +641,10 @@ private:
   static bool dark_latched_;               /**< True once the black frame has latched; ISR-owned. */
   static bool sync_low_pending_;           /**< ISR-owned: dark-path pulse drop deferred to next wake. */
 
-  static int segment_id_;                  /**< Decoded hardware segment ID (up to 2 strap bits, 0..N-1). */
+  static int segment_id_;                  /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
   static bool arm_b_;                      /**< True if this segment lives on arm B (x + W/2). */
   static int y_base_;                      /**< Canvas row of this segment's LED 0.      */
-  static int y_step_;                      /**< Row stride per LED: +1 (top) or -1 (bottom, reversed). */
+  static int y_step_;                      /**< Row stride per LED: +1 north band or -1 reversed south band. */
 #if defined(USE_DMA_LEDS)
   static DMALEDController<PPS> ledController_; /**< DMA SPI LED controller for the segment strip. */
 #endif

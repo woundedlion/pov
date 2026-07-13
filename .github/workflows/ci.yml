@@ -545,7 +545,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           path: ~/.platformio
-          # Target-agnostic (one toolchain serves both envs). The exact key
+          # Target-agnostic (one toolchain serves all environments). The exact key
           # rotates on any platformio.ini pin bump; restore-keys then seeds the
           # restore from the newest prior toolchain cache so a pin bump pays only
           # for the changed packages, not a full multi-hundred-MB re-download
@@ -558,7 +558,7 @@ jobs:
         uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         with:
           # build_cache_dir from platformio.ini — without this the 7,685-line
-          # reaction_graph.cpp + FastLED recompile from scratch every run, ×2 envs.
+          # reaction_graph.cpp + FastLED recompile from scratch in every environment.
           path: .pio/build_cache
           # Rolling cache (like the toolchain cache above): the github.sha suffix
           # makes the exact key miss every run, so restore-keys seeds from the
@@ -569,12 +569,14 @@ jobs:
           restore-keys: pio-objs-${{ hashFiles('platformio.ini') }}-
       - name: Install pinned PlatformIO
         run: pip install 'platformio==6.1.19'   # Phase-0 spike resolved this version
-      - name: Build + size + layout gate (both targets)
+      - name: Build + size + layout gate (shipping targets + compile profiles)
         # The extra_script (tools/teensy_gate_extra.py) enforces per-env budgets
         # and sets a non-zero exit on any violation, emitting ::error:: annotations.
         # holosphere_dma is an ungated compile+link drift check for pov_single.h's
         # USE_DMA_LEDS path, which no shipping image builds (see platformio.ini).
-        run: pio run -e holosphere -e phantasm -e holosphere_dma
+        # phantasm8 likewise compiles the optional eight-board firmware profile;
+        # the mechanically qualified N=4 image remains the budgeted target.
+        run: pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8
       - name: Upload firmware artifacts
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -616,6 +618,6 @@ jobs:
         # them into the captured log. pipefail (GitHub's default bash) makes a
         # build failure fail the step rather than masking it behind tee.
         run: |
-          PLATFORMIO_BUILD_CACHE_DIR= pio run -e holosphere -e holosphere_dma -e phantasm -v 2>&1 \
+          PLATFORMIO_BUILD_CACHE_DIR= pio run -e holosphere -e holosphere_dma -e phantasm -e phantasm8 -v 2>&1 \
             | tee teensy_build.log
           python tools/teensy_warnings.py --build-log teensy_build.log --github

@@ -1,8 +1,10 @@
 # PHANTASM Segment Board — PCB Design Specification
 
 Source of truth for the KiCad schematic + layout of the per-segment carrier board.
-One identical PCB is built **×4**; a 2-bit solder strap selects each board's role
-(segment 0 = master/conductor, segments 1–3 = flywheel slaves).
+The qualified configuration builds one identical PCB **×4**; a 2-bit solder
+strap selects segment 0 (master/conductor) or segments 1–3 (flywheel slaves).
+The compile-tested N=8 firmware profile builds the same PCB ×8 and reads ID2;
+that rotor configuration is not mechanically qualified.
 
 Companion documents:
 - [phantasm_circuit.svg](phantasm_circuit.svg) — the wiring schematic this spec formalizes.
@@ -12,10 +14,11 @@ Companion documents:
 
 ## 1. Scope & system context
 
-- **Assembly:** 4 boards co-rotate on the arm at **480 RPM**. Mechanical robustness
-  and rotor balance are first-class requirements, not afterthoughts.
+- **Assembly:** The qualified N=4 rotor has 4 boards co-rotating at **480 RPM**.
+  N=8 requires a separate mounting, balance, cable, and swept-envelope design.
 - **Per board:** the PCB is a **logic controller card** — 1× Teensy 4.0 (3.3 V logic) + 1× 74AHCT125
-  level shifter @ 5 V + sync conditioning. It drives one HD107S 72-px strip's **data (DI/CI)** and
+  level shifter @ 5 V + sync conditioning. It drives one HD107S segment's **data (DI/CI)** (72 px at
+  N=4 or 36 px at N=8) and
   carries only **logic current (~0.15 A)** — the strip's 4.3 A power does **not** flow through the card.
 - **LED power is injected off-board (§2.3).** Heavy +5 V/GND runs from the rotor busbar **directly to
   each strip's injection point** (bulk cap there), bypassing the card. The card provides DI/CI plus a
@@ -43,7 +46,7 @@ Companion documents:
 | 5  | **MASTER_EN** | out | LOW on master; gates '125 ch C `/OE`; **R_MEN 10 kΩ pull-up → 3V3** (boot-safe disable, R-LS-5) ([pov_segmented.h:112](../hardware/pov_segmented.h#L112)) |
 | 21 | **ID0** | in (PULLUP) | strap bit 0; ground = bit set |
 | 22 | **ID1** | in (PULLUP) | strap bit 1; ground = bit set |
-| 23 | **ID2** | in (PULLUP) | strap bit 2 — **reserved for 8-seg (N=8)**; unread at N=4 |
+| 23 | **ID2** | in (PULLUP) | strap bit 2 — read at N=8; unread at N≤4 |
 | VIN | **+5 V** | power in | board + strip rail |
 | GND | **GND** | power | common return |
 | 3V3 | **+3.3 V** | power out | on-board regulator; sources **R_MEN** (mandatory) + R_ID0 pull-up (opt) + J4 |
@@ -65,9 +68,9 @@ clean to **≥30 MHz** so headroom exists.
 | 74AHCT125 + dividers | < 5 mA | |
 | **Card total (peak)** | **≈ 0.15 A** | low-current board: 1 oz copper, small connectors |
 
-**LED power (off-board, §2.3):** HD107S 72 px ≈ **4.3 A** peak (72 × 60 mA, full white), delivered to
-the strip by the separate power harness — **never through the card**. Aggregate ≈ **17 A** across 4
-strips at the slip ring (R-PWR-9).
+**LED power (off-board, §2.3):** Each N=4 HD107S 72-pixel segment draws ≈ **4.3 A** peak; each N=8
+36-pixel segment draws ≈ **2.2 A** (60 mA/pixel, full white). Power uses the separate harness —
+**never the card**. Both profiles retain 288 LEDs and an aggregate ≈ **17 A** at the slip ring.
 
 ### 2.2 Requirements — controller card
 
@@ -97,17 +100,18 @@ strips at the slip ring (R-PWR-9).
   ~0.5–1 A)** at J1, or documentation that it's covered upstream. (Strip overcurrent lives with the
   power harness — §2.3, R-PWR-12.)
 - **R-PWR-9 — Aggregate + inrush (upstream).** The slip ring + upstream feed still carry **≈17 A peak**
-  (4 × 4.3 A) on the **heavy LED-power run**; **soft-start / inrush limiting lives upstream** at the
+  (4 × 4.3 A at N=4 or 8 × 2.2 A at N=8) on the **heavy LED-power run**; **soft-start / inrush limiting lives upstream** at the
   PSU / slip-ring distribution. The big ~1 mF bulk is now at the strip injection points (§2.3,
   R-PWR-11), off the cards, so per-card inrush is just the small C_IN.
 
 ### 2.3 Power injection (off-board)
 
-The strips' 4.3 A is delivered by a **separate heavy harness from the rotor busbar straight to each
-strip**, bypassing the controller cards. This is what makes the card low-current and electrically
+Each segment's peak current (4.3 A at N=4, 2.2 A at N=8) is delivered by a **separate heavy harness
+from the rotor busbar straight to its strip**, bypassing the controller cards. This makes the card low-current and electrically
 quiet (R-SI-2).
 
-- **R-PWR-10 — Heavy feed sizing & cable.** Size the busbar/harness 5 V/GND for **4.3 A per strip** at
+- **R-PWR-10 — Heavy feed sizing & cable.** Size the busbar/harness 5 V/GND for the configured
+  segment current (**4.3 A at N=4, 2.2 A at N=8**) at
   < 250 mV drop and acceptable rise (the old on-board 2 oz pour requirement, relocated). Use **16–18 AWG
   or a busbar** — **not** the 22 AWG Belden 8451 sync pair (≈0.28 V drop over ~2 ft at 4.3 A, and it's a
   signal cable). The heavy feed **may run alongside the shielded sync 8451** (the sync's shield + twist +
@@ -169,12 +173,13 @@ Sync is a **low-rate symbol stream**, not a clock: 2 boundary marks/revolution +
 ~100 µs firmware glitch filter ([pov_sync.h:105](../hardware/pov_sync.h#L105)).
 
 **Topology: single source-terminated multidrop bus.** The master's one '125 channel drives the
-shared wire; all four boards (incl. master) tap it through high-impedance dividers (~25 kΩ each);
-with the 10 kΩ idle pull-down the total bus load is **≈1.3 mA**. **No star, no second buffer** — see §4.3.
+shared wire; every board taps it through a high-impedance divider (~25 kΩ). With one 10 kΩ idle
+pull-down the total DC load is **≈1.3 mA at N=4** or **≈2.1 mA at N=8**. **No star, no second
+buffer** — see §4.3.
 
 ### 4.1 Drive path (master only)
 - Teensy 3 → '125 ch C → **100 Ω** series → SYNC bus (J3). Gated by `/OE` = pin 5.
-- **Source termination is valid because the master sits at a bus _end_** (daisy master→1→2→3): the
+- **Source termination is valid because the master sits at a bus _end_** (daisy master→1→…→N−1): the
   100 Ω damps the outgoing edge and absorbs the reflection back at the driver. If the daisy order ever
   changes so the master is mid-bus, single-source-termination no longer applies — re-evaluate.
 
@@ -202,8 +207,9 @@ with the 10 kΩ idle pull-down the total bus load is **≈1.3 mA**. **No star, n
   IOMUXC_SW_PAD_CTL_PAD_HYS`). No PCB action — listed so layout/firmware stay paired with C_SYNC.
 
 ### 4.3 Decision: bus vs. star (resolved — bus)
-The 74AHCT125 sources **±8 mA** (datasheet, AHCT class) into the bus load — four ~25 kΩ receive
-dividers plus the 10 kΩ idle pull-down, **≈1.3 mA total** — so DC fan-out is a non-issue (≈6× margin).
+The 74AHCT125 sources **±8 mA** (datasheet, AHCT class). Eight ~25 kΩ receive dividers plus the
+10 kΩ idle pull-down draw **≈2.1 mA**, leaving ≈3.8× DC margin. The longer N=8 daisy still requires
+scope validation for edge quality in the assembled rotor.
 A star would (a) require a **second
 '125 on the master** — its quad already spends 3
 channels on DATA/CLK/SYNC-OUT — and (b) break the identical-board design, all to clean up edges on
@@ -238,27 +244,45 @@ conductors carry the signal pair; the drain handles the screen:
 ## 5. Hardware ID strap (pins 21 / 22 / 23)
 
 Straps are `INPUT_PULLUP`; firmware reads **log2(N) of them**, inverts, and masks:
-`segment_id = (~raw) & (N−1)` ([pov_segmented.h:411](../hardware/pov_segmented.h#L411)). **Grounding a strap
-sets its bit; all straps open = ID 0 = master.** The build is **N = 4** (reads ID0/ID1, pins 21/22); the
-board also breaks out **ID2 (pin 23)** so a recompiled **N = 8** build decodes segments 4–7 by the same
-scheme. N must be a power of two ≤ 8.
+`segment_id = (~raw) & (N−1)` ([pov_segmented.h](../hardware/pov_segmented.h)). **Grounding a strap
+sets its bit; all straps open = ID 0 = master.** N=4 reads ID0/ID1; the compile-tested N=8 profile
+also reads ID2. N must be a power of two ≤ 8.
 
 ### 5.1 Truth table (built config, N = 4)
 
 | Segment | Role | pin 21 (ID0) | pin 22 (ID1) |
 |---|---|---|---|
-| **0** | master / conductor | open | open |
-| **1** | slave | **→ GND** | open |
-| **2** | slave | open | **→ GND** |
-| **3** | slave | **→ GND** | **→ GND** |
+| **0** | arm A north / master | open | open |
+| **1** | arm A south | **→ GND** | open |
+| **2** | arm B north | open | **→ GND** |
+| **3** | arm B south | **→ GND** | **→ GND** |
 
-At N = 4, **ID2 (pin 23) stays open** and is unread (`ID_STRAPS = log2(4) = 2`). For an **N = 8** build,
-ground **ID2** to add bit 2 → segments 4–7 follow the same "ground to set the bit" pattern; firmware
-widens the mask to `& 7` automatically.
+At N=4, **ID2 is unread**. Its physical jumper state does not affect the decoded ID, but leaving it
+open keeps the assembly compatible with the default profile.
 
-### 5.2 Implementation
+### 5.2 N=8 firmware profile
+
+N=8 uses eight independent 36-pixel strip inputs. Each arm has two northern bands in increasing-y
+order and two reversed southern bands running from the S pole toward the junction.
+
+| Segment | Row band / role | ID0 | ID1 | ID2 |
+|---|---|---|---|---|
+| **0** | arm A, rows 0–35 / master | open | open | open |
+| **1** | arm A, rows 36–71 | **→ GND** | open | open |
+| **2** | arm A, rows 143–108 (reversed) | open | **→ GND** | open |
+| **3** | arm A, rows 107–72 (reversed) | **→ GND** | **→ GND** | open |
+| **4** | arm B, rows 0–35 | open | open | **→ GND** |
+| **5** | arm B, rows 36–71 | **→ GND** | open | **→ GND** |
+| **6** | arm B, rows 143–108 (reversed) | open | **→ GND** | **→ GND** |
+| **7** | arm B, rows 107–72 (reversed) | **→ GND** | **→ GND** | **→ GND** |
+
+The firmware and sync simulator cover this profile. The PCB exposes the required strap, but the
+eight-board rotor is not approved for operation until its mounting, dynamic balance, wiring strain
+relief, and swept envelope are mechanically qualified.
+
+### 5.3 Implementation
 - **R-ID-1** Break out **pins 21, 22 and 23 (ID0/ID1/ID2)** to pads, each with a **GND pad/via within
-  ~5 mm** — ID2 reserved for the 8-segment build. The role is set by a **short soldered wire-link** (or
+  ~5 mm** — ID2 is read only by the 8-segment profile. The role is set by a **short soldered wire-link** (or
   a stuffed 0 Ω / closed solder-jumper) from the pin pad to its GND pad, per the table. "Open" straps
   get nothing — the on-die pull-up holds HIGH.
 - **R-ID-2** **The grounded link is the load-bearing connection.** Its failure mode is an *open*,
@@ -269,7 +293,7 @@ widens the mask to `& 7` automatically.
   safe**: optionally provide a **DNP 10 kΩ pull-up footprint on ID0 → 3.3 V** to harden the
   open/master state against a cold strap (firmware author's suggestion, [pov_segmented.h:379-381](../hardware/pov_segmented.h#L379-L381)).
 - **R-ID-4** **Silkscreen the truth table** beside the straps and a large **board-ID digit field**,
-  so each board's role is readable during balancing/assembly. Mark "MASTER = both OPEN."
+  so each board's role is readable during balancing/assembly. Mark "MASTER = ALL ID OPEN."
 
 ---
 
@@ -296,7 +320,7 @@ widens the mask to `& 7` automatically.
 - **R-CON-3** **J3A/J3B each terminate one Belden 8451** (SYNC + its GND return + drain). On-board:
   the two `SYNC` pins are **bridged** (the bus tap that feeds the divider / master source), each
   `GND` lands on the plane next to its own `SYNC` pin so each pair's loop stays small (§7), and the
-  two `SHLD` pins are **bridged to a shared drain net**. **End boards (master, seg-3) populate only
+  two `SHLD` pins are **bridged to a shared drain net**. **End boards (master, segment N−1) populate only
   one connector;** mid-boards populate both for through-daisy.
 - **R-CON-4** All connectors TH with adequate annular ring/strain relief; orient so the mating
   cables route toward the hub, not radially outward into the spin.
@@ -347,6 +371,10 @@ nets, the sync line, and the load-end signal-ground tie.
 ---
 
 ## 8. Mechanical / rotor (480 RPM)
+
+The requirements below qualify the four-board rotor only. An eight-board rotor
+must define a new symmetric board/strip placement, fastener pattern, cable
+strain relief, swept envelope, and dynamic-balance acceptance test.
 
 - **R-MECH-1 — Mass-based package split (§11).** Heavy parts (electrolytics, connectors, Teensy) are
   **through-hole** for joint strength + RTV bonding under centrifugal load; low-mass parts (U1 SOIC,
@@ -442,7 +470,7 @@ hand-soldered by you.
 The board is built as a **partial PCBA**: the assembly house reflow-places the low-mass SMD parts;
 you hand-solder the heavy / mechanical through-hole parts. This keeps the rotor-balance intent of
 §6/§8 (heavy parts TH + RTV-bonded) while removing the tedium and cold-joint risk of hand-soldering
-a dozen tiny passives ×4 boards. The original "all through-hole" framing (old §3 note) was about
+a dozen tiny passives across the default four boards. The original "all through-hole" framing (old §3 note) was about
 enabling *hand* assembly, not a hard electrical or mechanical constraint — partial PCBA supersedes it.
 
 ### 11.1 Package split

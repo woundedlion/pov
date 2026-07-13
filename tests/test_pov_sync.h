@@ -11,7 +11,7 @@
  * acceptance gate, and the master emitter's self-censoring.
  *
  * The multi-board scenarios run on a small event-driven simulator: one
- * master + three downstream SyncBoards with per-board crystal offsets, a
+ * master plus downstream SyncBoards with per-board crystal offsets, a
  * single-latch masked-IRQ model (an edge during a mask is delayed; two merge
  * — the i.MX RT pin-flag behavior the count coding is designed around),
  * symbol drop windows, EMI injection, a foreground model with effect
@@ -1144,6 +1144,34 @@ inline void test_sim_boot_and_phase() {
   }
 }
 
+/**
+ * @brief Verifies eight boards acquire, join, and remain content-coherent.
+ */
+inline void test_sim_eight_board_boot_and_phase() {
+  const Config cfg = test_config();
+  const int32_t PPM[8] = {0, 20, -20, 40, -35, 15, -10, 30};
+  Sim sim(cfg, 8, PPM);
+
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        for (auto &b : s.boards)
+          if (b.board.lock() != LockState::LOCKED)
+            return false;
+        return true;
+      },
+      1.5));
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
+
+  sim.run_revs(8.0);
+  sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
+  HS_EXPECT_LE(sim.max_phase_err(), 2);
+  for (size_t i = 1; i < sim.boards.size(); ++i) {
+    HS_EXPECT_EQ(sim.boards[i].live_index, sim.boards[0].live_index);
+    HS_EXPECT_EQ(sim.boards[i].t, sim.boards[0].t);
+    HS_EXPECT_FALSE(sim.boards[i].trapped);
+  }
+}
+
 // ── Scenario: epoch commit — lockstep advance, dark window, deadline ───────
 
 /**
@@ -2101,6 +2129,7 @@ inline int run_pov_sync_tests() {
   test_beacon_late_coast();
 
   test_sim_boot_and_phase();
+  test_sim_eight_board_boot_and_phase();
   test_sim_epoch_commit();
   test_sim_commit_deadline_trap();
   test_sim_masked_windows();
