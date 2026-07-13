@@ -7,30 +7,33 @@ name: Docs
 on:
   push:
     branches: [master]
-    # Only the Doxygen inputs (Doxyfile INPUT = README.md core effects hardware
-    # targets, *.h/*.cpp), the config, the custom stylesheet, and this workflow
-    # affect the published site; skip the full rebuild+redeploy on other pushes.
+    # Run for API-reference inputs and every Markdown/checker change.
     paths:
       - '**.h'
       - '**.cpp'
-      - 'README.md'
+      - '*.md'
+      - '**/*.md'
       - 'Doxyfile'
       - 'docs/doxygen-custom.css'
       - 'docs/doxygen-theme.cfg'
+      - 'tools/docs_check.py'
+      - 'tools/docs_check_tests/**'
+      - 'justfile'
       - '.github/workflows/docs.yml'
-  # Build-only presubmit on PRs touching the same inputs: a fatal Doxygen parse
-  # error fails the PR instead of publishing silently after merge. Non-fatal
-  # warnings (a dropped README anchor, a missing @param) are NOT gated — Doxyfile
-  # sets WARN_AS_ERROR = NO. The deploy job is push-gated, so PRs build without
-  # deploying.
+  # Build-only presubmit on PRs touching the same inputs. The deploy job is
+  # push-gated, so PRs build without deploying.
   pull_request:
     paths:
       - '**.h'
       - '**.cpp'
-      - 'README.md'
+      - '*.md'
+      - '**/*.md'
       - 'Doxyfile'
       - 'docs/doxygen-custom.css'
       - 'docs/doxygen-theme.cfg'
+      - 'tools/docs_check.py'
+      - 'tools/docs_check_tests/**'
+      - 'justfile'
       - '.github/workflows/docs.yml'
 
 # Default every job to source read-only. Deploy grants its publish capabilities.
@@ -55,6 +58,11 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+
+      - name: Validate tracked Markdown
+        run: |
+          python -m unittest discover -s tools/docs_check_tests
+          python tools/docs_check.py
 
       # Pin Doxygen to an exact release binary (apt's version trails and lacks
       # newer config tags this Doxyfile uses). Graphviz comes from the pinned

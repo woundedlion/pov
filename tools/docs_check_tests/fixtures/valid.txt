@@ -1,0 +1,22 @@
+# Valid fixture
+
+[encoded target](target%20file.md?raw=1#details)
+![inline image](images/diagram.svg)
+[reference target][guide]
+![reference image][diagram]
+[same page](#valid-fixture)
+[external](https://example.com/missing.md)
+[mail](mailto:docs@example.com)
+[sibling checkout](../../daydream/daydream.js)
+`[inline code](ignored.md)`
+
+[guide]: <target file.md#details>
+[diagram]: images/diagram.svg?raw=1
+
+```markdown
+[ignored missing link](not-present.md)
+````
+
+~~~text
+![ignored image](missing.png)
+~~~
