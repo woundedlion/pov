@@ -195,6 +195,30 @@ public:
   }
 
 private:
+  /** @brief Evaluates the selected ball fields using cached ring geometry. */
+  template <int CAPACITY>
+  float solid_field(const BallDropTransformer<CAPACITY> &pool,
+                    const Vector &p, const int *ks, int n,
+                    float theta) const {
+    float num = 0.0f;
+    float den = 0.0f;
+    for (int j = 0; j < n; ++j) {
+      const int k = ks[j];
+      float f = bump_field_with_y(p, pool.active_params(k),
+                                  theta - solid_colat[k]);
+      num += f * f * f;
+      den += f * f;
+    }
+    return den > 1e-9f ? num / den : 0.0f;
+  }
+
+  /** @brief Evaluates selected non-ball fields through their generic blend. */
+  template <typename Pool>
+  float solid_field(const Pool &pool, const Vector &p, const int *ks, int n,
+                    float) const {
+    return pool.field_dominant(p, ks, n);
+  }
+
   /**
    * @brief Bakes and rasterizes every ring over one solid-body pool.
    * @tparam Pool The active FieldTransformer pool (balls or pois).
@@ -366,7 +390,7 @@ private:
             for (; x < x_end; ++x) {
               Vector p = (basis.v * cos_t) +
                          ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
-              float s = pool.field_dominant(p, solid_local, n_local) +
+              float s = solid_field(pool, p, solid_local, n_local, theta) +
                         noise_field.field(p);
               ring_bound = std::max(ring_bound, std::fabs(s));
               shift_lut[x] = s;

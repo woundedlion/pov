@@ -841,6 +841,19 @@ inline void test_field_transformer_storage_survives_arena_rewind() {
 // bump_field — cap falloff, fast reject, envelope gating
 // ============================================================================
 
+/** @brief Verifies the bump threshold tracks the effective footprint. */
+inline void test_bump_field_threshold_sync() {
+  BumpParams p;
+  p.radius = 0.8f;
+  p.envelope = 0.25f;
+  p.sync();
+  HS_EXPECT_NEAR(p.cos_radius, std::cos(0.2f), 1e-6f);
+
+  p.envelope = 0.75f;
+  p.prepare_threshold();
+  HS_EXPECT_NEAR(p.cos_radius, std::cos(0.6f), 1e-6f);
+}
+
 /**
  * @brief Verifies the drape push along the axis meridian: zero for the ring
  *        through the center, peak bow between center and edge, zero at the
@@ -911,6 +924,29 @@ inline void test_bump_field_round_bulge_along_ring() {
   HS_EXPECT_NEAR(bump_field(v, p), expected, 5e-3f);
 }
 
+/** @brief Verifies the cached-ring evaluator matches the generic bump field. */
+inline void test_bump_field_precomputed_y_parity() {
+  const float c_lat = 1.1f;
+  BumpParams p;
+  p.center = Vector(std::sin(c_lat), std::cos(c_lat), 0.0f);
+  p.axis = Vector(0, 1, 0);
+  p.radius = 0.55f;
+  p.amplitude = 0.8f;
+  p.envelope = 0.7f;
+  p.sync();
+
+  const float center_colat = fast_acos(
+      hs::clamp(dot(p.axis, p.center), -1.0f, 1.0f));
+  for (float lat = 0.4f; lat <= 1.8f; lat += 0.07f) {
+    for (float az = -0.6f; az <= 0.6f; az += 0.09f) {
+      Vector v(std::sin(lat) * std::cos(az), std::cos(lat),
+               std::sin(lat) * std::sin(az));
+      const float y = lat - center_colat;
+      HS_EXPECT_NEAR(bump_field_with_y(v, p, y), bump_field(v, p), 2e-3f);
+    }
+  }
+}
+
 /**
  * @brief Verifies the lifecycle envelope scales the footprint (a half-envelope
  *        cap clears to its shrunken boundary) and gates the field to exactly 0
@@ -928,8 +964,10 @@ inline void test_bump_field_envelope_gates() {
   const float d = c_lat + 0.125f;
   const Vector v(std::sin(d), std::cos(d), 0.0f);
   p.envelope = 0.5f; // effective radius 0.25
+  p.sync();
   HS_EXPECT_NEAR(bump_field(v, p), 0.125f, 2e-3f);
   p.envelope = 0.0f;
+  p.sync();
   HS_EXPECT_NEAR(bump_field(v, p), 0.0f, 1e-7f);
 }
 
@@ -994,11 +1032,13 @@ inline void test_ball_drop_traverses_and_reclaims() {
   HS_EXPECT_TRUE(balls.spawn(0, ori, pole, 0.0f, duration) != nullptr);
 
   tl.step(cv);
+  balls.prepare_frame();
   const float early = balls.field(pole);
   HS_EXPECT_NEAR(early, 0.0f, 0.02f);
 
   for (int i = 1; i < duration / 2; ++i)
     tl.step(cv);
+  balls.prepare_frame();
   // Mid-fall: the bump sits at the world equator point (1, 0, 0) (azimuth 0)
   // at full envelope. The pole reads ~0 (outside the cap); half a footprint
   // below the center on its meridian, the drape push toward the lower
@@ -1072,8 +1112,10 @@ inline int run_transformers_tests() {
   test_field_transformer_field_dominant_subset();
   test_field_transformer_slot_reclaimed();
   test_field_transformer_storage_survives_arena_rewind();
+  test_bump_field_threshold_sync();
   test_bump_field_drapes_over_ball();
   test_bump_field_round_bulge_along_ring();
+  test_bump_field_precomputed_y_parity();
   test_bump_field_envelope_gates();
   test_noise_product_field_parity();
   test_ball_drop_traverses_and_reclaims();
