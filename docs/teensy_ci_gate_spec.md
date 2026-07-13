@@ -124,7 +124,7 @@ The two systems live side by side, each owning a different job:
 | Edit / IntelliSense / flash / debug | ✅ primary | ❌ |
 | Headless build for CI | ❌ | ✅ |
 | Size / layout / warning gate | ❌ | ✅ |
-| Project state on disk | `__vm/`, `*.vcxproj.user` (gitignored) | `.pio/` (add to `.gitignore`) |
+| Project state on disk | `__vm/`, `*.vcxproj*`, `*.sln` (gitignored) | `.pio/` (add to `.gitignore`) |
 
 Design rules to keep them from interfering:
 
@@ -133,8 +133,8 @@ Design rules to keep them from interfering:
   existing tree; it does not fork a copy.
 - **No shared generated dirs.** Add `/.pio/` to `.gitignore` alongside the existing `__vm/`
   entry. PlatformIO never writes into `__vm/` and VMicro never writes into `.pio/`.
-- **Include-path parity.** The committed VMicro project puts **`core/`, `effects/`, and
-  `hardware/`** on the include path (vcxproj `IncludePath`, §4.1) — note `effects/`, which README
+- **Include-path parity.** The historical VMicro configuration capture put **`core/`, `effects/`,
+  and `hardware/`** on the include path (vcxproj `IncludePath`, §4.1) — note `effects/`, which README
   §11's "`../../core;../../hardware`" omits. `platformio.ini` reproduces all three via
   `build_flags = -I core -I effects -I hardware`, so a file that compiles under one resolves the
   same headers under the other.
@@ -143,14 +143,15 @@ Design rules to keep them from interfering:
   for VMicro to avoid "builds in CI, not locally" surprises (documented, not enforced).
 - **Build-option parity (most consequential — flash size hinges on it).** VMicro bakes in Teensy
   "menu" selections that PlatformIO otherwise sets from its *own* defaults; the CI size numbers are
-  only comparable to the flashed image if these match. **These have now been captured from the
-  committed VMicro project** — see §4.1; `platformio.ini` must pin every row of that table.
+  only comparable to the flashed image if these match. **These were captured from the former
+  VMicro project** — see §4.1; `platformio.ini` pins the active configuration.
 
-### 4.1 Captured VMicro configuration (source of truth for parity)
+### 4.1 Historical VMicro configuration capture
 
-Read from the committed Holosphere VMicro project — `targets/Holosphere/Holosphere.vcxproj`
-(`UserProperties`), `__vm/Compile.vmps.xml` / `Configuration.Release.vmps.xml`, and
-`__vm/.Holosphere.vsarduino.h`. This is the authoritative set the size gate must reproduce:
+This record was read from the formerly tracked `targets/Holosphere/Holosphere.vcxproj`
+(`UserProperties`) and generated `__vm/Compile.vmps.xml`, `Configuration.Release.vmps.xml`, and
+`.Holosphere.vsarduino.h` files. The project artifacts are no longer retained; `platformio.ini`
+contains the active configuration derived from this capture:
 
 | Option | VMicro value | Evidence | PlatformIO encoding |
 |---|---|---|---|
@@ -182,10 +183,11 @@ is breached), but explains why that floor can move in 32 KiB increments rather t
 
 **Two corrections this capture forces on earlier drafts:**
 
-1. **Optimization is `-O3` ("Fastest", no LTO) — owner-confirmed.** The committed override
-   `custom_teensy40_opt="o3std"` (`-O3`) is authoritative; the `o2std`/`-O2` seen in the last-build
-   vmps state was the stale default, and the earlier `-Os` recollection did not hold (no project
-   file selects `osstd`). `-O3` is the **largest** image of the three (`-Os < -O2 < -O3`), so:
+1. **Optimization is `-O3` ("Fastest", no LTO) — owner-confirmed.** The captured override
+   `custom_teensy40_opt="o3std"` (`-O3`) established the setting; the `o2std`/`-O2` seen in
+   the last-build vmps state was the stale default, and the earlier `-Os` recollection did not
+   hold (no project file selects `osstd`). `-O3` is the **largest** image of the three
+   (`-Os < -O2 < -O3`), so:
    - Calibrate `flash_max_bytes` (§8) against the **-O3** build, and
    - CI must `build_unflags` PlatformIO's Teensy default `-O*` and force `-O3` (no LTO) — the PIO
      default is unlikely to be `-O3`, so without this the gate would measure a *smaller* image than
@@ -200,15 +202,15 @@ is breached), but explains why that floor can move in 32 KiB increments rather t
    **repo root**, which PlatformIO puts on the include path automatically via `src_dir = .` — *that*
    is the load-bearing requirement, not `-I effects`. `-I core` / `-I hardware` are still needed for
    the BARE `effects.h` / `effects_legacy.h` / `pov_single.h` includes in the `.ino`. `-I effects` is
-   retained to mirror VMicro's `../../effects` (vcxproj line 67) and guard a future bare-name include,
-   but the current tree does not require it (§6). README §11's include-dir hint is updated to add
-   `../../effects` for VMicro parity regardless.
+   retained to mirror the captured VMicro `../../effects` setting (vcxproj line 67) and guard a
+   future bare-name include, but the current tree does not require it (§6). README §11's include-dir
+   hint is updated to add `../../effects` for VMicro parity regardless.
 
-> **Scope of the capture.** Only **Holosphere** has a committed VMicro/VS project; **Phantasm has
-> none** to read. The table above is therefore Holosphere's actual config; Phantasm is assumed to
-> use the **same** board/optimization/USB/toolchain (same author, same bench) and only adds
-> `-D USE_DMA_LEDS`. Phase 0 must confirm that assumption with the owner before locking Phantasm's
-> flash budget — it is the one remaining unread option set.
+> **Scope of the capture.** Only **Holosphere** had a tracked VMicro/VS configuration to read;
+> **Phantasm had none**. The table above therefore records Holosphere's config; Phantasm is
+> assumed to use the **same** board/optimization/USB/toolchain (same author, same bench) and only
+> adds `-D USE_DMA_LEDS`. Phase 0 must confirm that assumption with the owner before locking
+> Phantasm's flash budget — it is the one remaining unread option set.
 
 ---
 
@@ -255,7 +257,7 @@ Key decisions:
 
 - **Keep `.ino`, don't convert to `.cpp`.** PlatformIO compiles `.ino` (it runs the same
   prototype-injection preprocessing Arduino does). Converting to `.cpp` would diverge from the
-  VMicro source of truth and risk auto-prototype differences. The `.ino` stays canonical.
+  Arduino sketch workflow and risk auto-prototype differences. The `.ino` stays canonical.
 - **`core/memory.cpp` and `core/reaction_graph.cpp` are real translation units** (the WASM build
   lists them explicitly in `CMakeLists.txt`). They must be added to the firmware build's source
   set — via `build_src_filter` including `core/*.cpp`, or by treating `core/` as a private
