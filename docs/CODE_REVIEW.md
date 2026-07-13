@@ -135,7 +135,7 @@ The overall grade is held below A by one release-blocking firmware resource fail
 
 19. **Hardware-only DMA/sync behavior has no automated HIL validation.** `tests/test_dma_controller.h:10-14`, `tests/test_hd107s_frame.h:9-11`, `hardware/pov_segmented.h:497-590`. Host tests cannot validate LPSPI/eDMA registers, cache coherency, pulse widths, ISR latency or real-strip behavior. Add a Teensy/logic-analyzer smoke rig covering stream bytes, buffer integrity, sync pulses, overrun and long-run wrap.
 
-20. **Manufacturing metadata and board documentation have drifted.** `hardware/phantasm/README.md:121-138`, `hardware/phantasm/phantasm.kicad_pcb:10-14,35-103,11583,12222`. Track/via counts, pour layers, finish and copper descriptions disagree with the committed board. Generate measured statistics and fabrication parameters from the manufacturing source of truth.
+20. ✅ **Manufacturing metadata and board documentation have drifted.** `hardware/phantasm/README.md:121-138`, `hardware/phantasm/phantasm.kicad_pcb:10-14,35-103,11583,12222`. Track/via counts, pour layers, finish and copper descriptions disagree with the committed board. Generate measured statistics and fabrication parameters from the manufacturing source of truth.
 
 21. **BOM/CPL completeness is warning-only.** `hardware/phantasm/gen/fab.py:191-224`. Missing supplier mappings or centroid data can still yield orderable-looking output with blank fields. Fail packaging for any assembled SMD lacking a part number, centroid, numeric placement or expected side.
 
