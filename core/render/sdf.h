@@ -748,6 +748,8 @@ struct DistortedRing {
       : DistortedRing(b, r, th, ScalarFn{}, md, ph) {
     knots = kn;
     lut_n = n;
+    float min_shift = kn[0];
+    float max_shift = kn[0];
     // Per-chunk knot ranges for the per-pixel prefilter. A segment registers
     // its endpoints in every chunk its azimuth extent touches (a straddling
     // segment spans two), so the polyline inside a chunk never leaves
@@ -759,6 +761,8 @@ struct DistortedRing {
     for (int k = 0; k < n; ++k) {
       float lo = std::min(kn[k], kn[k + 1]);
       float hi = std::max(kn[k], kn[k + 1]);
+      min_shift = std::min(min_shift, lo);
+      max_shift = std::max(max_shift, hi);
       int c1 = k * PREFILTER_CHUNKS / n;
       int c2 = std::min((k + 1) * PREFILTER_CHUNKS / n, PREFILTER_CHUNKS - 1);
       for (int c = c1; c <= c2; ++c) {
@@ -766,6 +770,13 @@ struct DistortedRing {
         chunk_hi[c] = std::max(chunk_hi[c], hi);
       }
     }
+
+    max_distortion = std::max(std::abs(min_shift), std::abs(max_shift));
+    max_thickness = thickness + max_distortion;
+    float ang_min = hs::clamp(target_angle + min_shift - thickness, 0.0f, PI_F);
+    float ang_max = hs::clamp(target_angle + max_shift + thickness, 0.0f, PI_F);
+    cos_max_limit = cosf(ang_min);
+    cos_min_limit = cosf(ang_max);
   }
 
   /**

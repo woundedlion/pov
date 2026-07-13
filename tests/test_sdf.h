@@ -290,6 +290,36 @@ inline void test_distorted_ring_polyline_distance_matches_bruteforce() {
   expect_polyline_distance_matches_bruteforce<97>();
 }
 
+/** @brief Verifies knot extrema tighten an asymmetric loose caller band. */
+inline void test_distorted_ring_knot_extrema_tighten_band() {
+  constexpr int LUT_N = 8;
+  constexpr float RADIUS = 0.8f;
+  constexpr float THICKNESS = 0.05f;
+  constexpr float TARGET = RADIUS * (PI_F / 2.0f);
+  float knots[LUT_N + 1] = {0.18f, 0.12f, 0.04f, -0.01f, -0.03f,
+                            0.02f, 0.09f, 0.16f, 0.18f};
+  Basis basis = equator_basis();
+  SDF::DistortedRing ring(basis, RADIUS, THICKNESS, knots, LUT_N, 0.8f, 0.0f);
+
+  HS_EXPECT_NEAR(ring.max_distortion, 0.18f, 1e-6f);
+  HS_EXPECT_NEAR(ring.max_thickness, 0.23f, 1e-6f);
+  for (int k : {0, 4, 8}) {
+    float t = static_cast<float>(k % LUT_N) / LUT_N;
+    float azimuth = 2.0f * PI_F * t;
+    float polar = TARGET + knots[k];
+    Vector p(cosf(azimuth) * sinf(polar), cosf(polar),
+             sinf(azimuth) * sinf(polar));
+    HS_EXPECT_NEAR(ring.distance(p).raw_dist, 0.0f, 2e-4f);
+  }
+
+  float below = TARGET - 0.03f - THICKNESS - 1e-3f;
+  float above = TARGET + 0.18f + THICKNESS + 1e-3f;
+  HS_EXPECT_GT(ring.distance(Vector(sinf(below), cosf(below), 0.0f)).dist,
+               50.0f);
+  HS_EXPECT_GT(ring.distance(Vector(sinf(above), cosf(above), 0.0f)).dist,
+               50.0f);
+}
+
 // ============================================================================
 // PlanarPolygon  (Basis at top of sphere; distance to nearest edge)
 // ============================================================================
@@ -1522,6 +1552,16 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
       expect_cull_covers_interior<W, H>(poly);
     }
   }
+
+  constexpr int ASYM_LUT_N = 64;
+  float asymmetric[ASYM_LUT_N + 1];
+  for (int k = 0; k <= ASYM_LUT_N; ++k)
+    asymmetric[k] = 0.075f + 0.1f * sinf(6.0f * PI_F * (k % ASYM_LUT_N) /
+                                        ASYM_LUT_N);
+  Basis basis = make_basis(Quaternion(), Vector(0.3f, 1.0f, 0.2f));
+  SDF::DistortedRing asymmetric_ring(basis, 0.6f, 0.08f, asymmetric,
+                                     ASYM_LUT_N, 0.8f, 0.0f);
+  expect_cull_covers_interior<W, H>(asymmetric_ring);
 }
 
 /**
@@ -1920,6 +1960,7 @@ inline int run_sdf_tests() {
   test_distorted_ring_sin_shift_varies_by_azimuth();
   test_distorted_ring_flat_matches_zero_knots();
   test_distorted_ring_polyline_distance_matches_bruteforce();
+  test_distorted_ring_knot_extrema_tighten_band();
 
   test_polygon_at_center_inside();
   test_polygon_far_point_outside();
