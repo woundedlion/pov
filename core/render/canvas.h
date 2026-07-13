@@ -141,12 +141,9 @@ public:
    * @param x1 Exclusive end column of the owned segment.
    */
   void set_clip(int y0, int y1, int x0, int x1) {
-    // Non-inverted band, non-negative origins, y within the canvas height. The
-    // x upper bound (x1 <= w) is checked downstream at the LUT-domain HS_CHECK
-    // in Scan::Shader::draw.
-    HS_CHECK(y0 >= 0 && y0 <= y1 && y1 <= clip_.h && x0 >= 0 && x0 <= x1,
-             "set_clip band must be non-inverted, within canvas height, with "
-             "non-negative origins");
+    HS_CHECK(y0 >= 0 && y0 <= y1 && y1 <= clip_.h && x0 >= 0 && x0 <= x1 &&
+                 x1 <= clip_.w,
+             "set_clip band must be non-inverted and within canvas bounds");
     clip_.y_start = y0;
     clip_.y_end = y1;
     clip_.x_start = x0;
@@ -161,9 +158,8 @@ public:
    * @param x1 Exclusive end column of the horizontal clip band.
    */
   void set_clip_x(int x0, int x1) {
-    // Same non-inverted/non-negative invariant as set_clip (x-band only).
-    HS_CHECK(x0 >= 0 && x0 <= x1,
-             "set_clip_x band must be non-inverted with a non-negative origin");
+    HS_CHECK(x0 >= 0 && x0 <= x1 && x1 <= clip_.w,
+             "set_clip_x band must be non-inverted and within canvas width");
     clip_.x_start = x0;
     clip_.x_end = x1;
   }
