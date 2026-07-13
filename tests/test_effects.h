@@ -1260,11 +1260,44 @@ struct DistortedRingWhiteBox {
   using DR = DistortedRing<DEFAULT_W, DEFAULT_H>;
   static float spin(const DR &dr) { return dr.spin_amount; }
   static float phase(const DR &dr) { return dr.mod_phase; }
+  static float mod_time(const DR &dr) { return dr.mod_time; }
+  static bool mod_time_forward(const DR &dr) { return dr.mod_time_forward; }
+  static float mod_time_step() { return DR::MOD_TIME_STEP; }
+  static float mod_time_limit() { return DR::MOD_TIME_LIMIT; }
+  static void set_mod_time(DR &dr, float time) { dr.mod_time = time; }
+  static void step_mod_drivers(DR &dr) { dr.step_mod_drivers(); }
   static int mode_count() {
     return static_cast<int>(sizeof(DR::PALETTE_MODS) /
                             sizeof(DR::PALETTE_MODS[0]));
   }
 };
+
+/**
+ * @brief Verifies modulation time reverses at both bounds without resetting.
+ * @details Pins the float-stall threshold, then requires the bounded driver's
+ *          descending sample to move while remaining near its endpoint.
+ */
+inline void test_distorted_ring_mod_time_reverses_at_bounds() {
+  using WB = DistortedRingWhiteBox;
+  WB::DR dr;
+  const float STALL_TIME = 1048576.0f;
+  const float LIMIT = WB::mod_time_limit();
+
+  HS_EXPECT_EQ(STALL_TIME + WB::mod_time_step(), STALL_TIME);
+  HS_EXPECT_LT(LIMIT, STALL_TIME);
+
+  WB::set_mod_time(dr, LIMIT);
+  WB::step_mod_drivers(dr);
+  HS_EXPECT_FALSE(WB::mod_time_forward(dr));
+  HS_EXPECT_LT(WB::mod_time(dr), LIMIT);
+  HS_EXPECT_GT(WB::mod_time(dr), LIMIT - 1.0f);
+
+  WB::set_mod_time(dr, 0.0f);
+  WB::step_mod_drivers(dr);
+  HS_EXPECT_TRUE(WB::mod_time_forward(dr));
+  HS_EXPECT_GT(WB::mod_time(dr), 0.0f);
+  HS_EXPECT_LT(WB::mod_time(dr), 1.0f);
+}
 
 /**
  * @brief Verifies every "Palette Mod" dropdown option renders a frame stream
@@ -2030,6 +2063,7 @@ inline int run_effects_tests() {
     DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
     test_hopf_projection_math();
     test_petalflow_spawn_gap_bounded();
+    test_distorted_ring_mod_time_reverses_at_bounds();
     test_distorted_ring_palette_mod_selection();
     test_displacement_field_clip_tiles_full();
     test_mindsplatter_emit_phase_wrapped();
