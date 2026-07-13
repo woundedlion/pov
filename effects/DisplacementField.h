@@ -61,6 +61,7 @@ public:
     solid_colat = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_reach = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_shift = persistent_arena.allocate_n<float>(SOLID_MAX);
+    solid_scale = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_local = persistent_arena.allocate_n<int>(SOLID_MAX);
     balls.init_storage(persistent_arena);
     noise_field.init_storage(persistent_arena);
@@ -183,19 +184,13 @@ public:
    * @param opacity Sprite's animated fade in [0, 1], multiplied into each
    * fragment's alpha.
    * @details The two solid pools never overlap in time, so a single active pool
-   * is chosen per frame and the shared per-ring machinery runs over it; the poi
-   * feature scale follows the same 2/R rule as the balls.
+   * is chosen per frame and the shared per-ring machinery runs over it.
    */
   void draw_fn(Canvas &canvas, float opacity) {
     if (pois.active_count() > 0) {
-      draw_rings(canvas, opacity, pois,
-                 2.0f / (params.poi_size * (1.0f - POI_SIZE_JITTER)));
+      draw_rings(canvas, opacity, pois);
     } else {
-      float ball_feature =
-          balls.active_count() > 0
-              ? 2.0f / std::min(params.ball_min, params.ball_max)
-              : 0.0f;
-      draw_rings(canvas, opacity, balls, ball_feature);
+      draw_rings(canvas, opacity, balls);
     }
   }
 
@@ -206,8 +201,6 @@ private:
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite fade multiplied into each fragment's alpha.
    * @param pool The active solid-body pool sampled by field_dominant.
-   * @param solid_feature The pool's 2/R LUT feature scale (used when a body
-   * touches the ring).
    * @details Per ring, the displacement stack is baked per azimuth column into
    * shift_lut (the ring's centerline shift) together with the hue-rotated ring
    * color in hue_lut. The bake evaluates only the bodies whose support can reach
@@ -223,8 +216,7 @@ private:
    * whose displaced band cannot touch the clip are skipped whole.
    */
   template <typename Pool>
-  void draw_rings(Canvas &canvas, float opacity, const Pool &pool,
-                  float solid_feature) {
+  void draw_rings(Canvas &canvas, float opacity, const Pool &pool) {
     int n_rings = static_cast<int>(params.num_rings);
     Basis basis = make_basis(orientation.get(), normal);
     const bool try_cull = !clip().is_full();
@@ -242,10 +234,12 @@ private:
           fast_acos(hs::clamp(dot(basis.v, sp.center), -1.0f, 1.0f));
       solid_reach[b] = sp.support_bound();
       solid_shift[b] = sp.field_bound();
+      solid_scale[b] = 2.0f / sp.radius;
     }
 
     // The octave product carries modulation sidebands out to scale1 + scale2.
-    const float noise_feature = params.scale1 + params.scale2;
+    const float noise_feature =
+        noise_bound > 0.0f ? params.scale1 + params.scale2 : 0.0f;
 
     for (int i = 0; i < n_rings; ++i) {
       float radius = 2.0f / (n_rings + 1) * (i + 1);
@@ -255,11 +249,13 @@ private:
       // largest input, so the max touching field_bound bounds the shift.
       int n_local = 0;
       float band = 0.0f;
+      float solid_feature = 0.0f;
       for (int b = 0; b < n_solid; ++b) {
         if (std::fabs(theta - solid_colat[b]) <
             solid_reach[b] + BALL_TOUCH_EPS) {
           solid_local[n_local++] = b;
           band = std::max(band, solid_shift[b]);
+          solid_feature = std::max(solid_feature, solid_scale[b]);
         }
       }
 
@@ -284,9 +280,7 @@ private:
           hue_lut[x] = flat;
         }
       } else {
-        float feature_scale = noise_feature;
-        if (n_local > 0)
-          feature_scale = std::max(feature_scale, solid_feature);
+        float feature_scale = std::max(noise_feature, solid_feature);
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
 
@@ -568,6 +562,7 @@ private:
   float *solid_colat = nullptr; /**< SOLID_MAX active-body center colatitudes about the stack axis (radians), rebuilt per frame. */
   float *solid_reach = nullptr; /**< SOLID_MAX active-body support extents (radians): the reach prefilter bound. */
   float *solid_shift = nullptr; /**< SOLID_MAX active-body shift bounds (radians): the per-ring band bound. */
+  float *solid_scale = nullptr; /**< SOLID_MAX active-body LUT feature scales (2/radius). */
   int *solid_local = nullptr;   /**< SOLID_MAX scratch: active indices of the bodies that can reach the current ring. */
 
   /** Ring-to-body prefilter pad absorbing fast_acos and tangent-recurrence

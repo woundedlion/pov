@@ -77,6 +77,53 @@ struct PoiWhiteBox {
   static auto palette(const DisplacementField<W, H> &e) {
     return e.palette.snapshot();
   }
+  template <int W, int H>
+  static void set_noise_scales(DisplacementField<W, H> &e, float scale1,
+                               float scale2) {
+    e.params.scale1 = scale1;
+    e.params.scale2 = scale2;
+  }
+  template <int W, int H, typename Pool>
+  static void draw_rings(DisplacementField<W, H> &e, Canvas &canvas,
+                         const Pool &pool) {
+    e.draw_rings(canvas, 1.0f, pool);
+  }
+  template <int W, int H>
+  static int lut_samples(float feature_scale, float sin_theta) {
+    using DF = DisplacementField<W, H>;
+    return hs::clamp(
+        static_cast<int>(ceilf(DF::LUT_SAMPLES_PER_UNIT * 2.0f * PI_F *
+                               feature_scale * sin_theta)),
+        DF::LUT_MIN_SAMPLES, W);
+  }
+};
+
+struct LutSizingPool {
+  struct Params {
+    Vector center;
+    float radius;
+    float support;
+    float shift;
+
+    float support_bound() const { return support; }
+    float field_bound() const { return shift; }
+  };
+
+  Params bodies[2] = {{Y_AXIS, 1.0f, 0.2f, 0.1f},
+                      {X_AXIS, 0.5f, 0.1f, 0.05f}};
+  mutable int samples = 0;
+  mutable bool subset_exact = true;
+  int expected_local_count = 1;
+
+  int active_count() const { return 2; }
+  const Params &active_params(int k) const { return bodies[k]; }
+  float field_dominant(const Vector &, const int *ks, int n) const {
+    ++samples;
+    subset_exact = subset_exact && n == expected_local_count;
+    for (int k = 0; k < n; ++k)
+      subset_exact = subset_exact && ks[k] == k;
+    return 0.05f;
+  }
 };
 
 /**
@@ -634,6 +681,45 @@ inline void test_displacement_field_palette_wipe_countdown() {
   delete e;
 }
 
+/**
+ * @brief Verifies solid-only rings size their bake from touching bodies' actual
+ * radii, excluding inactive noise and non-touching smaller bodies.
+ */
+inline void test_displacement_field_local_lut_sizing() {
+  using DF = DisplacementField<256, 40>;
+  reset_globals();
+  auto *e = new DF();
+  e->init();
+  PoiWhiteBox::set_rings(*e, 1.0f);
+  PoiWhiteBox::set_noise_scales(*e, 4.0f, 8.0f);
+
+  LutSizingPool pool;
+  {
+    Canvas canvas(*e);
+    PoiWhiteBox::draw_rings(*e, canvas, pool);
+  }
+  e->advance_display();
+
+  HS_EXPECT_TRUE(pool.subset_exact);
+  int expected = PoiWhiteBox::lut_samples<256, 40>(2.0f, 1.0f);
+  HS_EXPECT_EQ(pool.samples, expected);
+
+  pool.bodies[1].center = Y_AXIS;
+  pool.samples = 0;
+  pool.subset_exact = true;
+  pool.expected_local_count = 2;
+  {
+    Canvas canvas(*e);
+    PoiWhiteBox::draw_rings(*e, canvas, pool);
+  }
+  e->advance_display();
+
+  HS_EXPECT_TRUE(pool.subset_exact);
+  expected = PoiWhiteBox::lut_samples<256, 40>(4.0f, 1.0f);
+  HS_EXPECT_EQ(pool.samples, expected);
+  delete e;
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -660,6 +746,7 @@ inline int run_poi_tests() {
   test_poi_dance_axis_against_ring_frame();
   test_poi_effect_phase_cycle();
   test_displacement_field_palette_wipe_countdown();
+  test_displacement_field_local_lut_sizing();
 
   return fixture.result();
 }
