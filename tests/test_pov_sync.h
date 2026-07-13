@@ -25,6 +25,7 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <deque>
 #include <vector>
 
 namespace hs_test {
@@ -258,6 +259,30 @@ inline void test_seed_clears_mailbox() {
   HS_EXPECT_FALSE(burst_complete(board.mailbox(), 3000u + 100 * col,
                                  cfg.gap_timeout_cycles()));
   HS_EXPECT_EQ(claim(board.mailbox()).count, 0u);
+}
+
+/**
+ * @brief Verifies build requests reset across seeds and reconstruction.
+ */
+inline void test_build_request_reset() {
+  const Config cfg = test_config();
+  SyncBoard board(cfg);
+  HS_EXPECT_EQ(board.build_word(), 0u);
+
+  board.seed(1000u, true);
+  HS_EXPECT_EQ(SyncBoard::build_gen_of(board.build_word()), 1u);
+  HS_EXPECT_EQ(SyncBoard::build_index_of(board.build_word()), 0);
+
+  board.seed(2000u, false);
+  HS_EXPECT_EQ(board.build_word(), 0u);
+
+  const Config replacement = test_config(3);
+  board.reconstruct(replacement);
+  HS_EXPECT_EQ(board.config().effect_count, 3);
+  HS_EXPECT_EQ(board.build_word(), 0u);
+
+  board.seed(3000u, true);
+  HS_EXPECT_EQ(SyncBoard::build_gen_of(board.build_word()), 1u);
 }
 
 /**
@@ -797,7 +822,7 @@ struct SimBoard {
 class Sim {
 public:
   Config cfg;
-  std::vector<SimBoard> boards;
+  std::deque<SimBoard> boards;
   uint64_t g = 0;                                  /**< Global time, cycles. */
   std::vector<std::pair<uint64_t, int>> emi;       /**< (g, target), sorted. */
   size_t emi_pos = 0;
@@ -814,7 +839,6 @@ public:
   Sim(const Config &c, int n, const int32_t *ppm, uint64_t phase0 = 0)
       : cfg(c) {
     const double step0 = double(c.cycles_per_half_rev) / (c.W / 2) / 8.0;
-    boards.reserve(n);
     for (int i = 0; i < n; ++i) {
       boards.emplace_back(c);
       SimBoard &b = boards.back();
@@ -2121,6 +2145,7 @@ inline int run_pov_sync_tests() {
   test_mailbox();
   test_mailbox_prior_staleness();
   test_seed_clears_mailbox();
+  test_build_request_reset();
   test_beacon_codec();
   test_rev_resync_fold();
   test_flywheel_position();
