@@ -34,6 +34,7 @@
 #include "core/animation/animation.h"
 #include "core/render/canvas.h"
 #include "core/color/color.h"
+#include "core/color/composition.h"
 #include "core/math/geometry.h"
 #include "core/render/filter.h"
 #include "core/render/led.h"
@@ -920,6 +921,15 @@ inline void case_path_append_zero_samples() {
 }
 
 /**
+ * @brief Death case: AlphaFalloffShade requires a non-null callback.
+ */
+inline void case_alpha_falloff_null() {
+  auto fn = opaque<AlphaFalloffShade::FalloffFunction>(nullptr);
+  AlphaFalloffShade shade(fn);
+  (void)shade;
+}
+
+/**
  * @brief Death case: a Gradient stop position outside [0,1] must trap.
  * @details Color surface — a stop position indexes entries[256] via
  *          static_cast<int>(pos * 255); pos > 1 (or < 0) is an out-of-bounds
@@ -1102,6 +1112,7 @@ inline const Case *all_cases(int &n) {
       {"noise_transform_nan", case_noise_transform_nan},
       {"driver_null_speed_src", case_driver_null_speed_src},
       {"path_append_zero_samples", case_path_append_zero_samples},
+      {"alpha_falloff_null", case_alpha_falloff_null},
       {"register_param_overflow", case_register_param_overflow},
       {"set_clip_out_of_bounds", case_set_clip_out_of_bounds},
       {"set_clip_x_out_of_bounds", case_set_clip_x_out_of_bounds},
@@ -1377,7 +1388,7 @@ inline int run_death_tests() {
 
   // Floor against a silently dropped case: the roster must not shrink below its
   // known size. Bump when adding cases.
-  constexpr int MIN_DEATH_CASES = 51;
+  constexpr int MIN_DEATH_CASES = 52;
   HS_EXPECT_GE(n, MIN_DEATH_CASES);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
