@@ -148,7 +148,7 @@ add_test(NAME unit_color_luts_check COMMAND ${CMAKE_COMMAND}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/check_color_luts_selfcheck.cmake)
 set_tests_properties(unit_color_luts_check PROPERTIES SKIP_RETURN_CODE 77)
 
-# Finding 369: the run_tests build sets NO math flags, so its NaN-clamp
+# The run_tests build sets NO math flags, so its NaN-clamp
 # assertions run under default IEEE semantics where the hs::clamp NaN->hi
 # contract holds trivially — the at-risk codegen the WASM release build actually
 # ships (-ffast-math, which implies the contract-breaking -ffinite-math-only,
