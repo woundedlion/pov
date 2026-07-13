@@ -128,14 +128,8 @@ public:
     for (int i = 0; i < n_rings; ++i) {
       float radius = 2.0f / (n_rings + 1) * (i + 1);
       auto fragment_shader = [&](const Vector &, Fragment &f) {
-        // f.v0 = normalized azimuth (0..1), f.v1 = distance from center line,
-        // f.size = thickness.
         f.color = sample_palette(f.v0);
-
-        float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
-        float falloff = quintic_kernel(1.0f - norm_dist);
-
-        f.color.alpha = f.color.alpha * opacity * params.alpha * falloff;
+        f.color.alpha = f.color.alpha * opacity * params.alpha * f.v2;
       };
 
       Scan::DistortedRing::draw<W, H>(

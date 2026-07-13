@@ -269,8 +269,8 @@ struct Bounds {
  *   raw_dist -> Fragment::v1
  *   aux      -> Fragment::v3
  *   size     -> Fragment::size
- * (Fragment::v2 is reserved and always 0 here; Scan::Mesh injects a face index
- *  downstream, so a shape's DistanceResult never carries v2.)
+ * Fragment::v2 is generated downstream: Scan writes stroke AA coverage or 0
+ * for solid shapes, and Scan::Mesh replaces it with a face index.
  */
 struct DistanceResult {
   float dist;        /**< Signed distance (negative inside); always this meaning. */
@@ -3610,8 +3610,7 @@ struct Torus {
    * @param frag Output fragment; v0 = ring angle (0-1, for palette lookup),
    *        v1/v2/v3 = surface normal (x, y, z).
    * @note Volumetric register convention (README "Volumetric Path"), distinct
-   *        from the SDF-scanline register table — the normal in v2 here does not
-   *        violate that path's "v2 reserved" rule.
+   *        from Scan's v2 stroke-coverage and mesh face-index conventions.
    */
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);
@@ -3801,8 +3800,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @param p Query point in Cartesian ray-space.
    * @param frag Output fragment; v0 = ring angle (0-1), v1/v2/v3 = surface normal.
    * @note Volumetric register convention (README "Volumetric Path"), distinct
-   *        from the SDF-scanline register table — the normal in v2 here does not
-   *        violate that path's "v2 reserved" rule.
+   *        from Scan's v2 stroke-coverage and mesh face-index conventions.
    */
   void populate(const Vector &p, Fragment &frag) const {
     Vector n = normal(p);

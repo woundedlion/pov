@@ -607,7 +607,7 @@ struct Fragment {
   Vector pos;              // Position (typically a unit vector on the sphere)
   float v0 = 0.0f;        // Register 0: normalized progress t (0–1)
   float v1 = 0.0f;        // Register 1: arc length / distance
-  float v2 = 0.0f;        // Register 2: index / face ID
+  float v2 = 0.0f;        // Register 2: stroke coverage / face ID
   float v3 = 0.0f;        // Register 3: auxiliary
   float size = 1.0f;      // Size metric for normalization
   float age = 0.0f;       // Age (for trail decay / motion blur)
@@ -648,7 +648,7 @@ Each rasterizer family populates the Fragment registers with a consistent conven
 |---|---|---|
 | `v0` | `DistanceResult.t` | Normalized parameter (0–1) — azimuthal angle for rings, perimeter progress for polygons |
 | `v1` | `DistanceResult.raw_dist` | Unsigned distance to shape centerline (for distance-based effects) |
-| `v2` | Set by rasterizer | Face index for `Scan::Mesh` (0 otherwise) |
+| `v2` | Set by rasterizer | Stroke AA coverage (0–1, also applied by Scan at plot time), 0 for solid shapes, or face index for `Scan::Mesh` |
 | `v3` | `DistanceResult.aux` | Auxiliary — shape-dependent secondary parameter (0 when unused, including faces) |
 | `size` | `DistanceResult.size` | Shape radius or apothem for normalization (mesh `Face` floors it to ≥0.25× circumradius on sliver faces, so a normalized shader can see up to a 4× overstated inradius there) |
 
