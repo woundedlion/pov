@@ -665,9 +665,12 @@ struct AlphaFalloffShade {
   FalloffFunction fn;
   /**
    * @brief Constructs with the falloff function.
-   * @param fn Function mapping a coordinate to an alpha multiplier.
+   * @param fn Non-null function mapping a coordinate to an alpha multiplier.
    */
-  AlphaFalloffShade(FalloffFunction fn) : fn(fn) {}
+  AlphaFalloffShade(FalloffFunction fn) : fn(fn) {
+    HS_CHECK(fn != nullptr,
+             "AlphaFalloffShade: falloff function must not be null");
+  }
   /**
    * @brief Scales the sample's alpha by the falloff curve at t.
    * @param c Sample color to reshape.
