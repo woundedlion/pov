@@ -155,6 +155,26 @@ inline void pair_half_edges(HalfEdgePairRecord *records, size_t n,
   }
 }
 
+/**
+ * @brief Requires face side counts to span the flat face-index array exactly.
+ * @param counts Per-face side counts.
+ * @param num_faces Number of entries in @p counts.
+ * @param total_indices Length of the flat face-index array.
+ */
+HS_COLD static inline void require_flat_face_length(const uint8_t *counts,
+                                                    size_t num_faces,
+                                                    size_t total_indices) {
+  size_t counted_indices = 0;
+  for (size_t i = 0; i < num_faces; ++i) {
+    const size_t count = counts[i];
+    HS_CHECK(count <= total_indices - counted_indices,
+             "mesh face counts exceed flat index length");
+    counted_indices += count;
+  }
+  HS_CHECK(counted_indices == total_indices,
+           "mesh face counts do not span flat index length");
+}
+
 class HalfEdgeMesh;
 /**
  * @brief Fills a HalfEdgeMesh's connectivity arrays from a flat (vertex count,
@@ -167,8 +187,8 @@ class HalfEdgeMesh;
  * @param faces_arr Flat per-face vertex index list.
  * @param total_indices Length of @p faces_arr.
  * @details Emits one half-edge per face index, links each face's next/prev loop,
- * then pairs opposite half-edges by undirected vertex key. Traps on a 16-bit
- * index overflow or a zero-side face.
+ * then pairs opposite half-edges by undirected vertex key. Traps on mismatched
+ * flat face lengths, a 16-bit index overflow or a zero-side face.
  */
 [[maybe_unused]] HS_COLD static void
 build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
@@ -214,6 +234,7 @@ public:
 build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
                      const uint8_t *counts, size_t num_faces,
                      const uint16_t *faces_arr, size_t total_indices) {
+  require_flat_face_length(counts, num_faces, total_indices);
   HS_CHECK(num_verts <= UINT16_MAX && total_indices <= UINT16_MAX,
            "half-edge mesh exceeds 16-bit index range");
 
@@ -335,11 +356,13 @@ inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * @details Removes degenerate faces (faces with < 3 vertices), then compacts
  * the vertex array to the set the surviving faces reference, so the compiled
  * vertex count matches what vertex-count consumers (e.g. MeshMorph) see rather
- * than carrying orphans left by the stripped faces. Traps if the cumulative
- * face offset exceeds the 16-bit range.
+ * than carrying orphans left by the stripped faces. Traps if the flat face
+ * lengths disagree or the cumulative face offset exceeds the 16-bit range.
  */
 HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
                                     Arena &geom_arena, Arena &scratch) {
+  require_flat_face_length(src.get_face_counts_data(),
+                           src.get_face_counts_size(), src.get_faces_size());
   dst.clear();
 
   size_t valid_faces = 0;

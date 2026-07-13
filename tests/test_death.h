@@ -410,6 +410,89 @@ inline void case_mesh_narrow_index() {
 }
 
 /**
+ * @brief Builds a one-face PolyMesh with independently sized count and index
+ * data.
+ * @param mesh Mesh to populate.
+ * @param arena Arena backing the mesh arrays.
+ * @param side_count Value stored in the face-count array.
+ * @param num_indices Number of entries stored in the flat face-index array.
+ */
+inline void build_mismatched_polymesh(PolyMesh &mesh, Arena &arena,
+                                      uint8_t side_count,
+                                      size_t num_indices) {
+  mesh.vertices.bind(arena, 4);
+  for (size_t i = 0; i < 4; ++i)
+    mesh.vertices.push_back(Vector{});
+  mesh.face_counts.bind(arena, 1);
+  mesh.face_counts.push_back(opaque(side_count));
+  mesh.faces.bind(arena, num_indices);
+  for (size_t i = 0; i < num_indices; ++i)
+    mesh.faces.push_back(static_cast<uint16_t>(i));
+}
+
+/**
+ * @brief Death case: HalfEdgeMesh rejects counts shorter than its flat index
+ * list.
+ */
+inline void case_half_edge_face_counts_short() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh mesh;
+  build_mismatched_polymesh(mesh, arena, 3, opaque<size_t>(4));
+  HalfEdgeMesh half_edges(arena, mesh);
+  if (half_edges.faces.size() == opaque<size_t>(99))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: HalfEdgeMesh rejects counts longer than its flat index
+ * list.
+ */
+inline void case_half_edge_face_counts_long() {
+  static uint8_t buf[1024];
+  Arena arena(buf, sizeof(buf));
+  PolyMesh mesh;
+  build_mismatched_polymesh(mesh, arena, 4, opaque<size_t>(3));
+  HalfEdgeMesh half_edges(arena, mesh);
+  if (half_edges.faces.size() == opaque<size_t>(99))
+    std::printf("x");
+}
+
+/**
+ * @brief Death case: MeshOps::compile rejects counts shorter than its index
+ * list.
+ */
+inline void case_mesh_compile_face_counts_short() {
+  static uint8_t src_buf[1024];
+  static uint8_t dst_buf[1024];
+  static uint8_t scratch_buf[1024];
+  Arena src_arena(src_buf, sizeof(src_buf));
+  Arena dst_arena(dst_buf, sizeof(dst_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+  PolyMesh mesh;
+  MeshState compiled;
+  build_mismatched_polymesh(mesh, src_arena, 3, opaque<size_t>(4));
+  MeshOps::compile(mesh, compiled, dst_arena, scratch);
+}
+
+/**
+ * @brief Death case: MeshOps::compile rejects counts longer than its index
+ * list.
+ */
+inline void case_mesh_compile_face_counts_long() {
+  static uint8_t src_buf[1024];
+  static uint8_t dst_buf[1024];
+  static uint8_t scratch_buf[1024];
+  Arena src_arena(src_buf, sizeof(src_buf));
+  Arena dst_arena(dst_buf, sizeof(dst_buf));
+  Arena scratch(scratch_buf, sizeof(scratch_buf));
+  PolyMesh mesh;
+  MeshState compiled;
+  build_mismatched_polymesh(mesh, src_arena, 4, opaque<size_t>(3));
+  MeshOps::compile(mesh, compiled, dst_arena, scratch);
+}
+
+/**
  * @brief Death case: a NaN endpoint fed to slerp must trap.
  * @details Math-core surface — the NaN poisons interpolation through both
  *          branches into the final strict normalized(), which traps rather than
@@ -909,6 +992,10 @@ inline const Case *all_cases(int &n) {
        case_correction_guard_double_construct},
       {"correction_guard_cross_type", case_correction_guard_cross_type},
       {"mesh_narrow_index", case_mesh_narrow_index},
+      {"half_edge_face_counts_short", case_half_edge_face_counts_short},
+      {"half_edge_face_counts_long", case_half_edge_face_counts_long},
+      {"mesh_compile_face_counts_short", case_mesh_compile_face_counts_short},
+      {"mesh_compile_face_counts_long", case_mesh_compile_face_counts_long},
       {"slerp_nan", case_slerp_nan},
       {"make_rotation_vectors_nan", case_make_rotation_vectors_nan},
       {"make_rotation_angle_nan", case_make_rotation_angle_nan},
@@ -1192,7 +1279,7 @@ inline int run_death_tests() {
 
   // Floor against a silently dropped case: the roster must not shrink below its
   // known size. Bump when adding cases.
-  constexpr int MIN_DEATH_CASES = 41;
+  constexpr int MIN_DEATH_CASES = 45;
   HS_EXPECT_GE(n, MIN_DEATH_CASES);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
