@@ -56,7 +56,6 @@ public:
    * and builds the timeline.
    */
   void init() override {
-    ring_baked.bake(persistent_arena, palette);
     shift_lut = persistent_arena.allocate_n<float>(W + 1);
     hue_lut = persistent_arena.allocate_n<Pixel>(W + 1);
     solid_colat = persistent_arena.allocate_n<float>(SOLID_MAX);
@@ -123,7 +122,7 @@ public:
    */
   void draw_frame() override {
     color_spin = wrap_t(color_spin + COLOR_SPIN_RATE);
-    step_wipe_rebake(wipe_pending, wipe_frames_remaining, ring_baked, palette);
+    step_palette_wipe();
 
     if (phase == Phase::POI)
       poi_choreo.step();
@@ -271,7 +270,7 @@ private:
         continue;
 
       Color4 ring_color =
-          ring_baked.get(wrap_t((i + 0.5f) / n_rings + color_spin));
+          palette.get(wrap_t((i + 0.5f) / n_rings + color_spin));
       HueRotateBase hue_base = make_hue_rotate_base(ring_color);
 
       float ring_bound = 0.0f;
@@ -494,6 +493,14 @@ private:
     wipe_pending = true;
   }
 
+  void step_palette_wipe() {
+    if (wipe_pending) {
+      wipe_pending = false;
+    } else if (wipe_frames_remaining > 0) {
+      --wipe_frames_remaining;
+    }
+  }
+
   FastNoiseLite walk_noise;
   Timeline timeline;
   Pipeline<W, H> filters;
@@ -525,11 +532,10 @@ private:
 
   GenerativePalette palette;      /**< Active palette (mutated by an in-flight ColorWipe). */
   GenerativePalette next_palette; /**< Target palette the current wipe fades toward. */
-  BakedPalette ring_baked;        /**< LUT the shader samples; rebaked while a wipe runs. */
   Vector normal;
   Orientation<> orientation;
 
-  int wipe_frames_remaining = 0; /**< Frames left to rebake ring_baked for the in-flight wipe. */
+  int wipe_frames_remaining = 0; /**< Frames left in the in-flight palette wipe. */
   bool wipe_pending = false;     /**< Wipe armed this frame; it first steps next frame. */
 
   /**
