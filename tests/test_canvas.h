@@ -547,30 +547,24 @@ inline void test_paramlist_fills_to_capacity() {
 // ============================================================================
 // Clip setters
 // ============================================================================
-//
-// set_clip / set_clip_x store the four bounds verbatim with no validation; this
-// test covers only that field-write contract. The bad-clip failure modes are
-// consumed elsewhere: x_end > W traps downstream (death harness
-// case_scan_clip_out_of_bounds), and inverted/empty bounds just render nothing.
-// set_margin is the one setter that validates (HS_CHECK margin >= width).
 
 /**
- * @brief Verifies the clip setters write the expected fields.
+ * @brief Verifies the clip setters write valid bounds through the canvas edge.
  * @details set_clip sets all four bounds (and clears is_full), set_clip_x
  * touches only x bounds, and set_margin sets margin.
  */
 inline void test_clip_setters() {
   TestEffect fx(96, 20);
-  fx.set_clip(2, 10, 5, 40);
+  fx.set_clip(2, 10, 5, 96);
   HS_EXPECT_EQ(fx.clip().y_start, 2);
   HS_EXPECT_EQ(fx.clip().y_end, 10);
   HS_EXPECT_EQ(fx.clip().x_start, 5);
-  HS_EXPECT_EQ(fx.clip().x_end, 40);
+  HS_EXPECT_EQ(fx.clip().x_end, 96);
   HS_EXPECT_FALSE(fx.clip().is_full());
 
-  fx.set_clip_x(7, 50);
+  fx.set_clip_x(7, 96);
   HS_EXPECT_EQ(fx.clip().x_start, 7);
-  HS_EXPECT_EQ(fx.clip().x_end, 50);
+  HS_EXPECT_EQ(fx.clip().x_end, 96);
   HS_EXPECT_EQ(fx.clip().y_start, 2);
 
   fx.set_margin(3);

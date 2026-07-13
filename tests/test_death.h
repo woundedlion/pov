@@ -517,9 +517,8 @@ inline void case_driver_null_speed_src() {
 }
 
 /**
- * @brief Concrete Effect for the canvas/scan death cases.
- * @details Fixed 32x16 so its trig LUTs match the well-exercised host config;
- *          exposes register_param (via reg) and set_clip.
+ * @brief Concrete Effect for the canvas death cases.
+ * @details Exposes register_param through reg.
  */
 struct DeathEffect : public Effect {
   /**
@@ -595,18 +594,37 @@ inline void case_register_param_overflow() {
 }
 
 /**
- * @brief Death case: a scan clip whose x_end exceeds W must trap.
- * @details Scan surface — such a clip would index the trig LUTs out of bounds;
- *          Scan::Shader::draw enforces the LUT-domain invariant once per draw
- *          (not per pixel) before the loop runs.
+ * @brief Death case: set_clip rejects x_end beyond the canvas width.
+ */
+inline void case_set_clip_out_of_bounds() {
+  constexpr int W = 32, H = 16;
+  DeathEffect fx;
+  fx.set_clip(0, H, 0, opaque(W + 1));
+}
+
+/**
+ * @brief Death case: set_clip_x rejects x_end beyond the canvas width.
+ */
+inline void case_set_clip_x_out_of_bounds() {
+  constexpr int W = 32;
+  DeathEffect fx;
+  fx.set_clip_x(0, opaque(W + 1));
+}
+
+/**
+ * @brief Death case: the shader rejects a clip beyond its LUT width.
+ * @details Direct construction exercises the downstream guard independently
+ *          of the Effect setters.
  */
 inline void case_scan_clip_out_of_bounds() {
   constexpr int W = 32, H = 16;
-  DeathEffect fx;
-  fx.set_clip(0, H, 0, opaque(W + 64)); // x_end > W -> LUT-domain HS_CHECK
-  Canvas c(fx);
-  Scan::Shader::draw<W, H, 1>(
-      c, [](const Vector &) { return Color4(Pixel(0, 0, 0), 1.0f); });
+  ClipRegion cr;
+  cr.x_end = opaque(W + 1);
+  cr.y_end = H;
+  cr.margin = 0;
+  cr.w = W;
+  cr.h = H;
+  Scan::Shader::check_lut_domain<W, H>(cr);
 }
 
 /**
@@ -900,6 +918,8 @@ inline const Case *all_cases(int &n) {
       {"driver_null_speed_src", case_driver_null_speed_src},
       {"path_append_zero_samples", case_path_append_zero_samples},
       {"register_param_overflow", case_register_param_overflow},
+      {"set_clip_out_of_bounds", case_set_clip_out_of_bounds},
+      {"set_clip_x_out_of_bounds", case_set_clip_x_out_of_bounds},
       {"scan_clip_out_of_bounds", case_scan_clip_out_of_bounds},
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity},
       {"plot_extract_edges_vertex_over_capacity",
