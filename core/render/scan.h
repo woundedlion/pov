@@ -21,6 +21,8 @@
  * @details General register mapping for Scan primitives:
  *  v0: Normalized parameter t (0-1) or angle
  *  v1: Raw distance or supplementary value
+ *  v2: Stroke AA coverage (0-1), also applied by Scan at plot time; 0 for
+ *      solid shapes; Mesh uses face index
  */
 namespace Scan {
 
@@ -94,7 +96,7 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
     frag_scratch.pos = p;
     frag_scratch.v0 = result_scratch.t;
     frag_scratch.v1 = result_scratch.raw_dist;
-    frag_scratch.v2 = 0.0f;
+    frag_scratch.v2 = solid ? 0.0f : alpha;
     frag_scratch.v3 = result_scratch.aux;
     frag_scratch.size = result_scratch.size;
     frag_scratch.age = 0;

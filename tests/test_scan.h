@@ -278,7 +278,7 @@ inline void test_ring_rasterize_empty_clip_draws_nothing() {
 }
 
 /**
- * @brief Verifies flat-ring rasterization is pixel-identical to zero knots.
+ * @brief Verifies flat-ring rasterization matches zero knots within one code.
  */
 inline void test_distorted_ring_flat_matches_zero_knot_raster() {
   constexpr int W = 96, H = 64, LUT_N = 16;
@@ -288,9 +288,7 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
 
   auto check = [&](bool partial_clip) {
     auto shader = [](const Vector &, Fragment &f) {
-      float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
-      f.color = Color4(Pixel(51000, 27000, 9000),
-                       0.8f * quintic_kernel(1.0f - norm_dist));
+      f.color = Color4(Pixel(51000, 27000, 9000), 0.8f * f.v2);
     };
     std::vector<Pixel> expected(W * H);
     {
@@ -328,9 +326,9 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
       for (int x = 0; x < W; ++x) {
         const Pixel &a = expected[y * W + x];
         const Pixel &b = flat.get_pixel(x, y);
-        HS_EXPECT_EQ(a.r, b.r);
-        HS_EXPECT_EQ(a.g, b.g);
-        HS_EXPECT_EQ(a.b, b.b);
+        HS_EXPECT_NEAR(static_cast<int>(a.r), static_cast<int>(b.r), 1);
+        HS_EXPECT_NEAR(static_cast<int>(a.g), static_cast<int>(b.g), 1);
+        HS_EXPECT_NEAR(static_cast<int>(a.b), static_cast<int>(b.b), 1);
       }
     }
   };
@@ -493,6 +491,63 @@ inline float scan_alpha_at(const auto &shape, const Vector &p, Canvas &c,
   if (count)
     *count = sink.count;
   return sink.last_alpha;
+}
+
+/**
+ * @brief Verifies Scan's v2 contract for stroke and solid shaders.
+ * @details A stroke shader that writes v2 as alpha produces coverage squared
+ * at the sink; solid shaders receive zero.
+ */
+inline void test_scan_shader_v2_contract() {
+  constexpr int W = 288, H = 144;
+  ScanFx fx(W, H);
+  Canvas canvas(fx);
+  Basis basis = make_basis(Quaternion(), Y_AXIS);
+  constexpr float RADIUS = 0.5f;
+  constexpr float THICKNESS = 0.1f;
+  const float phi = RADIUS * (PI_F / 2.0f) + THICKNESS * 0.5f;
+  const Vector p(sinf(phi), cosf(phi), 0.0f);
+  SDF::Ring ring(basis, RADIUS, THICKNESS);
+
+  SDF::DistanceResult expected_result;
+  ring.distance<false>(p, expected_result);
+  const float expected_coverage =
+      quintic_kernel(-expected_result.dist / expected_result.size);
+  const float legacy_factor = quintic_kernel(
+      1.0f - hs::clamp(expected_result.raw_dist / expected_result.size, 0.0f,
+                       1.0f));
+
+  AlphaSink sink;
+  SDF::DistanceResult result;
+  Fragment frag;
+  float shader_coverage = -1.0f;
+  Scan::process_pixel<W, H, false>(
+      0, 0, p, sink, canvas, ring,
+      [&](const Vector &, Fragment &f) {
+        shader_coverage = f.v2;
+        f.color = Color4(Pixel(60000, 60000, 60000), f.v2);
+      },
+      false, result, frag);
+
+  HS_EXPECT_EQ(sink.count, 1);
+  HS_EXPECT_GT(expected_coverage, 0.1f);
+  HS_EXPECT_LT(expected_coverage, 0.9f);
+  HS_EXPECT_NEAR(shader_coverage, expected_coverage, 1e-6f);
+  HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * expected_coverage, 1e-6f);
+  HS_EXPECT_NEAR(sink.last_alpha, expected_coverage * legacy_factor, 2e-6f);
+
+  SDF::PlanarPolygon solid(basis, 0.5f, 6, 0.0f);
+  AlphaSink solid_sink;
+  float solid_v2 = -1.0f;
+  Scan::process_pixel<W, H, false>(
+      0, 0, basis.v, solid_sink, canvas, solid,
+      [&](const Vector &, Fragment &f) {
+        solid_v2 = f.v2;
+        f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
+      },
+      false, result, frag);
+  HS_EXPECT_EQ(solid_sink.count, 1);
+  HS_EXPECT_EQ(solid_v2, 0.0f);
 }
 
 /**
@@ -1109,6 +1164,7 @@ inline int run_scan_tests() {
   test_stroke_aa_is_monotone_ramp();
   test_ring_rasterize_empty_clip_draws_nothing();
   test_distorted_ring_flat_matches_zero_knot_raster();
+  test_scan_shader_v2_contract();
   test_scan_region_seam_no_double_plot();
   test_scan_region_fractional_boundary_no_double_plot();
   test_plot_line_over_pole_reaches_row0();

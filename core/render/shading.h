@@ -20,7 +20,7 @@ struct Fragment {
   Vector pos;        /**< Position (typically a unit vector on the sphere). */
   float v0 = 0.0f;   /**< Register 0 (usually normalized progress t) */
   float v1 = 0.0f;   /**< Register 1 (usually arc length/distance) */
-  float v2 = 0.0f;   /**< Register 2 (usually index/id) */
+  float v2 = 0.0f;   /**< Register 2 (stroke coverage or index/id) */
   float v3 = 0.0f;   /**< Register 3 (auxiliary) */
   float size = 1.0f; /**< Size metric (e.g. radius/apothem) for normalization */
   float age = 0.0f;  /**< Age of the operation/trail */

@@ -301,9 +301,7 @@ private:
         // The explicit SDF wins under -Os; -O3 folds the zero-knot path.
         float frag_alpha = ring_color.alpha * opacity * params.alpha;
         auto flat_shader = [flat, frag_alpha](const Vector &, Fragment &f) {
-          float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
-          f.color = Color4(
-              flat, frag_alpha * quintic_kernel(1.0f - norm_dist));
+          f.color = Color4(flat, frag_alpha * f.v2);
         };
         Scan::DistortedRing::draw_flat<W, H, false>(
             filters, canvas, basis, radius, params.thickness, flat_shader);
@@ -416,11 +414,9 @@ private:
       auto fragment_shader = [&](const Vector &, Fragment &f) {
         float x = wrap_t(f.v0) * lut_n;
         int j = static_cast<int>(x);
-        float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
-        float falloff = quintic_kernel(1.0f - norm_dist);
         f.color = Color4(
             hue_lut[j].lerp16(hue_lut[j + 1], frac_to_q16(quintic_kernel(x - j))),
-            frag_alpha * falloff);
+            frag_alpha * f.v2);
       };
 
       Scan::DistortedRing::draw<W, H>(filters, canvas, basis, radius,
