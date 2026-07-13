@@ -167,6 +167,49 @@ def region_totals_from_size_a(text: str) -> dict[str, int]:
     return totals
 
 
+class SizeAFormatError(ValueError):
+    pass
+
+
+def fallback_sizes_from_size_a(text: str) -> dict[str, dict[str, int]]:
+    """Validate `size -A` output and synthesize Teensy budget regions."""
+    malformed = [line.strip() for line in text.splitlines()
+                 if line.strip().startswith(".")
+                 and not _SIZE_A_RE.match(line.strip())]
+    if malformed:
+        raise SizeAFormatError(
+            f"malformed section row {malformed[0]!r}")
+
+    rows = parse_size_a(text)
+    allocated = [
+        (name, size, addr) for name, size, addr in rows
+        if size > 0 and not name.startswith(_NON_ALLOC_SECTIONS)
+        and region_for_address(addr) != "OTHER"
+    ]
+    if not allocated:
+        raise SizeAFormatError(
+            "no recognized positive allocated section rows")
+
+    totals: dict[str, int] = {}
+    for _, size, addr in allocated:
+        region = region_for_address(addr)
+        totals[region] = totals.get(region, 0) + size
+
+    missing = [region for region in ("FLASH", "ITCM", "DTCM", "OCRAM")
+               if totals.get(region, 0) <= 0]
+    if missing:
+        raise SizeAFormatError(
+            "missing positive Teensy memory bucket(s): " + ", ".join(missing))
+
+    ram1 = totals["ITCM"] + totals["DTCM"]
+    return {
+        "flash": {"used": totals["FLASH"], "free": 0},
+        "ram1": {"used": ram1, "free": 0x80000 - ram1},
+        "ram2": {"used": totals["OCRAM"],
+                 "free": 0x80000 - totals["OCRAM"]},
+    }
+
+
 # `readelf -s`/`-sW` symbol row, e.g.
 #    124: 20200000 248832 OBJECT  GLOBAL DEFAULT    8 _ZN6Effect8buffer_aE
 # The Value is hex (no prefix); the Size is decimal for small objects but HEX
@@ -417,14 +460,14 @@ def main(argv: list[str] | None = None) -> int:
         sizes = parse_teensy_size(Path(args.teensy_size).read_text(encoding="utf-8"))
     elif args.size_a:
         used_size_a_fallback = True
-        totals = region_totals_from_size_a(
-            Path(args.size_a).read_text(encoding="utf-8"))
-        ram1 = totals.get("ITCM", 0) + totals.get("DTCM", 0)
-        sizes = {
-            "flash": {"used": totals.get("FLASH", 0), "free": 0},
-            "ram1": {"used": ram1, "free": 0x80000 - ram1},
-            "ram2": {"used": totals.get("OCRAM", 0), "free": 0x80000 - totals.get("OCRAM", 0)},
-        }
+        try:
+            sizes = fallback_sizes_from_size_a(
+                Path(args.size_a).read_text(encoding="utf-8"))
+        except SizeAFormatError as exc:
+            print(f"::error::teensy-gate: invalid `size -A` output ({exc}). "
+                  f"This is a tooling/format error, not a size-budget "
+                  f"violation.")
+            return 2
     else:
         p.error("one of --teensy-size or --size-a is required")
 
