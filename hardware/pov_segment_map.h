@@ -3,7 +3,7 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
  * @file pov_segment_map.h
- * @brief Pure segment index arithmetic for the segmented POV driver.
+ * @brief Pure segment-ID and index arithmetic for the segmented POV driver.
  *
  * Kept free of Arduino dependencies so the load-bearing index math — which
  * segment owns which canvas column and rows, and in which direction its
@@ -12,11 +12,10 @@
  * mapping from these functions, so the host tests cover the real arithmetic.
  * An off-by-one here silently mis-paints the sphere.
  *
- * Layout (N=4, S=288 -> ROWS=144, PPS=72): two arms, two segments each.
+ * Layout: two arms, with N/2 contiguous row bands per arm.
  *   Arm A samples canvas column x; arm B samples column (x + W/2) % W.
- *   Per arm: the top segment runs y = 0 -> PPS-1 (N pole -> junction),
- *            the bottom segment runs y = ROWS-1 -> ROWS-PPS (S pole ->
- *            junction, strip physically reversed).
+ *   Northern bands run toward the junction in increasing y order. Southern
+ *   bands run toward the junction in decreasing y order.
  *
  * NOTE: the top-arm wiring convention deliberately differs from the single-board
  * rig (pov_single_map.h). Here the top segment wires LED 0 at the N pole, NOT
@@ -29,37 +28,60 @@
 namespace pov {
 
 /**
+ * @brief Number of active-low GPIO straps needed for a segment count.
+ * @param segment_count Power-of-two segment count in [2, 8].
+ * @return One, two, or three sampled strap bits.
+ */
+constexpr int segment_id_strap_count(int segment_count) {
+  return segment_count <= 2 ? 1 : segment_count <= 4 ? 2 : 3;
+}
+
+/**
+ * @brief Decode an active-low segment-ID strap sample.
+ * @param raw Raw strap bits, with floating inputs HIGH and grounded inputs LOW.
+ * @param segment_count Power-of-two segment count in [2, 8].
+ * @return Segment ID in [0, segment_count).
+ */
+constexpr int decode_segment_id(int raw, int segment_count) {
+  return (~raw) & (segment_count - 1);
+}
+
+/**
  * @brief Precomputed vertical mapping for one physical segment.
  */
 struct SegmentMap {
   bool arm_b;  /**< Samples canvas column (x + W/2) instead of x. */
   int y_base;  /**< Canvas row of this segment's LED 0. */
-  int y_step;  /**< +1 (top, toward junction) or -1 (bottom strip, reversed). */
+  int y_step;  /**< +1 (north band) or -1 (reversed south band). */
 };
 
 /**
  * @brief Derive a segment's vertical mapping from its hardware ID.
  * @param segment_id  Hardware-strapped ID in [0, N).
  * @param S  Total LEDs across both arms (ROWS = S/2).
- * @param N  Segment count (even, power of two, <= 4; SEGS_PER_ARM = N/2).
+ * @param N  Segment count (even, power of two, <= 8; SEGS_PER_ARM = N/2).
  * @return SegmentMap with arm_b, y_base (canvas row of LED 0), and y_step (+1/-1).
  * @details Segments [0, N/2) are arm A; [N/2, N) are arm B. Within an arm,
- * arm-segment 0 is the top strip (LED 0 at the N pole, y=0, counting toward the
- * junction) and arm-segment 1 is the bottom strip (LED 0 at the S pole,
- * y=ROWS-1, counting toward the junction — physically reversed).
+ * the first half tile the northern hemisphere in increasing y order. The
+ * second half tile the southern hemisphere from the S pole toward the junction
+ * in decreasing y order. N=2 assigns one forward strip to each complete arm.
  */
 constexpr SegmentMap segment_map(int segment_id, int S, int N) {
-  const int segs_per_arm = N / 2;
-  const int rows = S / 2;
-  // segs_per_arm is a power of two, so mask for the within-arm index.
-  const int arm_seg = segment_id & (segs_per_arm - 1);
+  const int SEGS_PER_ARM = N / 2;
+  const int ROWS = S / 2;
+  const int PPS = S / N;
+  // SEGS_PER_ARM is a power of two, so mask for the within-arm index.
+  const int ARM_SEG = segment_id & (SEGS_PER_ARM - 1);
   SegmentMap m{};
-  m.arm_b = segment_id >= segs_per_arm;
-  if (arm_seg == 0) {
-    m.y_base = 0; // top: N pole -> junction
+  m.arm_b = segment_id >= SEGS_PER_ARM;
+
+  const int SEGS_PER_HEMISPHERE = SEGS_PER_ARM / 2;
+  if (SEGS_PER_ARM == 1 || ARM_SEG < SEGS_PER_HEMISPHERE) {
+    m.y_base = ARM_SEG * PPS;
     m.y_step = 1;
   } else {
-    m.y_base = rows - 1; // bottom: S pole -> junction (reversed)
+    const int SOUTH_SEG = ARM_SEG - SEGS_PER_HEMISPHERE;
+    m.y_base = ROWS - 1 - SOUTH_SEG * PPS;
     m.y_step = -1;
   }
   return m;

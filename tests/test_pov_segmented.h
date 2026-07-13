@@ -6,7 +6,8 @@
  * the pure arithmetic the Arduino-only pov_segmented.h driver derives its ISR
  * mapping from). This is the one place index arithmetic reaches the physical
  * LEDs, so an off-by-one silently mis-paints the sphere. Covers per-segment
- * derivation (arm side, top/bottom reversal), the arm-B half-image x offset,
+ * derivation (arm side and north/south band direction), active-low ID decode,
+ * the arm-B half-image x offset,
  * and that each segment's (i -> x_col, y) writes tile the canvas exactly once.
  */
 #pragma once
@@ -22,7 +23,9 @@ namespace hs_test {
 namespace pov_segmented_tests {
 
 using pov::EffectHandoff;
+using pov::decode_segment_id;
 using pov::segment_clip;
+using pov::segment_id_strap_count;
 using pov::segment_map;
 using pov::SegmentClip;
 using pov::SegmentMap;
@@ -33,6 +36,11 @@ using pov::segment_y;
 // it folding at boot, off the ISR hot path).
 static_assert(segment_map(1, 288, 4).y_base == 143);
 static_assert(segment_map(1, 288, 4).y_step == -1);
+static_assert(segment_map(1, 288, 8).y_base == 36);
+static_assert(segment_map(2, 288, 8).y_base == 143);
+static_assert(segment_map(3, 288, 8).y_base == 107);
+static_assert(segment_id_strap_count(8) == 3);
+static_assert(decode_segment_id(0b010, 8) == 5);
 static_assert(segment_x_col(true, 0, 288) == 144);
 static_assert(segment_clip(segment_map(0, 288, 4), true, 288, 4, 288).x0 == 0);
 static_assert(segment_clip(segment_map(0, 288, 4), true, 288, 4, 288).x1 == 144);
@@ -145,6 +153,50 @@ inline void test_segment_derivation() {
 }
 
 /**
+ * @brief Verify every row band and strip direction in the 8-segment layout.
+ */
+inline void test_eight_segment_derivation() {
+  const int S = 288;
+  const int N = 8;
+  const int EXPECTED_BASE[N] = {0, 36, 143, 107, 0, 36, 143, 107};
+  const int EXPECTED_STEP[N] = {1, 1, -1, -1, 1, 1, -1, -1};
+
+  for (int seg = 0; seg < N; ++seg) {
+    const SegmentMap m = segment_map(seg, S, N);
+    HS_EXPECT_EQ(m.arm_b, seg >= N / 2);
+    HS_EXPECT_EQ(m.y_base, EXPECTED_BASE[seg]);
+    HS_EXPECT_EQ(m.y_step, EXPECTED_STEP[seg]);
+  }
+
+  HS_EXPECT_EQ(segment_y(segment_map(0, S, N), 35), 35);
+  HS_EXPECT_EQ(segment_y(segment_map(1, S, N), 35), 71);
+  HS_EXPECT_EQ(segment_y(segment_map(2, S, N), 35), 108);
+  HS_EXPECT_EQ(segment_y(segment_map(3, S, N), 35), 72);
+}
+
+/**
+ * @brief Verify strap counts and active-low decoding for every supported mode.
+ */
+inline void test_segment_id_straps() {
+  HS_EXPECT_EQ(segment_id_strap_count(2), 1);
+  HS_EXPECT_EQ(segment_id_strap_count(4), 2);
+  HS_EXPECT_EQ(segment_id_strap_count(8), 3);
+
+  for (int id = 0; id < 8; ++id) {
+    const int RAW = (~id) & 7;
+    HS_EXPECT_EQ(decode_segment_id(RAW, 8), id);
+  }
+  for (int id = 0; id < 4; ++id) {
+    const int RAW = (~id) & 3;
+    HS_EXPECT_EQ(decode_segment_id(RAW, 4), id);
+  }
+  for (int id = 0; id < 2; ++id) {
+    const int RAW = (~id) & 1;
+    HS_EXPECT_EQ(decode_segment_id(RAW, 2), id);
+  }
+}
+
+/**
  * @brief Verify arm-B column offset and wrap behavior.
  * @details Arm-B columns sit half an image (w/2) ahead of the rotation column
  * and wrap modulo w; arm A samples the column unshifted.
@@ -159,15 +211,14 @@ inline void test_arm_b_offset() {
 }
 
 /**
- * @brief Verify the per-window quadrant clip rectangles for the 4-segment layout.
- * @details Each half-rev window the four segments must tile the full canvas
- * exactly once (the simulator's quadrant set), arm A and arm B on opposite sides
- * and the top/bottom row bands matching segment_map.
+ * @brief Verify per-window clip rectangles tile the canvas for one layout.
+ * @param S Total LED count.
+ * @param N Segment count.
+ * @param w Canvas width.
  */
-inline void test_segment_clip() {
-  const int S = 288, N = 4, w = 288;
-  const int ROWS = S / 2; // 144
-  const int PPS = S / N;  // 72
+inline void check_segment_clips(int S, int N, int w) {
+  const int ROWS = S / 2;
+  const int PPS = S / N;
 
   for (bool arm_a_left : {true, false}) {
     std::vector<int> cover(static_cast<size_t>(w) * ROWS, 0);
@@ -178,8 +229,9 @@ inline void test_segment_clip() {
       // Half the width, one segment's row band.
       HS_EXPECT_EQ(c.x1 - c.x0, w / 2);
       HS_EXPECT_EQ(c.y1 - c.y0, PPS);
-      // Row band matches strip direction: top [0,PPS), bottom [ROWS-PPS,ROWS).
-      HS_EXPECT_EQ(c.y0, m.y_step > 0 ? 0 : ROWS - PPS);
+      const int EXPECTED_Y0 =
+          m.y_step > 0 ? m.y_base : m.y_base - (PPS - 1);
+      HS_EXPECT_EQ(c.y0, EXPECTED_Y0);
       // Arm B paints the opposite column half from arm A in the same window.
       HS_EXPECT_EQ(c.x0 == 0, m.arm_b ? !arm_a_left : arm_a_left);
 
@@ -187,10 +239,18 @@ inline void test_segment_clip() {
         for (int x = c.x0; x < c.x1; ++x)
           cover[static_cast<size_t>(x) * ROWS + y]++;
     }
-    // The four quadrants tile the whole canvas exactly once.
     for (size_t i = 0; i < cover.size(); ++i)
       HS_EXPECT_EQ(cover[i], 1);
   }
+}
+
+/**
+ * @brief Verify clips for every supported segment count.
+ */
+inline void test_segment_clip() {
+  check_segment_clips(/*S=*/288, /*N=*/2, /*w=*/288);
+  check_segment_clips(/*S=*/288, /*N=*/4, /*w=*/288);
+  check_segment_clips(/*S=*/288, /*N=*/8, /*w=*/288);
 }
 
 // Stand-in for Effect: the handoff never dereferences the pointee, only tracks
@@ -368,6 +428,8 @@ inline int run_pov_segmented_tests() {
   hs_test::ModuleFixture fixture("pov_segmented");
 
   test_segment_derivation();
+  test_eight_segment_derivation();
+  test_segment_id_straps();
   test_arm_b_offset();
   test_segment_clip();
 
@@ -384,6 +446,9 @@ inline int run_pov_segmented_tests() {
   for (int x : {0, 1, 143, 144, 287})
     check_tiling(/*S=*/288, /*N=*/4, /*w=*/288, x);
 
+  for (int x : {0, 1, 143, 144, 287})
+    check_tiling(/*S=*/288, /*N=*/8, /*w=*/288, x);
+
   // N=2: a single (non-reversed) segment owns each arm's full column.
   for (int x : {0, 1, 47, 48, 95})
     check_tiling(/*S=*/288, /*N=*/2, /*w=*/96, x);
@@ -391,6 +456,9 @@ inline int run_pov_segmented_tests() {
   // Small config swept over every rotation column: S=8, N=4 -> ROWS=4, PPS=2.
   for (int x = 0; x < 8; ++x)
     check_tiling(/*S=*/8, /*N=*/4, /*w=*/8, x);
+
+  for (int x = 0; x < 16; ++x)
+    check_tiling(/*S=*/16, /*N=*/8, /*w=*/16, x);
 
   return fixture.result();
 }

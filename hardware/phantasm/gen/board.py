@@ -230,7 +230,7 @@ to_label(U, tn("D3"), "FRAME_SYNC")
 to_label(U, tn("D5"), "MASTER_EN")
 to_label(U, tn("D21"), "ID0")
 to_label(U, tn("D22"), "ID1")
-to_label(U, tn("D23"), "ID2")   # reserved for N=8 build; open (unread) at N=4
+to_label(U, tn("D23"), "ID2")   # read by the N=8 firmware profile
 to_label(U, tn("D1/TX1"), "SERIAL1_TX")
 
 # --- U1 buffer units (A/B/C/D) + power unit (E) ---
@@ -308,7 +308,7 @@ to_label(JID0, "1", "ID0"); to_power(JID0, "2", GND)
 JID1 = place("Jumper:SolderJumper_2_Open", "JP_ID1", "ID1->GND", 152.4, 274.32,
              fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm")
 to_label(JID1, "1", "ID1"); to_power(JID1, "2", GND)
-# ID2 strap (pin 23) — reserved for the N=8 build; open (DNP/unstuffed) at N=4 (R-ID-1)
+# ID2 strap (pin 23) — read only by the N=8 firmware profile (R-ID-1)
 JID2 = place("Jumper:SolderJumper_2_Open", "JP_ID2", "ID2->GND (N=8)", 177.8, 274.32,
              fp="Jumper:SolderJumper-2_P1.3mm_Open_RoundedPad1.0x1.5mm")
 to_label(JID2, "1", "ID2"); to_power(JID2, "2", GND)

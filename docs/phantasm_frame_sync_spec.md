@@ -6,9 +6,10 @@ timebase, symbol alphabet, edge mailbox, acceptance gate, beacon codec,
 content tracker, emitter); the device shell is `hardware/pov_segmented.h`
 (two ISRs, pixel packing, effect handoff); `targets/Phantasm/Phantasm.ino`
 supplies the roster factory table; the §12 test plan is
-`tests/test_pov_sync.h` (pure units plus a 4-board simulator with crystal
-offsets, single-latch mask windows, EMI, symbol drops, missed epochs, and
-mid-show reboots). Refinements that emerged during implementation are folded
+`tests/test_pov_sync.h` (pure units plus a variable-count simulator with clean
+4- and 8-board runs and 4-board fault scenarios covering crystal offsets,
+single-latch mask windows, EMI, symbol drops, missed epochs, and mid-show
+reboots). Refinements that emerged during implementation are folded
 into their sections: oversampled wake-ups (§4.1), the suspect-burst
 demarcation guard (§5.3), the join grid and per-effect RNG reseed (§6.1,
 §6.5), the beacon schedule (§6.4), and the effect-handoff protocol (§8.5).
@@ -941,8 +942,8 @@ coalesce two edges or latch a spurious one; ranked causes: (1)
 interrupt-masked foreground windows > 434 µs —
 dominant on the FastLED/WS2801 bit-bang path (`FastLED.show()` masks IRQs),
 largely designed out on DMA; (2) worst-case ISR overrun; (3) EMI on a motorized
-spinner (spurious edges). At ~1.1 M column edges/min across 4 boards, even a
-1e-6 per-edge rate is a visible glitch every minute or two.
+spinner (spurious edges). At ~1.1 M column edges/min for the default 4 boards
+(~2.2 M for 8), even a 1e-6 per-edge rate is visible on operational timescales.
 
 The time-derived flywheel **removes causes (1)/(2) as column-drop sources
 outright** — a masked window or a long ISR just means the next ISR reads the
@@ -1020,8 +1021,9 @@ strictly cleaner, not weaker.
 ## 12. Test plan (host-testable where possible)
 
 Implemented as `tests/test_pov_sync.h`: pure units for every protocol piece
-plus a 4-board event-driven simulator — per-board crystal ppm offsets, a
-single-latch masked-IRQ model (edges during a mask merge and arrive late,
+plus a variable-count event-driven simulator. Clean acquisition, join, phase,
+and content coherence run with both 4 and 8 boards; the fault matrix uses 4
+boards with per-board crystal ppm offsets, a single-latch masked-IRQ model (edges during a mask merge and arrive late,
 the i.MX RT pin-flag behavior the count coding is designed around), EMI
 injection, symbol-drop windows, foreground build delays, mid-show reboots,
 and the commit-deadline trap. The simulator earned its keep before any
