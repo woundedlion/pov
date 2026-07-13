@@ -13,7 +13,6 @@
 using Animation::BumpParams;
 using Animation::NoiseParams;
 using Animation::NoiseProductParams;
-using Animation::PoiParams;
 using Animation::RippleParams;
 
 /**
@@ -684,46 +683,6 @@ inline float bump_field(const Vector &v, const BumpParams &params) {
 }
 
 /**
- * @brief Evaluates a unidirectional drape over a spherical cap: rings slide over
- * the dome toward one pole, most where it has just passed, zero where it is
- * about to arrive.
- * @param v Sample point (unit vector).
- * @param params Dome center, stack axis, footprint, lifecycle envelope, and the
- * push sign σ (all pushes go one way — the field never parts rings, the defining
- * contrast with bump_field).
- * @return σ · (arc − y') · g: the clearance to the downstream silhouette edge,
- * weighted by a quintic drape that ramps 0 at the upstream edge to 1 downstream.
- * The gain saturates at 1 (max shift 2·arc), morphing soft wake into solid
- * punch-through. Points outside the cap are untouched.
- */
-inline float poi_field(const Vector &v, const PoiParams &params) {
-  float r_eff = params.radius * params.envelope;
-  if (r_eff <= 1e-3f || params.amplitude <= 0.001f)
-    return 0.0f;
-  float cos_d = dot(v, params.center);
-  if (cos_d <= params.cos_radius)
-    return 0.0f;
-  float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
-  if (d >= r_eff)
-    return 0.0f;
-
-  // Signed polar offset y from the center about the axis; x^2 = d^2 - y^2 by the
-  // small-cap approximation, and arc is the silhouette half-extent at this
-  // azimuth. y' = sigma * y re-signs into pushed coords (+y' is downstream).
-  float y = fast_acos(hs::clamp(dot(params.axis, v), -1.0f, 1.0f)) -
-            params.axis_center_colat;
-  float x_sq = std::max(d * d - y * y, 0.0f);
-  float arc = sqrtf(std::max(r_eff * r_eff - x_sq, 0.0f));
-  // w divides by 2*arc; at the collapsed lateral edge the field limit is 0.
-  if (arc <= 1e-4f)
-    return 0.0f;
-  float y_signed = params.direction * y;
-  float w = quintic_kernel((y_signed + arc) / (2.0f * arc));
-  float g = std::min(params.amplitude * w, 1.0f);
-  return params.direction * (arc - y_signed) * g;
-}
-
-/**
  * @brief Evaluates a two-octave product noise field at a point.
  * @param v Sample point (unit vector).
  * @param params Octave scales, amplitude, and field time.
@@ -758,15 +717,6 @@ using RippleTransformer =
 template <int CAPACITY>
 using BallDropTransformer =
     FieldTransformer<BumpParams, Animation::BallDrop, bump_field, CAPACITY>;
-
-/**
- * @brief Unidirectional drape fields for a troupe of poi domes dancing under the
- * ring sheet.
- * @tparam CAPACITY Maximum number of concurrent poi dancers.
- */
-template <int CAPACITY>
-using PoiTransformer =
-    FieldTransformer<PoiParams, Animation::PoiDance, poi_field, CAPACITY>;
 
 /**
  * @brief A two-octave product noise displacement field.

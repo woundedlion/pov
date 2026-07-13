@@ -7,48 +7,32 @@
 
 #include "core/engine/engine.h"
 
-namespace hs_test {
-namespace poi_tests {
-struct PoiWhiteBox;
-} // namespace poi_tests
-} // namespace hs_test
-
 /**
  * @brief Stack of evenly spaced soft-stroked rings displaced by a
- * displacement-field stack that alternates falling ball bumps, a 3D noise
- * field, and a troupe of dancing poi domes.
+ * displacement-field stack that alternates a 3D noise field and falling ball
+ * bumps.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details Rings share one axis and are spaced evenly in colatitude across the
  * whole sphere. Each ring vertex is displaced along
  * the stack axis by the summed displacement fields sampled at the vertex's
- * world-space position. Three phases cycle POI -> NOISE -> BALLS -> NOISE ->
- * POI, opening on the poi phase: cap-shaped ball bumps spawn at the stack pole
- * on random meridians and fall to the opposite pole, bowing the rings away from
- * each ball's center (rings
- * part around each ball); the noise field is the product of two OpenSimplex
- * octaves (octave 1 envelopes octave 2) and fades in from zero between the two
- * solid-body phases, dwelling at full strength then fading back out; the poi
- * phase is 12 solid domes anchored at the icosahedron vertices in antipodal
- * pairs, tracing smooth epicyclic tangent-plane loops (spirals, roses, trefoils)
- * under the sheet, each pushing the rings one way along its net motion against
- * the random-walking ring frame so the sheet slides over the dancers like silk
- * (a comet wake, never a parting).
+ * world-space position. The noise phase opens the effect and fades in from
+ * zero before dwelling at full strength, then fades out into a ball phase.
+ * Cap-shaped ball bumps spawn at the stack pole on random meridians and fall to
+ * the opposite pole, bowing the rings away from each ball's center.
  * Fragments are shaded from a circular analogous palette that spins across the
  * stack, with hue rotated proportionally to the local displacement magnitude; a
  * ColorWipe slowly fades the palette to a freshly generated one every few
  * seconds. Orientation random-walks over time.
  */
 template <int W, int H> class DisplacementField : public Effect {
-  friend struct ::hs_test::poi_tests::PoiWhiteBox;
-
 public:
   /**
    * @brief Builds the effect with its palette and ring-stack axis.
    */
   HS_COLD_MEMBER DisplacementField()
       : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
-        balls(timeline), noise_field(timeline), pois(timeline),
+        balls(timeline), noise_field(timeline),
         palette(make_palette()), next_palette(make_palette()), normal(X_AXIS) {}
 
   /**
@@ -65,8 +49,6 @@ public:
     solid_local = persistent_arena.allocate_n<int>(SOLID_MAX);
     balls.init_storage(persistent_arena);
     noise_field.init_storage(persistent_arena);
-    pois.init_storage(persistent_arena);
-    poi_choreo.set_speed_source(&params.dance_speed);
 
     noise_field.template_params.noise.SetSeed(hs::rand_int(0, 65536));
 
@@ -88,9 +70,6 @@ public:
     register_param("Ball Rate", &params.ball_rate, 0.5f, 50.0f);
     register_param("Speed Min", &params.ball_speed_min, 0.1f, 3.0f);
     register_param("Speed Max", &params.ball_speed_max, 0.1f, 3.0f);
-    register_param("Poi Amp", &params.poi_amp, 0.0f, 0.8f);
-    register_param("Poi Size", &params.poi_size, 0.15f, 0.5f);
-    register_param("Dance Speed", &params.dance_speed, 0.0f, 10.0f);
 
     // Pinned first, before any finite event can precede it in the buffer.
     noise_field.spawn_pinned(0);
@@ -107,26 +86,17 @@ public:
                         PALETTE_CYCLE_FRAMES,
                         [this](Canvas &) { this->roll_palette(); }, true));
 
-    // Open on the poi phase: spawn the troupe now that the pools are live.
-    enter_poi();
+    enter_noise();
   }
 
   /**
    * @brief Refreshes the displacement stack from the sliders, advances the
-   * BALLS -> NOISE -> POI phase machine under the master-gain fade, steps the
-   * poi choreography, advances the palette wipe, then renders one frame.
-   * @details master_gain fades the noise phase in and out; the balls and pois
-   * run at full drape (each carries its own lifecycle envelope). The instant the
-   * last solid body is gone the noise fades straight in from zero — no stillness
-   * beat. A next_is_poi flag, toggled at each NOISE entry, routes the NOISE exit
-   * to the poi phase or back to the ball phase in turn.
+   * NOISE -> BALLS phase machine under the master-gain fade, advances the
+   * palette wipe, then renders one frame.
    */
   void draw_frame() override {
     color_spin = wrap_t(color_spin + COLOR_SPIN_RATE);
     step_palette_wipe();
-
-    if (phase == Phase::POI)
-      poi_choreo.step();
 
     balls.template_params.amplitude =
         params.ball_amp * BALL_DRAPE_PER_AMPLITUDE;
@@ -135,10 +105,8 @@ public:
     noise_field.template_params.scale1 = params.scale1;
     noise_field.template_params.scale2 = params.scale2;
     noise_field.template_params.speed = params.flow_speed;
-    pois.template_params.amplitude = params.poi_amp * POI_DRAPE_PER_AMPLITUDE;
     balls.prepare_frame();
     noise_field.prepare_frame();
-    pois.prepare_frame();
 
     switch (phase) {
     case Phase::BALLS:
@@ -154,22 +122,13 @@ public:
         enter_noise();
       }
       break;
-    case Phase::POI:
-      // Dancers were all spawned at phase entry; wait for the last to deflate.
-      if (pois.active_count() == 0)
-        enter_noise();
-      break;
     case Phase::NOISE:
       if (master_gain >= 1.0f && noise_hold > 0 && --noise_hold == 0)
         timeline.add(0, Animation::Transition(master_gain, 0.0f,
                                               NOISE_FADE_FRAMES,
                                               ease_in_out_sin));
-      if (noise_hold == 0 && master_gain <= 0.0f) {
-        if (next_is_poi)
-          enter_poi();
-        else
-          enter_balls();
-      }
+      if (noise_hold == 0 && master_gain <= 0.0f)
+        enter_balls();
       break;
     }
 
@@ -179,32 +138,24 @@ public:
 
   /**
    * @brief Draws all rings for this frame, over whichever solid-body pool is
-   * active (balls or pois; the phases are temporally disjoint).
+   * active.
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite's animated fade in [0, 1], multiplied into each
    * fragment's alpha.
-   * @details The two solid pools never overlap in time, so a single active pool
-   * is chosen per frame and the shared per-ring machinery runs over it.
+   * @details The shared per-ring machinery runs over the active ball pool.
    */
   void draw_fn(Canvas &canvas, float opacity) {
-    if (pois.active_count() > 0) {
-      draw_rings(canvas, opacity, pois);
-    } else {
-      draw_rings(canvas, opacity, balls);
-    }
+    draw_rings(canvas, opacity);
   }
 
 private:
-  /** @brief Evaluates the selected ball fields using cached ring geometry. */
-  template <int CAPACITY>
-  float solid_field(const BallDropTransformer<CAPACITY> &pool,
-                    const Vector &p, const int *ks, int n,
-                    float theta) const {
+  /** @brief Evaluates the active ball fields using cached ring geometry. */
+  float ball_field(const Vector &p, const int *ks, int n, float theta) const {
     float num = 0.0f;
     float den = 0.0f;
     for (int j = 0; j < n; ++j) {
       const int k = ks[j];
-      float f = bump_field_with_y(p, pool.active_params(k),
+      float f = bump_field_with_y(p, balls.active_params(k),
                                   theta - solid_colat[k]);
       num += f * f * f;
       den += f * f;
@@ -212,19 +163,10 @@ private:
     return den > 1e-9f ? num / den : 0.0f;
   }
 
-  /** @brief Evaluates selected non-ball fields through their generic blend. */
-  template <typename Pool>
-  float solid_field(const Pool &pool, const Vector &p, const int *ks, int n,
-                    float) const {
-    return pool.field_dominant(p, ks, n);
-  }
-
   /**
    * @brief Bakes and rasterizes every ring over one solid-body pool.
-   * @tparam Pool The active FieldTransformer pool (balls or pois).
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite fade multiplied into each fragment's alpha.
-   * @param pool The active solid-body pool sampled by field_dominant.
    * @details Per ring, the displacement stack is baked per azimuth column into
    * shift_lut (the ring's centerline shift) together with the hue-rotated ring
    * color in hue_lut. The bake evaluates only the bodies whose support can reach
@@ -239,8 +181,7 @@ private:
    * or sharply curved segments keep full thickness; under a partial clip, rings
    * whose displaced band cannot touch the clip are skipped whole.
    */
-  template <typename Pool>
-  void draw_rings(Canvas &canvas, float opacity, const Pool &pool) {
+  void draw_rings(Canvas &canvas, float opacity) {
     int n_rings = static_cast<int>(params.num_rings);
     Basis basis = make_basis(orientation.get(), normal);
     const bool try_cull = !clip().is_full();
@@ -251,12 +192,12 @@ private:
     // Body centers and rings share the stack axis, so a center's colatitude
     // difference from a ring's is the min ring-to-center distance: body b can
     // reach ring theta only when |theta - colat_b| < support_b.
-    const int n_solid = pool.active_count();
-    for (int b = 0; b < n_solid; ++b) {
-      const auto &sp = pool.active_params(b);
+    const int n_balls = balls.active_count();
+    for (int b = 0; b < n_balls; ++b) {
+      const auto &sp = balls.active_params(b);
       solid_colat[b] =
           fast_acos(hs::clamp(dot(basis.v, sp.center), -1.0f, 1.0f));
-      solid_reach[b] = sp.support_bound();
+      solid_reach[b] = sp.field_bound();
       solid_shift[b] = sp.field_bound();
       solid_scale[b] = 2.0f / sp.radius;
     }
@@ -274,7 +215,7 @@ private:
       int n_local = 0;
       float band = 0.0f;
       float solid_feature = 0.0f;
-      for (int b = 0; b < n_solid; ++b) {
+      for (int b = 0; b < n_balls; ++b) {
         if (std::fabs(theta - solid_colat[b]) <
             solid_reach[b] + BALL_TOUCH_EPS) {
           solid_local[n_local++] = b;
@@ -388,7 +329,7 @@ private:
             for (; x < x_end; ++x) {
               Vector p = (basis.v * cos_t) +
                          ((basis.u * cos_a) + (basis.w * sin_a)) * sin_t;
-              float s = solid_field(pool, p, solid_local, n_local, theta) +
+              float s = ball_field(p, solid_local, n_local, theta) +
                         noise_field.field(p);
               ring_bound = std::max(ring_bound, std::fabs(s));
               shift_lut[x] = s;
@@ -454,13 +395,10 @@ private:
   }
 
   /**
-   * @brief Enters the noise phase: the noise fades straight in from zero and the
-   * next-solid-body selector toggles, so BALLS and POI alternate across the two
-   * NOISE bridges.
+   * @brief Enters the noise phase and fades it in from zero.
    */
   void enter_noise() {
     phase = Phase::NOISE;
-    next_is_poi = !next_is_poi;
     master_gain = 0.0f;
     noise_hold = NOISE_HOLD_FRAMES;
     timeline.add(0, Animation::Transition(master_gain, 1.0f, NOISE_FADE_FRAMES,
@@ -474,34 +412,6 @@ private:
     phase = Phase::BALLS;
     ball_phase_left = BALL_PHASE_FRAMES;
     spawn_cooldown = 0;
-  }
-
-  /**
-   * @brief Enters the poi phase: draws a fresh anchor rotation and push sign,
-   * reshuffles the move table, and spawns all 12 dancers with a per-pair
-   * cascading entrance and footprint jitter.
-   */
-  void enter_poi() {
-    phase = Phase::POI;
-    Quaternion q_dance = random_rotation();
-    Vector primaries[Animation::PoiChoreography::NUM_PAIRS];
-    for (int p = 0; p < Animation::PoiChoreography::NUM_PAIRS; ++p)
-      primaries[p] = Solids::Icosahedron::vertices[POI_PRIMARY[p]];
-    poi_choreo.begin(q_dance, primaries);
-    pois.template_params.direction = hs::rand_f() < 0.5f ? -1.0f : 1.0f;
-
-    float jitter[Animation::PoiChoreography::NUM_PAIRS];
-    for (int k = 0; k < N_POIS; ++k) {
-      int p = k % Animation::PoiChoreography::NUM_PAIRS;
-      if (k < Animation::PoiChoreography::NUM_PAIRS)
-        jitter[p] =
-            hs::rand_f(1.0f - POI_SIZE_JITTER, 1.0f + POI_SIZE_JITTER);
-      pois.template_params.radius = params.poi_size * jitter[p];
-      float canon[3];
-      poi_choreo.compute_canon(p, params.dance_speed, canon);
-      pois.spawn(p * PAIR_STAGGER, poi_choreo, orientation, k, canon,
-                 POI_PHASE_FRAMES);
-    }
   }
 
   /**
@@ -535,26 +445,15 @@ private:
   // at high Ball Rate x slow Speed the spawner saturates here and drops spawns
   // safely instead of overflowing the shared event buffer.
   static constexpr int MAX_BALLS = 56;  /**< Concurrent falling-ball pool slots. */
-  static constexpr int N_POIS = 12;     /**< Poi dancer pool slots (6 antipodal pairs). */
-  static constexpr int SOLID_MAX = MAX_BALLS > N_POIS ? MAX_BALLS : N_POIS; /**< Shared prefilter scratch size; the phase machine keeps at most one solid pool active. */
+  static constexpr int SOLID_MAX = MAX_BALLS; /**< Shared prefilter scratch size. */
   static constexpr int BALL_PHASE_FRAMES = 900; /**< Ball-phase spawning window (~15 s); balls keep coming the whole window. */
-  static constexpr int POI_PHASE_FRAMES = 1500; /**< Poi-phase dance duration (~25 s at the 60 fps cadence). */
   static constexpr float BALL_RATE_FPS = 60.0f;    /**< Frame cadence assumed by the Ball Rate and Speed sliders' per-second units. */
   static constexpr float BALL_DRAPE_PER_AMPLITUDE = 4.0f; /**< Drape gain per Ball Amp unit: the 0.25 default = gain 1, the 0.8 max saturates toward full clearance. */
-  static constexpr float POI_DRAPE_PER_AMPLITUDE = 4.0f;  /**< Drape gain per Poi Amp unit, mirroring the ball drape. */
-  static constexpr float POI_SIZE_JITTER = 0.15f; /**< Per-pair footprint jitter fraction of Poi Size. */
-  static constexpr int PAIR_STAGGER = 8; /**< Spawn in_frames step per poi pair (cascading entrance). */
   static constexpr int NOISE_FADE_FRAMES = 150; /**< Noise amplitude ramp on each phase handoff. */
   static constexpr int NOISE_HOLD_FRAMES = 600; /**< Full-noise dwell before fading out into the next solid phase. */
 
-  /** Icosahedron vertex per antipodal pair; the partner dancer negates the
-   *  primary's center, so only these six are needed. */
-  static constexpr int POI_PRIMARY[N_POIS / 2] = {0, 1, 4, 5, 8, 9};
-
   BallDropTransformer<MAX_BALLS> balls;   /**< Falling-ball displacement fields. */
   NoiseProductTransformer<1> noise_field; /**< Two-octave noise displacement field. */
-  PoiTransformer<N_POIS> pois;            /**< Dancing-poi displacement fields. */
-  Animation::PoiChoreography poi_choreo;  /**< Shared poi dance state, stepped per frame. */
 
   GenerativePalette palette;      /**< Active palette (mutated by an in-flight ColorWipe). */
   GenerativePalette next_palette; /**< Target palette the current wipe fades toward. */
@@ -564,14 +463,10 @@ private:
   int wipe_frames_remaining = 0; /**< Frames left in the in-flight palette wipe. */
   bool wipe_pending = false;     /**< Wipe armed this frame; it first steps next frame. */
 
-  /**
-   * @brief Displacement-phase state: falling balls, the noise field (fading in,
-   * dwelling, fading out under master_gain), or the dancing poi troupe.
-   */
-  enum class Phase { BALLS, NOISE, POI };
+  /** @brief Displacement-phase state: the noise field or falling balls. */
+  enum class Phase { BALLS, NOISE };
 
-  Phase phase = Phase::POI; /**< Current displacement phase; the effect opens on POI (see init). */
-  bool next_is_poi = true;  /**< Whether the next solid phase after NOISE is POI; opens true so POI -> NOISE -> BALLS. */
+  Phase phase = Phase::NOISE; /**< Current displacement phase; the effect opens on noise. */
   int ball_phase_left = BALL_PHASE_FRAMES; /**< Frames left in this ball phase's spawning window. */
   int spawn_cooldown = 0;  /**< Frames until the next ball spawn. */
   float master_gain = 0.0f; /**< Noise fade envelope in [0, 1]; gates the noise field, animated by Transitions. */
@@ -621,9 +516,6 @@ private:
     float ball_rate = 20.0f;  /**< Ball spawns per second (jittered ±50%). */
     float ball_speed_min = 0.45f; /**< Slowest fall (pole-to-pole traversals per second). */
     float ball_speed_max = 0.85f; /**< Fastest fall (pole-to-pole traversals per second). */
-    float poi_amp = 0.25f;    /**< Poi drape strength; scaled by POI_DRAPE_PER_AMPLITUDE into the drape gain. */
-    float poi_size = 0.3f;    /**< Poi footprint radius (radians), ±15% pair jitter at spawn. */
-    float dance_speed = 5.0f; /**< Poi base angular speed scale (live). */
   } params;
 };
 
