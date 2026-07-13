@@ -352,6 +352,25 @@ inline void case_timeline_handled_relocation() {
 }
 
 /**
+ * @brief Death case: a negative timeline delay must trap.
+ */
+inline void case_timeline_negative_delay() {
+  Timeline tl;
+  float value = 0.0f;
+  tl.add(opaque(-1), Animation::Transition(value, 1.0f, 1, ease_linear));
+}
+
+/**
+ * @brief Death case: a timeline start past UINT32_MAX must trap.
+ */
+inline void case_timeline_start_overflow() {
+  Timeline tl;
+  global_timeline_t = opaque<uint32_t>(UINT32_MAX - 1);
+  float value = 0.0f;
+  tl.add(opaque(2), Animation::Transition(value, 1.0f, 1, ease_linear));
+}
+
+/**
  * @brief Death case: a pinned (handled) animation that COMPLETES must trap.
  * @details Animation surface — the symmetric companion to
  *          case_timeline_handled_relocation, which guards the relocation path
@@ -1053,6 +1072,8 @@ inline const Case *all_cases(int &n) {
       {"triangular_bitset_unordered_pair",
        case_triangular_bitset_unordered_pair},
       {"timeline_handled_relocation", case_timeline_handled_relocation},
+      {"timeline_negative_delay", case_timeline_negative_delay},
+      {"timeline_start_overflow", case_timeline_start_overflow},
       {"timeline_handled_completion", case_timeline_handled_completion},
       {"timeline_double_construct", case_timeline_double_construct},
       {"effect_double_construct", case_effect_double_construct},
@@ -1356,7 +1377,7 @@ inline int run_death_tests() {
 
   // Floor against a silently dropped case: the roster must not shrink below its
   // known size. Bump when adding cases.
-  constexpr int MIN_DEATH_CASES = 49;
+  constexpr int MIN_DEATH_CASES = 51;
   HS_EXPECT_GE(n, MIN_DEATH_CASES);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a
