@@ -624,6 +624,23 @@ inline void test_timeline_sequences_events_by_start_frame() {
 }
 
 /**
+ * @brief Verifies the latest representable start frame remains schedulable.
+ */
+inline void test_timeline_accepts_maximum_start_frame() {
+  Timeline tl;
+  global_timeline_t = UINT32_MAX - 2;
+  float value = 0.0f;
+  tl.add(2, Animation::Transition(value, 1.0f, 1, ease_linear));
+
+  HS_EXPECT_EQ(global_timeline_events[0].start, UINT32_MAX);
+  tl.step(fake_canvas());
+  HS_EXPECT_NEAR(value, 0.0f, 1e-6f);
+  tl.step(fake_canvas());
+  HS_EXPECT_NEAR(value, 1.0f, 1e-6f);
+  HS_EXPECT_EQ(global_timeline_t, UINT32_MAX);
+}
+
+/**
  * @brief Verifies a repeating animation rewinds at the end of each cycle
  * instead of being removed, replaying the curve.
  * @details Mutation writes f(easing(t/duration)) each step, so after completion
@@ -2240,6 +2257,7 @@ inline int run_animation_tests() {
   test_rotation_accumulates_subthreshold_deltas();
   test_timeline_shared_orientation_composes_motion_blur();
   test_timeline_sequences_events_by_start_frame();
+  test_timeline_accepts_maximum_start_frame();
   test_timeline_repeating_animation_rewinds_each_cycle();
   test_timeline_cancel_removes_repeating_animation();
   test_timeline_compaction_preserves_later_events();

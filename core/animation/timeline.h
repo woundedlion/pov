@@ -181,6 +181,10 @@ public:
     static_assert(alignof(A) <= alignof(std::max_align_t),
                   "Animation type is over-aligned for TimelineEvent inline "
                   "storage (placement-new would be misaligned)");
+    HS_CHECK(in_frames >= 0, "Timeline delay must be non-negative");
+    const uint32_t delay = static_cast<uint32_t>(in_frames);
+    HS_CHECK(delay <= UINT32_MAX - global_timeline_t,
+             "Timeline start frame overflow");
     if (global_timeline_num_events >= MAX_EVENTS) {
       hs::log("Timeline full, failed to add animation!");
       return nullptr;
@@ -197,7 +201,7 @@ public:
       }
     }
     auto &e = global_timeline_events[global_timeline_num_events++];
-    e.start = global_timeline_t + in_frames;
+    e.start = global_timeline_t + delay;
     e.handled = pin;
     auto *ptr = new (e.storage) A(std::move(animation));
     e.iface = static_cast<IAnimation *>(ptr);
