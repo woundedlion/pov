@@ -120,6 +120,7 @@ if(EMSCRIPTEN)
             DESTINATION "${DAYDREAM_DIR}")
     install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/README.md"
             DESTINATION "${DAYDREAM_DIR}")
+    install(CODE "file(REMOVE_RECURSE \"${DAYDREAM_DIR}/docs/screenshots\")")
     install(DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/docs/screenshots/"
             DESTINATION "${DAYDREAM_DIR}/docs/screenshots")
 

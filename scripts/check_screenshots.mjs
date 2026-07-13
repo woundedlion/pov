@@ -9,6 +9,7 @@
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
+import { CAPTURE_OFFSETS_MS } from './screenshot_capture_config.mjs';
 
 const SHOTS_DIR = join(REPO_ROOT, 'docs', 'screenshots');
 
@@ -37,14 +38,20 @@ for (const e of roster) {
   else if (png !== e) caseMismatch.push(`${png}.png vs roster '${e}'`);
 }
 const orphan = pngNames.filter(p => !rosterLower.has(p.toLowerCase())); // PNG, no effect
+const invalidOffsets = Object.entries(CAPTURE_OFFSETS_MS)
+  .filter(([effect, ms]) => !roster.includes(effect)
+    || !Number.isFinite(ms) || ms < 0)
+  .map(([effect, ms]) => `${effect}=${ms}`);
 
-if (missing.length || caseMismatch.length || orphan.length) {
+if (missing.length || caseMismatch.length || orphan.length || invalidOffsets.length) {
   if (missing.length)
     console.error(`::error::screenshot gallery is missing PNGs for: ${missing.join(', ')}`);
   if (caseMismatch.length)
     console.error(`::error::screenshot PNG names differ from the roster only in case (case-sensitive on Linux CI): ${caseMismatch.join(', ')}`);
   if (orphan.length)
     console.error(`::error::screenshot gallery has orphan PNGs (no such effect): ${orphan.join(', ')}`);
+  if (invalidOffsets.length)
+    console.error(`::error::screenshot capture offsets are invalid: ${invalidOffsets.join(', ')}`);
   console.error('Regenerate the gallery with: npm run screenshots');
   console.error('(or capture/remove the specific effects above).');
   process.exitCode = 1;

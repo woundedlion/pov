@@ -10,11 +10,12 @@
 //      (equivalently:  node scripts/capture_screenshots.mjs [Effect ...])
 //
 // SIM_URL overrides the simulator origin (defaults to the README's local
-// http.server port); WAIT_MS overrides the per-effect animation settle time.
+// http.server port); WAIT_MS overrides every configured capture offset.
 import { chromium } from 'playwright';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { loadEffectRoster, REPO_ROOT } from './effect_roster.mjs';
+import { captureOffsetMs } from './screenshot_capture_config.mjs';
 
 // A malformed env value silently disables or distorts the timing it controls,
 // so fall back to the default on anything that isn't a finite, non-negative
@@ -28,22 +29,10 @@ function numEnv(name, def) {
 
 const BASE_URL = process.env.SIM_URL || 'http://localhost:8080/';
 const OUT_DIR = join(REPO_ROOT, 'docs', 'screenshots');
-const WAIT_MS = numEnv('WAIT_MS', 30000);
-// A single toDataURL grab samples one instant, so for sparse/strobing effects
-// (e.g. RingShower) it can land on an empty frame and ship an all-black
-// thumbnail. After the initial settle, grab up to MAX_ATTEMPTS frames spaced
-// RETRY_WAIT_MS apart and keep the busiest one; stop early once a frame clears
-// MIN_LIT lit-pixel coverage. This re-rolls "captured too early" empty grabs
-// without penalizing genuinely sparse effects (their busiest sampled frame
-// wins). BLANK_FLOOR is the coverage below which a frame is treated as blank
-// for the still-empty warning, not a save gate — the busiest frame is saved
-// regardless so a failed effect never overwrites its prior PNG with nothing.
-const MAX_ATTEMPTS = Math.max(1, numEnv('MAX_ATTEMPTS', 6));
-const RETRY_WAIT_MS = numEnv('RETRY_WAIT_MS', 4000);
-const MIN_LIT = numEnv('MIN_LIT', 0.004);
-// Clamped to MIN_LIT so a frame that cleared MIN_LIT (and stopped early) can
-// never also be flagged STILL BLANK.
-const BLANK_FLOOR = Math.min(numEnv('BLANK_FLOOR', 0.0005), MIN_LIT);
+const WAIT_MS_OVERRIDE = process.env.WAIT_MS === undefined
+  ? null
+  : numEnv('WAIT_MS', null);
+const BLANK_FLOOR = numEnv('BLANK_FLOOR', 0.0005);
 
 // The effect roster (and the docs/screenshots freshness gate that mirrors it)
 // is parsed from the HS_EFFECT_LIST X-macro by scripts/effect_roster.mjs.
@@ -210,28 +199,24 @@ try {
         continue;
       }
 
-      // Let the effect settle/animate at the chosen resolution.
-      await page.waitForTimeout(WAIT_MS);
+      const offsetMs = captureOffsetMs(effect, WAIT_MS_OVERRIDE);
+      await page.waitForTimeout(offsetMs);
 
-      // Sample several frames and keep the busiest, re-rolling empty grabs.
-      let best = null, bestLit = -1, attempts = 0;
-      for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-        attempts = attempt;
-        const { dataUrl, lit } = await grabFrame();
-        if (lit > bestLit) { bestLit = lit; best = dataUrl; }
-        if (lit >= MIN_LIT) break;
-        if (attempt < MAX_ATTEMPTS) await page.waitForTimeout(RETRY_WAIT_MS);
+      const { dataUrl, lit } = await grabFrame();
+      const pct = (lit * 100).toFixed(2);
+      if (lit < BLANK_FLOOR) {
+        blanks.push(effect);
+        console.log(`SKIPPED — fixed ${offsetMs}ms capture was blank (${pct}% lit); ` +
+          'kept existing PNG');
+        continue;
       }
 
-      const b64 = best.split(',', 2)[1];
+      const b64 = dataUrl.split(',', 2)[1];
       const buf = Buffer.from(b64, 'base64');
       const out = join(OUT_DIR, `${effect}.png`);
       await writeFile(out, buf);
-      const pct = (bestLit * 100).toFixed(2);
-      if (bestLit < BLANK_FLOOR) blanks.push(effect);
-      console.log(`saved ${out} @ ${usedRes || 'default'} (${pct}% lit, ` +
-        `${attempts} attempt(s)` +
-        `${bestLit < BLANK_FLOOR ? ', STILL BLANK' : ''})`);
+      console.log(`saved ${out} @ ${usedRes || 'default'} after ${offsetMs}ms ` +
+        `(${pct}% lit)`);
     } catch (e) {
       failures++;
       console.log(`FAILED: ${e.message}`);
@@ -276,15 +261,12 @@ if (wrongRes.length) {
   process.exitCode = 1;
 }
 
-// A frame can save successfully yet still be all-black (every sampled attempt
-// landed empty — a too-short WAIT_MS, a broken effect, or a render error). That
-// ships a blank thumbnail just as surely as a hard failure, so surface it in the
-// summary the caller reads and fail the run.
+// A blank fixed-offset frame is not saved, so the previous capture remains.
 if (blanks.length) {
   console.warn('========================================================');
-  console.warn(`capture_screenshots: WARNING — ${blanks.length} thumbnail(s) saved BLANK:`);
+  console.warn(`capture_screenshots: WARNING — ${blanks.length} capture(s) were BLANK:`);
   console.warn(`  ${blanks.join(', ')}`);
-  console.warn('Re-run with a larger WAIT_MS/MAX_ATTEMPTS, or check the effect.');
+  console.warn('Adjust its fixed capture offset, or check the effect.');
   console.warn('========================================================');
   process.exitCode = 1;
 }

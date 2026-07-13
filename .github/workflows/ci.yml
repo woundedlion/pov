@@ -444,6 +444,9 @@ jobs:
       - name: Syntax-check the capture script
         run: node --check scripts/capture_screenshots.mjs
 
+      - name: Capture offsets resolve deterministically
+        run: node --test scripts/screenshot_capture_config.test.mjs
+
       - name: Gallery covers every registered effect
         run: node scripts/check_screenshots.mjs
 
