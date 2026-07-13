@@ -141,7 +141,7 @@ The overall grade is held below A by one release-blocking firmware resource fail
 
 22. ✅ **Malformed `size -A` output can false-pass the Teensy gate.** `tools/teensy_gate.py:420-430`, `tools/teensy_gate_extra.py:81-104`. Unrecognized output becomes synthesized zero-use/full-free regions and can return PASS. Require recognized allocated sections/expected buckets before synthesis and add empty/malformed fallback tests.
 
-23. **The fast-forward hook permits deletion of `master`.** `.githooks/reference-transaction:24`. An all-zero new OID is skipped despite the hook’s stated non-fast-forward protection. Reject deletion or require the same explicit one-shot override.
+23. ✅ **The fast-forward hook permits deletion of `master`.** `.githooks/reference-transaction:24`. An all-zero new OID is skipped despite the hook’s stated non-fast-forward protection. Reject deletion or require the same explicit one-shot override.
 
 24. **The Teensy gate documentation is contradictory and malformed.** `docs/teensy_ci_gate_spec.md:3-30,890,944`, `tools/teensy_budgets.json:9`, `docs/RAM1_AUDIT.md:5`, `docs/strobe_columns_audit.md:109-136`. It mixes obsolete report-only/overflow/FastLED claims with current active-gate state, contains an unmatched fence and broken moved-file links, and describes already-implemented work as pending. Date historical audits and refresh active truth, links and fences.
 

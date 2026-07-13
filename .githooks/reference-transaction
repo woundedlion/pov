@@ -20,8 +20,19 @@ tokfile="$gitdir/hs-allow-nonff"
 logfile="$gitdir/hs-nonff.log"
 
 while read -r old new ref; do
+	if [ -z "$ref" ]; then
+		ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+		echo "$ts REFUSED malformed reference transaction" >> "$logfile"
+		echo "reference-transaction: REFUSED malformed reference transaction." >&2
+		exit 1
+	fi
 	[ "$ref" = "refs/heads/master" ] || continue
-	case "$new" in "$z"|"") continue ;; esac                 # deletion
+	if [ -z "$new" ]; then
+		ts=$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null)
+		echo "$ts REFUSED master malformed empty new OID" >> "$logfile"
+		echo "reference-transaction: REFUSED malformed empty new OID for master." >&2
+		exit 1
+	fi
 	cur=$(git rev-parse --verify -q "$ref" 2>/dev/null) || cur=''
 	[ -z "$cur" ] && continue                                # creation
 	git merge-base --is-ancestor "$cur" "$new" 2>/dev/null && continue  # fast-forward
@@ -32,7 +43,8 @@ while read -r old new ref; do
 	granted=0
 	case "$tok" in
 		ANY) granted=1 ;;
-		???????*) case "$new" in "$tok"*) granted=1 ;; esac ;;
+		"$z") [ "$new" = "$z" ] && granted=1 ;;
+		???????*) [ "$new" != "$z" ] && case "$new" in "$tok"*) granted=1 ;; esac ;;
 	esac
 
 	if [ "$granted" = 1 ]; then
