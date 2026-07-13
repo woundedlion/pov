@@ -34,8 +34,10 @@
  */
 #pragma once
 
+#include <atomic>
 #include <cassert>
 #include <cstdint>
+#include <new>
 
 #include "core/engine/platform.h" // HS_CHECK used in Flywheel's constructor guard
 
@@ -1155,6 +1157,16 @@ public:
       : cfg_(cfg), fly_(cfg) {}
 
   /**
+   * @brief Reconstructs the board for a new protocol configuration.
+   * @param cfg Protocol configuration.
+   * @warning Call only before attaching the board's interrupts.
+   */
+  HS_COLD_MEMBER void reconstruct(const Config &cfg) {
+    this->~SyncBoard();
+    ::new (static_cast<void *>(this)) SyncBoard(cfg);
+  }
+
+  /**
    * @brief Boot/reboot seeding (spec §8.5).
    * @param now Current timestamp, in cycles.
    * @param is_master True for the reference board.
@@ -1181,6 +1193,7 @@ public:
     epoch_emits_left_ = 0;
     beacon_done_this_rev_ = false;
     build_gen_ = 0;
+    build_word_.store(0, std::memory_order_relaxed);
     if (is_master) {
       fly_.force_lock();
       content_.identity_known = true;
@@ -1299,7 +1312,9 @@ public:
    * @details The foreground constructs the named effect whenever the generation
    * changes, then publishes it to the driver's pending slot.
    */
-  uint32_t build_word() const { return build_word_; }
+  uint32_t build_word() const {
+    return build_word_.load(std::memory_order_relaxed);
+  }
   /**
    * @brief Extracts the effect index from a build word.
    * @param word A build word.
@@ -1611,7 +1626,9 @@ private:
    */
   void publish_build(int32_t index) {
     ++build_gen_;
-    build_word_ = (build_gen_ << 8) | static_cast<uint32_t>(index & 0xFF);
+    build_word_.store((build_gen_ << 8) |
+                          static_cast<uint32_t>(index & 0xFF),
+                      std::memory_order_relaxed);
   }
 
   // ── State ─────────────────────────────────────────────────────────────────
@@ -1635,10 +1652,8 @@ private:
   uint32_t epoch_emits_left_ = 0;
   bool beacon_done_this_rev_ = false;
   uint32_t build_gen_ = 0;
-  // `volatile`, not std::atomic: an atomic member would delete the implicit
-  // move-assign SyncBoard needs at setup. Tear-free reads rely on the target
-  // ISA's atomic naturally-aligned 32-bit load/store, not the C++ memory model.
-  volatile uint32_t build_word_ = 0; /**< (gen << 8) | index; foreground-read. */
+  static_assert(std::atomic<uint32_t>::is_always_lock_free);
+  std::atomic<uint32_t> build_word_{0}; /**< (gen << 8) | index; foreground-read. */
 };
 
 } // namespace sync

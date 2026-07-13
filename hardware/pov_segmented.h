@@ -227,7 +227,7 @@ public:
     const pov::sync::Config cfg = pov::sync::phantasm_config(
         F_CPU, RPM, CANVAS_W, effect_count);
     HS_CHECK(cfg.valid(), "pov::sync::Config invariants");
-    sync_ = pov::sync::SyncBoard(cfg);
+    sync_.reconstruct(cfg);
 
     const bool master = (segment_id_ == 0);
     pinMode(PIN_MASTER_EN, OUTPUT);
