@@ -52,17 +52,19 @@ docs: _doxygen-theme _doxyfile-local
     cmake -E make_directory build/docs
     doxygen Doxyfile.local
 
-# Clone the doxygen-awesome theme on first run. The clone guard is the one
-# shell-specific step, so it's split per-OS: the rest of `docs` (cmake/doxygen)
-# is shell-agnostic. Without this the cmd.exe `if not exist` form made `just
-# docs` a syntax error under sh on the Linux/macOS CI the file otherwise targets.
+# Fetch the exact doxygen-awesome revision used by CI. The clone guard is split
+# per-OS; the fetch and checkout also refresh existing clones.
 [unix]
 _doxygen-theme:
-    test -d .doxygen-awesome || git clone --depth 1 --branch v2.3.4 https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
+    test -d .doxygen-awesome/.git || git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
+    git -C .doxygen-awesome fetch --depth 1 origin 568f56cde6ac78b6dfcc14acd380b2e745c301ea
+    git -C .doxygen-awesome checkout --detach 568f56cde6ac78b6dfcc14acd380b2e745c301ea
 
 [windows]
 _doxygen-theme:
-    if not exist .doxygen-awesome git clone --depth 1 --branch v2.3.4 https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
+    if not exist .doxygen-awesome\.git git clone --filter=blob:none --no-checkout https://github.com/jothepro/doxygen-awesome-css.git .doxygen-awesome
+    git -C .doxygen-awesome fetch --depth 1 origin 568f56cde6ac78b6dfcc14acd380b2e745c301ea
+    git -C .doxygen-awesome checkout --detach 568f56cde6ac78b6dfcc14acd380b2e745c301ea
 
 # Synthesize Doxyfile.local = Doxyfile + docs/doxygen-theme.cfg (the same theme
 # overrides docs.yml appends). The copy+append is shell-specific, so it's split

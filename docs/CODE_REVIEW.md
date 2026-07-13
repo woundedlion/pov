@@ -145,7 +145,7 @@ The overall grade is held below A by one release-blocking firmware resource fail
 
 24. ✅ **The Teensy gate documentation is contradictory and malformed.** `docs/teensy_ci_gate_spec.md:3-30,890,944`, `tools/teensy_budgets.json:9`, `docs/RAM1_AUDIT.md:5`, `docs/strobe_columns_audit.md:109-136`. It mixes obsolete report-only/overflow/FastLED claims with current active-gate state, contains an unmatched fence and broken moved-file links, and describes already-implemented work as pending. Date historical audits and refresh active truth, links and fences.
 
-25. **The docs workflow executes an unverified binary with broad permissions.** `.github/workflows/docs.yml:37-40,65`, `justfile:61,65`. A downloaded Doxygen archive is executed without a digest while Pages/OIDC permissions apply workflow-wide; local docs clone a mutable tag. Verify SHA-256, pin the theme commit and scope elevated permissions only to deployment.
+25. ✅ **The docs workflow executes an unverified binary with broad permissions.** `.github/workflows/docs.yml:37-40,65`, `justfile:61,65`. A downloaded Doxygen archive is executed without a digest while Pages/OIDC permissions apply workflow-wide; local docs clone a mutable tag. Verify SHA-256, pin the theme commit and scope elevated permissions only to deployment.
 
 26. **Documentation gates allow known broken output.** `Doxyfile:52`, `.github/workflows/docs.yml:21-24`. Doxygen warnings are nonfatal and there is no Markdown fence/link validation, so the unmatched fence and dead links publish green. Add lint/link checks and make warnings fatal after an explicit baseline.
 
