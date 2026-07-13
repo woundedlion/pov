@@ -137,7 +137,7 @@ The overall grade is held below A by one release-blocking firmware resource fail
 
 20. ✅ **Manufacturing metadata and board documentation have drifted.** `hardware/phantasm/README.md:121-138`, `hardware/phantasm/phantasm.kicad_pcb:10-14,35-103,11583,12222`. Track/via counts, pour layers, finish and copper descriptions disagree with the committed board. Generate measured statistics and fabrication parameters from the manufacturing source of truth.
 
-21. **BOM/CPL completeness is warning-only.** `hardware/phantasm/gen/fab.py:191-224`. Missing supplier mappings or centroid data can still yield orderable-looking output with blank fields. Fail packaging for any assembled SMD lacking a part number, centroid, numeric placement or expected side.
+21. ✅ **BOM/CPL completeness is warning-only.** `hardware/phantasm/gen/fab.py:191-224`. Missing supplier mappings or centroid data can still yield orderable-looking output with blank fields. Fail packaging for any assembled SMD lacking a part number, centroid, numeric placement or expected side.
 
 22. **Malformed `size -A` output can false-pass the Teensy gate.** `tools/teensy_gate.py:420-430`, `tools/teensy_gate_extra.py:81-104`. Unrecognized output becomes synthesized zero-use/full-free regions and can return PASS. Require recognized allocated sections/expected buckets before synthesis and add empty/malformed fallback tests.
 
@@ -151,23 +151,23 @@ The overall grade is held below A by one release-blocking firmware resource fail
 
 27. **Whole-app bootstrap failures leave an endless loading spinner.** `daydream/index.html:62-73`, `daydream/daydream.js:7-17,153,585-606`, `daydream/driver.js:146-150`. Static import/CDN or synchronous WebGL/constructor failures happen before the only WASM catch. Use a small local dynamic-import bootstrap with a fatal/reload UI and catch WebGL initialization.
 
-28. **Worker construction failure leaks a partial unmonitored pool.** `daydream/segment_controller.js:278-419`. A reproduced second-worker `SecurityError` leaves the first worker alive, with no fault latch or watchdog. Guard constructor/initial post operations, terminate the partial pool, latch a visible fault and test worker-N synchronous failure.
+28. ✅ **Worker construction failure leaks a partial unmonitored pool.** `daydream/segment_controller.js:278-419`. A reproduced second-worker `SecurityError` leaves the first worker alive, with no fault latch or watchdog. Guard constructor/initial post operations, terminate the partial pool, latch a visible fault and test worker-N synchronous failure.
 
-29. **Thrown effect/resolution switches are not transactional.** `daydream/daydream.js:223-239,463-487`. GUI is destroyed before engine mutation, and thrown errors do not roll back state/URL/controls. Preserve prior applied state until success or implement guarded rollback and recovery UI.
+29. ✅ **Thrown effect/resolution switches are not transactional.** `daydream/daydream.js:223-239,463-487`. GUI is destroyed before engine mutation, and thrown errors do not roll back state/URL/controls. Preserve prior applied state until success or implement guarded rollback and recovery UI.
 
-30. **Initial application removes the loader before initialization succeeds.** `daydream/daydream.js:577-584`. `applyResolution(true)` runs after overlay removal, ignores `false` and only logs throws. Remove the overlay only after successful resolution/effect initialization; route rejection to the fatal UI.
+30. ✅ **Initial application removes the loader before initialization succeeds.** `daydream/daydream.js:577-584`. `applyResolution(true)` runs after overlay removal, ignores `false` and only logs throws. Remove the overlay only after successful resolution/effect initialization; route rejection to the fatal UI.
 
-31. **`MediaRecorder.start()` failure leaks capture resources.** `daydream/recorder.js:198-224`. A reproduced thrown `NotSupportedError` escapes while retaining recorder, stream, offscreen and an unstopped track. Catch start failure, close/stop all session resources, reset state and test the path.
+31. ✅ **`MediaRecorder.start()` failure leaks capture resources.** `daydream/recorder.js:198-224`. A reproduced thrown `NotSupportedError` escapes while retaining recorder, stream, offscreen and an unstopped track. Catch start failure, close/stop all session resources, reset state and test the path.
 
-32. **Lissajous closed-curve mode can export an open curve.** `daydream/tools/lissajous.html:126,241-264`. Required rational periods such as 8/7 need `14π` but are silently clamped to the `8π` domain. Grow the domain or restrict rational choices to representable closing periods.
+32. ✅ **Lissajous closed-curve mode can export an open curve.** `daydream/tools/lissajous.html:126,241-264`. Required rational periods such as 8/7 need `14π` but are silently clamped to the `8π` domain. Grow the domain or restrict rational choices to representable closing periods.
 
-33. **Flat solids rendering mis-triangulates non-convex Hankin faces.** `daydream/tools/solids.html:922-927,1902-1914`. Non-geodesic paths use an `f[0]` fan even though the adjacent code acknowledges non-convex star faces, spilling triangles outside the face. Use centroid fans for the supported star-shaped faces or robust triangulation in both main and thumbnail paths.
+33. ✅ **Flat solids rendering mis-triangulates non-convex Hankin faces.** `daydream/tools/solids.html:922-927,1902-1914`. Non-geodesic paths use an `f[0]` fan even though the adjacent code acknowledges non-convex star faces, spilling triangles outside the face. Use centroid fans for the supported star-shaped faces or robust triangulation in both main and thumbnail paths.
 
-34. **Palette-strip interaction is mouse-only.** `daydream/tools/palettes.html:643-660,1239-1243`. Mobile users cannot set phase or drag-zoom. Replace mouse handlers with pointer events, capture and cancel handling.
+34. ✅ **Palette-strip interaction is mouse-only.** `daydream/tools/palettes.html:643-660,1239-1243`. Mobile users cannot set phase or drag-zoom. Replace mouse handlers with pointer events, capture and cancel handling.
 
-35. **Core geometry-tool controls are not keyboard/screen-reader operable.** `daydream/tools/slider.js:79-91`, `daydream/tools/solids.html:948-967` and related palette/saved-card controls. Labels are unassociated spans, clickable thumbnails are divs, reorder is mouse-only and status/fatal UI lacks live semantics. Prefer native controls, associated labels, keyboard reorder and live regions.
+35. ✅ **Core geometry-tool controls are not keyboard/screen-reader operable.** `daydream/tools/slider.js:79-91`, `daydream/tools/solids.html:948-967` and related palette/saved-card controls. Labels are unassociated spans, clickable thumbnails are divs, reorder is mouse-only and status/fatal UI lacks live semantics. Prefer native controls, associated labels, keyboard reorder and live regions.
 
-36. **Tool renderers allocate unbounded high-DPI backbuffers.** `daydream/tools/shared.js:98-100,141-147`. Raw DPR 3 produces roughly 9× fragment/backbuffer work. Apply an intentional DPR cap consistent with the main simulator.
+36. ✅ **Tool renderers allocate unbounded high-DPI backbuffers.** `daydream/tools/shared.js:98-100,141-147`. Raw DPR 3 produces roughly 9× fragment/backbuffer work. Apply an intentional DPR cap consistent with the main simulator.
 
 37. **Deployment provenance does not prove the WASM came from the recorded source SHA.** `daydream/.github/workflows/deploy.yml:11-23,55-99`. The job proves binary/hash consistency and tests the recorded engine commit, but does not rebuild/compare or verify an attestation. Rebuild deterministically and byte-compare, or consume a signed build attestation.
 
