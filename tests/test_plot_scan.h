@@ -1547,6 +1547,22 @@ inline void test_particle_system_draws_active_trails_with_registers() {
 }
 
 /**
+ * @brief Verifies an empty system needs no lifetime normalizer.
+ */
+inline void test_particle_system_empty_zero_lifetime_is_noop() {
+  constexpr int W = 288, H = 144;
+  RasterFx fx(W, H);
+  StubSystem sys;
+  CapturePipeline pipe;
+  {
+    Canvas c(fx);
+    Plot::ParticleSystem::draw<W, H>(pipe, c, sys, noop_shader);
+  }
+  fx.advance_display();
+  HS_EXPECT_TRUE(pipe.plotted.empty());
+}
+
+/**
  * @brief The segment cull follows a filter-chain orientation: an edge the
  *        World::Orient stage rotates into a clip band is drawn, not culled.
  * @details When orientation lives in the filter chain (FlowField) the rasterizer
@@ -1897,6 +1913,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_cull_follows_filter_orientation();
 
   test_particle_system_draws_active_trails_with_registers();
+  test_particle_system_empty_zero_lifetime_is_noop();
 
   test_azimuthal_project_radius_is_geodesic_angle();
   test_azimuthal_roundtrip_identity();

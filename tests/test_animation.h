@@ -977,6 +977,25 @@ inline void test_particle_system_spawn_and_capacity_guard() {
 }
 
 /**
+ * @brief Verifies both valid ParticleSystem lifetime boundaries are preserved.
+ */
+inline void test_particle_system_lifetime_boundaries() {
+  static uint8_t buf[4096];
+  {
+    Arena arena(buf, sizeof(buf));
+    Animation::ParticleSystem<32, 1> ps;
+    ps.init(arena, 0.85f, 0.0f, 1.0f);
+    HS_EXPECT_EQ(static_cast<int>(ps.max_life), 1);
+  }
+  {
+    Arena arena(buf, sizeof(buf));
+    Animation::ParticleSystem<32, 1> ps;
+    ps.init(arena, 0.85f, 0.0f, 65535.0f);
+    HS_EXPECT_EQ(static_cast<int>(ps.max_life), 65535);
+  }
+}
+
+/**
  * @brief Verifies a particle is removed only after its life reaches 0 and its
  * recorded trail drains to empty.
  */
@@ -2233,6 +2252,7 @@ inline int run_animation_tests() {
   test_motion_codriven_survives_repeat_seam();
 
   test_particle_system_spawn_and_capacity_guard();
+  test_particle_system_lifetime_boundaries();
   test_particle_system_spawn_initializes_and_steps();
   test_particle_system_expires_after_life_and_trail_drain();
   test_particle_system_attractor_kills_within_radius();

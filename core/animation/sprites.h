@@ -207,7 +207,8 @@ public:
    * @param arena Arena providing backing storage for all vectors.
    * @param friction Per-frame velocity damping factor.
    * @param gravity Base gravitational constant for attractors.
-   * @param max_life Default particle lifetime in frames; clamped into uint16_t.
+   * @param max_life Default particle lifetime in frames; must be finite and in
+   *        [1, 65535].
    * @details Pre-constructs CAPACITY inactive particles in the pool.
    */
   void init(Arena &arena, float friction = 0.85f, float gravity = 0.001f,
@@ -215,11 +216,12 @@ public:
     // The arena has no per-allocation free, so re-binding would orphan the first
     // pool/attractor/emitter allocations.
     HS_CHECK(!pool.is_bound(), "ParticleSystem::init called twice");
+    HS_CHECK(std::isfinite(max_life) && max_life >= 1.0f &&
+                 max_life <= 65535.0f,
+             "ParticleSystem max_life must be finite and in [1, 65535]");
     this->friction = friction;
     this->gravity = gravity;
-    // Clamp before narrowing: a float outside [0, 65535] is UB cast to uint16_t.
-    this->max_life =
-        static_cast<uint16_t>(std::min(std::max(max_life, 0.0f), 65535.0f));
+    this->max_life = static_cast<uint16_t>(max_life);
     active_count = 0;
     pool.bind(arena, CAPACITY);
     for (size_t i = 0; i < CAPACITY; ++i) {
