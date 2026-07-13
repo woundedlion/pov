@@ -654,6 +654,56 @@ inline void case_effect_height_over_max() {
 }
 
 /**
+ * @brief Initializes a particle system with the requested maximum lifetime.
+ * @param max_life Maximum lifetime passed to ParticleSystem::init.
+ */
+inline void init_particle_system_with_lifetime(float max_life) {
+  static uint8_t buf[4096];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 1> ps;
+  ps.init(arena, 0.85f, 0.0f, max_life);
+}
+
+/** @brief Death case: a zero particle lifetime must trap. */
+inline void case_particle_lifetime_zero() {
+  init_particle_system_with_lifetime(opaque(0.0f));
+}
+
+/** @brief Death case: a NaN particle lifetime must trap. */
+inline void case_particle_lifetime_nan() {
+  init_particle_system_with_lifetime(
+      opaque(std::numeric_limits<float>::quiet_NaN()));
+}
+
+/** @brief Death case: a particle lifetime above uint16_t must trap. */
+inline void case_particle_lifetime_over_max() {
+  init_particle_system_with_lifetime(opaque(65536.0f));
+}
+
+/** @brief Pipeline stub for the particle-render lifetime death case. */
+struct DeathPlotPipeline {
+  void plot(Canvas &, const Vector &, const Pixel &, float, float) {}
+  void plot(Canvas &, float, float, const Pixel &, float, float) {}
+};
+
+/** @brief Death case: a nonempty render with zero max_life must trap. */
+inline void case_particle_render_zero_lifetime() {
+  configure_arenas_default();
+  static uint8_t buf[4096];
+  Arena arena(buf, sizeof(buf));
+  Animation::ParticleSystem<32, 1> ps;
+  ps.init(arena, 0.85f, 0.0f, 1.0f);
+  ps.spawn(Vector(1, 0, 0), Vector(), 0);
+  ps.max_life = 0;
+
+  DeathEffect fx;
+  Canvas canvas(fx);
+  DeathPlotPipeline pipeline;
+  Plot::ParticleSystem::draw<32, 16>(
+      pipeline, canvas, ps, [](const Vector &, Fragment &) {});
+}
+
+/**
  * @brief Death case: a second simultaneously-live correction guard must trap.
  * @details LED surface — NoColorCorrection and NoTempCorrection share one depth
  *          counter and set the global FastLED correction/temperature, so a second
@@ -1010,6 +1060,11 @@ inline const Case *all_cases(int &n) {
       {"effect_height_zero", case_effect_height_zero},
       {"effect_width_over_max", case_effect_width_over_max},
       {"effect_height_over_max", case_effect_height_over_max},
+      {"particle_lifetime_zero", case_particle_lifetime_zero},
+      {"particle_lifetime_nan", case_particle_lifetime_nan},
+      {"particle_lifetime_over_max", case_particle_lifetime_over_max},
+      {"particle_render_zero_lifetime",
+       case_particle_render_zero_lifetime},
       {"correction_guard_double_construct",
        case_correction_guard_double_construct},
       {"correction_guard_cross_type", case_correction_guard_cross_type},
@@ -1301,7 +1356,7 @@ inline int run_death_tests() {
 
   // Floor against a silently dropped case: the roster must not shrink below its
   // known size. Bump when adding cases.
-  constexpr int MIN_DEATH_CASES = 45;
+  constexpr int MIN_DEATH_CASES = 49;
   HS_EXPECT_GE(n, MIN_DEATH_CASES);
 
   // Probe how a trap is relayed (direct SIGILL vs an exit 128+SIGILL) with a

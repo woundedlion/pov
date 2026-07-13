@@ -2260,6 +2260,14 @@ struct ParticleSystem {
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader) {
     int count = system.active();
+    if (count == 0)
+      return;
+
+    const float max_life = static_cast<float>(system.max_life);
+    HS_CHECK(std::isfinite(max_life) && max_life >= 1.0f &&
+                 max_life <= 65535.0f,
+             "ParticleSystem render max_life must be finite and in [1, 65535]");
+    const float inv_max_life = 1.0f / max_life;
 
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
@@ -2284,7 +2292,7 @@ struct ParticleSystem {
         f.v0 = t;
         f.v1 = cumulative_len;
         f.v2 = static_cast<float>(i);
-        f.v3 = static_cast<float>(p.life) / static_cast<float>(system.max_life);
+        f.v3 = static_cast<float>(p.life) * inv_max_life;
         f.age = 0;
         f.color = Color4(0, 0, 0, 0);
         trail.push_back(f);
