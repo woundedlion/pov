@@ -7,6 +7,12 @@
 
 #include "core/engine/engine.h"
 
+namespace hs_test {
+namespace effects_tests {
+struct DisplacementFieldWhiteBox;
+} // namespace effects_tests
+} // namespace hs_test
+
 /**
  * @brief Stack of evenly spaced soft-stroked rings displaced by a
  * displacement-field stack that alternates a 3D noise field and falling ball
@@ -26,6 +32,8 @@
  * seconds. Orientation random-walks over time.
  */
 template <int W, int H> class DisplacementField : public Effect {
+  friend struct ::hs_test::effects_tests::DisplacementFieldWhiteBox;
+
 public:
   /**
    * @brief Builds the effect with its palette and ring-stack axis.
@@ -42,6 +50,7 @@ public:
   void init() override {
     shift_lut = persistent_arena.allocate_n<float>(W + 1);
     hue_lut = persistent_arena.allocate_n<Pixel>(W + 1);
+    hue_table = persistent_arena.allocate_n<Pixel>(HUE_TABLE_SIZE + 1);
     solid_colat = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_reach = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_shift = persistent_arena.allocate_n<float>(SOLID_MAX);
@@ -308,6 +317,61 @@ private:
           }
         }
 
+        bool use_hue_table =
+            params.hue_scale != 0.0f && lut_n > 2 * HUE_TABLE_SIZE;
+#ifdef HS_TEST_BUILD
+        use_hue_table = use_hue_table && !force_exact_hue;
+#endif
+        bool precompute_hue_table = false;
+        float hue_domain = 0.0f;
+        bool cyclic_hue_table = false;
+        uint64_t hue_table_valid[2];
+        if (use_hue_table) {
+          int visible_samples = 0;
+          int x_begin = 0;
+          for (int c = 0; c < BAKE_CHUNKS; ++c) {
+            const int x_end =
+                ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+            if (visible & (1u << c))
+              visible_samples += x_end - x_begin;
+            x_begin = x_end;
+          }
+          // Sparse clips lazily populate only the endpoints they sample while
+          // retaining the full render's clip-invariant table interpolation.
+          precompute_hue_table = visible_samples > 2 * HUE_TABLE_SIZE;
+          const float hue_extent =
+              (band + noise_bound) * params.hue_scale;
+          cyclic_hue_table = std::fabs(hue_extent) > 1.0f;
+          hue_domain = cyclic_hue_table
+                           ? std::copysign(1.0f, hue_extent)
+                           : hue_extent;
+#ifdef HS_TEST_BUILD
+          ++hue_table_uses;
+#endif
+          if (precompute_hue_table) {
+            prepare_hue_table(hue_base, hue_domain);
+          } else {
+            hue_table_valid[0] = 0;
+            hue_table_valid[1] = 0;
+          }
+        }
+        Pixel zero_hue;
+        if (params.hue_scale == 0.0f)
+          zero_hue = hue_rotate(hue_base, 0.0f).color;
+
+        auto hue_for_shift = [&](float shift) {
+          if (params.hue_scale == 0.0f)
+            return zero_hue;
+          const float amount = std::fabs(shift) * params.hue_scale;
+          if (precompute_hue_table)
+            return sample_hue_table(amount, hue_domain, cyclic_hue_table);
+          if (use_hue_table)
+            return sample_hue_table_cached(amount, hue_domain,
+                                           cyclic_hue_table, hue_base,
+                                           hue_table_valid);
+          return hue_rotate(hue_base, amount).color;
+        };
+
         // Angle-addition recurrence advancing the tangent (cos, sin) by one
         // column step, dropping a libm cosf/sinf per bake column. It advances
         // through skipped columns too, so baked values are independent of the
@@ -333,8 +397,7 @@ private:
                         noise_field.field(p);
               ring_bound = std::max(ring_bound, std::fabs(s));
               shift_lut[x] = s;
-              hue_lut[x] =
-                  hue_rotate(hue_base, std::fabs(s) * params.hue_scale).color;
+              hue_lut[x] = hue_for_shift(s);
               float next_cos = cos_a * cos_d - sin_a * sin_d;
               sin_a = sin_a * cos_d + cos_a * sin_d;
               cos_a = next_cos;
@@ -364,6 +427,49 @@ private:
                                       params.thickness, shift_lut, lut_n,
                                       ring_bound, fragment_shader);
     }
+  }
+
+  __attribute__((noinline)) void prepare_hue_table(const HueRotateBase &base,
+                                                   float domain) {
+    for (int i = 0; i <= HUE_TABLE_SIZE; ++i)
+      hue_table[i] = hue_rotate(
+          base, domain * (static_cast<float>(i) / HUE_TABLE_SIZE)).color;
+  }
+
+  Pixel sample_hue_table(float amount, float domain, bool cyclic) const {
+    float t = amount / domain;
+    t = cyclic ? wrap_t(t) : hs::clamp(t, 0.0f, 1.0f);
+    float x = t * HUE_TABLE_SIZE;
+    if (x >= HUE_TABLE_SIZE)
+      return hue_table[HUE_TABLE_SIZE];
+    int i = static_cast<int>(x);
+    return hue_table[i].lerp16(hue_table[i + 1], frac_to_q16(x - i));
+  }
+
+  Pixel sample_hue_table_cached(float amount, float domain, bool cyclic,
+                                const HueRotateBase &base,
+                                uint64_t *valid) {
+    auto ensure = [&](int index) {
+      const uint64_t bit = uint64_t{1} << (index & 63);
+      uint64_t &word = valid[index >> 6];
+      if (!(word & bit)) {
+        hue_table[index] = hue_rotate(
+            base, domain * (static_cast<float>(index) / HUE_TABLE_SIZE)).color;
+        word |= bit;
+      }
+    };
+
+    float t = amount / domain;
+    t = cyclic ? wrap_t(t) : hs::clamp(t, 0.0f, 1.0f);
+    float x = t * HUE_TABLE_SIZE;
+    if (x >= HUE_TABLE_SIZE) {
+      ensure(HUE_TABLE_SIZE);
+      return hue_table[HUE_TABLE_SIZE];
+    }
+    int i = static_cast<int>(x);
+    ensure(i);
+    ensure(i + 1);
+    return hue_table[i].lerp16(hue_table[i + 1], frac_to_q16(x - i));
   }
 
   /**
@@ -477,6 +583,7 @@ private:
   static constexpr float COLOR_SPIN_RATE = 0.0015f; /**< Palette spin across the stack, in turns per frame. */
   static constexpr float LUT_SAMPLES_PER_UNIT = 8.0f; /**< Bake columns per feature-space unit of ring circumference. */
   static constexpr int LUT_MIN_SAMPLES = 16;          /**< Bake-column floor for tiny/low-scale rings. */
+  static constexpr int HUE_TABLE_SIZE = 64;            /**< Hue-turn interpolation cells per ring. */
   static constexpr int BAKE_CHUNKS = 16; /**< Azimuth chunks clip-tested during the bake. */
   static constexpr uint32_t CHUNK_MASK = (1u << BAKE_CHUNKS) - 1; /**< All-chunks-visible bake mask. */
   static_assert(LUT_MIN_SAMPLES >= BAKE_CHUNKS,
@@ -486,11 +593,16 @@ private:
   float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
   float *shift_lut = nullptr; /**< W + 1 arena-baked displacement knots, one per bake column; entry lut_n repeats entry 0 to close the polyline. */
   Pixel *hue_lut = nullptr;   /**< W + 1 arena-baked hue-rotated ring colors, aligned with shift_lut. */
+  Pixel *hue_table = nullptr; /**< HUE_TABLE_SIZE + 1 dynamic or cyclic hue samples for the current ring. */
   float *solid_colat = nullptr; /**< SOLID_MAX active-body center colatitudes about the stack axis (radians), rebuilt per frame. */
   float *solid_reach = nullptr; /**< SOLID_MAX active-body support extents (radians): the reach prefilter bound. */
   float *solid_shift = nullptr; /**< SOLID_MAX active-body shift bounds (radians): the per-ring band bound. */
   float *solid_scale = nullptr; /**< SOLID_MAX active-body LUT feature scales (2/radius). */
   int *solid_local = nullptr;   /**< SOLID_MAX scratch: active indices of the bodies that can reach the current ring. */
+#ifdef HS_TEST_BUILD
+  bool force_exact_hue = false;
+  int hue_table_uses = 0;
+#endif
 
   /** Ring-to-body prefilter pad absorbing fast_acos and tangent-recurrence
    *  rounding (radians); a body excluded despite the pad fields exactly 0
