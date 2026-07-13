@@ -1,0 +1,4 @@
+![missing image](missing.svg)
+[missing reference][guide]
+
+[guide]: missing.md

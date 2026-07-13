@@ -1197,9 +1197,15 @@ public:
    * @brief Builds a palette from three explicit, fully-resolved HSV key triples
    *        with NO RNG draws.
    * @param gradient_shape Shape/distribution of colors across the domain.
-   * @param h1 First key hue in [0,255]; s1/v1 its saturation/value.
-   * @param h2 Second key hue; s2/v2 its saturation/value.
-   * @param h3 Third key hue; s3/v3 its saturation/value.
+   * @param h1 First key hue in [0,255].
+   * @param s1 First key saturation in [0,255].
+   * @param v1 First key value in [0,255].
+   * @param h2 Second key hue in [0,255].
+   * @param s2 Second key saturation in [0,255].
+   * @param v2 Second key value in [0,255].
+   * @param h3 Third key hue in [0,255].
+   * @param s3 Third key saturation in [0,255].
+   * @param v3 Third key value in [0,255].
    * @return A palette whose keys are the OKLCH-authored (h,s,v) triples.
    * @details Mirrors the profile constructor's key authoring and stop layout,
    *          but takes (h,s,v) as parameters instead of sampling the global RNG.

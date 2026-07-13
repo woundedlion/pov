@@ -1830,6 +1830,7 @@ struct AlignCorr {
  * @param reflected Mirror family: conjugate each vertex and walk the
  *        projection indices in reverse (a mirrored face winds the opposite way
  *        in a consistently-wound mesh).
+ * @param get_z Centered-projection vertex accessor.
  * @return The correlation sums; the least-squares residual is
  *         cc + zz - 2*|r|, and the optimal rotation is r / |r|.
  * @details Single source for the correspondence convention — bake-time
@@ -2027,6 +2028,7 @@ struct Face {
    * @param scratch Reusable scratch storage backing the spans.
    * @param h_virt Virtual row count (height plus pole offset).
    * @param height Canvas height in rows.
+   * @param clip Optional render clip used to tighten the face bounds.
    */
   Face(std::span<const Vector> vertices, std::span<const uint16_t> indices,
        float th, FaceScratchBuffer &scratch, int h_virt, int height,

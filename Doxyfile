@@ -47,6 +47,4 @@ CALL_GRAPH             = NO
 
 QUIET                  = YES
 WARN_NO_PARAMDOC       = YES
-# Flip to FAIL_ON_WARNINGS once a clean run is confirmed, to enforce that every
-# function keeps an accurate @param/@return docstring on every push.
-WARN_AS_ERROR          = NO
+WARN_AS_ERROR          = FAIL_ON_WARNINGS

@@ -44,11 +44,16 @@ test:
     cmake --build --preset tests
     ctest --preset tests
 
+# Validate tracked Markdown using the same commands as docs CI.
+docs-check:
+    python -m unittest discover -s tools/docs_check_tests
+    python tools/docs_check.py
+
 # Build Doxygen API reference locally into build/docs/html/.
 # Clones doxygen-awesome theme into .doxygen-awesome/ on first run and
 # synthesizes the gitignored Doxyfile.local (Doxyfile + theme overrides, mirroring
 # .github/workflows/docs.yml). Requires doxygen on PATH.
-docs: _doxygen-theme _doxyfile-local
+docs: docs-check _doxygen-theme _doxyfile-local
     cmake -E make_directory build/docs
     doxygen Doxyfile.local
 

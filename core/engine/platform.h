@@ -1267,7 +1267,8 @@ inline __attribute__((always_inline)) float clamp(float v, float lo, float hi) {
  *          regardless of position), so min(NaN, hi) == hi; this backend is
  *          REORDER-INSENSITIVE, operand order kept identical to the x86 overload
  *          only for parity. NaN-suppression relies on -fno-finite-math-only
- *          surviving after -ffast-math (the __FINITE_MATH_ONLY__ #error guards it).
+ *          surviving after -ffast-math (the __FINITE_MATH_ONLY__ preprocessor
+ *          guard enforces it).
  */
 inline constexpr __attribute__((always_inline)) float clamp(float v, float lo,
                                                             float hi) {

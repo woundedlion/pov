@@ -422,7 +422,8 @@ struct HueSpinShade {
    * @param t Unused; the rotation is uniform over the domain.
    * @return The hue-rotated sample.
    */
-  Color4 shade(Color4 c, float) const {
+  Color4 shade(Color4 c, float t) const {
+    (void)t;
     if (!primed || *amount != cached_amount) {
       cached_amount = *amount;
       float angle = cached_amount * (2.0f * PI_F);
@@ -557,7 +558,8 @@ struct ChromaPulseShade {
    * @param t Unused; the pulse is uniform over the domain.
    * @return The chroma-scaled sample, alpha untouched.
    */
-  Color4 shade(Color4 c, float) const {
+  Color4 shade(Color4 c, float t) const {
+    (void)t;
     if (!primed || *phase != cached_phase) {
       cached_phase = *phase;
       cached_scale = 1.0f + depth * fast_sinf(cached_phase);

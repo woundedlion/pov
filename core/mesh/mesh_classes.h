@@ -140,6 +140,7 @@ inline bool polygon_is_concave(const float *xy, int count) {
  * @param pixel_width One pixel in gnomonic plane units (2*pi/W) — sets the
  *        congruence epsilon and the LUT resolution target.
  * @param out Freshly default-constructed bake to populate.
+ * @param budget_bytes Maximum persistent bytes available for class LUTs.
  * @details Greedy clustering seeded per topology class: a face joins the
  * first class whose canonical polygon aligns (over cyclic offset x reflection
  * x optimal rotation) within CONGRUENCE_EPS_PX RMS, else founds a new class

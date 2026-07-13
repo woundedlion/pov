@@ -242,6 +242,7 @@ struct Base {
    * @brief Coverage mask over the face interior.
    * @param t Fragment edge distance in [0, 1] (0 at the edge, ~1 at the face
    * center); may be remapped in place for the palette lookup.
+   * @param phase Transition phase; unused by the identity policy.
    * @return Coverage alpha in [0, 1]; 0 culls the fragment.
    */
   float fill(float &t, float phase) const {
