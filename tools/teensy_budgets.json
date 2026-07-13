@@ -54,7 +54,8 @@
       // 12288, so the 12 KiB stack floor is the binding RAM1 constraint (was
       // 16 KiB — re-derived from the measured peak, not a round guess).
       "ram1":  { "max_bytes": 512000, "free_min_bytes": 12288 },
-      "ram2":  { "max_bytes": 524288 }
+      // 3.5 KiB effect-object cap plus 512 B for allocator and boot overhead.
+      "ram2":  { "max_bytes": 524288, "free_min_bytes": 4096 }
     },
     "symbols": {
       "arena":          { "name": "_ZL18global_arena_block",        "region": "DTCM", "min_bytes": 327680, "max_bytes": 360448 },
