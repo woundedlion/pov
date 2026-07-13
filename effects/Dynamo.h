@@ -70,6 +70,10 @@ public:
     filters.template get<Filter::World::Trails<W, TRAIL_CAPACITY>>()
         .init_storage(persistent_arena);
 
+    nodes = persistent_arena.allocate_n<Node>(NUM_NODES);
+    for (size_t i = 0; i < NUM_NODES; ++i)
+      std::construct_at(&nodes[i]);
+
     register_param("Speed", &params.speed, -10.0f, 10.0f);
     register_param("Gap", &params.gap, 1.0f, GAP_MAX);
     register_param("Trail Len", &params.trail_length, 1.0f, 100.0f);
@@ -275,7 +279,7 @@ private:
    *          a half-alpha line back to its predecessor.
    */
   void draw_nodes(Canvas &canvas, float age) {
-    for (size_t i = 0; i < nodes.size(); ++i) {
+    for (size_t i = 0; i < NUM_NODES; ++i) {
       if (i == 0) {
         auto from = pixel_to_vector<W, H>(nodes[i].x, nodes[i].y);
         Color4 c = color(from, 0);
@@ -310,7 +314,7 @@ private:
     for (int i = leader - 1; i >= 0; --i) {
       drag(nodes[i + 1], nodes[i]);
     }
-    for (size_t i = leader + 1; i < nodes.size(); ++i) {
+    for (size_t i = leader + 1; i < NUM_NODES; ++i) {
       drag(nodes[i - 1], nodes[i]);
     }
   }
@@ -387,10 +391,10 @@ private:
    */
   std::array<BakedPalette, MAX_PALETTES> baked_palettes_;
 
-  // init() allocates the Trails ring buffer plus one baked palette LUT per live
-  // palette slot from the persistent arena.
+  // init() allocates the nodes, Trails ring buffer, and baked palette LUTs from
+  // the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
-      TRAIL_CAPACITY *
+      NUM_NODES * sizeof(Node) + TRAIL_CAPACITY *
           sizeof(typename Filter::World::Trails<W, TRAIL_CAPACITY>::Item) +
       MAX_PALETTES * BakedPalette::LUT_SIZE * sizeof(Color4);
   // Effect keeps the default arena split, so the footprint must fit the device
@@ -400,7 +404,7 @@ private:
                 "retune TRAIL_CAPACITY/MAX_PALETTES or carve arenas");
 
   Vector palette_normal; /**< Reference axis for band angle selection. */
-  std::array<Node, NUM_NODES> nodes; /**< The strand nodes. */
+  Node *nodes = nullptr; /**< Arena-backed strand nodes. */
 
   /**
    * @brief Travel direction toggled by reverse(); kept separate from the "Speed"

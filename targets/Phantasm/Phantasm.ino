@@ -56,9 +56,13 @@ HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
 namespace {
 POV *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
 
+static constexpr size_t MAX_EFFECT_HEAP_BYTES = 3584;
+
 // Foreground effect constructor for one roster entry: LUTs, arenas, init.
 // Called from the driver's show loop during the epoch construction window.
 template <typename E> Effect *construct_effect() {
+  static_assert(sizeof(E) <= MAX_EFFECT_HEAP_BYTES,
+                "Phantasm effect exceeds the heap-object budget");
   // Eager-fill the scanline LUTs before the first frame so the flywheel ISR
   // never observes a half-filled table.
   GeometryResolution<E>::init();
