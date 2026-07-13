@@ -3,7 +3,7 @@
 Produces, into ../gen/out/:
   * jlc/        — Gerbers (Protel ext), Excellon drill, and a JLCPCB upload zip
   * jlc/phantasm-BOM.csv / phantasm-CPL.csv — JLCPCB assembly BOM + centroid
-  * phantasm-drc.rpt — DRC report (informational; prints the violation count)
+  * phantasm-drc.rpt — gating error-severity DRC report
 
 It NEVER runs board.py / pcb.py: those rewrite phantasm.kicad_{sch,pcb} and
 discard the routing + silk. This script only reads the committed board and
@@ -106,6 +106,39 @@ def run(args, **kw):
     return subprocess.run(args, check=True, capture_output=True, text=True, **kw)
 
 
+def require_clean_drc(report_path):
+    """Return DRC counts or raise unless both exact summaries are zero."""
+    try:
+        with open(report_path, encoding="utf-8") as fh:
+            src = fh.read()
+    except (OSError, UnicodeError) as exc:
+        raise RuntimeError(f"cannot read DRC report: {report_path}") from exc
+
+    violations = re.findall(
+        r"^\*\* Found (\d+) DRC violations \*\*$", src, re.MULTILINE)
+    unconnected = re.findall(
+        r"^\*\* Found (\d+) unconnected pads \*\*$", src, re.MULTILINE)
+    if len(violations) != 1 or len(unconnected) != 1:
+        raise RuntimeError(f"cannot parse DRC report summaries: {report_path}")
+
+    num_violations = int(violations[0])
+    num_unconnected = int(unconnected[0])
+    if num_violations or num_unconnected:
+        raise RuntimeError(
+            f"DRC failed: {num_violations} error-severity violations, "
+            f"{num_unconnected} unconnected items")
+    return num_violations, num_unconnected
+
+
+def run_drc(report_path):
+    """Generate and require a clean error-severity DRC report."""
+    if os.path.exists(report_path):
+        os.remove(report_path)
+    run([KCLI, "pcb", "drc", "--severity-error", "--exit-code-violations",
+         "-o", report_path, PCB])
+    return require_clean_drc(report_path)
+
+
 def parse_components(net_path):
     """ref -> {value, footprint, dnp, lcsc} from a kicadsexpr netlist."""
     src = open(net_path, encoding="utf-8").read()
@@ -170,11 +203,9 @@ def main():
 
     print("[3/6] DRC report")
     rpt = os.path.join(OUT, "phantasm-drc.rpt")
-    drc = subprocess.run([KCLI, "pcb", "drc", "--severity-error",
-                          "--severity-warning", "-o", rpt, PCB],
-                         capture_output=True, text=True)
-    nviol = re.search(r"Found (\d+) violation", drc.stdout or "")
-    print(f"  DRC: {nviol.group(1) if nviol else '?'} violations -> {rpt}")
+    num_violations, num_unconnected = run_drc(rpt)
+    print(f"  DRC: {num_violations} error-severity violations, "
+          f"{num_unconnected} unconnected items -> {rpt}")
 
     print("[4/6] Netlist + centroid")
     net = os.path.join(OUT, "_fab.net")
