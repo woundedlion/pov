@@ -1,33 +1,25 @@
 # Design Spec: Teensy 4 CI Gate — Build, Warning Hygiene, Image Size & Memory Layout
 
-**Status:** Phase-0 scaffold + toolchain spike done. Landed & self-tested (report-only):
-`platformio.ini` + the `tools/teensy_pre.py` sketch-placement hook, the post-build gate
-(`tools/teensy_gate.py` + `tools/teensy_gate_extra.py`), budgets (`tools/teensy_budgets.json`), the
-warning ratchet (`tools/teensy_warnings.py` + baseline), the host self-tests
-(`tools/teensy_gate_tests/`, green), the `teensy-gate-tests` CI job, the `just teensy-size` recipe,
-and the Teensy-4.0 doc reconciliation (§14.5).
+**Status (2026-07-12): active and green.** The `teensy-size` CI job builds `holosphere`,
+`phantasm`, and the `holosphere_dma` compile-drift target on pushes to master and pull requests. The
+post-build gate enforces the checked-in region budgets and ELF layout invariants; the separate
+cache-disabled `teensy-warnings` job enforces a currently empty first-party warning baseline.
+`just teensy-size` runs the two shipping-image gates locally.
 
-**Phase-0 spike results (2026-06) — see §16:** the toolchain question is resolved favourably
-(branch 1, exact bench parity): `platform = teensy@5.0.0` natively delivers Teensyduino 1.59.0 +
-arm-none-eabi-gcc 11.3.1, `platformio==6.1.19`, `FastLED@3.10.3`. Two config corrections the real
-build forced: (a) the Teensy core default `-std=gnu++17` must be `build_unflags`'d so the engine's
-C++20 compiles; (b) PlatformIO's sketch discovery globs `$PROJECT_SRC_DIR/*.ino` and ignores
-`build_src_filter`, so the spec's filter-only plan (§5/§6) can't place the `.ino` — a pre-script
-selects it instead. The build now compiles `core/*.cpp` + the converted sketch cleanly.
+The pinned toolchain is `platform = teensy@5.0.0` (Teensyduino 1.59.0 and arm-none-eabi-gcc
+11.3.1), `platformio==6.1.19`, and the bench-compatible **FastLED 3.4.0**. Holosphere builds at
+96×20 with the bench-parity `-O3` configuration. Phantasm builds every effect at 288×144 with its
+documented size configuration: `-Os`, newlib-nano, `tools/phantasm.ld`, cold-code relocation,
+the small PRNG/cosine-table reductions, and the measured **330 KiB arena**. Both shipping images
+pass; Phantasm uses 509,312 B of RAM1 and leaves 14,976 B for locals, above its measured
+12 KiB floor. The active thresholds and symbol contracts live in
+[`tools/teensy_budgets.json`](../tools/teensy_budgets.json).
 
-**The gate earned its keep, then went green (2026-06).** The first headless device build surfaced
-**real device-only breakage** invisible to the WASM/native CI; all of it is now FIXED (§16):
-Arduino `TWO_PI` macro collisions (renamed to `TWO_PI` in `effects/{Flyby,Liquid2D,Raymarch}.h`),
-the wrong FastLED pin (3.10.3 → the bench's **3.4.0**, which moved types into `namespace fl`),
-`effects_legacy.h` `Pixel16`→`CRGB` explicit-conversion bit-rot, an ambiguous `pov` vs the `namespace
-pov` (sketch var → `g_pov`), and a `color.h` include collision with FastLED's own `color.h`
-(`hardware/` now uses `"core/color.h"`). **Result:** **Holosphere builds GREEN and PASSES the gate
-end-to-end** on the real ELF (calibrated budgets + the real `_ZL18global_arena_block` mangled arena
-symbol). **Phantasm compiles + links but OVERFLOWS RAM1 by ~243 KB** (all effects → ~381 KB ITCM +
-~380 KB DTCM ≫ 512 KB) — the gate correctly fails it; shrinking it (-Os / FLASHMEM / fewer effects /
-smaller arena) is owner-scope (§4.1 relief valve). The warning baseline is captured (1 first-party
-warning — 55 `HS_CHECK` sites dedupe to one). Remaining: enable the `teensy-size` CI job
-(`vars.TEENSY_GATE_ENABLED`) once Phantasm fits.
+**Historical Phase-0 result (June 2026; resolved):** the initial Phantasm all-effects image used
+the bench-parity `-O3`/full-newlib configuration and overflowed RAM1 by about 243 KiB. Section 16
+preserves that spike result and the device-only build failures it exposed. It is not the current
+image state.
+
 **Scope:** Add an automated gate that compiles the Teensy 4 firmware images, then validates
 build success, warning hygiene, image size, and memory-region layout against checked-in budgets.
 **Out of scope:** On-device flashing/running, hardware-in-the-loop tests, the WASM/native-test
@@ -41,31 +33,29 @@ The project has three build targets sharing one engine: the **WASM** simulator, 
 unit suite**, and the **Teensy firmware** (`targets/Holosphere/Holosphere.ino`,
 `targets/Phantasm/Phantasm.ino`). The first two are covered exhaustively by
 `.github/workflows/ci.yml` (sharded Clang tests, ASan/UBSan, Windows, WASM build + runtime smoke
-+ install provenance). **The firmware path is built nowhere automated** — it compiles only on a
-developer machine through Visual Micro (VMicro).
++ install provenance). The active `teensy-size` and `teensy-warnings` jobs now build and check the
+firmware path with PlatformIO; Visual Micro (VMicro) remains the interactive bench workflow.
 
-Consequences of the gap:
+The original automation gap had three consequences:
 
-- **Device-only code is uncompiled in CI.** Everything behind `#ifdef ARDUINO` / `CORE_TEENSY`
+- **Device-only code was uncompiled in CI.** Everything behind `#ifdef ARDUINO` / `CORE_TEENSY`
   — the eDMA register programming in `hardware/dma_led.h`, `pov_single.h`, `pov_segmented.h`,
-  `IntervalTimer` ISR wiring, `DMAMEM`/`FLASHMEM` placement — can break without any signal until
-  a human opens VMicro. `docs/device_host_divergence_ledger.md` row 4 records this directly:
+  `IntervalTimer` ISR wiring, `DMAMEM`/`FLASHMEM` placement — could break without any signal until
+  a human opened VMicro. `docs/device_host_divergence_ledger.md` row 4 records the host limitation:
   *"the bare DMA/register writes are device-only by nature and not host-reachable."*
-- **No size or memory-layout signal.** The two framebuffers (`MAX_W*MAX_H` = 288×144 ×
+- **There was no size or memory-layout signal.** The two framebuffers (`MAX_W*MAX_H` = 288×144 ×
   `sizeof(Pixel16)` = 6 B = **243 KiB each**; 486 KiB together) live in `DMAMEM` (OCRAM/RAM2,
-  512 KiB total), the **335 KB arena lives in DTCM/RAM1** (`global_arena_block`, no `DMAMEM` — it
-  is the largest single RAM1 object, [memory.cpp:43-53](../core/memory.cpp)), and the 90 KB
+  512 KiB total), the **330 KiB arena lives in DTCM/RAM1** (`global_arena_block`, no `DMAMEM` — it
+  is the largest single RAM1 object, [memory.cpp](../core/engine/memory.cpp)), and the 90 KB
   reaction-graph table lives in flash. Both buffers are fixed at `MAX_W*MAX_H` for **both**
   targets regardless of virtual resolution, so OCRAM is genuinely tight (486 KiB of 512 KiB). A
-  change that pushes any region over budget — or silently relocates a large buffer from flash to
-  RAM, or grows the arena and squeezes the DTCM stack — is invisible until it either fails to link
-  on-device or crashes at runtime where *"there is no debugger attached and no console to read"*
-  (README §2).
-- **No warning hygiene baseline.** arm-none-eabi-gcc with `-Wall -Wextra` surfaces warnings the
-  Clang/Emscripten builds do not. Today nothing watches them.
+  change that pushes a region over budget, relocates a large buffer, or squeezes the DTCM stack now
+  fails the gate.
+- **There was no warning hygiene baseline.** arm-none-eabi-gcc with `-Wall -Wextra` surfaces
+  warnings the Clang/Emscripten builds do not. The cache-disabled warning job now ratchets that set.
 
-This spec designs a **compile + link + measure** gate (no on-device execution) that closes the
-compile/link/size blind spot, run headlessly in CI and reproducible locally.
+This spec records the design of the **compile + link + measure** gate (no on-device execution)
+that closed the blind spot and remains reproducible locally.
 
 ---
 
@@ -222,10 +212,8 @@ points under `targets/`. We map without moving files using per-environment `src_
 
 Both targets are **Teensy 4.0** (project-owner confirmed; the 2 MB flash figure follows from
 that — see the board note below). They differ in output path and design resolution, not board.
-**The gate builds whatever each `.ino` actually commits** — Holosphere's design resolution is
-96×20 (README §1) but `Holosphere.ino` is currently set to 288×144 top to bottom (a WIP state);
-Phantasm is 288×144 and selects the DMA HD107S path (`#define USE_DMA_LEDS`). The size budgets key
-on the committed image, not the design figure.
+**The gate builds whatever each `.ino` actually commits** — Holosphere is 96×20 and Phantasm is
+288×144 with the DMA HD107S path (`USE_DMA_LEDS`).
 
 > **Phantasm is one image shared across four boards.** `Phantasm.ino` reads a hardware ID at boot
 > ([lines 11-23](../targets/Phantasm/Phantasm.ino)) and the *same* binary runs on all four
@@ -234,23 +222,24 @@ on the committed image, not the design figure.
 > board's output.
 
 > **Static footprints are *mostly* shared, but RAM2 is not identical.** The framebuffers
-> ([memory.cpp:139-141](../core/memory.cpp)) and the arena are sized by compile-time constants
-> (`MAX_W=288`, `MAX_H=144`, `GLOBAL_ARENA_SIZE=335 KB`), **not** by virtual resolution — so both
-> allocate the same two 243 KiB buffers in OCRAM and the same 335 KB arena in DTCM. But Phantasm's
+> ([memory.cpp](../core/engine/memory.cpp)) and the arena are sized by compile-time constants
+> (`MAX_W=288`, `MAX_H=144`, `GLOBAL_ARENA_SIZE=330 KiB`), **not** by virtual resolution — so both
+> allocate the same two 243 KiB buffers in OCRAM and the same 330 KiB arena in DTCM. But Phantasm's
 > `USE_DMA_LEDS` path adds an OCRAM consumer Holosphere lacks: the double-buffered
-> `DMAMEM DMALEDController` eDMA TX frame buffers ([pov_segmented.h:802-810](../hardware/pov_segmented.h)),
+> `DMAMEM DMALEDController` eDMA TX frame buffers ([pov_segmented.h](../hardware/pov_segmented.h)),
 > where Holosphere's FastLED path uses a non-`DMAMEM` `CRGB leds_[]`. So the targets diverge in
 > **flash** (different effects + USB/driver code) **and** in **RAM2/OCRAM** (Phantasm's DMA TX
-> buffers) — which, given OCRAM's structural tightness (§8), means **Phantasm needs its own RAM2
-> ceiling**, not a shared one. They do share the RAM1/DTCM (arena-dominated) footprint.
+> buffers). The current budgets use the hardware wall as both numeric RAM2 caps and add a Phantasm
+> DMA-controller placement invariant. The targets share the DTCM arena allocation, not total RAM1:
+> their ITCM code differs.
 
 ```
 targets/
 ├── Holosphere/Holosphere.ino   ← env:holosphere (budgeted) + env:holosphere_dma (compile profile)
 ├── Phantasm/Phantasm.ino       ← env:phantasm (budgeted N=4) + env:phantasm8 (compile profile)
 └── wasm/…                       ← untouched (CMake/Emscripten)
-core/        memory.cpp, reaction_graph.cpp, *.h   ← compiled into every firmware profile
-hardware/    *.h                                    ← header-only, on include path
+core/engine/ memory.cpp, reaction_graph.cpp, *.h   ← shared engine sources
+hardware/    *.h                                   ← header-only, on include path
 ```
 
 Key decisions:
@@ -258,9 +247,9 @@ Key decisions:
 - **Keep `.ino`, don't convert to `.cpp`.** PlatformIO compiles `.ino` (it runs the same
   prototype-injection preprocessing Arduino does). Converting to `.cpp` would diverge from the
   Arduino sketch workflow and risk auto-prototype differences. The `.ino` stays canonical.
-- **`core/memory.cpp` and `core/reaction_graph.cpp` are real translation units** (the WASM build
+- **`core/engine/memory.cpp` and `core/engine/reaction_graph.cpp` are real translation units** (the WASM build
   lists them explicitly in `CMakeLists.txt`). They must be added to the firmware build's source
-  set — via `build_src_filter` including `core/*.cpp`, or by treating `core/` as a private
+  set — via `build_src_filter` including `core/engine/*.cpp`, or by treating `core/` as a private
   library. The rest of `core/` and all of `hardware/` are header-only and reached via `-I`.
 - **`effects_legacy.h` is in scope here even though it's excluded from code review.**
   `Holosphere.ino` includes it, so the firmware image must compile it. (The review-scope
@@ -269,25 +258,23 @@ Key decisions:
   `build_flags += -D USE_DMA_LEDS`; `phantasm8` also sets `PHANTASM_NUM_SEGMENTS=8`, while
   `holosphere_dma` enables the single-board DMA branch. The DMA define mirrors the guarded define the `.ino` already sets
   (keep the `#define` in the `.ino` as the source of truth; the env flag is only needed if a
-  target ever relies on it being set before the first include). The shipping targets share the same
-  board and RAM1 footprint but differ in flash *and* in RAM2 (Phantasm's DMA TX buffers, above) —
-  so the budgets (§8) share RAM1 but give Phantasm its own flash and RAM2 ceilings.
+  target ever relies on it being set before the first include). The shipping builds share the same
+  board and arena allocation but differ in total RAM1, flash, and RAM2 (Phantasm's DMA TX buffers,
+  above), so each has its own region budgets (§8).
 
-> **Board note — confirmed Teensy 4.0, committed docs are stale (must reconcile, not "later").**
+> **Board note — confirmed and reconciled Teensy 4.0.**
 > The board pin is the single load-bearing assumption of the flash gate: T4.0 flash is **2 MB**,
 > T4.1 is **8 MB**, so a wrong board makes `flash_max_bytes` meaningless and could false-fail a
-> valid image on day one. The project owner has **confirmed both targets are Teensy 4.0** (there is
-> no 4.1), so the gate pins `board = teensy40` and budgets flash against 2 MB. But `Phantasm.ino`'s
-> header ([line 7](../targets/Phantasm/Phantasm.ino)) and README §1 still say *4× Teensy 4.1* —
-> those committed lines are now **confirmed stale** and reconciling them to 4.0 is a **prerequisite
-> of Phase 0/1**, not optional tidy-up, precisely because the budget depends on the board being
-> unambiguous in the tree. Separately, `Holosphere.ino` is committed at 288×144 (header *and* body)
-> while its design resolution is 96×20 — the gate budgets the committed image, and the resolution
-> reconciliation is a parallel cleanup (§14 decision 5).
+> valid image. Both targets are Teensy 4.0, the gate pins `board = teensy40`, and the committed
+> sources and README use that board plus Holosphere's 96×20 resolution (§14 decision 5).
 
 ---
 
-## 6. `platformio.ini` design (illustrative, not final)
+## 6. `platformio.ini` design record
+
+[`platformio.ini`](../platformio.ini) is the active source of truth. The excerpt below captures
+the common source mapping; the current Phantasm environment additionally selects `-Os`,
+newlib-nano, and [`tools/phantasm.ld`](../tools/phantasm.ld) so the all-effects image fits.
 
 ```ini
 [platformio]
@@ -296,12 +283,12 @@ src_dir = .                           # repo root — sources live in core/ and 
 # Sources are referenced in place — no files move.
 
 [env]
-platform = teensy@<pinned>            # pin to the build giving Teensy core 1.59.0 / arm-gcc 11.3.1 (§4.1)
+platform = teensy@5.0.0               # Teensy core 1.59.0 / arm-gcc 11.3.1 (§4.1)
 framework = arduino
 board_build.f_cpu = 600000000L        # 600 MHz (§4.1)
 build_cache_dir = .pio/build_cache    # object cache (mirrors ci.yml's ccache) — gitignored, CI-cached (§10)
 lib_ldf_mode = chain                  # constrain the Library Dependency Finder; confirm scope in Phase-0 spike (§6)
-build_unflags = -Os                   # drop PlatformIO/Teensy default so the -O3 below wins (§4.1)
+build_unflags = -Os -O2 -std=gnu++17  # drop defaults overridden below (§4.1)
 build_flags =
     -O3                               # owner-confirmed "Fastest" (o3std), no LTO (§4.1)
     -I core
@@ -318,50 +305,62 @@ build_flags =
     -Wno-psabi -Wno-deprecated -Wno-attributes
     -Wall -Wextra                     # warning hygiene (baseline ratchet, not -Werror — §7.2)
 lib_deps =
-    fastled/FastLED@<pinned>
+    fastled/FastLED@3.4.0
 # src_dir is the repo root, so the filter must START by excluding everything and
 # then add back ONLY the wanted TUs — otherwise targets/wasm/, build*/ , .pio/,
 # obj/, out/ etc. get swept in. Both targets compile the two real core TUs:
 build_src_filter =
     -<*>
-    +<core/memory.cpp>
-    +<core/reaction_graph.cpp>
+    +<core/engine/memory.cpp>
+    +<core/engine/reaction_graph.cpp>
 
 [env:holosphere]
 board = teensy40                       # 96×20
-build_src_filter = ${env.build_src_filter} +<targets/Holosphere/Holosphere.ino>
+build_src_filter = ${env.build_src_filter} +<targets/Holosphere/Holosphere.ino.cpp>
 
 [env:phantasm]
 board = teensy40                       # 288×144, DMA HD107S path
-build_flags = ${env.build_flags} -D USE_DMA_LEDS
-build_src_filter = ${env.build_src_filter} +<targets/Phantasm/Phantasm.ino>
+board_build.ldscript = tools/phantasm.ld
+build_unflags = -O3 -O2 -std=gnu++17
+build_flags = ${env.build_flags} -D USE_DMA_LEDS -Os
+extra_scripts =
+    ${env.extra_scripts}
+    pre:tools/teensy_nano.py
+build_src_filter = ${env.build_src_filter} +<targets/Phantasm/Phantasm.ino.cpp>
 
 [env:holosphere_dma]                   # compile/link profile; no size gate
 build_flags = ${env.build_flags} -D USE_DMA_LEDS
+extra_scripts =
+    pre:tools/teensy_pre.py
+    pre:tools/teensy_map.py
+    post:tools/teensy_isystem.py
+build_src_filter = ${env.build_src_filter} +<targets/Holosphere/Holosphere.ino.cpp>
 
 [env:phantasm8]                        # compile/link profile; no size gate
+board = teensy40
+board_build.ldscript = tools/phantasm.ld
+build_unflags = -O3 -O2 -std=gnu++17
 build_flags = ${env.build_flags} -D USE_DMA_LEDS -D PHANTASM_NUM_SEGMENTS=8 -Os
+extra_scripts =
+    pre:tools/teensy_pre.py
+    pre:tools/teensy_map.py
+    post:tools/teensy_isystem.py
+    pre:tools/teensy_nano.py
+build_src_filter = ${env.build_src_filter} +<targets/Phantasm/Phantasm.ino.cpp>
 ```
 
-> **Load-bearing mechanic — de-risk in Phase 0.** This is the one part most likely to misbehave on
-> the first try, so it is **not** "just an implementation detail." `build_src_filter` resolves
-> relative to a single `src_dir`; the repo has sources in both `core/` and `targets/<X>/` and no
-> `src/`, which forces `src_dir = .` (repo root). At repo root the filter must default-exclude
-> (`-<*>`) and add back only the exact wanted TUs, or it will pull in `targets/wasm/wasm.cpp`,
-> the CMake `build*/` trees, `.pio/`, `obj/`, `out/`, and FastLED sources. Phase 0 (§13) must
-> include a spike that confirms each env compiles *exactly* its `.ino` + the two `core/*.cpp` TUs
-> and nothing else (verify via the build's compiled-source list), and pins down the precise
-> exclude set. The spike must also: (a) confirm the option **name** for the pinned PlatformIO Core
-> version — the key was `src_filter` in older PIO and `build_src_filter` in newer releases, use
-> whichever the pin accepts; and (b) confirm the **Library Dependency Finder** (`lib_ldf_mode`)
-> does not wander the repo root (`targets/wasm/`, `build*/`, `.pio/`) — with `src_dir = .` the LDF
-> can scan far more than intended, a perf and surprise-dependency risk adjacent to the filter
-> hazard. The design contract otherwise stands: **two named environments, one real device board,
-> the existing sources in place, pinned everything.**
+> **Load-bearing mechanic — resolved in Phase 0.** `build_src_filter` resolves relative to one
+> `src_dir`, so the repo-root configuration default-excludes everything and adds back the two
+> `core/engine/*.cpp` units plus the selected converted sketch. `tools/teensy_pre.py` supplies the
+> sketch because PlatformIO's `.ino` discovery ignores `build_src_filter`. `lib_ldf_mode = chain`
+> constrains dependency discovery at the repository root.
 
-### Version pinning (reproducibility contract)
-Mirror `ci.yml`'s discipline (it pins clang-18, emsdk 5.0.0 by commit SHA, ubuntu-24.04). Pin:
-- `platform = teensy@…` — **pin by git URL + commit SHA, not a version tag.** `ci.yml` pins emsdk
+### Version pinning and optional hardening
+
+The active version pin is `teensy@5.0.0`; replacing the version tag with a commit SHA remains an
+optional hardening step.
+For stronger immutability, mirror `ci.yml`'s SHA discipline:
+- `platform = teensy@…` — optionally replace the version tag with a git URL + commit SHA. `ci.yml` pins emsdk
   by commit SHA precisely because a tag is mutable/re-pointable; a `teensy@X.Y.Z` tag is the weaker
   bar the spec elsewhere criticizes. Use `platform = https://github.com/platformio/platform-teensy.git#<sha>`
   (or a vendored fork) so the toolchain can't shift under a retagged release.
@@ -443,8 +442,8 @@ warnings.
 - **Updating the baseline is a reviewed act.** A `--update-baseline` script regenerates the file;
   it lands in the same PR as the change that legitimately alters the warning set, so the diff is
   visible in review (same discipline as the LUT/reaction-graph provenance gates).
-- **Phasing:** ship report-only for a PR or two to capture a stable baseline, then enforce
-  (Phase 2, §13).
+- **Current enforcement:** the cache-disabled `teensy-warnings` CI job fails on any warning not
+  present in `tools/teensy_warning_baseline.txt`; the current baseline contains no warnings.
 
 ### 7.3 Image size
 Teensy's post-build `teensy_size` (run automatically by the Teensy platform) prints per-region
@@ -456,9 +455,9 @@ teensy_size: RAM1: variables:NNNNN, code:NNNNN, padding:NNNNN   free for local v
 teensy_size: RAM2: variables:NNNNN   free for malloc/new: NNNNNN
 ```
 
-- **RAM1** = ITCM (fast code) + DTCM (fast `.bss`/`.data` + stack). **The 335 KB arena
+- **RAM1** = ITCM (fast code) + DTCM (fast `.bss`/`.data` + stack). **The 330 KiB arena
   (`global_arena_block`) lives here** — it is a plain static array with no `DMAMEM` qualifier
-  ([memory.cpp:43-53](../core/memory.cpp)) and is the dominant RAM1 occupant. The stack also grows
+  ([memory.cpp](../core/engine/memory.cpp)) and is the dominant RAM1 occupant. The stack also grows
   down within DTCM.
 - **RAM2** = OCRAM: `DMAMEM` variables — the two 243 KiB framebuffers and the timeline event
   buffer — plus the heap (`malloc`/`new`: the `POVSegmented`/`POVDisplay` driver objects). The
@@ -488,14 +487,14 @@ directly, and the §9.1 golden fixtures must contain **real `readelf -s` output 
 mangled strings** so the tests exercise the real matching, not a tidied alias. This is an easy spot
 to be silently wrong (a name that never matches → the invariant never fires → false-green).
 
-1. **Arena in DTCM/RAM1, and its size ≈ 335 KB (assert the magnitude, not just the section).**
+1. **Arena in DTCM/RAM1, and its size ≈ 330 KiB (assert the magnitude, not just the section).**
    `global_arena_block` must stay in DTCM (`.bss`, no `DMAMEM`) **and** measure ~`GLOBAL_ARENA_SIZE`
-   = 335 KB ([memory.h:33](../core/memory.h)). Pinning the *magnitude* matters: under
-   `HS_TEST_BUILD` the same constant is **8 MB** ([memory.h:31](../core/memory.h)), so if that
+   = 330 KiB ([memory.h](../core/engine/memory.h)). Pinning the *magnitude* matters: under
+   `HS_TEST_BUILD` the same constant is **8 MB** ([memory.h](../core/engine/memory.h)), so if that
    test-only macro ever leaked into the firmware build the arena would silently balloon 24× — a
-   "still in DTCM" check passes, a "~335 KB ± tolerance" check catches it. It is the **largest RAM1
+   "still in DTCM" check passes, a "~330 KiB ± tolerance" check catches it. It is the **largest RAM1
    object and the most likely RAM1-budget mover** — a change to `GLOBAL_ARENA_SIZE`, or accidentally
-   tagging the block `DMAMEM` (which would shove 335 KB into already-tight OCRAM), shows up here too.
+   tagging the block `DMAMEM` (which would shove 330 KiB into already-tight OCRAM), shows up here too.
 2. **Framebuffers in OCRAM, not DTCM.** `buffer_a`/`buffer_b` (the `DMAMEM Pixel[MAX_W*MAX_H]`
    arrays) must land in the OCRAM/`.dmabuffers` section. If a refactor drops the `DMAMEM`
    qualifier they'd silently move into DTCM and blow the fast-RAM/stack budget — a layout bug a
@@ -504,7 +503,7 @@ to be silently wrong (a name that never matches → the invariant never fires �
    flash/`.rodata` section; a missing `const` qualifier would pull it into RAM and is an instant
    90 KB regression. Key the check on the **section** (flash/`.rodata`), *not* on a literal
    `PROGMEM` marker: on the Teensy 4's memory-mapped flash `PROGMEM` is essentially decorative —
-   it's the `const` that keeps the table out of RAM ([reaction_graph.cpp:4](../core/reaction_graph.cpp)).
+   it's the `const` that keeps the table out of RAM ([reaction_graph.cpp](../core/engine/reaction_graph.cpp)).
 4. **DTCM stack headroom (link-time availability, not runtime depth).** Assert RAM1 "free for local
    variables" (= DTCM minus the arena and other `.bss`/`.data`) stays above a floor. This measures
    *how much room the linker left for the stack*, **not** actual runtime stack depth — it is not
@@ -518,72 +517,35 @@ to be silently wrong (a name that never matches → the invariant never fires �
 
 ## 8. Budget / threshold model
 
-A checked-in, reviewable budget file (e.g. `tools/teensy_budgets.json`) — analogous in spirit to
-the committed LUT/reaction-graph provenance the existing CI guards:
+A checked-in, reviewable budget file ([`tools/teensy_budgets.json`](../tools/teensy_budgets.json))
+is analogous to the committed LUT/reaction-graph provenance the existing CI guards.
 
 Both targets are Teensy 4.0, so both share the same hard region sizes (2 MiB FLASH, 512 KiB RAM1
 ITCM+DTCM, 512 KiB RAM2 OCRAM). The framebuffers and arena are sized by compile-time constants
-identically for both (§5), so the two targets share their **RAM1/DTCM** footprint. They diverge in
-**FLASH** (different effects + DMA vs FastLED path) and, *in principle*, in **RAM2/OCRAM** —
+identically for both (§5), so the targets share those **DTCM allocations**, not the total RAM1
+footprint: their ITCM code differs. They also diverge in **FLASH** (different effects + DMA vs
+FastLED path) and **RAM2/OCRAM** —
 Phantasm's `USE_DMA_LEDS` path adds the `DMAMEM DMALEDController` eDMA TX buffers Holosphere lacks
 (§5).
 
-> **Right-sizing: the OCRAM *layout invariant* is the real value; a *separate numeric* RAM2 ceiling
-> is a Phase-0 call, not an a-priori requirement.** The DMA TX delta is the double-buffered frame
-> for ~72 LEDs/segment — order of a few hundred bytes against OCRAM's ~26 KiB margin. So the thing
-> that actually protects OCRAM is the **`dma_tx_buffers_section: OCRAM` layout check** (a dropped
-> `DMAMEM` there is a correctness bug regardless of bytes), not a second hand-maintained number.
-> **Default to a single shared OCRAM ceiling + the layout invariant**, and only split into a
-> separate, tighter Phantasm `ram2_max_bytes` if Phase-0's recorded as-built delta proves it earns
-> the extra budget to maintain. The JSON below shows the *split* form for completeness; collapsing
-> `ram2_max_bytes` to one shared value is the expected outcome.
+The active budgets cap both RAM2 images at the 524,288 B hardware wall and enforce named-symbol
+placement. Phantasm additionally checks its DMA TX controller in OCRAM and its reaction graph in
+flash. Phantasm's 12 KiB DTCM-free floor is derived from the measured 9,055 B worst-effect host
+stack peak; the current device image leaves 14,976 B.
 
-```jsonc
-{
-  "holosphere": {
-    "board": "teensy40",
-    "flash_max_bytes":  1900000,   // < 2 MiB T4.0 flash, with headroom
-    "ram1_max_bytes":   480000,    // DTCM dominated by the ~335 KB arena (+ stack, .bss) (of 512 KiB)
-    "ram2_max_bytes":   510000,    // OCRAM: 2×243 KiB buffers = 497,664 B ALONE — see tightness note
-    "dtcm_free_min_bytes": 16384,  // stack headroom floor (DTCM after arena/.bss)
-    "layout": {
-      "arena_section": "DTCM",
-      "framebuffers_section": "OCRAM",
-      "reaction_graph_section": "FLASH"
-    }
-  },
-  "phantasm": {
-    "board": "teensy40",
-    "flash_max_bytes":  1900000,   // calibrate separately — different effect set + DMA/USB code
-    "ram1_max_bytes":   480000,    // shared with Holosphere (same arena/buffers)
-    "ram2_max_bytes":   "<tighter>", // OCRAM: framebuffers + the DMALEDController TX buffers — its own cap
-    "dtcm_free_min_bytes": 16384,
-    "layout": {
-      "arena_section": "DTCM",
-      "framebuffers_section": "OCRAM",
-      "dma_tx_buffers_section": "OCRAM",   // DMALEDController must stay DMA-reachable (OCRAM), see §5
-      "reaction_graph_section": "FLASH"
-    }
-  }
-}
-```
-
-Two callouts the calibration in Phase 0 must respect:
+Two current calibration constraints:
 
 - **The arena dominates RAM1.** `ram1_max_bytes` and `dtcm_free_min_bytes` are governed by
-  `GLOBAL_ARENA_SIZE` (335 KB) plus the stack; that constant is the most likely thing to move the
-  RAM1 budget. The layout check (§7.4 #1) pins it in DTCM *and* near 335 KB. Note `dtcm_free_min_bytes`
+  `GLOBAL_ARENA_SIZE` (330 KiB) plus the stack; that constant is the most likely thing to move the
+  RAM1 budget. The layout check (§7.4 #1) pins it in DTCM *and* near 330 KiB. Note `dtcm_free_min_bytes`
   can step by a whole **32 KiB** when ITCM crosses a FlexRAM bank boundary (§4.1 FlexRAM note) — a
   jump in the floor, not smooth drift; the gate still fires correctly, it's just lumpy.
 - **OCRAM headroom is structurally small, not a free parameter.** The two static framebuffers are
   **497,664 B of OCRAM's 524,288 B** — leaving only ~**26 KiB** for the timeline event buffer
   (`global_timeline_events`, `TIMELINE_MAX_EVENTS=64` — small, ~a few KiB) and all `new`/`malloc`
   (the driver objects; Phantasm's `DMALEDController` TX buffers also sit here). The known consumers
-  are small, so the **current image very likely fits today** — but the margin is thin enough that
-  the gate's value is real. A placeholder like `ram2_max_bytes: 500000` is *barely above the buffers
-  alone* — that is not "headroom." **Phase 0 must record the as-built OCRAM-free number** so the
-  framing is explicit: if Phantasm is already near the wall, the gate's first act is *surfacing
-  existing tightness*, not just *preventing future* growth. Either way the buffers are fixed at
+  are small, but the margin is thin enough that the gate's value is real. Holosphere uses
+  518,272 B with 6,016 B free; Phantasm uses 519,552 B with 4,736 B free. The buffers are fixed at
   `MAX_W*MAX_H`, so the only give is the heap.
 
 **Enforcement: absolute ceilings only** *(decided)*. The gate hard-fails if any region exceeds its
@@ -599,8 +561,7 @@ that overhead; the delta gate can be revisited later if size creep proves to be 
 shrink) rather than silent; provide a small `--show`/`--update` helper that re-reads the current
 build and prints the would-be values to make the edit mechanical.
 
-Headroom numbers above are placeholders — calibrate from the first real build's `teensy_size`
-output before enabling enforcement.
+The checked-in headroom numbers are calibrated from real `teensy_size` output and enforced.
 
 ---
 
@@ -641,7 +602,7 @@ deliverable of Phase 0/1, not an optional nicety:
   - framebuffer fixture with `DMAMEM` dropped → symbol lands in DTCM → **framebuffers→OCRAM check
     must fail**;
   - reaction-graph fixture with `const` dropped → symbol in RAM → **table→FLASH check must fail**;
-  - arena fixture at the 8 MB `HS_TEST_BUILD` size → **arena ~335 KB magnitude check must fail**
+  - arena fixture at the 8 MB `HS_TEST_BUILD` size → **arena ~330 KiB magnitude check must fail**
     (§7.4 #1);
   - an over-cap totals fixture → **each region ceiling must fail**.
 - **Address-bucketing unit tests** for the Teensy 4 memory-map classifier (ITCM/FLASH/DTCM/OCRAM
@@ -655,8 +616,9 @@ CI test job or a tiny dedicated step — independent of the slow PlatformIO buil
 
 ## 10. CI integration
 
-A new job in `.github/workflows/ci.yml` (it already fans out tests/sanitizers/wasm/provenance;
-this slots in alongside):
+The active implementation is in [`.github/workflows/ci.yml`](../.github/workflows/ci.yml):
+`teensy-size` runs the cached size/layout build, while `teensy-warnings` performs a separate
+cache-disabled build. The original single-job sketch follows for design context.
 
 A **single job builds all four environments** (no matrix) — they share one Teensy toolchain, so a
 matrix would download it repeatedly for marginal isolation. `pio run` builds them sequentially;
@@ -710,9 +672,9 @@ close device-branch drift gaps. This is the same invocation the local recipe use
 
 Notes:
 - **No hardware, no upload** — build + link + measure only. Runs on a stock Linux runner.
-- **Required status check, flipped at Phase 1.** "Fail CI" only blocks merges if `teensy-size` is a
-  *required* status check in branch protection. The phasing maps directly: Phase 0 runs it
-  report-only (not required), Phase 1 makes it required once budgets are calibrated. When using
+- **Required status check.** "Fail CI" only blocks merges if `teensy-size` is a
+  *required* status check in branch protection. The workflow is active and enforcing; branch
+  protection remains an external repository setting. When using
   `paths:` scoping, make the required check tolerate a *skipped* run as success (a path-filtered job
   that doesn't run must not block out-of-scope PRs) — e.g. a always-passing companion job, or
   `dorny/paths-filter` gating the heavy step rather than the whole job.
@@ -768,7 +730,10 @@ they render inline on the PR.
 
 ---
 
-## 13. Rollout plan (phased)
+## 13. Historical rollout plan (completed)
+
+The repository has completed the build/layout and warning-ratchet phases below. The workflows are
+active; making their checks required remains a branch-protection setting outside this repository.
 
 1. **Phase 0 — spikes + land `platformio.ini` + the post-build script, report-only.** Build both
    targets in CI; print sizes/warnings; **do not fail** on thresholds yet (not a required check
@@ -778,7 +743,7 @@ they render inline on the PR.
      this before any calibration — everything below is toolchain-sensitive, and a no-go could change
      the driver, not just a number.
    - (a) the `build_src_filter` spike (§6) confirming each env compiles exactly its `.ino` + the two
-     `core/*.cpp`, **and** the `lib_ldf_mode` scope check (§6);
+     `core/engine/*.cpp`, **and** the `lib_ldf_mode` scope check (§6);
    - (b) **build-option parity** (§4.1) — already captured (optimization `-O3`, `f_cpu`, USB, layout,
      gnu++20, the `-fno-*`/`-Wno-*` flags); confirm they reproduce VMicro's image, and confirm the
      **`-isystem` demotion** of FastLED/the Teensy core actually works (§7.2);
@@ -806,12 +771,13 @@ it.)
 
 1. The budgeted `holosphere` and N=4 `phantasm` environments plus compile-only
    `holosphere_dma` and `phantasm8` profiles build **green** under the pinned toolchain.
-2. The build options reproduce the VMicro image: `-O3`, 600 MHz, `USB_SERIAL`, `gnu++20`, and the
-   captured `-fno-*`/`-Wno-*` flags (§4.1).
-3. All layout invariants — arena→DTCM ≈335 KB, framebuffers/DMA-TX→OCRAM, table→FLASH — are
+2. Holosphere reproduces the VMicro `-O3` options; Phantasm uses the documented `-Os`,
+   newlib-nano, and custom-linker size configuration. Both retain 600 MHz, `USB_SERIAL`,
+   `gnu++20`, and the captured `-fno-*`/`-Wno-*` flags (§4.1).
+3. All layout invariants — arena→DTCM ≈330 KiB, framebuffers/DMA-TX→OCRAM, table→FLASH — are
    **demonstrably fail-then-pass** via the negative/golden fixtures (§9.1).
-4. Per-region budgets are calibrated from a real `-O3` build, with the as-built OCRAM-free recorded
-   (§8); Phantasm carries its own FLASH and RAM2 ceilings.
+4. Per-region budgets are calibrated from real builds, with the as-built OCRAM-free recorded
+   (§8); each target carries its own region ceilings.
 5. The warning baseline is captured (unordered set) and the ratchet fails on a synthetic new
    warning but not on reordering (§7.2).
 6. `teensy-size` is a **required status check** that tolerates a path-skipped run as success (§10),
@@ -829,11 +795,10 @@ All five prior open questions have been decided; the spec body reflects them.
 
 1. **Targets — both shipping images plus compile profiles.** Gate `Holosphere` and qualified N=4
    `Phantasm`; compile `holosphere_dma` and `phantasm8` in the same job, not a matrix, since all share
-   one toolchain (§10). Both targets are **Teensy 4.0** (owner-confirmed). They share the RAM1/arena footprint
-   and differ mainly in **flash** (different effects + DMA/USB code); the small OCRAM delta
-   (Phantasm's DMA TX buffers) is guarded primarily by the `dma_tx_buffers_section: OCRAM` **layout
-   invariant**, with a *separate* numeric RAM2 ceiling only if Phase-0's as-built delta warrants it
-   (default: one shared OCRAM ceiling). Per-target **flash** ceilings stand. (§5, §8, §10)
+   one toolchain (§10). Both targets are **Teensy 4.0** (owner-confirmed). Holosphere runs at
+   96×20 and Phantasm at 288×144. They share the arena allocation but
+   differ in total RAM1, flash, and RAM2. Phantasm's DMA TX buffers are guarded by the
+   `dma_tx_buffer` OCRAM layout invariant. (§5, §8, §10)
 2. **Warning policy — baseline ratchet.** Not hard `-Werror`. Capture a committed first-party
    warning baseline and fail only on new warnings, with `-isystem` excluding FastLED/the Teensy
    core. (§7.2, Phase 2 in §13)
@@ -846,10 +811,8 @@ All five prior open questions have been decided; the spec body reflects them.
    **Teensy 4.0** for both (no 4.1). The stale "4× Teensy 4.1" lines in `Phantasm.ino:7` and
    README §1 must be reconciled to 4.0 **before** the flash budget is locked — the board fixes the
    flash ceiling (2 MB vs 8 MB), so an unambiguous tree is a prerequisite, not downstream tidy-up
-   (§5 board note, Phase 0 in §13). The `Holosphere.ino` 288×144-vs-96×20 resolution mismatch is a
-   parallel cleanup; the gate budgets the committed image regardless. The board lines **have now
-   been reconciled to 4.0** (`Phantasm.ino:7`, README §1 and §11); the `Holosphere.ino` resolution
-   mismatch remains the parallel cleanup.
+   (§5 board note, Phase 0 in §13). The board lines are reconciled to 4.0 and Holosphere is
+   reconciled to its 96×20 design resolution.
 
 ---
 
@@ -866,10 +829,9 @@ All five prior open questions have been decided; the spec body reflects them.
 - **Source-filter mechanic may leak unintended TUs (highest *build-config* risk).** With `src_dir = .`,
   `build_src_filter` must default-exclude and re-add only the wanted TUs or it sweeps in
   `targets/wasm/`, the CMake `build*/` trees, `.pio/`, etc. Mitigate with the Phase-0 spike (§6)
-  that asserts each env compiles exactly its `.ino` + the two `core/*.cpp` and nothing else.
-- **OCRAM is structurally tight (~26 KiB free after the two fixed framebuffers).** Not a tuning
-  knob — the buffers are fixed at `MAX_W*MAX_H`. The known consumers (timeline events; Phantasm's
-  small `DMALEDController` TX buffers) are sub-KiB, so the image very likely fits today; the value is
+  that asserts each env compiles exactly its `.ino` + the two `core/engine/*.cpp` and nothing else.
+- **OCRAM is structurally tight (~6 KiB free in the current images).** Not a tuning
+  knob — the buffers are fixed at `MAX_W*MAX_H`. The value is
   the **layout invariant** keeping those buffers in OCRAM (`dma_tx_buffers_section: OCRAM`) plus the
   recorded as-built margin (§8). A future OCRAM consumer, or a bump to `MAX_W`/`MAX_H`, is the real
   risk the `ram2` ceiling + layout check must catch (§7.4 #2, §8).
@@ -896,11 +858,13 @@ All five prior open questions have been decided; the spec body reflects them.
   one. On-device execution and the sim≠device numeric forks remain covered by manual flashing and
   the host device-value tests respectively (divergence ledger). Stated as a non-goal (§2) so the
   gate isn't mistaken for hardware validation.
-```
 
 ---
 
-## 16. Phase-0 spike log (2026-06)
+## 16. Historical Phase-0 spike log (June 2026)
+
+This section preserves the initial spike state. Its Phantasm overflow was resolved by the size
+configuration and RAM1 work summarized in the current status at the top of this document.
 
 The go/no-go toolchain spike (§6) was run with a real PlatformIO build. Outcome and the concrete
 values now pinned:
@@ -910,7 +874,8 @@ natively installs, for Teensy 4, the *same* PJRC toolchain Teensyduino/VMicro us
 `framework-arduinoteensy @ 1.159.0` (Teensyduino 1.59.0) and `toolchain-gccarmnoneeabi-teensy @
 1.110301.0` (arm-none-eabi-gcc 11.3.1). The `toolchain-gccarmnoneeabi @ ~1.80201.0` (gcc 8.2.1) in
 `platform.json` is for the older Teensy 3.x/LC boards, not Teensy 4 — an earlier draft misread it.
-Pinned: `platform = teensy@5.0.0`, `platformio == 6.1.19`, `fastled/FastLED @ 3.10.3`. CI thus
+Pinned: `platform = teensy@5.0.0`, `platformio == 6.1.19`. The initial FastLED 3.10.3 choice was
+corrected to the current `fastled/FastLED @ 3.4.0` bench pin. CI thus
 *mirrors* the bench compiler. (Pin remains a version tag; a future SHA pin is optional hardening.)
 
 **Two config corrections the build forced (now in `platformio.ini` / `tools/teensy_pre.py`):**
@@ -920,16 +885,17 @@ Pinned: `platform = teensy@5.0.0`, `platformio == 6.1.19`, `fastled/FastLED @ 3.
 2. **Sketch discovery ignores `build_src_filter`.** PlatformIO finds the sketch only by globbing
    `$PROJECT_SRC_DIR/*.ino` (top level; `pioino.FindInoNodes`). With `src_dir = .` that finds no
    `.ino`, so `setup`/`loop` don't link. The spec's filter-only plan (§5/§6) cannot place the
-   sketch. Fix: keep `src_dir = .` (so `core/*.cpp` build as project sources with full LDF include
-   paths — FastLED, framework SPI) and override `FindInoNodes` per-env in `tools/teensy_pre.py`;
-   `build_src_filter` then adds the converted `targets/<X>/<X>.ino.cpp`. Verified: `core/memory.cpp`,
-   `core/reaction_graph.cpp`, and the converted sketch all compile.
+   sketch. Fix: keep `src_dir = .` (so `core/engine/*.cpp` build as project sources with full LDF
+   include paths — FastLED, framework SPI) and override `FindInoNodes` per-env in
+   `tools/teensy_pre.py`; `build_src_filter` then adds the converted
+   `targets/<X>/<X>.ino.cpp`. Verified: `core/engine/memory.cpp`,
+   `core/engine/reaction_graph.cpp`, and the converted sketch all compile.
 
 **Headline finding (now resolved) — the gate surfaced real device-only bit-rot the WASM/native CI
 cannot see.** Each was fixed; the device build is the first thing to compile this code under
 `Arduino.h` + arm-gcc:
 - **Arduino `TWO_PI` macro collision** — `effects/{Flyby,Liquid2D,Raymarch}.h` declared a local
-  `constexpr float TWO_PI`, colliding with `wiring.h`'s `#define TWO_PI`. **Fixed:** renamed → `TWO_PI`.
+  `constexpr float TWO_PI`, colliding with `wiring.h`'s `#define TWO_PI`. **Fixed:** renamed → `TWO_PI_F`.
 - **Wrong FastLED pin** — I first pinned 3.10.3; the bench/Teensyduino 1.59 bundles **FastLED 3.4.0**,
   and 3.7+ moved `CHSVPalette16`/`HUE_RED`/`CEveryNMillis` and `CRGB`/`CHSV` into `namespace fl`.
   **Fixed:** pinned `FastLED@3.4.0` (§4.1 parity) — cleared a whole error class at once.
@@ -950,7 +916,8 @@ now handled: `teensy_size` prints to **stderr**, and `readelf` prints large size
 warning baseline is captured: **1** first-party warning (55 `HS_CHECK` call sites dedupe to one —
 the set-based ratchet working as designed; and the object cache was observed blinding it, §7.2).
 
-**Phantasm OVERFLOWS RAM1 by ~243 KB** (all effects via `HS_EFFECT_LIST` → ~381 KB ITCM + ~380 KB
-DTCM). Its ELF was captured for symbol analysis by temporarily neutralizing `teensy_size`'s overflow
-exit (reverted). RAM2 is ~518 KB / 524 KB for **both** targets — the structural OCRAM tightness the
-spec predicted (§8). Shrinking Phantasm (-Os / FLASHMEM / fewer effects / smaller arena) is owner-scope.
+**Historical Phase-0 Phantasm result:** the `-O3`/full-newlib all-effects image overflowed RAM1 by
+about 243 KiB (~381 KiB ITCM + ~380 KiB DTCM). Its ELF was captured for symbol analysis by
+temporarily neutralizing `teensy_size`'s overflow exit (reverted). The current `-Os`/newlib-nano
+image, cold-code routing, and 330 KiB arena resolve that overflow; the active Phantasm gate passes
+with 14,976 B free for locals.
