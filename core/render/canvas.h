@@ -47,14 +47,17 @@ public:
 
   /**
    * @brief Constructs an Effect instance.
-   * @param W The width (resolution) of the effect.
-   * @param H The height (resolution) of the effect.
+   * @param W The width (resolution) of the effect, in [1, MAX_W].
+   * @param H The height (resolution) of the effect, in [1, MAX_H].
    * @param cfg Construction-time flags (strobe / persist / full-frame); see
    *        EffectConfig. Defaults to a plain band-clippable effect.
    */
   HS_COLD_MEMBER Effect(int W, int H, EffectConfig cfg = {})
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
         strobe(cfg.strobe), width_(W), height_(H) {
+    HS_CHECK(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H,
+             "Effect dimensions %d x %d are outside 1..%d x 1..%d", W, H,
+             MAX_W, MAX_H);
     // Single-live-Effect precondition: every Effect aliases the same two static
     // buffers, so a second live instance corrupts both frames.
     HS_CHECK(!s_alive,
