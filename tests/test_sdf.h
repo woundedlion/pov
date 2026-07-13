@@ -184,6 +184,47 @@ inline void test_distorted_ring_sin_shift_varies_by_azimuth() {
 }
 
 /**
+ * @brief Verifies flat mode preserves the exact zero-knot polar distance.
+ */
+inline void test_distorted_ring_flat_matches_zero_knots() {
+  constexpr int LUT_N = 16;
+  float knots[LUT_N + 1] = {};
+
+  auto check = [&](const Basis &basis, float radius) {
+    constexpr float thickness = 0.08f;
+    SDF::FlatDistortedRing flat(basis, radius, thickness);
+    SDF::DistortedRing polyline(basis, radius, thickness, knots, LUT_N, 0.0f,
+                                0.0f);
+    const float target = radius * (PI_F / 2.0f);
+    const float azimuths[] = {0.0f, 1e-5f, PI_F / 2.0f, PI_F,
+                              2.0f * PI_F - 1e-5f};
+    const float offsets[] = {-0.04f, 0.0f, 0.04f};
+    for (float azimuth : azimuths) {
+      for (float offset : offsets) {
+        float polar = hs::clamp(target + offset, 0.0f, PI_F);
+        Vector p = basis.v * cosf(polar) +
+                   (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) *
+                       sinf(polar);
+        auto actual = flat.distance(p);
+        auto expected = polyline.distance(p);
+        HS_EXPECT_NEAR(actual.dist, expected.dist, 1e-5f);
+        HS_EXPECT_NEAR(actual.raw_dist, expected.raw_dist, 1e-5f);
+        HS_EXPECT_NEAR(actual.t, expected.t, 1e-5f);
+      }
+    }
+
+    SDF::DistanceResult no_uv;
+    flat.distance<false>(basis.v, no_uv);
+    HS_EXPECT_EQ(no_uv.t, 0.0f);
+  };
+
+  check(make_basis(Quaternion(), Y_AXIS), 0.01f);
+  check(make_basis(Quaternion(), X_AXIS), 1.0f);
+  check(make_basis(Quaternion(), Vector(0.3f, 0.8f, -0.5f).normalized()),
+        1.99f);
+}
+
+/**
  * @brief Verifies the knot overload's raw_dist matches a brute-force geodesic
  *        minimum over the densely sampled polyline, within the stroke reach.
  * @details Probes pixels around crests, steep flanks, and the wrap seam of a
@@ -1877,6 +1918,7 @@ inline int run_sdf_tests() {
 
   test_distorted_ring_constant_shift_moves_centerline();
   test_distorted_ring_sin_shift_varies_by_azimuth();
+  test_distorted_ring_flat_matches_zero_knots();
   test_distorted_ring_polyline_distance_matches_bruteforce();
 
   test_polygon_at_center_inside();

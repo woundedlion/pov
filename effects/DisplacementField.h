@@ -272,13 +272,25 @@ private:
       float ring_bound = 0.0f;
       int lut_n;
       if (band + noise_bound <= 0.0f) {
-        // Nothing can displace this ring: constant zero-shift LUT.
-        lut_n = LUT_MIN_SAMPLES;
         Pixel flat = hue_rotate(hue_base, 0.0f).color;
+#ifdef __OPTIMIZE_SIZE__
+        // The explicit SDF wins under -Os; -O3 folds the zero-knot path.
+        float frag_alpha = ring_color.alpha * opacity * params.alpha;
+        auto flat_shader = [flat, frag_alpha](const Vector &, Fragment &f) {
+          float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
+          f.color = Color4(
+              flat, frag_alpha * quintic_kernel(1.0f - norm_dist));
+        };
+        Scan::DistortedRing::draw_flat<W, H, false>(
+            filters, canvas, basis, radius, params.thickness, flat_shader);
+        continue;
+#else
+        lut_n = LUT_MIN_SAMPLES;
         for (int x = 0; x <= lut_n; ++x) {
           shift_lut[x] = 0.0f;
           hue_lut[x] = flat;
         }
+#endif
       } else {
         float feature_scale = std::max(noise_feature, solid_feature);
         float cos_t = cosf(theta);

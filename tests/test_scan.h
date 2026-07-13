@@ -278,6 +278,68 @@ inline void test_ring_rasterize_empty_clip_draws_nothing() {
 }
 
 /**
+ * @brief Verifies flat-ring rasterization is pixel-identical to zero knots.
+ */
+inline void test_distorted_ring_flat_matches_zero_knot_raster() {
+  constexpr int W = 96, H = 64, LUT_N = 16;
+  float knots[LUT_N + 1] = {};
+  Basis basis =
+      make_basis(Quaternion(), Vector(0.3f, 0.8f, -0.5f).normalized());
+
+  auto check = [&](bool partial_clip) {
+    auto shader = [](const Vector &, Fragment &f) {
+      float norm_dist = hs::clamp(f.v1 / f.size, 0.0f, 1.0f);
+      f.color = Color4(Pixel(51000, 27000, 9000),
+                       0.8f * quintic_kernel(1.0f - norm_dist));
+    };
+    std::vector<Pixel> expected(W * H);
+    {
+      ScanFx legacy(W, H);
+      if (partial_clip) {
+        legacy.set_clip(9, 53, 17, 81);
+        legacy.set_margin(0);
+      }
+      Pipeline<W, H> pipeline;
+      {
+        Canvas canvas(legacy);
+        Scan::DistortedRing::draw<W, H>(pipeline, canvas, basis, 1.7f, 0.12f,
+                                        knots, LUT_N, 0.0f, shader);
+      }
+      legacy.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          expected[y * W + x] = legacy.get_pixel(x, y);
+    }
+
+    ScanFx flat(W, H);
+    if (partial_clip) {
+      flat.set_clip(9, 53, 17, 81);
+      flat.set_margin(0);
+    }
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(flat);
+      Scan::DistortedRing::draw_flat<W, H, false>(pipeline, canvas, basis, 1.7f,
+                                                  0.12f, shader);
+    }
+    flat.advance_display();
+
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        const Pixel &a = expected[y * W + x];
+        const Pixel &b = flat.get_pixel(x, y);
+        HS_EXPECT_EQ(a.r, b.r);
+        HS_EXPECT_EQ(a.g, b.g);
+        HS_EXPECT_EQ(a.b, b.b);
+      }
+    }
+  };
+
+  check(false);
+  check(true);
+}
+
+/**
  * @brief Verifies the scan_region seam coalescer avoids double-plotting.
  * @details A span crossing x=0 must not double-plot the wrapped overlap shared
  * with another span. Drives scan_region with a sorted two-span row (a low span
@@ -1046,6 +1108,7 @@ inline int run_scan_tests() {
   test_ring_rasterize_lights_expected_row();
   test_stroke_aa_is_monotone_ramp();
   test_ring_rasterize_empty_clip_draws_nothing();
+  test_distorted_ring_flat_matches_zero_knot_raster();
   test_scan_region_seam_no_double_plot();
   test_scan_region_fractional_boundary_no_double_plot();
   test_plot_line_over_pole_reaches_row0();
