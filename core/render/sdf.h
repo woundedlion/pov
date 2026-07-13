@@ -977,6 +977,65 @@ private:
 };
 
 /**
+ * @brief Undisplaced DistortedRing geometry with exact polar distance.
+ */
+struct FlatDistortedRing : private DistortedRing {
+  using DistortedRing::get_horizontal_intervals;
+  using DistortedRing::get_vertical_bounds;
+  using DistortedRing::is_solid;
+  using DistortedRing::thickness;
+
+  /**
+   * @brief Builds an undisplaced ring using exact polar centerline distance.
+   * @param b Orientation frame (v = ring axis).
+   * @param r Ring radius as a fraction of the hemisphere.
+   * @param th Half-width of the stroke (radians).
+   * @param ph Azimuth phase offset (radians).
+   */
+  FlatDistortedRing(const Basis &b, float r, float th, float ph = 0.0f)
+      : DistortedRing(b, r, th, ScalarFn{}, 0.0f, ph) {}
+
+  /**
+   * @brief Computes signed distance to the undisplaced ring.
+   * @param p Point on sphere (normalized).
+   * @return DistanceResult with dist, t, and raw_dist populated.
+   */
+  DistanceResult distance(const Vector &p) const {
+    DistanceResult res;
+    distance<true>(p, res);
+    return res;
+  }
+
+  /**
+   * @brief Computes signed distance to the undisplaced ring, writing into res.
+   * @tparam ComputeUVs When true, also computes the azimuthal t parameter.
+   * @param p Point on sphere (normalized).
+   * @param res Output result; dist = signed distance, raw_dist = unsigned
+   *        centerline distance, t = azimuth in [0,1) when ComputeUVs.
+   */
+  template <bool ComputeUVs = true>
+  void distance(const Vector &p, DistanceResult &res) const {
+    float d = dot(p, normal);
+    if (d < cos_min_limit || d > cos_max_limit) {
+      res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, thickness);
+      return;
+    }
+
+    float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
+    float t_norm = 0.0f;
+    if constexpr (ComputeUVs) {
+      float azimuth = fast_atan2(dot(p, w), dot(p, u));
+      if (azimuth < 0)
+        azimuth += 2 * PI_F;
+      t_norm = wrap_t((azimuth + phase) / (2 * PI_F));
+    }
+
+    float dist = std::abs(polar - target_angle);
+    res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
+  }
+};
+
+/**
  * @brief CSG Union operation (A + B), taking the minimum distance of two shapes.
  * @tparam A First child shape type.
  * @tparam B Second child shape type.
