@@ -172,7 +172,13 @@ private:
    * Mod Depth slider to every modifier's strength knob.
    */
   void step_mod_drivers() {
-    mod_time += MOD_TIME_STEP;
+    if (mod_time >= MOD_TIME_LIMIT)
+      mod_time_forward = false;
+    else if (mod_time <= 0.0f)
+      mod_time_forward = true;
+    mod_time = hs::clamp(
+        mod_time + (mod_time_forward ? MOD_TIME_STEP : -MOD_TIME_STEP), 0.0f,
+        MOD_TIME_LIMIT);
     mod_phase += MOD_PHASE_STEP;
     if (mod_phase >= 2.0f * PI_F)
       mod_phase -= 2.0f * PI_F;
@@ -244,6 +250,8 @@ private:
       "Iridescent"};
 
   static constexpr float MOD_TIME_STEP = 0.05f;  /**< Noise-time advance per frame. */
+  static constexpr float MOD_TIME_LIMIT =
+      524288.0f; /**< Reversal where all four noise axes reach lattice points. */
   static constexpr float MOD_PHASE_STEP = 0.04f; /**< Phase advance per frame (radians). */
 
   // Per-modifier strength at Mod Depth = 1; step_mod_drivers() scales each by
@@ -261,6 +269,7 @@ private:
   // addresses. Strength knobs are placeholders here; step_mod_drivers()
   // overwrites them from Mod Depth before the first frame draws.
   float mod_time = 0.0f;
+  bool mod_time_forward = true;
   float mod_phase = 0.0f;
   float spin_amount = 0.0f;
 
