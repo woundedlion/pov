@@ -1763,6 +1763,19 @@ inline void test_needs_full_frame_gate() {
 }
 
 /**
+ * @brief Verifies Voronoi seeds every spin axis through random_vector().
+ */
+inline void test_voronoi_axes_use_uniform_sampler() {
+  reset_effect_globals();
+  Voronoi<DEVICE_W, DEVICE_H> effect;
+  effect.init();
+
+  hs::random().seed(1337u);
+  for (size_t i = 0; i < effect.sites_buffer.size(); ++i)
+    HS_EXPECT_VEC(effect.sites_buffer[i].axis, random_vector(), 0.0f);
+}
+
+/**
  * @brief Classifies the coarse-coherence grid at the effect's adaptive block
  *        size and asserts every interior pixel of an all-corners-agree block
  *        resolves to that block's canonical nearest-pair under a full k=2 query.
@@ -1996,6 +2009,7 @@ inline int run_effects_tests() {
   // coverage; see the pre-commit hook header).
   if (effects_full_suite()) {
     test_needs_full_frame_gate();
+    test_voronoi_axes_use_uniform_sampler();
     test_voronoi_coherence_equivalence();
     test_sh_decode_lm_valid_order();
     test_gs_q16_roundtrip();

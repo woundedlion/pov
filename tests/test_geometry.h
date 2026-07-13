@@ -412,8 +412,9 @@ inline void test_random_vector_deterministic() {
  *        toward an axis or hemisphere.
  * @details A degenerate generator that always returned the same direction (or a
  *          biased one) would still pass the unit-length check. Over many samples
- *          the per-axis means must sit near zero and each axis must split roughly
- *          evenly across its sign. Bounds are deliberately loose (the per-axis
+ *          the per-axis means must sit near zero, each axis must split roughly
+ *          evenly across its sign, and pooled absolute components must occupy
+ *          [0,1] uniformly. Bounds are deliberately loose (the per-axis
  *          mean's standard error at N=4000 is ~0.009, so ±0.08 is ~9σ; the sign
  *          split's σ is ~32 counts, so ±400 is ~12σ) — a true uniform generator
  *          passes with vast margin while a stuck/biased one fails. Seeded for
@@ -423,8 +424,12 @@ inline void test_random_vector_distribution() {
   auto saved = hs::random();
   hs::random().seed(0xC0FFEEu);
   constexpr int N = 4000;
+  constexpr int BIN_COUNT = 10;
+  constexpr int MIN_BIN_SIZE = 3 * N * 3 / (4 * BIN_COUNT);
+  constexpr int MAX_BIN_SIZE = 3 * N * 5 / (4 * BIN_COUNT);
   float sx = 0.0f, sy = 0.0f, sz = 0.0f;
   int posx = 0, posy = 0, posz = 0;
+  int abs_bins[BIN_COUNT] = {};
   for (int i = 0; i < N; ++i) {
     Vector v = random_vector();
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
@@ -432,6 +437,11 @@ inline void test_random_vector_distribution() {
     if (v.x > 0.0f) ++posx;
     if (v.y > 0.0f) ++posy;
     if (v.z > 0.0f) ++posz;
+    for (float component : {v.x, v.y, v.z}) {
+      const int bin = std::min(static_cast<int>(fabsf(component) * BIN_COUNT),
+                               BIN_COUNT - 1);
+      ++abs_bins[bin];
+    }
   }
   HS_EXPECT_NEAR(sx / N, 0.0f, 0.08f);
   HS_EXPECT_NEAR(sy / N, 0.0f, 0.08f);
@@ -439,6 +449,10 @@ inline void test_random_vector_distribution() {
   HS_EXPECT_TRUE(posx > N * 4 / 10 && posx < N * 6 / 10);
   HS_EXPECT_TRUE(posy > N * 4 / 10 && posy < N * 6 / 10);
   HS_EXPECT_TRUE(posz > N * 4 / 10 && posz < N * 6 / 10);
+  for (int count : abs_bins) {
+    HS_EXPECT_GE(count, MIN_BIN_SIZE);
+    HS_EXPECT_LE(count, MAX_BIN_SIZE);
+  }
   hs::random() = saved;
 }
 
