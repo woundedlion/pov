@@ -13,6 +13,7 @@ kicad-cli is found via $KICAD_CLI, else common install paths, else PATH.
 """
 import csv
 import glob
+import math
 import os
 import re
 import subprocess
@@ -37,6 +38,7 @@ ZIP_EXT = {".gtl", ".g1", ".g2", ".gbl", ".gto", ".gbo", ".gts", ".gbs",
 # through-hole (connectors, electrolytic, Teensy), solder jumpers, and DNP.
 EXCLUDE_FP_SUBSTR = ("PinHeader", "SolderJumper", "CP_Radial")
 EXCLUDE_VAL_SUBSTR = ("Teensy",)
+ASSEMBLY_SIDE = "top"
 
 # JLCPCB part assignments (LCSC #) keyed by reference. Kept here rather than in
 # the schematic so the JLC assembly output owns the supplier mapping. R_D1/R_D2
@@ -183,6 +185,84 @@ def is_assembled(c):
     return True
 
 
+class AssemblyMetadataError(ValueError):
+    def __init__(self, diagnostics):
+        self.diagnostics = tuple(diagnostics)
+        message = "assembly metadata validation failed:\n  " + "\n  ".join(
+            self.diagnostics)
+        super().__init__(message)
+
+
+def validate_assembly_metadata(comps, posrows, assembled):
+    diagnostics = []
+    metadata = {}
+    for ref in assembled:
+        assigned_lcsc = LCSC_BY_REF.get(ref)
+        raw_lcsc = assigned_lcsc if assigned_lcsc is not None else comps[ref].get(
+            "lcsc")
+        if raw_lcsc is None:
+            diagnostics.append(f"{ref}: supplier part number (LCSC) is missing")
+            lcsc = ""
+        else:
+            lcsc = str(raw_lcsc).strip()
+            if not lcsc:
+                diagnostics.append(f"{ref}: supplier part number (LCSC) is blank")
+
+        pos = posrows.get(ref)
+        if pos is None:
+            diagnostics.append(f"{ref}: centroid row is missing")
+            continue
+
+        numeric_values = {}
+        for field, label in (("PosX", "X"), ("PosY", "Y"),
+                             ("Rot", "rotation")):
+            raw_value = pos.get(field)
+            if raw_value is None:
+                diagnostics.append(f"{ref}: centroid {label} is missing")
+                continue
+            value_text = str(raw_value).strip()
+            if not value_text:
+                diagnostics.append(f"{ref}: centroid {label} is blank")
+                continue
+            try:
+                value = float(value_text)
+            except ValueError:
+                diagnostics.append(
+                    f"{ref}: centroid {label} is not numeric: {raw_value!r}")
+                continue
+            if not math.isfinite(value):
+                diagnostics.append(
+                    f"{ref}: centroid {label} is not finite: {raw_value!r}")
+                continue
+            numeric_values[field] = (value_text, value)
+
+        raw_side = pos.get("Side")
+        if raw_side is None:
+            diagnostics.append(f"{ref}: centroid side is missing")
+            side = ""
+        else:
+            side = str(raw_side).strip().lower()
+            if not side:
+                diagnostics.append(f"{ref}: centroid side is blank")
+            elif side != ASSEMBLY_SIDE:
+                diagnostics.append(
+                    f"{ref}: centroid side is {raw_side!r}; expected "
+                    f"{ASSEMBLY_SIDE!r}")
+
+        if (lcsc and len(numeric_values) == 3 and side == ASSEMBLY_SIDE):
+            metadata[ref] = {
+                "lcsc": lcsc,
+                "pos_x": numeric_values["PosX"][0],
+                "pos_y": numeric_values["PosY"][0],
+                "rotation": numeric_values["Rot"][1],
+                "side": side,
+            }
+
+    if diagnostics:
+        raise AssemblyMetadataError(diagnostics)
+    return metadata
+
+
 def main():
     print(f"kicad-cli: {KCLI}")
     if not os.path.exists(PCB):
@@ -220,18 +300,18 @@ def main():
         for r in csv.DictReader(fh):
             posrows[r["Ref"]] = r
     assembled = sorted(r for r, c in comps.items() if is_assembled(c))
+    try:
+        assembly_metadata = validate_assembly_metadata(comps, posrows, assembled)
+    except AssemblyMetadataError as exc:
+        sys.exit(str(exc))
 
     print("[5/6] BOM + CPL")
     # BOM grouped by (value, footprint)
     groups = {}
     for r in assembled:
-        lcsc = LCSC_BY_REF.get(r, comps[r]["lcsc"])
+        lcsc = assembly_metadata[r]["lcsc"]
         key = (comps[r]["value"], comps[r]["footprint"].split(":")[-1], lcsc)
         groups.setdefault(key, []).append(r)
-    missing = sorted(r for r in assembled
-                     if not LCSC_BY_REF.get(r, comps[r]["lcsc"]))
-    if missing:
-        print(f"  WARNING: no LCSC # for {', '.join(missing)}")
     with open(os.path.join(JLC, "phantasm-BOM.csv"), "w", newline='',
               encoding="utf-8") as fh:
         w = csv.writer(fh)
@@ -245,14 +325,9 @@ def main():
         w = csv.writer(fh)
         w.writerow(["Designator", "Mid X", "Mid Y", "Layer", "Rotation"])
         for r in assembled:
-            p = posrows.get(r, {})
-            rot = p.get("Rot", "")
-            try:
-                rot = f"{(float(rot) + ROT_CORRECTION.get(r, 0)) % 360:.6f}"
-            except ValueError:
-                pass  # non-numeric rotation: pass through untouched
-            w.writerow([r, p.get("PosX", ""), p.get("PosY", ""),
-                        p.get("Side", "top"), rot])
+            p = assembly_metadata[r]
+            rot = f"{(p['rotation'] + ROT_CORRECTION.get(r, 0)) % 360:.6f}"
+            w.writerow([r, p["pos_x"], p["pos_y"], p["side"], rot])
 
     print("[6/6] JLC upload zip")
     zpath = os.path.join(JLC, "phantasm-jlc-gerbers.zip")
@@ -262,7 +337,7 @@ def main():
                 z.write(os.path.join(JLC, f), f)
 
     print(f"\nDone. {len(assembled)} assembled SMD parts; "
-          f"{len(groups)} BOM lines (fill LCSC where blank).")
+          f"{len(groups)} BOM lines.")
     print(f"  fab package: {zpath}")
 
 
