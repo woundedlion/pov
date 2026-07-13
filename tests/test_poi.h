@@ -53,6 +53,30 @@ struct PoiWhiteBox {
   static void set_rings(DisplacementField<W, H> &e, float n) {
     e.params.num_rings = n;
   }
+  template <int W, int H>
+  static int wipe_frames(const DisplacementField<W, H> &e) {
+    return e.wipe_frames_remaining;
+  }
+  template <int W, int H>
+  static bool wipe_pending(const DisplacementField<W, H> &e) {
+    return e.wipe_pending;
+  }
+  template <int W, int H>
+  static int wipe_duration() {
+    return DisplacementField<W, H>::PALETTE_WIPE_FRAMES;
+  }
+  template <int W, int H>
+  static void roll_palette(DisplacementField<W, H> &e) {
+    e.roll_palette();
+  }
+  template <int W, int H>
+  static auto next_palette(const DisplacementField<W, H> &e) {
+    return e.next_palette.snapshot();
+  }
+  template <int W, int H>
+  static auto palette(const DisplacementField<W, H> &e) {
+    return e.palette.snapshot();
+  }
 };
 
 /**
@@ -552,6 +576,64 @@ inline void test_poi_effect_phase_cycle() {
   delete e;
 }
 
+/**
+ * @brief Verifies palette wipe timeline ordering, countdown, and rollover
+ *        guarding.
+ */
+inline void test_displacement_field_palette_wipe_countdown() {
+  using DF = DisplacementField<96, 20>;
+  reset_globals();
+  auto *e = new DF();
+  e->init();
+  PoiWhiteBox::set_rings(*e, 1.0f);
+  const int duration = PoiWhiteBox::wipe_duration<96, 20>();
+
+  auto expect_same = [](const GenerativePalette::Snapshot &a,
+                        const GenerativePalette::Snapshot &b) {
+    HS_EXPECT_EQ(a.a.r, b.a.r);
+    HS_EXPECT_EQ(a.a.g, b.a.g);
+    HS_EXPECT_EQ(a.a.b, b.a.b);
+    HS_EXPECT_EQ(a.b.r, b.b.r);
+    HS_EXPECT_EQ(a.b.g, b.b.g);
+    HS_EXPECT_EQ(a.b.b, b.b.b);
+    HS_EXPECT_EQ(a.c.r, b.c.r);
+    HS_EXPECT_EQ(a.c.g, b.c.g);
+    HS_EXPECT_EQ(a.c.b, b.c.b);
+  };
+  auto draw = [&]() {
+    e->draw_frame();
+    e->advance_display();
+  };
+
+  const auto initial = PoiWhiteBox::palette(*e);
+  for (int frame = 1; frame <= 180; ++frame)
+    draw();
+  HS_EXPECT_TRUE(PoiWhiteBox::wipe_pending(*e));
+  HS_EXPECT_EQ(PoiWhiteBox::wipe_frames(*e), duration);
+  expect_same(PoiWhiteBox::palette(*e), initial);
+
+  const auto target = PoiWhiteBox::next_palette(*e);
+  PoiWhiteBox::roll_palette(*e);
+  HS_EXPECT_EQ(PoiWhiteBox::wipe_frames(*e), duration);
+  expect_same(target, PoiWhiteBox::next_palette(*e));
+
+  draw();
+  HS_EXPECT_TRUE(!PoiWhiteBox::wipe_pending(*e));
+  HS_EXPECT_EQ(PoiWhiteBox::wipe_frames(*e), duration);
+
+  for (int frame = 182; frame <= 349; ++frame)
+    draw();
+  HS_EXPECT_EQ(PoiWhiteBox::wipe_frames(*e), 0);
+  expect_same(PoiWhiteBox::palette(*e), target);
+
+  for (int frame = 350; frame <= 360; ++frame)
+    draw();
+  HS_EXPECT_TRUE(PoiWhiteBox::wipe_pending(*e));
+  HS_EXPECT_EQ(PoiWhiteBox::wipe_frames(*e), duration);
+
+  delete e;
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -577,6 +659,7 @@ inline int run_poi_tests() {
   test_poi_dance_axis_follows_velocity();
   test_poi_dance_axis_against_ring_frame();
   test_poi_effect_phase_cycle();
+  test_displacement_field_palette_wipe_countdown();
 
   return fixture.result();
 }
