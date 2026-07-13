@@ -1,9 +1,15 @@
 # RAM1 Byte-Level Audit — Teensy 4.0 FlexRAM
 
-**Build analyzed:** `.pio/build/phantasm/firmware.elf` — the **real** phantasm config: `-Os` + newlib-nano (`libc_nano`/`libstdc++_nano`, via `tools/teensy_nano.py`) + the custom flash-routing linker script `tools/phantasm.ld`. teensy@5.0.0 / Teensyduino 1.59.0 / arm-gcc 11.3.1, all effects via `HS_EFFECT_LIST`.
+> **Historical audit (June 2026; resolved).** Sections 1–4 preserve a pre-remediation Phantasm
+> ELF snapshot that overflowed RAM1 by 27,680 B. The completed R1/R1-residual/R2/R3/R4 work
+> reclaimed an ITCM bank, reduced DTCM data, and right-sized the arena from 335 to 330 KiB. The
+> current all-effects Phantasm image passes the active gate at 509,312 B RAM1 used with
+> 14,976 B free for locals, above the measured 12 KiB floor.
+
+**Historical build analyzed:** `.pio/build/phantasm/firmware.elf` — Phantasm `-Os` + newlib-nano (`libc_nano`/`libstdc++_nano`, via `tools/teensy_nano.py`) + the custom flash-routing linker script `tools/phantasm.ld`. teensy@5.0.0 / Teensyduino 1.59.0 / arm-gcc 11.3.1, all effects via `HS_EFFECT_LIST`.
 **Toolchain:** `arm-none-eabi-{size,nm,readelf}` + `teensy_size` (authoritative region split).
 
-> ⚠️ **This build overflows RAM1 by 27,680 bytes — a regression of exactly one 32 KiB FlexRAM bank from the prior +5,088 B baseline.** The committed `holosphere` env (RingSpin only) *fits* with ~31 KB headroom; the `phantasm` env (every effect compiled in) is the stressing case and is what this audit catalogs.
+> **Snapshot result:** this build overflowed RAM1 by 27,680 bytes — exactly one 32 KiB FlexRAM bank beyond the prior +5,088 B baseline. The `phantasm` all-effects image was the stressing case cataloged here.
 >
 > **What changed (byte-exact):** at the +5k baseline (budget note: RAM1 used 519,200) ITCM code fit *exactly* in 5 × 32,768 = **163,840 B (5 banks)**, DTCM vars 355,360, stack +5,088. ITCM code has since grown **10,088 B to 173,928**, spilling into a **6th bank**. Banks are all-or-nothing, so that crossing transferred a whole 32,768 B from DTCM to ITCM: `5,088 − 32,768 = −27,680`. DTCM data is unchanged (355,360 then and now) — **this is a pure code-size regression, not a data regression.** The fix is therefore entirely on the ITCM side: claw code back under 163,840 (see §5 R1) and the 6th bank — and the overflow — disappears.
 
@@ -200,7 +206,7 @@ The `hs_ctr_scan_face_setup`/`filter_blend`/`mesh_raster` counters (32 B ×3) an
 
 ---
 
-## 6. Bottom line
+## 6. Historical plan and current outcome
 
 | Action | RAM1 effect | Perf |
 |---|---:|---|
@@ -213,4 +219,6 @@ The `hs_ctr_scan_face_setup`/`filter_blend`/`mesh_raster` counters (32 B ×3) an
 | R7 USB/SPI strip | +~140 B | none |
 | R8 profiling off | +~96 B + ITCM | faster |
 
-**R1 alone resolves the overflow** by reclaiming a full FlexRAM bank at zero performance cost — it is the highest-leverage fix and should land first. R2–R8 then restore a healthy stack margin without touching the per-frame hot paths. The arena (R4) is the only place large amounts of further DTCM can come from, and it is safe to trim under the project's fail-fast arena policy.
+R1, R1-residual, R2, R3, and R4 are implemented. Together they resolve the snapshot overflow and
+leave 14,976 B free for locals with the 330 KiB arena. R5–R8 remain optional small wins; they
+are not required for the current gate to pass.

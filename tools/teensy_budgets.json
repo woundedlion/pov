@@ -3,15 +3,12 @@
   // Teensy 4 firmware size + layout budgets — consumed by tools/teensy_gate.py
   // (docs/teensy_ci_gate_spec.md §8). JSONC: // and /* */ comments are stripped.
   //
-  // CALIBRATED FROM A REAL -O3 BUILD (Phase-0 spike, 2026-06): teensy@5.0.0
-  // (Teensyduino 1.59.0 / arm-gcc 11.3.1), FastLED 3.4.0. Holosphere builds GREEN
-  // and FITS; its numbers below are real + headroom'd. PHANTASM currently
-  // OVERFLOWS RAM1 (all effects via HS_EFFECT_LIST: ~381 KB ITCM code + ~380 KB
-  // DTCM ≫ 512 KB) — its budgets are the T4.0 ceilings so the gate correctly FAILS
-  // it until the image is shrunk (-Os / more FLASHMEM / fewer effects / smaller
-  // arena — owner's call, §4.1 relief valve). RAM2 is structurally ~518 KB / 524 KB
-  // for BOTH targets (the two 243 KiB framebuffers), ~6 KB free — exactly the OCRAM
-  // tightness the spec predicted (§8).
+  // CALIBRATED FROM REAL BUILDS: teensy@5.0.0 (Teensyduino 1.59.0 / arm-gcc
+  // 11.3.1), PlatformIO 6.1.19, FastLED 3.4.0. Both shipping images pass.
+  // Holosphere keeps the bench-parity -O3 configuration. Phantasm uses -Os,
+  // newlib-nano, a flash-routing linker script, and the measured 330 KiB arena;
+  // it uses 509,312 B of RAM1 with 14,976 B free for locals. Holosphere RAM2
+  // is 518,272 B; Phantasm RAM2 is 519,552 B.
   //
   // Symbol names are the REAL linkage names from `readelf -s` (§7.4): the arena is
   // file-scope static, so it mangles to `_ZL18global_arena_block` (NOT the source
@@ -23,13 +20,14 @@
   "holosphere": {
     "board": "teensy40",
     "regions": {
-      // Real used: FLASH 154,620 / RAM1 459,072 (free 65,216) / RAM2 518,272 (free 6,016).
-      "flash": { "max_bytes": 1900000 },                        // < 2 MiB; wide headroom (committed .ino only runs RingSpin)
-      "ram1":  { "max_bytes": 490000, "free_min_bytes": 32768 }, // used 459,072; ~31 KB headroom to the 512 KiB wall
+      // Holosphere runs RingSpin at 96x20; these ceilings retain wide FLASH and
+      // RAM1 headroom. RAM2 remains close to the hardware wall.
+      "flash": { "max_bytes": 1900000 },
+      "ram1":  { "max_bytes": 490000, "free_min_bytes": 32768 },
       "ram2":  { "max_bytes": 524288 }                          // OCRAM is structurally full (~6 KB free); cap at the wall
     },
     "symbols": {
-      "arena":         { "name": "_ZL18global_arena_block", "region": "DTCM", "min_bytes": 327680, "max_bytes": 360448 }, // 343,040 B
+      "arena":         { "name": "_ZL18global_arena_block", "region": "DTCM", "min_bytes": 327680, "max_bytes": 360448 }, // 337,920 B (330 KiB)
       "framebuffer_a": { "name": "_ZN6Effect8buffer_aE",    "region": "OCRAM" },
       "framebuffer_b": { "name": "_ZN6Effect8buffer_bE",    "region": "OCRAM" }
       // NOTE: reaction_graph (ReactionGraph::neighbors) is GC'd out of Holosphere
@@ -44,8 +42,8 @@
       // -Os + nano + flash routing (custom ld script), with the ITCM bank
       // reclaimed (FLASHMEM repatriation), the RNG/cos_theta DTCM trims, and the
       // arena sized down to 330 KiB from its measured worst-effect high-water:
-      // RAM1 used ~510,720, free-for-locals ~13,568. Fits with margin above the
-      // floor below. RAM2 518,272.
+      // RAM1 used 509,312, free-for-locals 14,976. Fits with margin above the
+      // floor below. RAM2 519,552.
       "flash": { "max_bytes": 1900000 },
       // free_min_bytes is the DTCM stack reservation. The host stack-painting
       // gate (tests/stack_measure.cpp) measures a worst-effect peak of 9,055 B
