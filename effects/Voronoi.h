@@ -311,10 +311,7 @@ public:
 
       Vector pos = Vector(x, y, z);
 
-      float rx = hs::rand_f() * 2.0f - 1.0f;
-      float ry = hs::rand_f() * 2.0f - 1.0f;
-      float rz = hs::rand_f() * 2.0f - 1.0f;
-      Vector axis = Vector(rx, ry, rz).normalized();
+      Vector axis = random_vector();
 
       float t = i / (float)(n > 1 ? n - 1 : 1);
       Color4 color = Palettes::RICH_SUNSET.get(t);
