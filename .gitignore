@@ -26,11 +26,13 @@ CMakeUserPresets.json
 .agents/
 /out/
 /obj/
-# Visual Micro generated state + per-user VS project settings. Un-anchored so it
-# matches under targets/ (the root-anchored /__vm/ did not), and *.vcxproj.user
-# was previously tracked only because it predated these rules.
+# Visual Studio / Visual Micro generated project and per-user state. Un-anchored
+# so these rules also match projects regenerated under targets/.
 __vm/
+*.vcxproj
+*.vcxproj.filters
 *.vcxproj.user
+*.sln
 .clangd
 
 # PlatformIO build tree (Teensy CI gate). Lives at the repo root because the
