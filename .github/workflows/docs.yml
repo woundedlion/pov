@@ -33,11 +33,9 @@ on:
       - 'docs/doxygen-theme.cfg'
       - '.github/workflows/docs.yml'
 
-# Pages deployment needs write + OIDC; nothing else is granted.
+# Default every job to source read-only. Deploy grants its publish capabilities.
 permissions:
   contents: read
-  pages: write
-  id-token: write
 
 # One Pages deploy at a time; never cancel an in-flight deploy mid-publish.
 concurrency:
@@ -47,6 +45,8 @@ concurrency:
 jobs:
   build:
     name: Build Doxygen HTML
+    permissions:
+      contents: read
     # Pinned image (not ubuntu-latest) so the doxygen/graphviz versions are
     # deterministic, matching the rest of CI.
     runs-on: ubuntu-24.04
@@ -63,6 +63,7 @@ jobs:
         run: |
           sudo apt-get update && sudo apt-get install -y graphviz
           curl -fsSL https://github.com/doxygen/doxygen/releases/download/Release_1_17_0/doxygen-1.17.0.linux.bin.tar.gz -o doxygen.tar.gz
+          echo '75419ef4f446fc1c24ef12514b574e66e898ee6f527c6ae2ad84f91a905823c2  doxygen.tar.gz' | sha256sum --check --strict
           tar xzf doxygen.tar.gz
           echo "$PWD/doxygen-1.17.0/bin" >> "$GITHUB_PATH"
 
@@ -89,6 +90,9 @@ jobs:
     name: Deploy to Pages
     needs: build
     if: github.event_name == 'push'
+    permissions:
+      pages: write
+      id-token: write
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     environment:
