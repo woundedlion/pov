@@ -118,6 +118,25 @@ inline void test_construction_dims_and_clear() {
   HS_EXPECT_EQ(fx.clip().x_end, 96);
 }
 
+/**
+ * @brief Verifies the smallest and largest supported dimensions are accepted.
+ */
+inline void test_construction_dimension_boundaries() {
+  {
+    TestEffect fx(1, 1);
+    HS_EXPECT_EQ(fx.width(), 1);
+    HS_EXPECT_EQ(fx.height(), 1);
+    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(0, 0), 0, 0, 0));
+  }
+  {
+    TestEffect fx(MAX_W, MAX_H);
+    HS_EXPECT_EQ(fx.width(), MAX_W);
+    HS_EXPECT_EQ(fx.height(), MAX_H);
+    HS_EXPECT_TRUE(
+        pix_eq(fx.get_pixel(MAX_W - 1, MAX_H - 1), 0, 0, 0));
+  }
+}
+
 // ============================================================================
 // Double-buffer state machine
 // ============================================================================
@@ -643,6 +662,7 @@ inline int run_canvas_tests() {
   hs_test::ModuleFixture fixture("canvas");
 
   test_construction_dims_and_clear();
+  test_construction_dimension_boundaries();
   test_frame_visible_only_after_advance_display();
   test_consecutive_frames_alternate_buffers();
   test_persist_pixels_copies_previous_frame();

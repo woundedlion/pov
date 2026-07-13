@@ -601,13 +601,15 @@ inline void case_driver_null_speed_src() {
 
 /**
  * @brief Concrete Effect for the canvas death cases.
- * @details Exposes register_param through reg.
+ * @details Defaults to 32x16 and exposes register_param via reg.
  */
 struct DeathEffect : public Effect {
   /**
-   * @brief Constructs the effect at the fixed 32x16 resolution.
+   * @brief Constructs the effect at the requested resolution.
+   * @param width Canvas width in pixels.
+   * @param height Canvas height in pixels.
    */
-  DeathEffect() : Effect(32, 16) {}
+  DeathEffect(int width = 32, int height = 16) : Effect(width, height) {}
   /**
    * @brief Draws one frame (no-op; the death cases never render).
    */
@@ -633,6 +635,22 @@ inline void case_effect_double_construct() {
   DeathEffect b; // second live Effect ctor -> HS_CHECK(!s_alive) -> trap
   if (opaque(a.strobe_columns()))
     std::printf("x");
+}
+
+/** @brief Death case: a zero Effect width must trap. */
+inline void case_effect_width_zero() { DeathEffect fx(opaque(0), 16); }
+
+/** @brief Death case: a zero Effect height must trap. */
+inline void case_effect_height_zero() { DeathEffect fx(32, opaque(0)); }
+
+/** @brief Death case: an Effect width above MAX_W must trap. */
+inline void case_effect_width_over_max() {
+  DeathEffect fx(opaque(MAX_W + 1), 16);
+}
+
+/** @brief Death case: an Effect height above MAX_H must trap. */
+inline void case_effect_height_over_max() {
+  DeathEffect fx(32, opaque(MAX_H + 1));
 }
 
 /**
@@ -988,6 +1006,10 @@ inline const Case *all_cases(int &n) {
       {"timeline_handled_completion", case_timeline_handled_completion},
       {"timeline_double_construct", case_timeline_double_construct},
       {"effect_double_construct", case_effect_double_construct},
+      {"effect_width_zero", case_effect_width_zero},
+      {"effect_height_zero", case_effect_height_zero},
+      {"effect_width_over_max", case_effect_width_over_max},
+      {"effect_height_over_max", case_effect_height_over_max},
       {"correction_guard_double_construct",
        case_correction_guard_double_construct},
       {"correction_guard_cross_type", case_correction_guard_cross_type},
