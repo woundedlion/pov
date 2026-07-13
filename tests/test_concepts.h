@@ -31,6 +31,24 @@ struct DualCall {
   int operator()(int x) const { return x + 100; }
 };
 
+/** @brief Result type that cannot convert to int. */
+struct IncompatibleResult {};
+
+/** @brief Callable with a return type incompatible with int. */
+struct ReturnsIncompatible {
+  IncompatibleResult operator()(int) const { return {}; }
+};
+
+/** @brief Callable returning void. */
+struct ReturnsVoid {
+  void operator()(int) const {}
+};
+
+/** @brief Callable returning int. */
+struct ReturnsInt {
+  int operator()(int x) const { return x + 1; }
+};
+
 /**
  * @brief Free function exercising the plain-function-pointer ctor path.
  * @param x Input value.
@@ -132,6 +150,38 @@ inline void test_stored_functionref_rvalue_rejection() {
 }
 
 /**
+ * @brief Verifies callable wrappers enforce and implement return compatibility.
+ */
+inline void test_callable_return_constraints() {
+  static_assert(
+      !std::is_constructible_v<FunctionRef<int(int)>, ReturnsIncompatible &>);
+  static_assert(!std::is_constructible_v<FunctionRef<int(int)>,
+                                         const ReturnsIncompatible &>);
+  static_assert(
+      !std::is_constructible_v<FunctionRef<int(int)>, ReturnsIncompatible &&>);
+  static_assert(
+      !std::is_constructible_v<StoredFunctionRef<int(int)>,
+                               ReturnsIncompatible &>);
+  static_assert(!std::is_constructible_v<FunctionRef<int(int)>, ReturnsVoid &>);
+  static_assert(std::is_constructible_v<FunctionRef<void(int)>, ReturnsInt &>);
+
+  static_assert(!std::is_constructible_v<Fn<int(int), 16>,
+                                         ReturnsIncompatible>);
+  static_assert(!std::is_constructible_v<Fn<int(int), 16>, ReturnsVoid>);
+  static_assert(std::is_constructible_v<Fn<void(int), 16>, ReturnsInt>);
+  static_assert(!std::is_assignable_v<Fn<int(int), 16> &,
+                                      ReturnsIncompatible>);
+
+  ReturnsInt returns_int;
+  FunctionRef<void(int)> borrowed = returns_int;
+  borrowed(1);
+  Fn<void(int), 16> owned = returns_int;
+  owned(2);
+  HS_EXPECT_TRUE((bool)borrowed);
+  HS_EXPECT_TRUE((bool)owned);
+}
+
+/**
  * @brief Verifies Fn (hs::inplace_function) copy/move/empty value semantics.
  * @details Default and nullptr construction read empty; a copy leaves the source
  *          live; a move leaves the source empty; assignment from a callable then
@@ -216,6 +266,7 @@ inline int run_concepts_tests() {
   test_functionref_function_pointer();
   test_functionref_empty_and_copy();
   test_stored_functionref_rvalue_rejection();
+  test_callable_return_constraints();
   test_fn_copy_move_empty();
   test_tweenable_concept();
 

@@ -48,7 +48,11 @@ template <typename R, typename... Args> struct ipf_vtable {
 // Concrete operations for a captured callable C placed in the inline buffer.
 template <typename C, typename R, typename... Args> struct ipf_ops {
   static R invoke(void *storage, Args &&...args) {
-    return (*static_cast<C *>(storage))(std::forward<Args>(args)...);
+    if constexpr (std::is_void_v<R>) {
+      (*static_cast<C *>(storage))(std::forward<Args>(args)...);
+    } else {
+      return (*static_cast<C *>(storage))(std::forward<Args>(args)...);
+    }
   }
   static void copy(void *dst, const void *src) {
     ::new (dst) C(*static_cast<const C *>(src));

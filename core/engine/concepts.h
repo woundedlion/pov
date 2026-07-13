@@ -111,16 +111,20 @@ public:
 
   /**
    * @brief Wraps a non-const lvalue callable (functor or lambda).
-   * @tparam Callable Type of the callable; must be invocable with Args... and
+   * @tparam Callable Type of the callable; must be invocable as Ret(Args...) and
    * not itself a FunctionRef.
    * @param callable Callable whose address is stored; must outlive this ref.
    */
   template <typename Callable>
-    requires std::invocable<Callable &, Args...> &&
+    requires std::is_invocable_r_v<Ret, Callable &, Args...> &&
              (!std::is_base_of_v<FunctionRef, std::decay_t<Callable>>)
   FunctionRef(Callable &callable) noexcept : ctx_(std::addressof(callable)) {
     thunk_ = [](void *ptr, Args... args) -> Ret {
-      return (*static_cast<Callable *>(ptr))(std::forward<Args>(args)...);
+      if constexpr (std::is_void_v<Ret>) {
+        (*static_cast<Callable *>(ptr))(std::forward<Args>(args)...);
+      } else {
+        return (*static_cast<Callable *>(ptr))(std::forward<Args>(args)...);
+      }
     };
   }
 
@@ -138,13 +142,18 @@ public:
    * for callables kept past the call.
    */
   template <typename Callable>
-    requires std::invocable<const Callable &, Args...> &&
+    requires std::is_invocable_r_v<Ret, const Callable &, Args...> &&
              (!std::is_base_of_v<FunctionRef, std::decay_t<Callable>>)
   FunctionRef(const Callable &callable) noexcept
       : ctx_(const_cast<void *>(
             static_cast<const void *>(std::addressof(callable)))) {
     thunk_ = [](void *ptr, Args... args) -> Ret {
-      return (*static_cast<const Callable *>(ptr))(std::forward<Args>(args)...);
+      if constexpr (std::is_void_v<Ret>) {
+        (*static_cast<const Callable *>(ptr))(std::forward<Args>(args)...);
+      } else {
+        return (*static_cast<const Callable *>(ptr))(
+            std::forward<Args>(args)...);
+      }
     };
   }
 
