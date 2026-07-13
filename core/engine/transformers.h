@@ -241,28 +241,21 @@ public:
 
   /**
    * @brief Prepares per-frame cached state for all active entities.
-   * @details ORDERING CONTRACT: call once per frame, before the derived
-   * composition (transform()/field()), in any frame where an active entity's
-   * params were *live-updated* (e.g. a GUI slider moved). It re-reads live config
-   * from template_params (NoiseParams::refresh_from) and refreshes each active
-   * entity's derived state (NoiseParams::sync). The composition reads that state
-   * but cannot verify it is current: the dependency is
-   * value-dependent, so it is a caller contract, not an assert. NOT required when
-   * there are no active entities (transform is then the identity) or when params
-   * have not changed since spawn.
+   * @details ORDERING CONTRACT: call before the derived composition
+   * (transform()/field()) whenever active params changed since their previous
+   * preparation, whether through animation or live config. It re-reads live
+   * config from template_params and refreshes each active entity's derived
+   * state. The composition reads that state but cannot verify it is current.
+   * NOT required when there are no active entities or when params are unchanged.
    */
   void prepare_frame() {
     for (int k = 0; k < active_count_; ++k) {
       Entity &e = entities[active_slots_[k]];
-      // Pull live-tunable config from template_params into the spawned entity
-      // (slider edits land on template_params, not the spawn-time copy); runs
-      // before sync() so the refreshed frequency reaches the generator.
+      // Pull live-tunable config from template_params into the spawned entity.
       if constexpr (requires { e.params.refresh_from(template_params); }) {
         e.params.refresh_from(template_params);
       }
-      // sync() pushes the (possibly live-updated) frequency into the embedded
-      // FastNoiseLite. Centralizing it here means a noise effect cannot render a
-      // stale frequency by forgetting a per-entity sync loop.
+      // Refresh derived state after copying live values.
       if constexpr (requires { e.params.sync(); }) {
         e.params.sync();
       }
@@ -290,8 +283,7 @@ public:
    * @param v Vector to transform.
    * @return The vector after every active transform has been composed onto it.
    * @note Reads each active entity's prepared state; see prepare_frame() for the
-   * ordering contract (must run first in any frame whose params were live-updated
-   * since last prepared). Per-pixel hot path — no guard here by design.
+   * ordering contract. Per-pixel hot path — no guard here by design.
    */
   Vector transform(Vector v) const {
     for (int k = 0; k < this->active_count_; ++k) {
@@ -622,6 +614,39 @@ inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
   return {Complex(z.re + dx, z.im + dy), sqrtf(dx * dx + dy * dy)};
 }
 
+/** @brief Computes the bump profile from prepared local cap geometry. */
+inline float bump_field_profile(const BumpParams &params, float r_eff, float d,
+                                float y) {
+  float abs_y = std::fabs(y);
+  float x_sq = std::max(d * d - y * y, 0.0f);
+  float depth = sqrtf(std::max(r_eff * r_eff - x_sq, 0.0f)) - abs_y;
+  float drape =
+      std::min(params.amplitude * sinf(PI_F * abs_y / r_eff), 1.0f);
+  return copysignf(depth * drape, y);
+}
+
+/**
+ * @brief Evaluates a bump using a caller-provided signed ring offset.
+ * @param v Sample point (unit vector).
+ * @param params Bump field geometry and gain.
+ * @param y Signed polar offset from the bump center about the stack axis.
+ * @return The signed polar displacement (radians).
+ */
+inline float bump_field_with_y(const Vector &v, const BumpParams &params,
+                               float y) {
+  float r_eff = params.radius * params.envelope;
+  if (r_eff <= 1e-3f || params.amplitude <= 0.001f)
+    return 0.0f;
+  float cos_d = dot(v, params.center);
+  if (cos_d <= params.cos_radius)
+    return 0.0f;
+  float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+  if (d >= r_eff)
+    return 0.0f;
+
+  return bump_field_profile(params, r_eff, d, y);
+}
+
 /**
  * @brief Evaluates a spherical-cap drape push: rings bow away from the cap
  * center as if draping over a ball beneath them.
@@ -655,12 +680,7 @@ inline float bump_field(const Vector &v, const BumpParams &params) {
   // an arc-shaped profile along the ring, which keeps the bulge round.
   float y = fast_acos(hs::clamp(dot(params.axis, v), -1.0f, 1.0f)) -
             fast_acos(hs::clamp(dot(params.axis, params.center), -1.0f, 1.0f));
-  float abs_y = std::fabs(y);
-  float x_sq = std::max(d * d - y * y, 0.0f);
-  float depth = sqrtf(std::max(r_eff * r_eff - x_sq, 0.0f)) - abs_y;
-  float drape =
-      std::min(params.amplitude * sinf(PI_F * abs_y / r_eff), 1.0f);
-  return copysignf(depth * drape, y);
+  return bump_field_profile(params, r_eff, d, y);
 }
 
 /**
@@ -691,7 +711,7 @@ inline float poi_field(const Vector &v, const PoiParams &params) {
   // small-cap approximation, and arc is the silhouette half-extent at this
   // azimuth. y' = sigma * y re-signs into pushed coords (+y' is downstream).
   float y = fast_acos(hs::clamp(dot(params.axis, v), -1.0f, 1.0f)) -
-            fast_acos(hs::clamp(dot(params.axis, params.center), -1.0f, 1.0f));
+            params.axis_center_colat;
   float x_sq = std::max(d * d - y * y, 0.0f);
   float arc = sqrtf(std::max(r_eff * r_eff - x_sq, 0.0f));
   // w divides by 2*arc; at the collapsed lateral edge the field limit is 0.

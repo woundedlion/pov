@@ -207,6 +207,51 @@ inline float field_at(const PoiParams &p, float lat, float az) {
   return poi_field(v, p);
 }
 
+/** @brief Reference evaluator that recomputes spherical geometry per sample. */
+inline float poi_field_uncached(const Vector &v, const PoiParams &p) {
+  const float r_eff = p.radius * p.envelope;
+  if (r_eff <= 1e-3f || p.amplitude <= 0.001f)
+    return 0.0f;
+  const float cos_d = dot(v, p.center);
+  if (cos_d <= std::cos(std::min(r_eff, PI_F)))
+    return 0.0f;
+  const float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+  if (d >= r_eff)
+    return 0.0f;
+  const float y =
+      fast_acos(hs::clamp(dot(p.axis, v), -1.0f, 1.0f)) -
+      fast_acos(hs::clamp(dot(p.axis, p.center), -1.0f, 1.0f));
+  const float x_sq = std::max(d * d - y * y, 0.0f);
+  const float arc = std::sqrt(std::max(r_eff * r_eff - x_sq, 0.0f));
+  if (arc <= 1e-4f)
+    return 0.0f;
+  const float y_signed = p.direction * y;
+  const float w = quintic_kernel((y_signed + arc) / (2.0f * arc));
+  const float g = std::min(p.amplitude * w, 1.0f);
+  return p.direction * (arc - y_signed) * g;
+}
+
+/** @brief Verifies poi caches refresh without changing the field profile. */
+inline void test_poi_field_geometry_cache() {
+  PoiParams p = make_poi(0.6f, 1.3f, -1.0f);
+  p.envelope = 0.5f;
+  p.axis = Vector(0.0f, std::cos(0.4f), std::sin(0.4f));
+  p.sync();
+
+  HS_EXPECT_NEAR(p.cos_radius, std::cos(0.3f), 1e-6f);
+  HS_EXPECT_NEAR(
+      p.axis_center_colat,
+      fast_acos(hs::clamp(dot(p.axis, p.center), -1.0f, 1.0f)), 1e-6f);
+
+  for (float lat = 0.7f; lat <= 2.4f; lat += 0.08f) {
+    for (float az = -0.8f; az <= 0.8f; az += 0.1f) {
+      Vector v(std::sin(lat) * std::cos(az), std::cos(lat),
+               std::sin(lat) * std::sin(az));
+      HS_EXPECT_NEAR(poi_field(v, p), poi_field_uncached(v, p), 1e-6f);
+    }
+  }
+}
+
 /**
  * @brief Verifies the field is exactly 0 outside the cap and shares the push
  *        sign everywhere inside it.
@@ -733,6 +778,7 @@ inline int run_poi_tests() {
 
   test_random_rotation_unit_and_deterministic();
   test_random_rotation_covers_sphere();
+  test_poi_field_geometry_cache();
   test_poi_field_support_and_sign();
   test_poi_field_edge_continuity();
   test_poi_field_bounds();

@@ -783,12 +783,17 @@ struct BumpParams {
   float radius = 0.5f;     /**< Angular radius of the bump footprint (radians). */
   float amplitude = 1.0f;  /**< Drape gain; the weight saturates at full boundary clearance for gains > 1. */
   float envelope = 0.0f;   /**< Footprint scale in [0, 1], animated by BallDrop. */
-  float cos_radius = 1.0f; /**< Cached cos(radius) fast-reject bound. */
+  float cos_radius = 1.0f; /**< Cached cos(radius * envelope) fast-reject bound. */
 
   /**
-   * @brief Recomputes the cos(radius) fast-reject bound after a radius change.
+   * @brief Refreshes the effective-radius fast-reject bound.
    */
-  void prepare_threshold() { cos_radius = cosf(std::min(radius, PI_F)); }
+  void sync() {
+    cos_radius = cosf(std::min(radius * envelope, PI_F));
+  }
+
+  /** @brief Refreshes the cached field threshold. */
+  void prepare_threshold() { sync(); }
 
   /**
    * @brief Refreshes live-tunable config from a template snapshot.
@@ -838,8 +843,8 @@ public:
         orientation(&orientation), normal(normal), azimuth(azimuth) {
     HS_CHECK(duration >= 2, "BallDrop duration must be >= 2");
     HS_CHECK(params.radius > 0.0f, "BallDrop needs a positive bump radius");
-    params.prepare_threshold();
     params.envelope = 0.0f;
+    params.prepare_threshold();
   }
 
   /**
@@ -884,15 +889,23 @@ struct PoiParams {
   float amplitude = 1.0f;  /**< Drape gain; the weight saturates at full clearance for gains > 1. */
   float direction = 1.0f;  /**< Push sign σ = ±1, fixed at phase entry. */
   float envelope = 0.0f;   /**< Lifecycle swell in [0, 1], animated by PoiDance. */
-  float cos_radius = 1.0f; /**< Cached cos(radius) fast-reject bound. */
+  float cos_radius = 1.0f; /**< Cached cos(radius * envelope) fast-reject bound. */
+  float axis_center_colat = 0.0f; /**< Cached center colatitude about axis. */
 
   /** @brief Peak of the drape profile (1−u)·quintic(u) over u∈[0,1], at u≈0.61. */
   static constexpr float PROFILE_MAX = 0.28f;
 
   /**
-   * @brief Recomputes the cos(radius) fast-reject bound after a radius change.
+   * @brief Refreshes geometry shared by every field sample this frame.
    */
-  void prepare_threshold() { cos_radius = cosf(std::min(radius, PI_F)); }
+  void sync() {
+    cos_radius = cosf(std::min(radius * envelope, PI_F));
+    axis_center_colat = fast_acos(
+        hs::clamp(dot(axis, center), -1.0f, 1.0f));
+  }
+
+  /** @brief Refreshes cached field geometry. */
+  void prepare_threshold() { sync(); }
 
   /**
    * @brief Refreshes live-tunable config from a template snapshot.
@@ -956,8 +969,8 @@ public:
     canon[0] = canon_offsets[0];
     canon[1] = canon_offsets[1];
     canon[2] = canon_offsets[2];
-    params.prepare_threshold();
     params.envelope = 0.0f;
+    params.prepare_threshold();
   }
 
   /**
