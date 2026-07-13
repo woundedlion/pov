@@ -67,6 +67,31 @@ def _codes(result):
     return sorted(v.code for v in result.violations)
 
 
+def _size_a(itcm, dtcm, ocram, flash):
+    return (
+        "elf:\nsection size addr\n"
+        f".text.itcm 0x{itcm:x} 0x0\n"
+        f".bss 0x{dtcm:x} 0x20000000\n"
+        f".bss.dma 0x{ocram:x} 0x20200000\n"
+        f".text.progmem 0x{flash:x} 0x60000000\n")
+
+
+def _invalid_size_a_cases():
+    valid = _size_a(0x10000, 0x40000, 0x70000, 0x20000)
+    return {
+        "empty": "",
+        "malformed": valid + ".broken not-a-size 0x60010000\n",
+        "metadata-only": (
+            "elf:\nsection size addr\n"
+            ".ARM.attributes 0x30 0x0\n"
+            ".comment 0x67 0x0\n"),
+        "missing-flash": _size_a(0x10000, 0x40000, 0x70000, 0),
+        "missing-itcm": _size_a(0, 0x40000, 0x70000, 0x20000),
+        "missing-dtcm": _size_a(0x10000, 0, 0x70000, 0x20000),
+        "missing-ocram": _size_a(0x10000, 0x40000, 0, 0x20000),
+    }
+
+
 class TestAddressClassifier(unittest.TestCase):
     """The load-bearing replacement for nm — the easiest place for an off-by-one."""
 
@@ -314,30 +339,16 @@ class TestSizeAFallback(unittest.TestCase):
     """The `--size-a` fallback path (no teensy_size): VMA bucketing + 0x80000-ram1
     free-headroom arithmetic, end-to-end through main() and evaluate()."""
 
-    def _size_a(self, itcm, dtcm, ocram, flash):
-        # One section per region at its base VMA, sizes in hex.
-        return (
-            "elf:\nsection size addr\n"
-            f".text.itcm 0x{itcm:x} 0x0\n"
-            f".bss 0x{dtcm:x} 0x20000000\n"
-            f".bss.dma 0x{ocram:x} 0x20200000\n"
-            f".text.progmem 0x{flash:x} 0x60000000\n")
-
     def test_free_headroom_is_0x80000_minus_used(self):
         totals = tg.region_totals_from_size_a(_read("good_size_a.txt"))
-        ram1 = totals.get("ITCM", 0) + totals.get("DTCM", 0)
-        # Replicate main()'s fallback synthesis and assert the free arithmetic.
-        sizes = {
-            "ram1": {"used": ram1, "free": 0x80000 - ram1},
-            "ram2": {"used": totals.get("OCRAM", 0),
-                     "free": 0x80000 - totals.get("OCRAM", 0)},
-        }
+        sizes = tg.fallback_sizes_from_size_a(_read("good_size_a.txt"))
+        ram1 = totals["ITCM"] + totals["DTCM"]
         self.assertEqual(sizes["ram1"]["free"], 0x80000 - ram1)
         self.assertEqual(sizes["ram2"]["free"], 0x80000 - totals["OCRAM"])
 
     def test_main_size_a_fallback_passes_a_fitting_build(self):
         rc, out = self._run_main_size_a(
-            self._size_a(0x10000, 0x40000, 0x70000, 0x20000),
+            _size_a(0x10000, 0x40000, 0x70000, 0x20000),
             "good_readelf_syms.txt", "holosphere")
         self.assertEqual(rc, 0, msg=out)
         self.assertIn("PASS", out)
@@ -347,7 +358,7 @@ class TestSizeAFallback(unittest.TestCase):
         # proving the fallback `free` figure actually drives the gate decision.
         # ram1 = 0x10000 + 0x70000 = 0x80000 -> free 0; floor 32768 -> violation.
         rc, out = self._run_main_size_a(
-            self._size_a(0x10000, 0x70000, 0x70000, 0x20000),
+            _size_a(0x10000, 0x70000, 0x70000, 0x20000),
             "good_readelf_syms.txt", "holosphere")
         self.assertEqual(rc, 1, msg=out)
         self.assertIn("free-for-local-variables", out)
@@ -356,12 +367,21 @@ class TestSizeAFallback(unittest.TestCase):
         # A fallback PASS must carry the advisory note so it is never mistaken
         # for a teensy_size-calibrated verdict.
         rc, out = self._run_main_size_a(
-            self._size_a(0x10000, 0x40000, 0x70000, 0x20000),
+            _size_a(0x10000, 0x40000, 0x70000, 0x20000),
             "good_readelf_syms.txt", "holosphere")
         self.assertEqual(rc, 0, msg=out)
         self.assertIn("PASS", out)
         self.assertIn("ADVISORY", out)
         self.assertIn("not calibrated", out.lower())
+
+    def test_main_rejects_invalid_size_a_output_as_tooling_error(self):
+        for name, text in _invalid_size_a_cases().items():
+            with self.subTest(name=name):
+                rc, out = self._run_main_size_a(
+                    text, "good_readelf_syms.txt", "holosphere")
+                self.assertEqual(rc, 2, msg=out)
+                self.assertIn("invalid `size -A` output", out)
+                self.assertIn("tooling/format error", out)
 
     def _run_main_size_a(self, size_a_text, syms_fixture, env):
         with tempfile.TemporaryDirectory() as d:
@@ -465,6 +485,32 @@ class TestGateExtra(unittest.TestCase):
             rc, out = self._run_gate("holosphere")
         self.assertEqual(rc, 2)
         self.assertIn("parsed no FLASH/RAM1/RAM2 regions", out)
+
+    def test_size_a_fallback_preserves_advisory_pass(self):
+        self.ge._find_teensy_size = lambda: None
+
+        def _run(args, check=True):
+            if "-A" in args:
+                return _size_a(0x10000, 0x40000, 0x70000, 0x20000)
+            if "-sW" in args:
+                return _read("good_readelf_syms.txt")
+            return _read("good_readelf_secs.txt")
+
+        self.ge._run = _run
+        rc, out = self._run_gate("holosphere")
+        self.assertEqual(rc, 0, msg=out)
+        self.assertIn("using `size -A` fallback", out)
+        self.assertIn("PASS", out)
+
+    def test_size_a_fallback_rejects_invalid_output_as_tooling_error(self):
+        self.ge._find_teensy_size = lambda: None
+        for name, text in _invalid_size_a_cases().items():
+            with self.subTest(name=name):
+                self.ge._run = lambda *args, output=text, **kw: output
+                rc, out = self._run_gate("holosphere")
+                self.assertEqual(rc, 2, msg=out)
+                self.assertIn("invalid `size -A` output", out)
+                self.assertIn("tooling/format error", out)
 
     def _run_gate(self, pioenv):
         class _Env(dict):

@@ -139,7 +139,7 @@ The overall grade is held below A by one release-blocking firmware resource fail
 
 21. ✅ **BOM/CPL completeness is warning-only.** `hardware/phantasm/gen/fab.py:191-224`. Missing supplier mappings or centroid data can still yield orderable-looking output with blank fields. Fail packaging for any assembled SMD lacking a part number, centroid, numeric placement or expected side.
 
-22. **Malformed `size -A` output can false-pass the Teensy gate.** `tools/teensy_gate.py:420-430`, `tools/teensy_gate_extra.py:81-104`. Unrecognized output becomes synthesized zero-use/full-free regions and can return PASS. Require recognized allocated sections/expected buckets before synthesis and add empty/malformed fallback tests.
+22. ✅ **Malformed `size -A` output can false-pass the Teensy gate.** `tools/teensy_gate.py:420-430`, `tools/teensy_gate_extra.py:81-104`. Unrecognized output becomes synthesized zero-use/full-free regions and can return PASS. Require recognized allocated sections/expected buckets before synthesis and add empty/malformed fallback tests.
 
 23. **The fast-forward hook permits deletion of `master`.** `.githooks/reference-transaction:24`. An all-zero new OID is skipped despite the hook’s stated non-fast-forward protection. Reject deletion or require the same explicit one-shot override.
 

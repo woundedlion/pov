@@ -80,20 +80,18 @@ def run_gate(source, target, env):
         if teensy_size:
             sizes = teensy_gate.parse_teensy_size(_run([teensy_size, elf], check=False))
         else:
-            totals = teensy_gate.region_totals_from_size_a(_run([size_tool, "-A", "-x", elf]))
-            ram1 = totals.get("ITCM", 0) + totals.get("DTCM", 0)
-            sizes = {
-                "flash": {"used": totals.get("FLASH", 0), "free": 0},
-                "ram1": {"used": ram1, "free": 0x80000 - ram1},
-                "ram2": {"used": totals.get("OCRAM", 0),
-                         "free": 0x80000 - totals.get("OCRAM", 0)},
-            }
+            sizes = teensy_gate.fallback_sizes_from_size_a(
+                _run([size_tool, "-A", "-x", elf]))
             print("::warning::teensy_size not found; using `size -A` fallback "
                   "(flash total undercounts; calibrate the flash ceiling against "
                   "teensy_size, not this).")
 
         symbols = teensy_gate.parse_readelf_symbols(_run([readelf, "-sW", elf]))
         sections = teensy_gate.parse_readelf_sections(_run([readelf, "-SW", elf]))
+    except teensy_gate.SizeAFormatError as exc:
+        print(f"::error::teensy-gate: invalid `size -A` output ({exc}). This is "
+              f"a tooling/format error, not a size-budget violation.")
+        sys.exit(2)
     except (OSError, subprocess.SubprocessError) as exc:
         print(f"::error::teensy-gate: a toolchain step failed before evaluation "
               f"({type(exc).__name__}: {exc}). This is a build/tooling break "
