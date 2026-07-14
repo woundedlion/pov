@@ -957,7 +957,8 @@ private:
     float best2 = std::min(ul * ul + vl * vl, ur * ur + vr * vr);
     interior_d2(ul, vl, vr, best2);
 
-    float bound2 = std::min(best2, thickness * thickness);
+    const float th2 = thickness * thickness;
+    float bound2 = std::min(best2, th2);
     const int max_o = std::min(MAX_SEARCH_CELLS, lut_n / 2 + 1);
     for (int o = 1; o <= max_o; ++o) {
       // A segment past a frontier knot can't beat that knot's |u|.
@@ -983,7 +984,9 @@ private:
       }
       bound2 = std::min(bound2, best2);
     }
-    return sqrtf(best2);
+    // Beyond the stroke reach only the > thickness ordering matters; skip
+    // the sqrt for those pixels.
+    return best2 >= th2 ? thickness : sqrtf(best2);
   }
 };
 
