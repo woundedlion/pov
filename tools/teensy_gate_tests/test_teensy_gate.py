@@ -238,6 +238,48 @@ class TestRegionCeilingsFail(unittest.TestCase):
         self.assertIn("headroom-below-floor", codes)             # DTCM stack room
 
 
+class TestComponentCeilings(unittest.TestCase):
+    """Per-component ceilings (§8 / selective_o3_spec §6): ITCM code growth into
+    intra-bank padding is invisible to the region sum, so the phantasm budget
+    pins the RAM1 `code` component directly."""
+
+    def test_good_build_passes_component_ceiling(self):
+        result = _eval("phantasm", "good_teensy_size.txt", "good_readelf_syms.txt")
+        self.assertTrue(result.passed, msg=_codes(result))
+
+    def test_code_component_over_ceiling_fails(self):
+        # Region totals stay under every regional cap; only the component fires.
+        result = _eval("phantasm", "broken_component_over_teensy_size.txt",
+                       "good_readelf_syms.txt")
+        self.assertFalse(result.passed)
+        codes = _codes(result)
+        self.assertIn("component-over-budget", codes)
+        self.assertNotIn("region-over-budget", codes)
+        self.assertTrue(any("'code'" in v.message for v in result.violations))
+
+    def test_missing_code_component_fails_loud_not_silent(self):
+        result = _eval("phantasm", "broken_component_missing_teensy_size.txt",
+                       "good_readelf_syms.txt")
+        self.assertFalse(result.passed)
+        self.assertIn("component-missing", _codes(result))
+
+    def test_component_ceiling_is_opt_in_per_target(self):
+        # Holosphere configures no components key; the same over-component
+        # figures pass its (region-only) budget untouched.
+        result = _eval("holosphere", "broken_component_over_teensy_size.txt",
+                       "good_readelf_syms.txt")
+        self.assertTrue(result.passed, msg=_codes(result))
+
+    def test_size_a_fallback_reports_component_missing(self):
+        # The `size -A` fallback synthesizes region totals without components,
+        # so a component-ceiling target must fail loud there, not false-green.
+        sizes = tg.fallback_sizes_from_size_a(_size_a(0x10000, 0x40000, 0x70000,
+                                                      0x20000))
+        symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
+        result = tg.evaluate("phantasm", BUDGETS["phantasm"], sizes, symbols, {})
+        self.assertIn("component-missing", _codes(result))
+
+
 class TestWarningRatchet(unittest.TestCase):
     def test_normalize_strips_line_and_col_keeps_identity(self):
         a = tw.normalize("core/effects/Foo.h:120:7: warning: unused variable 'x' [-Wunused-variable]")

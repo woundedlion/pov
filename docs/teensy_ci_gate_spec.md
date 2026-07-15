@@ -555,6 +555,27 @@ cap — catching "won't fit / no room to flash" and the layout invariants (§7.4
 work churn the baseline file. Ceilings with deliberate headroom give the needed protection without
 that overhead; the delta gate can be revisited later if size creep proves to be a real problem.
 
+**Per-component ceilings** *(opt-in per target)*. A region entry may pin one of its `teensy_size`
+components directly:
+
+```jsonc
+"ram1": {
+  "max_bytes": 512000,
+  "free_min_bytes": 12288,
+  "components": { "code": { "max_bytes": 163064 } }
+}
+```
+
+This exists because ITCM code is padded up to whole 32 KiB FlexRAM banks: code growing into the
+intra-bank padding moves bytes between two components of the *same* region sum, so the region
+ceiling and the free floor are both blind to it until the bank cliff, where the build breaks all
+at once (docs/selective_o3_spec.md §3). Violations report as `component-over-budget`; a configured
+component that the size output no longer reports is a hard `component-missing` failure (same
+fail-loud rule as regions and symbols — a renamed `teensy_size` field must not silently disable
+the ceiling). The `size -A` fallback carries no component breakdown, so a component-ceiling target
+fails loud under it rather than passing uncalibrated. Only the phantasm budget uses this today
+(`ram1.components.code`).
+
 **Raising a ceiling is a reviewed, one-line edit** to `tools/teensy_budgets.json`, landed in the
 *same* PR as the change that needs it — the symmetric escape hatch to the warning baseline's
 `--update-baseline` (§7.2). A budget bump is therefore visible in review (you can see the headroom
