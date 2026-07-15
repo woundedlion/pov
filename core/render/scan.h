@@ -422,14 +422,17 @@ struct DistortedRing {
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
+   * @param suppress_pole_fill Drop the degenerate exact-pole row instead of
+   *        full-row filling it (dense ring stacks; see get_horizontal_intervals).
    */
   template <int W, int H, bool ComputeUVs = true,
             typename PipelineT = PipelineRef>
   static void draw_flat(PipelineT &pipeline, Canvas &canvas,
                         const Basis &basis, float radius, float thickness,
                         FragmentShaderFn fragment_shader, float phase = 0,
-                        bool debug_bb = false) {
+                        bool debug_bb = false, bool suppress_pole_fill = false) {
     SDF::FlatDistortedRing shape(basis, radius, thickness, phase);
+    shape.suppress_pole_fill = suppress_pole_fill;
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
@@ -482,6 +485,8 @@ struct DistortedRing {
    * @param fragment_shader Shader invoked per covered pixel.
    * @param phase Angular phase offset in radians.
    * @param debug_bb When true, renders the bounding box for debugging.
+   * @param suppress_pole_fill Drop the degenerate exact-pole row instead of
+   *        full-row filling it (dense ring stacks; see get_horizontal_intervals).
    */
   template <int W, int H, bool ComputeUVs = true,
             typename PipelineT = PipelineRef>
@@ -489,9 +494,10 @@ struct DistortedRing {
                    float radius, float thickness, const float *knots,
                    int lut_n, float amplitude,
                    FragmentShaderFn fragment_shader, float phase = 0,
-                   bool debug_bb = false) {
+                   bool debug_bb = false, bool suppress_pole_fill = false) {
     SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n, amplitude,
                              phase);
+    shape.suppress_pole_fill = suppress_pole_fill;
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
