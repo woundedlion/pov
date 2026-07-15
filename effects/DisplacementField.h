@@ -48,14 +48,19 @@ public:
    * and builds the timeline.
    */
   void init() override {
-    shift_lut = persistent_arena.allocate_n<float>(W + 1);
-    hue_lut = persistent_arena.allocate_n<Pixel>(W + 1);
     hue_table = persistent_arena.allocate_n<Pixel>(HUE_TABLE_SIZE + 1);
     solid_colat = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_reach = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_shift = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_scale = persistent_arena.allocate_n<float>(SOLID_MAX);
     solid_local = persistent_arena.allocate_n<int>(SOLID_MAX);
+    shift_pool = persistent_arena.allocate_n<float>(RING_SLOTS * (W + 1));
+    hue_pool = persistent_arena.allocate_n<Pixel>(RING_SLOTS * (W + 1));
+    slot_frag_alpha = persistent_arena.allocate_n<float>(RING_SLOTS);
+    slot_lut_n = persistent_arena.allocate_n<int>(RING_SLOTS);
+    slot_by_ring = persistent_arena.allocate_n<int8_t>(RING_SLOTS);
+    shapes_raw = persistent_arena.allocate(
+        RING_SLOTS * sizeof(SDF::DistortedRing), alignof(SDF::DistortedRing));
     balls.init_storage(persistent_arena);
     noise_field.init_storage(persistent_arena);
 
@@ -114,8 +119,11 @@ public:
     noise_field.template_params.scale1 = params.scale1;
     noise_field.template_params.scale2 = params.scale2;
     noise_field.template_params.speed = params.flow_speed;
-    balls.prepare_frame();
-    noise_field.prepare_frame();
+    {
+      HS_PROFILE(df_prepare_fields);
+      balls.prepare_frame();
+      noise_field.prepare_frame();
+    }
 
     switch (phase) {
     case Phase::BALLS:
@@ -141,8 +149,16 @@ public:
       break;
     }
 
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    // IIFE so the HS_PROFILE scope measures the buffer_free() spin-wait inside
+    // the Canvas constructor without also covering the timeline step.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(df_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(df_timeline_step);
+      timeline.step(canvas);
+    }
   }
 
   /**
@@ -173,34 +189,35 @@ private:
   }
 
   /**
-   * @brief Bakes and rasterizes every ring over one solid-body pool.
+   * @brief Bakes every ring over one solid-body pool, then rasterizes the
+   * stack in one fused scan.
    * @param canvas Render target for the ring fragments.
    * @param opacity Sprite fade multiplied into each fragment's alpha.
    * @details Per ring, the displacement stack is baked per azimuth column into
-   * shift_lut (the ring's centerline shift) together with the hue-rotated ring
-   * color in hue_lut. The bake evaluates only the bodies whose support can reach
-   * the ring's colatitude (centers and rings share the stack axis); a ring
-   * nothing can displace skips the field/hue bake for a constant LUT. The reach
-   * prefilter uses each body's support_bound() (cap extent) while the per-ring
-   * band widening uses its field_bound() (shift bound) — for balls the two
-   * coincide. The LUT resolution is adaptive: enough samples for the finest
-   * active feature along the ring's actual circumference. Rings rasterize as
-   * soft SDF strokes (Scan::DistortedRing) with a quintic cross-section falloff
-   * against the exact distance to the baked knot polyline, so steeply displaced
-   * or sharply curved segments keep full thickness; under a partial clip, rings
-   * whose displaced band cannot touch the clip are skipped whole.
+   * a pooled slot: the centerline shift knots together with the hue-rotated
+   * ring color. The bake evaluates only the bodies whose support can reach the
+   * ring's colatitude (centers and rings share the stack axis); a ring nothing
+   * can displace takes a constant LUT. The LUT resolution is adaptive: enough
+   * samples for the finest active feature along the ring's actual
+   * circumference. Under a partial clip, rings whose displaced band cannot
+   * touch the clip are skipped whole, and invisible azimuth chunks skip the
+   * field/hue bake. The baked rings then rasterize as soft SDF strokes with a
+   * quintic cross-section falloff against the exact distance to each knot
+   * polyline, in a single fused scan (Scan::DistortedRingStack) that hoists
+   * the shared-axis pixel frame out of the per-ring distance evaluation.
+   * Debug visuals fall back to per-ring rasterizes so the bounding-box tint
+   * keeps per-shape scan bounds.
    */
   void draw_rings(Canvas &canvas, float opacity) {
+    HS_PROFILE(df_draw_rings);
     int n_rings = static_cast<int>(params.num_rings);
+    assert(n_rings <= RING_SLOTS);
     Basis basis = make_basis(orientation.get(), normal);
     const bool try_cull = !clip().is_full();
     // World-angle pad absorbing the AA splat past the clip's margin.
     const float pad = 3.0f * PI_F / H;
     const float noise_bound = noise_field.field_bound();
 
-    // Body centers and rings share the stack axis, so a center's colatitude
-    // difference from a ring's is the min ring-to-center distance: body b can
-    // reach ring theta only when |theta - colat_b| < support_b.
     const int n_balls = balls.active_count();
     for (int b = 0; b < n_balls; ++b) {
       const auto &sp = balls.active_params(b);
@@ -211,16 +228,19 @@ private:
       solid_scale[b] = 2.0f / sp.radius;
     }
 
-    // The octave product carries modulation sidebands out to scale1 + scale2.
     const float noise_feature =
         noise_bound > 0.0f ? params.scale1 + params.scale2 : 0.0f;
+
+    auto *shapes =
+        std::launder(reinterpret_cast<SDF::DistortedRing *>(shapes_raw));
+    int n_slots = 0;
+    for (int i = 0; i < n_rings; ++i)
+      slot_by_ring[i] = -1;
 
     for (int i = 0; i < n_rings; ++i) {
       float radius = 2.0f / (n_rings + 1) * (i + 1);
       float theta = radius * (PI_F / 2.0f);
 
-      // Bodies that can reach this ring; the dominant blend never exceeds its
-      // largest input, so the max touching field_bound bounds the shift.
       int n_local = 0;
       float band = 0.0f;
       float solid_feature = 0.0f;
@@ -243,49 +263,34 @@ private:
           palette.get(wrap_t((i + 0.5f) / n_rings + color_spin));
       HueRotateBase hue_base = make_hue_rotate_base(ring_color);
 
+      float *slut = shift_pool + n_slots * (W + 1);
+      Pixel *hlut = hue_pool + n_slots * (W + 1);
+
       float ring_bound = 0.0f;
       int lut_n;
       if (band + noise_bound <= 0.0f) {
+        // Flat rings take the zero-knot LUT path even under -Os: the fused
+        // candidate loop needs every ring in the shared pass to keep per-pixel
+        // blend order.
         Pixel flat = hue_rotate(hue_base, 0.0f).color;
-#ifdef __OPTIMIZE_SIZE__
-        // The explicit SDF wins under -Os; -O3 folds the zero-knot path.
-        float frag_alpha = ring_color.alpha * opacity * params.alpha;
-        auto flat_shader = [flat, frag_alpha](const Vector &, Fragment &f) {
-          f.color = Color4(flat, frag_alpha * f.v2);
-        };
-        Scan::DistortedRing::draw_flat<W, H, false>(
-            filters, canvas, basis, radius, params.thickness, flat_shader,
-            /*phase=*/0.0f, /*debug_bb=*/false, /*suppress_pole_fill=*/true);
-        continue;
-#else
         lut_n = LUT_MIN_SAMPLES;
         for (int x = 0; x <= lut_n; ++x) {
-          shift_lut[x] = 0.0f;
-          hue_lut[x] = flat;
+          slut[x] = 0.0f;
+          hlut[x] = flat;
         }
-#endif
       } else {
         float feature_scale = std::max(noise_feature, solid_feature);
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
 
-        // Nyquist-safe column count: LUT_SAMPLES_PER_UNIT samples per
-        // noise-space unit along the ring's circumference.
         lut_n = hs::clamp(
             static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f * PI_F *
                                    feature_scale * sin_t)),
             LUT_MIN_SAMPLES, W);
 
-        // Azimuth chunk cull under a partial clip: a chunk's cap (its ring
-        // arc widened by the displaced band) contains every pixel whose
-        // ring-frame azimuth falls in the chunk, so a chunk whose cap misses
-        // the clip is never sampled and its columns skip the field/hue bake.
-        // Visibility is padded by the polyline search's reach: a visible
-        // pixel reads knots up to `thickness` of arc to each side, and the
-        // band's pixels can sit closer to a pole than the ring itself, where
-        // that arc spans more chunks; +1 chunk covers the hue lerp.
         uint32_t visible = CHUNK_MASK;
         if (try_cull) {
+          HS_PROFILE(df_chunk_cull);
           const float band_r = band + noise_bound + params.thickness + pad;
           const float chunk_reach = (PI_F / BAKE_CHUNKS) * sin_t + band_r;
           uint32_t raw = 0u;
@@ -337,8 +342,6 @@ private:
               visible_samples += x_end - x_begin;
             x_begin = x_end;
           }
-          // Sparse clips lazily populate only the endpoints they sample while
-          // retaining the full render's clip-invariant table interpolation.
           precompute_hue_table = visible_samples > 2 * HUE_TABLE_SIZE;
           const float hue_extent =
               (band + noise_bound) * params.hue_scale;
@@ -350,6 +353,7 @@ private:
           ++hue_table_uses;
 #endif
           if (precompute_hue_table) {
+            HS_PROFILE(df_hue_table_prep);
             prepare_hue_table(hue_base, hue_domain);
           } else {
             hue_table_valid[0] = 0;
@@ -373,19 +377,14 @@ private:
           return hue_rotate(hue_base, amount).color;
         };
 
-        // Angle-addition recurrence advancing the tangent (cos, sin) by one
-        // column step, dropping a libm cosf/sinf per bake column. It advances
-        // through skipped columns too, so baked values are independent of the
-        // visible set.
+        HS_PROFILE(df_lut_bake);
+
         const float dphi = 2.0f * PI_F / lut_n;
         const float cos_d = cosf(dphi);
         const float sin_d = sinf(dphi);
         float cos_a = 1.0f;
         float sin_a = 0.0f;
 
-        // ring_bound: true max |shift| over this ring's LUT (the polyline
-        // never exceeds its knots); the global field bound would widen every
-        // ring's scan band to the sum of all active bodies.
         int x = 0;
         for (int c = 0; c < BAKE_CHUNKS; ++c) {
           const int x_end =
@@ -397,8 +396,8 @@ private:
               float s = ball_field(p, solid_local, n_local, theta) +
                         noise_field.field(p);
               ring_bound = std::max(ring_bound, std::fabs(s));
-              shift_lut[x] = s;
-              hue_lut[x] = hue_for_shift(s);
+              slut[x] = s;
+              hlut[x] = hue_for_shift(s);
               float next_cos = cos_a * cos_d - sin_a * sin_d;
               sin_a = sin_a * cos_d + cos_a * sin_d;
               cos_a = next_cos;
@@ -411,25 +410,49 @@ private:
             }
           }
         }
-        shift_lut[lut_n] = shift_lut[0];
-        hue_lut[lut_n] = hue_lut[0];
+        slut[lut_n] = slut[0];
+        hlut[lut_n] = hlut[0];
       }
 
-      float frag_alpha = ring_color.alpha * opacity * params.alpha;
-      auto fragment_shader = [&](const Vector &, Fragment &f) {
-        float x = wrap_t(f.v0) * lut_n;
-        int j = static_cast<int>(x);
-        f.color = Color4(
-            hue_lut[j].lerp16(hue_lut[j + 1], frac_to_q16(quintic_kernel(x - j))),
-            frag_alpha * f.v2);
-      };
-
-      Scan::DistortedRing::draw<W, H>(filters, canvas, basis, radius,
-                                      params.thickness, shift_lut, lut_n,
-                                      ring_bound, fragment_shader,
-                                      /*phase=*/0.0f, /*debug_bb=*/false,
-                                      /*suppress_pole_fill=*/true);
+      ::new (static_cast<void *>(shapes + n_slots)) SDF::DistortedRing(
+          basis, radius, params.thickness, slut, lut_n, ring_bound, 0.0f);
+      slot_lut_n[n_slots] = lut_n;
+      slot_frag_alpha[n_slots] = ring_color.alpha * opacity * params.alpha;
+      slot_by_ring[i] = static_cast<int8_t>(n_slots);
+      ++n_slots;
     }
+
+    if (n_slots == 0)
+      return;
+
+    auto ring_shader = [this](int s, const Vector &, Fragment &f) {
+      const Pixel *hue = hue_pool + s * (W + 1);
+      float x = wrap_t(f.v0) * slot_lut_n[s];
+      int j = static_cast<int>(x);
+      f.color = Color4(
+          hue[j].lerp16(hue[j + 1], frac_to_q16(quintic_kernel(x - j))),
+          slot_frag_alpha[s] * f.v2);
+    };
+    if (canvas.debug()) {
+      // Per-ring rasterizes so the bounding-box tint has per-shape scan
+      // bounds; ascending slot order keeps the fused pass's blend order.
+      for (int s = 0; s < n_slots; ++s) {
+        shapes[s].suppress_pole_fill = true;
+        Scan::rasterize<W, H>(
+            filters, canvas, shapes[s],
+            [&, s](const Vector &p, Fragment &f) { ring_shader(s, p, f); });
+      }
+    } else {
+      HS_PROFILE(df_fused_scan);
+      Scan::DistortedRingStack::draw<W, H>(filters, canvas, n_rings, shapes,
+                                           slot_by_ring, n_slots,
+                                           ring_shader);
+    }
+
+    // ScalarFn's inplace_function member is not trivially destructible;
+    // placement-built shapes must be destroyed before the storage is reused.
+    for (int s = 0; s < n_slots; ++s)
+      shapes[s].~DistortedRing();
   }
 
   __attribute__((noinline)) void prepare_hue_table(const HueRotateBase &base,
@@ -594,8 +617,13 @@ private:
                 "per chunk");
 
   float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
-  float *shift_lut = nullptr; /**< W + 1 arena-baked displacement knots, one per bake column; entry lut_n repeats entry 0 to close the polyline. */
-  Pixel *hue_lut = nullptr;   /**< W + 1 arena-baked hue-rotated ring colors, aligned with shift_lut. */
+  static constexpr int RING_SLOTS = 72; /**< Baked-ring pool capacity; matches the Rings slider max. */
+  float *shift_pool = nullptr;  /**< RING_SLOTS x (W + 1) pooled shift LUTs, one slot per drawn ring; entry lut_n repeats entry 0 to close the polyline. */
+  Pixel *hue_pool = nullptr;    /**< RING_SLOTS x (W + 1) pooled hue-rotated ring colors, aligned with shift_pool. */
+  float *slot_frag_alpha = nullptr; /**< Per-slot fragment alpha (ring alpha x sprite fade x Alpha slider). */
+  int *slot_lut_n = nullptr;        /**< Per-slot bake column count. */
+  int8_t *slot_by_ring = nullptr;   /**< Ring index -> slot, -1 for culled rings; rebuilt per frame. */
+  void *shapes_raw = nullptr;       /**< Raw storage for RING_SLOTS placement-built SDF::DistortedRing shapes. */
   Pixel *hue_table = nullptr; /**< HUE_TABLE_SIZE + 1 dynamic or cyclic hue samples for the current ring. */
   float *solid_colat = nullptr; /**< SOLID_MAX active-body center colatitudes about the stack axis (radians), rebuilt per frame. */
   float *solid_reach = nullptr; /**< SOLID_MAX active-body support extents (radians): the reach prefilter bound. */
@@ -619,7 +647,7 @@ private:
   struct Params {
     float alpha = 0.3f;       /**< Overall ring opacity multiplier in [0, 1]. */
     float num_rings = 48.0f;  /**< Number of evenly spaced rings (truncated to int when drawn). */
-    float thickness = 0.35f;  /**< Stroke half-width (radians), set by init(). */
+    float thickness = 0.035f;  /**< Stroke half-width (radians), set by init(). */
     float ball_amp = 0.1f;    /**< Ball drape strength; scaled by BALL_DRAPE_PER_AMPLITUDE into the drape gain. */
     float noise_amp = 0.2f;   /**< Peak polar displacement (radians) of the noise phase. */
     float scale1 = 1.5f;      /**< Spatial frequency of the envelope octave; its zero regions leave rings undisturbed. */
