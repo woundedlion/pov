@@ -77,7 +77,7 @@ public:
                         global_orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
-    spawn_sprite(0);
+    spawn_sprite();
     // Wrap the integrated phase to [0,1) so the orbit trig stays in precise range.
     timeline.add(0, Animation::Driver(orbit_phase, &params.offset_speed, 0.01f,
                                       /*wrap=*/true));
@@ -253,15 +253,14 @@ private:
   }
 
   /**
-   * @brief Spawns one fading sprite for the given preset and schedules the next
-   *        spawn one period later.
-   * @param idx Preset index; taken modulo the preset count.
+   * @brief Spawns one fading sprite for the current preset and schedules the
+   *        next spawn one period later.
    * @details Rebakes the inactive palette slot, arms a Mobius warp, and reseeds
    *          the live params only when the preset actually changes.
    */
-  HS_COLD_MEMBER void spawn_sprite(int idx) {
+  HS_COLD_MEMBER void spawn_sprite() {
     auto entries = preset_manager.get_entries();
-    int safe_idx = idx % entries.size();
+    int safe_idx = static_cast<int>(preset_manager.current_index());
 
     // Reseed the slider-bound params only when the preset actually changes, so a
     // paused re-spawn of the same preset keeps the user's live edits.
@@ -307,11 +306,12 @@ private:
         .add(period,
              Animation::PeriodicTimer(
                  0,
-                 [this, safe_idx](Canvas &) {
+                 [this](Canvas &) {
                    // Paused: re-spawn the same preset (params hold); otherwise
-                   // advance. Pass the wrapped index to keep it bounded.
-                   this->spawn_sprite(animations_paused() ? safe_idx
-                                                         : safe_idx + 1);
+                   // advance the selector to the next.
+                   if (!animations_paused())
+                     preset_manager.next();
+                   this->spawn_sprite();
                  },
                  false));
   }
