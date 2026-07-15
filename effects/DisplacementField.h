@@ -529,7 +529,7 @@ private:
   /**
    * @brief Enters the noise phase and fades it in from zero.
    */
-  void enter_noise() {
+  HS_COLD_MEMBER void enter_noise() {
     phase = Phase::NOISE;
     master_gain = 0.0f;
     noise_hold = NOISE_HOLD_FRAMES;
@@ -540,7 +540,7 @@ private:
   /**
    * @brief Enters the ball phase, opening a fresh spawning window.
    */
-  void enter_balls() {
+  HS_COLD_MEMBER void enter_balls() {
     phase = Phase::BALLS;
     ball_phase_left = BALL_PHASE_FRAMES;
     spawn_cooldown = 0;

@@ -1266,7 +1266,7 @@ public:
    * @param val Key value in [0,255].
    * @return The authored key as an 8-bit sRGB CPixel.
    */
-  static CPixel author_key(uint8_t hue, uint8_t sat, uint8_t val) {
+  HS_COLD_MEMBER static CPixel author_key(uint8_t hue, uint8_t sat, uint8_t val) {
     return oklch_to_cpixel(key_oklch(hue, sat, val));
   }
 
@@ -1275,7 +1275,7 @@ public:
    * @details Derives the stops from the three keys a/b/c, then caches their
    * OKLCH forms for get(). Call after any change to a/b/c or gradient_shape.
    */
-  void update_stops() {
+  HS_COLD_MEMBER void update_stops() {
     const CPixel vignette_color(0, 0, 0);
     std::array<CPixel, MAX_STOPS> colors;
     switch (gradient_shape) {
@@ -1355,7 +1355,7 @@ public:
    * back to per-key arcs when any key is near-gray (no meaningful hue).
    * Rebuilds the stops after interpolating.
    */
-  void lerp(const Snapshot &from, const Snapshot &to, float amount) {
+  HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to, float amount) {
     // Clamp: an extrapolated amount overshoots into an invalid OKLCH (L > 1
     // or C past gamut).
     amount = hs::clamp(amount, 0.0f, 1.0f);

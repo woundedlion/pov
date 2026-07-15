@@ -72,7 +72,7 @@ public:
    * @details Schedules a LERP_FRAMES blend into the next preset, re-arming
    * itself on completion to loop forever.
    */
-  void next_preset() {
+  HS_COLD_MEMBER void next_preset() {
     constexpr int LERP_FRAMES = 480;
     presets.next();
     timeline.add(0, Animation::Lerp(params, presets.prev_get(), presets.get(),

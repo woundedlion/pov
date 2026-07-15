@@ -63,7 +63,7 @@ struct CompiledHankin {
    * @details Required by Cloneable; each vector is rebound from @p arena and
    * bulk-copied (all element types are trivially copyable).
    */
-  static void clone(const CompiledHankin &src, CompiledHankin &dst,
+  HS_COLD_MEMBER static void clone(const CompiledHankin &src, CompiledHankin &dst,
                     Arena &arena) {
     copy_vector(dst.base_vertices, src.base_vertices.data(),
                 src.base_vertices.size(), arena);
@@ -266,7 +266,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
 inline constexpr float STAR_FAR_RATIO_SQ = 36.0f;
 
 template <typename MeshT>
-inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
+HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
                           Arena &target_arena, float angle) {
 
   // Drop any borrowed-mode views a reused MeshState may still carry, so the

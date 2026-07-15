@@ -96,7 +96,7 @@ public:
    * so Count scales to the raster budget rather than the 64-slot timeline
    * budget.
    */
-  FLASHMEM void build() {
+  HS_COLD_MEMBER void build() {
     timeline.clear();
 
     timeline.add(0, Animation::RandomWalk<W>(camera, X_AXIS, noise, {},
