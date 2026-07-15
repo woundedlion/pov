@@ -254,7 +254,8 @@ private:
           f.color = Color4(flat, frag_alpha * f.v2);
         };
         Scan::DistortedRing::draw_flat<W, H, false>(
-            filters, canvas, basis, radius, params.thickness, flat_shader);
+            filters, canvas, basis, radius, params.thickness, flat_shader,
+            /*phase=*/0.0f, /*debug_bb=*/false, /*suppress_pole_fill=*/true);
         continue;
 #else
         lut_n = LUT_MIN_SAMPLES;
@@ -425,7 +426,9 @@ private:
 
       Scan::DistortedRing::draw<W, H>(filters, canvas, basis, radius,
                                       params.thickness, shift_lut, lut_n,
-                                      ring_bound, fragment_shader);
+                                      ring_bound, fragment_shader,
+                                      /*phase=*/0.0f, /*debug_bb=*/false,
+                                      /*suppress_pole_fill=*/true);
     }
   }
 

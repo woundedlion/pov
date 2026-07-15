@@ -692,6 +692,7 @@ struct DistortedRing {
   float r_val;                    /**< Horizontal projection length of the axis. */
   float alpha_angle;              /**< Azimuth of the normal in the XZ plane. */
   float cos_max_limit, cos_min_limit; /**< Cosines of the widened band edges. */
+  bool suppress_pole_fill = false; /**< Drop the degenerate exact-pole row rather than full-row filling it (see get_horizontal_intervals). */
   static constexpr bool is_solid = false; /**< Distorted ring renders as a stroke. */
 
   /**
@@ -815,7 +816,13 @@ struct DistortedRing {
 
     float denom = r_val * sin_phi;
     if (std::abs(denom) < INTERVAL_DENOM_EPS)
-      return false;
+      // r_val cleared MIN_HORIZONTAL_PROJ above, so a vanishing denom is the
+      // exact pole row: every column aliases to the one pole point. A displaced
+      // stroke reaches the pole at a single azimuth, but the degenerate row math
+      // can't recover which column, so the default (return false) full-row scans
+      // and fills the whole aliased row -- fine for a lone ring, but a dense ring
+      // stack renders it as a solid pole cap. suppress_pole_fill drops the row.
+      return suppress_pole_fill;
 
     emit_annular_band<W>(cos_min_limit, cos_max_limit, ny, cos_phi, denom,
                          alpha_angle, out);
@@ -869,6 +876,7 @@ struct DistortedRing {
 
     res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
   }
+
 
 private:
   static constexpr int MAX_SEARCH_CELLS = 64; /**< Outward search budget per side; only near-pole chart compression approaches it. */
@@ -997,6 +1005,7 @@ struct FlatDistortedRing : private DistortedRing {
   using DistortedRing::get_horizontal_intervals;
   using DistortedRing::get_vertical_bounds;
   using DistortedRing::is_solid;
+  using DistortedRing::suppress_pole_fill;
   using DistortedRing::thickness;
 
   /**
