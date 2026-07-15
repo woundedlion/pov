@@ -32,8 +32,9 @@ plot column-cull batch (9ac8cebd/62450701/708d4b9b); the other 15 carry their
 original 2026-07-14 captures (the batch does not touch their `Scan::` path).
 DisplacementField was re-profiled 2026-07-15 after the fused-stack batch
 (ec61faa7..7d50b672), which crosses its whole cycle to 16 fps at -O3.
-RingSpin was re-profiled 2026-07-15 after the fused trail-scan landing
-(56d8c854): device-neutral at -Os (blend-bound), but at -O3 it locks 16 fps.
+RingSpin was re-profiled 2026-07-15 after the fused trail-scan landing plus
+the slim RingGroup rework (730b6d2f): -Os per-blend cost dropped ~29%
+(~14 fps effective, up from ~9.4), and -O3 hard-locks 16 fps.
 
 | Effect | Dominant scope | Render Os (ms) | Render O3 (ms) | O3× | FLASH Δ | ITCM Δ |
 |---|---|--:|--:|--:|--:|--:|
@@ -48,7 +49,7 @@ RingSpin was re-profiled 2026-07-15 after the fused trail-scan landing
 | [IslamicStars](O3/profile_islamicstars_teensy_2026-07-14.md) | per-face SDF | 43–133§ | 33–110§ | 1.16–1.51§ | +47% | +41% |
 | [Voronoi](O3/profile_voronoi_teensy_2026-07-14.md) | per-pixel KD | 77 | 57 | 1.35× | +62% | +84% |
 | ● [DisplacementField](O3/profile_displacementfield_teensy_2026-07-15.md) | fused ring-stack raster | 82.6 | 59.5 | 1.39× | +56% | +77% |
-| ● [RingSpin](O3/profile_ringspin_teensy_2026-07-15.md) | fused ring-group raster | 67 | 52 | 1.30× | +106% | +147% |
+| ● [RingSpin](O3/profile_ringspin_teensy_2026-07-15.md) | slim ring-group raster | 49.6 | 39.1 | 1.27× | +89% | +124% |
 | [Flyby](O3/profile_flyby_teensy_2026-07-14.md) | stereographic shader | 77 | 42 | 1.82× | +64% | +94% |
 | ● [HopfFibration](O3/profile_hopffibration_teensy_2026-07-14.md) | trail raster | 70.2 | 44.1 | 1.59× | +70% | +98% |
 | ● [ShapeShifter](O3/profile_shapeshifter_teensy_2026-07-14.md) | SDF scan (+plot) | 67.8 | 50.9 | 1.33× | +50% | +64% |
