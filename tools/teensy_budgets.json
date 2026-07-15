@@ -54,10 +54,10 @@
       // The ITCM code component ceiling makes growth into intra-bank padding
       // visible: RAM1 `used`/`free` don't move until a whole 32 KiB bank flips
       // (docs/selective_o3_spec.md §3/§6). Calibrated 2026-07-15 at the
-      // DisplacementField draw-path region: code 156,472 + 2,048 headroom.
+      // DisplacementField hue-table promotion: code 157,208 + 2,048 headroom.
       // Each kept HS_O3 region commit re-bumps to its own measured code + 2,048.
       "ram1":  { "max_bytes": 512000, "free_min_bytes": 12288,
-                 "components": { "code": { "max_bytes": 158520 } } },
+                 "components": { "code": { "max_bytes": 159256 } } },
       // 3.5 KiB effect-object cap plus 512 B for allocator and boot overhead.
       "ram2":  { "max_bytes": 524288, "free_min_bytes": 4096 }
     },
