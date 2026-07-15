@@ -867,7 +867,9 @@ struct DistortedRing {
 
     float dist;
     if (knots)
-      dist = polyline_distance(t_norm, polar, d);
+      dist = polyline_distance(
+          t_norm, polar, sqrtf(std::max(1.0f - d * d, POLE_SIN2_FLOOR)),
+          false);
     else
       dist = std::abs(polar - (target_angle + shift_fn(t_norm)));
 
@@ -888,25 +890,44 @@ struct DistortedRing {
    * @details Same-axis ring stacks share d/polar/t_norm across every ring at a
    * pixel; hoisting them there drops the per-ring dot/acos/atan2 recompute.
    */
-  void distance_from_frame(float d, float polar, float t_norm,
-                           DistanceResult &res) const {
+  void distance_from_frame(float d, float polar, float sin_polar, float t_norm,
+                           DistanceResult &res, bool prefiltered) const {
     if (d < cos_min_limit || d > cos_max_limit) {
       res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, thickness);
       return;
     }
     float dist;
     if (knots)
-      dist = max_distortion > 0.0f ? polyline_distance(t_norm, polar, d)
-                                   : std::abs(polar - target_angle);
+      dist = max_distortion > 0.0f
+                 ? polyline_distance(t_norm, polar, sin_polar, prefiltered)
+                 : std::abs(polar - target_angle);
     else
       dist = std::abs(polar - (target_angle + shift_fn(t_norm)));
     res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
   }
 
-private:
-  static constexpr int MAX_SEARCH_CELLS = 64; /**< Outward search budget per side; only near-pole chart compression approaches it. */
   static constexpr float POLE_SIN2_FLOOR = 1e-6f; /**< sin^2 floor keeping the chart's azimuth scale positive at the poles. */
   static constexpr int PREFILTER_CHUNKS = 32; /**< Azimuth chunks in the knot-range prefilter. */
+
+  /**
+   * @brief Merged knot range of prefilter chunk c and its two neighbours.
+   * @param c Prefilter chunk index in [0, PREFILTER_CHUNKS).
+   * @param lo Output: min knot over the 3-chunk window.
+   * @param hi Output: max knot over the 3-chunk window.
+   * @details Knot mode only. The window bounds every polyline point a pixel in
+   * chunk c can be within stroke reach of when a chunk's arc exceeds that
+   * reach, so callers batching rings can reject a ring before its distance
+   * call with the same gap test the polyline search applies.
+   */
+  void prefilter_band(int c, float &lo, float &hi) const {
+    int cl = c == 0 ? PREFILTER_CHUNKS - 1 : c - 1;
+    int cr = c == PREFILTER_CHUNKS - 1 ? 0 : c + 1;
+    lo = std::min(chunk_lo[cl], std::min(chunk_lo[c], chunk_lo[cr]));
+    hi = std::max(chunk_hi[cl], std::max(chunk_hi[c], chunk_hi[cr]));
+  }
+
+private:
+  static constexpr int MAX_SEARCH_CELLS = 64; /**< Outward search budget per side; only near-pole chart compression approaches it. */
 
   float chunk_lo[PREFILTER_CHUNKS]; /**< Min knot per azimuth chunk (knot mode). */
   float chunk_hi[PREFILTER_CHUNKS]; /**< Max knot per azimuth chunk (knot mode). */
@@ -915,7 +936,10 @@ private:
    * @brief Distance from a pixel to the knot polyline.
    * @param t_norm Pixel azimuth in [0, 1) (phase applied).
    * @param polar Pixel polar angle (radians).
-   * @param cos_polar Pixel dot ring axis (= cos(polar)).
+   * @param sin_polar sqrtf(max(1 - d * d, POLE_SIN2_FLOOR)) for the pixel;
+   *        hoisted to the caller so a ring stack pays it once per pixel.
+   * @param prefiltered When true the caller already applied the 3-chunk gap
+   *        test (prefilter_band) and it did not reject; skip it here.
    * @return Geodesic distance to the nearest polyline point (radians), exact
    *         within the local tangent chart for distances up to `thickness`;
    *         beyond that reach only the > thickness ordering is preserved.
@@ -928,9 +952,8 @@ private:
    * along the centerline the way slope-corrected vertical-distance estimates
    * do at curvature extrema.
    */
-  float polyline_distance(float t_norm, float polar, float cos_polar) const {
-    float sin_polar =
-        sqrtf(std::max(1.0f - cos_polar * cos_polar, POLE_SIN2_FLOOR));
+  float polyline_distance(float t_norm, float polar, float sin_polar,
+                          bool prefiltered) const {
     const float base = target_angle - polar; // knot m sits at v = base + knots[m]
 
     // Prefilter: when a chunk's arc exceeds the stroke reach, only the pixel's
@@ -938,14 +961,12 @@ private:
     // whose polar offset clears all three knot ranges by more than thickness
     // skips the segment search (most band pixels, in a displaced ring).
     const float chunk_u = (2.0f * PI_F / PREFILTER_CHUNKS) * sin_polar;
-    if (chunk_u >= thickness) {
+    if (!prefiltered && chunk_u >= thickness) {
       int c = static_cast<int>(t_norm * PREFILTER_CHUNKS);
       if (c >= PREFILTER_CHUNKS)
         c = PREFILTER_CHUNKS - 1;
-      int cl = c == 0 ? PREFILTER_CHUNKS - 1 : c - 1;
-      int cr = c == PREFILTER_CHUNKS - 1 ? 0 : c + 1;
-      float lo = std::min(chunk_lo[cl], std::min(chunk_lo[c], chunk_lo[cr]));
-      float hi = std::max(chunk_hi[cl], std::max(chunk_hi[c], chunk_hi[cr]));
+      float lo, hi;
+      prefilter_band(c, lo, hi);
       float gap = std::max(base + lo, -(base + hi));
       if (gap > thickness)
         return gap;
