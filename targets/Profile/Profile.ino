@@ -36,6 +36,13 @@
 #define HS_PROFILE_WINDOW 128
 #endif
 
+// Further per-run knobs consumed elsewhere (all via PLATFORMIO_BUILD_FLAGS):
+//   HS_PROFILE_EPOCH_REVS    epoch length override (pov_segmented.h) so one
+//                            instance covers a full preset cycle
+//   HS_PROFILE_ORDERED_CYCLE random-next cyclers advance in order instead
+//                            (HankinSolids, SphericalHarmonics)
+//   HS_PROFILE_TRANS_SPEED   "Trans Speed" applied after init (below)
+
 #define HS_PROFILE_STR2(x) #x
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
 
