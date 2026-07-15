@@ -317,11 +317,16 @@ private:
    * endless morph chain.
    */
   void start_morph() {
+#ifdef HS_PROFILE_ORDERED_CYCLE
+    next_idx = (current_idx % MAX_MODE_IDX) + 1;
+#else
     // Re-roll on a match with current_idx: blending a basis function into
     // itself would freeze the sphere for the whole transition.
     do {
       next_idx = hs::rand_int(1, MAX_MODE_IDX + 1);
     } while (next_idx == current_idx);
+#endif
+    hs::log("Mode: %d/%d", next_idx, MAX_MODE_IDX);
 
     timeline.add(
         0, Animation::Transition(morph_alpha, 1.0f, 64, ease_linear, false, false)
