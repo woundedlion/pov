@@ -1631,6 +1631,46 @@ inline void test_deep_tween_all_collapsed_reaches_one() {
 }
 
 /**
+ * @brief Verifies deep_tween_frames groups deep_tween's emission by frame.
+ * @details Callback k receives frame k's contribution — M sub-positions for
+ * the first frame, M-1 (shared boundary skipped) after — and the concatenated
+ * (quaternion, t) stream equals deep_tween's exactly.
+ */
+inline void test_deep_tween_frames_groups_flat_emission() {
+  using Ori = Orientation<8>;
+  Animation::OrientationTrail<Ori, 8> trail;
+  const int N = 3, M = 4;
+  for (int k = 0; k < N; ++k) {
+    Ori o;
+    o.push(make_rotation(Z_AXIS, 0.3f * (k + 1)));
+    o.upsample(M);
+    trail.record(o);
+  }
+
+  std::vector<std::pair<Quaternion, float>> flat;
+  deep_tween(trail, [&](const Quaternion &q, float t) {
+    flat.emplace_back(q, t);
+  });
+
+  size_t idx = 0;
+  int frames = 0;
+  deep_tween_frames(
+      trail, [&](const Quaternion *qs, const float *ts, int count) {
+        HS_EXPECT_EQ(count, frames == 0 ? M : M - 1);
+        for (int i = 0; i < count && idx < flat.size(); ++i, ++idx) {
+          HS_EXPECT_EQ(qs[i].r, flat[idx].first.r);
+          HS_EXPECT_EQ(qs[i].v.x, flat[idx].first.v.x);
+          HS_EXPECT_EQ(qs[i].v.y, flat[idx].first.v.y);
+          HS_EXPECT_EQ(qs[i].v.z, flat[idx].first.v.z);
+          HS_EXPECT_EQ(ts[i], flat[idx].second);
+        }
+        ++frames;
+      });
+  HS_EXPECT_EQ(idx, flat.size());
+  HS_EXPECT_EQ(frames, N);
+}
+
+/**
  * @brief Verifies a motionless interior frame leaves no hole in the age ramp.
  * @details A moving / motionless / moving trail: the length-1 interior frame
  * contributes no sample and is excluded from the span, so the remaining moving
@@ -2298,6 +2338,7 @@ inline int run_animation_tests() {
   test_deep_tween_global_t_spans_unit_interval();
   test_deep_tween_collapsed_newest_frame_reaches_one();
   test_deep_tween_all_collapsed_reaches_one();
+  test_deep_tween_frames_groups_flat_emission();
   test_deep_tween_interior_motionless_frame_no_gap();
   test_tween_vectortrail_single_sample_reaches_one();
 

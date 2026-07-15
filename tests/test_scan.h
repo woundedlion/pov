@@ -338,6 +338,97 @@ inline void test_distorted_ring_flat_matches_zero_knot_raster() {
 }
 
 /**
+ * @brief Verifies RingGroup::draw matches per-ring sequential rasterizes
+ *        up to interval-clip AA dust.
+ * @details Four near-coincident rings with distinct colors, alphas, and
+ * thicknesses, drawn sequentially vs as one fused group. Per-pixel blend
+ * order is slot order in both paths; the only permitted divergence is the
+ * handful of AA-tail pixels (alpha barely above the 0.001 cutoff) that the
+ * per-ring interval clip drops but the union scan paints, so mismatches must
+ * be both rare and small. Covered: full frame, a partial clip with an x
+ * band, and a near-pole axis that forces the group's full-row-scan fallback.
+ */
+inline void test_ring_group_matches_sequential() {
+  constexpr int W = 96, H = 64;
+  constexpr int N = 4;
+
+  auto run_case = [&](const Vector &normal, bool partial_clip) {
+    Basis bases[N];
+    const float ths[N] = {0.08f, 0.04f, 0.04f, 0.08f};
+    const Color4 colors[N] = {Color4(Pixel(60000, 10000, 5000), 0.9f),
+                              Color4(Pixel(5000, 60000, 10000), 0.6f),
+                              Color4(Pixel(10000, 5000, 60000), 0.4f),
+                              Color4(Pixel(30000, 30000, 30000), 0.7f)};
+    alignas(SDF::Ring) unsigned char mem[N * sizeof(SDF::Ring)];
+    auto *shapes = reinterpret_cast<SDF::Ring *>(mem);
+    for (int s = 0; s < N; ++s) {
+      Quaternion q =
+          make_rotation(Vector(0.2f, 0.5f, 0.8f).normalized(), 0.02f * s);
+      bases[s] = make_basis(q, normal);
+      new (&shapes[s]) SDF::Ring(bases[s], 1.0f, ths[s]);
+    }
+
+    std::vector<Pixel> expected(W * H);
+    {
+      ScanFx seq(W, H);
+      if (partial_clip) {
+        seq.set_clip(9, 53, 17, 81);
+        seq.set_margin(0);
+      }
+      Pipeline<W, H> pipeline;
+      {
+        Canvas canvas(seq);
+        for (int s = 0; s < N; ++s) {
+          auto shader = [&](const Vector &, Fragment &f) {
+            f.color = colors[s];
+          };
+          Scan::rasterize<W, H, false>(pipeline, canvas, shapes[s], shader);
+        }
+      }
+      seq.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          expected[y * W + x] = seq.get_pixel(x, y);
+    }
+
+    ScanFx fused(W, H);
+    if (partial_clip) {
+      fused.set_clip(9, 53, 17, 81);
+      fused.set_margin(0);
+    }
+    Pipeline<W, H> pipeline;
+    {
+      Canvas canvas(fused);
+      Scan::RingGroup::draw<W, H>(
+          pipeline, canvas, shapes, N,
+          [&](int s, const Vector &, Fragment &f) { f.color = colors[s]; });
+    }
+    fused.advance_display();
+
+    int diff_px = 0;
+    for (int y = 0; y < H; ++y) {
+      for (int x = 0; x < W; ++x) {
+        const Pixel &a = expected[y * W + x];
+        const Pixel &b = fused.get_pixel(x, y);
+        if (a.r == b.r && a.g == b.g && a.b == b.b)
+          continue;
+        ++diff_px;
+        HS_EXPECT_NEAR(static_cast<int>(a.r), static_cast<int>(b.r), 128);
+        HS_EXPECT_NEAR(static_cast<int>(a.g), static_cast<int>(b.g), 128);
+        HS_EXPECT_NEAR(static_cast<int>(a.b), static_cast<int>(b.b), 128);
+      }
+    }
+    HS_EXPECT_LE(diff_px, 16);
+  };
+
+  run_case(Vector(0.3f, 0.8f, -0.5f).normalized(), false);
+  run_case(Vector(0.3f, 0.8f, -0.5f).normalized(), true);
+  // Near-pole axis: r_val under the horizontal-projection floor forces the
+  // group's full-row-scan fallback.
+  run_case(Vector(0.005f, 1.0f, 0.0f).normalized(), false);
+}
+
+/**
  * @brief Verifies the scan_region seam coalescer avoids double-plotting.
  * @details A span crossing x=0 must not double-plot the wrapped overlap shared
  * with another span. Drives scan_region with a sorted two-span row (a low span
@@ -1212,6 +1303,7 @@ inline int run_scan_tests() {
   test_stroke_aa_is_monotone_ramp();
   test_ring_rasterize_empty_clip_draws_nothing();
   test_distorted_ring_flat_matches_zero_knot_raster();
+  test_ring_group_matches_sequential();
   test_scan_shader_v2_contract();
   test_scan_region_seam_no_double_plot();
   test_scan_region_fractional_boundary_no_double_plot();

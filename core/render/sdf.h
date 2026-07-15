@@ -568,13 +568,10 @@ struct Ring {
     float cos_phi = TrigLUT<W, H>::cos_phi[y];
     float sin_phi = TrigLUT<W, H>::sin_phi[y];
 
-    if (r_val < MIN_HORIZONTAL_PROJ)
+    if (needs_full_row_scan(sin_phi))
       return false;
 
     float denom = r_val * sin_phi;
-    if (std::abs(denom) < INTERVAL_DENOM_EPS)
-      return false;
-
     float ny_cos_phi = ny * cos_phi;
     float C_target = (cos_target - ny_cos_phi) / denom;
     float scale = W / (2.0f * PI_F);
@@ -617,6 +614,17 @@ struct Ring {
     // Annular band: exact intervals for near-tangent / out-of-range rows
     emit_annular_band<W>(cos_min, cos_max, ny, cos_phi, denom, alpha_angle, out);
     return true;
+  }
+
+  /**
+   * @brief Whether row interval math is degenerate and the row must be
+   *        full-row scanned.
+   * @param sin_phi sin of the row's colatitude.
+   * @return True when get_horizontal_intervals would return false at this row.
+   */
+  bool needs_full_row_scan(float sin_phi) const {
+    return r_val < MIN_HORIZONTAL_PROJ ||
+           std::abs(r_val * sin_phi) < INTERVAL_DENOM_EPS;
   }
 
   /**

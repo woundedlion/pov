@@ -754,6 +754,116 @@ struct Ring {
 };
 
 /**
+ * @brief Fused single-pass rasterizer for a small group of rings.
+ */
+struct RingGroup {
+  /**
+   * @brief Rasterizes every ring of a group in one scan over the union band.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam RingShaderT Per-ring shader: shader(int slot, const Vector &p,
+   *         Fragment &f), with f populated as by process_pixel (v1 = raw
+   *         distance, v2 = stroke coverage; no UVs).
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param shapes Ring shapes in draw order.
+   * @param n Number of shapes; at least 1.
+   * @param shader Per-ring fragment shader (see RingShaderT).
+   * @param debug_bb When true, falls back to per-ring rasterizes so the
+   *        bounding-box tint keeps per-shape scan bounds.
+   * @details Rows are the union of the members' bands, and each row's
+   * intervals are every member's intervals (a row any member full-scans is
+   * full-scanned for the group). Per pixel the members evaluate in ascending
+   * slot order, so blend order matches rasterizing the rings one by one; the
+   * only output divergence is AA-tail pixels (alpha barely above the 0.001
+   * cutoff) that a member's own interval clip drops but the union scan
+   * paints.
+   */
+  template <int W, int H, typename PipelineT, typename RingShaderT>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
+                   int n, RingShaderT &&shader, bool debug_bb = false) {
+    if (debug_bb || canvas.debug()) {
+      for (int s = 0; s < n; ++s) {
+        auto slot_shader = [&](const Vector &p, Fragment &f) { shader(s, p, f); };
+        Scan::rasterize<W, H, false>(pipeline, canvas, shapes[s], slot_shader,
+                                     true);
+      }
+      return;
+    }
+
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+
+    static constexpr int MAX_RINGS = 8;
+    HS_CHECK(n >= 1 && n <= MAX_RINGS);
+    int sy_min[MAX_RINGS], sy_max[MAX_RINGS];
+    int y_lo = H, y_hi = -1;
+    for (int s = 0; s < n; ++s) {
+      auto b = shapes[s].template get_vertical_bounds<H>();
+      sy_min[s] = b.y_min;
+      sy_max[s] = b.y_max;
+      y_lo = std::min(y_lo, b.y_min);
+      y_hi = std::max(y_hi, b.y_max);
+    }
+    const auto &cr = canvas.clip();
+    y_lo = std::max(y_lo, cr.render_y_start());
+    y_hi = std::min(y_hi, cr.render_y_end() - 1);
+    if (y_lo > y_hi)
+      return;
+
+    SDF::DistanceResult res;
+    Fragment frag;
+    ScopedRenderTimer timer_guard(canvas);
+    scan_region<W, H>(
+        y_lo, y_hi,
+        [&](int y, auto &&out) {
+          // All-or-nothing: scan_region ignores emitted intervals on a false
+          // return but never clears them, so probe before any emission.
+          float sin_phi = TrigLUT<W, H>::sin_phi[y];
+          for (int s = 0; s < n; ++s)
+            if (shapes[s].needs_full_row_scan(sin_phi))
+              return false;
+          for (int s = 0; s < n; ++s)
+            shapes[s].template get_horizontal_intervals<W, H>(y, out);
+          return true;
+        },
+        [&](int x, int y, const Vector &p) {
+          for (int s = 0; s < n; ++s) {
+            // Band gate: bounds pad (0.95 * thickness) is narrower than the
+            // SDF's own band, so an out-of-band row can still eval alpha >
+            // 0.001; gating keeps each slot's domain identical to its solo
+            // rasterize.
+            if (y < sy_min[s] || y > sy_max[s])
+              continue;
+            shapes[s].template distance<false>(p, res);
+            const float d = res.dist;
+            if (d >= 0.0f)
+              continue;
+            // process_pixel's stroke epilogue with a slot-aware shader.
+            const float aa = res.size;
+            const float alpha = aa > 0.0f ? quintic_kernel(-d / aa) : 0.0f;
+            if (alpha <= 0.001f)
+              continue;
+            frag.color = Color4(0, 0, 0, 0);
+            frag.pos = p;
+            frag.v0 = res.t;
+            frag.v1 = res.raw_dist;
+            frag.v2 = alpha;
+            frag.v3 = res.aux;
+            frag.size = res.size;
+            frag.age = 0;
+            shader(s, p, frag);
+            if (frag.color.alpha > 0.001f)
+              pipeline.plot(canvas, x, y, frag.color.color, frag.age,
+                            frag.color.alpha * alpha);
+          }
+        },
+        cr.x_clip());
+  }
+};
+
+/**
  * @brief Draws a solid circle (filled ring).
  */
 struct Circle {
