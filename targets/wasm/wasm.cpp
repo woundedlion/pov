@@ -291,7 +291,7 @@ public:
 
     // Bootstrap default; daydream overrides it almost immediately.
     setResolution(96, 20);
-    HS_CHECK(setEffect("DistortedRing"));
+    HS_CHECK(setEffect("DisplacementField"));
   }
 
   /**

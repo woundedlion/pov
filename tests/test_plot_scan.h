@@ -1980,14 +1980,14 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
 /**
  * @brief The segment cull follows a filter-chain orientation: an edge the
  *        World::Orient stage rotates into a clip band is drawn, not culled.
- * @details When orientation lives in the filter chain (FlowField) the rasterizer
+ * @details When orientation lives in the filter chain the rasterizer
  *          must bound the edge by its RENDERED latitude, so the cull is routed
  *          through the pipeline. 90° about X maps the equatorial +X->+Z arc onto
  *          a polar meridian, so the rendered arc reaches the bottom band the
  *          source arc never touches; a band-clipped worker there must match the
  *          full render. Without the pipeline-routed cull the edge is bounded by
  *          its un-rotated (equatorial) latitude and dropped — the segmented-mode
- *          FlowField clipping bug (docs/segmented_stateful_effects_spec.md).
+ *          filter-orientation clipping bug (docs/segmented_stateful_effects_spec.md).
  */
 inline void test_rasterize_cull_follows_filter_orientation() {
   constexpr int W = 128, H = 64;

@@ -1617,18 +1617,6 @@ A latitude-longitude grid that undergoes live Möbius transformation animation v
 </td></tr></table>
 
 <table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=FlowField" target="_blank"><img src="docs/screenshots/FlowField.png" alt="FlowField" width="280"></a></td>
-<td valign="top">
-
-#### FlowField
-
-FastNoiseLite-driven flow field. Three independently offset 3D-noise channels form a per-particle force vector that is added to each particle's velocity (not curl noise, not a scalar gradient).
-
-**Parameters**: Scale, Force, Max Spd, Alpha, Time Spd
-
-</td></tr></table>
-
-<table border="0"><tr>
 <td width="300"><a href="https://woundedlion.github.io/daydream/?effect=Voronoi" target="_blank"><img src="docs/screenshots/Voronoi.png" alt="Voronoi" width="280"></a></td>
 <td valign="top">
 
@@ -1805,18 +1793,6 @@ Volumetric raymarcher that renders twisted tori at the 26 vertices of a disdyaki
 Stereographic-projection shader (extends `Effect` directly) with noise-driven warp distortion. A single `Rotation` animation continuously rotates the tangent plane around the Y-axis, producing a fly-through effect on the sphere surface. Uses `Scan::Shader::draw` for full-screen pixel shading with a baked palette.
 
 **Parameters**: Warp Scale, Warp Strength, Pattern Freq, Speed, Pole Fade, Drift, Hue Shift
-
-</td></tr></table>
-
-<table border="0"><tr>
-<td width="300"><a href="https://woundedlion.github.io/daydream/?effect=DistortedRing" target="_blank"><img src="docs/screenshots/DistortedRing.png" alt="DistortedRing" width="280"></a></td>
-<td valign="top">
-
-#### DistortedRing
-
-Concentric rings built from per-azimuth distorted ring SDFs, their radii oscillating via a sine-wave amplitude mutation while a random walk slowly reorients the stack.
-
-**Parameters**: Alpha, MaxAmplitude, Thickness, Rings, Show Bounding
 
 </td></tr></table>
 

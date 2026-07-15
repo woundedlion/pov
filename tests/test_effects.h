@@ -1253,102 +1253,6 @@ inline void test_petalflow_spawn_gap_bounded() {
 }
 
 /**
- * @brief White-box accessor for DistortedRing's palette-modifier drivers
- *        (befriended in effects/DistortedRing.h).
- */
-struct DistortedRingWhiteBox {
-  using DR = DistortedRing<DEFAULT_W, DEFAULT_H>;
-  static float spin(const DR &dr) { return dr.spin_amount; }
-  static float phase(const DR &dr) { return dr.mod_phase; }
-  static float mod_time(const DR &dr) { return dr.mod_time; }
-  static bool mod_time_forward(const DR &dr) { return dr.mod_time_forward; }
-  static float mod_time_step() { return DR::MOD_TIME_STEP; }
-  static float mod_time_limit() { return DR::MOD_TIME_LIMIT; }
-  static void set_mod_time(DR &dr, float time) { dr.mod_time = time; }
-  static void step_mod_drivers(DR &dr) { dr.step_mod_drivers(); }
-  static int mode_count() {
-    return static_cast<int>(sizeof(DR::PALETTE_MODS) /
-                            sizeof(DR::PALETTE_MODS[0]));
-  }
-};
-
-/**
- * @brief Verifies modulation time reverses at both bounds without resetting.
- * @details Pins the float-stall threshold, then requires the bounded driver's
- *          descending sample to move while remaining near its endpoint.
- */
-inline void test_distorted_ring_mod_time_reverses_at_bounds() {
-  using WB = DistortedRingWhiteBox;
-  WB::DR dr;
-  const float STALL_TIME = 1048576.0f;
-  const float LIMIT = WB::mod_time_limit();
-
-  HS_EXPECT_EQ(STALL_TIME + WB::mod_time_step(), STALL_TIME);
-  HS_EXPECT_LT(LIMIT, STALL_TIME);
-
-  WB::set_mod_time(dr, LIMIT);
-  WB::step_mod_drivers(dr);
-  HS_EXPECT_FALSE(WB::mod_time_forward(dr));
-  HS_EXPECT_LT(WB::mod_time(dr), LIMIT);
-  HS_EXPECT_GT(WB::mod_time(dr), LIMIT - 1.0f);
-
-  WB::set_mod_time(dr, 0.0f);
-  WB::step_mod_drivers(dr);
-  HS_EXPECT_TRUE(WB::mod_time_forward(dr));
-  HS_EXPECT_GT(WB::mod_time(dr), 0.0f);
-  HS_EXPECT_LT(WB::mod_time(dr), 1.0f);
-}
-
-/**
- * @brief Verifies every "Palette Mod" dropdown option renders a frame stream
- *        distinct from "None", and the periodic drivers stay wrapped.
- * @details Identical seeds and mock clock per run, so the only degree of
- *          freedom is the selected composition — a differing frame fold proves
- *          the selected modifier actually shades the rings.
- */
-inline void test_distorted_ring_palette_mod_selection() {
-  using WB = DistortedRingWhiteBox;
-  const int frames = 12;
-
-  auto fold_for = [&](float mode) -> uint64_t {
-    reset_effect_globals();
-    GenerativePalette::reset_hue_seed(0);
-    hs::set_mock_time(0, 0);
-    WB::DR dr;
-    dr.init();
-    HS_EXPECT_TRUE(dr.updateParameter("Palette Mod", mode));
-    for (int f = 0; f < frames; ++f) {
-      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
-                        static_cast<unsigned long>(f) * FRAME_US);
-      dr.draw_frame();
-      dr.advance_display();
-    }
-    HS_EXPECT_GE(WB::spin(dr), 0.0f);
-    HS_EXPECT_LT(WB::spin(dr), 1.0f);
-    HS_EXPECT_GE(WB::phase(dr), 0.0f);
-    HS_EXPECT_LT(WB::phase(dr), 2.0f * PI_F);
-
-    uint64_t fold = 1469598103934665603ull; // FNV-1a offset basis
-    for (int y = 0; y < DEFAULT_H; ++y)
-      for (int x = 0; x < DEFAULT_W; ++x) {
-        const Pixel p = dr.get_pixel(x, y);
-        for (uint16_t c : {p.r, p.g, p.b}) {
-          fold ^= c & 0xFF;
-          fold *= 1099511628211ull; // FNV-1a prime
-          fold ^= c >> 8;
-          fold *= 1099511628211ull;
-        }
-      }
-    return fold;
-  };
-
-  const uint64_t base = fold_for(0.0f);
-  for (int mode = 1; mode < WB::mode_count(); ++mode)
-    HS_EXPECT_TRUE(fold_for(static_cast<float>(mode)) != base);
-  hs::clear_mock_time();
-}
-
-/**
  * @brief White-box accessor for DisplacementField's hue-table bake.
  */
 struct DisplacementFieldWhiteBox {
@@ -1957,49 +1861,6 @@ inline void test_mobiusgrid_conformal_and_counter_rotation() {
 }
 
 /**
- * @brief White-box accessor for FlowField's noise-time and particle pool
- *        (befriended in effects/FlowField.h).
- */
-struct FlowFieldWhiteBox {
-  using FF = FlowField<DEFAULT_W, DEFAULT_H>;
-  static float noise_time(const FF &ff) { return ff.t; }
-  static float time_period() { return FF::TIME_PERIOD; }
-  static uint16_t active_count(const FF &ff) {
-    return ff.particle_system.active();
-  }
-  static size_t pool_capacity(const FF &ff) {
-    return ff.particle_system.pool.capacity();
-  }
-};
-
-/**
- * @brief Verifies FlowField's noise-time stays in [0, TIME_PERIOD) and the
- *        particle pool never exceeds capacity.
- * @details draw_frame wraps t by fmodf(., TIME_PERIOD); the emitter back-fills
- *          the pool to capacity every frame, so active_count must hold at exactly
- *          capacity without overrun. Run at the Time Spd top so t advances fast.
- */
-inline void test_flowfield_time_and_pool_bounded() {
-  using WB = FlowFieldWhiteBox;
-  reset_effect_globals();
-  WB::FF ff;
-  ff.init();
-  ff.updateParameter("Time Spd", 0.05f); // slider top: t advances fast
-
-  const float period = WB::time_period();
-  const int frames = smoke_frames() < 64 ? 64 : smoke_frames();
-  for (int f = 0; f < frames; ++f) {
-    ff.draw_frame();
-    ff.advance_display();
-    const float nt = WB::noise_time(ff);
-    HS_EXPECT_GE(nt, 0.0f);
-    HS_EXPECT_LT(nt, period);
-    HS_EXPECT_LE(static_cast<size_t>(WB::active_count(ff)),
-                 WB::pool_capacity(ff));
-  }
-}
-
-/**
  * @brief White-box accessor for RingSpin's live ring count (befriended in
  *        effects/RingSpin.h).
  */
@@ -2391,8 +2252,6 @@ inline int run_effects_tests() {
     DynamoWhiteBox::check_overlapping_wipes_stay_in_range();
     test_hopf_projection_math();
     test_petalflow_spawn_gap_bounded();
-    test_distorted_ring_mod_time_reverses_at_bounds();
-    test_distorted_ring_palette_mod_selection();
     test_displacement_field_lazy_hue_table_matches_eager();
     test_displacement_field_hue_table_fidelity();
     test_displacement_field_hue_table_frame_fidelity();
@@ -2403,7 +2262,6 @@ inline int run_effects_tests() {
     test_liquid2d_phase_wrapped();
     test_liquid2d_glitch_lens_unit_norm();
     test_mobiusgrid_conformal_and_counter_rotation();
-    test_flowfield_time_and_pool_bounded();
     test_ringspin_pool_clamped();
     test_shapeshifter_shape_cut_lifecycle();
     test_shapeshifter_max_radius_survives_cycle();
