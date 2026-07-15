@@ -311,6 +311,27 @@ def evaluate(
                 f"{env}: {region.upper()} free-for-local-variables "
                 f"{measured.get('free', 0):,} B is below the {floor:,} B floor "
                 f"(stack headroom squeezed)."))
+        # Per-component ceilings (§8): code growing into intra-bank padding moves
+        # bytes between components of the same region sum, invisible to the region
+        # ceiling until the bank cliff. A configured component absent from the
+        # parsed output is a hard failure (a renamed teensy_size field must not
+        # silently disable its ceiling).
+        for cname, cspec in spec.get("components", {}).items():
+            cmeasured = measured.get("components", {}).get(cname)
+            if cmeasured is None:
+                v.append(Violation(
+                    "component-missing",
+                    f"{env}: {region.upper()} component '{cname}' not reported "
+                    f"by the size output - renamed/removed field? A missing "
+                    f"component is a hard failure, never a silent pass."))
+                continue
+            ccap = cspec.get("max_bytes")
+            if ccap is not None and cmeasured > ccap:
+                v.append(Violation(
+                    "component-over-budget",
+                    f"{env}: {region.upper()} component '{cname}' uses "
+                    f"{cmeasured:,} B, over the {ccap:,} B ceiling "
+                    f"(by {cmeasured - ccap:,} B)."))
 
     # --- Layout invariants: symbol -> region (+ magnitude) (§7.4 #1-#3) ---
     for key, spec in budget.get("symbols", {}).items():
