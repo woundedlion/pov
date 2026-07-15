@@ -68,7 +68,6 @@ public:
 
     // One pixel of azimuth in ring-space.
     const float px = 2.0f * PI_F / W;
-    params.thickness = 0.04f;
 
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Rings", &params.num_rings, 1.0f, 72.0f);
@@ -647,7 +646,7 @@ private:
   struct Params {
     float alpha = 0.3f;       /**< Overall ring opacity multiplier in [0, 1]. */
     float num_rings = 48.0f;  /**< Number of evenly spaced rings (truncated to int when drawn). */
-    float thickness = 0.035f;  /**< Stroke half-width (radians), set by init(). */
+    float thickness = 0.035f;  /**< Stroke half-width (radians). */
     float ball_amp = 0.1f;    /**< Ball drape strength; scaled by BALL_DRAPE_PER_AMPLITUDE into the drape gain. */
     float noise_amp = 0.2f;   /**< Peak polar displacement (radians) of the noise phase. */
     float scale1 = 1.5f;      /**< Spatial frequency of the envelope octave; its zero regions leave rings undisturbed. */
