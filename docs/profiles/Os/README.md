@@ -24,8 +24,9 @@ other 21 used a single ~75 s pass at 64-frame windows.
 "Render/frame" is the effect's own work (frame minus the `*_buffer_wait`
 display-sync idle). Cadence is the observed steady/representative fps.
 
-**●** = re-profiled 2026-07-14 after the plot column-cull batch (peak/steady
-render, whichever bounds cadence). Ranked by `-Os` render/frame (ms), heaviest
+**●** = re-profiled after a later landed batch (2026-07-14 plot column-cull;
+DisplacementField 2026-07-15 fused-stack scan), peak/steady render, whichever
+bounds cadence. Ranked by `-Os` render/frame (ms), heaviest
 first.
 
 | Effect | Render/frame | Cadence | Dominant cost (scope) | Bound by |
@@ -36,11 +37,11 @@ first.
 | [Raymarch](profile_raymarch_teensy_2026-07-14.md) | 121 ms | 8 fps | volume ray-march (`rm_shader_draw` 86%) | per-pixel shader (11.7 µs/px) |
 | ● [DreamBalls](profile_dreamballs_teensy_2026-07-14.md) | 109 ms (peak) | 5–8 fps | wireframe raster (`db_mesh_plot` 77%) | mesh wireframe raster |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-07-14.md) | 108 ms | 8 fps | SSAA raster 57% + simulate 28% | RD simulate + SSAA shader |
-| [DisplacementField](profile_displacementfield_teensy_2026-07-14.md) | 105 ms | 8 fps | SDF ring raster (`df_ring_scan` 69%) | SDF ring rasterizer |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-07-14.md) | 104 ms | 8 fps | SSAA raster (`bz_raster` 75%) | SSAA shader (light simulate) |
 | ● [MindSplatter](profile_mindsplatter_teensy_2026-07-14.md) | 100 ms | 8 fps | particle raster (`msp_particle_scan` 77%) | particle rasterizer |
 | [IslamicStars](profile_islamicstars_teensy_2026-07-14.md) | 43–133 ms (per shape) | 5–16 fps | per-face SDF (`scan_mesh_raster`) | mesh SDF rasterizer |
 | [Voronoi](profile_voronoi_teensy_2026-07-14.md) | 77 ms | 8 fps | KD-nearest shade (`vo_shade` 61%) | per-pixel query (7.4 µs/px) |
+| ● [DisplacementField](profile_displacementfield_teensy_2026-07-15.md) | 82.6 ms | 8 fps | fused stack raster (`df_fused_scan` 50%) | SDF ring rasterizer |
 | [RingSpin](profile_ringspin_teensy_2026-07-14.md) | 77 ms | 8 fps | SDF ring raster (`rs_ring_scan` 61%) | SDF ring raster (4.5× overdraw) |
 | [Flyby](profile_flyby_teensy_2026-07-14.md) | 50–77 ms | 8–16 fps | stereographic shader (`fly_shader_draw` 62%) | per-pixel shader |
 | ● [HopfFibration](profile_hopffibration_teensy_2026-07-14.md) | 70 ms (peak) | 8–16 fps | trail raster (`hf_trail_raster` 62%) | trail rasterizer |
