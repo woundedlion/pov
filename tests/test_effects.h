@@ -999,7 +999,8 @@ struct CometsWhiteBox {
   static void check_paths_close() {
     using C = Comets<DEFAULT_W, DEFAULT_H>;
     int idx = 0;
-    for (const LissajousParams &cfg : C::functions) {
+    for (const PresetEntry<LissajousParams> &entry : C::FUNCTIONS) {
+      const LissajousParams &cfg = entry.params;
       const float cd = C::closing_domain(cfg);
       HS_EXPECT_GT(cd, 0.0f); // floor-at-1 keeps the head moving
       // Every authored entry must clear the floor (m2*domain >= PI rounds to >= 1
