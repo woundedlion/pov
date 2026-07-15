@@ -129,6 +129,8 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
  *                      intervals via out(start, end). Returns true if intervals
  *                      were produced, false for full-row scan.
  * @param pixel_fn (int wx, int y, const Vector &p) -> void, called per pixel.
+ * @param xc Column-arc clip; pixel runs are intersected with the arc before
+ *           walking, so pixel_fn is never called for a clipped column.
  * @details Iterates y in [y_min, y_max], collects float intervals per row via
  * get_intervals, wraps x coordinates, and calls pixel_fn(wx, y, p) per pixel.
  *
@@ -142,7 +144,7 @@ inline void process_pixel(int x, int y, const Vector &p, PipelineT &pipeline,
  */
 template <int W, int H, typename IntervalFn, typename PixelFn>
 inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
-                        PixelFn &&pixel_fn) {
+                        PixelFn &&pixel_fn, ClipRegion::XClip xc = {}) {
   if (!TrigLUT<W, H>::initialized)
     TrigLUT<W, H>::init();
 
@@ -172,6 +174,24 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
   const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
 
+  auto walk = [&](int x1, int x2, int y, float sp, float cp) {
+    for (int x = x1; x < x2; ++x)
+      pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
+  };
+  // Intersect a coalesced run [x1, x2) with the clip arc before walking. A
+  // wrapping arc is [rs, W) ∪ [0, re); the two pieces are disjoint (re <= rs),
+  // so no column is walked twice.
+  auto walk_clipped = [&](int x1, int x2, int y, float sp, float cp) {
+    if (!xc.active) {
+      walk(x1, x2, y, sp, cp);
+    } else if (xc.wrap) {
+      walk(std::max(x1, xc.rs), x2, y, sp, cp);
+      walk(x1, std::min(x2, xc.re), y, sp, cp);
+    } else {
+      walk(std::max(x1, xc.rs), std::min(x2, xc.re), y, sp, cp);
+    }
+  };
+
   // Inverted range (y_min > y_max) is a no-op: a disjoint CSG Intersection or a
   // fully-culled Face reports y_min=1, y_max=0, and the loop never runs.
   for (int y = y_min; y <= y_max; ++y) {
@@ -195,8 +215,7 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
       }
 
       if (full_row) {
-        for (int x = 0; x < W; ++x)
-          pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
+        walk_clipped(0, W, y, sp, cp);
       } else {
         // Wrap each start into [0, W) and split any span crossing the x=0 seam so
         // the forward-sweep coalescer sees sorted, non-wrapping spans even when a
@@ -234,14 +253,12 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
           if (x1 < last_x2)
             x1 = last_x2;
           last_x2 = x2;
-          for (int x = x1; x < x2; ++x)
-            pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
+          walk_clipped(x1, x2, y, sp, cp);
         }
       }
       intervals.clear();
     } else if (!handled) {
-      for (int x = 0; x < W; ++x)
-        pixel_fn(x, y, Vector(sp * cos_theta[x], cp, sp * sin_theta[x]));
+      walk_clipped(0, W, y, sp, cp);
     }
   }
 }
@@ -379,12 +396,11 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
         return shape.template get_horizontal_intervals<W, H>(y, out);
       },
       [&](int wx, int y, const Vector &p) {
-        if (xc.clipped(wx))
-          return;
         process_pixel<W, H, ComputeUVs>(wx, y, p, pipeline, canvas, shape,
                                         fragment_shader, effective_debug,
                                         result_scratch, frag_scratch);
-      });
+      },
+      xc);
 }
 
 /**
@@ -1406,9 +1422,7 @@ struct Volume {
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
-        [&](int wx, int, const Vector &p) {
-          if (vol_xc.clipped(wx))
-            return;
+        [&](int, int, const Vector &p) {
           // Back-face cull
           float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
           if (facing >= 0.0f)
@@ -1496,7 +1510,8 @@ struct Volume {
             pipeline.plot(canvas, p, frag.color.color, 0.0f,
                           frag.color.alpha * edge_alpha);
           }
-        });
+        },
+        vol_xc);
   }
 };
 
