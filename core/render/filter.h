@@ -97,6 +97,7 @@ template <int W, int H, typename... Filters> struct Pipeline;
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  */
+HS_O3_BEGIN
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
   static constexpr bool any_crosses_segments = false;
@@ -198,6 +199,7 @@ template <int W, int H> struct Pipeline<W, H> {
     return pred(a, b, planar_basis);
   }
 };
+HS_O3_END
 
 /**
  * @brief Recursive pipeline case: applies Head, then forwards to the Tail.
