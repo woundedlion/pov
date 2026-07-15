@@ -1019,6 +1019,29 @@ inline unsigned long micros() { return hs::micros(); }
 #endif
 
 // ---------------------------------------------------------------------------
+// HS_O3_BEGIN / HS_O3_END: compile the enclosed function definitions at -O3 on
+// the -Os device image (selective hot-loop optimization; docs/selective_o3_spec.md).
+// Active only for device GCC building at -Os (__OPTIMIZE_SIZE__): the holosphere
+// -O3 image, host clang, and WASM see no-ops, so those builds are byte-identical.
+// The fast-math flags are restated because GCC 11's optimize pragma rebuilds
+// optimization flags from defaults, dropping command-line -ffast-math /
+// -fno-finite-math-only for the region (fixed in GCC 12; harmless to restate).
+// HS_O3_FN is the single-function fallback for definitions a region cannot wrap.
+// ---------------------------------------------------------------------------
+#if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) && \
+    defined(__OPTIMIZE_SIZE__)
+#define HS_O3_BEGIN                                                     \
+  _Pragma("GCC push_options")                                           \
+  _Pragma("GCC optimize(\"O3\", \"fast-math\", \"no-finite-math-only\")")
+#define HS_O3_END _Pragma("GCC pop_options")
+#define HS_O3_FN __attribute__((optimize("O3", "fast-math", "no-finite-math-only")))
+#else
+#define HS_O3_BEGIN
+#define HS_O3_END
+#define HS_O3_FN
+#endif
+
+// ---------------------------------------------------------------------------
 // Platform-agnostic hs:: helpers (defined once; both branches above provide
 // hs::random()).
 // ---------------------------------------------------------------------------
