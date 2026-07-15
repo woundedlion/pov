@@ -628,6 +628,30 @@ struct Ring {
   }
 
   /**
+   * @brief Stroke coverage from a precomputed axis dot, skipping the
+   *        DistanceResult round trip.
+   * @param d dot(p, normal) for the pixel's unit vector.
+   * @return quintic stroke alpha in [0, 1]; 0 outside the band. Same distance
+   *         branches and float ops as distance<false>() + process_pixel's
+   *         stroke epilogue, so coverage is bit-identical to that path.
+   */
+  __attribute__((always_inline)) float stroke_alpha(float d) const {
+    if (d < cos_min || d > cos_max)
+      return 0.0f;
+    float dist;
+    if (inv_sin_target != 0) {
+      dist = std::abs(d - cos_target) * inv_sin_target;
+    } else {
+      float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
+      dist = std::abs(polar - target_angle);
+    }
+    float sd = dist - thickness;
+    if (sd >= 0.0f || thickness <= 0.0f)
+      return 0.0f;
+    return quintic_kernel(-sd / thickness);
+  }
+
+  /**
    * @brief Computes signed distance to the ring.
    * @param p Point on sphere (normalized).
    * @return DistanceResult with dist, t, and raw_dist populated.
