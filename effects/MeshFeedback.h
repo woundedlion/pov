@@ -203,6 +203,7 @@ private:
   void start_morph() {
     auto solids = Solids::Collections::get_platonic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
+    hs::log("Shape: %d/%d", solid_idx, (int)solids.size());
     int new_slot = 1 - carousel.front_index();
 
     carousel.slot(new_slot) = MeshState();
