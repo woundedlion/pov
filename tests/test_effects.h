@@ -888,7 +888,13 @@ struct DreamBallsWhiteBox {
 
   static int active_bake(const DB &db) { return db.active_bake_; }
   static int last_preset_idx(const DB &db) { return db.last_preset_idx_; }
-  static void spawn(DB &db, int idx) { db.spawn_sprite(idx); }
+  // Not-paused step: advance the selector, then re-spawn (the scheduler's path).
+  static void advance(DB &db) {
+    db.preset_manager.next();
+    db.spawn_sprite();
+  }
+  // Paused re-spawn of the current preset (no advance).
+  static void respawn(DB &db) { db.spawn_sprite(); }
   // The literal solid-name pointer the given preset seeds into params on reseed.
   static const char *preset_name(const DB &db, int idx) {
     return db.preset_manager.get_entries()[idx].params.solid_name;
@@ -900,20 +906,20 @@ struct DreamBallsWhiteBox {
 /**
  * @brief Drives spawn_sprite across a full preset cycle and asserts the bake-slot
  *        ping-pong, the modulo preset advance, and the reseed-on-change guard.
- * @details Calls spawn_sprite directly (no 288-frame wait) following the same idx
- *          progression the periodic callback uses: idx grows unbounded and the
- *          active preset is idx % 4. Each spawn must flip the bake slot (so a
- *          fading-out sprite keeps its own LUT) and, when the preset actually
- *          changes, reseed params to the new entry. A re-spawn of the SAME preset
- *          (the paused branch) must instead hold params so a live slider edit
- *          survives.
+ * @details Drives the advance without the 288-frame wait, following the same
+ *          selector progression the periodic callback uses: each step calls
+ *          Presets::next() then re-spawns, so the active preset walks step % 4.
+ *          Each spawn must flip the bake slot (so a fading-out sprite keeps its
+ *          own LUT) and, when the preset actually changes, reseed params to the
+ *          new entry. A re-spawn of the SAME preset (the paused branch) must
+ *          instead hold params so a live slider edit survives.
  */
 inline void test_dreamballs_preset_cycle_bookkeeping() {
   using WB = DreamBallsWhiteBox;
   reset_effect_globals();
 
   WB::DB db;
-  db.init(); // runs spawn_sprite(0)
+  db.init(); // runs spawn_sprite() at preset 0
 
   // init() spawned preset 0: it reseeded params (last_preset_idx_ -1 -> 0) and
   // flipped the bake slot once (0 -> 1).
@@ -921,29 +927,27 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   HS_EXPECT_EQ(WB::active_bake(db), 1);
   HS_EXPECT_EQ(WB::live_solid(db), WB::preset_name(db, 0));
 
-  // Not-paused advance chain: the periodic callback re-invokes spawn_sprite(idx+1),
-  // so idx grows unbounded and the preset is idx % 4. Drive a full cycle plus a
-  // wrap; the bake slot must ping-pong every spawn and params must reseed to the
-  // wrapped index each step.
+  // Not-paused advance chain: each step advances the selector then re-spawns, so
+  // the preset is step % 4. Drive a full cycle plus a wrap; the bake slot must
+  // ping-pong every spawn and params must reseed to the new index each step.
   int expect_bake = WB::active_bake(db); // 1
-  for (int idx = 1; idx <= 8; ++idx) {
-    WB::spawn(db, idx);
+  for (int step = 1; step <= 8; ++step) {
+    WB::advance(db);
     expect_bake ^= 1;
-    const int safe = idx % WB::PRESETS;
+    const int safe = step % WB::PRESETS;
     HS_EXPECT_EQ(WB::active_bake(db), expect_bake);
     HS_EXPECT_EQ(WB::last_preset_idx(db), safe);
     HS_EXPECT_EQ(WB::live_solid(db), WB::preset_name(db, safe));
   }
 
-  // Paused-hold path: the callback re-spawns the SAME idx, so the reseed guard
+  // Paused-hold path: re-spawn the SAME preset (no advance), so the reseed guard
   // (safe_idx == last_preset_idx_) holds and a live slider edit must survive the
-  // re-spawn — while the bake slot still flips. last_preset_idx_ is now 0
-  // (idx 8 % 4); re-spawn idx 8 again with a sentinel edit in place.
+  // re-spawn — while the bake slot still flips. last_preset_idx_ is now 0.
   const float sentinel = WB::num_copies(db) + 5.0f;
   WB::num_copies(db) = sentinel;
   const int held_idx = WB::last_preset_idx(db);
   expect_bake ^= 1;
-  WB::spawn(db, 8); // 8 % 4 == held_idx: the paused re-spawn of the same preset
+  WB::respawn(db);
   HS_EXPECT_EQ(WB::last_preset_idx(db), held_idx); // preset unchanged
   HS_EXPECT_EQ(WB::num_copies(db), sentinel);    // live edit preserved
   HS_EXPECT_EQ(WB::active_bake(db), expect_bake);  // bake slot still flipped
