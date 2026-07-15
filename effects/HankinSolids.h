@@ -236,8 +236,12 @@ private:
     constexpr int MORPH_FRAMES = 16;
     auto solids = Solids::Collections::get_simple_solids();
     const int n = static_cast<int>(solids.size());
+#ifdef HS_PROFILE_ORDERED_CYCLE
+    int next_idx = (solid_idx + 1) % n;
+#else
     // Random next solid, never the current one: offset in [1, n) keeps it distinct.
     int next_idx = (solid_idx + 1 + hs::rand_int(0, n - 1)) % n;
+#endif
 
     int old_front = carousel.front_index();
     int new_slot = 1 - old_front;
