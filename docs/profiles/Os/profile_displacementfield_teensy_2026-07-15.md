@@ -1,11 +1,13 @@
 # DisplacementField on-device profile — Teensy 4.0, segmented mode (2026-07-15)
 
-Point-in-time snapshot at the landed fused-scan tip (`7d50b672`);
-regenerate with `just profile DisplacementField`. Raw captures:
+Point-in-time snapshot at the landed fused-scan tip (`7d50b672`); replaces
+the 2026-07-14 legacy-path report. Regenerate with
+`just profile DisplacementField`. Raw captures:
 `build/profile_capture_tip_w32.log` (32-frame windows, ~150 s),
 `build/profile_capture_tip_w128.log` (128-frame windows, ~260 s, two
 epochs), plus the A/B decomposition captures (`..._preopt2_w32.log`,
-`..._hoist_w32.log`, `..._opt2_w32.log`).
+`..._hoist_w32.log`, `..._opt2_w32.log`). `-O3` twin:
+[../O3/profile_displacementfield_teensy_2026-07-15.md](../O3/profile_displacementfield_teensy_2026-07-15.md).
 
 ## Setup
 
@@ -24,10 +26,10 @@ Image size: FLASH code 57,236 B; ITCM (RAM1 code) 39,416 B; RAM2 free 4,736 B.
 2,401,109,540 cyc = 4,001,849 µs vs measured `micros()` window sum
 4,001,860 µs (Δ ≈ 2.7 ppm).
 
-**Thickness note:** every 2026-07-14 capture ran the profiling tree's
-0.035 default; this tree runs the landed `params.thickness = 0.04f`,
-which alone costs ~+10% scan. Cross-date comparisons are invalid; the
-same-thickness A/Bs are in the Summary section.
+**Thickness note:** the 2026-07-14 captures ran the profiling tree's 0.035
+default; this tree runs the landed `params.thickness = 0.04f`, which alone
+costs ~+10% scan. Cross-date comparisons are invalid; the same-thickness
+A/Bs are in the Summary section.
 
 ## Frame cadence
 
@@ -63,10 +65,10 @@ frame                  125.06 ms  75.03 Mcyc  100%
   df_prepare_fields      0.16 us      98 cyc    0%
 ```
 
-Wall min 124.3 / avg 125.1 / max 125.9 ms. ~35.8 of 48 rings bake +
-scan. The w128 pass puts full-dwell windows (257–384) at 79.2 (epoch 1)
-and 77.8 ms (epoch 2) render — dwell cost breathes ~±5% with noise
-content but the two epochs agree.
+Wall min 124.3 / avg 125.1 / max 125.9 ms. ~35.8 of 48 rings bake + scan.
+The w128 pass puts full-dwell windows (257–384) at 79.2 (epoch 1) and
+77.8 ms (epoch 2) render — dwell cost breathes ~±5% with noise content but
+the two epochs agree.
 
 ### Steady BALLS (frames 993–1024)
 
@@ -82,10 +84,10 @@ frame                  125.06 ms  75.04 Mcyc  100%
   df_buffer_wait        58.76 ms  35.26 Mcyc   47%
 ```
 
-Render 66.3 ms — **3.8 ms above the 62.5 ms window**. The bake
-(13.5 ms) is the swing item: the ledger's candidate #4
-(per-(ring,ball) azimuth-interval bake; the noise field is exactly zero
-in this phase) would buy the 16 fps tier.
+Render 66.3 ms — **3.8 ms above the 62.5 ms window**. The bake (13.5 ms)
+is the swing item: the ledger's candidate #4 (per-(ring,ball)
+azimuth-interval bake; the noise field is exactly zero in this phase)
+would buy the 16 fps tier.
 
 ### Early BALLS (frames 897–928)
 
@@ -114,21 +116,21 @@ matches the pre-fused shape of this window at the same thickness.
 
 ### Per-pixel figures
 
-Dwell `filter_blend`: 13,748 blended px/frame (the 48-ring stack at
-0.04 thickness over-covers the 10,368-px quadrant) at 194 cyc/blend;
+Dwell `filter_blend`: 13,748 blended px/frame (the 48-ring stack at 0.04
+thickness over-covers the 10,368-px quadrant) at 194 cyc/blend;
 `df_fused_scan` ≈ 37.6 Mcyc ⇒ ~2,740 scan cycles per blended pixel
 (0.035-era fused: ~3,400; legacy per-ring: ~4,780). The residue is the
 per-candidate polyline search — the dominant irreducible term.
 
 ## Column-ISR / DMA marshaling cost
 
-Dwell windows (w32, per-frame rates): `isr_wake` 2,304/frame,
-avg 1,551 cyc, **4.8% CPU**; `isr_pack` 288/frame, avg 7,964 cyc,
-**3.1% CPU**; `isr_dma_submit` 288/frame, avg 580 cyc, **0.2% CPU**.
-One-window phases halve the shares (3.1 / 1.4 / 0.2%).
+Dwell windows (w32, per-frame rates): `isr_wake` 2,304/frame, avg
+1,551 cyc, **4.8% CPU**; `isr_pack` 288/frame, avg 7,964 cyc, **3.1%
+CPU**; `isr_dma_submit` 288/frame, avg 580 cyc, **0.2% CPU**. One-window
+phases halve the shares (3.1 / 1.4 / 0.2%).
 
-- ISR overhead ≈ 8% CPU in dwell ⇒ ~57.5 ms of render budget per
-  62.5 ms window.
+- ISR overhead ≈ 8% CPU in dwell ⇒ ~57.5 ms of render budget per 62.5 ms
+  window.
 - Dwell render 82.6 ms needs **−30%** for 16 fps; steady BALLS 66.3 ms
   needs **−6%**.
 
@@ -152,8 +154,9 @@ The stack-level 3-chunk gap test was a net device tax (early-BALLS +20%)
 despite host −4% — post-reject work is thin and `-Os` on the in-order
 core pays for per-candidate branching; it was reverted. The chart-sin
 hoist (−3.3% / −4.2%, bit-identical) landed. Remaining levers: the
-selective `-O3` spec (docs/selective_o3_spec.md) for the dwell's 30%,
-and ledger candidate #4 for the steady-BALLS 6%.
+selective `-O3` spec (docs/selective_o3_spec.md) for the dwell's 30% —
+the `-O3` twin already runs the whole cycle at 16 fps — and ledger
+candidate #4 for the steady-BALLS 6%.
 
 ## Caveats
 
@@ -161,8 +164,8 @@ and ledger candidate #4 for the steady-BALLS 6%.
   parents under `df_fused_scan` and counts every blended pixel.
 - Epoch (120 s) reconstructs the effect ≈ frame 1030; later windows
   straddle the teardown tail.
-- `-Os` shipping config; `-O3` runs 1.14–2.04× faster on these loops
-  (docs/profiles/README.md).
+- `-Os` shipping config; see the `-O3` twin for the optimization-level
+  cost.
 - A parallel session flashed a different profile image mid-run once; the
   committed captures were verified `effect=DisplacementField` in every
   window header.

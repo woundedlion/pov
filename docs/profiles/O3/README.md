@@ -15,8 +15,9 @@ speed. The head-to-head speedup / cadence / size table is in
 
 ## Ranked by -O3 render cost (heaviest first)
 
-Render/frame = frame − `*_buffer_wait` idle, at -O3, in **ms**. **●** = re-profiled
-2026-07-14 after the plot column-cull batch. Ranked heaviest first.
+Render/frame = frame − `*_buffer_wait` idle, at -O3, in **ms**. **●** = re-profiled after a
+later landed batch (2026-07-14 plot column-cull; DisplacementField 2026-07-15
+fused-stack scan). Ranked heaviest first.
 
 | Effect | Render/frame | Cadence | Dominant cost (scope) | -O3 speedup vs -Os |
 |---|--:|---|---|--:|
@@ -24,8 +25,8 @@ Render/frame = frame − `*_buffer_wait` idle, at -O3, in **ms**. **●** = re-p
 | ● [FlowField](profile_flowfield_teensy_2026-07-14.md) | 111.1 ms (peak) | 8 fps (pulses) | particle raster (`ff_particle_draw`) | ~1.3× (pop-jitter) |
 | [Raymarch](profile_raymarch_teensy_2026-07-14.md) | 98 ms | 8 fps | volume ray-march (`rm_shader_draw`) | 1.23× |
 | [GSReactionDiffusion](profile_gsreactiondiffusion_teensy_2026-07-14.md) | 85 ms | 8 fps | SSAA raster + simulate | 1.29× |
-| [DisplacementField](profile_displacementfield_teensy_2026-07-14.md) | 78 ms | 8 fps | SDF ring raster (`df_ring_scan`) | 1.34× |
 | ● [DreamBalls](profile_dreamballs_teensy_2026-07-14.md) | 72.5 ms (peak) | 8 fps | wireframe raster (`db_mesh_plot`) | 1.50× |
+| ● [DisplacementField](profile_displacementfield_teensy_2026-07-15.md) | 59.5 ms | **16 fps** | fused stack raster (`df_fused_scan`) | 1.39× |
 | [BZReactionDiffusion](profile_bzreactiondiffusion_teensy_2026-07-14.md) | 71 ms | 8 fps | SSAA raster (`bz_raster`) | 1.45× |
 | ● [MeshFeedback](profile_meshfeedback_teensy_2026-07-14.md) | 69.4 ms (peak) | **8→16 fps** | feedback flush (`mf_feedback_flush`) | 1.79× (flush) |
 | ● [MindSplatter](profile_mindsplatter_teensy_2026-07-14.md) | 68.0 ms | 8 fps (occ. 16) | particle raster (`msp_particle_scan`) | 1.47× |
