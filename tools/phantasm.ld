@@ -67,6 +67,8 @@ SECTIONS
 		*(.text.*classify_faces_impl*)
 		*(.text._ZZN*13setup_presetsEv*)
 		*(.text.*compile_hankin*)
+		*(.text._ZN14CompiledHankin*)
+		*(.text._ZN8Timeline7add_getI*)
 		*(.text.set_arm_clock)
 		*(.text._ZN8SPIClass5beginEv)
 		*(.text._ZN13IntervalTimer11beginCycles*)

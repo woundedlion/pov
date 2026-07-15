@@ -411,7 +411,7 @@ struct MeshState {
    * @param arena Arena providing storage for the destination buffers.
    * @details Required by Cloneable.
    */
-  static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
+  HS_COLD_MEMBER static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
     // Reused dst may carry stale views; clone produces an owned-mode mesh.
     dst.set_owned();
     copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);

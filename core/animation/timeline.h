@@ -221,7 +221,7 @@ public:
    * animations.
    * @param canvas The current canvas buffer.
    */
-  void step(Canvas &canvas) {
+  HS_COLD_MEMBER void step(Canvas &canvas) {
     ++global_timeline_t;
 
     int write_idx = 0;

@@ -1046,7 +1046,7 @@ struct BakedPaletteBank {
    * @param arena Arena to allocate the cloned LUTs from.
    * @details Required by Cloneable.
    */
-  static void clone(const BakedPaletteBank &src, BakedPaletteBank &dst,
+  HS_COLD_MEMBER static void clone(const BakedPaletteBank &src, BakedPaletteBank &dst,
                     Arena &arena) {
     for (int i = 0; i < N; ++i)
       dst.entries[i].clone_from(src.entries[i], arena);
