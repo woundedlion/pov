@@ -79,6 +79,7 @@ public:
       if (frame_count_ == 0) {
         int next = (static_cast<int>(current_shape) + 1) % 4;
         current_shape = static_cast<ShapeType>(next);
+        hs::log("Shape: %d/%d", next, 4);
       }
     }
 
