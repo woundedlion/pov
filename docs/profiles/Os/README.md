@@ -26,8 +26,8 @@ display-sync idle). Cadence is the observed steady/representative fps.
 
 **●** = re-profiled after a later landed batch (2026-07-14 plot column-cull;
 DisplacementField 2026-07-15 fused-stack scan; RingSpin 2026-07-15 fused
-trail scan), peak/steady render, whichever bounds cadence. Ranked by `-Os`
-render/frame (ms), heaviest first.
+trail scan + slim RingGroup rework), peak/steady render, whichever bounds
+cadence. Ranked by `-Os` render/frame (ms), heaviest first.
 
 | Effect | Render/frame | Cadence | Dominant cost (scope) | Bound by |
 |---|--:|---|---|---|
@@ -42,7 +42,7 @@ render/frame (ms), heaviest first.
 | [IslamicStars](profile_islamicstars_teensy_2026-07-14.md) | 43–133 ms (per shape) | 5–16 fps | per-face SDF (`scan_mesh_raster`) | mesh SDF rasterizer |
 | [Voronoi](profile_voronoi_teensy_2026-07-14.md) | 77 ms | 8 fps | KD-nearest shade (`vo_shade` 61%) | per-pixel query (7.4 µs/px) |
 | ● [DisplacementField](profile_displacementfield_teensy_2026-07-15.md) | 82.6 ms | 8 fps | fused stack raster (`df_fused_scan` 50%) | SDF ring rasterizer |
-| ● [RingSpin](profile_ringspin_teensy_2026-07-15.md) | 67 ms (87 peak) | 8 fps (occ. 16) | fused ring-group raster (`rs_ring_scan` 53%) | per-blend chain (4× overdraw) |
+| ● [RingSpin](profile_ringspin_teensy_2026-07-15.md) | 49.6 ms (75 peak) | ~14 fps (mixed) | slim ring-group raster (`rs_ring_scan` 79%) | per-blend chain @ 700 cyc (trail-fill peak) |
 | [Flyby](profile_flyby_teensy_2026-07-14.md) | 50–77 ms | 8–16 fps | stereographic shader (`fly_shader_draw` 62%) | per-pixel shader |
 | ● [HopfFibration](profile_hopffibration_teensy_2026-07-14.md) | 70 ms (peak) | 8–16 fps | trail raster (`hf_trail_raster` 62%) | trail rasterizer |
 | ● [ShapeShifter](profile_shapeshifter_teensy_2026-07-14.md) | 68 ms (peak) | 8–16 fps | SDF scan (`ss_scan_dispatch` 86%) + plot 12% | SDF ring raster |
