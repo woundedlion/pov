@@ -9,6 +9,8 @@
 #include <span>
 #include <utility>
 
+#include "engine/platform.h"
+
 /**
  * @brief Standalone entry wrapping a single Params preset.
  * @tparam Params The preset parameter type stored in each entry.
@@ -49,20 +51,25 @@ public:
 
   /**
    * @brief Advances to the next entry, wrapping past the end.
-   * @details Records the outgoing index in prev_idx before advancing.
+   * @details Records the outgoing index in prev_idx before advancing, and logs
+   *          the incoming index (profiling correlates serial output with the
+   *          active preset).
    */
   void next() {
     prev_idx = current_idx;
     current_idx = (current_idx + 1) % Size;
+    hs::log("Preset: %u/%u", (unsigned)current_idx, (unsigned)Size);
   }
 
   /**
    * @brief Steps back to the previous entry, wrapping past the front.
-   * @details Records the outgoing index in prev_idx before stepping back.
+   * @details Records the outgoing index in prev_idx before stepping back, and
+   *          logs the incoming index like next().
    */
   void prev() {
     prev_idx = current_idx;
     current_idx = (current_idx - 1 + Size) % Size;
+    hs::log("Preset: %u/%u", (unsigned)current_idx, (unsigned)Size);
   }
 
   /**
