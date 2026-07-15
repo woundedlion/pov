@@ -504,6 +504,137 @@ struct DistortedRing {
 };
 
 /**
+ * @brief Fused single-pass rasterizer for a stack of same-axis distorted
+ *        rings.
+ */
+struct DistortedRingStack {
+  /**
+   * @brief Rasterizes every ring of an evenly spaced same-axis stack in one
+   *        scan over the union band.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam PipelineT Plotting pipeline type.
+   * @tparam RingShaderT Per-ring shader: shader(int slot, const Vector &p,
+   *         Fragment &f), with f populated as by process_pixel (v0 = azimuth
+   *         t, v1 = raw distance, v2 = stroke coverage).
+   * @param pipeline Plotting pipeline receiving the final colors.
+   * @param canvas Destination canvas.
+   * @param n_rings Stack size: ring i's centerline colatitude about the shared
+   *        axis must be PI * (i + 1) / (n_rings + 1).
+   * @param shapes n_slots knot-mode rings sharing one Basis, in ascending ring
+   *        order; culled rings are simply absent.
+   * @param slot_by_ring n_rings entries mapping ring index -> slot in shapes,
+   *        -1 for culled rings.
+   * @param n_slots Number of shapes; at least 1.
+   * @param shader Per-ring fragment shader (see RingShaderT).
+   * @details The per-pixel frame shared by every ring at a pixel (axis dot,
+   * fast_acos, fast_atan2) is computed once, the candidate rings fall out of
+   * the frame's polar angle by arithmetic (the stack is evenly spaced), and
+   * each candidate runs its own cos reject + exact polyline distance via
+   * SDF::DistortedRing::distance_from_frame. Candidates evaluate in ascending
+   * ring index, so per-pixel blend order — and therefore output — is
+   * bit-identical to rasterizing the rings one by one; only the redundant
+   * per-ring frame recompute is elided. The aliased exact-pole rows are
+   * dropped, matching the per-ring path under suppress_pole_fill.
+   */
+  template <int W, int H, typename PipelineT, typename RingShaderT>
+  static void draw(PipelineT &pipeline, Canvas &canvas, int n_rings,
+                   const SDF::DistortedRing *shapes,
+                   const int8_t *slot_by_ring, int n_slots,
+                   RingShaderT &&shader) {
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
+    const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+
+    // Union band and the global candidate half-width.
+    int y_lo = H, y_hi = -1;
+    float b_max = 0.0f;
+    for (int s = 0; s < n_slots; ++s) {
+      auto b = shapes[s].template get_vertical_bounds<H>();
+      y_lo = std::min(y_lo, b.y_min);
+      y_hi = std::max(y_hi, b.y_max);
+      b_max = std::max(b_max, shapes[s].max_thickness);
+    }
+    const auto &cr = canvas.clip();
+    const auto xc = cr.x_clip();
+    y_lo = std::max(y_lo, cr.render_y_start());
+    y_hi = std::min(y_hi, cr.render_y_end() - 1);
+
+    // Window pad: fast_acos error plus float theta/index inversion slop; a
+    // ring wrongly windowed in is discarded by its own exact cos reject.
+    const float b_win = b_max + 1e-3f;
+    const float inv_delta = (n_rings + 1) / PI_F;
+
+    // The per-ring path suppresses the aliased exact-pole rows
+    // (suppress_pole_fill); its full-scan fallback for a near-canvas-pole
+    // axis (r_val below the projection floor) scans every row.
+    SDF::AxisProjection ap = SDF::project_axis(shapes[0].normal);
+    const bool skip_pole_rows = ap.R_val >= SDF::MIN_HORIZONTAL_PROJ;
+
+    const Vector axis_v = shapes[0].normal;
+    const Vector axis_u = shapes[0].u;
+    const Vector axis_w = shapes[0].w;
+
+    SDF::DistanceResult res;
+    Fragment frag;
+    for (int y = y_lo; y <= y_hi; ++y) {
+      const float sp = TrigLUT<W, H>::sin_phi[y];
+      const float cp = TrigLUT<W, H>::cos_phi[y];
+      if (skip_pole_rows && std::abs(ap.R_val * sp) < SDF::INTERVAL_DENOM_EPS)
+        continue;
+      for (int x = 0; x < W; ++x) {
+        if (xc.clipped(x))
+          continue;
+        Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        const float d = dot(p, axis_v);
+        const float polar = fast_acos(hs::clamp(d, -1.0f, 1.0f));
+        int ilo = static_cast<int>(ceilf((polar - b_win) * inv_delta)) - 2;
+        int ihi = static_cast<int>(floorf((polar + b_win) * inv_delta));
+        if (ilo < 0)
+          ilo = 0;
+        if (ihi > n_rings - 1)
+          ihi = n_rings - 1;
+        if (ilo > ihi)
+          continue;
+        const float dot_u = dot(p, axis_u);
+        const float dot_w = dot(p, axis_w);
+        float azimuth = fast_atan2(dot_w, dot_u);
+        if (azimuth < 0)
+          azimuth += 2 * PI_F;
+        const float t_norm = wrap_t(azimuth / (2 * PI_F));
+        for (int i = ilo; i <= ihi; ++i) {
+          const int s = slot_by_ring[i];
+          if (s < 0)
+            continue;
+          shapes[s].distance_from_frame(d, polar, t_norm, res);
+          const float dd = res.dist;
+          if (dd >= 0.0f)
+            continue;
+          // process_pixel's stroke epilogue with a slot-aware shader.
+          const float aa = res.size;
+          const float alpha = aa > 0.0f ? quintic_kernel(-dd / aa) : 0.0f;
+          if (alpha <= 0.001f)
+            continue;
+          frag.color = Color4(0, 0, 0, 0);
+          frag.pos = p;
+          frag.v0 = res.t;
+          frag.v1 = res.raw_dist;
+          frag.v2 = alpha;
+          frag.v3 = res.aux;
+          frag.size = res.size;
+          frag.age = 0;
+          shader(s, p, frag);
+          if (frag.color.alpha > 0.001f)
+            pipeline.plot(canvas, x, y, frag.color.color, frag.age,
+                          frag.color.alpha * alpha);
+        }
+      }
+    }
+  }
+};
+
+/**
  * @brief Draws a flat (tangent-plane) regular polygon projected onto the
  *        sphere.
  */

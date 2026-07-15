@@ -1411,7 +1411,9 @@ struct DisplacementFieldWhiteBox {
   template <int W, int H>
   static Pixel hue_lut_value(const DisplacementField<W, H> &effect,
                              int index) {
-    return effect.hue_lut[index];
+    // Slot 0 of the pooled bake: the first (only, in the one-ring tests)
+    // drawn ring's hue LUT.
+    return effect.hue_pool[index];
   }
 
   template <int W, int H>

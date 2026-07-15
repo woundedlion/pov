@@ -877,6 +877,29 @@ struct DistortedRing {
     res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
   }
 
+  /**
+   * @brief distance<true>() from a precomputed pixel frame.
+   * @param d Pixel dot ring axis (= dot(p, normal)).
+   * @param polar fast_acos(clamp(d, -1, 1)).
+   * @param t_norm Pixel azimuth in [0, 1), phase applied.
+   * @param res Output result, identical to distance<true>().
+   * @details Same-axis ring stacks share d/polar/t_norm across every ring at a
+   * pixel; hoisting them there drops the per-ring dot/acos/atan2 recompute.
+   * Bit-identical to distance<true>() by construction (same ops, same order).
+   */
+  void distance_from_frame(float d, float polar, float t_norm,
+                           DistanceResult &res) const {
+    if (d < cos_min_limit || d > cos_max_limit) {
+      res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, thickness);
+      return;
+    }
+    float dist;
+    if (knots)
+      dist = polyline_distance(t_norm, polar, d);
+    else
+      dist = std::abs(polar - (target_angle + shift_fn(t_norm)));
+    res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
+  }
 
 private:
   static constexpr int MAX_SEARCH_CELLS = 64; /**< Outward search budget per side; only near-pole chart compression approaches it. */
