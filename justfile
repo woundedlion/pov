@@ -101,6 +101,20 @@ teensy-size:
 teensy-gate-test:
     python -m unittest discover -s tools/teensy_gate_tests
 
+# Profile one effect on an attached Teensy: build the single-effect profiling
+# image (Phantasm shipping flags + HS_PROFILE cycle counters, board = segment 0
+# of 4), flash it, then capture the serial readout for `seconds` into
+# build/profile_capture.log. Pass any roster effect class name.
+[windows]
+profile effect="DisplacementField" seconds="150":
+    set "PLATFORMIO_BUILD_FLAGS=-D HS_PROFILE_TARGET={{effect}}" && pio run -e profile -t upload
+    python tools/profile_capture.py --seconds {{seconds}}
+
+[unix]
+profile effect="DisplacementField" seconds="150":
+    PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET={{effect}}" pio run -e profile -t upload
+    python tools/profile_capture.py --seconds {{seconds}}
+
 # Regenerate the PHANTASM PCB outputs into hardware/phantasm/gen/out/ (all
 # gitignored) from the COMMITTED board. It never re-runs the schematic/PCB
 # generators, which would discard the routing + silk; needs kicad-cli on PATH

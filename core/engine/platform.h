@@ -1364,6 +1364,25 @@ private:
   friend struct CycleScope;
 
   /**
+   * @brief Formats v as decimal into buf.
+   * @param v Value to format.
+   * @param buf Buffer of at least 21 bytes (20 digits + NUL).
+   * @return Pointer to the first digit inside buf.
+   * @details Manual conversion because newlib-nano's integer printf (the -Os
+   *          device build) has no long-long support, and a multi-second
+   *          window's cycle total exceeds 32 bits.
+   */
+  static const char* u64_dec(uint64_t v, char* buf) {
+    char* p = buf + 20;
+    *p = '\0';
+    do {
+      *--p = static_cast<char>('0' + v % 10);
+      v /= 10;
+    } while (v);
+    return p;
+  }
+
+  /**
    * @brief Recursively logs one counter node and its children as a tree.
    * @param node Counter node to log.
    * @param depth Tree depth; drives indentation.
@@ -1375,13 +1394,15 @@ private:
     if (!node->count) return;
     uint64_t ref = node->parent ? node->parent->cycles : node->cycles;
     uint32_t pct = ref ? (uint32_t)(node->cycles * 100 / ref) : 100;
-    uint64_t us = node->cycles / CYCLES_PER_US;
+    char cyc_buf[21], us_buf[21];
+    const char* cyc = u64_dec(node->cycles, cyc_buf);
+    const char* us = u64_dec(node->cycles / CYCLES_PER_US, us_buf);
     int indent = depth * 2;
     int name_w = 22 - indent;
     if (name_w < 1) name_w = 1;
-    hs::log("%*s%-*s %llu us (%lu%%)  %lu calls",
-            indent, "", name_w, node->name,
-            (unsigned long long)us, (unsigned long)pct, (unsigned long)node->count);
+    hs::log("%*s%-*s %s us (%lu%%)  %lu calls  %s cyc",
+            indent, "", name_w, node->name, us,
+            (unsigned long)pct, (unsigned long)node->count, cyc);
     for (auto* c = head_; c; c = c->next)
       if (c->parent == node) log_node(c, depth + 1);
   }
@@ -1438,7 +1459,62 @@ struct CycleScope {
   CycleScope& operator=(const CycleScope&) = delete;
 };
 
+/**
+ * @brief ISR-safe cycle accumulator: plain single-writer fields, no registry.
+ * @details CycleCounter/CycleScope are main-loop-only (non-atomic registry and
+ *          nesting pointer), so ISR paths accumulate into one of these
+ *          instead. Contract: the ISR is the sole writer; a foreground reader
+ *          copies and reset()s under a brief IRQ-off window.
+ */
+struct IsrCycleStats {
+  uint64_t cycles = 0;        /**< Accumulated cycles across all scopes. */
+  uint32_t count = 0;         /**< Number of timed scopes. */
+  uint32_t min = UINT32_MAX;  /**< Shortest single scope, in cycles. */
+  uint32_t max = 0;           /**< Longest single scope, in cycles. */
+
+  /** @brief Folds one scope's elapsed cycles into the accumulator. */
+  void add(uint32_t dt) {
+    cycles += dt;
+    ++count;
+    if (dt < min) min = dt;
+    if (dt > max) max = dt;
+  }
+  /** @brief Zeroes the accumulator (foreground, IRQs off). */
+  void reset() {
+    cycles = 0;
+    count = 0;
+    min = UINT32_MAX;
+    max = 0;
+  }
+};
+
+/**
+ * @brief RAII guard timing its enclosing scope into an IsrCycleStats.
+ */
+struct IsrCycleScope {
+  IsrCycleStats& stats;  /**< Accumulator receiving the elapsed cycles. */
+  uint32_t start;        /**< Cycle snapshot taken at construction. */
+
+  explicit IsrCycleScope(IsrCycleStats& s) : stats(s), start(HS_OS_CYCLES()) {}
+  ~IsrCycleScope() { stats.add((uint32_t)(HS_OS_CYCLES() - start)); }
+  IsrCycleScope(const IsrCycleScope&) = delete;
+  IsrCycleScope& operator=(const IsrCycleScope&) = delete;
+};
+
 } // namespace hs
+
+/**
+ * @brief Times the enclosing scope into an IsrCycleStats instance.
+ * @param stats An hs::IsrCycleStats lvalue expression. One use per block (the
+ *        guard has a fixed name; open a nested block for a second scope).
+ * @details The ISR-context sibling of HS_PROFILE; compiled in only under
+ *          HS_PROFILE_ENABLE.
+ */
+#ifdef HS_PROFILE_ENABLE
+#define HS_ISR_PROFILE(stats) hs::IsrCycleScope hs_isr_scope(stats)
+#else
+#define HS_ISR_PROFILE(stats) ((void)0)
+#endif
 
 /**
  * @brief Times the enclosing scope into a named cycle counter.

@@ -87,12 +87,19 @@ public:
    * @brief Advances the timeline, which drives all spawning and rendering.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(db_buffer_wait);
+      return Canvas(*this);
+    }();
     // Mirror live slider edits into the active sprite's snapshot so the incoming
     // shape tracks the sliders while a still-fading outgoing sprite keeps the
     // frozen snapshot it was spawned with.
     param_slots_[active_bake_] = params;
-    timeline.step(canvas);
+    {
+      HS_PROFILE(db_timeline_step);
+      timeline.step(canvas);
+    }
   }
 
 private:
@@ -278,10 +285,14 @@ private:
       warp->bind_scale(param_slots_[bake_slot].warp_scale);
 
     auto draw_fn = [this, safe_idx, bake_slot](Canvas &canvas, float opacity) {
+      HS_PROFILE(db_draw);
       const auto &preset = loaded_presets[safe_idx];
       ScratchScope scratch_a_guard(scratch_arena_a);
       MeshState target_mesh;
-      MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
+      {
+        HS_PROFILE(db_mesh_copy);
+        MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
+      }
 
       // This sprite's own param + palette snapshot keeps geometry and color
       // continuous across a preset change.
@@ -363,6 +374,7 @@ private:
                   const ArenaVector<Tangent> &tangents,
                   const ArenaVector<Plot::Mesh::Edge> &edges,
                   const BakedPalette &baked) {
+    HS_PROFILE(db_draw_scene);
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       Color4 c = baked.get(f.v0);
@@ -375,15 +387,24 @@ private:
     const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
     for (int i = 0; i < num_copies; ++i) {
       float offset = (static_cast<float>(i) / num_copies) * 2 * PI_F;
-      update_displaced_mesh(base, target, tangents, p, offset);
-
-      for (size_t vi = 0; vi < target.vertices.size(); ++vi) {
-        target.vertices[vi] = mobius_gen.transform(target.vertices[vi]);
-        target.vertices[vi] = global_orientation.orient(target.vertices[vi]);
+      {
+        HS_PROFILE(db_displace);
+        update_displaced_mesh(base, target, tangents, p, offset);
       }
 
-      Plot::Mesh::draw<W, H>(filters, canvas, target, edges,
-                             fragment_shader);
+      {
+        HS_PROFILE(db_warp_orient);
+        for (size_t vi = 0; vi < target.vertices.size(); ++vi) {
+          target.vertices[vi] = mobius_gen.transform(target.vertices[vi]);
+          target.vertices[vi] = global_orientation.orient(target.vertices[vi]);
+        }
+      }
+
+      {
+        HS_PROFILE(db_mesh_plot);
+        Plot::Mesh::draw<W, H>(filters, canvas, target, edges,
+                               fragment_shader);
+      }
     }
   }
 

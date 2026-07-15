@@ -84,14 +84,27 @@ public:
    * trails.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
-    advance_tumble();
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(hf_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(hf_timeline_step);
+      timeline.step(canvas);
+    }
+    {
+      HS_PROFILE(hf_advance_tumble);
+      advance_tumble();
+    }
 
-    for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
-      Vector v = hopf_project(i);
-      // Store unoriented — oriented at render time.
-      trails[i].record(v);
+    {
+      HS_PROFILE(hf_project_record);
+      for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
+        Vector v = hopf_project(i);
+        // Store unoriented — oriented at render time.
+        trails[i].record(v);
+      }
     }
 
     render_trails(canvas);
@@ -252,6 +265,7 @@ private:
     // draw_frame(), so motion resumes when alpha > 0.
     if (params.alpha <= 0.0f)
       return;
+    HS_PROFILE(hf_render_trails);
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
       const auto &trail = trails[i];
       size_t len = trail.length();
@@ -277,7 +291,10 @@ private:
         f.color = c;
       };
 
-      Plot::rasterize<W, H>(trail_pipeline, canvas, points, shader);
+      {
+        HS_PROFILE(hf_trail_raster);
+        Plot::rasterize<W, H>(trail_pipeline, canvas, points, shader);
+      }
     }
   }
 

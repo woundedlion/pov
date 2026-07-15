@@ -65,30 +65,41 @@ public:
    *          then advances and draws each live thruster.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(th_buffer_wait);
+      return Canvas(*this);
+    }();
 
     // Wrap at 32, ring_fn's modulation period.
     t_global = (t_global + 1) % 32;
 
-    timeline.step(canvas);
-    if (!warp_anim.done()) {
-      warp_anim.step(canvas);
+    {
+      HS_PROFILE(th_timeline_step);
+      timeline.step(canvas);
     }
-
-    // Expire finished thrusters from the front (FIFO: all share the same LIFE,
-    // so the front always expires first).
-    while (!thrusters.is_empty() && thrusters.front().expired()) {
-      thrusters.pop_front();
+    if (!warp_anim.done()) {
+      HS_PROFILE(th_warp_step);
+      warp_anim.step(canvas);
     }
 
     // Advance and draw each live thruster; radius and opacity are pure
     // functions of `age`.
-    for (size_t i = 0; i < thrusters.size(); ++i) {
-      ThrusterContext &ctx = thrusters[i];
-      float progress = static_cast<float>(ctx.age) / ThrusterContext::LIFE;
-      float opacity = 1.0f - ease_out_expo(hs::clamp(progress, 0.0f, 1.0f));
-      draw_thruster(canvas, ctx, ctx.radius_at(), opacity);
-      ++ctx.age;
+    {
+      HS_PROFILE(th_thrusters);
+      // Expire finished thrusters from the front (FIFO: all share the same LIFE,
+      // so the front always expires first).
+      while (!thrusters.is_empty() && thrusters.front().expired()) {
+        thrusters.pop_front();
+      }
+
+      for (size_t i = 0; i < thrusters.size(); ++i) {
+        ThrusterContext &ctx = thrusters[i];
+        float progress = static_cast<float>(ctx.age) / ThrusterContext::LIFE;
+        float opacity = 1.0f - ease_out_expo(hs::clamp(progress, 0.0f, 1.0f));
+        draw_thruster(canvas, ctx, ctx.radius_at(), opacity);
+        ++ctx.age;
+      }
     }
   }
 
@@ -246,6 +257,7 @@ private:
    */
   void draw_thruster(Canvas &c, const ThrusterContext &ctx, float radius,
                      float opacity) {
+    HS_PROFILE(th_thruster_draw);
     Basis basis = make_basis(ctx.orientation.get(), ctx.point);
     auto fragment_shader = [this, opacity](const Vector &, Fragment &f) {
       f.color = Color4(CRGB(255, 255, 255));
@@ -263,6 +275,7 @@ private:
    * @param opacity Fade factor in [0, 1]; multiplied by the global alpha param.
    */
   void draw_ring(Canvas &c, float opacity) {
+    HS_PROFILE(th_ring_draw);
     Basis basis = make_basis(orientation.get(), ring_vec);
 
     auto fragment_shader = [this, opacity](const Vector &v, Fragment &f) {

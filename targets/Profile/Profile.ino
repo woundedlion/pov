@@ -1,0 +1,200 @@
+/*
+ * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
+ * Licensed under the Polyform Noncommercial License 1.0.0
+ *
+ * Profile — single-effect on-device profiling harness (288×144, segmented)
+ *
+ * Target: one Teensy 4.0 running as segment 0 of the shipping 4-segment
+ * Phantasm configuration. Runs exactly one effect (selected at build time via
+ * -D HS_PROFILE_TARGET=<EffectClass>, default DisplacementField) under the
+ * real POVSegmented driver — flywheel ISR, DMA LED output, and segment
+ * clipping all live — and periodically dumps the HS_PROFILE cycle-counter
+ * tree plus exact per-frame wall-clock stats over USB serial.
+ *
+ * Build with the `profile` PlatformIO env (which defines HS_PROFILE_ENABLE);
+ * drive it via `just profile <EffectClass>`.
+ */
+
+// Select the DMA HD107S output path (same guard dance as Phantasm.ino: the
+// profile env also passes -D USE_DMA_LEDS).
+#ifndef USE_DMA_LEDS
+#define USE_DMA_LEDS
+#endif
+
+#ifndef PHANTASM_NUM_SEGMENTS
+#define PHANTASM_NUM_SEGMENTS 4
+#endif
+
+// Effect class to profile; overridden per-run by `just profile <EffectClass>`.
+#ifndef HS_PROFILE_TARGET
+#define HS_PROFILE_TARGET DisplacementField
+#endif
+
+// Frames per readout window; override (via PLATFORMIO_BUILD_FLAGS) for finer
+// phase resolution at the cost of more serial traffic.
+#ifndef HS_PROFILE_WINDOW
+#define HS_PROFILE_WINDOW 128
+#endif
+
+#define HS_PROFILE_STR2(x) #x
+#define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
+
+#include <FastLED.h>
+#include <SPI.h>
+#include <new> // std::nothrow — fail-fast OOM check on the POV allocation below
+
+#include "pov_segmented.h"
+#include "engine/effects.h"
+
+static constexpr int TOTAL_PIXELS = 288;
+static constexpr int NUM_SEGMENTS = PHANTASM_NUM_SEGMENTS;
+static constexpr unsigned int RPM = 480;
+
+using POV = POVSegmented<TOTAL_PIXELS, NUM_SEGMENTS, RPM>;
+
+#if defined(USE_DMA_LEDS)
+// Out-of-line definition for this target's controller, emitted as the required
+// DMAMEM explicit specialization (see pov_segmented.h).
+HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(TOTAL_PIXELS, NUM_SEGMENTS, RPM);
+#endif
+
+namespace {
+
+/**
+ * @brief Wraps the profiled effect: roots the HS_PROFILE tree at one `frame`
+ * counter per draw_frame() and accumulates exact wall-clock stats, dumping
+ * both every WINDOW_FRAMES frames.
+ */
+template <int W, int H> class ProfiledEffect : public HS_PROFILE_TARGET<W, H> {
+public:
+  void draw_frame() override {
+    const unsigned long t0 = micros();
+    {
+      HS_PROFILE(frame);
+      HS_PROFILE_TARGET<W, H>::draw_frame();
+    }
+    const unsigned long dt = micros() - t0;
+    wall_sum_ += dt;
+    if (dt < wall_min_) wall_min_ = dt;
+    if (dt > wall_max_) wall_max_ = dt;
+    ++total_frames_;
+    if (++window_frames_ == WINDOW_FRAMES) dump();
+  }
+
+private:
+  static constexpr int WINDOW_FRAMES = HS_PROFILE_WINDOW; /**< Frames per readout window. */
+
+  void dump() {
+    const unsigned long now = micros();
+    hs::log("=== profile %s [%dx%d] frames %lu-%lu window=%lu us ===",
+            HS_PROFILE_STR(HS_PROFILE_TARGET), W, H,
+            total_frames_ - window_frames_ + 1, total_frames_,
+            now - window_start_);
+    hs::log("frame wall us: min=%lu avg=%lu max=%lu sum=%lu (%d frames)",
+            wall_min_, wall_sum_ / WINDOW_FRAMES, wall_max_, wall_sum_,
+            WINDOW_FRAMES);
+    dump_isr_stats(now - window_start_);
+    hs::CycleCounter::log_all();
+    hs::CycleCounter::reset_all();
+    window_frames_ = 0;
+    wall_sum_ = 0;
+    wall_min_ = ~0ul;
+    wall_max_ = 0;
+    window_start_ = micros();
+  }
+
+  /**
+   * @brief Prints and resets the column-ISR accumulators for this window.
+   * @param window_us Window wall-clock span, for the CPU-share figure.
+   * @details Copy + reset under a brief IRQ-off window (the ISR is the sole
+   * writer). Per-call figures are exact cycles; ns = cycles * 5 / 3 at 600 MHz.
+   */
+  static void dump_isr_stats(unsigned long window_us) {
+    hs::IsrCycleStats wake, pack, submit;
+    __disable_irq();
+    wake = hs::g_flywheel_wake_cycles;
+    pack = hs::g_column_pack_cycles;
+    submit = hs::g_dma_submit_cycles;
+    hs::g_flywheel_wake_cycles.reset();
+    hs::g_column_pack_cycles.reset();
+    hs::g_dma_submit_cycles.reset();
+    __enable_irq();
+    log_isr("isr_wake", wake, window_us);
+    log_isr("isr_pack", pack, window_us);
+    log_isr("isr_dma_submit", submit, window_us);
+  }
+
+  static void log_isr(const char *name, const hs::IsrCycleStats &s,
+                      unsigned long window_us) {
+    if (!s.count) {
+      hs::log("%-14s n=0", name);
+      return;
+    }
+    const uint32_t avg = (uint32_t)(s.cycles / s.count);
+    const uint32_t total_us = (uint32_t)(s.cycles / 600u);
+    // CPU share in hundredths of a percent; window_us is far below the
+    // 32-bit ceiling of total_us * 10000.
+    const uint32_t share_c =
+        window_us ? (uint32_t)((uint64_t)total_us * 10000u / window_us) : 0;
+    hs::log("%-14s n=%lu cyc min/avg/max=%lu/%lu/%lu "
+            "ns min/avg/max=%lu/%lu/%lu total=%lu us cpu=%lu.%02lu%%",
+            name, (unsigned long)s.count, (unsigned long)s.min,
+            (unsigned long)avg, (unsigned long)s.max,
+            (unsigned long)(s.min * 5u / 3u), (unsigned long)(avg * 5u / 3u),
+            (unsigned long)(s.max * 5u / 3u), (unsigned long)total_us,
+            (unsigned long)(share_c / 100u), (unsigned long)(share_c % 100u));
+  }
+
+  unsigned long total_frames_ = 0;  /**< Frames since this effect instance began. */
+  unsigned long window_frames_ = 0; /**< Frames in the current readout window. */
+  unsigned long wall_sum_ = 0;      /**< Summed draw_frame wall time this window (µs). */
+  unsigned long wall_min_ = ~0ul;   /**< Fastest draw_frame this window (µs). */
+  unsigned long wall_max_ = 0;      /**< Slowest draw_frame this window (µs). */
+  unsigned long window_start_ = micros(); /**< Window wall-clock start (µs). */
+};
+
+POV *g_pov;  // g_-prefixed: a bare `pov` collides with the hardware `namespace pov`
+
+// Slightly above Phantasm's shipping per-effect budget: the wrapper adds its
+// profiling bookkeeping on top of the wrapped effect.
+static constexpr size_t MAX_EFFECT_HEAP_BYTES = 3584 + 64;
+
+Effect *construct_profiled() {
+  using E = ProfiledEffect<288, 144>;
+  static_assert(sizeof(E) <= MAX_EFFECT_HEAP_BYTES,
+                "profiled effect exceeds the heap-object budget");
+  // Eager-fill the scanline LUTs before the first frame so the flywheel ISR
+  // never observes a half-filled table.
+  GeometryResolution<E>::init();
+  E *e = new (std::nothrow) E();
+  HS_CHECK(e != nullptr, "effect allocation failed (OOM)");
+  configure_arenas_default(); // Reset before init so effects can override
+  e->init();
+#ifdef HS_PROFILE_TRANS_SPEED
+  // Per-run knob (e.g. IslamicStars carousel speed-up so a single epoch walks the
+  // whole shape roster). No-op for effects that don't register "Trans Speed".
+  e->updateParameter("Trans Speed", (float)(HS_PROFILE_TRANS_SPEED));
+#endif
+  return e;
+}
+
+const POV::EffectFactory EFFECT_FACTORIES[] = {&construct_profiled};
+
+static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1).valid(),
+              "Profile pov::sync::Config invariants violated");
+} // namespace
+
+void setup() {
+  Serial.begin(9600); // baud inert on Teensy USB-CDC; initializes Serial only
+  delay(1000);        // USB-CDC enumeration settle so early output isn't lost
+  hs::log("profile harness: effect=%s segments=%d rpm=%u f_cpu=%lu",
+          HS_PROFILE_STR(HS_PROFILE_TARGET), NUM_SEGMENTS, RPM,
+          (unsigned long)F_CPU);
+  g_pov = new (std::nothrow) POV();
+  HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
+}
+
+void loop() {
+  // Never returns: runs the single-entry playlist forever.
+  g_pov->run_show(EFFECT_FACTORIES, 1);
+}

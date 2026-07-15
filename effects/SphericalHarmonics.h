@@ -245,8 +245,15 @@ public:
    * frame's morph state, and rasterizes with the harmonic-coloring shader.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(sh_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(sh_timeline_step);
+      timeline.step(canvas);
+    }
 
     auto [l1, m1] = SHMath::decode_lm(current_idx);
     auto [l2, m2] = SHMath::decode_lm(next_idx);
@@ -287,7 +294,10 @@ public:
       frag.color = base;
     };
 
-    Scan::rasterize<W, H>(filters, canvas, field, shader, params.debug_bb);
+    {
+      HS_PROFILE(sh_rasterize);
+      Scan::rasterize<W, H>(filters, canvas, field, shader, params.debug_bb);
+    }
   }
 
 private:

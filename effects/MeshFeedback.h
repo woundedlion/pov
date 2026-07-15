@@ -141,20 +141,35 @@ public:
    * advances the timeline.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    apply_params();
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(mf_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(mf_apply_params);
+      apply_params();
+    }
 
-    filters.flush(
-        canvas, [](float, float, float) { return Color4(0, 0, 0, 0); },
-        1.0f);
+    {
+      // Feedback-buffer warp/tap + decay flush.
+      HS_PROFILE(mf_feedback_flush);
+      filters.flush(
+          canvas, [](float, float, float) { return Color4(0, 0, 0, 0); },
+          1.0f);
+    }
 
     if (!morphing) {
+      HS_PROFILE(mf_mesh_draw);
       Color4 shade = palette.get(0.0f);
       Plot::Mesh::draw<W, H>(filters, canvas, carousel.current(),
                              [&](const Vector &, Fragment &f) { f.color = shade; });
     }
 
-    timeline.step(canvas);
+    {
+      HS_PROFILE(mf_timeline_step);
+      timeline.step(canvas);
+    }
   }
 
 private:
@@ -252,6 +267,7 @@ private:
   /** @brief Morph draw callback; Fn member gives FunctionRef a stable lifetime. */
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_fn_{
       [this](Canvas &c, const MeshState &m, float opacity) {
+        HS_PROFILE(mf_morph_draw);
         Color4 shade = palette.get(0.0f);
         Plot::Mesh::draw<W, H>(filters, c, m,
                                [shade, opacity](const Vector &, Fragment &f) {

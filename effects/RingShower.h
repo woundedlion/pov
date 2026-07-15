@@ -55,14 +55,25 @@ public:
    *          a stale animation would draw whatever ring later lands in it.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas); // drives the spawn timer only
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(rsh_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(rsh_timeline_step);
+      timeline.step(canvas); // drives the spawn timer only
+    }
 
+    HS_PROFILE(rsh_draw_rings);
     for (size_t i = 0; i < MAX_RINGS; ++i) {
       Ring &ring = rings[i];
       if (ring.expired())
         continue; // free slot
-      draw_ring(canvas, ring.opacity_at(), i);
+      {
+        HS_PROFILE(rsh_ring_plot);
+        draw_ring(canvas, ring.opacity_at(), i);
+      }
       ++ring.age;
     }
   }

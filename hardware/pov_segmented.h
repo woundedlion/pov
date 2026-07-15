@@ -62,6 +62,17 @@
 
 #include <atomic>
 
+#ifdef HS_PROFILE_ENABLE
+namespace hs {
+/** Column-ISR profiling accumulators (see IsrCycleStats): the whole flywheel
+ *  wake, render_column's pixel pack, and the submitFrame DMA marshal+kick.
+ *  ISR-written; read + reset from the foreground under IRQ-off. */
+inline IsrCycleStats g_flywheel_wake_cycles;
+inline IsrCycleStats g_column_pack_cycles;
+inline IsrCycleStats g_dma_submit_cycles;
+} // namespace hs
+#endif
+
 /**
  * @brief Multi-Teensy segmented POV display driver.
  * @tparam S   Total number of physical LEDs across the full strip (both arms).
@@ -481,6 +492,7 @@ private:
    * columns were masked precisely because the strip was busy).
    */
   static FASTRUN void flywheel_isr() {
+    HS_ISR_PROFILE(hs::g_flywheel_wake_cycles);
     const uint32_t now = ARM_DWT_CYCCNT;
 
     // Complete a deferred dark-path sync pulse from the previous wake: the
@@ -595,12 +607,16 @@ private:
     const Pixel *buf = e->display_buffer();
 
     auto &frame = ledController_.backFrame();
-    int y = y_base_;
-    for (int i = 0; i < PPS; ++i, y += y_step_) {
-      frame.packPixel(i, buf[y * w + x_col]);
+    {
+      HS_ISR_PROFILE(hs::g_column_pack_cycles);
+      int y = y_base_;
+      for (int i = 0; i < PPS; ++i, y += y_step_) {
+        frame.packPixel(i, buf[y * w + x_col]);
+      }
     }
     // Drop the accept/overrun result: a dropped image column self-heals next
     // tick (render_black, by contrast, gates on it for the fail-dark latch).
+    HS_ISR_PROFILE(hs::g_dma_submit_cycles);
     (void)ledController_.submitFrame(e->strobe_columns());
   }
 

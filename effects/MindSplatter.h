@@ -86,15 +86,25 @@ public:
    *        advances it, then renders the particles.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(msp_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(msp_timeline_step);
+      timeline.step(canvas);
+    }
 
     particle_system.friction = params.friction;
     // All attractors share the one live (preset-animated) Well Str slider; the
     // strength passed at add_attractor time is just a seed overwritten here.
     for (size_t i = 0; i < particle_system.attractors.size(); ++i)
       particle_system.attractors[i].strength = params.well_strength;
-    particle_system.step(canvas);
+    {
+      HS_PROFILE(msp_particle_step);
+      particle_system.step(canvas);
+    }
     params.active_count = (float)particle_system.active();
 
     draw_particles(canvas);
@@ -274,6 +284,7 @@ private:
    * @param opacity Global opacity multiplier in [0, 1] applied to each fragment.
    */
   void draw_particles(Canvas &canvas, float opacity = 1.0f) {
+    HS_PROFILE(msp_draw_particles);
     // cos(event_horizon) per attractor for the dot-product fast-reject below.
     std::array<float, AttractSolid::NUM_VERTS> cos_eh{};
     for (size_t i = 0; i < particle_system.attractors.size(); ++i) {
@@ -322,9 +333,12 @@ private:
 
     HS_CHECK(particle_system.active() <= particle_system.pool.capacity(),
              "MindSplatter particle index space exceeds pool capacity");
-    Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
-                                     fragment_shader, vertex_shader,
-                                     hole_shader);
+    {
+      HS_PROFILE(msp_particle_scan);
+      Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
+                                       fragment_shader, vertex_shader,
+                                       hole_shader);
+    }
   }
 
   /**

@@ -122,17 +122,27 @@ public:
    *          multiline.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(cs_buffer_wait);
+      return Canvas(*this);
+    }();
     ScratchScope scratch_a_guard(scratch_arena_a);
     ArenaVector<Fragment> vertices(scratch_arena_a, MAX_FRAGMENTS);
-    timeline.step(canvas);
+    {
+      HS_PROFILE(cs_timeline_step);
+      timeline.step(canvas);
+    }
 
     // Push live slider values onto the noise template; prepare_frame() copies
     // them into each active entity (refresh_from) and re-syncs the generator.
-    noise_xform.template_params.frequency = params.noise_freq;
-    noise_xform.template_params.amplitude = params.jitter_amp;
-    noise_xform.template_params.speed = params.speed;
-    noise_xform.prepare_frame();
+    {
+      HS_PROFILE(cs_noise_prepare);
+      noise_xform.template_params.frequency = params.noise_freq;
+      noise_xform.template_params.amplitude = params.jitter_amp;
+      noise_xform.template_params.speed = params.speed;
+      noise_xform.prepare_frame();
+    }
 
     apply_if_changed(params.cycle_duration, last_cycle_duration_, [&](float cd) {
       if (motion_)
@@ -141,14 +151,17 @@ public:
 
     node->trail.record(node->orientation);
 
-    deep_tween(node->trail, [&](const Quaternion &q, float t) {
-      Vector pos =
-          noise_xform.transform(orientation.orient(rotate(node->v, q)));
-      Fragment f;
-      f.pos = normalized_or(pos, Vector(1, 0, 0));
-      f.v3 = t;
-      vertices.push_back(f);
-    });
+    {
+      HS_PROFILE(cs_build_vertices);
+      deep_tween(node->trail, [&](const Quaternion &q, float t) {
+        Vector pos =
+            noise_xform.transform(orientation.orient(rotate(node->v, q)));
+        Fragment f;
+        f.pos = normalized_or(pos, Vector(1, 0, 0));
+        f.v3 = t;
+        vertices.push_back(f);
+      });
+    }
 
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
       float color_t = frag.v3;
@@ -156,7 +169,10 @@ public:
       frag.color.alpha *= quintic_kernel(frag.v3) * params.alpha;
     };
 
-    Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);
+    {
+      HS_PROFILE(cs_multiline_draw);
+      Plot::Multiline::draw<W, H>(filters, canvas, vertices, fragment_shader);
+    }
   }
 
 private:

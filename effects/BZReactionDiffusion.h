@@ -368,8 +368,10 @@ private:
    */
   void render(Canvas &canvas) {
     ScratchScope frame_guard(scratch_arena_a);
+    HS_PROFILE(bz_render);
     {
       ScratchScope physics_guard(scratch_arena_a);
+      HS_PROFILE(bz_physics);
       uint8_t *s_a = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
       uint8_t *s_b = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
       uint8_t *s_c = static_cast<uint8_t *>(scratch_arena_a.allocate(RD_N, 1));
@@ -393,7 +395,10 @@ private:
     // oriented lattice so the kernel walks stay in world space.
     Vector *world_nodes = static_cast<Vector *>(
         scratch_arena_a.allocate(RD_N * sizeof(Vector), alignof(Vector)));
-    orient_nodes(nodes, world_nodes, RD_N, orientation.get());
+    {
+      HS_PROFILE(bz_orient);
+      orient_nodes(nodes, world_nodes, RD_N, orientation.get());
+    }
 
     const Color4 &ca = color_a;
     const Color4 &cb = color_b;
@@ -406,7 +411,10 @@ private:
                                  ca, cb, cc);
     };
 
-    Scan::Shader::draw<W, H, 4>(canvas, fragment_shader, vertex_shader);
+    {
+      HS_PROFILE(bz_raster);
+      Scan::Shader::draw<W, H, 4>(canvas, fragment_shader, vertex_shader);
+    }
   }
 
   // ---------------------------------------------------------------------------
