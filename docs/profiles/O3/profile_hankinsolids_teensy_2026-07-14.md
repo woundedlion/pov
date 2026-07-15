@@ -186,8 +186,7 @@ geometry or camera.
 
 ## -O3 vs -Os
 
-The only variable between this run and the shipping-config report
-(`docs/profiles/Os/profile_hankinsolids_teensy_2026-07-14.md`) is the
+The only variable between this run and the shipping-config report is the
 optimization level. Both windows are the **same shapes** (identical face and
 blend counts — 62 faces / 12,480 blends steady, 15.5 faces / ~13.5 k blends in
 the octahedron crossfade), so the deltas are a clean A/B on the SDF+blend path:

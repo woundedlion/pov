@@ -1,7 +1,7 @@
 # Flyby on-device profile — Teensy 4.0, segmented mode, **-O3** (2026-07-14)
 
 Point-in-time snapshot (regenerate with `just profile`). This is the **-O3** twin of the
-shipping `-Os` report at `docs/profiles/Os/profile_flyby_teensy_2026-07-14.md`.
+shipping `-Os` report.
 Raw capture: `build/profile_flyby_o3.log` (64-frame windows, ~72 s single pass,
 18 windows). The column-ISR/DMA accumulators are dumped every window.
 

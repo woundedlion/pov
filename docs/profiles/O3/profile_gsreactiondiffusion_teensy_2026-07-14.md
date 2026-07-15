@@ -15,7 +15,7 @@ Point-in-time snapshot (regenerate with `just profile`). Raw capture:
 | Reproduce | `pio run -e profile_o3 -t upload` + `python tools/profile_capture.py` (no `just` recipe for the -O3 env) |
 
 Image size: FLASH code 69,212 B; ITCM (RAM1 code) 47,496 B; RAM2 free 4,736 B.
-(At `-Os`: 46,372 / 26,696 / 4,736 — see the -Os counterpart in `docs/profiles/Os/`.)
+(At `-Os`: 46,372 / 26,696 / 4,736.)
 
 **Exactness cross-check** — the cycle counter and wall clock agree to ~0.1 ppm:
 window frames 193–256 root `frame` counter = 4,799,907,560 cyc = 7,999,845.9 µs

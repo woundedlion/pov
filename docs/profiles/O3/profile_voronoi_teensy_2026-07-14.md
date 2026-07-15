@@ -2,8 +2,10 @@
 
 Point-in-time snapshot (regenerate with `just profile`). Raw capture:
 `build/profile_voronoi_o3.log` (64-frame windows, ~75 s single pass; ISR/DMA
-accumulators dumped every window). This is the **-O3** twin of the
-shipping-config `-Os` report at `../Os/profile_voronoi_teensy_2026-07-14.md`.
+accumulators dumped every window). This is the global-`-O3` ceiling twin of
+the shipping profile; the base is `-Os` and Voronoi carries no `HS_O3`
+region, so its shipping render is the `-Os` render — the only variable here
+is the optimization level.
 
 ## Setup
 

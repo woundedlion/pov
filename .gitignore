@@ -47,3 +47,7 @@ __vm/
 # Python bytecode cache
 __pycache__/
 *.pyc
+
+# On-device profiles are point-in-time snapshots (regenerate with `just profile
+# <Effect>`); tracked design record is docs/selective_o3_spec.md.
+docs/profiles/
