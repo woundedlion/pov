@@ -208,7 +208,7 @@ private:
    * Debug visuals fall back to per-ring rasterizes so the bounding-box tint
    * keeps per-shape scan bounds.
    */
-  void draw_rings(Canvas &canvas, float opacity) {
+  HS_O3_FN void draw_rings(Canvas &canvas, float opacity) {
     HS_PROFILE(df_draw_rings);
     int n_rings = static_cast<int>(params.num_rings);
     assert(n_rings <= RING_SLOTS);
