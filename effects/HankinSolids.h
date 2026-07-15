@@ -62,8 +62,15 @@ public:
    * @brief Advances the timeline by one frame and renders into the canvas.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(hk_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(hk_timeline_step);
+      timeline.step(canvas);
+    }
   }
 
 private:
@@ -142,11 +149,15 @@ private:
                  float opacity) {
     if (mesh.vertices.is_empty() || opacity < 0.01f)
       return;
+    HS_PROFILE(hk_draw_mesh);
 
     ScratchScope scratch_a_guard(scratch_arena_a);
     MeshState rotated_mesh;
     OrientTransformer camera(orientation);
-    MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
+    {
+      HS_PROFILE(hk_mesh_transform);
+      MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
+    }
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       f.color = shade_mesh_topology(f, topology.data(),
@@ -155,8 +166,11 @@ private:
                                     opacity);
     };
 
-    Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
-                           scratch_arena_a, params.debug_bb);
+    {
+      HS_PROFILE(hk_mesh_scan);
+      Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
+                             scratch_arena_a, params.debug_bb);
+    }
   }
 
   /**
@@ -195,8 +209,12 @@ private:
                  // update_hankin re-binds the slot's vectors against
                  // persistent_arena every frame; the angle never changes the
                  // vertex/face counts, so bind reuses the blocks in place.
-                 MeshOps::update_hankin(compiled_hankin, carousel.slot(front),
-                                        persistent_arena, params.hankin_angle);
+                 {
+                   HS_PROFILE(hk_update_hankin);
+                   MeshOps::update_hankin(compiled_hankin,
+                                          carousel.slot(front),
+                                          persistent_arena, params.hankin_angle);
+                 }
                  // Always-on guard: grown counts would leak persistent_arena
                  // every frame on a permanent install.
                  const MeshState &s = carousel.slot(front);

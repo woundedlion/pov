@@ -60,22 +60,29 @@ public:
    *        borders).
    */
   void draw_frame() override {
-    Canvas canvas(*this);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(vo_buffer_wait);
+      return Canvas(*this);
+    }();
 
     // Re-seed when the GUI changes the site count (integer change only, so
     // dragging within a bucket doesn't thrash).
-    if (active_site_count() != current_num_sites)
-      seed_sites();
+    {
+      HS_PROFILE(vo_animate);
+      if (active_site_count() != current_num_sites)
+        seed_sites();
 
-    float s = logf(params.speed + 1.0f) * 0.005f;
+      float s = logf(params.speed + 1.0f) * 0.005f;
 
-    for (size_t i = 0; i < sites_buffer.size(); ++i) {
-      auto &site = sites_buffer[i];
-      // Renormalize: rotate() drifts |pos| off the unit sphere over a long run,
-      // and the unit-site invariants (nearest-by-Euclidean == nearest-by-max-dot,
-      // and the border acosf(dot) staying in range) require unit vectors.
-      Quaternion q = make_rotation(site.axis, s);
-      site.pos = rotate(site.pos, q).normalized();
+      for (size_t i = 0; i < sites_buffer.size(); ++i) {
+        auto &site = sites_buffer[i];
+        // Renormalize: rotate() drifts |pos| off the unit sphere over a long run,
+        // and the unit-site invariants (nearest-by-Euclidean == nearest-by-max-dot,
+        // and the border acosf(dot) staying in range) require unit vectors.
+        Quaternion q = make_rotation(site.axis, s);
+        site.pos = rotate(site.pos, q).normalized();
+      }
     }
 
     // Build a KD-tree over the moving site positions once per frame. On the unit
@@ -84,10 +91,19 @@ public:
     ScratchScope scope_guard(scratch_arena_a);
     Vector *positions = static_cast<Vector *>(scratch_arena_a.allocate(
         sites_buffer.size() * sizeof(Vector), alignof(Vector)));
-    for (size_t i = 0; i < sites_buffer.size(); ++i)
-      positions[i] = sites_buffer[i].pos;
-    KDTree tree(scratch_arena_a,
-                std::span<const Vector>(positions, sites_buffer.size()));
+    // IIFE times the per-frame KD build while keeping `tree` at frame scope
+    // (guaranteed copy elision on the prvalue return).
+    KDTree tree = [&]() -> KDTree {
+      HS_PROFILE(vo_kdtree);
+      for (size_t i = 0; i < sites_buffer.size(); ++i)
+        positions[i] = sites_buffer[i].pos;
+      return KDTree(scratch_arena_a,
+                    std::span<const Vector>(positions, sites_buffer.size()));
+    }();
+
+    // One node for all per-pixel work (corner pre-pass + shading loop); never
+    // scope inside the per-pixel loop, filter.h counts blended pixels.
+    HS_PROFILE(vo_shade);
 
     // Resolves the final color from the already-identified nearest pair: the
     // nearest site index i0 and its dot d0 (the larger), and — when a second

@@ -63,12 +63,19 @@ public:
    *          and whose basis carries the current orientation and warp.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(gn_buffer_wait);
+      return Canvas(*this);
+    }();
 
     // Mirror the slider into the warp before the timeline advances it.
     warp_->set_speed(params.warp_speed);
 
-    timeline.step(canvas);
+    {
+      HS_PROFILE(gn_timeline_step);
+      timeline.step(canvas);
+    }
 
     auto fragment_shader = [this](const Vector &p, Fragment &frag) {
       float t = (p.y + 1.0f) * 0.5f; // Y in [-1, 1] -> gradient t in [0, 1]
@@ -86,21 +93,28 @@ public:
     // animate downstream — so rebuild the trig-heavy fib_spiral only when
     // "Points" changes.
     if (points != cached_points_) {
+      HS_PROFILE(gn_spiral_build);
       for (int i = 0; i < points; i++) {
         spiral_cache_[i] = fib_spiral(points, /*eps=*/0.0f, i);
       }
       cached_points_ = points;
     }
 
-    for (int i = 0; i < points; i++) {
-      Vector v = transformer.transform(spiral_cache_[i]);
+    {
+      HS_PROFILE(gn_draw_stars);
+      for (int i = 0; i < points; i++) {
+        Vector v = transformer.transform(spiral_cache_[i]);
 
-      // make_basis() rotates its normal by the orientation; pass the raw warp
-      // output so the orientation is applied exactly once, not twice.
-      Basis basis = make_basis(orientation.get(), v);
+        // make_basis() rotates its normal by the orientation; pass the raw warp
+        // output so the orientation is applied exactly once, not twice.
+        Basis basis = make_basis(orientation.get(), v);
 
-      Scan::Star::draw<W, H>(filters, canvas, basis, radius, sides,
-                             fragment_shader, 0.0f, params.debug_bb);
+        {
+          HS_PROFILE(gn_star_scan);
+          Scan::Star::draw<W, H>(filters, canvas, basis, radius, sides,
+                                 fragment_shader, 0.0f, params.debug_bb);
+        }
+      }
     }
   }
 

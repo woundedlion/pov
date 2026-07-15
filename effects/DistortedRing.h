@@ -91,11 +91,21 @@ public:
    * @brief Advances and renders the timeline for one frame.
    */
   void draw_frame() override {
-    step_mod_drivers();
-    for (int i = 0; i < NUM_WAVES; ++i)
-      wave_phase[i] = wrap_t(wave_phase[i] + WAVES[i].drift);
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    {
+      HS_PROFILE(dr_mod_advance);
+      step_mod_drivers();
+      for (int i = 0; i < NUM_WAVES; ++i)
+        wave_phase[i] = wrap_t(wave_phase[i] + WAVES[i].drift);
+    }
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(dr_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(dr_timeline_step);
+      timeline.step(canvas);
+    }
   }
 
   /**
@@ -108,15 +118,19 @@ public:
    * as a knot polyline by the rasterizer.
    */
   void draw_fn(Canvas &canvas, float opacity) {
+    HS_PROFILE(dr_draw);
     int n_rings = static_cast<int>(params.num_rings);
 
-    for (int x = 0; x <= W; ++x) {
-      float t = static_cast<float>(x) / W;
-      float s = 0.0f;
-      for (int i = 0; i < NUM_WAVES; ++i)
-        s += wave_amp[i] * WAVES[i].weight *
-             sinf(2.0f * PI_F * (WAVES[i].freq * t + wave_phase[i]));
-      shift_lut[x] = s;
+    {
+      HS_PROFILE(dr_lut_bake);
+      for (int x = 0; x <= W; ++x) {
+        float t = static_cast<float>(x) / W;
+        float s = 0.0f;
+        for (int i = 0; i < NUM_WAVES; ++i)
+          s += wave_amp[i] * WAVES[i].weight *
+               sinf(2.0f * PI_F * (WAVES[i].freq * t + wave_phase[i]));
+        shift_lut[x] = s;
+      }
     }
 
     // True upper bound on the knots: an underestimate silently culls arcs.
@@ -132,9 +146,12 @@ public:
         f.color.alpha = f.color.alpha * opacity * params.alpha * f.v2;
       };
 
-      Scan::DistortedRing::draw<W, H>(
-          filters, canvas, basis, radius, params.thickness, shift_lut, W,
-          max_shift, fragment_shader, 0.0f, params.debug_bb);
+      {
+        HS_PROFILE(dr_ring_scan);
+        Scan::DistortedRing::draw<W, H>(
+            filters, canvas, basis, radius, params.thickness, shift_lut, W,
+            max_shift, fragment_shader, 0.0f, params.debug_bb);
+      }
     }
   }
 

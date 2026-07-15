@@ -129,14 +129,25 @@ public:
    *          through the orient/AA filters.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(ff_buffer_wait);
+      return Canvas(*this);
+    }();
     // Wrap the noise-time accumulator so the float ULP never swallows the
     // increment and freezes the field; OpenSimplex2 is aperiodic so the wrap pops
     // the field once per period (hours apart at TIME_PERIOD).
     t = fmodf(t + params.time_scale, TIME_PERIOD);
 
-    timeline.step(canvas);
-    particle_system.step(canvas);
+    {
+      HS_PROFILE(ff_timeline_step);
+      timeline.step(canvas);
+    }
+    {
+      // Advect particles + evaluate the noise force field (the emitter loop).
+      HS_PROFILE(ff_particle_step);
+      particle_system.step(canvas);
+    }
 
     // Rotation is owned by the Orient stage, so the shader applies none. Color by
     // latitude (v.y -> palette t).
@@ -150,8 +161,11 @@ public:
       f.color = c;
     };
 
-    Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
-                                     fragment_shader);
+    {
+      HS_PROFILE(ff_particle_draw);
+      Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
+                                       fragment_shader);
+    }
   }
 
 private:

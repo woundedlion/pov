@@ -67,7 +67,11 @@ public:
    *        rather than jumping on unpause.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(ss_buffer_wait);
+      return Canvas(*this);
+    }();
 
     if (!anims_paused_) {
       // Wrap at the 48-frame cycle period to keep the counter bounded.
@@ -78,7 +82,10 @@ public:
       }
     }
 
-    timeline.step(canvas);
+    {
+      HS_PROFILE(ss_timeline_step);
+      timeline.step(canvas);
+    }
   }
 
   /**
@@ -123,6 +130,7 @@ public:
    * mode share orientation and a fixed normal) instead of once per ring.
    */
   void draw_all(Canvas &canvas) {
+    HS_PROFILE(ss_draw_all);
     int count = static_cast<int>(params.num_shapes);
     if (count < 1)
       count = 1;
@@ -169,8 +177,10 @@ public:
       return;
     int sides_int = (int)params.sides;
     if (mode == RenderMode::Plot) {
+      HS_PROFILE(ss_plot_dispatch);
       dispatch_plot(canvas, basis, r, sides_int, fragment_shader, phase);
     } else {
+      HS_PROFILE(ss_scan_dispatch);
       dispatch_scan(canvas, basis, r, sides_int, fragment_shader, phase);
     }
   }

@@ -82,10 +82,20 @@ public:
    *          diametrically opposed under the Möbius warp before drawing.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(mg_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(mg_timeline_step);
+      timeline.step(canvas);
+    }
 
-    step_wipe_rebake(wipe_pending_, wipe_frames_remaining_, baked_palette, palette);
+    {
+      HS_PROFILE(mg_wipe_rebake);
+      step_wipe_rebake(wipe_pending_, wipe_frames_remaining_, baked_palette, palette);
+    }
 
     // int % 120 before the float cast: a float frame counter would lose integer
     // precision past 2^24.
@@ -98,8 +108,17 @@ public:
     hole_n = normalized_or(rotate(n_trans, q), Vector(1, 0, 0));
     hole_s = normalized_or(rotate(s_trans, q), Vector(1, 0, 0));
 
-    draw_axis_rings(canvas, Y_AXIS, params.num_rings, phase, q);
-    draw_longitudes(canvas, params.num_lines, phase, q);
+    {
+      HS_PROFILE(mg_draw_grid);
+      {
+        HS_PROFILE(mg_rings_draw);
+        draw_axis_rings(canvas, Y_AXIS, params.num_rings, phase, q);
+      }
+      {
+        HS_PROFILE(mg_lines_draw);
+        draw_longitudes(canvas, params.num_lines, phase, q);
+      }
+    }
   }
 
 private:

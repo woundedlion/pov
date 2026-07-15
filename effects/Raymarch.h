@@ -66,8 +66,15 @@ public:
    *        march.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(rm_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(rm_timeline_step);
+      timeline.step(canvas);
+    }
   }
 
 private:
@@ -97,6 +104,8 @@ private:
    *                color.
    */
   void draw_fn(Canvas &canvas, float opacity) {
+    // Per-pixel ray-march over every torus; parents under rm_timeline_step.
+    HS_PROFILE(rm_shader_draw);
     constexpr float TWO_PI_F = 2.0f * PI_F;
 
     // Torus proportions at scale 1: VIS_K is the visible outer ring radius,

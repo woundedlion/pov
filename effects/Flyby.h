@@ -87,8 +87,15 @@ public:
    * rotated by the local warp displacement.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(fly_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(fly_timeline_step);
+      timeline.step(canvas);
+    }
 
     // Wrap the noise-time accumulator so the float ULP never swallows the
     // increment and freezes the warp; OpenSimplex2 is aperiodic so the wrap pops
@@ -112,7 +119,10 @@ public:
       return c;
     };
 
-    Scan::Shader::draw<W, H, 1>(canvas, shader);
+    {
+      HS_PROFILE(fly_shader_draw);
+      Scan::Shader::draw<W, H, 1>(canvas, shader);
+    }
   }
 
 private:

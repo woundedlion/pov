@@ -68,9 +68,19 @@ public:
    * all rings.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
-    update_and_draw_rings(canvas);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(pf_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(pf_timeline_step);
+      timeline.step(canvas);
+    }
+    {
+      HS_PROFILE(pf_draw_rings);
+      update_and_draw_rings(canvas);
+    }
   }
 
 private:
@@ -259,37 +269,43 @@ private:
     ScratchScope scratch_a_guard(scratch_arena_a);
     Fragments fragments;
     fragments.bind(scratch_arena_a, num_samples);
-    for (int i = 0; i < num_samples; ++i) {
-      float t_norm = static_cast<float>(i) / num_samples;
-      float theta = i * step;
+    {
+      HS_PROFILE(pf_ring_build);
+      for (int i = 0; i < num_samples; ++i) {
+        float t_norm = static_cast<float>(i) / num_samples;
+        float theta = i * step;
 
-      float final_theta = theta + twist_angle;
+        float final_theta = theta + twist_angle;
 
-      // Inverse stereographic projection of the planar point at
-      // (radius R=exp(rho + wobble), angle final_theta) onto the unit sphere.
-      // exp(rho + wobble) factors into the per-ring exp(rho) and the cached,
-      // geometry-static exp(wobble) in exp_shift_.
-      float R = exp_rho * exp_shift_[i];
+        // Inverse stereographic projection of the planar point at
+        // (radius R=exp(rho + wobble), angle final_theta) onto the unit sphere.
+        // exp(rho + wobble) factors into the per-ring exp(rho) and the cached,
+        // geometry-static exp(wobble) in exp_shift_.
+        float R = exp_rho * exp_shift_[i];
 
-      float r2 = R * R;
-      float denom = 1.0f + r2;
-      float x = 2.0f * R * fast_cosf(final_theta) / denom;
-      float y = 2.0f * R * fast_sinf(final_theta) / denom;
-      float z = (r2 - 1.0f) / denom;
+        float r2 = R * R;
+        float denom = 1.0f + r2;
+        float x = 2.0f * R * fast_cosf(final_theta) / denom;
+        float y = 2.0f * R * fast_sinf(final_theta) / denom;
+        float z = (r2 - 1.0f) / denom;
 
-      Fragment f;
-      f.pos = Vector(x, y, z);
-      f.v0 = t_norm;
-      f.age = 0;
+        Fragment f;
+        f.pos = Vector(x, y, z);
+        f.v0 = t_norm;
+        f.age = 0;
 
-      fragments.push_back(f);
+        fragments.push_back(f);
+      }
     }
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       f.color = base_col;
     };
 
-    Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
+    {
+      HS_PROFILE(pf_ring_scan);
+      Plot::rasterize<W, H>(filters, canvas, fragments, fragment_shader, true);
+    }
   }
 
   /**

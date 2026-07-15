@@ -102,8 +102,15 @@ public:
    *          body along the trail.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(cm_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(cm_timeline_step);
+      timeline.step(canvas);
+    }
 
     apply_if_changed((int)params.cycle_duration, last_cycle_dur_, [&](int cd) {
       if (motion_)
@@ -112,10 +119,15 @@ public:
         cycle_timer_->set_period(2 * cd);
     });
 
-    step_wipe_rebake(wipe_pending_, wipe_frames_remaining_, baked_palette, palette);
+    {
+      HS_PROFILE(cm_wipe_rebake);
+      step_wipe_rebake(wipe_pending_, wipe_frames_remaining_, baked_palette,
+                       palette);
+    }
 
     node->trail.record(node->orientation);
 
+    HS_PROFILE(cm_draw_trail);
     deep_tween(node->trail, [&](const Quaternion &q, float t) {
       auto fragment_shader = [&](const Vector &, Fragment &f) {
         f.color = baked_palette.get(t);
@@ -124,6 +136,7 @@ public:
 
       Vector v_local = rotate(node->v, q);
       Vector v_final = orientation.orient(v_local);
+      HS_PROFILE(cm_point_scan);
       Scan::Point::draw<W, H>(filters, canvas, v_final, params.thickness,
                               fragment_shader, params.debug_bb);
     });

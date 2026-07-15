@@ -227,14 +227,21 @@ public:
    *          filter pipeline through color().
    */
   void draw_frame() override {
-    Canvas canvas(*this);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(dy_buffer_wait);
+      return Canvas(*this);
+    }();
 
     // Push the live "Trail Len" slider into the Trails filter, clamped to its
     // [1,255] domain.
     filters.template get<Filter::World::Trails<W, TRAIL_CAPACITY>>()
         .set_lifetime(hs::clamp((int)params.trail_length, 1, 255));
 
-    timeline.step(canvas);
+    {
+      HS_PROFILE(dy_timeline_step);
+      timeline.step(canvas);
+    }
 
     // Collapse finished wipes (FIFO) before their boundaries are read below.
     reap_completed_wipes();
@@ -250,22 +257,29 @@ public:
     speed_accumulator_ += std::abs(effective_speed);
     const int steps = static_cast<int>(speed_accumulator_);
     speed_accumulator_ -= static_cast<float>(steps);
-    if (steps == 0) {
-      // Re-emit the strand in place; otherwise a Trail Len of 1 blanks it on
-      // zero-step frames and sub-unit speeds flicker.
-      draw_nodes(canvas, 0.0f);
-    } else {
-      for (int i = steps - 1; i >= 0; --i) {
-        pull(0, effective_speed);
-        draw_nodes(canvas, static_cast<float>(i) / steps);
+    {
+      HS_PROFILE(dy_draw_nodes);
+      if (steps == 0) {
+        // Re-emit the strand in place; otherwise a Trail Len of 1 blanks it on
+        // zero-step frames and sub-unit speeds flicker.
+        draw_nodes(canvas, 0.0f);
+      } else {
+        for (int i = steps - 1; i >= 0; --i) {
+          pull(0, effective_speed);
+          draw_nodes(canvas, static_cast<float>(i) / steps);
+        }
       }
     }
 
     // The Trails filter replays each buffered point with t = its age fraction;
     // feeding that as color()'s palette parameter fades the trail along the
     // palette with age (newest t=0, oldest t=1) rather than just dimming.
-    filters.flush(
-        canvas, [this](const Vector &v, float t) { return color(v, t); }, 1.0f);
+    {
+      HS_PROFILE(dy_filter_flush);
+      filters.flush(
+          canvas, [this](const Vector &v, float t) { return color(v, t); },
+          1.0f);
+    }
   }
 
 private:

@@ -59,6 +59,7 @@ public:
                   RIPPLE_AMP_MAX);
     register_param("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
     register_param("Ripp Dur", &ripple_duration, 30.0f, (float)RIPPLE_DURATION_MAX);
+    register_param("Trans Speed", &params.trans_speed, 1.0f, 8.0f);
     register_param("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
@@ -70,9 +71,19 @@ public:
    * @brief Advances ripple state once and runs the timeline for this frame.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    ripple_gen.prepare_frame();
-    timeline.step(canvas);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(is_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(is_ripple_prepare);
+      ripple_gen.prepare_frame();
+    }
+    {
+      HS_PROFILE(is_timeline_step);
+      timeline.step(canvas);
+    }
   }
 
 private:
@@ -95,6 +106,10 @@ private:
   RippleTransformer<RIPPLE_POOL_SIZE> ripple_gen;
   FastNoiseLite noise;
   float ripple_duration = 80.0f;
+  // Effective per-shape stage lengths after the Trans Speed divisor, written by
+  // spawn_shape and read by the deferred ripple() callback.
+  int ripple_dur_eff_ = 80;
+  int ripple_stagger_eff_ = RIPPLE_STAGGER_FRAMES;
   int solid_idx = -1;
   using SegueT = Segue::TerminatorSweep;
   MeshCarousel<SegueT> carousel;
@@ -114,9 +129,8 @@ private:
   void ripple(Canvas &) {
     Vector origin = random_vector();
     for (int i = 0; i < (int)params.burst_size; i++) {
-      if (!ripple_gen.spawn(i * RIPPLE_STAGGER_FRAMES, origin,
-                            PI_F / ripple_duration,
-                            static_cast<int>(ripple_duration)))
+      if (!ripple_gen.spawn(i * ripple_stagger_eff_, origin,
+                            PI_F / ripple_dur_eff_, ripple_dur_eff_))
         hs::log("IslamicStars: ripple pool full, dropping spawn");
     }
   }
@@ -140,11 +154,15 @@ private:
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
+    HS_PROFILE(is_draw_shape);
     ScratchScope a_guard(scratch_arena_a);
     MeshState transformed_state;
     OrientTransformer camera(orientation);
-    MeshOps::transform(base_state, transformed_state, scratch_arena_a,
-                       ripple_gen, camera);
+    {
+      HS_PROFILE(is_mesh_transform);
+      MeshOps::transform(base_state, transformed_state, scratch_arena_a,
+                         ripple_gen, camera);
+    }
 
     const int *raw_indices = face_indices.data();
     const int num_faces = static_cast<int>(face_indices.size());
@@ -160,6 +178,7 @@ private:
     ArenaVector<float> face_offsets;
     ArenaVector<float> face_fades;
     if constexpr (PER_FACE) {
+      HS_PROFILE(is_face_offsets);
       constexpr bool LOCAL_SWEEP = requires { requires SegueT::LOCAL_SWEEP; };
       const MeshState &sweep_state =
           LOCAL_SWEEP ? base_state : transformed_state;
@@ -193,8 +212,11 @@ private:
                                        palette_bank_, palette_idx, 1.0f, seg, p);
     };
 
-    Scan::Mesh::draw<W, H>(filters, canvas, transformed_state, fragment_shader,
-                           scratch_arena_a, params.debug_bb);
+    {
+      HS_PROFILE(is_mesh_scan);
+      Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
+                             fragment_shader, scratch_arena_a, params.debug_bb);
+    }
   }
 
   /**
@@ -253,22 +275,33 @@ private:
     // one second, segue out. Duration is derived from the stage lengths so the
     // stages never overlap; the segue warps are identity on the phase-1
     // plateau, so the mesh only moves during its own stage.
-    int fade = static_cast<int>(params.fade);
+    // Trans Speed divides every stage length so the carousel can be sped up
+    // (e.g. for profiling) without touching the shape geometry. Each stage keeps
+    // a >=1-frame floor. The effective ripple duration/stagger are cached for the
+    // deferred ripple() callback, which fires before the next shape spawns.
+    const float sp = std::max(1.0f, params.trans_speed);
+    int fade = std::max(1, static_cast<int>(params.fade / sp));
+    int still = std::max(1, static_cast<int>(STILL_FRAMES / sp));
+    ripple_dur_eff_ = std::max(8, static_cast<int>(ripple_duration / sp));
+    ripple_stagger_eff_ =
+        std::max(1, static_cast<int>(RIPPLE_STAGGER_FRAMES / sp));
     int burst_span =
-        (static_cast<int>(params.burst_size) - 1) * RIPPLE_STAGGER_FRAMES +
-        static_cast<int>(ripple_duration);
-    int duration = fade + STILL_FRAMES + burst_span + STILL_FRAMES + fade;
+        (static_cast<int>(params.burst_size) - 1) * ripple_stagger_eff_ +
+        ripple_dur_eff_;
+    int duration = fade + still + burst_span + still + fade;
 
     int next_delay = carousel.schedule_segue(timeline, draw_fn, duration, fade);
 
-    timeline.add(fade + STILL_FRAMES,
+    timeline.add(fade + still,
                  Animation::PeriodicTimer(
                      0, [this](Canvas &canvas) { ripple(canvas); }, false));
 
+    // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
     const auto &entry = solids[solid_idx];
-    hs::log("Spawning Shape: %s (V=%d, F=%d)", entry.name,
-            (int)carousel.current().vertices.size(),
-            (int)carousel.current().faces.size());
+    const MeshState &spawned = carousel.current();
+    hs::log("Spawning Shape: %s (V=%d, E=%d, F=%d, I=%d)", entry.name,
+            (int)spawned.vertices.size(), (int)(spawned.faces.size() / 2),
+            (int)spawned.face_counts.size(), (int)spawned.faces.size());
 
     // The segue decides when the next shape starts relative to this one.
     timeline.add(next_delay,
@@ -282,6 +315,7 @@ private:
   struct Params {
     float fade = 72.0f; /**< Segue window length, in frames: a 64-frame (4 s) sweep crossing plus one per-face fade tail. */
     float burst_size = 4.0f; /**< Ripples per burst; float-backed for register_param. */
+    float trans_speed = 1.0f; /**< Divides every per-shape stage length (fade, still holds, ripple span): 1 = shipping cadence, higher cycles shapes faster. */
     bool debug_bb = false; /**< Whether to draw mesh bounding boxes. */
   } params;
 };
