@@ -54,7 +54,7 @@ public:
    * @details Initializes the base Effect with the W x H dimensions and selects
    *          the first path/palette function table entry.
    */
-  HS_COLD_MEMBER Comets() : Effect(W, H, {.strobe = true}), cur_function_idx(0) {}
+  HS_COLD_MEMBER Comets() : Effect(W, H, {.strobe = true}) {}
 
   /**
    * @brief Allocates state and wires up the animation timeline.
@@ -88,7 +88,7 @@ public:
         0, Animation::PeriodicTimer(
                2 * (int)params.cycle_duration,
                [this](Canvas &) {
-                 cur_function_idx = (cur_function_idx + 1) % functions.size();
+                 functions.next();
                  update_path();
                  update_palette();
                },
@@ -174,7 +174,7 @@ private:
    *          function switches.
    */
   void update_path() {
-    LissajousParams config = functions[cur_function_idx];
+    LissajousParams config = functions.get();
     // Snap so path_fn(domain) == path_fn(0); an unclosed endpoint pinches the
     // curve to a stray point each cycle.
     float closed_domain = closing_domain(config);
@@ -231,25 +231,27 @@ private:
   Orientation<> orientation; /**< World orientation walked by the RandomWalk. */
   GenerativePalette palette; /**< Active color palette (mutated by an in-flight ColorWipe). */
   BakedPalette baked_palette; /**< LUT-baked copy of `palette` sampled by the shader. */
-  /** @brief Function table of Lissajous parameters cycled through over time.
+  /** @brief Authored Lissajous parameter table backing `functions`.
    *  @details Each row is a LissajousParams {m1, m2, a, domain}: m1 axial (X/Z)
    *           frequency, m2 orbital (Y) frequency, a phase shift in radians,
    *           domain the traversal length t (closing_domain() snaps it so the
    *           curve closes). */
-  static constexpr std::array<LissajousParams, 12> functions = {{// {m1, m2, a, domain}
-                                                {1.06f, 1.06f, 0, 5.909f},
-                                                {6.06f, 1.0f, 0, 2 * PI_F},
-                                                {6.02f, 4.01f, 0, 3.132f},
-                                                {46.62f, 62.16f, 0, 0.404f},
-                                                {46.26f, 69.39f, 0, 0.272f},
-                                                {19.44f, 9.72f, 0, 0.646f},
-                                                {8.51f, 17.01f, 0, 0.739f},
-                                                {7.66f, 6.38f, 0, 4.924f},
-                                                {8.75f, 5.0f, 0, 5.027f},
-                                                {11.67f, 14.58f, 0, 2.154f},
-                                                {11.67f, 8.75f, 0, 2.154f},
-                                                {10.94f, 8.75f, 0, 2.872f}}};
-  int cur_function_idx; /**< Index into `functions` of the active path/palette entry. */
+  static constexpr std::array<PresetEntry<LissajousParams>, 12> FUNCTIONS = {
+      {// {m1, m2, a, domain}
+       {{1.06f, 1.06f, 0, 5.909f}},
+       {{6.06f, 1.0f, 0, 2 * PI_F}},
+       {{6.02f, 4.01f, 0, 3.132f}},
+       {{46.62f, 62.16f, 0, 0.404f}},
+       {{46.26f, 69.39f, 0, 0.272f}},
+       {{19.44f, 9.72f, 0, 0.646f}},
+       {{8.51f, 17.01f, 0, 0.739f}},
+       {{7.66f, 6.38f, 0, 4.924f}},
+       {{8.75f, 5.0f, 0, 5.027f}},
+       {{11.67f, 14.58f, 0, 2.154f}},
+       {{11.67f, 8.75f, 0, 2.154f}},
+       {{10.94f, 8.75f, 0, 2.872f}}}};
+  /** @brief Cyclic selector over FUNCTIONS for the active path/palette entry. */
+  Presets<LissajousParams, 12> functions{FUNCTIONS};
   Node *node = nullptr; /**< Arena-allocated comet head state. */
   GenerativePalette next_palette_; /**< Target palette a ColorWipe fades toward. */
   Animation::Motion<W, 16> *motion_ = nullptr; /**< Handle to the infinite Motion driving the head along `path`. */
