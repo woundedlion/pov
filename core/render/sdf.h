@@ -2126,31 +2126,10 @@ struct Face {
       if (len > Wd)
         len = Wd;
       const int s = ((a % Wd) + Wd) % Wd;
-      if (arcs_overlap(xc.rs, band_len, s, len, Wd))
+      if (ClipRegion::arcs_overlap(xc.rs, band_len, s, len, Wd))
         return false;
     }
     return true;
-  }
-
-  /**
-   * @brief Tests whether two cylindrical column arcs overlap.
-   * @param s1 First arc start column, in [0, w).
-   * @param len1 First arc length in columns.
-   * @param s2 Second arc start column, in [0, w).
-   * @param len2 Second arc length in columns.
-   * @param w Cylinder width in columns.
-   * @return True if the arcs share at least one column.
-   */
-  static bool arcs_overlap(int s1, int len1, int s2, int len2, int w) {
-    if (len1 >= w || len2 >= w)
-      return true;
-    if (len1 <= 0 || len2 <= 0)
-      return false;
-    auto covers = [w](int s, int len, int p) {
-      const int d = ((p - s) % w + w) % w;
-      return d < len;
-    };
-    return covers(s1, len1, s2) || covers(s2, len2, s1);
   }
 
   // ---------------------------------------------------------------------------

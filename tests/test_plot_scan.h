@@ -519,6 +519,236 @@ inline void test_edge_row_span_covers_arc_bulge() {
 }
 
 // ============================================================================
+// ClipRegion::arcs_overlap + Plot::edge_col_span — column-arc clip cull
+// ============================================================================
+
+/**
+ * @brief Pins the shared cylindrical arc-overlap helper across the wrap
+ *        topologies: disjoint, overlapping, seam-crossing, containment,
+ *        full-width, and empty arcs.
+ */
+inline void test_clip_arcs_overlap() {
+  constexpr int W = 96;
+  // Disjoint / touching / overlapping, no wrap.
+  HS_EXPECT_FALSE(ClipRegion::arcs_overlap(10, 20, 40, 20, W));
+  HS_EXPECT_FALSE(ClipRegion::arcs_overlap(10, 20, 30, 10, W)); // touch at 30
+  HS_EXPECT_TRUE(ClipRegion::arcs_overlap(10, 21, 30, 10, W));  // share col 30
+  HS_EXPECT_TRUE(ClipRegion::arcs_overlap(10, 20, 5, 10, W));
+  // One arc contains the other.
+  HS_EXPECT_TRUE(ClipRegion::arcs_overlap(10, 50, 20, 5, W));
+  HS_EXPECT_TRUE(ClipRegion::arcs_overlap(20, 5, 10, 50, W));
+  // Seam-crossing arc [90, 96) U [0, 10).
+  HS_EXPECT_TRUE(ClipRegion::arcs_overlap(90, 16, 0, 5, W));
+  HS_EXPECT_TRUE(ClipRegion::arcs_overlap(90, 16, 92, 2, W));
+  HS_EXPECT_FALSE(ClipRegion::arcs_overlap(90, 16, 10, 20, W));
+  HS_EXPECT_TRUE(ClipRegion::arcs_overlap(0, 5, 90, 16, W)); // symmetric
+  // Full-width and empty arcs.
+  HS_EXPECT_TRUE(ClipRegion::arcs_overlap(0, W, 50, 1, W));
+  HS_EXPECT_TRUE(ClipRegion::arcs_overlap(30, W + 5, 0, 1, W));
+  HS_EXPECT_FALSE(ClipRegion::arcs_overlap(10, 0, 10, 5, W));
+  HS_EXPECT_FALSE(ClipRegion::arcs_overlap(10, 5, 10, 0, W));
+}
+
+/**
+ * @brief Verifies Plot::edge_col_span conservatively covers the rendered arc's
+ *        screen-column sweep and stays within the half-width sweep bound.
+ * @details Densely samples the renderer's own circle (same axis selection as
+ *          rasterize_geodesic_strategy) and asserts modular containment of
+ *          every sample column, plus the antipodal-symmetry bound: a geodesic
+ *          arc sweeps at most half the canvas in longitude, so every span must
+ *          fit W/2 plus padding. Near-half sweeps (pole-grazing near-meridian
+ *          arcs) stress the direction logic: covering the wrong side of an
+ *          ambiguous near-half separation fails on the mid-arc samples.
+ *          Non-vacuity counters require many genuinely cullable spans and many
+ *          near-half sweeps.
+ */
+inline void test_edge_col_span_covers_arc() {
+  constexpr int TW = 288;
+  auto col_of = [](const Vector &v) {
+    return vector_to_theta<TW>(v.normalized());
+  };
+  auto contains = [](int s, int len, float c) {
+    int ci = static_cast<int>(floorf(c));
+    int d = ((ci - s) % TW + TW) % TW;
+    return d < len;
+  };
+  auto rand_unit = [] {
+    for (;;) {
+      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      if (r.length() > 0.1f)
+        return r.normalized();
+    }
+  };
+
+  hs::random().seed(20260714);
+  int cullable = 0;  // spans narrower than half the canvas
+  int near_half = 0; // sweeps close to the half-width bound
+  int fallbacks = 0; // near-meridian edges that decline to bound
+
+  for (int trial = 0; trial < 4000; ++trial) {
+    Vector a, b;
+    if (trial % 3 == 2) {
+      // Near-meridian circle: an axis close to the equator plane produces
+      // pole-grazing arcs whose longitude sweeps far past the endpoints.
+      Vector ad(hs::rand_f(-1, 1), hs::rand_f(-0.05f, 0.05f),
+                hs::rand_f(-1, 1));
+      if (ad.length() < 0.1f)
+        continue;
+      Basis cb = basis_from_normal(ad.normalized());
+      float a0 = hs::rand_f(0, 2 * PI_F);
+      float a1 = a0 + hs::rand_f(0.5f, 3.0f);
+      a = (cb.u * cosf(a0) + cb.w * sinf(a0)).normalized();
+      b = (cb.u * cosf(a1) + cb.w * sinf(a1)).normalized();
+    } else {
+      a = rand_unit();
+      b = rand_unit();
+    }
+    float ang = angle_between(a, b);
+    if (ang < 0.05f)
+      continue;
+
+    int s, len;
+    if (!Plot::edge_col_span<TW>(a, b, s, len)) {
+      fallbacks++; // meridian fallback skips the cull; nothing to verify
+      continue;
+    }
+
+    // Dense ground truth along the renderer's own circle.
+    Vector axis = (std::abs(PI_F - ang) < TOLERANCE)
+                      ? Plot::stable_perpendicular_axis(a)
+                      : cross(a, b).normalized();
+    Vector vperp = cross(axis, a);
+    constexpr int N = 1000;
+    for (int i = 0; i <= N; ++i) {
+      float t = static_cast<float>(i) / N;
+      Vector p = a * cosf(ang * t) + vperp * sinf(ang * t);
+      HS_EXPECT_TRUE(contains(s, len, col_of(p)));
+    }
+
+    // Antipodal symmetry caps a geodesic arc's longitude sweep at half the
+    // canvas; the span may only exceed it by its own padding.
+    HS_EXPECT_LE(len, TW / 2 + 6);
+    if (len < TW / 2)
+      cullable++;
+    if (len > TW / 2 - 10)
+      near_half++;
+  }
+  HS_EXPECT_GT(cullable, 500);
+  HS_EXPECT_GT(near_half, 50);
+  HS_EXPECT_LT(fallbacks, 400); // the guard must stay a rare escape hatch
+
+  // Exact-antipodal edges: the span must cover the semicircle the renderer
+  // bulges about stable_perpendicular_axis, not just the endpoint columns.
+  for (int trial = 0; trial < 500; ++trial) {
+    Vector a = rand_unit();
+    Vector b = a * -1.0f;
+    int s, len;
+    if (!Plot::edge_col_span<TW>(a, b, s, len))
+      continue;
+    Vector axis = Plot::stable_perpendicular_axis(a);
+    Vector vperp = cross(axis, a);
+    constexpr int N = 1000;
+    for (int i = 0; i <= N; ++i) {
+      float t = static_cast<float>(i) / N;
+      Vector p = a * cosf(PI_F * t) + vperp * sinf(PI_F * t);
+      HS_EXPECT_TRUE(contains(s, len, col_of(p)));
+    }
+  }
+}
+
+/**
+ * @brief End-to-end conservativeness of the rasterizer's column cull: a
+ *        quadrant/wedge-clipped render is pixel-identical to the full render
+ *        inside the display band.
+ * @details Random trail-like polylines through the AntiAlias pipeline (the
+ *          MindSplatter stack). Clips cover both device quadrants, a narrow
+ *          interior wedge, and a seam-adjacent wedge whose margin expansion
+ *          wraps (rs > re). A cull false-negative drops in-band pixels and
+ *          breaks the comparison.
+ */
+inline void test_rasterize_column_cull_pixel_parity() {
+  constexpr int W = 96, H = 48;
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
+  };
+  auto rand_unit = [] {
+    for (;;) {
+      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      if (r.length() > 0.1f)
+        return r.normalized();
+    }
+  };
+
+  hs::random().seed(0xC01C);
+  const int clips[4][4] = {{0, H / 2, 0, W / 2},
+                           {H / 2, H, W / 2, W},
+                           {0, H, 10, 34},
+                           {0, H, 0, 8}};
+  int lit_total = 0;
+
+  for (int trial = 0; trial < 25; ++trial) {
+    // Trail-like random walk: successive short geodesic hops.
+    constexpr size_t WALK = 6;
+    Vector walk[WALK];
+    walk[0] = rand_unit();
+    for (size_t i = 1; i < WALK; ++i) {
+      Vector step = cross(walk[i - 1], rand_unit());
+      if (step.length() < 0.05f) {
+        walk[i] = walk[i - 1];
+        continue;
+      }
+      float hop = hs::rand_f(0.15f, 0.7f);
+      walk[i] =
+          (walk[i - 1] * cosf(hop) + step.normalized() * sinf(hop)).normalized();
+    }
+
+    auto render = [&](RasterFx &fx) {
+      Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
+          Filter::Screen::AntiAlias<W, H>()};
+      ScratchScope sc(plot_arena());
+      Fragments pts;
+      pts.bind(plot_arena(), WALK);
+      for (const Vector &v : walk) {
+        Fragment f;
+        f.pos = v;
+        pts.push_back(f);
+      }
+      Canvas c(fx);
+      Plot::rasterize<W, H>(filters, c, pts, shade, /*close_loop=*/false);
+    };
+
+    std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+    {
+      RasterFx fx(W, H);
+      render(fx);
+      fx.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+    }
+
+    for (auto &cl : clips) {
+      RasterFx fx(W, H);
+      fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
+      render(fx);
+      fx.advance_display();
+      int diff = 0;
+      for (int y = cl[0]; y < cl[1]; ++y)
+        for (int x = cl[2]; x < cl[3]; ++x) {
+          Pixel p = fx.get_pixel(x, y);
+          const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+          if (r.r | r.g | r.b)
+            ++lit_total;
+          if (p.r != r.r || p.g != r.g || p.b != r.b)
+            ++diff;
+        }
+      HS_EXPECT_EQ(diff, 0);
+    }
+  }
+  HS_EXPECT_GT(lit_total, 200); // the sweep must actually exercise the bands
+}
+
+// ============================================================================
 // Plot::screen_step — adaptive-density sub-step
 // ============================================================================
 
@@ -1885,6 +2115,9 @@ inline int run_plot_scan_tests() {
   test_clip_could_intersect_y();
   test_clip_x_band_topologies();
   test_edge_row_span_covers_arc_bulge();
+  test_clip_arcs_overlap();
+  test_edge_col_span_covers_arc();
+  test_rasterize_column_cull_pixel_parity();
   test_screen_step_matches_analytic_unclamped();
 
   test_ring_sample_unit_length_and_progress();
