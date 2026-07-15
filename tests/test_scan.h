@@ -414,6 +414,54 @@ inline void test_scan_region_fractional_boundary_no_double_plot() {
 }
 
 /**
+ * @brief Verifies scan_region's clip arc matches per-column XClip::clipped.
+ * @details Runs the interval path (spans straddling the seam and both wrap
+ * pieces) and the full-row path under a plain arc, a seam-wrapping arc, and no
+ * clip; each column's coverage must equal the unclipped coverage filtered by
+ * XClip::clipped, with no column walked twice.
+ */
+inline void test_scan_region_clip_arc_matches_predicate() {
+  constexpr int W = 96, H = 20;
+  const int y = 10;
+
+  auto run = [&](ClipRegion::XClip xc, bool handled, int (&counts)[W]) {
+    for (int i = 0; i < W; ++i)
+      counts[i] = 0;
+    Scan::scan_region<W, H>(
+        y, y,
+        [&](int, auto &&out) {
+          if (!handled)
+            return false;
+          out(1.0f, 5.0f);
+          out((float)(W - 4), (float)(W + 2)); // seam-crosser
+          return true;
+        },
+        [&](int wx, int, const Vector &) {
+          if (wx >= 0 && wx < W)
+            counts[wx]++;
+        },
+        xc);
+  };
+
+  const ClipRegion::XClip no_clip{};
+  const ClipRegion::XClip arc{3, 8, true, false};
+  const ClipRegion::XClip wrap_arc{W - 2, 2, true, true};
+
+  for (bool handled : {true, false}) {
+    int reference[W];
+    run(no_clip, handled, reference);
+    for (const auto &xc : {arc, wrap_arc}) {
+      int counts[W];
+      run(xc, handled, counts);
+      for (int x = 0; x < W; ++x) {
+        HS_EXPECT_LE(counts[x], 1);
+        HS_EXPECT_EQ(counts[x], xc.clipped(x) ? 0 : reference[x]);
+      }
+    }
+  }
+}
+
+/**
  * @brief Verifies a geodesic line through the north pole plots the pole row.
  * @details map_geodesic/map_planar build interpolated points with
  * fast_sinf/fast_cosf, which are ~0.04% non-unit; vector_to_pixel takes
@@ -1167,6 +1215,7 @@ inline int run_scan_tests() {
   test_scan_shader_v2_contract();
   test_scan_region_seam_no_double_plot();
   test_scan_region_fractional_boundary_no_double_plot();
+  test_scan_region_clip_arc_matches_predicate();
   test_plot_line_over_pole_reaches_row0();
   test_csg_stroke_aa_uses_winning_child_thickness();
 
