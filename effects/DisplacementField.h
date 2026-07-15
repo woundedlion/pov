@@ -455,8 +455,8 @@ private:
       shapes[s].~DistortedRing();
   }
 
-  HS_O3_FN __attribute__((noinline)) void
-  prepare_hue_table(const HueRotateBase &base, float domain) {
+  __attribute__((noinline)) void prepare_hue_table(const HueRotateBase &base,
+                                                   float domain) {
     for (int i = 0; i <= HUE_TABLE_SIZE; ++i)
       hue_table[i] = hue_rotate(
           base, domain * (static_cast<float>(i) / HUE_TABLE_SIZE)).color;
@@ -472,9 +472,9 @@ private:
     return hue_table[i].lerp16(hue_table[i + 1], frac_to_q16(x - i));
   }
 
-  HS_O3_FN Pixel sample_hue_table_cached(float amount, float domain, bool cyclic,
-                                         const HueRotateBase &base,
-                                         uint64_t *valid) {
+  Pixel sample_hue_table_cached(float amount, float domain, bool cyclic,
+                                const HueRotateBase &base,
+                                uint64_t *valid) {
     auto ensure = [&](int index) {
       const uint64_t bit = uint64_t{1} << (index & 63);
       uint64_t &word = valid[index >> 6];
