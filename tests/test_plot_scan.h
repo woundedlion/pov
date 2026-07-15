@@ -1853,6 +1853,131 @@ inline void test_particle_system_empty_zero_lifetime_is_noop() {
 }
 
 /**
+ * @brief Deferred trail shader: bit-identical in-band pixels to an undeferred
+ *        combined shader, skipped whole for trails whose every edge is culled,
+ *        and handed the original pre-shader positions.
+ * @details Two equatorial trails under an x-wedge clip: trail 0 crosses the
+ *          band edge (mixed per-edge verdicts exercise the precomputed-bits
+ *          path through rasterize), trail 1 lies wholly outside (its deferred
+ *          pass must never run). The position pass negates the sphere, so the
+ *          deferred shader can verify its `orig` argument is the pre-shader
+ *          position, not the shaded one. Reference is a single combined vertex
+ *          shader on a full canvas; the clipped deferred render must match it
+ *          exactly inside the display band.
+ */
+inline void test_particle_system_deferred_shader_parity_and_skip() {
+  constexpr int W = 96, H = 48;
+  const int band_x0 = 0, band_x1 = W / 2;
+
+  // Shaded-space equatorial arcs (theta -> column x = theta * W / 2pi):
+  // trail 0 spans columns ~40..58 (crosses band_x1 = 48), trail 1 ~64..76
+  // (wholly outside [0,49) incl. the +-1 render margin, clear of the seam).
+  auto shaded = [](float theta) { return Vector(cosf(theta), 0, sinf(theta)); };
+  const float T0[5] = {2.6f, 2.9f, 3.2f, 3.5f, 3.8f};
+  const float T1[3] = {4.2f, 4.6f, 5.0f};
+
+  StubSystem sys;
+  sys.max_life = 100;
+  sys.active_count = 2;
+  StubParticle p0, p1;
+  p0.life = 60;
+  p1.life = 60;
+  // History records ORIGINAL positions; the position pass negates them.
+  for (float t : T0)
+    p0.history.record(shaded(t) * -1.0f);
+  for (float t : T1)
+    p1.history.record(shaded(t) * -1.0f);
+  sys.pool.push_back(p0);
+  sys.pool.push_back(p1);
+
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), hs::clamp(f.v3, 0.0f, 1.0f));
+  };
+  auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
+  int deferred_calls[2] = {0, 0};
+  int orig_mismatches = 0;
+  auto deferred_pass = [&](Fragment &f, const Vector &orig) {
+    // orig must be the pre-shader position: the negation of the shaded one.
+    if (angle_between(orig * -1.0f, f.pos) > 1e-4f)
+      orig_mismatches++;
+    deferred_calls[static_cast<size_t>(f.v2 + 0.5f)]++;
+    f.v3 *= 0.5f;
+  };
+  auto combined = [](Fragment &f) {
+    f.pos = f.pos * -1.0f;
+    f.v3 *= 0.5f;
+  };
+
+  // Reference: full canvas, combined shader.
+  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  {
+    RasterFx fx(W, H);
+    Pipeline<W, H> filters;
+    {
+      Canvas c(fx);
+      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
+    }
+    fx.advance_display();
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  }
+
+  // Clipped, split shaders: in-band pixels identical; trail 1 never shaded.
+  {
+    RasterFx fx(W, H);
+    fx.set_clip(0, H, band_x0, band_x1);
+    Pipeline<W, H> filters;
+    {
+      Canvas c(fx);
+      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
+                                       deferred_pass);
+    }
+    fx.advance_display();
+    int lit = 0, diff = 0;
+    for (int y = 0; y < H; ++y)
+      for (int x = band_x0; x < band_x1; ++x) {
+        Pixel p = fx.get_pixel(x, y);
+        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+        if (r.r | r.g | r.b)
+          ++lit;
+        if (p.r != r.r || p.g != r.g || p.b != r.b)
+          ++diff;
+      }
+    HS_EXPECT_GT(lit, 0);
+    HS_EXPECT_EQ(diff, 0);
+    HS_EXPECT_GT(deferred_calls[0], 0); // crossing trail: deferred pass ran
+    HS_EXPECT_EQ(deferred_calls[1], 0); // fully-culled trail: skipped whole
+    HS_EXPECT_EQ(orig_mismatches, 0);
+  }
+
+  // Full canvas, split shaders: identical everywhere, both trails shaded.
+  {
+    deferred_calls[0] = deferred_calls[1] = 0;
+    RasterFx fx(W, H);
+    Pipeline<W, H> filters;
+    {
+      Canvas c(fx);
+      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
+                                       deferred_pass);
+    }
+    fx.advance_display();
+    int diff = 0;
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x) {
+        Pixel p = fx.get_pixel(x, y);
+        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+        if (p.r != r.r || p.g != r.g || p.b != r.b)
+          ++diff;
+      }
+    HS_EXPECT_EQ(diff, 0);
+    HS_EXPECT_GT(deferred_calls[0], 0);
+    HS_EXPECT_GT(deferred_calls[1], 0);
+    HS_EXPECT_EQ(orig_mismatches, 0);
+  }
+}
+
+/**
  * @brief The segment cull follows a filter-chain orientation: an edge the
  *        World::Orient stage rotates into a clip band is drawn, not culled.
  * @details When orientation lives in the filter chain (FlowField) the rasterizer
@@ -2207,6 +2332,7 @@ inline int run_plot_scan_tests() {
 
   test_particle_system_draws_active_trails_with_registers();
   test_particle_system_empty_zero_lifetime_is_noop();
+  test_particle_system_deferred_shader_parity_and_skip();
 
   test_azimuthal_project_radius_is_geodesic_angle();
   test_azimuthal_roundtrip_identity();
