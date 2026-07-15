@@ -17,6 +17,11 @@ Captured at **two optimization levels**:
   **not shippable at roster scale** — a single-effect image fits, but the full
   roster overflows ITCM. These runs isolate the optimization level as the only
   variable to measure what `-Os` costs in speed.
+- [**`selectiveO3/`**](selectiveO3/README.md) — the shipping `-Os` image with
+  the landed `HS_O3` hot-loop regions (docs/selective_o3_spec.md), 2026-07-15:
+  RingSpin and DisplacementField three-way comparisons against the same-tip
+  `-Os` and global-`-O3` captures. Since the regions landed, `just profile
+  <Effect>` measures this configuration — the `Os/` reports below predate it.
 
 **Point-in-time snapshots** (regenerate with `just profile <Effect>`; numbers
 age as the render code moves). Reports + the `HS_PROFILE` instrumentation +
