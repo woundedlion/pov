@@ -608,7 +608,7 @@ inline void test_edge_col_span_covers_arc() {
       continue;
 
     int s, len;
-    if (!Plot::edge_col_span<TW>(a, b, s, len)) {
+    if (!Plot::edge_col_span<TW>(a, b, nullptr, s, len)) {
       fallbacks++; // meridian fallback skips the cull; nothing to verify
       continue;
     }
@@ -643,7 +643,7 @@ inline void test_edge_col_span_covers_arc() {
     Vector a = rand_unit();
     Vector b = a * -1.0f;
     int s, len;
-    if (!Plot::edge_col_span<TW>(a, b, s, len))
+    if (!Plot::edge_col_span<TW>(a, b, nullptr, s, len))
       continue;
     Vector axis = Plot::stable_perpendicular_axis(a);
     Vector vperp = cross(axis, a);
@@ -654,17 +654,61 @@ inline void test_edge_col_span_covers_arc() {
       HS_EXPECT_TRUE(contains(s, len, col_of(p)));
     }
   }
+
+  // Planar (azimuthal-equidistant) edges: ground truth is the chart line the
+  // renderer walks, unprojected densely. Charts centered near a pole force the
+  // near-pole fallback; the rest must produce bounded, containing spans.
+  int planar_bounded = 0, planar_fallbacks = 0;
+  for (int trial = 0; trial < 3000; ++trial) {
+    Vector center = rand_unit();
+    Basis basis = basis_from_normal(center);
+    float radius = hs::rand_f(0.2f, 1.4f);
+    auto on_disk = [&](float ang2) {
+      Vector dir = basis.u * cosf(ang2) + basis.w * sinf(ang2);
+      return (basis.v * cosf(radius) + dir * sinf(radius)).normalized();
+    };
+    float a0 = hs::rand_f(0, 2 * PI_F);
+    Vector a = on_disk(a0);
+    Vector b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
+    // Antipode-seam segments render geodesic (use_planar is false there).
+    if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+        dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+      continue;
+
+    int s, len;
+    if (!Plot::edge_col_span<TW>(a, b, &basis, s, len)) {
+      planar_fallbacks++;
+      continue;
+    }
+    planar_bounded++;
+
+    auto p1 = Plot::azimuthal_project(a, basis);
+    auto p2 = Plot::azimuthal_project(b, basis);
+    constexpr int N = 1000;
+    for (int i = 0; i <= N; ++i) {
+      float t = static_cast<float>(i) / N;
+      Vector p = Plot::azimuthal_unproject(
+          p1.first + (p2.first - p1.first) * t,
+          p1.second + (p2.second - p1.second) * t, basis);
+      HS_EXPECT_TRUE(contains(s, len, col_of(p)));
+    }
+  }
+  // Both outcomes must be exercised: bounded spans (the cull works) and the
+  // near-pole/short-way fallbacks (the escape hatch fires when it must).
+  HS_EXPECT_GT(planar_bounded, 1500);
+  HS_EXPECT_GT(planar_fallbacks, 20);
 }
 
 /**
  * @brief End-to-end conservativeness of the rasterizer's column cull: a
  *        quadrant/wedge-clipped render is pixel-identical to the full render
  *        inside the display band.
- * @details Random trail-like polylines through the AntiAlias pipeline (the
- *          MindSplatter stack). Clips cover both device quadrants, a narrow
- *          interior wedge, and a seam-adjacent wedge whose margin expansion
- *          wraps (rs > re). A cull false-negative drops in-band pixels and
- *          breaks the comparison.
+ * @details Random trail-like geodesic polylines (the MindSplatter stack) and
+ *          planar disk polylines (the Ring/Petals stack) through the AntiAlias
+ *          pipeline. Clips cover both device quadrants, a narrow interior
+ *          wedge, and a seam-adjacent wedge whose margin expansion wraps
+ *          (rs > re). A cull false-negative drops in-band pixels and breaks
+ *          the comparison.
  */
 inline void test_rasterize_column_cull_pixel_parity() {
   constexpr int W = 96, H = 48;
@@ -686,20 +730,35 @@ inline void test_rasterize_column_cull_pixel_parity() {
                            {0, H, 0, 8}};
   int lit_total = 0;
 
-  for (int trial = 0; trial < 25; ++trial) {
-    // Trail-like random walk: successive short geodesic hops.
+  for (int trial = 0; trial < 50; ++trial) {
+    const bool planar = (trial & 1);
     constexpr size_t WALK = 6;
     Vector walk[WALK];
-    walk[0] = rand_unit();
-    for (size_t i = 1; i < WALK; ++i) {
-      Vector step = cross(walk[i - 1], rand_unit());
-      if (step.length() < 0.05f) {
-        walk[i] = walk[i - 1];
-        continue;
+    Basis chart;
+
+    if (planar) {
+      // Planar polyline: points on a chart disk, as Ring/Petals emit them.
+      chart = basis_from_normal(rand_unit());
+      float radius = hs::rand_f(0.3f, 1.3f);
+      float a0 = hs::rand_f(0, 2 * PI_F);
+      for (size_t i = 0; i < WALK; ++i) {
+        float ang = a0 + hs::rand_f(0.2f, 1.0f) * static_cast<float>(i);
+        Vector dir = chart.u * cosf(ang) + chart.w * sinf(ang);
+        walk[i] = (chart.v * cosf(radius) + dir * sinf(radius)).normalized();
       }
-      float hop = hs::rand_f(0.15f, 0.7f);
-      walk[i] =
-          (walk[i - 1] * cosf(hop) + step.normalized() * sinf(hop)).normalized();
+    } else {
+      // Trail-like random walk: successive short geodesic hops.
+      walk[0] = rand_unit();
+      for (size_t i = 1; i < WALK; ++i) {
+        Vector step = cross(walk[i - 1], rand_unit());
+        if (step.length() < 0.05f) {
+          walk[i] = walk[i - 1];
+          continue;
+        }
+        float hop = hs::rand_f(0.15f, 0.7f);
+        walk[i] = (walk[i - 1] * cosf(hop) + step.normalized() * sinf(hop))
+                      .normalized();
+      }
     }
 
     auto render = [&](RasterFx &fx) {
@@ -714,7 +773,8 @@ inline void test_rasterize_column_cull_pixel_parity() {
         pts.push_back(f);
       }
       Canvas c(fx);
-      Plot::rasterize<W, H>(filters, c, pts, shade, /*close_loop=*/false);
+      Plot::rasterize<W, H>(filters, c, pts, shade, /*close_loop=*/false,
+                            planar ? &chart : nullptr);
     };
 
     std::vector<Pixel> ref(static_cast<size_t>(W) * H);
