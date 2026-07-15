@@ -3,7 +3,7 @@
 Point-in-time snapshot (regenerate with `just profile`). Raw capture:
 `build/profile_liquid2d_o3.log` (64-frame windows, ~75 s single pass). The
 column-ISR/DMA accumulators are dumped every window. This is the **-O3** twin of
-the shipping `-Os` profile at `docs/profiles/Os/profile_liquid2d_teensy_2026-07-14.md`;
+the shipping `-Os` profile;
 the only variable between the two runs is the optimization level.
 
 ## Setup

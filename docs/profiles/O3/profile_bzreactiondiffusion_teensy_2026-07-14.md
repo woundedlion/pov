@@ -137,8 +137,7 @@ stays at 8 fps. The rasterizer remains the only lever that could move cadence:
 ## -O3 vs -Os
 
 Same board, driver, effect, and instrumentation — the **only** variable is the
-optimization level (`profile_o3` keeps `-O3`; `profile` forces `-Os`). Compared
-to `docs/profiles/Os/profile_bzreactiondiffusion_teensy_2026-07-14.md`:
+optimization level (`profile_o3` keeps `-O3`; `profile` forces `-Os`). Compared to the shipping `-Os` base:
 
 | Metric | -Os | -O3 | -O3 speedup |
 |---|---|---|---|

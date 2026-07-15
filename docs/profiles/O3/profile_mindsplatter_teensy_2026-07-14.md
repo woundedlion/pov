@@ -2,8 +2,7 @@
 
 Point-in-time snapshot (regenerate with `just profile`). Raw capture:
 `build/profile_mindsplatter_o3.log` (64-frame windows, single ~80 s pass,
-captured from boot). This is the **-O3** twin of the shipping `-Os` report
-(`docs/profiles/Os/profile_mindsplatter_teensy_2026-07-14.md`); the only
+captured from boot). This is the **-O3** twin of the shipping `-Os` report; the only
 variable between the two is the optimization level. **Re-captured after the
 2026-07-14 plot column-cull batch** (column arc cull 9ac8cebd, planar-edge cull
 62450701, deferred trail shading 708d4b9b) — the saturated scan dropped

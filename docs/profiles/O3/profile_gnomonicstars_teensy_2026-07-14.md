@@ -3,8 +3,7 @@
 Point-in-time snapshot (regenerate with `just profile`). Raw capture:
 `build/profile_gnomonicstars_o3.log` (64-frame windows, single ~75 s pass).
 The column-ISR/DMA accumulators are dumped every window. This is the **-O3**
-twin of the shipping `-Os` report at
-`docs/profiles/Os/profile_gnomonicstars_teensy_2026-07-14.md`; the only variable
+twin of the shipping `-Os` report; the only variable
 between the two runs is the optimization level.
 
 ## Setup

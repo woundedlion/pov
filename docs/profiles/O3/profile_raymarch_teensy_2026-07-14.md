@@ -3,8 +3,7 @@
 Point-in-time snapshot (regenerate with `just profile`). Raw capture:
 `build/profile_raymarch_o3.log` (64-frame windows, ~72 s single pass, 9 windows /
 576 frames). The column-ISR/DMA accumulators are dumped every window. This is the
-**-O3** twin of the shipping `-Os` report at
-`docs/profiles/Os/profile_raymarch_teensy_2026-07-14.md`.
+**-O3** twin of the shipping `-Os` report.
 
 ## Setup
 

@@ -1,16 +1,19 @@
 # On-device effect profiles — **-O3** (2026-07-14)
 
-The **-O3** twins of the shipping `-Os` profiles in [`../Os/`](../Os/README.md).
-Built with the `profile_o3` PlatformIO env — identical to the shipping profile
-(newlib-nano, DMA LEDs, `phantasm.ld`, N=4, `HS_PROFILE`) **except `-O3`
-(`-ffast-math`) replaces `-Os`**, so the only variable vs the `-Os` reports is
-the optimization level. Each effect renders one quadrant ≈ 10,368 px; a display
+The **global `-O3`** ceiling twins of the shipping profiles. Built with the
+`profile_o3` PlatformIO env — identical to the shipping profile (newlib-nano,
+DMA LEDs, `phantasm.ld`, N=4, `HS_PROFILE`) **except `-O3` (`-ffast-math`)
+replaces `-Os` everywhere**, so the only variable vs the `-Os` base is the
+optimization level. Each effect renders one quadrant ≈ 10,368 px; a display
 window is 62.5 ms (16 fps = 1 window, 8 fps = 2, …).
 
-**-O3 is not the shipping config.** A single-effect image fits FlexRAM at -O3,
-but the full 26-effect roster overflows ITCM (~363 KB / 12 banks) — which is why
-the shipped Phantasm image is `-Os`. These reports measure what `-Os` costs in
-speed. The head-to-head speedup / cadence / size table is in
+**Global `-O3` is not the shipping config.** A single-effect image fits FlexRAM
+at `-O3`, but the full 26-effect roster overflows ITCM (~363 KB / 12 banks) —
+which is why the shipped Phantasm image is `-Os`-based, wrapping only the
+measured hot loops at `-O3` (**selective -O3**, see
+[`../shipping/`](../shipping/README.md)). These reports measure the
+ceiling — what the `-Os` base costs in speed and how much selective -O3 could
+in principle recover. The head-to-head speedup / cadence / size table is in
 [`../README.md`](../README.md).
 
 ## Ranked by -O3 render cost (heaviest first)

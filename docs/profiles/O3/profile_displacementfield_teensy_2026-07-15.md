@@ -3,8 +3,8 @@
 Point-in-time snapshot at the landed fused-scan tip (`7d50b672`); replaces
 the 2026-07-14 legacy-path report. Raw capture:
 `build/profile_capture_tip_o3_w32.log` (32-frame windows, ~150 s). This is
-the **-O3** twin of the shipping `-Os` report
-([../Os/profile_displacementfield_teensy_2026-07-15.md](../Os/profile_displacementfield_teensy_2026-07-15.md));
+the global-`-O3` ceiling twin of the shipping
+[selective-O3 report](../shipping/profile_displacementfield_teensy_2026-07-15.md);
 setup and phase schedule are identical except the optimization level.
 
 ## Setup

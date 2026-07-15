@@ -1,7 +1,7 @@
 # ChaoticStrings on-device profile — Teensy 4.0, segmented mode (2026-07-14, **-O3**)
 
 Point-in-time snapshot (regenerate with `just profile`). Raw capture:
-`build/profile_chaoticstrings_o3.log` (64-frame windows, ~75 s single pass). This is the **-O3** twin of the shipping `-Os` report (`../Os/profile_chaoticstrings_teensy_2026-07-14.md`); the only variable is the optimization level. Re-captured 2026-07-14 **after the plot column-cull batch** (9ac8cebd, 62450701, 708d4b9b).
+`build/profile_chaoticstrings_o3.log` (64-frame windows, ~75 s single pass). This is the global-`-O3` ceiling twin of the shipping profile; the base is `-Os` and this effect carries no `HS_O3` region, so the only variable is the optimization level. Re-captured 2026-07-14 **after the plot column-cull batch** (9ac8cebd, 62450701, 708d4b9b).
 
 ## Setup
 

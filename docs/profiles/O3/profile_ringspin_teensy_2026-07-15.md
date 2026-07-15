@@ -4,9 +4,8 @@ Point-in-time snapshot at the slim RingGroup tip (`730b6d2f` — inline
 `stroke_alpha` + covering-ring row intervals); supersedes the fused-only
 tip (`56d8c854`) and the 2026-07-14 legacy report. Raw capture:
 `build/profile_capture_ringspin_slim_o3_w32.log` (32-frame windows; port
-dropped at frame 768, ~1.6 epochs — ample). The **-O3** twin of the
-shipping `-Os` report
-([../Os/profile_ringspin_teensy_2026-07-15.md](../Os/profile_ringspin_teensy_2026-07-15.md));
+dropped at frame 768, ~1.6 epochs — ample). The global-`-O3` ceiling twin of the shipping
+[selective-O3 report](../shipping/profile_ringspin_teensy_2026-07-15.md);
 setup identical except the optimization level.
 
 **Headline: `-O3` + the slim scan locks RingSpin at a hard 16 fps — every
