@@ -882,10 +882,11 @@ struct DistortedRing {
    * @param d Pixel dot ring axis (= dot(p, normal)).
    * @param polar fast_acos(clamp(d, -1, 1)).
    * @param t_norm Pixel azimuth in [0, 1), phase applied.
-   * @param res Output result, identical to distance<true>().
+   * @param res Output result, identical to distance<true>() except for
+   *        undisplaced knot rings, which take the exact polar distance (the
+   *        zero-knot polyline agrees only to within an ulp).
    * @details Same-axis ring stacks share d/polar/t_norm across every ring at a
    * pixel; hoisting them there drops the per-ring dot/acos/atan2 recompute.
-   * Bit-identical to distance<true>() by construction (same ops, same order).
    */
   void distance_from_frame(float d, float polar, float t_norm,
                            DistanceResult &res) const {
@@ -895,7 +896,8 @@ struct DistortedRing {
     }
     float dist;
     if (knots)
-      dist = polyline_distance(t_norm, polar, d);
+      dist = max_distortion > 0.0f ? polyline_distance(t_norm, polar, d)
+                                   : std::abs(polar - target_angle);
     else
       dist = std::abs(polar - (target_angle + shift_fn(t_norm)));
     res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
