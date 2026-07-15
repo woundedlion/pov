@@ -763,8 +763,8 @@ struct RingGroup {
    * @tparam H Canvas height in pixels.
    * @tparam PipelineT Plotting pipeline type.
    * @tparam RingShaderT Per-ring shader: shader(int slot, const Vector &p,
-   *         Fragment &f), with f populated as by process_pixel (v1 = raw
-   *         distance, v2 = stroke coverage; no UVs).
+   *         Fragment &f). Only pos, v2 (stroke coverage), size, age, and the
+   *         reset color are populated — no UVs, no raw distance.
    * @param pipeline Plotting pipeline receiving the final colors.
    * @param canvas Destination canvas.
    * @param shapes Ring shapes in draw order.
@@ -772,13 +772,14 @@ struct RingGroup {
    * @param shader Per-ring fragment shader (see RingShaderT).
    * @param debug_bb When true, falls back to per-ring rasterizes so the
    *        bounding-box tint keeps per-shape scan bounds.
-   * @details Rows are the union of the members' bands, and each row's
-   * intervals are every member's intervals (a row any member full-scans is
-   * full-scanned for the group). Per pixel the members evaluate in ascending
-   * slot order, so blend order matches rasterizing the rings one by one; the
-   * only output divergence is AA-tail pixels (alpha barely above the 0.001
-   * cutoff) that a member's own interval clip drops but the union scan
-   * paints.
+   * @details Row intervals come from one covering ring — member 0 inflated by
+   * the group's maximum plane/radius deviation plus thickness — which contains
+   * every member's band, so the per-row interval math runs once, not per
+   * member. Per pixel the members evaluate in ascending slot order via the
+   * inline stroke_alpha eval, so blend order matches rasterizing the rings
+   * one by one; the only output divergence is AA-tail pixels (alpha barely
+   * above the 0.001 cutoff) that a member's own interval clip drops but the
+   * covering scan paints.
    */
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, const SDF::Ring *shapes,
@@ -812,20 +813,32 @@ struct RingGroup {
     if (y_lo > y_hi)
       return;
 
-    SDF::DistanceResult res;
+    // Covering ring: every point of member s's centerline lies within its
+    // plane/radius deviation of the middle member's, so the middle member
+    // inflated by the worst deviation plus that member's thickness contains
+    // the whole group's stroke band — and, centered mid-group, its width is
+    // the true union's plus epsilon. The 1e-3 absorbs fast_acos error.
+    const int mid = n / 2;
+    float pad_th = shapes[mid].thickness;
+    for (int s = 0; s < n; ++s) {
+      if (s == mid)
+        continue;
+      float dev =
+          fast_acos(hs::clamp(dot(shapes[mid].normal, shapes[s].normal), -1.0f,
+                              1.0f)) +
+          std::abs(shapes[s].target_angle - shapes[mid].target_angle) + 1e-3f;
+      pad_th = std::max(pad_th, shapes[s].thickness + dev);
+    }
+    SDF::Ring cover(shapes[mid].basis, shapes[mid].radius, pad_th);
+
     Fragment frag;
     ScopedRenderTimer timer_guard(canvas);
     scan_region<W, H>(
         y_lo, y_hi,
         [&](int y, auto &&out) {
-          // All-or-nothing: scan_region ignores emitted intervals on a false
-          // return but never clears them, so probe before any emission.
-          float sin_phi = TrigLUT<W, H>::sin_phi[y];
-          for (int s = 0; s < n; ++s)
-            if (shapes[s].needs_full_row_scan(sin_phi))
-              return false;
-          for (int s = 0; s < n; ++s)
-            shapes[s].template get_horizontal_intervals<W, H>(y, out);
+          if (cover.needs_full_row_scan(TrigLUT<W, H>::sin_phi[y]))
+            return false;
+          cover.template get_horizontal_intervals<W, H>(y, out);
           return true;
         },
         [&](int x, int y, const Vector &p) {
@@ -836,22 +849,13 @@ struct RingGroup {
             // rasterize.
             if (y < sy_min[s] || y > sy_max[s])
               continue;
-            shapes[s].template distance<false>(p, res);
-            const float d = res.dist;
-            if (d >= 0.0f)
-              continue;
-            // process_pixel's stroke epilogue with a slot-aware shader.
-            const float aa = res.size;
-            const float alpha = aa > 0.0f ? quintic_kernel(-d / aa) : 0.0f;
+            const float alpha = shapes[s].stroke_alpha(dot(p, shapes[s].normal));
             if (alpha <= 0.001f)
               continue;
             frag.color = Color4(0, 0, 0, 0);
             frag.pos = p;
-            frag.v0 = res.t;
-            frag.v1 = res.raw_dist;
             frag.v2 = alpha;
-            frag.v3 = res.aux;
-            frag.size = res.size;
+            frag.size = shapes[s].thickness;
             frag.age = 0;
             shader(s, p, frag);
             if (frag.color.alpha > 0.001f)
