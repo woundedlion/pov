@@ -77,11 +77,12 @@ template <typename E> Effect *construct_effect() {
   return e;
 }
 
-// Generated from the single-source effect roster (HS_EFFECT_LIST); the table
-// order IS the playlist order, identical on every board (spec §6.1).
+// Generated from the Phantasm playlist roster (HS_PHANTASM_EFFECT_LIST — the
+// full HS_EFFECT_LIST minus the low-res-only effects); the table order IS the
+// playlist order, identical on every board (spec §6.1).
 #define HS_FACTORY_ONE(name) &construct_effect<name<288, 144>>,
 const POV::EffectFactory EFFECT_FACTORIES[] = {
-  HS_EFFECT_LIST(HS_FACTORY_ONE)
+  HS_PHANTASM_EFFECT_LIST(HS_FACTORY_ONE)
 };
 #undef HS_FACTORY_ONE
 
@@ -89,7 +90,8 @@ const POV::EffectFactory EFFECT_FACTORIES[] = {
 // board, so reject an inconsistent protocol at the build instead of the boot.
 // run_show()'s runtime HS_CHECK still guards any non-constexpr instantiation.
 static_assert(
-    pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, HS_EFFECT_COUNT).valid(),
+    pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, HS_PHANTASM_EFFECT_COUNT)
+        .valid(),
     "Phantasm pov::sync::Config invariants violated");
 } // namespace
 
@@ -105,5 +107,5 @@ void setup() {
 void loop() {
   // Never returns: the driver runs the epoch-synchronized show forever
   // (every effect plays for the same 960 revolutions = 120 s).
-  g_pov->run_show(EFFECT_FACTORIES, HS_EFFECT_COUNT);
+  g_pov->run_show(EFFECT_FACTORIES, HS_PHANTASM_EFFECT_COUNT);
 }
