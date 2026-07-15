@@ -507,6 +507,7 @@ struct DistortedRing {
  * @brief Fused single-pass rasterizer for a stack of same-axis distorted
  *        rings.
  */
+HS_O3_BEGIN
 struct DistortedRingStack {
   /**
    * @brief Rasterizes every ring of an evenly spaced same-axis stack in one
@@ -635,6 +636,7 @@ struct DistortedRingStack {
     }
   }
 };
+HS_O3_END
 
 /**
  * @brief Draws a flat (tangent-plane) regular polygon projected onto the
@@ -756,6 +758,7 @@ struct Ring {
 /**
  * @brief Fused single-pass rasterizer for a small group of rings.
  */
+HS_O3_BEGIN
 struct RingGroup {
   /**
    * @brief Rasterizes every ring of a group in one scan over the union band.
@@ -866,6 +869,7 @@ struct RingGroup {
         cr.x_clip());
   }
 };
+HS_O3_END
 
 /**
  * @brief Draws a solid circle (filled ring).

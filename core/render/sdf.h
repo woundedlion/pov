@@ -921,8 +921,8 @@ struct DistortedRing {
    * @details Same-axis ring stacks share d/polar/t_norm across every ring at a
    * pixel; hoisting them there drops the per-ring dot/acos/atan2 recompute.
    */
-  void distance_from_frame(float d, float polar, float sin_polar,
-                           float t_norm, DistanceResult &res) const {
+  HS_O3_FN void distance_from_frame(float d, float polar, float sin_polar,
+                                    float t_norm, DistanceResult &res) const {
     if (d < cos_min_limit || d > cos_max_limit) {
       res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, thickness);
       return;
@@ -964,7 +964,7 @@ private:
    * along the centerline the way slope-corrected vertical-distance estimates
    * do at curvature extrema.
    */
-  float polyline_distance(float t_norm, float polar, float sin_polar) const {
+  HS_O3_FN float polyline_distance(float t_norm, float polar, float sin_polar) const {
     const float base = target_angle - polar; // knot m sits at v = base + knots[m]
 
     // Prefilter: when a chunk's arc exceeds the stroke reach, only the pixel's
