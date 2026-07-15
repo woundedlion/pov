@@ -13,10 +13,8 @@
 #include "effects/ChaoticStrings.h"
 #include "effects/Comets.h"
 #include "effects/DisplacementField.h"
-#include "effects/DistortedRing.h"
 #include "effects/DreamBalls.h"
 #include "effects/Dynamo.h"
-#include "effects/FlowField.h"
 #include "effects/Flyby.h"
 #include "effects/GnomonicStars.h"
 #include "effects/GSReactionDiffusion.h"
@@ -57,10 +55,8 @@
   X(ChaoticStrings)                                                             \
   X(Comets)                                                                     \
   X(DisplacementField)                                                          \
-  X(DistortedRing)                                                              \
   X(DreamBalls)                                                                 \
   X(Dynamo)                                                                     \
-  X(FlowField)                                                                  \
   X(Flyby)                                                                      \
   X(GnomonicStars)                                                              \
   X(GSReactionDiffusion)                                                        \
@@ -94,9 +90,7 @@
   X(ChaoticStrings)                                                             \
   X(Comets)                                                                     \
   X(DisplacementField)                                                          \
-  X(DistortedRing)                                                              \
   X(DreamBalls)                                                                 \
-  X(FlowField)                                                                  \
   X(Flyby)                                                                      \
   X(GnomonicStars)                                                              \
   X(GSReactionDiffusion)                                                        \
