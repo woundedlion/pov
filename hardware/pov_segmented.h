@@ -235,8 +235,13 @@ public:
                              int effect_count) {
     factories_ = factories;
 
-    const pov::sync::Config cfg = pov::sync::phantasm_config(
+    pov::sync::Config cfg = pov::sync::phantasm_config(
         F_CPU, RPM, CANVAS_W, effect_count);
+#ifdef HS_PROFILE_EPOCH_REVS
+    // Profiling knob: stretch the epoch so one effect instance covers a full
+    // preset cycle in a single capture.
+    cfg.revs_per_effect = HS_PROFILE_EPOCH_REVS;
+#endif
     HS_CHECK(cfg.valid(), "pov::sync::Config invariants");
     sync_.reconstruct(cfg);
 
