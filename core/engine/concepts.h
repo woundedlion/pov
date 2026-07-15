@@ -217,6 +217,10 @@ using SpaceTransformRef = FunctionRef<Vector(const Vector &)>;
 using ColorTransformRef = FunctionRef<Pixel(const Pixel &, float)>;
 using FragmentShaderFn = FunctionRef<void(const Vector &, Fragment &)>;
 using VertexShaderRef = FunctionRef<void(Fragment &)>;
+// Deferred per-control-point shader: receives the (position-shaded) fragment
+// and its original pre-shader position. Plot::ParticleSystem::draw runs it only
+// for trails the segment cull keeps, skipping trails that render nothing.
+using DeferredShaderRef = FunctionRef<void(Fragment &, const Vector &)>;
 using BlendFn = FunctionRef<Pixel(const Pixel &, const Pixel &)>;
 using TweenFn = FunctionRef<void(const Quaternion &, float)>;
 using VectorTweenFn = FunctionRef<void(const Vector &, float)>;

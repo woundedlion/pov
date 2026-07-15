@@ -599,6 +599,54 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
 }
 
 /**
+ * @brief Tier-3 clip visibility of one polyline edge, routed through the
+ *        pipeline's world stages.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam PipelineT Pipeline type.
+ * @param pipeline Render pipeline; world stages re-emit the edge under their
+ *        plot-time rotations before the span test.
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @param band_len Clip band length in columns (seam-unwrapped).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param pb Planar projection basis for the edge, or null for geodesic.
+ * @return True if the rendered edge could produce a pixel inside the clip.
+ * @details The single definition of the segment cull: rasterize evaluates it
+ * per edge, and Plot::ParticleSystem::draw precomputes it per trail to gate
+ * the deferred shader — both must agree exactly or the two paths diverge.
+ */
+template <int W, int H, typename PipelineT>
+static inline bool edge_visible_in_clip(PipelineT &pipeline,
+                                        const ClipRegion &cr,
+                                        const ClipRegion::XClip &xc,
+                                        int band_len, const Vector &a,
+                                        const Vector &b, const Basis *pb) {
+  auto pred = [&](const Vector &ea, const Vector &eb, const Basis *bp) {
+    float row_lo, row_hi;
+    edge_row_span<W, H>(ea, eb, bp, row_lo, row_hi);
+    if (!cr.could_intersect_y(row_lo, row_hi))
+      return false;
+    if (!xc.active)
+      return true;
+    int col_s, col_len;
+    if (!edge_col_span<W>(ea, eb, bp, col_s, col_len))
+      return true;
+    return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
+  };
+  if constexpr (requires { pipeline.could_intersect_clip(a, b, pb, pred); }) {
+    return pipeline.could_intersect_clip(a, b, pb, pred);
+  } else {
+    // A filter pipeline (has any_crosses_segments) must answer the clip
+    // query; a signature drift would else silently fall back to raw culling.
+    static_assert(!requires { PipelineT::any_crosses_segments; },
+                  "pipeline exposes any_crosses_segments but not "
+                  "could_intersect_clip (signature drift)");
+    return pred(a, b, pb);
+  }
+}
+
+/**
  * @brief Adaptively rasterize a fragment polyline onto the sphere.
  *
  * Walks consecutive fragment pairs, picks a geodesic or planar interpolation
@@ -623,19 +671,27 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
  *                 otherwise plotted once by its outgoing segment), so abutting
  *                 arcs tile a longer curve without double-plotting the shared
  *                 vertex.
+ * @param edge_visible Optional precomputed Tier-3 visibility, one byte per
+ *                     segment-loop edge. Producers must evaluate the same
+ *                     edge_visible_in_clip predicate this function would.
+ *                     Geodesic polylines only: a planar polyline's per-edge
+ *                     basis depends on the seam pre-pass below.
  */
 template <int W, int H, typename PipelineT = PipelineRef>
 static void rasterize(PipelineT &pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderFn fragment_shader,
                       bool close_loop = false,
                       const Basis *planar_basis = nullptr,
-                      bool omit_end = false) {
+                      bool omit_end = false,
+                      const uint8_t *edge_visible = nullptr) {
   size_t len = points.size();
   if (len < 2)
     return;
   // Trap a null shader once per polyline so the per-pixel fragment_shader()
   // calls below can't invoke a null thunk.
   HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
+  HS_CHECK(edge_visible == nullptr || planar_basis == nullptr,
+           "precomputed edge visibility is geodesic-only");
   #ifdef __EMSCRIPTEN__
   double plot_t0 = emscripten_get_now();
   #endif
@@ -850,38 +906,16 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       cumul += seg_arc_cache[i];
     }
 
-    // Tier 3: Segment culling — skip if the edge's full screen-row span (arc
-    // bulge included) lies outside the clip band. Routed through the pipeline so
-    // a filter-chain orientation is culled by the RENDERED latitude; a pipeline
-    // that does not answer the query falls back to the raw edge.
+    // Tier 3: Segment culling — skip if the edge's rendered row/column reach
+    // (arc bulge included) lies outside the clip band; precomputed bits replace
+    // the evaluation when the producer already ran the same predicate.
     if (clip_active) {
-      const Basis *pb = use_planar ? planar_basis : nullptr;
-      auto pred = [&](const Vector &a, const Vector &b, const Basis *bp) {
-        float row_lo, row_hi;
-        edge_row_span<W, H>(a, b, bp, row_lo, row_hi);
-        if (!cr.could_intersect_y(row_lo, row_hi))
-          return false;
-        if (!xc.active)
-          return true;
-        int col_s, col_len;
-        if (!edge_col_span<W>(a, b, bp, col_s, col_len))
-          return true;
-        return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
-      };
-      bool visible;
-      if constexpr (requires {
-                      pipeline.could_intersect_clip(curr.pos, next.pos, pb,
-                                                    pred);
-                    })
-        visible = pipeline.could_intersect_clip(curr.pos, next.pos, pb, pred);
-      else {
-        // A filter pipeline (has any_crosses_segments) must answer the clip
-        // query; a signature drift would else silently fall back to raw culling.
-        static_assert(!requires { PipelineT::any_crosses_segments; },
-                      "pipeline exposes any_crosses_segments but not "
-                      "could_intersect_clip (signature drift)");
-        visible = pred(curr.pos, next.pos, pb);
-      }
+      const bool visible =
+          edge_visible != nullptr
+              ? edge_visible[i] != 0
+              : edge_visible_in_clip<W, H>(
+                    pipeline, cr, xc, band_len, curr.pos, next.pos,
+                    use_planar ? planar_basis : nullptr);
       if (!visible)
         continue;
     }
@@ -2408,12 +2442,18 @@ struct ParticleSystem {
    * @param canvas Target canvas.
    * @param system Particle system supplying the active pool and trail history.
    * @param fragment_shader Shader function.
-   * @param vertex_shader Optional vertex shader.
+   * @param vertex_shader Optional vertex shader (position pass).
+   * @param deferred_shader Optional second vertex pass, given each fragment and
+   *        its original pre-shader position. Under an active clip it runs only
+   *        for trails with at least one cull-surviving edge; a skipped trail
+   *        renders nothing, so output is identical to an undeferred shader.
+   *        Put per-point work that only affects shading registers here.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
                    FragmentShaderFn fragment_shader,
-                   VertexShaderRef vertex_shader) {
+                   VertexShaderRef vertex_shader,
+                   DeferredShaderRef deferred_shader = {}) {
     int count = system.active();
     if (count == 0)
       return;
@@ -2424,6 +2464,12 @@ struct ParticleSystem {
              "ParticleSystem render max_life must be finite and in [1, 65535]");
     const float inv_max_life = 1.0f / max_life;
 
+    // Segment-clip state for the trail-level deferred-shader gate below.
+    const auto &cr = canvas.clip();
+    const bool clip_active = !cr.is_full();
+    const auto xc = cr.x_clip();
+    const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
+
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
       ScratchScope trail_guard(scratch_arena_a);
@@ -2431,6 +2477,11 @@ struct ParticleSystem {
       // tween emits at most one fragment per retained trail position.
       trail.bind(scratch_arena_a,
                  std::remove_cvref_t<decltype(p.history)>::CAPACITY);
+      // Original (pre-shader) positions, kept for the deferred pass.
+      ArenaVector<Vector> orig;
+      if (deferred_shader)
+        orig.bind(scratch_arena_a,
+                  std::remove_cvref_t<decltype(p.history)>::CAPACITY);
       float cumulative_len = 0.0f;
       Vector last_pos;
       bool first = true;
@@ -2451,13 +2502,47 @@ struct ParticleSystem {
         f.age = 0;
         f.color = Color4(0, 0, 0, 0);
         trail.push_back(f);
+        if (deferred_shader)
+          orig.push_back(v);
       });
 
-      if (!trail.is_empty()) {
-        apply_vertex_shader(vertex_shader, trail);
+      if (trail.is_empty())
+        continue;
+      apply_vertex_shader(vertex_shader, trail);
+
+      if (!deferred_shader) {
         rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
                         nullptr);
+        continue;
       }
+
+      // Trail-level gate: precompute each edge's cull verdict from the
+      // position-shaded points. No visible edge means the trail renders
+      // nothing, so the deferred pass and the rasterize call are skipped
+      // whole; the bits feed rasterize so the cull is evaluated once.
+      const uint8_t *vis = nullptr;
+      if (clip_active && trail.size() >= 2) {
+        const size_t edges = trail.size() - 1;
+        auto *bits = static_cast<uint8_t *>(
+            scratch_arena_a.allocate(edges, alignof(uint8_t)));
+        bool any = false;
+        for (size_t e = 0; e < edges; ++e) {
+          bits[e] = edge_visible_in_clip<W, H>(pipeline, cr, xc, band_len,
+                                               trail[e].pos, trail[e + 1].pos,
+                                               nullptr)
+                        ? 1
+                        : 0;
+          any = any || bits[e] != 0;
+        }
+        if (!any)
+          continue;
+        vis = bits;
+      }
+
+      for (size_t k = 0; k < trail.size(); ++k)
+        deferred_shader(trail[k], orig[k]);
+      rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false, nullptr,
+                      false, vis);
     }
   }
 

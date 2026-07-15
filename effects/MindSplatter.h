@@ -280,10 +280,15 @@ private:
       cos_eh[i] = fast_cosf(particle_system.attractors[i].event_horizon);
     }
 
-    // Accumulate per-attractor alpha falloff from the pre-warp position, then
-    // apply the Mobius warp and orientation to the fragment position.
+    // Position pass: Mobius warp + orientation (decides cullability).
     auto vertex_shader = [&](Fragment &f) {
-      Vector original_pos = f.pos;
+      f.pos = mobius_transform(f.pos, mobius);
+      f.pos = orientation.orient(f.pos);
+    };
+
+    // Deferred pass, run only for trails the segment cull keeps: per-attractor
+    // alpha falloff from the pre-warp position.
+    auto hole_shader = [&](Fragment &f, const Vector &original_pos) {
       float hole_alpha = 1.0f;
       for (size_t ai = 0; ai < particle_system.attractors.size(); ++ai) {
         const auto &attr = particle_system.attractors[ai];
@@ -294,9 +299,6 @@ private:
         float t = d / attr.event_horizon;
         hole_alpha *= quintic_kernel(t);
       }
-
-      f.pos = mobius_transform(f.pos, mobius);
-      f.pos = orientation.orient(f.pos);
       f.v3 *= hole_alpha;
     };
 
@@ -321,7 +323,8 @@ private:
     HS_CHECK(particle_system.active() <= particle_system.pool.capacity(),
              "MindSplatter particle index space exceeds pool capacity");
     Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
-                                     fragment_shader, vertex_shader);
+                                     fragment_shader, vertex_shader,
+                                     hole_shader);
   }
 
   /**
