@@ -415,6 +415,92 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
 }
 
 /**
+ * @brief Conservative screen-column arc of a rendered geodesic edge.
+ * @tparam W Rasterization width (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param col_s Output: arc start column, in [0, W).
+ * @param col_len Output: arc length in columns (may reach W = full width).
+ * @return False when the sweep direction is indeterminate (near-meridian arc:
+ *         the axis's y-component is float noise and the longitude can jump
+ *         across a pole) — the caller must skip the horizontal cull.
+ * @details Longitude is globally monotone along the rendered circle: with
+ * pos(ang) = a·cos + cross(axis, a)·sin, the atan2(z, x) rate numerator
+ * pos.x·tan.z - pos.z·tan.x folds to -axis.y, a constant. The arc therefore
+ * sweeps from a's column toward the end column in the direction sign(-axis.y),
+ * and one full revolution sweeps exactly W, so the directed modular difference
+ * is the exact sweep. Antipodal symmetry (λ(-p) = λ(p) + π) makes every
+ * half-circle sweep exactly W/2 and shorter arcs less, so the span is always
+ * the endpoints' short-way separation — the direction only disambiguates the
+ * near-antipodal boundary, where short-way is float noise. Axis selection
+ * mirrors rasterize_geodesic_strategy and the column mapping is the renderer's
+ * vector_to_theta; COL_PAD absorbs plot rounding and the AntiAlias tap spread.
+ */
+template <int W>
+static inline bool edge_col_span(const Vector &a, const Vector &b, int &col_s,
+                                 int &col_len) {
+  constexpr int COL_PAD = 2;
+  constexpr float AXIS_Y_EPS = 1e-4f;
+
+  const float total = angle_between(a, b);
+  const float ca = vector_to_theta<W>(a);
+  float s_f, len_f;
+
+  if (total < EPS_GEODESIC_SEGMENT) {
+    // The renderer collapses the edge to a dot at a; span both endpoints the
+    // short way around.
+    const float cb = vector_to_theta<W>(b);
+    const float d = wrap(cb - ca, static_cast<float>(W));
+    if (d <= W * 0.5f) {
+      s_f = ca;
+      len_f = d;
+    } else {
+      s_f = cb;
+      len_f = W - d;
+    }
+  } else {
+    const bool antipodal = std::abs(PI_F - total) < TOLERANCE;
+    Vector axis;
+    if (antipodal) {
+      axis = stable_perpendicular_axis(a);
+    } else {
+      Vector c = cross(a, b);
+      float L2 = dot(c, c);
+      if (L2 <= math::EPS_GEOMETRIC * math::EPS_GEOMETRIC)
+        return false;
+      axis = c * (1.0f / sqrtf(L2));
+    }
+    if (std::abs(axis.y) < AXIS_Y_EPS)
+      return false;
+
+    float ce;
+    if (antipodal) {
+      // The arbitrary-axis half-turn lands near, not on, b; take the column of
+      // the point the renderer actually reaches.
+      Vector v_perp = cross(axis, a);
+      Vector end = a * fast_cosf(total) + v_perp * fast_sinf(total);
+      ce = vector_to_theta<W>(end);
+    } else {
+      ce = vector_to_theta<W>(b);
+    }
+
+    if (axis.y < 0.0f) { // longitude increases from a
+      s_f = ca;
+      len_f = wrap(ce - ca, static_cast<float>(W));
+    } else {
+      s_f = ce;
+      len_f = wrap(ca - ce, static_cast<float>(W));
+    }
+  }
+
+  const int lo = static_cast<int>(floorf(s_f)) - COL_PAD;
+  const int hi = static_cast<int>(ceilf(s_f + len_f)) + COL_PAD;
+  col_len = std::min(hi - lo + 1, W);
+  col_s = ((lo % W) + W) % W;
+  return true;
+}
+
+/**
  * @brief Adaptive sub-step length (radians of arc) for ~one-pixel screen steps.
  * @tparam W,H Rasterization resolution (pixel grid).
  * @param pos Current unit-sphere sample position.
@@ -679,6 +765,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
 
   const auto &cr = canvas.clip();
   const bool clip_active = !cr.is_full();
+  const auto xc = cr.x_clip();
+  // Clip band as a cylindrical arc for the column cull.
+  const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
 
   for (size_t i = 0; i < count; i++) {
     const Fragment &curr = points[i];
@@ -711,7 +800,16 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       auto pred = [&](const Vector &a, const Vector &b, const Basis *bp) {
         float row_lo, row_hi;
         edge_row_span<W, H>(a, b, bp, row_lo, row_hi);
-        return cr.could_intersect_y(row_lo, row_hi);
+        if (!cr.could_intersect_y(row_lo, row_hi))
+          return false;
+        // Column cull: geodesic edges only — a planar edge's longitude is not
+        // monotone, so its column reach has no cheap conservative bound.
+        if (!xc.active || bp != nullptr)
+          return true;
+        int col_s, col_len;
+        if (!edge_col_span<W>(a, b, col_s, col_len))
+          return true;
+        return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
       };
       bool visible;
       if constexpr (requires {
