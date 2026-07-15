@@ -112,28 +112,46 @@ public:
     for (int i = 0; i < num_rings; ++i) {
       Ring &ring = rings[i];
       ring.trail.record(ring.orientation);
-      deep_tween(ring.trail, [&](const Quaternion &q, float t) {
-        // The trail's length-fade comes entirely from the palette: sampling at
-        // 1-t walks a transparent-vignette palette whose alpha tapers to ~0
-        // toward the tail, so there is deliberately no explicit t-fade here.
-        Color4 c = ring.palette->get(1.0f - t);
-        c.alpha = c.alpha * params.alpha;
-        if (c.alpha <= 0.001f) return;
-
-        Basis basis = make_basis(q, ring.normal);
-
-        auto fragment_shader = [&](const Vector &, Fragment &f) {
-          f.color = c;
-        };
-
-        // Adaptive thickness: head/tail of trail = 2px, intermediate = 1px
+      // One fused scan per trail frame: the frame's <= CAP sub-rings differ by
+      // at most one walk step, so their bands nearly coincide and the group
+      // pass pays the row/interval overhead once (see RingGroup for the
+      // blend-order/AA-tail contract).
+      deep_tween_frames(ring.trail, [&](const Quaternion *qs, const float *ts,
+                                        int count) {
+        constexpr int SUB_CAP = decltype(ring.orientation)::CAPACITY;
+        Basis bases[SUB_CAP];
+        Color4 colors[SUB_CAP];
+        alignas(SDF::Ring) unsigned char shape_mem[SUB_CAP * sizeof(SDF::Ring)];
+        auto *shapes = reinterpret_cast<SDF::Ring *>(shape_mem);
+        int slots = 0;
         constexpr float pixel_w = 2.0f * PI_F / W;
-        float th = ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) * params.thickness;
+        for (int j = 0; j < count; ++j) {
+          float t = ts[j];
+          // The trail's length-fade comes entirely from the palette: sampling
+          // at 1-t walks a transparent-vignette palette whose alpha tapers to
+          // ~0 toward the tail, so there is deliberately no explicit t-fade
+          // here.
+          Color4 c = ring.palette->get(1.0f - t);
+          c.alpha = c.alpha * params.alpha;
+          if (c.alpha <= 0.001f)
+            continue;
+
+          // Adaptive thickness: head/tail of trail = 2px, intermediate = 1px
+          float th = ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
+                     params.thickness;
+          bases[slots] = make_basis(qs[j], ring.normal);
+          new (&shapes[slots]) SDF::Ring(bases[slots], 1.0f, th);
+          colors[slots] = c;
+          ++slots;
+        }
+        if (slots == 0)
+          return;
 
         HS_PROFILE(rs_ring_scan);
-        Scan::Ring::draw<W, H, false>(filters, canvas, basis, 1.0f, th,
-                                      fragment_shader, 0.0f,
-                                      params.show_bounding_box);
+        Scan::RingGroup::draw<W, H>(
+            filters, canvas, shapes, slots,
+            [&](int s, const Vector &, Fragment &f) { f.color = colors[s]; },
+            params.show_bounding_box);
       });
     }
   }
