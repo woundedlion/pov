@@ -81,6 +81,41 @@
   X(Voronoi)
 
 /**
+ * @brief Phantasm (288x144) playlist: HS_EFFECT_LIST minus the low-res-only
+ *        effects (Dynamo, Thrusters — Holosphere 96x20 only).
+ * @param X Function-like macro applied to each effect type name in the playlist.
+ * @details Same order as HS_EFFECT_LIST. Only the Phantasm firmware target
+ *   consumes this; the registry, tests, and gallery stay on the full roster.
+ *   The static_assert below HS_PHANTASM_EFFECT_COUNT forces this list to be
+ *   revisited whenever HS_EFFECT_LIST gains or loses an entry.
+ */
+#define HS_PHANTASM_EFFECT_LIST(X)                                              \
+  X(BZReactionDiffusion)                                                        \
+  X(ChaoticStrings)                                                             \
+  X(Comets)                                                                     \
+  X(DisplacementField)                                                          \
+  X(DistortedRing)                                                              \
+  X(DreamBalls)                                                                 \
+  X(FlowField)                                                                  \
+  X(Flyby)                                                                      \
+  X(GnomonicStars)                                                              \
+  X(GSReactionDiffusion)                                                        \
+  X(HankinSolids)                                                               \
+  X(HopfFibration)                                                              \
+  X(IslamicStars)                                                               \
+  X(Liquid2D)                                                                   \
+  X(MeshFeedback)                                                               \
+  X(MindSplatter)                                                               \
+  X(MobiusGrid)                                                                 \
+  X(PetalFlow)                                                                  \
+  X(Raymarch)                                                                   \
+  X(RingShower)                                                                 \
+  X(RingSpin)                                                                   \
+  X(ShapeShifter)                                                               \
+  X(SphericalHarmonics)                                                         \
+  X(Voronoi)
+
+/**
  * @brief Expands to +1 so HS_EFFECT_LIST can be summed into an entry count.
  * @param name Effect type name supplied by HS_EFFECT_LIST (unused).
  */
@@ -89,5 +124,17 @@
  * @brief Number of entries in HS_EFFECT_LIST, derived rather than hand-counted.
  */
 constexpr int HS_EFFECT_COUNT = 0 HS_EFFECT_LIST(HS_EFFECT_COUNT_ADD);
+/**
+ * @brief Number of entries in HS_PHANTASM_EFFECT_LIST, derived rather than
+ *        hand-counted.
+ */
+constexpr int HS_PHANTASM_EFFECT_COUNT =
+    0 HS_PHANTASM_EFFECT_LIST(HS_EFFECT_COUNT_ADD);
 #undef HS_EFFECT_COUNT_ADD
+
+// Drift guard: an effect added to (or removed from) HS_EFFECT_LIST must also be
+// deliberately added to or excluded from the Phantasm playlist above.
+static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 2,
+              "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
+              "(full roster minus Dynamo and Thrusters)");
 
