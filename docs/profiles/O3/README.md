@@ -32,7 +32,7 @@ fused-stack scan). Ranked heaviest first.
 | ● [MindSplatter](profile_mindsplatter_teensy_2026-07-14.md) | 68.0 ms | 8 fps (occ. 16) | particle raster (`msp_particle_scan`) | 1.47× |
 | [IslamicStars](profile_islamicstars_teensy_2026-07-14.md) | 33–110 ms (per shape) | 8–16 fps | per-face SDF (`scan_mesh_raster`) | 1.16–1.51× |
 | [Voronoi](profile_voronoi_teensy_2026-07-14.md) | 57 ms | **16 fps** | per-pixel KD (`vo_shade`) | 1.35× |
-| [RingSpin](profile_ringspin_teensy_2026-07-14.md) | 55 ms | 8↔16 fps | SDF ring raster (`rs_ring_scan`) | 1.41× |
+| ● [RingSpin](profile_ringspin_teensy_2026-07-15.md) | 52 ms | **16 fps** | fused ring-group raster (`rs_ring_scan`) | 1.30× |
 | ● [ShapeShifter](profile_shapeshifter_teensy_2026-07-14.md) | 50.9 ms (peak) | 8↔16 fps | SDF scan (`ss_scan_dispatch`) + plot | 1.33× (blend 1.7×) |
 | ● [HopfFibration](profile_hopffibration_teensy_2026-07-14.md) | 44.1 ms (peak) | **8→16 fps** | trail raster (`hf_trail_raster`) | 1.59× |
 | [Flyby](profile_flyby_teensy_2026-07-14.md) | 42 ms | **16 fps** | shader (`fly_shader_draw`) | 1.82× |
@@ -52,8 +52,10 @@ fused-stack scan). Ranked heaviest first.
 table in [`../README.md`](../README.md)).
 
 The 11 ● effects were re-captured 2026-07-14 after the plot column-cull batch;
-their -O3 speedup is the compiler, unchanged by the batch. The other 15 rows
-carry their original 2026-07-14 captures. IslamicStars now has a full
+their -O3 speedup is the compiler, unchanged by the batch. DisplacementField
+and RingSpin were re-captured 2026-07-15 at their fused-scan tips (RingSpin's
+16 fps lock is the fusion + -O3 together). The other rows carry their
+original 2026-07-14 captures. IslamicStars now has a full
 [per-shape report](../profile_islamicstars_pershape_teensy_2026-07-14.md).
 
 ## Reproduce
