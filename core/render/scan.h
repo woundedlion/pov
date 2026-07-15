@@ -605,30 +605,11 @@ struct DistortedRingStack {
         const float t_norm = wrap_t(azimuth / (2 * PI_F));
         const float sin_polar = sqrtf(
             std::max(1.0f - d * d, SDF::DistortedRing::POLE_SIN2_FLOOR));
-        constexpr int PC = SDF::DistortedRing::PREFILTER_CHUNKS;
-        const float chunk_u = (2.0f * PI_F / PC) * sin_polar;
-        int pc = static_cast<int>(t_norm * PC);
-        if (pc >= PC)
-          pc = PC - 1;
         for (int i = ilo; i <= ihi; ++i) {
           const int s = slot_by_ring[i];
           if (s < 0)
             continue;
-          const SDF::DistortedRing &shape = shapes[s];
-          // Same 3-chunk gap test the polyline search opens with, applied
-          // before the call: a gap-rejected ring cannot plot (its distance
-          // would come back > thickness), so skipping it preserves output.
-          bool prefiltered = false;
-          if (chunk_u >= shape.thickness) {
-            float lo, hi;
-            shape.prefilter_band(pc, lo, hi);
-            const float base = shape.target_angle - polar;
-            if (std::max(base + lo, -(base + hi)) > shape.thickness)
-              continue;
-            prefiltered = true;
-          }
-          shape.distance_from_frame(d, polar, sin_polar, t_norm, res,
-                                    prefiltered);
+          shapes[s].distance_from_frame(d, polar, sin_polar, t_norm, res);
           const float dd = res.dist;
           if (dd >= 0.0f)
             continue;
