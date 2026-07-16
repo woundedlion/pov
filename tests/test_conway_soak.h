@@ -48,6 +48,28 @@ struct HankinWalkProbe {
   static int seed_identity(const HankinSolids<W, H> &fx) {
     return fx.seed_identity_;
   }
+  /**
+   * @brief In-flight leg's arrival data, or nullptr between legs.
+   */
+  template <int W, int H>
+  static const Animation::ConwayMorph::Landing *
+  pending_landing(const HankinSolids<W, H> &fx) {
+    return fx.pending_landing_;
+  }
+  /**
+   * @brief Face count of the current node's base mesh.
+   */
+  template <int W, int H>
+  static size_t node_faces(const HankinSolids<W, H> &fx) {
+    return fx.node_faces_;
+  }
+  /**
+   * @brief Displayed palette per node base face (emission order).
+   */
+  template <int W, int H>
+  static const uint8_t *node_face_palette(const HankinSolids<W, H> &fx) {
+    return fx.node_face_palette_;
+  }
 };
 
 /** Soak render size: small enough to keep the raster cheap, large enough that
