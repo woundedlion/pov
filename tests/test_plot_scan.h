@@ -710,6 +710,16 @@ inline void test_edge_col_span_covers_arc() {
  *          planar corpus draws chart-line edges on random disks, including
  *          near-pole charts that force the col-span fallback.
  */
+// has_world_cull gates ParticleSystem::draw's hoisted per-point gate path: it
+// must be false for screen-only pipelines and true whenever any stage re-emits
+// clip-cull edges (cull_edge).
+static_assert(!Pipeline<96, 48>::has_world_cull);
+static_assert(
+    !Pipeline<96, 48, Filter::Screen::AntiAlias<96, 48>>::has_world_cull);
+static_assert(Pipeline<96, 48, Filter::World::Orient<96>>::has_world_cull);
+static_assert(Pipeline<96, 48, Filter::World::Orient<96>,
+                       Filter::Screen::AntiAlias<96, 48>>::has_world_cull);
+
 inline void test_edge_visible_in_clip_matches_span_composition() {
   constexpr int TW = 288, TH = 144;
   Pipeline<TW, TH> sink;
