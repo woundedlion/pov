@@ -16,6 +16,7 @@
 #include "tests/test_sdf.h"
 #include "tests/test_conway.h"
 #include "tests/test_conway_morph.h"
+#include "tests/test_conway_continuity.h"
 #include "tests/test_hankin.h"
 #include "tests/test_geometry.h"
 #include "tests/test_mesh.h"
@@ -51,7 +52,8 @@
 #include "tests/test_death.h"
 
 /**
- * @brief One entry in the test-module roster: a short name plus its entry point.
+ * @brief One entry in the test-module roster: a short name plus its entry
+ * point.
  * @details An unfiltered run executes every module in array order; passing one
  * or more names on argv runs ONLY those modules, in the order given — the
  * iteration-speed counterpart to the HS_DEATH_CASE single-case dispatch below.
@@ -67,7 +69,7 @@ struct TestModule {
 // Single source of truth for the roster: expands into both MODULES[] and the
 // derived HS_TEST_MODULE_COUNT below. Adding a module means an #include above
 // AND one X(...) row here. Mirrors core/engine/effects.h's HS_EFFECT_LIST.
-#define HS_TEST_MODULE_LIST(X)                                                  \
+#define HS_TEST_MODULE_LIST(X)                                                 \
   X("3dmath", hs_test::math3d::run_3dmath_tests)                               \
   X("concepts", hs_test::concepts_tests::run_concepts_tests)                   \
   X("memory", hs_test::mem::run_memory_tests)                                  \
@@ -76,6 +78,8 @@ struct TestModule {
   X("sdf", hs_test::sdf::run_sdf_tests)                                        \
   X("conway", hs_test::conway_tests::run_conway_tests)                         \
   X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests)       \
+  X("conway_continuity",                                                       \
+    hs_test::conway_continuity_tests::run_conway_continuity_tests)             \
   X("hankin", hs_test::hankin_tests::run_hankin_tests)                         \
   X("geometry", hs_test::geometry::run_geometry_tests)                         \
   X("mesh", hs_test::mesh_tests::run_mesh_tests)                               \
@@ -86,20 +90,20 @@ struct TestModule {
   X("easing_waves", hs_test::easing_waves_tests::run_easing_waves_tests)       \
   X("platform", hs_test::platform_tests::run_platform_tests)                   \
   X("filter", hs_test::filter_tests::run_filter_tests)                         \
-  X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests)               \
+  X("plot_scan", hs_test::plot_scan_tests::run_plot_scan_tests)                \
   X("canvas", hs_test::canvas_tests::run_canvas_tests)                         \
   X("scan", hs_test::scan_tests::run_scan_tests)                               \
-  X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests)         \
+  X("mesh_raster", hs_test::mesh_raster_tests::run_mesh_raster_tests)          \
   X("transformers", hs_test::transformers_tests::run_transformers_tests)       \
   X("noise", hs_test::noise_tests::run_noise_tests)                            \
   X("generators", hs_test::generators_tests::run_generators_tests)             \
   X("animation", hs_test::animation_tests::run_animation_tests)                \
   X("effects", hs_test::effects_tests::run_effects_tests)                      \
-  X("dma_core", hs_test::dma_core::run_dma_core_tests)                          \
+  X("dma_core", hs_test::dma_core::run_dma_core_tests)                         \
   X("hd107s", hs_test::hd107s_tests::run_hd107s_tests)                         \
-  X("dma_controller", hs_test::dma_controller::run_dma_controller_tests)        \
+  X("dma_controller", hs_test::dma_controller::run_dma_controller_tests)       \
   X("pov_segmented", hs_test::pov_segmented_tests::run_pov_segmented_tests)    \
-  X("pov_single", hs_test::pov_single_tests::run_pov_single_tests)            \
+  X("pov_single", hs_test::pov_single_tests::run_pov_single_tests)             \
   X("pov_sync", hs_test::pov_sync_tests::run_pov_sync_tests)                   \
   X("param_marshal", hs_test::param_marshal_tests::run_param_marshal_tests)    \
   X("wasm_predicates",                                                         \
@@ -108,7 +112,7 @@ struct TestModule {
   X("led", hs_test::led_tests::run_led_tests)                                  \
   X("presets", hs_test::presets_tests::run_presets_tests)                      \
   X("styles", hs_test::styles_tests::run_styles_tests)                         \
-  X("shading", hs_test::shading_tests::run_shading_tests)                       \
+  X("shading", hs_test::shading_tests::run_shading_tests)                      \
   X("death", hs_test::death::run_death_tests)
 
 #define HS_TEST_MODULE_ENTRY(name, fn) {name, fn},
@@ -116,11 +120,13 @@ static const TestModule MODULES[] = {HS_TEST_MODULE_LIST(HS_TEST_MODULE_ENTRY)};
 #undef HS_TEST_MODULE_ENTRY
 
 #define HS_TEST_MODULE_COUNT_ADD(name, fn) +1
-constexpr int HS_TEST_MODULE_COUNT = 0 HS_TEST_MODULE_LIST(HS_TEST_MODULE_COUNT_ADD);
+constexpr int HS_TEST_MODULE_COUNT =
+    0 HS_TEST_MODULE_LIST(HS_TEST_MODULE_COUNT_ADD);
 #undef HS_TEST_MODULE_COUNT_ADD
-static_assert(sizeof(MODULES) / sizeof(MODULES[0]) == HS_TEST_MODULE_COUNT,
-              "MODULES and HS_TEST_MODULE_COUNT disagree: both derive from "
-              "HS_TEST_MODULE_LIST, so this fires only if the list is malformed.");
+static_assert(
+    sizeof(MODULES) / sizeof(MODULES[0]) == HS_TEST_MODULE_COUNT,
+    "MODULES and HS_TEST_MODULE_COUNT disagree: both derive from "
+    "HS_TEST_MODULE_LIST, so this fires only if the list is malformed.");
 
 /**
  * @brief Prints the roster's module names, one indented per line.
@@ -136,9 +142,10 @@ static void print_modules(std::FILE *out) {
  * @param argc Count of trailing names (argv past --check-modules).
  * @param argv The expected module names.
  * @return 0 if the set matches MODULES exactly, 3 on any divergence.
- * @details Both directions are checked so a roster/expected-list drift in either
- * direction fails: every MODULES name must appear in argv, and every argv name
- * must be a roster module. Used by the CTest that pins _hs_test_modules.
+ * @details Both directions are checked so a roster/expected-list drift in
+ * either direction fails: every MODULES name must appear in argv, and every
+ * argv name must be a roster module. Used by the CTest that pins
+ * _hs_test_modules.
  */
 static int check_modules(int argc, char **argv) {
   int mismatches = 0;
@@ -150,8 +157,9 @@ static int check_modules(int argc, char **argv) {
         break;
       }
     if (!found) {
-      std::fprintf(stderr, "run_tests: roster module '%s' missing from expected "
-                           "list\n",
+      std::fprintf(stderr,
+                   "run_tests: roster module '%s' missing from expected "
+                   "list\n",
                    m.name);
       ++mismatches;
     }
@@ -210,7 +218,8 @@ int main(int argc, char **argv) {
     // Filtered run: execute only the named modules. An unknown name fails fast
     // (exit 2) so a typo never silently runs nothing.
     if (std::strcmp(argv[1], "--list") == 0 ||
-        std::strcmp(argv[1], "-h") == 0 || std::strcmp(argv[1], "--help") == 0) {
+        std::strcmp(argv[1], "-h") == 0 ||
+        std::strcmp(argv[1], "--help") == 0) {
       std::printf("usage: run_tests [module...]\nmodules:\n");
       print_modules(stdout);
       return 0;
