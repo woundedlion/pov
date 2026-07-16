@@ -92,6 +92,15 @@ struct Is3DWithHistory {
 template <int W, int H, typename... Filters> struct Pipeline;
 
 /**
+ * @brief Probe callable for the has_world_cull detection below.
+ */
+struct PipelineCullEdgeProbe {
+  bool operator()(const Vector &, const Vector &, const Basis *) const {
+    return true;
+  }
+};
+
+/**
  * @brief Terminal node of the pipeline (base case). Writes final pixels to the
  * Canvas.
  * @tparam W Canvas width in pixels.
@@ -101,6 +110,8 @@ HS_O3_BEGIN
 template <int W, int H> struct Pipeline<W, H> {
   static constexpr bool is_2d = true;
   static constexpr bool any_crosses_segments = false;
+  /** @brief No stage re-emits clip-cull edges (see the recursive case). */
+  static constexpr bool has_world_cull = false;
 
   /**
    * @brief Type-safe filter accessor (base case: T not found).
@@ -215,6 +226,16 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
 
   static constexpr bool any_crosses_segments =
       Head::crosses_segments || Next::any_crosses_segments;
+
+  /**
+   * @brief True when any stage overrides cull_edge (re-emits clip-cull edges
+   *        under plot-time rotations), so a caller may not precompute per-point
+   *        screen coordinates from the raw geometry.
+   */
+  static constexpr bool has_world_cull =
+      requires(const Head &h, const Vector &v, const Basis *pb) {
+        h.cull_edge(v, v, pb, PipelineCullEdgeProbe{});
+      } || Next::has_world_cull;
 
   /**
    * @brief Forwarding-reference constructor: builds Head and the Tail in place.

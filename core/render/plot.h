@@ -411,8 +411,20 @@ static inline PlanarEdgeSpan make_planar_edge_span(const Vector &a,
 }
 
 /**
- * @brief Geodesic screen-row span from a precomputed edge setup.
+ * @brief Screen row of a unit-sphere y coordinate (the renderer's row map).
+ * @tparam H Rasterization height (pixel grid).
+ * @param y Unit-sphere y in [-1, 1] (clamped).
+ */
+template <int H> static inline float y_to_screen_row(float y) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  return phi_to_y(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
+}
+
+/**
+ * @brief Geodesic screen-row span from precomputed endpoint rows.
  * @tparam W,H Rasterization resolution (pixel grid).
+ * @param ra Precomputed y_to_screen_row<H>(a.y).
+ * @param rb Precomputed y_to_screen_row<H>(b.y).
  * @param a Edge start (unit sphere point).
  * @param b Edge end (unit sphere point).
  * @param es Shared setup from make_geodesic_edge_span(a, b).
@@ -425,15 +437,10 @@ static inline PlanarEdgeSpan make_planar_edge_span(const Vector &a,
  * (no axis) keeps the endpoint rows.
  */
 template <int W, int H>
-static inline void geodesic_row_span(const Vector &a, const Vector &b,
-                                     const GeodesicEdgeSpan &es, float &row_lo,
-                                     float &row_hi) {
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  auto y_to_row = [](float y) {
-    return phi_to_y(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
-  };
-  float ra = y_to_row(a.y);
-  float rb = y_to_row(b.y);
+static inline void geodesic_row_span_rows(float ra, float rb, const Vector &a,
+                                          const Vector &b,
+                                          const GeodesicEdgeSpan &es,
+                                          float &row_lo, float &row_hi) {
   row_lo = std::min(ra, rb);
   row_hi = std::max(ra, rb);
   if (!es.have_axis)
@@ -445,10 +452,27 @@ static inline void geodesic_row_span(const Vector &a, const Vector &b,
     // renormalization of the axis can produce when |axis.y| ≈ 1 (a
     // near-polar arc pole), keeping the sqrt domain-safe.
     float peak = sqrtf(std::max(0.0f, 1.0f - es.axis.y * es.axis.y));
-    float rp = y_to_row(t0 > 0.0f ? peak : -peak);
+    float rp = y_to_screen_row<H>(t0 > 0.0f ? peak : -peak);
     row_lo = std::min(row_lo, rp);
     row_hi = std::max(row_hi, rp);
   }
+}
+
+/**
+ * @brief Geodesic screen-row span from a precomputed edge setup.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param es Shared setup from make_geodesic_edge_span(a, b).
+ * @param row_lo Output: minimum screen row touched by the edge.
+ * @param row_hi Output: maximum screen row touched by the edge.
+ */
+template <int W, int H>
+static inline void geodesic_row_span(const Vector &a, const Vector &b,
+                                     const GeodesicEdgeSpan &es, float &row_lo,
+                                     float &row_hi) {
+  geodesic_row_span_rows<W, H>(y_to_screen_row<H>(a.y), y_to_screen_row<H>(b.y),
+                               a, b, es, row_lo, row_hi);
 }
 
 /**
@@ -536,10 +560,11 @@ static inline void finish_col_span(float s_f, float len_f, int &col_s,
 }
 
 /**
- * @brief Geodesic screen-column arc from a precomputed edge setup.
+ * @brief Geodesic screen-column arc from precomputed endpoint columns.
  * @tparam W Rasterization width (pixel grid).
+ * @param ca Precomputed vector_to_theta<W>(a).
+ * @param cb Precomputed vector_to_theta<W>(b).
  * @param a Edge start (unit sphere point).
- * @param b Edge end (unit sphere point).
  * @param es Shared setup from make_geodesic_edge_span(a, b).
  * @param col_s Output: arc start column, in [0, W).
  * @param col_len Output: arc length in columns (may reach W = full width).
@@ -560,17 +585,15 @@ static inline void finish_col_span(float s_f, float len_f, int &col_s,
  * vector_to_theta; COL_PAD absorbs plot rounding and the AntiAlias tap spread.
  */
 template <int W>
-static inline bool geodesic_col_span(const Vector &a, const Vector &b,
-                                     const GeodesicEdgeSpan &es, int &col_s,
-                                     int &col_len) {
+static inline bool geodesic_col_span_cols(float ca, float cb, const Vector &a,
+                                          const GeodesicEdgeSpan &es,
+                                          int &col_s, int &col_len) {
   constexpr float AXIS_Y_EPS = 1e-4f;
-  const float ca = vector_to_theta<W>(a);
   float s_f, len_f;
 
   if (es.total < EPS_GEODESIC_SEGMENT) {
     // The renderer collapses the edge to a dot at a; span both endpoints the
     // short way around.
-    const float cb = vector_to_theta<W>(b);
     const float d = wrap(cb - ca, static_cast<float>(W));
     if (d <= W * 0.5f) {
       s_f = ca;
@@ -593,7 +616,7 @@ static inline bool geodesic_col_span(const Vector &a, const Vector &b,
       Vector end = a * fast_cosf(es.total) + v_perp * fast_sinf(es.total);
       ce = vector_to_theta<W>(end);
     } else {
-      ce = vector_to_theta<W>(b);
+      ce = cb;
     }
 
     if (es.axis.y < 0.0f) { // longitude increases from a
@@ -607,6 +630,25 @@ static inline bool geodesic_col_span(const Vector &a, const Vector &b,
 
   finish_col_span<W>(s_f, len_f, col_s, col_len);
   return true;
+}
+
+/**
+ * @brief Geodesic screen-column arc from a precomputed edge setup.
+ * @tparam W Rasterization width (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param es Shared setup from make_geodesic_edge_span(a, b).
+ * @param col_s Output: arc start column, in [0, W).
+ * @param col_len Output: arc length in columns (may reach W = full width).
+ * @return False when no useful bound exists — the caller must skip the
+ *         horizontal cull.
+ */
+template <int W>
+static inline bool geodesic_col_span(const Vector &a, const Vector &b,
+                                     const GeodesicEdgeSpan &es, int &col_s,
+                                     int &col_len) {
+  return geodesic_col_span_cols<W>(vector_to_theta<W>(a), vector_to_theta<W>(b),
+                                   a, es, col_s, col_len);
 }
 
 /**
@@ -2588,6 +2630,19 @@ struct Mesh {
 };
 
 /**
+ * @brief True when @p P statically declares it has no world cull stage, so a
+ *        caller may precompute per-point screen coordinates from raw geometry.
+ * @tparam P Pipeline type; types without the has_world_cull member (e.g. the
+ *           type-erased PipelineRef) are conservatively not hoistable.
+ */
+template <typename P> static consteval bool pipeline_hoistable_cull() {
+  if constexpr (requires { P::has_world_cull; })
+    return !P::has_world_cull;
+  else
+    return false;
+}
+
+/**
  * @brief Particle System trails.
  * Registers:
  *  v0: Trail Progress (0.0=Head -> 1.0=Tail)
@@ -2686,13 +2741,54 @@ struct ParticleSystem {
         auto *bits = static_cast<uint8_t *>(
             scratch_arena_a.allocate(edges, alignof(uint8_t)));
         bool any = false;
-        for (size_t e = 0; e < edges; ++e) {
-          bits[e] = edge_visible_in_clip<W, H>(pipeline, cr, xc, band_len,
-                                               trail[e].pos, trail[e + 1].pos,
-                                               nullptr)
-                        ? 1
-                        : 0;
-          any = any || bits[e] != 0;
+        if constexpr (pipeline_hoistable_cull<PipelineT>()) {
+          // No stage re-emits edges, so the predicate sees the raw points and
+          // each shared endpoint's row/column carries to the next edge instead
+          // of being re-derived. Must produce exactly the bits
+          // edge_visible_in_clip would (rasterize consumes them as its cull).
+          float row_a = y_to_screen_row<H>(trail[0].pos.y);
+          float col_a = 0.0f;
+          bool col_a_valid = false;
+          for (size_t e = 0; e < edges; ++e) {
+            const Vector &ea = trail[e].pos;
+            const Vector &eb = trail[e + 1].pos;
+            const float row_b = y_to_screen_row<H>(eb.y);
+            const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
+            float row_lo, row_hi;
+            geodesic_row_span_rows<W, H>(row_a, row_b, ea, eb, es, row_lo,
+                                         row_hi);
+            bool v;
+            float col_b = 0.0f;
+            bool col_b_valid = false;
+            if (!cr.could_intersect_y(row_lo, row_hi)) {
+              v = false;
+            } else if (!xc.active) {
+              v = true;
+            } else {
+              if (!col_a_valid)
+                col_a = vector_to_theta<W>(ea);
+              col_b = vector_to_theta<W>(eb);
+              col_b_valid = true;
+              int col_s, col_len;
+              v = !geodesic_col_span_cols<W>(col_a, col_b, ea, es, col_s,
+                                             col_len) ||
+                  ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
+            }
+            bits[e] = v ? 1 : 0;
+            any = any || v;
+            row_a = row_b;
+            col_a = col_b;
+            col_a_valid = col_b_valid;
+          }
+        } else {
+          for (size_t e = 0; e < edges; ++e) {
+            bits[e] = edge_visible_in_clip<W, H>(pipeline, cr, xc, band_len,
+                                                 trail[e].pos, trail[e + 1].pos,
+                                                 nullptr)
+                          ? 1
+                          : 0;
+            any = any || bits[e] != 0;
+          }
         }
         if (!any)
           continue;
