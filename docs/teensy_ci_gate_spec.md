@@ -555,26 +555,40 @@ cap — catching "won't fit / no room to flash" and the layout invariants (§7.4
 work churn the baseline file. Ceilings with deliberate headroom give the needed protection without
 that overhead; the delta gate can be revisited later if size creep proves to be a real problem.
 
-**Per-component ceilings** *(opt-in per target)*. A region entry may pin one of its `teensy_size`
-components directly:
+**Per-component ceilings** *(opt-in per target)*. A region entry may cap one of its `teensy_size`
+components, in either of two forms:
 
-```jsonc
-"ram1": {
-  "max_bytes": 512000,
-  "free_min_bytes": 12288,
-  "components": { "code": { "max_bytes": 163064 } }
-}
-```
+- **Static cap** — `"components": { "<name>": { "max_bytes": N } }` pins the component to a fixed
+  ceiling; violations report as `component-over-budget`.
+- **Stack-floor-derived cap** — the form the phantasm `ram1.code` component uses:
 
-This exists because ITCM code is padded up to whole 32 KiB FlexRAM banks: code growing into the
-intra-bank padding moves bytes between two components of the *same* region sum, so the region
-ceiling and the free floor are both blind to it until the bank cliff, where the build breaks all
-at once (docs/selective_o3_spec.md §3). Violations report as `component-over-budget`; a configured
-component that the size output no longer reports is a hard `component-missing` failure (same
-fail-loud rule as regions and symbols — a renamed `teensy_size` field must not silently disable
-the ceiling). The `size -A` fallback carries no component breakdown, so a component-ceiling target
-fails loud under it rather than passing uncalibrated. Only the phantasm budget uses this today
-(`ram1.components.code`).
+  ```jsonc
+  "ram1": {
+    "max_bytes": 512000,
+    "free_min_bytes": 12288,
+    "components": { "code": { "max_banks_from_stack_floor": {
+        "bank_bytes": 32768, "total_banks": 16 } } }
+  }
+  ```
+
+  FlexRAM splits RAM1 into `total_banks` × `bank_bytes` banks between ITCM (code) and DTCM
+  (variables + stack). The invariant is **minimum stack headroom**, not a static code cap: the
+  gate reserves `ceil((measured variables + free_min_bytes) / bank_bytes)` banks for DTCM and
+  derives the code ceiling as the remaining banks — ITCM code may grow freely until the bank
+  allocation would squeeze DTCM free-for-locals below the region's `free_min_bytes` floor.
+  Violations report as `component-over-derived-ceiling`, naming the derived ceiling, the overage,
+  and the DTCM stack floor as the binding constraint. Every run also emits an **informational
+  note** (never a failure) with the measured component size, the derived ceiling, the remaining
+  bytes, and the distance to the next bank boundary, so intra-bank growth stays visible in CI
+  logs. The derivation's inputs are mandatory: a region using this form without `free_min_bytes`
+  is a hard `component-floor-missing` failure, and a size output missing the `variables`
+  component is a hard `component-missing` failure.
+
+For both forms, a configured component that the size output no longer reports is a hard
+`component-missing` failure (same fail-loud rule as regions and symbols — a renamed `teensy_size`
+field must not silently disable the ceiling). The `size -A` fallback carries no component
+breakdown, so a component-ceiling target fails loud under it rather than passing uncalibrated.
+Only the phantasm budget uses component ceilings today (`ram1.components.code`, derived form).
 
 **Raising a ceiling is a reviewed, one-line edit** to `tools/teensy_budgets.json`, landed in the
 *same* PR as the change that needs it — the symmetric escape hatch to the warning baseline's

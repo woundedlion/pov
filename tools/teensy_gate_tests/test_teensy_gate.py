@@ -11,6 +11,7 @@ Run:  python -m unittest discover -s tools/teensy_gate_tests
 """
 
 import contextlib
+import copy
 import io
 import subprocess
 import sys
@@ -239,23 +240,28 @@ class TestRegionCeilingsFail(unittest.TestCase):
 
 
 class TestComponentCeilings(unittest.TestCase):
-    """Per-component ceilings (§8 / selective_o3_spec §6): ITCM code growth into
-    intra-bank padding is invisible to the region sum, so the phantasm budget
-    pins the RAM1 `code` component directly."""
+    """Per-component ceilings (§8): the static max_bytes form, plus the shared
+    fail-loud rules (missing component, size -A fallback)."""
+
+    _STATIC_BUDGET = {"regions": {"ram1": {
+        "components": {"code": {"max_bytes": 100000}}}}}
 
     def test_good_build_passes_component_ceiling(self):
         result = _eval("phantasm", "good_teensy_size.txt", "good_readelf_syms.txt")
         self.assertTrue(result.passed, msg=_codes(result))
 
-    def test_code_component_over_ceiling_fails(self):
-        # Region totals stay under every regional cap; only the component fires.
-        result = _eval("phantasm", "broken_component_over_teensy_size.txt",
-                       "good_readelf_syms.txt")
+    def test_code_component_over_static_ceiling_fails(self):
+        # Static max_bytes form: only the component fires, nothing regional.
+        sizes = tg.parse_teensy_size(_read("broken_component_over_teensy_size.txt"))
+        result = tg.evaluate("phantasm", self._STATIC_BUDGET, sizes, [], {})
         self.assertFalse(result.passed)
-        codes = _codes(result)
-        self.assertIn("component-over-budget", codes)
-        self.assertNotIn("region-over-budget", codes)
+        self.assertEqual(_codes(result), ["component-over-budget"])
         self.assertTrue(any("'code'" in v.message for v in result.violations))
+
+    def test_code_component_under_static_ceiling_passes(self):
+        sizes = tg.parse_teensy_size(_read("good_teensy_size.txt"))
+        result = tg.evaluate("phantasm", self._STATIC_BUDGET, sizes, [], {})
+        self.assertTrue(result.passed, msg=_codes(result))
 
     def test_missing_code_component_fails_loud_not_silent(self):
         result = _eval("phantasm", "broken_component_missing_teensy_size.txt",
@@ -278,6 +284,111 @@ class TestComponentCeilings(unittest.TestCase):
         symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
         result = tg.evaluate("phantasm", BUDGETS["phantasm"], sizes, symbols, {})
         self.assertIn("component-missing", _codes(result))
+
+
+class TestDerivedComponentCeiling(unittest.TestCase):
+    """The stack-floor-derived ITCM code ceiling (§8): DTCM reserves
+    ceil((variables + free_min_bytes) / bank) FlexRAM banks and code may fill
+    the remaining banks. phantasm's ram1.code uses this form."""
+
+    FLOOR = 12288      # phantasm ram1.free_min_bytes
+    BANK = 32768
+
+    @staticmethod
+    def _ts(variables, code, free):
+        return (
+            "teensy_size: Memory Usage on Teensy 4.0:\n"
+            "teensy_size:   FLASH: code:158788, data:13684, headers:8460"
+            "   free for files: 1883136\n"
+            f"teensy_size:   RAM1: variables:{variables}, code:{code}, "
+            f"padding:1000   free for local variables: {free}\n"
+            "teensy_size:   RAM2: variables:497920   free for malloc/new: 26368\n")
+
+    @staticmethod
+    def _budget():
+        # Region + component checks only; the layout symbols have their own
+        # test class (TestLayoutInvariantsFail).
+        budget = copy.deepcopy(BUDGETS["phantasm"])
+        budget.pop("symbols", None)
+        return budget
+
+    def _eval_ts(self, text, budget=None):
+        sizes = tg.parse_teensy_size(text)
+        return tg.evaluate("phantasm", budget or self._budget(), sizes, [], {})
+
+    def test_ceiling_derivation(self):
+        # variables 312,704 + floor 12,288 = 324,992 -> 10 DTCM banks ->
+        # 6 ITCM banks -> 196,608 B ceiling; code well under -> pass.
+        result = self._eval_ts(self._ts(312704, 150200, 14976))
+        self.assertTrue(result.passed, msg=_codes(result))
+        self.assertTrue(any("196,608" in n for n in result.notes))
+
+    def test_code_over_derived_ceiling_fails_naming_the_floor(self):
+        # variables 300,000 + floor -> still 10 DTCM banks (ceiling 196,608);
+        # region total stays under its cap so only the derived check fires.
+        result = self._eval_ts(self._ts(300000, 200000, 27680))
+        self.assertFalse(result.passed)
+        self.assertIn("component-over-derived-ceiling", _codes(result))
+        self.assertNotIn("region-over-budget", _codes(result))
+        msg = next(v.message for v in result.violations
+                   if v.code == "component-over-derived-ceiling")
+        self.assertIn("196,608", msg)                      # the derived ceiling
+        self.assertIn("3,392", msg)                        # the overage
+        self.assertIn("stack floor", msg)                  # the binding constraint
+        self.assertIn("12,288", msg)
+
+    def test_code_exactly_at_ceiling_passes_one_over_fails(self):
+        at = self._eval_ts(self._ts(312704, 196608, 14976))
+        self.assertTrue(at.passed, msg=_codes(at))
+        over = self._eval_ts(self._ts(312704, 196609, 14976))
+        self.assertIn("component-over-derived-ceiling", _codes(over))
+
+    def test_variables_crossing_a_bank_shrinks_the_ceiling(self):
+        # variables 315,392 + 12,288 = 327,680 = exactly 10 banks -> ceiling
+        # stays 196,608; one more variable byte forces an 11th DTCM bank and the
+        # same code now violates the 163,840 B ceiling.
+        ok = self._eval_ts(self._ts(315392, 180000, 12288))
+        self.assertTrue(ok.passed, msg=_codes(ok))
+        squeezed = self._eval_ts(self._ts(315393, 180000, 12287 + self.BANK))
+        codes = _codes(squeezed)
+        self.assertIn("component-over-derived-ceiling", codes)
+        msg = next(v.message for v in squeezed.violations
+                   if v.code == "component-over-derived-ceiling")
+        self.assertIn("163,840", msg)
+
+    def test_missing_variables_component_fails_loud_not_silent(self):
+        text = (
+            "teensy_size: Memory Usage on Teensy 4.0:\n"
+            "teensy_size:   FLASH: code:158788, data:13684, headers:8460"
+            "   free for files: 1883136\n"
+            "teensy_size:   RAM1: code:150200, padding:1000"
+            "   free for local variables: 14976\n"
+            "teensy_size:   RAM2: variables:497920   free for malloc/new: 26368\n")
+        result = self._eval_ts(text)
+        self.assertIn("component-missing", _codes(result))
+        self.assertTrue(any("'variables'" in v.message
+                            for v in result.violations))
+
+    def test_missing_free_min_bytes_fails_loud_not_silent(self):
+        budget = self._budget()
+        del budget["regions"]["ram1"]["free_min_bytes"]
+        result = self._eval_ts(self._ts(312704, 150200, 14976), budget)
+        self.assertIn("component-floor-missing", _codes(result))
+
+    def test_informational_note_reports_growth_headroom(self):
+        # Measured, ceiling, remaining, and next-bank-boundary distance must all
+        # appear in the report so intra-bank growth is visible without failing.
+        result = self._eval_ts(self._ts(312704, 150200, 14976))
+        note = next(n for n in result.notes if "derived ceiling" in n)
+        self.assertIn("150,200", note)                     # measured
+        self.assertIn("196,608", note)                     # ceiling
+        self.assertIn("46,408", note)                      # remaining
+        self.assertIn("13,640", note)                      # to next 32 KiB boundary
+        self.assertIn(note, tg.render_report(result))
+
+    def test_note_present_even_when_over(self):
+        result = self._eval_ts(self._ts(300000, 200000, 27680))
+        self.assertTrue(any("derived ceiling" in n for n in result.notes))
 
 
 class TestWarningRatchet(unittest.TestCase):
