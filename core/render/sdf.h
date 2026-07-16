@@ -2774,7 +2774,8 @@ struct Face {
    * chain avoids a register-spill cliff that slows every probe (measured ~40%
    * on the whole scan when both loops inline into process_pixel).
    */
-  __attribute__((noinline)) float plane_dist_convex(float px, float py) const {
+  HS_O3_FN __attribute__((noinline)) float plane_dist_convex(float px,
+                                                            float py) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.convex_hits++);
     float d = -FLT_MAX;
     for (int i = 0; i < count; ++i) {
@@ -2793,7 +2794,8 @@ struct Face {
    * @return Signed distance in the tangent plane (negative inside).
    * @details noinline: see plane_dist_convex.
    */
-  __attribute__((noinline)) float plane_dist_exact(float px, float py) const {
+  HS_O3_FN __attribute__((noinline)) float plane_dist_exact(float px,
+                                                           float py) const {
     float d = FLT_MAX;
     bool inside = false;
     for (int i = 0; i < count; ++i) {
@@ -2838,7 +2840,7 @@ struct Face {
    *       angle.
    */
   template <bool ComputeUVs = true>
-  void distance(const Vector &p, DistanceResult &res) const {
+  HS_O3_FN void distance(const Vector &p, DistanceResult &res) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
 
     float cos_angle = dot(p, center);

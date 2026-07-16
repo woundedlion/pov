@@ -1033,6 +1033,161 @@ struct SphericalPolygon {
   }
 };
 
+HS_O3_BEGIN
+/**
+ * @brief Face-specialized scan loop for the mesh path, compiled at -O3 on the
+ *        -Os device image (docs/selective_o3_spec.md).
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @tparam PipelineT Plotting pipeline type.
+ * @param pipeline Plotting pipeline receiving the final colors.
+ * @param canvas Destination canvas.
+ * @param shape Face to rasterize.
+ * @param fragment_shader Shader invoked per covered pixel.
+ * @param debug_bb When true, forces plotting and tints the bounding box.
+ * @details Self-contained (the shared rasterize/scan_region/process_pixel
+ * kernel stays -Os; GCC reuses that existing -Os instantiation rather than
+ * re-optimizing it into a region caller). A Face's column intervals are
+ * row-independent, so the wrap/sort/coalesce pass — per-row in scan_region —
+ * and the clip-arc intersection run once per face; the per-pixel body mirrors
+ * process_pixel's solid path.
+ */
+template <int W, int H, typename PipelineT>
+inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
+                           const SDF::Face &shape,
+                           FragmentShaderFn fragment_shader, bool debug_bb) {
+  bool effective_debug = debug_bb || canvas.debug();
+
+  const auto &cr = canvas.clip();
+  const auto xc = cr.x_clip();
+  auto bounds = shape.template get_vertical_bounds<H>();
+  int y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min
+                                                : cr.render_y_start();
+  int y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
+                                                  : cr.render_y_end() - 1;
+  if (y_lo > y_hi)
+    return;
+
+  if (!TrigLUT<W, H>::initialized)
+    TrigLUT<W, H>::init();
+
+  // Face emits <= 2 spans; each wraps into <= 2 pieces, each clip-split into
+  // <= 2 runs.
+  StaticCircularBuffer<std::pair<float, float>, 4> intervals;
+  bool handled = shape.template get_horizontal_intervals<W, H>(
+      y_lo, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
+
+  std::pair<int, int> runs[8];
+  size_t num_runs = 0;
+  auto add_run = [&](int x1, int x2) {
+    auto push = [&](int a, int b) {
+      if (a >= b)
+        return;
+      HS_CHECK(num_runs < 8, "rasterize_face: run buffer overflow");
+      runs[num_runs++] = {a, b};
+    };
+    if (!xc.active) {
+      push(x1, x2);
+    } else if (xc.wrap) {
+      push(std::max(x1, xc.rs), x2);
+      push(x1, std::min(x2, xc.re));
+    } else {
+      push(std::max(x1, xc.rs), std::min(x2, xc.re));
+    }
+  };
+
+  if (!handled) {
+    add_run(0, W);
+  } else if (!intervals.is_empty()) {
+    bool full_row = false;
+    for (const auto &iv : intervals) {
+      if (iv.second - iv.first >= static_cast<float>(W)) {
+        full_row = true;
+        break;
+      }
+    }
+    if (full_row) {
+      add_run(0, W);
+    } else {
+      StaticCircularBuffer<std::pair<float, float>, 8> norm;
+      SDF::normalize_intervals_to_range<W>(intervals, norm);
+      SDF::sort_intervals_by_start(norm);
+      float current_end = -FLT_MAX;
+      int last_x2 = 0;
+      for (const auto &iv : norm) {
+        if (iv.second <= current_end)
+          continue;
+        float start = std::max(iv.first, current_end);
+        float end = iv.second;
+        current_end = end;
+        int x1 = static_cast<int>(floorf(start));
+        int x2 = static_cast<int>(ceilf(end));
+        if (x1 == x2)
+          x2++;
+        if (x1 < 0)
+          x1 = 0;
+        if (x2 > W)
+          x2 = W;
+        if (x1 < last_x2)
+          x1 = last_x2;
+        last_x2 = x2;
+        add_run(x1, x2);
+      }
+    }
+  }
+  if (num_runs == 0)
+    return;
+
+  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
+  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+  constexpr float pixel_width = 2.0f * PI_F / W;
+
+  SDF::DistanceResult res;
+  Fragment frag;
+  ScopedRenderTimer timer_guard(canvas);
+
+  for (int y = y_lo; y <= y_hi; ++y) {
+    float sp = TrigLUT<W, H>::sin_phi[y];
+    float cp = TrigLUT<W, H>::cos_phi[y];
+    for (size_t r = 0; r < num_runs; ++r) {
+      for (int x = runs[r].first; x < runs[r].second; ++x) {
+        Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        shape.template distance<true>(p, res);
+        float d = res.dist;
+        if (!effective_debug && d >= pixel_width)
+          continue;
+        float alpha = 1.0f;
+        if (d > -pixel_width) {
+          float t_aa = 0.5f - d / (2.0f * pixel_width);
+          alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+        }
+        if (!effective_debug && alpha <= 0.001f)
+          continue;
+        frag.color = Color4(0, 0, 0, 0);
+        frag.pos = p;
+        frag.v0 = res.t;
+        frag.v1 = res.raw_dist;
+        frag.v2 = 0.0f;
+        frag.v3 = res.aux;
+        frag.size = res.size;
+        frag.age = 0;
+        fragment_shader(p, frag);
+        if (effective_debug) {
+          frag.color.color = frag.color.color.lerp16(
+              Pixel(65535, 65535, 65535), 65535 / 2);
+          frag.color.alpha = 1.0f;
+          alpha = 1.0f;
+        }
+        if (frag.color.alpha > 0.001f) {
+          pipeline.plot(canvas, x, y, frag.color.color, frag.age,
+                        frag.color.alpha * alpha);
+        }
+      }
+    }
+  }
+}
+HS_O3_END
+
 /**
  * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::Face,
  *        threading the face index through register v2 so the shader can vary
@@ -1119,7 +1274,7 @@ struct Mesh {
       };
 
       { HS_PROFILE(scan_mesh_raster);
-        Scan::rasterize<W, H, true>(pipeline, canvas, shape, wrapper, debug_bb);
+        rasterize_face<W, H>(pipeline, canvas, shape, wrapper, debug_bb);
       }
     }
   }
