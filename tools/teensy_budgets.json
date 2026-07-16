@@ -54,11 +54,12 @@
       // The ITCM code component ceiling makes growth into intra-bank padding
       // visible: RAM1 `used`/`free` don't move until a whole 32 KiB bank flips
       // (docs/selective_o3_spec.md §3/§6). Calibrated 2026-07-15 with the
-      // AntiAlias splat + vector_to_pixel + geodesic-strategy promotions
-      // (the trail-raster chain): code 154,648 + 2,048 headroom. Each kept
-      // HS_O3 region commit re-bumps to its own measured code + 2,048.
+      // Plot::rasterize chain promotion (R3: rasterize + geodesic strategy +
+      // AntiAlias + vector_to_pixel; the shared out-of-line -O3 copies replace
+      // per-caller -Os inlining, a net shrink): code 147,992 + 2,048 headroom.
+      // Each kept HS_O3 region commit re-bumps to its own measured code + 2,048.
       "ram1":  { "max_bytes": 512000, "free_min_bytes": 12288,
-                 "components": { "code": { "max_bytes": 156696 } } },
+                 "components": { "code": { "max_bytes": 150040 } } },
       // 3.5 KiB effect-object cap plus 512 B for allocator and boot overhead.
       "ram2":  { "max_bytes": 524288, "free_min_bytes": 4096 }
     },

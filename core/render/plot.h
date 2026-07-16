@@ -679,6 +679,7 @@ static inline bool edge_visible_in_clip(PipelineT &pipeline,
  *                     Geodesic polylines only: a planar polyline's per-edge
  *                     basis depends on the seam pre-pass below.
  */
+HS_O3_BEGIN
 template <int W, int H, typename PipelineT = PipelineRef>
 static void rasterize(PipelineT &pipeline, Canvas &canvas,
                       const Fragments &points, FragmentShaderFn fragment_shader,
@@ -933,6 +934,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   canvas.add_render_us(emscripten_get_now() - plot_t0);
   #endif
 }
+HS_O3_END
 
 /**
  * @brief Per-primitive geometry/rasterization options for draw_fragments.
