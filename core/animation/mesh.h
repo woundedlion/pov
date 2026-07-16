@@ -8,6 +8,10 @@
 #error internal fragment of animation.h; include "animation.h" instead
 #endif
 
+#include "color/composition.h"
+#include "mesh/conway.h"
+#include "mesh/conway_graph.h"
+
 namespace Animation {
 
 /**
@@ -152,6 +156,379 @@ private:
   EasingFn easing_fn;        /**< Easing curve applied to crossfade progress. */
   MorphDrawFn draw_outgoing; /**< Draw callback for the outgoing half. */
   MorphDrawFn draw_incoming; /**< Draw callback for the incoming half. */
+};
+
+/**
+ * @brief Animates one Conway-operator parameter sweep along a graph edge
+ * (docs/conway_morph_spec.md, section 4.1).
+ * @details Per frame: run the edge's single op at t(frame) in scratch,
+ * settle-slerp toward the relaxed endpoint inside the settle window, compile,
+ * attach the leg's hoisted classification, pre-blend the (from, to) palette
+ * ramps at w(frame), and hand the mesh to the draw callback. Exactly one mesh
+ * is drawn per frame. Bulk state lives in an arena-allocated Transients (same
+ * survival contract as MeshMorph); the caller compacts the arena between legs.
+ */
+class ConwayMorph : public AnimationBase<ConwayMorph> {
+public:
+  static constexpr int PALETTES = BakedPaletteBank::N;
+  /** Distinct (from, to) ramp pairs a leg may carry; bounds the per-frame
+   * blended-LUT scratch (PAIRS x 3 KB in scratch_arena_b). */
+  static constexpr int MAX_BLEND_PAIRS = 8;
+
+  /**
+   * @brief Per-frame shading handed to the draw callback.
+   * @details The fragment path stays a single BakedPalette::get(t):
+   * ramps[face_ramp[face]] is the face's pre-blended LUT. Scratch-backed,
+   * valid for the current frame only.
+   */
+  struct Shading {
+    const BakedPalette *ramps; /**< One blended LUT per (from, to) pair. */
+    const uint8_t *face_ramp;  /**< Face index -> ramp index. */
+    size_t faces;              /**< Face count (bounds face_ramp). */
+  };
+
+  /**
+   * @brief Non-owning draw callback: `void(Canvas&, const MeshState&,
+   * const Shading&)`. StoredFunctionRef rejects rvalue temporaries.
+   */
+  using MorphDrawFn =
+      StoredFunctionRef<void(Canvas &, const MeshState &, const Shading &)>;
+
+  /**
+   * @brief Palette provenance of the departed node (spec sections 2.5/2.6).
+   * @details prev_face_palette/prev_face_sides describe the node base mesh the
+   * leg departs from, in emission order; consumed by the constructor only.
+   */
+  struct PaletteHandoff {
+    const BakedPaletteBank *bank = nullptr; /**< The effect's baked source LUTs. */
+    const uint8_t *prev_face_palette = nullptr; /**< Per-face palette of the departed base mesh. */
+    const uint8_t *prev_face_sides = nullptr;   /**< Per-face clean side counts (class-signature mapping). */
+    size_t prev_faces = 0;           /**< Face count of the departed base mesh. */
+    bool by_class_signature = false; /**< DUAL_SWAP departure: map by side count, not emission order. */
+  };
+
+  /**
+   * @brief Leg-static arrival data the effect's completion consumes.
+   * @details Arena-backed; valid until the leg arena is compacted.
+   */
+  struct Landing {
+    const int *topology = nullptr; /**< Arrival classification, one id per swept face. */
+    size_t faces = 0;              /**< Swept face count. */
+    size_t primary_faces = 0;      /**< Seed face count (emission-order prefix). */
+    std::array<uint8_t, PALETTES> to_palette{}; /**< Slot -> landed palette index. */
+  };
+
+  /**
+   * @brief Constructs one leg: clones the seed, computes the arrival
+   * classification (relaxed form when settling), and builds the palette
+   * mappings.
+   * @param seed Seed mesh the op sweeps on (cloned, not borrowed).
+   * @param edge Graph edge being traversed.
+   * @param reverse True when traversing to_node -> from_node.
+   * @param arena Leg arena backing the cloned seed and hoisted state.
+   * @param draw Draw callback invoked once per frame.
+   * @param handoff Palette provenance of the departed node.
+   * @param sweep_frames Operator-sweep frames (N).
+   * @param settle_frames Relax-slerp frames (S); 0 unless the edge settles.
+   * @param easing_fn Easing applied to the sweep parameter.
+   */
+  HS_COLD_MEMBER ConwayMorph(const PolyMesh &seed,
+                             const ConwayGraph::EdgeSpec &edge, bool reverse,
+                             Arena &arena, MorphDrawFn draw,
+                             const PaletteHandoff &handoff, int sweep_frames,
+                             int settle_frames,
+                             EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(sweep_frames + settle_frames, false),
+        easing_fn(easing_fn), draw_fn(draw) {
+    HS_CHECK(sweep_frames >= 1, "ConwayMorph needs a positive sweep length");
+    HS_CHECK(settle_frames >= 0 && (edge.settle || settle_frames == 0),
+             "ConwayMorph: settle frames on a non-settling edge");
+    HS_CHECK(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0);
+    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
+    Transients &tr = *buf_;
+
+    MeshOps::clone(seed, tr.seed, arena);
+    tr.op = edge.op;
+    tr.reverse = reverse;
+    tr.sweep_frames = sweep_frames;
+    tr.settle_frames = settle_frames;
+    tr.bank = handoff.bank;
+
+    // Clamp both endpoints inside the topology-constant open interval; the
+    // truncate upper clamp dodges the ambo short-circuit at exactly 0.5.
+    auto clamp_param = [&](float t) {
+      t = std::max(t, ConwayGraph::T_EPS);
+      if (edge.op == ConwayGraph::MorphOp::TRUNCATE)
+        t = std::min(t, 0.5f - ConwayGraph::T_EPS);
+      return t;
+    };
+    tr.t_start = clamp_param(reverse ? edge.t_to : edge.t_from);
+    tr.t_end = clamp_param(reverse ? edge.t_from : edge.t_to);
+    tr.twist_start = reverse ? edge.twist_to : edge.twist_from;
+    tr.twist_end = reverse ? edge.twist_from : edge.twist_to;
+
+    {
+      ScratchScope sa(scratch_arena_a);
+      ScratchScope sb(scratch_arena_b);
+
+      PolyMesh arrival = run_op(tr.op, tr.seed, scratch_arena_a,
+                                scratch_arena_b, tr.t_end, tr.twist_end);
+      // Classification is hoisted per leg, taken at arrival geometry; a
+      // settling forward leg lands on the relaxed form, so classify that.
+      PolyMesh *classified = &arrival;
+      PolyMesh relaxed_mesh;
+      if (edge.settle) {
+        if (!reverse) {
+          relaxed_mesh =
+              MeshOps::relax(arrival, scratch_arena_b, scratch_arena_a, 50);
+          classified = &relaxed_mesh;
+        } else {
+          // Reverse legs un-settle at the start parameter.
+          PolyMesh start = run_op(tr.op, tr.seed, scratch_arena_a,
+                                  scratch_arena_b, tr.t_start, tr.twist_start);
+          relaxed_mesh =
+              MeshOps::relax(start, scratch_arena_b, scratch_arena_a, 50);
+        }
+        tr.relaxed.bind(arena, relaxed_mesh.vertices.size());
+        tr.relaxed.append_bulk(relaxed_mesh.vertices.data(),
+                               relaxed_mesh.vertices.size());
+        HS_CHECK(tr.relaxed.size() == arrival.vertices.size(),
+                 "ConwayMorph: relax changed the vertex count");
+      }
+      MeshOps::classify_faces_by_topology(*classified, scratch_arena_a,
+                                          scratch_arena_b, arena);
+      tr.topo = std::move(classified->topology);
+      HS_CHECK(tr.topo.size() == classified->face_counts.size());
+
+      build_palette_mapping(tr, *classified, handoff, arena);
+    }
+  }
+
+  /**
+   * @brief Steps the sweep: op at t(frame), settle slerp, compile, palette
+   * pre-blend, draw.
+   * @param canvas The canvas passed through to the draw callback.
+   */
+  void step(Canvas &canvas) override {
+    AnimationBase::step(canvas);
+    Transients &tr = *buf_;
+    const int frame =
+        static_cast<int>(std::min<uint32_t>(t, static_cast<uint32_t>(duration)));
+
+    // Frame -> sweep position + settle blend (forward settles at the end,
+    // reverse legs un-settle over the opening window).
+    int sweep_frame = frame;
+    float settle_alpha = 0.0f;
+    if (tr.settle_frames > 0) {
+      if (!tr.reverse) {
+        sweep_frame = std::min(frame, tr.sweep_frames);
+        if (frame > tr.sweep_frames)
+          settle_alpha = static_cast<float>(frame - tr.sweep_frames) /
+                         static_cast<float>(tr.settle_frames);
+      } else {
+        sweep_frame = std::max(0, frame - tr.settle_frames);
+        if (frame < tr.settle_frames)
+          settle_alpha = 1.0f - static_cast<float>(frame) /
+                                    static_cast<float>(tr.settle_frames);
+      }
+    }
+    float k = easing_fn(static_cast<float>(sweep_frame) /
+                        static_cast<float>(tr.sweep_frames));
+    float tp = tr.t_start + (tr.t_end - tr.t_start) * k;
+    float tw = tr.twist_start + (tr.twist_end - tr.twist_start) * k;
+
+    ScratchScope sa(scratch_arena_a);
+    ScratchScope sb(scratch_arena_b);
+
+    PolyMesh swept;
+    {
+      HS_PROFILE(hk_conway_op);
+      swept = run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b, tp, tw);
+      if (settle_alpha > 0.0f) {
+        HS_CHECK(swept.vertices.size() == tr.relaxed.size());
+        for (size_t i = 0; i < swept.vertices.size(); ++i)
+          swept.vertices[i] =
+              slerp(swept.vertices[i], tr.relaxed[i], settle_alpha);
+      }
+    }
+
+    MeshState compiled;
+    {
+      HS_PROFILE(hk_conway_compile);
+      MeshOps::compile(swept, compiled, scratch_arena_a, scratch_arena_b);
+    }
+    HS_CHECK(compiled.face_counts.size() == tr.topo.size(),
+             "ConwayMorph: sweep changed the compiled face count");
+    compiled.topology.bind(scratch_arena_a, tr.topo.size());
+    compiled.topology.append_bulk(tr.topo.data(), tr.topo.size());
+
+    float w = blend_weight(static_cast<float>(frame) /
+                           static_cast<float>(duration));
+    BakedPalette *ramps =
+        scratch_arena_b.allocate_n<BakedPalette>(tr.num_ramps);
+    for (int r = 0; r < tr.num_ramps; ++r) {
+      const BakedPalette &from = tr.bank->entries[tr.ramp_from[r]];
+      const BakedPalette &to = tr.bank->entries[tr.ramp_to[r]];
+      new (&ramps[r]) BakedPalette();
+      if (w <= 0.0f) {
+        ramps[r] = from;
+      } else if (w >= 1.0f || tr.ramp_from[r] == tr.ramp_to[r]) {
+        ramps[r] = to;
+      } else {
+        ramps[r].bake(scratch_arena_b, RampBlend{from, to, w});
+      }
+    }
+
+    Shading sh{ramps, tr.face_ramp.data(), tr.face_ramp.size()};
+    draw_fn(canvas, compiled, sh);
+  }
+
+  /**
+   * @brief Arrival data for the effect's completion handler.
+   * @return Arena-backed Landing; stable until the leg arena is compacted.
+   */
+  const Landing &landing() const { return buf_->landing; }
+
+private:
+  /**
+   * @brief Arena-allocated leg state — keeps ConwayMorph inline size small.
+   */
+  struct Transients {
+    PolyMesh seed;                 /**< Cloned leg seed. */
+    ConwayGraph::MorphOp op = ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator. */
+    bool reverse = false;          /**< Traversing to_node -> from_node. */
+    int sweep_frames = 1;          /**< Operator-sweep frames. */
+    int settle_frames = 0;         /**< Relax-slerp frames. */
+    float t_start = 0, t_end = 0;  /**< Clamped sweep endpoints. */
+    float twist_start = 0, twist_end = 0; /**< Snub twist endpoints. */
+    ArenaVector<Vector> relaxed;   /**< Relaxed endpoint vertices (settling legs). */
+    ArenaVector<int> topo;         /**< Hoisted arrival classification. */
+    ArenaVector<uint8_t> face_ramp; /**< Face -> (from, to) ramp pair. */
+    const BakedPaletteBank *bank = nullptr; /**< Source LUTs for the pre-blend. */
+    uint8_t ramp_from[MAX_BLEND_PAIRS] = {}; /**< Per-pair from palette. */
+    uint8_t ramp_to[MAX_BLEND_PAIRS] = {};   /**< Per-pair to palette. */
+    int num_ramps = 0;             /**< Distinct pair count. */
+    Landing landing;               /**< Arrival data exposed to the effect. */
+  };
+
+  /** Blend source: two baked LUTs lerped at the frame's weight. */
+  struct RampBlend {
+    const BakedPalette &from; /**< Inherited (mapped) ramp. */
+    const BakedPalette &to;   /**< Leg target ramp. */
+    float w;                  /**< Blend weight in [0, 1]. */
+    /**
+     * @brief Samples both LUTs and lerps.
+     * @param t Lookup coordinate.
+     * @return The blended color at t.
+     */
+    Color4 get(float t) const { return from.get(t).lerp(to.get(t), w); }
+  };
+
+  /**
+   * @brief Runs the edge's operator on the seed at one parameter value.
+   */
+  static PolyMesh run_op(ConwayGraph::MorphOp op, const PolyMesh &seed,
+                         Arena &target, Arena &temp, float t, float twist) {
+    switch (op) {
+    case ConwayGraph::MorphOp::TRUNCATE:
+      return MeshOps::truncate(seed, target, temp, t);
+    case ConwayGraph::MorphOp::EXPAND:
+      return MeshOps::expand(seed, target, temp, t);
+    default:
+      return MeshOps::snub(seed, target, temp, t, twist);
+    }
+  }
+
+  /**
+   * @brief Crossfade weight (spec 2.6): exactly 0 through the first 20% of the
+   * leg, smoothstep to exactly 1 by 80%.
+   */
+  static float blend_weight(float p) {
+    constexpr float IN = 0.2f, OUT = 0.8f;
+    if (p <= IN)
+      return 0.0f;
+    if (p >= OUT)
+      return 1.0f;
+    float u = (p - IN) / (OUT - IN);
+    return u * u * (3.0f - 2.0f * u);
+  }
+
+  /**
+   * @brief Builds the per-face from-palettes (leg-swap mapping, spec 2.5), the
+   * shuffled target assignment (spec 2.6), and the distinct ramp-pair table.
+   * @param tr Leg transients being populated.
+   * @param arrival Classified arrival mesh (for face counts).
+   * @param handoff Departed-node provenance.
+   * @param arena Leg arena for the face -> ramp table.
+   */
+  HS_COLD_MEMBER void build_palette_mapping(Transients &tr,
+                                            const PolyMesh &arrival,
+                                            const PaletteHandoff &handoff,
+                                            Arena &arena) {
+    const size_t total = tr.topo.size();
+    const size_t primary = tr.seed.face_counts.size();
+    tr.landing.topology = tr.topo.data();
+    tr.landing.faces = total;
+    tr.landing.primary_faces = primary;
+
+    for (int i = 0; i < PALETTES; ++i)
+      tr.landing.to_palette[i] = static_cast<uint8_t>(i);
+    std::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end(),
+                 hs::random());
+
+    if (!handoff.by_class_signature) {
+      // Emission-order mapping: either the whole face list corresponds
+      // (departing a mid-parameter node) or the primary prefix does
+      // (departing the seed form; orbit/edge faces are zero-area births).
+      HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == primary,
+               "ConwayMorph: handoff face count matches neither mapping");
+    } else {
+      HS_CHECK(handoff.prev_face_sides,
+               "ConwayMorph: class-signature mapping needs prev side counts");
+    }
+
+    tr.face_ramp.bind(arena, total);
+    for (size_t f = 0; f < total; ++f) {
+      uint8_t to =
+          tr.landing.to_palette[wrap(tr.topo[f], PALETTES)];
+      uint8_t from = to; // newborn faces skip the crossfade
+      if (handoff.by_class_signature) {
+        // DUAL_SWAP: side count at the shared ambo point is unambiguous.
+        int sides = f < primary ? tr.seed.face_counts[f]
+                                : arrival.face_counts[f];
+        for (size_t j = 0; j < handoff.prev_faces; ++j) {
+          if (handoff.prev_face_sides[j] == sides) {
+            from = handoff.prev_face_palette[j];
+            break;
+          }
+        }
+      } else if (f < handoff.prev_faces) {
+        from = handoff.prev_face_palette[f];
+      }
+      HS_CHECK(from < PALETTES && to < PALETTES);
+
+      int ramp = -1;
+      for (int r = 0; r < tr.num_ramps; ++r) {
+        if (tr.ramp_from[r] == from && tr.ramp_to[r] == to) {
+          ramp = r;
+          break;
+        }
+      }
+      if (ramp < 0) {
+        HS_CHECK(tr.num_ramps < MAX_BLEND_PAIRS,
+                 "ConwayMorph: distinct palette pairs exceed the blend budget");
+        ramp = tr.num_ramps++;
+        tr.ramp_from[ramp] = from;
+        tr.ramp_to[ramp] = to;
+      }
+      tr.face_ramp.push_back(static_cast<uint8_t>(ramp));
+    }
+  }
+
+  Transients *buf_;   /**< Pointer to arena-allocated leg state. */
+  EasingFn easing_fn; /**< Easing applied to the sweep parameter. */
+  MorphDrawFn draw_fn; /**< Per-frame draw callback. */
 };
 
 } // namespace Animation
