@@ -964,6 +964,7 @@ namespace Screen {
  * @brief Applies 2D anti-aliasing to sub-pixel coordinates.
  * @details Distributes intensity to the 4 nearest neighbors using a quintic kernel.
  */
+HS_O3_BEGIN
 template <int W, int H> class AntiAlias : public Is2D {
 public:
   /**
@@ -1030,6 +1031,7 @@ public:
       pass(static_cast<float>(x1), static_cast<float>(y1), c, age, alpha * v11);
   }
 };
+HS_O3_END
 
 /**
  * @brief Manages 2D screen-space trails.
