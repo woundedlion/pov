@@ -531,8 +531,19 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 | R3 geodesic strategy region (`rasterize_geodesic_strategy` + sampler lambda) | +3,296 | 9,192 | HopfFibration median per-call 220 → ~155 µs (at O3 ceiling); peak windows still spill | ✅ 2026-07-15 |
 | R3 `Plot::rasterize` region (whole sim+draw loop; strategies + AntiAlias + sink fuse in) | **−6,656** (one shared -O3 copy per pipeline type replaces per-caller -Os inlining) | 15,848 | HopfFibration `hf_trail_raster` 220 → 144 µs/call median, 382 → ~210 µs peak-window — at/below the global-O3 ceiling (152/239); residual 2-window frames in the heaviest fold/twist phases are workload peaks the 68 s O3 reference pass never sampled, not an -Os wall. DreamBalls/MindSplatter/PetalFlow/MobiusGrid ride the same instantiations | ✅ 2026-07-15 |
 | R4 shader compositors: closure `Shader::draw` `HS_O3_FN` + per-pixel callee chase (`stereo_noise_warp`, `SingleOpenSimplex2`, `hue_rotate_rgb`, `oklab_to_linear_rgb`, `linear_rgb_in_gamut`) | +3,104 | 12,680 (post mesh-scan driver + thunk flash-routing) | Flyby worst preset 50.9 ms vs 43.6 ceiling, **16 fps locked over the full cycle** (was 83.7 ms, 8 fps on 4 of 5 presets); loop+lambda alone and +noise-path were each measured ~flat — the OKLab hue chain was the cost | ✅ 2026-07-15 |
+| MindSplatter wrapper: `Plot::ParticleSystem` region (both `draw` overloads — per-trail tween/cull/dispatch loop) | +3,312 | — | measured dead 2026-07-16 — per-preset scan identical within noise (worst 108.6 → 109.0 ms) | ❌ reverted, not landed |
+| MindSplatter effect-local: `draw_particles` `HS_O3_FN` (mobius/hole/palette shader lambdas) | +1,184 | — | measured ~dead 2026-07-16 — uniform −1.2 % (worst 108.6 → 107.3 ms), no cadence change | ❌ reverted, not landed |
 | R5 feedback flush | not measured | | | deferred — no budget |
 | R6 Voronoi KD | not measured | | | deferred — no budget |
+
+**MindSplatter's ship→ceiling ratio (1.15–1.49× per preset) is not
+recoverable by selective -O3 — do not re-attempt.** With the R3 rasterize
+chain, the `ParticleSystem` wrapper, and the effect shader lambdas all
+measured, essentially no `-Os` code remains inside `msp_particle_scan`; the
+residual gap is dominated by a cross-config workload artifact (the global-O3
+build's `-ffast-math` physics produces different particle trajectories, hence
+different coverage), not by reachable compiler headroom. Its cadence lever is
+coverage (pool/trail size), not the compiler.
 
 FLASH grew ~3–7 KB total across the kept commits — far under the gate ceiling
 (not tracked per commit).
