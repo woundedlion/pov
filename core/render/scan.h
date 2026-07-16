@@ -1193,6 +1193,7 @@ inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
 }
 HS_O3_END
 
+HS_O3_BEGIN
 /**
  * @brief Rasterizes a polygonal mesh by drawing each face as an SDF::Face,
  *        threading the face index through register v2 so the shader can vary
@@ -1287,6 +1288,7 @@ struct Mesh {
     }
   }
 };
+HS_O3_END
 
 /**
  * @brief Full-screen per-pixel shader with SAMPLES× SSAA.

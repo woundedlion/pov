@@ -2112,9 +2112,10 @@ struct Face {
    * @param height Canvas height in rows.
    * @param clip Optional render clip used to tighten the face bounds.
    */
-  Face(std::span<const Vector> vertices, std::span<const uint16_t> indices,
-       float th, FaceScratchBuffer &scratch, int h_virt, int height,
-       const ClipRegion *clip = nullptr)
+  HS_O3_FN Face(std::span<const Vector> vertices,
+                std::span<const uint16_t> indices, float th,
+                FaceScratchBuffer &scratch, int h_virt, int height,
+                const ClipRegion *clip = nullptr)
       : thickness(th), build_height(height), full_width(true) {
 
     // Early vertical exit: a face whose latitude band (plus thickness margin)
