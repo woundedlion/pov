@@ -231,6 +231,30 @@ using CullEdgePredRef =
     FunctionRef<bool(const Vector &, const Vector &, const Basis *)>;
 
 /**
+ * @brief Deterministic per-pixel ownership mask for dissolve transitions.
+ * @details The scan tests owns(x, y) before the per-pixel SDF eval, so a
+ * skipped pixel costs a few cycles instead of the full distance chain. Two
+ * draws with the same threshold/salt and opposite `invert` partition the
+ * canvas exactly (every pixel owned by one of them), which is what caps a
+ * two-mesh transition at one mesh's rasterize cost per frame. The salt must
+ * derive from frame counters/seeds, never wall time: the mask is part of the
+ * sim/device parity surface.
+ */
+struct PixelMask {
+  uint32_t threshold; /**< Owned fraction in [0, 65536]. */
+  uint32_t salt;      /**< Per-frame/per-transition hash salt. */
+  bool invert;        /**< True owns the complement (pixels at/above threshold). */
+
+  bool owns(int x, int y) const {
+    uint32_t h = static_cast<uint32_t>(x) * 0x9E3779B1u ^
+                 static_cast<uint32_t>(y) * 0x85EBCA77u ^ salt;
+    h *= 0x27D4EB2Fu;
+    h ^= h >> 15;
+    return ((h & 0xFFFFu) < threshold) != invert;
+  }
+};
+
+/**
  * @brief Non-owning, type-erased handle to a rasterizer pipeline.
  * @details Forwards plot() calls (2D screen-space or 3D world-space) to the
  * wrapped object's plot() methods. Like FunctionRef, it borrows the target and

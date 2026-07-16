@@ -71,6 +71,7 @@ public:
       HS_PROFILE(hk_timeline_step);
       timeline.step(canvas);
     }
+    ++frame_tick_;
   }
 
 private:
@@ -142,11 +143,12 @@ private:
    * @param topology Per-face topology-class indices.
    * @param palette_idx Maps topology class to a palette in the mesh bank.
    * @param opacity Output alpha in [0, 1].
+   * @param mask Optional dissolve ownership mask forwarded to the mesh scan.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
                  const std::array<int, NUM_PALETTES> &palette_idx,
-                 float opacity) {
+                 float opacity, const PixelMask *mask = nullptr) {
     if (mesh.vertices.is_empty() || opacity < 0.01f)
       return;
     HS_PROFILE(hk_draw_mesh);
@@ -169,7 +171,7 @@ private:
     {
       HS_PROFILE(hk_mesh_scan);
       Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
-                             scratch_arena_a, params.debug_bb);
+                             scratch_arena_a, params.debug_bb, nullptr, mask);
     }
   }
 
@@ -252,6 +254,7 @@ private:
     // Set before creating MeshMorph: the draw callbacks reference these.
     morph_old_slot_ = old_front;
     morph_new_slot_ = new_slot;
+    dissolve_.retarget(Vector());
 
     timeline.add(
         0, Animation::MeshMorph(
@@ -303,8 +306,10 @@ private:
    */
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_outgoing_fn_{
       [this](Canvas &c, const MeshState &m, float o) {
+        // MeshMorph passes 1 - alpha; the dissolve masks key on alpha itself.
+        PixelMask mask = dissolve_.mask(1.0f - o, frame_tick_, false);
         draw_mesh(c, m, carousel.slot(morph_old_slot_).topology,
-                  palettes_slots[morph_old_slot_], o);
+                  palettes_slots[morph_old_slot_], 1.0f, &mask);
       }};
   /**
    * @brief Draw callback for the incoming mesh during a morph.
@@ -312,9 +317,13 @@ private:
    */
   Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_incoming_fn_{
       [this](Canvas &c, const MeshState &m, float o) {
+        PixelMask mask = dissolve_.mask(o, frame_tick_, true);
         draw_mesh(c, m, carousel.slot(morph_new_slot_).topology,
-                  palettes_slots[morph_new_slot_], o);
+                  palettes_slots[morph_new_slot_], 1.0f, &mask);
       }};
+
+  Segue::Dissolve dissolve_; /**< Pixel-ownership masks for the morph crossfade. */
+  uint32_t frame_tick_ = 0;  /**< Frame counter salting the dissolve's temporal dither. */
 
   Orientation<> orientation; /**< Current camera orientation. */
   FastNoiseLite noise;       /**< Noise source driving the orientation walk. */

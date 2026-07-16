@@ -1045,6 +1045,8 @@ HS_O3_BEGIN
  * @param shape Face to rasterize.
  * @param fragment_shader Shader invoked per covered pixel.
  * @param debug_bb When true, forces plotting and tints the bounding box.
+ * @param mask Optional dissolve ownership mask; unowned pixels are skipped
+ *        before the SDF eval.
  * @details Self-contained (the shared rasterize/scan_region/process_pixel
  * kernel stays -Os; GCC reuses that existing -Os instantiation rather than
  * re-optimizing it into a region caller). A Face's column intervals are
@@ -1055,7 +1057,8 @@ HS_O3_BEGIN
 template <int W, int H, typename PipelineT>
 inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
                            const SDF::Face &shape,
-                           FragmentShaderFn fragment_shader, bool debug_bb) {
+                           FragmentShaderFn fragment_shader, bool debug_bb,
+                           const PixelMask *mask = nullptr) {
   bool effective_debug = debug_bb || canvas.debug();
 
   const auto &cr = canvas.clip();
@@ -1151,6 +1154,8 @@ inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
     float cp = TrigLUT<W, H>::cos_phi[y];
     for (size_t r = 0; r < num_runs; ++r) {
       for (int x = runs[r].first; x < runs[r].second; ++x) {
+        if (mask && !mask->owns(x, y))
+          continue;
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         shape.template distance<true>(p, res);
         float d = res.dist;
@@ -1211,12 +1216,15 @@ struct Mesh {
    *        path everywhere, today's behavior). When present, each face is
    *        aligned to its canonical class shape after construction and the
    *        class distance LUT is bound for the probe loop.
+   * @param mask Optional dissolve ownership mask (see PixelMask); unowned
+   *        pixels are skipped before the per-pixel SDF eval.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
                    bool debug_bb = false,
-                   const MeshOps::MeshClassBake *bake = nullptr) {
+                   const MeshOps::MeshClassBake *bake = nullptr,
+                   const PixelMask *mask = nullptr) {
     ScratchScope scope(scratch_arena);
     auto *scratch =
         static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
@@ -1274,7 +1282,7 @@ struct Mesh {
       };
 
       { HS_PROFILE(scan_mesh_raster);
-        rasterize_face<W, H>(pipeline, canvas, shape, wrapper, debug_bb);
+        rasterize_face<W, H>(pipeline, canvas, shape, wrapper, debug_bb, mask);
       }
     }
   }
