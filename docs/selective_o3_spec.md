@@ -540,10 +540,12 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 recoverable by selective -O3 — do not re-attempt.** With the R3 rasterize
 chain, the `ParticleSystem` wrapper, and the effect shader lambdas all
 measured, essentially no `-Os` code remains inside `msp_particle_scan`; the
-residual gap is dominated by a cross-config workload artifact (the global-O3
-build's `-ffast-math` physics produces different particle trajectories, hence
-different coverage), not by reachable compiler headroom. Its cadence lever is
-coverage (pool/trail size), not the compiler.
+residual gap is dominated by a cross-config workload artifact: both configs
+build with `-ffast-math -fno-finite-math-only` (platformio.ini §4.1), but
+`-O3` exercises the reassociation/FMA license far more aggressively than
+`-Os`, so the physics produces different float trajectories — hence different
+coverage — under identical flags. Not reachable compiler headroom; the
+cadence lever is coverage (pool/trail size), not the compiler.
 
 FLASH grew ~3–7 KB total across the kept commits — far under the gate ceiling
 (not tracked per commit).
