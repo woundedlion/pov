@@ -119,10 +119,11 @@ private:
 
   /**
    * @brief Fixed particle pool capacity.
-   * @details Footprint is host/device-identical (VectorTrail indices are
-   *          uint32_t): ~316 B/particle × 1024 = 316 KiB of the 330 KiB device
-   *          arena. init()'s static_assert enforces the budget at compile time
-   *          against the real device arena literal.
+   * @details Footprint is host/device-identical (fixed-width trail storage:
+   *          snorm16 entries, uint32_t ring indices): ~180 B/particle × 1024 =
+   *          180 KiB of the 330 KiB device arena. init()'s static_assert
+   *          enforces the budget at compile time against the real device arena
+   *          literal.
    */
   static const int NUM_PARTICLES = 1024;
 
