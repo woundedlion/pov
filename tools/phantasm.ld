@@ -70,6 +70,12 @@ SECTIONS
 		*(.text._ZN14CompiledHankin*)
 		*(.text._ZN8Timeline7add_getI*)
 		*(.text._ZZN8Timeline7add_getI*)
+		/* inplace_function invokers for frame-level stored callbacks
+		 * (init/spawn/timer/emitter/morph). A Canvas& or ParticleSystem&
+		 * argument is whole-frame by construction, so these fire at most once
+		 * per frame; the per-pixel path uses FunctionRef, a distinct type. */
+		*(.text._ZZN6teensy23inplace_function_detail6vtableIvJR6Canvas*)
+		*(.text._ZZN6teensy23inplace_function_detail6vtableIvJRN9Animation14ParticleSystem*)
 		*(.text.set_arm_clock)
 		*(.text._ZN8SPIClass5beginEv)
 		*(.text._ZN13IntervalTimer11beginCycles*)
