@@ -7,15 +7,16 @@
 
 #include "core/engine/engine.h"
 
-#include <algorithm>
-
 /**
  * @brief Renders Hankin interlace patterns over Platonic/Archimedean solids.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Sweeps the interlace angle continuously and periodically morphs
- * between solids. Faces are colored by topology class via shuffled mesh
- * palettes.
+ * @details Sweeps the interlace angle continuously, then transitions by
+ * walking the Conway edge graph: each leg sweeps the destination solid's own
+ * operator parameter, so faces visibly truncate, expand, and twist into the
+ * next solid (docs/conway_morph_spec.md). Exactly one mesh is on screen at
+ * all times; faces are colored by topology class via shuffled mesh palettes
+ * with per-leg crossfades.
  */
 template <int W, int H> class HankinSolids : public Effect {
 public:
@@ -27,16 +28,18 @@ public:
         filters() {}
 
   /**
-   * @brief Sizes arenas, registers params, loads the first solid, and starts
+   * @brief Sizes arenas, registers params, seeds the graph walk, and starts
    * the interlace sweep/morph cycle.
    */
-  void init() override {
+  HS_COLD_MEMBER void init() override {
     // scratch_a (24 KB) covers its largest non-overlapping peak: the render path
-    // (draw_mesh transforms the front mesh into scratch_a, then Scan::Mesh::draw
+    // (draw_mesh transforms the mesh into scratch_a, then Scan::Mesh::draw
     // stacks an SDF::FaceScratchBuffer on top), which for the heaviest hankin
-    // mesh exceeds the generation/classify peak. scratch_b (32 KB) covers the
-    // larger of generation intermediates or the morph-cycle Persist set. The
-    // per-solid H=144 scratch high-water is gated in CI by the arena-budget test.
+    // mesh exceeds the generation/classify peak; morph frames stack the swept
+    // mesh + compile output under the same render path. scratch_b (32 KB)
+    // covers the largest of generation intermediates, the morph-cycle Persist
+    // set, and a morph frame's blended palette LUTs. The per-solid H=144
+    // scratch high-water is gated in CI by the arena-budget test.
     configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
                      32 * 1024);
     register_param("Intensity", &params.intensity, 0.0f, 5.0f);
@@ -47,13 +50,32 @@ public:
                         orientation, Y_AXIS, noise,
                         Animation::RandomWalk<W>::Options::Languid()));
 
-    solid_idx = 0;
-
     palette_bank_.bake_all(persistent_arena);
 
-    load_shape(carousel.current(), compiled_hankin,
-               palettes_slots[carousel.front_index()], solid_idx,
-               params.hankin_angle);
+    // The walk starts at the tetrahedron with the registry seed; every family
+    // seed is later derived from it (bridge ADOPTs), which is what lets a
+    // reverse bridge regenerate the registry tetrahedron frame-exactly.
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      seed_base_ =
+          Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b), target);
+    });
+    node_ = ConwayGraph::TETRAHEDRON;
+    seed_identity_ = ConwayGraph::TETRAHEDRON;
+
+    MeshPaletteBank::shuffle_indices(palette_idx_);
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
+      compiled_hankin = CompiledHankin();
+      MeshOps::compile_hankin(seed_base_, compiled_hankin, target, a);
+      mesh_.clear();
+      MeshOps::update_hankin(compiled_hankin, mesh_, target,
+                             params.hankin_angle);
+      node_faces_ = seed_base_.face_counts.size();
+      HS_CHECK(node_faces_ <= MAX_NODE_FACES);
+      for (size_t f = 0; f < node_faces_; ++f)
+        node_face_sides_[f] = seed_base_.face_counts[f];
+    });
+    classify_mesh_topology(mesh_);
+    record_node_palettes();
 
     start_hankin_cycle();
   }
@@ -71,26 +93,14 @@ public:
       HS_PROFILE(hk_timeline_step);
       timeline.step(canvas);
     }
-    ++frame_tick_;
   }
 
 private:
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
-  MeshPaletteBank palette_bank_;
+  /** Largest node base-mesh face count (snubDodecahedron, F = 92). */
+  static constexpr size_t MAX_NODE_FACES = 92;
 
-  /**
-   * @brief Builds and finalizes the idx-th base solid from the simple-solids
-   * collection.
-   * @param idx Index into the simple-solids collection.
-   * @param a Scratch arena used during generation.
-   * @param b Secondary scratch arena used during generation.
-   * @return The finalized polygon mesh.
-   */
-  PolyMesh generate_base_solid(int idx, Arena &a, Arena &b) {
-    auto solids = Solids::Collections::get_simple_solids();
-    hs::log("Loading shape: '%s'", solids[idx].name);
-    return Solids::finalize_solid(solids[idx].generate(a, b), a);
-  }
+  MeshPaletteBank palette_bank_;
 
   /**
    * @brief Classifies mesh faces into topology groups.
@@ -100,7 +110,7 @@ private:
    * resetting to base, so a caller's prior allocations in the shared scratch
    * arenas survive.
    */
-  void classify_mesh_topology(MeshState &mesh) {
+  HS_COLD_MEMBER void classify_mesh_topology(MeshState &mesh) {
     // ScratchScope frees only this call's own allocations, preserving prior
     // caller allocations in these shared arenas that a bare reset() would drop.
     ScratchScope a_guard(scratch_arena_a);
@@ -110,29 +120,50 @@ private:
   }
 
   /**
-   * @brief Runs the full load pipeline: generate, compile, evaluate, classify,
-   * and assign palette indices.
-   * @param out_mesh Receives the evaluated and classified mesh.
-   * @param out_hankin Receives the compiled Hankin pattern.
-   * @param out_palette_idx Receives the shuffled palette indices.
-   * @param idx Index of the solid to load.
-   * @param angle Interlace angle in radians.
+   * @brief Records the displayed palette of every node base face (via the
+   * hankin star-face identity mapping) for the next leg's handoff.
    */
-  void load_shape(MeshState &out_mesh, CompiledHankin &out_hankin,
-                  std::array<int, NUM_PALETTES> &out_palette_idx, int idx,
-                  float angle) {
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      PolyMesh base = generate_base_solid(idx, a, b);
+  HS_COLD_MEMBER void record_node_palettes() {
+    HS_CHECK(node_faces_ <= mesh_.topology.size());
+    for (size_t f = 0; f < node_faces_; ++f)
+      node_face_palette_[f] = static_cast<uint8_t>(
+          palette_idx_[wrap(mesh_.topology[f], NUM_PALETTES)]);
+  }
 
-      out_hankin = CompiledHankin();
-      MeshOps::compile_hankin(base, out_hankin, target, a);
-
-      out_mesh.clear();
-      MeshOps::update_hankin(out_hankin, out_mesh, target, angle);
-    });
-
-    classify_mesh_topology(out_mesh);
-    MeshPaletteBank::shuffle_indices(out_palette_idx);
+  /**
+   * @brief Builds the clean node mesh at one end of an edge from the held
+   * seed — the registry chain, decomposed.
+   * @param e Edge whose endpoint mesh is built.
+   * @param to_end True for the t_to end, false for the t_from end.
+   * @param a Output arena for even pipeline stages.
+   * @param b Scratch arena for odd pipeline stages.
+   * @return The endpoint mesh: t = 0 yields the leg seed itself, t = 0.5 the
+   * clean ambo crossover form, a settled end the relax(50) canonical form.
+   */
+  HS_COLD_MEMBER PolyMesh node_mesh_at(const ConwayGraph::EdgeSpec &e,
+                                       bool to_end, Arena &a, Arena &b) {
+    float t = to_end ? e.t_to : e.t_from;
+    PolyMesh seed;
+    MeshOps::clone(seed_base_, seed, a);
+    Solids::SolidBuilder builder(std::move(seed), a, b);
+    if (!ConwayGraph::is_platonic(e.seed_solid))
+      builder.ambo();
+    if (t > 0.0f) {
+      switch (e.op) {
+      case ConwayGraph::MorphOp::TRUNCATE:
+        builder.truncate(t);
+        break;
+      case ConwayGraph::MorphOp::EXPAND:
+        builder.expand(t);
+        break;
+      case ConwayGraph::MorphOp::SNUB:
+        builder.snub(t, to_end ? e.twist_to : e.twist_from);
+        break;
+      }
+      if (e.settle && to_end)
+        builder.relax(50);
+    }
+    return builder.build();
   }
 
   /**
@@ -143,12 +174,11 @@ private:
    * @param topology Per-face topology-class indices.
    * @param palette_idx Maps topology class to a palette in the mesh bank.
    * @param opacity Output alpha in [0, 1].
-   * @param mask Optional dissolve ownership mask forwarded to the mesh scan.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
                  const std::array<int, NUM_PALETTES> &palette_idx,
-                 float opacity, const PixelMask *mask = nullptr) {
+                 float opacity) {
     if (mesh.vertices.is_empty() || opacity < 0.01f)
       return;
     HS_PROFILE(hk_draw_mesh);
@@ -171,171 +201,284 @@ private:
     {
       HS_PROFILE(hk_mesh_scan);
       Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
-                             scratch_arena_a, params.debug_bb, nullptr, mask);
+                             scratch_arena_a, params.debug_bb);
     }
   }
 
   /**
-   * @brief Makes the staged (morph-target) compiled mesh active and clears
-   * staging.
+   * @brief Camera-rotates and rasterizes a morph frame's swept mesh, shading
+   * each face from its pre-blended palette ramp.
+   * @param canvas Target canvas to draw into.
+   * @param mesh Compiled swept mesh (scratch-backed, this frame only).
+   * @param shading Per-face blended-ramp table from the ConwayMorph.
    */
-  void promote_staged_hankin() {
-    compiled_hankin = std::move(compiled_hankin_staging);
-    compiled_hankin_staging = CompiledHankin();
+  void draw_conway_mesh(Canvas &canvas, const MeshState &mesh,
+                        const Animation::ConwayMorph::Shading &shading) {
+    if (mesh.vertices.is_empty())
+      return;
+    HS_PROFILE(hk_draw_mesh);
+
+    ScratchScope scratch_a_guard(scratch_arena_a);
+    MeshState rotated_mesh;
+    OrientTransformer camera(orientation);
+    {
+      HS_PROFILE(hk_mesh_transform);
+      MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
+    }
+
+    auto fragment_shader = [&](const Vector &, Fragment &f) {
+      float t = hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
+      int face = static_cast<int>(f.v2);
+      int ramp = (face >= 0 && face < static_cast<int>(shading.faces))
+                     ? shading.face_ramp[face]
+                     : 0;
+      Color4 c = shading.ramps[ramp].get(t);
+      c.alpha = 1.0f;
+      f.color = c;
+    };
+
+    {
+      HS_PROFILE(hk_mesh_scan);
+      Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
+                             scratch_arena_a, params.debug_bb);
+    }
   }
 
   /**
-   * @brief Schedules one interlace-angle sweep plus the sprite that re-evaluates
-   * and draws the front mesh each frame.
-   * @details Chains into a morph cycle when the sweep ends. Both the sweep and
-   * the render sprite are gated on the same pause flag so grabbing the slider
-   * holds the frame instead of blanking it.
+   * @brief Schedules one interlace-angle sweep plus the sprite that
+   * re-evaluates and draws the mesh each frame.
+   * @details The sweep starts one frame after the sprite and the sprite runs
+   * one frame longer, so the first drawn frame renders the exact angle-0
+   * bookend the leg completion pinned, and the sweep's completion pins the
+   * closing bookend before the sprite's final draw. Both are gated on the
+   * same pause flag so grabbing the slider holds the frame instead of
+   * blanking it.
    */
-  void start_hankin_cycle() {
+  HS_COLD_MEMBER void start_hankin_cycle() {
     constexpr int DURATION = 64;
-    timeline.add(0, Animation::Mutation(params.hankin_angle,
+    timeline.add(2, Animation::Mutation(params.hankin_angle,
                                         sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
                                         DURATION, ease_linear, false, &anims_paused_)
                         .then([this]() {
+                          // Bookend-in: the sweep's final sample lands ~0.002
+                          // rad off the flat p_corner branch; force exact 0 so
+                          // the sprite's last draw is the base solid.
+                          params.hankin_angle = 0.0f;
                           this->start_morph_cycle();
                         }));
 
-    int front = carousel.front_index();
     // Snapshot the angle-independent counts for the per-frame HS_CHECK below.
     hankin_vertex_count_ = compiled_hankin.static_vertices.size() +
                            compiled_hankin.dynamic_vertices.size();
     hankin_face_count_ = compiled_hankin.face_counts.size();
     timeline.add(
         0, Animation::Sprite(
-               [this, front](Canvas &c, float opacity) {
-                 // update_hankin re-binds the slot's vectors against
+               [this](Canvas &c, float opacity) {
+                 // update_hankin re-binds the mesh's vectors against
                  // persistent_arena every frame; the angle never changes the
                  // vertex/face counts, so bind reuses the blocks in place.
                  {
                    HS_PROFILE(hk_update_hankin);
-                   MeshOps::update_hankin(compiled_hankin,
-                                          carousel.slot(front),
-                                          persistent_arena, params.hankin_angle);
+                   MeshOps::update_hankin(compiled_hankin, mesh_,
+                                          persistent_arena,
+                                          params.hankin_angle);
                  }
                  // Always-on guard: grown counts would leak persistent_arena
                  // every frame on a permanent install.
-                 const MeshState &s = carousel.slot(front);
-                 HS_CHECK(s.vertices.size() == hankin_vertex_count_ &&
-                              s.face_counts.size() == hankin_face_count_,
+                 HS_CHECK(mesh_.vertices.size() == hankin_vertex_count_ &&
+                              mesh_.face_counts.size() == hankin_face_count_,
                           "HankinSolids: per-frame mesh counts changed; the "
                           "persistent re-bind would grow the arena");
-                 draw_mesh(c, s, s.topology, palettes_slots[front], opacity);
+                 draw_mesh(c, mesh_, mesh_.topology, palette_idx_, opacity);
                },
-               DURATION, 0, ease_linear, 0, ease_linear, &anims_paused_));
+               DURATION + 1, 0, ease_linear, 0, ease_linear, &anims_paused_));
   }
 
   /**
-   * @brief Builds the next solid into the back slot and schedules a morph to it.
-   * @details On completion swaps slots, compacts arenas, and restarts the
-   * hankin cycle.
+   * @brief Picks the next graph edge, reconciles the held seed, and schedules
+   * the ConwayMorph leg.
    */
-  void start_morph_cycle() {
-    constexpr int MORPH_FRAMES = 16;
-    auto solids = Solids::Collections::get_simple_solids();
-    const int n = static_cast<int>(solids.size());
+  HS_COLD_MEMBER void start_morph_cycle() {
+    using namespace ConwayGraph;
 #ifdef HS_PROFILE_ORDERED_CYCLE
-    int next_idx = (solid_idx + 1) % n;
+    cur_edge_ = pick_next_edge_ordered(node_, cur_edge_, leg_counter_++);
 #else
-    // Random next solid, never the current one: offset in [1, n) keeps it distinct.
-    int next_idx = (solid_idx + 1 + hs::rand_int(0, n - 1)) % n;
+    cur_edge_ = pick_next_edge(node_, cur_edge_, legs_in_family_,
+                               static_cast<uint32_t>(hs::random()()));
 #endif
+    const EdgeSpec &e = EDGES[cur_edge_];
+    HS_CHECK(edge_touches(cur_edge_, node_));
+    reverse_ = (e.to_node == node_);
 
-    int old_front = carousel.front_index();
-    int new_slot = 1 - old_front;
+    SeedFix fix = seed_fix_at_start(cur_edge_, seed_identity_);
+    HS_CHECK(fix != SeedFix::INVALID,
+             "HankinSolids: no seed reconciliation for the picked edge");
+    if (fix == SeedFix::DUAL_SWAP) {
+      // Ambo crossover: ambo(dual(seed)) == ambo(seed), so the swap is
+      // pixel-invisible at the displayed t = 0.5 form.
+      HS_CHECK(node_ == CUBOCTAHEDRON || node_ == ICOSIDODECAHEDRON);
+      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+        seed_base_ =
+            Solids::finalize_solid(MeshOps::dual(seed_base_, a, b), target);
+      });
+      seed_identity_ = static_cast<uint8_t>(dual_platonic(seed_identity_));
+    } else if (fix == SeedFix::REGEN_TETRA) {
+      // Reverse family bridge: the held octa/icosa was derived from the
+      // registry tetrahedron, so regenerating that tetrahedron is frame-exact.
+      HS_CHECK(node_ == OCTAHEDRON || node_ == ICOSAHEDRON);
+      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+        seed_base_ = Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b),
+                                            target);
+      });
+      seed_identity_ = TETRAHEDRON;
+    }
+    HS_CHECK(fix == SeedFix::DERIVE_AMBO || seed_identity_ == e.seed_solid,
+             "HankinSolids: leg seed identity mismatch");
 
-    load_shape(carousel.slot(new_slot), compiled_hankin_staging,
-               palettes_slots[new_slot], next_idx, params.hankin_angle);
+    Animation::ConwayMorph::PaletteHandoff handoff{
+        &palette_bank_.bank, node_face_palette_, node_face_sides_, node_faces_,
+        fix == SeedFix::DUAL_SWAP};
 
-    // Set before creating MeshMorph: the draw callbacks reference these.
-    morph_old_slot_ = old_front;
-    morph_new_slot_ = new_slot;
-    dissolve_.retarget(Vector());
+    ScratchScope sa(scratch_arena_a);
+    ScratchScope sb(scratch_arena_b);
+    PolyMesh derived;
+    if (fix == SeedFix::DERIVE_AMBO)
+      derived = MeshOps::ambo(seed_base_, scratch_arena_a, scratch_arena_b);
+    const PolyMesh &leg_seed =
+        fix == SeedFix::DERIVE_AMBO ? derived : seed_base_;
 
-    timeline.add(
-        0, Animation::MeshMorph(
-               carousel.slot(old_front), carousel.slot(new_slot),
-               persistent_arena, draw_morph_outgoing_fn_,
-               draw_morph_incoming_fn_, MORPH_FRAMES, ease_in_out_sin)
-               .then([this, next_idx, new_slot]() {
-                 solid_idx = next_idx;
-                 carousel.set_front(new_slot);
-                 promote_staged_hankin();
-                 // Manual compaction; only the front slot survives. Clear the
-                 // back slot to a fresh MeshState first so its now-dangling
-                 // ArenaVectors aren't restored across the reset. Survivors go to
-                 // separate scratch arenas so neither overflows.
-                 carousel.slot(1 - new_slot) = MeshState();
-                 {
-                   Persist<CompiledHankin> ph(compiled_hankin, scratch_arena_b,
-                                              persistent_arena);
-                   Persist<MeshState> pf(carousel.current(), scratch_arena_a,
-                                         persistent_arena);
-                   Persist<MeshPaletteBank> pp(palette_bank_, scratch_arena_b,
-                                               persistent_arena);
-                   persistent_arena.reset();
-                   hs::log("morph_cycle_then: finished arena compaction");
-                 }
+    hs::log("Conway leg: '%s' -> '%s'", Solids::simple_registry[node_].name,
+            Solids::simple_registry[edge_other_end(cur_edge_, node_)].name);
 
-                 MeshOps::update_hankin(compiled_hankin, carousel.current(),
-                                        persistent_arena, params.hankin_angle);
-                 start_hankin_cycle();
-               }));
+    Animation::ConwayMorph anim(leg_seed, e, reverse_, persistent_arena,
+                                draw_conway_fn_, handoff, SWEEP_FRAMES,
+                                e.settle ? SETTLE_FRAMES : 0);
+    pending_landing_ = &anim.landing();
+    timeline.add(0, std::move(anim).then([this]() {
+      this->finish_morph_cycle();
+    }));
   }
 
-  MeshCarousel<> carousel; /**< Double-slot mesh store for front/back solids;
-                                transitions are MeshMorph-driven, so the segue
-                                is unused. */
-  CompiledHankin compiled_hankin;         /**< Active during the hankin cycle. */
-  CompiledHankin compiled_hankin_staging; /**< Built during the morph cycle. */
-  std::array<int, NUM_PALETTES> palettes_slots[2] = {}; /**< Per-slot palette indices; value-init so a missed shuffle reads 0, not garbage. */
+  /**
+   * @brief Leg completion: clean-endpoint swap, reseed, hankin rebuild from
+   * the arrived mesh, forward palette mapping, compaction, next cycle.
+   */
+  HS_COLD_MEMBER void finish_morph_cycle() {
+    using namespace ConwayGraph;
+    const EdgeSpec &e = EDGES[cur_edge_];
+    const Animation::ConwayMorph::Landing &landing = *pending_landing_;
+    const bool arrived_at_to = !reverse_;
+    const uint8_t arrived = arrived_at_to ? e.to_node : e.from_node;
 
-  int morph_old_slot_ = 0; /**< Outgoing slot index for morph draw callbacks. */
-  int morph_new_slot_ = 1; /**< Incoming slot index for morph draw callbacks. */
+    if (family(arrived) != family(node_))
+      legs_in_family_ = 0;
+    else
+      ++legs_in_family_;
+    node_ = arrived;
+    hs::log("Loading shape: '%s'", Solids::simple_registry[node_].name);
+
+    // Build the arrived base mesh from the held seed and compile the hankin
+    // pattern from that mesh — never a registry regenerate, so bridge
+    // arrivals keep the orientation the walk produced.
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      PolyMesh base = node_mesh_at(e, arrived_at_to, a, b);
+      if (e.reseed == Reseed::ADOPT && is_platonic(arrived) && arrived_at_to) {
+        // Family bridge: the arrived solid becomes the new family seed.
+        seed_base_ = Solids::finalize_solid(base, target);
+        seed_identity_ = node_;
+      }
+      node_faces_ = base.face_counts.size();
+      HS_CHECK(node_faces_ <= MAX_NODE_FACES);
+      for (size_t f = 0; f < node_faces_; ++f)
+        node_face_sides_[f] = base.face_counts[f];
+
+      compiled_hankin = CompiledHankin();
+      MeshOps::compile_hankin(base, compiled_hankin, target, a);
+      mesh_.clear();
+      MeshOps::update_hankin(compiled_hankin, mesh_, target, 0.0f);
+    });
+    classify_mesh_topology(mesh_);
+
+    // Forward palette mapping: base faces fill hankin star faces 1:1
+    // (emission identity), so each populated slot carries the leg's landed
+    // palette verbatim; only newborn (rosette-only) slots take fresh shuffles.
+    HS_CHECK(node_faces_ <= landing.faces);
+    MeshPaletteBank::shuffle_indices(palette_idx_);
+    bool slot_mapped[NUM_PALETTES] = {};
+    for (size_t f = 0; f < node_faces_; ++f) {
+      int slot = wrap(mesh_.topology[f], NUM_PALETTES);
+      if (!slot_mapped[slot]) {
+        slot_mapped[slot] = true;
+        palette_idx_[slot] =
+            landing.to_palette[wrap(landing.topology[f], NUM_PALETTES)];
+      }
+    }
+    record_node_palettes();
+    pending_landing_ = nullptr;
+
+    // Bookend-out: the next cycle's first drawn sample is exactly angle 0.
+    params.hankin_angle = 0.0f;
+
+    {
+      // Survivors split across the scratch pair: scratch_b holds the two
+      // largest (compiled hankin + palette bank), scratch_a the rest.
+      Persist<CompiledHankin> ph(compiled_hankin, scratch_arena_b,
+                                 persistent_arena);
+      Persist<MeshState> pf(mesh_, scratch_arena_a, persistent_arena);
+      Persist<MeshPaletteBank> pp(palette_bank_, scratch_arena_b,
+                                  persistent_arena);
+      Persist<PolyMesh> ps(seed_base_, scratch_arena_a, persistent_arena);
+      persistent_arena.reset();
+      hs::log("morph_cycle_then: finished arena compaction");
+    }
+
+    MeshOps::update_hankin(compiled_hankin, mesh_, persistent_arena,
+                           params.hankin_angle);
+    start_hankin_cycle();
+  }
+
+  MeshState mesh_;                /**< The single on-screen mesh (hankin form). */
+  CompiledHankin compiled_hankin; /**< Active during the hankin cycle. */
+  PolyMesh seed_base_;            /**< Held Platonic seed of the graph walk. */
+  std::array<int, NUM_PALETTES> palette_idx_ = {}; /**< Class slot -> palette; value-init so a missed shuffle reads 0, not garbage. */
+
+  uint8_t node_face_palette_[MAX_NODE_FACES] = {}; /**< Displayed palette per node base face. */
+  uint8_t node_face_sides_[MAX_NODE_FACES] = {};   /**< Clean side count per node base face. */
+  size_t node_faces_ = 0; /**< Face count of the current node's base mesh. */
+
+  uint8_t node_ = 0;          /**< Current graph node (simple-registry index). */
+  uint8_t seed_identity_ = 0; /**< Platonic solid seed_base_ represents. */
+  int cur_edge_ = -1;         /**< Edge of the last (or in-flight) leg. */
+  bool reverse_ = false;      /**< In-flight leg runs to_node -> from_node. */
+  int legs_in_family_ = 0;    /**< Legs since the last family change (walk weighting). */
+  uint32_t leg_counter_ = 0;  /**< Monotonic leg count (ordered-cycle picks). */
+  const Animation::ConwayMorph::Landing *pending_landing_ =
+      nullptr; /**< In-flight leg's arrival data (leg-arena backed). */
 
   size_t hankin_vertex_count_ = 0; /**< Expected per-frame vertex count for the active cycle. */
   size_t hankin_face_count_ = 0;   /**< Expected per-frame face count for the active cycle. */
 
   /**
-   * @brief Draw callback for the outgoing mesh during a morph.
+   * @brief Draw callback for morph frames.
    * @details Held as a member for stable FunctionRef lifetime.
    */
-  Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_outgoing_fn_{
-      [this](Canvas &c, const MeshState &m, float o) {
-        // MeshMorph passes 1 - alpha; the dissolve masks key on alpha itself.
-        PixelMask mask = dissolve_.mask(1.0f - o, frame_tick_, false);
-        draw_mesh(c, m, carousel.slot(morph_old_slot_).topology,
-                  palettes_slots[morph_old_slot_], 1.0f, &mask);
+  Fn<void(Canvas &, const MeshState &, const Animation::ConwayMorph::Shading &),
+     8>
+      draw_conway_fn_{[this](Canvas &c, const MeshState &m,
+                             const Animation::ConwayMorph::Shading &sh) {
+        draw_conway_mesh(c, m, sh);
       }};
-  /**
-   * @brief Draw callback for the incoming mesh during a morph.
-   * @details Held as a member for stable FunctionRef lifetime.
-   */
-  Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_incoming_fn_{
-      [this](Canvas &c, const MeshState &m, float o) {
-        PixelMask mask = dissolve_.mask(o, frame_tick_, true);
-        draw_mesh(c, m, carousel.slot(morph_new_slot_).topology,
-                  palettes_slots[morph_new_slot_], 1.0f, &mask);
-      }};
-
-  Segue::Dissolve dissolve_; /**< Pixel-ownership masks for the morph crossfade. */
-  uint32_t frame_tick_ = 0;  /**< Frame counter salting the dissolve's temporal dither. */
 
   Orientation<> orientation; /**< Current camera orientation. */
   FastNoiseLite noise;       /**< Noise source driving the orientation walk. */
   Timeline timeline;         /**< Schedules sweeps, sprites, and morphs. */
   Pipeline<W, H> filters;    /**< Per-pixel filter pipeline applied on draw. */
-  int solid_idx = 0;         /**< Index of the currently displayed solid. */
 
   /**
    * @brief User-adjustable rendering parameters.
    */
   struct Params {
-    float intensity = 1.2f;        /**< Edge-distance shading gain. */
+    float intensity = 1.2f;           /**< Edge-distance shading gain. */
     float hankin_angle = PI_F / 4.0f; /**< Interlace angle in radians. */
     bool debug_bb = false;            /**< Draw face bounding boxes when true. */
   } params;
