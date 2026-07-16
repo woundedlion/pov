@@ -967,7 +967,7 @@ public:
    * @tparam Source Type exposing Color4 get(float) const.
    * @param source Source palette or composition to sample.
    */
-  template <typename Source> void rebake(const Source &source) {
+  template <typename Source> HS_COLD_MEMBER void rebake(const Source &source) {
     HS_CHECK(lut_ != nullptr, "BakedPalette::rebake before bake()");
     for (int i = 0; i < LUT_SIZE; ++i) {
       float t = static_cast<float>(i) / (LUT_SIZE - 1);
