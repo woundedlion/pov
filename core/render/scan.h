@@ -1380,7 +1380,7 @@ struct Shader {
    *               SAMPLES× per pixel at sub-pixel offsets and averaged.
    */
   template <int W, int H, int SAMPLES = 1, typename ShaderFn>
-  static void draw(Canvas &canvas, ShaderFn &&shader) {
+  HS_O3_FN static void draw(Canvas &canvas, ShaderFn &&shader) {
     // The sample-offset table has four distinct sub-pixel positions; only 1 and
     // the 2x2 grid (4) are valid.
     static_assert(SAMPLES == 1 || SAMPLES == 4,

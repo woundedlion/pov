@@ -527,14 +527,14 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 | DF-local: hue-table members `HS_O3_FN` | +736 | 6,632 | measured dead — recapture identical within noise (the cost is the still--Os OKLab chain in color.h, not the member bodies) | ❌ reverted `7284bb09` |
 | R1 AntiAlias + R2 shared kernel (`process_pixel`/`scan_region`/`rasterize`) | +27,872 over the minimal set (probe, full R1+R2 = +31,360) | n/a — crosses the 6th-bank hard wall | not attempted on device | ❌ measured-unaffordable |
 | R3 plot.h rasterizer | not measured | | | deferred — no budget |
-| R4 shader compositors | not measured | | | deferred — no budget |
+| R4 shader compositors: closure `Shader::draw` `HS_O3_FN` + per-pixel callee chase (`stereo_noise_warp`, `SingleOpenSimplex2`, `hue_rotate_rgb`, `oklab_to_linear_rgb`, `linear_rgb_in_gamut`) | +3,104 | 12,680 (post mesh-scan driver + thunk flash-routing) | Flyby worst preset 50.9 ms vs 43.6 ceiling, **16 fps locked over the full cycle** (was 83.7 ms, 8 fps on 4 of 5 presets); loop+lambda alone and +noise-path were each measured ~flat — the OKLab hue chain was the cost | ✅ 2026-07-15 |
 | R5 feedback flush | not measured | | | deferred — no budget |
 | R6 Voronoi KD | not measured | | | deferred — no budget |
 
 FLASH grew ~3–7 KB total across the kept commits — far under the gate ceiling
 (not tracked per commit).
 
-R3–R6 are **deferred, not dead**: each needs ITCM headroom that the owner can
+R3, R5 and R6 are **deferred, not dead**: each needs ITCM headroom that the owner can
 mint by further Phantasm playlist trims (precedent: `2d21f8a4` freed ~5.9 KB
 by dropping two effects; `f6c2ff7c` earlier removed three whole features).
 Budget the next region set from a fresh Phase-0 measurement, not this table's
