@@ -50,16 +50,18 @@
       // gate (tests/stack_measure.cpp) measures a worst-effect peak of 9,055 B
       // (Dynamo); 12 KiB covers that (host figure already over-estimates the
       // 4-byte-pointer device) plus the ISR allowance. max_bytes = 524288 -
-      // 12288, so the 12 KiB stack floor is the binding RAM1 constraint (was
-      // 16 KiB — re-derived from the measured peak, not a round guess).
-      // The ITCM code component ceiling makes growth into intra-bank padding
-      // visible: RAM1 `used`/`free` don't move until a whole 32 KiB bank flips
-      // (docs/selective_o3_spec.md §3/§6). Calibrated 2026-07-16 with the
-      // shared planar edge-span setup in the clip cull (Plot::PlanarEdgeSpan):
-      // code 150,200 + 2,048 headroom.
-      // Each code-growing commit re-bumps to its own measured code + 2,048.
+      // 12288, so the 12 KiB stack floor is the binding RAM1 constraint.
+      // The ITCM code ceiling is DERIVED from that same stack floor: FlexRAM
+      // is 16 x 32 KiB banks split between ITCM (code) and DTCM (variables +
+      // stack), so DTCM must keep ceil((variables + free_min_bytes) / 32768)
+      // banks and code may fill the rest. Code grows freely up to that
+      // bank-granular ceiling; cold logic is proactively HS_COLD-routed by
+      // convention, and the gate's informational line tracks measured code,
+      // remaining headroom, and distance to the next bank boundary in every
+      // run.
       "ram1":  { "max_bytes": 512000, "free_min_bytes": 12288,
-                 "components": { "code": { "max_bytes": 152248 } } },
+                 "components": { "code": { "max_banks_from_stack_floor": {
+                     "bank_bytes": 32768, "total_banks": 16 } } } },
       // 3.5 KiB effect-object cap plus 512 B for allocator and boot overhead.
       "ram2":  { "max_bytes": 524288, "free_min_bytes": 4096 }
     },

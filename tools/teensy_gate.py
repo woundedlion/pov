@@ -277,6 +277,69 @@ class GateResult:
         return not self.violations
 
 
+def _check_derived_component_ceiling(
+    result: GateResult,
+    env: str,
+    region: str,
+    region_spec: dict,
+    cname: str,
+    cmeasured: int,
+    components: dict[str, int],
+    derived: dict,
+) -> None:
+    """Enforce a stack-floor-derived component ceiling (§8).
+
+    FlexRAM splits RAM1 into `total_banks` banks of `bank_bytes` between ITCM
+    (code) and DTCM (variables + stack). The invariant is minimum stack headroom,
+    not a static code cap: DTCM must keep ceil((variables + free_min_bytes) /
+    bank_bytes) banks, and the component may fill every remaining bank. Any
+    input the derivation needs that is absent is a hard failure, never a
+    silent pass. On success an informational note reports the measured size,
+    ceiling, remaining bytes, and distance to the next bank boundary so
+    intra-bank growth stays visible without failing anything.
+    """
+    v = result.violations
+    bank = derived["bank_bytes"]
+    total_banks = derived["total_banks"]
+    floor = region_spec.get("free_min_bytes")
+    if floor is None:
+        v.append(Violation(
+            "component-floor-missing",
+            f"{env}: {region.upper()} component '{cname}' has a "
+            f"stack-floor-derived ceiling but the region sets no "
+            f"free_min_bytes - the derivation needs the stack floor. A missing "
+            f"floor is a hard failure, never a silent pass."))
+        return
+    variables = components.get("variables")
+    if variables is None:
+        v.append(Violation(
+            "component-missing",
+            f"{env}: {region.upper()} component 'variables' not reported by "
+            f"the size output but required to derive the '{cname}' ceiling - "
+            f"renamed/removed field? A missing component is a hard failure, "
+            f"never a silent pass."))
+        return
+    dtcm_banks = -(-(variables + floor) // bank)  # ceil
+    itcm_banks = total_banks - dtcm_banks
+    ceiling = itcm_banks * bank
+    if cmeasured > ceiling:
+        v.append(Violation(
+            "component-over-derived-ceiling",
+            f"{env}: {region.upper()} component '{cname}' uses {cmeasured:,} B, "
+            f"over the derived {ceiling:,} B ceiling (by "
+            f"{cmeasured - ceiling:,} B). The binding constraint is the DTCM "
+            f"stack floor: {variables:,} B of variables + the {floor:,} B floor "
+            f"need {dtcm_banks} of {total_banks} FlexRAM banks, leaving "
+            f"{itcm_banks} bank(s) x {bank:,} B for '{cname}'."))
+    to_boundary = (bank - cmeasured % bank) % bank
+    result.notes.append(
+        f"{env}: {region.upper()} '{cname}' derived ceiling: measured "
+        f"{cmeasured:,} B of {ceiling:,} B ({itcm_banks} x {bank:,} B banks; "
+        f"{dtcm_banks} DTCM banks cover {variables:,} B variables + the "
+        f"{floor:,} B stack floor); remaining {ceiling - cmeasured:,} B; "
+        f"{to_boundary:,} B to the next bank boundary.")
+
+
 def evaluate(
     env: str,
     budget: dict,
@@ -311,11 +374,10 @@ def evaluate(
                 f"{env}: {region.upper()} free-for-local-variables "
                 f"{measured.get('free', 0):,} B is below the {floor:,} B floor "
                 f"(stack headroom squeezed)."))
-        # Per-component ceilings (§8): code growing into intra-bank padding moves
-        # bytes between components of the same region sum, invisible to the region
-        # ceiling until the bank cliff. A configured component absent from the
-        # parsed output is a hard failure (a renamed teensy_size field must not
-        # silently disable its ceiling).
+        # Per-component ceilings (§8): a component may carry a static max_bytes
+        # cap, a stack-floor-derived cap (max_banks_from_stack_floor), or both.
+        # A configured component absent from the parsed output is a hard failure
+        # (a renamed teensy_size field must not silently disable its ceiling).
         for cname, cspec in spec.get("components", {}).items():
             cmeasured = measured.get("components", {}).get(cname)
             if cmeasured is None:
@@ -332,6 +394,11 @@ def evaluate(
                     f"{env}: {region.upper()} component '{cname}' uses "
                     f"{cmeasured:,} B, over the {ccap:,} B ceiling "
                     f"(by {cmeasured - ccap:,} B)."))
+            derived = cspec.get("max_banks_from_stack_floor")
+            if derived is not None:
+                _check_derived_component_ceiling(
+                    result, env, region, spec, cname, cmeasured,
+                    measured.get("components", {}), derived)
 
     # --- Layout invariants: symbol -> region (+ magnitude) (§7.4 #1-#3) ---
     for key, spec in budget.get("symbols", {}).items():
