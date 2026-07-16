@@ -271,7 +271,7 @@ private:
    * @param skip Output, one entry per fiber: true when no edge is
    *        clip-visible, so the trail's stage + rasterize can be skipped.
    */
-  void gate_trails(Canvas &canvas, uint8_t *&bits, bool *skip) {
+  HS_O3_FN void gate_trails(Canvas &canvas, uint8_t *&bits, bool *skip) {
     HS_PROFILE(hf_trail_gate);
     constexpr size_t STRIDE = TRAIL_LEN - 1;
     const ClipRegion &cr = canvas.clip();
@@ -308,7 +308,7 @@ private:
    * gate runs first: fully-invisible trails are skipped whole and the per-edge
    * bits feed rasterize as its cull.
    */
-  void render_trails(Canvas &canvas) {
+  HS_O3_FN void render_trails(Canvas &canvas) {
     // A sub-LSB alpha paints nothing; skip rasterizing. Trails are still
     // recorded in draw_frame(), so motion resumes when alpha rises.
     if (params.alpha < MIN_VISIBLE_ALPHA)

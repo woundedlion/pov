@@ -534,6 +534,7 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 | MindSplatter wrapper: `Plot::ParticleSystem` region (both `draw` overloads — per-trail tween/cull/dispatch loop) | +3,312 | — | measured dead 2026-07-16 — per-preset scan identical within noise (worst 108.6 → 109.0 ms) | ❌ reverted, not landed |
 | MindSplatter effect-local: `draw_particles` `HS_O3_FN` (mobius/hole/palette shader lambdas) | +1,184 | — | measured ~dead 2026-07-16 — uniform −1.2 % (worst 108.6 → 107.3 ms), no cadence change | ❌ reverted, not landed |
 | `Plot::gate_trail_edges` region (hoisted per-trail clip gate: shared per-point rows/columns, whole-trail coarse reject, bits feed `rasterize`'s cull) + HopfFibration `gate_trails` wiring | +1,648 | 10,840 | HopfFibration: replaces the per-edge in-place gate; fully-invisible trails skip stage+rasterize whole | ✅ 2026-07-16 |
+| HopfFibration staging `HS_O3_FN` (`gate_trails`, `render_trails` — the orient/stage loops) + `gate_trail_edges` cheap chord-bound row tier | +2,032 | 8,808 | measured with the gate landing (see the on-device A/B in docs/profiles/shipping/) | ✅ 2026-07-16 |
 | R5 feedback flush | not measured | | | deferred — no budget |
 | R6 Voronoi KD | not measured | | | deferred — no budget |
 
