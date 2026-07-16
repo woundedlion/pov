@@ -2116,6 +2116,103 @@ inline void test_particle_system_deferred_shader_parity_and_skip() {
 }
 
 /**
+ * @brief Randomized whole-trail gate conservativeness: a band-clipped
+ *        ParticleSystem render is pixel-identical to the full render inside
+ *        the display band.
+ * @details Random-walk trails, salted with pole-crossing and near-antipodal
+ *          steps, drive the hoisted gate's coarse trail reject and per-edge
+ *          bits through a hoistable pipeline; a cull false-negative drops
+ *          in-band pixels. Bands cover seam-wrapping, interior, and y-only
+ *          clips.
+ */
+inline void test_particle_system_gate_pixel_parity_random_trails() {
+  constexpr int W = 96, H = 48;
+  hs::random().seed(20260717);
+  auto rand_unit = [] {
+    for (;;) {
+      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      if (r.length() > 0.1f)
+        return r.normalized();
+    }
+  };
+
+  StubSystem sys;
+  sys.max_life = 100;
+  const int NT = 60;
+  for (int t = 0; t < NT; ++t) {
+    StubParticle p;
+    p.life = static_cast<uint16_t>(40 + (t % 60));
+    Vector v = (t % 5 == 0) ? Vector(0, t % 10 == 0 ? 1 : -1, 0) : rand_unit();
+    for (int k = 0; k < 12; ++k) {
+      p.history.record(v);
+      Vector step(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      // Occasional huge step: a near-antipodal edge must trip the coarse
+      // walk's half-sweep guard, not get mis-culled.
+      float scale = (k == 7 && t % 9 == 0) ? 4.0f : 0.12f;
+      v = (v + step * scale).normalized();
+    }
+    sys.pool.push_back(p);
+  }
+  sys.active_count = NT;
+
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color =
+        Color4(Pixel(65535, 65535, 65535), hs::clamp(f.v3, 0.0f, 1.0f));
+  };
+  auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
+  auto deferred_pass = [](Fragment &f, const Vector &) { f.v3 *= 0.7f; };
+  auto combined = [](Fragment &f) {
+    f.pos = f.pos * -1.0f;
+    f.v3 *= 0.7f;
+  };
+
+  // Reference: full canvas, combined shader.
+  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  {
+    RasterFx fx(W, H);
+    Pipeline<W, H> filters;
+    {
+      Canvas c(fx);
+      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
+    }
+    fx.advance_display();
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  }
+
+  const int bands[][4] = {
+      {0, 24, 0, 48},  // quadrant; margin wraps rs past the seam
+      {12, 36, 48, 96}, // opposite half
+      {0, 48, 20, 70},  // interior wedge
+      {30, 48, 0, 96},  // y-only clip (XClip inactive)
+  };
+  for (const auto &bd : bands) {
+    RasterFx fx(W, H);
+    fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
+    Pipeline<W, H> filters;
+    {
+      Canvas c(fx);
+      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
+                                       deferred_pass);
+    }
+    fx.advance_display();
+    int lit = 0, diff = 0;
+    for (int y = bd[0]; y < bd[1]; ++y)
+      for (int x = bd[2]; x < bd[3]; ++x) {
+        Pixel p = fx.get_pixel(x, y);
+        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+        if (r.r | r.g | r.b)
+          ++lit;
+        if (p.r != r.r || p.g != r.g || p.b != r.b)
+          ++diff;
+      }
+    HS_EXPECT_GT(lit, 20);
+    HS_EXPECT_EQ(diff, 0);
+  }
+}
+
+/**
  * @brief The segment cull follows a filter-chain orientation: an edge the
  *        World::Orient stage rotates into a clip band is drawn, not culled.
  * @details When orientation lives in the filter chain the rasterizer
@@ -2472,6 +2569,7 @@ inline int run_plot_scan_tests() {
   test_particle_system_draws_active_trails_with_registers();
   test_particle_system_empty_zero_lifetime_is_noop();
   test_particle_system_deferred_shader_parity_and_skip();
+  test_particle_system_gate_pixel_parity_random_trails();
 
   test_azimuthal_project_radius_is_geodesic_angle();
   test_azimuthal_roundtrip_identity();

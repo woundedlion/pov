@@ -2742,43 +2742,99 @@ struct ParticleSystem {
             scratch_arena_a.allocate(edges, alignof(uint8_t)));
         bool any = false;
         if constexpr (pipeline_hoistable_cull<PipelineT>()) {
-          // No stage re-emits edges, so the predicate sees the raw points and
-          // each shared endpoint's row/column carries to the next edge instead
-          // of being re-derived. Must produce exactly the bits
-          // edge_visible_in_clip would (rasterize consumes them as its cull).
-          float row_a = y_to_screen_row<H>(trail[0].pos.y);
-          float col_a = 0.0f;
-          bool col_a_valid = false;
+          // No stage re-emits edges, so the predicate sees the raw points:
+          // per-point rows/columns are computed once and shared by every edge,
+          // and a conservative whole-trail bound rejects fully-invisible
+          // trails before any per-edge work. The per-edge pass must produce
+          // exactly the bits edge_visible_in_clip would (rasterize consumes
+          // them as its cull).
+          constexpr int H_VIRT = H + hs::H_OFFSET;
+          constexpr float MIN_SIN_PHI = 0.05f;
+          const size_t n = trail.size();
+          auto *rows = static_cast<float *>(
+              scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+          float row_lo_t = 1e9f, row_hi_t = -1e9f;
+          float min_sp2 = 1.0f;
+          float max_chord2 = 0.0f;
+          for (size_t k = 0; k < n; ++k) {
+            const Vector &pt = trail[k].pos;
+            rows[k] = y_to_screen_row<H>(pt.y);
+            row_lo_t = std::min(row_lo_t, rows[k]);
+            row_hi_t = std::max(row_hi_t, rows[k]);
+            min_sp2 = std::min(min_sp2, 1.0f - pt.y * pt.y);
+            if (k > 0) {
+              const Vector d = pt - trail[k - 1].pos;
+              max_chord2 = std::max(max_chord2, dot(d, d));
+            }
+          }
+          // arc <= (pi/2)*chord on [0, pi]; an edge's interior latitude
+          // extremum lies within arc/2 of an endpoint and phi is 1-Lipschitz
+          // in arc length, so this margin covers every per-edge bulge peak.
+          const float max_arc = (PI_F * 0.5f) * sqrtf(max_chord2);
+          const float row_margin =
+              (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / PI_F);
+          if (!cr.could_intersect_y(row_lo_t - row_margin,
+                                    row_hi_t + row_margin))
+            continue;
+
+          float *cols = nullptr;
+          if (xc.active) {
+            cols = static_cast<float *>(
+                scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+            float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
+            bool walk_safe = true;
+            cols[0] = vector_to_theta<W>(trail[0].pos);
+            for (size_t k = 1; k < n; ++k) {
+              cols[k] = vector_to_theta<W>(trail[k].pos);
+              // A geodesic edge's column sweep never exceeds W/2 (antipodal
+              // symmetry, see geodesic_col_span_cols), so the short-way delta
+              // covers it regardless of direction — except at ~exactly W/2,
+              // where the delta's sign (which semicircle) is float noise.
+              float d = cols[k] - cols[k - 1];
+              if (d > W * 0.5f)
+                d -= W;
+              else if (d < -W * 0.5f)
+                d += W;
+              if (std::abs(d) >= W * 0.5f - 3.0f)
+                walk_safe = false;
+              cum += d;
+              cum_lo = std::min(cum_lo, cum);
+              cum_hi = std::max(cum_hi, cum);
+            }
+            // Near a pole the plotted column is float noise (same caution as
+            // the per-edge spans), so only cull by the column arc when the
+            // whole trail provably stays clear.
+            if (walk_safe &&
+                sqrtf(std::max(0.0f, min_sp2)) - max_arc >= MIN_SIN_PHI) {
+              int col_s, col_len;
+              finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s,
+                                 col_len);
+              if (!ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len,
+                                            W))
+                continue;
+            }
+          }
+
           for (size_t e = 0; e < edges; ++e) {
             const Vector &ea = trail[e].pos;
             const Vector &eb = trail[e + 1].pos;
-            const float row_b = y_to_screen_row<H>(eb.y);
             const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
             float row_lo, row_hi;
-            geodesic_row_span_rows<W, H>(row_a, row_b, ea, eb, es, row_lo,
-                                         row_hi);
+            geodesic_row_span_rows<W, H>(rows[e], rows[e + 1], ea, eb, es,
+                                         row_lo, row_hi);
             bool v;
-            float col_b = 0.0f;
-            bool col_b_valid = false;
             if (!cr.could_intersect_y(row_lo, row_hi)) {
               v = false;
             } else if (!xc.active) {
               v = true;
             } else {
-              if (!col_a_valid)
-                col_a = vector_to_theta<W>(ea);
-              col_b = vector_to_theta<W>(eb);
-              col_b_valid = true;
               int col_s, col_len;
-              v = !geodesic_col_span_cols<W>(col_a, col_b, ea, es, col_s,
-                                             col_len) ||
+              v = !geodesic_col_span_cols<W>(cols[e], cols[e + 1], ea, es,
+                                             col_s, col_len) ||
                   ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
             }
             bits[e] = v ? 1 : 0;
             any = any || v;
-            row_a = row_b;
-            col_a = col_b;
-            col_a_valid = col_b_valid;
           }
         } else {
           for (size_t e = 0; e < edges; ++e) {
