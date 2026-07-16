@@ -328,6 +328,87 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
 HS_O3_END
 
 /**
+ * @brief Shared per-edge geodesic setup for the row/column span bounds.
+ * @details axis mirrors rasterize_geodesic_strategy's slerp-axis selection;
+ *          have_axis is false when cross(a, b) collapses on a non-antipodal
+ *          edge (no stable arc pole exists).
+ */
+struct GeodesicEdgeSpan {
+  float total;    /**< angle_between(a, b) in radians. */
+  bool antipodal; /**< |π - total| < TOLERANCE. */
+  bool have_axis; /**< axis holds a unit arc pole. */
+  Vector axis;    /**< Unit arc pole (valid iff have_axis). */
+};
+
+/**
+ * @brief Computes the shared geodesic edge setup once per edge.
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ */
+static inline GeodesicEdgeSpan make_geodesic_edge_span(const Vector &a,
+                                                       const Vector &b) {
+  GeodesicEdgeSpan es;
+  es.total = angle_between(a, b);
+  es.antipodal = std::abs(PI_F - es.total) < TOLERANCE;
+  if (es.antipodal) {
+    es.axis = stable_perpendicular_axis(a);
+    es.have_axis = true;
+    return es;
+  }
+  Vector c = cross(a, b);
+  float L2 = dot(c, c);
+  if (L2 <= math::EPS_GEOMETRIC * math::EPS_GEOMETRIC) {
+    es.axis = Vector(0.0f, 0.0f, 0.0f);
+    es.have_axis = false;
+    return es;
+  }
+  es.axis = c * (1.0f / sqrtf(L2));
+  es.have_axis = true;
+  return es;
+}
+
+/**
+ * @brief Geodesic screen-row span from a precomputed edge setup.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param es Shared setup from make_geodesic_edge_span(a, b).
+ * @param row_lo Output: minimum screen row touched by the edge.
+ * @param row_hi Output: maximum screen row touched by the edge.
+ * @details The arc y(t) has a turning point inside the span iff the forward
+ * tangent's y-component flips sign between the endpoints; the extremal |y| is
+ * the great circle's peak latitude sqrt(1 - n.y²) (n = arc pole). The span is
+ * the exact closed-form y range, so no one-row epsilon. A degenerate setup
+ * (no axis) keeps the endpoint rows.
+ */
+template <int W, int H>
+static inline void geodesic_row_span(const Vector &a, const Vector &b,
+                                     const GeodesicEdgeSpan &es, float &row_lo,
+                                     float &row_hi) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  auto y_to_row = [](float y) {
+    return phi_to_y(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
+  };
+  float ra = y_to_row(a.y);
+  float rb = y_to_row(b.y);
+  row_lo = std::min(ra, rb);
+  row_hi = std::max(ra, rb);
+  if (!es.have_axis)
+    return;
+  float t0 = cross(es.axis, a).y; // forward tangent y at a
+  float t1 = cross(es.axis, b).y; // forward tangent y at b
+  if ((t0 > 0.0f) != (t1 > 0.0f)) {
+    // std::max(0, ...) absorbs the tiny negative that fast-math
+    // renormalization of the axis can produce when |axis.y| ≈ 1 (a
+    // near-polar arc pole), keeping the sqrt domain-safe.
+    float peak = sqrtf(std::max(0.0f, 1.0f - es.axis.y * es.axis.y));
+    float rp = y_to_row(t0 > 0.0f ? peak : -peak);
+    row_lo = std::min(row_lo, rp);
+    row_hi = std::max(row_hi, rp);
+  }
+}
+
+/**
  * @brief Conservative screen-row span of a rendered edge, arc bulge included.
  * @tparam W,H Rasterization resolution (pixel grid).
  * @param a Edge start (unit sphere point).
@@ -345,6 +426,11 @@ template <int W, int H>
 static inline void edge_row_span(const Vector &a, const Vector &b,
                                  const Basis *planar_basis, float &row_lo,
                                  float &row_hi) {
+  if (planar_basis == nullptr) {
+    geodesic_row_span<W, H>(a, b, make_geodesic_edge_span(a, b), row_lo,
+                            row_hi);
+    return;
+  }
   constexpr int H_VIRT = H + hs::H_OFFSET;
   auto y_to_row = [](float y) {
     return phi_to_y(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
@@ -354,36 +440,7 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
   row_lo = std::min(ra, rb);
   row_hi = std::max(ra, rb);
 
-  if (planar_basis == nullptr) {
-    // Geodesic edge: the arc y(t) has a turning point inside the span iff the
-    // forward tangent's y-component flips sign between the endpoints; the
-    // extremal |y| is the great circle's peak latitude sqrt(1 - n.y²) (n = arc
-    // pole). The span is the exact closed-form y range, so no one-row epsilon.
-    // n is the renderer's slerp axis (rasterize_geodesic_strategy): a
-    // near-antipodal edge collapses cross(a, b), so fall back to the same stable
-    // perpendicular the renderer bulges the semicircle about.
-    Vector n;
-    if (std::abs(PI_F - angle_between(a, b)) < TOLERANCE) {
-      n = stable_perpendicular_axis(a);
-    } else {
-      Vector axis = cross(a, b);
-      float L2 = dot(axis, axis);
-      if (L2 <= math::EPS_GEOMETRIC * math::EPS_GEOMETRIC)
-        return;
-      n = axis * (1.0f / sqrtf(L2));
-    }
-    float t0 = cross(n, a).y; // forward tangent y at a
-    float t1 = cross(n, b).y; // forward tangent y at b
-    if ((t0 > 0.0f) != (t1 > 0.0f)) {
-      // std::max(0, ...) absorbs the tiny negative that fast-math
-      // renormalization of n can produce when |n.y| ≈ 1 (a near-polar
-      // arc pole), keeping the sqrt domain-safe.
-      float peak = sqrtf(std::max(0.0f, 1.0f - n.y * n.y));
-      float rp = y_to_row(t0 > 0.0f ? peak : -peak);
-      row_lo = std::min(row_lo, rp);
-      row_hi = std::max(row_hi, rp);
-    }
-  } else {
+  {
     // Planar edge: no closed-form latitude extremum, so sample the arc through
     // the rasterizer's unprojection MAP then widen by the arc's Lipschitz bound.
     // The cull and renderer do NOT take bit-identical samples, so gap-freeness
@@ -449,18 +506,100 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
  * valid only while the per-gap bound stays under W/4, and both that and the
  * near-pole case fall back to no-cull (return false).
  */
+/**
+ * @brief Pads a fractional column interval and wraps it into a [0, W) arc.
+ * @tparam W Rasterization width (pixel grid).
+ * @param s_f Fractional start column.
+ * @param len_f Fractional arc length in columns.
+ * @param col_s Output: arc start column, in [0, W).
+ * @param col_len Output: arc length in columns (may reach W = full width).
+ */
+template <int W>
+static inline void finish_col_span(float s_f, float len_f, int &col_s,
+                                   int &col_len) {
+  constexpr int COL_PAD = 2;
+  const int lo = static_cast<int>(floorf(s_f)) - COL_PAD;
+  const int hi = static_cast<int>(ceilf(s_f + len_f)) + COL_PAD;
+  col_len = std::min(hi - lo + 1, W);
+  col_s = ((lo % W) + W) % W;
+}
+
+/**
+ * @brief Geodesic screen-column arc from a precomputed edge setup.
+ * @tparam W Rasterization width (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param es Shared setup from make_geodesic_edge_span(a, b).
+ * @param col_s Output: arc start column, in [0, W).
+ * @param col_len Output: arc length in columns (may reach W = full width).
+ * @return False when no useful bound exists (degenerate cross on a
+ *         non-collapsed edge, or a near-meridian axis whose y-component is
+ *         float noise) — the caller must skip the horizontal cull.
+ */
+template <int W>
+static inline bool geodesic_col_span(const Vector &a, const Vector &b,
+                                     const GeodesicEdgeSpan &es, int &col_s,
+                                     int &col_len) {
+  constexpr float AXIS_Y_EPS = 1e-4f;
+  const float ca = vector_to_theta<W>(a);
+  float s_f, len_f;
+
+  if (es.total < EPS_GEODESIC_SEGMENT) {
+    // The renderer collapses the edge to a dot at a; span both endpoints the
+    // short way around.
+    const float cb = vector_to_theta<W>(b);
+    const float d = wrap(cb - ca, static_cast<float>(W));
+    if (d <= W * 0.5f) {
+      s_f = ca;
+      len_f = d;
+    } else {
+      s_f = cb;
+      len_f = W - d;
+    }
+  } else {
+    if (!es.have_axis)
+      return false;
+    if (std::abs(es.axis.y) < AXIS_Y_EPS)
+      return false;
+
+    float ce;
+    if (es.antipodal) {
+      // The arbitrary-axis half-turn lands near, not on, b; take the column of
+      // the point the renderer actually reaches.
+      Vector v_perp = cross(es.axis, a);
+      Vector end = a * fast_cosf(es.total) + v_perp * fast_sinf(es.total);
+      ce = vector_to_theta<W>(end);
+    } else {
+      ce = vector_to_theta<W>(b);
+    }
+
+    if (es.axis.y < 0.0f) { // longitude increases from a
+      s_f = ca;
+      len_f = wrap(ce - ca, static_cast<float>(W));
+    } else {
+      s_f = ce;
+      len_f = wrap(ca - ce, static_cast<float>(W));
+    }
+  }
+
+  finish_col_span<W>(s_f, len_f, col_s, col_len);
+  return true;
+}
+
 template <int W>
 static inline bool edge_col_span(const Vector &a, const Vector &b,
                                  const Basis *planar_basis, int &col_s,
                                  int &col_len) {
-  constexpr int COL_PAD = 2;
-  constexpr float AXIS_Y_EPS = 1e-4f;
+  if (planar_basis == nullptr)
+    return geodesic_col_span<W>(a, b, make_geodesic_edge_span(a, b), col_s,
+                                col_len);
+
   constexpr float MIN_SIN_PHI = 0.05f;
 
   const float ca = vector_to_theta<W>(a);
   float s_f, len_f;
 
-  if (planar_basis != nullptr) {
+  {
     auto p1 = azimuthal_project(a, *planar_basis);
     auto p2 = azimuthal_project(b, *planar_basis);
     const float dX = p2.first - p1.first;
@@ -506,58 +645,9 @@ static inline bool edge_col_span(const Vector &a, const Vector &b,
 
     s_f = ca + cum_lo - margin;
     len_f = (cum_hi - cum_lo) + 2.0f * margin;
-  } else if (const float total = angle_between(a, b);
-             total < EPS_GEODESIC_SEGMENT) {
-    // The renderer collapses the edge to a dot at a; span both endpoints the
-    // short way around.
-    const float cb = vector_to_theta<W>(b);
-    const float d = wrap(cb - ca, static_cast<float>(W));
-    if (d <= W * 0.5f) {
-      s_f = ca;
-      len_f = d;
-    } else {
-      s_f = cb;
-      len_f = W - d;
-    }
-  } else {
-    const bool antipodal = std::abs(PI_F - total) < TOLERANCE;
-    Vector axis;
-    if (antipodal) {
-      axis = stable_perpendicular_axis(a);
-    } else {
-      Vector c = cross(a, b);
-      float L2 = dot(c, c);
-      if (L2 <= math::EPS_GEOMETRIC * math::EPS_GEOMETRIC)
-        return false;
-      axis = c * (1.0f / sqrtf(L2));
-    }
-    if (std::abs(axis.y) < AXIS_Y_EPS)
-      return false;
-
-    float ce;
-    if (antipodal) {
-      // The arbitrary-axis half-turn lands near, not on, b; take the column of
-      // the point the renderer actually reaches.
-      Vector v_perp = cross(axis, a);
-      Vector end = a * fast_cosf(total) + v_perp * fast_sinf(total);
-      ce = vector_to_theta<W>(end);
-    } else {
-      ce = vector_to_theta<W>(b);
-    }
-
-    if (axis.y < 0.0f) { // longitude increases from a
-      s_f = ca;
-      len_f = wrap(ce - ca, static_cast<float>(W));
-    } else {
-      s_f = ce;
-      len_f = wrap(ca - ce, static_cast<float>(W));
-    }
   }
 
-  const int lo = static_cast<int>(floorf(s_f)) - COL_PAD;
-  const int hi = static_cast<int>(ceilf(s_f + len_f)) + COL_PAD;
-  col_len = std::min(hi - lo + 1, W);
-  col_s = ((lo % W) + W) % W;
+  finish_col_span<W>(s_f, len_f, col_s, col_len);
   return true;
 }
 
@@ -626,12 +716,24 @@ static inline bool edge_visible_in_clip(PipelineT &pipeline,
                                         const Vector &b, const Basis *pb) {
   auto pred = [&](const Vector &ea, const Vector &eb, const Basis *bp) {
     float row_lo, row_hi;
+    int col_s, col_len;
+    if (bp == nullptr) {
+      // Geodesic: both span bounds share one edge setup (angle, arc pole).
+      const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
+      geodesic_row_span<W, H>(ea, eb, es, row_lo, row_hi);
+      if (!cr.could_intersect_y(row_lo, row_hi))
+        return false;
+      if (!xc.active)
+        return true;
+      if (!geodesic_col_span<W>(ea, eb, es, col_s, col_len))
+        return true;
+      return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
+    }
     edge_row_span<W, H>(ea, eb, bp, row_lo, row_hi);
     if (!cr.could_intersect_y(row_lo, row_hi))
       return false;
     if (!xc.active)
       return true;
-    int col_s, col_len;
     if (!edge_col_span<W>(ea, eb, bp, col_s, col_len))
       return true;
     return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
