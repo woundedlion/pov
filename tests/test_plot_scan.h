@@ -700,6 +700,97 @@ inline void test_edge_col_span_covers_arc() {
 }
 
 /**
+ * @brief Pins edge_visible_in_clip's geodesic decision to the composed
+ *        edge_row_span / edge_col_span cull: y-reject first, then the column
+ *        arc, with either span's no-bound fallback reading as visible.
+ * @details Clip bands cover the device quadrant shapes: seam-wrapping
+ *          (margin pushes rs past the seam), interior non-wrapping, full-width
+ *          x (XClip inactive), and the full canvas. Edge corpus includes
+ *          antipodal, near-collapsed, and near-meridian edges.
+ */
+inline void test_edge_visible_in_clip_matches_span_composition() {
+  constexpr int TW = 288, TH = 144;
+  Pipeline<TW, TH> sink;
+  auto rand_unit = [] {
+    for (;;) {
+      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      if (r.length() > 0.1f)
+        return r.normalized();
+    }
+  };
+
+  hs::random().seed(20260716);
+  const int bands[][4] = {
+      {0, 72, 0, 144},    // segment quadrant; margin wraps rs past the seam
+      {36, 108, 144, 288}, // opposite half; also seam-wrapping via margin
+      {0, 144, 60, 200},  // interior wedge, non-wrapping
+      {100, 144, 0, 288}, // full-width x: XClip inactive, y-only cull
+      {0, 144, 0, 288},   // full canvas
+  };
+  int visible = 0, culled = 0;
+  for (const auto &bd : bands) {
+    ClipRegion cr;
+    cr.w = TW;
+    cr.h = TH;
+    cr.y_start = bd[0];
+    cr.y_end = bd[1];
+    cr.x_start = bd[2];
+    cr.x_end = bd[3];
+    const auto xc = cr.x_clip();
+    const int band_len = xc.wrap ? xc.re - xc.rs + TW : xc.re - xc.rs;
+
+    for (int trial = 0; trial < 2000; ++trial) {
+      Vector a = rand_unit();
+      Vector b;
+      switch (trial % 7) {
+      case 0:
+        b = a * -1.0f; // antipodal
+        break;
+      case 1: // near-collapsed
+        b = (a + Vector(1e-4f, 0.0f, 0.0f)).normalized();
+        break;
+      case 2: { // near-meridian arc (pole-grazing, axis.y ~ 0)
+        Vector ad(hs::rand_f(-1, 1), hs::rand_f(-0.05f, 0.05f),
+                  hs::rand_f(-1, 1));
+        if (ad.length() < 0.1f) {
+          b = rand_unit();
+          break;
+        }
+        Basis cb = basis_from_normal(ad.normalized());
+        float a0 = hs::rand_f(0, 2 * PI_F);
+        a = (cb.u * cosf(a0) + cb.w * sinf(a0)).normalized();
+        b = (cb.u * cosf(a0 + 1.5f) + cb.w * sinf(a0 + 1.5f)).normalized();
+        break;
+      }
+      default:
+        b = rand_unit();
+      }
+
+      const bool got = Plot::edge_visible_in_clip<TW, TH>(sink, cr, xc,
+                                                          band_len, a, b,
+                                                          nullptr);
+      float row_lo, row_hi;
+      Plot::edge_row_span<TW, TH>(a, b, nullptr, row_lo, row_hi);
+      bool want;
+      if (!cr.could_intersect_y(row_lo, row_hi)) {
+        want = false;
+      } else if (!xc.active) {
+        want = true;
+      } else {
+        int col_s, col_len;
+        want = !Plot::edge_col_span<TW>(a, b, nullptr, col_s, col_len) ||
+               ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, TW);
+      }
+      HS_EXPECT_TRUE(got == want);
+      (got ? visible : culled)++;
+    }
+  }
+  // Both verdicts must be exercised across the band topologies.
+  HS_EXPECT_GT(visible, 1000);
+  HS_EXPECT_GT(culled, 1000);
+}
+
+/**
  * @brief End-to-end conservativeness of the rasterizer's column cull: a
  *        quadrant/wedge-clipped render is pixel-identical to the full render
  *        inside the display band.
@@ -2302,6 +2393,7 @@ inline int run_plot_scan_tests() {
   test_edge_row_span_covers_arc_bulge();
   test_clip_arcs_overlap();
   test_edge_col_span_covers_arc();
+  test_edge_visible_in_clip_matches_span_composition();
   test_rasterize_column_cull_pixel_parity();
   test_screen_step_matches_analytic_unclamped();
 
