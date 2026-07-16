@@ -13,8 +13,11 @@
  *     branch), where the sweep's own last sample lands ~0.002 rad off flat.
  *   - Bookend swaps (per node, one solid per symmetry family): update_hankin
  *     at angle 0 emits first-F star faces whose boundary vertices lie on the
- *     base face's boundary, and an in-memory framebuffer diff of the two
- *     renders under identity face colors changes (almost) no pixels.
+ *     base face's boundary; an in-memory framebuffer diff of the two renders
+ *     under identity face colors changes no pixels, and the zero-area rosette
+ *     faces draw none.
+ *   - Forward palette carry (per arrival, real effect): the palettes the leg
+ *     landed carry verbatim into the new node's displayed base faces.
  *   - Leg swaps (per edge): base vs op(seed, T_EPS) and the reseed swaps
  *     (ADOPT bridge arrival, DUAL_SWAP ambo crossover) framebuffer-diff within
  *     a budget far below one face's area, so a face landing under the wrong
@@ -45,6 +48,7 @@
 #include "effects/HankinSolids.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_conway_morph.h" // run_edge_op
+#include "tests/test_conway_soak.h"  // HankinWalkProbe
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -309,27 +313,19 @@ inline void check_flat_star_faces_match_base(const PolyMesh &base,
   }
 }
 
-/** Interior-pixel budget for the bookend swap: the swap must recolor no face
- * interior; the allowance absorbs single-pixel flat islands inside the AA
- * bands, two orders of magnitude below one face's area. */
-constexpr size_t BOOKEND_FLAT_BUDGET = 24;
-
-/** Newborn-pixel budget for the bookend swap: rosette faces are zero-area at
- * angle 0, so no pixel may take their sentinel fill solidly. */
-constexpr size_t BOOKEND_NEWBORN_BUDGET = 4;
-
-/** Backstop on boundary-blend jitter (the AA bands re-mix slightly because the
- * star faces carry midpoint vertices); a structural break dwarfs this. */
-constexpr size_t BOOKEND_BLEND_BUDGET = 8000;
+// The spec contract (sections 2.4/2.5) is exact: the angle-0 hankin mesh and
+// the base mesh draw the same shapes in the same colors, and the rosette
+// faces are zero-area births that draw nothing — so the bookend swap changes
+// no pixels at all.
 
 /**
  * @brief Bookend swap for one solid: mesh-level geometric identity plus the
  *        framebuffer diff under identity face colors.
  * @tparam Solid Seed solid descriptor.
  * @details The hankin render colors star face f like base face f (the §2.5
- *          identity mapping) and paints rosette faces a loud sentinel; at
- *          angle 0 the rosettes are zero-area births, so any sentinel pixel or
- *          recolored face breaks the budget.
+ *          identity mapping) and paints rosette faces a loud sentinel; the
+ *          swap must change no pixels, and the zero-area rosettes must draw
+ *          none.
  */
 template <typename Solid> inline void check_bookend_swap_one() {
   Arena geom(cc_geom_buf, sizeof(cc_geom_buf));
@@ -362,9 +358,22 @@ template <typename Solid> inline void check_bookend_swap_one() {
   std::printf("  [bookend] F=%d: base vs hankin@0 flat=%zu newborn=%zu "
               "blend=%zu px\n",
               F, st.flat, st.newborn, st.blend);
-  HS_EXPECT_LE(st.flat, BOOKEND_FLAT_BUDGET);
-  HS_EXPECT_LE(st.newborn, BOOKEND_NEWBORN_BUDGET);
-  HS_EXPECT_LE(st.blend, BOOKEND_BLEND_BUDGET);
+  HS_EXPECT_EQ(st.flat + st.newborn + st.blend, (size_t)0);
+
+  // Rosette isolation: stars painted background-black, rosettes white — any
+  // lit pixel is rosette output.
+  std::vector<Pixel> rosette_px;
+  render_faces(rosette_px, flat_ms, [&](int f) {
+    return f < F ? Color4(Pixel(0, 0, 0), 1.0f)
+                 : Color4(Pixel(65535, 65535, 65535), 1.0f);
+  });
+  size_t rosette_lit = 0;
+  for (const Pixel &p : rosette_px)
+    if (p.r || p.g || p.b)
+      ++rosette_lit;
+  std::printf("  [bookend] F=%d: rosette contribution %zu px\n", F,
+              rosette_lit);
+  HS_EXPECT_EQ(rosette_lit, (size_t)0);
 }
 
 /**
@@ -374,6 +383,76 @@ inline void test_bookend_swaps_per_family() {
   check_bookend_swap_one<Solids::Cube>();         // octahedral
   check_bookend_swap_one<Solids::Dodecahedron>(); // icosahedral
   check_bookend_swap_one<Solids::Tetrahedron>();  // tetrahedral
+}
+
+/**
+ * @brief Verifies the §2.5/§2.6 forward palette mapping across real leg
+ *        arrivals: every base face of the arrived node displays the palette
+ *        its corresponding swept face landed with — carried verbatim.
+ * @details Drives HankinSolids through several legs; the in-flight leg's
+ *          Landing is snapshotted each frame, and on each arrival the
+ *          displayed per-face palettes (node_face_palette_) are compared with
+ *          the landed ones over the base-face emission prefix, as per-palette
+ *          multisets — invariant under any correct provenance mapping, but
+ *          broken by a class merge collapsing distinct landed palettes into
+ *          one slot.
+ */
+inline void test_palette_carry_across_arrivals() {
+  reset_globals();
+  using Probe = conway_soak_tests::HankinWalkProbe;
+  constexpr int PALETTES = Animation::ConwayMorph::PALETTES;
+
+  HankinSolids<96, 20> fx;
+  fx.init();
+
+  std::array<uint8_t, PALETTES> to_palette{};
+  std::vector<int> topo;
+  bool have_landing = false;
+
+  int prev_node = Probe::node(fx);
+  int arrivals = 0;
+  constexpr int TARGET_ARRIVALS = 10;
+  for (int frame = 0; frame < 2200 && arrivals < TARGET_ARRIVALS; ++frame) {
+    fx.draw_frame();
+    fx.advance_display();
+
+    if (const Animation::ConwayMorph::Landing *landing =
+            Probe::pending_landing(fx)) {
+      to_palette = landing->to_palette;
+      topo.assign(landing->topology, landing->topology + landing->faces);
+      have_landing = true;
+    }
+
+    const int node = Probe::node(fx);
+    if (node == prev_node)
+      continue;
+    prev_node = node;
+    if (!have_landing)
+      continue;
+    have_landing = false;
+    ++arrivals;
+
+    // Base faces are the landing's emission prefix (all faces at a full
+    // arrival; the primaries at a t = 0 arrival, whose newborn faces die).
+    const size_t nf = Probe::node_faces(fx);
+    HS_EXPECT_LE(nf, topo.size());
+    if (nf > topo.size())
+      continue;
+    int landed[PALETTES] = {};
+    int shown[PALETTES] = {};
+    for (size_t f = 0; f < nf; ++f) {
+      ++landed[to_palette[wrap(topo[f], PALETTES)]];
+      ++shown[Probe::node_face_palette(fx)[f]];
+    }
+    const int failed_before = hs_test::stats().failed;
+    for (int p = 0; p < PALETTES; ++p)
+      HS_EXPECT_EQ(shown[p], landed[p]);
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [palette-carry] arrival %d at '%s': displayed palettes "
+                  "do not carry the landing\n",
+                  arrivals, Solids::simple_registry[node].name);
+  }
+  HS_EXPECT_EQ(arrivals, TARGET_ARRIVALS);
 }
 
 // ---------------------------------------------------------------------------
@@ -980,6 +1059,7 @@ inline int run_conway_continuity_tests() {
 
   test_bookend_angle_pin();
   test_bookend_swaps_per_family();
+  test_palette_carry_across_arrivals();
 
   test_swap_in_framebuffer();
   test_adopt_departure_swap_framebuffer();
