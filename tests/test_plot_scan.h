@@ -700,13 +700,15 @@ inline void test_edge_col_span_covers_arc() {
 }
 
 /**
- * @brief Pins edge_visible_in_clip's geodesic decision to the composed
+ * @brief Pins edge_visible_in_clip's decision to the composed
  *        edge_row_span / edge_col_span cull: y-reject first, then the column
  *        arc, with either span's no-bound fallback reading as visible.
  * @details Clip bands cover the device quadrant shapes: seam-wrapping
  *          (margin pushes rs past the seam), interior non-wrapping, full-width
- *          x (XClip inactive), and the full canvas. Edge corpus includes
- *          antipodal, near-collapsed, and near-meridian edges.
+ *          x (XClip inactive), and the full canvas. The geodesic corpus
+ *          includes antipodal, near-collapsed, and near-meridian edges; the
+ *          planar corpus draws chart-line edges on random disks, including
+ *          near-pole charts that force the col-span fallback.
  */
 inline void test_edge_visible_in_clip_matches_span_composition() {
   constexpr int TW = 288, TH = 144;
@@ -784,10 +786,45 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
       HS_EXPECT_TRUE(got == want);
       (got ? visible : culled)++;
     }
+
+    for (int trial = 0; trial < 2000; ++trial) {
+      Vector center = rand_unit();
+      Basis basis = basis_from_normal(center);
+      float radius = hs::rand_f(0.2f, 1.4f);
+      auto on_disk = [&](float ang) {
+        Vector dir = basis.u * cosf(ang) + basis.w * sinf(ang);
+        return (basis.v * cosf(radius) + dir * sinf(radius)).normalized();
+      };
+      float a0 = hs::rand_f(0, 2 * PI_F);
+      Vector a = on_disk(a0);
+      Vector b = on_disk(a0 + hs::rand_f(0.3f, 2.3f));
+      // Antipode-seam segments render geodesic (use_planar is false there).
+      if (dot(a, basis.v) < -Plot::COS_PLANAR_ANTIPODE ||
+          dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
+        continue;
+
+      const bool got = Plot::edge_visible_in_clip<TW, TH>(sink, cr, xc,
+                                                          band_len, a, b,
+                                                          &basis);
+      float row_lo, row_hi;
+      Plot::edge_row_span<TW, TH>(a, b, &basis, row_lo, row_hi);
+      bool want;
+      if (!cr.could_intersect_y(row_lo, row_hi)) {
+        want = false;
+      } else if (!xc.active) {
+        want = true;
+      } else {
+        int col_s, col_len;
+        want = !Plot::edge_col_span<TW>(a, b, &basis, col_s, col_len) ||
+               ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, TW);
+      }
+      HS_EXPECT_TRUE(got == want);
+      (got ? visible : culled)++;
+    }
   }
   // Both verdicts must be exercised across the band topologies.
-  HS_EXPECT_GT(visible, 1000);
-  HS_EXPECT_GT(culled, 1000);
+  HS_EXPECT_GT(visible, 2000);
+  HS_EXPECT_GT(culled, 2000);
 }
 
 /**
