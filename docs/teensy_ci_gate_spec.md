@@ -10,8 +10,8 @@ The pinned toolchain is `platform = teensy@5.0.0` (Teensyduino 1.59.0 and arm-no
 11.3.1), `platformio==6.1.19`, and the bench-compatible **FastLED 3.4.0**. Holosphere builds at
 96×20 with the bench-parity `-O3` configuration. Phantasm builds every effect at 288×144 with its
 documented size configuration: `-Os`, newlib-nano, `tools/phantasm.ld`, cold-code relocation,
-the small PRNG/cosine-table reductions, and the measured **330 KiB arena**. Both shipping images
-pass; Phantasm uses 509,312 B of RAM1 and leaves 14,976 B for locals, above its measured
+the small PRNG/cosine-table reductions, and the measured **298 KiB arena**. Both shipping images
+pass; Phantasm uses 476,544 B of RAM1 and leaves 47,744 B for locals, above its measured
 12 KiB floor. The active thresholds and symbol contracts live in
 [`tools/teensy_budgets.json`](../tools/teensy_budgets.json).
 
@@ -45,7 +45,7 @@ The original automation gap had three consequences:
   *"the bare DMA/register writes are device-only by nature and not host-reachable."*
 - **There was no size or memory-layout signal.** The two framebuffers (`MAX_W*MAX_H` = 288×144 ×
   `sizeof(Pixel16)` = 6 B = **243 KiB each**; 486 KiB together) live in `DMAMEM` (OCRAM/RAM2,
-  512 KiB total), the **330 KiB arena lives in DTCM/RAM1** (`global_arena_block`, no `DMAMEM` — it
+  512 KiB total), the **298 KiB arena lives in DTCM/RAM1** (`global_arena_block`, no `DMAMEM` — it
   is the largest single RAM1 object, [memory.cpp](../core/engine/memory.cpp)), and the 90 KB
   reaction-graph table lives in flash. Both buffers are fixed at `MAX_W*MAX_H` for **both**
   targets regardless of virtual resolution, so OCRAM is genuinely tight (486 KiB of 512 KiB). A
@@ -223,8 +223,8 @@ that — see the board note below). They differ in output path and design resolu
 
 > **Static footprints are *mostly* shared, but RAM2 is not identical.** The framebuffers
 > ([memory.cpp](../core/engine/memory.cpp)) and the arena are sized by compile-time constants
-> (`MAX_W=288`, `MAX_H=144`, `GLOBAL_ARENA_SIZE=330 KiB`), **not** by virtual resolution — so both
-> allocate the same two 243 KiB buffers in OCRAM and the same 330 KiB arena in DTCM. But Phantasm's
+> (`MAX_W=288`, `MAX_H=144`, `GLOBAL_ARENA_SIZE=298 KiB`), **not** by virtual resolution — so both
+> allocate the same two 243 KiB buffers in OCRAM and the same 298 KiB arena in DTCM. But Phantasm's
 > `USE_DMA_LEDS` path adds an OCRAM consumer Holosphere lacks: the double-buffered
 > `DMAMEM DMALEDController` eDMA TX frame buffers ([pov_segmented.h](../hardware/pov_segmented.h)),
 > where Holosphere's FastLED path uses a non-`DMAMEM` `CRGB leds_[]`. So the targets diverge in
@@ -455,7 +455,7 @@ teensy_size: RAM1: variables:NNNNN, code:NNNNN, padding:NNNNN   free for local v
 teensy_size: RAM2: variables:NNNNN   free for malloc/new: NNNNNN
 ```
 
-- **RAM1** = ITCM (fast code) + DTCM (fast `.bss`/`.data` + stack). **The 330 KiB arena
+- **RAM1** = ITCM (fast code) + DTCM (fast `.bss`/`.data` + stack). **The 298 KiB arena
   (`global_arena_block`) lives here** — it is a plain static array with no `DMAMEM` qualifier
   ([memory.cpp](../core/engine/memory.cpp)) and is the dominant RAM1 occupant. The stack also grows
   down within DTCM.
@@ -487,14 +487,14 @@ directly, and the §9.1 golden fixtures must contain **real `readelf -s` output 
 mangled strings** so the tests exercise the real matching, not a tidied alias. This is an easy spot
 to be silently wrong (a name that never matches → the invariant never fires → false-green).
 
-1. **Arena in DTCM/RAM1, and its size ≈ 330 KiB (assert the magnitude, not just the section).**
+1. **Arena in DTCM/RAM1, and its size ≈ 298 KiB (assert the magnitude, not just the section).**
    `global_arena_block` must stay in DTCM (`.bss`, no `DMAMEM`) **and** measure ~`GLOBAL_ARENA_SIZE`
-   = 330 KiB ([memory.h](../core/engine/memory.h)). Pinning the *magnitude* matters: under
+   = 298 KiB ([memory.h](../core/engine/memory.h)). Pinning the *magnitude* matters: under
    `HS_TEST_BUILD` the same constant is **8 MB** ([memory.h](../core/engine/memory.h)), so if that
    test-only macro ever leaked into the firmware build the arena would silently balloon 24× — a
-   "still in DTCM" check passes, a "~330 KiB ± tolerance" check catches it. It is the **largest RAM1
+   "still in DTCM" check passes, a "~298 KiB ± tolerance" check catches it. It is the **largest RAM1
    object and the most likely RAM1-budget mover** — a change to `GLOBAL_ARENA_SIZE`, or accidentally
-   tagging the block `DMAMEM` (which would shove 330 KiB into already-tight OCRAM), shows up here too.
+   tagging the block `DMAMEM` (which would shove 298 KiB into already-tight OCRAM), shows up here too.
 2. **Framebuffers in OCRAM, not DTCM.** `buffer_a`/`buffer_b` (the `DMAMEM Pixel[MAX_W*MAX_H]`
    arrays) must land in the OCRAM/`.dmabuffers` section. If a refactor drops the `DMAMEM`
    qualifier they'd silently move into DTCM and blow the fast-RAM/stack budget — a layout bug a
@@ -536,8 +536,8 @@ stack peak; the current device image leaves 14,976 B.
 Two current calibration constraints:
 
 - **The arena dominates RAM1.** `ram1_max_bytes` and `dtcm_free_min_bytes` are governed by
-  `GLOBAL_ARENA_SIZE` (330 KiB) plus the stack; that constant is the most likely thing to move the
-  RAM1 budget. The layout check (§7.4 #1) pins it in DTCM *and* near 330 KiB. Note `dtcm_free_min_bytes`
+  `GLOBAL_ARENA_SIZE` (298 KiB) plus the stack; that constant is the most likely thing to move the
+  RAM1 budget. The layout check (§7.4 #1) pins it in DTCM *and* near 298 KiB. Note `dtcm_free_min_bytes`
   can step by a whole **32 KiB** when ITCM crosses a FlexRAM bank boundary (§4.1 FlexRAM note) — a
   jump in the floor, not smooth drift; the gate still fires correctly, it's just lumpy.
 - **OCRAM headroom is structurally small, not a free parameter.** The two static framebuffers are
@@ -623,7 +623,7 @@ deliverable of Phase 0/1, not an optional nicety:
   - framebuffer fixture with `DMAMEM` dropped → symbol lands in DTCM → **framebuffers→OCRAM check
     must fail**;
   - reaction-graph fixture with `const` dropped → symbol in RAM → **table→FLASH check must fail**;
-  - arena fixture at the 8 MB `HS_TEST_BUILD` size → **arena ~330 KiB magnitude check must fail**
+  - arena fixture at the 8 MB `HS_TEST_BUILD` size → **arena ~298 KiB magnitude check must fail**
     (§7.4 #1);
   - an over-cap totals fixture → **each region ceiling must fail**.
 - **Address-bucketing unit tests** for the Teensy 4 memory-map classifier (ITCM/FLASH/DTCM/OCRAM
@@ -795,7 +795,7 @@ it.)
 2. Holosphere reproduces the VMicro `-O3` options; Phantasm uses the documented `-Os`,
    newlib-nano, and custom-linker size configuration. Both retain 600 MHz, `USB_SERIAL`,
    `gnu++20`, and the captured `-fno-*`/`-Wno-*` flags (§4.1).
-3. All layout invariants — arena→DTCM ≈330 KiB, framebuffers/DMA-TX→OCRAM, table→FLASH — are
+3. All layout invariants — arena→DTCM ≈298 KiB, framebuffers/DMA-TX→OCRAM, table→FLASH — are
    **demonstrably fail-then-pass** via the negative/golden fixtures (§9.1).
 4. Per-region budgets are calibrated from real builds, with the as-built OCRAM-free recorded
    (§8); each target carries its own region ceilings.
@@ -940,5 +940,5 @@ the set-based ratchet working as designed; and the object cache was observed bli
 **Historical Phase-0 Phantasm result:** the `-O3`/full-newlib all-effects image overflowed RAM1 by
 about 243 KiB (~381 KiB ITCM + ~380 KiB DTCM). Its ELF was captured for symbol analysis by
 temporarily neutralizing `teensy_size`'s overflow exit (reverted). The current `-Os`/newlib-nano
-image, cold-code routing, and 330 KiB arena resolve that overflow; the active Phantasm gate passes
-with 14,976 B free for locals.
+image, cold-code routing, and 298 KiB arena resolve that overflow; the active Phantasm gate passes
+with 47,744 B free for locals.

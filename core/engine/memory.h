@@ -14,7 +14,7 @@
 #include <concepts>
 #include "engine/platform.h"
 
-// Device/simulator arena budget is 330 KiB. The native unit-test build
+// Device/simulator arena budget is 298 KiB. The native unit-test build
 // (HS_TEST_BUILD) widens it so the effect smoke harness can exercise every
 // effect's full render path; the device footprint is unchanged. The native
 // harness is a 64-bit build, so per-effect footprints measured there can be
@@ -23,11 +23,12 @@
 // the host high-water mark as an exact device figure. Effects tune their own
 // split via configure_arenas() to fit the device budget.
 // The real device FlexRAM (RAM1) arena, sized from the measured worst-effect
-// high-water (tests/arena_measure.cpp): MindSplatter is the binding tenant at
-// ~327 KiB persistent + a 6 KiB scratch carve. A distinct always-defined constant
-// (not the host-inflated GLOBAL_ARENA_SIZE below) so device-budget static_asserts
-// check the real figure even in the host suite.
-constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = 330 * 1024;
+// high-water (tests/arena_measure.cpp): GSReactionDiffusion is the binding
+// tenant at ~291 KiB total (~171 KiB persistent + ~120 KiB scratch under its
+// own split). A distinct always-defined constant (not the host-inflated
+// GLOBAL_ARENA_SIZE below) so device-budget static_asserts check the real
+// figure even in the host suite.
+constexpr size_t DEVICE_GLOBAL_ARENA_SIZE = 298 * 1024;
 #ifdef HS_TEST_BUILD
 constexpr size_t GLOBAL_ARENA_SIZE = 8 * 1024 * 1024;
 #else
