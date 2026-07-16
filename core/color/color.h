@@ -602,7 +602,7 @@ inline void lms_cbrt_to_linear_rgb(float l_, float m_, float s_, float &r,
  * @param g Out: linear green in [0, 1].
  * @param b Out: linear blue in [0, 1].
  */
-inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
+HS_O3_FN inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
   float l_, m_, s_;
   oklab_to_lms_cbrt(lab, l_, m_, s_);
   lms_cbrt_to_linear_rgb(l_, m_, s_, r, g, b);
@@ -628,7 +628,7 @@ inline LinRGB oklab_to_linear_rgb(OKLab lab) {
  * @details The epsilon slack absorbs float rounding that can leave an in-gamut
  * color a hair past 1.0 after the OKLab inverse.
  */
-inline bool linear_rgb_in_gamut(float r, float g, float b) {
+HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
   constexpr float lo = -1e-4f, hi = 1.0f + 1e-4f;
   return r >= lo && r <= hi && g >= lo && g <= hi && b >= lo && b <= hi;
 }
@@ -774,7 +774,7 @@ inline uint8_t linear_float_to_srgb8(float l) {
  * (no atan2/sqrt OKLCH polar round-trip). Preserves lightness to fast_cbrt
  * accuracy, chroma to fast-trig accuracy.
  */
-inline void hue_rotate_rgb(float &r, float &g, float &b, float ca, float sa) {
+HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca, float sa) {
   LMS lms = linear_rgb_to_lms(r, g, b);
   OKLab lab = lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
 

@@ -6,3 +6,6 @@
 // dead code once nothing references them, which is what yields the lean binary.
 // Remove this define to re-enable the full FastNoiseLite feature set.
 #define FASTNOISELITE_ONLY_OPENSIMPLEX2
+
+// HS_O3_FN for the per-pixel noise sampler (selective -O3, docs/selective_o3_spec.md).
+#include "../engine/platform.h"

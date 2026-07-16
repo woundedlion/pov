@@ -599,7 +599,7 @@ inline float pole_normalize_pattern(float pattern, float r_sq, float pole_fade) 
  * singularity blowup. The scalar displacement is returned alongside the warped
  * coordinate for downstream effects (e.g., hue shifting).
  */
-inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
+HS_O3_FN inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
                                           const FastNoiseLite &noise,
                                           float scale, float strength,
                                           float pole_fade, float time) {
