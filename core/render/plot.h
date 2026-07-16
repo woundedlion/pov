@@ -2742,6 +2742,23 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
   for (size_t e = 0; e < edges; ++e) {
     const Vector &ea = trail[e].pos;
     const Vector &eb = trail[e + 1].pos;
+
+    // Cheap row tier: the exact span's interior extremum lies within arc/2 of
+    // an endpoint and phi is 1-Lipschitz in arc length (arc <= (pi/2)*chord),
+    // so the endpoint rows widened by chord*(H_VIRT-1)/4 contain the exact
+    // span — a miss here implies the exact test below also misses, keeping
+    // the bits identical while skipping the edge's cross/normalize/acos.
+    {
+      const Vector d = eb - ea;
+      const float margin =
+          sqrtf(dot(d, d)) * (static_cast<float>(H_VIRT - 1) * 0.25f);
+      if (!cr.could_intersect_y(std::min(rows[e], rows[e + 1]) - margin,
+                                std::max(rows[e], rows[e + 1]) + margin)) {
+        bits[e] = 0;
+        continue;
+      }
+    }
+
     const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
     float row_lo, row_hi;
     geodesic_row_span_rows<W, H>(rows[e], rows[e + 1], ea, eb, es, row_lo,
