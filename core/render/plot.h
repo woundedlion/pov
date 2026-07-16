@@ -2535,7 +2535,7 @@ struct Mesh {
  * @brief Particle System trails.
  * Registers:
  *  v0: Trail Progress (0.0=Head -> 1.0=Tail)
- *  v1: Trail Arc Length
+ *  v1: Reserved (always 0)
  *  v2: Particle ID
  *  v3: Normalized TTL
  */
@@ -2588,23 +2588,13 @@ struct ParticleSystem {
       if (deferred_shader)
         orig.bind(scratch_arena_a,
                   std::remove_cvref_t<decltype(p.history)>::CAPACITY);
-      float cumulative_len = 0.0f;
-      Vector last_pos;
-      bool first = true;
-
       {
         HS_PROFILE(plot_ps_tween);
         tween(p.history, [&](const Vector &v, float t) {
-          if (!first) {
-            cumulative_len += angle_between(last_pos, v);
-          }
-          last_pos = v;
-          first = false;
-
           Fragment f;
           f.pos = v;
           f.v0 = t;
-          f.v1 = cumulative_len;
+          f.v1 = 0.0f;
           f.v2 = static_cast<float>(i);
           f.v3 = static_cast<float>(p.life) * inv_max_life;
           f.age = 0;
