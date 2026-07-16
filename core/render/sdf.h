@@ -37,6 +37,13 @@ static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
  *  preventing degenerate near-zero inradii from collapsing AA. */
 static constexpr float MIN_SIZE_RADIUS_RATIO = 0.25f;
 
+/** Signed-area-to-circumradius-squared ratio below which a Face is culled as
+ *  fully collapsed (no enclosed region). Sits orders of magnitude above the
+ *  float noise of an exactly collapsed polygon (~1e-7) and below the thinnest
+ *  real sliver a mesh sweep draws (~1e-3), so the sim/device decision is
+ *  identical under fast-math. */
+static constexpr float COLLAPSED_AREA_RATIO = 1e-5f;
+
 /** Maximum disjoint scanline spans a single shape (leaf) emits per row.
  *  scan_region's `intervals` buffer holds the widest top-level CSG emission
  *  (Subtract/Intersection: 2x this + 2), and its seam-split `norm` buffer is
@@ -62,10 +69,10 @@ template <typename A, typename B> struct SmoothUnion;
 template <typename A, typename B> struct Subtract;
 template <typename A, typename B> struct Intersection;
 
-/** Compile-time upper bound on the scanline spans a shape may emit to its parent
- *  in one row. A leaf is capped at INTERVAL_SPAN_CAP; Union/SmoothUnion merge
- *  both children into one MergedIntervalBuffer, so their bound is the SUM of the
- *  children's, static_asserted against the buffer capacity to reject an
+/** Compile-time upper bound on the scanline spans a shape may emit to its
+ * parent in one row. A leaf is capped at INTERVAL_SPAN_CAP; Union/SmoothUnion
+ * merge both children into one MergedIntervalBuffer, so their bound is the SUM
+ * of the children's, static_asserted against the buffer capacity to reject an
  *  overflowing nesting at compile time. */
 template <typename T> struct sdf_max_spans {
   static constexpr size_t value = INTERVAL_SPAN_CAP;
@@ -78,17 +85,18 @@ template <typename A, typename B> struct sdf_max_spans<SmoothUnion<A, B>> {
   static constexpr size_t value =
       sdf_max_spans<A>::value + sdf_max_spans<B>::value;
 };
-// Intersection seam-splits each child into a [0, W) frame, then merge-sweeps the
-// two start-sorted lists (one span per advance). Each child grows by at most one
-// and the sweep advances |norm_a| + |norm_b| times: bound |A| + |B| + 2.
+// Intersection seam-splits each child into a [0, W) frame, then merge-sweeps
+// the two start-sorted lists (one span per advance). Each child grows by at
+// most one and the sweep advances |norm_a| + |norm_b| times: bound |A| + |B|
+// + 2.
 template <typename A, typename B> struct sdf_max_spans<Intersection<A, B>> {
   static constexpr size_t value =
       sdf_max_spans<A>::value + sdf_max_spans<B>::value + 2;
 };
 // Subtract seam-splits each child into a [0, W) frame before differencing; each
 // child grows by at most one (norm_a <= |A|+1, norm_b <= |B|+1). The set
-// difference splits an A span once per enclosed (disjoint) B span, so the output
-// is bounded by |norm_a| + |norm_b| = |A| + |B| + 2.
+// difference splits an A span once per enclosed (disjoint) B span, so the
+// output is bounded by |norm_a| + |norm_b| = |A| + |B| + 2.
 template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
   static constexpr size_t value =
       sdf_max_spans<A>::value + sdf_max_spans<B>::value + 2;
@@ -102,8 +110,9 @@ template <typename A, typename B> struct sdf_max_spans<Subtract<A, B>> {
  * @param start Interval start column (float).
  * @param end Interval end column (float).
  * @details StaticCircularBuffer::push_back evicts the OLDEST entry when full
- * (correct for trails, wrong here), so an overflow would silently drop geometry.
- * A row exceeding capacity is a sizing bug, so trap at the violation site.
+ * (correct for trails, wrong here), so an overflow would silently drop
+ * geometry. A row exceeding capacity is a sizing bug, so trap at the violation
+ * site.
  */
 template <size_t N>
 inline void push_interval(StaticCircularBuffer<std::pair<float, float>, N> &buf,
@@ -137,20 +146,20 @@ sort_intervals_by_start(StaticCircularBuffer<std::pair<float, float>, N> &buf) {
 }
 
 /**
- * @brief Wrap each interval start into [0, W) and split any span that crosses the
- *        x=0 seam, appending the result to @p dst.
+ * @brief Wrap each interval start into [0, W) and split any span that crosses
+ * the x=0 seam, appending the result to @p dst.
  * @tparam W Canvas width in columns.
  * @param src Source intervals in unwrapped column space (may straddle θ=0).
  * @param dst Destination buffer; must hold up to 2x the source span count (one
  *        span splits into at most two at the seam).
  * @details Mirrors scan_region's normalization so seam math is bit-identical. A
- * span of length >= W is emitted as a single full-row [0, W) span. For the common
- * in-[0,W) case this copies through unchanged.
+ * span of length >= W is emitted as a single full-row [0, W) span. For the
+ * common in-[0,W) case this copies through unchanged.
  */
 template <int W, size_t N, size_t M>
-inline void
-normalize_intervals_to_range(const StaticCircularBuffer<std::pair<float, float>, N> &src,
-                             StaticCircularBuffer<std::pair<float, float>, M> &dst) {
+inline void normalize_intervals_to_range(
+    const StaticCircularBuffer<std::pair<float, float>, N> &src,
+    StaticCircularBuffer<std::pair<float, float>, M> &dst) {
   constexpr float Wf = static_cast<float>(W);
   for (size_t i = 0; i < src.size(); ++i) {
     float len = src[i].second - src[i].first;
@@ -213,18 +222,19 @@ merge_intervals(StaticCircularBuffer<std::pair<float, float>, N> &merged,
  * @return Folded angle in [0, π].
  * @details cos is even and 2π-periodic, so fold the sign, reduce mod 2π, then
  *          reflect the upper half-period across the south pole. The full fold
- *          (not the [-π, 2π]-only short form) holds the equivalence for any input
- *          (e.g. a Ring radius > 2 driving center_phi ± target_angle past range).
+ *          (not the [-π, 2π]-only short form) holds the equivalence for any
+ * input (e.g. a Ring radius > 2 driving center_phi ± target_angle past range).
  */
 inline float clamp_phi(float x) {
-  x = fabsf(x);             // cos(-x) = cos(x): fold negatives
+  x = fabsf(x);              // cos(-x) = cos(x): fold negatives
   x = fmodf(x, 2.0f * PI_F); // 2π-periodic -> [0, 2π)
   if (x > PI_F)
     x = 2.0f * PI_F - x; // reflect (π, 2π) across the south pole -> (0, π)
   return x;
 }
 
-/** @brief A colatitude band as inclusive [phi_min, phi_max] bounds in [0, π]. */
+/** @brief A colatitude band as inclusive [phi_min, phi_max] bounds in [0, π].
+ */
 struct PhiBand {
   float phi_min, phi_max;
 };
@@ -233,11 +243,11 @@ struct PhiBand {
  * @brief Folds a `center ± half-angle` colatitude band into clamped [0, π].
  * @param center_phi Band-center colatitude (radians).
  * @param target_angle Half-width of the band (radians).
- * @return {phi_min, phi_max}: the band's folded extent. An edge that runs past a
- *         pole pins that side to the pole (0 or π); a fully in-range band returns
- *         its folded endpoints.
- * @details Single source for the Ring/DistortedRing get_vertical_bounds latitude
- *          fold so the two cannot drift apart.
+ * @return {phi_min, phi_max}: the band's folded extent. An edge that runs past
+ * a pole pins that side to the pole (0 or π); a fully in-range band returns its
+ * folded endpoints.
+ * @details Single source for the Ring/DistortedRing get_vertical_bounds
+ * latitude fold so the two cannot drift apart.
  */
 inline PhiBand clamp_phi_band(float center_phi, float target_angle) {
   float a1 = center_phi - target_angle;
@@ -262,21 +272,18 @@ struct Bounds {
  * @brief Result of a signed distance query.
  *
  * `dist` and `size` have fixed meanings, but `t`, `raw_dist` and `aux` are
- * overloaded per shape — the authoritative meaning is that shape's own "Returns:"
- * docblock. The scan rasterizer copies them into the Fragment register file with
- * no reinterpretation (see Scan::process_pixel):
- *   t        -> Fragment::v0
- *   raw_dist -> Fragment::v1
- *   aux      -> Fragment::v3
- *   size     -> Fragment::size
- * Fragment::v2 is generated downstream: Scan writes stroke AA coverage or 0
- * for solid shapes, and Scan::Mesh replaces it with a face index.
+ * overloaded per shape — the authoritative meaning is that shape's own
+ * "Returns:" docblock. The scan rasterizer copies them into the Fragment
+ * register file with no reinterpretation (see Scan::process_pixel): t        ->
+ * Fragment::v0 raw_dist -> Fragment::v1 aux      -> Fragment::v3 size     ->
+ * Fragment::size Fragment::v2 is generated downstream: Scan writes stroke AA
+ * coverage or 0 for solid shapes, and Scan::Mesh replaces it with a face index.
  */
 struct DistanceResult {
-  float dist;        /**< Signed distance (negative inside); always this meaning. */
-  float t;           /**< Per-shape: normalized parameter (0-1) or angle. */
-  float raw_dist;    /**< Per-shape: unsigned or supplementary distance. */
-  float aux;         /**< Per-shape: auxiliary value (e.g. barycentric coordinate). */
+  float dist; /**< Signed distance (negative inside); always this meaning. */
+  float t;    /**< Per-shape: normalized parameter (0-1) or angle. */
+  float raw_dist; /**< Per-shape: unsigned or supplementary distance. */
+  float aux; /**< Per-shape: auxiliary value (e.g. barycentric coordinate). */
   float size = 1.0f; /**< Size metric for AA-falloff normalization. */
 
   /**
@@ -386,8 +393,9 @@ inline bool emit_cap_interval(float cos_cap, float ny, float R_val,
  * @return Inclusive row bounds covering the band.
  * @details phi spans [0,π] over (h_virt-1) virtual rows; the lower edge floors
  * and the upper edge ceils so a partially-covered row is never dropped, and the
- * row clamps fold out-of-range phi. Single source for the floor/ceil conversion,
- * routed through by `phi_bounds_to_rows<H>` and the Face's construction bounds.
+ * row clamps fold out-of-range phi. Single source for the floor/ceil
+ * conversion, routed through by `phi_bounds_to_rows<H>` and the Face's
+ * construction bounds.
  */
 inline Bounds phi_bounds_to_rows(float phi_min, float phi_max, int h_virt,
                                  int height) {
@@ -407,7 +415,8 @@ inline Bounds phi_bounds_to_rows(float phi_min, float phi_max, int h_virt,
  * @details The leaf shapes' get_vertical_bounds all close with this; phi spans
  * [0,π] over (H+H_OFFSET-1) virtual rows.
  */
-template <int H> inline Bounds phi_bounds_to_rows(float phi_min, float phi_max) {
+template <int H>
+inline Bounds phi_bounds_to_rows(float phi_min, float phi_max) {
   return phi_bounds_to_rows(phi_min, phi_max, H + hs::H_OFFSET, H);
 }
 
@@ -421,9 +430,10 @@ template <int H> inline Bounds phi_bounds_to_rows(float phi_min, float phi_max) 
  * @param denom Row scale factor R·sinφ.
  * @param angle_min Output: smaller angular half-extent (radians from azimuth).
  * @param angle_max Output: larger angular half-extent (radians from azimuth).
- * @return False if the band misses this row; true with angles written otherwise.
- * @details cos decreases with angle, so the larger cosine (cos_inner) yields the
- * smaller angle. Shared by the annular scanline emitters.
+ * @return False if the band misses this row; true with angles written
+ * otherwise.
+ * @details cos decreases with angle, so the larger cosine (cos_inner) yields
+ * the smaller angle. Shared by the annular scanline emitters.
  */
 inline bool annular_band_angles(float cos_outer, float cos_inner, float ny,
                                 float cos_phi, float denom, float &angle_min,
@@ -485,8 +495,8 @@ inline void emit_annular_band(float cos_outer, float cos_inner, float ny,
 /**
  * @brief Calculates signed distance to a ring.
  * @details DistanceResult fields: dist = signed distance (negative inside);
- * t = normalized parameter (0-1) corresponding to angle/2PI; raw_dist = unsigned
- * distance to centerline.
+ * t = normalized parameter (0-1) corresponding to angle/2PI; raw_dist =
+ * unsigned distance to centerline.
  */
 struct Ring {
   const Basis &basis; /**< Orientation frame (v = ring axis). */
@@ -495,11 +505,14 @@ struct Ring {
   float phase;        /**< Azimuth phase offset (radians). */
 
   Vector normal, u, w; /**< Ring axis and the two in-plane basis vectors. */
-  float ny; /**< y-component of the ring axis. */
-  float target_angle, center_phi; /**< Centerline polar angle and axis colatitude. */
-  float cos_max, cos_min, cos_target, inv_sin_target, sin_target; /**< Precomputed band trig. */
+  float ny;            /**< y-component of the ring axis. */
+  float target_angle,
+      center_phi; /**< Centerline polar angle and axis colatitude. */
+  float cos_max, cos_min, cos_target, inv_sin_target,
+      sin_target; /**< Precomputed band trig. */
 
-  float r_val;       /**< Horizontal projection length of the axis (for full-row check). */
+  float r_val;       /**< Horizontal projection length of the axis (for full-row
+                        check). */
   float alpha_angle; /**< Azimuth angle of the normal vector in the XZ plane. */
   static constexpr bool is_solid = false; /**< Ring renders as a stroke. */
 
@@ -559,7 +572,8 @@ struct Ring {
    * @tparam OutputIt Sink type invoked as out(float start, float end).
    * @param y The vertical pixel coordinate (row index).
    * @param out Output iterator or callback accepting (float start, float end).
-   * @return True if intervals were found and reported; false requests a full scan.
+   * @return True if intervals were found and reported; false requests a full
+   * scan.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int y, OutputIt out) const {
@@ -586,13 +600,14 @@ struct Ring {
     bool pole_wrap = C_band_near >= cos_pole || C_band_far <= -cos_pole;
 
     // Centerline fast path, valid only while the band edges stay inside [-1,1];
-    // past the clamp boundary the first-order width formula spikes, so fall back
-    // to the exact annular arcs.
+    // past the clamp boundary the first-order width formula spikes, so fall
+    // back to the exact annular arcs.
     float clamp_bound = 1.0f - sin_target * thickness / denom;
     if (!pole_wrap && clamp_bound < 1.0f && C_target > -clamp_bound &&
         C_target < clamp_bound && sin_target > 1e-3f) {
       // Floor the radicand: 1-C^2 nears 0 and can go slightly negative under
-      // -ffast-math (sqrtf(NaN)); the floor also caps half_width on grazing rows.
+      // -ffast-math (sqrtf(NaN)); the floor also caps half_width on grazing
+      // rows.
       float sin_cross = sqrtf(std::max(1.0f - C_target * C_target, 1e-6f));
       float acos_C = fast_acos(C_target);
       // Full thickness: the scan interval must span the stroke-AA footprint
@@ -612,7 +627,8 @@ struct Ring {
     }
 
     // Annular band: exact intervals for near-tangent / out-of-range rows
-    emit_annular_band<W>(cos_min, cos_max, ny, cos_phi, denom, alpha_angle, out);
+    emit_annular_band<W>(cos_min, cos_max, ny, cos_phi, denom, alpha_angle,
+                         out);
     return true;
   }
 
@@ -703,29 +719,36 @@ struct Ring {
 /**
  * @brief Calculates signed distance to a distorted ring.
  * @details DistanceResult fields: dist = signed distance minus thickness;
- * t = normalized parameter (0-1) corresponding to angle/2PI; raw_dist = unsigned
- * distance to centerline.
+ * t = normalized parameter (0-1) corresponding to angle/2PI; raw_dist =
+ * unsigned distance to centerline.
  */
 struct DistortedRing {
-  const Basis &basis;     /**< Orientation frame (v = ring axis). */
-  float radius;           /**< Ring radius as a fraction of the hemisphere. */
-  float thickness;        /**< Half-width of the stroke (radians). */
-  ScalarFn shift_fn;      /**< Per-azimuth centerline shift, t in [0,1) -> radians; empty in knot mode. */
-  const float *knots = nullptr; /**< Optional lut_n + 1 shift knots (entry lut_n repeats entry 0); selects exact polyline distance. */
-  int lut_n = 0;          /**< Knot cell count when knots is set. */
-  float max_distortion;   /**< Maximum magnitude of the shift (radians). */
-  float phase;            /**< Azimuth phase offset (radians). */
+  const Basis &basis; /**< Orientation frame (v = ring axis). */
+  float radius;       /**< Ring radius as a fraction of the hemisphere. */
+  float thickness;    /**< Half-width of the stroke (radians). */
+  ScalarFn shift_fn;  /**< Per-azimuth centerline shift, t in [0,1) -> radians;
+                         empty in knot mode. */
+  const float *knots =
+      nullptr;   /**< Optional lut_n + 1 shift knots (entry lut_n repeats entry
+                    0); selects exact polyline distance. */
+  int lut_n = 0; /**< Knot cell count when knots is set. */
+  float max_distortion; /**< Maximum magnitude of the shift (radians). */
+  float phase;          /**< Azimuth phase offset (radians). */
 
-  Vector normal, u, w;            /**< Ring axis and the two in-plane basis vectors. */
-  float ny; /**< y-component of the ring axis. */
-  float target_angle, center_phi; /**< Centerline polar angle and axis colatitude. */
-  float max_thickness;            /**< thickness + max_distortion (radians). */
+  Vector normal, u, w; /**< Ring axis and the two in-plane basis vectors. */
+  float ny;            /**< y-component of the ring axis. */
+  float target_angle,
+      center_phi;      /**< Centerline polar angle and axis colatitude. */
+  float max_thickness; /**< thickness + max_distortion (radians). */
 
-  float r_val;                    /**< Horizontal projection length of the axis. */
-  float alpha_angle;              /**< Azimuth of the normal in the XZ plane. */
+  float r_val;       /**< Horizontal projection length of the axis. */
+  float alpha_angle; /**< Azimuth of the normal in the XZ plane. */
   float cos_max_limit, cos_min_limit; /**< Cosines of the widened band edges. */
-  bool suppress_pole_fill = false; /**< Drop the degenerate exact-pole row rather than full-row filling it (see get_horizontal_intervals). */
-  static constexpr bool is_solid = false; /**< Distorted ring renders as a stroke. */
+  bool suppress_pole_fill =
+      false; /**< Drop the degenerate exact-pole row rather than full-row
+                filling it (see get_horizontal_intervals). */
+  static constexpr bool is_solid =
+      false; /**< Distorted ring renders as a stroke. */
 
   /**
    * @brief Builds a distorted ring with a per-azimuth centerline shift.
@@ -734,8 +757,8 @@ struct DistortedRing {
    * @param th Half-width of the stroke (radians).
    * @param sf Per-azimuth centerline shift function, t in [0,1) -> radians.
    * @param md Maximum magnitude of sf over t in [0,1) (radians). PRECONDITION:
-   *           md must be a true upper bound on |sf|. It widens the reject bands,
-   *           so an underestimate silently culls genuine arcs. Pinned by the cull
+   *           md must be a true upper bound on |sf|. It widens the reject
+   * bands, so an underestimate silently culls genuine arcs. Pinned by the cull
    *           tests, not checked here.
    * @param ph Azimuth phase offset (radians).
    */
@@ -850,10 +873,11 @@ struct DistortedRing {
     if (std::abs(denom) < INTERVAL_DENOM_EPS)
       // r_val cleared MIN_HORIZONTAL_PROJ above, so a vanishing denom is the
       // exact pole row: every column aliases to the one pole point. A displaced
-      // stroke reaches the pole at a single azimuth, but the degenerate row math
-      // can't recover which column, so the default (return false) full-row scans
-      // and fills the whole aliased row -- fine for a lone ring, but a dense ring
-      // stack renders it as a solid pole cap. suppress_pole_fill drops the row.
+      // stroke reaches the pole at a single azimuth, but the degenerate row
+      // math can't recover which column, so the default (return false) full-row
+      // scans and fills the whole aliased row -- fine for a lone ring, but a
+      // dense ring stack renders it as a solid pole cap. suppress_pole_fill
+      // drops the row.
       return suppress_pole_fill;
 
     emit_annular_band<W>(cos_min_limit, cos_max_limit, ny, cos_phi, denom,
@@ -876,8 +900,8 @@ struct DistortedRing {
    * @brief Computes signed distance to the distorted ring, writing into res.
    * @tparam ComputeUVs When true, also computes the azimuthal t parameter.
    * @param p Point on sphere (normalized).
-   * @param res Output result; dist = signed distance minus thickness, raw_dist =
-   *        unsigned centerline distance, t = azimuth in [0,1) when ComputeUVs.
+   * @param res Output result; dist = signed distance minus thickness, raw_dist
+   * = unsigned centerline distance, t = azimuth in [0,1) when ComputeUVs.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -899,8 +923,8 @@ struct DistortedRing {
 
     float dist;
     if (knots)
-      dist = polyline_distance(
-          t_norm, polar, sqrtf(std::max(1.0f - d * d, POLE_SIN2_FLOOR)));
+      dist = polyline_distance(t_norm, polar,
+                               sqrtf(std::max(1.0f - d * d, POLE_SIN2_FLOOR)));
     else
       dist = std::abs(polar - (target_angle + shift_fn(t_norm)));
 
@@ -929,22 +953,28 @@ struct DistortedRing {
     }
     float dist;
     if (knots)
-      dist = max_distortion > 0.0f
-                 ? polyline_distance(t_norm, polar, sin_polar)
-                 : std::abs(polar - target_angle);
+      dist = max_distortion > 0.0f ? polyline_distance(t_norm, polar, sin_polar)
+                                   : std::abs(polar - target_angle);
     else
       dist = std::abs(polar - (target_angle + shift_fn(t_norm)));
     res = DistanceResult(dist - thickness, t_norm, dist, 0.0f, thickness);
   }
 
-  static constexpr float POLE_SIN2_FLOOR = 1e-6f; /**< sin^2 floor keeping the chart's azimuth scale positive at the poles. */
+  static constexpr float POLE_SIN2_FLOOR =
+      1e-6f; /**< sin^2 floor keeping the chart's azimuth scale positive at the
+                poles. */
 
 private:
-  static constexpr int PREFILTER_CHUNKS = 32; /**< Azimuth chunks in the knot-range prefilter. */
-  static constexpr int MAX_SEARCH_CELLS = 64; /**< Outward search budget per side; only near-pole chart compression approaches it. */
+  static constexpr int PREFILTER_CHUNKS =
+      32; /**< Azimuth chunks in the knot-range prefilter. */
+  static constexpr int MAX_SEARCH_CELLS =
+      64; /**< Outward search budget per side; only near-pole chart compression
+             approaches it. */
 
-  float chunk_lo[PREFILTER_CHUNKS]; /**< Min knot per azimuth chunk (knot mode). */
-  float chunk_hi[PREFILTER_CHUNKS]; /**< Max knot per azimuth chunk (knot mode). */
+  float chunk_lo[PREFILTER_CHUNKS]; /**< Min knot per azimuth chunk (knot mode).
+                                     */
+  float chunk_hi[PREFILTER_CHUNKS]; /**< Max knot per azimuth chunk (knot mode).
+                                     */
 
   /**
    * @brief Distance from a pixel to the knot polyline.
@@ -964,8 +994,10 @@ private:
    * along the centerline the way slope-corrected vertical-distance estimates
    * do at curvature extrema.
    */
-  HS_O3_FN float polyline_distance(float t_norm, float polar, float sin_polar) const {
-    const float base = target_angle - polar; // knot m sits at v = base + knots[m]
+  HS_O3_FN float polyline_distance(float t_norm, float polar,
+                                   float sin_polar) const {
+    const float base =
+        target_angle - polar; // knot m sits at v = base + knots[m]
 
     // Prefilter: when a chunk's arc exceeds the stroke reach, only the pixel's
     // chunk and its neighbours can hold a within-reach curve point; a pixel
@@ -1118,15 +1150,18 @@ struct FlatDistortedRing : private DistortedRing {
 };
 
 /**
- * @brief CSG Union operation (A + B), taking the minimum distance of two shapes.
+ * @brief CSG Union operation (A + B), taking the minimum distance of two
+ * shapes.
  * @tparam A First child shape type.
  * @tparam B Second child shape type.
  */
 template <typename A, typename B> struct Union {
-  const A &a;         /**< First child shape. */
-  const B &b;         /**< Second child shape. */
-  float thickness;    /**< Max child thickness (drives AA falloff). */
-  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the union keeps both interiors. */
+  const A &a;      /**< First child shape. */
+  const B &b;      /**< Second child shape. */
+  float thickness; /**< Max child thickness (drives AA falloff). */
+  static constexpr bool is_solid =
+      A::is_solid || B::is_solid; /**< Solid if either child is; the union keeps
+                                     both interiors. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Union children must be SDF shapes "
@@ -1134,10 +1169,11 @@ template <typename A, typename B> struct Union {
   static_assert(A::is_solid == B::is_solid,
                 "CSG Union children must share solidity; a solid+stroke mix "
                 "renders the stroke winner through the solid AA branch");
-  static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
-                    2 * INTERVAL_SPAN_CAP,
-                "nested CSG union exceeds MergedIntervalBuffer capacity; flatten "
-                "the union or raise INTERVAL_SPAN_CAP");
+  static_assert(
+      sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
+          2 * INTERVAL_SPAN_CAP,
+      "nested CSG union exceeds MergedIntervalBuffer capacity; flatten "
+      "the union or raise INTERVAL_SPAN_CAP");
 
   /**
    * @brief Builds a union of two child shapes.
@@ -1162,10 +1198,12 @@ template <typename A, typename B> struct Union {
     bool b_culled = b2.y_min > b2.y_max;
     if (a_culled && b_culled)
       return {1, 0};
-    int lo = a_culled ? b2.y_min : b_culled ? b1.y_min
-                                            : std::min(b1.y_min, b2.y_min);
-    int hi = a_culled ? b2.y_max : b_culled ? b1.y_max
-                                            : std::max(b1.y_max, b2.y_max);
+    int lo = a_culled   ? b2.y_min
+             : b_culled ? b1.y_min
+                        : std::min(b1.y_min, b2.y_min);
+    int hi = a_culled   ? b2.y_max
+             : b_culled ? b1.y_max
+                        : std::max(b1.y_max, b2.y_max);
     return {lo, hi};
   }
 
@@ -1233,17 +1271,20 @@ template <typename A, typename B> struct Union {
 };
 
 /**
- * @brief Smooth CSG Union using a polynomial smooth minimum (Inigo Quilez smin).
+ * @brief Smooth CSG Union using a polynomial smooth minimum (Inigo Quilez
+ * smin).
  * @tparam A First child shape type.
  * @tparam B Second child shape type.
  * @details Shapes organically blend together within radius k (radians).
  */
 template <typename A, typename B> struct SmoothUnion {
-  const A &a;         /**< First child shape. */
-  const B &b;         /**< Second child shape. */
-  float k;            /**< Smoothing radius in radians (e.g. 0.1). */
-  float thickness;    /**< Max child thickness (drives AA falloff). */
-  static constexpr bool is_solid = A::is_solid || B::is_solid; /**< Solid if either child is; the smooth union keeps both interiors. */
+  const A &a;      /**< First child shape. */
+  const B &b;      /**< Second child shape. */
+  float k;         /**< Smoothing radius in radians (e.g. 0.1). */
+  float thickness; /**< Max child thickness (drives AA falloff). */
+  static constexpr bool is_solid =
+      A::is_solid || B::is_solid; /**< Solid if either child is; the smooth
+                                     union keeps both interiors. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG SmoothUnion children must be SDF shapes "
@@ -1251,10 +1292,11 @@ template <typename A, typename B> struct SmoothUnion {
   static_assert(A::is_solid == B::is_solid,
                 "CSG SmoothUnion children must share solidity; a solid+stroke "
                 "mix renders the stroke winner through the solid AA branch");
-  static_assert(sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
-                    2 * INTERVAL_SPAN_CAP,
-                "nested CSG smooth-union exceeds MergedIntervalBuffer capacity; "
-                "flatten the union or raise INTERVAL_SPAN_CAP");
+  static_assert(
+      sdf_max_spans<A>::value + sdf_max_spans<B>::value <=
+          2 * INTERVAL_SPAN_CAP,
+      "nested CSG smooth-union exceeds MergedIntervalBuffer capacity; "
+      "flatten the union or raise INTERVAL_SPAN_CAP");
 
   /**
    * @brief Builds a smooth union of two child shapes.
@@ -1269,7 +1311,8 @@ template <typename A, typename B> struct SmoothUnion {
   }
 
   /**
-   * @brief Row bounds spanning both children's bands, padded by the blend radius.
+   * @brief Row bounds spanning both children's bands, padded by the blend
+   * radius.
    * @tparam H Canvas height in rows.
    * @return Inclusive row bounds expanded by k (converted to rows).
    */
@@ -1283,10 +1326,12 @@ template <typename A, typename B> struct SmoothUnion {
     bool b_culled = b2.y_min > b2.y_max;
     if (a_culled && b_culled)
       return {1, 0};
-    int lo = a_culled ? b2.y_min : b_culled ? b1.y_min
-                                            : std::min(b1.y_min, b2.y_min);
-    int hi = a_culled ? b2.y_max : b_culled ? b1.y_max
-                                            : std::max(b1.y_max, b2.y_max);
+    int lo = a_culled   ? b2.y_min
+             : b_culled ? b1.y_min
+                        : std::min(b1.y_min, b2.y_min);
+    int hi = a_culled   ? b2.y_max
+             : b_culled ? b1.y_max
+                        : std::max(b1.y_max, b2.y_max);
     // Expand by the blend radius k (radians) converted to rows: phi spans [0,π]
     // over (H_VIRT-1) rows.
     int pad = std::max(1, static_cast<int>(ceilf(k * (H_VIRT - 1) / PI_F)));
@@ -1312,10 +1357,10 @@ template <typename A, typename B> struct SmoothUnion {
     // equatorial conversion under-covers toward the poles. Clamp to full width
     // where the latitude factor diverges.
     float sin_phi = TrigLUT<W, H>::sin_phi[y];
-    float pad_px = sin_phi > INTERVAL_DENOM_EPS
-                       ? std::min(k * W / (2 * PI_F) / sin_phi,
-                                  static_cast<float>(W))
-                       : static_cast<float>(W);
+    float pad_px =
+        sin_phi > INTERVAL_DENOM_EPS
+            ? std::min(k * W / (2 * PI_F) / sin_phi, static_cast<float>(W))
+            : static_cast<float>(W);
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
         y, [&](float start, float end) {
@@ -1357,11 +1402,11 @@ template <typename A, typename B> struct SmoothUnion {
    * @brief Signed distance to the smooth union, writing into res.
    * @tparam ComputeUVs Forwarded to each child's distance().
    * @param p Point on sphere (normalized).
-   * @param res Output result; the nearer child's result with its dist reduced by
-   *        the cubic smin blend term.
+   * @param res Output result; the nearer child's result with its dist reduced
+   * by the cubic smin blend term.
    * @note Only `dist` is blended across the weld; the auxiliary registers
-   *       (`t`/`raw_dist`/`size`/UVs) snap to the nearer child, so a shader keying
-   *       off them sees a hard edge through the weld. Intentional, not a bug.
+   *       (`t`/`raw_dist`/`size`/UVs) snap to the nearer child, so a shader
+   * keying off them sees a hard edge through the weld. Intentional, not a bug.
    * @warning The cubic smin pulls `dist` below the true distance near the weld,
    *          so this SDF is not sphere-tracing-safe (unlike WarpedVolume's
    *          Lipschitz-corrected distance) — scanline rasterization only.
@@ -1394,14 +1439,16 @@ template <typename A, typename B> struct Subtract {
   const A &a;      /**< Minuend shape. */
   const B &b;      /**< Subtrahend shape (removed from A). */
   float thickness; /**< Inherited from the minuend A. */
-  static constexpr bool is_solid = A::is_solid; /**< Tracks the minuend; carving B never changes A's solidity. */
+  static constexpr bool is_solid =
+      A::is_solid; /**< Tracks the minuend; carving B never changes A's
+                      solidity. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Subtract children must be SDF shapes "
                 "(is_solid/thickness)");
-  // Each child is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP) before
-  // differencing, so a child that could emit more spans must be rejected at
-  // compile time rather than trapping in push_interval at runtime.
+  // Each child is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP)
+  // before differencing, so a child that could emit more spans must be rejected
+  // at compile time rather than trapping in push_interval at runtime.
   static_assert(sdf_max_spans<A>::value <= INTERVAL_SPAN_CAP &&
                     sdf_max_spans<B>::value <= INTERVAL_SPAN_CAP,
                 "nested CSG Subtract child exceeds IntervalBuffer capacity; "
@@ -1440,7 +1487,9 @@ template <typename A, typename B> struct Subtract {
     IntervalBuffer intervals_b;
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { push_interval(intervals_a, start, end); });
+        y, [&](float start, float end) {
+          push_interval(intervals_a, start, end);
+        });
 
     if (!has_a)
       return false;
@@ -1449,14 +1498,15 @@ template <typename A, typename B> struct Subtract {
       return true;
 
     // The set-difference loop and scan_region's coalescer both require
-    // start-sorted intervals; a multi-interval child can emit them out of order.
+    // start-sorted intervals; a multi-interval child can emit them out of
+    // order.
     sort_intervals_by_start(intervals_a);
 
     // A stroke subtrahend's edge-bands can coalesce into one chord spanning the
-    // stroke's hollow interior; subtracting that would carve A's interior. So for
-    // a non-solid B, emit A's spans (seam-split into [0, W)) and let per-pixel
-    // max(A, -B) carve exactly the stroke band — with no horizontal culling, so
-    // Subtract<solid, stroke> pays full A-coverage shading.
+    // stroke's hollow interior; subtracting that would carve A's interior. So
+    // for a non-solid B, emit A's spans (seam-split into [0, W)) and let
+    // per-pixel max(A, -B) carve exactly the stroke band — with no horizontal
+    // culling, so Subtract<solid, stroke> pays full A-coverage shading.
     if constexpr (!B::is_solid) {
       constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
       static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP,
@@ -1470,7 +1520,9 @@ template <typename A, typename B> struct Subtract {
     }
 
     bool has_b = b.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { push_interval(intervals_b, start, end); });
+        y, [&](float start, float end) {
+          push_interval(intervals_b, start, end);
+        });
 
     // B's fallback means "no intervals produced", not "covers the row": without
     // B's intervals the set difference is undefined, so request a full-row scan
@@ -1486,18 +1538,18 @@ template <typename A, typename B> struct Subtract {
     }
 
     // Normalize both children into [0, W) (seam-split) before differencing: a
-    // band straddling θ=0 can be emitted by A and B in different wrap frames, and
-    // the raw-coordinate disjointness test below would then miss the overlap and
-    // under-carve at the seam. Seam-splitting at most doubles each child's span
-    // count, so the buffers are sized 2x.
+    // band straddling θ=0 can be emitted by A and B in different wrap frames,
+    // and the raw-coordinate disjointness test below would then miss the
+    // overlap and under-carve at the seam. Seam-splitting at most doubles each
+    // child's span count, so the buffers are sized 2x.
     //
-    // Output bound: the set difference splits an A span once per enclosed B span
-    // (B spans disjoint), so at most |norm_a| + |norm_b| spans. Only one span per
-    // child straddles θ=0 in a row, so the real maximum is
-    // sdf_max_spans<A> + sdf_max_spans<B> + 2; reaching even 2*INTERVAL_SPAN_CAP
-    // would require both children to emit INTERVAL_SPAN_CAP
-    // disjoint arcs in a single row, which no SDF shape does. push_interval traps
-    // (fail-fast) if that ever holds.
+    // Output bound: the set difference splits an A span once per enclosed B
+    // span (B spans disjoint), so at most |norm_a| + |norm_b| spans. Only one
+    // span per child straddles θ=0 in a row, so the real maximum is
+    // sdf_max_spans<A> + sdf_max_spans<B> + 2; reaching even
+    // 2*INTERVAL_SPAN_CAP would require both children to emit INTERVAL_SPAN_CAP
+    // disjoint arcs in a single row, which no SDF shape does. push_interval
+    // traps (fail-fast) if that ever holds.
     constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
     static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP &&
                       2 * sdf_max_spans<B>::value <= SEAM_SPLIT_CAP,
@@ -1512,7 +1564,8 @@ template <typename A, typename B> struct Subtract {
     sort_intervals_by_start(norm_a);
     sort_intervals_by_start(norm_b);
 
-    // Set difference: for each A interval, subtract all overlapping B intervals.
+    // Set difference: for each A interval, subtract all overlapping B
+    // intervals.
     for (size_t ai = 0; ai < norm_a.size(); ++ai) {
       float cur_start = norm_a[ai].first;
       float cur_end = norm_a[ai].second;
@@ -1567,7 +1620,8 @@ template <typename A, typename B> struct Subtract {
    * @brief Signed distance to the subtraction, writing into res.
    * @tparam ComputeUVs Forwarded to each child's distance().
    * @param p Point on sphere (normalized).
-   * @param res Output result; max(A, -B) with B's distance negated when it wins.
+   * @param res Output result; max(A, -B) with B's distance negated when it
+   * wins.
    */
   template <bool ComputeUVs = true>
   void distance(const Vector &p, DistanceResult &res) const {
@@ -1590,18 +1644,20 @@ template <typename A, typename B> struct Intersection {
   const A &a;      /**< First child shape. */
   const B &b;      /**< Second child shape. */
   float thickness; /**< Min child thickness (drives AA falloff). */
-  static constexpr bool is_solid = A::is_solid && B::is_solid; /**< Solid iff both children are. */
+  static constexpr bool is_solid =
+      A::is_solid && B::is_solid; /**< Solid iff both children are. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
                 "CSG Intersection children must be SDF shapes "
                 "(is_solid/thickness)");
-  // Each child is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP) before
-  // the merge-sweep, so a child that could emit more spans must be rejected at
-  // compile time rather than trapping in push_interval at runtime.
-  static_assert(sdf_max_spans<A>::value <= INTERVAL_SPAN_CAP &&
-                    sdf_max_spans<B>::value <= INTERVAL_SPAN_CAP,
-                "nested CSG Intersection child exceeds IntervalBuffer capacity; "
-                "flatten the nesting or raise INTERVAL_SPAN_CAP");
+  // Each child is collected into an IntervalBuffer (cap INTERVAL_SPAN_CAP)
+  // before the merge-sweep, so a child that could emit more spans must be
+  // rejected at compile time rather than trapping in push_interval at runtime.
+  static_assert(
+      sdf_max_spans<A>::value <= INTERVAL_SPAN_CAP &&
+          sdf_max_spans<B>::value <= INTERVAL_SPAN_CAP,
+      "nested CSG Intersection child exceeds IntervalBuffer capacity; "
+      "flatten the nesting or raise INTERVAL_SPAN_CAP");
 
   /**
    * @brief Builds an intersection of two child shapes.
@@ -1639,10 +1695,14 @@ template <typename A, typename B> struct Intersection {
     IntervalBuffer intervals_b;
 
     bool has_a = a.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { push_interval(intervals_a, start, end); });
+        y, [&](float start, float end) {
+          push_interval(intervals_a, start, end);
+        });
 
     bool has_b = b.template get_horizontal_intervals<W, H>(
-        y, [&](float start, float end) { push_interval(intervals_b, start, end); });
+        y, [&](float start, float end) {
+          push_interval(intervals_b, start, end);
+        });
 
     // A full-width child intersected with the other child is just the other
     // child's intervals, already collected above; replay the buffer.
@@ -1660,12 +1720,13 @@ template <typename A, typename B> struct Intersection {
     if (intervals_a.is_empty() || intervals_b.is_empty())
       return true;
 
-    // Normalize both children into [0, W) (seam-split) before the merge sweep: a
-    // band straddling θ=0 can be emitted by A and B in different wrap frames
-    // (A as [-5, 5], B as [W-5, W+5]), and the raw-coordinate overlap below would
-    // then miss the shared coverage and under-report at the seam. Splitting into
-    // a common [0, W) frame makes the comparison correct. Seam-splitting at most
-    // doubles each child's span count, so the buffers are sized 2x.
+    // Normalize both children into [0, W) (seam-split) before the merge sweep:
+    // a band straddling θ=0 can be emitted by A and B in different wrap frames
+    // (A as [-5, 5], B as [W-5, W+5]), and the raw-coordinate overlap below
+    // would then miss the shared coverage and under-report at the seam.
+    // Splitting into a common [0, W) frame makes the comparison correct.
+    // Seam-splitting at most doubles each child's span count, so the buffers
+    // are sized 2x.
     constexpr size_t SEAM_SPLIT_CAP = 2 * INTERVAL_SPAN_CAP;
     static_assert(2 * sdf_max_spans<A>::value <= SEAM_SPLIT_CAP &&
                       2 * sdf_max_spans<B>::value <= SEAM_SPLIT_CAP,
@@ -1675,8 +1736,8 @@ template <typename A, typename B> struct Intersection {
     normalize_intervals_to_range<W>(intervals_a, norm_a);
     normalize_intervals_to_range<W>(intervals_b, norm_b);
 
-    // The merge sweep requires both lists start-sorted; the seam split above can
-    // reorder them.
+    // The merge sweep requires both lists start-sorted; the seam split above
+    // can reorder them.
     sort_intervals_by_start(norm_a);
     sort_intervals_by_start(norm_b);
 
@@ -1745,14 +1806,15 @@ template <typename A, typename B> struct Intersection {
  */
 template <typename Shape> struct AngularRepeat {
   const Shape &shape; /**< Child shape being repeated. */
-  Vector axis, u, w;  /**< Rotation axis and the derived perpendicular plane (u, w). */
-  int repetitions;    /**< Number of copies around the axis. */
-  float thickness;    /**< Inherited from the child shape. */
-  static constexpr bool is_solid = Shape::is_solid; /**< Matches the child's solidity. */
+  Vector axis, u,
+      w; /**< Rotation axis and the derived perpendicular plane (u, w). */
+  int repetitions; /**< Number of copies around the axis. */
+  float thickness; /**< Inherited from the child shape. */
+  static constexpr bool is_solid =
+      Shape::is_solid; /**< Matches the child's solidity. */
 
-  static_assert(SDFShape<Shape>,
-                "AngularRepeat child must be an SDF shape "
-                "(is_solid/thickness)");
+  static_assert(SDFShape<Shape>, "AngularRepeat child must be an SDF shape "
+                                 "(is_solid/thickness)");
 
   /**
    * @brief Repeats the shape around an arbitrary axis.
@@ -1859,11 +1921,11 @@ template <typename Shape> struct AngularRepeat {
 
 // --- Congruence-class canonical distance LUTs --------------------------------
 // Every islamic mesh's faces are near-exact copies of a handful of canonical 2D
-// shapes (gnomonic projection about each face's centroid is position-covariant).
-// MeshOps bakes one signed-distance LUT per congruence class at spawn
-// (core/mesh/mesh_classes.h); Scan::Mesh binds it per frame via bind_class_lut,
-// and Face::distance serves sign-pure probes from a bilinear lookup instead of
-// the exact per-edge walk.
+// shapes (gnomonic projection about each face's centroid is
+// position-covariant). MeshOps bakes one signed-distance LUT per congruence
+// class at spawn (core/mesh/mesh_classes.h); Scan::Mesh binds it per frame via
+// bind_class_lut, and Face::distance serves sign-pure probes from a bilinear
+// lookup instead of the exact per-edge walk.
 
 /** Minimum squared normalized correlation for a valid class-LUT alignment;
  *  below this the face is too deformed and keeps the exact path. */
@@ -1882,14 +1944,15 @@ static constexpr float ALIGN_MAX_DEV_DIAGS = 0.25f;
  * max_dist_sq cull ring, so any probe surviving the cull lands in-domain.
  */
 struct ClassLut {
-  const int16_t *data = nullptr; /**< n*n quantized signed distances (row-major). */
-  int n = 0;                     /**< Grid resolution per axis. */
-  float cx = 0, cy = 0;          /**< Canonical bounding-box center. */
-  float Rx = 0, Ry = 0;          /**< Half-extents (+ margin). */
-  float inv_step_x = 0;          /**< Reciprocal cell width. */
-  float inv_step_y = 0;          /**< Reciprocal cell height. */
-  float safe_dist = 0;           /**< Cell diagonal (sign-pure interpolation bound). */
-  float dequant = 0;             /**< int16 -> plane-unit scale. */
+  const int16_t *data =
+      nullptr;          /**< n*n quantized signed distances (row-major). */
+  int n = 0;            /**< Grid resolution per axis. */
+  float cx = 0, cy = 0; /**< Canonical bounding-box center. */
+  float Rx = 0, Ry = 0; /**< Half-extents (+ margin). */
+  float inv_step_x = 0; /**< Reciprocal cell width. */
+  float inv_step_y = 0; /**< Reciprocal cell height. */
+  float safe_dist = 0;  /**< Cell diagonal (sign-pure interpolation bound). */
+  float dequant = 0;    /**< int16 -> plane-unit scale. */
 };
 
 /**
@@ -2012,8 +2075,8 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
         }
       }
       float d = (inside ? -1.0f : 1.0f) * sqrtf(d_sq);
-      out[gy * n + gx] = static_cast<int16_t>(
-          hs::clamp(d * quant, -32767.0f, 32767.0f));
+      out[gy * n + gx] =
+          static_cast<int16_t>(hs::clamp(d * quant, -32767.0f, 32767.0f));
     }
   }
   lut.data = out;
@@ -2024,22 +2087,30 @@ inline void build_canonical_distance_lut(const float *poly_xy, int count, int n,
  */
 struct FaceScratchBuffer {
   static constexpr int MAX_VERTS = 64; /**< Maximum vertices per face. */
-  std::array<Vector, MAX_VERTS + 1> poly_2d; /**< Projected 2D polygon (+1 entry to avoid modulo). */
-  std::array<Vector, MAX_VERTS> edge_vectors;       /**< Per-edge 2D vectors. */
-  std::array<float, MAX_VERTS> edge_lengths_sq;     /**< Per-edge squared lengths. */
-  std::array<Vector, MAX_VERTS> planes;             /**< Per-edge great-circle normals. */
-  std::array<std::pair<float, float>, 4> intervals; /**< Azimuth coverage intervals. */
-  std::array<float, MAX_VERTS> thetas;              /**< Per-vertex azimuth angles. */
-  std::array<float, MAX_VERTS> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
-  std::array<float, MAX_VERTS> inv_edge_j;          /**< Reciprocal of each edge's y-component. */
-  std::array<Vector, MAX_VERTS + 1> verts_3d;       /**< 3D vertices (+1 wrap entry). */
-  std::array<Vector, MAX_VERTS> edge_normals;       /**< Per-edge normalized 3D normals. */
+  std::array<Vector, MAX_VERTS + 1>
+      poly_2d; /**< Projected 2D polygon (+1 entry to avoid modulo). */
+  std::array<Vector, MAX_VERTS> edge_vectors; /**< Per-edge 2D vectors. */
+  std::array<float, MAX_VERTS>
+      edge_lengths_sq;                  /**< Per-edge squared lengths. */
+  std::array<Vector, MAX_VERTS> planes; /**< Per-edge great-circle normals. */
+  std::array<std::pair<float, float>, 4>
+      intervals;                       /**< Azimuth coverage intervals. */
+  std::array<float, MAX_VERTS> thetas; /**< Per-vertex azimuth angles. */
+  std::array<float, MAX_VERTS>
+      inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
+  std::array<float, MAX_VERTS>
+      inv_edge_j; /**< Reciprocal of each edge's y-component. */
+  std::array<Vector, MAX_VERTS + 1>
+      verts_3d; /**< 3D vertices (+1 wrap entry). */
+  std::array<Vector, MAX_VERTS>
+      edge_normals; /**< Per-edge normalized 3D normals. */
 
   /**
    * @brief Packed per-edge data for the cache-friendly distance() fallback.
    */
   struct EdgePacked {
-    float vx, vy, ex, ey, inv_len_sq, inv_ej, next_vy, pad; /**< Edge origin, vector, reciprocals, next-vertex y, padding. */
+    float vx, vy, ex, ey, inv_len_sq, inv_ej, next_vy,
+        pad; /**< Edge origin, vector, reciprocals, next-vertex y, padding. */
   };
   std::array<EdgePacked, MAX_VERTS> packed_edges; /**< Packed per-edge data. */
 
@@ -2047,9 +2118,11 @@ struct FaceScratchBuffer {
    * @brief Outward unit edge normal and line offset for the convex fast path.
    */
   struct HalfPlane {
-    float nx, ny, off, pad; /**< Unit normal, offset (dist = nx*px + ny*py + off), padding to a 16-byte stride. */
+    float nx, ny, off, pad; /**< Unit normal, offset (dist = nx*px + ny*py +
+                               off), padding to a 16-byte stride. */
   };
-  std::array<HalfPlane, MAX_VERTS> half_planes; /**< Convex-face edge half-planes. */
+  std::array<HalfPlane, MAX_VERTS>
+      half_planes; /**< Convex-face edge half-planes. */
 };
 
 /**
@@ -2058,49 +2131,57 @@ struct FaceScratchBuffer {
  * accelerate rasterization.
  */
 struct Face {
-  Vector center;                    /**< Normalized face centroid (projection axis). */
+  Vector center; /**< Normalized face centroid (projection axis). */
   Vector basis_v, basis_u, basis_w; /**< Local tangent frame (v = center). */
   int count;                        /**< Vertex/edge count. */
   float thickness;                  /**< Edge half-width (radians). */
-  float size;                       /**< Inradius metric for AA normalization. */
-  float radius = 0.0f;              /**< Circumradius in the 2D projection. */
-  float max_dist = 0.0f;            /**< Cull radius (circumradius plus margin). */
-  float max_dist_sq = 0.0f;         /**< Squared cull radius. */
+  float size;               /**< Inradius metric for AA normalization. */
+  float radius = 0.0f;      /**< Circumradius in the 2D projection. */
+  float max_dist = 0.0f;    /**< Cull radius (circumradius plus margin). */
+  float max_dist_sq = 0.0f; /**< Squared cull radius. */
 
-  std::span<Vector> poly_2d;            /**< Projected 2D polygon (+1 wrap entry). */
-  std::span<Vector> edge_vectors;       /**< Per-edge 2D vectors. */
+  std::span<Vector> poly_2d;      /**< Projected 2D polygon (+1 wrap entry). */
+  std::span<Vector> edge_vectors; /**< Per-edge 2D vectors. */
   std::span<float> edge_lengths_sq;     /**< Per-edge squared lengths. */
   std::span<Vector> planes;             /**< Per-edge great-circle normals. */
   std::span<float> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
-  std::span<float> inv_edge_j;          /**< Reciprocal of each edge's y-component. */
-  std::span<Vector> verts_3d;           /**< 3D vertices (+1 wrap entry). */
-  std::span<Vector> edge_normals;       /**< Per-edge normalized 3D normals. */
+  std::span<float> inv_edge_j;    /**< Reciprocal of each edge's y-component. */
+  std::span<Vector> verts_3d;     /**< 3D vertices (+1 wrap entry). */
+  std::span<Vector> edge_normals; /**< Per-edge normalized 3D normals. */
 
-  int y_min, y_max;                            /**< Inclusive vertical row bounds. */
-  int build_height;                            /**< Canvas height the bounds were computed for. */
-  std::span<std::pair<float, float>> intervals; /**< Azimuth coverage intervals (radians). */
-  bool full_width;                             /**< True when the face spans all columns. */
-  static constexpr bool is_solid = true;       /**< Face renders as a filled region. */
+  int y_min, y_max; /**< Inclusive vertical row bounds. */
+  int build_height; /**< Canvas height the bounds were computed for. */
+  std::span<std::pair<float, float>>
+      intervals;   /**< Azimuth coverage intervals (radians). */
+  bool full_width; /**< True when the face spans all columns. */
+  static constexpr bool is_solid =
+      true; /**< Face renders as a filled region. */
 
-  using EdgePacked = FaceScratchBuffer::EdgePacked; /**< Packed per-edge record type. */
-  std::span<EdgePacked> packed_edges;               /**< Packed per-edge data. */
-  using HalfPlane = FaceScratchBuffer::HalfPlane;   /**< Convex edge half-plane record type. */
-  std::span<const HalfPlane> half_planes; /**< Outward unit edge normals (convex faces). */
-  bool convex = false; /**< 2D projection is convex; distance() takes the half-plane path. */
-  bool linear_dist = false; /**< Face is small enough to report plane distance without the atan. */
+  using EdgePacked =
+      FaceScratchBuffer::EdgePacked;  /**< Packed per-edge record type. */
+  std::span<EdgePacked> packed_edges; /**< Packed per-edge data. */
+  using HalfPlane =
+      FaceScratchBuffer::HalfPlane; /**< Convex edge half-plane record type. */
+  std::span<const HalfPlane>
+      half_planes;          /**< Outward unit edge normals (convex faces). */
+  bool convex = false;      /**< 2D projection is convex; distance() takes the
+                               half-plane path. */
+  bool linear_dist = false; /**< Face is small enough to report plane distance
+                               without the atan. */
 
   // Congruence-class LUT binding (bind_class_lut), flattened for the probe
   // loop: one affine map takes gnomonic (px, py) straight to LUT grid
   // coordinates (centroid shift, canonical rotation/reflection, and grid
   // scale folded together), and the sign-purity guard compares raw int16
   // magnitudes against a pre-divided quantized threshold.
-  const int16_t *lut_data = nullptr; /**< Class LUT samples; null = exact path. */
-  int lut_n = 0;                     /**< LUT grid resolution per axis. */
-  int32_t lut_q_safe = 0;            /**< safe_dist in quantized units. */
-  float lut_ax, lut_bx, lut_cx;      /**< Grid-x affine coefficients. */
-  float lut_ay, lut_by, lut_cy;      /**< Grid-y affine coefficients. */
-  float lut_clamp;                   /**< Grid clamp bound (n - 2). */
-  float lut_dequant;                 /**< int16 -> plane-unit scale. */
+  const int16_t *lut_data =
+      nullptr;                  /**< Class LUT samples; null = exact path. */
+  int lut_n = 0;                /**< LUT grid resolution per axis. */
+  int32_t lut_q_safe = 0;       /**< safe_dist in quantized units. */
+  float lut_ax, lut_bx, lut_cx; /**< Grid-x affine coefficients. */
+  float lut_ay, lut_by, lut_cy; /**< Grid-y affine coefficients. */
+  float lut_clamp;              /**< Grid clamp bound (n - 2). */
+  float lut_dequant;            /**< int16 -> plane-unit scale. */
 
   /**
    * @brief Builds a face's projection, bounds, and edge data.
@@ -2131,6 +2212,27 @@ struct Face {
              "Face: vertex count must be in (0, MAX_VERTS]");
 
     setup_frame_and_polygon(vertices, indices, scratch);
+
+    // A fully collapsed polygon (signed area ~ 0, e.g. a hankin rosette at
+    // angle 0 spiking out to each edge midpoint and back through its corner)
+    // encloses no region, but its boundary would still rasterize as a ~1 px
+    // AA line; cull it like the phi-extent reject. The residual of an exactly
+    // collapsed face is float noise (< ~1e-6 of radius^2), orders of
+    // magnitude under the thinnest real sliver a sweep draws, so the
+    // threshold decision is identical sim/device. Stroked shapes keep
+    // drawing their outline.
+    if (thickness <= 0.0f) {
+      float area2 = 0.0f;
+      for (int i = 0; i < count; ++i)
+        area2 +=
+            poly_2d[i].x * poly_2d[i + 1].y - poly_2d[i + 1].x * poly_2d[i].y;
+      if (fabsf(area2) < COLLAPSED_AREA_RATIO * radius * radius) {
+        y_min = 1;
+        y_max = 0;
+        return;
+      }
+    }
+
     compute_inradius(scratch);
 
     // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
@@ -2142,7 +2244,8 @@ struct Face {
 
     edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
     edge_lengths_sq = std::span<float>(scratch.edge_lengths_sq.data(), count);
-    inv_edge_lengths_sq = std::span<float>(scratch.inv_edge_lengths_sq.data(), count);
+    inv_edge_lengths_sq =
+        std::span<float>(scratch.inv_edge_lengths_sq.data(), count);
     inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
@@ -2234,15 +2337,16 @@ struct Face {
     float max_phi_check = fast_acos(hs::clamp(min_y_val, -1.0f, 1.0f));
     float margin_check = thickness + BOUNDS_MARGIN;
 
-    Bounds rows = phi_bounds_to_rows(min_phi_check - margin_check,
-                                     max_phi_check + margin_check, h_virt,
-                                     height);
+    Bounds rows =
+        phi_bounds_to_rows(min_phi_check - margin_check,
+                           max_phi_check + margin_check, h_virt, height);
 
     return rows.y_min > rows.y_max;
   }
 
   /**
-   * @brief Builds the local tangent frame, gnomonic 2D projection, and 3D arrays.
+   * @brief Builds the local tangent frame, gnomonic 2D projection, and 3D
+   * arrays.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices.
    * @param scratch Scratch storage receiving poly_2d, verts_3d, edge_normals.
@@ -2266,8 +2370,9 @@ struct Face {
     float max_r2 = 0.0f;
     for (int i = 0; i < count; ++i) {
       const Vector &v = vertices[indices[i]];
-      // Gnomonic projection divides by d = cos(angle from face center), singular
-      // near the center's antipode; clamp d away from zero, sign-preserving.
+      // Gnomonic projection divides by d = cos(angle from face center),
+      // singular near the center's antipode; clamp d away from zero,
+      // sign-preserving.
       float d = dot(v, basis_v);
       if (fabsf(d) < math::TOLERANCE)
         d = copysignf(math::TOLERANCE, d);
@@ -2406,8 +2511,7 @@ struct Face {
         d0 = scratch.half_planes[i].off;
     if (d0 >= 0.0f)
       return;
-    half_planes =
-        std::span<const HalfPlane>(scratch.half_planes.data(), count);
+    half_planes = std::span<const HalfPlane>(scratch.half_planes.data(), count);
     convex = true;
   }
 
@@ -2421,10 +2525,10 @@ struct Face {
    * @return False when the correlation is degenerate (badly deformed face);
    *         the face then keeps the exact path.
    * @details One complex correlation over the vertices recovers the in-plane
-   * rotation placing the canonical shape at the face's least-squares pose, so the
-   * interior gradient follows the face's rigid motion through a ripple while edges
-   * stay exact. Rotational-symmetry ambiguity is harmless (the LUT is invariant
-   * under the shape's symmetry group).
+   * rotation placing the canonical shape at the face's least-squares pose, so
+   * the interior gradient follows the face's rigid motion through a ripple
+   * while edges stay exact. Rotational-symmetry ambiguity is harmless (the LUT
+   * is invariant under the shape's symmetry group).
    */
   bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
                       int vert_offset, bool reflected) {
@@ -2451,8 +2555,8 @@ struct Face {
     // |d_true - d_canon| is bounded by the worst aligned vertex deviation, so
     // widen the sign-purity guard by that bound: a bent face falls back to the
     // exact walk near its true edges instead of serving wrong-signed canonical
-    // distances (faces separating under ripple). Faces bent beyond range keep the
-    // exact path.
+    // distances (faces separating under ripple). Faces bent beyond range keep
+    // the exact path.
     float max_dev_sq = 0.0f;
     {
       int j = vert_offset;
@@ -2501,9 +2605,10 @@ struct Face {
   /**
    * @brief Computes the face's azimuth coverage intervals.
    * @param scratch Scratch storage holding thetas and receiving intervals.
-   * @details Finds the largest angular gap between vertices; if it exceeds pi the
-   * face does not wrap, so the complementary horizontal interval(s) are emitted,
-   * else it spans full width. Coarse: only the single largest gap is excised.
+   * @details Finds the largest angular gap between vertices; if it exceeds pi
+   * the face does not wrap, so the complementary horizontal interval(s) are
+   * emitted, else it spans full width. Coarse: only the single largest gap is
+   * excised.
    */
   __attribute__((always_inline)) void
   compute_azimuth_intervals(FaceScratchBuffer &scratch) {
@@ -2595,9 +2700,9 @@ struct Face {
    * @param v2 Second edge endpoint (on the unit sphere).
    * @param min_phi In/out running minimum phi.
    * @param max_phi In/out running maximum phi.
-   * @details The extremum of an edge's arc may lie between its endpoints; project
-   * the pole-tangent onto the plane and, if it falls inside the arc, fold its phi
-   * into the bounds.
+   * @details The extremum of an edge's arc may lie between its endpoints;
+   * project the pole-tangent onto the plane and, if it falls inside the arc,
+   * fold its phi into the bounds.
    */
   static __attribute__((always_inline)) void
   refine_phi_from_arc_extremum(const Vector &n, const Vector &v1,
@@ -2664,7 +2769,8 @@ struct Face {
   }
 
   /**
-   * @brief Full-path vertical bounds (arc extrema + pole containment) for large faces.
+   * @brief Full-path vertical bounds (arc extrema + pole containment) for large
+   * faces.
    * @param scratch Scratch storage receiving edge data, planes, and thetas.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices.
@@ -2702,8 +2808,9 @@ struct Face {
       Vector normal = cross(v1, v2);
       float len_sq = dot(normal, normal);
       // planes[] is COMPACTED: a degenerate edge pushes no plane, so planes[k]
-      // does NOT correspond to edge k (unlike the per-edge arrays indexed by i).
-      // Downstream consumers treat planes[] as a standalone set, never by edge.
+      // does NOT correspond to edge k (unlike the per-edge arrays indexed by
+      // i). Downstream consumers treat planes[] as a standalone set, never by
+      // edge.
       if (len_sq > 1e-12f)
         scratch.planes[planes_count++] = normal.normalized();
       float phi_val = fast_acos(hs::clamp(v1.y, -1.0f, 1.0f));
@@ -2712,7 +2819,8 @@ struct Face {
       if (phi_val > max_phi)
         max_phi = phi_val;
       // Arc Extrema Logic: only when this edge pushed its own plane, else
-      // planes[planes_count - 1] is a prior edge's normal against these endpoints.
+      // planes[planes_count - 1] is a prior edge's normal against these
+      // endpoints.
       if (len_sq > 1e-12f)
         refine_phi_from_arc_extremum(scratch.planes[planes_count - 1], v1, v2,
                                      min_phi, max_phi);
@@ -2748,7 +2856,8 @@ struct Face {
    * @tparam H Canvas height in rows.
    * @tparam OutputIt Sink type invoked as out(float start, float end).
    * @param out Sink accepting (float start, float end).
-   * @return True if intervals were emitted; false (full scan) for full-width faces.
+   * @return True if intervals were emitted; false (full scan) for full-width
+   * faces.
    */
   template <int W, int H, typename OutputIt>
   bool get_horizontal_intervals(int, OutputIt out) const {
@@ -2776,7 +2885,7 @@ struct Face {
    * on the whole scan when both loops inline into process_pixel).
    */
   HS_O3_FN __attribute__((noinline)) float plane_dist_convex(float px,
-                                                            float py) const {
+                                                             float py) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.convex_hits++);
     float d = -FLT_MAX;
     for (int i = 0; i < count; ++i) {
@@ -2796,7 +2905,7 @@ struct Face {
    * @details noinline: see plane_dist_convex.
    */
   HS_O3_FN __attribute__((noinline)) float plane_dist_exact(float px,
-                                                           float py) const {
+                                                            float py) const {
     float d = FLT_MAX;
     bool inside = false;
     for (int i = 0; i < count; ++i) {
@@ -2880,8 +2989,8 @@ struct Face {
       // Sign-purity + magnitude guard in quantized integer units.
       int32_t all_or = q00 | q10 | q01 | q11;
       int32_t all_and = q00 & q10 & q01 & q11;
-      int32_t min_q = std::min({std::abs(q00), std::abs(q10), std::abs(q01),
-                                std::abs(q11)});
+      int32_t min_q = std::min(
+          {std::abs(q00), std::abs(q10), std::abs(q01), std::abs(q11)});
       if ((all_or >= 0 || all_and < 0) && min_q > lut_q_safe) {
         HS_SCAN_METRIC(hs::g_scan_metrics.lut_hits++);
         float tx = fx - ix;
@@ -2900,8 +3009,8 @@ struct Face {
           convex ? plane_dist_convex(px, py) : plane_dist_exact(px, py);
     }
 
-    // Small faces skip the plane->angle conversion: tan(angle) ~ angle to within
-    // size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
+    // Small faces skip the plane->angle conversion: tan(angle) ~ angle to
+    // within size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
     float raw = linear_dist ? plane_dist : fast_atan2(plane_dist, 1.0f);
     res = DistanceResult(raw - thickness, 0.0f, raw, 0.0f, size);
   }
@@ -2914,18 +3023,21 @@ struct Face {
  * distance from center.
  */
 struct PlanarPolygon {
-  const Basis &basis;                  /**< Orientation frame (v = polygon axis). */
-  float thickness;                     /**< Polygon radius / apothem scale (radians). */
-  int sides;                           /**< Number of polygon sides. */
-  float phase;                         /**< Azimuth phase offset (radians). */
-  float apothem;                       /**< Precomputed inradius (radians). */
-  float ny, R_val, alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
-  float phi_min, phi_max;              /**< Vertical bounds as an angular band (radians). */
-  float sign;                          /**< +1 fills the polygon, -1 its complement. */
-  static constexpr bool is_solid = true; /**< Polygon renders as a filled region. */
+  const Basis &basis; /**< Orientation frame (v = polygon axis). */
+  float thickness;    /**< Polygon radius / apothem scale (radians). */
+  int sides;          /**< Number of polygon sides. */
+  float phase;        /**< Azimuth phase offset (radians). */
+  float apothem;      /**< Precomputed inradius (radians). */
+  float ny, R_val,
+      alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
+  float sign;             /**< +1 fills the polygon, -1 its complement. */
+  static constexpr bool is_solid =
+      true; /**< Polygon renders as a filled region. */
 
   /**
-   * @brief Builds a planar polygon from its basis, thickness, side count, phase.
+   * @brief Builds a planar polygon from its basis, thickness, side count,
+   * phase.
    * @param b Orientation frame (v = polygon axis).
    * @param th Polygon radius / apothem scale (radians).
    * @param s Number of polygon sides (must be > 0).
@@ -3034,7 +3146,8 @@ struct PlanarPolygon {
 };
 
 /**
- * @brief Calculates signed distance to a spherical polygon (great-circle edges).
+ * @brief Calculates signed distance to a spherical polygon (great-circle
+ * edges).
  * @details Uses sector folding plus a precomputed great-circle plane normal for
  * O(1) per-pixel distance, with exact angular distances for smooth AA.
  * DistanceResult fields: dist = signed angular distance to the nearest
@@ -3042,19 +3155,22 @@ struct PlanarPolygon {
  * circumradius); raw_dist = polar angle from the polygon center.
  */
 struct SphericalPolygon {
-  const Basis &basis;     /**< Orientation frame (v = polygon axis). */
-  int sides;              /**< Number of polygon sides. */
-  float phase;            /**< Azimuth phase offset (radians). */
-  float circumradius;     /**< Angular distance from center to vertex (radians). */
-  float edge_nv;          /**< Edge normal dotted with the center axis. */
-  float edge_nu;          /**< Edge normal dotted with the u-axis. */
+  const Basis &basis; /**< Orientation frame (v = polygon axis). */
+  int sides;          /**< Number of polygon sides. */
+  float phase;        /**< Azimuth phase offset (radians). */
+  float circumradius; /**< Angular distance from center to vertex (radians). */
+  float edge_nv;      /**< Edge normal dotted with the center axis. */
+  float edge_nu;      /**< Edge normal dotted with the u-axis. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
-  float ny, R_val, alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
-  float sign;             /**< +1 fills the polygon, -1 its complement. */
-  static constexpr bool is_solid = true; /**< Polygon renders as a filled region. */
+  float ny, R_val,
+      alpha_angle; /**< Axis y-component, XZ projection length and azimuth. */
+  float sign;      /**< +1 fills the polygon, -1 its complement. */
+  static constexpr bool is_solid =
+      true; /**< Polygon renders as a filled region. */
 
   /**
-   * @brief Builds a spherical polygon from its basis, radius, side count, phase.
+   * @brief Builds a spherical polygon from its basis, radius, side count,
+   * phase.
    * @param b Orientation frame (v = polygon axis).
    * @param radius Polygon radius as a fraction of the hemisphere.
    * @param s Number of polygon sides (must be > 0).
@@ -3085,8 +3201,9 @@ struct SphericalPolygon {
     if (len > 1e-9f) {
       en = en * (1.0f / len);
     } else {
-      // Degenerate canonical edge (circumradius near 0 or PI): both limits drive
-      // en toward ±u, so substitute the sector bisector as a defined unit normal.
+      // Degenerate canonical edge (circumradius near 0 or PI): both limits
+      // drive en toward ±u, so substitute the sector bisector as a defined unit
+      // normal.
       en = basis.u;
     }
     // Ensure outward: dot(center, n) should be negative
@@ -3197,15 +3314,18 @@ struct SphericalPolygon {
  * from center.
  */
 struct Star {
-  const Basis &basis;                    /**< Orientation frame (v = star axis). */
-  int sides;                             /**< Number of star points. */
-  float phase;                           /**< Azimuth phase offset (radians). */
-  static constexpr bool is_solid = true; /**< Star renders as a filled region. */
+  const Basis &basis; /**< Orientation frame (v = star axis). */
+  int sides;          /**< Number of star points. */
+  float phase;        /**< Azimuth phase offset (radians). */
+  static constexpr bool is_solid =
+      true; /**< Star renders as a filled region. */
 
-  float nx, ny, plane_d; /**< 2D edge plane (normal and offset) for one point. */
-  float thickness;       /**< Outer radius / AA scale (radians). */
+  float nx, ny,
+      plane_d;     /**< 2D edge plane (normal and offset) for one point. */
+  float thickness; /**< Outer radius / AA scale (radians). */
 
-  float scan_ny, scan_r, scan_alpha; /**< Axis y-component, XZ projection length and azimuth. */
+  float scan_ny, scan_r,
+      scan_alpha; /**< Axis y-component, XZ projection length and azimuth. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float sign;             /**< +1 fills the star, -1 its complement. */
 
@@ -3337,8 +3457,8 @@ struct Star {
 /**
  * @brief Calculates signed distance to a flower shape.
  * @details DistanceResult fields: dist = signed distance from the flower edge;
- * t = normalized scan distance (scan_dist / thickness); raw_dist = scan distance
- * from the antipode.
+ * t = normalized scan distance (scan_dist / thickness); raw_dist = scan
+ * distance from the antipode.
  */
 struct Flower {
   const Basis &basis; /**< Orientation frame (v = flower axis). */
@@ -3347,10 +3467,12 @@ struct Flower {
   float thickness;    /**< Outer radius / AA scale (radians). */
   float apothem;      /**< Petal inradius offset (PI - outer radius). */
   Vector antipode;    /**< Antipode of the flower axis (scan origin). */
-  float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection length and azimuth. */
+  float scan_ny, scan_R, scan_alpha; /**< Antipode y-component, XZ projection
+                                        length and azimuth. */
   float phi_min, phi_max; /**< Vertical bounds as an angular band (radians). */
   float sign;             /**< +1 fills the flower, -1 its complement. */
-  static constexpr bool is_solid = true; /**< Flower renders as a filled region. */
+  static constexpr bool is_solid =
+      true; /**< Flower renders as a filled region. */
 
   /**
    * @brief Builds a flower from its basis, radius, petal count, and phase.
@@ -3483,11 +3605,14 @@ struct Line {
   float len;              /**< Arc length (radians). */
   float phi_min, phi_max; /**< Precomputed vertical bounds (radians). */
 
-  // Bounding-cap geometry, loop-invariant across scanlines (precomputed in ctor).
+  // Bounding-cap geometry, loop-invariant across scanlines (precomputed in
+  // ctor).
   Vector mid; /**< Arc midpoint axis (bounding-cap center). */
-  float mid_ny = 0.0f, mid_r = 0.0f, mid_alpha = 0.0f; /**< Midpoint y, XZ projection length, azimuth. */
+  float mid_ny = 0.0f, mid_r = 0.0f,
+        mid_alpha = 0.0f; /**< Midpoint y, XZ projection length, azimuth. */
   float cap_D_min = 0.0f; /**< Cosine of the bounding-cap radius. */
-  bool cap_horiz_valid = false; /**< False when the cap axis is ~vertical (no horizontal projection). */
+  bool cap_horiz_valid = false; /**< False when the cap axis is ~vertical (no
+                                   horizontal projection). */
   static constexpr bool is_solid = false; /**< Line renders as a stroke. */
 
   /**
@@ -3502,18 +3627,21 @@ struct Line {
     if (len < 1e-6f) {
       n = Vector(0, 0, 0);
     } else {
-      // Antipodal endpoints (len ~ π) make cross() degenerate; guard the normalize.
+      // Antipodal endpoints (len ~ π) make cross() degenerate; guard the
+      // normalize.
       n = normalized_or(cross(a, b), Vector(1, 0, 0));
     }
 
-    // A great-circle arc bulges toward a pole between its endpoints, so its peak
-    // latitude can lie outside [phi_a, phi_b]; extend by the interior extremum.
+    // A great-circle arc bulges toward a pole between its endpoints, so its
+    // peak latitude can lie outside [phi_a, phi_b]; extend by the interior
+    // extremum.
     float phi_a = acosf(std::max(-1.0f, std::min(1.0f, a.y)));
     float phi_b = acosf(std::max(-1.0f, std::min(1.0f, b.y)));
     float phi_lo = std::min(phi_a, phi_b);
     float phi_hi = std::max(phi_a, phi_b);
     // The latitude turns inside the arc iff the forward tangent's y-component
-    // (cross(n, p).y) flips sign between endpoints; the extremum is ±sqrt(1-n.y²).
+    // (cross(n, p).y) flips sign between endpoints; the extremum is
+    // ±sqrt(1-n.y²).
     float t0 = cross(n, a).y;
     float t1 = cross(n, b).y;
     if ((t0 > 0.0f) != (t1 > 0.0f)) {
@@ -3590,8 +3718,9 @@ struct Line {
 
     float dist_seg = 0.0f;
     // Two geodesic metrics, C0-continuous at the join: in-segment the foot lies
-    // on the arc so asinf(|d_plane|) is exact; past an endpoint the closest point
-    // is that cap (asinf(|d_plane|) alone would measure the whole great circle).
+    // on the arc so asinf(|d_plane|) is exact; past an endpoint the closest
+    // point is that cap (asinf(|d_plane|) alone would measure the whole great
+    // circle).
     if (ang_a + ang_b <= len + 1e-4f) {
       dist_seg = asinf(std::abs(d_plane));
     } else {
@@ -3715,7 +3844,8 @@ struct Twist {
     HS_CHECK(R > 0.0f);
   }
 
-  /** @brief Precomputed context: s = sqrtf(x² + z²), shared across apply/lipschitz. */
+  /** @brief Precomputed context: s = sqrtf(x² + z²), shared across
+   * apply/lipschitz. */
   using Ctx = float;
 
   /**
@@ -3733,7 +3863,8 @@ struct Twist {
   Vector apply(const Vector &p, Ctx /*s*/) const {
     float theta = fast_atan2(p.z, p.x);
     return Vector(
-        p.x, p.y - amplitude * fast_sinf(static_cast<float>(twist) * theta), p.z);
+        p.x, p.y - amplitude * fast_sinf(static_cast<float>(twist) * theta),
+        p.z);
   }
 
   /**
@@ -3771,7 +3902,8 @@ struct Twist {
     float inv_s = (s > TOLERANCE) ? 1.0f / s : 0.0f;
     float theta = fast_atan2(p.z, p.x);
     float n_theta = static_cast<float>(twist) * theta;
-    float dh_dtheta = -amplitude * static_cast<float>(twist) * fast_cosf(n_theta);
+    float dh_dtheta =
+        -amplitude * static_cast<float>(twist) * fast_cosf(n_theta);
     float inv_s2 = inv_s * inv_s;
 
     float dh_dx = dh_dtheta * (-p.z) * inv_s2;
@@ -3817,7 +3949,8 @@ template <typename SDF, typename Warp> struct WarpedVolume {
   /**
    * @brief Raw warped SDF distance with no Lipschitz correction.
    * @param p Query point in Cartesian ray-space.
-   * @return The base SDF evaluated at the warped point (use for surface projection).
+   * @return The base SDF evaluated at the warped point (use for surface
+   * projection).
    */
   float raw_distance(const Vector &p) const {
     auto ctx = warp.make_ctx(p);
@@ -3825,7 +3958,8 @@ template <typename SDF, typename Warp> struct WarpedVolume {
   }
 
   /**
-   * @brief March-safe distance with bounding fast-path and Lipschitz correction.
+   * @brief March-safe distance with bounding fast-path and Lipschitz
+   * correction.
    * @param p Query point in Cartesian ray-space.
    * @return A sphere-tracing-safe (under-estimated) distance to the surface.
    */
@@ -3862,7 +3996,8 @@ template <typename SDF, typename Warp> struct WarpedVolume {
   /**
    * @brief Populates a Fragment's registers for shading.
    * @param p Query point in Cartesian ray-space.
-   * @param frag Output fragment; v0 = ring angle (0-1), v1/v2/v3 = surface normal.
+   * @param frag Output fragment; v0 = ring angle (0-1), v1/v2/v3 = surface
+   * normal.
    * @note Volumetric register convention (README "Volumetric Path"), distinct
    *        from Scan's v2 stroke-coverage and mesh face-index conventions.
    */
