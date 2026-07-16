@@ -255,16 +255,18 @@ public:
    * @param arena Leg arena backing the cloned seed and hoisted state.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed node.
-   * @param bookend Bookend grouping of the arrival node (target keying).
    * @param sweep_frames Operator-sweep frames (N).
    * @param settle_frames Relax-slerp frames (S); 0 unless the edge settles.
+   * @param bookend Bookend grouping of the arrival node (target keying);
+   * defaults to the swept-classification fallback.
    * @param easing_fn Easing applied to the sweep parameter.
    */
   HS_COLD_MEMBER
   ConwayMorph(const PolyMesh &seed, const ConwayGraph::EdgeSpec &edge,
               bool reverse, Arena &arena, MorphDrawFn draw,
-              const PaletteHandoff &handoff, const BookendClasses &bookend,
-              int sweep_frames, int settle_frames,
+              const PaletteHandoff &handoff, int sweep_frames,
+              int settle_frames,
+              const BookendClasses &bookend = BookendClasses{nullptr, 0},
               EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames + settle_frames, false),
         easing_fn(easing_fn), draw_fn(draw) {
