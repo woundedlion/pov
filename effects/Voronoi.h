@@ -146,9 +146,9 @@ public:
       return c;
     };
 
-    // Canonical (order-independent) nearest-pair identity at a sample point: the
-    // two query orders along a cell seam (best/second swap) map to the same
-    // {lo, hi} set, so corner comparisons below are seam-stable.
+    // Canonical (order-independent) nearest-pair identity at a sample point:
+    // the two query orders along a cell seam (best/second swap) map to the
+    // same {lo, hi} set.
     auto classify = [&](const Vector &p) -> CellId {
       auto knn = tree.nearest(p, 2);
       uint16_t a = knn[0].original_index;
@@ -156,16 +156,13 @@ public:
       uint16_t b = has_second ? knn[1].original_index : a;
       return {std::min(a, b), std::max(a, b), has_second};
     };
-    auto same_cell = [](const CellId &x, const CellId &y) {
-      return x.lo == y.lo && x.hi == y.hi && x.has_second == y.has_second;
-    };
 
-    // Coarse-grid coherence: the nearest-pair identity is piecewise-constant
-    // over each Voronoi cell. Classify the pair once per coarse-grid corner; an
-    // interior pixel whose four corners agree skips the k=2 query and shades from
-    // two exact dot products, while a pixel whose corners disagree (a seam, or
-    // the dense region near a pole) falls back to the full query. A cell smaller
-    // than the block missed by all four corners is dropped.
+    // Coarse-grid coherence: classify the nearest pair once per coarse-grid
+    // corner, then shade every pixel of a block from the deduped union of its
+    // four corners' pairs (<= 8 candidate sites) by an exact top-2 dot scan —
+    // no per-pixel KD query. A site owning any pixel of a block reaches at
+    // least one corner's pair in all but degenerate layouts; a cell missed by
+    // all four corners is dropped.
     auto &cr = canvas.clip();
     Scan::Shader::check_lut_domain<W, H>(cr);
     const int x0 = cr.x_start;
@@ -194,7 +191,7 @@ public:
     auto corner_y = [&](int k) { return std::min(y0 + k * B, y1 - 1); };
 
     // Timer spans the corner-classification pre-pass too: its ~W*H/B^2 KD
-    // queries are the dense regime's dominant cost, so getRenderUs must include
+    // queries are the frame's only KD queries, so getRenderUs must include
     // them.
     Scan::ScopedRenderTimer timer_guard(canvas);
     for (int k = 0; k < nby; ++k)
@@ -202,45 +199,64 @@ public:
         cells[k * nbx + j] =
             classify(pixel_to_vector<W, H>(corner_x(j), corner_y(k)));
 
-    // SAMPLES=1: one sample at pixel center — the per-pixel KD query is too
-    // heavy to supersample. Mirrors Scan::Shader::draw<W, H, 1>'s clip iteration
-    // and telemetry (open-coded only because the coarse grid needs the integer
-    // pixel coordinates the generic shader callback does not expose).
+    // One candidate set per block column, rebuilt on each block-row change.
+    // Positions are copied in so the per-pixel scan runs over contiguous data.
+    const int nblk = nbx - 1;
+    CandSet *cands = static_cast<CandSet *>(scratch_arena_a.allocate(
+        nblk * sizeof(CandSet), alignof(CandSet)));
+    auto build_candidate_row = [&](int ky) {
+      for (int jx = 0; jx < nblk; ++jx) {
+        CandSet &cs = cands[jx];
+        cs.n = 0;
+        auto add = [&](uint16_t s) {
+          for (uint8_t i = 0; i < cs.n; ++i)
+            if (cs.idx[i] == s)
+              return;
+          cs.idx[cs.n] = s;
+          cs.pos[cs.n] = positions[s];
+          ++cs.n;
+        };
+        for (const CellId *c :
+             {&cells[ky * nbx + jx], &cells[ky * nbx + jx + 1],
+              &cells[(ky + 1) * nbx + jx], &cells[(ky + 1) * nbx + jx + 1]}) {
+          add(c->lo);
+          add(c->hi);
+        }
+      }
+    };
+
+    // SAMPLES=1: one sample at pixel center. Mirrors Scan::Shader::draw<W, H,
+    // 1>'s clip iteration and telemetry (open-coded only because the coarse
+    // grid needs the integer pixel coordinates the generic shader callback
+    // does not expose).
+    int last_ky = -1;
     for (int y = y0; y < y1; ++y) {
       const int ky = (y - y0) / B;
+      if (ky != last_ky) {
+        build_candidate_row(ky);
+        last_ky = ky;
+      }
       for (int x = x0; x < x1; ++x) {
-        const int jx = (x - x0) / B;
-        const CellId &c00 = cells[ky * nbx + jx];
-        const CellId &c10 = cells[ky * nbx + (jx + 1)];
-        const CellId &c01 = cells[(ky + 1) * nbx + jx];
-        const CellId &c11 = cells[(ky + 1) * nbx + (jx + 1)];
+        const CandSet &cs = cands[(x - x0) / B];
 
         Vector p = pixel_to_vector<W, H>(x, y);
-        Color4 sample;
-        if (same_cell(c00, c10) && same_cell(c00, c01) &&
-            same_cell(c00, c11)) {
-          // Corners agree: reuse the pair identity, recompute the two exact
-          // dots and order them (nearest = larger dot) — bit-identical to the
-          // full query whenever no third site is actually nearest here.
-          float da = dot(p, sites_buffer[c00.lo].pos);
-          if (c00.has_second) {
-            float db = dot(p, sites_buffer[c00.hi].pos);
-            sample = (da >= db) ? shade(c00.lo, da, true, c00.hi, db)
-                                : shade(c00.hi, db, true, c00.lo, da);
-          } else {
-            sample = shade(c00.lo, da, false, c00.lo, da);
+        float d0 = -2.0f, d1 = -2.0f;
+        uint8_t b0 = 0, b1 = 0;
+        for (uint8_t i = 0; i < cs.n; ++i) {
+          float d = dot(p, cs.pos[i]);
+          if (d > d0) {
+            d1 = d0;
+            b1 = b0;
+            d0 = d;
+            b0 = i;
+          } else if (d > d1) {
+            d1 = d;
+            b1 = i;
           }
-        } else {
-          // Cell seam / dense block: full k=2 query.
-          auto knn = tree.nearest(p, 2);
-          uint16_t i0 = knn[0].original_index;
-          float d0 = dot(p, knn[0].point);
-          if (knn.size() > 1)
-            sample = shade(i0, d0, true, knn[1].original_index,
-                           dot(p, knn[1].point));
-          else
-            sample = shade(i0, d0, false, i0, d0);
         }
+        Color4 sample = (cs.n >= 2)
+                            ? shade(cs.idx[b0], d0, true, cs.idx[b1], d1)
+                            : shade(cs.idx[b0], d0, false, cs.idx[b0], d0);
         canvas(x, y) = sample.color * sample.alpha;
       }
     }
@@ -249,10 +265,10 @@ public:
   static constexpr int MAX_SITES = 400; /**< Buffer capacity; the sites buffer
                                              is allocated once at this size. */
   static constexpr int COHERENCE_BLOCK = 8; /**< Coarse-coherence block edge in
-      pixels at low site counts: a pixel whose surrounding block corners agree on
-      the nearest pair skips the per-pixel KD query. Smaller is safer (fewer
-      missed sub-block cells) but skips fewer queries; the render path shrinks the
-      block toward COHERENCE_BLOCK_MIN as the site count rises. */
+      pixels at low site counts: each pixel shades from the union of its block
+      corners' nearest pairs. Smaller is safer (fewer missed sub-block cells)
+      but classifies more corners; the render path shrinks the block toward
+      COHERENCE_BLOCK_MIN as the site count rises. */
   static constexpr int COHERENCE_BLOCK_MIN = 4; /**< Smallest adaptive block edge.
       Floors the per-frame block so the corner grid stays within the scratch
       budget (pinned by the static_assert below); ~matches the cell pixel size at
@@ -268,10 +284,18 @@ public:
     bool has_second; /**< Whether a second neighbor exists (>= 2 sites). */
   };
 
+  /** @brief Shading candidates for one block: the deduped union of its four
+   *  corners' CellId pairs, positions copied in for the per-pixel dot scan. */
+  struct CandSet {
+    Vector pos[8];   /**< Candidate site positions (parallel to idx). */
+    uint16_t idx[8]; /**< Candidate site indices into sites_buffer. */
+    uint8_t n;       /**< Number of distinct candidates (1..8). */
+  };
+
   // Compile-time high-water check for the 64 KB scratch_arena_a reserve. Two
   // transient peaks share that arena, with positions + KD nodes live across both:
   //   build:   positions + KD nodes + KD build-index scratch
-  //   shading: positions + KD nodes + coarse-grid corner cells
+  //   shading: positions + KD nodes + corner cells + candidate-row sets
   static constexpr size_t SCRATCH_A_BYTES = 64 * 1024;
   static constexpr size_t POSITIONS_BYTES = size_t(MAX_SITES) * sizeof(Vector);
   static constexpr size_t KD_NODES_BYTES = size_t(MAX_SITES) * sizeof(KDNode);
@@ -282,9 +306,12 @@ public:
   static constexpr size_t CORNER_COLS = size_t((W - 1) / COHERENCE_BLOCK_MIN + 2);
   static constexpr size_t CORNER_ROWS = size_t((H - 1) / COHERENCE_BLOCK_MIN + 2);
   static constexpr size_t CELLS_BYTES = CORNER_COLS * CORNER_ROWS * sizeof(CellId);
+  static constexpr size_t CAND_ROW_BYTES = (CORNER_COLS - 1) * sizeof(CandSet);
   static constexpr size_t SCRATCH_HIGH_WATER =
       POSITIONS_BYTES + KD_NODES_BYTES +
-      (KD_BUILD_SCRATCH_BYTES > CELLS_BYTES ? KD_BUILD_SCRATCH_BYTES : CELLS_BYTES);
+      (KD_BUILD_SCRATCH_BYTES > CELLS_BYTES + CAND_ROW_BYTES
+           ? KD_BUILD_SCRATCH_BYTES
+           : CELLS_BYTES + CAND_ROW_BYTES);
   static_assert(SCRATCH_HIGH_WATER <= SCRATCH_A_BYTES,
                 "Voronoi scratch_arena_a budget (64 KB) too small for MAX_SITES "
                 "positions + KD-tree + coarse-grid cells; raise the reserve in "
