@@ -2154,6 +2154,13 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
     MeshPaletteBank palette_bank;
     palette_bank.bake_all(persistent_arena);
 
+    // The effect's held graph-walk seed; dodecahedron is the largest Platonic.
+    PolyMesh seed;
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      seed = Solids::finalize_solid(Solids::Platonic::dodecahedron(a, b),
+                                    target);
+    });
+
     MeshState mesh;
     CompiledHankin hankin;
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
@@ -2188,12 +2195,14 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
     }
 
     // Morph compaction peak: the CompiledHankin + palette bank survive into
-    // scratch_b, the mesh into scratch_a, then persistent is reset — the same
-    // Persist discipline start_morph_cycle uses to compact between solids.
+    // scratch_b, the mesh + walk seed into scratch_a, then persistent is
+    // reset — the same Persist discipline finish_morph_cycle uses to compact
+    // between legs.
     {
       Persist<CompiledHankin> ph(hankin, scratch_arena_b, persistent_arena);
       Persist<MeshState> pf(mesh, scratch_arena_a, persistent_arena);
       Persist<MeshPaletteBank> pp(palette_bank, scratch_arena_b, persistent_arena);
+      Persist<PolyMesh> ps(seed, scratch_arena_a, persistent_arena);
       persistent_arena.reset();
     }
 

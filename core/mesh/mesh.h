@@ -68,6 +68,15 @@ struct PolyMesh {
    * @return Count of entries in the flat face index array.
    */
   size_t get_faces_size() const { return faces.size(); }
+
+  /**
+   * @brief Deep-copies src into dst from the given arena.
+   * @param src Source mesh to copy from.
+   * @param dst Destination mesh, populated in place.
+   * @param arena Arena supplying storage for the destination arrays.
+   * @details Cloneable hook (Persist<PolyMesh>); delegates to MeshOps::clone.
+   */
+  static void clone(const PolyMesh &src, PolyMesh &dst, Arena &arena);
 };
 
 constexpr uint16_t HE_NONE = 0xFFFF; /**< Null index sentinel for half-edge connectivity. */
@@ -697,3 +706,7 @@ classify_faces_by_topology(MeshState &mesh, Arena &scratch_a, Arena &scratch_b,
 }
 
 } // namespace MeshOps
+
+inline void PolyMesh::clone(const PolyMesh &src, PolyMesh &dst, Arena &arena) {
+  MeshOps::clone(src, dst, arena);
+}
