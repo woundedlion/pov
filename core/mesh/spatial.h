@@ -162,7 +162,7 @@ private:
    * @details Cycles the split axis by depth%3, partitioning around the median
    * along that axis and reordering `indices` in place.
    */
-  int build(std::span<const Vector> points, int *indices, int count, int depth) {
+  HS_COLD_MEMBER int build(std::span<const Vector> points, int *indices, int count, int depth) {
     if (count <= 0)
       return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
     // Trap rather than return -1: a -1 here is indistinguishable from the

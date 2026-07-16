@@ -65,6 +65,7 @@ SECTIONS
 		*(.text._ZN8PolyMeshC1E*)
 		*(.text._ZN8PolyMeshC2E*)
 		*(.text.*classify_faces_impl*)
+		*(.text.*KDTree5build*)
 		*(.text._ZZN*13setup_presetsEv*)
 		*(.text.*compile_hankin*)
 		*(.text._ZN14CompiledHankin*)
