@@ -308,7 +308,7 @@ public:
    *          are placed via the Fibonacci-sphere distribution for an even
    *          spread, each with a random spin axis and a palette color.
    */
-  void seed_sites() {
+  HS_COLD_MEMBER void seed_sites() {
     const int n = active_site_count();
     sites_buffer.clear();
 
