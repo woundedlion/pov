@@ -512,7 +512,7 @@ private:
    * speed drawn from the Speed Min/Max sliders; dropped safely if the pool is
    * full.
    */
-  void spawn_ball() {
+  HS_COLD_MEMBER void spawn_ball() {
     balls.template_params.radius =
         hs::rand_f(std::min(params.ball_min, params.ball_max),
                    std::max(params.ball_min, params.ball_max));
