@@ -70,9 +70,9 @@ static_assert(
     "truncatedCuboctahedron");
 static_assert(std::string_view(Solids::simple_registry[SNUB_CUBE].name) ==
               "snubCube");
-static_assert(std::string_view(
-                  Solids::simple_registry[ICOSIDODECAHEDRON].name) ==
-              "icosidodecahedron");
+static_assert(
+    std::string_view(Solids::simple_registry[ICOSIDODECAHEDRON].name) ==
+    "icosidodecahedron");
 static_assert(
     std::string_view(Solids::simple_registry[TRUNCATED_DODECAHEDRON].name) ==
     "truncatedDodecahedron");
@@ -85,8 +85,9 @@ static_assert(
 static_assert(std::string_view(
                   Solids::simple_registry[TRUNCATED_ICOSIDODECAHEDRON].name) ==
               "truncatedIcosidodecahedron");
-static_assert(std::string_view(Solids::simple_registry[SNUB_DODECAHEDRON].name) ==
-              "snubDodecahedron");
+static_assert(
+    std::string_view(Solids::simple_registry[SNUB_DODECAHEDRON].name) ==
+    "snubDodecahedron");
 
 /**
  * @brief Parameterized Conway operator a graph edge sweeps.
@@ -118,10 +119,12 @@ inline constexpr int SETTLE_FRAMES = 12;
 
 /** Snub-cube twist (matches the registry chain). */
 inline constexpr float SNUB_CUBE_TWIST = 0.28f;
-/** Snub-dodecahedron cosmetic sweep twist; registry uses 0 (tuned from renders). */
+/** Snub-dodecahedron cosmetic sweep twist; registry uses 0 (tuned from
+ * renders). */
 inline constexpr float SNUB_DODECAHEDRON_TWIST = 0.0f;
-/** Tetra -> icosa bridge snub twist; relax canonicalizes any value (tuned from renders). */
-inline constexpr float SNUB_BRIDGE_TWIST = 0.0f;
+/** Tetra -> icosa bridge snub twist; relax canonicalizes any value (tuned from
+ * renders: -0.40 cuts the settle rotation from 23.4 to 17.3 degrees). */
+inline constexpr float SNUB_BRIDGE_TWIST = -0.40f;
 
 /** Truncation parameter of the truncated cube. */
 inline constexpr float T_TRUNC_CUBE = 1.0f / (2.0f + SQRT2);
@@ -139,13 +142,14 @@ struct EdgeSpec {
   uint8_t to_node;    /**< Node at the t_to end. */
   uint8_t seed_solid; /**< Solid the op sweeps on (leg seed identity). */
   MorphOp op;         /**< Operator whose parameter the leg sweeps. */
-  float t_from;       /**< Parameter at from_node (untabled clamp applies at runtime). */
-  float t_to;         /**< Parameter at to_node. */
-  float twist_from;   /**< Snub twist at from_node (snub legs only). */
-  float twist_to;     /**< Snub twist at to_node (snub legs only). */
-  bool settle;        /**< to_node end is the relax(50) canonical form. */
-  Reseed reseed;      /**< Reseed primitive tabled for this row. */
-  bool bridge;        /**< Crosses symmetry families (walk weighting). */
+  float t_from; /**< Parameter at from_node (untabled clamp applies at runtime).
+                 */
+  float t_to;   /**< Parameter at to_node. */
+  float twist_from; /**< Snub twist at from_node (snub legs only). */
+  float twist_to;   /**< Snub twist at to_node (snub legs only). */
+  bool settle;      /**< to_node end is the relax(50) canonical form. */
+  Reseed reseed;    /**< Reseed primitive tabled for this row. */
+  bool bridge;      /**< Crosses symmetry families (walk weighting). */
 };
 
 /** The 22 v1 edges (spec section 3); every simple-registry solid is a node. */
@@ -155,8 +159,8 @@ inline constexpr EdgeSpec EDGES[] = {
      0.0f, false, Reseed::NONE, false},
     {CUBE, CUBOCTAHEDRON, CUBE, MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f, 0.0f,
      false, Reseed::NONE, false},
-    {TRUNCATED_CUBE, CUBOCTAHEDRON, CUBE, MorphOp::TRUNCATE, T_TRUNC_CUBE,
-     0.5f, 0.0f, 0.0f, false, Reseed::NONE, false},
+    {TRUNCATED_CUBE, CUBOCTAHEDRON, CUBE, MorphOp::TRUNCATE, T_TRUNC_CUBE, 0.5f,
+     0.0f, 0.0f, false, Reseed::NONE, false},
     {CUBE, RHOMBICUBOCTAHEDRON, CUBE, MorphOp::EXPAND, 0.0f,
      MeshOps::EXPAND_DEFAULT_T, 0.0f, 0.0f, false, Reseed::NONE, false},
     {CUBE, SNUB_CUBE, CUBE, MorphOp::SNUB, 0.0f, T_SNUB_CUBE, 0.0f,
@@ -167,23 +171,22 @@ inline constexpr EdgeSpec EDGES[] = {
      T_TRUNC_THIRD, 0.0f, 0.0f, false, Reseed::NONE, false},
     {TRUNCATED_OCTAHEDRON, CUBOCTAHEDRON, OCTAHEDRON, MorphOp::TRUNCATE,
      T_TRUNC_THIRD, 0.5f, 0.0f, 0.0f, false, Reseed::NONE, false},
-    {OCTAHEDRON, CUBOCTAHEDRON, OCTAHEDRON, MorphOp::TRUNCATE, 0.0f, 0.5f,
-     0.0f, 0.0f, false, Reseed::DUAL_SWAP, false},
+    {OCTAHEDRON, CUBOCTAHEDRON, OCTAHEDRON, MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f,
+     0.0f, false, Reseed::DUAL_SWAP, false},
 
     // Icosahedral family (seed: dodecahedron, icosahedron)
     {DODECAHEDRON, TRUNCATED_DODECAHEDRON, DODECAHEDRON, MorphOp::TRUNCATE,
      0.0f, T_TRUNC_ICOS, 0.0f, 0.0f, false, Reseed::NONE, false},
     {DODECAHEDRON, ICOSIDODECAHEDRON, DODECAHEDRON, MorphOp::TRUNCATE, 0.0f,
      0.5f, 0.0f, 0.0f, false, Reseed::NONE, false},
-    {TRUNCATED_DODECAHEDRON, ICOSIDODECAHEDRON, DODECAHEDRON,
-     MorphOp::TRUNCATE, T_TRUNC_ICOS, 0.5f, 0.0f, 0.0f, false, Reseed::NONE,
-     false},
+    {TRUNCATED_DODECAHEDRON, ICOSIDODECAHEDRON, DODECAHEDRON, MorphOp::TRUNCATE,
+     T_TRUNC_ICOS, 0.5f, 0.0f, 0.0f, false, Reseed::NONE, false},
     {ICOSAHEDRON, TRUNCATED_ICOSAHEDRON, ICOSAHEDRON, MorphOp::TRUNCATE, 0.0f,
      T_TRUNC_THIRD, 0.0f, 0.0f, false, Reseed::NONE, false},
     {TRUNCATED_ICOSAHEDRON, ICOSIDODECAHEDRON, ICOSAHEDRON, MorphOp::TRUNCATE,
      T_TRUNC_THIRD, 0.5f, 0.0f, 0.0f, false, Reseed::NONE, false},
-    {ICOSAHEDRON, ICOSIDODECAHEDRON, ICOSAHEDRON, MorphOp::TRUNCATE, 0.0f,
-     0.5f, 0.0f, 0.0f, false, Reseed::DUAL_SWAP, false},
+    {ICOSAHEDRON, ICOSIDODECAHEDRON, ICOSAHEDRON, MorphOp::TRUNCATE, 0.0f, 0.5f,
+     0.0f, 0.0f, false, Reseed::DUAL_SWAP, false},
     {DODECAHEDRON, RHOMBICOSIDODECAHEDRON, DODECAHEDRON, MorphOp::EXPAND, 0.0f,
      MeshOps::EXPAND_DEFAULT_T, 0.0f, 0.0f, true, Reseed::NONE, false},
     {DODECAHEDRON, SNUB_DODECAHEDRON, DODECAHEDRON, MorphOp::SNUB, 0.0f, 0.5f,
