@@ -15,6 +15,7 @@
 #include "tests/test_static_circular_buffer.h"
 #include "tests/test_sdf.h"
 #include "tests/test_conway.h"
+#include "tests/test_conway_morph.h"
 #include "tests/test_hankin.h"
 #include "tests/test_geometry.h"
 #include "tests/test_mesh.h"
@@ -74,6 +75,7 @@ struct TestModule {
   X("scb", hs_test::scb::run_static_circular_buffer_tests)                     \
   X("sdf", hs_test::sdf::run_sdf_tests)                                        \
   X("conway", hs_test::conway_tests::run_conway_tests)                         \
+  X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests)       \
   X("hankin", hs_test::hankin_tests::run_hankin_tests)                         \
   X("geometry", hs_test::geometry::run_geometry_tests)                         \
   X("mesh", hs_test::mesh_tests::run_mesh_tests)                               \

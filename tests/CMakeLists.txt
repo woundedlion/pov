@@ -104,7 +104,8 @@ enable_testing()
 # One CTest test per module so CI shards (and local `ctest -R <name>`) can
 # target subsets without re-running everything.
 set(_hs_test_modules
-    3dmath concepts memory spatial scb sdf conway hankin geometry mesh solids
+    3dmath concepts memory spatial scb sdf conway conway_morph hankin geometry
+    mesh solids
     reaction_graph color palettes easing_waves platform filter plot_scan canvas
     scan mesh_raster transformers noise generators animation effects dma_core hd107s
     dma_controller
