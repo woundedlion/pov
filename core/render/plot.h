@@ -290,6 +290,7 @@ static inline Basis planar_chart_basis(const Vector &center) {
  * and slerps along the great circle; a coincident-endpoint edge collapses to a
  * constant sampler.
  */
+HS_O3_BEGIN
 template <typename ProcessSegmentFn>
 static void rasterize_geodesic_strategy(const Fragment &curr,
                                         const Fragment &next,
@@ -324,6 +325,7 @@ static void rasterize_geodesic_strategy(const Fragment &curr,
     process_segment(sample_geodesic, curr, next, total_dist, isLastSegment);
   }
 }
+HS_O3_END
 
 /**
  * @brief Conservative screen-row span of a rendered edge, arc bulge included.
