@@ -946,6 +946,192 @@ inline void test_rasterize_column_cull_pixel_parity() {
   HS_EXPECT_GT(lit_total, 200); // the sweep must actually exercise the bands
 }
 
+/**
+ * @brief Pins gate_trail_edges to the per-edge edge_visible_in_clip verdicts.
+ * @details Random geodesic step-walk trails over the device band shapes. A
+ *          false return must leave every byte zero AND every edge individually
+ *          invisible (the whole-trail bound is conservative); a true return's
+ *          bytes must equal the per-edge predicate exactly (rasterize consumes
+ *          them as its cull).
+ */
+inline void test_gate_trail_edges_matches_edge_visible() {
+  constexpr int TW = 288, TH = 144;
+  Pipeline<TW, TH, Filter::Screen::AntiAlias<TW, TH>> pipeline{
+      Filter::Screen::AntiAlias<TW, TH>()};
+  auto rand_unit = [] {
+    for (;;) {
+      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      if (r.length() > 0.1f)
+        return r.normalized();
+    }
+  };
+  hs::random().seed(0x60FE);
+
+  const int bands[][4] = {
+      {0, 72, 0, 144},
+      {36, 108, 144, 288},
+      {0, 144, 60, 200},
+      {100, 144, 0, 288},
+  };
+  int rejects = 0, visible = 0, culled = 0;
+  for (const auto &bd : bands) {
+    ClipRegion cr;
+    cr.w = TW;
+    cr.h = TH;
+    cr.y_start = bd[0];
+    cr.y_end = bd[1];
+    cr.x_start = bd[2];
+    cr.x_end = bd[3];
+    const auto xc = cr.x_clip();
+    const int band_len = xc.wrap ? xc.re - xc.rs + TW : xc.re - xc.rs;
+
+    for (int trial = 0; trial < 500; ++trial) {
+      ScratchScope sc(plot_arena());
+      const size_t n = 2 + static_cast<size_t>(hs::rand_f(0.0f, 38.0f));
+      Fragments trail;
+      trail.bind(plot_arena(), n);
+      Vector p = rand_unit();
+      for (size_t k = 0; k < n; ++k) {
+        Fragment f;
+        f.pos = p;
+        trail.push_back(f);
+        Vector step = cross(p, rand_unit());
+        if (step.length() < 0.05f)
+          continue;
+        const float hop = hs::rand_f(0.005f, 0.4f);
+        p = (p * cosf(hop) + step.normalized() * sinf(hop)).normalized();
+      }
+
+      uint8_t bits[40];
+      const bool any = Plot::gate_trail_edges<TW, TH>(pipeline, cr, xc,
+                                                      band_len, trail, bits);
+      for (size_t e = 0; e + 1 < n; ++e) {
+        const bool want = Plot::edge_visible_in_clip<TW, TH>(
+            pipeline, cr, xc, band_len, trail[e].pos, trail[e + 1].pos,
+            nullptr);
+        if (any) {
+          HS_EXPECT_TRUE((bits[e] != 0) == want);
+        } else {
+          HS_EXPECT_EQ(bits[e], 0);
+          HS_EXPECT_FALSE(want);
+        }
+        (want ? visible : culled)++;
+      }
+      if (!any)
+        ++rejects;
+    }
+  }
+  // All three outcomes must be exercised: whole-trail rejects, per-edge
+  // culls, and visible edges.
+  HS_EXPECT_GT(rejects, 20);
+  HS_EXPECT_GT(visible, 1000);
+  HS_EXPECT_GT(culled, 1000);
+}
+
+/**
+ * @brief Pins rasterize's precomputed-bits path to its inline gate: rendering
+ *        with gate_trail_edges bytes must be pixel-identical to rendering the
+ *        same polyline with the per-edge cull evaluated in place.
+ */
+inline void test_rasterize_gate_bits_pixel_parity() {
+  constexpr int W = 96, H = 48;
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
+  };
+  auto rand_unit = [] {
+    for (;;) {
+      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      if (r.length() > 0.1f)
+        return r.normalized();
+    }
+  };
+  hs::random().seed(0x617E);
+
+  const int clips[3][4] = {
+      {0, H / 2, 0, W / 2}, {H / 2, H, W / 2, W}, {0, H, 10, 34}};
+  int lit_total = 0;
+
+  for (int trial = 0; trial < 40; ++trial) {
+    constexpr size_t WALK = 8;
+    Vector walk[WALK];
+    walk[0] = rand_unit();
+    for (size_t i = 1; i < WALK; ++i) {
+      Vector step = cross(walk[i - 1], rand_unit());
+      if (step.length() < 0.05f) {
+        walk[i] = walk[i - 1];
+        continue;
+      }
+      const float hop = hs::rand_f(0.05f, 0.6f);
+      walk[i] = (walk[i - 1] * cosf(hop) + step.normalized() * sinf(hop))
+                    .normalized();
+    }
+
+    for (auto &cl : clips) {
+      auto render = [&](RasterFx &fx, bool use_bits) {
+        Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
+            Filter::Screen::AntiAlias<W, H>()};
+        ScratchScope sc(plot_arena());
+        Fragments pts;
+        pts.bind(plot_arena(), WALK);
+        for (const Vector &v : walk) {
+          Fragment f;
+          f.pos = v;
+          pts.push_back(f);
+        }
+        Canvas c(fx);
+        uint8_t bits[WALK - 1];
+        const uint8_t *vis = nullptr;
+        if (use_bits) {
+          const ClipRegion &cr = fx.clip();
+          const auto xc = cr.x_clip();
+          const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
+          // A whole-trail reject renders nothing; the inline-gate reference
+          // paints nothing for it too (per-edge conservativeness), so the
+          // buffers still compare equal.
+          if (!Plot::gate_trail_edges<W, H>(filters, cr, xc, band_len, pts,
+                                            bits))
+            return;
+          vis = bits;
+        }
+        Plot::rasterize<W, H>(filters, c, pts, shade, false, nullptr, false,
+                              vis);
+      };
+
+      std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+      {
+        RasterFx fx(W, H);
+        fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
+        render(fx, false);
+        fx.advance_display();
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x) {
+            const Pixel p = fx.get_pixel(x, y);
+            ref[static_cast<size_t>(y) * W + x] = p;
+            if (p.r | p.g | p.b)
+              ++lit_total;
+          }
+      }
+      {
+        RasterFx fx(W, H);
+        fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
+        render(fx, true);
+        fx.advance_display();
+        int diff = 0;
+        for (int y = 0; y < H; ++y)
+          for (int x = 0; x < W; ++x) {
+            const Pixel p = fx.get_pixel(x, y);
+            const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+            if (p.r != r.r || p.g != r.g || p.b != r.b)
+              ++diff;
+          }
+        HS_EXPECT_EQ(diff, 0);
+      }
+    }
+  }
+  HS_EXPECT_GT(lit_total, 200); // the sweep must actually light the bands
+}
+
+
 // ============================================================================
 // Plot::screen_step — adaptive-density sub-step
 // ============================================================================
@@ -2539,6 +2725,8 @@ inline int run_plot_scan_tests() {
   test_edge_col_span_covers_arc();
   test_edge_visible_in_clip_matches_span_composition();
   test_rasterize_column_cull_pixel_parity();
+  test_gate_trail_edges_matches_edge_visible();
+  test_rasterize_gate_bits_pixel_parity();
   test_screen_step_matches_analytic_unclamped();
 
   test_ring_sample_unit_length_and_progress();

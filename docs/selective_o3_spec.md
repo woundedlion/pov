@@ -533,6 +533,7 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 | R4 shader compositors: closure `Shader::draw` `HS_O3_FN` + per-pixel callee chase (`stereo_noise_warp`, `SingleOpenSimplex2`, `hue_rotate_rgb`, `oklab_to_linear_rgb`, `linear_rgb_in_gamut`) | +3,104 | 12,680 (post mesh-scan driver + thunk flash-routing) | Flyby worst preset 50.9 ms vs 43.6 ceiling, **16 fps locked over the full cycle** (was 83.7 ms, 8 fps on 4 of 5 presets); loop+lambda alone and +noise-path were each measured ~flat — the OKLab hue chain was the cost | ✅ 2026-07-15 |
 | MindSplatter wrapper: `Plot::ParticleSystem` region (both `draw` overloads — per-trail tween/cull/dispatch loop) | +3,312 | — | measured dead 2026-07-16 — per-preset scan identical within noise (worst 108.6 → 109.0 ms) | ❌ reverted, not landed |
 | MindSplatter effect-local: `draw_particles` `HS_O3_FN` (mobius/hole/palette shader lambdas) | +1,184 | — | measured ~dead 2026-07-16 — uniform −1.2 % (worst 108.6 → 107.3 ms), no cadence change | ❌ reverted, not landed |
+| `Plot::gate_trail_edges` region (hoisted per-trail clip gate: shared per-point rows/columns, whole-trail coarse reject, bits feed `rasterize`'s cull) + HopfFibration `gate_trails` wiring | +1,648 | 10,840 | HopfFibration: replaces the per-edge in-place gate; fully-invisible trails skip stage+rasterize whole | ✅ 2026-07-16 |
 | R5 feedback flush | not measured | | | deferred — no budget |
 | R6 Voronoi KD | not measured | | | deferred — no budget |
 
