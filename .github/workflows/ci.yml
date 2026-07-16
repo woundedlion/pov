@@ -538,8 +538,8 @@ jobs:
     # + layout invariants (spec §10) via the post-build extra_script. Both images
     # now build GREEN and PASS end-to-end on the real ELF: HOLOSPHERE fits with
     # wide headroom and PHANTASM (all effects) fits RAM1 after the ITCM-bank
-    # reclamation, the RNG/cos_theta DTCM trims, and the arena right-size (335 ->
-    # 330 KiB) — free-for-locals ~13.6 KB over a measured 12 KiB floor. The former
+    # reclamation, the RNG/cos_theta DTCM trims, and the arena right-size at
+    # 298 KiB — free-for-locals ~46.6 KB over a measured 12 KiB floor. The former
     # TEENSY_GATE_ENABLED repo-variable guard is removed now that it goes green;
     # promoting this to a REQUIRED check in branch protection is the follow-up.
     runs-on: ubuntu-24.04

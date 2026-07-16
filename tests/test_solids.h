@@ -655,7 +655,7 @@ inline void test_hankin_solids_fit_hankinsolids_scratch_budget() {
 // ---------------------------------------------------------------------------
 // Persistent-budget regression for the HankinSolids carousel.
 //
-// The persistent half is GLOBAL_ARENA_SIZE - 24 KB - 32 KB (~274 KB on device).
+// The persistent half is GLOBAL_ARENA_SIZE - 24 KB - 32 KB (~242 KB on device).
 // The native 8 MB GLOBAL_ARENA_SIZE means a device overflow can't surface by
 // running the effect here. Peak residents during a morph are the baked palette
 // bank plus the two adjacent solids that coexist until compaction — each solid
@@ -665,7 +665,7 @@ inline void test_hankin_solids_fit_hankinsolids_scratch_budget() {
 // ---------------------------------------------------------------------------
 
 constexpr size_t HANKIN_PERSISTENT_BUDGET =
-    DEVICE_GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024; /**< ~274 KB on device. */
+    DEVICE_GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024; /**< ~242 KB on device. */
 
 /**
  * @brief Verifies the worst adjacent pair of simple solids, plus the palette

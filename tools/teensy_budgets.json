@@ -6,8 +6,8 @@
   // CALIBRATED FROM REAL BUILDS: teensy@5.0.0 (Teensyduino 1.59.0 / arm-gcc
   // 11.3.1), PlatformIO 6.1.19, FastLED 3.4.0. Both shipping images pass.
   // Holosphere keeps the bench-parity -O3 configuration. Phantasm uses -Os,
-  // newlib-nano, a flash-routing linker script, and the measured 330 KiB arena;
-  // it uses 509,312 B of RAM1 with 14,976 B free for locals. Holosphere RAM2
+  // newlib-nano, a flash-routing linker script, and the measured 298 KiB arena;
+  // it uses 476,544 B of RAM1 with 47,744 B free for locals. Holosphere RAM2
   // is 518,272 B; Phantasm RAM2 is 519,552 B.
   //
   // Symbol names are the REAL linkage names from `readelf -s` (§7.4): the arena is
@@ -27,7 +27,7 @@
       "ram2":  { "max_bytes": 524288 }                          // OCRAM is structurally full (~6 KB free); cap at the wall
     },
     "symbols": {
-      "arena":         { "name": "_ZL18global_arena_block", "region": "DTCM", "min_bytes": 327680, "max_bytes": 360448 }, // 337,920 B (330 KiB)
+      "arena":         { "name": "_ZL18global_arena_block", "region": "DTCM", "min_bytes": 294912, "max_bytes": 327680 }, // 305,152 B (298 KiB)
       "framebuffer_a": { "name": "_ZN6Effect8buffer_aE",    "region": "OCRAM" },
       "framebuffer_b": { "name": "_ZN6Effect8buffer_bE",    "region": "OCRAM" }
       // NOTE: reaction_graph (ReactionGraph::neighbors) is GC'd out of Holosphere
@@ -41,9 +41,10 @@
     "regions": {
       // -Os + nano + flash routing (custom ld script), with the ITCM bank
       // reclaimed (FLASHMEM repatriation), the RNG/cos_theta DTCM trims, and the
-      // arena sized down to 330 KiB from its measured worst-effect high-water:
-      // RAM1 used 509,312, free-for-locals 14,976. Fits with margin above the
-      // floor below. RAM2 519,552.
+      // arena sized down to 298 KiB from its measured worst-effect high-water
+      // (GSReactionDiffusion, post snorm16-trail MindSplatter): RAM1 used
+      // 476,544, free-for-locals 47,744 — one whole 32 KiB FlexRAM bank of
+      // headroom for ITCM -O3 promotions. RAM2 519,552.
       "flash": { "max_bytes": 1900000 },
       // free_min_bytes is the DTCM stack reservation. The host stack-painting
       // gate (tests/stack_measure.cpp) measures a worst-effect peak of 9,055 B
@@ -64,7 +65,7 @@
       "ram2":  { "max_bytes": 524288, "free_min_bytes": 4096 }
     },
     "symbols": {
-      "arena":          { "name": "_ZL18global_arena_block",        "region": "DTCM", "min_bytes": 327680, "max_bytes": 360448 },
+      "arena":          { "name": "_ZL18global_arena_block",        "region": "DTCM", "min_bytes": 294912, "max_bytes": 327680 },
       "framebuffer_a":  { "name": "_ZN6Effect8buffer_aE",          "region": "OCRAM" },
       "framebuffer_b":  { "name": "_ZN6Effect8buffer_bE",          "region": "OCRAM" },
       // Phantasm instantiates all effects (incl. reaction-diffusion), so the K-NN
