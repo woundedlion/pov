@@ -367,6 +367,49 @@ static inline GeodesicEdgeSpan make_geodesic_edge_span(const Vector &a,
   return es;
 }
 
+constexpr int PLANAR_SPAN_SAMPLES = 8;
+
+/**
+ * @brief Shared per-edge planar setup for the row/column span bounds.
+ * @details Projects the edge and samples its chart line through the
+ *          rasterizer's unprojection map once per edge. interior holds the
+ *          k/PLANAR_SPAN_SAMPLES samples for k in [1, PLANAR_SPAN_SAMPLES);
+ *          the endpoint sample is deferred to planar_col_span (the row span
+ *          never needs it).
+ */
+struct PlanarEdgeSpan {
+  std::pair<float, float> p1; /**< Projection of the edge start. */
+  float dX;                   /**< Projected chord x-component. */
+  float dY;                   /**< Projected chord y-component. */
+  float gap_arc;              /**< Bound on each inter-sample arc length. */
+  std::array<Vector, PLANAR_SPAN_SAMPLES - 1> interior;
+};
+
+/**
+ * @brief Computes the shared planar edge setup once per edge.
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param planar_basis Azimuthal-equidistant projection basis.
+ */
+static inline PlanarEdgeSpan make_planar_edge_span(const Vector &a,
+                                                   const Vector &b,
+                                                   const Basis &planar_basis) {
+  PlanarEdgeSpan es;
+  es.p1 = azimuthal_project(a, planar_basis);
+  auto p2 = azimuthal_project(b, planar_basis);
+  es.dX = p2.first - es.p1.first;
+  es.dY = p2.second - es.p1.second;
+  // The projected chord over-estimates the on-sphere arc, so gap_arc bounds
+  // each inter-sample arc length.
+  es.gap_arc = sqrtf(es.dX * es.dX + es.dY * es.dY) / PLANAR_SPAN_SAMPLES;
+  for (int k = 1; k < PLANAR_SPAN_SAMPLES; ++k) {
+    float p = static_cast<float>(k) / PLANAR_SPAN_SAMPLES;
+    es.interior[k - 1] = azimuthal_unproject(
+        es.p1.first + es.dX * p, es.p1.second + es.dY * p, planar_basis);
+  }
+  return es;
+}
+
 /**
  * @brief Geodesic screen-row span from a precomputed edge setup.
  * @tparam W,H Rasterization resolution (pixel grid).
@@ -409,6 +452,45 @@ static inline void geodesic_row_span(const Vector &a, const Vector &b,
 }
 
 /**
+ * @brief Planar screen-row span from a precomputed edge setup.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param es Shared setup from make_planar_edge_span(a, b, basis).
+ * @param row_lo Output: minimum screen row touched by the edge.
+ * @param row_hi Output: maximum screen row touched by the edge.
+ * @details No closed-form latitude extremum exists, so the endpoint rows are
+ * extended over the shared samples and widened by the arc's Lipschitz bound.
+ * The cull and renderer do NOT take bit-identical samples, so gap-freeness
+ * comes from the Lipschitz + one-row margin: phi is 1-Lipschitz in angular
+ * distance, so between samples |Δrow| ≤ (Δarc)·(H_VIRT−1)/π. The one-row
+ * epsilon absorbs the sub-pixel difference between the unprojected sample
+ * (≈unit to fast-math precision) and the renderer's normalized plot position.
+ */
+template <int W, int H>
+static inline void planar_row_span(const Vector &a, const Vector &b,
+                                   const PlanarEdgeSpan &es, float &row_lo,
+                                   float &row_hi) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  auto y_to_row = [](float y) {
+    return phi_to_y(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
+  };
+  float ra = y_to_row(a.y);
+  float rb = y_to_row(b.y);
+  row_lo = std::min(ra, rb);
+  row_hi = std::max(ra, rb);
+  for (const Vector &s : es.interior) {
+    float r = y_to_row(s.y);
+    row_lo = std::min(row_lo, r);
+    row_hi = std::max(row_hi, r);
+  }
+  float margin =
+      es.gap_arc * (static_cast<float>(H_VIRT - 1) / PI_F) + 1.0f;
+  row_lo -= margin;
+  row_hi += margin;
+}
+
+/**
  * @brief Conservative screen-row span of a rendered edge, arc bulge included.
  * @tparam W,H Rasterization resolution (pixel grid).
  * @param a Edge start (unit sphere point).
@@ -431,81 +513,10 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
                             row_hi);
     return;
   }
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  auto y_to_row = [](float y) {
-    return phi_to_y(fast_acos(hs::clamp(y, -1.0f, 1.0f)), H_VIRT);
-  };
-  float ra = y_to_row(a.y);
-  float rb = y_to_row(b.y);
-  row_lo = std::min(ra, rb);
-  row_hi = std::max(ra, rb);
-
-  {
-    // Planar edge: no closed-form latitude extremum, so sample the arc through
-    // the rasterizer's unprojection MAP then widen by the arc's Lipschitz bound.
-    // The cull and renderer do NOT take bit-identical samples, so gap-freeness
-    // comes from the Lipschitz + one-row margin below. Row space keeps the margin
-    // uniform: phi is 1-Lipschitz in angular distance, so between samples
-    // |Δrow| ≤ (Δarc)·(H_VIRT−1)/π, and the projected chord over-estimates the
-    // on-sphere arc.
-    auto p1 = azimuthal_project(a, *planar_basis);
-    auto p2 = azimuthal_project(b, *planar_basis);
-    float dX = p2.first - p1.first;
-    float dY = p2.second - p1.second;
-    constexpr int SAMPLES = 8;
-    for (int k = 1; k < SAMPLES; ++k) {
-      float p = static_cast<float>(k) / SAMPLES;
-      float y = azimuthal_unproject(p1.first + dX * p, p1.second + dY * p,
-                                    *planar_basis)
-                    .y;
-      float r = y_to_row(y);
-      row_lo = std::min(row_lo, r);
-      row_hi = std::max(row_hi, r);
-    }
-    // Lipschitz margin (covers the hump between samples) plus a one-row epsilon
-    // that absorbs the sub-pixel difference between the unprojected sample (≈unit
-    // to fast-math precision) and the renderer's normalized plot position.
-    float margin = (sqrtf(dX * dX + dY * dY) / SAMPLES) *
-                       (static_cast<float>(H_VIRT - 1) / PI_F) +
-                   1.0f;
-    row_lo -= margin;
-    row_hi += margin;
-  }
+  planar_row_span<W, H>(a, b, make_planar_edge_span(a, b, *planar_basis),
+                        row_lo, row_hi);
 }
 
-/**
- * @brief Conservative screen-column arc of a rendered edge.
- * @tparam W Rasterization width (pixel grid).
- * @param a Edge start (unit sphere point).
- * @param b Edge end (unit sphere point).
- * @param planar_basis Non-null: edge is azimuthal-equidistant; null: geodesic.
- * @param col_s Output: arc start column, in [0, W).
- * @param col_len Output: arc length in columns (may reach W = full width).
- * @return False when no useful bound exists — near-meridian geodesic (the
- *         axis's y-component is float noise and the longitude can jump across
- *         a pole), or a planar edge that nears a pole or whose Lipschitz
- *         margin exceeds the short-way-delta proof — the caller must skip the
- *         horizontal cull.
- * @details Geodesic: longitude is globally monotone along the rendered circle
- * — with pos(ang) = a·cos + cross(axis, a)·sin, the atan2(z, x) rate numerator
- * pos.x·tan.z - pos.z·tan.x folds to -axis.y, a constant. The arc therefore
- * sweeps from a's column toward the end column in the direction sign(-axis.y),
- * and one full revolution sweeps exactly W, so the directed modular difference
- * is the exact sweep. Antipodal symmetry (λ(-p) = λ(p) + π) makes every
- * half-circle sweep exactly W/2 and shorter arcs less, so the span is always
- * the endpoints' short-way separation — the direction only disambiguates the
- * near-antipodal boundary, where short-way is float noise. Axis selection
- * mirrors rasterize_geodesic_strategy and the column mapping is the renderer's
- * vector_to_theta; COL_PAD absorbs plot rounding and the AntiAlias tap spread.
- *
- * Planar: longitude is not monotone, so sample the chart line through the
- * rasterizer's unprojection MAP (as edge_row_span does), accumulate short-way
- * column deltas, and widen by the azimuth Lipschitz bound (W/2π)/sin(φ) per
- * inter-sample gap. sin(φ) over the whole edge is bounded below from the
- * samples minus the 1-Lipschitz gap drift; the short-way delta reading is
- * valid only while the per-gap bound stays under W/4, and both that and the
- * near-pole case fall back to no-cull (return false).
- */
 /**
  * @brief Pads a fractional column interval and wraps it into a [0, W) arc.
  * @tparam W Rasterization width (pixel grid).
@@ -534,7 +545,19 @@ static inline void finish_col_span(float s_f, float len_f, int &col_s,
  * @param col_len Output: arc length in columns (may reach W = full width).
  * @return False when no useful bound exists (degenerate cross on a
  *         non-collapsed edge, or a near-meridian axis whose y-component is
- *         float noise) — the caller must skip the horizontal cull.
+ *         float noise and the longitude can jump across a pole) — the caller
+ *         must skip the horizontal cull.
+ * @details Longitude is globally monotone along the rendered circle — with
+ * pos(ang) = a·cos + cross(axis, a)·sin, the atan2(z, x) rate numerator
+ * pos.x·tan.z - pos.z·tan.x folds to -axis.y, a constant. The arc therefore
+ * sweeps from a's column toward the end column in the direction sign(-axis.y),
+ * and one full revolution sweeps exactly W, so the directed modular difference
+ * is the exact sweep. Antipodal symmetry (λ(-p) = λ(p) + π) makes every
+ * half-circle sweep exactly W/2 and shorter arcs less, so the span is always
+ * the endpoints' short-way separation — the direction only disambiguates the
+ * near-antipodal boundary, where short-way is float noise. Axis selection
+ * mirrors rasterize_geodesic_strategy and the column mapping is the renderer's
+ * vector_to_theta; COL_PAD absorbs plot rounding and the AntiAlias tap spread.
  */
 template <int W>
 static inline bool geodesic_col_span(const Vector &a, const Vector &b,
@@ -586,36 +609,40 @@ static inline bool geodesic_col_span(const Vector &a, const Vector &b,
   return true;
 }
 
+/**
+ * @brief Planar screen-column arc from a precomputed edge setup.
+ * @tparam W Rasterization width (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param planar_basis Azimuthal-equidistant projection basis.
+ * @param es Shared setup from make_planar_edge_span(a, b, planar_basis); the
+ *           end point enters through its projected chord.
+ * @param col_s Output: arc start column, in [0, W).
+ * @param col_len Output: arc length in columns (may reach W = full width).
+ * @return False when no useful bound exists — the edge nears a pole or the
+ *         Lipschitz margin exceeds the short-way-delta proof — the caller
+ *         must skip the horizontal cull.
+ * @details Longitude is not monotone along the chart line, so accumulate
+ * short-way column deltas over the shared samples and widen by the azimuth
+ * Lipschitz bound (W/2π)/sin(φ) per inter-sample gap. sin(φ) over the whole
+ * edge is bounded below from the samples minus the 1-Lipschitz gap drift; the
+ * short-way delta reading is valid only while the per-gap bound stays under
+ * W/4, and both that and the near-pole case fall back to no-cull (return
+ * false).
+ */
 template <int W>
-static inline bool edge_col_span(const Vector &a, const Vector &b,
-                                 const Basis *planar_basis, int &col_s,
-                                 int &col_len) {
-  if (planar_basis == nullptr)
-    return geodesic_col_span<W>(a, b, make_geodesic_edge_span(a, b), col_s,
-                                col_len);
-
+static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
+                                   const PlanarEdgeSpan &es, int &col_s,
+                                   int &col_len) {
   constexpr float MIN_SIN_PHI = 0.05f;
 
   const float ca = vector_to_theta<W>(a);
   float s_f, len_f;
 
   {
-    auto p1 = azimuthal_project(a, *planar_basis);
-    auto p2 = azimuthal_project(b, *planar_basis);
-    const float dX = p2.first - p1.first;
-    const float dY = p2.second - p1.second;
-    constexpr int SAMPLES = 8;
-    // The projected chord over-estimates the on-sphere arc (see edge_row_span),
-    // so gap_arc bounds each inter-sample arc length.
-    const float gap_arc = sqrtf(dX * dX + dY * dY) / SAMPLES;
-
     float min_sp2 = 1.0f - a.y * a.y; // squared sin(phi), minimized over samples
     float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
     float prev = ca;
-    for (int k = 1; k <= SAMPLES; ++k) {
-      float p = static_cast<float>(k) / SAMPLES;
-      Vector s = azimuthal_unproject(p1.first + dX * p, p1.second + dY * p,
-                                     *planar_basis);
+    auto step = [&](const Vector &s) {
       float c = vector_to_theta<W>(s);
       float d = c - prev;
       if (d > W * 0.5f)
@@ -627,18 +654,22 @@ static inline bool edge_col_span(const Vector &a, const Vector &b,
       cum_hi = std::max(cum_hi, cum);
       prev = c;
       min_sp2 = std::min(min_sp2, 1.0f - s.y * s.y);
-    }
+    };
+    for (const Vector &s : es.interior)
+      step(s);
+    step(azimuthal_unproject(es.p1.first + es.dX, es.p1.second + es.dY,
+                             planar_basis));
 
     // Worst-case sin(phi) anywhere on the edge: phi is 1-Lipschitz in arc
     // length and sin is 1-Lipschitz in phi, so between samples it drifts by at
     // most gap_arc.
-    const float sin_phi_worst = sqrtf(std::max(0.0f, min_sp2)) - gap_arc;
+    const float sin_phi_worst = sqrtf(std::max(0.0f, min_sp2)) - es.gap_arc;
     if (sin_phi_worst < MIN_SIN_PHI)
       return false;
     // Column movement inside one gap; also the proof bound for reading each
     // sample-to-sample delta the short way (must stay well under W/2).
     const float margin =
-        gap_arc * (static_cast<float>(W) / (2.0f * PI_F)) / sin_phi_worst +
+        es.gap_arc * (static_cast<float>(W) / (2.0f * PI_F)) / sin_phi_worst +
         1.0f;
     if (margin >= W * 0.25f)
       return false;
@@ -649,6 +680,29 @@ static inline bool edge_col_span(const Vector &a, const Vector &b,
 
   finish_col_span<W>(s_f, len_f, col_s, col_len);
   return true;
+}
+
+/**
+ * @brief Conservative screen-column arc of a rendered edge.
+ * @tparam W Rasterization width (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @param planar_basis Non-null: edge is azimuthal-equidistant; null: geodesic.
+ * @param col_s Output: arc start column, in [0, W).
+ * @param col_len Output: arc length in columns (may reach W = full width).
+ * @return False when no useful bound exists — the caller must skip the
+ *         horizontal cull (see geodesic_col_span / planar_col_span).
+ */
+template <int W>
+static inline bool edge_col_span(const Vector &a, const Vector &b,
+                                 const Basis *planar_basis, int &col_s,
+                                 int &col_len) {
+  if (planar_basis == nullptr)
+    return geodesic_col_span<W>(a, b, make_geodesic_edge_span(a, b), col_s,
+                                col_len);
+  return planar_col_span<W>(a, *planar_basis,
+                            make_planar_edge_span(a, b, *planar_basis), col_s,
+                            col_len);
 }
 
 /**
@@ -729,12 +783,14 @@ static inline bool edge_visible_in_clip(PipelineT &pipeline,
         return true;
       return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
     }
-    edge_row_span<W, H>(ea, eb, bp, row_lo, row_hi);
+    // Planar: both span bounds share one projection + chart-line sample set.
+    const PlanarEdgeSpan ps = make_planar_edge_span(ea, eb, *bp);
+    planar_row_span<W, H>(ea, eb, ps, row_lo, row_hi);
     if (!cr.could_intersect_y(row_lo, row_hi))
       return false;
     if (!xc.active)
       return true;
-    if (!edge_col_span<W>(ea, eb, bp, col_s, col_len))
+    if (!planar_col_span<W>(ea, *bp, ps, col_s, col_len))
       return true;
     return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
   };
