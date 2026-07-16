@@ -208,6 +208,84 @@ inline void test_compile_hankin_icosahedron_triangular_faces() {
   }
 }
 
+/**
+ * @brief Verifies compile_hankin's emission-order contract: exactly one star
+ *        face per base face, emitted first, in base-face order, before any
+ *        rosette faces.
+ * @tparam Solid Seed solid descriptor to compile.
+ * @details The bookend hankin↔base palette mapping is the identity because of
+ *          this order. Star face fi is pinned to base face fi structurally: it
+ *          has 2x the base face's sides, alternates midpoint (< static_offset)
+ *          and star-point (>= static_offset) entries starting with a midpoint,
+ *          and its star points' instruction corners are exactly base face fi's
+ *          corner set. The remaining faces are rosettes (one per base vertex),
+ *          distinguished by their leading star-point entry.
+ */
+template <typename Solid>
+inline void check_star_faces_first_in_base_face_order() {
+  Arena target(hankin_target_buf, sizeof(hankin_target_buf));
+  Arena temp(hankin_temp_buf, sizeof(hankin_temp_buf));
+
+  PolyMesh base;
+  build_solid<Solid>(base, temp);
+
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(base, compiled, target, temp);
+
+  const size_t F = base.face_counts.size();
+  const size_t V = base.vertices.size();
+  const auto static_offset = static_cast<uint16_t>(compiled.static_offset);
+  HS_EXPECT_EQ(compiled.face_counts.size(), F + V);
+
+  size_t off = 0;
+  size_t base_off = 0;
+  for (size_t fi = 0; fi < F; ++fi) {
+    const int bc = base.face_counts[fi];
+    const int oc = compiled.face_counts[fi];
+    HS_EXPECT_EQ(oc, 2 * bc);
+
+    std::vector<uint16_t> corners;
+    for (int k = 0; k < oc; ++k) {
+      const uint16_t idx = compiled.faces[off + k];
+      if (k % 2 == 0) {
+        HS_EXPECT_TRUE(idx < static_offset);
+      } else {
+        HS_EXPECT_TRUE(idx >= static_offset);
+        corners.push_back(
+            compiled.dynamic_instructions[idx - static_offset].v_corner);
+      }
+    }
+
+    std::vector<uint16_t> expected;
+    for (int k = 0; k < bc; ++k)
+      expected.push_back(base.faces[base_off + k]);
+    std::sort(corners.begin(), corners.end());
+    std::sort(expected.begin(), expected.end());
+    HS_EXPECT_EQ(corners.size(), expected.size());
+    for (size_t k = 0; k < corners.size() && k < expected.size(); ++k)
+      HS_EXPECT_EQ(corners[k], expected[k]);
+
+    off += oc;
+    base_off += bc;
+  }
+
+  // Everything after the F star faces is a rosette: reversed emission puts a
+  // star-point entry first, never a midpoint.
+  for (size_t fi = F; fi < compiled.face_counts.size(); ++fi) {
+    HS_EXPECT_TRUE(compiled.faces[off] >= static_offset);
+    off += compiled.face_counts[fi];
+  }
+}
+
+/**
+ * @brief Pins the star-first, base-face-order emission on a quad seed (cube)
+ *        and a triangle seed (icosahedron).
+ */
+inline void test_compile_hankin_star_faces_first_in_base_face_order() {
+  check_star_faces_first_in_base_face_order<Solids::Cube>();
+  check_star_faces_first_in_base_face_order<Solids::Icosahedron>();
+}
+
 // ---------------------------------------------------------------------------
 // update_hankin
 // ---------------------------------------------------------------------------
@@ -553,6 +631,7 @@ inline int run_hankin_tests() {
   test_compile_hankin_instruction_indices_in_range();
   test_compile_hankin_static_vertices_are_edge_midpoints();
   test_compile_hankin_icosahedron_triangular_faces();
+  test_compile_hankin_star_faces_first_in_base_face_order();
 
   test_update_hankin_flat_collapses_to_corners();
   test_update_hankin_degenerate_edge_collapses_to_corner();
