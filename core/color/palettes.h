@@ -136,7 +136,7 @@ struct MeshPaletteBank {
    * @brief (Re)bakes every source palette into the arena.
    * @param arena Destination arena receiving N x 256-entry Color4 LUTs.
    */
-  void bake_all(Arena &arena) {
+  HS_COLD_MEMBER void bake_all(Arena &arena) {
     constexpr auto src = sources();
     for (int i = 0; i < N; ++i)
       bank.entries[i].bake(arena, *src[i]);
@@ -146,7 +146,7 @@ struct MeshPaletteBank {
    * @brief Fills out[0..N) with a random permutation of [0, N).
    * @param out Receives the per-shape palette-slot assignment.
    */
-  static void shuffle_indices(std::array<int, N> &out) {
+  static HS_COLD_MEMBER void shuffle_indices(std::array<int, N> &out) {
     for (int i = 0; i < N; ++i)
       out[i] = i;
     std::shuffle(out.begin(), out.end(), hs::random());
