@@ -347,25 +347,31 @@ public:
     const int frame = static_cast<int>(
         std::min<uint32_t>(t, static_cast<uint32_t>(duration)));
 
-    // Frame -> sweep position + settle blend (forward settles at the end,
-    // reverse legs un-settle over the opening window).
-    int sweep_frame = frame;
+    // Frame -> sweep position + settle blend. Settling legs run one eased
+    // clock over the whole leg, split proportionally by frame counts: the
+    // sweep/settle seam lands mid-easing instead of at the sweep's
+    // zero-slope tail, so per-frame motion crosses it without a hitch while
+    // the leg still starts and ends at zero slope against the static
+    // bookends. Forward legs settle at the end; reverse legs un-settle over
+    // the opening window, symmetrically.
+    float k;
     float settle_alpha = 0.0f;
     if (tr.settle_frames > 0) {
+      float progress =
+          easing_fn(static_cast<float>(frame) / static_cast<float>(duration));
+      float split = (tr.reverse ? tr.settle_frames : tr.sweep_frames) /
+                    static_cast<float>(duration);
       if (!tr.reverse) {
-        sweep_frame = std::min(frame, tr.sweep_frames);
-        if (frame > tr.sweep_frames)
-          settle_alpha = static_cast<float>(frame - tr.sweep_frames) /
-                         static_cast<float>(tr.settle_frames);
+        k = std::min(progress / split, 1.0f);
+        settle_alpha = std::max(0.0f, (progress - split) / (1.0f - split));
       } else {
-        sweep_frame = std::max(0, frame - tr.settle_frames);
-        if (frame < tr.settle_frames)
-          settle_alpha = 1.0f - static_cast<float>(frame) /
-                                    static_cast<float>(tr.settle_frames);
+        settle_alpha = 1.0f - std::min(progress / split, 1.0f);
+        k = std::max(0.0f, (progress - split) / (1.0f - split));
       }
+    } else {
+      k = easing_fn(static_cast<float>(frame) /
+                    static_cast<float>(tr.sweep_frames));
     }
-    float k = easing_fn(static_cast<float>(sweep_frame) /
-                        static_cast<float>(tr.sweep_frames));
     float tp = tr.t_start + (tr.t_end - tr.t_start) * k;
     float tw = tr.twist_start + (tr.twist_end - tr.twist_start) * k;
 
