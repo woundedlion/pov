@@ -30,6 +30,7 @@ import sys
 from collections import Counter
 
 CPU_HZ = 600_000_000  # 600 MHz; cyc / 600 = us
+DISPLAY_WINDOW_US = 62_500  # half-revolution at 480 RPM
 
 HEADER_RE = re.compile(
     r"=== profile (\S+) \[(\d+)x(\d+)\] frames (\d+)-(\d+) window=(\d+) us ===")
@@ -141,16 +142,50 @@ def dominant_leaf(windows):
     return tot.most_common(1)[0][0] if tot else "frame"
 
 
+def spilled_frames(w):
+    """Frames of this window that took >1 display window (62.5 ms).
+
+    Wall time quantizes to whole display windows, so the window's wall sum is
+    ~62.5 ms x (frames + spilled); derived, exact to +-1 (readout windows are
+    not aligned to display-window boundaries).
+    """
+    if not w.wall:
+        return 0
+    return max(0, round(w.wall[3] / DISPLAY_WINDOW_US) - w.frames)
+
+
 def cmd_windows(windows, scope):
-    print(f"# window  frames        {scope} ms/f  calls/f  wall_ms  marker")
+    print(f"# window  frames        {scope} ms/f  calls/f  wall_ms  "
+          f"peak_ms  spill  marker")
+    agg_pf, agg_spill, agg_frames = [], 0, 0
+    worst_pf = worst_peak = 0.0
+    worst_pf_w = worst_peak_w = None
     for w in windows:
         pf = w.per_frame_ms(scope)
         cf = w.calls_per_frame(scope)
         wall = w.wall[3] / w.frames / 1000.0 if w.wall else 0.0
+        peak = w.wall[2] / 1000.0 if w.wall else 0.0
+        spill = spilled_frames(w)
         mk = w.marker["name"] if w.marker else "-"
         pf_s = f"{pf:8.2f}" if pf is not None else "     n/a"
         cf_s = f"{cf:7.1f}" if cf is not None else "    n/a"
-        print(f"{w.f_start:6d}-{w.f_end:<6d} {pf_s}  {cf_s}  {wall:7.2f}  {mk}")
+        print(f"{w.f_start:6d}-{w.f_end:<6d} {pf_s}  {cf_s}  {wall:7.2f}  "
+              f"{peak:7.2f}  {spill:5d}  {mk}")
+        if pf is not None:
+            agg_pf.append(pf)
+            if pf > worst_pf:
+                worst_pf, worst_pf_w = pf, w
+        if w.wall and peak > worst_peak:
+            worst_peak, worst_peak_w = peak, w
+        agg_spill += spill
+        agg_frames += w.frames
+    if agg_pf:
+        print(f"# aggregate: {scope} avg {sum(agg_pf) / len(agg_pf):.2f} ms/f, "
+              f"worst window {worst_pf:.2f} ms/f "
+              f"(frames {worst_pf_w.f_start}-{worst_pf_w.f_end}), "
+              f"peak frame {worst_peak:.2f} ms wall "
+              f"(frames {worst_peak_w.f_start}-{worst_peak_w.f_end}), "
+              f"spilled {agg_spill}/{agg_frames} frames")
 
 
 def cmd_presets(windows, scope, gate):
