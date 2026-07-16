@@ -3,9 +3,16 @@
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
  * Operator-level tests for the ConwayMorph transition design
- * (docs/conway_morph_spec.md §7.3–§7.5).
+ * (docs/conway_morph_spec.md §7.1–§7.5).
  *
  * Coverage:
+ *   - Endpoint exactness: every ConwayGraph edge endpoint on the registry code
+ *     path equals the registry generator output exactly; dual-family-seed and
+ *     bridge arrivals match within geometric tolerance instead.
+ *   - Topology constancy: per edge, samples across the sweep interval hold
+ *     constant V/F/I, closed genus-0 manifold, faces >= 3 sides, unit
+ *     vertices; per-edge morph-frame scratch peaks fit the HankinSolids
+ *     scratch split.
  *   - Settle correspondence: relax output vertex order is the identity over its
  *     input (same counts, byte-identical topology, vertex i stays nearest to
  *     input vertex i), so a relaxed endpoint is per-vertex slerpable.
@@ -21,9 +28,13 @@
 #include <cmath>
 #include <cstdint>
 #include <cstring>
+#include <map>
+#include <vector>
 #include "core/mesh/conway.h"
+#include "core/mesh/conway_graph.h"
 #include "core/mesh/solids.h"
 #include "tests/mesh_test_util.h"
+#include "tests/test_conway.h" // check_euler_genus0, face_type_histogram
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -33,9 +44,9 @@ namespace conway_morph_tests {
 inline uint8_t morph_target_buf[256 * 1024]; /**< Op output arena. */
 inline uint8_t morph_temp_buf[256 * 1024];   /**< Op scratch arena. */
 inline uint8_t morph_aux_buf[256 * 1024];    /**< Seed / second-result arena. */
+inline uint8_t morph_persist_buf[64 * 1024]; /**< Persistent-seed arena. */
 
-/** Sweep clamp epsilon for op-at-epsilon endpoints. */
-constexpr float T_EPS = 0.02f;
+using ConwayGraph::T_EPS;
 
 // ---------------------------------------------------------------------------
 // Seeds: the solids the edge table sweeps from, including the two ADOPT seeds
@@ -392,6 +403,365 @@ inline void test_ops_at_t_eps_primary_faces_match_seed() {
 }
 
 // ---------------------------------------------------------------------------
+// §7.1 Endpoint exactness: sweeping to an edge endpoint arrives at the
+// registry generator's output — exactly where the composition is the registry
+// chain (same code path, same seed frame), within geometric tolerance where it
+// is not (dual-family ambo arrivals, bridge arrivals, and t = 0 ends, which
+// emit expanded topology).
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Runs an edge's operator on a seed at one parameter point.
+ * @param e Edge whose op kind is dispatched.
+ * @param seed Seed mesh the op runs on.
+ * @param target Arena receiving the output mesh.
+ * @param temp Arena for the op's transient scratch.
+ * @param t Operator parameter.
+ * @param twist Snub twist (snub edges only).
+ * @return The swept PolyMesh in `target`.
+ */
+inline PolyMesh run_edge_op(const ConwayGraph::EdgeSpec &e,
+                            const PolyMesh &seed, Arena &target, Arena &temp,
+                            float t, float twist) {
+  switch (e.op) {
+  case ConwayGraph::MorphOp::TRUNCATE:
+    return MeshOps::truncate(seed, target, temp, t);
+  case ConwayGraph::MorphOp::EXPAND:
+    return MeshOps::expand(seed, target, temp, t);
+  case ConwayGraph::MorphOp::SNUB:
+    return MeshOps::snub(seed, target, temp, t, twist);
+  }
+  return PolyMesh{};
+}
+
+/** How an edge endpoint is compared against its node's registry output. */
+enum class EndRegime {
+  EXACT,        /**< Same code path: bitwise vertices, identical topology. */
+  EPS_PRIMARY,  /**< t = 0 end: op(seed, T_EPS) primaries match the seed. */
+  VERTEX_MATCH, /**< Same geometry, different vertex order (dual-family ambo,
+                     ambo(tetra) bridge). */
+  REGULAR,      /**< Relax-canonical arrival in a walk-dependent orientation
+                     (tetra -> icosa bridge). */
+};
+
+/**
+ * @brief Comparison regime of an edge's to_node end.
+ * @param e Edge to classify.
+ * @return EXACT when op(seed, t_to) [+ relax] is the to_node registry chain;
+ *         VERTEX_MATCH for arrivals off the registry seed (dual-family ambo,
+ *         non-settle bridges); REGULAR for the settling bridge, whose relax
+ *         orientation tracks the seed frame, not the registry icosahedron.
+ */
+inline EndRegime to_end_regime(const ConwayGraph::EdgeSpec &e) {
+  using namespace ConwayGraph;
+  if (e.to_node == CUBOCTAHEDRON && e.seed_solid == OCTAHEDRON)
+    return EndRegime::VERTEX_MATCH;
+  if (e.to_node == ICOSIDODECAHEDRON && e.seed_solid == ICOSAHEDRON)
+    return EndRegime::VERTEX_MATCH;
+  if (e.bridge)
+    return e.settle ? EndRegime::REGULAR : EndRegime::VERTEX_MATCH;
+  return EndRegime::EXACT;
+}
+
+/**
+ * @brief Asserts two meshes are exactly equal: bitwise vertex floats,
+ *        identical face_counts and faces arrays.
+ */
+inline void check_exactly_equal(const PolyMesh &got, const PolyMesh &want) {
+  HS_EXPECT_EQ(got.vertices.size(), want.vertices.size());
+  HS_EXPECT_EQ(got.face_counts.size(), want.face_counts.size());
+  HS_EXPECT_EQ(got.faces.size(), want.faces.size());
+  if (got.vertices.size() != want.vertices.size() ||
+      got.face_counts.size() != want.face_counts.size() ||
+      got.faces.size() != want.faces.size())
+    return;
+  for (size_t i = 0; i < got.vertices.size(); ++i) {
+    HS_EXPECT_EQ(got.vertices[i].x, want.vertices[i].x);
+    HS_EXPECT_EQ(got.vertices[i].y, want.vertices[i].y);
+    HS_EXPECT_EQ(got.vertices[i].z, want.vertices[i].z);
+  }
+  for (size_t i = 0; i < got.face_counts.size(); ++i)
+    HS_EXPECT_EQ((int)got.face_counts[i], (int)want.face_counts[i]);
+  for (size_t i = 0; i < got.faces.size(); ++i)
+    HS_EXPECT_EQ(got.faces[i], want.faces[i]);
+}
+
+/**
+ * @brief Asserts two meshes carry the same geometry up to vertex order:
+ *        equal counts, equal face-type histograms, and a vertex-set bijection
+ *        within tol.
+ */
+inline void check_equal_up_to_vertex_order(const PolyMesh &got,
+                                           const PolyMesh &want, float tol) {
+  HS_EXPECT_EQ(got.vertices.size(), want.vertices.size());
+  HS_EXPECT_EQ(got.face_counts.size(), want.face_counts.size());
+  HS_EXPECT_EQ(got.faces.size(), want.faces.size());
+  HS_EXPECT_TRUE(conway_tests::face_type_histogram(got) ==
+                 conway_tests::face_type_histogram(want));
+  if (got.vertices.size() != want.vertices.size())
+    return;
+  std::vector<bool> used(want.vertices.size(), false);
+  for (size_t i = 0; i < got.vertices.size(); ++i) {
+    bool matched = false;
+    for (size_t j = 0; j < want.vertices.size(); ++j) {
+      if (!used[j] && (got.vertices[i] - want.vertices[j]).length() <= tol) {
+        used[j] = true;
+        matched = true;
+        break;
+      }
+    }
+    HS_EXPECT_TRUE(matched);
+  }
+}
+
+/**
+ * @brief Asserts a mesh is the registry solid's regular form in an arbitrary
+ *        orientation: equal counts, equal face-type histograms, unit vertices,
+ *        and near-equal edge lengths.
+ */
+inline void check_regular_form(const PolyMesh &got, const PolyMesh &want,
+                               float edge_dev_tol) {
+  HS_EXPECT_EQ(got.vertices.size(), want.vertices.size());
+  HS_EXPECT_EQ(got.face_counts.size(), want.face_counts.size());
+  HS_EXPECT_EQ(got.faces.size(), want.faces.size());
+  HS_EXPECT_TRUE(conway_tests::face_type_histogram(got) ==
+                 conway_tests::face_type_histogram(want));
+  check_all_unit_vertices(got, 1e-3f);
+  HS_EXPECT_LE(max_edge_length_deviation(got), edge_dev_tol);
+}
+
+/**
+ * @brief Verifies every ConwayGraph edge endpoint against its node's registry
+ *        generator: exact on the registry code path, geometric tolerance for
+ *        the t = 0 ends and the off-registry-seed arrivals.
+ * @details Seeds are built via the registry generators, so the DERIVE_AMBO
+ *          rows (cuboctahedron / icosidodecahedron seeds) run the exact bevel
+ *          decomposition of their to_node chains. from ends at t = 0 use the
+ *          EPS_PRIMARY regime (an op at 0 emits expanded topology with
+ *          coincident positions, never the seed mesh itself).
+ */
+inline void test_edge_endpoints_match_registry() {
+  constexpr size_t HALF = sizeof(morph_target_buf) / 2;
+  for (int ei = 0; ei < ConwayGraph::NUM_EDGES; ++ei) {
+    const ConwayGraph::EdgeSpec &e = ConwayGraph::EDGES[ei];
+    const int failed_before = hs_test::stats().failed;
+
+    Arena sa(morph_aux_buf, HALF);
+    Arena sb(morph_aux_buf + HALF, HALF);
+    PolyMesh seed = Solids::simple_registry[e.seed_solid].generate(sa, sb);
+
+    // from end: t = 0 emits expanded topology, so compare op(seed, T_EPS)
+    // primaries against the seed (= the from_node registry mesh); a non-zero
+    // t_from is the from_node registry chain itself.
+    {
+      Arena oa(morph_temp_buf, HALF);
+      Arena ob(morph_temp_buf + HALF, HALF);
+      if (e.t_from == 0.0f) {
+        PolyMesh got = run_edge_op(e, seed, oa, ob, T_EPS, e.twist_from);
+        const int per_corner = e.op == ConwayGraph::MorphOp::TRUNCATE ? 2 : 1;
+        const float tol =
+            e.op == ConwayGraph::MorphOp::TRUNCATE ? 0.08f : 0.06f;
+        check_primary_faces_match_seed(seed, got, per_corner, tol);
+      } else {
+        Arena ra(morph_target_buf, HALF);
+        Arena rb(morph_target_buf + HALF, HALF);
+        PolyMesh want = Solids::simple_registry[e.from_node].generate(ra, rb);
+        PolyMesh got = run_edge_op(e, seed, oa, ob, e.t_from, e.twist_from);
+        check_exactly_equal(got, want);
+      }
+    }
+
+    // to end.
+    {
+      Arena ra(morph_target_buf, HALF);
+      Arena rb(morph_target_buf + HALF, HALF);
+      PolyMesh want = Solids::simple_registry[e.to_node].generate(ra, rb);
+
+      Arena oa(morph_temp_buf, HALF);
+      Arena ob(morph_temp_buf + HALF, HALF);
+      PolyMesh got = run_edge_op(e, seed, oa, ob, e.t_to, e.twist_to);
+      if (e.settle)
+        got = MeshOps::relax(got, ob, oa, 50);
+
+      switch (to_end_regime(e)) {
+      case EndRegime::EXACT:
+        check_exactly_equal(got, want);
+        break;
+      case EndRegime::VERTEX_MATCH:
+        check_equal_up_to_vertex_order(got, want, 1e-4f);
+        break;
+      case EndRegime::REGULAR:
+        check_regular_form(got, want, 0.02f);
+        break;
+      case EndRegime::EPS_PRIMARY:
+        break; // from-end-only regime
+      }
+    }
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [endpoint] edge %d: %s -> %s\n", ei,
+                  Solids::simple_registry[e.from_node].name,
+                  Solids::simple_registry[e.to_node].name);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// §7.2 Topology-constancy sweep: connectivity is fixed on the open interval,
+// so classification and palette assignment can hoist to once per leg.
+// ---------------------------------------------------------------------------
+
+/** Samples per edge sweep. */
+constexpr int SWEEP_SAMPLES = 16;
+
+/**
+ * @brief Sweep interval of an edge, clamped as a leg runs it.
+ * @param e Edge to clamp.
+ * @param t_lo Out: max(t_from, T_EPS).
+ * @param t_hi Out: t_to, additionally capped at 0.5 - T_EPS on truncate legs
+ *        (the ambo short-circuit changes emission order and face count).
+ */
+inline void edge_sweep_interval(const ConwayGraph::EdgeSpec &e, float &t_lo,
+                                float &t_hi) {
+  t_lo = std::max(e.t_from, T_EPS);
+  t_hi = e.op == ConwayGraph::MorphOp::TRUNCATE ? std::min(e.t_to, 0.5f - T_EPS)
+                                                : e.t_to;
+}
+
+/**
+ * @brief Verifies every edge holds constant topology across its sweep:
+ *        fixed V/F/I, closed genus-0 manifold, all faces >= 3 sides, unit
+ *        vertices, no traps.
+ * @details Snub twist interpolates linearly with t, as a leg sweeps it.
+ */
+inline void test_edge_sweeps_hold_topology() {
+  constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
+  for (int ei = 0; ei < ConwayGraph::NUM_EDGES; ++ei) {
+    const ConwayGraph::EdgeSpec &e = ConwayGraph::EDGES[ei];
+    const int failed_before = hs_test::stats().failed;
+
+    Arena sa(morph_aux_buf, HALF);
+    Arena sb(morph_aux_buf + HALF, HALF);
+    PolyMesh seed = Solids::simple_registry[e.seed_solid].generate(sa, sb);
+
+    float t_lo, t_hi;
+    edge_sweep_interval(e, t_lo, t_hi);
+
+    size_t v0 = 0, f0 = 0, i0 = 0;
+    for (int s = 0; s < SWEEP_SAMPLES; ++s) {
+      const float u = static_cast<float>(s) / (SWEEP_SAMPLES - 1);
+      const float t = t_lo + (t_hi - t_lo) * u;
+      const float twist =
+          e.twist_from +
+          (e.twist_to - e.twist_from) * ((t - e.t_from) / (e.t_to - e.t_from));
+
+      Arena target(morph_target_buf, sizeof(morph_target_buf));
+      Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
+      PolyMesh out = run_edge_op(e, seed, target, temp, t, twist);
+
+      if (s == 0) {
+        v0 = out.vertices.size();
+        f0 = out.face_counts.size();
+        i0 = out.faces.size();
+        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+      } else {
+        HS_EXPECT_EQ(out.vertices.size(), v0);
+        HS_EXPECT_EQ(out.face_counts.size(), f0);
+        HS_EXPECT_EQ(out.faces.size(), i0);
+      }
+      for (size_t fi = 0; fi < out.face_counts.size(); ++fi)
+        HS_EXPECT_TRUE(out.face_counts[fi] >= 3);
+      check_face_counts_consistent(out);
+      check_indices_in_range(out);
+      check_all_unit_vertices(out, 1e-3f);
+      conway_tests::check_euler_genus0(out);
+    }
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [sweep] edge %d: %s -> %s\n", ei,
+                  Solids::simple_registry[e.from_node].name,
+                  Solids::simple_registry[e.to_node].name);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Morph-frame scratch high-water gate at HankinSolids' shipping split
+// (mirrors the test_solids.h HANKIN_SCRATCH_A/B_BUDGET idiom). A morph frame
+// runs one op plus MeshOps::compile in the scratch pair under LIFO scopes;
+// host high-water marks are a conservative upper bound on the device figure.
+// ---------------------------------------------------------------------------
+
+constexpr size_t MORPH_SCRATCH_A_BUDGET =
+    24 * 1024; /**< HankinSolids scratch_a split. */
+constexpr size_t MORPH_SCRATCH_B_BUDGET =
+    32 * 1024; /**< HankinSolids scratch_b split. */
+
+/**
+ * @brief Verifies every edge's per-frame scratch peak (op + compile into a
+ *        fresh arena pair) fits HankinSolids' 24 KB / 32 KB scratch split.
+ * @details The seed lives in a persistent arena as the effect holds it;
+ *          topology is t-constant, so one mid-sweep sample per edge is the
+ *          frame peak. Reports the worst pair across the table.
+ */
+inline void test_edge_morph_frames_fit_scratch_budget() {
+  constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
+  size_t worst_a = 0, worst_b = 0;
+  int worst_a_edge = 0, worst_b_edge = 0;
+
+  for (int ei = 0; ei < ConwayGraph::NUM_EDGES; ++ei) {
+    const ConwayGraph::EdgeSpec &e = ConwayGraph::EDGES[ei];
+
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed;
+    {
+      Arena ga(morph_aux_buf, HALF);
+      Arena gb(morph_aux_buf + HALF, HALF);
+      seed = Solids::finalize_solid(
+          Solids::simple_registry[e.seed_solid].generate(ga, gb), persist);
+    }
+
+    float t_lo, t_hi;
+    edge_sweep_interval(e, t_lo, t_hi);
+    const float t = (t_lo + t_hi) * 0.5f;
+    const float twist =
+        e.twist_from +
+        (e.twist_to - e.twist_from) * ((t - e.t_from) / (e.t_to - e.t_from));
+
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    {
+      ScratchScope frame_a(a);
+      ScratchScope frame_b(b);
+      PolyMesh swept = run_edge_op(e, seed, a, b, t, twist);
+      MeshState frame;
+      MeshOps::compile(swept, frame, a, b);
+    }
+
+    const size_t a_peak = a.get_high_water_mark();
+    const size_t b_peak = b.get_high_water_mark();
+    if (a_peak > worst_a) {
+      worst_a = a_peak;
+      worst_a_edge = ei;
+    }
+    if (b_peak > worst_b) {
+      worst_b = b_peak;
+      worst_b_edge = ei;
+    }
+    HS_EXPECT_LE(a_peak, MORPH_SCRATCH_A_BUDGET);
+    HS_EXPECT_LE(b_peak, MORPH_SCRATCH_B_BUDGET);
+  }
+
+  const ConwayGraph::EdgeSpec &wa = ConwayGraph::EDGES[worst_a_edge];
+  const ConwayGraph::EdgeSpec &wb = ConwayGraph::EDGES[worst_b_edge];
+  std::printf(
+      "  [morph scratch] worst a=%zu B (%s -> %s) / budget=%zu B, "
+      "worst b=%zu B (%s -> %s) / budget=%zu B\n",
+      worst_a, Solids::simple_registry[wa.from_node].name,
+      Solids::simple_registry[wa.to_node].name, (size_t)MORPH_SCRATCH_A_BUDGET,
+      worst_b, Solids::simple_registry[wb.from_node].name,
+      Solids::simple_registry[wb.to_node].name, (size_t)MORPH_SCRATCH_B_BUDGET);
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -401,6 +771,10 @@ inline void test_ops_at_t_eps_primary_faces_match_seed() {
  */
 inline int run_conway_morph_tests() {
   hs_test::ModuleFixture fixture("conway_morph");
+
+  test_edge_endpoints_match_registry();
+  test_edge_sweeps_hold_topology();
+  test_edge_morph_frames_fit_scratch_budget();
 
   test_relax_is_vertex_order_identity();
 
