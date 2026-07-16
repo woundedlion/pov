@@ -1505,7 +1505,7 @@ public:
    * the cache is derived data, so it just re-populates on the next flush.
    * Without storage every flush renders uncached.
    */
-  void init_storage(Arena &arena) {
+  HS_COLD_MEMBER void init_storage(Arena &arena) {
     warp_dx_ = arena.allocate_n<int16_t>(CACHE_CELLS);
     warp_dy_ = arena.allocate_n<int16_t>(CACHE_CELLS);
     warp_cache_valid_ = false;

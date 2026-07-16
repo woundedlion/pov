@@ -34,7 +34,7 @@ public:
   /**
    * @brief Calculates the next random trigger time.
    */
-  void reset() {
+  HS_COLD_MEMBER void reset() {
     // +1 because hs::rand_int is half-open [min, max); the documented maximum
     // delay is inclusive, and RandomTimer(n, n) must yield exactly n.
     next = t + hs::rand_int(min, max + 1);

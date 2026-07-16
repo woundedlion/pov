@@ -95,7 +95,7 @@ static_assert(
     "Phantasm pov::sync::Config invariants violated");
 } // namespace
 
-void setup() {
+FLASHMEM void setup() {
   Serial.begin(9600); // baud inert on Teensy USB-CDC; initializes Serial only
   delay(1000);        // USB-CDC enumeration settle so early output isn't lost
   // nothrow new + HS_CHECK: a thrown bad_alloc has no handler on Teensy, so
