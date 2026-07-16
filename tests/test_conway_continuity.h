@@ -353,12 +353,28 @@ template <typename Solid> inline void check_bookend_swap_one() {
   render_faces(flat_px, flat_ms,
                [&](int f) { return f < F ? face_color(f) : sentinel; });
 
-  const DiffStats st =
-      diff_stats(base_px, face_palette(F), flat_px, face_palette(F), &sentinel);
-  std::printf("  [bookend] F=%d: base vs hankin@0 flat=%zu newborn=%zu "
-              "blend=%zu px\n",
-              F, st.flat, st.newborn, st.blend);
-  HS_EXPECT_EQ(st.flat + st.newborn + st.blend, (size_t)0);
+  // Quantization-level channel flips are tolerated: the star 2n-gon's edge
+  // planes are fp-distinct from the base n-gon's, so a boundary AA blend can
+  // round up to 2 counts apart (a 1-ulp coverage difference through the
+  // 16-bit lerp); a recolored face moves channels by thousands.
+  constexpr int AA_LSB_TOL = 2;
+  size_t diff = 0;
+  size_t quant_only = 0;
+  for (size_t i = 0; i < base_px.size() && i < flat_px.size(); ++i) {
+    const int dr = std::abs((int)base_px[i].r - (int)flat_px[i].r);
+    const int dg = std::abs((int)base_px[i].g - (int)flat_px[i].g);
+    const int db = std::abs((int)base_px[i].b - (int)flat_px[i].b);
+    if (dr == 0 && dg == 0 && db == 0)
+      continue;
+    if (dr <= AA_LSB_TOL && dg <= AA_LSB_TOL && db <= AA_LSB_TOL)
+      ++quant_only;
+    else
+      ++diff;
+  }
+  std::printf("  [bookend] F=%d: base vs hankin@0 diff=%zu px "
+              "(+%zu quantization-level)\n",
+              F, diff, quant_only);
+  HS_EXPECT_EQ(diff, (size_t)0);
 
   // Rosette isolation: stars painted background-black, rosettes white — any
   // lit pixel is rosette output.
