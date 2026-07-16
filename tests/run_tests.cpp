@@ -17,6 +17,7 @@
 #include "tests/test_conway.h"
 #include "tests/test_conway_morph.h"
 #include "tests/test_conway_continuity.h"
+#include "tests/test_conway_soak.h"
 #include "tests/test_hankin.h"
 #include "tests/test_geometry.h"
 #include "tests/test_mesh.h"
@@ -80,6 +81,7 @@ struct TestModule {
   X("conway_morph", hs_test::conway_morph_tests::run_conway_morph_tests)       \
   X("conway_continuity",                                                       \
     hs_test::conway_continuity_tests::run_conway_continuity_tests)             \
+  X("conway_soak", hs_test::conway_soak_tests::run_conway_soak_tests)          \
   X("hankin", hs_test::hankin_tests::run_hankin_tests)                         \
   X("geometry", hs_test::geometry::run_geometry_tests)                         \
   X("mesh", hs_test::mesh_tests::run_mesh_tests)                               \
