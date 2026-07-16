@@ -141,6 +141,10 @@ private:
   // normalized_or() substitutes its fallback axis there.
   static constexpr float STEREO_POLE_EPSILON = 0.001f;
 
+  // One 8-bit LSB at full-scale color: a shader alpha below this cannot move a
+  // pixel, so such trail segments are skipped.
+  static constexpr float MIN_VISIBLE_ALPHA = 1.0f / 255.0f;
+
   // Phases accumulate as wrapped fractions of their period ("turns") and scale
   // back to radians at use, keeping the trig arguments bounded. tumble_angle_x
   // also feeds the half-angle fold_base term, so it wraps over 4pi to keep both
@@ -261,9 +265,9 @@ private:
    * (opaque) to oldest (transparent).
    */
   void render_trails(Canvas &canvas) {
-    // alpha == 0 paints nothing; skip rasterizing. Trails are still recorded in
-    // draw_frame(), so motion resumes when alpha > 0.
-    if (params.alpha <= 0.0f)
+    // A sub-LSB alpha paints nothing; skip rasterizing. Trails are still
+    // recorded in draw_frame(), so motion resumes when alpha rises.
+    if (params.alpha < MIN_VISIBLE_ALPHA)
       return;
     HS_PROFILE(hf_render_trails);
     for (size_t i = 0; i < ACTUAL_FIBERS; ++i) {
@@ -272,11 +276,20 @@ private:
       if (len < 2)
         continue;
 
+      // The tail fades to transparent; drop leading points whose outgoing
+      // segment peaks (at its newer endpoint) below visibility. v0 keeps the
+      // full-trail parameterization, so kept segments render unchanged.
+      size_t first = 0;
+      while (first + 1 < len &&
+             static_cast<float>(first + 1) / (len - 1) * params.alpha <
+                 MIN_VISIBLE_ALPHA)
+        ++first;
+
       ScratchScope sc_guard(scratch_arena_a);
       Fragments points;
-      points.bind(scratch_arena_a, len);
+      points.bind(scratch_arena_a, len - first);
 
-      for (size_t j = 0; j < len; ++j) {
+      for (size_t j = first; j < len; ++j) {
         Fragment f;
         f.pos = orientation.orient(trail.get(j));
         f.v0 = static_cast<float>(j) / (len - 1);
