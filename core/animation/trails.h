@@ -69,6 +69,69 @@ using OrientationTrail = Trail<OrientationType, CAPACITY>;
 /** @brief History of world-space Vector positions. */
 template <int CAP> using VectorTrail = Trail<Vector, CAP>;
 
+/**
+ * @brief Fixed-capacity history of unit-sphere positions, quantized to snorm16.
+ * @tparam CAP The maximum number of snapshots to keep.
+ * @details Stores 3x int16 per snapshot (6 bytes vs Vector's 12). Components
+ * are clamped to [-1, 1] on record and round-trip with error <= 1/65534 per
+ * component, so get() decodes and returns by value.
+ */
+template <int CAP> class QuantizedVectorTrail {
+public:
+  static constexpr int CAPACITY = CAP; /**< Max retained snapshots. */
+
+  /**
+   * @brief Records a snapshot, quantizing each component.
+   * @param source The position to copy into the trail; components outside
+   *        [-1, 1] are clamped.
+   */
+  void record(const Vector &source) {
+    snapshots.push_back(
+        {quantize(source.x), quantize(source.y), quantize(source.z)});
+  }
+
+  /**
+   * @brief Gets the number of recorded snapshots.
+   * @return Count of live snapshots in the trail.
+   */
+  size_t length() const { return snapshots.size(); }
+
+  /**
+   * @brief Decodes a specific snapshot.
+   * @param i Index into the history: 0 is the OLDEST snapshot, length()-1 the
+   *          newest (same ordering as Trail).
+   * @return The decoded position, by value.
+   */
+  Vector get(size_t i) const {
+    const Snorm3 &s = snapshots[i];
+    return Vector(s.x * INV_SCALE, s.y * INV_SCALE, s.z * INV_SCALE);
+  }
+
+  /**
+   * @brief Clears the history.
+   */
+  void clear() { snapshots.clear(); }
+
+  /**
+   * @brief Removes the oldest snapshot.
+   */
+  void expire() { snapshots.pop_front(); }
+
+private:
+  struct Snorm3 {
+    int16_t x, y, z;
+  };
+
+  static constexpr float SCALE = 32767.0f;
+  static constexpr float INV_SCALE = 1.0f / SCALE;
+
+  static int16_t quantize(float c) {
+    return static_cast<int16_t>(roundf(hs::clamp(c, -1.0f, 1.0f) * SCALE));
+  }
+
+  StaticCircularBuffer<Snorm3, CAP> snapshots;
+};
+
 } // namespace Animation
 
 /**
@@ -98,6 +161,27 @@ void tween(const Orientation<CAP> &o, TweenFn callback) {
  */
 template <int CAPACITY>
 void tween(const Animation::VectorTrail<CAPACITY> &trail,
+           VectorTweenFn callback) {
+  size_t len = trail.length();
+  if (len == 0)
+    return;
+
+  for (size_t i = 0; i < len; ++i) {
+    // A lone sample is the newest (head) position → t = 1 (age-neutral).
+    float t = (len > 1) ? static_cast<float>(i) / (len - 1) : 1.0f;
+    callback(trail.get(i), t);
+  }
+}
+
+/**
+ * @brief Helper to iterate over a QuantizedVectorTrail's historical frames.
+ * @tparam CAPACITY Trail capacity.
+ * @param trail The trail to iterate.
+ * @param callback The function to call for each frame: `void(const Vector&,
+ * float t)`.
+ */
+template <int CAPACITY>
+void tween(const Animation::QuantizedVectorTrail<CAPACITY> &trail,
            VectorTweenFn callback) {
   size_t len = trail.length();
   if (len == 0)

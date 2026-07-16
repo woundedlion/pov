@@ -1730,6 +1730,54 @@ inline void test_tween_vectortrail_single_sample_reaches_one() {
   HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);  // newest = head
 }
 
+/**
+ * @brief Verifies QuantizedVectorTrail round-trips unit vectors within the
+ * snorm16 error bound (<= 1/65534 per component, exact at 0 and ±1), clamps
+ * out-of-domain components, and keeps Trail's oldest-first ring semantics.
+ */
+inline void test_quantized_vector_trail_roundtrip_and_ring() {
+  constexpr float QUANT_ERR = 1.0f / 65534.0f;
+
+  Animation::QuantizedVectorTrail<8> trail;
+  trail.record(Vector(1, 0, 0));
+  trail.record(Vector(0, -1, 0));
+  HS_EXPECT_EQ(trail.get(0).x, 1.0f);
+  HS_EXPECT_EQ(trail.get(0).y, 0.0f);
+  HS_EXPECT_EQ(trail.get(1).y, -1.0f);
+
+  for (int i = 0; i < 32; ++i) {
+    Vector v = Vector::from_spherical(0.37f + 0.19f * i, 0.11f + 0.09f * i);
+    trail.record(v);
+    Vector d = trail.get(trail.length() - 1);
+    HS_EXPECT_NEAR(d.x, v.x, QUANT_ERR);
+    HS_EXPECT_NEAR(d.y, v.y, QUANT_ERR);
+    HS_EXPECT_NEAR(d.z, v.z, QUANT_ERR);
+  }
+
+  trail.clear();
+  trail.record(Vector(1.5f, -2.0f, 0.25f));
+  HS_EXPECT_EQ(trail.get(0).x, 1.0f);
+  HS_EXPECT_EQ(trail.get(0).y, -1.0f);
+  HS_EXPECT_NEAR(trail.get(0).z, 0.25f, QUANT_ERR);
+
+  Animation::QuantizedVectorTrail<4> ring;
+  for (int i = 0; i < 6; ++i)
+    ring.record(Vector(0, 0, 0.1f * i));
+  HS_EXPECT_EQ(ring.length(), static_cast<size_t>(4));
+  HS_EXPECT_NEAR(ring.get(0).z, 0.2f, QUANT_ERR); // oldest retained = 3rd
+  HS_EXPECT_NEAR(ring.get(3).z, 0.5f, QUANT_ERR); // newest = last recorded
+  ring.expire();
+  HS_EXPECT_EQ(ring.length(), static_cast<size_t>(3));
+  HS_EXPECT_NEAR(ring.get(0).z, 0.3f, QUANT_ERR);
+
+  std::vector<float> ts;
+  tween(ring, [&](const Vector &, float t) { ts.push_back(t); });
+  HS_EXPECT_EQ(ts.size(), static_cast<size_t>(3));
+  HS_EXPECT_NEAR(ts.front(), 0.0f, 1e-6f);
+  HS_EXPECT_NEAR(ts[1], 0.5f, 1e-6f);
+  HS_EXPECT_NEAR(ts.back(), 1.0f, 1e-6f);
+}
+
 // ============================================================================
 // MeshMorph (nearest-vertex SLERP + crossfade invariant)
 // ----------------------------------------------------------------------------
@@ -2341,6 +2389,7 @@ inline int run_animation_tests() {
   test_deep_tween_frames_groups_flat_emission();
   test_deep_tween_interior_motionless_frame_no_gap();
   test_tween_vectortrail_single_sample_reaches_one();
+  test_quantized_vector_trail_roundtrip_and_ring();
 
   test_meshmorph_identity_self_map_and_crossfade();
   test_meshcarousel_compact_retains_both_slots();
