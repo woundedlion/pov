@@ -2490,31 +2490,38 @@ struct ParticleSystem {
       Vector last_pos;
       bool first = true;
 
-      tween(p.history, [&](const Vector &v, float t) {
-        if (!first) {
-          cumulative_len += angle_between(last_pos, v);
-        }
-        last_pos = v;
-        first = false;
+      {
+        HS_PROFILE(plot_ps_tween);
+        tween(p.history, [&](const Vector &v, float t) {
+          if (!first) {
+            cumulative_len += angle_between(last_pos, v);
+          }
+          last_pos = v;
+          first = false;
 
-        Fragment f;
-        f.pos = v;
-        f.v0 = t;
-        f.v1 = cumulative_len;
-        f.v2 = static_cast<float>(i);
-        f.v3 = static_cast<float>(p.life) * inv_max_life;
-        f.age = 0;
-        f.color = Color4(0, 0, 0, 0);
-        trail.push_back(f);
-        if (deferred_shader)
-          orig.push_back(v);
-      });
+          Fragment f;
+          f.pos = v;
+          f.v0 = t;
+          f.v1 = cumulative_len;
+          f.v2 = static_cast<float>(i);
+          f.v3 = static_cast<float>(p.life) * inv_max_life;
+          f.age = 0;
+          f.color = Color4(0, 0, 0, 0);
+          trail.push_back(f);
+          if (deferred_shader)
+            orig.push_back(v);
+        });
+      }
 
       if (trail.is_empty())
         continue;
-      apply_vertex_shader(vertex_shader, trail);
+      {
+        HS_PROFILE(plot_ps_vertex);
+        apply_vertex_shader(vertex_shader, trail);
+      }
 
       if (!deferred_shader) {
+        HS_PROFILE(plot_ps_raster);
         rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
                         nullptr);
         continue;
@@ -2526,6 +2533,7 @@ struct ParticleSystem {
       // whole; the bits feed rasterize so the cull is evaluated once.
       const uint8_t *vis = nullptr;
       if (clip_active && trail.size() >= 2) {
+        HS_PROFILE(plot_ps_gate);
         const size_t edges = trail.size() - 1;
         auto *bits = static_cast<uint8_t *>(
             scratch_arena_a.allocate(edges, alignof(uint8_t)));
@@ -2543,10 +2551,16 @@ struct ParticleSystem {
         vis = bits;
       }
 
-      for (size_t k = 0; k < trail.size(); ++k)
-        deferred_shader(trail[k], orig[k]);
-      rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false, nullptr,
-                      false, vis);
+      {
+        HS_PROFILE(plot_ps_deferred);
+        for (size_t k = 0; k < trail.size(); ++k)
+          deferred_shader(trail[k], orig[k]);
+      }
+      {
+        HS_PROFILE(plot_ps_raster);
+        rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
+                        nullptr, false, vis);
+      }
     }
   }
 
