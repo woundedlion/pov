@@ -256,6 +256,42 @@ inline void test_tweenable_concept() {
 }
 
 /**
+ * @brief Pins PixelMask's partition contract: two masks with the same
+ *        threshold/salt and opposite invert own every pixel exactly once, the
+ *        endpoints are total, and the owned fraction tracks the threshold.
+ */
+inline void test_pixel_mask_partition() {
+  constexpr int W = 288, H = 144;
+  const uint32_t salt = 0x1234ABCDu;
+
+  PixelMask incoming{65536u / 4u, salt, false};
+  PixelMask outgoing{65536u / 4u, salt, true};
+  int owned_in = 0;
+  for (int y = 0; y < H; ++y) {
+    for (int x = 0; x < W; ++x) {
+      HS_EXPECT_TRUE(incoming.owns(x, y) != outgoing.owns(x, y));
+      owned_in += incoming.owns(x, y) ? 1 : 0;
+    }
+  }
+  // 25% coverage within 2% absolute (hash uniformity, not exactness).
+  float frac = static_cast<float>(owned_in) / (W * H);
+  HS_EXPECT_TRUE(frac > 0.23f && frac < 0.27f);
+
+  PixelMask none{0u, salt, false};
+  PixelMask all{65536u, salt, false};
+  for (int y = 0; y < H; y += 7) {
+    for (int x = 0; x < W; x += 7) {
+      HS_EXPECT_FALSE(none.owns(x, y));
+      HS_EXPECT_TRUE(all.owns(x, y));
+    }
+  }
+
+  // Deterministic: same inputs, same ownership (sim/device parity surface).
+  PixelMask replay{65536u / 4u, salt, false};
+  HS_EXPECT_TRUE(incoming.owns(17, 42) == replay.owns(17, 42));
+}
+
+/**
  * @brief Runs every concepts test under a "concepts" module scope.
  * @return Failure count reported by end_module for the "concepts" module.
  */
@@ -269,6 +305,7 @@ inline int run_concepts_tests() {
   test_callable_return_constraints();
   test_fn_copy_move_empty();
   test_tweenable_concept();
+  test_pixel_mask_partition();
 
   return fixture.result();
 }
