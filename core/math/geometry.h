@@ -338,7 +338,7 @@ template <int W> float vector_to_theta(const Vector &v) {
  *   from `wrap()` is in `[0, W)` (strictly excludes W); a caller indexing a
  *   row/column buffer must floor (not round) first.
  */
-template <int W, int H> PixelCoords vector_to_pixel(const Vector &v) {
+template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
   // phi = acos(v.y) is the true latitude only when |v| == 1; trap non-unit v in debug.
   assert(std::fabs(dot(v, v) - 1.0f) < math::EPS_UNIT_VEC_SQ);
   float phi = fast_acos(hs::clamp(v.y, -1.0f, 1.0f));
