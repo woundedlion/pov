@@ -526,7 +526,10 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 | DF-local: `draw_rings` `HS_O3_FN` (bake + hue prep + shader-lambda seam) | +3,488 | 7,368 | dwell scan 43–48 ms vs 44–46 ceiling; most of cycle locks 16 fps | ✅ `e98f4651` |
 | DF-local: hue-table members `HS_O3_FN` | +736 | 6,632 | measured dead — recapture identical within noise (the cost is the still--Os OKLab chain in color.h, not the member bodies) | ❌ reverted `7284bb09` |
 | R1 AntiAlias + R2 shared kernel (`process_pixel`/`scan_region`/`rasterize`) | +27,872 over the minimal set (probe, full R1+R2 = +31,360) | n/a — crosses the 6th-bank hard wall | not attempted on device | ❌ measured-unaffordable |
-| R3 plot.h rasterizer | not measured | | | deferred — no budget |
+| R1 AntiAlias splat (region form; heals the R1 sink seam — the -Os splat could no longer inline the option-carrying sink) | +1,888 | 12,824 | judged with R3 (seam rule) | ✅ 2026-07-15 |
+| vector_to_pixel `HS_O3_FN` (geometry.h; shared per `<W,H>`) | +336 | 12,488 | judged with R3 | ✅ 2026-07-15 |
+| R3 geodesic strategy region (`rasterize_geodesic_strategy` + sampler lambda) | +3,296 | 9,192 | HopfFibration median per-call 220 → ~155 µs (at O3 ceiling); peak windows still spill | ✅ 2026-07-15 |
+| R3 `Plot::rasterize` region (whole sim+draw loop; strategies + AntiAlias + sink fuse in) | **−6,656** (one shared -O3 copy per pipeline type replaces per-caller -Os inlining) | 15,848 | HopfFibration `hf_trail_raster` 220 → 144 µs/call median, 382 → ~210 µs peak-window — at/below the global-O3 ceiling (152/239); residual 2-window frames in the heaviest fold/twist phases are workload peaks the 68 s O3 reference pass never sampled, not an -Os wall. DreamBalls/MindSplatter/PetalFlow/MobiusGrid ride the same instantiations | ✅ 2026-07-15 |
 | R4 shader compositors: closure `Shader::draw` `HS_O3_FN` + per-pixel callee chase (`stereo_noise_warp`, `SingleOpenSimplex2`, `hue_rotate_rgb`, `oklab_to_linear_rgb`, `linear_rgb_in_gamut`) | +3,104 | 12,680 (post mesh-scan driver + thunk flash-routing) | Flyby worst preset 50.9 ms vs 43.6 ceiling, **16 fps locked over the full cycle** (was 83.7 ms, 8 fps on 4 of 5 presets); loop+lambda alone and +noise-path were each measured ~flat — the OKLab hue chain was the cost | ✅ 2026-07-15 |
 | R5 feedback flush | not measured | | | deferred — no budget |
 | R6 Voronoi KD | not measured | | | deferred — no budget |
@@ -534,7 +537,7 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 FLASH grew ~3–7 KB total across the kept commits — far under the gate ceiling
 (not tracked per commit).
 
-R3, R5 and R6 are **deferred, not dead**: each needs ITCM headroom that the owner can
+R5 and R6 are **deferred, not dead**: each needs ITCM headroom that the owner can
 mint by further Phantasm playlist trims (precedent: `2d21f8a4` freed ~5.9 KB
 by dropping two effects; `f6c2ff7c` earlier removed three whole features).
 Budget the next region set from a fresh Phase-0 measurement, not this table's
