@@ -7,6 +7,15 @@
 
 #include "core/engine/engine.h"
 
+// Unit-test accessor reaching the private graph-walk state (current node, held
+// seed identity) so the §7.8 soak can pin node coverage and the per-state
+// post-compaction arena footprint.
+namespace hs_test {
+namespace conway_soak_tests {
+struct HankinWalkProbe;
+} // namespace conway_soak_tests
+} // namespace hs_test
+
 /**
  * @brief Renders Hankin interlace patterns over Platonic/Archimedean solids.
  * @tparam W Canvas width in pixels.
@@ -98,6 +107,8 @@ public:
   }
 
 private:
+  friend struct ::hs_test::conway_soak_tests::HankinWalkProbe;
+
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   /** Largest node base-mesh face count (snubDodecahedron, F = 92). */
   static constexpr size_t MAX_NODE_FACES = 92;
