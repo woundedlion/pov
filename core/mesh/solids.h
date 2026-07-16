@@ -1304,7 +1304,8 @@ inline bool has_name(std::string_view name) {
  * @details Shared by the volume-scatter effects (Raymarch). HS_COLD:
  * setup-only, keeps the build loops out of ITCM.
  */
-HS_COLD static int build_vertex_directions(Arena &geom, Arena &scratch,
+[[maybe_unused]] HS_COLD static int
+build_vertex_directions(Arena &geom, Arena &scratch,
                                            std::string_view name,
                                            int max_points, Vector *points,
                                            Quaternion *quats,

@@ -273,6 +273,7 @@ constexpr size_t LARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<
     Animation::Mutation, Animation::Driver, Animation::Lerp, Animation::Sprite,
     Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusWarp,
     Animation::MobiusWarpCircular, Animation::MeshMorph,
+    Animation::ConwayMorph,
     Animation::MobiusWarpEvolving, Animation::Ripple, Animation::Noise,
     Animation::BallDrop, Animation::NoiseProduct>();
 static_assert(LARGEST_CONCRETE_ANIM_SIZE <= TimelineEvent::MAX_ANIM_SIZE,
