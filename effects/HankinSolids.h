@@ -24,7 +24,9 @@ public:
    * @brief Constructs the effect with a W x H canvas and empty filter pipeline.
    */
   HS_COLD_MEMBER HankinSolids()
-      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
         filters() {}
 
   /**
@@ -32,8 +34,8 @@ public:
    * the interlace sweep/morph cycle.
    */
   HS_COLD_MEMBER void init() override {
-    // scratch_a (24 KB) covers its largest non-overlapping peak: the render path
-    // (draw_mesh transforms the mesh into scratch_a, then Scan::Mesh::draw
+    // scratch_a (24 KB) covers its largest non-overlapping peak: the render
+    // path (draw_mesh transforms the mesh into scratch_a, then Scan::Mesh::draw
     // stacks an SDF::FaceScratchBuffer on top), which for the heaviest hankin
     // mesh exceeds the generation/classify peak; morph frames stack the swept
     // mesh + compile output under the same render path. scratch_b (32 KB)
@@ -192,10 +194,9 @@ private:
     }
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
-      f.color = shade_mesh_topology(f, topology.data(),
-                                    static_cast<int>(topology.size()),
-                                    palette_bank_, palette_idx, params.intensity,
-                                    opacity);
+      f.color = shade_mesh_topology(
+          f, topology.data(), static_cast<int>(topology.size()), palette_bank_,
+          palette_idx, params.intensity, opacity);
     };
 
     {
@@ -258,7 +259,8 @@ private:
     constexpr int DURATION = 64;
     timeline.add(2, Animation::Mutation(params.hankin_angle,
                                         sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
-                                        DURATION, ease_linear, false, &anims_paused_)
+                                        DURATION, ease_linear, false,
+                                        &anims_paused_)
                         .then([this]() {
                           // Bookend-in: the sweep's final sample lands ~0.002
                           // rad off the flat p_corner branch; force exact 0 so
@@ -327,8 +329,8 @@ private:
       // registry tetrahedron, so regenerating that tetrahedron is frame-exact.
       HS_CHECK(node_ == OCTAHEDRON || node_ == ICOSAHEDRON);
       generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-        seed_base_ = Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b),
-                                            target);
+        seed_base_ =
+            Solids::finalize_solid(Solids::Platonic::tetrahedron(a, b), target);
       });
       seed_identity_ = TETRAHEDRON;
     }
@@ -338,6 +340,33 @@ private:
     Animation::ConwayMorph::PaletteHandoff handoff{
         &palette_bank_.bank, node_face_palette_, node_face_sides_, node_faces_,
         fix == SeedFix::DUAL_SWAP};
+
+    // Bookend grouping of the arrival node: the closing bookend displays one
+    // palette per hankin star-face class, so the leg's color targets key on
+    // that classification — every face it merges converges to a single color
+    // before the swap. Built from the same arrival mesh finish_morph_cycle
+    // rebuilds, so the class ids match at completion.
+    int arrival_topo[MAX_NODE_FACES];
+    size_t arrival_faces = 0;
+    {
+      ScratchScope ba(scratch_arena_a);
+      ScratchScope bb(scratch_arena_b);
+      PolyMesh arrival =
+          node_mesh_at(e, !reverse_, scratch_arena_b, scratch_arena_a);
+      arrival_faces = arrival.face_counts.size();
+      HS_CHECK(arrival_faces <= MAX_NODE_FACES);
+      CompiledHankin ch;
+      MeshOps::compile_hankin(arrival, ch, scratch_arena_b, scratch_arena_a);
+      MeshState hk;
+      MeshOps::update_hankin(ch, hk, scratch_arena_b, 0.0f);
+      // One arena serves classify's scratch and output (LIFO-stacked scopes),
+      // keeping scratch_b free for the compiled hankin + mesh peak.
+      MeshOps::classify_faces_by_topology(hk, scratch_arena_a, scratch_arena_a,
+                                          scratch_arena_a);
+      for (size_t f = 0; f < arrival_faces; ++f)
+        arrival_topo[f] = hk.topology[f];
+    }
+    Animation::ConwayMorph::BookendClasses bookend{arrival_topo, arrival_faces};
 
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
@@ -351,12 +380,11 @@ private:
             Solids::simple_registry[edge_other_end(cur_edge_, node_)].name);
 
     Animation::ConwayMorph anim(leg_seed, e, reverse_, persistent_arena,
-                                draw_conway_fn_, handoff, SWEEP_FRAMES,
+                                draw_conway_fn_, handoff, bookend, SWEEP_FRAMES,
                                 e.settle ? SETTLE_FRAMES : 0);
     pending_landing_ = &anim.landing();
-    timeline.add(0, std::move(anim).then([this]() {
-      this->finish_morph_cycle();
-    }));
+    timeline.add(
+        0, std::move(anim).then([this]() { this->finish_morph_cycle(); }));
   }
 
   /**
@@ -406,6 +434,10 @@ private:
     MeshPaletteBank::shuffle_indices(palette_idx_);
     bool slot_mapped[NUM_PALETTES] = {};
     for (size_t f = 0; f < node_faces_; ++f) {
+      // The leg's targets keyed on this same classification (computed at leg
+      // start from the same arrival mesh); drift here would pop the bookend.
+      HS_CHECK(landing.topology[f] == mesh_.topology[f],
+               "HankinSolids: arrival classification drifted across the leg");
       int slot = wrap(mesh_.topology[f], NUM_PALETTES);
       if (!slot_mapped[slot]) {
         slot_mapped[slot] = true;
@@ -437,26 +469,33 @@ private:
     start_hankin_cycle();
   }
 
-  MeshState mesh_;                /**< The single on-screen mesh (hankin form). */
+  MeshState mesh_; /**< The single on-screen mesh (hankin form). */
   CompiledHankin compiled_hankin; /**< Active during the hankin cycle. */
   PolyMesh seed_base_;            /**< Held Platonic seed of the graph walk. */
-  std::array<int, NUM_PALETTES> palette_idx_ = {}; /**< Class slot -> palette; value-init so a missed shuffle reads 0, not garbage. */
+  std::array<int, NUM_PALETTES> palette_idx_ =
+      {}; /**< Class slot -> palette; value-init so a missed shuffle reads 0,
+             not garbage. */
 
-  uint8_t node_face_palette_[MAX_NODE_FACES] = {}; /**< Displayed palette per node base face. */
-  uint8_t node_face_sides_[MAX_NODE_FACES] = {};   /**< Clean side count per node base face. */
+  uint8_t node_face_palette_[MAX_NODE_FACES] =
+      {}; /**< Displayed palette per node base face. */
+  uint8_t node_face_sides_[MAX_NODE_FACES] =
+      {};                 /**< Clean side count per node base face. */
   size_t node_faces_ = 0; /**< Face count of the current node's base mesh. */
 
-  uint8_t node_ = 0;          /**< Current graph node (simple-registry index). */
+  uint8_t node_ = 0; /**< Current graph node (simple-registry index). */
   uint8_t seed_identity_ = 0; /**< Platonic solid seed_base_ represents. */
   int cur_edge_ = -1;         /**< Edge of the last (or in-flight) leg. */
   bool reverse_ = false;      /**< In-flight leg runs to_node -> from_node. */
-  int legs_in_family_ = 0;    /**< Legs since the last family change (walk weighting). */
-  uint32_t leg_counter_ = 0;  /**< Monotonic leg count (ordered-cycle picks). */
+  int legs_in_family_ =
+      0; /**< Legs since the last family change (walk weighting). */
+  uint32_t leg_counter_ = 0; /**< Monotonic leg count (ordered-cycle picks). */
   const Animation::ConwayMorph::Landing *pending_landing_ =
       nullptr; /**< In-flight leg's arrival data (leg-arena backed). */
 
-  size_t hankin_vertex_count_ = 0; /**< Expected per-frame vertex count for the active cycle. */
-  size_t hankin_face_count_ = 0;   /**< Expected per-frame face count for the active cycle. */
+  size_t hankin_vertex_count_ =
+      0; /**< Expected per-frame vertex count for the active cycle. */
+  size_t hankin_face_count_ =
+      0; /**< Expected per-frame face count for the active cycle. */
 
   /**
    * @brief Draw callback for morph frames.
@@ -480,7 +519,7 @@ private:
   struct Params {
     float intensity = 1.2f;           /**< Edge-distance shading gain. */
     float hankin_angle = PI_F / 4.0f; /**< Interlace angle in radians. */
-    bool debug_bb = false;            /**< Draw face bounding boxes when true. */
+    bool debug_bb = false; /**< Draw face bounding boxes when true. */
   } params;
 };
 

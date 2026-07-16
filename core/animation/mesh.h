@@ -16,27 +16,28 @@ namespace Animation {
 
 /**
  * @brief Animates a vertex-interpolated crossfade between two meshes.
- * @details Owns transient state (cloned meshes + SLERP buffers) via a pointer to
- * arena-allocated storage to keep inline size small for TimelineEvent. No
- * destructor reclaims the arena, so the transient bytes persist until the caller
- * compacts or resets it.
+ * @details Owns transient state (cloned meshes + SLERP buffers) via a pointer
+ * to arena-allocated storage to keep inline size small for TimelineEvent. No
+ * destructor reclaims the arena, so the transient bytes persist until the
+ * caller compacts or resets it.
  *
  * Crossfade contract: only the incoming mesh (mesh_B, dest topology) morphs —
  * its vertices SLERP from their nearest source vertex toward their dest each
- * frame. The outgoing mesh_A (source clone) holds geometry and fades via opacity
- * (op_A = 1 - alpha); the opacities sum to 1 for constant brightness. source is
- * cloned, not borrowed, so the animation survives the caller recycling it.
- * draw_outgoing/draw_incoming shade the two halves independently.
+ * frame. The outgoing mesh_A (source clone) holds geometry and fades via
+ * opacity (op_A = 1 - alpha); the opacities sum to 1 for constant brightness.
+ * source is cloned, not borrowed, so the animation survives the caller
+ * recycling it. draw_outgoing/draw_incoming shade the two halves independently.
  */
 class MeshMorph : public AnimationBase<MeshMorph> {
 public:
   /**
    * @brief Non-owning per-half draw callback: `void(Canvas&, const MeshState&,
    * float opacity)`. A StoredFunctionRef (held as a member, invoked across many
-   * frames) rejects rvalue temporaries, so a dangling inline lambda is a compile
-   * error rather than a silent use-after-free.
+   * frames) rejects rvalue temporaries, so a dangling inline lambda is a
+   * compile error rather than a silent use-after-free.
    */
-  using MorphDrawFn = StoredFunctionRef<void(Canvas &, const MeshState &, float)>;
+  using MorphDrawFn =
+      StoredFunctionRef<void(Canvas &, const MeshState &, float)>;
 
   /**
    * @brief Constructs a MeshMorph with separate shading for the two halves.
@@ -56,7 +57,8 @@ public:
             EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(duration, false), easing_fn(easing_fn),
         draw_outgoing(draw_outgoing), draw_incoming(draw_incoming) {
-    HS_CHECK(duration >= 1, "MeshMorph duration must be a positive frame count");
+    HS_CHECK(duration >= 1,
+             "MeshMorph duration must be a positive frame count");
     HS_CHECK(!source.vertices.is_empty());
     HS_CHECK(!dest.vertices.is_empty());
     buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
@@ -90,9 +92,11 @@ public:
     // Nearest-vertex matching (greatest dot) and per-frame slerp both require
     // unit-length inputs; all mesh sources sit on the unit sphere.
     for (const auto &v : source.vertices)
-      HS_CHECK(std::abs(dot(v, v) - 1.0f) < 1e-3f, "MeshMorph source vertex not unit-length");
+      HS_CHECK(std::abs(dot(v, v) - 1.0f) < 1e-3f,
+               "MeshMorph source vertex not unit-length");
     for (const auto &v : dest.vertices)
-      HS_CHECK(std::abs(dot(v, v) - 1.0f) < 1e-3f, "MeshMorph dest vertex not unit-length");
+      HS_CHECK(std::abs(dot(v, v) - 1.0f) < 1e-3f,
+               "MeshMorph dest vertex not unit-length");
 
     // Build nearest-vertex correspondence: an O(V_dest * V_source) brute force,
     // run once at construction. Matched by greatest dot product against the
@@ -115,7 +119,8 @@ public:
 
   // Borrow contract: the draw callbacks are non-owning StoredFunctionRefs read
   // every frame, so they must outlive the timeline; StoredFunctionRef rejects a
-  // temporary at the MorphDrawFn parameter, so no `= delete` overload is needed.
+  // temporary at the MorphDrawFn parameter, so no `= delete` overload is
+  // needed.
 
   /**
    * @brief Steps the crossfade: interpolates vertices and renders both halves.
@@ -146,10 +151,11 @@ private:
    * @brief Arena-allocated transient data — keeps MeshMorph inline size small.
    */
   struct Transients {
-    MeshState mesh_A;            /**< Outgoing mesh clone. */
-    MeshState mesh_B;           /**< Incoming morphing mesh clone. */
-    ArenaVector<Vector> start_pos; /**< Per-vertex nearest-source start points. */
-    ArenaVector<Vector> end_pos;   /**< Per-vertex dest end points. */
+    MeshState mesh_A; /**< Outgoing mesh clone. */
+    MeshState mesh_B; /**< Incoming morphing mesh clone. */
+    ArenaVector<Vector>
+        start_pos;               /**< Per-vertex nearest-source start points. */
+    ArenaVector<Vector> end_pos; /**< Per-vertex dest end points. */
   };
 
   Transients *buf_;          /**< Pointer to arena-allocated transient state. */
@@ -200,11 +206,30 @@ public:
    * leg departs from, in emission order; consumed by the constructor only.
    */
   struct PaletteHandoff {
-    const BakedPaletteBank *bank = nullptr; /**< The effect's baked source LUTs. */
-    const uint8_t *prev_face_palette = nullptr; /**< Per-face palette of the departed base mesh. */
-    const uint8_t *prev_face_sides = nullptr;   /**< Per-face clean side counts (class-signature mapping). */
-    size_t prev_faces = 0;           /**< Face count of the departed base mesh. */
-    bool by_class_signature = false; /**< DUAL_SWAP departure: map by side count, not emission order. */
+    const BakedPaletteBank *bank =
+        nullptr; /**< The effect's baked source LUTs. */
+    const uint8_t *prev_face_palette =
+        nullptr; /**< Per-face palette of the departed base mesh. */
+    const uint8_t *prev_face_sides =
+        nullptr; /**< Per-face clean side counts (class-signature mapping). */
+    size_t prev_faces = 0; /**< Face count of the departed base mesh. */
+    bool by_class_signature = false; /**< DUAL_SWAP departure: map by side
+                                        count, not emission order. */
+  };
+
+  /**
+   * @brief Bookend grouping of the arrival node (spec sections 2.5/2.6).
+   * @details topology[f] is the class the effect displays arrival face f
+   * with at the closing bookend (the hankin star-face classification of the
+   * arrival base mesh, which can be coarser than both the swept and the
+   * clean-endpoint classifications). Color targets key on it, so every face
+   * that grouping merges converges to one color by w = 1 and the swap
+   * changes nothing. A null topology keys targets on the swept
+   * classification instead.
+   */
+  struct BookendClasses {
+    const int *topology = nullptr; /**< Bookend class per arrival face. */
+    size_t faces = 0;              /**< Arrival base-mesh face count. */
   };
 
   /**
@@ -212,10 +237,12 @@ public:
    * @details Arena-backed; valid until the leg arena is compacted.
    */
   struct Landing {
-    const int *topology = nullptr; /**< Arrival classification, one id per swept face. */
+    const int *topology = nullptr; /**< Target (bookend-keyed) classification,
+                                      one id per swept face. */
     size_t faces = 0;              /**< Swept face count. */
-    size_t primary_faces = 0;      /**< Seed face count (emission-order prefix). */
-    std::array<uint8_t, PALETTES> to_palette{}; /**< Slot -> landed palette index. */
+    size_t primary_faces = 0; /**< Seed face count (emission-order prefix). */
+    std::array<uint8_t, PALETTES>
+        to_palette{}; /**< Slot -> landed palette index. */
   };
 
   /**
@@ -228,22 +255,24 @@ public:
    * @param arena Leg arena backing the cloned seed and hoisted state.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed node.
+   * @param bookend Bookend grouping of the arrival node (target keying).
    * @param sweep_frames Operator-sweep frames (N).
    * @param settle_frames Relax-slerp frames (S); 0 unless the edge settles.
    * @param easing_fn Easing applied to the sweep parameter.
    */
-  HS_COLD_MEMBER ConwayMorph(const PolyMesh &seed,
-                             const ConwayGraph::EdgeSpec &edge, bool reverse,
-                             Arena &arena, MorphDrawFn draw,
-                             const PaletteHandoff &handoff, int sweep_frames,
-                             int settle_frames,
-                             EasingFn easing_fn = ease_in_out_sin)
+  HS_COLD_MEMBER
+  ConwayMorph(const PolyMesh &seed, const ConwayGraph::EdgeSpec &edge,
+              bool reverse, Arena &arena, MorphDrawFn draw,
+              const PaletteHandoff &handoff, const BookendClasses &bookend,
+              int sweep_frames, int settle_frames,
+              EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames + settle_frames, false),
         easing_fn(easing_fn), draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "ConwayMorph needs a positive sweep length");
     HS_CHECK(settle_frames >= 0 && (edge.settle || settle_frames == 0),
              "ConwayMorph: settle frames on a non-settling edge");
-    HS_CHECK(handoff.bank && handoff.prev_face_palette && handoff.prev_faces > 0);
+    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
+             handoff.prev_faces > 0);
     buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
         Transients();
     Transients &tr = *buf_;
@@ -301,7 +330,7 @@ public:
       tr.topo = std::move(classified->topology);
       HS_CHECK(tr.topo.size() == classified->face_counts.size());
 
-      build_palette_mapping(tr, *classified, handoff, arena);
+      build_palette_mapping(tr, *classified, handoff, bookend, arena);
     }
   }
 
@@ -315,8 +344,8 @@ public:
   HS_COLD_MEMBER void step(Canvas &canvas) override {
     AnimationBase::step(canvas);
     Transients &tr = *buf_;
-    const int frame =
-        static_cast<int>(std::min<uint32_t>(t, static_cast<uint32_t>(duration)));
+    const int frame = static_cast<int>(
+        std::min<uint32_t>(t, static_cast<uint32_t>(duration)));
 
     // Frame -> sweep position + settle blend (forward settles at the end,
     // reverse legs un-settle over the opening window).
@@ -365,8 +394,8 @@ public:
     compiled.topology.bind(scratch_arena_a, tr.topo.size());
     compiled.topology.append_bulk(tr.topo.data(), tr.topo.size());
 
-    float w = blend_weight(static_cast<float>(frame) /
-                           static_cast<float>(duration));
+    float w =
+        blend_weight(static_cast<float>(frame) / static_cast<float>(duration));
     BakedPalette *ramps =
         scratch_arena_b.allocate_n<BakedPalette>(tr.num_ramps);
     for (int r = 0; r < tr.num_ramps; ++r) {
@@ -397,21 +426,27 @@ private:
    * @brief Arena-allocated leg state — keeps ConwayMorph inline size small.
    */
   struct Transients {
-    PolyMesh seed;                 /**< Cloned leg seed. */
-    ConwayGraph::MorphOp op = ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator. */
-    bool reverse = false;          /**< Traversing to_node -> from_node. */
-    int sweep_frames = 1;          /**< Operator-sweep frames. */
-    int settle_frames = 0;         /**< Relax-slerp frames. */
-    float t_start = 0, t_end = 0;  /**< Clamped sweep endpoints. */
+    PolyMesh seed; /**< Cloned leg seed. */
+    ConwayGraph::MorphOp op =
+        ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator. */
+    bool reverse = false;               /**< Traversing to_node -> from_node. */
+    int sweep_frames = 1;               /**< Operator-sweep frames. */
+    int settle_frames = 0;              /**< Relax-slerp frames. */
+    float t_start = 0, t_end = 0;       /**< Clamped sweep endpoints. */
     float twist_start = 0, twist_end = 0; /**< Snub twist endpoints. */
-    ArenaVector<Vector> relaxed;   /**< Relaxed endpoint vertices (settling legs). */
-    ArenaVector<int> topo;         /**< Hoisted arrival classification. */
+    ArenaVector<Vector>
+        relaxed; /**< Relaxed endpoint vertices (settling legs). */
+    ArenaVector<int>
+        topo; /**< Hoisted arrival classification (drawn grouping). */
+    ArenaVector<int>
+        target_topo; /**< Per-swept-face target class (bookend grouping). */
     ArenaVector<uint8_t> face_ramp; /**< Face -> (from, to) ramp pair. */
-    const BakedPaletteBank *bank = nullptr; /**< Source LUTs for the pre-blend. */
+    const BakedPaletteBank *bank =
+        nullptr; /**< Source LUTs for the pre-blend. */
     uint8_t ramp_from[MAX_BLEND_PAIRS] = {}; /**< Per-pair from palette. */
     uint8_t ramp_to[MAX_BLEND_PAIRS] = {};   /**< Per-pair to palette. */
-    int num_ramps = 0;             /**< Distinct pair count. */
-    Landing landing;               /**< Arrival data exposed to the effect. */
+    int num_ramps = 0;                       /**< Distinct pair count. */
+    Landing landing; /**< Arrival data exposed to the effect. */
   };
 
   /** Blend source: two baked LUTs lerped at the frame's weight. */
@@ -463,17 +498,32 @@ private:
    * @param tr Leg transients being populated.
    * @param arrival Classified arrival mesh (for face counts).
    * @param handoff Departed-node provenance.
+   * @param bookend Arrival-node bookend grouping the targets key on.
    * @param arena Leg arena for the face -> ramp table.
    */
   HS_COLD_MEMBER void build_palette_mapping(Transients &tr,
                                             const PolyMesh &arrival,
                                             const PaletteHandoff &handoff,
+                                            const BookendClasses &bookend,
                                             Arena &arena) {
     const size_t total = tr.topo.size();
     const size_t primary = tr.seed.face_counts.size();
-    tr.landing.topology = tr.topo.data();
     tr.landing.faces = total;
     tr.landing.primary_faces = primary;
+
+    // Target classes: the bookend grouping where a face survives the swap
+    // (emission-order identity), the swept class where it collapses to zero
+    // area (seed arrivals' orbit faces, whose target color never shows).
+    HS_CHECK(!bookend.topology || bookend.faces == total ||
+                 bookend.faces == primary,
+             "ConwayMorph: bookend face count matches neither mapping");
+    tr.target_topo.bind(arena, total);
+    for (size_t f = 0; f < total; ++f) {
+      tr.target_topo.push_back(bookend.topology && f < bookend.faces
+                                   ? bookend.topology[f]
+                                   : tr.topo[f]);
+    }
+    tr.landing.topology = tr.target_topo.data();
 
     for (int i = 0; i < PALETTES; ++i)
       tr.landing.to_palette[i] = static_cast<uint8_t>(i);
@@ -493,13 +543,12 @@ private:
 
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
-      uint8_t to =
-          tr.landing.to_palette[wrap(tr.topo[f], PALETTES)];
+      uint8_t to = tr.landing.to_palette[wrap(tr.target_topo[f], PALETTES)];
       uint8_t from = to; // newborn faces skip the crossfade
       if (handoff.by_class_signature) {
         // DUAL_SWAP: side count at the shared ambo point is unambiguous.
-        int sides = f < primary ? tr.seed.face_counts[f]
-                                : arrival.face_counts[f];
+        int sides =
+            f < primary ? tr.seed.face_counts[f] : arrival.face_counts[f];
         for (size_t j = 0; j < handoff.prev_faces; ++j) {
           if (handoff.prev_face_sides[j] == sides) {
             from = handoff.prev_face_palette[j];
@@ -529,8 +578,8 @@ private:
     }
   }
 
-  Transients *buf_;   /**< Pointer to arena-allocated leg state. */
-  EasingFn easing_fn; /**< Easing applied to the sweep parameter. */
+  Transients *buf_;    /**< Pointer to arena-allocated leg state. */
+  EasingFn easing_fn;  /**< Easing applied to the sweep parameter. */
   MorphDrawFn draw_fn; /**< Per-frame draw callback. */
 };
 
@@ -557,8 +606,9 @@ private:
  *   void   retarget(v)               — re-randomize per-transition state
  *   Vector warp(v, phase)            — pre-ripple unit-sphere vertex warp
  *   float  face_offset(center, i, cls) — per-face sweep ordering in [0, 1]
- *   float  face_fade_frac(i)          — per-face fade length as a window fraction
- *   float  face_phase(phase, offset[, fade_frac]) — face-local phase from the front
+ *   float  face_fade_frac(i)          — per-face fade length as a window
+ * fraction float  face_phase(phase, offset[, fade_frac]) — face-local phase
+ * from the front
  *
  * A per-face policy may also declare `static constexpr bool LOCAL_SWEEP =
  * true` to order faces by the untransformed mesh instead of world-space
@@ -595,10 +645,10 @@ inline int schedule_sequential(Timeline &timeline, SpriteFn draw_fn,
  * @param band Softness of the front, in phase units.
  * @return The face-local phase in [0, 1]: 1 everywhere at phase 1, 0
  * everywhere at phase 0, with faces crossing the front in offset order.
- * @details The sqrt ease keeps the hand-off out of black: both meshes sit at low
- * phase around the swap, so a linear front would leave the sphere mostly dark;
- * accelerating the front through the low-phase end compresses that to a blink.
- * Endpoints stay exact (phase 1 remains the identity plateau).
+ * @details The sqrt ease keeps the hand-off out of black: both meshes sit at
+ * low phase around the swap, so a linear front would leave the sphere mostly
+ * dark; accelerating the front through the low-phase end compresses that to a
+ * blink. Endpoints stay exact (phase 1 remains the identity plateau).
  */
 inline float sweep_phase(float phase, float offset, float band) {
   float p = std::sqrt(phase);
@@ -610,7 +660,8 @@ inline float sweep_phase(float phase, float offset, float band) {
  * its transition uses.
  */
 struct Base {
-  /** @brief Default scheduling: one sequential sprite (see schedule_sequential). */
+  /** @brief Default scheduling: one sequential sprite (see
+   * schedule_sequential). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
     return schedule_sequential(timeline, std::move(draw_fn), duration, window);
   }
@@ -670,7 +721,8 @@ struct Crossfade : Base {
  * palette gradient as it shrinks.
  */
 struct IrisBloom : Base {
-  static constexpr float SOFT = 0.08f; /**< Soft rim width, in edge-distance units. */
+  static constexpr float SOFT =
+      0.08f; /**< Soft rim width, in edge-distance units. */
   float fill(float &t, float phase) const {
     float inset = 1.0f - phase;
     if (t < inset - SOFT)
@@ -689,7 +741,8 @@ struct IrisBloom : Base {
  * jarring than filled regions changing, which hides the swap.
  */
 struct Lace : Base {
-  static constexpr float SOFT = 0.08f; /**< Soft band-edge width, in edge-distance units. */
+  static constexpr float SOFT =
+      0.08f; /**< Soft band-edge width, in edge-distance units. */
   float fill(float &t, float phase) const {
     if (t > phase + SOFT)
       return 0.0f;
@@ -700,8 +753,8 @@ struct Lace : Base {
 };
 
 /**
- * @brief A day/night line pinned to the mesh sweeps across it; when it reaches a
- * face, that face fades over a per-face random length in [fade_frames_min,
+ * @brief A day/night line pinned to the mesh sweeps across it; when it reaches
+ * a face, that face fades over a per-face random length in [fade_frames_min,
  * fade_frames_max] frames.
  * @details LOCAL_SWEEP anchors the line to the untransformed mesh. Each face's
  * fade length is a stable per-transition hash of its index, so the front frays
@@ -711,12 +764,17 @@ struct Lace : Base {
  */
 struct TerminatorSweep : Base {
   static constexpr bool LOCAL_SWEEP = true; /**< Sweep in mesh-local space. */
-  Vector axis = Y_AXIS;          /**< Mesh-local sweep axis. */
-  float fade_frames_min = 4.0f;  /**< Shortest per-face fade length, in frames. */
-  float fade_frames_max = 12.0f; /**< Longest per-face fade length, in frames. */
-  float fade_frac_min = 0.06f; /**< fade_frames_min over the scheduled window; set by schedule(). */
-  float fade_frac_max = 0.17f; /**< fade_frames_max over the scheduled window; set by schedule(). */
-  uint32_t fade_seed = 0x9e3779b9u; /**< Per-transition seed for the per-face fade hash; rolled by retarget(). */
+  Vector axis = Y_AXIS;                     /**< Mesh-local sweep axis. */
+  float fade_frames_min =
+      4.0f; /**< Shortest per-face fade length, in frames. */
+  float fade_frames_max =
+      12.0f;                   /**< Longest per-face fade length, in frames. */
+  float fade_frac_min = 0.06f; /**< fade_frames_min over the scheduled window;
+                                  set by schedule(). */
+  float fade_frac_max = 0.17f; /**< fade_frames_max over the scheduled window;
+                                  set by schedule(). */
+  uint32_t fade_seed = 0x9e3779b9u; /**< Per-transition seed for the per-face
+                                       fade hash; rolled by retarget(). */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
     int fade = std::min(window, duration / 2);
     float inv = 1.0f / static_cast<float>(std::max(fade, 1));
@@ -755,7 +813,8 @@ struct TerminatorSweep : Base {
  * expands. Pairs naturally with the effect's ripple bursts sharing the origin.
  */
 struct Shockwave : Base {
-  static constexpr float BAND = 0.3f; /**< Wave-front softness, in phase units. */
+  static constexpr float BAND =
+      0.3f;               /**< Wave-front softness, in phase units. */
   Vector origin = Y_AXIS; /**< World-space wave origin. */
   void retarget(const Vector &v) { origin = v; }
   float face_offset(const Vector &center, int, int) const {
@@ -775,16 +834,18 @@ struct Shockwave : Base {
  * reassembles class by class the same way.
  * @details Faces group by palette-slot class, so each color family vanishes as
  * a unit. Class windows are abutting equal slices of the phase range (linear,
- * not sweep_phase's eased front). The BLACK_DWELL slice nearest the swap is held
- * fully black so the last class completes before the incoming mesh appears,
- * instead of popping. reorder() derives the class count from the per-face
- * classes, so it can never disagree with the mesh.
+ * not sweep_phase's eased front). The BLACK_DWELL slice nearest the swap is
+ * held fully black so the last class completes before the incoming mesh
+ * appears, instead of popping. reorder() derives the class count from the
+ * per-face classes, so it can never disagree with the mesh.
  */
 struct Breakdown : Base {
   static constexpr int MAX_CLASSES = 16; /**< rank[] capacity. */
-  static constexpr float BLACK_DWELL = 0.1f; /**< Phase slice held all-black at the swap end. */
-  int num_classes = 1;            /**< Live class count, derived by reorder(). */
-  uint8_t rank[MAX_CLASSES] = {}; /**< rank[class]: fade position; 0 vanishes first. */
+  static constexpr float BLACK_DWELL =
+      0.1f;            /**< Phase slice held all-black at the swap end. */
+  int num_classes = 1; /**< Live class count, derived by reorder(). */
+  uint8_t rank[MAX_CLASSES] =
+      {}; /**< rank[class]: fade position; 0 vanishes first. */
   /**
    * @brief Derives the class count from the per-face classes and re-randomizes
    *        the fade order for the next transition.
@@ -793,8 +854,7 @@ struct Breakdown : Base {
    *        never mis-declare it. A face class at or past MAX_CLASSES folds into
    *        rank[0] (face_offset's out-of-range branch).
    */
-  template <typename Classes>
-  void reorder(const Classes &face_classes) {
+  template <typename Classes> void reorder(const Classes &face_classes) {
     int detected = 1;
     for (size_t i = 0; i < face_classes.size(); ++i) {
       int c = static_cast<int>(face_classes[i]) + 1;
@@ -831,7 +891,7 @@ struct Breakdown : Base {
  */
 struct SpinFlip : Base {
   static constexpr float REVS = 3.0f; /**< Extra revolutions at peak spin. */
-  Vector axis = Y_AXIS; /**< Spin axis. */
+  Vector axis = Y_AXIS;               /**< Spin axis. */
   void retarget(const Vector &v) { axis = v; }
   Vector warp(const Vector &v, float phase) const {
     float wind = 1.0f - phase;
@@ -846,7 +906,8 @@ struct SpinFlip : Base {
  * the swap softens the topology pop while both meshes are monochrome.
  */
 struct GoldConvergence : Base {
-  Pixel gold = Color4(uint8_t{255}, uint8_t{196}, uint8_t{64}).color; /**< Linear-space convergence color. */
+  Pixel gold = Color4(uint8_t{255}, uint8_t{196}, uint8_t{64})
+                   .color; /**< Linear-space convergence color. */
   Color4 grade(Color4 c, float phase) const {
     return c.lerp(Color4(gold, c.alpha), 1.0f - phase);
   }
@@ -871,7 +932,8 @@ struct GoldConvergence : Base {
  *
  *   // Build the initial shape directly into the front slot:
  *   carousel.current().clear();
- *   MeshOps::compile(mesh, carousel.current(), persistent_arena, scratch_arena_a);
+ *   MeshOps::compile(mesh, carousel.current(), persistent_arena,
+ * scratch_arena_a);
  *
  *   // To transition: generate into the back slot, flip, then let the segue
  *   // schedule the animation via schedule_segue (see
@@ -961,7 +1023,8 @@ public:
    * allocating new persistent data.
    */
   void compact() {
-    // Both evacuations share scratch_arena_a, which must hold both populated slots.
+    // Both evacuations share scratch_arena_a, which must hold both populated
+    // slots.
     Persist<MeshState> p0(slots_[0], scratch_arena_a, persistent_arena);
     Persist<MeshState> p1(slots_[1], scratch_arena_a, persistent_arena);
     persistent_arena.reset();
@@ -970,15 +1033,16 @@ public:
   /**
    * @brief Frees the back slot and compacts, preserving only the front slot.
    * @tparam AfterReset Callable type invoked as `void(Arena&)`.
-   * @param after_reset Callback run immediately after the reset, while the front
-   * slot is still evacuated.
+   * @param after_reset Callback run immediately after the reset, while the
+   * front slot is still evacuated.
    * @details Runs `after_reset(persistent_arena)` immediately after the reset —
    * while the front slot is still evacuated — so the caller can re-bake
    * effect-owned persistent data (e.g. a palette bank) into the fresh arena
    * *before* the front mesh is restored on top of it. Use when only the visible
    * (front) shape must survive a regeneration of the back slot.
    */
-  template <typename AfterReset> void compact_keep_front(AfterReset after_reset) {
+  template <typename AfterReset>
+  void compact_keep_front(AfterReset after_reset) {
     int back = 1 - front_;
     slots_[back] = MeshState();
     Persist<MeshState> p(slots_[front_], scratch_arena_b, persistent_arena);
@@ -989,5 +1053,5 @@ public:
 private:
   MeshState slots_[2]; /**< Front/back double-buffered mesh slots. */
   int front_ = 0;      /**< Index (0 or 1) of the visible front slot. */
-  SegueT segue_;       /**< Segue policy instance; per-transition state lives here. */
+  SegueT segue_; /**< Segue policy instance; per-transition state lives here. */
 };
