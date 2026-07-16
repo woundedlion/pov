@@ -93,8 +93,10 @@ install:
 # Needs PlatformIO (`pip install platformio`); the Teensy toolchain auto-installs
 # on first `pio run`. The contract is "same PASS/FAIL under the headroom'd
 # ceilings", NOT byte-identity with the VMicro/bench image (docs/teensy_ci_gate_spec.md §11).
+# The wrapper streams the pio output, then appends a combined per-env
+# FLASH/RAM1/RAM2 table from the teensy_size lines.
 teensy-size:
-    pio run -e holosphere -e phantasm -e holosphere_dma -e phantasm8
+    python tools/teensy_size_table.py holosphere phantasm holosphere_dma phantasm8
 
 # Host self-tests for the size/layout gate parser + layout invariants + warning
 # ratchet — pure Python, no ARM toolchain (spec §9.1). Mirrors the CI job.
