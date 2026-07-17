@@ -536,7 +536,7 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 | `Plot::gate_trail_edges` region (hoisted per-trail clip gate: shared per-point rows/columns, whole-trail coarse reject, bits feed `rasterize`'s cull) + HopfFibration `gate_trails` wiring | +1,648 | 10,840 | HopfFibration: replaces the per-edge in-place gate; fully-invisible trails skip stage+rasterize whole | ✅ 2026-07-16 |
 | HopfFibration staging `HS_O3_FN` (`gate_trails`, `render_trails` — the orient/stage loops) + `gate_trail_edges` cheap chord-bound row tier | +2,032 | 8,808 | measured with the gate landing (see the on-device A/B in docs/profiles/shipping/) | ✅ 2026-07-16 |
 | `always_inline` on the O3-region leaf callees (`dot`/`cross`/Vector arithmetic, `normalized`/`length`, `rotate`, `fast_sinf`/`fast_cosf`/`fast_acos`/`fast_atan2`, `lerp16`/`frac_to_q16`, `vector_to_theta`, `geodesic_row_span_rows`, `finish_col_span`) — overrides GCC 11's option-mismatch inline refusal without option-carrying the bodies | +19,664 (6th ITCM bank; DTCM locals 14,976 vs 12,288 floor) | 21,912 (in bank 6) | HopfFibration deterministic 165 s pass: peak frame render 71.3 → **56.8 ms**, spilled 25 → **0** — **16 fps locked**, below the prior global-O3 ceiling (58.8); every region effect shares the win (roster re-sweep pending) | ✅ `d9bd43da` 2026-07-16 |
-| R5 feedback flush | not measured | | | deferred — no budget |
+| R5 feedback flush (`Feedback::flush` HS_O3 region + `HS_O3_FN` on `sample_bilinear_prev` and the OKLab hue chain `hue_fade_apply`/`linear_rgb_to_lms`/`lms_cbrt_to_linear_rgb`/`lms_cbrt_transform_rgb`/`lms_to_oklab`/`oklab_to_lms_cbrt`/`oklab_to_linear_rgb`/`gamut_clip_preserve_chroma`/`float_to_pixel16`/`fast_cbrt`) | +3,008 (into the 6th bank the always_inline landing opened; padding 13,192) | 13,192 | `feedback_composite` avg 88.6 → 45.3 ms = at global-O3 ceiling (45.2); 16 fps cycle coverage ~0% → **54%** (ceiling 57%). NOT a full lock: even global -O3 tops out at 57% — heavy high-fade presets are intrinsically > 62.5 ms (like MindSplatter, the lever is coverage, not the compiler). `HS_O3_FN` on `flush` did not reach its composite lambda; the walls were out-of-line `-Os` callees. `sample_bilinear_prev` O3 was the biggest step (35→54%) and *shrank* code −1,040 B | ✅ `405197d9` 2026-07-17 (rides a warp-bilerp hoist, `b46de7bd`, −7 ms/frame) |
 | R6 Voronoi KD | not measured | | | deferred — no budget |
 
 **MindSplatter's ship→ceiling ratio (1.15–1.49× per preset) is not
@@ -553,9 +553,13 @@ cadence lever is coverage (pool/trail size), not the compiler.
 FLASH grew ~3–7 KB total across the kept commits — far under the gate ceiling
 (not tracked per commit).
 
-R5 and R6 are **deferred, not dead**: each needs ITCM headroom that the owner can
-mint by further Phantasm playlist trims (precedent: `2d21f8a4` freed ~5.9 KB
-by dropping two effects; `f6c2ff7c` earlier removed three whole features).
+**R5 landed 2026-07-17** once a fresh measurement showed the 6th ITCM bank (opened
+by the always_inline landing) carries ~16 KB of padding — the "no budget" verdict
+was stale. It cost only +3,008 B, but its lesson is the ceiling itself: MeshFeedback
+cannot fully lock 16 fps under *any* optimization level (global -O3 holds only 57%
+of the cycle). **R6 (Voronoi KD) is still deferred**; it needs ITCM headroom the owner
+can mint by further Phantasm playlist trims (precedent: `2d21f8a4` freed ~5.9 KB by
+dropping two effects; `f6c2ff7c` earlier removed three whole features).
 Budget the next region set from a fresh Phase-0 measurement, not this table's
 padding column. Note the probe economics: the shared R2 kernel multiplied by
 per-shape/per-pipeline instantiation to ~28 KB — narrow per-driver regions
