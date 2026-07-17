@@ -127,6 +127,15 @@ inline Pcg32& random() {
   static Pcg32 gen(1337);
   return gen;
 }
+
+/**
+ * @brief Reseeds the process-wide RNG — the opt-in escape from the 1337
+ *        determinism contract for host-driven per-session variation; never
+ *        calling it leaves the default 1337 stream unchanged.
+ * @param seed Host-chosen session seed.
+ */
+inline void reseed(uint64_t seed) { random().seed(seed); }
+
 /**
  * @brief Wrapped millis() for namespace consistency.
  * @return Milliseconds since boot from the Arduino runtime.
@@ -445,6 +454,14 @@ inline Pcg32& random() {
   static Pcg32 gen(1337);
   return gen;
 }
+
+/**
+ * @brief Reseeds the process-wide RNG — the opt-in escape from the 1337
+ *        determinism contract for host-driven per-session variation; never
+ *        calling it leaves the default 1337 stream unchanged.
+ * @param seed Host-chosen session seed.
+ */
+inline void reseed(uint64_t seed) { random().seed(seed); }
 } // namespace hs
 
 // --- Mock Arduino Constants/Types ---
