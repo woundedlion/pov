@@ -3,16 +3,20 @@
 # Full-roster profiling sweep, one group per invocation (see the
 # teensy-profile skill for the per-effect duration/knob rationale).
 # Sequential profile_one.sh calls per group; stops on first failure.
+# A capture must fit inside one epoch: crossing a boundary re-inits the effect
+# mid-run, and an init that overruns the K-revolution commit window traps the
+# board. The RD sims want 130 s of data, past the 120 s default, so they stretch
+# the epoch to 150 s rather than lose a regime to a shorter capture.
 set -e
 P="$(dirname "$0")/profile_one.sh"
 case "$1" in
 g1_ship)
-  bash "$P" BZReactionDiffusion profile 130 32
+  bash "$P" BZReactionDiffusion profile 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
   bash "$P" ChaoticStrings profile 70 32
   bash "$P" DisplacementField profile 70 32
   bash "$P" Dynamo profile 70 32
   bash "$P" GnomonicStars profile 70 32
-  bash "$P" GSReactionDiffusion profile 130 32
+  bash "$P" GSReactionDiffusion profile 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
   ;;
 g2_ship)
   bash "$P" HopfFibration profile 70 32
@@ -38,12 +42,12 @@ g4_ship)
   bash "$P" IslamicStars profile 210 16 "-D HS_PROFILE_TRANS_SPEED=4 -D HS_PROFILE_EPOCH_REVS=1920"
   ;;
 g1_o3)
-  bash "$P" BZReactionDiffusion profile_o3 130 32
+  bash "$P" BZReactionDiffusion profile_o3 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
   bash "$P" ChaoticStrings profile_o3 70 32
   bash "$P" DisplacementField profile_o3 70 32
   bash "$P" Dynamo profile_o3 70 32
   bash "$P" GnomonicStars profile_o3 70 32
-  bash "$P" GSReactionDiffusion profile_o3 130 32
+  bash "$P" GSReactionDiffusion profile_o3 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
   ;;
 g2_o3)
   bash "$P" HopfFibration profile_o3 70 32
