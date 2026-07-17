@@ -486,7 +486,6 @@ private:
                                   persistent_arena);
       Persist<PolyMesh> ps(seed_base_, scratch_arena_a, persistent_arena);
       persistent_arena.reset();
-      hs::log("morph_cycle_then: finished arena compaction");
     }
 
     MeshOps::update_hankin(compiled_hankin, mesh_, persistent_arena,
