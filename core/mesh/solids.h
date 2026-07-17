@@ -684,31 +684,32 @@ FLASHMEM static PolyMesh truncatedIcosahedron_hk58_chamfer63(Arena &a,
       .build();
 }
 /**
- * @brief Builds the cube_relax_bevel33_relax_hk675_expand5 star pattern.
+ * @brief Builds the truncatedIcosahedron_ambo_relax100_hk54_needle star
+ * pattern.
  * @param a Output arena for the result and even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM static PolyMesh cube_relax_bevel33_relax_hk675_expand5(Arena &a,
-                                                                Arena &b) {
-  return SolidBuilder(Platonic::cube(a, b), a, b)
+FLASHMEM static PolyMesh
+truncatedIcosahedron_ambo_relax100_hk54_needle(Arena &a, Arena &b) {
+  return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
+      .ambo()
       .relax(100)
-      .bevel(0.33f)
-      .relax(100)
-      .hankin(67.5f * D2R)
-      .expand(0.5f)
+      .hankin(54.0f * D2R)
+      .needle()
       .build();
 }
 /**
- * @brief Builds the icosahedron_bevel033_hk59 star pattern.
+ * @brief Builds the dodecahedron_hk62_ambo_hk62 star pattern.
  * @param a Output arena for the result and even pipeline stages.
  * @param b Scratch arena for odd pipeline stages.
  * @return The resulting star-pattern mesh.
  */
-FLASHMEM static PolyMesh icosahedron_bevel033_hk59(Arena &a, Arena &b) {
-  return SolidBuilder(Platonic::icosahedron(a, b), a, b)
-      .bevel(0.33f)
-      .hankin(59.0f * D2R)
+FLASHMEM static PolyMesh dodecahedron_hk62_ambo_hk62(Arena &a, Arena &b) {
+  return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
+      .hankin(62.0f * D2R)
+      .ambo()
+      .hankin(62.0f * D2R)
       .build();
 }
 /**
@@ -1093,9 +1094,11 @@ inline constexpr Entry catalan_registry[] = {
  * @brief Registry of Islamic star-pattern solids.
  */
 inline constexpr Entry islamic_registry[] = {
-    {"cube_relax_bevel33_relax_hk675_expand5",
-     IslamicStarPatterns::cube_relax_bevel33_relax_hk675_expand5,
+    {"truncatedIcosahedron_ambo_relax100_hk54_needle",
+     IslamicStarPatterns::truncatedIcosahedron_ambo_relax100_hk54_needle,
      Category::Complex},
+    {"dodecahedron_hk62_ambo_hk62",
+     IslamicStarPatterns::dodecahedron_hk62_ambo_hk62, Category::Complex},
     {"truncatedIcosahedron_hk58_chamfer63",
      IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63,
      Category::Complex},
@@ -1124,8 +1127,6 @@ inline constexpr Entry islamic_registry[] = {
     {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
      IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk42,
      Category::Complex},
-    {"icosahedron_bevel033_hk59",
-     IslamicStarPatterns::icosahedron_bevel033_hk59, Category::Complex},
     {"octahedron_hk17_ambo_hk73",
      IslamicStarPatterns::octahedron_hk17_ambo_hk73, Category::Complex},
     {"icosahedron_kis_gyro", IslamicStarPatterns::icosahedron_kis_gyro,

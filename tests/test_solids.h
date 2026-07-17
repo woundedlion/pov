@@ -480,9 +480,6 @@ inline void check_high_water_for_recipe(const Solids::Entry &entry) {
 /**
  * @brief Verifies every Islamic-pattern recipe fits IslamicStars' scratch
  *        split — the configuration these recipes actually ship through.
- * @details cube_relax_bevel33_relax_hk675_expand5 (the recipe the polarity note
- *          flags as the one running an op on a non-alternating arena) is the
- *          first Islamic entry and so is covered by this sweep.
  */
 inline void test_islamic_recipes_fit_islamicstars_budget() {
   for (const Solids::Entry &e : Solids::islamic_registry)
