@@ -108,9 +108,15 @@ enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB };
 enum class Reseed : uint8_t { NONE, ADOPT, DUAL_SWAP };
 
 /** Sweep parameter clamp: legs run inside [T_EPS, t_end], and truncate legs
- * additionally stay below 0.5 - T_EPS (the ambo short-circuit changes emission
- * order and face count). */
+ * additionally stay below 0.5 - T_EPS_AMBO (the ambo short-circuit changes
+ * emission order and face count). */
 inline constexpr float T_EPS = 0.02f;
+/** Truncate clamp at the ambo (t = 0.5) end. Tighter than T_EPS: near 0.5 no
+ * face degenerates (only the residual seed-edge segments shrink), and the
+ * clean-swap gap this leaves is sub-pixel at H = 144 where T_EPS's would be a
+ * visible ~2 px boundary jump plus a gradient rescale at every leg boundary
+ * touching the ambo form. */
+inline constexpr float T_EPS_AMBO = 0.005f;
 
 /** Operator-sweep frames per leg. */
 inline constexpr int SWEEP_FRAMES = 48;

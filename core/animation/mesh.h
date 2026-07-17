@@ -204,6 +204,8 @@ public:
    * @brief Palette provenance of the departed node (spec sections 2.5/2.6).
    * @details prev_face_palette/prev_face_sides describe the node base mesh the
    * leg departs from, in emission order; consumed by the constructor only.
+   * When prev_face_centroid is supplied, the mapping is geometric (see
+   * build_palette_mapping) and by_class_signature is ignored.
    */
   struct PaletteHandoff {
     const BakedPaletteBank *bank =
@@ -215,6 +217,9 @@ public:
     size_t prev_faces = 0; /**< Face count of the departed base mesh. */
     bool by_class_signature = false; /**< DUAL_SWAP departure: map by side
                                         count, not emission order. */
+    const Vector *prev_face_centroid =
+        nullptr; /**< Unit centroid per departed base face; enables the
+                    geometric provenance mapping. */
   };
 
   /**
@@ -291,7 +296,7 @@ public:
     auto clamp_param = [&](float t) {
       t = std::max(t, ConwayGraph::T_EPS);
       if (edge.op == ConwayGraph::MorphOp::TRUNCATE)
-        t = std::min(t, 0.5f - ConwayGraph::T_EPS);
+        t = std::min(t, 0.5f - ConwayGraph::T_EPS_AMBO);
       return t;
     };
     tr.t_start = clamp_param(reverse ? edge.t_to : edge.t_from);
@@ -332,7 +337,25 @@ public:
       tr.topo = std::move(classified->topology);
       HS_CHECK(tr.topo.size() == classified->face_counts.size());
 
-      build_palette_mapping(tr, *classified, handoff, bookend, arena);
+      // Geometric provenance needs the mesh the first frame draws: the
+      // relaxed start on a reverse settling leg (settle_alpha == 1 there),
+      // the plain op at t_start otherwise.
+      const Vector *start_centroid = nullptr;
+      PolyMesh start_mesh;
+      if (handoff.prev_face_centroid) {
+        const PolyMesh *start = &relaxed_mesh;
+        if (!(edge.settle && reverse)) {
+          start_mesh = run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b,
+                              tr.t_start, tr.twist_start);
+          start = &start_mesh;
+        }
+        HS_CHECK(start->face_counts.size() == tr.topo.size(),
+                 "ConwayMorph: start face count differs from arrival");
+        start_centroid = face_centroids(*start, scratch_arena_a);
+      }
+
+      build_palette_mapping(tr, *classified, handoff, bookend, arena,
+                            start_centroid);
     }
   }
 
@@ -486,6 +509,54 @@ private:
     }
   }
 
+  /** Max distance from a start-parameter face centroid to its departed
+   * counterpart: bounds the T_EPS-scale swap displacement while staying under
+   * half the face-centroid spacing of the largest node (~0.37 chord at 92
+   * faces). */
+  static constexpr float PROVENANCE_TOL_SQ = 0.15f * 0.15f;
+
+  /**
+   * @brief Unit-sphere vertex-average centroid of every face.
+   * @param m Mesh whose faces are reduced.
+   * @param arena Arena receiving the centroid array.
+   * @return One unit vector per face, in emission order.
+   */
+  HS_COLD_MEMBER static const Vector *face_centroids(const PolyMesh &m,
+                                                     Arena &arena) {
+    Vector *out = arena.allocate_n<Vector>(m.face_counts.size());
+    size_t off = 0;
+    for (size_t f = 0; f < m.face_counts.size(); ++f) {
+      Vector c(0.0f, 0.0f, 0.0f);
+      const int n = m.face_counts[f];
+      for (int k = 0; k < n; ++k)
+        c = c + m.vertices[m.faces[off + k]];
+      out[f] = c.normalized();
+      off += n;
+    }
+    return out;
+  }
+
+  /**
+   * @brief Index of the departed face nearest to a start-face centroid.
+   * @param c Unit centroid of the swept face at the start parameter.
+   * @param handoff Departed-node provenance (centroids non-null).
+   * @return Index into the handoff arrays.
+   */
+  static size_t nearest_prev_face(const Vector &c,
+                                  const PaletteHandoff &handoff) {
+    size_t best = 0;
+    float best_d = 1e9f;
+    for (size_t j = 0; j < handoff.prev_faces; ++j) {
+      const Vector d = c - handoff.prev_face_centroid[j];
+      const float dsq = dot(d, d);
+      if (dsq < best_d) {
+        best_d = dsq;
+        best = j;
+      }
+    }
+    return best;
+  }
+
   /**
    * @brief Crossfade weight (spec 2.6): exactly 0 through the first 20% of the
    * leg, smoothstep to exactly 1 by 80%.
@@ -508,12 +579,25 @@ private:
    * @param handoff Departed-node provenance.
    * @param bookend Arrival-node bookend grouping the targets key on.
    * @param arena Leg arena for the face -> ramp table.
+   * @param start_centroid Unit centroid per swept face at the start parameter,
+   * or nullptr for the emission-order/class-signature mappings.
+   * @details With centroids, provenance is geometric: a face inherits the
+   * palette of the departed face it overlies at the start parameter. On a
+   * full-correspondence departure (prev_faces == total: 0.5-end swaps, dual
+   * swaps, regenerated seeds) every face maps by nearest departed centroid —
+   * a checked bijection that assumes nothing about emission order and keeps
+   * per-side-count class splits, both of which the legacy mappings break. On
+   * a seed departure (prev_faces == primary) primaries keep the exact
+   * emission identity, and each newborn class inherits its first face's
+   * nearest departed palette, so T_EPS-wide births open in the underlying
+   * face's colors instead of popping in as target-colored slivers.
    */
   HS_COLD_MEMBER void build_palette_mapping(Transients &tr,
                                             const PolyMesh &arrival,
                                             const PaletteHandoff &handoff,
                                             const BookendClasses &bookend,
-                                            Arena &arena) {
+                                            Arena &arena,
+                                            const Vector *start_centroid) {
     const size_t total = tr.topo.size();
     const size_t primary = tr.seed.face_counts.size();
     tr.landing.faces = total;
@@ -538,10 +622,10 @@ private:
     std::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end(),
                  hs::random());
 
-    if (!handoff.by_class_signature) {
-      // Emission-order mapping: either the whole face list corresponds
-      // (departing a mid-parameter node) or the primary prefix does
-      // (departing the seed form; orbit/edge faces are zero-area births).
+    if (start_centroid || !handoff.by_class_signature) {
+      // Either the whole face list corresponds (departing a mid-parameter
+      // node) or the primary prefix does (departing the seed form; orbit/edge
+      // faces are births).
       HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == primary,
                "ConwayMorph: handoff face count matches neither mapping");
     } else {
@@ -549,11 +633,38 @@ private:
                "ConwayMorph: class-signature mapping needs prev side counts");
     }
 
+    // Full-correspondence geometric mapping: nearest departed centroid,
+    // pinned as a bijection within tolerance.
+    bool prev_used[128] = {};
+    HS_CHECK(handoff.prev_faces <= std::size(prev_used));
+    // Newborn classes inherit one representative from-palette (first face of
+    // the class), keeping the distinct-pair count at the legacy bound.
+    int newborn_from[PALETTES];
+    for (int i = 0; i < PALETTES; ++i)
+      newborn_from[i] = -1;
+
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
       uint8_t to = tr.landing.to_palette[wrap(tr.target_topo[f], PALETTES)];
-      uint8_t from = to; // newborn faces skip the crossfade
-      if (handoff.by_class_signature) {
+      uint8_t from = to; // fallback: newborn faces skip the crossfade
+      if (start_centroid && handoff.prev_faces == total) {
+        const size_t j = nearest_prev_face(start_centroid[f], handoff);
+        const Vector d = start_centroid[f] - handoff.prev_face_centroid[j];
+        HS_CHECK(!prev_used[j] && dot(d, d) < PROVENANCE_TOL_SQ,
+                 "ConwayMorph: start face has no unique departed counterpart");
+        prev_used[j] = true;
+        from = handoff.prev_face_palette[j];
+      } else if (start_centroid) { // prev_faces == primary
+        if (f < handoff.prev_faces) {
+          from = handoff.prev_face_palette[f];
+        } else {
+          const int slot = wrap(tr.target_topo[f], PALETTES);
+          if (newborn_from[slot] < 0)
+            newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
+                start_centroid[f], handoff)];
+          from = static_cast<uint8_t>(newborn_from[slot]);
+        }
+      } else if (handoff.by_class_signature) {
         // DUAL_SWAP: side count at the shared ambo point is unambiguous.
         int sides =
             f < primary ? tr.seed.face_counts[f] : arrival.face_counts[f];
