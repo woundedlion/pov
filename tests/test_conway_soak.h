@@ -78,6 +78,60 @@ struct HankinWalkProbe {
   palette_idx(const HankinSolids<W, H> &fx) {
     return fx.palette_idx_;
   }
+  /**
+   * @brief Per-slot crossfade origin palette for the current hankin cycle.
+   */
+  template <int W, int H>
+  static const std::array<int, HankinSolids<W, H>::NUM_PALETTES> &
+  strap_from(const HankinSolids<W, H> &fx) {
+    return fx.strap_from_;
+  }
+  /**
+   * @brief Bitmask of slots crossfading over the current opening window.
+   */
+  template <int W, int H>
+  static uint8_t strap_blend_mask(const HankinSolids<W, H> &fx) {
+    return fx.strap_blend_mask_;
+  }
+  /**
+   * @brief Sprite draws since the active hankin cycle's opening bookend.
+   */
+  template <int W, int H>
+  static int hankin_cycle_frame(const HankinSolids<W, H> &fx) {
+    return fx.hankin_cycle_frame_;
+  }
+  /**
+   * @brief Strap-crossfade window length, in sprite frames.
+   */
+  template <int W, int H>
+  static int strap_blend_frames(const HankinSolids<W, H> &) {
+    return HankinSolids<W, H>::STRAP_BLEND_FRAMES;
+  }
+  /**
+   * @brief The on-screen hankin mesh (topology carries the class slots).
+   */
+  template <int W, int H>
+  static const MeshState &mesh(const HankinSolids<W, H> &fx) {
+    return fx.mesh_;
+  }
+  /**
+   * @brief Baked palette bank the effect shades with.
+   */
+  template <int W, int H>
+  static const MeshPaletteBank &palette_bank(const HankinSolids<W, H> &fx) {
+    return fx.palette_bank_;
+  }
+  /**
+   * @brief Runs the production per-slot LUT resolution at a cycle frame.
+   */
+  template <int W, int H>
+  static void resolve_slot_luts(
+      HankinSolids<W, H> &fx, int cycle_frame,
+      BakedPalette (&blended)[HankinSolids<W, H>::NUM_PALETTES],
+      const BakedPalette *(&by_slot)[HankinSolids<W, H>::NUM_PALETTES],
+      Arena &scratch) {
+    fx.resolve_hankin_slot_luts(cycle_frame, blended, by_slot, scratch);
+  }
 };
 
 /** Soak render size: small enough to keep the raster cheap, large enough that
