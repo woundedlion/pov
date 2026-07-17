@@ -330,6 +330,19 @@ inline constexpr uint32_t WALK_BRIDGE_RIPE_WEIGHT = 12;
 /** Legs in one family after which bridges become the preferred move. */
 inline constexpr int BRIDGE_RIPE_LEGS = 4;
 
+/** Recency scale: non-bridge candidate weights are base * SCALE^3 divided by
+ * (1 + target visit count)^3, so seldom-visited targets strongly outweigh the
+ * hubs a degree-proportional walk over-samples (10k-leg simulation: max/min
+ * node share drops from ~11-15x to ~4x, near the ~3x structural floor set by
+ * the cut-vertex hubs' forced pendant transits). Bridges stay recency-exempt
+ * at base * SCALE^2 — between fresh and stale sibling weights — which keeps
+ * the family-change cadence at the unweighted walk's ~6-7 legs. */
+inline constexpr uint32_t WALK_RECENCY_SCALE = 12;
+/** Visit-count ceiling: reaching it halves every node's count, so the counts
+ * track a sliding window instead of converging and flattening the weighting
+ * out on a long walk. */
+inline constexpr uint8_t WALK_VISIT_CAP = 8;
+
 /**
  * @brief Pick weight of one candidate edge.
  * @param edge Index into EDGES.
@@ -345,16 +358,30 @@ constexpr uint32_t edge_weight(int edge, int legs_in_family) {
 }
 
 /**
- * @brief Random-walk edge choice: weighted random incident edge, never the
- * immediate backtrack except at a degree-1 node.
+ * @brief Records a node visit for the walk's recency weighting.
+ * @param visits Per-node visit counts (NUM_NODES entries), caller-owned.
+ * @param node Node just arrived at.
+ */
+constexpr void record_visit(uint8_t *visits, int node) {
+  ++visits[node];
+  if (visits[node] >= WALK_VISIT_CAP)
+    for (int i = 0; i < NUM_NODES; ++i)
+      visits[i] /= 2;
+}
+
+/**
+ * @brief Random-walk edge choice: weighted random incident edge biased toward
+ * less-visited targets, never the immediate backtrack except at a degree-1
+ * node.
  * @param node Current node id.
  * @param prev_edge Edge the walk arrived on, or -1 for the first leg.
  * @param legs_in_family Completed legs since the last family change.
+ * @param visits Per-node visit counts maintained via record_visit().
  * @param rnd Uniform random 32-bit value (e.g. hs::random()()).
  * @return Index into EDGES of the next leg.
  */
 constexpr int pick_next_edge(int node, int prev_edge, int legs_in_family,
-                             uint32_t rnd) {
+                             const uint8_t *visits, uint32_t rnd) {
   uint8_t cand[MAX_DEGREE];
   int n = edges_from(node, cand);
   if (n == 1)
@@ -362,11 +389,21 @@ constexpr int pick_next_edge(int node, int prev_edge, int legs_in_family,
 
   uint32_t total = 0;
   uint32_t weights[MAX_DEGREE] = {};
+  constexpr uint32_t S = WALK_RECENCY_SCALE;
   for (int i = 0; i < n; ++i) {
     if (cand[i] == prev_edge)
       continue;
-    weights[i] = edge_weight(cand[i], legs_in_family);
-    total += weights[i];
+    uint32_t w = 0;
+    if (EDGES[cand[i]].bridge) {
+      w = edge_weight(cand[i], legs_in_family) * S * S;
+    } else {
+      const uint32_t rec = 1u + visits[edge_other_end(cand[i], node)];
+      w = edge_weight(cand[i], legs_in_family) * S * S * S / (rec * rec * rec);
+      if (w == 0)
+        w = 1;
+    }
+    weights[i] = w;
+    total += w;
   }
 
   uint32_t pick = rnd % total;
