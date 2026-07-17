@@ -86,13 +86,31 @@ class Window:
         return n["us"] if n else None
 
     def render_ms(self):
-        """Per-frame render (frame minus the display-sync wait), averaged."""
+        """Per-frame render (frame minus the display-sync wait), averaged.
+
+        None when the effect opens no *_buffer_wait scope: the sync idle is
+        then indistinguishable from work, and root/frames would be wall. Read
+        such an effect through its own render scope (--scope <xx>_render).
+        """
         root = self.counters.get("frame")
         if not root:
             return None
         wait = next((n["us"] for label, n in self.counters.items()
-                     if label.endswith("buffer_wait")), 0)
+                     if label.endswith("buffer_wait")), None)
+        if wait is None:
+            return None
         return (root["us"] - wait) / self.frames / 1000.0
+
+    def render_is_wall(self):
+        """The telemetry's render is really wall: the effect has no wait scope.
+
+        Profile.ino derives each frame's render as wall minus the effect's
+        *_buffer_wait counter delta. An effect that never opens such a scope
+        yields a zero delta, so render == wall on every frame and the "peak
+        render" would silently be a peak WALL -- render plus the sync idle,
+        quantized up to a whole display window.
+        """
+        return bool(self.frame_rows) and all(f[1] == f[2] for f in self.frame_rows)
 
     def peak_render_ms(self):
         """(ms, exact) worst frame's render.
@@ -100,9 +118,11 @@ class Window:
         Exact from the per-frame telemetry when the capture has it; otherwise
         a placeholder: this window's MEAN render, which understates the peak
         it stands in for. Wall time is render + sync wait, so its max is not a
-        peak render and is never used here.
+        peak render and is never used here -- including when the telemetry
+        itself is wall for want of a *_buffer_wait scope, which falls back to
+        the same placeholder rather than passing wall off as a render peak.
         """
-        if self.render:
+        if self.render and not self.render_is_wall():
             return (self.render[1] / 1000.0, True)
         r = self.render_ms()
         return (None, False) if r is None else (r, False)
@@ -193,12 +213,17 @@ def spilled_frames(w):
     spilled frame, so spilled/frames stays a true fraction the cadence colour
     thresholds can be read against.
     """
-    if w.frame_rows:
+    if w.frame_rows and not w.render_is_wall():
         # Renders start flip-aligned (the buffer_free gate opens at a flip),
         # so a frame spills exactly when its render exceeds one window.
         return sum(1 for f in w.frame_rows if f[2] > DISPLAY_WINDOW_US)
     if not w.wall:
         return 0
+    # Either no per-frame rows, or they carry wall for want of a *_buffer_wait
+    # scope. Wall already includes the sync idle and quantizes to whole
+    # windows, so testing it against one window would count jitter above 62.5
+    # as a spill; the sum-derived estimate below is the treatment wall data
+    # gets either way.
     # Without per-frame rows only the window's wall sum is known, and it gives
     # the extra windows consumed (= missed flips), which bounds the spilled
     # frames from above: at most every frame spilled. Marked '~' at the callers.
@@ -216,7 +241,7 @@ def cmd_windows(windows, scope):
     agg_spill, agg_frames = 0, 0
     worst_peak = 0.0
     worst_peak_w = None
-    exact_run = all(w.render for w in windows)
+    exact_run = all(w.render and not w.render_is_wall() for w in windows)
     for w in windows:
         pf = w.per_frame_ms(scope)
         cf = w.calls_per_frame(scope)
@@ -316,7 +341,7 @@ def cmd_buckets(windows):
             key = (w.marker["key"], w.marker.get("name"))
         groups.setdefault(key, []).append(w)
 
-    exact_run = all(w.render for w in windows)
+    exact_run = all(w.render and not w.render_is_wall() for w in windows)
     rows = []
     for key, ws in groups.items():
         peaks = [p for p, _ in (w.peak_render_ms() for w in ws)
@@ -391,6 +416,15 @@ def cmd_validate(windows, effect, scope):
                              if names[i] in names[:i]), None)
         check(first_repeat is not None,
               f"a shape repeats (cycle closed): {distinct} distinct")
+
+    # Per-frame render telemetry is only render if the effect opened a
+    # *_buffer_wait scope for Profile.ino to subtract; without one it is wall,
+    # and every peak it feeds is a peak WALL wearing a render's name.
+    wall_render = [w for w in windows if w.render_is_wall()]
+    check(not wall_render,
+          f"per-frame render is render, not wall ({len(wall_render)} of "
+          f"{len(windows)} windows have render == wall: the effect opens no "
+          f"*_buffer_wait scope)")
 
     # Exactness: root cyc/600 vs wall sum for the richest window.
     w = max(windows, key=lambda w: (w.root_us() or 0))
