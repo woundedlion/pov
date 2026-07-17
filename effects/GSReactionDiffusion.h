@@ -6,6 +6,7 @@
 #pragma once
 
 #include <algorithm>
+#include <cmath>
 #include <cstring>
 #include <utility>
 #include "core/engine/engine.h"
@@ -64,6 +65,10 @@ fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2, int count,
  * Persistent state is Q16 (uint16_t) for the cubic reaction-term precision;
  * substeps integrate in float and quantize back once per frame. Shared
  * lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
+ *
+ * A reaction runs until its field stops moving, then dissolves off the sphere
+ * and reseeds at new sites, so each cycle grows a different form from the same
+ * constants. Editing the constants dissolves the current field too.
  *
  * Memory budget (persistent arena, configured 174 KB):
  *   - Cubemap LUT:                  6 × 64² × 2B = 49,152 B
@@ -158,6 +163,7 @@ public:
     cube_lut.build(persistent_arena);
     init_lattice();
     seed_clusters();
+    reaction_edited(); // latch the defaults; frame 1 is not an edit
   }
 
   /**
@@ -192,8 +198,25 @@ private:
   static constexpr float Q16_INV = 1.0f / Q16_SCALE; /**< Reciprocal of
                                                           Q16_SCALE. */
 
-  static constexpr int NUM_SEED_CLUSTERS = 30; /**< Initial B blobs seeded at
-                                                    init. */
+  static constexpr int NUM_SEED_CLUSTERS = 30; /**< B blobs seeded per
+                                                    reaction. */
+  /** @brief Frames the dissolve takes to convert every node back to rest. */
+  static constexpr int DISSOLVE_FRAMES = 64;
+  /**
+   * @brief Frames a fresh reaction runs before the stabilization detector arms.
+   * @details A young field has only NUM_SEED_CLUSTERS active sites, so its mean
+   * |dB| sits under MEAN_DB_STABLE and would read as stalled at birth.
+   */
+  static constexpr int MIN_GROW_FRAMES = 240;
+  /** @brief Consecutive sub-floor frames that count as stabilized. */
+  static constexpr int STABLE_HOLD_FRAMES = 24;
+  /**
+   * @brief Mean per-node |dB| per frame below which the field is stalled.
+   * @details Measured: a converged field floors at 1.1e-6..4.0e-6 (Q16
+   * quantization chatter) while live morphogenesis runs 1e-4 and up, so this
+   * sits in the gap. A reaction that dies out floors here too and reseeds.
+   */
+  static constexpr float MEAN_DB_STABLE = 1.0e-5f;
   /**
    * @brief Physics substeps advanced per rendered frame.
    * @details 16 substeps/frame advance the slow GS morphogenesis at a visible
@@ -245,6 +268,95 @@ private:
       state.B[idx] = 65535;
       for_each_neighbor(idx, [&](int nb) { state.B[nb] = 65535; });
     }
+  }
+
+  /**
+   * @brief Holds every node hashing below `phase` at the A=1/B=0 rest state.
+   * @param phase Dissolve progress in [0, 1]; the cleared fraction.
+   * @details Re-clears the whole swept set each frame, not just the newly
+   * crossed band: B is autocatalytic, so a scattered rest node is refilled by
+   * its neighbors within one frame's substeps and the spatter would never
+   * take. Holding the set down keeps cleared ground cleared, so the sphere
+   * empties as phase advances.
+   */
+  void convert_below(float phase) {
+    for (int i = 0; i < RD_N; i++) {
+      if (hash01(static_cast<uint32_t>(i), transition.dissolve_seed) < phase) {
+        state.A[i] = 65535;
+        state.B[i] = 0;
+      }
+    }
+  }
+
+  /**
+   * @brief Ends a dissolve by seeding the next reaction at fresh cluster sites.
+   * @details The field is already at rest (every node converted), so seeding
+   * alone reproduces init()'s starting condition at new random sites;
+   * feed/k are the user's and are left alone.
+   */
+  HS_COLD_MEMBER void start_reaction() {
+    transition.dissolve_frame = -1;
+    transition.grow_frames = 0;
+    transition.stable_run = 0;
+    seed_clusters();
+  }
+
+  /**
+   * @brief Starts a dissolve at a fresh node ordering.
+   */
+  void begin_dissolve() {
+    transition.dissolve_frame = 0;
+    transition.dissolve_seed = static_cast<uint32_t>(hs::random()());
+  }
+
+  /**
+   * @brief Reports whether the reaction constants moved since the last frame.
+   * @return True on the first frame after any of feed/k/dA/dB changes.
+   * @details Latches the current values, so a slider drag reports once per
+   * distinct value. Speed is excluded: it sets the integration rate, not the
+   * reaction.
+   */
+  bool reaction_edited() {
+    bool changed = params.feed != transition.last_feed ||
+                   params.k != transition.last_k ||
+                   params.d_a != transition.last_d_a ||
+                   params.d_b != transition.last_d_b;
+    transition.last_feed = params.feed;
+    transition.last_k = params.k;
+    transition.last_d_a = params.d_a;
+    transition.last_d_b = params.d_b;
+    return changed;
+  }
+
+  /**
+   * @brief Runs the reaction lifecycle: edit and stabilization detection, then
+   *        the dissolve.
+   * @param mean_db Mean per-node |dB| across this frame's substeps.
+   * @details Dissolves when the user edits the reaction, or once the field has
+   * stalled for STABLE_HOLD_FRAMES. Edits mid-dissolve are absorbed by the
+   * in-flight one, which reseeds into whatever the constants read at its end.
+   */
+  void advance_transition(float mean_db) {
+    if (transition.dissolve_frame >= 0) {
+      ++transition.dissolve_frame;
+      convert_below(static_cast<float>(transition.dissolve_frame) /
+                    DISSOLVE_FRAMES);
+      // Latch edits made mid-dissolve; this dissolve already covers them.
+      reaction_edited();
+      if (transition.dissolve_frame >= DISSOLVE_FRAMES)
+        start_reaction();
+      return;
+    }
+    if (reaction_edited()) {
+      begin_dissolve();
+      return;
+    }
+    if (++transition.grow_frames < MIN_GROW_FRAMES)
+      return;
+    transition.stable_run =
+        mean_db < MEAN_DB_STABLE ? transition.stable_run + 1 : 0;
+    if (transition.stable_run >= STABLE_HOLD_FRAMES)
+      begin_dissolve();
   }
 
   /**
@@ -317,6 +429,7 @@ private:
   void render(Canvas &canvas) {
     HS_PROFILE(grd_render);
     ScratchScope frame_guard(scratch_arena_a);
+    float mean_db = 0.0f;
     {
       // The substeps ping-pong in float; the Q16 state converts in once and
       // quantizes back once per frame, not once per substep.
@@ -340,11 +453,15 @@ private:
         std::swap(cur_a, nxt_a);
         std::swap(cur_b, nxt_b);
       }
+      float db_sum = 0.0f;
       for (int i = 0; i < RD_N; i++) {
         state.A[i] = to_q16(cur_a[i]);
+        db_sum += std::fabs(cur_b[i] - from_q16(state.B[i]));
         state.B[i] = to_q16(cur_b[i]);
       }
+      mean_db = db_sum * (1.0f / RD_N);
     }
+    advance_transition(mean_db);
 
     // Physics scratch is popped; the raster phase reuses the arena for the
     // oriented lattice so the kernel walks stay in world space, plus the
@@ -394,6 +511,22 @@ private:
   struct {
     uint16_t *A = nullptr, *B = nullptr; /**< Per-node A/B concentrations, Q16. */
   } state;
+
+  /**
+   * @brief Auto-transition state: current reaction's lifetime and dissolve
+   *        progress.
+   */
+  struct {
+    int grow_frames = 0;     /**< Frames since this reaction was seeded. */
+    int stable_run = 0;      /**< Consecutive frames with |dB| sub-floor. */
+    int dissolve_frame = -1; /**< Frames into the dissolve; -1 when not
+                                  dissolving. */
+    uint32_t dissolve_seed = 0; /**< Per-transition node-order hash seed. */
+    /** Reaction constants as of the last frame; reaction_edited() latches them
+     *  to spot a user edit, seeded from params in init() so frame 1 is
+     *  clean. */
+    float last_feed = 0.0f, last_k = 0.0f, last_d_a = 0.0f, last_d_b = 0.0f;
+  } transition;
 
   /** @brief 16-bit LUT baked from the generative palette mapping B to RGB. */
   BakedPalette palette;

@@ -483,6 +483,14 @@ struct GSWhiteBox {
     gs.params.d_b = dB;
     gs.params.dt = dt;
   }
+  static int dissolve_frame(const GS &gs) {
+    return gs.transition.dissolve_frame;
+  }
+  static const uint16_t *b_field(const GS &gs) { return gs.state.B; }
+  static constexpr int DISSOLVE_FRAMES = GS::DISSOLVE_FRAMES;
+  static constexpr int MIN_GROW_FRAMES = GS::MIN_GROW_FRAMES;
+  static constexpr int STABLE_HOLD_FRAMES = GS::STABLE_HOLD_FRAMES;
+
   static void step(GS &gs, const uint16_t *cA, const uint16_t *cB, uint16_t *nA,
                    uint16_t *nB) {
     // The production substep is float-resident; this seam keeps the tests'
@@ -521,6 +529,88 @@ inline void test_gs_q16_roundtrip() {
     if (GSWhiteBox::to_q16(GSWhiteBox::from_q16((uint16_t)v)) != (uint16_t)v)
       ++bad;
   HS_EXPECT_EQ(bad, 0);
+}
+
+/**
+ * @brief Verifies the dissolve clears the sphere and reseeds a fresh reaction.
+ * @details Drives a real effect to its stabilization transition, then pins the
+ *          two things the dissolve must do: coverage falls monotonically enough
+ *          to reach near-zero by the end of the window (a scattered rest
+ *          node is refilled by its autocatalytic neighbours in one frame, so a
+ *          dissolve that only converts the newly-crossed band never clears at
+ *          all), and the field that comes back is the seed pattern, not the old
+ *          one.
+ */
+inline void test_gs_dissolve_clears_and_reseeds() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+
+  auto covered = [&]() {
+    const uint16_t *b = GSWhiteBox::b_field(gs);
+    int n = 0;
+    for (int i = 0; i < GSWhiteBox::N; ++i)
+      if (b[i] >= GSWhiteBox::to_q16(0.1f))
+        ++n;
+    return n;
+  };
+
+  // Run until the stalled field trips a dissolve; the default reaction settles
+  // well inside this budget.
+  const int budget = GSWhiteBox::MIN_GROW_FRAMES +
+                     GSWhiteBox::STABLE_HOLD_FRAMES + 400;
+  int f = 0;
+  for (; f < budget && GSWhiteBox::dissolve_frame(gs) < 0; ++f) {
+    gs.draw_frame();
+    gs.advance_display();
+  }
+  HS_EXPECT(GSWhiteBox::dissolve_frame(gs) >= 0,
+            "stalled field did not start a dissolve");
+  const int grown = covered();
+  HS_EXPECT(grown > GSWhiteBox::N / 20,
+            "default reaction grew no pattern to dissolve");
+
+  // Step to the last frame before the window closes: the sphere must be all but
+  // clear, and still mid-dissolve.
+  for (int i = 0; i < GSWhiteBox::DISSOLVE_FRAMES - 1; ++i) {
+    gs.draw_frame();
+    gs.advance_display();
+  }
+  HS_EXPECT(GSWhiteBox::dissolve_frame(gs) >= 0,
+            "dissolve ended before its window closed");
+  HS_EXPECT(covered() < grown / 8,
+            "dissolve left the sphere covered: cleared nodes healed");
+
+  // The closing frame converts the remainder and reseeds.
+  gs.draw_frame();
+  gs.advance_display();
+  HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
+  HS_EXPECT(covered() > 0, "reseed left no nucleation sites");
+}
+
+/**
+ * @brief Verifies editing the reaction constants starts a dissolve.
+ * @details Feed/Kill/dA/dB define the reaction, so an edit clears and restarts
+ *          it; Speed only sets the integration rate and must not.
+ */
+inline void test_gs_reaction_edit_starts_dissolve() {
+  hs_test::reset_globals();
+  GSWhiteBox::GS gs;
+  gs.init();
+  gs.draw_frame();
+  gs.advance_display();
+  HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
+
+  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.02f, 0.01f, 1.0f); // Speed only
+  gs.draw_frame();
+  gs.advance_display();
+  HS_EXPECT_EQ(GSWhiteBox::dissolve_frame(gs), -1);
+
+  GSWhiteBox::set_params(gs, 0.03f, 0.06f, 0.02f, 0.01f, 1.0f); // Feed moved
+  gs.draw_frame();
+  gs.advance_display();
+  HS_EXPECT(GSWhiteBox::dissolve_frame(gs) >= 0,
+            "a Feed edit did not start a dissolve");
 }
 
 /**
@@ -2271,6 +2361,8 @@ inline int run_effects_tests() {
     test_gs_rest_state_is_fixed_point();
     test_gs_substep_signs_and_clamp();
     test_gs_evolution_stays_bounded();
+    test_gs_dissolve_clears_and_reseeds();
+    test_gs_reaction_edit_starts_dissolve();
     test_bz_q8_roundtrip();
     test_bz_advance_species_signs_and_clamp();
     test_bz_perturb_state_saturates_and_nudges();
