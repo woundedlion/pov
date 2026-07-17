@@ -3,10 +3,15 @@
 Companion to targets/Profile/Profile.ino + tools/profile_capture.py (see the
 teensy-profile skill). Reads a capture produced by `profile`/`profile_o3` and:
 
-  windows   per-window per-frame cost for one counter scope
+  windows   per-window per-frame cost for one counter scope; the footer gives
+            the pass aggregate the READMEs quote (peak render + spilled)
   presets   per-preset/-shape/-mode table, each row read from that preset's
             clean-hold windows (modal draw-call count — transition windows,
             whose call count differs, are excluded)
+  buckets   per-preset cadence buckets (how many presets lock / flap / slip a
+            tier) — fills a cycling effect's README cell. Unlike `presets`,
+            each preset owns the transition that follows it, so its counts are
+            stricter than the clean-hold view.
   validate  sanity checks a cycling-effect capture: preset markers present,
             the cycle wraps back to its first index, the effect instance is
             never torn down mid-capture (frame numbers stay monotonic), and the
@@ -79,6 +84,28 @@ class Window:
     def root_us(self):
         n = self.counters.get("frame")
         return n["us"] if n else None
+
+    def render_ms(self):
+        """Per-frame render (frame minus the display-sync wait), averaged."""
+        root = self.counters.get("frame")
+        if not root:
+            return None
+        wait = next((n["us"] for label, n in self.counters.items()
+                     if label.endswith("buffer_wait")), 0)
+        return (root["us"] - wait) / self.frames / 1000.0
+
+    def peak_render_ms(self):
+        """(ms, exact) worst frame's render.
+
+        Exact from the per-frame telemetry when the capture has it; otherwise
+        a placeholder: this window's MEAN render, which understates the peak
+        it stands in for. Wall time is render + sync wait, so its max is not a
+        peak render and is never used here.
+        """
+        if self.render:
+            return (self.render[1] / 1000.0, True)
+        r = self.render_ms()
+        return (None, False) if r is None else (r, False)
 
 
 def parse(path):
@@ -178,41 +205,41 @@ def spilled_frames(w):
 def cmd_windows(windows, scope):
     print(f"# window  frames        {scope} ms/f  calls/f  wall_ms  "
           f"peak_ms  spill  marker")
-    # peak_ms is the worst single frame's RENDER (wall minus the display-sync
-    # wait) when the capture carries the render line; '*' marks the wall-max
-    # fallback for logs that predate it.
-    agg_pf, agg_spill, agg_frames = [], 0, 0
-    worst_pf = worst_peak = 0.0
-    worst_pf_w = worst_peak_w = None
+    # peak_ms is the worst frame's RENDER: exact from the per-frame telemetry,
+    # else '~' = the worst window's MEAN render as a placeholder until the
+    # effect is re-captured. Wall time is render + the display-sync wait, so
+    # its max is not a peak render and is never substituted here.
+    agg_spill, agg_frames = 0, 0
+    worst_peak = 0.0
+    worst_peak_w = None
+    exact_run = all(w.render for w in windows)
     for w in windows:
         pf = w.per_frame_ms(scope)
         cf = w.calls_per_frame(scope)
         wall = w.wall[3] / w.frames / 1000.0 if w.wall else 0.0
-        wall_based = w.render is None
-        peak = (w.wall[2] if wall_based else w.render[1]) / 1000.0             if w.wall else 0.0
+        peak, exact = w.peak_render_ms()
         spill = spilled_frames(w)
         mk = w.marker["name"] if w.marker else "-"
         pf_s = f"{pf:8.2f}" if pf is not None else "     n/a"
         cf_s = f"{cf:7.1f}" if cf is not None else "    n/a"
-        peak_s = f"{peak:7.2f}" + ("*" if wall_based else " ")
+        peak_s = ("    n/a " if peak is None
+                  else f"{peak:7.2f}" + (" " if exact else "~"))
         print(f"{w.f_start:6d}-{w.f_end:<6d} {pf_s}  {cf_s}  {wall:7.2f}  "
-              f"{peak_s} {spill:5d}  {mk}")
-        if pf is not None:
-            agg_pf.append(pf)
-            if pf > worst_pf:
-                worst_pf, worst_pf_w = pf, w
-        if w.wall and peak > worst_peak:
+              f"{peak_s}{spill:5d}  {mk}")
+        if peak is not None and peak > worst_peak:
             worst_peak, worst_peak_w = peak, w
         agg_spill += spill
         agg_frames += w.frames
-    if agg_pf:
-        print(f"# aggregate: {scope} avg {sum(agg_pf) / len(agg_pf):.2f} ms/f, "
-              f"worst window {worst_pf:.2f} ms/f "
-              f"(frames {worst_pf_w.f_start}-{worst_pf_w.f_end}), "
-              f"peak frame {worst_peak:.2f} ms "
-              f"{'wall' if worst_peak_w.render is None else 'render'} "
-              f"(frames {worst_peak_w.f_start}-{worst_peak_w.f_end}), "
+    if worst_peak_w is None:
+        print(f"# aggregate: peak render n/a, "
               f"spilled {agg_spill}/{agg_frames} frames")
+        return
+    kind = ("peak frame render" if exact_run else
+            "peak WINDOW MEAN render (~placeholder, no per-frame telemetry)")
+    print(f"# aggregate: {kind} {worst_peak:.2f} ms "
+          f"(frames {worst_peak_w.f_start}-{worst_peak_w.f_end}), "
+          f"spilled {agg_spill}/{agg_frames} frames"
+          f"{'' if exact_run else ' (wall-derived, +-1)'}")
 
 
 def cmd_presets(windows, scope, gate):
@@ -258,6 +285,66 @@ def cmd_presets(windows, scope, gate):
     for name, holds, clean, ms, cf, meta in sorted(
             rows, key=lambda r: -r[3]):
         print(f"{name:>8}  {holds:5d}  {clean:5d}  {ms:8.2f}  {cf:7.1f}  {meta}")
+
+
+def cmd_buckets(windows):
+    """Per-preset cadence buckets: how many presets lock / flap / slip a tier.
+
+    A preset's window set is every window its marker owns, so it carries the
+    transition that follows it (the crossfade IS part of what that preset
+    costs on screen).
+
+    Colour is judged per WINDOW, not over the preset's whole pass: no spill
+    anywhere locks 16 fps; a window that spills FLAP_FRACTION or more of its
+    frames held a tier down for that stretch (~1-2 s - visible), so the preset
+    is red; anything less is jitter grazing the boundary, so yellow. Judging
+    the pass fraction instead would call a solid 25-frame overrun in a 2,560-
+    frame pass a 1% flap.
+    """
+    FLAP_FRACTION = 0.25
+    idx_key = next((w.marker["key"] for w in windows
+                    if w.marker and "idx" in w.marker), None)
+    groups = {}
+    for w in windows:
+        if w.marker is None:
+            key = (idx_key, "0") if idx_key else ("start", "0")
+        else:
+            key = (w.marker["key"], w.marker.get("name"))
+        groups.setdefault(key, []).append(w)
+
+    exact_run = all(w.render for w in windows)
+    rows = []
+    for key, ws in groups.items():
+        peaks = [p for p, _ in (w.peak_render_ms() for w in ws)
+                 if p is not None]
+        if not peaks:
+            continue
+        spill = sum(spilled_frames(w) for w in ws)
+        frames = sum(w.frames for w in ws)
+        worst_frac = max(spilled_frames(w) / w.frames for w in ws)
+        colour = "green" if spill == 0 else (
+            "red" if worst_frac >= FLAP_FRACTION else "yellow")
+        rows.append((key[1], colour, max(peaks), spill, frames))
+
+    mark = "" if exact_run else "~"
+    print(f"# preset  cadence  peak_render_ms{mark}  spilled/frames")
+    for name, colour, peak, spill, frames in sorted(
+            rows, key=lambda r: (-r[3], -r[2])):
+        print(f"{name:>8}  {colour:>7}  {peak:11.2f}{mark}  {spill:5d}/{frames}")
+    print("# buckets: " + " ".join(
+        f"{c}={sum(1 for r in rows if r[1] == c)}"
+        for c in ("green", "yellow", "red")))
+    for c in ("green", "yellow", "red"):
+        sel = [r for r in rows if r[1] == c]
+        if not sel:
+            continue
+        print(f"#   {c}: {len(sel)} presets, peak render "
+              f"{min(r[2] for r in sel):.1f}-{max(r[2] for r in sel):.1f} "
+              f"ms{mark}, spilled {sum(r[3] for r in sel)}")
+    if not exact_run:
+        print("#   ~ = window-mean placeholder (understates the true peak); "
+              "spilled is wall-derived, +-1. Re-capture for exact peaks.")
+    return 0
 
 
 def cmd_validate(windows, effect, scope):
@@ -319,8 +406,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("log")
-    ap.add_argument("mode", choices=["windows", "presets", "validate",
-                                     "frames"])
+    ap.add_argument("mode", choices=["windows", "presets", "buckets",
+                                     "validate", "frames"])
     ap.add_argument("--scope", help="counter label to read (default: costliest leaf)")
     ap.add_argument("--gate", help="call-count scope gating clean holds "
                                     "(default: --scope)")
@@ -341,6 +428,8 @@ def main():
                 print(f"{n:7d} {wall:8d} {render:9d} {render // DISPLAY_WINDOW_US:5d}")
     elif args.mode == "presets":
         cmd_presets(windows, scope, args.gate)
+    elif args.mode == "buckets":
+        return cmd_buckets(windows)
     else:
         return 0 if cmd_validate(windows, effect, scope) else 1
     return 0
