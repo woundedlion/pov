@@ -75,12 +75,27 @@ namespace {
 template <int W, int H> class ProfiledEffect : public HS_PROFILE_TARGET<W, H> {
 public:
   void draw_frame() override {
+    const uint64_t bw0 = buffer_wait_ ? buffer_wait_->cycles : 0;
     const unsigned long t0 = micros();
     {
       HS_PROFILE(frame);
       HS_PROFILE_TARGET<W, H>::draw_frame();
     }
     const unsigned long dt = micros() - t0;
+    // Per-frame render = wall minus this frame's display-sync wait, read as
+    // the effect's *_buffer_wait counter delta. The counter self-registers on
+    // the first draw_frame, so the lookup retries until it appears.
+    if (!buffer_wait_)
+      buffer_wait_ = hs::CycleCounter::find_suffix("_buffer_wait");
+    const uint64_t bw1 = buffer_wait_ ? buffer_wait_->cycles : 0;
+    const unsigned long wait_us = (unsigned long)(
+        (bw1 - bw0) / hs::CycleCounter::CYCLES_PER_US);
+    const unsigned long render = dt > wait_us ? dt - wait_us : 0;
+    // One compact line per frame (the full counter tree still dumps per
+    // window — per-frame log_all would perturb the frames it measures).
+    hs::log("f %lu w=%lu r=%lu", total_frames_ + 1, dt, render);
+    render_sum_ += render;
+    if (render > render_max_) render_max_ = render;
     wall_sum_ += dt;
     if (dt < wall_min_) wall_min_ = dt;
     if (dt > wall_max_) wall_max_ = dt;
@@ -100,6 +115,8 @@ private:
     hs::log("frame wall us: min=%lu avg=%lu max=%lu sum=%lu (%d frames)",
             wall_min_, wall_sum_ / WINDOW_FRAMES, wall_max_, wall_sum_,
             WINDOW_FRAMES);
+    hs::log("frame render us: avg=%lu max=%lu",
+            render_sum_ / WINDOW_FRAMES, render_max_);
     dump_isr_stats(now - window_start_);
     hs::CycleCounter::log_all();
     hs::CycleCounter::reset_all();
@@ -107,6 +124,8 @@ private:
     wall_sum_ = 0;
     wall_min_ = ~0ul;
     wall_max_ = 0;
+    render_sum_ = 0;
+    render_max_ = 0;
     window_start_ = micros();
   }
 
@@ -157,6 +176,9 @@ private:
   unsigned long wall_sum_ = 0;      /**< Summed draw_frame wall time this window (µs). */
   unsigned long wall_min_ = ~0ul;   /**< Fastest draw_frame this window (µs). */
   unsigned long wall_max_ = 0;      /**< Slowest draw_frame this window (µs). */
+  unsigned long render_sum_ = 0;    /**< Summed render (wall − sync wait) this window (µs). */
+  unsigned long render_max_ = 0;    /**< Slowest render this window (µs). */
+  hs::CycleCounter* buffer_wait_ = nullptr; /**< The effect's *_buffer_wait counter. */
   unsigned long window_start_ = micros(); /**< Window wall-clock start (µs). */
 };
 
