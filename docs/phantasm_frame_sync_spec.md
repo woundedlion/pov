@@ -113,10 +113,12 @@ from nominal RPM (`pov_single.h`'s IntervalTimer period; the nominal
 On-device animation advances off a per-frame counter `AnimationBase::t`,
 incremented once per `step()` (`animation.h`), *not* `millis()`. So content
 sync reduces to: (a) a shared `t` origin, (b) no dropped frames, (c)
-deterministic RNG. For (c) the driver reseeds `hs::random()` (1337) at every
-effect construction, so all boards render identical streams regardless of
-boot/join history — the same per-effect determinism contract the simulator
-uses. (a) is the gap the previous design left open: the effect **epoch**
+deterministic RNG. For (c) the driver reseeds `hs::random()` with
+`hs::epoch_seed(effect index)` at every effect construction — epoch 0 is the
+identity seed 1337 — so all boards render identical, per-visit-fresh streams
+regardless of boot/join history: the index is already beacon-synchronized
+shared state, and a board wrong about it is already building the wrong
+effect. (a) is the gap the previous design left open: the effect **epoch**
 (playlist advance + `t` reset) was driven by per-board `millis()`
 (`show<E>(120)`'s `while (millis()-start<…)`), so boards changed effects at
 different real moments; §6 replaces it with epoch-counted sequencing.
@@ -607,9 +609,11 @@ than silently skewing the show — and because the budget is K for every
 hearer, the trap can only mean a firmware bug, never a missed symbol. K is
 chosen comfortably above the slowest measured effect init. Construction
 itself is deterministic across boards: the driver reseeds `hs::random()`
-(1337) for every effect build, so the new instance is bit-identical no
-matter what a board rendered — or whether it even existed — before the
-epoch.
+with `hs::epoch_seed(effect index)` for every effect build (epoch 0 keeps
+the identity seed 1337), so each visit gets a fresh stream and the new
+instance is bit-identical across boards no matter what a board rendered —
+or whether it even existed — before the epoch. The index is the
+beacon-synchronized absolute index (§6.4).
 
 **Epoch dedup:** an accepted EPOCH opens a refractory window (~16 revs) in
 which further EPOCH symbols are ignored — this is what makes the §6.3

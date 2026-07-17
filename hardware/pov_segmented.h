@@ -292,10 +292,13 @@ public:
         }
         handoff_.clear_pending();
         delete cur;
-        // Restart the shared RNG stream per effect so frames match the
-        // simulator and across boards regardless of boot/join history (spec §2).
-        hs::random().seed(1337);
-        cur = factories_[pov::sync::SyncBoard::build_index_of(bw)]();
+        // Restart the shared RNG stream per effect, seeded from the beacon-
+        // synchronized effect index (spec §2): every board derives the same
+        // per-visit stream locally, regardless of boot/join history — a board
+        // wrong about the index is already building the wrong effect.
+        const int32_t effect_index = pov::sync::SyncBoard::build_index_of(bw);
+        hs::random().seed(hs::epoch_seed(static_cast<uint32_t>(effect_index)));
+        cur = factories_[effect_index]();
         HS_CHECK(cur->height() == ROWS,
                  "POVSegmented: effect canvas height must equal S/2 (ROWS)");
         HS_CHECK(cur->width() == CANVAS_W,
