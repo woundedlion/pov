@@ -85,6 +85,9 @@ public:
     });
     classify_mesh_topology(mesh_);
     record_node_palettes();
+    // First cycle has no predecessor to crossfade from: every slot opens on
+    // its shuffled palette directly (strap_blend_mask_ stays 0).
+    strap_from_ = palette_idx_;
 
     start_hankin_cycle();
   }
@@ -110,6 +113,31 @@ private:
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   /** Largest node base-mesh face count (snubDodecahedron, F = 92). */
   static constexpr size_t MAX_NODE_FACES = 92;
+  /** Strap-crossfade window: frames of the 64-frame hankin sweep over which a
+   * reborn strap slot glides from its previous color to the fresh target. The
+   * sweep opens quadratically — straps reach visibility around frame 3-7 and
+   * about half their peak area by frame 20 — so the turnover completes while
+   * the straps are still small, and well before the closing bookend needs the
+   * landed assignment displayed verbatim. */
+  static constexpr int STRAP_BLEND_FRAMES = 20;
+
+  /** Identity class-slot indexing for the per-slot resolved-LUT draw path. */
+  static constexpr std::array<int, NUM_PALETTES> SLOT_IDENTITY = [] {
+    std::array<int, NUM_PALETTES> a{};
+    for (int i = 0; i < NUM_PALETTES; ++i)
+      a[i] = i;
+    return a;
+  }();
+
+  /** Indexable palette-bank view over per-slot resolved LUT pointers. */
+  struct SlotLutView {
+    const BakedPalette *const *slots; /**< One resolved LUT per class slot. */
+    /**
+     * @brief Returns the resolved LUT for a class slot.
+     * @param i Class slot in [0, NUM_PALETTES).
+     */
+    const BakedPalette &operator[](int i) const { return *slots[i]; }
+  };
 
   MeshPaletteBank palette_bank_;
 
@@ -162,6 +190,104 @@ private:
   }
 
   /**
+   * @brief Strap-crossfade weight for a hankin-cycle frame: exactly 0 at the
+   * opening bookend draw, smoothstep to exactly 1 by STRAP_BLEND_FRAMES.
+   * @param cycle_frame Sprite draws since the cycle's opening bookend.
+   */
+  static float strap_blend_weight(int cycle_frame) {
+    if (cycle_frame <= 0)
+      return 0.0f;
+    if (cycle_frame >= STRAP_BLEND_FRAMES)
+      return 1.0f;
+    const float u = static_cast<float>(cycle_frame) /
+                    static_cast<float>(STRAP_BLEND_FRAMES);
+    return u * u * (3.0f - 2.0f * u);
+  }
+
+  /**
+   * @brief Resolves the per-slot palette LUTs one hankin-cycle frame shades
+   * with.
+   * @param cycle_frame Sprite draws since the cycle's opening bookend.
+   * @param blended Per-slot storage for this frame's blend results.
+   * @param by_slot Receives one resolved LUT pointer per class slot.
+   * @param scratch Arena receiving mid-blend LUT bakes (frame lifetime).
+   * @details Slots outside strap_blend_mask_ alias their bank entry (bitwise
+   * the assignment's palette — the star-face bookend exactness contract).
+   * Armed strap slots run a (from, to) pre-blend over the opening window, so
+   * reborn straps open in their previous color and glide to the fresh target
+   * while still small; the fragment path stays a single LUT lookup either way.
+   */
+  void resolve_hankin_slot_luts(int cycle_frame,
+                                BakedPalette (&blended)[NUM_PALETTES],
+                                const BakedPalette *(&by_slot)[NUM_PALETTES],
+                                Arena &scratch) {
+    const float w = strap_blend_weight(cycle_frame);
+    for (int s = 0; s < NUM_PALETTES; ++s) {
+      if (strap_blend_mask_ & (1u << s)) {
+        bake_palette_blend(blended[s], scratch,
+                           palette_bank_.bank.entries[strap_from_[s]],
+                           palette_bank_.bank.entries[palette_idx_[s]], w);
+        by_slot[s] = &blended[s];
+      } else {
+        by_slot[s] = &palette_bank_.bank.entries[palette_idx_[s]];
+      }
+    }
+  }
+
+  /**
+   * @brief Arms the opening-window strap crossfade for the new hankin cycle
+   * (the spec-2.6 turnover applied to the rosette rebirths, which the
+   * zero-area-birth assumption alone does not hide).
+   * @param prev_idx Slot -> palette assignment the previous cycle displayed.
+   * @param prev_used Slots the previous cycle put on screen at all.
+   * @param star_mapped Slots carrying a star class's landed palette; those
+   * stay bookend-exact and never blend.
+   * @details A strap-only slot opens at its previous cycle's color — or, with
+   * no on-screen predecessor, at the palette of the nearest star face by unit
+   * centroid (births inherit the underlying face's colors, matching the
+   * leg-swap newborn rule) — and glides to its fresh shuffled target.
+   */
+  HS_COLD_MEMBER void
+  prepare_strap_crossfade(const std::array<int, NUM_PALETTES> &prev_idx,
+                          const bool (&prev_used)[NUM_PALETTES],
+                          const bool (&star_mapped)[NUM_PALETTES]) {
+    strap_blend_mask_ = 0;
+    for (int s = 0; s < NUM_PALETTES; ++s)
+      strap_from_[s] = palette_idx_[s];
+    for (size_t f = node_faces_; f < mesh_.topology.size(); ++f) {
+      const int slot = wrap(mesh_.topology[f], NUM_PALETTES);
+      if (star_mapped[slot] || (strap_blend_mask_ & (1u << slot)))
+        continue;
+      int from;
+      if (prev_used[slot]) {
+        from = prev_idx[slot];
+      } else {
+        Vector c(0.0f, 0.0f, 0.0f);
+        const size_t off = mesh_.face_offsets[f];
+        const int n = mesh_.face_counts[f];
+        for (int k = 0; k < n; ++k)
+          c = c + mesh_.vertices[mesh_.faces[off + k]];
+        c = c.normalized();
+        size_t best = 0;
+        float best_d = 1e9f;
+        for (size_t j = 0; j < node_faces_; ++j) {
+          const Vector d = c - node_face_centroid_[j];
+          const float dsq = dot(d, d);
+          if (dsq < best_d) {
+            best_d = dsq;
+            best = j;
+          }
+        }
+        from = node_face_palette_[best];
+      }
+      if (from != palette_idx_[slot]) {
+        strap_from_[slot] = from;
+        strap_blend_mask_ |= static_cast<uint8_t>(1u << slot);
+      }
+    }
+  }
+
+  /**
    * @brief Builds the clean node mesh at one end of an edge from the held
    * seed — the registry chain, decomposed.
    * @param e Edge whose endpoint mesh is built.
@@ -208,12 +334,13 @@ private:
    * @param canvas Target canvas to draw into.
    * @param mesh Source mesh in model space.
    * @param topology Per-face topology-class indices.
-   * @param palette_idx Maps topology class to a palette in the mesh bank.
+   * @param by_slot Resolved palette LUT per class slot (see
+   * resolve_hankin_slot_luts).
    * @param opacity Output alpha in [0, 1].
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
-                 const std::array<int, NUM_PALETTES> &palette_idx,
+                 const BakedPalette *const (&by_slot)[NUM_PALETTES],
                  float opacity) {
     if (mesh.vertices.is_empty() || opacity < 0.01f)
       return;
@@ -227,10 +354,11 @@ private:
       MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
     }
 
+    SlotLutView lut_view{by_slot};
     auto fragment_shader = [&](const Vector &, Fragment &f) {
-      f.color = shade_mesh_topology(
-          f, topology.data(), static_cast<int>(topology.size()), palette_bank_,
-          palette_idx, params.intensity, opacity);
+      f.color = shade_mesh_topology(f, topology.data(),
+                                    static_cast<int>(topology.size()), lut_view,
+                                    SLOT_IDENTITY, params.intensity, opacity);
     };
 
     {
@@ -291,6 +419,7 @@ private:
    */
   HS_COLD_MEMBER void start_hankin_cycle() {
     constexpr int DURATION = 64;
+    hankin_cycle_frame_ = 0;
     timeline.add(2, Animation::Mutation(params.hankin_angle,
                                         sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
                                         DURATION, ease_linear, false,
@@ -325,7 +454,17 @@ private:
                               mesh_.face_counts.size() == hankin_face_count_,
                           "HankinSolids: per-frame mesh counts changed; the "
                           "persistent re-bind would grow the arena");
-                 draw_mesh(c, mesh_, mesh_.topology, palette_idx_, opacity);
+                 const int cycle_frame = hankin_cycle_frame_;
+                 if (!anims_paused_)
+                   ++hankin_cycle_frame_;
+                 // Blended strap LUTs live in scratch_b for this frame only;
+                 // the draw path below uses scratch_a exclusively.
+                 ScratchScope blend_guard(scratch_arena_b);
+                 BakedPalette blended[NUM_PALETTES];
+                 const BakedPalette *by_slot[NUM_PALETTES];
+                 resolve_hankin_slot_luts(cycle_frame, blended, by_slot,
+                                          scratch_arena_b);
+                 draw_mesh(c, mesh_, mesh_.topology, by_slot, opacity);
                },
                DURATION + 1, 0, ease_linear, 0, ease_linear, &anims_paused_));
   }
@@ -440,6 +579,13 @@ private:
     node_ = arrived;
     hs::log("Loading shape: '%s'", Solids::simple_registry[node_].name);
 
+    // Outgoing cycle's display state, consumed by the strap-crossfade prep
+    // below: the per-slot colors, and which slots were on screen at all.
+    const std::array<int, NUM_PALETTES> prev_idx = palette_idx_;
+    bool prev_used[NUM_PALETTES] = {};
+    for (size_t f = 0; f < mesh_.topology.size(); ++f)
+      prev_used[wrap(mesh_.topology[f], NUM_PALETTES)] = true;
+
     // Build the arrived base mesh from the held seed and compile the hankin
     // pattern from that mesh — never a registry regenerate, so bridge
     // arrivals keep the orientation the walk produced.
@@ -493,6 +639,7 @@ private:
       }
     }
     record_node_palettes();
+    prepare_strap_crossfade(prev_idx, prev_used, slot_mapped);
     pending_landing_ = nullptr;
 
     // Bookend-out: the next cycle's first drawn sample is exactly angle 0.
@@ -521,6 +668,12 @@ private:
   std::array<int, NUM_PALETTES> palette_idx_ =
       {}; /**< Class slot -> palette; value-init so a missed shuffle reads 0,
              not garbage. */
+  std::array<int, NUM_PALETTES> strap_from_ =
+      {}; /**< Per-slot crossfade origin palette for the current cycle's
+             opening window (equals palette_idx_ on unarmed slots). */
+  uint8_t strap_blend_mask_ = 0; /**< Bit s: slot s crossfades this cycle. */
+  int hankin_cycle_frame_ = 0;   /**< Sprite draws since the opening bookend
+                                    of the active hankin cycle. */
 
   uint8_t node_face_palette_[MAX_NODE_FACES] =
       {}; /**< Displayed palette per node base face. */
