@@ -793,6 +793,8 @@ struct SimBoard {
   // Foreground model.
   uint32_t seen_gen = 0;
   int32_t pending_index = -1;
+  uint64_t build_seed = 0; /**< hs::epoch_seed the foreground applied at the
+                                last build pickup (device reseed mirror). */
   uint32_t pending_gen = 0;
   uint64_t pending_ready_g = 0;
   bool have_pending = false;
@@ -1033,6 +1035,9 @@ private:
       b.seen_gen = gen;
       b.live = false; // release + delete the outgoing instance
       b.pending_index = SyncBoard::build_index_of(bw);
+      // Mirror the device foreground: the RNG restart at build pickup seeds
+      // from the epoch index (pov_segmented.h).
+      b.build_seed = hs::epoch_seed(static_cast<uint32_t>(b.pending_index));
       b.pending_gen = gen;
       b.pending_ready_g = tg + b.init_delay;
       b.have_pending = true;
@@ -1268,6 +1273,34 @@ inline void test_sim_epoch_commit() {
         return true;
       },
       double(cfg.revs_per_effect) + 6));
+}
+
+/**
+ * @brief Verifies every board derives the same epoch seed at each handoff: the
+ *        boot build uses the identity seed (epoch 0 == 1337) and the first
+ *        epoch's build seed is fresh yet identical on all boards.
+ */
+inline void test_sim_epoch_seed_lockstep() {
+  const Config cfg = test_config();
+  const int32_t ppm[4] = {0, 30, -25, 10};
+  Sim sim(cfg, 4, ppm);
+
+  HS_EXPECT_TRUE(boot_join(sim, cfg));
+  for (auto &b : sim.boards)
+    HS_EXPECT_EQ(b.build_seed, 1337u); // epoch 0: identity seed
+
+  HS_EXPECT_TRUE(sim.run_until(
+      [](Sim &s) {
+        for (auto &b : s.boards)
+          if (b.live_index != 1)
+            return false;
+        return true;
+      },
+      double(cfg.revs_per_effect) + 8));
+  for (auto &b : sim.boards) {
+    HS_EXPECT_EQ(b.build_seed, hs::epoch_seed(1));
+    HS_EXPECT_NE(b.build_seed, 1337u);
+  }
 }
 
 /**
@@ -2156,6 +2189,7 @@ inline int run_pov_sync_tests() {
   test_sim_boot_and_phase();
   test_sim_eight_board_boot_and_phase();
   test_sim_epoch_commit();
+  test_sim_epoch_seed_lockstep();
   test_sim_commit_deadline_trap();
   test_sim_masked_windows();
   test_sim_emi();

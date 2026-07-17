@@ -1460,7 +1460,7 @@ Any checksum mismatch, wrong digit count, out-of-range digit, or stale partial f
  all boards:     ─────── outgoing effect ──────────░build/dark░── new effect
 ```
 
-The dark window is identical (K revolutions) on every board because construction can't begin before B+R — only then is the window's start common knowledge regardless of which copy each board heard.  An effect that can't construct inside K revolutions trips `HS_CHECK` (fail-fast).  All boards reseed `hs::random()` (1337) per effect build, so the new instance is bit-identical no matter what each board rendered — or whether it even existed — before the epoch.
+The dark window is identical (K revolutions) on every board because construction can't begin before B+R — only then is the window's start common knowledge regardless of which copy each board heard.  An effect that can't construct inside K revolutions trips `HS_CHECK` (fail-fast).  All boards reseed `hs::random()` with `hs::epoch_seed(effect index)` per effect build (epoch 0 is the identity seed 1337), so each visit gets a fresh stream and the new instance is bit-identical across boards no matter what each board rendered — or whether it even existed — before the epoch.
 
 **Concurrency & failure modes.** Two ISRs per board, **single-writer** by construction.  The sync-wire RISING ISR is a pure *publisher* — glitch filter, edge count, first-edge timestamp into a small mailbox, nothing else.  The flywheel ISR (waking ~8× per column) is the sole *consumer/owner* of all sync state: it claims terminated bursts, classifies, gates, snaps, flips, and runs epoch scheduling.  The hot path is ~7-of-8 wakes doing one cycle-counter read and a 64-bit position compute (≈1 % CPU at 600 MHz); only a column change packs pixels and submits DMA.
 
