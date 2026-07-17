@@ -80,10 +80,7 @@ public:
       mesh_.clear();
       MeshOps::update_hankin(compiled_hankin, mesh_, target,
                              params.hankin_angle);
-      node_faces_ = seed_base_.face_counts.size();
-      HS_CHECK(node_faces_ <= MAX_NODE_FACES);
-      for (size_t f = 0; f < node_faces_; ++f)
-        node_face_sides_[f] = seed_base_.face_counts[f];
+      record_node_faces(seed_base_);
     });
     classify_mesh_topology(mesh_);
     record_node_palettes();
@@ -130,6 +127,26 @@ private:
     ScratchScope b_guard(scratch_arena_b);
     MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
                                         persistent_arena);
+  }
+
+  /**
+   * @brief Records the node base mesh's face count, side counts, and unit
+   * centroids for the next leg's palette handoff.
+   * @param base The arrived node's base mesh, in emission order.
+   */
+  HS_COLD_MEMBER void record_node_faces(const PolyMesh &base) {
+    node_faces_ = base.face_counts.size();
+    HS_CHECK(node_faces_ <= MAX_NODE_FACES);
+    size_t off = 0;
+    for (size_t f = 0; f < node_faces_; ++f) {
+      node_face_sides_[f] = base.face_counts[f];
+      Vector c(0.0f, 0.0f, 0.0f);
+      const int n = base.face_counts[f];
+      for (int k = 0; k < n; ++k)
+        c = c + base.vertices[base.faces[off + k]];
+      node_face_centroid_[f] = c.normalized();
+      off += n;
+    }
   }
 
   /**
@@ -349,8 +366,8 @@ private:
              "HankinSolids: leg seed identity mismatch");
 
     Animation::ConwayMorph::PaletteHandoff handoff{
-        &palette_bank_.bank, node_face_palette_, node_face_sides_, node_faces_,
-        fix == SeedFix::DUAL_SWAP};
+        &palette_bank_.bank, node_face_palette_,        node_face_sides_,
+        node_faces_,         fix == SeedFix::DUAL_SWAP, node_face_centroid_};
 
     // Bookend grouping of the arrival node: the closing bookend displays one
     // palette per hankin star-face class, so the leg's color targets key on
@@ -426,10 +443,7 @@ private:
         seed_base_ = Solids::finalize_solid(base, target);
         seed_identity_ = node_;
       }
-      node_faces_ = base.face_counts.size();
-      HS_CHECK(node_faces_ <= MAX_NODE_FACES);
-      for (size_t f = 0; f < node_faces_; ++f)
-        node_face_sides_[f] = base.face_counts[f];
+      record_node_faces(base);
 
       compiled_hankin = CompiledHankin();
       MeshOps::compile_hankin(base, compiled_hankin, target, a);
@@ -490,7 +504,10 @@ private:
   uint8_t node_face_palette_[MAX_NODE_FACES] =
       {}; /**< Displayed palette per node base face. */
   uint8_t node_face_sides_[MAX_NODE_FACES] =
-      {};                 /**< Clean side count per node base face. */
+      {}; /**< Clean side count per node base face. */
+  Vector node_face_centroid_[MAX_NODE_FACES] =
+      {};                 /**< Unit centroid per node base face (geometric
+                             palette provenance). */
   size_t node_faces_ = 0; /**< Face count of the current node's base mesh. */
 
   uint8_t node_ = 0; /**< Current graph node (simple-registry index). */
