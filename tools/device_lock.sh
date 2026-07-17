@@ -36,6 +36,10 @@ _hs_lock_field() {  # <dir> <field>
   sed -n "s/^$2=//p" "$1/info" 2>/dev/null | head -1
 }
 
+_hs_lock_born() {  # <dir> — claim mtime in epoch seconds, empty if unknown
+  stat -c %Y "$1" 2>/dev/null
+}
+
 _hs_holder_desc() {  # <dir>
   local d=$1
   echo "held by session $(_hs_lock_field "$d" session) (pid $(_hs_lock_field "$d" pid))"
@@ -47,13 +51,21 @@ _hs_holder_desc() {  # <dir>
 # A live holder mid-capture must never be evicted, so staleness is deliberately
 # conservative: the deadline is the holder's own ETA plus a grace, and a dead
 # PID only counts once the claim is old enough that a just-started peer racing
-# us cannot be mistaken for a corpse.
+# us cannot be mistaken for a corpse. An unreadable claim gets the same benefit
+# of the doubt: acquire mkdirs the lock before it writes info, so a peer that
+# just won the mkdir reads back blank for a moment, and calling that stale
+# hands two sessions the device at once.
 _hs_lock_is_stale() {  # <dir>
-  local d=$1 now deadline pid started
+  local d=$1 now deadline pid started born
   now=$(_hs_now)
   deadline=$(_hs_lock_field "$d" deadline)
   started=$(_hs_lock_field "$d" started)
-  [ -z "$deadline" ] && return 0                    # unreadable claim
+  if [ -z "$deadline" ]; then
+    born=$(_hs_lock_born "$d")
+    [ -z "$born" ] && return 1                      # cannot date it: leave it alone
+    [ "$now" -gt $((born + HS_DEVICE_STALE_GRACE)) ] && return 0
+    return 1                                        # mid-write, not abandoned
+  fi
   [ "$now" -gt $((deadline + HS_DEVICE_STALE_GRACE)) ] && return 0
   pid=$(_hs_lock_field "$d" pid)
   if [ -n "$pid" ] && [ -n "$started" ] && [ "$now" -gt $((started + 60)) ]; then
