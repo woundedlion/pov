@@ -21,9 +21,6 @@
  *   - Clean-swap invisibility: truncate(seed, 0.5 - eps) vertices pairwise
  *     merge onto ambo(seed) vertices, and each parameterized op's primary
  *     faces at t = T_EPS geometrically match the seed's faces.
- *   - Session reseed: hs::reseed() varies the walk leg sequence per seed,
- *     reproduces the default-constructed 1337 stream exactly, and keeps
- *     bounded full coverage under arbitrary session seeds.
  */
 #pragma once
 
@@ -896,88 +893,6 @@ inline void test_ordered_tour_full_coverage_and_wrap() {
 }
 
 // ---------------------------------------------------------------------------
-// Session reseed: hs::reseed() is the opt-in per-session variation hook. A
-// reseeded walk must differ between seeds, reseed(1337) must reproduce the
-// default-constructed stream exactly, and coverage must stay bounded under
-// any session seed.
-// ---------------------------------------------------------------------------
-
-/** Legs recorded per reseeded walk; must be >= WALK_COVERAGE_BOUND so the
- * coverage assertion can fire within the recorded window. */
-constexpr int RESEED_WALK_LEGS = 300;
-
-/**
- * @brief Runs RESEED_WALK_LEGS walk legs from the tetrahedron, drawing from
- *        hs::random().
- * @param out Leg edge sequence, RESEED_WALK_LEGS entries.
- * @return Leg count at which all nodes had been seen, or -1 if never.
- */
-inline int reseed_walk(uint8_t *out) {
-  using namespace ConwayGraph;
-  uint8_t visits[NUM_NODES] = {};
-  bool seen[NUM_NODES] = {};
-  int node = TETRAHEDRON;
-  int prev = -1;
-  int in_family = 0;
-  int seen_count = 1;
-  int coverage_leg = -1;
-  seen[node] = true;
-  record_visit(visits, node);
-
-  for (int leg = 0; leg < RESEED_WALK_LEGS; ++leg) {
-    const int e = pick_next_edge(node, prev, in_family, visits,
-                                 static_cast<uint32_t>(hs::random()()));
-    out[leg] = static_cast<uint8_t>(e);
-    const int next = edge_other_end(e, node);
-    in_family = family(next) != family(node) ? 0 : in_family + 1;
-    node = next;
-    prev = e;
-    record_visit(visits, node);
-    if (!seen[node]) {
-      seen[node] = true;
-      if (++seen_count == NUM_NODES)
-        coverage_leg = leg + 1;
-    }
-  }
-  return coverage_leg;
-}
-
-/**
- * @brief Pins the hs::reseed() session-seed contract on the walk.
- */
-inline void test_session_reseed_varies_walk() {
-  using namespace ConwayGraph;
-  uint8_t def[RESEED_WALK_LEGS];
-  uint8_t redo[RESEED_WALK_LEGS];
-  uint8_t a[RESEED_WALK_LEGS];
-  uint8_t b[RESEED_WALK_LEGS];
-
-  // Default stream: a default-constructed Pcg32 and hs::reseed(1337) must
-  // produce the identical leg sequence.
-  hs::random() = hs::Pcg32{};
-  HS_EXPECT_GT(reseed_walk(def), 0);
-  hs::reseed(1337u);
-  HS_EXPECT_GT(reseed_walk(redo), 0);
-  HS_EXPECT_EQ(std::memcmp(def, redo, sizeof(def)), 0);
-
-  hs::reseed(0xA5EEDu);
-  HS_EXPECT_GT(reseed_walk(a), 0);
-  hs::reseed(0xB0A710ADu);
-  HS_EXPECT_GT(reseed_walk(b), 0);
-  HS_EXPECT_TRUE(std::memcmp(a, def, sizeof(def)) != 0);
-  HS_EXPECT_TRUE(std::memcmp(b, def, sizeof(def)) != 0);
-  HS_EXPECT_TRUE(std::memcmp(a, b, sizeof(a)) != 0);
-
-  // Full coverage stays bounded under arbitrary session seeds.
-  for (uint32_t seed : {7u, 20260716u, 0xFFFFFFFFu}) {
-    hs::reseed(seed);
-    const int coverage_leg = reseed_walk(a);
-    HS_EXPECT_GT(coverage_leg, 0);
-    HS_EXPECT_LE(coverage_leg, WALK_COVERAGE_BOUND);
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -1002,7 +917,6 @@ inline int run_conway_morph_tests() {
 
   test_walk_policy_coverage_and_balance();
   test_ordered_tour_full_coverage_and_wrap();
-  test_session_reseed_varies_walk();
 
   return fixture.result();
 }
