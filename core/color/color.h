@@ -148,7 +148,7 @@ struct Pixel16 {
    * the endpoints (frac 0/65535 -> a/b). Plain 32-bit MACs, not packed `smlad`:
    * smlad's signed 16x16 dual-MAC reads an operand >= 32768 as negative.
    */
-  Pixel16 lerp16(const Pixel16 &other, uint16_t frac) const {
+  __attribute__((always_inline)) Pixel16 lerp16(const Pixel16 &other, uint16_t frac) const {
     uint16_t inv = 65535 - frac;
     uint32_t xr = (uint32_t)r * inv + (uint32_t)other.r * frac;
     uint32_t xg = (uint32_t)g * inv + (uint32_t)other.g * frac;
@@ -211,7 +211,7 @@ using Pixel = Pixel16;
  * @param frac Blend fraction; clamped to [0, 1].
  * @return The fraction as a 16-bit weight in [0, 65535], rounded.
  */
-inline uint16_t frac_to_q16(float frac) {
+__attribute__((always_inline)) inline uint16_t frac_to_q16(float frac) {
   return static_cast<uint16_t>(hs::clamp(frac, 0.0f, 1.0f) * 65535.0f + 0.5f);
 }
 

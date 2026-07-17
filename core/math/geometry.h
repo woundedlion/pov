@@ -319,7 +319,7 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  * @param v Unit vector on the sphere; only its x/z azimuth is read.
  * @return The `x` pixel coordinate in `[0, W)` (wrap() strictly excludes W).
  */
-template <int W> float vector_to_theta(const Vector &v) {
+template <int W> __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
   return wrap((fast_atan2(v.z, v.x) * W) / (2 * PI_F), W);
 }
 

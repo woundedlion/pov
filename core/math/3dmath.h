@@ -286,7 +286,7 @@ struct Vector {
    * @brief Calculates the magnitude (length) of the vector.
    * @return The magnitude.
    */
-  [[nodiscard]] float length() const { return sqrtf(x * x + y * y + z * z); }
+  [[nodiscard]] __attribute__((always_inline)) float length() const { return sqrtf(x * x + y * y + z * z); }
 
   /**
    * @brief Alias for length().
@@ -312,7 +312,7 @@ struct Vector {
    * @details Traps on a zero-length vector. Sites where a zero vector is a
    * legitimate geometric edge must use normalized_or() with an explicit fallback.
    */
-  [[nodiscard]] Vector normalized() const {
+  [[nodiscard]] __attribute__((always_inline)) Vector normalized() const {
     float m2 = x * x + y * y + z * z;
     HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
     float m = sqrtf(m2);
@@ -354,7 +354,7 @@ struct Vector {
  * @details Peak abs error ~0.0038 rad (~0.22°), worst near r ~= 0.7 in each
  * octant.
  */
-inline float fast_atan2(float y, float x) {
+__attribute__((always_inline)) inline float fast_atan2(float y, float x) {
   // +1e-10f keeps abs_y strictly positive so the (0,0) origin stays finite
   // instead of NaN; callers tolerate an arbitrary angle at the undefined origin.
   float abs_y = std::abs(y) + 1e-10f;
@@ -868,7 +868,7 @@ inline Vector inv_gnomonic(const Complex &z, float original_sign) {
  * @param q The unit rotation quaternion.
  * @return The rotated vector.
  */
-inline Vector rotate(const Vector &v, const Quaternion &q) {
+__attribute__((always_inline)) inline Vector rotate(const Vector &v, const Quaternion &q) {
   float qr = q.r, qx = q.v.x, qy = q.v.y, qz = q.v.z;
   float tx = 2.0f * (qy * v.z - qz * v.y);
   float ty = 2.0f * (qz * v.x - qx * v.z);
@@ -884,7 +884,7 @@ inline Vector rotate(const Vector &v, const Quaternion &q) {
  * @param v2 Second vector.
  * @return The resulting vector.
  */
-constexpr Vector operator+(const Vector &v1, const Vector &v2) {
+__attribute__((always_inline)) constexpr Vector operator+(const Vector &v1, const Vector &v2) {
   return Vector(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
 }
 
@@ -894,7 +894,7 @@ constexpr Vector operator+(const Vector &v1, const Vector &v2) {
  * @param v2 Second vector.
  * @return The resulting vector.
  */
-constexpr Vector operator-(const Vector &v1, const Vector &v2) {
+__attribute__((always_inline)) constexpr Vector operator-(const Vector &v1, const Vector &v2) {
   return Vector(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
 }
 
@@ -904,7 +904,7 @@ constexpr Vector operator-(const Vector &v1, const Vector &v2) {
  * @param s Scalar.
  * @return The resulting vector.
  */
-constexpr Vector operator*(const Vector &v, float s) {
+__attribute__((always_inline)) constexpr Vector operator*(const Vector &v, float s) {
   return Vector(s * v.x, s * v.y, s * v.z);
 }
 
@@ -930,7 +930,7 @@ constexpr Vector operator/(const Vector &v, float s) {
  * @param v2 Second vector.
  * @return The dot product (scalar).
  */
-constexpr float dot(const Vector &v1, const Vector &v2) {
+__attribute__((always_inline)) constexpr float dot(const Vector &v1, const Vector &v2) {
   return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
 }
 
@@ -940,7 +940,7 @@ constexpr float dot(const Vector &v1, const Vector &v2) {
  * @param v2 Second vector.
  * @return The cross product vector.
  */
-constexpr Vector cross(const Vector &v1, const Vector &v2) {
+__attribute__((always_inline)) constexpr Vector cross(const Vector &v1, const Vector &v2) {
   return Vector(v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z,
                 v1.x * v2.y - v1.y * v2.x);
 }
@@ -1192,7 +1192,7 @@ inline Quaternion quaternion_from_basis(const Vector &cx, const Vector &cy,
  * @return The arc cosine in radians.
  * @details Peak abs error ~1.3e-4 rad (~0.0072°) measured over a dense sweep.
  */
-inline float fast_acos(float x) {
+__attribute__((always_inline)) inline float fast_acos(float x) {
   float ax = std::abs(x);
   if (ax > 1.0f)
     ax = 1.0f;
@@ -1238,7 +1238,7 @@ inline float fast_expf(float x) {
  * reduction loses precision as a float's ULP grows past the period, so callers
  * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).
  */
-inline float fast_sinf(float x) {
+__attribute__((always_inline)) inline float fast_sinf(float x) {
   // Range reduce to [0, 2π)
   constexpr float INV_2PI = 1.0f / (2.0f * PI_F);
   x = x - floorf(x * INV_2PI) * (2.0f * PI_F);
@@ -1261,7 +1261,7 @@ inline float fast_sinf(float x) {
  * reduction loses precision as a float's ULP grows past the period, so callers
  * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).
  */
-inline float fast_cosf(float x) { return fast_sinf(x + PI_F * 0.5f); }
+__attribute__((always_inline)) inline float fast_cosf(float x) { return fast_sinf(x + PI_F * 0.5f); }
 
 /**
  * @brief Spherical Linear Interpolation (SLERP) between two Vectors.

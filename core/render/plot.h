@@ -437,7 +437,7 @@ template <int H> static inline float y_to_screen_row(float y) {
  * (no axis) keeps the endpoint rows.
  */
 template <int W, int H>
-static inline void geodesic_row_span_rows(float ra, float rb, const Vector &a,
+static __attribute__((always_inline)) inline void geodesic_row_span_rows(float ra, float rb, const Vector &a,
                                           const Vector &b,
                                           const GeodesicEdgeSpan &es,
                                           float &row_lo, float &row_hi) {
@@ -550,7 +550,7 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
  * @param col_len Output: arc length in columns (may reach W = full width).
  */
 template <int W>
-static inline void finish_col_span(float s_f, float len_f, int &col_s,
+static __attribute__((always_inline)) inline void finish_col_span(float s_f, float len_f, int &col_s,
                                    int &col_len) {
   constexpr int COL_PAD = 2;
   const int lo = static_cast<int>(floorf(s_f)) - COL_PAD;
