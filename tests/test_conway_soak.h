@@ -70,6 +70,14 @@ struct HankinWalkProbe {
   static const uint8_t *node_face_palette(const HankinSolids<W, H> &fx) {
     return fx.node_face_palette_;
   }
+  /**
+   * @brief Live class-slot -> palette assignment the hankin cycle draws with.
+   */
+  template <int W, int H>
+  static const std::array<int, HankinSolids<W, H>::NUM_PALETTES> &
+  palette_idx(const HankinSolids<W, H> &fx) {
+    return fx.palette_idx_;
+  }
 };
 
 /** Soak render size: small enough to keep the raster cheap, large enough that

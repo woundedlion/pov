@@ -1063,6 +1063,319 @@ inline void test_palette_mapping_deterministic() {
 }
 
 // ---------------------------------------------------------------------------
+// Leg-start seed-frame continuity: over a scripted walk covering every SeedFix
+// path (KEEP, DUAL_SWAP both families, DERIVE_AMBO both directions, all three
+// REGEN_TETRA reverse bridges, dual-swap wandering before a REGEN), the mesh
+// drawn on the first morph frame must overlie the departed node mesh face for
+// face — geometry within tolerance and every face's w = 0 color inherited from
+// the departed face it covers. Fails on a seed rebuilt in a frame or order the
+// held mesh does not have (the orientation/color snap this pins against).
+// ---------------------------------------------------------------------------
+
+/** Scripted edge walk (indices into ConwayGraph::EDGES). Bridges out-and-back
+ * (edges 19/20/21), dual-swap wandering in both families before each REGEN,
+ * DERIVE_AMBO out-and-back (edge 17), settle legs both directions (15/16/21),
+ * expand and snub departures (3/4/16/21). */
+constexpr int SEEDFRAME_SCRIPT[] = {19, 8,  1,  0,  2,  8,  19, 21, 14, 10,
+                                    15, 15, 16, 16, 10, 17, 17, 14, 21, 18,
+                                    20, 20, 20, 8,  1,  3,  3,  4,  4};
+
+/** Two visibly distinct bank entries alternated across the departed faces so a
+ * misrouted provenance flips a face between them. */
+constexpr uint8_t SEEDFRAME_PAL_A = 1;
+constexpr uint8_t SEEDFRAME_PAL_B = 4;
+
+/**
+ * @brief Unit-sphere vertex-average centroid of face fi.
+ */
+inline Vector poly_face_centroid(const PolyMesh &m, size_t fi) {
+  size_t off = 0;
+  for (size_t i = 0; i < fi; ++i)
+    off += m.face_counts[i];
+  Vector c(0.0f, 0.0f, 0.0f);
+  for (int k = 0; k < m.face_counts[fi]; ++k)
+    c = c + m.vertices[m.faces[off + k]];
+  return c.normalized();
+}
+
+/**
+ * @brief The clean node mesh at one end of an edge, built from the held seed —
+ * HankinSolids::node_mesh_at, replicated for the walk simulation.
+ */
+inline PolyMesh seedframe_node_mesh_at(const ConwayGraph::EdgeSpec &e,
+                                       bool to_end, const PolyMesh &seed_base,
+                                       Arena &a, Arena &b) {
+  float t = to_end ? e.t_to : e.t_from;
+  PolyMesh seed;
+  MeshOps::clone(seed_base, seed, a);
+  Solids::SolidBuilder builder(std::move(seed), a, b);
+  if (!ConwayGraph::is_platonic(e.seed_solid))
+    builder.ambo();
+  if (t > 0.0f) {
+    switch (e.op) {
+    case ConwayGraph::MorphOp::TRUNCATE:
+      builder.truncate(t);
+      break;
+    case ConwayGraph::MorphOp::EXPAND:
+      builder.expand(t);
+      break;
+    case ConwayGraph::MorphOp::SNUB:
+      builder.snub(t, to_end ? e.twist_to : e.twist_from);
+      break;
+    }
+    if (e.settle && to_end)
+      builder.relax(50);
+  }
+  return builder.build();
+}
+
+/**
+ * @brief Drives the seed state machine over SEEDFRAME_SCRIPT and pins, per
+ * leg start, the geometric face bijection and the inherited w = 0 shading.
+ */
+inline void test_leg_start_seed_frame_continuity() {
+  using namespace ConwayGraph;
+  using conway_morph_tests::run_edge_op;
+  reset_globals();
+  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
+                   32 * 1024);
+  hs::random().seed(90210u);
+
+  Arena bank_arena(cc_bank_buf, sizeof(cc_bank_buf));
+  MeshPaletteBank bank;
+  bank.bake_all(bank_arena);
+
+  // The alternating entries must actually differ or misroutes are invisible.
+  {
+    bool differ = false;
+    for (int s = 0; s < NUM_RAMP_SAMPLES; ++s) {
+      const Color4 a = bank.bank.entries[SEEDFRAME_PAL_A].get(RAMP_SAMPLES[s]);
+      const Color4 b = bank.bank.entries[SEEDFRAME_PAL_B].get(RAMP_SAMPLES[s]);
+      if (a.color.r != b.color.r || a.color.g != b.color.g ||
+          a.color.b != b.color.b)
+        differ = true;
+    }
+    HS_EXPECT_TRUE(differ);
+  }
+
+  constexpr float TOL_SQ = 0.15f * 0.15f;
+
+  Arena seed_arena(cc_geom_buf, sizeof(cc_geom_buf));
+  PolyMesh seed_base;
+  {
+    Arena wa(cc_temp_buf, sizeof(cc_temp_buf));
+    Arena wb(cc_aux_buf, sizeof(cc_aux_buf));
+    seed_base = Solids::finalize_solid(Solids::Platonic::tetrahedron(wa, wb),
+                                       seed_arena);
+  }
+  int node = TETRAHEDRON;
+  int seed_identity = TETRAHEDRON;
+
+  Arena node_arena(cc_scan_buf, sizeof(cc_scan_buf));
+  PolyMesh node_mesh = Solids::finalize_solid(seed_base, node_arena);
+
+  ContFx fx;
+  for (size_t leg = 0; leg < std::size(SEEDFRAME_SCRIPT); ++leg) {
+    const int ei = SEEDFRAME_SCRIPT[leg];
+    const EdgeSpec &e = EDGES[ei];
+    const bool reverse = (e.to_node == node);
+    const int failed_before = hs_test::stats().failed;
+
+    // Seed reconciliation, exactly as start_morph_cycle applies it.
+    const SeedFix fix = seed_fix_at_start(ei, seed_identity);
+    HS_EXPECT_TRUE(fix != SeedFix::INVALID);
+    Arena work(cc_temp_buf, sizeof(cc_temp_buf));
+    Arena temp(cc_aux_buf, sizeof(cc_aux_buf));
+    if (fix == SeedFix::DUAL_SWAP) {
+      PolyMesh d = MeshOps::dual(seed_base, work, temp);
+      seed_arena.reset();
+      seed_base = Solids::finalize_solid(d, seed_arena);
+      seed_identity = dual_platonic(seed_identity);
+    } else if (fix == SeedFix::REGEN_TETRA) {
+      PolyMesh t = Solids::Platonic::tetrahedron(work, temp);
+      seed_arena.reset();
+      seed_base = Solids::finalize_solid(t, seed_arena);
+      seed_identity = TETRAHEDRON;
+    }
+    PolyMesh derived;
+    if (fix == SeedFix::DERIVE_AMBO)
+      derived = MeshOps::ambo(seed_base, work, temp);
+    const PolyMesh &leg_seed =
+        fix == SeedFix::DERIVE_AMBO ? derived : seed_base;
+
+    // Departed-node handoff: alternating palettes, real sides/centroids.
+    const size_t prev_faces = node_mesh.face_counts.size();
+    uint8_t pal[128], sides[128];
+    Vector cents[128];
+    HS_EXPECT_LE(prev_faces, (size_t)128);
+    for (size_t f = 0; f < prev_faces; ++f) {
+      pal[f] = (f % 2) ? SEEDFRAME_PAL_B : SEEDFRAME_PAL_A;
+      sides[f] = node_mesh.face_counts[f];
+      cents[f] = poly_face_centroid(node_mesh, f);
+    }
+    Animation::ConwayMorph::PaletteHandoff handoff{
+        &bank.bank, pal, sides, prev_faces, fix == SeedFix::DUAL_SWAP, cents};
+
+    // The mesh the first morph frame draws.
+    auto clampp = [&](float t) {
+      t = std::max(t, T_EPS);
+      if (e.op == MorphOp::TRUNCATE)
+        t = std::min(t, 0.5f - T_EPS_AMBO);
+      return t;
+    };
+    const float t_start = clampp(reverse ? e.t_to : e.t_from);
+    const float tw_start = reverse ? e.twist_to : e.twist_from;
+    PolyMesh start_raw =
+        run_edge_op(e, leg_seed, work, temp, t_start, tw_start);
+    PolyMesh start_rel;
+    if (e.settle && reverse)
+      start_rel = MeshOps::relax(start_raw, work, temp, 50);
+    const PolyMesh &start = (e.settle && reverse) ? start_rel : start_raw;
+    const size_t total = start.face_counts.size();
+    const size_t primary = leg_seed.face_counts.size();
+
+    // Geometric pin: every start face overlies a departed face (full legs:
+    // a bijection) — the seed-frame continuity contract.
+    int match_of[128];
+    bool used[128] = {};
+    HS_EXPECT_LE(total, (size_t)128);
+    for (size_t f = 0; f < total; ++f) {
+      const Vector c = poly_face_centroid(start, f);
+      size_t best = 0;
+      float best_d = 1e9f;
+      for (size_t g = 0; g < prev_faces; ++g) {
+        const Vector d = c - cents[g];
+        const float dsq = dot(d, d);
+        if (dsq < best_d) {
+          best_d = dsq;
+          best = g;
+        }
+      }
+      match_of[f] = static_cast<int>(best);
+      if (prev_faces == total) {
+        HS_EXPECT_LT(best_d, TOL_SQ);
+        HS_EXPECT_TRUE(!used[best]);
+        used[best] = true;
+      } else if (f < primary) {
+        // Seed departures: primaries still overlie their own faces.
+        HS_EXPECT_LT(best_d, TOL_SQ);
+        HS_EXPECT_EQ(match_of[f], (int)f);
+      }
+    }
+
+    // Shading pin: the first frame's w = 0 colors are the departed faces'.
+    ShadingSnapshot snap;
+    auto cb = [&](Canvas &, const MeshState &,
+                  const Animation::ConwayMorph::Shading &sh) {
+      snap.face_ramp.assign(sh.face_ramp, sh.face_ramp + sh.faces);
+      snap.colors.resize(sh.faces);
+      for (size_t f = 0; f < sh.faces; ++f)
+        for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
+          snap.colors[f][s] = sh.ramps[sh.face_ramp[f]].get(RAMP_SAMPLES[s]);
+    };
+    {
+      Arena leg_arena(cc_leg_buf, sizeof(cc_leg_buf));
+      Animation::ConwayMorph anim(leg_seed, e, reverse, leg_arena, cb, handoff,
+                                  SWEEP_FRAMES, e.settle ? SETTLE_FRAMES : 0);
+      step_and_snapshot(anim, fx, snap);
+      HS_EXPECT_EQ(snap.colors.size(), total);
+      for (size_t f = 0; f < snap.colors.size(); ++f) {
+        if (prev_faces == total || f < primary) {
+          const uint8_t want = prev_faces == total ? pal[match_of[f]] : pal[f];
+          for (int s = 0; s < NUM_RAMP_SAMPLES; ++s)
+            expect_color_eq(snap.colors[f][s],
+                            bank.bank.entries[want].get(RAMP_SAMPLES[s]));
+        } else {
+          // Births must open in a color already on screen (a departed
+          // palette), never pop in as a fresh target color.
+          bool matches_a = true, matches_b = true;
+          for (int s = 0; s < NUM_RAMP_SAMPLES; ++s) {
+            const Color4 got = snap.colors[f][s];
+            const Color4 a =
+                bank.bank.entries[SEEDFRAME_PAL_A].get(RAMP_SAMPLES[s]);
+            const Color4 b =
+                bank.bank.entries[SEEDFRAME_PAL_B].get(RAMP_SAMPLES[s]);
+            if (got.color.r != a.color.r || got.color.g != a.color.g ||
+                got.color.b != a.color.b)
+              matches_a = false;
+            if (got.color.r != b.color.r || got.color.g != b.color.g ||
+                got.color.b != b.color.b)
+              matches_b = false;
+          }
+          HS_EXPECT_TRUE(matches_a || matches_b);
+        }
+      }
+    }
+
+    // Completion: arrival node mesh becomes the next bookend; ADOPT as tabled.
+    const bool arrived_at_to = !reverse;
+    const int arrived = arrived_at_to ? e.to_node : e.from_node;
+    PolyMesh base =
+        seedframe_node_mesh_at(e, arrived_at_to, seed_base, work, temp);
+    node_arena.reset();
+    node_mesh = Solids::finalize_solid(base, node_arena);
+    if (e.reseed == Reseed::ADOPT && is_platonic(arrived) && arrived_at_to) {
+      seed_arena.reset();
+      seed_base = Solids::finalize_solid(node_mesh, seed_arena);
+      seed_identity = arrived;
+    }
+    node = arrived;
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [seed-frame] leg %zu edge %d -> '%s' broke\n", leg, ei,
+                  Solids::simple_registry[node].name);
+  }
+  // The script must end where cycle-accounting expects it: back at the cube
+  // pendant chain (guards against a silently mis-scripted walk).
+  HS_EXPECT_EQ(node, (int)CUBE);
+}
+
+// ---------------------------------------------------------------------------
+// In-cycle palette stability: the live class-slot assignment the hankin cycle
+// draws with may change only at leg completion (finish_morph_cycle), never at
+// leg construction or mid-cycle — a live rewrite would recolor the still-
+// visible rosette straps before the morph starts.
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Pins palette_idx_ constant from each arrival to the next, including
+ * across the leg-construction frame.
+ */
+inline void test_palette_slots_stable_within_cycle() {
+  reset_globals();
+  using Probe = conway_soak_tests::HankinWalkProbe;
+
+  HankinSolids<96, 20> fx;
+  fx.init();
+
+  auto snapshot = Probe::palette_idx(fx);
+  int prev_node = Probe::node(fx);
+  int arrivals = 0;
+  constexpr int TARGET_ARRIVALS = 10;
+  for (int frame = 0; frame < 2600 && arrivals < TARGET_ARRIVALS; ++frame) {
+    fx.draw_frame();
+    fx.advance_display();
+
+    const int node = Probe::node(fx);
+    if (node != prev_node) {
+      // Leg completion ran this frame: the assignment may legitimately move.
+      prev_node = node;
+      snapshot = Probe::palette_idx(fx);
+      ++arrivals;
+      continue;
+    }
+    if (Probe::palette_idx(fx) != snapshot) {
+      std::printf("    [palette-stability] live palette rewrite mid-cycle at "
+                  "frame %d ('%s')\n",
+                  frame, Solids::simple_registry[node].name);
+      HS_EXPECT_TRUE(false);
+      return;
+    }
+  }
+  HS_EXPECT_EQ(arrivals, TARGET_ARRIVALS);
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -1086,6 +1399,9 @@ inline int run_conway_continuity_tests() {
   test_crossfade_class_signature_mapping();
   test_palette_mapping_total_all_edges();
   test_palette_mapping_deterministic();
+
+  test_leg_start_seed_frame_continuity();
+  test_palette_slots_stable_within_cycle();
 
   return fixture.result();
 }
