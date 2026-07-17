@@ -206,30 +206,33 @@ private:
 
   /**
    * @brief Resolves the per-slot palette LUTs one hankin-cycle frame shades
-   * with.
+   * with, split by face role.
    * @param cycle_frame Sprite draws since the cycle's opening bookend.
    * @param blended Per-slot storage for this frame's blend results.
-   * @param by_slot Receives one resolved LUT pointer per class slot.
+   * @param star_by_slot Receives the star-face LUT per class slot: always the
+   * assignment's bank entry, bitwise (the star-face bookend exactness
+   * contract).
+   * @param strap_by_slot Receives the strap-face LUT per class slot: armed
+   * slots run a (from, to) pre-blend over the opening window so reborn straps
+   * open in their previous displayed color and glide to the fresh target
+   * while still small; unarmed slots alias the star entry. The fragment path
+   * stays a single LUT lookup either way.
    * @param scratch Arena receiving mid-blend LUT bakes (frame lifetime).
-   * @details Slots outside strap_blend_mask_ alias their bank entry (bitwise
-   * the assignment's palette — the star-face bookend exactness contract).
-   * Armed strap slots run a (from, to) pre-blend over the opening window, so
-   * reborn straps open in their previous color and glide to the fresh target
-   * while still small; the fragment path stays a single LUT lookup either way.
    */
-  void resolve_hankin_slot_luts(int cycle_frame,
-                                BakedPalette (&blended)[NUM_PALETTES],
-                                const BakedPalette *(&by_slot)[NUM_PALETTES],
-                                Arena &scratch) {
+  void resolve_hankin_slot_luts(
+      int cycle_frame, BakedPalette (&blended)[NUM_PALETTES],
+      const BakedPalette *(&star_by_slot)[NUM_PALETTES],
+      const BakedPalette *(&strap_by_slot)[NUM_PALETTES], Arena &scratch) {
     const float w = strap_blend_weight(cycle_frame);
     for (int s = 0; s < NUM_PALETTES; ++s) {
+      star_by_slot[s] = &palette_bank_.bank.entries[palette_idx_[s]];
       if (strap_blend_mask_ & (1u << s)) {
         bake_palette_blend(blended[s], scratch,
                            palette_bank_.bank.entries[strap_from_[s]],
                            palette_bank_.bank.entries[palette_idx_[s]], w);
-        by_slot[s] = &blended[s];
+        strap_by_slot[s] = &blended[s];
       } else {
-        by_slot[s] = &palette_bank_.bank.entries[palette_idx_[s]];
+        strap_by_slot[s] = star_by_slot[s];
       }
     }
   }
@@ -240,23 +243,23 @@ private:
    * zero-area-birth assumption alone does not hide).
    * @param prev_idx Slot -> palette assignment the previous cycle displayed.
    * @param prev_used Slots the previous cycle put on screen at all.
-   * @param star_mapped Slots carrying a star class's landed palette; those
-   * stay bookend-exact and never blend.
-   * @details A strap-only slot opens at its previous cycle's color — or, with
-   * no on-screen predecessor, at the palette of the nearest star face by unit
-   * centroid (births inherit the underlying face's colors, matching the
-   * leg-swap newborn rule) — and glides to its fresh shuffled target.
+   * @details A strap-bearing slot opens at its previous cycle's displayed
+   * color — or, with no on-screen predecessor, at the palette of the nearest
+   * star face by unit centroid (births inherit the underlying face's colors,
+   * matching the leg-swap newborn rule) — and glides to its fresh target.
+   * Slots a star class shares (the mod-NUM_PALETTES wrap can alias a rosette
+   * class onto a star class's slot) arm like any other: the blend feeds only
+   * the strap-face LUT, so the star faces stay on the exact bank entry.
    */
   HS_COLD_MEMBER void
   prepare_strap_crossfade(const std::array<int, NUM_PALETTES> &prev_idx,
-                          const bool (&prev_used)[NUM_PALETTES],
-                          const bool (&star_mapped)[NUM_PALETTES]) {
+                          const bool (&prev_used)[NUM_PALETTES]) {
     strap_blend_mask_ = 0;
     for (int s = 0; s < NUM_PALETTES; ++s)
       strap_from_[s] = palette_idx_[s];
     for (size_t f = node_faces_; f < mesh_.topology.size(); ++f) {
       const int slot = wrap(mesh_.topology[f], NUM_PALETTES);
-      if (star_mapped[slot] || (strap_blend_mask_ & (1u << slot)))
+      if (strap_blend_mask_ & (1u << slot))
         continue;
       int from;
       if (prev_used[slot]) {
@@ -334,13 +337,17 @@ private:
    * @param canvas Target canvas to draw into.
    * @param mesh Source mesh in model space.
    * @param topology Per-face topology-class indices.
-   * @param by_slot Resolved palette LUT per class slot (see
-   * resolve_hankin_slot_luts).
+   * @param star_by_slot Resolved palette LUT per class slot for star faces
+   * (emission index < node_faces_); see resolve_hankin_slot_luts.
+   * @param strap_by_slot Resolved palette LUT per class slot for strap faces.
    * @param opacity Output alpha in [0, 1].
+   * @details When the two LUT sets are identical (no strap blend in flight)
+   * the shader skips the per-fragment role select.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
-                 const BakedPalette *const (&by_slot)[NUM_PALETTES],
+                 const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
+                 const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
                  float opacity) {
     if (mesh.vertices.is_empty() || opacity < 0.01f)
       return;
@@ -354,17 +361,34 @@ private:
       MeshOps::transform(mesh, rotated_mesh, scratch_arena_a, camera);
     }
 
-    SlotLutView lut_view{by_slot};
-    auto fragment_shader = [&](const Vector &, Fragment &f) {
+    SlotLutView star_view{star_by_slot};
+    SlotLutView strap_view{strap_by_slot};
+    bool split = false;
+    for (int s = 0; s < NUM_PALETTES; ++s)
+      split |= star_by_slot[s] != strap_by_slot[s];
+    const int star_faces = static_cast<int>(node_faces_);
+
+    auto star_shader = [&](const Vector &, Fragment &f) {
+      f.color = shade_mesh_topology(
+          f, topology.data(), static_cast<int>(topology.size()), star_view,
+          SLOT_IDENTITY, params.intensity, opacity);
+    };
+    auto split_shader = [&](const Vector &, Fragment &f) {
+      const SlotLutView &view =
+          static_cast<int>(f.v2) < star_faces ? star_view : strap_view;
       f.color = shade_mesh_topology(f, topology.data(),
-                                    static_cast<int>(topology.size()), lut_view,
+                                    static_cast<int>(topology.size()), view,
                                     SLOT_IDENTITY, params.intensity, opacity);
     };
 
     {
       HS_PROFILE(hk_mesh_scan);
-      Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, fragment_shader,
-                             scratch_arena_a, params.debug_bb);
+      if (split)
+        Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, split_shader,
+                               scratch_arena_a, params.debug_bb);
+      else
+        Scan::Mesh::draw<W, H>(filters, canvas, rotated_mesh, star_shader,
+                               scratch_arena_a, params.debug_bb);
     }
   }
 
@@ -461,10 +485,12 @@ private:
                  // the draw path below uses scratch_a exclusively.
                  ScratchScope blend_guard(scratch_arena_b);
                  BakedPalette blended[NUM_PALETTES];
-                 const BakedPalette *by_slot[NUM_PALETTES];
-                 resolve_hankin_slot_luts(cycle_frame, blended, by_slot,
-                                          scratch_arena_b);
-                 draw_mesh(c, mesh_, mesh_.topology, by_slot, opacity);
+                 const BakedPalette *star_by_slot[NUM_PALETTES];
+                 const BakedPalette *strap_by_slot[NUM_PALETTES];
+                 resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
+                                          strap_by_slot, scratch_arena_b);
+                 draw_mesh(c, mesh_, mesh_.topology, star_by_slot,
+                           strap_by_slot, opacity);
                },
                DURATION + 1, 0, ease_linear, 0, ease_linear, &anims_paused_));
   }
@@ -639,7 +665,7 @@ private:
       }
     }
     record_node_palettes();
-    prepare_strap_crossfade(prev_idx, prev_used, slot_mapped);
+    prepare_strap_crossfade(prev_idx, prev_used);
     pending_landing_ = nullptr;
 
     // Bookend-out: the next cycle's first drawn sample is exactly angle 0.
@@ -671,7 +697,8 @@ private:
   std::array<int, NUM_PALETTES> strap_from_ =
       {}; /**< Per-slot crossfade origin palette for the current cycle's
              opening window (equals palette_idx_ on unarmed slots). */
-  uint8_t strap_blend_mask_ = 0; /**< Bit s: slot s crossfades this cycle. */
+  uint8_t strap_blend_mask_ = 0; /**< Bit s: slot s's strap faces crossfade
+                                    this cycle. */
   int hankin_cycle_frame_ = 0;   /**< Sprite draws since the opening bookend
                                     of the active hankin cycle. */
 

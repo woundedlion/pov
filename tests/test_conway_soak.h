@@ -128,9 +128,11 @@ struct HankinWalkProbe {
   static void resolve_slot_luts(
       HankinSolids<W, H> &fx, int cycle_frame,
       BakedPalette (&blended)[HankinSolids<W, H>::NUM_PALETTES],
-      const BakedPalette *(&by_slot)[HankinSolids<W, H>::NUM_PALETTES],
+      const BakedPalette *(&star_by_slot)[HankinSolids<W, H>::NUM_PALETTES],
+      const BakedPalette *(&strap_by_slot)[HankinSolids<W, H>::NUM_PALETTES],
       Arena &scratch) {
-    fx.resolve_hankin_slot_luts(cycle_frame, blended, by_slot, scratch);
+    fx.resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
+                                strap_by_slot, scratch);
   }
 };
 

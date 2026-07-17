@@ -26,10 +26,11 @@
  *     deterministic; the crossfade is exact at its endpoints — the first sweep
  *     frame (w = 0) shades every surviving face from its inherited palette,
  *     the last (w = 1) from the leg's landed target assignment.
- *   - Strap-slot crossfade across cycle starts: a rosette-only slot opens on
+ *   - Strap-slot crossfade across cycle starts: a strap-bearing slot opens on
  *     the color it displayed in the previous cycle (or an on-screen star
- *     palette when newborn) and glides to its fresh target in bounded steps;
- *     star-mapped slots never blend.
+ *     palette when newborn) and glides to its target in bounded steps via the
+ *     strap-face LUT; star faces stay bitwise on the bank entry, including on
+ *     star-shared slots.
  */
 #pragma once
 
@@ -1380,15 +1381,18 @@ inline void test_palette_slots_stable_within_cycle() {
 }
 
 // ---------------------------------------------------------------------------
-// Strap-slot crossfade across cycle starts: a rosette-only class slot opens
+// Strap-slot crossfade across cycle starts: a strap-bearing class slot opens
 // each hankin cycle at the color its slot displayed in the previous cycle (or
 // at a star palette already on screen when the slot had no predecessor) and
-// glides to its fresh shuffled target in bounded per-frame steps; star-mapped
-// slots never blend, keeping the bookend star colors bitwise exact. Pre-fix,
-// reborn strap slots opened directly on the fresh shuffle: an open-vs-
-// previous-close LUT jump of up to ~57000/65535 per channel (measured as a
-// 60210 mean-strap-color pop within ~4 frames of the bookend on the 30-leg
-// 288x144 strap-snap harness tour).
+// glides to its target in bounded per-frame steps via the strap-face LUT;
+// star faces resolve to the assignment's exact bank entry at every frame,
+// keeping the bookend star colors bitwise exact even on slots the mod-5 wrap
+// shares between a star and a rosette class. Pre-fix, reborn strap slots
+// opened directly on the fresh shuffle: an open-vs-previous-close LUT jump of
+// up to ~57000/65535 per channel (measured as a 60210 mean-strap-color pop
+// within ~4 frames of the bookend on the 30-leg 288x144 strap-snap harness
+// tour); star-shared slots stayed exempt and popped by the full carried
+// distance (60098 at truncatedIcosidodecahedron, epoch seed 7, same harness).
 // ---------------------------------------------------------------------------
 
 /** Ceiling on one frame's smoothstep advance over the 20-frame window (max
@@ -1413,18 +1417,30 @@ inline int lut_sample_dist(const BakedPalette &a, const BakedPalette &b) {
   return d;
 }
 
+/** Per-seed result of check_strap_crossfade_arrivals. */
+struct StrapSweepStats {
+  int arrivals = 0;      /**< Arrivals validated. */
+  int far_pairs = 0;     /**< Strap slots with a far (from, to) pair. */
+  int shared_far = 0;    /**< Far pairs on slots shared with a star class. */
+  int would_be_jump = 0; /**< Worst uncrossfaded open jump (16-bit). */
+  int shared_jump = 0;   /**< Worst such jump on a star-shared slot. */
+};
+
 /**
- * @brief Drives HankinSolids across arrivals and pins the strap crossfade:
- *        open state continuous with the previous cycle, endpoints bitwise
- *        exact, per-frame steps bounded, star slots never armed.
- * @details Red pre-fix via the continuity pin: without the crossfade a strap
- *          slot's opening LUT is the fresh target, which jumps from the
- *          previous cycle's display by the full palette distance (printed as
- *          the would-be jump; the run must exercise at least one such far
- *          pair for the pin to discriminate).
+ * @brief Drives one HankinSolids walk across arrivals and pins the strap
+ *        crossfade: open state continuous with the previous cycle, endpoints
+ *        bitwise exact, per-frame steps bounded, star faces on the exact bank
+ *        entry at the bookends — including slots a star class shares.
+ * @param epoch Epoch seed for hs::random() (the live per-visit reseed).
+ * @param target_arrivals Arrivals to validate before returning.
+ * @param frame_cap Frame budget for the walk.
+ * @return Coverage stats for the caller's discrimination pins.
  */
-inline void test_strap_crossfade_across_cycle_start() {
+inline StrapSweepStats check_strap_crossfade_arrivals(uint32_t epoch,
+                                                      int target_arrivals,
+                                                      int frame_cap) {
   reset_globals();
+  hs::random().seed(hs::epoch_seed(epoch));
   using Probe = conway_soak_tests::HankinWalkProbe;
   constexpr int PALETTES = Animation::ConwayMorph::PALETTES;
 
@@ -1434,23 +1450,21 @@ inline void test_strap_crossfade_across_cycle_start() {
   const int BLEND = Probe::strap_blend_frames(fx);
   Arena resolve_arena(cc_temp_buf, sizeof(cc_temp_buf));
 
+  StrapSweepStats st;
   std::array<int, PALETTES> prev_display{};
   bool prev_used[PALETTES] = {};
   bool have_prev = false;
   int prev_node = Probe::node(fx);
-  int arrivals = 0;
-  int far_pairs = 0;
-  int would_be_jump_max = 0;
 
-  constexpr int TARGET_ARRIVALS = 10;
-  for (int frame = 0; frame < 2600 && arrivals < TARGET_ARRIVALS; ++frame) {
+  for (int frame = 0; frame < frame_cap && st.arrivals < target_arrivals;
+       ++frame) {
     fx.draw_frame();
     fx.advance_display();
     const int node = Probe::node(fx);
     if (node == prev_node)
       continue;
     prev_node = node;
-    ++arrivals;
+    ++st.arrivals;
     const int failed_before = hs_test::stats().failed;
 
     // The arrival frame is the new cycle's opening bookend.
@@ -1469,42 +1483,55 @@ inline void test_strap_crossfade_across_cycle_start() {
     const auto &idx = Probe::palette_idx(fx);
 
     BakedPalette blended[PALETTES];
-    const BakedPalette *by_slot[PALETTES];
+    const BakedPalette *star_by_slot[PALETTES];
+    const BakedPalette *strap_by_slot[PALETTES];
     for (int s = 0; s < PALETTES; ++s) {
-      // Star-mapped slots stay bookend-exact: never armed, and resolved to
-      // the assignment's bank entry at every frame.
-      if (star[s]) {
+      // Only strap-bearing slots arm; star faces resolve to the assignment's
+      // bank entry, bitwise, at both bookend endpoints of the window.
+      if (!strap[s])
         HS_EXPECT_EQ((mask >> s) & 1, 0);
-        resolve_arena.reset();
-        Probe::resolve_slot_luts(fx, 0, blended, by_slot, resolve_arena);
-        HS_EXPECT_TRUE(by_slot[s] == &bank.entries[idx[s]]);
+      if (star[s]) {
+        for (int cf : {0, BLEND}) {
+          resolve_arena.reset();
+          Probe::resolve_slot_luts(fx, cf, blended, star_by_slot, strap_by_slot,
+                                   resolve_arena);
+          HS_EXPECT_TRUE(star_by_slot[s] == &bank.entries[idx[s]]);
+        }
       }
-      if (!strap[s] || star[s])
+      if (!strap[s])
         continue;
 
       // Crossfade endpoints, on the production resolver, bitwise: the open
-      // frame reproduces the from state, the window end the fresh target.
+      // frame reproduces the from state, the window end the target.
       resolve_arena.reset();
-      Probe::resolve_slot_luts(fx, 0, blended, by_slot, resolve_arena);
+      Probe::resolve_slot_luts(fx, 0, blended, star_by_slot, strap_by_slot,
+                               resolve_arena);
       for (int k = 0; k < NUM_RAMP_SAMPLES; ++k)
-        expect_color_eq(by_slot[s]->get(RAMP_SAMPLES[k]),
+        expect_color_eq(strap_by_slot[s]->get(RAMP_SAMPLES[k]),
                         bank.entries[from[s]].get(RAMP_SAMPLES[k]));
       resolve_arena.reset();
-      Probe::resolve_slot_luts(fx, BLEND, blended, by_slot, resolve_arena);
+      Probe::resolve_slot_luts(fx, BLEND, blended, star_by_slot, strap_by_slot,
+                               resolve_arena);
       for (int k = 0; k < NUM_RAMP_SAMPLES; ++k)
-        expect_color_eq(by_slot[s]->get(RAMP_SAMPLES[k]),
+        expect_color_eq(strap_by_slot[s]->get(RAMP_SAMPLES[k]),
                         bank.entries[idx[s]].get(RAMP_SAMPLES[k]));
 
       if (have_prev && prev_used[s]) {
-        // Continuity across the cycle start: the slot opens on the color it
-        // displayed when the previous cycle closed. (Pre-fix it opened on
-        // idx[s] instead -- the would-be jump below.)
+        // Continuity across the cycle start: the slot's straps open on the
+        // color the slot displayed when the previous cycle closed. (Pre-fix,
+        // rosette-only slots opened on idx[s] and star-shared slots were
+        // exempt from arming entirely -- the would-be jump below.)
         HS_EXPECT_EQ(from[s], prev_display[s]);
         const int jump = lut_sample_dist(bank.entries[prev_display[s]],
                                          bank.entries[idx[s]]);
-        would_be_jump_max = std::max(would_be_jump_max, jump);
-        if (jump > 8192)
-          ++far_pairs;
+        st.would_be_jump = std::max(st.would_be_jump, jump);
+        if (jump > 8192) {
+          ++st.far_pairs;
+          if (star[s]) {
+            ++st.shared_far;
+            st.shared_jump = std::max(st.shared_jump, jump);
+          }
+        }
       } else {
         // No predecessor: births open in a color already on screen (some
         // star face's palette), never a fresh pop.
@@ -1522,9 +1549,10 @@ inline void test_strap_crossfade_across_cycle_start() {
       std::array<Color4, NUM_RAMP_SAMPLES> prev_c{};
       for (int cf = 0; cf <= BLEND; ++cf) {
         resolve_arena.reset();
-        Probe::resolve_slot_luts(fx, cf, blended, by_slot, resolve_arena);
+        Probe::resolve_slot_luts(fx, cf, blended, star_by_slot, strap_by_slot,
+                                 resolve_arena);
         for (int k = 0; k < NUM_RAMP_SAMPLES; ++k) {
-          const Color4 c = by_slot[s]->get(RAMP_SAMPLES[k]);
+          const Color4 c = strap_by_slot[s]->get(RAMP_SAMPLES[k]);
           if (cf > 0) {
             HS_EXPECT_LE(std::abs((int)c.color.r - (int)prev_c[k].color.r),
                          step_bound);
@@ -1545,16 +1573,31 @@ inline void test_strap_crossfade_across_cycle_start() {
     have_prev = true;
 
     if (hs_test::stats().failed != failed_before)
-      std::printf("    [strap-crossfade] arrival %d at '%s' broke\n", arrivals,
-                  Solids::simple_registry[node].name);
+      std::printf("    [strap-crossfade] epoch %u arrival %d at '%s' broke\n",
+                  epoch, st.arrivals, Solids::simple_registry[node].name);
   }
-  HS_EXPECT_EQ(arrivals, TARGET_ARRIVALS);
+  return st;
+}
+
+/**
+ * @brief Single-walk strap-crossfade pin at the boot seed (epoch 0).
+ * @details Red pre-crossfade via the continuity pin: without it a strap
+ *          slot's opening LUT is the fresh target, which jumps from the
+ *          previous cycle's display by the full palette distance (printed as
+ *          the would-be jump; the run must exercise at least one such far
+ *          pair for the pin to discriminate).
+ */
+inline void test_strap_crossfade_across_cycle_start() {
+  constexpr int TARGET_ARRIVALS = 10;
+  const StrapSweepStats st =
+      check_strap_crossfade_arrivals(0, TARGET_ARRIVALS, 2600);
+  HS_EXPECT_EQ(st.arrivals, TARGET_ARRIVALS);
   std::printf("  [strap-crossfade] worst would-be pre-fix open jump %d "
               "(16-bit max channel; crossfaded to per-frame steps)\n",
-              would_be_jump_max);
+              st.would_be_jump);
   // The walk must have exercised at least one far (from, to) pair, or the
   // continuity pin proved nothing this run.
-  HS_EXPECT_GT(far_pairs, 0);
+  HS_EXPECT_GT(st.far_pairs, 0);
 }
 
 // ---------------------------------------------------------------------------
