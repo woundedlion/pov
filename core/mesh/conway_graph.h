@@ -417,26 +417,72 @@ constexpr int pick_next_edge(int node, int prev_edge, int legs_in_family,
   return cand[n - 1];
 }
 
+/** Deterministic profile tour: a fixed edge cycle from the tetrahedron that
+ * visits all 18 nodes, traverses every settle edge and both family bridges,
+ * and returns to the tetrahedron with the registry seed state, so the cycle
+ * wraps seamlessly. Replaces per-node mod arithmetic whose phases never lined
+ * up with dodecahedron's rhombicosidodecahedron edge (node 15 stayed
+ * uncovered indefinitely). */
+inline constexpr uint8_t ORDERED_TOUR[] = {
+    18, 20, 6,  7,  5,  5,  1,  3,  3,  4,  4, 0,  2,  8, 19,
+    21, 12, 13, 17, 17, 10, 15, 15, 16, 16, 9, 11, 14, 21};
+inline constexpr int ORDERED_TOUR_LEN =
+    static_cast<int>(std::size(ORDERED_TOUR));
+
 /**
- * @brief Deterministic edge choice for HS_PROFILE_ORDERED_CYCLE builds.
- * @param node Current node id.
- * @param prev_edge Edge the walk arrived on, or -1 for the first leg.
+ * @brief Whether ORDERED_TOUR is a closed walk from TETRAHEDRON covering
+ * every node.
+ */
+constexpr bool ordered_tour_valid() {
+  bool seen[NUM_NODES] = {};
+  int node = TETRAHEDRON;
+  seen[node] = true;
+  for (int i = 0; i < ORDERED_TOUR_LEN; ++i) {
+    const int e = ORDERED_TOUR[i];
+    if (e >= NUM_EDGES || !edge_touches(e, node))
+      return false;
+    node = edge_other_end(e, node);
+    seen[node] = true;
+  }
+  if (node != TETRAHEDRON)
+    return false;
+  for (int i = 0; i < NUM_NODES; ++i)
+    if (!seen[i])
+      return false;
+  return true;
+}
+static_assert(ordered_tour_valid());
+
+/**
+ * @brief Whether ORDERED_TOUR traverses every settle edge and both family
+ * bridges (the section-6 heavy legs the profile regime must exercise).
+ */
+constexpr bool ordered_tour_covers_heavy_legs() {
+  bool has[NUM_EDGES] = {};
+  for (int i = 0; i < ORDERED_TOUR_LEN; ++i)
+    has[ORDERED_TOUR[i]] = true;
+  for (int e = 0; e < NUM_EDGES; ++e)
+    if (EDGES[e].settle && !has[e])
+      return false;
+  // Both family crossings: tetra <-> octa and tetra <-> icosa.
+  return has[19] && has[21];
+}
+static_assert(ordered_tour_covers_heavy_legs());
+
+/**
+ * @brief Deterministic edge choice for HS_PROFILE_ORDERED_CYCLE builds: one
+ * pass of ORDERED_TOUR covers all 18 nodes, then the cycle repeats.
+ * @param node Current node id (positional: the tour expects the walk at its
+ * leg_index-th node; the caller's edge_touches check traps a desync).
+ * @param prev_edge Edge the walk arrived on; unused.
  * @param leg_index Monotonic leg counter.
- * @return Index into EDGES: the leg_index-th non-backtrack candidate in table
- * order (the sole edge at a degree-1 node).
+ * @return Index into EDGES of the tour's next leg.
  */
 constexpr int pick_next_edge_ordered(int node, int prev_edge,
                                      uint32_t leg_index) {
-  uint8_t cand[MAX_DEGREE];
-  int n = edges_from(node, cand);
-  if (n == 1)
-    return cand[0];
-  uint8_t allowed[MAX_DEGREE];
-  int m = 0;
-  for (int i = 0; i < n; ++i)
-    if (cand[i] != prev_edge)
-      allowed[m++] = cand[i];
-  return allowed[leg_index % static_cast<uint32_t>(m)];
+  (void)node;
+  (void)prev_edge;
+  return ORDERED_TOUR[leg_index % static_cast<uint32_t>(ORDERED_TOUR_LEN)];
 }
 
 // ---------------------------------------------------------------------------
