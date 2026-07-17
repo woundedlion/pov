@@ -66,9 +66,9 @@ fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2, int count,
  * substeps integrate in float and quantize back once per frame. Shared
  * lattice/orientation/kernel scaffolding lives in ReactionDiffusionBase.
  *
- * A reaction runs until its field stops moving, then dissolves off the sphere
- * and reseeds at new sites, so each cycle grows a different form from the same
- * constants. Editing the constants dissolves the current field too.
+ * A reaction runs until its field has all but stopped moving, then dissolves off
+ * the sphere and reseeds at new sites, so each cycle grows a different form from
+ * the same constants. Editing the constants dissolves the current field too.
  *
  * Memory budget (persistent arena, configured 174 KB):
  *   - Cubemap LUT:                  6 × 64² × 2B = 49,152 B
@@ -207,16 +207,21 @@ private:
    * @details A young field has only NUM_SEED_CLUSTERS active sites, so its mean
    * |dB| sits under MEAN_DB_STABLE and would read as stalled at birth.
    */
-  static constexpr int MIN_GROW_FRAMES = 240;
+  static constexpr int MIN_GROW_FRAMES = 96;
   /** @brief Consecutive sub-floor frames that count as stabilized. */
   static constexpr int STABLE_HOLD_FRAMES = 24;
   /**
-   * @brief Mean per-node |dB| per frame below which the field is stalled.
-   * @details Measured: a converged field floors at 1.1e-6..4.0e-6 (Q16
-   * quantization chatter) while live morphogenesis runs 1e-4 and up, so this
-   * sits in the gap. A reaction that dies out floors here too and reseeds.
+   * @brief Mean per-node |dB| per frame below which the field counts as settled.
+   * @details Deliberately loose. A converged field floors at 1.1e-6..4.0e-6 of
+   * Q16 chatter, so a floor-hugging threshold is what the reaction has truly
+   * stopped at — but measured, that costs 328 frames (20 s at 16 fps) before the
+   * default reaction turns over, and tightening the frame gates does not help:
+   * the detector binds, not MIN_GROW_FRAMES. This fires at ~222 frames instead,
+   * while the form is still refining slightly, trading the last of the
+   * settling for a watchable cadence. A reaction that dies out floors far below
+   * this and reseeds.
    */
-  static constexpr float MEAN_DB_STABLE = 1.0e-5f;
+  static constexpr float MEAN_DB_STABLE = 2.0e-4f;
   /**
    * @brief Physics substeps advanced per rendered frame.
    * @details 16 substeps/frame advance the slow GS morphogenesis at a visible
