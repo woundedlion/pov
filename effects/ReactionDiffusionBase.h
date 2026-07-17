@@ -60,11 +60,21 @@ public:
   /**
    * @brief Advances one animation frame and dispatches to the derived renderer.
    * @details Advances the orientation timeline, then statically dispatches to
-   * Derived::render() for the system-specific physics and drawing.
+   * Derived::render() for the system-specific physics and drawing. The profile
+   * scopes bracket the display-flip idle apart from render work, which is what
+   * lets the harness report an exact per-frame render; they compile to nothing
+   * without HS_PROFILE_ENABLE.
    */
   void draw_frame() override {
-    Canvas canvas(*this);
-    timeline.step(canvas);
+    // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
+    Canvas canvas = [this]() -> Canvas {
+      HS_PROFILE(rd_buffer_wait);
+      return Canvas(*this);
+    }();
+    {
+      HS_PROFILE(rd_timeline_step);
+      timeline.step(canvas);
+    }
     static_cast<Derived *>(this)->render(canvas);
   }
 
