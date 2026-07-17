@@ -637,8 +637,8 @@ inline void check_class_bake_census(size_t islamic_idx) {
  * @brief Census invariants on two registry meshes.
  */
 inline void test_class_bake_census_invariants() {
-  check_class_bake_census(0);
   check_class_bake_census(2);
+  check_class_bake_census(3);
 }
 
 /**
@@ -735,7 +735,7 @@ inline void test_class_lut_render_matches_exact() {
 
   MeshState mesh;
   MeshOps::MeshClassBake bake;
-  build_islamic_bake(0, seed_a, seed_b, geom, mesh, bake);
+  build_islamic_bake(2, seed_a, seed_b, geom, mesh, bake);
   check_class_lut_render_matches_exact(mesh, bake, 5000, "class lut");
 }
 
@@ -757,7 +757,7 @@ inline void test_class_lut_render_matches_exact_rippled() {
 
   MeshState mesh;
   MeshOps::MeshClassBake bake;
-  build_islamic_bake(0, seed_a, seed_b, geom, mesh, bake);
+  build_islamic_bake(2, seed_a, seed_b, geom, mesh, bake);
 
   // The real ripple transform at its shipped ceiling (amplitude 0.15,
   // thickness 0.7): a Ricker wavelet that slides vertices tangentially away
@@ -843,12 +843,12 @@ inline void test_class_bake_budget_accounting() {
   const size_t min_lut =
       (size_t)MeshOps::CLASS_LUT_MIN_N * MeshOps::CLASS_LUT_MIN_N * 2;
 
-  BakeAccounting full = bake_with_budget(0, 1.0f, MeshOps::CLASS_LUT_BUDGET);
-  BakeAccounting none = bake_with_budget(0, 1.0f, 0);
+  BakeAccounting full = bake_with_budget(2, 1.0f, MeshOps::CLASS_LUT_BUDGET);
+  BakeAccounting none = bake_with_budget(2, 1.0f, 0);
   BakeAccounting fine_full =
-      bake_with_budget(0, 0.25f, MeshOps::CLASS_LUT_BUDGET);
-  BakeAccounting fine_tight = bake_with_budget(0, 0.25f, min_lut);
-  BakeAccounting fine_none = bake_with_budget(0, 0.25f, 0);
+      bake_with_budget(2, 0.25f, MeshOps::CLASS_LUT_BUDGET);
+  BakeAccounting fine_tight = bake_with_budget(2, 0.25f, min_lut);
+  BakeAccounting fine_none = bake_with_budget(2, 0.25f, 0);
 
   auto show = [](const char *tag, const BakeAccounting &a) {
     std::printf("  [budget %s] n_elig=%zu built=%u degraded=%u dropped=%u/%uf "
