@@ -21,10 +21,12 @@
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <string>
+#include <vector>
 #if defined(_WIN32)
 #include <io.h>      // _dup / _dup2 / _close / _fileno
 #include <process.h> // _getpid
@@ -328,6 +330,46 @@ inline void test_rand_f_half_open() {
 }
 
 /**
+ * @brief Verifies hs::epoch_seed: epoch 0 is the exact identity seed (the
+ *        stream is byte-identical to a default Pcg32), and distinct epochs
+ *        yield distinct seeds and draw streams.
+ * @details The collision sweep over epochs 0..1000 is a mixing sanity check,
+ *          not a cryptographic claim. Only local Pcg32 instances are used, so
+ *          the shared hs::random() stream is untouched.
+ */
+inline void test_epoch_seed() {
+  // Epoch 0 is the identity: seeding with it reproduces the default stream.
+  HS_EXPECT_EQ(hs::epoch_seed(0), 1337u);
+  hs::Pcg32 def;
+  hs::Pcg32 zero(hs::epoch_seed(0));
+  for (int i = 0; i < 64; ++i)
+    HS_EXPECT_EQ(zero(), def());
+
+  // Distinct epochs diverge within the first few draws.
+  hs::Pcg32 a(hs::epoch_seed(1));
+  hs::Pcg32 b(hs::epoch_seed(2));
+  bool diverged = false;
+  for (int i = 0; i < 4 && !diverged; ++i)
+    diverged = a() != b();
+  HS_EXPECT_TRUE(diverged);
+
+  // No seed or first-draw collision across epochs 0..1000.
+  std::vector<uint64_t> seeds;
+  std::vector<uint32_t> draws;
+  seeds.reserve(1001);
+  draws.reserve(1001);
+  for (uint32_t e = 0; e <= 1000; ++e) {
+    seeds.push_back(hs::epoch_seed(e));
+    hs::Pcg32 g(seeds.back());
+    draws.push_back(g());
+  }
+  std::sort(seeds.begin(), seeds.end());
+  HS_EXPECT_TRUE(std::adjacent_find(seeds.begin(), seeds.end()) == seeds.end());
+  std::sort(draws.begin(), draws.end());
+  HS_EXPECT_TRUE(std::adjacent_find(draws.begin(), draws.end()) == draws.end());
+}
+
+/**
  * @brief Verifies CRGB's single-argument constructor decodes a 0xRRGGBB
  *        colorcode like FastLED rather than as a grayscale fill.
  * @details CRGB(0xFF8000) must be orange, not black.
@@ -358,6 +400,7 @@ inline int run_platform_tests() {
   test_map_degenerate_range();
   test_random_degenerate_range();
   test_rand_f_half_open();
+  test_epoch_seed();
   test_crgb_colorcode_constructor();
   test_beatsin8_faithful();
   test_beatsin16_golden();

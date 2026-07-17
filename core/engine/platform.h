@@ -77,6 +77,24 @@ private:
   uint64_t inc_ = 0u;
   static constexpr uint64_t STREAM_SEQ = 0x14057b7ef767814fULL;
 };
+
+/**
+ * @brief Derives the shared-RNG seed for effect epoch @p epoch.
+ * @param epoch Absolute effect/epoch index (beacon-synchronized on the device).
+ * @return 1337 when epoch == 0 — the identity seed the determinism contract
+ *         pins; otherwise a splitmix64-mixed value of (1337, epoch).
+ * @details Used at effect handoff so every replica derives the same fresh
+ *          per-visit draw stream locally from already-shared state (nothing is
+ *          distributed). Integer-only, so device and host agree bit-for-bit.
+ */
+constexpr uint64_t epoch_seed(uint32_t epoch) {
+  if (epoch == 0)
+    return 1337u;
+  uint64_t z = 1337u + uint64_t{epoch} * 0x9E3779B97F4A7C15ULL;
+  z = (z ^ (z >> 30)) * 0xBF58476D1CE4E5B9ULL;
+  z = (z ^ (z >> 27)) * 0x94D049BB133111EBULL;
+  return z ^ (z >> 31);
+}
 } // namespace hs
 
 #ifdef ARDUINO
