@@ -639,10 +639,12 @@ private:
 
     if (start_centroid || !handoff.by_class_signature) {
       // Either the whole face list corresponds (departing a mid-parameter
-      // node) or the survivor prefix does (departing a node form; the
+      // node) or an emission prefix does: the survivor prefix departing a
+      // node form, the seed's primaries departing the seed form (the
       // remaining faces are births).
-      HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == survivors,
-               "ConwayMorph: handoff face count matches neither mapping");
+      HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == survivors ||
+                   handoff.prev_faces == primary,
+               "ConwayMorph: handoff face count matches no mapping");
     } else {
       HS_CHECK(handoff.prev_face_sides,
                "ConwayMorph: class-signature mapping needs prev side counts");
