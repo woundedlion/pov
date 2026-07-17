@@ -36,6 +36,8 @@ HEADER_RE = re.compile(
     r"=== profile (\S+) \[(\d+)x(\d+)\] frames (\d+)-(\d+) window=(\d+) us ===")
 WALL_RE = re.compile(
     r"frame wall us: min=(\d+) avg=(\d+) max=(\d+) sum=(\d+) \((\d+) frames\)")
+RENDER_RE = re.compile(r"frame render us: avg=(\d+) max=(\d+)")
+FRAME_RE = re.compile(r"^f (\d+) w=(\d+) r=(\d+)$")
 COUNTER_RE = re.compile(
     r"^(\s*)(\S+)\s+(\d+) us \((\d+)%\)\s+(\d+) calls\s+(\d+) cyc\s*$")
 
@@ -61,6 +63,8 @@ class Window:
         self.window_us = window_us
         self.frames = f_end - f_start + 1
         self.wall = None  # (min, avg, max, sum)
+        self.render = None  # (avg, max) per-frame render us (wall - sync wait)
+        self.frame_rows = []  # per-frame (n, wall_us, render_us), when logged
         self.counters = {}  # label -> dict(us, pct, calls, cyc, depth)
         self.marker = None  # active preset marker at this window
 
@@ -83,9 +87,14 @@ def parse(path):
     cur = None
     pending_marker = None
     effect = None
+    pending_frames = []
     with open(path, encoding="utf-8", errors="replace") as fh:
         for line in fh:
             line = line.rstrip("\n")
+            m = FRAME_RE.match(line)
+            if m:
+                pending_frames.append(tuple(int(m.group(i)) for i in (1, 2, 3)))
+                continue
             m = HEADER_RE.search(line)
             if m:
                 effect = effect or m.group(1)
@@ -98,11 +107,19 @@ def parse(path):
                     pending_marker = None
                 cur = nw
                 cur.marker = pending_marker
+                # The per-frame lines stream before their window's dump.
+                cur.frame_rows = [f for f in pending_frames
+                                  if nw.f_start <= f[0] <= nw.f_end]
+                pending_frames = []
                 windows.append(cur)
                 continue
             m = WALL_RE.search(line)
             if m and cur:
                 cur.wall = tuple(int(m.group(i)) for i in range(1, 5))
+                continue
+            m = RENDER_RE.search(line)
+            if m and cur:
+                cur.render = (int(m.group(1)), int(m.group(2)))
                 continue
             m = COUNTER_RE.match(line)
             if m and cur:
@@ -149,6 +166,10 @@ def spilled_frames(w):
     ~62.5 ms x (frames + spilled); derived, exact to +-1 (readout windows are
     not aligned to display-window boundaries).
     """
+    if w.frame_rows:
+        # Renders start flip-aligned (the buffer_free gate opens at a flip),
+        # so each frame misses floor(render / window) flips — exact.
+        return sum(f[2] // DISPLAY_WINDOW_US for f in w.frame_rows)
     if not w.wall:
         return 0
     return max(0, round(w.wall[3] / DISPLAY_WINDOW_US) - w.frames)
@@ -157,6 +178,9 @@ def spilled_frames(w):
 def cmd_windows(windows, scope):
     print(f"# window  frames        {scope} ms/f  calls/f  wall_ms  "
           f"peak_ms  spill  marker")
+    # peak_ms is the worst single frame's RENDER (wall minus the display-sync
+    # wait) when the capture carries the render line; '*' marks the wall-max
+    # fallback for logs that predate it.
     agg_pf, agg_spill, agg_frames = [], 0, 0
     worst_pf = worst_peak = 0.0
     worst_pf_w = worst_peak_w = None
@@ -164,13 +188,15 @@ def cmd_windows(windows, scope):
         pf = w.per_frame_ms(scope)
         cf = w.calls_per_frame(scope)
         wall = w.wall[3] / w.frames / 1000.0 if w.wall else 0.0
-        peak = w.wall[2] / 1000.0 if w.wall else 0.0
+        wall_based = w.render is None
+        peak = (w.wall[2] if wall_based else w.render[1]) / 1000.0             if w.wall else 0.0
         spill = spilled_frames(w)
         mk = w.marker["name"] if w.marker else "-"
         pf_s = f"{pf:8.2f}" if pf is not None else "     n/a"
         cf_s = f"{cf:7.1f}" if cf is not None else "    n/a"
+        peak_s = f"{peak:7.2f}" + ("*" if wall_based else " ")
         print(f"{w.f_start:6d}-{w.f_end:<6d} {pf_s}  {cf_s}  {wall:7.2f}  "
-              f"{peak:7.2f}  {spill:5d}  {mk}")
+              f"{peak_s} {spill:5d}  {mk}")
         if pf is not None:
             agg_pf.append(pf)
             if pf > worst_pf:
@@ -183,7 +209,8 @@ def cmd_windows(windows, scope):
         print(f"# aggregate: {scope} avg {sum(agg_pf) / len(agg_pf):.2f} ms/f, "
               f"worst window {worst_pf:.2f} ms/f "
               f"(frames {worst_pf_w.f_start}-{worst_pf_w.f_end}), "
-              f"peak frame {worst_peak:.2f} ms wall "
+              f"peak frame {worst_peak:.2f} ms "
+              f"{'wall' if worst_peak_w.render is None else 'render'} "
               f"(frames {worst_peak_w.f_start}-{worst_peak_w.f_end}), "
               f"spilled {agg_spill}/{agg_frames} frames")
 
@@ -292,7 +319,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("log")
-    ap.add_argument("mode", choices=["windows", "presets", "validate"])
+    ap.add_argument("mode", choices=["windows", "presets", "validate",
+                                     "frames"])
     ap.add_argument("--scope", help="counter label to read (default: costliest leaf)")
     ap.add_argument("--gate", help="call-count scope gating clean holds "
                                     "(default: --scope)")
@@ -306,6 +334,11 @@ def main():
 
     if args.mode == "windows":
         cmd_windows(windows, scope)
+    elif args.mode == "frames":
+        print("# frame  wall_us  render_us  spill")
+        for w in windows:
+            for n, wall, render in w.frame_rows:
+                print(f"{n:7d} {wall:8d} {render:9d} {render // DISPLAY_WINDOW_US:5d}")
     elif args.mode == "presets":
         cmd_presets(windows, scope, args.gate)
     else:

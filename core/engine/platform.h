@@ -1381,6 +1381,22 @@ struct CycleCounter {
       c->reset();
   }
 
+  /**
+   * @brief Finds the first registered counter whose name ends with @p suffix.
+   * @param suffix Name suffix to match (e.g. "_buffer_wait").
+   * @return The counter, or nullptr if none is registered yet (counters
+   *         self-register on first scope entry).
+   */
+  static CycleCounter* find_suffix(const char* suffix) {
+    const size_t sl = strlen(suffix);
+    for (auto* c = head_; c; c = c->next) {
+      const size_t nl = strlen(c->name);
+      if (nl >= sl && memcmp(c->name + nl - sl, suffix, sl) == 0)
+        return c;
+    }
+    return nullptr;
+  }
+
 private:
   static inline CycleCounter* head_ = nullptr;   /**< Head of the intrusive registry list. */
   static inline CycleCounter* active_ = nullptr; /**< Currently active counter (for nesting). */
