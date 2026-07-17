@@ -1012,6 +1012,45 @@ private:
 };
 
 /**
+ * @brief Blend source for a palette crossfade: two baked LUTs lerped at a
+ * fixed weight.
+ */
+struct RampBlend {
+  const BakedPalette &from; /**< The w = 0 endpoint. */
+  const BakedPalette &to;   /**< The w = 1 endpoint. */
+  float w;                  /**< Blend weight in [0, 1]. */
+  /**
+   * @brief Samples both LUTs and lerps.
+   * @param t Lookup coordinate.
+   * @return The blended color at t.
+   */
+  Color4 get(float t) const { return from.get(t).lerp(to.get(t), w); }
+};
+
+/**
+ * @brief Resolves a (from, to) baked-LUT pair at one crossfade weight.
+ * @param dst Receives the resolved palette (a default-constructed unbaked
+ * instance is fine).
+ * @param arena Arena receiving the blended LUT when one is baked.
+ * @param from The w = 0 endpoint.
+ * @param to The w = 1 endpoint.
+ * @param w Blend weight.
+ * @details Weights at or beyond an endpoint alias that endpoint's LUT storage
+ * (bitwise-exact, no allocation), so crossfade boundaries are exact by
+ * construction; only 0 < w < 1 bakes a blended LUT into the arena.
+ */
+inline void bake_palette_blend(BakedPalette &dst, Arena &arena,
+                               const BakedPalette &from, const BakedPalette &to,
+                               float w) {
+  if (w <= 0.0f)
+    dst = from;
+  else if (w >= 1.0f)
+    dst = to;
+  else
+    dst.bake(arena, RampBlend{from, to, w});
+}
+
+/**
  * @brief Steps a palette cross-fade rebake for one frame.
  * @tparam Source Palette type exposing Color4 get(float) const.
  * @param wipe_pending Set when a wipe was just armed; consumes the arming frame.
