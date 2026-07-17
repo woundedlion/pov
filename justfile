@@ -106,16 +106,13 @@ teensy-gate-test:
 # Profile one effect on an attached Teensy: build the single-effect profiling
 # image (Phantasm shipping flags + HS_PROFILE cycle counters, board = segment 0
 # of 4), flash it, then capture the serial readout for `seconds` into
-# build/profile_capture.log. Pass any roster effect class name.
-[windows]
+# build/prof/<effect>_ship.log. Pass any roster effect class name.
+#
+# Delegates to profile_one.sh so every device path runs under the one host-
+# global device lock (tools/device_lock.sh) and the same header/stale-build
+# checks; flashing around it would clobber a concurrent agent's capture.
 profile effect="DisplacementField" seconds="150":
-    set "PLATFORMIO_BUILD_FLAGS=-D HS_PROFILE_TARGET={{effect}}" && pio run -e profile -t upload
-    python tools/profile_capture.py --seconds {{seconds}}
-
-[unix]
-profile effect="DisplacementField" seconds="150":
-    PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET={{effect}}" pio run -e profile -t upload
-    python tools/profile_capture.py --seconds {{seconds}}
+    bash tools/profile_one.sh {{effect}} profile {{seconds}} 32
 
 # Regenerate the PHANTASM PCB outputs into hardware/phantasm/gen/out/ (all
 # gitignored) from the COMMITTED board. It never re-runs the schematic/PCB

@@ -5,7 +5,12 @@
 # cycling effect that a preset marker appears (guards against a stale build
 # silently flashing old code — see the validation notes in the skill). On a
 # marker/header mismatch it wipes the env build dir and retries once.
+#
+# Takes the host-global device lock (tools/device_lock.sh) around the whole
+# build+flash+capture, so concurrent agents queue instead of clobbering each
+# other. HS_DEVICE_WAIT=<s> to queue rather than fail fast when it is busy.
 set -e
+. "$(dirname "$0")/device_lock.sh"
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
 EXTRA="$*"
 TAG=$([ "$ENV" = "profile_o3" ] && echo o3 || echo ship)
@@ -45,6 +50,12 @@ verify() {
   fi
   return 0
 }
+
+# ETA covers a clean rebuild + the capture + one retry: overshooting only
+# delays a stale-break (safe), undershooting invites a peer to evict a live
+# capture (not), and a crashed holder is reaped by the PID check regardless.
+hs_device_acquire "$EFFECT" "$ENV" $((SECONDS_ARG * 2 + 900)) || exit 1
+trap hs_device_release EXIT INT TERM
 
 capture
 if ! verify; then
