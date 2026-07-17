@@ -341,14 +341,20 @@ private:
    * (emission index < node_faces_); see resolve_hankin_slot_luts.
    * @param strap_by_slot Resolved palette LUT per class slot for strap faces.
    * @param opacity Output alpha in [0, 1].
-   * @details When the two LUT sets are identical (no strap blend in flight)
-   * the shader skips the per-fragment role select.
+   * @param strap_open_fade Alpha multiplier for strap (emission index >=
+   * node_faces_) faces, in [0, 1]. Newborn straps split former star interiors
+   * in one frame; fading their coverage in over the opening window turns that
+   * birth into a bounded reveal instead of a hard sliver pop. 1.0 outside the
+   * window is a no-op; at the angle-0 bookend the straps are zero-area, so a 0
+   * here changes no pixels and the star-face bookend stays bitwise exact.
+   * @details When the star and strap LUT sets are identical and the fade is
+   * inactive, the shader skips the per-fragment role select.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
-                 float opacity) {
+                 float opacity, float strap_open_fade = 1.0f) {
     if (mesh.vertices.is_empty() || opacity < 0.01f)
       return;
     HS_PROFILE(hk_draw_mesh);
@@ -363,7 +369,8 @@ private:
 
     SlotLutView star_view{star_by_slot};
     SlotLutView strap_view{strap_by_slot};
-    bool split = false;
+    const bool fade_straps = strap_open_fade < 1.0f;
+    bool split = fade_straps;
     for (int s = 0; s < NUM_PALETTES; ++s)
       split |= star_by_slot[s] != strap_by_slot[s];
     const int star_faces = static_cast<int>(node_faces_);
@@ -374,11 +381,13 @@ private:
           SLOT_IDENTITY, params.intensity, opacity);
     };
     auto split_shader = [&](const Vector &, Fragment &f) {
-      const SlotLutView &view =
-          static_cast<int>(f.v2) < star_faces ? star_view : strap_view;
+      const bool is_strap = static_cast<int>(f.v2) >= star_faces;
+      const SlotLutView &view = is_strap ? strap_view : star_view;
       f.color = shade_mesh_topology(f, topology.data(),
                                     static_cast<int>(topology.size()), view,
                                     SLOT_IDENTITY, params.intensity, opacity);
+      if (is_strap && fade_straps)
+        f.color.alpha *= strap_open_fade;
     };
 
     {
@@ -489,8 +498,13 @@ private:
                  const BakedPalette *strap_by_slot[NUM_PALETTES];
                  resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                           strap_by_slot, scratch_arena_b);
+                 // Reveal newborn straps over the opening window rather than
+                 // popping them into former star interiors in one frame; the
+                 // weight is exactly 0 at the angle-0 bookend and 1 past the
+                 // window, so mid-cycle draws are unchanged.
                  draw_mesh(c, mesh_, mesh_.topology, star_by_slot,
-                           strap_by_slot, opacity);
+                           strap_by_slot, opacity,
+                           strap_blend_weight(cycle_frame));
                },
                DURATION + 1, 0, ease_linear, 0, ease_linear, &anims_paused_));
   }
