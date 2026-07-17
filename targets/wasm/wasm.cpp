@@ -378,9 +378,29 @@ public:
       return false; // unreachable: name was validated above
     }
     currentEffect->init();
+    currentEffectName = name;
     hs::log("WASM: init stack HWM = %u bytes", (unsigned)stack_high_water_mark());
     stack_paint_canary();
     return true;
+  }
+
+  /**
+   * @brief Reseeds the process-wide RNG (hs::reseed) and reloads the current
+   *        effect so its init() draws from the new stream.
+   * @param seed Session seed. Hosts running multiple engine replicas must
+   *        broadcast the same value to every replica to keep their draw
+   *        streams — and therefore their frames — in sync.
+   * @details Opt-in per-session variation: never calling this keeps the default
+   *          1337 stream and byte-identical output. The constructor/setEffect()
+   *          already ran the effect's init() under the prior stream, so the
+   *          reload is what puts the seed in charge of the effect's randomness.
+   *          The reload resets any clip band; callers using a sub-canvas clip
+   *          must re-apply setClip(), as after setResolution().
+   */
+  void setSessionSeed(uint32_t seed) {
+    hs::reseed(seed);
+    if (currentEffect)
+      setEffect(currentEffectName);
   }
 
   /**
@@ -705,6 +725,7 @@ private:
   static constexpr int CHANNELS = 3;
 
   std::unique_ptr<Effect> currentEffect; /**< Currently active effect, or null. */
+  std::string currentEffectName; /**< For setSessionSeed's effect reload. */
   std::vector<uint16_t> pixelBuffer; /**< 16-bit linear RGB readback buffer. */
   std::vector<float> paramValues;    /**< Backing store for getParamValues. */
   std::vector<hs_wasm::ParamView> paramViews; /**< Scratch for getParameterDefinitions. */
@@ -1254,6 +1275,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .constructor<>()
       .function("setResolution", &HolosphereEngine::setResolution)
       .function("setEffect", &HolosphereEngine::setEffect)
+      .function("setSessionSeed", &HolosphereEngine::setSessionSeed)
       .function("drawFrame", &HolosphereEngine::drawFrame)
       .function("getPixels", &HolosphereEngine::getPixels)
       .function("getBufferLength", &HolosphereEngine::getBufferLength)
