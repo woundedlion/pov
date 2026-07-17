@@ -18,6 +18,9 @@
  *     input vertex i), so a relaxed endpoint is per-vertex slerpable.
  *   - Bridge convergence: snub(tetrahedron).relax converges to the regular
  *     icosahedron; ambo(tetrahedron) is the regular octahedron.
+ *   - Jitterbug bridge: snub(tetrahedron) at the tabled icosa point is the
+ *     regular icosahedron with no relax; at (0.5, -pi/3) its vertices merge
+ *     pairwise onto the octahedron; the clamped leg holds V12/F20/E30.
  *   - Clean-swap invisibility: truncate(seed, 0.5 - eps) vertices pairwise
  *     merge onto ambo(seed) vertices, and each parameterized op's primary
  *     faces at t = T_EPS geometrically match the seed's faces.
@@ -169,6 +172,41 @@ inline float max_edge_length_deviation(const PolyMesh &m) {
     off += c;
   }
   return worst;
+}
+
+/**
+ * @brief Newell-sum area of face fi.
+ */
+inline float poly_face_area(const PolyMesh &m, size_t fi) {
+  size_t off = 0;
+  for (size_t i = 0; i < fi; ++i)
+    off += m.face_counts[i];
+  const int n = m.face_counts[fi];
+  Vector s(0.0f, 0.0f, 0.0f);
+  for (int k = 1; k + 1 < n; ++k) {
+    const Vector e1 = m.vertices[m.faces[off + k]] - m.vertices[m.faces[off]];
+    const Vector e2 =
+        m.vertices[m.faces[off + k + 1]] - m.vertices[m.faces[off]];
+    s = s + cross(e1, e2);
+  }
+  return 0.5f * s.length();
+}
+
+/**
+ * @brief Verifies got's vertices merge pairwise onto want's: exactly two got
+ *        vertices within tol of every want vertex.
+ */
+inline void check_pairwise_vertex_cover(const PolyMesh &got,
+                                        const PolyMesh &want, float tol) {
+  HS_EXPECT_EQ(got.vertices.size(), 2 * want.vertices.size());
+  for (size_t i = 0; i < want.vertices.size(); ++i) {
+    int merged = 0;
+    for (size_t j = 0; j < got.vertices.size(); ++j) {
+      if ((got.vertices[j] - want.vertices[i]).length() <= tol)
+        ++merged;
+    }
+    HS_EXPECT_EQ(merged, 2);
+  }
 }
 
 /**
@@ -327,6 +365,128 @@ inline void test_ambo_tetrahedron_is_regular_octahedron() {
 }
 
 // ---------------------------------------------------------------------------
+// Jitterbug bridge (icosahedron <-> octahedron on the tetra snub family):
+// both endpoint parameter pins plus the clamped-leg topology sweep.
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Verifies snub(tetrahedron, T_JITTERBUG_ICOSA, TWIST_JITTERBUG_ICOSA)
+ *        is the regular icosahedron directly — 12 vertices, 20 triangles, all
+ *        30 edges equal on the unit sphere with no relax — pinning the
+ *        jitterbug bridge's icosa endpoint parameters.
+ */
+inline void test_jitterbug_icosa_point_is_regular() {
+  Arena target(morph_target_buf, sizeof(morph_target_buf));
+  Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
+
+  PolyMesh tetra;
+  build_solid<Solids::Tetrahedron>(tetra, temp);
+  PolyMesh s =
+      MeshOps::snub(tetra, target, temp, ConwayGraph::T_JITTERBUG_ICOSA,
+                    ConwayGraph::TWIST_JITTERBUG_ICOSA);
+
+  HS_EXPECT_EQ(s.vertices.size(), (size_t)12);
+  HS_EXPECT_EQ(s.face_counts.size(), (size_t)20);
+  for (size_t fi = 0; fi < s.face_counts.size(); ++fi)
+    HS_EXPECT_EQ((int)s.face_counts[fi], 3);
+  check_face_counts_consistent(s);
+  check_indices_in_range(s);
+  check_all_unit_vertices(s, 1e-3f);
+  HS_EXPECT_LE(max_edge_length_deviation(s), 1e-5f);
+}
+
+/**
+ * @brief Verifies the jitterbug octa endpoint snub(tetrahedron, 0.5, -pi/3):
+ *        the 12 vertices merge pairwise onto the registry octahedron's 6 and
+ *        exactly the 12 edge-orbit faces are zero-area (the SDF zero-area cull
+ *        hides them, so the clean swap to the held octahedron changes no
+ *        pixels).
+ */
+inline void test_jitterbug_octa_end_covers_octahedron() {
+  Arena target(morph_target_buf, sizeof(morph_target_buf));
+  Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
+  Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+
+  PolyMesh tetra;
+  build_solid<Solids::Tetrahedron>(tetra, temp);
+  PolyMesh s = MeshOps::snub(tetra, target, temp, 0.5f,
+                             ConwayGraph::TWIST_JITTERBUG_OCTA);
+  PolyMesh octa;
+  build_solid<Solids::Octahedron>(octa, aux);
+
+  check_pairwise_vertex_cover(s, octa, 1e-4f);
+
+  // Emission order: 4 primary + 4 vertex-orbit faces (the octahedron's 8),
+  // then the 12 collapsed edge-orbit faces.
+  HS_EXPECT_EQ(s.face_counts.size(), (size_t)20);
+  int zero_area = 0;
+  for (size_t fi = 0; fi < s.face_counts.size(); ++fi) {
+    const float a = poly_face_area(s, fi);
+    if (a < 1e-6f)
+      ++zero_area;
+    else
+      HS_EXPECT_GT(a, 0.5f); // equilateral sqrt(2)-side triangle: ~0.866
+    if (fi < 8)
+      HS_EXPECT_GT(a, 0.5f);
+  }
+  HS_EXPECT_EQ(zero_area, 12);
+}
+
+/**
+ * @brief Verifies the jitterbug leg exactly as ConwayMorph runs it — t from
+ *        the icosa point to the T_EPS_JITTERBUG clamp with the tabled twist
+ *        endpoints — holds constant V12/F20/E30 closed genus-0 topology,
+ *        >= 3-side faces, and unit vertices, with the collapsing edge never
+ *        shorter than the clamp chord (spec section 7.2 for the new edge).
+ */
+inline void test_jitterbug_sweep_holds_topology() {
+  constexpr int SAMPLES = 17;
+  Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+  PolyMesh tetra;
+  build_solid<Solids::Tetrahedron>(tetra, aux);
+
+  for (int s = 0; s < SAMPLES; ++s) {
+    const float k = static_cast<float>(s) / (SAMPLES - 1);
+    const float t =
+        ConwayGraph::T_JITTERBUG_ICOSA +
+        (ConwayGraph::T_EPS_JITTERBUG - ConwayGraph::T_JITTERBUG_ICOSA) * k;
+    const float twist = ConwayGraph::TWIST_JITTERBUG_ICOSA +
+                        (ConwayGraph::TWIST_JITTERBUG_OCTA -
+                         ConwayGraph::TWIST_JITTERBUG_ICOSA) *
+                            k;
+
+    Arena target(morph_target_buf, sizeof(morph_target_buf));
+    Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
+    PolyMesh out = MeshOps::snub(tetra, target, temp, t, twist);
+
+    HS_EXPECT_EQ(out.vertices.size(), (size_t)12);
+    HS_EXPECT_EQ(out.face_counts.size(), (size_t)20);
+    HS_EXPECT_EQ(out.faces.size(), (size_t)60); // E = I / 2 = 30
+    for (size_t fi = 0; fi < out.face_counts.size(); ++fi)
+      HS_EXPECT_TRUE(out.face_counts[fi] >= 3);
+    check_face_counts_consistent(out);
+    check_indices_in_range(out);
+    check_all_unit_vertices(out, 1e-3f);
+    conway_tests::check_euler_genus0(out);
+
+    // The collapsing edge shrinks monotonically toward the octa end but the
+    // clamp keeps it a positive sliver.
+    float min_edge = 1e9f;
+    size_t off = 0;
+    for (size_t fi = 0; fi < out.face_counts.size(); ++fi) {
+      const int c = out.face_counts[fi];
+      for (int j = 0; j < c; ++j)
+        min_edge = std::min(
+            min_edge,
+            distance_between(out.vertices[out.faces[off + j]],
+                             out.vertices[out.faces[off + (j + 1) % c]]));
+      off += c;
+    }
+    HS_EXPECT_GE(min_edge, 0.019f);
+  }
+}
+
+// ---------------------------------------------------------------------------
 // §7.5 Clean-swap invisibility: the boundary swaps exchange geometrically
 // matching meshes.
 // ---------------------------------------------------------------------------
@@ -443,6 +603,8 @@ enum class EndRegime {
                      ambo(tetra) bridge). */
   REGULAR,      /**< Relax-canonical arrival in a walk-dependent orientation
                      (tetra -> icosa bridge). */
+  PAIR_COVER,   /**< Jitterbug octa end: vertices merge pairwise onto the node
+                     mesh's, and the edge-orbit faces are zero-area. */
 };
 
 /**
@@ -451,10 +613,13 @@ enum class EndRegime {
  * @return EXACT when op(seed, t_to) [+ relax] is the to_node registry chain;
  *         VERTEX_MATCH for arrivals off the registry seed (dual-family ambo,
  *         non-settle bridges); REGULAR for the settling bridge, whose relax
- *         orientation tracks the seed frame, not the registry icosahedron.
+ *         orientation tracks the seed frame, not the registry icosahedron;
+ *         PAIR_COVER for the jitterbug bridge's collapsed octa end.
  */
 inline EndRegime to_end_regime(const ConwayGraph::EdgeSpec &e) {
   using namespace ConwayGraph;
+  if (is_jitterbug_edge(e))
+    return EndRegime::PAIR_COVER;
   if (e.to_node == CUBOCTAHEDRON && e.seed_solid == OCTAHEDRON)
     return EndRegime::VERTEX_MATCH;
   if (e.to_node == ICOSIDODECAHEDRON && e.seed_solid == ICOSAHEDRON)
@@ -553,7 +718,9 @@ inline void test_edge_endpoints_match_registry() {
 
     // from end: t = 0 emits expanded topology, so compare op(seed, T_EPS)
     // primaries against the seed (= the from_node registry mesh); a non-zero
-    // t_from is the from_node registry chain itself.
+    // t_from is the from_node registry chain itself, except the jitterbug
+    // icosa point, which is regular in the tetra frame, not the registry
+    // orientation.
     {
       Arena oa(morph_temp_buf, HALF);
       Arena ob(morph_temp_buf + HALF, HALF);
@@ -568,7 +735,10 @@ inline void test_edge_endpoints_match_registry() {
         Arena rb(morph_target_buf + HALF, HALF);
         PolyMesh want = Solids::simple_registry[e.from_node].generate(ra, rb);
         PolyMesh got = run_edge_op(e, seed, oa, ob, e.t_from, e.twist_from);
-        check_exactly_equal(got, want);
+        if (ConwayGraph::is_jitterbug_edge(e))
+          check_regular_form(got, want, 1e-4f);
+        else
+          check_exactly_equal(got, want);
       }
     }
 
@@ -593,6 +763,9 @@ inline void test_edge_endpoints_match_registry() {
         break;
       case EndRegime::REGULAR:
         check_regular_form(got, want, 0.02f);
+        break;
+      case EndRegime::PAIR_COVER:
+        check_pairwise_vertex_cover(got, want, 1e-4f);
         break;
       case EndRegime::EPS_PRIMARY:
         break; // from-end-only regime
@@ -619,13 +792,17 @@ constexpr int SWEEP_SAMPLES = 16;
  * @param e Edge to clamp.
  * @param t_lo Out: max(t_from, T_EPS).
  * @param t_hi Out: t_to, additionally capped at 0.5 - T_EPS on truncate legs
- *        (the ambo short-circuit changes emission order and face count).
+ *        (the ambo short-circuit changes emission order and face count) and
+ *        held at T_EPS_JITTERBUG on the jitterbug bridge (the t = 0.5 end is
+ *        the pairwise-merged octahedron).
  */
 inline void edge_sweep_interval(const ConwayGraph::EdgeSpec &e, float &t_lo,
                                 float &t_hi) {
   t_lo = std::max(e.t_from, T_EPS);
   t_hi = e.op == ConwayGraph::MorphOp::TRUNCATE ? std::min(e.t_to, 0.5f - T_EPS)
                                                 : e.t_to;
+  if (ConwayGraph::is_jitterbug_edge(e))
+    t_hi = std::max(t_hi, ConwayGraph::T_EPS_JITTERBUG);
 }
 
 /**
@@ -870,7 +1047,10 @@ inline void test_ordered_tour_full_coverage_and_wrap() {
 
     const bool reverse = EDGES[e].to_node == node;
     const int arrived = reverse ? EDGES[e].from_node : EDGES[e].to_node;
-    if (EDGES[e].reseed == Reseed::ADOPT && is_platonic(arrived) && !reverse)
+    // ADOPT stores every platonic arrival as the held seed, reverse legs
+    // included (the jitterbug's octa -> icosa leg adopts the canonical
+    // icosahedron; reverse tetra arrivals re-adopt the already-held tetra).
+    if (EDGES[e].reseed == Reseed::ADOPT && is_platonic(arrived))
       held = arrived;
     node = arrived;
     prev = e;
@@ -911,6 +1091,10 @@ inline int run_conway_morph_tests() {
 
   test_snub_tetrahedron_relax_converges_to_icosahedron();
   test_ambo_tetrahedron_is_regular_octahedron();
+
+  test_jitterbug_icosa_point_is_regular();
+  test_jitterbug_octa_end_covers_octahedron();
+  test_jitterbug_sweep_holds_topology();
 
   test_truncate_near_half_merges_onto_ambo();
   test_ops_at_t_eps_primary_faces_match_seed();

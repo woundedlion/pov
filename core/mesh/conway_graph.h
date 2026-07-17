@@ -137,6 +137,15 @@ inline constexpr float SNUB_DODECAHEDRON_TWIST = 0.0f;
  * renders: -0.40 cuts the settle rotation from 23.4 to 17.3 degrees). */
 inline constexpr float SNUB_BRIDGE_TWIST = -0.40f;
 
+/** Jitterbug icosa point: snub(tetrahedron, t, twist) at these values is the
+ * exact regular icosahedron — all 30 edges equal with no relax (double-refined
+ * t = 0.7299092432622736, twist = -0.3881395153701886). */
+inline constexpr float T_JITTERBUG_ICOSA = 0.72990924f;
+inline constexpr float TWIST_JITTERBUG_ICOSA = -0.38813952f;
+/** Jitterbug octa twist: snub(tetrahedron, 0.5, -pi/3) merges its 12 vertices
+ * pairwise onto the octahedron's 6 (the jitterbug closure). */
+inline constexpr float TWIST_JITTERBUG_OCTA = -PI_F / 3.0f;
+
 /** Truncation parameter of the truncated cube. */
 inline constexpr float T_TRUNC_CUBE = 1.0f / (2.0f + SQRT2);
 /** Truncation parameter of the truncated tetra/octa/icosahedron. */
@@ -163,7 +172,7 @@ struct EdgeSpec {
   bool bridge;      /**< Crosses symmetry families (walk weighting). */
 };
 
-/** The 22 v1 edges (spec section 3); every simple-registry solid is a node. */
+/** The 23 edges (spec section 3); every simple-registry solid is a node. */
 inline constexpr EdgeSpec EDGES[] = {
     // Octahedral family (seed: cube, octahedron)
     {CUBE, TRUNCATED_CUBE, CUBE, MorphOp::TRUNCATE, 0.0f, T_TRUNC_CUBE, 0.0f,
@@ -215,10 +224,15 @@ inline constexpr EdgeSpec EDGES[] = {
      T_TRUNC_THIRD, 0.5f, 0.0f, 0.0f, false, Reseed::ADOPT, true},
     {TETRAHEDRON, ICOSAHEDRON, TETRAHEDRON, MorphOp::SNUB, 0.0f, 0.5f, 0.0f,
      SNUB_BRIDGE_TWIST, true, Reseed::ADOPT, true},
+    // Jitterbug bridge: a snub sweep between two interior parameter points,
+    // the exact regular icosahedron and the pairwise-merged octahedron.
+    {ICOSAHEDRON, OCTAHEDRON, TETRAHEDRON, MorphOp::SNUB, T_JITTERBUG_ICOSA,
+     0.5f, TWIST_JITTERBUG_ICOSA, TWIST_JITTERBUG_OCTA, false, Reseed::ADOPT,
+     true},
 };
 
 inline constexpr int NUM_EDGES = static_cast<int>(std::size(EDGES));
-static_assert(NUM_EDGES == 22);
+static_assert(NUM_EDGES == 23);
 
 /**
  * @brief Whether an edge is the icosahedron <-> octahedron jitterbug bridge:
@@ -230,7 +244,8 @@ constexpr bool is_jitterbug_edge(const EdgeSpec &e) {
   return e.op == MorphOp::SNUB && e.to_node == OCTAHEDRON;
 }
 
-/** Largest node degree in the table (cuboctahedron, icosidodecahedron). */
+/** Largest node degree in the table (cuboctahedron, icosidodecahedron,
+ * octahedron). */
 inline constexpr int MAX_DEGREE = 5;
 
 /**
@@ -283,8 +298,8 @@ constexpr int edges_from(int node, uint8_t *out) {
 
 // Degree pins: every node is covered, the six out-and-back leaves are leaves.
 static_assert(node_degree(TETRAHEDRON) == 3);
-static_assert(node_degree(CUBE) == 4 && node_degree(OCTAHEDRON) == 4);
-static_assert(node_degree(DODECAHEDRON) == 4 && node_degree(ICOSAHEDRON) == 3);
+static_assert(node_degree(CUBE) == 4 && node_degree(OCTAHEDRON) == 5);
+static_assert(node_degree(DODECAHEDRON) == 4 && node_degree(ICOSAHEDRON) == 4);
 static_assert(node_degree(CUBOCTAHEDRON) == 5 &&
               node_degree(ICOSIDODECAHEDRON) == 5);
 static_assert(node_degree(RHOMBICUBOCTAHEDRON) == 1 &&
@@ -433,14 +448,14 @@ constexpr int pick_next_edge(int node, int prev_edge, int legs_in_family,
 }
 
 /** Deterministic profile tour: a fixed edge cycle from the tetrahedron that
- * visits all 18 nodes, traverses every settle edge and both family bridges,
+ * visits all 18 nodes, traverses every settle edge and every family bridge,
  * and returns to the tetrahedron with the registry seed state, so the cycle
  * wraps seamlessly. Replaces per-node mod arithmetic whose phases never lined
  * up with dodecahedron's rhombicosidodecahedron edge (node 15 stayed
  * uncovered indefinitely). */
 inline constexpr uint8_t ORDERED_TOUR[] = {
-    18, 20, 6,  7,  5,  5,  1,  3,  3,  4,  4, 0,  2,  8, 19,
-    21, 12, 13, 17, 17, 10, 15, 15, 16, 16, 9, 11, 14, 21};
+    18, 20, 6,  7,  5,  5,  1,  3,  3,  4,  4, 0,  2,  8,  19,
+    21, 12, 13, 17, 17, 10, 15, 15, 16, 16, 9, 11, 14, 22, 19};
 inline constexpr int ORDERED_TOUR_LEN =
     static_cast<int>(std::size(ORDERED_TOUR));
 
@@ -469,18 +484,19 @@ constexpr bool ordered_tour_valid() {
 static_assert(ordered_tour_valid());
 
 /**
- * @brief Whether ORDERED_TOUR traverses every settle edge and both family
- * bridges (the section-6 heavy legs the profile regime must exercise).
+ * @brief Whether ORDERED_TOUR traverses every settle edge and every family
+ * bridge — all three crossings: tetra <-> octa, tetra <-> icosa, and the
+ * icosa <-> octa jitterbug (the section-6 heavy legs the profile regime must
+ * exercise).
  */
 constexpr bool ordered_tour_covers_heavy_legs() {
   bool has[NUM_EDGES] = {};
   for (int i = 0; i < ORDERED_TOUR_LEN; ++i)
     has[ORDERED_TOUR[i]] = true;
   for (int e = 0; e < NUM_EDGES; ++e)
-    if (EDGES[e].settle && !has[e])
+    if ((EDGES[e].settle || EDGES[e].bridge) && !has[e])
       return false;
-  // Both family crossings: tetra <-> octa and tetra <-> icosa.
-  return has[19] && has[21];
+  return true;
 }
 static_assert(ordered_tour_covers_heavy_legs());
 
