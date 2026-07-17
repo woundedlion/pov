@@ -293,7 +293,7 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
  * @details Single source for the built-in hue-fade color math so hue_fade() and
  *          the flush() fast path that bypasses it cannot drift.
  */
-inline Pixel hue_fade_apply(const float k[9], float r, float g, float b) {
+HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g, float b) {
   LMS lms = linear_rgb_to_lms(r, g, b);
   float rr, gg, bb;
   lms_cbrt_transform_rgb(k, fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s),

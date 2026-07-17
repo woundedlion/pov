@@ -1305,6 +1305,7 @@ public:
    * upsamples it, then composites the warped previous frame, honoring the
    * segment's cylindrical clip. No-op when disabled.
    */
+  HS_O3_BEGIN
   void flush(Canvas &cv, const ScreenTrailFn &, float alpha, PassFn2D) {
     if (!enabled_) return;
 
@@ -1520,6 +1521,7 @@ public:
       });
     }
   }
+  HS_O3_END
 
   /**
    * @brief Enables or disables feedback.
@@ -1582,6 +1584,7 @@ private:
    * @param g Out: interpolated green.
    * @param b Out: interpolated blue.
    */
+  HS_O3_FN
   void sample_bilinear_prev(const Canvas &cv, float bx, float by, float &r,
                             float &g, float &b) const {
     float fy0 = std::floor(by);

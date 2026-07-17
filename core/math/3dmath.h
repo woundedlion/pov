@@ -387,7 +387,7 @@ __attribute__((always_inline)) inline float fast_atan2(float y, float x) {
  * by ONE Halley step. Peak relative error ~2.3e-5 against cbrtf for x >= 1e-6;
  * the seed degrades in the denormal/tiny-normal tail.
  */
-inline float fast_cbrt(float x) {
+HS_O3_FN inline float fast_cbrt(float x) {
   if (x <= 0.0f)
     return 0.0f;
   uint32_t i;
