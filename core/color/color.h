@@ -531,7 +531,7 @@ struct LinRGB { float r, g, b; };
  * @details Shared by linear_rgb_to_oklab and hue_rotate; each applies its own
  * cube-root (exact cbrtf vs fast_cbrt) then calls lms_to_oklab.
  */
-inline LMS linear_rgb_to_lms(float r, float g, float b) {
+HS_O3_FN inline LMS linear_rgb_to_lms(float r, float g, float b) {
   return {0.4122214708f * r + 0.5363325363f * g + 0.0514459929f * b,
           0.2119034982f * r + 0.6806995451f * g + 0.1073969566f * b,
           0.0883024619f * r + 0.2817188376f * g + 0.6299787005f * b};
@@ -546,7 +546,7 @@ inline LMS linear_rgb_to_lms(float r, float g, float b) {
  * @details Takes the already-cube-rooted triple so the caller picks the
  * cube-root flavour.
  */
-inline OKLab lms_to_oklab(float l_, float m_, float s_) {
+HS_O3_FN inline OKLab lms_to_oklab(float l_, float m_, float s_) {
   return {0.2104542553f * l_ + 0.7936177850f * m_ - 0.0040720468f * s_,
           1.9779984951f * l_ - 2.4285922050f * m_ + 0.4505937099f * s_,
           0.0259040371f * l_ + 0.7827717662f * m_ - 0.8086757660f * s_};
@@ -571,7 +571,7 @@ inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
  * @param m_ Out: cube-rooted m cone response.
  * @param s_ Out: cube-rooted s cone response.
  */
-inline void oklab_to_lms_cbrt(OKLab lab, float &l_, float &m_, float &s_) {
+HS_O3_FN inline void oklab_to_lms_cbrt(OKLab lab, float &l_, float &m_, float &s_) {
   l_ = lab.L + 0.3963377774f * lab.a + 0.2158037573f * lab.b;
   m_ = lab.L - 0.1055613458f * lab.a - 0.0638541728f * lab.b;
   s_ = lab.L - 0.0894841775f * lab.a - 1.2914855480f * lab.b;
@@ -586,6 +586,7 @@ inline void oklab_to_lms_cbrt(OKLab lab, float &l_, float &m_, float &s_) {
  * @param g Out: linear green.
  * @param b Out: linear blue.
  */
+HS_O3_FN
 inline void lms_cbrt_to_linear_rgb(float l_, float m_, float s_, float &r,
                                    float &g, float &b) {
   float l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
@@ -613,7 +614,7 @@ HS_O3_FN inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b
  * @param lab Source color in OKLab space.
  * @return The linear-RGB triple (may exit gamut before clamping).
  */
-inline LinRGB oklab_to_linear_rgb(OKLab lab) {
+HS_O3_FN inline LinRGB oklab_to_linear_rgb(OKLab lab) {
   LinRGB rgb;
   oklab_to_linear_rgb(lab, rgb.r, rgb.g, rgb.b);
   return rgb;
@@ -645,7 +646,7 @@ HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
  * in-gamut floor for L in [0,1]); s = 1 is the input. 16 bisections pin s below
  * one 16-bit output quantum.
  */
-inline OKLab gamut_clip_preserve_chroma(OKLab lab) {
+HS_O3_FN inline OKLab gamut_clip_preserve_chroma(OKLab lab) {
   // The s=0 achromatic floor is in gamut only for L in [0,1]; an out-of-range L
   // would leave even the floor out of gamut and return a non-gamut color.
   lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
@@ -729,6 +730,7 @@ inline void hue_rotate_lms_matrix(float ca, float sa, float k[9]) {
  * @details In-gamut colors never leave cbrt-LMS; the OKLab form is recomputed
  * only on the chroma-clip slow path.
  */
+HS_O3_FN
 inline void lms_cbrt_transform_rgb(const float k[9], float l_, float m_,
                                    float s_, float &r, float &g, float &b) {
   float ul = k[0] * l_ + k[1] * m_ + k[2] * s_;
@@ -748,7 +750,7 @@ inline void lms_cbrt_transform_rgb(const float k[9], float l_, float m_,
  * @details Clamps, then rounds (+0.5f) rather than truncating; truncation
  * would bias every channel down by up to ~1/65535.
  */
-inline uint16_t float_to_pixel16(float v) {
+HS_O3_FN inline uint16_t float_to_pixel16(float v) {
   return static_cast<uint16_t>(hs::clamp(v, 0.0f, 1.0f) * 65535.0f + 0.5f);
 }
 
