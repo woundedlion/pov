@@ -358,6 +358,13 @@ public:
       return false;
     }
 
+    // Per-load RNG stream, mirroring the device's per-epoch reseed: load 0
+    // (the constructor's bootstrap effect) keeps the identity 1337 stream;
+    // each later load derives a fresh seed. Replica-safe with no protocol
+    // change — workers process identical message streams, so their counters
+    // agree by construction.
+    hs::random().seed(hs::epoch_seed(effectLoads++));
+
     currentEffect.reset();
     // Configured before construction; effect constructors must not allocate from
     // the engine arenas (Teensy configures after construction — see Phantasm.ino).
@@ -710,6 +717,8 @@ private:
   std::vector<hs_wasm::ParamView> paramViews; /**< Scratch for getParameterDefinitions. */
   int pixel_width = 0;  /**< Active canvas width in pixels. */
   int pixel_height = 0; /**< Active canvas height in pixels. */
+  uint32_t effectLoads = 0; /**< Effect loads so far; epoch for the per-load
+                                 RNG seed (0 = the constructor's bootstrap). */
 };
 
 // ==========================================================================================
