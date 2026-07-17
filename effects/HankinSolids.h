@@ -72,6 +72,7 @@ public:
     });
     node_ = ConwayGraph::TETRAHEDRON;
     seed_identity_ = ConwayGraph::TETRAHEDRON;
+    ConwayGraph::record_visit(node_visits_, node_);
 
     MeshPaletteBank::shuffle_indices(palette_idx_);
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
@@ -333,7 +334,7 @@ private:
 #ifdef HS_PROFILE_ORDERED_CYCLE
     cur_edge_ = pick_next_edge_ordered(node_, cur_edge_, leg_counter_++);
 #else
-    cur_edge_ = pick_next_edge(node_, cur_edge_, legs_in_family_,
+    cur_edge_ = pick_next_edge(node_, cur_edge_, legs_in_family_, node_visits_,
                                static_cast<uint32_t>(hs::random()()));
 #endif
     const EdgeSpec &e = EDGES[cur_edge_];
@@ -430,6 +431,7 @@ private:
       legs_in_family_ = 0;
     else
       ++legs_in_family_;
+    record_visit(node_visits_, arrived);
     node_ = arrived;
     hs::log("Loading shape: '%s'", Solids::simple_registry[node_].name);
 
@@ -515,6 +517,8 @@ private:
   bool reverse_ = false;      /**< In-flight leg runs to_node -> from_node. */
   int legs_in_family_ =
       0; /**< Legs since the last family change (walk weighting). */
+  uint8_t node_visits_[ConwayGraph::NUM_NODES] =
+      {}; /**< Aged per-node visit counts (walk recency weighting). */
   uint32_t leg_counter_ = 0; /**< Monotonic leg count (ordered-cycle picks). */
   const Animation::ConwayMorph::Landing *pending_landing_ =
       nullptr; /**< In-flight leg's arrival data (leg-arena backed). */
