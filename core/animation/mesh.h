@@ -445,13 +445,10 @@ public:
       const BakedPalette &from = tr.bank->entries[tr.ramp_from[r]];
       const BakedPalette &to = tr.bank->entries[tr.ramp_to[r]];
       new (&ramps[r]) BakedPalette();
-      if (w <= 0.0f) {
-        ramps[r] = from;
-      } else if (w >= 1.0f || tr.ramp_from[r] == tr.ramp_to[r]) {
+      if (tr.ramp_from[r] == tr.ramp_to[r])
         ramps[r] = to;
-      } else {
-        ramps[r].bake(scratch_arena_b, RampBlend{from, to, w});
-      }
+      else
+        bake_palette_blend(ramps[r], scratch_arena_b, from, to, w);
     }
 
     Shading sh{ramps, tr.face_ramp.data(), tr.face_ramp.size()};
@@ -490,19 +487,6 @@ private:
     uint8_t ramp_to[MAX_BLEND_PAIRS] = {};   /**< Per-pair to palette. */
     int num_ramps = 0;                       /**< Distinct pair count. */
     Landing landing; /**< Arrival data exposed to the effect. */
-  };
-
-  /** Blend source: two baked LUTs lerped at the frame's weight. */
-  struct RampBlend {
-    const BakedPalette &from; /**< Inherited (mapped) ramp. */
-    const BakedPalette &to;   /**< Leg target ramp. */
-    float w;                  /**< Blend weight in [0, 1]. */
-    /**
-     * @brief Samples both LUTs and lerps.
-     * @param t Lookup coordinate.
-     * @return The blended color at t.
-     */
-    Color4 get(float t) const { return from.get(t).lerp(to.get(t), w); }
   };
 
   /**
