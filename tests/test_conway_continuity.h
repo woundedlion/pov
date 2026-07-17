@@ -26,11 +26,11 @@
  *     deterministic; the crossfade is exact at its endpoints — the first sweep
  *     frame (w = 0) shades every surviving face from its inherited palette,
  *     the last (w = 1) from the leg's landed target assignment.
- *   - Strap-slot crossfade across cycle starts: a strap-bearing slot opens on
- *     the color it displayed in the previous cycle (or an on-screen star
- *     palette when newborn) and glides to its target in bounded steps via the
- *     strap-face LUT; star faces stay bitwise on the bank entry, including on
- *     star-shared slots.
+ *   - Strap-slot crossfade across cycle starts (boot seed plus an eight-seed
+ *     epoch sweep): a strap-bearing slot opens on the color it displayed in
+ *     the previous cycle (or an on-screen star palette when newborn) and
+ *     glides to its target in bounded steps via the strap-face LUT; star
+ *     faces stay bitwise on the bank entry, including on star-shared slots.
  */
 #pragma once
 
@@ -1600,6 +1600,46 @@ inline void test_strap_crossfade_across_cycle_start() {
   HS_EXPECT_GT(st.far_pairs, 0);
 }
 
+/** Epoch seeds for the seed-swept strap pin. Every seed's walk is
+ * deterministic; 3 and 8 reach the truncatedIcosidodecahedron (the one
+ * roster node whose mod-5 wrap puts star faces in all five slots) by arrival
+ * 18, and 13 and 15 by arrival 26, so the sweep always exercises star-shared
+ * far pairs. */
+constexpr uint32_t STRAP_SWEEP_EPOCHS[] = {0, 1, 2, 3, 5, 8, 13, 15};
+
+/** Arrival budget per swept seed (frame cap scales with it). */
+constexpr int STRAP_SWEEP_ARRIVALS[] = {6, 6, 6, 18, 6, 18, 26, 26};
+
+/**
+ * @brief Seed-swept strap continuity: across eight epoch seeds, every strap
+ *        slot of every arrival opens on its previous displayed color and
+ *        glides in bounded steps — including slots shared with a star class,
+ *        whose star faces stay bitwise on the bank entry at the bookends.
+ * @details Red pre-fix: star-shared slots were exempt from arming, so their
+ *          straps reopened bitwise on the carried star palette — a full-
+ *          distance pop whenever the epoch's shuffle moved the slot (13
+ *          continuity-pin failures across the sweep, worst 65532/65535 at
+ *          epochs 3 and 15, arriving icosidodecahedron ->
+ *          truncatedIcosidodecahedron).
+ */
+inline void test_strap_crossfade_seed_swept() {
+  int shared_far = 0;
+  int shared_jump = 0;
+  for (size_t i = 0; i < std::size(STRAP_SWEEP_EPOCHS); ++i) {
+    const int want = STRAP_SWEEP_ARRIVALS[i];
+    const StrapSweepStats st = check_strap_crossfade_arrivals(
+        STRAP_SWEEP_EPOCHS[i], want, 140 * (want + 1));
+    HS_EXPECT_EQ(st.arrivals, want);
+    shared_far += st.shared_far;
+    shared_jump = std::max(shared_jump, st.shared_jump);
+  }
+  std::printf("  [strap-sweep] %d star-shared far pairs, worst would-be "
+              "shared open jump %d (crossfaded to per-frame steps)\n",
+              shared_far, shared_jump);
+  // The sweep must exercise the star-shared aliasing it exists to pin.
+  HS_EXPECT_GT(shared_far, 0);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -1628,6 +1668,7 @@ inline int run_conway_continuity_tests() {
   test_leg_start_seed_frame_continuity();
   test_palette_slots_stable_within_cycle();
   test_strap_crossfade_across_cycle_start();
+  test_strap_crossfade_seed_swept();
 
   return fixture.result();
 }
