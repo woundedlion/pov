@@ -87,7 +87,7 @@ protected:
    * @param b Second point.
    * @return Squared distance between `a` and `b`.
    */
-  static float dist2(const Vector &a, const Vector &b) {
+  HS_O3_FN static float dist2(const Vector &a, const Vector &b) {
     float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
     return dx * dx + dy * dy + dz * dz;
   }
@@ -109,9 +109,35 @@ protected:
    * cell) they feed the kernel weights directly; otherwise the kernel re-walks
    * the refined center's stencil.
    */
+  /**
+   * @brief Refines a cubemap-LUT seed to the genuine nearest node.
+   * @param rv Query direction (unit vector on the sphere).
+   * @param nodes Node positions in the same frame as `rv`, indexed by node id.
+   * @param seed Seed node id from the cubemap LUT.
+   * @return The id of the nearest node among the seed and its neighbors — the
+   * kernel center refine_and_accumulate would walk from.
+   * @details The argmin half of refine_and_accumulate, split out so a
+   * super-sampling caller can refine once per pixel and reuse the stencil
+   * across its sub-samples.
+   */
+  HS_O3_FN static int refine_center(const Vector &rv, const Vector *nodes,
+                                    int seed) {
+    float best_d2 = dist2(rv, nodes[seed]);
+    int best = seed;
+    for_each_neighbor(seed, [&](int ni) {
+      float d = dist2(rv, nodes[ni]);
+      if (d < best_d2) {
+        best_d2 = d;
+        best = ni;
+      }
+    });
+    return best;
+  }
+
   template <typename OnWeight>
-  static void refine_and_accumulate(const Vector &rv, const Vector *nodes,
-                                    int seed, OnWeight &&on_weight) {
+  HS_O3_FN static void refine_and_accumulate(const Vector &rv,
+                                             const Vector *nodes, int seed,
+                                             OnWeight &&on_weight) {
     float d2s[RD_K + 1];
     int ids[RD_K + 1];
     d2s[0] = dist2(rv, nodes[seed]);
@@ -272,8 +298,8 @@ protected:
    * total-weight guard, so this stays agnostic to species count and fixed-point.
    */
   template <typename OnWeight>
-  static void kernel_accumulate(const Vector &rv, const Vector *nodes,
-                                int center, OnWeight &&on_weight) {
+  HS_O3_FN static void kernel_accumulate(const Vector &rv, const Vector *nodes,
+                                         int center, OnWeight &&on_weight) {
     auto visit = [&](int i) {
       float u = 1.0f - dist2(rv, nodes[i]) * INV_R2;
       if (u > 0)
