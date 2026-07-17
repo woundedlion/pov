@@ -9,10 +9,10 @@
  *   - Plot::Mesh::draw (wireframe): every unique edge's projected geodesic
  *     midpoint is lit, so a dropped face-walk edge or a broken dedup surfaces
  *     here rather than as a subtle missing wireframe line.
- *   - Scan::Mesh::draw / SDF::Face (solid fill): each face's interior (centroid)
- *     is lit and a closed convex solid's faces tile the whole sphere with no
- *     holes — i.e. the per-face row/column bounding cull is conservative and
- *     never clips a row the face actually covers.
+ *   - Scan::Mesh::draw / SDF::Face (solid fill): each face's interior
+ * (centroid) is lit and a closed convex solid's faces tile the whole sphere
+ * with no holes — i.e. the per-face row/column bounding cull is conservative
+ * and never clips a row the face actually covers.
  */
 #pragma once
 
@@ -67,7 +67,9 @@ struct MeshFx : public Effect {
  * @param p Pixel to inspect.
  * @return True when all of the pixel's RGB channels are zero.
  */
-inline bool is_black(const Pixel &p) { return p.r == 0 && p.g == 0 && p.b == 0; }
+inline bool is_black(const Pixel &p) {
+  return p.r == 0 && p.g == 0 && p.b == 0;
+}
 
 /**
  * @brief Fragment shader that paints a fixed near-white.
@@ -116,8 +118,7 @@ inline bool lit_near(const MeshFx &fx, float px, float py, int r) {
  * @param fx Effect whose canvas is scanned.
  * @return Number of lit (non-black) pixels.
  */
-template <int W, int H>
-inline size_t count_lit(const MeshFx &fx) {
+template <int W, int H> inline size_t count_lit(const MeshFx &fx) {
   size_t lit = 0;
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
@@ -135,7 +136,8 @@ inline size_t count_lit(const MeshFx &fx) {
  *         interior) or the nearer endpoint distance (when it projects outside).
  * @details Used as the analytic oracle for "is this lit pixel ON some edge?":
  *          n = a×b is the arc's plane normal, asin(|v·n|) is the angle off the
- *          great circle, and a+b-span test places the projection inside the arc.
+ *          great circle, and a+b-span test places the projection inside the
+ * arc.
  */
 inline float arc_distance(const Vector &v, const Vector &a, const Vector &b) {
   const auto ang = [](const Vector &p, const Vector &q) {
@@ -170,7 +172,8 @@ inline float arc_distance(const Vector &v, const Vector &a, const Vector &b) {
  */
 inline void test_wireframe_draws_every_edge() {
   constexpr int W = 288, H = 144;
-  configure_arenas_default(); // Plot::Mesh::draw samples edges via scratch_arena_a
+  configure_arenas_default(); // Plot::Mesh::draw samples edges via
+                              // scratch_arena_a
 
   Arena seed_a(mr_seed_a, sizeof(mr_seed_a));
   Arena seed_b(mr_seed_b, sizeof(mr_seed_b));
@@ -213,8 +216,9 @@ inline void test_wireframe_draws_every_edge() {
  *          world direction and must fall within ~a few pixels (angular) of the
  *          nearest edge's analytic great-circle arc. A misprojected sample, a
  *          stray seam-wrap plot, or an edge routed to the wrong vertices would
- *          leave lit pixels off every arc and fail here — exactly the off-by-one
- *          / projection class the "nonempty subset" check (above) passes through.
+ *          leave lit pixels off every arc and fail here — exactly the
+ * off-by-one / projection class the "nonempty subset" check (above) passes
+ * through.
  */
 inline void test_wireframe_pixels_lie_on_edges() {
   constexpr int W = 288, H = 144;
@@ -331,8 +335,8 @@ inline void test_solid_fill_covers_faces_and_tiles_sphere() {
   HS_EXPECT_GT(fill_lit, wire_lit * 4);
 
   // A closed convex solid tiles the whole sphere: every pixel center lands in
-  // some face, so the fill covers the canvas with no holes. Any dark pixel is an
-  // edge hole or a clipping artifact.
+  // some face, so the fill covers the canvas with no holes. Any dark pixel is
+  // an edge hole or a clipping artifact.
   const size_t total = static_cast<size_t>(W) * H;
   HS_EXPECT_EQ(fill_lit, total);
 }
@@ -404,7 +408,8 @@ inline void check_wireframe_pixels_on_edges(PolyMesh &mesh, Arena &geom,
  * @param scratch Arena for the solid scan path.
  */
 template <int W, int H>
-inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom, Arena &scratch) {
+inline void check_solid_fill_tiles(PolyMesh &poly, Arena &geom,
+                                   Arena &scratch) {
   configure_arenas_default();
   MeshState mesh;
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
@@ -514,15 +519,20 @@ inline void test_clip_band_matches_full() {
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
     MeshFx full(W, H);
-    { Canvas c(full); Pipeline<W, H> pipe;
-      Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch); }
+    {
+      Canvas c(full);
+      Pipeline<W, H> pipe;
+      Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch);
+    }
     full.advance_display();
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x)
         ref[static_cast<size_t>(y) * W + x] = full.get_pixel(x, y);
   }
 
-  struct Band { int y0, y1, x0, x1; };
+  struct Band {
+    int y0, y1, x0, x1;
+  };
   const Band bands[] = {
       {0, 72, 0, 144},     // top-left quadrant (north pole + x=0 seam)
       {72, 144, 144, 288}, // bottom-right quadrant (south pole + x=144)
@@ -532,8 +542,11 @@ inline void test_clip_band_matches_full() {
   for (const Band &b : bands) {
     MeshFx fx(W, H); // one live Effect at a time; ref captured above
     fx.set_clip(b.y0, b.y1, b.x0, b.x1);
-    { Canvas c(fx); Pipeline<W, H> pipe;
-      Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch); }
+    {
+      Canvas c(fx);
+      Pipeline<W, H> pipe;
+      Scan::Mesh::draw<W, H>(pipe, c, mesh, white, scratch);
+    }
     fx.advance_display();
     size_t mismatches = 0;
     for (int y = b.y0; y < b.y1; ++y)
@@ -653,18 +666,21 @@ inline void shade_by_distance(const Vector &, Fragment &f) {
  * Frame-budget-tight deltas are the offline visual gate's job (400-frame
  * dump), not this smoke's.
  */
-inline void check_class_lut_render_matches_exact(const MeshState &mesh,
-                                                 const MeshOps::MeshClassBake &bake,
-                                                 uint32_t min_lut_hits,
-                                                 const char *label) {
+inline void
+check_class_lut_render_matches_exact(const MeshState &mesh,
+                                     const MeshOps::MeshClassBake &bake,
+                                     uint32_t min_lut_hits, const char *label) {
   constexpr int W = 288, H = 144;
   Arena scratch(mr_scratch, sizeof(mr_scratch));
 
   std::vector<Pixel> ref(static_cast<size_t>(W) * H);
   {
     MeshFx exact(W, H);
-    { Canvas c(exact); Pipeline<W, H> pipe;
-      Scan::Mesh::draw<W, H>(pipe, c, mesh, shade_by_distance, scratch); }
+    {
+      Canvas c(exact);
+      Pipeline<W, H> pipe;
+      Scan::Mesh::draw<W, H>(pipe, c, mesh, shade_by_distance, scratch);
+    }
     exact.advance_display();
     for (int y = 0; y < H; ++y)
       for (int x = 0; x < W; ++x)
@@ -673,9 +689,12 @@ inline void check_class_lut_render_matches_exact(const MeshState &mesh,
 
   hs::g_scan_metrics.reset();
   MeshFx lutted(W, H);
-  { Canvas c(lutted); Pipeline<W, H> pipe;
+  {
+    Canvas c(lutted);
+    Pipeline<W, H> pipe;
     Scan::Mesh::draw<W, H>(pipe, c, mesh, shade_by_distance, scratch,
-                           /*debug_bb=*/false, &bake); }
+                           /*debug_bb=*/false, &bake);
+  }
   lutted.advance_display();
 
   // The LUT path actually served a meaningful share of the probes.
@@ -758,8 +777,8 @@ inline void test_class_lut_render_matches_exact_rippled() {
 }
 
 /**
- * @brief Scalar snapshot of one class-bake's budget accounting, copied out so it
- *        survives the arena reset the next bake performs.
+ * @brief Scalar snapshot of one class-bake's budget accounting, copied out so
+ * it survives the arena reset the next bake performs.
  */
 struct BakeAccounting {
   uint16_t luts_built, degraded, dropped_cls, dropped_faces, lowq, lut_faces;
@@ -786,9 +805,8 @@ inline BakeAccounting bake_with_budget(size_t idx, float pixel_scale,
   MeshOps::compile(poly, mesh, geom, scratch_arena_a);
   MeshOps::classify_faces_by_topology(mesh, seed_a, seed_b, geom);
   MeshOps::MeshClassBake bake;
-  MeshOps::build_mesh_class_bake(mesh, seed_a, geom,
-                                 pixel_scale * (2.0f * PI_F / W), bake,
-                                 budget_bytes);
+  MeshOps::build_mesh_class_bake(
+      mesh, seed_a, geom, pixel_scale * (2.0f * PI_F / W), bake, budget_bytes);
   BakeAccounting a{};
   a.luts_built = bake.luts_built;
   a.degraded = bake.degraded_classes;
@@ -827,7 +845,8 @@ inline void test_class_bake_budget_accounting() {
 
   BakeAccounting full = bake_with_budget(0, 1.0f, MeshOps::CLASS_LUT_BUDGET);
   BakeAccounting none = bake_with_budget(0, 1.0f, 0);
-  BakeAccounting fine_full = bake_with_budget(0, 0.25f, MeshOps::CLASS_LUT_BUDGET);
+  BakeAccounting fine_full =
+      bake_with_budget(0, 0.25f, MeshOps::CLASS_LUT_BUDGET);
   BakeAccounting fine_tight = bake_with_budget(0, 0.25f, min_lut);
   BakeAccounting fine_none = bake_with_budget(0, 0.25f, 0);
 

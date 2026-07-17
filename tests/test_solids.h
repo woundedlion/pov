@@ -49,13 +49,15 @@ inline uint8_t solids_scratch_a[4 * 1024 * 1024];
 inline uint8_t solids_scratch_b[4 * 1024 * 1024];
 
 // ---------------------------------------------------------------------------
-// Structural invariants. check_face_counts_consistent(), check_indices_in_range(),
-// and the unit-sphere check (check_all_unit_vertices) live in
-// tests/mesh_test_util.h; the rest are specific to the registry path here.
+// Structural invariants. check_face_counts_consistent(),
+// check_indices_in_range(), and the unit-sphere check (check_all_unit_vertices)
+// live in tests/mesh_test_util.h; the rest are specific to the registry path
+// here.
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Asserts every vertex coordinate is finite (no NaN/Inf from the generators).
+ * @brief Asserts every vertex coordinate is finite (no NaN/Inf from the
+ * generators).
  * @param m Mesh whose vertex coordinates are checked.
  */
 inline void check_all_finite(const PolyMesh &m) {
@@ -90,7 +92,8 @@ inline void check_basic(const PolyMesh &m) {
 }
 
 /**
- * @brief Builds a registry entry by index, finalizing into the supplied geometry arena.
+ * @brief Builds a registry entry by index, finalizing into the supplied
+ * geometry arena.
  * @param index Registry entry index to build.
  * @param geom Geometry arena that holds the finalized mesh.
  * @return The finalized PolyMesh for the entry.
@@ -144,7 +147,8 @@ inline void test_catalan_registry_solids_are_spherical_and_valid() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Verifies every Islamic-pattern entry builds to a structurally valid mesh.
+ * @brief Verifies every Islamic-pattern entry builds to a structurally valid
+ * mesh.
  * @details No sphere assertion (hankin/expand may move points off the sphere).
  *          Islamic indices follow the simple + Catalan blocks in the registry.
  */
@@ -236,9 +240,12 @@ inline void check_euler_for_index(size_t index, int expected_V = -1,
   int F = static_cast<int>(he.faces.size());
   HS_EXPECT_EQ(V - E + F, 2);
 
-  if (expected_V >= 0) HS_EXPECT_EQ(V, expected_V);
-  if (expected_E >= 0) HS_EXPECT_EQ(E, expected_E);
-  if (expected_F >= 0) HS_EXPECT_EQ(F, expected_F);
+  if (expected_V >= 0)
+    HS_EXPECT_EQ(V, expected_V);
+  if (expected_E >= 0)
+    HS_EXPECT_EQ(E, expected_E);
+  if (expected_F >= 0)
+    HS_EXPECT_EQ(F, expected_F);
 }
 
 /**
@@ -271,17 +278,17 @@ inline void test_euler_platonic_solids() {
  * @brief Verifies every Archimedean and Catalan entry is a closed 2-manifold
  *        (V-E+F==2).
  * @details Extends the topological oracle over the two spherical families
- *          between the Platonic block and the Islamic block. Archimedean indices
- *          follow the Platonic block inside the simple registry; Catalan indices
+ *          between the Platonic block and the Islamic block. Archimedean
+ * indices follow the Platonic block inside the simple registry; Catalan indices
  *          follow the whole simple block. Exact per-entry counts are not pinned
- *          here — the Euler invariant catches a generator regression that opens a
- *          seam, drops a face, or duplicates geometry.
+ *          here — the Euler invariant catches a generator regression that opens
+ * a seam, drops a face, or duplicates geometry.
  */
 inline void test_euler_archimedean_catalan_solids() {
   const size_t archimedean_base =
       Solids::Collections::get_platonic_solids().size();
-  for (size_t k = 0;
-       k < Solids::Collections::get_archimedean_solids().size(); ++k)
+  for (size_t k = 0; k < Solids::Collections::get_archimedean_solids().size();
+       ++k)
     check_euler_for_index(archimedean_base + k);
 
   const size_t catalan_base = Solids::Collections::get_simple_solids().size();
@@ -290,21 +297,21 @@ inline void test_euler_archimedean_catalan_solids() {
 }
 
 /**
- * @brief Verifies every Islamic-pattern entry is a closed 2-manifold (V-E+F==2).
+ * @brief Verifies every Islamic-pattern entry is a closed 2-manifold
+ * (V-E+F==2).
  * @details Stronger than test_islamic_registry_solids_are_valid's check_basic
  *          (finite / consistent / in-range), which a wrong-but-self-consistent
  *          generator still passes. Despite the cautious "may yield open meshes"
  *          note on the structural test above, every entry currently in the
- *          registry closes (verified across all of them), so the Euler oracle is
- *          enforceable and catches a generator regression that opens a seam,
- *          drops a face, or duplicates geometry — the topological equivalent of
- *          the exact V/E/F oracle the Platonic solids get. Exact per-entry counts
- *          are deliberately NOT pinned: the pattern generators are actively
- *          tuned, so a golden count would invert the signal (every intentional
- *          retune reds the test) the way test_effects.h rejects golden-frame
- *          hashing; the Euler invariant is the stable altitude. If a future entry
- *          is intentionally open, exclude it here with a comment rather than
- *          weakening the check for all.
+ *          registry closes (verified across all of them), so the Euler oracle
+ * is enforceable and catches a generator regression that opens a seam, drops a
+ * face, or duplicates geometry — the topological equivalent of the exact V/E/F
+ * oracle the Platonic solids get. Exact per-entry counts are deliberately NOT
+ * pinned: the pattern generators are actively tuned, so a golden count would
+ * invert the signal (every intentional retune reds the test) the way
+ * test_effects.h rejects golden-frame hashing; the Euler invariant is the
+ * stable altitude. If a future entry is intentionally open, exclude it here
+ * with a comment rather than weakening the check for all.
  */
 inline void test_islamic_registry_solids_are_closed() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
@@ -318,7 +325,8 @@ inline void test_islamic_registry_solids_are_closed() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Verifies the last valid registry index builds correctly (range boundary).
+ * @brief Verifies the last valid registry index builds correctly (range
+ * boundary).
  * @details Out-of-range get_entry() and unknown get_by_name() TRAP (fail-fast),
  *          so those error paths can't be exercised without death-test
  *          infrastructure; only the valid boundary is checked here.
@@ -352,12 +360,13 @@ inline void test_get_by_name_known_returns_that_solid() {
 }
 
 /**
- * @brief Verifies registry names are globally unique and index/name lookups agree.
+ * @brief Verifies registry names are globally unique and index/name lookups
+ * agree.
  * @details The WASM picker enumerates solids by global index but builds them by
  *          first-name match, so a name duplicated across the three registries
  *          would make those two paths silently diverge. Assert every name is
- *          distinct and that find_entry(get_entry(i).name) resolves back to that
- *          same entry.
+ *          distinct and that find_entry(get_entry(i).name) resolves back to
+ * that same entry.
  */
 inline void test_registry_names_unique_and_roundtrip() {
   for (int i = 0; i < Solids::NUM_ENTRIES; ++i) {
@@ -425,8 +434,8 @@ inline void test_determinism_archimedean_with_conway_ops() {
  * @details The Islamic generators are the deepest Conway-op chains — the most
  *          likely to introduce order/RNG-dependent nondeterminism — and a
  *          nondeterministic op might be reached only by a later entry, not the
- *          first. So this re-builds and diffs every islamic index (mirroring the
- *          registry-integrity loops above), not just the first.
+ *          first. So this re-builds and diffs every islamic index (mirroring
+ * the registry-integrity loops above), not just the first.
  */
 inline void test_determinism_complex_islamic() {
   const size_t base = Solids::Collections::get_simple_solids().size() +
@@ -439,11 +448,11 @@ inline void test_determinism_complex_islamic() {
 // High-water regression at the real shipping arena configuration.
 //
 // IslamicStars::spawn_shape builds each recipe through a 114 KB / 80 KB scratch
-// pair that ping-pongs WITHOUT resetting between ops, so a recipe chain's peak is
-// its high-water mark. Over-budget would otherwise surface only as a device-only
-// OOM trap. Scratch is flat POD whose only host/device delta (64-bit pointers)
-// can only make the host figure larger, so the host high-water mark is a
-// conservative upper bound on the device figure.
+// pair that ping-pongs WITHOUT resetting between ops, so a recipe chain's peak
+// is its high-water mark. Over-budget would otherwise surface only as a
+// device-only OOM trap. Scratch is flat POD whose only host/device delta
+// (64-bit pointers) can only make the host figure larger, so the host
+// high-water mark is a conservative upper bound on the device figure.
 // ---------------------------------------------------------------------------
 
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
@@ -555,12 +564,13 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
   }
 
   const size_t peak = palette_bytes + worst_pair;
-  std::printf("  [islamic persistent] palette=%zu B, worst slot=%zu B (idx %zu, "
-              "V=%zu F=%zu), worst adj pair=%zu B (idx %zu+%zu), peak=%zu B / "
-              "budget=%zu B\n",
-              palette_bytes, worst_slot, worst_k, worst_v, worst_f, worst_pair,
-              worst_pair_i, (worst_pair_i + 1) % N, peak,
-              (size_t)ISLAMIC_PERSISTENT_BUDGET);
+  std::printf(
+      "  [islamic persistent] palette=%zu B, worst slot=%zu B (idx %zu, "
+      "V=%zu F=%zu), worst adj pair=%zu B (idx %zu+%zu), peak=%zu B / "
+      "budget=%zu B\n",
+      palette_bytes, worst_slot, worst_k, worst_v, worst_f, worst_pair,
+      worst_pair_i, (worst_pair_i + 1) % N, peak,
+      (size_t)ISLAMIC_PERSISTENT_BUDGET);
   HS_EXPECT_LE(peak, (size_t)ISLAMIC_PERSISTENT_BUDGET);
   // compact_keep_front evacuates the front slot through scratch_b.
   HS_EXPECT_LE(worst_slot, ISLAMIC_SCRATCH_B_BUDGET);
@@ -569,13 +579,14 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
 // ---------------------------------------------------------------------------
 // High-water regression for HankinSolids at its shipping arena configuration.
 //
-// HankinSolids::init() splits the device arena as configure_arenas(GLOBAL - 24 KB
+// HankinSolids::init() splits the device arena as configure_arenas(GLOBAL - 24
+// KB
 // - 32 KB, 24 KB, 32 KB): a 24 KB scratch_a / 32 KB scratch_b pair and the rest
 // persistent. scratch_a hosts two non-overlapping peaks, both measured here:
 //   * Load: load_shape() runs the whole generate -> compile_hankin ->
-//     update_hankin chain inside one generate() call (scratch ping-pongs without
-//     an intervening reset), then classify_faces_by_topology() reuses the scratch
-//     after generate() rewinds it.
+//     update_hankin chain inside one generate() call (scratch ping-pongs
+//     without an intervening reset), then classify_faces_by_topology() reuses
+//     the scratch after generate() rewinds it.
 //   * Render: draw_mesh() transforms the front mesh into scratch_a, then
 //     Scan::Mesh::draw() stacks an SDF::FaceScratchBuffer on top. For the
 //     heaviest hankin mesh this render peak (transformed vertices + the fixed
@@ -587,17 +598,20 @@ inline void test_islamic_solids_fit_islamicstars_persistent_budget() {
 // figure, so the host high-water mark is a conservative upper bound.
 // ---------------------------------------------------------------------------
 
-constexpr size_t HANKIN_SCRATCH_A_BUDGET = 24 * 1024; /**< HankinSolids scratch_a. */
-constexpr size_t HANKIN_SCRATCH_B_BUDGET = 32 * 1024; /**< HankinSolids scratch_b. */
-constexpr float HANKIN_ANGLE = PI_F / 4.0f; /**< Mid-sweep; counts are angle-independent. */
+constexpr size_t HANKIN_SCRATCH_A_BUDGET =
+    24 * 1024; /**< HankinSolids scratch_a. */
+constexpr size_t HANKIN_SCRATCH_B_BUDGET =
+    32 * 1024; /**< HankinSolids scratch_b. */
+constexpr float HANKIN_ANGLE =
+    PI_F / 4.0f; /**< Mid-sweep; counts are angle-independent. */
 
 /**
  * @brief Runs one simple solid through HankinSolids' full load AND render paths
  *        and asserts each scratch arena's peak stays within the 24 KB / 32 KB
  *        split.
  * @param entry Registry entry whose generator is exercised.
- * @details Mirrors load_shape (generate + compile_hankin + update_hankin sharing
- *          the scratch pair without a reset, then classify reusing the rewound
+ * @details Mirrors load_shape (generate + compile_hankin + update_hankin
+ * sharing the scratch pair without a reset, then classify reusing the rewound
  *          scratch) and then draw_mesh (transform the mesh into scratch_a, then
  *          the SDF::FaceScratchBuffer Scan::Mesh::draw stacks on top).
  */
@@ -660,8 +674,8 @@ inline void test_hankin_solids_fit_hankinsolids_scratch_budget() {
 // running the effect here. Peak residents during a morph are the baked palette
 // bank plus the two adjacent solids that coexist until compaction — each solid
 // contributing its compiled-hankin pattern, the rasterized mesh slot, and its
-// per-face topology — so the peak is the largest registry-adjacent pair sum, not
-// twice the largest single solid.
+// per-face topology — so the peak is the largest registry-adjacent pair sum,
+// not twice the largest single solid.
 // ---------------------------------------------------------------------------
 
 constexpr size_t HANKIN_PERSISTENT_BUDGET =
@@ -719,11 +733,12 @@ inline void test_hankin_solids_fit_hankinsolids_persistent_budget() {
   }
 
   const size_t peak = palette_bytes + worst_pair;
-  std::printf("  [hankin persistent] palette=%zu B, worst slot=%zu B (%s), worst "
-              "adj pair=%zu B (%s+%s), peak=%zu B / budget=%zu B\n",
-              palette_bytes, worst_slot, simple[worst_k].name, worst_pair,
-              simple[worst_pair_i].name, simple[(worst_pair_i + 1) % N].name,
-              peak, (size_t)HANKIN_PERSISTENT_BUDGET);
+  std::printf(
+      "  [hankin persistent] palette=%zu B, worst slot=%zu B (%s), worst "
+      "adj pair=%zu B (%s+%s), peak=%zu B / budget=%zu B\n",
+      palette_bytes, worst_slot, simple[worst_k].name, worst_pair,
+      simple[worst_pair_i].name, simple[(worst_pair_i + 1) % N].name, peak,
+      (size_t)HANKIN_PERSISTENT_BUDGET);
   HS_EXPECT_LE(peak, (size_t)HANKIN_PERSISTENT_BUDGET);
 }
 
@@ -768,4 +783,3 @@ inline int run_solids_tests() {
 
 } // namespace solids_tests
 } // namespace hs_test
-
