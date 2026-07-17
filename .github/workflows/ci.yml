@@ -526,6 +526,8 @@ jobs:
           python-version: '3.12'
       - name: Run gate parser/layout/warning self-tests
         run: python -m unittest discover -s tools/teensy_gate_tests -v
+      - name: Run profile log parser self-tests
+        run: python -m unittest discover -s tools/profile_tests -v
       - name: Check routed PCB metadata
         run: |
           python -m unittest discover -s hardware/phantasm/gen/tests -v
