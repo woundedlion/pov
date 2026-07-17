@@ -1528,6 +1528,47 @@ struct Shader {
       }
     }
   }
+
+  /**
+   * @brief Full-screen draw handing the effect the whole per-pixel body.
+   * @tparam W Canvas width in pixels.
+   * @tparam H Canvas height in pixels.
+   * @tparam VertexFn Callable VertexFn(Fragment&) — per-pixel seed.
+   * @tparam PixelFn Callable PixelFn(Fragment&, const SsaaGrid<W,H>&, int x)
+   *         -> Pixel — computes the finished (already premultiplied) pixel.
+   * @param canvas Destination canvas.
+   * @param vertex_shader Per-pixel shader, called once at the pixel center.
+   * @param pixel_shader Owns the pixel: receives the seeded fragment, the
+   *        sub-pixel SSAA grid for the current row, and the pixel column, and
+   *        returns the final (premultiplied) pixel. A template, not a
+   *        type-erased FunctionRef: the whole body inlines into this loop, and
+   *        the effect can hoist work its sub-samples share.
+   * @details Same outer scaffolding as the SSAA draw() overloads (clip,
+   * LUT-domain check, trig-LUT init, per-row SsaaGrid, render timer); the
+   * per-pixel work is delegated whole so the caller controls the sampling.
+   */
+  template <int W, int H, typename VertexFn, typename PixelFn>
+  HS_O3_FN static void draw_grid(Canvas &canvas, VertexFn &&vertex_shader,
+                                 PixelFn &&pixel_shader) {
+    const auto &cr = canvas.clip();
+    check_lut_domain<W, H>(cr);
+    const auto xc = cr.x_clip();
+    if (!TrigLUT<W, H>::initialized)
+      TrigLUT<W, H>::init();
+    SsaaGrid<W, H> grid;
+    ScopedRenderTimer timer_guard(canvas);
+    for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+      grid.set_row(y);
+      for (int x = 0; x < W; ++x) {
+        if (xc.clipped(x))
+          continue;
+        Fragment frag_base;
+        frag_base.pos = pixel_to_vector<W, H>(x, y);
+        vertex_shader(frag_base);
+        canvas(x, y) = pixel_shader(frag_base, grid, x);
+      }
+    }
+  }
 };
 
 /**

@@ -53,13 +53,15 @@ class BZReactionDiffusion
   // Bring dependent-base names into scope (template base requires this).
   using Base::advance_substeps;
   using Base::cube_lut;
+  using Base::dist2;
   using Base::for_each_neighbor;
   using Base::init_lattice;
+  using Base::INV_R2;
   using Base::nodes;
   using Base::orientation;
   using Base::RD_K;
   using Base::RD_N;
-  using Base::refine_and_accumulate;
+  using Base::refine_center;
   using Base::register_param;
   using Base::seed_face_lut;
 
@@ -217,7 +219,8 @@ private:
    *          competition (conc * (1 - conc - alpha * predator)), scaled by the
    *          timestep dt.
    */
-  uint8_t advance_species(float conc, float predator, float laplacian) const {
+  HS_O3_FN uint8_t advance_species(float conc, float predator,
+                                   float laplacian) const {
     return to_q8(conc + (params.D * laplacian +
                          conc * (1 - conc - params.alpha * predator)) *
                             params.dt);
@@ -259,9 +262,9 @@ private:
    *          caller owns the ping-pong (see render()). Pre-converts the current
    *          generation into f_a/f_b/f_c once so the neighbor loop reads floats.
    */
-  void step_physics(const uint8_t *c_a, const uint8_t *c_b, const uint8_t *c_c,
-                    uint8_t *n_a, uint8_t *n_b, uint8_t *n_c, float *f_a, float *f_b,
-                    float *f_c) {
+  HS_O3_FN void step_physics(const uint8_t *c_a, const uint8_t *c_b,
+                             const uint8_t *c_c, uint8_t *n_a, uint8_t *n_b,
+                             uint8_t *n_c, float *f_a, float *f_b, float *f_c) {
     for (int i = 0; i < RD_N; i++) {
       f_a[i] = from_q8(c_a[i]);
       f_b[i] = from_q8(c_b[i]);
@@ -310,8 +313,9 @@ private:
    * @details Concentration-weighted average: (ca·a + cb·b + cc·c) / (a + b + c),
    *          a hue-driven mix that is not concentration-dimmed.
    */
-  static Pixel blend_species(float a, float b, float c, const Color4 &ca,
-                             const Color4 &cb, const Color4 &cc) {
+  HS_O3_FN static Pixel blend_species(float a, float b, float c,
+                                      const Color4 &ca, const Color4 &cb,
+                                      const Color4 &cc) {
     float inv = 1.0f / (a + b + c);
     float r = (ca.color.r * a + cb.color.r * b + cc.color.r * c) * inv;
     float g = (ca.color.g * a + cb.color.g * b + cc.color.g * c) * inv;
@@ -322,30 +326,22 @@ private:
   }
 
   /**
-   * @brief Samples the kernel-interpolated color at a world-space point.
-   * @param rv World-space query direction.
-   * @param nodes Node positions in the same frame as `rv`.
-   * @param seed Seed node id from the cubemap LUT, refined to the true nearest
-   *        inside the fused stencil walk.
+   * @brief Turns accumulated kernel weights into a blended pixel color.
+   * @param tw Total Wendland weight over the stencil.
+   * @param wa Weighted sum of species A (Q8) over the stencil.
+   * @param wb Weighted sum of species B (Q8) over the stencil.
+   * @param wc Weighted sum of species C (Q8) over the stencil.
    * @param ca Palette color for species A.
    * @param cb Palette color for species B.
    * @param cc Palette color for species C.
    * @return Opaque blended Color4, or transparent black if no kernel weight
    *         accumulates.
-   * @details Accumulates Wendland C2 kernel weights over the refined
-   *          neighborhood, normalizes by total weight, and blends the species.
+   * @details The tail shared by every sub-sample: normalizes by total weight,
+   *          culls empty walks, and blends the three species.
    */
-  Color4 sample_kernel(const Vector &rv, const Vector *nodes, int seed,
-                       const Color4 &ca, const Color4 &cb,
-                       const Color4 &cc) const {
-    float tw = 0, wa = 0, wb = 0, wc = 0;
-    refine_and_accumulate(rv, nodes, seed, [&](int i, float w) {
-      wa += state.A[i] * w;
-      wb += state.B[i] * w;
-      wc += state.C[i] * w;
-      tw += w;
-    });
-
+  HS_O3_FN static Color4 finalize_sample(float tw, float wa, float wb, float wc,
+                                         const Color4 &ca, const Color4 &cb,
+                                         const Color4 &cc) {
     if (tw <= Base::KERNEL_MIN_TOTAL_WEIGHT)
       return Color4(Pixel(0, 0, 0), 0.0f);
 
@@ -356,6 +352,68 @@ private:
       return Color4(Pixel(0, 0, 0), 0.0f);
     return Color4(blend_species(a, b, c, ca, cb, cc),
                   hs::clamp(total, 0.0f, 1.0f));
+  }
+
+  /**
+   * @brief Hoisted 4× SSAA body for one pixel: refine once, re-weight per sample.
+   * @tparam Grid Scan::Shader::SsaaGrid type supplying the sub-pixel offsets.
+   * @param seed Cubemap-LUT seed node id for this pixel (from the vertex shader).
+   * @param center_rv World-space direction at the pixel center.
+   * @param world_nodes Oriented lattice node positions.
+   * @param grid Row's SSAA sub-pixel grid.
+   * @param x Pixel column.
+   * @param ca Palette color for species A.
+   * @param cb Palette color for species B.
+   * @param cc Palette color for species C.
+   * @return The finished, alpha-premultiplied pixel.
+   * @details The four ±0.25 px sub-samples share one interpolation stencil (the
+   * nearest node and its neighbors), refined and gathered once at the pixel
+   * center; only the Wendland weights vary per sub-sample. A sub-sample
+   * straddling a Voronoi boundary reuses the center's stencil rather than its
+   * own — the ±0.25 px offset keeps that difference below one node spacing.
+   * The whole body carries HS_O3_FN: an -Os loop around -O3 leaf calls forfeits
+   * most of the codegen win.
+   */
+  template <typename Grid>
+  HS_O3_FN Pixel shade_pixel(int seed, const Vector &center_rv,
+                             const Vector *world_nodes, const Grid &grid, int x,
+                             const Color4 &ca, const Color4 &cb,
+                             const Color4 &cc) const {
+    int center = refine_center(center_rv, world_nodes, seed);
+    Vector spos[RD_K + 1];
+    uint8_t sa[RD_K + 1], sb[RD_K + 1], sc[RD_K + 1];
+    spos[0] = world_nodes[center];
+    sa[0] = state.A[center];
+    sb[0] = state.B[center];
+    sc[0] = state.C[center];
+    int k = 1;
+    for_each_neighbor(center, [&](int ni) {
+      spos[k] = world_nodes[ni];
+      sa[k] = state.A[ni];
+      sb[k] = state.B[ni];
+      sc[k] = state.C[ni];
+      ++k;
+    });
+
+    constexpr float inv_samples = 1.0f / 4.0f;
+    Pixel accum(0, 0, 0);
+    for (int i = 0; i < 4; ++i) {
+      Vector v = grid.at(x, i);
+      float tw = 0, wa = 0, wb = 0, wc = 0;
+      for (int j = 0; j < RD_K + 1; ++j) {
+        float u = 1.0f - dist2(v, spos[j]) * INV_R2;
+        if (u > 0) {
+          float w = u * u;
+          wa += sa[j] * w;
+          wb += sb[j] * w;
+          wc += sc[j] * w;
+          tw += w;
+        }
+      }
+      Color4 c = finalize_sample(tw, wa, wb, wc, ca, cb, cc);
+      accum += c.color * (c.alpha * inv_samples);
+    }
+    return accum;
   }
 
   /**
@@ -406,14 +464,14 @@ private:
 
     auto vertex_shader = [this](Fragment &frag) { seed_face_lut(frag); };
 
-    auto fragment_shader = [&](const Vector &v, Fragment &frag) {
-      frag.color = sample_kernel(v, world_nodes, static_cast<int>(frag.v0),
-                                 ca, cb, cc);
+    auto pixel_shader = [&](Fragment &frag, const auto &grid, int x) -> Pixel {
+      return shade_pixel(static_cast<int>(frag.v0), frag.pos, world_nodes, grid,
+                         x, ca, cb, cc);
     };
 
     {
       HS_PROFILE(bz_raster);
-      Scan::Shader::draw<W, H, 4>(canvas, fragment_shader, vertex_shader);
+      Scan::Shader::draw_grid<W, H>(canvas, vertex_shader, pixel_shader);
     }
   }
 
