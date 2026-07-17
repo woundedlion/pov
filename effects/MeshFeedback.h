@@ -5,32 +5,21 @@
  */
 #pragma once
 
-#include <numeric>
-
 #include "core/engine/engine.h"
 
 /**
- * @brief Feedback effect over a morphing carousel of Platonic solids.
+ * @brief Feedback effect over a fixed icosahedron.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details Draws the current mesh, cycles style presets on a hard-cut timer,
- * and cross-morphs to the next solid on a separate timer. The two cycle periods
- * are kept coprime so preset cuts and shape morphs drift out of phase rather
- * than locking.
+ * @details Draws the solid's wireframe under an orientation random-walk while
+ * the feedback filter warps and fades the accumulated frame, and cycles style
+ * presets on a hard-cut timer. The shape never changes and never morphs.
  */
 template <int W, int H> class MeshFeedback : public Effect {
 public:
   using Style = Feedback::Style;
 
-  static constexpr int MORPH_FRAMES = 160;
   static constexpr int PRESET_FRAMES = 241;
-  static constexpr int SHAPE_FRAMES = 240;
-  static constexpr int NO_MORPH_FRAMES = SHAPE_FRAMES - MORPH_FRAMES;
-
-  static_assert(std::gcd(NO_MORPH_FRAMES + MORPH_FRAMES, PRESET_FRAMES) == 1,
-                "the shape cycle (NO_MORPH_FRAMES + MORPH_FRAMES) and "
-                "PRESET_FRAMES must stay coprime so the shape and preset cycles "
-                "drift out of phase instead of locking");
 
   static constexpr float FADE_MIN = 0.0f,  FADE_MAX = 0.99f;
   static constexpr float AMP_MIN = 0.0f,   AMP_MAX = 30.0f;
@@ -77,8 +66,8 @@ public:
 
   /**
    * @brief One-time effect setup.
-   * @details Binds shared noise into presets, builds the first solid, registers
-   * tunable params, and schedules the noise/walk/preset/shape timers.
+   * @details Binds shared noise into presets, builds the icosahedron, registers
+   * tunable params, and schedules the noise/walk/preset timers.
    */
   void init() override {
     for (auto &e : presets.get_entries()) {
@@ -93,16 +82,13 @@ public:
     style = presets.get();
     apply_params();
 
-    solid_idx = 0;
     {
-      auto solids = Solids::Collections::get_platonic_solids();
       PolyMesh poly = generate(persistent_arena, [&](Arena &target, Arena &a,
                                                      Arena &b) {
-        return Solids::finalize_solid(solids[solid_idx].generate(a, b), target);
+        return Solids::finalize_solid(Solids::Platonic::icosahedron(a, b),
+                                      target);
       });
-      carousel.slot(carousel.front_index()) = MeshState();
-      MeshOps::compile(poly, carousel.slot(carousel.front_index()),
-                       persistent_arena, scratch_arena_a);
+      MeshOps::compile(poly, mesh_, persistent_arena, scratch_arena_a);
     }
 
     register_animated_param("Fade", &style.fade, FADE_MIN, FADE_MAX);
@@ -130,15 +116,12 @@ public:
                           presets.apply(style);
                         },
                         true));
-
-    arm_hold_timer();
   }
 
   /**
    * @brief Renders one frame.
-   * @details Applies params, runs the feedback decay flush, draws the current
-   * mesh (skipped while morphing — the morph animation draws instead), then
-   * advances the timeline.
+   * @details Applies params, runs the feedback decay flush, then draws the
+   * mesh, then advances the timeline.
    */
   void draw_frame() override {
     // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
@@ -159,10 +142,10 @@ public:
           1.0f);
     }
 
-    if (!morphing) {
+    {
       HS_PROFILE(mf_mesh_draw);
       Color4 shade = palette.get(0.0f);
-      Plot::Mesh::draw<W, H>(filters, canvas, carousel.current(),
+      Plot::Mesh::draw<W, H>(filters, canvas, mesh_,
                              [&](const Vector &, Fragment &f) { f.color = shade; });
     }
 
@@ -173,64 +156,6 @@ public:
   }
 
 private:
-  /**
-   * @brief Arms the one-shot hold timer that triggers the next shape morph.
-   * @details The shape carousel is a chain of one-shot hold timers: each fires
-   * after NO_MORPH_FRAMES, starts a morph, and the completed morph re-arms the
-   * next. While paused the callback re-arms instead of morphing, so the chain
-   * keeps its successor and resumes within one hold on unpause.
-   */
-  void arm_hold_timer() {
-    timeline.add(
-        0, Animation::PeriodicTimer(
-               NO_MORPH_FRAMES,
-               [this](Canvas &) {
-                 if (animations_paused()) {
-                   arm_hold_timer();
-                   return;
-                 }
-                 start_morph();
-               },
-               false));
-  }
-
-  /**
-   * @brief Advances to the next solid and starts the cross-morph.
-   * @details Compiles the incoming solid into the carousel's back slot, runs a
-   * MeshMorph from front to back over MORPH_FRAMES, and on completion swaps the
-   * front, compacts, and re-arms the hold timer for the following morph.
-   */
-  void start_morph() {
-    auto solids = Solids::Collections::get_platonic_solids();
-    solid_idx = (solid_idx + 1) % solids.size();
-    hs::log("Shape: %d/%d", solid_idx, (int)solids.size());
-    int new_slot = 1 - carousel.front_index();
-
-    carousel.slot(new_slot) = MeshState();
-    PolyMesh poly = generate(persistent_arena, [&](Arena &target, Arena &a,
-                                                   Arena &b) {
-      return Solids::finalize_solid(solids[solid_idx].generate(a, b), target);
-    });
-    MeshOps::compile(poly, carousel.slot(new_slot), persistent_arena,
-                     scratch_arena_a);
-
-    morphing = true;
-    timeline.add(
-        0, Animation::MeshMorph(carousel.current(), carousel.slot(new_slot),
-                                persistent_arena, draw_morph_fn_,
-                                draw_morph_fn_, MORPH_FRAMES, ease_in_out_sin)
-               .then([this, new_slot]() {
-                 morphing = false;
-                 carousel.set_front(new_slot);
-                 carousel.compact();
-                 // compact() reset the persistent arena; re-allocate the warp
-                 // cache there (it re-populates on the next flush).
-                 filters.template get<Filter::Pixel::Feedback<W, H>>()
-                     .init_storage(persistent_arena);
-                 arm_hold_timer();
-               }));
-  }
-
   /**
    * @brief Pushes UI-tunable state into the live style/filters each frame.
    * @details Refreshes the noise binding and toggles the feedback filter from
@@ -259,23 +184,8 @@ private:
   Timeline timeline;
   ProceduralPalette palette;
 
-  // Mesh carousel + morph state (transitions are MeshMorph-driven, so the
-  // carousel's segue is unused)
-  MeshCarousel<> carousel;
-  int solid_idx = 0;
-  bool morphing = false;
-
-  /** @brief Morph draw callback; Fn member gives FunctionRef a stable lifetime. */
-  Fn<void(Canvas &, const MeshState &, float), 8> draw_morph_fn_{
-      [this](Canvas &c, const MeshState &m, float opacity) {
-        HS_PROFILE(mf_morph_draw);
-        Color4 shade = palette.get(0.0f);
-        Plot::Mesh::draw<W, H>(filters, c, m,
-                               [shade, opacity](const Vector &, Fragment &f) {
-                                 f.color = shade;
-                                 f.color.alpha *= opacity;
-                               });
-      }};
+  // The single, fixed solid; built once in init() and never recompiled.
+  MeshState mesh_;
 
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
            Filter::Pixel::Feedback<W, H>>
