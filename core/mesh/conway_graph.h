@@ -117,6 +117,11 @@ inline constexpr float T_EPS = 0.02f;
  * visible ~2 px boundary jump plus a gradient rescale at every leg boundary
  * touching the ambo form. */
 inline constexpr float T_EPS_AMBO = 0.005f;
+/** Snub clamp at the jitterbug bridge's octahedron end (t = 0.5, where the 12
+ * vertices merge pairwise onto the octahedron's 6): the leg stops where the
+ * collapsing edge measures 0.02 chord — T_EPS-sized, ~1-2 px at H = 144 —
+ * then clean-swaps to the held octahedron. */
+inline constexpr float T_EPS_JITTERBUG = 0.5104592f;
 
 /** Operator-sweep frames per leg. */
 inline constexpr int SWEEP_FRAMES = 48;
@@ -214,6 +219,16 @@ inline constexpr EdgeSpec EDGES[] = {
 
 inline constexpr int NUM_EDGES = static_cast<int>(std::size(EDGES));
 static_assert(NUM_EDGES == 22);
+
+/**
+ * @brief Whether an edge is the icosahedron <-> octahedron jitterbug bridge:
+ * a snub sweep whose t = 0.5 end collapses onto the octahedron by pairwise
+ * vertex merge. The T_EPS_JITTERBUG clamp and the ambo endpoint swap key on
+ * it.
+ */
+constexpr bool is_jitterbug_edge(const EdgeSpec &e) {
+  return e.op == MorphOp::SNUB && e.to_node == OCTAHEDRON;
+}
 
 /** Largest node degree in the table (cuboctahedron, icosidodecahedron). */
 inline constexpr int MAX_DEGREE = 5;
