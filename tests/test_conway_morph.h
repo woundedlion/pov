@@ -834,6 +834,65 @@ inline void test_walk_policy_coverage_and_balance() {
 }
 
 // ---------------------------------------------------------------------------
+// Ordered profile tour: one ORDERED_TOUR pass covers all 18 nodes with a
+// legal seed reconciliation at every leg, and the cycle wraps back to the
+// registry start state so repeated passes are identical.
+// ---------------------------------------------------------------------------
+
+/**
+ * @brief Simulates the walk state machine over two ordered-tour cycles.
+ */
+inline void test_ordered_tour_full_coverage_and_wrap() {
+  using namespace ConwayGraph;
+  int node = TETRAHEDRON;
+  int held = TETRAHEDRON;
+  int prev = -1;
+  bool seen[NUM_NODES] = {};
+  int seen_count = 1;
+  int coverage_leg = -1;
+  seen[node] = true;
+
+  for (uint32_t leg = 0; leg < 2u * ORDERED_TOUR_LEN; ++leg) {
+    const int e = pick_next_edge_ordered(node, prev, leg);
+    HS_EXPECT_TRUE(edge_touches(e, node));
+
+    // Seed reconciliation must be legal, and the two non-KEEP fixes only
+    // fire at the nodes the effect's HS_CHECKs allow them at.
+    const SeedFix fix = seed_fix_at_start(e, held);
+    HS_EXPECT_TRUE(fix != SeedFix::INVALID);
+    if (fix == SeedFix::DUAL_SWAP) {
+      HS_EXPECT_TRUE(node == CUBOCTAHEDRON || node == ICOSIDODECAHEDRON);
+      held = dual_platonic(held);
+    } else if (fix == SeedFix::REGEN_TETRA) {
+      HS_EXPECT_TRUE(node == OCTAHEDRON || node == ICOSAHEDRON);
+      held = TETRAHEDRON;
+    }
+
+    const bool reverse = EDGES[e].to_node == node;
+    const int arrived = reverse ? EDGES[e].from_node : EDGES[e].to_node;
+    if (EDGES[e].reseed == Reseed::ADOPT && is_platonic(arrived) && !reverse)
+      held = arrived;
+    node = arrived;
+    prev = e;
+    if (!seen[node]) {
+      seen[node] = true;
+      if (++seen_count == NUM_NODES)
+        coverage_leg = static_cast<int>(leg) + 1;
+    }
+
+    // Cycle closure: every pass ends back at the registry start state.
+    if ((leg + 1) % ORDERED_TOUR_LEN == 0) {
+      HS_EXPECT_EQ(node, (int)TETRAHEDRON);
+      HS_EXPECT_EQ(held, (int)TETRAHEDRON);
+    }
+  }
+  HS_EXPECT_GT(coverage_leg, 0);
+  HS_EXPECT_LE(coverage_leg, ORDERED_TOUR_LEN);
+  std::printf("  [tour] %d legs per cycle, full coverage after %d\n",
+              ORDERED_TOUR_LEN, coverage_leg);
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -857,6 +916,7 @@ inline int run_conway_morph_tests() {
   test_ops_at_t_eps_primary_faces_match_seed();
 
   test_walk_policy_coverage_and_balance();
+  test_ordered_tour_full_coverage_and_wrap();
 
   return fixture.result();
 }
