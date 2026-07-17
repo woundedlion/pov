@@ -1314,7 +1314,10 @@ public:
     const int hw = W / ds;
     const int hh = H / ds;
 
-    if (!any_pixel_lit(cv)) return;
+    {
+      HS_PROFILE(feedback_litscan);
+      if (!any_pixel_lit(cv)) return;
+    }
 
     const auto &cr = cv.clip();
     const int y_lo = cr.render_y_start();
@@ -1378,24 +1381,27 @@ public:
     }
 
     // Populate coarse warp field as seam-continuous deltas (int16 1/128 px).
-    if (populate)
-    for (int cy = cy_lo; cy <= cy_hi; ++cy) {
-      int y = cy * ds;
-      for (int cx = 0; cx < hw; ++cx) {
-        if (xc.active && !col_used[cx]) continue;
-        int x = cx * ds;
-        Vector v_dist = style_->space_fn(pixel_to_vector<W, H>(x, y), *style_);
-        Spherical s(v_dist);
-        float bx = (s.theta * W) / (2.0f * PI_F);
-        float by = phi_to_y<H>(s.phi);
-        float ddx = bx - x;
-        float ddy = by - y;
-        if (ddx > W * 0.5f)       ddx -= W;
-        else if (ddx < -W * 0.5f) ddx += W;
-        dx[cy * hw + cx] = static_cast<int16_t>(
-            hs::clamp(ddx * Q, -32767.0f, 32767.0f));
-        dy[cy * hw + cx] = static_cast<int16_t>(
-            hs::clamp(ddy * Q, -32767.0f, 32767.0f));
+    {
+      HS_PROFILE(feedback_populate);
+      if (populate)
+      for (int cy = cy_lo; cy <= cy_hi; ++cy) {
+        int y = cy * ds;
+        for (int cx = 0; cx < hw; ++cx) {
+          if (xc.active && !col_used[cx]) continue;
+          int x = cx * ds;
+          Vector v_dist = style_->space_fn(pixel_to_vector<W, H>(x, y), *style_);
+          Spherical s(v_dist);
+          float bx = (s.theta * W) / (2.0f * PI_F);
+          float by = phi_to_y<H>(s.phi);
+          float ddx = bx - x;
+          float ddy = by - y;
+          if (ddx > W * 0.5f)       ddx -= W;
+          else if (ddx < -W * 0.5f) ddx += W;
+          dx[cy * hw + cx] = static_cast<int16_t>(
+              hs::clamp(ddx * Q, -32767.0f, 32767.0f));
+          dy[cy * hw + cx] = static_cast<int16_t>(
+              hs::clamp(ddy * Q, -32767.0f, 32767.0f));
+        }
       }
     }
 
@@ -1425,6 +1431,12 @@ public:
     const bool opaque = alpha >= 1.0f;
     // Dispatch the color transform once per flush so the stock transforms
     // inline into the pixel loop instead of an indirect call per pixel.
+    // The four warp taps and their seam-unify are constant across the ds pixels
+    // of a coarse cell; only the horizontal fraction fx moves. Precompute per
+    // cell the row-weighted, INV_Q-scaled left corner and left->right slope so
+    // the per-pixel warp collapses to one fma in fx.
+    constexpr float WQ = static_cast<float>(W) * Q;
+    constexpr float HALF_WQ = WQ * 0.5f;
     auto composite = [&](auto &&color_px) {
       for (int y = y_lo; y < y_hi; ++y) {
         int cy0 = y / ds;
@@ -1438,35 +1450,29 @@ public:
         const int row0 = cy0 * hw, row1 = cy1 * hw;
 
         int cx0 = 0, sub = 0;
+        float leftx = 0.0f, slopex = 0.0f, lefty = 0.0f, slopey = 0.0f;
         for (int x = 0; x < W; ++x) {
-          int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
-          float fx = sub * inv_ds;
-
-          if (!xc.clipped(x)) {
-            float wx0 = 1.0f - fx, wx1 = fx;
-
-            int i00 = row0 + cx0;
-            int i10 = row0 + cx1;
-            int i01 = row1 + cx0;
-            int i11 = row1 + cx1;
-
-            float w00 = wx0 * wy0, w10 = wx1 * wy0;
-            float w01 = wx0 * wy1, w11 = wx1 * wy1;
-
-            // Unify the four taps onto one wrap branch (each within W/2 of d00)
-            // before blending; the anchor must be a tap — a computed mid-value can
-            // unify nothing and sweep the blend across the seam to the far hemisphere.
-            constexpr float WQ = static_cast<float>(W) * Q;
-            constexpr float HALF_WQ = WQ * 0.5f;
+          if (sub == 0) {
+            int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
+            int i00 = row0 + cx0, i10 = row0 + cx1;
+            int i01 = row1 + cx0, i11 = row1 + cx1;
+            // Unify the far taps onto d00's wrap branch (each within W/2 of the
+            // anchor); the anchor must be a tap — a computed mid-value can unify
+            // nothing and sweep the blend across the seam to the far hemisphere.
             float d00 = dx[i00], d10 = dx[i10], d01 = dx[i01], d11 = dx[i11];
             d10 += (d10 - d00 > HALF_WQ) ? -WQ : (d10 - d00 < -HALF_WQ ? WQ : 0.0f);
             d01 += (d01 - d00 > HALF_WQ) ? -WQ : (d01 - d00 < -HALF_WQ ? WQ : 0.0f);
             d11 += (d11 - d00 > HALF_WQ) ? -WQ : (d11 - d00 < -HALF_WQ ? WQ : 0.0f);
+            leftx = (d00 * wy0 + d01 * wy1) * INV_Q;
+            slopex = (d10 * wy0 + d11 * wy1) * INV_Q - leftx;
+            lefty = (dy[i00] * wy0 + dy[i01] * wy1) * INV_Q;
+            slopey = (dy[i10] * wy0 + dy[i11] * wy1) * INV_Q - lefty;
+          }
 
-            float ddx = (d00 * w00 + d10 * w10
-                       + d01 * w01 + d11 * w11) * INV_Q;
-            float ddy = (dy[i00] * w00 + dy[i10] * w10
-                       + dy[i01] * w01 + dy[i11] * w11) * INV_Q;
+          if (!xc.clipped(x)) {
+            float fx = sub * inv_ds;
+            float ddx = leftx + slopex * fx;
+            float ddy = lefty + slopey * fx;
 
             float sr, sg, sb;
             sample_bilinear_prev(cv, x + ddx, y + ddy, sr, sg, sb);
@@ -1487,6 +1493,7 @@ public:
     // quantization at the write); an arbitrary ColorFn keeps the Pixel
     // interface, so the sample is quantized first. An identity hue rotation
     // makes hue_fade a pure fade, so it takes the plain path.
+    HS_PROFILE(feedback_composite);
     const bool hue_identity =
         style_->hue_ca == 1.0f && style_->hue_sa == 0.0f;
     if (style_->color_fn == &::Feedback::hue_fade && !hue_identity) {
