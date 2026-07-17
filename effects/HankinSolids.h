@@ -169,7 +169,8 @@ private:
    * @param a Output arena for even pipeline stages.
    * @param b Scratch arena for odd pipeline stages.
    * @return The endpoint mesh: t = 0 yields the leg seed itself, t = 0.5 the
-   * clean ambo crossover form, a settled end the relax(50) canonical form.
+   * clean ambo crossover form, a settled end the relax(50) canonical form,
+   * the jitterbug bridge's octahedron end the clean ambo(seed) octahedron.
    */
   HS_COLD_MEMBER PolyMesh node_mesh_at(const ConwayGraph::EdgeSpec &e,
                                        bool to_end, Arena &a, Arena &b) {
@@ -179,7 +180,11 @@ private:
     Solids::SolidBuilder builder(std::move(seed), a, b);
     if (!ConwayGraph::is_platonic(e.seed_solid))
       builder.ambo();
-    if (t > 0.0f) {
+    if (ConwayGraph::is_jitterbug_edge(e) && to_end) {
+      // snub(tetra, 0.5, -pi/3) is the octahedron with 12 pairwise-coincident
+      // vertices; ambo(tetra) is the same octahedron with clean topology.
+      builder.ambo();
+    } else if (t > 0.0f) {
       switch (e.op) {
       case ConwayGraph::MorphOp::TRUNCATE:
         builder.truncate(t);
@@ -440,10 +445,25 @@ private:
     // arrivals keep the orientation the walk produced.
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       PolyMesh base = node_mesh_at(e, arrived_at_to, a, b);
-      if (e.reseed == Reseed::ADOPT && is_platonic(arrived) && arrived_at_to) {
-        // Family bridge: the arrived solid becomes the new family seed.
-        seed_base_ = Solids::finalize_solid(base, target);
-        seed_identity_ = node_;
+      if (e.reseed == Reseed::ADOPT && is_platonic(arrived)) {
+        if (arrived_at_to) {
+          // Family bridge: the arrived solid becomes the new family seed.
+          seed_base_ = Solids::finalize_solid(base, target);
+          seed_identity_ = node_;
+        } else if (arrived == ICOSAHEDRON) {
+          // Reverse jitterbug arrival: hold the icosahedron node's canonical
+          // relax form (the mesh the tetra -> icosa bridge adopts), not the
+          // unrelaxed jitterbug form the bookend displays.
+          PolyMesh s;
+          MeshOps::clone(seed_base_, s, a);
+          seed_base_ =
+              Solids::finalize_solid(Solids::SolidBuilder(std::move(s), a, b)
+                                         .snub(0.5f, SNUB_BRIDGE_TWIST)
+                                         .relax(50)
+                                         .build(),
+                                     target);
+          seed_identity_ = node_;
+        }
       }
       record_node_faces(base);
 

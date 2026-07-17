@@ -292,11 +292,15 @@ public:
     tr.bank = handoff.bank;
 
     // Clamp both endpoints inside the topology-constant open interval; the
-    // truncate upper clamp dodges the ambo short-circuit at exactly 0.5.
+    // truncate upper clamp dodges the ambo short-circuit at exactly 0.5, and
+    // the jitterbug clamp stops the snub bridge while its collapsing edge is
+    // still a positive 0.02-chord sliver.
     auto clamp_param = [&](float t) {
       t = std::max(t, ConwayGraph::T_EPS);
       if (edge.op == ConwayGraph::MorphOp::TRUNCATE)
         t = std::min(t, 0.5f - ConwayGraph::T_EPS_AMBO);
+      if (ConwayGraph::is_jitterbug_edge(edge))
+        t = std::max(t, ConwayGraph::T_EPS_JITTERBUG);
       return t;
     };
     tr.t_start = clamp_param(reverse ? edge.t_to : edge.t_from);
@@ -354,8 +358,16 @@ public:
         start_centroid = face_centroids(*start, scratch_arena_a);
       }
 
+      // Emission-order prefix corresponding 1:1 to a node base mesh at the
+      // boundary swaps: the seed's face count, plus its vertex-orbit faces on
+      // the jitterbug bridge (they survive into the octahedron-end node mesh;
+      // only the 12 edge-orbit faces collapse).
+      const size_t survivors =
+          ConwayGraph::is_jitterbug_edge(edge)
+              ? tr.seed.face_counts.size() + tr.seed.vertices.size()
+              : tr.seed.face_counts.size();
       build_palette_mapping(tr, *classified, handoff, bookend, arena,
-                            start_centroid);
+                            start_centroid, survivors);
     }
   }
 
@@ -581,23 +593,26 @@ private:
    * @param arena Leg arena for the face -> ramp table.
    * @param start_centroid Unit centroid per swept face at the start parameter,
    * or nullptr for the emission-order/class-signature mappings.
+   * @param survivors Emission-order face-prefix length corresponding 1:1 to a
+   * node base mesh at the boundary swaps (the seed face count; plus the
+   * vertex-orbit faces on the jitterbug bridge, whose octahedron-end node
+   * mesh keeps them).
    * @details With centroids, provenance is geometric: a face inherits the
    * palette of the departed face it overlies at the start parameter. On a
    * full-correspondence departure (prev_faces == total: 0.5-end swaps, dual
    * swaps, regenerated seeds) every face maps by nearest departed centroid —
    * a checked bijection that assumes nothing about emission order and keeps
    * per-side-count class splits, both of which the legacy mappings break. On
-   * a seed departure (prev_faces == primary) primaries keep the exact
-   * emission identity, and each newborn class inherits its first face's
+   * a node-prefix departure (prev_faces == survivors) the prefix keeps the
+   * exact emission identity, and each newborn class inherits its first face's
    * nearest departed palette, so T_EPS-wide births open in the underlying
    * face's colors instead of popping in as target-colored slivers.
    */
-  HS_COLD_MEMBER void build_palette_mapping(Transients &tr,
-                                            const PolyMesh &arrival,
-                                            const PaletteHandoff &handoff,
-                                            const BookendClasses &bookend,
-                                            Arena &arena,
-                                            const Vector *start_centroid) {
+  HS_COLD_MEMBER void
+  build_palette_mapping(Transients &tr, const PolyMesh &arrival,
+                        const PaletteHandoff &handoff,
+                        const BookendClasses &bookend, Arena &arena,
+                        const Vector *start_centroid, size_t survivors) {
     const size_t total = tr.topo.size();
     const size_t primary = tr.seed.face_counts.size();
     tr.landing.faces = total;
@@ -607,7 +622,7 @@ private:
     // (emission-order identity), the swept class where it collapses to zero
     // area (seed arrivals' orbit faces, whose target color never shows).
     HS_CHECK(!bookend.topology || bookend.faces == total ||
-                 bookend.faces == primary,
+                 bookend.faces == survivors,
              "ConwayMorph: bookend face count matches neither mapping");
     tr.target_topo.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
@@ -624,9 +639,9 @@ private:
 
     if (start_centroid || !handoff.by_class_signature) {
       // Either the whole face list corresponds (departing a mid-parameter
-      // node) or the primary prefix does (departing the seed form; orbit/edge
-      // faces are births).
-      HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == primary,
+      // node) or the survivor prefix does (departing a node form; the
+      // remaining faces are births).
+      HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == survivors,
                "ConwayMorph: handoff face count matches neither mapping");
     } else {
       HS_CHECK(handoff.prev_face_sides,
@@ -654,7 +669,7 @@ private:
                  "ConwayMorph: start face has no unique departed counterpart");
         prev_used[j] = true;
         from = handoff.prev_face_palette[j];
-      } else if (start_centroid) { // prev_faces == primary
+      } else if (start_centroid) { // prev_faces == survivors
         if (f < handoff.prev_faces) {
           from = handoff.prev_face_palette[f];
         } else {
