@@ -189,17 +189,21 @@ def dominant_leaf(windows):
 def spilled_frames(w):
     """Frames of this window that took >1 display window (62.5 ms).
 
-    Wall time quantizes to whole display windows, so the window's wall sum is
-    ~62.5 ms x (frames + spilled); derived, exact to +-1 (readout windows are
-    not aligned to display-window boundaries).
+    Counts FRAMES, not missed flips: a 180 ms frame misses two flips but is one
+    spilled frame, so spilled/frames stays a true fraction the cadence colour
+    thresholds can be read against.
     """
     if w.frame_rows:
         # Renders start flip-aligned (the buffer_free gate opens at a flip),
-        # so each frame misses floor(render / window) flips — exact.
-        return sum(f[2] // DISPLAY_WINDOW_US for f in w.frame_rows)
+        # so a frame spills exactly when its render exceeds one window.
+        return sum(1 for f in w.frame_rows if f[2] > DISPLAY_WINDOW_US)
     if not w.wall:
         return 0
-    return max(0, round(w.wall[3] / DISPLAY_WINDOW_US) - w.frames)
+    # Without per-frame rows only the window's wall sum is known, and it gives
+    # the extra windows consumed (= missed flips), which bounds the spilled
+    # frames from above: at most every frame spilled. Marked '~' at the callers.
+    extra = max(0, round(w.wall[3] / DISPLAY_WINDOW_US) - w.frames)
+    return min(extra, w.frames)
 
 
 def cmd_windows(windows, scope):
