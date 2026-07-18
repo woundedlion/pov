@@ -3085,7 +3085,9 @@ struct Face {
       float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
       float dsq = bx * bx + by * by;
       d = __builtin_fminf(dsq, d);
-      if ((ep.vy > py) != (ep.next_vy > py)) {
+      float ylo = __builtin_fminf(ep.vy, ep.next_vy);
+      float yhi = __builtin_fmaxf(ep.vy, ep.next_vy);
+      if (yhi > py && ylo <= py) {
         float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
         if (px < isx)
           inside = !inside;
