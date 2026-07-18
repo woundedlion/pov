@@ -11,6 +11,7 @@
 #include <numeric>
 #include <cfloat>
 #include <span>
+#include <type_traits>
 #include "math/geometry.h"
 #include "render/shading.h"
 #include "engine/constants.h"
@@ -4404,14 +4405,25 @@ struct Torus {
   }
 
   /**
+   * @brief Outward normal direction at a point, from a precomputed XZ radius.
+   * @param p Query point in Cartesian ray-space.
+   * @param xz_len sqrtf(p.x² + p.z²) for `p`.
+   * @return The outward normal direction, NOT unit length; the caller
+   *         normalizes, or folds `p` through a linear map that it then
+   *         normalizes.
+   */
+  Vector normal_raw(const Vector &p, float xz_len) const {
+    float scale = (xz_len > TOLERANCE) ? R / xz_len : 0.0f;
+    return p - Vector(p.x * scale, 0.0f, p.z * scale);
+  }
+
+  /**
    * @brief Surface normal at a point near the torus surface.
    * @param p Query point in Cartesian ray-space.
    * @return Unit outward normal.
    */
   Vector normal(const Vector &p) const {
-    float xz_len = sqrtf(p.x * p.x + p.z * p.z);
-    float scale = (xz_len > TOLERANCE) ? R / xz_len : 0.0f;
-    return (p - Vector(p.x * scale, 0.0f, p.z * scale)).normalized();
+    return normal_raw(p, sqrtf(p.x * p.x + p.z * p.z)).normalized();
   }
 
   /**
@@ -4527,6 +4539,39 @@ struct Twist {
     return cur;
   }
 
+  /** @brief Both harmonics of twist*theta from one recurrence pass. */
+  struct SinCos {
+    float sin_n; /**< sin(twist * theta). */
+    float cos_n; /**< cos(twist * theta). */
+  };
+
+  /**
+   * @brief sin(n*theta) and cos(n*theta) together, sharing one recurrence
+   *        setup and loop.
+   * @param p Query point.
+   * @param s Precomputed context (radial distance in the XZ plane).
+   * @return Both harmonics, matching sin_ntheta/cos_ntheta bit for bit.
+   * @details For the hit path, which needs both: the march path needs only the
+   * sine and calls sin_ntheta so it does not pay for the cosine sequence.
+   */
+  SinCos sincos_ntheta(const Vector &p, Ctx s) const {
+    if (twist == 0 || s < TOLERANCE)
+      return {0.0f, 1.0f};
+    const float inv_s = 1.0f / s;
+    const float two_cos = 2.0f * p.x * inv_s;
+    float sin_prev = 0.0f, sin_cur = p.z * inv_s;
+    float cos_prev = 1.0f, cos_cur = p.x * inv_s;
+    for (int k = 1; k < twist; ++k) {
+      const float sin_next = two_cos * sin_cur - sin_prev;
+      sin_prev = sin_cur;
+      sin_cur = sin_next;
+      const float cos_next = two_cos * cos_cur - cos_prev;
+      cos_prev = cos_cur;
+      cos_cur = cos_next;
+    }
+    return {sin_cur, cos_cur};
+  }
+
   /**
    * @brief Analytical Lipschitz constant of the warp at a point.
    * @param s Precomputed context (radial distance in the XZ plane).
@@ -4559,9 +4604,24 @@ struct Twist {
   Vector correct_normal(const Vector &p, const Vector &base_n, Ctx s) const {
     if (twist == 0 || amplitude < TOLERANCE)
       return base_n;
+    return correct_normal(p, base_n, s, cos_ntheta(p, s));
+  }
+
+  /**
+   * @brief Normal correction from an already-computed cos(twist*theta).
+   * @param p Query point.
+   * @param base_n Unwarped surface normal; need not be unit length.
+   * @param s Precomputed context (radial distance in the XZ plane).
+   * @param cos_n cos(twist * theta) at `p`.
+   * @return The corrected unit normal.
+   * @details The correction is a linear map of base_n, so scaling base_n scales
+   * the result and the final normalize cancels it — an unnormalized base normal
+   * gives the identical unit result and saves a normalize.
+   */
+  Vector correct_normal(const Vector &p, const Vector &base_n, Ctx s,
+                        float cos_n) const {
     float inv_s = (s > TOLERANCE) ? 1.0f / s : 0.0f;
-    float dh_dtheta =
-        -amplitude * static_cast<float>(twist) * cos_ntheta(p, s);
+    float dh_dtheta = -amplitude * static_cast<float>(twist) * cos_n;
     float inv_s2 = inv_s * inv_s;
 
     float dh_dx = dh_dtheta * (-p.z) * inv_s2;
@@ -4646,11 +4706,26 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    */
   Vector normal(const Vector &p) const {
     auto ctx = warp.make_ctx(p);
-    Vector base_n = base.normal(warp.apply(p, ctx));
-    if constexpr (requires { warp.correct_normal(p, base_n, ctx); }) {
-      return warp.correct_normal(p, base_n, ctx);
+    if constexpr (std::is_same_v<SDF, ::SDF::Torus> &&
+                  std::is_same_v<Warp, ::SDF::Warp::Twist>) {
+      // Twist displaces only y, so the warped point keeps p's XZ radius `ctx`
+      // and the torus normal needs no second sqrt; one recurrence yields both
+      // the sine the warp needs and the cosine the correction needs; and the
+      // correction normalizes, so the base normal can stay unnormalized.
+      // twist == 0 needs no special case: it gives cos_n = 1, hence a zero
+      // gradient and an unchanged normal.
+      if (warp.amplitude < TOLERANCE)
+        return base.normal_raw(p, ctx).normalized();
+      auto h = warp.sincos_ntheta(p, ctx);
+      Vector warped(p.x, p.y - warp.amplitude * h.sin_n, p.z);
+      return warp.correct_normal(p, base.normal_raw(warped, ctx), ctx, h.cos_n);
+    } else {
+      Vector base_n = base.normal(warp.apply(p, ctx));
+      if constexpr (requires { warp.correct_normal(p, base_n, ctx); }) {
+        return warp.correct_normal(p, base_n, ctx);
+      }
+      return base_n;
     }
-    return base_n;
   }
 
   /**
