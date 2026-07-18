@@ -1065,6 +1065,9 @@ inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
   const auto xc = cr.x_clip();
 
   int y_lo, y_hi;
+  std::pair<int, int> runs[8];
+  size_t num_runs = 0;
+
   {
     HS_PROFILE(raster_setup);
     auto bounds = shape.template get_vertical_bounds<H>();
@@ -1077,24 +1080,19 @@ inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
 
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
-  }
 
-  // A shape emits <= 4 spans per row; each wraps into <= 2 pieces, each
-  // clip-split into <= 2 runs.
-  std::pair<int, int> runs[16];
-  size_t num_runs = 0;
-
-  auto build_runs = [&](int y) {
-    num_runs = 0;
+    // Face emits <= 2 spans; each wraps into <= 2 pieces, each clip-split into
+    // <= 2 runs.
     StaticCircularBuffer<std::pair<float, float>, 4> intervals;
     bool handled = shape.template get_horizontal_intervals<W, H>(
-        y, [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
+        y_lo,
+        [&](float t1, float t2) { SDF::push_interval(intervals, t1, t2); });
 
     auto add_run = [&](int x1, int x2) {
       auto push = [&](int a, int b) {
         if (a >= b)
           return;
-        HS_CHECK(num_runs < 16, "rasterize_face: run buffer overflow");
+        HS_CHECK(num_runs < 8, "rasterize_face: run buffer overflow");
         runs[num_runs++] = {a, b};
       };
       if (!xc.active) {
@@ -1109,43 +1107,46 @@ inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
 
     if (!handled) {
       add_run(0, W);
-      return;
-    }
-    if (intervals.is_empty())
-      return;
-
-    for (const auto &iv : intervals) {
-      if (iv.second - iv.first >= static_cast<float>(W)) {
+    } else if (!intervals.is_empty()) {
+      bool full_row = false;
+      for (const auto &iv : intervals) {
+        if (iv.second - iv.first >= static_cast<float>(W)) {
+          full_row = true;
+          break;
+        }
+      }
+      if (full_row) {
         add_run(0, W);
-        return;
+      } else {
+        StaticCircularBuffer<std::pair<float, float>, 8> norm;
+        SDF::normalize_intervals_to_range<W>(intervals, norm);
+        SDF::sort_intervals_by_start(norm);
+        float current_end = -FLT_MAX;
+        int last_x2 = 0;
+        for (const auto &iv : norm) {
+          if (iv.second <= current_end)
+            continue;
+          float start = std::max(iv.first, current_end);
+          float end = iv.second;
+          current_end = end;
+          int x1 = static_cast<int>(floorf(start));
+          int x2 = static_cast<int>(ceilf(end));
+          if (x1 == x2)
+            x2++;
+          if (x1 < 0)
+            x1 = 0;
+          if (x2 > W)
+            x2 = W;
+          if (x1 < last_x2)
+            x1 = last_x2;
+          last_x2 = x2;
+          add_run(x1, x2);
+        }
       }
     }
-
-    StaticCircularBuffer<std::pair<float, float>, 8> norm;
-    SDF::normalize_intervals_to_range<W>(intervals, norm);
-    SDF::sort_intervals_by_start(norm);
-    float current_end = -FLT_MAX;
-    int last_x2 = 0;
-    for (const auto &iv : norm) {
-      if (iv.second <= current_end)
-        continue;
-      float start = std::max(iv.first, current_end);
-      float end = iv.second;
-      current_end = end;
-      int x1 = static_cast<int>(floorf(start));
-      int x2 = static_cast<int>(ceilf(end));
-      if (x1 == x2)
-        x2++;
-      if (x1 < 0)
-        x1 = 0;
-      if (x2 > W)
-        x2 = W;
-      if (x1 < last_x2)
-        x1 = last_x2;
-      last_x2 = x2;
-      add_run(x1, x2);
-    }
-  };
+    if (num_runs == 0)
+      return;
+  }
 
   const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
@@ -1157,11 +1158,6 @@ inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
 
   HS_PROFILE(raster_scan);
   for (int y = y_lo; y <= y_hi; ++y) {
-    { HS_PROFILE(raster_rowspan);
-      build_runs(y);
-    }
-    if (num_runs == 0)
-      continue;
     float sp = TrigLUT<W, H>::sin_phi[y];
     float cp = TrigLUT<W, H>::cos_phi[y];
     for (size_t r = 0; r < num_runs; ++r) {
