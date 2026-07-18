@@ -46,6 +46,10 @@
 //                            counters and adds the "scan totals" window line.
 //                            Every probe pays a non-atomic global increment, so
 //                            read the COUNTS from such a build, not the times.
+//   HS_PROBE_BREAKDOWN       compiles in the per-probe stage cycle buckets and
+//                            adds the "probe cycles"/"probe counts" lines. Every
+//                            stage boundary is a cycle-counter read, so read
+//                            RATIOS from such a build, discounted by `tick`.
 
 #define HS_PROFILE_STR2(x) #x
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
@@ -101,6 +105,9 @@ public:
 #ifdef HS_SCAN_METRICS
     drain_scan_metrics();
 #endif
+#ifdef HS_PROBE_BREAKDOWN
+    drain_probe_breakdown();
+#endif
     render_sum_ += render;
     if (render > render_max_) render_max_ = render;
     wall_sum_ += dt;
@@ -128,6 +135,9 @@ private:
     hs::CycleCounter::log_all();
 #ifdef HS_SCAN_METRICS
     dump_scan_totals();
+#endif
+#ifdef HS_PROBE_BREAKDOWN
+    dump_probe_breakdown();
 #endif
     hs::CycleCounter::reset_all();
     window_frames_ = 0;
@@ -234,6 +244,76 @@ private:
   }
 
   ScanTotals scan_totals_; /**< This window's drained scan counters. */
+#endif
+
+#ifdef HS_PROBE_BREAKDOWN
+  /** @brief 64-bit window accumulators for the per-probe stage buckets. */
+  struct ProbeTotals {
+    uint64_t point = 0, project = 0, lut = 0, convex = 0, sector = 0, exact = 0;
+    uint64_t pack = 0, alpha = 0, tick = 0;
+    uint64_t n_probe = 0, n_cull_cos = 0, n_cull_r = 0, n_lut = 0, n_convex = 0;
+    uint64_t n_sector = 0, n_exact = 0, n_alpha = 0;
+    void reset() {
+      point = project = lut = convex = sector = exact = pack = alpha = tick = 0;
+      n_probe = n_cull_cos = n_cull_r = n_lut = n_convex = n_sector = n_exact =
+          n_alpha = 0;
+    }
+  };
+
+  /**
+   * @brief Folds this frame's probe buckets into the window totals, rezeroed.
+   * @details Same uint32 wrap argument as drain_scan_metrics: a frame of a
+   *          many-faced solid accumulates enough cycles to wrap a bucket.
+   */
+  void drain_probe_breakdown() {
+    const hs::ProbeBreakdown &b = hs::g_probe_breakdown;
+    probe_totals_.point += b.point;
+    probe_totals_.project += b.project;
+    probe_totals_.lut += b.edge_lut;
+    probe_totals_.convex += b.edge_convex;
+    probe_totals_.sector += b.edge_sector;
+    probe_totals_.exact += b.edge_exact;
+    probe_totals_.pack += b.pack;
+    probe_totals_.alpha += b.alpha;
+    probe_totals_.tick += b.tick;
+    probe_totals_.n_probe += b.n_probe;
+    probe_totals_.n_cull_cos += b.n_cull_cos;
+    probe_totals_.n_cull_r += b.n_cull_r;
+    probe_totals_.n_lut += b.n_lut;
+    probe_totals_.n_convex += b.n_convex;
+    probe_totals_.n_sector += b.n_sector;
+    probe_totals_.n_exact += b.n_exact;
+    probe_totals_.n_alpha += b.n_alpha;
+    hs::g_probe_breakdown.reset();
+  }
+
+  /**
+   * @brief Prints and resets this window's probe-stage cycle buckets.
+   * @details Window totals in cycles beside their event counts, as the scan
+   *          totals do. Each bucket carries one counter read; tick is the summed
+   *          cost of a back-to-back read pair per probe, so tick/n_probe/2 is
+   *          the per-read inflation to subtract from each bucket's mean.
+   */
+  void dump_probe_breakdown() {
+    const ProbeTotals &t = probe_totals_;
+    char b0[21], b1[21], b2[21], b3[21], b4[21], b5[21], b6[21], b7[21], b8[21];
+    hs::log("probe cycles: point=%s project=%s lut=%s convex=%s sector=%s "
+            "exact=%s pack=%s alpha=%s tick=%s",
+            hs::u64_dec(t.point, b0), hs::u64_dec(t.project, b1),
+            hs::u64_dec(t.lut, b2), hs::u64_dec(t.convex, b3),
+            hs::u64_dec(t.sector, b4), hs::u64_dec(t.exact, b5),
+            hs::u64_dec(t.pack, b6), hs::u64_dec(t.alpha, b7),
+            hs::u64_dec(t.tick, b8));
+    hs::log("probe counts: probe=%s cull_cos=%s cull_r=%s lut=%s convex=%s "
+            "sector=%s exact=%s alpha=%s",
+            hs::u64_dec(t.n_probe, b0), hs::u64_dec(t.n_cull_cos, b1),
+            hs::u64_dec(t.n_cull_r, b2), hs::u64_dec(t.n_lut, b3),
+            hs::u64_dec(t.n_convex, b4), hs::u64_dec(t.n_sector, b5),
+            hs::u64_dec(t.n_exact, b6), hs::u64_dec(t.n_alpha, b7));
+    probe_totals_.reset();
+  }
+
+  ProbeTotals probe_totals_; /**< This window's drained probe buckets. */
 #endif
 
   unsigned long total_frames_ = 0;  /**< Frames since this effect instance began. */

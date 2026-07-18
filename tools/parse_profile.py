@@ -15,6 +15,9 @@ teensy-profile skill). Reads a capture produced by `profile`/`profile_o3` and:
   metrics   per-window scan-probe counts and their path split, from a capture
             built with -D HS_SCAN_METRICS. Counts only: every probe in such a
             build pays a global increment, so its times are not comparable.
+  probe     per-probe stage cycle split, from a capture built with
+            -D HS_PROBE_BREAKDOWN. Ratios only: every stage boundary is a
+            cycle-counter read, whose measured cost the view subtracts.
   validate  sanity checks a cycling-effect capture: preset markers present,
             the cycle wraps back to its first index, the effect instance is
             never torn down mid-capture (frame numbers stay monotonic), and the
@@ -54,6 +57,17 @@ SCAN_RE = re.compile(
     r"sector=(\d+) walk=(\d+) cand=(\d+) backstop=(\d+)\s*$")
 SCAN_FIELDS = ("tested", "culled", "lut", "convex", "sector", "walk",
                "cand", "backstop")
+# HS_PROBE_BREAKDOWN window totals (Profile.ino dump_probe_breakdown).
+PROBE_CYC_RE = re.compile(
+    r"^probe cycles: point=(\d+) project=(\d+) lut=(\d+) convex=(\d+) "
+    r"sector=(\d+) exact=(\d+) pack=(\d+) alpha=(\d+) tick=(\d+)\s*$")
+PROBE_CYC_FIELDS = ("point", "project", "lut", "convex", "sector", "exact",
+                    "pack", "alpha", "tick")
+PROBE_CNT_RE = re.compile(
+    r"^probe counts: probe=(\d+) cull_cos=(\d+) cull_r=(\d+) lut=(\d+) "
+    r"convex=(\d+) sector=(\d+) exact=(\d+) alpha=(\d+)\s*$")
+PROBE_CNT_FIELDS = ("n_probe", "n_cull_cos", "n_cull_r", "n_lut", "n_convex",
+                    "n_sector", "n_exact", "n_alpha")
 
 # Preset/shape/mode advance markers. `key` groups them; `idx`/`total`/`name`
 # are pulled when present.
@@ -86,6 +100,7 @@ class Window:
         self.counters = {}  # label -> dict(us, pct, calls, cyc, depth)
         self.marker = None  # active preset marker at this window
         self.scan = None  # HS_SCAN_METRICS window totals, when the build has them
+        self.probe = None  # HS_PROBE_BREAKDOWN window buckets + counts
 
     def per_frame_ms(self, label):
         n = self.counters.get(label)
@@ -204,6 +219,18 @@ def parse(path):
             if m and cur:
                 cur.scan = dict(zip(SCAN_FIELDS,
                                     (int(g) for g in m.groups())))
+                continue
+            m = PROBE_CYC_RE.match(line)
+            if m and cur:
+                cur.probe = dict(cur.probe or {})
+                cur.probe.update(zip(PROBE_CYC_FIELDS,
+                                     (int(g) for g in m.groups())))
+                continue
+            m = PROBE_CNT_RE.match(line)
+            if m and cur:
+                cur.probe = dict(cur.probe or {})
+                cur.probe.update(zip(PROBE_CNT_FIELDS,
+                                     (int(g) for g in m.groups())))
                 continue
             m = COUNTER_RE.match(line)
             if m and cur:
@@ -497,6 +524,65 @@ def _metrics_row(s, frames, shade):
                     for v, w, p in zip(vals, METRICS_WIDTHS, prec))
 
 
+PROBE_STAGES = (("point", "n_probe"), ("project", "n_probe"),
+                ("lut", "n_lut"), ("convex", "n_convex"),
+                ("sector", "n_sector"), ("exact", "n_exact"),
+                ("pack", "n_probe"), ("alpha", "n_alpha"))
+
+
+def cmd_probe(windows):
+    """Per-probe stage cycle split from an HS_PROBE_BREAKDOWN capture.
+
+    Each stage prints its mean cycles per event of its own denominator (`point`,
+    `project` and `pack` run once per probe; the edge stages once per probe on
+    that path; `alpha` once per shade candidate), the same mean with the
+    self-measured counter-read cost removed, and the share of the summed
+    per-probe cost it accounts for. `read` is that measured cost: `tick` sums a
+    back-to-back read pair per probe, so read = tick/(2*probes), and every stage
+    carries exactly one read. Ratios from this build are meaningful; absolute
+    times are not.
+    """
+    have = [w for w in windows if w.probe and "n_probe" in w.probe
+            and "point" in w.probe]
+    if not have:
+        print("no 'probe cycles'/'probe counts' lines: rebuild with "
+              "-D HS_PROBE_BREAKDOWN", file=sys.stderr)
+        return 2
+    agg = Counter()
+    for w in have:
+        agg.update(w.probe)
+    probes = agg["n_probe"]
+    if not probes:
+        print("probe count is zero", file=sys.stderr)
+        return 2
+    read = agg["tick"] / (2.0 * probes)
+    print(f"probes={probes}  windows={len(have)}  "
+          f"counter read={read:.1f} cyc (measured)")
+    print(f"{'# stage':<10} {'events':>10} {'cyc/event':>10} "
+          f"{'net':>9} {'cyc/probe':>10} {'share':>7}")
+    net_per_probe = {}
+    for stage, den_key in PROBE_STAGES:
+        den = agg[den_key]
+        if not den:
+            continue
+        mean = agg[stage] / den
+        net = mean - read
+        net_per_probe[stage] = net * den / probes
+    total = sum(v for v in net_per_probe.values() if v > 0)
+    for stage, den_key in PROBE_STAGES:
+        if stage not in net_per_probe:
+            continue
+        den = agg[den_key]
+        mean = agg[stage] / den
+        per_probe = net_per_probe[stage]
+        share = 100.0 * per_probe / total if total else 0.0
+        print(f"{stage:<10} {den:10d} {mean:10.1f} {mean - read:9.1f} "
+              f"{per_probe:10.1f} {share:6.1f}%")
+    print(f"{'# total':<10} {'':>10} {'':>10} {'':>9} {total:10.1f} "
+          f"{100.0:6.1f}%")
+    return 0
+
+
 def cmd_validate(windows, effect, scope):
     ok = True
 
@@ -566,7 +652,8 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("log")
     ap.add_argument("mode", choices=["windows", "presets", "buckets",
-                                     "validate", "frames", "metrics"])
+                                     "validate", "frames", "metrics",
+                                     "probe"])
     ap.add_argument("--scope", help="counter label to read (default: costliest leaf)")
     ap.add_argument("--gate", help="call-count scope gating clean holds "
                                     "(default: --scope)")
@@ -591,6 +678,8 @@ def main():
         return cmd_buckets(windows)
     elif args.mode == "metrics":
         return cmd_metrics(windows)
+    elif args.mode == "probe":
+        return cmd_probe(windows)
     else:
         return 0 if cmd_validate(windows, effect, scope) else 1
     return 0

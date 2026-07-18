@@ -1209,6 +1209,49 @@ struct ScanMetrics {
 inline ScanMetrics g_scan_metrics;
 #endif
 
+/**
+ * @brief Per-probe cycle buckets splitting one Face::distance probe into its
+ *        stages, plus the event counts each bucket divides by.
+ * @details Accumulated from raw cycle-counter deltas rather than CycleScope
+ * RAII, which at tens of thousands of probes per frame would cost more than the
+ * stages being measured. One counter read per stage boundary; `tick` sums a
+ * back-to-back read pair per probe so a capture measures its own read cost and
+ * the buckets can be discounted by it. Report ratios from such a build, not
+ * absolute times.
+ */
+struct ProbeBreakdown {
+  uint32_t point = 0;   /**< Cycles: probe entry through the back-face cull. */
+  uint32_t project = 0; /**< Cycles: gnomonic projection through the radius cull. */
+  uint32_t edge_lut = 0;    /**< Cycles: class-LUT bilinear serve. */
+  uint32_t edge_convex = 0; /**< Cycles: convex half-plane max. */
+  uint32_t edge_sector = 0; /**< Cycles: concave sector walk. */
+  uint32_t edge_exact = 0;  /**< Cycles: full per-edge walk. */
+  uint32_t pack = 0;  /**< Cycles: plane->angle conversion and result packaging. */
+  uint32_t alpha = 0; /**< Cycles: scan-side AA coverage kernel. */
+  uint32_t tick = 0;  /**< Cycles: summed back-to-back counter-read pairs. */
+  uint32_t n_probe = 0;    /**< Probes entered. */
+  uint32_t n_cull_cos = 0; /**< Probes leaving at the back-face cull. */
+  uint32_t n_cull_r = 0;   /**< Probes leaving at the radius cull. */
+  uint32_t n_lut = 0;      /**< Probes served by the class LUT. */
+  uint32_t n_convex = 0;   /**< Probes taking the convex path. */
+  uint32_t n_sector = 0;   /**< Probes taking the sector walk. */
+  uint32_t n_exact = 0;    /**< Probes taking the full edge walk. */
+  uint32_t n_alpha = 0;    /**< Probes reaching the AA coverage kernel. */
+  /** @brief Zeroes every bucket and count. */
+  void reset() {
+    point = project = edge_lut = edge_convex = edge_sector = edge_exact = pack =
+        alpha = tick = 0;
+    n_probe = n_cull_cos = n_cull_r = n_lut = n_convex = n_sector = n_exact =
+        n_alpha = 0;
+  }
+};
+/** @brief Global per-probe cycle buckets. Compiled in only when
+ *  HS_PROBE_BREAKDOWN is defined; otherwise HS_PROBE_* expand to nothing and
+ *  this would be dead storage. */
+#ifdef HS_PROBE_BREAKDOWN
+inline ProbeBreakdown g_probe_breakdown;
+#endif
+
 } // namespace hs
 
 // Per-pixel scan instrumentation is OFF by default: a g_scan_metrics increment is
@@ -1220,6 +1263,34 @@ inline ScanMetrics g_scan_metrics;
 #define HS_SCAN_METRIC(stmt) do { (stmt); } while (0)
 #else
 #define HS_SCAN_METRIC(stmt) ((void)0)
+#endif
+
+// Per-probe stage timing, OFF by default: each boundary is a cycle-counter read
+// plus a global accumulate, which at the scan's probe rate distorts the very
+// stages it splits. Define HS_PROBE_BREAKDOWN to compile the buckets in and read
+// RATIOS from the capture, discounted by the self-measured `tick` read cost.
+// HS_PROBE_MARK opens a rolling timestamp; HS_PROBE_SPAN closes one stage and
+// reopens the next off the same read, so a chain of N stages costs N reads.
+#ifdef HS_PROBE_BREAKDOWN
+#define HS_PROBE_MARK(var) uint32_t var = HS_OS_CYCLES()
+#define HS_PROBE_SPAN(field, var)                                             \
+  do {                                                                        \
+    uint32_t hs_now_ = HS_OS_CYCLES();                                        \
+    hs::g_probe_breakdown.field += hs_now_ - (var);                           \
+    (var) = hs_now_;                                                          \
+  } while (0)
+#define HS_PROBE_COUNT(field) do { ++hs::g_probe_breakdown.field; } while (0)
+#define HS_PROBE_TICK()                                                       \
+  do {                                                                        \
+    uint32_t hs_a_ = HS_OS_CYCLES();                                          \
+    uint32_t hs_b_ = HS_OS_CYCLES();                                          \
+    hs::g_probe_breakdown.tick += hs_b_ - hs_a_;                              \
+  } while (0)
+#else
+#define HS_PROBE_MARK(var)
+#define HS_PROBE_SPAN(field, var) ((void)0)
+#define HS_PROBE_COUNT(field) ((void)0)
+#define HS_PROBE_TICK() ((void)0)
 #endif
 
 // ---------------------------------------------------------------------------
