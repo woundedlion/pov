@@ -1,8 +1,11 @@
 # Single-pass mesh rasterizer — design
 
-Status: **design only, unimplemented.** Written 2026-07-18 after the per-row
-span lever (`f7524d19`) was measured negative, to record the approach and the
-two constraints that killed its predecessors.
+Status: **REJECTED, measured 2026-07-18.** Do not build this. The go/no-go
+probe (branch `probe/single-pass`, `cbeb26e4`) returned
+`N_scheme/N_today = 0.83-0.96` against the 0.75 threshold this document set —
+no solid clears it. The refutation is in "Why it fails" at the end; read that
+before proposing any variant. The design and its two constraints are kept
+because they are correct and they bound what any successor may attempt.
 
 ## The problem
 
@@ -139,3 +142,72 @@ Predecessors and their causes of death: `e7264a2c` (claim mask — AA, C1),
 `39db0225` (cap-span clip — no-op, and its landing figure came from comparing
 `perf_bench` across sessions), `f7524d19` (per-row spans — construction cost,
 C2).
+
+
+## Why it fails — C1 and C2 are jointly fatal
+
+Measured over solids 11/6/8/19/9/7, 64 poses, quadrant clip, with the probe's
+replica of today's run construction reproducing `pixels_tested` exactly.
+
+**The geometry does admit the predicted win, and the fringe eats it.** With a
+*zero* fringe pad the minimal per-(face,row) arc containing that face's
+contributing columns sits at `N_ideal/N_today = 0.43-0.46` — essentially on
+the contributing floor (`N_contrib/N_today = 0.41-0.46`). Adding the mandatory
+AA pad and outward rounding takes it to 0.83-0.96. **The fringe consumes about
+three quarters of the available win.** That is C2 quantified, and it is not a
+tuning failure: 47-80 % of rows have their padded spans decline to the
+whole-face extent because the padded span is not narrower than today's
+rectangle.
+
+**The whole-mesh pass cannot fix that, and C1 is the reason.** 90.9-98.2 % of
+the scheme's evaluations land on pixels covered by two or more faces' padded
+spans — the fringe overlap is nearly total. But C1 forbids collapsing it: each
+adjacent face must still evaluate its own padded span, because the AA blend
+*is* their disagreement. So sharing an edge between two faces amortizes
+**construction** (a real 1.58-1.60x reduction in edge-rows) and **never the
+pair count** — and the pair count is the only thing the probe saving depends
+on. `N_scheme` is therefore identical in kind to the per-row lever's
+evaluation set, which `f7524d19` already measured and rejected.
+
+**The central premise of this document — that a whole-mesh pass changes the
+probe count — is false by C1's own logic.**
+
+Independently, S3's incremental stepper does not work either. It measures
+2.37-2.83 ns/edge-row against 2.14-2.44 ns for an exact `fast_acos`: a 1.11-
+1.24x **regression**, because the error-bound arithmetic costs more than the
+transcendental it avoids, and it still re-anchors 24-29 % of the time at a
+correctly-calibrated 0.5 px bound. It also attacks the wrong 3 %: `acos` is
+2.3 ns of the 79-89 ns/edge-row that `emit_row_spans` costs. The predecessor's
+~933 cycles is band/clip arithmetic, crossing pairing, insertion sort and the
+depth walk — the ~15 cycle target was never reachable.
+
+## What the probe vindicated
+
+- **The superset invariant HOLDS.** Zero contributing pairs missed, pair-by-
+  pair, every solid x 64 poses. The bit-identical claim was sound; there was
+  simply nothing worth buying with it.
+- **Vertex neighbourhoods are clean.** 68k-227k contributing pairs lie within
+  1.5 px of a projected vertex (~40 % of all contributing pairs on solid 11 —
+  these meshes are vertex-dense) and **zero** are missed. The predicted AA-loss
+  risk at 3+ face junctions does not materialize.
+- **Self-intersecting faces are clean.** Solid 8 (100 % crossed hexagons) holds
+  the superset exactly and sits mid-pack at 0.861, so non-manifold geometry was
+  never the obstacle.
+
+## Where to look instead
+
+Not span tightening. Four attempts have now died on the same structural fact,
+and C1+C2 close the family: no per-face-span scheme can reduce the pair count
+below the fringe, and the fringe is the AA. What remains is **coverage
+reduction** (fewer or larger faces — an art decision) or **per-probe cost**.
+
+On per-probe cost, one figure deserves a look before it is assumed harvested:
+the device spends ~1,878 scan cycles per shaded pixel at ~2.25 probes per
+shaded pixel, implying **~830 cycles per probe**. That is implausibly high for
+a sector walk (binary search plus three edge distances) and suggests the
+per-pixel loop carries substantial cost outside `Face::distance` itself. Note
+also that no probe count has ever been measured on device — `HS_SCAN_METRICS`
+is not compiled into the profile image — so every probe figure in this
+document's lineage is host-simulated and the absolute baseline (41,820
+probes/frame on solid 11) does not reproduce at quadrant clip (the probe
+measures 19,330). Reconcile that before reusing it.
