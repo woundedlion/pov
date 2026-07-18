@@ -691,6 +691,149 @@ inline void test_gamut_clip_lands_on_first_exit() {
   HS_EXPECT_LE(worst_oversat, 0.0f);
 }
 
+// Grid MeshFeedback arms, and the one the bounds below are measured at.
+inline constexpr int TEST_GAMUT_ANGLE_STEPS = 256;
+inline constexpr int TEST_GAMUT_L_STEPS = 128;
+
+/**
+ * @brief Verifies the bracket table plus in-bracket refinement lands on the
+ *        gamut's first exit.
+ * @details Same two properties as the cubic-solve sweep, at the grid and step
+ *          count the device runs: every returned color passes
+ *          linear_rgb_in_gamut, and the returned chroma sits inside the
+ *          double-precision first exit but not far inside. The cell minimum is
+ *          probed before it is trusted and the refinement only ever accepts a
+ *          scale it has evaluated in gamut, so the in-gamut property does not
+ *          depend on the table being right — only the deficit does.
+ */
+inline void test_gamut_lut_clip_lands_on_first_exit() {
+  const float DEFICIT_BOUND = 5e-3f;
+  const double CHROMA_IN[3] = {0.6, 0.35, 0.25};
+  alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(
+      TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
+  Arena lut_arena(lut_buf, sizeof(lut_buf));
+  init_gamut_lut(lut_arena, TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS);
+
+  float worst_deficit = 0.0f, worst_oversat = -1.0f;
+
+  for (int il = 0; il <= 32; ++il) {
+    const double L = 0.1 + 0.8 * il / 32.0;
+    for (int ih = 0; ih < 360 + 96; ++ih) {
+      // 360 even steps, then a fine fan across the blue vertex.
+      const double deg = ih < 360 ? ih : 258.0 + 0.125 * (ih - 360);
+      const double h = deg * 3.14159265358979323846 / 180.0;
+      const double ad = std::cos(h), bd = std::sin(h);
+
+      for (int ic = 0; ic < 3; ++ic) {
+        const double cin = CHROMA_IN[ic];
+        OKLab mapped = gamut_clip_preserve_chroma(
+            {(float)L, (float)(ad * cin), (float)(bd * cin)});
+
+        float r, g, b;
+        oklab_to_linear_rgb(mapped, r, g, b);
+        HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
+
+        const float got = std::sqrt(mapped.a * mapped.a + mapped.b * mapped.b);
+        const float ref = (float)gamut_first_exit_ref(L, ad, bd, cin);
+        if (ref - got > worst_deficit)
+          worst_deficit = ref - got;
+        if (got - ref > worst_oversat)
+          worst_oversat = got - ref;
+      }
+    }
+  }
+  HS_EXPECT_LT(worst_deficit, DEFICIT_BOUND);
+  HS_EXPECT_LE(worst_oversat, 0.0f);
+
+  // Outside the reported lightness band the bracket widens, but the in-gamut
+  // guarantee is structural and must still hold at every L and hue.
+  for (int il = 0; il <= 200; ++il) {
+    const float L = il / 200.0f;
+    for (int ih = 0; ih < 180; ++ih) {
+      const float h = 6.28318531f * ih / 180.0f;
+      for (float cin : {0.05f, 0.2f, 0.45f}) {
+        OKLab mapped =
+            gamut_clip_preserve_chroma({L, cin * std::cos(h), cin * std::sin(h)});
+        float r, g, b;
+        oklab_to_linear_rgb(mapped, r, g, b);
+        HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
+      }
+    }
+  }
+
+  release_gamut_lut();
+}
+
+/**
+ * @brief Verifies the downsample keeps every merged cell inside the coarse
+ *        bracket.
+ * @details A coarse cell takes the minimum of the merged minima and the maximum
+ *          of the merged maxima, so the true boundary of any ray in the region
+ *          still lies inside it. Losing that is what would let the refinement
+ *          start from a lower bound that is already out of gamut.
+ */
+inline void test_gamut_lut_downsample_preserves_bracket() {
+  const int A = TEST_GAMUT_ANGLE_STEPS, NL = TEST_GAMUT_L_STEPS;
+  const int sa = GAMUT_LUT_ANGLE_STEPS / A, sl = GAMUT_LUT_L_STEPS / NL;
+  alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(
+      TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
+  Arena lut_arena(lut_buf, sizeof(lut_buf));
+  init_gamut_lut(lut_arena, A, NL);
+  HS_EXPECT_TRUE(g_gamut_lut.angle_steps == A);
+  HS_EXPECT_TRUE(g_gamut_lut.l_steps == NL);
+
+  for (int l = 0; l < NL; ++l)
+    for (int a = 0; a < A; ++a) {
+      const uint16_t c_lo = g_gamut_lut.table[(l * A + a) * 2];
+      const uint16_t c_hi = g_gamut_lut.table[(l * A + a) * 2 + 1];
+      HS_EXPECT_LE(c_lo, c_hi);
+      for (int dl = 0; dl < sl; ++dl)
+        for (int da = 0; da < sa; ++da) {
+          const int f =
+              ((l * sl + dl) * GAMUT_LUT_ANGLE_STEPS + a * sa + da) * 2;
+          HS_EXPECT_LE(c_lo, GAMUT_LUT[f]);
+          HS_EXPECT_LE(GAMUT_LUT[f + 1], c_hi);
+        }
+    }
+
+  release_gamut_lut();
+}
+
+/**
+ * @brief Verifies an in-gamut color survives the table clip untouched and that
+ *        a null table falls back to the cubic solve.
+ */
+inline void test_gamut_lut_fallback_and_passthrough() {
+  alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(
+      TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
+  Arena lut_arena(lut_buf, sizeof(lut_buf));
+  init_gamut_lut(lut_arena, TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS);
+
+  // Deep inside the cell minimum: returned unchanged, bit for bit.
+  OKLab deep = oklch_to_oklab({0.5f, 0.02f, 1.0f});
+  OKLab kept = gamut_clip_preserve_chroma(deep);
+  HS_EXPECT_TRUE(kept.a == deep.a && kept.b == deep.b);
+
+  // Just inside the boundary but past the cell minimum: refined, not reduced.
+  OKLab near_edge = oklch_to_oklab({0.6f, 0.12f, 1.0f});
+  OKLCH refined = oklab_to_oklch(gamut_clip_preserve_chroma(near_edge));
+  HS_EXPECT_NEAR(refined.C, 0.12f, 1e-5f);
+
+  // An achromatic input must not divide by zero on the way through.
+  OKLab gray = gamut_clip_preserve_chroma({0.5f, 0.0f, 0.0f});
+  HS_EXPECT_NEAR(gray.a, 0.0f, 1e-9f);
+  HS_EXPECT_NEAR(gray.b, 0.0f, 1e-9f);
+
+  release_gamut_lut();
+  HS_EXPECT_TRUE(g_gamut_lut.table == nullptr);
+
+  // With the table released the cubic solve still maps a past-cusp color in.
+  OKLab mapped = gamut_clip_preserve_chroma(oklch_to_oklab({0.65f, 0.4f, 1.2f}));
+  float r, g, b;
+  oklab_to_linear_rgb(mapped, r, g, b);
+  HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
+}
+
 /**
  * @brief Verifies oklch_to_pixel routes out-of-gamut colors through the
  *        chroma-reduction map, holding hue where a per-channel clip would not.
@@ -1911,6 +2054,9 @@ inline int run_color_tests() {
   test_oklch_to_pixel_saturates_and_preserves_in_gamut();
   test_gamut_clip_preserves_hue();
   test_gamut_clip_lands_on_first_exit();
+  test_gamut_lut_clip_lands_on_first_exit();
+  test_gamut_lut_downsample_preserves_bracket();
+  test_gamut_lut_fallback_and_passthrough();
   test_oklch_to_pixel_holds_hue_out_of_gamut();
 
   test_fast_cbrt_accuracy();
