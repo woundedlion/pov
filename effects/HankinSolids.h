@@ -342,31 +342,19 @@ private:
    * @param strap_by_slot Resolved palette LUT per class slot for strap faces.
    * @param opacity Output alpha in [0, 1].
    * @param strap_open_fade Alpha multiplier for strap (emission index >=
-   * node_faces_) faces over the opening window, in [0, 1]. Newborn straps split
-   * former star interiors in one frame; fading their coverage in turns that
-   * birth into a bounded reveal instead of a hard sliver pop. The strap opens
-   * inside a star interior whose pixels sit mid-ramp, so there is no single
-   * color to emerge from and coverage is the right knob here.
-   * @param strap_edge_blend Blend of strap faces toward the star-face edge
-   * color they collapse onto over the closing window, in [0, 1]. A strap face
-   * renders its full ramp even one pixel wide, so its bright interior differs
-   * from the ramp-base color the closed seam shows and it winks out on
-   * vanishing; lerping toward that base first makes it dissolve into the seam.
-   * Blending toward the edge color rather than toward transparent is
-   * load-bearing at this end: the strap is a gap between star faces, so fading
-   * its alpha while it is still wide punches the background through the seam.
-   * @details Both are 1.0 (no-op) through mid-cycle and the two windows are
-   * disjoint. At either angle-0 bookend the straps are zero-area, so a 0
-   * changes no pixels and the star-face bookend stays bitwise exact. When the
-   * LUT sets match and neither shaping is active, the shader skips the
-   * per-fragment role select.
+   * node_faces_) faces, in [0, 1]. Newborn straps split former star interiors
+   * in one frame; fading their coverage in over the opening window turns that
+   * birth into a bounded reveal instead of a hard sliver pop. 1.0 outside the
+   * window is a no-op; at the angle-0 bookend the straps are zero-area, so a 0
+   * here changes no pixels and the star-face bookend stays bitwise exact.
+   * @details When the star and strap LUT sets are identical and the fade is
+   * inactive, the shader skips the per-fragment role select.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
-                 float opacity, float strap_open_fade = 1.0f,
-                 float strap_edge_blend = 1.0f) {
+                 float opacity, float strap_open_fade = 1.0f) {
     if (mesh.vertices.is_empty() || opacity < 0.01f)
       return;
     HS_PROFILE(hk_draw_mesh);
@@ -382,8 +370,7 @@ private:
     SlotLutView star_view{star_by_slot};
     SlotLutView strap_view{strap_by_slot};
     const bool fade_straps = strap_open_fade < 1.0f;
-    const bool blend_strap_edge = strap_edge_blend < 1.0f;
-    bool split = fade_straps || blend_strap_edge;
+    bool split = fade_straps;
     for (int s = 0; s < NUM_PALETTES; ++s)
       split |= star_by_slot[s] != strap_by_slot[s];
     const int star_faces = static_cast<int>(node_faces_);
@@ -399,16 +386,6 @@ private:
       f.color = shade_mesh_topology(f, topology.data(),
                                     static_cast<int>(topology.size()), view,
                                     SLOT_IDENTITY, params.intensity, opacity);
-      if (is_strap && blend_strap_edge) {
-        const int slot = mesh_topology_slot<NUM_PALETTES>(
-            f, topology.data(), static_cast<int>(topology.size()));
-        // The closed strap becomes a star-face boundary, which shades at edge
-        // distance 0; carry the fragment's alpha so the blend does not fight
-        // the sprite's fade envelope.
-        Color4 edge = star_view[slot].get(0.0f);
-        edge.alpha = f.color.alpha;
-        f.color = edge.lerp(f.color, strap_edge_blend);
-      }
       if (is_strap && fade_straps)
         f.color.alpha *= strap_open_fade;
     };
@@ -521,14 +498,13 @@ private:
                  const BakedPalette *strap_by_slot[NUM_PALETTES];
                  resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                           strap_by_slot, scratch_arena_b);
-                 // Straps fade in over the opening window and dissolve into the
-                 // seam color over the closing one; both weights are exactly 0
-                 // at their bookend and 1 through mid-cycle, and the windows
-                 // are disjoint, so only the two ends are shaped.
+                 // Reveal newborn straps over the opening window rather than
+                 // popping them into former star interiors in one frame; the
+                 // weight is exactly 0 at the angle-0 bookend and 1 past the
+                 // window, so mid-cycle draws are unchanged.
                  draw_mesh(c, mesh_, mesh_.topology, star_by_slot,
                            strap_by_slot, opacity,
-                           strap_blend_weight(cycle_frame),
-                           strap_blend_weight(DURATION - cycle_frame));
+                           strap_blend_weight(cycle_frame));
                },
                DURATION + 1, 0, ease_linear, 0, ease_linear, &anims_paused_));
   }
