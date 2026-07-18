@@ -1642,25 +1642,27 @@ inline void test_strap_crossfade_seed_swept() {
 
 // ---------------------------------------------------------------------------
 // Strap opening-fade: newborn straps reveal over the opening window instead of
-// popping into former star interiors in one frame.
+// emerging from and dissolving back into the edge they collapse onto.
 //
-// At the opening bookend (angle 0) the straps are zero-area and the frame is
-// the base solid's star faces. One frame later the interlace angle steps to
-// ~0.0038 rad and the strap faces are born as thin slivers cutting through
-// those star interiors; drawn at full coverage they hard-recolor the cut
-// pixels (a strap-vs-star sliver pop, measured 1208 px of 41472 at 288x144 on
-// truncatedTetrahedron, worst ~3000 px across the tour). Fading strap coverage
-// by strap_blend_weight over the window (~0.007 at the first frame) makes the
-// birth a bounded reveal: the first strap frame stays close to the bookend and
-// the straps ease to full coverage as the window closes.
+// At either angle-0 bookend the straps are zero-area and the frame is the base
+// solid's star faces meeting along shared edges, which shade at edge distance 0
+// (the ramp base). A strap face renders its full ramp even one pixel wide, so
+// its bright interior differs from that base color: drawn unblended it pops in
+// at the cycle open (1208 px of 41472 at 288x144 on truncatedTetrahedron, worst
+// ~3000 px across the tour) and winks out at the cycle close. Lerping the strap
+// color toward the edge's ramp-base color over both windows makes each end
+// seamless. Blending toward the edge color rather than toward transparent is
+// load-bearing: straps occupy the gap between star faces, so fading their alpha
+// would punch the background through the seam instead of closing it.
 // ---------------------------------------------------------------------------
 
 /** Per-channel delta above which a pixel counts as a hard recolor (not an AA
  * boundary shimmer), in 16-bit channel counts. */
 constexpr int STRAP_OPEN_HARD = 8000;
 
-/** First interlace angle a hankin cycle draws (sin_wave(0, pi/2, 1, 0) at
- * progress 1/64); see start_hankin_cycle. */
+/** First interlace angle a hankin cycle draws, and the last before the closing
+ * bookend (sin_wave(0, pi/2, 1, 0) at progress 1/64 and 63/64 — the sweep is a
+ * full period, so both ends sample the same angle); see start_hankin_cycle. */
 constexpr float STRAP_OPEN_ANGLE = 0.0037819f;
 
 /** Hard-recolor pixel count between two captured frames. */
@@ -1678,15 +1680,17 @@ inline int hard_recolor_count(const std::vector<Pixel> &a,
 }
 
 /** Renders the effect's current-node hankin mesh at a fixed camera into a full
- * frame, at `angle` with strap opening-fade `fade`. */
+ * frame, at `angle` with the given strap window shapings. */
 template <int W, int H>
-inline void capture_opening(HankinSolids<W, H> &fx, float angle, float fade,
-                            std::vector<Pixel> &out) {
+inline void capture_strap_frame(HankinSolids<W, H> &fx, float angle,
+                                int cycle_frame, float open_fade,
+                                float edge_blend, std::vector<Pixel> &out) {
   using Probe = conway_soak_tests::HankinWalkProbe;
   Arena scratch(cc_temp_buf, sizeof(cc_temp_buf));
   {
     Canvas c(fx);
-    Probe::render_at_angle(fx, c, angle, /*cycle_frame=*/1, fade, scratch);
+    Probe::render_at_angle(fx, c, angle, cycle_frame, open_fade, edge_blend,
+                           scratch);
   }
   fx.advance_display();
   out.resize(static_cast<size_t>(W) * H);
@@ -1696,16 +1700,20 @@ inline void capture_opening(HankinSolids<W, H> &fx, float angle, float fade,
 }
 
 /**
- * @brief Pins the strap opening-fade at a cycle start: the newborn straps,
- *        faded, leave the angle-0 bookend nearly unchanged, whereas drawn at
- *        full coverage they hard-recolor the cut star interiors.
+ * @brief Pins the strap edge reveal at both ends of a cycle: the straps one
+ *        frame in from either bookend, blended to the edge color, leave the
+ *        angle-0 bookend nearly unchanged, whereas drawn unblended they
+ *        hard-recolor the seam.
  * @details Drives to the first arrival, then renders three frames at the same
- *          (unadvanced) camera: the angle-0 bookend, the first strap frame at
- *          full coverage (the pre-fix artifact), and the same frame faded (the
- *          fix). The full-coverage pop must be large and the faded pop small,
- *          so the assertion is red without the fade and green with it.
+ *          (unadvanced) camera: the angle-0 bookend, the adjacent strap frame
+ *          unblended (the artifact — the pop at the open, the wink at the
+ *          close), and the same frame blended to the edge color (the fix). The
+ *          sweep is a full sine period, so the frame adjacent to each bookend
+ *          samples the same angle and one capture pins both ends. The
+ *          unblended difference must be large and the blended one small, so the
+ *          assertion is red without the reveal and green with it.
  */
-inline void test_strap_open_fade() {
+inline void test_strap_window_shaping() {
   reset_globals();
   using Probe = conway_soak_tests::HankinWalkProbe;
   constexpr int W = 288, H = 144;
@@ -1721,25 +1729,50 @@ inline void test_strap_open_fade() {
   }
   HS_EXPECT_LT(guard, 400);
 
-  const float fade = Probe::strap_open_fade(fx, 1);
-  HS_EXPECT_GT(fade, 0.0f);
-  HS_EXPECT_LT(fade, 0.2f); // the first frame is early in the window
+  // The sweep is a full sine period, so the frame adjacent to either bookend
+  // samples the same angle; one capture set pins both ends.
+  const float weight = Probe::strap_weight(fx, 1);
+  HS_EXPECT_GT(weight, 0.0f);
+  HS_EXPECT_LT(weight, 0.2f); // adjacent to a bookend is early in the window
 
-  std::vector<Pixel> bookend, full, faded;
-  capture_opening(fx, 0.0f, 1.0f, bookend);           // straps zero-area
-  capture_opening(fx, STRAP_OPEN_ANGLE, 1.0f, full);  // pre-fix: full coverage
-  capture_opening(fx, STRAP_OPEN_ANGLE, fade, faded); // fix: faded coverage
+  std::vector<Pixel> bookend, unshaped, faded;
+  capture_strap_frame(fx, 0.0f, 1, 1.0f, 1.0f, bookend); // straps zero-area
+  capture_strap_frame(fx, STRAP_OPEN_ANGLE, 1, 1.0f, 1.0f, unshaped);
+  capture_strap_frame(fx, STRAP_OPEN_ANGLE, 1, weight, 1.0f, faded);
 
-  const int pop_full = hard_recolor_count(bookend, full);
+  const int pop_unshaped = hard_recolor_count(bookend, unshaped);
   const int pop_faded = hard_recolor_count(bookend, faded);
-  std::printf("  [strap-open-fade] full-coverage pop=%d, faded pop=%d px\n",
-              pop_full, pop_faded);
+  std::printf("  [strap-open] unshaped=%d, coverage-faded=%d px\n",
+              pop_unshaped, pop_faded);
 
-  // The artifact must be real (else the pin is vacuous), and the fade must cut
-  // it to a small residue (the inherent star-face deformation at the step).
-  HS_EXPECT_GT(pop_full, 400);
-  HS_EXPECT_LT(pop_faded, pop_full / 4);
+  // The artifact must be real (else the pin is vacuous), and the coverage fade
+  // must cut it to a small residue (inherent star-face deformation at the
+  // step). The strap is born inside a star interior whose pixels sit mid-ramp,
+  // so coverage — not a single target color — is what closes the gap here.
+  HS_EXPECT_GT(pop_unshaped, 400);
+  HS_EXPECT_LT(pop_faded, pop_unshaped / 4);
   HS_EXPECT_LT(pop_faded, 200);
+
+  // Closing: consecutive frames of the shrinking sweep. Unshaped, the strap
+  // keeps its bright ramp interior until it vanishes (the wink); blending it
+  // toward the seam's ramp-base color makes successive frames move less.
+  const float ang_a = 0.23004f, ang_b = 0.17828f; // sweep at cycle frames 56/57
+  const int cf_a = 56, cf_b = 57;
+  std::vector<Pixel> a_plain, b_plain, a_edge, b_edge;
+  capture_strap_frame(fx, ang_a, cf_a, 1.0f, 1.0f, a_plain);
+  capture_strap_frame(fx, ang_b, cf_b, 1.0f, 1.0f, b_plain);
+  capture_strap_frame(fx, ang_a, cf_a, 1.0f, Probe::strap_weight(fx, 64 - cf_a),
+                      a_edge);
+  capture_strap_frame(fx, ang_b, cf_b, 1.0f, Probe::strap_weight(fx, 64 - cf_b),
+                      b_edge);
+
+  const int step_plain = hard_recolor_count(a_plain, b_plain);
+  const int step_edge = hard_recolor_count(a_edge, b_edge);
+  std::printf("  [strap-close] step unshaped=%d, edge-blended=%d px\n",
+              step_plain, step_edge);
+
+  HS_EXPECT_GT(step_plain, 200);
+  HS_EXPECT_LT(step_edge, step_plain);
 }
 
 // ---------------------------------------------------------------------------
@@ -1771,7 +1804,7 @@ inline int run_conway_continuity_tests() {
   test_palette_slots_stable_within_cycle();
   test_strap_crossfade_across_cycle_start();
   test_strap_crossfade_seed_swept();
-  test_strap_open_fade();
+  test_strap_window_shaping();
 
   return fixture.result();
 }
