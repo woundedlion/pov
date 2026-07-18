@@ -1682,13 +1682,14 @@ inline int hard_recolor_count(const std::vector<Pixel> &a,
 template <int W, int H>
 inline void capture_opening(HankinSolids<W, H> &fx, float angle, float fade,
                             std::vector<Pixel> &out, float close_blend = 1.0f,
-                            float terminal_fade = 1.0f, int cycle_frame = 1) {
+                            float terminal_fade = 1.0f, int cycle_frame = 1,
+                            float star_close = 1.0f) {
   using Probe = conway_soak_tests::HankinWalkProbe;
   Arena scratch(cc_temp_buf, sizeof(cc_temp_buf));
   {
     Canvas c(fx);
     Probe::render_at_angle(fx, c, angle, cycle_frame, fade, close_blend,
-                           terminal_fade, scratch);
+                           terminal_fade, star_close, scratch);
   }
   fx.advance_display();
   out.resize(static_cast<size_t>(W) * H);
@@ -1807,6 +1808,56 @@ inline void test_strap_close_dissolve() {
   HS_EXPECT_LT(e_shaped, e_plain * 3 / 4);
 }
 
+/** Interlace angle one frame either side of the sweep's midpoint, where the
+ * star face has closed to a last sliver (sin_wave at progress 31/64). */
+constexpr float STAR_CLOSE_ANGLE = 1.56701f;
+
+/**
+ * @brief Pins the mid-sweep star dissolve: the star's last sliver carries the
+ *        rosette rim color it is closing into, not its own interior color.
+ * @details The mirror of the strap close. At mid-sweep the star face shuts to
+ *          zero area and the rosettes hosted inside it fill its place, so the
+ *          transition into the fully-closed midpoint must cost less when the
+ *          star has already taken their rim color. Rendered at a fixed camera,
+ *          shaped against unshaped.
+ */
+inline void test_star_midpoint_dissolve() {
+  reset_globals();
+  using Probe = conway_soak_tests::HankinWalkProbe;
+  constexpr int W = 288, H = 144;
+  HankinSolids<W, H> fx;
+  fx.init();
+
+  int prev_node = Probe::node(fx);
+  int guard = 0;
+  while (Probe::node(fx) == prev_node && guard++ < 400) {
+    fx.draw_frame();
+    fx.advance_display();
+  }
+  HS_EXPECT_LT(guard, 400);
+
+  const int duration = 64, mid = duration / 2, cf = mid - 1;
+  const float star_blend = Probe::strap_open_fade(fx, mid - cf);
+  HS_EXPECT_GT(star_blend, 0.0f);
+  HS_EXPECT_LT(star_blend, 1.0f);
+
+  std::vector<Pixel> closed, sliver_plain, sliver_shaped;
+  // The midpoint itself: the star is gone, so its shaping cannot apply.
+  capture_opening(fx, PI_F / 2.0f, 1.0f, closed, 1.0f, 1.0f, mid, 1.0f);
+  capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, sliver_plain, 1.0f, 1.0f, cf,
+                  1.0f);
+  capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, sliver_shaped, 1.0f, 1.0f, cf,
+                  star_blend);
+
+  const long long e_plain = frame_energy(sliver_plain, closed);
+  const long long e_shaped = frame_energy(sliver_shaped, closed);
+  std::printf("  [star-mid] close energy unshaped=%lld shaped=%lld\n", e_plain,
+              e_shaped);
+
+  HS_EXPECT_GT(e_plain, 100000);
+  HS_EXPECT_LT(e_shaped, e_plain);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -1838,6 +1889,7 @@ inline int run_conway_continuity_tests() {
   test_strap_crossfade_seed_swept();
   test_strap_open_fade();
   test_strap_close_dissolve();
+  test_star_midpoint_dissolve();
 
   return fixture.result();
 }

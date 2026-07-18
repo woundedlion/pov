@@ -121,6 +121,15 @@ private:
    * nothing — but it removes the one-frame snap as the last sliver and the
    * star-face boundary it holds off both disappear at once. */
   static constexpr int STRAP_TERMINAL_FRAMES = 3;
+  /** Frames over which a face is shaped into (or out of) the neighbor it
+   * collapses onto, at each of the three collapse points: the strap birth and
+   * close at the sweep's ends, and the star close at its midpoint. Deliberately
+   * short against the 64-frame sweep — the shaping exists only to take the edge
+   * off those transitions, so the great majority of the animation paints every
+   * face in its own color. */
+  static constexpr int SHAPE_FRAMES = 5;
+  /** star_rim_palette_ sentinel: no rosette resolved for this star face yet. */
+  static constexpr uint8_t NO_RIM = 0xFF;
   /** Strap-crossfade window: frames of the 64-frame hankin sweep over which a
    * reborn strap slot glides from its previous color to the fresh target. The
    * sweep opens quadratically — straps reach visibility around frame 3-7 and
@@ -209,6 +218,24 @@ private:
       return 1.0f;
     const float u = static_cast<float>(cycle_frame) /
                     static_cast<float>(STRAP_BLEND_FRAMES);
+    return u * u * (3.0f - 2.0f * u);
+  }
+
+  /**
+   * @brief Collapse-shaping weight: exactly 0 at a collapse point, smoothstep
+   * to exactly 1 by SHAPE_FRAMES away from it.
+   * @param frames_away Sprite frames between this draw and the collapse.
+   * @details Separate from strap_blend_weight, whose 20-frame window belongs to
+   * the palette crossfade. This one is deliberately short so the shaping only
+   * softens the collapse itself and leaves the body of the sweep untouched.
+   */
+  static float shape_weight(int frames_away) {
+    if (frames_away <= 0)
+      return 0.0f;
+    if (frames_away >= SHAPE_FRAMES)
+      return 1.0f;
+    const float u =
+        static_cast<float>(frames_away) / static_cast<float>(SHAPE_FRAMES);
     return u * u * (3.0f - 2.0f * u);
   }
 
@@ -361,6 +388,11 @@ private:
    * @param strap_terminal_fade Alpha multiplier over the last frames of the
    * close, in [0, 1]. The final sliver is anti-aliasing only, so fading it
    * uncovers nothing while removing the last-frame snap.
+   * @param star_close_blend Blend of star faces toward the rim color of the
+   * rosettes hosted inside them, over the sweep's midpoint, in [0, 1]. The
+   * mirror of the strap close: at mid-sweep the star closes to nothing and the
+   * rosettes fill its place, so it dissolves into their rim and comes back out
+   * of it as it reopens, rather than winking out in its own color.
    * @details All three are 1.0 (no-op) through mid-cycle and the opening and
    * closing windows are disjoint. At either angle-0 bookend the straps are
    * zero-area, so a 0 changes no pixels and the star-face bookend stays
@@ -373,7 +405,8 @@ private:
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
                  float opacity, float strap_open_fade = 1.0f,
                  float strap_close_blend = 1.0f,
-                 float strap_terminal_fade = 1.0f) {
+                 float strap_terminal_fade = 1.0f,
+                 float star_close_blend = 1.0f) {
     if (mesh.vertices.is_empty() || opacity < 0.01f)
       return;
     HS_PROFILE(hk_draw_mesh);
@@ -391,7 +424,8 @@ private:
     const bool fade_straps = strap_open_fade < 1.0f;
     const bool close_straps =
         strap_close_blend < 1.0f || strap_terminal_fade < 1.0f;
-    bool split = fade_straps || close_straps;
+    const bool close_stars = star_close_blend < 1.0f;
+    bool split = fade_straps || close_straps || close_stars;
     for (int s = 0; s < NUM_PALETTES; ++s)
       split |= star_by_slot[s] != strap_by_slot[s];
     const int star_faces = static_cast<int>(node_faces_);
@@ -418,6 +452,15 @@ private:
           f.color = rim.lerp(f.color, strap_close_blend);
         }
         f.color.alpha *= strap_terminal_fade;
+      }
+      if (!is_strap && close_stars) {
+        const int fi = static_cast<int>(f.v2);
+        if (fi >= 0 && fi < static_cast<int>(MAX_NODE_FACES)) {
+          Color4 rim =
+              palette_bank_.bank.entries[star_rim_palette_[fi]].get(0.0f);
+          rim.alpha = f.color.alpha;
+          f.color = rim.lerp(f.color, star_close_blend);
+        }
       }
     };
 
@@ -495,6 +538,8 @@ private:
     const size_t faces = compiled_hankin.face_counts.size();
     HS_CHECK(faces <= MAX_HANKIN_FACES,
              "HankinSolids: hankin face count exceeds the host-palette table");
+    for (size_t j = 0; j < MAX_NODE_FACES; ++j)
+      star_rim_palette_[j] = NO_RIM;
     // face_offsets are not stored on CompiledHankin; walk the flat face list.
     size_t off = 0;
     size_t star_off[MAX_NODE_FACES];
@@ -520,8 +565,20 @@ private:
         }
       }
       host_face_palette_[f] = node_face_palette_[best];
+      // Inverse leg: at the sweep's midpoint the star face closes to nothing
+      // and the rosettes hosted in it fill its place, so the star dissolves
+      // into their rim. Rosettes sharing a host sit at symmetric positions and
+      // so share a class; the first one found represents them.
+      if (star_rim_palette_[best] == NO_RIM)
+        star_rim_palette_[best] = static_cast<uint8_t>(
+            palette_idx_[wrap(mesh_.topology[f], NUM_PALETTES)]);
       off += n;
     }
+    // A star face with no rosette inside it keeps its own color at the
+    // midpoint (it has nothing to dissolve into).
+    for (size_t j = 0; j < node_faces_; ++j)
+      if (star_rim_palette_[j] == NO_RIM)
+        star_rim_palette_[j] = node_face_palette_[j];
   }
 
   HS_COLD_MEMBER void start_hankin_cycle() {
@@ -573,18 +630,21 @@ private:
                  const BakedPalette *strap_by_slot[NUM_PALETTES];
                  resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                           strap_by_slot, scratch_arena_b);
-                 // Straps reveal over the opening window and dissolve into the
-                 // host face's rim over the closing one, with the terminal
-                 // sliver faded out. Every weight is exactly 0 at its bookend
-                 // and 1 through mid-cycle, so mid-cycle draws are unchanged.
+                 // Three collapse points, each shaped only within SHAPE_FRAMES
+                 // of itself: the strap births at the opening bookend, closes
+                 // at the closing one, and the star closes at the midpoint.
+                 // Every weight is exactly 0 at its collapse and 1 beyond the
+                 // window, so the body of the sweep draws every face in its
+                 // own color.
                  const int to_close = DURATION - cycle_frame;
+                 const int from_mid = cycle_frame - DURATION / 2;
                  draw_mesh(c, mesh_, mesh_.topology, star_by_slot,
-                           strap_by_slot, opacity,
-                           strap_blend_weight(cycle_frame),
-                           strap_blend_weight(to_close),
+                           strap_by_slot, opacity, shape_weight(cycle_frame),
+                           shape_weight(to_close),
                            hs::clamp(static_cast<float>(to_close) /
                                          STRAP_TERMINAL_FRAMES,
-                                     0.0f, 1.0f));
+                                     0.0f, 1.0f),
+                           shape_weight(from_mid < 0 ? -from_mid : from_mid));
                },
                DURATION + 1, 0, ease_linear, 0, ease_linear, &anims_paused_));
   }
@@ -798,6 +858,10 @@ private:
 
   uint8_t node_face_palette_[MAX_NODE_FACES] =
       {}; /**< Displayed palette per node base face. */
+  uint8_t star_rim_palette_[MAX_NODE_FACES] =
+      {}; /**< Per star face, the palette of the rosettes hosted inside it —
+             the rim color it dissolves into as it closes at the sweep's
+             midpoint. See resolve_host_faces. */
   uint8_t host_face_palette_[MAX_HANKIN_FACES] =
       {}; /**< Per hankin-added face, the palette of the base face it lives
              inside — the rim color it collapses onto. See

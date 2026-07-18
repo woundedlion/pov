@@ -113,12 +113,17 @@ struct HankinWalkProbe {
    */
   template <int W, int H>
   static float strap_open_fade(const HankinSolids<W, H> &fx, int cycle_frame) {
-    return fx.strap_blend_weight(cycle_frame);
+    return fx.shape_weight(cycle_frame);
   }
   /** @brief Terminal-sliver fade window length, in sprite frames. */
   template <int W, int H>
   static int strap_terminal_frames(const HankinSolids<W, H> &) {
     return HankinSolids<W, H>::STRAP_TERMINAL_FRAMES;
+  }
+  /** @brief Star mid-sweep dissolve window, in sprite frames. */
+  template <int W, int H>
+  static int star_close_frames(const HankinSolids<W, H> &) {
+    return HankinSolids<W, H>::SHAPE_FRAMES;
   }
   /**
    * @brief The on-screen hankin mesh (topology carries the class slots).
@@ -160,7 +165,7 @@ struct HankinWalkProbe {
   static void render_at_angle(HankinSolids<W, H> &fx, Canvas &canvas,
                               float angle, int cycle_frame, float strap_fade,
                               float close_blend, float terminal_fade,
-                              Arena &scratch) {
+                              float star_close, Arena &scratch) {
     MeshOps::update_hankin(fx.compiled_hankin, fx.mesh_, persistent_arena,
                            angle);
     BakedPalette blended[HankinSolids<W, H>::NUM_PALETTES];
@@ -169,7 +174,8 @@ struct HankinWalkProbe {
     fx.resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                 strap_by_slot, scratch);
     fx.draw_mesh(canvas, fx.mesh_, fx.mesh_.topology, star_by_slot,
-                 strap_by_slot, 1.0f, strap_fade, close_blend, terminal_fade);
+                 strap_by_slot, 1.0f, strap_fade, close_blend, terminal_fade,
+                 star_close);
   }
 };
 
