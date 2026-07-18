@@ -400,6 +400,52 @@ HS_O3_FN inline float fast_cbrt(float x) {
   return y * (c + 2.0f * x) / (2.0f * c + x);
 }
 
+// Halley numerator/denominator for one cube root. A non-positive input gets a
+// zero numerator and a unit denominator so it cannot poison the shared product
+// in fast_cbrt3.
+HS_O3_FN inline void cbrt_halley_terms(float x, float &num, float &den) {
+  if (x <= 0.0f) {
+    num = 0.0f;
+    den = 1.0f;
+    return;
+  }
+  uint32_t i;
+  std::memcpy(&i, &x, sizeof(i));
+  i = i / 3u + 0x2a514067u;
+  float y;
+  std::memcpy(&y, &i, sizeof(y));
+  float c = y * y * y;
+  num = y * (c + 2.0f * x);
+  den = 2.0f * c + x;
+}
+
+/**
+ * @brief Fast cube roots of three values sharing a single division.
+ * @param x1 First input; same domain as fast_cbrt (x <= 0 yields 0).
+ * @param x2 Second input.
+ * @param x3 Third input.
+ * @param o1 Cube root of `x1`.
+ * @param o2 Cube root of `x2`.
+ * @param o3 Cube root of `x3`.
+ * @details Same bit-hack seed and Halley step as fast_cbrt, evaluated through
+ * one reciprocal instead of three divides. Accuracy matches fast_cbrt (peak
+ * relative error ~2.3e-5 against cbrtf for x >= 1e-6). The shared denominator
+ * product overflows once all three inputs exceed ~1e11.
+ */
+HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
+                                float &o2, float &o3) {
+  float n1, d1, n2, d2, n3, d3;
+  cbrt_halley_terms(x1, n1, d1);
+  cbrt_halley_terms(x2, n2, d2);
+  cbrt_halley_terms(x3, n3, d3);
+  // One reciprocal for all three quotients: each numerator picks up the two
+  // foreign denominators, which cancel the shared product back to n_i / d_i.
+  const float inv = 1.0f / (d1 * d2 * d3);
+  o1 = n1 * (d2 * d3) * inv;
+  o2 = n2 * (d1 * d3) * inv;
+  o3 = n3 * (d1 * d2) * inv;
+}
+
 // Forward declarations (defined at end of file)
 inline float fast_acos(float x);
 inline float fast_sinf(float x);
