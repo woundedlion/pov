@@ -2239,7 +2239,11 @@ struct Face {
 
     // Early vertical exit: a face whose latitude band (plus thickness margin)
     // maps to an empty row range can never be rasterized.
-    if (compute_phi_extent(vertices, indices, h_virt, height)) {
+    const bool phi_culled = [&] {
+      HS_PROFILE(face_phi_extent);
+      return compute_phi_extent(vertices, indices, h_virt, height);
+    }();
+    if (phi_culled) {
       y_min = 1;
       y_max = 0;
       return;
@@ -2249,7 +2253,9 @@ struct Face {
     HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
              "Face: vertex count must be in (0, MAX_VERTS]");
 
-    setup_frame_and_polygon(vertices, indices, scratch);
+    { HS_PROFILE(face_project);
+      setup_frame_and_polygon(vertices, indices, scratch);
+    }
 
     // A fully collapsed polygon (signed area ~ 0, e.g. a hankin rosette at
     // angle 0 spiking out to each edge midpoint and back through its corner)
@@ -2271,14 +2277,17 @@ struct Face {
       }
     }
 
-    compute_inradius(scratch);
+    int planes_count;
+    { HS_PROFILE(face_bounds);
+      compute_inradius(scratch);
 
-    // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
-    // span misses the great-circle edge bulge toward a pole, leaving near-pole
-    // faces with unscanned rows; the arc-extrema path covers them.
-    int planes_count =
-        compute_full_bounds(scratch, vertices, indices, count, center,
-                            thickness, h_virt, height, y_min, y_max);
+      // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
+      // span misses the great-circle edge bulge toward a pole, leaving
+      // near-pole faces with unscanned rows; the arc-extrema path covers them.
+      planes_count =
+          compute_full_bounds(scratch, vertices, indices, count, center,
+                              thickness, h_virt, height, y_min, y_max);
+    }
 
     edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
     edge_lengths_sq = std::span<float>(scratch.edge_lengths_sq.data(), count);
@@ -2287,8 +2296,10 @@ struct Face {
     inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
-    compute_azimuth_intervals(scratch);
-    apply_pole_containment(height);
+    { HS_PROFILE(face_azimuth);
+      compute_azimuth_intervals(scratch);
+      apply_pole_containment(height);
+    }
 
     // Whole-face clip cull: y_min/y_max and the azimuth coverage now match what
     // the scan would draw, so a face disjoint from the clip band yields no
@@ -2299,9 +2310,13 @@ struct Face {
       return;
     }
 
-    pack_edges(scratch);
-    build_half_planes(scratch);
-    build_sectors(scratch);
+    { HS_PROFILE(face_edges);
+      pack_edges(scratch);
+      build_half_planes(scratch);
+    }
+    { HS_PROFILE(face_sectors);
+      build_sectors(scratch);
+    }
   }
 
   /**
