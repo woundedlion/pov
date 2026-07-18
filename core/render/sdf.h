@@ -2191,6 +2191,9 @@ struct Face {
   float winding = 1.0f; /**< +1 when the projected polygon runs CCW. */
   float theta_center =
       0.0f; /**< Face center azimuth; the branch row intervals merge on. */
+  float extent_theta =
+      0.0f; /**< Total azimuth width of the whole-face fallback extent; a row
+               whose spans are no narrower falls back instead. */
   static constexpr int MAX_ROW_CROSS =
       12; /**< Crossings per row before the row falls back. */
   static constexpr int MAX_ROW_IV =
@@ -2391,21 +2394,19 @@ struct Face {
    * @param scratch Scratch storage receiving the per-edge records.
    * @param h_virt Virtual row count (height plus pole offset).
    * @param height Canvas height in rows.
-   * @details Restricted to convex and star-shaped-about-centroid faces: pairing
-   * crossings by winding needs a simple polygon, which sector_ok already
-   * establishes for the concave ones.
+   * @details Attempted for any face whose rows are expressible as theta
+   * intervals at all: the depth walk in emit_row_spans validates its own
+   * crossing set per row (it must open before it closes and close on itself),
+   * so a row whose pairing is unusable falls back on its own.
    */
   void build_row_spans(FaceScratchBuffer &scratch, int h_virt, int height) {
     row_spans_ok = false;
-    if (!convex && !sector_ok)
-      return;
     // A face reaching around a pole leaves a near-pole row's interior the whole
     // latitude ring, or the ring less some arcs. Neither is a pairing of
     // crossings along a theta line, and the crossings that do exist still close
     // into a walk the run guards accept.
     if (full_width)
       return;
-
     float area2 = 0.0f;
     for (int i = 0; i < count; ++i)
       area2 += poly_2d[i].x * poly_2d[i + 1].y - poly_2d[i + 1].x * poly_2d[i].y;
@@ -2449,6 +2450,9 @@ struct Face {
       e.y_hi = static_cast<int16_t>(rows.y_max + EDGE_ROW_SLACK);
     }
     theta_center = fast_atan2(center.z, center.x);
+    extent_theta = 0.0f;
+    for (const auto &iv : intervals)
+      extent_theta += iv.second - iv.first;
     row_spans_ok = true;
   }
 
@@ -3429,6 +3433,19 @@ struct Face {
         open_hi = iv_hi[a];
       }
     }
+
+    // An edge whose fringe band could not be clipped to its own arc widens the
+    // row past the whole-face extent, which is then cheaper to scan. Both sides
+    // are column upper bounds: the floor/+1 rounding costs two per span, and
+    // each fallback interval carries that plus its 1.25-column pad per side.
+    constexpr float COL_RAD = TWO_PI_F / W;
+    float emitted = static_cast<float>(2 * num_spans) * COL_RAD;
+    for (int a = 0; a < num_spans; ++a)
+      emitted += span_end[a] - span_start[a];
+    const float budget =
+        extent_theta + static_cast<float>(intervals.size()) * 4.5f * COL_RAD;
+    if (emitted >= budget)
+      return RowSpanResult::FALLBACK;
 
     // +1 rather than ceil: the consumer's run is [floor(start), end), so an end
     // landing exactly on a column boundary would drop that column.

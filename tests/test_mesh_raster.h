@@ -981,7 +981,7 @@ inline int expect_row_spans_cover_face(std::span<const Vector> verts,
  */
 inline void test_row_spans_cover_registry_faces() {
   constexpr int W = 288, H = 144;
-  constexpr int POSES = 3;
+  constexpr int POSES = 5;
   const size_t indices_under_test[] = {11, 6, 8, 19, 9, 7};
   const Vector axis = normalized_or(Vector(0.31f, 0.87f, 0.38f), UP);
 
