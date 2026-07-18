@@ -201,3 +201,71 @@ class StraddleWindowAttribution(unittest.TestCase):
                              ("second", 182, [5_000] + [40_000] * 5)])
         self.assertIn(5_000, got["second"])
         self.assertNotIn(5_000, got["first"])
+
+
+class ScanMetricsLines(unittest.TestCase):
+    """The HS_SCAN_METRICS 'scan totals' window line (Profile.ino)."""
+
+    SCAN = ("scan totals: tested=800 culled=200 lut=300 convex=200 "
+            "sector=80 walk=20 cand=64 backstop=0")
+
+    def _log(self, path, scan_line=SCAN, shade_calls=32):
+        lines = [
+            "=== profile Fx [288x144] frames 1-4 window=1000000 us ===",
+            "frame wall us: min=0 avg=0 max=0 sum=0 (4 frames)",
+            "frame render us: avg=0 max=0",
+            "frame                  1 us (100%)  4 calls  1 cyc",
+            f"  raster_shade         1 us (100%)  {shade_calls} calls  1 cyc",
+        ]
+        if scan_line:
+            lines.append(scan_line)
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return path
+
+    def _parse(self, **kw):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            windows, _ = pp.parse(self._log(Path(d) / "cap.log", **kw))
+        return windows
+
+    def test_totals_are_parsed(self):
+        w = self._parse()[0]
+        self.assertEqual(w.scan["tested"], 800)
+        self.assertEqual(w.scan["culled"], 200)
+        self.assertEqual(w.scan["walk"], 20)
+        self.assertEqual(w.scan["cand"], 64)
+
+    def test_absent_line_leaves_scan_none(self):
+        self.assertIsNone(self._parse(scan_line=None)[0].scan)
+
+    def test_scan_line_is_not_read_as_a_counter(self):
+        # 'scan totals:' must not fall through to COUNTER_RE and invent a scope.
+        w = self._parse()[0]
+        self.assertEqual(set(w.counters), {"frame", "raster_shade"})
+
+    def test_row_reports_per_frame_and_path_split(self):
+        w = self._parse()[0]
+        row = pp._metrics_row(w.scan, w.frames, 32).split()
+        # 800/4 probes, 200/4 culled; 600 served splits 50/33.3/13.3/3.3.
+        self.assertEqual(row[0], "200")
+        self.assertEqual(row[1], "50")
+        self.assertEqual(row[2], "50.0")
+        self.assertEqual(row[3], "33.3")
+        self.assertEqual(row[4], "13.3")
+        self.assertEqual(row[5], "3.3")
+
+    def test_probes_per_shade_uses_the_raster_shade_call_count(self):
+        w = self._parse()[0]
+        # 800 probes over 32 shade events.
+        self.assertEqual(pp._metrics_row(w.scan, w.frames, 32).split()[-1],
+                         "25.00")
+
+    def test_zero_shade_events_do_not_divide_by_zero(self):
+        w = self._parse()[0]
+        self.assertEqual(pp._metrics_row(w.scan, w.frames, 0).split()[-1], "nan")
+
+    def test_metrics_command_reports_missing_instrumentation(self):
+        self.assertEqual(pp.cmd_metrics(self._parse(scan_line=None)), 2)
+
+    def test_metrics_command_succeeds_on_an_instrumented_capture(self):
+        self.assertEqual(pp.cmd_metrics(self._parse()), 0)
