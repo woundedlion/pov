@@ -2277,6 +2277,23 @@ struct Face {
       }
     }
 
+    { HS_PROFILE(face_thetas);
+      compute_thetas(scratch, vertices, indices);
+    }
+    { HS_PROFILE(face_azimuth);
+      compute_azimuth_intervals(scratch);
+    }
+
+    // Azimuth half of the cull, ahead of the bounds pass. Only
+    // apply_pole_containment can still widen the coverage these intervals
+    // describe, so the circumcircle guard must clear first. The row half stays
+    // below, where the bounds are exact.
+    if (clip && !pole_within_circumcircle() && clip_rejects_azimuth(*clip)) {
+      y_min = 1;
+      y_max = 0;
+      return;
+    }
+
     int planes_count;
     { HS_PROFILE(face_bounds);
       compute_inradius(scratch);
@@ -2296,8 +2313,7 @@ struct Face {
     inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
-    { HS_PROFILE(face_azimuth);
-      compute_azimuth_intervals(scratch);
+    { HS_PROFILE(face_pole);
       apply_pole_containment(height);
     }
 
@@ -2333,6 +2349,16 @@ struct Face {
   bool clip_rejects(const ClipRegion &cr) const {
     if (y_max < cr.render_y_start() || y_min > cr.render_y_end() - 1)
       return true;
+    return clip_rejects_azimuth(cr);
+  }
+
+  /**
+   * @brief Horizontal half of the clip cull.
+   * @param cr Clip region (display bounds plus render margin).
+   * @return True when the face's azimuth coverage lies outside the render
+   *         columns. A full-width face or an inactive x-clip never rejects.
+   */
+  bool clip_rejects_azimuth(const ClipRegion &cr) const {
     if (full_width)
       return false;
     const ClipRegion::XClip xc = cr.x_clip();
@@ -2718,6 +2744,24 @@ struct Face {
   }
 
   /**
+   * @brief Fills the scratch vertex azimuths the interval pass consumes.
+   * @param scratch Scratch storage receiving thetas.
+   * @param vertices Shared vertex pool.
+   * @param indices Indices selecting this face's vertices.
+   */
+  __attribute__((always_inline)) void
+  compute_thetas(FaceScratchBuffer &scratch, std::span<const Vector> vertices,
+                 std::span<const uint16_t> indices) const {
+    for (int i = 0; i < count; ++i) {
+      const Vector &v = vertices[indices[i]];
+      float theta = fast_atan2(v.z, v.x);
+      if (theta < 0)
+        theta += 2 * PI_F;
+      scratch.thetas[i] = theta;
+    }
+  }
+
+  /**
    * @brief Computes the face's azimuth coverage intervals.
    * @param scratch Scratch storage holding thetas and receiving intervals.
    * @details Finds the largest angular gap between vertices; if it exceeds pi
@@ -2761,6 +2805,18 @@ struct Face {
     }
     intervals = std::span<std::pair<float, float>>(scratch.intervals.data(),
                                                    interval_count);
+  }
+
+  /**
+   * @brief Necessary condition for apply_pole_containment to fire.
+   * @return True when a pole falls within the gnomonic circumcircle of the
+   *         face's vertices. Both poles project to the same radius, so one
+   *         test covers each. pole_inside_polygon can only report inside for
+   *         points within the vertex convex hull, so a false here rules out
+   *         pole containment.
+   */
+  __attribute__((always_inline)) bool pole_within_circumcircle() const {
+    return center.y * center.y * (1.0f + radius * radius) >= 1.0f;
   }
 
   /**
@@ -2886,7 +2942,7 @@ struct Face {
   /**
    * @brief Full-path vertical bounds (arc extrema + pole containment) for large
    * faces.
-   * @param scratch Scratch storage receiving edge data, planes, and thetas.
+   * @param scratch Scratch storage receiving edge data and planes.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices.
    * @param count Vertex/edge count.
@@ -2939,10 +2995,6 @@ struct Face {
       if (len_sq > 1e-12f)
         refine_phi_from_arc_extremum(scratch.planes[planes_count - 1], v1, v2,
                                      min_phi, max_phi);
-      float theta = fast_atan2(v1.z, v1.x);
-      if (theta < 0)
-        theta += 2 * PI_F;
-      scratch.thetas[i] = theta;
     }
     snap_phi_for_pole_planes(scratch, planes_count, center, min_phi, max_phi);
     float margin = thickness + BOUNDS_MARGIN;
