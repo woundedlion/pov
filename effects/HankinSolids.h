@@ -441,27 +441,47 @@ private:
       f.color = shade_mesh_topology(f, topology.data(),
                                     static_cast<int>(topology.size()), view,
                                     SLOT_IDENTITY, params.intensity, opacity);
+      // Every collapse is the same operation: cross-fade this face's ramp onto
+      // the ramp of the face taking its place, sampled at the same edge
+      // distance so center travels to center and edge to edge. A rosette is
+      // born inside a star face and closes back onto it; a star is filled by
+      // the rosettes inside it. Pulling toward the counterpart's edge color
+      // alone would flatten the collapsing face onto a single color instead.
+      // A rosette's counterpart is the same star face at both ends -- it is
+      // born inside it and closes back onto it -- so the ramp cross-fade is
+      // symmetric across the sweep. The coverage fade below is a separate
+      // concern: it only matters while the face is sub-pixel, where the ramp
+      // cross-fade has nothing to bite on.
+      const int fi = static_cast<int>(f.v2);
+      const float counterpart_blend =
+          is_strap ? (strap_open_fade < strap_close_blend ? strap_open_fade
+                                                          : strap_close_blend)
+                   : star_close_blend;
+      if (counterpart_blend < 1.0f) {
+        const int counterpart =
+            is_strap
+                ? (fi < static_cast<int>(MAX_HANKIN_FACES)
+                       ? host_face_palette_[fi]
+                       : -1)
+                : (fi < static_cast<int>(MAX_NODE_FACES) ? star_rim_palette_[fi]
+                                                         : -1);
+        if (counterpart >= 0) {
+          const float t =
+              hs::clamp(fragment_edge_dist(f) * params.intensity, 0.0f, 1.0f);
+          Color4 other = palette_bank_.bank.entries[counterpart].get(t);
+          other.alpha = f.color.alpha;
+          f.color = other.lerp(f.color, counterpart_blend);
+        }
+      }
+      // Coverage fades, at each end of the strap's life. A newborn rosette is
+      // sub-pixel inside a star interior whose pixels sit mid-ramp, so no ramp
+      // position matches and only coverage closes the gap; the last sliver of a
+      // closing one is anti-aliasing only, so fading it uncovers nothing but
+      // removes the one-frame snap as it and the boundary it holds off go.
       if (is_strap && fade_straps)
         f.color.alpha *= strap_open_fade;
-      if (is_strap && close_straps) {
-        const int fi = static_cast<int>(f.v2);
-        if (fi >= 0 && fi < static_cast<int>(MAX_HANKIN_FACES)) {
-          Color4 rim =
-              palette_bank_.bank.entries[host_face_palette_[fi]].get(0.0f);
-          rim.alpha = f.color.alpha;
-          f.color = rim.lerp(f.color, strap_close_blend);
-        }
+      if (is_strap && close_straps)
         f.color.alpha *= strap_terminal_fade;
-      }
-      if (!is_strap && close_stars) {
-        const int fi = static_cast<int>(f.v2);
-        if (fi >= 0 && fi < static_cast<int>(MAX_NODE_FACES)) {
-          Color4 rim =
-              palette_bank_.bank.entries[star_rim_palette_[fi]].get(0.0f);
-          rim.alpha = f.color.alpha;
-          f.color = rim.lerp(f.color, star_close_blend);
-        }
-      }
     };
 
     {
@@ -540,27 +560,30 @@ private:
              "HankinSolids: hankin face count exceeds the host-palette table");
     for (size_t j = 0; j < MAX_NODE_FACES; ++j)
       star_rim_palette_[j] = NO_RIM;
-    // face_offsets are not stored on CompiledHankin; walk the flat face list.
-    size_t off = 0;
-    size_t star_off[MAX_NODE_FACES];
-    for (size_t f = 0; f < faces && f < node_faces_; ++f) {
-      star_off[f] = off;
-      off += compiled_hankin.face_counts[f];
-    }
+    // Rebuild at the sweep peak, where every rosette is fully open and
+    // unambiguously inside its face, and match by unit centroid there. Shared
+    // vertices do not discriminate: hankin builds on edge midpoints, which
+    // belong to both faces meeting at that edge, so a rosette ties against its
+    // neighbors and the tie-break funnels most of them onto one face — leaving
+    // most star faces with no rosette resolved at all.
+    ScratchScope host_guard(scratch_arena_a);
+    MeshState open_mesh;
+    MeshOps::update_hankin(compiled_hankin, open_mesh, scratch_arena_a,
+                           PI_F / 2.0f);
     for (size_t f = node_faces_; f < faces; ++f) {
-      const int n = compiled_hankin.face_counts[f];
+      Vector c(0.0f, 0.0f, 0.0f);
+      const size_t off = open_mesh.face_offsets[f];
+      const int n = open_mesh.face_counts[f];
+      for (int k = 0; k < n; ++k)
+        c = c + open_mesh.vertices[open_mesh.faces[off + k]];
+      c = c.normalized();
       size_t best = 0;
-      int best_shared = -1;
+      float best_d = 1e9f;
       for (size_t j = 0; j < node_faces_; ++j) {
-        const int nj = compiled_hankin.face_counts[j];
-        int shared = 0;
-        for (int a = 0; a < n; ++a)
-          for (int b = 0; b < nj; ++b)
-            if (compiled_hankin.faces[off + a] ==
-                compiled_hankin.faces[star_off[j] + b])
-              ++shared;
-        if (shared > best_shared) {
-          best_shared = shared;
+        const Vector d = c - node_face_centroid_[j];
+        const float dsq = dot(d, d);
+        if (dsq < best_d) {
+          best_d = dsq;
           best = j;
         }
       }
@@ -572,7 +595,6 @@ private:
       if (star_rim_palette_[best] == NO_RIM)
         star_rim_palette_[best] = static_cast<uint8_t>(
             palette_idx_[wrap(mesh_.topology[f], NUM_PALETTES)]);
-      off += n;
     }
     // A star face with no rosette inside it keeps its own color at the
     // midpoint (it has nothing to dissolve into).

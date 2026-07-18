@@ -1836,6 +1836,29 @@ inline void test_star_midpoint_dissolve() {
   }
   HS_EXPECT_LT(guard, 400);
 
+  // Drive on until a node whose rosettes carry a different palette from the
+  // star hosting them. On some solids the mod-NUM_PALETTES wrap aliases the two
+  // onto one slot, and the star then has nothing to cross-fade onto — a real
+  // no-op, but one that would make the pin below vacuous.
+  const auto has_distinct_rim = [&]() {
+    const uint8_t *own = Probe::node_face_palette(fx);
+    const uint8_t *rim = Probe::star_rim_palette(fx);
+    for (size_t j = 0; j < Probe::node_faces(fx); ++j)
+      if (rim[j] != own[j])
+        return true;
+    return false;
+  };
+  int hops = 0;
+  while (!has_distinct_rim() && hops++ < 40) {
+    const int at = Probe::node(fx);
+    int spin = 0;
+    while (Probe::node(fx) == at && spin++ < 400) {
+      fx.draw_frame();
+      fx.advance_display();
+    }
+  }
+  HS_EXPECT_TRUE(has_distinct_rim());
+
   const int duration = 64, mid = duration / 2, cf = mid - 1;
   const float star_blend = Probe::strap_open_fade(fx, mid - cf);
   HS_EXPECT_GT(star_blend, 0.0f);
@@ -1849,13 +1872,51 @@ inline void test_star_midpoint_dissolve() {
   capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, sliver_shaped, 1.0f, 1.0f, cf,
                   star_blend);
 
-  const long long e_plain = frame_energy(sliver_plain, closed);
-  const long long e_shaped = frame_energy(sliver_shaped, closed);
-  std::printf("  [star-mid] close energy unshaped=%lld shaped=%lld\n", e_plain,
-              e_shaped);
+  // Only star fragments are shaped, so the pixels where the two renders differ
+  // are exactly the star's. Scoring the whole frame drowns them in the
+  // rosettes, which fill nearly all of it by the midpoint.
+  long long e_plain = 0, e_shaped = 0;
+  size_t star_px = 0;
+  for (size_t i = 0; i < sliver_plain.size(); ++i) {
+    if (sliver_plain[i].r == sliver_shaped[i].r &&
+        sliver_plain[i].g == sliver_shaped[i].g &&
+        sliver_plain[i].b == sliver_shaped[i].b)
+      continue;
+    ++star_px;
+    e_plain += std::abs((int)sliver_plain[i].r - closed[i].r) +
+               std::abs((int)sliver_plain[i].g - closed[i].g) +
+               std::abs((int)sliver_plain[i].b - closed[i].b);
+    e_shaped += std::abs((int)sliver_shaped[i].r - closed[i].r) +
+                std::abs((int)sliver_shaped[i].g - closed[i].g) +
+                std::abs((int)sliver_shaped[i].b - closed[i].b);
+  }
+  std::printf("  [star-mid] %zu shaped px, close energy unshaped=%lld "
+              "shaped=%lld\n",
+              star_px, e_plain, e_shaped);
 
+  // The shaping must reach the closing star, and must carry it toward the ramp
+  // the midpoint leaves in its place.
+  HS_EXPECT_GT(star_px, 100u);
   HS_EXPECT_GT(e_plain, 100000);
   HS_EXPECT_LT(e_shaped, e_plain);
+
+  // Symmetric on the far side: the weight keys off distance to the midpoint, so
+  // the star comes back out of the rosette ramp as it reopens rather than
+  // snapping to its own color.
+  const int reopen_cf = mid + 1;
+  HS_EXPECT_NEAR(Probe::strap_open_fade(fx, reopen_cf - mid), star_blend,
+                 1e-6f);
+  std::vector<Pixel> reopen_shaped;
+  capture_opening(fx, STAR_CLOSE_ANGLE, 1.0f, reopen_shaped, 1.0f, 1.0f,
+                  reopen_cf, star_blend);
+  size_t reopen_px = 0;
+  for (size_t i = 0; i < reopen_shaped.size(); ++i)
+    if (reopen_shaped[i].r != sliver_plain[i].r ||
+        reopen_shaped[i].g != sliver_plain[i].g ||
+        reopen_shaped[i].b != sliver_plain[i].b)
+      ++reopen_px;
+  std::printf("  [star-mid] reopening side shaped px=%zu\n", reopen_px);
+  HS_EXPECT_GT(reopen_px, 100u);
 }
 
 // ---------------------------------------------------------------------------
