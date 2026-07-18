@@ -4090,11 +4090,52 @@ struct Twist {
    * @param p Query point.
    * @return The warped point.
    */
-  Vector apply(const Vector &p, Ctx /*s*/) const {
-    float theta = fast_atan2(p.z, p.x);
-    return Vector(
-        p.x, p.y - amplitude * fast_sinf(static_cast<float>(twist) * theta),
-        p.z);
+  Vector apply(const Vector &p, Ctx s) const {
+    return Vector(p.x, p.y - amplitude * sin_ntheta(p, s), p.z);
+  }
+
+  /**
+   * @brief sin(n*theta) at theta = atan2(z, x), without evaluating either.
+   * @param p Query point.
+   * @param s Precomputed context (radial distance in the XZ plane).
+   * @return sin(twist * theta).
+   * @details Chebyshev recurrence sin((k+1)t) = 2cos(t)sin(kt) - sin((k-1)t),
+   * seeded from (cos t, sin t) = (x/s, z/s), so the cost is one reciprocal
+   * rather than an atan2 and a sine. Exact to float rounding, where
+   * fast_atan2/fast_sinf each carry approximation error.
+   */
+  float sin_ntheta(const Vector &p, Ctx s) const {
+    if (twist == 0 || s < TOLERANCE)
+      return 0.0f;
+    const float inv_s = 1.0f / s;
+    const float two_cos = 2.0f * p.x * inv_s;
+    float prev = 0.0f, cur = p.z * inv_s;
+    for (int k = 1; k < twist; ++k) {
+      const float next = two_cos * cur - prev;
+      prev = cur;
+      cur = next;
+    }
+    return cur;
+  }
+
+  /**
+   * @brief cos(n*theta) at theta = atan2(z, x), by the same recurrence.
+   * @param p Query point.
+   * @param s Precomputed context (radial distance in the XZ plane).
+   * @return cos(twist * theta).
+   */
+  float cos_ntheta(const Vector &p, Ctx s) const {
+    if (twist == 0 || s < TOLERANCE)
+      return 1.0f;
+    const float inv_s = 1.0f / s;
+    const float two_cos = 2.0f * p.x * inv_s;
+    float prev = 1.0f, cur = p.x * inv_s;
+    for (int k = 1; k < twist; ++k) {
+      const float next = two_cos * cur - prev;
+      prev = cur;
+      cur = next;
+    }
+    return cur;
   }
 
   /**
@@ -4130,10 +4171,8 @@ struct Twist {
     if (twist == 0 || amplitude < TOLERANCE)
       return base_n;
     float inv_s = (s > TOLERANCE) ? 1.0f / s : 0.0f;
-    float theta = fast_atan2(p.z, p.x);
-    float n_theta = static_cast<float>(twist) * theta;
     float dh_dtheta =
-        -amplitude * static_cast<float>(twist) * fast_cosf(n_theta);
+        -amplitude * static_cast<float>(twist) * cos_ntheta(p, s);
     float inv_s2 = inv_s * inv_s;
 
     float dh_dx = dh_dtheta * (-p.z) * inv_s2;
