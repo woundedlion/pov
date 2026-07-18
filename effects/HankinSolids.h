@@ -113,6 +113,14 @@ private:
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   /** Largest node base-mesh face count (snubDodecahedron, F = 92). */
   static constexpr size_t MAX_NODE_FACES = 92;
+  /** Largest hankin mesh face count (star faces plus the rosette/strap faces
+   * born inside them); guarded by an HS_CHECK in resolve_host_faces. */
+  static constexpr size_t MAX_HANKIN_FACES = 256;
+  /** Frames over which the terminal rosette sliver fades out. Below about a
+   * pixel wide the rosette is anti-aliasing only, so fading it uncovers
+   * nothing — but it removes the one-frame snap as the last sliver and the
+   * star-face boundary it holds off both disappear at once. */
+  static constexpr int STRAP_TERMINAL_FRAMES = 3;
   /** Strap-crossfade window: frames of the 64-frame hankin sweep over which a
    * reborn strap slot glides from its previous color to the fresh target. The
    * sweep opens quadratically — straps reach visibility around frame 3-7 and
@@ -342,19 +350,30 @@ private:
    * @param strap_by_slot Resolved palette LUT per class slot for strap faces.
    * @param opacity Output alpha in [0, 1].
    * @param strap_open_fade Alpha multiplier for strap (emission index >=
-   * node_faces_) faces, in [0, 1]. Newborn straps split former star interiors
-   * in one frame; fading their coverage in over the opening window turns that
-   * birth into a bounded reveal instead of a hard sliver pop. 1.0 outside the
-   * window is a no-op; at the angle-0 bookend the straps are zero-area, so a 0
-   * here changes no pixels and the star-face bookend stays bitwise exact.
-   * @details When the star and strap LUT sets are identical and the fade is
-   * inactive, the shader skips the per-fragment role select.
+   * node_faces_) faces over the opening window, in [0, 1]. Newborn straps split
+   * former star interiors in one frame; fading their coverage in turns that
+   * birth into a bounded reveal instead of a hard sliver pop.
+   * @param strap_close_blend Blend of strap faces toward the rim color of the
+   * base face they collapse onto, over the closing window, in [0, 1]. A strap
+   * renders its full ramp even one pixel wide, so its interior differs from the
+   * rim it closes onto and it winks out on vanishing; lerping toward that rim
+   * first dissolves it into the face. resolve_host_faces resolves the host.
+   * @param strap_terminal_fade Alpha multiplier over the last frames of the
+   * close, in [0, 1]. The final sliver is anti-aliasing only, so fading it
+   * uncovers nothing while removing the last-frame snap.
+   * @details All three are 1.0 (no-op) through mid-cycle and the opening and
+   * closing windows are disjoint. At either angle-0 bookend the straps are
+   * zero-area, so a 0 changes no pixels and the star-face bookend stays
+   * bitwise exact. When the LUT sets match and no shaping is active, the
+   * shader skips the per-fragment role select.
    */
   void draw_mesh(Canvas &canvas, const MeshState &mesh,
                  const ArenaVector<int> &topology,
                  const BakedPalette *const (&star_by_slot)[NUM_PALETTES],
                  const BakedPalette *const (&strap_by_slot)[NUM_PALETTES],
-                 float opacity, float strap_open_fade = 1.0f) {
+                 float opacity, float strap_open_fade = 1.0f,
+                 float strap_close_blend = 1.0f,
+                 float strap_terminal_fade = 1.0f) {
     if (mesh.vertices.is_empty() || opacity < 0.01f)
       return;
     HS_PROFILE(hk_draw_mesh);
@@ -370,7 +389,9 @@ private:
     SlotLutView star_view{star_by_slot};
     SlotLutView strap_view{strap_by_slot};
     const bool fade_straps = strap_open_fade < 1.0f;
-    bool split = fade_straps;
+    const bool close_straps =
+        strap_close_blend < 1.0f || strap_terminal_fade < 1.0f;
+    bool split = fade_straps || close_straps;
     for (int s = 0; s < NUM_PALETTES; ++s)
       split |= star_by_slot[s] != strap_by_slot[s];
     const int star_faces = static_cast<int>(node_faces_);
@@ -388,6 +409,16 @@ private:
                                     SLOT_IDENTITY, params.intensity, opacity);
       if (is_strap && fade_straps)
         f.color.alpha *= strap_open_fade;
+      if (is_strap && close_straps) {
+        const int fi = static_cast<int>(f.v2);
+        if (fi >= 0 && fi < static_cast<int>(MAX_HANKIN_FACES)) {
+          Color4 rim =
+              palette_bank_.bank.entries[host_face_palette_[fi]].get(0.0f);
+          rim.alpha = f.color.alpha;
+          f.color = rim.lerp(f.color, strap_close_blend);
+        }
+        f.color.alpha *= strap_terminal_fade;
+      }
     };
 
     {
@@ -450,9 +481,53 @@ private:
    * same pause flag so grabbing the slider holds the frame instead of
    * blanking it.
    */
+  /**
+   * @brief Resolves, per hankin-added face, the palette of the base face it
+   * lives inside — the rim it opens from and collapses back onto.
+   * @details A rosette is born on a base face's interior walls and opens inward
+   * from them, so it belongs wholly to one base face; the host is found by
+   * shared vertices, which is a topological fact and therefore angle
+   * independent. A centroid test would misfile it at the closed end, where the
+   * rosette has collapsed outward onto the rim and its centroid sits on the
+   * boundary. Runs once per cycle; record_node_palettes must precede it.
+   */
+  HS_COLD_MEMBER void resolve_host_faces() {
+    const size_t faces = compiled_hankin.face_counts.size();
+    HS_CHECK(faces <= MAX_HANKIN_FACES,
+             "HankinSolids: hankin face count exceeds the host-palette table");
+    // face_offsets are not stored on CompiledHankin; walk the flat face list.
+    size_t off = 0;
+    size_t star_off[MAX_NODE_FACES];
+    for (size_t f = 0; f < faces && f < node_faces_; ++f) {
+      star_off[f] = off;
+      off += compiled_hankin.face_counts[f];
+    }
+    for (size_t f = node_faces_; f < faces; ++f) {
+      const int n = compiled_hankin.face_counts[f];
+      size_t best = 0;
+      int best_shared = -1;
+      for (size_t j = 0; j < node_faces_; ++j) {
+        const int nj = compiled_hankin.face_counts[j];
+        int shared = 0;
+        for (int a = 0; a < n; ++a)
+          for (int b = 0; b < nj; ++b)
+            if (compiled_hankin.faces[off + a] ==
+                compiled_hankin.faces[star_off[j] + b])
+              ++shared;
+        if (shared > best_shared) {
+          best_shared = shared;
+          best = j;
+        }
+      }
+      host_face_palette_[f] = node_face_palette_[best];
+      off += n;
+    }
+  }
+
   HS_COLD_MEMBER void start_hankin_cycle() {
     constexpr int DURATION = 64;
     hankin_cycle_frame_ = 0;
+    resolve_host_faces();
     timeline.add(2, Animation::Mutation(params.hankin_angle,
                                         sin_wave(0.0f, PI_F / 2.0f, 1.0f, 0.0f),
                                         DURATION, ease_linear, false,
@@ -498,13 +573,18 @@ private:
                  const BakedPalette *strap_by_slot[NUM_PALETTES];
                  resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                           strap_by_slot, scratch_arena_b);
-                 // Reveal newborn straps over the opening window rather than
-                 // popping them into former star interiors in one frame; the
-                 // weight is exactly 0 at the angle-0 bookend and 1 past the
-                 // window, so mid-cycle draws are unchanged.
+                 // Straps reveal over the opening window and dissolve into the
+                 // host face's rim over the closing one, with the terminal
+                 // sliver faded out. Every weight is exactly 0 at its bookend
+                 // and 1 through mid-cycle, so mid-cycle draws are unchanged.
+                 const int to_close = DURATION - cycle_frame;
                  draw_mesh(c, mesh_, mesh_.topology, star_by_slot,
                            strap_by_slot, opacity,
-                           strap_blend_weight(cycle_frame));
+                           strap_blend_weight(cycle_frame),
+                           strap_blend_weight(to_close),
+                           hs::clamp(static_cast<float>(to_close) /
+                                         STRAP_TERMINAL_FRAMES,
+                                     0.0f, 1.0f));
                },
                DURATION + 1, 0, ease_linear, 0, ease_linear, &anims_paused_));
   }
@@ -718,6 +798,10 @@ private:
 
   uint8_t node_face_palette_[MAX_NODE_FACES] =
       {}; /**< Displayed palette per node base face. */
+  uint8_t host_face_palette_[MAX_HANKIN_FACES] =
+      {}; /**< Per hankin-added face, the palette of the base face it lives
+             inside — the rim color it collapses onto. See
+             resolve_host_faces. */
   uint8_t node_face_sides_[MAX_NODE_FACES] =
       {}; /**< Clean side count per node base face. */
   Vector node_face_centroid_[MAX_NODE_FACES] =

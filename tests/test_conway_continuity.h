@@ -1681,12 +1681,14 @@ inline int hard_recolor_count(const std::vector<Pixel> &a,
  * frame, at `angle` with strap opening-fade `fade`. */
 template <int W, int H>
 inline void capture_opening(HankinSolids<W, H> &fx, float angle, float fade,
-                            std::vector<Pixel> &out) {
+                            std::vector<Pixel> &out, float close_blend = 1.0f,
+                            float terminal_fade = 1.0f, int cycle_frame = 1) {
   using Probe = conway_soak_tests::HankinWalkProbe;
   Arena scratch(cc_temp_buf, sizeof(cc_temp_buf));
   {
     Canvas c(fx);
-    Probe::render_at_angle(fx, c, angle, /*cycle_frame=*/1, fade, scratch);
+    Probe::render_at_angle(fx, c, angle, cycle_frame, fade, close_blend,
+                           terminal_fade, scratch);
   }
   fx.advance_display();
   out.resize(static_cast<size_t>(W) * H);
@@ -1742,6 +1744,69 @@ inline void test_strap_open_fade() {
   HS_EXPECT_LT(pop_faded, 200);
 }
 
+/** Summed absolute channel change between two captures — the visible weight of
+ * a transition, which a bare changed-pixel count misses when the same pixels
+ * change by less. */
+inline long long frame_energy(const std::vector<Pixel> &a,
+                              const std::vector<Pixel> &b) {
+  long long e = 0;
+  for (size_t i = 0; i < a.size() && i < b.size(); ++i)
+    e += std::abs((int)a[i].r - b[i].r) + std::abs((int)a[i].g - b[i].g) +
+         std::abs((int)a[i].b - b[i].b);
+  return e;
+}
+
+/**
+ * @brief Pins the cycle-close shaping: the last strap frame dissolves into the
+ *        host face's rim instead of winking out as a bright line.
+ * @details Renders the last strap frame and the closing bookend at a fixed
+ *          camera, unshaped and shaped, and compares the transition's energy.
+ *          Unshaped, the strap holds its own ramp interior — a colored line
+ *          against the rim it sits on — and the whole line disappears in one
+ *          frame. Shaped, it is already the rim color and its terminal sliver
+ *          is faded, so the step carries far less.
+ */
+inline void test_strap_close_dissolve() {
+  reset_globals();
+  using Probe = conway_soak_tests::HankinWalkProbe;
+  constexpr int W = 288, H = 144;
+  HankinSolids<W, H> fx;
+  fx.init();
+
+  int prev_node = Probe::node(fx);
+  int guard = 0;
+  while (Probe::node(fx) == prev_node && guard++ < 400) {
+    fx.draw_frame();
+    fx.advance_display();
+  }
+  HS_EXPECT_LT(guard, 400);
+
+  // Frame adjacent to the closing bookend: the sweep is a full sine period, so
+  // it samples the same angle as the opening's first strap frame.
+  const int duration = 64, cf = 63;
+  const float close_blend = Probe::strap_open_fade(fx, duration - cf);
+  const float term = hs::clamp(static_cast<float>(duration - cf) /
+                                   Probe::strap_terminal_frames(fx),
+                               0.0f, 1.0f);
+  HS_EXPECT_LT(close_blend, 0.2f);
+  HS_EXPECT_LT(term, 1.0f);
+
+  std::vector<Pixel> bookend, last_plain, last_shaped;
+  capture_opening(fx, 0.0f, 1.0f, bookend, 1.0f, 1.0f, cf);
+  capture_opening(fx, STRAP_OPEN_ANGLE, 1.0f, last_plain, 1.0f, 1.0f, cf);
+  capture_opening(fx, STRAP_OPEN_ANGLE, 1.0f, last_shaped, close_blend, term,
+                  cf);
+
+  const long long e_plain = frame_energy(last_plain, bookend);
+  const long long e_shaped = frame_energy(last_shaped, bookend);
+  std::printf("  [strap-close] wink energy unshaped=%lld shaped=%lld\n",
+              e_plain, e_shaped);
+
+  // The wink must be real, and the shaping must materially cut it.
+  HS_EXPECT_GT(e_plain, 1000000);
+  HS_EXPECT_LT(e_shaped, e_plain * 3 / 4);
+}
+
 // ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
@@ -1772,6 +1837,7 @@ inline int run_conway_continuity_tests() {
   test_strap_crossfade_across_cycle_start();
   test_strap_crossfade_seed_swept();
   test_strap_open_fade();
+  test_strap_close_dissolve();
 
   return fixture.result();
 }
