@@ -3932,7 +3932,11 @@ struct Line {
 // ============================================================================
 // 3D Volumetric SDF Shapes (for Scan::Volume raymarching)
 // ============================================================================
+// These shapes are reached only from Scan::Volume::draw's march loop (Raymarch
+// is their sole instantiation site), so they share that region's -O3 options —
+// an -Os distance() here would be a wall inside the promoted loop.
 
+HS_O3_BEGIN
 /**
  * @brief 3D Torus signed distance field.
  *
@@ -3985,12 +3989,14 @@ struct Torus {
     frag.v3 = n.z;
   }
 };
+HS_O3_END
 
 /**
  * @brief Domain warp functions for composing with WarpedSDF.
  */
 namespace Warp {
 
+HS_O3_BEGIN
 /**
  * @brief Oscillates the Y coordinate sinusoidally around the azimuthal
  * angle θ = atan2(z, x).
@@ -4086,6 +4092,7 @@ struct Twist {
         .normalized();
   }
 };
+HS_O3_END
 
 } // namespace Warp
 
@@ -4105,6 +4112,7 @@ struct Twist {
  * Optionally:
  *   Vector correct_normal(const Vector &p, const Vector &n, const Ctx&) const;
  */
+HS_O3_BEGIN
 template <typename SDF, typename Warp> struct WarpedVolume {
   SDF base;  /**< The underlying volume SDF being warped. */
   Warp warp; /**< The domain warp applied before the base SDF. */
@@ -4181,5 +4189,6 @@ template <typename SDF, typename Warp> struct WarpedVolume {
     frag.v3 = n.z;
   }
 };
+HS_O3_END
 
 } // namespace SDF

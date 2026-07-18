@@ -1580,6 +1580,10 @@ struct Shader {
   }
 };
 
+// Volume::draw has exactly one caller (effects/Raymarch.h), and
+// TransformedVolume is instantiated only there, so no other effect pays ITCM
+// for this region.
+HS_O3_BEGIN
 /**
  * @brief Generic wrapper that places an SDF in world space via a center point
  *        and a rotation quaternion. Satisfies the Volume::draw shape concept.
@@ -1990,5 +1994,6 @@ struct Volume {
         vol_xc);
   }
 };
+HS_O3_END
 
 } // namespace Scan
