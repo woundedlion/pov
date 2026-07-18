@@ -738,6 +738,7 @@ inline void lms_cbrt_transform_rgb(const float k[9], float l_, float m_,
   float us = k[6] * l_ + k[7] * m_ + k[8] * s_;
   lms_cbrt_to_linear_rgb(ul, um, us, r, g, b);
   if (!linear_rgb_in_gamut(r, g, b)) {
+    HS_PROFILE_DEEP(gamut_clip);
     OKLab lab = lms_to_oklab(ul, um, us);
     oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r, g, b);
   }

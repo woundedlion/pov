@@ -1589,3 +1589,27 @@ struct IsrCycleScope {
 #define HS_PROFILE(label) ((void)0)
 #endif
 
+#if defined(HS_PROFILE_DEEP_ENABLE) && !defined(HS_PROFILE_ENABLE)
+#error "HS_PROFILE_DEEP_ENABLE needs HS_PROFILE_ENABLE (the counter registry)"
+#endif
+
+/**
+ * @brief Times the enclosing scope, but only in a deep-profile build.
+ * @param label Counter name (used both as the identifier suffix and log label).
+ * @details The form shared render code must use for any scope entered more than
+ *          once per draw call — per pixel, per cell, per face. Such a scope sits
+ *          on every effect's hot path, so leaving it in the ordinary `profile`
+ *          image would tax the whole roster's numbers to instrument one effect
+ *          (the feedback composite's per-pixel set costs ~8 cyc per entry,
+ *          ~2.5% of the flush). Off unless HS_PROFILE_DEEP_ENABLE is defined on
+ *          top of HS_PROFILE_ENABLE, so a deep run is opt-in per capture
+ *          (HS_PROFILE_DEEP=1 in profile_one.sh, deep=1 in `just profile`).
+ *          Per-frame scopes stay on plain HS_PROFILE — they are what the
+ *          standard reports are built from.
+ */
+#ifdef HS_PROFILE_DEEP_ENABLE
+#define HS_PROFILE_DEEP(label) HS_PROFILE(label)
+#else
+#define HS_PROFILE_DEEP(label) ((void)0)
+#endif
+

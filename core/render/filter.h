@@ -1390,7 +1390,12 @@ public:
         for (int cx = 0; cx < hw; ++cx) {
           if (xc.active && !col_used[cx]) continue;
           int x = cx * ds;
-          Vector v_dist = style_->space_fn(pixel_to_vector<W, H>(x, y), *style_);
+          Vector v_dist;
+          {
+            HS_PROFILE_DEEP(fb_pop_warp);
+            v_dist = style_->space_fn(pixel_to_vector<W, H>(x, y), *style_);
+          }
+          HS_PROFILE_DEEP(fb_pop_project);
           Spherical s(v_dist);
           float bx = (s.theta * W) / (2.0f * PI_F);
           float by = phi_to_y<H>(s.phi);
@@ -1454,6 +1459,7 @@ public:
         float leftx = 0.0f, slopex = 0.0f, lefty = 0.0f, slopey = 0.0f;
         for (int x = 0; x < W; ++x) {
           if (sub == 0) {
+            HS_PROFILE_DEEP(fb_comp_cell);
             int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
             int i00 = row0 + cx0, i10 = row0 + cx1;
             int i01 = row1 + cx0, i11 = row1 + cx1;
@@ -1476,13 +1482,19 @@ public:
             float ddy = lefty + slopey * fx;
 
             float sr, sg, sb;
-            sample_bilinear_prev(cv, x + ddx, y + ddy, sr, sg, sb);
-            ::Pixel p = (black_skips_color && sr < NEAR_BLACK &&
-                         sg < NEAR_BLACK && sb < NEAR_BLACK)
-                            ? ::Pixel(0, 0, 0)
-                            : color_px(sr, sg, sb);
+            {
+              HS_PROFILE_DEEP(fb_comp_sample);
+              sample_bilinear_prev(cv, x + ddx, y + ddy, sr, sg, sb);
+            }
+            ::Pixel p(0, 0, 0);
+            if (!(black_skips_color && sr < NEAR_BLACK && sg < NEAR_BLACK &&
+                  sb < NEAR_BLACK)) {
+              HS_PROFILE_DEEP(fb_comp_color);
+              p = color_px(sr, sg, sb);
+            }
 
             // write black too, to overwrite the stale double-buffer frame
+            HS_PROFILE_DEEP(fb_comp_write);
             cv(x, y) = opaque ? p : blend(cv(x, y), p);
           }
 
