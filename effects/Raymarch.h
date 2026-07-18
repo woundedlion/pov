@@ -142,15 +142,16 @@ private:
 
       Quaternion world_q = camera.get() * raw_quats[i] * spin_q;
       Vector tangent = rotate(Vector(1, 0, 0), world_q);
+      // Headlight model: light coincides with the viewer, so the view vector
+      // `center` serves as both light_dir and view_dir. The half-vector is
+      // fixed for this torus, so it is hoisted out of the per-pixel shader.
+      Vector half_w = blinn_phong_half(center, center, tangent);
 
       auto frag_fn = [&](const Vector &loc, Fragment &frag) {
         Vector n_local = torus.normal(loc);
         Vector n_world = rotate(n_local, world_q);
-        // Headlight model: light coincides with the viewer, so the view vector
-        // `center` serves as both light_dir and view_dir.
-        float shade = shade_blinn_phong(n_world, center, center, tangent,
-                                        params.diffuse, params.specular,
-                                        params.fresnel);
+        float shade = shade_blinn_phong(n_world, center, half_w, params.diffuse,
+                                        params.specular, params.fresnel);
 
         float ring_angle = (fast_atan2(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
         float palette_t = fmodf(ring_angle + palette_phase +
