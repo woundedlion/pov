@@ -2248,10 +2248,13 @@ inline double voronoi_union_nearest_match(std::span<const Vector> sites,
         }
       }
       auto knn = tree.nearest(p, 1);
-      if (knn[0].original_index == bi)
+      // On an exact tie the union scan keeps the first candidate and the tree
+      // keeps the other, so compare distance rather than site index.
+      const float deficit = dot(p, knn[0].point) - best;
+      if (knn[0].original_index == bi || deficit <= 0.0f)
         ++matched;
       else
-        max_deficit = std::max(max_deficit, dot(p, knn[0].point) - best);
+        max_deficit = std::max(max_deficit, deficit);
     }
   }
   return static_cast<double>(matched) / (static_cast<double>(W) * H);
