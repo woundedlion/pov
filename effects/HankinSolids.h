@@ -127,7 +127,7 @@ private:
    * short against the 64-frame sweep — the shaping exists only to take the edge
    * off those transitions, so the great majority of the animation paints every
    * face in its own color. */
-  static constexpr int SHAPE_FRAMES = 5;
+  static constexpr int SHAPE_FRAMES = 6;
   /** star_rim_palette_ sentinel: no rosette resolved for this star face yet. */
   static constexpr uint8_t NO_RIM = 0xFF;
   /** Strap-crossfade window: frames of the 64-frame hankin sweep over which a
