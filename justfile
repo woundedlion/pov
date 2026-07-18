@@ -111,8 +111,12 @@ teensy-gate-test:
 # Delegates to profile_one.sh so every device path runs under the one host-
 # global device lock (tools/device_lock.sh) and the same header/stale-build
 # checks; flashing around it would clobber a concurrent agent's capture.
-profile effect="DisplacementField" seconds="150":
-    bash tools/profile_one.sh {{effect}} profile {{seconds}} 32
+#
+# deep=1 turns on the HS_PROFILE_DEEP sub-scopes (per-pixel/per-cell counters in
+# shared render code) and captures to build/prof/<effect>_ship_deep.log instead,
+# leaving the roster log untouched.
+profile effect="DisplacementField" seconds="150" deep="0":
+    HS_PROFILE_DEEP={{deep}} bash tools/profile_one.sh {{effect}} profile {{seconds}} 32
 
 # Regenerate the PHANTASM PCB outputs into hardware/phantasm/gen/out/ (all
 # gitignored) from the COMMITTED board. It never re-runs the schematic/PCB

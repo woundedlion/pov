@@ -9,16 +9,27 @@
 # Takes the host-global device lock (tools/device_lock.sh) around the whole
 # build+flash+capture, so concurrent agents queue instead of clobbering each
 # other. HS_DEVICE_WAIT=<s> to queue rather than fail fast when it is busy.
+#
+# HS_PROFILE_DEEP=1 additionally enables the HS_PROFILE_DEEP sub-scopes (the
+# per-pixel/per-cell/per-face counters in shared render code, off by default
+# because they tax every effect's numbers). A deep capture writes its own
+# _deep.log so it cannot overwrite the roster log the standard reports cite.
 set -e
 . "$(dirname "$0")/device_lock.sh"
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
 EXTRA="$*"
 TAG=$([ "$ENV" = "profile_o3" ] && echo o3 || echo ship)
 LOWER=$(echo "$EFFECT" | tr '[:upper:]' '[:lower:]')
-OUT=build/prof/${LOWER}_${TAG}.log
+DEEP=""
+DEEP_SUFFIX=""
+if [ -n "$HS_PROFILE_DEEP" ] && [ "$HS_PROFILE_DEEP" != "0" ]; then
+  DEEP="-D HS_PROFILE_DEEP_ENABLE"
+  DEEP_SUFFIX="_deep"
+fi
+OUT=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}.log
 cd /c/work/Holosphere
 mkdir -p build/prof
-export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $EXTRA"
+export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $EXTRA"
 
 # Cyclers emit a per-advance marker; a capture of one must contain it.
 CYCLERS="Liquid2D ShapeShifter MindSplatter DreamBalls Comets Flyby MeshFeedback HankinSolids SphericalHarmonics IslamicStars"
@@ -34,7 +45,7 @@ case " $CYCLERS " in *" $EFFECT "*)
 esac
 
 capture() {
-  echo "=== $EFFECT [$ENV] window=$WINDOW seconds=$SECONDS_ARG extra='$EXTRA'"
+  echo "=== $EFFECT [$ENV] window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
   pio run -e "$ENV" -t upload 2>&1 | tail -2
   # Let the capture's stderr through: it dies on a device trap (USB drops) and
   # on a port already held by a peer, and those look identical from the exit
