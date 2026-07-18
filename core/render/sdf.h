@@ -939,12 +939,14 @@ struct DistortedRing {
    * @brief distance<true>() from a precomputed pixel frame.
    * @param d Pixel dot ring axis (= dot(p, normal)).
    * @param polar fast_acos(clamp(d, -1, 1)).
+   * @param sin_polar sqrtf(max(1 - d * d, POLE_SIN2_FLOOR)).
    * @param t_norm Pixel azimuth in [0, 1), phase applied.
    * @param res Output result, identical to distance<true>() except for
    *        undisplaced knot rings, which take the exact polar distance (the
    *        zero-knot polyline agrees only to within an ulp).
-   * @details Same-axis ring stacks share d/polar/t_norm across every ring at a
-   * pixel; hoisting them there drops the per-ring dot/acos/atan2 recompute.
+   * @details Same-axis ring stacks share d/polar/sin_polar/t_norm across every
+   * ring at a pixel; hoisting them there drops the per-ring dot/acos/atan2
+   * recompute.
    */
   HS_O3_FN void distance_from_frame(float d, float polar, float sin_polar,
                                     float t_norm, DistanceResult &res) const {
