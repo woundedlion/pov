@@ -581,6 +581,117 @@ inline void test_gamut_clip_preserves_hue() {
 }
 
 /**
+ * @brief Linear-RGB triple of an OKLab color in double precision.
+ * @param L Lightness.
+ * @param a OKLab a.
+ * @param b OKLab b.
+ * @param r Out: linear red.
+ * @param g Out: linear green.
+ * @param bl Out: linear blue.
+ * @details Mirrors color.h oklab_to_linear_rgb so the reference below is
+ *          independent of the float path under test.
+ */
+inline void oklab_to_linear_rgb_ref(double L, double a, double b, double &r,
+                                    double &g, double &bl) {
+  double l_ = L + 0.3963377774 * a + 0.2158037573 * b;
+  double m_ = L - 0.1055613458 * a - 0.0638541728 * b;
+  double s_ = L - 0.0894841775 * a - 1.2914855480 * b;
+  double l = l_ * l_ * l_, m = m_ * m_ * m_, s = s_ * s_ * s_;
+  r = 4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s;
+  g = -1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s;
+  bl = -0.0041960863 * l - 0.7034186147 * m + 1.7076147010 * s;
+}
+
+/**
+ * @brief First-exit chroma along a constant-lightness ray, in double precision.
+ * @param L Lightness held fixed.
+ * @param ad Unit OKLab a of the hue direction.
+ * @param bd Unit OKLab b of the hue direction.
+ * @param cap Largest chroma considered; returned when the ray never exits.
+ * @return The smallest chroma above zero that leaves linear_rgb_in_gamut.
+ * @details First exit, not "largest in-gamut chroma": the gate's tolerance lets
+ *          a channel graze a face, leave the tolerance and re-enter, so the
+ *          in-gamut set along a ray is occasionally disconnected. The boundary
+ *          of the component containing zero chroma is the one that matters, so
+ *          the scan stops at the first out-of-range sample and bisects there.
+ */
+inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
+  const double lo_b = -1e-4, hi_b = 1.0 + 1e-4;
+  auto inside = [&](double c) {
+    double r, g, b;
+    oklab_to_linear_rgb_ref(L, ad * c, bd * c, r, g, b);
+    return r >= lo_b && r <= hi_b && g >= lo_b && g <= hi_b && b >= lo_b &&
+           b <= hi_b;
+  };
+  const int coarse = 512;
+  int hit = -1;
+  for (int i = 1; i <= coarse; ++i) {
+    if (!inside(cap * i / coarse)) {
+      hit = i;
+      break;
+    }
+  }
+  if (hit < 0)
+    return cap;
+  double lo = cap * (hit - 1) / coarse, hi = cap * hit / coarse;
+  for (int i = 0; i < 50; ++i) {
+    double mid = 0.5 * (lo + hi);
+    if (inside(mid))
+      lo = mid;
+    else
+      hi = mid;
+  }
+  return lo;
+}
+
+/**
+ * @brief Verifies the chroma-reduction map lands on the gamut's first exit.
+ * @details Sweeps lightness, hue and input chroma and holds the map to two
+ *          properties. Every returned color must pass linear_rgb_in_gamut —
+ *          that is the hard one, the map's whole job. And the returned chroma
+ *          must sit just inside the double-precision first exit: never above it
+ *          (which would be out of gamut by the gate's own rule) and never more
+ *          than a barely visible amount below. The hue band around the blue
+ *          cube vertex is sampled finely because that is where a channel dips
+ *          through a face and back, and where the boundary moves fastest.
+ */
+inline void test_gamut_clip_lands_on_first_exit() {
+  const float DEFICIT_BOUND = 5e-3f;
+  const double CHROMA_IN[3] = {0.6, 0.35, 0.25};
+  float worst_deficit = 0.0f, worst_oversat = -1.0f;
+
+  for (int il = 0; il <= 32; ++il) {
+    const double L = 0.1 + 0.8 * il / 32.0;
+    for (int ih = 0; ih < 360 + 96; ++ih) {
+      // 360 even steps, then a fine fan across the blue vertex.
+      const double deg = ih < 360 ? ih : 258.0 + 0.125 * (ih - 360);
+      const double h = deg * 3.14159265358979323846 / 180.0;
+      const double ad = std::cos(h), bd = std::sin(h);
+
+      for (int ic = 0; ic < 3; ++ic) {
+        const double cin = CHROMA_IN[ic];
+        OKLab mapped = gamut_clip_preserve_chroma(
+            {(float)L, (float)(ad * cin), (float)(bd * cin)});
+
+        float r, g, b;
+        oklab_to_linear_rgb(mapped, r, g, b);
+        HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
+
+        const float got =
+            std::sqrt(mapped.a * mapped.a + mapped.b * mapped.b);
+        const float ref = (float)gamut_first_exit_ref(L, ad, bd, cin);
+        if (ref - got > worst_deficit)
+          worst_deficit = ref - got;
+        if (got - ref > worst_oversat)
+          worst_oversat = got - ref;
+      }
+    }
+  }
+  HS_EXPECT_LT(worst_deficit, DEFICIT_BOUND);
+  HS_EXPECT_LE(worst_oversat, 0.0f);
+}
+
+/**
  * @brief Verifies oklch_to_pixel routes out-of-gamut colors through the
  *        chroma-reduction map, holding hue where a per-channel clip would not.
  * @details Realizes a past-cusp OKLCH as a Pixel, reads the realized color back
@@ -1799,6 +1910,7 @@ inline int run_color_tests() {
   test_lerp_oklch_extrapolation_clamped();
   test_oklch_to_pixel_saturates_and_preserves_in_gamut();
   test_gamut_clip_preserves_hue();
+  test_gamut_clip_lands_on_first_exit();
   test_oklch_to_pixel_holds_hue_out_of_gamut();
 
   test_fast_cbrt_accuracy();
