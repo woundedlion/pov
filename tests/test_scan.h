@@ -1283,6 +1283,57 @@ inline void test_volume_probe_occluder_reports_background_graze_point() {
   HS_EXPECT_LT(occ.behind.z, -0.05f);
 }
 
+/**
+ * @brief Verifies overrelaxed sphere tracing never steps over a surface.
+ * @details Sweeps rays across a twisted torus whose Lipschitz-divided distance
+ * badly underestimates the true one — the case overrelaxation exploits — and
+ * compares each trace against a dense fixed-step scan of the same ray. A ray
+ * whose true closest approach lies well inside the AA band must be reported as a
+ * hit: an unsafe step scheme strides over the ring and reports a miss instead.
+ * No ray may report a hit the dense scan cannot corroborate.
+ */
+inline void test_volume_trace_closest_overrelax_never_skips_surface() {
+  SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{{0.45f, 0.14f},
+                                                        {2, 0.35f, 0.45f}};
+  const float bounds_radius = 0.72f;
+  const float aa_width = 0.07f;
+  const Vector vd(0.0f, 0.0f, -1.0f);
+
+  int covered = 0, hits = 0;
+  for (int iy = -14; iy <= 14; ++iy) {
+    for (int ix = -14; ix <= 14; ++ix) {
+      Vector ro(ix * 0.045f, iy * 0.045f, bounds_radius);
+
+      Vector closest_local;
+      float closest_d = Scan::Volume::trace_closest(
+          torus, ro, vd, bounds_radius, 18, aa_width, closest_local);
+
+      // Dense reference: true closest approach along the same ray segment.
+      float ref_min = FLT_MAX;
+      for (int s = 0; s <= 4000; ++s) {
+        Vector p(ro.x, ro.y, ro.z - s * (2.0f * bounds_radius / 4000.0f));
+        float d = torus.distance(p);
+        if (d < ref_min)
+          ref_min = d;
+      }
+
+      if (closest_d < aa_width) {
+        ++hits;
+        // A reported hit must correspond to a real approach on the ray.
+        HS_EXPECT_LT(ref_min, aa_width);
+      }
+      // Rays grazing the band edge may legitimately land either side of it;
+      // anything this far inside is unambiguous coverage the march owes.
+      if (ref_min < aa_width * 0.9f) {
+        ++covered;
+        HS_EXPECT_LT(closest_d, aa_width);
+      }
+    }
+  }
+  HS_EXPECT_GT(covered, 400);
+  HS_EXPECT_GT(hits, covered);
+}
+
 // ============================================================================
 // Runner
 // ============================================================================
@@ -1322,6 +1373,7 @@ inline int run_scan_tests() {
   test_volume_draw_occluded_edge_blends_over_background();
   test_volume_trace_closest_stops_at_first_graze();
   test_volume_probe_occluder_reports_background_graze_point();
+  test_volume_trace_closest_overrelax_never_skips_surface();
 
   return fixture.result();
 }
