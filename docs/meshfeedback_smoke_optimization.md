@@ -265,23 +265,45 @@ visibly softens its warp. Low payoff for the look cost.
 Three levers landed and were re-captured under identical conditions. Measured,
 not estimated:
 
-| scope (ms/frame) | baseline | +L1+L2 | +L3 | net |
+| scope (ms/frame) | baseline | +L2+L3 | +analytic gamut | net |
 |---|--:|--:|--:|--:|
-| `mf_feedback_flush` | 76.12 | 73.46 | 70.71 | −5.41 |
-| `feedback_composite` | 68.20 | 65.51 | 62.78 | −5.42 |
-| `fb_comp_color` | 43.25 | 43.34 | 39.88 | −3.37 |
-| `gamut_clip` | 21.57 | 21.66 | 21.75 | +0.18 |
-| `fb_comp_sample` | 9.34 | 6.90 | 6.94 | −2.40 |
-| `fb_comp_write` | 1.91 | 1.34 | 1.34 | −0.57 |
-| **render avg** | **82.25** | **79.32** | **76.50** | **−5.75** |
-| **render peak** | **89.91** | **87.45** | **83.94** | **−5.97** |
+| `mf_feedback_flush` | 76.12 | 70.71 | 69.14 | −6.98 |
+| `feedback_composite` | 68.20 | 62.78 | 61.24 | −6.96 |
+| `fb_comp_color` | 43.25 | 39.88 | 37.93 | −5.32 |
+| `gamut_clip` | 21.57 | 21.75 | 19.56 | −2.01 |
+| `fb_comp_sample` | 9.34 | 6.94 | 7.45 | −1.90 |
+| `fb_comp_write` | 1.91 | 1.34 | 1.25 | −0.66 |
+| **render avg** | **82.25** | **76.50** | **74.99** | **−7.26** |
+| **render peak** | **89.91** | **83.94** | **82.30** | **−7.60** |
+
+`gamut_clip` per-call: 1,953 → 1,970 → **1,772 cyc/px**.
 
 | lever | estimated | measured | verdict |
 |---|--:|--:|---|
 | L1 cubic-form gamut bisection | −16.3 | **0.0** | measured dead, reverted — latency-bound |
-| L2 canvas pointer hoist | −5.0 | −2.9 | landed |
-| L3 single-reciprocal cbrt triple | −2.5 | −3.4 | landed, beat estimate |
-| **exact subtotal** | −23.8 | **−6.0** | **peak 83.9 ms — misses** |
+| L2 canvas pointer hoist | −5.0 | −2.9 | landed `93a70142` |
+| L3 single-reciprocal cbrt triple | −2.5 | −3.4 | landed `574e8521`, beat estimate |
+| gamut LUT (512×128, arena) | −20 | n/a | **abandoned** — 0.041 chroma deficit, resolution-capped |
+| analytic first-exit gamut clip | −18 | **−2.0** | landed `8e76a2d4` (+3,232 B ITCM) |
+| **subtotal** | −45 | **−7.6** | **peak 82.3 ms — misses** |
+
+### The gamut clip is exhausted; stop attacking it
+
+Three independent approaches, one measurement each:
+
+| approach | outcome |
+|---|---|
+| cheaper arithmetic per iteration (L1) | 0% — latency-bound, not flop-bound |
+| precomputed 2D boundary table | unshippable — 0.041 chroma deficit at *any* resolution |
+| analytic global first-exit solve | −10% (1,953 → 1,772 cyc/px) |
+
+The scope is 19.56 ms and will not go materially below it. Every estimate for it
+(−16.3, −20, −18 ms) was optimistic by roughly an order of magnitude, in three
+different ways. The remaining cost is irreducible per-pixel work on a core with
+no instruction-level parallelism to hide it: ~9 dependent divides, 3–4 sqrts,
+and per-channel cubic turning points, all serial.
+
+The analytic version earns its place on **correctness**, not speed — see below.
 
 **Estimating lesson.** The three estimates were off by −16.3, +2.1 and −0.9 ms.
 The two that held were the ones that removed a *structural* cost — repeated
