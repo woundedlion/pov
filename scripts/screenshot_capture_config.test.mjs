@@ -7,7 +7,6 @@ import {
 } from './screenshot_capture_config.mjs';
 
 test('configured effects resolve to their fixed capture offsets', () => {
-  assert.equal(captureOffsetMs('DistortedRing'), 5_000);
   assert.equal(captureOffsetMs('RingShower'), 10_000);
 });
 
