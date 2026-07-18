@@ -103,23 +103,6 @@ protected:
   }
 
   /**
-   * @brief Refines a cubemap-LUT seed to the nearest node and runs the
-   *        Wendland C2 kernel walk in one stencil pass.
-   * @tparam OnWeight Callable accepting (node_index, weight).
-   * @param rv Query direction (unit vector on the sphere).
-   * @param nodes Node positions in the same frame as `rv`, indexed by node id.
-   * @param seed Seed node id from the cubemap LUT.
-   * @param on_weight Callable invoked as `on_weight(node_index, weight)` for
-   * every node inside the support radius.
-   * @details The CubemapLUT quantizes the query direction to a face cell, so
-   * its seed can be a not-quite-nearest node; centering the kernel on the
-   * genuine nearest node removes that quantization bias. The seed stencil's
-   * squared distances are computed once, tracking the argmin: when the seed is
-   * already nearest (the common case — a LUT cell is finer than a lattice
-   * cell) they feed the kernel weights directly; otherwise the kernel re-walks
-   * the refined center's stencil.
-   */
-  /**
    * @brief Refines a cubemap-LUT seed to the genuine nearest node.
    * @param rv Query direction (unit vector on the sphere).
    * @param nodes Node positions in the same frame as `rv`, indexed by node id.
@@ -144,6 +127,23 @@ protected:
     return best;
   }
 
+  /**
+   * @brief Refines a cubemap-LUT seed to the nearest node and runs the
+   *        Wendland C2 kernel walk in one stencil pass.
+   * @tparam OnWeight Callable accepting (node_index, weight).
+   * @param rv Query direction (unit vector on the sphere).
+   * @param nodes Node positions in the same frame as `rv`, indexed by node id.
+   * @param seed Seed node id from the cubemap LUT.
+   * @param on_weight Callable invoked as `on_weight(node_index, weight)` for
+   * every node inside the support radius.
+   * @details The CubemapLUT quantizes the query direction to a face cell, so
+   * its seed can be a not-quite-nearest node; centering the kernel on the
+   * genuine nearest node removes that quantization bias. The seed stencil's
+   * squared distances are computed once, tracking the argmin: when the seed is
+   * already nearest (the common case — a LUT cell is finer than a lattice
+   * cell) they feed the kernel weights directly; otherwise the kernel re-walks
+   * the refined center's stencil.
+   */
   template <typename OnWeight>
   HS_O3_FN static void refine_and_accumulate(const Vector &rv,
                                              const Vector *nodes, int seed,
