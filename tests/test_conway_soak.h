@@ -108,11 +108,11 @@ struct HankinWalkProbe {
     return HankinSolids<W, H>::STRAP_BLEND_FRAMES;
   }
   /**
-   * @brief Strap shaping weight at a cycle frame: the opening coverage fade at
-   * `cycle_frame`, and the closing edge blend at `duration - cycle_frame`.
+   * @brief Strap opening-fade weight at a cycle frame (0 at the bookend, 1 past
+   * the window).
    */
   template <int W, int H>
-  static float strap_weight(const HankinSolids<W, H> &fx, int cycle_frame) {
+  static float strap_open_fade(const HankinSolids<W, H> &fx, int cycle_frame) {
     return fx.strap_blend_weight(cycle_frame);
   }
   /**
@@ -147,14 +147,14 @@ struct HankinWalkProbe {
    * production draw path at the current (unadvanced) orientation, with the
    * given strap opening-fade weight.
    * @details Rendering without stepping the timeline keeps the camera fixed
-   * across successive calls, so a diff isolates the mesh/shaping change. Used
-   * to pin both strap window shapings: the coverage fade at the open and the
-   * edge blend at the close.
+   * across successive calls, so a diff isolates the mesh/fade change. Used to
+   * pin the strap opening-fade: the newborn straps at a small angle must, when
+   * faded, leave the angle-0 bookend nearly unchanged.
    */
   template <int W, int H>
   static void render_at_angle(HankinSolids<W, H> &fx, Canvas &canvas,
-                              float angle, int cycle_frame, float open_fade,
-                              float edge_blend, Arena &scratch) {
+                              float angle, int cycle_frame, float strap_fade,
+                              Arena &scratch) {
     MeshOps::update_hankin(fx.compiled_hankin, fx.mesh_, persistent_arena,
                            angle);
     BakedPalette blended[HankinSolids<W, H>::NUM_PALETTES];
@@ -163,7 +163,7 @@ struct HankinWalkProbe {
     fx.resolve_hankin_slot_luts(cycle_frame, blended, star_by_slot,
                                 strap_by_slot, scratch);
     fx.draw_mesh(canvas, fx.mesh_, fx.mesh_.topology, star_by_slot,
-                 strap_by_slot, 1.0f, open_fade, edge_blend);
+                 strap_by_slot, 1.0f, strap_fade);
   }
 };
 
