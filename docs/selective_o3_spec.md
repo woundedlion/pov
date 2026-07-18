@@ -387,11 +387,16 @@ Voronoi bypasses the pipeline entirely (writes `canvas(x,y)` directly,
 
 ### Explicitly out (do not add without new profile evidence)
 
-BZ/GS `step_physics` sim kernels, Raymarch's ray-march (`Scan::Volume::draw`,
-1.23×, no tier), MindSplatter, GnomonicStars' star transform, and all
-effect-local code of the always-16-fps effects. If budget remains after R1–R6,
-prefer **deepening** existing regions (e.g. `Scan::Mesh::draw`'s face-setup
-loop) over new effect-local ones.
+BZ/GS `step_physics` sim kernels, MindSplatter, GnomonicStars' star transform,
+and all effect-local code of the always-16-fps effects. If budget remains after
+R1–R6, prefer **deepening** existing regions (e.g. `Scan::Mesh::draw`'s
+face-setup loop) over new effect-local ones.
+
+Raymarch's ray-march is the standing exception to the no-tier rule: it crosses
+no cadence tier, but `Scan::Volume::draw` has a single caller, so the region
+costs no other effect ITCM — and it measured **negative** (R7 below). The rule
+is "spend no ITCM on a no-tier effect", not "never promote one"; a region that
+returns bytes is free to take.
 
 ## 6. Size-gate extension (prerequisite, land first)
 
@@ -538,6 +543,7 @@ decision by (a) a cold-code ITCM eviction sweep (`2c2470b2`, −5,600 B) and
 | `always_inline` on the O3-region leaf callees (`dot`/`cross`/Vector arithmetic, `normalized`/`length`, `rotate`, `fast_sinf`/`fast_cosf`/`fast_acos`/`fast_atan2`, `lerp16`/`frac_to_q16`, `vector_to_theta`, `geodesic_row_span_rows`, `finish_col_span`) — overrides GCC 11's option-mismatch inline refusal without option-carrying the bodies | +19,664 (6th ITCM bank; DTCM locals 14,976 vs 12,288 floor) | 21,912 (in bank 6) | HopfFibration deterministic 165 s pass: peak frame render 71.3 → **56.8 ms**, spilled 25 → **0** — **16 fps locked**, below the prior global-O3 ceiling (58.8); every region effect shares the win (roster re-sweep pending) | ✅ `d9bd43da` 2026-07-16 |
 | R5 feedback flush (`Feedback::flush` HS_O3 region + `HS_O3_FN` on `sample_bilinear_prev` and the OKLab hue chain `hue_fade_apply`/`linear_rgb_to_lms`/`lms_cbrt_to_linear_rgb`/`lms_cbrt_transform_rgb`/`lms_to_oklab`/`oklab_to_lms_cbrt`/`oklab_to_linear_rgb`/`gamut_clip_preserve_chroma`/`float_to_pixel16`/`fast_cbrt`) | +3,008 (into the 6th bank the always_inline landing opened; padding 13,192) | 13,192 | `feedback_composite` avg 88.6 → 45.3 ms = at global-O3 ceiling (45.2); 16 fps cycle coverage ~0% → **54%** (ceiling 57%). NOT a full lock: even global -O3 tops out at 57% — heavy high-fade presets are intrinsically > 62.5 ms (like MindSplatter, the lever is coverage, not the compiler). `HS_O3_FN` on `flush` did not reach its composite lambda; the walls were out-of-line `-Os` callees. `sample_bilinear_prev` O3 was the biggest step (35→54%) and *shrank* code −1,040 B | ✅ `405197d9` 2026-07-17 (rides a warp-bilerp hoist, `b46de7bd`, −7 ms/frame) |
 | R6 Voronoi KD | not measured | | | deferred — no budget |
+| R7 Raymarch march path (`Scan::Volume` + `TransformedVolume` region; `SDF::Torus`/`Warp::Twist`/`WarpedVolume` regions) | **−208** (the per-step out-of-line -Os `TransformedVolume::distance` call is eliminated; inlined bodies cost less than the copies they replace) | 11,032 | march lambda `bl` calls 14 → 2, `vsqrt` 0 → 12; device cadence not re-profiled — no tier to cross | ✅ `38b76187` 2026-07-17 |
 
 **MindSplatter's ship→ceiling ratio (1.15–1.49× per preset) is not
 recoverable by selective -O3 — do not re-attempt.** With the R3 rasterize
