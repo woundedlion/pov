@@ -455,6 +455,82 @@ inline void test_sh_decode_lm_valid_order() {
   }
 }
 
+/** @brief Textbook associated Legendre P_l^m(x) in double, as test truth. */
+inline double sh_reference_legendre(int l, int m, double x) {
+  double pmm = 1.0;
+  if (m > 0) {
+    double somx2 = std::sqrt(std::max(0.0, (1.0 - x) * (1.0 + x)));
+    double fact = 1.0;
+    for (int i = 1; i <= m; i++) {
+      pmm *= -fact * somx2;
+      fact += 2.0;
+    }
+  }
+  if (l == m)
+    return pmm;
+
+  double pmmp1 = x * (2.0 * m + 1.0) * pmm;
+  if (l == m + 1)
+    return pmmp1;
+
+  double pll = 0.0;
+  for (int ll = m + 2; ll <= l; ll++) {
+    pll = ((2.0 * ll - 1.0) * x * pmmp1 - (ll + m - 1.0) * pmm) / (ll - m);
+    pmm = pmmp1;
+    pmmp1 = pll;
+  }
+  return pll;
+}
+
+/**
+ * @brief Verifies the Cartesian spherical harmonic matches the spherical form.
+ * @details SHMath::spherical_harmonic drops the sin(phi)^|m| factor from the
+ * Legendre term and recovers it from Re/Im((x + iz)^|m|). That identity holds
+ * only for unit directions, so this sweeps a full (phi, theta) lattice against
+ * a double-precision P_l^m(cos phi) * cos/sin(|m| theta), covering every (l, m)
+ * the effect can reach.
+ */
+inline void test_sh_cartesian_matches_spherical() {
+  double worst = 0.0;
+  int worst_l = 0, worst_m = 0;
+
+  for (int l = 0; l <= 4; ++l) {
+    for (int m = -l; m <= l; ++m) {
+      const float N = SHMath::normalization(l, m);
+      const int abs_m = std::abs(m);
+      for (int i = 0; i <= 40; ++i) {
+        const double phi = PI_F * i / 40.0;
+        const double sin_phi = std::sin(phi), cos_phi = std::cos(phi);
+        for (int j = 0; j < 64; ++j) {
+          const double theta = 2.0 * PI_F * j / 64.0;
+          Vector p(static_cast<float>(sin_phi * std::cos(theta)),
+                   static_cast<float>(cos_phi),
+                   static_cast<float>(sin_phi * std::sin(theta)));
+
+          const double azimuthal = (m > 0)   ? std::cos(abs_m * theta)
+                                   : (m < 0) ? std::sin(abs_m * theta)
+                                             : 1.0;
+          const double want =
+              N * sh_reference_legendre(l, abs_m, cos_phi) * azimuthal;
+          const double err =
+              std::fabs(SHMath::spherical_harmonic(l, m, p, N) - want);
+          if (err > worst) {
+            worst = err;
+            worst_l = l;
+            worst_m = m;
+          }
+        }
+      }
+    }
+  }
+
+  if (worst >= 1e-4)
+    std::printf("  SH parity: worst error %g at l=%d m=%d\n", worst, worst_l,
+                worst_m);
+  HS_EXPECT(worst < 1e-4,
+            "Cartesian harmonic must match the spherical form on unit vectors");
+}
+
 // ---------------------------------------------------------------------------
 // Gray-Scott reaction-diffusion: white-box dynamics coverage
 // ---------------------------------------------------------------------------
@@ -2357,6 +2433,7 @@ inline int run_effects_tests() {
     test_voronoi_axes_use_uniform_sampler();
     test_voronoi_union_candidates_cover_nearest();
     test_sh_decode_lm_valid_order();
+    test_sh_cartesian_matches_spherical();
     test_gs_q16_roundtrip();
     test_gs_rest_state_is_fixed_point();
     test_gs_substep_signs_and_clamp();
