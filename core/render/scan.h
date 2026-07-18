@@ -1690,6 +1690,10 @@ struct Volume {
       if (d < closest_d) {
         closest_d = d;
         closest_local = local_p;
+        // A frontal hit converges on the surface from outside, so the
+        // d < -aa_width break below never fires for it.
+        if (closest_d <= aa_width * 0.02f)
+          break;
       } else if (closest_d < aa_width) {
         // Rising past the first in-band local minimum: stop before a surface
         // behind the graze steals the closest approach.
