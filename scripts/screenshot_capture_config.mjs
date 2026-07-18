@@ -1,7 +1,6 @@
 export const DEFAULT_CAPTURE_OFFSET_MS = 30_000;
 
 export const CAPTURE_OFFSETS_MS = Object.freeze({
-  DistortedRing: 5_000,
   RingShower: 10_000,
 });
 
