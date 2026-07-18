@@ -644,17 +644,43 @@ HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
  * @details Binary-searches a uniform scale s in [0,1] on the (a,b) chroma axes,
  * holding hue and L fixed. s = 0 is the achromatic color at L (guaranteed
  * in-gamut floor for L in [0,1]); s = 1 is the input. 16 bisections pin s below
- * one 16-bit output quantum.
+ * one 16-bit output quantum. Each cbrt-LMS coordinate is linear in s, so every
+ * linear-RGB channel is a cubic in s whose 4 coefficients are built once and
+ * evaluated by Horner per iteration.
  */
 HS_O3_FN inline OKLab gamut_clip_preserve_chroma(OKLab lab) {
   // The s=0 achromatic floor is in gamut only for L in [0,1]; an out-of-range L
   // would leave even the floor out of gamut and return a non-gamut color.
   lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
+
+  // cbrt-LMS coordinates at scale s: l_ = L + A*s, m_ = L + B*s, s_ = L + C*s.
+  const float A = +0.3963377774f * lab.a + 0.2158037573f * lab.b;
+  const float B = -0.1055613458f * lab.a - 0.0638541728f * lab.b;
+  const float C = -0.0894841775f * lab.a - 1.2914855480f * lab.b;
+
+  // (L + X*s)^3 expanded in s.
+  const float L2 = lab.L * lab.L, L3 = L2 * lab.L;
+  const float cl[4] = {L3, 3.0f * L2 * A, 3.0f * lab.L * A * A, A * A * A};
+  const float cm[4] = {L3, 3.0f * L2 * B, 3.0f * lab.L * B * B, B * B * B};
+  const float cn[4] = {L3, 3.0f * L2 * C, 3.0f * lab.L * C * C, C * C * C};
+
+  float cr[4], cg[4], cb[4];
+  for (int k = 0; k < 4; ++k) {
+    cr[k] = +4.0767416621f * cl[k] - 3.3077115913f * cm[k] +
+            0.2309699292f * cn[k];
+    cg[k] = -1.2684380046f * cl[k] + 2.6097574011f * cm[k] -
+            0.3413193965f * cn[k];
+    cb[k] = -0.0041960863f * cl[k] - 0.7034186147f * cm[k] +
+            1.7076147010f * cn[k];
+  }
+
   float lo = 0.0f, hi = 1.0f;
   for (int i = 0; i < 16; ++i) {
     float mid = 0.5f * (lo + hi);
-    LinRGB rgb = oklab_to_linear_rgb({lab.L, lab.a * mid, lab.b * mid});
-    if (linear_rgb_in_gamut(rgb.r, rgb.g, rgb.b))
+    float r = ((cr[3] * mid + cr[2]) * mid + cr[1]) * mid + cr[0];
+    float g = ((cg[3] * mid + cg[2]) * mid + cg[1]) * mid + cg[0];
+    float b = ((cb[3] * mid + cb[2]) * mid + cb[1]) * mid + cb[0];
+    if (linear_rgb_in_gamut(r, g, b))
       lo = mid;
     else
       hi = mid;
