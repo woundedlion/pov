@@ -2188,14 +2188,22 @@ struct Face {
 
   // Sector-walk state: a concave star-shaped-about-centroid face bins each
   // query point into its angular sector (by pseudo-angle) and walks only the
-  // sector's edge and its two neighbors instead of all `count` edges.
+  // sector's edge and its nearest neighbors (sector_kmax on each side) instead
+  // of all `count` edges.
   static constexpr int SECTOR_MIN_COUNT =
       10; /**< Below this the full walk is already cheap; skip the sector path.
            */
-  std::span<float>
-      sector_pv; /**< Unwrapped vertex pseudo-angles, count+1 (monotonic). */
+  static constexpr float SECTOR_MONO_TOL =
+      0.05f; /**< Max vertex pseudo-angle backtrack (of 4 per turn) still binned
+                on the K2 sector path; beyond it the fan is not star-shaped. */
+  std::span<float> sector_pv; /**< Unwrapped vertex pseudo-angles, count+1;
+                                 weakly monotonic (K2 faces dip <=
+                                 SECTOR_MONO_TOL). */
   float sector_base = 0.0f; /**< sector_pv[0]. */
   float sector_span = 0.0f; /**< Signed span (~+/-4), encodes the winding. */
+  int sector_kmax =
+      1; /**< Neighbors walked each side: 1 (strict, bit-exact) or 2 (mildly
+            bent, absorbs off-by-one binning). */
   bool sector_ok =
       false; /**< Star-shaped about centroid; sector walk usable. */
 
@@ -2552,11 +2560,13 @@ struct Face {
    * pseudo-angles.
    * @details Only concave faces with at least SECTOR_MIN_COUNT vertices
    * qualify. A face that is star-shaped about its projected centroid (the
-   * gnomonic origin) has strictly monotonic vertex pseudo-angles spanning a
-   * full turn; that monotonicity is what lets plane_dist_sector bin a query
-   * point into one fan sector by angle alone. A face failing either test (not
-   * star-shaped, e.g. heavily deformed) leaves sector_ok false and keeps the
-   * exact walk.
+   * gnomonic origin) has monotonic vertex pseudo-angles spanning a full turn;
+   * that monotonicity is what lets plane_dist_sector bin a query point into one
+   * fan sector by angle alone. Strictly monotonic faces bin exactly (K1);
+   * mildly-bent faces whose worst vertex backtracks by no more than
+   * SECTOR_MONO_TOL still bin to within a neighbor and take the wider K2 walk.
+   * A larger inversion or wrong total turn (not star-shaped, e.g. heavily
+   * deformed) leaves sector_ok false and keeps the exact walk.
    */
   __attribute__((always_inline)) void
   build_sectors(FaceScratchBuffer &scratch) {
@@ -2579,15 +2589,26 @@ struct Face {
       scratch.pseudo_angles[i] = acc;
       prev = a;
     }
-    // Star-shaped about the centroid <=> exactly one full turn, strictly
-    // monotonic. Reject otherwise: the sectors would overlap or leave a gap.
+    // Star-shaped about the centroid <=> exactly one full turn with no vertex
+    // backtracking. Reject a wrong total turn: the sectors would overlap or
+    // leave a gap.
     if (fabsf(fabsf(total) - 4.0f) > 1e-3f)
       return;
     float sgn = (total >= 0.0f) ? 1.0f : -1.0f;
-    for (int i = 1; i <= count; ++i)
-      if ((scratch.pseudo_angles[i] - scratch.pseudo_angles[i - 1]) * sgn <=
-          0.0f)
-        return;
+    float min_step = FLT_MAX;
+    for (int i = 1; i <= count; ++i) {
+      float step =
+          (scratch.pseudo_angles[i] - scratch.pseudo_angles[i - 1]) * sgn;
+      if (step < min_step)
+        min_step = step;
+    }
+    // min_step > 0: strictly monotonic, sectors don't overlap, K1 bins exactly.
+    // A backtrack up to SECTOR_MONO_TOL overlaps sectors slightly, so the bin
+    // can land one neighbor off -> K2's wider walk still reaches the true edge.
+    // A larger inversion is not star-shaped; keep the exact walk.
+    if (min_step <= -SECTOR_MONO_TOL)
+      return;
+    sector_kmax = (min_step > 0.0f) ? 1 : 2;
     sector_pv = std::span<float>(scratch.pseudo_angles.data(), count + 1);
     sector_base = scratch.pseudo_angles[0];
     sector_span = total;
@@ -3006,18 +3027,20 @@ struct Face {
   }
 
   /**
-   * @brief Signed planar distance via the concave sector walk (K1).
+   * @brief Signed planar distance via the concave sector walk.
    * @param px Gnomonic x of the query point.
    * @param py Gnomonic y of the query point.
    * @return Signed distance in the tangent plane (negative inside).
    * @details Bins the query into its fan sector by pseudo-angle (a binary
    * search over the monotonic vertex pseudo-angles), then takes the exact min
-   * segment distance over only that sector's edge and its two neighbors. The
-   * sign comes free from the sector's boundary edge: the polygon is
-   * consistently wound, so a query on the interior side of edge s (matched to
-   * the winding) is inside. Near-exact for star faces because the true nearest
-   * edge is almost always the sector's own edge or an immediate neighbor. Only
-   * enabled when build_sectors set sector_ok. noinline: see plane_dist_convex.
+   * segment distance over only that sector's edge and its sector_kmax neighbors
+   * each side (K1 = 1 for strict faces, K2 = 2 for mildly-bent faces whose bin
+   * can land a neighbor off). The sign comes free from the sector's boundary
+   * edge: the polygon is consistently wound, so a query on the interior side of
+   * edge s (matched to the winding) is inside. Near-exact for star faces because
+   * the true nearest edge is almost always the sector's own edge or an immediate
+   * neighbor. Only enabled when build_sectors set sector_ok. noinline: see
+   * plane_dist_convex.
    */
   HS_O3_FN __attribute__((noinline)) float plane_dist_sector(float px,
                                                              float py) const {
@@ -3038,7 +3061,7 @@ struct Face {
     int s = lo;
 
     float d = FLT_MAX;
-    for (int k = -1; k <= 1; ++k) {
+    for (int k = -sector_kmax; k <= sector_kmax; ++k) {
       const auto &ep = packed_edges[(s + k + count) % count];
       float wx = px - ep.vx, wy = py - ep.vy;
       float t =
@@ -3133,9 +3156,14 @@ struct Face {
       }
     } else {
       HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
-      plane_dist = convex      ? plane_dist_convex(px, py)
-                   : sector_ok ? plane_dist_sector(px, py)
-                               : plane_dist_exact(px, py);
+      if (convex) {
+        plane_dist = plane_dist_convex(px, py);
+      } else if (sector_ok) {
+        HS_SCAN_METRIC(hs::g_scan_metrics.sector_hits++);
+        plane_dist = plane_dist_sector(px, py);
+      } else {
+        plane_dist = plane_dist_exact(px, py);
+      }
     }
 
     // Small faces skip the plane->angle conversion: tan(angle) ~ angle to
