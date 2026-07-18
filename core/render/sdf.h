@@ -4102,6 +4102,7 @@ struct Twist {
   /**
    * @brief Warps the domain by displacing Y by amplitude * sin(twist * θ).
    * @param p Query point.
+   * @param s Shared context from make_ctx(p).
    * @return The warped point.
    */
   Vector apply(const Vector &p, Ctx s) const {
