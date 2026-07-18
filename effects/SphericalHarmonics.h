@@ -26,23 +26,21 @@ inline float factorial(int n) {
 }
 
 /**
- * @brief Associated Legendre polynomial P_l^m(x).
+ * @brief Associated Legendre polynomial with its sin(phi)^m factor divided out.
  * @param l Degree (l >= 0).
  * @param m Order (0 <= m <= l).
  * @param x Argument, equal to cos(phi) with |x| <= 1.
- * @return Value of P_l^m(x).
+ * @return P_l^m(x) / (1 - x²)^(m/2), a polynomial in x.
  * @details Uses the standard upward recurrence: seed P_m^m, then P_{m+1}^m,
- * then recur in l.
+ * then recur in l. The omitted factor is restored by the caller's azimuthal
+ * term, which carries it in Cartesian form.
  */
-inline float associated_legendre(int l, int m, float x) {
+inline float reduced_legendre(int l, int m, float x) {
   float pmm = 1.0f;
-  if (m > 0) {
-    float somx2 = sqrtf(std::max(0.0f, (1.0f - x) * (1.0f + x)));
-    float fact = 1.0f;
-    for (int i = 1; i <= m; i++) {
-      pmm *= -fact * somx2;
-      fact += 2.0f;
-    }
+  float fact = 1.0f;
+  for (int i = 1; i <= m; i++) {
+    pmm *= -fact;
+    fact += 2.0f;
   }
   if (l == m)
     return pmm;
@@ -77,16 +75,24 @@ inline float normalization(int l, int m) {
  * @brief Evaluate a real spherical harmonic with a precomputed norm.
  * @param l Degree (l >= 0).
  * @param m Order in [-l, l]; sign selects cos/sin azimuthal factor.
- * @param theta Azimuthal angle in radians.
- * @param cos_phi Cosine of the polar angle, in [-1, 1].
+ * @param p Unit direction in the shape's local frame; y is cos(phi).
  * @param N Precomputed normalization factor for (l, m).
  * @return The harmonic value.
- * @details Takes cos_phi directly to avoid a cosf(acos(x)) roundtrip.
+ * @details sin(phi)^|m| * cos(|m| theta) is Re((x + iz)^|m|), and the sine
+ * counterpart is Im, so the (1 - y²)^(|m|/2) factor of P_l^m is exactly what
+ * the Cartesian power supplies. Evaluating the pair together leaves the whole
+ * harmonic polynomial in (x, y, z): no angle, sine, square root, or division.
  */
-inline float spherical_harmonic(int l, int m, float theta, float cos_phi, float N) {
+inline float spherical_harmonic(int l, int m, const Vector &p, float N) {
   int abs_m = std::abs(m);
-  float P = associated_legendre(l, abs_m, cos_phi);
-  return N * P * ((m > 0) ? fast_cosf(m * theta) : (m < 0) ? fast_sinf(abs_m * theta) : 1.0f);
+  float re = 1.0f, im = 0.0f;
+  for (int i = 0; i < abs_m; i++) {
+    float next_re = re * p.x - im * p.z;
+    im = re * p.z + im * p.x;
+    re = next_re;
+  }
+  float Q = reduced_legendre(l, abs_m, hs::clamp(p.y, -1.0f, 1.0f));
+  return N * Q * ((m < 0) ? im : re);
 }
 
 /**
@@ -184,28 +190,19 @@ public:
      * @param p World-space sample point.
      * @param res Output DistanceResult; carries the field value in v1 with a
      * constant "inside" distance.
-     * @details Rotates p into the shape's local frame, evaluates both modes in
-     * spherical coords, and emits the field value through frag.v1.
+     * @details Rotates p into the shape's local frame, evaluates both modes
+     * there, and emits the field value through frag.v1.
      */
     template <bool ComputeUVs = true>
     void distance(const Vector &p, SDF::DistanceResult &res) const {
       Vector local = rotate(p, orientation.conjugate());
 
-      float theta = fast_atan2(local.z, local.x);
-      if (theta < 0)
-        theta += 2 * PI_F;
-      // local.y is cos(phi) in the LOCAL frame: the shape spins about an
-      // arbitrary axis, so cos_phi varies across a screen row even though the
-      // WORLD latitude is row-constant. Hoisting the associated_legendre(cos_phi)
-      // term to a per-row precompute is therefore invalid.
-      float cos_phi = hs::clamp(local.y, -1.0f, 1.0f);
-
-      // associated_legendre runs twice per pixel (this mode + blend target);
-      // bounded because morph indices ∈ [1,24] keep l = floor(sqrt(idx)) <= 4
-      // and the recurrence short.
-      float val = SHMath::spherical_harmonic(l1, m1, theta, cos_phi, N1);
+      // The shape spins about an arbitrary axis, so the local frame varies
+      // across a screen row even though the WORLD latitude is row-constant.
+      // Hoisting any part of the harmonic to a per-row precompute is invalid.
+      float val = SHMath::spherical_harmonic(l1, m1, local, N1);
       if (blend > 0.001f) {
-        float val2 = SHMath::spherical_harmonic(l2, m2, theta, cos_phi, N2);
+        float val2 = SHMath::spherical_harmonic(l2, m2, local, N2);
         val += (val2 - val) * blend;
       }
 
