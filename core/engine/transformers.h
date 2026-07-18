@@ -456,7 +456,7 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
  * @param params The ripple parameters.
  * @return The displaced vector.
  */
-inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
+HS_O3_FN inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
   // Between ripples the envelope drives amplitude to 0; skip the whole per-pixel
   // wavelet (fast_acos + two fast_expf) when there is nothing to displace.
   if (params.amplitude <= 0.001f)
