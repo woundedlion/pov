@@ -1656,6 +1656,9 @@ template <typename SDF> struct TransformedVolume {
  *     canvas, not the ray.
  */
 struct Volume {
+  /** Sphere-trace step overrelaxation; 1 is the conservative march. */
+  static constexpr float OVERRELAX_OMEGA = 1.3f;
+
   /**
    * @brief Sphere-traces a ray in local space, recording the closest approach
    *        to the first surface reached.
@@ -1670,6 +1673,12 @@ struct Volume {
    * @details Inside the AA band, stops at the first rising local minimum (the
    * silhouette graze owning the pixel's coverage); marching past it would let a
    * deeper occluded surface steal the closest approach.
+   *
+   * Steps are overrelaxed by OVERRELAX_OMEGA (Keinert et al., "Enhanced Sphere
+   * Tracing"): each sample's unbounding sphere must overlap its predecessor's,
+   * and a step that breaks that overlap is rewound to the predecessor's surface
+   * and the ray finished conservatively, so the trace still cannot cross a
+   * surface undetected.
    */
   template <typename Shape>
   static __attribute__((always_inline)) float
@@ -1682,6 +1691,10 @@ struct Volume {
     // Sentinel for "no surface seen yet": any real signed distance the
     // trace reports is smaller, so the first sample always wins.
     float closest_d = FLT_MAX;
+    // Drops to 1 for the rest of the ray once a step fails the overlap test.
+    float omega = OVERRELAX_OMEGA;
+    float prev_r = 0.0f;
+    float step_len = 0.0f;
 
     for (int i = 0; i < max_steps; ++i) {
       // Early out: ray has exited the back of the bounding sphere. The
@@ -1695,6 +1708,22 @@ struct Volume {
         break;
 
       float d = shape.distance(local_p);
+
+      float r = d < 0.0f ? -d : d;
+      if (omega > 1.0f && r + prev_r < step_len) {
+        // Overrelaxed step left the previous unbounding sphere, so the interval
+        // it skipped is unverified: rewind to that sphere's surface and finish
+        // the ray conservatively. The rejected sample updates nothing.
+        float back = prev_r - step_len;
+        local_p = Vector(local_p.x + local_vd.x * back,
+                         local_p.y + local_vd.y * back,
+                         local_p.z + local_vd.z * back);
+        omega = 1.0f;
+        prev_r = 0.0f;
+        step_len = 0.0f;
+        continue;
+      }
+      prev_r = r;
 
       if (d < closest_d) {
         closest_d = d;
@@ -1715,10 +1744,10 @@ struct Volume {
       // 1e-5 absolute stall-guard for the precision trace (fine steps near the
       // surface), bounded by max_steps and the early-out above. The probe loop
       // below instead uses a bounds_radius-relative floor for coarse punch-through.
-      float advance = std::max(d * 0.9f, 1e-5f);
-      local_p = Vector(local_p.x + local_vd.x * advance,
-                       local_p.y + local_vd.y * advance,
-                       local_p.z + local_vd.z * advance);
+      step_len = std::max(d * 0.9f * omega, 1e-5f);
+      local_p = Vector(local_p.x + local_vd.x * step_len,
+                       local_p.y + local_vd.y * step_len,
+                       local_p.z + local_vd.z * step_len);
     }
     return closest_d;
   }
