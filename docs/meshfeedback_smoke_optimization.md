@@ -108,7 +108,7 @@ That sets the strategy: the target is reachable through colour alone, and is
 
 ## Levers
 
-### L1 — Cubic-form gamut bisection (exact, −16.3 ms) ★ recommended first
+### L1 — Cubic-form gamut bisection — LANDED, MEASURED DEAD (`54f613ef`)
 
 `gamut_clip_preserve_chroma` bisects a chroma scale `s` and, on **every one of
 its 16 iterations**, re-runs the whole `oklab_to_linear_rgb` chain: the inverse
@@ -124,12 +124,44 @@ so each of r, g, b is a **cubic polynomial in s** whose 12 coefficients can be
 built once per pixel (~90 flops). Each iteration then collapses to three Horner
 evaluations plus the six bound tests — about **20 cyc instead of ~120**.
 
-Verified algebraically exact: over 200,000 random `(L, a, b, s)` the polynomial
-form and the direct chain agree to **5.3e-15**, versus a 16-bit output quantum
-of 1.53e-05. Same bisection, same iteration count, same result — only the
-arithmetic is refactored.
+The algebra is exact: over 200,000 random `(L, a, b, s)` the polynomial form and
+the direct chain agree to **5.3e-15** (double precision), against a 16-bit
+output quantum of 1.53e-05.
 
-Estimated 1,945 → ~460 cyc/px ⇒ **−16.3 ms/frame**, no visual change.
+In float32 the result is **not bit-identical**, and the reason is worth
+recording. The two evaluation orders round differently by a few ULPs, so when a
+bisection `mid` lands within those ULPs of the exact gamut boundary,
+`linear_rgb_in_gamut` can flip. Measured over 100k out-of-gamut `(L, a, b)`:
+**0.51% of inputs differ**, by at most **1.22e-05 in OKLab a/b** and
+**8.6e-05 in linear RGB**; divergence never exceeds two bisection lattice steps,
+i.e. it only ever occurs in the last one or two of the 16 iterations. That is
+~5.6 units of a 16-bit quantum and ~1/45 of an 8-bit quantum — invisible at
+display precision, and the feedback map is contractive (fade < 1), so the
+perturbation decays rather than compounding across generations.
+
+Same bisection, same iteration count, same bracket; only the arithmetic is
+re-associated. **Output is unchanged at display precision, not bit-identical.**
+
+**On device it bought exactly nothing: `gamut_clip` 1,953 → 1,962 cyc/px.** The
+−16.3 ms estimate above was wrong, and the way it was wrong is the most useful
+thing in this document.
+
+The estimate counted flops. The bisection is **latency-bound, not flop-bound**:
+its 16 iterations form one serial dependency chain (`mid` → three dependent
+FMAs → the bound test → the next bracket), and at ~122 cyc/iteration for ~39
+flops it is already running at ~3 cycles per flop. Cutting the flops per
+iteration does not shorten that chain on an in-order Cortex-M7 whose FPU has
+~3–4 cycle latency. A host A/B of the two implementations shows **1.13–1.32× on
+out-of-order x86 and 1.00× on device** — that gap is the whole lesson.
+
+The build was demonstrably fresh: L2 shipped in the same flash and moved
+clearly.
+
+**The lever this implies instead: cut the iteration count.** Each iteration is a
+link in the serial chain, so 16 → 8 halves the scope outright (~−10.8 ms) at a
+cost of 1/256 chroma resolution instead of 1/65536, and the bisection is
+conservative — fewer steps can only under-saturate, never leave gamut. Newton
+on the (now available) cubic would reach full precision in ~4 steps.
 
 Optional follow-on: with the cheap polynomial form, dropping 16 → 8 iterations
 (chroma resolution 1/256, still far below a visible step, and the bisection is
@@ -140,7 +172,7 @@ Further out: the binding channel's cubic can be solved by 3 Newton steps from
 `s = 1` instead of bisected at all (~150 cyc/px), but that needs care where the
 cubic is non-monotone on [0,1].
 
-### L2 — Hoist the canvas base pointers (exact, −4 to −6 ms)
+### L2 — Hoist the canvas base pointers — LANDED, −2.9 ms (`93a70142`)
 
 `Canvas::prev()` and `operator()` each do a **relaxed atomic load** of
 `prev_`/`cur_`, an indirection through `bufs_[]`, and a runtime
@@ -154,15 +186,31 @@ template constant there, so the multiply folds) removes ~5 atomic loads,
 `fb_comp_sample` (135 cyc/px), `fb_comp_write` (28 cyc/px) and the 11.5 ms
 composite residual.
 
-No behaviour change. Cheapest confidence-per-effort item on the list.
+No behaviour change, bit-identical output. Measured: `fb_comp_sample` 135 → 100
+cyc/px (−26%), `fb_comp_write` 28 → 19 cyc/px (−30%), **−2.9 ms/frame** against
+a −5 ms estimate.
 
-### L3 — Cheaper `fast_cbrt` (near-exact, −2 to −3 ms)
+### L3 — Single-reciprocal cube-root triple — LANDED, −3.4 ms (`574e8521`)
 
 `fast_cbrt` ends in a float divide, and Cortex-M7's `VDIV.F32` is ~14 cycles and
-non-pipelined. The composite calls it **three times per lit pixel** — ~42 cycles
-of pure divide latency per pixel, ~2.7 ms/frame. Replacing the Halley step with
-a division-free reciprocal-cube-root iteration keeps accuracy in the same band.
-Shared win: `fast_cbrt` is on several effects' hot paths.
+**non-pipelined** — a structural hazard, not just throughput. `hue_fade_apply`
+calls it three times per lit pixel on the three LMS cone responses; the calls
+are independent but their divides cannot overlap, so they serialize.
+
+`fast_cbrt3` (3dmath.h) keeps the same bit-hack seed and Halley step but routes
+all three through **one** reciprocal, each numerator picking up the two foreign
+denominators. A non-positive input gets a unit denominator so it cannot poison
+the shared product. Accuracy is unchanged against `cbrtf` (peak relative error
+2.290e-05, identical to `fast_cbrt`); the shared reciprocal itself costs ~3e-07
+relative, four orders below the approximation error.
+
+Measured: base hue transform (excluding gamut clip) **337.9 → 282.6 cyc/px
+(−16.4%), −3.4 ms/frame** — larger than the ~1.9 ms ceiling predicted from
+divide latency alone, so the divide was also constraining the surrounding
+schedule. `fast_cbrt` itself is untouched and other callers keep using it.
+
+This one worked *because* it removed a structural serialization point, which is
+precisely what L1 failed to do.
 
 ### L4 — Temporal warp-field reuse (minor look change, −3.3 ms)
 
@@ -214,30 +262,54 @@ visibly softens its warp. Low payoff for the look cost.
 
 ## Ledger against the 59 ms target
 
-Render peak is **89.91 ms** instrumented (~87.9 ms shipping); the target needs
-about **−29 ms**.
+Three levers landed and were re-captured under identical conditions. Measured,
+not estimated:
 
-| lever | Δ ms | output change |
-|---|--:|---|
-| L1 cubic-form gamut bisection | −16.3 | none (exact) |
-| L2 canvas pointer hoist | −5.0 | none |
-| L3 division-free `fast_cbrt` | −2.5 | sub-quantum |
-| **exact subtotal** | **−23.8** | **peak ~66 ms — misses** |
-| L4 temporal warp reuse | −3.3 | minor |
-| **+ L4** | **−27.1** | **peak ~63 ms — still misses** |
-| L5a/L5b colour replacement | −18 to −37 | needs eyeball |
+| scope (ms/frame) | baseline | +L1+L2 | +L3 | net |
+|---|--:|--:|--:|--:|
+| `mf_feedback_flush` | 76.12 | 73.46 | 70.71 | −5.41 |
+| `feedback_composite` | 68.20 | 65.51 | 62.78 | −5.42 |
+| `fb_comp_color` | 43.25 | 43.34 | 39.88 | −3.37 |
+| `gamut_clip` | 21.57 | 21.66 | 21.75 | +0.18 |
+| `fb_comp_sample` | 9.34 | 6.90 | 6.94 | −2.40 |
+| `fb_comp_write` | 1.91 | 1.34 | 1.34 | −0.57 |
+| **render avg** | **82.25** | **79.32** | **76.50** | **−5.75** |
+| **render peak** | **89.91** | **87.45** | **83.94** | **−5.97** |
 
-**Conclusion.** The exact levers are worth landing on their own merits — L1 and
-L2 in particular are free — but they land Smoke at ~63–66 ms peak, which still
-spills. **Reaching 59 ms requires L5**: the per-pixel OKLab chain has to get
-cheaper, not just better-compiled. With L5a or L5b alone the peak drops to
-~53 ms; with L5 plus the exact levers, ~48 ms, which clears the window with real
-margin and would likely pull Drift, Churn, Melting and SlowTwist under it too
-(they share the same colour path — see the per-preset table).
+| lever | estimated | measured | verdict |
+|---|--:|--:|---|
+| L1 cubic-form gamut bisection | −16.3 | **0.0** | measured dead — latency-bound |
+| L2 canvas pointer hoist | −5.0 | −2.9 | landed |
+| L3 single-reciprocal cbrt triple | −2.5 | −3.4 | landed, beat estimate |
+| **exact subtotal** | −23.8 | **−6.0** | **peak 83.9 ms — misses** |
 
-Recommended order: **L2 → L1** (free and exact, land and re-capture), then take
-L5b to the owner as a look decision, with L5a as the fallback if the small-angle
-approximation drifts visibly across feedback generations.
+**Estimating lesson.** The three estimates were off by −16.3, +2.1 and −0.9 ms.
+The two that held were the ones that removed a *structural* cost — repeated
+atomic loads and pointer chases (L2), a non-pipelined divide (L3). The one that
+collapsed counted flops on a kernel whose critical path is a serial dependency
+chain (L1). On an in-order M7, **ask what the change does to the critical path
+or to a non-pipelined resource, not to the operation count.**
+
+**Conclusion, revised by measurement.** The exact-lever tier is worth about
+**6 ms, not 24**. Smoke sits at 83.94 ms peak against a 59 ms target, so
+**−25 ms remains and no output-preserving lever on this list can supply it.**
+
+The two candidates that can, in order of preference:
+
+1. **L5b / L5a — replace the per-pixel OKLab chain** (−18 to −37 ms). Still the
+   only single lever that reaches the target. The Swirling comparison bounds it
+   from measurement rather than modelling: same sampler, same warp, `plain_fade`
+   instead of `hue_fade`, 36.02 ms flush against Smoke's original 76.12.
+2. **Bisection iterations 16 → 8** (~−10.8 ms). Now the top *non-look* lever,
+   and it is a direct consequence of the L1 finding: halving a serial chain
+   halves the scope even though halving its per-iteration flops did nothing.
+   Combined with L5 it would clear the window with margin, and would likely pull
+   Drift, Churn, Melting and SlowTwist under 62.5 ms too — they share the colour
+   path.
+
+L4 (temporal warp reuse, ~−3.3 ms) and L6 (coarser downsample, ~−3.5 ms) remain
+available but are look changes for small change, and both estimates should now
+be treated with the same suspicion as L1's.
 
 ## Caveats
 
