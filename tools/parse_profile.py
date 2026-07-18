@@ -12,6 +12,9 @@ teensy-profile skill). Reads a capture produced by `profile`/`profile_o3` and:
             tier) — fills a cycling effect's README cell. Unlike `presets`,
             each preset owns the transition that follows it, so its counts are
             stricter than the clean-hold view.
+  metrics   per-window scan-probe counts and their path split, from a capture
+            built with -D HS_SCAN_METRICS. Counts only: every probe in such a
+            build pays a global increment, so its times are not comparable.
   validate  sanity checks a cycling-effect capture: preset markers present,
             the cycle wraps back to its first index, the effect instance is
             never torn down mid-capture (frame numbers stay monotonic), and the
@@ -45,6 +48,12 @@ RENDER_RE = re.compile(r"frame render us: avg=(\d+) max=(\d+)")
 FRAME_RE = re.compile(r"^f (\d+) w=(\d+) r=(\d+)$")
 COUNTER_RE = re.compile(
     r"^(\s*)(\S+)\s+(\d+) us \((\d+)%\)\s+(\d+) calls\s+(\d+) cyc\s*$")
+# HS_SCAN_METRICS window totals (Profile.ino dump_scan_totals).
+SCAN_RE = re.compile(
+    r"^scan totals: tested=(\d+) culled=(\d+) lut=(\d+) convex=(\d+) "
+    r"sector=(\d+) walk=(\d+) cand=(\d+) backstop=(\d+)\s*$")
+SCAN_FIELDS = ("tested", "culled", "lut", "convex", "sector", "walk",
+               "cand", "backstop")
 
 # Preset/shape/mode advance markers. `key` groups them; `idx`/`total`/`name`
 # are pulled when present.
@@ -76,6 +85,7 @@ class Window:
         self.frame_rows = []
         self.counters = {}  # label -> dict(us, pct, calls, cyc, depth)
         self.marker = None  # active preset marker at this window
+        self.scan = None  # HS_SCAN_METRICS window totals, when the build has them
 
     def per_frame_ms(self, label):
         n = self.counters.get(label)
@@ -189,6 +199,11 @@ def parse(path):
             m = RENDER_RE.search(line)
             if m and cur:
                 cur.render = (int(m.group(1)), int(m.group(2)))
+                continue
+            m = SCAN_RE.match(line)
+            if m and cur:
+                cur.scan = dict(zip(SCAN_FIELDS,
+                                    (int(g) for g in m.groups())))
                 continue
             m = COUNTER_RE.match(line)
             if m and cur:
@@ -426,6 +441,62 @@ def cmd_buckets(windows):
     return 0
 
 
+def cmd_metrics(windows):
+    """Per-window scan-probe counts and the Face::distance path split.
+
+    Probes are Face::distance calls; culled are those the back-face / radius
+    guards reject before any edge work. lut/convex/sector/walk partition the
+    survivors. `cand` counts pixels passing the scan's d < pixel_width test and
+    `shade` the ones that then survived the alpha test, read from the
+    raster_shade scope's call count (the two differ by the alpha-rejected AA
+    fringe). probes/shade is the figure a cycles-per-probe estimate divides by.
+    """
+    have = [w for w in windows if w.scan]
+    if not have:
+        print("no 'scan totals' lines: rebuild with -D HS_SCAN_METRICS",
+              file=sys.stderr)
+        return 2
+    print(f"{'# window':<13} " + " ".join(
+        f"{h:>{w}}" for h, w in zip(METRICS_COLS, METRICS_WIDTHS))
+        + "  marker")
+    agg = Counter()
+    agg_frames = 0
+    agg_shade = 0
+    for w in have:
+        s = w.scan
+        shade = w.counters.get("raster_shade", {}).get("calls", 0)
+        for k in SCAN_FIELDS:
+            agg[k] += s[k]
+        agg_frames += w.frames
+        agg_shade += shade
+        print(f"{w.f_start:6d}-{w.f_end:<6d} " + _metrics_row(s, w.frames, shade)
+              + f"  {w.marker['name'] if w.marker else '-'}")
+    print(f"{'# aggregate':<13} " + _metrics_row(agg, agg_frames, agg_shade)
+          + f"  {agg_frames} frames")
+    return 0
+
+
+METRICS_COLS = ("probes/f", "culled/f", "lut%", "convex%", "sector%", "walk%",
+                "cand/f", "shade/f", "probes/shade")
+METRICS_WIDTHS = (9, 9, 7, 8, 8, 7, 7, 8, 13)
+
+
+def _metrics_row(s, frames, shade):
+    """One formatted metrics row: per-frame counts plus the path split."""
+    served = s["lut"] + s["convex"] + s["sector"] + s["walk"]
+
+    def pct(v):
+        return 100.0 * v / served if served else 0.0
+
+    vals = (s["tested"] / frames, s["culled"] / frames, pct(s["lut"]),
+            pct(s["convex"]), pct(s["sector"]), pct(s["walk"]),
+            s["cand"] / frames, shade / frames,
+            s["tested"] / shade if shade else float("nan"))
+    prec = (0, 0, 1, 1, 1, 1, 0, 0, 2)
+    return " ".join(f"{v:{w}.{p}f}"
+                    for v, w, p in zip(vals, METRICS_WIDTHS, prec))
+
+
 def cmd_validate(windows, effect, scope):
     ok = True
 
@@ -495,7 +566,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("log")
     ap.add_argument("mode", choices=["windows", "presets", "buckets",
-                                     "validate", "frames"])
+                                     "validate", "frames", "metrics"])
     ap.add_argument("--scope", help="counter label to read (default: costliest leaf)")
     ap.add_argument("--gate", help="call-count scope gating clean holds "
                                     "(default: --scope)")
@@ -518,6 +589,8 @@ def main():
         cmd_presets(windows, scope, args.gate)
     elif args.mode == "buckets":
         return cmd_buckets(windows)
+    elif args.mode == "metrics":
+        return cmd_metrics(windows)
     else:
         return 0 if cmd_validate(windows, effect, scope) else 1
     return 0
