@@ -108,7 +108,7 @@ That sets the strategy: the target is reachable through colour alone, and is
 
 ## Levers
 
-### L1 — Cubic-form gamut bisection — LANDED, MEASURED DEAD (`54f613ef`)
+### L1 — Cubic-form gamut bisection — MEASURED DEAD, REVERTED (`9761a432`)
 
 `gamut_clip_preserve_chroma` bisects a chroma scale `s` and, on **every one of
 its 16 iterations**, re-runs the whole `oklab_to_linear_rgb` chain: the inverse
@@ -278,7 +278,7 @@ not estimated:
 
 | lever | estimated | measured | verdict |
 |---|--:|--:|---|
-| L1 cubic-form gamut bisection | −16.3 | **0.0** | measured dead — latency-bound |
+| L1 cubic-form gamut bisection | −16.3 | **0.0** | measured dead, reverted — latency-bound |
 | L2 canvas pointer hoist | −5.0 | −2.9 | landed |
 | L3 single-reciprocal cbrt triple | −2.5 | −3.4 | landed, beat estimate |
 | **exact subtotal** | −23.8 | **−6.0** | **peak 83.9 ms — misses** |
