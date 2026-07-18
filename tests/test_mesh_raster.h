@@ -1028,6 +1028,65 @@ inline void test_row_spans_cover_registry_faces() {
 }
 
 /**
+ * @brief Pins per-row spans against a face that reaches around a pole.
+ * @details Such a face leaves a near-pole row's interior the whole latitude
+ *   ring, or the ring less some arcs, which no pairing of crossings along a
+ *   theta line expresses. Registry solid 9 at this pose carries one over a
+ *   pole with its boundary crossing row 5, and the crossings it does produce
+ *   close into a walk the run guards accept.
+ */
+inline void test_row_spans_cover_pole_wrapping_face() {
+  constexpr int W = 288, H = 144;
+  constexpr size_t SOLID = 9;
+  const Vector axis = normalized_or(Vector(0.31f, 0.87f, 0.38f), UP);
+  const float ang = 2.0f * PI_F * 14.0f / 31.0f;
+
+  configure_arenas_default();
+  const auto islamic = Solids::Collections::get_islamic_solids();
+  HS_EXPECT_LT(SOLID, islamic.size());
+
+  Arena seed_a(sc_seed_a, sizeof(sc_seed_a));
+  Arena seed_b(sc_seed_b, sizeof(sc_seed_b));
+  Arena geom(sc_geom, sizeof(sc_geom));
+  Arena scratch(sc_scratch, sizeof(sc_scratch));
+
+  MeshState mesh;
+  {
+    PolyMesh poly = islamic[SOLID].generate(seed_a, seed_b);
+    MeshOps::compile(poly, mesh, geom, scratch_arena_a);
+  }
+  std::vector<Vector> base(mesh.vertices.data(),
+                           mesh.vertices.data() + mesh.vertices.size());
+  for (size_t v = 0; v < base.size(); ++v)
+    mesh.vertices[v] = rotate_about(base[v], axis, ang);
+
+  ScratchScope scope(scratch);
+  auto *fscratch = static_cast<SDF::FaceScratchBuffer *>(scratch.allocate(
+      sizeof(SDF::FaceScratchBuffer), alignof(SDF::FaceScratchBuffer)));
+
+  const uint8_t *counts = mesh.get_face_counts_data();
+  const uint16_t *faces = mesh.get_faces_data();
+  const uint16_t *offsets = mesh.get_face_offsets_data();
+  std::span<const Vector> verts(mesh.vertices.data(), mesh.vertices.size());
+
+  int pole_faces = 0;
+  int total_painted = 0;
+  for (size_t f = 0; f < mesh.get_face_counts_size(); ++f) {
+    std::span<const uint16_t> indices(faces + offsets[f], counts[f]);
+    SDF::Face probe(verts, indices, /*thickness=*/0.0f, *fscratch,
+                    H + hs::H_OFFSET, H);
+    if (probe.full_width)
+      ++pole_faces;
+    total_painted += expect_row_spans_cover_face<W, H>(verts, indices,
+                                                       *fscratch);
+  }
+  // The pose has to carry the shape under test for the coverage sweep to mean
+  // anything.
+  HS_EXPECT_GT(pole_faces, 0);
+  HS_EXPECT_GT(total_painted, 10000);
+}
+
+/**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
  */
@@ -1046,6 +1105,7 @@ inline int run_mesh_raster_tests() {
   test_class_lut_render_matches_exact();
   test_class_lut_render_matches_exact_rippled();
   test_row_spans_cover_registry_faces();
+  test_row_spans_cover_pole_wrapping_face();
 
   return fixture.result();
 }
