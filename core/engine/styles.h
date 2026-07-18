@@ -295,9 +295,10 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
  */
 HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g, float b) {
   LMS lms = linear_rgb_to_lms(r, g, b);
+  float cl, cm, cs;
+  fast_cbrt3(lms.l, lms.m, lms.s, cl, cm, cs);
   float rr, gg, bb;
-  lms_cbrt_transform_rgb(k, fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s),
-                         rr, gg, bb);
+  lms_cbrt_transform_rgb(k, cl, cm, cs, rr, gg, bb);
   return Pixel(float_to_pixel16(rr), float_to_pixel16(gg), float_to_pixel16(bb));
 }
 
