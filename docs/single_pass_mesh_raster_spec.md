@@ -144,7 +144,59 @@ Predecessors and their causes of death: `e7264a2c` (claim mask — AA, C1),
 C2).
 
 
-## Why it fails — C1 and C2 are jointly fatal
+## CORRECTION (audited 2026-07-18)
+
+The verdict below stands — `N_scheme/N_today = 0.83-0.96` reproduces exactly —
+but **both of its supporting claims are wrong.** Audit branch `hs-wt-audit`
+off `cbeb26e4`.
+
+**The "91-98 % overlap, irreducible under C1" claim is inflated 3-4x.** True
+C1-protected fringe-vs-fringe overlap is **22-31 % of `N_today`**; the rest is
+*bounding-rectangle* overlap on rows that declined to the extent (64-86 % of
+the scheme's evaluations sit on such rows, overlapping at 83-96 %). Rectangle
+overlap is not protected by C1 — it is waste. Cross-check without any scheme:
+1.48-1.73 contributing faces per painted pixel, 54-70 % of contributing pairs
+on a multi-contributor pixel.
+
+**Rows do not decline because of ~4.5 columns of overhead, nor because of
+multi-span star rows.** Decline rate conditioned on span count is flat (solid
+11: 79.7 % at one span, 76.2 % at two), and mean spans/row is 1.83 on emitted
+vs 1.84 on declined rows — no signal. The cause is that the AA fringe converts
+to azimuth as
+
+    reach_theta = FRINGE_PX * (2*PI/W) / sin(phi)
+
+and **the rendered band is a polar cap** (phi ~ 0-45 deg). Measured pad per
+side: **18.98 columns at row 3**, 4.80 at row 12, 2.48 at row 24, 1.76 at row
+36. The 1.25 col/side figure used throughout this document holds only at the
+equator. Decline rate tracks it monotonically (90.6 % at row 3 to 66.5 % at
+row 36); rows y<=2 cannot build spans at all. Declined-row spans measure
+75-85 % fringe stadia, not interior. A secondary effect compounds it: declines
+concentrate on faces whose extent is already tight (13.74 declined vs 19.00
+emitted on solid 11). Not a quadrant artifact — full-frame shows the same
+mechanism, milder.
+
+**Consequence — a latent correctness bug in the CURRENT renderer.** The
+whole-face extent path pads by a constant `1.25 * (2*PI/W)` regardless of
+latitude (`Face::get_horizontal_intervals`), when covering a one-pixel arc
+fringe requires `1.25/sin(phi)` columns. Master therefore **clips AA fringe
+near the poles**. This is almost certainly the unexplained observation that
+per-row spans painted 1-19 more pixels/frame than the extent path. Independent
+of any performance work.
+
+**What the audit did NOT overturn:** the floor `N_ideal/N_today = 0.41-0.46`
+is real, and 27-43 % of probed face-rows contribute nothing (26-35 % of
+`N_today`). The best legal variant found — intersecting row spans with the
+whole-face extent, which can only shrink a row and never declines — reaches
+**0.78-0.92** with zero misses, still short of the 0.75 threshold and without
+pricing construction. Rows that cannot produce spans carry 23-29 % of
+`N_today` on every solid. One corner remains unmeasured: the stadium's
+arc-clip extension uses a worst-case orientation bound
+`pad = REACH * max(1/sin phi_row, 1/sin phi_arc)`; tightening it is estimated
+(not measured) to move solid 11's declined-row span from ~29.4 to ~22 columns,
+which would still not flip most declines.
+
+## Why it fails — as originally argued (superseded above)
 
 Measured over solids 11/6/8/19/9/7, 64 poses, quadrant clip, with the probe's
 replica of today's run construction reproducing `pixels_tested` exactly.
