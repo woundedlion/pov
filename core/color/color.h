@@ -634,6 +634,156 @@ HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
   return r >= lo && r <= hi && g >= lo && g <= hi && b >= lo && b <= hi;
 }
 
+// The tolerance linear_rgb_in_gamut allows. The boundary cubics are solved
+// against it so a solved crossing is the same crossing the gate reports.
+inline constexpr float GAMUT_SLACK = 1e-4f;
+
+// Chroma pulled back off the solved crossing. Without it the caller's own
+// re-conversion rounds a channel a part in a million past the gate; with it the
+// worst residual over a dense sweep of L, hue and chroma is comfortably inside.
+inline constexpr float GAMUT_CLIP_MARGIN = 2e-5f;
+
+// Newton steps per crossing. Eight is what the slowest crossings need: at the
+// blue cube vertex a face runs nearly tangent to the ray, and a near-double
+// root drops Newton from quadratic to one bit per step.
+inline constexpr int GAMUT_REFINE_STEPS = 8;
+
+/**
+ * @brief Real roots of a2 t^2 + a1 t + a0, ordered.
+ * @param a2 Quadratic coefficient.
+ * @param a1 Linear coefficient.
+ * @param a0 Constant coefficient.
+ * @param r0 Out: smaller root.
+ * @param r1 Out: larger root.
+ * @return False when the roots are complex or the quadratic is degenerate.
+ */
+HS_O3_FN inline bool quadratic_roots(float a2, float a1, float a0, float &r0,
+                                     float &r1) {
+  if (!(std::fabs(a2) > 1e-20f)) {
+    if (!(std::fabs(a1) > 1e-20f))
+      return false;
+    r0 = r1 = -a0 / a1;
+    return true;
+  }
+  const float disc = a1 * a1 - 4.0f * a2 * a0;
+  if (disc < 0.0f)
+    return false;
+  const float sd = std::sqrt(disc);
+  const float inv = 0.5f / a2;
+  const float p = (-a1 - sd) * inv, q = (-a1 + sd) * inv;
+  r0 = p < q ? p : q;
+  r1 = p < q ? q : p;
+  return true;
+}
+
+/**
+ * @brief Chroma at which a channel cubic crosses zero, inside one segment.
+ * @param a3 Cubic coefficient.
+ * @param a2 Quadratic coefficient.
+ * @param a1 Linear coefficient.
+ * @param a0 Constant coefficient, already offset by the face being crossed.
+ * @param x Segment start, on the in-range side of the crossing.
+ * @param y Segment end, past the crossing.
+ * @return The crossing chroma, inside [x, y].
+ * @details The segment is monotone and of one convexity, so Newton started from
+ * the end the cubic curves toward closes on the root from that side. The
+ * bracket narrows on every step and a step leaving it becomes a bisection, so a
+ * flat slope near a turning point cannot throw the result.
+ */
+HS_O3_FN inline float cubic_segment_root(float a3, float a2, float a1, float a0,
+                                         float x, float y) {
+  const float gx = ((a3 * x + a2) * x + a1) * x + a0;
+  const float curv = 3.0f * a3 * (x + y) + 2.0f * a2;
+  float t = gx * curv > 0.0f ? x : y;
+
+  float lo = x, hi = y;
+  for (int i = 0; i < GAMUT_REFINE_STEPS; ++i) {
+    const float g = ((a3 * t + a2) * t + a1) * t + a0;
+    if (g * gx > 0.0f)
+      lo = t;
+    else
+      hi = t;
+    const float dg = (3.0f * a3 * t + 2.0f * a2) * t + a1;
+    const float next = std::fabs(dg) > 1e-20f ? t - g / dg : hi;
+    // Inclusive bounds: a converged step lands exactly on the bound it just
+    // set, and rejecting it would bisect a solved root back apart.
+    t = next >= lo && next <= hi ? next : 0.5f * (lo + hi);
+  }
+  // The iterates close on the root from the far side, so the last residual is
+  // subtracted rather than applied: the answer lands just inside the crossing.
+  const float g = ((a3 * t + a2) * t + a1) * t + a0;
+  const float dg = (3.0f * a3 * t + 2.0f * a2) * t + a1;
+  if (!(std::fabs(dg) > 1e-20f))
+    return lo;
+  // Twice the residual: at a near-tangent crossing the two roots sit close
+  // together and a single Newton distance under-reads the gap by half. Where
+  // the crossing is clean the doubled pull-back costs well under a part in a
+  // million of chroma.
+  const float back = 2.0f * g / dg;
+  const float pulled = t - (back < 0.0f ? -back : back);
+  return pulled > lo ? pulled : lo;
+}
+
+/**
+ * @brief Smallest chroma at which one RGB channel leaves the display range.
+ * @param wl Channel's l weight in the LMS -> linear-RGB matrix.
+ * @param wm Channel's m weight.
+ * @param ws Channel's s weight.
+ * @param L Lightness held fixed along the ray.
+ * @param L3 L cubed, the channel's value at zero chroma.
+ * @param k_l Rate of change of cube-rooted l with chroma.
+ * @param k_m Rate of change of cube-rooted m with chroma.
+ * @param k_s Rate of change of cube-rooted s with chroma.
+ * @param best Smallest exit chroma found so far; the search stops there.
+ * @return `best`, replaced by a smaller exit chroma when one exists.
+ * @details The channel is a cubic in chroma. Its two turning points and its
+ * inflection -- which always lies between them -- cut the ray into monotone,
+ * singly curved segments, so the first segment whose far end is out of range
+ * holds the FIRST crossing, whichever face it goes through. Walking the
+ * segments rather than refining a seed is what makes the answer the first exit:
+ * near the blue cube vertex a channel dips through a face and back, and a
+ * seeded refinement settles on the far side of that dip. Kept out of line:
+ * three inlined copies per call site overrun the Teensy ITCM budget.
+ */
+HS_O3_FN __attribute__((noinline)) inline float
+gamut_channel_exit(float wl, float wm, float ws, float L, float L3, float k_l,
+                   float k_m, float k_s, float best) {
+  const float a3 =
+      wl * k_l * k_l * k_l + wm * k_m * k_m * k_m + ws * k_s * k_s * k_s;
+  const float a2 =
+      3.0f * L * (wl * k_l * k_l + wm * k_m * k_m + ws * k_s * k_s);
+  const float a1 = 3.0f * L * L * (wl * k_l + wm * k_m + ws * k_s);
+
+  float c0, c1;
+  const bool turns = quadratic_roots(3.0f * a3, 2.0f * a2, a1, c0, c1);
+  const float infl = std::fabs(a3) > 1e-20f ? -a2 * (1.0f / 3.0f) / a3 : best;
+
+  // Segment ends, ascending and capped at the incumbent: a crossing past it
+  // cannot win. The inflection always sits between the turning points.
+  float ends[4];
+  int n = 0;
+  if (turns && c0 > 0.0f && c0 < best)
+    ends[n++] = c0;
+  if (infl > 0.0f && infl < best && (n == 0 || infl > ends[n - 1]))
+    ends[n++] = infl;
+  if (turns && c1 > 0.0f && c1 < best && (n == 0 || c1 > ends[n - 1]))
+    ends[n++] = c1;
+  ends[n++] = best;
+
+  // L3 sits inside the range for every L in [0,1], so the walk starts in range.
+  float x = 0.0f;
+  for (int i = 0; i < n; ++i) {
+    const float y = ends[i];
+    const float fy = ((a3 * y + a2) * y + a1) * y + L3;
+    if (fy < -GAMUT_SLACK)
+      return cubic_segment_root(a3, a2, a1, L3 + GAMUT_SLACK, x, y);
+    if (fy > 1.0f + GAMUT_SLACK)
+      return cubic_segment_root(a3, a2, a1, L3 - 1.0f - GAMUT_SLACK, x, y);
+    x = y;
+  }
+  return best;
+}
+
 /**
  * @brief Maps an out-of-gamut OKLab color into the sRGB cube by reducing chroma,
  * holding hue and lightness fixed (Ottosson's preserve-chroma projection).
@@ -641,25 +791,40 @@ HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
  * linear_rgb_in_gamut); L is clamped to [0,1] internally.
  * @return An OKLab color with the same L and hue but chroma scaled down until it
  * is just inside the display cube.
- * @details Binary-searches a uniform scale s in [0,1] on the (a,b) chroma axes,
- * holding hue and L fixed. s = 0 is the achromatic color at L (guaranteed
- * in-gamut floor for L in [0,1]); s = 1 is the input. 16 bisections pin s below
- * one 16-bit output quantum.
+ * @details At fixed L and hue each RGB channel is a cubic in chroma, so the
+ * boundary is the smallest chroma at which any channel crosses a face of the
+ * cube. Each channel is searched over its whole ray rather than around a seed,
+ * which is what makes the answer the FIRST exit: near the blue cube vertex a
+ * channel dips through a face and back, and a seeded refinement settles on the
+ * far side of that dip.
  */
 HS_O3_FN inline OKLab gamut_clip_preserve_chroma(OKLab lab) {
-  // The s=0 achromatic floor is in gamut only for L in [0,1]; an out-of-range L
+  // The C=0 achromatic floor is in gamut only for L in [0,1]; an out-of-range L
   // would leave even the floor out of gamut and return a non-gamut color.
   lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
-  float lo = 0.0f, hi = 1.0f;
-  for (int i = 0; i < 16; ++i) {
-    float mid = 0.5f * (lo + hi);
-    LinRGB rgb = oklab_to_linear_rgb({lab.L, lab.a * mid, lab.b * mid});
-    if (linear_rgb_in_gamut(rgb.r, rgb.g, rgb.b))
-      lo = mid;
-    else
-      hi = mid;
-  }
-  return {lab.L, lab.a * lo, lab.b * lo};
+  const float C = std::sqrt(lab.a * lab.a + lab.b * lab.b);
+  if (!(C > 1e-6f))
+    return {lab.L, 0.0f, 0.0f};
+  const float inv_C = 1.0f / C;
+  const float a_ = lab.a * inv_C, b_ = lab.b * inv_C;
+
+  const float k_l = 0.3963377774f * a_ + 0.2158037573f * b_;
+  const float k_m = -0.1055613458f * a_ - 0.0638541728f * b_;
+  const float k_s = -0.0894841775f * a_ - 1.2914855480f * b_;
+  const float L3 = lab.L * lab.L * lab.L;
+
+  // Seeded with the input chroma: a ray that never exits below it was already
+  // in gamut, and the seed also caps the segment walk at a finite chroma.
+  float t = C;
+  t = gamut_channel_exit(4.0767416621f, -3.3077115913f, 0.2309699292f, lab.L,
+                         L3, k_l, k_m, k_s, t);
+  t = gamut_channel_exit(-1.2684380046f, 2.6097574011f, -0.3413193965f, lab.L,
+                         L3, k_l, k_m, k_s, t);
+  t = gamut_channel_exit(-0.0041960863f, -0.7034186147f, 1.7076147010f, lab.L,
+                         L3, k_l, k_m, k_s, t);
+
+  t = hs::clamp(t - GAMUT_CLIP_MARGIN, 0.0f, C);
+  return {lab.L, a_ * t, b_ * t};
 }
 
 /**
