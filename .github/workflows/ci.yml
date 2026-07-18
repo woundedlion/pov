@@ -39,13 +39,13 @@ jobs:
         # running in zero Linux/sanitizer jobs. Adjust groupings here only.
         include: &shard_matrix
           - shard: 1
-            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|hankin|geometry|module_roster|module_includes)$"
+            test_regex: &shard1_re "^unit_(3dmath|concepts|memory|spatial|scb|sdf|conway|conway_continuity|hankin|geometry|module_roster|module_includes)$"
           - shard: 2
-            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|palettes|easing_waves|platform|filter|plot_scan|fastmath_clamp)$"
+            test_regex: &shard2_re "^unit_(mesh|solids|reaction_graph|color|color_luts|color_luts_check|palettes|easing_waves|platform|filter|plot_scan|fastmath_clamp|conway_soak)$"
           - shard: 3
             test_regex: &shard3_re "^unit_(canvas|scan|mesh_raster|transformers|noise|generators|animation|effects|h_offset_renorm|stack_budget|arena_budget)$"
           - shard: 4
-            test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_single|pov_sync|param_marshal|wasm_predicates|util|presets|styles|shading|death)$"
+            test_regex: &shard4_re "^unit_(dma_core|hd107s|dma_controller|led|pov_segmented|pov_single|pov_sync|param_marshal|wasm_predicates|util|presets|styles|shading|death|conway_morph)$"
     # Pinned image (not ubuntu-latest) so the apt clang version is deterministic
     # and the suite isn't silently re-hosted on a new runner image.
     runs-on: ubuntu-24.04
