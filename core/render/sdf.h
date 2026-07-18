@@ -3061,8 +3061,7 @@ struct Face {
     for (int i = 0; i < count; ++i) {
       const auto &hp = half_planes[i];
       float di = hp.nx * px + hp.ny * py + hp.off;
-      if (di > d)
-        d = di;
+      d = __builtin_fmaxf(di, d);
     }
     return d;
   }
@@ -3085,8 +3084,7 @@ struct Face {
       float cv = hs::clamp(t, 0.0f, 1.0f);
       float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
       float dsq = bx * bx + by * by;
-      if (dsq < d)
-        d = dsq;
+      d = __builtin_fminf(dsq, d);
       if ((ep.vy > py) != (ep.next_vy > py)) {
         float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
         if (px < isx)
@@ -3138,8 +3136,7 @@ struct Face {
           hs::clamp((wx * ep.ex + wy * ep.ey) * ep.inv_len_sq, 0.0f, 1.0f);
       float bx = wx - ep.ex * t, by = wy - ep.ey * t;
       float dsq = bx * bx + by * by;
-      if (dsq < d)
-        d = dsq;
+      d = __builtin_fminf(dsq, d);
     }
     const auto &e0 = packed_edges[s];
     float cr = e0.ex * (py - e0.vy) - e0.ey * (px - e0.vx);
