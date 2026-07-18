@@ -113,7 +113,8 @@ private:
     // a few wasted ray steps, no visual overlap).
     constexpr float MAJOR_K = 0.45f, MINOR_K = 0.14f, TWIST_K = 0.35f;
     constexpr float VIS_K = MAJOR_K + MINOR_K; // outer ring radius at scale 1
-    constexpr float UNIT_BOUNDS = 0.826003f;   // √(VIS_K²+TWIST_K²)+MINOR_K
+    // Farthest point of the MINOR_K tube about the twisted centerline.
+    constexpr float UNIT_BOUNDS = 0.710088f; // √(MAJOR_K²+TWIST_K²)+MINOR_K
     int twist_n = static_cast<int>(params.twist);
     int max_steps = static_cast<int>(params.max_steps + 0.5f);
 
@@ -127,13 +128,14 @@ private:
       // tight ones stay small; at fill 1 mutual neighbours just touch.
       float outer_r = sinf(0.5f * nn_angle[i] * params.fill);
       float scale = outer_r / VIS_K;
-      float bounds_radius = scale * UNIT_BOUNDS;
       float major_r = scale * MAJOR_K;
       float minor_r = scale * MINOR_K;
       float twist_amp = scale * TWIST_K;
+      float aa_width = minor_r * params.aa_mult;
+      // Coverage runs aa_width past the surface, so the cull sphere must too.
+      float bounds_radius = scale * UNIT_BOUNDS + aa_width;
       SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
           {major_r, minor_r}, {twist_n, twist_amp, major_r}};
-      float aa_width = minor_r * params.aa_mult;
 
       Vector center = camera.orient(points[i]);
       Vector ray_dir(-center.x, -center.y, -center.z);
