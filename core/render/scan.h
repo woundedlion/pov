@@ -1672,6 +1672,7 @@ struct Volume {
   trace_closest(const Shape &shape, const Vector &local_ro,
                 const Vector &local_vd, float bounds_radius, int max_steps,
                 float aa_width, Vector &closest_local) {
+    HS_PROFILE_DEEP(vol_trace);
     Vector local_p = local_ro;
     closest_local = local_ro;
     // Sentinel for "no surface seen yet": any real signed distance the
@@ -1746,6 +1747,7 @@ struct Volume {
   probe_occluder(const Shape &shape, const Vector &closest_local,
                  const Vector &local_vd, float bounds_radius, float hit_threshold,
                  float aa_width) {
+    HS_PROFILE_DEEP(vol_probe);
     // March forward from the closest approach for a surface this halo occludes;
     // a solid hit is a self-occlusion edge (antialias over it). Step is floored
     // to punch past the stalled foreground; termination is the bounding sphere's
@@ -1940,7 +1942,10 @@ struct Volume {
           Fragment frag;
           frag.pos = closest_local;
           frag.size = closest_d;
-          frag_fn(closest_local, frag);
+          {
+            HS_PROFILE_DEEP(vol_shade);
+            frag_fn(closest_local, frag);
+          }
 
           // One-sided AA with quintic kernel
           float hit_threshold = aa_width * 0.1f;
@@ -1965,9 +1970,16 @@ struct Volume {
               Fragment bg;
               bg.pos = occ.behind;
               bg.size = 0.0f;
-              frag_fn(occ.behind, bg);
-              pipeline.plot(canvas, p, bg.color.color, 0.0f, bg.color.alpha);
+              {
+                HS_PROFILE_DEEP(vol_shade);
+                frag_fn(occ.behind, bg);
+              }
+              {
+                HS_PROFILE_DEEP(vol_plot);
+                pipeline.plot(canvas, p, bg.color.color, 0.0f, bg.color.alpha);
+              }
               if (frag.color.alpha > 0.001f) {
+                HS_PROFILE_DEEP(vol_plot);
                 pipeline.plot(canvas, p, frag.color.color, 0.0f,
                               frag.color.alpha * edge_alpha);
               }
@@ -1980,13 +1992,18 @@ struct Volume {
               Fragment bg;
               bg.pos = occ.behind;
               bg.size = 0.0f;
-              frag_fn(occ.behind, bg);
+              {
+                HS_PROFILE_DEEP(vol_shade);
+                frag_fn(occ.behind, bg);
+              }
+              HS_PROFILE_DEEP(vol_plot);
               pipeline.plot(canvas, p, bg.color.color, 0.0f,
                             bg.color.alpha * occ.soft);
             }
           }
 
           if (frag.color.alpha * edge_alpha > 0.001f) {
+            HS_PROFILE_DEEP(vol_plot);
             pipeline.plot(canvas, p, frag.color.color, 0.0f,
                           frag.color.alpha * edge_alpha);
           }
