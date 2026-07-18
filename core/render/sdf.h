@@ -2399,6 +2399,12 @@ struct Face {
     row_spans_ok = false;
     if (!convex && !sector_ok)
       return;
+    // A face reaching around a pole leaves a near-pole row's interior the whole
+    // latitude ring, or the ring less some arcs. Neither is a pairing of
+    // crossings along a theta line, and the crossings that do exist still close
+    // into a walk the run guards accept.
+    if (full_width)
+      return;
 
     float area2 = 0.0f;
     for (int i = 0; i < count; ++i)
