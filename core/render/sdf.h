@@ -4658,12 +4658,35 @@ template <typename SDF, typename Warp> struct WarpedVolume {
   Warp warp; /**< The domain warp applied before the base SDF. */
 
   /**
-   * @brief Cheap lower bound: base distance minus the warp's max displacement.
+   * @brief Smallest distance the caller needs an accurate value for.
+   * @details The cheap bound is returned only strictly above this, so a coarse
+   * value can never reach a caller's hit test or antialiasing band. Zero means
+   * unstated and selects the warp's maximum displacement, which is safe for any
+   * caller but forfeits most of the fast path.
+   */
+  float precision = 0.0f;
+
+  /** True when the base/warp pair admits the tight per-axis bound below. */
+  static constexpr bool TORUS_TWIST = std::is_same_v<SDF, ::SDF::Torus> &&
+                                      std::is_same_v<Warp, ::SDF::Warp::Twist>;
+
+  /**
+   * @brief Cheap lower bound on the warped distance.
    * @param p Query point in Cartesian ray-space.
-   * @return A conservative lower bound on the warped distance.
+   * @return A lower bound on the distance to the warped surface.
    */
   float bounding_distance(const Vector &p) const {
-    return base.distance(p) - warp.bounding_inflation();
+    if constexpr (TORUS_TWIST) {
+      // Twist moves only y, by at most bounding_inflation(), so the warped
+      // surface lies inside the torus swept +-A along y; this is that solid's
+      // exact distance, hence a lower bound. Relaxing the y term alone keeps it
+      // far tighter than subtracting A from the whole distance.
+      const float q = sqrtf(p.x * p.x + p.z * p.z) - base.R;
+      const float dy = std::max(fabsf(p.y) - warp.bounding_inflation(), 0.0f);
+      return sqrtf(q * q + dy * dy) - base.r;
+    } else {
+      return base.distance(p) - warp.bounding_inflation();
+    }
   }
 
   /**
@@ -4684,8 +4707,10 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    * @return A sphere-tracing-safe (under-estimated) distance to the surface.
    */
   float distance(const Vector &p) const {
+    const float gate =
+        (precision > 0.0f) ? precision : warp.bounding_inflation();
     float bd = bounding_distance(p);
-    if (bd > warp.bounding_inflation())
+    if (bd > gate)
       return bd;
 
     auto ctx = warp.make_ctx(p);
@@ -4706,8 +4731,7 @@ template <typename SDF, typename Warp> struct WarpedVolume {
    */
   Vector normal(const Vector &p) const {
     auto ctx = warp.make_ctx(p);
-    if constexpr (std::is_same_v<SDF, ::SDF::Torus> &&
-                  std::is_same_v<Warp, ::SDF::Warp::Twist>) {
+    if constexpr (TORUS_TWIST) {
       // Twist displaces only y, so the warped point keeps p's XZ radius `ctx`
       // and the torus normal needs no second sqrt; one recurrence yields both
       // the sine the warp needs and the cosine the correction needs; and the

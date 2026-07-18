@@ -696,6 +696,107 @@ inline void test_warped_volume_distance_is_sphere_trace_safe() {
 }
 
 /**
+ * @brief Exact distance from a point to a twisted torus surface, by brute force.
+ * @param p Query point.
+ * @param R Major radius.
+ * @param r Minor radius.
+ * @param n Twist count.
+ * @param A Twist amplitude.
+ * @return The unsigned distance to the warped surface.
+ * @details The surface is the union over theta of tube circles of radius r
+ * centered at (R cos t, A sin(n t), R sin t) in the plane spanned by the radial
+ * direction at t and the y axis, so the tube angle is solved in closed form and
+ * only theta is sampled.
+ */
+constexpr double PI_DBL = 3.14159265358979323846;
+
+inline double twisted_torus_distance(const Vector &p, double R, double r, int n,
+                                     double A, int steps) {
+  double best = 1e30;
+  for (int i = 0; i < steps; ++i) {
+    double t = 2.0 * PI_DBL * i / steps;
+    double ct = std::cos(t), st = std::sin(t);
+    double dx = p.x - R * ct, dy = p.y - A * std::sin(n * t), dz = p.z - R * st;
+    double u = dx * ct + dz * st;
+    double w = -dx * st + dz * ct;
+    double rad = std::sqrt(u * u + dy * dy) - r;
+    best = std::min(best, std::sqrt(rad * rad + w * w));
+  }
+  return best;
+}
+
+/**
+ * @brief Verifies WarpedVolume::bounding_distance never over-estimates the
+ *        distance to the warped surface, over randomized points and torus/twist
+ *        parameter sets.
+ * @details The fast path returns this bound directly, so an over-estimate would
+ * let a sphere trace step through the surface. Covers twist 0, amplitude 0,
+ * amplitude larger than the major radius, points on the y axis (s == 0), points
+ * inside the tube and points hugging the surface.
+ */
+inline void test_warped_volume_bounding_distance_never_over_estimates() {
+  struct Case {
+    double R, r, A;
+    int n;
+  };
+  const Case cases[] = {
+      {1.0, 0.3, 0.2, 3},    // nominal
+      {1.0, 0.3, 0.0, 3},    // zero amplitude
+      {1.0, 0.3, 0.2, 0},    // zero twist
+      {1.0, 0.31, 2.5, 5},   // amplitude well past the major radius
+      {0.45, 0.14, 0.35, 2}, // Raymarch proportions, default twist
+      {0.45, 0.14, 0.35, 8}, // Raymarch proportions, max twist
+      {2.0, 0.05, 0.9, 7},   // thin tube
+      {0.5, 0.45, 0.1, 1},   // fat tube
+  };
+
+  int violations = 0;
+  uint32_t rs = 0x5eed1337u;
+  const auto next = [&rs]() {
+    rs = rs * 1664525u + 1013904223u;
+    return static_cast<double>(rs >> 8) / 16777216.0;
+  };
+
+  for (const Case &c : cases) {
+    SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> wv{
+        SDF::Torus{static_cast<float>(c.R), static_cast<float>(c.r)},
+        SDF::Warp::Twist{c.n, static_cast<float>(c.A),
+                         static_cast<float>(c.R)}};
+    const double reach = c.R + c.r + c.A + 1.0;
+
+    for (int k = 0; k < 240; ++k) {
+      Vector p;
+      const int kind = k % 4;
+      if (kind == 0) {
+        p = Vector(0.0f, static_cast<float>((next() * 2 - 1) * reach), 0.0f);
+      } else if (kind == 1 || kind == 2) {
+        // On or inside the tube: radius scaled to at most the minor radius.
+        const double t = next() * 2 * PI_DBL, ph = next() * 2 * PI_DBL;
+        const double rr = c.r * (kind == 1 ? next() * 0.9 : 1.0);
+        const double X = c.R + rr * std::cos(ph);
+        p = Vector(
+            static_cast<float>(X * std::cos(t)),
+            static_cast<float>(rr * std::sin(ph) + c.A * std::sin(c.n * t)),
+            static_cast<float>(X * std::sin(t)));
+      } else {
+        p = Vector(static_cast<float>((next() * 2 - 1) * reach),
+                   static_cast<float>((next() * 2 - 1) * reach),
+                   static_cast<float>((next() * 2 - 1) * reach));
+      }
+
+      const double bd = wv.bounding_distance(p);
+      const double truth = twisted_torus_distance(p, c.R, c.r, c.n, c.A, 20000);
+      if (bd - truth > 1e-4)
+        ++violations;
+      // The bound must also never exceed the slow path's raw warped distance.
+      if (bd - static_cast<double>(wv.raw_distance(p)) > 1e-4)
+        ++violations;
+    }
+  }
+  HS_EXPECT_EQ(violations, 0);
+}
+
+/**
  * @brief Verifies the Lipschitz-corrected path returns raw/lipschitz on a
  *        near-surface outside point (not on the bounding fast-path).
  */
@@ -2026,6 +2127,8 @@ inline int run_sdf_tests() {
   test_angular_repeat_matches_base_at_zero_angle();
   test_angular_repeat_creates_copies();
   test_angular_repeat_t_is_sector_local();
+
+  test_warped_volume_bounding_distance_never_over_estimates();
 
   test_cull_covers_interior_over_orientation_grid();
   test_angular_repeat_non_y_axis_cull_covers_copies();

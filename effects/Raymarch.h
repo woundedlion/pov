@@ -136,6 +136,9 @@ private:
       float bounds_radius = scale * UNIT_BOUNDS + aa_width;
       SDF::WarpedVolume<SDF::Torus, SDF::Warp::Twist> torus{
           {major_r, minor_r}, {twist_n, twist_amp, major_r}};
+      // Volume::draw's widest band test is min_behind < 2*aa_width, so the
+      // cheap bound only has to be accurate above that.
+      torus.precision = 2.0f * aa_width;
 
       Vector center = camera.orient(points[i]);
       Vector ray_dir(-center.x, -center.y, -center.z);
