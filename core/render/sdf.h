@@ -3050,12 +3050,8 @@ struct Face {
    * @param px Gnomonic x of the query point.
    * @param py Gnomonic y of the query point.
    * @return Signed distance in the tangent plane (negative inside).
-   * @details noinline: keeping either edge loop out of the fully-inlined scan
-   * chain avoids a register-spill cliff that slows every probe (measured ~40%
-   * on the whole scan when both loops inline into process_pixel).
    */
-  HS_O3_FN __attribute__((noinline)) float plane_dist_convex(float px,
-                                                             float py) const {
+  HS_O3_FN float plane_dist_convex(float px, float py) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.convex_hits++);
     float d = -FLT_MAX;
     for (int i = 0; i < count; ++i) {
@@ -3071,10 +3067,8 @@ struct Face {
    * @param px Gnomonic x of the query point.
    * @param py Gnomonic y of the query point.
    * @return Signed distance in the tangent plane (negative inside).
-   * @details noinline: see plane_dist_convex.
    */
-  HS_O3_FN __attribute__((noinline)) float plane_dist_exact(float px,
-                                                            float py) const {
+  HS_O3_FN float plane_dist_exact(float px, float py) const {
     float d = FLT_MAX;
     bool inside = false;
     for (int i = 0; i < count; ++i) {
@@ -3109,11 +3103,9 @@ struct Face {
    * edge: the polygon is consistently wound, so a query on the interior side of
    * edge s (matched to the winding) is inside. Near-exact for star faces because
    * the true nearest edge is almost always the sector's own edge or an immediate
-   * neighbor. Only enabled when build_sectors set sector_ok. noinline: see
-   * plane_dist_convex.
+   * neighbor. Only enabled when build_sectors set sector_ok.
    */
-  HS_O3_FN __attribute__((noinline)) float plane_dist_sector(float px,
-                                                             float py) const {
+  HS_O3_FN float plane_dist_sector(float px, float py) const {
     float p = pseudo_angle(py, px);
     float rel = (p - sector_base) / sector_span; // -> [0, 1) after the fold
     rel -= floorf(rel);
