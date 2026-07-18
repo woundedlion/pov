@@ -22,6 +22,15 @@ public:
 
   static constexpr int PRESET_FRAMES = 241;
 
+  // Gamut boundary bracket grid this effect buys from the persistent arena
+  // (131,072 B, leaving ~124 KiB of the partition free). Resolution sets only
+  // how wide the bracket starts, and the per-pixel refinement narrows it by a
+  // factor of 32, so this trades arena bytes against refinement steps rather
+  // than against accuracy: the next step up in either axis doubles the cost to
+  // save well under one step.
+  static constexpr int GAMUT_ANGLE_STEPS = 256;
+  static constexpr int GAMUT_L_STEPS = 128;
+
   // Between presets, emission stops and the feedback fades to black over
   // DRAIN_FRAMES at DRAIN_FADE (well below any preset's fade) before the next
   // preset begins.
@@ -72,6 +81,14 @@ public:
                 Filter::Pixel::Feedback<W, H>(style)) {}
 
   /**
+   * @brief Releases the arena-resident gamut boundary table.
+   * @details The table lives in the persistent arena, which is reset before the
+   * next effect's init(); dropping the pointer here keeps the clip path from
+   * reading whatever that effect allocates over it.
+   */
+  HS_COLD_MEMBER ~MeshFeedback() override { release_gamut_lut(); }
+
+  /**
    * @brief One-time effect setup.
    * @details Binds shared noise into presets, builds the icosahedron, registers
    * tunable params, and schedules the noise/walk/preset timers.
@@ -109,6 +126,7 @@ public:
 
     filters.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
         persistent_arena);
+    init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
 
     timeline.add(0, Animation::Noise(noise_params));
     timeline.add(
@@ -213,8 +231,10 @@ private:
            Filter::Pixel::Feedback<W, H>>
       filters;
 
-  // init() allocates the Feedback warp-field cache from the persistent arena.
-  static_assert(Filter::Pixel::Feedback<W, H>::STORAGE_BYTES <=
+  // init() allocates the Feedback warp-field cache and the gamut boundary
+  // bracket table from the persistent arena.
+  static_assert(Filter::Pixel::Feedback<W, H>::STORAGE_BYTES +
+                        gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) <=
                     DEVICE_PERSISTENT_BUDGET,
                 "MeshFeedback warp cache exceeds the default persistent "
                 "partition; retune the feedback downsample or carve arenas");

@@ -378,6 +378,44 @@ __attribute__((always_inline)) inline float fast_atan2(float y, float x) {
 }
 
 /**
+ * @brief Diamond pseudo-angle of (x, y) in [0, 4), monotonic with atan2.
+ * @param y Y (numerator) coordinate.
+ * @param x X (denominator) coordinate.
+ * @return The diamond angle in [0, 4); 0 at the degenerate origin.
+ * @details Arc position along the diamond |x| + |y| = 1, walked
+ * counter-clockwise from +x. Strictly monotonic with atan2, so it bins a
+ * direction without a trig call, and scale invariant.
+ */
+__attribute__((always_inline)) inline float diamond_angle(float y, float x) {
+  float d = std::fabs(x) + std::fabs(y);
+  if (d < 1e-20f)
+    return 0.0f;
+  float r = y / d;
+  if (y >= 0.0f)
+    return (x >= 0.0f) ? r : (2.0f - r);
+  return (x < 0.0f) ? (2.0f - r) : (4.0f + r);
+}
+
+/**
+ * @brief Fast reciprocal square root for x > 0.
+ * @param x Input value; the domain is x > 0 (zero and negatives are undefined).
+ * @return An approximation of 1 / sqrt(x).
+ * @details Bit-hack initial guess refined by two Newton steps; peak relative
+ * error ~5e-6, one-sided low up to the rounding of the final multiply.
+ */
+HS_O3_FN inline float fast_rsqrt(float x) {
+  uint32_t i;
+  std::memcpy(&i, &x, sizeof(i));
+  i = 0x5f3759dfu - (i >> 1);
+  float y;
+  std::memcpy(&y, &i, sizeof(y));
+  const float half = 0.5f * x;
+  y = y * (1.5f - half * y * y);
+  y = y * (1.5f - half * y * y);
+  return y;
+}
+
+/**
  * @brief Fast cube root for x >= 0.
  * @param x Input value; the domain is x >= 0 (cbrt(0)=0), negative inputs
  * return 0. Accuracy holds for x >~ 1e-6; in the denormal/tiny-normal tail

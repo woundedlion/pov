@@ -15,6 +15,8 @@
 
 #include "engine/memory.h"
 
+#include "color/gamut_lut.h"
+
 #if defined(__ARM_FEATURE_DSP)
 // Inline assembly avoids a CMSIS header dependency for the saturating add.
 __attribute__((always_inline)) static inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
@@ -785,10 +787,9 @@ gamut_channel_exit(float wl, float wm, float ws, float L, float L3, float k_l,
 }
 
 /**
- * @brief Maps an out-of-gamut OKLab color into the sRGB cube by reducing chroma,
- * holding hue and lightness fixed (Ottosson's preserve-chroma projection).
- * @param lab Source color, assumed out of gamut (callers gate on
- * linear_rgb_in_gamut); L is clamped to [0,1] internally.
+ * @brief Maps an out-of-gamut OKLab color into the sRGB cube by solving the
+ * channel cubics, holding hue and lightness fixed.
+ * @param lab Source color; L is clamped to [0,1] internally.
  * @return An OKLab color with the same L and hue but chroma scaled down until it
  * is just inside the display cube.
  * @details At fixed L and hue each RGB channel is a cubic in chroma, so the
@@ -796,9 +797,10 @@ gamut_channel_exit(float wl, float wm, float ws, float L, float L3, float k_l,
  * cube. Each channel is searched over its whole ray rather than around a seed,
  * which is what makes the answer the FIRST exit: near the blue cube vertex a
  * channel dips through a face and back, and a seeded refinement settles on the
- * far side of that dip.
+ * far side of that dip. This is the fallback path, taken when no owner has
+ * armed the boundary table.
  */
-HS_O3_FN inline OKLab gamut_clip_preserve_chroma(OKLab lab) {
+HS_O3_FN inline OKLab gamut_clip_analytic(OKLab lab) {
   // The C=0 achromatic floor is in gamut only for L in [0,1]; an out-of-range L
   // would leave even the floor out of gamut and return a non-gamut color.
   lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
@@ -825,6 +827,225 @@ HS_O3_FN inline OKLab gamut_clip_preserve_chroma(OKLab lab) {
 
   t = hs::clamp(t - GAMUT_CLIP_MARGIN, 0.0f, C);
   return {lab.L, a_ * t, b_ * t};
+}
+
+/**
+ * @brief Arena-resident gamut boundary bracket grid and the scales indexing it.
+ * @details `table` null means no owner has armed the grid and the clip path
+ * solves the cubics instead. Grouped in one object so the per-pixel path loads
+ * a single base address rather than five unrelated globals.
+ */
+struct GamutLut {
+  const uint16_t *table = nullptr; /**< Arena copy, or null when disarmed. */
+  int angle_steps = 0;             /**< Diamond-angle buckets over [0, 4). */
+  int l_steps = 0;                 /**< Lightness buckets over [0, 1]. */
+  float angle_scale = 0.0f;        /**< angle_steps / 4, the index scale. */
+  float l_scale = 0.0f;            /**< l_steps, the index scale. */
+};
+
+/**
+ * @brief The single live boundary grid.
+ * @details Arena-resident so the scattered per-pixel reads land in RAM rather
+ * than the QSPI flash the master table lives in. The persistent arena is reset
+ * between effects, so the owning effect must disarm this in its destructor;
+ * Canvas guarantees the outgoing effect is destroyed before the next one is
+ * constructed and initialized.
+ */
+inline GamutLut g_gamut_lut;
+
+/**
+ * @brief Downsamples GAMUT_LUT into @p arena and arms the table-driven clip.
+ * @param arena Arena to hold the copy; must outlive every clip call that
+ *        follows, and the caller must disarm before it is reset.
+ * @param angle_steps Diamond-angle buckets; must divide GAMUT_LUT_ANGLE_STEPS.
+ * @param l_steps Lightness buckets; must divide GAMUT_LUT_L_STEPS.
+ * @details Call after the arenas are configured, from the owning effect's
+ * init(). A coarse cell takes the minimum of the merged minima and the maximum
+ * of the merged maxima, so the true boundary of every ray in the cell still
+ * lies inside the stored bracket at any resolution. Cost in arena bytes is
+ * gamut_lut_bytes(angle_steps, l_steps); resolution only sets how wide the
+ * bracket starts, and the per-pixel bisection sets how far it is narrowed.
+ */
+inline void init_gamut_lut(Arena &arena, int angle_steps, int l_steps) {
+  HS_CHECK(angle_steps > 0 && l_steps > 0 &&
+               GAMUT_LUT_ANGLE_STEPS % angle_steps == 0 &&
+               GAMUT_LUT_L_STEPS % l_steps == 0,
+           "init_gamut_lut: %d x %d must divide the %d x %d flash master",
+           angle_steps, l_steps, GAMUT_LUT_ANGLE_STEPS, GAMUT_LUT_L_STEPS);
+
+  const int sa = GAMUT_LUT_ANGLE_STEPS / angle_steps;
+  const int sl = GAMUT_LUT_L_STEPS / l_steps;
+  uint16_t *dst = arena.allocate_n<uint16_t>(angle_steps * l_steps * 2);
+
+  for (int l = 0; l < l_steps; ++l) {
+    for (int a = 0; a < angle_steps; ++a) {
+      uint16_t c_lo = 0xFFFF, c_hi = 0;
+      for (int dl = 0; dl < sl; ++dl) {
+        const uint16_t *row =
+            &GAMUT_LUT[((l * sl + dl) * GAMUT_LUT_ANGLE_STEPS + a * sa) * 2];
+        for (int da = 0; da < sa; ++da) {
+          c_lo = std::min(c_lo, row[da * 2]);
+          c_hi = std::max(c_hi, row[da * 2 + 1]);
+        }
+      }
+      dst[(l * angle_steps + a) * 2] = c_lo;
+      dst[(l * angle_steps + a) * 2 + 1] = c_hi;
+    }
+  }
+
+  g_gamut_lut = {dst, angle_steps, l_steps, angle_steps * 0.25f,
+                 static_cast<float>(l_steps)};
+}
+
+/**
+ * @brief Disarms the table-driven clip path, reverting to the cubic solve.
+ * @details Must run before the arena holding the copy is reset or reused.
+ */
+inline void release_gamut_lut() { g_gamut_lut = GamutLut{}; }
+
+// Equal steps the stored bracket is walked in, looking for the first one that
+// leaves the gamut. A walk rather than a straight bisection because the gate's
+// tolerance lets the in-gamut set along a ray break into pieces: bisecting a
+// bracket that spans a gap converges on the far side of it, which is in gamut
+// but past the first exit and discontinuous in L against the neighbouring cell.
+inline constexpr int GAMUT_SCAN_STEPS = 4;
+
+// Bisections inside the walk step that straddles the crossing. Residual is the
+// bracket width over GAMUT_SCAN_STEPS, halved once per step, so this is an
+// accuracy knob and not a cap: three take the 256 x 128 grid's worst
+// mid-lightness bracket to 0.0016 chroma.
+inline constexpr int GAMUT_BRACKET_STEPS = 3;
+
+/**
+ * @brief Largest in-gamut scale of (a, b) inside a bracketed scale range.
+ * @param L Lightness held fixed along the ray.
+ * @param a OKLab a of the input, unnormalized; the ray is u * (a, b).
+ * @param b OKLab b of the input, unnormalized.
+ * @param lo Scale known to be at or below the boundary.
+ * @param hi Scale at or above it, already capped at the input's own scale.
+ * @return The refined scale, in gamut by construction.
+ * @details With l_ = L + A*u and (L + X*u)^3 expanded in u, every linear-RGB
+ * channel is a cubic in u whose four coefficients depend only on L and the hue
+ * direction and are built once here. A refinement step is then three Horner
+ * evaluations and the six bound tests, not an OKLab round trip. The bound tests
+ * use linear_rgb_in_gamut's own tolerance, so a solved crossing is the crossing
+ * the gate reports. `lo` is probed before it is trusted: a cell minimum that
+ * over-reads its region drops the search back to zero chroma rather than
+ * returning a color outside the cube.
+ */
+HS_O3_FN __attribute__((noinline)) inline float
+gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
+  const float ka = 0.3963377774f * a + 0.2158037573f * b;
+  const float km = -0.1055613458f * a - 0.0638541728f * b;
+  const float ks = -0.0894841775f * a - 1.2914855480f * b;
+
+  const float ka2 = ka * ka, ka3 = ka2 * ka;
+  const float km2 = km * km, km3 = km2 * km;
+  const float ks2 = ks * ks, ks3 = ks2 * ks;
+  const float l3 = L * L * L, q = 3.0f * L * L, c = 3.0f * L;
+
+  const float r3 = 4.0767416621f * ka3 - 3.3077115913f * km3 +
+                   0.2309699292f * ks3;
+  const float r2 =
+      c * (4.0767416621f * ka2 - 3.3077115913f * km2 + 0.2309699292f * ks2);
+  const float r1 =
+      q * (4.0767416621f * ka - 3.3077115913f * km + 0.2309699292f * ks);
+  const float g3 = -1.2684380046f * ka3 + 2.6097574011f * km3 -
+                   0.3413193965f * ks3;
+  const float g2 =
+      c * (-1.2684380046f * ka2 + 2.6097574011f * km2 - 0.3413193965f * ks2);
+  const float g1 =
+      q * (-1.2684380046f * ka + 2.6097574011f * km - 0.3413193965f * ks);
+  const float b3 = -0.0041960863f * ka3 - 0.7034186147f * km3 +
+                   1.7076147010f * ks3;
+  const float b2 =
+      c * (-0.0041960863f * ka2 - 0.7034186147f * km2 + 1.7076147010f * ks2);
+  const float b1 =
+      q * (-0.0041960863f * ka - 0.7034186147f * km + 1.7076147010f * ks);
+
+  const auto inside = [&](float u) {
+    const float rv = ((r3 * u + r2) * u + r1) * u + l3;
+    const float gv = ((g3 * u + g2) * u + g1) * u + l3;
+    const float bv = ((b3 * u + b2) * u + b1) * u + l3;
+    return linear_rgb_in_gamut(rv, gv, bv);
+  };
+
+  float x = lo, y = hi;
+  if (inside(lo)) {
+    const float step = (hi - lo) * (1.0f / GAMUT_SCAN_STEPS);
+    int i = 0;
+    for (; i < GAMUT_SCAN_STEPS; ++i) {
+      y = (i + 1 == GAMUT_SCAN_STEPS) ? hi : x + step;
+      if (!inside(y))
+        break;
+      x = y;
+    }
+    // The whole bracket held, so the input's own chroma was already in gamut.
+    if (i == GAMUT_SCAN_STEPS)
+      return hi;
+  } else {
+    // The cell minimum over-reads its region; fall back to the whole ray.
+    x = 0.0f;
+    y = lo;
+  }
+
+  for (int i = 0; i < GAMUT_BRACKET_STEPS; ++i) {
+    const float mid = 0.5f * (x + y);
+    if (inside(mid))
+      x = mid;
+    else
+      y = mid;
+  }
+  return x;
+}
+
+/**
+ * @brief Maps an out-of-gamut OKLab color into the sRGB cube by reducing chroma,
+ * holding hue and lightness fixed (Ottosson's preserve-chroma projection).
+ * @param lab Source color, assumed out of gamut (callers gate on
+ * linear_rgb_in_gamut); L is clamped to [0,1] internally.
+ * @return An OKLab color with the same L and hue but chroma scaled down until it
+ * is just inside the display cube.
+ * @details The answer is exactly min(C, C_max(hue, L)), and C_max is a static
+ * property of the sRGB gamut. With the grid armed, one cell read brackets C_max
+ * and gamut_bracket_refine narrows the bracket; a chroma at or below the cell
+ * minimum needs neither. Without it the cubics are solved outright.
+ */
+HS_O3_FN __attribute__((noinline)) inline OKLab
+gamut_clip_preserve_chroma(OKLab lab) {
+  const GamutLut &lut = g_gamut_lut;
+  if (!lut.table)
+    return gamut_clip_analytic(lab);
+
+  // The u=0 achromatic floor is in gamut only for L in [0,1]; an out-of-range L
+  // would leave even the floor out of gamut and return a non-gamut color.
+  lab.L = hs::clamp(lab.L, 0.0f, 1.0f);
+  const float c_sq = lab.a * lab.a + lab.b * lab.b;
+  // Below this the color is achromatic past 16-bit output precision, and the
+  // reciprocal square root would overflow.
+  if (!(c_sq > 1e-12f))
+    return {lab.L, 0.0f, 0.0f};
+
+  int ai = static_cast<int>(diamond_angle(lab.b, lab.a) * lut.angle_scale);
+  int li = static_cast<int>(lab.L * lut.l_scale);
+  ai = hs::clamp(ai, 0, lut.angle_steps - 1);
+  li = hs::clamp(li, 0, lut.l_steps - 1);
+  const uint16_t *cell = &lut.table[(li * lut.angle_steps + ai) * 2];
+
+  const float c_lo = static_cast<float>(cell[0]) * GAMUT_LUT_INV_SCALE;
+  if (c_sq <= c_lo * c_lo)
+    return lab;
+
+  const float c_hi = static_cast<float>(cell[1]) * GAMUT_LUT_INV_SCALE;
+  const float inv_c = fast_rsqrt(c_sq);
+  const float hi = std::min(1.0f, c_hi * inv_c);
+  float u = gamut_bracket_refine(lab.L, lab.a, lab.b, c_lo * inv_c, hi);
+  // Pulled back off the crossing: without it the caller's own re-conversion
+  // rounds a channel a part in a million past the gate.
+  u -= GAMUT_CLIP_MARGIN * inv_c;
+  if (u < 0.0f)
+    u = 0.0f;
+  return {lab.L, lab.a * u, lab.b * u};
 }
 
 /**
