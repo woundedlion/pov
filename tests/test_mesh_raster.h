@@ -26,6 +26,7 @@
 #include "core/render/plot.h"
 #include "core/render/scan.h"
 #include "core/mesh/solids.h"
+#include "tests/test_sdf.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -888,6 +889,145 @@ inline void test_class_bake_budget_accounting() {
 }
 
 /**
+ * @brief Dedicated arenas for the registry-face span coverage test.
+ * @details The deepest chain in the set (dodecahedron_hk35_ambo_hk62_ambo_relax
+ *          _hk42, F=1082) needs far more than the 256 KiB the other cases use.
+ */
+inline uint8_t sc_seed_a[12 * 1024 * 1024];
+inline uint8_t sc_seed_b[12 * 1024 * 1024];
+inline uint8_t sc_geom[12 * 1024 * 1024];
+inline uint8_t sc_scratch[8 * 1024 * 1024];
+
+/**
+ * @brief Rotates a vector about an axis by an angle.
+ * @param v Vector to rotate.
+ * @param k Unit rotation axis.
+ * @param ang Rotation angle in radians.
+ * @return The rotated vector.
+ */
+inline Vector rotate_about(const Vector &v, const Vector &k, float ang) {
+  float c = cosf(ang), s = sinf(ang);
+  return v * c + cross(k, v) * s + k * (dot(k, v) * (1.0f - c));
+}
+
+/**
+ * @brief Asserts one face's per-row spans cover every pixel the whole-face
+ *        extent paints.
+ * @tparam W Canvas width in pixels.
+ * @tparam H Canvas height in pixels.
+ * @param verts Mesh vertex positions.
+ * @param indices This face's vertex indices.
+ * @param scratch Face scratch buffer to build into.
+ * @return Count of painted pixels checked.
+ * @details Builds the face twice: once as the scan uses it, and once with the
+ *   per-row spans disabled so get_horizontal_intervals returns the whole-face
+ *   azimuth extent. Every pixel the extent probes AND paints (the scan's own
+ *   d < pixel_width plus AA-alpha accept test) must also be probed with the
+ *   spans on — tightening a span may drop only probes that would be rejected.
+ */
+template <int W, int H>
+inline int expect_row_spans_cover_face(std::span<const Vector> verts,
+                                       std::span<const uint16_t> indices,
+                                       SDF::FaceScratchBuffer &scratch) {
+  constexpr int HV = H + hs::H_OFFSET;
+  if (!TrigLUT<W, H>::initialized)
+    TrigLUT<W, H>::init();
+
+  SDF::Face spans(verts, indices, /*thickness=*/0.0f, scratch, HV, H);
+  std::vector<uint8_t> visited_spans;
+  hs_test::sdf::cull_visited<W, H>(spans, visited_spans);
+
+  SDF::Face extent(verts, indices, /*thickness=*/0.0f, scratch, HV, H);
+  extent.row_spans_ok = false;
+  std::vector<uint8_t> visited_extent;
+  hs_test::sdf::cull_visited<W, H>(extent, visited_extent);
+
+  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
+  const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
+  constexpr float pixel_width = 2.0f * PI_F / W;
+
+  int painted = 0;
+  for (int y = 0; y < H; ++y) {
+    const float sp = TrigLUT<W, H>::sin_phi[y];
+    const float cp = TrigLUT<W, H>::cos_phi[y];
+    for (int x = 0; x < W; ++x) {
+      const size_t at = static_cast<size_t>(y) * W + x;
+      if (!visited_extent[at])
+        continue;
+      Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+      const float d = extent.distance(p).dist;
+      if (d >= pixel_width)
+        continue;
+      float alpha = 1.0f;
+      if (d > -pixel_width) {
+        const float t_aa = 0.5f - d / (2.0f * pixel_width);
+        alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+      }
+      if (alpha <= 0.001f)
+        continue;
+      ++painted;
+      HS_EXPECT_TRUE(visited_spans[at]);
+    }
+  }
+  return painted;
+}
+
+/**
+ * @brief Regresses the per-row span emitter against real hankin faces.
+ * @details The synthesized convex polygons the sdf module's fringe test uses
+ *   never graze a vertex the way a hankin strap's arms do, so a span that drops
+ *   a corner's fringe only shows up on registry geometry. Sweeps the deepest
+ *   solids of the IslamicStars registry at several poses.
+ */
+inline void test_row_spans_cover_registry_faces() {
+  constexpr int W = 288, H = 144;
+  constexpr int POSES = 3;
+  const size_t indices_under_test[] = {11, 6, 8, 19, 9, 7};
+  const Vector axis = normalized_or(Vector(0.31f, 0.87f, 0.38f), UP);
+
+  configure_arenas_default();
+  const auto islamic = Solids::Collections::get_islamic_solids();
+  int total_painted = 0;
+
+  for (size_t idx : indices_under_test) {
+    HS_EXPECT_LT(idx, islamic.size());
+    Arena seed_a(sc_seed_a, sizeof(sc_seed_a));
+    Arena seed_b(sc_seed_b, sizeof(sc_seed_b));
+    Arena geom(sc_geom, sizeof(sc_geom));
+    Arena scratch(sc_scratch, sizeof(sc_scratch));
+
+    MeshState mesh;
+    {
+      PolyMesh poly = islamic[idx].generate(seed_a, seed_b);
+      MeshOps::compile(poly, mesh, geom, scratch_arena_a);
+    }
+    std::vector<Vector> base(mesh.vertices.data(),
+                             mesh.vertices.data() + mesh.vertices.size());
+
+    ScratchScope scope(scratch);
+    auto *fscratch = static_cast<SDF::FaceScratchBuffer *>(scratch.allocate(
+        sizeof(SDF::FaceScratchBuffer), alignof(SDF::FaceScratchBuffer)));
+
+    for (int pose = 0; pose < POSES; ++pose) {
+      const float ang = 2.0f * PI_F * static_cast<float>(pose) / POSES;
+      for (size_t v = 0; v < base.size(); ++v)
+        mesh.vertices[v] = rotate_about(base[v], axis, ang);
+
+      const uint8_t *counts = mesh.get_face_counts_data();
+      const uint16_t *faces = mesh.get_faces_data();
+      const uint16_t *offsets = mesh.get_face_offsets_data();
+      std::span<const Vector> verts(mesh.vertices.data(),
+                                    mesh.vertices.size());
+      for (size_t f = 0; f < mesh.get_face_counts_size(); ++f)
+        total_painted += expect_row_spans_cover_face<W, H>(
+            verts, std::span<const uint16_t>(faces + offsets[f], counts[f]),
+            *fscratch);
+    }
+  }
+  HS_EXPECT_GT(total_painted, 100000);
+}
+
+/**
  * @brief Runs every mesh-rasterization test in this module.
  * @return Failure count reported by end_module.
  */
@@ -905,6 +1045,7 @@ inline int run_mesh_raster_tests() {
   test_class_bake_budget_accounting();
   test_class_lut_render_matches_exact();
   test_class_lut_render_matches_exact_rippled();
+  test_row_spans_cover_registry_faces();
 
   return fixture.result();
 }
