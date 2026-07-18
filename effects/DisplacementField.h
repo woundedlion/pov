@@ -403,6 +403,9 @@ private:
             }
           } else {
             for (; x < x_end; ++x) {
+              // DistortedRing's constructor scans every knot, including
+              // skipped cells; leaving them stale perturbs its shift bounds.
+              slut[x] = 0.0f;
               float next_cos = cos_a * cos_d - sin_a * sin_d;
               sin_a = sin_a * cos_d + cos_a * sin_d;
               cos_a = next_cos;
