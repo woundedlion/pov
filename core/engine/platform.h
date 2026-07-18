@@ -1198,8 +1198,9 @@ struct ScanMetrics {
   uint32_t sector_hits = 0;   /**< Count of evaluations on the concave sector walk (subset of exact_hits). */
   uint32_t lut_hits = 0;      /**< Count of class-LUT bilinear serves. */
   uint32_t plot_backstop_hits = 0; /**< Count of plot() steps_cache capacity-backstop trips. */
+  uint32_t shade_candidates = 0;   /**< Count of pixels passing the scan's d < pixel_width test (shading + alpha-rejected). */
   /** @brief Zeroes every counter. */
-  void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = exact_hits = convex_hits = sector_hits = lut_hits = plot_backstop_hits = 0; }
+  void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = exact_hits = convex_hits = sector_hits = lut_hits = plot_backstop_hits = shade_candidates = 0; }
 };
 /** @brief Global scanline profiling counters. Compiled in only when
  *  HS_SCAN_METRICS is defined; otherwise HS_SCAN_METRIC(...) expands to nothing
@@ -1356,6 +1357,24 @@ inline constexpr __attribute__((always_inline)) float lerp(float a, float b,
 namespace hs {
 
 /**
+ * @brief Formats v as decimal into buf.
+ * @param v Value to format.
+ * @param buf Buffer of at least 21 bytes (20 digits + NUL).
+ * @return Pointer to the first digit inside buf.
+ * @details Manual conversion because newlib-nano's integer printf (the -Os
+ *          device build) has no long-long support.
+ */
+inline const char* u64_dec(uint64_t v, char* buf) {
+  char* p = buf + 20;
+  *p = '\0';
+  do {
+    *--p = static_cast<char>('0' + v % 10);
+    v /= 10;
+  } while (v);
+  return p;
+}
+
+/**
  * @brief Named cumulative cycle accumulator. Each instance self-registers into
  *        a static intrusive list at construction so log_all()/reset_all() can
  *        walk every counter without a central registry. Counters nest: a
@@ -1422,25 +1441,6 @@ private:
   friend struct CycleScope;
 
   /**
-   * @brief Formats v as decimal into buf.
-   * @param v Value to format.
-   * @param buf Buffer of at least 21 bytes (20 digits + NUL).
-   * @return Pointer to the first digit inside buf.
-   * @details Manual conversion because newlib-nano's integer printf (the -Os
-   *          device build) has no long-long support, and a multi-second
-   *          window's cycle total exceeds 32 bits.
-   */
-  static const char* u64_dec(uint64_t v, char* buf) {
-    char* p = buf + 20;
-    *p = '\0';
-    do {
-      *--p = static_cast<char>('0' + v % 10);
-      v /= 10;
-    } while (v);
-    return p;
-  }
-
-  /**
    * @brief Recursively logs one counter node and its children as a tree.
    * @param node Counter node to log.
    * @param depth Tree depth; drives indentation.
@@ -1453,8 +1453,8 @@ private:
     uint64_t ref = node->parent ? node->parent->cycles : node->cycles;
     uint32_t pct = ref ? (uint32_t)(node->cycles * 100 / ref) : 100;
     char cyc_buf[21], us_buf[21];
-    const char* cyc = u64_dec(node->cycles, cyc_buf);
-    const char* us = u64_dec(node->cycles / CYCLES_PER_US, us_buf);
+    const char* cyc = hs::u64_dec(node->cycles, cyc_buf);
+    const char* us = hs::u64_dec(node->cycles / CYCLES_PER_US, us_buf);
     int indent = depth * 2;
     int name_w = 22 - indent;
     if (name_w < 1) name_w = 1;

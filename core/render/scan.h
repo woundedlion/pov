@@ -1169,6 +1169,7 @@ inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
         float d = res.dist;
         if (!effective_debug && d >= pixel_width)
           continue;
+        HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
         float alpha = 1.0f;
         if (d > -pixel_width) {
           float t_aa = 0.5f - d / (2.0f * pixel_width);

@@ -42,6 +42,10 @@
 //   HS_PROFILE_ORDERED_CYCLE random-next cyclers advance in order instead
 //                            (HankinSolids, SphericalHarmonics)
 //   HS_PROFILE_TRANS_SPEED   "Trans Speed" applied after init (below)
+//   HS_SCAN_METRICS          compiles in the per-pixel hs::g_scan_metrics probe
+//                            counters and adds the "scan totals" window line.
+//                            Every probe pays a non-atomic global increment, so
+//                            read the COUNTS from such a build, not the times.
 
 #define HS_PROFILE_STR2(x) #x
 #define HS_PROFILE_STR(x) HS_PROFILE_STR2(x)
@@ -94,6 +98,9 @@ public:
     // One compact line per frame (the full counter tree still dumps per
     // window — per-frame log_all would perturb the frames it measures).
     hs::log("f %lu w=%lu r=%lu", total_frames_ + 1, dt, render);
+#ifdef HS_SCAN_METRICS
+    drain_scan_metrics();
+#endif
     render_sum_ += render;
     if (render > render_max_) render_max_ = render;
     wall_sum_ += dt;
@@ -119,6 +126,9 @@ private:
             render_sum_ / WINDOW_FRAMES, render_max_);
     dump_isr_stats(now - window_start_);
     hs::CycleCounter::log_all();
+#ifdef HS_SCAN_METRICS
+    dump_scan_totals();
+#endif
     hs::CycleCounter::reset_all();
     window_frames_ = 0;
     wall_sum_ = 0;
@@ -170,6 +180,61 @@ private:
             (unsigned long)(s.max * 5u / 3u), (unsigned long)total_us,
             (unsigned long)(share_c / 100u), (unsigned long)(share_c % 100u));
   }
+
+#ifdef HS_SCAN_METRICS
+  /** @brief 64-bit window accumulators for the per-pixel scan counters. */
+  struct ScanTotals {
+    uint64_t tested = 0;    /**< Face::distance probes. */
+    uint64_t culled = 0;    /**< Probes rejected by the back-face / radius guards. */
+    uint64_t exact = 0;     /**< Probes taking a full evaluation (convex + sector + walk). */
+    uint64_t convex = 0;    /**< Full evaluations on the convex half-plane path. */
+    uint64_t sector = 0;    /**< Full evaluations on the concave sector walk. */
+    uint64_t lut = 0;       /**< Probes served by the class-LUT bilinear fetch. */
+    uint64_t cand = 0;      /**< Pixels passing the scan's d < pixel_width test. */
+    uint64_t backstop = 0;  /**< plot() steps_cache capacity-backstop trips. */
+    void reset() { tested = culled = exact = convex = sector = lut = cand = backstop = 0; }
+  };
+
+  /**
+   * @brief Folds this frame's scan counters into the window totals, rezeroed.
+   * @details The source counters are uint32; a long window of a many-faced
+   *          solid probes enough pixels to wrap one, so they drain per frame.
+   */
+  void drain_scan_metrics() {
+    const hs::ScanMetrics &m = hs::g_scan_metrics;
+    scan_totals_.tested += m.pixels_tested;
+    scan_totals_.culled += m.pixels_culled;
+    scan_totals_.exact += m.exact_hits;
+    scan_totals_.convex += m.convex_hits;
+    scan_totals_.sector += m.sector_hits;
+    scan_totals_.lut += m.lut_hits;
+    scan_totals_.cand += m.shade_candidates;
+    scan_totals_.backstop += m.plot_backstop_hits;
+    hs::g_scan_metrics.reset();
+  }
+
+  /**
+   * @brief Prints and resets this window's scan-probe totals.
+   * @details Window totals, like the counter tree; divide by the header's frame
+   *          count for per-frame figures. walk = exact - convex - sector is the
+   *          residual exact-edge walk. Alpha survivors are the raster_shade
+   *          scope's call count, already in the tree above.
+   */
+  void dump_scan_totals() {
+    const ScanTotals &t = scan_totals_;
+    const uint64_t walk = t.exact - t.convex - t.sector;
+    char b0[21], b1[21], b2[21], b3[21], b4[21], b5[21], b6[21], b7[21];
+    hs::log("scan totals: tested=%s culled=%s lut=%s convex=%s sector=%s "
+            "walk=%s cand=%s backstop=%s",
+            hs::u64_dec(t.tested, b0), hs::u64_dec(t.culled, b1),
+            hs::u64_dec(t.lut, b2), hs::u64_dec(t.convex, b3),
+            hs::u64_dec(t.sector, b4), hs::u64_dec(walk, b5),
+            hs::u64_dec(t.cand, b6), hs::u64_dec(t.backstop, b7));
+    scan_totals_.reset();
+  }
+
+  ScanTotals scan_totals_; /**< This window's drained scan counters. */
+#endif
 
   unsigned long total_frames_ = 0;  /**< Frames since this effect instance began. */
   unsigned long window_frames_ = 0; /**< Frames in the current readout window. */
