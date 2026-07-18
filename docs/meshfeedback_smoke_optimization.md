@@ -265,18 +265,19 @@ visibly softens its warp. Low payoff for the look cost.
 Three levers landed and were re-captured under identical conditions. Measured,
 not estimated:
 
-| scope (ms/frame) | baseline | +L2+L3 | +analytic gamut | net |
-|---|--:|--:|--:|--:|
-| `mf_feedback_flush` | 76.12 | 70.71 | 69.14 | −6.98 |
-| `feedback_composite` | 68.20 | 62.78 | 61.24 | −6.96 |
-| `fb_comp_color` | 43.25 | 39.88 | 37.93 | −5.32 |
-| `gamut_clip` | 21.57 | 21.75 | 19.56 | −2.01 |
-| `fb_comp_sample` | 9.34 | 6.94 | 7.45 | −1.90 |
-| `fb_comp_write` | 1.91 | 1.34 | 1.25 | −0.66 |
-| **render avg** | **82.25** | **76.50** | **74.99** | **−7.26** |
-| **render peak** | **89.91** | **83.94** | **82.30** | **−7.60** |
+| scope (ms/frame) | baseline | +L2+L3 | +analytic | +bracket LUT | net |
+|---|--:|--:|--:|--:|--:|
+| `mf_feedback_flush` | 76.12 | 70.71 | 69.14 | 63.79 | −12.34 |
+| `feedback_composite` | 68.20 | 62.78 | 61.24 | 55.58 | −12.62 |
+| `fb_comp_color` | 43.25 | 39.88 | 37.93 | 31.49 | −11.75 |
+| `gamut_clip` | 21.57 | 21.75 | 19.56 | 13.22 | −8.35 |
+| `fb_comp_sample` | 9.34 | 6.94 | 7.45 | 7.47 | −1.87 |
+| `fb_comp_write` | 1.91 | 1.34 | 1.25 | 1.26 | −0.64 |
+| **render avg** | **82.25** | **76.50** | **74.99** | **70.17** | **−12.08** |
+| **render peak** | **89.91** | **83.94** | **82.30** | **76.54** | **−13.36** |
 
-`gamut_clip` per-call: 1,953 → 1,970 → **1,772 cyc/px**.
+`gamut_clip` per-call: 1,953 → 1,970 → 1,772 → **1,177 cyc/px** (−40% from
+baseline).
 
 | lever | estimated | measured | verdict |
 |---|--:|--:|---|
@@ -287,23 +288,33 @@ not estimated:
 | analytic first-exit gamut clip | −18 | **−2.0** | landed `8e76a2d4` (+3,232 B ITCM) |
 | **subtotal** | −45 | **−7.6** | **peak 82.3 ms — misses** |
 
-### The gamut clip is exhausted; stop attacking it
-
-Three independent approaches, one measurement each:
+### The gamut clip: four approaches, one root cause
 
 | approach | outcome |
 |---|---|
-| cheaper arithmetic per iteration (L1) | 0% — latency-bound, not flop-bound |
-| precomputed 2D boundary table | unshippable — 0.041 chroma deficit at *any* resolution |
-| analytic global first-exit solve | −10% (1,953 → 1,772 cyc/px) |
+| cheaper arithmetic per iteration (L1) | **0%** — latency-bound, not flop-bound |
+| min-only 2D boundary table | **unshippable** — 0.041 chroma deficit at *any* resolution |
+| analytic global first-exit solve | **−10%** (1,953 → 1,772 cyc/px) |
+| **bracket table + in-bracket refinement** | **−40%** (→ 1,177 cyc/px), shipped |
 
-The scope is 19.56 ms and will not go materially below it. Every estimate for it
-(−16.3, −20, −18 ms) was optimistic by roughly an order of magnitude, in three
-different ways. The remaining cost is irreducible per-pixel work on a core with
-no instruction-level parallelism to hide it: ~9 dependent divides, 3–4 sqrts,
-and per-channel cubic turning points, all serial.
+**`linear_rgb_in_gamut`'s ±1e-4 slack is not a rounding detail — it changes the
+topology of the set being searched.** A channel can graze zero, leave tolerance
+and re-enter, so the in-gamut set along a ray is sometimes disconnected. That
+single fact defeated four methods in four different ways: the original bisection
+selected an island arbitrarily (0.038 jumps between adjacent lightnesses); the
+min-only grid truncated the cusp (0.041); Ottosson's Halley refinement converged
+to the far root (+0.042, *out of gamut*); a bisection across the bracket
+converged past the first exit (+0.019, visible banding). The shipped design
+walks the bracket in 4 steps to find the first crossing, then bisects 3× inside
+the straddling step.
 
-The analytic version earns its place on **correctness**, not speed — see below.
+Correctness is structural rather than table-dependent: `c_min` is probed before
+it is trusted, and the search only accepts a scale it has evaluated in gamut. A
+bad table degrades accuracy; it cannot produce an invalid colour.
+
+Accuracy is a knob, not a ceiling — worst deficit by bisection count: 0.0028 /
+**0.0014** / 0.00077 / 0.0004 at k = 2/3/4/5. The shipped k = 3 matches the
+analytic solve's accuracy at a third of the cost.
 
 **Estimating lesson.** The three estimates were off by −16.3, +2.1 and −0.9 ms.
 The two that held were the ones that removed a *structural* cost — repeated
