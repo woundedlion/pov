@@ -153,6 +153,7 @@ inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
  *          tangent frame computes it once and passes it to every
  *          shade_blinn_phong call.
  */
+HS_O3_BEGIN
 inline Vector blinn_phong_half(const Vector &light_dir, const Vector &view_dir,
                                const Vector &tangent) {
   Vector light = light_dir + tangent * 0.3f;
@@ -201,6 +202,7 @@ inline float shade_blinn_phong(const Vector &normal_w, const Vector &view_dir,
 
   return 0.05f + diffuse * diffuse_w + spec * specular_w + fresnel * fresnel_w;
 }
+HS_O3_END
 
 /**
  * @brief A list of fragments, equivalent to 'Points' in the JS context but with
