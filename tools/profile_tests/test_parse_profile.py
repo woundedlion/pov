@@ -269,3 +269,62 @@ class ScanMetricsLines(unittest.TestCase):
 
     def test_metrics_command_succeeds_on_an_instrumented_capture(self):
         self.assertEqual(pp.cmd_metrics(self._parse()), 0)
+
+
+class ProbeBreakdownLines(unittest.TestCase):
+    """The HS_PROBE_BREAKDOWN 'probe cycles'/'probe counts' lines."""
+
+    # 100 probes; tick = 100 read pairs at 10 cyc => read = 5 cyc/read.
+    CYC = ("probe cycles: point=1500 project=3000 lut=0 convex=500 "
+           "sector=2000 exact=4000 pack=1200 alpha=400 tick=1000")
+    CNT = ("probe counts: probe=100 cull_cos=4 cull_r=6 lut=0 convex=20 "
+           "sector=30 exact=40 alpha=50")
+
+    def _log(self, path, cyc=CYC, cnt=CNT):
+        lines = [
+            "=== profile Fx [288x144] frames 1-4 window=1000000 us ===",
+            "frame wall us: min=0 avg=0 max=0 sum=0 (4 frames)",
+            "frame render us: avg=0 max=0",
+            "frame                  1 us (100%)  4 calls  1 cyc",
+        ]
+        lines += [x for x in (cyc, cnt) if x]
+        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return path
+
+    def _parse(self, **kw):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            windows, _ = pp.parse(self._log(Path(d) / "cap.log", **kw))
+        return windows
+
+    def test_both_lines_merge_into_one_dict(self):
+        w = self._parse()[0]
+        self.assertEqual(w.probe["exact"], 4000)
+        self.assertEqual(w.probe["n_exact"], 40)
+        self.assertEqual(w.probe["tick"], 1000)
+
+    def test_absent_lines_leave_probe_none(self):
+        self.assertIsNone(self._parse(cyc=None, cnt=None)[0].probe)
+
+    def test_probe_lines_are_not_read_as_counters(self):
+        self.assertEqual(set(self._parse()[0].counters), {"frame"})
+
+    def test_command_reports_net_of_the_measured_read_cost(self):
+        import contextlib
+        import io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(pp.cmd_probe(self._parse()), 0)
+        out = buf.getvalue()
+        # tick 1000 over 2*100 reads = 5.0 cyc per counter read.
+        self.assertIn("counter read=5.0 cyc", out)
+        # exact: 4000/40 = 100.0 cyc/event, 95.0 net, 40/100 probes => 38.0.
+        row = next(l for l in out.splitlines() if l.startswith("exact"))
+        self.assertEqual(row.split()[1:5], ["40", "100.0", "95.0", "38.0"])
+
+    def test_command_exits_2_without_the_flag(self):
+        import contextlib
+        import io
+        with contextlib.redirect_stderr(io.StringIO()) as err:
+            self.assertEqual(pp.cmd_probe(self._parse(cyc=None, cnt=None)), 2)
+        self.assertIn("HS_PROBE_BREAKDOWN", err.getvalue())

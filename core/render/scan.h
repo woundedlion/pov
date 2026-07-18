@@ -1170,11 +1170,14 @@ inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
         if (!effective_debug && d >= pixel_width)
           continue;
         HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
+        HS_PROBE_COUNT(n_alpha);
+        HS_PROBE_MARK(hs_ta);
         float alpha = 1.0f;
         if (d > -pixel_width) {
           float t_aa = 0.5f - d / (2.0f * pixel_width);
           alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
         }
+        HS_PROBE_SPAN(alpha, hs_ta);
         if (!effective_debug && alpha <= 0.001f)
           continue;
         HS_PROFILE(raster_shade);

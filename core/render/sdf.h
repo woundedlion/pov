@@ -3173,13 +3173,19 @@ struct Face {
   template <bool ComputeUVs = true>
   HS_O3_FN void distance(const Vector &p, DistanceResult &res) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
+    HS_PROBE_TICK();
+    HS_PROBE_COUNT(n_probe);
+    HS_PROBE_MARK(hs_t);
 
     float cos_angle = dot(p, center);
     if (cos_angle <= 0.01f) {
       HS_SCAN_METRIC(hs::g_scan_metrics.pixels_culled++);
+      HS_PROBE_SPAN(point, hs_t);
+      HS_PROBE_COUNT(n_cull_cos);
       res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
       return;
     }
+    HS_PROBE_SPAN(point, hs_t);
 
     float inv_cos = 1.0f / cos_angle;
     float px = dot(p, basis_u) * inv_cos;
@@ -3188,9 +3194,12 @@ struct Face {
     float p_r2 = px * px + py * py;
     if (p_r2 > max_dist_sq) {
       HS_SCAN_METRIC(hs::g_scan_metrics.pixels_culled++);
+      HS_PROBE_SPAN(project, hs_t);
+      HS_PROBE_COUNT(n_cull_r);
       res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
       return;
     }
+    HS_PROBE_SPAN(project, hs_t);
 
     float plane_dist;
     if (lut_data) {
@@ -3219,20 +3228,35 @@ struct Face {
         float d0 = q00 + (q10 - q00) * tx;
         float d1 = q01 + (q11 - q01) * tx;
         plane_dist = lut_dequant * (d0 + (d1 - d0) * ty);
+        HS_PROBE_SPAN(edge_lut, hs_t);
+        HS_PROBE_COUNT(n_lut);
       } else {
         HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
-        plane_dist =
-            convex ? plane_dist_convex(px, py) : plane_dist_exact(px, py);
+        if (convex) {
+          plane_dist = plane_dist_convex(px, py);
+          HS_PROBE_SPAN(edge_convex, hs_t);
+          HS_PROBE_COUNT(n_convex);
+        } else {
+          plane_dist = plane_dist_exact(px, py);
+          HS_PROBE_SPAN(edge_exact, hs_t);
+          HS_PROBE_COUNT(n_exact);
+        }
       }
     } else {
       HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
       if (convex) {
         plane_dist = plane_dist_convex(px, py);
+        HS_PROBE_SPAN(edge_convex, hs_t);
+        HS_PROBE_COUNT(n_convex);
       } else if (sector_ok) {
         HS_SCAN_METRIC(hs::g_scan_metrics.sector_hits++);
         plane_dist = plane_dist_sector(px, py);
+        HS_PROBE_SPAN(edge_sector, hs_t);
+        HS_PROBE_COUNT(n_sector);
       } else {
         plane_dist = plane_dist_exact(px, py);
+        HS_PROBE_SPAN(edge_exact, hs_t);
+        HS_PROBE_COUNT(n_exact);
       }
     }
 
@@ -3240,6 +3264,7 @@ struct Face {
     // within size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
     float raw = linear_dist ? plane_dist : fast_atan2(plane_dist, 1.0f);
     res = DistanceResult(raw - thickness, 0.0f, raw, 0.0f, size);
+    HS_PROBE_SPAN(pack, hs_t);
   }
 };
 
