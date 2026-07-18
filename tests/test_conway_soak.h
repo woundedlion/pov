@@ -71,6 +71,14 @@ struct HankinWalkProbe {
     return fx.node_face_palette_;
   }
   /**
+   * @brief Per star face, the palette of the rosettes hosted inside it — the
+   * ramp it cross-fades onto as it closes at the sweep's midpoint.
+   */
+  template <int W, int H>
+  static const uint8_t *star_rim_palette(const HankinSolids<W, H> &fx) {
+    return fx.star_rim_palette_;
+  }
+  /**
    * @brief Live class-slot -> palette assignment the hankin cycle draws with.
    */
   template <int W, int H>
