@@ -1,7 +1,10 @@
 #!/bin/bash
 # profile_sweep.sh <group: g1_ship..g4_ship, g1_o3..g4_o3>
-# Full-roster profiling sweep, one group per invocation (see the
+# Phantasm-roster profiling sweep, one group per invocation (see the
 # teensy-profile skill for the per-effect duration/knob rationale).
+# Covers the 22 effects in the 288x144 Phantasm playlist. Dynamo and Thrusters
+# are Holosphere 96x20-only (HS_PHANTASM_EFFECT_LIST excludes them), so they are
+# not profiled here.
 # Sequential profile_one.sh calls per group; stops on first failure.
 # A capture must fit inside one epoch: crossing a boundary re-inits the effect
 # mid-run, and an init that overruns the K-revolution commit window traps the
@@ -14,7 +17,6 @@ g1_ship)
   bash "$P" BZReactionDiffusion profile 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
   bash "$P" ChaoticStrings profile 70 32
   bash "$P" DisplacementField profile 70 32
-  bash "$P" Dynamo profile 70 32
   bash "$P" GnomonicStars profile 70 32
   bash "$P" GSReactionDiffusion profile 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
   ;;
@@ -25,7 +27,6 @@ g2_ship)
   bash "$P" Raymarch profile 70 32
   bash "$P" RingShower profile 70 32
   bash "$P" RingSpin profile 70 32
-  bash "$P" Thrusters profile 70 32
   bash "$P" Voronoi profile 70 32
   ;;
 g3_ship)
@@ -45,7 +46,6 @@ g1_o3)
   bash "$P" BZReactionDiffusion profile_o3 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
   bash "$P" ChaoticStrings profile_o3 70 32
   bash "$P" DisplacementField profile_o3 70 32
-  bash "$P" Dynamo profile_o3 70 32
   bash "$P" GnomonicStars profile_o3 70 32
   bash "$P" GSReactionDiffusion profile_o3 130 32 "-D HS_PROFILE_EPOCH_REVS=1200"
   ;;
@@ -56,7 +56,6 @@ g2_o3)
   bash "$P" Raymarch profile_o3 70 32
   bash "$P" RingShower profile_o3 70 32
   bash "$P" RingSpin profile_o3 70 32
-  bash "$P" Thrusters profile_o3 70 32
   bash "$P" Voronoi profile_o3 70 32
   ;;
 g3_o3)

@@ -123,3 +123,81 @@ class RenderIsWall(unittest.TestCase):
         # Wall quantizes to whole windows; 63 ms is one window plus jitter.
         w = self._w([63_000] * 8, wait_scope=False)
         self.assertEqual(pp.spilled_frames(w), 0)
+
+
+def _synth_log(path, shapes, per_window=4):
+    """A capture where each shape advances mid-window.
+
+    `shapes` is [(name, F, [render_us, ...])]. The marker is emitted before the
+    shape's first frame line, exactly as the device logs it: spawn_shape runs
+    during a frame, so its serial line precedes that frame's row and the
+    enclosing window's dump -- which is what made the window-level attribution
+    credit the outgoing shape's frames to the incoming one.
+    """
+    lines = ["profile harness: effect=Fx segments=4 rpm=480 f_cpu=600000000"]
+    rows, n = [], 0
+    for name, F, renders in shapes:
+        lines.append(f"Spawning Shape: {name} (V=1, E=1, F={F}, I=1)")
+        for r in renders:
+            n += 1
+            lines.append(f"f {n} w={r + 5_000} r={r}")
+            rows.append(r)
+            if len(rows) == per_window:
+                s, e = n - per_window + 1, n
+                lines.append(f"=== profile Fx [288x144] frames {s}-{e} "
+                             f"window=1000000 us ===")
+                lines.append(f"frame wall us: min=0 avg=0 max=0 sum=0 "
+                             f"({per_window} frames)")
+                lines.append(f"frame render us: avg={sum(rows)//len(rows)} "
+                             f"max={max(rows)}")
+                lines.append(f"frame                  1 us (100%)  "
+                             f"{per_window} calls  1 cyc")
+                rows = []
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
+
+
+class StraddleWindowAttribution(unittest.TestCase):
+    """A window spanning a shape advance holds frames of BOTH shapes.
+
+    Guards the bug where a cheap shape following an expensive one inherited the
+    expensive one's peak (two byte-identical 182-face solids reported 87.5 and
+    98.9 ms peaks -- their predecessors' -- against a true 51.2/52.4 ms).
+    """
+
+    def _buckets(self, shapes):
+        import tempfile
+        with tempfile.TemporaryDirectory() as d:
+            p = _synth_log(Path(d) / "cap.log", shapes)
+            windows, _ = pp.parse(p)
+        out = {}
+        for w in windows:
+            for f in w.frame_rows:
+                out.setdefault(f[3]["name"], []).append(f[2])
+        return out
+
+    def test_cheap_shape_after_expensive_keeps_its_own_peak(self):
+        # 6 frames each, windows of 4 => the window at frames 5-8 straddles.
+        got = self._buckets([("expensive", 1082, [100_000] * 6),
+                             ("cheap", 182, [50_000] * 6)])
+        self.assertEqual(max(got["cheap"]), 50_000)
+        self.assertEqual(max(got["expensive"]), 100_000)
+
+    def test_every_frame_is_attributed_exactly_once(self):
+        # 6/6/4 frames over windows of 4: the window at frames 5-8 straddles
+        # a->b. Total is a whole number of windows, as a real capture is (a
+        # trailing partial window never dumps, so its rows never parse).
+        got = self._buckets([("a", 74, [10_000] * 6),
+                             ("b", 182, [20_000] * 6),
+                             ("c", 542, [30_000] * 4)])
+        self.assertEqual(sum(len(v) for v in got.values()), 16)
+        self.assertEqual({k: len(v) for k, v in got.items()},
+                         {"a": 6, "b": 6, "c": 4})
+
+    def test_first_frame_of_a_shape_belongs_to_that_shape(self):
+        # The advance frame pays the new shape's rebuild and draws nothing;
+        # it is the incoming shape's cost, not the outgoing one's.
+        got = self._buckets([("first", 74, [10_000] * 4),
+                             ("second", 182, [5_000] + [40_000] * 5)])
+        self.assertIn(5_000, got["second"])
+        self.assertNotIn(5_000, got["first"])

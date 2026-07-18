@@ -69,7 +69,11 @@ class Window:
         self.frames = f_end - f_start + 1
         self.wall = None  # (min, avg, max, sum)
         self.render = None  # (avg, max) per-frame render us (wall - sync wait)
-        self.frame_rows = []  # per-frame (n, wall_us, render_us), when logged
+        # per-frame (n, wall_us, render_us, owner_marker), when logged. The
+        # owner is stamped per FRAME, not per window: a window straddling a
+        # preset advance holds frames of both, so only the frame carries a
+        # truthful attribution.
+        self.frame_rows = []
         self.counters = {}  # label -> dict(us, pct, calls, cyc, depth)
         self.marker = None  # active preset marker at this window
 
@@ -129,10 +133,20 @@ class Window:
 
 
 def parse(path):
-    """Return (windows, effect_name). Markers are attached to trailing windows."""
+    """Return (windows, effect_name). Markers are attached to trailing windows.
+
+    A marker logged mid-window (the effect advanced during a frame, so frames of
+    the OUTGOING preset already streamed into the open window) takes effect at
+    the next window boundary. Attaching it to the window about to close would
+    credit the outgoing preset's frames -- up to 15 of the 16 -- to the incoming
+    one, which reads as a spurious peak on whichever preset follows an expensive
+    one. A marker logged between windows applies immediately.
+    """
     windows = []
     cur = None
-    pending_marker = None
+    active_marker = None    # in force for the window being dumped
+    deferred_marker = None  # seen mid-window; applies from the next boundary
+    frame_owner = None      # preset owning the frames streaming right now
     effect = None
     pending_frames = []
     with open(path, encoding="utf-8", errors="replace") as fh:
@@ -140,7 +154,13 @@ def parse(path):
             line = line.rstrip("\n")
             m = FRAME_RE.match(line)
             if m:
-                pending_frames.append(tuple(int(m.group(i)) for i in (1, 2, 3)))
+                # A marker logged since the last frame line names the preset the
+                # advance switched TO; this frame is its first (on an effect that
+                # rebuilds on advance, the one that pays the rebuild).
+                if deferred_marker is not None:
+                    frame_owner = deferred_marker
+                pending_frames.append(
+                    tuple(int(m.group(i)) for i in (1, 2, 3)) + (frame_owner,))
                 continue
             m = HEADER_RE.search(line)
             if m:
@@ -151,9 +171,11 @@ def parse(path):
                 # reconstructed (epoch); the fresh instance is back on its
                 # first preset, so the old marker no longer applies.
                 if cur and nw.f_start <= cur.f_start:
-                    pending_marker = None
+                    active_marker = deferred_marker = frame_owner = None
                 cur = nw
-                cur.marker = pending_marker
+                cur.marker = active_marker
+                if deferred_marker is not None:
+                    active_marker, deferred_marker = deferred_marker, None
                 # The per-frame lines stream before their window's dump.
                 cur.frame_rows = [f for f in pending_frames
                                   if nw.f_start <= f[0] <= nw.f_end]
@@ -180,7 +202,11 @@ def parse(path):
                 mm = rgx.match(line.strip())
                 if not mm:
                     continue
-                pending_marker = _marker(key, mm)
+                mk = _marker(key, mm)
+                deferred_marker = mk
+                if not pending_frames:
+                    # Between windows: no outgoing frames to protect.
+                    active_marker = mk
                 break
     return windows, effect
 
@@ -319,41 +345,65 @@ def cmd_presets(windows, scope, gate):
 def cmd_buckets(windows):
     """Per-preset cadence buckets: how many presets lock / flap / slip a tier.
 
-    A preset's window set is every window its marker owns, so it carries the
-    transition that follows it (the crossfade IS part of what that preset
-    costs on screen).
+    A preset owns the FRAMES its marker was in force for, not whole windows: the
+    window straddling an advance holds frames of both the outgoing and incoming
+    preset, so crediting it to either invents a peak the preset never rendered
+    (whichever preset neighbours an expensive one inherits its cost). Per-frame
+    attribution needs the per-frame telemetry; without it this falls back to the
+    window-level split, which carries that error.
 
-    Colour is judged per WINDOW, not over the preset's whole pass: no spill
-    anywhere locks 16 fps; a window that spills FLAP_FRACTION or more of its
-    frames held a tier down for that stretch (~1-2 s - visible), so the preset
-    is red; anything less is jitter grazing the boundary, so yellow. Judging
-    the pass fraction instead would call a solid 25-frame overrun in a 2,560-
-    frame pass a 1% flap.
+    Colour is judged per WINDOW-SIZED RUN of the preset's own frames, not over
+    its whole pass: no spill anywhere locks 16 fps; a run that spills
+    FLAP_FRACTION or more of its frames held a tier down for that stretch (~1-2
+    s - visible), so the preset is red; anything less is jitter grazing the
+    boundary, so yellow. Judging the pass fraction instead would call a solid
+    25-frame overrun in a 2,560-frame pass a 1% flap.
     """
     FLAP_FRACTION = 0.25
     idx_key = next((w.marker["key"] for w in windows
                     if w.marker and "idx" in w.marker), None)
-    groups = {}
-    for w in windows:
-        if w.marker is None:
-            key = (idx_key, "0") if idx_key else ("start", "0")
-        else:
-            key = (w.marker["key"], w.marker.get("name"))
-        groups.setdefault(key, []).append(w)
+
+    def group_key(mk):
+        if mk is None:
+            return (idx_key, "0") if idx_key else ("start", "0")
+        return (mk["key"], mk.get("name"))
 
     exact_run = all(w.render and not w.render_is_wall() for w in windows)
+    have_frames = exact_run and all(w.frame_rows for w in windows)
+
+    groups = {}
+    if have_frames:
+        for w in windows:
+            for f in w.frame_rows:
+                groups.setdefault(group_key(f[3]), []).append(f)
+    else:
+        for w in windows:
+            groups.setdefault(group_key(w.marker), []).append(w)
+
     rows = []
-    for key, ws in groups.items():
-        peaks = [p for p, _ in (w.peak_render_ms() for w in ws)
-                 if p is not None]
-        if not peaks:
-            continue
-        spill = sum(spilled_frames(w) for w in ws)
-        frames = sum(w.frames for w in ws)
-        worst_frac = max(spilled_frames(w) / w.frames for w in ws)
+    for key, items in groups.items():
+        if have_frames:
+            peak = max(f[2] for f in items) / 1000.0
+            spill = sum(1 for f in items if f[2] > DISPLAY_WINDOW_US)
+            frames = len(items)
+            # Chunk the preset's own frames into window-sized runs for the flap
+            # rule, so a brief overrun cannot be diluted by a long clean pass.
+            worst_frac = max(
+                sum(1 for f in items[i:i + 16] if f[2] > DISPLAY_WINDOW_US)
+                / len(items[i:i + 16])
+                for i in range(0, len(items), 16))
+        else:
+            peaks = [p for p, _ in (w.peak_render_ms() for w in items)
+                     if p is not None]
+            if not peaks:
+                continue
+            peak = max(peaks)
+            spill = sum(spilled_frames(w) for w in items)
+            frames = sum(w.frames for w in items)
+            worst_frac = max(spilled_frames(w) / w.frames for w in items)
         colour = "green" if spill == 0 else (
             "red" if worst_frac >= FLAP_FRACTION else "yellow")
-        rows.append((key[1], colour, max(peaks), spill, frames))
+        rows.append((key[1], colour, peak, spill, frames))
 
     mark = "" if exact_run else "~"
     print(f"# preset  cadence  peak_render_ms{mark}  spilled/frames")
