@@ -1312,6 +1312,10 @@ public:
     const int ds = style_->downsample;
     HS_CHECK(ds > 0 && W % ds == 0 && H % ds == 0,
              "feedback downsample %d must be > 0 and divide %dx%d", ds, W, H);
+    // The hoisted base pointers below are indexed with the template-constant W,
+    // which only matches the canvas accessors when the strides agree.
+    HS_CHECK(cv.width() == W,
+             "feedback canvas width %d must equal template W %d", cv.width(), W);
     const int hw = W / ds;
     const int hh = H / ds;
 
@@ -1443,8 +1447,13 @@ public:
     // the per-pixel warp collapses to one fma in fx.
     constexpr float WQ = static_cast<float>(W) * Q;
     constexpr float HALF_WQ = WQ * 0.5f;
+    // Hoisted once: the canvas accessors each do a relaxed atomic load plus a
+    // runtime-width multiply, which no compiler can lift out of the pixel loop.
+    const ::Pixel *prev = cv.prev_data();
+    ::Pixel *cur = cv.data();
     auto composite = [&](auto &&color_px) {
       for (int y = y_lo; y < y_hi; ++y) {
+        const int row = y * W;
         int cy0 = y / ds;
         int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;
         // bilerping uninitialized scratch is silent corruption, not a crash
@@ -1484,7 +1493,7 @@ public:
             float sr, sg, sb;
             {
               HS_PROFILE_DEEP(fb_comp_sample);
-              sample_bilinear_prev(cv, x + ddx, y + ddy, sr, sg, sb);
+              sample_bilinear_prev(prev, x + ddx, y + ddy, sr, sg, sb);
             }
             ::Pixel p(0, 0, 0);
             if (!(black_skips_color && sr < NEAR_BLACK && sg < NEAR_BLACK &&
@@ -1495,7 +1504,8 @@ public:
 
             // write black too, to overwrite the stale double-buffer frame
             HS_PROFILE_DEEP(fb_comp_write);
-            cv(x, y) = opaque ? p : blend(cv(x, y), p);
+            ::Pixel &dst = cur[row + x];
+            dst = opaque ? p : blend(dst, p);
           }
 
           if (++sub == ds) { sub = 0; ++cx0; }
@@ -1588,7 +1598,7 @@ private:
 
   /**
    * @brief Bilinearly samples the Canvas front buffer (previous frame).
-   * @param cv Canvas whose previous-frame buffer is sampled.
+   * @param prev Base of the previous-frame buffer, row-major with stride W.
    * @param bx Fractional column in [-W, 2W) (producer contract); wrapped across
    *   the longitude seam by the family's single-step fast_wrap.
    * @param by Fractional row; out-of-range rows contribute black.
@@ -1597,7 +1607,7 @@ private:
    * @param b Out: interpolated blue.
    */
   HS_O3_FN
-  void sample_bilinear_prev(const Canvas &cv, float bx, float by, float &r,
+  void sample_bilinear_prev(const ::Pixel *prev, float bx, float by, float &r,
                             float &g, float &b) const {
     float fy0 = std::floor(by);
     int y0 = static_cast<int>(fy0);
@@ -1614,10 +1624,10 @@ private:
     x0 = fast_wrap(x0, W);
     int x1 = fast_wrap(x0 + 1, W);
 
-    ::Pixel p00 = (y0 >= 0 && y0 < H) ? cv.prev(x0, y0) : ::Pixel(0, 0, 0);
-    ::Pixel p10 = (y0 >= 0 && y0 < H) ? cv.prev(x1, y0) : ::Pixel(0, 0, 0);
-    ::Pixel p01 = (y1 >= 0 && y1 < H) ? cv.prev(x0, y1) : ::Pixel(0, 0, 0);
-    ::Pixel p11 = (y1 >= 0 && y1 < H) ? cv.prev(x1, y1) : ::Pixel(0, 0, 0);
+    ::Pixel p00 = (y0 >= 0 && y0 < H) ? prev[y0 * W + x0] : ::Pixel(0, 0, 0);
+    ::Pixel p10 = (y0 >= 0 && y0 < H) ? prev[y0 * W + x1] : ::Pixel(0, 0, 0);
+    ::Pixel p01 = (y1 >= 0 && y1 < H) ? prev[y1 * W + x0] : ::Pixel(0, 0, 0);
+    ::Pixel p11 = (y1 >= 0 && y1 < H) ? prev[y1 * W + x1] : ::Pixel(0, 0, 0);
 
     float w00 = (1.0f - fx) * (1.0f - fy);
     float w10 = fx * (1.0f - fy);

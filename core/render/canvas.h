@@ -698,6 +698,29 @@ public:
   }
 
   /**
+   * @brief Raw base pointer to the previous-frame buffer (row-major,
+   *        `width()` stride): `prev_data()[y * width() + x]` equals
+   *        `prev(x, y)`.
+   * @return Const base pointer, valid until this Canvas is destroyed.
+   * @details Const because `prev()` returns by value specifically so a
+   *          reference cannot be used to write into a buffer about to be
+   *          recycled; the const pointer preserves that guarantee.
+   */
+  [[nodiscard]] inline const Pixel *prev_data() const {
+    return effect_.bufs_[effect_.prev_.load(std::memory_order_relaxed)];
+  }
+
+  /**
+   * @brief Raw base pointer to the current drawing buffer (row-major,
+   *        `width()` stride): `data()[y * width() + x]` equals
+   *        `(*this)(x, y)`.
+   * @return Mutable base pointer, valid until this Canvas is destroyed.
+   */
+  [[nodiscard]] inline Pixel *data() {
+    return effect_.bufs_[effect_.cur_.load(std::memory_order_relaxed)];
+  }
+
+  /**
    * @brief Accesses a pixel in the current drawing buffer by 1D index.
    * @param xy The 1D index.
    * @return Reference to the Pixel.
