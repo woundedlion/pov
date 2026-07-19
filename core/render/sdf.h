@@ -2289,7 +2289,7 @@ struct Face {
     }
 
     { HS_PROFILE(face_thetas);
-      compute_thetas(scratch, vertices, indices);
+      compute_thetas(scratch);
     }
     { HS_PROFILE(face_azimuth);
       compute_azimuth_intervals(scratch);
@@ -2446,9 +2446,14 @@ struct Face {
   setup_frame_and_polygon(std::span<const Vector> vertices,
                           std::span<const uint16_t> indices,
                           FaceScratchBuffer &scratch) {
+    // Single gather over the shared pool: every later pass reads the local
+    // copy instead of chasing indices back into `vertices`.
     center = Vector(0, 0, 0);
-    for (int i = 0; i < count; ++i)
-      center = center + vertices[indices[i]];
+    for (int i = 0; i < count; ++i) {
+      const Vector &v = vertices[indices[i]];
+      scratch.verts_3d[i] = v;
+      center = center + v;
+    }
     center.normalize();
 
     basis_v = center;
@@ -2458,7 +2463,7 @@ struct Face {
 
     float max_r2 = 0.0f;
     for (int i = 0; i < count; ++i) {
-      const Vector &v = vertices[indices[i]];
+      const Vector &v = scratch.verts_3d[i];
       // Gnomonic projection divides by d = cos(angle from face center),
       // singular near the center's antipode; clamp d away from zero,
       // sign-preserving.
@@ -2480,8 +2485,6 @@ struct Face {
     scratch.poly_2d[count] = scratch.poly_2d[0];
     poly_2d = std::span<Vector>(scratch.poly_2d.data(), count + 1);
 
-    for (int i = 0; i < count; ++i)
-      scratch.verts_3d[i] = vertices[indices[i]];
     scratch.verts_3d[count] = scratch.verts_3d[0];
     verts_3d = std::span<Vector>(scratch.verts_3d.data(), count + 1);
 
@@ -2752,15 +2755,12 @@ struct Face {
 
   /**
    * @brief Fills the scratch vertex azimuths the interval pass consumes.
-   * @param scratch Scratch storage receiving thetas.
-   * @param vertices Shared vertex pool.
-   * @param indices Indices selecting this face's vertices.
+   * @param scratch Scratch storage holding verts_3d and receiving thetas.
    */
   __attribute__((always_inline)) void
-  compute_thetas(FaceScratchBuffer &scratch, std::span<const Vector> vertices,
-                 std::span<const uint16_t> indices) const {
+  compute_thetas(FaceScratchBuffer &scratch) const {
     for (int i = 0; i < count; ++i) {
-      const Vector &v = vertices[indices[i]];
+      const Vector &v = scratch.verts_3d[i];
       float theta = fast_atan2(v.z, v.x);
       if (theta < 0)
         theta += 2 * PI_F;
