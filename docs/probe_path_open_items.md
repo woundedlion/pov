@@ -8,23 +8,56 @@ context. Read this whole brief before touching anything.
 
 ## Status
 
-**Task A — open.** The walks were re-measured on device after the three earlier
-fixes: buckets 469.6 cyc/probe, exact walk 387.4 cyc/event = **64.6 cyc/edge**,
-so the gap to the ~20-25 target is real. Two leads are now closed:
+**Task A — the stall pass is done. IslamicStars is 23 green / 0 yellow / 1 red**
+(was 21/1/2), spilled frames 161 -> 64. Worst solid's `is_mesh_scan` **69.02 ->
+62.71 ms (-9.1%)**, verified bit-exact at every step.
+
+| scope | base | now |
+|---|--:|--:|
+| `is_mesh_scan` | 69.02 | **62.71** |
+| `scan_mesh_raster` (probe loop) | 54.36 | 49.57 |
+| `scan_face_setup` (ctor) | 14.80 | 13.19 |
+
+What produced it, in order of yield: the sector search rebuilt on integer angle
+keys plus a winding fold (-3.42 ms), the exact-walk parity fold (-1.68 ms), and
+the ctor work (-1.61 ms) — `std::sort` had been staying **out of line** in
+`compute_azimuth_intervals`, two libstdc++ calls per face to sort 3-40 floats.
+`SDF::Face::Face` went 1718 -> ~1300 instructions, 96 -> 66 `vmrs`. There are now
+**zero runtime `% count` sites in `sdf.h`**.
+
+**Static counts are a poor predictor here.** A -21.8% instruction / -31% `vmrs`
+cut to the ctor bought -0.43 ms, while removing two FP ops per edge from the
+probe loop bought -1.68 ms: the ctor runs 1082x/frame, the probe loop ~43,500x.
+Weight any static triage by trip count before spending on it. Run-to-run noise on
+`scan_mesh_raster` is ~0.3 ms (0.6%) — do not trust a smaller single-capture delta.
+
+Closed leads:
 
 - **Scratch-buffer placement (was lead 1): DEAD.** `global_arena_block` links at
   `0x20000ce0`, size `0x4a800`, inside DTCM (`0x20000000`); OCRAM starts at
   `0x20200000`. `EdgePacked` loads are already zero-wait.
-- **Sector-walk modulo: FIXED.** `packed_edges[(s + k + count) % count]` lowered
-  to `sdiv` + `mls` feeding the address the five edge loads depend on. Replaced
-  by one wrap correction; sector stage 434.5 -> 415.0 cyc/event (-4.5%), every
-  other stage flat, worst solid's scan 70.37 -> 69.84 ms.
+- **Linear scan instead of the sector binary search: DEAD, and not for the
+  expected reason.** It is not bit-exact — K2 faces are only *weakly* monotone,
+  and counting keys <= q does not reproduce a binary search on a non-sorted
+  array: 4,277 sector-index and 4,252 float divergences in 22.4 M probes. It also
+  costs ~2.1x the dynamic work at the mean face count of 16.77.
+- **`inv_sector_span` reciprocal multiply: characterized, NOT taken.** Worth ~3%
+  of the sector stage, but over 112 M probes it produces 14 index divergences and
+  **1 divergent pixel**. Out under a bit-exact bar; recorded because it nearly
+  survives — the +/-kmax neighbour walk absorbs 13 of the 14 flips.
+- **The sign-bit parity trick is safe for STRICT comparisons.** The warning below
+  applies to the non-strict `ylo <= py` form, where equality must yield true and a
+  clear sign bit yields false. The `-0.0`/`+0.0` hazard is closed properly by the
+  order-preserving key transform now in `angle_key` (`(u & 0x80000000) ? (0u - u)
+  : (u + 0x80000000)`), which maps both zeros to the same key and survives device
+  FTZ on negative subnormals.
 
-Still open: the exact walk's parity test carries **3 `vmrs` per edge** (`ylo <=
-py`, `py < yhi`, `px < isx`), up to 15 of its 64.6 cycles. A branchless form
-still needs APSR flags — `vsel` reads them too — and the arithmetic dodge is the
-sign-bit trick ruled out below. `SDF::Face::Face` (96 `vmrs`, 17 `vdiv`, 14
-`vsqrt`, runs 1082x/frame) is unexamined and is the largest unclaimed target.
+**Next lever: the remaining red is a TRANSITION cost, not steady state.** The
+worst solid holds 62.71 ms against a 62.5 ms window — 0.3% over — but its bucket
+peak is 76.1 ms, and buckets charge each preset the transition that follows it,
+where two meshes draw in one frame. Chasing steady-state probe cost further has
+little left to give; the drain-transition pattern that fixed MeshFeedback's
+180 ms gamut storm is the shape of the remaining fix.
 
 **Task B — closed, measured, not fixed.** The `1/sin(phi)` under-coverage is
 real: 805.5 missed fringe px/frame registry-mean, 1,223.9 on the worst solid,
