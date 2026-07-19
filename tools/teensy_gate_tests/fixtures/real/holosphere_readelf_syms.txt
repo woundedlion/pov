@@ -154,7 +154,7 @@ Symbol table '.symtab' contains 1220 entries:
    150: 00000410     0 NOTYPE  LOCAL  DEFAULT    4 $d
    151: 00000414     0 NOTYPE  LOCAL  DEFAULT    4 $t
    152: 0000041c     0 NOTYPE  LOCAL  DEFAULT    4 $t
-   153: 200024e0 0x53c00 OBJECT  LOCAL  DEFAULT    7 _ZL18global_arena_block
+   153: 200024e0 0x4a800 OBJECT  LOCAL  DEFAULT    7 _ZL18global_arena_block
    154: 00000424     0 NOTYPE  LOCAL  DEFAULT    4 $t
    155: 00000458     0 NOTYPE  LOCAL  DEFAULT    4 $d
    156: 00000470     0 NOTYPE  LOCAL  DEFAULT    4 $t

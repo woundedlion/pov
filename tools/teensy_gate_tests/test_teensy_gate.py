@@ -130,14 +130,14 @@ class TestParsers(unittest.TestCase):
         # must NOT be mistaken for the separator.
         text = (
             "teensy_size: FLASH: code:62788, data:13684, headers:8460 free for files: 1979136\n"
-            "teensy_size: RAM1: variables:343040, code:62240, padding:30496 free for local variables: 88512\n"
+            "teensy_size: RAM1: variables:305152, code:62240, padding:30496 free for local variables: 88512\n"
             "teensy_size: RAM2: variables:497920 free for malloc/new: 26368\n"
         )
         sizes = tg.parse_teensy_size(text)
         self.assertEqual(set(sizes), {"flash", "ram1", "ram2"})
         self.assertEqual(sizes["flash"]["used"], 62788 + 13684 + 8460)
         self.assertEqual(sizes["flash"]["free"], 1979136)
-        self.assertEqual(sizes["ram1"]["used"], 343040 + 62240 + 30496)
+        self.assertEqual(sizes["ram1"]["used"], 305152 + 62240 + 30496)
         self.assertEqual(sizes["ram1"]["free"], 88512)
         self.assertEqual(sizes["ram2"]["used"], 497920)
         self.assertEqual(sizes["ram2"]["free"], 26368)
@@ -149,7 +149,7 @@ class TestParsers(unittest.TestCase):
         self.assertEqual(syms["_ZL18global_arena_block"].bind, "LOCAL")
         self.assertEqual(syms["_ZN6Effect8buffer_aE"].value, 0x20200000)
         self.assertEqual(syms["_ZN6Effect8buffer_aE"].region, "OCRAM")
-        self.assertEqual(syms["_ZL18global_arena_block"].size, 343040)
+        self.assertEqual(syms["_ZL18global_arena_block"].size, 305152)
 
     def test_parse_size_a_bucketing(self):
         totals = tg.region_totals_from_size_a(_read("good_size_a.txt"))
@@ -455,7 +455,7 @@ class TestRealCapture(unittest.TestCase):
     """Parse REAL arm-gcc 11.3.1 output from a fitting Holosphere build (§9.1).
 
     These exercise the toolchain quirks the synthetic fixtures can't: teensy_size
-    on stderr, readelf printing large sizes in HEX (0x53c00), and the arena's real
+    on stderr, readelf printing large sizes in HEX (0x4a800), and the arena's real
     _ZL-mangled internal-linkage name. Captured by the Phase-0 spike.
     """
 
@@ -469,7 +469,7 @@ class TestRealCapture(unittest.TestCase):
         self.assertTrue(result.passed, msg=_codes(result))
         arena = next(s for s in syms if s.name == "_ZL18global_arena_block")
         self.assertEqual(arena.region, "DTCM")
-        self.assertEqual(arena.size, 343040)  # 0x53c00, parsed from the hex Size column
+        self.assertEqual(arena.size, 305152)  # 0x4a800, parsed from the hex Size column
 
     @unittest.skipUnless((REAL_DIR / "phantasm_readelf_syms.txt").exists(),
                          "real captures not present")
