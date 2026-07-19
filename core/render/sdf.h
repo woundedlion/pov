@@ -2629,8 +2629,7 @@ struct Face {
     float acc = prev, total = 0.0f;
     scratch.pseudo_angles[0] = prev;
     for (int i = 1; i <= count; ++i) {
-      int j = (i == count) ? 0 : i;
-      float a = pseudo_angle(poly_2d[j].y, poly_2d[j].x);
+      float a = pseudo_angle(poly_2d[i].y, poly_2d[i].x);
       float d = a - prev;
       if (d > 2.0f)
         d -= 4.0f;
