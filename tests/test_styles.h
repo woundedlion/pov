@@ -333,6 +333,72 @@ inline void test_hue_fade_matches_rotate_reference() {
       }
 }
 
+/**
+ * @brief Pins hue_fade_apply2 against the scalar hue_fade_apply at the
+ *        quantized output, the level the display observes.
+ * @details The paired path only reorders statements and keeps a per-pixel
+ *          fast_cbrt3 reciprocal, so it matches the scalar path exactly; this
+ *          pins that equality, which the composite's fast path relies on but
+ *          nothing else exercises. Sweeps preset-range fades and several hue
+ *          rotations (identity included) over realistic channels plus the
+ *          zero, near-zero and all-black cases the composite's NEAR_BLACK skip
+ *          relies on, and the saturated primaries that drive the gamut-clip
+ *          slow path. Sharing a reciprocal across both pixels would break this
+ *          by one 16-bit LSB on a fraction of channels.
+ */
+inline void test_hue_fade_apply2_matches_scalar() {
+  const float channels[][3] = {
+      {0.0f, 0.0f, 0.0f},             {1.0f, 0.0f, 0.0f},
+      {0.5f, 0.25f, 0.125f},          {300.0f, 200.0f, 100.0f},
+      {20000.0f, 20000.0f, 20000.0f}, {65535.0f, 0.0f, 0.0f},
+      {0.0f, 65535.0f, 0.0f},         {0.0f, 0.0f, 65535.0f},
+      {65535.0f, 65535.0f, 0.0f},     {50000.0f, 2000.0f, 2000.0f},
+      {65535.0f, 65535.0f, 65535.0f}, {12345.0f, 54321.0f, 999.0f}};
+  const int n = (int)(sizeof(channels) / sizeof(channels[0]));
+  const float fades[] = {0.58f, 0.75f, 0.9f, 0.99f};
+  const float shifts[] = {0.0f, 0.01f, 0.1f, 0.33f, 0.75f};
+
+  for (float shift : shifts)
+    for (float fade : fades) {
+      Feedback::Style s{};
+      s.hue_shift = shift;
+      s.sync_hue();
+      // The composite folds the fade and the u16 normalization into k.
+      float k[9];
+      const float sc = fast_cbrt(fade * (1.0f / 65535.0f));
+      for (int i = 0; i < 9; ++i)
+        k[i] = s.hue_k[i] * sc;
+
+      for (int a = 0; a < n; ++a)
+        for (int b = 0; b < n; ++b) {
+          Pixel s0 = Feedback::hue_fade_apply(k, channels[a][0], channels[a][1],
+                                              channels[a][2]);
+          Pixel s1 = Feedback::hue_fade_apply(k, channels[b][0], channels[b][1],
+                                              channels[b][2]);
+          Pixel p0, p1;
+          Feedback::hue_fade_apply2(k, channels[a][0], channels[a][1],
+                                    channels[a][2], channels[b][0],
+                                    channels[b][1], channels[b][2], p0, p1);
+          HS_EXPECT_TRUE(p0.r == s0.r && p0.g == s0.g && p0.b == s0.b);
+          HS_EXPECT_TRUE(p1.r == s1.r && p1.g == s1.g && p1.b == s1.b);
+        }
+    }
+
+  // An all-black pair stays exactly black, the state the composite writes to
+  // overwrite the stale double-buffer frame.
+  Feedback::Style s{};
+  s.hue_shift = 0.2f;
+  s.sync_hue();
+  float k[9];
+  const float sc = fast_cbrt(0.9f * (1.0f / 65535.0f));
+  for (int i = 0; i < 9; ++i)
+    k[i] = s.hue_k[i] * sc;
+  Pixel p0, p1;
+  Feedback::hue_fade_apply2(k, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, p0, p1);
+  HS_EXPECT_TRUE(p0.r == 0 && p0.g == 0 && p0.b == 0);
+  HS_EXPECT_TRUE(p1.r == 0 && p1.g == 0 && p1.b == 0);
+}
+
 // --- sync_noise -------------------------------------------------------------
 
 /**
@@ -383,6 +449,7 @@ inline int run_styles_tests() {
   test_hue_fade_nonzero_shift_rotates_saturated();
   test_hue_rotate_lms_matrix_identity();
   test_hue_fade_matches_rotate_reference();
+  test_hue_fade_apply2_matches_scalar();
   test_sync_noise_pushes_scalars();
 
   return fixture.result();
