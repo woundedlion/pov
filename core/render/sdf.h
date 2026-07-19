@@ -2515,18 +2515,14 @@ struct Face {
       float t = 0.0f;
       if (edge_len_sq > 1e-9f) {
         t = dot(-v1, edge) / edge_len_sq;
-        t = std::max(0.0f, std::min(1.0f, t));
+        t = __builtin_fmaxf(0.0f, __builtin_fminf(1.0f, t));
       }
       Vector closest = v1 + edge * t;
       float d_line = closest.magnitude();
 
-      if (d_line < min_edge_dist)
-        min_edge_dist = d_line;
+      min_edge_dist = __builtin_fminf(d_line, min_edge_dist);
     }
-    size = min_edge_dist;
-
-    if (size < radius * MIN_SIZE_RADIUS_RATIO)
-      size = radius * MIN_SIZE_RADIUS_RATIO;
+    size = __builtin_fmaxf(min_edge_dist, radius * MIN_SIZE_RADIUS_RATIO);
     linear_dist = size < 0.2f;
   }
 
@@ -2909,16 +2905,12 @@ struct Face {
         float cx2 = (pty * v2.z - ptz * v2.y) * nx +
                     (ptz * v2.x - ptx * v2.z) * ny +
                     (ptx * v2.y - pty * v2.x) * nz;
-        if (cx1 > 0 && cx2 > 0) {
-          float phi_top = fast_acos(hs::clamp(pty, -1.0f, 1.0f));
-          if (phi_top < min_phi)
-            min_phi = phi_top;
-        }
-        if (cx1 < 0 && cx2 < 0) {
-          float phi_bot = fast_acos(hs::clamp(-pty, -1.0f, 1.0f));
-          if (phi_bot > max_phi)
-            max_phi = phi_bot;
-        }
+        if (cx1 > 0 && cx2 > 0)
+          min_phi = __builtin_fminf(fast_acos(hs::clamp(pty, -1.0f, 1.0f)),
+                                    min_phi);
+        if (cx1 < 0 && cx2 < 0)
+          max_phi = __builtin_fmaxf(fast_acos(hs::clamp(-pty, -1.0f, 1.0f)),
+                                    max_phi);
       }
     }
   }
@@ -2991,10 +2983,8 @@ struct Face {
       if (len_sq > 1e-12f)
         scratch.planes[planes_count++] = normal.normalized();
       float phi_val = fast_acos(hs::clamp(v1.y, -1.0f, 1.0f));
-      if (phi_val < min_phi)
-        min_phi = phi_val;
-      if (phi_val > max_phi)
-        max_phi = phi_val;
+      min_phi = __builtin_fminf(phi_val, min_phi);
+      max_phi = __builtin_fmaxf(phi_val, max_phi);
       // Arc Extrema Logic: only when this edge pushed its own plane, else
       // planes[planes_count - 1] is a prior edge's normal against these
       // endpoints.
