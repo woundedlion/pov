@@ -1451,6 +1451,30 @@ public:
     // runtime-width multiply, which no compiler can lift out of the pixel loop.
     const ::Pixel *prev = cv.prev_data();
     ::Pixel *cur = cv.data();
+    // The clip band is row-independent, so the unclipped column runs resolve
+    // once here and the pixel loop carries no per-pixel clip test.
+    int runs[2][2];
+    int nruns = 0;
+    if (!xc.active) {
+      runs[nruns][0] = 0;
+      runs[nruns][1] = W;
+      ++nruns;
+    } else if (xc.wrap) {
+      if (xc.re > 0) {
+        runs[nruns][0] = 0;
+        runs[nruns][1] = xc.re;
+        ++nruns;
+      }
+      if (xc.rs < W) {
+        runs[nruns][0] = xc.rs;
+        runs[nruns][1] = W;
+        ++nruns;
+      }
+    } else {
+      runs[nruns][0] = xc.rs;
+      runs[nruns][1] = xc.re;
+      ++nruns;
+    }
     auto composite = [&](auto &&color_px) {
       for (int y = y_lo; y < y_hi; ++y) {
         const int row = y * W;
@@ -1464,10 +1488,11 @@ public:
         float wy0 = 1.0f - fy, wy1 = fy;
         const int row0 = cy0 * hw, row1 = cy1 * hw;
 
-        int cx0 = 0, sub = 0;
-        float leftx = 0.0f, slopex = 0.0f, lefty = 0.0f, slopey = 0.0f;
-        for (int x = 0; x < W; ++x) {
-          if (sub == 0) {
+        for (int r = 0; r < nruns; ++r) {
+          const int xs = runs[r][0], xe = runs[r][1];
+          int cx0 = xs / ds, sub = xs - cx0 * ds;
+          float leftx = 0.0f, slopex = 0.0f, lefty = 0.0f, slopey = 0.0f;
+          auto cell = [&]() {
             HS_PROFILE_DEEP(fb_comp_cell);
             int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
             int i00 = row0 + cx0, i10 = row0 + cx1;
@@ -1483,9 +1508,13 @@ public:
             slopex = (d10 * wy0 + d11 * wy1) * INV_Q - leftx;
             lefty = (dy[i00] * wy0 + dy[i01] * wy1) * INV_Q;
             slopey = (dy[i10] * wy0 + dy[i11] * wy1) * INV_Q - lefty;
-          }
+          };
+          // A clipped run can open mid-cell; the loop only refreshes at sub 0.
+          if (sub != 0) cell();
 
-          if (!xc.clipped(x)) {
+          for (int x = xs; x < xe; ++x) {
+            if (sub == 0) cell();
+
             float fx = sub * inv_ds;
             float ddx = leftx + slopex * fx;
             float ddy = lefty + slopey * fx;
@@ -1506,9 +1535,9 @@ public:
             HS_PROFILE_DEEP(fb_comp_write);
             ::Pixel &dst = cur[row + x];
             dst = opaque ? p : blend(dst, p);
-          }
 
-          if (++sub == ds) { sub = 0; ++cx0; }
+            if (++sub == ds) { sub = 0; ++cx0; }
+          }
         }
       }
     };
