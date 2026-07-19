@@ -101,15 +101,16 @@ frame                    124.38 ms   (8 fps: render 67.09, peak 75.1)
       is_face_offsets      0.74 ms
   is_buffer_wait          57.28 ms   (round-up idle, not work)
 
-ISR (concurrent, absorbed by every foreground scope):
-  isr_wake        10.35 ms/frame   8.32% CPU   <- TASK C
-  isr_pack         8.24 ms/frame   6.62% CPU   <- TASK C
-  isr_dma_submit   0.28 ms/frame   0.22% CPU
-  total           18.87 ms/frame  15.16% CPU
+ISR (concurrent, absorbed by every foreground scope). `isr_wake` brackets the
+whole ISR body, so it CONTAINS the two scopes below — the ISR total is
+`isr_wake`, not the sum of the three:
+  isr_wake        10.35 ms/frame   8.32% CPU   <- ISR total; TASK C
+  isr_pack         8.24 ms/frame   6.62% CPU   <- inside isr_wake
+  isr_dma_submit   0.28 ms/frame   0.22% CPU   <- inside isr_wake
 ```
 
-**The budget that matters.** One 62.5 ms window at 15.16% ISR leaves **~53.0 ms**
-of foreground render. The worst shape needs **67.1 → 53.0 ms, a 1.27× speedup**.
+**The budget that matters.** One 62.5 ms window at 8.32% ISR leaves **~57.3 ms**
+of foreground render. The worst shape needs **67.1 → 57.3 ms, a 1.17× speedup**.
 Note this can be attacked from *either* end: cutting render cost, or cutting ISR
 load (which raises the foreground budget). Nobody has tried the second.
 
@@ -265,10 +266,10 @@ individually (~2 cyc) but worth a look given the trip count.
 
 ## 5. TASK C — ISR prep and processing (the biggest unexamined lever)
 
-**18.87 ms/frame, 15.16% of CPU, and nobody has ever optimised it.** Cutting it
-raises the foreground render budget directly: at 15.16% the budget is 53.0 ms and
-the worst shape needs 1.27×; halve the ISR load and the budget becomes ~57.8 ms
-and the requirement drops to ~1.16×.
+**10.35 ms/frame, 8.32% of CPU** (`isr_wake`, which contains the other two —
+do not sum them). Cutting it raises the foreground render budget directly: at
+8.32% the budget is 57.3 ms and the worst shape needs 1.17×; halve the ISR load
+and the budget becomes ~60.0 ms and the requirement drops to ~1.12×.
 
 ### C1 — `isr_pack` is load-bound, not FP-bound: 8.24 ms/frame
 
@@ -370,6 +371,22 @@ If steady-state work continues instead, note that the remaining margin is small:
 
 Each of these cost real time to close. They are closed.
 
+- **Software-prefetching the column pack's framebuffer reads** (`a36cb5cf`,
+  reverted in `439dd491`). The pack walks a row-major framebuffer column-wise at
+  ±1728 B stride — 72 reads per column, each its own OCRAM cache line, 432 useful
+  bytes out of 2304 pulled. Ran the linefills 4 rows ahead with `__builtin_prefetch`
+  (+32 B ITCM, one `pld` in the loop, bit-exact by construction). **Regressed on
+  device**, worst-shape window `frames 1105-1120`, `isr_dma_submit` identical at
+  0.980 µs / 0.22% as a control: `isr_pack` 28.74 → 29.276 µs/column (6.62 →
+  6.74% CPU), `isr_wake` 4.52 → 4.605 µs, render 67.09 → 67.15 ms, all 24 shape
+  peaks within 0.11 ms. `isr_pack`'s **min** rose 4.36 → 5.09 µs — +6 cyc/pixel of
+  added address arithmetic, with no offsetting latency saving. **The pack is not
+  miss-latency-bound.** The 40× spread inside one window (min 42, avg 244, max
+  1655 cyc/pixel) is far wider than any cache-miss latency; it is contention with
+  the foreground renderer for the memory system. A prefetch cannot help there — it
+  reorders fetches without reducing bytes pulled. A lever that *reduces* pack
+  bandwidth (batch-packing the ~5 adjacent columns sharing each 32 B line, or a
+  column-major layout with a transposed raster) is not refuted by this result.
 - **Interleaving two columns through the exact walk** (`814655b6`, reverted in
   `f0916471`). Paired adjacent columns so each edge record loaded once (4
   loads/pixel vs 7) and the FPU had two independent chains. Bit-exact
