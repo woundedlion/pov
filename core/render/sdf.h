@@ -19,6 +19,10 @@
 #include "engine/static_circular_buffer.h"
 #include "engine/util.h"
 
+#ifdef HS_AA_AUDIT
+#include "tests/aa_audit.h"
+#endif
+
 namespace SDF {
 
 // --- Rasterization constants ------------------------------------------------
@@ -3037,6 +3041,10 @@ struct Face {
   bool get_horizontal_intervals(int, OutputIt out) const {
     if (full_width)
       return false;
+#ifdef HS_AA_AUDIT
+    if (hs_aa::g_audit.full_scan)
+      return false;
+#endif
     // Pad by the AA fringe reach (one pixel, in the plane units distance()
     // reports, slightly wider than angular) plus the fast_atan2 slop in the
     // vertex thetas the intervals derive from.
