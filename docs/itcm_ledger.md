@@ -116,13 +116,33 @@ morph machinery, hankin strap crossfades, RNG-seed plumbing, gamut/OKLab
 micro-opts). None individually moves the headroom needle. Full per-commit ITCM
 values: see the sweep TSV referenced in the audit session.
 
-## State at HEAD
+## State at the window close (`d4816de0`)
 
-- ITCM 194,528 B / 196,608 B ceiling — **2,072 B free**, no next bank reachable.
-- `tools/teensy_budgets.json` header comment is **stale**: it claims "476,544 B
-  of RAM1 with 47,744 B free for locals," true only between `aeba37b5` and
-  `d9bd43da` on 07-16. HEAD build reports `variables:312,736 code:194,536
-  padding:2,072  free for local variables:14,944`. The bank `aeba37b5` freed was
-  handed to ITCM by `d9bd43da` and never returned.
-- Any further promotion must be paid for by an equal trim or by shrinking
-  `variables` (DTCM), not by finding a spare bank.
+- ITCM 194,528 B / 196,608 B ceiling — 2,072 B free, no next bank reachable.
+- The bank `aeba37b5` freed was handed to ITCM by `d9bd43da` and never returned.
+
+## State at master tip (2026-07-19, post-audit)
+
+The audit window closes at `d4816de0`; **22 further commits landed on master
+while this audit ran**, and they materially change the headroom picture. Measured
+at tip: `variables:312,704 code:190,424 padding:6,184  free for local
+variables:14,976` — i.e. **6,184 B free, not 2,072**.
+
+The reclaim is mostly `5b1cbdb7` (keep `rasterize_face` out of line: FP stack
+reloads in the pixel loop 22→1 at no size cost) and `2e4cef41` (bracketed grid
+becomes the *only* gamut-clip implementation, retiring the duplicate). Both are
+peer work outside this window; they are not attributed above and would need
+their own sweep rows.
+
+Standing conclusions that survive the update:
+- The 32 KiB bank the arena cut freed is still spent — `free for local
+  variables` is 14,976, not the 47,744 the budgets file used to claim.
+- There is still no spare bank: DTCM needs all 10 for variables + the 12,288 B
+  stack floor. Further promotion is paid for by a trim or by shrinking
+  `variables`, never by a new bank.
+- The per-commit deltas in this ledger are measured against each commit's own
+  parent and remain valid regardless of tip movement.
+
+**Refresh protocol:** re-run the sweep from `d4816de0` to the new tip rather than
+re-deriving totals; absolute ITCM at tip moves with peer work, so quote a commit
+sha with any figure taken from this document.

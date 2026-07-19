@@ -7,10 +7,11 @@
   // 11.3.1), PlatformIO 6.1.19, FastLED 3.4.0. Both shipping images pass.
   // Holosphere keeps the bench-parity -O3 configuration. Phantasm uses -Os,
   // newlib-nano, a flash-routing linker script, and the measured 298 KiB arena;
-  // it uses 507,272 B of RAM1 (variables 312,736 + code 194,536) with 14,944 B
+  // it uses 503,128 B of RAM1 (variables 312,704 + code 190,424) with 14,976 B
   // free for locals — the 32 KiB bank the arena cut freed was spent on ITCM -O3
-  // promotions (see docs/itcm_ledger.md). Holosphere RAM2 is 518,272 B;
-  // Phantasm RAM2 is 519,552 B.
+  // promotions (see docs/itcm_ledger.md). These figures move with every code
+  // landing; re-measure rather than trusting them verbatim. Holosphere RAM2 is
+  // 518,272 B; Phantasm RAM2 is 519,552 B.
   //
   // Symbol names are the REAL linkage names from `readelf -s` (§7.4): the arena is
   // file-scope static, so it mangles to `_ZL18global_arena_block` (NOT the source
@@ -46,8 +47,8 @@
       // arena sized down to 298 KiB from its measured worst-effect high-water
       // (GSReactionDiffusion, post snorm16-trail MindSplatter). The 32 KiB bank
       // that cut freed has since been spent on ITCM -O3 promotions: RAM1 used
-      // 507,272 (variables 312,736 + code 194,536), free-for-locals 14,944, code
-      // 2,072 B under the derived ceiling (docs/itcm_ledger.md). RAM2 519,552.
+      // 503,128 (variables 312,704 + code 190,424), free-for-locals 14,976, code
+      // 6,184 B under the derived ceiling (docs/itcm_ledger.md). RAM2 519,552.
       "flash": { "max_bytes": 1900000 },
       // free_min_bytes is the DTCM stack reservation. The host stack-painting
       // gate (tests/stack_measure.cpp) measures a worst-effect peak of 9,055 B
