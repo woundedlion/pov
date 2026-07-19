@@ -142,6 +142,31 @@ inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
 }
 
 /**
+ * @brief Face-hoisted segue shade: the caller resolves the fragment's palette
+ * once per face and passes it directly, so the per-fragment path skips the
+ * topology-slot lookup and palette-bank indirection.
+ * @tparam Palette Baked palette type exposing `Color4 get(float) const`.
+ * @tparam SegueT Segue policy (see shade_mesh_topology's segue overload).
+ * @param f Rasterized fragment.
+ * @param palette The face's already-resolved palette.
+ * @param gain Multiplier on the edge-distance gradient before clamping to [0,1].
+ * @param segue Policy whose fill/grade/opacity hooks shape the fragment.
+ * @param phase Segue phase for this fragment (face-local for per-face segues).
+ * @return The shaded color; fully transparent when the segue's fill culls it.
+ */
+template <typename Palette, typename SegueT>
+inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
+                                  float gain, const SegueT &segue, float phase) {
+  float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
+  float cover = segue.fill(t, phase);
+  if (cover <= 0.0f)
+    return Color4();
+  Color4 c = segue.grade(palette.get(t), phase);
+  c.alpha = cover * segue.opacity(phase);
+  return c;
+}
+
+/**
  * @brief Unit half-vector for the metallic Blinn-Phong specular lobe, with the
  *        light tilted off-axis along the surface tangent.
  * @param light_dir Direction toward the light in world space (unit length).

@@ -176,8 +176,10 @@ private:
     constexpr bool PER_FACE =
         requires(const Vector &c) { seg.face_offset(c, 0, 0); };
     // phase is fixed for the whole draw call, so the segue's per-face phase
-    // resolves here rather than per fragment.
+    // resolves here rather than per fragment; so does the face's palette, whose
+    // slot is the same class that face_offset already needs.
     ArenaVector<float> face_phases;
+    ArenaVector<const BakedPalette *> face_palettes;
     if constexpr (PER_FACE) {
       HS_PROFILE(is_face_offsets);
       constexpr bool LOCAL_SWEEP = requires { requires SegueT::LOCAL_SWEEP; };
@@ -185,6 +187,7 @@ private:
           LOCAL_SWEEP ? base_state : transformed_state;
       const size_t faces = sweep_state.num_faces();
       face_phases.bind(scratch_arena_a, faces);
+      face_palettes.bind(scratch_arena_a, faces);
       const uint16_t *fidx = sweep_state.get_faces_data();
       const uint16_t *foff = sweep_state.get_face_offsets_data();
       const uint8_t *fcnt = sweep_state.get_face_counts_data();
@@ -199,18 +202,22 @@ private:
             seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls);
         float fade = seg.face_fade_frac(static_cast<int>(f));
         face_phases.push_back(seg.face_phase(phase, off, fade));
+        face_palettes.push_back(&palette_bank_[palette_idx[cls]]);
       }
     }
 
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      float p = phase;
       if constexpr (PER_FACE) {
         int fi = static_cast<int>(frag.v2);
-        if (fi >= 0 && fi < static_cast<int>(face_phases.size()))
-          p = face_phases[fi];
+        if (fi >= 0 && fi < static_cast<int>(face_phases.size())) {
+          frag.color = shade_mesh_topology(frag, *face_palettes[fi], 1.0f, seg,
+                                           face_phases[fi]);
+          return;
+        }
       }
       frag.color = shade_mesh_topology(frag, raw_indices, num_faces,
-                                       palette_bank_, palette_idx, 1.0f, seg, p);
+                                       palette_bank_, palette_idx, 1.0f, seg,
+                                       phase);
     };
 
     {
