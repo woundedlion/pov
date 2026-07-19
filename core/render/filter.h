@@ -1475,7 +1475,8 @@ public:
       runs[nruns][1] = xc.re;
       ++nruns;
     }
-    auto composite = [&](auto &&color_px) {
+    auto composite = [&](auto &&color_px, auto &&color_px2, auto pair_on) {
+      constexpr bool PAIR = decltype(pair_on)::value;
       for (int y = y_lo; y < y_hi; ++y) {
         const int row = y * W;
         int cy0 = y / ds;
@@ -1512,8 +1513,55 @@ public:
           // A clipped run can open mid-cell; the loop only refreshes at sub 0.
           if (sub != 0) cell();
 
-          for (int x = xs; x < xe; ++x) {
+          for (int x = xs; x < xe;) {
             if (sub == 0) cell();
+
+            // Two pixels in flight give the in-order FPU two independent
+            // dependency chains to overlap. A pair stays inside one cell so the
+            // coefficients are shared; a ragged tail (or ds 1) drops to scalar.
+            if constexpr (PAIR) {
+              if (ds - sub >= 2 && xe - x >= 2) {
+                float fx0 = sub * inv_ds;
+                float fx1 = (sub + 1) * inv_ds;
+                float ddx0 = leftx + slopex * fx0;
+                float ddy0 = lefty + slopey * fx0;
+                float ddx1 = leftx + slopex * fx1;
+                float ddy1 = lefty + slopey * fx1;
+
+                float sr0, sg0, sb0, sr1, sg1, sb1;
+                {
+                  HS_PROFILE_DEEP(fb_comp_sample);
+                  sample_bilinear_prev(prev, x + ddx0, y + ddy0, sr0, sg0, sb0);
+                  sample_bilinear_prev(prev, x + 1 + ddx1, y + ddy1, sr1, sg1,
+                                       sb1);
+                }
+                ::Pixel p0(0, 0, 0), p1(0, 0, 0);
+                {
+                  HS_PROFILE_DEEP(fb_comp_color);
+                  color_px2(sr0, sg0, sb0, sr1, sg1, sb1, p0, p1);
+                }
+                // Both lanes transform unconditionally and the sub-threshold
+                // ones are selected to black afterwards; branching on the skip
+                // would split the lanes back onto separate code paths.
+                const bool black0 = black_skips_color && sr0 < NEAR_BLACK &&
+                                    sg0 < NEAR_BLACK && sb0 < NEAR_BLACK;
+                const bool black1 = black_skips_color && sr1 < NEAR_BLACK &&
+                                    sg1 < NEAR_BLACK && sb1 < NEAR_BLACK;
+                p0 = black0 ? ::Pixel(0, 0, 0) : p0;
+                p1 = black1 ? ::Pixel(0, 0, 0) : p1;
+
+                HS_PROFILE_DEEP(fb_comp_write);
+                ::Pixel &dst0 = cur[row + x];
+                dst0 = opaque ? p0 : blend(dst0, p0);
+                ::Pixel &dst1 = cur[row + x + 1];
+                dst1 = opaque ? p1 : blend(dst1, p1);
+
+                x += 2;
+                sub += 2;
+                if (sub == ds) { sub = 0; ++cx0; }
+                continue;
+              }
+            }
 
             float fx = sub * inv_ds;
             float ddx = leftx + slopex * fx;
@@ -1536,10 +1584,16 @@ public:
             ::Pixel &dst = cur[row + x];
             dst = opaque ? p : blend(dst, p);
 
+            ++x;
             if (++sub == ds) { sub = 0; ++cx0; }
           }
         }
       }
+    };
+    // The second callback is unused when pairing is off, so the scalar entry
+    // just repeats the first.
+    auto composite_scalar = [&](auto &&color_px) {
+      composite(color_px, color_px, std::false_type{});
     };
     // The stock transforms run on the sampler's float channels directly (one
     // quantization at the write); an arbitrary ColorFn keeps the Pixel
@@ -1555,21 +1609,32 @@ public:
       const float sc = fast_cbrt(fade * (1.0f / 65535.0f));
       for (int i = 0; i < 9; ++i)
         k[i] = style_->hue_k[i] * sc;
-      composite([&](float r, float g, float b) {
-        return ::Feedback::hue_fade_apply(k, r, g, b);
-      });
+      composite(
+          [&](float r, float g, float b) {
+            return ::Feedback::hue_fade_apply(k, r, g, b);
+          },
+          [&](float r0, float g0, float b0, float r1, float g1, float b1,
+              ::Pixel &p0, ::Pixel &p1) {
+            ::Feedback::hue_fade_apply2(k, r0, g0, b0, r1, g1, b1, p0, p1);
+          },
+          std::true_type{});
     } else if (style_->color_fn == &::Feedback::plain_fade ||
                style_->color_fn == &::Feedback::hue_fade) {
-      composite([&](float r, float g, float b) {
+      auto plain = [&](float r, float g, float b) {
         return ::Pixel(quantize16(r * fade), quantize16(g * fade),
                        quantize16(b * fade));
-      });
+      };
+      // A plain fade is three multiplies, so pairing it buys only the sampler
+      // overlap and does not earn its ITCM.
+      composite_scalar(plain);
     } else {
-      composite([&](float r, float g, float b) {
+      auto general = [&](float r, float g, float b) {
         return style_->color_fn(
             ::Pixel(quantize16(r), quantize16(g), quantize16(b)), fade,
             *style_);
-      });
+      };
+      // A general ColorFn is an indirect call per pixel, so it stays scalar.
+      composite_scalar(general);
     }
   }
   HS_O3_END
