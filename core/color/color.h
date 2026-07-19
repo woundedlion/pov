@@ -633,7 +633,9 @@ HS_O3_FN inline LinRGB oklab_to_linear_rgb(OKLab lab) {
  */
 HS_O3_FN inline bool linear_rgb_in_gamut(float r, float g, float b) {
   constexpr float lo = -1e-4f, hi = 1.0f + 1e-4f;
-  return r >= lo && r <= hi && g >= lo && g <= hi && b >= lo && b <= hi;
+  const float least = __builtin_fminf(__builtin_fminf(r, g), b);
+  const float most = __builtin_fmaxf(__builtin_fmaxf(r, g), b);
+  return least >= lo && most <= hi;
 }
 
 // The tolerance linear_rgb_in_gamut allows. The boundary cubics are solved
