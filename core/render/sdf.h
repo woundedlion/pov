@@ -2199,6 +2199,10 @@ struct Face {
   static constexpr float SECTOR_MONO_TOL =
       0.05f; /**< Max vertex pseudo-angle backtrack (of 4 per turn) still binned
                 on the K2 sector path; beyond it the fan is not star-shaped. */
+  static constexpr int SECTOR_KMAX_MAX =
+      2; /**< Widest neighbor walk build_sectors assigns. */
+  static_assert(SECTOR_KMAX_MAX < SECTOR_MIN_COUNT,
+                "plane_dist_sector's ring walk applies one wrap correction");
   std::span<float> sector_pv; /**< Unwrapped vertex pseudo-angles, count+1;
                                  weakly monotonic (K2 faces dip <=
                                  SECTOR_MONO_TOL). */
@@ -2652,7 +2656,7 @@ struct Face {
     // A larger inversion is not star-shaped; keep the exact walk.
     if (min_step <= -SECTOR_MONO_TOL)
       return;
-    sector_kmax = (min_step > 0.0f) ? 1 : 2;
+    sector_kmax = (min_step > 0.0f) ? 1 : SECTOR_KMAX_MAX;
     sector_pv = std::span<float>(scratch.pseudo_angles.data(), count + 1);
     sector_base = scratch.pseudo_angles[0];
     sector_span = total;
@@ -3123,7 +3127,7 @@ struct Face {
     int s = lo;
 
     float d = FLT_MAX;
-    // sector_kmax <= 2 <= SECTOR_MIN_COUNT, so one wrap correction suffices.
+    // kmax < SECTOR_MIN_COUNT <= count, so one wrap correction suffices.
     int idx = s - sector_kmax;
     if (idx < 0)
       idx += count;
