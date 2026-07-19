@@ -3,14 +3,23 @@
 Target: get the Smoke preset's render under **59 ms** (one 62.5 ms display
 window, with margin) on Teensy 4.0 in the shipping selective-O3 image.
 
-Measured 2026-07-17 (300 s, window 16, `HS_PROFILE_EPOCH_REVS=2900`, full
-8-style cycle, wrap to `Preset: 0/8` confirmed, root cyc vs wall exact to
-1.1 ppm). Reproduce:
+**RESOLVED 2026-07-19. Smoke peaks at 61.86 ms and spills zero frames; all
+eight styles hold 16 fps.** Pass peak render 87.66 → 61.86 ms (−29 %), spill
+48.1 % → 0 %, cadence buckets 6 red / 1 yellow / 1 green → **8 green**. The
+59 ms figure was a proxy for "clears the window with margin"; the delivered
+margin is 0.64 ms on the worst frame, which clears it but thinly — see the
+caveat at the end.
+
+Measured 2026-07-17 (baseline) through 2026-07-19 (final), 300 s captures,
+window 16, `HS_PROFILE_EPOCH_REVS=2900`, full 8-style cycle, validated.
+Reproduce:
 
 ```
-HS_PROFILE_DEEP=1 bash tools/profile_one.sh MeshFeedback profile 300 16 \
-  "-D HS_PROFILE_EPOCH_REVS=2900"
+bash tools/profile_one.sh MeshFeedback profile 300 16 "-D HS_PROFILE_EPOCH_REVS=2900"
 ```
+
+Add `HS_PROFILE_DEEP=1` for the per-pixel sub-scopes (a separate `_deep.log`;
+they cost ~6 ms/frame, so deep and shipping captures are not comparable).
 
 ## Method
 
@@ -105,6 +114,48 @@ Smoke a `plain_fade`-class colour cost and its flush lands at ~34 ms, render
 
 That sets the strategy: the target is reachable through colour alone, and is
 *not* reachable without touching colour.
+
+## Two findings that outlived the levers
+
+### `linear_rgb_in_gamut`'s epsilon changes the topology of the search
+
+The gate carries ±1e-4 of slack. A channel can graze zero, leave tolerance and
+re-enter, so **the in-gamut set along a chroma ray is sometimes disconnected**
+(~0.1 % of rays). That single fact defeated four independent approaches, each in
+a different disguise:
+
+| approach | how it failed |
+|---|---|
+| the original 16-step bisection | landed on an arbitrary island — 0.038 chroma jumps between adjacent lightnesses, from midpoint happenstance |
+| min-only 2D boundary grid | cusp truncation, 0.041 deficit at *any* resolution (~33 MB extrapolated to fix) |
+| Ottosson triangle + Halley | Halley is local; it converged to the root on the far side of a gap. +0.042, **out of gamut** |
+| bisection inside a bracket | converged past the first exit. +0.019, visible banding |
+
+The shipped answer is *first exit* — the boundary of the connected component
+containing C = 0 — found by walking the bracket in 4 steps and bisecting 3×
+inside the straddling step. Correctness is structural rather than
+table-dependent: `c_min` is probed before it is trusted, and only a scale that
+has been evaluated in gamut is ever accepted. A bad table degrades accuracy; it
+cannot produce an invalid colour.
+
+### The same boolean bifurcates 1 LSB into ~40 LSB
+
+Because the gate is a discontinuous branch, a 1 LSB perturbation upstream can
+flip it, sending one code path through the chroma clip and the other straight
+past. The affected pixel then jumps by tens of LSB rather than one. Measured
+between the scalar and paired hue paths: sweep max **39 LSB**, on 83 of 17,280
+channels, self-healing within a frame or two and bounded across a 1000-frame
+run.
+
+This is a property of the branch, not of any one change — **anything that
+perturbs the colour path near the boundary produces it**. If bit-stability
+across float-path changes is ever wanted, that boolean is where it breaks
+first, and no amount of care in the cube root or the matrix will help.
+
+`tests/feedback_divergence.cpp` exists to measure this: it drives the flush N
+frames from a fixed seed and diffs two builds, with no hook in shipping code.
+Note the trap it documents — an unlit seed reports a flat trace for the wrong
+reason.
 
 ## Levers
 
