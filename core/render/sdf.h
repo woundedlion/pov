@@ -2418,10 +2418,8 @@ struct Face {
 
     for (int idx : indices) {
       float y = vertices[idx].y;
-      if (y < min_y_val)
-        min_y_val = y;
-      if (y > max_y_val)
-        max_y_val = y;
+      min_y_val = __builtin_fminf(y, min_y_val);
+      max_y_val = __builtin_fmaxf(y, max_y_val);
     }
 
     float min_phi_check = fast_acos(hs::clamp(max_y_val, -1.0f, 1.0f));
@@ -2473,8 +2471,7 @@ struct Face {
       scratch.poly_2d[i] = Vector(px, py, 0);
 
       float r2 = px * px + py * py;
-      if (r2 > max_r2)
-        max_r2 = r2;
+      max_r2 = __builtin_fmaxf(r2, max_r2);
     }
     radius = sqrtf(max_r2);
     max_dist = radius + BOUNDS_MARGIN_WIDE;
@@ -2594,8 +2591,7 @@ struct Face {
     // or the winding/orientation is untrustworthy.
     float d0 = -FLT_MAX;
     for (int i = 0; i < count; ++i)
-      if (scratch.half_planes[i].off > d0)
-        d0 = scratch.half_planes[i].off;
+      d0 = __builtin_fmaxf(scratch.half_planes[i].off, d0);
     if (d0 >= 0.0f)
       return;
     half_planes = std::span<const HalfPlane>(scratch.half_planes.data(), count);
@@ -2647,8 +2643,7 @@ struct Face {
     for (int i = 1; i <= count; ++i) {
       float step =
           (scratch.pseudo_angles[i] - scratch.pseudo_angles[i - 1]) * sgn;
-      if (step < min_step)
-        min_step = step;
+      min_step = __builtin_fminf(step, min_step);
     }
     // min_step > 0: strictly monotonic, sectors don't overlap, K1 bins exactly.
     // A backtrack up to SECTOR_MONO_TOL overlaps sectors slightly, so the bin
