@@ -2555,15 +2555,20 @@ struct Face {
   build_half_planes(FaceScratchBuffer &scratch) {
     float area2 = 0.0f;
     bool pos = false, neg = false;
+    // The turn test carries the previous edge in registers, so the ring closes
+    // without indexing edge_vectors through a modulo.
+    const Vector *e1 = &edge_vectors[count - 1];
+    float l1 = edge_lengths_sq[count - 1];
     for (int i = 0; i < count; ++i) {
       const Vector &a = poly_2d[i];
       const Vector &b = poly_2d[i + 1];
       area2 += a.x * b.y - b.x * a.y;
-      const Vector &e1 = edge_vectors[i];
-      const Vector &e2 = edge_vectors[(i + 1) % count];
-      float cr = e1.x * e2.y - e1.y * e2.x;
+      const Vector &e2 = edge_vectors[i];
+      float cr = e1->x * e2.y - e1->y * e2.x;
       // Relative turn test: |sin| > 1e-6 between edge directions.
-      float scale = edge_lengths_sq[i] * edge_lengths_sq[(i + 1) % count];
+      float scale = l1 * edge_lengths_sq[i];
+      e1 = &e2;
+      l1 = edge_lengths_sq[i];
       if (cr * cr > 1e-12f * scale) {
         if (cr > 0)
           pos = true;
