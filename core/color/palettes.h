@@ -149,7 +149,7 @@ struct MeshPaletteBank {
   static HS_COLD_MEMBER void shuffle_indices(std::array<int, N> &out) {
     for (int i = 0; i < N; ++i)
       out[i] = i;
-    std::shuffle(out.begin(), out.end(), hs::random());
+    hs::shuffle(out.begin(), out.end());
   }
 
   /**

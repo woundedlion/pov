@@ -618,8 +618,7 @@ private:
 
     for (int i = 0; i < PALETTES; ++i)
       tr.landing.to_palette[i] = static_cast<uint8_t>(i);
-    std::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end(),
-                 hs::random());
+    hs::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end());
 
     if (start_centroid || !handoff.by_class_signature) {
       // Either the whole face list corresponds (departing a mid-parameter
@@ -984,7 +983,7 @@ struct Breakdown : Base {
     num_classes = hs::clamp(detected, 1, MAX_CLASSES);
     for (int i = 0; i < num_classes; ++i)
       rank[i] = static_cast<uint8_t>(i);
-    std::shuffle(rank, rank + num_classes, hs::random());
+    hs::shuffle(rank, rank + num_classes);
   }
   float face_offset(const Vector &, int, int cls) const {
     if (num_classes <= 1)
