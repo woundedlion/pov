@@ -16,6 +16,10 @@
 #endif
 #include "engine/platform.h"
 
+#ifdef HS_AA_AUDIT
+#include "tests/aa_audit.h"
+#endif
+
 /**
  * @brief The Scan namespace contains volumetric (raster) drawing primitives.
  * @details General register mapping for Scan primitives:
@@ -1145,12 +1149,70 @@ inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
       }
     }
     if (num_runs == 0)
+#ifdef HS_AA_AUDIT
+      ;
+#else
       return;
+#endif
   }
 
   const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   constexpr float pixel_width = 2.0f * PI_F / W;
+
+#ifdef HS_AA_AUDIT
+  if (hs_aa::g_audit.enabled) {
+    SDF::DistanceResult ares;
+    for (int y = y_lo; y <= y_hi; ++y) {
+      float sp = TrigLUT<W, H>::sin_phi[y];
+      float cp = TrigLUT<W, H>::cos_phi[y];
+      for (int x = 0; x < W; ++x) {
+        if (mask && !mask->owns(x, y))
+          continue;
+        Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
+        shape.template distance<true>(p, ares);
+        float d = ares.dist;
+        if (d >= pixel_width)
+          continue;
+        float alpha = 1.0f;
+        if (d > -pixel_width) {
+          float t_aa = 0.5f - d / (2.0f * pixel_width);
+          alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+        }
+        if (alpha <= 0.001f)
+          continue;
+        int gap = W;
+        bool in_run = false;
+        for (size_t r = 0; r < num_runs; ++r) {
+          if (x >= runs[r].first && x < runs[r].second) {
+            in_run = true;
+            break;
+          }
+          // Circular column distance to the nearest column of this run.
+          const auto circ = [&](int a, int b) {
+            int dd = ((a - b) % W + W) % W;
+            return dd < W - dd ? dd : W - dd;
+          };
+          int g = std::min(circ(x, runs[r].first), circ(x, runs[r].second - 1));
+          if (g < gap)
+            gap = g;
+        }
+        if (in_run)
+          hs_aa::g_audit.note_painted(y);
+        else
+          hs_aa::g_audit.note_missed(y, alpha, gap);
+      }
+    }
+    for (size_t r = 0; r < num_runs; ++r) {
+      const long long len = runs[r].second - runs[r].first;
+      hs_aa::g_audit.probes += (y_hi - y_lo + 1) * len;
+      for (int y = y_lo; y <= y_hi; ++y)
+        hs_aa::g_audit.probe_rows[y] += len;
+    }
+  }
+  if (num_runs == 0)
+    return;
+#endif
 
   SDF::DistanceResult res;
   Fragment frag;
