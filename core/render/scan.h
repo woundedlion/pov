@@ -1059,10 +1059,10 @@ HS_O3_BEGIN
  * process_pixel's solid path.
  */
 template <int W, int H, typename PipelineT>
-inline void rasterize_face(PipelineT &pipeline, Canvas &canvas,
-                           const SDF::Face &shape,
-                           FragmentShaderFn fragment_shader, bool debug_bb,
-                           const PixelMask *mask = nullptr) {
+__attribute__((noinline)) inline void
+rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
+               FragmentShaderFn fragment_shader, bool debug_bb,
+               const PixelMask *mask = nullptr) {
   bool effective_debug = debug_bb || canvas.debug();
 
   const auto &cr = canvas.clip();
