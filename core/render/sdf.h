@@ -3127,6 +3127,44 @@ struct Face {
   }
 
   /**
+   * @brief Two-lane exact walk: each edge is loaded once and drives both
+   *        query points. Per-lane arithmetic matches plane_dist_exact.
+   */
+  HS_O3_FN void plane_dist_exact2(float pxa, float pya, float pxb, float pyb,
+                                  float &outa, float &outb) const {
+    float da = FLT_MAX, db = FLT_MAX;
+    bool insa = false, insb = false;
+    for (int i = 0; i < count; ++i) {
+      const auto &ep = packed_edges[i];
+      float wxa = pxa - ep.vx, wya = pya - ep.vy;
+      float ta = (wxa * ep.ex + wya * ep.ey) * ep.inv_len_sq;
+      float cva = hs::clamp(ta, 0.0f, 1.0f);
+      float bxa = wxa - ep.ex * cva, bya = wya - ep.ey * cva;
+      da = __builtin_fminf(bxa * bxa + bya * bya, da);
+      if ((ep.vy > pya) != (ep.next_vy > pya)) {
+        float isxa = ep.vx + (pya - ep.vy) * ep.ex * ep.inv_ej;
+        if (pxa < isxa)
+          insa = !insa;
+      }
+      float wxb = pxb - ep.vx, wyb = pyb - ep.vy;
+      float tb = (wxb * ep.ex + wyb * ep.ey) * ep.inv_len_sq;
+      float cvb = hs::clamp(tb, 0.0f, 1.0f);
+      float bxb = wxb - ep.ex * cvb, byb = wyb - ep.ey * cvb;
+      db = __builtin_fminf(bxb * bxb + byb * byb, db);
+      if ((ep.vy > pyb) != (ep.next_vy > pyb)) {
+        float isxb = ep.vx + (pyb - ep.vy) * ep.ex * ep.inv_ej;
+        if (pxb < isxb)
+          insb = !insb;
+      }
+    }
+    outa = (insa ? -1.0f : 1.0f) * sqrtf(da);
+    outb = (insb ? -1.0f : 1.0f) * sqrtf(db);
+  }
+
+  /** @brief True when distance() reaches the plain exact walk. */
+  bool is_exact_path() const { return !lut_data && !convex && !sector_ok; }
+
+  /**
    * @brief Signed planar distance via the concave sector walk.
    * @param px Gnomonic x of the query point.
    * @param py Gnomonic y of the query point.
@@ -3296,6 +3334,36 @@ struct Face {
     float raw = linear_dist ? plane_dist : fast_atan2(plane_dist, 1.0f);
     res = DistanceResult(raw - thickness, 0.0f, raw, 0.0f, size);
     HS_PROBE_SPAN(pack, hs_t);
+  }
+
+  /**
+   * @brief Two-lane distance for exact-path faces. Shares the face-constant
+   *        projection and each edge load across both query points; the culls
+   *        are selects so the lanes stay in lockstep. Callers must gate on
+   *        is_exact_path(). Per-lane output matches distance().
+   */
+  template <bool ComputeUVs = true>
+  HS_O3_FN void distance2(const Vector &pa, const Vector &pb,
+                          DistanceResult &ra, DistanceResult &rb) const {
+    float ca = dot(pa, center), cb = dot(pb, center);
+    float inv_ca = 1.0f / ca, inv_cb = 1.0f / cb;
+    float pxa = dot(pa, basis_u) * inv_ca, pya = dot(pa, basis_w) * inv_ca;
+    float pxb = dot(pb, basis_u) * inv_cb, pyb = dot(pb, basis_w) * inv_cb;
+    float r2a = pxa * pxa + pya * pya;
+    float r2b = pxb * pxb + pyb * pyb;
+
+    float dea, deb;
+    plane_dist_exact2(pxa, pya, pxb, pyb, dea, deb);
+
+    float rawa = linear_dist ? dea : fast_atan2(dea, 1.0f);
+    float rawb = linear_dist ? deb : fast_atan2(deb, 1.0f);
+
+    bool culla = (ca <= 0.01f) || (r2a > max_dist_sq);
+    bool cullb = (cb <= 0.01f) || (r2b > max_dist_sq);
+    ra = culla ? DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size)
+               : DistanceResult(rawa - thickness, 0.0f, rawa, 0.0f, size);
+    rb = cullb ? DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size)
+               : DistanceResult(rawb - thickness, 0.0f, rawb, 0.0f, size);
   }
 };
 

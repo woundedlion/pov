@@ -1219,49 +1219,66 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   ScopedRenderTimer timer_guard(canvas);
 
   HS_PROFILE(raster_scan);
+  const bool exact_pair = shape.is_exact_path() && !mask;
+  auto emit = [&](int x, int y, const Vector &p,
+                  const SDF::DistanceResult &rd) {
+    float d = rd.dist;
+    if (!effective_debug && d >= pixel_width)
+      return;
+    HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
+    HS_PROBE_COUNT(n_alpha);
+    HS_PROBE_MARK(hs_ta);
+    float alpha = 1.0f;
+    if (d > -pixel_width) {
+      float t_aa = 0.5f - d / (2.0f * pixel_width);
+      alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
+    }
+    HS_PROBE_SPAN(alpha, hs_ta);
+    if (!effective_debug && alpha <= 0.001f)
+      return;
+    HS_PROFILE(raster_shade);
+    frag.color = Color4(0, 0, 0, 0);
+    frag.pos = p;
+    frag.v0 = rd.t;
+    frag.v1 = rd.raw_dist;
+    frag.v2 = 0.0f;
+    frag.v3 = rd.aux;
+    frag.size = rd.size;
+    frag.age = 0;
+    fragment_shader(p, frag);
+    if (effective_debug) {
+      frag.color.color = frag.color.color.lerp16(
+          Pixel(65535, 65535, 65535), 65535 / 2);
+      frag.color.alpha = 1.0f;
+      alpha = 1.0f;
+    }
+    if (frag.color.alpha > 0.001f) {
+      pipeline.plot(canvas, x, y, frag.color.color, frag.age,
+                    frag.color.alpha * alpha);
+    }
+  };
   for (int y = y_lo; y <= y_hi; ++y) {
     float sp = TrigLUT<W, H>::sin_phi[y];
     float cp = TrigLUT<W, H>::cos_phi[y];
     for (size_t r = 0; r < num_runs; ++r) {
-      for (int x = runs[r].first; x < runs[r].second; ++x) {
+      int x = runs[r].first;
+      const int x_end = runs[r].second;
+      if (exact_pair) {
+        for (; x + 1 < x_end; x += 2) {
+          Vector pa(sp * cos_theta[x], cp, sp * sin_theta[x]);
+          Vector pb(sp * cos_theta[x + 1], cp, sp * sin_theta[x + 1]);
+          SDF::DistanceResult ra, rb;
+          shape.template distance2<true>(pa, pb, ra, rb);
+          emit(x, y, pa, ra);
+          emit(x + 1, y, pb, rb);
+        }
+      }
+      for (; x < x_end; ++x) {
         if (mask && !mask->owns(x, y))
           continue;
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
         shape.template distance<true>(p, res);
-        float d = res.dist;
-        if (!effective_debug && d >= pixel_width)
-          continue;
-        HS_SCAN_METRIC(hs::g_scan_metrics.shade_candidates++);
-        HS_PROBE_COUNT(n_alpha);
-        HS_PROBE_MARK(hs_ta);
-        float alpha = 1.0f;
-        if (d > -pixel_width) {
-          float t_aa = 0.5f - d / (2.0f * pixel_width);
-          alpha = quintic_kernel(std::max(0.0f, std::min(1.0f, t_aa)));
-        }
-        HS_PROBE_SPAN(alpha, hs_ta);
-        if (!effective_debug && alpha <= 0.001f)
-          continue;
-        HS_PROFILE(raster_shade);
-        frag.color = Color4(0, 0, 0, 0);
-        frag.pos = p;
-        frag.v0 = res.t;
-        frag.v1 = res.raw_dist;
-        frag.v2 = 0.0f;
-        frag.v3 = res.aux;
-        frag.size = res.size;
-        frag.age = 0;
-        fragment_shader(p, frag);
-        if (effective_debug) {
-          frag.color.color = frag.color.color.lerp16(
-              Pixel(65535, 65535, 65535), 65535 / 2);
-          frag.color.alpha = 1.0f;
-          alpha = 1.0f;
-        }
-        if (frag.color.alpha > 0.001f) {
-          pipeline.plot(canvas, x, y, frag.color.color, frag.age,
-                        frag.color.alpha * alpha);
-        }
+        emit(x, y, p, res);
       }
     }
   }
