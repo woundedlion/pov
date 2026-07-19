@@ -1133,6 +1133,53 @@ inline void lms_cbrt_transform_rgb(const float k[9], float l_, float m_,
 }
 
 /**
+ * @brief Two-pixel lms_cbrt_transform_rgb sharing one code path.
+ * @param k Row-major 3x3 acting on cube-rooted LMS.
+ * @param l0 Cube-rooted l cone response of the first pixel.
+ * @param m0 Cube-rooted m of the first pixel.
+ * @param s0 Cube-rooted s of the first pixel.
+ * @param l1 Cube-rooted l of the second pixel.
+ * @param m1 Cube-rooted m of the second pixel.
+ * @param s1 Cube-rooted s of the second pixel.
+ * @param r0 Out: gamut-mapped linear red of the first pixel.
+ * @param g0 Out: linear green of the first pixel.
+ * @param b0 Out: linear blue of the first pixel.
+ * @param r1 Out: linear red of the second pixel.
+ * @param g1 Out: linear green of the second pixel.
+ * @param b1 Out: linear blue of the second pixel.
+ * @details Results match two lms_cbrt_transform_rgb calls bit for bit; only the
+ * statement order differs, so an in-order FPU can overlap the two independent
+ * chains. The uniform work stays interleaved and only the rare chroma-clip
+ * fixups run per pixel.
+ */
+HS_O3_FN
+inline void lms_cbrt_transform_rgb2(const float k[9], float l0, float m0,
+                                    float s0, float l1, float m1, float s1,
+                                    float &r0, float &g0, float &b0, float &r1,
+                                    float &g1, float &b1) {
+  float ul0 = k[0] * l0 + k[1] * m0 + k[2] * s0;
+  float ul1 = k[0] * l1 + k[1] * m1 + k[2] * s1;
+  float um0 = k[3] * l0 + k[4] * m0 + k[5] * s0;
+  float um1 = k[3] * l1 + k[4] * m1 + k[5] * s1;
+  float us0 = k[6] * l0 + k[7] * m0 + k[8] * s0;
+  float us1 = k[6] * l1 + k[7] * m1 + k[8] * s1;
+  lms_cbrt_to_linear_rgb(ul0, um0, us0, r0, g0, b0);
+  lms_cbrt_to_linear_rgb(ul1, um1, us1, r1, g1, b1);
+  bool ok0 = linear_rgb_in_gamut(r0, g0, b0);
+  bool ok1 = linear_rgb_in_gamut(r1, g1, b1);
+  if (!ok0) {
+    HS_PROFILE_DEEP(gamut_clip);
+    OKLab lab = lms_to_oklab(ul0, um0, us0);
+    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r0, g0, b0);
+  }
+  if (!ok1) {
+    HS_PROFILE_DEEP(gamut_clip);
+    OKLab lab = lms_to_oklab(ul1, um1, us1);
+    oklab_to_linear_rgb(gamut_clip_preserve_chroma(lab), r1, g1, b1);
+  }
+}
+
+/**
  * @brief Quantizes a [0,1] linear channel to a 16-bit Pixel component.
  * @param v Linear channel value; clamped to [0, 1].
  * @return The channel as a 16-bit value in [0, 65535].

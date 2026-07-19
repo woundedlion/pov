@@ -302,6 +302,37 @@ HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g, float b
   return Pixel(float_to_pixel16(rr), float_to_pixel16(gg), float_to_pixel16(bb));
 }
 
+/**
+ * @brief Two-pixel hue_fade_apply sharing one code path.
+ * @param k Rotation matrix already scaled by cbrt(fade/65535).
+ * @param r0 Linear red of the first pixel (u16 magnitude, as float).
+ * @param g0 Linear green of the first pixel.
+ * @param b0 Linear blue of the first pixel.
+ * @param r1 Linear red of the second pixel.
+ * @param g1 Linear green of the second pixel.
+ * @param b1 Linear blue of the second pixel.
+ * @param p0 Out: the rotated, faded first pixel.
+ * @param p1 Out: the rotated, faded second pixel.
+ * @details Results match two hue_fade_apply calls bit for bit. Each pixel keeps
+ * its own fast_cbrt3 reciprocal, since a shared one would change the rounding.
+ */
+HS_O3_FN inline void hue_fade_apply2(const float k[9], float r0, float g0,
+                                     float b0, float r1, float g1, float b1,
+                                     Pixel &p0, Pixel &p1) {
+  LMS lms0 = linear_rgb_to_lms(r0, g0, b0);
+  LMS lms1 = linear_rgb_to_lms(r1, g1, b1);
+  float cl0, cm0, cs0, cl1, cm1, cs1;
+  fast_cbrt3(lms0.l, lms0.m, lms0.s, cl0, cm0, cs0);
+  fast_cbrt3(lms1.l, lms1.m, lms1.s, cl1, cm1, cs1);
+  float rr0, gg0, bb0, rr1, gg1, bb1;
+  lms_cbrt_transform_rgb2(k, cl0, cm0, cs0, cl1, cm1, cs1, rr0, gg0, bb0, rr1,
+                          gg1, bb1);
+  p0 = Pixel(float_to_pixel16(rr0), float_to_pixel16(gg0),
+             float_to_pixel16(bb0));
+  p1 = Pixel(float_to_pixel16(rr1), float_to_pixel16(gg1),
+             float_to_pixel16(bb1));
+}
+
 // The fade and the u16 normalization fold into the cbrt-LMS domain:
 // cbrt(fade/65535 * LMS) = cbrt(fade/65535) * cbrt(LMS). Uses the rotation
 // matrix precomputed once per frame by Style::sync_hue.
