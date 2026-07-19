@@ -37,12 +37,15 @@
 namespace hs {
 /**
  * @brief Small deterministic PRNG (PCG XSH-RR 64/32) — the process-wide RNG.
- * @details Models a UniformRandomBitGenerator, so std::shuffle and hs::rand_*
- *          consume it unchanged. DETERMINISM CONTRACT: device and host both seed
- *          this identical type with 1337, so the draw stream stays bit-identical
+ * @details Models a UniformRandomBitGenerator, so hs::rand_* consume it
+ *          unchanged. DETERMINISM CONTRACT: device and host both seed this
+ *          identical type with 1337, so the draw stream stays bit-identical
  *          across the two builds (the sim/device parity invariant); nothing may
- *          depend on the specific values, only on reproducibility. Reference:
- *          pcg32 by Melissa O'Neill.
+ *          depend on the specific values, only on reproducibility. Consume it
+ *          only through hs:: helpers — a <random> algorithm or distribution
+ *          draws an implementation-defined number of times and breaks the
+ *          contract; use hs::shuffle, not std::shuffle. Reference: pcg32 by
+ *          Melissa O'Neill.
  */
 class Pcg32 {
 public:
@@ -1130,6 +1133,27 @@ inline int rand_int(int min, int max) {
     return min + (hs::random()() % (max - min));
   }
   return min;
+}
+
+/**
+ * @brief Shuffles [first, last) using the process-wide RNG.
+ * @tparam It Random-access iterator.
+ * @param first Range begin.
+ * @param last Range end.
+ * @note Replaces std::shuffle, whose permutation AND draw count are
+ * implementation-defined: the three standard libraries this project builds
+ * against (device libstdc++, WASM libc++, host) each produced a different
+ * sequence and desynchronized the shared stream, breaking the determinism
+ * contract above. Descending Fisher-Yates, exactly one draw per step.
+ */
+template <typename It> inline void shuffle(It first, It last) {
+  const int n = static_cast<int>(last - first);
+  for (int i = n - 1; i > 0; --i) {
+    const int j = rand_int(0, i + 1);
+    const auto tmp = first[i];
+    first[i] = first[j];
+    first[j] = tmp;
+  }
 }
 
 /**
