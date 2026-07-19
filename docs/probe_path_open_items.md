@@ -6,6 +6,54 @@ context. Read this whole brief before touching anything.
 
 ---
 
+## Status
+
+**Task A — open.** The walks were re-measured on device after the three earlier
+fixes: buckets 469.6 cyc/probe, exact walk 387.4 cyc/event = **64.6 cyc/edge**,
+so the gap to the ~20-25 target is real. Two leads are now closed:
+
+- **Scratch-buffer placement (was lead 1): DEAD.** `global_arena_block` links at
+  `0x20000ce0`, size `0x4a800`, inside DTCM (`0x20000000`); OCRAM starts at
+  `0x20200000`. `EdgePacked` loads are already zero-wait.
+- **Sector-walk modulo: FIXED.** `packed_edges[(s + k + count) % count]` lowered
+  to `sdiv` + `mls` feeding the address the five edge loads depend on. Replaced
+  by one wrap correction; sector stage 434.5 -> 415.0 cyc/event (-4.5%), every
+  other stage flat, worst solid's scan 70.37 -> 69.84 ms.
+
+Still open: the exact walk's parity test carries **3 `vmrs` per edge** (`ylo <=
+py`, `py < yhi`, `px < isx`), up to 15 of its 64.6 cycles. A branchless form
+still needs APSR flags — `vsel` reads them too — and the arithmetic dodge is the
+sign-bit trick ruled out below. `SDF::Face::Face` (96 `vmrs`, 17 `vdiv`, 14
+`vsqrt`, runs 1082x/frame) is unexamined and is the largest unclaimed target.
+
+**Task B — closed, measured, not fixed.** The `1/sin(phi)` under-coverage is
+real: 805.5 missed fringe px/frame registry-mean, 1,223.9 on the worst solid,
+confined to rows 0-35 and 108-143, max alpha 0.50 (mean 0.084). It is also
+invisible, for a structural reason: **the mesh tiles the sphere**, so a fringe
+pixel clipped off one face is painted opaque by its neighbour — **0 true holes
+across 192 draws under both a flat and a per-face-primary shader**. The
+conservative pad costs **+25.6% probes whole-canvas, +50.8% on the polar rows**
+(~+16.6 ms/frame on a polar segment at 520 cyc/probe), against an effect already
+missing cadence on 3 shapes. Not worth it. The audit harness is landed
+(`-DHS_AA_AUDIT`, `tests/aa_audit_main.cpp`); the pad change is not.
+
+Residual and independent of the pad: four solids still miss fringe after a
+corrected pad (`truncatedIcosidodecahedron_truncate50d_ambo_dual` 486.5/frame,
+`truncatedIcosahedron_ambo_relax100_hk54_needle` 199.2,
+`snubDodecahedron_truncate5d_ambo_dual` 158.2,
+`truncatedIcosahedron_truncate50d_ambo_dual` 141.0). That defect is in the
+azimuth-interval construction, not the pad. Same zero-holes verdict.
+
+**Task C — audit regenerated; one fix landed.** The snapshot table below is not
+comparable to a fresh run (different classifier basis, not image drift).
+`gamut_channel_exit`, the snapshot's top-ranked row, is **unreachable in
+MeshFeedback**: it is called only from `gamut_clip_analytic`, taken only when the
+LUT is disarmed, and `init_gamut_lut`'s one caller repo-wide is
+`MeshFeedback.h:129`. `gamut_bracket_refine` was the confirmed-hot row and went
+48 -> 16 `vmrs`.
+
+---
+
 ## 0. Ground rules (non-negotiable)
 
 **Never write to `C:\work\Holosphere` directly.** It is a shared main tree with
