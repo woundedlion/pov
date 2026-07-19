@@ -484,6 +484,37 @@ HS_O3_FN inline void fast_cbrt3(float x1, float x2, float x3, float &o1,
   o3 = n3 * (d1 * d2) * inv;
 }
 
+/**
+ * @brief Fast cube roots of six values sharing a single division.
+ * @param x Six inputs; same domain as fast_cbrt (x <= 0 yields 0).
+ * @param o Six outputs, the cube roots of the corresponding inputs.
+ * @details Same bit-hack seed and Halley step as fast_cbrt, evaluated through
+ * one reciprocal instead of six divides, so the six seed chains schedule
+ * against each other on an in-order FPU. Accuracy matches fast_cbrt (peak
+ * relative error ~2.3e-5 against cbrtf for x >= 1e-6). Each denominator is
+ * ~3x, so the six-denominator product overflows once all six inputs exceed
+ * ~4.2e5 and underflows below ~1.2e-7, the latter already inside fast_cbrt's
+ * degraded tail. The feedback path feeds u16-magnitude channels (<= 65535).
+ */
+HS_O3_FN inline void fast_cbrt6(const float x[6], float o[6]) {
+  float n[6], d[6];
+  for (int i = 0; i < 6; ++i)
+    cbrt_halley_terms(x[i], n[i], d[i]);
+  // Prefix/suffix denominator products: foreign[i] is the product of the five
+  // denominators other than d[i], which cancels the shared product back to
+  // n[i] / d[i].
+  float pre[6], suf[6];
+  pre[0] = 1.0f;
+  for (int i = 1; i < 6; ++i)
+    pre[i] = pre[i - 1] * d[i - 1];
+  suf[5] = 1.0f;
+  for (int i = 4; i >= 0; --i)
+    suf[i] = suf[i + 1] * d[i + 1];
+  const float inv = 1.0f / (pre[5] * d[5]);
+  for (int i = 0; i < 6; ++i)
+    o[i] = n[i] * (pre[i] * suf[i]) * inv;
+}
+
 // Forward declarations (defined at end of file)
 inline float fast_acos(float x);
 inline float fast_sinf(float x);

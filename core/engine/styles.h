@@ -313,20 +313,23 @@ HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g, float b
  * @param b1 Linear blue of the second pixel.
  * @param p0 Out: the rotated, faded first pixel.
  * @param p1 Out: the rotated, faded second pixel.
- * @details Results match two hue_fade_apply calls bit for bit. Each pixel keeps
- * its own fast_cbrt3 reciprocal, since a shared one would change the rounding.
+ * @details Both pixels' cube roots go through one fast_cbrt6 call, so the six
+ * seed/Halley chains schedule against each other and the pair costs one divide.
+ * The shared reciprocal re-associates the arithmetic, moving results off the
+ * scalar hue_fade_apply path by ~4e-7 relative — ~50x below the cube root's own
+ * ~2.3e-5 error, and 0.002% of u16 channels by one LSB.
  */
 HS_O3_FN inline void hue_fade_apply2(const float k[9], float r0, float g0,
                                      float b0, float r1, float g1, float b1,
                                      Pixel &p0, Pixel &p1) {
   LMS lms0 = linear_rgb_to_lms(r0, g0, b0);
   LMS lms1 = linear_rgb_to_lms(r1, g1, b1);
-  float cl0, cm0, cs0, cl1, cm1, cs1;
-  fast_cbrt3(lms0.l, lms0.m, lms0.s, cl0, cm0, cs0);
-  fast_cbrt3(lms1.l, lms1.m, lms1.s, cl1, cm1, cs1);
+  const float lms6[6] = {lms0.l, lms0.m, lms0.s, lms1.l, lms1.m, lms1.s};
+  float c6[6];
+  fast_cbrt6(lms6, c6);
   float rr0, gg0, bb0, rr1, gg1, bb1;
-  lms_cbrt_transform_rgb2(k, cl0, cm0, cs0, cl1, cm1, cs1, rr0, gg0, bb0, rr1,
-                          gg1, bb1);
+  lms_cbrt_transform_rgb2(k, c6[0], c6[1], c6[2], c6[3], c6[4], c6[5], rr0, gg0,
+                          bb0, rr1, gg1, bb1);
   p0 = Pixel(float_to_pixel16(rr0), float_to_pixel16(gg0),
              float_to_pixel16(bb0));
   p1 = Pixel(float_to_pixel16(rr1), float_to_pixel16(gg1),

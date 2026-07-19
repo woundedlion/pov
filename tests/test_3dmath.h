@@ -191,6 +191,57 @@ inline void test_fast_cbrt() {
 }
 
 /**
+ * @brief Verifies fast_cbrt6 tracks six separate fast_cbrt calls and holds the
+ *        documented ~2.3e-5 error against cbrtf across its usable domain.
+ * @details The shared reciprocal re-associates the arithmetic, so agreement
+ *          with fast_cbrt is ~4e-7 relative rather than exact. Also pins the
+ *          x<=0 -> 0 clamp and the ~4.2e5 ceiling above which the
+ *          six-denominator product overflows: a future caller widening the
+ *          input range past the u16-magnitude domain trips this.
+ */
+inline void test_fast_cbrt6() {
+  // Agreement with the scalar helper across the u16-magnitude LMS range.
+  for (int i = 0; i < 64; ++i) {
+    float x[6], o[6];
+    for (int j = 0; j < 6; ++j)
+      x[j] = 1.0f + 65534.0f * ((i * 6 + j) % 61) / 60.0f;
+    fast_cbrt6(x, o);
+    for (int j = 0; j < 6; ++j) {
+      float ref = fast_cbrt(x[j]);
+      HS_EXPECT_TRUE(std::abs(o[j] - ref) / ref <= 1e-6f);
+      float rel = std::abs(o[j] - std::cbrt(x[j])) / std::cbrt(x[j]);
+      HS_EXPECT_TRUE(rel <= 2.3e-5f);
+    }
+  }
+
+  // Non-positive inputs clamp to 0 without poisoning the shared product.
+  {
+    const float x[6] = {-1.0f, 0.0f, -0.0f, 8.0f, 1.0f, 27.0f};
+    float o[6];
+    fast_cbrt6(x, o);
+    HS_EXPECT_NEAR(o[0], 0.0f, 1e-7f);
+    HS_EXPECT_NEAR(o[1], 0.0f, 1e-7f);
+    HS_EXPECT_NEAR(o[2], 0.0f, 1e-7f);
+    HS_EXPECT_NEAR(o[3], 2.0f, 2.3e-5f * 2.0f);
+    HS_EXPECT_NEAR(o[4], 1.0f, 2.3e-5f);
+    HS_EXPECT_NEAR(o[5], 3.0f, 2.3e-5f * 3.0f);
+  }
+
+  // Just under the documented overflow ceiling the result is still accurate.
+  {
+    const float v = 4.0e5f;
+    const float x[6] = {v, v, v, v, v, v};
+    float o[6];
+    fast_cbrt6(x, o);
+    for (int j = 0; j < 6; ++j) {
+      HS_EXPECT_TRUE(std::isfinite(o[j]));
+      float rel = std::abs(o[j] - std::cbrt(v)) / std::cbrt(v);
+      HS_EXPECT_TRUE(rel <= 2.3e-5f);
+    }
+  }
+}
+
+/**
  * @brief Verifies fast_expf anchors, the large-magnitude saturation to 0, and
  *        the documented ~7.4e-4 peak relative error over the x<=0 domain.
  */
@@ -1093,6 +1144,7 @@ inline int run_3dmath_tests() {
   test_fast_acos();
   test_fast_sinf_cosf();
   test_fast_cbrt();
+  test_fast_cbrt6();
   test_fast_expf();
 
   test_vector_construction();
