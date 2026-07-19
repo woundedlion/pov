@@ -326,6 +326,37 @@ ISR cost scales with display cadence, not with effect cost: at 8 fps a frame is
 roughly constant, and the percentage figures move as render time moves. Quote
 ISR cost in **µs/window or CPU%**, and state which frame length you measured at.
 
+### C4 — the two live bandwidth-reducing levers (prefetch is out; these are not)
+
+The prefetch revert proved the pack is contention-bound — cost ∝ AXI bytes, not
+miss latency. That *strengthens* the case for cutting bytes, which prefetch never
+did. Two open approaches, neither exhausted:
+
+- **Column ring / batch pack.** Consecutive ISR fires pack adjacent columns, and
+  each 32 B line holds ~5.33 consecutive-x pixels of a row. Packing K adjacent
+  columns from one set of line loads, then submitting one pre-packed frame per
+  subsequent fire, reads each line once instead of K times — ~5.33× less pack
+  AXI traffic. The composite frame's second half is a black strobe written once
+  at construction (`hd107s_frame.h:98`) and never re-touched, so the ring holds
+  only the `N*4` = 288 B payload, not the 594 B composite: K=8 fits the ~4.7 KB
+  RAM2 free. Constraint is the **sync horizon** — the column index comes from the
+  flywheel mailbox (`a.render_column`), not a counter, so pre-packing K columns
+  predicts K indices; K≈8 (3.5 ms, ~10° of rotation) is the practical ceiling,
+  ~3.2× on the pack ≈ 2.7–2.9 ms/window. Touches the fail-dark/submit path — high
+  correctness bar.
+- **Column-major framebuffer with a transposed raster.** Flip the buffer to
+  column-major AND transpose the scan to x-outer/y-inner so both the pack and the
+  render stay contiguous. Cuts pack line touches ~5.33× with no render penalty —
+  UNLIKE a column-major buffer under the current y-outer raster, which just moves
+  the cost. The inner-loop trig transposes for free (hoist `ct`/`st` per column,
+  same LUTs, 2 muls/px). Open risks, NOT yet measured: polar faces invert badly
+  (a pole face full-fills a row today → touches every column transposed, blowing
+  up `scan_face_setup`), and spans get shorter/more-numerous so the per-span-end
+  AA fringe pad worsens — the same wall that killed the per-row-span lever, but
+  its magnitude here is unmeasured. Blast radius is repo-wide (canvas indexing,
+  masks, clip, the WASM sim + daydream parity, tests). **Not exhausted** — the
+  span-fringe objection is an argument, not a measurement.
+
 ---
 
 ## 6. TASK D — the shade stage: 13.67 ms/frame, never analysed
@@ -348,22 +379,38 @@ divide/normalise density as the `Face` ctor.
 
 ---
 
-## 7. TASK E — the remaining red is a transition cost, not steady state
+## 7. TASK E — the peak is a rippled single mesh, NOT a two-mesh transition
 
-The worst solid holds **61.91 ms** of scan against the 62.5 ms window — its
-steady render is 67.1 ms, 4.6 ms over — but its **bucket peak is 75.1 ms**.
-Buckets charge each preset the transition that follows it, where **two meshes are
-drawn in one frame**.
+The worst solid's **bucket peak is 75.1 ms** vs its ~67.1 ms steady render. An
+earlier draft blamed the shape handover ("two meshes drawn in one frame"). That
+is **wrong**, proven three ways:
 
-So a large part of what keeps this effect red is the shape transition, not the
-held shape. The pattern that fixed the analogous problem in MeshFeedback is a
-**drain transition** (`5f975feb`: emit → drain-to-black → next preset), which
-took that effect's peak 180.8 → 87.7 ms. Whether an equivalent is acceptable here
-is an *art* decision — it changes how shapes hand over — so **surface it to the
-owner rather than implementing it unilaterally.**
+- IslamicStars uses `Segue::TerminatorSweep`, which schedules via
+  `schedule_sequential` (`core/animation/mesh.h:742`) — one sprite, returns the
+  full `duration`. Only `Crossfade` overlaps two sprites, and it returns
+  `duration - fade`; IslamicStars does not use it.
+- On the handoff frame the outgoing sprite steps at `t==duration` → `phase==0` →
+  `draw_shape` early-returns on `!seg.visible(0)`. The incoming sprite is added
+  inside that frame's `spawn_shape` callback, but `Timeline::step` snapshots the
+  event count before running callbacks, so it is not stepped until the next
+  frame. Handoff frame draws ZERO meshes, never two.
+- Dispositive: the 75.1 ms peak is read from **clean-hold** windows
+  (`scan_mesh_raster` calls == 16·F). A two-mesh frame emits 2·F calls and is
+  excluded by construction — so the peak is provably single-mesh.
 
-If steady-state work continues instead, note that the remaining margin is small:
-4.6 ms of 67.1, i.e. ~7%.
+The +8 ms is one mesh being **ripple-distorted**. The per-shape choreography is
+fade-in → hold → **ripple burst** → hold → fade-out; the burst lands mid-hold on
+the `phase==1` plateau (a clean-hold window), NOT in the fades. During it up to
+`burst_size` (4) staggered wavelets at 0.15 rad displace vertices, which inflates
+`is_mesh_transform` (real `fast_acos`/`fast_expf`/quaternion work vs the
+amplitude≈0 fast-reject) and pushes marginal faces into view, raising
+probe/overdraw in `scan_mesh_raster`.
+
+**A drain transition would do nothing** — there is no two-mesh overlap to remove.
+The levers for this peak are on the **ripple during large-F shapes** (gate/scale
+amplitude or burst_size by face count, or suppress ripple on the worst solid) —
+an *art* decision, surface to the owner. The steady probe/scan cost is the other
+path.
 
 ---
 
