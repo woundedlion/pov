@@ -279,6 +279,35 @@ not estimated:
 `gamut_clip` per-call: 1,953 → 1,970 → 1,772 → **1,177 cyc/px** (−40% from
 baseline).
 
+### Shipping result (no deep instrumentation)
+
+Every figure above is instrumented-to-instrumented. The `HS_PROFILE_DEEP` scopes
+cost ~6 ms/frame at four-plus scopes per pixel, so the shipping numbers are
+materially better. Captured at the same 300 s / window 16 / epoch 2900:
+
+| | before | after |
+|---|--:|--:|
+| pass peak render | 87.66 ms | **70.20 ms** |
+| pass spilled | 1524/3168 (48.1%) | **435/4320 (10.1%)** |
+| Smoke flush | 78.84 ms | **60.31 ms** |
+| cadence buckets | 6 red, 1 yellow, 1 green | **1 red, 3 yellow, 4 green** |
+
+| # | style | peak render | spilled | cadence |
+|---|---|--:|--:|---|
+| 4 | Smoke | 70.20 | 422/572 | 🔴 |
+| 1 | Melting | 64.74 | 5/572 | 🟡 |
+| 7 | Drift | 63.55 | 4/317 | 🟡 |
+| 3 | Churn | 63.19 | 4/572 | 🟡 |
+| 0 | SlowTwist | 56.20 | 0/571 | 🟢 |
+| 6 | Shatter | 55.80 | 0/572 | 🟢 |
+| 5 | Frozen | 48.79 | 0/572 | 🟢 |
+| 2 | Swirling | 37.70 | 0/572 | 🟢 |
+
+**Five of eight styles hold 16 fps outright** (was two), and the three yellows
+spill under 1% of their frames — each is within ~2 ms of locking. Only Smoke
+still slips a tier, 11.2 ms above the 59 ms target rather than the 17.5 ms the
+instrumented capture implied.
+
 | lever | estimated | measured | verdict |
 |---|--:|--:|---|
 | L1 cubic-form gamut bisection | −16.3 | **0.0** | measured dead, reverted — latency-bound |
