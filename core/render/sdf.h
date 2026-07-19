@@ -2583,6 +2583,9 @@ struct Face {
       return;
 
     float sign = area2 >= 0 ? 1.0f : -1.0f;
+    // d0 is the origin's worst half-plane distance: the projected face center
+    // must be strictly interior or the winding/orientation is untrustworthy.
+    float d0 = -FLT_MAX;
     for (int i = 0; i < count; ++i) {
       float len_sq = edge_lengths_sq[i];
       if (len_sq < 1e-12f)
@@ -2590,16 +2593,13 @@ struct Face {
       float inv = sign / sqrtf(len_sq);
       float nx = edge_vectors[i].y * inv;
       float ny = -edge_vectors[i].x * inv;
+      float off = -(nx * poly_2d[i].x + ny * poly_2d[i].y);
       auto &hp = scratch.half_planes[i];
       hp.nx = nx;
       hp.ny = ny;
-      hp.off = -(nx * poly_2d[i].x + ny * poly_2d[i].y);
+      hp.off = off;
+      d0 = __builtin_fmaxf(off, d0);
     }
-    // The projected face center is the 2D origin; it must be strictly interior
-    // or the winding/orientation is untrustworthy.
-    float d0 = -FLT_MAX;
-    for (int i = 0; i < count; ++i)
-      d0 = __builtin_fmaxf(scratch.half_planes[i].off, d0);
     if (d0 >= 0.0f)
       return;
     half_planes = std::span<const HalfPlane>(scratch.half_planes.data(), count);
