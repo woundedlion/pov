@@ -34,6 +34,14 @@ static constexpr float STAR_INNER_RATIO = ::STAR_INNER_RATIO;
 static constexpr float EPS_GEODESIC_SEGMENT = 0.001f;
 
 /**
+ * @brief Minimum |axis.y| for which a geodesic edge's endpoint columns bound
+ *        its azimuth span.
+ * @details Below this the great circle runs near the poles, where longitude is
+ * ill-conditioned and the interior leaves the endpoint columns.
+ */
+static constexpr float AXIS_Y_EPS = 1e-4f;
+
+/**
  * @brief Floor on the adaptive sub-step length, as a fraction of base_step.
  * @details Caps sub-steps per segment so polar curves don't oversample: the
  * screen-velocity step sampler (screen_step) drives the step toward zero where
@@ -588,7 +596,6 @@ template <int W>
 static inline bool geodesic_col_span_cols(float ca, float cb, const Vector &a,
                                           const GeodesicEdgeSpan &es,
                                           int &col_s, int &col_len) {
-  constexpr float AXIS_Y_EPS = 1e-4f;
   float s_f, len_f;
 
   if (es.total < EPS_GEODESIC_SEGMENT) {
@@ -2720,6 +2727,15 @@ static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
       else if (d < -W * 0.5f)
         d += W;
       if (std::abs(d) >= W * 0.5f - 3.0f)
+        walk_safe = false;
+      // geodesic_col_span_cols refuses to bound an edge whose great-circle
+      // axis is near-horizontal, and the per-edge tier then treats it as
+      // visible; the endpoint columns walked here do not bound such an edge
+      // either. |axis.y| = |cy| / |cross| and |cross| <= 1, so testing the
+      // unnormalized cy covers every case it rejects.
+      const Vector &ca_pos = trail[k - 1].pos;
+      const Vector &cb_pos = trail[k].pos;
+      if (std::abs(ca_pos.z * cb_pos.x - ca_pos.x * cb_pos.z) < AXIS_Y_EPS)
         walk_safe = false;
       cum += d;
       cum_lo = std::min(cum_lo, cum);

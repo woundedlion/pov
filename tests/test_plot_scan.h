@@ -947,6 +947,53 @@ inline void test_rasterize_column_cull_pixel_parity() {
 }
 
 /**
+ * @brief Pins the whole-trail column cull to the per-edge column bound.
+ * @details An edge whose great-circle axis is near-horizontal has no bounded
+ *          azimuth span, so the per-edge tier reports it visible. The
+ *          whole-trail walk must not cull it from the endpoint columns, which
+ *          do not bound it either. The geometry below has |axis.y| ~ 1e-4,
+ *          just under geodesic_col_span_cols' threshold, and sits far enough
+ *          from the poles to clear the cull's own sin(phi) guard.
+ */
+inline void test_gate_trail_column_cull_honors_unbounded_edge() {
+  constexpr int TW = 288, TH = 144;
+  Pipeline<TW, TH, Filter::Screen::AntiAlias<TW, TH>> pipeline{
+      Filter::Screen::AntiAlias<TW, TH>()};
+  const Vector a(-0.616987944f, -0.142148912f, 0.774028182f);
+  const Vector b(-0.623163402f, 0.021294117f, 0.78180176f);
+
+  ScratchScope sc(plot_arena());
+  Fragments trail;
+  trail.bind(plot_arena(), 2);
+  for (const Vector &v : {a, b}) {
+    Fragment f;
+    f.pos = v;
+    trail.push_back(f);
+  }
+
+  // Bands across the sphere, so at least one excludes the endpoint columns.
+  for (int x0 = 0; x0 < TW; x0 += 24) {
+    ClipRegion cr;
+    cr.w = TW;
+    cr.h = TH;
+    cr.y_start = 0;
+    cr.y_end = TH;
+    cr.x_start = x0;
+    cr.x_end = x0 + 96;
+    const auto xc = cr.x_clip();
+    const int band_len = xc.wrap ? xc.re - xc.rs + TW : xc.re - xc.rs;
+
+    uint8_t bits[2];
+    const bool any =
+        Plot::gate_trail_edges<TW, TH>(pipeline, cr, xc, band_len, trail, bits);
+    const bool want = Plot::edge_visible_in_clip<TW, TH>(
+        pipeline, cr, xc, band_len, a, b, nullptr);
+    HS_EXPECT_EQ(any, want);
+    HS_EXPECT_EQ(bits[0] != 0, want);
+  }
+}
+
+/**
  * @brief Pins gate_trail_edges to the per-edge edge_visible_in_clip verdicts.
  * @details Random geodesic step-walk trails over the device band shapes. A
  *          false return must leave every byte zero AND every edge individually
@@ -2725,6 +2772,7 @@ inline int run_plot_scan_tests() {
   test_edge_col_span_covers_arc();
   test_edge_visible_in_clip_matches_span_composition();
   test_rasterize_column_cull_pixel_parity();
+  test_gate_trail_column_cull_honors_unbounded_edge();
   test_gate_trail_edges_matches_edge_visible();
   test_rasterize_gate_bits_pixel_parity();
   test_screen_step_matches_analytic_unclamped();
