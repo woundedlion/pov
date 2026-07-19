@@ -240,3 +240,14 @@ foreach(_opt Os O3)
   target_include_directories(perf_bench_${_opt} PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
   target_compile_options(perf_bench_${_opt} PRIVATE -${_opt} -ffast-math -fno-finite-math-only)
 endforeach()
+
+# Divergence trace for perturbations of the feedback colour path
+# (feedback_divergence.cpp). Not a CTest — comparing two code paths needs two
+# builds, so it dumps frames in one build and compares dumps in another. Stays
+# in the default build as a compile guard against bit-rot.
+add_executable(feedback_divergence
+  ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence.cpp
+  ${HS_ROOT}/core/engine/memory.cpp)
+target_compile_definitions(feedback_divergence PRIVATE HS_TEST_BUILD)
+target_include_directories(feedback_divergence PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+target_compile_options(feedback_divergence PRIVATE -O2 -ffast-math -fno-finite-math-only)
