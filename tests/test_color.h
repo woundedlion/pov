@@ -645,7 +645,8 @@ inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
 }
 
 /**
- * @brief Verifies the chroma-reduction map lands on the gamut's first exit.
+ * @brief Verifies the chroma-reduction map lands on the gamut's first exit off
+ *        the flash master, the grid every effect that arms nothing runs on.
  * @details Sweeps lightness, hue and input chroma and holds the map to two
  *          properties. Every returned color must pass linear_rgb_in_gamut —
  *          that is the hard one, the map's whole job. And the returned chroma
@@ -655,7 +656,7 @@ inline double gamut_first_exit_ref(double L, double ad, double bd, double cap) {
  *          cube vertex is sampled finely because that is where a channel dips
  *          through a face and back, and where the boundary moves fastest.
  */
-inline void test_gamut_clip_lands_on_first_exit() {
+inline void test_gamut_master_clip_lands_on_first_exit() {
   const float DEFICIT_BOUND = 5e-3f;
   const double CHROMA_IN[3] = {0.6, 0.35, 0.25};
   float worst_deficit = 0.0f, worst_oversat = -1.0f;
@@ -800,10 +801,10 @@ inline void test_gamut_lut_downsample_preserves_bracket() {
 }
 
 /**
- * @brief Verifies an in-gamut color survives the table clip untouched and that
- *        a null table falls back to the cubic solve.
+ * @brief Verifies an in-gamut color survives the arena-copy clip untouched and
+ *        that releasing the copy leaves the clip working off the flash master.
  */
-inline void test_gamut_lut_fallback_and_passthrough() {
+inline void test_gamut_lut_release_and_passthrough() {
   alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(
       TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
@@ -824,14 +825,35 @@ inline void test_gamut_lut_fallback_and_passthrough() {
   HS_EXPECT_NEAR(gray.a, 0.0f, 1e-9f);
   HS_EXPECT_NEAR(gray.b, 0.0f, 1e-9f);
 
+  // Released: the pointer must leave the arena rather than dangle into it, and
+  // land on the full-resolution flash master.
   release_gamut_lut();
-  HS_EXPECT_TRUE(g_gamut_lut.table == nullptr);
+  HS_EXPECT_TRUE(g_gamut_lut.table == GAMUT_LUT);
+  HS_EXPECT_EQ(g_gamut_lut.angle_steps, GAMUT_LUT_ANGLE_STEPS);
+  HS_EXPECT_EQ(g_gamut_lut.l_steps, GAMUT_LUT_L_STEPS);
 
-  // With the table released the cubic solve still maps a past-cusp color in.
+  // Off the master the clip still maps a past-cusp color in.
   OKLab mapped = gamut_clip_preserve_chroma(oklch_to_oklab({0.65f, 0.4f, 1.2f}));
   float r, g, b;
   oklab_to_linear_rgb(mapped, r, g, b);
   HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
+}
+
+/**
+ * @brief Verifies configure_arenas() drops an arena-resident copy.
+ * @details The copy lives in the persistent arena, and configure_arenas() hands
+ *          that storage out again; a pointer surviving the call would have the
+ *          clip reading whatever the next effect allocates over it. Enforced in
+ *          the engine rather than in each owner's destructor, so an effect that
+ *          arms the grid cannot leak a stale pointer by forgetting to release.
+ */
+inline void test_configure_arenas_releases_gamut_lut() {
+  init_gamut_lut(persistent_arena, TEST_GAMUT_ANGLE_STEPS,
+                 TEST_GAMUT_L_STEPS);
+  HS_EXPECT_TRUE(g_gamut_lut.table != GAMUT_LUT);
+
+  configure_arenas_default();
+  HS_EXPECT_TRUE(g_gamut_lut.table == GAMUT_LUT);
 }
 
 /**
@@ -2053,10 +2075,11 @@ inline int run_color_tests() {
   test_lerp_oklch_extrapolation_clamped();
   test_oklch_to_pixel_saturates_and_preserves_in_gamut();
   test_gamut_clip_preserves_hue();
-  test_gamut_clip_lands_on_first_exit();
+  test_gamut_master_clip_lands_on_first_exit();
   test_gamut_lut_clip_lands_on_first_exit();
   test_gamut_lut_downsample_preserves_bracket();
-  test_gamut_lut_fallback_and_passthrough();
+  test_gamut_lut_release_and_passthrough();
+  test_configure_arenas_releases_gamut_lut();
   test_oklch_to_pixel_holds_hue_out_of_gamut();
 
   test_fast_cbrt_accuracy();

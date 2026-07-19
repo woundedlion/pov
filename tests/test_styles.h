@@ -310,9 +310,15 @@ inline void test_hue_rotate_lms_matrix_identity() {
  *          (which exercise the gamut-clip slow path), a dark and a gray tone
  *          with every preset-range fade/shift combination. The measured max
  *          delta on this sweep is 19 LSB; the tolerance carries ~3x margin.
+ *          Runs on MeshFeedback's boundary grid, the one hue_fade ships against:
+ *          the clip's bracket residual sets this delta, so a different grid
+ *          measures a configuration nothing runs (the flash master reads 106).
  */
 inline void test_hue_fade_matches_rotate_reference() {
   constexpr float HS_HUE_FADE_TOL = 64.0f;
+  alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(256, 128)];
+  Arena lut_arena(lut_buf, sizeof(lut_buf));
+  init_gamut_lut(lut_arena, 256, 128);
   const Pixel colors[] = {Pixel(65535, 0, 0),     Pixel(0, 65535, 0),
                           Pixel(0, 0, 65535),     Pixel(65535, 65535, 0),
                           Pixel(50000, 2000, 2000), Pixel(300, 200, 100),
@@ -331,6 +337,7 @@ inline void test_hue_fade_matches_rotate_reference() {
         HS_EXPECT_NEAR((float)got.g, (float)ref.g, HS_HUE_FADE_TOL);
         HS_EXPECT_NEAR((float)got.b, (float)ref.b, HS_HUE_FADE_TOL);
       }
+  release_gamut_lut();
 }
 
 /**

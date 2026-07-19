@@ -81,14 +81,6 @@ public:
                 Filter::Pixel::Feedback<W, H>(style)) {}
 
   /**
-   * @brief Releases the arena-resident gamut boundary table.
-   * @details The table lives in the persistent arena, which is reset before the
-   * next effect's init(); dropping the pointer here keeps the clip path from
-   * reading whatever that effect allocates over it.
-   */
-  HS_COLD_MEMBER ~MeshFeedback() override { release_gamut_lut(); }
-
-  /**
    * @brief One-time effect setup.
    * @details Binds shared noise into presets, builds the icosahedron, registers
    * tunable params, and schedules the noise/walk/preset timers.

@@ -26,6 +26,12 @@ struct FlybyWhiteBox;
  */
 template <int W, int H> class Flyby : public Effect {
 public:
+  // Gamut boundary bracket grid this effect buys from the persistent arena
+  // (131,072 B). Only the 3,072 B palette bake shares the partition, so the
+  // resolution is set by what the refinement wants rather than by the budget.
+  static constexpr int GAMUT_ANGLE_STEPS = 256;
+  static constexpr int GAMUT_L_STEPS = 128;
+
   /**
    * @brief Constructs the effect at W x H and disables pixel persistence.
    */
@@ -63,6 +69,9 @@ public:
                  GenerativePalette{
                      GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
                      BrightnessProfile::FLAT, SaturationProfile::MID, 42});
+    // The shader's hue_rotate clips per pixel, so the RAM copy pays for itself
+    // over reading the flash master.
+    init_gamut_lut(persistent_arena, GAMUT_ANGLE_STEPS, GAMUT_L_STEPS);
 
     next_preset();
   }
@@ -258,6 +267,11 @@ private:
                 "exposes the presets, it does not clamp them)");
 
   Presets<Params, 5> presets{PRESETS};
+
+  static_assert(gamut_lut_bytes(GAMUT_ANGLE_STEPS, GAMUT_L_STEPS) <=
+                    DEVICE_PERSISTENT_BUDGET,
+                "Flyby gamut grid exceeds the default persistent partition; "
+                "coarsen the grid");
 };
 
 #include "core/engine/effect_registry.h"

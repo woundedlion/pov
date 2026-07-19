@@ -1,5 +1,6 @@
 #include "engine/memory.h"
 #include "animation/animation.h"
+#include "color/color.h"
 
 // Stubs to prevent the linker pulling in the C++ demangler (~15KB) on the device
 // (chain: std::function -> __cxa_throw -> __verbose_terminate_handler). Only the
@@ -63,8 +64,13 @@ Arena scratch_arena_b(global_arena_block + DEFAULT_PERSISTENT_SIZE +
  * aligned end so rounding cannot silently overrun. An over-subscribed partition is
  * a sizing/config bug, not recoverable, so it traps at init() rather than silently
  * scaling down; the log preserves the numbers before the trap.
+ *
+ * Also disarms the gamut boundary grid: it is an arena-resident copy, and this
+ * is the one place the storage under it is handed out again. Owners re-arm from
+ * init(), which every swap path runs after this.
  */
 void configure_arenas(size_t persistent, size_t scratch_a, size_t scratch_b) {
+  release_gamut_lut();
   // Bound each input so the align_up()/sum arithmetic below cannot wrap size_t.
   HS_CHECK(persistent <= GLOBAL_ARENA_SIZE && scratch_a <= GLOBAL_ARENA_SIZE &&
            scratch_b <= GLOBAL_ARENA_SIZE);
