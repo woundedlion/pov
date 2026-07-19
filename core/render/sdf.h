@@ -6,6 +6,7 @@
 
 #include <array>
 #include <algorithm>
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <numeric>
@@ -2132,7 +2133,20 @@ struct FaceScratchBuffer {
       half_planes; /**< Convex-face edge half-planes. */
   std::array<float, MAX_VERTS + 1>
       pseudo_angles; /**< Unwrapped vertex pseudo-angles for the sector walk. */
+  std::array<uint32_t, MAX_VERTS + 1>
+      sector_keys; /**< pseudo_angles as order-preserving integer keys. */
 };
+
+/**
+ * @brief Order-preserving unsigned key for a non-NaN float: key(a) <= key(b)
+ *        exactly when a <= b, with -0.0 and +0.0 mapping to the same key.
+ * @details Lets the sector search compare in the core registers instead of
+ * paying a vcmpe + vmrs FPU-to-core transfer per iteration.
+ */
+__attribute__((always_inline)) inline uint32_t angle_key(float x) {
+  uint32_t u = std::bit_cast<uint32_t>(x);
+  return (u & 0x80000000u) ? (0u - u) : (u + 0x80000000u);
+}
 
 /**
  * @brief Diamond pseudo-angle of (x, y) in [0, 4), strictly monotonic with
@@ -2207,14 +2221,15 @@ struct Face {
       2; /**< Widest neighbor walk build_sectors assigns. */
   static_assert(SECTOR_KMAX_MAX < SECTOR_MIN_COUNT,
                 "plane_dist_sector's ring walk applies one wrap correction");
-  std::span<float> sector_pv; /**< Unwrapped vertex pseudo-angles times
-                                 sector_sgn, count+1; weakly increasing (K2
-                                 faces dip <= SECTOR_MONO_TOL). */
-  float sector_base = 0.0f;    /**< sector_pv[0]. */
-  float sector_span = 0.0f;    /**< Unsigned span (~4). */
-  float sector_sgn = 1.0f;     /**< Winding: +1 CCW, -1 CW. Folded into
-                                  sector_pv/base/span so the sector search
-                                  compares one direction. */
+  std::span<const uint32_t>
+      sector_keys; /**< angle_key of each unwrapped vertex pseudo-angle times
+                      sector_sgn, count+1; weakly increasing (K2 faces dip <=
+                      SECTOR_MONO_TOL). */
+  float sector_base = 0.0f; /**< First unwrapped pseudo-angle, sgn-folded. */
+  float sector_span = 0.0f; /**< Unsigned span (~4). */
+  float sector_sgn = 1.0f;  /**< Winding: +1 CCW, -1 CW. Folded into the
+                               table, base and span so the sector search
+                               compares one direction. */
   int sector_kmax =
       1; /**< Neighbors walked each side: 1 (strict, bit-exact) or 2 (mildly
             bent, absorbs off-by-one binning). */
@@ -2668,7 +2683,10 @@ struct Face {
     if (min_step <= -SECTOR_MONO_TOL)
       return;
     sector_kmax = (min_step > 0.0f) ? 1 : SECTOR_KMAX_MAX;
-    sector_pv = std::span<float>(scratch.pseudo_angles.data(), count + 1);
+    for (int i = 0; i <= count; ++i)
+      scratch.sector_keys[i] = angle_key(scratch.pseudo_angles[i]);
+    sector_keys =
+        std::span<const uint32_t>(scratch.sector_keys.data(), count + 1);
     sector_base = scratch.pseudo_angles[0];
     sector_span = total * sgn;
     sector_sgn = sgn;
@@ -3114,7 +3132,7 @@ struct Face {
    * @param py Gnomonic y of the query point.
    * @return Signed distance in the tangent plane (negative inside).
    * @details Bins the query into its fan sector by pseudo-angle (a binary
-   * search over the monotonic vertex pseudo-angles), then takes the exact min
+   * search over the monotonic vertex angle_keys), then takes the exact min
    * segment distance over only that sector's edge and its sector_kmax neighbors
    * each side (K1 = 1 for strict faces, K2 = 2 for mildly-bent faces whose bin
    * can land a neighbor off). The sign comes free from the sector's boundary
@@ -3127,11 +3145,11 @@ struct Face {
     float p = pseudo_angle(py, px) * sector_sgn;
     float rel = (p - sector_base) / sector_span; // -> [0, 1) after the fold
     rel -= floorf(rel);
-    float q = sector_base + rel * sector_span;
+    uint32_t qk = angle_key(sector_base + rel * sector_span);
     int lo = 0, hi = count;
     while (lo + 1 < hi) {
       int mid = (lo + hi) >> 1;
-      if (sector_pv[mid] <= q)
+      if (sector_keys[mid] <= qk)
         lo = mid;
       else
         hi = mid;
