@@ -3123,8 +3123,14 @@ struct Face {
     int s = lo;
 
     float d = FLT_MAX;
+    // sector_kmax <= 2 <= SECTOR_MIN_COUNT, so one wrap correction suffices.
+    int idx = s - sector_kmax;
+    if (idx < 0)
+      idx += count;
     for (int k = -sector_kmax; k <= sector_kmax; ++k) {
-      const auto &ep = packed_edges[(s + k + count) % count];
+      const auto &ep = packed_edges[idx];
+      if (++idx == count)
+        idx = 0;
       float wx = px - ep.vx, wy = py - ep.vy;
       float t =
           hs::clamp((wx * ep.ex + wy * ep.ey) * ep.inv_len_sq, 0.0f, 1.0f);
