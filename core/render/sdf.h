@@ -2778,7 +2778,19 @@ struct Face {
    */
   __attribute__((always_inline)) void
   compute_azimuth_intervals(FaceScratchBuffer &scratch) {
-    std::sort(scratch.thetas.begin(), scratch.thetas.begin() + count);
+    // Insertion sort: faces carry a few dozen vertices at most, and std::sort
+    // stays out of line here (an __introsort_loop plus an __insertion_sort
+    // call per face).
+    float *th = scratch.thetas.data();
+    for (int i = 1; i < count; ++i) {
+      float t = th[i];
+      float *p = th + i;
+      while (p != th && p[-1] > t) {
+        p[0] = p[-1];
+        --p;
+      }
+      *p = t;
+    }
     float max_gap = 0;
     float gap_start = 0;
     for (int i = 0; i < count; ++i) {
