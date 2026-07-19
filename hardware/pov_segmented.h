@@ -91,6 +91,7 @@ class POVSegmented {
   static constexpr int PPS          = S / N;     /**< Pixels per segment.       */
   static constexpr int ROWS         = S / 2;     /**< Canvas rows (height).     */
   static constexpr int SEGS_PER_ARM = N / 2;     /**< Segments on each arm.     */
+  static constexpr int PACK_RUNAHEAD = 4;        /**< Pack prefetch, in rows.   */
 
   static_assert(RPM > 0, "RPM must be positive (COLUMN_US divides by RPM)");
   static_assert(S % N == 0,
@@ -618,7 +619,12 @@ private:
     {
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
       int y = y_base_;
-      for (int i = 0; i < PPS; ++i, y += y_step_) {
+      int y_pre = y_base_ + PACK_RUNAHEAD * y_step_;
+      for (int i = 0; i < PPS; ++i, y += y_step_, y_pre += y_step_) {
+        // Column walk over a row-major buffer: each read is its own OCRAM
+        // linefill. Run them ahead so the misses overlap. PLD never faults, so
+        // the tail overshooting the buffer is safe.
+        __builtin_prefetch(&buf[y_pre * w + x_col]);
         frame.packPixel(i, buf[y * w + x_col]);
       }
     }
