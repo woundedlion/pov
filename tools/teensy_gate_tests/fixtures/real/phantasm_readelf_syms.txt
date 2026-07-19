@@ -1,7 +1,7 @@
 
 Symbol table '.symtab' contains 5089 entries:
    Num:    Value  Size Type    Bind   Vis      Ndx Name
-  2508: 200071e0 0x53c00 OBJECT  LOCAL  DEFAULT    8 _ZL18global_arena_block
+  2508: 200071e0 0x4a800 OBJECT  LOCAL  DEFAULT    8 _ZL18global_arena_block
   2656: 2027c880  8192 OBJECT  LOCAL  DEFAULT    9 txbuffer
   2663: 2027b880  4096 OBJECT  LOCAL  DEFAULT    9 rx_buffer
   3942: 20200000  8192 OBJECT  GLOBAL DEFAULT    9 global_timeline_events
