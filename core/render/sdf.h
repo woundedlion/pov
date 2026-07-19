@@ -2207,11 +2207,14 @@ struct Face {
       2; /**< Widest neighbor walk build_sectors assigns. */
   static_assert(SECTOR_KMAX_MAX < SECTOR_MIN_COUNT,
                 "plane_dist_sector's ring walk applies one wrap correction");
-  std::span<float> sector_pv; /**< Unwrapped vertex pseudo-angles, count+1;
-                                 weakly monotonic (K2 faces dip <=
-                                 SECTOR_MONO_TOL). */
-  float sector_base = 0.0f; /**< sector_pv[0]. */
-  float sector_span = 0.0f; /**< Signed span (~+/-4), encodes the winding. */
+  std::span<float> sector_pv; /**< Unwrapped vertex pseudo-angles times
+                                 sector_sgn, count+1; weakly increasing (K2
+                                 faces dip <= SECTOR_MONO_TOL). */
+  float sector_base = 0.0f;    /**< sector_pv[0]. */
+  float sector_span = 0.0f;    /**< Unsigned span (~4). */
+  float sector_sgn = 1.0f;     /**< Winding: +1 CCW, -1 CW. Folded into
+                                  sector_pv/base/span so the sector search
+                                  compares one direction. */
   int sector_kmax =
       1; /**< Neighbors walked each side: 1 (strict, bit-exact) or 2 (mildly
             bent, absorbs off-by-one binning). */
@@ -2645,12 +2648,18 @@ struct Face {
     // leave a gap.
     if (fabsf(fabsf(total) - 4.0f) > 1e-3f)
       return;
+    // Fold the winding into the table: pseudo_angles becomes weakly increasing
+    // whichever way the polygon is wound, so the probe search compares one
+    // direction. Scaling by +/-1 is exact, so every step and bin is unchanged.
     float sgn = (total >= 0.0f) ? 1.0f : -1.0f;
     float min_step = FLT_MAX;
+    float prev_s = scratch.pseudo_angles[0] * sgn;
+    scratch.pseudo_angles[0] = prev_s;
     for (int i = 1; i <= count; ++i) {
-      float step =
-          (scratch.pseudo_angles[i] - scratch.pseudo_angles[i - 1]) * sgn;
-      min_step = __builtin_fminf(step, min_step);
+      float cur = scratch.pseudo_angles[i] * sgn;
+      scratch.pseudo_angles[i] = cur;
+      min_step = __builtin_fminf(cur - prev_s, min_step);
+      prev_s = cur;
     }
     // min_step > 0: strictly monotonic, sectors don't overlap, K1 bins exactly.
     // A backtrack up to SECTOR_MONO_TOL overlaps sectors slightly, so the bin
@@ -2661,7 +2670,8 @@ struct Face {
     sector_kmax = (min_step > 0.0f) ? 1 : SECTOR_KMAX_MAX;
     sector_pv = std::span<float>(scratch.pseudo_angles.data(), count + 1);
     sector_base = scratch.pseudo_angles[0];
-    sector_span = total;
+    sector_span = total * sgn;
+    sector_sgn = sgn;
     sector_ok = true;
   }
 
@@ -3114,16 +3124,14 @@ struct Face {
    * neighbor. Only enabled when build_sectors set sector_ok.
    */
   HS_O3_FN float plane_dist_sector(float px, float py) const {
-    float p = pseudo_angle(py, px);
+    float p = pseudo_angle(py, px) * sector_sgn;
     float rel = (p - sector_base) / sector_span; // -> [0, 1) after the fold
     rel -= floorf(rel);
     float q = sector_base + rel * sector_span;
     int lo = 0, hi = count;
     while (lo + 1 < hi) {
       int mid = (lo + hi) >> 1;
-      bool le =
-          (sector_span > 0.0f) ? (sector_pv[mid] <= q) : (sector_pv[mid] >= q);
-      if (le)
+      if (sector_pv[mid] <= q)
         lo = mid;
       else
         hi = mid;
@@ -3148,7 +3156,7 @@ struct Face {
     }
     const auto &e0 = packed_edges[s];
     float cr = e0.ex * (py - e0.vy) - e0.ey * (px - e0.vx);
-    bool inside = (sector_span > 0.0f) ? (cr >= 0.0f) : (cr <= 0.0f);
+    bool inside = cr * sector_sgn >= 0.0f;
     return (inside ? -1.0f : 1.0f) * sqrtf(d);
   }
 
