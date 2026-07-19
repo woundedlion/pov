@@ -2929,11 +2929,13 @@ struct Face {
                            float &max_phi) {
     bool np_inside = (planes_count > 0);
     bool sp_inside = (planes_count > 0);
-    for (int pi = 0; pi < planes_count; ++pi) {
-      float center_side = dot(center, scratch.planes[pi]);
-      if ((scratch.planes[pi].y > 0) != (center_side > 0))
+    // Both flags only ever clear, so the scan is done once neither survives.
+    for (int pi = 0; pi < planes_count && (np_inside || sp_inside); ++pi) {
+      float py = scratch.planes[pi].y;
+      bool center_pos = dot(center, scratch.planes[pi]) > 0;
+      if ((py > 0) != center_pos)
         np_inside = false;
-      if ((-scratch.planes[pi].y > 0) != (center_side > 0))
+      if ((py < 0) != center_pos)
         sp_inside = false;
     }
     if (np_inside)
