@@ -2313,8 +2313,8 @@ struct Face {
       // span misses the great-circle edge bulge toward a pole, leaving
       // near-pole faces with unscanned rows; the arc-extrema path covers them.
       planes_count =
-          compute_full_bounds(scratch, vertices, indices, count, center,
-                              thickness, h_virt, height, y_min, y_max);
+          compute_full_bounds(scratch, count, center, thickness, h_virt, height,
+                              y_min, y_max);
     }
 
     edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
@@ -2508,7 +2508,7 @@ struct Face {
     float min_edge_dist = 1e9f;
     for (int i = 0; i < count; ++i) {
       Vector v1 = scratch.poly_2d[i];
-      Vector v2 = scratch.poly_2d[(i + 1) % count];
+      Vector v2 = scratch.poly_2d[i + 1];
 
       Vector edge = v2 - v1;
       float edge_len_sq = dot(edge, edge);
@@ -2953,9 +2953,8 @@ struct Face {
   /**
    * @brief Full-path vertical bounds (arc extrema + pole containment) for large
    * faces.
-   * @param scratch Scratch storage receiving edge data and planes.
-   * @param vertices Shared vertex pool.
-   * @param indices Indices selecting this face's vertices.
+   * @param scratch Scratch storage holding poly_2d/verts_3d, receiving edge
+   * data and planes.
    * @param count Vertex/edge count.
    * @param center Normalized face centroid.
    * @param thickness Edge half-width (radians).
@@ -2965,9 +2964,7 @@ struct Face {
    * @param y_max_out Output: last covered row.
    * @return The number of great-circle planes computed.
    */
-  static int compute_full_bounds(FaceScratchBuffer &scratch,
-                                 std::span<const Vector> vertices,
-                                 std::span<const uint16_t> indices, int count,
+  static int compute_full_bounds(FaceScratchBuffer &scratch, int count,
                                  const Vector &center, float thickness,
                                  int h_virt, int height, int &y_min_out,
                                  int &y_max_out) {
@@ -2975,11 +2972,9 @@ struct Face {
     float max_phi = -100.0f;
     int planes_count = 0;
     for (int i = 0; i < count; ++i) {
-      int idx1 = indices[i];
-      int idx2 = indices[(i + 1) % count];
-      const Vector &v1 = vertices[idx1];
-      const Vector &v2 = vertices[idx2];
-      Vector edge = scratch.poly_2d[(i + 1) % count] - scratch.poly_2d[i];
+      const Vector &v1 = scratch.verts_3d[i];
+      const Vector &v2 = scratch.verts_3d[i + 1];
+      Vector edge = scratch.poly_2d[i + 1] - scratch.poly_2d[i];
       scratch.edge_vectors[i] = edge;
       float edge_len_sq = dot(edge, edge);
       scratch.edge_lengths_sq[i] = edge_len_sq;
