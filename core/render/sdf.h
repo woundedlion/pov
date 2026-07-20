@@ -2117,8 +2117,10 @@ struct FaceScratchBuffer {
    * @brief Packed per-edge data for the cache-friendly distance() fallback.
    */
   struct EdgePacked {
-    float vx, vy, ex, ey, inv_len_sq, inv_ej, next_vy,
-        pad; /**< Edge origin, vector, reciprocals, next-vertex y, padding. */
+    float vx, vy, ex, ey, inv_len_sq,
+        inv_ej; /**< Edge origin, vector, reciprocals. */
+    uint32_t key_vy,
+        key_next_vy; /**< angle_key of this and the next vertex's y. */
   };
   std::array<EdgePacked, MAX_VERTS> packed_edges; /**< Packed per-edge data. */
 
@@ -2557,7 +2559,8 @@ struct Face {
       ep.ey = edge_vectors[i].y;
       ep.inv_len_sq = inv_edge_lengths_sq[i];
       ep.inv_ej = inv_edge_j[i];
-      ep.next_vy = poly_2d[i + 1].y;
+      ep.key_vy = angle_key(poly_2d[i].y);
+      ep.key_next_vy = angle_key(poly_2d[i + 1].y);
     }
     packed_edges = std::span<EdgePacked>(scratch.packed_edges.data(), count);
   }
@@ -3109,6 +3112,7 @@ struct Face {
   HS_O3_FN float plane_dist_exact(float px, float py) const {
     float d = FLT_MAX;
     bool inside = false;
+    const uint32_t qk = angle_key(py);
     for (int i = 0; i < count; ++i) {
       const auto &ep = packed_edges[i];
       float wx = px - ep.vx, wy = py - ep.vy;
@@ -3117,7 +3121,7 @@ struct Face {
       float bx = wx - ep.ex * cv, by = wy - ep.ey * cv;
       float dsq = bx * bx + by * by;
       d = __builtin_fminf(dsq, d);
-      if ((ep.vy > py) != (ep.next_vy > py)) {
+      if ((ep.key_vy > qk) != (ep.key_next_vy > qk)) {
         float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
         if (px < isx)
           inside = !inside;
