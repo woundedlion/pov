@@ -2521,6 +2521,154 @@ struct Flower {
 };
 
 /**
+ * @brief Gates one geodesic trail's edges against the clip in one hoisted pass.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @tparam PipelineT Pipeline type; must have no world cull stage
+ *         (pipeline_hoistable_cull), so the predicate sees the raw points.
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @param band_len Clip band length in columns (seam-unwrapped).
+ * @param trail Geodesic fragment polyline (>= 2 unit-position points).
+ * @param bits Output, one byte per edge (trail.size() - 1): 0 = culled, else
+ *        1; valid as rasterize()'s edge_visible input.
+ * @return False when no edge is visible; bits are then all zero.
+ * @details Per-edge verdicts are exactly edge_visible_in_clip's (rasterize
+ * consumes them as its cull), with per-point rows/columns hoisted across
+ * adjacent edges and a conservative whole-trail bound rejecting fully-
+ * invisible trails first — the same scheme as ParticleSystem::draw's gate.
+ */
+HS_O3_BEGIN
+template <int W, int H, typename PipelineT>
+static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
+                             const ClipRegion::XClip &xc, int band_len,
+                             const Fragments &trail, uint8_t *bits) {
+  static_assert(pipeline_hoistable_cull<PipelineT>(),
+                "gate_trail_edges requires a pipeline with no world cull "
+                "stage; route others through edge_visible_in_clip");
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  constexpr float MIN_SIN_PHI = 0.05f;
+  const size_t n = trail.size();
+  HS_CHECK(n >= 2);
+  const size_t edges = n - 1;
+
+  ScratchScope span_guard(scratch_arena_a);
+  auto *rows = static_cast<float *>(
+      scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+  float row_lo_t = 1e9f, row_hi_t = -1e9f;
+  float min_sp2 = 1.0f;
+  float max_chord2 = 0.0f;
+  for (size_t k = 0; k < n; ++k) {
+    const Vector &pt = trail[k].pos;
+    rows[k] = y_to_screen_row<H>(pt.y);
+    row_lo_t = std::min(row_lo_t, rows[k]);
+    row_hi_t = std::max(row_hi_t, rows[k]);
+    min_sp2 = std::min(min_sp2, 1.0f - pt.y * pt.y);
+    if (k > 0) {
+      const Vector d = pt - trail[k - 1].pos;
+      max_chord2 = std::max(max_chord2, dot(d, d));
+    }
+  }
+  // arc <= (pi/2)*chord on [0, pi]; an edge's interior latitude extremum lies
+  // within arc/2 of an endpoint and phi is 1-Lipschitz in arc length, so this
+  // margin covers every per-edge bulge peak.
+  const float max_arc = (PI_F * 0.5f) * sqrtf(max_chord2);
+  const float row_margin =
+      (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / PI_F);
+  if (!cr.could_intersect_y(row_lo_t - row_margin, row_hi_t + row_margin)) {
+    std::fill_n(bits, edges, uint8_t{0});
+    return false;
+  }
+
+  float *cols = nullptr;
+  if (xc.active) {
+    cols = static_cast<float *>(
+        scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+    float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
+    bool walk_safe = true;
+    cols[0] = vector_to_theta<W>(trail[0].pos);
+    for (size_t k = 1; k < n; ++k) {
+      cols[k] = vector_to_theta<W>(trail[k].pos);
+      // A geodesic edge's column sweep never exceeds W/2 (antipodal symmetry,
+      // see geodesic_col_span_cols), so the short-way delta covers it
+      // regardless of direction — except at ~exactly W/2, where the delta's
+      // sign (which semicircle) is float noise.
+      float d = cols[k] - cols[k - 1];
+      if (d > W * 0.5f)
+        d -= W;
+      else if (d < -W * 0.5f)
+        d += W;
+      if (std::abs(d) >= W * 0.5f - 3.0f)
+        walk_safe = false;
+      // geodesic_col_span_cols refuses to bound an edge whose great-circle
+      // axis is near-horizontal, and the per-edge tier then treats it as
+      // visible; the endpoint columns walked here do not bound such an edge
+      // either. |axis.y| = |cy| / |cross| and |cross| <= 1, so testing the
+      // unnormalized cy covers every case it rejects.
+      const Vector &ca_pos = trail[k - 1].pos;
+      const Vector &cb_pos = trail[k].pos;
+      if (std::abs(ca_pos.z * cb_pos.x - ca_pos.x * cb_pos.z) < AXIS_Y_EPS)
+        walk_safe = false;
+      cum += d;
+      cum_lo = std::min(cum_lo, cum);
+      cum_hi = std::max(cum_hi, cum);
+    }
+    // Near a pole the plotted column is float noise (same caution as the
+    // per-edge spans), so only cull by the column arc when the whole trail
+    // provably stays clear.
+    if (walk_safe && sqrtf(std::max(0.0f, min_sp2)) - max_arc >= MIN_SIN_PHI) {
+      int col_s, col_len;
+      finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s, col_len);
+      if (!ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W)) {
+        std::fill_n(bits, edges, uint8_t{0});
+        return false;
+      }
+    }
+  }
+
+  bool any = false;
+  for (size_t e = 0; e < edges; ++e) {
+    const Vector &ea = trail[e].pos;
+    const Vector &eb = trail[e + 1].pos;
+
+    // Cheap row tier: the exact span's interior extremum lies within arc/2 of
+    // an endpoint and phi is 1-Lipschitz in arc length (arc <= (pi/2)*chord),
+    // so the endpoint rows widened by chord*(H_VIRT-1)/4 contain the exact
+    // span — a miss here implies the exact test below also misses, keeping
+    // the bits identical while skipping the edge's cross/normalize/acos.
+    {
+      const Vector d = eb - ea;
+      const float margin =
+          sqrtf(dot(d, d)) * (static_cast<float>(H_VIRT - 1) * 0.25f);
+      if (!cr.could_intersect_y(std::min(rows[e], rows[e + 1]) - margin,
+                                std::max(rows[e], rows[e + 1]) + margin)) {
+        bits[e] = 0;
+        continue;
+      }
+    }
+
+    const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
+    float row_lo, row_hi;
+    geodesic_row_span_rows<W, H>(rows[e], rows[e + 1], ea, eb, es, row_lo,
+                                 row_hi);
+    bool v;
+    if (!cr.could_intersect_y(row_lo, row_hi)) {
+      v = false;
+    } else if (!xc.active) {
+      v = true;
+    } else {
+      int col_s, col_len;
+      v = !geodesic_col_span_cols<W>(cols[e], cols[e + 1], ea, es, col_s,
+                                     col_len) ||
+          ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
+    }
+    bits[e] = v ? 1 : 0;
+    any = any || v;
+  }
+  return any;
+}
+HS_O3_END
+
+/**
  * @brief Mesh drawing.
  * Registers:
  *  v0: Edge Progress t (0.0 -> 1.0) per edge
@@ -2534,6 +2682,12 @@ struct Mesh {
    * TriangularBitset of 128*127/2 bits = 1016 bytes.
    */
   static constexpr int DEDUP_CAPACITY = 128;
+
+  /**
+   * @brief Sub-segments each wireframe edge is pre-chopped into before the
+   *        adaptive rasterizer runs.
+   */
+  static constexpr int EDGE_PRESAMPLE_DENSITY = 10;
 
   /**
    * @brief Sample, shade, and rasterize one wireframe edge.
@@ -2561,12 +2715,29 @@ struct Mesh {
     Fragment fv;
     fv.pos = mesh.vertices[v];
 
+    const ClipRegion &cr = canvas.clip();
+    const bool clip_active = !cr.is_full();
+    const ClipRegion::XClip xc = cr.x_clip();
+    const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
+
+    // Every sub-segment below lies on the u->v great circle (Line::sample
+    // rotates about that arc's axis, and make_geodesic_edge_span resolves an
+    // antipodal pair to the same axis), so the whole edge's span bounds the
+    // chopped polyline and a reject here skips the presample too. A vertex
+    // shader may move the samples off that circle, so it opts out.
+    if constexpr (pipeline_hoistable_cull<PipelineT>()) {
+      if (clip_active && !vertex_shader &&
+          !edge_visible_in_clip<W, H>(pipeline, cr, xc, band_len, fu.pos,
+                                      fv.pos, nullptr))
+        return;
+    }
+
     ScratchScope edge_guard(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, 16);
     {
       HS_PROFILE_DEEP(plot_edge_presample);
-      Line::sample(points, fu, fv, 10);
+      Line::sample(points, fu, fv, EDGE_PRESAMPLE_DENSITY);
 
       if (vertex_shader) {
         for (auto &p : points) {
@@ -2577,6 +2748,19 @@ struct Mesh {
         for (auto &p : points) {
           p.v2 = static_cast<float>(edge_index);
         }
+      }
+    }
+
+    if constexpr (pipeline_hoistable_cull<PipelineT>()) {
+      if (clip_active) {
+        uint8_t bits[EDGE_PRESAMPLE_DENSITY];
+        HS_CHECK(points.size() >= 2 &&
+                 points.size() - 1 <= EDGE_PRESAMPLE_DENSITY);
+        if (!gate_trail_edges<W, H>(pipeline, cr, xc, band_len, points, bits))
+          return;
+        rasterize<W, H>(pipeline, canvas, points, fragment_shader, false,
+                        nullptr, false, bits);
+        return;
       }
     }
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, nullptr);
@@ -2740,154 +2924,6 @@ struct Mesh {
     }
   }
 };
-
-/**
- * @brief Gates one geodesic trail's edges against the clip in one hoisted pass.
- * @tparam W,H Rasterization resolution (pixel grid).
- * @tparam PipelineT Pipeline type; must have no world cull stage
- *         (pipeline_hoistable_cull), so the predicate sees the raw points.
- * @param cr Active clip region.
- * @param xc Precomputed x-clip predicate for @p cr.
- * @param band_len Clip band length in columns (seam-unwrapped).
- * @param trail Geodesic fragment polyline (>= 2 unit-position points).
- * @param bits Output, one byte per edge (trail.size() - 1): 0 = culled, else
- *        1; valid as rasterize()'s edge_visible input.
- * @return False when no edge is visible; bits are then all zero.
- * @details Per-edge verdicts are exactly edge_visible_in_clip's (rasterize
- * consumes them as its cull), with per-point rows/columns hoisted across
- * adjacent edges and a conservative whole-trail bound rejecting fully-
- * invisible trails first — the same scheme as ParticleSystem::draw's gate.
- */
-HS_O3_BEGIN
-template <int W, int H, typename PipelineT>
-static bool gate_trail_edges(const PipelineT &, const ClipRegion &cr,
-                             const ClipRegion::XClip &xc, int band_len,
-                             const Fragments &trail, uint8_t *bits) {
-  static_assert(pipeline_hoistable_cull<PipelineT>(),
-                "gate_trail_edges requires a pipeline with no world cull "
-                "stage; route others through edge_visible_in_clip");
-  constexpr int H_VIRT = H + hs::H_OFFSET;
-  constexpr float MIN_SIN_PHI = 0.05f;
-  const size_t n = trail.size();
-  HS_CHECK(n >= 2);
-  const size_t edges = n - 1;
-
-  ScratchScope span_guard(scratch_arena_a);
-  auto *rows = static_cast<float *>(
-      scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
-  float row_lo_t = 1e9f, row_hi_t = -1e9f;
-  float min_sp2 = 1.0f;
-  float max_chord2 = 0.0f;
-  for (size_t k = 0; k < n; ++k) {
-    const Vector &pt = trail[k].pos;
-    rows[k] = y_to_screen_row<H>(pt.y);
-    row_lo_t = std::min(row_lo_t, rows[k]);
-    row_hi_t = std::max(row_hi_t, rows[k]);
-    min_sp2 = std::min(min_sp2, 1.0f - pt.y * pt.y);
-    if (k > 0) {
-      const Vector d = pt - trail[k - 1].pos;
-      max_chord2 = std::max(max_chord2, dot(d, d));
-    }
-  }
-  // arc <= (pi/2)*chord on [0, pi]; an edge's interior latitude extremum lies
-  // within arc/2 of an endpoint and phi is 1-Lipschitz in arc length, so this
-  // margin covers every per-edge bulge peak.
-  const float max_arc = (PI_F * 0.5f) * sqrtf(max_chord2);
-  const float row_margin =
-      (max_arc * 0.5f) * (static_cast<float>(H_VIRT - 1) / PI_F);
-  if (!cr.could_intersect_y(row_lo_t - row_margin, row_hi_t + row_margin)) {
-    std::fill_n(bits, edges, uint8_t{0});
-    return false;
-  }
-
-  float *cols = nullptr;
-  if (xc.active) {
-    cols = static_cast<float *>(
-        scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
-    float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
-    bool walk_safe = true;
-    cols[0] = vector_to_theta<W>(trail[0].pos);
-    for (size_t k = 1; k < n; ++k) {
-      cols[k] = vector_to_theta<W>(trail[k].pos);
-      // A geodesic edge's column sweep never exceeds W/2 (antipodal symmetry,
-      // see geodesic_col_span_cols), so the short-way delta covers it
-      // regardless of direction — except at ~exactly W/2, where the delta's
-      // sign (which semicircle) is float noise.
-      float d = cols[k] - cols[k - 1];
-      if (d > W * 0.5f)
-        d -= W;
-      else if (d < -W * 0.5f)
-        d += W;
-      if (std::abs(d) >= W * 0.5f - 3.0f)
-        walk_safe = false;
-      // geodesic_col_span_cols refuses to bound an edge whose great-circle
-      // axis is near-horizontal, and the per-edge tier then treats it as
-      // visible; the endpoint columns walked here do not bound such an edge
-      // either. |axis.y| = |cy| / |cross| and |cross| <= 1, so testing the
-      // unnormalized cy covers every case it rejects.
-      const Vector &ca_pos = trail[k - 1].pos;
-      const Vector &cb_pos = trail[k].pos;
-      if (std::abs(ca_pos.z * cb_pos.x - ca_pos.x * cb_pos.z) < AXIS_Y_EPS)
-        walk_safe = false;
-      cum += d;
-      cum_lo = std::min(cum_lo, cum);
-      cum_hi = std::max(cum_hi, cum);
-    }
-    // Near a pole the plotted column is float noise (same caution as the
-    // per-edge spans), so only cull by the column arc when the whole trail
-    // provably stays clear.
-    if (walk_safe && sqrtf(std::max(0.0f, min_sp2)) - max_arc >= MIN_SIN_PHI) {
-      int col_s, col_len;
-      finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s, col_len);
-      if (!ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W)) {
-        std::fill_n(bits, edges, uint8_t{0});
-        return false;
-      }
-    }
-  }
-
-  bool any = false;
-  for (size_t e = 0; e < edges; ++e) {
-    const Vector &ea = trail[e].pos;
-    const Vector &eb = trail[e + 1].pos;
-
-    // Cheap row tier: the exact span's interior extremum lies within arc/2 of
-    // an endpoint and phi is 1-Lipschitz in arc length (arc <= (pi/2)*chord),
-    // so the endpoint rows widened by chord*(H_VIRT-1)/4 contain the exact
-    // span — a miss here implies the exact test below also misses, keeping
-    // the bits identical while skipping the edge's cross/normalize/acos.
-    {
-      const Vector d = eb - ea;
-      const float margin =
-          sqrtf(dot(d, d)) * (static_cast<float>(H_VIRT - 1) * 0.25f);
-      if (!cr.could_intersect_y(std::min(rows[e], rows[e + 1]) - margin,
-                                std::max(rows[e], rows[e + 1]) + margin)) {
-        bits[e] = 0;
-        continue;
-      }
-    }
-
-    const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
-    float row_lo, row_hi;
-    geodesic_row_span_rows<W, H>(rows[e], rows[e + 1], ea, eb, es, row_lo,
-                                 row_hi);
-    bool v;
-    if (!cr.could_intersect_y(row_lo, row_hi)) {
-      v = false;
-    } else if (!xc.active) {
-      v = true;
-    } else {
-      int col_s, col_len;
-      v = !geodesic_col_span_cols<W>(cols[e], cols[e + 1], ea, es, col_s,
-                                     col_len) ||
-          ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
-    }
-    bits[e] = v ? 1 : 0;
-    any = any || v;
-  }
-  return any;
-}
-HS_O3_END
 
 /**
  * @brief Particle System trails.

@@ -838,6 +838,106 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
 }
 
 /**
+ * @brief End-to-end conservativeness of the wireframe edge gate: a
+ *        quadrant/wedge-clipped Plot::Mesh::draw is pixel-identical to the
+ *        full render inside the display band.
+ * @details Covers the whole-edge reject that runs before the presample and the
+ *          hoisted per-sub-segment bits that replace rasterize's own cull.
+ *          Random orientations put edges across both poles and the seam; a
+ *          reject false-negative drops in-band pixels and breaks the compare.
+ */
+inline void test_mesh_edge_gate_pixel_parity() {
+  constexpr int W = 96, H = 48;
+  configure_arenas_default();
+
+  alignas(32) static uint8_t seed_a[24 * 1024];
+  alignas(32) static uint8_t seed_b[24 * 1024];
+  alignas(32) static uint8_t geom[16 * 1024];
+  Arena sa(seed_a, sizeof(seed_a));
+  Arena sb(seed_b, sizeof(seed_b));
+  Arena ga(geom, sizeof(geom));
+
+  PolyMesh base = Solids::Platonic::icosahedron(sa, sb);
+  MeshState mesh;
+  mesh.vertices.bind(ga, base.vertices.size());
+  for (const auto &v : base.vertices)
+    mesh.vertices.push_back(v);
+  mesh.faces.bind(ga, base.faces.size());
+  mesh.face_counts.bind(ga, base.face_counts.size());
+  for (size_t i = 0; i < base.face_counts.size(); ++i)
+    mesh.face_counts.push_back((uint8_t)base.face_counts[i]);
+  for (size_t i = 0; i < base.faces.size(); ++i)
+    mesh.faces.push_back(base.faces[i]);
+
+  ArenaVector<Plot::Mesh::Edge> edges;
+  edges.bind(ga, mesh.faces.size());
+  Plot::Mesh::extract_edges(mesh, edges);
+
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
+  };
+
+  hs::random().seed(0x5EED);
+  const int clips[4][4] = {{0, H / 2, 0, W / 2},
+                           {H / 2, H, W / 2, W},
+                           {0, H, 10, 34},
+                           {0, H, 0, 8}};
+  int lit_total = 0;
+
+  MeshState posed;
+  posed.vertices.bind(ga, mesh.vertices.size());
+  for (size_t i = 0; i < mesh.vertices.size(); ++i)
+    posed.vertices.push_back(mesh.vertices[i]);
+
+  for (int trial = 0; trial < 12; ++trial) {
+    // Re-orient the shell so edges sweep the poles and the wrap seam.
+    Vector axis =
+        Vector(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+    if (axis.length() < 0.1f)
+      axis = Y_AXIS;
+    Quaternion q = make_rotation(axis.normalized(), hs::rand_f(0, 2 * PI_F));
+    for (size_t i = 0; i < mesh.vertices.size(); ++i)
+      posed.vertices[i] = rotate(mesh.vertices[i], q);
+
+    auto render = [&](RasterFx &fx) {
+      Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
+          Filter::Screen::AntiAlias<W, H>()};
+      Canvas c(fx);
+      Plot::Mesh::draw<W, H>(filters, c, posed, edges, shade);
+    };
+
+    std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+    {
+      RasterFx fx(W, H);
+      render(fx);
+      fx.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+    }
+
+    for (auto &cl : clips) {
+      RasterFx fx(W, H);
+      fx.set_clip(cl[0], cl[1], cl[2], cl[3]);
+      render(fx);
+      fx.advance_display();
+      int diff = 0;
+      for (int y = cl[0]; y < cl[1]; ++y)
+        for (int x = cl[2]; x < cl[3]; ++x) {
+          Pixel p = fx.get_pixel(x, y);
+          const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+          if (r.r | r.g | r.b)
+            ++lit_total;
+          if (p.r != r.r || p.g != r.g || p.b != r.b)
+            ++diff;
+        }
+      HS_EXPECT_EQ(diff, 0);
+    }
+  }
+  HS_EXPECT_GT(lit_total, 200);
+}
+
+/**
  * @brief End-to-end conservativeness of the rasterizer's column cull: a
  *        quadrant/wedge-clipped render is pixel-identical to the full render
  *        inside the display band.
@@ -2918,6 +3018,7 @@ inline int run_plot_scan_tests() {
   test_edge_col_span_covers_arc();
   test_edge_visible_in_clip_matches_span_composition();
   test_rasterize_column_cull_pixel_parity();
+  test_mesh_edge_gate_pixel_parity();
   test_gate_trail_column_cull_honors_unbounded_edge();
   test_gate_trail_edges_matches_edge_visible();
   test_rasterize_gate_bits_pixel_parity();
