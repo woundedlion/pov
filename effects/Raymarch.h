@@ -150,6 +150,10 @@ private:
       // fixed for this torus, so it is hoisted out of the per-pixel shader.
       Vector half_w = blinn_phong_half(center, center, tangent);
 
+      // Palette scroll plus this torus's fixed share of the gradient, in [0,2).
+      float palette_offset =
+          palette_phase + static_cast<float>(i) / active_count;
+
       auto frag_fn = [&](const Vector &loc, Fragment &frag) {
         Vector n_local = torus.normal(loc);
         Vector n_world = rotate(n_local, world_q);
@@ -157,9 +161,8 @@ private:
                                         params.specular, params.fresnel);
 
         float ring_angle = (fast_atan2(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
-        float coord =
-            ring_angle + palette_phase + static_cast<float>(i) / active_count;
-        // ring_angle is [0,1] and the other two terms are [0,1), so coord is
+        float coord = ring_angle + palette_offset;
+        // ring_angle is [0,1] and palette_offset is [0,2), so coord is
         // non-negative and this fract equals fmodf(coord, 1).
         float palette_t = coord - floorf(coord);
         Color4 c = baked_palette.get(palette_t);
