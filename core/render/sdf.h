@@ -4088,13 +4088,13 @@ struct Torus {
   /**
    * @brief Outward normal direction at a point, from a precomputed XZ radius.
    * @param p Query point in Cartesian ray-space.
-   * @param xz_len sqrtf(p.x² + p.z²) for `p`.
+   * @param inv_xz_len 1 / sqrtf(p.x² + p.z²) for `p`, or 0 on the Y axis.
    * @return The outward normal direction, NOT unit length; the caller
    *         normalizes, or folds `p` through a linear map that it then
    *         normalizes.
    */
-  Vector normal_raw(const Vector &p, float xz_len) const {
-    float scale = (xz_len > TOLERANCE) ? R / xz_len : 0.0f;
+  Vector normal_raw(const Vector &p, float inv_xz_len) const {
+    float scale = R * inv_xz_len;
     return p - Vector(p.x * scale, 0.0f, p.z * scale);
   }
 
@@ -4104,7 +4104,9 @@ struct Torus {
    * @return Unit outward normal.
    */
   Vector normal(const Vector &p) const {
-    return normal_raw(p, sqrtf(p.x * p.x + p.z * p.z)).normalized();
+    float xz_len = sqrtf(p.x * p.x + p.z * p.z);
+    float inv_xz_len = (xz_len > TOLERANCE) ? 1.0f / xz_len : 0.0f;
+    return normal_raw(p, inv_xz_len).normalized();
   }
 
   /**
@@ -4142,6 +4144,7 @@ struct Twist {
   int twist;           /**< Number of oscillations around the ring. */
   float amplitude;     /**< Vertical displacement magnitude. */
   float R;             /**< Major radius (needed for the Lipschitz bound). */
+  float twist_amp;     /**< twist * amplitude, the warp's angular gradient. */
   float twist_amp_abs; /**< |twist * amplitude|, the Lipschitz numerator. */
   float two_over_r;    /**< 2/R, the Lipschitz reciprocal clamp. */
 
@@ -4155,8 +4158,8 @@ struct Twist {
    */
   Twist(int twist_, float amplitude_, float R_)
       : twist(twist_), amplitude(amplitude_), R(R_),
-        twist_amp_abs(fabsf(static_cast<float>(twist_) * amplitude_)),
-        two_over_r(2.0f / R_) {
+        twist_amp(static_cast<float>(twist_) * amplitude_),
+        twist_amp_abs(fabsf(twist_amp)), two_over_r(2.0f / R_) {
     HS_CHECK(R > 0.0f);
   }
 
@@ -4259,9 +4262,18 @@ struct Twist {
    * sine and calls sin_ntheta so it does not pay for the cosine sequence.
    */
   SinCos sincos_ntheta(const Vector &p, Ctx s) const {
-    if (twist == 0 || s < TOLERANCE)
+    return sincos_ntheta_inv(p, (s > TOLERANCE) ? 1.0f / s : 0.0f);
+  }
+
+  /**
+   * @brief sin(n*theta) and cos(n*theta) from an already-computed 1/s.
+   * @param p Query point.
+   * @param inv_s Reciprocal of the XZ radius; 0 marks the degenerate axis.
+   * @return Both harmonics, matching sincos_ntheta bit for bit.
+   */
+  SinCos sincos_ntheta_inv(const Vector &p, float inv_s) const {
+    if (twist == 0 || inv_s == 0.0f)
       return {0.0f, 1.0f};
-    const float inv_s = 1.0f / s;
     const float two_cos = 2.0f * p.x * inv_s;
     float sin_prev = 0.0f, sin_cur = p.z * inv_s;
     float cos_prev = 1.0f, cos_cur = p.x * inv_s;
@@ -4348,8 +4360,21 @@ struct Twist {
    */
   Vector correct_normal(const Vector &p, const Vector &base_n, Ctx s,
                         float cos_n) const {
-    float inv_s = (s > TOLERANCE) ? 1.0f / s : 0.0f;
-    float dh_dtheta = -amplitude * static_cast<float>(twist) * cos_n;
+    return correct_normal_inv(p, base_n, (s > TOLERANCE) ? 1.0f / s : 0.0f,
+                              cos_n);
+  }
+
+  /**
+   * @brief Normal correction from an already-computed 1/s and cos(twist*theta).
+   * @param p Query point.
+   * @param base_n Unwarped surface normal; need not be unit length.
+   * @param inv_s Reciprocal of the XZ radius; 0 marks the degenerate axis.
+   * @param cos_n cos(twist * theta) at `p`.
+   * @return The corrected unit normal.
+   */
+  Vector correct_normal_inv(const Vector &p, const Vector &base_n, float inv_s,
+                            float cos_n) const {
+    float dh_dtheta = -twist_amp * cos_n;
     float inv_s2 = inv_s * inv_s;
 
     float dh_dx = dh_dtheta * (-p.z) * inv_s2;
@@ -4484,11 +4509,13 @@ template <typename SDF, typename Warp> struct WarpedVolume {
       // correction normalizes, so the base normal can stay unnormalized.
       // twist == 0 needs no special case: it gives cos_n = 1, hence a zero
       // gradient and an unchanged normal.
+      const float inv_s = (ctx > TOLERANCE) ? 1.0f / ctx : 0.0f;
       if (warp.amplitude < TOLERANCE)
-        return base.normal_raw(p, ctx).normalized();
-      auto h = warp.sincos_ntheta(p, ctx);
+        return base.normal_raw(p, inv_s).normalized();
+      auto h = warp.sincos_ntheta_inv(p, inv_s);
       Vector warped(p.x, p.y - warp.amplitude * h.sin_n, p.z);
-      return warp.correct_normal(p, base.normal_raw(warped, ctx), ctx, h.cos_n);
+      return warp.correct_normal_inv(p, base.normal_raw(warped, inv_s), inv_s,
+                                     h.cos_n);
     } else {
       Vector base_n = base.normal(warp.apply(p, ctx));
       if constexpr (requires { warp.correct_normal(p, base_n, ctx); }) {
