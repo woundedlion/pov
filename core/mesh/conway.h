@@ -14,6 +14,8 @@ namespace MeshOps {
 // `narrow_index` (the trapping size_t -> uint16_t topology-index cast) lives in
 // mesh.h so the Conway and Hankin operators share a single guarded narrowing.
 
+HS_O3_BEGIN
+
 /**
  * @brief Compute the centroid of a face by walking its half-edge loop.
  * @tparam MeshT Mesh type exposing a `vertices` indexable by topology index.
@@ -269,6 +271,8 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
   }
 }
 
+HS_O3_END
+
 /**
  * @brief Copies a mesh's topology (as views) and vertices into a target mesh,
  *   applying each transformer to every vertex in order.
@@ -304,6 +308,8 @@ inline void transform(const MeshState &mesh, MeshState &transformed,
     }
   }
 }
+
+HS_O3_BEGIN
 
 // ---------------------------------------------------------------------------
 // Conway operators
@@ -1086,5 +1092,7 @@ HS_COLD static PolyMesh bevel(const PolyMesh &mesh, Arena &target, Arena &temp,
 
 // TODO: Propeller (Hart's `p`) and whirl/loft are not implemented; their chiral
 // blade winding on the sphere needs a dedicated test before adding.
+
+HS_O3_END
 
 } // namespace MeshOps

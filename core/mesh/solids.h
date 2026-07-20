@@ -26,6 +26,8 @@ static constexpr float T_TRUNC_ICOS = 1.0f / (2.0f + PHI);
 
 namespace Solids {
 
+HS_O3_BEGIN
+
 /**
  * @brief Copies a freshly-generated mesh into the long-lived geometry arena.
  * @param temp Mesh built in the scratch arena pair.
@@ -1324,5 +1326,7 @@ build_vertex_directions(Arena &geom, Arena &scratch, std::string_view name,
   }
   return count;
 }
+
+HS_O3_END
 
 } // namespace Solids

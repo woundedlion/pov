@@ -82,6 +82,8 @@ struct CompiledHankin {
 
 namespace MeshOps {
 
+HS_O3_BEGIN
+
 /**
  * @brief Bakes the angle-independent Hankin topology for a mesh.
  * @param mesh Input closed-manifold mesh to derive the pattern from.
@@ -401,5 +403,7 @@ HS_COLD static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
 
   return out;
 }
+
+HS_O3_END
 
 } // namespace MeshOps
