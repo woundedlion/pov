@@ -35,7 +35,7 @@ public:
    * @brief Constructs the effect on a WxH canvas.
    * @details Starts on the planar polygon shape.
    */
-  FLASHMEM ShapeShifter()
+  ShapeShifter()
       : Effect(W, H,
                {.strobe = true,
                 .full_frame = decltype(plot_filters)::any_crosses_segments ||

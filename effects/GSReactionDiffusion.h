@@ -103,7 +103,7 @@ public:
   /**
    * @brief Default-constructs the effect; all setup is deferred to init().
    */
-  FLASHMEM GSReactionDiffusion() = default;
+  GSReactionDiffusion() = default;
 
   /**
    * @brief One-time setup: arenas, GUI params, A/B state, cubemap LUT, lattice.
