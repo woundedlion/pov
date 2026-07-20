@@ -100,6 +100,8 @@ struct HEFace {
       HE_NONE; /**< One of the half-edges bordering this face. */
 };
 
+HS_O3_BEGIN
+
 /**
  * @brief Record used to pair opposite half-edges by their undirected
  * (min_v, max_v) vertex key.
@@ -704,6 +706,8 @@ classify_faces_by_topology(MeshState &mesh, Arena &scratch_a, Arena &scratch_b,
                            Arena &persistent) {
   classify_faces_impl(mesh, scratch_a, scratch_b, persistent);
 }
+
+HS_O3_END
 
 } // namespace MeshOps
 
