@@ -4131,20 +4131,24 @@ HS_O3_BEGIN
  * Provides an analytical Lipschitz bound for safe sphere tracing.
  */
 struct Twist {
-  int twist;       /**< Number of oscillations around the ring. */
-  float amplitude; /**< Vertical displacement magnitude. */
-  float R;         /**< Major radius (needed for the Lipschitz bound). */
+  int twist;           /**< Number of oscillations around the ring. */
+  float amplitude;     /**< Vertical displacement magnitude. */
+  float R;             /**< Major radius (needed for the Lipschitz bound). */
+  float twist_amp_abs; /**< |twist * amplitude|, the Lipschitz numerator. */
+  float two_over_r;    /**< 2/R, the Lipschitz reciprocal clamp. */
 
   /**
    * @brief Constructs a twist warp around a torus of major radius R.
    * @param twist_ Number of oscillations around the ring.
    * @param amplitude_ Vertical displacement magnitude.
-   * @param R_ Major radius; must be > 0. lipschitz() divides by
-   *        std::max(s, R*0.5f), so R == 0 yields a div-by-zero gamma on the XZ
-   *        axis. Guarded at the cold construction site, not per-call.
+   * @param R_ Major radius; must be > 0. The Lipschitz bound scales by 2/R, so
+   *        R == 0 yields a non-finite bound on the XZ axis. Guarded at the cold
+   *        construction site, not per-call.
    */
   Twist(int twist_, float amplitude_, float R_)
-      : twist(twist_), amplitude(amplitude_), R(R_) {
+      : twist(twist_), amplitude(amplitude_), R(R_),
+        twist_amp_abs(fabsf(static_cast<float>(twist_) * amplitude_)),
+        two_over_r(2.0f / R_) {
     HS_CHECK(R > 0.0f);
   }
 
@@ -4180,8 +4184,26 @@ struct Twist {
    * fast_atan2/fast_sinf each carry approximation error.
    */
   float sin_ntheta(const Vector &p, Ctx s) const {
+    return sin_ntheta_inv(p, s).sin_n;
+  }
+
+  /** @brief sin(twist*theta) with the reciprocal radius that seeded it. */
+  struct SinInv {
+    float sin_n; /**< sin(twist * theta). */
+    float inv_s; /**< 1/s; 2/R where the recurrence degenerates. */
+  };
+
+  /**
+   * @brief sin(n*theta) and the reciprocal 1/s from the same recurrence seed.
+   * @param p Query point.
+   * @param s Precomputed context (radial distance in the XZ plane).
+   * @return sin(twist * theta) and 1/s, the latter feeding lipschitz().
+   * @details On the degenerate axis inv_s carries 2/R, the value the Lipschitz
+   * clamp would select there anyway, so no caller needs a second branch.
+   */
+  SinInv sin_ntheta_inv(const Vector &p, Ctx s) const {
     if (twist == 0 || s < TOLERANCE)
-      return 0.0f;
+      return {0.0f, two_over_r};
     const float inv_s = 1.0f / s;
     const float two_cos = 2.0f * p.x * inv_s;
     float prev = 0.0f, cur = p.z * inv_s;
@@ -4190,7 +4212,7 @@ struct Twist {
       prev = cur;
       cur = next;
     }
-    return cur;
+    return {cur, inv_s};
   }
 
   /**
@@ -4252,13 +4274,22 @@ struct Twist {
    * @return The exact operator norm of the warp Jacobian (>= 1).
    */
   float lipschitz(const Vector & /*p*/, Ctx s) const {
+    return lipschitz(1.0f / std::max(s, R * 0.5f));
+  }
+
+  /**
+   * @brief Analytical Lipschitz constant from an already-computed 1/s.
+   * @param inv_s Reciprocal of the XZ radius, from sin_ntheta_inv().
+   * @return The exact operator norm of the warp Jacobian (>= 1).
+   * @details The warp Jacobian is the shear I - e_y·gᵀ with e_y ⊥ g and
+   * |g| = γ; its operator norm (largest singular value) is γ/2 + √(1 + γ²/4).
+   * γ uses |twist·amplitude| so the bound stays conservative regardless of
+   * sign, and min(1/s, 2/R) is the clamp 1/max(s, R/2).
+   */
+  float lipschitz(float inv_s) const {
     if (twist == 0)
       return 1.0f;
-    // The warp Jacobian is the shear I - e_y·gᵀ with e_y ⊥ g and |g| = γ; its
-    // operator norm (largest singular value) is γ/2 + √(1 + γ²/4). γ uses
-    // |twist·amplitude| so the bound stays conservative regardless of sign.
-    const float gamma =
-        fabsf(static_cast<float>(twist) * amplitude) / std::max(s, R * 0.5f);
+    const float gamma = twist_amp_abs * std::min(inv_s, two_over_r);
     return 0.5f * gamma + sqrtf(1.0f + 0.25f * gamma * gamma);
   }
 
@@ -4386,27 +4417,37 @@ template <typename SDF, typename Warp> struct WarpedVolume {
     if constexpr (TORUS_TWIST) {
       // gate + base.r > 0, so bounding_distance(p) > gate is exactly
       // qq > (gate + base.r)²; the sqrt is then only the fast path's result.
-      const float q = sqrtf(p.x * p.x + p.z * p.z) - base.R;
+      const float s = sqrtf(p.x * p.x + p.z * p.z);
+      const float q = s - base.R;
       const float dy = std::max(fabsf(p.y) - warp.bounding_inflation(), 0.0f);
       const float qq = q * q + dy * dy;
       const float t = gate + base.r;
       if (qq > t * t)
         return sqrtf(qq) - base.r;
+
+      const auto h = warp.sin_ntheta_inv(p, s);
+      const Vector warped(p.x, p.y - warp.amplitude * h.sin_n, p.z);
+      float d = base.distance(warped);
+      if (d > 0.0f) {
+        const float lip = warp.lipschitz(h.inv_s);
+        if (lip > 1.0f)
+          d /= lip;
+      }
+      return d;
     } else {
       const float bd = base.distance(p) - warp.bounding_inflation();
       if (bd > gate)
         return bd;
-    }
 
-    auto ctx = warp.make_ctx(p);
-    float d = base.distance(warp.apply(p, ctx));
-
-    if (d > 0.0f) {
-      float lip = warp.lipschitz(p, ctx);
-      if (lip > 1.0f)
-        d /= lip;
+      auto ctx = warp.make_ctx(p);
+      float d = base.distance(warp.apply(p, ctx));
+      if (d > 0.0f) {
+        float lip = warp.lipschitz(p, ctx);
+        if (lip > 1.0f)
+          d /= lip;
+      }
+      return d;
     }
-    return d;
   }
 
   /**
