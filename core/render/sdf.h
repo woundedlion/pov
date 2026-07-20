@@ -4383,9 +4383,20 @@ template <typename SDF, typename Warp> struct WarpedVolume {
   float distance(const Vector &p) const {
     const float gate =
         (precision > 0.0f) ? precision : warp.bounding_inflation();
-    float bd = bounding_distance(p);
-    if (bd > gate)
-      return bd;
+    if constexpr (TORUS_TWIST) {
+      // gate + base.r > 0, so bounding_distance(p) > gate is exactly
+      // qq > (gate + base.r)²; the sqrt is then only the fast path's result.
+      const float q = sqrtf(p.x * p.x + p.z * p.z) - base.R;
+      const float dy = std::max(fabsf(p.y) - warp.bounding_inflation(), 0.0f);
+      const float qq = q * q + dy * dy;
+      const float t = gate + base.r;
+      if (qq > t * t)
+        return sqrtf(qq) - base.r;
+    } else {
+      const float bd = base.distance(p) - warp.bounding_inflation();
+      if (bd > gate)
+        return bd;
+    }
 
     auto ctx = warp.make_ctx(p);
     float d = base.distance(warp.apply(p, ctx));
