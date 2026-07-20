@@ -111,12 +111,12 @@ public:
    * @param g In/out green channel, already-linear 16-bit (0..65535).
    * @param b In/out blue channel, already-linear 16-bit (0..65535).
    * @details Shared by load() (CRGB path) and packPixel() (Pixel16 path) so the
-   *          two cannot drift. FASTRUN/inline: packPixel() calls it on the
-   *          per-column ISR hot path. No output clamp needed — factor() caps
-   *          every multiplier at 256 (×1.0), so each (v*f)>>8 with v ≤ 65535
-   *          stays a valid index into the 65536-entry linear_to_srgb_lut.
+   *          two cannot drift. Inline: packPixel() calls it on the per-column
+   *          ISR hot path. No output clamp needed — factor() caps every
+   *          multiplier at 256 (×1.0), so each (v*f)>>8 with v ≤ 65535 stays a
+   *          valid index into the 65536-entry linear_to_srgb_lut.
    */
-  FASTRUN inline void correct(uint32_t& r, uint32_t& g, uint32_t& b) const {
+  HS_O3_FN inline void correct(uint32_t& r, uint32_t& g, uint32_t& b) const {
     r = (r * corrR_) >> 8;
     g = (g * corrG_) >> 8;
     b = (b * corrB_) >> 8;
@@ -187,8 +187,11 @@ public:
    * @details Applies color/temperature/brightness corrections in linear 16-bit
    *          space then converts to sRGB 8-bit in a single pass (no intermediate
    *          CRGB).
+   * @note Carries no FASTRUN: the linker's .text.itcm already collects
+   *       *(.text*), so ITCM residency does not depend on it, and the explicit
+   *       section blocks the -O3 attribute (comdat section type conflict).
    */
-  FASTRUN inline void packPixel(int index, const Pixel16& p) {
+  HS_O3_FN inline void packPixel(int index, const Pixel16& p) {
     assert(index >= 0 && index < N);
     uint8_t* dest = buffer_ + 4 + index * 4;
 
