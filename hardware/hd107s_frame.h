@@ -26,6 +26,9 @@
                            // included explicitly rather than relying on color.h
                            // pulling it (this header is independently host-tested)
 #include "core/color/color.h" // Pixel16, CRGB, srgb_to_linear_lut / linear_to_srgb_lut
+#ifdef HS_PACK_DECODE
+#include "core/color/srgb_decode.h" // linear_to_srgb8: 8 KB bit-exact split-decode
+#endif
 
 // arm_dcache_flush (Arduino.h) cleans dirty D-cache lines without invalidating:
 // a TX-only buffer must reach RAM but stay resident for the next frame's write.
@@ -197,12 +200,16 @@ public:
 
     correct(r, g, b);
 
-#ifdef HS_PACK_DIAG_NOLUT
+#if defined(HS_PACK_DIAG_NOLUT)
     // Diagnostic: replace the 65536-entry flash LUT lookups with a shift to
     // null out the LUT's flash/cache cost; isolates it against the full pack.
     dest[1] = (uint8_t)(b >> 8);
     dest[2] = (uint8_t)(g >> 8);
     dest[3] = (uint8_t)(r >> 8);
+#elif defined(HS_PACK_DECODE)
+    dest[1] = linear_to_srgb8(b);
+    dest[2] = linear_to_srgb8(g);
+    dest[3] = linear_to_srgb8(r);
 #else
     dest[1] = linear_to_srgb_lut[b];
     dest[2] = linear_to_srgb_lut[g];

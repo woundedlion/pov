@@ -19,6 +19,7 @@
 #include <limits>
 
 #include "core/color/color.h"
+#include "core/color/srgb_decode.h"
 #include "core/engine/util.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
@@ -981,6 +982,16 @@ inline void test_srgb_to_linear_endpoints() {
 inline void test_linear_to_srgb_endpoints() {
   HS_EXPECT_EQ(linear_to_srgb_lut[0], 0);
   HS_EXPECT_EQ(linear_to_srgb_lut[65535], 255);
+}
+
+// The 8 KB split-decode must reproduce the 64 KB linear_to_srgb_lut for every
+// one of the 65536 inputs — the equivalence the pack hot path relies on.
+inline void test_linear_to_srgb8_decode_matches_lut() {
+  long mismatches = 0;
+  for (int v = 0; v <= 65535; ++v)
+    if (linear_to_srgb8((uint16_t)v) != linear_to_srgb_lut[v])
+      ++mismatches;
+  HS_EXPECT_EQ(mismatches, 0);
 }
 
 /**
@@ -2089,6 +2100,7 @@ inline int run_color_tests() {
 
   test_srgb_to_linear_endpoints();
   test_linear_to_srgb_endpoints();
+  test_linear_to_srgb8_decode_matches_lut();
   test_srgb_linear_lut_vs_float_reference();
   test_srgb_linear_roundtrip_lut();
   test_srgb_to_linear_interp_recovers_subpixel_precision();
