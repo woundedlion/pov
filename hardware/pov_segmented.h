@@ -619,7 +619,13 @@ private:
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
       int y = y_base_;
       for (int i = 0; i < PPS; ++i, y += y_step_) {
+#ifdef HS_PACK_DIAG_CONSTREAD
+        // Diagnostic: read one cached row-0 pixel every iteration to null out
+        // the strided-read cache-miss cost; isolates it against the full pack.
+        frame.packPixel(i, buf[x_col]);
+#else
         frame.packPixel(i, buf[y * w + x_col]);
+#endif
       }
     }
     // Drop the accept/overrun result: a dropped image column self-heals next
