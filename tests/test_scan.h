@@ -1038,13 +1038,15 @@ struct TwoSphereSDF {
  * volume path (it plots 3D world points) and is a no-op.
  */
 struct VolumeSink {
-  std::vector<Vector> plotted; /**< World positions handed to the 3D plot(). */
-  std::vector<float> alpha;    /**< Composited alpha per plotted pixel. */
-  void plot(Canvas &, const Vector &v, const Pixel &, float, float a) {
-    plotted.push_back(v);
+  /** Pixel coordinates handed to the integer plot(). */
+  std::vector<std::pair<int, int>> plotted;
+  std::vector<float> alpha; /**< Composited alpha per plotted pixel. */
+  void plot(Canvas &, int x, int y, const Pixel &, float, float a) {
+    plotted.push_back({x, y});
     alpha.push_back(a);
   }
   void plot(Canvas &, float, float, const Pixel &, float, float) {}
+  void plot(Canvas &, const Vector &, const Pixel &, float, float) {}
 };
 
 /**
@@ -1157,7 +1159,7 @@ inline void test_volume_raymarch_silhouette_and_registers() {
  * background sits a short march deeper, so probe_occluder reports a solid surface
  * and Volume::draw takes the occluded-edge branch: it lays the shaded background
  * down, then blends the foreground over it by the edge coverage — emitting TWO
- * plots at the same world position (background first, foreground second). This
+ * plots at the same pixel (background first, foreground second). This
  * pins that branch (the most intricate, previously untested logic in scan.h): the
  * duplicate-position signature must appear, the background must be laid down
  * opaque, and the foreground must be a partial (0<α<1) blend over it, not a fade
@@ -1191,13 +1193,13 @@ inline void test_volume_draw_occluded_edge_blends_over_background() {
         /*max_steps=*/12, aa_width);
   }
 
-  // The occluder branch is the only path that plots the same world position
-  // twice back-to-back (background then foreground); every other path plots each
-  // pixel once, and distinct pixels never share a world position.
+  // The occluder branch is the only path that plots the same pixel twice
+  // back-to-back (background then foreground); every other path plots each pixel
+  // once.
   int occ_pairs = 0;
   float bg_alpha = 0.0f, fg_alpha = 1.0f;
   for (size_t i = 1; i < sink.plotted.size(); ++i) {
-    if ((sink.plotted[i] - sink.plotted[i - 1]).length() < 1e-5f) {
+    if (sink.plotted[i] == sink.plotted[i - 1]) {
       ++occ_pairs;
       if (occ_pairs == 1) {
         bg_alpha = sink.alpha[i - 1];
