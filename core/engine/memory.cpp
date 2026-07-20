@@ -45,6 +45,13 @@ void __verbose_terminate_handler() {
  */
 alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
+#ifdef HS_PACK_DECODE_DTCM
+// Diagnostic overlay: the top 8 KB of the arena (DTCM, unused by IslamicStars'
+// split) mirrors the sRGB decode table so the pack reads it zero-wait.
+uint16_t *g_srgb_decode_dtcm =
+    reinterpret_cast<uint16_t *>(global_arena_block + GLOBAL_ARENA_SIZE - 8192);
+#endif
+
 /** @brief Persistent arena: storage that lives for the whole program run. */
 Arena persistent_arena(global_arena_block, DEFAULT_PERSISTENT_SIZE);
 /** @brief First scratch arena: transient per-frame/per-effect storage. */
