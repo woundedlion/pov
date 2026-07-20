@@ -20,6 +20,14 @@
 # per-pixel/per-cell/per-face counters in shared render code, off by default
 # because they tax every effect's numbers). A deep capture writes its own
 # _deep.log so it cannot overwrite the roster log the standard reports cite.
+#
+# HS_PROFILE_TREE=<path> builds that checkout instead of the main one, so a
+# branch can be profiled before it lands. Everything this script writes is
+# relative to the tree (build/prof, .pio), so a worktree keeps its own logs and
+# object dir and cannot mix results with the main tree's. Without it the default
+# below is built no matter which directory the script is invoked from — running
+# it inside a worktree would otherwise profile master's code under the branch's
+# name, and nothing in the capture would say so.
 set -e
 . "$(dirname "$0")/device_lock.sh"
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
@@ -33,7 +41,7 @@ if [ -n "$HS_PROFILE_DEEP" ] && [ "$HS_PROFILE_DEEP" != "0" ]; then
   DEEP_SUFFIX="_deep"
 fi
 OUT=build/prof/${LOWER}_${TAG}${DEEP_SUFFIX}.log
-cd /c/work/Holosphere
+cd "${HS_PROFILE_TREE:-/c/work/Holosphere}"
 mkdir -p build/prof
 export PLATFORMIO_BUILD_FLAGS="-D HS_PROFILE_TARGET=$EFFECT -D HS_PROFILE_WINDOW=$WINDOW $DEEP $EXTRA"
 
