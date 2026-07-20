@@ -320,7 +320,13 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  * @return The `x` pixel coordinate in `[0, W)` (wrap() strictly excludes W).
  */
 template <int W> __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
-  return wrap((fast_atan2(v.z, v.x) * W) / (2 * PI_F), W);
+  // fast_atan2 is bounded by |pi|, so t lands in [-W/2, W/2] and fmod(t, W) is
+  // the identity: wrap() reduces to one conditional add. The upper guard keeps
+  // the half-open range when a tiny negative t rounds up to exactly W.
+  float t = (fast_atan2(v.z, v.x) * W) / (2 * PI_F);
+  if (t < 0.0f)
+    t += W;
+  return (t >= W) ? 0.0f : t;
 }
 
 /**
