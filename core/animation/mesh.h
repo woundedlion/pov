@@ -1033,6 +1033,44 @@ struct GoldConvergence : Base {
   float opacity(float phase) const { return 0.4f + 0.6f * phase; }
 };
 
+/**
+ * @brief Stochastic pixel-ownership dissolve: each pixel shows exactly one of
+ * the two meshes, with the owned fraction tracking the phase.
+ * @details The two draws receive complementary PixelMasks (same threshold and
+ * salt, opposite invert), so together they rasterize each pixel once — a
+ * two-mesh transition costs one mesh's scan per frame instead of two, which is
+ * what keeps heavy-pair crossfades inside one display window. Owned pixels
+ * draw at full opacity; the dissolve percept is the spatial mix ratio, blurred
+ * by POV persistence. The salt folds a frame counter into the per-transition
+ * seed so the pattern re-rolls every frame (temporal dither). Unlike the other
+ * policies this one partitions pixels in the scan (see PixelMask), not
+ * fragments in the shader; effects pass the masks to Scan::Mesh::draw
+ * themselves.
+ */
+struct Dissolve : Base {
+  uint32_t seed = 0x9e3779b9u; /**< Per-transition seed; rolled by retarget(). */
+  void retarget(const Vector &) { seed = static_cast<uint32_t>(hs::random()()); }
+  /**
+   * @brief Builds one half's ownership mask.
+   * @param phase Transition phase in [0, 1]; the incoming mesh owns this
+   *        fraction of the pixels, the outgoing mesh the complement.
+   * @param frame Monotonic frame counter (temporal dither; never wall time).
+   * @param incoming True for the incoming mesh's mask.
+   */
+  PixelMask mask(float phase, uint32_t frame, bool incoming) const {
+    uint32_t thr = static_cast<uint32_t>(hs::clamp(phase, 0.0f, 1.0f) * 65536.0f);
+    return {thr, frame * 0x9E3779B9u ^ seed, !incoming};
+  }
+  /** @brief Crossfade-style overlapping schedule: both meshes are on the
+   * timeline during the fade window (the masks keep the cost at one mesh). */
+  int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
+    int fade = std::min(window, duration / 2);
+    timeline.add(0, Animation::Sprite(std::move(draw_fn), duration, fade,
+                                      ease_linear, fade, ease_linear));
+    return duration - fade;
+  }
+};
+
 } // namespace Segue
 
 /**
