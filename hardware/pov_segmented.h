@@ -619,19 +619,7 @@ private:
       HS_ISR_PROFILE(hs::g_column_pack_cycles);
       int y = y_base_;
       for (int i = 0; i < PPS; ++i, y += y_step_) {
-#if defined(HS_PACK_DIAG_CONSTREAD)
-        // Diagnostic: read one cached row-0 pixel every iteration to null out
-        // the strided-read cache-miss cost; isolates it against the full pack.
-        frame.packPixel(i, buf[x_col]);
-#elif defined(HS_PACK_DIAG_CONTIG)
-        // Diagnostic: read 72 DIFFERENT contiguous pixels (~14 lines) instead of
-        // the 72-line strided sweep, keeping the real varied-pixel LUT workload.
-        // Simulates a column-major framebuffer footprint to test whether cutting
-        // the framebuffer over-fetch alone breaks the LUT thrash.
-        frame.packPixel(i, buf[x_col * PPS + i]);
-#else
         frame.packPixel(i, buf[y * w + x_col]);
-#endif
       }
     }
     // Drop the accept/overrun result: a dropped image column self-heals next
