@@ -2505,6 +2505,93 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
 }
 
 /**
+ * @brief Verifies a clipped sub-pixel trail — the population the single-dot
+ *        shortcut routes — is pixel-identical to the unclipped reference.
+ * @details The gate-parity sweep above steps trails at ~2x base_step, so its
+ *          edges mostly take the sampler. These trails step well under one
+ *          screen step at several latitudes, so the shortcut (and its reuse of
+ *          the gate's precomputed rows/columns) decides the pixels.
+ */
+inline void test_particle_system_subpixel_trail_dot_parity() {
+  constexpr int W = 96, H = 48;
+  constexpr float base_step = (2.0f * PI_F) / W;
+  hs::random().seed(20260720);
+
+  StubSystem sys;
+  sys.max_life = 100;
+  const int NT = 40;
+  for (int t = 0; t < NT; ++t) {
+    StubParticle p;
+    p.life = static_cast<uint16_t>(50 + t % 40);
+    float lat = -1.2f + 2.4f * (static_cast<float>(t) / (NT - 1));
+    float az = hs::rand_f(0.0f, 2.0f * PI_F);
+    Vector v(std::cos(lat) * std::cos(az), std::sin(lat),
+             std::cos(lat) * std::sin(az));
+    for (int k = 0; k < 12; ++k) {
+      p.history.record(v);
+      Vector step(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      v = (v + step * (base_step * 0.2f)).normalized();
+    }
+    sys.pool.push_back(p);
+  }
+  sys.active_count = NT;
+
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(65535, 40000, 20000), hs::clamp(f.v3, 0.0f, 1.0f));
+  };
+  auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
+  auto deferred_pass = [](Fragment &f, const Vector &) { f.v3 *= 0.7f; };
+  auto combined = [](Fragment &f) {
+    f.pos = f.pos * -1.0f;
+    f.v3 *= 0.7f;
+  };
+
+  std::vector<Pixel> ref(static_cast<size_t>(W) * H);
+  {
+    RasterFx fx(W, H);
+    Pipeline<W, H> filters;
+    {
+      Canvas c(fx);
+      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, combined);
+    }
+    fx.advance_display();
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        ref[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  }
+
+  const int bands[][4] = {
+      {0, 24, 0, 48},
+      {12, 36, 48, 96},
+      {0, 48, 20, 70},
+      {30, 48, 0, 96},
+  };
+  for (const auto &bd : bands) {
+    RasterFx fx(W, H);
+    fx.set_clip(bd[0], bd[1], bd[2], bd[3]);
+    Pipeline<W, H> filters;
+    {
+      Canvas c(fx);
+      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade, position_pass,
+                                       deferred_pass);
+    }
+    fx.advance_display();
+    int lit = 0, diff = 0;
+    for (int y = bd[0]; y < bd[1]; ++y)
+      for (int x = bd[2]; x < bd[3]; ++x) {
+        Pixel p = fx.get_pixel(x, y);
+        const Pixel &r = ref[static_cast<size_t>(y) * W + x];
+        if (r.r | r.g | r.b)
+          ++lit;
+        if (p.r != r.r || p.g != r.g || p.b != r.b)
+          ++diff;
+      }
+    HS_EXPECT_GT(lit, 10);
+    HS_EXPECT_EQ(diff, 0);
+  }
+}
+
+/**
  * @brief The segment cull follows a filter-chain orientation: an edge the
  *        World::Orient stage rotates into a clip band is drawn, not culled.
  * @details When orientation lives in the filter chain the rasterizer
@@ -2866,6 +2953,7 @@ inline int run_plot_scan_tests() {
   test_particle_system_empty_zero_lifetime_is_noop();
   test_particle_system_deferred_shader_parity_and_skip();
   test_particle_system_gate_pixel_parity_random_trails();
+  test_particle_system_subpixel_trail_dot_parity();
 
   test_azimuthal_project_radius_is_geodesic_angle();
   test_azimuthal_roundtrip_identity();
