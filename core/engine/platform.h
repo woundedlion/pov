@@ -1048,14 +1048,22 @@ inline unsigned long micros() { return hs::micros(); }
 // optimization flags from defaults, dropping command-line -ffast-math /
 // -fno-finite-math-only for the region (fixed in GCC 12; harmless to restate).
 // HS_O3_FN is the single-function fallback for definitions a region cannot wrap.
+//
+// no-unroll-loops is NOT the lever here; -funswitch-loops is. GCC 15 unswitches
+// the region's per-pixel loops on their invariant branches (e.g. the feedback
+// compositor's pair_on flag), emitting TWO copies of the body where GCC 11 kept
+// one. Only one copy ever runs, so it buys no speed and costs pure size: the
+// feedback composite lambda doubles 6,356 -> 11,588 B and Phantasm's ITCM goes
+// 188,088 -> 200,520 B, overflowing FlexRAM. Disabling it restores GCC 11's
+// shape at full -O3 across the roster; measured on the real image, not guessed.
 // ---------------------------------------------------------------------------
 #if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) && \
     defined(__OPTIMIZE_SIZE__)
 #define HS_O3_BEGIN                                                     \
   _Pragma("GCC push_options")                                           \
-  _Pragma("GCC optimize(\"O3\", \"fast-math\", \"no-finite-math-only\")")
+  _Pragma("GCC optimize(\"O3\", \"fast-math\", \"no-finite-math-only\", \"no-unswitch-loops\")")
 #define HS_O3_END _Pragma("GCC pop_options")
-#define HS_O3_FN __attribute__((optimize("O3", "fast-math", "no-finite-math-only")))
+#define HS_O3_FN __attribute__((optimize("O3", "fast-math", "no-finite-math-only", "no-unswitch-loops")))
 #else
 #define HS_O3_BEGIN
 #define HS_O3_END

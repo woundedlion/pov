@@ -69,7 +69,7 @@ public:
   /**
    * @brief Default-constructs the effect; all setup is deferred to init().
    */
-  FLASHMEM BZReactionDiffusion() = default;
+  BZReactionDiffusion() = default;
 
   /**
    * @brief Carves the arenas, registers tunable params, builds the lattice,

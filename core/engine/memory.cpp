@@ -1,6 +1,9 @@
 #include "engine/memory.h"
 #include "animation/animation.h"
 #include "color/color.h"
+#ifdef ARDUINO
+#include <exception>
+#endif
 
 // Stubs to prevent the linker pulling in the C++ demangler (~15KB) on the device
 // (chain: std::function -> __cxa_throw -> __verbose_terminate_handler). Only the
@@ -19,18 +22,35 @@ extern "C" void __cxa_pure_virtual() {
   hs::flush_log();
   __builtin_trap();
 }
+#if TEENSYDUINO < 162
 namespace __gnu_cxx {
 /**
  * @brief Fail-fast terminate handler for the device.
  * @details Flushes the log then traps instead of pulling in the C++ demangler
  * (~15KB). A terminate is a fatal invariant violation, so it must leave a
- * breadcrumb and stop, not spin.
+ * breadcrumb and stop, not spin. On TD >= 1.62 the core defines its own strong
+ * __verbose_terminate_handler, so we install the fail-fast handler at runtime
+ * (below) instead of redefining the symbol.
  */
 void __verbose_terminate_handler() {
   hs::flush_log();
   __builtin_trap();
 }
 } // namespace __gnu_cxx
+#else
+// TD >= 1.62's core (cores/teensy4/main.cpp) ships its own strong
+// __gnu_cxx::__verbose_terminate_handler (a while(1) WFI spin), so redefining it
+// here would be a multiple-definition link error. That core handler already keeps
+// the ~15KB demangler out; we only need to replace its spin-and-freeze behavior
+// with the fail-fast flush+trap. Install it at runtime via a global constructor
+// (runs before setup()); std::terminate then dispatches to ours.
+namespace {
+const std::terminate_handler s_fail_fast_terminate = std::set_terminate([] {
+  hs::flush_log();
+  __builtin_trap();
+});
+} // namespace
+#endif
 #endif
 
 /**
