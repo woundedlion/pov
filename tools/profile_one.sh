@@ -10,6 +10,12 @@
 # build+flash+capture, so concurrent agents queue instead of clobbering each
 # other. HS_DEVICE_WAIT=<s> to queue rather than fail fast when it is busy.
 #
+# HS_TEENSY_PORT=<COMn> pins both the flash and the capture to one board. With
+# two Teensys attached the teensy-gui loader refuses to choose ("Found 2 Teensy
+# boards") yet still exits SUCCESS, leaving the previous image running, and the
+# capture's first-VID-match can read the other board: a plausible log of the
+# wrong firmware. Set it whenever the host has more than one board.
+#
 # HS_PROFILE_DEEP=1 additionally enables the HS_PROFILE_DEEP sub-scopes (the
 # per-pixel/per-cell/per-face counters in shared render code, off by default
 # because they tax every effect's numbers). A deep capture writes its own
@@ -44,9 +50,31 @@ case " $CYCLERS " in *" $EFFECT "*)
   esac ;;
 esac
 
+TEENSY_TOOLS=${HS_TEENSY_TOOLS:-$HOME/.platformio/packages/tool-teensy}
+
+# teensy_post_compile identifies a board by its USB location, not its COM name,
+# and rejects a bare -portlabel. Resolve the location from the loader's own
+# listing so a replug (which renumbers the hub port) needs no config change.
+flash() {
+  if [ -z "$HS_TEENSY_PORT" ]; then
+    pio run -e "$ENV" -t upload 2>&1 | tail -2
+    return
+  fi
+  pio run -e "$ENV" 2>&1 | tail -2
+  local line loc label
+  line=$("$TEENSY_TOOLS/teensy_ports.exe" -L | grep " $HS_TEENSY_PORT " || true)
+  [ -n "$line" ] || { echo "no Teensy at $HS_TEENSY_PORT"; return 1; }
+  loc=$(echo "$line" | awk '{print $1}')
+  label=$(echo "$line" | awk '{print $2" "$3" "$4}')
+  "$TEENSY_TOOLS/teensy_post_compile.exe" -file=firmware \
+    -path="$(cygpath -w "$PWD/.pio/build/$ENV")" \
+    -tools="$(cygpath -w "$TEENSY_TOOLS")" -board=TEENSY40 -reboot \
+    "-port=$loc" "-portlabel=$label" -portprotocol=Teensy
+}
+
 capture() {
   echo "=== $EFFECT [$ENV] window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
-  pio run -e "$ENV" -t upload 2>&1 | tail -2
+  flash
   # Let the capture's stderr through: it dies on a device trap (USB drops) and
   # on a port already held by a peer, and those look identical from the exit
   # code alone. Under set -e this aborts the run, so without the message the
@@ -66,6 +94,15 @@ verify() {
   if [ -n "$MARKER" ]; then
     grep -q "$MARKER" "$OUT" || { echo "NO '$MARKER' MARKER — stale build?"; return 1; }
   fi
+  # A flash that did not take leaves the previous image running, and the name
+  # checks above pass whenever it happens to be the same effect (an -Os log
+  # then publishes as the -O3 twin). The frame counter is the tell: a freshly
+  # flashed board starts at 1, and the capture attaches within the 30 s
+  # connect window, so a first frame past ~600 means no reboot happened.
+  local first
+  first=$(grep -m1 -oE "^f [0-9]+" "$OUT" | awk '{print $2}')
+  [ -n "$first" ] || { echo "NO FRAME LINES in $OUT"; return 1; }
+  [ "$first" -lt 600 ] || { echo "STALE IMAGE: first frame $first — the upload did not take"; return 1; }
   return 0
 }
 
