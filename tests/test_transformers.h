@@ -7,7 +7,9 @@
  *   - OrientTransformer       : identity orientation is a no-op; a known 90°
  *                               rotation maps to its hand-computed image.
  *   - mobius_transform        : identity Mobius round-trips through stereo; the
- *                               1/z map realizes a 180° rotation about x.
+ *                               1/z map realizes a 180° rotation about x; random
+ *                               maps match a double-precision oracle and stay
+ *                               unit; the poles map to a/c and b/d.
  *   - gnomonic_mobius_transform: identity round-trips through gnomonic; the -z
  *                               map realizes a 180° rotation about y.
  *   - ripple_transform        : amplitude 0 and center-point degeneracies are
@@ -159,6 +161,97 @@ inline void test_mobius_known_rotation() {
   HS_EXPECT_NEAR(r.y, -v.y, 1e-3f);
   HS_EXPECT_NEAR(r.z, -v.z, 1e-3f);
   HS_EXPECT_NEAR(r.length(), 1.0f, 1e-3f);
+}
+
+/**
+ * @brief Verifies mobius_transform matches a double-precision projection ->
+ *        map -> unprojection oracle over random points and coefficients, and
+ *        lands exactly on the sphere.
+ * @details The oracle divides through in double before applying the map, so it
+ *          is independent of the homogeneous formulation under test. Points
+ *          inside the pole cap are excluded from the value comparison — there
+ *          the oracle's own quotient is ill-conditioned — but their image is
+ *          still required to be finite and unit.
+ */
+inline void test_mobius_matches_double_precision_oracle() {
+  hs::random().seed(20260720);
+  auto oracle = [](const Vector &v, const MobiusParams &p) {
+    double s = 1.0 - static_cast<double>(v.y);
+    double zr = static_cast<double>(v.x) / s;
+    double zi = static_cast<double>(v.z) / s;
+    double nr = static_cast<double>(p.a.re) * zr -
+                static_cast<double>(p.a.im) * zi + static_cast<double>(p.b.re);
+    double ni = static_cast<double>(p.a.re) * zi +
+                static_cast<double>(p.a.im) * zr + static_cast<double>(p.b.im);
+    double dr = static_cast<double>(p.c.re) * zr -
+                static_cast<double>(p.c.im) * zi + static_cast<double>(p.d.re);
+    double di = static_cast<double>(p.c.re) * zi +
+                static_cast<double>(p.c.im) * zr + static_cast<double>(p.d.im);
+    double q = dr * dr + di * di;
+    double wr = (nr * dr + ni * di) / q;
+    double wi = (ni * dr - nr * di) / q;
+    double r2 = wr * wr + wi * wi;
+    return Vector(static_cast<float>(2.0 * wr / (r2 + 1.0)),
+                  static_cast<float>((r2 - 1.0) / (r2 + 1.0)),
+                  static_cast<float>(2.0 * wi / (r2 + 1.0)));
+  };
+
+  int compared = 0;
+  for (int n = 0; n < 4000; ++n) {
+    Vector v;
+    for (;;) {
+      Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      if (r.length() > 0.1f) {
+        v = r.normalized();
+        break;
+      }
+    }
+    MobiusParams p(hs::rand_f(-2, 2), hs::rand_f(-2, 2), hs::rand_f(-2, 2),
+                   hs::rand_f(-2, 2), hs::rand_f(-2, 2), hs::rand_f(-2, 2),
+                   hs::rand_f(-2, 2), hs::rand_f(-2, 2));
+    // Skip a near-singular draw: ad - bc ~ 0 collapses the map and both forms
+    // are then dominated by cancellation, not by the formulation.
+    float det_re = p.a.re * p.d.re - p.a.im * p.d.im - p.b.re * p.c.re +
+                   p.b.im * p.c.im;
+    float det_im = p.a.re * p.d.im + p.a.im * p.d.re - p.b.re * p.c.im -
+                   p.b.im * p.c.re;
+    if (det_re * det_re + det_im * det_im < 0.25f)
+      continue;
+
+    Vector got = mobius_transform(v, p);
+    HS_EXPECT_TRUE(finite_vec(got));
+    HS_EXPECT_NEAR(got.length(), 1.0f, 1e-5f);
+    if (1.0f - v.y < STEREO_POLE_EPS)
+      continue;
+    Vector want = oracle(v, p);
+    ++compared;
+    HS_EXPECT_NEAR(got.x, want.x, 2e-3f);
+    HS_EXPECT_NEAR(got.y, want.y, 2e-3f);
+    HS_EXPECT_NEAR(got.z, want.z, 2e-3f);
+  }
+  HS_EXPECT_GT(compared, 1000);
+}
+
+/**
+ * @brief Verifies the poles map to the coefficient ratios the projective
+ *        extension prescribes: the north pole (the point at infinity) to a/c
+ *        and the south pole (the origin) to b/d.
+ */
+inline void test_mobius_poles_map_to_coefficient_ratios() {
+  MobiusParams p(0.7f, 0.2f, -0.4f, 0.9f, 0.3f, -0.6f, 1.1f, 0.5f);
+  Vector north = mobius_transform(Vector(0, 1, 0), p);
+  HS_EXPECT_TRUE(finite_vec(north));
+  Vector north_want = inv_stereo(p.a / p.c);
+  HS_EXPECT_NEAR(north.x, north_want.x, 1e-4f);
+  HS_EXPECT_NEAR(north.y, north_want.y, 1e-4f);
+  HS_EXPECT_NEAR(north.z, north_want.z, 1e-4f);
+
+  Vector south = mobius_transform(Vector(0, -1, 0), p);
+  HS_EXPECT_TRUE(finite_vec(south));
+  Vector south_want = inv_stereo(p.b / p.d);
+  HS_EXPECT_NEAR(south.x, south_want.x, 1e-4f);
+  HS_EXPECT_NEAR(south.y, south_want.y, 1e-4f);
+  HS_EXPECT_NEAR(south.z, south_want.z, 1e-4f);
 }
 
 /**
@@ -1090,6 +1183,8 @@ inline int run_transformers_tests() {
   test_orient_transformer_known_rotation();
   test_mobius_identity_roundtrip();
   test_mobius_known_rotation();
+  test_mobius_matches_double_precision_oracle();
+  test_mobius_poles_map_to_coefficient_ratios();
   test_gnomonic_mobius_identity_roundtrip();
   test_gnomonic_mobius_known_rotation();
   test_ripple_zero_amplitude_is_identity();

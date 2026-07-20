@@ -428,11 +428,42 @@ struct OrientTransformer {
  * @param v Unit vector to transform.
  * @param params Mobius transformation coefficients.
  * @return The transformed vector.
- * @details Wraps the complex math version from 3dmath.h via stereographic
- * projection: project to the plane, apply mobius, project back.
+ * @details Fused stereographic projection, Mobius map and inverse projection.
+ * Carrying the plane coordinate as the homogeneous pair (p : s) — the
+ * projection's numerator and denominator, never their quotient — keeps the
+ * whole composition one complex fraction n/m, so it costs a single divide and
+ * the pole is an ordinary value (s = 0) rather than the STEREO_INF sentinel
+ * the split form needs.
  */
 inline Vector mobius_transform(const Vector &v, const MobiusParams &params) {
-  return inv_stereo(mobius(stereo(v), params));
+  float px = v.x, pz = v.z;
+  float s = 1.0f - v.y;
+  // Exact north pole leaves (p : s) = (0 : 0); its projective image is the
+  // point at infinity, (1 : 0). Approaching the pole needs no such nudge:
+  // |p| ~ sqrt(2s) dominates s, so the ratio tends to infinity on its own.
+  if (px * px + pz * pz < STEREO_DIV_NUM_EPS_SQ &&
+      s < STEREO_DIV_NUM_EPS_SQ) {
+    px = 1.0f;
+    pz = 0.0f;
+    s = 0.0f;
+  }
+
+  const float n_re = params.a.re * px - params.a.im * pz + params.b.re * s;
+  const float n_im = params.a.re * pz + params.a.im * px + params.b.im * s;
+  const float m_re = params.c.re * px - params.c.im * pz + params.d.re * s;
+  const float m_im = params.c.re * pz + params.c.im * px + params.d.im * s;
+
+  const float n2 = n_re * n_re + n_im * n_im;
+  const float m2 = m_re * m_re + m_im * m_im;
+  const float den = n2 + m2;
+  // Only a singular transform (ad = bc) can null both, and it collapses the
+  // sphere to a point; the split form reached the pole here via its sentinel.
+  if (den < STEREO_DIV_NUM_EPS_SQ)
+    return Vector(0.0f, 1.0f, 0.0f);
+
+  const float inv = 1.0f / den;
+  return Vector(2.0f * (n_re * m_re + n_im * m_im) * inv, (n2 - m2) * inv,
+                2.0f * (n_im * m_re - n_re * m_im) * inv);
 }
 
 /**
