@@ -157,9 +157,11 @@ private:
                                         params.specular, params.fresnel);
 
         float ring_angle = (fast_atan2(loc.z, loc.x) + PI_F) / (2.0f * PI_F);
-        float palette_t = fmodf(ring_angle + palette_phase +
-                                    static_cast<float>(i) / active_count,
-                                1.0f);
+        float coord =
+            ring_angle + palette_phase + static_cast<float>(i) / active_count;
+        // ring_angle is [0,1] and the other two terms are [0,1), so coord is
+        // non-negative and this fract equals fmodf(coord, 1).
+        float palette_t = coord - floorf(coord);
         Color4 c = baked_palette.get(palette_t);
         frag.color = Color4(c.color * shade, opacity);
       };
