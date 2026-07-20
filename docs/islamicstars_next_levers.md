@@ -271,12 +271,44 @@ do not sum them). Cutting it raises the foreground render budget directly: at
 8.32% the budget is 57.3 ms and the worst shape needs 1.17×; halve the ISR load
 and the budget becomes ~60.0 ms and the requirement drops to ~1.12×.
 
-### C1 — `isr_pack` is load-bound, not FP-bound: 8.24 ms/frame
+### C1 — `isr_pack` is a framebuffer↔LUT L1 cache thrash (MEASURED)
 
-The critical measured fact: **the ISR path contains zero floating-point stalls**
-— `flywheel_isr` (232 insns), `HD107SFrame<72>::packPixel` (53 insns) and
-`submitFrame` (77 insns) have **0 `vmrs`, 0 `vdiv`, 0 `vcvt`** between them. Do
-not go looking for FPU stalls here; it is a **memory** problem.
+The `isr_pack` cost was split on device (`9bd8713b`, flag-gated diagnostic;
+worst shape `dodecahedron_hk35`, clean-hold window `frames 1105-1120`, two
+visits agree). Two toggles null out each memory stream: `HS_PACK_DIAG_CONSTREAD`
+reads a cached row-0 pixel (removes the strided framebuffer read),
+`HS_PACK_DIAG_NOLUT` shifts instead of the 64 KB flash LUT (removes the LUT).
+
+| `isr_pack` cyc/column | CPU% |
+|---|--:|
+| full (both streams) | **17,254** · 6.62% |
+| no-LUT (strided read only) | 3,047 · 1.17% |
+| const-read (LUT only, cached read) | 2,438 · 0.93% |
+
+The two standalone costs sum to **5,485**; the full pack is **17,254**. The
+**11,769 cyc/column (68% of the pack) is the interaction** — the 248 KB
+framebuffer sweep and the 64 KB `linear_to_srgb_lut` mutually evict each other
+from the 32 KB L1 D-cache, so under the full pack *both* streams miss where
+either alone mostly hits. It is superlinear thrash, not two additive loads.
+
+**The thrash bleeds into the foreground render.** Relieving the pack (either
+toggle) drops `is_timeline_step` **65.5 → 58.6 ms** and `scan_mesh_raster`
+**47.1 → 42.1 ms** — the ISR was thrashing the L1 the renderer shares, worth
+~6.8 ms/frame of render on top of the ~8 ms of pack ISR. Spilled frames
+44 → 23-25/152. (The ripple-burst peak stays ~71 ms — red — so this does not
+alone flip the shape; see TASK E.)
+
+**Flash prefetch will not help.** The flash region is already `MEM_CACHE_WBWA`
+(startup.c:317) and the LUT is cheap when it stays resident (const-read: 2,438
+cyc for all 216 lookups). Its cost is *eviction* by the framebuffer, not flash
+access latency — a prefetch buffer cannot fix an L1 capacity conflict. The fix
+must shrink one stream's cache footprint so they stop evicting each other:
+reduce the framebuffer read amplification (column ring / column-major, C4) or
+shrink the 64 KB LUT (a smaller LUT + interpolation breaks the thrash but is not
+bit-exact — a colour-quality trade to weigh).
+
+Prior framing kept below for context; the split above supersedes the
+"~240 cyc/pixel, likely OCRAM latency" guess.
 
 `isr_pack` fires ~287×/frame (once per column) at **28.74 µs average = ~17,240
 cycles per call**. With 72 LEDs per column that is roughly **240 cycles per
@@ -326,11 +358,14 @@ ISR cost scales with display cadence, not with effect cost: at 8 fps a frame is
 roughly constant, and the percentage figures move as render time moves. Quote
 ISR cost in **µs/window or CPU%**, and state which frame length you measured at.
 
-### C4 — the two live bandwidth-reducing levers (prefetch is out; these are not)
+### C4 — footprint-reducing levers that break the C1 thrash
 
-The prefetch revert proved the pack is contention-bound — cost ∝ AXI bytes, not
-miss latency. That *strengthens* the case for cutting bytes, which prefetch never
-did. Two open approaches, neither exhausted:
+The C1 split shows the target is the framebuffer↔LUT cache interaction (68% of
+the pack, plus ~6.8 ms of bled render). Any lever that shrinks one stream's L1
+footprint recovers part of it. The const-read/no-LUT toggles remove a stream
+*entirely* (100%); the structural levers below remove a fraction, so expect a
+fraction of the ~15 ms combined ceiling — but even half is large. None
+exhausted:
 
 - **Column ring / batch pack.** Consecutive ISR fires pack adjacent columns, and
   each 32 B line holds ~5.33 consecutive-x pixels of a row. Packing K adjacent
