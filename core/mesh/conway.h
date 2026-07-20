@@ -273,6 +273,8 @@ inline void for_each_edge(const HalfEdgeMesh &he_mesh, bool *visited_edges,
 
 HS_O3_END
 
+HS_O3_BEGIN
+
 /**
  * @brief Copies a mesh's topology (as views) and vertices into a target mesh,
  *   applying each transformer to every vertex in order.
@@ -308,6 +310,8 @@ inline void transform(const MeshState &mesh, MeshState &transformed,
     }
   }
 }
+
+HS_O3_END
 
 HS_O3_BEGIN
 

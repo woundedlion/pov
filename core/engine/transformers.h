@@ -284,7 +284,7 @@ public:
    * @note Reads each active entity's prepared state; see prepare_frame() for the
    * ordering contract. Per-pixel hot path — no guard here by design.
    */
-  Vector transform(Vector v) const {
+  HS_O3_FN Vector transform(Vector v) const {
     for (int k = 0; k < this->active_count_; ++k) {
       v = TransformFunc(v, this->entities[this->active_slots_[k]].params);
     }
@@ -296,7 +296,7 @@ public:
    * @param v Vector to transform.
    * @return The transformed vector.
    */
-  Vector operator()(const Vector &v) const { return transform(v); }
+  HS_O3_FN Vector operator()(const Vector &v) const { return transform(v); }
 };
 
 /**
@@ -413,14 +413,16 @@ struct OrientTransformer {
    * @param v Vector to transform.
    * @return The oriented vector.
    */
-  Vector transform(const Vector &v) const { return orientation.orient(v); }
+  HS_O3_FN Vector transform(const Vector &v) const {
+    return orientation.orient(v);
+  }
 
   /**
    * @brief Function-call alias for transform().
    * @param v Vector to transform.
    * @return The oriented vector.
    */
-  Vector operator()(const Vector &v) const { return transform(v); }
+  HS_O3_FN Vector operator()(const Vector &v) const { return transform(v); }
 };
 
 /**
