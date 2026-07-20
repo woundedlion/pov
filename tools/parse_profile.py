@@ -627,11 +627,16 @@ def cmd_validate(windows, effect, scope):
     # Per-frame render telemetry is only render if the effect opened a
     # *_buffer_wait scope for Profile.ino to subtract; without one it is wall,
     # and every peak it feeds is a peak WALL wearing a render's name.
+    # The diagnosis belongs on the failing branch only: on the passing one it
+    # asserts the opposite of what was just measured, and a reader who takes it
+    # at face value carries "this effect has no buffer_wait scope" away from a
+    # run that proved it has one.
     wall_render = [w for w in windows if w.render_is_wall()]
     check(not wall_render,
           f"per-frame render is render, not wall ({len(wall_render)} of "
-          f"{len(windows)} windows have render == wall: the effect opens no "
-          f"*_buffer_wait scope)")
+          f"{len(windows)} windows have render == wall"
+          + (": the effect opens no *_buffer_wait scope)" if wall_render
+             else ")"))
 
     # Exactness: root cyc/600 vs wall sum for the richest window.
     w = max(windows, key=lambda w: (w.root_us() or 0))
