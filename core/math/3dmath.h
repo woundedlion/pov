@@ -69,7 +69,7 @@ static constexpr float PI_F = static_cast<float>(PI);
  * @param t Interpolation factor (clamped to 0.0 - 1.0).
  * @return The interpolated value: t^3 * (t * (t * 6 - 15) + 10).
  */
-inline float quintic_kernel(float t) {
+__attribute__((always_inline)) inline float quintic_kernel(float t) {
   t = hs::clamp(t, 0.0f, 1.0f);
   return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 }
