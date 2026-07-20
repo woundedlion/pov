@@ -4294,6 +4294,21 @@ struct Twist {
   }
 
   /**
+   * @brief Reciprocal of the Lipschitz constant, from an already-computed 1/s.
+   * @param inv_s Reciprocal of the XZ radius, from sin_ntheta_inv().
+   * @return 1 / lipschitz(inv_s), in (0, 1].
+   * @details (√(1+γ²/4) - γ/2)(√(1+γ²/4) + γ/2) = 1 exactly, so the reciprocal
+   * needs no divide. The result never exceeds 1, so callers scale by it
+   * unconditionally.
+   */
+  float lipschitz_inv(float inv_s) const {
+    if (twist == 0)
+      return 1.0f;
+    const float gamma = twist_amp_abs * std::min(inv_s, two_over_r);
+    return sqrtf(1.0f + 0.25f * gamma * gamma) - 0.5f * gamma;
+  }
+
+  /**
    * @brief Maximum possible inflation of the bounding volume.
    * @return The displacement amplitude (radians of XYZ space).
    */
@@ -4428,11 +4443,8 @@ template <typename SDF, typename Warp> struct WarpedVolume {
       const auto h = warp.sin_ntheta_inv(p, s);
       const Vector warped(p.x, p.y - warp.amplitude * h.sin_n, p.z);
       float d = base.distance(warped);
-      if (d > 0.0f) {
-        const float lip = warp.lipschitz(h.inv_s);
-        if (lip > 1.0f)
-          d /= lip;
-      }
+      if (d > 0.0f)
+        d *= warp.lipschitz_inv(h.inv_s);
       return d;
     } else {
       const float bd = base.distance(p) - warp.bounding_inflation();
