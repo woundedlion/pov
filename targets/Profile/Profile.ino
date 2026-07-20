@@ -354,6 +354,30 @@ Effect *construct_profiled() {
 
 const POV::EffectFactory EFFECT_FACTORIES[] = {&construct_profiled};
 
+/**
+ * @brief Logs the SoC reset cause latched since the last boot, then clears it.
+ * @details Answers whether a board that stopped streaming mid-capture reset
+ * itself or was power-cycled by hand. A normal upload reboot reads back `por`,
+ * so that is the uninformative baseline; `wdog` or `lockup-or-swreset` is the
+ * signal. SRC_SRSR is write-1-to-clear and accumulates across resets, so
+ * leaving it set would report every earlier boot's cause alongside this one.
+ * Bit 1 does not separate a CPU lockup from a software SYSRESETREQ.
+ */
+void log_reset_cause() {
+  const uint32_t srsr = SRC_SRSR;
+  SRC_SRSR = srsr;
+  hs::log("reset cause: 0x%03x%s%s%s%s%s%s%s%s%s", (unsigned)srsr,
+          (srsr & SRC_SRSR_IPP_RESET_B) ? " por" : "",
+          (srsr & SRC_SRSR_LOCKUP_SYSRESETREQ) ? " lockup-or-swreset" : "",
+          (srsr & SRC_SRSR_CSU_RESET_B) ? " csu" : "",
+          (srsr & SRC_SRSR_IPP_USER_RESET_B) ? " user-reset" : "",
+          (srsr & SRC_SRSR_WDOG_RST_B) ? " wdog" : "",
+          (srsr & SRC_SRSR_JTAG_RST_B) ? " jtag" : "",
+          (srsr & SRC_SRSR_JTAG_SW_RST) ? " jtag-sw" : "",
+          (srsr & SRC_SRSR_WDOG3_RST_B) ? " wdog3" : "",
+          (srsr & SRC_SRSR_TEMPSENSE_RST_B) ? " tempsense" : "");
+}
+
 static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1).valid(),
               "Profile pov::sync::Config invariants violated");
 } // namespace
@@ -364,6 +388,7 @@ void setup() {
   hs::log("profile harness: effect=%s segments=%d rpm=%u f_cpu=%lu",
           HS_PROFILE_STR(HS_PROFILE_TARGET), NUM_SEGMENTS, RPM,
           (unsigned long)F_CPU);
+  log_reset_cause();
   g_pov = new (std::nothrow) POV();
   HS_CHECK(g_pov != nullptr, "POV allocation failed (OOM)");
 }
