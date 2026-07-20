@@ -1,6 +1,9 @@
 #include "engine/memory.h"
 #include "animation/animation.h"
 #include "color/color.h"
+#ifdef HS_PACK_DECODE_DTCM
+#include "color/srgb_decode_lut.h"
+#endif
 
 // Stubs to prevent the linker pulling in the C++ demangler (~15KB) on the device
 // (chain: std::function -> __cxa_throw -> __verbose_terminate_handler). Only the
@@ -47,9 +50,16 @@ alignas(std::max_align_t) static uint8_t global_arena_block[GLOBAL_ARENA_SIZE];
 
 #ifdef HS_PACK_DECODE_DTCM
 // Diagnostic overlay: the top 8 KB of the arena (DTCM, unused by IslamicStars'
-// split) mirrors the sRGB decode table so the pack reads it zero-wait.
+// split) mirrors the sRGB decode table so the pack reads it zero-wait. Copied
+// once at static init (same TU, so ordered after the pointer) — no per-lookup
+// guard, so linear_to_srgb8 stays inlinable.
 uint16_t *g_srgb_decode_dtcm =
     reinterpret_cast<uint16_t *>(global_arena_block + GLOBAL_ARENA_SIZE - 8192);
+static const bool g_srgb_decode_dtcm_init = []() {
+  for (int i = 0; i < 4096; ++i)
+    g_srgb_decode_dtcm[i] = srgb_decode_lut[i];
+  return true;
+}();
 #endif
 
 /** @brief Persistent arena: storage that lives for the whole program run. */

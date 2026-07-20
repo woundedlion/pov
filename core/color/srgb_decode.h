@@ -17,19 +17,13 @@
 // whether the residual pack cost is the concurrent render evicting the
 // flash-resident 8 KB table. g_srgb_decode_dtcm points into the unused top of
 // the arena (DTCM); the mirror is copied lazily on first use.
-extern uint16_t *g_srgb_decode_dtcm;
-inline uint8_t linear_to_srgb8(uint16_t v) {
-  static bool ready = false;
-  if (!ready) {
-    for (int i = 0; i < 4096; ++i)
-      g_srgb_decode_dtcm[i] = srgb_decode_lut[i];
-    ready = true;
-  }
+extern uint16_t *g_srgb_decode_dtcm; // filled at static init in memory.cpp
+inline __attribute__((always_inline)) uint8_t linear_to_srgb8(uint16_t v) {
   uint16_t e = g_srgb_decode_dtcm[v >> 4];
   return (uint8_t)((e & 0xFF) + ((v & 0xF) >= (e >> 8) ? 1 : 0));
 }
 #else
-inline uint8_t linear_to_srgb8(uint16_t v) {
+inline __attribute__((always_inline)) uint8_t linear_to_srgb8(uint16_t v) {
   uint16_t e = srgb_decode_lut[v >> 4];
   return (uint8_t)((e & 0xFF) + ((v & 0xF) >= (e >> 8) ? 1 : 0));
 }
