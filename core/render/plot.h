@@ -1087,23 +1087,27 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     steps_cache.clear();
     float sim_dist = 0.0f;
 
-    while (sim_dist < total_dist) {
-      float step = steps_cache.is_empty()
-                       ? first_step
-                       : screen_step<W, H>(smp.pos, smp.tan, base_step);
+    {
+      HS_PROFILE_DEEP(plot_seg_sim);
+      while (sim_dist < total_dist) {
+        float step = steps_cache.is_empty()
+                         ? first_step
+                         : screen_step<W, H>(smp.pos, smp.tan, base_step);
 
-      // Backstop: a pathological segment could exceed the 2*W cache. Stop
-      // subdividing and let the normalized replay stretch the cached steps over
-      // the rest of the segment (coarser sampling on an extreme arc is fine).
-      if (steps_cache.size() >= steps_cache.capacity()) {
-        HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
-        break;
-      }
-      steps_cache.push_back(step);
-      sim_dist += step;
+        // Backstop: a pathological segment could exceed the 2*W cache. Stop
+        // subdividing and let the normalized replay stretch the cached steps
+        // over the rest of the segment (coarser sampling on an extreme arc is
+        // fine).
+        if (steps_cache.size() >= steps_cache.capacity()) {
+          HS_SCAN_METRIC(hs::g_scan_metrics.plot_backstop_hits++);
+          break;
+        }
+        steps_cache.push_back(step);
+        sim_dist += step;
 
-      if (sim_dist < total_dist) {
-        smp = sample(sim_dist / total_dist);
+        if (sim_dist < total_dist) {
+          smp = sample(sim_dist / total_dist);
+        }
       }
     }
 
@@ -1119,6 +1123,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     //
     // sample().pos is ~0.04% non-unit; vector_to_pixel's phi = acos(v.y) offsets
     // the row near the pole, so re-normalize the interpolated positions.
+    HS_PROFILE_DEEP(plot_seg_draw);
     {
       Vector start_pos = sample(0.0f).pos.normalized();
       Fragment f = Fragment::lerp(curr, next, 0.0f);
@@ -1205,6 +1210,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // (arc bulge included) lies outside the clip band; precomputed bits replace
     // the evaluation when the producer already ran the same predicate.
     if (clip_active) {
+      HS_PROFILE_DEEP(plot_seg_cull);
       const bool visible =
           edge_visible != nullptr
               ? edge_visible[i] != 0
@@ -2558,16 +2564,19 @@ struct Mesh {
     ScratchScope edge_guard(scratch_arena_a);
     Fragments points;
     points.bind(scratch_arena_a, 16);
-    Line::sample(points, fu, fv, 10);
+    {
+      HS_PROFILE_DEEP(plot_edge_presample);
+      Line::sample(points, fu, fv, 10);
 
-    if (vertex_shader) {
-      for (auto &p : points) {
-        p.v2 = static_cast<float>(edge_index); // Edge Index
-        vertex_shader(p);
-      }
-    } else {
-      for (auto &p : points) {
-        p.v2 = static_cast<float>(edge_index);
+      if (vertex_shader) {
+        for (auto &p : points) {
+          p.v2 = static_cast<float>(edge_index); // Edge Index
+          vertex_shader(p);
+        }
+      } else {
+        for (auto &p : points) {
+          p.v2 = static_cast<float>(edge_index);
+        }
       }
     }
     rasterize<W, H>(pipeline, canvas, points, fragment_shader, false, nullptr);
