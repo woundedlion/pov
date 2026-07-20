@@ -606,7 +606,7 @@ private:
    *          boot in configure_segment().  Arm B segments read from x + W/2
    *          (opposite half of the image).
    */
-  static FASTRUN void render_column(Effect *e, int x) {
+  HS_O3_FN static FASTRUN void render_column(Effect *e, int x) {
     const int w = e->width();
     const int x_col = pov::segment_x_col(arm_b_, x, w);
 
