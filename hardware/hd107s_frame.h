@@ -197,9 +197,17 @@ public:
 
     correct(r, g, b);
 
+#ifdef HS_PACK_DIAG_NOLUT
+    // Diagnostic: replace the 65536-entry flash LUT lookups with a shift to
+    // null out the LUT's flash/cache cost; isolates it against the full pack.
+    dest[1] = (uint8_t)(b >> 8);
+    dest[2] = (uint8_t)(g >> 8);
+    dest[3] = (uint8_t)(r >> 8);
+#else
     dest[1] = linear_to_srgb_lut[b];
     dest[2] = linear_to_srgb_lut[g];
     dest[3] = linear_to_srgb_lut[r];
+#endif
   }
 
   /**
