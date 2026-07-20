@@ -1806,7 +1806,7 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
         float dsq = bx * bx + by * by;
         if (dsq < dmin)
           dmin = dsq;
-        if ((ep.vy > py) != (ep.next_vy > py)) {
+        if ((ep.vy > py) != (face.poly_2d[i + 1].y > py)) {
           float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
           if (px < isx)
             inside = !inside;
@@ -1986,7 +1986,7 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
         float dsq = bx * bx + by * by;
         if (dsq < dmin)
           dmin = dsq;
-        if ((ep.vy > py) != (ep.next_vy > py)) {
+        if ((ep.vy > py) != (face.poly_2d[i + 1].y > py)) {
           float isx = ep.vx + (py - ep.vy) * ep.ex * ep.inv_ej;
           if (px < isx)
             inside = !inside;
