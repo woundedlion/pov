@@ -1945,6 +1945,9 @@ struct Volume {
    *   std::pair<Vector, Vector> ray_to_local(const Vector &ro, const Vector
    *   &vd) const; Vector origin_to_local(const Vector &ro) const; float
    *   distance(const Vector &local_point) const;
+   *
+   * Fragments are plotted at pixel centers by integer coordinates, so the
+   * pipeline receives no sub-pixel positions from this draw.
    */
   template <int W, int H, typename Shape>
   static void
@@ -1999,7 +2002,7 @@ struct Volume {
     scan_region<W, H>(
         vol_y_lo, vol_y_hi,
         [&](int y, auto &&out) { return bounds.get_intervals(y, out); },
-        [&](int, int, const Vector &p) {
+        [&](int px, int py, const Vector &p) {
           // Back-face cull
           float facing = p.x * vd.x + p.y * vd.y + p.z * vd.z;
           if (facing >= 0.0f)
@@ -2071,11 +2074,12 @@ struct Volume {
               }
               {
                 HS_PROFILE_DEEP(vol_plot);
-                pipeline.plot(canvas, p, bg.color.color, 0.0f, bg.color.alpha);
+                pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
+                              bg.color.alpha);
               }
               if (frag.color.alpha > 0.001f) {
                 HS_PROFILE_DEEP(vol_plot);
-                pipeline.plot(canvas, p, frag.color.color, 0.0f,
+                pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
                               frag.color.alpha * edge_alpha);
               }
               return;
@@ -2092,14 +2096,14 @@ struct Volume {
                 frag_fn(occ.behind, bg);
               }
               HS_PROFILE_DEEP(vol_plot);
-              pipeline.plot(canvas, p, bg.color.color, 0.0f,
+              pipeline.plot(canvas, px, py, bg.color.color, 0.0f,
                             bg.color.alpha * occ.soft);
             }
           }
 
           if (frag.color.alpha * edge_alpha > 0.001f) {
             HS_PROFILE_DEEP(vol_plot);
-            pipeline.plot(canvas, p, frag.color.color, 0.0f,
+            pipeline.plot(canvas, px, py, frag.color.color, 0.0f,
                           frag.color.alpha * edge_alpha);
           }
         },
