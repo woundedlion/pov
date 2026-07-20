@@ -42,7 +42,7 @@ namespace hs {
  *          identical type with 1337, so the draw stream stays bit-identical
  *          across the two builds (the sim/device parity invariant); nothing may
  *          depend on the specific values, only on reproducibility. Consume it
- *          only through hs:: helpers — a <random> algorithm or distribution
+ *          only through hs:: helpers — a \<random\> algorithm or distribution
  *          draws an implementation-defined number of times and breaks the
  *          contract; use hs::shuffle, not std::shuffle. Reference: pcg32 by
  *          Melissa O'Neill.
