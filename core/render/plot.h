@@ -794,6 +794,66 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
 }
 
 /**
+ * @brief True when @p P statically declares it has no world cull stage, so a
+ *        caller may precompute per-point screen coordinates from raw geometry.
+ * @tparam P Pipeline type; types without the has_world_cull member (e.g. the
+ *           type-erased PipelineRef) are conservatively not hoistable.
+ */
+template <typename P> static consteval bool pipeline_hoistable_cull() {
+  if constexpr (requires { P::has_world_cull; })
+    return !P::has_world_cull;
+  else
+    return false;
+}
+
+/**
+ * @brief Conservative screen-length test: true only when the geodesic edge
+ *        a->b provably spans at most SCREEN_STEP_PX on screen.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param a Edge start (unit sphere point).
+ * @param b Edge end (unit sphere point).
+ * @details Tightened (never looser) form of the rasterizer fast-path test
+ * `total_dist <= screen_step(sample(0))`, in multiplies only — no trig,
+ * divides or square roots. theta and sin(theta) are eliminated via
+ * sin(theta)*tangent = b - a*cos(theta) and theta/sin(theta) <= F on
+ * theta <= base_step (enforced by the chord cap, which also keeps the edge
+ * under screen_step's upper clamp). A false negative falls through to the
+ * exact test; true also implies theta >= EPS_GEOMETRIC, so a routed edge can
+ * never be one process_segment would have treated as degenerate.
+ */
+HS_O3_BEGIN
+template <int W, int H>
+static inline bool edge_fits_one_dot(const Vector &a, const Vector &b) {
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  constexpr float BASE = (2.0f * PI_F) / W;
+  constexpr float B2 = BASE * BASE;
+  static_assert(B2 < 1.0f, "chord/angle bounds assume base_step < 1 rad");
+  constexpr float KX2 = (W / (2.0f * PI_F)) * (W / (2.0f * PI_F));
+  constexpr float KY2 = ((H_VIRT - 1) / PI_F) * ((H_VIRT - 1) / PI_F);
+  constexpr float SPX2 = SCREEN_STEP_PX * SCREEN_STEP_PX;
+  // chord^2 caps: (2 sin(BASE/2))^2 >= B2*(1 - B2/12) bounds theta <= BASE.
+  // The lower cap keeps 1 - dot(a, b) orders of magnitude above float ULP:
+  // below ~3.5e-4 rad the dot rounds to 1.0f, angle_between collapses to 0,
+  // and the exact path treats the edge as degenerate (no interior dot).
+  constexpr float CHORD2_MAX = B2 * (1.0f - B2 / 12.0f);
+  constexpr float CHORD2_MIN = 4.0e-6f;
+  // (theta/sin(theta))^2 <= F2 for theta <= BASE, plus float-rounding slack.
+  constexpr float F2 = (1.0001f / ((1.0f - B2 / 6.0f) * (1.0f - B2 / 6.0f)));
+  const Vector d = b - a;
+  const float chord2 = dot(d, d);
+  if (chord2 > CHORD2_MAX || chord2 < CHORD2_MIN)
+    return false;
+  const float sin2 = 1.0f - a.y * a.y;
+  if (sin2 < 1e-7f)
+    return false;
+  const float c = dot(a, b);
+  const float cx = a.x * b.z - a.z * b.x;
+  const float ty = b.y - c * a.y;
+  return F2 * (KX2 * cx * cx + KY2 * ty * ty * sin2) <= SPX2 * sin2 * sin2;
+}
+HS_O3_END
+
+/**
  * @brief Tier-3 clip visibility of one polyline edge, routed through the
  *        pipeline's world stages.
  * @tparam W,H Rasterization resolution (pixel grid).
@@ -885,6 +945,13 @@ static inline bool edge_visible_in_clip(PipelineT &pipeline,
  *                     edge_visible_in_clip predicate this function would.
  *                     Geodesic polylines only: a planar polyline's per-edge
  *                     basis depends on the seam pre-pass below.
+ * @param point_rows Optional per-point screen rows, y_to_screen_row of each
+ *                   points[k].pos. With point_cols, lets the single-dot
+ *                   shortcut skip the projection. Only consumed when the
+ *                   pipeline is hoistable (no world stage re-positions the
+ *                   plot); both arrays or neither.
+ * @param point_cols Optional per-point screen columns, vector_to_theta of
+ *                   each points[k].pos.
  */
 HS_O3_BEGIN
 template <int W, int H, typename PipelineT = PipelineRef>
@@ -893,7 +960,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
                       bool close_loop = false,
                       const Basis *planar_basis = nullptr,
                       bool omit_end = false,
-                      const uint8_t *edge_visible = nullptr) {
+                      const uint8_t *edge_visible = nullptr,
+                      const float *point_rows = nullptr,
+                      const float *point_cols = nullptr) {
   size_t len = points.size();
   if (len < 2)
     return;
@@ -1094,6 +1163,22 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   // Clip band as a cylindrical arc for the column cull.
   const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
 
+  // Emits one shader-run dot for points[k]; the precomputed projection is
+  // consumed only when no pipeline stage can re-position the plot.
+  auto plot_dot = [&](const Fragment &src, size_t k) {
+    Fragment f = src;
+    f.color = Color4(0, 0, 0, 0);
+    fragment_shader(src.pos, f);
+    if constexpr (pipeline_hoistable_cull<PipelineT>()) {
+      if (point_rows != nullptr && point_cols != nullptr) {
+        pipeline.plot(canvas, point_cols[k], point_rows[k], f.color.color,
+                      f.age, f.color.alpha);
+        return;
+      }
+    }
+    pipeline.plot(canvas, src.pos, f.color.color, f.age, f.color.alpha);
+  };
+
   for (size_t i = 0; i < count; i++) {
     const Fragment &curr = points[i];
     const Fragment &next = points[(i + 1) % len];
@@ -1128,6 +1213,17 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
                     use_planar ? planar_basis : nullptr);
       if (!visible)
         continue;
+    }
+
+    // Single-dot shortcut: an edge proven to span <= one screen step renders
+    // exactly as process_segment's fast path (set_arc_uv is a no-op without a
+    // planar basis), so plot it without building the sampler. A predicate
+    // false negative falls through and re-evaluates exactly.
+    if (!override_uv && edge_fits_one_dot<W, H>(curr.pos, next.pos)) {
+      plot_dot(curr, i);
+      if (!close_loop && isLastSegment && !omit_end)
+        plot_dot(next, i + 1);
+      continue;
     }
 
     if (use_planar) {
@@ -2637,19 +2733,6 @@ struct Mesh {
 };
 
 /**
- * @brief True when @p P statically declares it has no world cull stage, so a
- *        caller may precompute per-point screen coordinates from raw geometry.
- * @tparam P Pipeline type; types without the has_world_cull member (e.g. the
- *           type-erased PipelineRef) are conservatively not hoistable.
- */
-template <typename P> static consteval bool pipeline_hoistable_cull() {
-  if constexpr (requires { P::has_world_cull; })
-    return !P::has_world_cull;
-  else
-    return false;
-}
-
-/**
  * @brief Gates one geodesic trail's edges against the clip in one hoisted pass.
  * @tparam W,H Rasterization resolution (pixel grid).
  * @tparam PipelineT Pipeline type; must have no world cull stage
@@ -2890,6 +2973,8 @@ struct ParticleSystem {
       // nothing, so the deferred pass and the rasterize call are skipped
       // whole; the bits feed rasterize so the cull is evaluated once.
       const uint8_t *vis = nullptr;
+      const float *dot_rows = nullptr;
+      const float *dot_cols = nullptr;
       if (clip_active && trail.size() >= 2) {
         HS_PROFILE(plot_ps_gate);
         const size_t edges = trail.size() - 1;
@@ -2908,6 +2993,7 @@ struct ParticleSystem {
           const size_t n = trail.size();
           auto *rows = static_cast<float *>(
               scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+          dot_rows = rows;
           float row_lo_t = 1e9f, row_hi_t = -1e9f;
           float min_sp2 = 1.0f;
           float max_chord2 = 0.0f;
@@ -2936,6 +3022,7 @@ struct ParticleSystem {
           if (xc.active) {
             cols = static_cast<float *>(
                 scratch_arena_a.allocate(n * sizeof(float), alignof(float)));
+            dot_cols = cols;
             float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
             bool walk_safe = true;
             cols[0] = vector_to_theta<W>(trail[0].pos);
@@ -3014,7 +3101,7 @@ struct ParticleSystem {
       {
         HS_PROFILE(plot_ps_raster);
         rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
-                        nullptr, false, vis);
+                        nullptr, false, vis, dot_rows, dot_cols);
       }
     }
   }

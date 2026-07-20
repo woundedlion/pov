@@ -1250,6 +1250,65 @@ inline void test_screen_step_matches_analytic_unclamped() {
   }
 }
 
+/**
+ * @brief Verifies edge_fits_one_dot is a strict tightening of the rasterizer
+ *        fast-path test, so a routed edge always renders as the same single
+ *        dot the full path would emit.
+ * @details For every accepted edge: theta >= EPS_GEOMETRIC (the routed edge is
+ *          not one process_segment treats as degenerate) and theta <=
+ *          screen_step at the edge start with the geodesic tangent built
+ *          exactly as rasterize_geodesic_strategy builds it. Sweeps random
+ *          headings across latitudes (poles included) and log-spaced arc
+ *          lengths around the one-pixel scale, and checks the predicate
+ *          accepts a healthy share of genuinely sub-pixel edges.
+ */
+inline void test_edge_fits_one_dot_is_conservative() {
+  constexpr int W = 288, H = 144;
+  constexpr float base_step = (2.0f * PI_F) / W;
+  hs::random().seed(20260720);
+
+  int accepted = 0;
+  for (int n = 0; n < 20000; ++n) {
+    Vector a;
+    if (n % 7 == 0) {
+      // Pole-proximal start: predicate must stay safe as sin(phi) -> 0.
+      float e = hs::rand_f(0.0f, 0.05f);
+      float az = hs::rand_f(0.0f, 2.0f * PI_F);
+      float s = std::sin(e);
+      a = Vector(s * std::cos(az), (n % 14 == 0) ? std::cos(e) : -std::cos(e),
+                 s * std::sin(az));
+    } else {
+      for (;;) {
+        Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+        if (r.length() > 0.1f) {
+          a = r.normalized();
+          break;
+        }
+      }
+    }
+    Vector raw(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+    Vector t = raw - a * dot(raw, a);
+    if (t.length() < 1e-3f)
+      continue;
+    t = t.normalized();
+    float theta = base_step * std::pow(10.0f, hs::rand_f(-4.0f, 0.5f));
+    Vector b = (a * std::cos(theta) + t * std::sin(theta)).normalized();
+
+    if (!Plot::edge_fits_one_dot<W, H>(a, b))
+      continue;
+    ++accepted;
+
+    float total = angle_between(a, b);
+    HS_EXPECT_GE(total, math::EPS_GEOMETRIC);
+    Vector axis = cross(a, b).normalized();
+    Vector v_perp = cross(axis, a);
+    float first_step = Plot::screen_step<W, H>(a, v_perp, base_step);
+    HS_EXPECT_LE(total, first_step);
+  }
+  // The predicate must actually fire on the sub-pixel population it targets.
+  HS_EXPECT_GT(accepted, 500);
+}
+
 // ============================================================================
 // Plot::Ring::sample
 // ============================================================================
@@ -2776,6 +2835,7 @@ inline int run_plot_scan_tests() {
   test_gate_trail_edges_matches_edge_visible();
   test_rasterize_gate_bits_pixel_parity();
   test_screen_step_matches_analytic_unclamped();
+  test_edge_fits_one_dot_is_conservative();
 
   test_ring_sample_unit_length_and_progress();
   test_ring_sample_lut_matches_direct();
