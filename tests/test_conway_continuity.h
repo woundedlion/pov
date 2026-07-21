@@ -759,6 +759,103 @@ inline void fill_emission_handoff(const PolyMesh &seed, uint8_t *pal,
 }
 
 /**
+ * @brief Verifies the closing bookend's target keying is symmetric with the
+ *        opening one: on a reverse leg into a seed node, every face that
+ *        collapses lands on the palette of the arrival face it collapses onto,
+ *        never a target class of its own.
+ * @details Newborn faces open in the color of the face they are born inside;
+ *          the mirror is that dying faces close into the color of the face they
+ *          die into. A collapsed face is a T_EPS sliver, not zero area — on
+ *          dodecahedron <- rhombicosidodecahedron it still covers ~12% of the
+ *          lit pixels on the final frame — so a target class of its own reads
+ *          as a hard color lattice that pops away at the swap.
+ */
+inline void test_collapsing_faces_land_on_host_palette() {
+  reset_globals();
+  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
+                   32 * 1024);
+
+  Arena bank_arena(cc_bank_buf, sizeof(cc_bank_buf));
+  MeshPaletteBank bank;
+  bank.bake_all(bank_arena);
+
+  constexpr int PALETTES = Animation::ConwayMorph::PALETTES;
+  constexpr size_t MAX_FACES = 128; /**< Above every node's face count. */
+  int checked = 0;
+  for (int ei = 0; ei < ConwayGraph::NUM_EDGES; ++ei) {
+    const ConwayGraph::EdgeSpec &e = ConwayGraph::EDGES[ei];
+    // Reverse legs whose arrival node mesh is the seed itself; the jitterbug
+    // bridge arrives on a derived octahedron and is covered by the soak walk.
+    if (e.t_from != 0.0f || ConwayGraph::is_jitterbug_edge(e))
+      continue;
+
+    Arena leg(cc_leg_buf, sizeof(cc_leg_buf));
+    Arena geom(cc_geom_buf, sizeof(cc_geom_buf));
+    Arena temp(cc_temp_buf, sizeof(cc_temp_buf));
+    Arena aux(cc_aux_buf, sizeof(cc_aux_buf));
+    PolyMesh seed = Solids::simple_registry[e.seed_solid].generate(geom, temp);
+    const size_t survivors = seed.face_counts.size();
+
+    // Departed node: the to_node form the reverse leg starts on, handed off
+    // with the class-keyed palettes and centroids the effect supplies.
+    PolyMesh departed =
+        conway_morph_tests::run_edge_op(e, seed, aux, temp, e.t_to, e.twist_to);
+    const size_t dep_faces = departed.face_counts.size();
+    HS_EXPECT_LE(dep_faces, MAX_FACES);
+    uint8_t pal[MAX_FACES];
+    uint8_t sides[MAX_FACES];
+    Vector cen[MAX_FACES];
+    for (size_t f = 0, off = 0; f < dep_faces; ++f) {
+      sides[f] = static_cast<uint8_t>(departed.face_counts[f]);
+      pal[f] = static_cast<uint8_t>(sides[f] % PALETTES);
+      Vector c(0.0f, 0.0f, 0.0f);
+      for (int k = 0; k < departed.face_counts[f]; ++k)
+        c = c + departed.vertices[departed.faces[off + k]];
+      cen[f] = c.normalized();
+      off += departed.face_counts[f];
+    }
+    Animation::ConwayMorph::PaletteHandoff handoff{&bank.bank, pal,   sides,
+                                                   dep_faces,  false, cen};
+
+    // Bookend: the hankin star-face classification of the arrival node, as
+    // start_morph_cycle builds it.
+    int arrival_topo[MAX_FACES];
+    {
+      Arena ha(cc_scan_buf, sizeof(cc_scan_buf) / 2);
+      Arena hb(cc_scan_buf + sizeof(cc_scan_buf) / 2, sizeof(cc_scan_buf) / 2);
+      CompiledHankin ch;
+      MeshOps::compile_hankin(seed, ch, hb, ha);
+      MeshState hk;
+      MeshOps::update_hankin(ch, hk, hb, 0.0f);
+      MeshOps::classify_faces_by_topology(hk, ha, ha, ha);
+      for (size_t f = 0; f < survivors; ++f)
+        arrival_topo[f] = hk.topology[f];
+    }
+    Animation::ConwayMorph::BookendClasses bookend{arrival_topo, survivors};
+
+    auto cb = [](Canvas &, const MeshState &,
+                 const Animation::ConwayMorph::Shading &) {};
+    hs::random().seed(2000u + static_cast<uint32_t>(ei));
+    Animation::ConwayMorph anim(
+        seed, e, true, leg, cb, handoff, ConwayGraph::SWEEP_FRAMES,
+        e.settle ? ConwayGraph::SETTLE_FRAMES : 0, bookend);
+    const Animation::ConwayMorph::Landing &landing = anim.landing();
+    if (landing.faces == survivors)
+      continue;
+    ++checked;
+
+    for (size_t f = survivors; f < landing.faces; ++f) {
+      bool hosted = false;
+      for (size_t j = 0; j < survivors && !hosted; ++j)
+        hosted = wrap(landing.topology[f], PALETTES) ==
+                 wrap(landing.topology[j], PALETTES);
+      HS_EXPECT_TRUE(hosted);
+    }
+  }
+  HS_EXPECT_GT(checked, 0);
+}
+
+/**
  * @brief Verifies the crossfade endpoints on an emission-order leg (cube ->
  *        truncatedCube): frame 1 (w = 0) shades every surviving face from the
  *        handed-off palette and every newborn face from its target; the final
@@ -1951,6 +2048,7 @@ inline int run_conway_continuity_tests() {
   test_adopt_bridge_arrival_geometry();
   test_dual_swap_crossover_framebuffer();
 
+  test_collapsing_faces_land_on_host_palette();
   test_crossfade_exact_at_endpoints_emission();
   test_crossfade_class_signature_mapping();
   test_palette_mapping_total_all_edges();

@@ -603,16 +603,35 @@ private:
     tr.landing.primary_faces = primary;
 
     // Target classes: the bookend grouping where a face survives the swap
-    // (emission-order identity), the swept class where it collapses to zero
-    // area (seed arrivals' orbit faces, whose target color never shows).
+    // (emission-order identity). A face that collapses to a T_EPS sliver has
+    // no counterpart there, so it takes the bookend class of the arrival face
+    // it collapses onto — the mirror of the newborn from-palette rule below,
+    // which is what makes the leg's crossfade symmetric: a sliver closes into
+    // its host's color instead of freezing in an unrelated target color.
     HS_CHECK(!bookend.topology || bookend.faces == total ||
                  bookend.faces == survivors,
              "ConwayMorph: bookend face count matches neither mapping");
+    const size_t landed = bookend.topology ? bookend.faces : total;
+    const Vector *arrival_centroid =
+        landed < total ? face_centroids(arrival, scratch_arena_a) : nullptr;
     tr.target_topo.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
-      tr.target_topo.push_back(bookend.topology && f < bookend.faces
-                                   ? bookend.topology[f]
-                                   : tr.topo[f]);
+      if (f < landed) {
+        tr.target_topo.push_back(bookend.topology ? bookend.topology[f]
+                                                  : tr.topo[f]);
+        continue;
+      }
+      size_t host = 0;
+      float best_d = 1e9f;
+      for (size_t j = 0; j < landed; ++j) {
+        const Vector d = arrival_centroid[f] - arrival_centroid[j];
+        const float dsq = dot(d, d);
+        if (dsq < best_d) {
+          best_d = dsq;
+          host = j;
+        }
+      }
+      tr.target_topo.push_back(bookend.topology[host]);
     }
     tr.landing.topology = tr.target_topo.data();
 
