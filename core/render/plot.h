@@ -1328,6 +1328,10 @@ struct Line {
     } else {
       axis = cross(f1.pos, f2.pos).normalized();
     }
+    // Same orthonormal-basis parameterization the rasterizer samples this arc
+    // with (rasterize_geodesic_strategy), so the presampled polyline and the
+    // drawn points come from identical math.
+    Vector perp = cross(axis, f1.pos);
 
     for (int i = 0; i <= density; ++i) {
       float t = static_cast<float>(i) / density;
@@ -1338,8 +1342,11 @@ struct Line {
       else if (i == density)
         f.pos = f2.pos;
       else {
-        Quaternion q = make_rotation(axis, angle * t);
-        f.pos = rotate(f1.pos, q);
+        // fast trig's 0.17% error breaks c^2+s^2==1, so renormalize: callers
+        // (vector_to_pixel's acos) require a unit position.
+        float ang = angle * t;
+        Vector p = (f1.pos * fast_cosf(ang)) + (perp * fast_sinf(ang));
+        f.pos = p * fast_rsqrt(dot(p, p));
       }
 
       f.v0 = t;
