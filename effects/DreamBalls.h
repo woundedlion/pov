@@ -96,6 +96,7 @@ public:
     // shape tracks the sliders while a still-fading outgoing sprite keeps the
     // frozen snapshot it was spawned with.
     param_slots_[active_bake_] = params;
+    ++frame_counter;
     {
       HS_PROFILE(db_timeline_step);
       timeline.step(canvas);
@@ -108,6 +109,8 @@ private:
   /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
   int last_preset_idx_ = -1; /**< Last preset whose values were copied into params. */
+  /** Monotonic frame count; salts the dissolve mask so it re-rolls each frame. */
+  uint32_t frame_counter = 0;
 
   /** Per-vertex phase increment (radians) for the orbit stagger, so the surface
        ripples instead of pulsing in unison. */
@@ -171,6 +174,12 @@ private:
    *          editable while the outgoing slot is frozen.
    */
   Params param_slots_[2];
+  /**
+   * @brief Edge-ownership dissolve replacing the sprite hand-off's crossfade.
+   * @details The two overlapping sprites take complementary masks, so the
+   *          32-frame hand-off costs one wireframe's edges instead of two.
+   */
+  Segue::Dissolve dissolve;
 
   ProceduralPalette blood_stream_palette = Palettes::BLOOD_STREAM;
   AlphaFalloffShade blood_stream_fade{[](float t) { return 1.0f - t; }};
@@ -276,9 +285,11 @@ private:
     const int bake_slot = active_bake_;
     param_slots_[bake_slot] = params;
 
+    dissolve.retarget(Y_AXIS);
+
     // Bind the warp magnitude to this spawn's scale so dragging "Warp" takes
     // effect this frame. The single-slot transformer shares one warp across a
-    // crossfade; the outgoing warp has relaxed to identity by the next spawn.
+    // hand-off; the outgoing warp has relaxed to identity by the next spawn.
     if (auto *warp = mobius_gen.spawn(0, param_slots_[bake_slot].warp_scale,
                                       period, false))
       warp->bind_scale(param_slots_[bake_slot].warp_scale);
@@ -293,9 +304,16 @@ private:
         MeshOps::transform(preset.mesh_state, target_mesh, scratch_arena_a);
       }
 
+      // The newest sprite is the incoming one; both derive the mask from the
+      // incoming sprite's share, which the complementary Sprite envelopes make
+      // 1 - opacity here (ease_in_out_sin(1 - t) == 1 - ease_in_out_sin(t)).
+      const bool incoming = (bake_slot == active_bake_);
+      const PixelMask mask = dissolve.mask(
+          incoming ? opacity : 1.0f - opacity, frame_counter, incoming);
+
       // This sprite's own param + palette snapshot keeps geometry and color
       // continuous across a preset change.
-      this->draw_scene(canvas, param_slots_[bake_slot], opacity,
+      this->draw_scene(canvas, param_slots_[bake_slot], mask,
                        preset.mesh_state, target_mesh, preset.tangents,
                        preset.edges, baked_palettes_[bake_slot]);
     };
@@ -358,7 +376,8 @@ private:
    * @brief Draws p.num_copies orbiting wireframe shells of the preset's solid.
    * @param canvas Render target.
    * @param p Live render params (copy count, radius, alpha, etc.).
-   * @param opacity Sprite fade factor in [0,1]; multiplies p.alpha.
+   * @param mask This sprite's dissolve edge ownership; owned edges draw at full
+   *        p.alpha, so the two sprites of a hand-off sum to one wireframe.
    * @param base Source mesh supplying the undisplaced vertices.
    * @param target Scratch mesh reused for each copy's displaced vertices.
    * @param tangents Per-vertex tangent frames for the displacement.
@@ -366,10 +385,10 @@ private:
    * @param baked Baked palette LUT supplying edge colors.
    * @details Each copy displaces vertices in their tangent frames (staggered in
    *          phase by an even 2*PI/num_copies offset), Mobius-warps and orients
-   *          them, then plots the edges shaded from the baked palette at
-   *          p.alpha * opacity.
+   *          them, then plots the mask-owned edges shaded from the baked
+   *          palette at p.alpha.
    */
-  void draw_scene(Canvas &canvas, const Params &p, float opacity,
+  void draw_scene(Canvas &canvas, const Params &p, const PixelMask &mask,
                   const MeshState &base, MeshState &target,
                   const ArenaVector<Tangent> &tangents,
                   const ArenaVector<Plot::Mesh::Edge> &edges,
@@ -378,7 +397,7 @@ private:
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       Color4 c = baked.get(f.v0);
-      c.alpha *= p.alpha * opacity;
+      c.alpha *= p.alpha;
       f.color = c;
     };
 
@@ -387,6 +406,10 @@ private:
     const int num_copies = num_copies_raw < 1 ? 1 : num_copies_raw;
     for (int i = 0; i < num_copies; ++i) {
       float offset = (static_cast<float>(i) / num_copies) * 2 * PI_F;
+      // Re-salt per copy so a dropped edge is a different rib in every shell
+      // instead of the same one missing from all of them.
+      PixelMask copy_mask = mask;
+      copy_mask.salt ^= static_cast<uint32_t>(i) * 0x9E3779B1u;
       {
         HS_PROFILE(db_displace);
         update_displaced_mesh(base, target, tangents, p, offset);
@@ -402,8 +425,8 @@ private:
 
       {
         HS_PROFILE(db_mesh_plot);
-        Plot::Mesh::draw<W, H>(filters, canvas, target, edges,
-                               fragment_shader);
+        Plot::Mesh::draw<W, H>(filters, canvas, target, edges, fragment_shader,
+                               {}, &copy_mask);
       }
     }
   }
