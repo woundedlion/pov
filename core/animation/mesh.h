@@ -1345,13 +1345,14 @@ private:
 
     // Full-correspondence geometric mapping: nearest departed centroid,
     // pinned as a bijection within tolerance. The bijection mark is scoped to
-    // that mapping: the prefix mapping a chain leg takes never reads it, and
-    // its departed meshes run to several hundred faces.
+    // that mapping: the prefix mapping a chain leg takes never reads it.
     const bool full_correspondence =
         start_centroid && handoff.prev_faces == total;
-    bool prev_used[128] = {};
-    HS_CHECK(!full_correspondence ||
-             handoff.prev_faces <= std::size(prev_used));
+    bool *prev_used = nullptr;
+    if (full_correspondence) {
+      prev_used = scratch_arena_a.allocate_n<bool>(handoff.prev_faces);
+      std::fill_n(prev_used, handoff.prev_faces, false);
+    }
     // Newborn classes inherit one representative from-palette (first face of
     // the class), keeping the distinct-pair count at the legacy bound.
     int newborn_from[PALETTES];

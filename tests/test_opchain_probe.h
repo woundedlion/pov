@@ -589,8 +589,8 @@ inline void test_build_chain_centroid_spacing() {
 
 /**
  * @brief Reports, per real build leg, the mapping path build_palette_mapping
- *        takes, its prev_faces against the prev_used[] bound, and the
- *        ambiguity of every nearest-centroid lookup the leg performs.
+ *        takes, its departed face count, and the ambiguity of every
+ *        nearest-centroid lookup the leg performs.
  * @details Legs open at the sweep's start parameter, which is what
  * build_palette_mapping's start_centroid array holds.
  */
@@ -698,16 +698,14 @@ inline void test_build_chain_provenance_ambiguity() {
     }
   }
   std::printf("  [prov] %zu prefix legs, %zu full-correspondence legs, %zu "
-              "misidentified prefix faces; max prev_faces=%zu on %s "
-              "(prev_used bound 128); worst newborn d1/d2=%.3f; worst prefix "
+              "misidentified prefix faces; max prev_faces=%zu on %s; "
+              "worst newborn d1/d2=%.3f; worst prefix "
               "offset=%.4f (tol 0.15)\n",
               prefix_legs, full_legs, misidentified, max_prev_faces,
               max_prev_name, static_cast<double>(worst_newborn_ratio),
               static_cast<double>(worst_prefix_offset));
-  // No build leg takes the tolerance-checked full-correspondence path, so
-  // PROVENANCE_TOL_SQ and the prev_used[128] bijection mark never apply to a
-  // chain leg -- which the chains need, since they depart from meshes far
-  // past 128 faces.
+  // None of the swept ops scanned here takes the tolerance-checked
+  // full-correspondence path, so PROVENANCE_TOL_SQ never applies to them.
   HS_EXPECT_EQ(full_legs, static_cast<size_t>(0));
   HS_EXPECT_TRUE(max_prev_faces > 128);
 }
