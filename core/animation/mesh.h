@@ -167,9 +167,9 @@ private:
 
 /**
  * @brief Animates one operator-sweep leg: a Conway-operator parameter sweep
- * along a graph edge (docs/conway_morph_spec.md, section 4.1) or a hankin
- * contact-angle sweep on a fixed seed (docs/opchain_morph_spec.md,
- * section 5.1).
+ * along a graph edge (docs/conway_morph_spec.md, section 4.1) or a recipe
+ * step, or a hankin contact-angle sweep on a fixed seed
+ * (docs/opchain_morph_spec.md, section 5.1).
  * @details Per frame: produce the swept mesh (the edge's single op at
  * t(frame) settle-slerped toward the relaxed endpoint inside the settle
  * window, or update_hankin at theta(frame)) in scratch, compile, attach the
@@ -232,6 +232,10 @@ public:
     const Vector *prev_face_centroid =
         nullptr; /**< Unit centroid per departed base face; enables the
                     geometric provenance mapping. */
+    const std::array<uint8_t, PALETTES> *pinned_to =
+        nullptr; /**< Caller-pinned slot -> target palettes; skips the
+                    constructor's shuffle so chained legs share one target
+                    set. Null keeps the per-leg shuffle. */
   };
 
   /**
@@ -260,6 +264,9 @@ public:
     size_t primary_faces = 0; /**< Seed face count (emission-order prefix). */
     std::array<uint8_t, PALETTES>
         to_palette{}; /**< Slot -> landed palette index. */
+    const uint8_t *from_palette =
+        nullptr; /**< Per-swept-face FROM palette id (arena-backed); the next
+                    chained leg's handoff carries these original ids forward. */
   };
 
   /**
@@ -320,67 +327,62 @@ public:
     tr.twist_start = reverse ? edge.twist_to : edge.twist_from;
     tr.twist_end = reverse ? edge.twist_from : edge.twist_to;
 
-    {
-      ScratchScope sa(scratch_arena_a);
-      ScratchScope sb(scratch_arena_b);
+    init_conway(handoff, bookend, arena, edge.settle,
+                ConwayGraph::is_jitterbug_edge(edge));
+  }
 
-      PolyMesh arrival = run_op(tr.op, tr.seed, scratch_arena_a,
-                                scratch_arena_b, tr.t_end, tr.twist_end);
-      // Classification is hoisted per leg, taken at arrival geometry; a
-      // settling forward leg lands on the relaxed form, so classify that.
-      PolyMesh *classified = &arrival;
-      PolyMesh relaxed_mesh;
-      if (edge.settle) {
-        if (!reverse) {
-          relaxed_mesh =
-              MeshOps::relax(arrival, scratch_arena_b, scratch_arena_a, 50);
-          classified = &relaxed_mesh;
-        } else {
-          // Reverse legs un-settle at the start parameter.
-          PolyMesh start = run_op(tr.op, tr.seed, scratch_arena_a,
-                                  scratch_arena_b, tr.t_start, tr.twist_start);
-          relaxed_mesh =
-              MeshOps::relax(start, scratch_arena_b, scratch_arena_a, 50);
-        }
-        tr.relaxed.bind(arena, relaxed_mesh.vertices.size());
-        tr.relaxed.append_bulk(relaxed_mesh.vertices.data(),
-                               relaxed_mesh.vertices.size());
-        HS_CHECK(tr.relaxed.size() == arrival.vertices.size(),
-                 "OpLeg: relax changed the vertex count");
-      }
-      MeshOps::classify_faces_by_topology(*classified, scratch_arena_a,
-                                          scratch_arena_b, arena);
-      tr.topo = std::move(classified->topology);
-      HS_CHECK(tr.topo.size() == classified->face_counts.size());
+  /**
+   * @brief Constructs a recipe-step Conway sweep leg: one primitive op swept
+   * t_start -> t_end on a fixed seed, no graph edge
+   * (docs/opchain_morph_spec.md, section 5.1).
+   * @param seed Seed mesh the op sweeps on (cloned, not borrowed).
+   * @param op Swept operator.
+   * @param t_start Sweep parameter at frame 0; clamped to the topology-constant
+   * open interval (T_EPS floor; TRUNCATE capped below the ambo point).
+   * @param t_end Arrival parameter; same clamp.
+   * @param twist_start Snub twist at frame 0.
+   * @param twist_end Arrival snub twist.
+   * @param arena Leg arena backing the cloned seed and hoisted state.
+   * @param draw Draw callback invoked once per frame.
+   * @param handoff Palette provenance of the departed mesh.
+   * @param sweep_frames Operator-sweep frames (N).
+   * @param bookend Bookend grouping of the arrival mesh (target keying);
+   * defaults to the swept-classification fallback.
+   * @param easing_fn Easing applied to the sweep parameter.
+   */
+  HS_COLD_MEMBER
+  OpLeg(const PolyMesh &seed, ConwayGraph::MorphOp op, float t_start,
+        float t_end, float twist_start, float twist_end, Arena &arena,
+        MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
+        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+        draw_fn(draw) {
+    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
+             handoff.prev_faces > 0);
+    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
+    Transients &tr = *buf_;
 
-      // Geometric provenance needs the mesh the first frame draws: the
-      // relaxed start on a reverse settling leg (settle_alpha == 1 there),
-      // the plain op at t_start otherwise.
-      const Vector *start_centroid = nullptr;
-      PolyMesh start_mesh;
-      if (handoff.prev_face_centroid) {
-        const PolyMesh *start = &relaxed_mesh;
-        if (!(edge.settle && reverse)) {
-          start_mesh = run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b,
-                              tr.t_start, tr.twist_start);
-          start = &start_mesh;
-        }
-        HS_CHECK(start->face_counts.size() == tr.topo.size(),
-                 "OpLeg: start face count differs from arrival");
-        start_centroid = face_centroids(*start, scratch_arena_a);
-      }
+    MeshOps::clone(seed, tr.seed, arena);
+    tr.op = op;
+    tr.sweep_frames = sweep_frames;
+    tr.bank = handoff.bank;
 
-      // Emission-order prefix corresponding 1:1 to a node base mesh at the
-      // boundary swaps: the seed's face count, plus its vertex-orbit faces on
-      // the jitterbug bridge (they survive into the octahedron-end node mesh;
-      // only the 12 edge-orbit faces collapse).
-      const size_t survivors =
-          ConwayGraph::is_jitterbug_edge(edge)
-              ? tr.seed.face_counts.size() + tr.seed.vertices.size()
-              : tr.seed.face_counts.size();
-      build_palette_mapping(tr, *classified, handoff, bookend, arena,
-                            start_centroid, survivors);
-    }
+    auto clamp_param = [&](float t) {
+      t = std::max(t, ConwayGraph::T_EPS);
+      if (op == ConwayGraph::MorphOp::TRUNCATE)
+        t = std::min(t, 0.5f - ConwayGraph::T_EPS_AMBO);
+      return t;
+    };
+    tr.t_start = clamp_param(t_start);
+    tr.t_end = clamp_param(t_end);
+    tr.twist_start = twist_start;
+    tr.twist_end = twist_end;
+
+    init_conway(handoff, bookend, arena, /*settle=*/false,
+                /*jitterbug=*/false);
   }
 
   /**
@@ -524,6 +526,21 @@ public:
    */
   const Landing &landing() const { return buf_->landing; }
 
+  /**
+   * @brief Sets the crossfade-weight range for chained legs
+   * (docs/opchain_morph_spec.md, section 5.3).
+   * @param lo Effective weight at the leg's opening plateau.
+   * @param hi Effective weight at the closing plateau.
+   * @details step() remaps blend_weight through [lo, hi] against the
+   * unchanged bank endpoints (nested-lerp rebasing), so a chain spreads one
+   * colour convergence across its legs. Call before the first step; the
+   * [0, 1] defaults keep the single-leg behaviour bit-identical.
+   */
+  void set_blend_range(float lo, float hi) {
+    buf_->w_lo = lo;
+    buf_->w_hi = hi;
+  }
+
 private:
   /**
    * @brief Arena-allocated leg state — keeps OpLeg inline size small.
@@ -552,8 +569,85 @@ private:
     uint8_t ramp_from[MAX_BLEND_PAIRS] = {}; /**< Per-pair from palette. */
     uint8_t ramp_to[MAX_BLEND_PAIRS] = {};   /**< Per-pair to palette. */
     int num_ramps = 0;                       /**< Distinct pair count. */
+    float w_lo = 0.0f, w_hi = 1.0f; /**< Chained-leg blend-weight range. */
     Landing landing; /**< Arrival data exposed to the effect. */
   };
+
+  /**
+   * @brief Shared CONWAY_SWEEP construction tail: arrival classification
+   * (relaxed form when settling), start centroids, and the palette mappings.
+   * @param handoff Palette provenance of the departed mesh.
+   * @param bookend Bookend grouping of the arrival mesh.
+   * @param arena Leg arena for the hoisted state.
+   * @param settle Whether the leg settles (relax-slerps) at its arrival end.
+   * @param jitterbug Whether the leg is the jitterbug bridge (vertex-orbit
+   * faces survive into the node mesh).
+   * @details Requires tr.op, tr.reverse, tr.t_/twist_ endpoints and
+   * tr.settle_frames already set by the calling constructor.
+   */
+  HS_COLD_MEMBER void init_conway(const PaletteHandoff &handoff,
+                                  const BookendClasses &bookend, Arena &arena,
+                                  bool settle, bool jitterbug) {
+    Transients &tr = *buf_;
+    ScratchScope sa(scratch_arena_a);
+    ScratchScope sb(scratch_arena_b);
+
+    PolyMesh arrival = run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b,
+                              tr.t_end, tr.twist_end);
+    // Classification is hoisted per leg, taken at arrival geometry; a
+    // settling forward leg lands on the relaxed form, so classify that.
+    PolyMesh *classified = &arrival;
+    PolyMesh relaxed_mesh;
+    if (settle) {
+      if (!tr.reverse) {
+        relaxed_mesh =
+            MeshOps::relax(arrival, scratch_arena_b, scratch_arena_a, 50);
+        classified = &relaxed_mesh;
+      } else {
+        // Reverse legs un-settle at the start parameter.
+        PolyMesh start = run_op(tr.op, tr.seed, scratch_arena_a,
+                                scratch_arena_b, tr.t_start, tr.twist_start);
+        relaxed_mesh =
+            MeshOps::relax(start, scratch_arena_b, scratch_arena_a, 50);
+      }
+      tr.relaxed.bind(arena, relaxed_mesh.vertices.size());
+      tr.relaxed.append_bulk(relaxed_mesh.vertices.data(),
+                             relaxed_mesh.vertices.size());
+      HS_CHECK(tr.relaxed.size() == arrival.vertices.size(),
+               "OpLeg: relax changed the vertex count");
+    }
+    MeshOps::classify_faces_by_topology(*classified, scratch_arena_a,
+                                        scratch_arena_b, arena);
+    tr.topo = std::move(classified->topology);
+    HS_CHECK(tr.topo.size() == classified->face_counts.size());
+
+    // Geometric provenance needs the mesh the first frame draws: the
+    // relaxed start on a reverse settling leg (settle_alpha == 1 there),
+    // the plain op at t_start otherwise.
+    const Vector *start_centroid = nullptr;
+    PolyMesh start_mesh;
+    if (handoff.prev_face_centroid) {
+      const PolyMesh *start = &relaxed_mesh;
+      if (!(settle && tr.reverse)) {
+        start_mesh = run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b,
+                            tr.t_start, tr.twist_start);
+        start = &start_mesh;
+      }
+      HS_CHECK(start->face_counts.size() == tr.topo.size(),
+               "OpLeg: start face count differs from arrival");
+      start_centroid = face_centroids(*start, scratch_arena_a);
+    }
+
+    // Emission-order prefix corresponding 1:1 to a node base mesh at the
+    // boundary swaps: the seed's face count, plus its vertex-orbit faces on
+    // the jitterbug bridge (they survive into the octahedron-end node mesh;
+    // only the 12 edge-orbit faces collapse).
+    const size_t survivors =
+        jitterbug ? tr.seed.face_counts.size() + tr.seed.vertices.size()
+                  : tr.seed.face_counts.size();
+    build_palette_mapping(tr, *classified, handoff, bookend, arena,
+                          start_centroid, survivors);
+  }
 
   /**
    * @brief Runs the edge's operator on the seed at one parameter value.
@@ -594,6 +688,9 @@ private:
 
     float w =
         blend_weight(static_cast<float>(frame) / static_cast<float>(duration));
+    // Chained-leg rebasing (spec 5.3): the plateau weights land on the leg's
+    // [w_lo, w_hi] share of the whole-chain convergence.
+    w = tr.w_lo + w * (tr.w_hi - tr.w_lo);
     BakedPalette *ramps =
         scratch_arena_b.allocate_n<BakedPalette>(tr.num_ramps);
     for (int r = 0; r < tr.num_ramps; ++r) {
@@ -721,9 +818,13 @@ private:
     }
     tr.landing.topology = tr.target_topo.data();
 
-    for (int i = 0; i < PALETTES; ++i)
-      tr.landing.to_palette[i] = static_cast<uint8_t>(i);
-    hs::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end());
+    if (handoff.pinned_to) {
+      tr.landing.to_palette = *handoff.pinned_to;
+    } else {
+      for (int i = 0; i < PALETTES; ++i)
+        tr.landing.to_palette[i] = static_cast<uint8_t>(i);
+      hs::shuffle(tr.landing.to_palette.begin(), tr.landing.to_palette.end());
+    }
 
     if (start_centroid || !handoff.by_class_signature) {
       // Either the whole face list corresponds (departing a mid-parameter
@@ -747,6 +848,9 @@ private:
     int newborn_from[PALETTES];
     for (int i = 0; i < PALETTES; ++i)
       newborn_from[i] = -1;
+
+    uint8_t *from_palette = arena.allocate_n<uint8_t>(total);
+    tr.landing.from_palette = from_palette;
 
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
@@ -783,6 +887,7 @@ private:
         from = handoff.prev_face_palette[f];
       }
       HS_CHECK(from < PALETTES && to < PALETTES);
+      from_palette[f] = from;
 
       int ramp = -1;
       for (int r = 0; r < tr.num_ramps; ++r) {
