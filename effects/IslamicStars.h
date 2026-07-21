@@ -797,37 +797,55 @@ private:
    *        sprite's next frame is pixel-equal to the leg's last one.
    */
   HS_COLD_MEMBER void finish_build() {
+    // The closing compile lands on a compacted arena, so everything it is
+    // checked against is snapshotted out of the last leg's storage first.
+    ScratchScope landing_guard(scratch_arena_a);
     const Animation::OpLeg::Landing &landing = *build_landing_;
+    const size_t landed_faces = landing.faces;
+    int *landed_topo = scratch_arena_a.allocate_n<int>(landed_faces);
+    std::memcpy(landed_topo, landing.topology, landed_faces * sizeof(int));
+    const std::array<uint8_t, Animation::OpLeg::PALETTES> landed_to =
+        landing.to_palette;
+    build_landing_ = nullptr;
+    build_from_pal_ = nullptr;
+    build_from_faces_ = 0;
+
+    {
+      build_next_seed_ = PolyMesh();
+      Persist<PolyMesh> ps(build_seed_, scratch_arena_b, persistent_arena);
+      carousel.compact_drop_all([this](Arena &arena) {
+        ripple_gen.reclaim_storage(arena);
+        palette_bank_.bake_all(arena);
+      });
+    }
+
     const int front = carousel.front_index();
     MeshState &slot = carousel.slot(front);
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
-      slot.clear();
-      MeshOps::compile(build_seed_, slot, target, a);
-    });
+    // Not generate(): its depth-0 reset would drop the landing snapshot above.
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
+      slot.clear();
+      MeshOps::compile(build_seed_, slot, persistent_arena, scratch_arena_a);
       MeshOps::classify_faces_by_topology(slot, scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
 
     // The leg's targets keyed on this same classification (computed at leg
     // start from the same endpoint mesh); drift here would pop the swap.
-    HS_CHECK(landing.faces == slot.topology.size(),
+    HS_CHECK(landed_faces == slot.topology.size(),
              "IslamicStars: built mesh face count differs from the last leg");
     MeshPaletteBank::shuffle_indices(palettes_slots[front]);
     bool slot_mapped[NUM_PALETTES] = {};
-    for (size_t f = 0; f < landing.faces; ++f) {
-      HS_CHECK(landing.topology[f] == slot.topology[f],
+    for (size_t f = 0; f < landed_faces; ++f) {
+      HS_CHECK(landed_topo[f] == slot.topology[f],
                "IslamicStars: arrival classification drifted across the build");
       const int s = wrap(slot.topology[f], NUM_PALETTES);
       if (!slot_mapped[s]) {
         slot_mapped[s] = true;
-        palettes_slots[front][s] =
-            landing.to_palette[wrap(landing.topology[f], NUM_PALETTES)];
+        palettes_slots[front][s] = landed_to[wrap(landed_topo[f], NUM_PALETTES)];
       }
     }
-    build_landing_ = nullptr;
     build_active_ = false;
 
     hs::log("Built Shape: %s (V=%d, E=%d, F=%d, I=%d)",

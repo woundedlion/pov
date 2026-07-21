@@ -2791,25 +2791,39 @@ inline ChainPeaks replay_build_chain(const char *name,
       cur = std::move(next);
     }
 
-    // Final clean swap: the landing's bookend classification must match a
-    // fresh classification of the compiled endpoint, and the landed targets
-    // are the per-shape pinned set verbatim.
+    // Final clean swap, mirroring finish_build: the last leg's storage is
+    // reclaimed before the closing compile, so everything the swap checks is
+    // snapshotted out of the landing first. The landing's bookend
+    // classification must match a fresh classification of the compiled
+    // endpoint, and the landed targets are the per-shape pinned set verbatim.
+    ScratchScope landing_guard(scratch_arena_a);
+    const size_t landed_faces = prev_landing->faces;
+    int *landed_topo = scratch_arena_a.allocate_n<int>(landed_faces);
+    std::memcpy(landed_topo, prev_landing->topology,
+                landed_faces * sizeof(int));
+    const std::array<uint8_t, OpLeg::PALETTES> landed_to =
+        prev_landing->to_palette;
+    prev_landing = nullptr;
+    {
+      Persist<MeshPaletteBank> pb(bank, scratch_arena_b, persistent_arena);
+      Persist<PolyMesh> pc(cur, scratch_arena_b, persistent_arena);
+      seed_slot = MeshState();
+      persistent_arena.reset();
+    }
     MeshState final_slot;
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
-      MeshOps::compile(cur, final_slot, target, a);
-    });
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
+      MeshOps::compile(cur, final_slot, persistent_arena, scratch_arena_a);
       MeshOps::classify_faces_by_topology(final_slot, scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
     if (supported) {
-      HS_EXPECT_EQ(prev_landing->faces, final_slot.topology.size());
-      for (size_t f = 0; f < prev_landing->faces; ++f)
-        HS_EXPECT_EQ(prev_landing->topology[f], final_slot.topology[f]);
+      HS_EXPECT_EQ(landed_faces, final_slot.topology.size());
+      for (size_t f = 0; f < landed_faces; ++f)
+        HS_EXPECT_EQ(landed_topo[f], final_slot.topology[f]);
       for (int i = 0; i < OpLeg::PALETTES; ++i)
-        HS_EXPECT_EQ((int)prev_landing->to_palette[i], (int)targets[i]);
+        HS_EXPECT_EQ((int)landed_to[i], (int)targets[i]);
     }
 
     peaks.persistent = persistent_arena.get_high_water_mark();
