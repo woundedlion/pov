@@ -1764,8 +1764,16 @@ inline void test_opleg_hankin_sweep_smoke() {
   Animation::OpLeg::PaletteHandoff handoff{
       &bank.bank, pal, sides, dodeca.face_counts.size(), false};
 
+  // Per-frame motion bound: growing star points out from their corners keeps
+  // every step small and unimodal. Re-solving the contact-plane intersection
+  // per frame instead sends star points on geodesic excursions (measured to
+  // 1.84 chord on ambo-of-hankin seeds), which draws as lines crossing the
+  // pattern; the bound is what stops that parameterization coming back.
+  constexpr float MAX_STEP_CHORD = 0.15f;
   size_t drawn_frames = 0;
   size_t drawn_faces = 0;
+  float worst_step = 0.0f;
+  std::vector<Vector> prev_v;
   auto cb = [&](Canvas &, const MeshState &m,
                 const Animation::OpLeg::Shading &sh) {
     HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
@@ -1776,6 +1784,13 @@ inline void test_opleg_hankin_sweep_smoke() {
     for (size_t f = 0; f < sh.faces; ++f)
       HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]),
                    Animation::OpLeg::MAX_BLEND_PAIRS);
+    if (!prev_v.empty()) {
+      HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
+      for (size_t i = 0; i < m.vertices.size(); ++i)
+        worst_step =
+            std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
+    }
+    prev_v.assign(m.vertices.begin(), m.vertices.end());
     ++drawn_frames;
   };
 
@@ -1805,6 +1820,10 @@ inline void test_opleg_hankin_sweep_smoke() {
   }
   HS_EXPECT_EQ(drawn_frames, (size_t)SWEEP);
   HS_EXPECT_EQ(drawn_faces, landing.faces);
+  HS_EXPECT_LT(worst_step, MAX_STEP_CHORD);
+  std::printf("  [opleg hankin] worst per-frame vertex step %.4f chord "
+              "(bound %.2f)\n",
+              (double)worst_step, (double)MAX_STEP_CHORD);
 }
 
 // ---------------------------------------------------------------------------

@@ -193,6 +193,12 @@ public:
    * births positive-area. */
   static constexpr float THETA_EPS = 0.02f;
 
+  /** Slerp-fraction floor for a hankin leg's opening frame: at fraction 0 every
+   * rosette face has exactly zero area, so the floor lifts them past
+   * MeshOps::compile's degenerate-face drop (which would move the compiled face
+   * count mid-leg). Measured sufficient for every Phase-1 leg. */
+  static constexpr float K_EPS = 0.005f;
+
   /**
    * @brief Per-frame shading handed to the draw callback.
    * @details The fragment path stays a single BakedPalette::get(t):
@@ -420,9 +426,18 @@ public:
     MeshOps::clone(seed, tr.seed, arena);
     tr.kind = LegKind::HANKIN_SWEEP;
     tr.sweep_frames = sweep_frames;
-    tr.t_start = std::max(theta_start, THETA_EPS);
-    tr.t_end = std::max(theta_end, THETA_EPS);
     tr.bank = handoff.bank;
+
+    // Hankin legs sweep the slerp fraction, not the contact angle: re-solving
+    // the contact-plane intersection per frame sends star points on geodesic
+    // excursions far outside their own rosette mid-sweep (measured to 1.84
+    // chord on ambo-of-hankin seeds, with the STAR_FAR_RATIO_SQ guard never
+    // firing), which draws as lines crossing the pattern. Growing each star
+    // point out from its collapsed corner is monotone and lands on the same
+    // arrival geometry.
+    const float theta_hi = std::max(theta_end, THETA_EPS);
+    tr.t_start = std::max(std::max(theta_start, 0.0f) / theta_hi, K_EPS);
+    tr.t_end = 1.0f;
 
     {
       ScratchScope sa(scratch_arena_a);
@@ -431,17 +446,29 @@ public:
       MeshOps::compile_hankin(tr.seed, tr.hankin, arena, scratch_arena_a);
 
       PolyMesh arrival;
-      MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, tr.t_end);
+      MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, theta_hi);
       MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
                                           scratch_arena_b, arena);
       tr.topo = std::move(arrival.topology);
       HS_CHECK(tr.topo.size() == arrival.face_counts.size());
 
+      // Endpoints of the per-frame slerp: the collapsed form (every star point
+      // on its corner) and the arrival form. Static midpoints are shared, so
+      // only the dynamic tail moves.
+      PolyMesh collapsed;
+      MeshOps::update_hankin(tr.hankin, collapsed, scratch_arena_a, 0.0f);
+      HS_CHECK(collapsed.vertices.size() == arrival.vertices.size());
+      tr.hk_static = tr.hankin.static_vertices.size();
+      tr.hk_final.bind(arena, arrival.vertices.size());
+      tr.hk_final.append_bulk(arrival.vertices.data(), arrival.vertices.size());
+      tr.hk_collapsed.bind(arena, collapsed.vertices.size());
+      tr.hk_collapsed.append_bulk(collapsed.vertices.data(),
+                                  collapsed.vertices.size());
+
       const Vector *start_centroid = nullptr;
       PolyMesh start_mesh;
       if (handoff.prev_face_centroid) {
-        MeshOps::update_hankin(tr.hankin, start_mesh, scratch_arena_a,
-                               tr.t_start);
+        hankin_at(tr, start_mesh, scratch_arena_a, tr.t_start);
         HS_CHECK(start_mesh.face_counts.size() == tr.topo.size(),
                  "OpLeg: start face count differs from arrival");
         start_centroid = face_centroids(start_mesh, scratch_arena_a);
@@ -504,7 +531,7 @@ public:
     {
       HS_PROFILE(hk_conway_op);
       if (tr.kind == LegKind::HANKIN_SWEEP) {
-        MeshOps::update_hankin(tr.hankin, swept, scratch_arena_a, tp);
+        hankin_at(tr, swept, scratch_arena_a, tp);
       } else {
         swept =
             run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b, tp, tw);
@@ -550,6 +577,9 @@ private:
     LegKind kind =
         LegKind::CONWAY_SWEEP;  /**< Swept-mesh production path. */
     CompiledHankin hankin;      /**< Baked topology (HANKIN_SWEEP legs). */
+    ArenaVector<Vector> hk_final;     /**< Arrival vertices (HANKIN_SWEEP). */
+    ArenaVector<Vector> hk_collapsed; /**< Star points on their corners. */
+    size_t hk_static = 0; /**< Shared midpoint prefix of the vertex arrays. */
     ConwayGraph::MorphOp op =
         ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator (CONWAY_SWEEP). */
     bool reverse = false;               /**< Traversing to_node -> from_node. */
@@ -705,6 +735,33 @@ private:
 
     Shading sh{ramps, tr.face_ramp.data(), tr.face_ramp.size()};
     draw_fn(canvas, compiled, sh);
+  }
+
+  /**
+   * @brief Builds a hankin leg's swept mesh at one slerp fraction.
+   * @param tr Leg transients holding the baked topology and both endpoints.
+   * @param out Output mesh, allocated from @p arena.
+   * @param arena Arena backing the output vectors.
+   * @param k Slerp fraction in [0, 1]; 1 copies the arrival vertices verbatim
+   * so the closing bookend swap is bitwise, not 1 ULP off.
+   */
+  HS_COLD_MEMBER static void hankin_at(const Transients &tr, PolyMesh &out,
+                                       Arena &arena, float k) {
+    const size_t n = tr.hk_final.size();
+    out.vertices.bind(arena, n);
+    if (k >= 1.0f) {
+      out.vertices.append_bulk(tr.hk_final.data(), n);
+    } else {
+      out.vertices.append_bulk(tr.hk_final.data(), tr.hk_static);
+      for (size_t i = tr.hk_static; i < n; ++i)
+        out.vertices.push_back(
+            slerp(tr.hk_collapsed[i], tr.hk_final[i], k));
+    }
+    out.face_counts.bind(arena, tr.hankin.face_counts.size());
+    out.face_counts.append_bulk(tr.hankin.face_counts.data(),
+                                tr.hankin.face_counts.size());
+    out.faces.bind(arena, tr.hankin.faces.size());
+    out.faces.append_bulk(tr.hankin.faces.data(), tr.hankin.faces.size());
   }
 
   /** Max distance from a start-parameter face centroid to its departed
