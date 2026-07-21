@@ -26,6 +26,7 @@
 #include "tests/test_harness.h"
 
 #include <cmath>
+#include <cstring>
 #include <utility>
 #include <vector>
 
@@ -1776,6 +1777,7 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
                  std::span<const uint16_t>(idx, n_verts), /*thickness=*/0.0f,
                  scratch, HV, H);
   HS_EXPECT_EQ(face.convex, rho_inner <= 0.0f);
+  const uint32_t probe_flags = face.probe_flags();
 
   int samples = 0;
   // Gnomonic point normalize(center + u*px + w*py): distance() recovers (px,py)
@@ -1791,6 +1793,9 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
 
       hs::g_scan_metrics.exact_hits = 0;
       SDF::DistanceResult res = face.distance(p);
+      SDF::DistanceResult cached_res;
+      face.distance_with_flags(p, cached_res, FLT_MAX, probe_flags);
+      HS_EXPECT_EQ(std::memcmp(&res, &cached_res, sizeof(res)), 0);
       if (hs::g_scan_metrics.exact_hits == 0)
         continue; // culled (outside max_dist / behind the center)
 
@@ -1840,6 +1845,9 @@ inline void test_face_distance_matches_exact_oracle() {
   samples += check_face_distance_oracle(/*sides=*/3, 0.45f, Vector(0.4f, 0.3f, 1.0f));
   samples += check_face_distance_oracle(/*sides=*/5, 0.50f, Vector(0.4f, 0.3f, 1.0f));
   samples += check_face_distance_oracle(/*sides=*/6, 0.40f, Vector(-0.6f, 0.5f, 0.7f));
+  samples += check_face_distance_oracle(/*sides=*/3, 0.12f, Vector(0.4f, 0.3f, 1.0f));
+  samples += check_face_distance_oracle(/*sides=*/4, 0.50f, Vector(0.4f, 0.3f, 1.0f),
+                                        /*rho_inner=*/0.25f);
   // Concave star: convexity detection must reject it and the exact walk must
   // reproduce the oracle everywhere.
   samples += check_face_distance_oracle(/*sides=*/6, 0.50f, Vector(0.4f, 0.3f, 1.0f),
@@ -1945,6 +1953,7 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
                  std::span<const uint16_t>(canon_idx, n_verts), 0.0f, scratch,
                  HV, H);
   HS_EXPECT_TRUE(face.bind_class_lut(&lut, canon, off, reflected));
+  const uint32_t probe_flags = face.probe_flags();
 
   // A degenerate canonical shape must be rejected by the correlation guard.
   {
@@ -1970,6 +1979,9 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
       hs::g_scan_metrics.lut_hits = 0;
       hs::g_scan_metrics.exact_hits = 0;
       SDF::DistanceResult res = face.distance(p);
+      SDF::DistanceResult cached_res;
+      face.distance_with_flags(p, cached_res, FLT_MAX, probe_flags);
+      HS_EXPECT_EQ(std::memcmp(&res, &cached_res, sizeof(res)), 0);
       bool took_lut = hs::g_scan_metrics.lut_hits > 0;
       if (!took_lut && hs::g_scan_metrics.exact_hits == 0)
         continue; // culled

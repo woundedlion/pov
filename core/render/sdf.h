@@ -3189,6 +3189,19 @@ struct Face {
     return d;
   }
 
+  static constexpr uint32_t PROBE_HAS_LUT = 1u << 0;
+  static constexpr uint32_t PROBE_CONVEX = 1u << 1;
+  static constexpr uint32_t PROBE_SECTOR = 1u << 2;
+  static constexpr uint32_t PROBE_LINEAR = 1u << 3;
+
+  /** @return Packed distance-path flags for repeated probes of this face. */
+  uint32_t probe_flags() const {
+    return (lut_data ? PROBE_HAS_LUT : 0u) |
+           (convex ? PROBE_CONVEX : 0u) |
+           (sector_ok ? PROBE_SECTOR : 0u) |
+           (linear_dist ? PROBE_LINEAR : 0u);
+  }
+
   /**
    * @brief Computes signed distance to the face.
    * @param p Point on sphere (normalized).
@@ -3219,6 +3232,22 @@ struct Face {
   template <bool ComputeUVs = true>
   HS_O3_FN void distance(const Vector &p, DistanceResult &res,
                          float reject_dsq = FLT_MAX) const {
+    distance_with_flags<ComputeUVs>(p, res, reject_dsq, probe_flags());
+  }
+
+  /**
+   * @brief Computes distance using flags captured by probe_flags().
+   * @tparam ComputeUVs Accepted for interface parity; the face stores no UVs.
+   * @param p Point on sphere (normalized).
+   * @param res Output distance result.
+   * @param reject_dsq Conservative squared distance rejection threshold.
+   * @param probe_flags Distance-path flags captured after the face's last LUT
+   *        binding or geometry update.
+   */
+  template <bool ComputeUVs = true>
+  HS_O3_FN void distance_with_flags(const Vector &p, DistanceResult &res,
+                                    float reject_dsq,
+                                    uint32_t probe_flags) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
     HS_PROBE_TICK();
     HS_PROBE_COUNT(n_probe);
@@ -3249,7 +3278,7 @@ struct Face {
     HS_PROBE_SPAN(project, hs_t);
 
     float plane_dist;
-    if (lut_data) {
+    if (probe_flags & PROBE_HAS_LUT) {
       // Affine map into the canonical LUT grid, then a 4-tap bilinear fetch.
       // Only sign-pure cells at least one cell diagonal from the boundary are
       // served; the AA fringe and sign-unsafe cells fall back to the exact walk
@@ -3279,7 +3308,7 @@ struct Face {
         HS_PROBE_COUNT(n_lut);
       } else {
         HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
-        if (convex) {
+        if (probe_flags & PROBE_CONVEX) {
           plane_dist = plane_dist_convex(px, py);
           HS_PROBE_SPAN(edge_convex, hs_t);
           HS_PROBE_COUNT(n_convex);
@@ -3291,14 +3320,14 @@ struct Face {
       }
     } else {
       HS_SCAN_METRIC(hs::g_scan_metrics.exact_hits++);
-      if (convex) {
+      if (probe_flags & PROBE_CONVEX) {
         plane_dist = plane_dist_convex(px, py);
         HS_PROBE_SPAN(edge_convex, hs_t);
         HS_PROBE_COUNT(n_convex);
       } else {
         bool inside;
         float dsq;
-        if (sector_ok) {
+        if (probe_flags & PROBE_SECTOR) {
           HS_SCAN_METRIC(hs::g_scan_metrics.sector_hits++);
           dsq = plane_dsq_sector(px, py, inside);
           HS_PROBE_SPAN(edge_sector, hs_t);
@@ -3310,7 +3339,7 @@ struct Face {
         }
         // Outside probes past the (margin-carrying) reject bound skip the
         // sqrt; the caller rejects them on dist alone.
-        if (linear_dist && !inside && dsq >= reject_dsq) {
+        if ((probe_flags & PROBE_LINEAR) && !inside && dsq >= reject_dsq) {
           res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
           HS_PROBE_SPAN(pack, hs_t);
           return;
@@ -3321,7 +3350,9 @@ struct Face {
 
     // Small faces skip the plane->angle conversion: tan(angle) ~ angle to
     // within size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
-    float raw = linear_dist ? plane_dist : fast_atan2(plane_dist, 1.0f);
+    float raw = (probe_flags & PROBE_LINEAR)
+                    ? plane_dist
+                    : fast_atan2(plane_dist, 1.0f);
     res = DistanceResult(raw - thickness, 0.0f, raw, 0.0f, size);
     HS_PROBE_SPAN(pack, hs_t);
   }
