@@ -2988,6 +2988,8 @@ struct ParticleSystem {
 
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
+      if (p.life == 0 || p.history.length() < 2)
+        continue;
       ScratchScope trail_guard(scratch_arena_a);
       Fragments trail;
       // tween emits at most one fragment per retained trail position.
