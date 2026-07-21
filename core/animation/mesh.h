@@ -281,6 +281,34 @@ public:
   };
 
   /**
+   * @brief A hankin arrival star point, snorm16-quantized on the unit sphere.
+   * @details The leg holds one per dynamic vertex for its whole life, so the
+   * 6-byte packed form halves the 12-byte Vector's resident cost.
+   * Reconstruction error is bounded by the 1/32767 quantum (max chord ~2.4e-5,
+   * far below a pixel); slerp() renormalizes the decoded target, so the
+   * near-unit result is exact enough for both the swept blend and the rebuilt
+   * arrival mesh.
+   */
+  struct StarPoint {
+    int16_t x, y, z;
+
+    static constexpr float SCALE = 32767.0f;
+    static constexpr float INV_SCALE = 1.0f / SCALE;
+
+    static StarPoint encode(const Vector &v) {
+      return {quant(v.x), quant(v.y), quant(v.z)};
+    }
+    Vector decode() const {
+      return Vector(x * INV_SCALE, y * INV_SCALE, z * INV_SCALE);
+    }
+
+  private:
+    static int16_t quant(float c) {
+      return static_cast<int16_t>(roundf(hs::clamp(c, -1.0f, 1.0f) * SCALE));
+    }
+  };
+
+  /**
    * @brief Leg-static arrival data the effect's completion consumes.
    * @details Arena-backed; valid until the leg arena is compacted.
    */
@@ -298,8 +326,9 @@ public:
         nullptr; /**< Baked arrival topology (HANKIN_SWEEP legs only, null
                     otherwise); with star_point it rebuilds the arrival mesh
                     through arrival_mesh(). */
-    const Vector *star_point = nullptr; /**< Arrival star points. */
-    size_t star_points = 0;             /**< Star-point count. */
+    const StarPoint *star_point =
+        nullptr;            /**< Arrival star points (snorm16-packed). */
+    size_t star_points = 0; /**< Star-point count. */
   };
 
   /**
@@ -483,19 +512,27 @@ public:
 
       PolyMesh arrival;
       MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, theta_hi);
+
+      // Only the star points are stored: the midpoint prefix is already in the
+      // compiled topology, and each star point's collapsed position is its own
+      // corner, reachable through the same instruction hankin_at walks. They
+      // are snorm16-packed; round-tripping the arrival through that
+      // quantization before classification keeps tr.topo consistent with the
+      // mesh arrival_mesh later rebuilds from the packed points.
+      const size_t statics = tr.hankin.static_vertices.size();
+      HS_CHECK(arrival.vertices.size() >= statics);
+      const size_t dyn = arrival.vertices.size() - statics;
+      tr.hk_final.bind(arena, dyn);
+      for (size_t i = 0; i < dyn; ++i) {
+        StarPoint sp = StarPoint::encode(arrival.vertices[statics + i]);
+        tr.hk_final.push_back(sp);
+        arrival.vertices[statics + i] = sp.decode().normalized();
+      }
+
       MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
                                           scratch_arena_b, arena);
       tr.topo = std::move(arrival.topology);
       HS_CHECK(tr.topo.size() == arrival.face_counts.size());
-
-      // Only the star points are stored: the midpoint prefix is already in the
-      // compiled topology, and each star point's collapsed position is its own
-      // corner, reachable through the same instruction hankin_at walks.
-      const size_t statics = tr.hankin.static_vertices.size();
-      HS_CHECK(arrival.vertices.size() >= statics);
-      tr.hk_final.bind(arena, arrival.vertices.size() - statics);
-      tr.hk_final.append_bulk(arrival.vertices.data() + statics,
-                              arrival.vertices.size() - statics);
       tr.landing.hankin = &tr.hankin;
       tr.landing.star_point = tr.hk_final.data();
       tr.landing.star_points = tr.hk_final.size();
@@ -724,7 +761,8 @@ public:
     const size_t statics = hk.static_vertices.size();
     out.vertices.bind(arena, statics + landing.star_points);
     out.vertices.append_bulk(hk.static_vertices.data(), statics);
-    out.vertices.append_bulk(landing.star_point, landing.star_points);
+    for (size_t i = 0; i < landing.star_points; ++i)
+      out.vertices.push_back(landing.star_point[i].decode().normalized());
     copy_topology(out, arena, hk.face_counts, hk.faces);
   }
 
@@ -754,7 +792,8 @@ private:
     LegKind kind =
         LegKind::CONWAY_SWEEP;  /**< Swept-mesh production path. */
     CompiledHankin hankin;      /**< Baked topology (HANKIN_SWEEP legs). */
-    ArenaVector<Vector> hk_final; /**< Arrival star points (HANKIN_SWEEP). */
+    ArenaVector<StarPoint>
+        hk_final; /**< Arrival star points, snorm16-packed (HANKIN_SWEEP). */
     ConwayGraph::MorphOp op =
         ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator (CONWAY_SWEEP). */
     SwapOp swap_op = SwapOp::KIS;       /**< Partition op (GATED_SWAP). */
@@ -1191,13 +1230,14 @@ private:
     out.vertices.bind(arena, statics + dyn);
     out.vertices.append_bulk(hk.static_vertices.data(), statics);
     if (k >= 1.0f) {
-      out.vertices.append_bulk(tr.hk_final.data(), dyn);
+      for (size_t i = 0; i < dyn; ++i)
+        out.vertices.push_back(tr.hk_final[i].decode().normalized());
     } else {
       for (size_t i = 0; i < dyn; ++i) {
         const Vector corner =
             hk.base_vertices[hk.dynamic_instructions[i].v_corner];
         out.vertices.push_back(
-            slerp(normalized_or(corner, corner), tr.hk_final[i], k));
+            slerp(normalized_or(corner, corner), tr.hk_final[i].decode(), k));
       }
     }
     copy_topology(out, arena, hk.face_counts, hk.faces);
