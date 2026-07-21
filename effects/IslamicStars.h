@@ -123,7 +123,8 @@ private:
   // Recipe-build leg lengths (docs/opchain_morph_spec.md section 7); divided
   // by the Trans Speed divisor like every other stage.
   static constexpr int HANKIN_LEG_FRAMES = 32;
-  static constexpr int AMBO_LEG_FRAMES = 24;
+  static constexpr int SWEEP_LEG_FRAMES = 24; /**< ambo / truncate / snub / chamfer. */
+  static constexpr int RELAX_LEG_FRAMES = 16;
   static constexpr size_t MAX_BUILD_STEPS = 8;   /**< Lowered-primitive cap. */
   static constexpr size_t MAX_BUILD_FACES = 256; /**< Build-chain mesh face cap. */
   static constexpr float RIPPLE_THICKNESS = 0.7f; /**< Fixed ripple wavelet width (radians). */
@@ -329,6 +330,47 @@ private:
   }
 
   /**
+   * @brief Leg frame budget of one lowered primitive step, before the Trans
+   *        Speed divisor (docs/opchain_morph_spec.md, section 7).
+   * @param op Lowered primitive op.
+   * @return Frames the leg runs for.
+   */
+  static int leg_frames(Solids::Op op) {
+    switch (op) {
+    case Solids::Op::HANKIN:
+      return HANKIN_LEG_FRAMES;
+    case Solids::Op::RELAX:
+      return RELAX_LEG_FRAMES;
+    default:
+      return SWEEP_LEG_FRAMES;
+    }
+  }
+
+  /**
+   * @brief Log label of a lowered primitive step.
+   * @param op Lowered primitive op.
+   * @return Static name string.
+   */
+  static const char *leg_name(Solids::Op op) {
+    switch (op) {
+    case Solids::Op::HANKIN:
+      return "hankin";
+    case Solids::Op::AMBO:
+      return "ambo";
+    case Solids::Op::TRUNCATE:
+      return "truncate";
+    case Solids::Op::SNUB:
+      return "snub";
+    case Solids::Op::CHAMFER:
+      return "chamfer";
+    case Solids::Op::RELAX:
+      return "relax";
+    default:
+      return "?";
+    }
+  }
+
+  /**
    * @brief Advances to the next solid, generates it into the carousel's back
    *        slot with a freshly shuffled palette, makes it the front, schedules
    *        the segue and the shape's mid-display ripple burst, and queues the
@@ -341,7 +383,22 @@ private:
     MeshPaletteBank::shuffle_indices(palettes_slots[back]);
 
     int idx = solid_idx;
+    // A recipe whose lowered chain contains a step no leg kind covers falls
+    // back to today's whole-generate path, seed solid and all.
     const Solids::Recipe *recipe = solids[idx].recipe;
+    if (recipe) {
+      build_step_count_ =
+          Solids::expand_to_primitives(*recipe, build_steps_, MAX_BUILD_STEPS);
+      for (size_t k = 0; k < build_step_count_; ++k) {
+        if (!Solids::is_morphable_step(build_steps_[k])) {
+          hs::log("IslamicStars: %s has an unsweepable step, generating whole",
+                  solids[idx].name);
+          recipe = nullptr;
+          build_step_count_ = 0;
+          break;
+        }
+      }
+    }
 
     auto draw_fn = [this, back](Canvas &canvas, float phase) {
       // During the build window an OpLeg draws the mesh; exactly one mesh per
@@ -417,21 +474,13 @@ private:
     // Recipe entries insert a build phase on the segue's phase-1 plateau:
     // duration is lengthened by the build span rather than the carousel
     // growing an asymmetric-window API (docs/opchain_morph_spec.md,
-    // section 6.1). Phase 1 supports exactly the HANKIN and AMBO primitives;
-    // the chain replay gate in tests/test_conway_morph.h fails CI on any other
-    // lowered step before it can reach the device.
+    // section 6.1).
     int build_span = 0;
     if (recipe) {
-      build_step_count_ =
-          Solids::expand_to_primitives(*recipe, build_steps_, MAX_BUILD_STEPS);
       build_step_ = 0;
       build_total_frames_ = 0;
       for (size_t k = 0; k < build_step_count_; ++k) {
-        const Solids::Op op = build_steps_[k].op;
-        HS_CHECK(op == Solids::Op::HANKIN || op == Solids::Op::AMBO,
-                 "IslamicStars: unsupported primitive op in build recipe");
-        const int frames =
-            op == Solids::Op::HANKIN ? HANKIN_LEG_FRAMES : AMBO_LEG_FRAMES;
+        const int frames = leg_frames(build_steps_[k].op);
         build_leg_frames_[k] = std::max(1, static_cast<int>(frames / sp));
         build_total_frames_ += build_leg_frames_[k];
       }
@@ -490,10 +539,8 @@ private:
     // leg sweeps from. Runs first — generate() resets the scratch arenas the
     // handoff arrays below live in.
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      PolyMesh next = step.op == Solids::Op::AMBO
-                          ? MeshOps::ambo(build_seed_, a, b)
-                          : MeshOps::hankin(build_seed_, a, b, step.param);
-      build_next_seed_ = Solids::finalize_solid(next, target);
+      build_next_seed_ = Solids::finalize_solid(clean_endpoint(step, a, b),
+                                                target);
     });
 
     // Each leg carries its color the whole way to the palette its own arrival
@@ -557,20 +604,78 @@ private:
         false,               prev_centroid, &build_targets_};
 
     const int frames = build_leg_frames_[k];
-    hs::log("Build leg: %s (%d frames)",
-            step.op == Solids::Op::HANKIN ? "hankin" : "ambo", frames);
+    hs::log("Build leg: %s (%d frames)", leg_name(step.op), frames);
 
-    if (step.op == Solids::Op::HANKIN) {
-      Animation::OpLeg leg(build_seed_, 0.0f, step.param, persistent_arena,
-                           draw_build_fn_, handoff, frames, bookend);
+    auto schedule = [this](Animation::OpLeg &&leg) {
       build_landing_ = &leg.landing();
       timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
-    } else {
-      Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
-                           0.5f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
-                           handoff, frames, bookend);
-      build_landing_ = &leg.landing();
-      timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
+    };
+
+    // The swept operator's endpoints: every inflate leg opens at the clamped
+    // zero-area birth limit and lands on the step's own parameter; ambo is a
+    // truncate swept to the short-circuit point.
+    switch (step.op) {
+    case Solids::Op::HANKIN:
+      schedule(Animation::OpLeg(build_seed_, 0.0f, step.param,
+                                persistent_arena, draw_build_fn_, handoff,
+                                frames, bookend));
+      break;
+    case Solids::Op::RELAX:
+      schedule(Animation::OpLeg(build_seed_, static_cast<int>(step.param),
+                                persistent_arena, draw_build_fn_, handoff,
+                                frames, bookend));
+      break;
+    case Solids::Op::AMBO:
+      schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::TRUNCATE,
+                                0.0f, 0.5f, 0.0f, 0.0f, persistent_arena,
+                                draw_build_fn_, handoff, frames, bookend));
+      break;
+    case Solids::Op::TRUNCATE:
+      schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::TRUNCATE,
+                                0.0f, step.param, 0.0f, 0.0f, persistent_arena,
+                                draw_build_fn_, handoff, frames, bookend));
+      break;
+    case Solids::Op::SNUB:
+      schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::SNUB, 0.0f,
+                                step.param, 0.0f, step.twist, persistent_arena,
+                                draw_build_fn_, handoff, frames, bookend));
+      break;
+    case Solids::Op::CHAMFER:
+      schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::CHAMFER,
+                                0.0f, step.param, 0.0f, 0.0f, persistent_arena,
+                                draw_build_fn_, handoff, frames, bookend));
+      break;
+    default:
+      HS_CHECK(false, "IslamicStars: unsweepable primitive op reached a leg");
+      break;
+    }
+  }
+
+  /**
+   * @brief Builds the clean endpoint mesh a leg lands on.
+   * @param step Lowered primitive step.
+   * @param a Output arena for even pipeline stages.
+   * @param b Scratch arena for odd pipeline stages.
+   * @return The op applied to the current build seed at its exact parameter.
+   */
+  HS_COLD_MEMBER PolyMesh clean_endpoint(const Solids::OpStep &step, Arena &a,
+                                         Arena &b) {
+    switch (step.op) {
+    case Solids::Op::HANKIN:
+      return MeshOps::hankin(build_seed_, a, b, step.param);
+    case Solids::Op::AMBO:
+      return MeshOps::ambo(build_seed_, a, b);
+    case Solids::Op::TRUNCATE:
+      return MeshOps::truncate(build_seed_, a, b, step.param);
+    case Solids::Op::SNUB:
+      return MeshOps::snub(build_seed_, a, b, step.param, step.twist);
+    case Solids::Op::CHAMFER:
+      return MeshOps::chamfer(build_seed_, a, b, step.param);
+    case Solids::Op::RELAX:
+      return MeshOps::relax(build_seed_, a, b, static_cast<int>(step.param));
+    default:
+      HS_CHECK(false, "IslamicStars: unsweepable primitive op reached a leg");
+      return PolyMesh{};
     }
   }
 
