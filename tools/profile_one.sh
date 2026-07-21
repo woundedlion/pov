@@ -6,15 +6,19 @@
 # silently flashing old code — see the validation notes in the skill). On a
 # marker/header mismatch it wipes the env build dir and retries once.
 #
-# Takes the host-global device lock (tools/device_lock.sh) around the whole
-# build+flash+capture, so concurrent agents queue instead of clobbering each
-# other. HS_DEVICE_WAIT=<s> to queue rather than fail fast when it is busy.
+# Takes a per-board device lock (tools/device_lock.sh) around the whole
+# build+flash+capture, so concurrent agents run on different boards, and queue
+# instead of clobbering when every board is busy. HS_DEVICE_WAIT=<s> to queue
+# rather than fail fast.
 #
-# HS_TEENSY_PORT=<COMn> pins both the flash and the capture to one board. With
-# two Teensys attached the teensy-gui loader refuses to choose ("Found 2 Teensy
+# With several Teensys attached, hs_device_acquire enumerates them, claims the
+# first free one, and exports HS_TEENSY_PORT for it, which pins both the flash
+# and the capture to that board. Never leave the board to auto-search when more
+# than one is attached: the teensy-gui loader refuses to choose ("Found 2 Teensy
 # boards") yet still exits SUCCESS, leaving the previous image running, and the
-# capture's first-VID-match can read the other board: a plausible log of the
-# wrong firmware. Set it whenever the host has more than one board.
+# capture's first-VID-match can read the other board — a plausible log of the
+# wrong firmware. HS_TEENSY_PORT=<COMn> set by hand pins the run to one board
+# and skips the search (use it to profile a specific board).
 #
 # HS_PROFILE_DEEP=1 additionally enables the HS_PROFILE_DEEP sub-scopes (the
 # per-pixel/per-cell/per-face counters in shared render code, off by default
@@ -81,7 +85,7 @@ flash() {
 }
 
 capture() {
-  echo "=== $EFFECT [$ENV] window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
+  echo "=== $EFFECT [$ENV] board=${HS_TEENSY_PORT:-auto} window=$WINDOW seconds=$SECONDS_ARG deep=${DEEP:-off} extra='$EXTRA'"
   flash
   # Let the capture's stderr through: it dies on a device trap (USB drops) and
   # on a port already held by a peer, and those look identical from the exit
