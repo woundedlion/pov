@@ -1159,6 +1159,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   constexpr float pixel_width = 2.0f * PI_F / W;
+  const uint32_t probe_flags = shape.probe_flags();
 
 #ifdef HS_AA_AUDIT
   if (hs_aa::g_audit.enabled) {
@@ -1232,7 +1233,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         if (mask && !mask->owns(x, y))
           continue;
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
-        shape.template distance<true>(p, res, reject_dsq);
+        shape.template distance_with_flags<true>(p, res, reject_dsq,
+                                                 probe_flags);
         float d = res.dist;
         if (!effective_debug && d >= pixel_width)
           continue;
