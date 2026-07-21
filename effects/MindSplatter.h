@@ -7,7 +7,7 @@
 
 #include "core/engine/engine.h"
 
-// Unit-test accessor for the per-emitter emit-phase / hue wrap invariants.
+// Unit-test accessor for emitter and hole-kernel invariants.
 namespace hs_test {
 namespace effects_tests {
 struct MindSplatterWhiteBox;
@@ -112,7 +112,7 @@ public:
   }
 
 private:
-  // Test seam: reaches the per-emitter emit-phase / hue wrap invariants.
+  // Test seam for emitter and fixed-attractor invariants.
   friend struct ::hs_test::effects_tests::MindSplatterWhiteBox;
 
   /** @brief Per-particle trail length (feeds the pool footprint below). */
@@ -172,6 +172,42 @@ private:
   static constexpr float WELL_STRENGTH_MIN = 0.0f, WELL_STRENGTH_MAX = 20.0f;
   static constexpr float INITIAL_SPEED_MIN = 0.0f, INITIAL_SPEED_MAX = 0.1f;
   static constexpr float ANGULAR_SPEED_MIN = 0.0f, ANGULAR_SPEED_MAX = 1.0f;
+  static constexpr float EVENT_HORIZON = 0.2f;
+  static_assert(EVENT_HORIZON < PI_F * 0.25f,
+                "MindSplatter event-horizon caps must not overlap");
+
+  static consteval bool attractors_are_signed_axes() {
+    unsigned mask = 0;
+    for (const Vector &v : AttractSolid::vertices) {
+      if (v.x == 1.0f && v.y == 0.0f && v.z == 0.0f)
+        mask |= 1u << 0;
+      else if (v.x == -1.0f && v.y == 0.0f && v.z == 0.0f)
+        mask |= 1u << 1;
+      else if (v.x == 0.0f && v.y == 1.0f && v.z == 0.0f)
+        mask |= 1u << 2;
+      else if (v.x == 0.0f && v.y == -1.0f && v.z == 0.0f)
+        mask |= 1u << 3;
+      else if (v.x == 0.0f && v.y == 0.0f && v.z == 1.0f)
+        mask |= 1u << 4;
+      else if (v.x == 0.0f && v.y == 0.0f && v.z == -1.0f)
+        mask |= 1u << 5;
+      else
+        return false;
+    }
+    return mask == 0x3fu;
+  }
+  static_assert(attractors_are_signed_axes(),
+                "MindSplatter hole shader requires the six signed axes");
+
+  static inline float octahedral_hole_alpha(const Vector &p,
+                                             float cos_event_horizon) {
+    const float m = std::max(
+        std::abs(p.x), std::max(std::abs(p.y), std::abs(p.z)));
+    if (m < cos_event_horizon)
+      return 1.0f;
+    const float d = fast_acos(hs::clamp(m, -1.0f, 1.0f));
+    return quintic_kernel(d / EVENT_HORIZON);
+  }
 
   /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
@@ -245,10 +281,9 @@ private:
     particle_system.init(persistent_arena, params.friction, 0.001f, 160.0f);
 
     for (const auto &v : AttractSolid::vertices) {
-      particle_system.add_attractor(v, params.well_strength, 0.003f, 0.2f);
+      particle_system.add_attractor(v, params.well_strength, 0.003f,
+                                    EVENT_HORIZON);
     }
-    HS_CHECK(particle_system.attractors.size() <= AttractSolid::NUM_VERTS,
-             "attractor count exceeds draw_particles cos_eh capacity");
 
     for (size_t i = 0; i < EmitSolid::NUM_VERTS; ++i) {
       emitter_hues[i] = hs::rand_f();
@@ -287,11 +322,7 @@ private:
    */
   void draw_particles(Canvas &canvas, float opacity = 1.0f) {
     HS_PROFILE(msp_draw_particles);
-    // cos(event_horizon) per attractor for the dot-product fast-reject below.
-    std::array<float, AttractSolid::NUM_VERTS> cos_eh{};
-    for (size_t i = 0; i < particle_system.attractors.size(); ++i) {
-      cos_eh[i] = fast_cosf(particle_system.attractors[i].event_horizon);
-    }
+    const float cos_event_horizon = fast_cosf(EVENT_HORIZON);
 
     // Position pass: Mobius warp + orientation (decides cullability).
     auto vertex_shader = [&](Fragment &f) {
@@ -299,20 +330,9 @@ private:
       f.pos = orientation.orient(f.pos);
     };
 
-    // Deferred pass, run only for trails the segment cull keeps: per-attractor
-    // alpha falloff from the pre-warp position.
+    // Signed-axis event-horizon falloff from the pre-warp position.
     auto hole_shader = [&](Fragment &f, const Vector &original_pos) {
-      float hole_alpha = 1.0f;
-      for (size_t ai = 0; ai < particle_system.attractors.size(); ++ai) {
-        const auto &attr = particle_system.attractors[ai];
-        float cos_d = dot(original_pos, attr.position);
-        if (cos_d < cos_eh[ai])
-          continue;
-        float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
-        float t = d / attr.event_horizon;
-        hole_alpha *= quintic_kernel(t);
-      }
-      f.v3 *= hole_alpha;
+      f.v3 *= octahedral_hole_alpha(original_pos, cos_event_horizon);
     };
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
