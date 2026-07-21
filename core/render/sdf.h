@@ -3109,7 +3109,7 @@ struct Face {
    * @param py Gnomonic y of the query point.
    * @return Signed distance in the tangent plane (negative inside).
    */
-  HS_O3_FN float plane_dist_exact(float px, float py) const {
+  HS_O3_FN float plane_dsq_exact(float px, float py, bool &inside_out) const {
     float d = FLT_MAX;
     bool inside = false;
     const uint32_t qk = angle_key(py);
@@ -3127,6 +3127,13 @@ struct Face {
           inside = !inside;
       }
     }
+    inside_out = inside;
+    return d;
+  }
+
+  HS_O3_FN float plane_dist_exact(float px, float py) const {
+    bool inside;
+    float d = plane_dsq_exact(px, py, inside);
     return (inside ? -1.0f : 1.0f) * sqrtf(d);
   }
 
@@ -3145,7 +3152,7 @@ struct Face {
    * the true nearest edge is almost always the sector's own edge or an immediate
    * neighbor. Only enabled when build_sectors set sector_ok.
    */
-  HS_O3_FN float plane_dist_sector(float px, float py) const {
+  HS_O3_FN float plane_dsq_sector(float px, float py, bool &inside_out) const {
     float p = pseudo_angle(py, px) * sector_sgn;
     float rel = (p - sector_base) / sector_span; // -> [0, 1) after the fold
     rel -= floorf(rel);
@@ -3178,8 +3185,8 @@ struct Face {
     }
     const auto &e0 = packed_edges[s];
     float cr = e0.ex * (py - e0.vy) - e0.ey * (px - e0.vx);
-    bool inside = cr * sector_sgn >= 0.0f;
-    return (inside ? -1.0f : 1.0f) * sqrtf(d);
+    inside_out = cr * sector_sgn >= 0.0f;
+    return d;
   }
 
   /**
@@ -3200,13 +3207,18 @@ struct Face {
    * @param res Output result; dist = signed edge distance minus thickness,
    *        raw_dist = the signed edge distance, size = inradius (gnomonic
    *        plane units).
+   * @param reject_dsq Squared plane distance at/above which an outside probe
+   *        is reported as the far sentinel without taking the square root.
+   *        Must be conservative: only probes the caller rejects on dist may
+   *        cross it. FLT_MAX disables the cull.
    * @note Distances live in the face's gnomonic tangent plane. Small faces
    *       (linear_dist) report the plane distance directly; large faces convert
    *       via fast_atan2(plane, 1). Do not treat raw_dist as a metric geodesic
    *       angle.
    */
   template <bool ComputeUVs = true>
-  HS_O3_FN void distance(const Vector &p, DistanceResult &res) const {
+  HS_O3_FN void distance(const Vector &p, DistanceResult &res,
+                         float reject_dsq = FLT_MAX) const {
     HS_SCAN_METRIC(hs::g_scan_metrics.pixels_tested++);
     HS_PROBE_TICK();
     HS_PROBE_COUNT(n_probe);
@@ -3283,15 +3295,27 @@ struct Face {
         plane_dist = plane_dist_convex(px, py);
         HS_PROBE_SPAN(edge_convex, hs_t);
         HS_PROBE_COUNT(n_convex);
-      } else if (sector_ok) {
-        HS_SCAN_METRIC(hs::g_scan_metrics.sector_hits++);
-        plane_dist = plane_dist_sector(px, py);
-        HS_PROBE_SPAN(edge_sector, hs_t);
-        HS_PROBE_COUNT(n_sector);
       } else {
-        plane_dist = plane_dist_exact(px, py);
-        HS_PROBE_SPAN(edge_exact, hs_t);
-        HS_PROBE_COUNT(n_exact);
+        bool inside;
+        float dsq;
+        if (sector_ok) {
+          HS_SCAN_METRIC(hs::g_scan_metrics.sector_hits++);
+          dsq = plane_dsq_sector(px, py, inside);
+          HS_PROBE_SPAN(edge_sector, hs_t);
+          HS_PROBE_COUNT(n_sector);
+        } else {
+          dsq = plane_dsq_exact(px, py, inside);
+          HS_PROBE_SPAN(edge_exact, hs_t);
+          HS_PROBE_COUNT(n_exact);
+        }
+        // Outside probes past the (margin-carrying) reject bound skip the
+        // sqrt; the caller rejects them on dist alone.
+        if (linear_dist && !inside && dsq >= reject_dsq) {
+          res = DistanceResult(100.0f, 0.0f, 100.0f, 0.0f, size);
+          HS_PROBE_SPAN(pack, hs_t);
+          return;
+        }
+        plane_dist = (inside ? -1.0f : 1.0f) * sqrtf(dsq);
       }
     }
 

@@ -1218,6 +1218,11 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   Fragment frag;
   ScopedRenderTimer timer_guard(canvas);
 
+  // 1.0002 margin keeps the sqrt-free cull strictly conservative against the
+  // caller's post-subtraction reject; debug draws every probe, so no cull.
+  const float reject_rad = (pixel_width + shape.thickness) * 1.0002f;
+  const float reject_dsq = effective_debug ? FLT_MAX : reject_rad * reject_rad;
+
   HS_PROFILE(raster_scan);
   for (int y = y_lo; y <= y_hi; ++y) {
     float sp = TrigLUT<W, H>::sin_phi[y];
@@ -1227,7 +1232,7 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         if (mask && !mask->owns(x, y))
           continue;
         Vector p(sp * cos_theta[x], cp, sp * sin_theta[x]);
-        shape.template distance<true>(p, res);
+        shape.template distance<true>(p, res, reject_dsq);
         float d = res.dist;
         if (!effective_debug && d >= pixel_width)
           continue;
