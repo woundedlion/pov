@@ -14,7 +14,7 @@
  * simple-registry solids (docs/conway_morph_spec.md).
  * @details A node is a simple-registry solid; an edge is one animated operator
  * sweep between two parameter values on one seed. The table plus the pure walk
- * and seed-reconciliation helpers here are consumed by Animation::ConwayMorph
+ * and seed-reconciliation helpers here are consumed by Animation::OpLeg
  * and HankinSolids; everything is constexpr and unit-testable with no effect
  * or animation dependency.
  */

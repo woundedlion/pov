@@ -174,7 +174,7 @@ private:
  * is drawn per frame. Bulk state lives in an arena-allocated Transients (same
  * survival contract as MeshMorph); the caller compacts the arena between legs.
  */
-class ConwayMorph : public AnimationBase<ConwayMorph> {
+class OpLeg : public AnimationBase<OpLeg> {
 public:
   static constexpr int PALETTES = BakedPaletteBank::N;
   /** Distinct (from, to) ramp pairs a leg may carry; bounds the per-frame
@@ -267,7 +267,7 @@ public:
    * @param easing_fn Easing applied to the sweep parameter.
    */
   HS_COLD_MEMBER
-  ConwayMorph(const PolyMesh &seed, const ConwayGraph::EdgeSpec &edge,
+  OpLeg(const PolyMesh &seed, const ConwayGraph::EdgeSpec &edge,
               bool reverse, Arena &arena, MorphDrawFn draw,
               const PaletteHandoff &handoff, int sweep_frames,
               int settle_frames,
@@ -275,9 +275,9 @@ public:
               EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames + settle_frames, false),
         easing_fn(easing_fn), draw_fn(draw) {
-    HS_CHECK(sweep_frames >= 1, "ConwayMorph needs a positive sweep length");
+    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
     HS_CHECK(settle_frames >= 0 && (edge.settle || settle_frames == 0),
-             "ConwayMorph: settle frames on a non-settling edge");
+             "OpLeg: settle frames on a non-settling edge");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
     buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
@@ -334,7 +334,7 @@ public:
         tr.relaxed.append_bulk(relaxed_mesh.vertices.data(),
                                relaxed_mesh.vertices.size());
         HS_CHECK(tr.relaxed.size() == arrival.vertices.size(),
-                 "ConwayMorph: relax changed the vertex count");
+                 "OpLeg: relax changed the vertex count");
       }
       MeshOps::classify_faces_by_topology(*classified, scratch_arena_a,
                                           scratch_arena_b, arena);
@@ -354,7 +354,7 @@ public:
           start = &start_mesh;
         }
         HS_CHECK(start->face_counts.size() == tr.topo.size(),
-                 "ConwayMorph: start face count differs from arrival");
+                 "OpLeg: start face count differs from arrival");
         start_centroid = face_centroids(*start, scratch_arena_a);
       }
 
@@ -433,7 +433,7 @@ public:
       MeshOps::compile(swept, compiled, scratch_arena_a, scratch_arena_b);
     }
     HS_CHECK(compiled.face_counts.size() == tr.topo.size(),
-             "ConwayMorph: sweep changed the compiled face count");
+             "OpLeg: sweep changed the compiled face count");
     compiled.topology.bind(scratch_arena_a, tr.topo.size());
     compiled.topology.append_bulk(tr.topo.data(), tr.topo.size());
 
@@ -463,7 +463,7 @@ public:
 
 private:
   /**
-   * @brief Arena-allocated leg state — keeps ConwayMorph inline size small.
+   * @brief Arena-allocated leg state — keeps OpLeg inline size small.
    */
   struct Transients {
     PolyMesh seed; /**< Cloned leg seed. */
@@ -607,7 +607,7 @@ private:
     // area (seed arrivals' orbit faces, whose target color never shows).
     HS_CHECK(!bookend.topology || bookend.faces == total ||
                  bookend.faces == survivors,
-             "ConwayMorph: bookend face count matches neither mapping");
+             "OpLeg: bookend face count matches neither mapping");
     tr.target_topo.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
       tr.target_topo.push_back(bookend.topology && f < bookend.faces
@@ -627,10 +627,10 @@ private:
       // remaining faces are births).
       HS_CHECK(handoff.prev_faces == total || handoff.prev_faces == survivors ||
                    handoff.prev_faces == primary,
-               "ConwayMorph: handoff face count matches no mapping");
+               "OpLeg: handoff face count matches no mapping");
     } else {
       HS_CHECK(handoff.prev_face_sides,
-               "ConwayMorph: class-signature mapping needs prev side counts");
+               "OpLeg: class-signature mapping needs prev side counts");
     }
 
     // Full-correspondence geometric mapping: nearest departed centroid,
@@ -651,7 +651,7 @@ private:
         const size_t j = nearest_prev_face(start_centroid[f], handoff);
         const Vector d = start_centroid[f] - handoff.prev_face_centroid[j];
         HS_CHECK(!prev_used[j] && dot(d, d) < PROVENANCE_TOL_SQ,
-                 "ConwayMorph: start face has no unique departed counterpart");
+                 "OpLeg: start face has no unique departed counterpart");
         prev_used[j] = true;
         from = handoff.prev_face_palette[j];
       } else if (start_centroid) { // prev_faces == survivors
@@ -688,7 +688,7 @@ private:
       }
       if (ramp < 0) {
         HS_CHECK(tr.num_ramps < MAX_BLEND_PAIRS,
-                 "ConwayMorph: distinct palette pairs exceed the blend budget");
+                 "OpLeg: distinct palette pairs exceed the blend budget");
         ramp = tr.num_ramps++;
         tr.ramp_from[ramp] = from;
         tr.ramp_to[ramp] = to;
