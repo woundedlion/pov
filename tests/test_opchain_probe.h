@@ -704,8 +704,12 @@ inline void test_build_chain_provenance_ambiguity() {
               prefix_legs, full_legs, misidentified, max_prev_faces,
               max_prev_name, static_cast<double>(worst_newborn_ratio),
               static_cast<double>(worst_prefix_offset));
-  // No build leg takes the tolerance-checked full-correspondence path.
+  // No build leg takes the tolerance-checked full-correspondence path, so
+  // PROVENANCE_TOL_SQ and the prev_used[128] bijection mark never apply to a
+  // chain leg -- which the chains need, since they depart from meshes far
+  // past 128 faces.
   HS_EXPECT_EQ(full_legs, static_cast<size_t>(0));
+  HS_EXPECT_TRUE(max_prev_faces > 128);
 }
 
 /**
