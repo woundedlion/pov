@@ -3110,12 +3110,11 @@ struct Face {
    * @return Signed distance in the tangent plane (negative inside).
    */
   HS_O3_FN float plane_dist_exact(float px, float py) const {
+    float d = FLT_MAX;
+    bool inside = false;
     const uint32_t qk = angle_key(py);
-    // Two accumulator chains: the core is in-order, so without unrolling one
-    // edge's dependent chain cannot overlap the next's.
-    float d0 = FLT_MAX, d1 = FLT_MAX;
-    bool in0 = false, in1 = false;
-    auto walk = [&](const EdgePacked &ep, float &d, bool &inside) {
+    for (int i = 0; i < count; ++i) {
+      const auto &ep = packed_edges[i];
       float wx = px - ep.vx, wy = py - ep.vy;
       float t = (wx * ep.ex + wy * ep.ey) * ep.inv_len_sq;
       float cv = hs::clamp(t, 0.0f, 1.0f);
@@ -3127,15 +3126,8 @@ struct Face {
         if (px < isx)
           inside = !inside;
       }
-    };
-    int i = 0;
-    for (; i + 1 < count; i += 2) {
-      walk(packed_edges[i], d0, in0);
-      walk(packed_edges[i + 1], d1, in1);
     }
-    if (i < count)
-      walk(packed_edges[i], d0, in0);
-    return ((in0 != in1) ? -1.0f : 1.0f) * sqrtf(__builtin_fminf(d0, d1));
+    return (inside ? -1.0f : 1.0f) * sqrtf(d);
   }
 
   /**
