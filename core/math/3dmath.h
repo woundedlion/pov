@@ -334,8 +334,8 @@ struct Vector {
  * endpoints, a Hopf-fiber pole, a Möbius singularity), unlike the trapping
  * Vector::normalized().
  */
-[[nodiscard]] inline Vector normalized_or(const Vector &v,
-                                          const Vector &fallback) {
+[[nodiscard]] __attribute__((always_inline)) inline Vector
+normalized_or(const Vector &v, const Vector &fallback) {
   float m2 = v.x * v.x + v.y * v.y + v.z * v.z;
   if (m2 < math::EPS_NORMALIZE_SQ) {
     return fallback;
