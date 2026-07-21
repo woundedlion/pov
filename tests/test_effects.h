@@ -1826,7 +1826,210 @@ struct MindSplatterWhiteBox {
     }
     return alpha;
   }
+  static Vector matrix_vertex(const Vector &v, const MobiusParams &mobius,
+                              const Quaternion &orientation) {
+    typename MS::RotationMatrix rotation(orientation);
+    return rotation.apply(mobius_transform(v, mobius));
+  }
+  static Vector reference_vertex(const Vector &v, const MobiusParams &mobius,
+                                 const Quaternion &orientation) {
+    return rotate(mobius_transform(v, mobius), orientation);
+  }
+  template <int W, int H>
+  static void use_reference_orientation(MindSplatter<W, H> &ms, bool enabled) {
+    ms.reference_orientation = enabled;
+  }
 };
+
+/**
+ * @brief Bounds the precomputed orientation matrix against quaternion rotation.
+ */
+inline void test_mindsplatter_rotation_matrix_equivalence() {
+  using WB = MindSplatterWhiteBox;
+  constexpr int W = DEFAULT_W;
+  constexpr int H = DEFAULT_H;
+  const MobiusParams transforms[] = {
+      MobiusParams(), MobiusParams(1, 0, -1.2f, 0, 0, 0, 1, 0),
+      MobiusParams(1, 0, -0.6f, 0.6f, 0, 0, 1, 0),
+      MobiusParams(0.7f, 0.2f, -0.4f, 0.9f, 0.3f, -0.6f, 1.1f, 0.5f)};
+  const Quaternion orientations[] = {
+      Quaternion(), make_rotation(X_AXIS, PI_F * 0.5f),
+      make_rotation(Y_AXIS, PI_F), make_rotation(Z_AXIS, -PI_F * 0.75f),
+      Quaternion(0.3f, -0.4f, 0.5f, -0.7f).normalized(),
+      -Quaternion(0.2f, 0.8f, -0.3f, 0.45f).normalized()};
+
+  struct Tap {
+    int x, y;
+    uint16_t alpha;
+  };
+  auto taps = [](const PixelCoords &p) {
+    std::array<Tap, 4> result{};
+    size_t count = 0;
+    Filter::Screen::AntiAlias<W, H> aa;
+    aa.plot(p.x, p.y, Pixel(), 0.0f, 1.0f,
+            [&](float x, float y, const Pixel &, float, float alpha) {
+              result[count++] = {
+                  static_cast<int>(x), static_cast<int>(y),
+                  static_cast<uint16_t>(hs::clamp(
+                      alpha * 65535.0f + 0.5f, 0.0f, 65535.0f))};
+            });
+    return std::pair{result, count};
+  };
+
+  float max_component_error = 0.0f;
+  float max_angular_error = 0.0f;
+  float max_column_error = 0.0f;
+  float max_row_error = 0.0f;
+  int coverage_differences = 0;
+  int q16_differences = 0;
+  int max_q16_error = 0;
+  size_t sample_count = 0;
+
+  auto check = [&](const Vector &v, const MobiusParams &transform,
+                   const Quaternion &orientation) {
+    const Vector reference = WB::reference_vertex(v, transform, orientation);
+    const Vector matrix = WB::matrix_vertex(v, transform, orientation);
+    max_component_error =
+        std::max(max_component_error,
+                 std::max(std::abs(reference.x - matrix.x),
+                          std::max(std::abs(reference.y - matrix.y),
+                                   std::abs(reference.z - matrix.z))));
+    const float chord = (reference - matrix).length();
+    max_angular_error =
+        std::max(max_angular_error,
+                 2.0f * asinf(hs::clamp(chord * 0.5f, 0.0f, 1.0f)));
+
+    const PixelCoords reference_pixel = vector_to_pixel<W, H>(reference);
+    const PixelCoords matrix_pixel = vector_to_pixel<W, H>(matrix);
+    float dx = std::abs(reference_pixel.x - matrix_pixel.x);
+    dx = std::min(dx, static_cast<float>(W) - dx);
+    max_column_error = std::max(max_column_error, dx);
+    max_row_error =
+        std::max(max_row_error, std::abs(reference_pixel.y - matrix_pixel.y));
+    const auto reference_taps = taps(reference_pixel);
+    const auto matrix_taps = taps(matrix_pixel);
+    bool same_coverage = reference_taps.second == matrix_taps.second;
+    if (same_coverage) {
+      for (size_t j = 0; j < reference_taps.second; ++j)
+        same_coverage &=
+            reference_taps.first[j].x == matrix_taps.first[j].x &&
+            reference_taps.first[j].y == matrix_taps.first[j].y;
+    }
+    if (!same_coverage) {
+      ++coverage_differences;
+    } else {
+      for (size_t j = 0; j < reference_taps.second; ++j) {
+        const int delta =
+            std::abs(static_cast<int>(reference_taps.first[j].alpha) -
+                     static_cast<int>(matrix_taps.first[j].alpha));
+        if (delta)
+          ++q16_differences;
+        max_q16_error = std::max(max_q16_error, delta);
+      }
+    }
+    ++sample_count;
+  };
+
+  const Vector representative_vectors[] = {
+      X_AXIS,
+      Y_AXIS,
+      Z_AXIS,
+      -X_AXIS,
+      -Y_AXIS,
+      -Z_AXIS,
+      Vector(1.0f, 1.0f, 1.0f).normalized(),
+      Vector(-1.0f, 1.0f, -1.0f).normalized(),
+  };
+  hs::random().seed(0x6D617472);
+  for (const MobiusParams &transform : transforms) {
+    for (const Quaternion &orientation : orientations) {
+      for (const Vector &v : representative_vectors)
+        check(v, transform, orientation);
+      for (int i = 0; i < 20000; ++i) {
+        Vector v;
+        do {
+          v = Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                     hs::rand_f(-1.0f, 1.0f));
+        } while (v.length() < 0.1f);
+        v.normalize();
+        check(v, transform, orientation);
+      }
+    }
+  }
+
+  std::printf("matrix samples=%zu component=%.9g angle=%.9g dx=%.9g dy=%.9g "
+              "coverage=%d q16=%d max_q16=%d\n",
+              sample_count, max_component_error, max_angular_error,
+              max_column_error, max_row_error, coverage_differences,
+              q16_differences, max_q16_error);
+  HS_EXPECT_EQ(sample_count, static_cast<size_t>(480192));
+  HS_EXPECT_LE(max_component_error, 5e-7f);
+  HS_EXPECT_LE(max_angular_error, 5e-7f);
+  HS_EXPECT_LE(coverage_differences, 256);
+  HS_EXPECT_LE(max_q16_error, 128);
+}
+
+/** @brief Bounds rendered output drift from the matrix orientation path. */
+inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
+  constexpr int W = DEVICE_W;
+  constexpr int H = DEVICE_H;
+  constexpr int FRAMES = 16;
+  using MS = MindSplatter<W, H>;
+  using WB = MindSplatterWhiteBox;
+  auto render = [&](bool reference) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    std::vector<Pixel> frames;
+    frames.reserve(static_cast<size_t>(W) * H * FRAMES);
+    MS effect;
+    effect.init();
+    WB::use_reference_orientation(effect, reference);
+    for (int f = 0; f < FRAMES; ++f) {
+      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                        static_cast<unsigned long>(f) * FRAME_US);
+      effect.draw_frame();
+      effect.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          frames.push_back(effect.get_pixel(x, y));
+    }
+    return frames;
+  };
+
+  const std::vector<Pixel> reference = render(true);
+  const std::vector<Pixel> matrix = render(false);
+  hs::clear_mock_time();
+  size_t different_pixels = 0;
+  size_t coverage_differences = 0;
+  int max_channel_error = 0;
+  uint64_t total_channel_error = 0;
+  for (size_t i = 0; i < reference.size(); ++i) {
+    const Pixel a = reference[i];
+    const Pixel b = matrix[i];
+    if (a != b)
+      ++different_pixels;
+    const bool a_black = (a.r | a.g | a.b) == 0;
+    const bool b_black = (b.r | b.g | b.b) == 0;
+    if (a_black != b_black)
+      ++coverage_differences;
+    for (int delta : {std::abs(static_cast<int>(a.r) - static_cast<int>(b.r)),
+                      std::abs(static_cast<int>(a.g) - static_cast<int>(b.g)),
+                      std::abs(static_cast<int>(a.b) - static_cast<int>(b.b))}) {
+      max_channel_error = std::max(max_channel_error, delta);
+      total_channel_error += static_cast<uint64_t>(delta);
+    }
+  }
+  std::printf("matrix framebuffer samples=%zu different=%zu coverage=%zu "
+              "max_channel=%d total_channel=%llu\n",
+              reference.size(), different_pixels, coverage_differences,
+              max_channel_error,
+              static_cast<unsigned long long>(total_channel_error));
+  HS_EXPECT_EQ(coverage_differences, static_cast<size_t>(0));
+  HS_EXPECT_LE(different_pixels, static_cast<size_t>(64));
+  HS_EXPECT_LE(max_channel_error, 1);
+  HS_EXPECT_LE(total_channel_error, static_cast<uint64_t>(64));
+}
 
 /**
  * @brief Pins the collapsed signed-axis hole kernel to the six-attractor loop.
@@ -2483,6 +2686,8 @@ inline int run_effects_tests() {
   HS_EXPECT_EQ(EffectRegistry::entries().size(),
                static_cast<size_t>(HS_EFFECT_COUNT));
   test_mindsplatter_octahedral_hole_alpha_equivalence();
+  test_mindsplatter_rotation_matrix_equivalence();
+  test_mindsplatter_rotation_matrix_framebuffer_error();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
   // correctness block and the 288x144 production-resolution roster passes below

@@ -208,6 +208,31 @@ private:
     return quintic_kernel(d / EVENT_HORIZON);
   }
 
+  /** @brief Precomputed current-orientation rotation matrix. */
+  struct RotationMatrix {
+    Vector r0, r1, r2;
+
+    explicit RotationMatrix(const Quaternion &q) {
+      const float qr = q.r;
+      const float qx = q.v.x;
+      const float qy = q.v.y;
+      const float qz = q.v.z;
+      r0 = Vector(1.0f - 2.0f * (qy * qy + qz * qz),
+                  2.0f * (qx * qy - qr * qz),
+                  2.0f * (qx * qz + qr * qy));
+      r1 = Vector(2.0f * (qx * qy + qr * qz),
+                  1.0f - 2.0f * (qx * qx + qz * qz),
+                  2.0f * (qy * qz - qr * qx));
+      r2 = Vector(2.0f * (qx * qz - qr * qy),
+                  2.0f * (qy * qz + qr * qx),
+                  1.0f - 2.0f * (qx * qx + qy * qy));
+    }
+
+    __attribute__((always_inline)) Vector apply(const Vector &v) const {
+      return Vector(dot(r0, v), dot(r1, v), dot(r2, v));
+    }
+  };
+
   /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
   static constexpr bool preset_in_ranges(const Params &p) {
@@ -269,6 +294,9 @@ private:
 
   MobiusParams mobius;      /**< Current Mobius warp parameters. */
   float warp_scale = 0.6f;  /**< Magnitude of each warp animation. */
+#ifdef HS_TEST_BUILD
+  bool reference_orientation = false;
+#endif
 
   /**
    * @brief (Re)builds the particle system from scratch.
@@ -322,11 +350,18 @@ private:
   void draw_particles(Canvas &canvas, float opacity = 1.0f) {
     HS_PROFILE(msp_draw_particles);
     const float cos_event_horizon = fast_cosf(EVENT_HORIZON);
+    const RotationMatrix rotation(orientation.get());
 
     // Position pass: Mobius warp + orientation (decides cullability).
     auto vertex_shader = [&](Fragment &f) {
       f.pos = mobius_transform(f.pos, mobius);
-      f.pos = orientation.orient(f.pos);
+#ifdef HS_TEST_BUILD
+      if (reference_orientation) {
+        f.pos = orientation.orient(f.pos);
+        return;
+      }
+#endif
+      f.pos = rotation.apply(f.pos);
     };
 
     // Signed-axis event-horizon falloff from the pre-warp position.
