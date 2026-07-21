@@ -1906,13 +1906,11 @@ inline void test_recipe_chain_build_replay() {
     HS_EXPECT_GT(count, (size_t)0);
     bool supported = true;
     int leg_frames[MAX_STEPS] = {};
-    int total_frames = 0;
     for (size_t k = 0; k < count; ++k) {
       if (steps[k].op != Solids::Op::HANKIN && steps[k].op != Solids::Op::AMBO)
         supported = false;
       leg_frames[k] = steps[k].op == Solids::Op::HANKIN ? HANKIN_LEG_FRAMES
                                                         : AMBO_LEG_FRAMES;
-      total_frames += leg_frames[k];
     }
     HS_EXPECT_TRUE(supported);
     if (!supported) {
@@ -1920,35 +1918,12 @@ inline void test_recipe_chain_build_replay() {
       continue;
     }
 
-    // Finished solid's classification: every leg keys its targets on a prefix
-    // of it, so a surviving face's target is fixed for the whole chain.
-    int final_topo_buf[MAX_FACES] = {};
-    size_t final_faces = 0;
-    {
-      ScratchScope a_guard(scratch_arena_a);
-      ScratchScope b_guard(scratch_arena_b);
-      PolyMesh fin =
-          Solids::build_recipe(recipe, scratch_arena_a, scratch_arena_b);
-      MeshState fin_state;
-      MeshOps::compile(fin, fin_state, scratch_arena_a, scratch_arena_b);
-      MeshOps::classify_faces_by_topology(fin_state, scratch_arena_a,
-                                          scratch_arena_b, scratch_arena_a);
-      final_faces = fin_state.topology.size();
-      HS_EXPECT_LE(final_faces, MAX_FACES);
-      for (size_t f = 0; f < final_faces; ++f)
-        final_topo_buf[f] = fin_state.topology[f];
-    }
-    const int *final_topo = final_topo_buf;
-
     ChainFx fx;
     uint8_t prev_pal_buf[MAX_FACES];
     Vector prev_centroid[MAX_FACES];
-    uint8_t carried_from[MAX_FACES] = {};
-    uint8_t cur_target[MAX_FACES] = {};
-    uint8_t prev_target[MAX_FACES] = {};
+    uint8_t carried_to[MAX_FACES] = {};
     const OpLeg::Landing *prev_landing = nullptr;
     PolyMesh next;
-    float c_done = 0.0f;
 
     for (size_t k = 0; k < count; ++k) {
       const size_t prev_faces = cur.face_counts.size();
@@ -1972,7 +1947,10 @@ inline void test_recipe_chain_build_replay() {
         prev_pal = prev_pal_buf;
       } else {
         HS_EXPECT_EQ(prev_landing->faces, prev_faces);
-        prev_pal = prev_landing->from_palette;
+        for (size_t f = 0; f < prev_faces; ++f)
+          prev_pal_buf[f] = prev_landing->to_palette[wrap(
+              prev_landing->topology[f], OpLeg::PALETTES)];
+        prev_pal = prev_pal_buf;
       }
 
       // Eager clean endpoint, exactly as start_build_leg derives it (for the
@@ -1983,14 +1961,19 @@ inline void test_recipe_chain_build_replay() {
                           : MeshOps::hankin(cur, a, b, steps[k].param);
         next = Solids::finalize_solid(nx, target);
       });
+      {
+        ScratchScope a_guard(scratch_arena_a);
+        ScratchScope b_guard(scratch_arena_b);
+        MeshOps::classify_faces_by_topology(next, scratch_arena_a,
+                                            scratch_arena_b, persistent_arena);
+      }
       const size_t bookend_faces = next.face_counts.size();
       HS_EXPECT_LE(bookend_faces, MAX_FACES);
-      HS_EXPECT_LE(bookend_faces, final_faces);
 
       OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr,
                                     prev_faces, false,    prev_centroid,
                                     &targets};
-      OpLeg::BookendClasses bookend{final_topo, bookend_faces};
+      OpLeg::BookendClasses bookend{next.topology.data(), bookend_faces};
 
       size_t drawn = 0;
       size_t leg_faces = 0;
@@ -2003,10 +1986,6 @@ inline void test_recipe_chain_build_replay() {
         ++drawn;
       };
 
-      const float c_hi = k + 1 == count
-                             ? 1.0f
-                             : c_done + static_cast<float>(leg_frames[k]) /
-                                            static_cast<float>(total_frames);
       OpLeg leg =
           steps[k].op == Solids::Op::HANKIN
               ? OpLeg(cur, 0.0f, steps[k].param, persistent_arena, cb, handoff,
@@ -2014,7 +1993,6 @@ inline void test_recipe_chain_build_replay() {
               : OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f,
                       0.0f, persistent_arena, cb, handoff, leg_frames[k],
                       bookend);
-      leg.set_blend_range(c_done, c_hi);
       const OpLeg::Landing &landing = leg.landing();
 
       for (int f = 0; f < leg_frames[k]; ++f) {
@@ -2028,40 +2006,22 @@ inline void test_recipe_chain_build_replay() {
       HS_EXPECT_EQ(landing.faces, leg_faces);
       HS_EXPECT_TRUE(landing.from_palette != nullptr);
 
-      // From-palette continuity: the emission prefix keeps the ORIGINAL from
-      // ids, so every leg's pair set blends (original from -> pinned target)
-      // with only the weight range advancing.
-      for (size_t f = 0; f < prev_faces; ++f)
-        HS_EXPECT_EQ((int)landing.from_palette[f],
-                     (int)(k == 0 ? prev_pal_buf[f] : carried_from[f]));
+      // Color continuity at the boundary: each leg blends all the way to its
+      // own arrival palette, so a surviving face must depart the next leg from
+      // exactly the palette this one landed on. Blending part-way instead, with
+      // the target moving between legs, is what jumped the color at every op.
       HS_EXPECT_LE(landing.faces, MAX_FACES);
-      for (size_t f = 0; f < landing.faces; ++f)
-        carried_from[f] = landing.from_palette[f];
-
-      // Target continuity: a surviving face's target palette must not move at
-      // a leg boundary. The blend weight is mid-range there, so a moved target
-      // jumps that face's color — the defect keying targets on each leg's own
-      // arrival produced (32/32 and 62/62 faces on the dodecahedron chain).
-      for (size_t f = 0; f < landing.faces; ++f)
-        cur_target[f] =
-            targets[wrap(landing.topology[f], OpLeg::PALETTES)];
       if (k > 0) {
-        size_t moved = 0;
         for (size_t f = 0; f < prev_faces; ++f)
-          if (cur_target[f] != prev_target[f])
-            ++moved;
-        if (moved)
-          std::printf("    [chain target] %s leg %zu: %zu/%zu faces change "
-                      "target at w=%.3f\n",
-                      entry.name, k, moved, prev_faces, (double)c_done);
-        HS_EXPECT_EQ(moved, (size_t)0);
+          HS_EXPECT_EQ((int)landing.from_palette[f], (int)carried_to[f]);
       }
-      std::memcpy(prev_target, cur_target, landing.faces);
+      for (size_t f = 0; f < landing.faces; ++f)
+        carried_to[f] =
+            landing.to_palette[wrap(landing.topology[f], OpLeg::PALETTES)];
 
       // Landing lives in the leg's arena-backed Transients; outlives `leg`.
       prev_landing = &landing;
       cur = std::move(next);
-      c_done = c_hi;
     }
 
     // Final clean swap: the landing's bookend classification must match a
