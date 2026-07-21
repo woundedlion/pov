@@ -1075,6 +1075,84 @@ public:
     return registry;
   }
 
+  /**
+   * @brief Maps an authored Solids::Op to the editor's lowercase op string.
+   * @param op Authored operator from a recipe step.
+   * @return The op name matching the solids editor's vocabulary.
+   */
+  static const char *op_name(Solids::Op op) {
+    switch (op) {
+    case Solids::Op::TRUNCATE:
+      return "truncate";
+    case Solids::Op::EXPAND:
+      return "expand";
+    case Solids::Op::SNUB:
+      return "snub";
+    case Solids::Op::CHAMFER:
+      return "chamfer";
+    case Solids::Op::HANKIN:
+      return "hankin";
+    case Solids::Op::RELAX:
+      return "relax";
+    case Solids::Op::KIS:
+      return "kis";
+    case Solids::Op::DUAL:
+      return "dual";
+    case Solids::Op::AMBO:
+      return "ambo";
+    case Solids::Op::BEVEL:
+      return "bevel";
+    case Solids::Op::GYRO:
+      return "gyro";
+    case Solids::Op::META:
+      return "meta";
+    case Solids::Op::NEEDLE:
+      return "needle";
+    case Solids::Op::ZIP:
+      return "zip";
+    }
+    __builtin_unreachable();
+  }
+
+  /**
+   * @brief Returns a solid's authored recipe chain for the editor.
+   * @param name Registry name to look up.
+   * @return JS object {seed: string, ops: [{op: string, param, twist}]}, or
+   *         null for an unknown name or an entry without a recipe.
+   * @details Pure table read: no arenas, no wrapper, no clearToolingMemory()
+   *          pairing. Params cross in engine-native units (radians for hankin,
+   *          raw t, relax iteration count), matching the MeshOps op bindings.
+   *          An unknown name is rejected at the untrusted JS boundary
+   *          (fromSolidName's precedent) rather than trapping; a recipe-less
+   *          known entry is the normal not-morphable case and returns null
+   *          without logging.
+   */
+  static val getRecipe(const std::string &name) {
+    const Solids::Entry *entry = Solids::find_entry(name);
+    if (!entry) {
+      hs::log("WASM: getRecipe unknown solid '%s' — ignored", name.c_str());
+      return val::null();
+    }
+    if (!entry->recipe)
+      return val::null();
+    const Solids::Recipe &recipe = *entry->recipe;
+    // recipe.seed indexes simple_registry specifically (get_entry spans all
+    // three registries and would misresolve it).
+    val out = val::object();
+    out.set("seed", val(Solids::simple_registry[recipe.seed].name));
+    val ops = val::array();
+    for (size_t i = 0; i < recipe.count; ++i) {
+      const Solids::OpStep &step = recipe.steps[i];
+      val item = val::object();
+      item.set("op", val(op_name(step.op)));
+      item.set("param", step.param);
+      item.set("twist", step.twist);
+      ops.set(i, item);
+    }
+    out.set("ops", ops);
+    return out;
+  }
+
 #ifdef HS_WASM_DEV_BINDINGS
   /**
    * @brief Measures the maximum vertex/face/index counts across all solids.
@@ -1285,6 +1363,7 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .class_function("clearToolingMemory", &MeshOpsWrapper::clearToolingMemory)
       .class_function("fromSolidName", &MeshOpsWrapper::fromSolidName)
       .class_function("getRegistry", &MeshOpsWrapper::getRegistry)
+      .class_function("getRecipe", &MeshOpsWrapper::getRecipe)
 #ifdef HS_WASM_DEV_BINDINGS
       .class_function("getMaxBounds", &MeshOpsWrapper::getMaxBounds)
 #endif
