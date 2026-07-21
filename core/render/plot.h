@@ -3213,7 +3213,7 @@ struct Mesh {
  * Registers:
  *  v0: Trail Progress (0.0=Head -> 1.0=Tail)
  *  v1: Reserved (always 0)
- *  v2: Particle ID
+ *  v2: Particle ID, or the particle_v2 mapper's value
  *  v3: Normalized TTL
  */
 struct ParticleSystem {
@@ -3221,6 +3221,7 @@ struct ParticleSystem {
    * @brief Draws each active particle's history as a rasterized trail.
    * @tparam W,H Rasterization resolution.
    * @tparam PipelineT Pipeline type (defaults to PipelineRef).
+   * @tparam ParticleV2Fn Optional per-particle v2 mapper type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param system Particle system supplying the active pool and trail history.
@@ -3231,12 +3232,17 @@ struct ParticleSystem {
    *        for trails with at least one cull-surviving edge; a skipped trail
    *        renders nothing, so output is identical to an undeferred shader.
    *        Put per-point work that only affects shading registers here.
+   * @param particle_v2 Optional mapper from particle and pool index to v2.
+   *        Called once per materialized particle; the default stores the pool
+   *        index.
    */
-  template <int W, int H, typename PipelineT = PipelineRef>
+  template <int W, int H, typename PipelineT = PipelineRef,
+            typename ParticleV2Fn = std::nullptr_t>
   static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader,
-                   DeferredShaderRef deferred_shader = {}) {
+                   DeferredShaderRef deferred_shader = {},
+                   ParticleV2Fn particle_v2 = nullptr) {
     int count = system.active();
     if (count == 0)
       return;
@@ -3261,7 +3267,12 @@ struct ParticleSystem {
       const size_t trail_len = p.history.length();
       if (p.life == 0 || trail_len < 2)
         continue;
-      const float particle_id = static_cast<float>(i);
+      const float v2 = [&] {
+        if constexpr (std::is_same_v<ParticleV2Fn, std::nullptr_t>)
+          return static_cast<float>(i);
+        else
+          return particle_v2(p, i);
+      }();
       const float particle_life = static_cast<float>(p.life) * inv_max_life;
       ScratchScope trail_guard(scratch_arena_a);
       Fragments trail;
@@ -3273,7 +3284,7 @@ struct ParticleSystem {
       {
         HS_PROFILE(plot_ps_tween);
         p.history.tween([&](const Vector &v, float t) {
-          trail.emplace_back(Fragment{v, t, 0.0f, particle_id, particle_life,
+          trail.emplace_back(Fragment{v, t, 0.0f, v2, particle_life,
                                       1.0f, 0.0f, Color4(0, 0, 0, 0)});
           if (deferred_shader)
             orig.push_back(v);

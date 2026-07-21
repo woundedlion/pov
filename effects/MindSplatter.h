@@ -233,6 +233,20 @@ private:
     }
   };
 
+  __attribute__((always_inline)) static float
+  normalize_color_seed(uint16_t seed) {
+    return static_cast<float>(seed) / 65535.0f;
+  }
+
+  __attribute__((always_inline)) static float wrap_color_t(float progress,
+                                                           float seed) {
+    float t = progress + seed;
+    if (t >= 1.0f)
+      t -= 1.0f;
+    // The reachable 2.0f endpoint subtracts to 1.0f and folds to zero.
+    return t >= 1.0f ? 0.0f : t;
+  }
+
   /** @brief True iff every preset-driven field of @p p lies within its
    *  registered slider range (see the range constants above). */
   static constexpr bool preset_in_ranges(const Params &p) {
@@ -296,6 +310,7 @@ private:
   float warp_scale = 0.6f;  /**< Magnitude of each warp animation. */
 #ifdef HS_TEST_BUILD
   bool reference_orientation = false;
+  bool reference_color_seed_lookup = false;
 #endif
 
   /**
@@ -371,20 +386,34 @@ private:
 
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       float alpha = std::min(f.v0, f.v3);
-      size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
-      // Fragments only exist for live particles, so active() >= 1 here; the
-      // clamp keeps a float-rounding overshoot in range. The active() guard
-      // avoids an unsigned underflow to SIZE_MAX if that precondition is ever
-      // violated.
-      if (particle_system.active())
-        p_idx = std::min<size_t>(p_idx, particle_system.active() - 1);
-
-      const auto &p = particle_system.pool[p_idx];
-      float seed_f = static_cast<float>(p.color_seed) / 65535.0f;
-      float t_shifted = wrap_t(f.v0 + seed_f);
+      float t_shifted;
+#ifdef HS_TEST_BUILD
+      if (reference_color_seed_lookup) {
+        size_t p_idx = static_cast<size_t>(f.v2 + 0.5f);
+        if (particle_system.active())
+          p_idx = std::min<size_t>(p_idx, particle_system.active() - 1);
+        const float seed_f =
+            normalize_color_seed(particle_system.pool[p_idx].color_seed);
+        t_shifted = wrap_t(f.v0 + seed_f);
+      } else {
+        t_shifted = wrap_color_t(f.v0, f.v2);
+      }
+#else
+      t_shifted = wrap_color_t(f.v0, f.v2);
+#endif
       Color4 c = baked_palette_.get(t_shifted);
       c.alpha = c.alpha * alpha * alpha * opacity;
       f.color = c;
+    };
+
+    auto particle_v2 = [&](const auto &p, int i) {
+#ifdef HS_TEST_BUILD
+      if (reference_color_seed_lookup)
+        return static_cast<float>(i);
+#else
+      (void)i;
+#endif
+      return normalize_color_seed(p.color_seed);
     };
 
     HS_CHECK(particle_system.active() <= particle_system.pool.capacity(),
@@ -393,7 +422,7 @@ private:
       HS_PROFILE(msp_particle_scan);
       Plot::ParticleSystem::draw<W, H>(filters, canvas, particle_system,
                                        fragment_shader, vertex_shader,
-                                       hole_shader);
+                                       hole_shader, particle_v2);
     }
   }
 
