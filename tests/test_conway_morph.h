@@ -2608,6 +2608,11 @@ inline ChainPeaks replay_build_chain(const char *name,
     uint8_t carried_to[MAX_FACES] = {};
     const OpLeg::Landing *prev_landing = nullptr;
     PolyMesh next;
+    // A hankin leg's endpoint is rebuilt into scratch_a and stays there until
+    // the boundary evacuates it into the fresh persistent arena, as
+    // finish_build_leg does. One is live at a time, so each rebuild rewinds to
+    // this mark first.
+    const size_t endpoint_mark = scratch_arena_a.get_offset();
 
     for (size_t k = 0; k < count; ++k) {
       const size_t prev_faces = cur.face_counts.size();
@@ -2636,13 +2641,14 @@ inline ChainPeaks replay_build_chain(const char *name,
       }
 
       // Eager clean endpoint, exactly as start_build_leg derives it (for the
-      // ambo leg: the AMBO mesh, never the swept truncate form).
+      // ambo leg: the AMBO mesh, never the swept truncate form). A hankin step
+      // builds none: its leg rebuilds its own arrival once it has run.
+      const bool hankin_step = steps[k].op == Solids::Op::HANKIN;
+      OpLeg::BookendClasses bookend;
+      if (!hankin_step) {
       generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
         PolyMesh nx;
         switch (steps[k].op) {
-        case Solids::Op::HANKIN:
-          nx = MeshOps::hankin(cur, a, b, steps[k].param);
-          break;
         case Solids::Op::AMBO:
           nx = MeshOps::ambo(cur, a, b);
           break;
@@ -2675,11 +2681,12 @@ inline ChainPeaks replay_build_chain(const char *name,
       }
       const size_t bookend_faces = next.face_counts.size();
       HS_EXPECT_LE(bookend_faces, MAX_FACES);
+      bookend = {next.topology.data(), bookend_faces};
+      }
 
       OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr,
                                     prev_faces, false,    prev_centroid,
                                     &targets};
-      OpLeg::BookendClasses bookend{next.topology.data(), bookend_faces};
 
       size_t drawn = 0;
       size_t leg_faces = 0;
@@ -2773,6 +2780,12 @@ inline ChainPeaks replay_build_chain(const char *name,
 
       // Landing lives in the leg's arena-backed Transients; outlives `leg`.
       prev_landing = &landing;
+
+      if (hankin_step) {
+        next = PolyMesh();
+        scratch_arena_a.set_offset(endpoint_mark);
+        OpLeg::arrival_mesh(landing, next, scratch_arena_a);
+      }
 
       // Mirror finish_build_leg's boundary compaction: the finished leg's
       // transients are reclaimed and only the endpoint the next leg sweeps
