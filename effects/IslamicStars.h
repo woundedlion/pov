@@ -160,13 +160,8 @@ private:
   size_t build_step_ = 0;       /**< Current leg index. */
   int build_leg_frames_[MAX_BUILD_STEPS] = {}; /**< Per-leg frame budget. */
   int build_total_frames_ = 0;                 /**< Sum of leg frames. */
-  float build_c_done_ = 0.0f; /**< Cumulative colour fraction c(k-1). */
   PolyMesh build_seed_;       /**< Leg-k seed (persistent). */
   PolyMesh build_next_seed_;  /**< Eagerly built clean endpoint seed_{k+1}. */
-  const int *build_final_topo_ =
-      nullptr; /**< Finished solid's per-face class; every leg's color targets
-                  key on its prefix (persistent, valid until the next spawn). */
-  size_t build_final_faces_ = 0; /**< Length of build_final_topo_. */
   std::array<uint8_t, Animation::OpLeg::PALETTES> build_targets_ =
       {}; /**< Per-shape pinned target palettes, shuffled before leg 0. */
   const Animation::OpLeg::Landing *build_landing_ =
@@ -366,26 +361,6 @@ private:
       palette_bank_.bake_all(arena);
     });
 
-    if (recipe) {
-      // Classify the finished solid up front: every leg's color targets key on
-      // this, so the whole chain converges on one assignment. Compiled first so
-      // the class ids match the ones finish_build reads off the front slot.
-      ScratchScope a_guard(scratch_arena_a);
-      ScratchScope b_guard(scratch_arena_b);
-      PolyMesh fin =
-          Solids::build_recipe(*recipe, scratch_arena_a, scratch_arena_b);
-      MeshState fin_state;
-      MeshOps::compile(fin, fin_state, scratch_arena_a, scratch_arena_b);
-      MeshOps::classify_faces_by_topology(fin_state, scratch_arena_a,
-                                          scratch_arena_b, scratch_arena_a);
-      build_final_faces_ = fin_state.topology.size();
-      HS_CHECK(build_final_faces_ <= MAX_BUILD_FACES);
-      int *topo = persistent_arena.allocate_n<int>(build_final_faces_);
-      for (size_t f = 0; f < build_final_faces_; ++f)
-        topo[f] = fin_state.topology[f];
-      build_final_topo_ = topo;
-    }
-
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       if (recipe) {
         // The build starts from the recipe's seed solid; the chain is swept
@@ -450,7 +425,6 @@ private:
       build_step_count_ =
           Solids::expand_to_primitives(*recipe, build_steps_, MAX_BUILD_STEPS);
       build_step_ = 0;
-      build_c_done_ = 0.0f;
       build_total_frames_ = 0;
       for (size_t k = 0; k < build_step_count_; ++k) {
         const Solids::Op op = build_steps_[k].op;
@@ -522,16 +496,23 @@ private:
       build_next_seed_ = Solids::finalize_solid(next, target);
     });
 
-    // Every leg keys its color targets on the FINISHED solid's classification,
-    // read over this leg's face prefix. Face index is a stable identity along
-    // the chain (each op emits its primary faces first, in source-face order),
-    // so a face's target never changes at a leg boundary — keying on each
-    // leg's own arrival instead moves the target mid-blend and pops the color.
-    // The prefix also keeps the final swap exact: faces the finished solid's
-    // classification merges converge to one color by w = 1.
+    // Each leg carries its color the whole way to the palette its own arrival
+    // mesh calls for, so every intermediate solid stands fully colored rather
+    // than caught mid-transition. Continuity across the boundary comes from
+    // the next leg departing from this leg's target (see prev_pal below): the
+    // leg lands at weight 1 and its successor opens at weight 0 on the same
+    // palette. The last leg's arrival is the finished solid, so its targets
+    // are the final ones and the closing swap stays exact.
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
     const size_t bookend_faces = build_next_seed_.face_counts.size();
-    HS_CHECK(bookend_faces <= build_final_faces_);
-    Animation::OpLeg::BookendClasses bookend{build_final_topo_, bookend_faces};
+    HS_CHECK(bookend_faces <= MAX_BUILD_FACES);
+    Animation::OpLeg::BookendClasses bookend{build_next_seed_.topology.data(),
+                                             bookend_faces};
 
     // Handoff arrays are ctor-scoped: scratch-backed under this scope, alive
     // through the OpLeg constructor's own LIFO-stacked scratch scopes.
@@ -560,12 +541,15 @@ private:
             slots[wrap(seed_slot.topology[f], NUM_PALETTES)]);
       prev_pal = pal;
     } else {
-      // The ORIGINAL from ids carried through the chain: every leg blends
-      // (original from -> pinned target) with only the weight range advancing
-      // (docs/opchain_morph_spec.md, section 5.3).
+      // Depart from the palette the previous leg landed on, so the boundary is
+      // continuous: that leg finished at weight 1 on exactly these ids.
       HS_CHECK(build_landing_ && build_landing_->faces == prev_faces,
                "IslamicStars: chain landing does not cover the leg seed");
-      prev_pal = build_landing_->from_palette;
+      uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(prev_faces);
+      for (size_t f = 0; f < prev_faces; ++f)
+        pal[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
+                                                 NUM_PALETTES)];
+      prev_pal = pal;
     }
 
     Animation::OpLeg::PaletteHandoff handoff{
@@ -573,30 +557,21 @@ private:
         false,               prev_centroid, &build_targets_};
 
     const int frames = build_leg_frames_[k];
-    // Colour share weighted by leg frames; the last leg lands exactly on 1.
-    const float c_hi =
-        k + 1 == build_step_count_
-            ? 1.0f
-            : build_c_done_ + static_cast<float>(frames) /
-                                  static_cast<float>(build_total_frames_);
     hs::log("Build leg: %s (%d frames)",
             step.op == Solids::Op::HANKIN ? "hankin" : "ambo", frames);
 
     if (step.op == Solids::Op::HANKIN) {
       Animation::OpLeg leg(build_seed_, 0.0f, step.param, persistent_arena,
                            draw_build_fn_, handoff, frames, bookend);
-      leg.set_blend_range(build_c_done_, c_hi);
       build_landing_ = &leg.landing();
       timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
     } else {
       Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
                            0.5f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
                            handoff, frames, bookend);
-      leg.set_blend_range(build_c_done_, c_hi);
       build_landing_ = &leg.landing();
       timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
     }
-    build_c_done_ = c_hi;
   }
 
   /**
