@@ -1835,11 +1835,68 @@ struct MindSplatterWhiteBox {
                                  const Quaternion &orientation) {
     return rotate(mobius_transform(v, mobius), orientation);
   }
+  static float normalized_color_seed(uint16_t seed) {
+    return MS::normalize_color_seed(seed);
+  }
+  static float wrapped_color_t(float progress, float seed) {
+    return MS::wrap_color_t(progress, seed);
+  }
+  static constexpr int trail_length() { return MS::TRAIL_LEN; }
   template <int W, int H>
   static void use_reference_orientation(MindSplatter<W, H> &ms, bool enabled) {
     ms.reference_orientation = enabled;
   }
+  template <int W, int H>
+  static void use_reference_color_seed_lookup(MindSplatter<W, H> &ms,
+                                              bool enabled) {
+    ms.reference_color_seed_lookup = enabled;
+  }
 };
+
+/** @brief Pins normalized color seeds and wrapped trail progress bit-exactly. */
+inline void test_mindsplatter_normalized_color_seed_boundaries() {
+  using WB = MindSplatterWhiteBox;
+  const float progress_boundaries[] = {
+      0.0f,
+      std::nextafter(0.0f, 1.0f),
+      0.5f,
+      std::nextafter(1.0f, 0.0f),
+      1.0f,
+  };
+  size_t samples = 0;
+  for (uint32_t seed = 0; seed <= 65535; ++seed) {
+    const float reference_seed = static_cast<float>(seed) / 65535.0f;
+    const float normalized_seed =
+        WB::normalized_color_seed(static_cast<uint16_t>(seed));
+    HS_EXPECT_EQ(normalized_seed, reference_seed);
+    for (float progress : progress_boundaries) {
+      HS_EXPECT_EQ(WB::wrapped_color_t(progress, normalized_seed),
+                   wrap_t(progress + reference_seed));
+      ++samples;
+    }
+    const float seam = 1.0f - normalized_seed;
+    for (float progress : {std::nextafter(seam, 0.0f), seam,
+                           std::nextafter(seam, 1.0f)}) {
+      HS_EXPECT_EQ(WB::wrapped_color_t(progress, normalized_seed),
+                   wrap_t(progress + reference_seed));
+      ++samples;
+    }
+    for (int len = 2; len <= WB::trail_length(); ++len) {
+      for (int i = 0; i < len; ++i) {
+        const float progress =
+            static_cast<float>(i) / static_cast<float>(len - 1);
+        HS_EXPECT_EQ(WB::wrapped_color_t(progress, normalized_seed),
+                     wrap_t(progress + reference_seed));
+        ++samples;
+      }
+    }
+  }
+  HS_EXPECT_EQ(WB::normalized_color_seed(0), 0.0f);
+  HS_EXPECT_EQ(WB::normalized_color_seed(65535), 1.0f);
+  HS_EXPECT_EQ(WB::wrapped_color_t(1.0f, WB::normalized_color_seed(65535)),
+               0.0f);
+  HS_EXPECT_EQ(samples, static_cast<size_t>(18546688));
+}
 
 /**
  * @brief Bounds the precomputed orientation matrix against quaternion rotation.
@@ -2029,6 +2086,51 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
   HS_EXPECT_LE(different_pixels, static_cast<size_t>(64));
   HS_EXPECT_LE(max_channel_error, 1);
   HS_EXPECT_LE(total_channel_error, static_cast<uint64_t>(64));
+}
+
+/** @brief The normalized-seed render matches the particle-pool lookup. */
+inline void test_mindsplatter_color_seed_framebuffer_parity() {
+  constexpr int W = DEVICE_W;
+  constexpr int H = DEVICE_H;
+  constexpr int FRAMES = 16;
+  using MS = MindSplatter<W, H>;
+  using WB = MindSplatterWhiteBox;
+  auto render = [&](bool reference) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    std::vector<Pixel> frames;
+    frames.reserve(static_cast<size_t>(W) * H * FRAMES);
+    MS effect;
+    effect.init();
+    WB::use_reference_color_seed_lookup(effect, reference);
+    for (int f = 0; f < FRAMES; ++f) {
+      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                        static_cast<unsigned long>(f) * FRAME_US);
+      effect.draw_frame();
+      effect.advance_display();
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          frames.push_back(effect.get_pixel(x, y));
+    }
+    return frames;
+  };
+
+  const std::vector<Pixel> reference = render(true);
+  const std::vector<Pixel> normalized = render(false);
+  hs::clear_mock_time();
+  size_t lit_pixels = 0;
+  size_t different_pixels = 0;
+  for (size_t i = 0; i < reference.size(); ++i) {
+    if (reference[i].r | reference[i].g | reference[i].b)
+      ++lit_pixels;
+    if (reference[i] != normalized[i])
+      ++different_pixels;
+  }
+  std::printf("color seed framebuffer samples=%zu lit=%zu different=%zu\n",
+              reference.size(), lit_pixels, different_pixels);
+  HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
+  HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
 }
 
 /**
@@ -2686,8 +2788,10 @@ inline int run_effects_tests() {
   HS_EXPECT_EQ(EffectRegistry::entries().size(),
                static_cast<size_t>(HS_EFFECT_COUNT));
   test_mindsplatter_octahedral_hole_alpha_equivalence();
+  test_mindsplatter_normalized_color_seed_boundaries();
   test_mindsplatter_rotation_matrix_equivalence();
   test_mindsplatter_rotation_matrix_framebuffer_error();
+  test_mindsplatter_color_seed_framebuffer_parity();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
   // correctness block and the 288x144 production-resolution roster passes below

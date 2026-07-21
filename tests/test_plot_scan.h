@@ -2982,6 +2982,49 @@ inline void test_particle_system_direct_trail_materialization_registers() {
   }
 }
 
+/** @brief A custom v2 mapper runs once per materialized particle. */
+inline void test_particle_system_custom_v2_mapper() {
+  constexpr int W = 96, H = 48;
+  RasterFx fx(W, H);
+  StubSystem sys;
+  sys.max_life = 100;
+
+  StubParticle first = make_particle_trail(3);
+  StubParticle second = make_particle_trail(4);
+  first.life = 25;
+  second.life = 75;
+  StubParticle dead = make_particle_trail(2);
+  dead.life = 0;
+  StubParticle one_point = make_particle_trail(1);
+  sys.pool = {first, second, dead, one_point};
+  sys.active_count = static_cast<int>(sys.pool.size());
+
+  int mapper_calls = 0;
+  int first_vertices = 0;
+  int second_vertices = 0;
+  auto particle_v2 = [&](const StubParticle &p, int) {
+    ++mapper_calls;
+    return static_cast<float>(p.life) / 100.0f;
+  };
+  auto vertex_shader = [&](Fragment &f) {
+    if (f.v2 == 0.25f)
+      ++first_vertices;
+    else if (f.v2 == 0.75f)
+      ++second_vertices;
+  };
+  CapturePipeline pipeline;
+  {
+    Canvas canvas(fx);
+    Plot::ParticleSystem::draw<W, H>(pipeline, canvas, sys, noop_shader,
+                                     vertex_shader, DeferredShaderRef{},
+                                     particle_v2);
+  }
+
+  HS_EXPECT_EQ(mapper_calls, 2);
+  HS_EXPECT_EQ(first_vertices, 3);
+  HS_EXPECT_EQ(second_vertices, 4);
+}
+
 /**
  * @brief Direct and callback materializers produce identical framebuffers for
  *        full linear and full wrapped quantized histories.
@@ -3685,6 +3728,7 @@ inline int run_plot_scan_tests() {
   test_particle_system_empty_zero_lifetime_is_noop();
   test_particle_system_skips_unrenderable_trails();
   test_particle_system_direct_trail_materialization_registers();
+  test_particle_system_custom_v2_mapper();
   test_particle_system_direct_trail_materialization_output_parity();
   test_particle_system_deferred_shader_parity_and_skip();
   test_particle_system_gate_pixel_parity_random_trails();
