@@ -1206,11 +1206,14 @@ inline constexpr Entry catalan_registry[] = {
 // reorder fails to compile.
 inline constexpr uint8_t SEED_OCTAHEDRON = 2;
 inline constexpr uint8_t SEED_DODECAHEDRON = 3;
+inline constexpr uint8_t SEED_ICOSAHEDRON = 4;
 
 static_assert(std::string_view(simple_registry[SEED_OCTAHEDRON].name) ==
               "octahedron");
 static_assert(std::string_view(simple_registry[SEED_DODECAHEDRON].name) ==
               "dodecahedron");
+static_assert(std::string_view(simple_registry[SEED_ICOSAHEDRON].name) ==
+              "icosahedron");
 
 /** Step table for dodecahedron_hk62_ambo_hk62. */
 inline constexpr OpStep DODECAHEDRON_HK62_AMBO_HK62_STEPS[] = {
@@ -1231,6 +1234,39 @@ inline constexpr OpStep OCTAHEDRON_HK17_AMBO_HK73_STEPS[] = {
 inline constexpr Recipe OCTAHEDRON_HK17_AMBO_HK73_RECIPE = {
     SEED_OCTAHEDRON, OCTAHEDRON_HK17_AMBO_HK73_STEPS,
     static_cast<uint8_t>(std::size(OCTAHEDRON_HK17_AMBO_HK73_STEPS))};
+
+/** Step table for octahedron_hk34_ambo_hk72. */
+inline constexpr OpStep OCTAHEDRON_HK34_AMBO_HK72_STEPS[] = {
+    {Op::HANKIN, 34.0f * IslamicStarPatterns::D2R},
+    {Op::AMBO},
+    {Op::HANKIN, 72.0f * IslamicStarPatterns::D2R}};
+/** Recipe mirror of IslamicStarPatterns::octahedron_hk34_ambo_hk72. */
+inline constexpr Recipe OCTAHEDRON_HK34_AMBO_HK72_RECIPE = {
+    SEED_OCTAHEDRON, OCTAHEDRON_HK34_AMBO_HK72_STEPS,
+    static_cast<uint8_t>(std::size(OCTAHEDRON_HK34_AMBO_HK72_STEPS))};
+
+/** Step table for dodecahedron_hk54_ambo_hk72. */
+inline constexpr OpStep DODECAHEDRON_HK54_AMBO_HK72_STEPS[] = {
+    {Op::HANKIN, 54.0f * IslamicStarPatterns::D2R},
+    {Op::AMBO},
+    {Op::HANKIN, 72.0f * IslamicStarPatterns::D2R}};
+/** Recipe mirror of IslamicStarPatterns::dodecahedron_hk54_ambo_hk72. */
+inline constexpr Recipe DODECAHEDRON_HK54_AMBO_HK72_RECIPE = {
+    SEED_DODECAHEDRON, DODECAHEDRON_HK54_AMBO_HK72_STEPS,
+    static_cast<uint8_t>(std::size(DODECAHEDRON_HK54_AMBO_HK72_STEPS))};
+
+/** Step table for icosahedron_ambo_truncate033_hankin59. */
+inline constexpr OpStep ICOSAHEDRON_AMBO_TRUNCATE033_HANKIN59_STEPS[] = {
+    {Op::AMBO},
+    {Op::TRUNCATE, 0.33f},
+    {Op::HANKIN, 59.0f * IslamicStarPatterns::D2R}};
+/**
+ * Recipe mirror of IslamicStarPatterns::icosahedron_ambo_truncate033_hankin59.
+ */
+inline constexpr Recipe ICOSAHEDRON_AMBO_TRUNCATE033_HANKIN59_RECIPE = {
+    SEED_ICOSAHEDRON, ICOSAHEDRON_AMBO_TRUNCATE033_HANKIN59_STEPS,
+    static_cast<uint8_t>(
+        std::size(ICOSAHEDRON_AMBO_TRUNCATE033_HANKIN59_STEPS))};
 
 /**
  * @brief Registry of Islamic star-pattern solids.
@@ -1266,7 +1302,7 @@ inline constexpr Entry islamic_registry[] = {
      Category::Complex},
     {"icosahedron_ambo_truncate033_hankin59",
      IslamicStarPatterns::icosahedron_ambo_truncate033_hankin59,
-     Category::Complex},
+     Category::Complex, &ICOSAHEDRON_AMBO_TRUNCATE033_HANKIN59_RECIPE},
     {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
      IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk42,
      Category::Complex},
@@ -1285,7 +1321,8 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::snubDodecahedron_truncate5d_ambo_dual,
      Category::Complex},
     {"octahedron_hk34_ambo_hk72",
-     IslamicStarPatterns::octahedron_hk34_ambo_hk72, Category::Complex},
+     IslamicStarPatterns::octahedron_hk34_ambo_hk72, Category::Complex,
+     &OCTAHEDRON_HK34_AMBO_HK72_RECIPE},
     {"rhombicuboctahedron_hk63_ambo_hk63",
      IslamicStarPatterns::rhombicuboctahedron_hk63_ambo_hk63,
      Category::Complex},
@@ -1293,7 +1330,8 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72,
      Category::Complex},
     {"dodecahedron_hk54_ambo_hk72",
-     IslamicStarPatterns::dodecahedron_hk54_ambo_hk72, Category::Complex},
+     IslamicStarPatterns::dodecahedron_hk54_ambo_hk72, Category::Complex,
+     &DODECAHEDRON_HK54_AMBO_HK72_RECIPE},
     {"dodecahedron_hk72_ambo_dual_hk20",
      IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20, Category::Complex},
     {"truncatedIcosahedron_truncate50d_ambo_dual",
