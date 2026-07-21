@@ -1615,6 +1615,22 @@ public:
     after_reset(persistent_arena);
   }
 
+  /**
+   * @brief Frees both slots and compacts, evacuating nothing.
+   * @tparam AfterReset Callable type invoked as `void(Arena&)`.
+   * @param after_reset Callback run immediately after the reset.
+   * @details Only legal while no sprite is still drawing either slot — with a
+   * sequential segue the outgoing sprite has finished by the time the next
+   * transition is scheduled. Callers that regenerate both slots before the next
+   * draw reclaim a whole MeshState over compact_keep_front.
+   */
+  template <typename AfterReset> void compact_drop_all(AfterReset after_reset) {
+    slots_[0] = MeshState();
+    slots_[1] = MeshState();
+    persistent_arena.reset();
+    after_reset(persistent_arena);
+  }
+
 private:
   MeshState slots_[2]; /**< Front/back double-buffered mesh slots. */
   int front_ = 0;      /**< Index (0 or 1) of the visible front slot. */
