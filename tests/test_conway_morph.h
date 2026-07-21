@@ -2817,17 +2817,22 @@ inline ChainPeaks replay_build_chain(const char *name,
     const std::array<uint8_t, OpLeg::PALETTES> landed_to =
         prev_landing->to_palette;
     prev_landing = nullptr;
-    {
-      Persist<MeshPaletteBank> pb(bank, scratch_arena_b, persistent_arena);
-      Persist<PolyMesh> pc(cur, scratch_arena_b, persistent_arena);
-      seed_slot = MeshState();
-      persistent_arena.reset();
-    }
     MeshState final_slot;
     {
       ScratchScope a_guard(scratch_arena_a);
+      {
+        ScratchScope seed_guard(scratch_arena_b);
+        PolyMesh built;
+        MeshOps::clone(cur, built, scratch_arena_b);
+        cur = PolyMesh();
+        {
+          Persist<MeshPaletteBank> pb(bank, scratch_arena_b, persistent_arena);
+          seed_slot = MeshState();
+          persistent_arena.reset();
+        }
+        MeshOps::compile(built, final_slot, persistent_arena, scratch_arena_a);
+      }
       ScratchScope b_guard(scratch_arena_b);
-      MeshOps::compile(cur, final_slot, persistent_arena, scratch_arena_a);
       MeshOps::classify_faces_by_topology(final_slot, scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
