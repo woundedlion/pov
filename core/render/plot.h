@@ -2529,6 +2529,116 @@ struct Flower {
   }
 };
 
+enum class CartesianTrailGateResult : uint8_t {
+  EXACT_FALLBACK,
+  LATITUDE_REJECT,
+  MERIDIAN_REJECT,
+};
+
+struct CartesianQuadrantClip {
+  float latitude_sign = 0.0f;
+  float latitude_threshold = 0.0f;
+  float meridian_sign = 0.0f;
+  float meridian_threshold = 0.0f;
+  bool active = false;
+};
+
+/**
+ * @brief Builds the Cartesian halfspace superset for a segmented quadrant.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param cr Active clip region.
+ * @return Enabled thresholds only for the four hardware quadrant shapes.
+ */
+template <int W, int H>
+static CartesianQuadrantClip make_cartesian_quadrant_clip(
+    const ClipRegion &cr) {
+  CartesianQuadrantClip q;
+  if (cr.w != W || cr.h != H || cr.margin < 0 || W % 2 != 0 || H % 2 != 0 ||
+      cr.x_end - cr.x_start != W / 2 ||
+      (cr.x_start != 0 && cr.x_start != W / 2) ||
+      cr.y_end - cr.y_start != H / 2 ||
+      (cr.y_start != 0 && cr.y_start != H / 2))
+    return q;
+
+  constexpr int H_VIRT = H + hs::H_OFFSET;
+  if (cr.y_start == 0) {
+    const float boundary = static_cast<float>(cr.render_y_end()) * PI_F /
+                           static_cast<float>(H_VIRT - 1);
+    q.latitude_sign = 1.0f;
+    q.latitude_threshold = cosf(boundary);
+  } else {
+    const float boundary = static_cast<float>(cr.render_y_start()) * PI_F /
+                           static_cast<float>(H_VIRT - 1);
+    q.latitude_sign = -1.0f;
+    q.latitude_threshold = -cosf(boundary);
+  }
+
+  // finish_col_span includes ceil's boundary column after its two-column pad.
+  constexpr int COL_FOOTPRINT = 3;
+  const float half_width = PI_F * 0.5f +
+                           static_cast<float>(cr.margin + COL_FOOTPRINT) *
+                               (2.0f * PI_F / static_cast<float>(W));
+  if (half_width >= PI_F)
+    return CartesianQuadrantClip{};
+  q.meridian_sign = cr.x_start == 0 ? 1.0f : -1.0f;
+  q.meridian_threshold = cosf(half_width);
+  q.active = true;
+  return q;
+}
+
+/**
+ * @brief Conservatively rejects a geodesic trail outside a Cartesian quadrant.
+ * @param clip Precomputed quadrant halfspace thresholds.
+ * @param trail Unit-sphere geodesic polyline.
+ * @return Rejecting halfspace, or exact fallback for every uncertain case.
+ */
+HS_O3_BEGIN
+static CartesianTrailGateResult cartesian_quadrant_trail_gate(
+    const CartesianQuadrantClip &clip, const Fragments &trail) {
+  if (!clip.active || trail.size() < 2)
+    return CartesianTrailGateResult::EXACT_FALLBACK;
+
+  float latitude_max = -1.0f;
+  float meridian_max = -1.0f;
+  float max_chord2 = 0.0f;
+  for (size_t k = 0; k < trail.size(); ++k) {
+    const Vector &p = trail[k].pos;
+    latitude_max = std::max(latitude_max, clip.latitude_sign * p.y);
+    meridian_max = std::max(meridian_max, clip.meridian_sign * p.z);
+    if (k > 0) {
+      const Vector d = p - trail[k - 1].pos;
+      max_chord2 = std::max(max_chord2, dot(d, d));
+    }
+  }
+
+  // Every point on a minor arc lies within half its arc of one endpoint, and
+  // arc <= (pi/2)*chord. A unit-normal dot changes by at most angular distance.
+  const float slack = (PI_F * 0.25f) * sqrtf(max_chord2);
+  if (latitude_max + slack < clip.latitude_threshold - math::EPS_GEOMETRIC)
+    return CartesianTrailGateResult::LATITUDE_REJECT;
+  if (meridian_max + slack < clip.meridian_threshold - math::EPS_GEOMETRIC)
+    return CartesianTrailGateResult::MERIDIAN_REJECT;
+  return CartesianTrailGateResult::EXACT_FALLBACK;
+}
+HS_O3_END
+
+static inline void count_cartesian_trail_gate_result(
+    CartesianTrailGateResult result) {
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_CARTESIAN_COUNTS)
+  static hs::CycleCounter latitude("plot_ps_cartesian_latitude_reject");
+  static hs::CycleCounter meridian("plot_ps_cartesian_meridian_reject");
+  static hs::CycleCounter fallback("plot_ps_cartesian_fallback");
+  hs::CycleCounter *counter = &fallback;
+  if (result == CartesianTrailGateResult::LATITUDE_REJECT)
+    counter = &latitude;
+  else if (result == CartesianTrailGateResult::MERIDIAN_REJECT)
+    counter = &meridian;
+  ++counter->count;
+#else
+  (void)result;
+#endif
+}
+
 /**
  * @brief Gates one geodesic trail's edges against the clip in one hoisted pass.
  * @tparam W,H Rasterization resolution (pixel grid).
@@ -2985,6 +3095,9 @@ struct ParticleSystem {
     const bool clip_active = !cr.is_full();
     const auto xc = cr.x_clip();
     const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
+    CartesianQuadrantClip cartesian_clip;
+    if constexpr (pipeline_hoistable_cull<PipelineT>())
+      cartesian_clip = make_cartesian_quadrant_clip<W, H>(cr);
 
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
@@ -3038,6 +3151,17 @@ struct ParticleSystem {
             scratch_arena_a.allocate(edges, alignof(uint8_t)));
         bool any = false;
         if constexpr (pipeline_hoistable_cull<PipelineT>()) {
+          CartesianTrailGateResult cartesian_result;
+          {
+            HS_PROFILE(plot_ps_cartesian_gate);
+            cartesian_result =
+                cartesian_quadrant_trail_gate(cartesian_clip, trail);
+          }
+          count_cartesian_trail_gate_result(cartesian_result);
+          if (cartesian_result !=
+              CartesianTrailGateResult::EXACT_FALLBACK)
+            continue;
+
           // No stage re-emits edges, so the predicate sees the raw points:
           // per-point rows/columns are computed once and shared by every edge,
           // and a conservative whole-trail bound rejects fully-invisible
