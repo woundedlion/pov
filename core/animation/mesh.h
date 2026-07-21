@@ -209,6 +209,8 @@ public:
     const BakedPalette *ramps; /**< One blended LUT per (from, to) pair. */
     const uint8_t *face_ramp;  /**< Face index -> ramp index. */
     size_t faces;              /**< Face count (bounds face_ramp). */
+    float gain = 1.0f; /**< Multiplier the shader applies to the edge-distance
+                          gradient; 1 on every swept kind. */
   };
 
   /**
