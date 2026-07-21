@@ -452,18 +452,14 @@ public:
       tr.topo = std::move(arrival.topology);
       HS_CHECK(tr.topo.size() == arrival.face_counts.size());
 
-      // Endpoints of the per-frame slerp: the collapsed form (every star point
-      // on its corner) and the arrival form. Static midpoints are shared, so
-      // only the dynamic tail moves.
-      PolyMesh collapsed;
-      MeshOps::update_hankin(tr.hankin, collapsed, scratch_arena_a, 0.0f);
-      HS_CHECK(collapsed.vertices.size() == arrival.vertices.size());
-      tr.hk_static = tr.hankin.static_vertices.size();
-      tr.hk_final.bind(arena, arrival.vertices.size());
-      tr.hk_final.append_bulk(arrival.vertices.data(), arrival.vertices.size());
-      tr.hk_collapsed.bind(arena, collapsed.vertices.size());
-      tr.hk_collapsed.append_bulk(collapsed.vertices.data(),
-                                  collapsed.vertices.size());
+      // Only the star points are stored: the midpoint prefix is already in the
+      // compiled topology, and each star point's collapsed position is its own
+      // corner, reachable through the same instruction hankin_at walks.
+      const size_t statics = tr.hankin.static_vertices.size();
+      HS_CHECK(arrival.vertices.size() >= statics);
+      tr.hk_final.bind(arena, arrival.vertices.size() - statics);
+      tr.hk_final.append_bulk(arrival.vertices.data() + statics,
+                              arrival.vertices.size() - statics);
 
       const Vector *start_centroid = nullptr;
       PolyMesh start_mesh;
@@ -645,9 +641,7 @@ private:
     LegKind kind =
         LegKind::CONWAY_SWEEP;  /**< Swept-mesh production path. */
     CompiledHankin hankin;      /**< Baked topology (HANKIN_SWEEP legs). */
-    ArenaVector<Vector> hk_final;     /**< Arrival vertices (HANKIN_SWEEP). */
-    ArenaVector<Vector> hk_collapsed; /**< Star points on their corners. */
-    size_t hk_static = 0; /**< Shared midpoint prefix of the vertex arrays. */
+    ArenaVector<Vector> hk_final; /**< Arrival star points (HANKIN_SWEEP). */
     ConwayGraph::MorphOp op =
         ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator (CONWAY_SWEEP). */
     bool reverse = false;               /**< Traversing to_node -> from_node. */
@@ -858,9 +852,22 @@ private:
    */
   HS_COLD_MEMBER static void hankin_at(const Transients &tr, PolyMesh &out,
                                        Arena &arena, float k) {
-    slerp_vertices(out, arena, tr.hk_collapsed.data(), tr.hk_final.data(),
-                   tr.hk_final.size(), tr.hk_static, k);
-    copy_topology(out, arena, tr.hankin.face_counts, tr.hankin.faces);
+    const CompiledHankin &hk = tr.hankin;
+    const size_t statics = hk.static_vertices.size();
+    const size_t dyn = tr.hk_final.size();
+    out.vertices.bind(arena, statics + dyn);
+    out.vertices.append_bulk(hk.static_vertices.data(), statics);
+    if (k >= 1.0f) {
+      out.vertices.append_bulk(tr.hk_final.data(), dyn);
+    } else {
+      for (size_t i = 0; i < dyn; ++i) {
+        const Vector corner =
+            hk.base_vertices[hk.dynamic_instructions[i].v_corner];
+        out.vertices.push_back(
+            slerp(normalized_or(corner, corner), tr.hk_final[i], k));
+      }
+    }
+    copy_topology(out, arena, hk.face_counts, hk.faces);
   }
 
   /**
