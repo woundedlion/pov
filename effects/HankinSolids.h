@@ -624,7 +624,7 @@ private:
 
     // Snapshot the angle-independent counts for the per-frame HS_CHECK below.
     hankin_vertex_count_ = compiled_hankin.static_vertices.size() +
-                           compiled_hankin.dynamic_vertices.size();
+                           compiled_hankin.dynamic_instructions.size();
     hankin_face_count_ = compiled_hankin.face_counts.size();
     timeline.add(
         0, Animation::Sprite(
