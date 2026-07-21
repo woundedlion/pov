@@ -824,23 +824,30 @@ private:
     build_from_pal_ = nullptr;
     build_from_faces_ = 0;
 
-    {
-      build_next_seed_ = PolyMesh();
-      Persist<PolyMesh> ps(build_seed_, scratch_arena_b, persistent_arena);
-      carousel.compact_drop_all([this](Arena &arena) {
-        ripple_gen.reclaim_storage(arena);
-        palette_bank_.bake_all(arena);
-      });
-    }
-
     const int front = carousel.front_index();
     MeshState &slot = carousel.slot(front);
     // Not generate(): its depth-0 reset would drop the landing snapshot above.
     {
       ScratchScope a_guard(scratch_arena_a);
-      ScratchScope b_guard(scratch_arena_b);
       slot.clear();
-      MeshOps::compile(build_seed_, slot, persistent_arena, scratch_arena_a);
+      // The seed the closing compile reads is evacuated to scratch and never
+      // restored: the compiled slot is the only form the effect renders, so
+      // letting the PolyMesh cross the compaction would carry a second copy of
+      // the built solid for the rest of the shape's life. It is dropped again
+      // before the classification, which needs scratch_arena_b in full.
+      {
+        ScratchScope seed_guard(scratch_arena_b);
+        PolyMesh built;
+        MeshOps::clone(build_seed_, built, scratch_arena_b);
+        build_next_seed_ = PolyMesh();
+        build_seed_ = PolyMesh();
+        carousel.compact_drop_all([this](Arena &arena) {
+          ripple_gen.reclaim_storage(arena);
+          palette_bank_.bake_all(arena);
+        });
+        MeshOps::compile(built, slot, persistent_arena, scratch_arena_a);
+      }
+      ScratchScope b_guard(scratch_arena_b);
       MeshOps::classify_faces_by_topology(slot, scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
