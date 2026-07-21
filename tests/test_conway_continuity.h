@@ -1224,6 +1224,9 @@ inline PolyMesh seedframe_node_mesh_at(const ConwayGraph::EdgeSpec &e,
     case ConwayGraph::MorphOp::SNUB:
       builder.snub(t, to_end ? e.twist_to : e.twist_from);
       break;
+    case ConwayGraph::MorphOp::CHAMFER:
+      builder.chamfer(t);
+      break;
     }
     if (e.settle && to_end)
       builder.relax(50);
