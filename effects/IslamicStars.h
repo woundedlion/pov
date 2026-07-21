@@ -41,13 +41,13 @@ public:
    *        with the orientation walk and the first shape.
    */
   void init() override {
-    // Asymmetric scratch split sized to the measured recipe peaks (worst
-    // generation high-water 112.3 KB in a / 76.5 KB in b; compact_keep_front
-    // evacuates the front slot, up to 63.7 KB, through b). The remainder is
-    // persistent: carousel slots + BakedPaletteBank (~15 KB). Budgets enforced
-    // by test_solids.h's high-water sweeps.
-    configure_arenas(GLOBAL_ARENA_SIZE - (114 + 80) * 1024, 114 * 1024,
-                     80 * 1024);
+    // Asymmetric scratch split (194 KB total): the leg-by-leg build chain
+    // peaks at ~118 KB in a and ~71 KB in b, and compact_keep_front evacuates
+    // the front slot (up to 63.7 KB) through b. The remainder is persistent:
+    // carousel slots + BakedPaletteBank (~15 KB). Budgets enforced by the
+    // test_conway_morph.h build replay and test_solids.h's high-water sweeps.
+    configure_arenas(GLOBAL_ARENA_SIZE - (114 + 80) * 1024, 120 * 1024,
+                     74 * 1024);
 
     ripple_gen.init_storage(persistent_arena);
     palette_bank_.bake_all(persistent_arena);

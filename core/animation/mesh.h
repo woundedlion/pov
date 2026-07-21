@@ -540,10 +540,10 @@ public:
       const Vector *start_centroid = nullptr;
       PolyMesh start_mesh;
       if (handoff.prev_face_centroid) {
-        hankin_at(tr, start_mesh, scratch_arena_a, tr.t_start);
+        hankin_at(tr, start_mesh, scratch_arena_b, tr.t_start);
         HS_CHECK(start_mesh.face_counts.size() == tr.topo.size(),
                  "OpLeg: start face count differs from arrival");
-        start_centroid = face_centroids(start_mesh, scratch_arena_a);
+        start_centroid = face_centroids(start_mesh, scratch_arena_b);
       }
 
       // Star faces are emitted first, in base-face order, so the seed's face

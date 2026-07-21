@@ -461,9 +461,9 @@ inline void test_determinism_complex_islamic() {
 // ---------------------------------------------------------------------------
 
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    114 * 1024; /**< IslamicStars' scratch_a split (mirrors init()). */
+    120 * 1024; /**< IslamicStars' scratch_a split (mirrors init()). */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
-    80 * 1024; /**< IslamicStars' scratch_b split (mirrors init()). */
+    74 * 1024; /**< IslamicStars' scratch_b split (mirrors init()). */
 
 /**
  * @brief Runs one Islamic recipe through a real-budget arena pair and asserts
