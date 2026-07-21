@@ -1014,6 +1014,7 @@ FLASHMEM static PolyMesh dodecahedron_ambo_bevel33_relax_hk66(Arena &a,
 }
 } // namespace IslamicStarPatterns
 
+
 /**
  * @brief Coarse generator-cost hint surfaced to the picker UI.
  * @details Display label only (Complex = Islamic star-pattern registry, Simple
@@ -1141,11 +1142,20 @@ inline constexpr Entry catalan_registry[] = {
 inline constexpr uint8_t SEED_OCTAHEDRON = 2;
 inline constexpr uint8_t SEED_DODECAHEDRON = 3;
 inline constexpr uint8_t SEED_ICOSAHEDRON = 4;
+inline constexpr uint8_t SEED_RHOMBICUBOCTAHEDRON = 9;
+inline constexpr uint8_t SEED_ICOSIDODECAHEDRON = 12;
+inline constexpr uint8_t SEED_SNUB_DODECAHEDRON = 17;
 
 static_assert(std::string_view(simple_registry[SEED_OCTAHEDRON].name) ==
               "octahedron");
 static_assert(std::string_view(simple_registry[SEED_DODECAHEDRON].name) ==
               "dodecahedron");
+static_assert(std::string_view(simple_registry[SEED_RHOMBICUBOCTAHEDRON].name) ==
+              "rhombicuboctahedron");
+static_assert(std::string_view(simple_registry[SEED_ICOSIDODECAHEDRON].name) ==
+              "icosidodecahedron");
+static_assert(std::string_view(simple_registry[SEED_SNUB_DODECAHEDRON].name) ==
+              "snubDodecahedron");
 static_assert(std::string_view(simple_registry[SEED_ICOSAHEDRON].name) ==
               "icosahedron");
 
@@ -1202,6 +1212,46 @@ inline constexpr Recipe ICOSAHEDRON_AMBO_TRUNCATE033_HANKIN59_RECIPE = {
     static_cast<uint8_t>(
         std::size(ICOSAHEDRON_AMBO_TRUNCATE033_HANKIN59_STEPS))};
 
+/** Step table for rhombicuboctahedron_hk63_ambo_hk63. */
+inline constexpr OpStep RHOMBICUBOCTAHEDRON_HK63_AMBO_HK63_STEPS[] = {
+    {Op::HANKIN, 63.0f * IslamicStarPatterns::D2R}, {Op::AMBO}, {Op::HANKIN, 63.0f * IslamicStarPatterns::D2R}};
+/** Recipe mirror of IslamicStarPatterns::rhombicuboctahedron_hk63_ambo_hk63. */
+inline constexpr Recipe RHOMBICUBOCTAHEDRON_HK63_AMBO_HK63_RECIPE = {
+    SEED_RHOMBICUBOCTAHEDRON, RHOMBICUBOCTAHEDRON_HK63_AMBO_HK63_STEPS,
+    static_cast<uint8_t>(std::size(RHOMBICUBOCTAHEDRON_HK63_AMBO_HK63_STEPS))};
+
+/** Step table for icosahedron_kis_gyro. */
+inline constexpr OpStep ICOSAHEDRON_KIS_GYRO_STEPS[] = {{Op::KIS}, {Op::GYRO}};
+/** Recipe mirror of IslamicStarPatterns::icosahedron_kis_gyro. */
+inline constexpr Recipe ICOSAHEDRON_KIS_GYRO_RECIPE = {
+    SEED_ICOSAHEDRON, ICOSAHEDRON_KIS_GYRO_STEPS,
+    static_cast<uint8_t>(std::size(ICOSAHEDRON_KIS_GYRO_STEPS))};
+
+/** Step table for dodecahedron_hk72_ambo_dual_hk20. */
+inline constexpr OpStep DODECAHEDRON_HK72_AMBO_DUAL_HK20_STEPS[] = {
+    {Op::HANKIN, 72.0f * IslamicStarPatterns::D2R}, {Op::AMBO}, {Op::DUAL}, {Op::HANKIN, 20.0f * IslamicStarPatterns::D2R}};
+/** Recipe mirror of IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20. */
+inline constexpr Recipe DODECAHEDRON_HK72_AMBO_DUAL_HK20_RECIPE = {
+    SEED_DODECAHEDRON, DODECAHEDRON_HK72_AMBO_DUAL_HK20_STEPS,
+    static_cast<uint8_t>(std::size(DODECAHEDRON_HK72_AMBO_DUAL_HK20_STEPS))};
+
+/** Step table for icosidodecahedron_truncate5d_ambo_dual. */
+inline constexpr OpStep ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS[] = {
+    {Op::TRUNCATE, 5.0f * IslamicStarPatterns::D2R}, {Op::AMBO}, {Op::DUAL}};
+/** Recipe mirror of IslamicStarPatterns::icosidodecahedron_truncate5d_ambo_dual. */
+inline constexpr Recipe ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE = {
+    SEED_ICOSIDODECAHEDRON, ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS,
+    static_cast<uint8_t>(std::size(ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS))};
+
+/** Step table for snubDodecahedron_truncate5d_ambo_dual. */
+inline constexpr OpStep SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS[] = {
+    {Op::TRUNCATE, 5.0f * IslamicStarPatterns::D2R}, {Op::AMBO}, {Op::DUAL}};
+/** Recipe mirror of IslamicStarPatterns::snubDodecahedron_truncate5d_ambo_dual. */
+inline constexpr Recipe SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE = {
+    SEED_SNUB_DODECAHEDRON, SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS,
+    static_cast<uint8_t>(std::size(SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS))};
+
+
 /**
  * @brief Registry of Islamic star-pattern solids.
  */
@@ -1244,22 +1294,22 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::octahedron_hk17_ambo_hk73, Category::Complex,
      &OCTAHEDRON_HK17_AMBO_HK73_RECIPE},
     {"icosahedron_kis_gyro", IslamicStarPatterns::icosahedron_kis_gyro,
-     Category::Complex},
+     Category::Complex, &ICOSAHEDRON_KIS_GYRO_RECIPE},
     {"truncatedIcosidodecahedron_truncate50d_ambo_dual",
      IslamicStarPatterns::truncatedIcosidodecahedron_truncate50d_ambo_dual,
      Category::Complex},
     {"icosidodecahedron_truncate5d_ambo_dual",
      IslamicStarPatterns::icosidodecahedron_truncate5d_ambo_dual,
-     Category::Complex},
+     Category::Complex, &ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE},
     {"snubDodecahedron_truncate5d_ambo_dual",
      IslamicStarPatterns::snubDodecahedron_truncate5d_ambo_dual,
-     Category::Complex},
+     Category::Complex, &SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE},
     {"octahedron_hk34_ambo_hk72",
      IslamicStarPatterns::octahedron_hk34_ambo_hk72, Category::Complex,
      &OCTAHEDRON_HK34_AMBO_HK72_RECIPE},
     {"rhombicuboctahedron_hk63_ambo_hk63",
      IslamicStarPatterns::rhombicuboctahedron_hk63_ambo_hk63,
-     Category::Complex},
+     Category::Complex, &RHOMBICUBOCTAHEDRON_HK63_AMBO_HK63_RECIPE},
     {"truncatedIcosahedron_hk54_ambo_hk72",
      IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72,
      Category::Complex},
@@ -1267,7 +1317,8 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::dodecahedron_hk54_ambo_hk72, Category::Complex,
      &DODECAHEDRON_HK54_AMBO_HK72_RECIPE},
     {"dodecahedron_hk72_ambo_dual_hk20",
-     IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20, Category::Complex},
+     IslamicStarPatterns::dodecahedron_hk72_ambo_dual_hk20, Category::Complex,
+     &DODECAHEDRON_HK72_AMBO_DUAL_HK20_RECIPE},
     {"truncatedIcosahedron_truncate50d_ambo_dual",
      IslamicStarPatterns::truncatedIcosahedron_truncate50d_ambo_dual,
      Category::Complex},
