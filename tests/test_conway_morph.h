@@ -2511,7 +2511,7 @@ inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
   using Animation::OpLeg;
   constexpr int HANKIN_LEG_FRAMES = 32, SWEEP_LEG_FRAMES = 24,
                 RELAX_LEG_FRAMES = 16, GATE_HALF_FRAMES = 6;
-  constexpr size_t MAX_FACES = 256;
+  constexpr size_t MAX_FACES = 1152;
   constexpr size_t MAX_STEPS = 8;
 
   struct ChainFx : public Effect {

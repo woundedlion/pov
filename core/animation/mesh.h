@@ -182,8 +182,10 @@ class OpLeg : public AnimationBase<OpLeg> {
 public:
   static constexpr int PALETTES = BakedPaletteBank::N;
   /** Distinct (from, to) ramp pairs a leg may carry; bounds the per-frame
-   * blended-LUT scratch (PAIRS x 3 KB in scratch_arena_b). */
-  static constexpr int MAX_BLEND_PAIRS = 8;
+   * blended-LUT scratch (PAIRS x 3 KB in scratch_arena_b). Only the pairs a
+   * leg actually uses are allocated, so the ceiling costs nothing until a leg
+   * needs it; a partition swap over a few hundred faces reaches 16. */
+  static constexpr int MAX_BLEND_PAIRS = 16;
 
   /** Leg kind, dispatched once at construction by the chosen constructor. */
   enum class LegKind : uint8_t {

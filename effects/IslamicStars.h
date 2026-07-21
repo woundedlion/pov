@@ -127,7 +127,9 @@ private:
   static constexpr int RELAX_LEG_FRAMES = 16;
   static constexpr int GATE_LEG_FRAMES = 13; /**< kis / dual: 6 + 1 + 6. */
   static constexpr size_t MAX_BUILD_STEPS = 8;   /**< Lowered-primitive cap. */
-  static constexpr size_t MAX_BUILD_FACES = 256; /**< Build-chain mesh face cap. */
+  /** Build-chain mesh face cap. Bounds the scratch handoff arrays only; the
+   * persistent budget is what actually limits which recipes ship. */
+  static constexpr size_t MAX_BUILD_FACES = 1152;
   static constexpr float RIPPLE_THICKNESS = 0.7f; /**< Fixed ripple wavelet width (radians). */
   static constexpr float RIPPLE_AMP_MAX = 0.15f;   /**< Fold-free amplitude ceiling at RIPPLE_THICKNESS (amp/thickness < ~0.2 self-fold onset). */
   static_assert(2 * BURST_MAX <= RIPPLE_POOL_SIZE,
