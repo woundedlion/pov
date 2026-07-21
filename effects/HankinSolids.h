@@ -500,10 +500,10 @@ private:
    * each face from its pre-blended palette ramp.
    * @param canvas Target canvas to draw into.
    * @param mesh Compiled swept mesh (scratch-backed, this frame only).
-   * @param shading Per-face blended-ramp table from the ConwayMorph.
+   * @param shading Per-face blended-ramp table from the OpLeg.
    */
   void draw_conway_mesh(Canvas &canvas, const MeshState &mesh,
-                        const Animation::ConwayMorph::Shading &shading) {
+                        const Animation::OpLeg::Shading &shading) {
     if (mesh.vertices.is_empty())
       return;
     HS_PROFILE(hk_draw_mesh);
@@ -673,7 +673,7 @@ private:
 
   /**
    * @brief Picks the next graph edge, reconciles the held seed, and schedules
-   * the ConwayMorph leg.
+   * the OpLeg.
    */
   HS_COLD_MEMBER void start_morph_cycle() {
     using namespace ConwayGraph;
@@ -712,7 +712,7 @@ private:
     HS_CHECK(fix == SeedFix::DERIVE_AMBO || seed_identity_ == e.seed_solid,
              "HankinSolids: leg seed identity mismatch");
 
-    Animation::ConwayMorph::PaletteHandoff handoff{
+    Animation::OpLeg::PaletteHandoff handoff{
         &palette_bank_.bank, node_face_palette_,        node_face_sides_,
         node_faces_,         fix == SeedFix::DUAL_SWAP, node_face_centroid_};
 
@@ -741,7 +741,7 @@ private:
       for (size_t f = 0; f < arrival_faces; ++f)
         arrival_topo[f] = hk.topology[f];
     }
-    Animation::ConwayMorph::BookendClasses bookend{arrival_topo, arrival_faces};
+    Animation::OpLeg::BookendClasses bookend{arrival_topo, arrival_faces};
 
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
@@ -754,7 +754,7 @@ private:
     hs::log("Conway leg: '%s' -> '%s'", Solids::simple_registry[node_].name,
             Solids::simple_registry[edge_other_end(cur_edge_, node_)].name);
 
-    Animation::ConwayMorph anim(leg_seed, e, reverse_, persistent_arena,
+    Animation::OpLeg anim(leg_seed, e, reverse_, persistent_arena,
                                 draw_conway_fn_, handoff, SWEEP_FRAMES,
                                 e.settle ? SETTLE_FRAMES : 0, bookend);
     pending_landing_ = &anim.landing();
@@ -769,7 +769,7 @@ private:
   HS_COLD_MEMBER void finish_morph_cycle() {
     using namespace ConwayGraph;
     const EdgeSpec &e = EDGES[cur_edge_];
-    const Animation::ConwayMorph::Landing &landing = *pending_landing_;
+    const Animation::OpLeg::Landing &landing = *pending_landing_;
     const bool arrived_at_to = !reverse_;
     const uint8_t arrived = arrived_at_to ? e.to_node : e.from_node;
 
@@ -904,7 +904,7 @@ private:
   uint8_t node_visits_[ConwayGraph::NUM_NODES] =
       {}; /**< Aged per-node visit counts (walk recency weighting). */
   uint32_t leg_counter_ = 0; /**< Monotonic leg count (ordered-cycle picks). */
-  const Animation::ConwayMorph::Landing *pending_landing_ =
+  const Animation::OpLeg::Landing *pending_landing_ =
       nullptr; /**< In-flight leg's arrival data (leg-arena backed). */
 
   size_t hankin_vertex_count_ =
@@ -916,10 +916,10 @@ private:
    * @brief Draw callback for morph frames.
    * @details Held as a member for stable FunctionRef lifetime.
    */
-  Fn<void(Canvas &, const MeshState &, const Animation::ConwayMorph::Shading &),
+  Fn<void(Canvas &, const MeshState &, const Animation::OpLeg::Shading &),
      8>
       draw_conway_fn_{[this](Canvas &c, const MeshState &m,
-                             const Animation::ConwayMorph::Shading &sh) {
+                             const Animation::OpLeg::Shading &sh) {
         draw_conway_mesh(c, m, sh);
       }};
 

@@ -2,7 +2,7 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  *
- * Operator-level tests for the ConwayMorph transition design
+ * Operator-level tests for the OpLeg transition design
  * (docs/conway_morph_spec.md §7.1–§7.5).
  *
  * Coverage:
@@ -56,7 +56,7 @@ using ConwayGraph::T_EPS;
 // (cuboctahedron, icosidodecahedron), which are ambo of a platonic seed.
 // ---------------------------------------------------------------------------
 
-/** @brief Sweep seeds of the ConwayMorph edge table. */
+/** @brief Sweep seeds of the OpLeg edge table. */
 enum class MorphSeed {
   TETRAHEDRON,
   CUBE,
@@ -433,7 +433,7 @@ inline void test_jitterbug_octa_end_covers_octahedron() {
 }
 
 /**
- * @brief Verifies the jitterbug leg exactly as ConwayMorph runs it — t from
+ * @brief Verifies the jitterbug leg exactly as OpLeg runs it — t from
  *        the icosa point to the T_EPS_JITTERBUG clamp with the tabled twist
  *        endpoints — holds constant V12/F20/E30 closed genus-0 topology,
  *        >= 3-side faces, and unit vertices, with the collapsing edge never
@@ -1213,7 +1213,7 @@ inline void test_ambo_leg_on_hankin_seed_holds_topology() {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Runs all ConwayMorph operator-level tests.
+ * @brief Runs all OpLeg operator-level tests.
  * @return The module's failure count.
  */
 inline int run_conway_morph_tests() {
