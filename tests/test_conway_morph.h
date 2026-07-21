@@ -2604,10 +2604,8 @@ inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
               slots[wrap(seed_slot.topology[f], OpLeg::PALETTES)]);
         prev_pal = prev_pal_buf;
       } else {
-        HS_EXPECT_EQ(prev_landing->faces, prev_faces);
         for (size_t f = 0; f < prev_faces; ++f)
-          prev_pal_buf[f] = prev_landing->to_palette[wrap(
-              prev_landing->topology[f], OpLeg::PALETTES)];
+          prev_pal_buf[f] = carried_to[f];
         prev_pal = prev_pal_buf;
       }
 
@@ -2745,6 +2743,21 @@ inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
 
       // Landing lives in the leg's arena-backed Transients; outlives `leg`.
       prev_landing = &landing;
+
+      // Mirror finish_build_leg's boundary compaction: the finished leg's
+      // transients are reclaimed and only the endpoint the next leg sweeps
+      // from crosses the reset. Without it the replay accumulates every leg
+      // and reports peaks the effect never reaches. The last leg's landing is
+      // consumed by the final swap below, so it is left standing exactly as
+      // the effect leaves it for the next shape's compaction.
+      if (k + 1 < count) {
+        Persist<MeshPaletteBank> pb(bank, scratch_arena_b, persistent_arena);
+        Persist<PolyMesh> pn(next, scratch_arena_a, persistent_arena);
+        cur = PolyMesh();
+        seed_slot = MeshState();
+        prev_landing = nullptr;
+        persistent_arena.reset();
+      }
       cur = std::move(next);
     }
 

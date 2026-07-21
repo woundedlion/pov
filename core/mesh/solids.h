@@ -1318,6 +1318,19 @@ inline constexpr Recipe SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE = {
     static_cast<uint8_t>(std::size(SNUB_DODECAHEDRON_TRUNCATE5D_AMBO_DUAL_STEPS))};
 
 
+/** Step table for dodecahedron_ambo_bevel33_relax_hk66. */
+inline constexpr OpStep DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS[] = {
+    {Op::AMBO}, {Op::BEVEL, 0.33f}, {Op::RELAX, 100.0f},
+    {Op::HANKIN, 66.0f * IslamicStarPatterns::D2R}};
+/** Recipe mirror of IslamicStarPatterns::dodecahedron_ambo_bevel33_relax_hk66. */
+inline constexpr Recipe DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE = {
+    SEED_DODECAHEDRON, DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS,
+    static_cast<uint8_t>(std::size(DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS))};
+
+
+
+
+
 /**
  * @brief Registry of Islamic star-pattern solids.
  */
@@ -1333,7 +1346,7 @@ inline constexpr Entry islamic_registry[] = {
      Category::Complex},
     {"dodecahedron_ambo_bevel33_relax_hk66",
      IslamicStarPatterns::dodecahedron_ambo_bevel33_relax_hk66,
-     Category::Complex},
+     Category::Complex, &DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate33_hk64",
      IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate33_hk64,
      Category::Complex},
