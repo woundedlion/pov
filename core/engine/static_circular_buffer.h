@@ -318,6 +318,20 @@ public:
    */
   const_iterator end() const { return const_iterator(this, size()); }
 
+  /**
+   * @brief Visits live elements from front to back.
+   * @tparam Fn Callable accepting each element and its logical index.
+   * @param fn Callable invoked once per live element.
+   */
+  template <typename Fn> void for_each(Fn &&fn) const {
+    uint32_t index = head;
+    for (uint32_t visited = 0; visited < count; ++visited) {
+      fn(buffer[index], visited);
+      if (++index == N)
+        index = 0;
+    }
+  }
+
 private:
   // Indices are uint32_t, not size_t, so pooled structs (Particle, VectorTrail,
   // OrientationTrail) have an identical layout on the 32-bit device and the 64-bit

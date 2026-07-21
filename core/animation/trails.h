@@ -102,9 +102,24 @@ public:
    *          newest (same ordering as Trail).
    * @return The decoded position, by value.
    */
-  Vector get(size_t i) const {
-    const Snorm3 &s = snapshots[i];
-    return Vector(s.x * INV_SCALE, s.y * INV_SCALE, s.z * INV_SCALE);
+  Vector get(size_t i) const { return decode(snapshots[i]); }
+
+  /**
+   * @brief Visits decoded snapshots with normalized oldest-to-newest progress.
+   * @param callback Invoked as `void(const Vector &, float t)`.
+   */
+  void __attribute__((noinline)) tween(VectorTweenFn callback) const {
+    const size_t len = snapshots.size();
+    if (len == 0)
+      return;
+    if (len == 1) {
+      callback(decode(snapshots.front()), 1.0f);
+      return;
+    }
+    const float denominator = static_cast<float>(len - 1);
+    snapshots.for_each([&](const Snorm3 &s, uint32_t i) {
+      callback(decode(s), static_cast<float>(i) / denominator);
+    });
   }
 
   /**
@@ -127,6 +142,10 @@ private:
 
   static int16_t quantize(float c) {
     return static_cast<int16_t>(roundf(hs::clamp(c, -1.0f, 1.0f) * SCALE));
+  }
+
+  static Vector decode(const Snorm3 &s) {
+    return Vector(s.x * INV_SCALE, s.y * INV_SCALE, s.z * INV_SCALE);
   }
 
   StaticCircularBuffer<Snorm3, CAP> snapshots;
