@@ -130,6 +130,7 @@ private:
   static constexpr int SWEEP_LEG_FRAMES =
       24; /**< ambo / truncate / snub / chamfer. */
   static constexpr int RELAX_LEG_FRAMES = 16;
+  static constexpr int GATE_LEG_FRAMES = 13; /**< kis / dual: 6 + 1 + 6. */
   static constexpr size_t MAX_BUILD_STEPS = 8; /**< Lowered-primitive cap. */
   static constexpr size_t MAX_BUILD_FACES =
       256; /**< Build-chain mesh face cap. */
@@ -353,10 +354,29 @@ private:
       return HANKIN_LEG_FRAMES;
     case Solids::Op::RELAX:
       return RELAX_LEG_FRAMES;
+    case Solids::Op::KIS:
+    case Solids::Op::DUAL:
+      return GATE_LEG_FRAMES;
     default:
       return SWEEP_LEG_FRAMES;
     }
   }
+
+  /**
+   * @brief Whether a lowered primitive step runs as a gated swap.
+   * @param op Lowered primitive op.
+   * @return True for the partition ops.
+   */
+  static bool is_gated_step(Solids::Op op) {
+    return op == Solids::Op::KIS || op == Solids::Op::DUAL;
+  }
+
+  /**
+   * @brief Half-gate length of a gated leg's frame budget.
+   * @param frames Budgeted leg frames after the Trans Speed divisor.
+   * @return F_gate, at least 1; the leg then runs 2 * F_gate + 1 frames.
+   */
+  static int gate_frames(int frames) { return std::max(1, (frames - 1) / 2); }
 
   /**
    * @brief Log label of a lowered primitive step.
@@ -377,6 +397,10 @@ private:
       return "chamfer";
     case Solids::Op::RELAX:
       return "relax";
+    case Solids::Op::KIS:
+      return "kis";
+    case Solids::Op::DUAL:
+      return "dual";
     default:
       return "?";
     }
@@ -502,8 +526,12 @@ private:
       build_step_ = 0;
       build_total_frames_ = 0;
       for (size_t k = 0; k < build_step_count_; ++k) {
-        const int frames = leg_frames(build_steps_[k].op);
-        build_leg_frames_[k] = std::max(1, static_cast<int>(frames / sp));
+        const Solids::Op op = build_steps_[k].op;
+        const int frames = std::max(1, static_cast<int>(leg_frames(op) / sp));
+        // A gated leg runs both half-gates plus the swap frame, so its budget
+        // rounds to the odd length the leg actually takes.
+        build_leg_frames_[k] =
+            is_gated_step(op) ? 2 * gate_frames(frames) + 1 : frames;
         build_total_frames_ += build_leg_frames_[k];
       }
       build_span = build_total_frames_;
@@ -663,6 +691,16 @@ private:
                                 0.0f, step.param, 0.0f, 0.0f, persistent_arena,
                                 draw_build_fn_, handoff, frames, bookend));
       break;
+    case Solids::Op::KIS:
+      schedule(Animation::OpLeg(build_seed_, Animation::OpLeg::SwapOp::KIS,
+                                persistent_arena, draw_build_fn_, handoff,
+                                gate_frames(frames), bookend));
+      break;
+    case Solids::Op::DUAL:
+      schedule(Animation::OpLeg(build_seed_, Animation::OpLeg::SwapOp::DUAL,
+                                persistent_arena, draw_build_fn_, handoff,
+                                gate_frames(frames), bookend));
+      break;
     default:
       HS_CHECK(false, "IslamicStars: unsweepable primitive op reached a leg");
       break;
@@ -691,6 +729,10 @@ private:
       return MeshOps::chamfer(build_seed_, a, b, step.param);
     case Solids::Op::RELAX:
       return MeshOps::relax(build_seed_, a, b, static_cast<int>(step.param));
+    case Solids::Op::KIS:
+      return MeshOps::kis(build_seed_, a, b);
+    case Solids::Op::DUAL:
+      return MeshOps::dual(build_seed_, a, b);
     default:
       HS_CHECK(false, "IslamicStars: unsweepable primitive op reached a leg");
       return PolyMesh{};

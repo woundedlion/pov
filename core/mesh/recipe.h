@@ -12,25 +12,35 @@
 
 namespace Solids {
 
+/** Largest chamfer thickness a leg is characterized at: the sweep, birth-limit
+ * and birth-epsilon probes (tests/test_opchain_probe.h) run T_EPS -> 0.63 on
+ * every chamfer seed. */
+inline constexpr float CHAMFER_T_MAX = 0.63f;
+
 /**
  * @brief Whether a lowered primitive step has a morph leg kind covering it.
  * @param step Lowered primitive step.
- * @return True when a leg can sweep the step; false leaves the whole recipe to
- *   the caller's whole-generate fallback.
+ * @return True when a leg can sweep or gate the step; false leaves the whole
+ *   recipe to the caller's whole-generate fallback.
  * @details TRUNCATE below ConwayGraph::T_EPS clamps both leg endpoints to the
  * same value (a still image), and above 0.5 crosses the ambo short-circuit,
- * where the leg would clean-swap to a self-intersecting form. CHAMFER has no
- * swept characterization. KIS and DUAL are partition ops with no sweep.
- * EXPAND has a leg kind but no recipe and no sweep coverage on a hankin seed.
+ * where the leg would clean-swap to a self-intersecting form. CHAMFER is
+ * characterized up to CHAMFER_T_MAX. KIS and DUAL run as gated swaps
+ * (docs/opchain_morph_spec.md, section 3.3). EXPAND has a leg kind but no
+ * recipe and no sweep coverage on a hankin seed.
  */
 inline bool is_morphable_step(const OpStep &step) {
   switch (step.op) {
   case Op::TRUNCATE:
     return step.param >= ConwayGraph::T_EPS && step.param <= 0.5f;
+  case Op::CHAMFER:
+    return step.param >= ConwayGraph::T_EPS && step.param <= CHAMFER_T_MAX;
   case Op::SNUB:
   case Op::HANKIN:
   case Op::RELAX:
   case Op::AMBO:
+  case Op::KIS:
+  case Op::DUAL:
     return true;
   default:
     return false;
