@@ -32,12 +32,11 @@ struct HankinInstruction {
  *
  * The output mesh concatenates static vertices then dynamic vertices, so an
  * index < static_offset refers to static_vertices and an index >=
- * static_offset refers to dynamic_vertices[index - static_offset].
+ * static_offset refers to star point (index - static_offset).
  */
 struct CompiledHankin {
   ArenaVector<Vector> base_vertices;  /**< Input mesh corner vertices. */
   ArenaVector<Vector> static_vertices;  /**< Edge midpoints; angle-independent. */
-  ArenaVector<Vector> dynamic_vertices; /**< Star points; recomputed per angle. */
   ArenaVector<HankinInstruction> dynamic_instructions; /**< One per dynamic vertex. */
   ArenaVector<uint8_t> face_counts; /**< Vertex count of each output face. */
   ArenaVector<uint16_t> faces;      /**< Flat vertex indices for all faces. */
@@ -49,7 +48,6 @@ struct CompiledHankin {
   void clear() {
     base_vertices.clear();
     static_vertices.clear();
-    dynamic_vertices.clear();
     dynamic_instructions.clear();
     face_counts.clear();
     faces.clear();
@@ -69,8 +67,6 @@ struct CompiledHankin {
                 src.base_vertices.size(), arena);
     copy_vector(dst.static_vertices, src.static_vertices.data(),
                 src.static_vertices.size(), arena);
-    copy_vector(dst.dynamic_vertices, src.dynamic_vertices.data(),
-                src.dynamic_vertices.size(), arena);
     copy_vector(dst.dynamic_instructions, src.dynamic_instructions.data(),
                 src.dynamic_instructions.size(), arena);
     copy_vector(dst.face_counts, src.face_counts.data(),
@@ -111,7 +107,6 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
            "Hankin output vertex count exceeds int16_t index range "
            "(MAX_INDICES raised too high?)");
   compiled.static_vertices.bind(target_arena, I / 2);
-  compiled.dynamic_vertices.bind(target_arena, I);
   compiled.dynamic_instructions.bind(target_arena, I);
   compiled.face_counts.bind(target_arena, F + V);
   compiled.faces.bind(target_arena, 4 * I);
@@ -189,10 +184,11 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
                                                 narrow_index(idx_m1),
                                                 narrow_index(idx_m2)});
 
-        // size() BEFORE emplace_back is the index the new vertex will occupy.
-        uint16_t dyn_idx = narrow_index(compiled.dynamic_vertices.size());
+        // The instruction pushed above owns this star point, so its index is
+        // the last instruction slot.
+        uint16_t dyn_idx =
+            narrow_index(compiled.dynamic_instructions.size() - 1);
         he_to_dynamic_idx[he_idx] = dyn_idx;
-        compiled.dynamic_vertices.emplace_back();
 
         compiled.faces.push_back(narrow_index(idx_m1));
         compiled.faces.push_back(narrow_index(compiled.static_offset + dyn_idx));
@@ -253,7 +249,7 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
 /**
  * @brief Positions the angle-dependent vertices and writes the final mesh.
  * @tparam MeshT Output mesh type; may optionally provide face_offsets.
- * @param compiled Baked topology whose dynamic_vertices are recomputed in place.
+ * @param compiled Baked angle-independent topology.
  * @param out_mesh Output mesh, allocated from @p target_arena.
  * @param target_arena Arena backing @p out_mesh's vertex and face vectors.
  * @param angle Contact angle in radians. At ~0 the star points collapse onto
@@ -279,6 +275,13 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled, MeshT &out_me
 
   bool is_flat = std::abs(angle) < math::TOLERANCE;
 
+  // Star points are computed straight into the output: nothing reads them back
+  // across calls, so the compiled topology holds no vertex scratch of its own.
+  out_mesh.vertices.bind(target_arena, compiled.static_vertices.size() +
+                                           compiled.dynamic_instructions.size());
+  out_mesh.vertices.append_bulk(compiled.static_vertices.data(),
+                                compiled.static_vertices.size());
+
   float cos_ha = cosf(angle * 0.5f);
   float sin_ha = sinf(angle * 0.5f);
 
@@ -287,7 +290,7 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled, MeshT &out_me
     Vector p_corner = compiled.base_vertices[instr.v_corner];
 
     if (is_flat) {
-      compiled.dynamic_vertices[i] = normalized_or(p_corner, p_corner);
+      out_mesh.vertices.push_back(normalized_or(p_corner, p_corner));
       continue;
     }
 
@@ -301,7 +304,7 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled, MeshT &out_me
 
     if (dot(cross1, cross1) < math::EPS_CROSS_SQ ||
         dot(cross2, cross2) < math::EPS_CROSS_SQ) {
-      compiled.dynamic_vertices[i] = normalized_or(p_corner, p_corner);
+      out_mesh.vertices.push_back(normalized_or(p_corner, p_corner));
       continue; // zero length edge
     }
 
@@ -338,20 +341,12 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled, MeshT &out_me
       Vector fallback = normalized_or(m1 + m2, cn);
       if (dot(fallback, p_corner) < 0)
         fallback = -fallback;
-      compiled.dynamic_vertices[i] = fallback;
+      out_mesh.vertices.push_back(fallback);
       continue;
     }
 
-    compiled.dynamic_vertices[i] = intersect;
+    out_mesh.vertices.push_back(intersect);
   }
-
-  out_mesh.vertices.bind(target_arena,
-                               compiled.static_vertices.size() +
-                                   compiled.dynamic_vertices.size());
-  out_mesh.vertices.append_bulk(compiled.static_vertices.data(),
-                                compiled.static_vertices.size());
-  out_mesh.vertices.append_bulk(compiled.dynamic_vertices.data(),
-                                compiled.dynamic_vertices.size());
 
   out_mesh.face_counts.bind(target_arena, compiled.face_counts.size());
 
