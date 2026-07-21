@@ -2374,8 +2374,9 @@ inline float dist_to_arc(const Vector &p, const Vector &a, const Vector &b) {
 
 /** @brief Minimal particle for the ParticleSystem draw concept: trail + life. */
 struct StubParticle {
-  Animation::VectorTrail<16> history; /**< World-space trail positions. */
-  uint16_t life = 0;                  /**< Remaining life (drives v3). */
+  Animation::QuantizedVectorTrail<23>
+      history;       /**< World-space trail positions. */
+  uint16_t life = 0; /**< Remaining life (drives v3). */
 };
 
 /** @brief Minimal pool/active_count/max_life triple the draw concept reads. */
@@ -2419,6 +2420,90 @@ inline ParticleDrawCapture capture_particle_draw(const StubParticle &particle) {
   }
   capture.plotted = pipe.plotted.size();
   return capture;
+}
+
+/** @brief Captures the control-point fragments passed through the vertex stage.
+ */
+inline std::vector<Fragment>
+capture_particle_vertices(const StubParticle &particle) {
+  constexpr int W = 96, H = 48;
+  RasterFx fx(W, H);
+  StubSystem sys;
+  sys.max_life = 100;
+  sys.active_count = 1;
+  sys.pool.push_back(particle);
+
+  std::vector<Fragment> vertices;
+  CapturePipeline pipe;
+  auto vertex_shader = [&](Fragment &f) { vertices.push_back(f); };
+  {
+    Canvas c(fx);
+    Plot::ParticleSystem::draw<W, H>(pipe, c, sys, noop_shader, vertex_shader);
+  }
+  return vertices;
+}
+
+/** @brief Builds a quantized particle trail with deterministic spherical
+ * points. */
+inline StubParticle make_particle_trail(int samples) {
+  StubParticle particle;
+  particle.life = 60;
+  for (int i = 0; i < samples; ++i) {
+    float theta = 0.35f + 0.055f * i;
+    float y = -0.3f + 0.02f * i;
+    float radial = std::sqrt(1.0f - y * y);
+    particle.history.record(
+        Vector(radial * std::cos(theta), y, radial * std::sin(theta)));
+  }
+  return particle;
+}
+
+/** @brief Renders a particle through the current or callback materializer. */
+inline std::vector<Pixel>
+render_particle_materialization(const StubParticle &particle,
+                                bool callback_reference) {
+  constexpr int W = 96, H = 48;
+  RasterFx fx(W, H);
+  Pipeline<W, H> filters;
+  auto shade = [](const Vector &, Fragment &f) {
+    f.color = Color4(Pixel(50000, 30000, 10000),
+                     hs::clamp(std::min(f.v0, f.v3), 0.0f, 1.0f));
+  };
+  {
+    Canvas c(fx);
+    if (callback_reference) {
+      ScratchScope trail_guard(scratch_arena_a);
+      Fragments trail;
+      trail.bind(scratch_arena_a,
+                 std::remove_cvref_t<decltype(particle.history)>::CAPACITY);
+      const float inv_max_life = 1.0f / 100.0f;
+      tween(particle.history, [&](const Vector &v, float t) {
+        Fragment f;
+        f.pos = v;
+        f.v0 = t;
+        f.v1 = 0.0f;
+        f.v2 = 0.0f;
+        f.v3 = static_cast<float>(particle.life) * inv_max_life;
+        f.age = 0;
+        f.color = Color4(0, 0, 0, 0);
+        trail.push_back(f);
+      });
+      Plot::rasterize<W, H>(filters, c, trail, shade);
+    } else {
+      StubSystem sys;
+      sys.max_life = 100;
+      sys.active_count = 1;
+      sys.pool.push_back(particle);
+      Plot::ParticleSystem::draw<W, H>(filters, c, sys, shade);
+    }
+  }
+  fx.advance_display();
+
+  std::vector<Pixel> pixels(static_cast<size_t>(W) * H);
+  for (int y = 0; y < H; ++y)
+    for (int x = 0; x < W; ++x)
+      pixels[static_cast<size_t>(y) * W + x] = fx.get_pixel(x, y);
+  return pixels;
 }
 
 /**
@@ -2529,6 +2614,56 @@ inline void test_particle_system_skips_unrenderable_trails() {
   HS_EXPECT_EQ(trail_capture.deferred_calls, 2);
   HS_EXPECT_GT(trail_capture.fragment_calls, 0);
   HS_EXPECT_GT(trail_capture.plotted, static_cast<size_t>(0));
+}
+
+/**
+ * @brief Direct materialization preserves circular order, progress, and
+ *        particle registers for partial, full, and wrapped histories.
+ */
+inline void test_particle_system_direct_trail_materialization_registers() {
+  const int sample_counts[] = {7, 23, 30};
+  for (int sample_count : sample_counts) {
+    StubParticle particle = make_particle_trail(sample_count);
+    std::vector<Fragment> vertices = capture_particle_vertices(particle);
+    const size_t len = particle.history.length();
+    HS_EXPECT_EQ(vertices.size(), len);
+    for (size_t i = 0; i < len; ++i) {
+      Vector expected = particle.history.get(i);
+      HS_EXPECT_EQ(vertices[i].pos.x, expected.x);
+      HS_EXPECT_EQ(vertices[i].pos.y, expected.y);
+      HS_EXPECT_EQ(vertices[i].pos.z, expected.z);
+      HS_EXPECT_EQ(vertices[i].v0,
+                   static_cast<float>(i) / static_cast<float>(len - 1));
+      HS_EXPECT_EQ(vertices[i].v1, 0.0f);
+      HS_EXPECT_EQ(vertices[i].v2, 0.0f);
+      HS_EXPECT_EQ(vertices[i].v3, 60.0f * (1.0f / 100.0f));
+    }
+  }
+}
+
+/**
+ * @brief Direct and callback materializers produce identical framebuffers for
+ *        full linear and full wrapped quantized histories.
+ */
+inline void test_particle_system_direct_trail_materialization_output_parity() {
+  const int sample_counts[] = {23, 30};
+  for (int sample_count : sample_counts) {
+    StubParticle particle = make_particle_trail(sample_count);
+    std::vector<Pixel> direct =
+        render_particle_materialization(particle, false);
+    std::vector<Pixel> reference =
+        render_particle_materialization(particle, true);
+    int lit = 0;
+    int diff = 0;
+    for (size_t i = 0; i < direct.size(); ++i) {
+      if (reference[i].r | reference[i].g | reference[i].b)
+        ++lit;
+      if (direct[i] != reference[i])
+        ++diff;
+    }
+    HS_EXPECT_GT(lit, 0);
+    HS_EXPECT_EQ(diff, 0);
+  }
 }
 
 /**
@@ -3203,6 +3338,8 @@ inline int run_plot_scan_tests() {
   test_particle_system_draws_active_trails_with_registers();
   test_particle_system_empty_zero_lifetime_is_noop();
   test_particle_system_skips_unrenderable_trails();
+  test_particle_system_direct_trail_materialization_registers();
+  test_particle_system_direct_trail_materialization_output_parity();
   test_particle_system_deferred_shader_parity_and_skip();
   test_particle_system_gate_pixel_parity_random_trails();
   test_particle_system_subpixel_trail_dot_parity();

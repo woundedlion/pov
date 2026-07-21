@@ -2988,30 +2988,23 @@ struct ParticleSystem {
 
     for (int i = 0; i < count; ++i) {
       const auto &p = system.pool[i];
-      if (p.life == 0 || p.history.length() < 2)
+      const size_t trail_len = p.history.length();
+      if (p.life == 0 || trail_len < 2)
         continue;
+      const float particle_id = static_cast<float>(i);
+      const float particle_life = static_cast<float>(p.life) * inv_max_life;
       ScratchScope trail_guard(scratch_arena_a);
       Fragments trail;
-      // tween emits at most one fragment per retained trail position.
-      trail.bind(scratch_arena_a,
-                 std::remove_cvref_t<decltype(p.history)>::CAPACITY);
+      trail.bind(scratch_arena_a, trail_len);
       // Original (pre-shader) positions, kept for the deferred pass.
       ArenaVector<Vector> orig;
       if (deferred_shader)
-        orig.bind(scratch_arena_a,
-                  std::remove_cvref_t<decltype(p.history)>::CAPACITY);
+        orig.bind(scratch_arena_a, trail_len);
       {
         HS_PROFILE(plot_ps_tween);
-        tween(p.history, [&](const Vector &v, float t) {
-          Fragment f;
-          f.pos = v;
-          f.v0 = t;
-          f.v1 = 0.0f;
-          f.v2 = static_cast<float>(i);
-          f.v3 = static_cast<float>(p.life) * inv_max_life;
-          f.age = 0;
-          f.color = Color4(0, 0, 0, 0);
-          trail.push_back(f);
+        p.history.tween([&](const Vector &v, float t) {
+          trail.emplace_back(Fragment{v, t, 0.0f, particle_id, particle_life,
+                                      1.0f, 0.0f, Color4(0, 0, 0, 0)});
           if (deferred_shader)
             orig.push_back(v);
         });
