@@ -595,6 +595,8 @@ inline PolyMesh run_edge_op(const ConwayGraph::EdgeSpec &e,
     return MeshOps::expand(seed, target, temp, t);
   case ConwayGraph::MorphOp::SNUB:
     return MeshOps::snub(seed, target, temp, t, twist);
+  case ConwayGraph::MorphOp::CHAMFER:
+    return MeshOps::chamfer(seed, target, temp, t);
   }
   return PolyMesh{};
 }
@@ -1827,6 +1829,511 @@ inline void test_opleg_hankin_sweep_smoke() {
 }
 
 // ---------------------------------------------------------------------------
+// Recipe-step leg kinds (docs/opchain_morph_spec.md sections 2.1/2.2): the
+// truncate, snub and relax legs the pure-inflate recipes need. Topology
+// constancy is sampled on the chain prefixes the shipping recipes actually
+// reach; the smoke tests drive a whole leg through OpLeg on the same seeds.
+// ---------------------------------------------------------------------------
+
+/** @brief One recipe-step leg site: the chain prefix the step sweeps on. */
+struct StepLegSite {
+  const char *name;                     /**< Diagnostic label. */
+  PolyMesh (*seed)(Arena &a, Arena &b); /**< Chain prefix up to the step. */
+  float param; /**< Arrival t, or relax iteration count. */
+};
+
+inline PolyMesh probe_icosahedron(Arena &a, Arena &b) {
+  return Solids::Platonic::icosahedron(a, b);
+}
+inline PolyMesh probe_icosa_ambo(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Platonic::icosahedron(a, b), a, b)
+      .ambo()
+      .build();
+}
+inline PolyMesh probe_icosa_snub(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Platonic::icosahedron(a, b), a, b)
+      .snub()
+      .build();
+}
+inline PolyMesh probe_icosa_snub_relax(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Platonic::icosahedron(a, b), a, b)
+      .snub()
+      .relax()
+      .build();
+}
+inline PolyMesh probe_ticosa_ambo(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+                              a, b)
+      .ambo()
+      .build();
+}
+inline PolyMesh probe_ticosa_ambo_relax217(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+                              a, b)
+      .ambo()
+      .relax(217)
+      .build();
+}
+inline PolyMesh probe_dodeca_ambo_bevel33(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
+      .ambo()
+      .bevel(0.33f)
+      .build();
+}
+
+/** Truncate-leg sites: the three pure-inflate recipes truncating at 0.33. */
+inline constexpr StepLegSite TRUNCATE_LEG_SITES[] = {
+    {"icosahedron_ambo", probe_icosa_ambo, 0.33f},
+    {"truncatedIcosahedron_ambo_relax217", probe_ticosa_ambo_relax217, 0.33f},
+    {"icosahedron_snub_relax", probe_icosa_snub_relax, 0.33f},
+};
+
+/** Snub-leg sites: the one recipe snubbing, at the .snub() defaults. */
+inline constexpr StepLegSite SNUB_LEG_SITES[] = {
+    {"icosahedron", probe_icosahedron, 0.5f},
+};
+
+/** Standalone relax-leg sites, at the three shipping iteration counts. */
+inline constexpr StepLegSite RELAX_LEG_SITES[] = {
+    {"icosahedron_snub", probe_icosa_snub, 8.0f},
+    {"dodecahedron_ambo_bevel33", probe_dodeca_ambo_bevel33, 100.0f},
+    {"truncatedIcosahedron_ambo", probe_ticosa_ambo, 217.0f},
+};
+
+/** @brief Topology fingerprint of one sweep sample. */
+struct SweepFingerprint {
+  size_t v = 0;        /**< Raw vertex count. */
+  size_t f = 0;        /**< Raw face count. */
+  size_t i = 0;        /**< Raw face-index count. */
+  size_t compiled = 0; /**< Compiled face count. */
+};
+
+/**
+ * @brief Fingerprints a swept mesh and runs the structural checks.
+ * @param swept Sweep sample.
+ * @param a Arena receiving the compiled mesh.
+ * @param b Compile scratch arena.
+ * @return The sample's fingerprint.
+ */
+inline SweepFingerprint check_sweep_sample(const PolyMesh &swept, Arena &a,
+                                           Arena &b) {
+  MeshState compiled;
+  MeshOps::compile(swept, compiled, a, b);
+  check_face_counts_consistent(swept);
+  check_indices_in_range(swept);
+  check_all_unit_vertices(swept, 1e-3f);
+  conway_tests::check_euler_genus0(swept);
+  return {swept.vertices.size(), swept.face_counts.size(), swept.faces.size(),
+          compiled.face_counts.size()};
+}
+
+/**
+ * @brief Asserts a sweep sample fingerprint matches the opening one.
+ * @param s Sample fingerprint.
+ * @param first Opening-sample fingerprint.
+ */
+inline void expect_same_fingerprint(const SweepFingerprint &s,
+                                    const SweepFingerprint &first) {
+  HS_EXPECT_EQ(s.v, first.v);
+  HS_EXPECT_EQ(s.f, first.f);
+  HS_EXPECT_EQ(s.i, first.i);
+  HS_EXPECT_EQ(s.compiled, first.compiled);
+}
+
+/**
+ * @brief Builds a leg site's seed into a persistent arena.
+ * @param site Site whose chain prefix is built.
+ * @param persist Arena receiving the finalized seed.
+ * @return The seed mesh in @p persist.
+ */
+inline PolyMesh build_step_leg_seed(const StepLegSite &site, Arena &persist) {
+  constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
+  Arena ga(morph_aux_buf, HALF);
+  Arena gb(morph_aux_buf + HALF, HALF);
+  return Solids::finalize_solid(site.seed(ga, gb), persist);
+}
+
+/**
+ * @brief Steps a truncate sweep on every seed the recipes truncate, asserting
+ *        constant raw and compiled face counts and a closed genus-0 manifold
+ *        at every sampled parameter.
+ */
+inline void test_truncate_leg_on_recipe_seeds_holds_topology() {
+  constexpr int SAMPLES = 33;
+
+  for (const StepLegSite &site : TRUNCATE_LEG_SITES) {
+    const int failed_before = hs_test::stats().failed;
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed = build_step_leg_seed(site, persist);
+
+    SweepFingerprint first;
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float t = T_EPS + (site.param - T_EPS) *
+                                  (static_cast<float>(s) / (SAMPLES - 1));
+      ScratchScope frame_a(a);
+      ScratchScope frame_b(b);
+      const SweepFingerprint fp =
+          check_sweep_sample(MeshOps::truncate(seed, a, b, t), a, b);
+      if (s == 0) {
+        first = fp;
+        HS_EXPECT_TRUE(fp.v > 0 && fp.f > 0 && fp.i > 0);
+      } else {
+        expect_same_fingerprint(fp, first);
+      }
+    }
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [truncate-leg] %s failed (raw F=%zu, compiled F=%zu)\n",
+                  site.name, first.f, first.compiled);
+    else
+      std::printf("  [truncate-leg] %s: t*=%.2f F=%zu compiled=%zu across %d "
+                  "samples\n",
+                  site.name, (double)site.param, first.f, first.compiled,
+                  SAMPLES);
+  }
+}
+
+/**
+ * @brief Steps a snub sweep on every seed the recipes snub, asserting constant
+ *        raw and compiled face counts and a closed genus-0 manifold at every
+ *        sampled parameter.
+ */
+inline void test_snub_leg_on_recipe_seeds_holds_topology() {
+  constexpr int SAMPLES = 33;
+
+  for (const StepLegSite &site : SNUB_LEG_SITES) {
+    const int failed_before = hs_test::stats().failed;
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed = build_step_leg_seed(site, persist);
+
+    SweepFingerprint first;
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float t = T_EPS + (site.param - T_EPS) *
+                                  (static_cast<float>(s) / (SAMPLES - 1));
+      ScratchScope frame_a(a);
+      ScratchScope frame_b(b);
+      const SweepFingerprint fp =
+          check_sweep_sample(MeshOps::snub(seed, a, b, t, 0.0f), a, b);
+      if (s == 0) {
+        first = fp;
+        HS_EXPECT_TRUE(fp.v > 0 && fp.f > 0 && fp.i > 0);
+      } else {
+        expect_same_fingerprint(fp, first);
+      }
+    }
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [snub-leg] %s failed (raw F=%zu, compiled F=%zu)\n",
+                  site.name, first.f, first.compiled);
+    else
+      std::printf("  [snub-leg] %s: t*=%.2f F=%zu compiled=%zu across %d "
+                  "samples\n",
+                  site.name, (double)site.param, first.f, first.compiled,
+                  SAMPLES);
+  }
+}
+
+/**
+ * @brief Steps a relax slerp on every seed the recipes relax standalone,
+ *        asserting the vertex count/order identity the kind rests on plus
+ *        constant raw and compiled face counts across the slerp.
+ */
+inline void test_relax_leg_on_recipe_seeds_holds_topology() {
+  constexpr int SAMPLES = 33;
+
+  for (const StepLegSite &site : RELAX_LEG_SITES) {
+    const int failed_before = hs_test::stats().failed;
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed = build_step_leg_seed(site, persist);
+
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    PolyMesh relaxed =
+        MeshOps::relax(seed, a, b, static_cast<int>(site.param));
+
+    // The precondition of a standalone relax leg: same vertex count, same
+    // topology bytes, and vertex i still nearest its own seed vertex, so the
+    // leg slerps per-vertex with no correspondence pass.
+    HS_EXPECT_EQ(relaxed.vertices.size(), seed.vertices.size());
+    HS_EXPECT_EQ(relaxed.face_counts.size(), seed.face_counts.size());
+    HS_EXPECT_EQ(relaxed.faces.size(), seed.faces.size());
+    HS_EXPECT_EQ(std::memcmp(relaxed.face_counts.data(),
+                             seed.face_counts.data(),
+                             seed.face_counts.size() * sizeof(uint8_t)),
+                 0);
+    HS_EXPECT_EQ(std::memcmp(relaxed.faces.data(), seed.faces.data(),
+                             seed.faces.size() * sizeof(uint16_t)),
+                 0);
+    for (size_t i = 0; i < relaxed.vertices.size(); ++i) {
+      size_t nearest = 0;
+      float best = 1e9f;
+      for (size_t j = 0; j < seed.vertices.size(); ++j) {
+        const float d = distance_between(relaxed.vertices[i], seed.vertices[j]);
+        if (d < best) {
+          best = d;
+          nearest = j;
+        }
+      }
+      HS_EXPECT_EQ(nearest, i);
+    }
+
+    SweepFingerprint first;
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float k = static_cast<float>(s) / (SAMPLES - 1);
+      ScratchScope frame_a(a);
+      ScratchScope frame_b(b);
+      PolyMesh swept;
+      MeshOps::clone(seed, swept, a);
+      for (size_t i = 0; i < swept.vertices.size(); ++i)
+        swept.vertices[i] = slerp(seed.vertices[i], relaxed.vertices[i], k);
+      const SweepFingerprint fp = check_sweep_sample(swept, a, b);
+      if (s == 0) {
+        first = fp;
+        HS_EXPECT_TRUE(fp.v > 0 && fp.f > 0 && fp.i > 0);
+      } else {
+        expect_same_fingerprint(fp, first);
+      }
+    }
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [relax-leg] %s failed (raw F=%zu, compiled F=%zu)\n",
+                  site.name, first.f, first.compiled);
+    else
+      std::printf("  [relax-leg] %s: iters=%d V=%zu F=%zu compiled=%zu across "
+                  "%d samples\n",
+                  site.name, (int)site.param, first.v, first.f, first.compiled,
+                  SAMPLES);
+  }
+}
+
+/** @brief Recipe-step leg kind driven by the smoke test. */
+enum class StepLegKind { TRUNCATE, SNUB, RELAX };
+
+/**
+ * @brief Drives one recipe-step leg to completion through OpLeg, gating
+ *        compiled-face-count constancy, ramp indices and per-frame motion.
+ * @param kind Leg kind under test.
+ * @param site Seed site and arrival parameter.
+ * @param frames Leg length in frames.
+ * @param max_step_chord Per-frame max-vertex-motion bound.
+ * @details Mirrors the hankin smoke test's shape: the departed palettes come
+ * from the seed's own classification and the bookend from the step's clean
+ * endpoint, exactly as IslamicStars derives them.
+ */
+inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
+                                 int frames, float max_step_chord) {
+  using Animation::OpLeg;
+  const int failed_before = hs_test::stats().failed;
+
+  reset_globals();
+  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
+                   32 * 1024);
+  hs::random().seed(2026u);
+
+  Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+  Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
+  MeshPaletteBank bank;
+  bank.bake_all(bank_arena);
+
+  PolyMesh seed = build_step_leg_seed(site, leg_arena);
+  PolyMesh endpoint;
+  {
+    constexpr size_t HALF = sizeof(morph_temp_buf) / 2;
+    Arena ea(morph_temp_buf, HALF);
+    Arena eb(morph_temp_buf + HALF, HALF);
+    PolyMesh raw;
+    switch (kind) {
+    case StepLegKind::TRUNCATE:
+      raw = MeshOps::truncate(seed, ea, eb, site.param);
+      break;
+    case StepLegKind::SNUB:
+      raw = MeshOps::snub(seed, ea, eb, site.param, 0.0f);
+      break;
+    case StepLegKind::RELAX:
+      raw = MeshOps::relax(seed, ea, eb, static_cast<int>(site.param));
+      break;
+    }
+    endpoint = Solids::finalize_solid(raw, leg_arena);
+  }
+
+  ScratchScope a_guard(scratch_arena_a);
+  ScratchScope b_guard(scratch_arena_b);
+  MeshOps::classify_faces_by_topology(seed, scratch_arena_a, scratch_arena_b,
+                                      leg_arena);
+  MeshOps::classify_faces_by_topology(endpoint, scratch_arena_a,
+                                      scratch_arena_b, leg_arena);
+
+  std::array<int, OpLeg::PALETTES> slots;
+  MeshPaletteBank::shuffle_indices(slots);
+  std::array<uint8_t, OpLeg::PALETTES> targets;
+  for (int i = 0; i < OpLeg::PALETTES; ++i)
+    targets[i] = static_cast<uint8_t>(i);
+  hs::shuffle(targets.begin(), targets.end());
+
+  const size_t prev_faces = seed.face_counts.size();
+  uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
+  Vector *prev_centroid = leg_arena.allocate_n<Vector>(prev_faces);
+  size_t off = 0;
+  for (size_t f = 0; f < prev_faces; ++f) {
+    prev_pal[f] = static_cast<uint8_t>(
+        slots[wrap(seed.topology[f], OpLeg::PALETTES)]);
+    Vector c(0.0f, 0.0f, 0.0f);
+    const int n = seed.face_counts[f];
+    for (int j = 0; j < n; ++j)
+      c = c + seed.vertices[seed.faces[off + j]];
+    prev_centroid[f] = c.normalized();
+    off += n;
+  }
+
+  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal,      nullptr, prev_faces,
+                                false,      prev_centroid, &targets};
+  OpLeg::BookendClasses bookend{endpoint.topology.data(),
+                                endpoint.face_counts.size()};
+
+  size_t drawn_frames = 0, drawn_faces = 0;
+  float worst_step = 0.0f;
+  std::vector<Vector> prev_v;
+  auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
+    HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+    if (drawn_frames == 0)
+      drawn_faces = sh.faces;
+    else
+      HS_EXPECT_EQ(sh.faces, drawn_faces);
+    for (size_t f = 0; f < sh.faces; ++f)
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), OpLeg::MAX_BLEND_PAIRS);
+    if (!prev_v.empty()) {
+      HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
+      for (size_t i = 0; i < m.vertices.size(); ++i)
+        worst_step =
+            std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
+    }
+    prev_v.assign(m.vertices.begin(), m.vertices.end());
+    ++drawn_frames;
+  };
+
+  struct SmokeFx : public Effect {
+    SmokeFx() : Effect(288, 144) {}
+    void draw_frame() override {}
+  };
+  SmokeFx fx;
+
+  auto run = [&](OpLeg &&leg) {
+    const OpLeg::Landing &landing = leg.landing();
+    HS_EXPECT_EQ(landing.primary_faces, seed.face_counts.size());
+    HS_EXPECT_TRUE(landing.topology != nullptr);
+    for (int f = 0; f < frames; ++f) {
+      {
+        Canvas c(fx);
+        leg.step(c);
+      }
+      fx.advance_display();
+    }
+    HS_EXPECT_EQ(drawn_frames, (size_t)frames);
+    HS_EXPECT_EQ(drawn_faces, landing.faces);
+  };
+
+  switch (kind) {
+  case StepLegKind::TRUNCATE:
+    run(OpLeg(seed, ConwayGraph::MorphOp::TRUNCATE, 0.0f, site.param, 0.0f,
+              0.0f, leg_arena, cb, handoff, frames, bookend));
+    break;
+  case StepLegKind::SNUB:
+    run(OpLeg(seed, ConwayGraph::MorphOp::SNUB, 0.0f, site.param, 0.0f, 0.0f,
+              leg_arena, cb, handoff, frames, bookend));
+    break;
+  case StepLegKind::RELAX:
+    run(OpLeg(seed, static_cast<int>(site.param), leg_arena, cb, handoff,
+              frames, bookend));
+    break;
+  }
+
+  HS_EXPECT_LT(worst_step, max_step_chord);
+  const char *label = kind == StepLegKind::TRUNCATE  ? "truncate"
+                      : kind == StepLegKind::SNUB    ? "snub"
+                                                     : "relax";
+  std::printf("  [opleg %s] %s: %zu faces, worst per-frame vertex step %.4f "
+              "chord (bound %.2f)%s\n",
+              label, site.name, drawn_faces, (double)worst_step,
+              (double)max_step_chord,
+              hs_test::stats().failed != failed_before ? " FAILED" : "");
+}
+
+/**
+ * @brief Smoke-tests one leg of each new recipe-step kind end to end.
+ */
+inline void test_opleg_step_leg_smoke() {
+  // Leg lengths mirror IslamicStars' budget (spec section 7): 24 frames for an
+  // operator sweep, 16 for a standalone relax.
+  check_step_leg_smoke(StepLegKind::TRUNCATE, TRUNCATE_LEG_SITES[0], 24, 0.15f);
+  check_step_leg_smoke(StepLegKind::SNUB, SNUB_LEG_SITES[0], 24, 0.15f);
+  for (const StepLegSite &site : RELAX_LEG_SITES)
+    check_step_leg_smoke(StepLegKind::RELAX, site, 16, 0.15f);
+}
+
+/**
+ * @brief Gates the recipe steps no leg kind covers and reports the clamp
+ *        consequence the gate exists to avoid.
+ */
+inline void test_unsweepable_recipe_steps_are_gated() {
+  using Solids::Op;
+  using Solids::IslamicStarPatterns::D2R;
+
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.33f}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::SNUB, 0.5f}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::RELAX, 8.0f}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::HANKIN, 62.0f * D2R}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::AMBO}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 50.0f * D2R}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.63f}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::KIS}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::DUAL}));
+
+  // What the gate avoids, on the seed both blocked truncate recipes reach
+  // (truncatedIcosahedron.ambo().relax()): a clamped leg lands this far from
+  // the mesh the recipe holds, as one silent full-mesh pop at the bookend.
+  // truncate keeps its 2E vertices in emission order on both sides of 0.5, so
+  // the chords are per-index.
+  Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+  PolyMesh seed =
+      build_step_leg_seed({"", probe_ticosa_ambo_relax217, 0.0f}, persist);
+  Arena a(morph_target_buf, sizeof(morph_target_buf));
+  Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+  Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+
+  auto max_chord = [](const PolyMesh &x, const PolyMesh &y) {
+    HS_EXPECT_EQ(x.vertices.size(), y.vertices.size());
+    float worst = 0.0f;
+    for (size_t i = 0; i < x.vertices.size(); ++i)
+      worst = std::max(worst, distance_between(x.vertices[i], y.vertices[i]));
+    return worst;
+  };
+
+  const PolyMesh clamped_lo = MeshOps::truncate(seed, a, b, T_EPS);
+  const PolyMesh target_lo = MeshOps::truncate(seed, aux, b, 0.01f);
+  std::printf("  [gate] truncate(0.01) below T_EPS: leg frozen at t=%.2f, "
+              "closing chord %.4f (%.2f px at r=64), F=%zu\n",
+              (double)T_EPS, (double)max_chord(clamped_lo, target_lo),
+              (double)(max_chord(clamped_lo, target_lo) * 64.0f),
+              clamped_lo.face_counts.size());
+
+  aux.reset();
+  const PolyMesh clamped_hi =
+      MeshOps::truncate(seed, a, b, 0.5f - ConwayGraph::T_EPS_AMBO);
+  const PolyMesh target_hi = MeshOps::truncate(seed, aux, b, 50.0f * D2R);
+  std::printf("  [gate] truncate(50 deg = %.4f) past the ambo point: leg ends "
+              "at t=%.3f, closing chord %.4f (%.1f px at r=64), F=%zu\n",
+              (double)(50.0f * D2R), (double)(0.5f - ConwayGraph::T_EPS_AMBO),
+              (double)max_chord(clamped_hi, target_hi),
+              (double)(max_chord(clamped_hi, target_hi) * 64.0f),
+              clamped_hi.face_counts.size());
+}
+
+// ---------------------------------------------------------------------------
 // Recipe chain build replay (docs/opchain_morph_spec.md sections 9.2/9.3):
 // every registry entry with a non-null recipe is lowered and replayed leg by
 // leg exactly as IslamicStars builds it — same handoff, bookend, pinned
@@ -1852,7 +2359,8 @@ constexpr size_t ISLAMIC_PERSISTENT_BUDGET =
  */
 inline void test_recipe_chain_build_replay() {
   using Animation::OpLeg;
-  constexpr int HANKIN_LEG_FRAMES = 32, AMBO_LEG_FRAMES = 24;
+  constexpr int HANKIN_LEG_FRAMES = 32, SWEEP_LEG_FRAMES = 24,
+                RELAX_LEG_FRAMES = 16;
   constexpr size_t MAX_FACES = 256;
   constexpr size_t MAX_STEPS = 8;
 
@@ -1907,10 +2415,11 @@ inline void test_recipe_chain_build_replay() {
     bool supported = true;
     int leg_frames[MAX_STEPS] = {};
     for (size_t k = 0; k < count; ++k) {
-      if (steps[k].op != Solids::Op::HANKIN && steps[k].op != Solids::Op::AMBO)
+      if (!Solids::is_morphable_step(steps[k]))
         supported = false;
-      leg_frames[k] = steps[k].op == Solids::Op::HANKIN ? HANKIN_LEG_FRAMES
-                                                        : AMBO_LEG_FRAMES;
+      leg_frames[k] = steps[k].op == Solids::Op::HANKIN  ? HANKIN_LEG_FRAMES
+                      : steps[k].op == Solids::Op::RELAX ? RELAX_LEG_FRAMES
+                                                         : SWEEP_LEG_FRAMES;
     }
     HS_EXPECT_TRUE(supported);
     if (!supported) {
@@ -1956,9 +2465,24 @@ inline void test_recipe_chain_build_replay() {
       // Eager clean endpoint, exactly as start_build_leg derives it (for the
       // ambo leg: the AMBO mesh, never the swept truncate form).
       generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-        PolyMesh nx = steps[k].op == Solids::Op::AMBO
-                          ? MeshOps::ambo(cur, a, b)
-                          : MeshOps::hankin(cur, a, b, steps[k].param);
+        PolyMesh nx;
+        switch (steps[k].op) {
+        case Solids::Op::HANKIN:
+          nx = MeshOps::hankin(cur, a, b, steps[k].param);
+          break;
+        case Solids::Op::AMBO:
+          nx = MeshOps::ambo(cur, a, b);
+          break;
+        case Solids::Op::TRUNCATE:
+          nx = MeshOps::truncate(cur, a, b, steps[k].param);
+          break;
+        case Solids::Op::SNUB:
+          nx = MeshOps::snub(cur, a, b, steps[k].param, steps[k].twist);
+          break;
+        default:
+          nx = MeshOps::relax(cur, a, b, static_cast<int>(steps[k].param));
+          break;
+        }
         next = Solids::finalize_solid(nx, target);
       });
       {
@@ -1986,13 +2510,29 @@ inline void test_recipe_chain_build_replay() {
         ++drawn;
       };
 
-      OpLeg leg =
-          steps[k].op == Solids::Op::HANKIN
-              ? OpLeg(cur, 0.0f, steps[k].param, persistent_arena, cb, handoff,
-                      leg_frames[k], bookend)
-              : OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f,
-                      0.0f, persistent_arena, cb, handoff, leg_frames[k],
-                      bookend);
+      auto make_leg = [&]() {
+        switch (steps[k].op) {
+        case Solids::Op::HANKIN:
+          return OpLeg(cur, 0.0f, steps[k].param, persistent_arena, cb, handoff,
+                       leg_frames[k], bookend);
+        case Solids::Op::AMBO:
+          return OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f,
+                       0.0f, persistent_arena, cb, handoff, leg_frames[k],
+                       bookend);
+        case Solids::Op::TRUNCATE:
+          return OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
+                       steps[k].param, 0.0f, 0.0f, persistent_arena, cb,
+                       handoff, leg_frames[k], bookend);
+        case Solids::Op::SNUB:
+          return OpLeg(cur, ConwayGraph::MorphOp::SNUB, 0.0f, steps[k].param,
+                       0.0f, steps[k].twist, persistent_arena, cb, handoff,
+                       leg_frames[k], bookend);
+        default:
+          return OpLeg(cur, static_cast<int>(steps[k].param), persistent_arena,
+                       cb, handoff, leg_frames[k], bookend);
+        }
+      };
+      OpLeg leg = make_leg();
       const OpLeg::Landing &landing = leg.landing();
 
       for (int f = 0; f < leg_frames[k]; ++f) {
@@ -2093,6 +2633,13 @@ inline int run_conway_morph_tests() {
   test_hankin_sweep_on_islamic_seeds_holds_topology();
   test_hankin_sweep_vertex_stability();
   test_opleg_hankin_sweep_smoke();
+
+  test_truncate_leg_on_recipe_seeds_holds_topology();
+  test_snub_leg_on_recipe_seeds_holds_topology();
+  test_relax_leg_on_recipe_seeds_holds_topology();
+  test_opleg_step_leg_smoke();
+  test_unsweepable_recipe_steps_are_gated();
+
   test_recipe_chain_build_replay();
 
   test_walk_policy_coverage_and_balance();
