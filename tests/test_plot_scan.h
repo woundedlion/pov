@@ -1174,6 +1174,163 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
 }
 
 /**
+ * @brief Exercises the Cartesian quadrant gate's rejecting and fallback cases.
+ */
+inline void test_cartesian_quadrant_gate_classification() {
+  constexpr int W = 288, H = 144;
+  auto clip = [](int y0, int y1, int x0, int x1) {
+    ClipRegion cr;
+    cr.w = W;
+    cr.h = H;
+    cr.y_start = y0;
+    cr.y_end = y1;
+    cr.x_start = x0;
+    cr.x_end = x1;
+    return cr;
+  };
+  auto classify = [](const ClipRegion &cr,
+                     std::initializer_list<Vector> points) {
+    ScratchScope sc(plot_arena());
+    Fragments trail;
+    trail.bind(plot_arena(), points.size());
+    for (const Vector &p : points) {
+      Fragment f;
+      f.pos = p.normalized();
+      trail.push_back(f);
+    }
+    return Plot::cartesian_quadrant_trail_gate(
+        Plot::make_cartesian_quadrant_clip<W, H>(cr), trail);
+  };
+
+  const ClipRegion north_left = clip(0, H / 2, 0, W / 2);
+  const ClipRegion south_right = clip(H / 2, H, W / 2, W);
+  HS_EXPECT_EQ(classify(north_left,
+                        {Vector(0.5f, -0.8f, 0.3f),
+                         Vector(0.51f, -0.79f, 0.31f)}),
+               Plot::CartesianTrailGateResult::LATITUDE_REJECT);
+  HS_EXPECT_EQ(classify(north_left,
+                        {Vector(0.3f, 0.5f, -0.8f),
+                         Vector(0.31f, 0.51f, -0.79f)}),
+               Plot::CartesianTrailGateResult::MERIDIAN_REJECT);
+  HS_EXPECT_EQ(classify(south_right,
+                        {Vector(0.5f, 0.8f, 0.3f),
+                         Vector(0.51f, 0.79f, 0.31f)}),
+               Plot::CartesianTrailGateResult::LATITUDE_REJECT);
+  HS_EXPECT_EQ(classify(south_right,
+                        {Vector(0.3f, -0.5f, 0.8f),
+                         Vector(0.31f, -0.51f, 0.79f)}),
+               Plot::CartesianTrailGateResult::MERIDIAN_REJECT);
+
+  // Poles and both quadrant boundaries remain exact-fallback cases.
+  HS_EXPECT_EQ(classify(north_left, {Y_AXIS, Y_AXIS}),
+               Plot::CartesianTrailGateResult::EXACT_FALLBACK);
+  HS_EXPECT_EQ(classify(south_right, {-Y_AXIS, -Y_AXIS}),
+               Plot::CartesianTrailGateResult::EXACT_FALLBACK);
+  HS_EXPECT_EQ(classify(north_left, {X_AXIS, X_AXIS}),
+               Plot::CartesianTrailGateResult::EXACT_FALLBACK);
+  HS_EXPECT_EQ(classify(north_left, {Z_AXIS, Z_AXIS}),
+               Plot::CartesianTrailGateResult::EXACT_FALLBACK);
+
+  // Large and antipodal arcs retain enough slack to fall back; a tiny trail
+  // well outside still takes the cheap rejection.
+  HS_EXPECT_EQ(classify(north_left,
+                        {Vector(0.6f, -0.8f, 0.0f),
+                         Vector(-0.6f, -0.8f, 0.0f)}),
+               Plot::CartesianTrailGateResult::EXACT_FALLBACK);
+  HS_EXPECT_EQ(classify(north_left, {X_AXIS, -X_AXIS}),
+               Plot::CartesianTrailGateResult::EXACT_FALLBACK);
+  HS_EXPECT_EQ(classify(north_left,
+                        {Vector(0.0f, -1.0f, 0.001f),
+                         Vector(0.0f, -1.0f, 0.00101f)}),
+               Plot::CartesianTrailGateResult::LATITUDE_REJECT);
+
+  ClipRegion wedge = clip(0, H / 2, 10, 100);
+  HS_EXPECT_EQ(classify(wedge, {Y_AXIS, Y_AXIS}),
+               Plot::CartesianTrailGateResult::EXACT_FALLBACK);
+}
+
+/**
+ * @brief Pins every Cartesian rejection to the existing exact edge gate.
+ * @details Random tiny, ordinary, large, polar, seam, and antipodal edges are
+ *          swept over all four hardware quadrants. A Cartesian rejection must
+ *          imply that every exact per-edge verdict is invisible.
+ */
+inline void test_cartesian_quadrant_gate_is_conservative() {
+  constexpr int W = 288, H = 144;
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> pipeline{
+      Filter::Screen::AntiAlias<W, H>()};
+  hs::random().seed(0xCA47);
+  auto rand_unit = [] {
+    for (;;) {
+      Vector p(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
+      if (p.length() > 0.1f)
+        return p.normalized();
+    }
+  };
+
+  const int clips[][4] = {
+      {0, H / 2, 0, W / 2}, {0, H / 2, W / 2, W},
+      {H / 2, H, 0, W / 2}, {H / 2, H, W / 2, W},
+  };
+  int latitude_rejects = 0, meridian_rejects = 0;
+  for (const auto &bounds : clips) {
+    ClipRegion cr;
+    cr.w = W;
+    cr.h = H;
+    cr.y_start = bounds[0];
+    cr.y_end = bounds[1];
+    cr.x_start = bounds[2];
+    cr.x_end = bounds[3];
+    const auto xc = cr.x_clip();
+    const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
+    const auto cartesian = Plot::make_cartesian_quadrant_clip<W, H>(cr);
+
+    for (int trial = 0; trial < 1000; ++trial) {
+      ScratchScope sc(plot_arena());
+      constexpr size_t N = 6;
+      Fragments trail;
+      trail.bind(plot_arena(), N);
+      Vector p = trial % 13 == 0
+                     ? Vector(0.001f, trial % 26 == 0 ? 1.0f : -1.0f, 0.001f)
+                           .normalized()
+                     : rand_unit();
+      for (size_t k = 0; k < N; ++k) {
+        Fragment f;
+        f.pos = p;
+        trail.push_back(f);
+        Vector next = rand_unit();
+        if (k == 2 && trial % 17 == 0)
+          p = -p;
+        else {
+          const float hop = trial % 5 == 0 ? 1e-5f :
+                            trial % 7 == 0 ? 2.7f : hs::rand_f(0.01f, 0.7f);
+          Vector tangent = next - p * dot(next, p);
+          if (tangent.length() > 1e-4f)
+            p = (p * cosf(hop) + tangent.normalized() * sinf(hop)).normalized();
+        }
+      }
+
+      const auto result =
+          Plot::cartesian_quadrant_trail_gate(cartesian, trail);
+      if (result == Plot::CartesianTrailGateResult::EXACT_FALLBACK)
+        continue;
+      if (result == Plot::CartesianTrailGateResult::LATITUDE_REJECT)
+        ++latitude_rejects;
+      else
+        ++meridian_rejects;
+      for (size_t e = 0; e + 1 < trail.size(); ++e) {
+        const bool visible = Plot::edge_visible_in_clip<W, H>(
+            pipeline, cr, xc, band_len, trail[e].pos, trail[e + 1].pos,
+            nullptr);
+        HS_EXPECT_FALSE(visible);
+      }
+    }
+  }
+  HS_EXPECT_GT(latitude_rejects, 100);
+  HS_EXPECT_GT(meridian_rejects, 100);
+}
+
+/**
  * @brief Pins gate_trail_edges to the per-edge edge_visible_in_clip verdicts.
  * @details Random geodesic step-walk trails over the device band shapes. A
  *          false return must leave every byte zero AND every edge individually
@@ -3305,6 +3462,8 @@ inline int run_plot_scan_tests() {
   test_mesh_edge_gate_pixel_parity();
   test_mesh_dissolve_masks_partition_edges();
   test_gate_trail_column_cull_honors_unbounded_edge();
+  test_cartesian_quadrant_gate_classification();
+  test_cartesian_quadrant_gate_is_conservative();
   test_gate_trail_edges_matches_edge_visible();
   test_rasterize_gate_bits_pixel_parity();
   test_screen_step_matches_analytic_unclamped();
