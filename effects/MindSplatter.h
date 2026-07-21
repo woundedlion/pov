@@ -61,7 +61,8 @@ public:
     register_readonly_param("Particles", &params.active_count, 0.0f,
                           (float)NUM_PARTICLES);
 
-    timeline.add(0, Animation::RandomWalk<W>(orientation, Y_AXIS, noise));
+    timeline.add(
+        0, Animation::RandomWalk<W, 4, true>(orientation, Y_AXIS, noise));
 
     auto preset_timer = Animation::PeriodicTimer(
         160,

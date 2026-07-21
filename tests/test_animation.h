@@ -2223,6 +2223,34 @@ inline void test_random_walk_stays_unit_and_travels() {
   HS_EXPECT_GT(travel, 0.0f);
 }
 
+/**
+ * @brief Stable rotation boundaries preserve the seeded RandomWalk trajectory.
+ */
+inline void test_random_walk_stable_rotation_matches_default() {
+  using DefaultWalk = Animation::RandomWalk<288, 4>;
+  using StableWalk = Animation::RandomWalk<288, 4, true>;
+
+  Orientation<4> default_orientation;
+  Orientation<4> stable_orientation;
+  FastNoiseLite default_noise;
+  FastNoiseLite stable_noise;
+  DefaultWalk default_walk(default_orientation, Y_AXIS, default_noise,
+                           DefaultWalk::Options::Energetic(), /*seed=*/1234);
+  StableWalk stable_walk(stable_orientation, Y_AXIS, stable_noise,
+                         StableWalk::Options::Energetic(), /*seed=*/1234);
+
+  for (int frame = 0; frame < 50; ++frame) {
+    default_walk.step(fake_canvas());
+    stable_walk.step(fake_canvas());
+    const Quaternion &expected = default_orientation.get();
+    const Quaternion &actual = stable_orientation.get();
+    HS_EXPECT_EQ(actual.r, expected.r);
+    HS_EXPECT_EQ(actual.v.x, expected.v.x);
+    HS_EXPECT_EQ(actual.v.y, expected.v.y);
+    HS_EXPECT_EQ(actual.v.z, expected.v.z);
+  }
+}
+
 // ============================================================================
 // Previously-uncovered public animation APIs
 // ============================================================================
@@ -2453,6 +2481,7 @@ inline int run_animation_tests() {
   test_noise_publishes_time_and_is_perpetual();
 
   test_random_walk_stays_unit_and_travels();
+  test_random_walk_stable_rotation_matches_default();
 
   test_random_timer_fires_within_range();
   test_periodic_timer_set_period_reschedules_from_now();

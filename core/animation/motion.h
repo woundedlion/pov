@@ -470,9 +470,10 @@ private:
  * explicitly.
  * @tparam W The width of the LED display.
  * @tparam CAP Orientation sub-frame capacity.
+ * @tparam STABLE_ROTATION Preserve rotation helper call boundaries.
  */
-template <int W, int CAP = 4>
-class RandomWalk : public AnimationBase<RandomWalk<W, CAP>> {
+template <int W, int CAP = 4, bool STABLE_ROTATION = false>
+class RandomWalk : public AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>> {
 public:
   /**
    * @brief Tunable parameters for the random walk.
@@ -509,9 +510,9 @@ public:
   RandomWalk(Orientation<CAP> &orientation, const Vector &v_start,
              FastNoiseLite &noise, Options options = Options(),
              int seed = 0)
-      : AnimationBase<RandomWalk<W, CAP>>(-1, false), orientation(orientation),
-        v(Vector(v_start).normalized()), options(options),
-        noise_generator(noise) {
+      : AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>>(-1, false),
+        orientation(orientation), v(Vector(v_start).normalized()),
+        options(options), noise_generator(noise) {
     Vector u = least_parallel_axis(v);
     direction = cross(v, u).normalized();
     noise_generator.get().SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
@@ -552,7 +553,7 @@ public:
    * @param canvas The canvas buffer (forwarded to the base step and rotation).
    */
   void step(Canvas &canvas) override {
-    AnimationBase<RandomWalk<W, CAP>>::step(canvas);
+    AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>>::step(canvas);
     // noise_scale is applied once via SetFrequency() in the ctor; the 100x is a
     // fixed base sample scale (scaling coords by noise_scale here too would make
     // the spatial frequency quadratic in it).
@@ -565,20 +566,53 @@ public:
         options.pivot_strength;
     angular_velocity = angular_velocity * options.smoothing +
                        target_pivot * (1.0f - options.smoothing);
-    direction = rotate(direction, make_rotation(v, angular_velocity)).normalized();
+    if constexpr (STABLE_ROTATION) {
+      direction =
+          rotate(direction, make_stable_rotation(v, angular_velocity))
+              .normalized();
+    } else {
+      direction =
+          rotate(direction, make_rotation(v, angular_velocity)).normalized();
+    }
     // If v and direction drift near-parallel the cross collapses to zero; fall
     // back to a deterministic perpendicular of v.
     const Vector axis_seed = least_parallel_axis(v);
     Vector walk_axis =
         normalized_or(cross(v, direction), cross(v, axis_seed).normalized());
-    v = rotate(v, make_rotation(walk_axis, options.speed)).normalized();
-    direction =
-        rotate(direction, make_rotation(walk_axis, options.speed)).normalized();
+    if constexpr (STABLE_ROTATION) {
+      v = rotate(v, make_stable_rotation(walk_axis, options.speed)).normalized();
+      direction =
+          rotate(direction, make_stable_rotation(walk_axis, options.speed))
+              .normalized();
+    } else {
+      v = rotate(v, make_rotation(walk_axis, options.speed)).normalized();
+      direction =
+          rotate(direction, make_rotation(walk_axis, options.speed)).normalized();
+    }
     Rotation<W, CAP>::animate(canvas, orientation, walk_axis, options.speed,
                               ease_linear);
   }
 
 private:
+  [[nodiscard]] static __attribute__((noinline)) float
+  stable_rotation_squared_magnitude(const Quaternion &q) {
+    return q.r * q.r + q.v.x * q.v.x + q.v.y * q.v.y + q.v.z * q.v.z;
+  }
+
+  [[nodiscard]] static __attribute__((noinline)) Quaternion
+  stable_rotation_normalized(const Quaternion &q) {
+    float m2 = stable_rotation_squared_magnitude(q);
+    HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
+    float m = sqrtf(m2);
+    return Quaternion(q.r / m, q.v / m);
+  }
+
+  [[nodiscard]] static __attribute__((noinline)) Quaternion
+  make_stable_rotation(const Vector &axis, float theta) {
+    return stable_rotation_normalized(
+        Quaternion(cosf(theta / 2), sinf(theta / 2) * axis));
+  }
+
   std::reference_wrapper<Orientation<CAP>>
       orientation;  /**< Reference to the global Orientation state. */
   Vector v;         /**< Current forward direction vector. */
