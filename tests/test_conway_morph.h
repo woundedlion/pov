@@ -2634,6 +2634,9 @@ inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
         case Solids::Op::DUAL:
           nx = MeshOps::dual(cur, a, b);
           break;
+        case Solids::Op::CHAMFER:
+          nx = MeshOps::chamfer(cur, a, b, steps[k].param);
+          break;
         default:
           nx = MeshOps::relax(cur, a, b, static_cast<int>(steps[k].param));
           break;
@@ -2693,6 +2696,10 @@ inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
           return OpLeg(cur, ConwayGraph::MorphOp::SNUB, 0.0f, steps[k].param,
                        0.0f, steps[k].twist, persistent_arena, cb, handoff,
                        leg_frames[k], bookend);
+        case Solids::Op::CHAMFER:
+          return OpLeg(cur, ConwayGraph::MorphOp::CHAMFER, 0.0f, steps[k].param,
+                       0.0f, 0.0f, persistent_arena, cb, handoff, leg_frames[k],
+                       bookend);
         default:
           return OpLeg(cur, static_cast<int>(steps[k].param), persistent_arena,
                        cb, handoff, leg_frames[k], bookend);
