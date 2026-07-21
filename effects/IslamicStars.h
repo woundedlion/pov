@@ -167,6 +167,10 @@ private:
       {}; /**< Per-shape pinned target palettes, shuffled before leg 0. */
   const Animation::OpLeg::Landing *build_landing_ =
       nullptr; /**< Latest leg's arrival data (leg-arena backed). */
+  const uint8_t *build_from_pal_ =
+      nullptr; /**< Per-face palette the previous leg landed on; survives the
+                  leg-boundary compaction that drops its landing. */
+  size_t build_from_faces_ = 0; /**< Length of build_from_pal_. */
 
   /**
    * @brief Draw callback for build-leg frames.
@@ -413,10 +417,20 @@ private:
     // Compact the back slot, rebaking palettes into the fresh arena rather than
     // tracking them through the evacuation. The ripple pool re-claims first so
     // its slots re-land at their init_storage() addresses.
-    carousel.compact_keep_front([this](Arena &arena) {
+    //
+    // A build regenerates both slots before either is drawn again — the seed
+    // below, the finished solid at finish_build — so the outgoing shape is
+    // dropped rather than evacuated. Keeping it costs the whole build the
+    // previous shape's mesh, which at the roster's 1082-face entry is most of
+    // the persistent arena.
+    auto rebake = [this](Arena &arena) {
       ripple_gen.reclaim_storage(arena);
       palette_bank_.bake_all(arena);
-    });
+    };
+    if (recipe)
+      carousel.compact_drop_all(rebake);
+    else
+      carousel.compact_keep_front(rebake);
 
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       if (recipe) {
@@ -590,13 +604,9 @@ private:
     } else {
       // Depart from the palette the previous leg landed on, so the boundary is
       // continuous: that leg finished at weight 1 on exactly these ids.
-      HS_CHECK(build_landing_ && build_landing_->faces == prev_faces,
-               "IslamicStars: chain landing does not cover the leg seed");
-      uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(prev_faces);
-      for (size_t f = 0; f < prev_faces; ++f)
-        pal[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
-                                                 NUM_PALETTES)];
-      prev_pal = pal;
+      HS_CHECK(build_from_pal_ && build_from_faces_ == prev_faces,
+               "IslamicStars: carried palette does not cover the leg seed");
+      prev_pal = build_from_pal_;
     }
 
     Animation::OpLeg::PaletteHandoff handoff{
@@ -684,12 +694,44 @@ private:
    *        leg's seed, then starts the next leg or finishes the build.
    */
   HS_COLD_MEMBER void finish_build_leg() {
-    build_seed_ = std::move(build_next_seed_);
-    if (++build_step_ < build_step_count_) {
-      start_build_leg();
+    if (build_step_ + 1 >= build_step_count_) {
+      // finish_build consumes the last leg's landing, so that one is reclaimed
+      // by the next shape's compaction instead.
+      build_seed_ = std::move(build_next_seed_);
+      ++build_step_;
+      finish_build();
       return;
     }
-    finish_build();
+
+    // Reclaim the finished leg. Only the endpoint the next leg sweeps from
+    // crosses the reset, so a build holds one leg's storage rather than the
+    // whole chain's. The palette it landed on is snapshotted first: the next
+    // leg departs from it and the landing does not survive.
+    ScratchScope a_guard(scratch_arena_a);
+    const size_t landed_faces = build_landing_->faces;
+    uint8_t *landed = scratch_arena_a.allocate_n<uint8_t>(landed_faces);
+    for (size_t f = 0; f < landed_faces; ++f)
+      landed[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
+                                                  NUM_PALETTES)];
+    build_landing_ = nullptr;
+
+    {
+      Persist<PolyMesh> pn(build_next_seed_, scratch_arena_b, persistent_arena);
+      build_seed_ = PolyMesh();
+      carousel.compact_drop_all([this](Arena &arena) {
+        ripple_gen.reclaim_storage(arena);
+        palette_bank_.bake_all(arena);
+      });
+    }
+    build_seed_ = std::move(build_next_seed_);
+
+    uint8_t *from_pal = persistent_arena.allocate_n<uint8_t>(landed_faces);
+    std::memcpy(from_pal, landed, landed_faces);
+    build_from_pal_ = from_pal;
+    build_from_faces_ = landed_faces;
+
+    ++build_step_;
+    start_build_leg();
   }
 
   /**
