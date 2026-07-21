@@ -735,6 +735,7 @@ public:
    */
   void clear_buffer() {
     int c = effect_.cur_.load(std::memory_order_relaxed);
+    HS_PROFILE(canvas_clear);
     std::fill_n(effect_.bufs_[c], effect_.width_ * effect_.height_,
                 Pixel(0, 0, 0));
   }
