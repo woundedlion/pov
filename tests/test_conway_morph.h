@@ -1487,10 +1487,32 @@ inline void test_recipe_chain_build_replay() {
       continue;
     }
 
+    // Finished solid's classification: every leg keys its targets on a prefix
+    // of it, so a surviving face's target is fixed for the whole chain.
+    int final_topo_buf[MAX_FACES] = {};
+    size_t final_faces = 0;
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      PolyMesh fin =
+          Solids::build_recipe(recipe, scratch_arena_a, scratch_arena_b);
+      MeshState fin_state;
+      MeshOps::compile(fin, fin_state, scratch_arena_a, scratch_arena_b);
+      MeshOps::classify_faces_by_topology(fin_state, scratch_arena_a,
+                                          scratch_arena_b, scratch_arena_a);
+      final_faces = fin_state.topology.size();
+      HS_EXPECT_LE(final_faces, MAX_FACES);
+      for (size_t f = 0; f < final_faces; ++f)
+        final_topo_buf[f] = fin_state.topology[f];
+    }
+    const int *final_topo = final_topo_buf;
+
     ChainFx fx;
     uint8_t prev_pal_buf[MAX_FACES];
     Vector prev_centroid[MAX_FACES];
     uint8_t carried_from[MAX_FACES] = {};
+    uint8_t cur_target[MAX_FACES] = {};
+    uint8_t prev_target[MAX_FACES] = {};
     const OpLeg::Landing *prev_landing = nullptr;
     PolyMesh next;
     float c_done = 0.0f;
@@ -1520,28 +1542,22 @@ inline void test_recipe_chain_build_replay() {
         prev_pal = prev_landing->from_palette;
       }
 
-      // Eager clean endpoint + its bookend classification (for the ambo leg:
-      // the AMBO mesh, never the swept truncate form), exactly as
-      // start_build_leg derives them.
+      // Eager clean endpoint, exactly as start_build_leg derives it (for the
+      // ambo leg: the AMBO mesh, never the swept truncate form).
       generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
         PolyMesh nx = steps[k].op == Solids::Op::AMBO
                           ? MeshOps::ambo(cur, a, b)
                           : MeshOps::hankin(cur, a, b, steps[k].param);
         next = Solids::finalize_solid(nx, target);
       });
-      {
-        ScratchScope a_guard(scratch_arena_a);
-        ScratchScope b_guard(scratch_arena_b);
-        MeshOps::classify_faces_by_topology(next, scratch_arena_a,
-                                            scratch_arena_b, persistent_arena);
-      }
       const size_t bookend_faces = next.face_counts.size();
       HS_EXPECT_LE(bookend_faces, MAX_FACES);
+      HS_EXPECT_LE(bookend_faces, final_faces);
 
       OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr,
                                     prev_faces, false,    prev_centroid,
                                     &targets};
-      OpLeg::BookendClasses bookend{next.topology.data(), bookend_faces};
+      OpLeg::BookendClasses bookend{final_topo, bookend_faces};
 
       size_t drawn = 0;
       size_t leg_faces = 0;
@@ -1588,6 +1604,26 @@ inline void test_recipe_chain_build_replay() {
       HS_EXPECT_LE(landing.faces, MAX_FACES);
       for (size_t f = 0; f < landing.faces; ++f)
         carried_from[f] = landing.from_palette[f];
+
+      // Target continuity: a surviving face's target palette must not move at
+      // a leg boundary. The blend weight is mid-range there, so a moved target
+      // jumps that face's color — the defect keying targets on each leg's own
+      // arrival produced (32/32 and 62/62 faces on the dodecahedron chain).
+      for (size_t f = 0; f < landing.faces; ++f)
+        cur_target[f] =
+            targets[wrap(landing.topology[f], OpLeg::PALETTES)];
+      if (k > 0) {
+        size_t moved = 0;
+        for (size_t f = 0; f < prev_faces; ++f)
+          if (cur_target[f] != prev_target[f])
+            ++moved;
+        if (moved)
+          std::printf("    [chain target] %s leg %zu: %zu/%zu faces change "
+                      "target at w=%.3f\n",
+                      entry.name, k, moved, prev_faces, (double)c_done);
+        HS_EXPECT_EQ(moved, (size_t)0);
+      }
+      std::memcpy(prev_target, cur_target, landing.faces);
 
       // Landing lives in the leg's arena-backed Transients; outlives `leg`.
       prev_landing = &landing;
