@@ -38,6 +38,7 @@
 #pragma once
 
 #include <array>
+#include <cstdint>
 #include <span>
 
 #include "core/render/filter.h"
@@ -1020,6 +1021,112 @@ inline void test_pipeline_screen_antialias_routes_to_sink() {
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(10, 5), 50000, 0, 25000));
 }
 
+struct AASinkSample {
+  float x;
+  float y;
+  Pixel color;
+  float alpha;
+};
+
+template <typename Sink>
+inline std::vector<Pixel>
+render_aa_sink_case(int w, int h, int y0, int y1, int x0, int x1, int margin,
+                    const std::vector<AASinkSample> &samples) {
+  std::vector<Pixel> frame;
+  {
+    PipeFx fx(w, h);
+    fx.set_clip(y0, y1, x0, x1);
+    fx.set_margin(margin);
+    Sink sink;
+    {
+      Canvas cv(fx);
+      for (int y = 0; y < h; ++y)
+        for (int x = 0; x < w; ++x) {
+          const uint32_t n = static_cast<uint32_t>(y * w + x);
+          cv(x, y) = Pixel(static_cast<uint16_t>(n * 977u + 13u),
+                           static_cast<uint16_t>(n * 313u + 101u),
+                           static_cast<uint16_t>(n * 701u + 7u));
+        }
+      for (const AASinkSample &s : samples)
+        sink.plot(cv, s.x, s.y, s.color, 0.0f, s.alpha);
+    }
+    fx.advance_display();
+    frame.reserve(static_cast<size_t>(w * h));
+    for (int y = 0; y < h; ++y)
+      for (int x = 0; x < w; ++x)
+        frame.push_back(fx.get_pixel(x, y));
+  }
+  return frame;
+}
+
+/**
+ * @brief Proves the opt-in direct AA sink is framebuffer-identical to the
+ * generic AntiAlias pipeline across poles, seams, clips and random splats.
+ */
+inline void test_direct_antialias_sink_framebuffer_parity() {
+  constexpr int W = 17;
+  constexpr int H = 9;
+  using Reference = Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>;
+  using Direct = Filter::Screen::DirectAntiAliasSink<W, H>;
+  static_assert(!Direct::has_world_cull);
+  static_assert(!Direct::any_crosses_segments);
+
+  std::vector<AASinkSample> samples;
+  constexpr std::array<float, 12> xs{
+      -17.0f, -16.999f, -0.999f, -0.001f, 0.0f, 0.001f,
+      7.5f,   15.999f,  16.999f, 17.001f, 33.001f, 33.999f};
+  constexpr std::array<float, 11> ys{
+      -1.001f, -1.0f, -0.999f, -0.001f, 0.0f, 0.001f,
+      4.5f,    7.999f, 8.0f,    8.999f, 9.001f};
+  constexpr std::array<float, 5> alphas{0.0f, 0.00001f, 0.25f, 1.0f, 1.2f};
+  size_t sequence = 0;
+  for (float x : xs)
+    for (float y : ys) {
+      const uint16_t n = static_cast<uint16_t>(sequence++ * 4051u);
+      samples.push_back(
+          {x, y, Pixel(n, static_cast<uint16_t>(n * 3u),
+                       static_cast<uint16_t>(65535u - n)),
+           alphas[sequence % alphas.size()]});
+    }
+
+  uint32_t state = 0x6d2b79f5u;
+  auto random_u32 = [&]() {
+    state = state * 1664525u + 1013904223u;
+    return state;
+  };
+  auto random_unit = [&]() {
+    return static_cast<float>(random_u32() >> 8) * (1.0f / 16777216.0f);
+  };
+  for (int i = 0; i < 512; ++i) {
+    const float x = -W + random_unit() * (3.0f * W - 0.002f);
+    const float y = -1.1f + random_unit() * (H + 1.2f);
+    samples.push_back({x, y,
+                       Pixel(static_cast<uint16_t>(random_u32()),
+                             static_cast<uint16_t>(random_u32()),
+                             static_cast<uint16_t>(random_u32())),
+                       random_unit() * 1.25f});
+  }
+
+  struct ClipCase {
+    int y0, y1, x0, x1, margin;
+  };
+  constexpr std::array<ClipCase, 7> clips{{
+      {0, H, 0, W, 0}, {2, 7, 3, 13, 0}, {2, 7, 3, 13, 1},
+      {2, 7, 0, 2, 2}, {2, 7, 15, W, 2}, {4, 5, 8, 9, 4},
+      {0, H, 4, 12, W - 1},
+  }};
+
+  for (const ClipCase &clip : clips) {
+    const auto expected = render_aa_sink_case<Reference>(
+        W, H, clip.y0, clip.y1, clip.x0, clip.x1, clip.margin, samples);
+    const auto actual = render_aa_sink_case<Direct>(
+        W, H, clip.y0, clip.y1, clip.x0, clip.x1, clip.margin, samples);
+    HS_EXPECT_EQ(actual.size(), expected.size());
+    for (size_t i = 0; i < expected.size(); ++i)
+      HS_EXPECT_TRUE(actual[i] == expected[i]);
+  }
+}
+
 /**
  * @brief Verifies the Pixel::Feedback::flush warp-field path.
  * @details A Smoke style with no bound NoiseParams makes noise_warp an identity
@@ -1900,6 +2007,7 @@ inline int run_filter_tests() {
   test_pipeline_world_replicate_fans_out();
   test_pipeline_2d_into_3d_head_roundtrips();
   test_pipeline_screen_antialias_routes_to_sink();
+  test_direct_antialias_sink_framebuffer_parity();
   test_feedback_flush_blends_prev_frame();
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();

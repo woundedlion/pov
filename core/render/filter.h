@@ -1055,6 +1055,119 @@ public:
 HS_O3_END
 
 /**
+ * @brief Terminal four-tap anti-alias sink with direct framebuffer writes.
+ * @details Opt-in replacement for `Pipeline<W, H, AntiAlias<W, H>>` when no
+ * downstream filter is required. It preserves AntiAlias tap ordering and the
+ * base sink's q16 source-over blend while resolving rows, columns and clipping
+ * once per sample.
+ */
+HS_O3_BEGIN
+template <int W, int H> class DirectAntiAliasSink : public Is2D {
+public:
+  static constexpr bool any_crosses_segments = false;
+  static constexpr bool has_world_cull = false;
+
+  /** @brief Splats one screen-space sample directly into the Canvas. */
+  void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
+            float alpha) {
+    assert(age >= 0.0f && alpha >= 0.0f);
+    (void)age;
+
+    const float y_floor = floorf(y);
+    const float x_floor = floorf(x);
+    const float xs = quintic_kernel(x - x_floor);
+    const float ys = quintic_kernel(y - y_floor);
+
+    const int y0 = static_cast<int>(y_floor);
+    const int y1 = y0 + 1;
+    const int x0 = fast_wrap(static_cast<int>(x_floor), W);
+    const int x1 = fast_wrap(x0 + 1, W);
+
+    const bool y0_physical = y0 >= 0 && y0 < H;
+    const bool y1_physical = y1 >= 0 && y1 < H;
+    float wy0 = 1.0f - ys;
+    float wy1 = ys;
+    if (y0_physical && !y1_physical) {
+      wy0 = 1.0f;
+      wy1 = 0.0f;
+    } else if (!y0_physical && y1_physical) {
+      wy0 = 0.0f;
+      wy1 = 1.0f;
+    }
+
+    const float v00 = (1.0f - xs) * wy0;
+    const float v10 = xs * wy0;
+    const float v01 = (1.0f - xs) * wy1;
+    const float v11 = xs * wy1;
+    constexpr float TAP_CUTOFF = 1e-8f;
+
+    const ClipRegion &cr = cv.clip();
+    const ClipRegion::XClip xc = cr.x_clip();
+    const bool x0_ok = !xc.clipped(x0);
+    const bool x1_ok = !xc.clipped(x1);
+    const bool y0_ok = y0_physical && cr.contains_y(y0);
+    const bool y1_ok = y1_physical && cr.contains_y(y1);
+    Pixel *const base = cv.data();
+    Pixel *const row0 = y0_ok ? base + y0 * W : nullptr;
+    Pixel *const row1 = y1_ok ? base + y1 * W : nullptr;
+    Pixel *const dst00 = row0 && x0_ok && v00 > TAP_CUTOFF ? row0 + x0 : nullptr;
+    Pixel *const dst10 = row0 && x1_ok && v10 > TAP_CUTOFF ? row0 + x1 : nullptr;
+    Pixel *const dst01 = row1 && x0_ok && v01 > TAP_CUTOFF ? row1 + x0 : nullptr;
+    Pixel *const dst11 = row1 && x1_ok && v11 > TAP_CUTOFF ? row1 + x1 : nullptr;
+    const uint16_t a00 = dst00 ? tap_alpha_q16(alpha, v00) : 0;
+    const uint16_t a10 = dst10 ? tap_alpha_q16(alpha, v10) : 0;
+    const uint16_t a01 = dst01 ? tap_alpha_q16(alpha, v01) : 0;
+    const uint16_t a11 = dst11 ? tap_alpha_q16(alpha, v11) : 0;
+
+    if (dst00)
+      blend_tap(dst00, c, a00);
+    if (dst10)
+      blend_tap(dst10, c, a10);
+    if (dst01)
+      blend_tap(dst01, c, a01);
+    if (dst11)
+      blend_tap(dst11, c, a11);
+  }
+
+  /** @brief Integer-coordinate overload matching a filtered Pipeline. */
+  void plot(Canvas &cv, int x, int y, const Pixel &c, float age, float alpha) {
+    plot(cv, static_cast<float>(x), static_cast<float>(y), c, age, alpha);
+  }
+
+  /** @brief Projects a world point, then applies the direct screen-space splat. */
+  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
+            float alpha) {
+    const PixelCoords p = vector_to_pixel<W, H>(v);
+    plot(cv, p.x, p.y, c, age, alpha);
+  }
+
+  /** @brief Stateless screen flush no-op. */
+  void flush(Canvas &, const ScreenTrailFn &, float) {}
+  /** @brief Stateless world flush no-op. */
+  void flush(Canvas &, const WorldTrailFn &, float) {}
+
+  /** @brief Terminal clip-cull predicate forwarding. */
+  template <typename Pred>
+  bool could_intersect_clip(const Vector &a, const Vector &b,
+                            const Basis *planar_basis, Pred &&pred) const {
+    return pred(a, b, planar_basis);
+  }
+
+private:
+  static uint16_t tap_alpha_q16(float alpha, float weight) {
+    return static_cast<uint16_t>(
+        hs::clamp(alpha * weight * 65535.0f + 0.5f, 0.0f, 65535.0f));
+  }
+
+  static __attribute__((always_inline)) void blend_tap(Pixel *dst,
+                                                        const Pixel &src,
+                                                        uint16_t alpha_q16) {
+    *dst = dst->lerp16(src, alpha_q16);
+  }
+};
+HS_O3_END
+
+/**
  * @brief Manages 2D screen-space trails.
  */
 template <int W, int MAX_PIXELS = 1024> class Trails : public Is2DWithHistory {

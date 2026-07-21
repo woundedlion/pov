@@ -32,7 +32,6 @@ public:
                {.strobe = true,
                 .full_frame = decltype(filters)::any_crosses_segments}),
         presets{PRESETS},
-        filters(Filter::Screen::AntiAlias<W, H>()),
         particle_system() {}
 
   /**
@@ -245,7 +244,7 @@ private:
   Orientation<> orientation;
   FastNoiseLite noise;
   Timeline timeline;
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters;
+  Filter::Screen::DirectAntiAliasSink<W, H> filters;
   ParticleSystem particle_system;
   GenerativePalette base_palette{
       GradientShape::CIRCULAR, HarmonyType::COMPLEMENTARY,
