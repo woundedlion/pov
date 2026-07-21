@@ -37,6 +37,7 @@
 #include "core/mesh/conway.h"
 #include "core/mesh/conway_graph.h"
 #include "core/mesh/hankin.h"
+#include "core/mesh/recipe.h"
 #include "core/mesh/solids.h"
 #include "core/render/canvas.h"
 #include "tests/mesh_test_util.h"
@@ -1393,6 +1394,246 @@ inline void test_opleg_hankin_sweep_smoke() {
 }
 
 // ---------------------------------------------------------------------------
+// Recipe chain build replay (docs/opchain_morph_spec.md sections 9.2/9.3):
+// every registry entry with a non-null recipe is lowered and replayed leg by
+// leg exactly as IslamicStars builds it — same handoff, bookend, pinned
+// targets, and blend-range dance — stepping every leg frame by frame with a
+// recording draw callback. Gates per-leg compiled-face-count constancy,
+// from-palette continuity across leg boundaries, the final clean-swap
+// classification, and the persistent/scratch high-water against IslamicStars'
+// configured split.
+// ---------------------------------------------------------------------------
+
+constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
+    114 * 1024; /**< IslamicStars scratch_a split. */
+constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
+    80 * 1024; /**< IslamicStars scratch_b split. */
+/** Device persistent budget of IslamicStars' arena split. */
+constexpr size_t ISLAMIC_PERSISTENT_BUDGET =
+    DEVICE_GLOBAL_ARENA_SIZE - ISLAMIC_SCRATCH_A_BUDGET -
+    ISLAMIC_SCRATCH_B_BUDGET;
+
+/**
+ * @brief Replays every non-null recipe leg by leg as IslamicStars builds it
+ *        and gates continuity, classification, and the arena high-waters.
+ */
+inline void test_recipe_chain_build_replay() {
+  using Animation::OpLeg;
+  constexpr int HANKIN_LEG_FRAMES = 32, AMBO_LEG_FRAMES = 24;
+  constexpr size_t MAX_FACES = 256;
+  constexpr size_t MAX_STEPS = 8;
+
+  struct ChainFx : public Effect {
+    ChainFx() : Effect(288, 144) {}
+    void draw_frame() override {}
+  };
+
+  int chains = 0;
+  for (const Solids::Entry &entry : Solids::Collections::get_islamic_solids()) {
+    if (!entry.recipe)
+      continue;
+    ++chains;
+    const Solids::Recipe &recipe = *entry.recipe;
+    const int failed_before = hs_test::stats().failed;
+
+    reset_globals();
+    configure_arenas(GLOBAL_ARENA_SIZE - ISLAMIC_SCRATCH_A_BUDGET -
+                         ISLAMIC_SCRATCH_B_BUDGET,
+                     ISLAMIC_SCRATCH_A_BUDGET, ISLAMIC_SCRATCH_B_BUDGET);
+    hs::random().seed(2026u);
+
+    MeshPaletteBank bank;
+    bank.bake_all(persistent_arena);
+
+    // Seed solid: persistent PolyMesh plus the compiled/classified carousel
+    // slot, exactly as spawn_shape prepares them.
+    PolyMesh cur;
+    MeshState seed_slot;
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      cur = Solids::finalize_solid(
+          Solids::simple_registry[recipe.seed].generate(a, b), target);
+      MeshOps::compile(cur, seed_slot, target, a);
+    });
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(seed_slot, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+
+    std::array<int, OpLeg::PALETTES> slots;
+    MeshPaletteBank::shuffle_indices(slots);
+    std::array<uint8_t, OpLeg::PALETTES> targets;
+    for (int i = 0; i < OpLeg::PALETTES; ++i)
+      targets[i] = static_cast<uint8_t>(i);
+    hs::shuffle(targets.begin(), targets.end());
+
+    Solids::OpStep steps[MAX_STEPS];
+    const size_t count = Solids::expand_to_primitives(recipe, steps, MAX_STEPS);
+    HS_EXPECT_GT(count, (size_t)0);
+    bool supported = true;
+    int leg_frames[MAX_STEPS] = {};
+    int total_frames = 0;
+    for (size_t k = 0; k < count; ++k) {
+      if (steps[k].op != Solids::Op::HANKIN && steps[k].op != Solids::Op::AMBO)
+        supported = false;
+      leg_frames[k] = steps[k].op == Solids::Op::HANKIN ? HANKIN_LEG_FRAMES
+                                                        : AMBO_LEG_FRAMES;
+      total_frames += leg_frames[k];
+    }
+    HS_EXPECT_TRUE(supported);
+    if (!supported) {
+      std::printf("    [chain] %s: unsupported lowered op\n", entry.name);
+      continue;
+    }
+
+    ChainFx fx;
+    uint8_t prev_pal_buf[MAX_FACES];
+    Vector prev_centroid[MAX_FACES];
+    uint8_t carried_from[MAX_FACES] = {};
+    const OpLeg::Landing *prev_landing = nullptr;
+    PolyMesh next;
+    float c_done = 0.0f;
+
+    for (size_t k = 0; k < count; ++k) {
+      const size_t prev_faces = cur.face_counts.size();
+      HS_EXPECT_LE(prev_faces, MAX_FACES);
+      {
+        size_t off = 0;
+        for (size_t f = 0; f < prev_faces; ++f) {
+          Vector c(0.0f, 0.0f, 0.0f);
+          const int n = cur.face_counts[f];
+          for (int j = 0; j < n; ++j)
+            c = c + cur.vertices[cur.faces[off + j]];
+          prev_centroid[f] = c.normalized();
+          off += n;
+        }
+      }
+      const uint8_t *prev_pal;
+      if (k == 0) {
+        for (size_t f = 0; f < prev_faces; ++f)
+          prev_pal_buf[f] = static_cast<uint8_t>(
+              slots[wrap(seed_slot.topology[f], OpLeg::PALETTES)]);
+        prev_pal = prev_pal_buf;
+      } else {
+        HS_EXPECT_EQ(prev_landing->faces, prev_faces);
+        prev_pal = prev_landing->from_palette;
+      }
+
+      // Eager clean endpoint + its bookend classification (for the ambo leg:
+      // the AMBO mesh, never the swept truncate form), exactly as
+      // start_build_leg derives them.
+      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+        PolyMesh nx = steps[k].op == Solids::Op::AMBO
+                          ? MeshOps::ambo(cur, a, b)
+                          : MeshOps::hankin(cur, a, b, steps[k].param);
+        next = Solids::finalize_solid(nx, target);
+      });
+      {
+        ScratchScope a_guard(scratch_arena_a);
+        ScratchScope b_guard(scratch_arena_b);
+        MeshOps::classify_faces_by_topology(next, scratch_arena_a,
+                                            scratch_arena_b, persistent_arena);
+      }
+      const size_t bookend_faces = next.face_counts.size();
+      HS_EXPECT_LE(bookend_faces, MAX_FACES);
+
+      OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr,
+                                    prev_faces, false,    prev_centroid,
+                                    &targets};
+      OpLeg::BookendClasses bookend{next.topology.data(), bookend_faces};
+
+      size_t drawn = 0;
+      size_t leg_faces = 0;
+      auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
+        HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+        if (drawn == 0)
+          leg_faces = sh.faces;
+        else
+          HS_EXPECT_EQ(sh.faces, leg_faces);
+        ++drawn;
+      };
+
+      const float c_hi = k + 1 == count
+                             ? 1.0f
+                             : c_done + static_cast<float>(leg_frames[k]) /
+                                            static_cast<float>(total_frames);
+      OpLeg leg =
+          steps[k].op == Solids::Op::HANKIN
+              ? OpLeg(cur, 0.0f, steps[k].param, persistent_arena, cb, handoff,
+                      leg_frames[k], bookend)
+              : OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f,
+                      0.0f, persistent_arena, cb, handoff, leg_frames[k],
+                      bookend);
+      leg.set_blend_range(c_done, c_hi);
+      const OpLeg::Landing &landing = leg.landing();
+
+      for (int f = 0; f < leg_frames[k]; ++f) {
+        {
+          Canvas c(fx);
+          leg.step(c);
+        }
+        fx.advance_display();
+      }
+      HS_EXPECT_EQ(drawn, (size_t)leg_frames[k]);
+      HS_EXPECT_EQ(landing.faces, leg_faces);
+      HS_EXPECT_TRUE(landing.from_palette != nullptr);
+
+      // From-palette continuity: the emission prefix keeps the ORIGINAL from
+      // ids, so every leg's pair set blends (original from -> pinned target)
+      // with only the weight range advancing.
+      for (size_t f = 0; f < prev_faces; ++f)
+        HS_EXPECT_EQ((int)landing.from_palette[f],
+                     (int)(k == 0 ? prev_pal_buf[f] : carried_from[f]));
+      HS_EXPECT_LE(landing.faces, MAX_FACES);
+      for (size_t f = 0; f < landing.faces; ++f)
+        carried_from[f] = landing.from_palette[f];
+
+      // Landing lives in the leg's arena-backed Transients; outlives `leg`.
+      prev_landing = &landing;
+      cur = std::move(next);
+      c_done = c_hi;
+    }
+
+    // Final clean swap: the landing's bookend classification must match a
+    // fresh classification of the compiled endpoint, and the landed targets
+    // are the per-shape pinned set verbatim.
+    MeshState final_slot;
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
+      MeshOps::compile(cur, final_slot, target, a);
+    });
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(final_slot, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+    HS_EXPECT_EQ(prev_landing->faces, final_slot.topology.size());
+    for (size_t f = 0; f < prev_landing->faces; ++f)
+      HS_EXPECT_EQ(prev_landing->topology[f], final_slot.topology[f]);
+    for (int i = 0; i < OpLeg::PALETTES; ++i)
+      HS_EXPECT_EQ((int)prev_landing->to_palette[i], (int)targets[i]);
+
+    const size_t p_peak = persistent_arena.get_high_water_mark();
+    const size_t a_peak = scratch_arena_a.get_high_water_mark();
+    const size_t b_peak = scratch_arena_b.get_high_water_mark();
+    std::printf("  [chain] %s: %zu legs, persistent=%zu B / %zu B, "
+                "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
+                entry.name, count, p_peak, (size_t)ISLAMIC_PERSISTENT_BUDGET,
+                a_peak, (size_t)ISLAMIC_SCRATCH_A_BUDGET, b_peak,
+                (size_t)ISLAMIC_SCRATCH_B_BUDGET);
+    HS_EXPECT_LE(p_peak, ISLAMIC_PERSISTENT_BUDGET);
+    HS_EXPECT_LE(a_peak, ISLAMIC_SCRATCH_A_BUDGET);
+    HS_EXPECT_LE(b_peak, ISLAMIC_SCRATCH_B_BUDGET);
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [chain] %s FAILED\n", entry.name);
+  }
+  // Guards against a vacuous pass if the recipe pointers are dropped.
+  HS_EXPECT_GE(chains, 2);
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -1422,6 +1663,7 @@ inline int run_conway_morph_tests() {
   test_ambo_leg_on_hankin_seed_holds_topology();
   test_hankin_sweep_on_islamic_seeds_holds_topology();
   test_opleg_hankin_sweep_smoke();
+  test_recipe_chain_build_replay();
 
   test_walk_policy_coverage_and_balance();
   test_ordered_tour_full_coverage_and_wrap();

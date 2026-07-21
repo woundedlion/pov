@@ -2406,6 +2406,65 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
 }
 
 /**
+ * @brief White-box accessor for IslamicStars' private build-chain state
+ *        (befriended in effects/IslamicStars.h).
+ * @details The op-by-op recipe build only runs when the round-robin reaches a
+ * non-null recipe entry (index 1), ~340 frames into a default-speed run — past
+ * every generic smoke window. The probe pre-sets Trans Speed before init so
+ * the whole crossing fits in ~100 frames, and reads build_active_/solid_idx
+ * to pin that the build ran and completed. <96,20> keeps the raster cheap;
+ * the build bookkeeping is resolution-independent.
+ */
+struct IslamicBuildProbe {
+  using IS = IslamicStars<DEVICE_W, DEVICE_H>;
+  static void set_trans_speed(IS &e, float v) { e.params.trans_speed = v; }
+  static bool build_active(const IS &e) { return e.build_active_; }
+  static int solid_idx(const IS &e) { return e.solid_idx; }
+};
+
+/**
+ * @brief Drives IslamicStars across the second registry entry's complete
+ *        op-by-op build at max trans speed: the build must activate and
+ *        finish without a trap, and the shape after it must start cleanly
+ *        and light pixels.
+ */
+inline void test_islamicstars_recipe_build_smoke() {
+  reset_effect_globals();
+  IslamicBuildProbe::IS effect;
+  IslamicBuildProbe::set_trans_speed(effect, 8.0f);
+  effect.init();
+
+  // Entry 1 (dodecahedron_hk62_ambo_hk62) is the second spawn; the third
+  // spawn requires its build to have completed.
+  constexpr int MAX_FRAMES = 400;
+  int frames = 0;
+  int build_frames = 0;
+  while (frames < MAX_FRAMES && IslamicBuildProbe::solid_idx(effect) < 2) {
+    effect.draw_frame();
+    effect.advance_display();
+    ++frames;
+    if (IslamicBuildProbe::build_active(effect))
+      ++build_frames;
+  }
+  HS_EXPECT_LT(frames, MAX_FRAMES);
+  HS_EXPECT_GT(build_frames, 0);
+  HS_EXPECT_TRUE(!IslamicBuildProbe::build_active(effect));
+
+  // The following (null-recipe) shape renders lit frames.
+  for (int f = 0; f < 12; ++f) {
+    effect.draw_frame();
+    effect.advance_display();
+  }
+  uint64_t acc = 0;
+  for (int y = 0; y < DEVICE_H; ++y)
+    for (int x = 0; x < DEVICE_W; ++x) {
+      const Pixel &p = effect.get_pixel(x, y);
+      acc += static_cast<uint64_t>(p.r) + p.g + p.b;
+    }
+  HS_EXPECT_GT(acc, (uint64_t)0);
+}
+
+/**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Runs the SH-decode check, then both smoke and determinism passes over
@@ -2471,6 +2530,7 @@ inline int run_effects_tests() {
     test_shapeshifter_shape_cut_lifecycle();
     test_shapeshifter_max_radius_survives_cycle();
     test_hankinsolids_arena_budget_covers_every_solid();
+    test_islamicstars_recipe_build_smoke();
 
     // Full production-resolution roster passes (288x144): smoke, then cross-run
     // determinism under the injected clock.
