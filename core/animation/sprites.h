@@ -157,12 +157,14 @@ template <int TRAIL_LEN = 8> struct Particle {
  * @tparam TRAIL_LEN Trail length per particle.
  * @tparam EMITTER_CAP Maximum number of emitters.
  * @tparam ATTRACTOR_CAP Maximum number of attractors.
+ * @tparam SIGNED_AXIS_ATTRACTORS Enable unit signed-axis attractor algebra.
  */
 template <int W, int CAPACITY, int TRAIL_LEN = 8, int EMITTER_CAP = 8,
-          int ATTRACTOR_CAP = 8>
+          int ATTRACTOR_CAP = 8, bool SIGNED_AXIS_ATTRACTORS = false>
 class ParticleSystem
     : public AnimationBase<
-          ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP>> {
+          ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
+                         SIGNED_AXIS_ATTRACTORS>> {
 public:
   static_assert(CAPACITY <= 65535,
                 "active_count is uint16_t; CAPACITY must fit in it");
@@ -193,13 +195,17 @@ public:
 
   ArenaVector<Attractor> attractors; /**< Active attractors. */
   ArenaVector<EmitterFn> emitters;   /**< Active emitters. */
+#ifdef HS_TEST_BUILD
+  bool reference_signed_axis_physics = false;
+#endif
 
   /**
    * @brief Constructs an indefinite, non-repeating particle system.
    */
   ParticleSystem()
       : AnimationBase<
-            ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP>>(
+            ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
+                           SIGNED_AXIS_ATTRACTORS>>(
             -1, false) {}
 
   /**
@@ -250,6 +256,16 @@ public:
    * cardinality, so an overrun is a bug — unlike spawn()'s runtime soft-drop.
    */
   void add_attractor(const Vector &pos, float str, float kill, float horizon) {
+    if constexpr (SIGNED_AXIS_ATTRACTORS) {
+      const bool x_axis = std::abs(pos.x) == 1.0f && pos.y == 0.0f &&
+                          pos.z == 0.0f;
+      const bool y_axis = std::abs(pos.y) == 1.0f && pos.x == 0.0f &&
+                          pos.z == 0.0f;
+      const bool z_axis = std::abs(pos.z) == 1.0f && pos.x == 0.0f &&
+                          pos.y == 0.0f;
+      HS_CHECK(x_axis || y_axis || z_axis,
+               "ParticleSystem signed-axis attractor is not a unit axis");
+    }
     attractors.push_back({pos, str, kill, horizon});
   }
 
@@ -278,7 +294,8 @@ public:
    */
   void step(Canvas &canvas) override {
     AnimationBase<ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP,
-                                 ATTRACTOR_CAP>>::step(canvas);
+                                 ATTRACTOR_CAP, SIGNED_AXIS_ATTRACTORS>>::step(
+        canvas);
 
     {
       for (size_t i = 0; i < emitters.size(); ++i) {
@@ -340,30 +357,107 @@ private:
       // is not also damped this frame (forward Euler: v <- friction*v + impulse).
       p.velocity *= friction;
 
-      for (size_t k = 0; k < attractors.size(); ++k) {
-        const auto &attr = attractors[k];
-        float dist_sq = distance_squared(pos, attr.position);
+      if constexpr (SIGNED_AXIS_ATTRACTORS) {
+#ifdef HS_TEST_BUILD
+        if (!reference_signed_axis_physics) {
+#endif
+          const float pos_sq = dot(pos, pos);
+          for (size_t k = 0; k < attractors.size(); ++k) {
+            const auto &attr = attractors[k];
+            float dot_pa;
+            float cross_sq;
+            if (attr.position.x != 0.0f) {
+              dot_pa = pos.x * attr.position.x;
+              cross_sq = pos.y * pos.y + pos.z * pos.z;
+            } else if (attr.position.y != 0.0f) {
+              dot_pa = pos.y * attr.position.y;
+              cross_sq = pos.x * pos.x + pos.z * pos.z;
+            } else {
+              dot_pa = pos.z * attr.position.z;
+              cross_sq = pos.x * pos.x + pos.y * pos.y;
+            }
+            const float axial_delta = dot_pa - 1.0f;
+            const float dist_sq = axial_delta * axial_delta + cross_sq;
+            const float horizon_sq = attr.event_horizon * attr.event_horizon;
 
-        if (dist_sq < attr.kill_radius * attr.kill_radius) {
-          p.life = 0; // Stay dead; a live `life` resurrects the particle next frame.
-          active = false;
-          break; // Killed
+            if (dist_sq < attr.kill_radius * attr.kill_radius) {
+              p.life = 0;
+              active = false;
+              break;
+            }
+
+            if (dist_sq > 0.0000001f) {
+              if (dist_sq < horizon_sq) {
+                Vector torque = (attr.position - pos).normalized();
+                float speed = std::max(p.velocity.magnitude(), max_delta);
+                p.velocity = torque * speed;
+              } else {
+                const float force = (gravity * attr.strength) / dist_sq;
+                if (cross_sq < math::EPS_NORMALIZE_SQ) {
+                  p.velocity += cross(Vector(force, 0, 0), pos);
+                } else {
+                  // Generalized for position norm drift.
+                  const Vector tangent =
+                      attr.position * pos_sq - pos * dot_pa;
+                  p.velocity += tangent * (force / sqrtf(cross_sq));
+                }
+              }
+            }
+          }
+#ifdef HS_TEST_BUILD
+        } else {
+          for (size_t k = 0; k < attractors.size(); ++k) {
+            const auto &attr = attractors[k];
+            float dist_sq = distance_squared(pos, attr.position);
+
+            if (dist_sq < attr.kill_radius * attr.kill_radius) {
+              p.life = 0;
+              active = false;
+              break;
+            }
+
+            if (dist_sq > 0.0000001f) {
+              if (dist_sq < attr.event_horizon * attr.event_horizon) {
+                Vector torque = (attr.position - pos).normalized();
+                float speed = std::max(p.velocity.magnitude(), max_delta);
+                p.velocity = torque * speed;
+              } else {
+                float force = (gravity * attr.strength) / dist_sq;
+                Vector torque = normalized_or(cross(pos, attr.position),
+                                              Vector(1, 0, 0)) *
+                                force;
+                p.velocity += cross(torque, pos);
+              }
+            }
+          }
         }
+#endif
+      } else {
+        for (size_t k = 0; k < attractors.size(); ++k) {
+          const auto &attr = attractors[k];
+          float dist_sq = distance_squared(pos, attr.position);
 
-        if (dist_sq > 0.0000001f) {
-          if (dist_sq < attr.event_horizon * attr.event_horizon) {
-            // Steer into center. Floor the speed so a friction-drained particle
-            // still advances inward to kill_radius instead of stalling.
-            Vector torque = (attr.position - pos).normalized();
-            float speed = std::max(p.velocity.magnitude(), max_delta);
-            p.velocity = torque * speed;
-          } else {
-            // Gravity. pos and the attractor can be ~antipodal (undefined cross
-            // axis), so guard the normalize.
-            float force = (gravity * attr.strength) / dist_sq;
-            Vector torque =
-                normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) * force;
-            p.velocity += cross(torque, pos);
+          if (dist_sq < attr.kill_radius * attr.kill_radius) {
+            p.life = 0; // Stay dead; a live `life` resurrects the particle next frame.
+            active = false;
+            break; // Killed
+          }
+
+          if (dist_sq > 0.0000001f) {
+            if (dist_sq < attr.event_horizon * attr.event_horizon) {
+              // Steer into center. Floor the speed so a friction-drained particle
+              // still advances inward to kill_radius instead of stalling.
+              Vector torque = (attr.position - pos).normalized();
+              float speed = std::max(p.velocity.magnitude(), max_delta);
+              p.velocity = torque * speed;
+            } else {
+              // Gravity. pos and the attractor can be ~antipodal (undefined cross
+              // axis), so guard the normalize.
+              float force = (gravity * attr.strength) / dist_sq;
+              Vector torque =
+                  normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) * force;
+              p.velocity += cross(torque, pos);
+            }
           }
         }
       }

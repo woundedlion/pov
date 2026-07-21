@@ -1851,6 +1851,15 @@ struct MindSplatterWhiteBox {
                                               bool enabled) {
     ms.reference_color_seed_lookup = enabled;
   }
+  template <int W, int H>
+  static void use_reference_signed_axis_physics(MindSplatter<W, H> &ms,
+                                                bool enabled) {
+    ms.particle_system.reference_signed_axis_physics = enabled;
+  }
+  template <int W, int H>
+  static uint16_t active_particles(const MindSplatter<W, H> &ms) {
+    return ms.particle_system.active();
+  }
 };
 
 /** @brief Pins normalized color seeds and wrapped trail progress bit-exactly. */
@@ -2131,6 +2140,88 @@ inline void test_mindsplatter_color_seed_framebuffer_parity() {
               reference.size(), lit_pixels, different_pixels);
   HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
   HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
+}
+
+/** @brief Bounds full-lifetime render drift from signed-axis physics. */
+inline void test_mindsplatter_signed_axis_framebuffer_error() {
+  constexpr int W = DEVICE_W;
+  constexpr int H = DEVICE_H;
+  constexpr int FRAMES = 160;
+  using MS = MindSplatter<W, H>;
+  using WB = MindSplatterWhiteBox;
+  struct Render {
+    std::vector<Pixel> frames;
+    std::vector<uint16_t> active;
+  };
+  auto render = [&](bool reference) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    Render result;
+    result.frames.reserve(static_cast<size_t>(W) * H * FRAMES);
+    result.active.reserve(FRAMES);
+    MS effect;
+    effect.init();
+    WB::use_reference_signed_axis_physics(effect, reference);
+    for (int f = 0; f < FRAMES; ++f) {
+      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                        static_cast<unsigned long>(f) * FRAME_US);
+      effect.draw_frame();
+      effect.advance_display();
+      result.active.push_back(WB::active_particles(effect));
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          result.frames.push_back(effect.get_pixel(x, y));
+    }
+    return result;
+  };
+
+  const Render reference = render(true);
+  const Render specialized = render(false);
+  hs::clear_mock_time();
+  HS_EXPECT_EQ(reference.active.size(), specialized.active.size());
+  for (size_t i = 0; i < reference.active.size(); ++i)
+    HS_EXPECT_EQ(reference.active[i], specialized.active[i]);
+
+  constexpr int CHECKPOINTS[] = {16, 80, 160};
+  constexpr size_t MAX_DIFFERENT[] = {0, 64, 192};
+  constexpr int MAX_CHANNEL[] = {0, 8, 512};
+  constexpr uint64_t MAX_TOTAL[] = {0, 128, 2048};
+  for (size_t checkpoint = 0; checkpoint < 3; ++checkpoint) {
+    const int frame = CHECKPOINTS[checkpoint];
+    const size_t offset = static_cast<size_t>(frame - 1) * W * H;
+    size_t different_pixels = 0;
+    size_t coverage_differences = 0;
+    int max_channel_error = 0;
+    uint64_t total_channel_error = 0;
+    for (size_t i = 0; i < static_cast<size_t>(W) * H; ++i) {
+      const Pixel a = reference.frames[offset + i];
+      const Pixel b = specialized.frames[offset + i];
+      if (a != b)
+        ++different_pixels;
+      const bool a_black = (a.r | a.g | a.b) == 0;
+      const bool b_black = (b.r | b.g | b.b) == 0;
+      if (a_black != b_black)
+        ++coverage_differences;
+      for (int delta : {
+               std::abs(static_cast<int>(a.r) - static_cast<int>(b.r)),
+               std::abs(static_cast<int>(a.g) - static_cast<int>(b.g)),
+               std::abs(static_cast<int>(a.b) - static_cast<int>(b.b)),
+           }) {
+        max_channel_error = std::max(max_channel_error, delta);
+        total_channel_error += static_cast<uint64_t>(delta);
+      }
+    }
+    std::printf("axis framebuffer frame=%d active=%u different=%zu coverage=%zu "
+                "max_channel=%d total_channel=%llu\n",
+                frame, reference.active[frame - 1], different_pixels,
+                coverage_differences, max_channel_error,
+                static_cast<unsigned long long>(total_channel_error));
+    HS_EXPECT_EQ(coverage_differences, static_cast<size_t>(0));
+    HS_EXPECT_LE(different_pixels, MAX_DIFFERENT[checkpoint]);
+    HS_EXPECT_LE(max_channel_error, MAX_CHANNEL[checkpoint]);
+    HS_EXPECT_LE(total_channel_error, MAX_TOTAL[checkpoint]);
+  }
 }
 
 /**
@@ -2792,6 +2883,7 @@ inline int run_effects_tests() {
   test_mindsplatter_rotation_matrix_equivalence();
   test_mindsplatter_rotation_matrix_framebuffer_error();
   test_mindsplatter_color_seed_framebuffer_parity();
+  test_mindsplatter_signed_axis_framebuffer_error();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
   // correctness block and the 288x144 production-resolution roster passes below
