@@ -21,6 +21,7 @@ python -m unittest discover -s tools/teensy_gate_tests
 | `broken_arena_8mb_syms.txt` | `global_arena_block` at the 8 MB `HS_TEST_BUILD` size → arena magnitude must fail. |
 | `broken_missing_symbol_syms.txt` | a framebuffer renamed → "symbol not found" hard-fails (never a silent skip). |
 | `broken_over_cap_teensy_size.txt` | FLASH + RAM2 over cap, DTCM headroom under floor → every region check fails. |
+| `broken_negative_free_teensy_size.txt` | Negative RAM1 stack headroom remains parseable and fails the configured floor. |
 
 ## ⚠ These are synthetic-but-realistic, not hardware-captured (yet)
 

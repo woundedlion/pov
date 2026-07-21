@@ -97,7 +97,7 @@ class Violation:
 # unique literal on the line, so `\s+` cannot over-consume the blob's own single
 # spaces (e.g. ", data:").
 _TS_REGION_RE = re.compile(
-    r"\bteensy_size:\s*(FLASH|RAM1|RAM2):\s*(.*?)\s+free for [^:]+:\s*(\d+)",
+    r"\bteensy_size:\s*(FLASH|RAM1|RAM2):\s*(.*?)\s+free for [^:]+:\s*(-?\d+)",
     re.IGNORECASE,
 )
 _TS_PAIR_RE = re.compile(r"(\w+)\s*:\s*(\d+)")
