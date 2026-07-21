@@ -148,9 +148,10 @@ private:
    * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
    * or pop. The facility is for effects whose meshes hold still.
    */
-  void draw_shape(Canvas &canvas, float phase, const MeshState &base_state,
-                  const ArenaVector<int> &face_indices,
-                  const std::array<int, NUM_PALETTES> &palette_idx) {
+  HS_O3_FN void draw_shape(Canvas &canvas, float phase,
+                           const MeshState &base_state,
+                           const ArenaVector<int> &face_indices,
+                           const std::array<int, NUM_PALETTES> &palette_idx) {
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
