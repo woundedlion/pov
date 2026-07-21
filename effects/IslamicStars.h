@@ -172,7 +172,9 @@ private:
   int build_leg_frames_[MAX_BUILD_STEPS] = {}; /**< Per-leg frame budget. */
   int build_total_frames_ = 0;                 /**< Sum of leg frames. */
   PolyMesh build_seed_;       /**< Leg-k seed (persistent). */
-  PolyMesh build_next_seed_;  /**< Eagerly built clean endpoint seed_{k+1}. */
+  PolyMesh build_next_seed_;  /**< Clean endpoint seed_{k+1}: built eagerly at
+                                 leg start, or from the leg's own topology at
+                                 its end on a hankin step. */
   std::array<uint8_t, Animation::OpLeg::PALETTES> build_targets_ =
       {}; /**< Per-shape pinned target palettes, shuffled before leg 0. */
   const Animation::OpLeg::Landing *build_landing_ =
@@ -594,12 +596,10 @@ private:
 
     // Eager clean endpoint seed_{k+1}: the mesh the leg lands on and the next
     // leg sweeps from. Runs first — generate() resets the scratch arenas the
-    // handoff arrays below live in.
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      build_next_seed_ = Solids::finalize_solid(clean_endpoint(step, a, b),
-                                                target);
-    });
-
+    // handoff arrays below live in. A hankin leg builds none: its arrival is
+    // the mesh its baked topology already carries, and its bookend grouping is
+    // that arrival's own classification, which the leg computes itself.
+    //
     // Each leg carries its color the whole way to the palette its own arrival
     // mesh calls for, so every intermediate solid stands fully colored rather
     // than caught mid-transition. Continuity across the boundary comes from
@@ -607,16 +607,22 @@ private:
     // leg lands at weight 1 and its successor opens at weight 0 on the same
     // palette. The last leg's arrival is the finished solid, so its targets
     // are the final ones and the closing swap stays exact.
-    {
-      ScratchScope a_guard(scratch_arena_a);
-      ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
+    Animation::OpLeg::BookendClasses bookend;
+    if (step.op != Solids::Op::HANKIN) {
+      generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+        build_next_seed_ =
+            Solids::finalize_solid(clean_endpoint(step, a, b), target);
+      });
+      {
+        ScratchScope a_guard(scratch_arena_a);
+        ScratchScope b_guard(scratch_arena_b);
+        MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+                                            scratch_arena_b, persistent_arena);
+      }
+      const size_t bookend_faces = build_next_seed_.face_counts.size();
+      HS_CHECK(bookend_faces <= MAX_BUILD_FACES);
+      bookend = {build_next_seed_.topology.data(), bookend_faces};
     }
-    const size_t bookend_faces = build_next_seed_.face_counts.size();
-    HS_CHECK(bookend_faces <= MAX_BUILD_FACES);
-    Animation::OpLeg::BookendClasses bookend{build_next_seed_.topology.data(),
-                                             bookend_faces};
 
     // Handoff arrays are ctor-scoped: scratch-backed under this scope, alive
     // through the OpLeg constructor's own LIFO-stacked scratch scopes.
@@ -716,7 +722,8 @@ private:
 
   /**
    * @brief Builds the clean endpoint mesh a leg lands on.
-   * @param step Lowered primitive step.
+   * @param step Lowered primitive step; a hankin step has no entry, since its
+   * leg rebuilds its own arrival from the topology it swept.
    * @param a Output arena for even pipeline stages.
    * @param b Scratch arena for odd pipeline stages.
    * @return The op applied to the current build seed at its exact parameter.
@@ -724,8 +731,6 @@ private:
   HS_COLD_MEMBER PolyMesh clean_endpoint(const Solids::OpStep &step, Arena &a,
                                          Arena &b) {
     switch (step.op) {
-    case Solids::Op::HANKIN:
-      return MeshOps::hankin(build_seed_, a, b, step.param);
     case Solids::Op::AMBO:
       return MeshOps::ambo(build_seed_, a, b);
     case Solids::Op::TRUNCATE:
@@ -741,7 +746,7 @@ private:
     case Solids::Op::DUAL:
       return MeshOps::dual(build_seed_, a, b);
     default:
-      HS_CHECK(false, "IslamicStars: unsweepable primitive op reached a leg");
+      HS_CHECK(false, "IslamicStars: step builds no eager endpoint");
       return PolyMesh{};
     }
   }
@@ -751,20 +756,29 @@ private:
    *        leg's seed, then starts the next leg or finishes the build.
    */
   HS_COLD_MEMBER void finish_build_leg() {
+    // Reclaim the finished leg. Only the endpoint the next leg sweeps from
+    // crosses the reset, so a build holds one leg's storage rather than the
+    // whole chain's. A hankin leg's endpoint is rebuilt here from the topology
+    // it swept, into the scratch the evacuation below reads; the other kinds
+    // carry the endpoint start_build_leg built eagerly. The palette the leg
+    // landed on is snapshotted too: the next leg departs from it and the
+    // landing does not survive.
+    ScratchScope a_guard(scratch_arena_a);
+    if (build_steps_[build_step_].op == Solids::Op::HANKIN) {
+      build_next_seed_ = PolyMesh();
+      Animation::OpLeg::arrival_mesh(*build_landing_, build_next_seed_,
+                                     scratch_arena_a);
+    }
+
     if (build_step_ + 1 >= build_step_count_) {
       // finish_build consumes the last leg's landing, so that one is reclaimed
-      // by the next shape's compaction instead.
+      // by the closing compaction instead.
       build_seed_ = std::move(build_next_seed_);
       ++build_step_;
       finish_build();
       return;
     }
 
-    // Reclaim the finished leg. Only the endpoint the next leg sweeps from
-    // crosses the reset, so a build holds one leg's storage rather than the
-    // whole chain's. The palette it landed on is snapshotted first: the next
-    // leg departs from it and the landing does not survive.
-    ScratchScope a_guard(scratch_arena_a);
     const size_t landed_faces = build_landing_->faces;
     uint8_t *landed = scratch_arena_a.allocate_n<uint8_t>(landed_faces);
     for (size_t f = 0; f < landed_faces; ++f)

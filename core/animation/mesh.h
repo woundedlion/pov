@@ -294,6 +294,12 @@ public:
     const uint8_t *from_palette =
         nullptr; /**< Per-swept-face FROM palette id (arena-backed); the next
                     chained leg's handoff carries these original ids forward. */
+    const CompiledHankin *hankin =
+        nullptr; /**< Baked arrival topology (HANKIN_SWEEP legs only, null
+                    otherwise); with star_point it rebuilds the arrival mesh
+                    through arrival_mesh(). */
+    const Vector *star_point = nullptr; /**< Arrival star points. */
+    size_t star_points = 0;             /**< Star-point count. */
   };
 
   /**
@@ -490,6 +496,9 @@ public:
       tr.hk_final.bind(arena, arrival.vertices.size() - statics);
       tr.hk_final.append_bulk(arrival.vertices.data() + statics,
                               arrival.vertices.size() - statics);
+      tr.landing.hankin = &tr.hankin;
+      tr.landing.star_point = tr.hk_final.data();
+      tr.landing.star_points = tr.hk_final.size();
 
       const Vector *start_centroid = nullptr;
       PolyMesh start_mesh;
@@ -698,6 +707,26 @@ public:
    * @return Arena-backed Landing; stable until the leg arena is compacted.
    */
   const Landing &landing() const { return buf_->landing; }
+
+  /**
+   * @brief Rebuilds a hankin leg's arrival mesh from its baked topology.
+   * @param landing Landing of a HANKIN_SWEEP leg.
+   * @param out Output mesh, allocated from @p arena.
+   * @param arena Arena backing the output vectors.
+   * @details Bitwise the mesh MeshOps::hankin builds at the leg's arrival
+   * angle, so a chain reads its clean endpoint from the finished leg instead
+   * of carrying a second copy of it through the sweep.
+   */
+  HS_COLD_MEMBER static void arrival_mesh(const Landing &landing, PolyMesh &out,
+                                          Arena &arena) {
+    HS_CHECK(landing.hankin, "OpLeg: leg carries no baked arrival");
+    const CompiledHankin &hk = *landing.hankin;
+    const size_t statics = hk.static_vertices.size();
+    out.vertices.bind(arena, statics + landing.star_points);
+    out.vertices.append_bulk(hk.static_vertices.data(), statics);
+    out.vertices.append_bulk(landing.star_point, landing.star_points);
+    copy_topology(out, arena, hk.face_counts, hk.faces);
+  }
 
   /**
    * @brief Sets the crossfade-weight range for chained legs

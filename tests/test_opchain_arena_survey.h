@@ -209,6 +209,10 @@ inline void test_islamic_registry_arena_survey() {
               "b=%zu / %zu\n",
               n - over, n, worst_a, (size_t)ISLAMIC_SCRATCH_A_BUDGET, worst_b,
               (size_t)ISLAMIC_SCRATCH_B_BUDGET);
+  // The 1082-face chain is the one entry still over; gating the count keeps a
+  // build-path regression from silently pushing another shape past the budget.
+  HS_EXPECT_LE(over, (size_t)1);
+  HS_EXPECT_LE(worst_b, ISLAMIC_SCRATCH_B_BUDGET);
 }
 
 /**
