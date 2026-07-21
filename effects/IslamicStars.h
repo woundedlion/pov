@@ -7,10 +7,23 @@
 
 #include "core/animation/animation.h"
 #include "core/engine/engine.h"
+#include "core/mesh/recipe.h"
+
+// Unit-test accessor reaching the private build-chain state (pre-init trans
+// speed, build_active_, solid_idx) for the effects-module build smoke.
+namespace hs_test {
+namespace effects_tests {
+struct IslamicBuildProbe;
+} // namespace effects_tests
+} // namespace hs_test
 
 /**
  * @brief Effect that displays a sequence of Islamic-geometry polyhedra,
  *        transitioning one shape into the next while ripples distort the mesh.
+ *        Entries with a non-null recipe are built op by op on screen: the
+ *        recipe's seed solid sweeps in, one OpLeg per lowered primitive step
+ *        morphs it into the finished pattern, then the usual still/ripple/fade
+ *        choreography runs (docs/opchain_morph_spec.md, section 6).
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
  */
@@ -87,6 +100,8 @@ public:
   }
 
 private:
+  friend struct ::hs_test::effects_tests::IslamicBuildProbe;
+
   // Ripple-pool sizing: a slot is held from spawn() until the staggered ripple
   // completes. Only one burst is normally live; the pool holds two so a Ripp
   // Dur/Burst slider change mid-burst cannot drop a spawn.
@@ -95,6 +110,12 @@ private:
   static constexpr int RIPPLE_DURATION_MAX = 143;
   static constexpr int BURST_MAX = 4;
   static constexpr int STILL_FRAMES = 16; /**< 1 s hold (16 fps) between fade and ripple stages. */
+  // Recipe-build leg lengths (docs/opchain_morph_spec.md section 7); divided
+  // by the Trans Speed divisor like every other stage.
+  static constexpr int HANKIN_LEG_FRAMES = 32;
+  static constexpr int AMBO_LEG_FRAMES = 24;
+  static constexpr size_t MAX_BUILD_STEPS = 8;   /**< Lowered-primitive cap. */
+  static constexpr size_t MAX_BUILD_FACES = 256; /**< Build-chain mesh face cap. */
   static constexpr float RIPPLE_THICKNESS = 0.7f; /**< Fixed ripple wavelet width (radians). */
   static constexpr float RIPPLE_AMP_MAX = 0.15f;   /**< Fold-free amplitude ceiling at RIPPLE_THICKNESS (amp/thickness < ~0.2 self-fold onset). */
   static_assert(2 * BURST_MAX <= RIPPLE_POOL_SIZE,
@@ -120,6 +141,33 @@ private:
   // not garbage.
   std::array<int, NUM_PALETTES> palettes_slots[2] = {};
 
+  // Build-chain state (entries with a non-null recipe): the shape is built op
+  // by op between the fade-in and the still hold. Null-recipe entries never
+  // touch any of it.
+  bool build_active_ = false; /**< Legs draw; the sprite draw_fn is muted. */
+  Solids::OpStep build_steps_[MAX_BUILD_STEPS]; /**< Lowered primitive chain. */
+  size_t build_step_count_ = 0; /**< Lowered step count. */
+  size_t build_step_ = 0;       /**< Current leg index. */
+  int build_leg_frames_[MAX_BUILD_STEPS] = {}; /**< Per-leg frame budget. */
+  int build_total_frames_ = 0;                 /**< Sum of leg frames. */
+  float build_c_done_ = 0.0f; /**< Cumulative colour fraction c(k-1). */
+  PolyMesh build_seed_;       /**< Leg-k seed (persistent). */
+  PolyMesh build_next_seed_;  /**< Eagerly built clean endpoint seed_{k+1}. */
+  std::array<uint8_t, Animation::OpLeg::PALETTES> build_targets_ =
+      {}; /**< Per-shape pinned target palettes, shuffled before leg 0. */
+  const Animation::OpLeg::Landing *build_landing_ =
+      nullptr; /**< Latest leg's arrival data (leg-arena backed). */
+
+  /**
+   * @brief Draw callback for build-leg frames.
+   * @details Held as a member for stable FunctionRef lifetime.
+   */
+  Fn<void(Canvas &, const MeshState &, const Animation::OpLeg::Shading &), 8>
+      draw_build_fn_{[this](Canvas &c, const MeshState &m,
+                            const Animation::OpLeg::Shading &sh) {
+        draw_build_mesh(c, m, sh);
+      }};
+
   /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
    *        staggered RIPPLE_STAGGER_FRAMES apart, each expanding over ripple_duration
@@ -133,6 +181,24 @@ private:
                             PI_F / ripple_dur_eff_, ripple_dur_eff_))
         hs::log("IslamicStars: ripple pool full, dropping spawn");
     }
+  }
+
+  /**
+   * @brief Orients and ripple-distorts a mesh into scratch_arena_a.
+   * @param base_state Undistorted source mesh.
+   * @return The transformed mesh (scratch_arena_a-backed; the caller holds the
+   * scope). Shared by the sprite and build-leg draw paths so build frames ride
+   * the exact transform chain the held shape uses.
+   */
+  HS_O3_FN MeshState transform_shape(const MeshState &base_state) {
+    MeshState transformed_state;
+    OrientTransformer camera(orientation);
+    {
+      HS_PROFILE(is_mesh_transform);
+      MeshOps::transform(base_state, transformed_state, scratch_arena_a,
+                         ripple_gen, camera);
+    }
+    return transformed_state;
   }
 
   /**
@@ -157,13 +223,7 @@ private:
       return;
     HS_PROFILE(is_draw_shape);
     ScratchScope a_guard(scratch_arena_a);
-    MeshState transformed_state;
-    OrientTransformer camera(orientation);
-    {
-      HS_PROFILE(is_mesh_transform);
-      MeshOps::transform(base_state, transformed_state, scratch_arena_a,
-                         ripple_gen, camera);
-    }
+    MeshState transformed_state = transform_shape(base_state);
 
     const int *raw_indices = face_indices.data();
     const int num_faces = static_cast<int>(face_indices.size());
@@ -229,6 +289,37 @@ private:
   }
 
   /**
+   * @brief Draws one build-leg frame: the compiled swept mesh, shaded from its
+   *        pre-blended palette ramps on the segue's phase-1 identity plateau.
+   * @param canvas Render target receiving the rasterized mesh.
+   * @param mesh Compiled swept mesh (scratch-backed, this frame only).
+   * @param sh Per-face blended-ramp table from the OpLeg.
+   */
+  HS_O3_FN void draw_build_mesh(Canvas &canvas, const MeshState &mesh,
+                                const Animation::OpLeg::Shading &sh) {
+    if (mesh.vertices.is_empty())
+      return;
+    HS_PROFILE(is_draw_shape);
+    ScratchScope a_guard(scratch_arena_a);
+    MeshState transformed_state = transform_shape(mesh);
+    const SegueT &seg = carousel.segue();
+
+    auto fragment_shader = [&](const Vector &, Fragment &frag) {
+      int fi = static_cast<int>(frag.v2);
+      int ramp = (fi >= 0 && fi < static_cast<int>(sh.faces))
+                     ? sh.face_ramp[fi]
+                     : 0;
+      frag.color = shade_mesh_topology(frag, sh.ramps[ramp], 1.0f, seg, 1.0f);
+    };
+
+    {
+      HS_PROFILE(is_mesh_scan);
+      Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
+                             fragment_shader, scratch_arena_a, params.debug_bb);
+    }
+  }
+
+  /**
    * @brief Advances to the next solid, generates it into the carousel's back
    *        slot with a freshly shuffled palette, makes it the front, schedules
    *        the segue and the shape's mid-display ripple burst, and queues the
@@ -241,8 +332,13 @@ private:
     MeshPaletteBank::shuffle_indices(palettes_slots[back]);
 
     int idx = solid_idx;
+    const Solids::Recipe *recipe = solids[idx].recipe;
 
     auto draw_fn = [this, back](Canvas &canvas, float phase) {
+      // During the build window an OpLeg draws the mesh; exactly one mesh per
+      // frame.
+      if (build_active_)
+        return;
       const MeshState &mesh = carousel.slot(back);
       this->draw_shape(canvas, phase, mesh, mesh.topology,
                        palettes_slots[back]);
@@ -257,9 +353,20 @@ private:
     });
 
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      PolyMesh mesh = solids[idx].generate(a, b);
-      carousel.slot(back).clear();
-      MeshOps::compile(mesh, carousel.slot(back), target, scratch_arena_a);
+      if (recipe) {
+        // The build starts from the recipe's seed solid; the chain is swept
+        // on screen leg by leg. The seed is also held as the first leg's
+        // persistent PolyMesh.
+        build_seed_ = Solids::finalize_solid(
+            Solids::simple_registry[recipe->seed].generate(a, b), target);
+        carousel.slot(back).clear();
+        MeshOps::compile(build_seed_, carousel.slot(back), target,
+                         scratch_arena_a);
+      } else {
+        PolyMesh mesh = solids[idx].generate(a, b);
+        carousel.slot(back).clear();
+        MeshOps::compile(mesh, carousel.slot(back), target, scratch_arena_a);
+      }
     });
 
     // ScratchScope frees only this call's own allocations, preserving prior
@@ -297,11 +404,55 @@ private:
     int burst_span =
         (static_cast<int>(params.burst_size) - 1) * ripple_stagger_eff_ +
         ripple_dur_eff_;
-    int duration = fade + still + burst_span + still + fade;
+
+    // Recipe entries insert a build phase on the segue's phase-1 plateau:
+    // duration is lengthened by the build span rather than the carousel
+    // growing an asymmetric-window API (docs/opchain_morph_spec.md,
+    // section 6.1). Phase 1 supports exactly the HANKIN and AMBO primitives;
+    // the chain replay gate in tests/test_conway_morph.h fails CI on any other
+    // lowered step before it can reach the device.
+    int build_span = 0;
+    if (recipe) {
+      build_step_count_ =
+          Solids::expand_to_primitives(*recipe, build_steps_, MAX_BUILD_STEPS);
+      build_step_ = 0;
+      build_c_done_ = 0.0f;
+      build_total_frames_ = 0;
+      for (size_t k = 0; k < build_step_count_; ++k) {
+        const Solids::Op op = build_steps_[k].op;
+        HS_CHECK(op == Solids::Op::HANKIN || op == Solids::Op::AMBO,
+                 "IslamicStars: unsupported primitive op in build recipe");
+        const int frames =
+            op == Solids::Op::HANKIN ? HANKIN_LEG_FRAMES : AMBO_LEG_FRAMES;
+        build_leg_frames_[k] = std::max(1, static_cast<int>(frames / sp));
+        build_total_frames_ += build_leg_frames_[k];
+      }
+      build_span = build_total_frames_;
+      // One pinned target set per shape: colour converges across the whole
+      // chain, so every leg blends toward the same assignment.
+      for (int i = 0; i < NUM_PALETTES; ++i)
+        build_targets_[i] = static_cast<uint8_t>(i);
+      hs::shuffle(build_targets_.begin(), build_targets_.end());
+    }
+
+    int duration = fade + build_span + still + burst_span + still + fade;
 
     int next_delay = carousel.schedule_segue(timeline, draw_fn, duration, fade);
 
-    timeline.add(fade + still,
+    // Added after the sprite: on the frame this fires the sprite has already
+    // drawn the seed at the phase-1 boundary, and the first leg's first draw
+    // lands on the next frame — no gap, no double draw.
+    if (recipe) {
+      timeline.add(fade, Animation::PeriodicTimer(
+                             0,
+                             [this](Canvas &) {
+                               build_active_ = true;
+                               start_build_leg();
+                             },
+                             false));
+    }
+
+    timeline.add(fade + build_span + still,
                  Animation::PeriodicTimer(
                      0, [this](Canvas &canvas) { ripple(canvas); }, false));
 
@@ -316,6 +467,159 @@ private:
     timeline.add(next_delay,
                  Animation::PeriodicTimer(
                      0, [this](Canvas &) { this->spawn_shape(); }, false));
+  }
+
+  /**
+   * @brief Constructs and schedules build leg build_step_: eagerly builds the
+   *        clean endpoint seed and its bookend classification, derives the
+   *        palette handoff, and chains completion into finish_build_leg.
+   */
+  HS_COLD_MEMBER void start_build_leg() {
+    const size_t k = build_step_;
+    const Solids::OpStep &step = build_steps_[k];
+
+    // Eager clean endpoint seed_{k+1}: the mesh the leg lands on and the next
+    // leg sweeps from. Runs first — generate() resets the scratch arenas the
+    // handoff arrays below live in.
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      PolyMesh next = step.op == Solids::Op::AMBO
+                          ? MeshOps::ambo(build_seed_, a, b)
+                          : MeshOps::hankin(build_seed_, a, b, step.param);
+      build_next_seed_ = Solids::finalize_solid(next, target);
+    });
+
+    // Bookend classification from the clean endpoint (for the ambo leg: the
+    // AMBO mesh, never the swept truncate form). Classified in place; the
+    // topology lands in persistent_arena beside the mesh, keys the leg's
+    // targets below, and is reclaimed with it at the next spawn.
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+    const size_t bookend_faces = build_next_seed_.face_counts.size();
+    HS_CHECK(bookend_faces <= MAX_BUILD_FACES);
+    Animation::OpLeg::BookendClasses bookend{build_next_seed_.topology.data(),
+                                             bookend_faces};
+
+    // Handoff arrays are ctor-scoped: scratch-backed under this scope, alive
+    // through the OpLeg constructor's own LIFO-stacked scratch scopes.
+    ScratchScope handoff_guard(scratch_arena_a);
+    const size_t prev_faces = build_seed_.face_counts.size();
+    HS_CHECK(prev_faces <= MAX_BUILD_FACES);
+    Vector *prev_centroid = scratch_arena_a.allocate_n<Vector>(prev_faces);
+    size_t off = 0;
+    for (size_t f = 0; f < prev_faces; ++f) {
+      Vector c(0.0f, 0.0f, 0.0f);
+      const int n = build_seed_.face_counts[f];
+      for (int j = 0; j < n; ++j)
+        c = c + build_seed_.vertices[build_seed_.faces[off + j]];
+      prev_centroid[f] = c.normalized();
+      off += n;
+    }
+    const uint8_t *prev_pal;
+    if (k == 0) {
+      // The seed slot's displayed palettes are the chain's FROM state.
+      const MeshState &seed_slot = carousel.current();
+      HS_CHECK(prev_faces <= seed_slot.topology.size());
+      const auto &slots = palettes_slots[carousel.front_index()];
+      uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(prev_faces);
+      for (size_t f = 0; f < prev_faces; ++f)
+        pal[f] = static_cast<uint8_t>(
+            slots[wrap(seed_slot.topology[f], NUM_PALETTES)]);
+      prev_pal = pal;
+    } else {
+      // The ORIGINAL from ids carried through the chain: every leg blends
+      // (original from -> pinned target) with only the weight range advancing
+      // (docs/opchain_morph_spec.md, section 5.3).
+      HS_CHECK(build_landing_ && build_landing_->faces == prev_faces,
+               "IslamicStars: chain landing does not cover the leg seed");
+      prev_pal = build_landing_->from_palette;
+    }
+
+    Animation::OpLeg::PaletteHandoff handoff{
+        &palette_bank_.bank, prev_pal,      nullptr, prev_faces,
+        false,               prev_centroid, &build_targets_};
+
+    const int frames = build_leg_frames_[k];
+    // Colour share weighted by leg frames; the last leg lands exactly on 1.
+    const float c_hi =
+        k + 1 == build_step_count_
+            ? 1.0f
+            : build_c_done_ + static_cast<float>(frames) /
+                                  static_cast<float>(build_total_frames_);
+    hs::log("Build leg: %s (%d frames)",
+            step.op == Solids::Op::HANKIN ? "hankin" : "ambo", frames);
+
+    if (step.op == Solids::Op::HANKIN) {
+      Animation::OpLeg leg(build_seed_, 0.0f, step.param, persistent_arena,
+                           draw_build_fn_, handoff, frames, bookend);
+      leg.set_blend_range(build_c_done_, c_hi);
+      build_landing_ = &leg.landing();
+      timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
+    } else {
+      Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
+                           0.5f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
+                           handoff, frames, bookend);
+      leg.set_blend_range(build_c_done_, c_hi);
+      build_landing_ = &leg.landing();
+      timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
+    }
+    build_c_done_ = c_hi;
+  }
+
+  /**
+   * @brief Leg completion: adopts the eagerly built clean endpoint as the next
+   *        leg's seed, then starts the next leg or finishes the build.
+   */
+  HS_COLD_MEMBER void finish_build_leg() {
+    build_seed_ = std::move(build_next_seed_);
+    if (++build_step_ < build_step_count_) {
+      start_build_leg();
+      return;
+    }
+    finish_build();
+  }
+
+  /**
+   * @brief Build completion: recompiles the finished solid into the front slot
+   *        and maps its palette slots from the last leg's landing, so the
+   *        sprite's next frame is pixel-equal to the leg's last one.
+   */
+  HS_COLD_MEMBER void finish_build() {
+    const Animation::OpLeg::Landing &landing = *build_landing_;
+    const int front = carousel.front_index();
+    MeshState &slot = carousel.slot(front);
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &) {
+      slot.clear();
+      MeshOps::compile(build_seed_, slot, target, a);
+    });
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(slot, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+
+    // The leg's targets keyed on this same classification (computed at leg
+    // start from the same endpoint mesh); drift here would pop the swap.
+    HS_CHECK(landing.faces == slot.topology.size(),
+             "IslamicStars: built mesh face count differs from the last leg");
+    MeshPaletteBank::shuffle_indices(palettes_slots[front]);
+    bool slot_mapped[NUM_PALETTES] = {};
+    for (size_t f = 0; f < landing.faces; ++f) {
+      HS_CHECK(landing.topology[f] == slot.topology[f],
+               "IslamicStars: arrival classification drifted across the build");
+      const int s = wrap(slot.topology[f], NUM_PALETTES);
+      if (!slot_mapped[s]) {
+        slot_mapped[s] = true;
+        palettes_slots[front][s] =
+            landing.to_palette[wrap(landing.topology[f], NUM_PALETTES)];
+      }
+    }
+    build_landing_ = nullptr;
+    build_active_ = false;
   }
 
   /**
