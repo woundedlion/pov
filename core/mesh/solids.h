@@ -1088,6 +1088,49 @@ FLASHMEM static PolyMesh dodecahedron_ambo_bevel33_relax_hk66(Arena &a,
 enum class Category { Simple, Complex };
 
 /**
+ * @brief Authored Conway operator, including the composite ops.
+ * @details expand_to_primitives() (mesh/recipe.h) lowers composites to the
+ * primitives plus AMBO; authored recipes keep the composite.
+ */
+enum class Op : uint8_t {
+  TRUNCATE,
+  EXPAND,
+  SNUB,
+  CHAMFER,
+  HANKIN,
+  RELAX,
+  KIS,
+  DUAL,
+  AMBO,
+  BEVEL,
+  GYRO,
+  META,
+  NEEDLE,
+  ZIP
+};
+
+/**
+ * @brief One authored step in a recipe's op chain.
+ */
+struct OpStep {
+  Op op;              /**< Operator applied at this step. */
+  float param = 0.0f; /**< t / contact angle (radians) / RELAX iterations. */
+  float twist = 0.0f; /**< SNUB face rotation, radians. */
+};
+
+/**
+ * @brief Declarative op chain mirroring a registry generator.
+ * @details Parallel declaration of a generator's chain, proven bitwise-equal
+ * to it in tests/test_solids.h. The generators stay the source of truth for
+ * shipping geometry.
+ */
+struct Recipe {
+  uint8_t seed;        /**< simple_registry index of the base solid. */
+  const OpStep *steps; /**< Authored op chain, applied left to right. */
+  uint8_t count;       /**< Number of steps. */
+};
+
+/**
  * @brief One named solid in a registry.
  */
 struct Entry {
@@ -1095,6 +1138,7 @@ struct Entry {
   PolyMesh (*generate)(
       Arena &a, Arena &b); /**< Generator building into arena pair (a, b). */
   Category category;       /**< Simple or Complex cost class. */
+  const Recipe *recipe = nullptr; /**< Declarative chain mirror; null = none. */
 };
 
 /**
@@ -1158,6 +1202,36 @@ inline constexpr Entry catalan_registry[] = {
     {"pentagonalHexecontahedron", Catalan::pentagonalHexecontahedron,
      Category::Simple}};
 
+// Recipe seed indices into simple_registry, pinned to the registry order so a
+// reorder fails to compile.
+inline constexpr uint8_t SEED_OCTAHEDRON = 2;
+inline constexpr uint8_t SEED_DODECAHEDRON = 3;
+
+static_assert(std::string_view(simple_registry[SEED_OCTAHEDRON].name) ==
+              "octahedron");
+static_assert(std::string_view(simple_registry[SEED_DODECAHEDRON].name) ==
+              "dodecahedron");
+
+/** Step table for dodecahedron_hk62_ambo_hk62. */
+inline constexpr OpStep DODECAHEDRON_HK62_AMBO_HK62_STEPS[] = {
+    {Op::HANKIN, 62.0f * IslamicStarPatterns::D2R},
+    {Op::AMBO},
+    {Op::HANKIN, 62.0f * IslamicStarPatterns::D2R}};
+/** Recipe mirror of IslamicStarPatterns::dodecahedron_hk62_ambo_hk62. */
+inline constexpr Recipe DODECAHEDRON_HK62_AMBO_HK62_RECIPE = {
+    SEED_DODECAHEDRON, DODECAHEDRON_HK62_AMBO_HK62_STEPS,
+    static_cast<uint8_t>(std::size(DODECAHEDRON_HK62_AMBO_HK62_STEPS))};
+
+/** Step table for octahedron_hk17_ambo_hk73. */
+inline constexpr OpStep OCTAHEDRON_HK17_AMBO_HK73_STEPS[] = {
+    {Op::HANKIN, 17.0f * IslamicStarPatterns::D2R},
+    {Op::AMBO},
+    {Op::HANKIN, 73.0f * IslamicStarPatterns::D2R}};
+/** Recipe mirror of IslamicStarPatterns::octahedron_hk17_ambo_hk73. */
+inline constexpr Recipe OCTAHEDRON_HK17_AMBO_HK73_RECIPE = {
+    SEED_OCTAHEDRON, OCTAHEDRON_HK17_AMBO_HK73_STEPS,
+    static_cast<uint8_t>(std::size(OCTAHEDRON_HK17_AMBO_HK73_STEPS))};
+
 /**
  * @brief Registry of Islamic star-pattern solids.
  */
@@ -1166,7 +1240,8 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::truncatedIcosahedron_ambo_relax100_hk54_needle,
      Category::Complex},
     {"dodecahedron_hk62_ambo_hk62",
-     IslamicStarPatterns::dodecahedron_hk62_ambo_hk62, Category::Complex},
+     IslamicStarPatterns::dodecahedron_hk62_ambo_hk62, Category::Complex,
+     &DODECAHEDRON_HK62_AMBO_HK62_RECIPE},
     {"truncatedIcosahedron_hk58_chamfer63",
      IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63,
      Category::Complex},
@@ -1196,7 +1271,8 @@ inline constexpr Entry islamic_registry[] = {
      IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk42,
      Category::Complex},
     {"octahedron_hk17_ambo_hk73",
-     IslamicStarPatterns::octahedron_hk17_ambo_hk73, Category::Complex},
+     IslamicStarPatterns::octahedron_hk17_ambo_hk73, Category::Complex,
+     &OCTAHEDRON_HK17_AMBO_HK73_RECIPE},
     {"icosahedron_kis_gyro", IslamicStarPatterns::icosahedron_kis_gyro,
      Category::Complex},
     {"truncatedIcosidodecahedron_truncate50d_ambo_dual",
