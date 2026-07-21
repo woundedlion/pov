@@ -1174,6 +1174,154 @@ inline void test_gate_trail_column_cull_honors_unbounded_edge() {
 }
 
 /**
+ * @brief Compares the raw-cross long-edge gate with the normalized span gate.
+ */
+inline void test_raw_geodesic_edge_gate_parity() {
+  constexpr int W = 288, H = 144;
+  auto exact_gate = [](const ClipRegion &cr, const ClipRegion::XClip &xc,
+                       int band_len, float ra, float rb, float ca, float cb,
+                       const Vector &a, const Vector &b) {
+    const Plot::GeodesicEdgeSpan es = Plot::make_geodesic_edge_span(a, b);
+    float row_lo, row_hi;
+    Plot::geodesic_row_span_rows<W, H>(ra, rb, a, b, es, row_lo, row_hi);
+    if (!cr.could_intersect_y(row_lo, row_hi))
+      return false;
+    if (!xc.active)
+      return true;
+    int col_s, col_len;
+    return !Plot::geodesic_col_span_cols<W>(ca, cb, a, es, col_s, col_len) ||
+           ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
+  };
+  auto run = [&](const ClipRegion &cr, const Vector &a, const Vector &b) {
+    const auto xc = cr.x_clip();
+    const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
+    const float ra = Plot::y_to_screen_row<H>(a.y);
+    const float rb = Plot::y_to_screen_row<H>(b.y);
+    const float ca = vector_to_theta<W>(a);
+    const float cb = vector_to_theta<W>(b);
+    const bool exact = exact_gate(cr, xc, band_len, ra, rb, ca, cb, a, b);
+    const auto raw = Plot::raw_geodesic_edge_gate<W, H>(
+        cr, xc, band_len, ra, rb, ca, cb, a, b);
+    if (raw != Plot::RawGeodesicGateResult::EXACT_FALLBACK)
+      HS_EXPECT_EQ(raw == Plot::RawGeodesicGateResult::VISIBLE, exact);
+    return raw;
+  };
+
+  ClipRegion cr;
+  cr.w = W;
+  cr.h = H;
+  cr.y_start = 0;
+  cr.y_end = H / 2;
+  cr.x_start = 0;
+  cr.x_end = W / 2;
+
+  const Vector a = X_AXIS;
+  auto arc = [&](float angle, const Vector &tangent) {
+    return (a * cosf(angle) + tangent * sinf(angle)).normalized();
+  };
+  HS_EXPECT_EQ(run(cr, a, arc(0.0005f, Z_AXIS)),
+               Plot::RawGeodesicGateResult::EXACT_FALLBACK);
+  HS_EXPECT_EQ(run(cr, a, arc(PI_F - 0.0005f, Z_AXIS)),
+               Plot::RawGeodesicGateResult::EXACT_FALLBACK);
+  HS_EXPECT_EQ(run(cr, a, arc(0.4f, Y_AXIS)),
+               Plot::RawGeodesicGateResult::EXACT_FALLBACK);
+
+  hs::random().seed(0xC2055);
+  const int clips[][4] = {
+      {0, H / 2, 0, W / 2},
+      {0, H / 2, W / 2, W},
+      {H / 2, H, 0, W / 2},
+      {H / 2, H, W / 2, W},
+      {24, 120, 250, W},
+      {0, H, 40, 112},
+  };
+  int raw_count = 0;
+  int fallback_count = 0;
+  for (const auto &bounds : clips) {
+    cr.y_start = bounds[0];
+    cr.y_end = bounds[1];
+    cr.x_start = bounds[2];
+    cr.x_end = bounds[3];
+    for (int trial = 0; trial < 5000; ++trial) {
+      Vector p;
+      do {
+        p = Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                   hs::rand_f(-1.0f, 1.0f));
+      } while (p.length() < 0.1f);
+      p = p.normalized();
+      Vector tangent;
+      do {
+        Vector r(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                 hs::rand_f(-1.0f, 1.0f));
+        tangent = r - p * dot(r, p);
+      } while (tangent.length() < 0.05f);
+      tangent = tangent.normalized();
+      const float angle = hs::rand_f(0.03f, PI_F - 0.03f);
+      const Vector q =
+          (p * cosf(angle) + tangent * sinf(angle)).normalized();
+      const auto result = run(cr, p, q);
+      if (result == Plot::RawGeodesicGateResult::EXACT_FALLBACK)
+        ++fallback_count;
+      else
+        ++raw_count;
+    }
+
+    for (int pole = 0; pole < 200; ++pole) {
+      const float epsilon = hs::rand_f(1.0e-4f, 0.05f);
+      const float azimuth = hs::rand_f(0.0f, 2.0f * PI_F);
+      const float sp = sinf(epsilon);
+      const Vector p(sp * cosf(azimuth),
+                     (pole & 1) ? cosf(epsilon) : -cosf(epsilon),
+                     sp * sinf(azimuth));
+      Vector tangent = cross(p, Y_AXIS);
+      if (tangent.length() < 1.0e-4f)
+        tangent = cross(p, X_AXIS);
+      tangent = tangent.normalized();
+      const Vector q =
+          (p * cosf(0.08f) + tangent * sinf(0.08f)).normalized();
+      const auto result = run(cr, p, q);
+      if (result == Plot::RawGeodesicGateResult::EXACT_FALLBACK)
+        ++fallback_count;
+      else
+        ++raw_count;
+    }
+
+    const float guarded_angles[] = {1.0e-6f, 5.0e-4f, 1.5e-3f, 2.5e-3f};
+    for (float angle : guarded_angles) {
+      for (float end_angle : {angle, PI_F - angle}) {
+        const auto result = run(cr, a, arc(end_angle, Z_AXIS));
+        if (result == Plot::RawGeodesicGateResult::EXACT_FALLBACK)
+          ++fallback_count;
+        else
+          ++raw_count;
+      }
+    }
+  }
+  HS_EXPECT_GT(raw_count, 25000);
+  HS_EXPECT_LT(fallback_count, 7000);
+}
+
+/**
+ * @brief Pins the raw gate's bounded column normalization to the shared span.
+ */
+inline void test_finish_col_span_one_period() {
+  constexpr int W = 288;
+  for (int s = 0; s < 4 * W; ++s) {
+    const float start = static_cast<float>(s) * 0.25f;
+    for (int l = 0; l <= W; l += 3) {
+      const float length = static_cast<float>(l) + 0.125f;
+      int raw_s, raw_len, exact_s, exact_len;
+      Plot::finish_col_span_one_period<W>(start, length, raw_s, raw_len);
+      Plot::finish_col_span<W>(start, length, exact_s, exact_len);
+      HS_EXPECT_GE(raw_s, 0);
+      HS_EXPECT_LT(raw_s, W);
+      HS_EXPECT_EQ(raw_s, exact_s);
+      HS_EXPECT_EQ(raw_len, exact_len);
+    }
+  }
+}
+
+/**
  * @brief Exercises the Cartesian quadrant gate's rejecting and fallback cases.
  */
 inline void test_cartesian_quadrant_gate_classification() {
@@ -3498,6 +3646,8 @@ inline int run_plot_scan_tests() {
   test_mesh_edge_gate_pixel_parity();
   test_mesh_dissolve_masks_partition_edges();
   test_gate_trail_column_cull_honors_unbounded_edge();
+  test_raw_geodesic_edge_gate_parity();
+  test_finish_col_span_one_period();
   test_cartesian_quadrant_gate_classification();
   test_cartesian_quadrant_gate_is_conservative();
   test_gate_trail_edges_matches_edge_visible();

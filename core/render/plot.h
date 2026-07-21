@@ -658,6 +658,91 @@ static inline bool geodesic_col_span(const Vector &a, const Vector &b,
                                    a, es, col_s, col_len);
 }
 
+enum class RawGeodesicGateResult : uint8_t {
+  CULLED,
+  VISIBLE,
+  EXACT_FALLBACK,
+};
+
+/**
+ * @brief Pads a column span whose start is already within one period.
+ */
+template <int W>
+static inline void finish_col_span_one_period(float start, float length,
+                                              int &col_s, int &col_len) {
+  constexpr int COL_PAD = 2;
+  const int lo = static_cast<int>(floorf(start)) - COL_PAD;
+  const int hi = static_cast<int>(ceilf(start + length)) + COL_PAD;
+  col_len = std::min(hi - lo + 1, W);
+  col_s = lo < 0 ? lo + W : lo;
+}
+
+/**
+ * @brief Gates a regular geodesic edge without angle or cross normalization.
+ * @return Visibility, or EXACT_FALLBACK for numerically sensitive geometry.
+ */
+template <int W, int H>
+static inline RawGeodesicGateResult raw_geodesic_edge_gate(
+    const ClipRegion &cr, const ClipRegion::XClip &xc, int band_len, float ra,
+    float rb, float ca, float cb, const Vector &a, const Vector &b) {
+  constexpr float END_GUARD2 = 4.0e-6f;
+  constexpr float AXIS_GUARD2 = 1.0e-4f;
+  constexpr float TANGENT_GUARD2 = 1.0e-8f;
+  constexpr float ROW_BOUNDARY_GUARD = 0.01f;
+  const Vector c = cross(a, b);
+  const float L2 = dot(c, c);
+  const float d = dot(a, b);
+  if (L2 <= END_GUARD2 || std::abs(d) >= 1.0f - END_GUARD2 * 0.5f)
+    return RawGeodesicGateResult::EXACT_FALLBACK;
+
+  const float cy2 = c.y * c.y;
+  if (cy2 <= AXIS_GUARD2 * L2)
+    return RawGeodesicGateResult::EXACT_FALLBACK;
+
+  float row_lo = std::min(ra, rb);
+  float row_hi = std::max(ra, rb);
+  const float t0 = c.z * a.x - c.x * a.z;
+  const float t1 = c.z * b.x - c.x * b.z;
+  if (t0 * t0 <= TANGENT_GUARD2 * L2 ||
+      t1 * t1 <= TANGENT_GUARD2 * L2)
+    return RawGeodesicGateResult::EXACT_FALLBACK;
+  if ((t0 > 0.0f) != (t1 > 0.0f)) {
+    const float peak =
+        sqrtf(std::max(0.0f, (L2 - cy2) / L2));
+    const float rp = y_to_screen_row<H>(t0 > 0.0f ? peak : -peak);
+    row_lo = std::min(row_lo, rp);
+    row_hi = std::max(row_hi, rp);
+  }
+
+  const float y_start = static_cast<float>(cr.render_y_start());
+  const float y_end = static_cast<float>(cr.render_y_end());
+  if (std::abs(row_hi - y_start) < ROW_BOUNDARY_GUARD ||
+      std::abs(row_lo - y_end) < ROW_BOUNDARY_GUARD)
+    return RawGeodesicGateResult::EXACT_FALLBACK;
+  if (!cr.could_intersect_y(row_lo, row_hi))
+    return RawGeodesicGateResult::CULLED;
+  if (!xc.active)
+    return RawGeodesicGateResult::VISIBLE;
+
+  float col_start;
+  float col_length;
+  if (c.y < 0.0f) {
+    col_start = ca;
+    col_length = cb - ca;
+  } else {
+    col_start = cb;
+    col_length = ca - cb;
+  }
+  if (col_length < 0.0f)
+    col_length += W;
+
+  int col_s, col_len;
+  finish_col_span_one_period<W>(col_start, col_length, col_s, col_len);
+  return ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W)
+             ? RawGeodesicGateResult::VISIBLE
+             : RawGeodesicGateResult::CULLED;
+}
+
 /**
  * @brief Planar screen-column arc from a precomputed edge setup.
  * @tparam W Rasterization width (pixel grid).
@@ -2704,6 +2789,13 @@ static inline void count_particle_edge_class(bool one_dot) {
 #endif
 }
 
+static inline void count_particle_exact_gate_fallback() {
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
+  static hs::CycleCounter exact_count("plot_ps_edge_exact_fallback");
+  ++exact_count.count;
+#endif
+}
+
 /**
  * @brief Gates one geodesic trail's edges against the clip in one hoisted pass.
  * @tparam W,H Rasterization resolution (pixel grid).
@@ -3319,20 +3411,30 @@ struct ParticleSystem {
               any = any || v;
               continue;
             }
-            const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
-            float row_lo, row_hi;
-            geodesic_row_span_rows<W, H>(rows[e], rows[e + 1], ea, eb, es,
-                                         row_lo, row_hi);
             bool v;
-            if (!cr.could_intersect_y(row_lo, row_hi)) {
-              v = false;
-            } else if (!xc.active) {
-              v = true;
+            const RawGeodesicGateResult raw = raw_geodesic_edge_gate<W, H>(
+                cr, xc, band_len, rows[e], rows[e + 1],
+                cols != nullptr ? cols[e] : 0.0f,
+                cols != nullptr ? cols[e + 1] : 0.0f, ea, eb);
+            if (raw != RawGeodesicGateResult::EXACT_FALLBACK) {
+              v = raw == RawGeodesicGateResult::VISIBLE;
             } else {
-              int col_s, col_len;
-              v = !geodesic_col_span_cols<W>(cols[e], cols[e + 1], ea, es,
-                                             col_s, col_len) ||
-                  ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
+              count_particle_exact_gate_fallback();
+              const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
+              float row_lo, row_hi;
+              geodesic_row_span_rows<W, H>(rows[e], rows[e + 1], ea, eb, es,
+                                           row_lo, row_hi);
+              if (!cr.could_intersect_y(row_lo, row_hi)) {
+                v = false;
+              } else if (!xc.active) {
+                v = true;
+              } else {
+                int col_s, col_len;
+                v = !geodesic_col_span_cols<W>(cols[e], cols[e + 1], ea, es,
+                                               col_s, col_len) ||
+                    ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len,
+                                             W);
+              }
             }
             bits[e] = EDGE_CLASSIFIED | (v ? EDGE_VISIBLE : uint8_t{0});
             any = any || v;
