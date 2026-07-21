@@ -186,7 +186,7 @@ public:
   static constexpr int MAX_BLEND_PAIRS = 8;
 
   /** Leg kind, dispatched once at construction by the chosen constructor. */
-  enum class LegKind : uint8_t { CONWAY_SWEEP, HANKIN_SWEEP };
+  enum class LegKind : uint8_t { CONWAY_SWEEP, HANKIN_SWEEP, RELAX_SLERP };
 
   /** Hankin-angle floor (the T_EPS analog): at angle -> 0 every star point
    * collapses onto its corner via the p_corner fallback, so the clamp keeps
@@ -483,9 +483,75 @@ public:
   }
 
   /**
+   * @brief Constructs a relax leg: clones the seed, relaxes it once, and
+   * slerps every vertex from its seed position to its relaxed one
+   * (docs/opchain_morph_spec.md, section 2.2).
+   * @param seed Mesh being relaxed (cloned, not borrowed).
+   * @param iterations Spring-relaxation passes of the arrival form.
+   * @param arena Leg arena backing the cloned seed and hoisted state.
+   * @param draw Draw callback invoked once per frame.
+   * @param handoff Palette provenance of the departed mesh.
+   * @param sweep_frames Slerp frames (N).
+   * @param bookend Bookend grouping of the arrival mesh (target keying);
+   * defaults to the swept-classification fallback.
+   * @param easing_fn Easing applied to the slerp fraction.
+   * @note relax preserves vertex count and vertex order, so the leg needs no
+   * correspondence pass and its topology is constant by construction.
+   */
+  HS_COLD_MEMBER
+  OpLeg(const PolyMesh &seed, int iterations, Arena &arena, MorphDrawFn draw,
+        const PaletteHandoff &handoff, int sweep_frames,
+        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+        draw_fn(draw) {
+    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(iterations >= 1,
+             "OpLeg: relax leg needs a positive iteration count");
+    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
+             handoff.prev_faces > 0);
+    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
+    Transients &tr = *buf_;
+
+    MeshOps::clone(seed, tr.seed, arena);
+    tr.kind = LegKind::RELAX_SLERP;
+    tr.sweep_frames = sweep_frames;
+    tr.bank = handoff.bank;
+    tr.t_start = 0.0f;
+    tr.t_end = 1.0f;
+
+    {
+      ScratchScope sa(scratch_arena_a);
+      ScratchScope sb(scratch_arena_b);
+
+      PolyMesh arrival =
+          MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b, iterations);
+      HS_CHECK(arrival.vertices.size() == tr.seed.vertices.size(),
+               "OpLeg: relax changed the vertex count");
+      tr.relaxed.bind(arena, arrival.vertices.size());
+      tr.relaxed.append_bulk(arrival.vertices.data(), arrival.vertices.size());
+
+      MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
+                                          scratch_arena_b, arena);
+      tr.topo = std::move(arrival.topology);
+      HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+
+      // The opening frame is the seed verbatim, so its face centroids are the
+      // provenance source.
+      const Vector *start_centroid = nullptr;
+      if (handoff.prev_face_centroid)
+        start_centroid = face_centroids(tr.seed, scratch_arena_a);
+
+      build_palette_mapping(tr, arrival, handoff, bookend, arena,
+                            start_centroid, tr.seed.face_counts.size());
+    }
+  }
+
+  /**
    * @brief Steps the sweep: the kind's swept mesh (op at t(frame) plus settle
-   * slerp, or update_hankin at theta(frame)), then compile, palette pre-blend,
-   * draw.
+   * slerp, update_hankin at theta(frame), or the relax slerp), then compile,
+   * palette pre-blend, draw.
    * @param canvas The canvas passed through to the draw callback.
    * @details HS_COLD: once-per-frame orchestration; the hot loops live in the
    * (already cold) Conway ops and the mesh scan.
@@ -532,6 +598,8 @@ public:
       HS_PROFILE(hk_conway_op);
       if (tr.kind == LegKind::HANKIN_SWEEP) {
         hankin_at(tr, swept, scratch_arena_a, tp);
+      } else if (tr.kind == LegKind::RELAX_SLERP) {
+        relax_at(tr, swept, scratch_arena_a, tp);
       } else {
         swept =
             run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b, tp, tw);
@@ -588,7 +656,7 @@ private:
     float t_start = 0, t_end = 0;       /**< Clamped sweep endpoints. */
     float twist_start = 0, twist_end = 0; /**< Snub twist endpoints. */
     ArenaVector<Vector>
-        relaxed; /**< Relaxed endpoint vertices (settling legs). */
+        relaxed; /**< Relaxed endpoint vertices (settling and relax legs). */
     ArenaVector<int>
         topo; /**< Hoisted arrival classification (drawn grouping). */
     ArenaVector<int>
@@ -690,6 +758,8 @@ private:
       return MeshOps::truncate(seed, target, temp, t);
     case ConwayGraph::MorphOp::EXPAND:
       return MeshOps::expand(seed, target, temp, t);
+    case ConwayGraph::MorphOp::CHAMFER:
+      return MeshOps::chamfer(seed, target, temp, t);
     default:
       return MeshOps::snub(seed, target, temp, t, twist);
     }
@@ -738,30 +808,73 @@ private:
   }
 
   /**
+   * @brief Fills a swept mesh's vertices by slerping between two endpoints.
+   * @param out Output mesh whose vertices are bound and filled.
+   * @param arena Arena backing the vertex array.
+   * @param from Opening vertices (indices [shared, n) only).
+   * @param to Arrival vertices.
+   * @param n Vertex count.
+   * @param shared Prefix of @p to copied verbatim (vertices that never move).
+   * @param k Slerp fraction in [0, 1]; 1 copies @p to verbatim so the closing
+   * bookend swap is bitwise, not 1 ULP off.
+   */
+  HS_COLD_MEMBER static void slerp_vertices(PolyMesh &out, Arena &arena,
+                                            const Vector *from,
+                                            const Vector *to, size_t n,
+                                            size_t shared, float k) {
+    out.vertices.bind(arena, n);
+    if (k >= 1.0f) {
+      out.vertices.append_bulk(to, n);
+      return;
+    }
+    out.vertices.append_bulk(to, shared);
+    for (size_t i = shared; i < n; ++i)
+      out.vertices.push_back(slerp(from[i], to[i], k));
+  }
+
+  /**
+   * @brief Copies a leg's constant topology into the swept mesh.
+   * @param out Output mesh whose face arrays are bound and filled.
+   * @param arena Arena backing the face arrays.
+   * @param face_counts Per-face side counts.
+   * @param faces Flat per-face vertex index list.
+   */
+  HS_COLD_MEMBER static void
+  copy_topology(PolyMesh &out, Arena &arena,
+                const ArenaVector<uint8_t> &face_counts,
+                const ArenaVector<uint16_t> &faces) {
+    out.face_counts.bind(arena, face_counts.size());
+    out.face_counts.append_bulk(face_counts.data(), face_counts.size());
+    out.faces.bind(arena, faces.size());
+    out.faces.append_bulk(faces.data(), faces.size());
+  }
+
+  /**
    * @brief Builds a hankin leg's swept mesh at one slerp fraction.
    * @param tr Leg transients holding the baked topology and both endpoints.
    * @param out Output mesh, allocated from @p arena.
    * @param arena Arena backing the output vectors.
-   * @param k Slerp fraction in [0, 1]; 1 copies the arrival vertices verbatim
-   * so the closing bookend swap is bitwise, not 1 ULP off.
+   * @param k Slerp fraction in [0, 1].
    */
   HS_COLD_MEMBER static void hankin_at(const Transients &tr, PolyMesh &out,
                                        Arena &arena, float k) {
-    const size_t n = tr.hk_final.size();
-    out.vertices.bind(arena, n);
-    if (k >= 1.0f) {
-      out.vertices.append_bulk(tr.hk_final.data(), n);
-    } else {
-      out.vertices.append_bulk(tr.hk_final.data(), tr.hk_static);
-      for (size_t i = tr.hk_static; i < n; ++i)
-        out.vertices.push_back(
-            slerp(tr.hk_collapsed[i], tr.hk_final[i], k));
-    }
-    out.face_counts.bind(arena, tr.hankin.face_counts.size());
-    out.face_counts.append_bulk(tr.hankin.face_counts.data(),
-                                tr.hankin.face_counts.size());
-    out.faces.bind(arena, tr.hankin.faces.size());
-    out.faces.append_bulk(tr.hankin.faces.data(), tr.hankin.faces.size());
+    slerp_vertices(out, arena, tr.hk_collapsed.data(), tr.hk_final.data(),
+                   tr.hk_final.size(), tr.hk_static, k);
+    copy_topology(out, arena, tr.hankin.face_counts, tr.hankin.faces);
+  }
+
+  /**
+   * @brief Builds a relax leg's swept mesh at one slerp fraction.
+   * @param tr Leg transients holding the seed and its relaxed endpoint.
+   * @param out Output mesh, allocated from @p arena.
+   * @param arena Arena backing the output vectors.
+   * @param k Slerp fraction in [0, 1].
+   */
+  HS_COLD_MEMBER static void relax_at(const Transients &tr, PolyMesh &out,
+                                      Arena &arena, float k) {
+    slerp_vertices(out, arena, tr.seed.vertices.data(), tr.relaxed.data(),
+                   tr.relaxed.size(), 0, k);
+    copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
   }
 
   /** Max distance from a start-parameter face centroid to its departed
