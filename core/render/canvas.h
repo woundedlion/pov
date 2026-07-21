@@ -49,8 +49,8 @@ public:
    * @brief Constructs an Effect instance.
    * @param W The width (resolution) of the effect, in [1, MAX_W].
    * @param H The height (resolution) of the effect, in [1, MAX_H].
-   * @param cfg Construction-time flags (strobe / persist / full-frame); see
-   *        EffectConfig. Defaults to a plain band-clippable effect.
+   * @param cfg Construction-time behavior flags; see EffectConfig. Defaults to
+   *        a plain band-clippable effect with full-buffer clearing.
    */
   HS_COLD_MEMBER Effect(int W, int H, EffectConfig cfg = {})
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
@@ -626,6 +626,9 @@ private:
  */
 class Canvas {
 public:
+  /** @brief Opt-in tag for clearing only the current display clip. */
+  struct ClearDisplayClipTag {};
+
   /**
    * @brief Constructs the Canvas, advancing the effect buffer and optionally
    * clearing it.
@@ -653,6 +656,29 @@ public:
     effect_.advance_buffer();
     if (!effect_.persist_pixels) {
       clear_buffer();
+    }
+  }
+
+  /**
+   * @brief Constructs a drawing context that clears only the display clip.
+   * @details Use only for a non-persistent, segment-clippable effect. Persistent
+   *          and full-frame effects use the generic constructor.
+   */
+  Canvas(Effect &effect, ClearDisplayClipTag) : effect_(effect) {
+    if (!effect_.buffer_free()) {
+      const unsigned long wait_start = micros();
+      while (!effect_.buffer_free()) {
+        HS_CHECK(micros() - wait_start < BUFFER_FREE_WATCHDOG_US,
+                 "buffer_free watchdog timeout — display ISR stalled");
+#ifdef HS_TEST_BUILD
+        s_buffer_free_spins.fetch_add(1, std::memory_order_relaxed);
+#endif
+      }
+    }
+    effect_.advance_buffer();
+    if (!effect_.persist_pixels) {
+      HS_PROFILE(canvas_clear);
+      clear_display_clip_buffer();
     }
   }
 
@@ -735,7 +761,6 @@ public:
    */
   void clear_buffer() {
     int c = effect_.cur_.load(std::memory_order_relaxed);
-    HS_PROFILE(canvas_clear);
     std::fill_n(effect_.bufs_[c], effect_.width_ * effect_.height_,
                 Pixel(0, 0, 0));
   }
@@ -795,6 +820,28 @@ public:
 #endif
 
 private:
+  /**
+   * @brief Clears the current display clip, excluding its render margin.
+   * @details Device builds keep this helper out of line and outside ITCM.
+   */
+  HS_COLD_MEMBER void clear_display_clip_buffer() {
+    const int c = effect_.cur_.load(std::memory_order_relaxed);
+    const ClipRegion &clip = effect_.clip_;
+    const int span = clip.x_end - clip.x_start;
+    Pixel *const buffer = effect_.bufs_[c];
+
+    if (span == effect_.width_) {
+      std::fill_n(buffer + clip.y_start * effect_.width_,
+                  span * (clip.y_end - clip.y_start), Pixel(0, 0, 0));
+      return;
+    }
+
+    for (int y = clip.y_start; y < clip.y_end; ++y) {
+      std::fill_n(buffer + y * effect_.width_ + clip.x_start, span,
+                  Pixel(0, 0, 0));
+    }
+  }
+
   /** Watchdog bound for the ctor buffer_free() spin (µs). One display
    *  revolution is tens-to-hundreds of ms even at low RPM; 2 s is well above
    *  that, so only a genuinely stalled display ISR trips it. */

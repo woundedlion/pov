@@ -37,7 +37,7 @@ struct TestEffect : public Effect {
    * @param W Canvas width in pixels.
    * @param H Canvas height in pixels.
    */
-  TestEffect(int W, int H) : Effect(W, H) {}
+  TestEffect(int W, int H, EffectConfig cfg = {}) : Effect(W, H, cfg) {}
   /**
    * @brief Per-frame draw hook; intentionally a no-op for these tests.
    */
@@ -182,6 +182,155 @@ inline void test_consecutive_frames_alternate_buffers() {
   fx.advance_display();
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 0, 22, 0));
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 0, 0, 0));
+}
+
+/** @brief Clip clearing touches the display rectangle but not its margin. */
+inline void test_clip_clear_exact_rectangle() {
+  TestEffect fx(8, 4);
+
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(11, 22, 33); }
+  fx.advance_display();
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(44, 55, 66); }
+  fx.advance_display();
+
+  fx.set_clip(1, 3, 2, 6);
+  fx.set_margin(2);
+  {
+    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    for (int y = 0; y < 4; ++y) {
+      for (int x = 0; x < 8; ++x) {
+        const bool inside = y >= 1 && y < 3 && x >= 2 && x < 6;
+        HS_EXPECT_TRUE(inside ? pix_eq(c(x, y), 0, 0, 0)
+                              : pix_eq(c(x, y), 11, 22, 33));
+      }
+    }
+  }
+  fx.advance_display();
+  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 1), 0, 0, 0));
+  HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 11, 22, 33));
+}
+
+/** @brief Alternating POV clips clear the recycled buffer before publication. */
+inline void test_clip_clear_alternates_clips_and_buffers() {
+  TestEffect fx(8, 4);
+
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(10, 0, 0); }
+  fx.advance_display();
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(0, 20, 0); }
+  fx.advance_display();
+
+  fx.set_clip(0, 4, 0, 4);
+  {
+    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    for (int y = 0; y < 4; ++y)
+      for (int x = 0; x < 8; ++x)
+        HS_EXPECT_TRUE(x < 4 ? pix_eq(c(x, y), 0, 0, 0)
+                             : pix_eq(c(x, y), 10, 0, 0));
+    for (int y = 0; y < 4; ++y)
+      for (int x = 0; x < 4; ++x)
+        c(x, y) = Pixel(0, 0, 30);
+  }
+  fx.advance_display();
+
+  fx.set_clip(0, 4, 4, 8);
+  {
+    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    for (int y = 0; y < 4; ++y)
+      for (int x = 0; x < 8; ++x)
+        HS_EXPECT_TRUE(x >= 4 ? pix_eq(c(x, y), 0, 0, 0)
+                              : pix_eq(c(x, y), 0, 20, 0));
+  }
+  fx.advance_display();
+
+  fx.set_clip(0, 4, 0, 4);
+  {
+    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    for (int y = 0; y < 4; ++y)
+      for (int x = 0; x < 8; ++x)
+        HS_EXPECT_TRUE(x < 4 ? pix_eq(c(x, y), 0, 0, 0)
+                             : pix_eq(c(x, y), 10, 0, 0));
+  }
+}
+
+/** @brief A full display clip is equivalent to the generic full clear. */
+inline void test_clip_clear_full_clip_matches_full_clear() {
+  TestEffect fx(8, 4);
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(10, 20, 30); }
+  fx.advance_display();
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(40, 50, 60); }
+  fx.advance_display();
+
+  Canvas c(fx, Canvas::ClearDisplayClipTag{});
+  for (int i = 0; i < 32; ++i)
+    HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
+}
+
+/** @brief A full-width band clears contiguously at the correct row offset. */
+inline void test_clip_clear_full_width_band() {
+  TestEffect fx(8, 4);
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(10, 20, 30); }
+  fx.advance_display();
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(40, 50, 60); }
+  fx.advance_display();
+
+  fx.set_clip(1, 3, 0, 8);
+  Canvas c(fx, Canvas::ClearDisplayClipTag{});
+  for (int y = 0; y < 4; ++y)
+    for (int x = 0; x < 8; ++x)
+      HS_EXPECT_TRUE(y >= 1 && y < 3 ? pix_eq(c(x, y), 0, 0, 0)
+                                     : pix_eq(c(x, y), 10, 20, 30));
+}
+
+/** @brief Effect construction still fully zeroes both shared buffers. */
+inline void test_clip_clear_constructor_zeroes_both_buffers() {
+  {
+    TestEffect dirty(8, 4);
+    { Canvas c(dirty); for (int i = 0; i < 32; ++i) c(i) = Pixel(1, 2, 3); }
+    dirty.advance_display();
+    { Canvas c(dirty); for (int i = 0; i < 32; ++i) c(i) = Pixel(4, 5, 6); }
+    dirty.advance_display();
+  }
+
+  TestEffect fx(8, 4);
+  fx.set_clip(1, 3, 2, 6);
+  {
+    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    for (int i = 0; i < 32; ++i)
+      HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
+  }
+  fx.advance_display();
+  fx.set_clip(0, 1, 0, 1);
+  {
+    Canvas c(fx, Canvas::ClearDisplayClipTag{});
+    for (int i = 0; i < 32; ++i)
+      HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
+  }
+}
+
+/** @brief Adding the tagged path leaves persistent-frame copying unchanged. */
+inline void test_clip_clear_does_not_change_persistence() {
+  TestEffect fx(8, 4, {.persist = true});
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(7, 8, 9); }
+  fx.advance_display();
+
+  fx.set_clip(1, 3, 2, 6);
+  Canvas c(fx);
+  for (int i = 0; i < 32; ++i)
+    HS_EXPECT_TRUE(pix_eq(c(i), 7, 8, 9));
+}
+
+/** @brief Adding the tagged path leaves generic full-frame clearing unchanged. */
+inline void test_clip_clear_does_not_change_full_frame_clear() {
+  TestEffect fx(8, 4, {.full_frame = true});
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(1, 2, 3); }
+  fx.advance_display();
+  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(4, 5, 6); }
+  fx.advance_display();
+
+  fx.set_clip(1, 3, 2, 6);
+  Canvas c(fx);
+  for (int i = 0; i < 32; ++i)
+    HS_EXPECT_TRUE(pix_eq(c(i), 0, 0, 0));
 }
 
 /**
@@ -665,6 +814,13 @@ inline int run_canvas_tests() {
   test_construction_dimension_boundaries();
   test_frame_visible_only_after_advance_display();
   test_consecutive_frames_alternate_buffers();
+  test_clip_clear_exact_rectangle();
+  test_clip_clear_alternates_clips_and_buffers();
+  test_clip_clear_full_clip_matches_full_clear();
+  test_clip_clear_full_width_band();
+  test_clip_clear_constructor_zeroes_both_buffers();
+  test_clip_clear_does_not_change_persistence();
+  test_clip_clear_does_not_change_full_frame_clear();
   test_persist_pixels_copies_previous_frame();
   test_double_buffer_handoff_no_aliasing();
   test_double_buffer_handoff_concurrent();

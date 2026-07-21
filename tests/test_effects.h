@@ -15,6 +15,7 @@
 #include "core/engine/effects.h"
 #include "core/render/canvas.h"
 #include "core/engine/memory.h"
+#include "hardware/pov_segment_map.h"
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
 
@@ -1857,6 +1858,10 @@ struct MindSplatterWhiteBox {
     ms.particle_system.reference_signed_axis_physics = enabled;
   }
   template <int W, int H>
+  static void use_clip_clear(MindSplatter<W, H> &ms, bool enabled) {
+    ms.full_buffer_clear = !enabled;
+  }
+  template <int W, int H>
   static uint16_t active_particles(const MindSplatter<W, H> &ms) {
     return ms.particle_system.active();
   }
@@ -2140,6 +2145,83 @@ inline void test_mindsplatter_color_seed_framebuffer_parity() {
               reference.size(), lit_pixels, different_pixels);
   HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
   HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
+}
+
+/** @brief Clip clearing preserves every pixel displayed by the POV driver. */
+inline void test_mindsplatter_clip_clear_display_parity() {
+  constexpr int W = DEVICE_W;
+  constexpr int H = DEVICE_H;
+  constexpr int S = H * 2;
+  constexpr int N = 4;
+  constexpr int FRAMES = 160;
+  using MS = MindSplatter<W, H>;
+  using WB = MindSplatterWhiteBox;
+  struct Render {
+    std::vector<Pixel> displayed;
+    std::vector<uint16_t> active;
+  };
+
+  auto render = [&](int segment_id, bool clip_clear) {
+    reset_effect_globals();
+    GenerativePalette::reset_hue_seed(0);
+    hs::set_mock_time(0, 0);
+    Render result;
+    result.displayed.reserve(static_cast<size_t>(W / 2) * (S / N) * FRAMES);
+    result.active.reserve(FRAMES);
+    MS effect;
+    effect.init();
+    WB::use_clip_clear(effect, clip_clear);
+    const pov::SegmentMap map = pov::segment_map(segment_id, S, N);
+    for (int f = 0; f < FRAMES; ++f) {
+      const pov::SegmentClip clip =
+          pov::segment_clip(map, (f & 1) == 0, S, N, W);
+      effect.set_clip(clip.y0, clip.y1, clip.x0, clip.x1);
+      hs::set_mock_time(static_cast<unsigned long>(f) * FRAME_MS,
+                        static_cast<unsigned long>(f) * FRAME_US);
+      effect.draw_frame();
+      effect.advance_display();
+      result.active.push_back(WB::active_particles(effect));
+      for (int y = clip.y0; y < clip.y1; ++y)
+        for (int x = clip.x0; x < clip.x1; ++x)
+          result.displayed.push_back(effect.get_pixel(x, y));
+    }
+    return result;
+  };
+
+  for (int segment_id = 0; segment_id < N; ++segment_id) {
+    const Render full_clear = render(segment_id, false);
+    const Render clip_clear = render(segment_id, true);
+    HS_EXPECT_EQ(full_clear.active.size(), clip_clear.active.size());
+    for (size_t i = 0; i < full_clear.active.size(); ++i)
+      HS_EXPECT_EQ(full_clear.active[i], clip_clear.active[i]);
+    HS_EXPECT_EQ(full_clear.displayed.size(), clip_clear.displayed.size());
+
+    size_t lit_pixels = 0;
+    size_t different_pixels = 0;
+    size_t coverage_differences = 0;
+    for (size_t i = 0; i < full_clear.displayed.size(); ++i) {
+      const Pixel a = full_clear.displayed[i];
+      const Pixel b = clip_clear.displayed[i];
+      const bool a_black = (a.r | a.g | a.b) == 0;
+      const bool b_black = (b.r | b.g | b.b) == 0;
+      if (!a_black)
+        ++lit_pixels;
+      if (a != b)
+        ++different_pixels;
+      if (a_black != b_black)
+        ++coverage_differences;
+    }
+    std::printf("clip clear segment=%d samples=%zu lit=%zu different=%zu "
+                "coverage=%zu\n",
+                segment_id, full_clear.displayed.size(), lit_pixels,
+                different_pixels, coverage_differences);
+    HS_EXPECT_EQ(full_clear.displayed.size(),
+                 static_cast<size_t>(W / 2) * (S / N) * FRAMES);
+    HS_EXPECT_GT(lit_pixels, static_cast<size_t>(0));
+    HS_EXPECT_EQ(different_pixels, static_cast<size_t>(0));
+    HS_EXPECT_EQ(coverage_differences, static_cast<size_t>(0));
+  }
+  hs::clear_mock_time();
 }
 
 /** @brief Bounds full-lifetime render drift from signed-axis physics. */
@@ -2883,6 +2965,7 @@ inline int run_effects_tests() {
   test_mindsplatter_rotation_matrix_equivalence();
   test_mindsplatter_rotation_matrix_framebuffer_error();
   test_mindsplatter_color_seed_framebuffer_parity();
+  test_mindsplatter_clip_clear_display_parity();
   test_mindsplatter_signed_axis_framebuffer_error();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box

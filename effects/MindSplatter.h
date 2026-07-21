@@ -89,7 +89,14 @@ public:
     // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
     Canvas canvas = [this]() -> Canvas {
       HS_PROFILE(msp_buffer_wait);
-      return Canvas(*this);
+#ifdef HS_TEST_BUILD
+      if (full_buffer_clear)
+        return Canvas(*this);
+#endif
+      if constexpr (decltype(filters)::any_crosses_segments)
+        return Canvas(*this);
+      else
+        return Canvas(*this, Canvas::ClearDisplayClipTag{});
     }();
     {
       HS_PROFILE(msp_timeline_step);
@@ -312,6 +319,7 @@ private:
 #ifdef HS_TEST_BUILD
   bool reference_orientation = false;
   bool reference_color_seed_lookup = false;
+  bool full_buffer_clear = false;
 #endif
 
   /**
