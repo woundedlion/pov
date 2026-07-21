@@ -2262,6 +2262,152 @@ inline void check_step_leg_smoke(StepLegKind kind, const StepLegSite &site,
               hs_test::stats().failed != failed_before ? " FAILED" : "");
 }
 
+/** Gated-swap sites: the seeds the partition recipes run kis and dual on. */
+inline constexpr StepLegSite GATE_LEG_SITES[] = {
+    {"icosahedron", probe_icosahedron, 0.0f},
+    {"icosahedron_snub", probe_icosa_snub, 0.0f},
+};
+
+/**
+ * @brief Drives one gated-swap leg to completion through OpLeg, gating the
+ *        per-side compiled-face-count constancy, the single swap, the ramp
+ *        indices and the gain envelope.
+ * @param op Partition operator the leg swaps to.
+ * @param site Seed site.
+ * @param gate Half-gate length in frames.
+ * @details Derives the handoff and bookend exactly as IslamicStars does: the
+ * departed palettes from the seed's own classification, the bookend from the
+ * op's clean endpoint.
+ */
+inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
+                                  const StepLegSite &site, int gate) {
+  using Animation::OpLeg;
+  const int failed_before = hs_test::stats().failed;
+  const bool is_kis = op == OpLeg::SwapOp::KIS;
+
+  reset_globals();
+  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
+                   32 * 1024);
+  hs::random().seed(2026u);
+
+  Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+  Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
+  MeshPaletteBank bank;
+  bank.bake_all(bank_arena);
+
+  PolyMesh seed = build_step_leg_seed(site, leg_arena);
+  PolyMesh endpoint;
+  {
+    constexpr size_t HALF = sizeof(morph_temp_buf) / 2;
+    Arena ea(morph_temp_buf, HALF);
+    Arena eb(morph_temp_buf + HALF, HALF);
+    endpoint = Solids::finalize_solid(is_kis ? MeshOps::kis(seed, ea, eb)
+                                             : MeshOps::dual(seed, ea, eb),
+                                      leg_arena);
+  }
+
+  ScratchScope a_guard(scratch_arena_a);
+  ScratchScope b_guard(scratch_arena_b);
+  MeshOps::classify_faces_by_topology(seed, scratch_arena_a, scratch_arena_b,
+                                      leg_arena);
+  MeshOps::classify_faces_by_topology(endpoint, scratch_arena_a,
+                                      scratch_arena_b, leg_arena);
+
+  std::array<int, OpLeg::PALETTES> slots;
+  MeshPaletteBank::shuffle_indices(slots);
+  std::array<uint8_t, OpLeg::PALETTES> targets;
+  for (int i = 0; i < OpLeg::PALETTES; ++i)
+    targets[i] = static_cast<uint8_t>(i);
+  hs::shuffle(targets.begin(), targets.end());
+
+  const size_t prev_faces = seed.face_counts.size();
+  uint8_t *prev_pal = leg_arena.allocate_n<uint8_t>(prev_faces);
+  for (size_t f = 0; f < prev_faces; ++f)
+    prev_pal[f] =
+        static_cast<uint8_t>(slots[wrap(seed.topology[f], OpLeg::PALETTES)]);
+
+  OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr, prev_faces,
+                                false,      nullptr,  &targets};
+  OpLeg::BookendClasses bookend{endpoint.topology.data(),
+                                endpoint.face_counts.size()};
+
+  const int frames = 2 * gate + 1;
+  int drawn = 0, swaps = 0, swap_frame = -1;
+  size_t side_faces = 0;
+  float prev_gain = 0.0f, min_gain = 2.0f;
+  bool gain_monotone = true;
+  auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
+    HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+    for (size_t f = 0; f < sh.faces; ++f)
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), OpLeg::MAX_BLEND_PAIRS);
+    if (drawn == 0) {
+      side_faces = sh.faces;
+      HS_EXPECT_EQ(sh.gain, 1.0f);
+    } else {
+      if (sh.faces != side_faces) {
+        ++swaps;
+        swap_frame = drawn;
+        side_faces = sh.faces;
+      }
+      const bool closing = drawn <= gate;
+      if (closing ? sh.gain > prev_gain : sh.gain < prev_gain)
+        gain_monotone = false;
+    }
+    HS_EXPECT_GT(sh.gain, 0.0f);
+    HS_EXPECT_GE(sh.gain, OpLeg::GATE_GAIN_MIN);
+    min_gain = std::min(min_gain, sh.gain);
+    prev_gain = sh.gain;
+    ++drawn;
+  };
+
+  struct GateFx : public Effect {
+    GateFx() : Effect(288, 144) {}
+    void draw_frame() override {}
+  };
+  GateFx fx;
+
+  OpLeg leg(seed, op, leg_arena, cb, handoff, gate, bookend);
+  const OpLeg::Landing &landing = leg.landing();
+  for (int f = 0; f < frames; ++f) {
+    {
+      Canvas c(fx);
+      leg.step(c);
+    }
+    fx.advance_display();
+  }
+
+  HS_EXPECT_EQ(drawn, frames);
+  // Topology changes exactly once, at the swap frame, and the leg lands on the
+  // arrival face count.
+  HS_EXPECT_EQ(swaps, 1);
+  HS_EXPECT_EQ(swap_frame, gate);
+  HS_EXPECT_EQ(side_faces, landing.faces);
+  HS_EXPECT_EQ(landing.faces, endpoint.face_counts.size());
+  HS_EXPECT_EQ(landing.primary_faces, prev_faces);
+  HS_EXPECT_TRUE(landing.from_palette != nullptr);
+  HS_EXPECT_TRUE(gain_monotone);
+  HS_EXPECT_NEAR(min_gain, OpLeg::GATE_GAIN_MIN, 1e-5f);
+  HS_EXPECT_NEAR(prev_gain, 1.0f, 1e-5f);
+
+  std::printf("  [opleg %s] %s: F %zu -> %zu, swap at frame %d of %d, gain "
+              "1 -> %.2f -> 1%s\n",
+              is_kis ? "kis" : "dual", site.name, prev_faces, landing.faces,
+              swap_frame, frames, (double)min_gain,
+              hs_test::stats().failed != failed_before ? " FAILED" : "");
+}
+
+/**
+ * @brief Smoke-tests a gated-swap leg for both partition ops on every gate
+ *        site, at IslamicStars' 6-frame half-gate.
+ */
+inline void test_opleg_gated_swap_smoke() {
+  using Animation::OpLeg;
+  for (const StepLegSite &site : GATE_LEG_SITES) {
+    check_gated_leg_smoke(OpLeg::SwapOp::KIS, site, 6);
+    check_gated_leg_smoke(OpLeg::SwapOp::DUAL, site, 6);
+  }
+}
+
 /**
  * @brief Smoke-tests one leg of each new recipe-step kind end to end.
  */
@@ -2289,9 +2435,11 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::AMBO}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 50.0f * D2R}));
-  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.63f}));
-  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::KIS}));
-  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::DUAL}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::CHAMFER, 0.63f}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::KIS}));
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::DUAL}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.001f}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.9f}));
 
   // What the gate avoids, on the seed both blocked truncate recipes reach
   // (truncatedIcosahedron.ambo().relax()): a clamped leg lands this far from
@@ -2354,13 +2502,15 @@ constexpr size_t ISLAMIC_PERSISTENT_BUDGET =
     ISLAMIC_SCRATCH_B_BUDGET;
 
 /**
- * @brief Replays every non-null recipe leg by leg as IslamicStars builds it
- *        and gates continuity, classification, and the arena high-waters.
+ * @brief Replays one recipe leg by leg as IslamicStars builds it and gates
+ *        continuity, classification, and the arena high-waters.
+ * @param name Diagnostic label.
+ * @param recipe Recipe replayed.
  */
-inline void test_recipe_chain_build_replay() {
+inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
   using Animation::OpLeg;
   constexpr int HANKIN_LEG_FRAMES = 32, SWEEP_LEG_FRAMES = 24,
-                RELAX_LEG_FRAMES = 16;
+                RELAX_LEG_FRAMES = 16, GATE_HALF_FRAMES = 6;
   constexpr size_t MAX_FACES = 256;
   constexpr size_t MAX_STEPS = 8;
 
@@ -2369,12 +2519,7 @@ inline void test_recipe_chain_build_replay() {
     void draw_frame() override {}
   };
 
-  int chains = 0;
-  for (const Solids::Entry &entry : Solids::Collections::get_islamic_solids()) {
-    if (!entry.recipe)
-      continue;
-    ++chains;
-    const Solids::Recipe &recipe = *entry.recipe;
+  {
     const int failed_before = hs_test::stats().failed;
 
     reset_globals();
@@ -2414,17 +2559,21 @@ inline void test_recipe_chain_build_replay() {
     HS_EXPECT_GT(count, (size_t)0);
     bool supported = true;
     int leg_frames[MAX_STEPS] = {};
+    bool gated[MAX_STEPS] = {};
     for (size_t k = 0; k < count; ++k) {
       if (!Solids::is_morphable_step(steps[k]))
         supported = false;
-      leg_frames[k] = steps[k].op == Solids::Op::HANKIN  ? HANKIN_LEG_FRAMES
-                      : steps[k].op == Solids::Op::RELAX ? RELAX_LEG_FRAMES
-                                                         : SWEEP_LEG_FRAMES;
+      gated[k] =
+          steps[k].op == Solids::Op::KIS || steps[k].op == Solids::Op::DUAL;
+      leg_frames[k] = gated[k] ? 2 * GATE_HALF_FRAMES + 1
+                      : steps[k].op == Solids::Op::HANKIN ? HANKIN_LEG_FRAMES
+                      : steps[k].op == Solids::Op::RELAX  ? RELAX_LEG_FRAMES
+                                                          : SWEEP_LEG_FRAMES;
     }
     HS_EXPECT_TRUE(supported);
     if (!supported) {
-      std::printf("    [chain] %s: unsupported lowered op\n", entry.name);
-      continue;
+      std::printf("    [chain] %s: unsupported lowered op\n", name);
+      return;
     }
 
     ChainFx fx;
@@ -2479,6 +2628,12 @@ inline void test_recipe_chain_build_replay() {
         case Solids::Op::SNUB:
           nx = MeshOps::snub(cur, a, b, steps[k].param, steps[k].twist);
           break;
+        case Solids::Op::KIS:
+          nx = MeshOps::kis(cur, a, b);
+          break;
+        case Solids::Op::DUAL:
+          nx = MeshOps::dual(cur, a, b);
+          break;
         default:
           nx = MeshOps::relax(cur, a, b, static_cast<int>(steps[k].param));
           break;
@@ -2501,9 +2656,14 @@ inline void test_recipe_chain_build_replay() {
 
       size_t drawn = 0;
       size_t leg_faces = 0;
+      // A gated leg's face count is constant per side and changes once, at the
+      // swap; every other kind holds one count for the whole leg.
       auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
         HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
-        if (drawn == 0)
+        const bool side_start =
+            drawn == 0 ||
+            (gated[k] && drawn == static_cast<size_t>(GATE_HALF_FRAMES));
+        if (side_start)
           leg_faces = sh.faces;
         else
           HS_EXPECT_EQ(sh.faces, leg_faces);
@@ -2512,6 +2672,12 @@ inline void test_recipe_chain_build_replay() {
 
       auto make_leg = [&]() {
         switch (steps[k].op) {
+        case Solids::Op::KIS:
+          return OpLeg(cur, OpLeg::SwapOp::KIS, persistent_arena, cb, handoff,
+                       GATE_HALF_FRAMES, bookend);
+        case Solids::Op::DUAL:
+          return OpLeg(cur, OpLeg::SwapOp::DUAL, persistent_arena, cb, handoff,
+                       GATE_HALF_FRAMES, bookend);
         case Solids::Op::HANKIN:
           return OpLeg(cur, 0.0f, steps[k].param, persistent_arena, cb, handoff,
                        leg_frames[k], bookend);
@@ -2551,9 +2717,20 @@ inline void test_recipe_chain_build_replay() {
       // exactly the palette this one landed on. Blending part-way instead, with
       // the target moving between legs, is what jumped the color at every op.
       HS_EXPECT_LE(landing.faces, MAX_FACES);
-      if (k > 0) {
+      // A partition op keeps no emission-order correspondence to its seed, so
+      // its from-palettes are the provenance mapping's, not the prefix's; what
+      // must hold is that every one of them is a palette the previous leg
+      // actually landed on somewhere.
+      if (k > 0 && !gated[k]) {
         for (size_t f = 0; f < prev_faces; ++f)
           HS_EXPECT_EQ((int)landing.from_palette[f], (int)carried_to[f]);
+      } else if (k > 0) {
+        for (size_t f = 0; f < landing.faces; ++f) {
+          bool found = false;
+          for (size_t j = 0; j < prev_faces && !found; ++j)
+            found = landing.from_palette[f] == carried_to[j];
+          HS_EXPECT_TRUE(found);
+        }
       }
       for (size_t f = 0; f < landing.faces; ++f)
         carried_to[f] =
@@ -2588,18 +2765,65 @@ inline void test_recipe_chain_build_replay() {
     const size_t b_peak = scratch_arena_b.get_high_water_mark();
     std::printf("  [chain] %s: %zu legs, persistent=%zu B / %zu B, "
                 "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
-                entry.name, count, p_peak, (size_t)ISLAMIC_PERSISTENT_BUDGET,
-                a_peak, (size_t)ISLAMIC_SCRATCH_A_BUDGET, b_peak,
+                name, count, p_peak, (size_t)ISLAMIC_PERSISTENT_BUDGET, a_peak,
+                (size_t)ISLAMIC_SCRATCH_A_BUDGET, b_peak,
                 (size_t)ISLAMIC_SCRATCH_B_BUDGET);
     HS_EXPECT_LE(p_peak, ISLAMIC_PERSISTENT_BUDGET);
     HS_EXPECT_LE(a_peak, ISLAMIC_SCRATCH_A_BUDGET);
     HS_EXPECT_LE(b_peak, ISLAMIC_SCRATCH_B_BUDGET);
 
     if (hs_test::stats().failed != failed_before)
-      std::printf("    [chain] %s FAILED\n", entry.name);
+      std::printf("    [chain] %s FAILED\n", name);
+  }
+}
+
+/** simple_registry seed indices the partition chains build from. */
+inline constexpr uint8_t SEED_CUBE = 1;
+inline constexpr uint8_t SEED_ICOSAHEDRON = 4;
+static_assert(std::string_view(Solids::simple_registry[SEED_CUBE].name) ==
+              "cube");
+static_assert(std::string_view(
+                  Solids::simple_registry[SEED_ICOSAHEDRON].name) ==
+              "icosahedron");
+
+/** Partition chains: a lone kis, a gated leg departing a gated leg, and a
+ * gated leg departing a swept one. No registry entry carries a partition
+ * recipe yet, so these stand in for the recipe table. */
+inline constexpr Solids::OpStep CHAIN_KIS[] = {{Solids::Op::KIS}};
+inline constexpr Solids::OpStep CHAIN_KIS_DUAL[] = {{Solids::Op::KIS},
+                                                    {Solids::Op::DUAL}};
+inline constexpr Solids::OpStep CHAIN_AMBO_DUAL[] = {{Solids::Op::AMBO},
+                                                     {Solids::Op::DUAL}};
+inline constexpr Solids::OpStep CHAIN_HK62_DUAL[] = {
+    {Solids::Op::HANKIN, 62.0f * Solids::IslamicStarPatterns::D2R},
+    {Solids::Op::DUAL}};
+inline constexpr Solids::Recipe DODECAHEDRON_KIS_RECIPE = {
+    Solids::SEED_DODECAHEDRON, CHAIN_KIS, std::size(CHAIN_KIS)};
+inline constexpr Solids::Recipe CUBE_KIS_DUAL_RECIPE = {
+    SEED_CUBE, CHAIN_KIS_DUAL, std::size(CHAIN_KIS_DUAL)};
+inline constexpr Solids::Recipe ICOSAHEDRON_AMBO_DUAL_RECIPE = {
+    SEED_ICOSAHEDRON, CHAIN_AMBO_DUAL, std::size(CHAIN_AMBO_DUAL)};
+inline constexpr Solids::Recipe DODECAHEDRON_HK62_DUAL_RECIPE = {
+    Solids::SEED_DODECAHEDRON, CHAIN_HK62_DUAL, std::size(CHAIN_HK62_DUAL)};
+
+/**
+ * @brief Replays every registry recipe plus the partition chains leg by leg.
+ */
+inline void test_recipe_chain_build_replay() {
+  int chains = 0;
+  for (const Solids::Entry &entry : Solids::Collections::get_islamic_solids()) {
+    if (!entry.recipe)
+      continue;
+    ++chains;
+    replay_build_chain(entry.name, *entry.recipe);
   }
   // Guards against a vacuous pass if the recipe pointers are dropped.
   HS_EXPECT_GE(chains, 2);
+
+  replay_build_chain("dodecahedron_kis", DODECAHEDRON_KIS_RECIPE);
+  replay_build_chain("cube_kis_dual", CUBE_KIS_DUAL_RECIPE);
+  replay_build_chain("icosahedron_ambo_dual", ICOSAHEDRON_AMBO_DUAL_RECIPE);
+  replay_build_chain("dodecahedron_hk62_dual", DODECAHEDRON_HK62_DUAL_RECIPE);
 }
 
 // ---------------------------------------------------------------------------
@@ -2638,6 +2862,7 @@ inline int run_conway_morph_tests() {
   test_snub_leg_on_recipe_seeds_holds_topology();
   test_relax_leg_on_recipe_seeds_holds_topology();
   test_opleg_step_leg_smoke();
+  test_opleg_gated_swap_smoke();
   test_unsweepable_recipe_steps_are_gated();
 
   test_recipe_chain_build_replay();
