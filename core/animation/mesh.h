@@ -897,9 +897,14 @@ private:
     }
 
     // Full-correspondence geometric mapping: nearest departed centroid,
-    // pinned as a bijection within tolerance.
+    // pinned as a bijection within tolerance. The bijection mark is scoped to
+    // that mapping: the prefix mapping a chain leg takes never reads it, and
+    // its departed meshes run to several hundred faces.
+    const bool full_correspondence =
+        start_centroid && handoff.prev_faces == total;
     bool prev_used[128] = {};
-    HS_CHECK(handoff.prev_faces <= std::size(prev_used));
+    HS_CHECK(!full_correspondence ||
+             handoff.prev_faces <= std::size(prev_used));
     // Newborn classes inherit one representative from-palette (first face of
     // the class), keeping the distinct-pair count at the legacy bound.
     int newborn_from[PALETTES];
@@ -913,7 +918,7 @@ private:
     for (size_t f = 0; f < total; ++f) {
       uint8_t to = tr.landing.to_palette[wrap(tr.target_topo[f], PALETTES)];
       uint8_t from = to; // fallback: newborn faces skip the crossfade
-      if (start_centroid && handoff.prev_faces == total) {
+      if (full_correspondence) {
         const size_t j = nearest_prev_face(start_centroid[f], handoff);
         const Vector d = start_centroid[f] - handoff.prev_face_centroid[j];
         HS_CHECK(!prev_used[j] && dot(d, d) < PROVENANCE_TOL_SQ,
