@@ -1066,6 +1066,7 @@ template <int W, int H> class DirectAntiAliasSink : public Is2D {
 public:
   static constexpr bool any_crosses_segments = false;
   static constexpr bool has_world_cull = false;
+  static constexpr bool direct_raster_path = true;
 
   /** @brief Splats one screen-space sample directly into the Canvas. */
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,

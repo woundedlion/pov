@@ -893,6 +893,13 @@ template <typename P> static consteval bool pipeline_hoistable_cull() {
     return false;
 }
 
+template <typename P> static consteval bool pipeline_direct_raster_path() {
+  if constexpr (requires { P::direct_raster_path; })
+    return P::direct_raster_path;
+  else
+    return false;
+}
+
 /**
  * @brief Conservative screen-length test: true only when the geodesic edge
  *        a->b provably spans at most SCREEN_STEP_PX on screen.
@@ -1061,7 +1068,6 @@ static inline bool edge_visible_in_clip(PipelineT &pipeline,
  * culled.
  *
  * @tparam W,H Rasterization resolution (pixel grid).
- * @tparam PipelineT Pipeline type (defaults to PipelineRef).
  * @param pipeline Render pipeline that plots fragments.
  * @param canvas Target canvas (supplies the active clip band).
  * @param points Fragment polyline to rasterize.
@@ -1092,14 +1098,24 @@ static inline bool edge_visible_in_clip(PipelineT &pipeline,
  */
 HS_O3_BEGIN
 template <int W, int H, typename PipelineT = PipelineRef>
-static void rasterize(PipelineT &pipeline, Canvas &canvas,
-                      const Fragments &points, FragmentShaderFn fragment_shader,
+static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
+                      const Fragments &points,
+                      FragmentShaderFn fragment_shader,
                       bool close_loop = false,
                       const Basis *planar_basis = nullptr,
                       bool omit_end = false,
                       const uint8_t *edge_visible = nullptr,
                       const float *point_rows = nullptr,
                       const float *point_cols = nullptr) {
+  if constexpr (!std::same_as<std::decay_t<PipelineT>, PipelineRef> &&
+                !pipeline_direct_raster_path<PipelineT>()) {
+    PipelineRef erased(source_pipeline);
+    rasterize<W, H>(erased, canvas, points, fragment_shader, close_loop,
+                    planar_basis, omit_end, edge_visible, point_rows,
+                    point_cols);
+    return;
+  }
+  auto &pipeline = source_pipeline;
   size_t len = points.size();
   if (len < 2)
     return;
@@ -1108,9 +1124,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
   HS_CHECK(fragment_shader, "rasterize requires a non-null fragment_shader");
   HS_CHECK(edge_visible == nullptr || planar_basis == nullptr,
            "precomputed edge visibility is geodesic-only");
-  #ifdef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
   double plot_t0 = emscripten_get_now();
-  #endif
+#endif
 
   size_t count = close_loop ? len : len - 1;
   // SCRATCH ARENA CONTRACT (load-bearing): scratch_arena_a is a LIFO bump
@@ -1353,7 +1369,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
               ? (edge_visible[i] & EDGE_VISIBLE) != 0
               : edge_visible_in_clip<W, H>(
                     pipeline, cr, xc, band_len, curr.pos, next.pos,
-                    use_planar ? planar_basis : nullptr);
+                                           use_planar ? planar_basis : nullptr);
       if (!visible)
         continue;
     }
@@ -1381,9 +1397,9 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       rasterize_geodesic_strategy(curr, next, isLastSegment, process_segment);
     }
   }
-  #ifdef __EMSCRIPTEN__
+#ifdef __EMSCRIPTEN__
   canvas.add_render_us(emscripten_get_now() - plot_t0);
-  #endif
+#endif
 }
 HS_O3_END
 
@@ -3220,8 +3236,10 @@ struct ParticleSystem {
   /**
    * @brief Draws each active particle's history as a rasterized trail.
    * @tparam W,H Rasterization resolution.
-   * @tparam PipelineT Pipeline type (defaults to PipelineRef).
-   * @tparam ParticleV2Fn Optional per-particle v2 mapper type.
+   * @tparam HoistableCull True when raw point projections are valid for clip
+   *         gating because the source pipeline has no world cull stage.
+   * @tparam SystemT Particle-system type.
+   * @tparam ParticleV2Fn Per-particle v2 mapper type.
    * @param pipeline Render pipeline.
    * @param canvas Target canvas.
    * @param system Particle system supplying the active pool and trail history.
@@ -3236,13 +3254,12 @@ struct ParticleSystem {
    *        Called once per materialized particle; the default stores the pool
    *        index.
    */
-  template <int W, int H, typename PipelineT = PipelineRef,
-            typename ParticleV2Fn = std::nullptr_t>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
-                   FragmentShaderFn fragment_shader,
-                   VertexShaderRef vertex_shader,
-                   DeferredShaderRef deferred_shader = {},
-                   ParticleV2Fn particle_v2 = nullptr) {
+  template <int W, int H, bool HoistableCull, typename PipelineT,
+            typename SystemT, typename ParticleV2Fn>
+  static void
+  draw_impl(PipelineT &pipeline, Canvas &canvas, const SystemT &system,
+            FragmentShaderFn fragment_shader, VertexShaderRef vertex_shader,
+            DeferredShaderRef deferred_shader, ParticleV2Fn particle_v2) {
     int count = system.active();
     if (count == 0)
       return;
@@ -3259,7 +3276,7 @@ struct ParticleSystem {
     const auto xc = cr.x_clip();
     const int band_len = xc.wrap ? xc.re - xc.rs + W : xc.re - xc.rs;
     CartesianQuadrantClip cartesian_clip;
-    if constexpr (pipeline_hoistable_cull<PipelineT>())
+    if constexpr (HoistableCull)
       cartesian_clip = make_cartesian_quadrant_clip<W, H>(cr);
 
     for (int i = 0; i < count; ++i) {
@@ -3318,7 +3335,7 @@ struct ParticleSystem {
         auto *bits = static_cast<uint8_t *>(
             scratch_arena_a.allocate(edges, alignof(uint8_t)));
         bool any = false;
-        if constexpr (pipeline_hoistable_cull<PipelineT>()) {
+        if constexpr (HoistableCull) {
           CartesianTrailGateResult cartesian_result;
           {
             HS_PROFILE(plot_ps_cartesian_gate);
@@ -3475,6 +3492,32 @@ struct ParticleSystem {
         rasterize<W, H>(pipeline, canvas, trail, fragment_shader, false,
                         nullptr, false, vis, dot_rows, dot_cols);
       }
+    }
+  }
+
+  /**
+   * @brief Draws particle trails through the shared raster surface.
+   * @details The source pipeline's static cull trait is retained separately so
+   *          Cartesian, one-dot and raw-edge gates remain available after plot
+   *          dispatch is erased. A pipeline explicitly declaring the direct
+   *          raster path retains its compile-time plot calls.
+   */
+  template <int W, int H, typename PipelineT = PipelineRef,
+            typename ParticleV2Fn = std::nullptr_t>
+  static void draw(PipelineT &pipeline, Canvas &canvas, const auto &system,
+                   FragmentShaderFn fragment_shader,
+                   VertexShaderRef vertex_shader,
+                   DeferredShaderRef deferred_shader = {},
+                   ParticleV2Fn particle_v2 = nullptr) {
+    if constexpr (pipeline_direct_raster_path<PipelineT>()) {
+      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>()>(
+          pipeline, canvas, system, fragment_shader, vertex_shader,
+          deferred_shader, particle_v2);
+    } else {
+      PipelineRef erased(pipeline);
+      draw_impl<W, H, pipeline_hoistable_cull<PipelineT>()>(
+          erased, canvas, system, fragment_shader, vertex_shader,
+          deferred_shader, particle_v2);
     }
   }
 
