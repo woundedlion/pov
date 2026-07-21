@@ -2110,8 +2110,6 @@ struct FaceScratchBuffer {
       inv_edge_j; /**< Reciprocal of each edge's y-component. */
   std::array<Vector, MAX_VERTS + 1>
       verts_3d; /**< 3D vertices (+1 wrap entry). */
-  std::array<Vector, MAX_VERTS>
-      edge_normals; /**< Per-edge normalized 3D normals. */
 
   /**
    * @brief Packed per-edge data for the cache-friendly distance() fallback.
@@ -2187,7 +2185,6 @@ struct Face {
   std::span<float> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
   std::span<float> inv_edge_j;    /**< Reciprocal of each edge's y-component. */
   std::span<Vector> verts_3d;     /**< 3D vertices (+1 wrap entry). */
-  std::span<Vector> edge_normals; /**< Per-edge normalized 3D normals. */
 
   int y_min, y_max; /**< Inclusive vertical row bounds. */
   int build_height; /**< Canvas height the bounds were computed for. */
@@ -2458,9 +2455,9 @@ struct Face {
    * arrays.
    * @param vertices Shared vertex pool.
    * @param indices Indices selecting this face's vertices.
-   * @param scratch Scratch storage receiving poly_2d, verts_3d, edge_normals.
-   * @details Sets basis_u/v/w, poly_2d (with circumradius), and the 3D
-   * vertex/edge-normal arrays.
+   * @param scratch Scratch storage receiving poly_2d and verts_3d.
+   * @details Sets basis_u/v/w, poly_2d (with circumradius), and the local 3D
+   * vertex array.
    */
   __attribute__((always_inline)) void
   setup_frame_and_polygon(std::span<const Vector> vertices,
@@ -2507,14 +2504,6 @@ struct Face {
 
     scratch.verts_3d[count] = scratch.verts_3d[0];
     verts_3d = std::span<Vector>(scratch.verts_3d.data(), count + 1);
-
-    for (int i = 0; i < count; ++i) {
-      Vector n = cross(scratch.verts_3d[i], scratch.verts_3d[i + 1]);
-      float len = n.magnitude();
-      scratch.edge_normals[i] =
-          (len > 1e-9f) ? n * (1.0f / len) : Vector(0, 0, 0);
-    }
-    edge_normals = std::span<Vector>(scratch.edge_normals.data(), count);
   }
 
   /**
