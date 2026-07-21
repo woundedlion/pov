@@ -855,6 +855,55 @@ static inline bool edge_fits_one_dot(const Vector &a, const Vector &b) {
 }
 HS_O3_END
 
+/** Precomputed edge byte flags consumed by rasterize(). */
+static constexpr uint8_t EDGE_VISIBLE = 1u << 0;
+static constexpr uint8_t EDGE_ONE_DOT = 1u << 1;
+static constexpr uint8_t EDGE_CLASSIFIED = 1u << 2;
+
+/**
+ * @brief True when AntiAlias would emit any tap of a projected dot in @p cr.
+ * @tparam W,H Rasterization resolution (pixel grid).
+ * @param cr Active clip region.
+ * @param xc Precomputed x-clip predicate for @p cr.
+ * @param row Precomputed projected row.
+ * @param col Precomputed projected column; unused when x clipping is inactive.
+ * @details Mirrors Screen::AntiAlias's edge renormalization and 1e-8 tap
+ * cutoff. The gate runs before shading, so it tests tap geometry only.
+ */
+template <int W, int H>
+static inline bool antialiased_dot_visible_in_clip(
+    const ClipRegion &cr, const ClipRegion::XClip &xc, float row, float col) {
+  const float y_floor = floorf(row);
+  const int y0 = static_cast<int>(y_floor);
+  const int y1 = y0 + 1;
+  const bool y0_ok = y0 >= 0 && y0 < H;
+  const bool y1_ok = y1 >= 0 && y1 < H;
+  if ((!y0_ok || !cr.contains_y(y0)) && (!y1_ok || !cr.contains_y(y1)))
+    return false;
+
+  const float x_floor = floorf(col);
+  const int x0 = fast_wrap(static_cast<int>(x_floor), W);
+  const int x1 = fast_wrap(x0 + 1, W);
+  const float xs = quintic_kernel(col - x_floor);
+  const float ys = quintic_kernel(row - y_floor);
+  float wy0 = 1.0f - ys;
+  float wy1 = ys;
+  if (y0_ok && !y1_ok) {
+    wy0 = 1.0f;
+    wy1 = 0.0f;
+  } else if (!y0_ok && y1_ok) {
+    wy0 = 0.0f;
+    wy1 = 1.0f;
+  }
+  auto visible = [&](int x, int y, float weight) {
+    return weight > 1e-8f && cr.contains_y(y) && !xc.clipped(x);
+  };
+  return (y0_ok && (visible(x0, y0, (1.0f - xs) * wy0) ||
+                    visible(x1, y0, xs * wy0))) ||
+         (y1_ok && (visible(x0, y1, (1.0f - xs) * wy1) ||
+                    visible(x1, y1, xs * wy1)));
+}
+
 /**
  * @brief Tier-3 clip visibility of one polyline edge, routed through the
  *        pipeline's world stages.
@@ -942,9 +991,10 @@ static inline bool edge_visible_in_clip(PipelineT &pipeline,
  *                 otherwise plotted once by its outgoing segment), so abutting
  *                 arcs tile a longer curve without double-plotting the shared
  *                 vertex.
- * @param edge_visible Optional precomputed Tier-3 visibility, one byte per
- *                     segment-loop edge. Producers must evaluate the same
- *                     edge_visible_in_clip predicate this function would.
+ * @param edge_visible Optional precomputed Tier-3 edge flags, one byte per
+ *                     segment-loop edge. Bit 0 is visibility. Bits 1 and 2
+ *                     optionally retain one-dot and classification-known;
+ *                     legacy 0/1 visibility arrays remain valid.
  *                     Geodesic polylines only: a planar polyline's per-edge
  *                     basis depends on the seam pre-pass below.
  * @param point_rows Optional per-point screen rows, y_to_screen_row of each
@@ -1215,7 +1265,7 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
       HS_PROFILE_DEEP(plot_seg_cull);
       const bool visible =
           edge_visible != nullptr
-              ? edge_visible[i] != 0
+              ? (edge_visible[i] & EDGE_VISIBLE) != 0
               : edge_visible_in_clip<W, H>(
                     pipeline, cr, xc, band_len, curr.pos, next.pos,
                     use_planar ? planar_basis : nullptr);
@@ -1227,7 +1277,12 @@ static void rasterize(PipelineT &pipeline, Canvas &canvas,
     // exactly as process_segment's fast path (set_arc_uv is a no-op without a
     // planar basis), so plot it without building the sampler. A predicate
     // false negative falls through and re-evaluates exactly.
-    if (!override_uv && edge_fits_one_dot<W, H>(curr.pos, next.pos)) {
+    const bool one_dot =
+        edge_visible != nullptr &&
+                (edge_visible[i] & EDGE_CLASSIFIED) != 0
+            ? (edge_visible[i] & EDGE_ONE_DOT) != 0
+            : edge_fits_one_dot<W, H>(curr.pos, next.pos);
+    if (!override_uv && one_dot) {
       plot_dot(curr, i);
       if (!close_loop && isLastSegment && !omit_end)
         plot_dot(next, i + 1);
@@ -2639,6 +2694,16 @@ static inline void count_cartesian_trail_gate_result(
 #endif
 }
 
+static inline void count_particle_edge_class(bool one_dot) {
+#if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_EDGE_CLASS_COUNTS)
+  static hs::CycleCounter one_dot_count("plot_ps_edge_one_dot");
+  static hs::CycleCounter long_count("plot_ps_edge_long");
+  ++(one_dot ? one_dot_count : long_count).count;
+#else
+  (void)one_dot;
+#endif
+}
+
 /**
  * @brief Gates one geodesic trail's edges against the clip in one hoisted pass.
  * @tparam W,H Rasterization resolution (pixel grid).
@@ -3240,6 +3305,20 @@ struct ParticleSystem {
           for (size_t e = 0; e < edges; ++e) {
             const Vector &ea = trail[e].pos;
             const Vector &eb = trail[e + 1].pos;
+            const bool one_dot = edge_fits_one_dot<W, H>(ea, eb);
+            count_particle_edge_class(one_dot);
+            if (one_dot) {
+              bool v = antialiased_dot_visible_in_clip<W, H>(
+                  cr, xc, rows[e], cols != nullptr ? cols[e] : 0.0f);
+              if (e + 1 == edges)
+                v = v || antialiased_dot_visible_in_clip<W, H>(
+                             cr, xc, rows[e + 1],
+                             cols != nullptr ? cols[e + 1] : 0.0f);
+              bits[e] = EDGE_CLASSIFIED | EDGE_ONE_DOT |
+                        (v ? EDGE_VISIBLE : uint8_t{0});
+              any = any || v;
+              continue;
+            }
             const GeodesicEdgeSpan es = make_geodesic_edge_span(ea, eb);
             float row_lo, row_hi;
             geodesic_row_span_rows<W, H>(rows[e], rows[e + 1], ea, eb, es,
@@ -3255,7 +3334,7 @@ struct ParticleSystem {
                                              col_s, col_len) ||
                   ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W);
             }
-            bits[e] = v ? 1 : 0;
+            bits[e] = EDGE_CLASSIFIED | (v ? EDGE_VISIBLE : uint8_t{0});
             any = any || v;
           }
         } else {

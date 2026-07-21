@@ -1646,6 +1646,42 @@ inline void test_edge_fits_one_dot_is_conservative() {
   HS_EXPECT_GT(accepted, 500);
 }
 
+/**
+ * @brief Pins the one-dot gate to AntiAlias's seam, row, and tap-cutoff rules.
+ */
+inline void test_antialiased_dot_clip_footprint() {
+  constexpr int W = 96, H = 48;
+  ClipRegion cr;
+  cr.w = W;
+  cr.h = H;
+  cr.margin = 0;
+  cr.y_start = 10;
+  cr.y_end = 11;
+  cr.x_start = 0;
+  cr.x_end = 1;
+  auto xc = cr.x_clip();
+
+  // A fractional dot just left of the cylindrical seam splats into column 0.
+  HS_EXPECT_TRUE((Plot::antialiased_dot_visible_in_clip<W, H>(
+      cr, xc, 10.25f, W - 0.25f)));
+  // An integral seam-neighbor emits only at W-1; its zero-weight x1 tap at 0
+  // must not make the dot visible.
+  HS_EXPECT_FALSE((Plot::antialiased_dot_visible_in_clip<W, H>(
+      cr, xc, 10.0f, W - 1.0f)));
+
+  cr.y_start = H - 1;
+  cr.y_end = H;
+  cr.x_start = 20;
+  cr.x_end = 21;
+  xc = cr.x_clip();
+  // AntiAlias renormalizes a splat straddling the physical bottom row onto the
+  // in-range tap.
+  HS_EXPECT_TRUE((Plot::antialiased_dot_visible_in_clip<W, H>(
+      cr, xc, H - 0.25f, 20.0f)));
+  HS_EXPECT_FALSE((Plot::antialiased_dot_visible_in_clip<W, H>(
+      cr, xc, H - 2.0f, 20.0f)));
+}
+
 // ============================================================================
 // Plot::Ring::sample
 // ============================================================================
@@ -3468,6 +3504,7 @@ inline int run_plot_scan_tests() {
   test_rasterize_gate_bits_pixel_parity();
   test_screen_step_matches_analytic_unclamped();
   test_edge_fits_one_dot_is_conservative();
+  test_antialiased_dot_clip_footprint();
 
   test_ring_sample_unit_length_and_progress();
   test_ring_sample_lut_matches_direct();
