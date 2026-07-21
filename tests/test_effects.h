@@ -1803,15 +1803,76 @@ inline void test_displacement_field_clip_tiles_full() {
 }
 
 /**
- * @brief White-box accessor for MindSplatter's per-emitter emit-phase and hue
- *        arrays (befriended in effects/MindSplatter.h).
+ * @brief White-box accessor for MindSplatter's emitter and hole-kernel state.
  */
 struct MindSplatterWhiteBox {
   using MS = MindSplatter<DEFAULT_W, DEFAULT_H>;
   static size_t num_emitters() { return MS::EmitSolid::NUM_VERTS; }
   static float emit_phase(const MS &ms, size_t i) { return ms.emit_phases[i]; }
   static float hue(const MS &ms, size_t i) { return ms.emitter_hues[i]; }
+  static float event_horizon() { return MS::EVENT_HORIZON; }
+  static float hole_alpha(const Vector &p) {
+    return MS::octahedral_hole_alpha(p, fast_cosf(MS::EVENT_HORIZON));
+  }
+  static float reference_hole_alpha(const Vector &p) {
+    const float cos_event_horizon = fast_cosf(MS::EVENT_HORIZON);
+    float alpha = 1.0f;
+    for (const Vector &axis : MS::AttractSolid::vertices) {
+      const float cos_d = dot(p, axis);
+      if (cos_d < cos_event_horizon)
+        continue;
+      const float d = fast_acos(hs::clamp(cos_d, -1.0f, 1.0f));
+      alpha *= quintic_kernel(d / MS::EVENT_HORIZON);
+    }
+    return alpha;
+  }
 };
+
+/**
+ * @brief Pins the collapsed signed-axis hole kernel to the six-attractor loop.
+ */
+inline void test_mindsplatter_octahedral_hole_alpha_equivalence() {
+  using WB = MindSplatterWhiteBox;
+  constexpr float INV_SNORM16 = 1.0f / 32767.0f;
+  auto check = [](const Vector &p) {
+    HS_EXPECT_EQ(WB::hole_alpha(p), WB::reference_hole_alpha(p));
+  };
+
+  const Vector axes[] = {X_AXIS, -X_AXIS, Y_AXIS, -Y_AXIS, Z_AXIS, -Z_AXIS};
+  for (const Vector &axis : axes) {
+    Vector tangent = cross(axis, Y_AXIS);
+    if (tangent.length() < 0.5f)
+      tangent = cross(axis, X_AXIS);
+    tangent = tangent.normalized();
+    for (int i = 0; i <= 4096; ++i) {
+      const float angle = (PI_F * 0.25f) * static_cast<float>(i) / 4096.0f;
+      check(axis * cosf(angle) + tangent * sinf(angle));
+    }
+    const float horizon = WB::event_horizon();
+    for (float angle : {std::nextafter(horizon, 0.0f), horizon,
+                        std::nextafter(horizon,
+                                       std::numeric_limits<float>::infinity())})
+      check(axis * cosf(angle) + tangent * sinf(angle));
+  }
+
+  hs::random().seed(0x0C7A);
+  int outside_unit_sphere = 0;
+  for (int i = 0; i < 100000; ++i) {
+    Vector p;
+    do {
+      p = Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                 hs::rand_f(-1.0f, 1.0f));
+    } while (p.length() < 0.1f);
+    p = p.normalized();
+    p = Vector(roundf(p.x * 32767.0f) * INV_SNORM16,
+               roundf(p.y * 32767.0f) * INV_SNORM16,
+               roundf(p.z * 32767.0f) * INV_SNORM16);
+    if (dot(p, p) > 1.0f)
+      ++outside_unit_sphere;
+    check(p);
+  }
+  HS_EXPECT_GT(outside_unit_sphere, 1000);
+}
 
 /**
  * @brief Verifies every per-emitter emission phase stays wrapped to [0, 2pi) and
@@ -2421,6 +2482,7 @@ inline int run_effects_tests() {
   // defines HS_TEST_BUILD (see core/engine/effect_registry.h).
   HS_EXPECT_EQ(EffectRegistry::entries().size(),
                static_cast<size_t>(HS_EFFECT_COUNT));
+  test_mindsplatter_octahedral_hole_alpha_equivalence();
 
   // FULL tier only (HS_EFFECTS_FULL=1; CI on every push/PR). The white-box
   // correctness block and the 288x144 production-resolution roster passes below
