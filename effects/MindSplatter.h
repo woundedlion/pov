@@ -131,7 +131,8 @@ private:
   typedef Solids::Octahedron AttractSolid;
 
   typedef Animation::ParticleSystem<W, NUM_PARTICLES, TRAIL_LEN,
-                                    EmitSolid::NUM_VERTS, AttractSolid::NUM_VERTS>
+                                    EmitSolid::NUM_VERTS, AttractSolid::NUM_VERTS,
+                                    true>
       ParticleSystem;
 
   /**

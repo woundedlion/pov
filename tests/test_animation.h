@@ -1134,6 +1134,197 @@ inline void test_particle_system_attractor_kill_radius_boundary() {
   HS_EXPECT_TRUE(survives(kr + 0.01f));
 }
 
+template <int CAPACITY, bool SIGNED_AXIS>
+using AxisParticleSystem =
+    Animation::ParticleSystem<288, CAPACITY, 23, 1, 6, SIGNED_AXIS>;
+
+template <typename PS>
+inline void add_signed_axis_attractors(PS &ps, float strength = 0.85f,
+                                       float kill_radius = 0.003f,
+                                       float event_horizon = 0.2f) {
+  const Vector axes[] = {X_AXIS, -X_AXIS, Y_AXIS, -Y_AXIS, Z_AXIS, -Z_AXIS};
+  for (const Vector &axis : axes)
+    ps.add_attractor(axis, strength, kill_radius, event_horizon);
+}
+
+inline float max_component_delta(const Vector &a, const Vector &b) {
+  return std::max(std::abs(a.x - b.x),
+                  std::max(std::abs(a.y - b.y), std::abs(a.z - b.z)));
+}
+
+/** @brief Bounds one-step signed-axis physics against the generic path. */
+inline void test_particle_system_signed_axis_one_step_equivalence() {
+  constexpr int COUNT = 256;
+  static uint8_t reference_buf[128 * 1024];
+  static uint8_t specialized_buf[128 * 1024];
+  Arena reference_arena(reference_buf, sizeof(reference_buf));
+  Arena specialized_arena(specialized_buf, sizeof(specialized_buf));
+  AxisParticleSystem<COUNT, false> reference;
+  AxisParticleSystem<COUNT, true> specialized;
+  reference.init(reference_arena, 0.85f, 0.001f, 160.0f);
+  specialized.init(specialized_arena, 0.85f, 0.001f, 160.0f);
+  add_signed_axis_attractors(reference, 2.55f);
+  add_signed_axis_attractors(specialized, 2.55f);
+
+  hs::random().seed(0x61786973);
+  for (int i = 0; i < COUNT; ++i) {
+    Vector pos;
+    do {
+      pos = Vector(hs::rand_f(-1.0f, 1.0f), hs::rand_f(-1.0f, 1.0f),
+                   hs::rand_f(-1.0f, 1.0f));
+    } while (pos.length() < 0.1f);
+    pos.normalize();
+    Vector velocity(hs::rand_f(-0.1f, 0.1f), hs::rand_f(-0.1f, 0.1f),
+                    hs::rand_f(-0.1f, 0.1f));
+    reference.spawn(pos, velocity, static_cast<uint16_t>(i));
+    specialized.spawn(pos, velocity, static_cast<uint16_t>(i));
+  }
+
+  reference.step(fake_canvas());
+  specialized.step(fake_canvas());
+  HS_EXPECT_EQ(reference.active(), specialized.active());
+  float max_position_error = 0.0f;
+  float max_velocity_error = 0.0f;
+  float max_angle_error = 0.0f;
+  float max_norm_drift = 0.0f;
+  for (size_t i = 0; i < reference.active(); ++i) {
+    const auto &a = reference.pool[i];
+    const auto &b = specialized.pool[i];
+    HS_EXPECT_EQ(a.color_seed, b.color_seed);
+    HS_EXPECT_EQ(a.life, b.life);
+    max_position_error =
+        std::max(max_position_error, max_component_delta(a.position, b.position));
+    max_velocity_error =
+        std::max(max_velocity_error, max_component_delta(a.velocity, b.velocity));
+    max_angle_error =
+        std::max(max_angle_error, angle_between(a.position, b.position));
+    max_norm_drift =
+        std::max(max_norm_drift, std::abs(dot(a.position, a.position) - 1.0f));
+  }
+  std::printf("axis one-step particles=%u pos=%.9g vel=%.9g angle=%.9g "
+              "norm=%.9g\n",
+              reference.active(), max_position_error, max_velocity_error,
+              max_angle_error, max_norm_drift);
+  HS_EXPECT_LE(max_position_error, 2e-7f);
+  HS_EXPECT_LE(max_velocity_error, 2e-7f);
+  HS_EXPECT_LE(max_angle_error, 1e-6f);
+}
+
+/** @brief Pins signed-axis kill, horizon, and cross-axis fallback boundaries. */
+inline void test_particle_system_signed_axis_boundaries() {
+  auto compare = [](const Vector &position, const Vector &velocity,
+                    float kill_radius, float event_horizon) {
+    uint8_t reference_buf[4096];
+    uint8_t specialized_buf[4096];
+    Arena reference_arena(reference_buf, sizeof(reference_buf));
+    Arena specialized_arena(specialized_buf, sizeof(specialized_buf));
+    AxisParticleSystem<1, false> reference;
+    AxisParticleSystem<1, true> specialized;
+    reference.init(reference_arena, 0.85f, 0.001f, 160.0f);
+    specialized.init(specialized_arena, 0.85f, 0.001f, 160.0f);
+    reference.add_attractor(X_AXIS, 1.0f, kill_radius, event_horizon);
+    specialized.add_attractor(X_AXIS, 1.0f, kill_radius, event_horizon);
+    reference.spawn(position, velocity, 1);
+    specialized.spawn(position, velocity, 1);
+    reference.step(fake_canvas());
+    specialized.step(fake_canvas());
+    HS_EXPECT_EQ(reference.active(), specialized.active());
+    HS_EXPECT_EQ(reference.pool[0].life, specialized.pool[0].life);
+    if (reference.active()) {
+      HS_EXPECT_LE(max_component_delta(reference.pool[0].position,
+                                       specialized.pool[0].position),
+                   1e-5f);
+      HS_EXPECT_LE(max_component_delta(reference.pool[0].velocity,
+                                       specialized.pool[0].velocity),
+                   1e-5f);
+    }
+  };
+  auto at_chord_distance = [](float distance) {
+    const float x = 1.0f - 0.5f * distance * distance;
+    return Vector(x, sqrtf(std::max(0.0f, 1.0f - x * x)), 0.0f);
+  };
+
+  constexpr float KILL = 0.003f;
+  constexpr float HORIZON = 0.2f;
+  for (float distance : {std::nextafter(KILL, 0.0f), KILL,
+                         std::nextafter(KILL,
+                                        std::numeric_limits<float>::infinity()),
+                         std::nextafter(HORIZON, 0.0f), HORIZON,
+                         std::nextafter(HORIZON,
+                                        std::numeric_limits<float>::infinity())})
+    compare(at_chord_distance(distance), Vector(), KILL, HORIZON);
+
+  for (const Vector &position : {
+           X_AXIS,
+           Vector(1.0f, 1e-7f, 0.0f).normalized(),
+           Vector(1.0f, 1e-5f, 0.0f).normalized(),
+           -X_AXIS,
+           Vector(-1.0f, 1e-7f, 0.0f).normalized(),
+           Vector(-1.0f, 1e-5f, 0.0f).normalized(),
+       })
+    compare(position, Vector(), 0.0f, 0.0f);
+}
+
+/** @brief Bounds deterministic multi-step signed-axis trajectory divergence. */
+inline void test_particle_system_signed_axis_trajectory() {
+  constexpr int COUNT = 32;
+  constexpr int STEPS = 120;
+  static uint8_t reference_buf[32 * 1024];
+  static uint8_t specialized_buf[32 * 1024];
+  Arena reference_arena(reference_buf, sizeof(reference_buf));
+  Arena specialized_arena(specialized_buf, sizeof(specialized_buf));
+  AxisParticleSystem<COUNT, false> reference;
+  AxisParticleSystem<COUNT, true> specialized;
+  reference.init(reference_arena, 0.85f, 0.001f, 160.0f);
+  specialized.init(specialized_arena, 0.85f, 0.001f, 160.0f);
+  add_signed_axis_attractors(reference, 2.55f);
+  add_signed_axis_attractors(specialized, 2.55f);
+
+  const Vector cube[] = {
+      Vector(-1, -1, -1).normalized(), Vector(1, -1, -1).normalized(),
+      Vector(1, 1, -1).normalized(),   Vector(-1, 1, -1).normalized(),
+      Vector(-1, -1, 1).normalized(), Vector(1, -1, 1).normalized(),
+      Vector(1, 1, 1).normalized(),   Vector(-1, 1, 1).normalized(),
+  };
+  for (int i = 0; i < COUNT; ++i) {
+    const Vector pos = cube[i % 8];
+    Vector velocity = cross(pos, i % 2 ? Y_AXIS : Z_AXIS).normalized();
+    velocity *= 0.025f + 0.069f * static_cast<float>(i % 7) / 6.0f;
+    reference.spawn(pos, velocity, static_cast<uint16_t>(i));
+    specialized.spawn(pos, velocity, static_cast<uint16_t>(i));
+  }
+
+  float max_position_error = 0.0f;
+  float max_velocity_error = 0.0f;
+  float max_angle_error = 0.0f;
+  float max_norm_drift = 0.0f;
+  for (int step = 0; step < STEPS; ++step) {
+    reference.step(fake_canvas());
+    specialized.step(fake_canvas());
+    HS_EXPECT_EQ(reference.active(), specialized.active());
+    for (size_t i = 0; i < reference.active(); ++i) {
+      const auto &a = reference.pool[i];
+      const auto &b = specialized.pool[i];
+      HS_EXPECT_EQ(a.color_seed, b.color_seed);
+      max_position_error = std::max(
+          max_position_error, max_component_delta(a.position, b.position));
+      max_velocity_error = std::max(
+          max_velocity_error, max_component_delta(a.velocity, b.velocity));
+      max_angle_error =
+          std::max(max_angle_error, angle_between(a.position, b.position));
+      max_norm_drift = std::max(
+          max_norm_drift, std::abs(dot(a.position, a.position) - 1.0f));
+    }
+  }
+  std::printf("axis trajectory steps=%d particles=%u pos=%.9g vel=%.9g "
+              "angle=%.9g norm=%.9g\n",
+              STEPS, reference.active(), max_position_error,
+              max_velocity_error, max_angle_error, max_norm_drift);
+  HS_EXPECT_LE(max_position_error, 1e-5f);
+  HS_EXPECT_LE(max_velocity_error, 1e-5f);
+  HS_EXPECT_LE(max_angle_error, 1e-3f);
+}
+
 // ============================================================================
 // Sprite (opacity envelope + paused-hold)
 // ----------------------------------------------------------------------------
@@ -2435,6 +2626,9 @@ inline int run_animation_tests() {
   test_particle_system_expires_after_life_and_trail_drain();
   test_particle_system_attractor_kills_within_radius();
   test_particle_system_attractor_kill_radius_boundary();
+  test_particle_system_signed_axis_one_step_equivalence();
+  test_particle_system_signed_axis_boundaries();
+  test_particle_system_signed_axis_trajectory();
 
   test_sprite_fade_in_plateau_fade_out_envelope();
   test_sprite_overlapping_fades_stay_continuous();
