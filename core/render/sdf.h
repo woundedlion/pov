@@ -3000,10 +3000,10 @@ struct Face {
    * @param y_max_out Output: last covered row.
    * @return The number of great-circle planes computed.
    */
-  static int compute_full_bounds(FaceScratchBuffer &scratch, int count,
-                                 const Vector &center, float thickness,
-                                 int h_virt, int height, int &y_min_out,
-                                 int &y_max_out) {
+  HS_O3_FN static int compute_full_bounds(FaceScratchBuffer &scratch, int count,
+                                          const Vector &center, float thickness,
+                                          int h_virt, int height, int &y_min_out,
+                                          int &y_max_out) {
     float min_phi = 100.0f;
     float max_phi = -100.0f;
     int planes_count = 0;
