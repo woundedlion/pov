@@ -2500,14 +2500,34 @@ constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
 constexpr size_t ISLAMIC_PERSISTENT_BUDGET =
     DEVICE_GLOBAL_ARENA_SIZE - ISLAMIC_SCRATCH_A_BUDGET -
     ISLAMIC_SCRATCH_B_BUDGET;
+/** Scratch capacity the replay runs with, above every budget it gates. */
+constexpr size_t REPLAY_SCRATCH_CAPACITY = 512 * 1024;
+
+/**
+ * @brief Arena high-waters and shape of one replayed chain.
+ */
+struct ChainPeaks {
+  size_t persistent = 0; /**< persistent_arena high-water, bytes. */
+  size_t scratch_a = 0;  /**< scratch_arena_a high-water, bytes. */
+  size_t scratch_b = 0;  /**< scratch_arena_b high-water, bytes. */
+  size_t legs = 0;       /**< Lowered primitive step count. */
+  size_t faces = 0;      /**< Face count of the finished solid. */
+  bool supported = false; /**< Every lowered step has a leg kind. */
+};
 
 /**
  * @brief Replays one recipe leg by leg as IslamicStars builds it and gates
  *        continuity, classification, and the arena high-waters.
  * @param name Diagnostic label.
  * @param recipe Recipe replayed.
+ * @param gate Whether to assert the budgets and print the per-chain line; false
+ * measures a chain the effect would reject, for the arena survey.
+ * @return The chain's arena high-waters.
  */
-inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
+inline ChainPeaks replay_build_chain(const char *name,
+                                     const Solids::Recipe &recipe,
+                                     bool gate = true) {
+  ChainPeaks peaks;
   using Animation::OpLeg;
   constexpr int HANKIN_LEG_FRAMES = 32, SWEEP_LEG_FRAMES = 24,
                 RELAX_LEG_FRAMES = 16, GATE_HALF_FRAMES = 6;
@@ -2523,9 +2543,11 @@ inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
     const int failed_before = hs_test::stats().failed;
 
     reset_globals();
-    configure_arenas(GLOBAL_ARENA_SIZE - ISLAMIC_SCRATCH_A_BUDGET -
-                         ISLAMIC_SCRATCH_B_BUDGET,
-                     ISLAMIC_SCRATCH_A_BUDGET, ISLAMIC_SCRATCH_B_BUDGET);
+    // Capacities are the host's, not the device split: a chain that overruns a
+    // budget must report its high-water, not OOM-trap the replay before the
+    // measurement. The budgets below are what the peaks are gated against.
+    configure_arenas(GLOBAL_ARENA_SIZE - 2 * REPLAY_SCRATCH_CAPACITY,
+                     REPLAY_SCRATCH_CAPACITY, REPLAY_SCRATCH_CAPACITY);
     hs::random().seed(2026u);
 
     MeshPaletteBank bank;
@@ -2570,10 +2592,14 @@ inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
                       : steps[k].op == Solids::Op::RELAX  ? RELAX_LEG_FRAMES
                                                           : SWEEP_LEG_FRAMES;
     }
-    HS_EXPECT_TRUE(supported);
-    if (!supported) {
-      std::printf("    [chain] %s: unsupported lowered op\n", name);
-      return;
+    peaks.legs = count;
+    peaks.supported = supported;
+    if (gate) {
+      HS_EXPECT_TRUE(supported);
+      if (!supported) {
+        std::printf("    [chain] %s: unsupported lowered op\n", name);
+        return peaks;
+      }
     }
 
     ChainFx fx;
@@ -2726,7 +2752,11 @@ inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
       // its from-palettes are the provenance mapping's, not the prefix's; what
       // must hold is that every one of them is a palette the previous leg
       // actually landed on somewhere.
-      if (k > 0 && !gated[k]) {
+      if (!supported) {
+        // A clamped leg lands somewhere other than its clean endpoint, so
+        // neither the palette correspondence nor the closing classification
+        // below is meaningful for it.
+      } else if (k > 0 && !gated[k]) {
         for (size_t f = 0; f < prev_faces; ++f)
           HS_EXPECT_EQ((int)landing.from_palette[f], (int)carried_to[f]);
       } else if (k > 0) {
@@ -2774,27 +2804,34 @@ inline void replay_build_chain(const char *name, const Solids::Recipe &recipe) {
       MeshOps::classify_faces_by_topology(final_slot, scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
-    HS_EXPECT_EQ(prev_landing->faces, final_slot.topology.size());
-    for (size_t f = 0; f < prev_landing->faces; ++f)
-      HS_EXPECT_EQ(prev_landing->topology[f], final_slot.topology[f]);
-    for (int i = 0; i < OpLeg::PALETTES; ++i)
-      HS_EXPECT_EQ((int)prev_landing->to_palette[i], (int)targets[i]);
+    if (supported) {
+      HS_EXPECT_EQ(prev_landing->faces, final_slot.topology.size());
+      for (size_t f = 0; f < prev_landing->faces; ++f)
+        HS_EXPECT_EQ(prev_landing->topology[f], final_slot.topology[f]);
+      for (int i = 0; i < OpLeg::PALETTES; ++i)
+        HS_EXPECT_EQ((int)prev_landing->to_palette[i], (int)targets[i]);
+    }
 
-    const size_t p_peak = persistent_arena.get_high_water_mark();
-    const size_t a_peak = scratch_arena_a.get_high_water_mark();
-    const size_t b_peak = scratch_arena_b.get_high_water_mark();
-    std::printf("  [chain] %s: %zu legs, persistent=%zu B / %zu B, "
-                "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
-                name, count, p_peak, (size_t)ISLAMIC_PERSISTENT_BUDGET, a_peak,
-                (size_t)ISLAMIC_SCRATCH_A_BUDGET, b_peak,
-                (size_t)ISLAMIC_SCRATCH_B_BUDGET);
-    HS_EXPECT_LE(p_peak, ISLAMIC_PERSISTENT_BUDGET);
-    HS_EXPECT_LE(a_peak, ISLAMIC_SCRATCH_A_BUDGET);
-    HS_EXPECT_LE(b_peak, ISLAMIC_SCRATCH_B_BUDGET);
+    peaks.persistent = persistent_arena.get_high_water_mark();
+    peaks.scratch_a = scratch_arena_a.get_high_water_mark();
+    peaks.scratch_b = scratch_arena_b.get_high_water_mark();
+    peaks.faces = final_slot.face_counts.size();
+    if (gate) {
+      std::printf("  [chain] %s: %zu legs, persistent=%zu B / %zu B, "
+                  "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
+                  name, count, peaks.persistent,
+                  (size_t)ISLAMIC_PERSISTENT_BUDGET, peaks.scratch_a,
+                  (size_t)ISLAMIC_SCRATCH_A_BUDGET, peaks.scratch_b,
+                  (size_t)ISLAMIC_SCRATCH_B_BUDGET);
+      HS_EXPECT_LE(peaks.persistent, ISLAMIC_PERSISTENT_BUDGET);
+      HS_EXPECT_LE(peaks.scratch_a, ISLAMIC_SCRATCH_A_BUDGET);
+      HS_EXPECT_LE(peaks.scratch_b, ISLAMIC_SCRATCH_B_BUDGET);
 
-    if (hs_test::stats().failed != failed_before)
-      std::printf("    [chain] %s FAILED\n", name);
+      if (hs_test::stats().failed != failed_before)
+        std::printf("    [chain] %s FAILED\n", name);
+    }
   }
+  return peaks;
 }
 
 /** simple_registry seed indices the partition chains build from. */
