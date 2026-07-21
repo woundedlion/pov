@@ -33,9 +33,12 @@
 #include <cstring>
 #include <map>
 #include <vector>
+#include "core/color/palettes.h"
 #include "core/mesh/conway.h"
 #include "core/mesh/conway_graph.h"
+#include "core/mesh/hankin.h"
 #include "core/mesh/solids.h"
+#include "core/render/canvas.h"
 #include "tests/mesh_test_util.h"
 #include "tests/test_conway.h" // check_euler_genus0, face_type_histogram
 #include "tests/test_fixture.h"
@@ -1209,6 +1212,187 @@ inline void test_ambo_leg_on_hankin_seed_holds_topology() {
 }
 
 // ---------------------------------------------------------------------------
+// Hankin-sweep probe (docs/opchain_morph_spec.md section 5.1): the four
+// Phase-1 hankin legs re-run the one-shot MeshOps::hankin (the update-path
+// geometry) per sampled angle; V/F/I and the compiled face count must not
+// move from THETA_EPS to the recipe's arrival angle, and every sample must
+// stay a closed genus-0 manifold.
+// ---------------------------------------------------------------------------
+
+inline uint8_t morph_bank_buf[64 * 1024]; /**< Baked palette LUT arena. */
+
+/** @brief One Phase-1 hankin-sweep leg seed and its arrival angle. */
+struct HankinSweepSite {
+  const char *name;                     /**< Diagnostic label. */
+  PolyMesh (*seed)(Arena &a, Arena &b); /**< Chain prefix up to the hankin. */
+  float theta_star;                     /**< Arrival contact angle, radians. */
+};
+
+inline PolyMesh probe_dodecahedron(Arena &a, Arena &b) {
+  return Solids::Platonic::dodecahedron(a, b);
+}
+inline PolyMesh probe_dodeca_hk62_ambo(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
+      .hankin(62.0f * D2R)
+      .ambo()
+      .build();
+}
+inline PolyMesh probe_octahedron(Arena &a, Arena &b) {
+  return Solids::Platonic::octahedron(a, b);
+}
+inline PolyMesh probe_octa_hk17_ambo(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Platonic::octahedron(a, b), a, b)
+      .hankin(17.0f * D2R)
+      .ambo()
+      .build();
+}
+
+inline constexpr HankinSweepSite HANKIN_SWEEP_SITES[] = {
+    {"dodecahedron", probe_dodecahedron,
+     62.0f * Solids::IslamicStarPatterns::D2R},
+    {"dodecahedron_hk62_ambo", probe_dodeca_hk62_ambo,
+     62.0f * Solids::IslamicStarPatterns::D2R},
+    {"octahedron", probe_octahedron, 17.0f * Solids::IslamicStarPatterns::D2R},
+    {"octahedron_hk17_ambo", probe_octa_hk17_ambo,
+     73.0f * Solids::IslamicStarPatterns::D2R},
+};
+
+/**
+ * @brief Steps a hankin sweep on every Phase-1 hankin-leg seed, asserting
+ *        constant raw and compiled face counts and a closed genus-0 manifold
+ *        at every sampled angle from THETA_EPS to the arrival angle.
+ */
+inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
+  constexpr int SAMPLES = 17;
+  constexpr float THETA_EPS = Animation::OpLeg::THETA_EPS;
+
+  for (const HankinSweepSite &site : HANKIN_SWEEP_SITES) {
+    const int failed_before = hs_test::stats().failed;
+
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed;
+    {
+      constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
+      Arena ga(morph_aux_buf, HALF);
+      Arena gb(morph_aux_buf + HALF, HALF);
+      seed = Solids::finalize_solid(site.seed(ga, gb), persist);
+    }
+
+    size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float theta = THETA_EPS + (site.theta_star - THETA_EPS) *
+                                          (static_cast<float>(s) /
+                                           (SAMPLES - 1));
+      ScratchScope frame_a(a);
+      ScratchScope frame_b(b);
+      PolyMesh swept = MeshOps::hankin(seed, a, b, theta);
+      MeshState compiled;
+      MeshOps::compile(swept, compiled, a, b);
+      if (s == 0) {
+        v0 = swept.vertices.size();
+        f0 = swept.face_counts.size();
+        i0 = swept.faces.size();
+        compiled0 = compiled.face_counts.size();
+        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+      } else {
+        HS_EXPECT_EQ(swept.vertices.size(), v0);
+        HS_EXPECT_EQ(swept.face_counts.size(), f0);
+        HS_EXPECT_EQ(swept.faces.size(), i0);
+        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+      }
+      check_face_counts_consistent(swept);
+      check_indices_in_range(swept);
+      check_all_unit_vertices(swept, 1e-3f);
+      conway_tests::check_euler_genus0(swept);
+    }
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [hankin-sweep] %s failed (raw F=%zu, compiled F=%zu)\n",
+                  site.name, f0, compiled0);
+    else
+      std::printf(
+          "  [hankin-sweep] %s: F=%zu compiled=%zu across %d samples\n",
+          site.name, f0, compiled0, SAMPLES);
+  }
+}
+
+/**
+ * @brief Smoke-tests an OpLeg HANKIN_SWEEP end to end on the dodecahedron
+ *        seed: construction populates the landing (star faces first, in
+ *        base-face order), and every step hands the draw callback a compiled
+ *        mesh with the constant hankin face count and in-range ramp indices.
+ */
+inline void test_opleg_hankin_sweep_smoke() {
+  reset_globals();
+  configure_arenas(GLOBAL_ARENA_SIZE - 24 * 1024 - 32 * 1024, 24 * 1024,
+                   32 * 1024);
+  hs::random().seed(2026u);
+
+  Arena leg(morph_target_buf, sizeof(morph_target_buf));
+  Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
+
+  MeshPaletteBank bank;
+  bank.bake_all(bank_arena);
+
+  PolyMesh dodeca;
+  build_solid<Solids::Dodecahedron>(dodeca, leg);
+  uint8_t pal[16], sides[16];
+  for (size_t f = 0; f < dodeca.face_counts.size(); ++f) {
+    pal[f] = static_cast<uint8_t>(f % Animation::OpLeg::PALETTES);
+    sides[f] = dodeca.face_counts[f];
+  }
+
+  Animation::OpLeg::PaletteHandoff handoff{
+      &bank.bank, pal, sides, dodeca.face_counts.size(), false};
+
+  size_t drawn_frames = 0;
+  size_t drawn_faces = 0;
+  auto cb = [&](Canvas &, const MeshState &m,
+                const Animation::OpLeg::Shading &sh) {
+    HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+    if (drawn_frames == 0)
+      drawn_faces = sh.faces;
+    else
+      HS_EXPECT_EQ(sh.faces, drawn_faces);
+    for (size_t f = 0; f < sh.faces; ++f)
+      HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]),
+                   Animation::OpLeg::MAX_BLEND_PAIRS);
+    ++drawn_frames;
+  };
+
+  using Solids::IslamicStarPatterns::D2R;
+  constexpr int SWEEP = 8;
+  Animation::OpLeg anim(dodeca, Animation::OpLeg::THETA_EPS, 62.0f * D2R, leg,
+                        cb, handoff, SWEEP);
+
+  // 12 star faces (the base-face-order prefix) + 20 rosette faces.
+  const Animation::OpLeg::Landing &landing = anim.landing();
+  HS_EXPECT_EQ(landing.primary_faces, dodeca.face_counts.size());
+  HS_EXPECT_EQ(landing.faces,
+               dodeca.face_counts.size() + dodeca.vertices.size());
+  HS_EXPECT_TRUE(landing.topology != nullptr);
+
+  struct SmokeFx : public Effect {
+    SmokeFx() : Effect(288, 144) {}
+    void draw_frame() override {}
+  };
+  SmokeFx fx;
+  for (int f = 0; f < SWEEP; ++f) {
+    {
+      Canvas c(fx);
+      anim.step(c);
+    }
+    fx.advance_display();
+  }
+  HS_EXPECT_EQ(drawn_frames, (size_t)SWEEP);
+  HS_EXPECT_EQ(drawn_faces, landing.faces);
+}
+
+// ---------------------------------------------------------------------------
 // Runner
 // ---------------------------------------------------------------------------
 
@@ -1236,6 +1420,8 @@ inline int run_conway_morph_tests() {
   test_ops_at_t_eps_primary_faces_match_seed();
 
   test_ambo_leg_on_hankin_seed_holds_topology();
+  test_hankin_sweep_on_islamic_seeds_holds_topology();
+  test_opleg_hankin_sweep_smoke();
 
   test_walk_policy_coverage_and_balance();
   test_ordered_tour_full_coverage_and_wrap();
