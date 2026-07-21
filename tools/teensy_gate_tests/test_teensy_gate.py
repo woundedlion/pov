@@ -229,6 +229,19 @@ class TestLayoutInvariantsFail(unittest.TestCase):
 
 
 class TestRegionCeilingsFail(unittest.TestCase):
+    def test_negative_free_reports_headroom_violation(self):
+        sizes = tg.parse_teensy_size(_read("broken_negative_free_teensy_size.txt"))
+        self.assertEqual(sizes["ram1"]["free"], -1024)
+
+        symbols = tg.parse_readelf_symbols(_read("good_readelf_syms.txt"))
+        sections = tg.parse_readelf_sections(_read("good_readelf_secs.txt"))
+        result = tg.evaluate("holosphere", BUDGETS["holosphere"], sizes,
+                             symbols, sections)
+        self.assertIn("headroom-below-floor", _codes(result))
+        self.assertNotIn("region-missing", _codes(result))
+        self.assertTrue(any("RAM1 free-for-local-variables -1,024 B" in v.message
+                            for v in result.violations))
+
     def test_over_cap_trips_every_region(self):
         # Good symbols (layout fine) + over-cap totals: only region checks fire.
         result = _eval("holosphere", "broken_over_cap_teensy_size.txt",
