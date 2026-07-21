@@ -331,6 +331,7 @@ public:
     Transients &tr = *buf_;
 
     MeshOps::clone(seed, tr.seed, arena);
+    tr.seed_faces = seed.face_counts.size();
     tr.op = edge.op;
     tr.reverse = reverse;
     tr.sweep_frames = sweep_frames;
@@ -393,6 +394,7 @@ public:
     Transients &tr = *buf_;
 
     MeshOps::clone(seed, tr.seed, arena);
+    tr.seed_faces = seed.face_counts.size();
     tr.op = op;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
@@ -413,16 +415,17 @@ public:
   }
 
   /**
-   * @brief Constructs a hankin-sweep leg: clones the seed, bakes the
-   * angle-independent hankin topology once, computes the arrival
-   * classification, and builds the palette mappings.
-   * @param seed Base mesh the hankin pattern sweeps on (cloned, not borrowed).
+   * @brief Constructs a hankin-sweep leg: bakes the angle-independent hankin
+   * topology once, computes the arrival classification, and builds the palette
+   * mappings.
+   * @param seed Base mesh the hankin pattern sweeps on; read only here, never
+   * cloned into the leg arena.
    * @param theta_start Contact angle at frame 0, radians; clamped below to
    * THETA_EPS.
    * @param theta_end Arrival contact angle, radians; clamped below to
    * THETA_EPS.
-   * @param arena Leg arena backing the cloned seed, the compiled hankin
-   * topology, and hoisted state.
+   * @param arena Leg arena backing the compiled hankin topology and hoisted
+   * state.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed node.
    * @param sweep_frames Angle-sweep frames (N).
@@ -444,7 +447,13 @@ public:
         Transients();
     Transients &tr = *buf_;
 
-    MeshOps::clone(seed, tr.seed, arena);
+    // No seed clone: the compiled hankin topology carries the base vertices
+    // and every per-frame read goes through it, so the seed is needed only
+    // inside this constructor. The class-signature mapping is the one consumer
+    // that would need per-face seed sides after it returns.
+    HS_CHECK(!handoff.by_class_signature,
+             "OpLeg: hankin leg has no seed to map by class signature");
+    tr.seed_faces = seed.face_counts.size();
     tr.kind = LegKind::HANKIN_SWEEP;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
@@ -464,7 +473,7 @@ public:
       ScratchScope sa(scratch_arena_a);
       ScratchScope sb(scratch_arena_b);
 
-      MeshOps::compile_hankin(tr.seed, tr.hankin, arena, scratch_arena_a);
+      MeshOps::compile_hankin(seed, tr.hankin, arena, scratch_arena_a);
 
       PolyMesh arrival;
       MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, theta_hi);
@@ -493,7 +502,7 @@ public:
 
       // Star faces are emitted first, in base-face order, so the seed's face
       // count is the emission-order prefix corresponding 1:1 to it.
-      const size_t survivors = tr.seed.face_counts.size();
+      const size_t survivors = tr.seed_faces;
       build_palette_mapping(tr, arrival, handoff, bookend, arena,
                             start_centroid, survivors);
     }
@@ -503,9 +512,10 @@ public:
    * @brief Constructs a relax leg: clones the seed, relaxes it once, and
    * slerps every vertex from its seed position to its relaxed one
    * (docs/opchain_morph_spec.md, section 2.2).
-   * @param seed Mesh being relaxed (cloned, not borrowed).
+   * @param seed Mesh being relaxed; its geometry is cloned, its class ids are
+   * not.
    * @param iterations Spring-relaxation passes of the arrival form.
-   * @param arena Leg arena backing the cloned seed and hoisted state.
+   * @param arena Leg arena backing the cloned seed geometry and hoisted state.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed mesh.
    * @param sweep_frames Slerp frames (N).
@@ -531,7 +541,10 @@ public:
         Transients();
     Transients &tr = *buf_;
 
-    MeshOps::clone(seed, tr.seed, arena);
+    // relax_at slerps out of the seed vertices every frame, so the seed stays
+    // in the leg arena; only its per-face class ids are dead here.
+    clone_geometry(seed, tr.seed, arena);
+    tr.seed_faces = seed.face_counts.size();
     tr.kind = LegKind::RELAX_SLERP;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
@@ -561,7 +574,7 @@ public:
         start_centroid = face_centroids(tr.seed, scratch_arena_a);
 
       build_palette_mapping(tr, arrival, handoff, bookend, arena,
-                            start_centroid, tr.seed.face_counts.size());
+                            start_centroid, tr.seed_faces);
     }
   }
 
@@ -598,6 +611,7 @@ public:
     Transients &tr = *buf_;
 
     MeshOps::clone(seed, tr.seed, arena);
+    tr.seed_faces = seed.face_counts.size();
     tr.kind = LegKind::GATED_SWAP;
     tr.swap_op = op;
     tr.sweep_frames = gate_frames;
@@ -705,7 +719,9 @@ private:
    * @brief Arena-allocated leg state — keeps OpLeg inline size small.
    */
   struct Transients {
-    PolyMesh seed; /**< Cloned leg seed. */
+    PolyMesh seed; /**< Cloned leg seed; empty on HANKIN_SWEEP legs. */
+    size_t seed_faces = 0; /**< Seed face count; set by every kind, including
+                              the ones that keep no seed. */
     LegKind kind =
         LegKind::CONWAY_SWEEP;  /**< Swept-mesh production path. */
     CompiledHankin hankin;      /**< Baked topology (HANKIN_SWEEP legs). */
@@ -1119,6 +1135,19 @@ private:
   }
 
   /**
+   * @brief Deep-copies a seed's geometry, leaving its class ids behind.
+   * @param src Seed mesh.
+   * @param dst Destination mesh, populated in place.
+   * @param arena Arena backing the destination arrays.
+   */
+  HS_COLD_MEMBER static void clone_geometry(const PolyMesh &src, PolyMesh &dst,
+                                            Arena &arena) {
+    dst.vertices.bind(arena, src.vertices.size());
+    dst.vertices.append_bulk(src.vertices.data(), src.vertices.size());
+    copy_topology(dst, arena, src.face_counts, src.faces);
+  }
+
+  /**
    * @brief Builds a hankin leg's swept mesh at one slerp fraction.
    * @param tr Leg transients holding the baked topology and both endpoints.
    * @param out Output mesh, allocated from @p arena.
@@ -1256,7 +1285,7 @@ private:
                         const Vector *start_centroid, size_t survivors,
                         const uint8_t *forced_from = nullptr) {
     const size_t total = tr.topo.size();
-    const size_t primary = tr.seed.face_counts.size();
+    const size_t primary = tr.seed_faces;
     tr.landing.faces = total;
     tr.landing.primary_faces = primary;
 
