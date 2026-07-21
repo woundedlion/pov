@@ -32,11 +32,15 @@
 # below is built no matter which directory the script is invoked from — running
 # it inside a worktree would otherwise profile master's code under the branch's
 # name, and nothing in the capture would say so.
-set -e
+set -eo pipefail
 . "$(dirname "$0")/device_lock.sh"
 EFFECT=$1; ENV=$2; SECONDS_ARG=$3; WINDOW=$4; shift 4
 EXTRA="$*"
-TAG=$([ "$ENV" = "profile_o3" ] && echo o3 || echo ship)
+case "$ENV" in
+  profile) TAG=ship;;
+  profile_o3) TAG=o3;;
+  *) echo "unknown profile environment: $ENV" >&2; exit 1;;
+esac
 LOWER=$(echo "$EFFECT" | tr '[:upper:]' '[:lower:]')
 DEEP=""
 DEEP_SUFFIX=""
@@ -99,10 +103,16 @@ capture() {
 
 verify() {
   grep -q "=== profile $EFFECT " "$OUT" || { echo "BAD/NO HEADER in $OUT"; return 1; }
-  local bad ok
+  local bad ok configs matching_configs
   bad=$(grep -c "=== profile " "$OUT" || true)
   ok=$(grep -c "=== profile $EFFECT " "$OUT" || true)
   [ "$bad" = "$ok" ] || { echo "WINDOW NAME MISMATCH ($ok/$bad) — contention?"; return 1; }
+  configs=$(grep -c "^profile harness:" "$OUT" || true)
+  matching_configs=$(grep -c "^profile harness: effect=$EFFECT config=$TAG " "$OUT" || true)
+  [ "$configs" -gt 0 ] || { echo "NO CONFIG TAG in $OUT"; return 1; }
+  [ "$configs" = "$matching_configs" ] || {
+    echo "CONFIG TAG MISMATCH ($matching_configs/$configs expected $TAG)"; return 1;
+  }
   if [ -n "$MARKER" ]; then
     grep -q "$MARKER" "$OUT" || { echo "NO '$MARKER' MARKER — stale build?"; return 1; }
   fi
