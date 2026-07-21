@@ -694,7 +694,7 @@ struct Quaternion {
    * @details Traps on a zero-magnitude quaternion — a degenerate input is a
    * logic bug.
    */
-  [[nodiscard]] Quaternion normalized() const {
+  [[nodiscard]] __attribute__((always_inline)) Quaternion normalized() const {
     float m2 = squared_magnitude();
     HS_CHECK(m2 >= math::EPS_NORMALIZE_SQ);
     float m = sqrtf(m2);
