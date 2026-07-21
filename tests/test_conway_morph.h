@@ -2493,9 +2493,9 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 // ---------------------------------------------------------------------------
 
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
-    114 * 1024; /**< IslamicStars scratch_a split. */
+    120 * 1024; /**< IslamicStars scratch_a split. */
 constexpr size_t ISLAMIC_SCRATCH_B_BUDGET =
-    80 * 1024; /**< IslamicStars scratch_b split. */
+    74 * 1024; /**< IslamicStars scratch_b split. */
 /** Device persistent budget of IslamicStars' arena split. */
 constexpr size_t ISLAMIC_PERSISTENT_BUDGET =
     DEVICE_GLOBAL_ARENA_SIZE - ISLAMIC_SCRATCH_A_BUDGET -
