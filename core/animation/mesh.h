@@ -186,7 +186,24 @@ public:
   static constexpr int MAX_BLEND_PAIRS = 8;
 
   /** Leg kind, dispatched once at construction by the chosen constructor. */
-  enum class LegKind : uint8_t { CONWAY_SWEEP, HANKIN_SWEEP, RELAX_SLERP };
+  enum class LegKind : uint8_t {
+    CONWAY_SWEEP,
+    HANKIN_SWEEP,
+    RELAX_SLERP,
+    GATED_SWAP
+  };
+
+  /** Partition operator a GATED_SWAP leg swaps to. */
+  enum class SwapOp : uint8_t { KIS, DUAL };
+
+  /** Shading gain a GATED_SWAP leg closes to across its swap frame
+   * (docs/opchain_morph_spec.md, section 3.3). Shallowest gain in the seam
+   * sweep (tests/test_partition_seam.h) whose whole-frame absolute delta energy
+   * across the swap stays inside the 2 % envelope on every calibrated seed:
+   * kis <= 1.03 %, dual <= 1.32 %, against a 2.18 % dual reading at 0.1 and a
+   * coverage-only floor of 0.56-0.83 %. Never 0: at 0 every fragment resolves
+   * to palette.get(0) and the mesh collapses to five flat patches. */
+  static constexpr float GATE_GAIN_MIN = 0.05f;
 
   /** Hankin-angle floor (the T_EPS analog): at angle -> 0 every star point
    * collapses onto its corner via the p_corner fallback, so the clamp keeps
@@ -547,6 +564,47 @@ public:
   }
 
   /**
+   * @brief Constructs a gated-swap leg: a partition op with no sweep, drawn as
+   * a shading-gain gate closing on the seed and reopening on op(seed)
+   * (docs/opchain_morph_spec.md, section 3.3).
+   * @param seed Mesh the partition op runs on (cloned, not borrowed).
+   * @param op Partition operator applied at the swap frame.
+   * @param arena Leg arena backing the cloned seed and hoisted state.
+   * @param draw Draw callback invoked once per frame.
+   * @param handoff Palette provenance of the departed mesh.
+   * @param gate_frames Frames on each side of the swap (F_gate); the leg runs
+   * 2 * gate_frames + 1 frames.
+   * @param bookend Bookend grouping of the arrival mesh (target keying);
+   * defaults to the swept-classification fallback.
+   * @param easing_fn Easing applied to the gate fraction.
+   * @note Radial and apex motion are invisible to SDF::Face (spec 3.2), so
+   * there is no sweep segment; the leg's compiled face count is constant on
+   * each side of the swap and changes exactly once, at it.
+   */
+  HS_COLD_MEMBER
+  OpLeg(const PolyMesh &seed, SwapOp op, Arena &arena, MorphDrawFn draw,
+        const PaletteHandoff &handoff, int gate_frames,
+        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(2 * gate_frames + 1, false), easing_fn(easing_fn),
+        draw_fn(draw) {
+    HS_CHECK(gate_frames >= 1, "OpLeg needs a positive gate length");
+    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
+             handoff.prev_faces > 0);
+    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
+    Transients &tr = *buf_;
+
+    MeshOps::clone(seed, tr.seed, arena);
+    tr.kind = LegKind::GATED_SWAP;
+    tr.swap_op = op;
+    tr.sweep_frames = gate_frames;
+    tr.bank = handoff.bank;
+
+    init_gated(handoff, bookend, arena);
+  }
+
+  /**
    * @brief Steps the sweep: the kind's swept mesh (op at t(frame) plus settle
    * slerp, update_hankin at theta(frame), or the relax slerp), then compile,
    * palette pre-blend, draw.
@@ -559,6 +617,11 @@ public:
     Transients &tr = *buf_;
     const int frame = static_cast<int>(
         std::min<uint32_t>(t, static_cast<uint32_t>(duration)));
+
+    if (tr.kind == LegKind::GATED_SWAP) {
+      step_gated(canvas, frame);
+      return;
+    }
 
     // Frame -> sweep position + settle blend. Settling legs run one eased
     // clock over the whole leg, split proportionally by frame counts: the
@@ -610,7 +673,8 @@ public:
       }
     }
 
-    finish_frame(canvas, swept, frame);
+    finish_frame(canvas, swept,
+                 static_cast<float>(frame) / static_cast<float>(duration));
   }
 
   /**
@@ -646,6 +710,7 @@ private:
     ArenaVector<Vector> hk_final; /**< Arrival star points (HANKIN_SWEEP). */
     ConwayGraph::MorphOp op =
         ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator (CONWAY_SWEEP). */
+    SwapOp swap_op = SwapOp::KIS;       /**< Partition op (GATED_SWAP). */
     bool reverse = false;               /**< Traversing to_node -> from_node. */
     int sweep_frames = 1;               /**< Operator-sweep frames. */
     int settle_frames = 0;              /**< Relax-slerp frames. */
@@ -658,6 +723,13 @@ private:
     ArenaVector<int>
         target_topo; /**< Per-swept-face target class (bookend grouping). */
     ArenaVector<uint8_t> face_ramp; /**< Face -> (from, to) ramp pair. */
+    ArenaVector<int>
+        seed_topo; /**< Seed classification (GATED_SWAP closing half). */
+    ArenaVector<uint8_t>
+        seed_face_ramp; /**< Seed face -> identity ramp (GATED_SWAP). */
+    uint8_t seed_ramp_pal[PALETTES] = {}; /**< Departed palette per identity
+                                             ramp (GATED_SWAP). */
+    int seed_num_ramps = 0;               /**< Distinct departed palettes. */
     const BakedPaletteBank *bank =
         nullptr; /**< Source LUTs for the pre-blend. */
     uint8_t ramp_from[MAX_BLEND_PAIRS] = {}; /**< Per-pair from palette. */
@@ -744,6 +816,195 @@ private:
   }
 
   /**
+   * @brief GATED_SWAP construction: both classifications, the across-swap
+   * provenance, and both ramp tables.
+   * @param handoff Palette provenance of the departed mesh.
+   * @param bookend Bookend grouping of the arrival mesh.
+   * @param arena Leg arena for the hoisted state.
+   * @details The compiled face count differs across the swap, so the seed and
+   * arrival classifications are held separately and the leg's face-count
+   * invariant is checked against whichever side the frame draws.
+   */
+  HS_COLD_MEMBER void init_gated(const PaletteHandoff &handoff,
+                                 const BookendClasses &bookend, Arena &arena) {
+    Transients &tr = *buf_;
+    ScratchScope sa(scratch_arena_a);
+    ScratchScope sb(scratch_arena_b);
+
+    MeshOps::classify_faces_by_topology(tr.seed, scratch_arena_a,
+                                        scratch_arena_b, arena);
+    tr.seed_topo = std::move(tr.seed.topology);
+    HS_CHECK(tr.seed_topo.size() == tr.seed.face_counts.size());
+    HS_CHECK(handoff.prev_faces == tr.seed.face_counts.size(),
+             "OpLeg: gated swap departs from a mesh that is not its seed");
+
+    PolyMesh arrival = swap_at(tr, scratch_arena_a, scratch_arena_b);
+    MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
+                                        scratch_arena_b, arena);
+    tr.topo = std::move(arrival.topology);
+    HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+
+    uint8_t *from = scratch_arena_a.allocate_n<uint8_t>(tr.topo.size());
+    if (tr.swap_op == SwapOp::KIS)
+      kis_provenance(tr, arrival, handoff, from);
+    else
+      dual_provenance(tr, arrival, handoff, from);
+
+    build_palette_mapping(tr, arrival, handoff, bookend, arena,
+                          /*start_centroid=*/nullptr,
+                          tr.seed.face_counts.size(), from);
+
+    // Seed-side table: the closing half draws at blend weight 0, so only each
+    // pair's from palette is ever sampled and an identity pair suffices.
+    const size_t seed_faces = tr.seed.face_counts.size();
+    tr.seed_face_ramp.bind(arena, seed_faces);
+    for (size_t f = 0; f < seed_faces; ++f) {
+      const uint8_t pal = handoff.prev_face_palette[f];
+      HS_CHECK(pal < PALETTES);
+      int ramp = -1;
+      for (int r = 0; r < tr.seed_num_ramps; ++r) {
+        if (tr.seed_ramp_pal[r] == pal) {
+          ramp = r;
+          break;
+        }
+      }
+      if (ramp < 0) {
+        ramp = tr.seed_num_ramps++;
+        tr.seed_ramp_pal[ramp] = pal;
+      }
+      tr.seed_face_ramp.push_back(static_cast<uint8_t>(ramp));
+    }
+  }
+
+  /**
+   * @brief Steps a gated-swap leg: gate fraction -> shading gain, the seed or
+   * the partitioned mesh, then the shared frame tail.
+   * @param canvas The canvas passed through to the draw callback.
+   * @param frame Clamped frame index; frame 1 opens the gate at gain 1.
+   */
+  HS_COLD_MEMBER void step_gated(Canvas &canvas, int frame) {
+    Transients &tr = *buf_;
+    const float gate = static_cast<float>(tr.sweep_frames);
+    const float g = static_cast<float>(frame - 1);
+    const bool seed_side = g < gate;
+    const float gain =
+        g <= gate ? 1.0f + (GATE_GAIN_MIN - 1.0f) * easing_fn(g / gate)
+                  : GATE_GAIN_MIN +
+                        (1.0f - GATE_GAIN_MIN) * easing_fn((g - gate) / gate);
+
+    ScratchScope sa(scratch_arena_a);
+    ScratchScope sb(scratch_arena_b);
+
+    PolyMesh mesh;
+    {
+      HS_PROFILE(hk_conway_op);
+      if (seed_side)
+        MeshOps::clone(tr.seed, mesh, scratch_arena_a);
+      else
+        mesh = swap_at(tr, scratch_arena_a, scratch_arena_b);
+    }
+
+    // Colour holds at the departed palettes through the closing half, so the
+    // swap frame opens the children in the colour already painted where they
+    // land, and converges to the arrival targets over the opening half.
+    finish_frame(canvas, mesh, seed_side ? 0.0f : (g - gate) / gate, gain,
+                 seed_side);
+  }
+
+  /**
+   * @brief Applies the leg's partition operator to its seed.
+   * @param tr Leg transients holding the seed and the operator.
+   * @param target Arena receiving the output mesh.
+   * @param temp Arena holding the operator's transient scratch.
+   * @return The partitioned mesh.
+   */
+  HS_COLD_MEMBER static PolyMesh swap_at(const Transients &tr, Arena &target,
+                                         Arena &temp) {
+    return tr.swap_op == SwapOp::KIS ? MeshOps::kis(tr.seed, target, temp)
+                                     : MeshOps::dual(tr.seed, target, temp);
+  }
+
+  /**
+   * @brief Per-face from-palettes across a kis swap: every child triangle
+   * inherits its parent face's palette.
+   * @param tr Leg transients holding the seed.
+   * @param arrival Partitioned mesh.
+   * @param handoff Departed-mesh provenance.
+   * @param from Receives one palette id per arrival face.
+   * @details kis emits its parent's children consecutively, one per parent
+   * side, so the mapping is exact.
+   */
+  HS_COLD_MEMBER static void kis_provenance(const Transients &tr,
+                                            const PolyMesh &arrival,
+                                            const PaletteHandoff &handoff,
+                                            uint8_t *from) {
+    size_t f = 0;
+    for (size_t p = 0; p < tr.seed.face_counts.size(); ++p) {
+      for (int k = 0; k < tr.seed.face_counts[p]; ++k) {
+        HS_CHECK(f < arrival.face_counts.size(), "OpLeg: kis child overflow");
+        from[f++] = handoff.prev_face_palette[p];
+      }
+    }
+    HS_CHECK(f == arrival.face_counts.size(),
+             "OpLeg: kis child count differs from the seed's side count");
+  }
+
+  /**
+   * @brief Per-face from-palettes across a dual swap: each dual face takes the
+   * palette of the orbit face whose centroid is nearest the source vertex it
+   * opens on.
+   * @param tr Leg transients holding the seed.
+   * @param arrival Dual mesh.
+   * @param handoff Departed-mesh provenance.
+   * @param from Receives one palette id per arrival face.
+   * @details dual's vertices are its source faces' normalized centroids indexed
+   * by source face, and a dual face's vertex list is exactly its source
+   * vertex's face orbit, so the orbit needs no second walk. Colour locality is
+   * the goal: pixel identity is not available across a partition (spec 3.1).
+   */
+  HS_COLD_MEMBER static void dual_provenance(const Transients &tr,
+                                             const PolyMesh &arrival,
+                                             const PaletteHandoff &handoff,
+                                             uint8_t *from) {
+    size_t off = 0;
+    for (size_t f = 0; f < arrival.face_counts.size(); ++f) {
+      const int n = arrival.face_counts[f];
+      Vector c(0.0f, 0.0f, 0.0f);
+      for (int k = 0; k < n; ++k)
+        c = c + arrival.vertices[arrival.faces[off + k]];
+      c = normalized_or(c, arrival.vertices[arrival.faces[off]]);
+
+      // The orbit's own source vertex: the dual face's centroid lies in that
+      // vertex's cell, so the nearest seed vertex is it.
+      Vector v = tr.seed.vertices[0];
+      float best_dot = -2.0f;
+      for (size_t i = 0; i < tr.seed.vertices.size(); ++i) {
+        const float d = dot(tr.seed.vertices[i], c);
+        if (d > best_dot) {
+          best_dot = d;
+          v = tr.seed.vertices[i];
+        }
+      }
+
+      uint16_t best_face = arrival.faces[off];
+      float best_sq = 1e9f;
+      for (int k = 0; k < n; ++k) {
+        const uint16_t j = arrival.faces[off + k];
+        const Vector d = arrival.vertices[j] - v;
+        const float dsq = dot(d, d);
+        if (dsq < best_sq) {
+          best_sq = dsq;
+          best_face = j;
+        }
+      }
+      HS_CHECK(best_face < handoff.prev_faces,
+               "OpLeg: dual face index outside the departed face list");
+      from[f] = handoff.prev_face_palette[best_face];
+      off += n;
+    }
+  }
+
+  /**
    * @brief Runs the edge's operator on the seed at one parameter value.
    */
   HS_COLD_MEMBER static PolyMesh run_op(ConwayGraph::MorphOp op,
@@ -763,43 +1024,53 @@ private:
 
   /**
    * @brief Kind-agnostic frame tail: compile the swept mesh, attach the
-   * hoisted classification, pre-blend the palette ramps at w(frame), draw.
+   * hoisted classification, pre-blend the palette ramps at w(p), draw.
    * @param canvas The canvas passed through to the draw callback.
    * @param swept This frame's swept mesh (scratch-backed).
-   * @param frame Clamped frame index for the crossfade weight.
+   * @param p Leg progress in [0, 1] the crossfade weight keys on.
+   * @param gain Shading gain handed to the draw callback.
+   * @param seed_side Draw the gate's seed-side tables (GATED_SWAP only): the
+   * seed classification and its identity ramp table, which p == 0 leaves at the
+   * departed palettes.
    */
-  HS_COLD_MEMBER void finish_frame(Canvas &canvas, PolyMesh &swept,
-                                   int frame) {
+  HS_COLD_MEMBER void finish_frame(Canvas &canvas, PolyMesh &swept, float p,
+                                   float gain = 1.0f, bool seed_side = false) {
     Transients &tr = *buf_;
+    const ArenaVector<int> &topo = seed_side ? tr.seed_topo : tr.topo;
+    const ArenaVector<uint8_t> &face_ramp =
+        seed_side ? tr.seed_face_ramp : tr.face_ramp;
 
     MeshState compiled;
     {
       HS_PROFILE(hk_conway_compile);
       MeshOps::compile(swept, compiled, scratch_arena_a, scratch_arena_b);
     }
-    HS_CHECK(compiled.face_counts.size() == tr.topo.size(),
+    HS_CHECK(compiled.face_counts.size() == topo.size(),
              "OpLeg: sweep changed the compiled face count");
-    compiled.topology.bind(scratch_arena_a, tr.topo.size());
-    compiled.topology.append_bulk(tr.topo.data(), tr.topo.size());
+    compiled.topology.bind(scratch_arena_a, topo.size());
+    compiled.topology.append_bulk(topo.data(), topo.size());
 
-    float w =
-        blend_weight(static_cast<float>(frame) / static_cast<float>(duration));
+    float w = blend_weight(p);
     // Chained-leg rebasing (spec 5.3): the plateau weights land on the leg's
     // [w_lo, w_hi] share of the whole-chain convergence.
     w = tr.w_lo + w * (tr.w_hi - tr.w_lo);
-    BakedPalette *ramps =
-        scratch_arena_b.allocate_n<BakedPalette>(tr.num_ramps);
-    for (int r = 0; r < tr.num_ramps; ++r) {
+    const int num_ramps = seed_side ? tr.seed_num_ramps : tr.num_ramps;
+    BakedPalette *ramps = scratch_arena_b.allocate_n<BakedPalette>(num_ramps);
+    for (int r = 0; r < num_ramps; ++r) {
+      new (&ramps[r]) BakedPalette();
+      if (seed_side) {
+        ramps[r] = tr.bank->entries[tr.seed_ramp_pal[r]];
+        continue;
+      }
       const BakedPalette &from = tr.bank->entries[tr.ramp_from[r]];
       const BakedPalette &to = tr.bank->entries[tr.ramp_to[r]];
-      new (&ramps[r]) BakedPalette();
       if (tr.ramp_from[r] == tr.ramp_to[r])
         ramps[r] = to;
       else
         bake_palette_blend(ramps[r], scratch_arena_b, from, to, w);
     }
 
-    Shading sh{ramps, tr.face_ramp.data(), tr.face_ramp.size()};
+    Shading sh{ramps, face_ramp.data(), face_ramp.size(), gain};
     draw_fn(canvas, compiled, sh);
   }
 
@@ -962,6 +1233,9 @@ private:
    * node base mesh at the boundary swaps (the seed face count; plus the
    * vertex-orbit faces on the jitterbug bridge, whose octahedron-end node
    * mesh keeps them).
+   * @param forced_from Per-arrival-face from-palette, or nullptr to derive one.
+   * A partition op has neither a centroid nor an emission-order
+   * correspondence, so its leg computes provenance itself and hands it in.
    * @details With centroids, provenance is geometric: a face inherits the
    * palette of the departed face it overlies at the start parameter. On a
    * full-correspondence departure (prev_faces == total: 0.5-end swaps, dual
@@ -977,7 +1251,8 @@ private:
   build_palette_mapping(Transients &tr, const PolyMesh &arrival,
                         const PaletteHandoff &handoff,
                         const BookendClasses &bookend, Arena &arena,
-                        const Vector *start_centroid, size_t survivors) {
+                        const Vector *start_centroid, size_t survivors,
+                        const uint8_t *forced_from = nullptr) {
     const size_t total = tr.topo.size();
     const size_t primary = tr.seed.face_counts.size();
     tr.landing.faces = total;
@@ -1040,7 +1315,9 @@ private:
     for (size_t f = 0; f < total; ++f) {
       uint8_t to = tr.landing.to_palette[wrap(tr.target_topo[f], PALETTES)];
       uint8_t from = to; // fallback: newborn faces skip the crossfade
-      if (full_correspondence) {
+      if (forced_from) {
+        from = forced_from[f];
+      } else if (full_correspondence) {
         const size_t j = nearest_prev_face(start_centroid[f], handoff);
         const Vector d = start_centroid[f] - handoff.prev_face_centroid[j];
         HS_CHECK(!prev_used[j] && dot(d, d) < PROVENANCE_TOL_SQ,
