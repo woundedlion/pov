@@ -483,6 +483,10 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
   return inv_gnomonic(w, (v.y >= 0 ? 1.0f : -1.0f));
 }
 
+/** @brief Largest ripple rotation the series-form quaternion may take; at
+ * theta/2 <= 0.075 the truncated sin/cos series err under 3 float ulps. */
+constexpr float RIPPLE_SMALL_ANGLE_MAX = 0.15f;
+
 /**
  * @brief Rotates a point along a Ricker-wavelet ripple radiating from a center.
  * @param v The vector to transform.
@@ -491,7 +495,7 @@ inline Vector gnomonic_mobius_transform(const Vector &v,
  */
 HS_O3_FN inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
   // Between ripples the envelope drives amplitude to 0; skip the whole per-pixel
-  // wavelet (fast_acos + two fast_expf) when there is nothing to displace.
+  // wavelet (fast_acos + fast_expf) when there is nothing to displace.
   if (params.amplitude <= 0.001f)
     return v;
 
@@ -512,18 +516,24 @@ HS_O3_FN inline Vector ripple_transform(const Vector &v, const RippleParams &par
   // Normalize distance; within the accept band |t| reaches 4 (−2..2 is the primary lobe)
   float t = (dist_from_peak / half_width) * 2.0f;
 
-  // Ricker Wavelet: (1 - t^2) * e^(-t^2/2)
-  float ricker = (1.0f - t * t) * fast_expf(-0.5f * t * t);
-
-  // Distance attenuation (ripples get smaller as they spread)
-  float attenuation = fast_expf(-params.decay * d);
-
-  float theta = params.amplitude * ricker * attenuation;
+  // Ricker wavelet (1 - t^2) e^(-t^2/2) with the spread attenuation
+  // e^(-decay*d) folded into one exponential.
+  float theta = params.amplitude * (1.0f - t * t) *
+                fast_expf(-0.5f * t * t - params.decay * d);
 
   Vector axis = cross(params.center, v);
   float lenSq = dot(axis, axis);
   if (lenSq > 1e-6f) {
     axis = axis * (1.0f / sqrtf(lenSq));
+    if (fabsf(theta) <= RIPPLE_SMALL_ANGLE_MAX) {
+      // The truncated series leave the quaternion unit to ~1e-9, so the libm
+      // trig and the normalize both drop out.
+      float h = 0.5f * theta;
+      float h2 = h * h;
+      float s = h * (1.0f - h2 * (1.0f / 6.0f));
+      float c = 1.0f - h2 * (0.5f - h2 * (1.0f / 24.0f));
+      return rotate(v, Quaternion(c, s * axis));
+    }
     Quaternion q = make_rotation(axis, theta);
     return rotate(v, q);
   }
