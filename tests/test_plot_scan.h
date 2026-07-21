@@ -2386,6 +2386,41 @@ struct StubSystem {
   int active() const { return active_count; }
 };
 
+/** @brief Shader and output counts from drawing one particle. */
+struct ParticleDrawCapture {
+  int vertex_calls = 0;
+  int deferred_calls = 0;
+  int fragment_calls = 0;
+  size_t plotted = 0;
+};
+
+/** @brief Draws one particle through every trail shader stage. */
+inline ParticleDrawCapture capture_particle_draw(const StubParticle &particle) {
+  constexpr int W = 96, H = 48;
+  RasterFx fx(W, H);
+  StubSystem sys;
+  sys.max_life = 100;
+  sys.active_count = 1;
+  sys.pool.push_back(particle);
+
+  ParticleDrawCapture capture;
+  CapturePipeline pipe;
+  auto fragment_shader = [&](const Vector &, Fragment &) {
+    ++capture.fragment_calls;
+  };
+  auto vertex_shader = [&](Fragment &) { ++capture.vertex_calls; };
+  auto deferred_shader = [&](Fragment &, const Vector &) {
+    ++capture.deferred_calls;
+  };
+  {
+    Canvas c(fx);
+    Plot::ParticleSystem::draw<W, H>(pipe, c, sys, fragment_shader,
+                                     vertex_shader, deferred_shader);
+  }
+  capture.plotted = pipe.plotted.size();
+  return capture;
+}
+
 /**
  * @brief Verifies ParticleSystem::draw rasterizes only the active prefix's trails
  *        and stamps the per-particle registers (v2 source index, v3 life ratio).
@@ -2460,6 +2495,40 @@ inline void test_particle_system_empty_zero_lifetime_is_noop() {
   }
   fx.advance_display();
   HS_EXPECT_TRUE(pipe.plotted.empty());
+}
+
+/**
+ * @brief Dead and one-point particle trails bypass all render stages while a
+ *        live two-point trail renders normally.
+ */
+inline void test_particle_system_skips_unrenderable_trails() {
+  StubParticle dead;
+  dead.history.record(Vector(1, 0, 0));
+  dead.history.record(Vector(0, 0, 1));
+  ParticleDrawCapture dead_capture = capture_particle_draw(dead);
+  HS_EXPECT_EQ(dead_capture.vertex_calls, 0);
+  HS_EXPECT_EQ(dead_capture.deferred_calls, 0);
+  HS_EXPECT_EQ(dead_capture.fragment_calls, 0);
+  HS_EXPECT_EQ(dead_capture.plotted, static_cast<size_t>(0));
+
+  StubParticle one_point;
+  one_point.life = 60;
+  one_point.history.record(Vector(1, 0, 0));
+  ParticleDrawCapture one_point_capture = capture_particle_draw(one_point);
+  HS_EXPECT_EQ(one_point_capture.vertex_calls, 0);
+  HS_EXPECT_EQ(one_point_capture.deferred_calls, 0);
+  HS_EXPECT_EQ(one_point_capture.fragment_calls, 0);
+  HS_EXPECT_EQ(one_point_capture.plotted, static_cast<size_t>(0));
+
+  StubParticle trail;
+  trail.life = 60;
+  trail.history.record(Vector(1, 0, 0));
+  trail.history.record(Vector(0, 0, 1));
+  ParticleDrawCapture trail_capture = capture_particle_draw(trail);
+  HS_EXPECT_EQ(trail_capture.vertex_calls, 2);
+  HS_EXPECT_EQ(trail_capture.deferred_calls, 2);
+  HS_EXPECT_GT(trail_capture.fragment_calls, 0);
+  HS_EXPECT_GT(trail_capture.plotted, static_cast<size_t>(0));
 }
 
 /**
@@ -3133,6 +3202,7 @@ inline int run_plot_scan_tests() {
 
   test_particle_system_draws_active_trails_with_registers();
   test_particle_system_empty_zero_lifetime_is_noop();
+  test_particle_system_skips_unrenderable_trails();
   test_particle_system_deferred_shader_parity_and_skip();
   test_particle_system_gate_pixel_parity_random_trails();
   test_particle_system_subpixel_trail_dot_parity();
