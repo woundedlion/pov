@@ -90,11 +90,11 @@ static_assert(
     "snubDodecahedron");
 
 /**
- * @brief Parameterized Conway operator a graph edge sweeps.
- * @details Chamfer is deliberately unused: no simple-registry endpoint is a
- * chamfered form.
+ * @brief Parameterized Conway operator a leg sweeps.
+ * @details CHAMFER is carried for recipe-step legs only; no graph edge uses it,
+ * since no simple-registry endpoint is a chamfered form.
  */
-enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB };
+enum class MorphOp : uint8_t { TRUNCATE, EXPAND, SNUB, CHAMFER };
 
 /**
  * @brief Reseed primitive tabled on an edge (spec section 2.1).
