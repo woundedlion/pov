@@ -323,7 +323,10 @@ private:
                                 const Animation::OpLeg::Shading &sh) {
     if (mesh.vertices.is_empty())
       return;
-    HS_PROFILE(is_draw_shape);
+    // Own scope labels: sharing the sprite's would parent two draw paths under
+    // one counter, and a build-only window then prints an empty subtree while a
+    // mixed window prints the child above its own parent's total.
+    HS_PROFILE(is_build_draw);
     ScratchScope a_guard(scratch_arena_a);
     MeshState transformed_state = transform_shape(mesh);
     const SegueT &seg = carousel.segue();
@@ -337,7 +340,7 @@ private:
     };
 
     {
-      HS_PROFILE(is_mesh_scan);
+      HS_PROFILE(is_build_scan);
       Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
                              fragment_shader, scratch_arena_a, params.debug_bb);
     }
@@ -565,11 +568,14 @@ private:
                      0, [this](Canvas &canvas) { ripple(canvas); }, false));
 
     // On a closed 2-manifold faces.size() (Σ face degrees) is exactly 2·E.
+    // A recipe shape spawns holding its seed, so these are the seed's counts;
+    // finish_build logs the finished solid's, which are what it rasterizes.
     const auto &entry = solids[solid_idx];
     const MeshState &spawned = carousel.current();
-    hs::log("Spawning Shape: %s (V=%d, E=%d, F=%d, I=%d)", entry.name,
+    hs::log("Spawning Shape: %s (V=%d, E=%d, F=%d, I=%d)%s", entry.name,
             (int)spawned.vertices.size(), (int)(spawned.faces.size() / 2),
-            (int)spawned.face_counts.size(), (int)spawned.faces.size());
+            (int)spawned.face_counts.size(), (int)spawned.faces.size(),
+            recipe ? " seed" : "");
 
     // The segue decides when the next shape starts relative to this one.
     timeline.add(next_delay,
@@ -823,6 +829,11 @@ private:
     }
     build_landing_ = nullptr;
     build_active_ = false;
+
+    hs::log("Built Shape: %s (V=%d, E=%d, F=%d, I=%d)",
+            Solids::Collections::get_islamic_solids()[solid_idx].name,
+            (int)slot.vertices.size(), (int)(slot.faces.size() / 2),
+            (int)slot.face_counts.size(), (int)slot.faces.size());
   }
 
   /**
