@@ -634,7 +634,8 @@ struct Quaternion {
    * @brief Calculates the squared magnitude of the quaternion.
    * @return The squared magnitude.
    */
-  [[nodiscard]] constexpr float squared_magnitude() const {
+  [[nodiscard]] __attribute__((always_inline)) constexpr float
+  squared_magnitude() const {
     return r * r + v.x * v.x + v.y * v.y + v.z * v.z;
   }
 
