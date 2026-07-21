@@ -2417,9 +2417,16 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
  */
 struct IslamicBuildProbe {
   using IS = IslamicStars<DEVICE_W, DEVICE_H>;
-  static void set_trans_speed(IS &e, float v) { e.params.trans_speed = v; }
-  static bool build_active(const IS &e) { return e.build_active_; }
-  static int solid_idx(const IS &e) { return e.solid_idx; }
+  template <int W, int H>
+  static void set_trans_speed(IslamicStars<W, H> &e, float v) {
+    e.params.trans_speed = v;
+  }
+  template <int W, int H> static bool build_active(const IslamicStars<W, H> &e) {
+    return e.build_active_;
+  }
+  template <int W, int H> static int solid_idx(const IslamicStars<W, H> &e) {
+    return e.solid_idx;
+  }
 };
 
 /**
@@ -2462,6 +2469,59 @@ inline void test_islamicstars_recipe_build_smoke() {
       acc += static_cast<uint64_t>(p.r) + p.g + p.b;
     }
   HS_EXPECT_GT(acc, (uint64_t)0);
+}
+
+/**
+ * @brief Drives IslamicStars through every registry entry, pinning the
+ *        persistent arena against the effect's own budget.
+ * @details The per-chain gate measures a build in isolation, which misses what
+ *          the effect actually holds: a build follows whatever shape preceded
+ *          it, and the roster's heaviest entry is 1082 faces. Cycling the whole
+ *          roster is the only thing that exercises a build against that
+ *          predecessor. Rendered small — the peak is mesh-driven, not
+ *          canvas-driven — because the gate is about memory, not pixels. An
+ *          Arena overrun traps, so an OOM fails this test by killing the run.
+ */
+inline void test_islamicstars_roster_cycle_fits_budget() {
+  reset_effect_globals();
+  IslamicStars<96, 20> effect;
+  IslamicBuildProbe::set_trans_speed(effect, 8.0f);
+  effect.init();
+
+  const int entries =
+      static_cast<int>(Solids::Collections::get_islamic_solids().size());
+  constexpr int MAX_FRAMES = 20000;
+  size_t peak = 0;
+  int frames = 0;
+  int shapes = 0;
+  int builds = 0;
+  int last = IslamicBuildProbe::solid_idx(effect);
+  while (frames < MAX_FRAMES && shapes <= entries) {
+    effect.draw_frame();
+    effect.advance_display();
+    ++frames;
+    // reset() clears the arena's own mark, so sample every frame to keep the
+    // peak across compactions.
+    peak = std::max(peak, persistent_arena.get_high_water_mark());
+    if (IslamicBuildProbe::build_active(effect))
+      ++builds;
+    const int cur = IslamicBuildProbe::solid_idx(effect);
+    if (cur != last) {
+      last = cur;
+      ++shapes;
+    }
+  }
+
+  // The device split, not the host arena: on host GLOBAL_ARENA_SIZE dwarfs the
+  // real budget and the comparison would pass vacuously. Mirrors the
+  // configure_arenas call in IslamicStars::init.
+  const size_t budget = DEVICE_GLOBAL_ARENA_SIZE - (114 + 80) * 1024;
+  std::printf("  [roster] %d shapes over %d frames, %d build frames, "
+              "persistent peak=%zu B / %zu B\n",
+              shapes, frames, builds, peak, budget);
+  HS_EXPECT_GT(shapes, entries - 1);
+  HS_EXPECT_GT(builds, 0);
+  HS_EXPECT_LE(peak, budget);
 }
 
 /**
@@ -2531,6 +2591,7 @@ inline int run_effects_tests() {
     test_shapeshifter_max_radius_survives_cycle();
     test_hankinsolids_arena_budget_covers_every_solid();
     test_islamicstars_recipe_build_smoke();
+    test_islamicstars_roster_cycle_fits_budget();
 
     // Full production-resolution roster passes (288x144): smoke, then cross-run
     // determinism under the injected clock.
