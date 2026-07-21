@@ -1321,6 +1321,420 @@ inline void test_hankin_sweep_on_islamic_seeds_holds_topology() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Hankin-sweep stability probe: per-step branch, displacement and face-normal
+// diagnostics for the four Phase-1 hankin legs. Compares the shipping
+// parameterization (update_hankin re-solved per frame) against a
+// slerp-from-corner parameterization (solve once at theta_star, then slerp
+// each dynamic vertex out of its collapsed corner).
+// ---------------------------------------------------------------------------
+
+/** @brief Branch update_hankin took for one dynamic vertex. */
+enum class HankinBranch : uint8_t {
+  INTERSECT, /**< Contact-plane intersection accepted. */
+  COLLAPSED, /**< is_flat or zero-length edge: snapped to the corner. */
+  FALLBACK,  /**< Degenerate or far intersection: edge-midpoint mean. */
+};
+
+/** @brief One dynamic vertex's solved position and the branch that made it. */
+struct HankinSolve {
+  Vector pos;
+  HankinBranch branch;
+  /** dist^2(star, corner) / max(dist^2(m, corner)); the STAR_FAR_RATIO_SQ
+   * guard fires above 36. Zero on the non-intersect branches. */
+  float far_ratio = 0;
+};
+
+/**
+ * @brief Mirrors MeshOps::update_hankin's per-vertex solve, exposing the
+ *        branch each dynamic vertex takes.
+ * @param compiled Baked hankin topology.
+ * @param angle Contact angle in radians.
+ * @param out Filled with one entry per dynamic instruction.
+ */
+inline void hankin_solve(const CompiledHankin &compiled, float angle,
+                         std::vector<HankinSolve> &out) {
+  const bool is_flat = std::abs(angle) < math::TOLERANCE;
+  const float cos_ha = cosf(angle * 0.5f);
+  const float sin_ha = sinf(angle * 0.5f);
+
+  out.assign(compiled.dynamic_instructions.size(), HankinSolve{});
+  for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
+    const HankinInstruction &instr = compiled.dynamic_instructions[i];
+    const Vector p_corner = compiled.base_vertices[instr.v_corner];
+    const Vector cn = normalized_or(p_corner, p_corner);
+
+    if (is_flat) {
+      out[i] = {cn, HankinBranch::COLLAPSED};
+      continue;
+    }
+
+    const Vector m1 = compiled.static_vertices[instr.idx_m1];
+    const Vector m2 = compiled.static_vertices[instr.idx_m2];
+    const Vector cross1 = cross(compiled.base_vertices[instr.v_prev], p_corner);
+    const Vector cross2 = cross(p_corner, compiled.base_vertices[instr.v_next]);
+    if (dot(cross1, cross1) < math::EPS_CROSS_SQ ||
+        dot(cross2, cross2) < math::EPS_CROSS_SQ) {
+      out[i] = {cn, HankinBranch::COLLAPSED};
+      continue;
+    }
+
+    const Quaternion q1(cos_ha, sin_ha * m1.x, sin_ha * m1.y, sin_ha * m1.z);
+    const Quaternion q2(cos_ha, -sin_ha * m2.x, -sin_ha * m2.y, -sin_ha * m2.z);
+    Vector intersect = cross(rotate(cross1.normalized(), q1),
+                             rotate(cross2.normalized(), q2));
+
+    bool degenerate = dot(intersect, intersect) < math::EPS_LEN_SQ;
+    float far_ratio = 0;
+    if (!degenerate) {
+      if (dot(intersect, p_corner) < 0)
+        intersect = -intersect;
+      intersect = intersect.normalized();
+      const float local_sq =
+          std::max(distance_squared(m1, cn), distance_squared(m2, cn));
+      far_ratio = distance_squared(intersect, cn) / local_sq;
+      degenerate = far_ratio > MeshOps::STAR_FAR_RATIO_SQ;
+    }
+    if (degenerate) {
+      Vector fallback = normalized_or(m1 + m2, cn);
+      if (dot(fallback, p_corner) < 0)
+        fallback = -fallback;
+      out[i] = {fallback, HankinBranch::FALLBACK, far_ratio};
+      continue;
+    }
+    out[i] = {intersect, HankinBranch::INTERSECT, far_ratio};
+  }
+}
+
+/**
+ * @brief Newell normals of every compiled hankin face for a solved star set.
+ * @param compiled Baked hankin topology.
+ * @param dyn Solved dynamic vertices.
+ * @param out Filled with one unnormalized Newell normal per face.
+ */
+inline void hankin_face_normals(const CompiledHankin &compiled,
+                                const std::vector<HankinSolve> &dyn,
+                                std::vector<Vector> &out) {
+  auto vertex_at = [&](uint16_t idx) {
+    return idx < compiled.static_offset
+               ? compiled.static_vertices[idx]
+               : dyn[idx - compiled.static_offset].pos;
+  };
+  out.assign(compiled.face_counts.size(), Vector());
+  size_t base = 0;
+  for (size_t f = 0; f < compiled.face_counts.size(); ++f) {
+    const size_t n = compiled.face_counts[f];
+    Vector normal;
+    for (size_t k = 0; k < n; ++k) {
+      const Vector a = vertex_at(compiled.faces[base + k]);
+      const Vector b = vertex_at(compiled.faces[base + (k + 1) % n]);
+      normal.x += (a.y - b.y) * (a.z + b.z);
+      normal.y += (a.z - b.z) * (a.x + b.x);
+      normal.z += (a.x - b.x) * (a.y + b.y);
+    }
+    out[f] = normal;
+    base += n;
+  }
+}
+
+/** Newell magnitude (twice the face area) below which a face's normal
+ * direction is numerical noise and its sign is not evidence of a fold. */
+inline constexpr float HANKIN_FLAT_FACE = 1e-4f;
+
+/** @brief Per-step stability metrics of one sweep sample. */
+struct HankinStepStats {
+  float theta = 0;      /**< Contact angle of this sample, radians. */
+  int fallback = 0;     /**< Dynamic vertices on the FALLBACK branch. */
+  int branch_flips = 0; /**< Vertices whose branch changed vs the previous step. */
+  float max_disp = 0;   /**< Largest single-vertex chord vs the previous step. */
+  float mean_disp = 0;  /**< Mean dynamic-vertex chord vs the previous step. */
+  int normal_flips = 0; /**< Non-degenerate faces whose Newell normal reversed. */
+  int flat_faces = 0;   /**< Faces below HANKIN_FLAT_FACE this step. */
+  float max_far_ratio = 0;    /**< Largest far_ratio this step (guard fires at 36). */
+  float max_corner_chord = 0; /**< Largest chord(star point, its corner). */
+};
+
+/**
+ * @brief Fills @p stats from consecutive solved states.
+ * @param compiled Baked hankin topology.
+ * @param prev Previous step's solve (empty for the first step).
+ * @param prev_normals Previous step's face normals.
+ * @param curr Current step's solve.
+ * @param curr_normals Current step's face normals.
+ * @param stats Metrics to fill; theta must already be set.
+ */
+inline void hankin_step_stats(const CompiledHankin &compiled,
+                              const std::vector<HankinSolve> &prev,
+                              const std::vector<Vector> &prev_normals,
+                              const std::vector<HankinSolve> &curr,
+                              const std::vector<Vector> &curr_normals,
+                              HankinStepStats &stats) {
+  for (size_t i = 0; i < curr.size(); ++i) {
+    if (curr[i].branch == HankinBranch::FALLBACK)
+      ++stats.fallback;
+    stats.max_far_ratio = std::max(stats.max_far_ratio, curr[i].far_ratio);
+    const Vector cn = normalized_or(
+        compiled.base_vertices[compiled.dynamic_instructions[i].v_corner],
+        curr[i].pos);
+    stats.max_corner_chord =
+        std::max(stats.max_corner_chord, (curr[i].pos - cn).magnitude());
+  }
+  for (const Vector &n : curr_normals)
+    if (n.magnitude() < HANKIN_FLAT_FACE)
+      ++stats.flat_faces;
+  if (prev.empty())
+    return;
+  double sum = 0;
+  for (size_t i = 0; i < curr.size(); ++i) {
+    if (curr[i].branch != prev[i].branch)
+      ++stats.branch_flips;
+    const float d = (curr[i].pos - prev[i].pos).magnitude();
+    sum += d;
+    stats.max_disp = std::max(stats.max_disp, d);
+  }
+  stats.mean_disp = static_cast<float>(sum / curr.size());
+  for (size_t f = 0; f < curr_normals.size(); ++f) {
+    if (prev_normals[f].magnitude() < HANKIN_FLAT_FACE ||
+        curr_normals[f].magnitude() < HANKIN_FLAT_FACE)
+      continue;
+    if (dot(prev_normals[f], curr_normals[f]) < 0)
+      ++stats.normal_flips;
+  }
+}
+
+/** @brief Sweep-wide roll-up of the per-step metrics. */
+struct HankinSweepSummary {
+  int total_branch_flips = 0;
+  int total_normal_flips = 0;
+  int steps_with_normal_flips = 0;
+  float worst_max_disp = 0;
+  float worst_mean_disp = 0;
+  int worst_step = 0;    /**< Step index owning worst_max_disp. */
+  float spike_ratio = 0; /**< worst_max_disp / mean_disp at that step. */
+  int worst_flat_faces = 0;    /**< Most sub-HANKIN_FLAT_FACE faces in a step. */
+  float worst_far_ratio = 0;   /**< Largest far_ratio over the sweep. */
+  float worst_corner_chord = 0;/**< Largest chord(star point, corner) over the sweep. */
+};
+
+/**
+ * @brief Rolls the per-step table into a summary.
+ * @param table Per-step metrics, index 0 being the first (baseline) sample.
+ * @return The roll-up.
+ */
+inline HankinSweepSummary
+hankin_summarize(const std::vector<HankinStepStats> &table) {
+  HankinSweepSummary sum;
+  for (const HankinStepStats &r : table) {
+    sum.worst_flat_faces = std::max(sum.worst_flat_faces, r.flat_faces);
+    sum.worst_far_ratio = std::max(sum.worst_far_ratio, r.max_far_ratio);
+    sum.worst_corner_chord =
+        std::max(sum.worst_corner_chord, r.max_corner_chord);
+  }
+  for (size_t s = 1; s < table.size(); ++s) {
+    sum.total_branch_flips += table[s].branch_flips;
+    sum.total_normal_flips += table[s].normal_flips;
+    if (table[s].normal_flips > 0)
+      ++sum.steps_with_normal_flips;
+    sum.worst_mean_disp = std::max(sum.worst_mean_disp, table[s].mean_disp);
+    if (table[s].max_disp > sum.worst_max_disp) {
+      sum.worst_max_disp = table[s].max_disp;
+      sum.worst_step = static_cast<int>(s);
+      sum.spike_ratio = table[s].mean_disp > 0
+                            ? table[s].max_disp / table[s].mean_disp
+                            : 0.0f;
+    }
+  }
+  return sum;
+}
+
+/** @brief Prints one per-step table row set. */
+inline void hankin_print_table(const char *label,
+                               const std::vector<HankinStepStats> &table) {
+  std::printf("      %s: s theta_deg  fb flip  max_disp mean_disp nflip flat "
+              "far_ratio  corner\n",
+              label);
+  for (size_t s = 0; s < table.size(); ++s) {
+    const HankinStepStats &r = table[s];
+    std::printf("        %16s%2zu %9.3f %3d %4d %9.5f %9.5f %5d %4d %9.2f "
+                "%7.4f\n",
+                "", s, r.theta * 180.0f / PI_F, r.fallback, r.branch_flips,
+                r.max_disp, r.mean_disp, r.normal_flips, r.flat_faces,
+                r.max_far_ratio, r.max_corner_chord);
+  }
+}
+
+/**
+ * @brief Measures per-frame sweep stability of the four Phase-1 hankin legs
+ *        under the shipping re-solve (uniform and eased theta) and under a
+ *        slerp-from-corner parameterization.
+ * @details Reports fallback-branch population, branch flips, per-step vertex
+ * chords and face-normal reversals; asserts the slerp path is branch-flip and
+ * normal-flip free and that its endpoints reproduce the collapsed form and the
+ * theta_star solve.
+ */
+inline void test_hankin_sweep_vertex_stability() {
+  constexpr int SAMPLES = 32;
+  constexpr float THETA_EPS = Animation::OpLeg::THETA_EPS;
+
+  for (const HankinSweepSite &site : HANKIN_SWEEP_SITES) {
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh seed;
+    {
+      constexpr size_t HALF = sizeof(morph_aux_buf) / 2;
+      Arena ga(morph_aux_buf, HALF);
+      Arena gb(morph_aux_buf + HALF, HALF);
+      seed = Solids::finalize_solid(site.seed(ga, gb), persist);
+    }
+
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    CompiledHankin compiled;
+    MeshOps::compile_hankin(seed, compiled, a, b);
+
+    std::vector<HankinSolve> collapsed, arrival;
+    hankin_solve(compiled, 0.0f, collapsed);
+    hankin_solve(compiled, site.theta_star, arrival);
+
+    // Guard headroom: the far-star guard is scaled by the corner's local edge
+    // scale, so on coarse seeds 36 * local_sq can exceed the 4.0 maximum
+    // squared chord, making the guard unreachable for that vertex.
+    int unreachable = 0;
+    float max_local_sq = 0;
+    for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
+      const HankinInstruction &instr = compiled.dynamic_instructions[i];
+      const Vector cn = normalized_or(compiled.base_vertices[instr.v_corner],
+                                      compiled.base_vertices[instr.v_corner]);
+      const float local_sq =
+          std::max(distance_squared(compiled.static_vertices[instr.idx_m1], cn),
+                   distance_squared(compiled.static_vertices[instr.idx_m2], cn));
+      max_local_sq = std::max(max_local_sq, local_sq);
+      if (MeshOps::STAR_FAR_RATIO_SQ * local_sq >= 4.0f)
+        ++unreachable;
+    }
+
+    std::printf("  [hankin-stability] %s: theta* = %.1f deg, base F=%zu, "
+                "dyn V=%zu, hankin F=%zu, guard-unreachable %d/%zu "
+                "(max local_sq %.4f)\n",
+                site.name, site.theta_star * 180.0f / PI_F,
+                seed.face_counts.size(), collapsed.size(),
+                compiled.face_counts.size(), unreachable, collapsed.size(),
+                max_local_sq);
+
+    // Three parameterizations over the same sample grid.
+    std::vector<HankinStepStats> tables[3];
+    std::vector<std::vector<Vector>> resolve_pos(SAMPLES);
+    float path_dev = 0;
+    const char *mode_name[3] = {"resolve-uniform", "resolve-eased",
+                                "slerp-eased    "};
+    for (int mode = 0; mode < 3; ++mode) {
+      std::vector<HankinSolve> prev, curr;
+      std::vector<Vector> prev_normals, curr_normals;
+      for (int s = 0; s < SAMPLES; ++s) {
+        const float u = static_cast<float>(s) / (SAMPLES - 1);
+        const float k = mode == 0 ? u : ease_in_out_sin(u);
+        HankinStepStats row;
+        if (mode == 2) {
+          row.theta = site.theta_star;
+          curr.assign(arrival.size(), HankinSolve{});
+          for (size_t i = 0; i < arrival.size(); ++i) {
+            curr[i] = {slerp(collapsed[i].pos, arrival[i].pos, k),
+                       arrival[i].branch, 0.0f};
+            path_dev = std::max(path_dev,
+                                (curr[i].pos - resolve_pos[s][i]).magnitude());
+          }
+        } else {
+          row.theta = THETA_EPS + (site.theta_star - THETA_EPS) * k;
+          hankin_solve(compiled, row.theta, curr);
+          if (mode == 1) {
+            resolve_pos[s].resize(curr.size());
+            for (size_t i = 0; i < curr.size(); ++i)
+              resolve_pos[s][i] = curr[i].pos;
+          }
+        }
+        hankin_face_normals(compiled, curr, curr_normals);
+        hankin_step_stats(compiled, prev, prev_normals, curr, curr_normals,
+                          row);
+        tables[mode].push_back(row);
+        prev = curr;
+        prev_normals = curr_normals;
+      }
+    }
+
+    hankin_print_table("resolve-eased", tables[1]);
+    for (int mode = 0; mode < 3; ++mode) {
+      const HankinSweepSummary sum = hankin_summarize(tables[mode]);
+      std::printf("      %s  branch_flips=%d normal_flips=%d (in %d steps) "
+                  "worst_max=%.5f @s%d spike=%.1fx worst_mean=%.5f "
+                  "flat<=%d far<=%.1f corner<=%.3f\n",
+                  mode_name[mode], sum.total_branch_flips,
+                  sum.total_normal_flips, sum.steps_with_normal_flips,
+                  sum.worst_max_disp, sum.worst_step, sum.spike_ratio,
+                  sum.worst_mean_disp, sum.worst_flat_faces,
+                  sum.worst_far_ratio, sum.worst_corner_chord);
+    }
+
+    std::printf("      path deviation slerp vs resolve at equal k: max=%.5f\n",
+                path_dev);
+
+    // Slerp endpoints must reproduce the collapsed form and the theta_star
+    // solve; the leg's closing bookend swap is only invisible if k=1 lands on
+    // the arrival geometry.
+    float end0 = 0, end1 = 0;
+    size_t exact0 = 0, exact1 = 0;
+    for (size_t i = 0; i < arrival.size(); ++i) {
+      const Vector s0 = slerp(collapsed[i].pos, arrival[i].pos, 0.0f);
+      const Vector s1 = slerp(collapsed[i].pos, arrival[i].pos, 1.0f);
+      end0 = std::max(end0, (s0 - collapsed[i].pos).magnitude());
+      end1 = std::max(end1, (s1 - arrival[i].pos).magnitude());
+      exact0 += std::memcmp(&s0, &collapsed[i].pos, sizeof(Vector)) == 0;
+      exact1 += std::memcmp(&s1, &arrival[i].pos, sizeof(Vector)) == 0;
+    }
+    std::printf("      endpoints: k=0 max_err=%.3e bitwise=%zu/%zu, "
+                "k=1 max_err=%.3e bitwise=%zu/%zu\n",
+                end0, exact0, arrival.size(), end1, exact1, arrival.size());
+    HS_EXPECT_TRUE(end0 < 1e-5f);
+    HS_EXPECT_TRUE(end1 < 1e-5f);
+
+    const HankinSweepSummary slerp_sum = hankin_summarize(tables[2]);
+    HS_EXPECT_EQ(slerp_sum.total_branch_flips, 0);
+    HS_EXPECT_EQ(slerp_sum.total_normal_flips, 0);
+
+    // Opening bookend: chord between the collapsed form and the leg's first
+    // drawn angle, in sphere radii (sub-pixel iff below ~1/display radius).
+    float eps_chord = 0;
+    std::vector<HankinSolve> at_eps;
+    hankin_solve(compiled, THETA_EPS, at_eps);
+    for (size_t i = 0; i < at_eps.size(); ++i)
+      eps_chord = std::max(eps_chord, (at_eps[i].pos - collapsed[i].pos).magnitude());
+    std::printf("      theta_eps=%.3f opening chord max=%.6f radii "
+                "(%.3f px at r=64)\n",
+                THETA_EPS, eps_chord, eps_chord * 64.0f);
+
+    // The slerp path's k = 0 form is the exact collapse, where every rosette
+    // face has zero area; a K_EPS floor is its THETA_EPS analog. Report the
+    // smallest k that lifts every face above HANKIN_FLAT_FACE.
+    float k_eps = 1.0f;
+    std::vector<HankinSolve> probe(arrival.size());
+    std::vector<Vector> probe_normals;
+    for (int q = 1; q <= 200; ++q) {
+      const float k = static_cast<float>(q) / 200.0f;
+      for (size_t i = 0; i < arrival.size(); ++i)
+        probe[i] = {slerp(collapsed[i].pos, arrival[i].pos, k),
+                    arrival[i].branch, 0.0f};
+      hankin_face_normals(compiled, probe, probe_normals);
+      bool all_lit = true;
+      for (const Vector &n : probe_normals)
+        all_lit &= n.magnitude() >= HANKIN_FLAT_FACE;
+      if (all_lit) {
+        k_eps = k;
+        break;
+      }
+    }
+    std::printf("      slerp k_eps (first k with no sub-area face) = %.3f\n",
+                k_eps);
+  }
+}
+
 /**
  * @brief Smoke-tests an OpLeg HANKIN_SWEEP end to end on the dodecahedron
  *        seed: construction populates the landing (star faces first, in
@@ -1698,6 +2112,7 @@ inline int run_conway_morph_tests() {
 
   test_ambo_leg_on_hankin_seed_holds_topology();
   test_hankin_sweep_on_islamic_seeds_holds_topology();
+  test_hankin_sweep_vertex_stability();
   test_opleg_hankin_sweep_smoke();
   test_recipe_chain_build_replay();
 
