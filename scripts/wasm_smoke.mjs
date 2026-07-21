@@ -373,6 +373,118 @@ async function main() {
         post.delete();
       }
       console.log(`  MeshOps: ${solidName} + dual, truncate, relax(+clamp), hankin reject, classifyFaces, clearToolingMemory OK`);
+
+      // ── getRecipe: recipe payload + reconstruction parity ──────────────────
+      // For every entry with a recipe, replaying the chain from the seed through
+      // the MeshOps op bindings must reproduce fromSolidName(entry) exactly —
+      // same V/F/I counts and an identical vertex buffer (spec gate 8).
+      if (typeof MeshOps.getRecipe !== 'function') {
+        fail('MeshOps.getRecipe binding is missing');
+      } else {
+        // Unknown and recipe-less names return null, never abort.
+        if (MeshOps.getRecipe('definitely_not_a_solid') !== null) {
+          fail('getRecipe(unknown) should return null');
+        }
+        for (const bare of ['cube', 'icosahedron_kis_gyro']) {
+          if (MeshOps.getRecipe(bare) !== null) {
+            fail(`getRecipe("${bare}") should return null (no recipe)`);
+          }
+        }
+
+        // Applies one recipe step through the wrapper's op bindings; params are
+        // engine-native (radians for hankin, raw t, relax iteration count), so
+        // they pass through verbatim.
+        const applyStep = (wrapper, step) => {
+          switch (step.op) {
+            case 'kis': case 'ambo': case 'gyro': case 'dual':
+            case 'meta': case 'needle': case 'zip':
+              return wrapper[step.op]();
+            case 'truncate': case 'bevel': case 'chamfer': case 'expand':
+              return wrapper[step.op](step.param);
+            case 'hankin': return wrapper.hankin(step.param);
+            case 'relax': return wrapper.relax(step.param);
+            case 'snub': return wrapper.snub(step.param, step.twist);
+            default: return null;
+          }
+        };
+
+        const RECIPE_ENTRIES = ['dodecahedron_hk62_ambo_hk62', 'octahedron_hk17_ambo_hk73'];
+        for (const entryName of RECIPE_ENTRIES) {
+          const recipe = MeshOps.getRecipe(entryName);
+          if (!recipe) { fail(`getRecipe("${entryName}") returned null`); continue; }
+
+          // Payload shape: seed string resolving in the registry, ops array of
+          // {op: string, param: number, twist: number}.
+          if (typeof recipe.seed !== 'string' || recipe.seed.length === 0) {
+            fail(`${entryName}: recipe.seed "${recipe.seed}" is not a non-empty string`);
+            continue;
+          }
+          if (!registry.some((e) => e.name === recipe.seed)) {
+            fail(`${entryName}: recipe.seed "${recipe.seed}" not found in getRegistry()`);
+            continue;
+          }
+          if (!Array.isArray(recipe.ops) || recipe.ops.length === 0) {
+            fail(`${entryName}: recipe.ops is not a non-empty array`);
+            continue;
+          }
+          let shapeOk = true;
+          for (let i = 0; i < recipe.ops.length; i++) {
+            const s = recipe.ops[i];
+            if (typeof s.op !== 'string' || !Number.isFinite(s.param) || !Number.isFinite(s.twist)) {
+              fail(`${entryName}: ops[${i}] malformed: ${JSON.stringify(s)}`);
+              shapeOk = false;
+            }
+          }
+          if (!shapeOk) continue;
+
+          // Reconstruction parity against the whole-generator truth.
+          let cur = MeshOps.fromSolidName(recipe.seed);
+          if (!cur) { fail(`${entryName}: fromSolidName("${recipe.seed}") returned null`); continue; }
+          let broken = false;
+          for (let i = 0; i < recipe.ops.length; i++) {
+            const next = applyStep(cur, recipe.ops[i]);
+            cur.delete();
+            cur = next;
+            if (!cur) {
+              fail(`${entryName}: ops[${i}] ${JSON.stringify(recipe.ops[i])} returned null`);
+              broken = true;
+              break;
+            }
+          }
+          if (broken) continue;
+
+          const truth = MeshOps.fromSolidName(entryName);
+          if (!truth) {
+            fail(`${entryName}: fromSolidName returned null`);
+            cur.delete();
+            continue;
+          }
+          const rv = cur.getVertices(), tv = truth.getVertices();
+          const rf = cur.getFaces(), tf = truth.getFaces();
+          if (rv.length !== tv.length) {
+            fail(`${entryName}: reconstructed vertex count ${rv.length / 3} != ${tv.length / 3}`);
+          } else if (rf.counts.length !== tf.counts.length) {
+            fail(`${entryName}: reconstructed face count ${rf.counts.length} != ${tf.counts.length}`);
+          } else if (rf.indices.length !== tf.indices.length) {
+            fail(`${entryName}: reconstructed index count ${rf.indices.length} != ${tf.indices.length}`);
+          } else {
+            let mismatch = -1;
+            for (let i = 0; i < rv.length; i++) {
+              if (rv[i] !== tv[i]) { mismatch = i; break; }
+            }
+            if (mismatch >= 0) {
+              fail(`${entryName}: reconstructed vertex buffer diverges at float ${mismatch}: ` +
+                `${rv[mismatch]} != ${tv[mismatch]}`);
+            }
+          }
+          cur.delete();
+          truth.delete();
+        }
+        // The reconstructions leave finalized meshes in the tooling arena; wipe
+        // so later sections start from a clean slate.
+        MeshOps.clearToolingMemory();
+        console.log(`  getRecipe: null cases + payload + reconstruction parity (${RECIPE_ENTRIES.join(', ')}) OK`);
+      }
     }
   }
 
