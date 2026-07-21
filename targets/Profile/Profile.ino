@@ -36,6 +36,10 @@
 #define HS_PROFILE_WINDOW 128
 #endif
 
+#ifndef HS_PROFILE_CONFIG_TAG
+#error "Profile builds require HS_PROFILE_CONFIG_TAG"
+#endif
+
 // Further per-run knobs consumed elsewhere (all via PLATFORMIO_BUILD_FLAGS):
 //   HS_PROFILE_EPOCH_REVS    epoch length override (pov_segmented.h) so one
 //                            instance covers a full preset cycle
@@ -385,8 +389,9 @@ static_assert(pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, 1).valid(),
 void setup() {
   Serial.begin(9600); // baud inert on Teensy USB-CDC; initializes Serial only
   delay(1000);        // USB-CDC enumeration settle so early output isn't lost
-  hs::log("profile harness: effect=%s segments=%d rpm=%u f_cpu=%lu",
-          HS_PROFILE_STR(HS_PROFILE_TARGET), NUM_SEGMENTS, RPM,
+  hs::log("profile harness: effect=%s config=%s segments=%d rpm=%u f_cpu=%lu",
+          HS_PROFILE_STR(HS_PROFILE_TARGET),
+          HS_PROFILE_STR(HS_PROFILE_CONFIG_TAG), NUM_SEGMENTS, RPM,
           (unsigned long)F_CPU);
   log_reset_cause();
   g_pov = new (std::nothrow) POV();
