@@ -1043,9 +1043,9 @@ struct GoldConvergence : Base {
  * draw at full opacity; the dissolve percept is the spatial mix ratio, blurred
  * by POV persistence. The salt folds a frame counter into the per-transition
  * seed so the pattern re-rolls every frame (temporal dither). Unlike the other
- * policies this one partitions pixels in the scan (see PixelMask), not
- * fragments in the shader; effects pass the masks to Scan::Mesh::draw
- * themselves.
+ * policies this one partitions rasterizer work (see PixelMask) rather than
+ * fragments in the shader; effects pass the masks to Scan::Mesh::draw (per
+ * pixel) or Plot::Mesh::draw (per wireframe edge) themselves.
  */
 struct Dissolve : Base {
   uint32_t seed = 0x9e3779b9u; /**< Per-transition seed; rolled by retarget(). */

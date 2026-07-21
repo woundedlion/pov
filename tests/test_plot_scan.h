@@ -25,6 +25,7 @@
 
 #include "core/render/plot.h"
 #include "core/render/scan.h"
+#include "core/animation/animation.h" // Segue::Dissolve
 #include "core/render/filter.h"
 #include "core/math/geometry.h"
 #include "core/render/canvas.h"
@@ -935,6 +936,85 @@ inline void test_mesh_edge_gate_pixel_parity() {
     }
   }
   HS_EXPECT_GT(lit_total, 200);
+}
+
+/**
+ * @brief The complementary masks of a Segue::Dissolve partition a wireframe's
+ *        edges exactly: every edge is drawn by one sprite and skipped by the
+ *        other, at every phase.
+ * @details What caps the two-sprite hand-off at one wireframe's cost. The
+ *          shader records each drawn edge's index (register v2), so the check
+ *          is on the drawn set itself, not on pixels.
+ */
+inline void test_mesh_dissolve_masks_partition_edges() {
+  constexpr int W = 96, H = 48;
+  configure_arenas_default();
+
+  alignas(32) static uint8_t seed_a[24 * 1024];
+  alignas(32) static uint8_t seed_b[24 * 1024];
+  alignas(32) static uint8_t geom[16 * 1024];
+  Arena sa(seed_a, sizeof(seed_a));
+  Arena sb(seed_b, sizeof(seed_b));
+  Arena ga(geom, sizeof(geom));
+
+  PolyMesh base = Solids::Platonic::icosahedron(sa, sb);
+  MeshState mesh;
+  mesh.vertices.bind(ga, base.vertices.size());
+  for (const auto &v : base.vertices)
+    mesh.vertices.push_back(v);
+  mesh.faces.bind(ga, base.faces.size());
+  mesh.face_counts.bind(ga, base.face_counts.size());
+  for (size_t i = 0; i < base.face_counts.size(); ++i)
+    mesh.face_counts.push_back((uint8_t)base.face_counts[i]);
+  for (size_t i = 0; i < base.faces.size(); ++i)
+    mesh.faces.push_back(base.faces[i]);
+
+  ArenaVector<Plot::Mesh::Edge> edges;
+  edges.bind(ga, mesh.faces.size());
+  Plot::Mesh::extract_edges(mesh, edges);
+  const size_t num_edges = edges.size();
+
+  Segue::Dissolve dissolve;
+  dissolve.retarget(Y_AXIS);
+
+  auto drawn_set = [&](const PixelMask &mask) {
+    std::vector<bool> seen(num_edges, false);
+    auto shade = [&](const Vector &, Fragment &f) {
+      const int ei = static_cast<int>(f.v2);
+      HS_EXPECT_TRUE(ei >= 0 && static_cast<size_t>(ei) < num_edges);
+      seen[static_cast<size_t>(ei)] = true;
+      f.color = Color4(Pixel(65535, 65535, 65535), 0.9f);
+    };
+    RasterFx fx(W, H);
+    Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters{
+        Filter::Screen::AntiAlias<W, H>()};
+    Canvas c(fx);
+    Plot::Mesh::draw<W, H>(filters, c, mesh, edges, shade, {}, &mask);
+    return seen;
+  };
+
+  const float phases[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
+  for (uint32_t frame = 0; frame < 3; ++frame) {
+    for (float p : phases) {
+      auto in_set = drawn_set(dissolve.mask(p, frame, true));
+      auto out_set = drawn_set(dissolve.mask(p, frame, false));
+      size_t in_count = 0;
+      for (size_t e = 0; e < num_edges; ++e) {
+        HS_EXPECT_TRUE(in_set[e] != out_set[e]);
+        in_count += in_set[e] ? 1 : 0;
+      }
+      // The endpoints are exact: nothing incoming at phase 0, everything at 1.
+      if (p == 0.0f)
+        HS_EXPECT_EQ(in_count, size_t{0});
+      if (p == 1.0f)
+        HS_EXPECT_EQ(in_count, num_edges);
+      // Mid-transition both halves must be non-empty, or the split is vacuous.
+      if (p == 0.5f) {
+        HS_EXPECT_GT(in_count, size_t{0});
+        HS_EXPECT_GT(num_edges - in_count, size_t{0});
+      }
+    }
+  }
 }
 
 /**
@@ -3019,6 +3099,7 @@ inline int run_plot_scan_tests() {
   test_edge_visible_in_clip_matches_span_composition();
   test_rasterize_column_cull_pixel_parity();
   test_mesh_edge_gate_pixel_parity();
+  test_mesh_dissolve_masks_partition_edges();
   test_gate_trail_column_cull_honors_unbounded_edge();
   test_gate_trail_edges_matches_edge_visible();
   test_rasterize_gate_bits_pixel_parity();
