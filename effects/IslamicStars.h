@@ -323,7 +323,7 @@ private:
       int ramp = (fi >= 0 && fi < static_cast<int>(sh.faces))
                      ? sh.face_ramp[fi]
                      : 0;
-      frag.color = shade_mesh_topology(frag, sh.ramps[ramp], 1.0f, seg, 1.0f);
+      frag.color = shade_mesh_topology(frag, sh.ramps[ramp], sh.gain, seg, 1.0f);
     };
 
     {
