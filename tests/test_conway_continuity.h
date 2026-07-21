@@ -56,6 +56,7 @@
 #include "tests/test_conway_soak.h"  // HankinWalkProbe
 #include "tests/test_fixture.h"
 #include "tests/test_harness.h"
+#include "tests/test_partition_seam.h"
 
 namespace hs_test {
 namespace conway_continuity_tests {
@@ -1953,6 +1954,7 @@ inline int run_conway_continuity_tests() {
   test_adopt_departure_swap_framebuffer();
   test_adopt_bridge_arrival_geometry();
   test_dual_swap_crossover_framebuffer();
+  partition_seam_tests::run_partition_seam_tests();
 
   test_crossfade_exact_at_endpoints_emission();
   test_crossfade_class_signature_mapping();
