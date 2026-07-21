@@ -177,7 +177,10 @@ private:
   /**
    * @brief Edge-ownership dissolve replacing the sprite hand-off's crossfade.
    * @details The two overlapping sprites take complementary masks, so the
-   *          32-frame hand-off costs one wireframe's edges instead of two.
+   *          32-frame hand-off costs one wireframe's edges instead of two. The
+   *          seed is never rolled: the frame salt already re-rolls the split
+   *          every frame, and a per-spawn roll would only shift the effect's
+   *          shared RNG stream.
    */
   Segue::Dissolve dissolve;
 
@@ -284,8 +287,6 @@ private:
     baked_palettes_[active_bake_].rebake(*params.palette);
     const int bake_slot = active_bake_;
     param_slots_[bake_slot] = params;
-
-    dissolve.retarget(Y_AXIS);
 
     // Bind the warp magnitude to this spawn's scale so dragging "Warp" takes
     // effect this frame. The single-slot transformer shares one warp across a
