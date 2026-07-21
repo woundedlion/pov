@@ -781,15 +781,17 @@ static inline float screen_step(const Vector &pos, const Vector &tan,
   // sin²φ = 1 - y²; floored so the pole (sin φ → 0) yields a finite, large
   // velocity (hence the min-clamped step) rather than a divide-by-zero.
   const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
-  const float inv_sin = 1.0f / sqrtf(sin2);
+  const float inv_sin = fast_rsqrt(sin2);
   const float dphi_ds = -tan.y * inv_sin;
-  const float dlon_ds = (pos.x * tan.z - pos.z * tan.x) / sin2;
+  const float dlon_ds = (pos.x * tan.z - pos.z * tan.x) * inv_sin * inv_sin;
   const float vx = KX * dlon_ds;
   const float vy = KY * dphi_ds;
-  const float speed = sqrtf(vx * vx + vy * vy);
+  // Squared so fast_rsqrt's strictly-positive domain holds; sqrt is monotone,
+  // so flooring here matches flooring the speed at 1e-6.
+  const float speed2 = std::max(vx * vx + vy * vy, 1e-12f);
   // Degenerate-speed floor: guards 1/speed when a zero/near-zero tangent stalls
   // the curve, yielding base_step rather than an unbounded step.
-  const float step = SCREEN_STEP_PX / std::max(speed, 1e-6f);
+  const float step = SCREEN_STEP_PX * fast_rsqrt(speed2);
   return std::max(base_step * MIN_POLE_SCALE, std::min(step, base_step));
 }
 
