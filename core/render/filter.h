@@ -148,7 +148,8 @@ template <int W, int H> struct Pipeline<W, H> {
     if (!cv.clip().contains_y(y)) return;
     int xi = fast_wrap(x, W);
     if (!cv.clip().contains_x(xi)) return;
-    cv(xi, y) = blend_alpha(alpha)(cv(xi, y), c);
+    Pixel &dst = cv(xi, y);
+    dst = blend_alpha(alpha)(dst, c);
   }
 
   /**
