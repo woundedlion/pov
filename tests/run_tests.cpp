@@ -18,6 +18,7 @@
 #include "tests/test_conway_morph.h"
 #include "tests/test_conway_continuity.h"
 #include "tests/test_conway_soak.h"
+#include "tests/test_opchain_probe.h"
 #include "tests/test_hankin.h"
 #include "tests/test_geometry.h"
 #include "tests/test_spherical_field.h"
@@ -83,6 +84,7 @@ struct TestModule {
   X("conway_continuity",                                                       \
     hs_test::conway_continuity_tests::run_conway_continuity_tests)             \
   X("conway_soak", hs_test::conway_soak_tests::run_conway_soak_tests)          \
+  X("opchain_probe", hs_test::opchain_probe_tests::run_opchain_probe_tests)    \
   X("hankin", hs_test::hankin_tests::run_hankin_tests)                         \
   X("geometry", hs_test::geometry::run_geometry_tests)                         \
   X("spherical_field", hs_test::spherical_field::run_spherical_field_tests)    \
