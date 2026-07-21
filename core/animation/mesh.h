@@ -11,6 +11,7 @@
 #include "color/composition.h"
 #include "mesh/conway.h"
 #include "mesh/conway_graph.h"
+#include "mesh/hankin.h"
 
 namespace Animation {
 
@@ -165,13 +166,16 @@ private:
 };
 
 /**
- * @brief Animates one Conway-operator parameter sweep along a graph edge
- * (docs/conway_morph_spec.md, section 4.1).
- * @details Per frame: run the edge's single op at t(frame) in scratch,
- * settle-slerp toward the relaxed endpoint inside the settle window, compile,
- * attach the leg's hoisted classification, pre-blend the (from, to) palette
- * ramps at w(frame), and hand the mesh to the draw callback. Exactly one mesh
- * is drawn per frame. Bulk state lives in an arena-allocated Transients (same
+ * @brief Animates one operator-sweep leg: a Conway-operator parameter sweep
+ * along a graph edge (docs/conway_morph_spec.md, section 4.1) or a hankin
+ * contact-angle sweep on a fixed seed (docs/opchain_morph_spec.md,
+ * section 5.1).
+ * @details Per frame: produce the swept mesh (the edge's single op at
+ * t(frame) settle-slerped toward the relaxed endpoint inside the settle
+ * window, or update_hankin at theta(frame)) in scratch, compile, attach the
+ * leg's hoisted classification, pre-blend the (from, to) palette ramps at
+ * w(frame), and hand the mesh to the draw callback. Exactly one mesh is
+ * drawn per frame. Bulk state lives in an arena-allocated Transients (same
  * survival contract as MeshMorph); the caller compacts the arena between legs.
  */
 class OpLeg : public AnimationBase<OpLeg> {
@@ -180,6 +184,14 @@ public:
   /** Distinct (from, to) ramp pairs a leg may carry; bounds the per-frame
    * blended-LUT scratch (PAIRS x 3 KB in scratch_arena_b). */
   static constexpr int MAX_BLEND_PAIRS = 8;
+
+  /** Leg kind, dispatched once at construction by the chosen constructor. */
+  enum class LegKind : uint8_t { CONWAY_SWEEP, HANKIN_SWEEP };
+
+  /** Hankin-angle floor (the T_EPS analog): at angle -> 0 every star point
+   * collapses onto its corner via the p_corner fallback, so the clamp keeps
+   * births positive-area. */
+  static constexpr float THETA_EPS = 0.02f;
 
   /**
    * @brief Per-frame shading handed to the draw callback.
@@ -372,8 +384,79 @@ public:
   }
 
   /**
-   * @brief Steps the sweep: op at t(frame), settle slerp, compile, palette
-   * pre-blend, draw.
+   * @brief Constructs a hankin-sweep leg: clones the seed, bakes the
+   * angle-independent hankin topology once, computes the arrival
+   * classification, and builds the palette mappings.
+   * @param seed Base mesh the hankin pattern sweeps on (cloned, not borrowed).
+   * @param theta_start Contact angle at frame 0, radians; clamped below to
+   * THETA_EPS.
+   * @param theta_end Arrival contact angle, radians; clamped below to
+   * THETA_EPS.
+   * @param arena Leg arena backing the cloned seed, the compiled hankin
+   * topology, and hoisted state.
+   * @param draw Draw callback invoked once per frame.
+   * @param handoff Palette provenance of the departed node.
+   * @param sweep_frames Angle-sweep frames (N).
+   * @param bookend Bookend grouping of the arrival node (target keying);
+   * defaults to the swept-classification fallback.
+   * @param easing_fn Easing applied to the sweep angle.
+   */
+  HS_COLD_MEMBER
+  OpLeg(const PolyMesh &seed, float theta_start, float theta_end, Arena &arena,
+        MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
+        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+        draw_fn(draw) {
+    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
+             handoff.prev_faces > 0);
+    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
+    Transients &tr = *buf_;
+
+    MeshOps::clone(seed, tr.seed, arena);
+    tr.kind = LegKind::HANKIN_SWEEP;
+    tr.sweep_frames = sweep_frames;
+    tr.t_start = std::max(theta_start, THETA_EPS);
+    tr.t_end = std::max(theta_end, THETA_EPS);
+    tr.bank = handoff.bank;
+
+    {
+      ScratchScope sa(scratch_arena_a);
+      ScratchScope sb(scratch_arena_b);
+
+      MeshOps::compile_hankin(tr.seed, tr.hankin, arena, scratch_arena_a);
+
+      PolyMesh arrival;
+      MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, tr.t_end);
+      MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
+                                          scratch_arena_b, arena);
+      tr.topo = std::move(arrival.topology);
+      HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+
+      const Vector *start_centroid = nullptr;
+      PolyMesh start_mesh;
+      if (handoff.prev_face_centroid) {
+        MeshOps::update_hankin(tr.hankin, start_mesh, scratch_arena_a,
+                               tr.t_start);
+        HS_CHECK(start_mesh.face_counts.size() == tr.topo.size(),
+                 "OpLeg: start face count differs from arrival");
+        start_centroid = face_centroids(start_mesh, scratch_arena_a);
+      }
+
+      // Star faces are emitted first, in base-face order, so the seed's face
+      // count is the emission-order prefix corresponding 1:1 to it.
+      const size_t survivors = tr.seed.face_counts.size();
+      build_palette_mapping(tr, arrival, handoff, bookend, arena,
+                            start_centroid, survivors);
+    }
+  }
+
+  /**
+   * @brief Steps the sweep: the kind's swept mesh (op at t(frame) plus settle
+   * slerp, or update_hankin at theta(frame)), then compile, palette pre-blend,
+   * draw.
    * @param canvas The canvas passed through to the draw callback.
    * @details HS_COLD: once-per-frame orchestration; the hot loops live in the
    * (already cold) Conway ops and the mesh scan.
@@ -418,41 +501,21 @@ public:
     PolyMesh swept;
     {
       HS_PROFILE(hk_conway_op);
-      swept = run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b, tp, tw);
-      if (settle_alpha > 0.0f) {
-        HS_CHECK(swept.vertices.size() == tr.relaxed.size());
-        for (size_t i = 0; i < swept.vertices.size(); ++i)
-          swept.vertices[i] =
-              slerp(swept.vertices[i], tr.relaxed[i], settle_alpha);
+      if (tr.kind == LegKind::HANKIN_SWEEP) {
+        MeshOps::update_hankin(tr.hankin, swept, scratch_arena_a, tp);
+      } else {
+        swept =
+            run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b, tp, tw);
+        if (settle_alpha > 0.0f) {
+          HS_CHECK(swept.vertices.size() == tr.relaxed.size());
+          for (size_t i = 0; i < swept.vertices.size(); ++i)
+            swept.vertices[i] =
+                slerp(swept.vertices[i], tr.relaxed[i], settle_alpha);
+        }
       }
     }
 
-    MeshState compiled;
-    {
-      HS_PROFILE(hk_conway_compile);
-      MeshOps::compile(swept, compiled, scratch_arena_a, scratch_arena_b);
-    }
-    HS_CHECK(compiled.face_counts.size() == tr.topo.size(),
-             "OpLeg: sweep changed the compiled face count");
-    compiled.topology.bind(scratch_arena_a, tr.topo.size());
-    compiled.topology.append_bulk(tr.topo.data(), tr.topo.size());
-
-    float w =
-        blend_weight(static_cast<float>(frame) / static_cast<float>(duration));
-    BakedPalette *ramps =
-        scratch_arena_b.allocate_n<BakedPalette>(tr.num_ramps);
-    for (int r = 0; r < tr.num_ramps; ++r) {
-      const BakedPalette &from = tr.bank->entries[tr.ramp_from[r]];
-      const BakedPalette &to = tr.bank->entries[tr.ramp_to[r]];
-      new (&ramps[r]) BakedPalette();
-      if (tr.ramp_from[r] == tr.ramp_to[r])
-        ramps[r] = to;
-      else
-        bake_palette_blend(ramps[r], scratch_arena_b, from, to, w);
-    }
-
-    Shading sh{ramps, tr.face_ramp.data(), tr.face_ramp.size()};
-    draw_fn(canvas, compiled, sh);
+    finish_frame(canvas, swept, frame);
   }
 
   /**
@@ -467,8 +530,11 @@ private:
    */
   struct Transients {
     PolyMesh seed; /**< Cloned leg seed. */
+    LegKind kind =
+        LegKind::CONWAY_SWEEP;  /**< Swept-mesh production path. */
+    CompiledHankin hankin;      /**< Baked topology (HANKIN_SWEEP legs). */
     ConwayGraph::MorphOp op =
-        ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator. */
+        ConwayGraph::MorphOp::TRUNCATE; /**< Swept operator (CONWAY_SWEEP). */
     bool reverse = false;               /**< Traversing to_node -> from_node. */
     int sweep_frames = 1;               /**< Operator-sweep frames. */
     int settle_frames = 0;              /**< Relax-slerp frames. */
@@ -503,6 +569,45 @@ private:
     default:
       return MeshOps::snub(seed, target, temp, t, twist);
     }
+  }
+
+  /**
+   * @brief Kind-agnostic frame tail: compile the swept mesh, attach the
+   * hoisted classification, pre-blend the palette ramps at w(frame), draw.
+   * @param canvas The canvas passed through to the draw callback.
+   * @param swept This frame's swept mesh (scratch-backed).
+   * @param frame Clamped frame index for the crossfade weight.
+   */
+  HS_COLD_MEMBER void finish_frame(Canvas &canvas, PolyMesh &swept,
+                                   int frame) {
+    Transients &tr = *buf_;
+
+    MeshState compiled;
+    {
+      HS_PROFILE(hk_conway_compile);
+      MeshOps::compile(swept, compiled, scratch_arena_a, scratch_arena_b);
+    }
+    HS_CHECK(compiled.face_counts.size() == tr.topo.size(),
+             "OpLeg: sweep changed the compiled face count");
+    compiled.topology.bind(scratch_arena_a, tr.topo.size());
+    compiled.topology.append_bulk(tr.topo.data(), tr.topo.size());
+
+    float w =
+        blend_weight(static_cast<float>(frame) / static_cast<float>(duration));
+    BakedPalette *ramps =
+        scratch_arena_b.allocate_n<BakedPalette>(tr.num_ramps);
+    for (int r = 0; r < tr.num_ramps; ++r) {
+      const BakedPalette &from = tr.bank->entries[tr.ramp_from[r]];
+      const BakedPalette &to = tr.bank->entries[tr.ramp_to[r]];
+      new (&ramps[r]) BakedPalette();
+      if (tr.ramp_from[r] == tr.ramp_to[r])
+        ramps[r] = to;
+      else
+        bake_palette_blend(ramps[r], scratch_arena_b, from, to, w);
+    }
+
+    Shading sh{ramps, tr.face_ramp.data(), tr.face_ramp.size()};
+    draw_fn(canvas, compiled, sh);
   }
 
   /** Max distance from a start-parameter face centroid to its departed
