@@ -438,14 +438,20 @@ public:
     // 0.01 target sweeps from a smaller positive birth instead of clamping both
     // endpoints to T_EPS (a still image). Every arrival >= 0.1 keeps the T_EPS
     // birth unchanged.
+    const bool truncate = op == ConwayGraph::MorphOp::TRUNCATE;
+    // A far-side truncate leg arrives past the ambo pinch (arrival > 0.5) and
+    // sweeps through it on the constant-topology truncate branch; the
+    // ambo-equivalent leg (arrival <= 0.5, exactly 0.5 included) keeps its
+    // 0.495 cap and clean-swaps to ambo, so its clamp stays bit-identical.
+    const bool far_side = truncate && t_end > 0.5f;
     const float trunc_floor =
         std::min(ConwayGraph::T_EPS,
                  std::max(t_start, t_end) * ConwayGraph::T_EPS_TRUNCATE_FRAC);
     auto clamp_param = [&](float t) {
-      const bool truncate = op == ConwayGraph::MorphOp::TRUNCATE;
       t = std::max(t, truncate ? trunc_floor : ConwayGraph::T_EPS);
       if (truncate)
-        t = std::min(t, 0.5f - ConwayGraph::T_EPS_AMBO);
+        t = std::min(t, far_side ? ConwayGraph::T_EPS_TRUNCATE_FAR_MAX
+                                 : 0.5f - ConwayGraph::T_EPS_AMBO);
       return t;
     };
     tr.t_start = clamp_param(t_start);
@@ -1107,7 +1113,11 @@ private:
                                         Arena &temp, float t, float twist) {
     switch (op) {
     case ConwayGraph::MorphOp::TRUNCATE:
-      return MeshOps::truncate(seed, target, temp, t);
+      // A far-side leg sweeps through t = 0.5; nudge that one sample off the
+      // ambo short-circuit so the frame keeps the truncate topology (2E
+      // vertices) instead of popping to ambo (V vertices).
+      return MeshOps::truncate(seed, target, temp,
+                               ConwayGraph::truncate_off_pinch(t));
     case ConwayGraph::MorphOp::EXPAND:
       return MeshOps::expand(seed, target, temp, t);
     case ConwayGraph::MorphOp::CHAMFER:
