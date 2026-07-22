@@ -6,6 +6,15 @@
 cmake_minimum_required(VERSION 3.29)
 project(Holosphere CXX)
 
+find_program(HS_PYTHON_EXECUTABLE NAMES python3 python REQUIRED)
+execute_process(
+  COMMAND "${HS_PYTHON_EXECUTABLE}" tools/relax_bakes.py check
+  WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
+  RESULT_VARIABLE HS_RELAX_BAKE_CHECK_RESULT)
+if(NOT HS_RELAX_BAKE_CHECK_RESULT EQUAL 0)
+  message(FATAL_ERROR "Generated relax bakes failed their freshness check")
+endif()
+
 # Two build modes share this file, selected by the toolchain:
 #   * Emscripten toolchain  -> WASM simulator module (daydream)   [EMSCRIPTEN]
 #   * Native clang toolchain -> unit-test executable + CTest      [else]
