@@ -1208,8 +1208,11 @@ inline constexpr Entry catalan_registry[] = {
 inline constexpr uint8_t SEED_OCTAHEDRON = 2;
 inline constexpr uint8_t SEED_DODECAHEDRON = 3;
 inline constexpr uint8_t SEED_ICOSAHEDRON = 4;
+inline constexpr uint8_t SEED_TRUNCATED_OCTAHEDRON = 8;
 inline constexpr uint8_t SEED_RHOMBICUBOCTAHEDRON = 9;
 inline constexpr uint8_t SEED_ICOSIDODECAHEDRON = 12;
+inline constexpr uint8_t SEED_TRUNCATED_ICOSAHEDRON = 14;
+inline constexpr uint8_t SEED_TRUNCATED_ICOSIDODECAHEDRON = 16;
 inline constexpr uint8_t SEED_SNUB_DODECAHEDRON = 17;
 
 static_assert(std::string_view(simple_registry[SEED_OCTAHEDRON].name) ==
@@ -1224,6 +1227,15 @@ static_assert(std::string_view(simple_registry[SEED_SNUB_DODECAHEDRON].name) ==
               "snubDodecahedron");
 static_assert(std::string_view(simple_registry[SEED_ICOSAHEDRON].name) ==
               "icosahedron");
+static_assert(
+    std::string_view(simple_registry[SEED_TRUNCATED_OCTAHEDRON].name) ==
+    "truncatedOctahedron");
+static_assert(
+    std::string_view(simple_registry[SEED_TRUNCATED_ICOSAHEDRON].name) ==
+    "truncatedIcosahedron");
+static_assert(
+    std::string_view(simple_registry[SEED_TRUNCATED_ICOSIDODECAHEDRON].name) ==
+    "truncatedIcosidodecahedron");
 
 /** Step table for dodecahedron_hk62_ambo_hk62. */
 inline constexpr OpStep DODECAHEDRON_HK62_AMBO_HK62_STEPS[] = {
@@ -1327,8 +1339,184 @@ inline constexpr Recipe DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE = {
     SEED_DODECAHEDRON, DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS,
     static_cast<uint8_t>(std::size(DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_STEPS))};
 
+/** Step table for truncatedIcosahedron_ambo_relax100_hk54_needle. */
+inline constexpr OpStep TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_STEPS[] =
+    {{Op::AMBO},
+     {Op::RELAX, 100.0f},
+     {Op::HANKIN, 54.0f * IslamicStarPatterns::D2R},
+     {Op::NEEDLE}};
+/**
+ * Recipe mirror of
+ * IslamicStarPatterns::truncatedIcosahedron_ambo_relax100_hk54_needle.
+ */
+inline constexpr Recipe TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_RECIPE =
+    {SEED_TRUNCATED_ICOSAHEDRON,
+     TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_STEPS,
+     static_cast<uint8_t>(
+         std::size(TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_STEPS))};
 
+/** Step table for truncatedIcosahedron_hk58_chamfer63. */
+inline constexpr OpStep TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS[] = {
+    {Op::HANKIN, 58.0f * IslamicStarPatterns::D2R}, {Op::CHAMFER, 0.63f}};
+/** Recipe mirror of IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63. */
+inline constexpr Recipe TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_RECIPE = {
+    SEED_TRUNCATED_ICOSAHEDRON, TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS,
+    static_cast<uint8_t>(std::size(TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_STEPS))};
 
+/** Step table for truncatedIcosahedron_ambo_relax_truncate33_hk64. */
+inline constexpr OpStep TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_STEPS[] =
+    {{Op::AMBO},
+     {Op::RELAX, 217.0f},
+     {Op::TRUNCATE, 0.33f},
+     {Op::HANKIN, 64.0f * IslamicStarPatterns::D2R}};
+/**
+ * Recipe mirror of
+ * IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate33_hk64.
+ */
+inline constexpr Recipe TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_RECIPE =
+    {SEED_TRUNCATED_ICOSAHEDRON,
+     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_STEPS,
+     static_cast<uint8_t>(
+         std::size(TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_STEPS))};
+
+/** Step table for dodecahedron_bevel2_relax_gyro. */
+inline constexpr OpStep DODECAHEDRON_BEVEL2_RELAX_GYRO_STEPS[] = {
+    {Op::BEVEL, 0.2f}, {Op::RELAX, 100.0f}, {Op::GYRO}};
+/** Recipe mirror of IslamicStarPatterns::dodecahedron_bevel2_relax_gyro. */
+inline constexpr Recipe DODECAHEDRON_BEVEL2_RELAX_GYRO_RECIPE = {
+    SEED_DODECAHEDRON, DODECAHEDRON_BEVEL2_RELAX_GYRO_STEPS,
+    static_cast<uint8_t>(std::size(DODECAHEDRON_BEVEL2_RELAX_GYRO_STEPS))};
+
+/** Step table for truncatedIcosidodecahedron_bevel5_relax_hk77. */
+inline constexpr OpStep TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_STEPS[] = {
+    {Op::BEVEL, 0.5f},
+    {Op::RELAX, 100.0f},
+    {Op::HANKIN, 77.0f * IslamicStarPatterns::D2R}};
+/**
+ * Recipe mirror of
+ * IslamicStarPatterns::truncatedIcosidodecahedron_bevel5_relax_hk77.
+ */
+inline constexpr Recipe TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_RECIPE = {
+    SEED_TRUNCATED_ICOSIDODECAHEDRON,
+    TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_STEPS,
+    static_cast<uint8_t>(
+        std::size(TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_STEPS))};
+
+/** Step table for truncatedOctahedron_gyro_kis_hk17. */
+inline constexpr OpStep TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_STEPS[] = {
+    {Op::GYRO}, {Op::KIS}, {Op::HANKIN, 17.0f * IslamicStarPatterns::D2R}};
+/** Recipe mirror of IslamicStarPatterns::truncatedOctahedron_gyro_kis_hk17. */
+inline constexpr Recipe TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE = {
+    SEED_TRUNCATED_OCTAHEDRON, TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_STEPS,
+    static_cast<uint8_t>(std::size(TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_STEPS))};
+
+/** Step table for truncatedIcosahedron_ambo_relax_truncate001_hankin59. */
+inline constexpr OpStep
+    TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS[] = {
+        {Op::AMBO},
+        {Op::RELAX, 8.0f},
+        {Op::TRUNCATE, 0.01f},
+        {Op::HANKIN, 59.0f * IslamicStarPatterns::D2R}};
+/**
+ * Recipe mirror of
+ * IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin59.
+ */
+inline constexpr Recipe
+    TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_RECIPE = {
+        SEED_TRUNCATED_ICOSAHEDRON,
+        TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS,
+        static_cast<uint8_t>(std::size(
+            TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS))};
+
+/** Step table for truncatedIcosahedron_ambo_relax_truncate001_hankin73. */
+inline constexpr OpStep
+    TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_STEPS[] = {
+        {Op::AMBO},
+        {Op::RELAX, 8.0f},
+        {Op::TRUNCATE, 0.01f},
+        {Op::HANKIN, 73.0f * IslamicStarPatterns::D2R}};
+/**
+ * Recipe mirror of
+ * IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin73.
+ */
+inline constexpr Recipe
+    TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_RECIPE = {
+        SEED_TRUNCATED_ICOSAHEDRON,
+        TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_STEPS,
+        static_cast<uint8_t>(std::size(
+            TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_STEPS))};
+
+/** Step table for dodecahedron_hk35_ambo_hk62_ambo_relax_hk42. */
+inline constexpr OpStep DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_STEPS[] = {
+    {Op::HANKIN, 35.0f * IslamicStarPatterns::D2R},
+    {Op::AMBO},
+    {Op::HANKIN, 62.0f * IslamicStarPatterns::D2R},
+    {Op::AMBO},
+    {Op::RELAX, 100.0f},
+    {Op::HANKIN, 42.0f * IslamicStarPatterns::D2R}};
+/**
+ * Recipe mirror of
+ * IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk42.
+ */
+inline constexpr Recipe DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_RECIPE = {
+    SEED_DODECAHEDRON, DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_STEPS,
+    static_cast<uint8_t>(
+        std::size(DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_STEPS))};
+
+/** Step table for truncatedIcosidodecahedron_truncate50d_ambo_dual. */
+inline constexpr OpStep
+    TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[] = {
+        {Op::TRUNCATE, 50.0f * IslamicStarPatterns::D2R},
+        {Op::AMBO},
+        {Op::DUAL}};
+/**
+ * Recipe mirror of
+ * IslamicStarPatterns::truncatedIcosidodecahedron_truncate50d_ambo_dual.
+ */
+inline constexpr Recipe
+    TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE = {
+        SEED_TRUNCATED_ICOSIDODECAHEDRON,
+        TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS,
+        static_cast<uint8_t>(
+            std::size(TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS))};
+
+/** Step table for truncatedIcosahedron_hk54_ambo_hk72. */
+inline constexpr OpStep TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_STEPS[] = {
+    {Op::HANKIN, 54.0f * IslamicStarPatterns::D2R},
+    {Op::AMBO},
+    {Op::HANKIN, 72.0f * IslamicStarPatterns::D2R}};
+/** Recipe mirror of IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72. */
+inline constexpr Recipe TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_RECIPE = {
+    SEED_TRUNCATED_ICOSAHEDRON, TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_STEPS,
+    static_cast<uint8_t>(std::size(TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_STEPS))};
+
+/** Step table for truncatedIcosahedron_truncate50d_ambo_dual. */
+inline constexpr OpStep TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS[] = {
+    {Op::TRUNCATE, 50.0f * IslamicStarPatterns::D2R}, {Op::AMBO}, {Op::DUAL}};
+/**
+ * Recipe mirror of
+ * IslamicStarPatterns::truncatedIcosahedron_truncate50d_ambo_dual.
+ */
+inline constexpr Recipe TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE = {
+    SEED_TRUNCATED_ICOSAHEDRON,
+    TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS,
+    static_cast<uint8_t>(
+        std::size(TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_STEPS))};
+
+/** Step table for icosahedron_snub_relax_truncate033_hankin62. */
+inline constexpr OpStep ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_STEPS[] = {
+    {Op::SNUB, 0.5f, 0.0f},
+    {Op::RELAX, 8.0f},
+    {Op::TRUNCATE, 0.33f},
+    {Op::HANKIN, 62.0f * IslamicStarPatterns::D2R}};
+/**
+ * Recipe mirror of
+ * IslamicStarPatterns::icosahedron_snub_relax_truncate033_hankin62.
+ */
+inline constexpr Recipe ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE = {
+    SEED_ICOSAHEDRON, ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_STEPS,
+    static_cast<uint8_t>(
+        std::size(ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_STEPS))};
 
 
 /**
@@ -1337,38 +1525,44 @@ inline constexpr Recipe DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE = {
 inline constexpr Entry islamic_registry[] = {
     {"truncatedIcosahedron_ambo_relax100_hk54_needle",
      IslamicStarPatterns::truncatedIcosahedron_ambo_relax100_hk54_needle,
-     Category::Complex},
+     Category::Complex,
+     &TRUNCATED_ICOSAHEDRON_AMBO_RELAX100_HK54_NEEDLE_RECIPE},
     {"dodecahedron_hk62_ambo_hk62",
      IslamicStarPatterns::dodecahedron_hk62_ambo_hk62, Category::Complex,
      &DODECAHEDRON_HK62_AMBO_HK62_RECIPE},
     {"truncatedIcosahedron_hk58_chamfer63",
      IslamicStarPatterns::truncatedIcosahedron_hk58_chamfer63,
-     Category::Complex},
+     Category::Complex, &TRUNCATED_ICOSAHEDRON_HK58_CHAMFER63_RECIPE},
     {"dodecahedron_ambo_bevel33_relax_hk66",
      IslamicStarPatterns::dodecahedron_ambo_bevel33_relax_hk66,
      Category::Complex, &DODECAHEDRON_AMBO_BEVEL33_RELAX_HK66_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate33_hk64",
      IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate33_hk64,
-     Category::Complex},
+     Category::Complex,
+     &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE33_HK64_RECIPE},
     {"dodecahedron_bevel2_relax_gyro",
-     IslamicStarPatterns::dodecahedron_bevel2_relax_gyro, Category::Complex},
+     IslamicStarPatterns::dodecahedron_bevel2_relax_gyro, Category::Complex,
+     &DODECAHEDRON_BEVEL2_RELAX_GYRO_RECIPE},
     {"truncatedIcosidodecahedron_bevel5_relax_hk77",
      IslamicStarPatterns::truncatedIcosidodecahedron_bevel5_relax_hk77,
-     Category::Complex},
+     Category::Complex, &TRUNCATED_ICOSIDODECAHEDRON_BEVEL5_RELAX_HK77_RECIPE},
     {"truncatedOctahedron_gyro_kis_hk17",
-     IslamicStarPatterns::truncatedOctahedron_gyro_kis_hk17, Category::Complex},
+     IslamicStarPatterns::truncatedOctahedron_gyro_kis_hk17, Category::Complex,
+     &TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate001_hankin59",
      IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin59,
-     Category::Complex},
+     Category::Complex,
+     &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_RECIPE},
     {"truncatedIcosahedron_ambo_relax_truncate001_hankin73",
      IslamicStarPatterns::truncatedIcosahedron_ambo_relax_truncate001_hankin73,
-     Category::Complex},
+     Category::Complex,
+     &TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_RECIPE},
     {"icosahedron_ambo_truncate033_hankin59",
      IslamicStarPatterns::icosahedron_ambo_truncate033_hankin59,
      Category::Complex, &ICOSAHEDRON_AMBO_TRUNCATE033_HANKIN59_RECIPE},
     {"dodecahedron_hk35_ambo_hk62_ambo_relax_hk42",
      IslamicStarPatterns::dodecahedron_hk35_ambo_hk62_ambo_relax_hk42,
-     Category::Complex},
+     Category::Complex, &DODECAHEDRON_HK35_AMBO_HK62_AMBO_RELAX_HK42_RECIPE},
     {"octahedron_hk17_ambo_hk73",
      IslamicStarPatterns::octahedron_hk17_ambo_hk73, Category::Complex,
      &OCTAHEDRON_HK17_AMBO_HK73_RECIPE},
@@ -1376,7 +1570,8 @@ inline constexpr Entry islamic_registry[] = {
      Category::Complex, &ICOSAHEDRON_KIS_GYRO_RECIPE},
     {"truncatedIcosidodecahedron_truncate50d_ambo_dual",
      IslamicStarPatterns::truncatedIcosidodecahedron_truncate50d_ambo_dual,
-     Category::Complex},
+     Category::Complex,
+     &TRUNCATED_ICOSIDODECAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE},
     {"icosidodecahedron_truncate5d_ambo_dual",
      IslamicStarPatterns::icosidodecahedron_truncate5d_ambo_dual,
      Category::Complex, &ICOSIDODECAHEDRON_TRUNCATE5D_AMBO_DUAL_RECIPE},
@@ -1391,7 +1586,7 @@ inline constexpr Entry islamic_registry[] = {
      Category::Complex, &RHOMBICUBOCTAHEDRON_HK63_AMBO_HK63_RECIPE},
     {"truncatedIcosahedron_hk54_ambo_hk72",
      IslamicStarPatterns::truncatedIcosahedron_hk54_ambo_hk72,
-     Category::Complex},
+     Category::Complex, &TRUNCATED_ICOSAHEDRON_HK54_AMBO_HK72_RECIPE},
     {"dodecahedron_hk54_ambo_hk72",
      IslamicStarPatterns::dodecahedron_hk54_ambo_hk72, Category::Complex,
      &DODECAHEDRON_HK54_AMBO_HK72_RECIPE},
@@ -1400,10 +1595,10 @@ inline constexpr Entry islamic_registry[] = {
      &DODECAHEDRON_HK72_AMBO_DUAL_HK20_RECIPE},
     {"truncatedIcosahedron_truncate50d_ambo_dual",
      IslamicStarPatterns::truncatedIcosahedron_truncate50d_ambo_dual,
-     Category::Complex},
+     Category::Complex, &TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE},
     {"icosahedron_snub_relax_truncate033_hankin62",
      IslamicStarPatterns::icosahedron_snub_relax_truncate033_hankin62,
-     Category::Complex}};
+     Category::Complex, &ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_RECIPE}};
 
 /** Total number of solids across all three registries. */
 inline constexpr int NUM_ENTRIES =
