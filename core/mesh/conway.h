@@ -348,6 +348,26 @@ inline void transform(const MeshState &mesh, MeshState &transformed,
   }
 }
 
+/**
+ * @brief Applies each transformer to every vertex of a mesh in place.
+ * @tparam Transformers Types of the vertex transformers (possibly none).
+ * @param mesh Mesh whose vertices are overwritten; topology untouched.
+ * @param transformers Vertex transformers, applied left to right and unrolled at
+ *   compile time via a fold; matches transform()'s fold order.
+ * @note Per-vertex independent, so in place is safe and allocates nothing. Use
+ *   when the source mesh is a throwaway that need not survive the transform;
+ *   transform() (which copies) is for a reused source.
+ */
+template <typename... Transformers>
+inline void transform_in_place(MeshState &mesh,
+                               const Transformers &...transformers) {
+  for (size_t i = 0; i < mesh.vertices.size(); ++i) {
+    Vector v = mesh.vertices[i];
+    (..., (v = transformers(v)));
+    mesh.vertices[i] = v;
+  }
+}
+
 HS_O3_END
 
 HS_O3_BEGIN

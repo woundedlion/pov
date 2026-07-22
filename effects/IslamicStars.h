@@ -321,16 +321,27 @@ private:
    * @param mesh Compiled swept mesh (scratch-backed, this frame only).
    * @param sh Per-face blended-ramp table from the OpLeg.
    */
-  HS_O3_FN void draw_build_mesh(Canvas &canvas, const MeshState &mesh,
+  HS_O3_FN void draw_build_mesh(Canvas &canvas, const MeshState &mesh_in,
                                 const Animation::OpLeg::Shading &sh) {
-    if (mesh.vertices.is_empty())
+    if (mesh_in.vertices.is_empty())
       return;
     // Own scope labels: sharing the sprite's would parent two draw paths under
     // one counter, and a build-only window then prints an empty subtree while a
     // mixed window prints the child above its own parent's total.
     HS_PROFILE(is_build_draw);
-    ScratchScope a_guard(scratch_arena_a);
-    MeshState transformed_state = transform_shape(mesh);
+    // The build mesh is OpLeg::finish_frame's per-frame throwaway (a non-const
+    // MeshState local); transform its vertices in place rather than into a
+    // second scratch_a buffer. At the 1082-face entry the leg's swept mesh plus
+    // its compiled form already hold ~120.9 KB of scratch_a, so a transformed
+    // copy overflowed the 120 KB split. The sprite path keeps transform_shape:
+    // its source is a persistent mesh reused every frame. The draw callback is
+    // typed const, so cast away const at this one build call site.
+    MeshState &mesh = const_cast<MeshState &>(mesh_in);
+    OrientTransformer camera(orientation);
+    {
+      HS_PROFILE(is_mesh_transform);
+      MeshOps::transform_in_place(mesh, ripple_gen, camera);
+    }
     const SegueT &seg = carousel.segue();
 
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
@@ -343,8 +354,13 @@ private:
 
     {
       HS_PROFILE(is_build_scan);
-      Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
-                             fragment_shader, scratch_arena_a, params.debug_bb);
+      // Rasterize from scratch_b: the swept+compiled mesh fills scratch_a to
+      // ~120.9 KB during a build leg, leaving no room for the scan's per-face
+      // SDF::FaceScratchBuffer, while scratch_b is near-empty here (the Conway
+      // op and compile temps have unwound). The sprite path scans from
+      // scratch_a, where its transformed copy already lives.
+      Scan::Mesh::draw<W, H>(filters, canvas, mesh, fragment_shader,
+                             scratch_arena_b, params.debug_bb);
     }
   }
 
