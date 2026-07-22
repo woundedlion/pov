@@ -508,7 +508,8 @@ public:
       ScratchScope sa(scratch_arena_a);
       ScratchScope sb(scratch_arena_b);
 
-      MeshOps::compile_hankin(seed, tr.hankin, arena, scratch_arena_a);
+      MeshOps::compile_hankin(seed, tr.hankin, arena, scratch_arena_a,
+                              /*borrow_base_vertices=*/true);
 
       PolyMesh arrival;
       MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, theta_hi);
@@ -1234,8 +1235,7 @@ private:
         out.vertices.push_back(tr.hk_final[i].decode().normalized());
     } else {
       for (size_t i = 0; i < dyn; ++i) {
-        const Vector corner =
-            hk.base_vertices[hk.dynamic_instructions[i].v_corner];
+        const Vector corner = hk.corner(hk.dynamic_instructions[i].v_corner);
         out.vertices.push_back(
             slerp(normalized_or(corner, corner), tr.hk_final[i].decode(), k));
       }
@@ -1367,29 +1367,37 @@ private:
     HS_CHECK(!bookend.topology || bookend.faces == total ||
                  bookend.faces == survivors,
              "OpLeg: bookend face count matches neither mapping");
-    const size_t landed = bookend.topology ? bookend.faces : total;
-    const Vector *arrival_centroid =
-        landed < total ? face_centroids(arrival, scratch_arena_a) : nullptr;
-    tr.target_topo.bind(arena, total);
-    for (size_t f = 0; f < total; ++f) {
-      if (f < landed) {
-        tr.target_topo.push_back(bookend.topology ? bookend.topology[f]
-                                                  : tr.topo[f]);
-        continue;
-      }
-      size_t host = 0;
-      float best_d = 1e9f;
-      for (size_t j = 0; j < landed; ++j) {
-        const Vector d = arrival_centroid[f] - arrival_centroid[j];
-        const float dsq = dot(d, d);
-        if (dsq < best_d) {
-          best_d = dsq;
-          host = j;
+    // Without a bookend grouping the target class is the swept class verbatim,
+    // so target_topo would only duplicate topo; alias it instead of allocating.
+    const int *target_topo;
+    if (bookend.topology) {
+      const size_t landed = bookend.faces;
+      const Vector *arrival_centroid =
+          landed < total ? face_centroids(arrival, scratch_arena_a) : nullptr;
+      tr.target_topo.bind(arena, total);
+      for (size_t f = 0; f < total; ++f) {
+        if (f < landed) {
+          tr.target_topo.push_back(bookend.topology[f]);
+          continue;
         }
+        size_t host = 0;
+        float best_d = 1e9f;
+        for (size_t j = 0; j < landed; ++j) {
+          const Vector d = arrival_centroid[f] - arrival_centroid[j];
+          const float dsq = dot(d, d);
+          if (dsq < best_d) {
+            best_d = dsq;
+            host = j;
+          }
+        }
+        tr.target_topo.push_back(bookend.topology[host]);
       }
-      tr.target_topo.push_back(bookend.topology[host]);
+      target_topo = tr.target_topo.data();
+    } else {
+      tr.target_topo.clear();
+      target_topo = tr.topo.data();
     }
-    tr.landing.topology = tr.target_topo.data();
+    tr.landing.topology = target_topo;
 
     if (handoff.pinned_to) {
       tr.landing.to_palette = *handoff.pinned_to;
@@ -1433,7 +1441,7 @@ private:
 
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
-      uint8_t to = tr.landing.to_palette[wrap(tr.target_topo[f], PALETTES)];
+      uint8_t to = tr.landing.to_palette[wrap(target_topo[f], PALETTES)];
       uint8_t from = to; // fallback: newborn faces skip the crossfade
       if (forced_from) {
         from = forced_from[f];
@@ -1448,7 +1456,7 @@ private:
         if (f < handoff.prev_faces) {
           from = handoff.prev_face_palette[f];
         } else {
-          const int slot = wrap(tr.target_topo[f], PALETTES);
+          const int slot = wrap(target_topo[f], PALETTES);
           if (newborn_from[slot] < 0)
             newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
                 start_centroid[f], handoff)];
