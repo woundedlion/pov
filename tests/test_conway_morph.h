@@ -2438,42 +2438,16 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   // (opchain_morph_spec 5.1).
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.001f}));
-  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 50.0f * D2R}));
+  // 50 deg = 0.873 is a far-side arrival past the ambo pinch: now a real
+  // sweeping leg (opchain_morph_spec 5.1), not a clamped clean-swap. A
+  // fully-crossed t == 1 stays blocked (cut faces collapse).
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 50.0f * D2R}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 1.0f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::CHAMFER, 0.63f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::KIS}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::DUAL}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.001f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.9f}));
-
-  // What the gate avoids, on the seed the blocked truncate recipe reaches
-  // (truncatedIcosahedron.ambo().relax()): a clamped leg lands this far from
-  // the mesh the recipe holds, as one silent full-mesh pop at the bookend.
-  // truncate keeps its 2E vertices in emission order on both sides of 0.5, so
-  // the chords are per-index.
-  Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
-  PolyMesh seed =
-      build_step_leg_seed({"", probe_ticosa_ambo_relax217, 0.0f}, persist);
-  Arena a(morph_target_buf, sizeof(morph_target_buf));
-  Arena b(morph_temp_buf, sizeof(morph_temp_buf));
-  Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
-
-  auto max_chord = [](const PolyMesh &x, const PolyMesh &y) {
-    HS_EXPECT_EQ(x.vertices.size(), y.vertices.size());
-    float worst = 0.0f;
-    for (size_t i = 0; i < x.vertices.size(); ++i)
-      worst = std::max(worst, distance_between(x.vertices[i], y.vertices[i]));
-    return worst;
-  };
-
-  const PolyMesh clamped_hi =
-      MeshOps::truncate(seed, a, b, 0.5f - ConwayGraph::T_EPS_AMBO);
-  const PolyMesh target_hi = MeshOps::truncate(seed, aux, b, 50.0f * D2R);
-  std::printf("  [gate] truncate(50 deg = %.4f) past the ambo point: leg ends "
-              "at t=%.3f, closing chord %.4f (%.1f px at r=64), F=%zu\n",
-              (double)(50.0f * D2R), (double)(0.5f - ConwayGraph::T_EPS_AMBO),
-              (double)max_chord(clamped_hi, target_hi),
-              (double)(max_chord(clamped_hi, target_hi) * 64.0f),
-              clamped_hi.face_counts.size());
 }
 
 // ---------------------------------------------------------------------------

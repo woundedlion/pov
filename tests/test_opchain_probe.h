@@ -477,6 +477,145 @@ inline void test_truncate001_birth_sweep_holds_topology() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Far-side truncate sweep (opchain_morph_spec section 5.1): the two
+// truncatedIcos{ahedron,idodecahedron}_truncate50d_ambo_dual recipes truncate
+// at 50 deg = 0.873, PAST the ambo pinch (t = 0.5). truncate emits a constant
+// topology (2E vertices, F+V faces, 3I indices) for every t != 0.5; only the
+// exact-0.5 short-circuit differs (returns ambo, V vertices). A far-side leg
+// births on the near side (small t), sweeps through 0.5 with the pinch guard
+// nudging that one sample off the short-circuit, and arrives at 0.873 on the
+// intentionally self-intersecting truncate branch.
+//
+// Past 0.5 the cut faces self-intersect BY DESIGN, so signed area, winding, and
+// closed-manifold checks fail legitimately (MEMORY: structural checks only for
+// crossed-face ops). This test asserts only what stays true across the pinch:
+// constant raw and compiled face count, constant V/F/I, finite unit vertices,
+// and no exact-0.5 evaluation. Positive area is asserted only on the near side.
+// ---------------------------------------------------------------------------
+
+inline PolyMesh probe_ticosidodeca(Arena &a, Arena &b) {
+  return Solids::Archimedean::truncatedIcosidodecahedron(a, b);
+}
+
+inline constexpr TruncateSite FAR_TRUNCATE_SITES[] = {
+    {"truncatedIcosahedron_truncate50d_ambo_dual", probe_ticosa},
+    {"truncatedIcosidodecahedron_truncate50d_ambo_dual", probe_ticosidodeca},
+};
+
+/** Arrival parameter of the two truncate50d recipes: 50 deg past the pinch. */
+inline constexpr float TRUNCATE50D_T_STAR =
+    50.0f * Solids::IslamicStarPatterns::D2R;
+/** Below this t, the truncate cut faces do not yet self-intersect, so positive
+ * area still holds and can be asserted. Above the pinch (0.5) it cannot. */
+inline constexpr float FAR_SIDE_NEAR_LIMIT = 0.49f;
+
+/**
+ * @brief Steps the far-side truncate leg from its near-side birth floor through
+ *        the ambo pinch to 0.873 on both truncate50d seeds, asserting the leg
+ *        does not trap and does not change topology across the pinch.
+ * @details Mirrors the OpLeg recipe-step clamp: the leg births at min(T_EPS,
+ * arrival * T_EPS_TRUNCATE_FRAC) and the far-side arrival passes through
+ * unclamped (below T_EPS_TRUNCATE_FAR_MAX). Every per-frame sample is routed
+ * through ConwayGraph::truncate_off_pinch, so a sample landing exactly on 0.5
+ * is nudged off the ambo short-circuit and the frame keeps the truncate
+ * topology. STRUCTURAL checks only past 0.5 (self-intersecting by design): no
+ * signed-area or manifold assertion there.
+ */
+inline void test_truncate50d_far_side_sweep_holds_topology() {
+  constexpr int SAMPLES = 48;
+  const float birth =
+      std::min(ConwayGraph::T_EPS,
+               TRUNCATE50D_T_STAR * ConwayGraph::T_EPS_TRUNCATE_FRAC);
+  // A real animation across the pinch: birth on the near side, arrival past it,
+  // arrival unclamped (below the far-side cap).
+  HS_EXPECT_TRUE(birth < 0.5f);
+  HS_EXPECT_TRUE(TRUNCATE50D_T_STAR > 0.5f);
+  HS_EXPECT_TRUE(TRUNCATE50D_T_STAR <= ConwayGraph::T_EPS_TRUNCATE_FAR_MAX);
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, TRUNCATE50D_T_STAR}));
+  // The guard moves an exact-0.5 sample onto the truncate branch.
+  HS_EXPECT_TRUE(ConwayGraph::truncate_off_pinch(0.5f) != 0.5f);
+
+  for (const TruncateSite &site : FAR_TRUNCATE_SITES) {
+    const int failed_before = hs_test::stats().failed;
+
+    Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
+    Arena a(probe_a_buf, sizeof(probe_a_buf));
+    Arena b(probe_b_buf, sizeof(probe_b_buf));
+    PolyMesh seed;
+    {
+      ScratchScope ga(a);
+      ScratchScope gb(b);
+      seed = Solids::finalize_solid(site.seed(a, b), persist);
+    }
+
+    size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
+    std::vector<size_t> off;
+    float min_area_near = 1e9f;
+    bool pinch_guarded = false;
+    for (int s = 0; s < SAMPLES; ++s) {
+      // Linear birth -> arrival, plus one sample forced onto the exact pinch so
+      // the guard is exercised deterministically.
+      float raw = (s == SAMPLES / 2)
+                      ? 0.5f
+                      : birth + (TRUNCATE50D_T_STAR - birth) *
+                                    (static_cast<float>(s) / (SAMPLES - 1));
+      const float t = ConwayGraph::truncate_off_pinch(raw);
+      // No frame ever evaluates truncate at the exact ambo short-circuit.
+      HS_EXPECT_TRUE(t != 0.5f);
+      if (raw == 0.5f)
+        pinch_guarded = true;
+
+      ScratchScope fa(a);
+      ScratchScope fb(b);
+      PolyMesh swept = MeshOps::truncate(seed, a, b, t);
+      MeshState compiled;
+      MeshOps::compile(swept, compiled, a, b);
+      if (s == 0) {
+        v0 = swept.vertices.size();
+        f0 = swept.face_counts.size();
+        i0 = swept.faces.size();
+        compiled0 = compiled.face_counts.size();
+        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+      } else {
+        // Topology is t-independent off the pinch: no pop across 0.5.
+        HS_EXPECT_EQ(swept.vertices.size(), v0);
+        HS_EXPECT_EQ(swept.face_counts.size(), f0);
+        HS_EXPECT_EQ(swept.faces.size(), i0);
+        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+      }
+      check_face_counts_consistent(swept);
+      check_indices_in_range(swept);
+      check_all_unit_vertices(swept, 1e-3f);
+      for (size_t i = 0; i < swept.vertices.size(); ++i)
+        HS_EXPECT_TRUE(std::isfinite(swept.vertices[i].length()));
+
+      // Positive area is a near-side-only invariant: past the pinch the cut
+      // faces self-intersect by design and signed area legitimately flips.
+      if (t <= FAR_SIDE_NEAR_LIMIT) {
+        face_offsets(swept, off);
+        for (size_t f = 0; f < swept.face_counts.size(); ++f) {
+          const Vector n = newell(swept, off[f], swept.face_counts[f]);
+          min_area_near = std::min(min_area_near, std::sqrt(dot(n, n)));
+        }
+      }
+    }
+
+    HS_EXPECT_TRUE(pinch_guarded);
+    HS_EXPECT_TRUE(min_area_near > 0.0f);
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [truncate50d] %s failed (raw F=%zu compiled=%zu)\n",
+                  site.name, f0, compiled0);
+    else
+      std::printf(
+          "  [truncate50d] %s: birth=%.4f -> %.4f through pinch V=%zu "
+          "F=%zu I=%zu compiled=%zu min_area_near=%.3e guard_fired=%d\n",
+          site.name, static_cast<double>(birth),
+          static_cast<double>(TRUNCATE50D_T_STAR), v0, f0, i0, compiled0,
+          static_cast<double>(min_area_near), pinch_guarded ? 1 : 0);
+  }
+}
+
 /**
  * @brief Finds the smallest chamfer t at which no newborn hexagon is rejected
  *        by SDF::Face's collapsed-area cull, per seed.
@@ -865,6 +1004,7 @@ inline int run_opchain_probe_tests() {
   test_chamfer_birth_epsilon();
 
   test_truncate001_birth_sweep_holds_topology();
+  test_truncate50d_far_side_sweep_holds_topology();
 
   test_build_chain_centroid_spacing();
   test_build_chain_provenance_ambiguity();

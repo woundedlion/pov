@@ -134,6 +134,28 @@ inline constexpr float T_EPS_TRUNCATE_FRAC = 0.2f;
  * birth-to-arrival span is too few pixels to read as motion. Its birth floor
  * (arrival * T_EPS_TRUNCATE_FRAC) stays a valid positive-area truncate. */
 inline constexpr float T_EPS_TRUNCATE_MIN = 0.002f;
+/** Upper truncate clamp for a far-side leg (arrival > 0.5, e.g. the two
+ * truncate50d recipes at 50 deg = 0.873): stops just below t = 1, where every
+ * cut point reaches the opposite endpoint and the cut faces collapse. A
+ * far-side leg sweeps through the ambo pinch on the constant-topology truncate
+ * branch instead of clean-swapping to ambo; the ambo-equivalent leg (arrival
+ * <= 0.5) keeps its 0.5 - T_EPS_AMBO cap and clean-swaps. */
+inline constexpr float T_EPS_TRUNCATE_FAR_MAX = 1.0f - T_EPS_AMBO;
+/** Nudge off the exact t = 0.5 truncate short-circuit: at 0.5 truncate returns
+ * ambo (V vertices, not 2E), a one-frame topology break for a far-side leg
+ * sweeping through the pinch. Only far-side legs (arrival > 0.5) ever reach
+ * 0.5, so a 0.5 sample is pushed to 0.5 + this toward the arrival, staying on
+ * the truncate branch. Small against the ~0.018 per-frame sweep step, so no
+ * visible hitch. */
+inline constexpr float T_EPS_TRUNCATE_PINCH = 1e-4f;
+
+/** @brief Returns @p t clear of the exact t = 0.5 truncate ambo short-circuit.
+ * @details A far-side truncate sample landing on 0.5 is pushed to 0.5 +
+ * T_EPS_TRUNCATE_PINCH so the leg stays on the constant-topology truncate
+ * branch through the pinch instead of emitting one ambo frame. */
+inline constexpr float truncate_off_pinch(float t) {
+  return t == 0.5f ? 0.5f + T_EPS_TRUNCATE_PINCH : t;
+}
 
 /** Operator-sweep frames per leg. */
 inline constexpr int SWEEP_FRAMES = 48;
