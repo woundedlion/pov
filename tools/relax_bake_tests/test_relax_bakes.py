@@ -55,5 +55,18 @@ class TextHashing(unittest.TestCase):
                 relax_bakes.check(None)
 
 
+class BuildPolicy(unittest.TestCase):
+    def test_only_teensy_builds_gate_bake_freshness(self):
+        cmake = (relax_bakes.ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
+        platformio = (relax_bakes.ROOT / "platformio.ini").read_text(
+            encoding="utf-8")
+        prebuild = (relax_bakes.ROOT / "tools/relax_bake_check.py").read_text(
+            encoding="utf-8")
+
+        self.assertNotIn("relax_bakes.py check", cmake)
+        self.assertIn("pre:tools/relax_bake_check.py", platformio)
+        self.assertIn('"tools/relax_bakes.py", "check"', prebuild)
+
+
 if __name__ == "__main__":
     unittest.main()
