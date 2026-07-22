@@ -3041,14 +3041,27 @@ inline void test_islamicstars_recipe_build_smoke() {
  */
 inline void test_islamicstars_roster_cycle_fits_budget() {
   reset_effect_globals();
-  IslamicStars<96, 20> effect;
+  // Production resolution, not device: the swept+compiled+draw scratch peak a
+  // build leg reaches is mesh-driven and resolution-independent, but the effect
+  // ships at 288x144, so the gate holds the real geometry. Trans Speed 8
+  // compresses each stage so the whole roster cycles in ~1200 frames without
+  // dropping any leg (never lower the resolution: that would shrink the peak).
+  IslamicStars<288, 144> effect;
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   effect.init();
+
+  // The effect's own configured split (IslamicStars::init): scratch_a=120 KB,
+  // scratch_b=74 KB. On host the arenas are these exact sizes, so an over-budget
+  // leg traps in the arena; the asserts below add a margin check for a
+  // near-miss that would still fit but erode the headroom.
+  constexpr size_t SCRATCH_A_BUDGET = 120 * 1024; // 122,880
+  constexpr size_t SCRATCH_B_BUDGET = 74 * 1024;  // 75,776
 
   const int entries =
       static_cast<int>(Solids::Collections::get_islamic_solids().size());
   constexpr int MAX_FRAMES = 20000;
-  size_t peak = 0;
+  size_t persist_peak = 0;
+  size_t a_peak = 0, b_peak = 0;
   int frames = 0;
   int shapes = 0;
   int builds = 0;
@@ -3057,9 +3070,11 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
     effect.draw_frame();
     effect.advance_display();
     ++frames;
-    // reset() clears the arena's own mark, so sample every frame to keep the
-    // peak across compactions.
-    peak = std::max(peak, persistent_arena.get_high_water_mark());
+    // reset() clears each arena's own mark, so sample every frame to keep the
+    // peak across the per-leg compactions.
+    persist_peak = std::max(persist_peak, persistent_arena.get_high_water_mark());
+    a_peak = std::max(a_peak, scratch_arena_a.get_high_water_mark());
+    b_peak = std::max(b_peak, scratch_arena_b.get_high_water_mark());
     if (IslamicBuildProbe::build_active(effect))
       ++builds;
     const int cur = IslamicBuildProbe::solid_idx(effect);
@@ -3069,16 +3084,21 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
     }
   }
 
-  // The device split, not the host arena: on host GLOBAL_ARENA_SIZE dwarfs the
-  // real budget and the comparison would pass vacuously. Mirrors the
-  // configure_arenas call in IslamicStars::init.
-  const size_t budget = DEVICE_GLOBAL_ARENA_SIZE - (114 + 80) * 1024;
-  std::printf("  [roster] %d shapes over %d frames, %d build frames, "
-              "persistent peak=%zu B / %zu B\n",
-              shapes, frames, builds, peak, budget);
+  std::printf(
+      "  [roster] %d shapes over %d frames, %d build frames: scratch_a "
+      "peak=%zu/%zu B, scratch_b peak=%zu/%zu B, persistent peak=%zu B\n",
+      shapes, frames, builds, a_peak, SCRATCH_A_BUDGET, b_peak,
+      SCRATCH_B_BUDGET, persist_peak);
+  if (a_peak > SCRATCH_A_BUDGET)
+    std::printf("  IslamicStars OVER scratch_a budget: %zu > %zu\n", a_peak,
+                SCRATCH_A_BUDGET);
+  if (b_peak > SCRATCH_B_BUDGET)
+    std::printf("  IslamicStars OVER scratch_b budget: %zu > %zu\n", b_peak,
+                SCRATCH_B_BUDGET);
   HS_EXPECT_GT(shapes, entries - 1);
   HS_EXPECT_GT(builds, 0);
-  HS_EXPECT_LE(peak, budget);
+  HS_EXPECT_LE(a_peak, SCRATCH_A_BUDGET);
+  HS_EXPECT_LE(b_peak, SCRATCH_B_BUDGET);
 }
 
 /**
