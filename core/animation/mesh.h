@@ -218,6 +218,15 @@ public:
    * count mid-leg). Measured sufficient for every Phase-1 leg. */
   static constexpr float K_EPS = 0.005f;
 
+  /** Frames over which a gated leg's colour diverges from the held source
+   * palette to its target (late_blend_weight). Colour holds at `from` until this
+   * many frames remain, then ramps to `to` at the arrival. Keyed off
+   * frames-from-the-end so the window is the same few frames on any gate length
+   * (a gate leg is ~13 frames), which is what removes the colour jump: the
+   * partition opens in the colour already painted where it lands and diverges
+   * only at the very end of the leg. */
+  static constexpr int LATE_FADE_FRAMES = 4;
+
   /**
    * @brief Per-frame shading handed to the draw callback.
    * @details The fragment path stays a single BakedPalette::get(t):
@@ -751,7 +760,8 @@ public:
     }
 
     finish_frame(canvas, swept,
-                 static_cast<float>(frame) / static_cast<float>(duration));
+                 blend_weight(static_cast<float>(frame) /
+                              static_cast<float>(duration)));
   }
 
   /**
@@ -794,6 +804,27 @@ public:
   void set_blend_range(float lo, float hi) {
     buf_->w_lo = lo;
     buf_->w_hi = hi;
+  }
+
+  /**
+   * @brief Late-fade crossfade weight for the gated legs: exactly 0 until the
+   * final LATE_FADE_FRAMES of the leg, then smoothstep to exactly 1 at the
+   * arrival frame.
+   * @param frame 1-based leg frame (1..duration).
+   * @param duration Leg length in frames.
+   * @details Holds the inherited source palette across the swap and most of the
+   * gate, so the partition changes topology without a colour jump, then
+   * diverges to the target only over the last few frames. Reaching exactly 1 on
+   * the final frame lands the leg on its target colour before the next leg
+   * departs.
+   */
+  static float late_blend_weight(int frame, int duration) {
+    const int from_end = duration - frame;
+    if (from_end >= LATE_FADE_FRAMES)
+      return 0.0f;
+    const float u =
+        static_cast<float>(LATE_FADE_FRAMES - from_end) / LATE_FADE_FRAMES;
+    return u * u * (3.0f - 2.0f * u);
   }
 
 private:
@@ -1005,10 +1036,10 @@ private:
         mesh = swap_at(tr, scratch_arena_a, scratch_arena_b);
     }
 
-    // Colour holds at the departed palettes through the closing half, so the
-    // swap frame opens the children in the colour already painted where they
-    // land, and converges to the arrival targets over the opening half.
-    finish_frame(canvas, mesh, seed_side ? 0.0f : (g - gate) / gate, gain,
+    // Colour holds at the departed palettes across the swap and most of the
+    // gate, so the children open in the colour already painted where they land,
+    // and converges to the arrival targets only over the final frames.
+    finish_frame(canvas, mesh, late_blend_weight(frame, duration), gain,
                  seed_side);
   }
 
@@ -1129,16 +1160,19 @@ private:
 
   /**
    * @brief Kind-agnostic frame tail: compile the swept mesh, attach the
-   * hoisted classification, pre-blend the palette ramps at w(p), draw.
+   * hoisted classification, pre-blend the palette ramps at the crossfade weight,
+   * draw.
    * @param canvas The canvas passed through to the draw callback.
    * @param swept This frame's swept mesh (scratch-backed).
-   * @param p Leg progress in [0, 1] the crossfade weight keys on.
+   * @param w Crossfade weight in [0, 1] the caller already resolved (blend_weight
+   * for the swept kinds, late_blend_weight for the gate); rebased through the
+   * leg's [w_lo, w_hi] share here.
    * @param gain Shading gain handed to the draw callback.
    * @param seed_side Draw the gate's seed-side tables (GATED_SWAP only): the
-   * seed classification and its identity ramp table, which p == 0 leaves at the
+   * seed classification and its identity ramp table, which w == 0 leaves at the
    * departed palettes.
    */
-  HS_COLD_MEMBER void finish_frame(Canvas &canvas, PolyMesh &swept, float p,
+  HS_COLD_MEMBER void finish_frame(Canvas &canvas, PolyMesh &swept, float w,
                                    float gain = 1.0f, bool seed_side = false) {
     Transients &tr = *buf_;
     const ArenaVector<int> &topo = seed_side ? tr.seed_topo : tr.topo;
@@ -1153,7 +1187,6 @@ private:
     HS_CHECK(compiled.face_counts.size() == topo.size(),
              "OpLeg: sweep changed the compiled face count");
 
-    float w = blend_weight(p);
     // Chained-leg rebasing (spec 5.3): the plateau weights land on the leg's
     // [w_lo, w_hi] share of the whole-chain convergence.
     w = tr.w_lo + w * (tr.w_hi - tr.w_lo);
