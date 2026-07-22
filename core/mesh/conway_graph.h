@@ -123,6 +123,18 @@ inline constexpr float T_EPS_AMBO = 0.005f;
  * then clean-swaps to the held octahedron. */
 inline constexpr float T_EPS_JITTERBUG = 0.5104592f;
 
+/** Truncate birth-floor fraction of the arrival param: a recipe-step truncate
+ * leg is born at min(T_EPS, arrival * T_EPS_TRUNCATE_FRAC), so an arrival below
+ * T_EPS (0.01) still sweeps from a smaller positive birth instead of collapsing
+ * to a still image (t_start == t_end). The 0.2 fraction crosses over to the
+ * flat T_EPS birth at arrival = T_EPS / 0.2 = 0.1, above every registry
+ * truncate arrival (0.2, 0.33, 0.5), so their births stay bit-identical. */
+inline constexpr float T_EPS_TRUNCATE_FRAC = 0.2f;
+/** Smallest truncate arrival a recipe-step leg sweeps to; below it the
+ * birth-to-arrival span is too few pixels to read as motion. Its birth floor
+ * (arrival * T_EPS_TRUNCATE_FRAC) stays a valid positive-area truncate. */
+inline constexpr float T_EPS_TRUNCATE_MIN = 0.002f;
+
 /** Operator-sweep frames per leg. */
 inline constexpr int SWEEP_FRAMES = 48;
 /** Settle (relax-slerp) frames appended to a settling leg; 0 for the rest. */

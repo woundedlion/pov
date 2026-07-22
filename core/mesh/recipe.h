@@ -22,17 +22,19 @@ inline constexpr float CHAMFER_T_MAX = 0.63f;
  * @param step Lowered primitive step.
  * @return True when a leg can sweep or gate the step; false leaves the whole
  *   recipe to the caller's whole-generate fallback.
- * @details TRUNCATE below ConwayGraph::T_EPS clamps both leg endpoints to the
- * same value (a still image), and above 0.5 crosses the ambo short-circuit,
- * where the leg would clean-swap to a self-intersecting form. CHAMFER is
- * characterized up to CHAMFER_T_MAX. KIS and DUAL run as gated swaps
+ * @details TRUNCATE below ConwayGraph::T_EPS_TRUNCATE_MIN sweeps too few pixels
+ * to read as motion, and above 0.5 crosses the ambo short-circuit, where the
+ * leg would clean-swap to a self-intersecting form. A sub-T_EPS arrival (0.01)
+ * still sweeps: the leg births at the derived per-arrival floor (min(T_EPS,
+ * arrival * T_EPS_TRUNCATE_FRAC)) rather than clamping both endpoints to T_EPS.
+ * CHAMFER is characterized up to CHAMFER_T_MAX. KIS and DUAL run as gated swaps
  * (docs/opchain_morph_spec.md, section 3.3). EXPAND has a leg kind but no
  * recipe and no sweep coverage on a hankin seed.
  */
 inline bool is_morphable_step(const OpStep &step) {
   switch (step.op) {
   case Op::TRUNCATE:
-    return step.param >= ConwayGraph::T_EPS && step.param <= 0.5f;
+    return step.param >= ConwayGraph::T_EPS_TRUNCATE_MIN && step.param <= 0.5f;
   case Op::CHAMFER:
     return step.param >= ConwayGraph::T_EPS && step.param <= CHAMFER_T_MAX;
   case Op::SNUB:
