@@ -12,6 +12,10 @@
  *     manifold, unit vertices, outward face normals, per-step displacement.
  *   - Chamfer birth epsilon: smallest t at which no newborn hexagon is culled
  *     by SDF::Face's collapsed-area reject, per seed.
+ *   - Needle gated-swap chain: the DUAL then KIS partition ops the needle
+ *     recipe lowers to, each landing a well-formed closed manifold on the
+ *     hankin(54 deg) seed, with the {DUAL, KIS} lowering matching
+ * MeshOps::needle.
  *   - Build-chain provenance: face-centroid spacing per intermediate mesh
  *     against PROVENANCE_TOL_SQ, nearest/second-nearest ambiguity of the
  *     lookups build_palette_mapping actually performs, and the mapping path
@@ -992,6 +996,138 @@ inline void test_build_chain_provenance_ambiguity() {
   HS_EXPECT_TRUE(max_prev_faces > 128);
 }
 
+// ---------------------------------------------------------------------------
+// Needle gated-swap chain (opchain_morph_spec section 3.3): the
+// truncatedIcosahedron_ambo_relax100_hk54_needle recipe ends in needle, which
+// expand_to_primitives lowers to a DUAL then a KIS gated swap
+// (core/mesh/recipe.h). No shipping recipe runs dual or kis on a hankin mesh,
+// so this pins that both partition ops land a well-formed closed manifold on
+// the hankin(54 deg) arrival. A gated swap carries no parameter sweep, so each
+// leg's arrival is a single mesh: dual(seed), then kis(dual(seed)) == needle.
+// ---------------------------------------------------------------------------
+
+inline PolyMesh probe_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+                              a, b)
+      .ambo()
+      .relax(100)
+      .hankin(54.0f * D2R)
+      .build();
+}
+
+/**
+ * @brief Asserts a mesh is a closed genus-0 manifold of positive-area faces on
+ *        the unit sphere; returns its compiled face count.
+ */
+inline size_t check_manifold_landing(const PolyMesh &m, Arena &a, Arena &b) {
+  check_face_counts_consistent(m);
+  check_indices_in_range(m);
+  check_all_unit_vertices(m, 1e-3f);
+  conway_tests::check_euler_genus0(m);
+  std::vector<size_t> off;
+  face_offsets(m, off);
+  float min_area = 1e9f;
+  for (size_t f = 0; f < m.face_counts.size(); ++f) {
+    const Vector n = newell(m, off[f], m.face_counts[f]);
+    min_area = std::min(min_area, std::sqrt(dot(n, n)));
+  }
+  for (size_t v = 0; v < m.vertices.size(); ++v)
+    HS_EXPECT_TRUE(std::isfinite(m.vertices[v].length()));
+  HS_EXPECT_TRUE(min_area > 0.0f);
+  MeshState compiled;
+  MeshOps::compile(m, compiled, a, b);
+  return compiled.face_counts.size();
+}
+
+/**
+ * @brief Builds the needle chain's DUAL then KIS gated-swap landings on the
+ *        hankin(54 deg) seed, asserting each lands a well-formed closed
+ *        manifold and that the {DUAL, KIS} lowering reproduces the composite
+ *        needle exactly.
+ * @details needle lowers to two gated swaps with no sweep, so the guard is that
+ * each partition op builds without trapping on a hankin mesh -- the one context
+ * no shipping recipe exercises -- and that expand_to_primitives' {DUAL, KIS}
+ * pair matches MeshOps::needle bit for bit.
+ */
+inline void test_needle_gated_swap_builds_on_hankin() {
+  const int failed_before = hs_test::stats().failed;
+
+  Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
+  Arena a(probe_a_buf, sizeof(probe_a_buf));
+  Arena b(probe_b_buf, sizeof(probe_b_buf));
+
+  PolyMesh seed;
+  {
+    ScratchScope ga(a);
+    ScratchScope gb(b);
+    seed =
+        Solids::finalize_solid(probe_ticosa_ambo_relax100_hk54(a, b), persist);
+  }
+  size_t seed_compiled = 0;
+  {
+    ScratchScope fa(a);
+    ScratchScope fb(b);
+    MeshState c;
+    MeshOps::compile(seed, c, a, b);
+    seed_compiled = c.face_counts.size();
+  }
+
+  // DUAL leg landing: departs the hankin seed, opens on its dual.
+  PolyMesh dual_mesh;
+  {
+    ScratchScope fa(a);
+    ScratchScope fb(b);
+    dual_mesh = Solids::finalize_solid(MeshOps::dual(seed, a, b), persist);
+  }
+  size_t dual_compiled = 0;
+  {
+    ScratchScope fa(a);
+    ScratchScope fb(b);
+    dual_compiled = check_manifold_landing(dual_mesh, a, b);
+  }
+  // A gated swap draws one static mesh per side, so compile keeps every face:
+  // the leg's per-side face count is constant.
+  HS_EXPECT_EQ(dual_compiled, dual_mesh.face_counts.size());
+
+  // KIS leg landing: departs the dual, opens on kis(dual) == the needle
+  // arrival.
+  size_t kis_v = 0, kis_f = 0, kis_i = 0, kis_compiled = 0;
+  {
+    ScratchScope fa(a);
+    ScratchScope fb(b);
+    PolyMesh kis_mesh = MeshOps::kis(dual_mesh, a, b);
+    kis_v = kis_mesh.vertices.size();
+    kis_f = kis_mesh.face_counts.size();
+    kis_i = kis_mesh.faces.size();
+    kis_compiled = check_manifold_landing(kis_mesh, a, b);
+  }
+  HS_EXPECT_EQ(kis_compiled, kis_f);
+  // kis raises one triangle per parent face-side, so its face count is the
+  // dual's total face-index count.
+  HS_EXPECT_EQ(kis_f, dual_mesh.faces.size());
+
+  // The lowering matches the composite: needle n = kd = kis of dual.
+  {
+    ScratchScope fa(a);
+    ScratchScope fb(b);
+    PolyMesh needle_mesh = MeshOps::needle(seed, a, b);
+    HS_EXPECT_EQ(needle_mesh.vertices.size(), kis_v);
+    HS_EXPECT_EQ(needle_mesh.face_counts.size(), kis_f);
+    HS_EXPECT_EQ(needle_mesh.faces.size(), kis_i);
+  }
+
+  if (hs_test::stats().failed != failed_before)
+    std::printf(
+        "    [needle] truncatedIcosahedron_ambo_relax100_hk54 failed\n");
+  else
+    std::printf(
+        "  [needle] hk54 seed F=%zu(compiled %zu) -> dual F=%zu(%zu) -> "
+        "kis F=%zu(%zu) == needle; closed manifold at each landing\n",
+        seed.face_counts.size(), seed_compiled, dual_mesh.face_counts.size(),
+        dual_compiled, kis_f, kis_compiled);
+}
+
 /**
  * @brief Runs the OpChainMorph pre-flight probes.
  * @return Failure count.
@@ -1005,6 +1141,8 @@ inline int run_opchain_probe_tests() {
 
   test_truncate001_birth_sweep_holds_topology();
   test_truncate50d_far_side_sweep_holds_topology();
+
+  test_needle_gated_swap_builds_on_hankin();
 
   test_build_chain_centroid_spacing();
   test_build_chain_provenance_ambiguity();
