@@ -1152,8 +1152,6 @@ private:
     }
     HS_CHECK(compiled.face_counts.size() == topo.size(),
              "OpLeg: sweep changed the compiled face count");
-    compiled.topology.bind(scratch_arena_a, topo.size());
-    compiled.topology.append_bulk(topo.data(), topo.size());
 
     float w = blend_weight(p);
     // Chained-leg rebasing (spec 5.3): the plateau weights land on the leg's
