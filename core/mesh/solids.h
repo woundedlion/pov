@@ -306,9 +306,124 @@ public:
    * @return Reference to this builder for chaining.
    */
   SolidBuilder &relax(int iterations = 8) {
+#ifdef HS_RELAX_BAKE_EXTRACT
+    const uint32_t source_hash = MeshOps::relax_mesh_hash(mesh_);
+    const uint32_t topology_hash = MeshOps::relax_topology_hash(mesh_);
+    constexpr int RELAX_BAKE_WATCHDOG = 4096;
+    mesh_ = MeshOps::relax(mesh_, *a_, *b_, RELAX_BAKE_WATCHDOG);
+    HS_CHECK(MeshOps::relax_extract_converged,
+             "relax bake extraction exhausted convergence watchdog");
+    uint32_t output_hash = 2166136261u;
+    for (const Vector &v : mesh_.vertices) {
+      output_hash = (output_hash ^ std::bit_cast<uint32_t>(v.x)) * 16777619u;
+      output_hash = (output_hash ^ std::bit_cast<uint32_t>(v.y)) * 16777619u;
+      output_hash = (output_hash ^ std::bit_cast<uint32_t>(v.z)) * 16777619u;
+    }
+    hs::log("RELAX_BAKE_BEGIN %d %d %lu %lu %lu %08lx %08lx %08lx", iterations,
+            MeshOps::relax_extract_iterations,
+            static_cast<unsigned long>(mesh_.vertices.size()),
+            static_cast<unsigned long>(mesh_.face_counts.size()),
+            static_cast<unsigned long>(mesh_.faces.size()),
+            static_cast<unsigned long>(source_hash),
+            static_cast<unsigned long>(topology_hash),
+            static_cast<unsigned long>(output_hash));
+    size_t i = 0;
+    for (; i + 4 <= mesh_.vertices.size(); i += 4) {
+      const Vector &a = mesh_.vertices[i];
+      const Vector &b = mesh_.vertices[i + 1];
+      const Vector &c = mesh_.vertices[i + 2];
+      const Vector &d = mesh_.vertices[i + 3];
+      hs::log("RELAX_BAKE_DATA4 %08lx %08lx %08lx %08lx %08lx %08lx %08lx "
+              "%08lx %08lx %08lx %08lx %08lx",
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(a.x)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(a.y)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(a.z)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(b.x)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(b.y)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(b.z)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(c.x)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(c.y)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(c.z)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(d.x)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(d.y)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(d.z)));
+    }
+    if (i < mesh_.vertices.size()) {
+      HS_CHECK(mesh_.vertices.size() - i == 2,
+               "relax bake extractor expects an even vertex count");
+      const Vector &a = mesh_.vertices[i];
+      const Vector &b = mesh_.vertices[i + 1];
+      hs::log("RELAX_BAKE_DATA2 %08lx %08lx %08lx %08lx %08lx %08lx",
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(a.x)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(a.y)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(a.z)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(b.x)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(b.y)),
+              static_cast<unsigned long>(std::bit_cast<uint32_t>(b.z)));
+    }
+    hs::log("RELAX_BAKE_END");
+#else
     mesh_ = MeshOps::relax(mesh_, *a_, *b_, iterations);
+#endif
     std::swap(a_, b_);
     return *this;
+  }
+  /**
+   * @brief Applies an exact flash-baked relaxation result.
+   * @param
+   * bake Baked result whose guarded source must match the current mesh.
+   *
+   * @param signature_iterations Original recipe argument retained in
+   * extraction
+   * logs so multiple call sites sharing one converged payload
+   * stay auditable.
+   * @return Reference to this builder for chaining.
+   */
+  SolidBuilder &relax_baked(const MeshOps::RelaxBake &bake,
+                            int signature_iterations) {
+#ifdef HS_RELAX_BAKE_EXTRACT
+    (void)bake;
+    return relax(signature_iterations);
+#elif defined(HS_RELAX_BAKE_VERIFY)
+    (void)signature_iterations;
+    const uint32_t source_hash = MeshOps::relax_mesh_hash(mesh_);
+    constexpr int RELAX_BAKE_WATCHDOG = 4096;
+    mesh_ = MeshOps::relax(mesh_, *a_, *b_, RELAX_BAKE_WATCHDOG);
+    HS_CHECK(MeshOps::relax_extract_converged,
+             "relax bake verification exhausted convergence watchdog");
+    HS_CHECK(mesh_.vertices.size() == bake.vertex_count &&
+                 mesh_.face_counts.size() == bake.face_count &&
+                 mesh_.faces.size() == bake.index_count,
+             "relax bake verification dimensions differ");
+    HS_CHECK(source_hash == bake.source_hash,
+             "relax bake verification source differs");
+    for (size_t i = 0; i < mesh_.vertices.size(); ++i) {
+      HS_CHECK(std::bit_cast<uint32_t>(mesh_.vertices[i].x) ==
+                       bake.vertex_bits[3 * i] &&
+                   std::bit_cast<uint32_t>(mesh_.vertices[i].y) ==
+                       bake.vertex_bits[3 * i + 1] &&
+                   std::bit_cast<uint32_t>(mesh_.vertices[i].z) ==
+                       bake.vertex_bits[3 * i + 2],
+               "relax bake verification vertex differs");
+    }
+    std::swap(a_, b_);
+    return *this;
+#elif !defined(ARDUINO)
+    (void)bake;
+    (void)signature_iterations;
+    bool converged = false;
+    constexpr int RELAX_BAKE_WATCHDOG = 4096;
+    mesh_ = MeshOps::relax(mesh_, *a_, *b_, RELAX_BAKE_WATCHDOG, &converged);
+    HS_CHECK(converged,
+             "relax bake host fallback exhausted convergence watchdog");
+    std::swap(a_, b_);
+    return *this;
+#else
+    (void)signature_iterations;
+    mesh_ = MeshOps::relax_baked(mesh_, *a_, bake);
+    std::swap(a_, b_);
+    return *this;
+#endif
   }
   /**
    * @brief Applies the meta operator (kis composed with join).
@@ -364,6 +479,8 @@ public:
    */
   PolyMesh build() { return std::move(mesh_); }
 };
+
+#include "mesh/relax_bakes_generated.h"
 
 // ==========================================================================================
 // 2. PROCEDURAL GENERATORS
@@ -529,7 +646,7 @@ FLASHMEM static PolyMesh rhombicosidodecahedron(Arena &a, Arena &b) {
 FLASHMEM static PolyMesh truncatedIcosidodecahedron(Arena &a, Arena &b) {
   return SolidBuilder(dodecahedron(a, b), a, b)
       .bevel(1.0f / (2.0f + PHI))
-      .relax(50)
+      .relax_baked(RelaxBakes::truncated_icosidodecahedron_converged, 50)
       .build();
 }
 /**
@@ -539,7 +656,10 @@ FLASHMEM static PolyMesh truncatedIcosidodecahedron(Arena &a, Arena &b) {
  * @return The snub dodecahedron mesh.
  */
 FLASHMEM static PolyMesh snubDodecahedron(Arena &a, Arena &b) {
-  return SolidBuilder(dodecahedron(a, b), a, b).snub(0.5f).relax(50).build();
+  return SolidBuilder(dodecahedron(a, b), a, b)
+      .snub(0.5f)
+      .relax_baked(RelaxBakes::snub_dodecahedron_converged, 50)
+      .build();
 }
 } // namespace Archimedean
 
@@ -696,7 +816,7 @@ FLASHMEM static PolyMesh
 truncatedIcosahedron_ambo_relax100_hk54_needle(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
       .ambo()
-      .relax(100)
+      .relax_baked(RelaxBakes::truncated_icosahedron_ambo_converged, 100)
       .hankin(54.0f * D2R)
       .needle()
       .build();
@@ -871,7 +991,7 @@ FLASHMEM static PolyMesh icosahedron_snub_relax_truncate033_hankin62(Arena &a,
                                                                      Arena &b) {
   return SolidBuilder(Platonic::icosahedron(a, b), a, b)
       .snub()
-      .relax()
+      .relax_baked(RelaxBakes::icosahedron_snub_converged, 8)
       .truncate(0.33f)
       .hankin(62.0f * D2R)
       .build();
@@ -891,7 +1011,8 @@ FLASHMEM static PolyMesh dodecahedron_hk35_ambo_hk62_ambo_relax_hk42(Arena &a,
       .ambo()
       .hankin(62.0f * D2R)
       .ambo()
-      .relax(100)
+      .relax_baked(RelaxBakes::dodecahedron_hankin_ambo_hankin_ambo_converged,
+                   100)
       .hankin(42.0f * D2R)
       .build();
 }
@@ -920,7 +1041,7 @@ FLASHMEM static PolyMesh
 truncatedIcosahedron_ambo_relax_truncate001_hankin59(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
       .ambo()
-      .relax()
+      .relax_baked(RelaxBakes::truncated_icosahedron_ambo_converged, 8)
       .truncate(0.01f)
       .hankin(59.0f * D2R)
       .build();
@@ -936,7 +1057,7 @@ FLASHMEM static PolyMesh
 truncatedIcosahedron_ambo_relax_truncate001_hankin73(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
       .ambo()
-      .relax()
+      .relax_baked(RelaxBakes::truncated_icosahedron_ambo_converged, 8)
       .truncate(0.01f)
       .hankin(73.0f * D2R)
       .build();
@@ -964,7 +1085,8 @@ FLASHMEM static PolyMesh
 truncatedIcosidodecahedron_bevel5_relax_hk77(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncatedIcosidodecahedron(a, b), a, b)
       .bevel(0.5f)
-      .relax(100)
+      .relax_baked(RelaxBakes::truncated_icosidodecahedron_bevel50_converged,
+                   100)
       .hankin(77.0f * D2R)
       .build();
 }
@@ -977,7 +1099,7 @@ truncatedIcosidodecahedron_bevel5_relax_hk77(Arena &a, Arena &b) {
 FLASHMEM static PolyMesh dodecahedron_bevel2_relax_gyro(Arena &a, Arena &b) {
   return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .bevel(0.2f)
-      .relax(100)
+      .relax_baked(RelaxBakes::dodecahedron_bevel20_converged, 100)
       .gyro()
       .build();
 }
@@ -992,7 +1114,7 @@ FLASHMEM static PolyMesh
 truncatedIcosahedron_ambo_relax_truncate33_hk64(Arena &a, Arena &b) {
   return SolidBuilder(Archimedean::truncatedIcosahedron(a, b), a, b)
       .ambo()
-      .relax(217)
+      .relax_baked(RelaxBakes::truncated_icosahedron_ambo_converged, 217)
       .truncate(0.33f)
       .hankin(64.0f * D2R)
       .build();
@@ -1008,7 +1130,7 @@ FLASHMEM static PolyMesh dodecahedron_ambo_bevel33_relax_hk66(Arena &a,
   return SolidBuilder(Platonic::dodecahedron(a, b), a, b)
       .ambo()
       .bevel(0.33f)
-      .relax(100)
+      .relax_baked(RelaxBakes::dodecahedron_ambo_bevel33_converged, 100)
       .hankin(66.0f * D2R)
       .build();
 }

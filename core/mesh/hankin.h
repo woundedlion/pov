@@ -23,8 +23,10 @@ struct HankinInstruction {
   uint16_t v_corner; /**< Index into base_vertices of the corner vertex. */
   uint16_t v_prev;   /**< Index into base_vertices of the previous corner. */
   uint16_t v_next;   /**< Index into base_vertices of the next corner. */
-  uint16_t idx_m1;   /**< Index into static_vertices of the first edge midpoint. */
-  uint16_t idx_m2;   /**< Index into static_vertices of the second edge midpoint. */
+  uint16_t
+      idx_m1; /**< Index into static_vertices of the first edge midpoint. */
+  uint16_t
+      idx_m2; /**< Index into static_vertices of the second edge midpoint. */
 };
 
 /**
@@ -35,13 +37,17 @@ struct HankinInstruction {
  * static_offset refers to dynamic_vertices[index - static_offset].
  */
 struct CompiledHankin {
-  ArenaVector<Vector> base_vertices;  /**< Input mesh corner vertices. */
-  ArenaVector<Vector> static_vertices;  /**< Edge midpoints; angle-independent. */
-  ArenaVector<Vector> dynamic_vertices; /**< Star points; recomputed per angle. */
-  ArenaVector<HankinInstruction> dynamic_instructions; /**< One per dynamic vertex. */
+  ArenaVector<Vector> base_vertices; /**< Input mesh corner vertices. */
+  ArenaVector<Vector>
+      static_vertices; /**< Edge midpoints; angle-independent. */
+  ArenaVector<Vector>
+      dynamic_vertices; /**< Star points; recomputed per angle. */
+  ArenaVector<HankinInstruction>
+      dynamic_instructions;         /**< One per dynamic vertex. */
   ArenaVector<uint8_t> face_counts; /**< Vertex count of each output face. */
   ArenaVector<uint16_t> faces;      /**< Flat vertex indices for all faces. */
-  int static_offset = 0; /**< static_vertices.size(); base for dynamic indices in faces. */
+  int static_offset =
+      0; /**< static_vertices.size(); base for dynamic indices in faces. */
 
   /**
    * @brief Resets all owned vectors to empty, releasing their contents.
@@ -63,8 +69,8 @@ struct CompiledHankin {
    * @details Required by Cloneable; each vector is rebound from @p arena and
    * bulk-copied (all element types are trivially copyable).
    */
-  HS_COLD_MEMBER static void clone(const CompiledHankin &src, CompiledHankin &dst,
-                    Arena &arena) {
+  HS_COLD_MEMBER static void clone(const CompiledHankin &src,
+                                   CompiledHankin &dst, Arena &arena) {
     copy_vector(dst.base_vertices, src.base_vertices.data(),
                 src.base_vertices.size(), arena);
     copy_vector(dst.static_vertices, src.static_vertices.data(),
@@ -73,8 +79,8 @@ struct CompiledHankin {
                 src.dynamic_vertices.size(), arena);
     copy_vector(dst.dynamic_instructions, src.dynamic_instructions.data(),
                 src.dynamic_instructions.size(), arena);
-    copy_vector(dst.face_counts, src.face_counts.data(),
-                src.face_counts.size(), arena);
+    copy_vector(dst.face_counts, src.face_counts.data(), src.face_counts.size(),
+                arena);
     copy_vector(dst.faces, src.faces.data(), src.faces.size(), arena);
     dst.static_offset = src.static_offset;
   }
@@ -94,8 +100,9 @@ HS_O3_BEGIN
  * static_vertices, reserves one dynamic (star-point) slot per half-edge, and
  * records the star and rosette faces.
  */
-HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compiled,
-                                    Arena &target_arena, Arena &temp_arena) {
+HS_COLD static void compile_hankin(const PolyMesh &mesh,
+                                   CompiledHankin &compiled,
+                                   Arena &target_arena, Arena &temp_arena) {
   // Topology via accessors (borrowed-mode safe); vertices is always owned.
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -186,8 +193,8 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
         uint16_t i_next = curr_he.vertex;
 
         compiled.dynamic_instructions.push_back({i_corner, i_prev, i_next,
-                                                narrow_index(idx_m1),
-                                                narrow_index(idx_m2)});
+                                                 narrow_index(idx_m1),
+                                                 narrow_index(idx_m2)});
 
         // size() BEFORE emplace_back is the index the new vertex will occupy.
         uint16_t dyn_idx = narrow_index(compiled.dynamic_vertices.size());
@@ -195,7 +202,8 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
         compiled.dynamic_vertices.emplace_back();
 
         compiled.faces.push_back(narrow_index(idx_m1));
-        compiled.faces.push_back(narrow_index(compiled.static_offset + dyn_idx));
+        compiled.faces.push_back(
+            narrow_index(compiled.static_offset + dyn_idx));
 
         he_idx = curr_he.next;
       } while (he_idx != HE_NONE && he_idx != start_he);
@@ -234,13 +242,14 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
         // start_orbit and never hits HE_NONE.
         uint16_t next_edge_idx = he_mesh.half_edges[curr_he.pair].next;
         HS_CHECK(count < (int)(2 * I), "Hankin rosette winding overflow");
-        face_indices[count++] = narrow_index(
-            compiled.static_offset + he_to_dynamic_idx[next_edge_idx]);
+        face_indices[count++] = narrow_index(compiled.static_offset +
+                                             he_to_dynamic_idx[next_edge_idx]);
         curr_idx = next_edge_idx;
       } while (curr_idx != start_orbit);
 
       // count = 2 * vertex degree. Degree-2 is legal (hankin-of-hankin walks
-      // its own degree-2 midpoints -> quad rosette); only degree < 2 degenerates.
+      // its own degree-2 midpoints -> quad rosette); only degree < 2
+      // degenerates.
       HS_CHECK(count >= 4, "Hankin rosette winding has degree < 2");
       compiled.face_counts.push_back(narrow_face_count(count));
       for (int k = count - 1; k >= 0; --k) {
@@ -253,7 +262,8 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
 /**
  * @brief Positions the angle-dependent vertices and writes the final mesh.
  * @tparam MeshT Output mesh type; may optionally provide face_offsets.
- * @param compiled Baked topology whose dynamic_vertices are recomputed in place.
+ * @param compiled Baked topology whose dynamic_vertices are recomputed in
+ * place.
  * @param out_mesh Output mesh, allocated from @p target_arena.
  * @param target_arena Arena backing @p out_mesh's vertex and face vectors.
  * @param angle Contact angle in radians. At ~0 the star points collapse onto
@@ -263,13 +273,20 @@ HS_COLD static void compile_hankin(const PolyMesh &mesh, CompiledHankin &compile
  *   intersection; its star point falls back to the edge-midpoint mean instead
  *   of being flung across the sphere (see STAR_FAR_RATIO_SQ).
  */
-/** Squared ceiling on chord(star point, corner) / chord(corner, midpoint);
- * measured healthy maximum is ~5.5, degenerate intersections start at ~433. */
-inline constexpr float STAR_FAR_RATIO_SQ = 36.0f;
+/** Squared endpoints of the far-intersection blend. Healthy registry
+ *
+ * intersections stay below 2.16; unstable intersections exceed 4.0. */
+inline constexpr float STAR_FAR_BLEND_START_RATIO_SQ = 2.25f;
+inline constexpr float STAR_FAR_RATIO_SQ = 4.0f;
+inline constexpr float HANKIN_PARALLEL_REGULARIZATION_SQ = 3.0e-4f;
+inline constexpr float HANKIN_CONDITIONED_CLEAR_SQ = 2.0e-2f;
+inline constexpr float HANKIN_CONDITIONED_NEAR_RATIO_SQ = 1.44f;
+inline constexpr float HANKIN_CONDITIONED_FAR_RATIO_SQ = 9.0f;
 
 template <typename MeshT>
-HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled, MeshT &out_mesh,
-                          Arena &target_arena, float angle) {
+HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
+                                         MeshT &out_mesh, Arena &target_arena,
+                                         float angle) {
 
   // Drop any borrowed-mode views a reused MeshState may still carry, so the
   // owned topology bound below is unambiguous on reuse.
@@ -281,7 +298,11 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled, MeshT &out_me
 
   float cos_ha = cosf(angle * 0.5f);
   float sin_ha = sinf(angle * 0.5f);
-
+  const auto blend_above = [](float value, float start, float end) {
+    const float t =
+        std::max(0.0f, std::min(1.0f, (value - start) / (end - start)));
+    return quintic_kernel(t);
+  };
   for (size_t i = 0; i < compiled.dynamic_instructions.size(); ++i) {
     const auto &instr = compiled.dynamic_instructions[i];
     Vector p_corner = compiled.base_vertices[instr.v_corner];
@@ -321,33 +342,48 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled, MeshT &out_me
     Vector n_hankin2 = rotate(n_edge2, q2);
 
     Vector intersect = cross(n_hankin1, n_hankin2);
+    const float plane_cross_sq = dot(intersect, intersect);
     Vector cn = normalized_or(p_corner, p_corner);
-    bool degenerate = dot(intersect, intersect) < math::EPS_LEN_SQ;
-    if (!degenerate) {
-      if (dot(intersect, p_corner) < 0)
-        intersect = -intersect;
-      intersect = intersect.normalized();
-      // Near-parallel contact planes fling the intersection geodesically far
-      // from the corner, yielding a sliver face that renders as a long line.
-      float local_sq = std::max(distance_squared(m1, cn),
-                                distance_squared(m2, cn));
-      degenerate =
-          distance_squared(intersect, cn) > STAR_FAR_RATIO_SQ * local_sq;
-    }
-    if (degenerate) {
-      Vector fallback = normalized_or(m1 + m2, cn);
-      if (dot(fallback, p_corner) < 0)
-        fallback = -fallback;
+    Vector fallback = normalized_or(m1 + m2, cn);
+    if (dot(fallback, p_corner) < 0.0f)
+      fallback = -fallback;
+    const Vector oriented_intersect = intersect * dot(intersect, p_corner);
+    const Vector raw_star = normalized_or(oriented_intersect, fallback);
+    const float local_sq =
+        std::max(distance_squared(m1, cn), distance_squared(m2, cn));
+    if (!(local_sq > math::EPS_LEN_SQ)) {
       compiled.dynamic_vertices[i] = fallback;
+      continue;
+    }
+    const float raw_ratio_sq = distance_squared(raw_star, cn) / local_sq;
+    const float conditioned =
+        blend_above(raw_ratio_sq, HANKIN_CONDITIONED_NEAR_RATIO_SQ,
+                    HANKIN_CONDITIONED_FAR_RATIO_SQ);
+    const float anchor =
+        std::max(0.0f, HANKIN_PARALLEL_REGULARIZATION_SQ - plane_cross_sq) +
+        conditioned *
+            std::max(0.0f, HANKIN_CONDITIONED_CLEAR_SQ - plane_cross_sq);
+    intersect = normalized_or(oriented_intersect + fallback * anchor, fallback);
+    // Near-parallel contact planes fling the intersection geodesically far
+    // from the corner, yielding a sliver face that renders as a long line.
+    const float ratio_sq = distance_squared(intersect, cn) / local_sq;
+    const float fallback_blend =
+        blend_above(ratio_sq, STAR_FAR_BLEND_START_RATIO_SQ, STAR_FAR_RATIO_SQ);
+    if (fallback_blend > 0.0f) {
+      compiled.dynamic_vertices[i] =
+          fallback_blend >= 1.0f
+              ? fallback
+              : normalized_or(intersect * (1.0f - fallback_blend) +
+                                  fallback * fallback_blend,
+                              fallback);
       continue;
     }
 
     compiled.dynamic_vertices[i] = intersect;
   }
 
-  out_mesh.vertices.bind(target_arena,
-                               compiled.static_vertices.size() +
-                                   compiled.dynamic_vertices.size());
+  out_mesh.vertices.bind(target_arena, compiled.static_vertices.size() +
+                                           compiled.dynamic_vertices.size());
   out_mesh.vertices.append_bulk(compiled.static_vertices.data(),
                                 compiled.static_vertices.size());
   out_mesh.vertices.append_bulk(compiled.dynamic_vertices.data(),
@@ -388,7 +424,7 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled, MeshT &out_me
  * animate the angle, keep a CompiledHankin and call update_hankin repeatedly.
  */
 HS_COLD static PolyMesh hankin(const PolyMesh &mesh, Arena &target, Arena &temp,
-                                float angle) {
+                               float angle) {
   PolyMesh out;
 
   {

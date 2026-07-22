@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <bit>
 #include "mesh/mesh.h"
 
 /**
@@ -16,6 +17,56 @@ namespace MeshOps {
 
 HS_O3_BEGIN
 
+/** @brief Flash-backed exact output for one deterministic relax input. */
+struct RelaxBake {
+  const uint32_t *vertex_bits;
+  uint16_t vertex_count;
+  uint16_t face_count;
+  uint16_t index_count;
+  uint16_t convergence_iterations;
+  uint32_t topology_hash;
+  uint32_t source_hash;
+  uint32_t output_hash;
+};
+
+#if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
+inline int relax_extract_iterations = 0;
+inline bool relax_extract_converged = false;
+#endif
+
+/** @brief Hashes a relax source mesh from its dimensions and raw owned data. */
+inline uint32_t relax_mesh_hash(const PolyMesh &mesh) {
+  uint32_t hash = 2166136261u;
+  auto mix = [&](uint32_t word) { hash = (hash ^ word) * 16777619u; };
+  mix(static_cast<uint32_t>(mesh.vertices.size()));
+  mix(static_cast<uint32_t>(mesh.get_face_counts_size()));
+  mix(static_cast<uint32_t>(mesh.get_faces_size()));
+  for (const Vector &v : mesh.vertices) {
+    mix(std::bit_cast<uint32_t>(v.x));
+    mix(std::bit_cast<uint32_t>(v.y));
+    mix(std::bit_cast<uint32_t>(v.z));
+  }
+  for (size_t i = 0; i < mesh.get_face_counts_size(); ++i)
+    mix(mesh.get_face_counts_data()[i]);
+  for (size_t i = 0; i < mesh.get_faces_size(); ++i)
+    mix(mesh.get_faces_data()[i]);
+  return hash;
+}
+
+/** @brief Hashes platform-independent relax topology and dimensions. */
+inline uint32_t relax_topology_hash(const PolyMesh &mesh) {
+  uint32_t hash = 2166136261u;
+  auto mix = [&](uint32_t word) { hash = (hash ^ word) * 16777619u; };
+  mix(static_cast<uint32_t>(mesh.vertices.size()));
+  mix(static_cast<uint32_t>(mesh.get_face_counts_size()));
+  mix(static_cast<uint32_t>(mesh.get_faces_size()));
+  for (size_t i = 0; i < mesh.get_face_counts_size(); ++i)
+    mix(mesh.get_face_counts_data()[i]);
+  for (size_t i = 0; i < mesh.get_faces_size(); ++i)
+    mix(mesh.get_faces_data()[i]);
+  return hash;
+}
+
 /**
  * @brief Compute the centroid of a face by walking its half-edge loop.
  * @tparam MeshT Mesh type exposing a `vertices` indexable by topology index.
@@ -26,9 +77,8 @@ HS_O3_BEGIN
  * @return Average of the face's vertex positions, or origin for an empty face.
  */
 template <typename MeshT>
-inline Vector face_centroid(const HalfEdgeMesh &he_mesh,
-                            const MeshT &mesh, size_t face_index,
-                            int &out_count) {
+inline Vector face_centroid(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
+                            size_t face_index, int &out_count) {
   const HEFace &face = he_mesh.faces[face_index];
   Vector c(0, 0, 0);
   out_count = 0;
@@ -67,10 +117,12 @@ inline Vector face_normal(const HalfEdgeMesh &he_mesh, const MeshT &mesh,
   const HEFace &face = he_mesh.faces[face_index];
   Vector n(0, 0, 0);
   uint16_t he_idx = face.half_edge;
-  if (he_idx == HE_NONE) return n;
+  if (he_idx == HE_NONE)
+    return n;
   uint16_t start = he_idx;
   // Anti-hang guard plus an HE_NONE trap: this loop dereferences
-  // half_edges[he.next] in-body, so a corrupt .next chain could spin or index HE_NONE.
+  // half_edges[he.next] in-body, so a corrupt .next chain could spin or index
+  // HE_NONE.
   const int max_sides = static_cast<int>(he_mesh.half_edges.size());
   int sides = 0;
   do {
@@ -103,7 +155,8 @@ inline int vertex_orbit(const HalfEdgeMesh &he_mesh, uint16_t start_idx,
                         VisitorFn &&visitor) {
   uint16_t curr_idx = start_idx;
   int count = 0;
-  // Anti-hang guard: a corrupt/non-manifold half-edge graph would otherwise spin forever.
+  // Anti-hang guard: a corrupt/non-manifold half-edge graph would otherwise
+  // spin forever.
   const int max_orbit = static_cast<int>(he_mesh.half_edges.size());
   do {
     HS_CHECK(count < max_orbit, "vertex_orbit: corrupt orbit");
@@ -183,8 +236,8 @@ inline void emit_vertex_orbit_faces(const HalfEdgeMesh &he_mesh,
 }
 
 /**
- * @brief Emit a face's shrunk corner vertices (via pos_fn) and, when the face is
- *   well-formed (>=3 sides), the shrunk primary face itself.
+ * @brief Emit a face's shrunk corner vertices (via pos_fn) and, when the face
+ * is well-formed (>=3 sides), the shrunk primary face itself.
  * @tparam PosFn Callable (uint16_t he_idx) -> Vector giving a corner's new pos.
  * @tparam MapFn Callable (uint16_t he_idx, uint16_t out_idx) recording the map.
  * @param he_mesh Half-edge connectivity to walk.
@@ -282,8 +335,8 @@ HS_O3_BEGIN
  * @param mesh The source mesh state.
  * @param transformed The destination mesh state to populate.
  * @param arena The memory arena from which to allocate vertices.
- * @param transformers Vertex transformers, applied left to right and unrolled at
- *   compile time via a fold; with none, vertices are copied verbatim.
+ * @param transformers Vertex transformers, applied left to right and unrolled
+ * at compile time via a fold; with none, vertices are copied verbatim.
  * @note Mesh utility, not a Conway operator.
  * @note Input must be owned-mode (its topology is exposed as borrowed views in
  *   the output). The output is borrowed-mode, so it cannot be re-fed as input:
@@ -382,8 +435,8 @@ HS_COLD static PolyMesh dual(const PolyMesh &mesh, Arena &target, Arena &temp) {
     for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
       int count;
       Vector c = face_centroid(he_mesh, mesh, i, count);
-      // Fall back to the face's first vertex on a zero-length (centrally-symmetric)
-      // centroid, where strict normalized() would trap.
+      // Fall back to the face's first vertex on a zero-length
+      // (centrally-symmetric) centroid, where strict normalized() would trap.
       Vector first_v =
           mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
       out_mesh.vertices.push_back(normalized_or(c, first_v));
@@ -440,7 +493,8 @@ HS_COLD static PolyMesh kis(const PolyMesh &mesh, Arena &target, Arena &temp) {
       }
       centroid = centroid / static_cast<float>(count);
 
-      out_mesh.vertices.push_back(normalized_or(centroid, mesh.vertices[faces[offset]]));
+      out_mesh.vertices.push_back(
+          normalized_or(centroid, mesh.vertices[faces[offset]]));
       int center_idx = narrow_index(out_mesh.vertices.size() - 1);
 
       for (int k = 0; k < count; ++k) {
@@ -483,8 +537,7 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "ambo");
 
-    uint16_t *edge_to_vert =
-        target.allocate_n<uint16_t>(I);
+    uint16_t *edge_to_vert = target.allocate_n<uint16_t>(I);
     std::fill_n(edge_to_vert, I, HE_NONE);
 
     bool *visited_verts = target.allocate_n<bool>(V);
@@ -544,9 +597,10 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
  * @details Centralizes winding so every caller emits a consistent order instead
  *   of re-deriving the `vi==k1` test inline.
  */
-inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
-    const HalfEdgeMesh &he_mesh,
-    const std::pair<uint16_t, uint16_t> *edge_to_vert, uint16_t he_idx) {
+inline std::pair<uint16_t, uint16_t>
+truncate_oriented_cut(const HalfEdgeMesh &he_mesh,
+                      const std::pair<uint16_t, uint16_t> *edge_to_vert,
+                      uint16_t he_idx) {
   const HalfEdge &he = he_mesh.half_edges[he_idx];
   uint16_t tail = he_mesh.half_edges[he.prev].vertex;
   uint16_t head = he.vertex;
@@ -571,8 +625,8 @@ inline std::pair<uint16_t, uint16_t> truncate_oriented_cut(
  * @return Fresh truncated PolyMesh allocated in `target` (or the ambo result
  *   when t == 0.5).
  */
-HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &temp,
-                                  float t = 0.25f) {
+HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target,
+                                 Arena &temp, float t = 0.25f) {
   HS_CHECK(t >= 0.0f && t <= 1.0f, "truncate: t out of [0,1]");
   if (t == 0.5f) {
     return ambo(mesh, target, temp);
@@ -598,7 +652,8 @@ HS_COLD static PolyMesh truncate(const PolyMesh &mesh, Arena &target, Arena &tem
     // Per-edge cut-vertex pair; unset = {HE_NONE, HE_NONE}.
     std::pair<uint16_t, uint16_t> *edge_to_vert =
         target.allocate_n<std::pair<uint16_t, uint16_t>>(I);
-    std::fill_n(edge_to_vert, I, std::pair<uint16_t, uint16_t>(HE_NONE, HE_NONE));
+    std::fill_n(edge_to_vert, I,
+                std::pair<uint16_t, uint16_t>(HE_NONE, HE_NONE));
 
     bool *visited_verts = target.allocate_n<bool>(V);
 
@@ -673,7 +728,7 @@ static constexpr float EXPAND_DEFAULT_T = 2.0f - 1.414213562373095f;
  * @return Fresh expanded PolyMesh allocated in `target`.
  */
 HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
-                                float t = EXPAND_DEFAULT_T) {
+                               float t = EXPAND_DEFAULT_T) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -743,8 +798,8 @@ HS_COLD static PolyMesh expand(const PolyMesh &mesh, Arena &target, Arena &temp,
  * @param t Thickness factor for the new hexagons [0..1].
  * @return Fresh chamfered PolyMesh allocated in `target`.
  */
-HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp,
-                                 float t = 0.5f) {
+HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target,
+                                Arena &temp, float t = 0.5f) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -760,8 +815,7 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "chamfer");
 
-    uint16_t *he_to_new_v =
-        temp.allocate_n<uint16_t>(I);
+    uint16_t *he_to_new_v = temp.allocate_n<uint16_t>(I);
     std::fill_n(he_to_new_v, I, HE_NONE);
 
     // Copy original vertices
@@ -817,11 +871,20 @@ HS_COLD static PolyMesh chamfer(const PolyMesh &mesh, Arena &target, Arena &temp
  *   convergence.
  * @return Fresh relaxed PolyMesh allocated in `target`.
  * @note Unlike its sibling operators, relax tolerates a boundary mesh: a vertex
- *   with no outgoing twin is skipped, yielding a partial relaxation instead of a
- *   closed-manifold trap.
+ *   with no outgoing twin is skipped, yielding a partial relaxation instead of
+ * a closed-manifold trap.
  */
 HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
-                               int iterations = 8) {
+                              int iterations = 8, bool *converged_out = nullptr,
+                              int *iterations_out = nullptr) {
+  if (converged_out)
+    *converged_out = false;
+  if (iterations_out)
+    *iterations_out = 0;
+#if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
+  relax_extract_iterations = 0;
+  relax_extract_converged = false;
+#endif
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -880,14 +943,21 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
         }
       }
 
-      if (edge_count == 0)
+      if (edge_count == 0) {
+        if (converged_out)
+          *converged_out = true;
+#if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
+        relax_extract_converged = true;
+#endif
         break;
+      }
       float target_len = total_len / edge_count;
 
       for (size_t i = 0; i < V; ++i) {
         Vector force(0, 0, 0);
 
-        uint16_t start_out = orbit_start[i]; // outgoing edge; HE_NONE if boundary
+        uint16_t start_out =
+            orbit_start[i]; // outgoing edge; HE_NONE if boundary
         if (start_out != HE_NONE) {
           vertex_orbit<'N'>(he_mesh, start_out, [&](uint16_t idx) {
             int ni = he_mesh.half_edges[idx].vertex; // head == 1-ring neighbor
@@ -914,13 +984,78 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
       // Stop early once the largest per-vertex spring step settles below ~3e-4
       // rad on the unit sphere.
       constexpr float RELAX_CONVERGE_EPS_SQ = 1e-7f;
-      if (max_move_sq < RELAX_CONVERGE_EPS_SQ)
+      const bool converged = max_move_sq < RELAX_CONVERGE_EPS_SQ;
+      if (iterations_out)
+        ++*iterations_out;
+      if (converged_out)
+        *converged_out = converged;
+#if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
+      ++relax_extract_iterations;
+      relax_extract_converged = converged;
+#endif
+      if (converged)
         break;
     }
   }
   // iterations == 0 skips the in-loop sphere projection; normalize so the
   // pass-through still lands on the unit sphere (idempotent otherwise).
   normalize(out_mesh);
+  return out_mesh;
+}
+
+/**
+ * @brief Replaces a deterministic relax pass with its exact flash-baked
+ * result.
+ * @param mesh Source mesh whose dimensions and raw data must match
+ * the bake.
+ * @param target Arena receiving the baked vertices and copied
+ * topology.
+ * @param bake Expected source identity and raw output vertex
+ * bits.
+ * @return Fresh baked PolyMesh allocated in `target`.
+ */
+[[maybe_unused]] HS_COLD static PolyMesh
+relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
+  const size_t V = mesh.vertices.size();
+  const size_t F = mesh.get_face_counts_size();
+  const size_t I = mesh.get_faces_size();
+  HS_CHECK(V == bake.vertex_count && F == bake.face_count &&
+               I == bake.index_count,
+           "relax_baked: source dimensions differ");
+#ifdef ARDUINO
+  HS_CHECK(relax_mesh_hash(mesh) == bake.source_hash,
+           "relax_baked: source hash differs");
+#else
+  HS_CHECK(relax_topology_hash(mesh) == bake.topology_hash,
+           "relax_baked: source topology differs");
+#endif
+
+  PolyMesh out_mesh;
+  out_mesh.vertices.bind(target, V);
+  out_mesh.face_counts.bind(target, F);
+  out_mesh.faces.bind(target, I);
+
+  uint32_t output_hash = 2166136261u;
+  for (size_t i = 0; i < V; ++i) {
+    const uint32_t x = bake.vertex_bits[3 * i];
+    const uint32_t y = bake.vertex_bits[3 * i + 1];
+    const uint32_t z = bake.vertex_bits[3 * i + 2];
+    output_hash = (output_hash ^ x) * 16777619u;
+    output_hash = (output_hash ^ y) * 16777619u;
+    output_hash = (output_hash ^ z) * 16777619u;
+    out_mesh.vertices.push_back(Vector(std::bit_cast<float>(x),
+                                       std::bit_cast<float>(y),
+                                       std::bit_cast<float>(z)));
+  }
+  HS_CHECK(output_hash == bake.output_hash, "relax_baked: output hash differs");
+
+  const auto *face_counts = mesh.get_face_counts_data();
+  for (size_t i = 0; i < F; ++i) {
+    HS_CHECK(face_counts[i] >= 3, "relax_baked: degenerate face");
+    out_mesh.face_counts.push_back(face_counts[i]);
+  }
+  for (size_t i = 0; i < I; ++i)
+    out_mesh.faces.push_back(mesh.get_faces_data()[i]);
   return out_mesh;
 }
 
@@ -937,7 +1072,7 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
  *   the unit sphere and to collinear vertex triplets.
  */
 HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
-                              float t = 0.5f, float twist = 0.0f) {
+                             float t = 0.5f, float twist = 0.0f) {
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -953,8 +1088,7 @@ HS_COLD static PolyMesh snub(const PolyMesh &mesh, Arena &target, Arena &temp,
 
     HalfEdgeMesh he_mesh(temp, mesh);
     require_closed_manifold(he_mesh, "snub");
-    uint16_t *he_to_vert_idx =
-        temp.allocate_n<uint16_t>(I);
+    uint16_t *he_to_vert_idx = temp.allocate_n<uint16_t>(I);
     std::fill_n(he_to_vert_idx, I, HE_NONE);
 
     uint16_t *orbit_buf = temp.allocate_n<uint16_t>(I);
@@ -1044,7 +1178,8 @@ HS_COLD static PolyMesh gyro(const PolyMesh &mesh, Arena &target, Arena &temp) {
 // ---------------------------------------------------------------------------
 
 /**
- * @brief Meta operator (Hart's `m`): kis of dual of ambo (m = kj = kda, j = da).
+ * @brief Meta operator (Hart's `m`): kis of dual of ambo (m = kj = kda, j =
+ * da).
  * @param mesh Source mesh.
  * @param target Arena used as the ping-pong source for the composition.
  * @param temp Arena used as the ping-pong destination for the composition.
@@ -1064,7 +1199,8 @@ HS_COLD static PolyMesh meta(const PolyMesh &mesh, Arena &target, Arena &temp) {
  * @return Composed PolyMesh; the output lands in `temp` (see COMPOSITION
  *   POLARITY at the top of the operator block).
  */
-HS_COLD static PolyMesh needle(const PolyMesh &mesh, Arena &target, Arena &temp) {
+HS_COLD static PolyMesh needle(const PolyMesh &mesh, Arena &target,
+                               Arena &temp) {
   return kis(dual(mesh, target, temp), temp, target);
 }
 
@@ -1090,7 +1226,7 @@ HS_COLD static PolyMesh zip(const PolyMesh &mesh, Arena &target, Arena &temp) {
  *   POLARITY at the top of the operator block).
  */
 HS_COLD static PolyMesh bevel(const PolyMesh &mesh, Arena &target, Arena &temp,
-                               float t = 0.25f) {
+                              float t = 0.25f) {
   return truncate(ambo(mesh, target, temp), temp, target, t);
 }
 

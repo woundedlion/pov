@@ -1,0 +1,95 @@
+{
+  "schema": 1,
+  "rebake_command": "python tools/relax_bakes.py rebake --port COM4",
+  "compiler_identity": "Arm GNU Toolchain 15.2.Rel1 (Build arm-15.86); 15.2.1 20251203",
+  "arithmetic_flags": "-O3 -ffast-math -fno-finite-math-only -fno-unswitch-loops -std=gnu++20",
+  "asset_sha256": "dad36ae30774743b100d0e6e19fcb75616754406002602ddb756b4fc500325ea",
+  "shipping_capture_sha256": "a231265da7e91c3a28b0ef714a6fc287771a00bef21884c02113c23317a30aa7",
+  "o3_capture_sha256": "ab49d50dc17b072485b61e7e0504bcc4bc92b9c87256c43c52e22986085b6da8",
+  "inputs": {
+    "core/mesh/conway.h": "4b6921cb6cb858626744f47d3abe48a8094ad3e556894f020af681d6ab2c7c0d",
+    "core/mesh/hankin.h": "85c11c5f9e645486d77cecb468c92e6f72d8605e3527f40735c252e96dcb4b17",
+    "core/mesh/mesh.h": "fd5f3a46dd57ee4daeffdc5cc7e57783bfefda7842fe01e1dab4a6c18209ebff",
+    "core/mesh/solids.h": "f01c8b01407bc09151c284fb9984dae26ed82c6f0c51337e3ea4282cfc39ebb4",
+    "core/math/3dmath.h": "635a5585bcc074345da9543a849f72b27b7d68e311c20020ae75420963ae7645",
+    "core/math/geometry.h": "fdea7e33b1f7cd8cba8ea778b35632c15df6272cb6003673caa00f270ae401ac",
+    "core/engine/platform.h": "abe76b075e393dd6a96d5a4a26dfec4373d3a0eaf2217f137c26da7a92f6f1df",
+    "platformio.ini": "f3ad195475d714be3b0e2b63888721c8989c3886e7c5fd1056188319adc4c51f",
+    "tools/relax_bake_check.py": "68214d456e8917cda6b165e9479ef7a783582e0b8b37a7a166b4a5869855ad56",
+    "tools/relax_bakes.py": "6c41374d8be1fd7eea659c048bfc06570810fb13ddc06642f65bd6fbbb7c41ae"
+  },
+  "datasets": {
+    "cde6a3ef": {
+      "name": "truncated_icosahedron_ambo_converged",
+      "vertices": 90,
+      "faces": 92,
+      "indices": 360,
+      "convergence_iterations": 13,
+      "topology_hash": "0a20bce1",
+      "output_hash": "c91b1edf"
+    },
+    "12ace029": {
+      "name": "dodecahedron_ambo_bevel33_converged",
+      "vertices": 240,
+      "faces": 122,
+      "indices": 720,
+      "convergence_iterations": 50,
+      "topology_hash": "0e6068e9",
+      "output_hash": "9a817bfd"
+    },
+    "06f43533": {
+      "name": "dodecahedron_bevel20_converged",
+      "vertices": 120,
+      "faces": 62,
+      "indices": 360,
+      "convergence_iterations": 17,
+      "topology_hash": "3b53f3c9",
+      "output_hash": "e8b39ab3"
+    },
+    "a8661b09": {
+      "name": "truncated_icosidodecahedron_converged",
+      "vertices": 120,
+      "faces": 62,
+      "indices": 360,
+      "convergence_iterations": 17,
+      "topology_hash": "3b53f3c9",
+      "output_hash": "95c0c28b"
+    },
+    "06cffc5d": {
+      "name": "truncated_icosidodecahedron_bevel50_converged",
+      "vertices": 360,
+      "faces": 362,
+      "indices": 1440,
+      "convergence_iterations": 1064,
+      "topology_hash": "1f875855",
+      "output_hash": "88d55c89"
+    },
+    "7f1cc361": {
+      "name": "dodecahedron_hankin_ambo_hankin_ambo_converged",
+      "vertices": 720,
+      "faces": 362,
+      "indices": 2160,
+      "convergence_iterations": 73,
+      "topology_hash": "236de54d",
+      "output_hash": "2f1a35e1"
+    },
+    "04c71362": {
+      "name": "snub_dodecahedron_converged",
+      "vertices": 60,
+      "faces": 92,
+      "indices": 300,
+      "convergence_iterations": 21,
+      "topology_hash": "004bc741",
+      "output_hash": "2783988c"
+    },
+    "855ba2bf": {
+      "name": "icosahedron_snub_converged",
+      "vertices": 60,
+      "faces": 92,
+      "indices": 300,
+      "convergence_iterations": 21,
+      "topology_hash": "75b29ecd",
+      "output_hash": "322e178f"
+    }
+  }
+}

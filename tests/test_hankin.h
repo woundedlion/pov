@@ -71,15 +71,15 @@ inline void test_compile_hankin_populates_arrays() {
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
                compiled.dynamic_vertices.size());
 
-  HS_EXPECT_EQ((size_t)compiled.static_offset,
-               compiled.static_vertices.size());
+  HS_EXPECT_EQ((size_t)compiled.static_offset, compiled.static_vertices.size());
 
   size_t total = 0;
   for (size_t i = 0; i < compiled.face_counts.size(); ++i)
     total += compiled.face_counts[i];
   HS_EXPECT_EQ(total, compiled.faces.size());
 
-  size_t max_v = compiled.static_vertices.size() + compiled.dynamic_vertices.size();
+  size_t max_v =
+      compiled.static_vertices.size() + compiled.dynamic_vertices.size();
   for (size_t i = 0; i < compiled.faces.size(); ++i)
     HS_EXPECT_TRUE(compiled.faces[i] < max_v);
 }
@@ -113,12 +113,12 @@ inline void test_compile_hankin_instruction_indices_in_range() {
 /**
  * @brief Verifies each static vertex is the normalised midpoint of the input
  *        edge it represents, not merely some unit-length point.
- * @details The size and unit-length checks above accept any twelve points on the
- *          sphere; this pins their geometry. Every dynamic instruction names a
+ * @details The size and unit-length checks above accept any twelve points on
+ * the sphere; this pins their geometry. Every dynamic instruction names a
  *          corner and its two flanking edges (idx_m1 = edge v_prev–v_corner,
  *          idx_m2 = edge v_corner–v_next), so recompute each edge's normalised
- *          midpoint straight from base_vertices and require the referenced static
- *          vertex to match. Walking all instructions touches every edge midpoint.
+ *          midpoint straight from base_vertices and require the referenced
+ * static vertex to match. Walking all instructions touches every edge midpoint.
  */
 inline void test_compile_hankin_static_vertices_are_edge_midpoints() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
@@ -183,8 +183,7 @@ inline void test_compile_hankin_icosahedron_triangular_faces() {
   HS_EXPECT_EQ(compiled.dynamic_instructions.size(),
                compiled.dynamic_vertices.size());
 
-  HS_EXPECT_EQ((size_t)compiled.static_offset,
-               compiled.static_vertices.size());
+  HS_EXPECT_EQ((size_t)compiled.static_offset, compiled.static_vertices.size());
 
   size_t total = 0;
   for (size_t i = 0; i < compiled.face_counts.size(); ++i)
@@ -319,13 +318,14 @@ inline void test_update_hankin_flat_collapses_to_corners() {
 /**
  * @brief Verifies update_hankin's degenerate-edge fallback (hankin.h:316-320):
  *        a zero-length corner edge at a NON-zero angle still collapses the
- *        dynamic vertex onto the normalised corner and stays finite/unit-length.
+ *        dynamic vertex onto the normalised corner and stays
+ * finite/unit-length.
  * @details The clean platonic solids never produce a degenerate edge, so the
- *          `dot(cross,cross) < EPS_CROSS_SQ` branch is otherwise uncovered. Here
- *          we compile a normal cube, then force one instruction's previous corner
- *          to coincide with its corner so cross(p_prev, p_corner) == 0, emulating
- *          a malformed mesh. Without the guard this path would feed a zero vector
- *          into normalized() and emit NaN.
+ *          `dot(cross,cross) < EPS_CROSS_SQ` branch is otherwise uncovered.
+ * Here we compile a normal cube, then force one instruction's previous corner
+ *          to coincide with its corner so cross(p_prev, p_corner) == 0,
+ * emulating a malformed mesh. Without the guard this path would feed a zero
+ * vector into normalized() and emit NaN.
  */
 inline void test_update_hankin_degenerate_edge_collapses_to_corner() {
   Arena target(hankin_target_buf, sizeof(hankin_target_buf));
@@ -379,9 +379,8 @@ inline void test_update_hankin_populates_output_mesh() {
   PolyMesh out;
   MeshOps::update_hankin(compiled, out, target, /*angle*/ 0.4f);
 
-  HS_EXPECT_EQ(out.vertices.size(),
-               compiled.static_vertices.size() +
-                   compiled.dynamic_vertices.size());
+  HS_EXPECT_EQ(out.vertices.size(), compiled.static_vertices.size() +
+                                        compiled.dynamic_vertices.size());
   HS_EXPECT_EQ(out.face_counts.size(), compiled.face_counts.size());
   HS_EXPECT_EQ(out.faces.size(), compiled.faces.size());
 
@@ -465,7 +464,8 @@ inline void test_hankin_flat_and_twisted_differ() {
 
 /**
  * @brief Verifies Hankin output is a closed genus-0 manifold with consistent
- *        winding, for both a quad seed (cube) and a triangle seed (icosahedron).
+ *        winding, for both a quad seed (cube) and a triangle seed
+ * (icosahedron).
  * @details The structural smoke above (face-count consistency, index range,
  *          loose unit-length) accepts a non-manifold or backwards-wound mesh.
  *          Hankin is the family most likely to open a seam or invert a face, so
@@ -505,12 +505,13 @@ inline uint8_t hankin_reso_target[512 * 1024];
 
 /**
  * @brief Verifies star points stay local at a resonance angle.
- * @details The dodecahedron hk35/ambo/hk62/ambo/relax prefix at a 43-degree
- *          contact angle puts one corner class's contact planes near-parallel,
- *          so their ray intersections land ~64 degrees from the corner.
- *          Without the far-star guard the output grows sliver faces whose
- *          longest edge is ~24x the median; with it every edge stays within
- *          the healthy ratio.
+ * @details
+ * The dodecahedron hk35/ambo/hk62/ambo/relax prefix at a 43-degree
+ * contact
+ * angle puts one corner class's contact planes near-parallel, so their ray
+ * intersections land ~64 degrees from the corner. Without the far-star guard
+ * the output grows sliver faces whose longest edge is ~24x the median; with it
+ * every edge stays within the healthy ratio.
  */
 inline void test_update_hankin_resonance_star_points_stay_local() {
   Arena target(hankin_reso_target, sizeof(hankin_reso_target));
@@ -530,7 +531,8 @@ inline void test_update_hankin_resonance_star_points_stay_local() {
   }
   Arena out_arena(hankin_reso_a, sizeof(hankin_reso_a));
   Arena temp(hankin_reso_b, sizeof(hankin_reso_b));
-  PolyMesh out = MeshOps::hankin(prefix, out_arena, temp, 43.0f * Solids::IslamicStarPatterns::D2R);
+  PolyMesh out = MeshOps::hankin(prefix, out_arena, temp,
+                                 43.0f * Solids::IslamicStarPatterns::D2R);
 
   std::vector<float> edges;
   size_t off = 0;
@@ -547,6 +549,64 @@ inline void test_update_hankin_resonance_star_points_stay_local() {
   float median = edges[edges.size() / 2];
   float max = edges.back();
   HS_EXPECT_TRUE(max <= 6.0f * median);
+}
+
+/**
+ * @brief Verifies near-parallel star intersections move continuously with
+ * the
+ * contact angle.
+ * @details Sweeps the full HankinSolids angle range on
+ * the converged bevel
+ * prefix. The tighter 44-50 degree bound covers its
+ * plane-normal resonance.
+ */
+inline void test_update_hankin_near_parallel_angle_is_continuous() {
+  Arena prefix_arena(hankin_reso_target, sizeof(hankin_reso_target));
+  PolyMesh prefix;
+  {
+    Arena a(hankin_reso_a, sizeof(hankin_reso_a));
+    Arena b(hankin_reso_b, sizeof(hankin_reso_b));
+    prefix = Solids::finalize_solid(
+        Solids::SolidBuilder(
+            Solids::Archimedean::truncatedIcosidodecahedron(a, b), a, b)
+            .bevel(0.5f)
+            .relax_baked(Solids::RelaxBakes::
+                             truncated_icosidodecahedron_bevel50_converged,
+                         100)
+            .build(),
+        prefix_arena);
+  }
+
+  Arena compiled_arena(hankin_reso_a, sizeof(hankin_reso_a));
+  Arena output_arena(hankin_reso_b, sizeof(hankin_reso_b));
+  CompiledHankin compiled;
+  MeshOps::compile_hankin(prefix, compiled, compiled_arena, output_arena);
+
+  std::vector<Vector> previous(compiled.dynamic_vertices.size());
+  float max_step = 0.0f;
+  float resonance_max_step = 0.0f;
+  constexpr float STEP_DEGREES = 0.01f;
+  for (int step = 1; step <= 8900; ++step) {
+    output_arena.reset();
+    PolyMesh output;
+    MeshOps::update_hankin(compiled, output, output_arena,
+                           step * STEP_DEGREES *
+                               Solids::IslamicStarPatterns::D2R);
+    if (step > 1) {
+      for (size_t i = 0; i < compiled.dynamic_vertices.size(); ++i) {
+        const float movement = std::sqrt(
+            distance_squared(previous[i], compiled.dynamic_vertices[i]));
+        max_step = std::max(max_step, movement);
+        if (step >= 4400 && step <= 5000)
+          resonance_max_step = std::max(resonance_max_step, movement);
+      }
+    }
+    std::copy(compiled.dynamic_vertices.begin(),
+              compiled.dynamic_vertices.end(), previous.begin());
+  }
+
+  HS_EXPECT_LE(max_step, 0.01f);
+  HS_EXPECT_LE(resonance_max_step, 0.001f);
 }
 
 // ---------------------------------------------------------------------------
@@ -575,7 +635,8 @@ inline void test_compiled_hankin_clone_deep_copies() {
   HS_EXPECT_EQ(dst.base_vertices.size(), src.base_vertices.size());
   HS_EXPECT_EQ(dst.static_vertices.size(), src.static_vertices.size());
   HS_EXPECT_EQ(dst.dynamic_vertices.size(), src.dynamic_vertices.size());
-  HS_EXPECT_EQ(dst.dynamic_instructions.size(), src.dynamic_instructions.size());
+  HS_EXPECT_EQ(dst.dynamic_instructions.size(),
+               src.dynamic_instructions.size());
   HS_EXPECT_EQ(dst.face_counts.size(), src.face_counts.size());
   HS_EXPECT_EQ(dst.faces.size(), src.faces.size());
   HS_EXPECT_EQ(dst.static_offset, src.static_offset);
@@ -643,6 +704,7 @@ inline int run_hankin_tests() {
   test_hankin_output_is_genus0_manifold();
 
   test_update_hankin_resonance_star_points_stay_local();
+  test_update_hankin_near_parallel_angle_is_continuous();
 
   test_compiled_hankin_clone_deep_copies();
   test_compiled_hankin_clear();
@@ -652,4 +714,3 @@ inline int run_hankin_tests() {
 
 } // namespace hankin_tests
 } // namespace hs_test
-
