@@ -272,8 +272,8 @@ private:
   // impulse.
   static constexpr std::array<PresetEntry<Params>, 6> PRESETS{{
       {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.2f}},
-      {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.52f}},
       {{.friction = 0.85f, .well_strength = 20.0f, .initial_speed = 0.0525f, .angular_speed = 0.214f}},
+      {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.52f}},
       {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.92f}},
       {{.friction = 0.85f, .well_strength = 1.7f, .initial_speed = 0.094f, .angular_speed = 0.2f}},
       {{.friction = 0.85f, .well_strength = 2.55f, .initial_speed = 0.035f, .angular_speed = 1.0f}},
