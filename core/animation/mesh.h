@@ -434,9 +434,17 @@ public:
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
 
+    // Truncate births below T_EPS when the arrival is itself below T_EPS, so a
+    // 0.01 target sweeps from a smaller positive birth instead of clamping both
+    // endpoints to T_EPS (a still image). Every arrival >= 0.1 keeps the T_EPS
+    // birth unchanged.
+    const float trunc_floor =
+        std::min(ConwayGraph::T_EPS,
+                 std::max(t_start, t_end) * ConwayGraph::T_EPS_TRUNCATE_FRAC);
     auto clamp_param = [&](float t) {
-      t = std::max(t, ConwayGraph::T_EPS);
-      if (op == ConwayGraph::MorphOp::TRUNCATE)
+      const bool truncate = op == ConwayGraph::MorphOp::TRUNCATE;
+      t = std::max(t, truncate ? trunc_floor : ConwayGraph::T_EPS);
+      if (truncate)
         t = std::min(t, 0.5f - ConwayGraph::T_EPS_AMBO);
       return t;
     };

@@ -2433,7 +2433,11 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::RELAX, 8.0f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::HANKIN, 62.0f * D2R}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::AMBO}));
-  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
+  // 0.01 is below T_EPS but sweepable: the leg births at the derived
+  // per-arrival floor instead of clamping to a still image
+  // (opchain_morph_spec 5.1).
+  HS_EXPECT_TRUE(Solids::is_morphable_step({Op::TRUNCATE, 0.01f}));
+  HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 0.001f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::TRUNCATE, 50.0f * D2R}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::CHAMFER, 0.63f}));
   HS_EXPECT_TRUE(Solids::is_morphable_step({Op::KIS}));
@@ -2441,7 +2445,7 @@ inline void test_unsweepable_recipe_steps_are_gated() {
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.001f}));
   HS_EXPECT_TRUE(!Solids::is_morphable_step({Op::CHAMFER, 0.9f}));
 
-  // What the gate avoids, on the seed both blocked truncate recipes reach
+  // What the gate avoids, on the seed the blocked truncate recipe reaches
   // (truncatedIcosahedron.ambo().relax()): a clamped leg lands this far from
   // the mesh the recipe holds, as one silent full-mesh pop at the bookend.
   // truncate keeps its 2E vertices in emission order on both sides of 0.5, so
@@ -2461,15 +2465,6 @@ inline void test_unsweepable_recipe_steps_are_gated() {
     return worst;
   };
 
-  const PolyMesh clamped_lo = MeshOps::truncate(seed, a, b, T_EPS);
-  const PolyMesh target_lo = MeshOps::truncate(seed, aux, b, 0.01f);
-  std::printf("  [gate] truncate(0.01) below T_EPS: leg frozen at t=%.2f, "
-              "closing chord %.4f (%.2f px at r=64), F=%zu\n",
-              (double)T_EPS, (double)max_chord(clamped_lo, target_lo),
-              (double)(max_chord(clamped_lo, target_lo) * 64.0f),
-              clamped_lo.face_counts.size());
-
-  aux.reset();
   const PolyMesh clamped_hi =
       MeshOps::truncate(seed, a, b, 0.5f - ConwayGraph::T_EPS_AMBO);
   const PolyMesh target_hi = MeshOps::truncate(seed, aux, b, 50.0f * D2R);

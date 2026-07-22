@@ -334,6 +334,149 @@ inline void test_chamfer_sweep_holds_topology() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Truncate sub-T_EPS birth (opchain_morph_spec section 5.1): the two
+// truncatedIcosahedron_ambo_relax_truncate001_hankin{59,73} recipes truncate at
+// 0.01, below the flat T_EPS birth floor. Both share the same truncate seed
+// (truncatedIcosahedron.ambo().relax()) and truncate param, so the leg is
+// identical; the hankin angle that differs is a later leg. The leg births at
+// min(T_EPS, 0.01 * T_EPS_TRUNCATE_FRAC) = 0.002 and sweeps to 0.01. This must
+// be a real, well-formed animation, not a still image or an inverted birth.
+// ---------------------------------------------------------------------------
+
+/** @brief One truncate-leg seed. */
+struct TruncateSite {
+  const char *name;                     /**< Recipe the leg belongs to. */
+  PolyMesh (*seed)(Arena &a, Arena &b); /**< Chain prefix up to the truncate. */
+};
+
+inline PolyMesh probe_ticosa_ambo_relax(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b),
+                              a, b)
+      .ambo()
+      .relax()
+      .build();
+}
+
+inline constexpr TruncateSite TRUNCATE_SITES[] = {
+    {"truncatedIcosahedron_ambo_relax_truncate001_hankin59",
+     probe_ticosa_ambo_relax},
+    {"truncatedIcosahedron_ambo_relax_truncate001_hankin73",
+     probe_ticosa_ambo_relax},
+};
+
+/** Arrival parameter of the two truncate001 recipes. */
+inline constexpr float TRUNCATE001_T_STAR = 0.01f;
+
+/**
+ * @brief Steps the truncate001 leg from its derived birth floor to 0.01 on each
+ *        truncate001 seed, asserting a real sweep (birth < arrival), constant
+ *        raw and compiled face counts, a closed genus-0 manifold, unit
+ * vertices, every face positive-area, and no face inverting across the sweep.
+ * @details The silent on-screen failure these recipes carry (spec section 5.1)
+ * is a truncate whose sub-T_EPS arrival clamps both endpoints to T_EPS -- a
+ * still image ending on a mesh built at the wrong parameter. The birth floor
+ * mirrors the OpLeg recipe-step clamp exactly.
+ */
+inline void test_truncate001_birth_sweep_holds_topology() {
+  constexpr int SAMPLES = 32;
+  const float birth =
+      std::min(ConwayGraph::T_EPS,
+               TRUNCATE001_T_STAR * ConwayGraph::T_EPS_TRUNCATE_FRAC);
+  // A real animation, not a still image.
+  HS_EXPECT_TRUE(birth < TRUNCATE001_T_STAR);
+  HS_EXPECT_TRUE(TRUNCATE001_T_STAR >= ConwayGraph::T_EPS_TRUNCATE_MIN);
+
+  for (const TruncateSite &site : TRUNCATE_SITES) {
+    const int failed_before = hs_test::stats().failed;
+
+    Arena persist(probe_seed_buf, sizeof(probe_seed_buf));
+    Arena a(probe_a_buf, sizeof(probe_a_buf));
+    Arena b(probe_b_buf, sizeof(probe_b_buf));
+    PolyMesh seed;
+    {
+      ScratchScope ga(a);
+      ScratchScope gb(b);
+      seed = Solids::finalize_solid(site.seed(a, b), persist);
+    }
+
+    size_t v0 = 0, f0 = 0, i0 = 0, compiled0 = 0;
+    std::vector<Vector> prev_normal;
+    std::vector<size_t> off;
+    float min_area = 1e9f;
+    float min_outward = 1e9f;
+    float min_normal_dot = 1e9f;
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float t = birth + (TRUNCATE001_T_STAR - birth) *
+                                  (static_cast<float>(s) / (SAMPLES - 1));
+      ScratchScope fa(a);
+      ScratchScope fb(b);
+      PolyMesh swept = MeshOps::truncate(seed, a, b, t);
+      MeshState compiled;
+      MeshOps::compile(swept, compiled, a, b);
+      if (s == 0) {
+        v0 = swept.vertices.size();
+        f0 = swept.face_counts.size();
+        i0 = swept.faces.size();
+        compiled0 = compiled.face_counts.size();
+        HS_EXPECT_TRUE(v0 > 0 && f0 > 0 && i0 > 0);
+      } else {
+        HS_EXPECT_EQ(swept.vertices.size(), v0);
+        HS_EXPECT_EQ(swept.face_counts.size(), f0);
+        HS_EXPECT_EQ(swept.faces.size(), i0);
+        HS_EXPECT_EQ(compiled.face_counts.size(), compiled0);
+      }
+      check_face_counts_consistent(swept);
+      check_indices_in_range(swept);
+      check_all_unit_vertices(swept, 1e-3f);
+      conway_tests::check_euler_genus0(swept);
+
+      face_offsets(swept, off);
+      std::vector<Vector> normal(swept.face_counts.size());
+      for (size_t f = 0; f < swept.face_counts.size(); ++f) {
+        normal[f] = newell(swept, off[f], swept.face_counts[f]);
+        // Planar area: no face collapses or inverts anywhere in the sweep.
+        min_area = std::min(min_area, std::sqrt(dot(normal[f], normal[f])));
+        Vector c(0, 0, 0);
+        const int n = swept.face_counts[f];
+        for (int k = 0; k < n; ++k)
+          c = c + swept.vertices[swept.faces[off[f] + k]];
+        const float len =
+            std::sqrt(dot(normal[f], normal[f])) * std::sqrt(dot(c, c));
+        if (len > 0.0f)
+          min_outward = std::min(min_outward, dot(normal[f], c) / len);
+      }
+      if (s > 0) {
+        for (size_t f = 0; f < normal.size(); ++f) {
+          const float la = std::sqrt(dot(prev_normal[f], prev_normal[f]));
+          const float lb = std::sqrt(dot(normal[f], normal[f]));
+          if (la > 0.0f && lb > 0.0f)
+            min_normal_dot = std::min(
+                min_normal_dot, dot(prev_normal[f], normal[f]) / (la * lb));
+        }
+      }
+      prev_normal = normal;
+    }
+
+    // Every face keeps positive area and outward orientation across the sweep.
+    HS_EXPECT_TRUE(min_area > 0.0f);
+    HS_EXPECT_TRUE(min_outward > 0.0f);
+    HS_EXPECT_TRUE(min_normal_dot > 0.0f);
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [truncate001] %s failed (raw F=%zu compiled=%zu)\n",
+                  site.name, f0, compiled0);
+    else
+      std::printf("  [truncate001] %s: birth=%.4f->%.2f V=%zu F=%zu I=%zu "
+                  "compiled=%zu min_area=%.3e min_outward=%.4f "
+                  "min_normal_dot=%.4f\n",
+                  site.name, static_cast<double>(birth),
+                  static_cast<double>(TRUNCATE001_T_STAR), v0, f0, i0,
+                  compiled0, static_cast<double>(min_area),
+                  static_cast<double>(min_outward),
+                  static_cast<double>(min_normal_dot));
+  }
+}
+
 /**
  * @brief Finds the smallest chamfer t at which no newborn hexagon is rejected
  *        by SDF::Face's collapsed-area cull, per seed.
@@ -720,6 +863,8 @@ inline int run_opchain_probe_tests() {
   test_chamfer_zero_area_birth_limit();
   test_chamfer_sweep_holds_topology();
   test_chamfer_birth_epsilon();
+
+  test_truncate001_birth_sweep_holds_topology();
 
   test_build_chain_centroid_spacing();
   test_build_chain_provenance_ambiguity();
