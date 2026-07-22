@@ -2334,29 +2334,58 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   const int frames = 2 * gate + 1;
   int drawn = 0, swaps = 0, swap_frame = -1;
   size_t side_faces = 0;
-  float prev_gain = 0.0f, min_gain = 2.0f;
-  bool gain_monotone = true;
+  const OpLeg::Landing *lp = nullptr;
+  // Every pre-fade opening frame draws the inherited `from` palette.
+  bool held_from_before_fade = true;
+  // Opening frames strictly inside the late-fade (0 < w < 1).
+  int fade_frames_seen = 0;
+  // LUT grid-aligned sample coordinates for exact ramp-color comparisons.
+  constexpr float SAMPLES[] = {0.0f, 0.5f, 1.0f};
   auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
     HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
     for (size_t f = 0; f < sh.faces; ++f)
       HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), OpLeg::MAX_BLEND_PAIRS);
+
+    // De-flash: the gate never dims. Gain is exactly 1 on every frame.
+    HS_EXPECT_EQ(sh.gain, 1.0f);
+
     if (drawn == 0) {
       side_faces = sh.faces;
-      HS_EXPECT_EQ(sh.gain, 1.0f);
-    } else {
-      if (sh.faces != side_faces) {
-        ++swaps;
-        swap_frame = drawn;
-        side_faces = sh.faces;
-      }
-      const bool closing = drawn <= gate;
-      if (closing ? sh.gain > prev_gain : sh.gain < prev_gain)
-        gain_monotone = false;
+    } else if (sh.faces != side_faces) {
+      ++swaps;
+      swap_frame = drawn;
+      side_faces = sh.faces;
     }
-    HS_EXPECT_GT(sh.gain, 0.0f);
-    HS_EXPECT_GE(sh.gain, OpLeg::GATE_GAIN_MIN);
-    min_gain = std::min(min_gain, sh.gain);
-    prev_gain = sh.gain;
+
+    // Colour weight: hold the inherited `from` palette across the swap and most
+    // of the gate, diverge to `to` only over the final LATE_FADE_FRAMES.
+    // Checked on the opening side, where the face indexing matches the landing.
+    const int leg_frame = drawn + 1;
+    const bool seed_side = leg_frame - 1 < gate;
+    if (lp && !seed_side) {
+      const float w = OpLeg::late_blend_weight(leg_frame, frames);
+      for (size_t f = 0; f < sh.faces; ++f) {
+        const uint8_t from = lp->from_palette[f];
+        const uint8_t to =
+            lp->to_palette[wrap(lp->topology[f], OpLeg::PALETTES)];
+        for (float t : SAMPLES) {
+          const Color4 got = sh.ramps[sh.face_ramp[f]].get(t);
+          if (w <= 0.0f) { // holding the inherited source palette
+            const Color4 exp = bank.bank.entries[from].get(t);
+            if (got.color.r != exp.color.r || got.color.g != exp.color.g ||
+                got.color.b != exp.color.b)
+              held_from_before_fade = false;
+          } else if (leg_frame == frames) { // arrival frame: exactly `to`
+            const Color4 exp = bank.bank.entries[to].get(t);
+            HS_EXPECT_EQ(got.color.r, exp.color.r);
+            HS_EXPECT_EQ(got.color.g, exp.color.g);
+            HS_EXPECT_EQ(got.color.b, exp.color.b);
+          }
+        }
+      }
+      if (w > 0.0f && w < 1.0f)
+        ++fade_frames_seen;
+    }
     ++drawn;
   };
 
@@ -2368,6 +2397,7 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
 
   OpLeg leg(seed, op, leg_arena, cb, handoff, gate, bookend);
   const OpLeg::Landing &landing = leg.landing();
+  lp = &landing;
   for (int f = 0; f < frames; ++f) {
     {
       Canvas c(fx);
@@ -2385,14 +2415,29 @@ inline void check_gated_leg_smoke(Animation::OpLeg::SwapOp op,
   HS_EXPECT_EQ(landing.faces, endpoint.face_counts.size());
   HS_EXPECT_EQ(landing.primary_faces, prev_faces);
   HS_EXPECT_TRUE(landing.from_palette != nullptr);
-  HS_EXPECT_TRUE(gain_monotone);
-  HS_EXPECT_NEAR(min_gain, OpLeg::GATE_GAIN_MIN, 1e-5f);
-  HS_EXPECT_NEAR(prev_gain, 1.0f, 1e-5f);
 
-  std::printf("  [opleg %s] %s: F %zu -> %zu, swap at frame %d of %d, gain "
-              "1 -> %.2f -> 1%s\n",
+  // late_blend_weight shape: exactly 0 until the final LATE_FADE_FRAMES,
+  // strictly increasing across them, exactly 1 at the arrival frame -- so the
+  // colour holds `from` through the early/middle of the gate and reaches `to`
+  // only over the last few frames.
+  for (int fr = 1; fr <= frames - OpLeg::LATE_FADE_FRAMES; ++fr)
+    HS_EXPECT_EQ(OpLeg::late_blend_weight(fr, frames), 0.0f);
+  float prev_w = 0.0f;
+  for (int fr = frames - OpLeg::LATE_FADE_FRAMES + 1; fr <= frames; ++fr) {
+    const float w = OpLeg::late_blend_weight(fr, frames);
+    HS_EXPECT_GT(w, prev_w);
+    prev_w = w;
+  }
+  HS_EXPECT_NEAR(OpLeg::late_blend_weight(frames, frames), 1.0f, 1e-6f);
+  // The leg actually draws the held `from` colour before the fade and diverges
+  // through it.
+  HS_EXPECT_TRUE(held_from_before_fade);
+  HS_EXPECT_GT(fade_frames_seen, 0);
+
+  std::printf("  [opleg %s] %s: F %zu -> %zu, swap at frame %d of %d, gain 1 "
+              "throughout; colour holds `from`, late-fades over %d frames%s\n",
               is_kis ? "kis" : "dual", site.name, prev_faces, landing.faces,
-              swap_frame, frames, (double)min_gain,
+              swap_frame, frames, OpLeg::LATE_FADE_FRAMES,
               hs_test::stats().failed != failed_before ? " FAILED" : "");
 }
 

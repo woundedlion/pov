@@ -198,15 +198,6 @@ public:
   /** Partition operator a GATED_SWAP leg swaps to. */
   enum class SwapOp : uint8_t { KIS, DUAL };
 
-  /** Shading gain a GATED_SWAP leg closes to across its swap frame
-   * (docs/opchain_morph_spec.md, section 3.3). Shallowest gain in the seam
-   * sweep (tests/test_partition_seam.h) whose whole-frame absolute delta energy
-   * across the swap stays inside the 2 % envelope on every calibrated seed:
-   * kis <= 1.03 %, dual <= 1.32 %, against a 2.18 % dual reading at 0.1 and a
-   * coverage-only floor of 0.56-0.83 %. Never 0: at 0 every fragment resolves
-   * to palette.get(0) and the mesh collapses to five flat patches. */
-  static constexpr float GATE_GAIN_MIN = 0.05f;
-
   /** Hankin-angle floor (the T_EPS analog): at angle -> 0 every star point
    * collapses onto its corner via the p_corner fallback, so the clamp keeps
    * births positive-area. */
@@ -238,7 +229,7 @@ public:
     const uint8_t *face_ramp;  /**< Face index -> ramp index. */
     size_t faces;              /**< Face count (bounds face_ramp). */
     float gain = 1.0f; /**< Multiplier the shader applies to the edge-distance
-                          gradient; 1 on every swept kind. */
+                          gradient; OpLeg holds it at 1 on every kind. */
   };
 
   /**
@@ -650,8 +641,9 @@ public:
 
   /**
    * @brief Constructs a gated-swap leg: a partition op with no sweep, drawn as
-   * a shading-gain gate closing on the seed and reopening on op(seed)
-   * (docs/opchain_morph_spec.md, section 3.3).
+   * the seed then op(seed) at constant gain, the swap masked by holding the
+   * inherited source colour until the late fade (docs/opchain_morph_spec.md,
+   * section 3.3).
    * @param seed Mesh the partition op runs on (cloned, not borrowed).
    * @param op Partition operator applied at the swap frame.
    * @param arena Leg arena backing the cloned seed and hoisted state.
@@ -661,7 +653,8 @@ public:
    * 2 * gate_frames + 1 frames.
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
-   * @param easing_fn Easing applied to the gate fraction.
+   * @param easing_fn Unused by the gate (no sweep); kept for the shared
+   * constructor signature.
    * @note Radial and apex motion are invisible to SDF::Face (spec 3.2), so
    * there is no sweep segment; the leg's compiled face count is constant on
    * each side of the swap and changes exactly once, at it.
@@ -1009,20 +1002,16 @@ private:
   }
 
   /**
-   * @brief Steps a gated-swap leg: gate fraction -> shading gain, the seed or
-   * the partitioned mesh, then the shared frame tail.
+   * @brief Steps a gated-swap leg: the seed or the partitioned mesh, then the
+   * shared frame tail at gain 1.
    * @param canvas The canvas passed through to the draw callback.
-   * @param frame Clamped frame index; frame 1 opens the gate at gain 1.
+   * @param frame Clamped frame index; the seed side draws frames [1, gate], the
+   * swap and opening side [gate + 1, 2 * gate + 1].
    */
   HS_COLD_MEMBER void step_gated(Canvas &canvas, int frame) {
     Transients &tr = *buf_;
     const float gate = static_cast<float>(tr.sweep_frames);
-    const float g = static_cast<float>(frame - 1);
-    const bool seed_side = g < gate;
-    const float gain =
-        g <= gate ? 1.0f + (GATE_GAIN_MIN - 1.0f) * easing_fn(g / gate)
-                  : GATE_GAIN_MIN +
-                        (1.0f - GATE_GAIN_MIN) * easing_fn((g - gate) / gate);
+    const bool seed_side = static_cast<float>(frame - 1) < gate;
 
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
@@ -1036,10 +1025,12 @@ private:
         mesh = swap_at(tr, scratch_arena_a, scratch_arena_b);
     }
 
-    // Colour holds at the departed palettes across the swap and most of the
-    // gate, so the children open in the colour already painted where they land,
-    // and converges to the arrival targets only over the final frames.
-    finish_frame(canvas, mesh, late_blend_weight(frame, duration), gain,
+    // Gain holds at 1 across the whole gate: the swap changes topology, not
+    // brightness (no dip, no flash). Colour holds at the departed palettes
+    // across the swap and most of the gate, so the children open in the colour
+    // already painted where they land, and converges to the arrival targets
+    // only over the final frames.
+    finish_frame(canvas, mesh, late_blend_weight(frame, duration), 1.0f,
                  seed_side);
   }
 
