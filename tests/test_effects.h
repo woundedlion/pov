@@ -2988,6 +2988,21 @@ struct IslamicBuildProbe {
   static int dual_bridges(const IslamicStars<W, H> &e) {
     return e.dual_bridges_built_;
   }
+  template <int W, int H>
+  static int gated_swaps(const IslamicStars<W, H> &e) {
+    return e.gated_swaps_scheduled_;
+  }
+  template <int W, int H>
+  static size_t persistent_budget(const IslamicStars<W, H> &e) {
+    return e.device_persistent_budget_;
+  }
+  static constexpr size_t bridge_scratch_a() {
+    return IS::SPLIT_SCRATCH_A_BRIDGE;
+  }
+  static constexpr size_t default_scratch_a() {
+    return IS::SPLIT_SCRATCH_A_DEFAULT;
+  }
+  static constexpr size_t split_scratch_b() { return IS::SPLIT_SCRATCH_B; }
 };
 
 /**
@@ -3054,76 +3069,84 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   IslamicBuildProbe::set_trans_speed(effect, 8.0f);
   effect.init();
 
-  // The effect's own configured split (IslamicStars::init): scratch_a=120 KB,
-  // scratch_b=74 KB, the rest persistent. On host the arenas are these exact
-  // sizes, so an over-budget leg traps in the arena; the asserts below add a
-  // margin check for a near-miss that would still fit but erode the headroom.
-  // The persistent budget gates the whole build in real roster order: a leg's
-  // peak follows whatever the predecessor left resident, which the per-chain
-  // replay never sees. Host pointer inflation makes the host high-water an
-  // upper bound on the 32-bit device figure, so a host peak under budget proves
-  // the device fits (this is what the live sim's dual-bridge OOM tripped).
-  constexpr size_t SCRATCH_A_BUDGET = 120 * 1024; // 122,880
-  constexpr size_t SCRATCH_B_BUDGET = 74 * 1024;  // 75,776
-  constexpr size_t PERSISTENT_BUDGET =
-      DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BUDGET - SCRATCH_B_BUDGET; // 106,496
-
+  // Per-shape arena split (IslamicStars::spawn_shape): a smooth kis/needle
+  // bridge shape spawns on a scratch_a-heavy split (135 KB / 74 KB / 94 KB),
+  // every other shape on the default (120 KB / 74 KB / 106 KB). On host the two
+  // scratch arenas are the exact device sizes and hard-capped, so an over-budget
+  // leg traps -- completing the whole roster proves every shape's scratch fit
+  // its own split. Persistent is host-inflated (soft), so it is checked per
+  // frame against the effect's live per-shape device budget; host pointer
+  // inflation makes the host high-water an upper bound on the device figure.
   auto solids = Solids::Collections::get_islamic_solids();
   const int entries = static_cast<int>(solids.size());
+  int needle_idx = -1;
+  for (int i = 0; i < entries; ++i)
+    if (std::strstr(solids[i].name, "needle"))
+      needle_idx = i;
+  HS_EXPECT_GE(needle_idx, 0);
+
   constexpr int MAX_FRAMES = 20000;
-  size_t persist_peak = 0;
-  size_t a_peak = 0, b_peak = 0;
-  int frames = 0;
-  int shapes = 0;
-  int builds = 0;
-  int persist_peak_idx = -1; // shape resident at the persistent high-water
+  size_t a_peak = 0, b_peak = 0, persist_peak = 0;
+  size_t na_peak = 0, nb_peak = 0, np_peak = 0; // needle-only peaks
+  size_t worst_p = 0, worst_p_budget = 0;
+  int worst_p_idx = -1; // shape at the worst persistent/budget ratio
+  int frames = 0, shapes = 0, builds = 0;
   int last = IslamicBuildProbe::solid_idx(effect);
   while (frames < MAX_FRAMES && shapes <= entries) {
     effect.draw_frame();
     effect.advance_display();
     ++frames;
-    // reset() clears each arena's own mark, so sample every frame to keep the
-    // peak across the per-leg compactions.
+    const int cur = IslamicBuildProbe::solid_idx(effect);
     const size_t p = persistent_arena.get_high_water_mark();
-    if (p > persist_peak) {
-      persist_peak = p;
-      persist_peak_idx = IslamicBuildProbe::solid_idx(effect);
+    const size_t a = scratch_arena_a.get_high_water_mark();
+    const size_t b = scratch_arena_b.get_high_water_mark();
+    const size_t p_budget = IslamicBuildProbe::persistent_budget(effect);
+    a_peak = std::max(a_peak, a);
+    b_peak = std::max(b_peak, b);
+    persist_peak = std::max(persist_peak, p);
+    if (p > worst_p) { // report the tightest persistent fit, not the raw max
+      worst_p = p;
+      worst_p_budget = p_budget;
+      worst_p_idx = cur;
     }
-    a_peak = std::max(a_peak, scratch_arena_a.get_high_water_mark());
-    b_peak = std::max(b_peak, scratch_arena_b.get_high_water_mark());
+    if (cur == needle_idx) {
+      na_peak = std::max(na_peak, a);
+      nb_peak = std::max(nb_peak, b);
+      np_peak = std::max(np_peak, p);
+    }
+    // Per-shape persistent budget (device figure); scratch is trap-enforced.
+    HS_EXPECT_LE(p, p_budget);
     if (IslamicBuildProbe::build_active(effect))
       ++builds;
-    const int cur = IslamicBuildProbe::solid_idx(effect);
     if (cur != last) {
       last = cur;
       ++shapes;
     }
   }
 
-  const char *peak_name =
-      (persist_peak_idx >= 0 && persist_peak_idx < entries)
-          ? solids[persist_peak_idx].name
-          : "?";
+  const char *worst_name =
+      (worst_p_idx >= 0 && worst_p_idx < entries) ? solids[worst_p_idx].name
+                                                  : "?";
   std::printf(
       "  [roster] %d shapes over %d frames, %d build frames: scratch_a "
-      "peak=%zu/%zu B, scratch_b peak=%zu/%zu B, persistent peak=%zu/%zu B "
-      "(at %s)\n",
-      shapes, frames, builds, a_peak, SCRATCH_A_BUDGET, b_peak,
-      SCRATCH_B_BUDGET, persist_peak, PERSISTENT_BUDGET, peak_name);
-  if (a_peak > SCRATCH_A_BUDGET)
-    std::printf("  IslamicStars OVER scratch_a budget: %zu > %zu\n", a_peak,
-                SCRATCH_A_BUDGET);
-  if (b_peak > SCRATCH_B_BUDGET)
-    std::printf("  IslamicStars OVER scratch_b budget: %zu > %zu\n", b_peak,
-                SCRATCH_B_BUDGET);
-  if (persist_peak > PERSISTENT_BUDGET)
-    std::printf("  IslamicStars OVER persistent budget: %zu > %zu at %s\n",
-                persist_peak, PERSISTENT_BUDGET, peak_name);
+      "peak=%zu B, scratch_b peak=%zu B, persistent peak=%zu B; tightest "
+      "persistent %zu/%zu at %s\n",
+      shapes, frames, builds, a_peak, b_peak, persist_peak, worst_p,
+      worst_p_budget, worst_name);
+  std::printf("  [roster] needle smooth-path peaks: scratch_a=%zu/%zu "
+              "scratch_b=%zu/%zu persistent=%zu/%zu; gated_swaps=%d\n",
+              na_peak, IslamicBuildProbe::bridge_scratch_a(), nb_peak,
+              IslamicBuildProbe::split_scratch_b(), np_peak,
+              DEVICE_GLOBAL_ARENA_SIZE - IslamicBuildProbe::bridge_scratch_a() -
+                  IslamicBuildProbe::split_scratch_b(),
+              IslamicBuildProbe::gated_swaps(effect));
   HS_EXPECT_GT(shapes, entries - 1);
   HS_EXPECT_GT(builds, 0);
-  HS_EXPECT_LE(a_peak, SCRATCH_A_BUDGET);
-  HS_EXPECT_LE(b_peak, SCRATCH_B_BUDGET);
-  HS_EXPECT_LE(persist_peak, PERSISTENT_BUDGET);
+  // Every dt/dtd chain takes the smooth path -- no gated (snapping) kis.
+  HS_EXPECT_EQ(IslamicBuildProbe::gated_swaps(effect), 0);
+  // needle actually reached its scratch_a-heavy split (proves the smooth path
+  // ran, not a silently-dropped build).
+  HS_EXPECT_GT(na_peak, 120u * 1024u);
 }
 
 /**
@@ -3144,12 +3167,14 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
   IslamicBuildProbe::set_trans_speed(effect, 2.0f);
   effect.init();
 
-  constexpr size_t SCRATCH_A_BUDGET = 120 * 1024;
-  constexpr size_t SCRATCH_B_BUDGET = 74 * 1024;
   constexpr int TARGET_BRIDGES = 5;
   constexpr int MAX_FRAMES = 40000;
   size_t a_peak = 0, b_peak = 0, persist_peak = 0;
   int frames = 0;
+  // Scratch is hard-capped per-shape (spawn_shape's resplit), so a leg over its
+  // split traps here; completing without a trap proves every full bridge fit.
+  // Persistent is host-inflated, so it is checked per frame against the effect's
+  // live per-shape device budget.
   while (frames < MAX_FRAMES &&
          IslamicBuildProbe::dual_bridges(effect) < TARGET_BRIDGES) {
     effect.draw_frame();
@@ -3157,16 +3182,17 @@ inline void test_islamicstars_dual_bridge_fits_budget() {
     ++frames;
     a_peak = std::max(a_peak, scratch_arena_a.get_high_water_mark());
     b_peak = std::max(b_peak, scratch_arena_b.get_high_water_mark());
-    persist_peak =
-        std::max(persist_peak, persistent_arena.get_high_water_mark());
+    const size_t p = persistent_arena.get_high_water_mark();
+    persist_peak = std::max(persist_peak, p);
+    HS_EXPECT_LE(p, IslamicBuildProbe::persistent_budget(effect));
   }
-  std::printf("  [dual-bridge] %d bridges over %d frames: scratch_a peak=%zu/%zu "
-              "B, scratch_b peak=%zu/%zu B, persistent peak=%zu B\n",
-              IslamicBuildProbe::dual_bridges(effect), frames, a_peak,
-              SCRATCH_A_BUDGET, b_peak, SCRATCH_B_BUDGET, persist_peak);
+  std::printf("  [dual-bridge] %d bridges over %d frames: scratch_a peak=%zu B, "
+              "scratch_b peak=%zu B, persistent peak=%zu B; gated_swaps=%d\n",
+              IslamicBuildProbe::dual_bridges(effect), frames, a_peak, b_peak,
+              persist_peak, IslamicBuildProbe::gated_swaps(effect));
   HS_EXPECT_GE(IslamicBuildProbe::dual_bridges(effect), TARGET_BRIDGES);
-  HS_EXPECT_LE(a_peak, SCRATCH_A_BUDGET);
-  HS_EXPECT_LE(b_peak, SCRATCH_B_BUDGET);
+  // Every full bridge runs the smooth path -- no gated (snapping) kis.
+  HS_EXPECT_EQ(IslamicBuildProbe::gated_swaps(effect), 0);
 }
 
 /**
