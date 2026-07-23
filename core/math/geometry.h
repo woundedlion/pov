@@ -354,6 +354,115 @@ template <int W, int H> HS_O3_FN PixelCoords vector_to_pixel(const Vector &v) {
 }
 
 /**
+ * @brief Local orthonormal tangent basis of the equirect chart on the sphere.
+ * @details The normalized derivatives of the sphere point with respect to theta
+ * and phi, so they point along increasing pixel x and increasing pixel y. Both
+ * stay well defined on a pole row, where they are the limit taken along that
+ * column's own meridian — the frame, not the point, carries the column.
+ */
+struct TangentFrame {
+  Vector east; /**< d/dtheta normalized: (-sin theta, 0, cos theta). */
+  /** @brief d/dphi normalized: (cos phi cos theta, -sin phi, cos phi sin theta). */
+  Vector down;
+};
+
+/**
+ * @brief A tangent-plane displacement resolved in a TangentFrame, in radians.
+ */
+struct TangentOffset {
+  float east; /**< Component along TangentFrame::east. */
+  float down; /**< Component along TangentFrame::down. */
+};
+
+/**
+ * @brief Builds the equirect tangent basis at a pixel from the split trig LUTs.
+ * @tparam W Width (column count).
+ * @tparam H Logical height.
+ * @param x Column in [0, W).
+ * @param y Row in [0, H_VIRT).
+ * @return The east/down basis at that pixel.
+ */
+template <int W, int H> TangentFrame tangent_frame(int x, int y) {
+  if (!TrigLUT<W, H>::initialized) {
+    TrigLUT<W, H>::init();
+  }
+  // Local avoids the comma in TrigLUT<W, H> inside the assert macro.
+  [[maybe_unused]] constexpr int H_VIRT = TrigLUT<W, H>::H_VIRT;
+  assert(x >= 0 && x < W && y >= 0 && y < H_VIRT);
+  const float st = TrigLUT<W, H>::sin_theta[x];
+  const float ct = TrigLUT<W, H>::cos_theta(x);
+  const float sp = TrigLUT<W, H>::sin_phi[y];
+  const float cp = TrigLUT<W, H>::cos_phi[y];
+  return {Vector(-st, 0.0f, ct), Vector(cp * ct, -sp, cp * st)};
+}
+
+/**
+ * @brief Log map of `w` at `v`, resolved in a local tangent basis.
+ * @param v Unit vector whose tangent plane the result lives in.
+ * @param w Unit vector to displace toward.
+ * @param frame Tangent basis at `v`.
+ * @return The displacement in radians; its magnitude is the great-circle angle
+ *   between `v` and `w`, and exp-mapping it at `v` recovers `w`.
+ * @details Yields {0, 0} where no direction is defined: `w` equal to `v`, or
+ *   antipodal to it.
+ */
+HS_O3_FN inline TangentOffset sphere_log(const Vector &v, const Vector &w,
+                                         const TangentFrame &frame) {
+  constexpr float EPS = 1e-12f;
+  const float c = hs::clamp(dot(v, w), -1.0f, 1.0f);
+  const Vector u = w - v * c;
+  const float len_sq = dot(u, u);
+  if (len_sq < EPS) return {0.0f, 0.0f};
+  const Vector delta = u * (fast_acos(c) * fast_rsqrt(len_sq));
+  return {dot(delta, frame.east), dot(delta, frame.down)};
+}
+
+/**
+ * @brief Radians-to-columns factor for an eastward tangent displacement.
+ * @tparam W Width (column count).
+ * @tparam H Logical height.
+ * @param y Row in [0, H_VIRT).
+ * @return `(W / 2pi) / sin(phi)` for row `y`.
+ * @details A pole row has sin(phi) == 0 and no azimuth scale of its own, so it
+ * borrows the adjacent row's — it rasterizes one physical point across the
+ * full width, where any finite scale reads the same.
+ */
+template <int W, int H> float equirect_x_scale(int y) {
+  if (!TrigLUT<W, H>::initialized) {
+    TrigLUT<W, H>::init();
+  }
+  constexpr int H_VIRT = TrigLUT<W, H>::H_VIRT;
+  static_assert(H_VIRT > 2, "equirect_x_scale needs a non-pole row to borrow");
+  assert(y >= 0 && y < H_VIRT);
+  constexpr float POLE_SIN = 1e-6f;
+  float sp = TrigLUT<W, H>::sin_phi[y];
+  if (sp < POLE_SIN) sp = TrigLUT<W, H>::sin_phi[(y == 0) ? 1 : H_VIRT - 2];
+  return (W / (2.0f * PI_F)) / sp;
+}
+
+/**
+ * @brief Reflects a sample tap that ran past a pole back onto the sphere.
+ * @tparam W Width (column count).
+ * @tparam H Logical height (rows the buffer actually holds).
+ * @param col In/out column, in [0, W) on entry; shifted half a turn when the
+ *   tap crosses a pole.
+ * @param row In/out row; mirrored about the crossed pole.
+ * @return False when nothing lies behind the tap: past the north pole by more
+ *   than the buffer, or inside the virtual sub-pole gap when hs::H_OFFSET > 0.
+ *   `col` and `row` are then unspecified.
+ * @details The north pole sits exactly at row 0, the south pole at virtual row
+ * H + hs::H_OFFSET - 1.
+ */
+template <int W, int H> HS_O3_FN bool pole_wrap(int &col, int &row) {
+  if (row >= 0 && row < H) return true;
+  constexpr int SOUTH = H + hs::H_OFFSET - 1;
+  row = (row < 0) ? -row : 2 * SOUTH - row;
+  if (row < 0 || row >= H) return false;
+  col = fast_wrap(col + W / 2, W);
+  return true;
+}
+
+/**
  * @brief Calculates a point on the Fibonacci spiral on the unit sphere.
  * @param n The total number of points in the spiral.
  * @param eps The epsilon offset for the spiral.
