@@ -591,6 +591,115 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
 }
 
 /**
+ * @brief Both endpoint vertex sets of the Conway-dual morph on one shared
+ *   (medial/rectified) connectivity.
+ * @param mesh Source mesh; must be a closed manifold.
+ * @param out_a Receives the full medial mesh at s = 0: bit-identical to
+ *   ambo(mesh) (one vertex per edge at the normalized edge midpoint, one face
+ *   per source face, one per source vertex).
+ * @param out_b Receives the s = 1 position of each medial vertex, indexed to
+ *   match out_a.vertices: normalize(dual_f + dual_g) for the edge's two flanking
+ *   faces f, g — the same vertex as in ambo(dual(mesh)).
+ * @param target Arena receiving out_a, out_b, and index scratch.
+ * @param temp Arena holding the transient HalfEdgeMesh and dual positions.
+ * @details ambo(mesh) and ambo(dual(mesh)) are the same polyhedron
+ *   combinatorially (one vertex per primal edge, one face per primal face, one
+ *   per primal vertex); only the vertex positions differ. Holding this shared
+ *   connectivity fixed and slerping each vertex a_e -> b_e is the smooth dual
+ *   bridge's medial leg. dual_g is the normalized centroid of face g, matching
+ *   MeshOps::dual's vertex, so out_b lands on ambo(dual(mesh)) exactly.
+ */
+[[maybe_unused]] HS_COLD static void medial(const PolyMesh &mesh,
+                                            PolyMesh &out_a,
+                                            ArenaVector<Vector> &out_b,
+                                            Arena &target, Arena &temp) {
+  size_t V = mesh.vertices.size();
+  size_t F = mesh.get_face_counts_size();
+  size_t I = mesh.get_faces_size();
+  size_t E = I / 2;
+
+  out_a.vertices.bind(target, E);
+  out_a.face_counts.bind(target, F + V);
+  out_a.faces.bind(target, 2 * I);
+  out_b.bind(target, E);
+
+  {
+    ScratchScope temp_guard(temp);
+    ScratchScope target_guard(target);
+
+    HalfEdgeMesh he_mesh(temp, mesh);
+    require_closed_manifold(he_mesh, "medial");
+
+    // Dual vertex per source face: its normalized centroid (see MeshOps::dual).
+    Vector *dual_pos = temp.allocate_n<Vector>(F);
+    for (size_t i = 0; i < he_mesh.faces.size(); ++i) {
+      int count;
+      Vector c = face_centroid(he_mesh, mesh, i, count);
+      Vector first_v =
+          mesh.vertices[he_mesh.half_edges[he_mesh.faces[i].half_edge].vertex];
+      dual_pos[i] = normalized_or(c, first_v);
+    }
+
+    uint16_t *edge_to_vert = target.allocate_n<uint16_t>(I);
+    std::fill_n(edge_to_vert, I, HE_NONE);
+
+    bool *visited_verts = target.allocate_n<bool>(V);
+
+    uint16_t *orbit_buf = target.allocate_n<uint16_t>(I);
+
+    // Vertices: one per edge, a_e at the midpoint (ambo) and b_e at the two
+    // flanking dual vertices' midpoint (ambo of the dual). Emitted in the same
+    // half-edge order ambo uses, so out_a is bit-identical to ambo(mesh).
+    for (size_t i = 0; i < he_mesh.half_edges.size(); ++i) {
+      if (edge_to_vert[i] == HE_NONE) {
+        const HalfEdge &he = he_mesh.half_edges[i];
+        uint16_t v1 = he.vertex;
+        uint16_t v2 = he_mesh.half_edges[he.prev].vertex;
+
+        Vector mid = (mesh.vertices[v1] + mesh.vertices[v2]) * 0.5f;
+        out_a.vertices.push_back(normalized_or(mid, mesh.vertices[v1]));
+
+        HS_CHECK(he.face != HE_NONE && he.pair != HE_NONE &&
+                     he_mesh.half_edges[he.pair].face != HE_NONE,
+                 "medial: open edge on a closed manifold");
+        Vector db =
+            dual_pos[he.face] + dual_pos[he_mesh.half_edges[he.pair].face];
+        out_b.push_back(normalized_or(db, dual_pos[he.face]));
+
+        uint16_t new_idx = narrow_index(out_a.vertices.size() - 1);
+        edge_to_vert[i] = new_idx;
+        if (he.pair != HE_NONE)
+          edge_to_vert[he.pair] = new_idx;
+      }
+    }
+
+    // Reconstruct Original Faces (Shrunk) — the ambo primary-face layout.
+    for (size_t fi = 0; fi < he_mesh.faces.size(); ++fi) {
+      uint16_t start = he_mesh.faces[fi].half_edge;
+      int count = face_side_count(he_mesh, start);
+      if (count >= 3) {
+        out_a.face_counts.push_back(narrow_face_count(count));
+        uint16_t he_idx = start;
+        int emitted = 0; // anti-hang guard: re-walk emits exactly `count` sides
+        do {
+          HS_CHECK(emitted++ < count, "face re-walk overran side count");
+          out_a.faces.push_back(edge_to_vert[he_idx]);
+          he_idx = he_mesh.half_edges[he_idx].next;
+        } while (he_idx != HE_NONE && he_idx != start);
+      }
+    }
+
+    // Build Vertex Orbits (New Faces).
+    emit_vertex_orbit_faces<'P'>(
+        he_mesh, out_a, visited_verts, orbit_buf, V, I, /*reverse=*/false,
+        [&](uint16_t idx) { return edge_to_vert[idx]; });
+  }
+  // out_b's entries are already unit vectors (normalized_or); normalize only
+  // touches out_a.vertices, matching ambo.
+  normalize(out_a);
+}
+
+/**
  * @brief Recover a truncate edge's two cut vertices in half-edge walk order.
  * @param he_mesh Half-edge connectivity describing the edge.
  * @param edge_to_vert Per-half-edge table of the edge's two cut-vertex indices,
