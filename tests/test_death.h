@@ -885,19 +885,20 @@ inline void case_plot_extract_edges_vertex_over_capacity() {
 }
 
 /**
- * @brief Death case: an enabled feedback flush without init_storage must trap.
+ * @brief Death case: a feedback downsample that doesn't divide the resolution must trap.
  * @details Filter surface — Pixel::Feedback::flush traps rather than silently
- *          rendering garbage from an unbound warp lattice; a cold
+ *          turning the whole feedback effect into a no-op; a cold
  *          authoring/config error the project routes to HS_CHECK (enabled_
  *          remains the supported way to switch feedback off). The trap fires
- *          before any_pixel_lit, so no buffers needed.
+ *          before any_pixel_lit / scratch allocation, so no buffers needed.
  */
-inline void case_feedback_flush_without_storage() {
+inline void case_feedback_downsample_indivisible() {
   constexpr int W = 32, H = 16;
   DeathEffect fx;
   Canvas c(fx);
   ::Feedback::Style style = ::Feedback::Style::Smoke();
-  Filter::Pixel::Feedback<W, H> fb(style); // init_storage never called -> HS_CHECK
+  style.downsample = opaque(5); // 32 % 5 != 0 -> HS_CHECK
+  Filter::Pixel::Feedback<W, H> fb(style);
   fb.flush(
       c,
       ScreenTrailFn(
@@ -1119,8 +1120,8 @@ inline const Case *all_cases(int &n) {
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity},
       {"plot_extract_edges_vertex_over_capacity",
        case_plot_extract_edges_vertex_over_capacity},
-      {"feedback_flush_without_storage",
-       case_feedback_flush_without_storage},
+      {"feedback_downsample_indivisible",
+       case_feedback_downsample_indivisible},
       {"gradient_stop_out_of_range", case_gradient_stop_out_of_range},
       {"gradient_stops_unsorted", case_gradient_stops_unsorted},
       {"random_timer_inverted_range", case_random_timer_inverted_range},
