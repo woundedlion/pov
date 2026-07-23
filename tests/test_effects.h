@@ -3055,20 +3055,28 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   effect.init();
 
   // The effect's own configured split (IslamicStars::init): scratch_a=120 KB,
-  // scratch_b=74 KB. On host the arenas are these exact sizes, so an over-budget
-  // leg traps in the arena; the asserts below add a margin check for a
-  // near-miss that would still fit but erode the headroom.
+  // scratch_b=74 KB, the rest persistent. On host the arenas are these exact
+  // sizes, so an over-budget leg traps in the arena; the asserts below add a
+  // margin check for a near-miss that would still fit but erode the headroom.
+  // The persistent budget gates the whole build in real roster order: a leg's
+  // peak follows whatever the predecessor left resident, which the per-chain
+  // replay never sees. Host pointer inflation makes the host high-water an
+  // upper bound on the 32-bit device figure, so a host peak under budget proves
+  // the device fits (this is what the live sim's dual-bridge OOM tripped).
   constexpr size_t SCRATCH_A_BUDGET = 120 * 1024; // 122,880
   constexpr size_t SCRATCH_B_BUDGET = 74 * 1024;  // 75,776
+  constexpr size_t PERSISTENT_BUDGET =
+      DEVICE_GLOBAL_ARENA_SIZE - SCRATCH_A_BUDGET - SCRATCH_B_BUDGET; // 106,496
 
-  const int entries =
-      static_cast<int>(Solids::Collections::get_islamic_solids().size());
+  auto solids = Solids::Collections::get_islamic_solids();
+  const int entries = static_cast<int>(solids.size());
   constexpr int MAX_FRAMES = 20000;
   size_t persist_peak = 0;
   size_t a_peak = 0, b_peak = 0;
   int frames = 0;
   int shapes = 0;
   int builds = 0;
+  int persist_peak_idx = -1; // shape resident at the persistent high-water
   int last = IslamicBuildProbe::solid_idx(effect);
   while (frames < MAX_FRAMES && shapes <= entries) {
     effect.draw_frame();
@@ -3076,7 +3084,11 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
     ++frames;
     // reset() clears each arena's own mark, so sample every frame to keep the
     // peak across the per-leg compactions.
-    persist_peak = std::max(persist_peak, persistent_arena.get_high_water_mark());
+    const size_t p = persistent_arena.get_high_water_mark();
+    if (p > persist_peak) {
+      persist_peak = p;
+      persist_peak_idx = IslamicBuildProbe::solid_idx(effect);
+    }
     a_peak = std::max(a_peak, scratch_arena_a.get_high_water_mark());
     b_peak = std::max(b_peak, scratch_arena_b.get_high_water_mark());
     if (IslamicBuildProbe::build_active(effect))
@@ -3088,21 +3100,30 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
     }
   }
 
+  const char *peak_name =
+      (persist_peak_idx >= 0 && persist_peak_idx < entries)
+          ? solids[persist_peak_idx].name
+          : "?";
   std::printf(
       "  [roster] %d shapes over %d frames, %d build frames: scratch_a "
-      "peak=%zu/%zu B, scratch_b peak=%zu/%zu B, persistent peak=%zu B\n",
+      "peak=%zu/%zu B, scratch_b peak=%zu/%zu B, persistent peak=%zu/%zu B "
+      "(at %s)\n",
       shapes, frames, builds, a_peak, SCRATCH_A_BUDGET, b_peak,
-      SCRATCH_B_BUDGET, persist_peak);
+      SCRATCH_B_BUDGET, persist_peak, PERSISTENT_BUDGET, peak_name);
   if (a_peak > SCRATCH_A_BUDGET)
     std::printf("  IslamicStars OVER scratch_a budget: %zu > %zu\n", a_peak,
                 SCRATCH_A_BUDGET);
   if (b_peak > SCRATCH_B_BUDGET)
     std::printf("  IslamicStars OVER scratch_b budget: %zu > %zu\n", b_peak,
                 SCRATCH_B_BUDGET);
+  if (persist_peak > PERSISTENT_BUDGET)
+    std::printf("  IslamicStars OVER persistent budget: %zu > %zu at %s\n",
+                persist_peak, PERSISTENT_BUDGET, peak_name);
   HS_EXPECT_GT(shapes, entries - 1);
   HS_EXPECT_GT(builds, 0);
   HS_EXPECT_LE(a_peak, SCRATCH_A_BUDGET);
   HS_EXPECT_LE(b_peak, SCRATCH_B_BUDGET);
+  HS_EXPECT_LE(persist_peak, PERSISTENT_BUDGET);
 }
 
 /**
