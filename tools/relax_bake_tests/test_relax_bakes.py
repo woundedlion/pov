@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
-"""Host tests for deterministic relax-bake asset hashing."""
+"""Host tests for the relax-bake header generator (tools/relax_bakes.py)."""
 
 import sys
-import tempfile
 import unittest
 from pathlib import Path
-from unittest import mock
 
 
 TOOLS = Path(__file__).resolve().parent.parent
@@ -14,58 +12,76 @@ sys.path.insert(0, str(TOOLS))
 import relax_bakes  # noqa: E402
 
 
-class TextHashing(unittest.TestCase):
-    def test_line_endings_have_one_identity(self):
-        variants = (b"first\nsecond\n", b"first\r\nsecond\r\n",
-                    b"first\rsecond\r")
-        with tempfile.TemporaryDirectory() as directory:
-            path = Path(directory) / "input.txt"
-            hashes = []
-            for contents in variants:
-                path.write_bytes(contents)
-                hashes.append(relax_bakes.sha256_text(path))
-        self.assertEqual(len(set(hashes)), 1)
+def make_dump(name, iterations, verts, topology_hash):
+    """Build a RELAX_BAKE block whose declared output hash matches its bits."""
+    words = []
+    for x, y, z in verts:
+        words.extend((x, y, z))
+    out = relax_bakes.vertex_hash(words)
+    lines = [
+        f"RELAX_BAKE_BEGIN {name} {iterations} {len(verts)} 2 6 "
+        f"{topology_hash:08x} {out:08x}"
+    ]
+    for x, y, z in verts:
+        lines.append(f"RELAX_BAKE_DATA {x:08x} {y:08x} {z:08x}")
+    lines.append("RELAX_BAKE_END")
+    return "\n".join(lines), out
 
-    def test_freshness_accepts_crlf_checkout(self):
-        source_root = relax_bakes.ROOT
-        relative_paths = (
-            Path("core/mesh/relax_bakes_generated.h"),
-            Path("core/mesh/relax_bakes_manifest.json"),
-            *(Path(path) for path in relax_bakes.INPUT_PATHS),
+
+class ParseDump(unittest.TestCase):
+    def test_parses_block_fields_and_bits(self):
+        dump, out = make_dump("foo", 100, [(1, 2, 3), (4, 5, 6)], 0xABCD1234)
+        bakes = relax_bakes.parse_dump(dump)
+        self.assertEqual(len(bakes), 1)
+        b = bakes[0]
+        self.assertEqual(b["name"], "foo")
+        self.assertEqual(b["iterations"], 100)
+        self.assertEqual(b["vertices"], 2)
+        self.assertEqual(b["topology_hash"], 0xABCD1234)
+        self.assertEqual(b["output_hash"], out)
+        self.assertEqual(b["bits"], [1, 2, 3, 4, 5, 6])
+
+    def test_dedupes_identical_repeat(self):
+        dump, _ = make_dump("foo", 100, [(1, 2, 3)], 0x1)
+        bakes = relax_bakes.parse_dump(dump + "\n" + dump)
+        self.assertEqual(len(bakes), 1)
+
+    def test_preserves_first_seen_order(self):
+        a, _ = make_dump("a", 8, [(1, 1, 1)], 0x1)
+        b, _ = make_dump("b", 8, [(2, 2, 2)], 0x2)
+        bakes = relax_bakes.parse_dump(b + "\n" + a)
+        self.assertEqual([x["name"] for x in bakes], ["b", "a"])
+
+    def test_rejects_output_hash_mismatch(self):
+        dump, _ = make_dump("foo", 100, [(1, 2, 3)], 0x1)
+        dump = dump.replace(
+            "RELAX_BAKE_DATA 00000001 00000002 00000003",
+            "RELAX_BAKE_DATA deadbeef 00000002 00000003",
         )
-        with tempfile.TemporaryDirectory() as directory:
-            root = Path(directory)
-            for relative in relative_paths:
-                source = source_root / relative
-                contents = source.read_bytes()
-                contents = contents.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-                destination = root / relative
-                destination.parent.mkdir(parents=True, exist_ok=True)
-                destination.write_bytes(contents.replace(b"\n", b"\r\n"))
+        with self.assertRaises(ValueError):
+            relax_bakes.parse_dump(dump)
 
-            with (
-                mock.patch.object(relax_bakes, "ROOT", root),
-                mock.patch.object(
-                    relax_bakes, "ASSET",
-                    root / "core/mesh/relax_bakes_generated.h"),
-                mock.patch.object(
-                    relax_bakes, "MANIFEST",
-                    root / "core/mesh/relax_bakes_manifest.json"),
-            ):
-                relax_bakes.check(None)
+    def test_rejects_nondeterministic_duplicate(self):
+        a, _ = make_dump("foo", 8, [(1, 1, 1)], 0x1)
+        b, _ = make_dump("foo", 8, [(9, 9, 9)], 0x1)
+        with self.assertRaises(ValueError):
+            relax_bakes.parse_dump(a + "\n" + b)
+
+    def test_empty_dump_raises(self):
+        with self.assertRaises(ValueError):
+            relax_bakes.parse_dump("no blocks here\n")
 
 
-class BuildPolicy(unittest.TestCase):
-    def test_only_teensy_builds_gate_bake_freshness(self):
-        cmake = (relax_bakes.ROOT / "CMakeLists.txt").read_text(encoding="utf-8")
-        platformio = (relax_bakes.ROOT / "platformio.ini").read_text(
-            encoding="utf-8")
-        prebuild = (relax_bakes.ROOT / "tools/relax_bake_check.py").read_text(
-            encoding="utf-8")
-
-        self.assertNotIn("relax_bakes.py check", cmake)
-        self.assertIn("pre:tools/relax_bake_check.py", platformio)
-        self.assertIn('"tools/relax_bakes.py", "check"', prebuild)
+class EmitHeader(unittest.TestCase):
+    def test_emits_named_struct_and_bits(self):
+        dump, out = make_dump("foo_bar", 100, [(0x11, 0x22, 0x33)], 0xC0FFEE)
+        bakes = relax_bakes.parse_dump(dump)
+        header = relax_bakes.emit_header(bakes)
+        self.assertIn("namespace RelaxBakes {", header)
+        self.assertIn("inline const uint32_t foo_bar_bits[] PROGMEM = {", header)
+        # New struct layout: leading name string, no source hash.
+        self.assertIn('"foo_bar", foo_bar_bits, 1, 2, 6, 100,', header)
+        self.assertIn(f"0x{out:08x}u}};", header)
 
 
 if __name__ == "__main__":
