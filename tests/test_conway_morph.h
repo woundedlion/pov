@@ -2110,6 +2110,273 @@ inline void test_relax_leg_on_recipe_seeds_holds_topology() {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Medial (Conway-dual) bridge: MeshOps::medial produces one shared rectified
+// connectivity with both endpoint vertex sets a_e (== ambo(P)) and b_e
+// (== ambo(dual(P))). The smooth dual replaces the instant partition swap with
+// a truncate sweep to ambo(P), a slerp of every medial vertex a_e -> b_e, and a
+// truncate sweep down to dual(P). These gate the medial leg (the new slerp
+// segment) on the real DUAL-leg seeds: the endpoints match ambo(P)/ambo(dual(P))
+// to tolerance (the correspondence proof), and across the slerp there are no
+// face inversions, no self-intersection (total solid angle holds at 4pi), no
+// degenerate collapse, no antipodal slerp inputs, and the emission order is
+// fixed frame to frame.
+// ---------------------------------------------------------------------------
+
+inline PolyMesh probe_icosa_kis_snub(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Platonic::icosahedron(a, b), a, b)
+      .kis()
+      .snub()
+      .build();
+}
+inline PolyMesh probe_toct_snub(Arena &a, Arena &b) {
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedOctahedron(a, b), a,
+                              b)
+      .snub()
+      .build();
+}
+inline PolyMesh probe_dodeca_hk72_ambo(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Platonic::dodecahedron(a, b), a, b)
+      .hankin(72.0f * D2R)
+      .ambo()
+      .build();
+}
+inline PolyMesh probe_icosidodeca_trunc5_ambo(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Archimedean::icosidodecahedron(a, b), a, b)
+      .truncate(5.0f * D2R)
+      .ambo()
+      .build();
+}
+inline PolyMesh probe_ticosa_ambo_relax100_hk54(Arena &a, Arena &b) {
+  using Solids::IslamicStarPatterns::D2R;
+  return Solids::SolidBuilder(Solids::Archimedean::truncatedIcosahedron(a, b), a,
+                              b)
+      .ambo()
+      .relax(100)
+      .hankin(54.0f * D2R)
+      .build();
+}
+
+/** DUAL-leg sites: the mesh each recipe applies a smooth dual to (the gyro
+ * snub-derived seeds, the ambo-of-hankin and ambo-of-truncate seeds, and the
+ * needle's hankin seed). */
+inline constexpr StepLegSite DUAL_LEG_SITES[] = {
+    {"icosahedron_kis_gyro", probe_icosa_kis_snub, 0.0f},
+    {"truncatedOctahedron_gyro", probe_toct_snub, 0.0f},
+    {"dodecahedron_hk72_ambo_dual", probe_dodeca_hk72_ambo, 0.0f},
+    {"icosidodecahedron_truncate5d_ambo_dual", probe_icosidodeca_trunc5_ambo,
+     0.0f},
+    {"truncatedIcosahedron_ambo_relax100_hk54_needle",
+     probe_ticosa_ambo_relax100_hk54, 0.0f},
+};
+
+/** @brief Max nearest-vertex distance from every vertex of @p x to @p y. */
+inline float medial_vertex_set_dist(const PolyMesh &x, const PolyMesh &y) {
+  float worst = 0.0f;
+  for (const auto &vx : x.vertices) {
+    float best = 1e9f;
+    for (const auto &vy : y.vertices)
+      best = std::min(best, distance_between(vx, vy));
+    worst = std::max(worst, best);
+  }
+  return worst;
+}
+inline float medial_vertex_set_dist(const ArenaVector<Vector> &x,
+                                    const PolyMesh &y) {
+  float worst = 0.0f;
+  for (const auto &vx : x) {
+    float best = 1e9f;
+    for (const auto &vy : y.vertices)
+      best = std::min(best, distance_between(vx, vy));
+    worst = std::max(worst, best);
+  }
+  return worst;
+}
+
+/** @brief Signed total solid angle of a mesh (per-face fan from its centroid).
+ * A simple closed surface sums to 4pi; a self-intersection breaks it. */
+inline double medial_total_solid_angle(const PolyMesh &m) {
+  double total = 0.0;
+  size_t off = 0;
+  for (size_t f = 0; f < m.face_counts.size(); ++f) {
+    const int n = m.face_counts[f];
+    Vector c(0, 0, 0);
+    for (int k = 0; k < n; ++k)
+      c = c + m.vertices[m.faces[off + k]];
+    c = c.normalized();
+    for (int k = 0; k < n; ++k) {
+      const Vector a = m.vertices[m.faces[off + k]];
+      const Vector b = m.vertices[m.faces[off + (k + 1) % n]];
+      const double num = dot(c, cross(a, b));
+      const double den = 1.0 + dot(c, a) + dot(a, b) + dot(b, c);
+      total += 2.0 * std::atan2(num, den);
+    }
+    off += n;
+  }
+  return total;
+}
+
+/** @brief Smallest spherical-triangle-fan area over all faces. */
+inline double medial_min_face_area(const PolyMesh &m) {
+  double mn = 1e9;
+  size_t off = 0;
+  for (size_t f = 0; f < m.face_counts.size(); ++f) {
+    const int n = m.face_counts[f];
+    Vector c(0, 0, 0);
+    for (int k = 0; k < n; ++k)
+      c = c + m.vertices[m.faces[off + k]];
+    c = c.normalized();
+    double area = 0.0;
+    for (int k = 0; k < n; ++k) {
+      const Vector a = m.vertices[m.faces[off + k]];
+      const Vector b = m.vertices[m.faces[off + (k + 1) % n]];
+      area += 0.5 * cross(a - c, b - c).length();
+    }
+    mn = std::min(mn, area);
+    off += n;
+  }
+  return mn;
+}
+
+/** @brief Faces whose area-weighted normal points inward (a fold/inversion). */
+inline int medial_inverted_faces(const PolyMesh &m) {
+  int inv = 0;
+  size_t off = 0;
+  for (size_t f = 0; f < m.face_counts.size(); ++f) {
+    const int n = m.face_counts[f];
+    Vector c(0, 0, 0);
+    for (int k = 0; k < n; ++k)
+      c = c + m.vertices[m.faces[off + k]];
+    c = c.normalized();
+    Vector nrm(0, 0, 0);
+    for (int k = 0; k < n; ++k) {
+      const Vector a = m.vertices[m.faces[off + k]];
+      const Vector b = m.vertices[m.faces[off + (k + 1) % n]];
+      nrm = nrm + cross(a, b);
+    }
+    if (dot(nrm, c) < 0.0f)
+      ++inv;
+    off += n;
+  }
+  return inv;
+}
+
+/**
+ * @brief Gates the medial dual bridge on every DUAL-leg seed: endpoint match
+ *        plus slerp well-formedness (task-validated failure modes).
+ */
+inline void test_medial_dual_bridge_wellformed() {
+  constexpr int SAMPLES = 33;
+  // Below any real medial face; snub-derived seeds bottom out ~4e-2, all such
+  // minima at the endpoints (never manufactured mid-slerp).
+  constexpr double MIN_FACE_AREA = 1e-3;
+  // Well clear of an antipodal/coincident slerp singularity.
+  constexpr float MIN_ENDPOINT_DOT = 0.9f;
+  constexpr float MAX_INTER_SAMPLE_STEP = 0.05f;
+  constexpr float ENDPOINT_TOL = 1e-4f;
+
+  for (const StepLegSite &site : DUAL_LEG_SITES) {
+    const int failed_before = hs_test::stats().failed;
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh P = build_step_leg_seed(site, persist);
+
+    Arena a(morph_target_buf, sizeof(morph_target_buf));
+    Arena b(morph_temp_buf, sizeof(morph_temp_buf));
+    Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+
+    PolyMesh med_a;
+    ArenaVector<Vector> med_b;
+    MeshOps::medial(P, med_a, med_b, a, b);
+
+    // Correspondence proof: s = 0 is ambo(P), s = 1 (b_e positions) is
+    // ambo(dual(P)). Both are the same rectified polyhedron (one face per
+    // primal face + one per primal vertex), so the FACE count is identical
+    // through the bridge and leg 3 sweeps truncate(dual(P)) on that same
+    // connectivity. Vertex identity is checked by position, not count: a
+    // hankin seed has degree-2 star-point vertices, so its dual is lossy
+    // (digon faces drop) and MeshOps::ambo(dual(P)) merges the coincident edge
+    // midpoints — leg 3's truncate(dual, 0.5-eps) keeps them apart, matching
+    // the medial's 2E vertices exactly, so the bridge stays continuous.
+    PolyMesh ambo_p = MeshOps::ambo(P, b, aux);
+    PolyMesh dual_p = MeshOps::dual(P, b, aux);
+    PolyMesh ambo_dual_p = MeshOps::ambo(dual_p, aux, b);
+    HS_EXPECT_EQ(med_a.vertices.size(), ambo_p.vertices.size());
+    HS_EXPECT_EQ(med_a.face_counts.size(), ambo_p.face_counts.size());
+    HS_EXPECT_EQ(med_a.face_counts.size(), ambo_dual_p.face_counts.size());
+    // Every medial vertex sits on an ambo(P) vertex at s=0 and an ambo(dual(P))
+    // vertex at s=1 (set containment; a lossy dual makes s=1 many-to-one).
+    const float end_a = medial_vertex_set_dist(med_a, ambo_p);
+    const float end_b = medial_vertex_set_dist(med_b, ambo_dual_p);
+    HS_EXPECT_LT(end_a, ENDPOINT_TOL);
+    HS_EXPECT_LT(end_b, ENDPOINT_TOL);
+
+    // No antipodal/coincident slerp inputs.
+    float min_dot = 2.0f;
+    for (size_t v = 0; v < med_a.vertices.size(); ++v)
+      min_dot = std::min(min_dot,
+                         dot(med_a.vertices[v].normalized(), med_b[v].normalized()));
+    HS_EXPECT_GT(min_dot, MIN_ENDPOINT_DOT);
+
+    // Slerp sweep: fixed connectivity, per-vertex slerp; well-formed throughout.
+    int total_inv = 0;
+    double worst_4pi = 0.0, min_area = 1e9;
+    float max_step = 0.0f;
+    SweepFingerprint first;
+    std::vector<Vector> prev(med_a.vertices.size());
+    for (int s = 0; s < SAMPLES; ++s) {
+      const float k = static_cast<float>(s) / (SAMPLES - 1);
+      ScratchScope frame_a(aux);
+      PolyMesh frame;
+      frame.vertices.bind(aux, med_a.vertices.size());
+      for (size_t v = 0; v < med_a.vertices.size(); ++v)
+        frame.vertices.push_back(slerp(med_a.vertices[v], med_b[v], k));
+      frame.face_counts.bind(aux, med_a.face_counts.size());
+      frame.face_counts.append_bulk(med_a.face_counts.data(),
+                                    med_a.face_counts.size());
+      frame.faces.bind(aux, med_a.faces.size());
+      frame.faces.append_bulk(med_a.faces.data(), med_a.faces.size());
+
+      {
+        ScratchScope ca(a);
+        ScratchScope cb(b);
+        const SweepFingerprint fp = check_sweep_sample(frame, a, b);
+        if (s == 0)
+          first = fp;
+        else
+          expect_same_fingerprint(fp, first); // fixed emission order/count
+      }
+      total_inv += medial_inverted_faces(frame);
+      worst_4pi = std::max(worst_4pi,
+                           std::abs(medial_total_solid_angle(frame) -
+                                    4.0 * 3.14159265358979323846));
+      min_area = std::min(min_area, medial_min_face_area(frame));
+      if (s > 0)
+        for (size_t v = 0; v < frame.vertices.size(); ++v)
+          max_step = std::max(max_step,
+                              distance_between(frame.vertices[v], prev[v]));
+      prev.assign(frame.vertices.begin(), frame.vertices.end());
+    }
+
+    HS_EXPECT_EQ(total_inv, 0);
+    HS_EXPECT_LT(worst_4pi, 1e-5);
+    HS_EXPECT_GT(min_area, MIN_FACE_AREA);
+    HS_EXPECT_LT(max_step, MAX_INTER_SAMPLE_STEP);
+
+    if (hs_test::stats().failed != failed_before)
+      std::printf("    [medial] %s FAILED (endA=%.2e endB=%.2e min a.b=%.4f "
+                  "inv=%d 4pi-err=%.2e minA=%.3e step=%.4f)\n",
+                  site.name, (double)end_a, (double)end_b, (double)min_dot,
+                  total_inv, worst_4pi, min_area, (double)max_step);
+    else
+      std::printf("  [medial] %s: F=%zu endpoints<%.0e min a.b=%.4f 4pi-err=%.1e "
+                  "minA=%.2e step=%.4f\n",
+                  site.name, med_a.face_counts.size(), (double)ENDPOINT_TOL,
+                  (double)min_dot, worst_4pi, min_area, (double)max_step);
+  }
+}
+
 /** @brief Recipe-step leg kind driven by the smoke test. */
 enum class StepLegKind { TRUNCATE, SNUB, RELAX };
 
@@ -2964,6 +3231,7 @@ inline int run_conway_morph_tests() {
   test_truncate_leg_on_recipe_seeds_holds_topology();
   test_snub_leg_on_recipe_seeds_holds_topology();
   test_relax_leg_on_recipe_seeds_holds_topology();
+  test_medial_dual_bridge_wellformed();
   test_opleg_step_leg_smoke();
   test_opleg_gated_swap_smoke();
   test_unsweepable_recipe_steps_are_gated();
