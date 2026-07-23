@@ -138,11 +138,19 @@ private:
    * Conway depth at which dual(truncate(X)) matches kis(dual(X)) exactly on
    * regular seeds (docs/opchain_morph_spec.md, smooth kis/needle). */
   static constexpr float MACRO_TRUNCATE_T = 1.0f / 3.0f;
-  /** Half-edge (I = 2E) ceiling of a seed the smooth kis/needle macro accepts.
-   * The macro's dual bridge on truncate(seed) fits at I=360 (gyro_kis, 58 KB
-   * scratch) but blows the device arena at I=1440 (the needle); 900 is the
-   * measured cut, well above every eligible seed and below the needle. */
-  static constexpr size_t SMOOTH_KIS_MAX_SEED_HALF_EDGES = 900;
+  /** Per-shape arena split (bytes). A smooth kis/needle macro bridges
+   * truncate(seed) (~3x the seed's half-edges); rendering and classifying that
+   * tripled mesh needs a scratch_a heavier than the default, while the bridge's
+   * per-leg compaction keeps its persistent well under the default. So a bridge
+   * shape spawns on a scratch_a-heavy split and every other shape on the default
+   * (the roster's heaviest hankin solid needs the full default persistent). Each
+   * split's persistent is the device-arena remainder; the two scratch arenas are
+   * the same absolute sizes on host and device (hard-capped, so an over-budget
+   * leg traps). needle's measured peak (131,770 / 75,244 / 92,812) fits the
+   * bridge split, and every other bridge shape is smaller. */
+  static constexpr size_t SPLIT_SCRATCH_A_DEFAULT = 120 * 1024; // 122,880
+  static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 132 * 1024;  // 135,168
+  static constexpr size_t SPLIT_SCRATCH_B = 74 * 1024;          // 75,776
   static constexpr size_t MAX_BUILD_STEPS = 8; /**< Lowered-primitive cap. */
   /** Build-chain mesh face cap. Bounds the scratch handoff arrays only; the
    * persistent budget is what actually limits which recipes ship. */
@@ -189,6 +197,14 @@ private:
                                  its end on a hankin step. */
   PolyMesh dual_bridge_ambo_; /**< ambo(P) held across a DUAL bridge: leg 1's
                                  arrival grouping and leg 2's departed mesh. */
+  size_t dual_bridge_ambo_faces_ =
+      0; /**< ambo(P) face count, kept for leg 3's handoff length after the mesh
+            itself is dropped at the medial leg (persistent-budget relief). */
+  size_t device_persistent_budget_ =
+      DEVICE_GLOBAL_ARENA_SIZE - SPLIT_SCRATCH_A_DEFAULT -
+      SPLIT_SCRATCH_B; /**< Device persistent budget of the current shape's split;
+                          the host arena is over-provisioned, so gates check the
+                          resident persistent high-water against this. */
   std::array<uint8_t, Animation::OpLeg::PALETTES> build_targets_ =
       {}; /**< Per-shape pinned target palettes, shuffled before leg 0. */
   const Animation::OpLeg::Landing *build_landing_ =
@@ -198,6 +214,9 @@ private:
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces_ = 0; /**< Length of build_from_pal_. */
   int dual_bridges_built_ = 0; /**< DUAL bridges scheduled (test coverage). */
+  int gated_swaps_scheduled_ =
+      0; /**< Gated (snapping) kis legs scheduled; must stay 0 now that every
+            dt/dtd chain takes the smooth path (test coverage). */
   int build_macro_sweep_frames_ = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
                                                        kis/needle macro. */
   int build_reconcile_frames_ = RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
@@ -429,18 +448,17 @@ private:
   }
 
   /**
-   * @brief Whether the smooth kis/needle macro fits the arena budget for the
-   *        current build seed.
-   * @details The macro bridges truncate(seed) (~3x the seed's half-edges); its
-   * leg-1 classifies ambo(truncate(seed)) alongside a truncated start mesh. On
-   * the roster's largest hankin seed (the needle: I=1440) that peaks at ~160 KB
-   * scratch and ~122 KB persistent -- over the device's whole 298 KB arena. The
-   * gate keeps the macro to seeds it fits (measured: I=360 gyro_kis uses 58/59
-   * KB); an over-budget seed falls back to the smooth dual bridge with the
-   * gated (snapping) kis, its pre-existing behaviour.
+   * @brief Whether the lowered chain runs a smooth kis/needle bridge (a dt pair
+   *        or a standalone kis), which spawns on the scratch_a-heavy split.
+   * @details Scanned at spawn to pick the per-shape arena split before the build
+   * grows the arenas. Every such shape fits the bridge split (needle is the
+   * largest); no seed falls back to the gated (snapping) kis anymore.
    */
-  bool smooth_kis_fits() const {
-    return build_seed_.faces.size() <= SMOOTH_KIS_MAX_SEED_HALF_EDGES;
+  bool build_uses_smooth_bridge() const {
+    for (size_t k = 0; k < build_step_count_; ++k)
+      if (dt_pair_at(k) || standalone_kis_at(k))
+        return true;
+    return false;
   }
 
   /**
@@ -542,6 +560,21 @@ private:
       carousel.compact_drop_all(rebake);
     else
       carousel.compact_keep_front(rebake);
+
+    // Per-shape arena re-split. Safe here: the compact above left persistent at
+    // its ~baseline (carousel slots + palette bank, low addresses) and both
+    // scratch arenas idle, so resplit_arenas moves only the boundaries -- the
+    // long-lived content survives (it never resets the persistent offset). A
+    // smooth kis/needle bridge shape gets the scratch_a-heavy split; every other
+    // shape keeps the default (its heavier persistent). The scratch sizes are the
+    // absolute device sizes; persistent takes the (host-inflated) remainder.
+    const bool bridge_split = recipe && build_uses_smooth_bridge();
+    const size_t split_a =
+        bridge_split ? SPLIT_SCRATCH_A_BRIDGE : SPLIT_SCRATCH_A_DEFAULT;
+    device_persistent_budget_ =
+        DEVICE_GLOBAL_ARENA_SIZE - split_a - SPLIT_SCRATCH_B;
+    resplit_arenas(GLOBAL_ARENA_SIZE - split_a - SPLIT_SCRATCH_B, split_a,
+                   SPLIT_SCRATCH_B);
 
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
       if (recipe) {
@@ -695,13 +728,13 @@ private:
     // a trailing dual,kis is the dt macro (spanning both steps), a standalone
     // kis is the dtd macro; each ends on a reconcile leg onto the exact authored
     // mesh. The recipe/expand_to_primitives still lower needle to {DUAL,KIS}.
-    // A seed too large for the macro's bridge falls back below: its dual runs
-    // as the plain smooth bridge and its kis as the gated (snapping) swap.
-    if (dt_pair_at(k) && smooth_kis_fits()) {
+    // Every dt/dtd chain takes the smooth path -- spawn_shape sizes the arena
+    // split so even the needle's tripled bridge fits (see build_uses_smooth_bridge).
+    if (dt_pair_at(k)) {
       schedule_dt_macro();
       return;
     }
-    if (standalone_kis_at(k) && smooth_kis_fits()) {
+    if (standalone_kis_at(k)) {
       schedule_dtd_macro();
       return;
     }
@@ -793,8 +826,11 @@ private:
                                 draw_build_fn_, handoff, frames, bookend));
       break;
     case Solids::Op::KIS:
-      // Reached only for a macro-ineligible (too large) seed's kis: the smooth
-      // path was declined above, so the kis runs as the gated (snapping) swap.
+      // Dead on the current roster: every standalone kis routes through the dtd
+      // macro and every trailing kis through dt, both above. Retained as the
+      // partition-op fallback for a future non-macro kis; gated_swaps_scheduled_
+      // pins that the roster never reaches it (needle takes the smooth path).
+      ++gated_swaps_scheduled_;
       schedule(Animation::OpLeg(build_seed_, Animation::OpLeg::SwapOp::KIS,
                                 persistent_arena, draw_build_fn_, handoff,
                                 gate_frames(frames), bookend));
@@ -923,7 +959,8 @@ private:
     hs::log("Build leg: dual bridge 1/3 truncate->ambo (%d frames)", frames);
     Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f,
                          0.0f, 0.0f, persistent_arena, draw_build_fn_, handoff,
-                         frames, bookend);
+                         frames, bookend, /*bridge_provenance=*/true,
+                         /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { schedule_dual_medial(); }));
   }
@@ -942,11 +979,17 @@ private:
         landing_handoff(dual_bridge_ambo_, scratch_arena_a);
     build_landing_ = nullptr;
 
-    // Compact: keep the seed P (leg 2 rebuilds its medial from it) and ambo(P)
-    // (leg 3's face count), drop leg 1.
+    // Only ambo(P)'s face count survives to leg 3 (its handoff length); the mesh
+    // is dead once the handoff centroids above are snapshotted, so drop it here
+    // rather than carrying a full ambo copy through the medial leg's whole render
+    // life -- the persistent spike that kept the needle over budget.
+    dual_bridge_ambo_faces_ = dual_bridge_ambo_.face_counts.size();
+    dual_bridge_ambo_ = PolyMesh();
+
+    // Compact: keep only the seed P (leg 2 rebuilds its medial from it, leg 3 its
+    // dual), drop leg 1 and the ambo endpoint.
     {
       Persist<PolyMesh> ps(build_seed_, scratch_arena_b, persistent_arena);
-      Persist<PolyMesh> pa(dual_bridge_ambo_, scratch_arena_b, persistent_arena);
       carousel.compact_drop_all([this](Arena &arena) {
         ripple_gen.reclaim_storage(arena);
         palette_bank_.bake_all(arena);
@@ -973,7 +1016,7 @@ private:
     // endpoint -- the departed centroids (a rebuilt medial's dual-point per
     // face) and leg 2's landed palette -- into scratch_a, which the persistent
     // reset below leaves intact.
-    const size_t nf = dual_bridge_ambo_.face_counts.size();
+    const size_t nf = dual_bridge_ambo_faces_;
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
              build_landing_->faces >= nf);
     Vector *cen = scratch_arena_a.allocate_n<Vector>(nf);
@@ -999,11 +1042,10 @@ private:
     }
     build_landing_ = nullptr;
 
-    // Compact: keep the seed P (leg 3 builds dual(P) from it), drop leg 2 and
-    // the ambo(P) endpoint.
+    // Compact: keep the seed P (leg 3 builds dual(P) from it), drop leg 2 (the
+    // ambo(P) endpoint was already dropped at the medial leg).
     {
       Persist<PolyMesh> ps(build_seed_, scratch_arena_b, persistent_arena);
-      dual_bridge_ambo_ = PolyMesh();
       carousel.compact_drop_all([this](Arena &arena) {
         ripple_gen.reclaim_storage(arena);
         palette_bank_.bake_all(arena);
@@ -1037,7 +1079,8 @@ private:
     hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
     Animation::OpLeg leg(build_next_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.5f,
                          0.0f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
-                         handoff, frames, bookend);
+                         handoff, frames, bookend, /*bridge_provenance=*/true,
+                         /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
     // Rejoin the caller's continuation: finish_build_leg for a lone DUAL, or the
     // next stage of a smooth kis/needle macro.
@@ -1107,7 +1150,8 @@ private:
     hs::log("Build leg: %s (%d frames)", log, frames);
     Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
                          MACRO_TRUNCATE_T, 0.0f, 0.0f, persistent_arena,
-                         draw_build_fn_, handoff, frames, bookend);
+                         draw_build_fn_, handoff, frames, bookend,
+                         /*bridge_provenance=*/true, /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then(std::forward<Then>(then)));
   }
