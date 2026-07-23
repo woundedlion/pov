@@ -173,6 +173,30 @@ target_compile_options(fastmath_clamp_check PRIVATE
   -O3 -ffast-math -fno-finite-math-only)
 add_test(NAME unit_fastmath_clamp COMMAND fastmath_clamp_check)
 
+# Relax-bake re-derivation gate. The committed payloads in
+# core/mesh/relax_bakes_generated.h are host-generated and loaded verbatim on
+# both host and device. This harness recompiles every bake-bearing recipe with
+# HS_RELAX_BAKE_VERIFY, which re-runs exactly bake.iterations smoothing steps
+# and asserts the result reproduces the committed bits — so a recipe edit that
+# silently drifts the geometry (even one that leaves topology unchanged) fails
+# the suite instead of shipping a stale asset. It MUST be its own TU: VERIFY
+# rewires SolidBuilder::relax_baked() globally, which the normal run_tests build
+# needs in its load-the-bits form.
+add_executable(relax_bake_verify ${HS_ROOT}/tools/relax_bake_harness.cpp
+  ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
+target_compile_definitions(relax_bake_verify PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_VERIFY)
+target_include_directories(relax_bake_verify PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+add_test(NAME unit_relax_bake_verify COMMAND relax_bake_verify)
+
+# The generator half of the same harness (HS_RELAX_BAKE_EXTRACT dumps the
+# payloads that tools/relax_bakes.py emits into the header). Built here so a
+# change that breaks generation is caught in CI; run it to regenerate:
+#   relax_bake_gen | python tools/relax_bakes.py emit --stdin
+add_executable(relax_bake_gen ${HS_ROOT}/tools/relax_bake_harness.cpp
+  ${HS_ROOT}/core/engine/memory.cpp ${HS_ROOT}/core/engine/reaction_graph.cpp)
+target_compile_definitions(relax_bake_gen PRIVATE HS_TEST_BUILD HS_RELAX_BAKE_EXTRACT)
+target_include_directories(relax_bake_gen PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
+
 # The south-pole Y-clip renormalization in the rasterizer (Screen::AntiAlias's
 # bilinear-tap fold, and the H_VIRT handling threaded through geometry/scan/plot/
 # sdf) only does real work when hs::H_OFFSET > 0 — the hardware value, fixed to 0

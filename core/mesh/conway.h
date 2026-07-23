@@ -17,41 +17,25 @@ namespace MeshOps {
 
 HS_O3_BEGIN
 
-/** @brief Flash-backed exact output for one deterministic relax input. */
+/**
+ * @brief Host-generated exact vertex payload for one deterministic relax input.
+ * @details `iterations` is the relax count this payload was baked at
+ * (early-stop on convergence applies, so any count past convergence yields the
+ * same converged mesh; a count short of convergence deliberately freezes a
+ * pre-converged configuration). The same bits are loaded on host and device, so
+ * the two platforms render bit-identically. `topology_hash` guards that the
+ * live source mesh's connectivity still matches what was baked against.
+ */
 struct RelaxBake {
+  const char *name;
   const uint32_t *vertex_bits;
   uint16_t vertex_count;
   uint16_t face_count;
   uint16_t index_count;
-  uint16_t convergence_iterations;
+  uint16_t iterations;
   uint32_t topology_hash;
-  uint32_t source_hash;
   uint32_t output_hash;
 };
-
-#if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
-inline int relax_extract_iterations = 0;
-inline bool relax_extract_converged = false;
-#endif
-
-/** @brief Hashes a relax source mesh from its dimensions and raw owned data. */
-inline uint32_t relax_mesh_hash(const PolyMesh &mesh) {
-  uint32_t hash = 2166136261u;
-  auto mix = [&](uint32_t word) { hash = (hash ^ word) * 16777619u; };
-  mix(static_cast<uint32_t>(mesh.vertices.size()));
-  mix(static_cast<uint32_t>(mesh.get_face_counts_size()));
-  mix(static_cast<uint32_t>(mesh.get_faces_size()));
-  for (const Vector &v : mesh.vertices) {
-    mix(std::bit_cast<uint32_t>(v.x));
-    mix(std::bit_cast<uint32_t>(v.y));
-    mix(std::bit_cast<uint32_t>(v.z));
-  }
-  for (size_t i = 0; i < mesh.get_face_counts_size(); ++i)
-    mix(mesh.get_face_counts_data()[i]);
-  for (size_t i = 0; i < mesh.get_faces_size(); ++i)
-    mix(mesh.get_faces_data()[i]);
-  return hash;
-}
 
 /** @brief Hashes platform-independent relax topology and dimensions. */
 inline uint32_t relax_topology_hash(const PolyMesh &mesh) {
@@ -881,10 +865,6 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
     *converged_out = false;
   if (iterations_out)
     *iterations_out = 0;
-#if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
-  relax_extract_iterations = 0;
-  relax_extract_converged = false;
-#endif
   PolyMesh out_mesh;
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
@@ -946,9 +926,6 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
       if (edge_count == 0) {
         if (converged_out)
           *converged_out = true;
-#if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
-        relax_extract_converged = true;
-#endif
         break;
       }
       float target_len = total_len / edge_count;
@@ -989,10 +966,6 @@ HS_COLD static PolyMesh relax(const PolyMesh &mesh, Arena &target, Arena &temp,
         ++*iterations_out;
       if (converged_out)
         *converged_out = converged;
-#if defined(HS_RELAX_BAKE_EXTRACT) || defined(HS_RELAX_BAKE_VERIFY)
-      ++relax_extract_iterations;
-      relax_extract_converged = converged;
-#endif
       if (converged)
         break;
     }
@@ -1022,13 +995,8 @@ relax_baked(const PolyMesh &mesh, Arena &target, const RelaxBake &bake) {
   HS_CHECK(V == bake.vertex_count && F == bake.face_count &&
                I == bake.index_count,
            "relax_baked: source dimensions differ");
-#ifdef ARDUINO
-  HS_CHECK(relax_mesh_hash(mesh) == bake.source_hash,
-           "relax_baked: source hash differs");
-#else
   HS_CHECK(relax_topology_hash(mesh) == bake.topology_hash,
            "relax_baked: source topology differs");
-#endif
 
   PolyMesh out_mesh;
   out_mesh.vertices.bind(target, V);
