@@ -130,7 +130,19 @@ private:
   static constexpr int SWEEP_LEG_FRAMES =
       24; /**< ambo / truncate / snub / chamfer. */
   static constexpr int RELAX_LEG_FRAMES = 16;
-  static constexpr int GATE_LEG_FRAMES = 13; /**< kis / dual: 6 + 1 + 6. */
+  static constexpr int GATE_LEG_FRAMES =
+      13; /**< dual gate (unused: the smooth bridge replaced it). */
+  static constexpr int RECONCILE_LEG_FRAMES =
+      24; /**< identity-mesh -> authored kis/needle slerp. */
+  /** Identity-mesh truncate depth of the smooth kis/needle path: the "uniform"
+   * Conway depth at which dual(truncate(X)) matches kis(dual(X)) exactly on
+   * regular seeds (docs/opchain_morph_spec.md, smooth kis/needle). */
+  static constexpr float MACRO_TRUNCATE_T = 1.0f / 3.0f;
+  /** Half-edge (I = 2E) ceiling of a seed the smooth kis/needle macro accepts.
+   * The macro's dual bridge on truncate(seed) fits at I=360 (gyro_kis, 58 KB
+   * scratch) but blows the device arena at I=1440 (the needle); 900 is the
+   * measured cut, well above every eligible seed and below the needle. */
+  static constexpr size_t SMOOTH_KIS_MAX_SEED_HALF_EDGES = 900;
   static constexpr size_t MAX_BUILD_STEPS = 8; /**< Lowered-primitive cap. */
   /** Build-chain mesh face cap. Bounds the scratch handoff arrays only; the
    * persistent budget is what actually limits which recipes ship. */
@@ -186,6 +198,13 @@ private:
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces_ = 0; /**< Length of build_from_pal_. */
   int dual_bridges_built_ = 0; /**< DUAL bridges scheduled (test coverage). */
+  int build_macro_sweep_frames_ = SWEEP_LEG_FRAMES; /**< Truncate leg of a smooth
+                                                       kis/needle macro. */
+  int build_reconcile_frames_ = RECONCILE_LEG_FRAMES; /**< Reconcile leg length. */
+  /** Continuation the smooth dual bridge chains after its closing leg: plain
+   * finish_build_leg for a lone DUAL, or a macro's next stage. Set before every
+   * schedule_dual_bridge call. */
+  Fn<void(), 16> dual_bridge_done_{[this] { finish_build_leg(); }};
 
   /**
    * @brief Draw callback for build-leg frames.
@@ -379,8 +398,6 @@ private:
       return HANKIN_LEG_FRAMES;
     case Solids::Op::RELAX:
       return RELAX_LEG_FRAMES;
-    case Solids::Op::KIS:
-      return GATE_LEG_FRAMES;
     case Solids::Op::DUAL:
       // The smooth dual is a three-leg bridge (truncate to ambo, medial slerp,
       // truncate down to the dual), each a normal single-mesh sweep.
@@ -391,9 +408,45 @@ private:
   }
 
   /**
-   * @brief Whether a lowered primitive step runs as a gated swap.
+   * @brief Whether a lowered DUAL step pairs with a trailing KIS (needle = kd =
+   *        dt): the pair builds as the smooth dt macro over both steps.
+   * @param k Lowered step index.
+   */
+  bool dt_pair_at(size_t k) const {
+    return k + 1 < build_step_count_ &&
+           build_steps_[k].op == Solids::Op::DUAL &&
+           build_steps_[k + 1].op == Solids::Op::KIS;
+  }
+
+  /**
+   * @brief Whether a lowered KIS step stands alone (not the tail of a dt pair);
+   *        such a kis builds as the dtd macro (kis = dtd).
+   * @param k Lowered step index.
+   */
+  bool standalone_kis_at(size_t k) const {
+    return build_steps_[k].op == Solids::Op::KIS &&
+           !(k > 0 && build_steps_[k - 1].op == Solids::Op::DUAL);
+  }
+
+  /**
+   * @brief Whether the smooth kis/needle macro fits the arena budget for the
+   *        current build seed.
+   * @details The macro bridges truncate(seed) (~3x the seed's half-edges); its
+   * leg-1 classifies ambo(truncate(seed)) alongside a truncated start mesh. On
+   * the roster's largest hankin seed (the needle: I=1440) that peaks at ~160 KB
+   * scratch and ~122 KB persistent -- over the device's whole 298 KB arena. The
+   * gate keeps the macro to seeds it fits (measured: I=360 gyro_kis uses 58/59
+   * KB); an over-budget seed falls back to the smooth dual bridge with the
+   * gated (snapping) kis, its pre-existing behaviour.
+   */
+  bool smooth_kis_fits() const {
+    return build_seed_.faces.size() <= SMOOTH_KIS_MAX_SEED_HALF_EDGES;
+  }
+
+  /**
+   * @brief Whether a lowered primitive step runs as a gated swap: the kis of a
+   *        macro-ineligible (too large) seed.
    * @param op Lowered primitive op.
-   * @return True for kis; dual is now the smooth three-leg bridge.
    */
   static bool is_gated_step(Solids::Op op) { return op == Solids::Op::KIS; }
 
@@ -550,15 +603,39 @@ private:
     int build_span = 0;
     if (recipe) {
       build_step_ = 0;
+      build_from_pal_ = nullptr; // first leg departs the carousel seed slot
+      build_from_faces_ = 0;
       build_total_frames_ = 0;
+      build_macro_sweep_frames_ =
+          std::max(1, static_cast<int>(SWEEP_LEG_FRAMES / sp));
+      build_reconcile_frames_ =
+          std::max(1, static_cast<int>(RECONCILE_LEG_FRAMES / sp));
+      const int bridge_frames = std::max(
+          1, static_cast<int>(leg_frames(Solids::Op::DUAL) / sp));
+      // A smooth kis/needle macro spans more legs than its lowered step count:
+      // a trailing dual,kis (dt) is truncate + dual bridge + reconcile; a
+      // standalone kis (dtd) is dual bridge + truncate + dual bridge + reconcile.
+      // build_leg_frames_[k] carries the dual-bridge budget the bridge splits by
+      // three; the truncate and reconcile legs draw fixed member budgets.
       for (size_t k = 0; k < build_step_count_; ++k) {
         const Solids::Op op = build_steps_[k].op;
+        if (dt_pair_at(k)) {
+          build_leg_frames_[k] = bridge_frames;         // dual bridge (DUAL step)
+          build_leg_frames_[k + 1] = build_reconcile_frames_; // reconcile (KIS)
+          build_total_frames_ += build_macro_sweep_frames_ + bridge_frames +
+                                 build_reconcile_frames_;
+          ++k; // the trailing kis is consumed by the dt macro
+          continue;
+        }
+        if (standalone_kis_at(k)) {
+          build_leg_frames_[k] = bridge_frames; // both dtd bridges split this
+          build_total_frames_ += bridge_frames + build_macro_sweep_frames_ +
+                                 bridge_frames + build_reconcile_frames_;
+          continue;
+        }
         const int frames = std::max(1, static_cast<int>(leg_frames(op) / sp));
-        // A gated leg runs both half-gates plus the swap frame, so its budget
-        // rounds to the odd length the leg actually takes.
-        build_leg_frames_[k] =
-            is_gated_step(op) ? 2 * gate_frames(frames) + 1 : frames;
-        build_total_frames_ += build_leg_frames_[k];
+        build_leg_frames_[k] = frames;
+        build_total_frames_ += frames;
       }
       build_span = build_total_frames_;
       // One pinned target set per shape: colour converges across the whole
@@ -614,9 +691,26 @@ private:
     const size_t k = build_step_;
     const Solids::OpStep &step = build_steps_[k];
 
-    // DUAL is the smooth three-leg bridge; it builds its own endpoints and
-    // chains its legs, then rejoins at finish_build_leg.
+    // Smooth kis/needle macros (docs/opchain_morph_spec.md, smooth kis/needle):
+    // a trailing dual,kis is the dt macro (spanning both steps), a standalone
+    // kis is the dtd macro; each ends on a reconcile leg onto the exact authored
+    // mesh. The recipe/expand_to_primitives still lower needle to {DUAL,KIS}.
+    // A seed too large for the macro's bridge falls back below: its dual runs
+    // as the plain smooth bridge and its kis as the gated (snapping) swap.
+    if (dt_pair_at(k) && smooth_kis_fits()) {
+      schedule_dt_macro();
+      return;
+    }
+    if (standalone_kis_at(k) && smooth_kis_fits()) {
+      schedule_dtd_macro();
+      return;
+    }
+
+    // A lone DUAL (or a macro-ineligible dt pair's DUAL) is the smooth
+    // three-leg bridge; it builds its own endpoints and chains its legs, then
+    // rejoins at finish_build_leg.
     if (step.op == Solids::Op::DUAL) {
+      dual_bridge_done_ = [this] { finish_build_leg(); };
       schedule_dual_bridge();
       return;
     }
@@ -699,11 +793,14 @@ private:
                                 draw_build_fn_, handoff, frames, bookend));
       break;
     case Solids::Op::KIS:
+      // Reached only for a macro-ineligible (too large) seed's kis: the smooth
+      // path was declined above, so the kis runs as the gated (snapping) swap.
       schedule(Animation::OpLeg(build_seed_, Animation::OpLeg::SwapOp::KIS,
                                 persistent_arena, draw_build_fn_, handoff,
                                 gate_frames(frames), bookend));
       break;
     default:
+      // DUAL never reaches here: it routes through the smooth bridge above.
       HS_CHECK(false, "IslamicStars: unsweepable primitive op reached a leg");
       break;
     }
@@ -730,8 +827,13 @@ private:
       off += n;
     }
     const uint8_t *prev_pal;
-    if (build_step_ == 0) {
-      // The seed slot's displayed palettes are the chain's FROM state.
+    if (!build_from_pal_) {
+      // The build's first leg departs the carousel seed slot: its displayed
+      // palettes are the chain's FROM state. Keyed on build_from_pal_ (reset to
+      // null per build) rather than build_step_ == 0, so a smooth kis/needle
+      // macro whose later sub-legs still sit on step 0 (icosahedron_kis_gyro's
+      // leading kis) departs from the carried palette, not the compacted-away
+      // seed slot.
       const MeshState &seed_slot = carousel.current();
       HS_CHECK(prev_faces <= seed_slot.topology.size());
       const auto &slots = palettes_slots[carousel.front_index()];
@@ -937,6 +1039,216 @@ private:
                          0.0f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
                          handoff, frames, bookend);
     build_landing_ = &leg.landing();
+    // Rejoin the caller's continuation: finish_build_leg for a lone DUAL, or the
+    // next stage of a smooth kis/needle macro.
+    timeline.add(0, std::move(leg).then([this] { dual_bridge_done_(); }));
+  }
+
+  /**
+   * @brief Adopts the eagerly built endpoint (build_next_seed_) as the next
+   * leg's seed, snapshots the palette the finished leg landed on so its
+   * successor departs continuously, and compacts the finished leg's storage.
+   * @details The shared middle of finish_build_leg's non-last path, reused by
+   * the smooth kis/needle macro stages, which chain their own next leg rather
+   * than advancing build_step_.
+   */
+  HS_COLD_MEMBER void carry_landing_to_seed() {
+    ScratchScope a_guard(scratch_arena_a);
+    const size_t landed_faces = build_next_seed_.face_counts.size();
+    HS_CHECK(landed_faces <= build_landing_->faces,
+             "IslamicStars: next seed larger than the leg landing");
+    uint8_t *landed = scratch_arena_a.allocate_n<uint8_t>(landed_faces);
+    for (size_t f = 0; f < landed_faces; ++f)
+      landed[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
+                                                  NUM_PALETTES)];
+    build_landing_ = nullptr;
+
+    {
+      Persist<PolyMesh> pn(build_next_seed_, scratch_arena_b, persistent_arena);
+      build_seed_ = PolyMesh();
+      carousel.compact_drop_all([this](Arena &arena) {
+        ripple_gen.reclaim_storage(arena);
+        palette_bank_.bake_all(arena);
+      });
+    }
+    build_seed_ = std::move(build_next_seed_);
+
+    uint8_t *from_pal = persistent_arena.allocate_n<uint8_t>(landed_faces);
+    std::memcpy(from_pal, landed, landed_faces);
+    build_from_pal_ = from_pal;
+    build_from_faces_ = landed_faces;
+  }
+
+  /**
+   * @brief Schedules a plain truncate sweep of the current build seed to
+   * MACRO_TRUNCATE_T, landing on build_next_seed_ = truncate(seed, 1/3).
+   * @param log Log label ("dt truncate" / "dtd truncate").
+   * @param then Completion chained after the leg.
+   */
+  template <typename Then>
+  HS_COLD_MEMBER void schedule_macro_truncate(const char *log, Then &&then) {
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      build_next_seed_ = Solids::finalize_solid(
+          MeshOps::truncate(build_seed_, a, b, MACRO_TRUNCATE_T), target);
+    });
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+    HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
+    Animation::OpLeg::BookendClasses bookend{
+        build_next_seed_.topology.data(),
+        build_next_seed_.face_counts.size()};
+    ScratchScope handoff_guard(scratch_arena_a);
+    Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
+    const int frames = build_macro_sweep_frames_;
+    hs::log("Build leg: %s (%d frames)", log, frames);
+    Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
+                         MACRO_TRUNCATE_T, 0.0f, 0.0f, persistent_arena,
+                         draw_build_fn_, handoff, frames, bookend);
+    build_landing_ = &leg.landing();
+    timeline.add(0, std::move(leg).then(std::forward<Then>(then)));
+  }
+
+  /**
+   * @brief Schedules the smooth dt macro for a trailing dual,kis (needle = kd =
+   * dt): truncate(X, 1/3) sweep, dual bridge on it, then reconcile onto the
+   * exact kis(dual(X)) mesh. Covers both the DUAL step and its trailing KIS.
+   */
+  HS_COLD_MEMBER void schedule_dt_macro() {
+    schedule_macro_truncate("dt truncate", [this] { dt_after_truncate(); });
+  }
+  HS_COLD_MEMBER void dt_after_truncate() {
+    carry_landing_to_seed(); // build_seed_ = truncate(X, 1/3)
+    dual_bridge_done_ = [this] { dt_after_bridge(); };
+    schedule_dual_bridge();
+  }
+  HS_COLD_MEMBER void dt_after_bridge() {
+    carry_landing_to_seed(); // build_seed_ = dual(truncate(X, 1/3)) (identity)
+    dual_bridge_done_ = [this] { finish_build_leg(); };
+    ++build_step_; // advance onto the KIS index the reconcile finishes at
+    schedule_reconcile(build_step_ - 1, /*kis_of_dual=*/true);
+  }
+
+  /**
+   * @brief Schedules the smooth dtd macro for a standalone kis (kis = dtd):
+   * dual bridge on X, truncate(dual(X), 1/3) sweep, dual bridge on it, then
+   * reconcile onto the exact kis(X) mesh. Runs entirely on the KIS step.
+   */
+  HS_COLD_MEMBER void schedule_dtd_macro() {
+    dual_bridge_done_ = [this] { dtd_after_bridge1(); };
+    schedule_dual_bridge();
+  }
+  HS_COLD_MEMBER void dtd_after_bridge1() {
+    carry_landing_to_seed(); // build_seed_ = dual(X)
+    schedule_macro_truncate("dtd truncate", [this] { dtd_after_truncate(); });
+  }
+  HS_COLD_MEMBER void dtd_after_truncate() {
+    carry_landing_to_seed(); // build_seed_ = truncate(dual(X), 1/3)
+    dual_bridge_done_ = [this] { dtd_after_bridge2(); };
+    schedule_dual_bridge();
+  }
+  HS_COLD_MEMBER void dtd_after_bridge2() {
+    carry_landing_to_seed(); // build_seed_ = dual(truncate(dual(X), 1/3))
+    dual_bridge_done_ = [this] { finish_build_leg(); };
+    schedule_reconcile(build_step_, /*kis_of_dual=*/false);
+  }
+
+  /**
+   * @brief Relocates the authored kis/needle mesh's vertices onto the identity
+   * mesh's connectivity through the nearest-vertex bijection.
+   * @param identity Identity mesh (dt/dtd result): its connectivity and vertex
+   * order are kept; each vertex is matched to the authored vertex nearest it.
+   * @param authored Exact kis/needle mesh (same V/E/F as identity).
+   * @param out Receives identity's connectivity carrying the matched authored
+   * positions, in identity's vertex order.
+   * @param target Arena backing @p out.
+   * @param scratch Arena for the injectivity bookkeeping.
+   * @details The correspondence is a proven bijection (identical topology, ~3.4%
+   * position gap); a non-injective match traps rather than silently folding a
+   * face.
+   */
+  HS_COLD_MEMBER void build_reconcile_endpoint(const PolyMesh &identity,
+                                               const PolyMesh &authored,
+                                               PolyMesh &out, Arena &target,
+                                               Arena &scratch) {
+    const size_t V = identity.vertices.size();
+    HS_CHECK(authored.vertices.size() == V,
+             "IslamicStars: reconcile endpoints differ in vertex count");
+    ScratchScope guard(scratch);
+    bool *used = scratch.allocate_n<bool>(V);
+    std::fill_n(used, V, false);
+    out.vertices.bind(target, V);
+    for (size_t i = 0; i < V; ++i) {
+      int best = -1;
+      float best_dot = -2.0f;
+      for (size_t j = 0; j < V; ++j) {
+        const float d = dot(identity.vertices[i], authored.vertices[j]);
+        if (d > best_dot) {
+          best_dot = d;
+          best = static_cast<int>(j);
+        }
+      }
+      HS_CHECK(best >= 0 && !used[best],
+               "IslamicStars: reconcile nearest-vertex map is not a bijection");
+      used[best] = true;
+      out.vertices.push_back(authored.vertices[best]);
+    }
+    out.face_counts.bind(target, identity.face_counts.size());
+    out.face_counts.append_bulk(identity.face_counts.data(),
+                                identity.face_counts.size());
+    out.faces.bind(target, identity.faces.size());
+    out.faces.append_bulk(identity.faces.data(), identity.faces.size());
+  }
+
+  /**
+   * @brief Schedules the reconcile leg closing a smooth kis/needle macro: a
+   * per-vertex great-circle slerp from the identity mesh (build_seed_) onto the
+   * exact authored kis/needle mesh, landing on the generator's mesh.
+   * @param x_prefix Lowered-step count replayed to rebuild X, the mesh the macro
+   * departed from (the generator's exact intermediate).
+   * @param kis_of_dual True for a dt macro (authored = kis(dual(X)) = needle(X)),
+   * false for a dtd macro (authored = kis(X)).
+   */
+  HS_COLD_MEMBER void schedule_reconcile(size_t x_prefix, bool kis_of_dual) {
+    const uint8_t seed =
+        Solids::Collections::get_islamic_solids()[solid_idx].recipe->seed;
+    // Rebuild the exact authored mesh from the generator (the source of truth)
+    // and relocate its vertices onto the identity connectivity in a tight scope,
+    // so the authored/X temporaries free before the leg's own transients.
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      PolyMesh X = Solids::build_steps(seed, build_steps_, x_prefix,
+                                       scratch_arena_a, scratch_arena_b);
+      PolyMesh Xc;
+      MeshOps::clone(X, Xc, scratch_arena_a);
+      PolyMesh authored =
+          kis_of_dual ? MeshOps::needle(Xc, scratch_arena_a, scratch_arena_b)
+                      : MeshOps::kis(Xc, scratch_arena_a, scratch_arena_b);
+      build_reconcile_endpoint(build_seed_, authored, build_next_seed_,
+                               persistent_arena, scratch_arena_a);
+    }
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+    HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
+    Animation::OpLeg::BookendClasses bookend{
+        build_next_seed_.topology.data(),
+        build_next_seed_.face_counts.size()};
+    ScratchScope handoff_guard(scratch_arena_a);
+    Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
+    const int frames = build_reconcile_frames_;
+    hs::log("Build leg: reconcile (%d frames)", frames);
+    Animation::OpLeg leg(build_seed_, build_next_seed_.vertices.data(),
+                         Animation::OpLeg::ReconcileTag{}, persistent_arena,
+                         draw_build_fn_, handoff, frames, bookend);
+    build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
   }
 
@@ -997,35 +1309,12 @@ private:
       return;
     }
 
-    // Carry the emission-order prefix the next leg departs from: the whole
-    // landing for a face-count-preserving leg, and the survivor prefix where a
-    // leg's arrival has more faces than its clean endpoint -- the DUAL bridge's
-    // closing truncate lands V+F faces (F zero-area corners) but hands off the
-    // V dual faces (build_next_seed_).
-    const size_t landed_faces = build_next_seed_.face_counts.size();
-    HS_CHECK(landed_faces <= build_landing_->faces,
-             "IslamicStars: next seed larger than the leg landing");
-    uint8_t *landed = scratch_arena_a.allocate_n<uint8_t>(landed_faces);
-    for (size_t f = 0; f < landed_faces; ++f)
-      landed[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
-                                                  NUM_PALETTES)];
-    build_landing_ = nullptr;
-
-    {
-      Persist<PolyMesh> pn(build_next_seed_, scratch_arena_b, persistent_arena);
-      build_seed_ = PolyMesh();
-      carousel.compact_drop_all([this](Arena &arena) {
-        ripple_gen.reclaim_storage(arena);
-        palette_bank_.bake_all(arena);
-      });
-    }
-    build_seed_ = std::move(build_next_seed_);
-
-    uint8_t *from_pal = persistent_arena.allocate_n<uint8_t>(landed_faces);
-    std::memcpy(from_pal, landed, landed_faces);
-    build_from_pal_ = from_pal;
-    build_from_faces_ = landed_faces;
-
+    // Carry the emission-order prefix the next leg departs from (the whole
+    // landing for a face-count-preserving leg, the survivor prefix where a leg's
+    // arrival has more faces than its clean endpoint -- the DUAL bridge's
+    // closing truncate lands V+F faces but hands off the V dual faces), then
+    // advance to the next lowered step.
+    carry_landing_to_seed();
     ++build_step_;
     start_build_leg();
   }
