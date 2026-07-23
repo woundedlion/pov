@@ -2984,6 +2984,10 @@ struct IslamicBuildProbe {
   template <int W, int H> static int solid_idx(const IslamicStars<W, H> &e) {
     return e.solid_idx;
   }
+  template <int W, int H>
+  static int dual_bridges(const IslamicStars<W, H> &e) {
+    return e.dual_bridges_built_;
+  }
 };
 
 /**
@@ -3102,6 +3106,49 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
 }
 
 /**
+ * @brief Drives IslamicStars until every DUAL-bearing recipe has built its
+ *        smooth three-leg dual bridge, pinning the scratch peaks against the
+ *        effect's budget.
+ * @details The roster gate at Trans Speed 8 compresses each build so far that a
+ *          heavy shape's closing dual leg can be dropped before it runs; this
+ *          drives at a modest speed so every bridge leg runs in full. Five
+ *          registry recipes carry a DUAL (a needle, two gyros, a kis-gyro, and
+ *          a truncate50d_ambo_dual). The bridge's leg 3 rebuilds the medial for
+ *          its handoff centroids, whose scratch must not co-reside with the
+ *          leg's own arrival mesh -- an over-budget leg traps in the host arena.
+ */
+inline void test_islamicstars_dual_bridge_fits_budget() {
+  reset_effect_globals();
+  IslamicStars<288, 144> effect;
+  IslamicBuildProbe::set_trans_speed(effect, 2.0f);
+  effect.init();
+
+  constexpr size_t SCRATCH_A_BUDGET = 120 * 1024;
+  constexpr size_t SCRATCH_B_BUDGET = 74 * 1024;
+  constexpr int TARGET_BRIDGES = 5;
+  constexpr int MAX_FRAMES = 40000;
+  size_t a_peak = 0, b_peak = 0, persist_peak = 0;
+  int frames = 0;
+  while (frames < MAX_FRAMES &&
+         IslamicBuildProbe::dual_bridges(effect) < TARGET_BRIDGES) {
+    effect.draw_frame();
+    effect.advance_display();
+    ++frames;
+    a_peak = std::max(a_peak, scratch_arena_a.get_high_water_mark());
+    b_peak = std::max(b_peak, scratch_arena_b.get_high_water_mark());
+    persist_peak =
+        std::max(persist_peak, persistent_arena.get_high_water_mark());
+  }
+  std::printf("  [dual-bridge] %d bridges over %d frames: scratch_a peak=%zu/%zu "
+              "B, scratch_b peak=%zu/%zu B, persistent peak=%zu B\n",
+              IslamicBuildProbe::dual_bridges(effect), frames, a_peak,
+              SCRATCH_A_BUDGET, b_peak, SCRATCH_B_BUDGET, persist_peak);
+  HS_EXPECT_GE(IslamicBuildProbe::dual_bridges(effect), TARGET_BRIDGES);
+  HS_EXPECT_LE(a_peak, SCRATCH_A_BUDGET);
+  HS_EXPECT_LE(b_peak, SCRATCH_B_BUDGET);
+}
+
+/**
  * @brief Module entry point for the effects test suite.
  * @return Module result code from hs_test::end_module (0 on success).
  * @details Runs the SH-decode check, then both smoke and determinism passes over
@@ -3176,6 +3223,7 @@ inline int run_effects_tests() {
     test_hankinsolids_arena_budget_covers_every_solid();
     test_islamicstars_recipe_build_smoke();
     test_islamicstars_roster_cycle_fits_budget();
+    test_islamicstars_dual_bridge_fits_budget();
 
     // Full production-resolution roster passes (288x144): smoke, then cross-run
     // determinism under the injected clock.
