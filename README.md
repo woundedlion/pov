@@ -526,7 +526,7 @@ The pipeline handles the 3D/2D coordinate mismatch automatically at compile time
 
 | Filter | Effect |
 |---|---|
-| `Pixel::Feedback<W, H>` | Style-driven full-screen feedback loop. During `flush()` iterates the full canvas, samples the previous frame from the Canvas front buffer with bilinear interpolation, applies the bound `Feedback::Style`'s spatial transform and color transform with fade, then blends into the back buffer. Stateless — uses Canvas double-buffering, no internal frame storage. The warp field is computed on a coarse `W/DS × H/DS` grid (scratch-arena allocated) and bilinearly upsampled; `DS = style.downsample`. See `Feedback::Style` below for preset selection. |
+| `Pixel::Feedback<W, H>` | Style-driven full-screen feedback loop. During `flush()` iterates the full canvas, samples the previous frame from the Canvas front buffer with bilinear interpolation, applies the bound `Feedback::Style`'s spatial transform and color transform with fade, then blends into the back buffer. Uses Canvas double-buffering for frames; the spatial warp is sampled on a sphere-uniform Fibonacci lattice (`WarpLattice`, arena-allocated via `init_storage()`) and reconstructed per pixel in 3D, so warp quality is latitude-independent. See `Feedback::Style` below for preset selection. |
 | `Pixel::ChromaticShift<W>` | Splits a pixel into R, G, B channels and offsets them by 1–3 pixels horizontally to simulate chromatic aberration. |
 
 #### Feedback Styles (`styles.h`)
