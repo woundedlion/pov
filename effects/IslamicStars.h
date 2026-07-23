@@ -792,11 +792,11 @@ private:
   /**
    * @brief Schedules the smooth dual as three legs: truncate P -> ambo(P), a
    * medial slerp to ambo(dual(P)), and truncate dual(P) back down to dual(P).
-   * @details Builds the two eager endpoints (ambo(P) held in dual_bridge_ambo_,
-   * and the macro's clean endpoint dual(P) in build_next_seed_) once, then
-   * chains leg 1 -> leg 2 -> leg 3 -> finish_build_leg. No inter-leg
-   * compaction: the three legs and the two endpoints co-reside for the bridge,
-   * reclaimed at the step boundary like any leg.
+   * @details Only ambo(P) (leg 1's arrival) is built up front; dual(P) is
+   * deferred to leg 3 so it never co-resides with the medial leg's peak. Each
+   * leg's scheduler compacts the arena before it runs, reclaiming the finished
+   * legs and the endpoints they no longer need -- the heaviest gyro and
+   * ambo_dual seeds run the whole bridge co-resident ~21 KB over budget.
    */
   HS_COLD_MEMBER void schedule_dual_bridge() {
     ++dual_bridges_built_;
@@ -810,18 +810,7 @@ private:
       MeshOps::classify_faces_by_topology(dual_bridge_ambo_, scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
     }
-    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      build_next_seed_ =
-          Solids::finalize_solid(MeshOps::dual(build_seed_, a, b), target);
-    });
-    {
-      ScratchScope a_guard(scratch_arena_a);
-      ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
-                                          scratch_arena_b, persistent_arena);
-    }
-    HS_CHECK(dual_bridge_ambo_.face_counts.size() <= MAX_BUILD_FACES &&
-             build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
+    HS_CHECK(dual_bridge_ambo_.face_counts.size() <= MAX_BUILD_FACES);
 
     ScratchScope handoff_guard(scratch_arena_a);
     Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
@@ -844,8 +833,24 @@ private:
    */
   HS_COLD_MEMBER void schedule_dual_medial() {
     ScratchScope handoff_guard(scratch_arena_a);
+    // Snapshot the handoff off leg 1's landing (centroids from ambo(P), palette
+    // from the leg-1 landing) before compacting away that finished leg. The
+    // arrays live in scratch_a, which the persistent reset below leaves intact.
     Animation::OpLeg::PaletteHandoff handoff =
         landing_handoff(dual_bridge_ambo_, scratch_arena_a);
+    build_landing_ = nullptr;
+
+    // Compact: keep the seed P (leg 2 rebuilds its medial from it) and ambo(P)
+    // (leg 3's face count), drop leg 1.
+    {
+      Persist<PolyMesh> ps(build_seed_, scratch_arena_b, persistent_arena);
+      Persist<PolyMesh> pa(dual_bridge_ambo_, scratch_arena_b, persistent_arena);
+      carousel.compact_drop_all([this](Arena &arena) {
+        ripple_gen.reclaim_storage(arena);
+        palette_bank_.bake_all(arena);
+      });
+    }
+
     const int frames = dual_sub_frames(1);
     hs::log("Build leg: dual bridge 2/3 medial (%d frames)", frames);
     Animation::OpLeg leg(build_seed_, Animation::OpLeg::MedialTag{},
@@ -862,10 +867,10 @@ private:
    */
   HS_COLD_MEMBER void schedule_dual_untruncate() {
     ScratchScope a_guard(scratch_arena_a);
-    // The handoff centroids match ambo(P)'s (= the medial's) connectivity; only
-    // the leg-2 palettes and the small centroid array cross into the leg
-    // constructor. The medial mesh itself is built and freed inside the inner
-    // scope so it never co-resides with the leg's arrival mesh in scratch_a.
+    // Snapshot the two things leg 3 needs from the finished leg 2 and the ambo
+    // endpoint -- the departed centroids (a rebuilt medial's dual-point per
+    // face) and leg 2's landed palette -- into scratch_a, which the persistent
+    // reset below leaves intact.
     const size_t nf = dual_bridge_ambo_.face_counts.size();
     HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
              build_landing_->faces >= nf);
@@ -890,6 +895,37 @@ private:
         off += n;
       }
     }
+    build_landing_ = nullptr;
+
+    // Compact: keep the seed P (leg 3 builds dual(P) from it), drop leg 2 and
+    // the ambo(P) endpoint.
+    {
+      Persist<PolyMesh> ps(build_seed_, scratch_arena_b, persistent_arena);
+      dual_bridge_ambo_ = PolyMesh();
+      carousel.compact_drop_all([this](Arena &arena) {
+        ripple_gen.reclaim_storage(arena);
+        palette_bank_.bake_all(arena);
+      });
+    }
+
+    // Build the deferred leg-3 seed dual(P) into the compacted arena. Not
+    // generate(): its depth-0 scratch_a reset would drop the cen/pal snapshot
+    // above, so scope the pipeline off the live frame instead.
+    {
+      ScratchScope da(scratch_arena_a);
+      ScratchScope db(scratch_arena_b);
+      build_next_seed_ = Solids::finalize_solid(
+          MeshOps::dual(build_seed_, scratch_arena_a, scratch_arena_b),
+          persistent_arena);
+    }
+    {
+      ScratchScope ca(scratch_arena_a);
+      ScratchScope cb(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+    HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
+
     Animation::OpLeg::PaletteHandoff handoff{
         &palette_bank_.bank, pal, nullptr, nf, false, cen, &build_targets_};
     Animation::OpLeg::BookendClasses bookend{
