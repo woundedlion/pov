@@ -650,7 +650,8 @@ public:
    * rectified connectivity of P and slerps every vertex from ambo(P) to
    * ambo(dual(P)) at a fixed emission order (docs conway dual morph, leg 2).
    * @param seed Mesh whose dual bridge this leg spans; its medial is built here.
-   * @param arena Leg arena backing the medial connectivity and both vertex sets.
+   * @param arena Leg arena backing the medial connectivity and both
+   * snorm16-packed vertex sets.
    * @param draw Draw callback invoked once per frame.
    * @param handoff Palette provenance of the departed mesh (ambo(P), one face
    * per primal face + one per primal vertex).
@@ -687,31 +688,45 @@ public:
       ScratchScope sa(scratch_arena_a);
       ScratchScope sb(scratch_arena_b);
 
-      // tr.seed holds the medial connectivity plus the a_e (ambo(P)) positions
-      // the leg slerps out of; tr.relaxed holds the b_e (ambo(dual(P)))
-      // positions it slerps toward -- the same seed/relaxed pair relax_at
-      // consumes, so the medial leg reuses that per-frame slerp verbatim.
-      MeshOps::medial(seed, tr.seed, tr.relaxed, arena, scratch_arena_a);
-      tr.seed_faces = tr.seed.face_counts.size();
-      HS_CHECK(tr.relaxed.size() == tr.seed.vertices.size(),
+      // The medial is built in scratch; only its connectivity (tr.seed) and the
+      // two snorm16-packed endpoint sets cross into persistent. a_e (ambo(P))
+      // and b_e (ambo(dual(P))) are unit-sphere directions, so the 6-byte pack
+      // halves their 12-byte resident cost (mirrors hk_final). Classification
+      // and centroids run on the full-precision scratch copies: unlike hk_final
+      // no arrival rebuild reads the packed points back, and the topology
+      // classifier splits symmetry orbits under the quantum, so perturbing its
+      // input would inflate the leg's distinct palette-pair count.
+      PolyMesh med;
+      ArenaVector<Vector> med_b;
+      MeshOps::medial(seed, med, med_b, scratch_arena_a, scratch_arena_b);
+      tr.seed_faces = med.face_counts.size();
+      HS_CHECK(med_b.size() == med.vertices.size(),
                "OpLeg: medial vertex sets differ in size");
 
+      const size_t medial_verts = med.vertices.size();
+      copy_topology(tr.seed, arena, med.face_counts, med.faces);
+      tr.medial_a.bind(arena, medial_verts);
+      tr.medial_b.bind(arena, medial_verts);
+      for (size_t i = 0; i < medial_verts; ++i) {
+        tr.medial_a.push_back(StarPoint::encode(med.vertices[i]));
+        tr.medial_b.push_back(StarPoint::encode(med_b[i]));
+      }
+
       PolyMesh arrival;
-      slerp_vertices(arrival, scratch_arena_a, tr.seed.vertices.data(),
-                     tr.relaxed.data(), tr.relaxed.size(), 0, 1.0f);
-      copy_topology(arrival, scratch_arena_a, tr.seed.face_counts,
-                    tr.seed.faces);
+      slerp_vertices(arrival, scratch_arena_a, med.vertices.data(), med_b.data(),
+                     medial_verts, 0, 1.0f);
+      copy_topology(arrival, scratch_arena_a, med.face_counts, med.faces);
 
       MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
                                           scratch_arena_b, arena);
       tr.topo = std::move(arrival.topology);
       HS_CHECK(tr.topo.size() == arrival.face_counts.size());
 
-      // The opening frame is ambo(P) verbatim (tr.seed), so its face centroids
-      // are the geometric provenance source.
+      // The opening frame is ambo(P) verbatim (the packed a_e), so its face
+      // centroids are the geometric provenance source.
       const Vector *start_centroid = nullptr;
       if (handoff.prev_face_centroid)
-        start_centroid = face_centroids(tr.seed, scratch_arena_a);
+        start_centroid = face_centroids(med, scratch_arena_a);
 
       // Full correspondence: every medial face lives the whole bridge, so the
       // survivor prefix is the whole face list.
@@ -819,11 +834,10 @@ public:
       HS_PROFILE(hk_conway_op);
       if (tr.kind == LegKind::HANKIN_SWEEP) {
         hankin_at(tr, swept, scratch_arena_a, tp);
-      } else if (tr.kind == LegKind::RELAX_SLERP ||
-                 tr.kind == LegKind::MEDIAL_SLERP) {
-        // Both slerp every vertex from tr.seed to tr.relaxed on a fixed
-        // connectivity; only the endpoint's construction differs.
+      } else if (tr.kind == LegKind::RELAX_SLERP) {
         relax_at(tr, swept, scratch_arena_a, tp);
+      } else if (tr.kind == LegKind::MEDIAL_SLERP) {
+        medial_at(tr, swept, scratch_arena_a, tp);
       } else {
         swept =
             run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b, tp, tw);
@@ -927,6 +941,12 @@ private:
     float twist_start = 0, twist_end = 0; /**< Snub twist endpoints. */
     ArenaVector<Vector>
         relaxed; /**< Relaxed endpoint vertices (settling and relax legs). */
+    ArenaVector<StarPoint>
+        medial_a; /**< Medial a_e (ambo(P)) endpoint, snorm16-packed
+                     (MEDIAL_SLERP). */
+    ArenaVector<StarPoint>
+        medial_b; /**< Medial b_e (ambo(dual(P))) endpoint, snorm16-packed
+                     (MEDIAL_SLERP). */
     ArenaVector<int>
         topo; /**< Hoisted arrival classification (drawn grouping). */
     ArenaVector<int>
@@ -1378,6 +1398,30 @@ private:
                                       Arena &arena, float k) {
     slerp_vertices(out, arena, tr.seed.vertices.data(), tr.relaxed.data(),
                    tr.relaxed.size(), 0, k);
+    copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
+  }
+
+  /**
+   * @brief Builds a medial leg's swept mesh at one slerp fraction, decoding the
+   * snorm16-packed endpoints per vertex.
+   * @param tr Leg transients holding the packed a_e/b_e sets and connectivity.
+   * @param out Output mesh, allocated from @p arena.
+   * @param arena Arena backing the output vectors.
+   * @param k Slerp fraction in [0, 1]; slerp() renormalizes the near-unit
+   * decoded inputs, so the quantization is absorbed into the direction blend.
+   */
+  HS_COLD_MEMBER static void medial_at(const Transients &tr, PolyMesh &out,
+                                       Arena &arena, float k) {
+    const size_t n = tr.medial_a.size();
+    out.vertices.bind(arena, n);
+    if (k >= 1.0f) {
+      for (size_t i = 0; i < n; ++i)
+        out.vertices.push_back(tr.medial_b[i].decode().normalized());
+    } else {
+      for (size_t i = 0; i < n; ++i)
+        out.vertices.push_back(
+            slerp(tr.medial_a[i].decode(), tr.medial_b[i].decode(), k));
+    }
     copy_topology(out, arena, tr.seed.face_counts, tr.seed.faces);
   }
 

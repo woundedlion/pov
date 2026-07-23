@@ -2290,6 +2290,14 @@ inline void test_medial_dual_bridge_wellformed() {
     ArenaVector<Vector> med_b;
     MeshOps::medial(P, med_a, med_b, a, b);
 
+    // The MEDIAL_SLERP leg stores both endpoint sets snorm16-packed, so gate the
+    // quantized-then-decoded positions the leg actually slerps, not the
+    // full-precision medial output.
+    for (auto &v : med_a.vertices)
+      v = Animation::OpLeg::StarPoint::encode(v).decode().normalized();
+    for (auto &v : med_b)
+      v = Animation::OpLeg::StarPoint::encode(v).decode().normalized();
+
     // Correspondence proof: s = 0 is ambo(P), s = 1 (b_e positions) is
     // ambo(dual(P)). Both are the same rectified polyhedron (one face per
     // primal face + one per primal vertex), so the FACE count is identical
