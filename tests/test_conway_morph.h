@@ -2377,6 +2377,114 @@ inline void test_medial_dual_bridge_wellformed() {
   }
 }
 
+/**
+ * @brief Drives a MEDIAL_SLERP leg to completion through OpLeg on every DUAL-leg
+ *        seed: constant compiled face count, bounded per-frame motion, a total
+ *        palette mapping, and a landing describing the whole medial face list.
+ * @details The leg departs from ambo(P) (one face per primal face + one per
+ * primal vertex), so the handoff is class-keyed on that mesh with its face
+ * centroids for the geometric provenance mapping.
+ */
+inline void test_opleg_medial_leg_smoke() {
+  using Animation::OpLeg;
+  reset_globals();
+  configure_arenas(GLOBAL_ARENA_SIZE - 120 * 1024 - 74 * 1024, 120 * 1024,
+                   74 * 1024);
+  hs::random().seed(2026u);
+
+  Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
+  MeshPaletteBank bank;
+  bank.bake_all(bank_arena);
+
+  constexpr int SWEEP = 24;
+  constexpr float MAX_STEP_CHORD = 0.15f;
+
+  for (const StepLegSite &site : DUAL_LEG_SITES) {
+    const int failed_before = hs_test::stats().failed;
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    PolyMesh P = build_step_leg_seed(site, persist);
+
+    Arena leg(morph_target_buf, sizeof(morph_target_buf));
+    Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
+
+    // Departed mesh: ambo(P), class-keyed palettes plus face centroids.
+    PolyMesh ambo_p = Solids::finalize_solid(MeshOps::ambo(P, leg, temp), leg);
+    {
+      ScratchScope ta(scratch_arena_a);
+      ScratchScope tb(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(ambo_p, scratch_arena_a,
+                                          scratch_arena_b, leg);
+    }
+    const size_t prev_faces = ambo_p.face_counts.size();
+    std::vector<uint8_t> pal(prev_faces);
+    std::vector<Vector> centroid(prev_faces);
+    size_t off = 0;
+    for (size_t f = 0; f < prev_faces; ++f) {
+      pal[f] = static_cast<uint8_t>(wrap(ambo_p.topology[f], OpLeg::PALETTES));
+      Vector c(0.0f, 0.0f, 0.0f);
+      const int n = ambo_p.face_counts[f];
+      for (int j = 0; j < n; ++j)
+        c = c + ambo_p.vertices[ambo_p.faces[off + j]];
+      centroid[f] = c.normalized();
+      off += n;
+    }
+
+    OpLeg::PaletteHandoff handoff{&bank.bank,      pal.data(), nullptr,
+                                  prev_faces,      false,      centroid.data(),
+                                  /*pinned_to=*/nullptr};
+
+    size_t drawn = 0, leg_faces = 0;
+    float worst_step = 0.0f;
+    std::vector<Vector> prev_v;
+    auto cb = [&](Canvas &, const MeshState &m, const OpLeg::Shading &sh) {
+      HS_EXPECT_EQ(m.face_counts.size(), sh.faces);
+      if (drawn == 0)
+        leg_faces = sh.faces;
+      else
+        HS_EXPECT_EQ(sh.faces, leg_faces);
+      for (size_t f = 0; f < sh.faces; ++f)
+        HS_EXPECT_LT(static_cast<int>(sh.face_ramp[f]), OpLeg::MAX_BLEND_PAIRS);
+      if (!prev_v.empty()) {
+        HS_EXPECT_EQ(m.vertices.size(), prev_v.size());
+        for (size_t i = 0; i < m.vertices.size(); ++i)
+          worst_step =
+              std::max(worst_step, distance_between(m.vertices[i], prev_v[i]));
+      }
+      prev_v.assign(m.vertices.begin(), m.vertices.end());
+      ++drawn;
+    };
+
+    OpLeg anim(P, OpLeg::MedialTag{}, leg, cb, handoff, SWEEP);
+    const OpLeg::Landing &landing = anim.landing();
+    // The medial connectivity is ambo(P), so the leg's face list is the whole
+    // rectified polyhedron and every face lives the whole slerp.
+    HS_EXPECT_EQ(landing.faces, prev_faces);
+    HS_EXPECT_EQ(landing.primary_faces, prev_faces);
+
+    struct MedialFx : public Effect {
+      MedialFx() : Effect(288, 144) {}
+      void draw_frame() override {}
+    };
+    MedialFx fx;
+    for (int f = 0; f < SWEEP; ++f) {
+      {
+        Canvas c(fx);
+        anim.step(c);
+      }
+      fx.advance_display();
+    }
+    HS_EXPECT_EQ(drawn, (size_t)SWEEP);
+    HS_EXPECT_EQ(landing.faces, leg_faces);
+    HS_EXPECT_LT(worst_step, MAX_STEP_CHORD);
+    HS_EXPECT_TRUE(landing.from_palette != nullptr);
+
+    std::printf("  [opleg medial] %s: F=%zu across %d frames, worst step "
+                "%.4f%s\n",
+                site.name, landing.faces, SWEEP, (double)worst_step,
+                hs_test::stats().failed != failed_before ? " FAILED" : "");
+  }
+}
+
 /** @brief Recipe-step leg kind driven by the smoke test. */
 enum class StepLegKind { TRUNCATE, SNUB, RELAX };
 
@@ -3232,6 +3340,7 @@ inline int run_conway_morph_tests() {
   test_snub_leg_on_recipe_seeds_holds_topology();
   test_relax_leg_on_recipe_seeds_holds_topology();
   test_medial_dual_bridge_wellformed();
+  test_opleg_medial_leg_smoke();
   test_opleg_step_leg_smoke();
   test_opleg_gated_swap_smoke();
   test_unsweepable_recipe_steps_are_gated();
