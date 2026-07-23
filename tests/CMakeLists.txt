@@ -247,7 +247,8 @@ endforeach()
 # in the default build as a compile guard against bit-rot.
 add_executable(feedback_divergence
   ${CMAKE_CURRENT_SOURCE_DIR}/feedback_divergence.cpp
-  ${HS_ROOT}/core/engine/memory.cpp)
+  ${HS_ROOT}/core/engine/memory.cpp
+  ${HS_ROOT}/core/engine/reaction_graph.cpp)
 target_compile_definitions(feedback_divergence PRIVATE HS_TEST_BUILD)
 target_include_directories(feedback_divergence PRIVATE ${HS_ROOT} ${HS_ROOT}/core)
 target_compile_options(feedback_divergence PRIVATE -O2 -ffast-math -fno-finite-math-only)

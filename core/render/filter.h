@@ -12,7 +12,6 @@
 
 #include <span>
 #include <algorithm>
-#include <bitset>
 #include "math/geometry.h"
 #include "color/color.h"
 #include "engine/static_circular_buffer.h"
@@ -20,6 +19,7 @@
 #include "engine/concepts.h"
 #include "engine/memory.h"
 #include "engine/styles.h"
+#include "render/warp_lattice.h"
 
 /** @brief Callback that forwards a 2D plot (x, y, pixel, age, alpha) downstream. */
 using PassFn2D =
@@ -1366,12 +1366,12 @@ namespace Pixel {
  * @brief Style-aware terminal feedback filter that warps the previous frame.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details The Style's spatial warp is computed on a coarse W/DS x H/DS grid
- * (DS = style.downsample, allocated from scratch_arena_a per flush) and
- * bilinearly upsampled. flush() iterates the full pixel grid within the active
- * clip band. TERMINAL:
- * flush() composites directly into the Canvas and ignores its `pass` callback,
- * so it must be the last Pipeline stage.
+ * @details The Style's spatial warp is sampled on a sphere-uniform Fibonacci
+ * lattice (WarpLattice) and reconstructed per pixel, so warp quality is
+ * latitude-independent — an equirect coarse grid cannot represent a smooth
+ * sphere warp near the poles. init_storage() must run before the first
+ * flush(). TERMINAL: flush() composites directly into the Canvas and ignores
+ * its `pass` callback, so it must be the last Pipeline stage.
  */
 template <int W, int H>
 class Feedback : public Is2DWithHistory {
@@ -1380,14 +1380,6 @@ public:
   static constexpr bool is_terminal = true;
   /** @brief Opaque store owns the frame: no history stage may precede it. */
   static constexpr bool terminal_replaces = true;
-
-  // Covers only the default-constructed Style; a runtime-swapped style's
-  // downsample is validated in flush() (the HS_CHECK below).
-  static_assert(::Feedback::Style{}.downsample > 0 &&
-                    W % ::Feedback::Style{}.downsample == 0 &&
-                    H % ::Feedback::Style{}.downsample == 0,
-                "Feedback<W,H>: default style downsample must be > 0 and divide "
-                "W and H");
 
   /**
    * @brief Binds the filter to a live feedback Style.
@@ -1421,59 +1413,75 @@ public:
    * segment's cylindrical clip. No-op when disabled.
    */
   HS_O3_BEGIN
+  /**
+   * @brief Blends the warped previous frame into the current frame.
+   * @param cv Target canvas (reads cv.prev, writes the back (current-draw) buffer).
+   * @param alpha Global blend alpha in [0, 1].
+   * @details Refreshes the lattice warp field (cache-aware), then composites
+   * the warped, faded previous frame across the clip band. No-op when disabled.
+   */
   void flush(Canvas &cv, const ScreenTrailFn &, float alpha, PassFn2D) {
     if (!enabled_) return;
-
-    const int ds = style_->downsample;
-    HS_CHECK(ds > 0 && W % ds == 0 && H % ds == 0,
-             "feedback downsample %d must be > 0 and divide %dx%d", ds, W, H);
-    // The hoisted base pointers below are indexed with the template-constant W,
-    // which only matches the canvas accessors when the strides agree.
+    // composite() indexes its hoisted base pointers with the template-constant
+    // W, which only matches the canvas accessors when the strides agree.
     HS_CHECK(cv.width() == W,
              "feedback canvas width %d must equal template W %d", cv.width(), W);
-    const int hw = W / ds;
-    const int hh = H / ds;
-
+    HS_CHECK(warp_.bound(), "Feedback::flush needs init_storage() first");
     {
       HS_PROFILE(feedback_litscan);
       if (!any_pixel_lit(cv)) return;
     }
+    refresh_warp_field(cv.clip());
+    composite_frame(cv, alpha);
+  }
 
-    const auto &cr = cv.clip();
-    const int y_lo = cr.render_y_start();
-    const int y_hi = cr.render_y_end();
-    const auto xc = cr.x_clip();
+private:
+  /** @brief Column spans of the clip region; a wrapping clip splits into two. */
+  struct ColumnRuns {
+    int span[2][2];
+    int count = 0;
+  };
 
-    // Mark the coarse columns the clipped sampling pass touches.
-    std::bitset<W> col_used;
-    if (xc.active) {
-      for (int x = 0; x < W; ++x) {
-        if (xc.clipped(x)) continue;
-        int cx0 = x / ds;
-        int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
-        col_used[cx0] = true;
-        col_used[cx1] = true;
-      }
+  static ColumnRuns column_runs(const ClipRegion::XClip &xc) {
+    ColumnRuns r;
+    auto add = [&r](int start, int end) {
+      r.span[r.count][0] = start;
+      r.span[r.count][1] = end;
+      ++r.count;
+    };
+    if (!xc.active) {
+      add(0, W);
+    } else if (xc.wrap) {
+      if (xc.re > 0) add(0, xc.re);
+      if (xc.rs < W) add(xc.rs, W);
+    } else {
+      add(xc.rs, xc.re);
     }
+    return r;
+  }
 
-    constexpr float Q = 128.0f;
-    const int cy_lo = y_lo / ds;
-    int cy_hi = ((y_hi - 1) / ds) + 1;
-    if (cy_hi > hh - 1) cy_hi = hh - 1;
-    HS_CHECK(cy_hi >= cy_lo, "feedback coarse band inverted: [%d,%d]", cy_lo,
-             cy_hi);
+  /** @brief True for the stock space transforms, whose warp is a pure function
+   *  of the WarpKey fields (their only time axis is noise time * speed). An
+   *  arbitrary user SpaceFn may read state the key cannot see; never cache it. */
+  bool warp_is_pure() const {
+    return style_->space_fn == &::Feedback::noise_warp ||
+           style_->space_fn == &::Feedback::melt_warp ||
+           style_->space_fn == &::Feedback::identity_warp;
+  }
 
-    // The warp field is a pure function of the key's fields for the stock
-    // space transforms (their only time axis is noise time * speed), so equal
-    // keys mean the cached field can be reused verbatim. Static presets
-    // (speed 0) then skip the whole space_fn pass. An arbitrary user SpaceFn
-    // may read state the key can't see; never cache it.
+  /** @brief Lattice band covering the clip's latitude range. */
+  static WarpLattice::Band node_band(const ClipRegion &cr) {
+    float phi_north = y_to_phi<H>(static_cast<float>(cr.render_y_start()));
+    float phi_south = y_to_phi<H>(static_cast<float>(cr.render_y_end() - 1));
+    return WarpLattice::band(fast_cosf(phi_north), fast_cosf(phi_south));
+  }
+
+  /** @brief Re-populates the lattice targets unless the cached field already
+   *  matches the style and band; static presets (speed 0) then skip the whole
+   *  space_fn pass. */
+  void refresh_warp_field(const ClipRegion &cr) {
+    const WarpLattice::Band band = node_band(cr);
     const NoiseParams *np = style_->noise;
-    const bool cacheable =
-        warp_dx_ && !xc.active && ds == CACHE_DS &&
-        (style_->space_fn == &::Feedback::noise_warp ||
-         style_->space_fn == &::Feedback::melt_warp ||
-         style_->space_fn == &::Feedback::identity_warp);
     const WarpKey key{style_->space_fn,
                       np,
                       style_->amplitude,
@@ -1481,240 +1489,130 @@ public:
                       style_->speed,
                       style_->scale,
                       np ? np->time * np->speed : 0.0f,
-                      cy_lo,
-                      cy_hi};
+                      band.lo,
+                      band.hi};
+    if (warp_is_pure() && warp_valid_ && key == warp_key_) return;
+    HS_PROFILE(feedback_populate);
+    warp_.populate(
+        band, [&](const Vector &v) { return style_->space_fn(v, *style_); });
+    warp_key_ = key;
+    warp_valid_ = warp_is_pure();
+  }
 
-    // LIFO scope reclaims a scratch dx/dy on return; must not be read after
-    // that. Cacheable flushes use the init_storage() arrays instead.
-    ScratchScope scope(scratch_arena_a);
-    int16_t *dx, *dy;
-    bool populate = true;
-    if (cacheable) {
-      dx = warp_dx_;
-      dy = warp_dy_;
-      populate = !(warp_cache_valid_ && key == warp_key_);
-      warp_key_ = key;
-      warp_cache_valid_ = true;
-    } else {
-      dx = scope.get_arena().allocate_n<int16_t>(hh * hw);
-      dy = scope.get_arena().allocate_n<int16_t>(hh * hw);
-    }
+  // Samples with every channel below this are invisible (~3/255 sRGB), yet
+  // round-to-nearest fade keeps them alive forever; without the cut the buffer
+  // fills with immortal dim trails that never let a region go dark.
+  static constexpr float NEAR_BLACK = 64.0f;
 
-    // Populate coarse warp field as seam-continuous deltas (int16 1/128 px).
+  static bool is_near_black(float r, float g, float b) {
+    return r < NEAR_BLACK && g < NEAR_BLACK && b < NEAR_BLACK;
+  }
+
+  /** @brief Previous-frame color at the warp target of pixel (x, y). */
+  HS_O3_FN void fetch_warped(const ::Pixel *prev, int x, int y, float &r,
+                             float &g, float &b) const {
+    Vector target;
     {
-      HS_PROFILE(feedback_populate);
-      if (populate)
-      for (int cy = cy_lo; cy <= cy_hi; ++cy) {
-        int y = cy * ds;
-        for (int cx = 0; cx < hw; ++cx) {
-          if (xc.active && !col_used[cx]) continue;
-          int x = cx * ds;
-          Vector v_dist;
-          {
-            HS_PROFILE_DEEP(fb_pop_warp);
-            v_dist = style_->space_fn(pixel_to_vector<W, H>(x, y), *style_);
-          }
-          HS_PROFILE_DEEP(fb_pop_project);
-          Spherical s(v_dist);
-          float bx = (s.theta * W) / (2.0f * PI_F);
-          float by = phi_to_y<H>(s.phi);
-          float ddx = bx - x;
-          float ddy = by - y;
-          if (ddx > W * 0.5f)       ddx -= W;
-          else if (ddx < -W * 0.5f) ddx += W;
-          dx[cy * hw + cx] = static_cast<int16_t>(
-              hs::clamp(ddx * Q, -32767.0f, 32767.0f));
-          dy[cy * hw + cx] = static_cast<int16_t>(
-              hs::clamp(ddy * Q, -32767.0f, 32767.0f));
-        }
-      }
+      HS_PROFILE_DEEP(fb_warp_sample);
+      target = warp_.sample(pixel_to_vector<W, H>(x, y));
     }
-
-    // Sample at full res, bilerping the coarse warp field per pixel.
-    constexpr float INV_Q = 1.0f / Q;
-    const float inv_ds = 1.0f / ds;
-    const float fade = style_->fade;
-    // A non-finite fade would saturate every channel to white (NaN clamps to hi)
-    // and persist; trap it here rather than flash the buffer.
-    HS_CHECK(std::isfinite(fade), "feedback fade is non-finite");
-    style_->sync_hue();
+    HS_PROFILE_DEEP(fb_comp_sample);
+    // theta in [-pi, pi] keeps bx inside sample_bilinear_prev's single-step
+    // wrap domain.
+    constexpr float X_PER_RAD = W / (2.0f * PI_F);
+    float bx = fast_atan2(target.z, target.x) * X_PER_RAD;
+    float by = phi_to_y<H>(fast_acos(hs::clamp(target.y, -1.0f, 1.0f)));
+    sample_bilinear_prev(prev, bx, by, r, g, b);
+  }
+  /**
+   * @brief Composites the warped previous frame across the clip band.
+   * @tparam PAIR When true, runs two pixels in flight so the in-order FPU
+   *         overlaps their dependency chains.
+   * @param cv Target canvas.
+   * @param alpha Global blend alpha in [0, 1].
+   * @param color_px Scalar color transform: (r, g, b) -> Pixel.
+   * @param color_px2 Two-lane color transform; unused when PAIR is false.
+   */
+  template <bool PAIR, typename ColorPx, typename ColorPx2>
+  void composite(Canvas &cv, float alpha, ColorPx &&color_px,
+                 ColorPx2 &&color_px2) {
+    const auto &cr = cv.clip();
+    const ColumnRuns runs = column_runs(cr.x_clip());
     // The stock color transforms map black to black exactly, so near-black
     // samples can skip them and write black; an arbitrary user ColorFn may
     // not (e.g. a glow floor), so it sees every sample.
-    const bool black_skips_color =
-        style_->color_fn == &::Feedback::hue_fade ||
-        style_->color_fn == &::Feedback::plain_fade;
-    // Samples with every channel below this are invisible (~0.1% linear,
-    // ~3/255 sRGB), yet round-to-nearest fade keeps them alive forever (at
-    // FADE_MAX 0.99, v*fade re-rounds to v for v < 50): without the cut the
-    // buffer saturates with immortal dim trails that defeat the skip and
-    // never let a region go dark.
-    constexpr float NEAR_BLACK = 64.0f;
+    const bool skip_black = style_->color_fn == &::Feedback::hue_fade ||
+                            style_->color_fn == &::Feedback::plain_fade;
     // lerp16 at frac 65535 returns the source exactly, so full alpha is a
     // plain store.
     const auto blend = blend_alpha(alpha);
     const bool opaque = alpha >= 1.0f;
-    // Dispatch the color transform once per flush so the stock transforms
-    // inline into the pixel loop instead of an indirect call per pixel.
-    // The four warp taps and their seam-unify are constant across the ds pixels
-    // of a coarse cell; only the horizontal fraction fx moves. Precompute per
-    // cell the row-weighted, INV_Q-scaled left corner and left->right slope so
-    // the per-pixel warp collapses to one fma in fx.
-    constexpr float WQ = static_cast<float>(W) * Q;
-    constexpr float HALF_WQ = WQ * 0.5f;
     // Hoisted once: the canvas accessors each do a relaxed atomic load plus a
     // runtime-width multiply, which no compiler can lift out of the pixel loop.
     const ::Pixel *prev = cv.prev_data();
     ::Pixel *cur = cv.data();
-    // The clip band is row-independent, so the unclipped column runs resolve
-    // once here and the pixel loop carries no per-pixel clip test.
-    int runs[2][2];
-    int nruns = 0;
-    if (!xc.active) {
-      runs[nruns][0] = 0;
-      runs[nruns][1] = W;
-      ++nruns;
-    } else if (xc.wrap) {
-      if (xc.re > 0) {
-        runs[nruns][0] = 0;
-        runs[nruns][1] = xc.re;
-        ++nruns;
-      }
-      if (xc.rs < W) {
-        runs[nruns][0] = xc.rs;
-        runs[nruns][1] = W;
-        ++nruns;
-      }
-    } else {
-      runs[nruns][0] = xc.rs;
-      runs[nruns][1] = xc.re;
-      ++nruns;
-    }
-    auto composite = [&](auto &&color_px, auto &&color_px2, auto pair_on) {
-      constexpr bool PAIR = decltype(pair_on)::value;
-      for (int y = y_lo; y < y_hi; ++y) {
-        const int row = y * W;
-        int cy0 = y / ds;
-        int cy1 = (cy0 + 1 < hh) ? cy0 + 1 : hh - 1;
-        // bilerping uninitialized scratch is silent corruption, not a crash
-        HS_CHECK(cy0 >= cy_lo && cy1 <= cy_hi,
-                 "feedback warp row %d outside populated band [%d,%d]", cy1,
-                 cy_lo, cy_hi);
-        float fy = (y - cy0 * ds) * inv_ds;
-        float wy0 = 1.0f - fy, wy1 = fy;
-        const int row0 = cy0 * hw, row1 = cy1 * hw;
 
-        for (int r = 0; r < nruns; ++r) {
-          const int xs = runs[r][0], xe = runs[r][1];
-          int cx0 = xs / ds, sub = xs - cx0 * ds;
-          float leftx = 0.0f, slopex = 0.0f, lefty = 0.0f, slopey = 0.0f;
-          auto cell = [&]() {
-            HS_PROFILE_DEEP(fb_comp_cell);
-            int cx1 = (cx0 + 1 < hw) ? cx0 + 1 : 0;
-            int i00 = row0 + cx0, i10 = row0 + cx1;
-            int i01 = row1 + cx0, i11 = row1 + cx1;
-            // Unify the far taps onto d00's wrap branch (each within W/2 of the
-            // anchor); the anchor must be a tap — a computed mid-value can unify
-            // nothing and sweep the blend across the seam to the far hemisphere.
-            float d00 = dx[i00], d10 = dx[i10], d01 = dx[i01], d11 = dx[i11];
-            d10 += (d10 - d00 > HALF_WQ) ? -WQ : (d10 - d00 < -HALF_WQ ? WQ : 0.0f);
-            d01 += (d01 - d00 > HALF_WQ) ? -WQ : (d01 - d00 < -HALF_WQ ? WQ : 0.0f);
-            d11 += (d11 - d00 > HALF_WQ) ? -WQ : (d11 - d00 < -HALF_WQ ? WQ : 0.0f);
-            leftx = (d00 * wy0 + d01 * wy1) * INV_Q;
-            slopex = (d10 * wy0 + d11 * wy1) * INV_Q - leftx;
-            lefty = (dy[i00] * wy0 + dy[i01] * wy1) * INV_Q;
-            slopey = (dy[i10] * wy0 + dy[i11] * wy1) * INV_Q - lefty;
-          };
-          // A clipped run can open mid-cell; the loop only refreshes at sub 0.
-          if (sub != 0) cell();
-
-          for (int x = xs; x < xe;) {
-            if (sub == 0) cell();
-
-            // Two pixels in flight give the in-order FPU two independent
-            // dependency chains to overlap. A pair stays inside one cell so the
-            // coefficients are shared; a ragged tail (or ds 1) drops to scalar.
-            if constexpr (PAIR) {
-              if (ds - sub >= 2 && xe - x >= 2) {
-                float fx0 = sub * inv_ds;
-                float fx1 = (sub + 1) * inv_ds;
-                float ddx0 = leftx + slopex * fx0;
-                float ddy0 = lefty + slopey * fx0;
-                float ddx1 = leftx + slopex * fx1;
-                float ddy1 = lefty + slopey * fx1;
-
-                float sr0, sg0, sb0, sr1, sg1, sb1;
-                {
-                  HS_PROFILE_DEEP(fb_comp_sample);
-                  sample_bilinear_prev(prev, x + ddx0, y + ddy0, sr0, sg0, sb0);
-                  sample_bilinear_prev(prev, x + 1 + ddx1, y + ddy1, sr1, sg1,
-                                       sb1);
-                }
-                ::Pixel p0(0, 0, 0), p1(0, 0, 0);
-                {
-                  HS_PROFILE_DEEP(fb_comp_color);
-                  color_px2(sr0, sg0, sb0, sr1, sg1, sb1, p0, p1);
-                }
-                // Both lanes transform unconditionally and the sub-threshold
-                // ones are selected to black afterwards; branching on the skip
-                // would split the lanes back onto separate code paths.
-                const bool black0 = black_skips_color && sr0 < NEAR_BLACK &&
-                                    sg0 < NEAR_BLACK && sb0 < NEAR_BLACK;
-                const bool black1 = black_skips_color && sr1 < NEAR_BLACK &&
-                                    sg1 < NEAR_BLACK && sb1 < NEAR_BLACK;
-                p0 = black0 ? ::Pixel(0, 0, 0) : p0;
-                p1 = black1 ? ::Pixel(0, 0, 0) : p1;
-
-                HS_PROFILE_DEEP(fb_comp_write);
-                ::Pixel &dst0 = cur[row + x];
-                dst0 = opaque ? p0 : blend(dst0, p0);
-                ::Pixel &dst1 = cur[row + x + 1];
-                dst1 = opaque ? p1 : blend(dst1, p1);
-
-                x += 2;
-                sub += 2;
-                if (sub == ds) { sub = 0; ++cx0; }
-                continue;
-              }
-            }
-
-            float fx = sub * inv_ds;
-            float ddx = leftx + slopex * fx;
-            float ddy = lefty + slopey * fx;
-
-            float sr, sg, sb;
+    for (int y = cr.render_y_start(); y < cr.render_y_end(); ++y) {
+      const int row = y * W;
+      for (int r = 0; r < runs.count; ++r) {
+        int x = runs.span[r][0];
+        const int xe = runs.span[r][1];
+        if constexpr (PAIR) {
+          for (; x + 1 < xe; x += 2) {
+            float sr0, sg0, sb0, sr1, sg1, sb1;
+            fetch_warped(prev, x, y, sr0, sg0, sb0);
+            fetch_warped(prev, x + 1, y, sr1, sg1, sb1);
+            ::Pixel p0(0, 0, 0), p1(0, 0, 0);
             {
-              HS_PROFILE_DEEP(fb_comp_sample);
-              sample_bilinear_prev(prev, x + ddx, y + ddy, sr, sg, sb);
-            }
-            ::Pixel p(0, 0, 0);
-            if (!(black_skips_color && sr < NEAR_BLACK && sg < NEAR_BLACK &&
-                  sb < NEAR_BLACK)) {
               HS_PROFILE_DEEP(fb_comp_color);
-              p = color_px(sr, sg, sb);
+              color_px2(sr0, sg0, sb0, sr1, sg1, sb1, p0, p1);
             }
-
-            // write black too, to overwrite the stale double-buffer frame
+            // Both lanes transform unconditionally and the sub-threshold ones
+            // select to black afterwards; branching on the skip would split
+            // the lanes back onto separate code paths.
+            p0 = (skip_black && is_near_black(sr0, sg0, sb0)) ? ::Pixel(0, 0, 0)
+                                                              : p0;
+            p1 = (skip_black && is_near_black(sr1, sg1, sb1)) ? ::Pixel(0, 0, 0)
+                                                              : p1;
             HS_PROFILE_DEEP(fb_comp_write);
-            ::Pixel &dst = cur[row + x];
-            dst = opaque ? p : blend(dst, p);
-
-            ++x;
-            if (++sub == ds) { sub = 0; ++cx0; }
+            ::Pixel &dst0 = cur[row + x];
+            dst0 = opaque ? p0 : blend(dst0, p0);
+            ::Pixel &dst1 = cur[row + x + 1];
+            dst1 = opaque ? p1 : blend(dst1, p1);
           }
         }
+        for (; x < xe; ++x) {
+          float sr, sg, sb;
+          fetch_warped(prev, x, y, sr, sg, sb);
+          ::Pixel p(0, 0, 0);
+          if (!(skip_black && is_near_black(sr, sg, sb))) {
+            HS_PROFILE_DEEP(fb_comp_color);
+            p = color_px(sr, sg, sb);
+          }
+          // write black too, to overwrite the stale double-buffer frame
+          HS_PROFILE_DEEP(fb_comp_write);
+          ::Pixel &dst = cur[row + x];
+          dst = opaque ? p : blend(dst, p);
+        }
       }
-    };
-    // The second callback is unused when pairing is off, so the scalar entry
-    // just repeats the first.
-    auto composite_scalar = [&](auto &&color_px) {
-      composite(color_px, color_px, std::false_type{});
-    };
-    // The stock transforms run on the sampler's float channels directly (one
-    // quantization at the write); an arbitrary ColorFn keeps the Pixel
-    // interface, so the sample is quantized first. An identity hue rotation
-    // makes hue_fade a pure fade, so it takes the plain path.
+    }
+  }
+  /**
+   * @brief Dispatches the style's color transform once per flush so the stock
+   *        transforms inline into the pixel loop instead of an indirect call
+   *        per pixel.
+   * @details The stock transforms run on the sampler's float channels directly
+   * (one quantization at the write); an arbitrary ColorFn keeps the Pixel
+   * interface, so the sample is quantized first. An identity hue rotation
+   * makes hue_fade a pure fade, so it takes the plain path.
+   */
+  void composite_frame(Canvas &cv, float alpha) {
     HS_PROFILE(feedback_composite);
+    const float fade = style_->fade;
+    // A non-finite fade would saturate every channel to white (NaN clamps to
+    // hi) and persist; trap it here rather than flash the buffer.
+    HS_CHECK(std::isfinite(fade), "feedback fade is non-finite");
+    style_->sync_hue();
     const bool hue_identity =
         style_->hue_ca == 1.0f && style_->hue_sa == 0.0f;
     if (style_->color_fn == &::Feedback::hue_fade && !hue_identity) {
@@ -1724,34 +1622,36 @@ public:
       const float sc = fast_cbrt(fade * (1.0f / 65535.0f));
       for (int i = 0; i < 9; ++i)
         k[i] = style_->hue_k[i] * sc;
-      composite(
+      composite<true>(
+          cv, alpha,
           [&](float r, float g, float b) {
             return ::Feedback::hue_fade_apply(k, r, g, b);
           },
           [&](float r0, float g0, float b0, float r1, float g1, float b1,
               ::Pixel &p0, ::Pixel &p1) {
             ::Feedback::hue_fade_apply2(k, r0, g0, b0, r1, g1, b1, p0, p1);
-          },
-          std::true_type{});
+          });
     } else if (style_->color_fn == &::Feedback::plain_fade ||
                style_->color_fn == &::Feedback::hue_fade) {
+      // A plain fade is three multiplies, so pairing it buys only the sampler
+      // overlap and does not earn its ITCM.
       auto plain = [&](float r, float g, float b) {
         return ::Pixel(quantize16(r * fade), quantize16(g * fade),
                        quantize16(b * fade));
       };
-      // A plain fade is three multiplies, so pairing it buys only the sampler
-      // overlap and does not earn its ITCM.
-      composite_scalar(plain);
+      composite<false>(cv, alpha, plain, plain);
     } else {
+      // A general ColorFn is an indirect call per pixel, so it stays scalar.
       auto general = [&](float r, float g, float b) {
         return style_->color_fn(
             ::Pixel(quantize16(r), quantize16(g), quantize16(b)), fade,
             *style_);
       };
-      // A general ColorFn is an indirect call per pixel, so it stays scalar.
-      composite_scalar(general);
+      composite<false>(cv, alpha, general, general);
     }
   }
+
+public:
   HS_O3_END
 
   /**
@@ -1761,17 +1661,17 @@ public:
   void set_enabled(bool e) { enabled_ = e; }
 
   /**
-   * @brief Allocates the warp-field cache from the persistent arena.
-   * @param arena Persistent arena supplying 2 * CACHE_CELLS int16 slots.
+   * @brief Allocates the warp lattice from the persistent arena.
+   * @param arena Persistent arena supplying WarpLattice::STORAGE_BYTES plus
+   *        the cubemap build's transient headroom.
    * @details Must be called from effect init(), not the constructor (arenas
    * aren't ready yet), and again after any compaction that resets the arena —
-   * the cache is derived data, so it just re-populates on the next flush.
-   * Without storage every flush renders uncached.
+   * the field is derived data, so it just re-populates on the next flush.
+   * flush() traps without storage.
    */
   HS_COLD_MEMBER void init_storage(Arena &arena) {
-    warp_dx_ = arena.allocate_n<int16_t>(CACHE_CELLS);
-    warp_dy_ = arena.allocate_n<int16_t>(CACHE_CELLS);
-    warp_cache_valid_ = false;
+    warp_.init_storage(arena);
+    warp_valid_ = false;
   }
 
   /**
@@ -1855,33 +1755,26 @@ private:
     return static_cast<uint16_t>(hs::clamp(v, 0.0f, 65535.0f) + 0.5f);
   }
 
-  /** @brief Coarse grid downsample the warp cache is sized for (the default
-   *  Style's; every preset keeps it). Other values render uncached. */
-  static constexpr int CACHE_DS = ::Feedback::Style{}.downsample;
-  /** @brief Cell count of the cached coarse grid. */
-  static constexpr int CACHE_CELLS = (W / CACHE_DS) * (H / CACHE_DS);
-
 public:
-  /** @brief Persistent bytes init_storage() reserves (two int16 warp fields). */
-  static constexpr size_t STORAGE_BYTES = 2 * CACHE_CELLS * sizeof(int16_t);
+  /** @brief Persistent bytes init_storage() reserves (the warp lattice). */
+  static constexpr size_t STORAGE_BYTES = WarpLattice::STORAGE_BYTES;
 
 private:
-  /** @brief Inputs the coarse warp field is a pure function of (stock
+  /** @brief Inputs the lattice warp field is a pure function of (stock
    *  transforms only); equal keys make the cached field reusable. */
   struct WarpKey {
     ::Feedback::SpaceFn space_fn;
     const NoiseParams *noise;
     float amplitude, frequency, speed, scale, time;
-    int cy_lo, cy_hi;
+    int node_lo, node_hi;
     bool operator==(const WarpKey &) const = default;
   };
 
-  ::Feedback::Style *style_;  /**< Bound feedback Style (non-owning). */
-  bool enabled_ = true;       /**< When false, flush() is skipped entirely. */
-  WarpKey warp_key_{};        /**< Key the cached warp field was built for. */
-  bool warp_cache_valid_ = false; /**< True once warp_dx_/warp_dy_ hold a field. */
-  int16_t *warp_dx_ = nullptr; /**< Arena-owned cached column deltas. */
-  int16_t *warp_dy_ = nullptr; /**< Arena-owned cached row deltas. */
+  ::Feedback::Style *style_; /**< Bound feedback Style (non-owning). */
+  bool enabled_ = true;      /**< When false, flush() is skipped entirely. */
+  WarpLattice warp_;         /**< Sphere-uniform warp field storage. */
+  WarpKey warp_key_{};       /**< Key the cached warp field was built for. */
+  bool warp_valid_ = false;  /**< True once the lattice holds a reusable field. */
 };
 
 /**
