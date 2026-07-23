@@ -1590,12 +1590,6 @@ public:
       runs[nruns][1] = xc.re;
       ++nruns;
     }
-    // Smootherstep the coarse warp fractions so the upsampled field is C1 at
-    // every ds-cell seam; plain bilinear (C0) breaks the gradient there and
-    // etches ds-sized facets into aged trails. The x fraction takes only ds
-    // distinct values, so precompute them; y is remapped once per row.
-    float *sstep_x = scope.get_arena().allocate_n<float>(ds);
-    for (int s = 0; s < ds; ++s) sstep_x[s] = quintic_kernel(s * inv_ds);
     auto composite = [&](auto &&color_px, auto &&color_px2, auto pair_on) {
       constexpr bool PAIR = decltype(pair_on)::value;
       for (int y = y_lo; y < y_hi; ++y) {
@@ -1606,7 +1600,7 @@ public:
         HS_CHECK(cy0 >= cy_lo && cy1 <= cy_hi,
                  "feedback warp row %d outside populated band [%d,%d]", cy1,
                  cy_lo, cy_hi);
-        float fy = quintic_kernel((y - cy0 * ds) * inv_ds);
+        float fy = (y - cy0 * ds) * inv_ds;
         float wy0 = 1.0f - fy, wy1 = fy;
         const int row0 = cy0 * hw, row1 = cy1 * hw;
 
@@ -1642,8 +1636,8 @@ public:
             // coefficients are shared; a ragged tail (or ds 1) drops to scalar.
             if constexpr (PAIR) {
               if (ds - sub >= 2 && xe - x >= 2) {
-                float fx0 = sstep_x[sub];
-                float fx1 = sstep_x[sub + 1];
+                float fx0 = sub * inv_ds;
+                float fx1 = (sub + 1) * inv_ds;
                 float ddx0 = leftx + slopex * fx0;
                 float ddy0 = lefty + slopey * fx0;
                 float ddx1 = leftx + slopex * fx1;
@@ -1684,7 +1678,7 @@ public:
               }
             }
 
-            float fx = sstep_x[sub];
+            float fx = sub * inv_ds;
             float ddx = leftx + slopex * fx;
             float ddy = lefty + slopey * fx;
 
