@@ -609,10 +609,9 @@ HS_COLD static PolyMesh ambo(const PolyMesh &mesh, Arena &target, Arena &temp) {
  *   bridge's medial leg. dual_g is the normalized centroid of face g, matching
  *   MeshOps::dual's vertex, so out_b lands on ambo(dual(mesh)) exactly.
  */
-[[maybe_unused]] HS_COLD static void medial(const PolyMesh &mesh,
-                                            PolyMesh &out_a,
-                                            ArenaVector<Vector> &out_b,
-                                            Arena &target, Arena &temp) {
+HS_COLD static void medial(const PolyMesh &mesh, PolyMesh &out_a,
+                           ArenaVector<Vector> &out_b, Arena &target,
+                           Arena &temp) {
   size_t V = mesh.vertices.size();
   size_t F = mesh.get_face_counts_size();
   size_t I = mesh.get_faces_size();

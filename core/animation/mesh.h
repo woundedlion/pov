@@ -192,11 +192,17 @@ public:
     CONWAY_SWEEP,
     HANKIN_SWEEP,
     RELAX_SLERP,
+    MEDIAL_SLERP,
     GATED_SWAP
   };
 
   /** Partition operator a GATED_SWAP leg swaps to. */
   enum class SwapOp : uint8_t { KIS, DUAL };
+
+  /** Disambiguating tag for the medial-slerp constructor (the Conway-dual
+   * bridge's middle leg), whose signature otherwise collides with the sweep
+   * constructors. */
+  struct MedialTag {};
 
   /** Hankin-angle floor (the T_EPS analog): at angle -> 0 every star point
    * collapses onto its corner via the p_corner fallback, so the clamp keeps
@@ -640,6 +646,81 @@ public:
   }
 
   /**
+   * @brief Constructs the Conway-dual bridge's medial leg: builds the shared
+   * rectified connectivity of P and slerps every vertex from ambo(P) to
+   * ambo(dual(P)) at a fixed emission order (docs conway dual morph, leg 2).
+   * @param seed Mesh whose dual bridge this leg spans; its medial is built here.
+   * @param arena Leg arena backing the medial connectivity and both vertex sets.
+   * @param draw Draw callback invoked once per frame.
+   * @param handoff Palette provenance of the departed mesh (ambo(P), one face
+   * per primal face + one per primal vertex).
+   * @param sweep_frames Slerp frames (N).
+   * @param bookend Bookend grouping of the arrival mesh (target keying);
+   * defaults to the swept-classification fallback.
+   * @param easing_fn Easing applied to the slerp fraction.
+   * @note The connectivity is ambo(P) exactly, so the leg holds one fixed
+   * emission order and every medial face keeps its identity across the slerp;
+   * only the vertex positions move. A degree-2 seed vertex makes the s=1
+   * positions many-to-one (a lossy dual), which leaves the faces well-formed.
+   */
+  HS_COLD_MEMBER
+  OpLeg(const PolyMesh &seed, MedialTag, Arena &arena, MorphDrawFn draw,
+        const PaletteHandoff &handoff, int sweep_frames,
+        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+        draw_fn(draw) {
+    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
+             handoff.prev_faces > 0);
+    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
+    Transients &tr = *buf_;
+
+    tr.kind = LegKind::MEDIAL_SLERP;
+    tr.sweep_frames = sweep_frames;
+    tr.bank = handoff.bank;
+    tr.t_start = 0.0f;
+    tr.t_end = 1.0f;
+
+    {
+      ScratchScope sa(scratch_arena_a);
+      ScratchScope sb(scratch_arena_b);
+
+      // tr.seed holds the medial connectivity plus the a_e (ambo(P)) positions
+      // the leg slerps out of; tr.relaxed holds the b_e (ambo(dual(P)))
+      // positions it slerps toward -- the same seed/relaxed pair relax_at
+      // consumes, so the medial leg reuses that per-frame slerp verbatim.
+      MeshOps::medial(seed, tr.seed, tr.relaxed, arena, scratch_arena_a);
+      tr.seed_faces = tr.seed.face_counts.size();
+      HS_CHECK(tr.relaxed.size() == tr.seed.vertices.size(),
+               "OpLeg: medial vertex sets differ in size");
+
+      PolyMesh arrival;
+      slerp_vertices(arrival, scratch_arena_a, tr.seed.vertices.data(),
+                     tr.relaxed.data(), tr.relaxed.size(), 0, 1.0f);
+      copy_topology(arrival, scratch_arena_a, tr.seed.face_counts,
+                    tr.seed.faces);
+
+      MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
+                                          scratch_arena_b, arena);
+      tr.topo = std::move(arrival.topology);
+      HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+
+      // The opening frame is ambo(P) verbatim (tr.seed), so its face centroids
+      // are the geometric provenance source.
+      const Vector *start_centroid = nullptr;
+      if (handoff.prev_face_centroid)
+        start_centroid = face_centroids(tr.seed, scratch_arena_a);
+
+      // Full correspondence: every medial face lives the whole bridge, so the
+      // survivor prefix is the whole face list.
+      build_palette_mapping(tr, arrival, handoff, bookend, arena,
+                            start_centroid, tr.seed_faces);
+    }
+  }
+
+  /**
    * @brief Constructs a gated-swap leg: a partition op with no sweep, drawn as
    * the seed then op(seed) at constant gain, the swap masked by holding the
    * inherited source colour until the late fade (docs/opchain_morph_spec.md,
@@ -738,7 +819,10 @@ public:
       HS_PROFILE(hk_conway_op);
       if (tr.kind == LegKind::HANKIN_SWEEP) {
         hankin_at(tr, swept, scratch_arena_a, tp);
-      } else if (tr.kind == LegKind::RELAX_SLERP) {
+      } else if (tr.kind == LegKind::RELAX_SLERP ||
+                 tr.kind == LegKind::MEDIAL_SLERP) {
+        // Both slerp every vertex from tr.seed to tr.relaxed on a fixed
+        // connectivity; only the endpoint's construction differs.
         relax_at(tr, swept, scratch_arena_a, tp);
       } else {
         swept =
