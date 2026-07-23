@@ -175,6 +175,8 @@ private:
   PolyMesh build_next_seed_;  /**< Clean endpoint seed_{k+1}: built eagerly at
                                  leg start, or from the leg's own topology at
                                  its end on a hankin step. */
+  PolyMesh dual_bridge_ambo_; /**< ambo(P) held across a DUAL bridge: leg 1's
+                                 arrival grouping and leg 2's departed mesh. */
   std::array<uint8_t, Animation::OpLeg::PALETTES> build_targets_ =
       {}; /**< Per-shape pinned target palettes, shuffled before leg 0. */
   const Animation::OpLeg::Landing *build_landing_ =
@@ -183,6 +185,7 @@ private:
       nullptr; /**< Per-face palette the previous leg landed on; survives the
                   leg-boundary compaction that drops its landing. */
   size_t build_from_faces_ = 0; /**< Length of build_from_pal_. */
+  int dual_bridges_built_ = 0; /**< DUAL bridges scheduled (test coverage). */
 
   /**
    * @brief Draw callback for build-leg frames.
@@ -377,8 +380,11 @@ private:
     case Solids::Op::RELAX:
       return RELAX_LEG_FRAMES;
     case Solids::Op::KIS:
-    case Solids::Op::DUAL:
       return GATE_LEG_FRAMES;
+    case Solids::Op::DUAL:
+      // The smooth dual is a three-leg bridge (truncate to ambo, medial slerp,
+      // truncate down to the dual), each a normal single-mesh sweep.
+      return 3 * SWEEP_LEG_FRAMES;
     default:
       return SWEEP_LEG_FRAMES;
     }
@@ -387,11 +393,9 @@ private:
   /**
    * @brief Whether a lowered primitive step runs as a gated swap.
    * @param op Lowered primitive op.
-   * @return True for the partition ops.
+   * @return True for kis; dual is now the smooth three-leg bridge.
    */
-  static bool is_gated_step(Solids::Op op) {
-    return op == Solids::Op::KIS || op == Solids::Op::DUAL;
-  }
+  static bool is_gated_step(Solids::Op op) { return op == Solids::Op::KIS; }
 
   /**
    * @brief Half-gate length of a gated leg's frame budget.
@@ -610,6 +614,13 @@ private:
     const size_t k = build_step_;
     const Solids::OpStep &step = build_steps_[k];
 
+    // DUAL is the smooth three-leg bridge; it builds its own endpoints and
+    // chains its legs, then rejoins at finish_build_leg.
+    if (step.op == Solids::Op::DUAL) {
+      schedule_dual_bridge();
+      return;
+    }
+
     // Eager clean endpoint seed_{k+1}: the mesh the leg lands on and the next
     // leg sweeps from. Runs first — generate() resets the scratch arenas the
     // handoff arrays below live in. A hankin leg builds none: its arrival is
@@ -643,40 +654,7 @@ private:
     // Handoff arrays are ctor-scoped: scratch-backed under this scope, alive
     // through the OpLeg constructor's own LIFO-stacked scratch scopes.
     ScratchScope handoff_guard(scratch_arena_a);
-    const size_t prev_faces = build_seed_.face_counts.size();
-    HS_CHECK(prev_faces <= MAX_BUILD_FACES);
-    Vector *prev_centroid = scratch_arena_a.allocate_n<Vector>(prev_faces);
-    size_t off = 0;
-    for (size_t f = 0; f < prev_faces; ++f) {
-      Vector c(0.0f, 0.0f, 0.0f);
-      const int n = build_seed_.face_counts[f];
-      for (int j = 0; j < n; ++j)
-        c = c + build_seed_.vertices[build_seed_.faces[off + j]];
-      prev_centroid[f] = c.normalized();
-      off += n;
-    }
-    const uint8_t *prev_pal;
-    if (k == 0) {
-      // The seed slot's displayed palettes are the chain's FROM state.
-      const MeshState &seed_slot = carousel.current();
-      HS_CHECK(prev_faces <= seed_slot.topology.size());
-      const auto &slots = palettes_slots[carousel.front_index()];
-      uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(prev_faces);
-      for (size_t f = 0; f < prev_faces; ++f)
-        pal[f] = static_cast<uint8_t>(
-            slots[wrap(seed_slot.topology[f], NUM_PALETTES)]);
-      prev_pal = pal;
-    } else {
-      // Depart from the palette the previous leg landed on, so the boundary is
-      // continuous: that leg finished at weight 1 on exactly these ids.
-      HS_CHECK(build_from_pal_ && build_from_faces_ == prev_faces,
-               "IslamicStars: carried palette does not cover the leg seed");
-      prev_pal = build_from_pal_;
-    }
-
-    Animation::OpLeg::PaletteHandoff handoff{
-        &palette_bank_.bank, prev_pal,      nullptr, prev_faces,
-        false,               prev_centroid, &build_targets_};
+    Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
 
     const int frames = build_leg_frames_[k];
     hs::log("Build leg: %s (%d frames)", leg_name(step.op), frames);
@@ -725,15 +703,205 @@ private:
                                 persistent_arena, draw_build_fn_, handoff,
                                 gate_frames(frames), bookend));
       break;
-    case Solids::Op::DUAL:
-      schedule(Animation::OpLeg(build_seed_, Animation::OpLeg::SwapOp::DUAL,
-                                persistent_arena, draw_build_fn_, handoff,
-                                gate_frames(frames), bookend));
-      break;
     default:
       HS_CHECK(false, "IslamicStars: unsweepable primitive op reached a leg");
       break;
     }
+  }
+
+  /**
+   * @brief Palette handoff departing the current build seed: geometric
+   * provenance (per-face centroids) plus the seed's displayed palette (the
+   * carousel slot at leg 0, the previous leg's landing after).
+   * @param scratch Arena the centroid and palette arrays live in; must outlive
+   * the OpLeg constructor that reads them.
+   */
+  HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff seed_handoff(Arena &scratch) {
+    const size_t prev_faces = build_seed_.face_counts.size();
+    HS_CHECK(prev_faces <= MAX_BUILD_FACES);
+    Vector *prev_centroid = scratch.allocate_n<Vector>(prev_faces);
+    size_t off = 0;
+    for (size_t f = 0; f < prev_faces; ++f) {
+      Vector c(0.0f, 0.0f, 0.0f);
+      const int n = build_seed_.face_counts[f];
+      for (int j = 0; j < n; ++j)
+        c = c + build_seed_.vertices[build_seed_.faces[off + j]];
+      prev_centroid[f] = c.normalized();
+      off += n;
+    }
+    const uint8_t *prev_pal;
+    if (build_step_ == 0) {
+      // The seed slot's displayed palettes are the chain's FROM state.
+      const MeshState &seed_slot = carousel.current();
+      HS_CHECK(prev_faces <= seed_slot.topology.size());
+      const auto &slots = palettes_slots[carousel.front_index()];
+      uint8_t *pal = scratch.allocate_n<uint8_t>(prev_faces);
+      for (size_t f = 0; f < prev_faces; ++f)
+        pal[f] = static_cast<uint8_t>(
+            slots[wrap(seed_slot.topology[f], NUM_PALETTES)]);
+      prev_pal = pal;
+    } else {
+      // Depart from the palette the previous leg landed on, so the boundary is
+      // continuous: that leg finished at weight 1 on exactly these ids.
+      HS_CHECK(build_from_pal_ && build_from_faces_ == prev_faces,
+               "IslamicStars: carried palette does not cover the leg seed");
+      prev_pal = build_from_pal_;
+    }
+    return {&palette_bank_.bank, prev_pal,      nullptr, prev_faces,
+            false,               prev_centroid, &build_targets_};
+  }
+
+  /**
+   * @brief Palette handoff departing a mesh the previous leg landed on: its
+   * per-face centroids plus the palette that leg mapped each face to.
+   * @param departed Mesh the next leg departs from, in the previous leg's
+   * landing face order (so its face f carries build_landing_ face f's palette).
+   * @param scratch Arena the arrays live in.
+   */
+  HS_COLD_MEMBER Animation::OpLeg::PaletteHandoff
+  landing_handoff(const PolyMesh &departed, Arena &scratch) {
+    const size_t nf = departed.face_counts.size();
+    HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
+             build_landing_->faces >= nf);
+    Vector *cen = scratch.allocate_n<Vector>(nf);
+    uint8_t *pal = scratch.allocate_n<uint8_t>(nf);
+    size_t off = 0;
+    for (size_t f = 0; f < nf; ++f) {
+      Vector c(0.0f, 0.0f, 0.0f);
+      const int n = departed.face_counts[f];
+      for (int j = 0; j < n; ++j)
+        c = c + departed.vertices[departed.faces[off + j]];
+      cen[f] = c.normalized();
+      pal[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
+                                               NUM_PALETTES)];
+      off += n;
+    }
+    return {&palette_bank_.bank, pal, nullptr, nf, false, cen, &build_targets_};
+  }
+
+  /**
+   * @brief Frame count of DUAL bridge sub-leg `sub` (0/1/2), summing to the
+   * step's budget.
+   */
+  int dual_sub_frames(int sub) const {
+    const int total = build_leg_frames_[build_step_];
+    const int third = std::max(1, total / 3);
+    return sub < 2 ? third : std::max(1, total - 2 * third);
+  }
+
+  /**
+   * @brief Schedules the smooth dual as three legs: truncate P -> ambo(P), a
+   * medial slerp to ambo(dual(P)), and truncate dual(P) back down to dual(P).
+   * @details Builds the two eager endpoints (ambo(P) held in dual_bridge_ambo_,
+   * and the macro's clean endpoint dual(P) in build_next_seed_) once, then
+   * chains leg 1 -> leg 2 -> leg 3 -> finish_build_leg. No inter-leg
+   * compaction: the three legs and the two endpoints co-reside for the bridge,
+   * reclaimed at the step boundary like any leg.
+   */
+  HS_COLD_MEMBER void schedule_dual_bridge() {
+    ++dual_bridges_built_;
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      dual_bridge_ambo_ =
+          Solids::finalize_solid(MeshOps::ambo(build_seed_, a, b), target);
+    });
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(dual_bridge_ambo_, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+    generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+      build_next_seed_ =
+          Solids::finalize_solid(MeshOps::dual(build_seed_, a, b), target);
+    });
+    {
+      ScratchScope a_guard(scratch_arena_a);
+      ScratchScope b_guard(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(build_next_seed_, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
+    }
+    HS_CHECK(dual_bridge_ambo_.face_counts.size() <= MAX_BUILD_FACES &&
+             build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
+
+    ScratchScope handoff_guard(scratch_arena_a);
+    Animation::OpLeg::PaletteHandoff handoff = seed_handoff(scratch_arena_a);
+    Animation::OpLeg::BookendClasses bookend{
+        dual_bridge_ambo_.topology.data(),
+        dual_bridge_ambo_.face_counts.size()};
+    const int frames = dual_sub_frames(0);
+    hs::log("Build leg: dual bridge 1/3 truncate->ambo (%d frames)", frames);
+    Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f,
+                         0.0f, 0.0f, persistent_arena, draw_build_fn_, handoff,
+                         frames, bookend);
+    build_landing_ = &leg.landing();
+    timeline.add(0, std::move(leg).then([this] { schedule_dual_medial(); }));
+  }
+
+  /**
+   * @brief Schedules the dual bridge's medial-slerp leg (ambo(P) ->
+   * ambo(dual(P))), departing from leg 1's landing. No bookend: the medial
+   * arrival's own classification is the target leg 3 departs from.
+   */
+  HS_COLD_MEMBER void schedule_dual_medial() {
+    ScratchScope handoff_guard(scratch_arena_a);
+    Animation::OpLeg::PaletteHandoff handoff =
+        landing_handoff(dual_bridge_ambo_, scratch_arena_a);
+    const int frames = dual_sub_frames(1);
+    hs::log("Build leg: dual bridge 2/3 medial (%d frames)", frames);
+    Animation::OpLeg leg(build_seed_, Animation::OpLeg::MedialTag{},
+                         persistent_arena, draw_build_fn_, handoff, frames);
+    build_landing_ = &leg.landing();
+    timeline.add(0, std::move(leg).then([this] { schedule_dual_untruncate(); }));
+  }
+
+  /**
+   * @brief Schedules the dual bridge's closing leg: truncate dual(P) from the
+   * ambo point down to dual(P), landing on the macro's clean endpoint. The
+   * departed centroids come from a rebuilt medial arrival, whose face order
+   * matches leg 2's landing palettes.
+   */
+  HS_COLD_MEMBER void schedule_dual_untruncate() {
+    ScratchScope a_guard(scratch_arena_a);
+    // The handoff centroids match ambo(P)'s (= the medial's) connectivity; only
+    // the leg-2 palettes and the small centroid array cross into the leg
+    // constructor. The medial mesh itself is built and freed inside the inner
+    // scope so it never co-resides with the leg's arrival mesh in scratch_a.
+    const size_t nf = dual_bridge_ambo_.face_counts.size();
+    HS_CHECK(nf <= MAX_BUILD_FACES && build_landing_ &&
+             build_landing_->faces >= nf);
+    Vector *cen = scratch_arena_a.allocate_n<Vector>(nf);
+    uint8_t *pal = scratch_arena_a.allocate_n<uint8_t>(nf);
+    {
+      ScratchScope b_guard(scratch_arena_b);
+      PolyMesh med_a;
+      ArenaVector<Vector> med_b;
+      MeshOps::medial(build_seed_, med_a, med_b, scratch_arena_b,
+                      scratch_arena_a);
+      HS_CHECK(med_a.face_counts.size() == nf);
+      size_t off = 0;
+      for (size_t f = 0; f < nf; ++f) {
+        Vector c(0.0f, 0.0f, 0.0f);
+        const int n = med_a.face_counts[f];
+        for (int j = 0; j < n; ++j)
+          c = c + med_b[med_a.faces[off + j]];
+        cen[f] = c.normalized();
+        pal[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
+                                                 NUM_PALETTES)];
+        off += n;
+      }
+    }
+    Animation::OpLeg::PaletteHandoff handoff{
+        &palette_bank_.bank, pal, nullptr, nf, false, cen, &build_targets_};
+    Animation::OpLeg::BookendClasses bookend{
+        build_next_seed_.topology.data(),
+        build_next_seed_.face_counts.size()};
+    const int frames = dual_sub_frames(2);
+    hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
+    Animation::OpLeg leg(build_next_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.5f,
+                         0.0f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
+                         handoff, frames, bookend);
+    build_landing_ = &leg.landing();
+    timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
   }
 
   /**
@@ -759,8 +927,6 @@ private:
       return MeshOps::relax(build_seed_, a, b, static_cast<int>(step.param));
     case Solids::Op::KIS:
       return MeshOps::kis(build_seed_, a, b);
-    case Solids::Op::DUAL:
-      return MeshOps::dual(build_seed_, a, b);
     default:
       HS_CHECK(false, "IslamicStars: step builds no eager endpoint");
       return PolyMesh{};
@@ -795,7 +961,14 @@ private:
       return;
     }
 
-    const size_t landed_faces = build_landing_->faces;
+    // Carry the emission-order prefix the next leg departs from: the whole
+    // landing for a face-count-preserving leg, and the survivor prefix where a
+    // leg's arrival has more faces than its clean endpoint -- the DUAL bridge's
+    // closing truncate lands V+F faces (F zero-area corners) but hands off the
+    // V dual faces (build_next_seed_).
+    const size_t landed_faces = build_next_seed_.face_counts.size();
+    HS_CHECK(landed_faces <= build_landing_->faces,
+             "IslamicStars: next seed larger than the leg landing");
     uint8_t *landed = scratch_arena_a.allocate_n<uint8_t>(landed_faces);
     for (size_t f = 0; f < landed_faces; ++f)
       landed[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
@@ -831,7 +1004,13 @@ private:
     // checked against is snapshotted out of the last leg's storage first.
     ScratchScope landing_guard(scratch_arena_a);
     const Animation::OpLeg::Landing &landing = *build_landing_;
-    const size_t landed_faces = landing.faces;
+    // The finished solid is build_seed_ (the last leg's clean endpoint): its
+    // face count is the emission-order prefix of the landing (the whole landing
+    // for a normal leg, the surviving dual faces for the DUAL bridge's closing
+    // truncate, whose zero-area corner births drop at the compile below).
+    const size_t landed_faces = build_seed_.face_counts.size();
+    HS_CHECK(landed_faces <= landing.faces,
+             "IslamicStars: finished solid larger than the leg landing");
     int *landed_topo = scratch_arena_a.allocate_n<int>(landed_faces);
     std::memcpy(landed_topo, landing.topology, landed_faces * sizeof(int));
     const std::array<uint8_t, Animation::OpLeg::PALETTES> landed_to =
