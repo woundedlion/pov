@@ -184,8 +184,10 @@ public:
   /** Distinct (from, to) ramp pairs a leg may carry; bounds the per-frame
    * blended-LUT scratch (PAIRS x 3 KB in scratch_arena_b). Only the pairs a
    * leg actually uses are allocated, so the ceiling costs nothing until a leg
-   * needs it; a partition swap over a few hundred faces reaches 16. */
-  static constexpr int MAX_BLEND_PAIRS = 16;
+   * needs it. A reconcile leg converges the departed classification onto the
+   * arrival's, so its pairs cap at BakedPaletteBank::N^2 = 25 (measured 18 on
+   * the gyro_kis reconcile); every other leg stays well under. */
+  static constexpr int MAX_BLEND_PAIRS = 25;
 
   /** Leg kind, dispatched once at construction by the chosen constructor. */
   enum class LegKind : uint8_t {
@@ -203,6 +205,11 @@ public:
    * bridge's middle leg), whose signature otherwise collides with the sweep
    * constructors. */
   struct MedialTag {};
+
+  /** Disambiguating tag for the reconcile-slerp constructor (the closing leg of
+   * a smooth kis/needle path), whose signature otherwise collides with the
+   * medial constructor. */
+  struct ReconcileTag {};
 
   /** Hankin-angle floor (the T_EPS analog): at angle -> 0 every star point
    * collapses onto its corner via the p_corner fallback, so the clamp keeps
@@ -730,6 +737,87 @@ public:
 
       // Full correspondence: every medial face lives the whole bridge, so the
       // survivor prefix is the whole face list.
+      build_palette_mapping(tr, arrival, handoff, bookend, arena,
+                            start_centroid, tr.seed_faces);
+    }
+  }
+
+  /**
+   * @brief Constructs the reconcile leg closing a smooth kis/needle path: slerps
+   * every vertex of the topology-exact identity mesh (dt/dtd) onto its
+   * counterpart in the authored kis/needle mesh, along the caller's
+   * nearest-vertex bijection (docs/opchain_morph_spec.md, smooth kis/needle).
+   * @param from_mesh Identity mesh (dual(truncate(...))): its connectivity and
+   * vertex order are the leg's fixed emission order. Cloned, not borrowed.
+   * @param to_positions Authored vertex positions, one per @p from_mesh vertex
+   * (index-corresponded through the caller's bijection); slerp endpoints.
+   * @param arena Leg arena backing the connectivity and both snorm16-packed
+   * vertex sets.
+   * @param draw Draw callback invoked once per frame.
+   * @param handoff Palette provenance of the departed mesh (the identity mesh;
+   * one face per identity face).
+   * @param sweep_frames Slerp frames (N).
+   * @param bookend Bookend grouping of the arrival mesh (target keying).
+   * @param easing_fn Easing applied to the slerp fraction.
+   * @note Identical connectivity is held fixed and only the positions move, so
+   * the leg reuses the MEDIAL_SLERP step path verbatim; the caller owns the
+   * nearest-vertex correspondence (a checked bijection between two near-identical
+   * meshes) so the leg needs no per-frame matching.
+   */
+  HS_COLD_MEMBER
+  OpLeg(const PolyMesh &from_mesh, const Vector *to_positions, ReconcileTag,
+        Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
+        int sweep_frames, const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        EasingFn easing_fn = ease_in_out_sin)
+      : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
+        draw_fn(draw) {
+    HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
+    HS_CHECK(handoff.bank && handoff.prev_face_palette &&
+             handoff.prev_faces > 0);
+    buf_ = new (arena.allocate(sizeof(Transients), alignof(Transients)))
+        Transients();
+    Transients &tr = *buf_;
+
+    tr.kind = LegKind::MEDIAL_SLERP;
+    tr.sweep_frames = sweep_frames;
+    tr.bank = handoff.bank;
+    tr.t_start = 0.0f;
+    tr.t_end = 1.0f;
+
+    {
+      ScratchScope sa(scratch_arena_a);
+      ScratchScope sb(scratch_arena_b);
+
+      const size_t n = from_mesh.vertices.size();
+      tr.seed_faces = from_mesh.face_counts.size();
+      copy_topology(tr.seed, arena, from_mesh.face_counts, from_mesh.faces);
+      // Both endpoint sets are unit-sphere directions, snorm16-packed to halve
+      // their resident cost (mirrors the medial leg).
+      tr.medial_a.bind(arena, n);
+      tr.medial_b.bind(arena, n);
+      for (size_t i = 0; i < n; ++i) {
+        tr.medial_a.push_back(StarPoint::encode(from_mesh.vertices[i]));
+        tr.medial_b.push_back(StarPoint::encode(to_positions[i]));
+      }
+
+      // Arrival: the identity connectivity carrying the authored positions.
+      PolyMesh arrival;
+      arrival.vertices.bind(scratch_arena_a, n);
+      arrival.vertices.append_bulk(to_positions, n);
+      copy_topology(arrival, scratch_arena_a, from_mesh.face_counts,
+                    from_mesh.faces);
+
+      MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
+                                          scratch_arena_b, arena);
+      tr.topo = std::move(arrival.topology);
+      HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+
+      // The opening frame is the identity mesh verbatim (the packed a_e), so its
+      // face centroids are the geometric provenance source.
+      const Vector *start_centroid = nullptr;
+      if (handoff.prev_face_centroid)
+        start_centroid = face_centroids(from_mesh, scratch_arena_a);
+
       build_palette_mapping(tr, arrival, handoff, bookend, arena,
                             start_centroid, tr.seed_faces);
     }
