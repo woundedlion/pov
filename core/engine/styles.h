@@ -101,6 +101,15 @@ struct Style {
   SpaceFn space_fn = &noise_warp;
   ColorFn color_fn = &hue_fade;
 
+  // --- Filter tuning (snap during lerp) ---
+  /**
+   * Coarse-grid downsample factor for the warp field. Higher = cheaper
+   * (~DS^2 fewer space_fn / atan2 / acos calls), lower = more detail. Scratch
+   * arena must hold (W/DS) * (H/DS) * 4 bytes — at 288x144, DS=4 ≈ 10KB,
+   * DS=2 ≈ 41KB.
+   */
+  int downsample = 4;
+
   // --- Bound state (set by effect at init, NOT part of presets) ---
   NoiseParams *noise = nullptr;
 
@@ -117,8 +126,8 @@ struct Style {
    * @param a Style at t = 0.
    * @param b Style at t = 1.
    * @param t Interpolation fraction in [0, 1].
-   * @details Scalar params blend continuously; function pointers snap at
-   * t = 0.5. The bound noise pointer is left untouched (effect-
+   * @details Scalar params blend continuously; function pointers and discrete
+   * tuning snap at t = 0.5. The bound noise pointer is left untouched (effect-
    * owned state, not preset data; pulling it from a preset would null it and
    * degrade noise_warp to identity).
    */
@@ -131,6 +140,7 @@ struct Style {
     scale     = hs::lerp(a.scale,     b.scale,     t);
     space_fn   = t < 0.5f ? a.space_fn   : b.space_fn;
     color_fn   = t < 0.5f ? a.color_fn   : b.color_fn;
+    downsample = t < 0.5f ? a.downsample : b.downsample;
   }
 
   /**

@@ -60,6 +60,7 @@ inline void test_lerp_scalars_and_snapping() {
   a.scale = 0.0f;
   a.space_fn = &Feedback::identity_warp;
   a.color_fn = &Feedback::plain_fade;
+  a.downsample = 2;
   a.noise = &na;
 
   Feedback::Style b{};
@@ -71,6 +72,7 @@ inline void test_lerp_scalars_and_snapping() {
   b.scale = 1.0f;
   b.space_fn = &Feedback::noise_warp;
   b.color_fn = &Feedback::hue_fade;
+  b.downsample = 8;
   b.noise = nullptr;
 
   NoiseParams subj;
@@ -82,12 +84,14 @@ inline void test_lerp_scalars_and_snapping() {
   HS_EXPECT_NEAR(mid.scale, 0.5f, 1e-6f);
   HS_EXPECT_TRUE(mid.space_fn == &Feedback::noise_warp);
   HS_EXPECT_TRUE(mid.color_fn == &Feedback::hue_fade);
+  HS_EXPECT_EQ(mid.downsample, 8);
   HS_EXPECT_TRUE(mid.noise == &subj);
 
   Feedback::Style lo{};
   lo.lerp(a, b, 0.4f);
   HS_EXPECT_TRUE(lo.space_fn == &Feedback::identity_warp);
   HS_EXPECT_TRUE(lo.color_fn == &Feedback::plain_fade);
+  HS_EXPECT_EQ(lo.downsample, 2);
 }
 
 // --- Transform functions ----------------------------------------------------

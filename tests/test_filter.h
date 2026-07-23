@@ -554,6 +554,7 @@ inline void test_feedback_style_binding() {
   HS_EXPECT_TRUE(&cfb.style() == &style);
 
   HS_EXPECT_NEAR(fb.style().fade, 0.9f, 1e-6f);
+  HS_EXPECT_EQ(fb.style().downsample, 4);
 
   // Mutating through the accessor is visible on the original Style.
   fb.style().fade = 0.5f;
@@ -1133,12 +1134,11 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
  *          faded by style.fade — deterministic.
  */
 inline void test_feedback_flush_blends_prev_frame() {
-  constexpr int W = 32, H = 16;
+  constexpr int W = 32, H = 16; // both divisible by Smoke's downsample (4)
   PipeFx fx(W, H);
   ::Feedback::Style style = ::Feedback::Style::Smoke(); // noise stays nullptr
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
 
   auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
@@ -1186,12 +1186,11 @@ inline void test_feedback_flush_blends_prev_frame() {
  *          rows outside the margin-expanded render band must stay untouched.
  */
 inline void test_feedback_flush_respects_clip() {
-  constexpr int W = 32, H = 16;
+  constexpr int W = 32, H = 16; // both divisible by Smoke's downsample (4)
   PipeFx fx(W, H);
   ::Feedback::Style style = ::Feedback::Style::Smoke(); // identity warp
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
 
   auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
@@ -1225,16 +1224,17 @@ inline void test_feedback_flush_respects_clip() {
 
 /**
  * @brief Verifies the Pixel::Feedback::flush warp path under a NON-identity warp,
- *        end to end through the lattice populate + reconstruction pipeline.
+ *        end to end through the coarse-grid + bilinear-upsample pipeline.
  * @details The two flush tests above both use the Smoke style with no bound
- *          NoiseParams, so space_fn collapses to the identity map and the
- *          lattice targets equal their nodes — reconstruction is exercised only
- *          on a degenerate field. This drives melt_warp instead, a
- *          deterministic-without-noise transform that slerps every sample
- *          direction toward the north pole by drip = speed * 0.04, so the
- *          previous frame "drips" south by a known amount; a correct
- *          displacement proves the whole path (space_fn -> node targets ->
- *          kernel blend -> projection -> sample).
+ *          NoiseParams, so space_fn collapses to the identity map: the coarse warp
+ *          field is all-zero and the bilinear upsample is exercised only on a
+ *          degenerate (constant-zero) field — exactly the most bug-prone part left
+ *          uncovered. This drives melt_warp instead, a deterministic-without-noise
+ *          transform that slerps every sample direction toward the north pole by
+ *          drip = speed * 0.04, so the previous frame "drips" south by a known
+ *          amount. With downsample = 4 the warp field is computed on a 16x16 coarse
+ *          grid and bilinearly upsampled to 64x64, so a correct displacement here
+ *          proves the whole path (space_fn -> coarse deltas -> bilerp -> sample).
  *
  *          The displacement is predicted with the SAME production helpers the
  *          flush uses as its oracle: for output row y the warp samples source row
@@ -1243,11 +1243,11 @@ inline void test_feedback_flush_respects_clip() {
  *          preserves longitude). A bright source band at row R therefore re-appears
  *          at the output row y* where by(y*) == R, strictly south of R. The test
  *          asserts the output band's brightest row matches y* (within the 1px the
- *          lattice reconstruction can shift it) and that the band's original row
- *          went dark — i.e. the content actually moved, ruling out an identity warp.
+ *          coarse-grid bilerp can shift it) and that the band's original row went
+ *          dark — i.e. the content actually moved, ruling out an identity warp.
  */
 inline void test_feedback_flush_melt_warp_displaces_south() {
-  constexpr int W = 64, H = 64;
+  constexpr int W = 64, H = 64; // both divisible by the downsample (4)
   PipeFx fx(W, H);
 
   // melt_warp + plain_fade isolates the SPATIAL warp under test from any hue
@@ -1260,11 +1260,11 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   style.noise = nullptr;
   style.speed = 6.0f;
   style.fade = 0.9f;
+  style.downsample = 4;
   const float drip = style.speed * 0.04f;
 
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
   auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   // Frame 1: a full-width bright band (3 rows thick) becomes the "previous" frame.
@@ -1312,8 +1312,8 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
     if (s > peak) { peak = s; peak_y = y; }
   }
 
-  // The band drifted south to the predicted row (within the reconstruction's
-  // 1px), strictly past where an identity warp would have left it.
+  // The band drifted south to the predicted row (within the coarse bilerp's 1px),
+  // strictly past where an identity warp would have left it.
   HS_EXPECT_GT(peak, (uint64_t)0);          // the warped band actually rendered
   HS_EXPECT_TRUE(std::abs(peak_y - oracle_y) <= 1);
   HS_EXPECT_GT(oracle_y, R);                 // melt drifts south (y increases)
@@ -1325,27 +1325,18 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
 }
 
 /**
- * @brief Forwards to noise_warp through a distinct function pointer, so the
- *        filter treats the warp as uncacheable and repopulates every flush.
- */
-inline Vector uncached_noise_warp(const Vector &v, const ::Feedback::Style &s) {
-  return ::Feedback::noise_warp(v, s);
-}
-
-/**
- * @brief Warp-cache parity: a cache-hitting Feedback filter must render
- *        exactly what an every-flush-repopulating one does, frame for frame.
- * @details Drives a cacheable (stock noise_warp) and an uncacheable (same math
- *          through a non-stock pointer) pipeline through identical frames: a
- *          static style (later frames hit the cache), a key-field mutation
+ * @brief Warp-cache parity: an init_storage'd Feedback filter must render
+ *        exactly what an uncached one does, frame for frame.
+ * @details Drives a cached and an uncached pipeline through identical frames:
+ *          a static style (later frames hit the cache), a key-field mutation
  *          (amplitude), advancing noise time under nonzero speed (key changes
  *          every frame), and a mid-run init_storage() re-allocation (the
  *          effect's post-compaction path). Every frame must match the
- *          repopulating reference pixel-exactly — reuse serves the same node
- *          targets the populate pass would have written.
+ *          uncached reference pixel-exactly — reuse serves the same int16
+ *          deltas the populate pass would have written.
  */
 inline void test_feedback_warp_cache_matches_uncached() {
-  constexpr int W = 64, H = 64;
+  constexpr int W = 64, H = 64; // both divisible by the downsample (4)
   constexpr int FRAMES = 8;
 
   // Only one Effect may be alive at a time (shared static buffers), so the
@@ -1361,12 +1352,12 @@ inline void test_feedback_warp_cache_matches_uncached() {
     s.speed = 0.0f;
     s.scale = 5.0f;
     s.fade = 0.9f;
-    if (!cached) s.space_fn = &uncached_noise_warp;
 
     Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
         Filter::Pixel::Feedback<W, H>(s)};
-    pipe.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
-        persistent_arena);
+    if (cached)
+      pipe.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
+          persistent_arena);
 
     auto trail = [](float, float, float) {
       return Color4(Pixel(0, 0, 0), 0.0f);
@@ -1415,9 +1406,9 @@ inline void test_feedback_warp_cache_matches_uncached() {
 
 /**
  * @brief Space warp whose longitudinal displacement oscillates across the
- *        ±W/2 wrap: theta += PI + 0.3*sin(theta). In map coordinates adjacent
- *        columns land on opposite wrap branches while the field stays smooth
- *        on the sphere.
+ *        ±W/2 wrap: theta += PI + 0.3*sin(theta). Adjacent coarse warp-field
+ *        columns land on opposite wrap branches while the true (unwrapped)
+ *        field stays smooth.
  */
 inline Vector antipodal_ripple_warp(const Vector &v, const ::Feedback::Style &) {
   Spherical s(v);
@@ -1425,21 +1416,21 @@ inline Vector antipodal_ripple_warp(const Vector &v, const ::Feedback::Style &) 
 }
 
 /**
- * @brief Verifies the warp reconstruction tracks a smooth sphere field whose
- *        map-space displacement straddles the ±W/2 cut.
- * @details The antipodal ripple displaces every column by half the map width
- *          ± 1.5px — the worst case for any map-space displacement scheme,
- *          where the shortest-wrap sign flips between adjacent columns. The
- *          lattice interpolates targets in 3D, where the field is smooth, so
- *          each output pixel must still sample where the warp says; a scheme
- *          that blended across the cut would sample pixels from the wrong side
- *          of the sphere. The previous frame encodes longitude
- *          seam-continuously (r=cos, g=sin), so each output pixel's actual
- *          sample source can be decoded and checked against the warp evaluated
- *          directly.
+ * @brief Verifies the warp-field bilerp stays on one wrap branch when the
+ *        coarse taps straddle the ±W/2 cut.
+ * @details The antipodal ripple displaces every column by W/2 ± 1.5px, so the
+ *          step-1 seam wrap flips sign between adjacent coarse columns
+ *          (~ +16px vs ~ -15px at W=32) while the true field is smooth. The
+ *          tap re-centering must unify the four taps onto one branch; a blend
+ *          that sweeps across the cut instead samples near-zero displacements
+ *          — pixels from the wrong side of the sphere, rendering as a
+ *          longitudinal streak of foreign color. The previous frame encodes
+ *          longitude seam-continuously (r=cos, g=sin), so each output pixel's
+ *          actual sample source can be decoded and checked against the warp
+ *          evaluated directly.
  */
 inline void test_feedback_flush_straddled_taps_stay_on_branch() {
-  constexpr int W = 32, H = 16;
+  constexpr int W = 32, H = 16; // both divisible by the downsample (4)
   constexpr float TWO_PI = 2.0f * PI_F;
   PipeFx fx(W, H);
 
@@ -1448,10 +1439,10 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
   style.color_fn = &::Feedback::plain_fade; // colors must round-trip unchanged
   style.fade = 1.0f;
   style.noise = nullptr;
+  style.downsample = 4;
 
   Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
       Filter::Pixel::Feedback<W, H>(style)};
-  pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
   auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   // Frame 1: seam-continuous longitude encoding becomes the "previous" frame.
@@ -1905,7 +1896,7 @@ inline void test_screen_trails_banded_matches_full() {
  *          full-frame, so here we assert the band-clipped path is NOT equivalent.
  */
 inline void test_feedback_banded_diverges_from_full() {
-  constexpr int W = 64, H = 64;
+  constexpr int W = 64, H = 64; // divisible by the downsample (4)
   using FB = Filter::Pixel::Feedback<W, H>;
   constexpr int K = 3;
   constexpr int MID = H / 2;
@@ -1919,8 +1910,8 @@ inline void test_feedback_banded_diverges_from_full() {
     style.noise = nullptr;
     style.speed = 6.0f;
     style.fade = 0.9f;
+    style.downsample = 4;
     Pipeline<W, H, FB> pipe{FB(style)};
-    pipe.get<FB>().init_storage(persistent_arena);
 
     PipeFx fx(W, H);
     fx.set_clip(cy0, cy1, 0, W);
