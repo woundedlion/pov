@@ -379,6 +379,7 @@ public:
     Transients &tr = *buf_;
 
     MeshOps::clone(seed, tr.seed, arena);
+    tr.seed_ref = &tr.seed;
     tr.seed_faces = seed.face_counts.size();
     tr.op = edge.op;
     tr.reverse = reverse;
@@ -404,7 +405,8 @@ public:
     tr.twist_end = reverse ? edge.twist_from : edge.twist_to;
 
     init_conway(handoff, bookend, arena, edge.settle,
-                ConwayGraph::is_jitterbug_edge(edge));
+                ConwayGraph::is_jitterbug_edge(edge),
+                /*bridge_provenance=*/false);
   }
 
   /**
@@ -431,6 +433,7 @@ public:
         float t_end, float twist_start, float twist_end, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        bool bridge_provenance = false, bool borrow_seed = false,
         EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
@@ -441,7 +444,17 @@ public:
         Transients();
     Transients &tr = *buf_;
 
-    MeshOps::clone(seed, tr.seed, arena);
+    // Borrowed seed: the swept op reads the caller's live mesh each frame
+    // instead of a leg-local clone, dropping one full copy of the (tripled)
+    // dual-bridge seed from the persistent arena. Only legal where the source
+    // outlives the leg unmoved (the dt-bridge seed is persistent-resident and
+    // untouched until the leg completes); every other caller clones.
+    if (borrow_seed) {
+      tr.seed_ref = &seed;
+    } else {
+      MeshOps::clone(seed, tr.seed, arena);
+      tr.seed_ref = &tr.seed;
+    }
     tr.seed_faces = seed.face_counts.size();
     tr.op = op;
     tr.sweep_frames = sweep_frames;
@@ -473,7 +486,7 @@ public:
     tr.twist_end = twist_end;
 
     init_conway(handoff, bookend, arena, /*settle=*/false,
-                /*jitterbug=*/false);
+                /*jitterbug=*/false, bridge_provenance);
   }
 
   /**
@@ -719,26 +732,30 @@ public:
         tr.medial_b.push_back(StarPoint::encode(med_b[i]));
       }
 
-      PolyMesh arrival;
-      slerp_vertices(arrival, scratch_arena_a, med.vertices.data(), med_b.data(),
-                     medial_verts, 0, 1.0f);
-      copy_topology(arrival, scratch_arena_a, med.face_counts, med.faces);
-
-      MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
-                                          scratch_arena_b, arena);
-      tr.topo = std::move(arrival.topology);
-      HS_CHECK(tr.topo.size() == arrival.face_counts.size());
-
-      // The opening frame is ambo(P) verbatim (the packed a_e), so its face
-      // centroids are the geometric provenance source.
+      // The opening frame is ambo(P) verbatim (the packed a_e), so med's s=0
+      // vertices are the geometric provenance source; snapshot their centroids
+      // before the in-place overwrite below.
       const Vector *start_centroid = nullptr;
       if (handoff.prev_face_centroid)
         start_centroid = face_centroids(med, scratch_arena_a);
 
+      // Classify the s=1 arrival (ambo(dual(P))) in place: overwrite med's s=0
+      // vertices with med_b rather than materializing a second full mesh copy,
+      // which would co-reside with med at the leg's scratch peak (the roster's
+      // over-budget medial spike). med is a construction throwaway -- step()
+      // reads only the packed endpoints -- so reusing its storage is safe.
+      for (size_t i = 0; i < medial_verts; ++i)
+        med.vertices[i] = med_b[i];
+
+      MeshOps::classify_faces_by_topology(med, scratch_arena_a, scratch_arena_b,
+                                          arena);
+      tr.topo = std::move(med.topology);
+      HS_CHECK(tr.topo.size() == med.face_counts.size());
+
       // Full correspondence: every medial face lives the whole bridge, so the
       // survivor prefix is the whole face list.
-      build_palette_mapping(tr, arrival, handoff, bookend, arena,
-                            start_centroid, tr.seed_faces);
+      build_palette_mapping(tr, med, handoff, bookend, arena, start_centroid,
+                            tr.seed_faces);
     }
   }
 
@@ -927,8 +944,8 @@ public:
       } else if (tr.kind == LegKind::MEDIAL_SLERP) {
         medial_at(tr, swept, scratch_arena_a, tp);
       } else {
-        swept =
-            run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b, tp, tw);
+        swept = run_op(tr.op, *tr.seed_ref, scratch_arena_a, scratch_arena_b,
+                       tp, tw);
         if (settle_alpha > 0.0f) {
           HS_CHECK(swept.vertices.size() == tr.relaxed.size());
           for (size_t i = 0; i < swept.vertices.size(); ++i)
@@ -1011,7 +1028,13 @@ private:
    * @brief Arena-allocated leg state — keeps OpLeg inline size small.
    */
   struct Transients {
-    PolyMesh seed; /**< Cloned leg seed; empty on HANKIN_SWEEP legs. */
+    PolyMesh seed; /**< Cloned leg seed; empty on HANKIN_SWEEP legs and on a
+                      borrowed CONWAY_SWEEP seed. */
+    const PolyMesh *seed_ref =
+        nullptr; /**< CONWAY_SWEEP swept-op source: &seed for a cloned seed, the
+                    caller's live mesh for a borrowed one (dual-bridge legs whose
+                    seed is already persistent-resident for the leg's whole
+                    life). */
     size_t seed_faces = 0; /**< Seed face count; set by every kind, including
                               the ones that keep no seed. */
     LegKind kind =
@@ -1070,12 +1093,14 @@ private:
    */
   HS_COLD_MEMBER void init_conway(const PaletteHandoff &handoff,
                                   const BookendClasses &bookend, Arena &arena,
-                                  bool settle, bool jitterbug) {
+                                  bool settle, bool jitterbug,
+                                  bool bridge_provenance) {
     Transients &tr = *buf_;
     ScratchScope sa(scratch_arena_a);
     ScratchScope sb(scratch_arena_b);
+    const PolyMesh &seed = *tr.seed_ref;
 
-    PolyMesh arrival = run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b,
+    PolyMesh arrival = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
                               tr.t_end, tr.twist_end);
     // Classification is hoisted per leg, taken at arrival geometry; a
     // settling forward leg lands on the relaxed form, so classify that.
@@ -1088,8 +1113,8 @@ private:
         classified = &relaxed_mesh;
       } else {
         // Reverse legs un-settle at the start parameter.
-        PolyMesh start = run_op(tr.op, tr.seed, scratch_arena_a,
-                                scratch_arena_b, tr.t_start, tr.twist_start);
+        PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
+                                tr.t_start, tr.twist_start);
         relaxed_mesh =
             MeshOps::relax(start, scratch_arena_b, scratch_arena_a, 50);
       }
@@ -1110,15 +1135,28 @@ private:
     const Vector *start_centroid = nullptr;
     PolyMesh start_mesh;
     if (handoff.prev_face_centroid) {
-      const PolyMesh *start = &relaxed_mesh;
-      if (!(settle && tr.reverse)) {
-        start_mesh = run_op(tr.op, tr.seed, scratch_arena_a, scratch_arena_b,
-                            tr.t_start, tr.twist_start);
-        start = &start_mesh;
+      if (bridge_provenance) {
+        // Bridge truncate leg: recover the start-parameter provenance without
+        // rebuilding the birth mesh, whose scratch would co-reside with the
+        // arrival at the leg's scratch peak (the roster's over-budget spike).
+        // A full-correspondence closing leg departs the exact ambo point its
+        // handoff centroids already name, so those ARE the start centroids; a
+        // survivor-prefix opening leg reads centroids only for its newborn
+        // faces, where the arrival's own centroids stand in for the birth mesh.
+        start_centroid = handoff.prev_faces == tr.topo.size()
+                             ? handoff.prev_face_centroid
+                             : face_centroids(*classified, scratch_arena_a);
+      } else {
+        const PolyMesh *start = &relaxed_mesh;
+        if (!(settle && tr.reverse)) {
+          start_mesh = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
+                              tr.t_start, tr.twist_start);
+          start = &start_mesh;
+        }
+        HS_CHECK(start->face_counts.size() == tr.topo.size(),
+                 "OpLeg: start face count differs from arrival");
+        start_centroid = face_centroids(*start, scratch_arena_a);
       }
-      HS_CHECK(start->face_counts.size() == tr.topo.size(),
-               "OpLeg: start face count differs from arrival");
-      start_centroid = face_centroids(*start, scratch_arena_a);
     }
 
     // Emission-order prefix corresponding 1:1 to a node base mesh at the
@@ -1126,8 +1164,7 @@ private:
     // the jitterbug bridge (they survive into the octahedron-end node mesh;
     // only the 12 edge-orbit faces collapse).
     const size_t survivors =
-        jitterbug ? tr.seed.face_counts.size() + tr.seed.vertices.size()
-                  : tr.seed.face_counts.size();
+        jitterbug ? tr.seed_faces + seed.vertices.size() : tr.seed_faces;
     build_palette_mapping(tr, *classified, handoff, bookend, arena,
                           start_centroid, survivors);
   }
