@@ -780,7 +780,7 @@ inline void test_collapsing_faces_land_on_host_palette() {
   MeshPaletteBank bank;
   bank.bake_all(bank_arena);
 
-  constexpr int PALETTES = Animation::ConwayMorph::PALETTES;
+  constexpr int PALETTES = Animation::OpLeg::PALETTES;
   constexpr size_t MAX_FACES = 128; /**< Above every node's face count. */
   int checked = 0;
   for (int ei = 0; ei < ConwayGraph::NUM_EDGES; ++ei) {
@@ -815,7 +815,7 @@ inline void test_collapsing_faces_land_on_host_palette() {
       cen[f] = c.normalized();
       off += departed.face_counts[f];
     }
-    Animation::ConwayMorph::PaletteHandoff handoff{&bank.bank, pal,   sides,
+    Animation::OpLeg::PaletteHandoff handoff{&bank.bank, pal,   sides,
                                                    dep_faces,  false, cen};
 
     // Bookend: the hankin star-face classification of the arrival node, as
@@ -832,15 +832,15 @@ inline void test_collapsing_faces_land_on_host_palette() {
       for (size_t f = 0; f < survivors; ++f)
         arrival_topo[f] = hk.topology[f];
     }
-    Animation::ConwayMorph::BookendClasses bookend{arrival_topo, survivors};
+    Animation::OpLeg::BookendClasses bookend{arrival_topo, survivors};
 
     auto cb = [](Canvas &, const MeshState &,
-                 const Animation::ConwayMorph::Shading &) {};
+                 const Animation::OpLeg::Shading &) {};
     hs::random().seed(2000u + static_cast<uint32_t>(ei));
-    Animation::ConwayMorph anim(
+    Animation::OpLeg anim(
         seed, e, true, leg, cb, handoff, ConwayGraph::SWEEP_FRAMES,
         e.settle ? ConwayGraph::SETTLE_FRAMES : 0, bookend);
-    const Animation::ConwayMorph::Landing &landing = anim.landing();
+    const Animation::OpLeg::Landing &landing = anim.landing();
     if (landing.faces == survivors)
       continue;
     ++checked;
