@@ -1367,9 +1367,9 @@ namespace Pixel {
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
  * @details The Style's spatial warp is computed on a coarse W/DS x H/DS grid
- * (DS = style.downsample, allocated from scratch_arena_a per flush) and
- * bilinearly upsampled. flush() iterates the full pixel grid within the active
- * clip band. TERMINAL:
+ * (DS = style.downsample, allocated from scratch_arena_a per flush), with
+ * exact-latitude control rows inside the north-pole cell. flush() iterates the
+ * full pixel grid within the active clip band. TERMINAL:
  * flush() composites directly into the Canvas and ignores its `pass` callback,
  * so it must be the last Pipeline stage.
  */
@@ -1444,6 +1444,7 @@ private:
     int downsample;
     int columns;
     int rows;
+    int field_rows;
   };
 
   struct RenderBand {
@@ -1480,7 +1481,8 @@ private:
     HS_CHECK(cv.width() == W,
              "feedback canvas width %d must equal template W %d", cv.width(),
              W);
-    return {downsample, W / downsample, H / downsample};
+    const int rows = H / downsample;
+    return {downsample, W / downsample, rows, rows + downsample - 1};
   }
 
   static __attribute__((always_inline)) RenderBand
@@ -1526,6 +1528,11 @@ private:
     return runs;
   }
 
+  static __attribute__((always_inline)) int
+  field_row_for_coarse(int coarse_y, int downsample) {
+    return coarse_y == 0 ? 0 : coarse_y + downsample - 1;
+  }
+
   __attribute__((always_inline))
   WarpField select_warp_field(Arena &scratch, const CoarseGrid &grid,
                               const RenderBand &band) {
@@ -1549,7 +1556,7 @@ private:
                       band.coarse_y_end};
 
     if (!cacheable) {
-      const int cells = grid.rows * grid.columns;
+      const int cells = grid.field_rows * grid.columns;
       return {scratch.allocate_n<int16_t>(cells),
               scratch.allocate_n<int16_t>(cells), true};
     }
@@ -1567,12 +1574,9 @@ private:
     HS_PROFILE(feedback_populate);
     if (!warp.needs_population) return;
 
-    for (int coarse_y = band.coarse_y_begin;
-         coarse_y <= band.coarse_y_end; ++coarse_y) {
-      const int y = coarse_y * grid.downsample;
+    auto populate_row = [&](int y, int field_y) {
       for (int coarse_x = 0; coarse_x < grid.columns; ++coarse_x) {
-        if (band.x_clip.active &&
-            !band.coarse_columns_used[coarse_x])
+        if (band.x_clip.active && !band.coarse_columns_used[coarse_x])
           continue;
         const int x = coarse_x * grid.downsample;
         Vector distorted;
@@ -1593,12 +1597,26 @@ private:
         else if (x_offset < -W * 0.5f)
           x_offset += W;
 
-        const int index = coarse_y * grid.columns + coarse_x;
+        const int index = field_y * grid.columns + coarse_x;
         warp.x_offsets[index] = static_cast<int16_t>(
             hs::clamp(x_offset * WARP_SCALE, -32767.0f, 32767.0f));
         warp.y_offsets[index] = static_cast<int16_t>(
             hs::clamp(y_offset * WARP_SCALE, -32767.0f, 32767.0f));
       }
+    };
+
+    int coarse_y_begin = band.coarse_y_begin;
+    if (coarse_y_begin == 0) {
+      for (int y = 0; y < grid.downsample; ++y)
+        populate_row(y, y);
+      coarse_y_begin = 1;
+    }
+
+    for (int coarse_y = coarse_y_begin; coarse_y <= band.coarse_y_end;
+         ++coarse_y) {
+      const int y = coarse_y * grid.downsample;
+      const int field_y = field_row_for_coarse(coarse_y, grid.downsample);
+      populate_row(y, field_y);
     }
   }
 
@@ -1648,8 +1666,16 @@ private:
                  coarse_row_begin, coarse_row_end);
         float fy = (y - cy0 * downsample) * inverse_downsample;
         float wy0 = 1.0f - fy, wy1 = fy;
-        const int row0 = cy0 * coarse_columns;
-        const int row1 = cy1 * coarse_columns;
+        int field_y0 = field_row_for_coarse(cy0, downsample);
+        int field_y1 = field_row_for_coarse(cy1, downsample);
+        if (y < downsample) {
+          field_y0 = y;
+          field_y1 = y;
+          wy0 = 1.0f;
+          wy1 = 0.0f;
+        }
+        const int row0 = field_y0 * coarse_columns;
+        const int row1 = field_y1 * coarse_columns;
 
         for (int r = 0; r < runs.count; ++r) {
           const int xs = runs.items[r].begin;
@@ -1922,9 +1948,9 @@ private:
   /** @brief Coarse grid downsample the warp cache is sized for (the default
    *  Style's; every preset keeps it). Other values render uncached. */
   static constexpr int CACHE_DOWNSAMPLE = ::Feedback::Style{}.downsample;
-  /** @brief Cell count of the cached coarse grid. */
+  /** @brief Cell count of the cached coarse grid and north-cap control rows. */
   static constexpr int CACHE_CELLS =
-      (W / CACHE_DOWNSAMPLE) * (H / CACHE_DOWNSAMPLE);
+      (W / CACHE_DOWNSAMPLE) * (H / CACHE_DOWNSAMPLE + CACHE_DOWNSAMPLE - 1);
 
 public:
   /** @brief Persistent bytes init_storage() reserves (two int16 warp fields). */
