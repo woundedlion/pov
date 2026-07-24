@@ -30,11 +30,12 @@ inline void test_constexpr_layout_counts() {
   static_assert(HOST.sample_count() == 1640);
   static_assert(DEVICE.sample_count() == 1699);
   static_assert(FEEDBACK.ring_count() == 40);
-  static_assert(FEEDBACK.sample_count() == 2028);
+  static_assert(FEEDBACK.sample_count() == 1687);
   HS_EXPECT_EQ(HOST.ring(HOST.ring_count() - 1).y, 143);
   HS_EXPECT_EQ(DEVICE.ring(DEVICE.ring_count() - 1).samples, 5);
-  HS_EXPECT_EQ(FEEDBACK.ring(0).samples, 72);
-  HS_EXPECT_EQ(FEEDBACK.ring(FEEDBACK.ring_count() - 1).samples, 72);
+  HS_EXPECT_EQ(FEEDBACK.ring(0).samples, 1);
+  HS_EXPECT_EQ(FEEDBACK.ring(1).samples, 4);
+  HS_EXPECT_EQ(FEEDBACK.ring(FEEDBACK.ring_count() - 1).samples, 5);
 }
 
 inline void test_offsets_are_contiguous() {

@@ -1630,13 +1630,18 @@ private:
           const auto longitude = grid.field.longitude_bounded(ring, x);
           const WarpControl a = warp.controls[longitude.left];
           WarpControl b = warp.controls[longitude.right];
-          float bx = b.x;
+          float bx = ring.samples == 1
+                         ? static_cast<float>(a.x) - x * WARP_SCALE
+                         : static_cast<float>(b.x);
           bx += (bx - a.x > HALF_WRAP_PERIOD)
                     ? -WRAP_PERIOD
                     : (bx - a.x < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
           const int index = field_y * grid.columns + coarse_x;
-          warp.x_offsets[index] = static_cast<int16_t>(
-              hs::lerp(static_cast<float>(a.x), bx, longitude.mix));
+          warp.x_offsets[index] =
+              ring.samples == 1
+                  ? static_cast<int16_t>(bx)
+                  : static_cast<int16_t>(
+                        hs::lerp(static_cast<float>(a.x), bx, longitude.mix));
           warp.y_offsets[index] = static_cast<int16_t>(hs::lerp(
               static_cast<float>(a.y), static_cast<float>(b.y), longitude.mix));
         }
