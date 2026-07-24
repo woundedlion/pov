@@ -1708,17 +1708,11 @@ private:
       constexpr bool PAIR_PIXELS = decltype(pair_pixels)::value;
       for (int y = row_begin; y < row_end; ++y) {
         const int row = y * W;
-        const int filter_width =
-            band.x_clip.active ? 1 : grid.field.longitude_filter_width(y);
-        const bool filter_output = filter_width > 1;
-        auto write_pixel = [&](int x, const ::Pixel &pixel) {
-          if (filter_output) {
-            filtered_row[x] = pixel;
-          } else {
-            ::Pixel &dst = current[row + x];
-            dst = opaque ? pixel : blend(dst, pixel);
-          }
-        };
+        const bool filter_output = !band.x_clip.active && y > 0 &&
+                                   y < downsample &&
+                                   grid.field.longitude_filter_width(y) > 1;
+        const bool defer_filter = filter_output && !opaque;
+        ::Pixel *output = defer_filter ? filtered_row : current + row;
         while (y > control_y1) {
           field_y0 = field_y1;
           control_y0 = control_y1;
@@ -1809,8 +1803,10 @@ private:
                 p1 = black1 ? ::Pixel(0, 0, 0) : p1;
 
                 HS_PROFILE_DEEP(fb_comp_write);
-                write_pixel(x, p0);
-                write_pixel(x + 1, p1);
+                ::Pixel &dst0 = output[x];
+                dst0 = (opaque || defer_filter) ? p0 : blend(dst0, p0);
+                ::Pixel &dst1 = output[x + 1];
+                dst1 = (opaque || defer_filter) ? p1 : blend(dst1, p1);
 
                 x += 2;
                 sub += 2;
@@ -1841,7 +1837,8 @@ private:
 
             // Black must overwrite the stale double-buffer frame.
             HS_PROFILE_DEEP(fb_comp_write);
-            write_pixel(x, p);
+            ::Pixel &dst = output[x];
+            dst = (opaque || defer_filter) ? p : blend(dst, p);
 
             ++x;
             if (++sub == downsample) {
@@ -1852,6 +1849,8 @@ private:
         }
         if (filter_output) {
           HS_PROFILE_DEEP(fb_comp_filter);
+          if (!defer_filter)
+            std::copy_n(current + row, W, filtered_row);
           grid.field.template reconstruct_longitude_row<PixelAccumulator>(
               filtered_row, y, [&](int x, const ::Pixel &pixel) {
                 ::Pixel &dst = current[row + x];
@@ -1995,29 +1994,7 @@ private:
   void sample_bilinear_prev(const SphereField &field, const ::Pixel *prev,
                             const ::Pixel &north_pole, float bx, float by,
                             float &r, float &g, float &b) const {
-    struct Sample {
-      float r;
-      float g;
-      float b;
-    };
-    const Sample pole{static_cast<float>(north_pole.r),
-                      static_cast<float>(north_pole.g),
-                      static_cast<float>(north_pole.b)};
-    const Sample sample = field.sample_bilinear(
-        bx, by, pole, Sample{0.0f, 0.0f, 0.0f},
-        [&](int x, int y) {
-          const ::Pixel &pixel = prev[y * W + x];
-          return Sample{static_cast<float>(pixel.r),
-                        static_cast<float>(pixel.g),
-                        static_cast<float>(pixel.b)};
-        },
-        [](const Sample &a, const Sample &b, float t) {
-          return Sample{hs::lerp(a.r, b.r, t), hs::lerp(a.g, b.g, t),
-                        hs::lerp(a.b, b.b, t)};
-        });
-    r = sample.r;
-    g = sample.g;
-    b = sample.b;
+    field.sample_bilinear_rgb(prev, north_pole, bx, by, r, g, b);
   }
 
   /** @brief Quantizes an unclamped [0, 65535]-scale channel to a Pixel

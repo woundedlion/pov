@@ -25,6 +25,14 @@ struct IntAccumulator {
   int average(int width) const { return sum / width; }
 };
 
+struct Rgb {
+  int r;
+  int g;
+  int b;
+
+  Rgb(int r = 0, int g = 0, int b = 0) : r(r), g(g), b(b) {}
+};
+
 inline Pair pair_lerp(const Pair &a, const Pair &b, float t) {
   return {hs::lerp(a.a, b.a, t), hs::lerp(a.b, b.b, t)};
 }
@@ -144,11 +152,24 @@ inline void test_longitude_filter_and_sampler_wrap_poles() {
 
   const int sample = layout.sample_bilinear(
       7.0f, -1.0f, -1, 0, [](int x, int y) { return y * 100 + x; },
-      [](int a, int b, float t) {
-        return static_cast<int>(
-            hs::lerp(static_cast<float>(a), static_cast<float>(b), t));
+      [](int p00, int p10, int p01, int p11, float fx, float fy) {
+        const float lower =
+            hs::lerp(static_cast<float>(p00), static_cast<float>(p10), fx);
+        const float upper =
+            hs::lerp(static_cast<float>(p01), static_cast<float>(p11), fx);
+        return static_cast<int>(hs::lerp(lower, upper, fy));
       });
   HS_EXPECT_EQ(sample, 100 + 7 + W / 2);
+
+  std::array<Rgb, W * 34> rgb{};
+  for (int y = 0; y < 34; ++y)
+    for (int x = 0; x < W; ++x)
+      rgb[y * W + x] = Rgb(y * 100 + x, y * 100 + x + 1, y * 100 + x + 2);
+  float r, g, b;
+  layout.sample_bilinear_rgb(rgb.data(), Rgb(-1, -1, -1), 7.0f, -1.0f, r, g, b);
+  HS_EXPECT_EQ(r, 100 + 7 + W / 2);
+  HS_EXPECT_EQ(g, 101 + 7 + W / 2);
+  HS_EXPECT_EQ(b, 102 + 7 + W / 2);
 }
 
 inline int run_spherical_field_tests() {
