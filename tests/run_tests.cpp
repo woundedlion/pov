@@ -20,6 +20,7 @@
 #include "tests/test_conway_soak.h"
 #include "tests/test_hankin.h"
 #include "tests/test_geometry.h"
+#include "tests/test_spherical_field.h"
 #include "tests/test_mesh.h"
 #include "tests/test_solids.h"
 #include "tests/test_reaction_graph.h"
@@ -84,6 +85,8 @@ struct TestModule {
   X("conway_soak", hs_test::conway_soak_tests::run_conway_soak_tests)          \
   X("hankin", hs_test::hankin_tests::run_hankin_tests)                         \
   X("geometry", hs_test::geometry::run_geometry_tests)                         \
+  X("spherical_field",                                                        \
+    hs_test::spherical_field::run_spherical_field_tests)                       \
   X("mesh", hs_test::mesh_tests::run_mesh_tests)                               \
   X("solids", hs_test::solids_tests::run_solids_tests)                         \
   X("reaction_graph", hs_test::reaction_graph_tests::run_reaction_graph_tests) \
