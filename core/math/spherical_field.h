@@ -99,6 +99,100 @@ public:
             (spherical.phi * (H + HOffset - 1)) / PI_F};
   }
 
+  /**
+   * @brief Returns an odd longitude footprint with equatorial pixel width.
+   * @param y Latitude row in the rendered domain.
+   */
+  int longitude_filter_width(int y) const {
+    const float sine = latitude_sine(y);
+    if (sine < 1.0f / W)
+      return 1;
+    int width = static_cast<int>(1.0f / sine);
+    if ((width & 1) == 0)
+      --width;
+    const int maximum_odd_width = (W & 1) ? W : W - 1;
+    return std::clamp(width, 1, maximum_odd_width);
+  }
+
+  /**
+   * @brief Reconstructs one equirectangular row at its spherical width.
+   * @tparam Accumulator Default-constructible rolling accumulator with
+   *   add(), remove(), and average().
+   * @param source Dense row containing W values.
+   * @param y Latitude row controlling the longitude footprint.
+   * @param emit Receives each destination column and filtered value.
+   */
+  template <typename Accumulator, typename Value, typename Emit>
+  void reconstruct_longitude_row(const Value *source, int y,
+                                 Emit &&emit) const {
+    const int width = longitude_filter_width(y);
+    const int radius = width / 2;
+    Accumulator accumulator;
+    for (int dx = -radius; dx <= radius; ++dx) {
+      int x = dx;
+      if (x < 0)
+        x += W;
+      accumulator.add(source[x]);
+    }
+
+    for (int x = 0; x < W; ++x) {
+      emit(x, accumulator.average(width));
+      int remove = x - radius;
+      if (remove < 0)
+        remove += W;
+      int add = x + radius + 1;
+      if (add >= W)
+        add -= W;
+      accumulator.remove(source[remove]);
+      accumulator.add(source[add]);
+    }
+  }
+
+  /** @brief Reflects one lattice coordinate across spherical seams and poles. */
+  static bool wrap_sample(int &x, int &y) { return ::pole_wrap<W, H>(x, y); }
+
+  /**
+   * @brief Bilinearly samples a dense equirectangular field across seams and
+   * poles.
+   * @param x Fractional longitude in [-W, 2W).
+   * @param y Fractional latitude row.
+   * @param north_pole Shared value for the longitude-aliased north pole.
+   * @param outside Value returned where the rendered domain has no sample.
+   * @param load Loads an in-domain, non-pole lattice sample.
+   * @param lerp Interpolates two values.
+   */
+  template <typename Value, typename Load, typename Lerp>
+  Value sample_bilinear(float x, float y, const Value &north_pole,
+                        const Value &outside, Load &&load, Lerp &&lerp) const {
+    const float floor_x = std::floor(x);
+    const float floor_y = std::floor(y);
+    int x0 = static_cast<int>(floor_x);
+    int y0 = static_cast<int>(floor_y);
+    const float fx = x - floor_x;
+    const float fy = y - floor_y;
+
+    if (x0 < 0)
+      x0 += W;
+    else if (x0 >= W)
+      x0 -= W;
+    const int x1 = x0 + 1 < W ? x0 + 1 : 0;
+
+    auto tap = [&](int sample_x, int sample_y) {
+      if (!wrap_sample(sample_x, sample_y))
+        return outside;
+      return sample_y == 0 ? north_pole : load(sample_x, sample_y);
+    };
+
+    if (y0 > 0 && y0 + 1 < H) {
+      const Value lower = lerp(load(x0, y0), load(x1, y0), fx);
+      const Value upper = lerp(load(x0, y0 + 1), load(x1, y0 + 1), fx);
+      return lerp(lower, upper, fy);
+    }
+    const Value lower = lerp(tap(x0, y0), tap(x1, y0), fx);
+    const Value upper = lerp(tap(x0, y0 + 1), tap(x1, y0 + 1), fx);
+    return lerp(lower, upper, fy);
+  }
+
   constexpr Row row(float y) const {
     const float bounded_y = std::clamp(y, 0.0f, static_cast<float>(H - 1));
     const int lower_index = ring_index_at_or_before(bounded_y);
@@ -188,11 +282,11 @@ private:
   }
 
   constexpr int samples_on_ring(int y) const {
+    if (y < north_infill || y >= H - south_infill)
+      return maximum_longitude_samples();
     const int count =
         static_cast<int>(maximum_longitude_samples() * latitude_sine(y) + 0.5f);
-    if (count == 0)
-      return 1;
-    return std::max(count, 4);
+    return std::max(count, 1);
   }
 
   constexpr int next_ring_y(int y) const {

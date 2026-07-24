@@ -1232,6 +1232,52 @@ inline void test_feedback_north_pole_uses_single_physical_sample() {
 }
 
 /**
+ * @brief Verifies polar reconstruction suppresses longitude aliasing.
+ */
+inline void test_feedback_polar_rows_use_spherical_footprint() {
+  constexpr int W = 64, H = 34;
+  PipeFx fx(W, H);
+
+  ::Feedback::Style style{};
+  style.space_fn = &::Feedback::identity_warp;
+  style.color_fn = &::Feedback::plain_fade;
+  style.fade = 1.0f;
+  style.downsample = 4;
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  {
+    Canvas c(fx);
+    for (int x = 0; x < W; ++x) {
+      const Pixel stripe((x & 1) ? 60000 : 0, 0, 0);
+      c(x, 1) = stripe;
+      c(x, 8) = stripe;
+    }
+  }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  uint16_t polar_min = 65535;
+  uint16_t polar_max = 0;
+  for (int x = 0; x < W; ++x) {
+    const uint16_t value = fx.get_pixel(x, 1).r;
+    polar_min = std::min(polar_min, value);
+    polar_max = std::max(polar_max, value);
+    if (x & 1)
+      HS_EXPECT_GT(fx.get_pixel(x, 8).r, 58000);
+    else
+      HS_EXPECT_LT(fx.get_pixel(x, 8).r, 2000);
+  }
+  HS_EXPECT_GT(polar_min, 25000);
+  HS_EXPECT_LT(polar_max, 35000);
+}
+
+/**
  * @brief Verifies flush() honors the segment clip like every other rasterizer.
  * @details On segmented hardware each board owns a Y-band, and a feedback flush
  *          that iterated the full canvas would composite the whole sphere into
@@ -1402,6 +1448,43 @@ inline Vector animated_cap_rotation_warp(const Vector &v,
   return Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
 }
 
+struct FloatRowAccumulator {
+  float sum = 0.0f;
+
+  void add(float value) { sum += value; }
+  void remove(float value) { sum -= value; }
+  float average(int width) const { return sum / width; }
+};
+
+template <int W, int H>
+inline std::array<float, W>
+expected_feedback_source_row(int y, int downsample,
+                             const ::Feedback::Style &style) {
+  const hs::SphericalFieldLayout<W, H> layout(
+      downsample, downsample, std::max(downsample - hs::H_OFFSET, 0),
+      W / downsample);
+  std::array<float, W> source{};
+  std::array<float, W> reconstructed{};
+  auto control_y = [&](int x) {
+    const auto point =
+        layout.project(style.space_fn(pixel_to_vector<W, H>(x, y), style));
+    const float offset = point.y - y;
+    const int16_t quantized =
+        static_cast<int16_t>(hs::clamp(offset * 128.0f, -32767.0f, 32767.0f));
+    return y + quantized / 128.0f;
+  };
+
+  for (int x = 0; x < W; ++x) {
+    const int x0 = (x / downsample) * downsample;
+    const int x1 = (x0 + downsample) % W;
+    const float mix = static_cast<float>(x - x0) / downsample;
+    source[x] = hs::lerp(control_y(x0), control_y(x1), mix);
+  }
+  layout.template reconstruct_longitude_row<FloatRowAccumulator>(
+      source.data(), y, [&](int x, float value) { reconstructed[x] = value; });
+  return reconstructed;
+}
+
 /**
  * @brief Verifies north-cap rows use warp values evaluated at their latitude.
  */
@@ -1436,18 +1519,17 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
   fx.advance_display();
 
   for (int y = 1; y < DOWNSAMPLE; ++y) {
-    const Vector warped =
-        north_cap_rotation_warp(pixel_to_vector<W, H>(0, y), style);
-    const float expected_y = phi_to_y<H>(Spherical(warped).phi);
+    const auto expected =
+        expected_feedback_source_row<W, H>(y, DOWNSAMPLE, style);
     const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
-    HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
+    HS_EXPECT_NEAR(sampled_y, expected[0], 0.02f);
   }
 }
 
 /**
- * @brief Verifies metric polar controls track the warp at sample longitudes.
+ * @brief Verifies animated polar controls use the compositor's longitudes.
  */
-inline void test_feedback_animated_cap_controls_match_metric_lattice() {
+inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
   constexpr int W = 64, H = 34;
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
@@ -1479,17 +1561,12 @@ inline void test_feedback_animated_cap_controls_match_metric_lattice() {
     }
     fx.advance_display();
 
-    constexpr hs::SphericalFieldLayout<W, H> layout(
-        DOWNSAMPLE, DOWNSAMPLE, DOWNSAMPLE, W / DOWNSAMPLE);
     for (int y = 1; y < DOWNSAMPLE; ++y) {
-      const auto ring = layout.ring(y);
-      for (int sample = 0; sample < ring.samples; ++sample) {
-        const int x = sample * W / ring.samples;
-        const Vector warped =
-            animated_cap_rotation_warp(pixel_to_vector<W, H>(x, y), style);
-        const float expected_y = phi_to_y<H>(Spherical(warped).phi);
+      const auto expected =
+          expected_feedback_source_row<W, H>(y, DOWNSAMPLE, style);
+      for (int x = 0; x < W; x += DOWNSAMPLE) {
         const float sampled_y = fx.get_pixel(x, y).r / ROW_SCALE;
-        HS_EXPECT_NEAR(sampled_y, expected_y, 0.3f);
+        HS_EXPECT_NEAR(sampled_y, expected[x], 0.02f);
       }
     }
   }
@@ -1769,10 +1846,10 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
   };
   auto expect_rows = [&](int begin, int end) {
     for (int y = begin; y < end; ++y) {
-      const Vector warped = style.space_fn(pixel_to_vector<W, H>(0, y), style);
-      const float expected_y = phi_to_y<H>(Spherical(warped).phi);
+      const auto expected =
+          expected_feedback_source_row<W, H>(y, DOWNSAMPLE, style);
       const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
-      HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
+      HS_EXPECT_NEAR(sampled_y, expected[0], 0.02f);
     }
   };
 
@@ -2499,10 +2576,11 @@ inline int run_filter_tests() {
   test_direct_antialias_sink_framebuffer_parity();
   test_feedback_flush_blends_prev_frame();
   test_feedback_north_pole_uses_single_physical_sample();
+  test_feedback_polar_rows_use_spherical_footprint();
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();
   test_feedback_north_cap_uses_exact_control_rows();
-  test_feedback_animated_cap_controls_match_metric_lattice();
+  test_feedback_animated_cap_controls_match_compositor_lattice();
   test_feedback_poles_resolve_one_source_longitude();
   test_feedback_spherical_ring_control_rows();
   test_feedback_spherical_field_angular_error();
