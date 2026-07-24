@@ -854,7 +854,7 @@ private:
     case Solids::Op::RELAX:
       schedule(Animation::OpLeg(build_seed_, static_cast<int>(step.param),
                                 persistent_arena, draw_build_fn_, handoff,
-                                frames, bookend));
+                                frames, bookend, step.bake));
       break;
     case Solids::Op::AMBO:
       schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::TRUNCATE,
@@ -1377,6 +1377,8 @@ private:
     case Solids::Op::CHAMFER:
       return MeshOps::chamfer(build_seed_, a, b, step.param);
     case Solids::Op::RELAX:
+      if (step.bake)
+        return MeshOps::relax_baked(build_seed_, a, *step.bake);
       return MeshOps::relax(build_seed_, a, b, static_cast<int>(step.param));
     case Solids::Op::KIS:
       return MeshOps::kis(build_seed_, a, b);

@@ -648,11 +648,12 @@ public:
   OpLeg(const PolyMesh &seed, int iterations, Arena &arena, MorphDrawFn draw,
         const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        const MeshOps::RelaxBake *bake = nullptr,
         BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
-    HS_CHECK(iterations >= 1,
+    HS_CHECK(bake || iterations >= 1,
              "OpLeg: relax leg needs a positive iteration count");
     HS_CHECK(handoff.bank && handoff.prev_face_palette &&
              handoff.prev_faces > 0);
@@ -675,8 +676,12 @@ public:
       ScratchScope sa(scratch_arena_a);
       ScratchScope sb(scratch_arena_b);
 
+      // With a bake the leg lands on the shipped converged mesh (the generator
+      // used relax_baked too); otherwise it runs `iterations` live steps.
       PolyMesh arrival =
-          MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b, iterations);
+          bake ? MeshOps::relax_baked(tr.seed, scratch_arena_a, *bake)
+               : MeshOps::relax(tr.seed, scratch_arena_a, scratch_arena_b,
+                                iterations);
       HS_CHECK(arrival.vertices.size() == tr.seed.vertices.size(),
                "OpLeg: relax changed the vertex count");
       tr.relaxed.bind(arena, arrival.vertices.size());

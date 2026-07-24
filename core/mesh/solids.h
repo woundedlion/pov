@@ -1117,6 +1117,16 @@ struct OpStep {
   Op op;              /**< Operator applied at this step. */
   float param = 0.0f; /**< t / contact angle (radians) / RELAX iterations. */
   float twist = 0.0f; /**< SNUB face rotation, radians. */
+  /**
+   * @brief RELAX bake this step lands on, mirroring the generator's
+   * relax_baked() call; null replays `param` live iterations.
+   * @details When set, every replay of the step (bitwise gate, on-screen build
+   * leg, and eager clean endpoint) resolves through the baked converged mesh
+   * instead of `param` smoothing steps, so the recipe lands on the shipped
+   * geometry rather than a mid-convergence freeze. Left null for a mid-chain
+   * relax on a mesh with no bake, which keeps iterating.
+   */
+  const MeshOps::RelaxBake *bake = nullptr;
 };
 
 /**
@@ -1414,7 +1424,8 @@ inline constexpr Recipe TRUNCATED_OCTAHEDRON_GYRO_KIS_HK17_RECIPE = {
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN59_STEPS[] = {
         {Op::AMBO},
-        {Op::RELAX, 8.0f},
+        {Op::RELAX, 8.0f, 0.0f,
+         &RelaxBakes::truncated_icosahedron_ambo_converged},
         {Op::TRUNCATE, 0.01f},
         {Op::HANKIN, 59.0f * IslamicStarPatterns::D2R}};
 /**
@@ -1432,7 +1443,8 @@ inline constexpr Recipe
 inline constexpr OpStep
     TRUNCATED_ICOSAHEDRON_AMBO_RELAX_TRUNCATE001_HANKIN73_STEPS[] = {
         {Op::AMBO},
-        {Op::RELAX, 8.0f},
+        {Op::RELAX, 8.0f, 0.0f,
+         &RelaxBakes::truncated_icosahedron_ambo_converged},
         {Op::TRUNCATE, 0.01f},
         {Op::HANKIN, 73.0f * IslamicStarPatterns::D2R}};
 /**
@@ -1506,7 +1518,7 @@ inline constexpr Recipe TRUNCATED_ICOSAHEDRON_TRUNCATE50D_AMBO_DUAL_RECIPE = {
 /** Step table for icosahedron_snub_relax_truncate033_hankin62. */
 inline constexpr OpStep ICOSAHEDRON_SNUB_RELAX_TRUNCATE033_HANKIN62_STEPS[] = {
     {Op::SNUB, 0.5f, 0.0f},
-    {Op::RELAX, 8.0f},
+    {Op::RELAX, 8.0f, 0.0f, &RelaxBakes::icosahedron_snub_converged},
     {Op::TRUNCATE, 0.33f},
     {Op::HANKIN, 62.0f * IslamicStarPatterns::D2R}};
 /**
