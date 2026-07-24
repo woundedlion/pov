@@ -553,6 +553,8 @@ The Filter auto-syncs from the Style every frame — when the Style lerps betwee
 | `Style::Smoke()` | Gentle drifting haze with slow noise. Classic smoke look. |
 | `Style::SlowDust()` | Fine, slowly drifting turbulence with gentle color rotation. |
 | `Style::WavyTrails()` | Fine, rapidly moving distortion with pronounced color trails. |
+| `Style::MeltingHi()` | Strong downward melt with slow drift and pronounced hue rotation. |
+| `Style::MeltingLo()` | Gentle downward melt with slow drift and pronounced hue rotation. |
 | `Style::Frozen()` | Static frozen distortion — no temporal movement. |
 | `Style::Shatter()` | Extreme static warping with fast decay. Shattering glass look. |
 | `Style::Drift()` | Flowing medium-strength distortion. Gentle liquid drift. |

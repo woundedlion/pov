@@ -248,6 +248,24 @@ struct Style {
   }
 
   /**
+   * @brief Strong downward melt with slow drift and pronounced hue rotation.
+   * @return The MeltingHi preset Style.
+   */
+  static constexpr Style MeltingHi() {
+    return {0.59004f, 0.1f,     4.38f,      0.06346f,
+            0.2f,     22.3554f, &melt_warp, &hue_fade};
+  }
+
+  /**
+   * @brief Gentle downward melt with slow drift and pronounced hue rotation.
+   * @return The MeltingLo preset Style.
+   */
+  static constexpr Style MeltingLo() {
+    return {0.59004f, 0.1f,     1.95f,      0.06346f,
+            0.2f,     22.3554f, &melt_warp, &hue_fade};
+  }
+
+  /**
    * @brief Static frozen distortion — no temporal movement.
    * @return The Frozen preset Style.
    */

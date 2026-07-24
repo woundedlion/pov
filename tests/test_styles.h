@@ -23,8 +23,8 @@ namespace styles_tests {
 /**
  * @brief Verifies the constexpr preset factories carry their documented scalar
  *        values and wire up the expected space/color transforms.
- * @details Spot-checks Smoke's fade/frequency and noise/hue transforms, and
- *          confirms both melt-based presets use melt_warp while Swirling drops
+ * @details Spot-checks Smoke's fade/frequency and noise/hue transforms,
+ * verifies the MeshFeedback melt presets exactly, and confirms Swirling drops
  *          the hue shift.
  */
 inline void test_named_presets() {
@@ -40,6 +40,18 @@ inline void test_named_presets() {
         HS_EXPECT_TRUE(style.space_fn == &Feedback::noise_warp);
         HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
       };
+  const auto expect_melt_hue_style =
+      [](const Feedback::Style &style, float fade, float hue_shift,
+         float amplitude, float frequency, float speed, float scale) {
+        HS_EXPECT_NEAR(style.fade, fade, 1e-6f);
+        HS_EXPECT_NEAR(style.hue_shift, hue_shift, 1e-6f);
+        HS_EXPECT_NEAR(style.amplitude, amplitude, 1e-6f);
+        HS_EXPECT_NEAR(style.frequency, frequency, 1e-6f);
+        HS_EXPECT_NEAR(style.speed, speed, 1e-6f);
+        HS_EXPECT_NEAR(style.scale, scale, 1e-6f);
+        HS_EXPECT_TRUE(style.space_fn == &Feedback::melt_warp);
+        HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
+      };
 
   expect_noise_hue_style(Feedback::Style::ArcingLightning(), 0.5f, 0.1f,
                          3.27f, 0.09f, 1.5f, 50.0f);
@@ -51,6 +63,10 @@ inline void test_named_presets() {
                          0.07237f, 0.6f, 50.0f);
   expect_noise_hue_style(Feedback::Style::WavyTrails(), 0.7257f, 0.0722f,
                          1.95f, 0.01f, 5.0f, 50.0f);
+  expect_melt_hue_style(Feedback::Style::MeltingHi(), 0.59004f, 0.1f, 4.38f,
+                        0.06346f, 0.2f, 22.3554f);
+  expect_melt_hue_style(Feedback::Style::MeltingLo(), 0.59004f, 0.1f, 1.95f,
+                        0.06346f, 0.2f, 22.3554f);
 
   Feedback::Style smoke = Feedback::Style::Smoke();
   HS_EXPECT_NEAR(smoke.fade, 0.9f, 1e-6f);
