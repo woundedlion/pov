@@ -137,7 +137,10 @@ FLASHMEM static PolyMesh build_recipe(const Recipe &recipe, Arena &a,
       builder.hankin(step.param);
       break;
     case Op::RELAX:
-      builder.relax(static_cast<int>(step.param));
+      if (step.bake)
+        builder.relax_baked(*step.bake);
+      else
+        builder.relax(static_cast<int>(step.param));
       break;
     case Op::KIS:
       builder.kis();
@@ -200,7 +203,10 @@ FLASHMEM static PolyMesh build_steps(uint8_t seed, const OpStep *steps,
       builder.hankin(step.param);
       break;
     case Op::RELAX:
-      builder.relax(static_cast<int>(step.param));
+      if (step.bake)
+        builder.relax_baked(*step.bake);
+      else
+        builder.relax(static_cast<int>(step.param));
       break;
     case Op::KIS:
       builder.kis();
