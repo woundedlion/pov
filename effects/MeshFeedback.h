@@ -36,7 +36,7 @@ public:
   static constexpr float FREQ_MIN = 0.01f, FREQ_MAX = 1.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float SCALE_MIN = 0.1f, SCALE_MAX = 50.0f;
-  static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 0.1f;
+  static constexpr float HUE_SHIFT_MIN = 0.0f, HUE_SHIFT_MAX = 0.5f;
 
   /** @brief True iff every preset-driven field of @p s lies within its
    *  registered slider range (see the range constants above). */

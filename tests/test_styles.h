@@ -53,23 +53,24 @@ inline void test_named_presets() {
         HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
       };
 
-  expect_noise_hue_style(Feedback::Style::ArcingLightning(), 0.5f, 0.1f, 3.27f,
+  expect_noise_hue_style(Feedback::Style::ArcingLightning(), 0.5f, 0.2f, 3.27f,
                          0.09f, 1.5f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::SlowFire(), 0.8732f, 0.0167f, 1.56f,
-                         0.5297f, 0.1f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::EnergeticFire(), 0.8732f, 0.0167f,
+  expect_noise_hue_style(Feedback::Style::SlowFire(), 0.8732f, 0.13170347f,
+                         1.56f, 0.5297f, 0.1f, 50.0f);
+  expect_noise_hue_style(Feedback::Style::EnergeticFire(), 0.8732f, 0.13170347f,
                          1.56f, 0.22087f, 0.9f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::SlowDust(), 0.83952f, 0.0167f, 1.56f,
-                         0.07237f, 0.6f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::WavyTrails(), 0.7257f, 0.0722f, 1.95f,
-                         0.01f, 5.0f, 50.0f);
-  expect_melt_hue_style(Feedback::Style::MeltingHi(), 0.59004f, 0.1f, 4.38f,
-                        0.06346f, 0.2f, 22.3554f);
-  expect_melt_hue_style(Feedback::Style::MeltingLo(), 0.59004f, 0.1f, 1.95f,
-                        0.06346f, 0.2f, 22.3554f);
+  expect_noise_hue_style(Feedback::Style::SlowDust(), 0.83952f, 0.1040628f,
+                         1.56f, 0.07237f, 0.6f, 50.0f);
+  expect_noise_hue_style(Feedback::Style::WavyTrails(), 0.7257f, 0.26321548f,
+                         1.95f, 0.01f, 5.0f, 50.0f);
+  expect_melt_hue_style(Feedback::Style::MeltingHi(), 0.59004f, 0.24392626f,
+                        4.38f, 0.06346f, 0.2f, 22.3554f);
+  expect_melt_hue_style(Feedback::Style::MeltingLo(), 0.59004f, 0.24392626f,
+                        1.95f, 0.06346f, 0.2f, 22.3554f);
 
   Feedback::Style smoke = Feedback::Style::Smoke();
   HS_EXPECT_NEAR(smoke.fade, 0.9f, 1e-6f);
+  HS_EXPECT_NEAR(smoke.hue_shift, 0.09999997f, 1e-6f);
   HS_EXPECT_NEAR(smoke.frequency, 0.42f, 1e-6f);
   HS_EXPECT_TRUE(smoke.space_fn == &Feedback::noise_warp);
   HS_EXPECT_TRUE(smoke.color_fn == &Feedback::hue_fade);
@@ -77,6 +78,35 @@ inline void test_named_presets() {
   HS_EXPECT_TRUE(Feedback::Style::Melting().space_fn == &Feedback::melt_warp);
   HS_EXPECT_TRUE(Feedback::Style::Swirling().space_fn == &Feedback::melt_warp);
   HS_EXPECT_TRUE(Feedback::Style::Swirling().color_fn == &Feedback::plain_fade);
+}
+
+/**
+ * @brief Verifies named presets retain their original per-frame hue rotations.
+ */
+inline void test_named_presets_preserve_frame_hue() {
+  struct Case {
+    Feedback::Style style;
+    float frame_shift;
+  };
+  const Case cases[] = {
+      {Feedback::Style::ArcingLightning(), 0.1f},
+      {Feedback::Style::SlowFire(), 0.0167f},
+      {Feedback::Style::EnergeticFire(), 0.0167f},
+      {Feedback::Style::SlowTwist(), 0.041f},
+      {Feedback::Style::Churn(), 0.035f},
+      {Feedback::Style::Smoke(), 0.01f},
+      {Feedback::Style::SlowDust(), 0.0167f},
+      {Feedback::Style::WavyTrails(), 0.0722f},
+      {Feedback::Style::MeltingHi(), 0.1f},
+      {Feedback::Style::MeltingLo(), 0.1f},
+      {Feedback::Style::Frozen(), 0.03f},
+      {Feedback::Style::Shatter(), 0.03f},
+      {Feedback::Style::Drift(), 0.03f},
+      {Feedback::Style::Melting(), 0.0766f},
+      {Feedback::Style::Swirling(), 0.0f},
+  };
+  for (const Case &c : cases)
+    HS_EXPECT_EQ(c.style.hue_shift * (1.0f - c.style.fade), c.frame_shift);
 }
 
 // --- lerp -------------------------------------------------------------------
@@ -283,25 +313,33 @@ inline void test_hue_fade_zero_shift_preserves_gray() {
 }
 
 /**
- * @brief Verifies sync_hue() caches cos/sin of the hue_shift turn angle into
- *        hue_ca/hue_sa, leaving the struct at the identity rotation until called.
- * @details hue_fade reads this frame-constant cache instead of recomputing the
- *          rotation per pixel; sync_hue must write exactly fast_cosf/fast_sinf of
- *          hue_shift*2*PI. A fresh Style defaults to the identity (1, 0).
+ * @brief Verifies sync_hue() scales the tail endpoint by feedback duration.
+ * @details A tail's brightness-duration is `1 / (1 - fade)`, so the cached
+ * rotation is `hue_shift * (1 - fade)` turns per frame.
  */
-inline void test_sync_hue_caches_rotation() {
+inline void test_sync_hue_scales_with_fade_duration() {
   Feedback::Style s{};
   HS_EXPECT_NEAR(s.hue_ca, 1.0f, 1e-6f);
   HS_EXPECT_NEAR(s.hue_sa, 0.0f, 1e-6f);
 
-  s.hue_shift = 0.25f; // quarter turn
+  s.hue_shift = 0.25f;
+  s.fade = 0.5f;
   s.sync_hue();
-  const float angle = 0.25f * (2.0f * PI_F);
-  HS_EXPECT_NEAR(s.hue_ca, fast_cosf(angle), 1e-6f);
-  HS_EXPECT_NEAR(s.hue_sa, fast_sinf(angle), 1e-6f);
-  // A quarter turn lands near (cos, sin) = (0, 1).
-  HS_EXPECT_NEAR(s.hue_ca, 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(s.hue_sa, 1.0f, 1e-3f);
+  const float short_angle = 0.25f * (1.0f - 0.5f) * (2.0f * PI_F);
+  float ca = fast_cosf(short_angle);
+  float sa = fast_sinf(short_angle);
+  float inv = 1.0f / sqrtf(ca * ca + sa * sa);
+  HS_EXPECT_NEAR(s.hue_ca, ca * inv, 1e-6f);
+  HS_EXPECT_NEAR(s.hue_sa, sa * inv, 1e-6f);
+
+  s.fade = 0.9f;
+  s.sync_hue();
+  const float long_angle = 0.25f * (1.0f - 0.9f) * (2.0f * PI_F);
+  ca = fast_cosf(long_angle);
+  sa = fast_sinf(long_angle);
+  inv = 1.0f / sqrtf(ca * ca + sa * sa);
+  HS_EXPECT_NEAR(s.hue_ca, ca * inv, 1e-6f);
+  HS_EXPECT_NEAR(s.hue_sa, sa * inv, 1e-6f);
 }
 
 /**
@@ -498,6 +536,7 @@ inline int run_styles_tests() {
   hs_test::ModuleFixture fixture("styles");
 
   test_named_presets();
+  test_named_presets_preserve_frame_hue();
   test_lerp_scalars_and_snapping();
   test_identity_warp();
   test_noise_warp_null_is_identity();
@@ -506,7 +545,7 @@ inline int run_styles_tests() {
   test_melt_warp_bound_noise_perturbs();
   test_plain_fade_scales_linearly();
   test_hue_fade_zero_shift_preserves_gray();
-  test_sync_hue_caches_rotation();
+  test_sync_hue_scales_with_fade_duration();
   test_hue_fade_nonzero_shift_rotates_saturated();
   test_hue_rotate_lms_matrix_identity();
   test_hue_fade_matches_rotate_reference();
