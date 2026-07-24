@@ -582,7 +582,8 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
   CompiledHankin compiled;
   MeshOps::compile_hankin(prefix, compiled, compiled_arena, output_arena);
 
-  std::vector<Vector> previous(compiled.dynamic_vertices.size());
+  const size_t n_stars = compiled.dynamic_instructions.size();
+  std::vector<Vector> previous(n_stars);
   float max_step = 0.0f;
   float resonance_max_step = 0.0f;
   constexpr float STEP_DEGREES = 0.01f;
@@ -592,17 +593,19 @@ inline void test_update_hankin_near_parallel_angle_is_continuous() {
     MeshOps::update_hankin(compiled, output, output_arena,
                            step * STEP_DEGREES *
                                Solids::IslamicStarPatterns::D2R);
+    // Star points are written straight into the output after the static
+    // midpoints, so they live at [static_offset, static_offset + n_stars).
+    const Vector *stars = output.vertices.data() + compiled.static_offset;
     if (step > 1) {
-      for (size_t i = 0; i < compiled.dynamic_vertices.size(); ++i) {
-        const float movement = std::sqrt(
-            distance_squared(previous[i], compiled.dynamic_vertices[i]));
+      for (size_t i = 0; i < n_stars; ++i) {
+        const float movement =
+            std::sqrt(distance_squared(previous[i], stars[i]));
         max_step = std::max(max_step, movement);
         if (step >= 4400 && step <= 5000)
           resonance_max_step = std::max(resonance_max_step, movement);
       }
     }
-    std::copy(compiled.dynamic_vertices.begin(),
-              compiled.dynamic_vertices.end(), previous.begin());
+    std::copy(stars, stars + n_stars, previous.begin());
   }
 
   HS_EXPECT_LE(max_step, 0.01f);
