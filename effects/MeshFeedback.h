@@ -13,8 +13,8 @@
  * @tparam H Canvas height in pixels.
  * @details Draws the solid's wireframe under an orientation random-walk while
  * the feedback filter warps and fades the accumulated frame. Style presets
- * cycle without a hard cut: emission stops, the feedback drains to black, then
- * the next preset begins. The shape never changes and never morphs.
+ * switch immediately at fixed intervals while mesh emission continues. The
+ * shape never changes and never morphs.
  */
 template <int W, int H> class MeshFeedback : public Effect {
 public:
@@ -30,12 +30,6 @@ public:
   // save well under one step.
   static constexpr int GAMUT_ANGLE_STEPS = 256;
   static constexpr int GAMUT_L_STEPS = 128;
-
-  // Between presets, emission stops and the feedback fades to black over
-  // DRAIN_FRAMES at DRAIN_FADE (well below any preset's fade) before the next
-  // preset begins.
-  static constexpr int DRAIN_FRAMES = 45;
-  static constexpr float DRAIN_FADE = 0.82f;
 
   static constexpr float FADE_MIN = 0.0f,  FADE_MAX = 0.99f;
   static constexpr float AMP_MIN = 0.0f,   AMP_MAX = 30.0f;
@@ -54,15 +48,18 @@ public:
            s.scale >= SCALE_MIN && s.scale <= SCALE_MAX &&
            s.hue_shift >= HUE_SHIFT_MIN && s.hue_shift <= HUE_SHIFT_MAX;
   }
-  static_assert(preset_in_ranges(Style::ArcingLightning()) &&
-                    preset_in_ranges(Style::SlowFire()) &&
-                    preset_in_ranges(Style::EnergeticFire()) &&
-                    preset_in_ranges(Style::Smoke()) &&
-                    preset_in_ranges(Style::SlowDust()) &&
-                    preset_in_ranges(Style::WavyTrails()),
-                "a MeshFeedback preset drives a style field outside its "
-                "registered slider range; widen the range to accommodate the "
-                "preset (the range exposes the presets, it does not clamp them)");
+  static_assert(
+      preset_in_ranges(Style::ArcingLightning()) &&
+          preset_in_ranges(Style::SlowFire()) &&
+          preset_in_ranges(Style::EnergeticFire()) &&
+          preset_in_ranges(Style::Smoke()) &&
+          preset_in_ranges(Style::SlowDust()) &&
+          preset_in_ranges(Style::WavyTrails()) &&
+          preset_in_ranges(Style::MeltingHi()) &&
+          preset_in_ranges(Style::MeltingLo()),
+      "a MeshFeedback preset drives a style field outside its "
+      "registered slider range; widen the range to accommodate the "
+      "preset (the range exposes the presets, it does not clamp them)");
 
   /**
    * @brief Wires up palette, noise, orientation, and the filter pipeline.
@@ -125,8 +122,8 @@ public:
 
   /**
    * @brief Renders one frame.
-   * @details Applies params, advances the preset transition, runs the feedback
-   * decay flush, draws the mesh while emitting, then advances the timeline.
+   * @details Applies params, advances the preset selection, runs the feedback
+   * decay flush, draws the mesh, then advances the timeline.
    */
   void draw_frame() override {
     // IIFE isolates the buffer_free() spin-wait in the Canvas ctor.
@@ -149,7 +146,7 @@ public:
           1.0f);
     }
 
-    if (emitting_) {
+    {
       HS_PROFILE(mf_mesh_draw);
       Color4 shade = palette.get(0.0f);
       Plot::Mesh::draw<W, H>(filters, canvas, mesh_,
@@ -175,37 +172,30 @@ private:
   }
 
   /**
-   * @brief Drives the emit/drain preset transition.
-   * @details Emits for PRESET_FRAMES, then drops the fade to DRAIN_FADE and
-   * stops emitting for DRAIN_FRAMES so the accumulated frame decays to black,
-   * then advances to the next preset (restoring its fade) and resumes emitting.
-   * Frozen while animations are paused.
+   * @brief Advances to the next preset every PRESET_FRAMES.
+   * @details Frozen while animations are paused.
    */
   void advance_transition() {
     if (animations_paused()) return;
-    if (++transition_frames_ < (emitting_ ? PRESET_FRAMES : DRAIN_FRAMES))
+    if (++transition_frames_ < PRESET_FRAMES)
       return;
     transition_frames_ = 0;
-    emitting_ = !emitting_;
-    if (emitting_) {
-      presets.next();
-      presets.apply(style);
-    } else {
-      style.fade = DRAIN_FADE;
-    }
+    presets.next();
+    presets.apply(style);
   }
 
   Style style;
 
-  Presets<Style, 6> presets{
-      std::array<PresetEntry<Style>, 6>{{{Style::ArcingLightning()},
+  Presets<Style, 8> presets{
+      std::array<PresetEntry<Style>, 8>{{{Style::ArcingLightning()},
                                          {Style::SlowFire()},
                                          {Style::EnergeticFire()},
                                          {Style::Smoke()},
                                          {Style::SlowDust()},
-                                         {Style::WavyTrails()}}}};
+                                         {Style::WavyTrails()},
+                                         {Style::MeltingHi()},
+                                         {Style::MeltingLo()}}}};
   bool feedback_enabled = true;
-  bool emitting_ = true;
   int transition_frames_ = 0;
   NoiseParams noise_params;
 
