@@ -1324,6 +1324,120 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   HS_EXPECT_LT(row_sum(R), peak / 4);
 }
 
+inline Vector north_cap_rotation_warp(const Vector &v,
+                                      const ::Feedback::Style &) {
+  constexpr float ANGLE = 0.1f;
+  const float c = std::cos(ANGLE);
+  const float s = std::sin(ANGLE);
+  return Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
+}
+
+/**
+ * @brief Verifies north-cap rows use warp values evaluated at their latitude.
+ */
+inline void test_feedback_north_cap_uses_exact_control_rows() {
+  constexpr int W = 64, H = 64;
+  constexpr int DOWNSAMPLE = 4;
+  constexpr float ROW_SCALE = 1000.0f;
+  PipeFx fx(W, H);
+
+  ::Feedback::Style style{};
+  style.space_fn = &north_cap_rotation_warp;
+  style.color_fn = &::Feedback::plain_fade;
+  style.fade = 1.0f;
+  style.downsample = DOWNSAMPLE;
+
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  {
+    Canvas c(fx);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        c(x, y) = Pixel(static_cast<uint16_t>(y * ROW_SCALE), 0, 0);
+  }
+  fx.advance_display();
+
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  for (int y = 1; y < DOWNSAMPLE; ++y) {
+    const Vector warped =
+        north_cap_rotation_warp(pixel_to_vector<W, H>(0, y), style);
+    const float expected_y = phi_to_y<H>(Spherical(warped).phi);
+    const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
+    HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
+  }
+}
+
+/**
+ * @brief Verifies cached top-band clips share fully populated cap controls.
+ */
+inline void test_feedback_cached_north_cap_clips_share_control_rows() {
+  constexpr int W = 64, H = 64;
+  constexpr int DOWNSAMPLE = 4;
+  constexpr float ROW_SCALE = 1000.0f;
+  PipeFx fx(W, H);
+  NoiseParams noise;
+
+  ::Feedback::Style style{};
+  style.space_fn = &::Feedback::noise_warp;
+  style.color_fn = &::Feedback::plain_fade;
+  style.noise = &noise;
+  style.amplitude = 10.0f;
+  style.frequency = 0.2f;
+  style.speed = 0.0f;
+  style.scale = 8.0f;
+  style.fade = 1.0f;
+  style.downsample = DOWNSAMPLE;
+  style.sync_noise();
+
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  pipe.get<Filter::Pixel::Feedback<W, H>>().init_storage(persistent_arena);
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+  auto seed_rows = [&]() {
+    {
+      Canvas c(fx);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          c(x, y) = Pixel(static_cast<uint16_t>(y * ROW_SCALE), 0, 0);
+    }
+    fx.advance_display();
+  };
+  auto expect_rows = [&](int begin, int end) {
+    for (int y = begin; y < end; ++y) {
+      const Vector warped = style.space_fn(pixel_to_vector<W, H>(0, y), style);
+      const float expected_y = phi_to_y<H>(Spherical(warped).phi);
+      const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
+      HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
+    }
+  };
+
+  fx.set_margin(0);
+  seed_rows();
+  fx.set_clip(0, 2, 0, W);
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+  expect_rows(0, 2);
+
+  seed_rows();
+  fx.set_clip(2, 4, 0, W);
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+  expect_rows(2, 4);
+}
+
 /**
  * @brief Warp-cache parity: an init_storage'd Feedback filter must render
  *        exactly what an uncached one does, frame for frame.
@@ -2011,6 +2125,8 @@ inline int run_filter_tests() {
   test_feedback_flush_blends_prev_frame();
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();
+  test_feedback_north_cap_uses_exact_control_rows();
+  test_feedback_cached_north_cap_clips_share_control_rows();
   test_feedback_warp_cache_matches_uncached();
   test_feedback_flush_straddled_taps_stay_on_branch();
 
