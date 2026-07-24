@@ -572,26 +572,23 @@ public:
       PolyMesh arrival;
       MeshOps::update_hankin(tr.hankin, arrival, scratch_arena_a, theta_hi);
 
-      // Only the star points are stored: the midpoint prefix is already in the
-      // compiled topology, and each star point's collapsed position is its own
-      // corner, reachable through the same instruction hankin_at walks. They
-      // are snorm16-packed; round-tripping the arrival through that
-      // quantization before classification keeps tr.topo consistent with the
-      // mesh arrival_mesh later rebuilds from the packed points.
-      const size_t statics = tr.hankin.static_vertices.size();
-      HS_CHECK(arrival.vertices.size() >= statics);
-      const size_t dyn = arrival.vertices.size() - statics;
-      tr.hk_final.bind(arena, dyn);
-      for (size_t i = 0; i < dyn; ++i) {
-        StarPoint sp = StarPoint::encode(arrival.vertices[statics + i]);
-        tr.hk_final.push_back(sp);
-        arrival.vertices[statics + i] = sp.decode().normalized();
-      }
-
+      // Classify the full-precision arrival before the snorm16 pack: the
+      // quantization noise crosses the classifier's whole-degree angle
+      // rounding on near-boundary orbits and shatters them into fragments.
       MeshOps::classify_faces_by_topology(arrival, scratch_arena_a,
                                           scratch_arena_b, arena);
       tr.topo = std::move(arrival.topology);
       HS_CHECK(tr.topo.size() == arrival.face_counts.size());
+
+      // Only the star points are stored: the midpoint prefix is already in the
+      // compiled topology, and each star point's collapsed position is its own
+      // corner, reachable through the same instruction hankin_at walks.
+      const size_t statics = tr.hankin.static_vertices.size();
+      HS_CHECK(arrival.vertices.size() >= statics);
+      const size_t dyn = arrival.vertices.size() - statics;
+      tr.hk_final.bind(arena, dyn);
+      for (size_t i = 0; i < dyn; ++i)
+        tr.hk_final.push_back(StarPoint::encode(arrival.vertices[statics + i]));
       tr.landing.hankin = &tr.hankin;
       tr.landing.star_point = tr.hk_final.data();
       tr.landing.star_points = tr.hk_final.size();
