@@ -571,7 +571,7 @@ Available transform functions:
 
 | Color Transform | Description |
 |---|---|
-| `Feedback::hue_fade` (default) | Multiplies by fade, then rotates hue by `style.hue_shift` |
+| `Feedback::hue_fade` (default) | Multiplies by fade, then rotates hue by `style.hue_shift * (1 - style.fade)` per frame. `hue_shift` is the rotation across the tail's `1 / (1 - fade)` brightness-duration. |
 | `Feedback::plain_fade` | Multiplies by fade only — no color shift |
 
 Custom presets can use any function matching the `Feedback::SpaceFn` / `Feedback::ColorFn` signatures.

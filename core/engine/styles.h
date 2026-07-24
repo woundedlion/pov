@@ -91,6 +91,7 @@ inline Pixel plain_fade(const Pixel &p, float fade, const Style &) {
 struct Style {
   // --- Lerpable scalar params ---
   float fade = 0.95f;
+  /** Hue rotation across the feedback tail's brightness-duration, in turns. */
   float hue_shift = 0.0f;
   float amplitude = 0.5f;
   float frequency = 0.125f;
@@ -114,9 +115,8 @@ struct Style {
   NoiseParams *noise = nullptr;
 
   // --- Per-frame derived cache (NOT a preset; refreshed by sync_hue) ---
-  // cos/sin of hue_shift's turn angle plus its cbrt-LMS rotation matrix, read
-  // by hue_fade. Defaults to the identity rotation (angle 0) until the first
-  // sync_hue().
+  // cos/sin of the fade-scaled per-frame hue angle plus its cbrt-LMS rotation
+  // matrix, read by hue_fade. Defaults to identity until the first sync_hue().
   float hue_ca = 1.0f;
   float hue_sa = 0.0f;
   float hue_k[9] = {1.0f, 0.0f, 0.0f, 0.0f, 1.0f, 0.0f, 0.0f, 0.0f, 1.0f};
@@ -144,13 +144,14 @@ struct Style {
   }
 
   /**
-   * @brief Precompute hue_shift's rotation into hue_ca/hue_sa and hue_k.
-   * @details Caches the frame-constant rotation (cos/sin and its cbrt-LMS
-   * matrix) for the per-pixel hue_fade hot path. Call once per frame before
-   * the feedback sampling loop.
+   * @brief Precompute the fade-scaled hue rotation into hue_ca/hue_sa and hue_k.
+   * @details The geometric tail has brightness-duration `1 / (1 - fade)`, so
+   * each frame applies `hue_shift * (1 - fade)` turns. Call once per frame
+   * before the feedback sampling loop.
    */
   void sync_hue() {
-    float angle = hue_shift * (2.0f * PI_F);
+    float frame_shift = hue_shift * (1.0f - fade);
+    float angle = frame_shift * (2.0f * PI_F);
     float ca = fast_cosf(angle);
     float sa = fast_sinf(angle);
     // fast trig is non-orthonormal; renormalize so hue_rotate preserves chroma
@@ -184,7 +185,7 @@ struct Style {
    * @return The ArcingLightning preset Style.
    */
   static constexpr Style ArcingLightning() {
-    return {0.5f, 0.1f, 3.27f, 0.09f, 1.5f, 50.0f, &noise_warp, &hue_fade};
+    return {0.5f, 0.2f, 3.27f, 0.09f, 1.5f, 50.0f, &noise_warp, &hue_fade};
   }
 
   /**
@@ -192,8 +193,8 @@ struct Style {
    * @return The SlowFire preset Style.
    */
   static constexpr Style SlowFire() {
-    return {0.8732f, 0.0167f, 1.56f,       0.5297f,
-            0.1f,    50.0f,   &noise_warp, &hue_fade};
+    return {0.8732f, 0.13170347f, 1.56f,       0.5297f,
+            0.1f,    50.0f,       &noise_warp, &hue_fade};
   }
 
   /**
@@ -201,8 +202,8 @@ struct Style {
    * @return The EnergeticFire preset Style.
    */
   static constexpr Style EnergeticFire() {
-    return {0.8732f, 0.0167f, 1.56f,       0.22087f,
-            0.9f,    50.0f,   &noise_warp, &hue_fade};
+    return {0.8732f, 0.13170347f, 1.56f,       0.22087f,
+            0.9f,    50.0f,       &noise_warp, &hue_fade};
   }
 
   /**
@@ -211,8 +212,8 @@ struct Style {
    * @return The SlowTwist preset Style.
    */
   static constexpr Style SlowTwist() {
-    return {0.8158f, 0.041f,  6.36f,       0.21f,
-            0.0f,    2.1459f, &noise_warp, &hue_fade};
+    return {0.8158f, 0.22258417f, 6.36f,       0.21f,
+            0.0f,    2.1459f,     &noise_warp, &hue_fade};
   }
 
   /**
@@ -220,7 +221,8 @@ struct Style {
    * @return The Churn preset Style.
    */
   static constexpr Style Churn() {
-    return {0.82f, 0.035f, 3.15f, 1.0f, 0.02f, 1.0f, &noise_warp, &hue_fade};
+    return {0.82f, 0.19444443f, 3.15f,       1.0f,
+            0.02f, 1.0f,        &noise_warp, &hue_fade};
   }
 
   /**
@@ -228,7 +230,8 @@ struct Style {
    * @return The Smoke preset Style.
    */
   static constexpr Style Smoke() {
-    return {0.9f, 0.01f, 0.51f, 0.42f, 0.46f, 23.0f, &noise_warp, &hue_fade};
+    return {0.9f,  0.09999997f, 0.51f,       0.42f,
+            0.46f, 23.0f,       &noise_warp, &hue_fade};
   }
 
   /**
@@ -236,8 +239,8 @@ struct Style {
    * @return The SlowDust preset Style.
    */
   static constexpr Style SlowDust() {
-    return {0.83952f, 0.0167f, 1.56f,       0.07237f,
-            0.6f,     50.0f,   &noise_warp, &hue_fade};
+    return {0.83952f, 0.1040628f, 1.56f,       0.07237f,
+            0.6f,     50.0f,      &noise_warp, &hue_fade};
   }
 
   /**
@@ -245,8 +248,8 @@ struct Style {
    * @return The WavyTrails preset Style.
    */
   static constexpr Style WavyTrails() {
-    return {0.7257f, 0.0722f, 1.95f,       0.01f,
-            5.0f,    50.0f,   &noise_warp, &hue_fade};
+    return {0.7257f, 0.26321548f, 1.95f,       0.01f,
+            5.0f,    50.0f,       &noise_warp, &hue_fade};
   }
 
   /**
@@ -254,8 +257,8 @@ struct Style {
    * @return The MeltingHi preset Style.
    */
   static constexpr Style MeltingHi() {
-    return {0.59004f, 0.1f,     4.38f,      0.06346f,
-            0.2f,     22.3554f, &melt_warp, &hue_fade};
+    return {0.59004f, 0.24392626f, 4.38f,      0.06346f,
+            0.2f,     22.3554f,    &melt_warp, &hue_fade};
   }
 
   /**
@@ -263,8 +266,8 @@ struct Style {
    * @return The MeltingLo preset Style.
    */
   static constexpr Style MeltingLo() {
-    return {0.59004f, 0.1f,     1.95f,      0.06346f,
-            0.2f,     22.3554f, &melt_warp, &hue_fade};
+    return {0.59004f, 0.24392626f, 1.95f,      0.06346f,
+            0.2f,     22.3554f,    &melt_warp, &hue_fade};
   }
 
   /**
@@ -272,7 +275,8 @@ struct Style {
    * @return The Frozen preset Style.
    */
   static constexpr Style Frozen() {
-    return {0.58f, 0.03f, 2.73f, 0.07f, 0.0f, 26.0f, &noise_warp, &hue_fade};
+    return {0.58f, 0.07142857f, 2.73f,       0.07f,
+            0.0f,  26.0f,       &noise_warp, &hue_fade};
   }
 
   /**
@@ -280,7 +284,8 @@ struct Style {
    * @return The Shatter preset Style.
    */
   static constexpr Style Shatter() {
-    return {0.58f, 0.03f, 8.21f, 0.01f, 0.0f, 46.0f, &noise_warp, &hue_fade};
+    return {0.58f, 0.07142857f, 8.21f,       0.01f,
+            0.0f,  46.0f,       &noise_warp, &hue_fade};
   }
 
   /**
@@ -288,7 +293,7 @@ struct Style {
    * @return The Drift preset Style.
    */
   static constexpr Style Drift() {
-    return {0.68f, 0.03f, 4.98f, 0.07f, 0.2f, 5.0f, &noise_warp, &hue_fade};
+    return {0.68f, 0.09375f, 4.98f, 0.07f, 0.2f, 5.0f, &noise_warp, &hue_fade};
   }
 
   /**
@@ -296,8 +301,8 @@ struct Style {
    * @return The Melting preset Style.
    */
   static constexpr Style Melting() {
-    return {0.8158f, 0.0766f, 6.36f,      0.014f,
-            1.005f,  42.365f, &melt_warp, &hue_fade};
+    return {0.8158f, 0.41585237f, 6.36f,      0.014f,
+            1.005f,  42.365f,     &melt_warp, &hue_fade};
   }
 
   /**
@@ -314,7 +319,7 @@ struct Style {
 // Style's same-typed scalar members would silently reassign the positional
 // preset literals, which this catches at compile time.
 static_assert(Style::SlowTwist().fade == 0.8158f &&
-                  Style::SlowTwist().hue_shift == 0.041f &&
+                  Style::SlowTwist().hue_shift == 0.22258417f &&
                   Style::SlowTwist().amplitude == 6.36f &&
                   Style::SlowTwist().frequency == 0.21f &&
                   Style::SlowTwist().speed == 0.0f &&
