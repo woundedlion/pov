@@ -2660,8 +2660,8 @@ inline void test_opleg_dual_bridge_seam_correspondence() {
                                    false,      cen3.data(), &targets};
     OpLeg::BookendClasses bookend3{D.topology.data(), DF};
     OpLeg leg3(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f, leg,
-               cb, handoff3, SWEEP, bookend3, /*bridge_provenance=*/true,
-               /*borrow_seed=*/true);
+               cb, handoff3, SWEEP, bookend3, OpLeg::late_blend_weight,
+               /*bridge_provenance=*/true, /*borrow_seed=*/true);
     const OpLeg::Landing &landing3 = leg3.landing();
     HS_EXPECT_EQ(landing3.faces, nf);
     HS_EXPECT_TRUE(landing3.from_palette != nullptr);
@@ -3122,6 +3122,200 @@ inline void test_opleg_step_leg_smoke() {
 }
 
 /**
+ * @brief Pins the late_blend_weight curve on legs constructed with it, as the
+ *        IslamicStars build scheduler does: every frame up to the final
+ *        LATE_FADE_FRAMES draws the exact from palettes, the fade has visibly
+ *        left them one frame before arrival, and the arrival frame draws the
+ *        exact to palettes — for a hankin leg, a bridge truncate leg, the
+ *        medial, and the reconcile. A ConwayGraph edge leg stays on the
+ *        classic_blend default: its colour has left `from` by mid-leg.
+ */
+inline void test_opleg_build_late_fade() {
+  using Animation::OpLeg;
+  reset_globals();
+  configure_arenas(GLOBAL_ARENA_SIZE - 120 * 1024 - 74 * 1024, 120 * 1024,
+                   74 * 1024);
+  hs::random().seed(2026u);
+
+  Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
+  MeshPaletteBank bank;
+  bank.bake_all(bank_arena);
+
+  struct FadeFx : public Effect {
+    FadeFx() : Effect(288, 144) {}
+    void draw_frame() override {}
+  };
+  FadeFx fx;
+
+  // LUT grid-aligned sample coordinates for exact ramp-color comparisons.
+  constexpr float SAMPLES[] = {0.0f, 0.5f, 1.0f};
+  const OpLeg::Landing *lp = nullptr;
+  std::vector<char> all_from, all_to; // per drawn frame: exact from/to palettes
+  auto matches = [&](const OpLeg::Shading &sh, size_t f, uint8_t pal) {
+    for (float t : SAMPLES) {
+      const Color4 got = sh.ramps[sh.face_ramp[f]].get(t);
+      const Color4 exp = bank.bank.entries[pal].get(t);
+      if (got.color.r != exp.color.r || got.color.g != exp.color.g ||
+          got.color.b != exp.color.b)
+        return false;
+    }
+    return true;
+  };
+  auto cb = [&](Canvas &, const MeshState &, const OpLeg::Shading &sh) {
+    bool from_ok = true, to_ok = true;
+    for (size_t f = 0; f < sh.faces; ++f) {
+      const uint8_t from = lp->from_palette[f];
+      const uint8_t to = lp->to_palette[wrap(lp->topology[f], OpLeg::PALETTES)];
+      from_ok = from_ok && matches(sh, f, from);
+      to_ok = to_ok && matches(sh, f, to);
+    }
+    all_from.push_back(from_ok);
+    all_to.push_back(to_ok);
+  };
+  auto divergent_faces = [&]() {
+    int n = 0;
+    for (size_t f = 0; f < lp->faces; ++f)
+      if (lp->from_palette[f] !=
+          lp->to_palette[wrap(lp->topology[f], OpLeg::PALETTES)])
+        ++n;
+    return n;
+  };
+  auto run_frames = [&](OpLeg &leg, int frames) {
+    all_from.clear();
+    all_to.clear();
+    lp = &leg.landing();
+    HS_EXPECT_GT(divergent_faces(), 0);
+    for (int f = 0; f < frames; ++f) {
+      {
+        Canvas c(fx);
+        leg.step(c);
+      }
+      fx.advance_display();
+    }
+    HS_EXPECT_EQ(all_from.size(), (size_t)frames);
+  };
+  auto check_late = [&](const char *label, OpLeg &&leg, int frames) {
+    const int failed_before = hs_test::stats().failed;
+    run_frames(leg, frames);
+    // Hold: the exact from palettes until the final LATE_FADE_FRAMES.
+    for (int f = 0; f < frames - OpLeg::LATE_FADE_FRAMES; ++f)
+      HS_EXPECT_TRUE(all_from[f]);
+    // The fade has visibly left `from` one frame before arrival...
+    HS_EXPECT_TRUE(!all_from[frames - 2]);
+    // ...and lands exactly on `to`.
+    HS_EXPECT_TRUE(all_to[frames - 1]);
+    std::printf("  [late fade] %s: F=%zu holds `from` %d frames, lands `to` "
+                "at %d%s\n",
+                label, lp->faces, frames - OpLeg::LATE_FADE_FRAMES, frames,
+                hs_test::stats().failed != failed_before ? " FAILED" : "");
+  };
+
+  constexpr int FRAMES = 16;
+
+  {
+    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+    PolyMesh dodeca;
+    build_solid<Solids::Dodecahedron>(dodeca, leg_arena);
+    uint8_t pal[16], sides[16];
+    for (size_t f = 0; f < dodeca.face_counts.size(); ++f) {
+      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+      sides[f] = dodeca.face_counts[f];
+    }
+    OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
+                                  dodeca.face_counts.size(), false};
+    using Solids::IslamicStarPatterns::D2R;
+    OpLeg leg(dodeca, OpLeg::THETA_EPS, 62.0f * D2R, leg_arena, cb, handoff,
+              FRAMES, OpLeg::BookendClasses{nullptr, 0},
+              OpLeg::late_blend_weight);
+    check_late("hankin", std::move(leg), FRAMES);
+  }
+
+  {
+    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+    Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
+    Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, leg_arena);
+    PolyMesh D =
+        Solids::finalize_solid(MeshOps::dual(cube, aux, temp), leg_arena);
+    uint8_t pal[16];
+    for (size_t f = 0; f < D.face_counts.size(); ++f)
+      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+    OpLeg::PaletteHandoff handoff{&bank.bank, pal, nullptr,
+                                  D.face_counts.size(), false};
+    OpLeg leg(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f,
+              leg_arena, cb, handoff, FRAMES, OpLeg::BookendClasses{nullptr, 0},
+              OpLeg::late_blend_weight,
+              /*bridge_provenance=*/true, /*borrow_seed=*/true);
+    check_late("bridge truncate", std::move(leg), FRAMES);
+  }
+
+  {
+    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, leg_arena);
+    const size_t nf = cube.face_counts.size() + cube.vertices.size();
+    uint8_t pal[16];
+    for (size_t f = 0; f < nf; ++f)
+      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+    OpLeg::PaletteHandoff handoff{&bank.bank, pal, nullptr, nf, false};
+    OpLeg leg(cube, OpLeg::MedialTag{}, leg_arena, cb, handoff, FRAMES,
+              OpLeg::BookendClasses{nullptr, 0}, OpLeg::late_blend_weight);
+    check_late("medial", std::move(leg), FRAMES);
+  }
+
+  {
+    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, leg_arena);
+    uint8_t pal[16];
+    for (size_t f = 0; f < cube.face_counts.size(); ++f)
+      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+    OpLeg::PaletteHandoff handoff{&bank.bank, pal, nullptr,
+                                  cube.face_counts.size(), false};
+    OpLeg leg(cube, cube.vertices.data(), OpLeg::ReconcileTag{}, leg_arena, cb,
+              handoff, FRAMES, OpLeg::BookendClasses{nullptr, 0},
+              OpLeg::late_blend_weight);
+    check_late("reconcile", std::move(leg), FRAMES);
+  }
+
+  // Control: a ConwayGraph edge leg keeps the classic_blend default — exact
+  // `from` at frame 1, moving by mid-leg (well before the late-fade window),
+  // exact `to` at arrival.
+  {
+    const int failed_before = hs_test::stats().failed;
+    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, leg_arena);
+    uint8_t pal[16], sides[16];
+    for (size_t f = 0; f < cube.face_counts.size(); ++f) {
+      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+      sides[f] = cube.face_counts[f];
+    }
+    const int edge = [] {
+      for (int e = 0; e < ConwayGraph::NUM_EDGES; ++e)
+        if (ConwayGraph::EDGES[e].from_node == ConwayGraph::CUBE &&
+            ConwayGraph::EDGES[e].to_node == ConwayGraph::TRUNCATED_CUBE)
+          return e;
+      return -1;
+    }();
+    HS_EXPECT_GE(edge, 0);
+    OpLeg::PaletteHandoff handoff{&bank.bank, pal, sides,
+                                  cube.face_counts.size(), false};
+    constexpr int EDGE_FRAMES = 24;
+    OpLeg leg(cube, ConwayGraph::EDGES[edge], false, leg_arena, cb, handoff,
+              EDGE_FRAMES, 0);
+    run_frames(leg, EDGE_FRAMES);
+    HS_EXPECT_TRUE(all_from[0]);
+    HS_EXPECT_TRUE(!all_from[EDGE_FRAMES / 2 - 1]);
+    HS_EXPECT_TRUE(all_to[EDGE_FRAMES - 1]);
+    std::printf("  [late fade] edge control: F=%zu mid-leg blend intact%s\n",
+                lp->faces,
+                hs_test::stats().failed != failed_before ? " FAILED" : "");
+  }
+}
+
+/**
  * @brief Gates the recipe steps no leg kind covers and reports the clamp
  *        consequence the gate exists to avoid.
  */
@@ -3384,26 +3578,28 @@ inline ChainPeaks replay_build_chain(const char *name,
                        GATE_HALF_FRAMES, bookend);
         case Solids::Op::HANKIN:
           return OpLeg(cur, 0.0f, steps[k].param, persistent_arena, cb, handoff,
-                       leg_frames[k], bookend);
+                       leg_frames[k], bookend, OpLeg::late_blend_weight);
         case Solids::Op::AMBO:
           return OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f, 0.0f,
                        0.0f, persistent_arena, cb, handoff, leg_frames[k],
-                       bookend);
+                       bookend, OpLeg::late_blend_weight);
         case Solids::Op::TRUNCATE:
           return OpLeg(cur, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
                        steps[k].param, 0.0f, 0.0f, persistent_arena, cb,
-                       handoff, leg_frames[k], bookend);
+                       handoff, leg_frames[k], bookend,
+                       OpLeg::late_blend_weight);
         case Solids::Op::SNUB:
           return OpLeg(cur, ConwayGraph::MorphOp::SNUB, 0.0f, steps[k].param,
                        0.0f, steps[k].twist, persistent_arena, cb, handoff,
-                       leg_frames[k], bookend);
+                       leg_frames[k], bookend, OpLeg::late_blend_weight);
         case Solids::Op::CHAMFER:
           return OpLeg(cur, ConwayGraph::MorphOp::CHAMFER, 0.0f, steps[k].param,
                        0.0f, 0.0f, persistent_arena, cb, handoff, leg_frames[k],
-                       bookend);
+                       bookend, OpLeg::late_blend_weight);
         default:
           return OpLeg(cur, static_cast<int>(steps[k].param), persistent_arena,
-                       cb, handoff, leg_frames[k], bookend);
+                       cb, handoff, leg_frames[k], bookend,
+                       OpLeg::late_blend_weight);
         }
       };
       OpLeg leg = make_leg();
@@ -3746,6 +3942,7 @@ inline int run_conway_morph_tests() {
   test_opleg_dual_bridge_seam_correspondence();
   test_opleg_step_leg_smoke();
   test_opleg_gated_swap_smoke();
+  test_opleg_build_late_fade();
   test_unsweepable_recipe_steps_are_gated();
 
   test_recipe_chain_build_replay();

@@ -222,13 +222,12 @@ public:
    * count mid-leg). Measured sufficient for every Phase-1 leg. */
   static constexpr float K_EPS = 0.005f;
 
-  /** Frames over which a gated leg's colour diverges from the held source
-   * palette to its target (late_blend_weight). Colour holds at `from` until this
-   * many frames remain, then ramps to `to` at the arrival. Keyed off
-   * frames-from-the-end so the window is the same few frames on any gate length
-   * (a gate leg is ~13 frames), which is what removes the colour jump: the
-   * partition opens in the colour already painted where it lands and diverges
-   * only at the very end of the leg. */
+  /** Frames over which a late-fading leg's colour diverges from the held
+   * source palette to its target (late_blend_weight). Colour holds at `from`
+   * until this many frames remain, then ramps to `to` at the arrival. Keyed
+   * off frames-from-the-end so the window is the same few frames on any leg
+   * length: the leg's whole colour movement lands at its very end instead of
+   * drifting mid-morph. */
   static constexpr int LATE_FADE_FRAMES = 4;
 
   /**
@@ -251,6 +250,14 @@ public:
    */
   using MorphDrawFn =
       StoredFunctionRef<void(Canvas &, const MeshState &, const Shading &)>;
+
+  /**
+   * @brief Crossfade-weight curve of a swept leg: resolved weight in [0, 1]
+   * for a 1-based leg frame over the whole leg duration (sweep plus settle).
+   * Supplied at construction (classic_blend default, late_blend_weight for the
+   * build legs), mirroring easing_fn.
+   */
+  using BlendFn = float (*)(int frame, int duration);
 
   /**
    * @brief Palette provenance of the departed node (spec sections 2.5/2.6).
@@ -358,15 +365,15 @@ public:
    * @param settle_frames Relax-slerp frames (S); 0 unless the edge settles.
    * @param bookend Bookend grouping of the arrival node (target keying);
    * defaults to the swept-classification fallback.
+   * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep parameter.
    */
   HS_COLD_MEMBER
-  OpLeg(const PolyMesh &seed, const ConwayGraph::EdgeSpec &edge,
-              bool reverse, Arena &arena, MorphDrawFn draw,
-              const PaletteHandoff &handoff, int sweep_frames,
-              int settle_frames,
-              const BookendClasses &bookend = BookendClasses{nullptr, 0},
-              EasingFn easing_fn = ease_in_out_sin)
+  OpLeg(const PolyMesh &seed, const ConwayGraph::EdgeSpec &edge, bool reverse,
+        Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
+        int sweep_frames, int settle_frames,
+        const BookendClasses &bookend = BookendClasses{nullptr, 0},
+        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames + settle_frames, false),
         easing_fn(easing_fn), draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -386,6 +393,7 @@ public:
     tr.sweep_frames = sweep_frames;
     tr.settle_frames = settle_frames;
     tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
 
     // Clamp both endpoints inside the topology-constant open interval; the
     // truncate upper clamp dodges the ambo short-circuit at exactly 0.5, and
@@ -426,6 +434,7 @@ public:
    * @param sweep_frames Operator-sweep frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
+   * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep parameter.
    */
   HS_COLD_MEMBER
@@ -433,8 +442,8 @@ public:
         float t_end, float twist_start, float twist_end, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        bool bridge_provenance = false, bool borrow_seed = false,
-        EasingFn easing_fn = ease_in_out_sin)
+        BlendFn blend_fn = classic_blend, bool bridge_provenance = false,
+        bool borrow_seed = false, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -459,6 +468,7 @@ public:
     tr.op = op;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
 
     // Truncate births below T_EPS when the arrival is itself below T_EPS, so a
     // 0.01 target sweeps from a smaller positive birth instead of clamping both
@@ -506,13 +516,14 @@ public:
    * @param sweep_frames Angle-sweep frames (N).
    * @param bookend Bookend grouping of the arrival node (target keying);
    * defaults to the swept-classification fallback.
+   * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the sweep angle.
    */
   HS_COLD_MEMBER
   OpLeg(const PolyMesh &seed, float theta_start, float theta_end, Arena &arena,
         MorphDrawFn draw, const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        EasingFn easing_fn = ease_in_out_sin)
+        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -532,6 +543,7 @@ public:
     tr.kind = LegKind::HANKIN_SWEEP;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
 
     // Hankin legs sweep the slerp fraction, not the contact angle: re-solving
     // the contact-plane intersection per frame sends star points on geodesic
@@ -608,6 +620,7 @@ public:
    * @param sweep_frames Slerp frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
+   * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the slerp fraction.
    * @note relax preserves vertex count and vertex order, so the leg needs no
    * correspondence pass and its topology is constant by construction.
@@ -616,7 +629,7 @@ public:
   OpLeg(const PolyMesh &seed, int iterations, Arena &arena, MorphDrawFn draw,
         const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        EasingFn easing_fn = ease_in_out_sin)
+        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -635,6 +648,7 @@ public:
     tr.kind = LegKind::RELAX_SLERP;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
     tr.t_start = 0.0f;
     tr.t_end = 1.0f;
 
@@ -678,6 +692,7 @@ public:
    * @param sweep_frames Slerp frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying);
    * defaults to the swept-classification fallback.
+   * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the slerp fraction.
    * @note The connectivity is ambo(P) exactly, so the leg holds one fixed
    * emission order and every medial face keeps its identity across the slerp;
@@ -688,7 +703,7 @@ public:
   OpLeg(const PolyMesh &seed, MedialTag, Arena &arena, MorphDrawFn draw,
         const PaletteHandoff &handoff, int sweep_frames,
         const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        EasingFn easing_fn = ease_in_out_sin)
+        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -701,6 +716,7 @@ public:
     tr.kind = LegKind::MEDIAL_SLERP;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
     tr.t_start = 0.0f;
     tr.t_end = 1.0f;
 
@@ -775,6 +791,7 @@ public:
    * one face per identity face).
    * @param sweep_frames Slerp frames (N).
    * @param bookend Bookend grouping of the arrival mesh (target keying).
+   * @param blend_fn Crossfade-weight curve.
    * @param easing_fn Easing applied to the slerp fraction.
    * @note Identical connectivity is held fixed and only the positions move, so
    * the leg reuses the MEDIAL_SLERP step path verbatim; the caller owns the
@@ -785,7 +802,7 @@ public:
   OpLeg(const PolyMesh &from_mesh, const Vector *to_positions, ReconcileTag,
         Arena &arena, MorphDrawFn draw, const PaletteHandoff &handoff,
         int sweep_frames, const BookendClasses &bookend = BookendClasses{nullptr, 0},
-        EasingFn easing_fn = ease_in_out_sin)
+        BlendFn blend_fn = classic_blend, EasingFn easing_fn = ease_in_out_sin)
       : AnimationBase(sweep_frames, false), easing_fn(easing_fn),
         draw_fn(draw) {
     HS_CHECK(sweep_frames >= 1, "OpLeg needs a positive sweep length");
@@ -798,6 +815,7 @@ public:
     tr.kind = LegKind::MEDIAL_SLERP;
     tr.sweep_frames = sweep_frames;
     tr.bank = handoff.bank;
+    tr.blend_fn = blend_fn;
     tr.t_start = 0.0f;
     tr.t_end = 1.0f;
 
@@ -955,9 +973,7 @@ public:
       }
     }
 
-    finish_frame(canvas, swept,
-                 blend_weight(static_cast<float>(frame) /
-                              static_cast<float>(duration)));
+    finish_frame(canvas, swept, tr.blend_fn(frame, duration));
   }
 
   /**
@@ -1003,13 +1019,24 @@ public:
   }
 
   /**
-   * @brief Late-fade crossfade weight for the gated legs: exactly 0 until the
-   * final LATE_FADE_FRAMES of the leg, then smoothstep to exactly 1 at the
-   * arrival frame.
+   * @brief Mid-leg crossfade weight (spec 2.6), the swept ctors' default:
+   * exactly 0 through the first 20% of the leg, smoothstep to exactly 1 by
+   * 80%.
    * @param frame 1-based leg frame (1..duration).
-   * @param duration Leg length in frames.
-   * @details Holds the inherited source palette across the swap and most of the
-   * gate, so the partition changes topology without a colour jump, then
+   * @param duration Whole leg length in frames (sweep plus settle).
+   */
+  static float classic_blend(int frame, int duration) {
+    return blend_weight(static_cast<float>(frame) /
+                        static_cast<float>(duration));
+  }
+
+  /**
+   * @brief Late-fade crossfade weight (the build legs and the gate): exactly 0
+   * until the final LATE_FADE_FRAMES of the leg, then smoothstep to exactly 1
+   * at the arrival frame.
+   * @param frame 1-based leg frame (1..duration).
+   * @param duration Whole leg length in frames (sweep plus settle).
+   * @details Holds the inherited source palette through most of the leg, then
    * diverges to the target only over the last few frames. Reaching exactly 1 on
    * the final frame lands the leg on its target colour before the next leg
    * departs.
@@ -1076,6 +1103,7 @@ private:
     uint8_t ramp_to[MAX_BLEND_PAIRS] = {};   /**< Per-pair to palette. */
     int num_ramps = 0;                       /**< Distinct pair count. */
     float w_lo = 0.0f, w_hi = 1.0f; /**< Chained-leg blend-weight range. */
+    BlendFn blend_fn = classic_blend; /**< Swept crossfade curve. */
     Landing landing; /**< Arrival data exposed to the effect. */
   };
 
@@ -1400,9 +1428,9 @@ private:
    * draw.
    * @param canvas The canvas passed through to the draw callback.
    * @param swept This frame's swept mesh (scratch-backed).
-   * @param w Crossfade weight in [0, 1] the caller already resolved (blend_weight
-   * for the swept kinds, late_blend_weight for the gate); rebased through the
-   * leg's [w_lo, w_hi] share here.
+   * @param w Crossfade weight in [0, 1] the caller already resolved (the leg's
+   * blend_fn for the swept kinds, late_blend_weight for the gate); rebased
+   * through the leg's [w_lo, w_hi] share here.
    * @param gain Shading gain handed to the draw callback.
    * @param seed_side Draw the gate's seed-side tables (GATED_SWAP only): the
    * seed classification and its identity ramp table, which w == 0 leaves at the
@@ -1625,8 +1653,7 @@ private:
   }
 
   /**
-   * @brief Crossfade weight (spec 2.6): exactly 0 through the first 20% of the
-   * leg, smoothstep to exactly 1 by 80%.
+   * @brief Crossfade weight at fraction p of the leg (classic_blend's curve).
    */
   static float blend_weight(float p) {
     constexpr float IN = 0.2f, OUT = 0.8f;
