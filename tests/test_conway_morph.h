@@ -3162,30 +3162,24 @@ inline void test_opleg_build_immutable_colours() {
     }
     HS_EXPECT_EQ(all_from.size(), (size_t)frames);
   };
-  // Newborn cohorts: each distinct birth class among faces [prev_faces,
-  // faces), ascending class id, takes the next wrapping-counter entry of the
-  // leg's palette order.
+  // Newborn cohorts: the leg advanced the counter by its cohort count and
+  // every newborn wears one of exactly those consumed palette-order entries.
+  // The cohort key itself (birth class, vertex-signature refinement,
+  // perceptual grouping) is the engine's; the octa block below pins its
+  // collapse exactly.
   auto check_newborn_cohorts = [&](size_t prev_faces, uint32_t start,
                                    uint32_t end) {
-    uint32_t ord = start;
-    int prev_cls = -1;
-    for (;;) {
-      int cls = -1;
-      for (size_t f = prev_faces; f < lp->faces; ++f) {
-        const int c = lp->topology[f];
-        if (c > prev_cls && (cls < 0 || c < cls))
-          cls = c;
-      }
-      if (cls < 0)
-        break;
-      for (size_t f = prev_faces; f < lp->faces; ++f)
-        if (lp->topology[f] == cls)
-          HS_EXPECT_EQ((int)lp->from_palette[f],
-                       (int)lp->to_palette[ord % OpLeg::PALETTES]);
-      ++ord;
-      prev_cls = cls;
+    if (lp->faces == prev_faces) {
+      HS_EXPECT_EQ(end, start);
+      return;
     }
-    HS_EXPECT_EQ(end, ord);
+    HS_EXPECT_GT(end, start);
+    HS_EXPECT_LE(end - start, static_cast<uint32_t>(lp->faces - prev_faces));
+    bool consumed[OpLeg::PALETTES] = {};
+    for (uint32_t i = start; i < end && i - start < OpLeg::PALETTES; ++i)
+      consumed[lp->to_palette[i % OpLeg::PALETTES]] = true;
+    for (size_t f = prev_faces; f < lp->faces; ++f)
+      HS_EXPECT_TRUE(consumed[lp->from_palette[f]]);
   };
   auto check_immutable = [&](const char *label, OpLeg &&leg, int frames,
                              size_t prev_faces, const uint8_t *prev_pal,
@@ -3249,8 +3243,97 @@ inline void test_opleg_build_immutable_colours() {
               leg_arena, cb, handoff, FRAMES, OpLeg::BookendClasses{nullptr, 0},
               OpLeg::classic_blend,
               /*bridge_provenance=*/true, /*borrow_seed=*/true);
+    // The octahedron's six corners share one vertex signature, so the corner
+    // suffix is exactly one cohort: one counter entry, one shared palette.
+    HS_EXPECT_EQ(counter, 2u);
+    const OpLeg::Landing &octa_landing = leg.landing();
+    for (size_t f = D.face_counts.size(); f < octa_landing.faces; ++f)
+      HS_EXPECT_EQ((int)octa_landing.from_palette[f],
+                   (int)octa_landing.to_palette[1 % OpLeg::PALETTES]);
     check_immutable("bridge truncate", std::move(leg), FRAMES,
                     D.face_counts.size(), pal, 1, counter);
+  }
+
+  {
+    // Gated dual births: dual(kis(cube)) is the truncated octahedron — its
+    // eight hexagons open on the cube-corner vertices (valence 6, one
+    // signature), its six squares on the kis apexes (valence 4, another).
+    // Exactly two cohorts, one counter entry each, keyed through the vertex
+    // signatures in dual's emission order.
+    const int failed_before = hs_test::stats().failed;
+    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+    Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
+    Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+    PolyMesh cube;
+    build_solid<Solids::Cube>(cube, leg_arena);
+    PolyMesh K =
+        Solids::finalize_solid(MeshOps::kis(cube, aux, temp), leg_arena);
+    PolyMesh D;
+    {
+      ScratchScope ta(aux);
+      D = Solids::finalize_solid(MeshOps::dual(K, aux, temp), leg_arena);
+    }
+    uint8_t pal[32];
+    for (size_t f = 0; f < K.face_counts.size(); ++f)
+      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+    uint32_t counter = 2;
+    OpLeg::PaletteHandoff handoff{
+        &bank.bank, pal,     nullptr, K.face_counts.size(),
+        false,      nullptr, nullptr, /*immutable=*/true,
+        &counter};
+    OpLeg leg(K, OpLeg::SwapOp::DUAL, leg_arena, cb, handoff, 4);
+    HS_EXPECT_EQ(counter, 4u);
+    const OpLeg::Landing &l = leg.landing();
+    HS_EXPECT_EQ(l.faces, D.face_counts.size());
+    uint8_t deg_pal[2][2] = {}; // [squares|hexagons][palette, seen]
+    bool consistent = true;
+    for (size_t f = 0; f < l.faces; ++f) {
+      uint8_t (&slot)[2] = deg_pal[D.face_counts[f] == 6];
+      if (!slot[1]) {
+        slot[0] = l.from_palette[f];
+        slot[1] = 1;
+      } else if (slot[0] != l.from_palette[f]) {
+        consistent = false;
+      }
+    }
+    // Each degree block wears one palette, the blocks differ, and both wear
+    // exactly the two consumed palette-order entries.
+    HS_EXPECT_TRUE(consistent && deg_pal[0][1] && deg_pal[1][1]);
+    HS_EXPECT_TRUE(deg_pal[0][0] != deg_pal[1][0]);
+    for (int d = 0; d < 2; ++d)
+      HS_EXPECT_TRUE(deg_pal[d][0] == l.to_palette[2 % OpLeg::PALETTES] ||
+                     deg_pal[d][0] == l.to_palette[3 % OpLeg::PALETTES]);
+    std::printf("  [immutable] gated dual births: F=%zu in 2 signature "
+                "cohorts%s\n",
+                l.faces,
+                hs_test::stats().failed != failed_before ? " FAILED" : "");
+  }
+
+  {
+    // Gated kis births: kis children are cohorts keyed on their colour group
+    // alone — kis(dodecahedron) is one congruence class, so one cohort.
+    const int failed_before = hs_test::stats().failed;
+    Arena leg_arena(morph_target_buf, sizeof(morph_target_buf));
+    PolyMesh dodeca;
+    build_solid<Solids::Dodecahedron>(dodeca, leg_arena);
+    uint8_t pal[16];
+    for (size_t f = 0; f < dodeca.face_counts.size(); ++f)
+      pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+    uint32_t counter = 1;
+    OpLeg::PaletteHandoff handoff{
+        &bank.bank, pal,     nullptr, dodeca.face_counts.size(),
+        false,      nullptr, nullptr, /*immutable=*/true,
+        &counter};
+    OpLeg leg(dodeca, OpLeg::SwapOp::KIS, leg_arena, cb, handoff, 4);
+    HS_EXPECT_EQ(counter, 2u);
+    const OpLeg::Landing &l = leg.landing();
+    HS_EXPECT_EQ(l.faces, dodeca.faces.size());
+    for (size_t f = 0; f < l.faces; ++f)
+      HS_EXPECT_EQ((int)l.from_palette[f],
+                   (int)l.to_palette[1 % OpLeg::PALETTES]);
+    std::printf("  [immutable] gated kis births: F=%zu in 1 cohort%s\n",
+                l.faces,
+                hs_test::stats().failed != failed_before ? " FAILED" : "");
   }
 
   {
@@ -3390,6 +3473,8 @@ struct ChainPeaks {
   size_t legs = 0;       /**< Lowered primitive step count. */
   size_t faces = 0;      /**< Face count of the finished solid. */
   int palettes = 0;       /**< Distinct palettes on the finished shape. */
+  int final_classes = 0; /**< Distinct newborn classes on the final leg. */
+  int final_cohorts = 0; /**< Counter entries the final leg consumed. */
   bool supported = false; /**< Every lowered step has a leg kind. */
 };
 
@@ -3488,12 +3573,10 @@ inline ChainPeaks replay_build_chain(const char *name,
     Vector prev_centroid[MAX_FACES];
     uint8_t carried_to[MAX_FACES] = {};
     // Birth-leg tracking for the symmetry pin: 0 = seed face, k + 1 = born on
-    // leg k. Partition legs keep no emission-order identity, so chains with
-    // one skip the pin.
+    // leg k. A partition leg rebirths its whole child list, so its faces all
+    // carry its own leg id and the pin covers gated chains too.
     uint8_t birth_leg[MAX_FACES] = {};
-    bool pin_births = supported;
-    for (size_t k = 0; k < count; ++k)
-      pin_births = pin_births && !gated[k];
+    const bool pin_births = supported;
     std::vector<int> full_topo;
     const OpLeg::Landing *prev_landing = nullptr;
     PolyMesh next;
@@ -3673,12 +3756,10 @@ inline ChainPeaks replay_build_chain(const char *name,
 
       // The immutable carry: a surviving face departs the next leg in exactly
       // the palette it wore here, so its colour is its birth colour for the
-      // build's whole life.
+      // build's whole life. A partition op keeps no emission-order
+      // correspondence to its seed: it discards every carried face, so its
+      // whole child list is births (the cohort block below).
       HS_EXPECT_LE(landing.faces, MAX_FACES);
-      // A partition op keeps no emission-order correspondence to its seed, so
-      // its from-palettes are the provenance mapping's, not the prefix's; what
-      // must hold is that every one of them is a palette the previous leg
-      // actually wore somewhere.
       if (!supported) {
         // A clamped leg lands somewhere other than its clean endpoint, so
         // neither the palette correspondence nor the closing handoff below is
@@ -3686,39 +3767,48 @@ inline ChainPeaks replay_build_chain(const char *name,
       } else if (k > 0 && !gated[k]) {
         for (size_t f = 0; f < prev_faces; ++f)
           HS_EXPECT_EQ((int)landing.from_palette[f], (int)carried_to[f]);
-      } else if (k > 0) {
-        for (size_t f = 0; f < landing.faces; ++f) {
-          bool found = false;
-          for (size_t j = 0; j < prev_faces && !found; ++j)
-            found = landing.from_palette[f] == carried_to[j];
-          HS_EXPECT_TRUE(found);
-        }
       }
-      // Newborn cohorts: each distinct birth class, ascending class id, takes
-      // the next wrapping-counter entry of the shape's palette order.
-      if (supported && !gated[k]) {
-        uint32_t ord = counter_before;
-        int prev_cls = -1;
-        for (;;) {
-          int cls = -1;
-          for (size_t f = prev_faces; f < landing.faces; ++f) {
-            const int c = landing.topology[f];
-            if (c > prev_cls && (cls < 0 || c < cls))
-              cls = c;
-          }
-          if (cls < 0)
-            break;
-          for (size_t f = prev_faces; f < landing.faces; ++f)
-            if (landing.topology[f] == cls)
-              HS_EXPECT_EQ((int)landing.from_palette[f],
-                           (int)order[ord % OpLeg::PALETTES]);
-          ++ord;
-          prev_cls = cls;
+      // Newborn cohorts: the leg advanced the counter by its cohort count
+      // (positive when it birthed faces, at most one per newborn) and every
+      // newborn wears one of exactly those consumed palette-order entries.
+      if (supported) {
+        const size_t births_from = gated[k] ? 0 : prev_faces;
+        const uint32_t consumed = counter - counter_before;
+        if (landing.faces == births_from) {
+          HS_EXPECT_EQ(consumed, 0u);
+        } else {
+          HS_EXPECT_GT(consumed, 0u);
+          HS_EXPECT_LE(consumed,
+                       static_cast<uint32_t>(landing.faces - births_from));
+          bool ok[OpLeg::PALETTES] = {};
+          for (uint32_t i = 0; i < consumed && i < OpLeg::PALETTES; ++i)
+            ok[order[(counter_before + i) % OpLeg::PALETTES]] = true;
+          for (size_t f = births_from; f < landing.faces; ++f)
+            HS_EXPECT_TRUE(ok[landing.from_palette[f]]);
         }
-        HS_EXPECT_EQ(counter, ord);
+        // Final-leg birth grain: distinct newborn classes vs consumed
+        // cohorts (the perceptual-grouping report).
+        if (k + 1 == count) {
+          int classes = 0;
+          int prev_cls = -1;
+          for (;;) {
+            int cls = -1;
+            for (size_t f = births_from; f < landing.faces; ++f) {
+              const int c = landing.topology[f];
+              if (c > prev_cls && (cls < 0 || c < cls))
+                cls = c;
+            }
+            if (cls < 0)
+              break;
+            ++classes;
+            prev_cls = cls;
+          }
+          peaks.final_classes = classes;
+          peaks.final_cohorts = static_cast<int>(consumed);
+        }
       }
       if (pin_births)
-        for (size_t f = prev_faces; f < landing.faces; ++f)
+        for (size_t f = gated[k] ? 0 : prev_faces; f < landing.faces; ++f)
           birth_leg[f] = static_cast<uint8_t>(k + 1);
       for (size_t f = 0; f < landing.faces; ++f)
         carried_to[f] = landing.from_palette[f];
@@ -3837,13 +3927,14 @@ inline ChainPeaks replay_build_chain(const char *name,
     peaks.scratch_b = scratch_arena_b.get_high_water_mark();
     peaks.faces = final_slot.face_counts.size();
     if (gate) {
-      std::printf("  [chain] %s: %zu legs, %d/%d palettes, "
-                  "persistent=%zu B / %zu B, "
+      std::printf("  [chain] %s: %zu legs, %d/%d palettes, final leg %d "
+                  "classes -> %d cohorts, persistent=%zu B / %zu B, "
                   "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
                   name, count, peaks.palettes, OpLeg::PALETTES,
-                  peaks.persistent, (size_t)ISLAMIC_PERSISTENT_BUDGET,
-                  peaks.scratch_a, (size_t)ISLAMIC_SCRATCH_A_BUDGET,
-                  peaks.scratch_b, (size_t)ISLAMIC_SCRATCH_B_BUDGET);
+                  peaks.final_classes, peaks.final_cohorts, peaks.persistent,
+                  (size_t)ISLAMIC_PERSISTENT_BUDGET, peaks.scratch_a,
+                  (size_t)ISLAMIC_SCRATCH_A_BUDGET, peaks.scratch_b,
+                  (size_t)ISLAMIC_SCRATCH_B_BUDGET);
       HS_EXPECT_LE(peaks.persistent, ISLAMIC_PERSISTENT_BUDGET);
       HS_EXPECT_LE(peaks.scratch_a, ISLAMIC_SCRATCH_A_BUDGET);
       HS_EXPECT_LE(peaks.scratch_b, ISLAMIC_SCRATCH_B_BUDGET);
