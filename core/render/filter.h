@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <bitset>
 #include "math/geometry.h"
+#include "math/spherical_field.h"
 #include "color/color.h"
 #include "engine/static_circular_buffer.h"
 #include "render/canvas.h"
@@ -1366,8 +1367,8 @@ namespace Pixel {
  * @brief Style-aware terminal feedback filter that warps the previous frame.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details The Style's spatial warp is computed on a coarse longitude grid
- * with latitude spacing scaled by sin(phi), then bilinearly interpolated.
+ * @details The Style's spatial warp is computed on a spherical latitude-ring
+ * field, then interpolated within and between rings.
  * flush() iterates the full pixel grid within the active clip band. TERMINAL:
  * flush() composites directly into the Canvas and ignores its `pass` callback,
  * so it must be the last Pipeline stage.
@@ -1439,8 +1440,11 @@ public:
   }
 
 private:
+  using SphereField = hs::SphericalFieldLayout<W, H>;
+
   struct CoarseGrid {
     int downsample;
+    SphereField field;
     int columns;
     int field_rows;
   };
@@ -1454,9 +1458,15 @@ private:
     std::bitset<W> coarse_columns_used;
   };
 
+  struct WarpControl {
+    int16_t x;
+    int16_t y;
+  };
+
   struct WarpField {
     int16_t *x_offsets;
     int16_t *y_offsets;
+    WarpControl *controls;
     bool needs_population;
   };
 
@@ -1479,7 +1489,10 @@ private:
     HS_CHECK(cv.width() == W,
              "feedback canvas width %d must equal template W %d", cv.width(),
              W);
-    return {downsample, W / downsample, control_row_count(downsample)};
+    const int south_infill = std::max(downsample - hs::H_OFFSET, 0);
+    return {downsample, SphereField(downsample, downsample, south_infill),
+            W / downsample,
+            SphereField(downsample, downsample, south_infill).ring_count()};
   }
 
   static __attribute__((always_inline)) RenderBand
@@ -1489,9 +1502,8 @@ private:
     band.y_end = clip.render_y_end();
     band.x_clip = clip.x_clip();
 
-    band.field_y_begin =
-        control_row_at_or_before(band.y_begin, grid.downsample);
-    band.field_y_end = control_row_at_or_after(band.y_end - 1, grid.downsample);
+    band.field_y_begin = grid.field.ring_index_at_or_before(band.y_begin);
+    band.field_y_end = grid.field.ring_index_at_or_after(band.y_end - 1);
     HS_CHECK(band.field_y_end >= band.field_y_begin,
              "feedback field band inverted: [%d,%d]", band.field_y_begin,
              band.field_y_end);
@@ -1524,69 +1536,6 @@ private:
     return runs;
   }
 
-  static constexpr float latitude_sine(int y) {
-    constexpr int H_VIRT = H + hs::H_OFFSET;
-    float phi = (static_cast<float>(y) * PI_F) / (H_VIRT - 1);
-    if (phi > PI_F * 0.5f)
-      phi = PI_F - phi;
-    const float phi2 = phi * phi;
-    return phi *
-           (1.0f + phi2 * (-1.0f / 6.0f +
-                           phi2 * (1.0f / 120.0f + phi2 * (-1.0f / 5040.0f +
-                                                           phi2 / 362880.0f))));
-  }
-
-  static constexpr int control_row_step(int y, int downsample) {
-    int step = static_cast<int>(downsample * latitude_sine(y) + 0.5f);
-    if (step < 1)
-      step = 1;
-    if (step > downsample)
-      step = downsample;
-    return step;
-  }
-
-  static constexpr int next_control_row(int y, int downsample) {
-    const int next = y + control_row_step(y, downsample);
-    return next < H ? next : H - 1;
-  }
-
-  static constexpr int control_row_count(int downsample) {
-    int count = 1;
-    for (int y = 0; y < H - 1; ++count)
-      y = next_control_row(y, downsample);
-    return count;
-  }
-
-  static __attribute__((always_inline)) int control_row_y(int field_y,
-                                                          int downsample) {
-    int y = 0;
-    for (int i = 0; i < field_y; ++i)
-      y = next_control_row(y, downsample);
-    return y;
-  }
-
-  static __attribute__((always_inline)) int
-  control_row_at_or_before(int y, int downsample) {
-    int field_y = 0;
-    int control_y = 0;
-    while (control_y < H - 1) {
-      const int next_y = next_control_row(control_y, downsample);
-      if (next_y > y)
-        break;
-      control_y = next_y;
-      ++field_y;
-    }
-    return field_y;
-  }
-
-  static __attribute__((always_inline)) int
-  control_row_at_or_after(int y, int downsample) {
-    int field_y = control_row_at_or_before(y, downsample);
-    if (control_row_y(field_y, downsample) < y)
-      ++field_y;
-    return field_y;
-  }
-
   __attribute__((always_inline))
   WarpField select_warp_field(Arena &scratch, const CoarseGrid &grid,
                               const RenderBand &band) {
@@ -1612,14 +1561,19 @@ private:
     if (!cacheable) {
       const int cells = grid.field_rows * grid.columns;
       return {scratch.allocate_n<int16_t>(cells),
-              scratch.allocate_n<int16_t>(cells), true};
+              scratch.allocate_n<int16_t>(cells),
+              scratch.allocate_n<WarpControl>(grid.field.sample_count()), true};
     }
 
     const bool needs_population =
         !(warp_cache_valid && key == cached_warp_key);
     cached_warp_key = key;
     warp_cache_valid = true;
-    return {cached_warp_x, cached_warp_y, needs_population};
+    return {cached_warp_x, cached_warp_y,
+            needs_population
+                ? scratch.allocate_n<WarpControl>(grid.field.sample_count())
+                : nullptr,
+            needs_population};
   }
 
   __attribute__((always_inline))
@@ -1628,42 +1582,55 @@ private:
     HS_PROFILE(feedback_populate);
     if (!warp.needs_population) return;
 
-    auto populate_row = [&](int y, int field_y) {
-      for (int coarse_x = 0; coarse_x < grid.columns; ++coarse_x) {
-        if (band.x_clip.active && !band.coarse_columns_used[coarse_x])
-          continue;
-        const int x = coarse_x * grid.downsample;
-        Vector distorted;
-        {
-          HS_PROFILE_DEEP(fb_pop_warp);
-          distorted = feedback_style->space_fn(
-              pixel_to_vector<W, H>(x, y), *feedback_style);
+    hs::SphericalField<WarpControl, W, H> compact(warp.controls, grid.field);
+    compact.populate(
+        band.field_y_begin, band.field_y_end,
+        [&](const Vector &position,
+            const typename SphereField::Coordinates &point) {
+          Vector distorted;
+          {
+            HS_PROFILE_DEEP(fb_pop_warp);
+            distorted = feedback_style->space_fn(position, *feedback_style);
+          }
+          HS_PROFILE_DEEP(fb_pop_project);
+          const auto projected = grid.field.project(distorted);
+          float x_offset = projected.x - point.x;
+          const float y_offset = projected.y - point.y;
+          if (x_offset > W * 0.5f)
+            x_offset -= W;
+          else if (x_offset < -W * 0.5f)
+            x_offset += W;
+          return WarpControl{static_cast<int16_t>(hs::clamp(
+                                 x_offset * WARP_SCALE, -32767.0f, 32767.0f)),
+                             static_cast<int16_t>(hs::clamp(
+                                 y_offset * WARP_SCALE, -32767.0f, 32767.0f))};
+        });
+
+    constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
+    constexpr float HALF_WRAP_PERIOD = WRAP_PERIOD * 0.5f;
+    {
+      HS_PROFILE_DEEP(fb_pop_expand);
+      for (int field_y = band.field_y_begin; field_y <= band.field_y_end;
+           ++field_y) {
+        const auto ring = grid.field.ring(field_y);
+        for (int coarse_x = 0; coarse_x < grid.columns; ++coarse_x) {
+          if (band.x_clip.active && !band.coarse_columns_used[coarse_x])
+            continue;
+          const int x = coarse_x * grid.downsample;
+          const auto longitude = grid.field.longitude_bounded(ring, x);
+          const WarpControl a = warp.controls[longitude.left];
+          WarpControl b = warp.controls[longitude.right];
+          float bx = b.x;
+          bx += (bx - a.x > HALF_WRAP_PERIOD)
+                    ? -WRAP_PERIOD
+                    : (bx - a.x < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
+          const int index = field_y * grid.columns + coarse_x;
+          warp.x_offsets[index] = static_cast<int16_t>(
+              hs::lerp(static_cast<float>(a.x), bx, longitude.mix));
+          warp.y_offsets[index] = static_cast<int16_t>(hs::lerp(
+              static_cast<float>(a.y), static_cast<float>(b.y), longitude.mix));
         }
-        HS_PROFILE_DEEP(fb_pop_project);
-        const Spherical spherical(distorted);
-        const float projected_x =
-            (spherical.theta * W) / (2.0f * PI_F);
-        const float projected_y = phi_to_y<H>(spherical.phi);
-        float x_offset = projected_x - x;
-        const float y_offset = projected_y - y;
-        if (x_offset > W * 0.5f)
-          x_offset -= W;
-        else if (x_offset < -W * 0.5f)
-          x_offset += W;
-
-        const int index = field_y * grid.columns + coarse_x;
-        warp.x_offsets[index] = static_cast<int16_t>(
-            hs::clamp(x_offset * WARP_SCALE, -32767.0f, 32767.0f));
-        warp.y_offsets[index] = static_cast<int16_t>(
-            hs::clamp(y_offset * WARP_SCALE, -32767.0f, 32767.0f));
       }
-    };
-
-    int y = control_row_y(band.field_y_begin, grid.downsample);
-    for (int field_y = band.field_y_begin; field_y <= band.field_y_end;
-         ++field_y) {
-      populate_row(y, field_y);
-      y = next_control_row(y, grid.downsample);
     }
   }
 
@@ -1699,10 +1666,8 @@ private:
     const ColumnRuns runs = make_column_runs(band.x_clip);
     int field_y0 = band.field_y_begin;
     int field_y1 = field_y0 + (field_y0 < grid.field_rows - 1 ? 1 : 0);
-    int control_y0 = control_row_y(field_y0, downsample);
-    int control_y1 = field_y1 == field_y0
-                         ? control_y0
-                         : next_control_row(control_y0, downsample);
+    int control_y0 = grid.field.ring(field_y0).y;
+    int control_y1 = grid.field.ring(field_y1).y;
     auto composite_pixels =
         [&](auto &&transform_pixel, auto &&transform_pair, auto pair_pixels) {
       constexpr bool PAIR_PIXELS = decltype(pair_pixels)::value;
@@ -1713,7 +1678,7 @@ private:
           control_y0 = control_y1;
           if (field_y1 < grid.field_rows - 1) {
             ++field_y1;
-            control_y1 = next_control_row(control_y0, downsample);
+            control_y1 = grid.field.ring(field_y1).y;
           }
         }
         // Interpolating outside the populated band silently corrupts pixels.
@@ -1721,10 +1686,11 @@ private:
                  "feedback warp row %d outside populated band [%d,%d]",
                  field_y1, band.field_y_begin, band.field_y_end);
         const int control_height = control_y1 - control_y0;
-        float fy = control_height > 0
-                       ? static_cast<float>(y - control_y0) / control_height
-                       : 0.0f;
-        float wy0 = 1.0f - fy, wy1 = fy;
+        const float fy =
+            control_height > 0
+                ? static_cast<float>(y - control_y0) / control_height
+                : 0.0f;
+        const float wy0 = 1.0f - fy, wy1 = fy;
         const int row0 = field_y0 * coarse_columns;
         const int row1 = field_y1 * coarse_columns;
 
@@ -1733,13 +1699,13 @@ private:
           const int xe = runs.items[r].end;
           int cx0 = xs / downsample;
           int sub = xs - cx0 * downsample;
-          float leftx = 0.0f, slopex = 0.0f, lefty = 0.0f, slopey = 0.0f;
+          float leftx = 0.0f, slopex = 0.0f;
+          float lefty = 0.0f, slopey = 0.0f;
           auto cell = [&]() {
             HS_PROFILE_DEEP(fb_comp_cell);
-            int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
-            int i00 = row0 + cx0, i10 = row0 + cx1;
-            int i01 = row1 + cx0, i11 = row1 + cx1;
-            // An interpolated seam anchor can blend across hemispheres.
+            const int cx1 = (cx0 + 1 < coarse_columns) ? cx0 + 1 : 0;
+            const int i00 = row0 + cx0, i10 = row0 + cx1;
+            const int i01 = row1 + cx0, i11 = row1 + cx1;
             float d00 = x_offsets[i00], d10 = x_offsets[i10];
             float d01 = x_offsets[i01], d11 = x_offsets[i11];
             d10 += (d10 - d00 > HALF_WRAP_PERIOD)
@@ -1768,23 +1734,21 @@ private:
                     INVERSE_WARP_SCALE -
                 lefty;
           };
-          // A clipped run can open mid-cell; the loop only refreshes at sub 0.
-          if (sub != 0) cell();
+          if (sub != 0)
+            cell();
 
           for (int x = xs; x < xe;) {
-            if (sub == 0) cell();
+            if (sub == 0)
+              cell();
 
-            // Two pixels in flight give the in-order FPU two independent
-            // dependency chains to overlap. A pair stays inside one cell so the
-            // coefficients are shared; a ragged tail drops to scalar.
             if constexpr (PAIR_PIXELS) {
               if (downsample - sub >= 2 && xe - x >= 2) {
-                float fx0 = sub * inverse_downsample;
-                float fx1 = (sub + 1) * inverse_downsample;
-                float ddx0 = leftx + slopex * fx0;
-                float ddy0 = lefty + slopey * fx0;
-                float ddx1 = leftx + slopex * fx1;
-                float ddy1 = lefty + slopey * fx1;
+                const float fx0 = sub * inverse_downsample;
+                const float fx1 = (sub + 1) * inverse_downsample;
+                const float ddx0 = leftx + slopex * fx0;
+                const float ddy0 = lefty + slopey * fx0;
+                const float ddx1 = leftx + slopex * fx1;
+                const float ddy1 = lefty + slopey * fx1;
 
                 float sr0, sg0, sb0, sr1, sg1, sb1;
                 {
@@ -1815,14 +1779,17 @@ private:
 
                 x += 2;
                 sub += 2;
-                if (sub == downsample) { sub = 0; ++cx0; }
+                if (sub == downsample) {
+                  sub = 0;
+                  ++cx0;
+                }
                 continue;
               }
             }
 
-            float fx = sub * inverse_downsample;
-            float ddx = leftx + slopex * fx;
-            float ddy = lefty + slopey * fx;
+            const float fx = sub * inverse_downsample;
+            const float ddx = leftx + slopex * fx;
+            const float ddy = lefty + slopey * fx;
 
             float sr, sg, sb;
             {
@@ -1842,7 +1809,10 @@ private:
             dst = opaque ? p : blend(dst, p);
 
             ++x;
-            if (++sub == downsample) { sub = 0; ++cx0; }
+            if (++sub == downsample) {
+              sub = 0;
+              ++cx0;
+            }
           }
         }
       }
@@ -1999,9 +1969,13 @@ private:
   /** @brief Coarse grid downsample the warp cache is sized for (the default
    *  Style's; every preset keeps it). Other values render uncached. */
   static constexpr int CACHE_DOWNSAMPLE = ::Feedback::Style{}.downsample;
-  /** @brief Cell count of the cached metric-adaptive warp grid. */
+  static constexpr int CACHE_SOUTH_INFILL =
+      CACHE_DOWNSAMPLE > hs::H_OFFSET ? CACHE_DOWNSAMPLE - hs::H_OFFSET : 0;
+  /** @brief Cell count of the cached spherical warp field. */
   static constexpr int CACHE_CELLS =
-      (W / CACHE_DOWNSAMPLE) * control_row_count(CACHE_DOWNSAMPLE);
+      (W / CACHE_DOWNSAMPLE) *
+      SphereField(CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE, CACHE_SOUTH_INFILL)
+          .ring_count();
 
 public:
   /** @brief Persistent bytes init_storage() reserves (two int16 warp fields). */

@@ -1374,6 +1374,41 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
   }
 }
 
+/**
+ * @brief Verifies projected pole displacement retains its longitude branch.
+ */
+inline void test_feedback_poles_resolve_one_source_longitude() {
+  constexpr int W = 64, H = 64;
+  PipeFx fx(W, H);
+  ::Feedback::Style style{};
+  style.space_fn = &north_cap_rotation_warp;
+  style.color_fn = &::Feedback::plain_fade;
+  style.fade = 1.0f;
+  style.downsample = 4;
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  {
+    Canvas c(fx);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        c(x, y) = Pixel(static_cast<uint16_t>(x * 900), 0, 0);
+  }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  for (int y : {0, H - 1}) {
+    const uint16_t expected = fx.get_pixel(0, y).r;
+    for (int x = 4; x < W; x += 4)
+      HS_EXPECT_NEAR(fx.get_pixel(x, y).r, expected, 2.0f);
+  }
+}
+
 inline Vector metric_row_test_warp(const Vector &v, const ::Feedback::Style &) {
   const Spherical s(v);
   const float delta = 0.08f * std::sin(s.phi) * std::sin(18.0f * s.phi);
@@ -1383,7 +1418,7 @@ inline Vector metric_row_test_warp(const Vector &v, const ::Feedback::Style &) {
 /**
  * @brief Verifies the feedback row lattice follows its spherical metric.
  */
-inline void test_feedback_metric_control_rows() {
+inline void test_feedback_spherical_ring_control_rows() {
   constexpr int W = 64, H = 64;
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
@@ -1413,105 +1448,167 @@ inline void test_feedback_metric_control_rows() {
   }
   fx.advance_display();
 
-  int controls = 1;
-  for (int y = 0; y < H - 1; ++controls) {
+  constexpr hs::SphericalFieldLayout<W, H> layout(DOWNSAMPLE, DOWNSAMPLE,
+                                                  DOWNSAMPLE);
+  for (int ring_index = 0; ring_index < layout.ring_count(); ++ring_index) {
+    const int y = layout.ring(ring_index).y;
     const Vector warped =
         metric_row_test_warp(pixel_to_vector<W, H>(0, y), style);
     const float expected_y = phi_to_y<H>(Spherical(warped).phi);
     const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
     HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
-
-    int step = static_cast<int>(DOWNSAMPLE * std::sin(y_to_phi<H>(y)) + 0.5f);
-    step = hs::clamp(step, 1, DOWNSAMPLE);
-    HS_EXPECT_GE(step, 1);
-    HS_EXPECT_LE(step, DOWNSAMPLE);
-    y = std::min(y + step, H - 1);
   }
 
   constexpr size_t BYTES_PER_ROW = 2 * (W / DOWNSAMPLE) * sizeof(int16_t);
   HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::STORAGE_BYTES / BYTES_PER_ROW),
-               static_cast<size_t>(controls));
+               static_cast<size_t>(layout.ring_count()));
 }
 
 /**
- * @brief Verifies metric row spacing resolves high-frequency spherical noise.
+ * @brief Verifies the compact ring field has directionally balanced error.
  */
-inline void test_feedback_metric_rows_reduce_angular_error() {
+inline void test_feedback_spherical_field_angular_error() {
   constexpr int W = 288, H = 144;
   constexpr int DOWNSAMPLE = 4;
+  constexpr hs::SphericalFieldLayout<W, H> layout(DOWNSAMPLE, DOWNSAMPLE,
+                                                  DOWNSAMPLE);
+  struct Offset {
+    float x;
+    float y;
+  };
   NoiseParams noise;
-  noise.time = 17.0f;
-
   ::Feedback::Style style{};
   style.noise = &noise;
   style.amplitude = 3.99f;
   style.frequency = 0.37036f;
   style.speed = 2.625f;
   style.scale = 50.0f;
-  style.sync_noise();
+  std::vector<Offset> controls(layout.sample_count());
+  std::vector<Offset> expanded(layout.ring_count() * (W / DOWNSAMPLE));
+  hs::SphericalField<Offset, W, H> field(controls.data(), layout);
+  double east_sq = 0.0;
+  double down_sq = 0.0;
+  double polar_error = 0.0;
+  double equator_error = 0.0;
+  double metric_polar_error = 0.0;
+  double polar_weight = 0.0;
+  double equator_weight = 0.0;
 
-  auto offset_at = [&](int x, int y) {
-    const Vector distorted = style.space_fn(pixel_to_vector<W, H>(x, y), style);
-    const Spherical spherical(distorted);
-    float dx = (spherical.theta * W) / (2.0f * PI_F) - x;
-    if (dx > W * 0.5f)
-      dx -= W;
-    else if (dx < -W * 0.5f)
-      dx += W;
-    return std::array<float, 2>{dx, phi_to_y<H>(spherical.phi) -
-                                        static_cast<float>(y)};
-  };
+  for (int frame = 0; frame < 8; ++frame) {
+    noise.time = 7.0f + frame * 3.25f;
+    style.sync_noise();
+    field.populate(0, layout.ring_count() - 1,
+                   [&](const Vector &position, const auto &point) {
+                     const Spherical warped(style.space_fn(position, style));
+                     float dx = warped.theta * W / (2.0f * PI_F) - point.x;
+                     if (dx > W * 0.5f)
+                       dx -= W;
+                     else if (dx < -W * 0.5f)
+                       dx += W;
+                     return Offset{dx, phi_to_y<H>(warped.phi) - point.y};
+                   });
 
-  auto interpolated = [&](int x, int y, int y0, int y1) {
-    const auto a = offset_at(x, y0);
-    auto b = offset_at(x, y1);
-    if (b[0] - a[0] > W * 0.5f)
-      b[0] -= W;
-    else if (b[0] - a[0] < -W * 0.5f)
-      b[0] += W;
-    const float t = y1 == y0 ? 0.0f : static_cast<float>(y - y0) / (y1 - y0);
-    float source_x = x + hs::lerp(a[0], b[0], t);
-    source_x = std::fmod(source_x, static_cast<float>(W));
-    if (source_x < 0.0f)
-      source_x += W;
-    const float source_y = y + hs::lerp(a[1], b[1], t);
-    return pixel_to_vector<W, H>(source_x, source_y);
-  };
-
-  auto metric_bracket = [&](int y) {
-    int y0 = 0;
-    int y1 = 0;
-    while (y1 < y) {
-      y0 = y1;
-      int step =
-          static_cast<int>(DOWNSAMPLE * std::sin(y_to_phi<H>(y1)) + 0.5f);
-      step = hs::clamp(step, 1, DOWNSAMPLE);
-      y1 = std::min(y1 + step, H - 1);
+    auto circular_lerp = [](const Offset &a, Offset b, float t) {
+      if (b.x - a.x > W * 0.5f)
+        b.x -= W;
+      else if (b.x - a.x < -W * 0.5f)
+        b.x += W;
+      return Offset{hs::lerp(a.x, b.x, t), hs::lerp(a.y, b.y, t)};
+    };
+    for (int ring_index = 0; ring_index < layout.ring_count(); ++ring_index) {
+      const auto ring = layout.ring(ring_index);
+      for (int x = 0; x < W; x += DOWNSAMPLE)
+        expanded[ring_index * (W / DOWNSAMPLE) + x / DOWNSAMPLE] =
+            field.interpolate(ring, x, circular_lerp);
     }
-    return std::array<int, 2>{y0, y1};
-  };
 
-  float metric_error = 0.0f;
-  float fixed_error = 0.0f;
-  int samples = 0;
-  for (int y = DOWNSAMPLE; y < 4 * DOWNSAMPLE; ++y) {
-    const auto metric = metric_bracket(y);
-    const int fixed_y0 = (y / DOWNSAMPLE) * DOWNSAMPLE;
-    const int fixed_y1 = fixed_y0 + DOWNSAMPLE;
-    for (int x = 0; x < W; x += 16) {
-      const Vector exact = style.space_fn(pixel_to_vector<W, H>(x, y), style);
-      metric_error +=
-          angle_between(exact, interpolated(x, y, metric[0], metric[1]));
-      fixed_error +=
-          angle_between(exact, interpolated(x, y, fixed_y0, fixed_y1));
-      ++samples;
-    }
+    auto approximate = [&](int x, int y) {
+      const auto latitude = layout.row(y);
+      const int lower_ring = layout.ring_index_at_or_before(y);
+      const int upper_ring = layout.ring_index_at_or_after(y);
+      const int coarse_x = x / DOWNSAMPLE;
+      const int next_x = coarse_x + 1 < W / DOWNSAMPLE ? coarse_x + 1 : 0;
+      const float fx = static_cast<float>(x % DOWNSAMPLE) / DOWNSAMPLE;
+      const int row0 = lower_ring * (W / DOWNSAMPLE);
+      const int row1 = upper_ring * (W / DOWNSAMPLE);
+      const Offset lower =
+          circular_lerp(expanded[row0 + coarse_x], expanded[row0 + next_x], fx);
+      const Offset upper =
+          circular_lerp(expanded[row1 + coarse_x], expanded[row1 + next_x], fx);
+      const Offset offset = circular_lerp(lower, upper, latitude.mix);
+      float source_x = std::fmod(x + offset.x, static_cast<float>(W));
+      if (source_x < 0.0f)
+        source_x += W;
+      return pixel_to_vector<W, H>(source_x, y + offset.y);
+    };
+
+    auto exact_offset = [&](int x, int y) {
+      const Spherical warped(
+          style.space_fn(pixel_to_vector<W, H>(x, y), style));
+      float dx = warped.theta * W / (2.0f * PI_F) - x;
+      if (dx > W * 0.5f)
+        dx -= W;
+      else if (dx < -W * 0.5f)
+        dx += W;
+      return Offset{dx, phi_to_y<H>(warped.phi) - y};
+    };
+    auto metric_approximate = [&](int x, int y) {
+      int y0 = 0;
+      int y1 = 0;
+      while (y1 < y) {
+        y0 = y1;
+        int step =
+            static_cast<int>(DOWNSAMPLE * std::sin(y_to_phi<H>(y1)) + 0.5f);
+        step = hs::clamp(step, 1, DOWNSAMPLE);
+        y1 = std::min(y1 + step, H - 1);
+      }
+      const int x0 = (x / DOWNSAMPLE) * DOWNSAMPLE;
+      const int x1 = (x0 + DOWNSAMPLE) % W;
+      const float fx = static_cast<float>(x - x0) / DOWNSAMPLE;
+      const float fy = y1 == y0 ? 0.0f : static_cast<float>(y - y0) / (y1 - y0);
+      const Offset lower =
+          circular_lerp(exact_offset(x0, y0), exact_offset(x1, y0), fx);
+      const Offset upper =
+          circular_lerp(exact_offset(x0, y1), exact_offset(x1, y1), fx);
+      const Offset offset = circular_lerp(lower, upper, fy);
+      float source_x = std::fmod(x + offset.x, static_cast<float>(W));
+      if (source_x < 0.0f)
+        source_x += W;
+      return pixel_to_vector<W, H>(source_x, y + offset.y);
+    };
+
+    for (int y = 5; y < 88; y += 2)
+      for (int x = 3; x < W; x += 8) {
+        const Vector source = pixel_to_vector<W, H>(x, y);
+        const Vector exact = style.space_fn(source, style);
+        const Vector got = approximate(x, y);
+        const TangentOffset error =
+            sphere_log(exact, got, tangent_frame<W, H>(x, y));
+        const double area_weight = std::sin(y_to_phi<H>(y));
+        east_sq += area_weight * error.east * error.east;
+        down_sq += area_weight * error.down * error.down;
+        const float angular_error = angle_between(exact, got);
+        if (y < 32) {
+          polar_error += area_weight * angular_error;
+          metric_polar_error +=
+              area_weight * angle_between(exact, metric_approximate(x, y));
+          polar_weight += area_weight;
+        } else if (y >= 56) {
+          equator_error += area_weight * angular_error;
+          equator_weight += area_weight;
+        }
+      }
   }
 
-  metric_error /= samples;
-  fixed_error /= samples;
-  HS_EXPECT_GT(fixed_error, 0.03f);
-  HS_EXPECT_LT(metric_error, fixed_error * 0.5f);
+  const double direction_ratio = east_sq / down_sq;
+  polar_error /= polar_weight;
+  equator_error /= equator_weight;
+  metric_polar_error /= polar_weight;
+  HS_EXPECT_GT(direction_ratio, 0.7);
+  HS_EXPECT_LT(direction_ratio, 1.3);
+  HS_EXPECT_LT(polar_error, equator_error * 1.35);
+  HS_EXPECT_LT(equator_error, polar_error * 1.35);
+  HS_EXPECT_LT(polar_error, metric_polar_error * 1.5);
 }
 
 /**
@@ -2269,8 +2366,9 @@ inline int run_filter_tests() {
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();
   test_feedback_north_cap_uses_exact_control_rows();
-  test_feedback_metric_control_rows();
-  test_feedback_metric_rows_reduce_angular_error();
+  test_feedback_poles_resolve_one_source_longitude();
+  test_feedback_spherical_ring_control_rows();
+  test_feedback_spherical_field_angular_error();
   test_feedback_cached_north_cap_clips_share_control_rows();
   test_feedback_warp_cache_matches_uncached();
   test_feedback_flush_straddled_taps_stay_on_branch();
