@@ -1968,18 +1968,26 @@ private:
     x0 = fast_wrap(x0, W);
     int x1 = fast_wrap(x0 + 1, W);
 
-    ::Pixel p00 = y0 == 0            ? north_pole
-                  : y0 > 0 && y0 < H ? prev[y0 * W + x0]
-                                     : ::Pixel(0, 0, 0);
-    ::Pixel p10 = y0 == 0            ? north_pole
-                  : y0 > 0 && y0 < H ? prev[y0 * W + x1]
-                                     : ::Pixel(0, 0, 0);
-    ::Pixel p01 = y1 == 0            ? north_pole
-                  : y1 > 0 && y1 < H ? prev[y1 * W + x0]
-                                     : ::Pixel(0, 0, 0);
-    ::Pixel p11 = y1 == 0            ? north_pole
-                  : y1 > 0 && y1 < H ? prev[y1 * W + x1]
-                                     : ::Pixel(0, 0, 0);
+    ::Pixel p00, p10, p01, p11;
+    if (y0 > 0 && y1 < H) {
+      p00 = prev[y0 * W + x0];
+      p10 = prev[y0 * W + x1];
+      p01 = prev[y1 * W + x0];
+      p11 = prev[y1 * W + x1];
+    } else {
+      auto load_row = [&](int y, ::Pixel &p0, ::Pixel &p1) {
+        if (y == 0) {
+          p0 = p1 = north_pole;
+        } else if (y > 0 && y < H) {
+          p0 = prev[y * W + x0];
+          p1 = prev[y * W + x1];
+        } else {
+          p0 = p1 = ::Pixel(0, 0, 0);
+        }
+      };
+      load_row(y0, p00, p10);
+      load_row(y1, p01, p11);
+    }
 
     float w00 = (1.0f - fx) * (1.0f - fy);
     float w10 = fx * (1.0f - fy);
