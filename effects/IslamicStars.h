@@ -798,32 +798,38 @@ private:
     case Solids::Op::HANKIN:
       schedule(Animation::OpLeg(build_seed_, 0.0f, step.param,
                                 persistent_arena, draw_build_fn_, handoff,
-                                frames, bookend));
+                                frames, bookend,
+                                Animation::OpLeg::late_blend_weight));
       break;
     case Solids::Op::RELAX:
       schedule(Animation::OpLeg(build_seed_, static_cast<int>(step.param),
                                 persistent_arena, draw_build_fn_, handoff,
-                                frames, bookend));
+                                frames, bookend,
+                                Animation::OpLeg::late_blend_weight));
       break;
     case Solids::Op::AMBO:
       schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::TRUNCATE,
                                 0.0f, 0.5f, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend));
+                                draw_build_fn_, handoff, frames, bookend,
+                                Animation::OpLeg::late_blend_weight));
       break;
     case Solids::Op::TRUNCATE:
       schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::TRUNCATE,
                                 0.0f, step.param, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend));
+                                draw_build_fn_, handoff, frames, bookend,
+                                Animation::OpLeg::late_blend_weight));
       break;
     case Solids::Op::SNUB:
       schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::SNUB, 0.0f,
                                 step.param, 0.0f, step.twist, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend));
+                                draw_build_fn_, handoff, frames, bookend,
+                                Animation::OpLeg::late_blend_weight));
       break;
     case Solids::Op::CHAMFER:
       schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::CHAMFER,
                                 0.0f, step.param, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend));
+                                draw_build_fn_, handoff, frames, bookend,
+                                Animation::OpLeg::late_blend_weight));
       break;
     case Solids::Op::KIS:
       // Dead on the current roster: every standalone kis routes through the dtd
@@ -957,10 +963,11 @@ private:
         dual_bridge_ambo_.face_counts.size()};
     const int frames = dual_sub_frames(0);
     hs::log("Build leg: dual bridge 1/3 truncate->ambo (%d frames)", frames);
-    Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f, 0.5f,
-                         0.0f, 0.0f, persistent_arena, draw_build_fn_, handoff,
-                         frames, bookend, /*bridge_provenance=*/true,
-                         /*borrow_seed=*/true);
+    Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
+                         0.5f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
+                         handoff, frames, bookend,
+                         Animation::OpLeg::late_blend_weight,
+                         /*bridge_provenance=*/true, /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { schedule_dual_medial(); }));
   }
@@ -999,7 +1006,9 @@ private:
     const int frames = dual_sub_frames(1);
     hs::log("Build leg: dual bridge 2/3 medial (%d frames)", frames);
     Animation::OpLeg leg(build_seed_, Animation::OpLeg::MedialTag{},
-                         persistent_arena, draw_build_fn_, handoff, frames);
+                         persistent_arena, draw_build_fn_, handoff, frames,
+                         Animation::OpLeg::BookendClasses{nullptr, 0},
+                         Animation::OpLeg::late_blend_weight);
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { schedule_dual_untruncate(); }));
   }
@@ -1079,8 +1088,9 @@ private:
     hs::log("Build leg: dual bridge 3/3 truncate->dual (%d frames)", frames);
     Animation::OpLeg leg(build_next_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.5f,
                          0.0f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
-                         handoff, frames, bookend, /*bridge_provenance=*/true,
-                         /*borrow_seed=*/true);
+                         handoff, frames, bookend,
+                         Animation::OpLeg::late_blend_weight,
+                         /*bridge_provenance=*/true, /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
     // Rejoin the caller's continuation: finish_build_leg for a lone DUAL, or the
     // next stage of a smooth kis/needle macro.
@@ -1151,6 +1161,7 @@ private:
     Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
                          MACRO_TRUNCATE_T, 0.0f, 0.0f, persistent_arena,
                          draw_build_fn_, handoff, frames, bookend,
+                         Animation::OpLeg::late_blend_weight,
                          /*bridge_provenance=*/true, /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then(std::forward<Then>(then)));
@@ -1291,7 +1302,8 @@ private:
     hs::log("Build leg: reconcile (%d frames)", frames);
     Animation::OpLeg leg(build_seed_, build_next_seed_.vertices.data(),
                          Animation::OpLeg::ReconcileTag{}, persistent_arena,
-                         draw_build_fn_, handoff, frames, bookend);
+                         draw_build_fn_, handoff, frames, bookend,
+                         Animation::OpLeg::late_blend_weight);
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
   }
