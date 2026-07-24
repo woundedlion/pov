@@ -283,6 +283,10 @@ public:
         nullptr; /**< Caller-pinned slot -> target palettes; skips the
                     constructor's shuffle so chained legs share one target
                     set. Null keeps the per-leg shuffle. */
+    bool immutable = false; /**< Birth-colour model (the build chains): every
+                               carried face keeps its from palette (to = from,
+                               so the leg never crossfades) and a newborn face
+                               is born on its class-keyed target. */
   };
 
   /**
@@ -341,7 +345,9 @@ public:
         to_palette{}; /**< Slot -> landed palette index. */
     const uint8_t *from_palette =
         nullptr; /**< Per-swept-face FROM palette id (arena-backed); the next
-                    chained leg's handoff carries these original ids forward. */
+                    chained leg's handoff carries these original ids forward.
+                    On an immutable-handoff leg it is the face's displayed
+                    palette outright (to = from). */
     const CompiledHankin *hankin =
         nullptr; /**< Baked arrival topology (HANKIN_SWEEP legs only, null
                     otherwise); with star_point it rebuilds the arrival mesh
@@ -1691,7 +1697,10 @@ private:
    * a node-prefix departure (prev_faces == survivors) the prefix keeps the
    * exact emission identity, and each newborn class inherits its first face's
    * nearest departed palette, so T_EPS-wide births open in the underlying
-   * face's colors instead of popping in as target-colored slivers.
+   * face's colors instead of popping in as target-colored slivers. An
+   * immutable handoff overrides the pair: every carried face keeps its from
+   * palette (to = from) and every newborn is born on its class-keyed target,
+   * so no pair ever blends.
    */
   HS_COLD_MEMBER void
   build_palette_mapping(Transients &tr, const PolyMesh &arrival,
@@ -1801,7 +1810,7 @@ private:
       } else if (start_centroid) { // prev_faces == survivors
         if (f < handoff.prev_faces) {
           from = handoff.prev_face_palette[f];
-        } else {
+        } else if (!handoff.immutable) { // immutable newborns stay on `to`
           const int slot = wrap(target_topo[f], PALETTES);
           if (newborn_from[slot] < 0)
             newborn_from[slot] = handoff.prev_face_palette[nearest_prev_face(
@@ -1821,6 +1830,10 @@ private:
       } else if (f < handoff.prev_faces) {
         from = handoff.prev_face_palette[f];
       }
+      // Immutable colours: the face draws `from` for the leg's whole life
+      // (newborns already sit on their class-keyed target via the fallback).
+      if (handoff.immutable)
+        to = from;
       HS_CHECK(from < PALETTES && to < PALETTES);
       from_palette[f] = from;
 

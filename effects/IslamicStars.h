@@ -206,7 +206,8 @@ private:
                           the host arena is over-provisioned, so gates check the
                           resident persistent high-water against this. */
   std::array<uint8_t, Animation::OpLeg::PALETTES> build_targets_ =
-      {}; /**< Per-shape pinned target palettes, shuffled before leg 0. */
+      {}; /**< Per-shape class -> palette assignment (the spawn shuffle);
+             faces born mid-build take it at birth and keep it. */
   const Animation::OpLeg::Landing *build_landing_ =
       nullptr; /**< Latest leg's arrival data (leg-arena backed). */
   const uint8_t *build_from_pal_ =
@@ -357,10 +358,10 @@ private:
 
   /**
    * @brief Draws one build-leg frame: the compiled swept mesh, shaded from its
-   *        pre-blended palette ramps on the segue's phase-1 identity plateau.
+   *        per-face palettes on the segue's phase-1 identity plateau.
    * @param canvas Render target receiving the rasterized mesh.
    * @param mesh Compiled swept mesh (scratch-backed, this frame only).
-   * @param sh Per-face blended-ramp table from the OpLeg.
+   * @param sh Per-face palette table from the OpLeg.
    */
   HS_O3_FN void draw_build_mesh(Canvas &canvas, const MeshState &mesh_in,
                                 const Animation::OpLeg::Shading &sh) {
@@ -671,11 +672,11 @@ private:
         build_total_frames_ += frames;
       }
       build_span = build_total_frames_;
-      // One pinned target set per shape: colour converges across the whole
-      // chain, so every leg blends toward the same assignment.
+      // One pinned class -> palette assignment per shape (the spawn shuffle):
+      // a face born mid-build takes it at birth and keeps it for good, keyed
+      // exactly as the seed's faces were at spawn.
       for (int i = 0; i < NUM_PALETTES; ++i)
-        build_targets_[i] = static_cast<uint8_t>(i);
-      hs::shuffle(build_targets_.begin(), build_targets_.end());
+        build_targets_[i] = static_cast<uint8_t>(palettes_slots[back][i]);
     }
 
     int duration = fade + build_span + still + burst_span + still + fade;
@@ -754,13 +755,10 @@ private:
     // the mesh its baked topology already carries, and its bookend grouping is
     // that arrival's own classification, which the leg computes itself.
     //
-    // Each leg carries its color the whole way to the palette its own arrival
-    // mesh calls for, so every intermediate solid stands fully colored rather
-    // than caught mid-transition. Continuity across the boundary comes from
-    // the next leg departing from this leg's target (see prev_pal below): the
-    // leg lands at weight 1 and its successor opens at weight 0 on the same
-    // palette. The last leg's arrival is the finished solid, so its targets
-    // are the final ones and the closing swap stays exact.
+    // Colours are immutable from birth: every carried face keeps the palette
+    // it was born with (routed leg to leg through the from-palette carry), and
+    // a face born on this leg takes the shape's class -> palette assignment at
+    // its birth classification. No leg ever blends a colour.
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
       generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
@@ -798,38 +796,32 @@ private:
     case Solids::Op::HANKIN:
       schedule(Animation::OpLeg(build_seed_, 0.0f, step.param,
                                 persistent_arena, draw_build_fn_, handoff,
-                                frames, bookend,
-                                Animation::OpLeg::late_blend_weight));
+                                frames, bookend));
       break;
     case Solids::Op::RELAX:
       schedule(Animation::OpLeg(build_seed_, static_cast<int>(step.param),
                                 persistent_arena, draw_build_fn_, handoff,
-                                frames, bookend,
-                                Animation::OpLeg::late_blend_weight));
+                                frames, bookend));
       break;
     case Solids::Op::AMBO:
       schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::TRUNCATE,
                                 0.0f, 0.5f, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend,
-                                Animation::OpLeg::late_blend_weight));
+                                draw_build_fn_, handoff, frames, bookend));
       break;
     case Solids::Op::TRUNCATE:
       schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::TRUNCATE,
                                 0.0f, step.param, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend,
-                                Animation::OpLeg::late_blend_weight));
+                                draw_build_fn_, handoff, frames, bookend));
       break;
     case Solids::Op::SNUB:
       schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::SNUB, 0.0f,
                                 step.param, 0.0f, step.twist, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend,
-                                Animation::OpLeg::late_blend_weight));
+                                draw_build_fn_, handoff, frames, bookend));
       break;
     case Solids::Op::CHAMFER:
       schedule(Animation::OpLeg(build_seed_, ConwayGraph::MorphOp::CHAMFER,
                                 0.0f, step.param, 0.0f, 0.0f, persistent_arena,
-                                draw_build_fn_, handoff, frames, bookend,
-                                Animation::OpLeg::late_blend_weight));
+                                draw_build_fn_, handoff, frames, bookend));
       break;
     case Solids::Op::KIS:
       // Dead on the current roster: every standalone kis routes through the dtd
@@ -885,19 +877,19 @@ private:
             slots[wrap(seed_slot.topology[f], NUM_PALETTES)]);
       prev_pal = pal;
     } else {
-      // Depart from the palette the previous leg landed on, so the boundary is
-      // continuous: that leg finished at weight 1 on exactly these ids.
+      // Depart from the palette the previous leg drew: the faces' immutable
+      // birth colours, carried verbatim across every boundary.
       HS_CHECK(build_from_pal_ && build_from_faces_ == prev_faces,
                "IslamicStars: carried palette does not cover the leg seed");
       prev_pal = build_from_pal_;
     }
-    return {&palette_bank_.bank, prev_pal,      nullptr, prev_faces,
-            false,               prev_centroid, &build_targets_};
+    return {&palette_bank_.bank, prev_pal,        nullptr, prev_faces, false,
+            prev_centroid,       &build_targets_, true};
   }
 
   /**
    * @brief Palette handoff departing a mesh the previous leg landed on: its
-   * per-face centroids plus the palette that leg mapped each face to.
+   * per-face centroids plus the palette that leg drew each face with.
    * @param departed Mesh the next leg departs from, in the previous leg's
    * landing face order (so its face f carries build_landing_ face f's palette).
    * @param scratch Arena the arrays live in.
@@ -916,11 +908,11 @@ private:
       for (int j = 0; j < n; ++j)
         c = c + departed.vertices[departed.faces[off + j]];
       cen[f] = c.normalized();
-      pal[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
-                                               NUM_PALETTES)];
+      pal[f] = build_landing_->from_palette[f];
       off += n;
     }
-    return {&palette_bank_.bank, pal, nullptr, nf, false, cen, &build_targets_};
+    return {&palette_bank_.bank, pal, nullptr, nf, false, cen,
+            &build_targets_,     true};
   }
 
   /**
@@ -966,7 +958,7 @@ private:
     Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
                          0.5f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
                          handoff, frames, bookend,
-                         Animation::OpLeg::late_blend_weight,
+                         Animation::OpLeg::classic_blend,
                          /*bridge_provenance=*/true, /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { schedule_dual_medial(); }));
@@ -1007,8 +999,7 @@ private:
     hs::log("Build leg: dual bridge 2/3 medial (%d frames)", frames);
     Animation::OpLeg leg(build_seed_, Animation::OpLeg::MedialTag{},
                          persistent_arena, draw_build_fn_, handoff, frames,
-                         Animation::OpLeg::BookendClasses{nullptr, 0},
-                         Animation::OpLeg::late_blend_weight);
+                         Animation::OpLeg::BookendClasses{nullptr, 0});
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { schedule_dual_untruncate(); }));
   }
@@ -1044,8 +1035,7 @@ private:
         for (int j = 0; j < n; ++j)
           c = c + med_b[med_a.faces[off + j]];
         cen[f] = c.normalized();
-        pal[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
-                                                 NUM_PALETTES)];
+        pal[f] = build_landing_->from_palette[f];
         off += n;
       }
     }
@@ -1080,7 +1070,8 @@ private:
     HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
 
     Animation::OpLeg::PaletteHandoff handoff{
-        &palette_bank_.bank, pal, nullptr, nf, false, cen, &build_targets_};
+        &palette_bank_.bank, pal, nullptr, nf, false, cen,
+        &build_targets_,     true};
     Animation::OpLeg::BookendClasses bookend{
         build_next_seed_.topology.data(),
         build_next_seed_.face_counts.size()};
@@ -1089,7 +1080,7 @@ private:
     Animation::OpLeg leg(build_next_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.5f,
                          0.0f, 0.0f, 0.0f, persistent_arena, draw_build_fn_,
                          handoff, frames, bookend,
-                         Animation::OpLeg::late_blend_weight,
+                         Animation::OpLeg::classic_blend,
                          /*bridge_provenance=*/true, /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
     // Rejoin the caller's continuation: finish_build_leg for a lone DUAL, or the
@@ -1111,9 +1102,7 @@ private:
     HS_CHECK(landed_faces <= build_landing_->faces,
              "IslamicStars: next seed larger than the leg landing");
     uint8_t *landed = scratch_arena_a.allocate_n<uint8_t>(landed_faces);
-    for (size_t f = 0; f < landed_faces; ++f)
-      landed[f] = build_landing_->to_palette[wrap(build_landing_->topology[f],
-                                                  NUM_PALETTES)];
+    std::memcpy(landed, build_landing_->from_palette, landed_faces);
     build_landing_ = nullptr;
 
     {
@@ -1161,7 +1150,7 @@ private:
     Animation::OpLeg leg(build_seed_, ConwayGraph::MorphOp::TRUNCATE, 0.0f,
                          MACRO_TRUNCATE_T, 0.0f, 0.0f, persistent_arena,
                          draw_build_fn_, handoff, frames, bookend,
-                         Animation::OpLeg::late_blend_weight,
+                         Animation::OpLeg::classic_blend,
                          /*bridge_provenance=*/true, /*borrow_seed=*/true);
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then(std::forward<Then>(then)));
@@ -1302,8 +1291,7 @@ private:
     hs::log("Build leg: reconcile (%d frames)", frames);
     Animation::OpLeg leg(build_seed_, build_next_seed_.vertices.data(),
                          Animation::OpLeg::ReconcileTag{}, persistent_arena,
-                         draw_build_fn_, handoff, frames, bookend,
-                         Animation::OpLeg::late_blend_weight);
+                         draw_build_fn_, handoff, frames, bookend);
     build_landing_ = &leg.landing();
     timeline.add(0, std::move(leg).then([this] { finish_build_leg(); }));
   }
