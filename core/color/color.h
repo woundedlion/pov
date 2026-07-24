@@ -19,7 +19,8 @@
 
 #if defined(__ARM_FEATURE_DSP)
 // Inline assembly avoids a CMSIS header dependency for the saturating add.
-__attribute__((always_inline)) static inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
+__attribute__((always_inline)) static inline uint32_t
+inline_uqadd16(uint32_t a, uint32_t b) {
   uint32_t res;
   __asm__ volatile("uqadd16 %0, %1, %2" : "=r"(res) : "r"(a), "r"(b));
   return res;
@@ -30,8 +31,10 @@ __attribute__((always_inline)) static inline uint32_t inline_uqadd16(uint32_t a,
 inline uint32_t inline_uqadd16(uint32_t a, uint32_t b) {
   uint32_t lo = (a & 0xFFFFu) + (b & 0xFFFFu);
   uint32_t hi = (a >> 16) + (b >> 16);
-  if (lo > 0xFFFFu) lo = 0xFFFFu;
-  if (hi > 0xFFFFu) hi = 0xFFFFu;
+  if (lo > 0xFFFFu)
+    lo = 0xFFFFu;
+  if (hi > 0xFFFFu)
+    hi = 0xFFFFu;
   return (hi << 16) | lo;
 }
 #endif
@@ -150,7 +153,8 @@ struct Pixel16 {
    * the endpoints (frac 0/65535 -> a/b). Plain 32-bit MACs, not packed `smlad`:
    * smlad's signed 16x16 dual-MAC reads an operand >= 32768 as negative.
    */
-  __attribute__((always_inline)) Pixel16 lerp16(const Pixel16 &other, uint16_t frac) const {
+  __attribute__((always_inline)) Pixel16 lerp16(const Pixel16 &other,
+                                                uint16_t frac) const {
     uint16_t inv = 65535 - frac;
     uint32_t xr = (uint32_t)r * inv + (uint32_t)other.r * frac;
     uint32_t xg = (uint32_t)g * inv + (uint32_t)other.g * frac;
@@ -500,7 +504,8 @@ inline float srgb_to_linear_float(float s) {
  * @return sRGB value in [0, 1].
  */
 inline float linear_to_srgb_float(float l) {
-  return (l <= 0.0031308f) ? l * 12.92f : 1.055f * powf(l, 1.0f / 2.4f) - 0.055f;
+  return (l <= 0.0031308f) ? l * 12.92f
+                           : 1.055f * powf(l, 1.0f / 2.4f) - 0.055f;
 }
 
 // ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -510,19 +515,27 @@ inline float linear_to_srgb_float(float l) {
 /**
  * @brief OKLab perceptual color: lightness L and chroma axes a, b.
  */
-struct OKLab { float L, a, b; };
+struct OKLab {
+  float L, a, b;
+};
 /**
  * @brief OKLCH polar color: lightness L, chroma C, hue h (radians).
  */
-struct OKLCH { float L, C, h; };
+struct OKLCH {
+  float L, C, h;
+};
 
 /** @brief Cone-response (LMS) triple, the OKLab intermediate before the cube-root
  *  nonlinearity. */
-struct LMS { float l, m, s; };
+struct LMS {
+  float l, m, s;
+};
 
 /** @brief Linear-RGB triple in [0,1] (may sit slightly out of gamut before
  *  clamping). */
-struct LinRGB { float r, g, b; };
+struct LinRGB {
+  float r, g, b;
+};
 
 /**
  * @brief Linear-RGB -> LMS cone response (the first OKLab matrix).
@@ -573,7 +586,8 @@ inline OKLab linear_rgb_to_oklab(float r, float g, float b) {
  * @param m_ Out: cube-rooted m cone response.
  * @param s_ Out: cube-rooted s cone response.
  */
-HS_O3_FN inline void oklab_to_lms_cbrt(OKLab lab, float &l_, float &m_, float &s_) {
+HS_O3_FN inline void oklab_to_lms_cbrt(OKLab lab, float &l_, float &m_,
+                                       float &s_) {
   l_ = lab.L + 0.3963377774f * lab.a + 0.2158037573f * lab.b;
   m_ = lab.L - 0.1055613458f * lab.a - 0.0638541728f * lab.b;
   s_ = lab.L - 0.0894841775f * lab.a - 1.2914855480f * lab.b;
@@ -605,7 +619,8 @@ inline void lms_cbrt_to_linear_rgb(float l_, float m_, float s_, float &r,
  * @param g Out: linear green in [0, 1].
  * @param b Out: linear blue in [0, 1].
  */
-HS_O3_FN inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g, float &b) {
+HS_O3_FN inline void oklab_to_linear_rgb(OKLab lab, float &r, float &g,
+                                         float &b) {
   float l_, m_, s_;
   oklab_to_lms_cbrt(lab, l_, m_, s_);
   lms_cbrt_to_linear_rgb(l_, m_, s_, r, g, b);
@@ -767,20 +782,20 @@ gamut_bracket_refine(float L, float a, float b, float lo, float hi) {
   const float ks2 = ks * ks, ks3 = ks2 * ks;
   const float l3 = L * L * L, q = 3.0f * L * L, c = 3.0f * L;
 
-  const float r3 = 4.0767416621f * ka3 - 3.3077115913f * km3 +
-                   0.2309699292f * ks3;
+  const float r3 =
+      4.0767416621f * ka3 - 3.3077115913f * km3 + 0.2309699292f * ks3;
   const float r2 =
       c * (4.0767416621f * ka2 - 3.3077115913f * km2 + 0.2309699292f * ks2);
   const float r1 =
       q * (4.0767416621f * ka - 3.3077115913f * km + 0.2309699292f * ks);
-  const float g3 = -1.2684380046f * ka3 + 2.6097574011f * km3 -
-                   0.3413193965f * ks3;
+  const float g3 =
+      -1.2684380046f * ka3 + 2.6097574011f * km3 - 0.3413193965f * ks3;
   const float g2 =
       c * (-1.2684380046f * ka2 + 2.6097574011f * km2 - 0.3413193965f * ks2);
   const float g1 =
       q * (-1.2684380046f * ka + 2.6097574011f * km - 0.3413193965f * ks);
-  const float b3 = -0.0041960863f * ka3 - 0.7034186147f * km3 +
-                   1.7076147010f * ks3;
+  const float b3 =
+      -0.0041960863f * ka3 - 0.7034186147f * km3 + 1.7076147010f * ks3;
   const float b2 =
       c * (-0.0041960863f * ka2 - 0.7034186147f * km2 + 1.7076147010f * ks2);
   const float b1 =
@@ -1016,9 +1031,9 @@ HS_O3_FN inline uint16_t float_to_pixel16(float v) {
  * @return The channel as an 8-bit sRGB value in [0, 255].
  */
 inline uint8_t linear_float_to_srgb8(float l) {
-  return static_cast<uint8_t>(hs::clamp(
-      linear_to_srgb_float(hs::clamp(l, 0.0f, 1.0f)) * 255.0f + 0.5f, 0.0f,
-      255.0f));
+  return static_cast<uint8_t>(
+      hs::clamp(linear_to_srgb_float(hs::clamp(l, 0.0f, 1.0f)) * 255.0f + 0.5f,
+                0.0f, 255.0f));
 }
 
 /**
@@ -1032,9 +1047,11 @@ inline uint8_t linear_float_to_srgb8(float l) {
  * (no atan2/sqrt OKLCH polar round-trip). Preserves lightness to fast_cbrt
  * accuracy, chroma to fast-trig accuracy.
  */
-HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca, float sa) {
+HS_O3_FN inline void hue_rotate_rgb(float &r, float &g, float &b, float ca,
+                                    float sa) {
   LMS lms = linear_rgb_to_lms(r, g, b);
-  OKLab lab = lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
+  OKLab lab =
+      lms_to_oklab(fast_cbrt(lms.l), fast_cbrt(lms.m), fast_cbrt(lms.s));
 
   float a2 = lab.a * ca - lab.b * sa;
   float b2 = lab.a * sa + lab.b * ca;
@@ -1266,7 +1283,8 @@ public:
     for (const auto &stop : points) {
       HS_CHECK(stop.first >= 0.0f && stop.first <= 1.0f,
                "Gradient stop position out of [0,1]");
-      HS_CHECK(stop.first >= prevCheck, "Gradient stops must be sorted ascending");
+      HS_CHECK(stop.first >= prevCheck,
+               "Gradient stops must be sorted ascending");
       prevCheck = stop.first;
     }
 
@@ -1323,7 +1341,8 @@ public:
     // table; lo+1 only overruns at the t==1 endpoint, handled below.
     float idx = hs::clamp(t, 0.0f, 1.0f) * 255.0f;
     int lo = static_cast<int>(idx);
-    if (lo >= 255) return Color4(entries[255], 1.0f);
+    if (lo >= 255)
+      return Color4(entries[255], 1.0f);
     float frac = idx - lo;
     return Color4(entries[lo].lerp16(entries[lo + 1], frac_to_q16(frac)), 1.0f);
   }
@@ -1356,8 +1375,9 @@ public:
    * @details RNG-free: the keys are supplied directly rather than sampled from
    *          profiles.
    */
-  HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape, const CPixel &ka,
-                    const CPixel &kb, const CPixel &kc)
+  HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape,
+                                   const CPixel &ka, const CPixel &kb,
+                                   const CPixel &kc)
       : gradient_shape(gradient_shape) {
     a = ka;
     b = kb;
@@ -1378,7 +1398,8 @@ public:
    * @details The base hue comes from manual_seed when >= 0, else from the global
    * golden-ratio hue cursor (which is then advanced).
    */
-  HS_COLD_MEMBER GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type,
+  HS_COLD_MEMBER
+  GenerativePalette(GradientShape gradient_shape, HarmonyType harmony_type,
                     BrightnessProfile profile,
                     SaturationProfile sat_profile = SaturationProfile::MID,
                     int manual_seed = -1)
@@ -1390,9 +1411,10 @@ public:
       palette_hue = g_hue_seed;
       // Weyl recurrence mod 256, step 157 (= trunc(INV_PHI*255)): 157 is coprime
       // with 256 so the cursor visits every residue; rounding to 158 short-cycles.
-      g_hue_seed = static_cast<uint8_t>((static_cast<uint32_t>(g_hue_seed) +
-                                         static_cast<uint32_t>(INV_PHI * 255.0f)) %
-                                        256);
+      g_hue_seed =
+          static_cast<uint8_t>((static_cast<uint32_t>(g_hue_seed) +
+                                static_cast<uint32_t>(INV_PHI * 255.0f)) %
+                               256);
     }
 
     uint8_t h1 = palette_hue;
@@ -1524,7 +1546,8 @@ public:
    * @param val Key value in [0,255].
    * @return The authored key as an 8-bit sRGB CPixel.
    */
-  HS_COLD_MEMBER static CPixel author_key(uint8_t hue, uint8_t sat, uint8_t val) {
+  HS_COLD_MEMBER static CPixel author_key(uint8_t hue, uint8_t sat,
+                                          uint8_t val) {
     return oklch_to_cpixel(key_oklch(hue, sat, val));
   }
 
@@ -1613,7 +1636,8 @@ public:
    * back to per-key arcs when any key is near-gray (no meaningful hue).
    * Rebuilds the stops after interpolating.
    */
-  HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to, float amount) {
+  HS_COLD_MEMBER void lerp(const Snapshot &from, const Snapshot &to,
+                           float amount) {
     // Clamp: an extrapolated amount overshoots into an invalid OKLCH (L > 1
     // or C past gamut).
     amount = hs::clamp(amount, 0.0f, 1.0f);
@@ -1630,9 +1654,10 @@ public:
     if (chromatic) {
       float d0 = wrap_angle_pi(tk[0].h - fk[0].h);
       for (int i = 0; i < 3; ++i) {
-        float d = i == 0 ? d0
-                         : d0 + wrap_angle_pi((tk[i].h - tk[0].h) -
-                                              (fk[i].h - fk[0].h));
+        float d =
+            i == 0
+                ? d0
+                : d0 + wrap_angle_pi((tk[i].h - tk[0].h) - (fk[i].h - fk[0].h));
         OKLCH k = {
             hs::clamp(fk[i].L + (tk[i].L - fk[i].L) * amount, 0.0f, 1.0f),
             std::max(0.0f, fk[i].C + (tk[i].C - fk[i].C) * amount),
@@ -1677,7 +1702,8 @@ public:
     OKLCH blended = lerp_oklch(colors_oklch[seg], colors_oklch[seg + 1], p);
     // Re-derive chroma on the envelope at the interpolated L (see colors_cmax).
     // fast_sinf matches update_stops().
-    float cmax = colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
+    float cmax =
+        colors_cmax[seg] + (colors_cmax[seg + 1] - colors_cmax[seg]) * p;
     // Floor at 0: a small negative from fast_sinf would flip hue 180° in oklch_to_oklab.
     blended.C = std::max(0.0f, cmax * fast_sinf(PI_F * blended.L));
     // Hue torsion: drift hue with lightness, centered at L=0.5.
@@ -1848,8 +1874,8 @@ public:
                   std::array<float, 3> c1, std::array<float, 3> d1,
                   std::array<float, 3> a2, std::array<float, 3> b2,
                   std::array<float, 3> c2, std::array<float, 3> d2)
-      : ProceduralPalette(a1, b1, c1, d1),
-        a1(a1), b1(b1), c1(c1), d1(d1), a2(a2), b2(b2), c2(c2), d2(d2) {
+      : ProceduralPalette(a1, b1, c1, d1), a1(a1), b1(b1), c1(c1), d1(d1),
+        a2(a2), b2(b2), c2(c2), d2(d2) {
     mutate(0.0f);
   }
 

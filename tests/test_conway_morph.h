@@ -1125,8 +1125,8 @@ inline PolyMesh probe_octa_hk34(Arena &a, Arena &b) {
 }
 inline PolyMesh probe_rhombicubocta_hk63(Arena &a, Arena &b) {
   using Solids::IslamicStarPatterns::D2R;
-  return Solids::SolidBuilder(Solids::Archimedean::rhombicuboctahedron(a, b),
-                              a, b)
+  return Solids::SolidBuilder(Solids::Archimedean::rhombicuboctahedron(a, b), a,
+                              b)
       .hankin(63.0f * D2R)
       .build();
 }

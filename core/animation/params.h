@@ -66,11 +66,11 @@ public:
 
 private:
   std::reference_wrapper<float>
-      mutant;         /**< Reference to the float variable being animated. */
-  float from;         /**< Starting value, captured on the first step. */
-  float to;           /**< Target value. */
-  EasingFn easing_fn; /**< Easing curve. */
-  bool quantized;     /**< Flag to round result to integer. */
+      mutant;            /**< Reference to the float variable being animated. */
+  float from;            /**< Starting value, captured on the first step. */
+  float to;              /**< Target value. */
+  EasingFn easing_fn;    /**< Easing curve. */
+  bool quantized;        /**< Flag to round result to integer. */
   bool captured = false; /**< True once `from` has been snapshotted. */
 };
 
@@ -120,8 +120,8 @@ public:
 
 private:
   std::reference_wrapper<float>
-      mutant; /**< Reference to the float variable being modified. */
-  ScalarFn f; /**< The custom function to apply. */
+      mutant;         /**< Reference to the float variable being modified. */
+  ScalarFn f;         /**< The custom function to apply. */
   EasingFn easing_fn; /**< Easing curve. */
   const bool *paused; /**< Optional pause gate; freezes the mutation when set
                           and true. Null = always runs. */
@@ -229,7 +229,7 @@ public:
 private:
   std::reference_wrapper<float> mutant; /**< Reference to the float variable. */
   float speed;                          /**< Amount added per frame. */
-  bool wrap;                            /**< If true, wraps value to 0-1 range. */
+  bool wrap;          /**< If true, wraps value to 0-1 range. */
   const bool *paused; /**< Optional pause gate; freezes the driver when set and
                           true. Null = always runs. */
   const float *speed_src =
@@ -298,10 +298,10 @@ public:
   }
 
 private:
-  void *subject_ptr;       /**< Pointer to the caller-owned subject. */
-  const void *start_ptr;   /**< Pointer to the caller-owned start state. */
-  const void *target_ptr;  /**< Pointer to the caller-owned target state. */
-  EasingFn easing;         /**< Easing curve applied to progress. */
+  void *subject_ptr;      /**< Pointer to the caller-owned subject. */
+  const void *start_ptr;  /**< Pointer to the caller-owned start state. */
+  const void *target_ptr; /**< Pointer to the caller-owned target state. */
+  EasingFn easing;        /**< Easing curve applied to progress. */
   /** @brief Type-erased lerp thunk. */
   void (*do_lerp)(void *, const void *, const void *, float);
   const bool *paused = nullptr; /**< Optional pause gate; null = always runs. */
@@ -381,9 +381,11 @@ public:
   MobiusFlow(MobiusParams &params, const float &&num_rings,
              const float &num_lines, int duration, bool repeat = true) = delete;
   MobiusFlow(MobiusParams &params, const float &num_rings,
-             const float &&num_lines, int duration, bool repeat = true) = delete;
+             const float &&num_lines, int duration,
+             bool repeat = true) = delete;
   MobiusFlow(MobiusParams &params, const float &&num_rings,
-             const float &&num_lines, int duration, bool repeat = true) = delete;
+             const float &&num_lines, int duration,
+             bool repeat = true) = delete;
 
   /**
    * @brief Steps the animation, updating params a and d.
@@ -474,8 +476,8 @@ public:
 
 private:
   std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
-  float scale;                      /**< Warp magnitude. */
-  EasingFn easing;                  /**< Easing curve. */
+  float scale;                                 /**< Warp magnitude. */
+  EasingFn easing;                             /**< Easing curve. */
   const float *scale_ref = nullptr; /**< Optional live magnitude source. */
 };
 
@@ -515,8 +517,8 @@ public:
 
 private:
   std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
-  float scale;     /**< Warp magnitude. */
-  EasingFn easing; /**< Easing curve. */
+  float scale;                                 /**< Warp magnitude. */
+  EasingFn easing;                             /**< Easing curve. */
 };
 
 /**
@@ -595,8 +597,8 @@ public:
 
 private:
   std::reference_wrapper<MobiusParams> params; /**< Mobius params to animate. */
-  float speed; /**< Animation speed (radians of phase per frame unit). */
-  float scale; /**< Magnitude of the per-channel modulation. */
+  float speed;       /**< Animation speed (radians of phase per frame unit). */
+  float scale;       /**< Magnitude of the per-channel modulation. */
   MobiusParams base; /**< Baseline params captured at construction. */
   uint32_t seed;     /**< Seed for the per-channel phase offsets. */
 };
@@ -608,8 +610,8 @@ struct RippleParams {
   Vector center;          /**< Center point of the ripple source. */
   float amplitude = 0.0f; /**< Current height of the wave. */
   float phase = 0.0f;     /**< Current phase offset (time). */
-  float decay{5.0};      /**< Spatial decay rate. */
-  float thickness{1.0f}; /**< Thickness of the ripple. */
+  float decay{5.0};       /**< Spatial decay rate. */
+  float thickness{1.0f};  /**< Thickness of the ripple. */
 
   /** @brief Cached cos(angle) lower fast-reject bound. */
   float cos_threshold_min = 1.0f;
@@ -711,11 +713,11 @@ private:
  * @brief Parameters for noise transformation.
  */
 struct NoiseParams {
-  float amplitude = 0.5f;   /**< Noise output amplitude. */
-  float speed = 1.0f;       /**< Temporal evolution speed. */
-  float frequency = 0.125f; /**< Spatial frequency of the noise. */
-  float time = 0.0f;        /**< Current animation time. */
-  float scale = 4.0f;       /**< Spatial scale factor. */
+  float amplitude = 0.5f;      /**< Noise output amplitude. */
+  float speed = 1.0f;          /**< Temporal evolution speed. */
+  float frequency = 0.125f;    /**< Spatial frequency of the noise. */
+  float time = 0.0f;           /**< Current animation time. */
+  float scale = 4.0f;          /**< Spatial scale factor. */
   mutable FastNoiseLite noise; /**< Backing generator; mutable for lazy
                                   init/updates. */
 
@@ -778,19 +780,20 @@ private:
  * @brief Parameters for a spherical-cap bump displacement field.
  */
 struct BumpParams {
-  Vector center;           /**< Bump center direction (unit vector). */
-  Vector axis;             /**< Oriented stack axis the drape push acts along. */
-  float radius = 0.5f;     /**< Angular radius of the bump footprint (radians). */
-  float amplitude = 1.0f;  /**< Drape gain; the weight saturates at full boundary clearance for gains > 1. */
-  float envelope = 0.0f;   /**< Footprint scale in [0, 1], animated by BallDrop. */
-  float cos_radius = 1.0f; /**< Cached cos(radius * envelope) fast-reject bound. */
+  Vector center;       /**< Bump center direction (unit vector). */
+  Vector axis;         /**< Oriented stack axis the drape push acts along. */
+  float radius = 0.5f; /**< Angular radius of the bump footprint (radians). */
+  float amplitude =
+      1.0f; /**< Drape gain; the weight saturates at full boundary clearance for gains > 1. */
+  float envelope =
+      0.0f; /**< Footprint scale in [0, 1], animated by BallDrop. */
+  float cos_radius =
+      1.0f; /**< Cached cos(radius * envelope) fast-reject bound. */
 
   /**
    * @brief Refreshes the effective-radius fast-reject bound.
    */
-  void sync() {
-    cos_radius = cosf(std::min(radius * envelope, PI_F));
-  }
+  void sync() { cos_radius = cosf(std::min(radius * envelope, PI_F)); }
 
   /** @brief Refreshes the cached field threshold. */
   void prepare_threshold() { sync(); }
@@ -850,20 +853,22 @@ public:
     float progress = std::min(static_cast<float>(t) / duration, 1.0f);
     float phi = progress * PI_F;
     BumpParams &p = params.get();
-    p.center = Vector(sinf(phi) * cosf(azimuth), cosf(phi),
-                      sinf(phi) * sinf(azimuth));
+    p.center =
+        Vector(sinf(phi) * cosf(azimuth), cosf(phi), sinf(phi) * sinf(azimuth));
     p.axis = make_basis(orientation->get(), normal).v;
     p.envelope = quintic_kernel(progress / EDGE_FRACTION) *
                  quintic_kernel((1.0f - progress) / EDGE_FRACTION);
   }
 
 private:
-  static constexpr float EDGE_FRACTION = 0.15f; /**< Fade window at either pole, as a fraction of the fall. */
+  static constexpr float EDGE_FRACTION =
+      0.15f; /**< Fade window at either pole, as a fraction of the fall. */
 
   std::reference_wrapper<BumpParams> params; /**< Bump params to animate. */
-  const Orientation<> *orientation; /**< Stack frame the push axis tracks; not owned. */
-  Vector normal; /**< Un-oriented stack axis. */
-  float azimuth; /**< Fall meridian (radians). */
+  const Orientation<>
+      *orientation; /**< Stack frame the push axis tracks; not owned. */
+  Vector normal;    /**< Un-oriented stack axis. */
+  float azimuth;    /**< Fall meridian (radians). */
 };
 
 /**
@@ -874,7 +879,7 @@ struct NoiseProductParams {
   float scale1 = 1.5f;    /**< Spatial frequency of the envelope octave. */
   float scale2 = 3.0f;    /**< Spatial frequency of the detail octave. */
   float speed = 0.03f;    /**< Time advance per frame. */
-  float time = 0.0f;      /**< Current field time, integrated by NoiseProduct. */
+  float time = 0.0f; /**< Current field time, integrated by NoiseProduct. */
   mutable FastNoiseLite noise; /**< Backing generator. */
 
   /** @brief Spatial offset decorrelating octave 2 from octave 1 at equal scales. */
@@ -933,7 +938,8 @@ public:
   }
 
 private:
-  std::reference_wrapper<NoiseProductParams> params; /**< Noise params to animate. */
+  std::reference_wrapper<NoiseProductParams>
+      params; /**< Noise params to animate. */
 };
 
 } // namespace Animation

@@ -46,15 +46,17 @@ public:
    * @brief State observed and driven by the test.
    */
   struct State {
-    uint32_t clock = 0;      /**< Clock the controller forwarded at construction. */
-    bool complete = true;    /**< Completion flag; a fresh channel is idle. */
-    bool wedged = false;     /**< When set, checkStaleTransfer() traps. */
-    int init_calls = 0;      /**< init() invocations. */
-    int transmit_calls = 0;  /**< transmitAsync() invocations. */
+    uint32_t clock = 0; /**< Clock the controller forwarded at construction. */
+    bool complete = true;      /**< Completion flag; a fresh channel is idle. */
+    bool wedged = false;       /**< When set, checkStaleTransfer() traps. */
+    int init_calls = 0;        /**< init() invocations. */
+    int transmit_calls = 0;    /**< transmitAsync() invocations. */
     int check_stale_calls = 0; /**< checkStaleTransfer() invocations. */
-    const uint8_t *last_data = nullptr; /**< Pointer handed to the last transmit. */
-    size_t last_len = 0;     /**< Length handed to the last transmit. */
-    uint8_t capture[CAPTURE_CAP] = {}; /**< Snapshot of the last transmit's bytes. */
+    const uint8_t *last_data =
+        nullptr;         /**< Pointer handed to the last transmit. */
+    size_t last_len = 0; /**< Length handed to the last transmit. */
+    uint8_t capture[CAPTURE_CAP] =
+        {}; /**< Snapshot of the last transmit's bytes. */
   };
 
   /**
@@ -153,7 +155,8 @@ inline void test_submit_happy_path() {
   HS_EXPECT_EQ(ctl.getTransferCount(), 1u);
   HS_EXPECT_EQ(ctl.getOverrunCount(), 0u);
   HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);
-  HS_EXPECT_EQ(MockStrip::state().last_len, static_cast<size_t>(Frame::BUFFER_SIZE));
+  HS_EXPECT_EQ(MockStrip::state().last_len,
+               static_cast<size_t>(Frame::BUFFER_SIZE));
   HS_EXPECT_TRUE(MockStrip::state().last_data != nullptr);
 }
 
@@ -205,8 +208,8 @@ inline void test_overrun_drop() {
   bool ok = ctl.submitFrame(false); // prior still in flight -> overrun
   HS_EXPECT_FALSE(ok);
   HS_EXPECT_EQ(ctl.getOverrunCount(), 1u);
-  HS_EXPECT_EQ(ctl.getTransferCount(), 1u);      // unchanged
-  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1); // no new transmit
+  HS_EXPECT_EQ(ctl.getTransferCount(), 1u);              // unchanged
+  HS_EXPECT_EQ(MockStrip::state().transmit_calls, 1);    // no new transmit
   HS_EXPECT_EQ(MockStrip::state().check_stale_calls, 1); // watchdog consulted
 
   const uint8_t *back_after =
@@ -242,10 +245,10 @@ inline void test_end_to_end_wire_bytes() {
   MockStrip::reset();
   DMALEDController<N, MockStrip> ctl;
 
-  const CRGB colors[N] = {CRGB(255, 0, 0),     CRGB(0, 255, 0),
-                          CRGB(0, 0, 255),     CRGB(255, 255, 255),
-                          CRGB(200, 100, 50),  CRGB(0, 0, 0),
-                          CRGB(12, 240, 60),   CRGB(90, 30, 210)};
+  const CRGB colors[N] = {CRGB(255, 0, 0),    CRGB(0, 255, 0),
+                          CRGB(0, 0, 255),    CRGB(255, 255, 255),
+                          CRGB(200, 100, 50), CRGB(0, 0, 0),
+                          CRGB(12, 240, 60),  CRGB(90, 30, 210)};
 
   Frame ref;
   for (int i = 0; i < N; ++i)
@@ -255,7 +258,8 @@ inline void test_end_to_end_wire_bytes() {
     ctl.backFrame().packPixel(i, Pixel16(colors[i]));
   HS_EXPECT_TRUE(ctl.submitFrame(false));
 
-  HS_EXPECT_EQ(MockStrip::state().last_len, static_cast<size_t>(Frame::BUFFER_SIZE));
+  HS_EXPECT_EQ(MockStrip::state().last_len,
+               static_cast<size_t>(Frame::BUFFER_SIZE));
   for (int k = 0; k < Frame::BUFFER_SIZE; ++k)
     HS_EXPECT_EQ(MockStrip::state().capture[k], ref.data()[k]);
 }

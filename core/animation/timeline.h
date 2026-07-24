@@ -23,7 +23,8 @@ struct TimelineEvent {
   static constexpr size_t MAX_ANIM_SIZE = 112;
 #endif
 
-  uint32_t start = 0; /**< Global frame at which the animation begins stepping. */
+  uint32_t start =
+      0; /**< Global frame at which the animation begins stepping. */
   /**
    * @brief Whether this event's inline animation pointer was handed out via
    * Timeline::add_get().
@@ -175,7 +176,8 @@ public:
    * compacted normally and whose return is typically discarded).
    * @return Typed pointer to the inline-stored animation, or nullptr if full.
    */
-  template <typename A> A *add_get(int in_frames, A animation, bool pin = true) {
+  template <typename A>
+  A *add_get(int in_frames, A animation, bool pin = true) {
     static_assert(sizeof(A) <= TimelineEvent::MAX_ANIM_SIZE,
                   "Animation type exceeds TimelineEvent inline storage");
     static_assert(alignof(A) <= alignof(std::max_align_t),
@@ -209,7 +211,8 @@ public:
       // std::launder to recover a usable A* from the placement-new'd storage.
       A *obj = std::launder(reinterpret_cast<A *>(src.storage));
       if (dst) {
-        dst->iface = static_cast<IAnimation *>(new (dst->storage) A(std::move(*obj)));
+        dst->iface =
+            static_cast<IAnimation *>(new (dst->storage) A(std::move(*obj)));
       }
       obj->~A();
     };
@@ -225,8 +228,9 @@ public:
     ++global_timeline_t;
 
     int write_idx = 0;
-    int active_cnt = global_timeline_num_events; // Snapshot count before callbacks
-                                 // potentially add more
+    int active_cnt =
+        global_timeline_num_events; // Snapshot count before callbacks
+                                    // potentially add more
 
     // Collapse each distinct Orientation exactly once, before any animation steps
     // it: collapsing per-animation would discard the sub-frame motion-blur history

@@ -452,9 +452,9 @@ private:
       2 * PI_F /
       W; /**< Maximum rotation angle per step to ensure smoothness. */
   Orientation<CAP> *orientation; /**< Pointer to the Orientation state. */
-  Vector axis;                      /**< The axis of rotation. */
-  float total_angle;                /**< The total angle to sweep. */
-  EasingFn easing_fn;               /**< Easing curve. */
+  Vector axis;                   /**< The axis of rotation. */
+  float total_angle;             /**< The total angle to sweep. */
+  EasingFn easing_fn;            /**< Easing curve. */
   float last_angle; /**< The angle reached in the previous frame. */
   Space space;      /**< The coordinate space for rotation. */
 };
@@ -482,9 +482,10 @@ public:
     float speed = 0.02f; /**< Movement speed per frame. */
     float pivot_strength =
         0.1f; /**< Strength of the direction change (noise amplitude). */
-    float noise_scale = 0.02f;  /**< Frequency of the Perlin noise. */
-    float smoothing = 0.85f;    /**< Angular momentum (0 = none, 0.95 = very sluggish). */
-    float drift = 0.5f;         /**< Temporal drift speed for spatial noise. */
+    float noise_scale = 0.02f; /**< Frequency of the Perlin noise. */
+    float smoothing =
+        0.85f; /**< Angular momentum (0 = none, 0.95 = very sluggish). */
+    float drift = 0.5f; /**< Temporal drift speed for spatial noise. */
 
     /**
      * @brief Preset for slow, gentle motion.
@@ -508,8 +509,7 @@ public:
    * @param seed Noise seed; 0 selects a random seed.
    */
   RandomWalk(Orientation<CAP> &orientation, const Vector &v_start,
-             FastNoiseLite &noise, Options options = Options(),
-             int seed = 0)
+             FastNoiseLite &noise, Options options = Options(), int seed = 0)
       : AnimationBase<RandomWalk<W, CAP, STABLE_ROTATION>>(-1, false),
         orientation(orientation), v(Vector(v_start).normalized()),
         options(options), noise_generator(noise) {
@@ -567,9 +567,8 @@ public:
     angular_velocity = angular_velocity * options.smoothing +
                        target_pivot * (1.0f - options.smoothing);
     if constexpr (STABLE_ROTATION) {
-      direction =
-          rotate(direction, make_stable_rotation(v, angular_velocity))
-              .normalized();
+      direction = rotate(direction, make_stable_rotation(v, angular_velocity))
+                      .normalized();
     } else {
       direction =
           rotate(direction, make_rotation(v, angular_velocity)).normalized();
@@ -580,14 +579,15 @@ public:
     Vector walk_axis =
         normalized_or(cross(v, direction), cross(v, axis_seed).normalized());
     if constexpr (STABLE_ROTATION) {
-      v = rotate(v, make_stable_rotation(walk_axis, options.speed)).normalized();
+      v = rotate(v, make_stable_rotation(walk_axis, options.speed))
+              .normalized();
       direction =
           rotate(direction, make_stable_rotation(walk_axis, options.speed))
               .normalized();
     } else {
       v = rotate(v, make_rotation(walk_axis, options.speed)).normalized();
-      direction =
-          rotate(direction, make_rotation(walk_axis, options.speed)).normalized();
+      direction = rotate(direction, make_rotation(walk_axis, options.speed))
+                      .normalized();
     }
     Rotation<W, CAP>::animate(canvas, orientation, walk_axis, options.speed,
                               ease_linear);
@@ -622,6 +622,5 @@ private:
   std::reference_wrapper<FastNoiseLite>
       noise_generator; /**< External noise generator. */
 };
-
 
 } // namespace Animation

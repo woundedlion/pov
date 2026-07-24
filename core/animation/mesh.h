@@ -1067,8 +1067,11 @@ struct GoldConvergence : Base {
  * pixel) or Plot::Mesh::draw (per wireframe edge) themselves.
  */
 struct Dissolve : Base {
-  uint32_t seed = 0x9e3779b9u; /**< Per-transition seed; rolled by retarget(). */
-  void retarget(const Vector &) { seed = static_cast<uint32_t>(hs::random()()); }
+  uint32_t seed =
+      0x9e3779b9u; /**< Per-transition seed; rolled by retarget(). */
+  void retarget(const Vector &) {
+    seed = static_cast<uint32_t>(hs::random()());
+  }
   /**
    * @brief Builds one half's ownership mask.
    * @param phase Transition phase in [0, 1]; the incoming mesh owns this
@@ -1077,7 +1080,8 @@ struct Dissolve : Base {
    * @param incoming True for the incoming mesh's mask.
    */
   PixelMask mask(float phase, uint32_t frame, bool incoming) const {
-    uint32_t thr = static_cast<uint32_t>(hs::clamp(phase, 0.0f, 1.0f) * 65536.0f);
+    uint32_t thr =
+        static_cast<uint32_t>(hs::clamp(phase, 0.0f, 1.0f) * 65536.0f);
     return {thr, frame * 0x9E3779B9u ^ seed, !incoming};
   }
   /** @brief Crossfade-style overlapping schedule: both meshes are on the

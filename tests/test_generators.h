@@ -86,20 +86,26 @@ inline void test_generate_lifecycle_and_forwarding() {
 inline void test_generate_nested_target_persists() {
   Arena target(gen_target_buf, sizeof(gen_target_buf));
 
-  (void)generate(target, [](Arena &t, Arena &a, Arena &, int n) {
-    a.allocate(100);
-    for (int i = 0; i < n; ++i)
-      t.allocate(16);
-    return 0;
-  }, 3);
+  (void)generate(
+      target,
+      [](Arena &t, Arena &a, Arena &, int n) {
+        a.allocate(100);
+        for (int i = 0; i < n; ++i)
+          t.allocate(16);
+        return 0;
+      },
+      3);
   HS_EXPECT_EQ(target.get_offset(), (size_t)48);
 
-  (void)generate(target, [](Arena &t, Arena &, Arena &b, int n) {
-    b.allocate(200);
-    for (int i = 0; i < n; ++i)
-      t.allocate(16);
-    return 0;
-  }, 2);
+  (void)generate(
+      target,
+      [](Arena &t, Arena &, Arena &b, int n) {
+        b.allocate(200);
+        for (int i = 0; i < n; ++i)
+          t.allocate(16);
+        return 0;
+      },
+      2);
   HS_EXPECT_EQ(target.get_offset(), (size_t)80);
 
   HS_EXPECT_EQ(scratch_arena_a.get_offset(), (size_t)0);
@@ -120,23 +126,30 @@ inline void test_generate_reentrant_nesting_does_not_clobber() {
   size_t inner_start_offset = 999;
   uint8_t outer_value_after_inner = 0;
 
-  (void)generate(target, [&](Arena &t, Arena &a, Arena &, int) {
-    uint8_t *outer = static_cast<uint8_t *>(a.allocate(64));
-    outer[0] = 0xAB;
-    const size_t outer_offset_before_inner = a.get_offset();
+  (void)generate(
+      target,
+      [&](Arena &t, Arena &a, Arena &, int) {
+        uint8_t *outer = static_cast<uint8_t *>(a.allocate(64));
+        outer[0] = 0xAB;
+        const size_t outer_offset_before_inner = a.get_offset();
 
-    (void)generate(t, [&](Arena &, Arena &ia, Arena &, int) {
-      inner_start_offset = ia.get_offset();
-      uint8_t *inner = static_cast<uint8_t *>(ia.allocate(32));
-      inner[0] = 0xCD; // would corrupt outer[0] if the arena had been reset
-      return 0;
-    }, 0);
+        (void)generate(
+            t,
+            [&](Arena &, Arena &ia, Arena &, int) {
+              inner_start_offset = ia.get_offset();
+              uint8_t *inner = static_cast<uint8_t *>(ia.allocate(32));
+              inner[0] =
+                  0xCD; // would corrupt outer[0] if the arena had been reset
+              return 0;
+            },
+            0);
 
-    outer_value_after_inner = outer[0];
-    outer_offset_after_inner = a.get_offset();
-    HS_EXPECT_EQ(a.get_offset(), outer_offset_before_inner);
-    return 0;
-  }, 0);
+        outer_value_after_inner = outer[0];
+        outer_offset_after_inner = a.get_offset();
+        HS_EXPECT_EQ(a.get_offset(), outer_offset_before_inner);
+        return 0;
+      },
+      0);
 
   HS_EXPECT_EQ(inner_start_offset, (size_t)64);
   HS_EXPECT_EQ((int)outer_value_after_inner, 0xAB);
@@ -229,4 +242,3 @@ inline int run_generators_tests() {
 
 } // namespace generators_tests
 } // namespace hs_test
-

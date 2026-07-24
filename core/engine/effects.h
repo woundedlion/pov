@@ -50,30 +50,30 @@
  *   Adding an effect therefore means: add the `#include` above, the
  *   REGISTER_EFFECT in its header, and one X() row here.
  */
-#define HS_EFFECT_LIST(X)                                                       \
-  X(BZReactionDiffusion)                                                        \
-  X(ChaoticStrings)                                                             \
-  X(Comets)                                                                     \
-  X(DisplacementField)                                                          \
-  X(DreamBalls)                                                                 \
-  X(Dynamo)                                                                     \
-  X(Flyby)                                                                      \
-  X(GnomonicStars)                                                              \
-  X(GSReactionDiffusion)                                                        \
-  X(HankinSolids)                                                               \
-  X(HopfFibration)                                                              \
-  X(IslamicStars)                                                               \
-  X(Liquid2D)                                                                   \
-  X(MeshFeedback)                                                               \
-  X(MindSplatter)                                                               \
-  X(MobiusGrid)                                                                 \
-  X(PetalFlow)                                                                  \
-  X(Raymarch)                                                                   \
-  X(RingShower)                                                                 \
-  X(RingSpin)                                                                   \
-  X(ShapeShifter)                                                               \
-  X(SphericalHarmonics)                                                         \
-  X(Thrusters)                                                                  \
+#define HS_EFFECT_LIST(X)                                                      \
+  X(BZReactionDiffusion)                                                       \
+  X(ChaoticStrings)                                                            \
+  X(Comets)                                                                    \
+  X(DisplacementField)                                                         \
+  X(DreamBalls)                                                                \
+  X(Dynamo)                                                                    \
+  X(Flyby)                                                                     \
+  X(GnomonicStars)                                                             \
+  X(GSReactionDiffusion)                                                       \
+  X(HankinSolids)                                                              \
+  X(HopfFibration)                                                             \
+  X(IslamicStars)                                                              \
+  X(Liquid2D)                                                                  \
+  X(MeshFeedback)                                                              \
+  X(MindSplatter)                                                              \
+  X(MobiusGrid)                                                                \
+  X(PetalFlow)                                                                 \
+  X(Raymarch)                                                                  \
+  X(RingShower)                                                                \
+  X(RingSpin)                                                                  \
+  X(ShapeShifter)                                                              \
+  X(SphericalHarmonics)                                                        \
+  X(Thrusters)                                                                 \
   X(Voronoi)
 
 /**
@@ -85,28 +85,28 @@
  *   The static_assert below HS_PHANTASM_EFFECT_COUNT forces this list to be
  *   revisited whenever HS_EFFECT_LIST gains or loses an entry.
  */
-#define HS_PHANTASM_EFFECT_LIST(X)                                              \
-  X(BZReactionDiffusion)                                                        \
-  X(ChaoticStrings)                                                             \
-  X(Comets)                                                                     \
-  X(DisplacementField)                                                          \
-  X(DreamBalls)                                                                 \
-  X(Flyby)                                                                      \
-  X(GnomonicStars)                                                              \
-  X(GSReactionDiffusion)                                                        \
-  X(HankinSolids)                                                               \
-  X(HopfFibration)                                                              \
-  X(IslamicStars)                                                               \
-  X(Liquid2D)                                                                   \
-  X(MeshFeedback)                                                               \
-  X(MindSplatter)                                                               \
-  X(MobiusGrid)                                                                 \
-  X(PetalFlow)                                                                  \
-  X(Raymarch)                                                                   \
-  X(RingShower)                                                                 \
-  X(RingSpin)                                                                   \
-  X(ShapeShifter)                                                               \
-  X(SphericalHarmonics)                                                         \
+#define HS_PHANTASM_EFFECT_LIST(X)                                             \
+  X(BZReactionDiffusion)                                                       \
+  X(ChaoticStrings)                                                            \
+  X(Comets)                                                                    \
+  X(DisplacementField)                                                         \
+  X(DreamBalls)                                                                \
+  X(Flyby)                                                                     \
+  X(GnomonicStars)                                                             \
+  X(GSReactionDiffusion)                                                       \
+  X(HankinSolids)                                                              \
+  X(HopfFibration)                                                             \
+  X(IslamicStars)                                                              \
+  X(Liquid2D)                                                                  \
+  X(MeshFeedback)                                                              \
+  X(MindSplatter)                                                              \
+  X(MobiusGrid)                                                                \
+  X(PetalFlow)                                                                 \
+  X(Raymarch)                                                                  \
+  X(RingShower)                                                                \
+  X(RingSpin)                                                                  \
+  X(ShapeShifter)                                                              \
+  X(SphericalHarmonics)                                                        \
   X(Voronoi)
 
 /**
@@ -131,4 +131,3 @@ constexpr int HS_PHANTASM_EFFECT_COUNT =
 static_assert(HS_PHANTASM_EFFECT_COUNT == HS_EFFECT_COUNT - 2,
               "HS_PHANTASM_EFFECT_LIST out of sync with HS_EFFECT_LIST "
               "(full roster minus Dynamo and Thrusters)");
-

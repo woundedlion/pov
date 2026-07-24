@@ -108,7 +108,8 @@ inline void test_push_back_fills_to_capacity() {
  */
 inline void test_push_back_overflow_drops_oldest() {
   StaticCircularBuffer<int, 3> buf;
-  for (int i = 1; i <= 5; ++i) buf.push_back(i);
+  for (int i = 1; i <= 5; ++i)
+    buf.push_back(i);
   HS_EXPECT_EQ(buf.size(), (size_t)3);
   HS_EXPECT_EQ(buf[0], 3);
   HS_EXPECT_EQ(buf[1], 4);
@@ -140,7 +141,8 @@ inline void test_push_front_order() {
  */
 inline void test_push_front_overflow_drops_back() {
   StaticCircularBuffer<int, 3> buf;
-  for (int i = 1; i <= 5; ++i) buf.push_front(i);
+  for (int i = 1; i <= 5; ++i)
+    buf.push_front(i);
   HS_EXPECT_EQ(buf.size(), (size_t)3);
   HS_EXPECT_EQ(buf.front(), 5);
   HS_EXPECT_EQ(buf.back(), 3);
@@ -339,7 +341,8 @@ inline void test_alternating_push_pop_wraps() {
   StaticCircularBuffer<int, 3> buf;
   for (int i = 0; i < 10; ++i) {
     buf.push_back(i);
-    if (i % 2 == 1) buf.pop_front();
+    if (i % 2 == 1)
+      buf.pop_front();
   }
   // Final window after the wrap: push 9 fills [7,8,9], then the i=9 pop drops 7.
   HS_EXPECT_EQ(buf.size(), (size_t)2);
@@ -395,7 +398,8 @@ inline void test_iterator_types_are_public() {
 inline void test_iterator_range_for() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3, 4};
   int sum = 0;
-  for (int x : buf) sum += x;
+  for (int x : buf)
+    sum += x;
   HS_EXPECT_EQ(sum, 10);
 }
 
@@ -446,10 +450,12 @@ inline void test_iterator_comparisons() {
  */
 inline void test_iterator_after_wrap() {
   StaticCircularBuffer<int, 3> buf;
-  for (int i = 1; i <= 5; ++i) buf.push_back(i); // ends as [3, 4, 5] logical
+  for (int i = 1; i <= 5; ++i)
+    buf.push_back(i); // ends as [3, 4, 5] logical
   int values[3];
   int n = 0;
-  for (int x : buf) values[n++] = x;
+  for (int x : buf)
+    values[n++] = x;
   HS_EXPECT_EQ(n, 3);
   HS_EXPECT_EQ(values[0], 3);
   HS_EXPECT_EQ(values[1], 4);
@@ -464,7 +470,8 @@ inline void test_const_iterator() {
   StaticCircularBuffer<int, 4> buf{1, 2, 3};
   const auto &cref = buf;
   int sum = 0;
-  for (auto it = cref.begin(); it != cref.end(); ++it) sum += *it;
+  for (auto it = cref.begin(); it != cref.end(); ++it)
+    sum += *it;
   HS_EXPECT_EQ(sum, 6);
 
   auto ci = cref.begin();
@@ -550,4 +557,3 @@ inline int run_static_circular_buffer_tests() {
 
 } // namespace scb
 } // namespace hs_test
-

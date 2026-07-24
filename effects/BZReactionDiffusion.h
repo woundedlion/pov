@@ -77,13 +77,14 @@ public:
    */
   void init() override {
     constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
-                                     ReactionGraph::CubemapLUT::RES *
-                                     sizeof(uint16_t); // cube_lut.build
-    constexpr size_t STATE_BYTES = 3u * RD_N * sizeof(uint8_t); // allocate_state
+                                      ReactionGraph::CubemapLUT::RES *
+                                      sizeof(uint16_t); // cube_lut.build
+    constexpr size_t STATE_BYTES =
+        3u * RD_N * sizeof(uint8_t); // allocate_state
     // NODE_BYTES bounds both the resident node array and the equal-size transient
     // lattice cube_lut.build() carves and rewinds before init_lattice() allocates
     // the resident one; the build() peak (state + LUT + transient) is the max.
-    constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);        // build_nodes
+    constexpr size_t NODE_BYTES = RD_N * sizeof(Vector); // build_nodes
     constexpr size_t PERSISTENT_BYTES = 165 * 1024;
     static_assert(CUBE_LUT_BYTES + STATE_BYTES + NODE_BYTES <= PERSISTENT_BYTES,
                   "BZ persistent arena too small for LUT + state + build peak");
@@ -133,7 +134,8 @@ private:
    * @brief Q8 full-scale factor: maps the [0, 255] byte state to [0.0, 1.0].
    */
   static constexpr float Q8_SCALE = 255.0f;
-  static constexpr float Q8_INV = 1.0f / Q8_SCALE; /**< Reciprocal of Q8_SCALE. */
+  static constexpr float Q8_INV =
+      1.0f / Q8_SCALE; /**< Reciprocal of Q8_SCALE. */
 
   /**
    * @brief Concentration-sum floor below which a location is treated as empty.
@@ -162,10 +164,11 @@ private:
   }
 
   // Simulation tuning.
-  static constexpr int CLUSTERS_PER_SPECIES = 3; // seed blobs per species at init
-  static constexpr int STEPS_PER_FRAME = 2;      // physics substeps per render
-  static constexpr int NUM_PERTURBATIONS = 8;    // random nudges per physics step
-  static constexpr int PERTURB_AMOUNT = 3;       // Q8 magnitude of each nudge
+  static constexpr int CLUSTERS_PER_SPECIES =
+      3;                                      // seed blobs per species at init
+  static constexpr int STEPS_PER_FRAME = 2;   // physics substeps per render
+  static constexpr int NUM_PERTURBATIONS = 8; // random nudges per physics step
+  static constexpr int PERTURB_AMOUNT = 3;    // Q8 magnitude of each nudge
 
   // ---------------------------------------------------------------------------
   // Initialization helpers
@@ -321,7 +324,8 @@ private:
     float g = (ca.color.g * a + cb.color.g * b + cc.color.g * c) * inv;
     float bl = (ca.color.b * a + cb.color.b * b + cc.color.b * c) * inv;
 
-    return Pixel(static_cast<uint16_t>(r + 0.5f), static_cast<uint16_t>(g + 0.5f),
+    return Pixel(static_cast<uint16_t>(r + 0.5f),
+                 static_cast<uint16_t>(g + 0.5f),
                  static_cast<uint16_t>(bl + 0.5f));
   }
 
@@ -440,13 +444,12 @@ private:
       float *f_c = static_cast<float *>(
           scratch_arena_a.allocate(RD_N * sizeof(float), alignof(float)));
 
-      advance_substeps(STEPS_PER_FRAME,
-                       std::array<uint8_t *, 3>{state.A, state.B, state.C},
-                       std::array<uint8_t *, 3>{s_a, s_b, s_c},
-                       [&](auto &cur, auto &nxt) {
-                         step_physics(cur[0], cur[1], cur[2],
-                                      nxt[0], nxt[1], nxt[2], f_a, f_b, f_c);
-                       });
+      advance_substeps(
+          STEPS_PER_FRAME, std::array<uint8_t *, 3>{state.A, state.B, state.C},
+          std::array<uint8_t *, 3>{s_a, s_b, s_c}, [&](auto &cur, auto &nxt) {
+            step_physics(cur[0], cur[1], cur[2], nxt[0], nxt[1], nxt[2], f_a,
+                         f_b, f_c);
+          });
     }
 
     // Physics scratch is popped; the raster phase reuses the arena for the

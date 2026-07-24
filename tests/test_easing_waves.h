@@ -204,10 +204,10 @@ inline void test_sin_wave_amplitude_period_symmetry() {
  */
 inline void test_tri_wave_shape() {
   auto w = tri_wave(0.0f, 1.0f, 1.0f, 0.0f);
-  HS_EXPECT_NEAR(w(0.0f), 0.0f, 1e-4f);   // trough at start
-  HS_EXPECT_NEAR(w(0.25f), 0.5f, 1e-4f);  // rising through mid
-  HS_EXPECT_NEAR(w(0.5f), 1.0f, 1e-4f);   // peak
-  HS_EXPECT_NEAR(w(0.75f), 0.5f, 1e-4f);  // falling through mid
+  HS_EXPECT_NEAR(w(0.0f), 0.0f, 1e-4f);  // trough at start
+  HS_EXPECT_NEAR(w(0.25f), 0.5f, 1e-4f); // rising through mid
+  HS_EXPECT_NEAR(w(0.5f), 1.0f, 1e-4f);  // peak
+  HS_EXPECT_NEAR(w(0.75f), 0.5f, 1e-4f); // falling through mid
   for (int i = 0; i <= N; ++i) {
     float v = w(frac(i) * 2.0f);
     HS_EXPECT_GE(v, -1e-3f);
@@ -246,8 +246,9 @@ inline void test_square_wave_binary() {
  */
 inline void test_square_wave_negative_phase() {
   auto w = square_wave(0.0f, 1.0f, 1.0f, 0.5f, 0.0f);
-  HS_EXPECT_NEAR(w(-0.25f), 0.0f, 1e-5f); // wrap(-0.25)=0.75 -> low, not latched
-  HS_EXPECT_NEAR(w(-0.9f), 1.0f, 1e-5f);  // wrap(-0.9)=0.1 -> high
+  HS_EXPECT_NEAR(w(-0.25f), 0.0f,
+                 1e-5f);                 // wrap(-0.25)=0.75 -> low, not latched
+  HS_EXPECT_NEAR(w(-0.9f), 1.0f, 1e-5f); // wrap(-0.9)=0.1 -> high
   for (int i = 0; i < N; ++i) {
     float ft = frac(i); // [0,1)
     HS_EXPECT_NEAR(w(ft - 1.0f), w(ft), 1e-5f);
@@ -281,4 +282,3 @@ inline int run_easing_waves_tests() {
 
 } // namespace easing_waves_tests
 } // namespace hs_test
-

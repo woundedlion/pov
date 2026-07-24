@@ -50,12 +50,19 @@ template <typename Effect> void measure(const char *name) {
   size_t a = scratch_arena_a.get_high_water_mark();
   size_t b = scratch_arena_b.get_high_water_mark();
   size_t tot = p + a + b;
-  std::printf("  %-22s persist=%7zu  scratchA=%6zu  scratchB=%6zu  total=%7zu\n",
-              name, p, a, b, tot);
-  if (p > g_max_p) g_max_p = p;
-  if (a > g_max_a) g_max_a = a;
-  if (b > g_max_b) g_max_b = b;
-  if (tot > g_worst_total) { g_worst_total = tot; g_worst_name = name; }
+  std::printf(
+      "  %-22s persist=%7zu  scratchA=%6zu  scratchB=%6zu  total=%7zu\n", name,
+      p, a, b, tot);
+  if (p > g_max_p)
+    g_max_p = p;
+  if (a > g_max_a)
+    g_max_a = a;
+  if (b > g_max_b)
+    g_max_b = b;
+  if (tot > g_worst_total) {
+    g_worst_total = tot;
+    g_worst_name = name;
+  }
 }
 } // namespace
 
@@ -65,9 +72,10 @@ int main() {
   HS_EFFECT_LIST(HS_ARENA_ONE)
 #undef HS_ARENA_ONE
   if (g_measured != HS_EFFECT_COUNT) {
-    std::printf("measured %d effects but HS_EFFECT_COUNT = %d — roster empty or "
-                "measure() calls dropped\n",
-                g_measured, HS_EFFECT_COUNT);
+    std::printf(
+        "measured %d effects but HS_EFFECT_COUNT = %d — roster empty or "
+        "measure() calls dropped\n",
+        g_measured, HS_EFFECT_COUNT);
     return 1;
   }
   std::printf("\nMAX persist=%zu  scratchA=%zu  scratchB=%zu\n", g_max_p,

@@ -45,7 +45,7 @@ public:
     configure_arenas(GLOBAL_ARENA_SIZE - 64 * 1024, 64 * 1024, 0);
 
     register_param("Num Sites", &params.num_sites, 1.0f,
-                  static_cast<float>(MAX_SITES));
+                   static_cast<float>(MAX_SITES));
     register_param("Speed", &params.speed, 0.0f, 100.0f);
     register_param("Sharpness", &params.sharpness, 0.0f, 500.0f);
     register_param("Border Thick", &params.border_thickness, 0.0f, 0.1f);
@@ -202,8 +202,8 @@ public:
     // One candidate set per block column, rebuilt on each block-row change.
     // Positions are copied in so the per-pixel scan runs over contiguous data.
     const int nblk = nbx - 1;
-    CandSet *cands = static_cast<CandSet *>(scratch_arena_a.allocate(
-        nblk * sizeof(CandSet), alignof(CandSet)));
+    CandSet *cands = static_cast<CandSet *>(
+        scratch_arena_a.allocate(nblk * sizeof(CandSet), alignof(CandSet)));
     auto build_candidate_row = [&](int ky) {
       for (int jx = 0; jx < nblk; ++jx) {
         CandSet &cs = cands[jx];
@@ -269,7 +269,8 @@ public:
       corners' nearest pairs. Smaller is safer (fewer missed sub-block cells)
       but classifies more corners; the render path shrinks the block toward
       COHERENCE_BLOCK_MIN as the site count rises. */
-  static constexpr int COHERENCE_BLOCK_MIN = 4; /**< Smallest adaptive block edge.
+  static constexpr int COHERENCE_BLOCK_MIN =
+      4; /**< Smallest adaptive block edge.
       Floors the per-frame block so the corner grid stays within the scratch
       budget (pinned by the static_assert below); ~matches the cell pixel size at
       MAX_SITES. */
@@ -279,8 +280,8 @@ public:
    *  render path). At class scope so the scratch-budget static_assert below can
    *  size the corner grid against sizeof(CellId). */
   struct CellId {
-    uint16_t lo;    /**< min(nearest, second) site index. */
-    uint16_t hi;    /**< max(nearest, second) site index. */
+    uint16_t lo;     /**< min(nearest, second) site index. */
+    uint16_t hi;     /**< max(nearest, second) site index. */
     bool has_second; /**< Whether a second neighbor exists (>= 2 sites). */
   };
 
@@ -299,23 +300,28 @@ public:
   static constexpr size_t SCRATCH_A_BYTES = 64 * 1024;
   static constexpr size_t POSITIONS_BYTES = size_t(MAX_SITES) * sizeof(Vector);
   static constexpr size_t KD_NODES_BYTES = size_t(MAX_SITES) * sizeof(KDNode);
-  static constexpr size_t KD_BUILD_SCRATCH_BYTES = size_t(MAX_SITES) * sizeof(int);
+  static constexpr size_t KD_BUILD_SCRATCH_BYTES =
+      size_t(MAX_SITES) * sizeof(int);
   // Corner grid spans the full canvas in block-px steps, +2 for the inclusive
   // [0,W)/[0,H) end corners (mirrors render()'s nbx/nby at full clip). Sized at
   // COHERENCE_BLOCK_MIN — the worst case (most corners) the adaptive block hits.
-  static constexpr size_t CORNER_COLS = size_t((W - 1) / COHERENCE_BLOCK_MIN + 2);
-  static constexpr size_t CORNER_ROWS = size_t((H - 1) / COHERENCE_BLOCK_MIN + 2);
-  static constexpr size_t CELLS_BYTES = CORNER_COLS * CORNER_ROWS * sizeof(CellId);
+  static constexpr size_t CORNER_COLS =
+      size_t((W - 1) / COHERENCE_BLOCK_MIN + 2);
+  static constexpr size_t CORNER_ROWS =
+      size_t((H - 1) / COHERENCE_BLOCK_MIN + 2);
+  static constexpr size_t CELLS_BYTES =
+      CORNER_COLS * CORNER_ROWS * sizeof(CellId);
   static constexpr size_t CAND_ROW_BYTES = (CORNER_COLS - 1) * sizeof(CandSet);
   static constexpr size_t SCRATCH_HIGH_WATER =
       POSITIONS_BYTES + KD_NODES_BYTES +
       (KD_BUILD_SCRATCH_BYTES > CELLS_BYTES + CAND_ROW_BYTES
            ? KD_BUILD_SCRATCH_BYTES
            : CELLS_BYTES + CAND_ROW_BYTES);
-  static_assert(SCRATCH_HIGH_WATER <= SCRATCH_A_BYTES,
-                "Voronoi scratch_arena_a budget (64 KB) too small for MAX_SITES "
-                "positions + KD-tree + coarse-grid cells; raise the reserve in "
-                "init() or lower MAX_SITES / coarsen COHERENCE_BLOCK");
+  static_assert(
+      SCRATCH_HIGH_WATER <= SCRATCH_A_BYTES,
+      "Voronoi scratch_arena_a budget (64 KB) too small for MAX_SITES "
+      "positions + KD-tree + coarse-grid cells; raise the reserve in "
+      "init() or lower MAX_SITES / coarsen COHERENCE_BLOCK");
 
   int current_num_sites = 0; /**< Count currently seeded; re-seeds (clear +
                                   refill, no realloc) when the slider changes. */
@@ -369,9 +375,9 @@ private:
    * @brief Live-tunable GUI parameters for the Voronoi effect.
    */
   struct Params {
-    float num_sites = 200.0f;     /**< Live-tunable site count (GUI slider). */
-    float speed = 20.0f;          /**< Site spin rate (GUI slider). */
-    float sharpness = 100.0f;     /**< Edge sharpening; larger narrows the
+    float num_sites = 200.0f;      /**< Live-tunable site count (GUI slider). */
+    float speed = 20.0f;           /**< Site spin rate (GUI slider). */
+    float sharpness = 100.0f;      /**< Edge sharpening; larger narrows the
                                        border blend band. */
     float border_thickness = 0.0f; /**< Cell-seam border width; 0 disables. */
   } params;

@@ -47,7 +47,8 @@ struct Neighbor {
  */
 class KDTree {
 public:
-  static constexpr int MAX_K = 5; /**< Maximum number of neighbors a query may request. */
+  static constexpr int MAX_K =
+      5; /**< Maximum number of neighbors a query may request. */
 
   /**
    * @brief Upper bound on source points, set by the int16_t node-link range.
@@ -57,8 +58,9 @@ public:
    */
   static constexpr size_t MAX_POINTS = static_cast<size_t>(INT16_MAX) + 1;
 
-  ArenaVector<KDNode> nodes; /**< Arena-backed node pool, one entry per point. */
-  int root_index = -1;       /**< Index of the root node, or -1 if empty. */
+  ArenaVector<KDNode>
+      nodes;           /**< Arena-backed node pool, one entry per point. */
+  int root_index = -1; /**< Index of the root node, or -1 if empty. */
 
   /**
    * @brief Constructs an empty tree with no nodes.
@@ -79,8 +81,9 @@ public:
       return;
 
     size_t count = points.size();
-    HS_CHECK(count <= MAX_POINTS,
-             "KDTree source point count exceeds int16_t child-link index range");
+    HS_CHECK(
+        count <= MAX_POINTS,
+        "KDTree source point count exceeds int16_t child-link index range");
     nodes.bind(arena, count);
 
     // Scope the scratch index array so the arena offset rewinds once build()
@@ -108,8 +111,10 @@ public:
   StaticCircularBuffer<Neighbor, MAX_K> nearest(const Vector &target,
                                                 size_t k = 1) const {
     StaticCircularBuffer<Neighbor, MAX_K> result;
-    HS_CHECK(k <= static_cast<size_t>(MAX_K), "KDTree::nearest k exceeds MAX_K");
-    if (root_index == -1 || k == 0) // k is size_t; only k == 0 is the empty case
+    HS_CHECK(k <= static_cast<size_t>(MAX_K),
+             "KDTree::nearest k exceeds MAX_K");
+    if (root_index == -1 ||
+        k == 0) // k is size_t; only k == 0 is the empty case
       return result;
 
     // Cached pruning bound: the largest squared distance in `result` and its
@@ -162,7 +167,8 @@ private:
    * @details Cycles the split axis by depth%3, partitioning around the median
    * along that axis and reordering `indices` in place.
    */
-  HS_COLD_MEMBER int build(std::span<const Vector> points, int *indices, int count, int depth) {
+  HS_COLD_MEMBER int build(std::span<const Vector> points, int *indices,
+                           int count, int depth) {
     if (count <= 0)
       return -1; // legitimate empty-subtree sentinel (leaf recursion base case)
     // Trap rather than return -1: a -1 here is indistinguishable from the
@@ -233,8 +239,8 @@ private:
       offer_candidate(d_sq, node_idx);
 
     float axis_dist = (node.axis == 0)   ? (target.x - node.point.x)
-                     : (node.axis == 1) ? (target.y - node.point.y)
-                                        : (target.z - node.point.z);
+                      : (node.axis == 1) ? (target.y - node.point.y)
+                                         : (target.z - node.point.z);
 
     int near = axis_dist < 0 ? node.left : node.right;
     int far = axis_dist < 0 ? node.right : node.left;
@@ -271,15 +277,19 @@ inline void copy_vector(ArenaVector<T> &dst, const T *src, size_t n,
  * allocations.
  */
 struct MeshState {
-  ArenaVector<Vector> vertices;        /**< Owned vertex positions, in world units. */
-  ArenaVector<uint8_t> face_counts;    /**< Owned per-face vertex counts. */
-  ArenaVector<uint16_t> faces;         /**< Owned flattened face vertex indices. */
-  ArenaVector<uint16_t> face_offsets;  /**< Owned start offset of each face into faces. */
-  ArenaVector<int> topology;           /**< Owned adjacency/topology data. */
+  ArenaVector<Vector> vertices; /**< Owned vertex positions, in world units. */
+  ArenaVector<uint8_t> face_counts; /**< Owned per-face vertex counts. */
+  ArenaVector<uint16_t> faces;      /**< Owned flattened face vertex indices. */
+  ArenaVector<uint16_t>
+      face_offsets;          /**< Owned start offset of each face into faces. */
+  ArenaVector<int> topology; /**< Owned adjacency/topology data. */
 
-  ArenaSpan<uint8_t> face_counts_view;   /**< Borrowed face-counts view, populated by MeshOps::transform. */
-  ArenaSpan<uint16_t> faces_view;        /**< Borrowed faces view, populated by MeshOps::transform. */
-  ArenaSpan<uint16_t> face_offsets_view; /**< Borrowed face-offsets view, populated by MeshOps::transform. */
+  ArenaSpan<uint8_t>
+      face_counts_view; /**< Borrowed face-counts view, populated by MeshOps::transform. */
+  ArenaSpan<uint16_t>
+      faces_view; /**< Borrowed faces view, populated by MeshOps::transform. */
+  ArenaSpan<uint16_t>
+      face_offsets_view; /**< Borrowed face-offsets view, populated by MeshOps::transform. */
 
   /**
    * @brief Constructs an empty, unbound mesh.
@@ -297,8 +307,7 @@ struct MeshState {
         faces(std::move(other.faces)),
         face_offsets(std::move(other.face_offsets)),
         topology(std::move(other.topology)),
-        face_counts_view(other.face_counts_view),
-        faces_view(other.faces_view),
+        face_counts_view(other.face_counts_view), faces_view(other.faces_view),
         face_offsets_view(other.face_offsets_view) {
     other.set_owned();
   }
@@ -351,14 +360,16 @@ struct MeshState {
    * the sibling accessors below).
    */
   const uint8_t *get_face_counts_data() const {
-    return face_counts.is_bound() ? face_counts.data() : face_counts_view.data();
+    return face_counts.is_bound() ? face_counts.data()
+                                  : face_counts_view.data();
   }
   /**
    * @brief Returns the number of face counts for the active mode.
    * @return Owned size in owned mode, otherwise the borrowed view size.
    */
   size_t get_face_counts_size() const {
-    return face_counts.is_bound() ? face_counts.size() : face_counts_view.size();
+    return face_counts.is_bound() ? face_counts.size()
+                                  : face_counts_view.size();
   }
 
   /**
@@ -411,7 +422,8 @@ struct MeshState {
    * @param arena Arena providing storage for the destination buffers.
    * @details Required by Cloneable.
    */
-  HS_COLD_MEMBER static void clone(const MeshState &src, MeshState &dst, Arena &arena) {
+  HS_COLD_MEMBER static void clone(const MeshState &src, MeshState &dst,
+                                   Arena &arena) {
     // Reused dst may carry stale views; clone produces an owned-mode mesh.
     dst.set_owned();
     copy_vector(dst.vertices, src.vertices.data(), src.vertices.size(), arena);

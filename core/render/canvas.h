@@ -24,8 +24,8 @@ class Canvas;
  *        name). Defaults suit a plain, non-strobing, band-clippable effect.
  */
 struct EffectConfig {
-  bool strobe = false;     /**< POV column strobe (Effect::strobe_columns). */
-  bool persist = false;    /**< Copy previous frame forward (persists_pixels). */
+  bool strobe = false;  /**< POV column strobe (Effect::strobe_columns). */
+  bool persist = false; /**< Copy previous frame forward (persists_pixels). */
   bool full_frame = false; /**< Force full-canvas render (needs_full_frame). */
 };
 
@@ -56,13 +56,14 @@ public:
       : persist_pixels(cfg.persist), full_frame(cfg.full_frame),
         strobe(cfg.strobe), width_(W), height_(H) {
     HS_CHECK(W > 0 && W <= MAX_W && H > 0 && H <= MAX_H,
-             "Effect dimensions %d x %d are outside 1..%d x 1..%d", W, H,
-             MAX_W, MAX_H);
+             "Effect dimensions %d x %d are outside 1..%d x 1..%d", W, H, MAX_W,
+             MAX_H);
     // Single-live-Effect precondition: every Effect aliases the same two static
     // buffers, so a second live instance corrupts both frames.
-    HS_CHECK(!s_alive,
-             "Effect: a second Effect was constructed while one is still alive; "
-             "buffer_a/buffer_b are shared static storage (one live Effect only)");
+    HS_CHECK(
+        !s_alive,
+        "Effect: a second Effect was constructed while one is still alive; "
+        "buffer_a/buffer_b are shared static storage (one live Effect only)");
     s_alive = true;
     // Point bufs_ at the shared static storage and clear both buffers.
     clear_buffers();
@@ -293,14 +294,15 @@ public:
     float min = 0;          /**< Minimum value (for floats). */
     float max = 1;          /**< Maximum value (for floats). */
     float defaultValue = 0; /**< Default value. */
-    bool animated = false;  /**< True if an animation drives this member; the GUI
+    bool animated =
+        false; /**< True if an animation drives this member; the GUI
                                surfaces these as auto-pausing sliders. */
-    bool readonly = false;  /**< True if this is engine-written telemetry; the
+    bool readonly = false; /**< True if this is engine-written telemetry; the
                                GUI shows it live but disables editing. */
     const char *const *options = nullptr; /**< Option labels for an enumerated
                                param (GUI dropdown), or null for a plain param.
                                Must outlive the effect (string literals). */
-    int option_count = 0;   /**< Number of option labels; > 0 marks an enum whose
+    int option_count = 0; /**< Number of option labels; > 0 marks an enum whose
                                float target holds the selected index. */
 
     /**
@@ -471,7 +473,7 @@ protected:
    * @brief POV column-strobe flag (see strobe_columns()); set at construction.
    */
   bool strobe;
-  ParamList parameters; /**< List of parameters. */
+  ParamList parameters;       /**< List of parameters. */
   bool anims_paused_ = false; /**< Pause gate for parameter-driving animations;
                                  pass `&anims_paused_` to Mutation/Driver. */
 
@@ -507,7 +509,7 @@ protected:
    * @param max Maximum value.
    */
   void register_param(const char *name, float *ptr, float min = 0.0f,
-                     float max = 1.0f) {
+                      float max = 1.0f) {
     // Overflowing the fixed ParamList is an authoring bug (also upholds the WASM
     // no-realloc memory-view invariant).
     HS_CHECK(parameters.count < parameters.elements.size(),
@@ -534,8 +536,8 @@ protected:
    *   outlive the effect (string literals).
    * @param option_count Number of labels; the value range is [0, option_count-1].
    */
-  void register_param(const char *name, float *ptr,
-                      const char *const *options, int option_count) {
+  void register_param(const char *name, float *ptr, const char *const *options,
+                      int option_count) {
     HS_CHECK(options != nullptr && option_count > 0,
              "register_param: enum needs at least one option");
     register_param(name, ptr, 0.0f, static_cast<float>(option_count - 1));
@@ -567,7 +569,7 @@ protected:
    * the name lookup mark_animated would redo.
    */
   void register_animated_param(const char *name, float *ptr, float min = 0.0f,
-                             float max = 1.0f) {
+                               float max = 1.0f) {
     register_param(name, ptr, min, max);
     parameters.elements[parameters.count - 1].animated = true;
   }
@@ -579,7 +581,7 @@ protected:
    * register_animated_param for the single-source-the-literal rationale.
    */
   void register_readonly_param(const char *name, float *ptr, float min = 0.0f,
-                             float max = 1.0f) {
+                               float max = 1.0f) {
     register_param(name, ptr, min, max);
     parameters.elements[parameters.count - 1].readonly = true;
   }
@@ -603,7 +605,7 @@ private:
   std::atomic<int> next_{0}; /**< Last completed frame, queued for display. */
   int width_;                /**< The width of the effect. */
   int height_;               /**< The height of the effect. */
-  ClipRegion clip_;          /**< Segment clip region (display + render margin). */
+  ClipRegion clip_; /**< Segment clip region (display + render margin). */
   // Shared static storage for the double buffer. PRECONDITION: at most one Effect
   // live at a time (s_alive guard); a second would alias these arrays and the
   // prev_/cur_/next_ indices.
@@ -797,7 +799,9 @@ public:
    * @brief Gets the accumulated rasterization time for the current frame.
    * @return The accumulated render time, in microseconds.
    */
-  [[nodiscard]] inline double get_render_us() const { return effect_.render_us; }
+  [[nodiscard]] inline double get_render_us() const {
+    return effect_.render_us;
+  }
 #endif
   /**
    * @brief Checks if debug visuals are enabled.
@@ -851,4 +855,3 @@ private:
   inline static std::atomic<unsigned long> s_buffer_free_spins{0};
 #endif
 };
-

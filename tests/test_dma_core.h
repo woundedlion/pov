@@ -26,10 +26,10 @@ static_assert(dma::next_buffer(0) == 1);
 static_assert(dma::next_buffer(1) == 0);
 static_assert(dma::transfer_len(100, 200, false) == 100);
 static_assert(dma::transfer_len(100, 200, true) == 200);
-static_assert(!dma::transfer_stale(0, 0, 100));    // now == start
-static_assert(!dma::transfer_stale(0, 99, 100));   // just below
-static_assert(dma::transfer_stale(0, 100, 100));   // at bound
-static_assert(dma::transfer_stale(0, 101, 100));   // above
+static_assert(!dma::transfer_stale(0, 0, 100));  // now == start
+static_assert(!dma::transfer_stale(0, 99, 100)); // just below
+static_assert(dma::transfer_stale(0, 100, 100)); // at bound
+static_assert(dma::transfer_stale(0, 101, 100)); // above
 
 /**
  * @brief Pin the double-buffer index toggle (0<->1).
@@ -54,11 +54,11 @@ inline void test_transfer_len() {
  */
 inline void test_transfer_stale_bounds() {
   const unsigned long wd = 100000UL;
-  HS_EXPECT_FALSE(dma::transfer_stale(0, 0, wd));         // now == start
+  HS_EXPECT_FALSE(dma::transfer_stale(0, 0, wd)); // now == start
   HS_EXPECT_FALSE(dma::transfer_stale(5000, 5000, wd));
-  HS_EXPECT_FALSE(dma::transfer_stale(0, wd - 1, wd));    // just below
-  HS_EXPECT_TRUE(dma::transfer_stale(0, wd, wd));         // at bound
-  HS_EXPECT_TRUE(dma::transfer_stale(0, wd + 1, wd));     // above
+  HS_EXPECT_FALSE(dma::transfer_stale(0, wd - 1, wd)); // just below
+  HS_EXPECT_TRUE(dma::transfer_stale(0, wd, wd));      // at bound
+  HS_EXPECT_TRUE(dma::transfer_stale(0, wd + 1, wd));  // above
 }
 
 /**

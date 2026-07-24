@@ -2,8 +2,8 @@
  * Required Notice: Copyright 2025 Gabriel Levy. All rights reserved.
  * Licensed under the Polyform Noncommercial License 1.0.0
  */
- 
- // Based on https://easings.net/
+
+// Based on https://easings.net/
 
 #pragma once
 
@@ -23,9 +23,8 @@
  * @return The eased factor.
  */
 inline float ease_in_out_cubic(float t) {
-  return t < 0.5f ?
-    4 * t * t * t :
-    1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;
+  return t < 0.5f ? 4 * t * t * t
+                  : 1 - (-2 * t + 2) * (-2 * t + 2) * (-2 * t + 2) / 2;
 }
 
 /**
@@ -33,36 +32,28 @@ inline float ease_in_out_cubic(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-inline float ease_in_out_sin(float t) {
-  return -(cosf(PI_F * t) - 1) / 2;
-}
+inline float ease_in_out_sin(float t) { return -(cosf(PI_F * t) - 1) / 2; }
 
 /**
  * @brief Easing function: Sine Interpolation (In).
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-inline float ease_in_sin(float t) {
-  return 1 - cosf((t * PI_F) / 2);
-}
+inline float ease_in_sin(float t) { return 1 - cosf((t * PI_F) / 2); }
 
 /**
  * @brief Easing function: Sine Interpolation (Out).
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-inline float ease_out_sin(float t) {
-  return sinf((t * PI_F) / 2);
-}
+inline float ease_out_sin(float t) { return sinf((t * PI_F) / 2); }
 
 /**
  * @brief Easing function: Cubic Interpolation (In).
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-inline float ease_in_cubic(float t) {
-  return t * t * t;
-}
+inline float ease_in_cubic(float t) { return t * t * t; }
 
 /**
  * @brief Easing function: Circular Interpolation (In).
@@ -79,9 +70,7 @@ inline float ease_in_circ(float t) {
  * @param t The time factor (0.0 to 1.0).
  * @return The eased factor.
  */
-inline float ease_linear(float t) {
-  return t;
-}
+inline float ease_linear(float t) { return t; }
 
 /**
  * @brief Easing function: Exponential Interpolation (Out).
@@ -122,7 +111,8 @@ inline float ease_out_cubic(float t) {
 inline float ease_out_elastic(float x) {
   const float c4 = (2 * PI_F) / 3;
   // Endpoint guards: pin exactly 0/1 and floor at 0 (2^(-10x) explodes for x < 0).
-  return x <= 0.0f ?
-    0.0f : x == 1.0f ?
-    1.0f : powf(2.0f, -10.0f * x) * sinf((x * 10.0f - 0.75f) * c4) + 1.0f;
+  return x <= 0.0f ? 0.0f
+         : x == 1.0f
+             ? 1.0f
+             : powf(2.0f, -10.0f * x) * sinf((x * 10.0f - 0.75f) * c4) + 1.0f;
 }

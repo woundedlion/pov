@@ -53,8 +53,8 @@ struct BreatheModifier {
    * not per pixel. mutable so const modify() can update the memo.
    */
   mutable float cached_phase_ = 0.0f;
-  mutable float cached_sin_ = 0.0f;   /**< Memoized sine of cached_phase_. */
-  mutable bool primed_ = false;       /**< Whether the memo has been populated. */
+  mutable float cached_sin_ = 0.0f; /**< Memoized sine of cached_phase_. */
+  mutable bool primed_ = false;     /**< Whether the memo has been populated. */
 
   /**
    * @brief Constructs with a mandatory phase driver and amplitude.
@@ -145,8 +145,8 @@ struct NoiseWarpModifier {
    * @return t plus a displacement in [-amplitude, amplitude].
    */
   float modify(float t) const {
-    return t +
-           (value_noise_2d(t * frequency, *time, seed) - 0.5f) * 2.0f * amplitude;
+    return t + (value_noise_2d(t * frequency, *time, seed) - 0.5f) * 2.0f *
+                   amplitude;
   }
 };
 
@@ -166,7 +166,7 @@ struct DriftModifier {
    */
   mutable float cached_time = 0.0f;
   mutable float cached_offset = 0.0f; /**< Memoized offset at cached_time. */
-  mutable bool primed = false;        /**< Whether the memo has been populated. */
+  mutable bool primed = false; /**< Whether the memo has been populated. */
 
   /**
    * @brief Constructs with a mandatory time driver, walk speed, and amplitude.
@@ -228,7 +228,8 @@ struct FoldModifier {
     // Triangle wave. fmodf keeps the dividend's sign, so reduce into [0, 2)
     // first — negative scaled would otherwise fold above 1.
     float m = fmodf(scaled, 2.0f);
-    if (m < 0.0f) m += 2.0f;
+    if (m < 0.0f)
+      m += 2.0f;
     return fabsf(m - 1.0f);
   }
 };
@@ -241,7 +242,8 @@ struct FoldModifier {
  * Null tension driver is the deliberate "no pinch" pass-through mode.
  */
 struct PinchModifier {
-  const float *tension; /**< Pinch tension driver; expects roughly -0.9 to 0.9. */
+  const float
+      *tension; /**< Pinch tension driver; expects roughly -0.9 to 0.9. */
 
   /**
    * @brief Constructs with an optional tension driver.
@@ -376,7 +378,8 @@ struct InsetModifier {
    * @param hi Upper domain bound mapped to 1; defaults to 0.8.
    */
   InsetModifier(float lo = 0.2f, float hi = 0.8f) : lo(lo), hi(hi) {
-    HS_CHECK(hi > lo, "InsetModifier: hi must be > lo (modify divides by hi - lo)");
+    HS_CHECK(hi > lo,
+             "InsetModifier: hi must be > lo (modify divides by hi - lo)");
   }
   /**
    * @brief Remaps the coordinate from [lo, hi] into [0, 1], clamping outside.
@@ -405,8 +408,9 @@ struct HueSpinShade {
    * mutable so const shade() can update the memo.
    */
   mutable float matrix[9] = {};
-  mutable float cached_amount = 0.0f; /**< Driver value the memo was built at. */
-  mutable bool primed = false;        /**< Whether the memo has been populated. */
+  mutable float cached_amount =
+      0.0f;                    /**< Driver value the memo was built at. */
+  mutable bool primed = false; /**< Whether the memo has been populated. */
 
   /**
    * @brief Constructs with a mandatory rotation driver.
@@ -439,8 +443,8 @@ struct HueSpinShade {
     LMS lms = linear_rgb_to_lms(r, g, b);
     lms_cbrt_transform_rgb(matrix, fast_cbrt(lms.l), fast_cbrt(lms.m),
                            fast_cbrt(lms.s), r, g, b);
-    c.color = Pixel(float_to_pixel16(r), float_to_pixel16(g),
-                    float_to_pixel16(b));
+    c.color =
+        Pixel(float_to_pixel16(r), float_to_pixel16(g), float_to_pixel16(b));
     return c;
   }
 };
@@ -536,7 +540,7 @@ struct ChromaPulseShade {
    */
   mutable float cached_phase = 0.0f;
   mutable float cached_scale = 1.0f; /**< Memoized scale at cached_phase. */
-  mutable bool primed = false;       /**< Whether the memo has been populated. */
+  mutable bool primed = false; /**< Whether the memo has been populated. */
 
   /**
    * @brief Constructs with a mandatory phase driver and pulse depth.
@@ -573,8 +577,8 @@ struct ChromaPulseShade {
     lab.a *= cached_scale;
     lab.b *= cached_scale;
     oklab_to_linear_rgb_gamut(lab, r, g, b);
-    c.color = Pixel(float_to_pixel16(r), float_to_pixel16(g),
-                    float_to_pixel16(b));
+    c.color =
+        Pixel(float_to_pixel16(r), float_to_pixel16(g), float_to_pixel16(b));
     return c;
   }
 };
@@ -651,9 +655,10 @@ struct IridescentShade {
   Color4 shade(Color4 c, float t) const {
     float arg = t * frequency * PI_F * 2.0f + *phase;
     constexpr float THIRD = 2.0f * PI_F / 3.0f;
-    Pixel sheen(srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg)),
-                srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + THIRD)),
-                srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + 2.0f * THIRD)));
+    Pixel sheen(
+        srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg)),
+        srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + THIRD)),
+        srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + 2.0f * THIRD)));
     c.color += sheen * weight;
     return c;
   }
@@ -834,8 +839,10 @@ public:
    */
   void bind(const Source *src, const CMods *...cms, const XMods *...xms) {
     HS_CHECK(src != nullptr, "StaticPalette bound to null source");
-    HS_CHECK(((cms != nullptr) && ...), "StaticPalette bound to null coord modifier");
-    HS_CHECK(((xms != nullptr) && ...), "StaticPalette bound to null color modifier");
+    HS_CHECK(((cms != nullptr) && ...),
+             "StaticPalette bound to null coord modifier");
+    HS_CHECK(((xms != nullptr) && ...),
+             "StaticPalette bound to null color modifier");
     source_ = src;
     coords_ = std::make_tuple(cms...);
     colors_ = std::make_tuple(xms...);
@@ -957,7 +964,8 @@ public:
    * @param source Source palette or composition to sample.
    * @details Works for a runtime Palette or a compile-time StaticPalette alike.
    */
-  template <typename Source> HS_COLD_MEMBER void bake(Arena &arena, const Source &source) {
+  template <typename Source>
+  HS_COLD_MEMBER void bake(Arena &arena, const Source &source) {
     lut_ = arena.allocate_n<Color4>(LUT_SIZE);
     rebake(source);
   }
@@ -984,10 +992,11 @@ public:
     assert(lut_ != nullptr && "BakedPalette::get before bake()");
     // Clamp before the int cast: static_cast<int>(NaN) is UB. hs::clamp maps NaN
     // to the hi bound (last entry) and guarantees idx >= 0.
-    float idx = hs::clamp(t * (LUT_SIZE - 1), 0.0f,
-                          static_cast<float>(LUT_SIZE - 1));
+    float idx =
+        hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
     int lo = static_cast<int>(idx);
-    if (lo >= LUT_SIZE - 1) return lut_[LUT_SIZE - 1];
+    if (lo >= LUT_SIZE - 1)
+      return lut_[LUT_SIZE - 1];
     float frac = idx - lo;
     const Color4 &a = lut_[lo];
     const Color4 &b = lut_[lo + 1];
@@ -1085,8 +1094,8 @@ struct BakedPaletteBank {
    * @param arena Arena to allocate the cloned LUTs from.
    * @details Required by Cloneable.
    */
-  HS_COLD_MEMBER static void clone(const BakedPaletteBank &src, BakedPaletteBank &dst,
-                    Arena &arena) {
+  HS_COLD_MEMBER static void clone(const BakedPaletteBank &src,
+                                   BakedPaletteBank &dst, Arena &arena) {
     for (int i = 0; i < N; ++i)
       dst.entries[i].clone_from(src.entries[i], arena);
   }

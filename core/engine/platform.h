@@ -24,10 +24,10 @@
  *          hot loop. On failure it logs a located breadcrumb and flushes before
  *          trapping.
  */
-#define HS_CHECK(cond, ...)                                                     \
-  do {                                                                          \
-    if (!(cond))                                                                \
-      ::hs::check_fail(__FILE__, __LINE__, #cond __VA_OPT__(, ) __VA_ARGS__);   \
+#define HS_CHECK(cond, ...)                                                    \
+  do {                                                                         \
+    if (!(cond))                                                               \
+      ::hs::check_fail(__FILE__, __LINE__, #cond __VA_OPT__(, ) __VA_ARGS__);  \
   } while (0)
 
 #include <random>
@@ -102,7 +102,7 @@ constexpr uint64_t epoch_seed(uint32_t epoch) {
 
 #ifdef ARDUINO
 #ifndef NDEBUG
-#define NDEBUG  // Strip assert() to avoid linking newlib's __assert_func → fprintf
+#define NDEBUG // Strip assert() to avoid linking newlib's __assert_func → fprintf
 #endif
 #include <Arduino.h>
 #include <FastLED.h>
@@ -144,7 +144,7 @@ inline void flush_log() { Serial.flush(); }
  *          is main-loop-only — never call it from an ISR or any preemptive
  *          context.
  */
-inline Pcg32& random() {
+inline Pcg32 &random() {
   static Pcg32 gen(1337);
   return gen;
 }
@@ -224,9 +224,12 @@ static constexpr int H_OFFSET = 3;
 // branch. The predicted-not-taken branch lives only in millis/micros (per-frame),
 // never the per-pixel hot loop.
 namespace hs {
-inline bool use_mock_time = false;        /**< When true, millis/micros return mock values. */
-inline unsigned long mock_millis_value = 0; /**< Pinned millisecond time when mocking. */
-inline unsigned long mock_micros_value = 0; /**< Pinned microsecond time when mocking. */
+inline bool use_mock_time =
+    false; /**< When true, millis/micros return mock values. */
+inline unsigned long mock_millis_value =
+    0; /**< Pinned millisecond time when mocking. */
+inline unsigned long mock_micros_value =
+    0; /**< Pinned microsecond time when mocking. */
 /**
  * @brief Pins time to a fixed value for deterministic tests.
  * @param ms Millisecond value millis() should return.
@@ -462,7 +465,7 @@ inline void flush_log() { fflush(stdout); }
  *          ARDUINO branch's `hs::random()` for which paths are (and are not)
  *          covered.
  */
-inline Pcg32& random() {
+inline Pcg32 &random() {
   static Pcg32 gen(1337);
   return gen;
 }
@@ -536,7 +539,8 @@ enum ColorOrder { RGB };
  *          returns 0, so the host avoids a modulo-by-zero SIGFPE and matches.
  */
 inline int random(int max) {
-  if (max <= 0) return 0;
+  if (max <= 0)
+    return 0;
   return hs::random()() % max;
 }
 /**
@@ -548,7 +552,8 @@ inline int random(int max) {
  *          so the host avoids a modulo-by-zero SIGFPE.
  */
 inline int random(int min, int max) {
-  if (max <= min) return min;
+  if (max <= min)
+    return min;
   return min + (hs::random()() % (max - min));
 }
 /**
@@ -571,15 +576,16 @@ inline long map(long x, long in_min, long in_max, long out_min, long out_max) {
   // 2^32) and reinterpret to int32_t to reproduce its two's-complement
   // truncation without 64-bit widening (LP64) or signed-overflow UB.
   const int32_t divisor = static_cast<int32_t>(in_max - in_min);
-  if (divisor == 0) return out_min;
-  const int32_t product = static_cast<int32_t>(
-      static_cast<uint32_t>(x - in_min) *
-      static_cast<uint32_t>(out_max - out_min));
+  if (divisor == 0)
+    return out_min;
+  const int32_t product =
+      static_cast<int32_t>(static_cast<uint32_t>(x - in_min) *
+                           static_cast<uint32_t>(out_max - out_min));
   // INT32_MIN / -1 overflows (host UB) but ARM SDIV returns INT32_MIN; negate
   // mod 2^32 to reproduce the device result without trapping.
-  const int32_t scaled = divisor == -1
-                             ? static_cast<int32_t>(0u - static_cast<uint32_t>(product))
-                             : product / divisor;
+  const int32_t scaled =
+      divisor == -1 ? static_cast<int32_t>(0u - static_cast<uint32_t>(product))
+                    : product / divisor;
   return scaled + out_min;
 }
 
@@ -670,7 +676,8 @@ inline uint8_t random8() { return hs::random()() % 256; }
  *          scaled form (which yields 0) and to avoid the host modulo's SIGFPE.
  */
 inline uint8_t random8(uint8_t top) {
-  if (top == 0) return 0;
+  if (top == 0)
+    return 0;
   return hs::random()() % top;
 }
 /**
@@ -718,17 +725,20 @@ inline uint16_t scale16(uint16_t i, uint16_t sc) {
 inline uint8_t sin8(uint8_t theta) {
   static const uint8_t b_m16_interleave[] = {0, 49, 49, 41, 90, 27, 117, 10};
   uint8_t offset = theta;
-  if (theta & 0x40) offset = 255 - offset;
+  if (theta & 0x40)
+    offset = 255 - offset;
   offset &= 0x3F;
   uint8_t secoffset = offset & 0x0F;
-  if (theta & 0x40) secoffset++;
+  if (theta & 0x40)
+    secoffset++;
   uint8_t section = offset >> 4;
   const uint8_t *p = b_m16_interleave + section * 2;
   uint8_t b = *p++;
   uint8_t m16 = *p;
   uint8_t mx = (m16 * secoffset) >> 4;
   int8_t y = mx + b;
-  if (theta & 0x80) y = -y;
+  if (theta & 0x80)
+    y = -y;
   return static_cast<uint8_t>(y + 128);
 }
 
@@ -742,13 +752,15 @@ inline int16_t sin16(uint16_t theta) {
                                   23170, 27245, 30273, 32137};
   static const uint8_t slope[] = {49, 48, 44, 38, 31, 23, 14, 4};
   uint16_t offset = (theta & 0x3FFF) >> 3; // 0..2047
-  if (theta & 0x4000) offset = 2047 - offset;
+  if (theta & 0x4000)
+    offset = 2047 - offset;
   uint8_t section = offset / 256; // 0..7
   uint16_t b = base[section];
   uint8_t m = slope[section];
   uint8_t secoffset8 = static_cast<uint8_t>(offset) / 2;
   int16_t y = static_cast<int16_t>(m * secoffset8) + b;
-  if (theta & 0x8000) y = -y;
+  if (theta & 0x8000)
+    y = -y;
   return y;
 }
 
@@ -823,8 +835,8 @@ inline uint8_t beatsin8(uint16_t bpm, uint8_t lowest = 0, uint8_t highest = 255,
 inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
                           uint16_t highest = 65535, uint32_t timebase = 0,
                           uint16_t phase_offset = 0) {
-  uint16_t s = static_cast<uint16_t>(sin16(beat16(bpm, timebase) + phase_offset) +
-                                     32768);
+  uint16_t s = static_cast<uint16_t>(
+      sin16(beat16(bpm, timebase) + phase_offset) + 32768);
   return lowest + scale16(s, highest - lowest);
 }
 
@@ -840,7 +852,8 @@ inline uint16_t beatsin16(uint16_t bpm, uint16_t lowest = 0,
  *          device rather than crashing only in the simulator.
  */
 inline uint8_t addmod8(uint8_t a, uint8_t b, uint8_t m) {
-  if (m == 0) return static_cast<uint8_t>(a + b);
+  if (m == 0)
+    return static_cast<uint8_t>(a + b);
   return (a + b) % m;
 }
 
@@ -925,7 +938,8 @@ namespace hs {
  *          (~49 days), matching the device's 32-bit return on every host.
  */
 inline unsigned long millis() {
-  if (use_mock_time) return mock_millis_value;
+  if (use_mock_time)
+    return mock_millis_value;
   using namespace std::chrono;
   return static_cast<uint32_t>(
       duration_cast<milliseconds>(steady_clock::now().time_since_epoch())
@@ -960,7 +974,8 @@ public:
 
 private:
   unsigned long last_;
-  uint32_t period_; // 32-bit: matches the device wrap; caps the interval at ~49.7 days.
+  uint32_t
+      period_; // 32-bit: matches the device wrap; caps the interval at ~49.7 days.
 };
 /**
  * @brief Returns microseconds since an arbitrary epoch (host micros()).
@@ -969,10 +984,12 @@ private:
  *          the device's 32-bit return on every host.
  */
 inline unsigned long micros() {
-  if (use_mock_time) return mock_micros_value;
+  if (use_mock_time)
+    return mock_micros_value;
   using namespace std::chrono;
-  return static_cast<uint32_t>(duration_cast<microseconds>(
-      steady_clock::now().time_since_epoch()).count());
+  return static_cast<uint32_t>(
+      duration_cast<microseconds>(steady_clock::now().time_since_epoch())
+          .count());
 }
 /** @brief Disables interrupts (no-op on host). */
 inline void disable_interrupts() {}
@@ -1057,13 +1074,15 @@ inline unsigned long micros() { return hs::micros(); }
 // 188,088 -> 200,520 B, overflowing FlexRAM. Disabling it restores GCC 11's
 // shape at full -O3 across the roster; measured on the real image, not guessed.
 // ---------------------------------------------------------------------------
-#if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) && \
+#if defined(ARDUINO) && defined(__GNUC__) && !defined(__clang__) &&            \
     defined(__OPTIMIZE_SIZE__)
-#define HS_O3_BEGIN                                                     \
-  _Pragma("GCC push_options")                                           \
-  _Pragma("GCC optimize(\"O3\", \"fast-math\", \"no-finite-math-only\", \"no-unswitch-loops\")")
+#define HS_O3_BEGIN                                                            \
+  _Pragma("GCC push_options") _Pragma(                                         \
+      "GCC optimize(\"O3\", \"fast-math\", \"no-finite-math-only\", \"no-unswitch-loops\")")
 #define HS_O3_END _Pragma("GCC pop_options")
-#define HS_O3_FN __attribute__((optimize("O3", "fast-math", "no-finite-math-only", "no-unswitch-loops")))
+#define HS_O3_FN                                                               \
+  __attribute__((optimize("O3", "fast-math", "no-finite-math-only",            \
+                          "no-unswitch-loops")))
 #else
 #define HS_O3_BEGIN
 #define HS_O3_END
@@ -1077,8 +1096,8 @@ inline unsigned long micros() { return hs::micros(); }
 namespace hs {
 
 // Defined later in this header; forward-declared so the helpers below can HS_CHECK.
-[[noreturn]] inline void check_fail(const char *file, int line, const char *cond,
-                                    const char *fmt, ...)
+[[noreturn]] inline void check_fail(const char *file, int line,
+                                    const char *cond, const char *fmt, ...)
     __attribute__((format(printf, 4, 5)));
 // No-message overload (HS_CHECK(cond) with no varargs); see definition below.
 [[noreturn]] inline void check_fail(const char *file, int line,
@@ -1110,9 +1129,10 @@ inline float random_to_unit(uint32_t value, uint32_t max) {
  */
 inline float rand_f() {
   using Rng = std::remove_reference_t<decltype(hs::random())>;
-  static_assert(Rng::max() == 0xFFFFFFFFu,
-                "rand_f()/random_to_unit assume a 32-bit-range RNG; update them "
-                "if the global generator changes.");
+  static_assert(
+      Rng::max() == 0xFFFFFFFFu,
+      "rand_f()/random_to_unit assume a 32-bit-range RNG; update them "
+      "if the global generator changes.");
   return random_to_unit(static_cast<uint32_t>(hs::random()()),
                         static_cast<uint32_t>(hs::random().max()));
 }
@@ -1193,7 +1213,8 @@ template <typename It> inline void shuffle(It first, It last) {
   // Strip the directory so the basename does not crowd out the message in the bounded log buffer.
   const char *base = file;
   for (const char *p = file; *p; ++p) {
-    if (*p == '/' || *p == '\\') base = p + 1;
+    if (*p == '/' || *p == '\\')
+      base = p + 1;
   }
 #ifdef __EMSCRIPTEN__
   char buf[256];
@@ -1225,14 +1246,23 @@ struct ScanMetrics {
   uint32_t scan_loop = 0;     /**< Cycles spent in the scanline loop. */
   uint32_t pixels_tested = 0; /**< Count of pixels tested. */
   uint32_t pixels_culled = 0; /**< Count of pixels culled before shading. */
-  uint32_t exact_hits = 0;    /**< Count of full distance evaluations (umbrella: convex, sector, and exact-walk paths). */
-  uint32_t convex_hits = 0;   /**< Count of evaluations on the convex half-plane path. */
-  uint32_t sector_hits = 0;   /**< Count of evaluations on the concave sector walk (subset of exact_hits). */
-  uint32_t lut_hits = 0;      /**< Count of class-LUT bilinear serves. */
-  uint32_t plot_backstop_hits = 0; /**< Count of plot() steps_cache capacity-backstop trips. */
-  uint32_t shade_candidates = 0;   /**< Count of pixels passing the scan's d < pixel_width test (shading + alpha-rejected). */
+  uint32_t exact_hits =
+      0; /**< Count of full distance evaluations (umbrella: convex, sector, and exact-walk paths). */
+  uint32_t convex_hits =
+      0; /**< Count of evaluations on the convex half-plane path. */
+  uint32_t sector_hits =
+      0; /**< Count of evaluations on the concave sector walk (subset of exact_hits). */
+  uint32_t lut_hits = 0; /**< Count of class-LUT bilinear serves. */
+  uint32_t plot_backstop_hits =
+      0; /**< Count of plot() steps_cache capacity-backstop trips. */
+  uint32_t shade_candidates =
+      0; /**< Count of pixels passing the scan's d < pixel_width test (shading + alpha-rejected). */
   /** @brief Zeroes every counter. */
-  void reset() { plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop = pixels_tested = pixels_culled = exact_hits = convex_hits = sector_hits = lut_hits = plot_backstop_hits = shade_candidates = 0; }
+  void reset() {
+    plot = sdf_dist = frag_shader = bounds = face_setup = scan_loop =
+        pixels_tested = pixels_culled = exact_hits = convex_hits = sector_hits =
+            lut_hits = plot_backstop_hits = shade_candidates = 0;
+  }
 };
 /** @brief Global scanline profiling counters. Compiled in only when
  *  HS_SCAN_METRICS is defined; otherwise HS_SCAN_METRIC(...) expands to nothing
@@ -1252,16 +1282,18 @@ inline ScanMetrics g_scan_metrics;
  * absolute times.
  */
 struct ProbeBreakdown {
-  uint32_t point = 0;   /**< Cycles: probe entry through the back-face cull. */
-  uint32_t project = 0; /**< Cycles: gnomonic projection through the radius cull. */
+  uint32_t point = 0; /**< Cycles: probe entry through the back-face cull. */
+  uint32_t project =
+      0; /**< Cycles: gnomonic projection through the radius cull. */
   uint32_t edge_lut = 0;    /**< Cycles: class-LUT bilinear serve. */
   uint32_t edge_convex = 0; /**< Cycles: convex half-plane max. */
   uint32_t edge_sector = 0; /**< Cycles: concave sector walk. */
   uint32_t edge_exact = 0;  /**< Cycles: full per-edge walk. */
-  uint32_t pack = 0;  /**< Cycles: plane->angle conversion and result packaging. */
-  uint32_t alpha = 0; /**< Cycles: scan-side AA coverage kernel. */
-  uint32_t tick = 0;  /**< Cycles: summed back-to-back counter-read pairs. */
-  uint32_t n_probe = 0;    /**< Probes entered. */
+  uint32_t pack =
+      0; /**< Cycles: plane->angle conversion and result packaging. */
+  uint32_t alpha = 0;   /**< Cycles: scan-side AA coverage kernel. */
+  uint32_t tick = 0;    /**< Cycles: summed back-to-back counter-read pairs. */
+  uint32_t n_probe = 0; /**< Probes entered. */
   uint32_t n_cull_cos = 0; /**< Probes leaving at the back-face cull. */
   uint32_t n_cull_r = 0;   /**< Probes leaving at the radius cull. */
   uint32_t n_lut = 0;      /**< Probes served by the class LUT. */
@@ -1292,7 +1324,10 @@ inline ProbeBreakdown g_probe_breakdown;
 // to assert which Face::distance path each sample took); otherwise
 // HS_SCAN_METRIC(...) expands to nothing.
 #ifdef HS_SCAN_METRICS
-#define HS_SCAN_METRIC(stmt) do { (stmt); } while (0)
+#define HS_SCAN_METRIC(stmt)                                                   \
+  do {                                                                         \
+    (stmt);                                                                    \
+  } while (0)
 #else
 #define HS_SCAN_METRIC(stmt) ((void)0)
 #endif
@@ -1305,18 +1340,21 @@ inline ProbeBreakdown g_probe_breakdown;
 // reopens the next off the same read, so a chain of N stages costs N reads.
 #ifdef HS_PROBE_BREAKDOWN
 #define HS_PROBE_MARK(var) uint32_t var = HS_OS_CYCLES()
-#define HS_PROBE_SPAN(field, var)                                             \
-  do {                                                                        \
-    uint32_t hs_now_ = HS_OS_CYCLES();                                        \
-    hs::g_probe_breakdown.field += hs_now_ - (var);                           \
-    (var) = hs_now_;                                                          \
+#define HS_PROBE_SPAN(field, var)                                              \
+  do {                                                                         \
+    uint32_t hs_now_ = HS_OS_CYCLES();                                         \
+    hs::g_probe_breakdown.field += hs_now_ - (var);                            \
+    (var) = hs_now_;                                                           \
   } while (0)
-#define HS_PROBE_COUNT(field) do { ++hs::g_probe_breakdown.field; } while (0)
-#define HS_PROBE_TICK()                                                       \
-  do {                                                                        \
-    uint32_t hs_a_ = HS_OS_CYCLES();                                          \
-    uint32_t hs_b_ = HS_OS_CYCLES();                                          \
-    hs::g_probe_breakdown.tick += hs_b_ - hs_a_;                              \
+#define HS_PROBE_COUNT(field)                                                  \
+  do {                                                                         \
+    ++hs::g_probe_breakdown.field;                                             \
+  } while (0)
+#define HS_PROBE_TICK()                                                        \
+  do {                                                                         \
+    uint32_t hs_a_ = HS_OS_CYCLES();                                           \
+    uint32_t hs_b_ = HS_OS_CYCLES();                                           \
+    hs::g_probe_breakdown.tick += hs_b_ - hs_a_;                               \
   } while (0)
 #else
 #define HS_PROBE_MARK(var)
@@ -1375,7 +1413,8 @@ namespace hs {
 // -fno-finite-math-only after -ffast-math (see CMakeLists.txt). The #error below
 // traps at compile time on every target if that protection is ever lost.
 #if defined(__FINITE_MATH_ONLY__) && __FINITE_MATH_ONLY__ != 0
-#error "hs::clamp NaN->hi contract requires -fno-finite-math-only: a bare -ffast-math (or -ffinite-math-only) makes the compiler assume no NaN and folds the saturating clamp guard away, reintroducing float->int cast UB engine-wide."
+#error                                                                         \
+    "hs::clamp NaN->hi contract requires -fno-finite-math-only: a bare -ffast-math (or -ffinite-math-only) makes the compiler assume no NaN and folds the saturating clamp guard away, reintroducing float->int cast UB engine-wide."
 #endif
 
 #ifdef HS_ARCH_X86
@@ -1467,8 +1506,8 @@ namespace hs {
  * @details Manual conversion because newlib-nano's integer printf (the -Os
  *          device build) has no long-long support.
  */
-inline const char* u64_dec(uint64_t v, char* buf) {
-  char* p = buf + 20;
+inline const char *u64_dec(uint64_t v, char *buf) {
+  char *p = buf + 20;
   *p = '\0';
   do {
     *--p = static_cast<char>('0' + v % 10);
@@ -1489,36 +1528,42 @@ inline const char* u64_dec(uint64_t v, char* buf) {
  *        ISR would race the list/active pointer and corrupt the call tree.
  */
 struct CycleCounter {
-  static constexpr uint32_t CYCLES_PER_US = 600; /**< Core clock: Teensy 4 @ 600 MHz. */
+  static constexpr uint32_t CYCLES_PER_US =
+      600; /**< Core clock: Teensy 4 @ 600 MHz. */
 
-  const char* name;                /**< Counter label used in log output. */
-  uint64_t cycles = 0;             /**< Accumulated cycle count. 64-bit because a
+  const char *name;    /**< Counter label used in log output. */
+  uint64_t cycles = 0; /**< Accumulated cycle count. 64-bit because a
                                         32-bit accumulator overflows after only
                                         ~7 s of summed time at 600 MHz, which a
                                         multi-frame profiling run easily exceeds. */
-  uint32_t count = 0;              /**< Number of timed invocations. */
-  CycleCounter* parent = nullptr;  /**< Enclosing counter for tree nesting. */
-  CycleCounter* next = nullptr;    /**< Next link in the intrusive registry list. */
+  uint32_t count = 0;  /**< Number of timed invocations. */
+  CycleCounter *parent = nullptr; /**< Enclosing counter for tree nesting. */
+  CycleCounter *next =
+      nullptr; /**< Next link in the intrusive registry list. */
 
   /**
    * @brief Constructs a named counter and self-registers it for bulk logging.
    * @param n Counter label (must outlive the counter; typically a literal).
    */
-  explicit CycleCounter(const char* n) : name(n), next(head_) { head_ = this; }
+  explicit CycleCounter(const char *n) : name(n), next(head_) { head_ = this; }
 
   /** @brief Zeroes this counter's accumulated cycles and call count. */
-  void reset() { cycles = 0; count = 0; }
+  void reset() {
+    cycles = 0;
+    count = 0;
+  }
 
   /** @brief Logs every root counter (no parent) and its subtree as a tree. */
   static void log_all() {
     hs::log("--- Cycle Counters ---");
-    for (auto* c = head_; c; c = c->next)
-      if (!c->parent && c->count) log_node(c, 0);
+    for (auto *c = head_; c; c = c->next)
+      if (!c->parent && c->count)
+        log_node(c, 0);
   }
 
   /** @brief Zeroes every registered counter (between profiling runs). */
   static void reset_all() {
-    for (auto* c = head_; c; c = c->next)
+    for (auto *c = head_; c; c = c->next)
       c->reset();
   }
 
@@ -1528,9 +1573,9 @@ struct CycleCounter {
    * @return The counter, or nullptr if none is registered yet (counters
    *         self-register on first scope entry).
    */
-  static CycleCounter* find_suffix(const char* suffix) {
+  static CycleCounter *find_suffix(const char *suffix) {
     const size_t sl = strlen(suffix);
-    for (auto* c = head_; c; c = c->next) {
+    for (auto *c = head_; c; c = c->next) {
       const size_t nl = strlen(c->name);
       if (nl >= sl && memcmp(c->name + nl - sl, suffix, sl) == 0)
         return c;
@@ -1539,8 +1584,10 @@ struct CycleCounter {
   }
 
 private:
-  static inline CycleCounter* head_ = nullptr;   /**< Head of the intrusive registry list. */
-  static inline CycleCounter* active_ = nullptr; /**< Currently active counter (for nesting). */
+  static inline CycleCounter *head_ =
+      nullptr; /**< Head of the intrusive registry list. */
+  static inline CycleCounter *active_ =
+      nullptr; /**< Currently active counter (for nesting). */
   friend struct CycleScope;
 
   /**
@@ -1551,21 +1598,24 @@ private:
    *          (or 100% for a root), and cycles are converted to microseconds via
    *          CYCLES_PER_US.
    */
-  static void log_node(const CycleCounter* node, int depth) {
-    if (!node->count) return;
+  static void log_node(const CycleCounter *node, int depth) {
+    if (!node->count)
+      return;
     uint64_t ref = node->parent ? node->parent->cycles : node->cycles;
     uint32_t pct = ref ? (uint32_t)(node->cycles * 100 / ref) : 100;
     char cyc_buf[21], us_buf[21];
-    const char* cyc = hs::u64_dec(node->cycles, cyc_buf);
-    const char* us = hs::u64_dec(node->cycles / CYCLES_PER_US, us_buf);
+    const char *cyc = hs::u64_dec(node->cycles, cyc_buf);
+    const char *us = hs::u64_dec(node->cycles / CYCLES_PER_US, us_buf);
     int indent = depth * 2;
     int name_w = 22 - indent;
-    if (name_w < 1) name_w = 1;
-    hs::log("%*s%-*s %s us (%lu%%)  %lu calls  %s cyc",
-            indent, "", name_w, node->name, us,
-            (unsigned long)pct, (unsigned long)node->count, cyc);
-    for (auto* c = head_; c; c = c->next)
-      if (c->parent == node) log_node(c, depth + 1);
+    if (name_w < 1)
+      name_w = 1;
+    hs::log("%*s%-*s %s us (%lu%%)  %lu calls  %s cyc", indent, "", name_w,
+            node->name, us, (unsigned long)pct, (unsigned long)node->count,
+            cyc);
+    for (auto *c = head_; c; c = c->next)
+      if (c->parent == node)
+        log_node(c, depth + 1);
   }
 };
 
@@ -1577,9 +1627,10 @@ private:
  *        restores the previous active counter, rebuilding the nesting tree.
  */
 struct CycleScope {
-  CycleCounter& counter;       /**< Counter this scope accumulates into. */
-  CycleCounter* prev_active;   /**< Counter to restore as active on destruction. */
-  uint32_t start;              /**< Cycle snapshot taken at construction (32-bit,
+  CycleCounter &counter; /**< Counter this scope accumulates into. */
+  CycleCounter
+      *prev_active; /**< Counter to restore as active on destruction. */
+  uint32_t start;   /**< Cycle snapshot taken at construction (32-bit,
                                     matching the hardware DWT CYCCNT register). */
 
   /**
@@ -1589,7 +1640,7 @@ struct CycleScope {
    *          counter as its parent on first use) and snapshots the cycle
    *          counter.
    */
-  explicit CycleScope(CycleCounter& c) : counter(c), start(HS_OS_CYCLES()) {
+  explicit CycleScope(CycleCounter &c) : counter(c), start(HS_OS_CYCLES()) {
     prev_active = CycleCounter::active_;
     if (!counter.parent && prev_active)
       counter.parent = prev_active;
@@ -1612,12 +1663,12 @@ struct CycleScope {
   /**
    * @brief Deleted copy constructor; a scope guard must not be copied.
    */
-  CycleScope(const CycleScope&) = delete;
+  CycleScope(const CycleScope &) = delete;
   /**
    * @brief Deleted copy assignment; a scope guard must not be copied.
    * @return Never returns; deleted.
    */
-  CycleScope& operator=(const CycleScope&) = delete;
+  CycleScope &operator=(const CycleScope &) = delete;
 };
 
 /**
@@ -1628,17 +1679,19 @@ struct CycleScope {
  *          copies and reset()s under a brief IRQ-off window.
  */
 struct IsrCycleStats {
-  uint64_t cycles = 0;        /**< Accumulated cycles across all scopes. */
-  uint32_t count = 0;         /**< Number of timed scopes. */
-  uint32_t min = UINT32_MAX;  /**< Shortest single scope, in cycles. */
-  uint32_t max = 0;           /**< Longest single scope, in cycles. */
+  uint64_t cycles = 0;       /**< Accumulated cycles across all scopes. */
+  uint32_t count = 0;        /**< Number of timed scopes. */
+  uint32_t min = UINT32_MAX; /**< Shortest single scope, in cycles. */
+  uint32_t max = 0;          /**< Longest single scope, in cycles. */
 
   /** @brief Folds one scope's elapsed cycles into the accumulator. */
   void add(uint32_t dt) {
     cycles += dt;
     ++count;
-    if (dt < min) min = dt;
-    if (dt > max) max = dt;
+    if (dt < min)
+      min = dt;
+    if (dt > max)
+      max = dt;
   }
   /** @brief Zeroes the accumulator (foreground, IRQs off). */
   void reset() {
@@ -1653,13 +1706,13 @@ struct IsrCycleStats {
  * @brief RAII guard timing its enclosing scope into an IsrCycleStats.
  */
 struct IsrCycleScope {
-  IsrCycleStats& stats;  /**< Accumulator receiving the elapsed cycles. */
-  uint32_t start;        /**< Cycle snapshot taken at construction. */
+  IsrCycleStats &stats; /**< Accumulator receiving the elapsed cycles. */
+  uint32_t start;       /**< Cycle snapshot taken at construction. */
 
-  explicit IsrCycleScope(IsrCycleStats& s) : stats(s), start(HS_OS_CYCLES()) {}
+  explicit IsrCycleScope(IsrCycleStats &s) : stats(s), start(HS_OS_CYCLES()) {}
   ~IsrCycleScope() { stats.add((uint32_t)(HS_OS_CYCLES() - start)); }
-  IsrCycleScope(const IsrCycleScope&) = delete;
-  IsrCycleScope& operator=(const IsrCycleScope&) = delete;
+  IsrCycleScope(const IsrCycleScope &) = delete;
+  IsrCycleScope &operator=(const IsrCycleScope &) = delete;
 };
 
 } // namespace hs
@@ -1685,8 +1738,8 @@ struct IsrCycleScope {
  *          every hot-path face/pixel scope.
  */
 #ifdef HS_PROFILE_ENABLE
-#define HS_PROFILE(label) \
-  static hs::CycleCounter hs_ctr_##label(#label); \
+#define HS_PROFILE(label)                                                      \
+  static hs::CycleCounter hs_ctr_##label(#label);                              \
   hs::CycleScope hs_scope_##label(hs_ctr_##label)
 #else
 #define HS_PROFILE(label) ((void)0)
@@ -1715,4 +1768,3 @@ struct IsrCycleScope {
 #else
 #define HS_PROFILE_DEEP(label) ((void)0)
 #endif
-

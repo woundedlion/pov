@@ -83,15 +83,15 @@ public:
     SPI.beginTransaction(spiSettings_);
 
     LPSPI4_CFGR1 |= LPSPI_CFGR1_NOSTALL;
-    LPSPI4_DER   |= LPSPI_DER_TDDE;  // TX DMA request
-    LPSPI4_TCR    = (LPSPI4_TCR & ~LPSPI_TCR_FRAMESZ(31))
-                  | LPSPI_TCR_FRAMESZ(7);  // 8-bit frames
+    LPSPI4_DER |= LPSPI_DER_TDDE; // TX DMA request
+    LPSPI4_TCR = (LPSPI4_TCR & ~LPSPI_TCR_FRAMESZ(31)) |
+                 LPSPI_TCR_FRAMESZ(7); // 8-bit frames
 
     dma_.begin(true);
     // The uint8_t cast is load-bearing: the 32-bit destination() overload sets
     // ATTR_DST to 32-bit transfers, conflicting with sourceBuffer()'s NBYTES=1
     // and raising an eDMA config error on enable — nothing transmits.
-    dma_.destination(reinterpret_cast<volatile uint8_t&>(LPSPI4_TDR));
+    dma_.destination(reinterpret_cast<volatile uint8_t &>(LPSPI4_TDR));
     dma_.triggerAtHardwareEvent(DMAMUX_SOURCE_LPSPI4_TX);
     dma_.disableOnCompletion();
     dma_.interruptAtCompletion();
@@ -106,7 +106,7 @@ public:
    *      via frames_[back].flush()); this method only enables the DMA and does
    *      not flush.
    */
-  void transmitAsync(const uint8_t* data, size_t len) {
+  void transmitAsync(const uint8_t *data, size_t len) {
     // Trap rather than spin on an in-flight transfer: this runs in the column
     // ISR, where spinning would deadlock — the DMA-completion ISR that marks
     // transferComplete_ true cannot preempt an equal/lower-priority ISR.
@@ -137,7 +137,8 @@ public:
    *          Only fires while submitFrame() is being called.
    */
   void checkStaleTransfer() {
-    if (transferComplete_.load(std::memory_order_relaxed)) return;
+    if (transferComplete_.load(std::memory_order_relaxed))
+      return;
     if (dma::transfer_stale(transferStartUs_, micros(), TRANSFER_WATCHDOG_US)) {
       hs::log("FATAL: DMA channel wedged — in-flight transfer outlived the "
               "watchdog on the overrun-drop path; completion ISR never fired");
@@ -163,7 +164,8 @@ private:
     }
   }
 
-  DMAChannel dma_; /**< eDMA channel wired to LPSPI4 TX for async transmission. */
+  DMAChannel
+      dma_; /**< eDMA channel wired to LPSPI4 TX for async transmission. */
   /**
    * @brief Completion flag handed between the DMA-completion ISR and the
    *        main/column thread.
@@ -179,7 +181,8 @@ private:
    *          correct. Only meaningful while transferComplete_ is false.
    */
   unsigned long transferStartUs_ = 0;
-  SPISettings spiSettings_; /**< Cached SPI clock/bit-order/mode for this driver. */
+  SPISettings
+      spiSettings_; /**< Cached SPI clock/bit-order/mode for this driver. */
 
   /**
    * @brief Single-init guard set once on the first (setup-time) init() call.
@@ -195,10 +198,10 @@ private:
    *          the completion ISR — race-free under the single-observer model (see
    *          transferComplete_).
    */
-  static TeensySPIDMA* instance_;
+  static TeensySPIDMA *instance_;
 };
 
-inline TeensySPIDMA* TeensySPIDMA::instance_ = nullptr;
+inline TeensySPIDMA *TeensySPIDMA::instance_ = nullptr;
 
 // DMALEDController (double-buffered controller) lives in its own header so its
 // overrun-drop / double-buffer / watchdog orchestration is host-testable against

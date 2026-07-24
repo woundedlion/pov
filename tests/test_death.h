@@ -143,12 +143,12 @@ inline void case_scratch_scope_non_lifo() {
   static uint8_t buf[64];
   Arena a(buf, sizeof(buf));
   std::optional<ScratchScope> outer;
-  outer.emplace(a);                  // saves offset 0
-  a.allocate(opaque<size_t>(8));     // offset -> 8
+  outer.emplace(a);              // saves offset 0
+  a.allocate(opaque<size_t>(8)); // offset -> 8
   std::optional<ScratchScope> inner;
-  inner.emplace(a);                  // saves offset 8
-  outer.reset();                     // non-LIFO: rewinds offset to 0
-  inner.reset();                     // offset 0 < saved 8 -> HS_CHECK
+  inner.emplace(a); // saves offset 8
+  outer.reset();    // non-LIFO: rewinds offset to 0
+  inner.reset();    // offset 0 < saved 8 -> HS_CHECK
 }
 
 /**
@@ -267,8 +267,9 @@ inline void case_spatial_knn_over_max() {
   Vector pts[2] = {Vector(1.0f, 0.0f, 0.0f), Vector(0.0f, 1.0f, 0.0f)};
   KDTree tree(a, std::span<const Vector>(pts, 2));
   // Tree is non-empty and k > 0, so the k <= MAX_K guard is reached.
-  auto r = tree.nearest(Vector(1.0f, 0.0f, 0.0f),
-                        opaque<size_t>(KDTree::MAX_K + 1)); // k > MAX_K -> HS_CHECK
+  auto r =
+      tree.nearest(Vector(1.0f, 0.0f, 0.0f),
+                   opaque<size_t>(KDTree::MAX_K + 1)); // k > MAX_K -> HS_CHECK
   if (r.size() == static_cast<size_t>(0x7fff))
     std::printf("x");
 }
@@ -314,7 +315,8 @@ inline void case_persist_forgot_reset() {
   Arena persistent(pbuf, sizeof(pbuf));
   Arena scratch(sbuf, sizeof(sbuf));
   PersistProbe target;
-  PersistProbe::clone(target, target, persistent); // the live object in persistent
+  PersistProbe::clone(target, target,
+                      persistent); // the live object in persistent
   {
     Persist<PersistProbe> p(target, scratch, persistent);
     // A correct scope rewinds here (persistent.reset()); omitting it makes the
@@ -438,8 +440,7 @@ inline void case_mesh_narrow_index() {
  * @param num_indices Number of entries stored in the flat face-index array.
  */
 inline void build_mismatched_polymesh(PolyMesh &mesh, Arena &arena,
-                                      uint8_t side_count,
-                                      size_t num_indices) {
+                                      uint8_t side_count, size_t num_indices) {
   mesh.vertices.bind(arena, 4);
   for (size_t i = 0; i < 4; ++i)
     mesh.vertices.push_back(Vector{});
@@ -538,7 +539,8 @@ inline void case_make_rotation_vectors_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
   Vector from{nan, opaque(0.0f), opaque(0.0f)};
   Vector to{opaque(0.0f), opaque(0.0f), opaque(1.0f)};
-  Quaternion q = make_rotation(from, to); // NaN axis -> normalized() -> HS_CHECK
+  Quaternion q =
+      make_rotation(from, to); // NaN axis -> normalized() -> HS_CHECK
   if (q.r == 42.0f)
     std::printf("x");
 }
@@ -551,7 +553,8 @@ inline void case_make_rotation_vectors_nan() {
 inline void case_make_rotation_angle_nan() {
   const float nan = opaque(std::numeric_limits<float>::quiet_NaN());
   Vector axis{opaque(0.0f), opaque(1.0f), opaque(0.0f)};
-  Quaternion q = make_rotation(axis, nan); // NaN quat -> normalized() -> HS_CHECK
+  Quaternion q =
+      make_rotation(axis, nan); // NaN quat -> normalized() -> HS_CHECK
   if (q.r == 42.0f)
     std::printf("x");
 }
@@ -613,7 +616,8 @@ inline void case_make_rotation_nonunit() {
  */
 inline void case_driver_null_speed_src() {
   static float mutant = 0.0f;
-  Animation::Driver d(mutant, opaque<const float *>(nullptr), 1.0f); // -> HS_CHECK
+  Animation::Driver d(mutant, opaque<const float *>(nullptr),
+                      1.0f); // -> HS_CHECK
   (void)d;
   if (mutant == 42.0f)
     std::printf("x");
@@ -719,8 +723,8 @@ inline void case_particle_render_zero_lifetime() {
   DeathEffect fx;
   Canvas canvas(fx);
   DeathPlotPipeline pipeline;
-  Plot::ParticleSystem::draw<32, 16>(
-      pipeline, canvas, ps, [](const Vector &, Fragment &) {});
+  Plot::ParticleSystem::draw<32, 16>(pipeline, canvas, ps,
+                                     [](const Vector &, Fragment &) {});
 }
 
 /**
@@ -866,8 +870,8 @@ inline void case_plot_mesh_vertex_over_capacity() {
   DeathEffect fx;
   Canvas c(fx);
   Pipeline<W, H> pipe;
-  Plot::Mesh::draw<W, H>(pipe, c, mesh,
-                         [](const Vector &, Fragment &) {}); // index 130 -> trap
+  Plot::Mesh::draw<W, H>(
+      pipe, c, mesh, [](const Vector &, Fragment &) {}); // index 130 -> trap
 }
 
 /**
@@ -899,11 +903,10 @@ inline void case_feedback_downsample_indivisible() {
   ::Feedback::Style style = ::Feedback::Style::Smoke();
   style.downsample = opaque(5); // 32 % 5 != 0 -> HS_CHECK
   Filter::Pixel::Feedback<W, H> fb(style);
-  fb.flush(
-      c,
-      ScreenTrailFn(
-          [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); }),
-      1.0f, [](float, float, const ::Pixel &, float, float) {});
+  fb.flush(c, ScreenTrailFn([](float, float, float) {
+             return Color4(Pixel(0, 0, 0), 0.0f);
+           }),
+           1.0f, [](float, float, const ::Pixel &, float, float) {});
 }
 
 /**
@@ -1022,7 +1025,8 @@ struct WedgedStrip {
  */
 inline void case_dma_controller_wedged_overrun() {
   static DMALEDController<8, WedgedStrip> ctl;
-  bool ok = ctl.submitFrame(opaque(false)); // busy -> checkStaleTransfer -> trap
+  bool ok =
+      ctl.submitFrame(opaque(false)); // busy -> checkStaleTransfer -> trap
   if (ok)
     std::printf("x");
 }
@@ -1094,8 +1098,7 @@ inline const Case *all_cases(int &n) {
       {"particle_lifetime_zero", case_particle_lifetime_zero},
       {"particle_lifetime_nan", case_particle_lifetime_nan},
       {"particle_lifetime_over_max", case_particle_lifetime_over_max},
-      {"particle_render_zero_lifetime",
-       case_particle_render_zero_lifetime},
+      {"particle_render_zero_lifetime", case_particle_render_zero_lifetime},
       {"correction_guard_double_construct",
        case_correction_guard_double_construct},
       {"correction_guard_cross_type", case_correction_guard_cross_type},
@@ -1120,8 +1123,7 @@ inline const Case *all_cases(int &n) {
       {"plot_mesh_vertex_over_capacity", case_plot_mesh_vertex_over_capacity},
       {"plot_extract_edges_vertex_over_capacity",
        case_plot_extract_edges_vertex_over_capacity},
-      {"feedback_downsample_indivisible",
-       case_feedback_downsample_indivisible},
+      {"feedback_downsample_indivisible", case_feedback_downsample_indivisible},
       {"gradient_stop_out_of_range", case_gradient_stop_out_of_range},
       {"gradient_stops_unsorted", case_gradient_stops_unsorted},
       {"random_timer_inverted_range", case_random_timer_inverted_range},
@@ -1398,8 +1400,8 @@ inline int run_death_tests() {
   // sentinel traps through the same HS_CHECK path, so its shape matches the cases.
   TrapShape shape = classify_trap(spawn_child(SHAPE_PROBE_CASE));
   if (shape == TrapShape::None) {
-    report_unrunnable("trap-shape sentinel did not trap; cannot classify trap status",
-                      0);
+    report_unrunnable(
+        "trap-shape sentinel did not trap; cannot classify trap status", 0);
     set_case_env("");
     return fixture.result();
   }

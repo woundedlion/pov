@@ -77,8 +77,8 @@ inline void test_nodes_on_unit_sphere() {
 inline void test_node_deterministic_and_distinct() {
   // Frozen golden: the double-folded Fibonacci-lattice point for index 1234,
   // cast to float32 (host/device agree to the cast per the provenance contract).
-  HS_EXPECT_VEC(node(1234),
-                Vector(-0.416881472f, 0.678604007f, 0.604736686f), 1e-6f);
+  HS_EXPECT_VEC(node(1234), Vector(-0.416881472f, 0.678604007f, 0.604736686f),
+                1e-6f);
   // Cap the sample budget at RD_N-1 so node(i+1) never reads past [0, RD_N).
   const int samples = std::min(500, RD_N - 1);
   for (int i = 0; i < samples; ++i) {
@@ -123,7 +123,8 @@ inline void test_table_shape_matches_constants() {
   for (int k = 0; k < RD_K; ++k) {
     int16_t ni = neighbors[RD_N - 1][k];
     HS_EXPECT_TRUE(ni == -1 || (ni >= 0 && ni < RD_N));
-    if (ni < 0) continue;
+    if (ni < 0)
+      continue;
     ++valid;
     // A zero-padded row points every slot at node 0 (the north pole), ~chord^2 4
     // from this south-pole row; a real neighbor is within ~11 deg (chord^2<0.037).
@@ -177,7 +178,8 @@ inline void test_no_duplicate_neighbors_in_row() {
   for (int i = 0; i < RD_N; ++i)
     for (int k = 0; k < RD_K; ++k) {
       int16_t a = neighbors[i][k];
-      if (a < 0) continue;
+      if (a < 0)
+        continue;
       for (int j = k + 1; j < RD_K; ++j)
         if (neighbors[i][j] == a)
           ++dupes;
@@ -200,8 +202,10 @@ inline void test_max_degree_bounds_laplacian() {
   for (int i = 0; i < RD_N; ++i) {
     int deg = 0;
     for (int k = 0; k < RD_K; ++k)
-      if (neighbors[i][k] >= 0) ++deg;
-    if (deg > max_deg) max_deg = deg;
+      if (neighbors[i][k] >= 0)
+        ++deg;
+    if (deg > max_deg)
+      max_deg = deg;
   }
   std::printf("  [info] reaction_graph max degree: %d (|lambda|max <= %d)\n",
               max_deg, 2 * max_deg);
@@ -225,7 +229,8 @@ inline void test_neighbors_are_local() {
     Vector p = node(i);
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
-      if (ni < 0) continue;
+      if (ni < 0)
+        continue;
       if (chord2(p, node(ni)) > MAX_CHORD2)
         ++far;
     }
@@ -250,7 +255,8 @@ inline void test_neighbors_closer_than_far_point() {
     float far2 = chord2(p, node(far_point));
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
-      if (ni < 0) continue;
+      if (ni < 0)
+        continue;
       if (chord2(p, node(ni)) >= far2)
         ++violations;
     }
@@ -274,16 +280,21 @@ inline void test_edge_reciprocity_high() {
   for (int i = 0; i < RD_N; ++i) {
     for (int k = 0; k < RD_K; ++k) {
       int16_t ni = neighbors[i][k];
-      if (ni < 0) continue;
+      if (ni < 0)
+        continue;
       ++total;
       for (int j = 0; j < RD_K; ++j) {
-        if (neighbors[ni][j] == i) { ++reciprocated; break; }
+        if (neighbors[ni][j] == i) {
+          ++reciprocated;
+          break;
+        }
       }
     }
   }
   HS_EXPECT_GT(total, 0L);
   float rate = total ? static_cast<float>(reciprocated) / total : 0.0f;
-  std::printf("  [info] reaction_graph edge reciprocity: %.1f%%\n", rate * 100.0f);
+  std::printf("  [info] reaction_graph edge reciprocity: %.1f%%\n",
+              rate * 100.0f);
   HS_EXPECT_GT(rate, 0.95f);
 }
 
@@ -309,11 +320,20 @@ inline void test_cubemap_lut_roundtrip() {
   int exact = 0, near = 0, miss = 0;
   for (int i = 0; i < RD_N; i += 23) {
     int found = lut.lookup(node(i));
-    if (found == i) { ++exact; continue; }
+    if (found == i) {
+      ++exact;
+      continue;
+    }
     bool adjacent = false;
     for (int k = 0; k < RD_K; ++k)
-      if (neighbors[i][k] == found) { adjacent = true; break; }
-    if (adjacent) ++near; else ++miss;
+      if (neighbors[i][k] == found) {
+        adjacent = true;
+        break;
+      }
+    if (adjacent)
+      ++near;
+    else
+      ++miss;
   }
   std::printf("  [info] cubemap roundtrip: %d exact, %d neighbor, %d miss\n",
               exact, near, miss);
@@ -361,18 +381,31 @@ inline void test_cubemap_lut_offlattice() {
     float best_d = chord2(q, node(0));
     for (int i = 1; i < RD_N; ++i) {
       float d = chord2(q, node(i));
-      if (d < best_d) { best_d = d; best = i; }
+      if (d < best_d) {
+        best_d = d;
+        best = i;
+      }
     }
 
     int found = lut.lookup(q);
-    if (found == best) { ++exact; continue; }
+    if (found == best) {
+      ++exact;
+      continue;
+    }
     bool adjacent = false;
     for (int k = 0; k < RD_K; ++k)
-      if (neighbors[best][k] == found) { adjacent = true; break; }
-    if (adjacent) ++near; else ++miss;
+      if (neighbors[best][k] == found) {
+        adjacent = true;
+        break;
+      }
+    if (adjacent)
+      ++near;
+    else
+      ++miss;
   }
-  std::printf("  [info] cubemap off-lattice: %d exact, %d neighbor, %d miss / %d\n",
-              exact, near, miss, SAMPLES);
+  std::printf(
+      "  [info] cubemap off-lattice: %d exact, %d neighbor, %d miss / %d\n",
+      exact, near, miss, SAMPLES);
   // 0 misses across the 400 fixed-seed off-lattice probes; allow at most 5%.
   HS_EXPECT_GT(exact + near, 0);
   HS_EXPECT_LE(miss, SAMPLES / 20);
@@ -412,18 +445,31 @@ inline void test_cubemap_lut_equatorial() {
     float best_d = chord2(q, node(0));
     for (int i = 1; i < RD_N; ++i) {
       float d = chord2(q, node(i));
-      if (d < best_d) { best_d = d; best = i; }
+      if (d < best_d) {
+        best_d = d;
+        best = i;
+      }
     }
 
     int found = lut.lookup(q);
-    if (found == best) { ++exact; continue; }
+    if (found == best) {
+      ++exact;
+      continue;
+    }
     bool adjacent = false;
     for (int k = 0; k < RD_K; ++k)
-      if (neighbors[best][k] == found) { adjacent = true; break; }
-    if (adjacent) ++near; else ++miss;
+      if (neighbors[best][k] == found) {
+        adjacent = true;
+        break;
+      }
+    if (adjacent)
+      ++near;
+    else
+      ++miss;
   }
-  std::printf("  [info] cubemap equatorial: %d exact, %d neighbor, %d miss / %d\n",
-              exact, near, miss, LONGITUDES);
+  std::printf(
+      "  [info] cubemap equatorial: %d exact, %d neighbor, %d miss / %d\n",
+      exact, near, miss, LONGITUDES);
   HS_EXPECT_GT(exact + near, 0);
   HS_EXPECT_LE(miss, LONGITUDES / 20);
 }
@@ -462,4 +508,3 @@ inline int run_reaction_graph_tests() {
 
 } // namespace reaction_graph_tests
 } // namespace hs_test
-

@@ -39,9 +39,11 @@ public:
    * @brief Builds the effect with its palette and ring-stack axis.
    */
   HS_COLD_MEMBER DisplacementField()
-      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
-        balls(timeline), noise_field(timeline),
-        palette(make_palette()), next_palette(make_palette()), normal(X_AXIS) {}
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
+        balls(timeline), noise_field(timeline), palette(make_palette()),
+        next_palette(make_palette()), normal(X_AXIS) {}
 
   /**
    * @brief Allocates the bake LUTs, registers params, seeds the noise field,
@@ -131,8 +133,8 @@ public:
         --ball_phase_left;
         if (--spawn_cooldown <= 0) {
           spawn_ball();
-          spawn_cooldown = static_cast<int>(
-              hs::rand_f(0.5f, 1.5f) * BALL_RATE_FPS / params.ball_rate);
+          spawn_cooldown = static_cast<int>(hs::rand_f(0.5f, 1.5f) *
+                                            BALL_RATE_FPS / params.ball_rate);
         }
       } else if (balls.active_count() == 0) {
         enter_noise();
@@ -140,9 +142,9 @@ public:
       break;
     case Phase::NOISE:
       if (master_gain >= 1.0f && noise_hold > 0 && --noise_hold == 0)
-        timeline.add(0, Animation::Transition(master_gain, 0.0f,
-                                              NOISE_FADE_FRAMES,
-                                              ease_in_out_sin));
+        timeline.add(0,
+                     Animation::Transition(master_gain, 0.0f, NOISE_FADE_FRAMES,
+                                           ease_in_out_sin));
       if (noise_hold == 0 && master_gain <= 0.0f)
         enter_balls();
       break;
@@ -168,9 +170,7 @@ public:
    * fragment's alpha.
    * @details The shared per-ring machinery runs over the active ball pool.
    */
-  void draw_fn(Canvas &canvas, float opacity) {
-    draw_rings(canvas, opacity);
-  }
+  void draw_fn(Canvas &canvas, float opacity) { draw_rings(canvas, opacity); }
 
 private:
   /** @brief Evaluates the active ball fields using cached ring geometry. */
@@ -179,8 +179,8 @@ private:
     float den = 0.0f;
     for (int j = 0; j < n; ++j) {
       const int k = ks[j];
-      float f = bump_field_with_y(p, balls.active_params(k),
-                                  theta - solid_colat[k]);
+      float f =
+          bump_field_with_y(p, balls.active_params(k), theta - solid_colat[k]);
       num += f * f * f;
       den += f * f;
     }
@@ -252,10 +252,9 @@ private:
         }
       }
 
-      if (try_cull &&
-          !Plot::cap_may_touch_clip<H>(clip(), basis.v,
-                                       theta + band + noise_bound +
-                                           params.thickness + pad))
+      if (try_cull && !Plot::cap_may_touch_clip<H>(clip(), basis.v,
+                                                   theta + band + noise_bound +
+                                                       params.thickness + pad))
         continue;
 
       Color4 ring_color =
@@ -282,10 +281,9 @@ private:
         float cos_t = cosf(theta);
         float sin_t = sinf(theta);
 
-        lut_n = hs::clamp(
-            static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f * PI_F *
-                                   feature_scale * sin_t)),
-            LUT_MIN_SAMPLES, W);
+        lut_n = hs::clamp(static_cast<int>(ceilf(LUT_SAMPLES_PER_UNIT * 2.0f *
+                                                 PI_F * feature_scale * sin_t)),
+                          LUT_MIN_SAMPLES, W);
 
         uint32_t visible = CHUNK_MASK;
         if (try_cull) {
@@ -307,17 +305,17 @@ private:
           int pad_chunks = BAKE_CHUNKS;
           if (th_lo > 0.0f && th_hi < PI_F) {
             float sin_lo = std::min(sinf(th_lo), sinf(th_hi));
-            pad_chunks = 1 + static_cast<int>(ceilf(
-                             params.thickness * BAKE_CHUNKS /
-                             (2.0f * PI_F * sin_lo)));
+            pad_chunks =
+                1 + static_cast<int>(ceilf(params.thickness * BAKE_CHUNKS /
+                                           (2.0f * PI_F * sin_lo)));
           }
           if (2 * pad_chunks >= BAKE_CHUNKS) {
             visible = CHUNK_MASK;
           } else {
             visible = raw;
             for (int k = 1; k <= pad_chunks; ++k)
-              visible |= (raw << k) | (raw >> (BAKE_CHUNKS - k)) |
-                         (raw >> k) | (raw << (BAKE_CHUNKS - k));
+              visible |= (raw << k) | (raw >> (BAKE_CHUNKS - k)) | (raw >> k) |
+                         (raw << (BAKE_CHUNKS - k));
             visible &= CHUNK_MASK;
           }
         }
@@ -335,19 +333,16 @@ private:
           int visible_samples = 0;
           int x_begin = 0;
           for (int c = 0; c < BAKE_CHUNKS; ++c) {
-            const int x_end =
-                ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+            const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
             if (visible & (1u << c))
               visible_samples += x_end - x_begin;
             x_begin = x_end;
           }
           precompute_hue_table = visible_samples > 2 * HUE_TABLE_SIZE;
-          const float hue_extent =
-              (band + noise_bound) * params.hue_scale;
+          const float hue_extent = (band + noise_bound) * params.hue_scale;
           cyclic_hue_table = std::fabs(hue_extent) > 1.0f;
-          hue_domain = cyclic_hue_table
-                           ? std::copysign(1.0f, hue_extent)
-                           : hue_extent;
+          hue_domain =
+              cyclic_hue_table ? std::copysign(1.0f, hue_extent) : hue_extent;
 #ifdef HS_TEST_BUILD
           ++hue_table_uses;
 #endif
@@ -370,9 +365,8 @@ private:
           if (precompute_hue_table)
             return sample_hue_table(amount, hue_domain, cyclic_hue_table);
           if (use_hue_table)
-            return sample_hue_table_cached(amount, hue_domain,
-                                           cyclic_hue_table, hue_base,
-                                           hue_table_valid);
+            return sample_hue_table_cached(amount, hue_domain, cyclic_hue_table,
+                                           hue_base, hue_table_valid);
           return hue_rotate(hue_base, amount).color;
         };
 
@@ -386,8 +380,7 @@ private:
 
         int x = 0;
         for (int c = 0; c < BAKE_CHUNKS; ++c) {
-          const int x_end =
-              ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
+          const int x_end = ((c + 1) * lut_n + BAKE_CHUNKS - 1) / BAKE_CHUNKS;
           if (visible & (1u << c)) {
             for (; x < x_end; ++x) {
               Vector p = (basis.v * cos_t) +
@@ -431,9 +424,9 @@ private:
       const Pixel *hue = hue_pool + s * (W + 1);
       float x = wrap_t(f.v0) * slot_lut_n[s];
       int j = static_cast<int>(x);
-      f.color = Color4(
-          hue[j].lerp16(hue[j + 1], frac_to_q16(quintic_kernel(x - j))),
-          slot_frag_alpha[s] * f.v2);
+      f.color =
+          Color4(hue[j].lerp16(hue[j + 1], frac_to_q16(quintic_kernel(x - j))),
+                 slot_frag_alpha[s] * f.v2);
     };
     if (canvas.debug()) {
       // Per-ring rasterizes so the bounding-box tint has per-shape scan
@@ -447,8 +440,7 @@ private:
     } else {
       HS_PROFILE(df_fused_scan);
       Scan::DistortedRingStack::draw<W, H>(filters, canvas, n_rings, shapes,
-                                           slot_by_ring, n_slots,
-                                           ring_shader);
+                                           slot_by_ring, n_slots, ring_shader);
     }
 
     // ScalarFn's inplace_function member is not trivially destructible;
@@ -460,8 +452,9 @@ private:
   __attribute__((noinline)) void prepare_hue_table(const HueRotateBase &base,
                                                    float domain) {
     for (int i = 0; i <= HUE_TABLE_SIZE; ++i)
-      hue_table[i] = hue_rotate(
-          base, domain * (static_cast<float>(i) / HUE_TABLE_SIZE)).color;
+      hue_table[i] =
+          hue_rotate(base, domain * (static_cast<float>(i) / HUE_TABLE_SIZE))
+              .color;
   }
 
   Pixel sample_hue_table(float amount, float domain, bool cyclic) const {
@@ -475,14 +468,15 @@ private:
   }
 
   Pixel sample_hue_table_cached(float amount, float domain, bool cyclic,
-                                const HueRotateBase &base,
-                                uint64_t *valid) {
+                                const HueRotateBase &base, uint64_t *valid) {
     auto ensure = [&](int index) {
       const uint64_t bit = uint64_t{1} << (index & 63);
       uint64_t &word = valid[index >> 6];
       if (!(word & bit)) {
-        hue_table[index] = hue_rotate(
-            base, domain * (static_cast<float>(index) / HUE_TABLE_SIZE)).color;
+        hue_table[index] =
+            hue_rotate(base,
+                       domain * (static_cast<float>(index) / HUE_TABLE_SIZE))
+                .color;
         word |= bit;
       }
     };
@@ -522,8 +516,7 @@ private:
     float speed =
         hs::rand_f(std::min(params.ball_speed_min, params.ball_speed_max),
                    std::max(params.ball_speed_min, params.ball_speed_max));
-    int fall_frames =
-        std::max(2, static_cast<int>(BALL_RATE_FPS / speed));
+    int fall_frames = std::max(2, static_cast<int>(BALL_RATE_FPS / speed));
     balls.spawn(0, orientation, normal, hs::rand_f(0.0f, 2.0f * PI_F),
                 fall_frames);
   }
@@ -578,60 +571,98 @@ private:
   // Near the timeline's 64-event budget: each in-flight ball is one event, so
   // at high Ball Rate x slow Speed the spawner saturates here and drops spawns
   // safely instead of overflowing the shared event buffer.
-  static constexpr int MAX_BALLS = 56;  /**< Concurrent falling-ball pool slots. */
-  static constexpr int SOLID_MAX = MAX_BALLS; /**< Shared prefilter scratch size. */
-  static constexpr int BALL_PHASE_FRAMES = 900; /**< Ball-phase spawning window (~15 s); balls keep coming the whole window. */
-  static constexpr float BALL_RATE_FPS = 60.0f;    /**< Frame cadence assumed by the Ball Rate and Speed sliders' per-second units. */
-  static constexpr float BALL_DRAPE_PER_AMPLITUDE = 4.0f; /**< Drape gain per Ball Amp unit: the 0.25 default = gain 1, the 0.8 max saturates toward full clearance. */
-  static constexpr int NOISE_FADE_FRAMES = 150; /**< Noise amplitude ramp on each phase handoff. */
-  static constexpr int NOISE_HOLD_FRAMES = 600; /**< Full-noise dwell before fading out into the next solid phase. */
+  static constexpr int MAX_BALLS =
+      56; /**< Concurrent falling-ball pool slots. */
+  static constexpr int SOLID_MAX =
+      MAX_BALLS; /**< Shared prefilter scratch size. */
+  static constexpr int BALL_PHASE_FRAMES =
+      900; /**< Ball-phase spawning window (~15 s); balls keep coming the whole window. */
+  static constexpr float BALL_RATE_FPS =
+      60.0f; /**< Frame cadence assumed by the Ball Rate and Speed sliders' per-second units. */
+  static constexpr float BALL_DRAPE_PER_AMPLITUDE =
+      4.0f; /**< Drape gain per Ball Amp unit: the 0.25 default = gain 1, the 0.8 max saturates toward full clearance. */
+  static constexpr int NOISE_FADE_FRAMES =
+      150; /**< Noise amplitude ramp on each phase handoff. */
+  static constexpr int NOISE_HOLD_FRAMES =
+      600; /**< Full-noise dwell before fading out into the next solid phase. */
 
-  BallDropTransformer<MAX_BALLS> balls;   /**< Falling-ball displacement fields. */
-  NoiseProductTransformer<1> noise_field; /**< Two-octave noise displacement field. */
+  BallDropTransformer<MAX_BALLS>
+      balls; /**< Falling-ball displacement fields. */
+  NoiseProductTransformer<1>
+      noise_field; /**< Two-octave noise displacement field. */
 
-  GenerativePalette palette;      /**< Active palette (mutated by an in-flight ColorWipe). */
-  GenerativePalette next_palette; /**< Target palette the current wipe fades toward. */
+  GenerativePalette
+      palette; /**< Active palette (mutated by an in-flight ColorWipe). */
+  GenerativePalette
+      next_palette; /**< Target palette the current wipe fades toward. */
   Vector normal;
   Orientation<> orientation;
 
-  int wipe_frames_remaining = 0; /**< Frames left in the in-flight palette wipe. */
-  bool wipe_pending = false;     /**< Wipe armed this frame; it first steps next frame. */
+  int wipe_frames_remaining =
+      0; /**< Frames left in the in-flight palette wipe. */
+  bool wipe_pending =
+      false; /**< Wipe armed this frame; it first steps next frame. */
 
   /** @brief Displacement-phase state: the noise field or falling balls. */
   enum class Phase { BALLS, NOISE };
 
-  Phase phase = Phase::NOISE; /**< Current displacement phase; the effect opens on noise. */
-  int ball_phase_left = BALL_PHASE_FRAMES; /**< Frames left in this ball phase's spawning window. */
-  int spawn_cooldown = 0;  /**< Frames until the next ball spawn. */
-  float master_gain = 0.0f; /**< Noise fade envelope in [0, 1]; gates the noise field, animated by Transitions. */
-  int noise_hold = 0;      /**< Frames until the noise phase begins fading back out. */
+  Phase phase = Phase::
+      NOISE; /**< Current displacement phase; the effect opens on noise. */
+  int ball_phase_left =
+      BALL_PHASE_FRAMES; /**< Frames left in this ball phase's spawning window. */
+  int spawn_cooldown = 0; /**< Frames until the next ball spawn. */
+  float master_gain =
+      0.0f; /**< Noise fade envelope in [0, 1]; gates the noise field, animated by Transitions. */
+  int noise_hold =
+      0; /**< Frames until the noise phase begins fading back out. */
 
-  static constexpr int PALETTE_CYCLE_FRAMES = 180; /**< Palette rollover period (~3 s at the ~60 fps cadence). */
-  static constexpr int PALETTE_WIPE_FRAMES = 168;  /**< Wipe duration; slightly under the cycle so a wipe is never still in flight when the next rollover fires. */
-  static constexpr float COLOR_SPIN_RATE = 0.0015f; /**< Palette spin across the stack, in turns per frame. */
-  static constexpr float LUT_SAMPLES_PER_UNIT = 8.0f; /**< Bake columns per feature-space unit of ring circumference. */
-  static constexpr int LUT_MIN_SAMPLES = 16;          /**< Bake-column floor for tiny/low-scale rings. */
-  static constexpr int HUE_TABLE_SIZE = 64;            /**< Hue-turn interpolation cells per ring. */
-  static constexpr int BAKE_CHUNKS = 16; /**< Azimuth chunks clip-tested during the bake. */
-  static constexpr uint32_t CHUNK_MASK = (1u << BAKE_CHUNKS) - 1; /**< All-chunks-visible bake mask. */
+  static constexpr int PALETTE_CYCLE_FRAMES =
+      180; /**< Palette rollover period (~3 s at the ~60 fps cadence). */
+  static constexpr int PALETTE_WIPE_FRAMES =
+      168; /**< Wipe duration; slightly under the cycle so a wipe is never still in flight when the next rollover fires. */
+  static constexpr float COLOR_SPIN_RATE =
+      0.0015f; /**< Palette spin across the stack, in turns per frame. */
+  static constexpr float LUT_SAMPLES_PER_UNIT =
+      8.0f; /**< Bake columns per feature-space unit of ring circumference. */
+  static constexpr int LUT_MIN_SAMPLES =
+      16; /**< Bake-column floor for tiny/low-scale rings. */
+  static constexpr int HUE_TABLE_SIZE =
+      64; /**< Hue-turn interpolation cells per ring. */
+  static constexpr int BAKE_CHUNKS =
+      16; /**< Azimuth chunks clip-tested during the bake. */
+  static constexpr uint32_t CHUNK_MASK =
+      (1u << BAKE_CHUNKS) - 1; /**< All-chunks-visible bake mask. */
   static_assert(LUT_MIN_SAMPLES >= BAKE_CHUNKS,
                 "the one-chunk visibility pad needs at least one LUT column "
                 "per chunk");
 
-  float color_spin = 0.0f; /**< Palette offset across the stack (turns, [0,1)). */
-  static constexpr int RING_SLOTS = 72; /**< Baked-ring pool capacity; matches the Rings slider max. */
-  float *shift_pool = nullptr;  /**< RING_SLOTS x (W + 1) pooled shift LUTs, one slot per drawn ring; entry lut_n repeats entry 0 to close the polyline. */
-  Pixel *hue_pool = nullptr;    /**< RING_SLOTS x (W + 1) pooled hue-rotated ring colors, aligned with shift_pool. */
-  float *slot_frag_alpha = nullptr; /**< Per-slot fragment alpha (ring alpha x sprite fade x Alpha slider). */
-  int *slot_lut_n = nullptr;        /**< Per-slot bake column count. */
-  int8_t *slot_by_ring = nullptr;   /**< Ring index -> slot, -1 for culled rings; rebuilt per frame. */
-  void *shapes_raw = nullptr;       /**< Raw storage for RING_SLOTS placement-built SDF::DistortedRing shapes. */
-  Pixel *hue_table = nullptr; /**< HUE_TABLE_SIZE + 1 dynamic or cyclic hue samples for the current ring. */
-  float *solid_colat = nullptr; /**< SOLID_MAX active-body center colatitudes about the stack axis (radians), rebuilt per frame. */
-  float *solid_reach = nullptr; /**< SOLID_MAX active-body support extents (radians): the reach prefilter bound. */
-  float *solid_shift = nullptr; /**< SOLID_MAX active-body shift bounds (radians): the per-ring band bound. */
-  float *solid_scale = nullptr; /**< SOLID_MAX active-body LUT feature scales (2/radius). */
-  int *solid_local = nullptr;   /**< SOLID_MAX scratch: active indices of the bodies that can reach the current ring. */
+  float color_spin =
+      0.0f; /**< Palette offset across the stack (turns, [0,1)). */
+  static constexpr int RING_SLOTS =
+      72; /**< Baked-ring pool capacity; matches the Rings slider max. */
+  float *shift_pool =
+      nullptr; /**< RING_SLOTS x (W + 1) pooled shift LUTs, one slot per drawn ring; entry lut_n repeats entry 0 to close the polyline. */
+  Pixel *hue_pool =
+      nullptr; /**< RING_SLOTS x (W + 1) pooled hue-rotated ring colors, aligned with shift_pool. */
+  float *slot_frag_alpha =
+      nullptr; /**< Per-slot fragment alpha (ring alpha x sprite fade x Alpha slider). */
+  int *slot_lut_n = nullptr; /**< Per-slot bake column count. */
+  int8_t *slot_by_ring =
+      nullptr; /**< Ring index -> slot, -1 for culled rings; rebuilt per frame. */
+  void *shapes_raw =
+      nullptr; /**< Raw storage for RING_SLOTS placement-built SDF::DistortedRing shapes. */
+  Pixel *hue_table =
+      nullptr; /**< HUE_TABLE_SIZE + 1 dynamic or cyclic hue samples for the current ring. */
+  float *solid_colat =
+      nullptr; /**< SOLID_MAX active-body center colatitudes about the stack axis (radians), rebuilt per frame. */
+  float *solid_reach =
+      nullptr; /**< SOLID_MAX active-body support extents (radians): the reach prefilter bound. */
+  float *solid_shift =
+      nullptr; /**< SOLID_MAX active-body shift bounds (radians): the per-ring band bound. */
+  float *solid_scale =
+      nullptr; /**< SOLID_MAX active-body LUT feature scales (2/radius). */
+  int *solid_local =
+      nullptr; /**< SOLID_MAX scratch: active indices of the bodies that can reach the current ring. */
 #ifdef HS_TEST_BUILD
   bool force_exact_hue = false;
   int hue_table_uses = 0;
@@ -647,20 +678,28 @@ private:
    * @details Defaults are pre-registration starting values.
    */
   struct Params {
-    float alpha = 0.3f;       /**< Overall ring opacity multiplier in [0, 1]. */
-    float num_rings = 48.0f;  /**< Number of evenly spaced rings (truncated to int when drawn). */
-    float thickness = 0.035f;  /**< Stroke half-width (radians). */
-    float ball_amp = 0.1f;    /**< Ball drape strength; scaled by BALL_DRAPE_PER_AMPLITUDE into the drape gain. */
-    float noise_amp = 0.2f;   /**< Peak polar displacement (radians) of the noise phase. */
-    float scale1 = 1.5f;      /**< Spatial frequency of the envelope octave; its zero regions leave rings undisturbed. */
-    float scale2 = 3.0f;      /**< Spatial frequency of the detail octave, scaled by the envelope octave. */
-    float hue_scale = 2.0f;   /**< Hue rotation (turns) per radian of displacement magnitude. */
+    float alpha = 0.3f; /**< Overall ring opacity multiplier in [0, 1]. */
+    float num_rings =
+        48.0f; /**< Number of evenly spaced rings (truncated to int when drawn). */
+    float thickness = 0.035f; /**< Stroke half-width (radians). */
+    float ball_amp =
+        0.1f; /**< Ball drape strength; scaled by BALL_DRAPE_PER_AMPLITUDE into the drape gain. */
+    float noise_amp =
+        0.2f; /**< Peak polar displacement (radians) of the noise phase. */
+    float scale1 =
+        1.5f; /**< Spatial frequency of the envelope octave; its zero regions leave rings undisturbed. */
+    float scale2 =
+        3.0f; /**< Spatial frequency of the detail octave, scaled by the envelope octave. */
+    float hue_scale =
+        2.0f; /**< Hue rotation (turns) per radian of displacement magnitude. */
     float flow_speed = 0.03f; /**< Noise-field time advance per frame. */
     float ball_min = 0.15f;   /**< Smallest ball footprint (radians). */
     float ball_max = 0.3f;    /**< Largest ball footprint (radians). */
     float ball_rate = 20.0f;  /**< Ball spawns per second (jittered ±50%). */
-    float ball_speed_min = 0.45f; /**< Slowest fall (pole-to-pole traversals per second). */
-    float ball_speed_max = 0.85f; /**< Fastest fall (pole-to-pole traversals per second). */
+    float ball_speed_min =
+        0.45f; /**< Slowest fall (pole-to-pole traversals per second). */
+    float ball_speed_max =
+        0.85f; /**< Fastest fall (pole-to-pole traversals per second). */
   } params;
 };
 

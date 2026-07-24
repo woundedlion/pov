@@ -71,7 +71,8 @@ inline float wrap_t(float t) {
  *          map()/addmod8().
  */
 inline int wrap(int x, int m) {
-  if (m == 0) return x;
+  if (m == 0)
+    return x;
   int r = x % m;
   return r < 0 ? r + m : r;
 }
@@ -131,4 +132,3 @@ inline void apply_if_changed(const T &current, T &last, F &&apply) {
     apply(current);
   }
 }
-

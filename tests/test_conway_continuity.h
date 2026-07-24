@@ -1832,8 +1832,8 @@ inline void test_strap_open_fade() {
     HS_EXPECT_LT(guard, 400);
 
     fade = Probe::strap_open_fade(fx, 1);
-    capture_opening(fx, 0.0f, 1.0f, bookend);           // straps zero-area
-    capture_opening(fx, STRAP_OPEN_ANGLE, 1.0f, full);  // pre-fix: full coverage
+    capture_opening(fx, 0.0f, 1.0f, bookend);          // straps zero-area
+    capture_opening(fx, STRAP_OPEN_ANGLE, 1.0f, full); // pre-fix: full coverage
     capture_opening(fx, STRAP_OPEN_ANGLE, fade, faded); // fix: faded coverage
     pop_full = hard_recolor_count(bookend, full);
     pop_faded = hard_recolor_count(bookend, faded);

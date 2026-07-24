@@ -59,7 +59,8 @@ inline void test_sin8_golden() {
     double truth = 128.0 + 127.0 * std::sin(TWO_PI * t / 256.0);
     int err = std::abs(static_cast<int>(sin8(static_cast<uint8_t>(t))) -
                        static_cast<int>(std::lround(truth)));
-    if (err > max_err) max_err = err;
+    if (err > max_err)
+      max_err = err;
   }
   // sin8_C tracks the true sine to within a few LSBs (measured worst case 3).
   HS_EXPECT_LT(max_err, 4);
@@ -86,7 +87,8 @@ inline void test_sin16_golden() {
     double truth = 32767.0 * std::sin(TWO_PI * t / 65536.0);
     int err = std::abs(static_cast<int>(sin16(static_cast<uint16_t>(t))) -
                        static_cast<int>(std::lround(truth)));
-    if (err > max_err) max_err = err;
+    if (err > max_err)
+      max_err = err;
   }
   // sin16_C's 8-section linear LUT tracks the true sine to within 226 of 32767
   // (~0.7%); a broken secoffset8 truncation or slope table would blow far past.
@@ -110,7 +112,7 @@ inline void test_scale_golden() {
   HS_EXPECT_EQ(scale16(65535, 65535), 65535); // full scale is identity
   HS_EXPECT_EQ(scale16(65535, 32768), 32768); // 65535*32769>>16
   HS_EXPECT_EQ(scale16(32768, 65535), 32768); // 32768*65536>>16
-  HS_EXPECT_EQ(scale16(1000, 5000), 76); // 1000*5001>>16
+  HS_EXPECT_EQ(scale16(1000, 5000), 76);      // 1000*5001>>16
   HS_EXPECT_EQ(scale16(0, 65535), 0);
 }
 
@@ -151,9 +153,9 @@ inline void test_map8_fastled_semantics() {
  *          host must match that rather than SIGFPE; normal mapping still holds.
  */
 inline void test_map_degenerate_range() {
-  HS_EXPECT_EQ(map(5, 10, 10, 0, 100), 0);    // in_min == in_max -> out_min
+  HS_EXPECT_EQ(map(5, 10, 10, 0, 100), 0); // in_min == in_max -> out_min
   HS_EXPECT_EQ(map(42, 7, 7, 3, 9), 3);
-  HS_EXPECT_EQ(map(5, 0, 10, 0, 100), 50);    // normal mapping still correct
+  HS_EXPECT_EQ(map(5, 0, 10, 0, 100), 50); // normal mapping still correct
 }
 
 /**
@@ -170,11 +172,11 @@ inline void test_map_degenerate_range() {
  *            cross-device behavior.
  */
 inline void test_random_degenerate_range() {
-  HS_EXPECT_EQ(random(0), 0);      // Arduino random(0) -> 0 (device-faithful)
-  HS_EXPECT_EQ(random(-3), 0);     // non-positive bound -> 0 (device-faithful)
-  HS_EXPECT_EQ(random(5, 5), 5);   // empty range -> min (device-faithful)
-  HS_EXPECT_EQ(random(9, 4), 9);   // inverted range -> min (host-mock contract)
-  HS_EXPECT_EQ(random8(0), 0);     // FastLED random8(0) -> 0
+  HS_EXPECT_EQ(random(0), 0);    // Arduino random(0) -> 0 (device-faithful)
+  HS_EXPECT_EQ(random(-3), 0);   // non-positive bound -> 0 (device-faithful)
+  HS_EXPECT_EQ(random(5, 5), 5); // empty range -> min (device-faithful)
+  HS_EXPECT_EQ(random(9, 4), 9); // inverted range -> min (host-mock contract)
+  HS_EXPECT_EQ(random8(0), 0);   // FastLED random8(0) -> 0
   // A normal range still falls inside [min, max).
   for (int i = 0; i < 64; ++i) {
     int v = random(3, 7);
@@ -193,7 +195,8 @@ inline void test_beatsin8_faithful() {
   // 60 BPM == one cycle per 1000 ms. Quarter cycle (250 ms) -> peak, three-
   // quarter (750 ms) -> trough.
   hs::set_mock_time(250, 250000);
-  HS_EXPECT_EQ(beatsin8(60, 0, 255), 255); // sin8(64)=255 -> scale8(255,255)=255
+  HS_EXPECT_EQ(beatsin8(60, 0, 255),
+               255); // sin8(64)=255 -> scale8(255,255)=255
   uint8_t again = beatsin8(60, 0, 255);
   HS_EXPECT_EQ(again, 255); // deterministic under the same mock time
 
@@ -203,8 +206,10 @@ inline void test_beatsin8_faithful() {
   // phase_offset (5th arg) shifts the wave: at t=0 the bare beat is the LUT
   // midpoint, a +64 offset advances it to the peak.
   hs::set_mock_time(0, 0);
-  HS_EXPECT_EQ(beatsin8(60, 0, 255, 0, 0), 128);   // sin8(0)=128 -> scale8(128,255)=128
-  HS_EXPECT_EQ(beatsin8(60, 0, 255, 0, 64), 255);  // sin8(64)=255 -> scale8(255,255)=255
+  HS_EXPECT_EQ(beatsin8(60, 0, 255, 0, 0),
+               128); // sin8(0)=128 -> scale8(128,255)=128
+  HS_EXPECT_EQ(beatsin8(60, 0, 255, 0, 64),
+               255); // sin8(64)=255 -> scale8(255,255)=255
 
   // Range fit holds across the whole cycle for a non-trivial [lowest, highest].
   for (unsigned long ms = 0; ms < 1000; ms += 37) {
@@ -300,7 +305,8 @@ inline void test_serial_printf_formats_varargs() {
   buf[n] = '\0';
   std::fclose(cap);
   std::remove(path);
-  HS_EXPECT(std::string(buf) == std::string("req 12 / cap 48"), "printf expands args");
+  HS_EXPECT(std::string(buf) == std::string("req 12 / cap 48"),
+            "printf expands args");
 }
 
 /**

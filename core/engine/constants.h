@@ -29,13 +29,14 @@ static constexpr int MAX_H = 144;
  *          and are not valid for a sub-max canvas until the driver populates them.
  */
 struct ClipRegion {
-  int y_start = 0;      /**< Display top row (inclusive), in pixels. */
-  int y_end   = MAX_H;  /**< Display bottom row (exclusive), in pixels. */
-  int x_start = 0;      /**< Display left column (inclusive), in pixels. */
-  int x_end   = MAX_W;  /**< Display right column (exclusive), in pixels. */
-  int margin  = 1;      /**< Render-bound expansion past the display edges, in pixels. */
-  int w       = MAX_W;  /**< Canvas width, in pixels. */
-  int h       = MAX_H;  /**< Canvas height, in pixels. */
+  int y_start = 0;   /**< Display top row (inclusive), in pixels. */
+  int y_end = MAX_H; /**< Display bottom row (exclusive), in pixels. */
+  int x_start = 0;   /**< Display left column (inclusive), in pixels. */
+  int x_end = MAX_W; /**< Display right column (exclusive), in pixels. */
+  int margin =
+      1; /**< Render-bound expansion past the display edges, in pixels. */
+  int w = MAX_W; /**< Canvas width, in pixels. */
+  int h = MAX_H; /**< Canvas height, in pixels. */
 
   /**
    * @brief Render-region top edge: display top expanded up by `margin`, floored at 0.
@@ -46,14 +47,16 @@ struct ClipRegion {
    *          invariant gives `y_start <= y_end`, so paired with render_y_end the
    *          range never inverts; only the two single-sided clamps are needed.
    */
-  int render_y_start() const { return y_start - margin > 0 ? y_start - margin : 0; }
+  int render_y_start() const {
+    return y_start - margin > 0 ? y_start - margin : 0;
+  }
   /**
    * @brief Render-region bottom edge: display bottom expanded down by `margin`, capped at h.
    * @return One-past-last render row (exclusive), in pixels.
    * @details Mirror of render_y_start: only the high side is clamped (to h);
    *          `y_end >= 0` makes a low-side clamp unnecessary.
    */
-  int render_y_end()   const { return y_end + margin < h ? y_end + margin : h; }
+  int render_y_end() const { return y_end + margin < h ? y_end + margin : h; }
   /**
    * @brief Render-region left edge: display left expanded by `margin`, wrapped mod w (cylindrical).
    * @return First render column, in pixels, in [0, w).
@@ -69,13 +72,15 @@ struct ClipRegion {
    * @return One-past-last render column, in pixels, in [0, w).
    * @pre margin < w (see render_x_start).
    */
-  int render_x_end()   const { return (x_end + margin) % w; }
+  int render_x_end() const { return (x_end + margin) % w; }
 
   /**
    * @brief Reports whether this region covers the entire canvas (no clipping).
    * @return True when display bounds equal the full [0,w) x [0,h) canvas.
    */
-  bool is_full() const { return y_start == 0 && y_end == h && x_start == 0 && x_end == w; }
+  bool is_full() const {
+    return y_start == 0 && y_end == h && x_start == 0 && x_end == w;
+  }
 
   /**
    * @brief Pixel-level vertical containment against the render (margin-expanded) bounds.
@@ -96,10 +101,12 @@ struct ClipRegion {
    *          a wrapped interval.
    */
   bool contains_x(int x) const {
-    if ((x_end - x_start) + 2 * margin >= w) return true;
+    if ((x_end - x_start) + 2 * margin >= w)
+      return true;
     int rs = render_x_start();
     int re = render_x_end();
-    if (rs == re) return true; // margin expansion wrapped to full width
+    if (rs == re)
+      return true; // margin expansion wrapped to full width
     return (rs < re) ? (x >= rs && x < re) : (x >= rs || x < re);
   }
 
@@ -111,10 +118,12 @@ struct ClipRegion {
    *          an empty band.
    */
   struct XClip {
-    int  rs     = 0;     /**< Render band start column, in pixels, in [0, w). */
-    int  re     = 0;     /**< Render band end column (exclusive), in pixels, in [0, w). */
-    bool active = false; /**< False => no x clipping (full width or wrapped to full). */
-    bool wrap   = false; /**< Band crosses the seam (rs > re). */
+    int rs = 0; /**< Render band start column, in pixels, in [0, w). */
+    int re =
+        0; /**< Render band end column (exclusive), in pixels, in [0, w). */
+    bool active =
+        false; /**< False => no x clipping (full width or wrapped to full). */
+    bool wrap = false; /**< Band crosses the seam (rs > re). */
 
     /**
      * @brief Tests whether a fragment column falls outside the render band.
@@ -122,7 +131,8 @@ struct ClipRegion {
      * @return True when x lies outside the render band and must be skipped.
      */
     bool clipped(int x) const {
-      if (!active) return false;
+      if (!active)
+        return false;
       return wrap ? (x < rs && x >= re) : (x < rs || x >= re);
     }
   };
@@ -133,10 +143,10 @@ struct ClipRegion {
    */
   XClip x_clip() const {
     XClip c;
-    c.rs     = render_x_start();
-    c.re     = render_x_end();
+    c.rs = render_x_start();
+    c.re = render_x_end();
     c.active = (x_end - x_start) + 2 * margin < w && c.rs != c.re;
-    c.wrap   = c.rs > c.re;
+    c.wrap = c.rs > c.re;
     return c;
   }
 
@@ -173,4 +183,3 @@ struct ClipRegion {
     return covers(s1, len1, s2) || covers(s2, len2, s1);
   }
 };
-

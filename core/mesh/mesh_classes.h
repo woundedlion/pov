@@ -61,22 +61,25 @@ inline constexpr float MIN_CLASS_HIT_SHARE = 0.4f;
  * @brief Per-face congruence record, baked once per spawned mesh.
  */
 struct FaceClassRec {
-  uint8_t class_id;    /**< Congruence class, or NO_CLASS. */
-  uint8_t vert_offset; /**< Cyclic offset aligning mesh vertex order to canonical. */
-  uint8_t reflected;   /**< Non-zero for the mirror family. */
+  uint8_t class_id; /**< Congruence class, or NO_CLASS. */
+  uint8_t
+      vert_offset; /**< Cyclic offset aligning mesh vertex order to canonical. */
+  uint8_t reflected; /**< Non-zero for the mirror family. */
 };
 
 /**
  * @brief One congruence class: canonical shape + optional distance LUT.
  */
 struct CongruenceClass {
-  SDF::ClassLut lut;              /**< Distance LUT; data == nullptr when the class has none. */
-  const float *canon_xy = nullptr; /**< Canonical centered 2D polygon, x/y pairs. */
-  float canon_sq = 0.0f;          /**< Sum of squared canonical vertex magnitudes. */
-  int n_verts = 0;                /**< Vertex count. */
-  int topo_id = -1;               /**< Seeding topology class. */
-  uint16_t members = 0;           /**< Faces assigned to this class. */
-  bool concave = false;           /**< Canonical shape is concave (LUT-eligible). */
+  SDF::ClassLut
+      lut; /**< Distance LUT; data == nullptr when the class has none. */
+  const float *canon_xy =
+      nullptr;           /**< Canonical centered 2D polygon, x/y pairs. */
+  float canon_sq = 0.0f; /**< Sum of squared canonical vertex magnitudes. */
+  int n_verts = 0;       /**< Vertex count. */
+  int topo_id = -1;      /**< Seeding topology class. */
+  uint16_t members = 0;  /**< Faces assigned to this class. */
+  bool concave = false;  /**< Canonical shape is concave (LUT-eligible). */
 };
 
 /**
@@ -87,19 +90,27 @@ struct CongruenceClass {
  */
 struct MeshClassBake {
   ArenaVector<CongruenceClass> classes; /**< Congruence classes, dense ids. */
-  ArenaVector<FaceClassRec> face_recs;  /**< Per-face records, mesh face order. */
-  float worst_residual_px = 0.0f;   /**< Worst accepted RMS residual (pixels). */
-  float predicted_hit_share = 0.0f; /**< Safe-cell share on LUT-bound faces (quality; gate >= MIN_CLASS_HIT_SHARE). */
-  float lut_face_share = 0.0f;      /**< Faces bound to a LUT / all faces (coverage). */
-  uint16_t shared_faces = 0;        /**< Faces in classes with >= 2 members. */
-  uint16_t concave_faces = 0;       /**< Faces in concave (LUT-eligible) classes. */
-  uint16_t lut_faces = 0;           /**< Faces whose class received a LUT. */
-  uint16_t luts_built = 0;          /**< Classes that received a LUT. */
-  uint16_t degraded_classes = 0;    /**< Eligible classes whose grid was shrunk to fit the budget, then built. */
-  uint16_t dropped_classes = 0;     /**< Eligible classes denied a LUT once the budget could not fit even the min grid. */
-  uint16_t dropped_faces = 0;       /**< Faces in dropped classes (kept the exact path). */
-  uint16_t lowq_classes = 0;        /**< Classes whose built LUT missed MIN_CLASS_HIT_SHARE and was discarded. */
-  size_t lut_bytes = 0;             /**< Persistent bytes charged to kept LUTs (<= the byte budget). */
+  ArenaVector<FaceClassRec>
+      face_recs;                  /**< Per-face records, mesh face order. */
+  float worst_residual_px = 0.0f; /**< Worst accepted RMS residual (pixels). */
+  float predicted_hit_share =
+      0.0f; /**< Safe-cell share on LUT-bound faces (quality; gate >= MIN_CLASS_HIT_SHARE). */
+  float lut_face_share =
+      0.0f; /**< Faces bound to a LUT / all faces (coverage). */
+  uint16_t shared_faces = 0;  /**< Faces in classes with >= 2 members. */
+  uint16_t concave_faces = 0; /**< Faces in concave (LUT-eligible) classes. */
+  uint16_t lut_faces = 0;     /**< Faces whose class received a LUT. */
+  uint16_t luts_built = 0;    /**< Classes that received a LUT. */
+  uint16_t degraded_classes =
+      0; /**< Eligible classes whose grid was shrunk to fit the budget, then built. */
+  uint16_t dropped_classes =
+      0; /**< Eligible classes denied a LUT once the budget could not fit even the min grid. */
+  uint16_t dropped_faces =
+      0; /**< Faces in dropped classes (kept the exact path). */
+  uint16_t lowq_classes =
+      0; /**< Classes whose built LUT missed MIN_CLASS_HIT_SHARE and was discarded. */
+  size_t lut_bytes =
+      0; /**< Persistent bytes charged to kept LUTs (<= the byte budget). */
 };
 
 /**
@@ -232,16 +243,15 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
         continue;
       for (int refl = 0; refl < 2; ++refl) {
         for (int off = 0; off < count; ++off) {
-          SDF::AlignCorr a = SDF::align_correlate(
-              cls.canon_xy, count, off, refl != 0,
-              [&](int j, float &gx, float &gy) {
-                gx = zx[j];
-                gy = zy[j];
-              });
-          float res_sq =
-              std::max(cls.canon_sq + zz -
-                           2.0f * sqrtf(a.rr * a.rr + a.ri * a.ri),
-                       0.0f);
+          SDF::AlignCorr a =
+              SDF::align_correlate(cls.canon_xy, count, off, refl != 0,
+                                   [&](int j, float &gx, float &gy) {
+                                     gx = zx[j];
+                                     gy = zy[j];
+                                   });
+          float res_sq = std::max(cls.canon_sq + zz -
+                                      2.0f * sqrtf(a.rr * a.rr + a.ri * a.ri),
+                                  0.0f);
           if (res_sq < best_res_sq) {
             best_res_sq = res_sq;
             best_class = static_cast<int>(c);
@@ -253,8 +263,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     }
 
     if (best_class >= 0 && best_res_sq <= eps_plane * eps_plane * count) {
-      rec = {static_cast<uint8_t>(best_class),
-             static_cast<uint8_t>(best_off),
+      rec = {static_cast<uint8_t>(best_class), static_cast<uint8_t>(best_off),
              static_cast<uint8_t>(best_refl ? 1 : 0)};
       out.classes[best_class].members++;
       float res_px = sqrtf(best_res_sq / count) / pixel_width;
@@ -297,8 +306,7 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
     if (cls.members < 2 || !cls.concave)
       continue;
     int pos = n_elig++;
-    while (pos > 0 &&
-           out.classes[order[pos - 1]].members < cls.members) {
+    while (pos > 0 && out.classes[order[pos - 1]].members < cls.members) {
       order[pos] = order[pos - 1];
       --pos;
     }
@@ -313,7 +321,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
   // Staging buffer: LUTs are built here first and promoted to the persistent
   // arena only if their predicted hit share clears the quality bar, so a
   // low-value LUT never spends persistent budget.
-  int16_t *staging = scratch.allocate_n<int16_t>(CLASS_LUT_MAX_N * CLASS_LUT_MAX_N);
+  int16_t *staging =
+      scratch.allocate_n<int16_t>(CLASS_LUT_MAX_N * CLASS_LUT_MAX_N);
   for (int e = 0; e < n_elig; ++e) {
     CongruenceClass &cls = out.classes[order[e]];
     out.concave_faces += cls.members;
@@ -377,8 +386,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
             q11 = staging[(gy + 1) * n + gx + 1];
         bool same_sign = (q00 > 0) == (q10 > 0) && (q00 > 0) == (q01 > 0) &&
                          (q00 > 0) == (q11 > 0);
-        int min_q = std::min({std::abs(q00), std::abs(q10), std::abs(q01),
-                              std::abs(q11)});
+        int min_q = std::min(
+            {std::abs(q00), std::abs(q10), std::abs(q01), std::abs(q11)});
         if (same_sign && min_q * cls.lut.dequant > cls.lut.safe_dist)
           ++safe;
       }
@@ -395,8 +404,8 @@ build_mesh_class_bake(const MeshState &mesh, Arena &scratch, Arena &persistent,
 
     budget -= bytes;
     out.lut_bytes += bytes;
-    int16_t *data = static_cast<int16_t *>(
-        persistent.allocate(bytes, alignof(int16_t)));
+    int16_t *data =
+        static_cast<int16_t *>(persistent.allocate(bytes, alignof(int16_t)));
     std::copy(staging, staging + static_cast<size_t>(n) * n, data);
     cls.lut.data = data;
     out.luts_built++;

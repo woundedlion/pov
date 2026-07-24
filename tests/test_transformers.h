@@ -110,7 +110,8 @@ inline void test_orient_transformer_identity() {
  *          a no-op transform; this case fails unless the rotation is applied.
  */
 inline void test_orient_transformer_known_rotation() {
-  Orientation<> ori(make_rotation(Vector(0, 1, 0), PI_F * 0.5f)); // +90° about y
+  Orientation<> ori(
+      make_rotation(Vector(0, 1, 0), PI_F * 0.5f)); // +90° about y
   OrientTransformer ot(ori);
 
   const Vector samples[] = {Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1),
@@ -211,10 +212,10 @@ inline void test_mobius_matches_double_precision_oracle() {
                    hs::rand_f(-2, 2), hs::rand_f(-2, 2));
     // Skip a near-singular draw: ad - bc ~ 0 collapses the map and both forms
     // are then dominated by cancellation, not by the formulation.
-    float det_re = p.a.re * p.d.re - p.a.im * p.d.im - p.b.re * p.c.re +
-                   p.b.im * p.c.im;
-    float det_im = p.a.re * p.d.im + p.a.im * p.d.re - p.b.re * p.c.im -
-                   p.b.im * p.c.re;
+    float det_re =
+        p.a.re * p.d.re - p.a.im * p.d.im - p.b.re * p.c.re + p.b.im * p.c.im;
+    float det_im =
+        p.a.re * p.d.im + p.a.im * p.d.re - p.b.re * p.c.im - p.b.im * p.c.re;
     if (det_re * det_re + det_im * det_im < 0.25f)
       continue;
 
@@ -344,8 +345,7 @@ inline void test_ripple_active_rotates_on_sphere() {
 
   HS_EXPECT_TRUE(finite_vec(r));
   HS_EXPECT_NEAR(r.length(), 1.0f, 1e-4f);
-  float moved =
-      std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
+  float moved = std::abs(r.x - v.x) + std::abs(r.y - v.y) + std::abs(r.z - v.z);
   HS_EXPECT_GT(moved, 1e-2f);
 }
 
@@ -367,7 +367,7 @@ inline void test_ripple_threshold_reject_path() {
   p.amplitude = 0.5f;
   p.phase = PI_F * 0.5f; // wavelet peak at d == 90°
   p.decay = 0.0f;
-  p.thickness = 0.4f;    // band ≈ [phase - 0.4, phase + 0.4] rad
+  p.thickness = 0.4f; // band ≈ [phase - 0.4, phase + 0.4] rad
   p.prepare_thresholds();
 
   HS_EXPECT_LT(p.cos_threshold_min, 1.0f);
@@ -463,7 +463,8 @@ inline void test_ripple_threshold_boundary() {
   auto pt = [](float d) { return Vector(std::sin(d), std::cos(d), 0.0f); };
   auto moved = [&](const Vector &src) {
     Vector r = ripple_transform(src, p);
-    return std::abs(r.x - src.x) + std::abs(r.y - src.y) + std::abs(r.z - src.z);
+    return std::abs(r.x - src.x) + std::abs(r.y - src.y) +
+           std::abs(r.z - src.z);
   };
 
   // Just inside each edge: wavelet tail is small but nonzero.
@@ -610,8 +611,8 @@ inline void test_transformer_spawn_applies_and_composes() {
     single[i] = nt.transform(v);
     HS_EXPECT_TRUE(finite_vec(single[i]));
     HS_EXPECT_NEAR(single[i].length(), 1.0f, 1e-3f);
-    total_moved += std::abs(single[i].x - v.x) +
-                   std::abs(single[i].y - v.y) + std::abs(single[i].z - v.z);
+    total_moved += std::abs(single[i].x - v.x) + std::abs(single[i].y - v.y) +
+                   std::abs(single[i].z - v.z);
   }
   HS_EXPECT_GT(total_moved, 1e-2f);
 
@@ -730,14 +731,16 @@ inline void test_transformer_recycled_slot_composes_in_spawn_order() {
   Transformer<OrderParams, TagAnim, order_transform, 2> tr(tl);
   tr.init_storage(persistent_arena);
 
-  HS_EXPECT_TRUE(tr.spawn(0, /*order=*/9, /*duration=*/2) != nullptr);   // slot 0
-  HS_EXPECT_TRUE(tr.spawn(0, /*order=*/1, /*duration=*/100) != nullptr); // slot 1
+  HS_EXPECT_TRUE(tr.spawn(0, /*order=*/9, /*duration=*/2) != nullptr); // slot 0
+  HS_EXPECT_TRUE(tr.spawn(0, /*order=*/1, /*duration=*/100) !=
+                 nullptr); // slot 1
 
   // Step until the short warp completes and frees slot 0; the long one survives.
   for (int i = 0; i < 5; ++i)
     tl.step(cv);
 
-  HS_EXPECT_TRUE(tr.spawn(0, /*order=*/2, /*duration=*/100) != nullptr); // recycles slot 0
+  HS_EXPECT_TRUE(tr.spawn(0, /*order=*/2, /*duration=*/100) !=
+                 nullptr); // recycles slot 0
 
   const Vector r = tr.transform(Vector(0, 0, 0));
   HS_EXPECT_NEAR(r.x, 12.0f, 1e-4f);
@@ -969,8 +972,8 @@ inline void test_bump_field_drapes_over_ball() {
 
   // Sample the meridian at colatitude offset d from the center.
   auto at = [&](float d) {
-    return bump_field(
-        Vector(std::sin(c_lat + d), std::cos(c_lat + d), 0.0f), p);
+    return bump_field(Vector(std::sin(c_lat + d), std::cos(c_lat + d), 0.0f),
+                      p);
   };
 
   HS_EXPECT_NEAR(at(0.0f), 0.0f, 2e-3f);
@@ -1028,8 +1031,8 @@ inline void test_bump_field_precomputed_y_parity() {
   p.envelope = 0.7f;
   p.sync();
 
-  const float center_colat = fast_acos(
-      hs::clamp(dot(p.axis, p.center), -1.0f, 1.0f));
+  const float center_colat =
+      fast_acos(hs::clamp(dot(p.axis, p.center), -1.0f, 1.0f));
   for (float lat = 0.4f; lat <= 1.8f; lat += 0.07f) {
     for (float az = -0.6f; az <= 0.6f; az += 0.09f) {
       Vector v(std::sin(lat) * std::cos(az), std::cos(lat),
@@ -1086,9 +1089,9 @@ inline void test_noise_product_field_parity() {
   for (const Vector &v : samples) {
     float n1 = p.noise.GetNoise(v.x * p.scale1, v.y * p.scale1,
                                 v.z * p.scale1 + p.time);
-    float n2 = p.noise.GetNoise(
-        v.x * p.scale2 + NoiseProductParams::OCTAVE2_OFFSET, v.y * p.scale2,
-        v.z * p.scale2 + p.time);
+    float n2 =
+        p.noise.GetNoise(v.x * p.scale2 + NoiseProductParams::OCTAVE2_OFFSET,
+                         v.y * p.scale2, v.z * p.scale2 + p.time);
     float expected = p.amplitude * n1 * n2;
     HS_EXPECT_NEAR(noise_product_field(v, p), expected, 1e-6f);
     total += std::fabs(expected);
@@ -1221,4 +1224,3 @@ inline int run_transformers_tests() {
 
 } // namespace transformers_tests
 } // namespace hs_test
-

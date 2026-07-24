@@ -170,12 +170,14 @@ inline void scan_region(int y_min, int y_max, IntervalFn &&get_intervals,
                 "emission (Subtract/Intersection: |A|+|B|+2)");
   static_assert(NormBuf::CAPACITY == 2 * IntervalBuf::CAPACITY,
                 "norm must hold 2 spans per input interval (seam split)");
-  auto &intervals = *new (scratch_arena_b.allocate(
-      sizeof(IntervalBuf), alignof(IntervalBuf))) IntervalBuf();
-  auto &norm = *new (scratch_arena_b.allocate(sizeof(NormBuf),
-                                              alignof(NormBuf))) NormBuf();
+  auto &intervals =
+      *new (scratch_arena_b.allocate(sizeof(IntervalBuf), alignof(IntervalBuf)))
+          IntervalBuf();
+  auto &norm = *new (
+      scratch_arena_b.allocate(sizeof(NormBuf), alignof(NormBuf))) NormBuf();
 
-  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
+  const float *cos_theta =
+      TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
 
   auto walk = [&](int x1, int x2, int y, float sp, float cp) {
@@ -384,9 +386,10 @@ inline void rasterize(PipelineT &pipeline, Canvas &canvas, const auto &shape,
   const auto &cr = canvas.clip();
   const auto xc = cr.x_clip();
   auto bounds = shape.template get_vertical_bounds<H>();
-  y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
+  y_lo =
+      bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
   y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
-                                               : cr.render_y_end() - 1;
+                                              : cr.render_y_end() - 1;
   if (y_lo > y_hi)
     return;
 
@@ -431,10 +434,11 @@ struct DistortedRing {
    */
   template <int W, int H, bool ComputeUVs = true,
             typename PipelineT = PipelineRef>
-  static void draw_flat(PipelineT &pipeline, Canvas &canvas,
-                        const Basis &basis, float radius, float thickness,
+  static void draw_flat(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
+                        float radius, float thickness,
                         FragmentShaderFn fragment_shader, float phase = 0,
-                        bool debug_bb = false, bool suppress_pole_fill = false) {
+                        bool debug_bb = false,
+                        bool suppress_pole_fill = false) {
     SDF::FlatDistortedRing shape(basis, radius, thickness, phase);
     shape.suppress_pole_fill = suppress_pole_fill;
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
@@ -495,10 +499,10 @@ struct DistortedRing {
   template <int W, int H, bool ComputeUVs = true,
             typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const Basis &basis,
-                   float radius, float thickness, const float *knots,
-                   int lut_n, float amplitude,
-                   FragmentShaderFn fragment_shader, float phase = 0,
-                   bool debug_bb = false, bool suppress_pole_fill = false) {
+                   float radius, float thickness, const float *knots, int lut_n,
+                   float amplitude, FragmentShaderFn fragment_shader,
+                   float phase = 0, bool debug_bb = false,
+                   bool suppress_pole_fill = false) {
     SDF::DistortedRing shape(basis, radius, thickness, knots, lut_n, amplitude,
                              phase);
     shape.suppress_pole_fill = suppress_pole_fill;
@@ -544,9 +548,8 @@ struct DistortedRingStack {
    */
   template <int W, int H, typename PipelineT, typename RingShaderT>
   static void draw(PipelineT &pipeline, Canvas &canvas, int n_rings,
-                   const SDF::DistortedRing *shapes,
-                   const int8_t *slot_by_ring, int n_slots,
-                   RingShaderT &&shader) {
+                   const SDF::DistortedRing *shapes, const int8_t *slot_by_ring,
+                   int n_slots, RingShaderT &&shader) {
     if (!TrigLUT<W, H>::initialized)
       TrigLUT<W, H>::init();
     const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4;
@@ -608,8 +611,8 @@ struct DistortedRingStack {
         if (azimuth < 0)
           azimuth += 2 * PI_F;
         const float t_norm = wrap_t(azimuth / (2 * PI_F));
-        const float sin_polar = sqrtf(
-            std::max(1.0f - d * d, SDF::DistortedRing::POLE_SIN2_FLOOR));
+        const float sin_polar =
+            sqrtf(std::max(1.0f - d * d, SDF::DistortedRing::POLE_SIN2_FLOOR));
         for (int i = ilo; i <= ihi; ++i) {
           const int s = slot_by_ring[i];
           if (s < 0)
@@ -668,8 +671,7 @@ struct PlanarPolygon {
     auto res = get_antipode(basis, radius);
     float thickness = res.second * (PI_F / 2.0f);
 
-    SDF::PlanarPolygon shape(res.first, thickness, sides, phase,
-                             radius > 1.0f);
+    SDF::PlanarPolygon shape(res.first, thickness, sides, phase, radius > 1.0f);
     Scan::rasterize<W, H, ComputeUVs>(pipeline, canvas, shape, fragment_shader,
                                       debug_bb);
   }
@@ -793,7 +795,9 @@ struct RingGroup {
                    int n, RingShaderT &&shader, bool debug_bb = false) {
     if (debug_bb || canvas.debug()) {
       for (int s = 0; s < n; ++s) {
-        auto slot_shader = [&](const Vector &p, Fragment &f) { shader(s, p, f); };
+        auto slot_shader = [&](const Vector &p, Fragment &f) {
+          shader(s, p, f);
+        };
         Scan::rasterize<W, H, false>(pipeline, canvas, shapes[s], slot_shader,
                                      true);
       }
@@ -830,10 +834,10 @@ struct RingGroup {
     for (int s = 0; s < n; ++s) {
       if (s == mid)
         continue;
-      float dev =
-          fast_acos(hs::clamp(dot(shapes[mid].normal, shapes[s].normal), -1.0f,
-                              1.0f)) +
-          std::abs(shapes[s].target_angle - shapes[mid].target_angle) + 1e-3f;
+      float dev = fast_acos(hs::clamp(dot(shapes[mid].normal, shapes[s].normal),
+                                      -1.0f, 1.0f)) +
+                  std::abs(shapes[s].target_angle - shapes[mid].target_angle) +
+                  1e-3f;
       pad_th = std::max(pad_th, shapes[s].thickness + dev);
     }
     SDF::Ring cover(shapes[mid].basis, shapes[mid].radius, pad_th);
@@ -856,7 +860,8 @@ struct RingGroup {
             // rasterize.
             if (y < sy_min[s] || y > sy_max[s])
               continue;
-            const float alpha = shapes[s].stroke_alpha(dot(p, shapes[s].normal));
+            const float alpha =
+                shapes[s].stroke_alpha(dot(p, shapes[s].normal));
             if (alpha <= 0.001f)
               continue;
             frag.color = Color4(0, 0, 0, 0);
@@ -1075,8 +1080,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
   {
     HS_PROFILE(raster_setup);
     auto bounds = shape.template get_vertical_bounds<H>();
-    y_lo = bounds.y_min > cr.render_y_start() ? bounds.y_min
-                                              : cr.render_y_start();
+    y_lo =
+        bounds.y_min > cr.render_y_start() ? bounds.y_min : cr.render_y_start();
     y_hi = bounds.y_max < cr.render_y_end() - 1 ? bounds.y_max
                                                 : cr.render_y_end() - 1;
     if (y_lo > y_hi)
@@ -1260,8 +1265,8 @@ rasterize_face(PipelineT &pipeline, Canvas &canvas, const SDF::Face &shape,
         frag.age = 0;
         fragment_shader(p, frag);
         if (effective_debug) {
-          frag.color.color = frag.color.color.lerp16(
-              Pixel(65535, 65535, 65535), 65535 / 2);
+          frag.color.color =
+              frag.color.color.lerp16(Pixel(65535, 65535, 65535), 65535 / 2);
           frag.color.alpha = 1.0f;
           alpha = 1.0f;
         }
@@ -1364,7 +1369,8 @@ struct Mesh {
         fragment_shader(p, f_in);
       };
 
-      { HS_PROFILE(scan_mesh_raster);
+      {
+        HS_PROFILE(scan_mesh_raster);
         rasterize_face<W, H>(pipeline, canvas, shape, wrapper, debug_bb, mask);
       }
     }
@@ -1397,12 +1403,12 @@ struct Shader {
    * handful of floats.
    */
   template <int W, int H> struct SsaaGrid {
-    float sin_phi[2];  /**< Current row's sin(phi) at y+0.25 [0] / y-0.25 [1]. */
-    float cos_phi[2];  /**< Current row's cos(phi) at y+0.25 [0] / y-0.25 [1]. */
-    float cos_dtheta;  /**< cos of the ±0.25 px column rotation. */
-    float sin_dtheta;  /**< sin of the ±0.25 px column rotation. */
-    float cos_dphi;    /**< cos of the ±0.25 px row rotation. */
-    float sin_dphi;    /**< sin of the ±0.25 px row rotation. */
+    float sin_phi[2]; /**< Current row's sin(phi) at y+0.25 [0] / y-0.25 [1]. */
+    float cos_phi[2]; /**< Current row's cos(phi) at y+0.25 [0] / y-0.25 [1]. */
+    float cos_dtheta; /**< cos of the ±0.25 px column rotation. */
+    float sin_dtheta; /**< sin of the ±0.25 px column rotation. */
+    float cos_dphi;   /**< cos of the ±0.25 px row rotation. */
+    float sin_dphi;   /**< sin of the ±0.25 px row rotation. */
 
     SsaaGrid() {
       // d_theta = 0.25 px * (2*pi/W); d_phi = 0.25 px * (pi/(H_VIRT-1)).
@@ -1453,8 +1459,7 @@ struct Shader {
    * @details Checked once per draw, not per pixel: every (x,y) the loops feed to
    * pixel_to_vector indexes the trig LUTs within bounds.
    */
-  template <int W, int H>
-  static void check_lut_domain(const ClipRegion &cr) {
+  template <int W, int H> static void check_lut_domain(const ClipRegion &cr) {
     HS_CHECK(cr.x_start >= 0 && cr.x_end <= W && cr.render_y_start() >= 0 &&
              cr.render_y_end() <= PhiLUT<H>::H_VIRT);
   }
@@ -1665,9 +1670,9 @@ HS_O3_BEGIN
  * rotate(local_p, q). ray_to_local uses q.inverse() to map world→local.
  */
 template <typename SDF> struct TransformedVolume {
-  const SDF &sdf;     /**< Underlying SDF evaluated in local space. */
-  Vector center;      /**< World-space origin of the local frame. */
-  Quaternion q_inv;   /**< Precomputed inverse rotation (world→local). */
+  const SDF &sdf;   /**< Underlying SDF evaluated in local space. */
+  Vector center;    /**< World-space origin of the local frame. */
+  Quaternion q_inv; /**< Precomputed inverse rotation (world→local). */
 
   /**
    * @brief Constructs the transform from a center and a local→world rotation.
@@ -1784,9 +1789,9 @@ struct Volume {
         // it skipped is unverified: rewind to that sphere's surface and finish
         // the ray conservatively. The rejected sample updates nothing.
         float back = prev_r - step_len;
-        local_p = Vector(local_p.x + local_vd.x * back,
-                         local_p.y + local_vd.y * back,
-                         local_p.z + local_vd.z * back);
+        local_p =
+            Vector(local_p.x + local_vd.x * back, local_p.y + local_vd.y * back,
+                   local_p.z + local_vd.z * back);
         omega = 1.0f;
         prev_r = 0.0f;
         step_len = 0.0f;
@@ -1825,10 +1830,11 @@ struct Volume {
    * @brief Result of probing behind an AA halo for an occluded surface.
    */
   struct Occluder {
-    bool solid;    /**< A solid surface sits behind the halo (behind is valid). */
+    bool solid; /**< A solid surface sits behind the halo (behind is valid). */
     Vector behind; /**< Local-space hit point when solid, else the grazed
                         background edge's closest approach when soft > 0. */
-    float soft;    /**< Coverage of a grazed background edge, for the corner fill. */
+    float
+        soft; /**< Coverage of a grazed background edge, for the corner fill. */
   };
 
   /**
@@ -1845,10 +1851,9 @@ struct Volume {
    *         two edges meet.
    */
   template <typename Shape>
-  static __attribute__((always_inline)) Occluder
-  probe_occluder(const Shape &shape, const Vector &closest_local,
-                 const Vector &local_vd, float bounds_radius, float hit_threshold,
-                 float aa_width) {
+  static __attribute__((always_inline)) Occluder probe_occluder(
+      const Shape &shape, const Vector &closest_local, const Vector &local_vd,
+      float bounds_radius, float hit_threshold, float aa_width) {
     HS_PROFILE_DEEP(vol_probe);
     // March forward from the closest approach for a surface this halo occludes;
     // a solid hit is a self-occlusion edge (antialias over it). Step is floored
@@ -1988,7 +1993,8 @@ struct Volume {
     HS_CHECK(fabsf(local_vd.x * local_vd.x + local_vd.y * local_vd.y +
                    local_vd.z * local_vd.z - 1.0f) < TOLERANCE);
     HS_CHECK(local_bc.x * local_bc.x + local_bc.y * local_bc.y +
-             local_bc.z * local_bc.z < TOLERANCE);
+                 local_bc.z * local_bc.z <
+             TOLERANCE);
     // aa_width > 0 is the contract: the slow-path AA divides by (aa_width -
     // hit_threshold) == 0.9*aa_width, so a zero band-width gives 0/0 -> NaN.
     HS_CHECK(aa_width > 0.0f);
@@ -2065,8 +2071,9 @@ struct Volume {
                                                    (aa_width - hit_threshold));
 
             // ...then probe behind the halo for a surface this edge occludes.
-            Occluder occ = probe_occluder(shape, closest_local, local_vd,
-                                          bounds_radius, hit_threshold, aa_width);
+            Occluder occ =
+                probe_occluder(shape, closest_local, local_vd, bounds_radius,
+                               hit_threshold, aa_width);
             if (occ.solid) {
               // Self-occlusion edge: antialias the foreground over the surface it
               // covers — lay the shaded background down, then blend the foreground

@@ -83,7 +83,8 @@ inline int smoke_frames() {
   if (const char *e = std::getenv("HS_SMOKE_FRAMES")) {
 #pragma clang diagnostic pop
     int n = std::atoi(e);
-    if (n > 0) return n;
+    if (n > 0)
+      return n;
   }
   return DEFAULT_FRAMES;
 }
@@ -411,14 +412,13 @@ inline void determinism_one(const char *name) {
 
   if (first_diff >= 0) {
     const int x = first_diff % W, y = first_diff / W;
-    std::printf("  NONDETERMINISTIC %-20s pixel (%d,%d): runA (%d,%d,%d) != "
-                "runB (%d,%d,%d) over %d frames\n",
-                name, x, y, static_cast<int>(a[first_diff].r),
-                static_cast<int>(a[first_diff].g),
-                static_cast<int>(a[first_diff].b),
-                static_cast<int>(b[first_diff].r),
-                static_cast<int>(b[first_diff].g),
-                static_cast<int>(b[first_diff].b), frames);
+    std::printf(
+        "  NONDETERMINISTIC %-20s pixel (%d,%d): runA (%d,%d,%d) != "
+        "runB (%d,%d,%d) over %d frames\n",
+        name, x, y, static_cast<int>(a[first_diff].r),
+        static_cast<int>(a[first_diff].g), static_cast<int>(a[first_diff].b),
+        static_cast<int>(b[first_diff].r), static_cast<int>(b[first_diff].g),
+        static_cast<int>(b[first_diff].b), frames);
   }
   HS_EXPECT(first_diff < 0,
             "effect must render identically across runs under a fixed clock");
@@ -435,8 +435,8 @@ inline void determinism_one(const char *name) {
 inline void test_sh_decode_lm_valid_order() {
   auto check = [](int idx) {
     auto [l, m] = SHMath::decode_lm(idx);
-    HS_EXPECT_EQ(l * l + l + m, idx);   // round-trips the index
-    HS_EXPECT_TRUE(m >= -l && m <= l);  // order within the level's band
+    HS_EXPECT_EQ(l * l + l + m, idx);  // round-trips the index
+    HS_EXPECT_TRUE(m >= -l && m <= l); // order within the level's band
     HS_EXPECT_TRUE(l * l <= idx && idx < (l + 1) * (l + 1)); // l is the floor
   };
 
@@ -597,8 +597,8 @@ struct GSWhiteBox {
 inline void test_gs_q16_roundtrip() {
   HS_EXPECT_EQ(GSWhiteBox::to_q16(0.0f), (uint16_t)0);
   HS_EXPECT_EQ(GSWhiteBox::to_q16(1.0f), (uint16_t)65535);
-  HS_EXPECT_EQ(GSWhiteBox::to_q16(2.0f), (uint16_t)65535);  // clamp high
-  HS_EXPECT_EQ(GSWhiteBox::to_q16(-0.5f), (uint16_t)0);     // clamp low
+  HS_EXPECT_EQ(GSWhiteBox::to_q16(2.0f), (uint16_t)65535); // clamp high
+  HS_EXPECT_EQ(GSWhiteBox::to_q16(-0.5f), (uint16_t)0);    // clamp low
   HS_EXPECT_NEAR(GSWhiteBox::from_q16(0), 0.0f, 1e-9f);
   HS_EXPECT_NEAR(GSWhiteBox::from_q16(65535), 1.0f, 1e-9f);
   int bad = 0;
@@ -634,8 +634,8 @@ inline void test_gs_dissolve_clears_and_reseeds() {
 
   // Run until the stalled field trips a dissolve; the default reaction settles
   // well inside this budget.
-  const int budget = GSWhiteBox::MIN_GROW_FRAMES +
-                     GSWhiteBox::STABLE_HOLD_FRAMES + 400;
+  const int budget =
+      GSWhiteBox::MIN_GROW_FRAMES + GSWhiteBox::STABLE_HOLD_FRAMES + 400;
   int f = 0;
   for (; f < budget && GSWhiteBox::dissolve_frame(gs) < 0; ++f) {
     gs.draw_frame();
@@ -759,7 +759,8 @@ inline void test_gs_evolution_stays_bounded() {
   for (int s : {500, 2500, 4500, 6500})
     b[s] = 65535;
   GSWhiteBox::GS gs;
-  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.05f, 0.05f, 3.0f); // stable extreme
+  GSWhiteBox::set_params(gs, 0.04f, 0.06f, 0.05f, 0.05f,
+                         3.0f); // stable extreme
   uint16_t *cA = a.data(), *cB = b.data(), *nA = sa.data(), *nB = sb.data();
   for (int s = 0; s < 256; ++s) {
     GSWhiteBox::step(gs, cA, cB, nA, nB);
@@ -823,8 +824,7 @@ struct BZWhiteBox {
                                uint8_t *sC) {
     std::vector<float> fA(N), fB(N), fC(N);
     bz.advance_substeps(
-        steps,
-        std::array<uint8_t *, 3>{bz.state.A, bz.state.B, bz.state.C},
+        steps, std::array<uint8_t *, 3>{bz.state.A, bz.state.B, bz.state.C},
         std::array<uint8_t *, 3>{sA, sB, sC}, [&](auto &cur, auto &nxt) {
           bz.step_physics(cur[0], cur[1], cur[2], nxt[0], nxt[1], nxt[2],
                           fA.data(), fB.data(), fC.data());
@@ -843,8 +843,8 @@ struct BZWhiteBox {
 inline void test_bz_q8_roundtrip() {
   HS_EXPECT_EQ(BZWhiteBox::to_q8(0.0f), (uint8_t)0);
   HS_EXPECT_EQ(BZWhiteBox::to_q8(1.0f), (uint8_t)255);
-  HS_EXPECT_EQ(BZWhiteBox::to_q8(2.0f), (uint8_t)255);   // clamp high
-  HS_EXPECT_EQ(BZWhiteBox::to_q8(-0.5f), (uint8_t)0);    // clamp low
+  HS_EXPECT_EQ(BZWhiteBox::to_q8(2.0f), (uint8_t)255); // clamp high
+  HS_EXPECT_EQ(BZWhiteBox::to_q8(-0.5f), (uint8_t)0);  // clamp low
   HS_EXPECT_NEAR(BZWhiteBox::from_q8(0), 0.0f, 1e-9f);
   HS_EXPECT_NEAR(BZWhiteBox::from_q8(255), 1.0f, 1e-9f);
   int bad = 0;
@@ -874,22 +874,24 @@ inline void test_bz_advance_species_signs_and_clamp() {
   HS_EXPECT_EQ((int)BZWhiteBox::advance_species(bz, 0.0f, 0.0f, 0.0f), 0);
 
   // Diffusion from higher neighbors lifts an empty cell above 0.
-  HS_EXPECT_GT((int)BZWhiteBox::advance_species(bz, 0.0f, 0.0f, /*lap*/ 6.0f), 0);
+  HS_EXPECT_GT((int)BZWhiteBox::advance_species(bz, 0.0f, 0.0f, /*lap*/ 6.0f),
+               0);
 
   // Logistic growth: a half-filled, predator-free cell grows above its start.
   HS_EXPECT_GT((int)BZWhiteBox::advance_species(bz, 0.5f, 0.0f, 0.0f),
                (int)BZWhiteBox::to_q8(0.5f));
 
   // Predation drives a saturated cell negative; it must clamp to 0, not wrap.
-  HS_EXPECT_EQ((int)BZWhiteBox::advance_species(bz, 1.0f, /*predator*/ 1.0f, 0.0f),
-               0);
+  HS_EXPECT_EQ(
+      (int)BZWhiteBox::advance_species(bz, 1.0f, /*predator*/ 1.0f, 0.0f), 0);
 
   // Backstop past the Euler bound: a huge positive laplacian clamps to 255, a
   // huge predation clamps to 0 — to_q8 keeps every written state in range.
-  HS_EXPECT_EQ((int)BZWhiteBox::advance_species(bz, 1.0f, 0.0f, /*lap*/ 1000.0f),
-               255);
   HS_EXPECT_EQ(
-      (int)BZWhiteBox::advance_species(bz, 1.0f, /*predator*/ 1000.0f, 0.0f), 0);
+      (int)BZWhiteBox::advance_species(bz, 1.0f, 0.0f, /*lap*/ 1000.0f), 255);
+  HS_EXPECT_EQ(
+      (int)BZWhiteBox::advance_species(bz, 1.0f, /*predator*/ 1000.0f, 0.0f),
+      0);
 }
 
 /**
@@ -925,7 +927,8 @@ inline void test_bz_perturb_state_saturates_and_nudges() {
         if (v == 0)
           continue;
         ++touched;
-        if (v % 3 != 0) // PERTURB_AMOUNT == 3; accumulations stay multiples of 3
+        if (v % 3 !=
+            0) // PERTURB_AMOUNT == 3; accumulations stay multiples of 3
           ++malformed;
       }
     HS_EXPECT_GT(touched, 0);
@@ -1116,7 +1119,7 @@ inline void test_dreamballs_preset_cycle_bookkeeping() {
   expect_bake ^= 1;
   WB::respawn(db);
   HS_EXPECT_EQ(WB::last_preset_idx(db), held_idx); // preset unchanged
-  HS_EXPECT_EQ(WB::num_copies(db), sentinel);    // live edit preserved
+  HS_EXPECT_EQ(WB::num_copies(db), sentinel);      // live edit preserved
   HS_EXPECT_EQ(WB::active_bake(db), expect_bake);  // bake slot still flipped
 }
 
@@ -1365,7 +1368,8 @@ inline void test_hopf_projection_math() {
     HS_EXPECT_TRUE(std::isfinite(p.x) && std::isfinite(p.y) &&
                    std::isfinite(p.z));
     HS_EXPECT_NEAR(p.magnitude(), 1.0f, 1e-3f);
-    const Vector again = WB::project(fx, i); // pure fn of the cache -> repeatable
+    const Vector again =
+        WB::project(fx, i); // pure fn of the cache -> repeatable
     HS_EXPECT_NEAR(p.x, again.x, 1e-6f);
     HS_EXPECT_NEAR(p.y, again.y, 1e-6f);
     HS_EXPECT_NEAR(p.z, again.z, 1e-6f);
@@ -1474,8 +1478,7 @@ struct DisplacementFieldWhiteBox {
   }
 
   template <int W, int H>
-  static void set_force_exact_hue(DisplacementField<W, H> &effect,
-                                  bool exact) {
+  static void set_force_exact_hue(DisplacementField<W, H> &effect, bool exact) {
     effect.force_exact_hue = exact;
   }
 
@@ -1485,8 +1488,7 @@ struct DisplacementFieldWhiteBox {
   }
 
   template <int W, int H>
-  static Pixel hue_lut_value(const DisplacementField<W, H> &effect,
-                             int index) {
+  static Pixel hue_lut_value(const DisplacementField<W, H> &effect, int index) {
     // Slot 0 of the pooled bake: the first (only, in the one-ring tests)
     // drawn ring's hue LUT.
     return effect.hue_pool[index];
@@ -1533,12 +1535,11 @@ inline void test_displacement_field_lazy_hue_table_matches_eager() {
   const int table_size = DisplacementFieldWhiteBox::hue_table_size(effect);
 
   for (const TableCase &table_case : cases) {
-    DisplacementFieldWhiteBox::prepare_hue_table(
-        effect, color, table_case.domain);
+    DisplacementFieldWhiteBox::prepare_hue_table(effect, color,
+                                                 table_case.domain);
     std::vector<Pixel> endpoints(table_size + 1);
     for (int i = 0; i <= table_size; ++i)
-      endpoints[i] =
-          DisplacementFieldWhiteBox::hue_table_value(effect, i);
+      endpoints[i] = DisplacementFieldWhiteBox::hue_table_value(effect, i);
     std::vector<Pixel> expected(SAMPLE_COUNT + 1);
     for (int i = 0; i <= SAMPLE_COUNT; ++i) {
       const float amount = table_case.max_amount * i / SAMPLE_COUNT;
@@ -1606,15 +1607,15 @@ inline void test_displacement_field_hue_table_fidelity() {
           const float db = exact_lab.b - approx_lab.b;
           const float delta_e = sqrtf(dl * dl + da * da + db * db);
           const int srgb_delta = std::max(
-              std::abs(static_cast<int>(linear_float_to_srgb8(exact.r * INV16)) -
-                       linear_float_to_srgb8(approx.r * INV16)),
-              std::max(
-                  std::abs(static_cast<int>(
-                               linear_float_to_srgb8(exact.g * INV16)) -
-                           linear_float_to_srgb8(approx.g * INV16)),
-                  std::abs(static_cast<int>(
-                               linear_float_to_srgb8(exact.b * INV16)) -
-                           linear_float_to_srgb8(approx.b * INV16))));
+              std::abs(
+                  static_cast<int>(linear_float_to_srgb8(exact.r * INV16)) -
+                  linear_float_to_srgb8(approx.r * INV16)),
+              std::max(std::abs(static_cast<int>(
+                                    linear_float_to_srgb8(exact.g * INV16)) -
+                                linear_float_to_srgb8(approx.g * INV16)),
+                       std::abs(static_cast<int>(
+                                    linear_float_to_srgb8(exact.b * INV16)) -
+                                linear_float_to_srgb8(approx.b * INV16))));
           if (cyclic) {
             cyclic_delta_e = std::max(cyclic_delta_e, delta_e);
             cyclic_srgb_delta = std::max(cyclic_srgb_delta, srgb_delta);
@@ -1663,8 +1664,8 @@ inline DisplacementHueFrame render_displacement_hue_frame(bool exact) {
     effect.draw_frame();
     effect.advance_display();
   }
-  DisplacementHueFrame result{{},
-                              DisplacementFieldWhiteBox::hue_table_uses(effect)};
+  DisplacementHueFrame result{
+      {}, DisplacementFieldWhiteBox::hue_table_uses(effect)};
   result.pixels.resize(W * H);
   for (int y = 0; y < H; ++y)
     for (int x = 0; x < W; ++x)
@@ -1702,19 +1703,19 @@ inline void test_displacement_field_hue_table_frame_fidelity() {
     max_delta_e = std::max(max_delta_e, sqrtf(dl * dl + da * da + db * db));
     max_srgb_delta = std::max(
         max_srgb_delta,
-        std::abs(static_cast<int>(
-                     linear_float_to_srgb8(exact.pixels[i].r * INV16)) -
-                 linear_float_to_srgb8(table.pixels[i].r * INV16)));
+        std::abs(
+            static_cast<int>(linear_float_to_srgb8(exact.pixels[i].r * INV16)) -
+            linear_float_to_srgb8(table.pixels[i].r * INV16)));
     max_srgb_delta = std::max(
         max_srgb_delta,
-        std::abs(static_cast<int>(
-                     linear_float_to_srgb8(exact.pixels[i].g * INV16)) -
-                 linear_float_to_srgb8(table.pixels[i].g * INV16)));
+        std::abs(
+            static_cast<int>(linear_float_to_srgb8(exact.pixels[i].g * INV16)) -
+            linear_float_to_srgb8(table.pixels[i].g * INV16)));
     max_srgb_delta = std::max(
         max_srgb_delta,
-        std::abs(static_cast<int>(
-                     linear_float_to_srgb8(exact.pixels[i].b * INV16)) -
-                 linear_float_to_srgb8(table.pixels[i].b * INV16)));
+        std::abs(
+            static_cast<int>(linear_float_to_srgb8(exact.pixels[i].b * INV16)) -
+            linear_float_to_srgb8(table.pixels[i].b * INV16)));
   }
   std::printf("  [hue frame] changed=%d/%zu uses=%d deltaE=%g sRGB8=%d\n",
               changed, exact.pixels.size(), table.table_uses, max_delta_e,
@@ -1737,11 +1738,9 @@ inline void test_displacement_field_zero_hue_scale_is_exact() {
   DisplacementFieldWhiteBox::configure_noise(effect, 1.0f, 0.0f);
   effect.draw_frame();
 
-  Color4 base =
-      DisplacementFieldWhiteBox::current_ring_color(effect, 0.5f);
+  Color4 base = DisplacementFieldWhiteBox::current_ring_color(effect, 0.5f);
   Pixel expected = hue_rotate(make_hue_rotate_base(base), 0.0f).color;
-  const int lut_n =
-      DisplacementFieldWhiteBox::noise_lut_samples(effect, 1.0f);
+  const int lut_n = DisplacementFieldWhiteBox::noise_lut_samples(effect, 1.0f);
   for (int i = 0; i <= lut_n; ++i) {
     Pixel actual = DisplacementFieldWhiteBox::hue_lut_value(effect, i);
     HS_EXPECT_EQ(actual.r, expected.r);
@@ -1871,11 +1870,7 @@ struct MindSplatterWhiteBox {
 inline void test_mindsplatter_normalized_color_seed_boundaries() {
   using WB = MindSplatterWhiteBox;
   const float progress_boundaries[] = {
-      0.0f,
-      std::nextafter(0.0f, 1.0f),
-      0.5f,
-      std::nextafter(1.0f, 0.0f),
-      1.0f,
+      0.0f, std::nextafter(0.0f, 1.0f), 0.5f, std::nextafter(1.0f, 0.0f), 1.0f,
   };
   size_t samples = 0;
   for (uint32_t seed = 0; seed <= 65535; ++seed) {
@@ -1889,8 +1884,8 @@ inline void test_mindsplatter_normalized_color_seed_boundaries() {
       ++samples;
     }
     const float seam = 1.0f - normalized_seed;
-    for (float progress : {std::nextafter(seam, 0.0f), seam,
-                           std::nextafter(seam, 1.0f)}) {
+    for (float progress :
+         {std::nextafter(seam, 0.0f), seam, std::nextafter(seam, 1.0f)}) {
       HS_EXPECT_EQ(WB::wrapped_color_t(progress, normalized_seed),
                    wrap_t(progress + reference_seed));
       ++samples;
@@ -1924,8 +1919,10 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
       MobiusParams(1, 0, -0.6f, 0.6f, 0, 0, 1, 0),
       MobiusParams(0.7f, 0.2f, -0.4f, 0.9f, 0.3f, -0.6f, 1.1f, 0.5f)};
   const Quaternion orientations[] = {
-      Quaternion(), make_rotation(X_AXIS, PI_F * 0.5f),
-      make_rotation(Y_AXIS, PI_F), make_rotation(Z_AXIS, -PI_F * 0.75f),
+      Quaternion(),
+      make_rotation(X_AXIS, PI_F * 0.5f),
+      make_rotation(Y_AXIS, PI_F),
+      make_rotation(Z_AXIS, -PI_F * 0.75f),
       Quaternion(0.3f, -0.4f, 0.5f, -0.7f).normalized(),
       -Quaternion(0.2f, 0.8f, -0.3f, 0.45f).normalized()};
 
@@ -1939,10 +1936,9 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
     Filter::Screen::AntiAlias<W, H> aa;
     aa.plot(p.x, p.y, Pixel(), 0.0f, 1.0f,
             [&](float x, float y, const Pixel &, float, float alpha) {
-              result[count++] = {
-                  static_cast<int>(x), static_cast<int>(y),
-                  static_cast<uint16_t>(hs::clamp(
-                      alpha * 65535.0f + 0.5f, 0.0f, 65535.0f))};
+              result[count++] = {static_cast<int>(x), static_cast<int>(y),
+                                 static_cast<uint16_t>(hs::clamp(
+                                     alpha * 65535.0f + 0.5f, 0.0f, 65535.0f))};
             });
     return std::pair{result, count};
   };
@@ -1966,9 +1962,8 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
                           std::max(std::abs(reference.y - matrix.y),
                                    std::abs(reference.z - matrix.z))));
     const float chord = (reference - matrix).length();
-    max_angular_error =
-        std::max(max_angular_error,
-                 2.0f * asinf(hs::clamp(chord * 0.5f, 0.0f, 1.0f)));
+    max_angular_error = std::max(
+        max_angular_error, 2.0f * asinf(hs::clamp(chord * 0.5f, 0.0f, 1.0f)));
 
     const PixelCoords reference_pixel = vector_to_pixel<W, H>(reference);
     const PixelCoords matrix_pixel = vector_to_pixel<W, H>(matrix);
@@ -1982,9 +1977,8 @@ inline void test_mindsplatter_rotation_matrix_equivalence() {
     bool same_coverage = reference_taps.second == matrix_taps.second;
     if (same_coverage) {
       for (size_t j = 0; j < reference_taps.second; ++j)
-        same_coverage &=
-            reference_taps.first[j].x == matrix_taps.first[j].x &&
-            reference_taps.first[j].y == matrix_taps.first[j].y;
+        same_coverage &= reference_taps.first[j].x == matrix_taps.first[j].x &&
+                         reference_taps.first[j].y == matrix_taps.first[j].y;
     }
     if (!same_coverage) {
       ++coverage_differences;
@@ -2088,9 +2082,10 @@ inline void test_mindsplatter_rotation_matrix_framebuffer_error() {
     const bool b_black = (b.r | b.g | b.b) == 0;
     if (a_black != b_black)
       ++coverage_differences;
-    for (int delta : {std::abs(static_cast<int>(a.r) - static_cast<int>(b.r)),
-                      std::abs(static_cast<int>(a.g) - static_cast<int>(b.g)),
-                      std::abs(static_cast<int>(a.b) - static_cast<int>(b.b))}) {
+    for (int delta :
+         {std::abs(static_cast<int>(a.r) - static_cast<int>(b.r)),
+          std::abs(static_cast<int>(a.g) - static_cast<int>(b.g)),
+          std::abs(static_cast<int>(a.b) - static_cast<int>(b.b))}) {
       max_channel_error = std::max(max_channel_error, delta);
       total_channel_error += static_cast<uint64_t>(delta);
     }
@@ -2298,11 +2293,12 @@ inline void test_mindsplatter_signed_axis_framebuffer_error() {
         total_channel_error += static_cast<uint64_t>(delta);
       }
     }
-    std::printf("axis framebuffer frame=%d active=%u different=%zu coverage=%zu "
-                "max_channel=%d total_channel=%llu\n",
-                frame, reference.active[frame - 1], different_pixels,
-                coverage_differences, max_channel_error,
-                static_cast<unsigned long long>(total_channel_error));
+    std::printf(
+        "axis framebuffer frame=%d active=%u different=%zu coverage=%zu "
+        "max_channel=%d total_channel=%llu\n",
+        frame, reference.active[frame - 1], different_pixels,
+        coverage_differences, max_channel_error,
+        static_cast<unsigned long long>(total_channel_error));
     HS_EXPECT_EQ(coverage_differences, static_cast<size_t>(0));
     HS_EXPECT_LE(different_pixels, MAX_DIFFERENT[checkpoint]);
     HS_EXPECT_LE(max_channel_error, MAX_CHANNEL[checkpoint]);
@@ -2331,9 +2327,9 @@ inline void test_mindsplatter_octahedral_hole_alpha_equivalence() {
       check(axis * cosf(angle) + tangent * sinf(angle));
     }
     const float horizon = WB::event_horizon();
-    for (float angle : {std::nextafter(horizon, 0.0f), horizon,
-                        std::nextafter(horizon,
-                                       std::numeric_limits<float>::infinity())})
+    for (float angle :
+         {std::nextafter(horizon, 0.0f), horizon,
+          std::nextafter(horizon, std::numeric_limits<float>::infinity())})
       check(axis * cosf(angle) + tangent * sinf(angle));
   }
 
@@ -2452,7 +2448,9 @@ struct Liquid2DWhiteBox {
     l2.cos_phase = v;
     l2.cycle_phase = v;
   }
-  static Vector glitch_lens(const Vector &v) { return L2::apply_glitch_lens(v); }
+  static Vector glitch_lens(const Vector &v) {
+    return L2::apply_glitch_lens(v);
+  }
 };
 
 /**
@@ -2565,7 +2563,8 @@ inline void test_mobiusgrid_conformal_and_counter_rotation() {
   HS_EXPECT_NEAR(WB::conformal_coord(1.0f, 0.3f), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(WB::conformal_coord(-1.0f, 0.7f), 1.0f, 1e-6f);
 
-  HS_EXPECT_TRUE(WB::counter_rotation(Vector(0.0f, 0.0f, 0.0f)) == Quaternion());
+  HS_EXPECT_TRUE(WB::counter_rotation(Vector(0.0f, 0.0f, 0.0f)) ==
+                 Quaternion());
 
   Vector mid(0.3f, -0.7f, 0.4f);
   Vector r = rotate(mid.normalized(), WB::counter_rotation(mid));
@@ -2678,9 +2677,7 @@ inline void test_needs_full_frame_gate() {
   // Each effect aliases the same static double buffer (single-live guard) and
   // reconfigures the shared arenas/timeline in init(), so construct one at a
   // time with the same fresh setup smoke_one uses.
-  auto reset = [] {
-    reset_effect_globals();
-  };
+  auto reset = [] { reset_effect_globals(); };
   auto check = [&](Effect &fx, bool expected, const char *name) {
     fx.init();
     if (fx.needs_full_frame() != expected)
@@ -2690,12 +2687,28 @@ inline void test_needs_full_frame_gate() {
   };
 
   // Cross-segment stateful effects -> full-frame.
-  { reset(); MeshFeedback<DEFAULT_W, DEFAULT_H> fx; check(fx, true, "MeshFeedback"); }
-  { reset(); Dynamo<DEFAULT_W, DEFAULT_H> fx;       check(fx, true, "Dynamo"); }
+  {
+    reset();
+    MeshFeedback<DEFAULT_W, DEFAULT_H> fx;
+    check(fx, true, "MeshFeedback");
+  }
+  {
+    reset();
+    Dynamo<DEFAULT_W, DEFAULT_H> fx;
+    check(fx, true, "Dynamo");
+  }
 
   // Representative non-stateful effects -> keep band clipping (default false).
-  { reset(); Voronoi<DEFAULT_W, DEFAULT_H> fx;  check(fx, false, "Voronoi"); }
-  { reset(); RingSpin<DEFAULT_W, DEFAULT_H> fx; check(fx, false, "RingSpin"); }
+  {
+    reset();
+    Voronoi<DEFAULT_W, DEFAULT_H> fx;
+    check(fx, false, "Voronoi");
+  }
+  {
+    reset();
+    RingSpin<DEFAULT_W, DEFAULT_H> fx;
+    check(fx, false, "RingSpin");
+  }
 }
 
 /**
@@ -2746,9 +2759,9 @@ inline double voronoi_union_nearest_match(std::span<const Vector> sites,
   // Mirror of Voronoi::draw_frame's block-edge derivation (effects/Voronoi.h).
   const float cell_px =
       (2.0f * H / PI_F) / sqrtf(static_cast<float>(sites.size()));
-  const int B = std::clamp(static_cast<int>(cell_px),
-                           Voronoi<W, H>::COHERENCE_BLOCK_MIN,
-                           Voronoi<W, H>::COHERENCE_BLOCK);
+  const int B =
+      std::clamp(static_cast<int>(cell_px), Voronoi<W, H>::COHERENCE_BLOCK_MIN,
+                 Voronoi<W, H>::COHERENCE_BLOCK);
 
   const int nbx = (W - 1) / B + 2;
   const int nby = (H - 1) / B + 2;
@@ -2840,8 +2853,8 @@ inline void test_voronoi_union_candidates_cover_nearest() {
     const float theta = golden_angle * i;
     fib[i] = Vector(cosf(theta) * radius, y, sinf(theta) * radius);
   }
-  const double fib_match =
-      voronoi_union_nearest_match<W, H>(std::span<const Vector>(fib, N), deficit);
+  const double fib_match = voronoi_union_nearest_match<W, H>(
+      std::span<const Vector>(fib, N), deficit);
   HS_EXPECT_GE(fib_match, 0.999);
   HS_EXPECT_LE(deficit, 0.005f);
 }
@@ -2888,8 +2901,8 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
     // The effect's held graph-walk seed; dodecahedron is the largest Platonic.
     PolyMesh seed;
     generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
-      seed = Solids::finalize_solid(Solids::Platonic::dodecahedron(a, b),
-                                    target);
+      seed =
+          Solids::finalize_solid(Solids::Platonic::dodecahedron(a, b), target);
     });
 
     MeshState mesh;
@@ -2904,8 +2917,8 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
     {
       ScratchScope a_guard(scratch_arena_a);
       ScratchScope b_guard(scratch_arena_b);
-      MeshOps::classify_faces_by_topology(mesh, scratch_arena_a, scratch_arena_b,
-                                          persistent_arena);
+      MeshOps::classify_faces_by_topology(mesh, scratch_arena_a,
+                                          scratch_arena_b, persistent_arena);
     }
 
     // Render peak: transform into scratch_a, then Scan::Mesh::draw stacks a
@@ -2932,7 +2945,8 @@ inline void test_hankinsolids_arena_budget_covers_every_solid() {
     {
       Persist<CompiledHankin> ph(hankin, scratch_arena_b, persistent_arena);
       Persist<MeshState> pf(mesh, scratch_arena_a, persistent_arena);
-      Persist<MeshPaletteBank> pp(palette_bank, scratch_arena_b, persistent_arena);
+      Persist<MeshPaletteBank> pp(palette_bank, scratch_arena_b,
+                                  persistent_arena);
       Persist<PolyMesh> ps(seed, scratch_arena_a, persistent_arena);
       persistent_arena.reset();
     }
@@ -3054,4 +3068,3 @@ inline int run_effects_tests() {
 
 } // namespace effects_tests
 } // namespace hs_test
-

@@ -1,1 +1,5 @@
+BasedOnStyle: LLVM
 SortIncludes: Never
+SortUsingDeclarations: Never
+ReflowComments: false
+BreakStringLiterals: false

@@ -170,8 +170,8 @@ private:
       };
 
       Scan::TransformedVolume vol(torus, center, world_q);
-      Scan::Volume::draw<W, H>(pipeline, canvas, center, bounds_radius,
-                               ray_dir, vol, frag_fn, max_steps, aa_width);
+      Scan::Volume::draw<W, H>(pipeline, canvas, center, bounds_radius, ray_dir,
+                               vol, frag_fn, max_steps, aa_width);
     }
   }
 
@@ -197,7 +197,8 @@ private:
   int active_count = 0;       // vertices built (disdyakis dodecahedron = 26)
   std::array<Vector, MAX_POINTS> points;
   std::array<Quaternion, MAX_POINTS> raw_quats;
-  std::array<float, MAX_POINTS> nn_angle; // per-vertex nearest-neighbour gap (rad)
+  std::array<float, MAX_POINTS>
+      nn_angle; // per-vertex nearest-neighbour gap (rad)
   Timeline timeline;
   Pipeline<W, H> pipeline; // Empty — camera rotation applied to inputs
   GenerativePalette palette{GradientShape::STRAIGHT, HarmonyType::COMPLEMENTARY,

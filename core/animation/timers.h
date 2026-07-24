@@ -63,10 +63,10 @@ public:
   bool is_finite() const override { return !repeat; }
 
 private:
-  int min;   /**< Minimum frame delay. */
-  int max;   /**< Maximum frame delay. */
-  TimerFn f;      /**< The callback function. */
-  uint32_t next;  /**< The target frame count for the next trigger. */
+  int min;       /**< Minimum frame delay. */
+  int max;       /**< Maximum frame delay. */
+  TimerFn f;     /**< The callback function. */
+  uint32_t next; /**< The target frame count for the next trigger. */
 };
 
 /**

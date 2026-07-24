@@ -230,8 +230,9 @@ template <int MAX_V> struct TriangularBitset {
   // for MAX_V >= ~46341 that overflows int32 and corrupts the bit layout. The
   // static_assert pins the ceiling so a future large-mesh instantiation fails at
   // compile time, not at runtime.
-  static_assert(static_cast<long long>(MAX_V) * MAX_V <= INT_MAX,
-                "TriangularBitset: MAX_V too large; index() product overflows int");
+  static_assert(
+      static_cast<long long>(MAX_V) * MAX_V <= INT_MAX,
+      "TriangularBitset: MAX_V too large; index() product overflows int");
   static constexpr int BITS = MAX_V * (MAX_V - 1) / 2;
   static constexpr int BYTES = (BITS + 7) / 8;
   uint8_t data[BYTES] = {}; /**< Packed bit storage; zero-initialized so a pair
@@ -328,8 +329,8 @@ private:
   size_t capacity_;    /**< Maximum element count the block can hold. */
   bool bound_ = false; /**< Whether the vector has been bound to an arena. */
 #ifndef NDEBUG
-  Arena *source_arena_ = nullptr;   /**< Arena the block was allocated from. */
-  uint32_t birth_generation_ = 0;   /**< Arena generation at bind time. */
+  Arena *source_arena_ = nullptr; /**< Arena the block was allocated from. */
+  uint32_t birth_generation_ = 0; /**< Arena generation at bind time. */
   /**
    * @brief Per-vector counter bumped on every fresh allocation in bind() (the
    * grow / re-bind path).
@@ -444,11 +445,11 @@ public:
    */
   void bind(Arena &arena, size_t exact_capacity) {
 #ifndef ARDUINO
-    static_assert(std::is_trivially_destructible_v<T> ||
-                      is_arena_inplace_fn<T>::value,
-                  "ArenaVector never runs element destructors, so T must own no "
-                  "state outside the arena buffer: store a trivially-destructible "
-                  "type or a sanctioned Fn<> (no std::function/std::string).");
+    static_assert(
+        std::is_trivially_destructible_v<T> || is_arena_inplace_fn<T>::value,
+        "ArenaVector never runs element destructors, so T must own no "
+        "state outside the arena buffer: store a trivially-destructible "
+        "type or a sanctioned Fn<> (no std::function/std::string).");
 #endif
 #ifndef NDEBUG
     // Rebinding a still-bound vector after its source arena was reset, or to a
@@ -522,8 +523,9 @@ public:
    * no-op that skips memcpy to avoid null-pointer UB.
    */
   void append_bulk(const T *src, size_t count) {
-    static_assert(std::is_trivially_copyable_v<T>,
-                  "append_bulk memcpy's the source; T must be trivially copyable");
+    static_assert(
+        std::is_trivially_copyable_v<T>,
+        "append_bulk memcpy's the source; T must be trivially copyable");
     check_alive();
     check_bound();
     // Subtractive, wrap-proof form: `size_ + count` could wrap for a colossal count.
@@ -532,7 +534,7 @@ public:
     // Skip memcpy on an empty append: a null src with count 0 is formal UB.
     if (count == 0)
       return;
-    memcpy(static_cast<void*>(data_ + size_), src, count * sizeof(T));
+    memcpy(static_cast<void *>(data_ + size_), src, count * sizeof(T));
     size_ += count;
   }
 
@@ -704,10 +706,12 @@ template <typename T> class ArenaSpan {
   const T *data_; /**< Snapshotted pointer to the borrowed data. */
   size_t size_;   /**< Number of viewed elements. */
 #ifndef NDEBUG
-  Arena *source_arena_ = nullptr;          /**< Source arena for the stamp. */
-  uint32_t birth_generation_ = 0;          /**< Arena generation at construction. */
-  const ArenaVector<T> *source_vec_ = nullptr; /**< Source vector for re-grow check. */
-  uint32_t source_rebind_generation_ = 0;  /**< Vector rebind counter at construction. */
+  Arena *source_arena_ = nullptr; /**< Source arena for the stamp. */
+  uint32_t birth_generation_ = 0; /**< Arena generation at construction. */
+  const ArenaVector<T> *source_vec_ =
+      nullptr; /**< Source vector for re-grow check. */
+  uint32_t source_rebind_generation_ =
+      0; /**< Vector rebind counter at construction. */
 
   /**
    * @brief Debug-only stale-span check against arena and vector stamps.
@@ -921,7 +925,8 @@ concept Cloneable = requires(const T &src, T &dst, Arena &arena) {
 template <Cloneable T> class Persist {
   T &target_;         /**< Object being evacuated and restored. */
   Arena &persistent_; /**< Arena the object is restored into. */
-  size_t persistent_offset_at_ctor_; /**< persistent_ offset at construction; the
+  size_t
+      persistent_offset_at_ctor_; /**< persistent_ offset at construction; the
                                           dtor traps unless the caller rewound
                                           below this watermark. */
 
@@ -933,9 +938,10 @@ template <Cloneable T> class Persist {
   // ~Persist does `target_ = T()` before re-cloning the backup, so T needs more
   // than Cloneable. Assert the extra requirements here so a Cloneable-but-not-
   // default-constructible/assignable T fails with a clear message at instantiation.
-  static_assert(std::default_initializable<T>,
-                "Persist<T>: ~Persist resets target_ = T() before restoring, so "
-                "T must be default-initializable (Cloneable does not imply this).");
+  static_assert(
+      std::default_initializable<T>,
+      "Persist<T>: ~Persist resets target_ = T() before restoring, so "
+      "T must be default-initializable (Cloneable does not imply this).");
   static_assert(std::assignable_from<T &, T>,
                 "Persist<T>: ~Persist assigns target_ = T(), so T must be "
                 "assignable from a T rvalue (Cloneable does not imply this).");

@@ -517,7 +517,7 @@ struct Ring {
   float cos_max, cos_min, cos_target, inv_sin_target,
       sin_target; /**< Precomputed band trig. */
 
-  float r_val;       /**< Horizontal projection length of the axis (for full-row
+  float r_val; /**< Horizontal projection length of the axis (for full-row
                         check). */
   float alpha_angle; /**< Azimuth angle of the normal vector in the XZ plane. */
   static constexpr bool is_solid = false; /**< Ring renders as a stroke. */
@@ -979,9 +979,11 @@ private:
       64; /**< Outward search budget per side; only near-pole chart compression
              approaches it. */
 
-  float chunk_lo[PREFILTER_CHUNKS]; /**< Min knot per azimuth chunk (knot mode).
+  float
+      chunk_lo[PREFILTER_CHUNKS]; /**< Min knot per azimuth chunk (knot mode).
                                      */
-  float chunk_hi[PREFILTER_CHUNKS]; /**< Max knot per azimuth chunk (knot mode).
+  float
+      chunk_hi[PREFILTER_CHUNKS]; /**< Max knot per azimuth chunk (knot mode).
                                      */
 
   /**
@@ -1168,7 +1170,8 @@ template <typename A, typename B> struct Union {
   const B &b;      /**< Second child shape. */
   float thickness; /**< Max child thickness (drives AA falloff). */
   static constexpr bool is_solid =
-      A::is_solid || B::is_solid; /**< Solid if either child is; the union keeps
+      A::is_solid ||
+      B::is_solid; /**< Solid if either child is; the union keeps
                                      both interiors. */
 
   static_assert(SDFShape<A> && SDFShape<B>,
@@ -2183,8 +2186,8 @@ struct Face {
   std::span<float> edge_lengths_sq;     /**< Per-edge squared lengths. */
   std::span<Vector> planes;             /**< Per-edge great-circle normals. */
   std::span<float> inv_edge_lengths_sq; /**< Reciprocal squared edge lengths. */
-  std::span<float> inv_edge_j;    /**< Reciprocal of each edge's y-component. */
-  std::span<Vector> verts_3d;     /**< 3D vertices (+1 wrap entry). */
+  std::span<float> inv_edge_j; /**< Reciprocal of each edge's y-component. */
+  std::span<Vector> verts_3d;  /**< 3D vertices (+1 wrap entry). */
 
   int y_min, y_max; /**< Inclusive vertical row bounds. */
   int build_height; /**< Canvas height the bounds were computed for. */
@@ -2281,7 +2284,8 @@ struct Face {
     HS_CHECK(count > 0 && count <= FaceScratchBuffer::MAX_VERTS,
              "Face: vertex count must be in (0, MAX_VERTS]");
 
-    { HS_PROFILE(face_project);
+    {
+      HS_PROFILE(face_project);
       setup_frame_and_polygon(vertices, indices, scratch);
     }
 
@@ -2305,10 +2309,12 @@ struct Face {
       }
     }
 
-    { HS_PROFILE(face_thetas);
+    {
+      HS_PROFILE(face_thetas);
       compute_thetas(scratch);
     }
-    { HS_PROFILE(face_azimuth);
+    {
+      HS_PROFILE(face_azimuth);
       compute_azimuth_intervals(scratch);
     }
 
@@ -2323,15 +2329,15 @@ struct Face {
     }
 
     int planes_count;
-    { HS_PROFILE(face_bounds);
+    {
+      HS_PROFILE(face_bounds);
       compute_inradius(scratch);
 
       // Vertical bounds via full arc-extrema + pole analysis. A vertex-only phi
       // span misses the great-circle edge bulge toward a pole, leaving
       // near-pole faces with unscanned rows; the arc-extrema path covers them.
-      planes_count =
-          compute_full_bounds(scratch, count, center, thickness, h_virt, height,
-                              y_min, y_max);
+      planes_count = compute_full_bounds(scratch, count, center, thickness,
+                                         h_virt, height, y_min, y_max);
     }
 
     edge_vectors = std::span<Vector>(scratch.edge_vectors.data(), count);
@@ -2341,7 +2347,8 @@ struct Face {
     inv_edge_j = std::span<float>(scratch.inv_edge_j.data(), count);
     planes = std::span<Vector>(scratch.planes.data(), planes_count);
 
-    { HS_PROFILE(face_pole);
+    {
+      HS_PROFILE(face_pole);
       apply_pole_containment(height);
     }
 
@@ -2354,11 +2361,13 @@ struct Face {
       return;
     }
 
-    { HS_PROFILE(face_edges);
+    {
+      HS_PROFILE(face_edges);
       pack_edges(scratch);
       build_half_planes(scratch);
     }
-    { HS_PROFILE(face_sectors);
+    {
+      HS_PROFILE(face_sectors);
       build_sectors(scratch);
     }
   }
@@ -2937,11 +2946,11 @@ struct Face {
                     (ptz * v2.x - ptx * v2.z) * ny +
                     (ptx * v2.y - pty * v2.x) * nz;
         if (cx1 > 0 && cx2 > 0)
-          min_phi = __builtin_fminf(fast_acos(hs::clamp(pty, -1.0f, 1.0f)),
-                                    min_phi);
+          min_phi =
+              __builtin_fminf(fast_acos(hs::clamp(pty, -1.0f, 1.0f)), min_phi);
         if (cx1 < 0 && cx2 < 0)
-          max_phi = __builtin_fmaxf(fast_acos(hs::clamp(-pty, -1.0f, 1.0f)),
-                                    max_phi);
+          max_phi =
+              __builtin_fmaxf(fast_acos(hs::clamp(-pty, -1.0f, 1.0f)), max_phi);
       }
     }
   }
@@ -2991,8 +3000,8 @@ struct Face {
    */
   HS_O3_FN static int compute_full_bounds(FaceScratchBuffer &scratch, int count,
                                           const Vector &center, float thickness,
-                                          int h_virt, int height, int &y_min_out,
-                                          int &y_max_out) {
+                                          int h_virt, int height,
+                                          int &y_min_out, int &y_max_out) {
     float min_phi = 100.0f;
     float max_phi = -100.0f;
     int planes_count = 0;
@@ -3185,10 +3194,8 @@ struct Face {
 
   /** @return Packed distance-path flags for repeated probes of this face. */
   uint32_t probe_flags() const {
-    return (lut_data ? PROBE_HAS_LUT : 0u) |
-           (convex ? PROBE_CONVEX : 0u) |
-           (sector_ok ? PROBE_SECTOR : 0u) |
-           (linear_dist ? PROBE_LINEAR : 0u);
+    return (lut_data ? PROBE_HAS_LUT : 0u) | (convex ? PROBE_CONVEX : 0u) |
+           (sector_ok ? PROBE_SECTOR : 0u) | (linear_dist ? PROBE_LINEAR : 0u);
   }
 
   /**
@@ -3339,9 +3346,8 @@ struct Face {
 
     // Small faces skip the plane->angle conversion: tan(angle) ~ angle to
     // within size^2/3 of the shading gradient (< 1.5% at the 0.2 threshold).
-    float raw = (probe_flags & PROBE_LINEAR)
-                    ? plane_dist
-                    : fast_atan2(plane_dist, 1.0f);
+    float raw = (probe_flags & PROBE_LINEAR) ? plane_dist
+                                             : fast_atan2(plane_dist, 1.0f);
     res = DistanceResult(raw - thickness, 0.0f, raw, 0.0f, size);
     HS_PROBE_SPAN(pack, hs_t);
   }

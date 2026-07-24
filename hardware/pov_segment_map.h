@@ -50,9 +50,9 @@ constexpr int decode_segment_id(int raw, int segment_count) {
  * @brief Precomputed vertical mapping for one physical segment.
  */
 struct SegmentMap {
-  bool arm_b;  /**< Samples canvas column (x + W/2) instead of x. */
-  int y_base;  /**< Canvas row of this segment's LED 0. */
-  int y_step;  /**< +1 (north band) or -1 (reversed south band). */
+  bool arm_b; /**< Samples canvas column (x + W/2) instead of x. */
+  int y_base; /**< Canvas row of this segment's LED 0. */
+  int y_step; /**< +1 (north band) or -1 (reversed south band). */
 };
 
 /**

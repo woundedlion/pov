@@ -140,16 +140,37 @@ struct CubemapLUT {
 
     if (ax >= ay && ax >= az) {
       float inv = 1.0f / ax;
-      if (p.x >= 0) { face = 0; u = -p.z * inv; v = p.y * inv; }
-      else          { face = 1; u =  p.z * inv; v = p.y * inv; }
+      if (p.x >= 0) {
+        face = 0;
+        u = -p.z * inv;
+        v = p.y * inv;
+      } else {
+        face = 1;
+        u = p.z * inv;
+        v = p.y * inv;
+      }
     } else if (ay >= ax && ay >= az) {
       float inv = 1.0f / ay;
-      if (p.y >= 0) { face = 2; u = p.x * inv; v = -p.z * inv; }
-      else          { face = 3; u = p.x * inv; v =  p.z * inv; }
+      if (p.y >= 0) {
+        face = 2;
+        u = p.x * inv;
+        v = -p.z * inv;
+      } else {
+        face = 3;
+        u = p.x * inv;
+        v = p.z * inv;
+      }
     } else {
       float inv = 1.0f / az;
-      if (p.z >= 0) { face = 4; u =  p.x * inv; v = p.y * inv; }
-      else          { face = 5; u = -p.x * inv; v = p.y * inv; }
+      if (p.z >= 0) {
+        face = 4;
+        u = p.x * inv;
+        v = p.y * inv;
+      } else {
+        face = 5;
+        u = -p.x * inv;
+        v = p.y * inv;
+      }
     }
 
     int ui = hs::clamp(static_cast<int>((u + 1.0f) * 0.5f * RES), 0, RES - 1);
@@ -180,12 +201,18 @@ private:
    */
   static Vector texel_direction(int face, float u, float v) {
     Vector dir;
-    if (face == 0)      dir = Vector( 1.0f, v, -u);  // +X
-    else if (face == 1) dir = Vector(-1.0f, v,  u);  // -X
-    else if (face == 2) dir = Vector(u,  1.0f, -v);  // +Y
-    else if (face == 3) dir = Vector(u, -1.0f,  v);  // -Y
-    else if (face == 4) dir = Vector(u, v,  1.0f);   // +Z
-    else                dir = Vector(-u, v, -1.0f);  // -Z
+    if (face == 0)
+      dir = Vector(1.0f, v, -u); // +X
+    else if (face == 1)
+      dir = Vector(-1.0f, v, u); // -X
+    else if (face == 2)
+      dir = Vector(u, 1.0f, -v); // +Y
+    else if (face == 3)
+      dir = Vector(u, -1.0f, v); // -Y
+    else if (face == 4)
+      dir = Vector(u, v, 1.0f); // +Z
+    else
+      dir = Vector(-u, v, -1.0f); // -Z
     return dir.normalized();
   }
 
@@ -212,28 +239,38 @@ private:
    *          catch it — it seeds at the answer). Do not convert to best-of-neighbors
    *          without also raising the cap.
    */
-  HS_COLD_MEMBER static int find_nearest_node(const Vector &p, const Vector *lattice) {
+  HS_COLD_MEMBER static int find_nearest_node(const Vector &p,
+                                              const Vector *lattice) {
     auto dist2 = [](const Vector &a, const Vector &b) {
       float dx = a.x - b.x, dy = a.y - b.y, dz = a.z - b.z;
       return dx * dx + dy * dy + dz * dz;
     };
-    int cur = static_cast<int>(hs::clamp(
-        (1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f, 0.0f,
-        static_cast<float>(RD_N - 1)));
+    int cur =
+        static_cast<int>(hs::clamp((1.0f - p.y) * 0.5f * (RD_N - 1) + 0.5f,
+                                   0.0f, static_cast<float>(RD_N - 1)));
     float best_d = dist2(p, lattice[cur]);
     bool converged = false;
     for (int iter = 0; iter < 64; ++iter) {
       bool improved = false;
       for (int k = 0; k < RD_K; ++k) {
         int ni = neighbors[cur][k];
-        if (ni < 0) continue;
+        if (ni < 0)
+          continue;
         float d = dist2(p, lattice[ni]);
-        if (d < best_d) { best_d = d; cur = ni; improved = true; }
+        if (d < best_d) {
+          best_d = d;
+          cur = ni;
+          improved = true;
+        }
       }
-      if (!improved) { converged = true; break; }
+      if (!improved) {
+        converged = true;
+        break;
+      }
     }
-    HS_CHECK(converged, "find_nearest_node hit the 64-iter cap without converging "
-                        "(RD_N grew past the calibrated hop bound)");
+    HS_CHECK(converged,
+             "find_nearest_node hit the 64-iter cap without converging "
+             "(RD_N grew past the calibrated hop bound)");
     return cur;
   }
 };

@@ -132,8 +132,7 @@ inline void test_construction_dimension_boundaries() {
     TestEffect fx(MAX_W, MAX_H);
     HS_EXPECT_EQ(fx.width(), MAX_W);
     HS_EXPECT_EQ(fx.height(), MAX_H);
-    HS_EXPECT_TRUE(
-        pix_eq(fx.get_pixel(MAX_W - 1, MAX_H - 1), 0, 0, 0));
+    HS_EXPECT_TRUE(pix_eq(fx.get_pixel(MAX_W - 1, MAX_H - 1), 0, 0, 0));
   }
 }
 
@@ -173,12 +172,18 @@ inline void test_frame_visible_only_after_advance_display() {
 inline void test_consecutive_frames_alternate_buffers() {
   TestEffect fx(8, 8);
 
-  { Canvas c(fx); c(1, 1) = Pixel(11, 0, 0); }
+  {
+    Canvas c(fx);
+    c(1, 1) = Pixel(11, 0, 0);
+  }
   fx.advance_display();
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 11, 0, 0));
 
   // Non-persist clears the new buffer, so the first frame's pixel is gone.
-  { Canvas c(fx); c(2, 2) = Pixel(0, 22, 0); }
+  {
+    Canvas c(fx);
+    c(2, 2) = Pixel(0, 22, 0);
+  }
   fx.advance_display();
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 0, 22, 0));
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(1, 1), 0, 0, 0));
@@ -188,9 +193,17 @@ inline void test_consecutive_frames_alternate_buffers() {
 inline void test_clip_clear_exact_rectangle() {
   TestEffect fx(8, 4);
 
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(11, 22, 33); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(11, 22, 33);
+  }
   fx.advance_display();
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(44, 55, 66); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(44, 55, 66);
+  }
   fx.advance_display();
 
   fx.set_clip(1, 3, 2, 6);
@@ -214,9 +227,17 @@ inline void test_clip_clear_exact_rectangle() {
 inline void test_clip_clear_alternates_clips_and_buffers() {
   TestEffect fx(8, 4);
 
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(10, 0, 0); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(10, 0, 0);
+  }
   fx.advance_display();
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(0, 20, 0); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(0, 20, 0);
+  }
   fx.advance_display();
 
   fx.set_clip(0, 4, 0, 4);
@@ -255,9 +276,17 @@ inline void test_clip_clear_alternates_clips_and_buffers() {
 /** @brief A full display clip is equivalent to the generic full clear. */
 inline void test_clip_clear_full_clip_matches_full_clear() {
   TestEffect fx(8, 4);
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(10, 20, 30); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(10, 20, 30);
+  }
   fx.advance_display();
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(40, 50, 60); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(40, 50, 60);
+  }
   fx.advance_display();
 
   Canvas c(fx, Canvas::ClearDisplayClipTag{});
@@ -268,9 +297,17 @@ inline void test_clip_clear_full_clip_matches_full_clear() {
 /** @brief A full-width band clears contiguously at the correct row offset. */
 inline void test_clip_clear_full_width_band() {
   TestEffect fx(8, 4);
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(10, 20, 30); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(10, 20, 30);
+  }
   fx.advance_display();
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(40, 50, 60); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(40, 50, 60);
+  }
   fx.advance_display();
 
   fx.set_clip(1, 3, 0, 8);
@@ -285,9 +322,17 @@ inline void test_clip_clear_full_width_band() {
 inline void test_clip_clear_constructor_zeroes_both_buffers() {
   {
     TestEffect dirty(8, 4);
-    { Canvas c(dirty); for (int i = 0; i < 32; ++i) c(i) = Pixel(1, 2, 3); }
+    {
+      Canvas c(dirty);
+      for (int i = 0; i < 32; ++i)
+        c(i) = Pixel(1, 2, 3);
+    }
     dirty.advance_display();
-    { Canvas c(dirty); for (int i = 0; i < 32; ++i) c(i) = Pixel(4, 5, 6); }
+    {
+      Canvas c(dirty);
+      for (int i = 0; i < 32; ++i)
+        c(i) = Pixel(4, 5, 6);
+    }
     dirty.advance_display();
   }
 
@@ -310,7 +355,11 @@ inline void test_clip_clear_constructor_zeroes_both_buffers() {
 /** @brief Adding the tagged path leaves persistent-frame copying unchanged. */
 inline void test_clip_clear_does_not_change_persistence() {
   TestEffect fx(8, 4, {.persist = true});
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(7, 8, 9); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(7, 8, 9);
+  }
   fx.advance_display();
 
   fx.set_clip(1, 3, 2, 6);
@@ -322,9 +371,17 @@ inline void test_clip_clear_does_not_change_persistence() {
 /** @brief Adding the tagged path leaves generic full-frame clearing unchanged. */
 inline void test_clip_clear_does_not_change_full_frame_clear() {
   TestEffect fx(8, 4, {.full_frame = true});
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(1, 2, 3); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(1, 2, 3);
+  }
   fx.advance_display();
-  { Canvas c(fx); for (int i = 0; i < 32; ++i) c(i) = Pixel(4, 5, 6); }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < 32; ++i)
+      c(i) = Pixel(4, 5, 6);
+  }
   fx.advance_display();
 
   fx.set_clip(1, 3, 2, 6);
@@ -341,12 +398,17 @@ inline void test_persist_pixels_copies_previous_frame() {
   TestEffect fx(8, 8);
   fx.set_persist(true);
 
-  { Canvas c(fx); c(2, 2) = Pixel(10, 20, 30); }
+  {
+    Canvas c(fx);
+    c(2, 2) = Pixel(10, 20, 30);
+  }
   fx.advance_display();
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 10, 20, 30));
 
   // With persist, the undrawn next frame carries the previous content over.
-  { Canvas c(fx); /* draw nothing */ }
+  {
+    Canvas c(fx); /* draw nothing */
+  }
   fx.advance_display();
   HS_EXPECT_TRUE(pix_eq(fx.get_pixel(2, 2), 10, 20, 30));
 }
@@ -370,15 +432,21 @@ inline void test_double_buffer_handoff_no_aliasing() {
   int distinct = 0;
   auto record_ptr = [&](const Pixel *p) {
     for (int i = 0; i < distinct; ++i)
-      if (seen[i] == p) return;
+      if (seen[i] == p)
+        return;
     HS_EXPECT_TRUE(distinct < 4);
-    if (distinct < 4) seen[distinct++] = p;
+    if (distinct < 4)
+      seen[distinct++] = p;
   };
 
   const Pixel colors[6] = {Pixel(10, 0, 0), Pixel(0, 20, 0), Pixel(0, 0, 30),
                            Pixel(40, 0, 0), Pixel(0, 50, 0), Pixel(0, 0, 60)};
 
-  { Canvas c(fx); for (int i = 0; i < N; ++i) c(i) = colors[0]; }
+  {
+    Canvas c(fx);
+    for (int i = 0; i < N; ++i)
+      c(i) = colors[0];
+  }
   fx.advance_display();
   record_ptr(fx.display_buffer());
   HS_EXPECT_TRUE(fx.buffer_free());
@@ -388,7 +456,11 @@ inline void test_double_buffer_handoff_no_aliasing() {
     const Pixel *display_before = fx.display_buffer();
 
     // Draw the next frame but do NOT advance the display.
-    { Canvas c(fx); for (int i = 0; i < N; ++i) c(i) = colors[f]; }
+    {
+      Canvas c(fx);
+      for (int i = 0; i < N; ++i)
+        c(i) = colors[f];
+    }
 
     // Queued frame is invisible: the displayed pointer is unchanged and still
     // shows the previous frame.
@@ -446,7 +518,8 @@ inline void test_double_buffer_handoff_concurrent() {
   std::thread producer([&] {
     for (int f = 0; f < FRAMES; ++f) {
       Canvas c(fx); // blocks until the consumer frees the buffer
-      for (int i = 0; i < N; ++i) c(i) = sentinel(f);
+      for (int i = 0; i < N; ++i)
+        c(i) = sentinel(f);
     } // ~Canvas queues the frame
     producer_done.store(true, std::memory_order_release);
   });
@@ -468,9 +541,14 @@ inline void test_double_buffer_handoff_concurrent() {
       int s = buf[0].r;
       bool uniform = true;
       for (int i = 1; i < N; ++i)
-        if (buf[i].r != s) { uniform = false; break; }
-      if (!uniform) torn_read.store(true, std::memory_order_relaxed);
-      if (s <= last_sentinel) out_of_order.store(true, std::memory_order_relaxed);
+        if (buf[i].r != s) {
+          uniform = false;
+          break;
+        }
+      if (!uniform)
+        torn_read.store(true, std::memory_order_relaxed);
+      if (s <= last_sentinel)
+        out_of_order.store(true, std::memory_order_relaxed);
       last_sentinel = s;
       distinct_displayed.store(promoted, std::memory_order_relaxed);
     }
@@ -536,7 +614,9 @@ inline void test_ctor_spin_waits_for_buffer_free() {
   });
 
   // Blocks in the ctor spin-wait until the helper advances the display.
-  { Canvas c(fx); }
+  {
+    Canvas c(fx);
+  }
   ctor_returned.store(true, std::memory_order_release);
 
   display_isr.join();
@@ -602,7 +682,7 @@ inline void test_register_float_and_bool_params() {
   HS_EXPECT_TRUE(fl != nullptr);
   HS_EXPECT_TRUE(fl->is_bool());
   HS_EXPECT_NEAR(fl->get(), 1.0f, 1e-6f); // captured *ptr (true) → reads as 1.0
-  HS_EXPECT_TRUE(fx.flag);                // register_param(bool) leaves *ptr as-is
+  HS_EXPECT_TRUE(fx.flag); // register_param(bool) leaves *ptr as-is
 
   HS_EXPECT_TRUE(params.find("Missing") == nullptr);
 }
@@ -631,7 +711,8 @@ inline void test_update_parameter_by_name() {
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 
   // Non-finite values are rejected, returning false.
-  HS_EXPECT_FALSE(fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()));
+  HS_EXPECT_FALSE(
+      fx.updateParameter("Speed", std::numeric_limits<float>::quiet_NaN()));
   HS_EXPECT_NEAR(fx.speed, 7.25f, 1e-6f);
 }
 
@@ -840,4 +921,3 @@ inline int run_canvas_tests() {
 
 } // namespace canvas_tests
 } // namespace hs_test
-

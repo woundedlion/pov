@@ -133,9 +133,10 @@ public:
                 std::is_invocable_r_v<R, std::decay_t<C> &, Args...>>>
   inplace_function(C &&c) {
     using D = std::decay_t<C>;
-    static_assert(sizeof(D) <= Capacity,
-                  "callable too large for inplace_function Capacity — raise the "
-                  "Fn<Sig,Cap> capacity or shrink the capture");
+    static_assert(
+        sizeof(D) <= Capacity,
+        "callable too large for inplace_function Capacity — raise the "
+        "Fn<Sig,Cap> capacity or shrink the capture");
     static_assert(alignof(D) <= Alignment,
                   "callable over-aligned for inplace_function storage");
     static_assert(std::is_trivially_destructible_v<D>,
@@ -144,17 +145,19 @@ public:
                   "destructor — store only trivially destructible callables.");
     static_assert(std::is_copy_constructible_v<D>,
                   "inplace_function requires a copy-constructible callable");
-    static_assert(std::is_nothrow_move_constructible_v<D>,
-                  "inplace_function's move ctor/assign are noexcept and forward "
-                  "to the stored type's move — a throwing move would "
-                  "std::terminate. Store only nothrow-movable callables.");
-    static_assert(std::is_nothrow_copy_constructible_v<D>,
-                  "inplace_function's copy assignment destroys the old object "
-                  "before copy-constructing the new one, so a throwing copy "
-                  "would leave the buffer empty while vtable_ points at the new "
-                  "type — UB on the next destroy. Store only nothrow-copyable "
-                  "callables — any qualifying type is accepted (in practice "
-                  "lambdas capturing PODs/pointers, which are trivially so).");
+    static_assert(
+        std::is_nothrow_move_constructible_v<D>,
+        "inplace_function's move ctor/assign are noexcept and forward "
+        "to the stored type's move — a throwing move would "
+        "std::terminate. Store only nothrow-movable callables.");
+    static_assert(
+        std::is_nothrow_copy_constructible_v<D>,
+        "inplace_function's copy assignment destroys the old object "
+        "before copy-constructing the new one, so a throwing copy "
+        "would leave the buffer empty while vtable_ points at the new "
+        "type — UB on the next destroy. Store only nothrow-copyable "
+        "callables — any qualifying type is accepted (in practice "
+        "lambdas capturing PODs/pointers, which are trivially so).");
     ::new (storage_) D(std::forward<C>(c));
     vtable_ = &detail::ipf_ops<D, R, Args...>::value;
   }
@@ -186,9 +189,10 @@ public:
     }
     return *this;
   }
-  template <typename C, typename = std::enable_if_t<
-                            !is_self<C>::value &&
-                            std::is_invocable_r_v<R, std::decay_t<C> &, Args...>>>
+  template <typename C,
+            typename = std::enable_if_t<
+                !is_self<C>::value &&
+                std::is_invocable_r_v<R, std::decay_t<C> &, Args...>>>
   inplace_function &operator=(C &&c) {
     // Build a temporary so the capacity/copyability static_asserts live in one
     // place (the converting constructor), then move it in.

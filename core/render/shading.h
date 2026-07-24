@@ -37,8 +37,7 @@ struct Fragment {
    */
   static Fragment lerp(const Fragment &a, const Fragment &b, float t) {
     Fragment f;
-    f.pos =
-        a.pos + (b.pos - a.pos) * t;
+    f.pos = a.pos + (b.pos - a.pos) * t;
     f.v0 = a.v0 + (b.v0 - a.v0) * t;
     f.v1 = a.v1 + (b.v1 - a.v1) * t;
     f.v2 = a.v2 + (b.v2 - a.v2) * t;
@@ -99,10 +98,11 @@ inline int mesh_topology_slot(const Fragment &f, const int *topology,
  * cannot drift. The class index wraps modulo NumPalettes.
  */
 template <typename PaletteBank, size_t NumPalettes>
-inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
-                                  int num_faces, PaletteBank &palette_bank,
-                                  const std::array<int, NumPalettes> &palette_idx,
-                                  float gain, float opacity) {
+inline Color4
+shade_mesh_topology(const Fragment &f, const int *topology, int num_faces,
+                    PaletteBank &palette_bank,
+                    const std::array<int, NumPalettes> &palette_idx, float gain,
+                    float opacity) {
   float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
   int slot = mesh_topology_slot<NumPalettes>(f, topology, num_faces);
   Color4 c = palette_bank[palette_idx[slot]].get(t);
@@ -127,10 +127,11 @@ inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
  * fragment.
  */
 template <typename PaletteBank, size_t NumPalettes, typename SegueT>
-inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
-                                  int num_faces, PaletteBank &palette_bank,
-                                  const std::array<int, NumPalettes> &palette_idx,
-                                  float gain, const SegueT &segue, float phase) {
+inline Color4
+shade_mesh_topology(const Fragment &f, const int *topology, int num_faces,
+                    PaletteBank &palette_bank,
+                    const std::array<int, NumPalettes> &palette_idx, float gain,
+                    const SegueT &segue, float phase) {
   float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
   float cover = segue.fill(t, phase);
   if (cover <= 0.0f)
@@ -156,7 +157,8 @@ inline Color4 shade_mesh_topology(const Fragment &f, const int *topology,
  */
 template <typename Palette, typename SegueT>
 inline Color4 shade_mesh_topology(const Fragment &f, const Palette &palette,
-                                  float gain, const SegueT &segue, float phase) {
+                                  float gain, const SegueT &segue,
+                                  float phase) {
   float t = hs::clamp(fragment_edge_dist(f) * gain, 0.0f, 1.0f);
   float cover = segue.fill(t, phase);
   if (cover <= 0.0f)

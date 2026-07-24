@@ -25,8 +25,10 @@ inline void build_solid(PolyMesh &mesh, Arena &arena) {
   mesh.vertices.bind(arena, Solid::NUM_VERTS);
   mesh.face_counts.bind(arena, Solid::NUM_FACES);
   mesh.faces.bind(arena, Solid::faces.size());
-  for (const auto &v : Solid::vertices) mesh.vertices.push_back(v);
-  for (auto fc : Solid::face_counts) mesh.face_counts.push_back(fc);
+  for (const auto &v : Solid::vertices)
+    mesh.vertices.push_back(v);
+  for (auto fc : Solid::face_counts)
+    mesh.face_counts.push_back(fc);
   for (auto fi : Solid::faces)
     mesh.faces.push_back(static_cast<uint16_t>(fi));
 }

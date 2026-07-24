@@ -33,7 +33,8 @@ public:
    */
   Sprite(SpriteFn draw_fn, int duration, int fade_in_duration = 0,
          EasingFn fade_in_easing_fn = ease_linear, int fade_out_duration = 0,
-         EasingFn fade_out_easing_fn = ease_linear, const bool *paused = nullptr)
+         EasingFn fade_out_easing_fn = ease_linear,
+         const bool *paused = nullptr)
       : AnimationBase(duration, false), draw_fn(std::move(draw_fn)),
         fade_in_duration(fade_in_duration),
         fade_out_duration(fade_out_duration),
@@ -48,8 +49,8 @@ public:
     int fade_total = this->fade_in_duration + this->fade_out_duration;
     if (duration >= 0 && fade_total > duration) {
       const int requested_fade_in = this->fade_in_duration;
-      this->fade_in_duration =
-          static_cast<long long>(duration) * this->fade_in_duration / fade_total;
+      this->fade_in_duration = static_cast<long long>(duration) *
+                               this->fade_in_duration / fade_total;
       // Keep a requested fade-in visible when the integer scale floors it to 0.
       if (this->fade_in_duration == 0 && requested_fade_in > 0 && duration >= 2)
         this->fade_in_duration = 1;
@@ -94,8 +95,9 @@ public:
     if (duration >= 0 && fade_out_duration > 0 &&
         t + static_cast<uint32_t>(fade_out_duration) >=
             static_cast<uint32_t>(duration)) {
-      float elapsed = static_cast<float>(t + static_cast<uint32_t>(fade_out_duration) -
-                                         static_cast<uint32_t>(duration));
+      float elapsed =
+          static_cast<float>(t + static_cast<uint32_t>(fade_out_duration) -
+                             static_cast<uint32_t>(duration));
       float progress = elapsed / fade_out_duration;
       fade_out = 1.0f - fade_out_easing(hs::clamp(progress, 0.0f, 1.0f));
     }
@@ -104,11 +106,11 @@ public:
   }
 
 private:
-  SpriteFn draw_fn;         /**< The drawing function functor. */
-  int fade_in_duration;     /**< Duration of fade-in phase in frames. */
-  int fade_out_duration;    /**< Duration of fade-out phase in frames. */
-  EasingFn fade_in_easing;  /**< Easing curve for fade-in. */
-  EasingFn fade_out_easing; /**< Easing curve for fade-out. */
+  SpriteFn draw_fn;             /**< The drawing function functor. */
+  int fade_in_duration;         /**< Duration of fade-in phase in frames. */
+  int fade_out_duration;        /**< Duration of fade-out phase in frames. */
+  EasingFn fade_in_easing;      /**< Easing curve for fade-in. */
+  EasingFn fade_out_easing;     /**< Easing curve for fade-out. */
   const bool *paused = nullptr; /**< Optional pause gate; holds the frame (no
                                     timer advance, still draws) when set. */
 };
@@ -191,7 +193,8 @@ public:
     float event_horizon; /**< Radius within which steering becomes radial. */
   };
 
-  using EmitterFn = Fn<void(ParticleSystem &), 32>; /**< Per-frame emitter functor. */
+  using EmitterFn =
+      Fn<void(ParticleSystem &), 32>; /**< Per-frame emitter functor. */
 
   ArenaVector<Attractor> attractors; /**< Active attractors. */
   ArenaVector<EmitterFn> emitters;   /**< Active emitters. */
@@ -203,9 +206,8 @@ public:
    * @brief Constructs an indefinite, non-repeating particle system.
    */
   ParticleSystem()
-      : AnimationBase<
-            ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
-                           SIGNED_AXIS_ATTRACTORS>>(
+      : AnimationBase<ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP,
+                                     ATTRACTOR_CAP, SIGNED_AXIS_ATTRACTORS>>(
             -1, false) {}
 
   /**
@@ -257,12 +259,12 @@ public:
    */
   void add_attractor(const Vector &pos, float str, float kill, float horizon) {
     if constexpr (SIGNED_AXIS_ATTRACTORS) {
-      const bool x_axis = std::abs(pos.x) == 1.0f && pos.y == 0.0f &&
-                          pos.z == 0.0f;
-      const bool y_axis = std::abs(pos.y) == 1.0f && pos.x == 0.0f &&
-                          pos.z == 0.0f;
-      const bool z_axis = std::abs(pos.z) == 1.0f && pos.x == 0.0f &&
-                          pos.y == 0.0f;
+      const bool x_axis =
+          std::abs(pos.x) == 1.0f && pos.y == 0.0f && pos.z == 0.0f;
+      const bool y_axis =
+          std::abs(pos.y) == 1.0f && pos.x == 0.0f && pos.z == 0.0f;
+      const bool z_axis =
+          std::abs(pos.z) == 1.0f && pos.x == 0.0f && pos.y == 0.0f;
       HS_CHECK(x_axis || y_axis || z_axis,
                "ParticleSystem signed-axis attractor is not a unit axis");
     }
@@ -293,9 +295,9 @@ public:
    * swap-removing any that died (compacting the live prefix of the pool).
    */
   void step(Canvas &canvas) override {
-    AnimationBase<ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP,
-                                 ATTRACTOR_CAP, SIGNED_AXIS_ATTRACTORS>>::step(
-        canvas);
+    AnimationBase<
+        ParticleSystem<W, CAPACITY, TRAIL_LEN, EMITTER_CAP, ATTRACTOR_CAP,
+                       SIGNED_AXIS_ATTRACTORS>>::step(canvas);
 
     {
       for (size_t i = 0; i < emitters.size(); ++i) {
@@ -321,7 +323,8 @@ public:
   }
 
 private:
-  uint16_t active_count = 0; /**< Number of live particles in the pool prefix. */
+  uint16_t active_count =
+      0; /**< Number of live particles in the pool prefix. */
 
   /**
    * @brief Advances one particle on the sphere surface for one frame.
@@ -397,8 +400,7 @@ private:
                   p.velocity += cross(Vector(force, 0, 0), pos);
                 } else {
                   // Generalized for position norm drift.
-                  const Vector tangent =
-                      attr.position * pos_sq - pos * dot_pa;
+                  const Vector tangent = attr.position * pos_sq - pos * dot_pa;
                   p.velocity += tangent * (force / sqrtf(cross_sq));
                 }
               }
@@ -423,9 +425,9 @@ private:
                 p.velocity = torque * speed;
               } else {
                 float force = (gravity * attr.strength) / dist_sq;
-                Vector torque = normalized_or(cross(pos, attr.position),
-                                              Vector(1, 0, 0)) *
-                                force;
+                Vector torque =
+                    normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) *
+                    force;
                 p.velocity += cross(torque, pos);
               }
             }
@@ -438,7 +440,8 @@ private:
           float dist_sq = distance_squared(pos, attr.position);
 
           if (dist_sq < attr.kill_radius * attr.kill_radius) {
-            p.life = 0; // Stay dead; a live `life` resurrects the particle next frame.
+            p.life =
+                0; // Stay dead; a live `life` resurrects the particle next frame.
             active = false;
             break; // Killed
           }
@@ -455,7 +458,8 @@ private:
               // axis), so guard the normalize.
               float force = (gravity * attr.strength) / dist_sq;
               Vector torque =
-                  normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) * force;
+                  normalized_or(cross(pos, attr.position), Vector(1, 0, 0)) *
+                  force;
               p.velocity += cross(torque, pos);
             }
           }

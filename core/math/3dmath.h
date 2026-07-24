@@ -40,21 +40,21 @@ static constexpr float INV_PHI = 1 / PHI;
  *   EPS_UNIT_VEC_SQ  — generous |v|^2 is-unit assertion slack (0.02f)
  */
 namespace math {
-static constexpr float TOLERANCE      = 1e-4f;
-static constexpr float EPS_GEOMETRIC  = 1e-5f;
-static constexpr float EPS_LEN_SQ     = 1e-6f;
-static constexpr float EPS_CROSS_SQ   = 1e-8f;
-static constexpr float EPS_NORMAL_SQ  = 1e-9f;
+static constexpr float TOLERANCE = 1e-4f;
+static constexpr float EPS_GEOMETRIC = 1e-5f;
+static constexpr float EPS_LEN_SQ = 1e-6f;
+static constexpr float EPS_CROSS_SQ = 1e-8f;
+static constexpr float EPS_NORMAL_SQ = 1e-9f;
 static constexpr float EPS_NORMALIZE_SQ = 1e-12f;
 static constexpr float EPS_UNIT_QUAT_SQ = 0.01f;
-static constexpr float EPS_UNIT_VEC_SQ  = 0.02f;
+static constexpr float EPS_UNIT_VEC_SQ = 0.02f;
 /**
  * @brief Cosine above which a vector is treated as parallel to a reference axis.
  * @details Above this callers pick an alternate axis to avoid a near-zero
  * (degenerate) cross when building a frame. Switches only near-parallel (~0.8°).
  */
 static constexpr float COS_AXIS_PARALLEL = 1.0f - TOLERANCE;
-}
+} // namespace math
 /**
  * @brief Global alias for math::TOLERANCE.
  */
@@ -286,7 +286,9 @@ struct Vector {
    * @brief Calculates the magnitude (length) of the vector.
    * @return The magnitude.
    */
-  [[nodiscard]] __attribute__((always_inline)) float length() const { return sqrtf(x * x + y * y + z * z); }
+  [[nodiscard]] __attribute__((always_inline)) float length() const {
+    return sqrtf(x * x + y * y + z * z);
+  }
 
   /**
    * @brief Alias for length().
@@ -984,7 +986,8 @@ inline Vector inv_gnomonic(const Complex &z, float original_sign) {
  * @param q The unit rotation quaternion.
  * @return The rotated vector.
  */
-__attribute__((always_inline)) inline Vector rotate(const Vector &v, const Quaternion &q) {
+__attribute__((always_inline)) inline Vector rotate(const Vector &v,
+                                                    const Quaternion &q) {
   float qr = q.r, qx = q.v.x, qy = q.v.y, qz = q.v.z;
   float tx = 2.0f * (qy * v.z - qz * v.y);
   float ty = 2.0f * (qz * v.x - qx * v.z);
@@ -1000,7 +1003,8 @@ __attribute__((always_inline)) inline Vector rotate(const Vector &v, const Quate
  * @param v2 Second vector.
  * @return The resulting vector.
  */
-__attribute__((always_inline)) constexpr Vector operator+(const Vector &v1, const Vector &v2) {
+__attribute__((always_inline)) constexpr Vector operator+(const Vector &v1,
+                                                          const Vector &v2) {
   return Vector(v1.x + v2.x, v1.y + v2.y, v1.z + v2.z);
 }
 
@@ -1010,7 +1014,8 @@ __attribute__((always_inline)) constexpr Vector operator+(const Vector &v1, cons
  * @param v2 Second vector.
  * @return The resulting vector.
  */
-__attribute__((always_inline)) constexpr Vector operator-(const Vector &v1, const Vector &v2) {
+__attribute__((always_inline)) constexpr Vector operator-(const Vector &v1,
+                                                          const Vector &v2) {
   return Vector(v1.x - v2.x, v1.y - v2.y, v1.z - v2.z);
 }
 
@@ -1020,7 +1025,8 @@ __attribute__((always_inline)) constexpr Vector operator-(const Vector &v1, cons
  * @param s Scalar.
  * @return The resulting vector.
  */
-__attribute__((always_inline)) constexpr Vector operator*(const Vector &v, float s) {
+__attribute__((always_inline)) constexpr Vector operator*(const Vector &v,
+                                                          float s) {
   return Vector(s * v.x, s * v.y, s * v.z);
 }
 
@@ -1046,7 +1052,8 @@ constexpr Vector operator/(const Vector &v, float s) {
  * @param v2 Second vector.
  * @return The dot product (scalar).
  */
-__attribute__((always_inline)) constexpr float dot(const Vector &v1, const Vector &v2) {
+__attribute__((always_inline)) constexpr float dot(const Vector &v1,
+                                                   const Vector &v2) {
   return (v1.x * v2.x) + (v1.y * v2.y) + (v1.z * v2.z);
 }
 
@@ -1056,7 +1063,8 @@ __attribute__((always_inline)) constexpr float dot(const Vector &v1, const Vecto
  * @param v2 Second vector.
  * @return The cross product vector.
  */
-__attribute__((always_inline)) constexpr Vector cross(const Vector &v1, const Vector &v2) {
+__attribute__((always_inline)) constexpr Vector cross(const Vector &v1,
+                                                      const Vector &v2) {
   return Vector(v1.y * v2.z - v1.z * v2.y, v1.z * v2.x - v1.x * v2.z,
                 v1.x * v2.y - v1.y * v2.x);
 }
@@ -1332,9 +1340,8 @@ inline float fast_expf(float x) {
   float y = x * 1.442695041f; // log2(e)
   float fi = floorf(y);
   float f = y - fi; // [0, 1)
-  float p =
-      1.0f +
-      f * (0.6931472f + f * (0.2402212f + f * (0.0554676f + f * 0.0096784f)));
+  float p = 1.0f + f * (0.6931472f +
+                        f * (0.2402212f + f * (0.0554676f + f * 0.0096784f)));
   // Range-check in float space: an out-of-range fi would make (int)fi UB.
   if (fi < -126.0f)
     return 0.0f;
@@ -1377,7 +1384,9 @@ __attribute__((always_inline)) inline float fast_sinf(float x) {
  * reduction loses precision as a float's ULP grows past the period, so callers
  * driving large arguments must bound them first (see STEREO_PATTERN_ARG_LIMIT).
  */
-__attribute__((always_inline)) inline float fast_cosf(float x) { return fast_sinf(x + PI_F * 0.5f); }
+__attribute__((always_inline)) inline float fast_cosf(float x) {
+  return fast_sinf(x + PI_F * 0.5f);
+}
 
 /**
  * @brief Spherical Linear Interpolation (SLERP) between two Vectors.

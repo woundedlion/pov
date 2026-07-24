@@ -46,19 +46,23 @@ public:
 
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    register_param("Warp Scale", &params.warp_scale, WARP_SCALE_MIN, WARP_SCALE_MAX);
-    register_param("Warp Strength", &params.warp_strength, WARP_STRENGTH_MIN, WARP_STRENGTH_MAX);
-    register_param("Pattern Freq", &params.pattern_freq, PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
+    register_param("Warp Scale", &params.warp_scale, WARP_SCALE_MIN,
+                   WARP_SCALE_MAX);
+    register_param("Warp Strength", &params.warp_strength, WARP_STRENGTH_MIN,
+                   WARP_STRENGTH_MAX);
+    register_param("Pattern Freq", &params.pattern_freq, PATTERN_FREQ_MIN,
+                   PATTERN_FREQ_MAX);
     register_param("Speed", &params.speed, SPEED_MIN, SPEED_MAX);
-    register_param("Pole Fade", &params.pole_fade, POLE_FADE_MIN, POLE_FADE_MAX);
+    register_param("Pole Fade", &params.pole_fade, POLE_FADE_MIN,
+                   POLE_FADE_MAX);
     register_param("Drift", &drift, 0.0f, 2.0f);
-    register_param("Hue Shift", &params.hue_shift, HUE_SHIFT_MIN, HUE_SHIFT_MAX);
+    register_param("Hue Shift", &params.hue_shift, HUE_SHIFT_MIN,
+                   HUE_SHIFT_MAX);
     // Flag every preset-driven param so "Pause Animation" lets the user take a
     // slider over. Drift is a standalone live control, not preset-driven, so it
     // is omitted and edits apply during normal playback.
-    for (const char *n :
-         {"Warp Scale", "Warp Strength", "Pattern Freq", "Speed", "Pole Fade",
-          "Hue Shift"})
+    for (const char *n : {"Warp Scale", "Warp Strength", "Pattern Freq",
+                          "Speed", "Pole Fade", "Hue Shift"})
       mark_animated(n);
 
     orientation.set(make_rotation(Vector(0, 0, -1), Vector(0, -1, 0)));
@@ -84,9 +88,10 @@ public:
   HS_COLD_MEMBER void next_preset() {
     constexpr int LERP_FRAMES = 480;
     presets.next();
-    timeline.add(0, Animation::Lerp(params, presets.prev_get(), presets.get(),
-                                    LERP_FRAMES, ease_in_out_sin, &anims_paused_)
-                        .then([this]() { next_preset(); }));
+    timeline.add(0,
+                 Animation::Lerp(params, presets.prev_get(), presets.get(),
+                                 LERP_FRAMES, ease_in_out_sin, &anims_paused_)
+                     .then([this]() { next_preset(); }));
   }
 
   /**
@@ -188,10 +193,12 @@ private:
   Timeline timeline;
   Orientation<> orientation;
   FastNoiseLite noise;
-  float noise_time = 0.0f;   /**< Noise-time axis, wrapped to TIME_PERIOD (see draw_frame). */
-  float sin_phase = 0.0f;    /**< Wrapped to [0, 2pi): the pattern's +t term. */
-  float drift_phase = 0.0f;  /**< Wrapped to [0, 2pi): pattern's drift*t term. */
-  float drift = 0.7f;        /**< Live drift-rate control; scales the cos phase advance. */
+  float noise_time =
+      0.0f; /**< Noise-time axis, wrapped to TIME_PERIOD (see draw_frame). */
+  float sin_phase = 0.0f;   /**< Wrapped to [0, 2pi): the pattern's +t term. */
+  float drift_phase = 0.0f; /**< Wrapped to [0, 2pi): pattern's drift*t term. */
+  float drift =
+      0.7f; /**< Live drift-rate control; scales the cos phase advance. */
 
   BakedPalette palette;
 
@@ -244,10 +251,10 @@ private:
            p.warp_strength >= WARP_STRENGTH_MIN &&
            p.warp_strength <= WARP_STRENGTH_MAX &&
            p.pattern_freq >= PATTERN_FREQ_MIN &&
-           p.pattern_freq <= PATTERN_FREQ_MAX &&
-           p.speed >= SPEED_MIN && p.speed <= SPEED_MAX &&
-           p.pole_fade >= POLE_FADE_MIN && p.pole_fade <= POLE_FADE_MAX &&
-           p.hue_shift >= HUE_SHIFT_MIN && p.hue_shift <= HUE_SHIFT_MAX;
+           p.pattern_freq <= PATTERN_FREQ_MAX && p.speed >= SPEED_MIN &&
+           p.speed <= SPEED_MAX && p.pole_fade >= POLE_FADE_MIN &&
+           p.pole_fade <= POLE_FADE_MAX && p.hue_shift >= HUE_SHIFT_MIN &&
+           p.hue_shift <= HUE_SHIFT_MAX;
   }
 
   static constexpr std::array<PresetEntry<Params>, 5> PRESETS = {{

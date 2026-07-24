@@ -47,7 +47,7 @@
  */
 template <int N, class Transport
 #ifdef ARDUINO
-          = TeensySPIDMA
+                 = TeensySPIDMA
 #endif
           >
 class DMALEDController {
@@ -63,16 +63,14 @@ public:
   /**
    * @brief One-time hardware initialization. Call from setup().
    */
-  void begin() {
-    spi_.init();
-  }
+  void begin() { spi_.init(); }
 
   /**
    * @brief Returns the back frame (not currently being DMA'd).
    * @return Reference to the back-buffer frame; pack pixels via packPixel(),
    *         then call submitFrame().
    */
-  HD107SFrame<N>& backFrame() {
+  HD107SFrame<N> &backFrame() {
     return frames_[dma::next_buffer(activeBuffer_)];
   }
 
@@ -153,7 +151,8 @@ public:
   }
 
 private:
-  HD107SFrame<N> frames_[2]; /**< Double-buffered protocol frames (front/back). */
+  HD107SFrame<N>
+      frames_[2]; /**< Double-buffered protocol frames (front/back). */
   Transport spi_; /**< Low-level async DMA+SPI transport for this strip. */
   /**
    * @brief Index (0/1) of the front buffer currently being DMA'd.
@@ -167,5 +166,6 @@ private:
    *          counter, not a happens-before signal.
    */
   std::atomic<uint32_t> transferCount_;
-  std::atomic<uint32_t> overrunCount_; /**< Monotonic count of frames dropped on overrun. */
+  std::atomic<uint32_t>
+      overrunCount_; /**< Monotonic count of frames dropped on overrun. */
 };

@@ -31,10 +31,13 @@ public:
    *          amp*cos(2π(freq*t + phase)).
    */
   HS_COLD_MEMBER Thrusters()
-      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}), palette(/*bias*/ {0.5f, 0.5f, 0.5f},
-                              /*amp*/ {0.5f, 0.5f, 0.5f},
-                              /*freq*/ {0.3f, 0.3f, 0.3f},
-                              /*phase*/ {0.0f, 0.2f, 0.6f}),
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
+        palette(/*bias*/ {0.5f, 0.5f, 0.5f},
+                /*amp*/ {0.5f, 0.5f, 0.5f},
+                /*freq*/ {0.3f, 0.3f, 0.3f},
+                /*phase*/ {0.0f, 0.2f, 0.6f}),
         filters(Filter::Screen::AntiAlias<W, H>()), ring_vec(0.5f, 0.5f, 0.5f),
         amplitude(0), warp_phase(0), t_global(0),
         warp_anim(amplitude, [](float) { return 0.0f; }, 0, ease_linear) {}
@@ -55,8 +58,9 @@ public:
                [this](Canvas &c, float opacity) { draw_ring(c, opacity); }, -1,
                16, ease_in_sin, 16, ease_out_sin));
 
-    timeline.add(0, Animation::RandomTimer(
-                        16, 48, [this](Canvas &) { on_fire_thruster(); }, true));
+    timeline.add(0,
+                 Animation::RandomTimer(
+                     16, 48, [this](Canvas &) { on_fire_thruster(); }, true));
   }
 
   /**
@@ -155,7 +159,8 @@ private:
     bool expired() const { return age >= LIFE; }
   };
 
-  StaticCircularBuffer<ThrusterContext, 16> thrusters; /**< Live thruster ring slots (FIFO). */
+  StaticCircularBuffer<ThrusterContext, 16>
+      thrusters; /**< Live thruster ring slots (FIFO). */
 
   // Test seam: reaches the private warp_decay endpoint invariants.
   friend struct ::hs_test::effects_tests::ThrustersWhiteBox;
@@ -191,15 +196,16 @@ private:
     const float phase = warp_phase;
     const float amp = amplitude;
     const int frame = t_global;
-    auto r_fn = [phase, amp, frame](float t) { return ring_fn(t, phase, amp, frame); };
+    auto r_fn = [phase, amp, frame](float t) {
+      return ring_fn(t, phase, amp, frame);
+    };
     Basis basis = make_basis(Quaternion(), ring_vec);
     // Use params.radius (matching the visible ring) so the thrust pairs and the
     // derived spin axis track the ring under the Radius slider.
     Vector thrust_point =
         Plot::DistortedRing::fn_point(r_fn, basis, params.radius, phase);
     Vector thrust_opp =
-        Plot::DistortedRing::fn_point(r_fn, basis, params.radius,
-                                      phase + PI_F);
+        Plot::DistortedRing::fn_point(r_fn, basis, params.radius, phase + PI_F);
 
     warp_anim = Animation::Mutation(amplitude, warp_decay, 32, ease_linear);
 
@@ -244,8 +250,7 @@ private:
   static float ring_fn(float t, float phase, float amp, int frame) {
     // phase is radians; sin_wave's phase is cycles.
     return sin_wave(-1, 1, 2, phase / (2 * PI_F))(t) *
-           sin_wave(-1, 1, 3, 0)(static_cast<float>(frame) / 32.0f) *
-           amp;
+           sin_wave(-1, 1, 3, 0)(static_cast<float>(frame) / 32.0f) * amp;
   }
 
   /**
@@ -296,17 +301,19 @@ private:
         fragment_shader);
   }
 
-  ProceduralPalette palette;                          /**< Cosine palette for ring shading. */
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters; /**< Anti-aliasing render pipeline. */
+  ProceduralPalette palette; /**< Cosine palette for ring shading. */
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
+      filters; /**< Anti-aliasing render pipeline. */
 
-  Vector ring_vec;   /**< Unit normal of the main ring's plane. */
-  float amplitude;   /**< Current warp amplitude driven by warp_anim. */
-  float warp_phase;  /**< Spatial warp phase in radians, randomized per fire. */
-  int t_global;      /**< Frame counter, wrapped to [0, 32) — ring_fn's modulation period; never overflows. */
-  Animation::Mutation warp_anim;    /**< Restartable warp-amplitude decay animation. */
+  Vector ring_vec;  /**< Unit normal of the main ring's plane. */
+  float amplitude;  /**< Current warp amplitude driven by warp_anim. */
+  float warp_phase; /**< Spatial warp phase in radians, randomized per fire. */
+  int t_global; /**< Frame counter, wrapped to [0, 32) — ring_fn's modulation period; never overflows. */
+  Animation::Mutation
+      warp_anim; /**< Restartable warp-amplitude decay animation. */
 
-  Timeline timeline;                /**< Animation timeline for sprite/timer/spin. */
-  Orientation<> orientation;        /**< Global orientation, spun by each fire. */
+  Timeline timeline;         /**< Animation timeline for sprite/timer/spin. */
+  Orientation<> orientation; /**< Global orientation, spun by each fire. */
 
   /**
    * @brief User-tunable parameters exposed via register_param.

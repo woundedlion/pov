@@ -27,13 +27,23 @@ namespace shading_tests {
 inline void test_fragment_lerp_endpoints() {
   Fragment a;
   a.pos = Vector(1, 0, 0);
-  a.v0 = 1.0f; a.v1 = 2.0f; a.v2 = 3.0f; a.v3 = 4.0f;
-  a.size = 5.0f; a.age = 6.0f; a.color = Color4(Pixel(0, 0, 0), 0.2f);
+  a.v0 = 1.0f;
+  a.v1 = 2.0f;
+  a.v2 = 3.0f;
+  a.v3 = 4.0f;
+  a.size = 5.0f;
+  a.age = 6.0f;
+  a.color = Color4(Pixel(0, 0, 0), 0.2f);
 
   Fragment b;
   b.pos = Vector(0, 1, 0);
-  b.v0 = 10.0f; b.v1 = 20.0f; b.v2 = 30.0f; b.v3 = 40.0f;
-  b.size = 50.0f; b.age = 60.0f; b.color = Color4(Pixel(0, 0, 0), 0.8f);
+  b.v0 = 10.0f;
+  b.v1 = 20.0f;
+  b.v2 = 30.0f;
+  b.v3 = 40.0f;
+  b.size = 50.0f;
+  b.age = 60.0f;
+  b.color = Color4(Pixel(0, 0, 0), 0.8f);
 
   Fragment lo = Fragment::lerp(a, b, 0.0f);
   HS_EXPECT_NEAR(lo.v0, a.v0, 1e-6f);
@@ -54,13 +64,23 @@ inline void test_fragment_lerp_endpoints() {
 inline void test_fragment_lerp_midpoint_carries_registers() {
   Fragment a;
   a.pos = Vector(2, 0, 0);
-  a.v0 = 0.0f; a.v1 = 0.0f; a.v2 = 0.0f; a.v3 = 0.0f;
-  a.size = 4.0f; a.age = 0.0f; a.color = Color4(Pixel(0, 0, 0), 0.0f);
+  a.v0 = 0.0f;
+  a.v1 = 0.0f;
+  a.v2 = 0.0f;
+  a.v3 = 0.0f;
+  a.size = 4.0f;
+  a.age = 0.0f;
+  a.color = Color4(Pixel(0, 0, 0), 0.0f);
 
   Fragment b;
   b.pos = Vector(0, 4, 0);
-  b.v0 = 8.0f; b.v1 = 12.0f; b.v2 = 16.0f; b.v3 = 20.0f;
-  b.size = 8.0f; b.age = 10.0f; b.color = Color4(Pixel(0, 0, 0), 1.0f);
+  b.v0 = 8.0f;
+  b.v1 = 12.0f;
+  b.v2 = 16.0f;
+  b.v3 = 20.0f;
+  b.size = 8.0f;
+  b.age = 10.0f;
+  b.color = Color4(Pixel(0, 0, 0), 1.0f);
 
   Fragment m = Fragment::lerp(a, b, 0.5f);
   HS_EXPECT_NEAR(m.pos.x, 1.0f, 1e-6f);
@@ -225,7 +245,7 @@ struct StubSegue {
  *        resolved palette slot is graded and alpha becomes cover * opacity.
  */
 inline void test_shade_mesh_topology_segue() {
-  const int topology[] = {2}; // face 0 -> topology class 2
+  const int topology[] = {2};                    // face 0 -> topology class 2
   std::array<int, 4> palette_idx = {0, 0, 3, 0}; // class 2 -> bank slot 3
   StubSegueBank bank;
   for (int i = 0; i < 4; ++i)
@@ -237,8 +257,8 @@ inline void test_shade_mesh_topology_segue() {
   f.v2 = 0.0f;   // face index 0
 
   StubSegue culler{0.0f, 1.0f};
-  Color4 culled =
-      shade_mesh_topology(f, topology, 1, bank, palette_idx, 1.0f, culler, 0.0f);
+  Color4 culled = shade_mesh_topology(f, topology, 1, bank, palette_idx, 1.0f,
+                                      culler, 0.0f);
   HS_EXPECT_NEAR(culled.alpha, 0.0f, 1e-6f);
   HS_EXPECT_EQ(culled.color.r, 0);
 
@@ -259,7 +279,7 @@ inline void test_shade_mesh_topology_segue() {
  *        regardless of the palette color's own alpha.
  */
 inline void test_shade_mesh_topology_direct() {
-  const int topology[] = {2}; // face 0 -> topology class 2
+  const int topology[] = {2};                    // face 0 -> topology class 2
   std::array<int, 4> palette_idx = {0, 0, 3, 0}; // class 2 -> bank slot 3
   StubSegueBank bank;
   for (int i = 0; i < 4; ++i)

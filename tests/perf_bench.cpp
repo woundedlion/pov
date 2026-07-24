@@ -51,8 +51,8 @@ int main() {
 #else
   const char *opt = "-O3";
 #endif
-  std::printf("=== perf_bench [%s] us/frame, %dx%d (%d frames) ===\n", opt, W, H,
-              FRAMES);
+  std::printf("=== perf_bench [%s] us/frame, %dx%d (%d frames) ===\n", opt, W,
+              H, FRAMES);
   double total = 0;
 #define HS_BENCH_ONE(name) total += bench<name<W, H>>(#name);
   HS_EFFECT_LIST(HS_BENCH_ONE)

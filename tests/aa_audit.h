@@ -18,9 +18,9 @@ namespace hs_aa {
 inline constexpr int MAX_ROWS = 512;
 
 struct Audit {
-  long long probes = 0;      /**< Pixels the emitted runs evaluate. */
-  long long painted = 0;     /**< Shaded pixels inside the runs. */
-  long long missed = 0;      /**< Shaded pixels outside the runs. */
+  long long probes = 0;  /**< Pixels the emitted runs evaluate. */
+  long long painted = 0; /**< Shaded pixels inside the runs. */
+  long long missed = 0;  /**< Shaded pixels outside the runs. */
   long long probe_rows[MAX_ROWS] = {};
   long long missed_rows[MAX_ROWS] = {};
   long long painted_rows[MAX_ROWS] = {};
@@ -29,8 +29,8 @@ struct Audit {
   long long alpha_hist[10] = {}; /**< Missed-pixel alpha, 10 deciles. */
   int max_gap_cols = 0;          /**< Widest column gap to a run edge. */
   int frames = 0;
-  bool enabled = false;   /**< Run the brute-force coverage comparison. */
-  bool full_scan = false; /**< Force every face to the full-width scan. */
+  bool enabled = false;    /**< Run the brute-force coverage comparison. */
+  bool full_scan = false;  /**< Force every face to the full-width scan. */
   bool legacy_pad = false; /**< Use the constant AA pad (pre-fix behaviour). */
 
   void reset() {

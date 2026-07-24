@@ -60,12 +60,24 @@ struct Run {
       for (int y = 0; y < H; ++y)
         for (int x = 0; x < W; ++x) {
           switch (((x / 24) + (y / 24)) % 6) {
-          case 0: c(x, y) = Pixel(65535, 0, 0); break;
-          case 1: c(x, y) = Pixel(0, 65535, 0); break;
-          case 2: c(x, y) = Pixel(0, 0, 65535); break;
-          case 3: c(x, y) = Pixel(65535, 65535, 0); break;
-          case 4: c(x, y) = Pixel(65535, 0, 65535); break;
-          default: c(x, y) = Pixel(60000, 20000, 5000); break;
+          case 0:
+            c(x, y) = Pixel(65535, 0, 0);
+            break;
+          case 1:
+            c(x, y) = Pixel(0, 65535, 0);
+            break;
+          case 2:
+            c(x, y) = Pixel(0, 0, 65535);
+            break;
+          case 3:
+            c(x, y) = Pixel(65535, 65535, 0);
+            break;
+          case 4:
+            c(x, y) = Pixel(65535, 0, 65535);
+            break;
+          default:
+            c(x, y) = Pixel(60000, 20000, 5000);
+            break;
           }
         }
     }
@@ -80,15 +92,25 @@ struct Run {
     const int cy = (int)(H * 0.5f + H * 0.30f * fast_sinf(t * 0.7f));
     for (int dy = -10; dy <= 10; ++dy)
       for (int dx = -10; dx <= 10; ++dx) {
-        if (dx * dx + dy * dy > 100) continue;
+        if (dx * dx + dy * dy > 100)
+          continue;
         const int x = ((cx + dx) % W + W) % W;
         const int y = cy + dy;
-        if (y < 0 || y >= H) continue;
+        if (y < 0 || y >= H)
+          continue;
         switch ((frame / 7) % 4) {
-        case 0: c(x, y) = Pixel(65535, 0, 0); break;
-        case 1: c(x, y) = Pixel(0, 65535, 0); break;
-        case 2: c(x, y) = Pixel(0, 0, 65535); break;
-        default: c(x, y) = Pixel(65535, 65535, 0); break;
+        case 0:
+          c(x, y) = Pixel(65535, 0, 0);
+          break;
+        case 1:
+          c(x, y) = Pixel(0, 65535, 0);
+          break;
+        case 2:
+          c(x, y) = Pixel(0, 0, 65535);
+          break;
+        default:
+          c(x, y) = Pixel(65535, 65535, 0);
+          break;
         }
       }
   }
@@ -201,37 +223,57 @@ int compare(const char *pa, const char *pb) {
       double sum = 0.0;
       for (int c = 0; c < CHANS; ++c) {
         const int d = std::abs((int)a[off + c] - (int)b[off + c]);
-        if (!d) continue;
+        if (!d)
+          continue;
         ++differing;
         sum += d;
-        if (d > 1) ++over1;
-        if (d > maxd) maxd = d;
+        if (d > 1)
+          ++over1;
+        if (d > maxd)
+          maxd = d;
       }
-      if (maxd > worst) { worst = maxd; worst_frame = i + 1; }
-      if (differing > worst_count) worst_count = differing;
+      if (maxd > worst) {
+        worst = maxd;
+        worst_frame = i + 1;
+      }
+      if (differing > worst_count)
+        worst_count = differing;
       const bool second = i >= fa / 2;
       if (maxd > 1) {
         ++spikes;
         spike_chans += over1;
-        if (second) { ++sp_second; if (maxd > sp_second_max) sp_second_max = maxd; }
-        else { ++sp_first; if (maxd > sp_first_max) sp_first_max = maxd; }
+        if (second) {
+          ++sp_second;
+          if (maxd > sp_second_max)
+            sp_second_max = maxd;
+        } else {
+          ++sp_first;
+          if (maxd > sp_first_max)
+            sp_first_max = maxd;
+        }
       }
-      if (second) { base_second += differing; ++nf_second; }
-      else { base_first += differing; ++nf_first; }
+      if (second) {
+        base_second += differing;
+        ++nf_second;
+      } else {
+        base_first += differing;
+        ++nf_first;
+      }
       if (i < 5 || (i + 1) % 100 == 0 || i == fa - 1)
         printf("%6d %12ld %10d %10.3f\n", i + 1, differing, maxd,
                differing ? sum / differing : 0.0);
     }
     printf("  peak: max|d| = %d LSB at frame %d; peak differing = %ld of %d "
-           "(%.3f%%)\n", worst, worst_frame, worst_count, CHANS,
-           100.0 * worst_count / CHANS);
+           "(%.3f%%)\n",
+           worst, worst_frame, worst_count, CHANS, 100.0 * worst_count / CHANS);
     printf("  differing/frame: first half %.1f, second half %.1f\n",
            nf_first ? base_first / nf_first : 0.0,
            nf_second ? base_second / nf_second : 0.0);
     printf("  frames with max|d|>1: %ld of %d; mean %.1f channels each\n",
            spikes, fa, spikes ? (double)spike_chans / spikes : 0.0);
     printf("  trend: first half %ld (max %d LSB), second half %ld (max %d "
-           "LSB)\n", sp_first, sp_first_max, sp_second, sp_second_max);
+           "LSB)\n",
+           sp_first, sp_first_max, sp_second, sp_second_max);
   }
   return 0;
 }

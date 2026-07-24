@@ -159,7 +159,8 @@ inline void test_fast_acos() {
 
   for (int i = 0; i <= 32; ++i) {
     float x = -1.0f + (i / 16.0f);
-    if (x > 1.0f) x = 1.0f;
+    if (x > 1.0f)
+      x = 1.0f;
     HS_EXPECT_NEAR(fast_acos(x), std::acos(x), 2e-4f);
   }
 
@@ -248,7 +249,8 @@ inline void test_fast_cbrt6() {
 inline void test_fast_expf() {
   HS_EXPECT_NEAR(fast_expf(0.0f), 1.0f, 1e-6f);
   HS_EXPECT_NEAR(fast_expf(-1.0f), std::exp(-1.0f), 7.5e-4f);
-  HS_EXPECT_NEAR(fast_expf(-10.0f), std::exp(-10.0f), 7.5e-4f * std::exp(-10.0f));
+  HS_EXPECT_NEAR(fast_expf(-10.0f), std::exp(-10.0f),
+                 7.5e-4f * std::exp(-10.0f));
 
   for (int i = 0; i <= 512; ++i) {
     float x = -30.0f + (30.0f * i) / 512.0f;
@@ -419,10 +421,10 @@ inline void test_vector_normalize() {
 
   // normalized_or() returns the fallback for a zero-length input (which traps
   // under strict normalize()), else normalizes as usual.
-  HS_EXPECT_VEC(normalized_or(Vector(0, 0, 0), Vector(1, 0, 0)), Vector(1, 0, 0),
-                1e-6f);
-  HS_EXPECT_VEC(normalized_or(Vector(0, 6, 0), Vector(1, 0, 0)), Vector(0, 1, 0),
-                1e-6f);
+  HS_EXPECT_VEC(normalized_or(Vector(0, 0, 0), Vector(1, 0, 0)),
+                Vector(1, 0, 0), 1e-6f);
+  HS_EXPECT_VEC(normalized_or(Vector(0, 6, 0), Vector(1, 0, 0)),
+                Vector(0, 1, 0), 1e-6f);
 }
 
 // ============================================================================
@@ -756,8 +758,7 @@ inline void test_rotate() {
   Vector v(1, 2, 3);
   HS_EXPECT_VEC(rotate(v, Quaternion(1, 0, 0, 0)), v, 1e-6f);
 
-  Quaternion q =
-      make_rotation(Vector(1, 2, 3).normalized(), 1.234f);
+  Quaternion q = make_rotation(Vector(1, 2, 3).normalized(), 1.234f);
   Vector r = rotate(v, q);
   HS_EXPECT_NEAR(r.length(), v.length(), 1e-3f);
 
@@ -879,12 +880,9 @@ inline void test_vector_slerp_antipodal_monotonic() {
  */
 inline void test_stereo_roundtrip() {
   Vector samples[] = {
-      Vector(1, 0, 0),
-      Vector(0, 0, 1),
-      Vector(-1, 0, 0),
-      Vector(0, -1, 0),
-      Vector(0.6f, 0.0f, 0.8f),
-      Vector(0.5f, 0.5f, 0.7071f).normalized(),
+      Vector(1, 0, 0),          Vector(0, 0, 1),
+      Vector(-1, 0, 0),         Vector(0, -1, 0),
+      Vector(0.6f, 0.0f, 0.8f), Vector(0.5f, 0.5f, 0.7071f).normalized(),
   };
   for (const Vector &v : samples) {
     Complex z = stereo(v);
@@ -1105,9 +1103,9 @@ inline void test_value_noise() {
   // Continuity: adjacent samples differ by a bounded step, including at 0.
   for (int i = -400; i < 400; ++i) {
     float x = i * 0.005f;
-    HS_EXPECT_LT(std::fabs(value_noise_1d(x + 0.005f, 3u) -
-                           value_noise_1d(x, 3u)),
-                 0.05f);
+    HS_EXPECT_LT(
+        std::fabs(value_noise_1d(x + 0.005f, 3u) - value_noise_1d(x, 3u)),
+        0.05f);
     HS_EXPECT_LT(std::fabs(value_noise_2d(x + 0.005f, 0.4f, 3u) -
                            value_noise_2d(x, 0.4f, 3u)),
                  0.05f);
@@ -1185,7 +1183,6 @@ inline int run_3dmath_tests() {
   test_mobius_transform();
   test_gnomonic_roundtrip();
 
-
   test_wrap_index();
 
   return fixture.result();
@@ -1193,4 +1190,3 @@ inline int run_3dmath_tests() {
 
 } // namespace math3d
 } // namespace hs_test
-

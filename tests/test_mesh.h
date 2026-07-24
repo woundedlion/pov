@@ -130,11 +130,13 @@ inline void test_half_edge_mesh_face_loop_closes() {
     int steps = 0;
     do {
       HS_EXPECT_TRUE(curr != HE_NONE);
-      if (curr == HE_NONE) break; // don't index half_edges with the sentinel
+      if (curr == HE_NONE)
+        break; // don't index half_edges with the sentinel
       HS_EXPECT_EQ(he.half_edges[curr].face, (uint16_t)fi);
       curr = he.half_edges[curr].next;
       steps++;
-      if (steps > max_steps) break; // ring failed to close
+      if (steps > max_steps)
+        break; // ring failed to close
     } while (curr != start);
     HS_EXPECT_EQ(steps, (int)cube.face_counts[fi]);
   }
@@ -195,7 +197,8 @@ inline void test_half_edge_mesh_open_boundary_edges() {
   open.face_counts.push_back(3);
   open.face_counts.push_back(3);
   const uint16_t idx[] = {0, 1, 2, 0, 2, 3}; // tri A: 0->1->2, tri B: 0->2->3
-  for (uint16_t i : idx) open.faces.push_back(i);
+  for (uint16_t i : idx)
+    open.faces.push_back(i);
 
   HalfEdgeMesh he(arena, open);
 
@@ -325,9 +328,13 @@ inline void test_compile_drops_degenerate_faces() {
   m.face_counts.push_back(2);
   m.face_counts.push_back(2);
 
-  m.faces.push_back(0); m.faces.push_back(1); m.faces.push_back(2);
-  m.faces.push_back(0); m.faces.push_back(3);
-  m.faces.push_back(1); m.faces.push_back(3);
+  m.faces.push_back(0);
+  m.faces.push_back(1);
+  m.faces.push_back(2);
+  m.faces.push_back(0);
+  m.faces.push_back(3);
+  m.faces.push_back(1);
+  m.faces.push_back(3);
 
   MeshState ms;
   MeshOps::compile(m, ms, dst, scratch_arena_a);
@@ -452,8 +459,11 @@ inline void test_classify_faces_uncompiled_degenerate() {
   m.vertices.push_back(Vector(0, 0, 1));
   m.face_counts.push_back(3);
   m.face_counts.push_back(2);
-  m.faces.push_back(0); m.faces.push_back(1); m.faces.push_back(2);
-  m.faces.push_back(0); m.faces.push_back(1);
+  m.faces.push_back(0);
+  m.faces.push_back(1);
+  m.faces.push_back(2);
+  m.faces.push_back(0);
+  m.faces.push_back(1);
 
   MeshOps::classify_faces_by_topology(m, scratch_a, scratch_b, geom);
   HS_EXPECT_EQ(m.topology.size(), m.face_counts.size());
@@ -534,22 +544,23 @@ inline void test_classify_faces_truncated_cube_distinct_topology() {
  * @brief A face topology key plus the base hash the classifier derives from it.
  */
 struct FaceTopoRecord {
-  int count;          /**< Side count. */
-  int angles[24];     /**< Sorted whole-degree interior angles. */
-  uint32_t hash;      /**< MeshOps base topology hash for this key. */
+  int count;      /**< Side count. */
+  int angles[24]; /**< Sorted whole-degree interior angles. */
+  uint32_t hash;  /**< MeshOps base topology hash for this key. */
 };
 
 /**
  * @brief Recomputes a face's canonical key (count, sorted angles) and the base
  *        topology hash, mirroring classify_faces_impl.
  */
-inline FaceTopoRecord face_topo_record(const PolyMesh &mesh, const uint16_t *idx,
-                                       int count) {
+inline FaceTopoRecord face_topo_record(const PolyMesh &mesh,
+                                       const uint16_t *idx, int count) {
   FaceTopoRecord rec;
   rec.count = count;
   for (int k = 0; k < 24; ++k)
     rec.angles[k] = 0;
-  HS_CHECK(count <= 24, "face_topo_record: face with >24 sides overruns angles[]");
+  HS_CHECK(count <= 24,
+           "face_topo_record: face with >24 sides overruns angles[]");
   uint32_t h = 0x12345678;
   MeshOps::hash_combine(h, static_cast<uint32_t>(count));
   if (count >= 3) {
@@ -559,8 +570,7 @@ inline FaceTopoRecord face_topo_record(const PolyMesh &mesh, const uint16_t *idx
       const Vector &next = mesh.vertices[idx[(k + 1) % count]];
       Vector v1 = (prev - curr).normalized();
       Vector v2 = (next - curr).normalized();
-      rec.angles[k] =
-          (int)std::round(angle_between(v1, v2) * 180.0f / PI_F);
+      rec.angles[k] = (int)std::round(angle_between(v1, v2) * 180.0f / PI_F);
     }
     std::sort(rec.angles, rec.angles + count);
     for (int k = 0; k < count; ++k)
@@ -628,9 +638,8 @@ inline void test_classify_faces_roster_hash_collision_free() {
 
   collect(Solids::simple_registry,
           sizeof(Solids::simple_registry) / sizeof(Solids::simple_registry[0]));
-  collect(Solids::catalan_registry,
-          sizeof(Solids::catalan_registry) /
-              sizeof(Solids::catalan_registry[0]));
+  collect(Solids::catalan_registry, sizeof(Solids::catalan_registry) /
+                                        sizeof(Solids::catalan_registry[0]));
 
   HS_EXPECT_TRUE(n > 0);
 }
@@ -676,4 +685,3 @@ inline int run_mesh_tests() {
 
 } // namespace mesh_tests
 } // namespace hs_test
-

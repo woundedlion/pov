@@ -44,16 +44,17 @@
 #pragma once
 #include "render/led.h"
 #include "pov_segment_map.h" // pure index math (host-testable; see that file)
-#include "pov_sync.h"        // pure sync protocol (host-testable; see that file)
-#include "pov_handoff.h"     // pure effect-handoff state machine (host-testable)
+#include "pov_sync.h"    // pure sync protocol (host-testable; see that file)
+#include "pov_handoff.h" // pure effect-handoff state machine (host-testable)
 
 #ifdef ARDUINO
 #include <Arduino.h>
 
 #ifdef USE_DMA_LEDS
-  #include "dma_led.h"
+#include "dma_led.h"
 #else
-  #error "POVSegmented requires USE_DMA_LEDS (the Phantasm DMA LED transport): the FastLED fallback cannot honor the master sync pulse-width contract (spec §5.2)."
+#error                                                                         \
+    "POVSegmented requires USE_DMA_LEDS (the Phantasm DMA LED transport): the FastLED fallback cannot honor the master sync pulse-width contract (spec §5.2)."
 #endif
 
 #include "render/canvas.h"
@@ -83,23 +84,22 @@ inline IsrCycleStats g_dma_submit_cycles;
  * upward; southern segments count downward from the S pole toward the
  * junction. N=2 assigns one forward strip to each complete arm.
  */
-template <int S, int N, int RPM>
-class POVSegmented {
+template <int S, int N, int RPM> class POVSegmented {
 
   // ── Compile-time geometry ───────────────────────────────────────────
 
-  static constexpr int PPS          = S / N;     /**< Pixels per segment.       */
-  static constexpr int ROWS         = S / 2;     /**< Canvas rows (height).     */
-  static constexpr int SEGS_PER_ARM = N / 2;     /**< Segments on each arm.     */
+  static constexpr int PPS = S / N;          /**< Pixels per segment.       */
+  static constexpr int ROWS = S / 2;         /**< Canvas rows (height).     */
+  static constexpr int SEGS_PER_ARM = N / 2; /**< Segments on each arm.     */
 
   static_assert(RPM > 0, "RPM must be positive (COLUMN_US divides by RPM)");
   static_assert(S % N == 0,
-      "Total pixel count must be evenly divisible by segment count");
+                "Total pixel count must be evenly divisible by segment count");
   static_assert(N % 2 == 0,
-      "Segment count must be even (equal split across two arms)");
-  static_assert(S >= N,
-      "Must have at least one pixel per segment");
-  static_assert((N & (N - 1)) == 0 && N <= 8,
+                "Segment count must be even (equal split across two arms)");
+  static_assert(S >= N, "Must have at least one pixel per segment");
+  static_assert(
+      (N & (N - 1)) == 0 && N <= 8,
       "N must be a power of two and <= 8: ID is decoded from up to 3 GPIO "
       "straps as (~raw) & (N-1), pins 21/22/23");
 
@@ -147,7 +147,8 @@ class POVSegmented {
    */
   static constexpr int OVERSAMPLE = 8;
 
-  static_assert(COLUMN_US / float(OVERSAMPLE) >= 1.0f,
+  static_assert(
+      COLUMN_US / float(OVERSAMPLE) >= 1.0f,
       "Flywheel wake period must be >= 1 us for IntervalTimer::begin");
 
   /**
@@ -159,7 +160,6 @@ class POVSegmented {
   static constexpr uint32_t SPI_CLOCK_HZ = 24000000;
 
 public:
-
   /** @brief Foreground effect constructor: builds, arena-configures, and
    *  init()s one roster entry, ready to draw its first frame. */
   using EffectFactory = Effect *(*)();
@@ -183,8 +183,8 @@ public:
     configure_segment();
 
     ledController_.begin();
-    ledController_.setCorrection(255, 176, 240);   // TypicalLEDStrip
-    ledController_.setTemperature(255, 147, 41);    // Candle
+    ledController_.setCorrection(255, 176, 240); // TypicalLEDStrip
+    ledController_.setTemperature(255, 147, 41); // Candle
     ledController_.setBrightness(255);
 
     // Enable the DWT cycle counter the flywheel timebase reads: TRCENA gates the
@@ -231,12 +231,11 @@ public:
    *                      order — identical on every board).
    * @param effect_count  Roster length.
    */
-  [[noreturn]] void run_show(const EffectFactory *factories,
-                             int effect_count) {
+  [[noreturn]] void run_show(const EffectFactory *factories, int effect_count) {
     factories_ = factories;
 
-    pov::sync::Config cfg = pov::sync::phantasm_config(
-        F_CPU, RPM, CANVAS_W, effect_count);
+    pov::sync::Config cfg =
+        pov::sync::phantasm_config(F_CPU, RPM, CANVAS_W, effect_count);
 #ifdef HS_PROFILE_EPOCH_REVS
     // Profiling knob: stretch the epoch so one effect instance covers a full
     // preset cycle in a single capture.
@@ -263,8 +262,8 @@ public:
     sync_.seed(ARM_DWT_CYCCNT, master);
 
     if (!master) {
-      attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC),
-                      sync_edge_isr, RISING);
+      attachInterrupt(digitalPinToInterrupt(PIN_FRAME_SYNC), sync_edge_isr,
+                      RISING);
     }
     HS_CHECK(timer_.begin(flywheel_isr, COLUMN_US / float(OVERSAMPLE)),
              "flywheel IntervalTimer failed to start (no PIT channel)");
@@ -341,23 +340,21 @@ public:
         if (memcmp(&tm, &last_tm, sizeof tm) != 0) {
           // hs::log, not Serial.printf: Teensy's printf drags in newlib's float
           // formatter (~5 KB ITCM); these counters are all %lu.
-          hs::log("sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu bdrop=%lu "
-                  "bok=%lu brej=%lu fix=%lu rmis=%lu lock=%lu "
-                  "flip=%lu coast=%lu epi=%lu",
-                  (unsigned long)tm.symbols_accepted,
-                  (unsigned long)tm.symbols_rejected_gate,
-                  (unsigned long)tm.symbols_discarded_invalid,
-                  (unsigned long)tm.emit_censored,
-                  (unsigned long)tm.emit_aborted,
-                  (unsigned long)tm.beacons_overrun_dropped,
-                  (unsigned long)tm.beacons_ok,
-                  (unsigned long)tm.beacons_rejected,
-                  (unsigned long)tm.beacon_index_corrections,
-                  (unsigned long)tm.beacon_rev_mismatches,
-                  (unsigned long)tm.lock_transitions,
-                  (unsigned long)tm.flips,
-                  (unsigned long)tm.max_coast_halves,
-                  (unsigned long)tm.epochs_refractory_ignored);
+          hs::log(
+              "sync acc=%lu rej=%lu inv=%lu cens=%lu abrt=%lu bdrop=%lu "
+              "bok=%lu brej=%lu fix=%lu rmis=%lu lock=%lu "
+              "flip=%lu coast=%lu epi=%lu",
+              (unsigned long)tm.symbols_accepted,
+              (unsigned long)tm.symbols_rejected_gate,
+              (unsigned long)tm.symbols_discarded_invalid,
+              (unsigned long)tm.emit_censored, (unsigned long)tm.emit_aborted,
+              (unsigned long)tm.beacons_overrun_dropped,
+              (unsigned long)tm.beacons_ok, (unsigned long)tm.beacons_rejected,
+              (unsigned long)tm.beacon_index_corrections,
+              (unsigned long)tm.beacon_rev_mismatches,
+              (unsigned long)tm.lock_transitions, (unsigned long)tm.flips,
+              (unsigned long)tm.max_coast_halves,
+              (unsigned long)tm.epochs_refractory_ignored);
           last_tm = tm;
         }
 #if defined(USE_DMA_LEDS)
@@ -373,7 +370,6 @@ public:
   }
 
 private:
-
   // ── Hardware ID ─────────────────────────────────────────────────────
 
   /**
@@ -382,8 +378,10 @@ private:
    */
   int sample_strap_() const {
     int raw = digitalReadFast(PIN_ID0);
-    if constexpr (ID_STRAPS >= 2) raw |= digitalReadFast(PIN_ID1) << 1;
-    if constexpr (ID_STRAPS >= 3) raw |= digitalReadFast(PIN_ID2) << 2;
+    if constexpr (ID_STRAPS >= 2)
+      raw |= digitalReadFast(PIN_ID1) << 1;
+    if constexpr (ID_STRAPS >= 3)
+      raw |= digitalReadFast(PIN_ID2) << 2;
     return raw;
   }
 
@@ -419,9 +417,11 @@ private:
    */
   void read_id() {
     pinMode(PIN_ID0, INPUT_PULLUP);
-    if constexpr (ID_STRAPS >= 2) pinMode(PIN_ID1, INPUT_PULLUP);
-    if constexpr (ID_STRAPS >= 3) pinMode(PIN_ID2, INPUT_PULLUP);
-    delay(10);  // settle time for pull-ups
+    if constexpr (ID_STRAPS >= 2)
+      pinMode(PIN_ID1, INPUT_PULLUP);
+    if constexpr (ID_STRAPS >= 3)
+      pinMode(PIN_ID2, INPUT_PULLUP);
+    delay(10); // settle time for pull-ups
 
     // Debounce: three samples ~5 ms apart must agree; an unstable strap reads as
     // a second master and drives the push-pull sync wire into bus contention.
@@ -446,7 +446,7 @@ private:
    */
   void configure_segment() {
     const pov::SegmentMap m = pov::segment_map(segment_id_, S, N);
-    arm_b_  = m.arm_b;
+    arm_b_ = m.arm_b;
     y_base_ = m.y_base;
     y_step_ = m.y_step;
   }
@@ -478,9 +478,7 @@ private:
    * priority relative to the flywheel ISR is therefore free — preemption has
    * no correctness consequence.
    */
-  static FASTRUN void sync_edge_isr() {
-    sync_.on_sync_edge(ARM_DWT_CYCCNT);
-  }
+  static FASTRUN void sync_edge_isr() { sync_.on_sync_edge(ARM_DWT_CYCCNT); }
 
   // render_column samples the raw display buffer, bypassing get_pixel(), so a
   // get_pixel-overriding effect must never go live on either adoption path.
@@ -650,8 +648,9 @@ private:
    *          reads are single aligned words (build_word) or debug telemetry.
    */
   static pov::sync::SyncBoard sync_;
-  static IntervalTimer timer_;             /**< Flywheel wake-up timer (PIT channel).   */
-  static const EffectFactory *factories_;  /**< Roster of effect constructors (HS_EFFECT_LIST order). */
+  static IntervalTimer timer_; /**< Flywheel wake-up timer (PIT channel).   */
+  static const EffectFactory
+      *factories_; /**< Roster of effect constructors (HS_EFFECT_LIST order). */
 
   /**
    * @brief Effect handoff state machine between the foreground and the ISR.
@@ -662,15 +661,20 @@ private:
    *          the instance it has been handed via live().
    */
   static pov::EffectHandoff<Effect> handoff_;
-  static bool dark_latched_;               /**< True once the black frame has latched; ISR-owned. */
-  static bool sync_low_pending_;           /**< ISR-owned: dark-path pulse drop deferred to next wake. */
+  static bool
+      dark_latched_; /**< True once the black frame has latched; ISR-owned. */
+  static bool
+      sync_low_pending_; /**< ISR-owned: dark-path pulse drop deferred to next wake. */
 
-  static int segment_id_;                  /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
-  static bool arm_b_;                      /**< True if this segment lives on arm B (x + W/2). */
-  static int y_base_;                      /**< Canvas row of this segment's LED 0.      */
-  static int y_step_;                      /**< Row stride per LED: +1 north band or -1 reversed south band. */
+  static int
+      segment_id_; /**< Decoded hardware segment ID (up to 3 strap bits, 0..N-1). */
+  static bool arm_b_; /**< True if this segment lives on arm B (x + W/2). */
+  static int y_base_; /**< Canvas row of this segment's LED 0.      */
+  static int
+      y_step_; /**< Row stride per LED: +1 north band or -1 reversed south band. */
 #if defined(USE_DMA_LEDS)
-  static DMALEDController<PPS> ledController_; /**< DMA SPI LED controller for the segment strip. */
+  static DMALEDController<PPS>
+      ledController_; /**< DMA SPI LED controller for the segment strip. */
 #endif
 };
 
@@ -679,8 +683,7 @@ private:
 template <int S, int N, int RPM>
 pov::sync::SyncBoard POVSegmented<S, N, RPM>::sync_{pov::sync::Config{}};
 
-template <int S, int N, int RPM>
-IntervalTimer POVSegmented<S, N, RPM>::timer_;
+template <int S, int N, int RPM> IntervalTimer POVSegmented<S, N, RPM>::timer_;
 
 template <int S, int N, int RPM>
 const typename POVSegmented<S, N, RPM>::EffectFactory
@@ -695,17 +698,13 @@ bool POVSegmented<S, N, RPM>::dark_latched_ = false;
 template <int S, int N, int RPM>
 bool POVSegmented<S, N, RPM>::sync_low_pending_ = false;
 
-template <int S, int N, int RPM>
-int POVSegmented<S, N, RPM>::segment_id_ = 0;
+template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::segment_id_ = 0;
 
-template <int S, int N, int RPM>
-bool POVSegmented<S, N, RPM>::arm_b_ = false;
+template <int S, int N, int RPM> bool POVSegmented<S, N, RPM>::arm_b_ = false;
 
-template <int S, int N, int RPM>
-int POVSegmented<S, N, RPM>::y_base_ = 0;
+template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_base_ = 0;
 
-template <int S, int N, int RPM>
-int POVSegmented<S, N, RPM>::y_step_ = 1;
+template <int S, int N, int RPM> int POVSegmented<S, N, RPM>::y_step_ = 1;
 
 #if defined(USE_DMA_LEDS)
 // ledController_ is intentionally NOT defined out-of-line here. Its HD107SFrame
@@ -717,10 +716,11 @@ int POVSegmented<S, N, RPM>::y_step_ = 1;
 // HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM) once at file scope; it emits
 // the required explicit specialization, whose ordinary strong linkage keeps the
 // DMAMEM section attribute — see Phantasm.ino.
-#define HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)                       \
+#define HS_DEFINE_POV_SEGMENTED_LED_CONTROLLER(S, N, RPM)                      \
   template <>                                                                  \
-  DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::ledController_{    \
-      POVSegmented<S, N, RPM>::SPI_CLOCK_HZ}
+  DMAMEM DMALEDController<(S) / (N)> POVSegmented<S, N, RPM>::ledController_ { \
+    POVSegmented<S, N, RPM>::SPI_CLOCK_HZ                                      \
+  }
 #endif
 
 #endif // ARDUINO

@@ -29,9 +29,10 @@ class Effect; // forward decl — defined in canvas.h
  *          a creator closure that allocates an instance, and its byte size.
  */
 struct FactoryEntry {
-  std::string_view name;                          /**< Effect class name (string literal). */
-  std::function<std::unique_ptr<Effect>()> creator; /**< Allocates a new effect instance. */
-  size_t size;                                    /**< sizeof the effect at this resolution, in bytes. */
+  std::string_view name; /**< Effect class name (string literal). */
+  std::function<std::unique_ptr<Effect>()>
+      creator; /**< Allocates a new effect instance. */
+  size_t size; /**< sizeof the effect at this resolution, in bytes. */
 };
 
 // Single source of truth for the supported render resolutions. Adding a resolution
@@ -49,7 +50,8 @@ struct FactoryEntry {
  *          from HS_RESOLUTIONS as `fill_<W>_<H>` (e.g. `fill_96_20`).
  */
 struct EffectRegistration {
-  using FillFn = void(*)(FactoryEntry&); /**< Populates a FactoryEntry for a given resolution. */
+  using FillFn = void (*)(
+      FactoryEntry &); /**< Populates a FactoryEntry for a given resolution. */
 #define HS_REG_FILL_FIELD(W, H) FillFn fill_##W##_##H;
   HS_RESOLUTIONS(HS_REG_FILL_FIELD)
 #undef HS_REG_FILL_FIELD
@@ -66,7 +68,7 @@ public:
    * @brief Accesses the global registration table.
    * @return Reference to the singleton vector of registrations.
    */
-  static std::vector<EffectRegistration>& entries() {
+  static std::vector<EffectRegistration> &entries() {
     static std::vector<EffectRegistration> s;
     return s;
   }
@@ -104,9 +106,11 @@ public:
 template <int> constexpr bool unsupported_resolution = false;
 
 template <int W, int H>
-constexpr auto get_fill_fn(const EffectRegistration& reg) {
-#define HS_REG_FILL_BRANCH(w, h) \
-  if constexpr (W == (w) && H == (h)) return reg.fill_##w##_##h; else
+constexpr auto get_fill_fn(const EffectRegistration &reg) {
+#define HS_REG_FILL_BRANCH(w, h)                                               \
+  if constexpr (W == (w) && H == (h))                                          \
+    return reg.fill_##w##_##h;                                                 \
+  else
   HS_RESOLUTIONS(HS_REG_FILL_BRANCH)
 #undef HS_REG_FILL_BRANCH
   {
@@ -138,25 +142,23 @@ constexpr auto get_fill_fn(const EffectRegistration& reg) {
  * @note `effects.h` must be included by exactly one TU per binary; a second
  *       includer registers every effect twice and trips the startup count check.
  */
-#define REGISTER_EFFECT(ClassName)                                     \
-  namespace {                                                          \
-  struct ClassName##_Registrar {                                        \
-    template <int W, int H>                                            \
-    static void fill(FactoryEntry& e) {                                \
-      e.name    = #ClassName;                                          \
-      e.creator = []() -> std::unique_ptr<Effect> {                    \
-        return std::make_unique<ClassName<W, H>>();                     \
-      };                                                               \
-      e.size = sizeof(ClassName<W, H>);                                \
-    }                                                                  \
+#define REGISTER_EFFECT(ClassName)                                                \
+  namespace {                                                                     \
+  struct ClassName##_Registrar {                                                  \
+    template <int W, int H> static void fill(FactoryEntry &e) {                   \
+      e.name = #ClassName;                                                        \
+      e.creator = []() -> std::unique_ptr<Effect> {                               \
+        return std::make_unique<ClassName<W, H>>();                               \
+      };                                                                          \
+      e.size = sizeof(ClassName<W, H>);                                           \
+    }                                                                             \
     /* HS_REGISTRAR_ANCHOR anchors the registrar: nothing references _reg, so  \
      * under LTO / --gc-sections the dynamic initializer could be discarded,   \
-     * silently dropping the effect from the registry. */                      \
-    HS_REGISTRAR_ANCHOR                                                       \
-    static inline int _reg = EffectRegistry::add({                     \
-      HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)                          \
-    });                                                                \
-  };                                                                   \
+     * silently dropping the effect from the registry. */ \
+    HS_REGISTRAR_ANCHOR                                                           \
+    static inline int _reg =                                                      \
+        EffectRegistry::add({HS_RESOLUTIONS(HS_DETAIL_REG_FILL_PTR)});            \
+  };                                                                              \
   }
 
 // Emits one `&fill<W, H>,` per resolution for the REGISTER_EFFECT initializer

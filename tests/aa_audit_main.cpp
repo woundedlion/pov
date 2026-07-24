@@ -120,8 +120,8 @@ int main(int argc, char **argv) {
 
   hs_test::reset_globals();
 
-  long long tot_probes = 0, tot_ref_probes = 0, tot_painted = 0,
-            tot_missed = 0, tot_diff = 0;
+  long long tot_probes = 0, tot_ref_probes = 0, tot_painted = 0, tot_missed = 0,
+            tot_diff = 0;
   int draws = 0;
 
   std::printf("%-58s %5s %10s %8s %8s %8s %7s\n", "solid", "F", "probes",
@@ -160,13 +160,13 @@ int main(int argc, char **argv) {
 
       long long before = hs_aa::g_audit.probes;
       if (!g_no_ref) {
-      hs_aa::g_audit.enabled = true;
-      hs_aa::g_audit.full_scan = true;
-      render(mesh, scratch, b_buf);
-      hs_aa::g_audit.enabled = false;
-      hs_aa::g_audit.full_scan = false;
-      ref_probes += hs_aa::g_audit.probes - before;
-      hs_aa::g_audit.probes = before;
+        hs_aa::g_audit.enabled = true;
+        hs_aa::g_audit.full_scan = true;
+        render(mesh, scratch, b_buf);
+        hs_aa::g_audit.enabled = false;
+        hs_aa::g_audit.full_scan = false;
+        ref_probes += hs_aa::g_audit.probes - before;
+        hs_aa::g_audit.probes = before;
       }
 
       for (size_t p = 0; !g_no_ref && p < a_buf.size(); p += 3) {
@@ -184,8 +184,7 @@ int main(int argc, char **argv) {
           max_delta = d;
         if (d > 6553)
           ++big_delta;
-        const bool ship_black =
-            !a_buf[p] && !a_buf[p + 1] && !a_buf[p + 2];
+        const bool ship_black = !a_buf[p] && !a_buf[p + 1] && !a_buf[p + 2];
         const bool ref_lit = b_buf[p] || b_buf[p + 1] || b_buf[p + 2];
         if (ship_black && ref_lit)
           ++holes;
@@ -209,14 +208,13 @@ int main(int argc, char **argv) {
                 mesh.get_face_counts_size(), a.probes, a.painted, a.missed,
                 static_cast<double>(a.missed) / orientations,
                 fb_diff / orientations);
-    std::printf("    ref probes %lld (%.2fx) | missed alpha max %.4f mean "
-                "%.4f | max col gap %d | max fb delta %lld | >10%% px/draw "
-                "%lld | HOLES %lld\n",
-                ref_probes,
-                a.probes ? static_cast<double>(ref_probes) / a.probes : 0.0,
-                a.missed_alpha_max,
-                a.missed ? a.missed_alpha_sum / a.missed : 0.0, a.max_gap_cols,
-                max_delta, big_delta / orientations, holes);
+    std::printf(
+        "    ref probes %lld (%.2fx) | missed alpha max %.4f mean "
+        "%.4f | max col gap %d | max fb delta %lld | >10%% px/draw "
+        "%lld | HOLES %lld\n",
+        ref_probes, a.probes ? static_cast<double>(ref_probes) / a.probes : 0.0,
+        a.missed_alpha_max, a.missed ? a.missed_alpha_sum / a.missed : 0.0,
+        a.max_gap_cols, max_delta, big_delta / orientations, holes);
     std::printf("    probe rows:");
     for (int y = 0; y < H; ++y)
       std::printf(" %d:%lld", y, a.probe_rows[y] / orientations);

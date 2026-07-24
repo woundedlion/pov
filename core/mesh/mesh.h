@@ -79,7 +79,8 @@ struct PolyMesh {
   static void clone(const PolyMesh &src, PolyMesh &dst, Arena &arena);
 };
 
-constexpr uint16_t HE_NONE = 0xFFFF; /**< Null index sentinel for half-edge connectivity. */
+constexpr uint16_t HE_NONE =
+    0xFFFF; /**< Null index sentinel for half-edge connectivity. */
 
 /**
  * @brief One directed half of an undirected edge in the half-edge mesh.
@@ -107,7 +108,8 @@ HS_O3_BEGIN
  * (min_v, max_v) vertex key.
  */
 struct HalfEdgePairRecord {
-  uint16_t min_v, max_v, he; /**< Lower vertex index, upper vertex index, and the half-edge index. */
+  uint16_t min_v, max_v,
+      he; /**< Lower vertex index, upper vertex index, and the half-edge index. */
 };
 
 /**
@@ -133,7 +135,8 @@ inline void fill_edge_record(HalfEdgePairRecord &rec, uint16_t u, uint16_t v,
 sort_edge_records(HalfEdgePairRecord *records, size_t n) {
   std::sort(records, records + n,
             [](const HalfEdgePairRecord &a, const HalfEdgePairRecord &b) {
-              if (a.min_v != b.min_v) return a.min_v < b.min_v;
+              if (a.min_v != b.min_v)
+                return a.min_v < b.min_v;
               return a.max_v < b.max_v;
             });
 }
@@ -212,8 +215,9 @@ build_half_edge_mesh(HalfEdgeMesh &out, Arena &arena, size_t num_verts,
  */
 class HalfEdgeMesh {
 public:
-  ArenaVector<HEFace> faces;        /**< Per-face half-edge loop entry points. */
-  ArenaVector<HalfEdge> half_edges; /**< Directed half-edges with next/prev/pair links. */
+  ArenaVector<HEFace> faces; /**< Per-face half-edge loop entry points. */
+  ArenaVector<HalfEdge>
+      half_edges; /**< Directed half-edges with next/prev/pair links. */
 
   /**
    * @brief Builds the half-edge connectivity from a PolyMesh.
@@ -222,8 +226,9 @@ public:
    */
   explicit HalfEdgeMesh(Arena &arena, const PolyMesh &mesh) {
     build_half_edge_mesh(*this, arena, mesh.vertices.size(),
-                         mesh.get_face_counts_data(), mesh.get_face_counts_size(),
-                         mesh.get_faces_data(), mesh.get_faces_size());
+                         mesh.get_face_counts_data(),
+                         mesh.get_face_counts_size(), mesh.get_faces_data(),
+                         mesh.get_faces_size());
   }
 
   /**
@@ -236,8 +241,9 @@ public:
    */
   explicit HalfEdgeMesh(Arena &arena, const MeshState &mesh) {
     build_half_edge_mesh(*this, arena, mesh.vertices.size(),
-                         mesh.get_face_counts_data(), mesh.get_face_counts_size(),
-                         mesh.get_faces_data(), mesh.get_faces_size());
+                         mesh.get_face_counts_data(),
+                         mesh.get_face_counts_size(), mesh.get_faces_data(),
+                         mesh.get_faces_size());
   }
 };
 
@@ -371,7 +377,7 @@ inline void require_closed_manifold(const HalfEdgeMesh &he_mesh,
  * lengths disagree or the cumulative face offset exceeds the 16-bit range.
  */
 HS_COLD static inline void compile(const PolyMesh &src, MeshState &dst,
-                                    Arena &geom_arena, Arena &scratch) {
+                                   Arena &geom_arena, Arena &scratch) {
   require_flat_face_length(src.get_face_counts_data(),
                            src.get_face_counts_size(), src.get_faces_size());
   dst.clear();
@@ -535,7 +541,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
   int max_count = 0;
   for (size_t i = 0; i < F; ++i) {
     int c = face_counts[i];
-    if (c > max_count) max_count = c;
+    if (c > max_count)
+      max_count = c;
   }
 
   ArenaVector<Vector> verts;
@@ -568,10 +575,10 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         const Vector &next = verts[(k + 1) % count];
         Vector e1 = prev - curr;
         Vector e2 = next - curr;
-        float ang = (dot(e1, e1) > math::EPS_LEN_SQ &&
-                     dot(e2, e2) > math::EPS_LEN_SQ)
-                        ? angle_between(e1, e2)
-                        : 0.0f;
+        float ang =
+            (dot(e1, e1) > math::EPS_LEN_SQ && dot(e2, e2) > math::EPS_LEN_SQ)
+                ? angle_between(e1, e2)
+                : 0.0f;
         angles.push_back((int)std::round(ang * 180.0f / PI_F));
       }
       std::sort(angles.data(), angles.data() + count);
@@ -591,16 +598,13 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
     HS_CHECK(I <= UINT16_MAX && F <= UINT16_MAX,
              "classify_faces_by_topology exceeds 16-bit index range");
 
-    uint16_t *he_to_face =
-        scratch_a.allocate_n<uint16_t>(I);
-    uint16_t *pair_array =
-        scratch_a.allocate_n<uint16_t>(I);
+    uint16_t *he_to_face = scratch_a.allocate_n<uint16_t>(I);
+    uint16_t *pair_array = scratch_a.allocate_n<uint16_t>(I);
     std::fill_n(pair_array, I, HE_NONE);
 
     {
       ScratchScope temp_records(scratch_b);
-      HalfEdgePairRecord *records =
-          scratch_b.allocate_n<HalfEdgePairRecord>(I);
+      HalfEdgePairRecord *records = scratch_b.allocate_n<HalfEdgePairRecord>(I);
 
       size_t he_idx = 0;
       size_t face_offset = 0;
@@ -624,7 +628,8 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
         for (int k = 0; k < count; ++k) {
           uint16_t u = faces[face_offset + k];
           uint16_t v = faces[face_offset + (k + 1) % count];
-          fill_edge_record(records[he_idx], u, v, static_cast<uint16_t>(he_idx));
+          fill_edge_record(records[he_idx], u, v,
+                           static_cast<uint16_t>(he_idx));
           he_to_face[he_idx] = static_cast<uint16_t>(fi);
           he_idx++;
         }
@@ -660,7 +665,7 @@ classify_faces_impl(MeshT &mesh, Arena &scratch_a, Arena &scratch_b,
    * @brief Sortable pairing of a face's final topology hash with its index.
    */
   struct HashNode {
-    uint32_t hash;    /**< Final topology hash for the face. */
+    uint32_t hash;     /**< Final topology hash for the face. */
     int original_face; /**< Index of the face in the original mesh order. */
   };
   HashNode *nodes = scratch_a.allocate_n<HashNode>(F);

@@ -94,7 +94,8 @@ inline void test_helpers() {
   // resync precondition unenforced. Boundary is exclusive (32 is rejected, 31
   // accepted).
   Config bp = test_config();
-  bp.rejoin_budget_revs = 64; // relax the budget so this isolates the resync bound
+  bp.rejoin_budget_revs =
+      64; // relax the budget so this isolates the resync bound
   bp.beacon_period_revs = 32;
   HS_EXPECT_FALSE(bp.valid());
   bp.beacon_period_revs = 31;
@@ -213,7 +214,7 @@ inline void test_mailbox_prior_staleness() {
   {
     EdgeMailbox m;
     m.on_edge(1000, GLITCH);
-    m.age_prior(1000 + GLITCH / 2, GLITCH); // still within the window: kept
+    m.age_prior(1000 + GLITCH / 2, GLITCH);   // still within the window: kept
     m.on_edge(1000 + GLITCH / 2 + 1, GLITCH); // too close to 1000: rejected
     HS_EXPECT_TRUE(burst_complete(m, 1000 + 100 * GLITCH, 1));
     HS_EXPECT_EQ(claim(m).count, 1u);
@@ -349,8 +350,8 @@ inline void test_beacon_codec() {
   const uint8_t transposed[5] = {d[2], d[1], d[0], d[3], d[4]}; // swap d0,d2
   HS_EXPECT_FALSE(feed_frame(transposed, false, false, &f));
   const uint8_t compensated[5] = {static_cast<uint8_t>(d[0] + 1),
-                                   static_cast<uint8_t>(d[1] - 1), d[2], d[3],
-                                   d[4]};
+                                  static_cast<uint8_t>(d[1] - 1), d[2], d[3],
+                                  d[4]};
   HS_EXPECT_FALSE(feed_frame(compensated, false, false, &f));
 
   // Out-of-range burst count aborts the frame.
@@ -421,8 +422,9 @@ inline void test_rev_resync_fold() {
   HS_EXPECT_EQ(beacon_rev_resync_delta(8, 66), 6);   // residue 2, beacon 8: +6
 
   // Endpoints of the correctable window: the fold spans exactly [-32, 31].
-  HS_EXPECT_EQ(beacon_rev_resync_delta(31, 0), 31);  // max
-  HS_EXPECT_EQ(beacon_rev_resync_delta(0, 32), -32); // min (32 ahead ≡ 32 behind)
+  HS_EXPECT_EQ(beacon_rev_resync_delta(31, 0), 31); // max
+  HS_EXPECT_EQ(beacon_rev_resync_delta(0, 32),
+               -32); // min (32 ahead ≡ 32 behind)
 
   // The applied fold lands on the beacon's residue across the seam, exactly as
   // handle_beacon_burst uses it (rev_in_effect + delta, then re-read mod 64).
@@ -430,7 +432,8 @@ inline void test_rev_resync_fold() {
     for (uint32_t beacon = 0; beacon < 64u; ++beacon) {
       const int32_t d = beacon_rev_resync_delta(beacon, cur);
       HS_EXPECT_TRUE(d >= -32 && d <= 31);
-      HS_EXPECT_EQ((static_cast<int64_t>(cur) + d) & 63, static_cast<int64_t>(beacon));
+      HS_EXPECT_EQ((static_cast<int64_t>(cur) + d) & 63,
+                   static_cast<int64_t>(beacon));
     }
   }
 }
@@ -467,8 +470,7 @@ inline void test_flywheel_position() {
     f.seed(1000000u);
     bool ok = true;
     for (int64_t delta = 0; delta < period; delta += 12347) {
-      const int32_t want =
-          static_cast<int32_t>(ref_cols(delta, period) % 288);
+      const int32_t want = static_cast<int32_t>(ref_cols(delta, period) % 288);
       if (f.position(1000000u + static_cast<uint32_t>(delta)) != want) {
         ok = false;
         break;
@@ -551,8 +553,8 @@ inline void test_snap_gate() {
     f.force_lock();
     int32_t err = 0;
     // True HALF arrives 2 columns "early" by local reckoning: accept.
-    HS_EXPECT_TRUE(f.snap(Boundary::HALF, 1000000u + PERIOD - 2 * COL,
-                          &err) == Flywheel::SnapOutcome::ACCEPTED);
+    HS_EXPECT_TRUE(f.snap(Boundary::HALF, 1000000u + PERIOD - 2 * COL, &err) ==
+                   Flywheel::SnapOutcome::ACCEPTED);
     HS_EXPECT_EQ(err, 2);
     HS_EXPECT_EQ(f.position(1000000u + PERIOD - 2 * COL), 144);
 
@@ -639,9 +641,8 @@ inline void test_emitter() {
   // Late at the boundary (> ~½ column): the whole symbol is censored.
   {
     SymbolEmitter e;
-    HS_EXPECT_FALSE(e.schedule_boundary(Symbol::ZERO, 1000u,
-                                        1000u + cfg.late_censor_cycles() + 1,
-                                        cfg));
+    HS_EXPECT_FALSE(e.schedule_boundary(
+        Symbol::ZERO, 1000u, 1000u + cfg.late_censor_cycles() + 1, cfg));
   }
 
   // Boundary scheduled in the FUTURE (now before at_cycles): not late — it must
@@ -666,8 +667,8 @@ inline void test_emitter() {
     HS_EXPECT_TRUE(e.schedule_boundary(Symbol::ZERO_EPOCH, b, b, cfg));
     HS_EXPECT_TRUE(e.tick(b, cfg, &aborted)); // pulse 1 on time
     // Next due at b+2col; first wake after the mask is way late.
-    HS_EXPECT_FALSE(e.tick(b + 2 * COL + cfg.late_censor_cycles() + 1, cfg,
-                           &aborted));
+    HS_EXPECT_FALSE(
+        e.tick(b + 2 * COL + cfg.late_censor_cycles() + 1, cfg, &aborted));
     HS_EXPECT_TRUE(aborted);
     HS_EXPECT_TRUE(e.idle());
   }
@@ -780,10 +781,10 @@ inline void test_beacon_late_coast() {
 struct SimBoard {
   SyncBoard board;
   bool master = false;
-  int32_t ppm = 0;       /**< Crystal offset, parts per million. */
-  uint64_t phase0 = 0;   /**< Local cycle-counter offset at g = 0. */
-  double next_tick = 0;  /**< Next flywheel wake, in global cycles. */
-  double tick_step = 0;  /**< Wake period in global cycles. */
+  int32_t ppm = 0;      /**< Crystal offset, parts per million. */
+  uint64_t phase0 = 0;  /**< Local cycle-counter offset at g = 0. */
+  double next_tick = 0; /**< Next flywheel wake, in global cycles. */
+  double tick_step = 0; /**< Wake period in global cycles. */
   /** Masked-IRQ model: while g < mask_until, wakes coalesce and edges latch
       into a single delayed delivery (one latched flag per pin). */
   uint64_t mask_until = 0;
@@ -825,8 +826,8 @@ class Sim {
 public:
   Config cfg;
   std::deque<SimBoard> boards;
-  uint64_t g = 0;                                  /**< Global time, cycles. */
-  std::vector<std::pair<uint64_t, int>> emi;       /**< (g, target), sorted. */
+  uint64_t g = 0;                            /**< Global time, cycles. */
+  std::vector<std::pair<uint64_t, int>> emi; /**< (g, target), sorted. */
   size_t emi_pos = 0;
 
   /**
@@ -1230,8 +1231,7 @@ inline void test_sim_epoch_commit() {
   // …then all go dark together for the K-revolution construction window.
   HS_EXPECT_TRUE(sim.run_until(
       [](Sim &s) {
-        return s.boards[0].board.content().commit_in_revs <=
-               s.cfg.commit_revs;
+        return s.boards[0].board.content().commit_in_revs <= s.cfg.commit_revs;
       },
       double(cfg.epoch_repeats) + 1));
   sim.run_revs(1.0); // mid-construction (K = 2)
@@ -1320,9 +1320,8 @@ inline void test_sim_commit_deadline_trap() {
   HS_EXPECT_TRUE(sim.boards[2].live);
   HS_EXPECT_FALSE(sim.boards[2].trapped);
   // The epoch commit IS deadline-bound.
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return s.boards[2].trapped; },
-      double(cfg.revs_per_effect) + 6));
+  HS_EXPECT_TRUE(sim.run_until([](Sim &s) { return s.boards[2].trapped; },
+                               double(cfg.revs_per_effect) + 6));
   for (int i : {0, 1, 3})
     HS_EXPECT_FALSE(sim.boards[i].trapped);
 }
@@ -1349,8 +1348,7 @@ inline void test_sim_masked_windows() {
   const uint64_t rev = 2ull * PERIOD;
   for (int k = 8; k < 28; ++k) {
     const uint64_t b0 = k * rev; // master ZERO crossings ≈ k·rev (ppm 0)
-    sim.boards[2].masks.push_back(
-        {b0 - COL / 2, b0 + 2 * COL + COL / 2});
+    sim.boards[2].masks.push_back({b0 - COL / 2, b0 + 2 * COL + COL / 2});
   }
   // Board 3: mid-revolution masks (no boundary, no symbol) — pure wake
   // coalescing; the flywheel resumes at the time-correct column.
@@ -1382,7 +1380,8 @@ inline void test_sim_masked_windows() {
   sim2.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
   sim2.run_revs(6.0);
   const Telemetry &tm0 = sim2.boards[0].board.telemetry();
-  HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted + tm0.beacons_overrun_dropped, 0u);
+  HS_EXPECT_GT(
+      tm0.emit_censored + tm0.emit_aborted + tm0.beacons_overrun_dropped, 0u);
   HS_EXPECT_LE(sim2.max_phase_err(), 2);
   HS_EXPECT_EQ(sim2.boards[1].board.telemetry().symbols_rejected_gate, 0u);
 }
@@ -1484,9 +1483,9 @@ inline void test_sim_drops_and_missed_epoch() {
       8.0));
   HS_EXPECT_EQ(sim.boards[3].live_index, 0); // visibly stale, as budgeted
   // Correction: ≤ one beacon period + join grid after the wire returns.
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return s.boards[3].live_index == 1; },
-      double(cfg.beacon_period_revs + cfg.join_grid_revs) + 6));
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.boards[3].live_index == 1; },
+                    double(cfg.beacon_period_revs + cfg.join_grid_revs) + 6));
   HS_EXPECT_EQ(sim.boards[3].board.telemetry().beacon_index_corrections, 1u);
   HS_EXPECT_FALSE(sim.boards[3].trapped);
 }
@@ -1526,9 +1525,9 @@ inline void test_sim_reboot() {
   // Identity from the next beacon, display from the next join-grid
   // boundary — comfortably inside the ~2 s budget at ship cadence; never a
   // wrong frame in between (dark throughout).
-  HS_EXPECT_TRUE(sim.run_until(
-      [](Sim &s) { return s.boards[2].live; },
-      double(cfg.beacon_period_revs + cfg.join_grid_revs) + 4));
+  HS_EXPECT_TRUE(
+      sim.run_until([](Sim &s) { return s.boards[2].live; },
+                    double(cfg.beacon_period_revs + cfg.join_grid_revs) + 4));
   HS_EXPECT_EQ(b2.live_index, sim.boards[0].live_index);
   sim.run_until([](Sim &s) { return s.board_pos(0) == 72; }, 1.1);
   HS_EXPECT_LE(sim.max_phase_err(), 2);
@@ -1649,7 +1648,8 @@ inline void test_sim_epoch_repeat_lockstep() {
     sim.boards[0].masks.push_back({b0 - COL / 4, b0 + 2 * COL});
     HS_EXPECT_TRUE(sim.run_until(all_on_effect_1, commit_revs_max));
     const Telemetry &tm0 = sim.boards[0].board.telemetry();
-    HS_EXPECT_GT(tm0.emit_censored + tm0.emit_aborted + tm0.beacons_overrun_dropped, 0u);
+    HS_EXPECT_GT(
+        tm0.emit_censored + tm0.emit_aborted + tm0.beacons_overrun_dropped, 0u);
     expect_lockstep(sim);
   }
 }
@@ -1711,8 +1711,7 @@ inline void test_sim_rev_resync() {
             return false;
         return true;
       },
-      double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) +
-          8));
+      double(cfg.commit_revs + static_cast<uint32_t>(cfg.epoch_repeats)) + 8));
   for (int i = 1; i < 4; ++i) {
     const int64_t dg = static_cast<int64_t>(sim.boards[i].swap_g) -
                        static_cast<int64_t>(sim.boards[0].swap_g);
@@ -1745,7 +1744,8 @@ inline void test_sim_rev_resync() {
  */
 inline void test_sim_rev_wrap_within_effect() {
   Config cfg = test_config();
-  cfg.revs_per_effect = 90; // > 64: rev_in_effect wraps its 6-bit residue mid-effect
+  cfg.revs_per_effect =
+      90; // > 64: rev_in_effect wraps its 6-bit residue mid-effect
   const int32_t ppm[4] = {0, 20, -20, 10};
   Sim sim(cfg, 4, ppm);
 
@@ -1836,14 +1836,14 @@ inline void test_epoch_same_tick_burst_fold() {
     c.identity_known = true;
     c.effect_index = 0;
     if (same_tick) {
-      c.rev_in_effect = RPE + j - 1;       // B+j fold still pending…
+      c.rev_in_effect = RPE + j - 1;            // B+j fold still pending…
       HS_EXPECT_FALSE(c.on_zero_crossing(cfg)); // …backstop apply_flip folds it
     } else {
-      c.rev_in_effect = RPE + j;           // already folded a tick earlier
+      c.rev_in_effect = RPE + j; // already folded a tick earlier
     }
     const uint32_t base_rev = c.rev_in_effect; // == RPE + j either way
     HS_EXPECT_EQ(base_rev, RPE + j);
-    HS_EXPECT_TRUE(c.on_epoch_symbol(cfg));  // opens the commit window
+    HS_EXPECT_TRUE(c.on_epoch_symbol(cfg)); // opens the commit window
     HS_EXPECT_EQ(c.commit_in_revs, K + R - j);
     uint32_t count = 0;
     while (count <= RPE) {
