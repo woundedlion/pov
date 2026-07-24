@@ -179,6 +179,32 @@ struct Style {
   // Params: fade, hue_shift, amplitude, frequency, speed, scale, space_fn, color_fn
 
   /**
+   * @brief Branching, fast-moving distortion with pronounced hue rotation.
+   * @return The ArcingLightning preset Style.
+   */
+  static constexpr Style ArcingLightning() {
+    return {0.5f, 0.1f, 3.27f, 0.09f, 1.5f, 50.0f, &noise_warp, &hue_fade};
+  }
+
+  /**
+   * @brief Broad, slowly evolving turbulence with gentle color drift.
+   * @return The SlowFire preset Style.
+   */
+  static constexpr Style SlowFire() {
+    return {0.8732f, 0.0167f, 1.56f, 0.5297f, 0.1f, 50.0f, &noise_warp,
+            &hue_fade};
+  }
+
+  /**
+   * @brief Broad, quickly evolving turbulence with gentle color drift.
+   * @return The EnergeticFire preset Style.
+   */
+  static constexpr Style EnergeticFire() {
+    return {0.8732f, 0.0167f, 1.56f, 0.22087f, 0.9f, 50.0f, &noise_warp,
+            &hue_fade};
+  }
+
+  /**
    * @brief Static fine-grained turbulence: high amplitude over a tight scale with
    * no temporal drift, giving a frozen, twisted distortion.
    * @return The SlowTwist preset Style.
@@ -201,6 +227,24 @@ struct Style {
    */
   static constexpr Style Smoke() {
     return {0.9f, 0.01f, 0.51f, 0.42f, 0.46f, 23.0f, &noise_warp, &hue_fade};
+  }
+
+  /**
+   * @brief Fine, slowly drifting turbulence with gentle color rotation.
+   * @return The SlowDust preset Style.
+   */
+  static constexpr Style SlowDust() {
+    return {0.83952f, 0.0167f, 1.56f, 0.07237f, 0.6f, 50.0f, &noise_warp,
+            &hue_fade};
+  }
+
+  /**
+   * @brief Fine, rapidly moving distortion with pronounced color trails.
+   * @return The WavyTrails preset Style.
+   */
+  static constexpr Style WavyTrails() {
+    return {0.7257f, 0.0722f, 1.95f, 0.01f, 5.0f, 50.0f, &noise_warp,
+            &hue_fade};
   }
 
   /**

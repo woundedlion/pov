@@ -545,9 +545,14 @@ The Filter auto-syncs from the Style every frame — when the Style lerps betwee
 
 | Preset | Description |
 |---|---|
+| `Style::ArcingLightning()` | Branching, fast-moving distortion with pronounced hue rotation. |
+| `Style::SlowFire()` | Broad, slowly evolving turbulence with gentle color drift. |
+| `Style::EnergeticFire()` | Broad, quickly evolving turbulence with gentle color drift. |
 | `Style::SlowTwist()` | Static fine-grain turbulence — high amplitude over a tight scale, no temporal drift. Frozen, twisted distortion. |
 | `Style::Churn()` | Dense fine-grain turbulence with strong hue shift. Tight scale, slow drift. |
 | `Style::Smoke()` | Gentle drifting haze with slow noise. Classic smoke look. |
+| `Style::SlowDust()` | Fine, slowly drifting turbulence with gentle color rotation. |
+| `Style::WavyTrails()` | Fine, rapidly moving distortion with pronounced color trails. |
 | `Style::Frozen()` | Static frozen distortion — no temporal movement. |
 | `Style::Shatter()` | Extreme static warping with fast decay. Shattering glass look. |
 | `Style::Drift()` | Flowing medium-strength distortion. Gentle liquid drift. |

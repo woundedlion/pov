@@ -28,6 +28,30 @@ namespace styles_tests {
  *          the hue shift.
  */
 inline void test_named_presets() {
+  const auto expect_noise_hue_style =
+      [](const Feedback::Style &style, float fade, float hue_shift,
+         float amplitude, float frequency, float speed, float scale) {
+        HS_EXPECT_NEAR(style.fade, fade, 1e-6f);
+        HS_EXPECT_NEAR(style.hue_shift, hue_shift, 1e-6f);
+        HS_EXPECT_NEAR(style.amplitude, amplitude, 1e-6f);
+        HS_EXPECT_NEAR(style.frequency, frequency, 1e-6f);
+        HS_EXPECT_NEAR(style.speed, speed, 1e-6f);
+        HS_EXPECT_NEAR(style.scale, scale, 1e-6f);
+        HS_EXPECT_TRUE(style.space_fn == &Feedback::noise_warp);
+        HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
+      };
+
+  expect_noise_hue_style(Feedback::Style::ArcingLightning(), 0.5f, 0.1f,
+                         3.27f, 0.09f, 1.5f, 50.0f);
+  expect_noise_hue_style(Feedback::Style::SlowFire(), 0.8732f, 0.0167f, 1.56f,
+                         0.5297f, 0.1f, 50.0f);
+  expect_noise_hue_style(Feedback::Style::EnergeticFire(), 0.8732f, 0.0167f,
+                         1.56f, 0.22087f, 0.9f, 50.0f);
+  expect_noise_hue_style(Feedback::Style::SlowDust(), 0.83952f, 0.0167f, 1.56f,
+                         0.07237f, 0.6f, 50.0f);
+  expect_noise_hue_style(Feedback::Style::WavyTrails(), 0.7257f, 0.0722f,
+                         1.95f, 0.01f, 5.0f, 50.0f);
+
   Feedback::Style smoke = Feedback::Style::Smoke();
   HS_EXPECT_NEAR(smoke.fade, 0.9f, 1e-6f);
   HS_EXPECT_NEAR(smoke.frequency, 0.42f, 1e-6f);
