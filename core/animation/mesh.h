@@ -1100,6 +1100,27 @@ private:
     ScratchScope sb(scratch_arena_b);
     const PolyMesh &seed = *tr.seed_ref;
 
+    // A closing bridge leg departs the ambo point with its face blocks
+    // transposed against the handoff order (medial [P-faces][P-vertices] vs
+    // truncate(dual) [D-faces][D-vertices]), so the departed centroids cannot
+    // stand in for the start centroids: provenance needs the start mesh's own,
+    // built here, before the arrival, so the two never co-reside in scratch.
+    const Vector *start_centroid = nullptr;
+    if (bridge_provenance && handoff.prev_face_centroid &&
+        tr.t_start > tr.t_end) {
+      Vector *cen = scratch_arena_a.allocate_n<Vector>(handoff.prev_faces);
+      {
+        ScratchScope ta(scratch_arena_a);
+        ScratchScope tb(scratch_arena_b);
+        PolyMesh start = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
+                                tr.t_start, tr.twist_start);
+        HS_CHECK(start.face_counts.size() == handoff.prev_faces,
+                 "OpLeg: closing bridge start faces differ from the handoff");
+        face_centroids_into(start, cen);
+      }
+      start_centroid = cen;
+    }
+
     PolyMesh arrival = run_op(tr.op, seed, scratch_arena_a, scratch_arena_b,
                               tr.t_end, tr.twist_end);
     // Classification is hoisted per leg, taken at arrival geometry; a
@@ -1132,20 +1153,15 @@ private:
     // Geometric provenance needs the mesh the first frame draws: the
     // relaxed start on a reverse settling leg (settle_alpha == 1 there),
     // the plain op at t_start otherwise.
-    const Vector *start_centroid = nullptr;
     PolyMesh start_mesh;
     if (handoff.prev_face_centroid) {
       if (bridge_provenance) {
-        // Bridge truncate leg: recover the start-parameter provenance without
-        // rebuilding the birth mesh, whose scratch would co-reside with the
-        // arrival at the leg's scratch peak (the roster's over-budget spike).
-        // A full-correspondence closing leg departs the exact ambo point its
-        // handoff centroids already name, so those ARE the start centroids; a
-        // survivor-prefix opening leg reads centroids only for its newborn
-        // faces, where the arrival's own centroids stand in for the birth mesh.
-        start_centroid = handoff.prev_faces == tr.topo.size()
-                             ? handoff.prev_face_centroid
-                             : face_centroids(*classified, scratch_arena_a);
+        // Opening bridge leg: centroids are read only for its newborn faces,
+        // where the arrival's own centroids stand in for the birth mesh
+        // (rebuilding it would co-reside with the arrival at the scratch
+        // peak). Closing legs took theirs from the pre-arrival start build.
+        if (!start_centroid)
+          start_centroid = face_centroids(*classified, scratch_arena_a);
       } else {
         const PolyMesh *start = &relaxed_mesh;
         if (!(settle && tr.reverse)) {
@@ -1565,6 +1581,17 @@ private:
   HS_COLD_MEMBER static const Vector *face_centroids(const PolyMesh &m,
                                                      Arena &arena) {
     Vector *out = arena.allocate_n<Vector>(m.face_counts.size());
+    face_centroids_into(m, out);
+    return out;
+  }
+
+  /**
+   * @brief Fills a caller-allocated array with every face's unit centroid.
+   * @param m Mesh whose faces are reduced.
+   * @param out Receives one unit vector per face, in emission order.
+   */
+  HS_COLD_MEMBER static void face_centroids_into(const PolyMesh &m,
+                                                 Vector *out) {
     size_t off = 0;
     for (size_t f = 0; f < m.face_counts.size(); ++f) {
       Vector c(0.0f, 0.0f, 0.0f);
@@ -1574,7 +1601,6 @@ private:
       out[f] = c.normalized();
       off += n;
     }
-    return out;
   }
 
   /**
