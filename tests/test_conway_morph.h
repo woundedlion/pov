@@ -2493,6 +2493,279 @@ inline void test_opleg_medial_leg_smoke() {
   }
 }
 
+/**
+ * @brief Drives the dual bridge's medial -> closing-leg handoff on every
+ *        DUAL-leg seed and pins the face correspondence across the seam.
+ * @details The closing leg's face list is block-transposed against the
+ * medial's ([D-faces][D-vertex orbits] vs [P-faces][P-vertex orbits]): the
+ * k-th emitted P-vertex orbit is the k-th dual face, and each P-face is a
+ * dual vertex whose orbit face lands somewhere in the trailing block. Both
+ * sides coincide geometrically at the ambo point, so the probe derives the
+ * permutation by exact centroid matching there and requires the closing
+ * leg's from-palettes to follow it. A rendered A/B (leg-2 last frame vs
+ * leg-3 first frame, real pre-blended ramps, no camera) then gates the seam
+ * at pixel level: the diff must stay near one in-leg step, not a flip. The
+ * needle site runs on truncate(X, 1/3) -- the dt-macro bridge seed whose
+ * valence-2 star tips make the blocks unequal (362 vs 720) -- on the
+ * bridge arena split, so the closing leg's construction peak is covered.
+ */
+inline void test_opleg_dual_bridge_seam_correspondence() {
+  using Animation::OpLeg;
+  constexpr int SWEEP = 24;
+  constexpr int RW = 288, RH = 144;
+  constexpr float SEAM_MATCH_TOL = 0.02f;
+
+  struct SeamFx : public Effect {
+    SeamFx() : Effect(RW, RH) {}
+    void draw_frame() override {}
+  };
+  static Pipeline<RW, RH> filters;
+
+  for (const StepLegSite &site : DUAL_LEG_SITES) {
+    const int failed_before = hs_test::stats().failed;
+    reset_globals();
+    configure_arenas(GLOBAL_ARENA_SIZE - 132 * 1024 - 74 * 1024, 132 * 1024,
+                     74 * 1024);
+    hs::random().seed(2026u);
+
+    Arena bank_arena(morph_bank_buf, sizeof(morph_bank_buf));
+    MeshPaletteBank bank;
+    bank.bake_all(bank_arena);
+
+    Arena persist(morph_persist_buf, sizeof(morph_persist_buf));
+    Arena leg(morph_target_buf, sizeof(morph_target_buf));
+    Arena temp(morph_temp_buf, sizeof(morph_temp_buf));
+
+    // The needle reaches its bridge through the dt macro, so its seam runs on
+    // truncate(X, 1/3); every other site duals its recipe mesh directly.
+    PolyMesh P = build_step_leg_seed(site, persist);
+    if (std::strstr(site.name, "needle")) {
+      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+      P = Solids::finalize_solid(MeshOps::truncate(P, aux, temp, 1.0f / 3.0f),
+                                 leg);
+    }
+    const size_t PF = P.face_counts.size();
+
+    // Departed mesh ambo(P): class-keyed palettes plus face centroids.
+    PolyMesh ambo_p;
+    {
+      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+      ambo_p = Solids::finalize_solid(MeshOps::ambo(P, aux, temp), leg);
+    }
+    {
+      ScratchScope ta(scratch_arena_a);
+      ScratchScope tb(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(ambo_p, scratch_arena_a,
+                                          scratch_arena_b, leg);
+    }
+    const size_t nf = ambo_p.face_counts.size();
+    std::vector<uint8_t> pal2(nf);
+    std::vector<Vector> cen2(nf);
+    {
+      size_t off = 0;
+      for (size_t f = 0; f < nf; ++f) {
+        pal2[f] =
+            static_cast<uint8_t>(wrap(ambo_p.topology[f], OpLeg::PALETTES));
+        Vector c(0.0f, 0.0f, 0.0f);
+        for (int j = 0; j < ambo_p.face_counts[f]; ++j)
+          c = c + ambo_p.vertices[ambo_p.faces[off + j]];
+        cen2[f] = c.normalized();
+        off += ambo_p.face_counts[f];
+      }
+    }
+    std::array<uint8_t, OpLeg::PALETTES> targets;
+    for (int i = 0; i < OpLeg::PALETTES; ++i)
+      targets[i] = static_cast<uint8_t>(i);
+    hs::shuffle(targets.begin(), targets.end());
+
+    SeamFx fx;
+    std::vector<Pixel> snaps[3]; // leg-2 last, leg-3 first, leg-3 second
+    int drawn = 0, rasterize_at = -1;
+    auto cb = [&](Canvas &c, const MeshState &m, const OpLeg::Shading &sh) {
+      ++drawn;
+      if (drawn != rasterize_at)
+        return;
+      auto shader = [&](const Vector &, Fragment &frag) {
+        int fi = static_cast<int>(frag.v2);
+        int ramp =
+            (fi >= 0 && fi < static_cast<int>(sh.faces)) ? sh.face_ramp[fi] : 0;
+        float t = hs::clamp(fragment_edge_dist(frag) * sh.gain, 0.0f, 1.0f);
+        frag.color = sh.ramps[ramp].get(t);
+        frag.color.alpha = 255;
+      };
+      Scan::Mesh::draw<RW, RH>(filters, c, m, shader, scratch_arena_b, false);
+    };
+    auto snap = [&](std::vector<Pixel> &out) {
+      out.resize(static_cast<size_t>(RW) * RH);
+      for (int y = 0; y < RH; ++y)
+        for (int x = 0; x < RW; ++x)
+          out[static_cast<size_t>(y) * RW + x] = fx.get_pixel(x, y);
+    };
+
+    // Leg 2: the medial slerp, departed from ambo(P).
+    OpLeg::PaletteHandoff handoff2{&bank.bank, pal2.data(), nullptr, nf,
+                                   false,      cen2.data(), &targets};
+    OpLeg leg2(P, OpLeg::MedialTag{}, leg, cb, handoff2, SWEEP);
+    const OpLeg::Landing &landing2 = leg2.landing();
+    HS_EXPECT_EQ(landing2.faces, nf);
+    rasterize_at = SWEEP;
+    for (int f = 0; f < SWEEP; ++f) {
+      {
+        Canvas c(fx);
+        leg2.step(c);
+      }
+      fx.advance_display();
+    }
+    snap(snaps[0]);
+
+    // Leg-3 handoff, exactly as schedule_dual_untruncate builds it: departed
+    // centroids from a rebuilt medial at s = 1, palettes from leg-2's landing.
+    std::vector<uint8_t> pal3(nf);
+    std::vector<Vector> cen3(nf);
+    {
+      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+      PolyMesh med;
+      ArenaVector<Vector> med_b;
+      MeshOps::medial(P, med, med_b, aux, temp);
+      HS_EXPECT_EQ(med.face_counts.size(), nf);
+      size_t off = 0;
+      for (size_t f = 0; f < nf; ++f) {
+        Vector c(0.0f, 0.0f, 0.0f);
+        for (int j = 0; j < med.face_counts[f]; ++j)
+          c = c + med_b[med.faces[off + j]];
+        cen3[f] = c.normalized();
+        pal3[f] =
+            landing2.to_palette[wrap(landing2.topology[f], OpLeg::PALETTES)];
+        off += med.face_counts[f];
+      }
+    }
+
+    PolyMesh D;
+    {
+      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+      D = Solids::finalize_solid(MeshOps::dual(P, aux, temp), leg);
+    }
+    {
+      ScratchScope ta(scratch_arena_a);
+      ScratchScope tb(scratch_arena_b);
+      MeshOps::classify_faces_by_topology(D, scratch_arena_a, scratch_arena_b,
+                                          leg);
+    }
+    // dual drops sub-3 orbits, so D's faces are exactly the medial's P-vertex
+    // block: the two blocks partition the shared face count.
+    const size_t DF = D.face_counts.size();
+    HS_EXPECT_EQ(DF, nf - PF);
+
+    OpLeg::PaletteHandoff handoff3{&bank.bank, pal3.data(), nullptr, nf,
+                                   false,      cen3.data(), &targets};
+    OpLeg::BookendClasses bookend3{D.topology.data(), DF};
+    OpLeg leg3(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f, leg,
+               cb, handoff3, SWEEP, bookend3, /*bridge_provenance=*/true,
+               /*borrow_seed=*/true);
+    const OpLeg::Landing &landing3 = leg3.landing();
+    HS_EXPECT_EQ(landing3.faces, nf);
+    HS_EXPECT_TRUE(landing3.from_palette != nullptr);
+
+    // Derive the true seam permutation from the exact geometry: ambo(D) has
+    // the closing leg's face order and the seam's exact positions.
+    std::vector<int> perm(nf, -1);
+    {
+      Arena aux(morph_aux_buf, sizeof(morph_aux_buf));
+      PolyMesh ambo_d = MeshOps::ambo(D, aux, temp);
+      HS_EXPECT_EQ(ambo_d.face_counts.size(), nf);
+      std::vector<char> used(nf, 0);
+      int bad_match = 0, non_bijective = 0;
+      size_t off = 0;
+      for (size_t l = 0; l < nf; ++l) {
+        Vector c(0.0f, 0.0f, 0.0f);
+        for (int j = 0; j < ambo_d.face_counts[l]; ++j)
+          c = c + ambo_d.vertices[ambo_d.faces[off + j]];
+        c = c.normalized();
+        off += ambo_d.face_counts[l];
+        size_t best = 0;
+        float bd = 1e9f;
+        for (size_t m = 0; m < nf; ++m) {
+          const float d = distance_between(c, cen3[m]);
+          if (d < bd) {
+            bd = d;
+            best = m;
+          }
+        }
+        if (bd > SEAM_MATCH_TOL)
+          ++bad_match;
+        if (used[best])
+          ++non_bijective;
+        used[best] = 1;
+        perm[l] = static_cast<int>(best);
+      }
+      HS_EXPECT_EQ(bad_match, 0);
+      HS_EXPECT_EQ(non_bijective, 0);
+    }
+
+    // Block structure: D-faces are the medial's P-vertex orbits in emission
+    // order; D-vertex orbit faces land in the medial's P-face block.
+    int block1_viol = 0, block2_viol = 0, from_mismatch = 0;
+    for (size_t l = 0; l < nf; ++l) {
+      if (l < DF && perm[l] != static_cast<int>(PF + l))
+        ++block1_viol;
+      if (l >= DF && perm[l] >= static_cast<int>(PF))
+        ++block2_viol;
+      if (landing3.from_palette[l] != pal3[perm[l]])
+        ++from_mismatch;
+    }
+    HS_EXPECT_EQ(block1_viol, 0);
+    HS_EXPECT_EQ(block2_viol, 0);
+    HS_EXPECT_EQ(from_mismatch, 0);
+
+    // Rendered seam A/B plus a one-step in-leg control.
+    drawn = 0;
+    rasterize_at = 1;
+    {
+      Canvas c(fx);
+      leg3.step(c);
+    }
+    fx.advance_display();
+    snap(snaps[1]);
+    rasterize_at = 2;
+    {
+      Canvas c(fx);
+      leg3.step(c);
+    }
+    fx.advance_display();
+    snap(snaps[2]);
+
+    auto diff = [&](const std::vector<Pixel> &a, const std::vector<Pixel> &b,
+                    long long &sumabs, int &changed) {
+      sumabs = 0;
+      changed = 0;
+      for (size_t i = 0; i < a.size(); ++i) {
+        const int dr = std::abs((a[i].r >> 8) - (b[i].r >> 8));
+        const int dg = std::abs((a[i].g >> 8) - (b[i].g >> 8));
+        const int db = std::abs((a[i].b >> 8) - (b[i].b >> 8));
+        sumabs += dr + dg + db;
+        if (dr | dg | db)
+          ++changed;
+      }
+    };
+    long long seam_sum = 0, ctrl_sum = 0;
+    int seam_px = 0, ctrl_px = 0;
+    diff(snaps[0], snaps[1], seam_sum, seam_px);
+    diff(snaps[1], snaps[2], ctrl_sum, ctrl_px);
+
+    // A mis-keyed seam is a near-total flip (>=96% of pixels changed, needle
+    // sumabs 8.4M); a continuous one carries only the swap's shading residual
+    // (measured maxima across sites: 87% / 4.9M).
+    HS_EXPECT_LT(seam_px, RW * RH * 93 / 100);
+    HS_EXPECT_LT(seam_sum, 6500000ll);
+
+    std::printf("  [opleg seam] %s: F=%zu blocks %zu/%zu, seam diff "
+                "sumabs=%lld px=%d (control %lld/%d)%s\n",
+                site.name, nf, DF, nf - DF, seam_sum, seam_px, ctrl_sum,
+                ctrl_px,
+                hs_test::stats().failed != failed_before ? " FAILED" : "");
+  }
+}
+
 /** @brief Recipe-step leg kind driven by the smoke test. */
 enum class StepLegKind { TRUNCATE, SNUB, RELAX };
 
@@ -3470,6 +3743,7 @@ inline int run_conway_morph_tests() {
   test_relax_leg_on_recipe_seeds_holds_topology();
   test_medial_dual_bridge_wellformed();
   test_opleg_medial_leg_smoke();
+  test_opleg_dual_bridge_seam_correspondence();
   test_opleg_step_leg_smoke();
   test_opleg_gated_swap_smoke();
   test_unsweepable_recipe_steps_are_gated();
