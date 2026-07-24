@@ -3092,11 +3092,12 @@ inline void test_opleg_step_leg_smoke() {
  * @brief Pins the immutable build-colour model on legs constructed with an
  *        immutable handoff, as the IslamicStars build scheduler does: every
  *        frame — the arrival frame included — draws every face in exactly its
- *        from palette (carried faces the handed-off colour, newborn faces
- *        their class-keyed target at birth), for a hankin leg, a bridge
- *        truncate leg, the medial, and the reconcile. A ConwayGraph edge leg
- *        keeps the classic_blend default: its colour has left `from` by
- *        mid-leg, pinning that the blend machinery survives for that path.
+ *        from palette (carried faces the handed-off colour, newborn cohorts
+ *        the next wrapping-counter entries of the palette order at birth),
+ *        for a hankin leg, a bridge truncate leg, the medial, and the
+ *        reconcile. A ConwayGraph edge leg keeps the classic_blend default:
+ *        its colour has left `from` by mid-leg, pinning that the blend
+ *        machinery survives for that path.
  */
 inline void test_opleg_build_immutable_colours() {
   using Animation::OpLeg;
@@ -3152,7 +3153,6 @@ inline void test_opleg_build_immutable_colours() {
     all_from.clear();
     all_to.clear();
     lp = &leg.landing();
-    HS_EXPECT_GT(divergent_faces(), 0);
     for (int f = 0; f < frames; ++f) {
       {
         Canvas c(fx);
@@ -3162,19 +3162,43 @@ inline void test_opleg_build_immutable_colours() {
     }
     HS_EXPECT_EQ(all_from.size(), (size_t)frames);
   };
+  // Newborn cohorts: each distinct birth class among faces [prev_faces,
+  // faces), ascending class id, takes the next wrapping-counter entry of the
+  // leg's palette order.
+  auto check_newborn_cohorts = [&](size_t prev_faces, uint32_t start,
+                                   uint32_t end) {
+    uint32_t ord = start;
+    int prev_cls = -1;
+    for (;;) {
+      int cls = -1;
+      for (size_t f = prev_faces; f < lp->faces; ++f) {
+        const int c = lp->topology[f];
+        if (c > prev_cls && (cls < 0 || c < cls))
+          cls = c;
+      }
+      if (cls < 0)
+        break;
+      for (size_t f = prev_faces; f < lp->faces; ++f)
+        if (lp->topology[f] == cls)
+          HS_EXPECT_EQ((int)lp->from_palette[f],
+                       (int)lp->to_palette[ord % OpLeg::PALETTES]);
+      ++ord;
+      prev_cls = cls;
+    }
+    HS_EXPECT_EQ(end, ord);
+  };
   auto check_immutable = [&](const char *label, OpLeg &&leg, int frames,
-                             size_t prev_faces) {
+                             size_t prev_faces, const uint8_t *prev_pal,
+                             uint32_t counter_start, uint32_t counter_end) {
     const int failed_before = hs_test::stats().failed;
     run_frames(leg, frames);
-    // Newborn faces are born on their class-keyed target.
-    for (size_t f = prev_faces; f < lp->faces; ++f)
-      HS_EXPECT_EQ((int)lp->from_palette[f],
-                   (int)lp->to_palette[wrap(lp->topology[f], OpLeg::PALETTES)]);
-    // Every frame draws the exact from palettes, the arrival included...
+    // Carried faces keep the handed-off palette verbatim.
+    for (size_t f = 0; f < prev_faces; ++f)
+      HS_EXPECT_EQ((int)lp->from_palette[f], (int)prev_pal[f]);
+    check_newborn_cohorts(prev_faces, counter_start, counter_end);
+    // Every frame draws the exact from palettes, the arrival included.
     for (int f = 0; f < frames; ++f)
       HS_EXPECT_TRUE(all_from[f]);
-    // ...so the divergent faces never reach the class-keyed assignment.
-    HS_EXPECT_TRUE(!all_to[frames - 1]);
     std::printf("  [immutable] %s: F=%zu (%zu carried) holds every face's "
                 "palette across %d frames%s\n",
                 label, lp->faces, prev_faces, frames,
@@ -3192,14 +3216,17 @@ inline void test_opleg_build_immutable_colours() {
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
       sides[f] = dodeca.face_counts[f];
     }
+    // A nonzero counter start pins the wrap-through continuation.
+    uint32_t counter = 3;
     OpLeg::PaletteHandoff handoff{
         &bank.bank, pal,     sides,   dodeca.face_counts.size(),
-        false,      nullptr, nullptr, /*immutable=*/true};
+        false,      nullptr, nullptr, /*immutable=*/true,
+        &counter};
     using Solids::IslamicStarPatterns::D2R;
     OpLeg leg(dodeca, OpLeg::THETA_EPS, 62.0f * D2R, leg_arena, cb, handoff,
               FRAMES);
-    check_immutable("hankin", std::move(leg), FRAMES,
-                    dodeca.face_counts.size());
+    check_immutable("hankin", std::move(leg), FRAMES, dodeca.face_counts.size(),
+                    pal, 3, counter);
   }
 
   {
@@ -3213,15 +3240,17 @@ inline void test_opleg_build_immutable_colours() {
     uint8_t pal[16];
     for (size_t f = 0; f < D.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+    uint32_t counter = 1;
     OpLeg::PaletteHandoff handoff{
         &bank.bank, pal,     nullptr, D.face_counts.size(),
-        false,      nullptr, nullptr, /*immutable=*/true};
+        false,      nullptr, nullptr, /*immutable=*/true,
+        &counter};
     OpLeg leg(D, ConwayGraph::MorphOp::TRUNCATE, 0.5f, 0.0f, 0.0f, 0.0f,
               leg_arena, cb, handoff, FRAMES, OpLeg::BookendClasses{nullptr, 0},
               OpLeg::classic_blend,
               /*bridge_provenance=*/true, /*borrow_seed=*/true);
     check_immutable("bridge truncate", std::move(leg), FRAMES,
-                    D.face_counts.size());
+                    D.face_counts.size(), pal, 1, counter);
   }
 
   {
@@ -3232,11 +3261,13 @@ inline void test_opleg_build_immutable_colours() {
     uint8_t pal[16];
     for (size_t f = 0; f < nf; ++f)
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+    // No newborn faces on the medial: the counter must come back unmoved.
+    uint32_t counter = 7;
     OpLeg::PaletteHandoff handoff{
         &bank.bank,        pal, nullptr, nf, false, nullptr, nullptr,
-        /*immutable=*/true};
+        /*immutable=*/true, &counter};
     OpLeg leg(cube, OpLeg::MedialTag{}, leg_arena, cb, handoff, FRAMES);
-    check_immutable("medial", std::move(leg), FRAMES, nf);
+    check_immutable("medial", std::move(leg), FRAMES, nf, pal, 7, counter);
   }
 
   {
@@ -3246,13 +3277,15 @@ inline void test_opleg_build_immutable_colours() {
     uint8_t pal[16];
     for (size_t f = 0; f < cube.face_counts.size(); ++f)
       pal[f] = static_cast<uint8_t>(f % OpLeg::PALETTES);
+    uint32_t counter = 2;
     OpLeg::PaletteHandoff handoff{
         &bank.bank, pal,     nullptr, cube.face_counts.size(),
-        false,      nullptr, nullptr, /*immutable=*/true};
+        false,      nullptr, nullptr, /*immutable=*/true,
+        &counter};
     OpLeg leg(cube, cube.vertices.data(), OpLeg::ReconcileTag{}, leg_arena, cb,
               handoff, FRAMES);
     check_immutable("reconcile", std::move(leg), FRAMES,
-                    cube.face_counts.size());
+                    cube.face_counts.size(), pal, 2, counter);
   }
 
   // Control: a ConwayGraph edge leg keeps the classic_blend default — exact
@@ -3282,6 +3315,7 @@ inline void test_opleg_build_immutable_colours() {
     OpLeg leg(cube, ConwayGraph::EDGES[edge], false, leg_arena, cb, handoff,
               EDGE_FRAMES, 0);
     run_frames(leg, EDGE_FRAMES);
+    HS_EXPECT_GT(divergent_faces(), 0);
     HS_EXPECT_TRUE(all_from[0]);
     HS_EXPECT_TRUE(!all_from[EDGE_FRAMES / 2 - 1]);
     HS_EXPECT_TRUE(all_to[EDGE_FRAMES - 1]);
@@ -3324,13 +3358,15 @@ inline void test_unsweepable_recipe_steps_are_gated() {
 // ---------------------------------------------------------------------------
 // Recipe chain build replay (docs/opchain_morph_spec.md sections 9.2/9.3):
 // every registry entry with a non-null recipe is lowered and replayed leg by
-// leg exactly as IslamicStars builds it — same immutable handoff, bookend and
-// pinned targets — stepping every leg frame by frame with a recording draw
-// callback. Gates per-leg compiled-face-count constancy, the immutable colour
-// model (every frame of every leg draws every face's birth palette exactly;
-// newborns are born on the class-keyed assignment; carried faces keep their
-// palette across every boundary), the final per-face sprite handoff, and the
-// persistent/scratch high-water against IslamicStars' configured split.
+// leg exactly as IslamicStars builds it — same immutable handoff, bookend,
+// pinned palette order and wrapping birth counter — stepping every leg frame
+// by frame with a recording draw callback. Gates per-leg compiled-face-count
+// constancy, the immutable colour model (every frame of every leg draws every
+// face's birth palette exactly; newborn cohorts take the counter's next
+// palette-order entries; carried faces keep their palette across every
+// boundary), the final per-face sprite handoff, the per-(final class, birth
+// leg) palette symmetry of the finished shape, and the persistent/scratch
+// high-water against IslamicStars' configured split.
 // ---------------------------------------------------------------------------
 
 constexpr size_t ISLAMIC_SCRATCH_A_BUDGET =
@@ -3353,6 +3389,7 @@ struct ChainPeaks {
   size_t scratch_b = 0;  /**< scratch_arena_b high-water, bytes. */
   size_t legs = 0;       /**< Lowered primitive step count. */
   size_t faces = 0;      /**< Face count of the finished solid. */
+  int palettes = 0;       /**< Distinct palettes on the finished shape. */
   bool supported = false; /**< Every lowered step has a leg kind. */
 };
 
@@ -3410,12 +3447,15 @@ inline ChainPeaks replay_build_chain(const char *name,
                                           scratch_arena_b, persistent_arena);
     }
 
+    // One shuffled palette order per shape, as spawn_shape pins it: the seed's
+    // classes consume its first entries, newborn cohorts the rest through the
+    // wrapping counter.
     std::array<int, OpLeg::PALETTES> slots;
     MeshPaletteBank::shuffle_indices(slots);
-    std::array<uint8_t, OpLeg::PALETTES> targets;
+    std::array<uint8_t, OpLeg::PALETTES> order;
     for (int i = 0; i < OpLeg::PALETTES; ++i)
-      targets[i] = static_cast<uint8_t>(i);
-    hs::shuffle(targets.begin(), targets.end());
+      order[i] = static_cast<uint8_t>(slots[i]);
+    uint32_t counter = 0;
 
     Solids::OpStep steps[MAX_STEPS];
     const size_t count = Solids::expand_to_primitives(recipe, steps, MAX_STEPS);
@@ -3447,6 +3487,14 @@ inline ChainPeaks replay_build_chain(const char *name,
     uint8_t prev_pal_buf[MAX_FACES];
     Vector prev_centroid[MAX_FACES];
     uint8_t carried_to[MAX_FACES] = {};
+    // Birth-leg tracking for the symmetry pin: 0 = seed face, k + 1 = born on
+    // leg k. Partition legs keep no emission-order identity, so chains with
+    // one skip the pin.
+    uint8_t birth_leg[MAX_FACES] = {};
+    bool pin_births = supported;
+    for (size_t k = 0; k < count; ++k)
+      pin_births = pin_births && !gated[k];
+    std::vector<int> full_topo;
     const OpLeg::Landing *prev_landing = nullptr;
     PolyMesh next;
     // A hankin leg's endpoint is rebuilt into scratch_a and stays there until
@@ -3471,9 +3519,14 @@ inline ChainPeaks replay_build_chain(const char *name,
       }
       const uint8_t *prev_pal;
       if (k == 0) {
-        for (size_t f = 0; f < prev_faces; ++f)
-          prev_pal_buf[f] = static_cast<uint8_t>(
-              slots[wrap(seed_slot.topology[f], OpLeg::PALETTES)]);
+        // Seed keying, as spawn_shape does it: class ids are dense, so class
+        // c is the c-th cohort and the counter continues from the class count.
+        for (size_t f = 0; f < prev_faces; ++f) {
+          const int cls = seed_slot.topology[f];
+          counter = std::max(counter, static_cast<uint32_t>(cls) + 1);
+          prev_pal_buf[f] =
+              static_cast<uint8_t>(order[wrap(cls, OpLeg::PALETTES)]);
+        }
         prev_pal = prev_pal_buf;
       } else {
         for (size_t f = 0; f < prev_faces; ++f)
@@ -3527,7 +3580,7 @@ inline ChainPeaks replay_build_chain(const char *name,
 
       OpLeg::PaletteHandoff handoff{&bank.bank, prev_pal, nullptr,
                                     prev_faces, false,    prev_centroid,
-                                    &targets,   true};
+                                    &order,     true,     &counter};
 
       size_t drawn = 0;
       size_t leg_faces = 0;
@@ -3599,6 +3652,7 @@ inline ChainPeaks replay_build_chain(const char *name,
                        cb, handoff, leg_frames[k], bookend);
         }
       };
+      const uint32_t counter_before = counter;
       OpLeg leg = make_leg();
       const OpLeg::Landing &landing = leg.landing();
       lp = &landing;
@@ -3640,13 +3694,32 @@ inline ChainPeaks replay_build_chain(const char *name,
           HS_EXPECT_TRUE(found);
         }
       }
-      // Newborn faces take the shape's class -> palette assignment at birth.
+      // Newborn cohorts: each distinct birth class, ascending class id, takes
+      // the next wrapping-counter entry of the shape's palette order.
       if (supported && !gated[k]) {
-        for (size_t f = prev_faces; f < landing.faces; ++f)
-          HS_EXPECT_EQ(
-              (int)landing.from_palette[f],
-              (int)targets[wrap(landing.topology[f], OpLeg::PALETTES)]);
+        uint32_t ord = counter_before;
+        int prev_cls = -1;
+        for (;;) {
+          int cls = -1;
+          for (size_t f = prev_faces; f < landing.faces; ++f) {
+            const int c = landing.topology[f];
+            if (c > prev_cls && (cls < 0 || c < cls))
+              cls = c;
+          }
+          if (cls < 0)
+            break;
+          for (size_t f = prev_faces; f < landing.faces; ++f)
+            if (landing.topology[f] == cls)
+              HS_EXPECT_EQ((int)landing.from_palette[f],
+                           (int)order[ord % OpLeg::PALETTES]);
+          ++ord;
+          prev_cls = cls;
+        }
+        HS_EXPECT_EQ(counter, ord);
       }
+      if (pin_births)
+        for (size_t f = prev_faces; f < landing.faces; ++f)
+          birth_leg[f] = static_cast<uint8_t>(k + 1);
       for (size_t f = 0; f < landing.faces; ++f)
         carried_to[f] = landing.from_palette[f];
 
@@ -3657,6 +3730,24 @@ inline ChainPeaks replay_build_chain(const char *name,
         next = PolyMesh();
         scratch_arena_a.set_offset(endpoint_mark);
         OpLeg::arrival_mesh(landing, next, scratch_arena_a);
+      }
+
+      // Full-precision final classification for the symmetry pin, rebuilt as
+      // the leg's constructor builds its arrival (before the snorm16 pack).
+      // Test-local arenas keep the replay's gated peaks untouched; a
+      // non-hankin final leg lands on the clean endpoint, whose full-precision
+      // classification the closing compile below provides.
+      if (pin_births && k + 1 == count && hankin_step) {
+        Arena pa(morph_target_buf, sizeof(morph_target_buf));
+        Arena pb(morph_temp_buf, sizeof(morph_temp_buf));
+        Arena pc(morph_aux_buf, sizeof(morph_aux_buf));
+        CompiledHankin hk;
+        MeshOps::compile_hankin(cur, hk, pa, pb);
+        PolyMesh full;
+        MeshOps::update_hankin(hk, full, pa,
+                               std::max(steps[k].param, OpLeg::THETA_EPS));
+        MeshOps::classify_faces_by_topology(full, pb, pc, pa);
+        full_topo.assign(full.topology.begin(), full.topology.end());
       }
 
       // Mirror finish_build_leg's boundary compaction: the finished leg's
@@ -3710,18 +3801,49 @@ inline ChainPeaks replay_build_chain(const char *name,
       for (size_t f = 0; f < landed_faces; ++f)
         HS_EXPECT_EQ((int)sprite_pal[f], (int)carried_to[f]);
     }
+    if (pin_births && full_topo.empty())
+      full_topo.assign(final_slot.topology.begin(), final_slot.topology.end());
+
+    // Variety: distinct palettes on the finished shape.
+    peaks.palettes = 0;
+    {
+      bool seen[OpLeg::PALETTES] = {};
+      for (size_t f = 0; f < landed_faces; ++f)
+        if (sprite_pal[f] < OpLeg::PALETTES)
+          seen[sprite_pal[f]] = true;
+      for (bool s : seen)
+        peaks.palettes += s;
+    }
+
+    // Symmetry pin: on the finished shape any two faces with the same
+    // full-precision final class and the same birth leg wear the same
+    // palette. A quantized-classification regression shatters birth orbits
+    // and breaks this.
+    if (pin_births) {
+      HS_EXPECT_EQ(full_topo.size(), landed_faces);
+      int asymmetric = 0;
+      if (full_topo.size() == landed_faces) {
+        for (size_t f = 0; f < landed_faces; ++f)
+          for (size_t g = f + 1; g < landed_faces; ++g)
+            if (full_topo[f] == full_topo[g] && birth_leg[f] == birth_leg[g] &&
+                sprite_pal[f] != sprite_pal[g])
+              ++asymmetric;
+      }
+      HS_EXPECT_EQ(asymmetric, 0);
+    }
 
     peaks.persistent = persistent_arena.get_high_water_mark();
     peaks.scratch_a = scratch_arena_a.get_high_water_mark();
     peaks.scratch_b = scratch_arena_b.get_high_water_mark();
     peaks.faces = final_slot.face_counts.size();
     if (gate) {
-      std::printf("  [chain] %s: %zu legs, persistent=%zu B / %zu B, "
+      std::printf("  [chain] %s: %zu legs, %d/%d palettes, "
+                  "persistent=%zu B / %zu B, "
                   "scratch a=%zu B / %zu B, b=%zu B / %zu B\n",
-                  name, count, peaks.persistent,
-                  (size_t)ISLAMIC_PERSISTENT_BUDGET, peaks.scratch_a,
-                  (size_t)ISLAMIC_SCRATCH_A_BUDGET, peaks.scratch_b,
-                  (size_t)ISLAMIC_SCRATCH_B_BUDGET);
+                  name, count, peaks.palettes, OpLeg::PALETTES,
+                  peaks.persistent, (size_t)ISLAMIC_PERSISTENT_BUDGET,
+                  peaks.scratch_a, (size_t)ISLAMIC_SCRATCH_A_BUDGET,
+                  peaks.scratch_b, (size_t)ISLAMIC_SCRATCH_B_BUDGET);
       HS_EXPECT_LE(peaks.persistent, ISLAMIC_PERSISTENT_BUDGET);
       HS_EXPECT_LE(peaks.scratch_a, ISLAMIC_SCRATCH_A_BUDGET);
       HS_EXPECT_LE(peaks.scratch_b, ISLAMIC_SCRATCH_B_BUDGET);
