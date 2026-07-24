@@ -1332,6 +1332,15 @@ inline Vector north_cap_rotation_warp(const Vector &v,
   return Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
 }
 
+inline float animated_cap_rotation_angle = 0.0f;
+
+inline Vector animated_cap_rotation_warp(const Vector &v,
+                                         const ::Feedback::Style &) {
+  const float c = std::cos(animated_cap_rotation_angle);
+  const float s = std::sin(animated_cap_rotation_angle);
+  return Vector(c * v.x - s * v.y, s * v.x + c * v.y, v.z);
+}
+
 /**
  * @brief Verifies north-cap rows use warp values evaluated at their latitude.
  */
@@ -1371,6 +1380,53 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
     const float expected_y = phi_to_y<H>(Spherical(warped).phi);
     const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
     HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
+  }
+}
+
+/**
+ * @brief Verifies animated polar controls use the compositor's longitudes.
+ */
+inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
+  constexpr int W = 64, H = 34;
+  constexpr int DOWNSAMPLE = 4;
+  constexpr float ROW_SCALE = 1000.0f;
+  PipeFx fx(W, H);
+
+  ::Feedback::Style style{};
+  style.space_fn = &animated_cap_rotation_warp;
+  style.color_fn = &::Feedback::plain_fade;
+  style.fade = 1.0f;
+  style.downsample = DOWNSAMPLE;
+
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  for (float angle : {0.15f, 0.35f, -0.25f}) {
+    animated_cap_rotation_angle = angle;
+    {
+      Canvas c(fx);
+      for (int y = 0; y < H; ++y)
+        for (int x = 0; x < W; ++x)
+          c(x, y) = Pixel(static_cast<uint16_t>(y * ROW_SCALE), 0, 0);
+    }
+    fx.advance_display();
+
+    {
+      Canvas c(fx);
+      pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+    }
+    fx.advance_display();
+
+    for (int y = 1; y < DOWNSAMPLE; ++y) {
+      for (int x = 0; x < W; x += DOWNSAMPLE) {
+        const Vector warped =
+            animated_cap_rotation_warp(pixel_to_vector<W, H>(x, y), style);
+        const float expected_y = phi_to_y<H>(Spherical(warped).phi);
+        const float sampled_y = fx.get_pixel(x, y).r / ROW_SCALE;
+        HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
+      }
+    }
   }
 }
 
@@ -1449,7 +1505,7 @@ inline void test_feedback_spherical_ring_control_rows() {
   fx.advance_display();
 
   constexpr hs::SphericalFieldLayout<W, H> layout(DOWNSAMPLE, DOWNSAMPLE,
-                                                  DOWNSAMPLE);
+                                                  DOWNSAMPLE, W / DOWNSAMPLE);
   for (int ring_index = 0; ring_index < layout.ring_count(); ++ring_index) {
     const int y = layout.ring(ring_index).y;
     const Vector warped =
@@ -1471,7 +1527,7 @@ inline void test_feedback_spherical_field_angular_error() {
   constexpr int W = 288, H = 144;
   constexpr int DOWNSAMPLE = 4;
   constexpr hs::SphericalFieldLayout<W, H> layout(DOWNSAMPLE, DOWNSAMPLE,
-                                                  DOWNSAMPLE);
+                                                  DOWNSAMPLE, W / DOWNSAMPLE);
   struct Offset {
     float x;
     float y;
@@ -2366,6 +2422,7 @@ inline int run_filter_tests() {
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();
   test_feedback_north_cap_uses_exact_control_rows();
+  test_feedback_animated_cap_controls_match_compositor_lattice();
   test_feedback_poles_resolve_one_source_longitude();
   test_feedback_spherical_ring_control_rows();
   test_feedback_spherical_field_angular_error();
