@@ -286,7 +286,12 @@ public:
     bool immutable = false; /**< Birth-colour model (the build chains): every
                                carried face keeps its from palette (to = from,
                                so the leg never crossfades) and a newborn face
-                               is born on its class-keyed target. */
+                               is born on its birth-cohort palette. */
+    uint32_t *birth_counter =
+        nullptr; /**< Wrapping cohort counter over the shape's build (immutable
+                    handoffs): each distinct class among the leg's newborn
+                    faces takes to_palette[counter++ % PALETTES], ascending
+                    class id. Null keys newborns by wrap(class, PALETTES). */
   };
 
   /**
@@ -1696,7 +1701,8 @@ private:
    * nearest departed palette, so T_EPS-wide births open in the underlying
    * face's colors instead of popping in as target-colored slivers. An
    * immutable handoff overrides the pair: every carried face keeps its from
-   * palette (to = from) and every newborn is born on its class-keyed target,
+   * palette (to = from) and every newborn is born on its birth-cohort palette
+   * (the birth_counter keying, or wrap(class, PALETTES) without a counter),
    * so no pair ever blends.
    */
   HS_COLD_MEMBER void
@@ -1788,12 +1794,42 @@ private:
     for (int i = 0; i < PALETTES; ++i)
       newborn_from[i] = -1;
 
+    // Immutable birth cohorts: each distinct class among the newborn suffix
+    // takes the next entry of the shuffled palette order through the shape's
+    // wrapping counter, ascending class id, so cohorts born on different legs
+    // never collide on the order's first slots.
+    uint8_t *birth_pal = nullptr;
+    int birth_cls_lo = 0;
+    if (handoff.immutable && handoff.birth_counter && !forced_from &&
+        handoff.prev_faces < total) {
+      int lo = target_topo[handoff.prev_faces], hi = lo;
+      for (size_t f = handoff.prev_faces; f < total; ++f) {
+        lo = std::min(lo, target_topo[f]);
+        hi = std::max(hi, target_topo[f]);
+      }
+      const size_t span = static_cast<size_t>(hi - lo + 1);
+      constexpr uint8_t ABSENT = 0xFF, PRESENT = 0xFE;
+      birth_pal = scratch_arena_a.allocate_n<uint8_t>(span);
+      std::fill_n(birth_pal, span, ABSENT);
+      for (size_t f = handoff.prev_faces; f < total; ++f)
+        birth_pal[target_topo[f] - lo] = PRESENT;
+      for (size_t c = 0; c < span; ++c) {
+        if (birth_pal[c] != PRESENT)
+          continue;
+        birth_pal[c] =
+            tr.landing.to_palette[(*handoff.birth_counter)++ % PALETTES];
+      }
+      birth_cls_lo = lo;
+    }
+
     uint8_t *from_palette = arena.allocate_n<uint8_t>(total);
     tr.landing.from_palette = from_palette;
 
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
       uint8_t to = tr.landing.to_palette[wrap(target_topo[f], PALETTES)];
+      if (birth_pal && f >= handoff.prev_faces)
+        to = birth_pal[target_topo[f] - birth_cls_lo];
       uint8_t from = to; // fallback: newborn faces skip the crossfade
       if (forced_from) {
         from = forced_from[f];
