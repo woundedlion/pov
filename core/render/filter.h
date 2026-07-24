@@ -1663,6 +1663,7 @@ private:
     constexpr float HALF_WRAP_PERIOD = WRAP_PERIOD * 0.5f;
     const ::Pixel *previous = cv.prev_data();
     ::Pixel *current = cv.data();
+    const ::Pixel north_pole = select_north_pole_sample(previous);
     const ColumnRuns runs = make_column_runs(band.x_clip);
     int field_y0 = band.field_y_begin;
     int field_y1 = field_y0 + (field_y0 < grid.field_rows - 1 ? 1 : 0);
@@ -1753,10 +1754,10 @@ private:
                 float sr0, sg0, sb0, sr1, sg1, sb1;
                 {
                   HS_PROFILE_DEEP(fb_comp_sample);
-                  sample_bilinear_prev(previous, x + ddx0, y + ddy0, sr0,
-                                       sg0, sb0);
-                  sample_bilinear_prev(previous, x + 1 + ddx1, y + ddy1,
-                                       sr1, sg1, sb1);
+                  sample_bilinear_prev(previous, north_pole, x + ddx0, y + ddy0,
+                                       sr0, sg0, sb0);
+                  sample_bilinear_prev(previous, north_pole, x + 1 + ddx1,
+                                       y + ddy1, sr1, sg1, sb1);
                 }
                 ::Pixel p0(0, 0, 0), p1(0, 0, 0);
                 {
@@ -1794,7 +1795,8 @@ private:
             float sr, sg, sb;
             {
               HS_PROFILE_DEEP(fb_comp_sample);
-              sample_bilinear_prev(previous, x + ddx, y + ddy, sr, sg, sb);
+              sample_bilinear_prev(previous, north_pole, x + ddx, y + ddy, sr,
+                                   sg, sb);
             }
             ::Pixel p(0, 0, 0);
             if (!(black_skips_color && sr < NEAR_BLACK && sg < NEAR_BLACK &&
@@ -1917,18 +1919,40 @@ private:
   }
 
   /**
+   * @brief Chooses one color for the longitude-aliased north-pole row.
+   */
+  HS_O3_FN static ::Pixel select_north_pole_sample(const ::Pixel *prev) {
+    ::Pixel selected = prev[0];
+    uint32_t selected_energy =
+        static_cast<uint32_t>(selected.r) + selected.g + selected.b;
+    for (int x = 1; x < W; ++x) {
+      const ::Pixel candidate = prev[x];
+      const uint32_t energy =
+          static_cast<uint32_t>(candidate.r) + candidate.g + candidate.b;
+      if (energy > selected_energy) {
+        selected = candidate;
+        selected_energy = energy;
+      }
+    }
+    return selected;
+  }
+
+  /**
    * @brief Bilinearly samples the Canvas front buffer (previous frame).
    * @param prev Base of the previous-frame buffer, row-major with stride W.
+   * @param north_pole Shared value for every aliased column of row zero.
    * @param bx Fractional column in [-W, 2W) (producer contract); wrapped across
    *   the longitude seam by the family's single-step fast_wrap.
-   * @param by Fractional row; out-of-range rows contribute black.
+   * @param by Fractional row; out-of-range rows contribute black. Row zero
+   *   resolves to the shared physical north-pole sample.
    * @param r Out: interpolated red on the [0, 65535] scale, unquantized.
    * @param g Out: interpolated green.
    * @param b Out: interpolated blue.
    */
   HS_O3_FN
-  void sample_bilinear_prev(const ::Pixel *prev, float bx, float by, float &r,
-                            float &g, float &b) const {
+  void sample_bilinear_prev(const ::Pixel *prev, const ::Pixel &north_pole,
+                            float bx, float by, float &r, float &g,
+                            float &b) const {
     float fy0 = std::floor(by);
     int y0 = static_cast<int>(fy0);
     int y1 = y0 + 1;
@@ -1944,10 +1968,18 @@ private:
     x0 = fast_wrap(x0, W);
     int x1 = fast_wrap(x0 + 1, W);
 
-    ::Pixel p00 = (y0 >= 0 && y0 < H) ? prev[y0 * W + x0] : ::Pixel(0, 0, 0);
-    ::Pixel p10 = (y0 >= 0 && y0 < H) ? prev[y0 * W + x1] : ::Pixel(0, 0, 0);
-    ::Pixel p01 = (y1 >= 0 && y1 < H) ? prev[y1 * W + x0] : ::Pixel(0, 0, 0);
-    ::Pixel p11 = (y1 >= 0 && y1 < H) ? prev[y1 * W + x1] : ::Pixel(0, 0, 0);
+    ::Pixel p00 = y0 == 0            ? north_pole
+                  : y0 > 0 && y0 < H ? prev[y0 * W + x0]
+                                     : ::Pixel(0, 0, 0);
+    ::Pixel p10 = y0 == 0            ? north_pole
+                  : y0 > 0 && y0 < H ? prev[y0 * W + x1]
+                                     : ::Pixel(0, 0, 0);
+    ::Pixel p01 = y1 == 0            ? north_pole
+                  : y1 > 0 && y1 < H ? prev[y1 * W + x0]
+                                     : ::Pixel(0, 0, 0);
+    ::Pixel p11 = y1 == 0            ? north_pole
+                  : y1 > 0 && y1 < H ? prev[y1 * W + x1]
+                                     : ::Pixel(0, 0, 0);
 
     float w00 = (1.0f - fx) * (1.0f - fy);
     float w10 = fx * (1.0f - fy);

@@ -1178,6 +1178,40 @@ inline void test_feedback_flush_blends_prev_frame() {
 }
 
 /**
+ * @brief Verifies the aliased north-pole row retains a lone physical sample.
+ */
+inline void test_feedback_north_pole_uses_single_physical_sample() {
+  constexpr int W = 32, H = 16;
+  constexpr Pixel POLE(12000, 30000, 50000);
+  PipeFx fx(W, H);
+
+  ::Feedback::Style style{};
+  style.space_fn = &::Feedback::identity_warp;
+  style.color_fn = &::Feedback::plain_fade;
+  style.fade = 1.0f;
+  style.downsample = 4;
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  {
+    Canvas c(fx);
+    c(W / 3, 0) = POLE;
+  }
+  fx.advance_display();
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  for (int x = 0; x < W; ++x)
+    HS_EXPECT_TRUE(fx.get_pixel(x, 0) == POLE);
+  for (int x = 0; x < W; ++x)
+    HS_EXPECT_TRUE(px_black(fx.get_pixel(x, 1)));
+}
+
+/**
  * @brief Verifies flush() honors the segment clip like every other rasterizer.
  * @details On segmented hardware each board owns a Y-band, and a feedback flush
  *          that iterated the full canvas would composite the whole sphere into
@@ -2419,6 +2453,7 @@ inline int run_filter_tests() {
   test_pipeline_screen_antialias_routes_to_sink();
   test_direct_antialias_sink_framebuffer_parity();
   test_feedback_flush_blends_prev_frame();
+  test_feedback_north_pole_uses_single_physical_sample();
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();
   test_feedback_north_cap_uses_exact_control_rows();
