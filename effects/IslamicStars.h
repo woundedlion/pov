@@ -208,9 +208,13 @@ private:
       SPLIT_SCRATCH_B; /**< Device persistent budget of the current shape's split;
                           the host arena is over-provisioned, so gates check the
                           resident persistent high-water against this. */
-  std::array<uint8_t, Animation::OpLeg::PALETTES> build_targets_ =
-      {}; /**< Per-shape class -> palette assignment (the spawn shuffle);
-             faces born mid-build take it at birth and keep it. */
+  std::array<uint8_t, Animation::OpLeg::PALETTES> build_palette_order_ =
+      {}; /**< The shape's shuffled palette order (the spawn shuffle); birth
+             cohorts consume it through build_birth_counter_. */
+  uint32_t build_birth_counter_ =
+      0; /**< Wrapping cohort ordinal into build_palette_order_: the seed's
+            classes consume the first entries at spawn, each leg's distinct
+            newborn birth classes the next; never reset mid-build. */
   const Animation::OpLeg::Landing *build_landing_ =
       nullptr; /**< Latest leg's arrival data (leg-arena backed). */
   const uint8_t *build_from_pal_ =
@@ -544,9 +548,9 @@ private:
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
     int back = 1 - carousel.front_index();
-    // The shape's class -> palette assignment: faces take it at birth (the
-    // spawned mesh below, newborn build faces through build_targets_) and
-    // keep it for good.
+    // The shape's shuffled palette order: birth cohorts consume it through
+    // build_birth_counter_ (the spawned mesh below, newborn build faces
+    // through build_palette_order_) and keep their palette for good.
     std::array<int, NUM_PALETTES> palette_slots;
     MeshPaletteBank::shuffle_indices(palette_slots);
 
@@ -634,15 +638,22 @@ private:
     }
 
     // Birth colours of the spawned mesh (a build's seed, or the whole solid):
-    // class-keyed through the spawn shuffle, then immutable for the shape's
-    // whole life.
+    // the shuffled palette order consumed by class ordinal — class ids are
+    // dense, so class c is the c-th cohort — then immutable for the shape's
+    // whole life. The counter continues from the seed's class count across
+    // the build's legs.
     {
       const MeshState &spawned_mesh = carousel.slot(back);
       const size_t spawned_faces = spawned_mesh.topology.size();
       HS_CHECK(spawned_faces <= MAX_BUILD_FACES);
-      for (size_t f = 0; f < spawned_faces; ++f)
-        slot_face_palette[back][f] = static_cast<uint8_t>(
-            palette_slots[wrap(spawned_mesh.topology[f], NUM_PALETTES)]);
+      build_birth_counter_ = 0;
+      for (size_t f = 0; f < spawned_faces; ++f) {
+        const int cls = spawned_mesh.topology[f];
+        build_birth_counter_ =
+            std::max(build_birth_counter_, static_cast<uint32_t>(cls) + 1);
+        slot_face_palette[back][f] =
+            static_cast<uint8_t>(palette_slots[wrap(cls, NUM_PALETTES)]);
+      }
     }
 
     // Flip front eagerly for the overlapping sprite.
@@ -714,11 +725,11 @@ private:
         build_total_frames_ += frames;
       }
       build_span = build_total_frames_;
-      // One pinned class -> palette assignment per shape (the spawn shuffle):
-      // a face born mid-build takes it at birth and keeps it for good, keyed
-      // exactly as the seed's faces were at spawn.
+      // One pinned palette order per shape (the spawn shuffle): each leg's
+      // distinct newborn birth classes consume its next entries through
+      // build_birth_counter_, continuing where the seed's classes left off.
       for (int i = 0; i < NUM_PALETTES; ++i)
-        build_targets_[i] = static_cast<uint8_t>(palette_slots[i]);
+        build_palette_order_[i] = static_cast<uint8_t>(palette_slots[i]);
     }
 
     int duration = fade + build_span + still + burst_span + still + fade;
@@ -799,8 +810,8 @@ private:
     //
     // Colours are immutable from birth: every carried face keeps the palette
     // it was born with (routed leg to leg through the from-palette carry), and
-    // a face born on this leg takes the shape's class -> palette assignment at
-    // its birth classification. No leg ever blends a colour.
+    // each distinct birth class among this leg's newborn faces takes the next
+    // entry of the shape's palette order. No leg ever blends a colour.
     Animation::OpLeg::BookendClasses bookend;
     if (step.op != Solids::Op::HANKIN) {
       generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
@@ -919,8 +930,15 @@ private:
                "IslamicStars: carried palette does not cover the leg seed");
       prev_pal = build_from_pal_;
     }
-    return {&palette_bank_.bank, prev_pal,        nullptr, prev_faces, false,
-            prev_centroid,       &build_targets_, true};
+    return {&palette_bank_.bank,
+            prev_pal,
+            nullptr,
+            prev_faces,
+            false,
+            prev_centroid,
+            &build_palette_order_,
+            true,
+            &build_birth_counter_};
   }
 
   /**
@@ -947,8 +965,15 @@ private:
       pal[f] = build_landing_->from_palette[f];
       off += n;
     }
-    return {&palette_bank_.bank, pal, nullptr, nf, false, cen,
-            &build_targets_,     true};
+    return {&palette_bank_.bank,
+            pal,
+            nullptr,
+            nf,
+            false,
+            cen,
+            &build_palette_order_,
+            true,
+            &build_birth_counter_};
   }
 
   /**
@@ -1101,9 +1126,15 @@ private:
     }
     HS_CHECK(build_next_seed_.face_counts.size() <= MAX_BUILD_FACES);
 
-    Animation::OpLeg::PaletteHandoff handoff{
-        &palette_bank_.bank, pal, nullptr, nf, false, cen,
-        &build_targets_,     true};
+    Animation::OpLeg::PaletteHandoff handoff{&palette_bank_.bank,
+                                             pal,
+                                             nullptr,
+                                             nf,
+                                             false,
+                                             cen,
+                                             &build_palette_order_,
+                                             true,
+                                             &build_birth_counter_};
     Animation::OpLeg::BookendClasses bookend{
         build_next_seed_.topology.data(),
         build_next_seed_.face_counts.size()};
