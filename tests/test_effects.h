@@ -2996,6 +2996,17 @@ struct IslamicBuildProbe {
   static size_t persistent_budget(const IslamicStars<W, H> &e) {
     return e.device_persistent_budget_;
   }
+  template <int W, int H> static int front_slot(IslamicStars<W, H> &e) {
+    return e.carousel.front_index();
+  }
+  template <int W, int H>
+  static const uint8_t *slot_palette(const IslamicStars<W, H> &e, int slot) {
+    return e.slot_face_palette[slot];
+  }
+  template <int W, int H>
+  static size_t slot_faces(IslamicStars<W, H> &e, int slot) {
+    return e.carousel.slot(slot).topology.size();
+  }
   static constexpr size_t bridge_scratch_a() {
     return IS::SPLIT_SCRATCH_A_BRIDGE;
   }
@@ -3008,8 +3019,9 @@ struct IslamicBuildProbe {
 /**
  * @brief Drives IslamicStars across the second registry entry's complete
  *        op-by-op build at max trans speed: the build must activate and
- *        finish without a trap, and the shape after it must start cleanly
- *        and light pixels.
+ *        finish without a trap, the built shape's per-face colours must never
+ *        change from finish_build through its still/ripple/fade display, and
+ *        the shape after it must start cleanly and light pixels.
  */
 inline void test_islamicstars_recipe_build_smoke() {
   reset_effect_globals();
@@ -3022,18 +3034,47 @@ inline void test_islamicstars_recipe_build_smoke() {
   constexpr int MAX_FRAMES = 400;
   int frames = 0;
   int build_frames = 0;
+  bool was_building = false;
+  int built_slot = -1;
+  int snap_solid = -1;
+  int changed_after_build = 0;
+  int constant_frames = 0;
+  std::vector<uint8_t> built_pal;
   while (frames < MAX_FRAMES && IslamicBuildProbe::solid_idx(effect) < 2) {
     effect.draw_frame();
     effect.advance_display();
     ++frames;
-    if (IslamicBuildProbe::build_active(effect))
+    const bool building = IslamicBuildProbe::build_active(effect);
+    if (building)
       ++build_frames;
+    // Snapshot the built shape's per-face colours the moment its build
+    // completes; they must stay byte-identical through its still, ripple, and
+    // fade phases (the next spawn retires the shape and may reuse its array).
+    if (was_building && !building && built_slot < 0) {
+      built_slot = IslamicBuildProbe::front_slot(effect);
+      snap_solid = IslamicBuildProbe::solid_idx(effect);
+      const uint8_t *pal = IslamicBuildProbe::slot_palette(effect, built_slot);
+      built_pal.assign(pal,
+                       pal + IslamicBuildProbe::slot_faces(effect, built_slot));
+    } else if (built_slot >= 0 &&
+               IslamicBuildProbe::solid_idx(effect) == snap_solid) {
+      const uint8_t *pal = IslamicBuildProbe::slot_palette(effect, built_slot);
+      for (size_t f = 0; f < built_pal.size(); ++f)
+        if (pal[f] != built_pal[f])
+          ++changed_after_build;
+      ++constant_frames;
+    }
+    was_building = building;
   }
   HS_EXPECT_LT(frames, MAX_FRAMES);
   HS_EXPECT_GT(build_frames, 0);
   HS_EXPECT_TRUE(!IslamicBuildProbe::build_active(effect));
+  HS_EXPECT_GE(built_slot, 0);
+  HS_EXPECT_GT(built_pal.size(), (size_t)0);
+  HS_EXPECT_GT(constant_frames, 0);
+  HS_EXPECT_EQ(changed_after_build, 0);
 
-  // The following (null-recipe) shape renders lit frames.
+  // The following shape renders lit frames.
   for (int f = 0; f < 12; ++f) {
     effect.draw_frame();
     effect.advance_display();
