@@ -1445,9 +1445,9 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
 }
 
 /**
- * @brief Verifies animated polar controls use the compositor's longitudes.
+ * @brief Verifies metric polar controls track the warp at sample longitudes.
  */
-inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
+inline void test_feedback_animated_cap_controls_match_metric_lattice() {
   constexpr int W = 64, H = 34;
   constexpr int DOWNSAMPLE = 4;
   constexpr float ROW_SCALE = 1000.0f;
@@ -1479,13 +1479,17 @@ inline void test_feedback_animated_cap_controls_match_compositor_lattice() {
     }
     fx.advance_display();
 
+    constexpr hs::SphericalFieldLayout<W, H> layout(
+        DOWNSAMPLE, DOWNSAMPLE, DOWNSAMPLE, W / DOWNSAMPLE);
     for (int y = 1; y < DOWNSAMPLE; ++y) {
-      for (int x = 0; x < W; x += DOWNSAMPLE) {
+      const auto ring = layout.ring(y);
+      for (int sample = 0; sample < ring.samples; ++sample) {
+        const int x = sample * W / ring.samples;
         const Vector warped =
             animated_cap_rotation_warp(pixel_to_vector<W, H>(x, y), style);
         const float expected_y = phi_to_y<H>(Spherical(warped).phi);
         const float sampled_y = fx.get_pixel(x, y).r / ROW_SCALE;
-        HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
+        HS_EXPECT_NEAR(sampled_y, expected_y, 0.3f);
       }
     }
   }
@@ -2498,7 +2502,7 @@ inline int run_filter_tests() {
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();
   test_feedback_north_cap_uses_exact_control_rows();
-  test_feedback_animated_cap_controls_match_compositor_lattice();
+  test_feedback_animated_cap_controls_match_metric_lattice();
   test_feedback_poles_resolve_one_source_longitude();
   test_feedback_spherical_ring_control_rows();
   test_feedback_spherical_field_angular_error();

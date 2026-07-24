@@ -188,11 +188,11 @@ private:
   }
 
   constexpr int samples_on_ring(int y) const {
-    if (y < north_infill || y >= H - south_infill)
-      return maximum_longitude_samples();
     const int count =
         static_cast<int>(maximum_longitude_samples() * latitude_sine(y) + 0.5f);
-    return std::max(count, 1);
+    if (count == 0)
+      return 1;
+    return std::max(count, 4);
   }
 
   constexpr int next_ring_y(int y) const {
