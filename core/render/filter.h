@@ -1489,10 +1489,10 @@ private:
     HS_CHECK(cv.width() == W,
              "feedback canvas width %d must equal template W %d", cv.width(),
              W);
+    const int columns = W / downsample;
     const int south_infill = std::max(downsample - hs::H_OFFSET, 0);
-    return {downsample, SphereField(downsample, downsample, south_infill),
-            W / downsample,
-            SphereField(downsample, downsample, south_infill).ring_count()};
+    const SphereField field(downsample, downsample, south_infill, columns);
+    return {downsample, field, columns, field.ring_count()};
   }
 
   static __attribute__((always_inline)) RenderBand
@@ -1971,11 +1971,12 @@ private:
   static constexpr int CACHE_DOWNSAMPLE = ::Feedback::Style{}.downsample;
   static constexpr int CACHE_SOUTH_INFILL =
       CACHE_DOWNSAMPLE > hs::H_OFFSET ? CACHE_DOWNSAMPLE - hs::H_OFFSET : 0;
+  static constexpr int CACHE_COLUMNS = W / CACHE_DOWNSAMPLE;
   /** @brief Cell count of the cached spherical warp field. */
   static constexpr int CACHE_CELLS =
-      (W / CACHE_DOWNSAMPLE) *
-      SphereField(CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE, CACHE_SOUTH_INFILL)
-          .ring_count();
+      CACHE_COLUMNS * SphereField(CACHE_DOWNSAMPLE, CACHE_DOWNSAMPLE,
+                                  CACHE_SOUTH_INFILL, CACHE_COLUMNS)
+                          .ring_count();
 
 public:
   /** @brief Persistent bytes init_storage() reserves (two int16 warp fields). */
