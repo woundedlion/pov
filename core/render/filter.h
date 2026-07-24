@@ -1366,10 +1366,9 @@ namespace Pixel {
  * @brief Style-aware terminal feedback filter that warps the previous frame.
  * @tparam W Canvas width in pixels.
  * @tparam H Canvas height in pixels.
- * @details The Style's spatial warp is computed on a coarse W/DS x H/DS grid
- * (DS = style.downsample, allocated from scratch_arena_a per flush), with
- * exact-latitude control rows inside the north-pole cell. flush() iterates the
- * full pixel grid within the active clip band. TERMINAL:
+ * @details The Style's spatial warp is computed on a coarse longitude grid
+ * with latitude spacing scaled by sin(phi), then bilinearly interpolated.
+ * flush() iterates the full pixel grid within the active clip band. TERMINAL:
  * flush() composites directly into the Canvas and ignores its `pass` callback,
  * so it must be the last Pipeline stage.
  */
@@ -1383,11 +1382,11 @@ public:
 
   // Covers only the default-constructed Style; a runtime-swapped style's
   // downsample is validated in flush() (the HS_CHECK below).
-  static_assert(::Feedback::Style{}.downsample > 0 &&
-                    W % ::Feedback::Style{}.downsample == 0 &&
-                    H % ::Feedback::Style{}.downsample == 0,
-                "Feedback<W,H>: default style downsample must be > 0 and divide "
-                "W and H");
+  static_assert(
+      ::Feedback::Style{}.downsample > 0 &&
+          W % ::Feedback::Style{}.downsample == 0,
+      "Feedback<W,H>: default style downsample must be > 0 and divide "
+      "W");
 
   /**
    * @brief Binds the filter to a live feedback Style.
@@ -1443,15 +1442,14 @@ private:
   struct CoarseGrid {
     int downsample;
     int columns;
-    int rows;
     int field_rows;
   };
 
   struct RenderBand {
     int y_begin;
     int y_end;
-    int coarse_y_begin;
-    int coarse_y_end;
+    int field_y_begin;
+    int field_y_end;
     ClipRegion::XClip x_clip;
     std::bitset<W> coarse_columns_used;
   };
@@ -1475,14 +1473,13 @@ private:
   __attribute__((always_inline)) CoarseGrid
   make_coarse_grid(const Canvas &cv) const {
     const int downsample = feedback_style->downsample;
-    HS_CHECK(downsample > 0 && W % downsample == 0 && H % downsample == 0,
-             "feedback downsample %d must be > 0 and divide %dx%d", downsample,
-             W, H);
+    HS_CHECK(downsample > 0 && W % downsample == 0,
+             "feedback downsample %d must be > 0 and divide width %d",
+             downsample, W);
     HS_CHECK(cv.width() == W,
              "feedback canvas width %d must equal template W %d", cv.width(),
              W);
-    const int rows = H / downsample;
-    return {downsample, W / downsample, rows, rows + downsample - 1};
+    return {downsample, W / downsample, control_row_count(downsample)};
   }
 
   static __attribute__((always_inline)) RenderBand
@@ -1492,13 +1489,12 @@ private:
     band.y_end = clip.render_y_end();
     band.x_clip = clip.x_clip();
 
-    band.coarse_y_begin = band.y_begin / grid.downsample;
-    band.coarse_y_end = ((band.y_end - 1) / grid.downsample) + 1;
-    if (band.coarse_y_end > grid.rows - 1)
-      band.coarse_y_end = grid.rows - 1;
-    HS_CHECK(band.coarse_y_end >= band.coarse_y_begin,
-             "feedback coarse band inverted: [%d,%d]",
-             band.coarse_y_begin, band.coarse_y_end);
+    band.field_y_begin =
+        control_row_at_or_before(band.y_begin, grid.downsample);
+    band.field_y_end = control_row_at_or_after(band.y_end - 1, grid.downsample);
+    HS_CHECK(band.field_y_end >= band.field_y_begin,
+             "feedback field band inverted: [%d,%d]", band.field_y_begin,
+             band.field_y_end);
 
     if (band.x_clip.active) {
       for (int x = 0; x < W; ++x) {
@@ -1528,9 +1524,67 @@ private:
     return runs;
   }
 
+  static constexpr float latitude_sine(int y) {
+    constexpr int H_VIRT = H + hs::H_OFFSET;
+    float phi = (static_cast<float>(y) * PI_F) / (H_VIRT - 1);
+    if (phi > PI_F * 0.5f)
+      phi = PI_F - phi;
+    const float phi2 = phi * phi;
+    return phi *
+           (1.0f + phi2 * (-1.0f / 6.0f +
+                           phi2 * (1.0f / 120.0f + phi2 * (-1.0f / 5040.0f +
+                                                           phi2 / 362880.0f))));
+  }
+
+  static constexpr int control_row_step(int y, int downsample) {
+    int step = static_cast<int>(downsample * latitude_sine(y) + 0.5f);
+    if (step < 1)
+      step = 1;
+    if (step > downsample)
+      step = downsample;
+    return step;
+  }
+
+  static constexpr int next_control_row(int y, int downsample) {
+    const int next = y + control_row_step(y, downsample);
+    return next < H ? next : H - 1;
+  }
+
+  static constexpr int control_row_count(int downsample) {
+    int count = 1;
+    for (int y = 0; y < H - 1; ++count)
+      y = next_control_row(y, downsample);
+    return count;
+  }
+
+  static __attribute__((always_inline)) int control_row_y(int field_y,
+                                                          int downsample) {
+    int y = 0;
+    for (int i = 0; i < field_y; ++i)
+      y = next_control_row(y, downsample);
+    return y;
+  }
+
   static __attribute__((always_inline)) int
-  field_row_for_coarse(int coarse_y, int downsample) {
-    return coarse_y == 0 ? 0 : coarse_y + downsample - 1;
+  control_row_at_or_before(int y, int downsample) {
+    int field_y = 0;
+    int control_y = 0;
+    while (control_y < H - 1) {
+      const int next_y = next_control_row(control_y, downsample);
+      if (next_y > y)
+        break;
+      control_y = next_y;
+      ++field_y;
+    }
+    return field_y;
+  }
+
+  static __attribute__((always_inline)) int
+  control_row_at_or_after(int y, int downsample) {
+    int field_y = control_row_at_or_before(y, downsample);
+    if (control_row_y(field_y, downsample) < y)
+      ++field_y;
+    return field_y;
   }
 
   __attribute__((always_inline))
@@ -1552,8 +1606,8 @@ private:
                       feedback_style->speed,
                       feedback_style->scale,
                       noise ? noise->time * noise->speed : 0.0f,
-                      band.coarse_y_begin,
-                      band.coarse_y_end};
+                      band.field_y_begin,
+                      band.field_y_end};
 
     if (!cacheable) {
       const int cells = grid.field_rows * grid.columns;
@@ -1605,18 +1659,11 @@ private:
       }
     };
 
-    int coarse_y_begin = band.coarse_y_begin;
-    if (coarse_y_begin == 0) {
-      for (int y = 0; y < grid.downsample; ++y)
-        populate_row(y, y);
-      coarse_y_begin = 1;
-    }
-
-    for (int coarse_y = coarse_y_begin; coarse_y <= band.coarse_y_end;
-         ++coarse_y) {
-      const int y = coarse_y * grid.downsample;
-      const int field_y = field_row_for_coarse(coarse_y, grid.downsample);
+    int y = control_row_y(band.field_y_begin, grid.downsample);
+    for (int field_y = band.field_y_begin; field_y <= band.field_y_end;
+         ++field_y) {
       populate_row(y, field_y);
+      y = next_control_row(y, grid.downsample);
     }
   }
 
@@ -1627,11 +1674,8 @@ private:
                                 const WarpField &warp) {
     const int downsample = grid.downsample;
     const int coarse_columns = grid.columns;
-    const int coarse_rows = grid.rows;
     const int row_begin = band.y_begin;
     const int row_end = band.y_end;
-    const int coarse_row_begin = band.coarse_y_begin;
-    const int coarse_row_end = band.coarse_y_end;
     const int16_t *x_offsets = warp.x_offsets;
     const int16_t *y_offsets = warp.y_offsets;
     constexpr float INVERSE_WARP_SCALE = 1.0f / WARP_SCALE;
@@ -1653,27 +1697,34 @@ private:
     const ::Pixel *previous = cv.prev_data();
     ::Pixel *current = cv.data();
     const ColumnRuns runs = make_column_runs(band.x_clip);
+    int field_y0 = band.field_y_begin;
+    int field_y1 = field_y0 + (field_y0 < grid.field_rows - 1 ? 1 : 0);
+    int control_y0 = control_row_y(field_y0, downsample);
+    int control_y1 = field_y1 == field_y0
+                         ? control_y0
+                         : next_control_row(control_y0, downsample);
     auto composite_pixels =
         [&](auto &&transform_pixel, auto &&transform_pair, auto pair_pixels) {
       constexpr bool PAIR_PIXELS = decltype(pair_pixels)::value;
       for (int y = row_begin; y < row_end; ++y) {
         const int row = y * W;
-        int cy0 = y / downsample;
-        int cy1 = (cy0 + 1 < coarse_rows) ? cy0 + 1 : coarse_rows - 1;
-        // Interpolating outside the populated band silently corrupts pixels.
-        HS_CHECK(cy0 >= coarse_row_begin && cy1 <= coarse_row_end,
-                 "feedback warp row %d outside populated band [%d,%d]", cy1,
-                 coarse_row_begin, coarse_row_end);
-        float fy = (y - cy0 * downsample) * inverse_downsample;
-        float wy0 = 1.0f - fy, wy1 = fy;
-        int field_y0 = field_row_for_coarse(cy0, downsample);
-        int field_y1 = field_row_for_coarse(cy1, downsample);
-        if (y < downsample) {
-          field_y0 = y;
-          field_y1 = y;
-          wy0 = 1.0f;
-          wy1 = 0.0f;
+        while (y > control_y1) {
+          field_y0 = field_y1;
+          control_y0 = control_y1;
+          if (field_y1 < grid.field_rows - 1) {
+            ++field_y1;
+            control_y1 = next_control_row(control_y0, downsample);
+          }
         }
+        // Interpolating outside the populated band silently corrupts pixels.
+        HS_CHECK(field_y0 >= band.field_y_begin && field_y1 <= band.field_y_end,
+                 "feedback warp row %d outside populated band [%d,%d]",
+                 field_y1, band.field_y_begin, band.field_y_end);
+        const int control_height = control_y1 - control_y0;
+        float fy = control_height > 0
+                       ? static_cast<float>(y - control_y0) / control_height
+                       : 0.0f;
+        float wy0 = 1.0f - fy, wy1 = fy;
         const int row0 = field_y0 * coarse_columns;
         const int row1 = field_y1 * coarse_columns;
 
@@ -1948,9 +1999,9 @@ private:
   /** @brief Coarse grid downsample the warp cache is sized for (the default
    *  Style's; every preset keeps it). Other values render uncached. */
   static constexpr int CACHE_DOWNSAMPLE = ::Feedback::Style{}.downsample;
-  /** @brief Cell count of the cached coarse grid and north-cap control rows. */
+  /** @brief Cell count of the cached metric-adaptive warp grid. */
   static constexpr int CACHE_CELLS =
-      (W / CACHE_DOWNSAMPLE) * (H / CACHE_DOWNSAMPLE + CACHE_DOWNSAMPLE - 1);
+      (W / CACHE_DOWNSAMPLE) * control_row_count(CACHE_DOWNSAMPLE);
 
 public:
   /** @brief Persistent bytes init_storage() reserves (two int16 warp fields). */
@@ -1967,8 +2018,8 @@ private:
     float speed;
     float scale;
     float time;
-    int coarse_y_begin;
-    int coarse_y_end;
+    int field_y_begin;
+    int field_y_end;
     bool operator==(const WarpKey &) const = default;
   };
 

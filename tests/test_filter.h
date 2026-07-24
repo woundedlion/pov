@@ -1374,6 +1374,146 @@ inline void test_feedback_north_cap_uses_exact_control_rows() {
   }
 }
 
+inline Vector metric_row_test_warp(const Vector &v, const ::Feedback::Style &) {
+  const Spherical s(v);
+  const float delta = 0.08f * std::sin(s.phi) * std::sin(18.0f * s.phi);
+  return Vector(Spherical(s.theta, s.phi + delta));
+}
+
+/**
+ * @brief Verifies the feedback row lattice follows its spherical metric.
+ */
+inline void test_feedback_metric_control_rows() {
+  constexpr int W = 64, H = 64;
+  constexpr int DOWNSAMPLE = 4;
+  constexpr float ROW_SCALE = 1000.0f;
+  PipeFx fx(W, H);
+
+  ::Feedback::Style style{};
+  style.space_fn = &metric_row_test_warp;
+  style.color_fn = &::Feedback::plain_fade;
+  style.fade = 1.0f;
+  style.downsample = DOWNSAMPLE;
+
+  Pipeline<W, H, Filter::Pixel::Feedback<W, H>> pipe{
+      Filter::Pixel::Feedback<W, H>(style)};
+  auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+
+  {
+    Canvas c(fx);
+    for (int y = 0; y < H; ++y)
+      for (int x = 0; x < W; ++x)
+        c(x, y) = Pixel(static_cast<uint16_t>(y * ROW_SCALE), 0, 0);
+  }
+  fx.advance_display();
+
+  {
+    Canvas c(fx);
+    pipe.flush(c, ScreenTrailFn(trail), 1.0f);
+  }
+  fx.advance_display();
+
+  int controls = 1;
+  for (int y = 0; y < H - 1; ++controls) {
+    const Vector warped =
+        metric_row_test_warp(pixel_to_vector<W, H>(0, y), style);
+    const float expected_y = phi_to_y<H>(Spherical(warped).phi);
+    const float sampled_y = fx.get_pixel(0, y).r / ROW_SCALE;
+    HS_EXPECT_NEAR(sampled_y, expected_y, 0.02f);
+
+    int step = static_cast<int>(DOWNSAMPLE * std::sin(y_to_phi<H>(y)) + 0.5f);
+    step = hs::clamp(step, 1, DOWNSAMPLE);
+    HS_EXPECT_GE(step, 1);
+    HS_EXPECT_LE(step, DOWNSAMPLE);
+    y = std::min(y + step, H - 1);
+  }
+
+  constexpr size_t BYTES_PER_ROW = 2 * (W / DOWNSAMPLE) * sizeof(int16_t);
+  HS_EXPECT_EQ((Filter::Pixel::Feedback<W, H>::STORAGE_BYTES / BYTES_PER_ROW),
+               static_cast<size_t>(controls));
+}
+
+/**
+ * @brief Verifies metric row spacing resolves high-frequency spherical noise.
+ */
+inline void test_feedback_metric_rows_reduce_angular_error() {
+  constexpr int W = 288, H = 144;
+  constexpr int DOWNSAMPLE = 4;
+  NoiseParams noise;
+  noise.time = 17.0f;
+
+  ::Feedback::Style style{};
+  style.noise = &noise;
+  style.amplitude = 3.99f;
+  style.frequency = 0.37036f;
+  style.speed = 2.625f;
+  style.scale = 50.0f;
+  style.sync_noise();
+
+  auto offset_at = [&](int x, int y) {
+    const Vector distorted = style.space_fn(pixel_to_vector<W, H>(x, y), style);
+    const Spherical spherical(distorted);
+    float dx = (spherical.theta * W) / (2.0f * PI_F) - x;
+    if (dx > W * 0.5f)
+      dx -= W;
+    else if (dx < -W * 0.5f)
+      dx += W;
+    return std::array<float, 2>{dx, phi_to_y<H>(spherical.phi) -
+                                        static_cast<float>(y)};
+  };
+
+  auto interpolated = [&](int x, int y, int y0, int y1) {
+    const auto a = offset_at(x, y0);
+    auto b = offset_at(x, y1);
+    if (b[0] - a[0] > W * 0.5f)
+      b[0] -= W;
+    else if (b[0] - a[0] < -W * 0.5f)
+      b[0] += W;
+    const float t = y1 == y0 ? 0.0f : static_cast<float>(y - y0) / (y1 - y0);
+    float source_x = x + hs::lerp(a[0], b[0], t);
+    source_x = std::fmod(source_x, static_cast<float>(W));
+    if (source_x < 0.0f)
+      source_x += W;
+    const float source_y = y + hs::lerp(a[1], b[1], t);
+    return pixel_to_vector<W, H>(source_x, source_y);
+  };
+
+  auto metric_bracket = [&](int y) {
+    int y0 = 0;
+    int y1 = 0;
+    while (y1 < y) {
+      y0 = y1;
+      int step =
+          static_cast<int>(DOWNSAMPLE * std::sin(y_to_phi<H>(y1)) + 0.5f);
+      step = hs::clamp(step, 1, DOWNSAMPLE);
+      y1 = std::min(y1 + step, H - 1);
+    }
+    return std::array<int, 2>{y0, y1};
+  };
+
+  float metric_error = 0.0f;
+  float fixed_error = 0.0f;
+  int samples = 0;
+  for (int y = DOWNSAMPLE; y < 4 * DOWNSAMPLE; ++y) {
+    const auto metric = metric_bracket(y);
+    const int fixed_y0 = (y / DOWNSAMPLE) * DOWNSAMPLE;
+    const int fixed_y1 = fixed_y0 + DOWNSAMPLE;
+    for (int x = 0; x < W; x += 16) {
+      const Vector exact = style.space_fn(pixel_to_vector<W, H>(x, y), style);
+      metric_error +=
+          angle_between(exact, interpolated(x, y, metric[0], metric[1]));
+      fixed_error +=
+          angle_between(exact, interpolated(x, y, fixed_y0, fixed_y1));
+      ++samples;
+    }
+  }
+
+  metric_error /= samples;
+  fixed_error /= samples;
+  HS_EXPECT_GT(fixed_error, 0.03f);
+  HS_EXPECT_LT(metric_error, fixed_error * 0.5f);
+}
+
 /**
  * @brief Verifies cached top-band clips share fully populated cap controls.
  */
@@ -1452,6 +1592,7 @@ inline void test_feedback_cached_north_cap_clips_share_control_rows() {
 inline void test_feedback_warp_cache_matches_uncached() {
   constexpr int W = 64, H = 64; // both divisible by the downsample (4)
   constexpr int FRAMES = 8;
+  constexpr int CLIP_BEGIN[FRAMES] = {20, 36, 24, 40, 28, 20, 36, 24};
 
   // Only one Effect may be alive at a time (shared static buffers), so the
   // two pipelines run sequentially over recorded frames.
@@ -1485,6 +1626,8 @@ inline void test_feedback_warp_cache_matches_uncached() {
     fx.advance_display();
 
     for (int frame = 0; frame < FRAMES; ++frame) {
+      fx.set_margin(0);
+      fx.set_clip(CLIP_BEGIN[frame], CLIP_BEGIN[frame] + 8, 0, W);
       if (frame == 3) s.amplitude = 4.5f; // key change: repopulate
       if (frame == 5) s.speed = 1.0f;     // time-varying: miss every frame
       if (frame == 6 && cached)           // post-compaction re-allocation
@@ -2126,6 +2269,8 @@ inline int run_filter_tests() {
   test_feedback_flush_respects_clip();
   test_feedback_flush_melt_warp_displaces_south();
   test_feedback_north_cap_uses_exact_control_rows();
+  test_feedback_metric_control_rows();
+  test_feedback_metric_rows_reduce_angular_error();
   test_feedback_cached_north_cap_clips_share_control_rows();
   test_feedback_warp_cache_matches_uncached();
   test_feedback_flush_straddled_taps_stay_on_branch();
