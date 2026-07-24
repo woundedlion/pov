@@ -53,24 +53,24 @@ inline void test_named_presets() {
         HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
       };
 
-  expect_noise_hue_style(Feedback::Style::ArcingLightning(), 0.5f, 0.2f, 3.27f,
-                         0.09f, 1.5f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::SlowFire(), 0.8732f, 0.13170347f,
+  expect_noise_hue_style(Feedback::Style::ArcingLightning(), 0.5f, 0.14426951f,
+                         3.27f, 0.09f, 1.5f, 50.0f);
+  expect_noise_hue_style(Feedback::Style::SlowFire(), 0.8732f, 0.12316483f,
                          1.56f, 0.5297f, 0.1f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::EnergeticFire(), 0.8732f, 0.13170347f,
+  expect_noise_hue_style(Feedback::Style::EnergeticFire(), 0.8732f, 0.12316483f,
                          1.56f, 0.22087f, 0.9f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::SlowDust(), 0.83952f, 0.1040628f,
+  expect_noise_hue_style(Feedback::Style::SlowDust(), 0.83952f, 0.09546948f,
                          1.56f, 0.07237f, 0.6f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::WavyTrails(), 0.7257f, 0.26321548f,
+  expect_noise_hue_style(Feedback::Style::WavyTrails(), 0.7257f, 0.22518973f,
                          1.95f, 0.01f, 5.0f, 50.0f);
-  expect_melt_hue_style(Feedback::Style::MeltingHi(), 0.59004f, 0.24392626f,
+  expect_melt_hue_style(Feedback::Style::MeltingHi(), 0.59004f, 0.18955015f,
                         4.38f, 0.06346f, 0.2f, 22.3554f);
-  expect_melt_hue_style(Feedback::Style::MeltingLo(), 0.59004f, 0.24392626f,
+  expect_melt_hue_style(Feedback::Style::MeltingLo(), 0.59004f, 0.18955015f,
                         1.95f, 0.06346f, 0.2f, 22.3554f);
 
   Feedback::Style smoke = Feedback::Style::Smoke();
   HS_EXPECT_NEAR(smoke.fade, 0.9f, 1e-6f);
-  HS_EXPECT_NEAR(smoke.hue_shift, 0.09999997f, 1e-6f);
+  HS_EXPECT_NEAR(smoke.hue_shift, 0.09491219f, 1e-6f);
   HS_EXPECT_NEAR(smoke.frequency, 0.42f, 1e-6f);
   HS_EXPECT_TRUE(smoke.space_fn == &Feedback::noise_warp);
   HS_EXPECT_TRUE(smoke.color_fn == &Feedback::hue_fade);
@@ -106,7 +106,8 @@ inline void test_named_presets_preserve_frame_hue() {
       {Feedback::Style::Swirling(), 0.0f},
   };
   for (const Case &c : cases)
-    HS_EXPECT_EQ(c.style.hue_shift * (1.0f - c.style.fade), c.frame_shift);
+    HS_EXPECT_NEAR(c.style.hue_shift * -logf(c.style.fade), c.frame_shift,
+                   1e-6f);
 }
 
 // --- lerp -------------------------------------------------------------------
@@ -313,33 +314,46 @@ inline void test_hue_fade_zero_shift_preserves_gray() {
 }
 
 /**
- * @brief Verifies sync_hue() scales the tail endpoint by feedback duration.
- * @details A tail's brightness-duration is `1 / (1 - fade)`, so the cached
- * rotation is `hue_shift * (1 - fade)` turns per frame.
+ * @brief Verifies equal tail brightness produces equal accumulated hue.
  */
-inline void test_sync_hue_scales_with_fade_duration() {
-  Feedback::Style s{};
-  HS_EXPECT_NEAR(s.hue_ca, 1.0f, 1e-6f);
-  HS_EXPECT_NEAR(s.hue_sa, 0.0f, 1e-6f);
+inline void test_sync_hue_matches_hue_at_equal_brightness() {
+  struct TailPoint {
+    float brightness;
+    float ca;
+    float sa;
+  };
+  const auto sample_tail = [](Feedback::Style style, int frames) {
+    style.sync_hue();
+    TailPoint point{1.0f, 1.0f, 0.0f};
+    for (int i = 0; i < frames; ++i) {
+      point.brightness *= style.fade;
+      float ca = point.ca * style.hue_ca - point.sa * style.hue_sa;
+      point.sa = point.sa * style.hue_ca + point.ca * style.hue_sa;
+      point.ca = ca;
+    }
+    return point;
+  };
 
-  s.hue_shift = 0.25f;
-  s.fade = 0.5f;
-  s.sync_hue();
-  const float short_angle = 0.25f * (1.0f - 0.5f) * (2.0f * PI_F);
-  float ca = fast_cosf(short_angle);
-  float sa = fast_sinf(short_angle);
-  float inv = 1.0f / sqrtf(ca * ca + sa * sa);
-  HS_EXPECT_NEAR(s.hue_ca, ca * inv, 1e-6f);
-  HS_EXPECT_NEAR(s.hue_sa, sa * inv, 1e-6f);
+  Feedback::Style long_tail{};
+  long_tail.fade = 0.5f;
+  long_tail.hue_shift = 0.01f;
+  Feedback::Style short_tail = long_tail;
+  short_tail.fade = 0.25f;
 
-  s.fade = 0.9f;
-  s.sync_hue();
-  const float long_angle = 0.25f * (1.0f - 0.9f) * (2.0f * PI_F);
-  ca = fast_cosf(long_angle);
-  sa = fast_sinf(long_angle);
-  inv = 1.0f / sqrtf(ca * ca + sa * sa);
-  HS_EXPECT_NEAR(s.hue_ca, ca * inv, 1e-6f);
-  HS_EXPECT_NEAR(s.hue_sa, sa * inv, 1e-6f);
+  for (int short_frames = 1; short_frames <= 3; ++short_frames) {
+    TailPoint short_point = sample_tail(short_tail, short_frames);
+    TailPoint long_point = sample_tail(long_tail, short_frames * 2);
+    HS_EXPECT_NEAR(short_point.brightness, long_point.brightness, 1e-6f);
+    HS_EXPECT_NEAR(short_point.ca, long_point.ca, 2e-3f);
+    HS_EXPECT_NEAR(short_point.sa, long_point.sa, 2e-3f);
+  }
+
+  Feedback::Style no_history{};
+  no_history.fade = 0.0f;
+  no_history.hue_shift = 0.25f;
+  no_history.sync_hue();
+  HS_EXPECT_NEAR(no_history.hue_ca, 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(no_history.hue_sa, 0.0f, 1e-6f);
 }
 
 /**
@@ -545,7 +559,7 @@ inline int run_styles_tests() {
   test_melt_warp_bound_noise_perturbs();
   test_plain_fade_scales_linearly();
   test_hue_fade_zero_shift_preserves_gray();
-  test_sync_hue_scales_with_fade_duration();
+  test_sync_hue_matches_hue_at_equal_brightness();
   test_hue_fade_nonzero_shift_rotates_saturated();
   test_hue_rotate_lms_matrix_identity();
   test_hue_fade_matches_rotate_reference();
