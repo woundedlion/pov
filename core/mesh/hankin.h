@@ -282,6 +282,17 @@ inline constexpr float HANKIN_PARALLEL_REGULARIZATION_SQ = 3.0e-4f;
 inline constexpr float HANKIN_CONDITIONED_CLEAR_SQ = 2.0e-2f;
 inline constexpr float HANKIN_CONDITIONED_NEAR_RATIO_SQ = 1.44f;
 inline constexpr float HANKIN_CONDITIONED_FAR_RATIO_SQ = 9.0f;
+/** plane_cross_sq (= |cross(n_hankin1, n_hankin2)|^2) window gating the
+ * far-star fallback. A far chord ratio alone is not instability: a large face
+ * (hexagon, octagon) legitimately pushes its star point out to raw_ratio_sq ~3
+ * while the two contact planes stay well-separated (plane_cross_sq ~0.8), and
+ * clamping those healthy points to the midpoint fallback is what jerked the
+ * swept pattern across the sphere. Genuine near-parallel yeets — where the
+ * intersection direction is noise-dominated — sit at plane_cross_sq below 0.01;
+ * healthy far points stay above 0.5. plane_cross_sq varies smoothly with the
+ * sweep angle, so gating on it keeps the transition continuous. */
+inline constexpr float HANKIN_PARALLEL_GATE_LO_SQ = 0.05f;
+inline constexpr float HANKIN_PARALLEL_GATE_HI_SQ = 0.30f;
 
 template <typename MeshT>
 HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
@@ -367,8 +378,18 @@ HS_COLD_MEMBER inline void update_hankin(CompiledHankin &compiled,
     // Near-parallel contact planes fling the intersection geodesically far
     // from the corner, yielding a sliver face that renders as a long line.
     const float ratio_sq = distance_squared(intersect, cn) / local_sq;
+    // Gate the fallback on parallelism: blend_above(-plane_cross_sq, ...) rises
+    // as plane_cross_sq falls — 0 above the HI threshold (planes well-separated,
+    // keep the true intersection), 1 below LO (near-parallel, take the
+    // fallback). A far chord ratio then only triggers the fallback in the
+    // genuinely unstable regime.
+    const float parallel_gate =
+        blend_above(-plane_cross_sq, -HANKIN_PARALLEL_GATE_HI_SQ,
+                    -HANKIN_PARALLEL_GATE_LO_SQ);
     const float fallback_blend =
-        blend_above(ratio_sq, STAR_FAR_BLEND_START_RATIO_SQ, STAR_FAR_RATIO_SQ);
+        blend_above(ratio_sq, STAR_FAR_BLEND_START_RATIO_SQ,
+                    STAR_FAR_RATIO_SQ) *
+        parallel_gate;
     if (fallback_blend > 0.0f) {
       compiled.dynamic_vertices[i] =
           fallback_blend >= 1.0f
