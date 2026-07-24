@@ -3132,12 +3132,32 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   size_t worst_p = 0, worst_p_budget = 0;
   int worst_p_idx = -1; // shape at the worst persistent/budget ratio
   int frames = 0, shapes = 0, builds = 0;
+  bool was_building = false;
   int last = IslamicBuildProbe::solid_idx(effect);
   while (frames < MAX_FRAMES && shapes <= entries) {
     effect.draw_frame();
     effect.advance_display();
     ++frames;
     const int cur = IslamicBuildProbe::solid_idx(effect);
+    // Birth-cohort variety of each finished build: distinct immutable
+    // palettes on the shape the real leg chain just landed.
+    const bool building = IslamicBuildProbe::build_active(effect);
+    if (was_building && !building) {
+      const int front = IslamicBuildProbe::front_slot(effect);
+      const uint8_t *pal = IslamicBuildProbe::slot_palette(effect, front);
+      const size_t nf = IslamicBuildProbe::slot_faces(effect, front);
+      bool seen[MeshPaletteBank::N] = {};
+      int distinct = 0;
+      for (size_t f = 0; f < nf; ++f)
+        if (pal[f] < MeshPaletteBank::N && !seen[pal[f]]) {
+          seen[pal[f]] = true;
+          ++distinct;
+        }
+      std::printf("  [built] %s: %d/%d palettes on %zu faces\n",
+                  (cur >= 0 && cur < entries) ? solids[cur].name : "?",
+                  distinct, MeshPaletteBank::N, nf);
+    }
+    was_building = building;
     const size_t p = persistent_arena.get_high_water_mark();
     const size_t a = scratch_arena_a.get_high_water_mark();
     const size_t b = scratch_arena_b.get_high_water_mark();
@@ -3157,7 +3177,7 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
     }
     // Per-shape persistent budget (device figure); scratch is trap-enforced.
     HS_EXPECT_LE(p, p_budget);
-    if (IslamicBuildProbe::build_active(effect))
+    if (building)
       ++builds;
     if (cur != last) {
       last = cur;
