@@ -3070,7 +3070,7 @@ inline void test_islamicstars_roster_cycle_fits_budget() {
   effect.init();
 
   // Per-shape arena split (IslamicStars::spawn_shape): a smooth kis/needle
-  // bridge shape spawns on a scratch_a-heavy split (135 KB / 74 KB / 94 KB),
+  // bridge shape spawns on a scratch_a-heavy split (130 KB / 74 KB / 96 KB),
   // every other shape on the default (120 KB / 74 KB / 106 KB). On host the two
   // scratch arenas are the exact device sizes and hard-capped, so an over-budget
   // leg traps -- completing the whole roster proves every shape's scratch fit
