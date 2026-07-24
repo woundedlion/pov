@@ -159,11 +159,13 @@ public:
    * @param north_pole Shared value for the longitude-aliased north pole.
    * @param outside Value returned where the rendered domain has no sample.
    * @param load Loads an in-domain, non-pole lattice sample.
-   * @param lerp Interpolates two values.
+   * @param combine Combines four topology-correct taps and fractional
+   *   coordinates into the result.
    */
-  template <typename Value, typename Load, typename Lerp>
-  Value sample_bilinear(float x, float y, const Value &north_pole,
-                        const Value &outside, Load &&load, Lerp &&lerp) const {
+  template <typename Value, typename Load, typename Combine>
+  __attribute__((always_inline)) decltype(auto)
+  sample_bilinear(float x, float y, const Value &north_pole,
+                  const Value &outside, Load &&load, Combine &&combine) const {
     const float floor_x = std::floor(x);
     const float floor_y = std::floor(y);
     int x0 = static_cast<int>(floor_x);
@@ -184,13 +186,66 @@ public:
     };
 
     if (y0 > 0 && y0 + 1 < H) {
-      const Value lower = lerp(load(x0, y0), load(x1, y0), fx);
-      const Value upper = lerp(load(x0, y0 + 1), load(x1, y0 + 1), fx);
-      return lerp(lower, upper, fy);
+      return std::forward<Combine>(combine)(load(x0, y0), load(x1, y0),
+                                            load(x0, y0 + 1), load(x1, y0 + 1),
+                                            fx, fy);
     }
-    const Value lower = lerp(tap(x0, y0), tap(x1, y0), fx);
-    const Value upper = lerp(tap(x0, y0 + 1), tap(x1, y0 + 1), fx);
-    return lerp(lower, upper, fy);
+    return std::forward<Combine>(combine)(
+        tap(x0, y0), tap(x1, y0), tap(x0, y0 + 1), tap(x1, y0 + 1), fx, fy);
+  }
+
+  /**
+   * @brief Bilinearly samples a row-major three-channel field.
+   * @param source Dense W-by-H source field.
+   * @param north_pole Shared value for the longitude-aliased north pole.
+   * @param x Fractional longitude in [-W, 2W).
+   * @param y Fractional latitude row.
+   * @param r Out: interpolated red channel.
+   * @param g Out: interpolated green channel.
+   * @param b Out: interpolated blue channel.
+   */
+  template <typename Pixel>
+  __attribute__((always_inline)) void
+  sample_bilinear_rgb(const Pixel *source, const Pixel &north_pole, float x,
+                      float y, float &r, float &g, float &b) const {
+    const float floor_x = std::floor(x);
+    const float floor_y = std::floor(y);
+    int x0 = static_cast<int>(floor_x);
+    const int y0 = static_cast<int>(floor_y);
+    const float fx = x - floor_x;
+    const float fy = y - floor_y;
+
+    if (x0 < 0)
+      x0 += W;
+    else if (x0 >= W)
+      x0 -= W;
+    const int x1 = x0 + 1 < W ? x0 + 1 : 0;
+
+    Pixel p00, p10, p01, p11;
+    if (y0 > 0 && y0 + 1 < H) {
+      p00 = source[y0 * W + x0];
+      p10 = source[y0 * W + x1];
+      p01 = source[(y0 + 1) * W + x0];
+      p11 = source[(y0 + 1) * W + x1];
+    } else {
+      auto tap = [&](int sample_x, int sample_y) {
+        if (!wrap_sample(sample_x, sample_y))
+          return Pixel(0, 0, 0);
+        return sample_y == 0 ? north_pole : source[sample_y * W + sample_x];
+      };
+      p00 = tap(x0, y0);
+      p10 = tap(x1, y0);
+      p01 = tap(x0, y0 + 1);
+      p11 = tap(x1, y0 + 1);
+    }
+
+    const float w00 = (1.0f - fx) * (1.0f - fy);
+    const float w10 = fx * (1.0f - fy);
+    const float w01 = (1.0f - fx) * fy;
+    const float w11 = fx * fy;
+    r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
+    g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
+    b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
   }
 
   constexpr Row row(float y) const {

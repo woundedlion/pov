@@ -1252,7 +1252,7 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
     for (int x = 0; x < W; ++x) {
       const Pixel stripe((x & 1) ? 60000 : 0, 0, 0);
       c(x, 1) = stripe;
-      c(x, 8) = stripe;
+      c(x, 4) = stripe;
     }
   }
   fx.advance_display();
@@ -1269,9 +1269,9 @@ inline void test_feedback_polar_rows_use_spherical_footprint() {
     polar_min = std::min(polar_min, value);
     polar_max = std::max(polar_max, value);
     if (x & 1)
-      HS_EXPECT_GT(fx.get_pixel(x, 8).r, 58000);
+      HS_EXPECT_GT(fx.get_pixel(x, 4).r, 58000);
     else
-      HS_EXPECT_LT(fx.get_pixel(x, 8).r, 2000);
+      HS_EXPECT_LT(fx.get_pixel(x, 4).r, 2000);
   }
   HS_EXPECT_GT(polar_min, 25000);
   HS_EXPECT_LT(polar_max, 35000);
