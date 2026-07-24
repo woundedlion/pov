@@ -50,6 +50,7 @@ public:
                      74 * 1024);
 
     ripple_gen.init_storage(persistent_arena);
+    claim_face_palettes(persistent_arena);
     palette_bank_.bake_all(persistent_arena);
 
     // Set BEFORE registering: register_param snaps *ptr as the slider default.
@@ -146,10 +147,10 @@ private:
    * (the roster's heaviest hankin solid needs the full default persistent). Each
    * split's persistent is the device-arena remainder; the two scratch arenas are
    * the same absolute sizes on host and device (hard-capped, so an over-budget
-   * leg traps). needle's measured peak (131,770 / 75,244 / 92,812) fits the
+   * leg traps). needle's measured peak (131,770 / 75,244 / 94,756) fits the
    * bridge split, and every other bridge shape is smaller. */
   static constexpr size_t SPLIT_SCRATCH_A_DEFAULT = 120 * 1024; // 122,880
-  static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 132 * 1024;  // 135,168
+  static constexpr size_t SPLIT_SCRATCH_A_BRIDGE = 130 * 1024;  // 133,120
   static constexpr size_t SPLIT_SCRATCH_B = 74 * 1024;          // 75,776
   static constexpr size_t MAX_BUILD_STEPS = 8; /**< Lowered-primitive cap. */
   /** Build-chain mesh face cap. Bounds the scratch handoff arrays only; the
@@ -178,9 +179,11 @@ private:
 
   static constexpr int NUM_PALETTES = MeshPaletteBank::N;
   MeshPaletteBank palette_bank_;
-  // Per-slot palette indices; value-init so a missed shuffle reads palette 0,
-  // not garbage.
-  std::array<int, NUM_PALETTES> palettes_slots[2] = {};
+  /** Per-slot per-face immutable palette ids (persistent-arena backed,
+   * MAX_BUILD_FACES each). Written at spawn (class-keyed birth colours) and at
+   * finish_build (the last leg's per-face colours); every compaction re-claims
+   * the same addresses, so the contents survive the reset. */
+  uint8_t *slot_face_palette[2] = {};
 
   // Build-chain state (entries with a non-null recipe): the shape is built op
   // by op between the fade-in and the still hold. Null-recipe entries never
@@ -237,6 +240,30 @@ private:
       }};
 
   /**
+   * @brief Claims the two per-slot face-palette arrays from the arena.
+   * @param arena Persistent arena the arrays live in.
+   * @details Runs at init and inside every compaction rebake, directly after
+   * the ripple pool's claim: the allocation order is fixed, so the arrays
+   * re-land at their original addresses and their bytes survive the reset.
+   */
+  void claim_face_palettes(Arena &arena) {
+    for (uint8_t *&pal : slot_face_palette)
+      pal = arena.allocate_n<uint8_t>(MAX_BUILD_FACES);
+  }
+
+  /**
+   * @brief Rebake callback for every persistent compaction: the ripple pool
+   * first (its slots re-land at their init_storage addresses), then the
+   * face-palette arrays, then the palette bank.
+   * @param arena The freshly reset persistent arena.
+   */
+  HS_COLD_MEMBER void reclaim_persistent(Arena &arena) {
+    ripple_gen.reclaim_storage(arena);
+    claim_face_palettes(arena);
+    palette_bank_.bake_all(arena);
+  }
+
+  /**
    * @brief Spawns one burst of burst_size ripples from a random origin,
    *        staggered RIPPLE_STAGGER_FRAMES apart, each expanding over ripple_duration
    *        frames.
@@ -276,8 +303,8 @@ private:
    * @param phase Segue phase in [0, 1] from the sprite envelope: rises over
    *        the incoming window, holds 1, falls over the outgoing window.
    * @param base_state Undistorted source mesh to transform and draw.
-   * @param face_indices Maps each face to its topology class.
-   * @param palette_idx Assigns a palette per topology class.
+   * @param face_indices Maps each face to its topology class (segue ordering).
+   * @param face_palette Immutable per-face palette ids (covers every face).
    * @note Draws on the exact SDF path, not the congruence-class LUT
    * (mesh_classes.h): ripple/segue deformation makes a canonical LUT mis-shade
    * or pop. The facility is for effects whose meshes hold still.
@@ -285,7 +312,7 @@ private:
   HS_O3_FN void draw_shape(Canvas &canvas, float phase,
                            const MeshState &base_state,
                            const ArenaVector<int> &face_indices,
-                           const std::array<int, NUM_PALETTES> &palette_idx) {
+                           const uint8_t *face_palette) {
     const SegueT &seg = carousel.segue();
     if (!seg.visible(phase))
       return;
@@ -331,7 +358,9 @@ private:
             seg.face_offset(normalized_or(c, UP), static_cast<int>(f), cls);
         float fade = seg.face_fade_frac(static_cast<int>(f));
         face_phases.push_back(seg.face_phase(phase, off, fade));
-        face_palettes.push_back(&palette_bank_[palette_idx[cls]]);
+        const int pal =
+            (f < static_cast<size_t>(num_faces)) ? face_palette[f] : 0;
+        face_palettes.push_back(&palette_bank_[pal]);
       }
     }
 
@@ -344,9 +373,10 @@ private:
           return;
         }
       }
+      int fi = static_cast<int>(frag.v2);
+      const int pal = (fi >= 0 && fi < num_faces) ? face_palette[fi] : 0;
       frag.color =
-          shade_mesh_topology(frag, raw_indices, num_faces, palette_bank_,
-                              palette_idx, 1.0f, seg, phase);
+          shade_mesh_topology(frag, palette_bank_[pal], 1.0f, seg, phase);
     };
 
     {
@@ -514,7 +544,11 @@ private:
     auto solids = Solids::Collections::get_islamic_solids();
     solid_idx = (solid_idx + 1) % solids.size();
     int back = 1 - carousel.front_index();
-    MeshPaletteBank::shuffle_indices(palettes_slots[back]);
+    // The shape's class -> palette assignment: faces take it at birth (the
+    // spawned mesh below, newborn build faces through build_targets_) and
+    // keep it for good.
+    std::array<int, NUM_PALETTES> palette_slots;
+    MeshPaletteBank::shuffle_indices(palette_slots);
 
     int idx = solid_idx;
     // A recipe whose lowered chain contains a step no leg kind covers falls
@@ -541,22 +575,18 @@ private:
         return;
       const MeshState &mesh = carousel.slot(back);
       this->draw_shape(canvas, phase, mesh, mesh.topology,
-                       palettes_slots[back]);
+                       slot_face_palette[back]);
     };
 
     // Compact the back slot, rebaking palettes into the fresh arena rather than
-    // tracking them through the evacuation. The ripple pool re-claims first so
-    // its slots re-land at their init_storage() addresses.
+    // tracking them through the evacuation.
     //
     // A build regenerates both slots before either is drawn again — the seed
     // below, the finished solid at finish_build — so the outgoing shape is
     // dropped rather than evacuated. Keeping it costs the whole build the
     // previous shape's mesh, which at the roster's 1082-face entry is most of
     // the persistent arena.
-    auto rebake = [this](Arena &arena) {
-      ripple_gen.reclaim_storage(arena);
-      palette_bank_.bake_all(arena);
-    };
+    auto rebake = [this](Arena &arena) { reclaim_persistent(arena); };
     if (recipe)
       carousel.compact_drop_all(rebake);
     else
@@ -601,6 +631,18 @@ private:
       ScratchScope b_guard(scratch_arena_b);
       MeshOps::classify_faces_by_topology(carousel.slot(back), scratch_arena_a,
                                           scratch_arena_b, persistent_arena);
+    }
+
+    // Birth colours of the spawned mesh (a build's seed, or the whole solid):
+    // class-keyed through the spawn shuffle, then immutable for the shape's
+    // whole life.
+    {
+      const MeshState &spawned_mesh = carousel.slot(back);
+      const size_t spawned_faces = spawned_mesh.topology.size();
+      HS_CHECK(spawned_faces <= MAX_BUILD_FACES);
+      for (size_t f = 0; f < spawned_faces; ++f)
+        slot_face_palette[back][f] = static_cast<uint8_t>(
+            palette_slots[wrap(spawned_mesh.topology[f], NUM_PALETTES)]);
     }
 
     // Flip front eagerly for the overlapping sprite.
@@ -676,7 +718,7 @@ private:
       // a face born mid-build takes it at birth and keeps it for good, keyed
       // exactly as the seed's faces were at spawn.
       for (int i = 0; i < NUM_PALETTES; ++i)
-        build_targets_[i] = static_cast<uint8_t>(palettes_slots[back][i]);
+        build_targets_[i] = static_cast<uint8_t>(palette_slots[i]);
     }
 
     int duration = fade + build_span + still + burst_span + still + fade;
@@ -862,20 +904,14 @@ private:
     }
     const uint8_t *prev_pal;
     if (!build_from_pal_) {
-      // The build's first leg departs the carousel seed slot: its displayed
-      // palettes are the chain's FROM state. Keyed on build_from_pal_ (reset to
-      // null per build) rather than build_step_ == 0, so a smooth kis/needle
-      // macro whose later sub-legs still sit on step 0 (icosahedron_kis_gyro's
-      // leading kis) departs from the carried palette, not the compacted-away
-      // seed slot.
-      const MeshState &seed_slot = carousel.current();
-      HS_CHECK(prev_faces <= seed_slot.topology.size());
-      const auto &slots = palettes_slots[carousel.front_index()];
-      uint8_t *pal = scratch.allocate_n<uint8_t>(prev_faces);
-      for (size_t f = 0; f < prev_faces; ++f)
-        pal[f] = static_cast<uint8_t>(
-            slots[wrap(seed_slot.topology[f], NUM_PALETTES)]);
-      prev_pal = pal;
+      // The build's first leg departs the carousel seed slot: its per-face
+      // birth colours are the chain's FROM state. Keyed on build_from_pal_
+      // (reset to null per build) rather than build_step_ == 0, so a smooth
+      // kis/needle macro whose later sub-legs still sit on step 0
+      // (icosahedron_kis_gyro's leading kis) departs from the carried palette,
+      // not the seed slot's.
+      HS_CHECK(prev_faces <= carousel.current().topology.size());
+      prev_pal = slot_face_palette[carousel.front_index()];
     } else {
       // Depart from the palette the previous leg drew: the faces' immutable
       // birth colours, carried verbatim across every boundary.
@@ -989,10 +1025,8 @@ private:
     // dual), drop leg 1 and the ambo endpoint.
     {
       Persist<PolyMesh> ps(build_seed_, scratch_arena_b, persistent_arena);
-      carousel.compact_drop_all([this](Arena &arena) {
-        ripple_gen.reclaim_storage(arena);
-        palette_bank_.bake_all(arena);
-      });
+      carousel.compact_drop_all(
+          [this](Arena &arena) { reclaim_persistent(arena); });
     }
 
     const int frames = dual_sub_frames(1);
@@ -1045,10 +1079,8 @@ private:
     // ambo(P) endpoint was already dropped at the medial leg).
     {
       Persist<PolyMesh> ps(build_seed_, scratch_arena_b, persistent_arena);
-      carousel.compact_drop_all([this](Arena &arena) {
-        ripple_gen.reclaim_storage(arena);
-        palette_bank_.bake_all(arena);
-      });
+      carousel.compact_drop_all(
+          [this](Arena &arena) { reclaim_persistent(arena); });
     }
 
     // Build the deferred leg-3 seed dual(P) into the compacted arena. Not
@@ -1097,27 +1129,25 @@ private:
    * than advancing build_step_.
    */
   HS_COLD_MEMBER void carry_landing_to_seed() {
-    ScratchScope a_guard(scratch_arena_a);
     const size_t landed_faces = build_next_seed_.face_counts.size();
     HS_CHECK(landed_faces <= build_landing_->faces,
              "IslamicStars: next seed larger than the leg landing");
-    uint8_t *landed = scratch_arena_a.allocate_n<uint8_t>(landed_faces);
-    std::memcpy(landed, build_landing_->from_palette, landed_faces);
+    // The carry lives in the idle slot's face-palette array: the outgoing
+    // shape was dropped at the recipe spawn, and the array's same-address
+    // re-claim keeps the bytes across every boundary compaction.
+    uint8_t *carry = slot_face_palette[1 - carousel.front_index()];
+    std::memcpy(carry, build_landing_->from_palette, landed_faces);
     build_landing_ = nullptr;
 
     {
       Persist<PolyMesh> pn(build_next_seed_, scratch_arena_b, persistent_arena);
       build_seed_ = PolyMesh();
-      carousel.compact_drop_all([this](Arena &arena) {
-        ripple_gen.reclaim_storage(arena);
-        palette_bank_.bake_all(arena);
-      });
+      carousel.compact_drop_all(
+          [this](Arena &arena) { reclaim_persistent(arena); });
     }
     build_seed_ = std::move(build_next_seed_);
 
-    uint8_t *from_pal = persistent_arena.allocate_n<uint8_t>(landed_faces);
-    std::memcpy(from_pal, landed, landed_faces);
-    build_from_pal_ = from_pal;
+    build_from_pal_ = carry;
     build_from_faces_ = landed_faces;
   }
 
@@ -1365,32 +1395,27 @@ private:
 
   /**
    * @brief Build completion: recompiles the finished solid into the front slot
-   *        and maps its palette slots from the last leg's landing, so the
-   *        sprite's next frame is pixel-equal to the leg's last one.
+   *        and hands the last leg's per-face colours to the sprite, so its
+   *        next frame is pixel-equal to the leg's last one.
    */
   HS_COLD_MEMBER void finish_build() {
-    // The closing compile lands on a compacted arena, so everything it is
-    // checked against is snapshotted out of the last leg's storage first.
-    ScratchScope landing_guard(scratch_arena_a);
-    const Animation::OpLeg::Landing &landing = *build_landing_;
     // The finished solid is build_seed_ (the last leg's clean endpoint): its
     // face count is the emission-order prefix of the landing (the whole landing
     // for a normal leg, the surviving dual faces for the DUAL bridge's closing
     // truncate, whose zero-area corner births drop at the compile below).
     const size_t landed_faces = build_seed_.face_counts.size();
-    HS_CHECK(landed_faces <= landing.faces,
+    HS_CHECK(landed_faces <= build_landing_->faces,
              "IslamicStars: finished solid larger than the leg landing");
-    int *landed_topo = scratch_arena_a.allocate_n<int>(landed_faces);
-    std::memcpy(landed_topo, landing.topology, landed_faces * sizeof(int));
-    const std::array<uint8_t, Animation::OpLeg::PALETTES> landed_to =
-        landing.to_palette;
+    const int front = carousel.front_index();
+    // Per-face sprite handoff: copied before the compaction below, whose
+    // same-address re-claim keeps the array's bytes.
+    std::memcpy(slot_face_palette[front], build_landing_->from_palette,
+                landed_faces);
     build_landing_ = nullptr;
     build_from_pal_ = nullptr;
     build_from_faces_ = 0;
 
-    const int front = carousel.front_index();
     MeshState &slot = carousel.slot(front);
-    // Not generate(): its depth-0 reset would drop the landing snapshot above.
     {
       ScratchScope a_guard(scratch_arena_a);
       slot.clear();
@@ -1405,10 +1430,8 @@ private:
         MeshOps::clone(build_seed_, built, scratch_arena_b);
         build_next_seed_ = PolyMesh();
         build_seed_ = PolyMesh();
-        carousel.compact_drop_all([this](Arena &arena) {
-          ripple_gen.reclaim_storage(arena);
-          palette_bank_.bake_all(arena);
-        });
+        carousel.compact_drop_all(
+            [this](Arena &arena) { reclaim_persistent(arena); });
         MeshOps::compile(built, slot, persistent_arena, scratch_arena_a);
       }
       ScratchScope b_guard(scratch_arena_b);
@@ -1416,21 +1439,10 @@ private:
                                           scratch_arena_b, persistent_arena);
     }
 
-    // The leg's targets keyed on this same classification (computed at leg
-    // start from the same endpoint mesh); drift here would pop the swap.
+    // The per-face colours index the compiled slot by emission order, so the
+    // counts must agree exactly.
     HS_CHECK(landed_faces == slot.topology.size(),
              "IslamicStars: built mesh face count differs from the last leg");
-    MeshPaletteBank::shuffle_indices(palettes_slots[front]);
-    bool slot_mapped[NUM_PALETTES] = {};
-    for (size_t f = 0; f < landed_faces; ++f) {
-      HS_CHECK(landed_topo[f] == slot.topology[f],
-               "IslamicStars: arrival classification drifted across the build");
-      const int s = wrap(slot.topology[f], NUM_PALETTES);
-      if (!slot_mapped[s]) {
-        slot_mapped[s] = true;
-        palettes_slots[front][s] = landed_to[wrap(landed_topo[f], NUM_PALETTES)];
-      }
-    }
     build_active_ = false;
 
     hs::log("Built Shape: %s (V=%d, E=%d, F=%d, I=%d)",
