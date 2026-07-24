@@ -53,9 +53,10 @@ public:
    *        and filter pipeline.
    */
   HS_COLD_MEMBER Dynamo()
-      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
-        palettes{make_palette()},
-        palette_normal(Z_AXIS),
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
+        palettes{make_palette()}, palette_normal(Z_AXIS),
         filters(Filter::World::Trails<W, TRAIL_CAPACITY>(
                     (uint32_t)params.trail_length),
                 Filter::World::Replicate<W>(3),
@@ -132,9 +133,10 @@ public:
     // Stamp WIPE_COMPLETE on completion (not pop_back): overlapping wipes can
     // finish out of order, so pop_back would evict a still-animating boundary.
     float *boundary_slot = &palette_boundaries.front();
-    timeline.add(0, Animation::Transition(palette_boundaries.front(), PI_F,
-                                          (int)params.wipe_duration, ease_linear)
-                        .then([boundary_slot]() { *boundary_slot = WIPE_COMPLETE; }));
+    timeline.add(
+        0, Animation::Transition(palette_boundaries.front(), PI_F,
+                                 (int)params.wipe_duration, ease_linear)
+               .then([boundary_slot]() { *boundary_slot = WIPE_COMPLETE; }));
   }
 
   /**
@@ -306,10 +308,13 @@ private:
           f.color = color(v, 0);
           f.color.alpha *= 0.5f;
         };
-        Fragment f_from; f_from.pos = from; f_from.age = age;
-        Fragment f_to;   f_to.pos = to;   f_to.age = age;
-        Plot::Line::draw<W, H>(filters, canvas, f_from, f_to,
-                               fragment_shader);
+        Fragment f_from;
+        f_from.pos = from;
+        f_from.age = age;
+        Fragment f_to;
+        f_to.pos = to;
+        f_to.age = age;
+        Plot::Line::draw<W, H>(filters, canvas, f_from, f_to, fragment_shader);
       }
     }
   }
@@ -388,15 +393,17 @@ private:
    */
   static constexpr float WIPE_COMPLETE = 100.0f;
   static constexpr int H_VIRT = H + hs::H_OFFSET; /**< Virtual row count. */
-  static constexpr size_t NUM_NODES = H_VIRT; /**< Strand node count. */
+  static constexpr size_t NUM_NODES = H_VIRT;     /**< Strand node count. */
   /**
    * @brief Compile-time Trails storage capacity (max buffered trail points).
    * @details Memory-budget cap, not a worst-case bound; over-budget is graceful
    *          (World::Trails' ring drops the oldest point, shortening the tail).
    */
   static constexpr int TRAIL_CAPACITY = 10000;
-  StaticCircularBuffer<GenerativePalette, MAX_PALETTES> palettes; /**< Live palettes. */
-  StaticCircularBuffer<float, MAX_PALETTES - 1> palette_boundaries; /**< Wipe boundary angles. */
+  StaticCircularBuffer<GenerativePalette, MAX_PALETTES>
+      palettes; /**< Live palettes. */
+  StaticCircularBuffer<float, MAX_PALETTES - 1>
+      palette_boundaries; /**< Wipe boundary angles. */
   /**
    * @brief Baked 256-entry LUTs mirroring palettes[] in logical order.
    * @details Read by the per-pixel color() path (lerp16 lookup, not OKLCH lerp);
@@ -408,7 +415,8 @@ private:
   // init() allocates the nodes, Trails ring buffer, and baked palette LUTs from
   // the persistent arena.
   static constexpr size_t FOOTPRINT_BYTES =
-      NUM_NODES * sizeof(Node) + TRAIL_CAPACITY *
+      NUM_NODES * sizeof(Node) +
+      TRAIL_CAPACITY *
           sizeof(typename Filter::World::Trails<W, TRAIL_CAPACITY>::Item) +
       MAX_PALETTES * BakedPalette::LUT_SIZE * sizeof(Color4);
   // Effect keeps the default arena split, so the footprint must fit the device
@@ -435,9 +443,9 @@ private:
    * @brief Live slider-backed parameters for the effect.
    */
   struct Params {
-    float speed = 2.0f; /**< Strand travel speed. */
-    float gap = 5.0f; /**< Target spacing between adjacent nodes. */
-    float trail_length = 8.0f; /**< Active trail length. */
+    float speed = 2.0f;          /**< Strand travel speed. */
+    float gap = 5.0f;            /**< Target spacing between adjacent nodes. */
+    float trail_length = 8.0f;   /**< Active trail length. */
     float wipe_duration = 20.0f; /**< Color-wipe transition duration. */
   } params;
 
@@ -447,8 +455,8 @@ private:
    * @brief Filter pipeline applied to plotted points before color resolution.
    */
   Pipeline<W, H, Filter::World::Trails<W, TRAIL_CAPACITY>,
-           Filter::World::Replicate<W>,
-           Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
+           Filter::World::Replicate<W>, Filter::World::Orient<W>,
+           Filter::Screen::AntiAlias<W, H>>
       filters;
 };
 

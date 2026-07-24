@@ -55,7 +55,8 @@ template <typename T, typename P> struct pipeline_contains : std::false_type {};
 template <typename T, int W, int H, typename Head, typename... Tail>
 struct pipeline_contains<T, Pipeline<W, H, Head, Tail...>>
     : std::bool_constant<std::is_same_v<T, Head> ||
-                         pipeline_contains<T, Pipeline<W, H, Tail...>>::value> {};
+                         pipeline_contains<T, Pipeline<W, H, Tail...>>::value> {
+};
 
 // ============================================================================
 // Trait structs — direct member values
@@ -151,9 +152,9 @@ inline void test_crosses_segments_trait_and_fold() {
   // Pipeline OR-fold.
   HS_EXPECT_FALSE((Pipeline<W, H>::any_crosses_segments));
 
-  using MeshStack = Pipeline<W, H, Filter::World::Orient<W>,
-                             Filter::Screen::AntiAlias<W, H>,
-                             Filter::Pixel::Feedback<W, H>>;
+  using MeshStack =
+      Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>,
+               Filter::Pixel::Feedback<W, H>>;
   HS_EXPECT_TRUE(MeshStack::any_crosses_segments);
 
   // A non-stateful stack does not.
@@ -162,7 +163,8 @@ inline void test_crosses_segments_trait_and_fold() {
   HS_EXPECT_FALSE(PlainStack::any_crosses_segments);
 
   // A Screen::Trails-only stack does not trip the fold despite has_history.
-  HS_EXPECT_FALSE((Pipeline<W, H, Filter::Screen::Trails<W>>::any_crosses_segments));
+  HS_EXPECT_FALSE(
+      (Pipeline<W, H, Filter::Screen::Trails<W>>::any_crosses_segments));
 
   // Compile-time form.
   static_assert(MeshStack::any_crosses_segments,
@@ -226,8 +228,9 @@ inline void test_pipeline_get_returns_correct_filter() {
                 "Blur is a pipeline stage");
   static_assert((pipeline_contains<CS, Pipeline<W, H, AA, Blur, CS>>::value),
                 "CS is a pipeline stage");
-  static_assert((!pipeline_contains<Absent, Pipeline<W, H, AA, Blur, CS>>::value),
-                "Feedback is absent from the pipeline");
+  static_assert(
+      (!pipeline_contains<Absent, Pipeline<W, H, AA, Blur, CS>>::value),
+      "Feedback is absent from the pipeline");
 }
 
 // ============================================================================
@@ -299,10 +302,13 @@ inline void test_antialias_seam_wraps_left_column() {
           [&](float x, float y, const Pixel &, float, float a) {
             (void)y;
             sum += a;
-            if (x < 0.0f || x >= static_cast<float>(W)) all_in_range = false;
+            if (x < 0.0f || x >= static_cast<float>(W))
+              all_in_range = false;
             int xi = static_cast<int>(x);
-            if (xi == W - 1) saw_w_minus_1 = true;
-            if (xi == 0) saw_zero = true;
+            if (xi == W - 1)
+              saw_w_minus_1 = true;
+            if (xi == 0)
+              saw_zero = true;
           });
   HS_EXPECT_TRUE(all_in_range);
   HS_EXPECT_TRUE(saw_w_minus_1);
@@ -329,10 +335,13 @@ inline void test_antialias_far_seam_wraps_both_taps() {
           [&](float x, float y, const Pixel &, float, float a) {
             (void)y;
             sum += a;
-            if (x < 0.0f || x >= static_cast<float>(W)) all_in_range = false;
+            if (x < 0.0f || x >= static_cast<float>(W))
+              all_in_range = false;
             int xi = static_cast<int>(x);
-            if (xi == W - 1) saw_w_minus_1 = true;
-            if (xi == 0) saw_zero = true;
+            if (xi == W - 1)
+              saw_w_minus_1 = true;
+            if (xi == 0)
+              saw_zero = true;
           });
   HS_EXPECT_TRUE(all_in_range);
   HS_EXPECT_TRUE(saw_w_minus_1);
@@ -492,16 +501,17 @@ inline void test_chromatic_shift_fanout() {
    * @brief One recorded fan-out tap: position, colour, and alpha.
    */
   struct Tap {
-    float x, y;       /**< Emitted pixel coordinate. */
-    Pixel c;          /**< Emitted colour. */
-    float alpha;      /**< Emitted alpha. */
+    float x, y;  /**< Emitted pixel coordinate. */
+    Pixel c;     /**< Emitted colour. */
+    float alpha; /**< Emitted alpha. */
   };
   Tap taps[8];
   int count = 0;
   Pixel src(100, 150, 200);
   cs.plot(10.0f, 5.0f, src, 0.0f, 1.0f,
           [&](float x, float y, const Pixel &c, float, float a) {
-            if (count < 8) taps[count] = {x, y, c, a};
+            if (count < 8)
+              taps[count] = {x, y, c, a};
             ++count;
           });
 
@@ -599,9 +609,9 @@ inline void test_feedback_plot_is_passthrough() {
  *        filter emits.
  */
 struct Tap3D {
-  Vector v;            /**< Emitted world-space position. */
-  Pixel c;             /**< Emitted colour. */
-  float age, alpha;    /**< Emitted age and alpha. */
+  Vector v;         /**< Emitted world-space position. */
+  Pixel c;          /**< Emitted colour. */
+  float age, alpha; /**< Emitted age and alpha. */
 };
 
 /**
@@ -611,7 +621,8 @@ struct Tap3D {
  */
 inline void test_world_hole_masks_cap() {
   constexpr int W = 32;
-  Filter::World::Hole<W> hole(Vector(0, 1, 0), 0.5f); // cap at +Y, radius 0.5 rad
+  Filter::World::Hole<W> hole(Vector(0, 1, 0),
+                              0.5f); // cap at +Y, radius 0.5 rad
 
   // Far point (south pole) is well outside -> verbatim passthrough.
   int n = 0;
@@ -717,7 +728,8 @@ inline void test_world_orient_motion_blur_sweep_ages() {
   float ages[4] = {0};
   orient.plot(X_AXIS, Pixel(1, 1, 1), 10.0f, 1.0f,
               [&](const Vector &, const Pixel &, float age, float) {
-                if (n < 4) ages[n] = age;
+                if (n < 4)
+                  ages[n] = age;
                 ++n;
               });
   // tween emits len-1 = 2 taps (i=1,2), t in {0.5, 1.0} -> age + {0.5, 0.0}.
@@ -785,7 +797,8 @@ inline void test_world_vertex_replicate_fanout_and_age() {
   int n = 0;
   vr.plot(X_AXIS, Pixel(1, 1, 1), 7.0f, 1.0f,
           [&](const Vector &v, const Pixel &c, float age, float a) {
-            if (n < N) taps[n] = {v, c, age, a};
+            if (n < N)
+              taps[n] = {v, c, age, a};
             ++n;
           });
   HS_EXPECT_EQ(n, N);
@@ -887,7 +900,8 @@ inline size_t count_lit(const PipeFx &fx) {
   size_t n = 0;
   for (int y = 0; y < fx.height(); ++y)
     for (int x = 0; x < fx.width(); ++x)
-      if (!px_black(fx.get_pixel(x, y))) ++n;
+      if (!px_black(fx.get_pixel(x, y)))
+        ++n;
   return n;
 }
 
@@ -964,7 +978,8 @@ inline void test_pipeline_world_replicate_fans_out() {
   PipeFx fx(W, H);
   // Replicate(2): original + one copy rotated 180 deg about Y (same latitude,
   // longitude + W/2) -> two distinct columns -> two lit pixels.
-  Pipeline<W, H, Filter::World::Replicate<W>> pipe(Filter::World::Replicate<W>(2));
+  Pipeline<W, H, Filter::World::Replicate<W>> pipe(
+      Filter::World::Replicate<W>(2));
   Vector v = Vector(0.6f, 0.4f, 0.69f).normalized();
   {
     Canvas c(fx);
@@ -984,7 +999,8 @@ inline void test_pipeline_2d_into_3d_head_roundtrips() {
   constexpr int W = 32, H = 16;
   PipeFx fx(W, H);
   // Replicate(1) clamps to a single emission -> identity pass-through.
-  Pipeline<W, H, Filter::World::Replicate<W>> pipe(Filter::World::Replicate<W>(1));
+  Pipeline<W, H, Filter::World::Replicate<W>> pipe(
+      Filter::World::Replicate<W>(1));
   const int px = 16, py = 8; // interior, away from poles/seam
   {
     Canvas c(fx);
@@ -1072,21 +1088,21 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
   static_assert(!Direct::any_crosses_segments);
 
   std::vector<AASinkSample> samples;
-  constexpr std::array<float, 12> xs{
-      -17.0f, -16.999f, -0.999f, -0.001f, 0.0f, 0.001f,
-      7.5f,   15.999f,  16.999f, 17.001f, 33.001f, 33.999f};
-  constexpr std::array<float, 11> ys{
-      -1.001f, -1.0f, -0.999f, -0.001f, 0.0f, 0.001f,
-      4.5f,    7.999f, 8.0f,    8.999f, 9.001f};
+  constexpr std::array<float, 12> xs{-17.0f,  -16.999f, -0.999f, -0.001f,
+                                     0.0f,    0.001f,   7.5f,    15.999f,
+                                     16.999f, 17.001f,  33.001f, 33.999f};
+  constexpr std::array<float, 11> ys{-1.001f, -1.0f,  -0.999f, -0.001f,
+                                     0.0f,    0.001f, 4.5f,    7.999f,
+                                     8.0f,    8.999f, 9.001f};
   constexpr std::array<float, 5> alphas{0.0f, 0.00001f, 0.25f, 1.0f, 1.2f};
   size_t sequence = 0;
   for (float x : xs)
     for (float y : ys) {
       const uint16_t n = static_cast<uint16_t>(sequence++ * 4051u);
-      samples.push_back(
-          {x, y, Pixel(n, static_cast<uint16_t>(n * 3u),
-                       static_cast<uint16_t>(65535u - n)),
-           alphas[sequence % alphas.size()]});
+      samples.push_back({x, y,
+                         Pixel(n, static_cast<uint16_t>(n * 3u),
+                               static_cast<uint16_t>(65535u - n)),
+                         alphas[sequence % alphas.size()]});
     }
 
   uint32_t state = 0x6d2b79f5u;
@@ -1111,8 +1127,12 @@ inline void test_direct_antialias_sink_framebuffer_parity() {
     int y0, y1, x0, x1, margin;
   };
   constexpr std::array<ClipCase, 7> clips{{
-      {0, H, 0, W, 0}, {2, 7, 3, 13, 0}, {2, 7, 3, 13, 1},
-      {2, 7, 0, 2, 2}, {2, 7, 15, W, 2}, {4, 5, 8, 9, 4},
+      {0, H, 0, W, 0},
+      {2, 7, 3, 13, 0},
+      {2, 7, 3, 13, 1},
+      {2, 7, 0, 2, 2},
+      {2, 7, 15, W, 2},
+      {4, 5, 8, 9, 4},
       {0, H, 4, 12, W - 1},
   }};
 
@@ -1302,7 +1322,7 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
 
   // Frame 1: a full-width bright band (3 rows thick) becomes the "previous" frame.
-  constexpr int R = 40;                 // band center, southern hemisphere
+  constexpr int R = 40; // band center, southern hemisphere
   {
     Canvas c(fx);
     for (int y = R - 1; y <= R + 1; ++y)
@@ -1329,29 +1349,36 @@ inline void test_feedback_flush_melt_warp_displaces_south() {
   int oracle_y = R, best = H;
   for (int y = 0; y < H; ++y) {
     int d = static_cast<int>(std::abs(by(y) - static_cast<float>(R)));
-    if (d < best) { best = d; oracle_y = y; }
+    if (d < best) {
+      best = d;
+      oracle_y = y;
+    }
   }
 
   // Find the output band by per-row brightness (band is full width, so summing
   // each row is robust to the bilerp's small per-pixel spread).
   auto row_sum = [&](int y) {
     uint64_t s = 0;
-    for (int x = 0; x < W; ++x) s += fx.get_pixel(x, y).r;
+    for (int x = 0; x < W; ++x)
+      s += fx.get_pixel(x, y).r;
     return s;
   };
   int peak_y = 0;
   uint64_t peak = 0;
   for (int y = 0; y < H; ++y) {
     uint64_t s = row_sum(y);
-    if (s > peak) { peak = s; peak_y = y; }
+    if (s > peak) {
+      peak = s;
+      peak_y = y;
+    }
   }
 
   // The band drifted south to the predicted row (within the coarse bilerp's 1px),
   // strictly past where an identity warp would have left it.
-  HS_EXPECT_GT(peak, (uint64_t)0);          // the warped band actually rendered
+  HS_EXPECT_GT(peak, (uint64_t)0); // the warped band actually rendered
   HS_EXPECT_TRUE(std::abs(peak_y - oracle_y) <= 1);
-  HS_EXPECT_GT(oracle_y, R);                 // melt drifts south (y increases)
-  HS_EXPECT_GT(peak_y, R + 2);               // a real, multi-pixel displacement
+  HS_EXPECT_GT(oracle_y, R);   // melt drifts south (y increases)
+  HS_EXPECT_GT(peak_y, R + 2); // a real, multi-pixel displacement
   // The band's original location is now dark: its source row is north of the band,
   // so nothing bright maps back onto row R — confirming the content moved, not an
   // identity passthrough that would have left the band in place.
@@ -1815,9 +1842,11 @@ inline void test_feedback_warp_cache_matches_uncached() {
     for (int frame = 0; frame < FRAMES; ++frame) {
       fx.set_margin(0);
       fx.set_clip(CLIP_BEGIN[frame], CLIP_BEGIN[frame] + 8, 0, W);
-      if (frame == 3) s.amplitude = 4.5f; // key change: repopulate
-      if (frame == 5) s.speed = 1.0f;     // time-varying: miss every frame
-      if (frame == 6 && cached)           // post-compaction re-allocation
+      if (frame == 3)
+        s.amplitude = 4.5f; // key change: repopulate
+      if (frame == 5)
+        s.speed = 1.0f;         // time-varying: miss every frame
+      if (frame == 6 && cached) // post-compaction re-allocation
         pipe.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
             persistent_arena);
       s.sync_noise();
@@ -1843,7 +1872,8 @@ inline void test_feedback_warp_cache_matches_uncached() {
   for (int frame = 0; frame < FRAMES; ++frame) {
     int mismatches = 0;
     for (size_t i = 0; i < ref[frame].size(); ++i)
-      if (!(ref[frame][i] == got[frame][i])) ++mismatches;
+      if (!(ref[frame][i] == got[frame][i]))
+        ++mismatches;
     HS_EXPECT_EQ(mismatches, 0);
   }
 }
@@ -1854,7 +1884,8 @@ inline void test_feedback_warp_cache_matches_uncached() {
  *        columns land on opposite wrap branches while the true (unwrapped)
  *        field stays smooth.
  */
-inline Vector antipodal_ripple_warp(const Vector &v, const ::Feedback::Style &) {
+inline Vector antipodal_ripple_warp(const Vector &v,
+                                    const ::Feedback::Style &) {
   Spherical s(v);
   return Vector(Spherical(s.theta + PI_F + 0.3f * std::sin(s.theta), s.phi));
 }
@@ -1923,8 +1954,10 @@ inline void test_feedback_flush_straddled_taps_stay_on_branch() {
       float th = TWO_PI * x / W;
       float expected_x = (th + PI_F + 0.3f * std::sin(th)) / TWO_PI * W;
       float d = std::fmod(decoded_x - expected_x, static_cast<float>(W));
-      if (d > W * 0.5f) d -= W;
-      if (d < -W * 0.5f) d += W;
+      if (d > W * 0.5f)
+        d -= W;
+      if (d < -W * 0.5f)
+        d += W;
       max_err = std::max(max_err, std::fabs(d));
     }
   HS_EXPECT_LT(max_err, 2.0f);
@@ -1996,13 +2029,12 @@ inline void test_world_trails_clamps_out_of_range() {
   auto trail = [](const Vector &, float) {
     return Color4(Pixel(60000, 60000, 60000), 1.0f);
   };
-  trails.flush(WorldTrailFn(trail), 1.0f,
-               [&](const Vector &d, const Pixel &, float, float) {
-                 decoded = d;
-               });
-  HS_EXPECT_NEAR(decoded.x, 1.0f, 1e-3f);   // saturated, not wrapped negative
-  HS_EXPECT_NEAR(decoded.y, 0.5f, 1e-3f);   // in range: untouched
-  HS_EXPECT_NEAR(decoded.z, -1.0f, 1e-3f);  // saturated
+  trails.flush(
+      WorldTrailFn(trail), 1.0f,
+      [&](const Vector &d, const Pixel &, float, float) { decoded = d; });
+  HS_EXPECT_NEAR(decoded.x, 1.0f, 1e-3f);  // saturated, not wrapped negative
+  HS_EXPECT_NEAR(decoded.y, 0.5f, 1e-3f);  // in range: untouched
+  HS_EXPECT_NEAR(decoded.z, -1.0f, 1e-3f); // saturated
 }
 
 /**
@@ -2101,12 +2133,15 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
 
   // Orthogonal/antipodal unit vectors so int16-quantized decodes stay trivially
   // identifiable by dot product.
-  const Vector p0(1, 0, 0), p1(0, 1, 0), p2(0, 0, 1), p3(-1, 0, 0), p4(0, -1, 0);
+  const Vector p0(1, 0, 0), p1(0, 1, 0), p2(0, 0, 1), p3(-1, 0, 0),
+      p4(0, -1, 0);
   auto noop = [](const Vector &, const Pixel &, float, float) {};
 
-  trails.plot(p0, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100 — oldest, long-lived
+  trails.plot(p0, Pixel(1, 1, 1), 0.0f, 1.0f,
+              noop); // ttl 100 — oldest, long-lived
   trails.set_lifetime(1);
-  trails.plot(p1, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 1 — dies on next flush
+  trails.plot(p1, Pixel(1, 1, 1), 0.0f, 1.0f,
+              noop); // ttl 1 — dies on next flush
   trails.set_lifetime(100);
   trails.plot(p2, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
   trails.plot(p3, Pixel(1, 1, 1), 0.0f, 1.0f, noop); // ttl 100
@@ -2123,8 +2158,8 @@ inline void test_world_trails_midbuffer_expiry_reclaims_slot() {
   // p1 is drawn this frame (ttl 1, its final render) and then ages to 0. The
   // front (p0) is still alive; the swap-remove cull reclaims p1 mid-buffer.
   trails.flush(WorldTrailFn(trail), 1.0f, noop);
-  HS_EXPECT_EQ(live_drawn, 4);                  // all 4 still live at emit time
-  HS_EXPECT_TRUE(saw_p0);                       // the oldest live point still draws
+  HS_EXPECT_EQ(live_drawn, 4); // all 4 still live at emit time
+  HS_EXPECT_TRUE(saw_p0);      // the oldest live point still draws
   HS_EXPECT_EQ(trails.size(), (size_t)(Cap - 1)); // dead p1's slot reclaimed
 
   // Buffer has a free slot, so this plot fills it without evicting any live
@@ -2171,9 +2206,7 @@ inline void test_screen_trails_store_emit_decay() {
   HS_EXPECT_EQ(passthru, 1);
   HS_EXPECT_NEAR(fwd_age, 1.0f, 1e-6f); // forwarded verbatim
 
-  auto trail = [](float, float, float) {
-    return Color4(Pixel(9, 9, 9), 1.0f);
-  };
+  auto trail = [](float, float, float) { return Color4(Pixel(9, 9, 9), 1.0f); };
   // Stored ttl = lifetime - age = 2. Each flush emits then decays (--ttl).
   int emitted = 0;
   auto counting_sink = [&](float, float, const Pixel &, float, float) {
@@ -2263,7 +2296,10 @@ inline void test_screen_trails_banded_matches_full() {
 
   // A fixed set of seed points spanning every row, with one point that sweeps
   // rows across frames so the trail buffer holds live points in both bands.
-  struct Seed { int x, y; Pixel c; };
+  struct Seed {
+    int x, y;
+    Pixel c;
+  };
   auto frame_seeds = [](int f) {
     return std::array<Seed, 6>{{
         {3, 1, Pixel(10000, 0, 0)},
@@ -2306,9 +2342,9 @@ inline void test_screen_trails_banded_matches_full() {
   };
 
   static Pixel full[H][W], band_top[H][W], band_bot[H][W];
-  run(0, H, full);        // single full-canvas instance
-  run(0, MID, band_top);  // worker A: top band
-  run(MID, H, band_bot);  // worker B: bottom band
+  run(0, H, full);       // single full-canvas instance
+  run(0, MID, band_top); // worker A: top band
+  run(MID, H, band_bot); // worker B: bottom band
 
   // Stitch each worker's DISPLAY band and require byte-identity with the full
   // instance: reach 0 => band clipping drops nothing.
@@ -2320,7 +2356,8 @@ inline void test_screen_trails_banded_matches_full() {
       const Pixel &got = (y < MID) ? band_top[y][x] : band_bot[y][x];
       if (!(got.r == want.r && got.g == want.g && got.b == want.b))
         identical = false;
-      if (want.r | want.g | want.b) ++lit;
+      if (want.r | want.g | want.b)
+        ++lit;
     }
   HS_EXPECT_TRUE(identical);
   HS_EXPECT_GT(lit, 0);
@@ -2359,7 +2396,9 @@ inline void test_feedback_banded_diverges_from_full() {
 
     PipeFx fx(W, H);
     fx.set_clip(cy0, cy1, 0, W);
-    auto trail = [](float, float, float) { return Color4(Pixel(0, 0, 0), 0.0f); };
+    auto trail = [](float, float, float) {
+      return Color4(Pixel(0, 0, 0), 0.0f);
+    };
 
     // Frame 0: seed a bright band straddling the boundary, THROUGH the clipped
     // pipeline, so a band-clipped worker only seeds rows inside its band.
@@ -2384,7 +2423,7 @@ inline void test_feedback_banded_diverges_from_full() {
   };
 
   static Pixel full[H][W], band_bot[H][W];
-  run(0, H, full);      // full-frame: what needs_full_frame() yields per worker
+  run(0, H, full); // full-frame: what needs_full_frame() yields per worker
   run(MID, H, band_bot); // a band-clipped worker (the un-gated path)
 
   // The bottom band must DIFFER between the two: the full render pulled warped
@@ -2397,8 +2436,10 @@ inline void test_feedback_banded_diverges_from_full() {
     for (int x = 0; x < W; ++x) {
       const Pixel &a = full[y][x];
       const Pixel &b = band_bot[y][x];
-      if (a.r != b.r || a.g != b.g || a.b != b.b) differs = true;
-      if (a.r | a.g | a.b) ++full_bot_lit;
+      if (a.r != b.r || a.g != b.g || a.b != b.b)
+        differs = true;
+      if (a.r | a.g | a.b)
+        ++full_bot_lit;
     }
   HS_EXPECT_TRUE(differs);
   HS_EXPECT_GT(full_bot_lit, 0);
@@ -2483,4 +2524,3 @@ inline int run_filter_tests() {
 
 } // namespace filter_tests
 } // namespace hs_test
-

@@ -32,12 +32,15 @@ public:
    * @brief Per-slot storage for one active entity.
    */
   struct Entity {
-    ParamsT params;         /**< Per-entity configuration the composition reads. */
-    bool active = false;    /**< Whether this slot currently holds a live animation. */
+    ParamsT params; /**< Per-entity configuration the composition reads. */
+    bool active =
+        false; /**< Whether this slot currently holds a live animation. */
   };
 
-  ParamsT template_params;              /**< Template params copied into each new entity on spawn. */
-  Timeline &timeline;                   /**< Timeline that schedules and steps the spawned animations. */
+  ParamsT
+      template_params; /**< Template params copied into each new entity on spawn. */
+  Timeline &
+      timeline; /**< Timeline that schedules and steps the spawned animations. */
 
   /**
    * @brief Constructs a pool bound to a timeline.
@@ -141,9 +144,11 @@ protected:
    * order is load-bearing and must not depend on which freed slot was recycled.
    */
   int *active_slots_ = nullptr;
-  int active_count_ = 0; /**< Number of valid entries at the front of active_slots_. */
+  int active_count_ =
+      0; /**< Number of valid entries at the front of active_slots_. */
 
-  Entity *entities = nullptr; /**< CAPACITY-slot pool, allocated by init_storage(). */
+  Entity *entities =
+      nullptr; /**< CAPACITY-slot pool, allocated by init_storage(). */
 
 private:
   /**
@@ -237,7 +242,6 @@ private:
   }
 
 public:
-
   /**
    * @brief Prepares per-frame cached state for all active entities.
    * @details ORDERING CONTRACT: call before the derived composition
@@ -260,7 +264,6 @@ public:
       }
     }
   }
-
 };
 
 /**
@@ -400,7 +403,8 @@ public:
  * @brief A transformer adapter for an Orientation object.
  */
 struct OrientTransformer {
-  const Orientation<> &orientation; /**< Orientation applied by each transform; retained by reference. */
+  const Orientation<> &
+      orientation; /**< Orientation applied by each transform; retained by reference. */
 
   /**
    * @brief Constructs an adapter wrapping an orientation.
@@ -443,8 +447,7 @@ inline Vector mobius_transform(const Vector &v, const MobiusParams &params) {
   // Exact north pole leaves (p : s) = (0 : 0); its projective image is the
   // point at infinity, (1 : 0). Approaching the pole needs no such nudge:
   // |p| ~ sqrt(2s) dominates s, so the ratio tends to infinity on its own.
-  if (px * px + pz * pz < STEREO_DIV_NUM_EPS_SQ &&
-      s < STEREO_DIV_NUM_EPS_SQ) {
+  if (px * px + pz * pz < STEREO_DIV_NUM_EPS_SQ && s < STEREO_DIV_NUM_EPS_SQ) {
     px = 1.0f;
     pz = 0.0f;
     s = 0.0f;
@@ -493,7 +496,8 @@ constexpr float RIPPLE_SMALL_ANGLE_MAX = 0.15f;
  * @param params The ripple parameters.
  * @return The displaced vector.
  */
-HS_O3_FN inline Vector ripple_transform(const Vector &v, const RippleParams &params) {
+HS_O3_FN inline Vector ripple_transform(const Vector &v,
+                                        const RippleParams &params) {
   // Between ripples the envelope drives amplitude to 0; skip the whole per-pixel
   // wavelet (fast_acos + fast_expf) when there is nothing to displace.
   if (params.amplitude <= 0.001f)
@@ -624,7 +628,8 @@ inline float pole_attenuation(float r_sq, float pole_fade) {
  * @details Shared by the stereo pattern effects (Flyby/Liquid2D) so the
  * attenuation and normalization stay identical across them.
  */
-inline float pole_normalize_pattern(float pattern, float r_sq, float pole_fade) {
+inline float pole_normalize_pattern(float pattern, float r_sq,
+                                    float pole_fade) {
   return (pattern * pole_attenuation(r_sq, pole_fade) + 1.0f) * 0.5f;
 }
 
@@ -642,10 +647,9 @@ inline float pole_normalize_pattern(float pattern, float r_sq, float pole_fade) 
  * singularity blowup. The scalar displacement is returned alongside the warped
  * coordinate for downstream effects (e.g., hue shifting).
  */
-HS_O3_FN inline StereoWarpResult stereo_noise_warp(const Complex &z, float r_sq,
-                                          const FastNoiseLite &noise,
-                                          float scale, float strength,
-                                          float pole_fade, float time) {
+HS_O3_FN inline StereoWarpResult
+stereo_noise_warp(const Complex &z, float r_sq, const FastNoiseLite &noise,
+                  float scale, float strength, float pole_fade, float time) {
   float atten = pole_attenuation(r_sq, pole_fade);
   float s = strength * atten;
   constexpr float CHANNEL_OFFSET = 100.0f; // decorrelates dy's field from dx's
@@ -662,8 +666,7 @@ inline float bump_field_profile(const BumpParams &params, float r_eff, float d,
   float abs_y = std::fabs(y);
   float x_sq = std::max(d * d - y * y, 0.0f);
   float depth = sqrtf(std::max(r_eff * r_eff - x_sq, 0.0f)) - abs_y;
-  float drape =
-      std::min(params.amplitude * sinf(PI_F * abs_y / r_eff), 1.0f);
+  float drape = std::min(params.amplitude * sinf(PI_F * abs_y / r_eff), 1.0f);
   return copysignf(depth * drape, y);
 }
 
@@ -775,8 +778,8 @@ using NoiseProductTransformer =
  * @tparam CAPACITY Maximum number of concurrent Mobius warp transformations.
  */
 template <int CAPACITY>
-using MobiusWarpTransformer =
-    Transformer<MobiusParams, Animation::MobiusWarp, mobius_transform, CAPACITY>;
+using MobiusWarpTransformer = Transformer<MobiusParams, Animation::MobiusWarp,
+                                          mobius_transform, CAPACITY>;
 
 /**
  * @brief Performs circular Mobius warps that stay warped throughout, suitable

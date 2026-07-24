@@ -25,9 +25,10 @@ namespace hs_test {
  * the helper.
  */
 struct Stats {
-  int passed = 0;  /**< Count of comparisons that succeeded. */
-  int failed = 0;  /**< Count of comparisons that failed. */
-  int skipped = 0; /**< Count of suites/cases skipped (never counted as passed). */
+  int passed = 0; /**< Count of comparisons that succeeded. */
+  int failed = 0; /**< Count of comparisons that failed. */
+  int skipped =
+      0; /**< Count of suites/cases skipped (never counted as passed). */
 };
 
 /**
@@ -118,9 +119,8 @@ template <class T> inline void print_operand(const T &v) {
   } else if constexpr (std::is_floating_point_v<T>) {
     std::printf("%g", static_cast<double>(v));
   } else if constexpr (std::is_enum_v<T>) {
-    std::printf("%lld",
-                static_cast<long long>(
-                    static_cast<std::underlying_type_t<T>>(v)));
+    std::printf("%lld", static_cast<long long>(
+                            static_cast<std::underlying_type_t<T>>(v)));
   } else if constexpr (std::is_integral_v<T>) {
     if constexpr (std::is_signed_v<T>)
       std::printf("%lld", static_cast<long long>(v));
@@ -214,10 +214,10 @@ inline void report_near(double a, double b, double tol, const char *expr,
  * shared process-wide counter.
  */
 struct ModuleScope {
-  const char *name;    /**< Module name, echoed in the header and footer. */
-  int passed_before;   /**< Global passed count captured at begin_module. */
-  int failed_before;   /**< Global failed count captured at begin_module. */
-  int skipped_before;  /**< Global skipped count captured at begin_module. */
+  const char *name;   /**< Module name, echoed in the header and footer. */
+  int passed_before;  /**< Global passed count captured at begin_module. */
+  int failed_before;  /**< Global failed count captured at begin_module. */
+  int skipped_before; /**< Global skipped count captured at begin_module. */
 };
 
 /**
@@ -242,12 +242,13 @@ inline int end_module(const ModuleScope &m) {
   // A module that ran no assertion and skipped nothing did no work; count it as
   // a failure so an emptied runner goes red instead of silently green.
   if (passed + failed == 0 && skipped == 0) {
-    std::printf("=== %s: NO ASSERTIONS RAN — counting as FAILURE ===\n", m.name);
+    std::printf("=== %s: NO ASSERTIONS RAN — counting as FAILURE ===\n",
+                m.name);
     return 1;
   }
   if (skipped > 0)
-    std::printf("=== %s: %d passed, %d failed, %d SKIPPED ===\n", m.name, passed,
-                failed, skipped);
+    std::printf("=== %s: %d passed, %d failed, %d SKIPPED ===\n", m.name,
+                passed, failed, skipped);
   else
     std::printf("=== %s: %d passed, %d failed ===\n", m.name, passed, failed);
   return failed;
@@ -269,21 +270,21 @@ inline int end_module(const ModuleScope &m) {
 // Near-equality with an absolute tolerance. Operands are captured as double so
 // double-valued operands compare at full precision; a float-domain compare can
 // invoke hs_test::approx(float,float,float) directly.
-#define HS_EXPECT_NEAR(a, b, tol)                                             \
-  do {                                                                        \
-    double _hs_a = (a);                                                       \
-    double _hs_b = (b);                                                       \
-    hs_test::report_near(_hs_a, _hs_b, (tol),                                 \
-                         #a " ~= " #b " (tol=" #tol ")", __FILE__, __LINE__); \
+#define HS_EXPECT_NEAR(a, b, tol)                                              \
+  do {                                                                         \
+    double _hs_a = (a);                                                        \
+    double _hs_b = (b);                                                        \
+    hs_test::report_near(_hs_a, _hs_b, (tol), #a " ~= " #b " (tol=" #tol ")",  \
+                         __FILE__, __LINE__);                                  \
   } while (0)
 // Capture each operand once so loop-driven assertions don't re-evaluate side
 // effects, then compare and (on failure) print both values.
-#define HS_EXPECT_CMP(a, b, op, opstr)                                        \
-  do {                                                                        \
-    auto _hs_a = (a);                                                         \
-    auto _hs_b = (b);                                                         \
-    hs_test::report_cmp(_hs_a op _hs_b, _hs_a, _hs_b, #a " " opstr " " #b,    \
-                        __FILE__, __LINE__);                                  \
+#define HS_EXPECT_CMP(a, b, op, opstr)                                         \
+  do {                                                                         \
+    auto _hs_a = (a);                                                          \
+    auto _hs_b = (b);                                                          \
+    hs_test::report_cmp(_hs_a op _hs_b, _hs_a, _hs_b, #a " " opstr " " #b,     \
+                        __FILE__, __LINE__);                                   \
   } while (0)
 #define HS_EXPECT_TRUE(cond) HS_EXPECT((cond), #cond)
 #define HS_EXPECT_FALSE(cond) HS_EXPECT(!(cond), "!(" #cond ")")
@@ -293,4 +294,3 @@ inline int end_module(const ModuleScope &m) {
 #define HS_EXPECT_LE(a, b) HS_EXPECT_CMP(a, b, <=, "<=")
 #define HS_EXPECT_GT(a, b) HS_EXPECT_CMP(a, b, >, ">")
 #define HS_EXPECT_GE(a, b) HS_EXPECT_CMP(a, b, >=, ">=")
-

@@ -14,14 +14,14 @@
  * @tparam W Target canvas width in pixels.
  * @tparam H Target canvas height in pixels.
  */
-template <int W, int H>
-class IslamicStars : public Effect {
+template <int W, int H> class IslamicStars : public Effect {
 
 public:
   /**
    * @brief Constructs the effect, binding the ripple generator to the timeline.
    */
-  HS_COLD_MEMBER IslamicStars() : Effect(W, H, {.strobe = true}), filters(), ripple_gen(timeline) {}
+  HS_COLD_MEMBER IslamicStars()
+      : Effect(W, H, {.strobe = true}), filters(), ripple_gen(timeline) {}
 
   /**
    * @brief Bakes palettes, registers the UI sliders, and seeds the timeline
@@ -48,17 +48,20 @@ public:
     register_param("Fade", &params.fade, 0.0f, 96.0f);
     // Per-face fade length range (frames): each face draws a random fade from
     // [lo, hi] as the terminator reaches it, fraying the sweep front.
-    register_param("Face Fade Lo", &carousel.segue().fade_frames_min, 0.0f, 32.0f);
-    register_param("Face Fade Hi", &carousel.segue().fade_frames_max, 0.0f, 32.0f);
+    register_param("Face Fade Lo", &carousel.segue().fade_frames_min, 0.0f,
+                   32.0f);
+    register_param("Face Fade Hi", &carousel.segue().fade_frames_max, 0.0f,
+                   32.0f);
     // Burst/Ripp Dur ranges are clamped to the ripple pool capacity invariant
     // (see the RIPPLE* constants below).
     register_param("Burst", &params.burst_size, 1.0f, (float)BURST_MAX);
     // Amplitude slider capped at the fold-free ceiling; thickness is fixed (not a
     // slider) so amplitude/thickness can never cross the self-fold onset.
     register_param("Ripp Amp", &ripple_gen.template_params.amplitude, 0.0f,
-                  RIPPLE_AMP_MAX);
+                   RIPPLE_AMP_MAX);
     register_param("Ripp Decay", &ripple_gen.template_params.decay, 0.0f, 5.0f);
-    register_param("Ripp Dur", &ripple_duration, 30.0f, (float)RIPPLE_DURATION_MAX);
+    register_param("Ripp Dur", &ripple_duration, 30.0f,
+                   (float)RIPPLE_DURATION_MAX);
     register_param("Trans Speed", &params.trans_speed, 1.0f, 8.0f);
     register_param("Debug BB", &params.debug_bb);
 
@@ -94,9 +97,12 @@ private:
   static constexpr int RIPPLE_STAGGER_FRAMES = 16;
   static constexpr int RIPPLE_DURATION_MAX = 143;
   static constexpr int BURST_MAX = 4;
-  static constexpr int STILL_FRAMES = 16; /**< 1 s hold (16 fps) between fade and ripple stages. */
-  static constexpr float RIPPLE_THICKNESS = 0.7f; /**< Fixed ripple wavelet width (radians). */
-  static constexpr float RIPPLE_AMP_MAX = 0.15f;   /**< Fold-free amplitude ceiling at RIPPLE_THICKNESS (amp/thickness < ~0.2 self-fold onset). */
+  static constexpr int STILL_FRAMES =
+      16; /**< 1 s hold (16 fps) between fade and ripple stages. */
+  static constexpr float RIPPLE_THICKNESS =
+      0.7f; /**< Fixed ripple wavelet width (radians). */
+  static constexpr float RIPPLE_AMP_MAX =
+      0.15f; /**< Fold-free amplitude ceiling at RIPPLE_THICKNESS (amp/thickness < ~0.2 self-fold onset). */
   static_assert(2 * BURST_MAX <= RIPPLE_POOL_SIZE,
                 "IslamicStars: ripple pool must hold two overlapping bursts");
 
@@ -216,9 +222,9 @@ private:
           return;
         }
       }
-      frag.color = shade_mesh_topology(frag, raw_indices, num_faces,
-                                       palette_bank_, palette_idx, 1.0f, seg,
-                                       phase);
+      frag.color =
+          shade_mesh_topology(frag, raw_indices, num_faces, palette_bank_,
+                              palette_idx, 1.0f, seg, phase);
     };
 
     {
@@ -322,9 +328,12 @@ private:
    * @brief Slider-backed runtime parameters for the effect.
    */
   struct Params {
-    float fade = 72.0f; /**< Segue window length, in frames: a 64-frame (4 s) sweep crossing plus one per-face fade tail. */
-    float burst_size = 4.0f; /**< Ripples per burst; float-backed for register_param. */
-    float trans_speed = 1.0f; /**< Divides every per-shape stage length (fade, still holds, ripple span): 1 = shipping cadence, higher cycles shapes faster. */
+    float fade =
+        72.0f; /**< Segue window length, in frames: a 64-frame (4 s) sweep crossing plus one per-face fade tail. */
+    float burst_size =
+        4.0f; /**< Ripples per burst; float-backed for register_param. */
+    float trans_speed =
+        1.0f; /**< Divides every per-shape stage length (fade, still holds, ripple span): 1 = shipping cadence, higher cycles shapes faster. */
     bool debug_bb = false; /**< Whether to draw mesh bounding boxes. */
   } params;
 };

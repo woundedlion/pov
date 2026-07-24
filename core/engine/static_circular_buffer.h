@@ -66,9 +66,9 @@ public:
    * `explicit` so the forwarding pack cannot be an implicit single-argument
    * conversion to StaticCircularBuffer.
    */
-  template <typename... Args,
-            typename = std::enable_if_t<(sizeof...(Args) > 0) &&
-                                        (std::is_constructible_v<T, Args &&> && ...)>>
+  template <typename... Args, typename = std::enable_if_t<
+                                  (sizeof...(Args) > 0) &&
+                                  (std::is_constructible_v<T, Args &&> && ...)>>
   explicit StaticCircularBuffer(Args &&...args) : head(0), tail(0), count(0) {
     static_assert(sizeof...(Args) <= N,
                   "StaticCircularBuffer initializer list exceeds capacity N");
@@ -338,7 +338,8 @@ private:
   // native build (size_t would widen these three fields to 8 B on the host and make
   // per-effect arena footprints unrepresentative of the device; see memory.h). On
   // the device size_t IS uint32_t, so this is a host-only narrowing.
-  static_assert(N <= 0xFFFFFFFFu, "StaticCircularBuffer capacity exceeds uint32_t");
+  static_assert(N <= 0xFFFFFFFFu,
+                "StaticCircularBuffer capacity exceeds uint32_t");
   // N == 0 would make every `% N` index update a division-by-zero (UB); all
   // instantiations use N >= 1, so trap a zero-capacity buffer at compile time.
   static_assert(N > 0, "StaticCircularBuffer requires N >= 1");
@@ -457,41 +458,61 @@ private:
      * @brief Pre-increment; advances toward the back.
      * @return Reference to this iterator after advancing.
      */
-    Derived &operator++() { ++m_index; return self(); }
+    Derived &operator++() {
+      ++m_index;
+      return self();
+    }
 
     /**
      * @brief Post-increment; advances toward the back.
      * @param int Unused disambiguation tag for post-increment.
      * @return Copy of the iterator before advancing.
      */
-    Derived operator++(int) { Derived t = self(); ++m_index; return t; }
+    Derived operator++(int) {
+      Derived t = self();
+      ++m_index;
+      return t;
+    }
 
     /**
      * @brief Pre-decrement; moves toward the front.
      * @return Reference to this iterator after moving.
      */
-    Derived &operator--() { --m_index; return self(); }
+    Derived &operator--() {
+      --m_index;
+      return self();
+    }
 
     /**
      * @brief Post-decrement; moves toward the front.
      * @param int Unused disambiguation tag for post-decrement.
      * @return Copy of the iterator before moving.
      */
-    Derived operator--(int) { Derived t = self(); --m_index; return t; }
+    Derived operator--(int) {
+      Derived t = self();
+      --m_index;
+      return t;
+    }
 
     /**
      * @brief Advances the iterator by n positions.
      * @param n Number of positions to advance (may be negative).
      * @return Reference to this iterator after advancing.
      */
-    Derived &operator+=(difference_type n) { m_index += n; return self(); }
+    Derived &operator+=(difference_type n) {
+      m_index += n;
+      return self();
+    }
 
     /**
      * @brief Rewinds the iterator by n positions.
      * @param n Number of positions to rewind (may be negative).
      * @return Reference to this iterator after rewinding.
      */
-    Derived &operator-=(difference_type n) { m_index -= n; return self(); }
+    Derived &operator-=(difference_type n) {
+      m_index -= n;
+      return self();
+    }
 
     /**
      * @brief Returns an iterator advanced n positions from a.
@@ -619,7 +640,7 @@ private:
       : public CircularIterBase<ConstIterator, const StaticCircularBuffer *,
                                 const T &, const T *> {
     using Base = CircularIterBase<ConstIterator, const StaticCircularBuffer *,
-                                 const T &, const T *>;
+                                  const T &, const T *>;
 
   public:
     using Base::Base;
@@ -627,6 +648,7 @@ private:
      * @brief Converts a mutable iterator into a const iterator.
      * @param other Mutable iterator to copy position and buffer from.
      */
-    ConstIterator(const iterator &other) : Base(other.m_buffer, other.m_index) {}
+    ConstIterator(const iterator &other)
+        : Base(other.m_buffer, other.m_index) {}
   };
 };

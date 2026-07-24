@@ -10,14 +10,14 @@
 #include "engine/effects.h" // Includes all effect headers (triggers REGISTER_EFFECT)
 #include "core/engine/effect_registry.h"
 #include "engine/platform.h"
-#include "targets/wasm/param_marshal.h"    // pure, host-tested param marshaling
+#include "targets/wasm/param_marshal.h"   // pure, host-tested param marshaling
 #include "targets/wasm/wasm_predicates.h" // pure, host-tested boundary predicates
 #include <algorithm> // std::fill_n — blank-frame clear in drawFrame
 #include <string_view>
 #include <cstring>
 #include <cstdlib> // std::malloc for the lazily-allocated tooling arenas
 #include <cmath>   // std::isfinite — validate MeshOps args at the JS boundary
-#include <climits>  // INT_MAX — drawFrame pixel-index accumulator bound
+#include <climits> // INT_MAX — drawFrame pixel-index accumulator bound
 #include <initializer_list> // all_finite() variadic-arg gate for free exports
 
 // ---- Stack canary painting for high water mark tracking ----
@@ -220,9 +220,10 @@ std::unique_ptr<Effect> create_effect(std::string_view name) {
 #define HS_WASM_RESOLUTIONS(X) HS_RESOLUTIONS(X)
 
 // Pin every resolution row to the MAX_W×MAX_H pixel-buffer bound.
-#define X(W, H)                                                                 \
-  static_assert((W) <= MAX_W && (H) <= MAX_H,                                   \
-                "HS_WASM_RESOLUTIONS row exceeds the MAX_W×MAX_H pixel buffer");
+#define X(W, H)                                                                \
+  static_assert(                                                               \
+      (W) <= MAX_W && (H) <= MAX_H,                                            \
+      "HS_WASM_RESOLUTIONS row exceeds the MAX_W×MAX_H pixel buffer");
 HS_WASM_RESOLUTIONS(X)
 #undef X
 
@@ -238,10 +239,10 @@ HS_WASM_RESOLUTIONS(X)
  *          place.
  */
 template <typename F> static bool dispatch_resolution(int w, int h, F &&f) {
-#define X(W, H)                                                                 \
-  if (w == (W) && h == (H)) {                                                   \
-    f.template operator()<(W), (H)>();                                          \
-    return true;                                                                \
+#define X(W, H)                                                                \
+  if (w == (W) && h == (H)) {                                                  \
+    f.template operator()<(W), (H)>();                                         \
+    return true;                                                               \
   }
   HS_WASM_RESOLUTIONS(X)
 #undef X
@@ -287,7 +288,8 @@ public:
     // buffers returned as views (getPixels/getParamValues) must never move.
     pixelBuffer.assign(MAX_W * MAX_H * CHANNELS, 0);
     paramValues.reserve(MAX_PARAMS);
-    paramViews.reserve(MAX_PARAMS); // not view-backed; reserve is amortization only
+    paramViews.reserve(
+        MAX_PARAMS); // not view-backed; reserve is amortization only
 
     // Bootstrap default; daydream overrides it almost immediately.
     setResolution(96, 20);
@@ -372,8 +374,8 @@ public:
 
     stack_paint_canary(); // reset stack HWM by repainting unused region
 
-    bool created = dispatch_resolution(
-        pixel_width, pixel_height, [&]<int W, int H>() {
+    bool created =
+        dispatch_resolution(pixel_width, pixel_height, [&]<int W, int H>() {
           init_geometry_luts<W, H>(); // eager-fill LUTs before the first frame
           currentEffect = create_effect<W, H>(name);
         });
@@ -385,7 +387,8 @@ public:
       return false; // unreachable: name was validated above
     }
     currentEffect->init();
-    hs::log("WASM: init stack HWM = %u bytes", (unsigned)stack_high_water_mark());
+    hs::log("WASM: init stack HWM = %u bytes",
+            (unsigned)stack_high_water_mark());
     stack_paint_canary();
     return true;
   }
@@ -459,7 +462,8 @@ public:
       const Pixel *buf = currentEffect->display_buffer();
       static_assert(sizeof(Pixel) == 3 * sizeof(uint16_t),
                     "fast-path memcpy assumes packed RGB16 Pixel layout");
-      std::memcpy(pixelBuffer.data(), buf, static_cast<size_t>(count) * sizeof(Pixel));
+      std::memcpy(pixelBuffer.data(), buf,
+                  static_cast<size_t>(count) * sizeof(Pixel));
     } else {
       int idx = 0;
       for (int y = 0; y < pixel_height; y++) {
@@ -711,12 +715,14 @@ private:
   /** Channels per pixel in the readback buffer (linear RGB triples). */
   static constexpr int CHANNELS = 3;
 
-  std::unique_ptr<Effect> currentEffect; /**< Currently active effect, or null. */
+  std::unique_ptr<Effect>
+      currentEffect;                 /**< Currently active effect, or null. */
   std::vector<uint16_t> pixelBuffer; /**< 16-bit linear RGB readback buffer. */
   std::vector<float> paramValues;    /**< Backing store for getParamValues. */
-  std::vector<hs_wasm::ParamView> paramViews; /**< Scratch for getParameterDefinitions. */
-  int pixel_width = 0;  /**< Active canvas width in pixels. */
-  int pixel_height = 0; /**< Active canvas height in pixels. */
+  std::vector<hs_wasm::ParamView>
+      paramViews;           /**< Scratch for getParameterDefinitions. */
+  int pixel_width = 0;      /**< Active canvas width in pixels. */
+  int pixel_height = 0;     /**< Active canvas height in pixels. */
   uint32_t effectLoads = 0; /**< Effect loads so far; epoch for the per-load
                                  RNG seed (0 = the constructor's bootstrap). */
 };
@@ -834,11 +840,13 @@ public:
     HS_CHECK(total == mesh.get_faces_size(),
              "getFaces: face_counts sum disagrees with the flat index count");
     val out = val::object();
-    out.set("indices", val::global("Uint16Array").new_(val(typed_memory_view(
-                           mesh.get_faces_size(), mesh.get_faces_data()))));
+    out.set("indices", val::global("Uint16Array")
+                           .new_(val(typed_memory_view(
+                               mesh.get_faces_size(), mesh.get_faces_data()))));
     out.set("counts",
-            val::global("Uint8Array").new_(val(typed_memory_view(
-                mesh.get_face_counts_size(), mesh.get_face_counts_data()))));
+            val::global("Uint8Array")
+                .new_(val(typed_memory_view(mesh.get_face_counts_size(),
+                                            mesh.get_face_counts_data()))));
     return out;
   }
 
@@ -881,8 +889,7 @@ public:
    *          arenas, run the op into a fresh PolyMesh, finalize it into
    *          tooling_arena, and hand back a new wrapper.
    */
-  template <typename Op>
-  std::unique_ptr<MeshOpsWrapper> apply(Op &&op) const {
+  template <typename Op> std::unique_ptr<MeshOpsWrapper> apply(Op &&op) const {
     check_live();
     ToolingOpGuard guard;
     ensure_tooling_arenas();
@@ -915,9 +922,10 @@ public:
  *          a new wrapper holding the result.
  */
 #define MESHOP_0(name)                                                         \
-  std::unique_ptr<MeshOpsWrapper> name() const {                              \
-    return apply(                                                              \
-        [](const PolyMesh &m, Arena &a, Arena &b) { return MeshOps::name(m, a, b); });           \
+  std::unique_ptr<MeshOpsWrapper> name() const {                               \
+    return apply([](const PolyMesh &m, Arena &a, Arena &b) {                   \
+      return MeshOps::name(m, a, b);                                           \
+    });                                                                        \
   }
 /**
  * @brief Defines a one-float-argument Conway/Goldberg operator method.
@@ -927,11 +935,11 @@ public:
  *          or null.
  */
 #define MESHOP_1F(name)                                                        \
-  std::unique_ptr<MeshOpsWrapper> name(float arg) const {                     \
-    if (!finite_arg(arg, #name))                                              \
+  std::unique_ptr<MeshOpsWrapper> name(float arg) const {                      \
+    if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
-    return apply([arg](const PolyMesh &m, Arena &a, Arena &b) {               \
-      return MeshOps::name(m, a, b, arg);                                     \
+    return apply([arg](const PolyMesh &m, Arena &a, Arena &b) {                \
+      return MeshOps::name(m, a, b, arg);                                      \
     });                                                                        \
   }
 
@@ -946,18 +954,18 @@ public:
  *          (truncate/bevel), cannot trip that trap and abort the whole module.
  */
 #define MESHOP_1U(name)                                                        \
-  std::unique_ptr<MeshOpsWrapper> name(float arg) const {                     \
-    if (!finite_arg(arg, #name))                                              \
+  std::unique_ptr<MeshOpsWrapper> name(float arg) const {                      \
+    if (!finite_arg(arg, #name))                                               \
       return nullptr;                                                          \
-    if (arg < 0.0f || arg > 1.0f)                                            \
-      hs::log("WASM: MeshOps::%s clamped %g to [0,1]", #name, arg);           \
-    float t = arg < 0.0f ? 0.0f : (arg > 1.0f ? 1.0f : arg);                  \
-    return apply([t](const PolyMesh &m, Arena &a, Arena &b) {                 \
-      return MeshOps::name(m, a, b, t);                                       \
+    if (arg < 0.0f || arg > 1.0f)                                              \
+      hs::log("WASM: MeshOps::%s clamped %g to [0,1]", #name, arg);            \
+    float t = arg < 0.0f ? 0.0f : (arg > 1.0f ? 1.0f : arg);                   \
+    return apply([t](const PolyMesh &m, Arena &a, Arena &b) {                  \
+      return MeshOps::name(m, a, b, t);                                        \
     });                                                                        \
   }
 
-/**
+  /**
  * @brief Single source of truth for the Conway/Goldberg operator roster.
  * @param _OP0  Macro applied to each zero-argument operator name.
  * @param _OP1F Macro applied to each one-float-argument operator name.
@@ -974,11 +982,13 @@ public:
  *          live in MESHOP_IRREGULAR_LIST below and their bindings expand from
  *          it, so a new irregular op is bound the moment it joins the list.
  */
+  // clang-format off
 #define MESHOP_LIST(_OP0, _OP1F, _OP1U)                                         \
   _OP0(kis) _OP0(ambo) _OP0(gyro) _OP0(dual) _OP0(meta)                         \
   _OP0(needle) _OP0(zip)                                                        \
   _OP1F(expand)                                                                 \
   _OP1U(truncate) _OP1U(bevel) _OP1U(chamfer)
+// clang-format on
 
 // Irregular ops: hand-written wrapper methods (custom signatures/validation),
 // enumerated here so their embind bindings expand from one list.
@@ -1008,7 +1018,8 @@ public:
    *          trusted.
    */
   std::unique_ptr<MeshOpsWrapper> relax(int iterations) const {
-    int clamped = hs_wasm::clamp_relax_iterations(iterations, MAX_RELAX_ITERATIONS);
+    int clamped =
+        hs_wasm::clamp_relax_iterations(iterations, MAX_RELAX_ITERATIONS);
     if (clamped != iterations)
       hs::log("WASM: MeshOps::relax clamped %d iterations to %d", iterations,
               clamped);
@@ -1198,7 +1209,8 @@ public:
     // rather than trap at the JS boundary.
     const int straight = static_cast<int>(GradientShape::STRAIGHT);
     const int falloff = static_cast<int>(GradientShape::FALLOFF);
-    if (hs_wasm::gradient_shape_out_of_range(gradientShape, straight, falloff)) {
+    if (hs_wasm::gradient_shape_out_of_range(gradientShape, straight,
+                                             falloff)) {
       hs::log("WASM: bakeLut gradientShape %d out of range — using STRAIGHT",
               gradientShape);
     }
@@ -1292,11 +1304,11 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
       .function("getVertices", &MeshOpsWrapper::getVertices)
       .function("getFaces", &MeshOpsWrapper::getFaces)
       .function("classifyFaces", &MeshOpsWrapper::classifyFaces)
-      // Bound from the same MESHOP_LIST that generates the wrapper methods, plus
-      // MESHOP_IRREGULAR_LIST for the hand-written ops.
+  // Bound from the same MESHOP_LIST that generates the wrapper methods, plus
+  // MESHOP_IRREGULAR_LIST for the hand-written ops.
 #define MESHOP_BIND(name) .function(#name, &MeshOpsWrapper::name)
-      MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
-      MESHOP_IRREGULAR_LIST(MESHOP_BIND);
+          MESHOP_LIST(MESHOP_BIND, MESHOP_BIND, MESHOP_BIND)
+              MESHOP_IRREGULAR_LIST(MESHOP_BIND);
 #undef MESHOP_BIND
 #undef MESHOP_IRREGULAR_LIST
 #undef MESHOP_LIST
@@ -1309,16 +1321,14 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   // The real engine math, exported so the JS tool ports can cross-check it.
 
   // sRGB transfer function (color.js srgbToLinearFloat / linearToSrgbFloat).
-  function("srgb_to_linear_float",
-           optional_override([](float s) -> float {
+  function("srgb_to_linear_float", optional_override([](float s) -> float {
              if (all_finite({s}))
                return srgb_to_linear_float(s);
              hs::log("WASM: srgb_to_linear_float got a non-finite argument — "
                      "returning zero");
              return 0.0f;
            }));
-  function("linear_to_srgb_float",
-           optional_override([](float l) -> float {
+  function("linear_to_srgb_float", optional_override([](float l) -> float {
              if (all_finite({l}))
                return linear_to_srgb_float(l);
              hs::log("WASM: linear_to_srgb_float got a non-finite argument — "
@@ -1327,11 +1337,11 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
            }));
 
   // The interpolated sRGB->16-bit-linear LUT the cosine palette path uses.
-  function("srgb_to_linear_interp",
-           optional_override([](float s) -> int {
+  function("srgb_to_linear_interp", optional_override([](float s) -> int {
              if (!all_finite({s})) {
-               hs::log("WASM: srgb_to_linear_interp got a non-finite argument — "
-                       "returning zero");
+               hs::log(
+                   "WASM: srgb_to_linear_interp got a non-finite argument — "
+                   "returning zero");
                return 0;
              }
              return static_cast<int>(srgb_to_linear_interp(s));
@@ -1381,10 +1391,10 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   // mirroring palette_math.js's `h &= 0xff` byte masking (device CHSV semantics);
   // bakeLut above instead clamps its HSV keys, so the two paths handle
   // out-of-range inputs differently by design.
-  function("hsv_to_rgb",
-           optional_override([](int h, int s, int v) -> val {
-             CRGB c = CRGB(CHSV(static_cast<uint8_t>(h), static_cast<uint8_t>(s),
-                                static_cast<uint8_t>(v)));
+  function("hsv_to_rgb", optional_override([](int h, int s, int v) -> val {
+             CRGB c =
+                 CRGB(CHSV(static_cast<uint8_t>(h), static_cast<uint8_t>(s),
+                           static_cast<uint8_t>(v)));
              val o = val::object();
              o.set("r", static_cast<int>(c.r));
              o.set("g", static_cast<int>(c.g));
@@ -1395,29 +1405,29 @@ EMSCRIPTEN_BINDINGS(holosphere_engine) {
   // ProceduralPalette cosine formula (palette_math.js ProceduralPalette). Returns
   // the engine's 16-bit linear color so the JS test can pin both the cosine
   // formula and the sRGB->linear interp (paired with srgb_to_linear_interp).
-  function("procedural_palette_linear",
-           optional_override([](float a0, float a1, float a2, float b0, float b1,
-                                float b2, float c0, float c1, float c2, float d0,
-                                float d1, float d2, float t) -> val {
-             if (!all_finite({a0, a1, a2, b0, b1, b2, c0, c1, c2, d0, d1, d2,
-                              t})) {
-               hs::log("WASM: procedural_palette_linear got a non-finite "
-                       "argument — returning zero");
-               val o = val::object();
-               o.set("r", 0);
-               o.set("g", 0);
-               o.set("b", 0);
-               return o;
-             }
-             ProceduralPalette pal({a0, a1, a2}, {b0, b1, b2}, {c0, c1, c2},
-                                   {d0, d1, d2});
-             Color4 col = pal.get(t);
-             val o = val::object();
-             o.set("r", static_cast<int>(col.color.r));
-             o.set("g", static_cast<int>(col.color.g));
-             o.set("b", static_cast<int>(col.color.b));
-             return o;
-           }));
+  function(
+      "procedural_palette_linear",
+      optional_override([](float a0, float a1, float a2, float b0, float b1,
+                           float b2, float c0, float c1, float c2, float d0,
+                           float d1, float d2, float t) -> val {
+        if (!all_finite({a0, a1, a2, b0, b1, b2, c0, c1, c2, d0, d1, d2, t})) {
+          hs::log("WASM: procedural_palette_linear got a non-finite "
+                  "argument — returning zero");
+          val o = val::object();
+          o.set("r", 0);
+          o.set("g", 0);
+          o.set("b", 0);
+          return o;
+        }
+        ProceduralPalette pal({a0, a1, a2}, {b0, b1, b2}, {c0, c1, c2},
+                              {d0, d1, d2});
+        Color4 col = pal.get(t);
+        val o = val::object();
+        o.set("r", static_cast<int>(col.color.r));
+        o.set("g", static_cast<int>(col.color.g));
+        o.set("b", static_cast<int>(col.color.b));
+        return o;
+      }));
 
   // Lissajous curve (lissajous_math.js lissajous), via geometry.h.
   function("lissajous",

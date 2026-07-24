@@ -137,8 +137,9 @@ public:
             continue;
 
           // Adaptive thickness: head/tail of trail = 2px, intermediate = 1px
-          float th = ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
-                     params.thickness;
+          float th =
+              ((t < 0.01f || t > 0.95f) ? 2.0f * pixel_w : 1.0f * pixel_w) *
+              params.thickness;
           bases[slots] = make_basis(qs[j], ring.normal);
           new (&shapes[slots]) SDF::Ring(bases[slots], 1.0f, th);
           colors[slots] = c;
@@ -189,9 +190,10 @@ private:
    * @brief Tunable rendering parameters for the effect.
    */
   struct Params {
-    float alpha = 0.5f;          /**< Global trail opacity multiplier in [0, 1]. */
-    float thickness = 0.8f;      /**< Ring line thickness multiplier (unitless). */
-    bool show_bounding_box = false; /**< Whether to draw each ring's bounding box. */
+    float alpha = 0.5f;     /**< Global trail opacity multiplier in [0, 1]. */
+    float thickness = 0.8f; /**< Ring line thickness multiplier (unitless). */
+    bool show_bounding_box =
+        false; /**< Whether to draw each ring's bounding box. */
   } params;
 };
 

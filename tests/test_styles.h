@@ -53,16 +53,16 @@ inline void test_named_presets() {
         HS_EXPECT_TRUE(style.color_fn == &Feedback::hue_fade);
       };
 
-  expect_noise_hue_style(Feedback::Style::ArcingLightning(), 0.5f, 0.1f,
-                         3.27f, 0.09f, 1.5f, 50.0f);
+  expect_noise_hue_style(Feedback::Style::ArcingLightning(), 0.5f, 0.1f, 3.27f,
+                         0.09f, 1.5f, 50.0f);
   expect_noise_hue_style(Feedback::Style::SlowFire(), 0.8732f, 0.0167f, 1.56f,
                          0.5297f, 0.1f, 50.0f);
   expect_noise_hue_style(Feedback::Style::EnergeticFire(), 0.8732f, 0.0167f,
                          1.56f, 0.22087f, 0.9f, 50.0f);
   expect_noise_hue_style(Feedback::Style::SlowDust(), 0.83952f, 0.0167f, 1.56f,
                          0.07237f, 0.6f, 50.0f);
-  expect_noise_hue_style(Feedback::Style::WavyTrails(), 0.7257f, 0.0722f,
-                         1.95f, 0.01f, 5.0f, 50.0f);
+  expect_noise_hue_style(Feedback::Style::WavyTrails(), 0.7257f, 0.0722f, 1.95f,
+                         0.01f, 5.0f, 50.0f);
   expect_melt_hue_style(Feedback::Style::MeltingHi(), 0.59004f, 0.1f, 4.38f,
                         0.06346f, 0.2f, 22.3554f);
   expect_melt_hue_style(Feedback::Style::MeltingLo(), 0.59004f, 0.1f, 1.95f,
@@ -359,9 +359,9 @@ inline void test_hue_fade_matches_rotate_reference() {
   alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(256, 128)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
   init_gamut_lut(lut_arena, 256, 128);
-  const Pixel colors[] = {Pixel(65535, 0, 0),     Pixel(0, 65535, 0),
-                          Pixel(0, 0, 65535),     Pixel(65535, 65535, 0),
-                          Pixel(50000, 2000, 2000), Pixel(300, 200, 100),
+  const Pixel colors[] = {Pixel(65535, 0, 0),        Pixel(0, 65535, 0),
+                          Pixel(0, 0, 65535),        Pixel(65535, 65535, 0),
+                          Pixel(50000, 2000, 2000),  Pixel(300, 200, 100),
                           Pixel(20000, 20000, 20000)};
   const float fades[] = {0.0f, 0.58f, 0.9f, 0.99f};
   const float shifts[] = {0.0f, 0.01f, 0.05f, 0.1f, 0.33f};
@@ -372,7 +372,8 @@ inline void test_hue_fade_matches_rotate_reference() {
         s.hue_shift = shift;
         s.sync_hue();
         Pixel got = Feedback::hue_fade(c, fade, s);
-        Pixel ref = hue_rotate(Color4(c * fade, 1.0f), s.hue_ca, s.hue_sa).color;
+        Pixel ref =
+            hue_rotate(Color4(c * fade, 1.0f), s.hue_ca, s.hue_sa).color;
         HS_EXPECT_NEAR((float)got.r, (float)ref.r, HS_HUE_FADE_TOL);
         HS_EXPECT_NEAR((float)got.g, (float)ref.g, HS_HUE_FADE_TOL);
         HS_EXPECT_NEAR((float)got.b, (float)ref.b, HS_HUE_FADE_TOL);
@@ -398,13 +399,18 @@ inline void test_hue_fade_matches_rotate_reference() {
  */
 inline void test_hue_fade_apply2_tracks_scalar() {
   constexpr int HS_PAIR_TOL = 128;
-  const float channels[][3] = {
-      {0.0f, 0.0f, 0.0f},             {1.0f, 0.0f, 0.0f},
-      {0.5f, 0.25f, 0.125f},          {300.0f, 200.0f, 100.0f},
-      {20000.0f, 20000.0f, 20000.0f}, {65535.0f, 0.0f, 0.0f},
-      {0.0f, 65535.0f, 0.0f},         {0.0f, 0.0f, 65535.0f},
-      {65535.0f, 65535.0f, 0.0f},     {50000.0f, 2000.0f, 2000.0f},
-      {65535.0f, 65535.0f, 65535.0f}, {12345.0f, 54321.0f, 999.0f}};
+  const float channels[][3] = {{0.0f, 0.0f, 0.0f},
+                               {1.0f, 0.0f, 0.0f},
+                               {0.5f, 0.25f, 0.125f},
+                               {300.0f, 200.0f, 100.0f},
+                               {20000.0f, 20000.0f, 20000.0f},
+                               {65535.0f, 0.0f, 0.0f},
+                               {0.0f, 65535.0f, 0.0f},
+                               {0.0f, 0.0f, 65535.0f},
+                               {65535.0f, 65535.0f, 0.0f},
+                               {50000.0f, 2000.0f, 2000.0f},
+                               {65535.0f, 65535.0f, 65535.0f},
+                               {12345.0f, 54321.0f, 999.0f}};
   const int n = (int)(sizeof(channels) / sizeof(channels[0]));
   const float fades[] = {0.58f, 0.75f, 0.9f, 0.99f};
   const float shifts[] = {0.0f, 0.01f, 0.1f, 0.33f, 0.75f};

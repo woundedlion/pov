@@ -21,11 +21,10 @@
 #include <cstdint>
 #include <cstring>
 
-
 #include "core/engine/platform.h" // HS_CHECK, hs::log, FASTRUN — used directly below;
-                           // included explicitly rather than relying on color.h
-                           // pulling it (this header is independently host-tested)
-#include "core/color/color.h" // Pixel16, CRGB, srgb_to_linear_lut
+// included explicitly rather than relying on color.h
+// pulling it (this header is independently host-tested)
+#include "core/color/color.h"       // Pixel16, CRGB, srgb_to_linear_lut
 #include "core/color/srgb_decode.h" // linear_to_srgb8: bit-exact DTCM split-decode
 
 // arm_dcache_flush (Arduino.h) cleans dirty D-cache lines without invalidating:
@@ -63,8 +62,7 @@ static inline void arm_dcache_flush(void *, uint32_t) {}
  * address space) and empty on the PC/wasm sim; the LUTs are read with plain
  * operator[], not pgm_read_*. Direct subscripting is intentional.
  */
-template <int N>
-class HD107SFrame {
+template <int N> class HD107SFrame {
 public:
   /** End-frame latch: ceil(N/16) = (N+15)/16 bytes of 0x00 (see the layout
       note above for the derivation). */
@@ -80,7 +78,8 @@ public:
   // field (minor-loop linking disabled), so one transfer tops out at 32767
   // bytes — past that the count silently truncates and the strip tail goes
   // dark. Trap at compile time if a future pixel count would overflow it.
-  static_assert(COMPOSITE_SIZE <= 32767,
+  static_assert(
+      COMPOSITE_SIZE <= 32767,
       "HD107SFrame composite buffer exceeds the 15-bit eDMA single-transfer "
       "limit (CITER/BITER); split the transfer or reduce N");
 
@@ -116,7 +115,7 @@ public:
    *          multiplier at 256 (×1.0), so each (v*f)>>8 with v ≤ 65535 stays a
    *          valid index into the 65536-entry linear_to_srgb_lut.
    */
-  HS_O3_FN inline void correct(uint32_t& r, uint32_t& g, uint32_t& b) const {
+  HS_O3_FN inline void correct(uint32_t &r, uint32_t &g, uint32_t &b) const {
     r = (r * corrR_) >> 8;
     g = (g * corrG_) >> 8;
     b = (b * corrB_) >> 8;
@@ -145,12 +144,12 @@ public:
    *          Slots [count, N) are blanked to [0xFF][0][0][0], so a partial load()
    *          leaves a clean frame with no stale tail.
    */
-  void load(const CRGB* pixels, int count) {
+  void load(const CRGB *pixels, int count) {
     HS_CHECK(count >= 0 && count <= N, "load count out of range");
 
-    uint8_t* dest = buffer_ + 4; // skip start frame
+    uint8_t *dest = buffer_ + 4; // skip start frame
     for (int i = 0; i < count; ++i) {
-      const CRGB& c = pixels[i];
+      const CRGB &c = pixels[i];
 
       uint32_t r = srgb_to_linear_lut[c.r];
       uint32_t g = srgb_to_linear_lut[c.g];
@@ -191,9 +190,9 @@ public:
    *       *(.text*), so ITCM residency does not depend on it, and the explicit
    *       section blocks the -O3 attribute (comdat section type conflict).
    */
-  HS_O3_FN inline void packPixel(int index, const Pixel16& p) {
+  HS_O3_FN inline void packPixel(int index, const Pixel16 &p) {
     assert(index >= 0 && index < N);
-    uint8_t* dest = buffer_ + 4 + index * 4;
+    uint8_t *dest = buffer_ + 4 + index * 4;
 
     uint32_t r = p.r;
     uint32_t g = p.g;
@@ -213,15 +212,13 @@ public:
    *          arm_dcache_flush (clean, no invalidate): the buffer is TX-only, so
    *          the lines need write-back, not eviction.
    */
-  void flush() {
-    arm_dcache_flush(buffer_, COMPOSITE_SIZE);
-  }
+  void flush() { arm_dcache_flush(buffer_, COMPOSITE_SIZE); }
 
   /**
    * @brief Returns a pointer to the start of the composite DMA buffer.
    * @return Read-only pointer to the first byte of the composite buffer.
    */
-  const uint8_t* data() const { return buffer_; }
+  const uint8_t *data() const { return buffer_; }
   /**
    * @brief Returns the size of a single image frame in bytes.
    * @return Image-frame size in bytes (excludes the trailing black frame).
@@ -242,7 +239,9 @@ public:
    * @param b Blue temperature factor, 8-bit scale (255 = ×1.0, 0 = off).
    */
   static void setTemperature(uint8_t r, uint8_t g, uint8_t b) {
-    tempR_ = factor(r); tempG_ = factor(g); tempB_ = factor(b);
+    tempR_ = factor(r);
+    tempG_ = factor(g);
+    tempB_ = factor(b);
   }
 
   /**
@@ -252,7 +251,9 @@ public:
    * @param b Blue correction factor, 8-bit scale (255 = ×1.0, 0 = off).
    */
   static void setCorrection(uint8_t r, uint8_t g, uint8_t b) {
-    corrR_ = factor(r); corrG_ = factor(g); corrB_ = factor(b);
+    corrR_ = factor(r);
+    corrG_ = factor(g);
+    corrB_ = factor(b);
   }
 
   /**
@@ -278,9 +279,10 @@ private:
     return f == 0 ? 0u : static_cast<uint16_t>(f) + 1u;
   }
 
-  static_assert(factor(255) <= 256u,
-                "factor() must cap at unity (256) so correct()'s (v*f)>>8 stages "
-                "cannot grow v past 16 bits and over-read linear_to_srgb_lut");
+  static_assert(
+      factor(255) <= 256u,
+      "factor() must cap at unity (256) so correct()'s (v*f)>>8 stages "
+      "cannot grow v past 16 bits and over-read linear_to_srgb_lut");
 
   // Shared correction state — internal multipliers (256 = ×1.0, 0 = off).
   static uint16_t tempR_, tempG_, tempB_;

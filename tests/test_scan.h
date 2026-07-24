@@ -48,7 +48,9 @@ struct ScanFx : public Effect {
  * @param p Pixel to inspect.
  * @return True when all RGB channels are zero.
  */
-inline bool is_black(const Pixel &p) { return p.r == 0 && p.g == 0 && p.b == 0; }
+inline bool is_black(const Pixel &p) {
+  return p.r == 0 && p.g == 0 && p.b == 0;
+}
 
 // ============================================================================
 // Scan::Shader::draw — full-sphere per-pixel shader
@@ -62,8 +64,9 @@ inline void test_shader_constant_fills_canvas() {
   ScanFx fx(W, H);
   {
     Canvas c(fx);
-    Scan::Shader::draw<W, H, 1>(
-        c, [](const Vector &) { return Color4(Pixel(40000, 20000, 10000), 1.0f); });
+    Scan::Shader::draw<W, H, 1>(c, [](const Vector &) {
+      return Color4(Pixel(40000, 20000, 10000), 1.0f);
+    });
   }
   fx.advance_display();
 
@@ -98,7 +101,8 @@ inline void test_shader_ssaa_premultiplies_partial_coverage() {
     // so two of the four samples per pixel are opaque regardless of iteration.
     Scan::Shader::draw<W, H, 4>(c, [](const Vector &v) -> Color4 {
       float theta = std::atan2(v.z, v.x);
-      if (theta < 0.0f) theta += 2.0f * PI_F;
+      if (theta < 0.0f)
+        theta += 2.0f * PI_F;
       float g = theta * W / (2.0f * PI_F);
       float frac = g - std::floor(g);
       bool opaque = frac < 0.5f;
@@ -151,7 +155,7 @@ inline void test_shader_respects_clip_band() {
   constexpr int W = 32, H = 16;
   ScanFx fx(W, H);
   fx.set_clip(5, 10, 0, W); // rows [5,10)
-  fx.set_margin(0);       // no render-margin expansion
+  fx.set_margin(0);         // no render-margin expansion
 
   {
     Canvas c(fx);
@@ -222,8 +226,7 @@ inline void test_ring_rasterize_lit_pixels_on_band() {
     Canvas c(fx);
     Basis basis = make_basis(Quaternion(), Y_AXIS);
     Scan::Ring::draw<W, H, false>(
-        pipe, c, basis, radius, thickness,
-        [](const Vector &, Fragment &f) {
+        pipe, c, basis, radius, thickness, [](const Vector &, Fragment &f) {
           f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
         });
   }
@@ -594,8 +597,9 @@ inline void test_plot_line_over_pole_reaches_row0() {
  * at all.
  */
 struct AlphaSink {
-  float last_alpha = -1.0f; /**< AA alpha from the most recent plot, -1 if none. */
-  int count = 0;            /**< Number of times plot() was invoked. */
+  float last_alpha =
+      -1.0f;     /**< AA alpha from the most recent plot, -1 if none. */
+  int count = 0; /**< Number of times plot() was invoked. */
   /**
    * @brief Records the forwarded AA alpha and increments the plot count.
    * @param a Anti-aliasing alpha forwarded by process_pixel.
@@ -654,8 +658,8 @@ inline void test_scan_shader_v2_contract() {
   const float expected_coverage =
       quintic_kernel(-expected_result.dist / expected_result.size);
   const float legacy_factor = quintic_kernel(
-      1.0f - hs::clamp(expected_result.raw_dist / expected_result.size, 0.0f,
-                       1.0f));
+      1.0f -
+      hs::clamp(expected_result.raw_dist / expected_result.size, 0.0f, 1.0f));
 
   AlphaSink sink;
   SDF::DistanceResult result;
@@ -753,11 +757,11 @@ inline void test_ring_rasterize_lights_expected_row() {
     {
       Canvas c(fx);
       Basis basis = make_basis(Quaternion(), Y_AXIS); // axis = north pole (+Y)
-      Scan::Ring::draw<W, H, false>(
-          pipe, c, basis, radius, /*thickness=*/0.05f,
-          [](const Vector &, Fragment &f) {
-            f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-          });
+      Scan::Ring::draw<W, H, false>(pipe, c, basis, radius, /*thickness=*/0.05f,
+                                    [](const Vector &, Fragment &f) {
+                                      f.color = Color4(
+                                          Pixel(60000, 60000, 60000), 1.0f);
+                                    });
     }
     fx.advance_display();
 
@@ -771,11 +775,16 @@ inline void test_ring_rasterize_lights_expected_row() {
           weighted += y;
         }
     /** @brief Per-radius result: lit-pixel centroid row, total lit count, and per-row lit counts. */
-    struct R { float centroid; int total; int lit[H]; };
+    struct R {
+      float centroid;
+      int total;
+      int lit[H];
+    };
     R r;
     r.centroid = total ? static_cast<float>(weighted) / total : -1.0f;
     r.total = static_cast<int>(total);
-    for (int y = 0; y < H; ++y) r.lit[y] = lit[y];
+    for (int y = 0; y < H; ++y)
+      r.lit[y] = lit[y];
     return r;
   };
 
@@ -808,8 +817,8 @@ inline void test_stroke_aa_is_monotone_ramp() {
   ScanFx fx(W, H);
   Canvas c(fx);
 
-  const float radius = 0.5f;            // centerline at polar PI/4
-  const float thickness = 0.10f;        // band half-width in radians
+  const float radius = 0.5f;     // centerline at polar PI/4
+  const float thickness = 0.10f; // band half-width in radians
   const float target = radius * (PI_F / 2.0f);
   Basis basis = make_basis(Quaternion(), Y_AXIS);
   SDF::Ring ring(basis, radius, thickness);
@@ -826,14 +835,18 @@ inline void test_stroke_aa_is_monotone_ramp() {
     Vector p(sinf(ph), cosf(ph), 0.0f); // az=0, polar angle ph
     int count = 0;
     float a = scan_alpha_at<W, H>(ring, p, c, &count);
-    if (count == 0) a = 0.0f; // outside the stroke -> not drawn -> alpha 0
+    if (count == 0)
+      a = 0.0f; // outside the stroke -> not drawn -> alpha 0
 
     HS_EXPECT_LE(a, prev + 1e-4f); // monotone non-increasing outward
     prev = a;
 
-    if (a > 0.95f) saw_one = true;
-    if (a < 0.05f) saw_zero = true;
-    if (a > 0.1f && a < 0.9f) saw_mid = true;
+    if (a > 0.95f)
+      saw_one = true;
+    if (a < 0.05f)
+      saw_zero = true;
+    if (a > 0.1f && a < 0.9f)
+      saw_mid = true;
   }
 
   // Centerline ~opaque, far edge ~transparent, with a genuine ramp between.
@@ -853,8 +866,7 @@ inline void test_stroke_aa_is_monotone_ramp() {
  * @param y Row to scan.
  * @return True if a non-black pixel is found in row y.
  */
-template <int W>
-inline bool row_has_lit(const ScanFx &fx, int y) {
+template <int W> inline bool row_has_lit(const ScanFx &fx, int y) {
   for (int x = 0; x < W; ++x)
     if (!is_black(fx.get_pixel(x, y)))
       return true;
@@ -892,11 +904,11 @@ inline void test_star_pixel_placement() {
   {
     Canvas c(fx);
     Basis basis = make_basis(Quaternion(), Y_AXIS);
-    Scan::Star::draw<W, H, false>(
-        pipe, c, basis, /*radius=*/0.6f, /*sides=*/5,
-        [](const Vector &, Fragment &f) {
-          f.color = Color4(Pixel(60000, 60000, 60000), 1.0f);
-        });
+    Scan::Star::draw<W, H, false>(pipe, c, basis, /*radius=*/0.6f, /*sides=*/5,
+                                  [](const Vector &, Fragment &f) {
+                                    f.color = Color4(Pixel(60000, 60000, 60000),
+                                                     1.0f);
+                                  });
   }
   fx.advance_display();
   expect_filled_cap<W, H>(fx, /*cap_north=*/true);
@@ -1238,9 +1250,8 @@ inline void test_volume_trace_closest_stops_at_first_graze() {
 
   for (int max_steps : {14, 40}) {
     Vector closest_local;
-    float closest_d = Scan::Volume::trace_closest(shape, ro, vd, 0.5f,
-                                                  max_steps, aa_width,
-                                                  closest_local);
+    float closest_d = Scan::Volume::trace_closest(
+        shape, ro, vd, 0.5f, max_steps, aa_width, closest_local);
     HS_EXPECT_GT(closest_d, 0.003f);
     HS_EXPECT_LT(closest_d, 0.0075f);
     HS_EXPECT_GT(closest_local.z, 0.1f);
@@ -1382,4 +1393,3 @@ inline int run_scan_tests() {
 
 } // namespace scan_tests
 } // namespace hs_test
-

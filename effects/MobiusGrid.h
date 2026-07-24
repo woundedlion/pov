@@ -33,7 +33,9 @@ public:
    *          the rasterized lines.
    */
   HS_COLD_MEMBER MobiusGrid()
-      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
         palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
                 BrightnessProfile::FLAT),
         next_palette(GradientShape::CIRCULAR, HarmonyType::SPLIT_COMPLEMENTARY,
@@ -72,8 +74,8 @@ public:
                                     sin_wave(12.0f, 1.0f, 1.0f, 0.0f), 320,
                                     ease_linear, true, &anims_paused_))
         .add(160, Animation::Mutation(params.num_lines,
-                                      sin_wave(12.0f, 1.0f, 1.0f, 0.5f),
-                                      320, ease_linear, true, &anims_paused_));
+                                      sin_wave(12.0f, 1.0f, 1.0f, 0.5f), 320,
+                                      ease_linear, true, &anims_paused_));
   }
 
   /**
@@ -94,7 +96,8 @@ public:
 
     {
       HS_PROFILE(mg_wipe_rebake);
-      step_wipe_rebake(wipe_pending_, wipe_frames_remaining_, baked_palette, palette);
+      step_wipe_rebake(wipe_pending_, wipe_frames_remaining_, baked_palette,
+                       palette);
     }
 
     // int % 120 before the float cast: a float frame counter would lose integer
@@ -170,8 +173,8 @@ private:
     next_palette = GenerativePalette(GradientShape::CIRCULAR,
                                      HarmonyType::SPLIT_COMPLEMENTARY,
                                      BrightnessProfile::FLAT);
-    timeline.add(
-        0, Animation::ColorWipe(palette, next_palette, WIPE_FRAMES, ease_linear));
+    timeline.add(0, Animation::ColorWipe(palette, next_palette, WIPE_FRAMES,
+                                         ease_linear));
     wipe_frames_remaining_ = WIPE_FRAMES;
     wipe_pending_ = true;
   }
@@ -312,14 +315,18 @@ private:
         });
   }
 
-  static constexpr int WIPE_FRAMES = 60; /**< Palette cross-fade duration, in frames. */
+  static constexpr int WIPE_FRAMES =
+      60; /**< Palette cross-fade duration, in frames. */
 
   GenerativePalette palette;      /**< Currently displayed palette. */
   GenerativePalette next_palette; /**< Palette being cross-faded toward. */
-  BakedPalette baked_palette;     /**< LUT-baked copy of `palette` the shaders sample. */
-  int wipe_frames_remaining_ = 0; /**< Frames left to rebake `palette` for an in-flight wipe. */
-  bool wipe_pending_ = false;     /**< Wipe armed this frame; it first steps next frame. */
-  Timeline timeline;         /**< Drives spin, palette wipe, and mutations. */
+  BakedPalette
+      baked_palette; /**< LUT-baked copy of `palette` the shaders sample. */
+  int wipe_frames_remaining_ =
+      0; /**< Frames left to rebake `palette` for an in-flight wipe. */
+  bool wipe_pending_ =
+      false;         /**< Wipe armed this frame; it first steps next frame. */
+  Timeline timeline; /**< Drives spin, palette wipe, and mutations. */
   MobiusWarpCircularTransformer<1> mobius_gen; /**< Möbius warp generator. */
 
   /**

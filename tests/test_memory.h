@@ -46,7 +46,8 @@ namespace mem {
  *   pointing into a buffer past its own test scope.
  */
 inline uint8_t test_buf_a[64 * 1024]; /**< 64 KiB primary test arena buffer. */
-inline uint8_t test_buf_b[16 * 1024]; /**< 16 KiB secondary test arena buffer. */
+inline uint8_t
+    test_buf_b[16 * 1024]; /**< 16 KiB secondary test arena buffer. */
 
 // ============================================================================
 // Arena — construction, allocation, alignment
@@ -275,11 +276,13 @@ inline void test_configure_arenas_repartition() {
   constexpr size_t P = 60 * 1024; // multiples of alignof(max_align_t) so the
   constexpr size_t A = 8 * 1024;  // boundary align_up()s are no-ops and the
   constexpr size_t B = 4 * 1024;  // three arenas pack contiguously, no gaps.
-  static_assert(P % alignof(std::max_align_t) == 0 &&
-                    A % alignof(std::max_align_t) == 0 &&
-                    B % alignof(std::max_align_t) == 0,
-                "test sizes must be max_align multiples for the contiguity check");
-  static_assert(P + A + B <= GLOBAL_ARENA_SIZE, "test split must fit the block");
+  static_assert(
+      P % alignof(std::max_align_t) == 0 &&
+          A % alignof(std::max_align_t) == 0 &&
+          B % alignof(std::max_align_t) == 0,
+      "test sizes must be max_align multiples for the contiguity check");
+  static_assert(P + A + B <= GLOBAL_ARENA_SIZE,
+                "test split must fit the block");
 
   configure_arenas(P, A, B);
 
@@ -378,9 +381,12 @@ inline void test_tribitset_index_uniqueness() {
 inline void test_tribitset_all_pairs_independent() {
   TriangularBitset<8> bs;
   bs.clear();
-  for (int i = 0; i + 2 < 8; ++i) bs.test_and_set(i, i + 2);
-  for (int i = 0; i + 2 < 8; ++i) HS_EXPECT_TRUE(bs.test(i, i + 2));
-  for (int i = 0; i + 1 < 8; ++i) HS_EXPECT_FALSE(bs.test(i, i + 1));
+  for (int i = 0; i + 2 < 8; ++i)
+    bs.test_and_set(i, i + 2);
+  for (int i = 0; i + 2 < 8; ++i)
+    HS_EXPECT_TRUE(bs.test(i, i + 2));
+  for (int i = 0; i + 1 < 8; ++i)
+    HS_EXPECT_FALSE(bs.test(i, i + 1));
 }
 
 // ============================================================================
@@ -429,9 +435,11 @@ inline void test_arenavec_constructor_with_arena() {
 inline void test_arenavec_push_back_indexing() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 8);
-  for (int i = 0; i < 8; ++i) v.push_back(i * 10);
+  for (int i = 0; i < 8; ++i)
+    v.push_back(i * 10);
   HS_EXPECT_EQ(v.size(), (size_t)8);
-  for (int i = 0; i < 8; ++i) HS_EXPECT_EQ(v[i], i * 10);
+  for (int i = 0; i < 8; ++i)
+    HS_EXPECT_EQ(v[i], i * 10);
 }
 
 /**
@@ -454,7 +462,11 @@ inline void test_arenavec_back() {
  */
 inline void test_arenavec_emplace_back() {
   Arena a(test_buf_a, sizeof(test_buf_a));
-  struct Pair { int x; int y; Pair(int xx, int yy) : x(xx), y(yy) {} };
+  struct Pair {
+    int x;
+    int y;
+    Pair(int xx, int yy) : x(xx), y(yy) {}
+  };
   ArenaVector<Pair> v(a, 4);
   Pair &ref = v.emplace_back(3, 4);
   HS_EXPECT_EQ(ref.x, 3);
@@ -473,7 +485,8 @@ inline void test_arenavec_append_bulk() {
   int src[5] = {10, 20, 30, 40, 50};
   v.append_bulk(src, 5);
   HS_EXPECT_EQ(v.size(), (size_t)5);
-  for (int i = 0; i < 5; ++i) HS_EXPECT_EQ(v[i], src[i]);
+  for (int i = 0; i < 5; ++i)
+    HS_EXPECT_EQ(v[i], src[i]);
 
   int more[3] = {60, 70, 80};
   v.append_bulk(more, 3);
@@ -508,14 +521,19 @@ inline void test_arenavec_clear() {
 inline void test_arenavec_iteration() {
   Arena a(test_buf_a, sizeof(test_buf_a));
   ArenaVector<int> v(a, 8);
-  for (int i = 0; i < 5; ++i) v.push_back(i);
+  for (int i = 0; i < 5; ++i)
+    v.push_back(i);
 
   int sum = 0;
-  for (auto it = v.begin(); it != v.end(); ++it) sum += *it;
+  for (auto it = v.begin(); it != v.end(); ++it)
+    sum += *it;
   HS_EXPECT_EQ(sum, 0 + 1 + 2 + 3 + 4);
 
   int count = 0;
-  for (int x : v) { (void)x; ++count; }
+  for (int x : v) {
+    (void)x;
+    ++count;
+  }
   HS_EXPECT_EQ(count, 5);
 }
 
@@ -676,7 +694,8 @@ inline void test_arenaspan_from_vector() {
   HS_EXPECT_EQ(sp[2], 33);
 
   int sum = 0;
-  for (int x : sp) sum += x;
+  for (int x : sp)
+    sum += x;
   HS_EXPECT_EQ(sum, 66);
 }
 
@@ -759,7 +778,8 @@ struct TestPayload {
    */
   static void clone(const TestPayload &src, TestPayload &dst, Arena &arena) {
     dst.data.bind(arena, src.data.size());
-    for (size_t i = 0; i < src.data.size(); ++i) dst.data.push_back(src.data[i]);
+    for (size_t i = 0; i < src.data.size(); ++i)
+      dst.data.push_back(src.data[i]);
     dst.summary = src.summary;
   }
 };
@@ -836,7 +856,8 @@ inline void test_persist_compaction_relocates_survivor() {
   // A large junk block first pushes the survivor to a high base address.
   ArenaVector<int> junk;
   junk.bind(persistent, 256);
-  for (int i = 0; i < 256; ++i) junk.push_back(i);
+  for (int i = 0; i < 256; ++i)
+    junk.push_back(i);
 
   TestPayload live;
   live.data.bind(persistent, 3);
@@ -849,7 +870,7 @@ inline void test_persist_compaction_relocates_survivor() {
   ArenaVector<int> compacted_other; // outlives the Persist block
   {
     Persist<TestPayload> p(live, scratch, persistent);
-    persistent.reset();   // free junk + survivor
+    persistent.reset(); // free junk + survivor
     live = TestPayload();
     // Place compacted data first, smaller than the old junk, so the restored
     // survivor lands at a different address.
@@ -930,4 +951,3 @@ inline int run_memory_tests() {
 
 } // namespace mem
 } // namespace hs_test
-

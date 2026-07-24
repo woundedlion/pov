@@ -10,7 +10,7 @@
 #include <utility> // std::forward
 #include "math/3dmath.h"
 #include "render/canvas.h"
-#include "color/color.h"    // Pixel
+#include "color/color.h"     // Pixel
 #include "engine/platform.h" // Fn
 #include <cassert>
 
@@ -98,9 +98,10 @@ public:
    */
   FunctionRef(Ret (*func)(Args...)) noexcept
       : ctx_(reinterpret_cast<void *>(func)) {
-    static_assert(sizeof(func) == sizeof(void *),
-                  "FunctionRef requires function and object pointers to share a "
-                  "width (true on all supported targets)");
+    static_assert(
+        sizeof(func) == sizeof(void *),
+        "FunctionRef requires function and object pointers to share a "
+        "width (true on all supported targets)");
     if (func == nullptr)
       return;
     thunk_ = [](void *ptr, Args... args) -> Ret {
@@ -166,7 +167,8 @@ public:
    * branch on-device.
    */
   inline Ret operator()(Args... args) const {
-    assert(thunk_ != nullptr && "FunctionRef called on null/default-constructed ref");
+    assert(thunk_ != nullptr &&
+           "FunctionRef called on null/default-constructed ref");
     return thunk_(ctx_, std::forward<Args>(args)...);
   }
 
@@ -245,7 +247,7 @@ using CullEdgePredRef =
 struct PixelMask {
   uint32_t threshold; /**< Owned fraction in [0, 65536]. */
   uint32_t salt;      /**< Per-frame/per-transition hash salt. */
-  bool invert;        /**< True owns the complement (pixels at/above threshold). */
+  bool invert; /**< True owns the complement (pixels at/above threshold). */
 
   bool owns(int x, int y) const {
     uint32_t h = static_cast<uint32_t>(x) * 0x9E3779B1u ^
@@ -269,7 +271,8 @@ class PipelineRef {
   void *ctx_;
   void (*plot2d_)(void *, Canvas &, float, float, const Pixel &, float, float);
   void (*plot2d_int)(void *, Canvas &, int, int, const Pixel &, float, float);
-  void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float, float);
+  void (*plot3d_)(void *, Canvas &, const Vector &, const Pixel &, float,
+                  float);
   bool (*cull_)(void *, const Vector &, const Vector &, const Basis *,
                 CullEdgePredRef);
 
@@ -312,9 +315,10 @@ public:
         // query; only a bare plot stub legitimately falls through to pred. Catch
         // a could_intersect_clip signature drift that would else silently
         // degrade world-aware culling to raw-geometry culling.
-        static_assert(!requires { T::any_crosses_segments; },
-                      "pipeline exposes any_crosses_segments but not "
-                      "could_intersect_clip (signature drift)");
+        static_assert(
+            !requires { T::any_crosses_segments; },
+            "pipeline exposes any_crosses_segments but not "
+            "could_intersect_clip (signature drift)");
         return pred(a, b, pb);
       }
     };

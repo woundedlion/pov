@@ -21,9 +21,9 @@
  * walks compare world-space queries directly instead of un-orienting every
  * query. Non-template so HS_COLD reliably keeps the loop off ITCM.
  */
-[[maybe_unused]] HS_COLD static void
-orient_nodes(const Vector *nodes, Vector *world, int count,
-             const Quaternion &q) {
+[[maybe_unused]] HS_COLD static void orient_nodes(const Vector *nodes,
+                                                  Vector *world, int count,
+                                                  const Quaternion &q) {
   for (int i = 0; i < count; ++i)
     world[i] = rotate(nodes[i], q);
 }
@@ -48,7 +48,8 @@ template <typename Derived, int W, int H>
 class ReactionDiffusionBase : public Effect {
 public:
   static constexpr int RD_N = ReactionGraph::RD_N; /**< Lattice node count. */
-  static constexpr int RD_K = ReactionGraph::RD_K; /**< K-NN neighbors per node. */
+  static constexpr int RD_K =
+      ReactionGraph::RD_K; /**< K-NN neighbors per node. */
 
   /**
    * @brief Constructs the base, disabling pixel persistence.
@@ -80,9 +81,12 @@ public:
 
 protected:
   // Wendland C2 compact kernel: w(d) = max(0, 1 - d²/R²)²
-  static constexpr float D_AVG = ReactionGraph::D_AVG; /**< Mean inter-node spacing, sqrt(4π / RD_N). */
-  static constexpr float KERNEL_R = 1.5f * D_AVG;      /**< Kernel support radius. */
-  static constexpr float INV_R2 = 1.0f / (KERNEL_R * KERNEL_R); /**< Reciprocal of the squared support radius. */
+  static constexpr float D_AVG =
+      ReactionGraph::D_AVG; /**< Mean inter-node spacing, sqrt(4π / RD_N). */
+  static constexpr float KERNEL_R = 1.5f * D_AVG; /**< Kernel support radius. */
+  static constexpr float INV_R2 =
+      1.0f /
+      (KERNEL_R * KERNEL_R); /**< Reciprocal of the squared support radius. */
   /**
    * @brief Total-weight floor below which a sampled kernel is treated as empty.
    * @details Sits far below the smallest legitimate total weight (the center
@@ -224,7 +228,8 @@ protected:
    */
   template <typename T, size_t N, typename StepFn>
   static void advance_substeps(int steps, const std::array<T *, N> &persistent,
-                        const std::array<T *, N> &scratch, StepFn &&step) {
+                               const std::array<T *, N> &scratch,
+                               StepFn &&step) {
     std::array<T *, N> cur = persistent;
     std::array<T *, N> nxt = scratch;
     for (int k = 0; k < steps; ++k) {
@@ -319,9 +324,11 @@ protected:
     for_each_neighbor(center, visit);
   }
 
-  Orientation<> orientation;        /**< Current view orientation on the sphere. */
-  FastNoiseLite noise;              /**< Noise source driving the orientation walk. */
-  ReactionGraph::CubemapLUT cube_lut; /**< Cubemap LUT for fast nearest-node seeding. */
-  Timeline timeline;                /**< Animation timeline advancing the orientation. */
-  Vector *nodes = nullptr; /**< Fixed Fibonacci-lattice node positions (RD_N), built once by init_lattice() and shared by both systems. */
+  Orientation<> orientation; /**< Current view orientation on the sphere. */
+  FastNoiseLite noise;       /**< Noise source driving the orientation walk. */
+  ReactionGraph::CubemapLUT
+      cube_lut;      /**< Cubemap LUT for fast nearest-node seeding. */
+  Timeline timeline; /**< Animation timeline advancing the orientation. */
+  Vector *nodes =
+      nullptr; /**< Fixed Fibonacci-lattice node positions (RD_N), built once by init_lattice() and shared by both systems. */
 };

@@ -36,9 +36,10 @@ struct GSWhiteBox;
  * culling on !hot2[seed] is exact, not approximate. Non-template so HS_COLD
  * reliably keeps the once-per-frame pass off ITCM.
  */
-[[maybe_unused]] HS_COLD static void
-fill_hot_flags(const uint16_t *b, uint8_t *hot1, uint8_t *hot2, int count,
-               uint16_t threshold) {
+[[maybe_unused]] HS_COLD static void fill_hot_flags(const uint16_t *b,
+                                                    uint8_t *hot1,
+                                                    uint8_t *hot2, int count,
+                                                    uint16_t threshold) {
   for (int i = 0; i < count; ++i) {
     bool hot = b[i] >= threshold;
     for (int k = 0; k < ReactionGraph::RD_K && !hot; ++k)
@@ -112,8 +113,8 @@ public:
    */
   void init() override {
     constexpr size_t CUBE_LUT_BYTES = 6u * ReactionGraph::CubemapLUT::RES *
-                                     ReactionGraph::CubemapLUT::RES *
-                                     sizeof(uint16_t); // cube_lut.build
+                                      ReactionGraph::CubemapLUT::RES *
+                                      sizeof(uint16_t); // cube_lut.build
     constexpr size_t STATE_BYTES = 2u * RD_N * sizeof(uint16_t); // A + B, Q16
     constexpr size_t NODE_BYTES = RD_N * sizeof(Vector);         // build_nodes
     constexpr size_t PALETTE_BYTES =
@@ -155,10 +156,9 @@ public:
     }
 
     palette.bake(persistent_arena,
-                 GenerativePalette{GradientShape::STRAIGHT,
-                                   HarmonyType::SPLIT_COMPLEMENTARY,
-                                   BrightnessProfile::ASCENDING,
-                                   SaturationProfile::VIBRANT});
+                 GenerativePalette{
+                     GradientShape::STRAIGHT, HarmonyType::SPLIT_COMPLEMENTARY,
+                     BrightnessProfile::ASCENDING, SaturationProfile::VIBRANT});
 
     cube_lut.build(persistent_arena);
     init_lattice();
@@ -322,10 +322,9 @@ private:
    * reaction.
    */
   bool reaction_edited() {
-    bool changed = params.feed != transition.last_feed ||
-                   params.k != transition.last_k ||
-                   params.d_a != transition.last_d_a ||
-                   params.d_b != transition.last_d_b;
+    bool changed =
+        params.feed != transition.last_feed || params.k != transition.last_k ||
+        params.d_a != transition.last_d_a || params.d_b != transition.last_d_b;
     transition.last_feed = params.feed;
     transition.last_k = params.k;
     transition.last_d_a = params.d_a;
@@ -514,7 +513,8 @@ private:
    * @brief Persistent Q16 state buffers for the two species.
    */
   struct {
-    uint16_t *A = nullptr, *B = nullptr; /**< Per-node A/B concentrations, Q16. */
+    uint16_t *A = nullptr,
+             *B = nullptr; /**< Per-node A/B concentrations, Q16. */
   } state;
 
   /**
@@ -522,9 +522,9 @@ private:
    *        progress.
    */
   struct {
-    int grow_frames = 0;     /**< Frames since this reaction was seeded. */
-    int stable_run = 0;      /**< Consecutive frames with |dB| sub-floor. */
-    int dissolve_frame = -1; /**< Frames into the dissolve; -1 when not
+    int grow_frames = 0;        /**< Frames since this reaction was seeded. */
+    int stable_run = 0;         /**< Consecutive frames with |dB| sub-floor. */
+    int dissolve_frame = -1;    /**< Frames into the dissolve; -1 when not
                                   dissolving. */
     uint32_t dissolve_seed = 0; /**< Per-transition node-order hash seed. */
     /** Reaction constants as of the last frame; reaction_edited() latches them
@@ -542,8 +542,8 @@ private:
   struct Params {
     float feed = 0.04f; /**< Feed rate of A. */
     float k = 0.06f;    /**< Kill rate of B. */
-    float d_a = 0.02f;   /**< Diffusion coefficient of A. */
-    float d_b = 0.01f;   /**< Diffusion coefficient of B. */
+    float d_a = 0.02f;  /**< Diffusion coefficient of A. */
+    float d_b = 0.01f;  /**< Diffusion coefficient of B. */
     float dt = 2.5f;    /**< Integration timestep (Speed slider). */
   } params;
 };

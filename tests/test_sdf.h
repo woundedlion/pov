@@ -39,7 +39,9 @@ using hs_test::math3d::approx_vec;
  * @brief Builds the canonical equator-facing basis: v = +Y, u = +X, w = +Z.
  * @return A Basis oriented so its pole points along +Y.
  */
-inline Basis equator_basis() { return Basis{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)}; }
+inline Basis equator_basis() {
+  return Basis{Vector(1, 0, 0), Vector(0, 1, 0), Vector(0, 0, 1)};
+}
 
 // ============================================================================
 // clamp_phi
@@ -143,9 +145,9 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
   // π/2 + shift.
   Vector p(std::sin(PI_F / 2 + shift), std::cos(PI_F / 2 + shift), 0.0f);
 
-  SDF::DistortedRing shifted(b, 1.0f, thickness,
-                             [shift](float) { return shift; },
-                             /*max_distortion=*/shift, /*phase=*/0.0f);
+  SDF::DistortedRing shifted(
+      b, 1.0f, thickness, [shift](float) { return shift; },
+      /*max_distortion=*/shift, /*phase=*/0.0f);
   auto rs = shifted.distance(p);
   HS_EXPECT_TRUE(rs.dist < 50.0f);
   HS_EXPECT_NEAR(rs.raw_dist, 0.0f, 1e-2f);
@@ -154,8 +156,9 @@ inline void test_distorted_ring_constant_shift_moves_centerline() {
 
   // Same point, no shift: the centerline stays at π/2, so it now sits `shift`
   // radians off (raw_dist ≈ shift) — the shift moved the centerline.
-  SDF::DistortedRing plain(b, 1.0f, thickness, [](float) { return 0.0f; },
-                           /*max_distortion=*/shift, /*phase=*/0.0f);
+  SDF::DistortedRing plain(
+      b, 1.0f, thickness, [](float) { return 0.0f; },
+      /*max_distortion=*/shift, /*phase=*/0.0f);
   auto rp = plain.distance(p);
   HS_EXPECT_NEAR(rp.raw_dist, shift, 1e-2f);
 }
@@ -203,9 +206,9 @@ inline void test_distorted_ring_flat_matches_zero_knots() {
     for (float azimuth : azimuths) {
       for (float offset : offsets) {
         float polar = hs::clamp(target + offset, 0.0f, PI_F);
-        Vector p = basis.v * cosf(polar) +
-                   (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) *
-                       sinf(polar);
+        Vector p =
+            basis.v * cosf(polar) +
+            (basis.u * cosf(azimuth) + basis.w * sinf(azimuth)) * sinf(polar);
         auto actual = flat.distance(p);
         auto expected = polyline.distance(p);
         HS_EXPECT_NEAR(actual.dist, expected.dist, 1e-5f);
@@ -233,8 +236,7 @@ inline void test_distorted_ring_flat_matches_zero_knots() {
  *   for true distances below thickness (the outward search stops at that
  *   reach); every probe is placed inside it.
  */
-template <int LUT_N>
-inline void expect_polyline_distance_matches_bruteforce() {
+template <int LUT_N> inline void expect_polyline_distance_matches_bruteforce() {
   Basis b = make_basis(Quaternion(), Vector(0.3f, 1.0f, 0.2f));
   const float amp = 0.2f;
   const int harmonic = 5;
@@ -269,8 +271,8 @@ inline void expect_polyline_distance_matches_bruteforce() {
 
   // t = 0.05: crest (slope zero, curvature max); t = 0.1: steep flank;
   // t = 0.998: wrap seam. Offsets stay within the thickness reach.
-  const float probes[][2] = {{0.05f, 0.04f},  {0.05f, -0.05f}, {0.1f, 0.05f},
-                             {0.1f, -0.04f},  {0.998f, 0.04f}, {0.25f, 0.05f},
+  const float probes[][2] = {{0.05f, 0.04f},   {0.05f, -0.05f}, {0.1f, 0.05f},
+                             {0.1f, -0.04f},   {0.998f, 0.04f}, {0.25f, 0.05f},
                              {0.375f, -0.05f}, {0.6f, 0.03f}};
   for (const auto &pr : probes) {
     Vector p = on_sphere(pr[0], pr[1]);
@@ -534,8 +536,7 @@ inline void test_inverted_fill_scans_full_sphere() {
   auto bounds = sp.get_vertical_bounds<144>();
   HS_EXPECT_EQ(bounds.y_min, 0);
   HS_EXPECT_EQ(bounds.y_max, 143);
-  bool handled =
-      sp.get_horizontal_intervals<288, 144>(72, [](float, float) {});
+  bool handled = sp.get_horizontal_intervals<288, 144>(72, [](float, float) {});
   HS_EXPECT_TRUE(!handled);
 }
 
@@ -657,8 +658,9 @@ inline void test_twist_apply_displaces_y() {
 /** @brief Verifies Twist::lipschitz is 1 for twist 0 and matches the closed form otherwise. */
 inline void test_twist_lipschitz_identity_and_closed_form() {
   SDF::Warp::Twist flat{0, 0.5f, 1.0f};
-  HS_EXPECT_NEAR(flat.lipschitz(Vector(2, 0, 0), flat.make_ctx(Vector(2, 0, 0))),
-                 1.0f, 1e-6f);
+  HS_EXPECT_NEAR(
+      flat.lipschitz(Vector(2, 0, 0), flat.make_ctx(Vector(2, 0, 0))), 1.0f,
+      1e-6f);
 
   // twist=2, amplitude=0.5 at s=2: γ = 0.5, bound = γ/2 + √(1 + γ²/4).
   SDF::Warp::Twist tw{2, 0.5f, 1.0f};
@@ -897,9 +899,11 @@ namespace sdf_subtract_detail {
  *   are touched by Subtract's ctor + interval path.
  */
 struct MockIntervalShape {
-  const std::vector<std::pair<float, float>> *ivs; /**< Interval list this mock replays. */
-  float thickness = 0.1f;                          /**< Stroke half-width the parent reads. */
-  static constexpr bool is_solid = true;           /**< Marks the mock as a solid fill shape. */
+  const std::vector<std::pair<float, float>>
+      *ivs;               /**< Interval list this mock replays. */
+  float thickness = 0.1f; /**< Stroke half-width the parent reads. */
+  static constexpr bool is_solid =
+      true; /**< Marks the mock as a solid fill shape. */
   /**
    * @brief Emits the stored intervals to the scanline sink.
    * @tparam W Canvas width in pixels.
@@ -922,8 +926,9 @@ struct MockIntervalShape {
  *   the whole row with distance()", NOT that the shape covers the row.
  */
 struct MockFullWidthShape {
-  float thickness = 0.1f;                /**< Stroke half-width the parent reads. */
-  static constexpr bool is_solid = true; /**< Marks the mock as a solid fill shape. */
+  float thickness = 0.1f; /**< Stroke half-width the parent reads. */
+  static constexpr bool is_solid =
+      true; /**< Marks the mock as a solid fill shape. */
   /**
    * @brief Declines to emit intervals, forcing a full-row distance scan.
    * @tparam W Canvas width in pixels.
@@ -1021,8 +1026,8 @@ inline void test_subtract_full_width_b_requests_full_row_scan() {
 inline void test_subtract_seam_straddle_carves_across_wrap_frames() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
-  std::vector<P> a_ivs = {{-10.0f, 10.0f}};   // seam band, negative frame
-  std::vector<P> b_ivs = {{246.0f, 266.0f}};  // same band, [W,2W) frame (W=256)
+  std::vector<P> a_ivs = {{-10.0f, 10.0f}};  // seam band, negative frame
+  std::vector<P> b_ivs = {{246.0f, 266.0f}}; // same band, [W,2W) frame (W=256)
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
 
@@ -1050,12 +1055,11 @@ inline void test_subtract_many_arc_seam_split_within_bound() {
 
   // Twelve disjoint A arcs; the first two straddle the seam (negative / over-W
   // frame) so each splits into two on normalization (14 norm spans, well under 64).
-  std::vector<P> a_ivs = {
-      {-6.0f, 4.0f},   {250.0f, 262.0f},                          // seam straddlers
-      {20.0f, 30.0f},  {40.0f, 50.0f},   {60.0f, 70.0f},
-      {80.0f, 90.0f},  {100.0f, 110.0f}, {120.0f, 130.0f},
-      {140.0f, 150.0f},{160.0f, 170.0f}, {180.0f, 190.0f},
-      {200.0f, 210.0f}};
+  std::vector<P> a_ivs = {{-6.0f, 4.0f},    {250.0f, 262.0f}, // seam straddlers
+                          {20.0f, 30.0f},   {40.0f, 50.0f},   {60.0f, 70.0f},
+                          {80.0f, 90.0f},   {100.0f, 110.0f}, {120.0f, 130.0f},
+                          {140.0f, 150.0f}, {160.0f, 170.0f}, {180.0f, 190.0f},
+                          {200.0f, 210.0f}};
   std::vector<P> b_ivs = {{45.0f, 55.0f}, {125.0f, 135.0f}};
   Mock A{&a_ivs}, B{&b_ivs};
   SDF::Subtract<Mock, Mock> s(A, B);
@@ -1140,7 +1144,8 @@ inline void test_intersection_full_width_child_replays_other() {
   using P = std::pair<float, float>;
   using MockI = sdf_subtract_detail::MockIntervalShape;
   using MockF = sdf_subtract_detail::MockFullWidthShape;
-  std::vector<P> ivs = {{60.0f, 80.0f}, {20.0f, 40.0f}}; // multi, emission order
+  std::vector<P> ivs = {{60.0f, 80.0f},
+                        {20.0f, 40.0f}}; // multi, emission order
   MockI shape{&ivs};
   MockF full;
 
@@ -1325,8 +1330,9 @@ inline void test_smooth_union_seam_straddle_merges_padded_intervals() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
-  init_geometry_luts<W, H>(); // fill sin_phi; scan_region does this in production
-  const int row = H / 2; // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
+  init_geometry_luts<W,
+                     H>(); // fill sin_phi; scan_region does this in production
+  const int row = H / 2;   // equatorial row: sinφ ≈ 1, pad ≈ k·W/(2π)
   const float k = 0.02f;
   const float sin_phi = TrigLUT<W, H>::sin_phi[row];
   const float pad =
@@ -1355,7 +1361,8 @@ inline void test_smooth_union_pad_widens_toward_pole() {
   using P = std::pair<float, float>;
   using Mock = sdf_subtract_detail::MockIntervalShape;
   constexpr int W = 256, H = 128;
-  init_geometry_luts<W, H>(); // fill sin_phi; scan_region does this in production
+  init_geometry_luts<W,
+                     H>(); // fill sin_phi; scan_region does this in production
   const float k = 0.05f;
   std::vector<P> ivs = {{100.0f, 100.0f}}; // a point; only the pad sets width
   Mock A{&ivs}, B{&ivs};
@@ -1495,7 +1502,8 @@ inline int expect_cull_covers_interior(const Shape &shape) {
   std::vector<uint8_t> visited;
   cull_visited<W, H>(shape, visited);
 
-  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
+  const float *cos_theta =
+      TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   const float pixel_width = 2.0f * PI_F / W;
   int interior = 0;
@@ -1519,10 +1527,10 @@ inline void test_cull_covers_interior_over_orientation_grid() {
   constexpr int W = 96, H = 48;
 
   // Poles, equator, and oblique tilts.
-  const Vector axes[] = {
-      Vector(0, 1, 0),         Vector(0, -1, 0),        Vector(1, 0, 0),
-      Vector(0, 0, 1),         Vector(1, 1, 0.4f),      Vector(-0.5f, 0.7f, -0.6f),
-      Vector(0.3f, -0.8f, 0.5f)};
+  const Vector axes[] = {Vector(0, 1, 0),          Vector(0, -1, 0),
+                         Vector(1, 0, 0),          Vector(0, 0, 1),
+                         Vector(1, 1, 0.4f),       Vector(-0.5f, 0.7f, -0.6f),
+                         Vector(0.3f, -0.8f, 0.5f)};
 
   for (const Vector &axis : axes) {
     Basis basis = make_basis(Quaternion(), axis);
@@ -1592,10 +1600,14 @@ inline void test_ring_pole_wrap_cull_covers_interior() {
   // 256x128 — coarser resolutions can hide the sub-pixel gap. The triples below
   // were search-found to drop 1-4 interior pixels at the pole seam pre-fix.
   constexpr int W = 256, H = 128;
-  struct Cfg { float tilt, radius, thickness; };
+  struct Cfg {
+    float tilt, radius, thickness;
+  };
   const Cfg cfgs[] = {
-      {0.15f, 0.22f, 0.13f}, {0.16f, 0.25f, 0.14f},
-      {0.16f, 0.33f, 0.15f}, {0.16f, 0.39f, 0.15f},
+      {0.15f, 0.22f, 0.13f},
+      {0.16f, 0.25f, 0.14f},
+      {0.16f, 0.33f, 0.15f},
+      {0.16f, 0.39f, 0.15f},
   };
   for (const Cfg &c : cfgs) {
     Basis basis_n = make_basis(Quaternion(), Vector(c.tilt, 1.0f, 0.0f));
@@ -1621,10 +1633,16 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
   constexpr int W = 256, H = 128;
   // Spiky harmonic / off-grid-phase shift_fns; the bound passed is the exact
   // analytic peak.
-  struct Cfg { float amp; int harmonic; float phase_frac; };
+  struct Cfg {
+    float amp;
+    int harmonic;
+    float phase_frac;
+  };
   const Cfg cfgs[] = {
-      {0.18f, 127, 0.5f / 256.0f}, {0.20f, 255, 0.5f / 256.0f},
-      {0.15f, 384, 0.25f / 256.0f}, {0.22f, 200, 0.5f / 256.0f},
+      {0.18f, 127, 0.5f / 256.0f},
+      {0.20f, 255, 0.5f / 256.0f},
+      {0.15f, 384, 0.25f / 256.0f},
+      {0.22f, 200, 0.5f / 256.0f},
   };
   const Vector axes[] = {Vector(0, 1, 0), Vector(0.3f, 1.0f, 0.2f),
                          Vector(1, 0, 0)};
@@ -1637,7 +1655,8 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
       auto shift = [amp, harmonic, ph](float t) {
         return amp * std::sin(2.0f * PI_F * (harmonic * t + ph));
       };
-      SDF::DistortedRing ring(basis, /*radius=*/0.6f, /*thickness=*/0.12f, shift,
+      SDF::DistortedRing ring(basis, /*radius=*/0.6f, /*thickness=*/0.12f,
+                              shift,
                               /*max_distortion=*/amp, /*phase=*/0.0f);
       expect_cull_covers_interior<W, H>(ring);
 
@@ -1658,11 +1677,11 @@ inline void test_distorted_ring_cull_covers_interior_high_freq() {
   constexpr int ASYM_LUT_N = 64;
   float asymmetric[ASYM_LUT_N + 1];
   for (int k = 0; k <= ASYM_LUT_N; ++k)
-    asymmetric[k] = 0.075f + 0.1f * sinf(6.0f * PI_F * (k % ASYM_LUT_N) /
-                                        ASYM_LUT_N);
+    asymmetric[k] =
+        0.075f + 0.1f * sinf(6.0f * PI_F * (k % ASYM_LUT_N) / ASYM_LUT_N);
   Basis basis = make_basis(Quaternion(), Vector(0.3f, 1.0f, 0.2f));
-  SDF::DistortedRing asymmetric_ring(basis, 0.6f, 0.08f, asymmetric,
-                                     ASYM_LUT_N, 0.8f, 0.0f);
+  SDF::DistortedRing asymmetric_ring(basis, 0.6f, 0.08f, asymmetric, ASYM_LUT_N,
+                                     0.8f, 0.0f);
   expect_cull_covers_interior<W, H>(asymmetric_ring);
 }
 
@@ -1700,7 +1719,8 @@ inline int expect_face_cull_covers_fringe(int sides, float rho,
   std::vector<uint8_t> visited;
   cull_visited<W, H>(face, visited);
 
-  const float *cos_theta = TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
+  const float *cos_theta =
+      TrigLUT<W, H>::sin_theta.data() + W / 4; // cos via +W/4
   const float *sin_theta = TrigLUT<W, H>::sin_theta.data();
   const float pixel_width = 2.0f * PI_F / W;
   int paintable = 0;
@@ -1723,14 +1743,21 @@ inline void test_face_cull_covers_aa_fringe() {
   // 256x128 — coarser resolutions can hide the dropped fringe. The triples below
   // were search-found to drop 3-6 AA-fringe pixels with the un-padded floor/ceil.
   constexpr int W = 256, H = 128;
-  struct Cfg { int sides; float rho; Vector axis; };
+  struct Cfg {
+    int sides;
+    float rho;
+    Vector axis;
+  };
   const Cfg cfgs[] = {
-      {3, 0.15f, Vector(0, 0, 1)}, {3, 0.30f, Vector(0, 0, 1)},
-      {3, 0.48f, Vector(0, 0, 1)}, {3, 0.18f, Vector(1, 0, 0)},
+      {3, 0.15f, Vector(0, 0, 1)},
+      {3, 0.30f, Vector(0, 0, 1)},
+      {3, 0.48f, Vector(0, 0, 1)},
+      {3, 0.18f, Vector(1, 0, 0)},
   };
   int total_paintable = 0;
   for (const Cfg &c : cfgs)
-    total_paintable += expect_face_cull_covers_fringe<W, H>(c.sides, c.rho, c.axis);
+    total_paintable +=
+        expect_face_cull_covers_fringe<W, H>(c.sides, c.rho, c.axis);
   HS_EXPECT_GT(total_paintable, 1000);
 }
 
@@ -1766,9 +1793,9 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
   for (int i = 0; i < n_verts; ++i) {
     float a = (2.0f * PI_F * i) / n_verts + 0.37f;
     float r = (rho_inner > 0.0f && (i & 1)) ? rho_inner : rho;
-    verts3d[i] = (basis.v * cosf(r) +
-                  (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
-                     .normalized();
+    verts3d[i] =
+        (basis.v * cosf(r) + (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
+            .normalized();
     idx[i] = static_cast<uint16_t>(i);
   }
 
@@ -1842,16 +1869,22 @@ inline int check_face_distance_oracle(int sides, float rho, const Vector &axis,
  */
 inline void test_face_distance_matches_exact_oracle() {
   int samples = 0;
-  samples += check_face_distance_oracle(/*sides=*/3, 0.45f, Vector(0.4f, 0.3f, 1.0f));
-  samples += check_face_distance_oracle(/*sides=*/5, 0.50f, Vector(0.4f, 0.3f, 1.0f));
-  samples += check_face_distance_oracle(/*sides=*/6, 0.40f, Vector(-0.6f, 0.5f, 0.7f));
-  samples += check_face_distance_oracle(/*sides=*/3, 0.12f, Vector(0.4f, 0.3f, 1.0f));
-  samples += check_face_distance_oracle(/*sides=*/4, 0.50f, Vector(0.4f, 0.3f, 1.0f),
-                                        /*rho_inner=*/0.25f);
+  samples +=
+      check_face_distance_oracle(/*sides=*/3, 0.45f, Vector(0.4f, 0.3f, 1.0f));
+  samples +=
+      check_face_distance_oracle(/*sides=*/5, 0.50f, Vector(0.4f, 0.3f, 1.0f));
+  samples +=
+      check_face_distance_oracle(/*sides=*/6, 0.40f, Vector(-0.6f, 0.5f, 0.7f));
+  samples +=
+      check_face_distance_oracle(/*sides=*/3, 0.12f, Vector(0.4f, 0.3f, 1.0f));
+  samples +=
+      check_face_distance_oracle(/*sides=*/4, 0.50f, Vector(0.4f, 0.3f, 1.0f),
+                                 /*rho_inner=*/0.25f);
   // Concave star: convexity detection must reject it and the exact walk must
   // reproduce the oracle everywhere.
-  samples += check_face_distance_oracle(/*sides=*/6, 0.50f, Vector(0.4f, 0.3f, 1.0f),
-                                        /*rho_inner=*/0.25f);
+  samples +=
+      check_face_distance_oracle(/*sides=*/6, 0.50f, Vector(0.4f, 0.3f, 1.0f),
+                                 /*rho_inner=*/0.25f);
   // The grid actually exercised the distance path.
   HS_EXPECT_GT(samples, 1000);
 }
@@ -1902,9 +1935,9 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
   for (int i = 0; i < n_verts; ++i) {
     float a = (2.0f * PI_F * i) / n_verts + 0.37f;
     float r = (i & 1) ? rho_inner : rho;
-    orig[i] = (basis.v * cosf(r) +
-               (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
-                  .normalized();
+    orig[i] =
+        (basis.v * cosf(r) + (basis.u * cosf(a) + basis.w * sinf(a)) * sinf(r))
+            .normalized();
   }
 
   // Canonical polygon: the untransformed face's own centered 2D projection.
@@ -2028,8 +2061,8 @@ inline int check_face_class_lut(int cyc, bool reflected, float rot_angle) {
   // The sign-purity guard keeps every served magnitude a cell diagonal from
   // zero — outside the AA ramp.
   if (lut_samples > 0) {
-    float floor_mag = face.linear_dist ? lut.safe_dist
-                                       : fast_atan2(lut.safe_dist, 1.0f);
+    float floor_mag =
+        face.linear_dist ? lut.safe_dist : fast_atan2(lut.safe_dist, 1.0f);
     HS_EXPECT_GT(min_lut_mag, floor_mag - 0.01f);
   }
   return lut_samples;
@@ -2156,4 +2189,3 @@ inline int run_sdf_tests() {
 
 } // namespace sdf
 } // namespace hs_test
-

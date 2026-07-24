@@ -23,11 +23,9 @@
 #include "engine/styles.h"
 
 /** @brief Callback that forwards a 2D plot (x, y, pixel, age, alpha) downstream. */
-using PassFn2D =
-    FunctionRef<void(float, float, const Pixel &, float, float)>;
+using PassFn2D = FunctionRef<void(float, float, const Pixel &, float, float)>;
 /** @brief Callback that forwards a 3D plot (vector, pixel, age, alpha) downstream. */
-using PassFn3D =
-    FunctionRef<void(const Vector &, const Pixel &, float, float)>;
+using PassFn3D = FunctionRef<void(const Vector &, const Pixel &, float, float)>;
 
 /**
  * @brief Trait indicating a filter operates in 2D screen space.
@@ -146,9 +144,11 @@ template <int W, int H> struct Pipeline<W, H> {
     HS_PROFILE(filter_blend);
     // Producer must keep x in [-W, 2W); fast_wrap corrects only a single ±W offset.
     assert(x >= -W && x < 2 * W);
-    if (!cv.clip().contains_y(y)) return;
+    if (!cv.clip().contains_y(y))
+      return;
     int xi = fast_wrap(x, W);
-    if (!cv.clip().contains_x(xi)) return;
+    if (!cv.clip().contains_x(xi))
+      return;
     Pixel &dst = cv(xi, y);
     dst = blend_alpha(alpha)(dst, c);
   }
@@ -162,17 +162,18 @@ template <int W, int H> struct Pipeline<W, H> {
    * @param alpha Blend alpha in [0, 1].
    * @details The unnamed float parameter is the unused age channel.
    */
-  void plot(Canvas &cv, float x, float y, const Pixel &c, float,
-            float alpha) {
+  void plot(Canvas &cv, float x, float y, const Pixel &c, float, float alpha) {
     // Non-finite coords make the int casts below UB and bypass the wrap.
     assert(std::isfinite(x) && std::isfinite(y));
     int xi = static_cast<int>(std::round(x));
     int yi = static_cast<int>(std::round(y));
     // fast_wrap corrects only a single ±W offset, so xi must land in [-W, 2W).
     assert(xi >= -W && xi < 2 * W);
-    if (!cv.clip().contains_y(yi)) return;
+    if (!cv.clip().contains_y(yi))
+      return;
     xi = fast_wrap(xi, W);
-    if (!cv.clip().contains_x(xi)) return;
+    if (!cv.clip().contains_x(xi))
+      return;
     cv(xi, yi) = blend_alpha(alpha)(cv(xi, yi), c);
   }
 
@@ -184,7 +185,8 @@ template <int W, int H> struct Pipeline<W, H> {
    * @param age Temporal age channel (frames).
    * @param alpha Blend alpha in [0, 1].
    */
-  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha) {
+  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
+            float alpha) {
     auto p = vector_to_pixel<W, H>(v);
     plot(cv, p.x, p.y, c, age, alpha);
   }
@@ -306,11 +308,11 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
   void plot(Canvas &cv, float x, float y, const Pixel &c, float age,
             float alpha) {
     if constexpr (Head::is_2d) {
-      Head::plot(x, y, c, age, alpha,
-                 [&](float nx, float ny, const Pixel &nc, float nage,
-                     float nalpha) {
-                   next.plot(cv, nx, ny, nc, nage, nalpha);
-                 });
+      Head::plot(
+          x, y, c, age, alpha,
+          [&](float nx, float ny, const Pixel &nc, float nage, float nalpha) {
+            next.plot(cv, nx, ny, nc, nage, nalpha);
+          });
     } else {
       Vector v = pixel_to_vector<W, H>(x, y);
       plot(cv, v, c, age, alpha);
@@ -343,13 +345,12 @@ struct Pipeline<W, H, Head, Tail...> : public Head {
    * @details If Head is 3D it processes directly; otherwise the point is
    * projected to screen space and dispatched to the 2D path.
    */
-  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age, float alpha) {
+  void plot(Canvas &cv, const Vector &v, const Pixel &c, float age,
+            float alpha) {
     if constexpr (!Head::is_2d) {
       Head::plot(v, c, age, alpha,
                  [&](const Vector &nv, const Pixel &nc, float nage,
-                     float nalpha) {
-                   next.plot(cv, nv, nc, nage, nalpha);
-                 });
+                     float nalpha) { next.plot(cv, nv, nc, nage, nalpha); });
     } else {
       auto p = vector_to_pixel<W, H>(v);
       plot(cv, p.x, p.y, c, age, alpha);
@@ -522,7 +523,8 @@ public:
   }
 
 private:
-  Orientation<> &orientation; /**< Live orientation source driving the rotation. */
+  Orientation<>
+      &orientation; /**< Live orientation source driving the rotation. */
 };
 
 /**
@@ -626,11 +628,12 @@ public:
    */
   const Vector &get_axis() const { return axis; }
 
-  bool enabled;  /**< When false, the filter passes points through unrotated. */
+  bool enabled; /**< When false, the filter passes points through unrotated. */
 
 private:
-  Vector axis;   /**< Unit axis points are projected onto to select a slice. */
-  std::span<const Orientation<>> orientations; /**< Candidate orientations indexed by projection. */
+  Vector axis; /**< Unit axis points are projected onto to select a slice. */
+  std::span<const Orientation<>>
+      orientations; /**< Candidate orientations indexed by projection. */
 };
 
 /**
@@ -672,8 +675,9 @@ public:
   }
 
 private:
-  OriginT origin; /**< Center of the hole (unit vector), stored by value or ref. */
-  float radius;   /**< Angular radius of the hole in radians. */
+  OriginT
+      origin; /**< Center of the hole (unit vector), stored by value or ref. */
+  float radius; /**< Angular radius of the hole in radians. */
 };
 
 /**
@@ -721,8 +725,8 @@ public:
   }
 
 private:
-  int count;        /**< Number of copies emitted, in [1, W]. */
-  Quaternion step;  /**< Per-copy Y-axis rotation (2*pi / count). */
+  int count;       /**< Number of copies emitted, in [1, W]. */
+  Quaternion step; /**< Per-copy Y-axis rotation (2*pi / count). */
 };
 
 /**
@@ -737,8 +741,7 @@ public:
    * @tparam VertexArray Indexable container of N unit vectors.
    * @param vertices Vertex positions; rotations map vertices[0] onto each vertex.
    */
-  template <typename VertexArray>
-  VertexReplicate(const VertexArray &vertices) {
+  template <typename VertexArray> VertexReplicate(const VertexArray &vertices) {
     for (int i = 0; i < N; ++i)
       rotations[i] = make_rotation(vertices[0], vertices[i]);
   }
@@ -762,7 +765,8 @@ public:
   }
 
 private:
-  std::array<Quaternion, N> rotations; /**< Rotation from vertices[0] to each vertex. */
+  std::array<Quaternion, N>
+      rotations; /**< Rotation from vertices[0] to each vertex. */
 };
 
 /**
@@ -917,11 +921,13 @@ public:
   size_t size() const { return count; }
 
 private:
-  Item *items = nullptr;                 /**< Ring-buffer storage (arena-owned). */
-  size_t head = 0, tail = 0, count = 0; /**< Ring-buffer head, tail, and live count. */
-  int lifetime;                           /**< Per-frame fade divisor in frames. */
+  Item *items = nullptr; /**< Ring-buffer storage (arena-owned). */
+  size_t head = 0, tail = 0,
+         count = 0; /**< Ring-buffer head, tail, and live count. */
+  int lifetime;     /**< Per-frame fade divisor in frames. */
 
-  static constexpr float Q = 32767.0f;    /**< Quantization scale for unit-vector components. */
+  static constexpr float Q =
+      32767.0f; /**< Quantization scale for unit-vector components. */
   /**
    * @brief Encodes a unit vector and ttl into a quantized Item.
    * @param v World-space point; each component is clamped to [-1, 1] before scaling.
@@ -1113,10 +1119,14 @@ public:
     Pixel *const base = cv.data();
     Pixel *const row0 = y0_ok ? base + y0 * W : nullptr;
     Pixel *const row1 = y1_ok ? base + y1 * W : nullptr;
-    Pixel *const dst00 = row0 && x0_ok && v00 > TAP_CUTOFF ? row0 + x0 : nullptr;
-    Pixel *const dst10 = row0 && x1_ok && v10 > TAP_CUTOFF ? row0 + x1 : nullptr;
-    Pixel *const dst01 = row1 && x0_ok && v01 > TAP_CUTOFF ? row1 + x0 : nullptr;
-    Pixel *const dst11 = row1 && x1_ok && v11 > TAP_CUTOFF ? row1 + x1 : nullptr;
+    Pixel *const dst00 =
+        row0 && x0_ok && v00 > TAP_CUTOFF ? row0 + x0 : nullptr;
+    Pixel *const dst10 =
+        row0 && x1_ok && v10 > TAP_CUTOFF ? row0 + x1 : nullptr;
+    Pixel *const dst01 =
+        row1 && x0_ok && v01 > TAP_CUTOFF ? row1 + x0 : nullptr;
+    Pixel *const dst11 =
+        row1 && x1_ok && v11 > TAP_CUTOFF ? row1 + x1 : nullptr;
     const uint16_t a00 = dst00 ? tap_alpha_q16(alpha, v00) : 0;
     const uint16_t a10 = dst10 ? tap_alpha_q16(alpha, v10) : 0;
     const uint16_t a01 = dst01 ? tap_alpha_q16(alpha, v01) : 0;
@@ -1162,9 +1172,8 @@ private:
         hs::clamp(alpha * weight * 65535.0f + 0.5f, 0.0f, 65535.0f));
   }
 
-  static __attribute__((always_inline)) void blend_tap(Pixel *dst,
-                                                        const Pixel &src,
-                                                        uint16_t alpha_q16) {
+  static __attribute__((always_inline)) void
+  blend_tap(Pixel *dst, const Pixel &src, uint16_t alpha_q16) {
     *dst = dst->lerp16(src, alpha_q16);
   }
 };
@@ -1273,9 +1282,9 @@ private:
   struct DecayPixel {
     float x, y, ttl; /**< Pixel position and remaining lifetime in frames. */
   };
-  int lifetime;               /**< Per-frame fade divisor in frames. */
+  int lifetime;                  /**< Per-frame fade divisor in frames. */
   DecayPixel *points_ = nullptr; /**< Arena-owned array of live trail points. */
-  int num_pixels = 0;          /**< Number of live points in points_. */
+  int num_pixels = 0;            /**< Number of live points in points_. */
 };
 
 /**
@@ -1373,8 +1382,7 @@ namespace Pixel {
  * flush() composites directly into the Canvas and ignores its `pass` callback,
  * so it must be the last Pipeline stage.
  */
-template <int W, int H>
-class Feedback : public Is2DWithHistory {
+template <int W, int H> class Feedback : public Is2DWithHistory {
 public:
   /** @brief Marks this as terminal: flush() writes the Canvas and ignores `pass`. */
   static constexpr bool is_terminal = true;
@@ -1422,13 +1430,15 @@ public:
    */
   HS_O3_BEGIN
   void flush(Canvas &cv, const ScreenTrailFn &, float alpha, PassFn2D) {
-    if (!enabled) return;
+    if (!enabled)
+      return;
 
     const CoarseGrid grid = make_coarse_grid(cv);
 
     {
       HS_PROFILE(feedback_litscan);
-      if (!any_pixel_lit(cv)) return;
+      if (!any_pixel_lit(cv))
+        return;
     }
 
     const RenderBand band = make_render_band(cv.clip(), grid);
@@ -1510,7 +1520,8 @@ private:
 
     if (band.x_clip.active) {
       for (int x = 0; x < W; ++x) {
-        if (band.x_clip.clipped(x)) continue;
+        if (band.x_clip.clipped(x))
+          continue;
         const int left = x / grid.downsample;
         const int right = (left + 1 < grid.columns) ? left + 1 : 0;
         band.coarse_columns_used[left] = true;
@@ -1536,16 +1547,15 @@ private:
     return runs;
   }
 
-  __attribute__((always_inline))
-  WarpField select_warp_field(Arena &scratch, const CoarseGrid &grid,
-                              const RenderBand &band) {
+  __attribute__((always_inline)) WarpField select_warp_field(
+      Arena &scratch, const CoarseGrid &grid, const RenderBand &band) {
     const bool stock_transform =
         feedback_style->space_fn == &::Feedback::noise_warp ||
         feedback_style->space_fn == &::Feedback::melt_warp ||
         feedback_style->space_fn == &::Feedback::identity_warp;
-    const bool cacheable =
-        cached_warp_x && !band.x_clip.active &&
-        grid.downsample == CACHE_DOWNSAMPLE && stock_transform;
+    const bool cacheable = cached_warp_x && !band.x_clip.active &&
+                           grid.downsample == CACHE_DOWNSAMPLE &&
+                           stock_transform;
 
     const NoiseParams *noise = feedback_style->noise;
     const WarpKey key{feedback_style->space_fn,
@@ -1565,8 +1575,7 @@ private:
               scratch.allocate_n<WarpControl>(grid.field.sample_count()), true};
     }
 
-    const bool needs_population =
-        !(warp_cache_valid && key == cached_warp_key);
+    const bool needs_population = !(warp_cache_valid && key == cached_warp_key);
     cached_warp_key = key;
     warp_cache_valid = true;
     return {cached_warp_x, cached_warp_y,
@@ -1576,11 +1585,12 @@ private:
             needs_population};
   }
 
-  __attribute__((always_inline))
-  void populate_warp_field(const CoarseGrid &grid, const RenderBand &band,
-                           const WarpField &warp) const {
+  __attribute__((always_inline)) void
+  populate_warp_field(const CoarseGrid &grid, const RenderBand &band,
+                      const WarpField &warp) const {
     HS_PROFILE(feedback_populate);
-    if (!warp.needs_population) return;
+    if (!warp.needs_population)
+      return;
 
     hs::SphericalField<WarpControl, W, H> compact(warp.controls, grid.field);
     compact.populate(
@@ -1634,11 +1644,9 @@ private:
     }
   }
 
-  __attribute__((always_inline))
-  void composite_previous_frame(Canvas &cv, float alpha,
-                                const CoarseGrid &grid,
-                                const RenderBand &band,
-                                const WarpField &warp) {
+  __attribute__((always_inline)) void
+  composite_previous_frame(Canvas &cv, float alpha, const CoarseGrid &grid,
+                           const RenderBand &band, const WarpField &warp) {
     const int downsample = grid.downsample;
     const int coarse_columns = grid.columns;
     const int row_begin = band.y_begin;
@@ -1658,8 +1666,7 @@ private:
     constexpr float NEAR_BLACK = 64.0f;
     const auto blend = blend_alpha(alpha);
     const bool opaque = alpha >= 1.0f;
-    constexpr float WRAP_PERIOD =
-        static_cast<float>(W) * WARP_SCALE;
+    constexpr float WRAP_PERIOD = static_cast<float>(W) * WARP_SCALE;
     constexpr float HALF_WRAP_PERIOD = WRAP_PERIOD * 0.5f;
     const ::Pixel *previous = cv.prev_data();
     ::Pixel *current = cv.data();
@@ -1669,8 +1676,8 @@ private:
     int field_y1 = field_y0 + (field_y0 < grid.field_rows - 1 ? 1 : 0);
     int control_y0 = grid.field.ring(field_y0).y;
     int control_y1 = grid.field.ring(field_y1).y;
-    auto composite_pixels =
-        [&](auto &&transform_pixel, auto &&transform_pair, auto pair_pixels) {
+    auto composite_pixels = [&](auto &&transform_pixel, auto &&transform_pair,
+                                auto pair_pixels) {
       constexpr bool PAIR_PIXELS = decltype(pair_pixels)::value;
       for (int y = row_begin; y < row_end; ++y) {
         const int row = y * W;
@@ -1711,29 +1718,20 @@ private:
             float d01 = x_offsets[i01], d11 = x_offsets[i11];
             d10 += (d10 - d00 > HALF_WRAP_PERIOD)
                        ? -WRAP_PERIOD
-                       : (d10 - d00 < -HALF_WRAP_PERIOD
-                              ? WRAP_PERIOD
-                              : 0.0f);
+                       : (d10 - d00 < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
             d01 += (d01 - d00 > HALF_WRAP_PERIOD)
                        ? -WRAP_PERIOD
-                       : (d01 - d00 < -HALF_WRAP_PERIOD
-                              ? WRAP_PERIOD
-                              : 0.0f);
+                       : (d01 - d00 < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
             d11 += (d11 - d00 > HALF_WRAP_PERIOD)
                        ? -WRAP_PERIOD
-                       : (d11 - d00 < -HALF_WRAP_PERIOD
-                              ? WRAP_PERIOD
-                              : 0.0f);
+                       : (d11 - d00 < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
             leftx = (d00 * wy0 + d01 * wy1) * INVERSE_WARP_SCALE;
-            slopex =
-                (d10 * wy0 + d11 * wy1) * INVERSE_WARP_SCALE - leftx;
-            lefty =
-                (y_offsets[i00] * wy0 + y_offsets[i01] * wy1) *
-                INVERSE_WARP_SCALE;
-            slopey =
-                (y_offsets[i10] * wy0 + y_offsets[i11] * wy1) *
-                    INVERSE_WARP_SCALE -
-                lefty;
+            slopex = (d10 * wy0 + d11 * wy1) * INVERSE_WARP_SCALE - leftx;
+            lefty = (y_offsets[i00] * wy0 + y_offsets[i01] * wy1) *
+                    INVERSE_WARP_SCALE;
+            slopey = (y_offsets[i10] * wy0 + y_offsets[i11] * wy1) *
+                         INVERSE_WARP_SCALE -
+                     lefty;
           };
           if (sub != 0)
             cell();
@@ -1823,8 +1821,8 @@ private:
   }
 
   template <typename CompositeFnT>
-  __attribute__((always_inline))
-  void dispatch_color_transform(float fade, CompositeFnT &&composite_pixels) {
+  __attribute__((always_inline)) void
+  dispatch_color_transform(float fade, CompositeFnT &&composite_pixels) {
     auto composite_scalar = [&](auto &&transform_pixel) {
       composite_pixels(transform_pixel, transform_pixel, std::false_type{});
     };
@@ -1911,9 +1909,11 @@ private:
     const auto x_clip = clip.x_clip();
     for (int y = clip.render_y_start(); y < clip.render_y_end(); ++y)
       for (int x = 0; x < W; ++x) {
-        if (x_clip.active && x_clip.clipped(x)) continue;
+        if (x_clip.active && x_clip.clipped(x))
+          continue;
         const ::Pixel pixel = cv.prev(x, y);
-        if (pixel.r | pixel.g | pixel.b) return true;
+        if (pixel.r | pixel.g | pixel.b)
+          return true;
       }
     return false;
   }
@@ -2041,9 +2041,9 @@ private:
   ::Feedback::Style *feedback_style; /**< Bound feedback Style (non-owning). */
   bool enabled = true;               /**< When false, flush() is skipped. */
   WarpKey cached_warp_key{};         /**< Key for the cached warp field. */
-  bool warp_cache_valid = false;     /**< True when the cached field is valid. */
-  int16_t *cached_warp_x = nullptr;  /**< Arena-owned cached column deltas. */
-  int16_t *cached_warp_y = nullptr;  /**< Arena-owned cached row deltas. */
+  bool warp_cache_valid = false;    /**< True when the cached field is valid. */
+  int16_t *cached_warp_x = nullptr; /**< Arena-owned cached column deltas. */
+  int16_t *cached_warp_y = nullptr; /**< Arena-owned cached row deltas. */
 };
 
 /**
@@ -2096,4 +2096,3 @@ public:
 } // namespace Pixel
 
 } // namespace Filter
-

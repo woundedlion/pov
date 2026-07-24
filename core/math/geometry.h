@@ -12,7 +12,7 @@
 #include "math/3dmath.h"
 #include "color/color.h"
 #include "engine/static_circular_buffer.h" // for StaticCircularBuffer (Dots/Points)
-#include "engine/util.h"                    // for wrap()
+#include "engine/util.h"                   // for wrap()
 
 /**
  * @brief Unit vector along the Cartesian X-axis.
@@ -319,7 +319,8 @@ template <int W, int H> Vector pixel_to_vector(float x, float y) {
  * @param v Unit vector on the sphere; only its x/z azimuth is read.
  * @return The `x` pixel coordinate in `[0, W)` (wrap() strictly excludes W).
  */
-template <int W> __attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
+template <int W>
+__attribute__((always_inline)) inline float vector_to_theta(const Vector &v) {
   // fast_atan2 is bounded by |pi|, so t lands in [-W/2, W/2] and fmod(t, W) is
   // the identity: wrap() reduces to one conditional add. The upper guard keeps
   // the half-open range when a tiny negative t rounds up to exactly W.
@@ -412,7 +413,8 @@ HS_O3_FN inline TangentOffset sphere_log(const Vector &v, const Vector &w,
   const float c = hs::clamp(dot(v, w), -1.0f, 1.0f);
   const Vector u = w - v * c;
   const float len_sq = dot(u, u);
-  if (len_sq < EPS) return {0.0f, 0.0f};
+  if (len_sq < EPS)
+    return {0.0f, 0.0f};
   const Vector delta = u * (fast_acos(c) * fast_rsqrt(len_sq));
   return {dot(delta, frame.east), dot(delta, frame.down)};
 }
@@ -436,7 +438,8 @@ template <int W, int H> float equirect_x_scale(int y) {
   assert(y >= 0 && y < H_VIRT);
   constexpr float POLE_SIN = 1e-6f;
   float sp = TrigLUT<W, H>::sin_phi[y];
-  if (sp < POLE_SIN) sp = TrigLUT<W, H>::sin_phi[(y == 0) ? 1 : H_VIRT - 2];
+  if (sp < POLE_SIN)
+    sp = TrigLUT<W, H>::sin_phi[(y == 0) ? 1 : H_VIRT - 2];
   return (W / (2.0f * PI_F)) / sp;
 }
 
@@ -454,10 +457,12 @@ template <int W, int H> float equirect_x_scale(int y) {
  * H + hs::H_OFFSET - 1.
  */
 template <int W, int H> HS_O3_FN bool pole_wrap(int &col, int &row) {
-  if (row >= 0 && row < H) return true;
+  if (row >= 0 && row < H)
+    return true;
   constexpr int SOUTH = H + hs::H_OFFSET - 1;
   row = (row < 0) ? -row : 2 * SOUTH - row;
-  if (row < 0 || row >= H) return false;
+  if (row < 0 || row >= H)
+    return false;
   col = fast_wrap(col + W / 2, W);
   return true;
 }
@@ -475,7 +480,8 @@ inline Vector fib_spiral(int n, float eps, int i) {
   float phi = acosf(hs::clamp(1.0f - (2.0f * (static_cast<float>(i) + eps)) /
                                          static_cast<float>(n),
                               -1.0f, 1.0f));
-  float theta = fmodf((2.0f * PI_F * static_cast<float>(i) * INV_PHI), (2.0f * PI_F));
+  float theta =
+      fmodf((2.0f * PI_F * static_cast<float>(i) * INV_PHI), (2.0f * PI_F));
   // Y-up; unit by construction, so no normalize().
   return Vector(sinf(phi) * cosf(theta), cosf(phi), sinf(phi) * sinf(theta));
 }
@@ -689,7 +695,7 @@ inline Vector random_vector() {
 struct LissajousParams {
   float m1; /**< Frequency coefficient for the axial components (X and Z). */
   float m2; /**< Frequency coefficient for the orbital component (Y). */
-  float a;  /**< Phase shift in radians (matches the daydream lissajous tool). */
+  float a; /**< Phase shift in radians (matches the daydream lissajous tool). */
   float domain; /**< The total duration (t) over which the curve is drawn. */
 };
 
@@ -714,7 +720,8 @@ inline Vector lissajous(float m1, float m2, float a, float t) {
  * @brief An orthonormal basis { u, v, w }.
  */
 struct Basis {
-  Vector u, v, w; /**< Orthonormal axes; v is the normal, u and w span the plane. */
+  Vector u, v,
+      w; /**< Orthonormal axes; v is the normal, u and w span the plane. */
 };
 
 /**

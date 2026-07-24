@@ -77,12 +77,12 @@ inline void test_kdtree_single_point() {
 inline void test_kdtree_nearest_known_set() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   Vector pts[6] = {
-      Vector(0, 0, 0),    // 0
-      Vector(10, 0, 0),   // 1
-      Vector(0, 10, 0),   // 2
-      Vector(0, 0, 10),   // 3
-      Vector(5, 5, 5),    // 4
-      Vector(-3, 2, 1),   // 5
+      Vector(0, 0, 0),  // 0
+      Vector(10, 0, 0), // 1
+      Vector(0, 10, 0), // 2
+      Vector(0, 0, 10), // 3
+      Vector(5, 5, 5),  // 4
+      Vector(-3, 2, 1), // 5
   };
   std::span<Vector> sp(pts, 6);
   KDTree tree(arena, sp);
@@ -110,11 +110,11 @@ inline void test_kdtree_nearest_known_set() {
 inline void test_kdtree_k_nearest_sorted() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   Vector pts[5] = {
-      Vector(0, 0, 0),  // 0  d²=0
-      Vector(1, 0, 0),  // 1  d²=1
-      Vector(2, 0, 0),  // 2  d²=4
-      Vector(3, 0, 0),  // 3  d²=9
-      Vector(4, 0, 0),  // 4  d²=16
+      Vector(0, 0, 0), // 0  d²=0
+      Vector(1, 0, 0), // 1  d²=1
+      Vector(2, 0, 0), // 2  d²=4
+      Vector(3, 0, 0), // 3  d²=9
+      Vector(4, 0, 0), // 4  d²=16
   };
   std::span<Vector> sp(pts, 5);
   KDTree tree(arena, sp);
@@ -218,14 +218,14 @@ inline void test_kdtree_matches_brute_force() {
 inline void test_kdtree_duplicates_and_max_k() {
   Arena arena(spatial_buf, sizeof(spatial_buf));
   Vector pts[8] = {
-      Vector(1, 1, 1),     // 0  coincident cluster (d²=0 from query)
-      Vector(1, 1, 1),     // 1  coincident
-      Vector(1, 1, 1),     // 2  coincident
-      Vector(2, 0, 0),     // 3  d²=3
-      Vector(0, 2, 0),     // 4  d²=3  (boundary tie: only one of 3/4/5 fits k=5)
-      Vector(0, 0, 2),     // 5  d²=3
-      Vector(-1, -1, -1),  // 6  d²=12
-      Vector(5, 5, 5),     // 7  d²=48
+      Vector(1, 1, 1),    // 0  coincident cluster (d²=0 from query)
+      Vector(1, 1, 1),    // 1  coincident
+      Vector(1, 1, 1),    // 2  coincident
+      Vector(2, 0, 0),    // 3  d²=3
+      Vector(0, 2, 0),    // 4  d²=3  (boundary tie: only one of 3/4/5 fits k=5)
+      Vector(0, 0, 2),    // 5  d²=3
+      Vector(-1, -1, -1), // 6  d²=12
+      Vector(5, 5, 5),    // 7  d²=48
   };
   std::span<Vector> sp(pts, 8);
   KDTree tree(arena, sp);
@@ -237,7 +237,8 @@ inline void test_kdtree_duplicates_and_max_k() {
   HS_EXPECT_EQ(r.size(), (size_t)K);
 
   float all_d2[8];
-  for (int i = 0; i < 8; ++i) all_d2[i] = distance_squared(pts[i], query);
+  for (int i = 0; i < 8; ++i)
+    all_d2[i] = distance_squared(pts[i], query);
   std::sort(all_d2, all_d2 + 8);
 
   // Compare as a sorted sequence: boundary ties make index order arbitrary.
@@ -280,8 +281,10 @@ inline void test_kdtree_k_nearest_brute_force_random() {
   KDTree tree(arena, sp);
 
   const Vector queries[] = {
-      Vector(0, 0, 0),     Vector(3.5f, -7.0f, 2.0f),
-      Vector(-8.0f, 8.0f, -1.5f), Vector(9.9f, 9.9f, 9.9f),
+      Vector(0, 0, 0),
+      Vector(3.5f, -7.0f, 2.0f),
+      Vector(-8.0f, 8.0f, -1.5f),
+      Vector(9.9f, 9.9f, 9.9f),
       Vector(-2.2f, 0.3f, 5.1f),
   };
   constexpr int K = KDTree::MAX_K;
@@ -291,7 +294,8 @@ inline void test_kdtree_k_nearest_brute_force_random() {
     HS_EXPECT_EQ(r.size(), (size_t)K);
 
     float all_d2[N];
-    for (int i = 0; i < N; ++i) all_d2[i] = distance_squared(pts[i], q);
+    for (int i = 0; i < N; ++i)
+      all_d2[i] = distance_squared(pts[i], q);
     std::sort(all_d2, all_d2 + N);
 
     float prev = -1.0f;
@@ -300,8 +304,8 @@ inline void test_kdtree_k_nearest_brute_force_random() {
       prev = r[i].d_sq;
       HS_EXPECT_TRUE(std::fabs(r[i].d_sq - all_d2[i]) < 1e-4f);
       HS_EXPECT_VEC(r[i].point, pts[r[i].original_index], 1e-6f);
-      HS_EXPECT_TRUE(
-          std::fabs(distance_squared(r[i].point, q) - r[i].d_sq) < 1e-4f);
+      HS_EXPECT_TRUE(std::fabs(distance_squared(r[i].point, q) - r[i].d_sq) <
+                     1e-4f);
     }
   }
 }
@@ -453,4 +457,3 @@ inline int run_spatial_tests() {
 
 } // namespace spatial
 } // namespace hs_test
-

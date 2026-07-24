@@ -262,7 +262,6 @@ public:
     }
   }
 
-
   /**
    * @brief Renders one frame of the chained-bead animation.
    * @details Ages all trails, then periodically flips/randomizes speed and gap
@@ -422,10 +421,10 @@ private:
     dot.x = dest;
   }
 
-  Dot dots[H];      /**< Per-row chain beads. */
-  Oscillator osc;   /**< Drives the periodic gap value. */
-  int gap = 1;      /**< Maximum lag (columns) a follower may trail its leader. */
-  int speed = 1;    /**< Current signed drive velocity in columns per step. */
+  Dot dots[H];    /**< Per-row chain beads. */
+  Oscillator osc; /**< Drives the periodic gap value. */
+  int gap = 1;    /**< Maximum lag (columns) a follower may trail its leader. */
+  int speed = 1;  /**< Current signed drive velocity in columns per step. */
   int replicas = 2; /**< Number of symmetric copies drawn around the ring. */
 };
 
@@ -442,7 +441,8 @@ public:
   /**
    * @brief Constructs the effect and paints COUNT_ seed spokes.
    */
-  FLASHMEM RingTwist() : Effect(W, H, {.persist = true}), seed_(CHSV(104, 0, 255)) {
+  FLASHMEM RingTwist()
+      : Effect(W, H, {.persist = true}), seed_(CHSV(104, 0, 255)) {
     randomSeed(analogRead(PIN_RANDOM));
     Canvas c(*this);
     for (int x = 0; x < W; x += W / COUNT_) {
@@ -451,7 +451,6 @@ public:
       }
     }
   }
-
 
   /**
    * @brief Samples a pixel with each row scrolled by its own offset.
@@ -609,17 +608,19 @@ private:
     decay(c(x, y));
   }
 
-  NoTempCorrection _;        /**< Disables temperature correction for this effect. */
-  const CHSV seed_;          /**< Color of the seed spokes. */
-  const int COUNT_ = 2;      /**< Number of seed spokes around the ring. */
+  NoTempCorrection _;   /**< Disables temperature correction for this effect. */
+  const CHSV seed_;     /**< Color of the seed spokes. */
+  const int COUNT_ = 2; /**< Number of seed spokes around the ring. */
   const int STOP_TIMER_ = 15000; /**< Interval (ms) between stop latches. */
-  int pos_[H] = {0};         /**< Per-row scroll offset. */
-  int leader_ = 0;           /**< Index of the row currently driving the twist. */
-  int dir_ = 1;              /**< Current twist direction (+1 or -1). */
-  int stop_ = -1;            /**< Latched stop offset, or -1 when running. */
-  int lead_length_ = 1;      /**< Maximum lag (columns) a row may trail its neighbor. */
-  int lead_lengths_[7] = {1, 2, 3, 4, 6, 12, 16}; /**< Candidate lead lengths. */
-  Canvas *canvas_ = NULL;    /**< Canvas for the frame in progress. */
+  int pos_[H] = {0};             /**< Per-row scroll offset. */
+  int leader_ = 0; /**< Index of the row currently driving the twist. */
+  int dir_ = 1;    /**< Current twist direction (+1 or -1). */
+  int stop_ = -1;  /**< Latched stop offset, or -1 when running. */
+  int lead_length_ =
+      1; /**< Maximum lag (columns) a row may trail its neighbor. */
+  int lead_lengths_[7] = {1, 2,  3, 4,
+                          6, 12, 16}; /**< Candidate lead lengths. */
+  Canvas *canvas_ = NULL;             /**< Canvas for the frame in progress. */
 };
 
 /**
@@ -639,7 +640,6 @@ public:
     random16_add_entropy(random());
     memset(pixels_, 0, sizeof(pixels_));
   }
-
 
   /**
    * @brief Renders one frame of digital rain.
@@ -707,7 +707,6 @@ public:
                         rgb2hsv_approximate(CRGB(252, 114, 0)), SHORTEST_HUES);
   }
 
-
   /**
    * @brief Renders one frame of mirrored sweeping strokes.
    * @details Fades trails and remaps their hue by brightness, then draws COUNT
@@ -757,7 +756,7 @@ private:
   uint16_t num_ = 1024;      /**< Current stroke slope numerator. */
   uint8_t falloff_ = 48;     /**< Trail fade rate. */
   CHSVPalette256 palette_;   /**< Warm gradient palette. */
-  NoTempCorrection _;        /**< Disables temperature correction for this effect. */
+  NoTempCorrection _; /**< Disables temperature correction for this effect. */
 };
 
 /**
@@ -775,8 +774,8 @@ public:
   /**
    * @brief Constructs the effect with persistent pixels.
    */
-  FLASHMEM StarsFade() : Effect(W, H, {.strobe = true, .persist = true}), hue_(0) {}
-
+  FLASHMEM StarsFade()
+      : Effect(W, H, {.strobe = true, .persist = true}), hue_(0) {}
 
   /**
    * @brief Renders one frame of fading stars.
@@ -808,7 +807,7 @@ public:
 template <int W, int H, int SPREAD> class Spiral : public Effect {
 private:
   CHSVPalette16 palette_; /**< Rainbow palette indexed by diagonal position. */
-  NoTempCorrection _;     /**< Disables temperature correction for this effect. */
+  NoTempCorrection _; /**< Disables temperature correction for this effect. */
 
 public:
   /**
@@ -818,7 +817,6 @@ public:
     fill_rainbow(palette_.entries, 16, 0, 256 / 16);
     draw_frame();
   }
-
 
   /**
    * @brief Paints the diagonal spiral pattern.
@@ -851,7 +849,6 @@ public:
    * @brief Constructs the effect with persistent pixels.
    */
   FLASHMEM WaveTrails() : Effect(W, H, {.persist = true}) {}
-
 
   /**
    * @brief Renders one frame of the three wave trails.
@@ -898,7 +895,6 @@ public:
     }
   }
 
-
   /**
    * @brief Renders one frame of the tumbling ring.
    * @details Fades trails, plots the projected ring, then advances the rotation
@@ -935,7 +931,7 @@ private:
   CHSVPalette256 palette;      /**< Warm gradient palette. */
   int ttl[W][H];               /**< Per-cell time-to-live for trails. */
   int dot;                     /**< Current ring scan position. */
-  NoColorCorrection _;         /**< Disables color correction for this effect. */
+  NoColorCorrection _; /**< Disables color correction for this effect. */
 };
 
 /**
@@ -955,7 +951,6 @@ public:
   FLASHMEM Kaleidoscope() : Effect(W, H, {.persist = true}) {
     fill_rainbow(palette_.entries, 16, 0, 256 / 16);
   }
-
 
   /**
    * @brief Renders one frame of the kaleidoscope.
@@ -997,14 +992,14 @@ public:
 
 private:
   uint8_t counts_[9] = {1, 2, 3, 4, 6, 8, 12, 16, 20}; /**< Arm-count cycle. */
-  uint8_t count_ = 0;               /**< Index into counts_. */
+  uint8_t count_ = 0;                    /**< Index into counts_. */
   uint8_t offset_ = W / counts_[count_]; /**< Angular spacing between arms. */
-  uint8_t tx_ = 0;                  /**< Horizontal scan position. */
-  uint8_t ty_ = 0;                  /**< Vertical scan position. */
-  int inc_y_ = 1;                   /**< Vertical scan direction (+1 or -1). */
-  CHSVPalette16 palette_;           /**< Rainbow palette. */
-  uint8_t palette_offset_ = 0;      /**< Phase into the palette color cycle. */
-  NoTempCorrection _;               /**< Disables temperature correction for this effect. */
+  uint8_t tx_ = 0;                       /**< Horizontal scan position. */
+  uint8_t ty_ = 0;                       /**< Vertical scan position. */
+  int inc_y_ = 1;              /**< Vertical scan direction (+1 or -1). */
+  CHSVPalette16 palette_;      /**< Rainbow palette. */
+  uint8_t palette_offset_ = 0; /**< Phase into the palette color cycle. */
+  NoTempCorrection _; /**< Disables temperature correction for this effect. */
 };
 
 /**
@@ -1023,7 +1018,6 @@ public:
   FLASHMEM RingRotate() : Effect(W, H) {
     fill_rainbow(pal.entries, 256, HUE_RED, 1);
   }
-
 
   /**
    * @brief Renders one frame of the three tumbling rings.
@@ -1104,7 +1098,8 @@ public:
   /**
    * @brief Constructs the effect and shuffles the pixel ignition order.
    */
-  FLASHMEM Burnout() : Effect(W, H, {.strobe = true}), timer_(30), burn_idx_(0) {
+  FLASHMEM Burnout()
+      : Effect(W, H, {.strobe = true}), timer_(30), burn_idx_(0) {
     random16_add_entropy(random());
     memset8(pixels_, INIT, sizeof(pixels_));
     fill_seq(burn_, W * H);
@@ -1135,7 +1130,6 @@ public:
       burnout();
     }
   }
-
 
 private:
   /**
@@ -1225,7 +1219,6 @@ public:
    */
   FLASHMEM Fire() : Effect(W, H) { random16_add_entropy(random()); }
 
-
   /**
    * @brief Renders one frame of fire.
    * @details Every 125 ms cools, rises, and sparks each column, then maps heat
@@ -1305,7 +1298,6 @@ public:
     }
   }
 
-
   /**
    * @brief Renders one frame of the circling dots.
    * @details Draws each row's dot and advances it; ages every other cell along
@@ -1350,10 +1342,11 @@ private:
      */
     Dot(uint8_t x, bool rev, int ttl) : x(x), rev(rev), ttl(ttl), drawn(0) {}
 
-    uint8_t x;  /**< Ring column position. */
-    bool rev;   /**< True when travelling backward around the ring. */
-    int ttl;    /**< Frames remaining before respawn. */
-    bool drawn; /**< Defers one frame so a freshly painted cell isn't re-trailed. */
+    uint8_t x; /**< Ring column position. */
+    bool rev;  /**< True when travelling backward around the ring. */
+    int ttl;   /**< Frames remaining before respawn. */
+    bool
+        drawn; /**< Defers one frame so a freshly painted cell isn't re-trailed. */
   };
 
   /**
@@ -1378,7 +1371,7 @@ private:
 
   Dot dots[H];           /**< Per-row dots. */
   uint8_t hue = HUE_RED; /**< Hue used to draw the dot heads. */
-  NoTempCorrection _;    /**< Disables temperature correction for this effect. */
+  NoTempCorrection _; /**< Disables temperature correction for this effect. */
 };
 
 /**
@@ -1402,7 +1395,6 @@ public:
     palette2_[0] = palette2_[8] = CHSV(HUE_AQUA, 255, 255);
     palette2_[1] = palette2_[9] = CHSV(HUE_BLUE, 255, 255);
   }
-
 
   /**
    * @brief Renders one frame of the scrolling bands.
@@ -1446,8 +1438,8 @@ private:
   CHSVPalette16 palette2_;   /**< Aqua/blue band palette. */
   CEveryNMillis spin_timer_; /**< Gates the scroll advance. */
   uint8_t pos_;              /**< Current scroll offset. */
-  bool swap = false;        /**< When true, the two palettes swap rows. */
+  bool swap = false;         /**< When true, the two palettes swap rows. */
   uint8_t p[5] = {20, 10, 4, 2, 1}; /**< Band-thickness cycle. */
-  uint8_t i = 0;            /**< Index into p[]. */
-  NoColorCorrection _;      /**< Disables color correction for this effect. */
+  uint8_t i = 0;                    /**< Index into p[]. */
+  NoColorCorrection _; /**< Disables color correction for this effect. */
 };

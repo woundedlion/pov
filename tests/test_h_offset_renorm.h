@@ -96,8 +96,8 @@ inline void test_energy_conserved_through_clip_boundary() {
   Filter::Screen::AntiAlias<W, H> aa;
   const float in_alpha = 0.8f;
 
-  for (float y = static_cast<float>(H - 2); y < static_cast<float>(H + 1) + 1e-3f;
-       y += 0.1f) {
+  for (float y = static_cast<float>(H - 2);
+       y < static_cast<float>(H + 1) + 1e-3f; y += 0.1f) {
     int count = 0;
     float energy = deposited_energy(aa, 10.37f, y, in_alpha, &count);
 

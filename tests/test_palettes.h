@@ -42,8 +42,10 @@ inline OKLCH color_to_oklch(const Color4 &c) {
  * @return The equivalent difference in (-PI, PI].
  */
 inline float wrap_hue(float dh) {
-  while (dh > PI_F) dh -= 2.0f * PI_F;
-  while (dh < -PI_F) dh += 2.0f * PI_F;
+  while (dh > PI_F)
+    dh -= 2.0f * PI_F;
+  while (dh < -PI_F)
+    dh += 2.0f * PI_F;
   return dh;
 }
 
@@ -126,7 +128,8 @@ inline void test_named_palette_hue_short_arc() {
  *          slot-mapping bug can't collapse them.
  */
 inline void test_mesh_palette_bank_lookup() {
-  alignas(std::max_align_t) static uint8_t buf[MeshPaletteBank::required_arena_bytes()];
+  alignas(std::max_align_t) static uint8_t
+      buf[MeshPaletteBank::required_arena_bytes()];
   Arena arena(buf, sizeof(buf));
   MeshPaletteBank bank;
   bank.bake_all(arena);

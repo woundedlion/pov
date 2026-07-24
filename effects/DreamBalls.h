@@ -47,7 +47,9 @@ public:
    *          in step.
    */
   HS_COLD_MEMBER DreamBalls()
-      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
         filters(Filter::Screen::AntiAlias<W, H>()), mobius_gen(timeline) {}
 
   /**
@@ -108,7 +110,8 @@ private:
 
   /** Orbit phase in turns, wrapped to [0,1) by the live-speed Driver below. */
   float orbit_phase = 0.0f;
-  int last_preset_idx_ = -1; /**< Last preset whose values were copied into params. */
+  int last_preset_idx_ =
+      -1; /**< Last preset whose values were copied into params. */
   /** Monotonic frame count; salts the dissolve mask so it re-rolls each frame. */
   uint32_t frame_counter = 0;
 
@@ -133,7 +136,8 @@ private:
   struct PresetData {
     MeshState mesh_state;          /**< Baked vertices and faces. */
     ArenaVector<Tangent> tangents; /**< Per-vertex tangent frames. */
-    ArenaVector<Plot::Mesh::Edge> edges; /**< Unique edge list (topology is static). */
+    ArenaVector<Plot::Mesh::Edge>
+        edges; /**< Unique edge list (topology is static). */
   };
 
   std::array<PresetData, 4> loaded_presets;
@@ -163,8 +167,9 @@ private:
   // geometry is runtime-bounded and not counted here.
   static constexpr size_t FOOTPRINT_BYTES =
       2 * BakedPalette::LUT_SIZE * sizeof(Color4);
-  static_assert(FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
-                "DreamBalls persistent footprint exceeds the default partition");
+  static_assert(
+      FOOTPRINT_BYTES <= DEVICE_PERSISTENT_BUDGET,
+      "DreamBalls persistent footprint exceeds the default partition");
   int active_bake_ = 0; /**< Slot of the current (most-recently baked) sprite;
                              the next spawn flips this before baking. */
   /**
@@ -196,15 +201,15 @@ private:
   PaletteFacade<decltype(blood_stream_composition)> blood_stream_falloff{
       &blood_stream_composition};
 
-  Presets<Params, 4> preset_manager{std::array<PresetEntry<Params>, 4>{{
-      {{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f,
-        &blood_stream_falloff, 0.7f}},
-      {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
-        &blood_stream_falloff, 0.7f}},
-      {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
-        &Palettes::RICH_SUNSET, 0.3f}},
-      {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
-        &Palettes::LAVENDER_LAKE, 0.3f}}}}};
+  Presets<Params, 4> preset_manager{std::array<PresetEntry<Params>, 4>{
+      {{{"rhombicuboctahedron", 18.0f, 0.3f, 0.4f, 0.3f, &blood_stream_falloff,
+         0.7f}},
+       {{"rhombicosidodecahedron", 6.0f, 0.05f, 1.0f, 1.8f,
+         &blood_stream_falloff, 0.7f}},
+       {{"truncatedCuboctahedron", 6.0f, 0.16f, 1.0f, 2.0f,
+         &Palettes::RICH_SUNSET, 0.3f}},
+       {{"icosidodecahedron", 10.0f, 0.16f, 1.0f, 0.5f,
+         &Palettes::LAVENDER_LAKE, 0.3f}}}}};
 
   /**
    * @brief Generates each preset's solid and bakes its geometry into the
@@ -223,7 +228,8 @@ private:
       generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
         // Build the raw solid into scratch; only the deep copy below, bound to
         // the persistent target, outlives this generate() call.
-        PolyMesh m = Solids::get_by_name(a, a, b, std::string_view(p.solid_name));
+        PolyMesh m =
+            Solids::get_by_name(a, a, b, std::string_view(p.solid_name));
 
         data.mesh_state.vertices.bind(target, m.vertices.size());
         for (const auto &v : m.vertices) {
@@ -309,30 +315,29 @@ private:
       // incoming sprite's share, which the complementary Sprite envelopes make
       // 1 - opacity here (ease_in_out_sin(1 - t) == 1 - ease_in_out_sin(t)).
       const bool incoming = (bake_slot == active_bake_);
-      const PixelMask mask = dissolve.mask(
-          incoming ? opacity : 1.0f - opacity, frame_counter, incoming);
+      const PixelMask mask = dissolve.mask(incoming ? opacity : 1.0f - opacity,
+                                           frame_counter, incoming);
 
       // This sprite's own param + palette snapshot keeps geometry and color
       // continuous across a preset change.
-      this->draw_scene(canvas, param_slots_[bake_slot], mask,
-                       preset.mesh_state, target_mesh, preset.tangents,
-                       preset.edges, baked_palettes_[bake_slot]);
+      this->draw_scene(canvas, param_slots_[bake_slot], mask, preset.mesh_state,
+                       target_mesh, preset.tangents, preset.edges,
+                       baked_palettes_[bake_slot]);
     };
 
     timeline
         .add(0, Animation::Sprite(draw_fn, SPRITE_LIFE, 32, ease_in_out_sin, 32,
                                   ease_in_out_sin))
-        .add(period,
-             Animation::PeriodicTimer(
-                 0,
-                 [this](Canvas &) {
-                   // Paused: re-spawn the same preset (params hold); otherwise
-                   // advance the selector to the next.
-                   if (!animations_paused())
-                     preset_manager.next();
-                   this->spawn_sprite();
-                 },
-                 false));
+        .add(period, Animation::PeriodicTimer(
+                         0,
+                         [this](Canvas &) {
+                           // Paused: re-spawn the same preset (params hold); otherwise
+                           // advance the selector to the next.
+                           if (!animations_paused())
+                             preset_manager.next();
+                           this->spawn_sprite();
+                         },
+                         false));
   }
 
   /**

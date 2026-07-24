@@ -48,7 +48,7 @@ public:
   void init() override {
     register_param("Alpha", &params.alpha, 0.0f, 1.0f);
     register_param("Count", &params.num_shapes, 1.0f,
-                  static_cast<float>(MAX_RINGS));
+                   static_cast<float>(MAX_RINGS));
     register_param("Radius", &params.radius, 0.1f, 2.0f);
     register_param("Sides", &params.sides, 3.0f, 12.0f);
     register_animated_param("Twist", &params.twist, -5.0f, 5.0f);
@@ -163,8 +163,8 @@ public:
    * @details Scales the radius by `scale`, twists the ring by its layer index,
    * and applies a per-fragment alpha shader.
    */
-  void draw_ring(Canvas &canvas, const Basis &basis, RenderMode mode, float scale,
-                const Color4 &color, int layer_index) {
+  void draw_ring(Canvas &canvas, const Basis &basis, RenderMode mode,
+                 float scale, const Color4 &color, int layer_index) {
     auto fragment_shader = [&](const Vector &, Fragment &f) {
       Color4 c = color;
       c.alpha = c.alpha * this->params.alpha;
@@ -202,7 +202,7 @@ private:
   template <typename F>
   __attribute__((noinline)) void
   dispatch_plot(Canvas &canvas, const Basis &basis, float r, int sides_int,
-               const F &fragment_shader, float phase) {
+                const F &fragment_shader, float phase) {
     switch (current_shape) {
     case ShapeType::Flower:
       Plot::Flower::draw<W, H>(plot_filters, canvas, basis, r, sides_int,
@@ -238,7 +238,7 @@ private:
   template <typename F>
   __attribute__((noinline)) void
   dispatch_scan(Canvas &canvas, const Basis &basis, float r, int sides_int,
-               const F &fragment_shader, float phase) {
+                const F &fragment_shader, float phase) {
     switch (current_shape) {
     case ShapeType::Flower:
       Scan::Flower::draw<W, H>(scan_filters, canvas, basis, r, sides_int,
@@ -260,7 +260,7 @@ private:
     }
   }
 
-  FastNoiseLite noise; /**< Noise source driving the camera RandomWalk. */
+  FastNoiseLite noise;  /**< Noise source driving the camera RandomWalk. */
   Orientation<> camera; /**< Global camera orientation, tumbled each frame. */
   /**
    * @brief Shared Plot-mode tumble orientation; every Plot ring rides it.
@@ -274,8 +274,9 @@ private:
    * here, which ~Timeline clears on teardown.
    */
   Orientation<> scan_orient;
-  Timeline timeline;   /**< Fixed five-slot animation timeline. */
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> plot_filters; /**< Anti-aliased filter pipeline for Plot mode. */
+  Timeline timeline; /**< Fixed five-slot animation timeline. */
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
+      plot_filters; /**< Anti-aliased filter pipeline for Plot mode. */
   Pipeline<W, H> scan_filters; /**< Filter pipeline for Scan mode. */
   BakedPalette baked_sunset;   /**< LUT-baked RICH_SUNSET sampled per layer. */
 
@@ -283,7 +284,7 @@ private:
    * @brief Tunable rendering parameters exposed to the GUI.
    */
   struct Params {
-    float alpha = 0.5f;     /**< Global alpha multiplier in [0, 1]. */
+    float alpha = 0.5f;      /**< Global alpha multiplier in [0, 1]. */
     float num_shapes = 7.0f; /**< Ring count; read live each frame. */
     float radius = 1.0f;     /**< Outermost ring radius in world units. */
     float sides = 5.0f;      /**< Polygon/flower/star side count. */
@@ -292,7 +293,8 @@ private:
   } params;
 
   ShapeType current_shape; /**< Shape currently being rendered. */
-  int frame_count_ = 0;    /**< Frame phase in [0, 48) — gates shape cycling; never overflows. */
+  int frame_count_ =
+      0; /**< Frame phase in [0, 48) — gates shape cycling; never overflows. */
 };
 
 #include "core/engine/effect_registry.h"

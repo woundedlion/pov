@@ -13,18 +13,18 @@
  *   #include "../../hardware/pov_single.h"
  */
 #pragma once
-#include "render/led.h"   // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
-#include "pov_single_map.h"  // pure strip index math (host-tested)
+#include "render/led.h" // PIN constants, NoColorCorrection, NoTempCorrection, USE_DMA_LEDS
+#include "pov_single_map.h" // pure strip index math (host-tested)
 
 // Arduino-only: depends on IntervalTimer, FastLED/DMA, and the Teensy runtime.
 // Pure strip index math is in pov_single_map.h (host-tested).
 #ifdef ARDUINO
 #include <Arduino.h>
-  #ifdef USE_DMA_LEDS
-    #include "dma_led.h"
-  #else
-    #include <FastLED.h>
-  #endif
+#ifdef USE_DMA_LEDS
+#include "dma_led.h"
+#else
+#include <FastLED.h>
+#endif
 #include "render/canvas.h"
 #include "math/geometry.h"
 #include "engine/memory.h"
@@ -49,19 +49,20 @@ public:
    * separate hs::random() mt19937(1337) reproduced by the simulator.
    */
   POVDisplay() {
-    randomSeed(1337); // FastLED LCG only; modern effects use hs::random() (platform.h)
-  #ifdef USE_DMA_LEDS
+    randomSeed(
+        1337); // FastLED LCG only; modern effects use hs::random() (platform.h)
+#ifdef USE_DMA_LEDS
     ledController_.begin();
-    ledController_.setCorrection(255, 176, 240);  // TypicalLEDStrip
-    ledController_.setTemperature(255, 147, 41);   // Candle
+    ledController_.setCorrection(255, 176, 240); // TypicalLEDStrip
+    ledController_.setTemperature(255, 147, 41); // Candle
     ledController_.setBrightness(255);
-  #else
+#else
     FastLED.addLeds<WS2801, PIN_DATA, PIN_CLOCK, RGB, DATA_RATE_MHZ(6)>(leds_,
                                                                         S);
     FastLED.setCorrection(TypicalLEDStrip);
     FastLED.setTemperature(Candle);
     FastLED.setBrightness(255);
-  #endif
+#endif
   }
 
   /**
@@ -101,8 +102,9 @@ private:
     // duration * 1000 must fit in unsigned long; trap the overflow for symmetry
     // with the segmented driver's invariant checks (unreachable in practice —
     // past ~49.7 days on a 32-bit millis() clock).
-    HS_CHECK(duration <= ~0UL / 1000UL,
-             "show duration too long (duration*1000 ms overflows unsigned long)");
+    HS_CHECK(
+        duration <= ~0UL / 1000UL,
+        "show duration too long (duration*1000 ms overflows unsigned long)");
     const unsigned long duration_ms = duration * 1000;
     effect_ = e;
     // show_col() indexes buf[y * width + x] for y in [0, S/2), in-bounds only
@@ -124,9 +126,9 @@ private:
     const unsigned long interval_us =
         (60000000UL + cols_per_min / 2) / cols_per_min;
     HS_CHECK(interval_us >= 1,
-        "column interval rounded to 0 µs (RPM/width too high)");
+             "column interval rounded to 0 µs (RPM/width too high)");
     HS_CHECK(timer.begin(show_col, interval_us),
-        "column IntervalTimer failed to start (no PIT channel)");
+             "column IntervalTimer failed to start (no PIT channel)");
     while (millis() - start < duration_ms) {
       unsigned long t0 = micros();
       effect_->draw_frame();
@@ -158,13 +160,13 @@ private:
     const Pixel *buf = slow ? nullptr : effect_->display_buffer();
 
 #if defined(USE_DMA_LEDS)
-    auto& frame = ledController_.backFrame();
+    auto &frame = ledController_.backFrame();
     for (int y = 0; y < S / 2; ++y) {
       // Top half is wired reversed, bottom half straight.
       frame.packPixel(pov::strip_top_led(y, S),
-          slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top]);
+                      slow ? effect_->get_pixel(x_top, y) : buf[y * w + x_top]);
       frame.packPixel(pov::strip_bottom_led(y, S),
-          slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
+                      slow ? effect_->get_pixel(x_bot, y) : buf[y * w + x_bot]);
     }
     // Overrun result discarded: at the ~1.3 ms single-board column period a DMA
     // overrun cannot occur, so no overrun watchdog here.
@@ -193,8 +195,8 @@ private:
   static CRGB
       leds_[S]; /**< Array holding the CRGB data for the physical LED strip. */
 #endif
-  static Effect
-      *effect_; /**< Currently running effect; the ISR only reads it. Written by
+  static Effect *
+      effect_; /**< Currently running effect; the ISR only reads it. Written by
                      run() solely while the column timer is detached (before
                      begin(), after end()), never mid-show. */
   static int
@@ -225,8 +227,7 @@ template <int S, int RPM> CRGB POVDisplay<S, RPM>::leds_[S];
 // DMAMEM section attribute.
 // POVSegmented carries the same contract (see targets/Phantasm/Phantasm.ino).
 #define HS_DEFINE_POV_SINGLE_LED_CONTROLLER(S, RPM)                            \
-  template <>                                                                  \
-  DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController_ {}
+  template <> DMAMEM DMALEDController<S> POVDisplay<S, RPM>::ledController_ {}
 #endif
 
 #endif // ARDUINO

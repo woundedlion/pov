@@ -30,9 +30,9 @@ public:
    *        base direction vector.
    */
   struct Node {
-    Orientation<ORIENTATION_SUBSTEPS> orientation; /**< Current node orientation. */
-    Animation::OrientationTrail<Orientation<ORIENTATION_SUBSTEPS>,
-                                TRAIL_LENGTH>
+    Orientation<ORIENTATION_SUBSTEPS>
+        orientation; /**< Current node orientation. */
+    Animation::OrientationTrail<Orientation<ORIENTATION_SUBSTEPS>, TRAIL_LENGTH>
         trail; /**< Rolling history of orientations forming the drawn trail. */
     Vector v;  /**< Base direction vector, seeded to +Y. */
 
@@ -48,7 +48,9 @@ public:
    *          curve in init().
    */
   HS_COLD_MEMBER ChaoticStrings()
-      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
         timeline(), filters(Filter::Screen::AntiAlias<W, H>()),
         path([](float) { return Vector(0, 1, 0); }), orientation(),
         palette_variant(), cycle_phase(0.0f), noise_xform(timeline) {}
@@ -66,9 +68,10 @@ public:
   static constexpr size_t FOOTPRINT_BYTES = sizeof(Node);
   // The custom split (configure_arenas) leaves GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES
   // for the persistent partition. Guards a TRAIL_LENGTH/ORIENTATION_SUBSTEPS retune.
-  static_assert(FOOTPRINT_BYTES <= GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
-                "ChaoticStrings persistent footprint exceeds its partition; "
-                "retune TRAIL_LENGTH/ORIENTATION_SUBSTEPS or enlarge the split");
+  static_assert(
+      FOOTPRINT_BYTES <= GLOBAL_ARENA_SIZE - SCRATCH_A_BYTES,
+      "ChaoticStrings persistent footprint exceeds its partition; "
+      "retune TRAIL_LENGTH/ORIENTATION_SUBSTEPS or enlarge the split");
 
   /**
    * @brief Carves arenas, allocates the node, binds the palette, registers
@@ -144,10 +147,11 @@ public:
       noise_xform.prepare_frame();
     }
 
-    apply_if_changed(params.cycle_duration, last_cycle_duration_, [&](float cd) {
-      if (motion_)
-        motion_->set_duration((int)cd);
-    });
+    apply_if_changed(params.cycle_duration, last_cycle_duration_,
+                     [&](float cd) {
+                       if (motion_)
+                         motion_->set_duration((int)cd);
+                     });
 
     node->trail.record(node->orientation);
 
@@ -189,34 +193,40 @@ private:
 
   FastNoiseLite noise; /**< Noise source for the random walk. */
   Timeline timeline;   /**< Drives all per-frame animations. */
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters; /**< Anti-aliasing render pipeline. */
-  ProceduralPath path;    /**< Lissajous path the node follows. */
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
+      filters;               /**< Anti-aliasing render pipeline. */
+  ProceduralPath path;       /**< Lissajous path the node follows. */
   Orientation<> orientation; /**< Random-walk orientation reference frame. */
 
   /**
    * @brief Live-tunable parameters exposed as sliders.
    */
   struct Params {
-    float alpha = 1.0f;          /**< Overall trail opacity in [0, 1]. */
+    float alpha = 1.0f;           /**< Overall trail opacity in [0, 1]. */
     float cycle_duration = 80.0f; /**< Motion cycle duration in frames. */
     float jitter_amp = 1.7f;      /**< Noise displacement amplitude. */
-    float speed = 0.04f;         /**< Noise field evolution speed. */
+    float speed = 0.04f;          /**< Noise field evolution speed. */
     float noise_freq = 0.32f;     /**< Noise spatial frequency. */
     float scale_factor = 200.0f;  /**< Palette coordinate scale factor. */
     float cycle_speed = 0.1f;     /**< Palette cycle phase advance per step. */
   } params;
 
   // Precedes scale_mod, which binds &params.scale_factor at construction.
-  ScaleModifier scale_mod{200.0f, &params.scale_factor}; /**< Palette scale coordinate modifier. */
-  CycleModifier cycle_mod{&cycle_phase}; /**< Palette cycle coordinate modifier. */
+  ScaleModifier scale_mod{
+      200.0f, &params.scale_factor}; /**< Palette scale coordinate modifier. */
+  CycleModifier cycle_mod{
+      &cycle_phase};                 /**< Palette cycle coordinate modifier. */
   ProceduralPalette palette_variant; /**< Active palette variant. */
   StaticPalette<ProceduralPalette, Coords<ScaleModifier, CycleModifier>>
       static_palette; /**< Bound palette sampled per fragment. */
-  Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion_ = nullptr; /**< Retained motion handle for live Cycle Dur updates. */
-  float last_cycle_duration_ = -1.0f; /**< Last applied cycle duration, for change detection. */
+  Animation::Motion<W, ORIENTATION_SUBSTEPS> *motion_ =
+      nullptr; /**< Retained motion handle for live Cycle Dur updates. */
+  float last_cycle_duration_ =
+      -1.0f; /**< Last applied cycle duration, for change detection. */
   float cycle_phase = 0.0f; /**< Current palette cycle phase. */
   Node *node = nullptr;     /**< The single animated body, arena-allocated. */
-  NoiseTransformer<1> noise_xform; /**< Warps the trail with noise each frame. */
+  NoiseTransformer<1>
+      noise_xform; /**< Warps the trail with noise each frame. */
 };
 
 #include "core/engine/effect_registry.h"

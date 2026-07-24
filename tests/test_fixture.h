@@ -43,8 +43,8 @@ struct ModuleFixture {
    * @brief Resets globals, then opens the named module scope.
    * @param name Module name echoed in the header and footer.
    */
-  explicit ModuleFixture(const char *name) : scope((reset_globals(),
-                                                    begin_module(name))) {}
+  explicit ModuleFixture(const char *name)
+      : scope((reset_globals(), begin_module(name))) {}
 
   /**
    * @brief Closes the module scope and returns its failure count.

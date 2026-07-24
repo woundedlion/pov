@@ -44,22 +44,29 @@ public:
   void init() override {
     noise.SetNoiseType(FastNoiseLite::NoiseType_OpenSimplex2);
 
-    register_animated_param("Warp Scale", &params.warp_scale, WARP_SCALE_MIN, WARP_SCALE_MAX);
-    register_animated_param("Warp Strength", &params.warp_strength, WARP_STRENGTH_MIN, WARP_STRENGTH_MAX);
-    register_animated_param("Pattern Freq", &params.pattern_freq, PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
-    register_animated_param("Time Speed", &params.time_speed, TIME_SPEED_MIN, TIME_SPEED_MAX);
-    register_animated_param("Complexity", &params.complexity, COMPLEXITY_MIN, COMPLEXITY_MAX);
-    register_animated_param("Pole Fade", &params.pole_fade, POLE_FADE_MIN, POLE_FADE_MAX);
-    register_animated_param("Cycle Speed", &params.cycle_speed, CYCLE_SPEED_MIN, CYCLE_SPEED_MAX);
+    register_animated_param("Warp Scale", &params.warp_scale, WARP_SCALE_MIN,
+                            WARP_SCALE_MAX);
+    register_animated_param("Warp Strength", &params.warp_strength,
+                            WARP_STRENGTH_MIN, WARP_STRENGTH_MAX);
+    register_animated_param("Pattern Freq", &params.pattern_freq,
+                            PATTERN_FREQ_MIN, PATTERN_FREQ_MAX);
+    register_animated_param("Time Speed", &params.time_speed, TIME_SPEED_MIN,
+                            TIME_SPEED_MAX);
+    register_animated_param("Complexity", &params.complexity, COMPLEXITY_MIN,
+                            COMPLEXITY_MAX);
+    register_animated_param("Pole Fade", &params.pole_fade, POLE_FADE_MIN,
+                            POLE_FADE_MAX);
+    register_animated_param("Cycle Speed", &params.cycle_speed, CYCLE_SPEED_MIN,
+                            CYCLE_SPEED_MAX);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
     timeline.add(0, Animation::RandomWalk<W>(global_orientation, UP, noise));
-    timeline.add(0, Animation::Driver(accumulated_time, &params.time_speed, 1.0f,
-                                      false));
+    timeline.add(0, Animation::Driver(accumulated_time, &params.time_speed,
+                                      1.0f, false));
     // wrap=false: cycle_phase is wrapped by hand to 2pi in draw_frame; the
     // Driver's [0,1) wrap is the wrong period for fast_sinf.
-    timeline.add(0, Animation::Driver(cycle_phase, &params.cycle_speed, 1.0f,
-                                      false));
+    timeline.add(
+        0, Animation::Driver(cycle_phase, &params.cycle_speed, 1.0f, false));
 
     palette.bake(persistent_arena,
                  GenerativePalette{
@@ -74,11 +81,10 @@ public:
                           if (animations_paused())
                             return;
                           presets.next();
-                          timeline.add(0, Animation::Lerp(params,
-                                                          presets.prev_get(),
-                                                          presets.get(), 60,
-                                                          ease_in_out_sin,
-                                                          &anims_paused_));
+                          timeline.add(0, Animation::Lerp(
+                                              params, presets.prev_get(),
+                                              presets.get(), 60,
+                                              ease_in_out_sin, &anims_paused_));
                         },
                         true));
 
@@ -209,14 +215,17 @@ private:
                   y2 * v.z * (3.0f - 4.0f * z2 * inv_R2));
   }
 
-  Timeline timeline; /**< Drives orientations, time/cycle drivers, and presets. */
+  Timeline
+      timeline; /**< Drives orientations, time/cycle drivers, and presets. */
   Orientation<> orientation;        /**< Inner per-pixel sphere orientation. */
   Orientation<> global_orientation; /**< Outer whole-sphere orientation. */
-  FastNoiseLite noise;              /**< OpenSimplex2 source for warp and walks. */
+  FastNoiseLite noise; /**< OpenSimplex2 source for warp and walks. */
 
   BakedPalette palette; /**< 16-bit LUT baked from the generative palette. */
-  BreatheModifier breathe_mod{&cycle_phase, 0.15f}; /**< Cycle-phase breathing modulator. */
-  StaticPalette<BakedPalette, Coords<BreatheModifier>> static_palette; /**< Palette plus breathe modulation used for shading. */
+  BreatheModifier breathe_mod{&cycle_phase,
+                              0.15f}; /**< Cycle-phase breathing modulator. */
+  StaticPalette<BakedPalette, Coords<BreatheModifier>>
+      static_palette; /**< Palette plus breathe modulation used for shading. */
 
   /**
    * @brief Tunable per-frame parameters exposed as sliders and lerped between
@@ -249,7 +258,7 @@ private:
                     "Liquid2D::Params field set changed — update lerp's "
                     "dst/src/tgt arrays and N to match");
       float *dst[N] = {&warp_scale, &warp_strength, &pattern_freq, &time_speed,
-                       &complexity,  &pole_fade,     &cycle_speed};
+                       &complexity, &pole_fade,     &cycle_speed};
       const float src[N] = {a.warp_scale, a.warp_strength, a.pattern_freq,
                             a.time_speed, a.complexity,    a.pole_fade,
                             a.cycle_speed};
@@ -277,8 +286,9 @@ private:
   };
   static constexpr float TIME_PERIOD = 65536.0f;
   Params params; /**< Live per-frame parameters, lerped between presets. */
-  float accumulated_time = 0.0f; /**< Noise-time axis, wrapped to TIME_PERIOD (see draw_frame). */
-  float cycle_phase = 0.0f;      /**< Wrapped to [0, 2pi) each frame for breathe. */
+  float accumulated_time =
+      0.0f; /**< Noise-time axis, wrapped to TIME_PERIOD (see draw_frame). */
+  float cycle_phase = 0.0f; /**< Wrapped to [0, 2pi) each frame for breathe. */
   float sin_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's +t term. */
   float cos_phase = 0.0f;   /**< Wrapped to [0, 2pi): pattern's 0.8*t term. */
 
@@ -313,11 +323,12 @@ private:
       {{1.5f, 0.5f, 5.0f, 0.1f, 0.5f, 1.4f, 0.05f}},
       {{1.5f, 0.5f, 1.2f, 0.05f, 3.0f, 1.4f, 0.05f}},
   }};
-  static_assert(preset_in_ranges(PRESETS[0].params) &&
-                    preset_in_ranges(PRESETS[1].params),
-                "a Liquid2D preset drives a param outside its registered slider "
-                "range; widen the range to accommodate the preset (the range "
-                "exposes the presets, it does not clamp them)");
+  static_assert(
+      preset_in_ranges(PRESETS[0].params) &&
+          preset_in_ranges(PRESETS[1].params),
+      "a Liquid2D preset drives a param outside its registered slider "
+      "range; widen the range to accommodate the preset (the range "
+      "exposes the presets, it does not clamp them)");
 
   Presets<Params, 2> presets{PRESETS};
 };

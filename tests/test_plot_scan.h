@@ -71,7 +71,8 @@ inline Arena &plot_arena() {
  * these paths.
  */
 struct CapturePipeline {
-  std::vector<Vector> plotted; /**< World positions handed to plot(), in order. */
+  std::vector<Vector>
+      plotted; /**< World positions handed to plot(), in order. */
   void plot(Canvas &, const Vector &v, const Pixel &, float, float) {
     plotted.push_back(v);
   }
@@ -343,7 +344,8 @@ inline void test_clip_x_band_topologies() {
     HS_EXPECT_EQ(cr.render_x_start(), 78);
     HS_EXPECT_EQ(cr.render_x_end(), 78);
     const ClipRegion::XClip xc = cr.x_clip();
-    HS_EXPECT_FALSE(xc.active); // rs == re folds to "no clipping", not empty band
+    HS_EXPECT_FALSE(
+        xc.active); // rs == re folds to "no clipping", not empty band
     HS_EXPECT_TRUE(cr.contains_x(0));
     HS_EXPECT_TRUE(cr.contains_x(78));
     HS_EXPECT_TRUE(cr.contains_x(95));
@@ -394,7 +396,8 @@ inline void test_clip_x_band_topologies() {
  */
 inline Basis basis_from_normal(const Vector &n) {
   Vector v = n.normalized();
-  Vector ref = std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL ? Y_AXIS : X_AXIS;
+  Vector ref =
+      std::abs(dot(v, X_AXIS)) > math::COS_AXIS_PARALLEL ? Y_AXIS : X_AXIS;
   Vector u = cross(v, ref).normalized();
   Vector w = cross(v, u).normalized();
   return {u, v, w};
@@ -427,7 +430,8 @@ inline void test_edge_row_span_covers_arc_bulge() {
       // A planar-polygon edge: two points on a disk of angular radius `radius`
       // about a random center, joined by an azimuthal-equidistant straight line.
       Vector center(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
-      if (center.length() < 0.1f) continue;
+      if (center.length() < 0.1f)
+        continue;
       basis = basis_from_normal(center.normalized());
       pb = &basis;
       float radius = hs::rand_f(0.2f, 1.4f);
@@ -445,10 +449,12 @@ inline void test_edge_row_span_covers_arc_bulge() {
     } else {
       Vector ra(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
       Vector rb(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
-      if (ra.length() < 0.1f || rb.length() < 0.1f) continue;
+      if (ra.length() < 0.1f || rb.length() < 0.1f)
+        continue;
       a = ra.normalized();
       b = rb.normalized();
-      if (angle_between(a, b) < 0.05f) continue;
+      if (angle_between(a, b) < 0.05f)
+        continue;
     }
 
     // Dense ground truth for the rendered arc's row extent.
@@ -485,7 +491,8 @@ inline void test_edge_row_span_covers_arc_bulge() {
     // Count edges whose interior bulges past the endpoints.
     float e_lo = std::min(row_of(a), row_of(b));
     float e_hi = std::max(row_of(a), row_of(b));
-    if (t_lo < e_lo - 1.0f || t_hi > e_hi + 1.0f) bulge_cases++;
+    if (t_lo < e_lo - 1.0f || t_hi > e_hi + 1.0f)
+      bulge_cases++;
   }
 
   // Non-vacuity guard: the sweep must produce many genuine bulge cases.
@@ -496,7 +503,8 @@ inline void test_edge_row_span_covers_arc_bulge() {
   // built about that same axis; an endpoint-only span would cull the arc.
   for (int trial = 0; trial < 500; ++trial) {
     Vector ra(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
-    if (ra.length() < 0.1f) continue;
+    if (ra.length() < 0.1f)
+      continue;
     Vector a = ra.normalized();
     Vector b = a * -1.0f;
     Vector axis = Plot::stable_perpendicular_axis(a);
@@ -734,11 +742,11 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
 
   hs::random().seed(20260716);
   const int bands[][4] = {
-      {0, 72, 0, 144},    // segment quadrant; margin wraps rs past the seam
+      {0, 72, 0, 144},     // segment quadrant; margin wraps rs past the seam
       {36, 108, 144, 288}, // opposite half; also seam-wrapping via margin
-      {0, 144, 60, 200},  // interior wedge, non-wrapping
-      {100, 144, 0, 288}, // full-width x: XClip inactive, y-only cull
-      {0, 144, 0, 288},   // full canvas
+      {0, 144, 60, 200},   // interior wedge, non-wrapping
+      {100, 144, 0, 288},  // full-width x: XClip inactive, y-only cull
+      {0, 144, 0, 288},    // full canvas
   };
   int visible = 0, culled = 0;
   for (const auto &bd : bands) {
@@ -779,9 +787,8 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
         b = rand_unit();
       }
 
-      const bool got = Plot::edge_visible_in_clip<TW, TH>(sink, cr, xc,
-                                                          band_len, a, b,
-                                                          nullptr);
+      const bool got = Plot::edge_visible_in_clip<TW, TH>(
+          sink, cr, xc, band_len, a, b, nullptr);
       float row_lo, row_hi;
       Plot::edge_row_span<TW, TH>(a, b, nullptr, row_lo, row_hi);
       bool want;
@@ -814,9 +821,8 @@ inline void test_edge_visible_in_clip_matches_span_composition() {
           dot(b, basis.v) < -Plot::COS_PLANAR_ANTIPODE)
         continue;
 
-      const bool got = Plot::edge_visible_in_clip<TW, TH>(sink, cr, xc,
-                                                          band_len, a, b,
-                                                          &basis);
+      const bool got = Plot::edge_visible_in_clip<TW, TH>(
+          sink, cr, xc, band_len, a, b, &basis);
       float row_lo, row_hi;
       Plot::edge_row_span<TW, TH>(a, b, &basis, row_lo, row_hi);
       bool want;
@@ -879,10 +885,8 @@ inline void test_mesh_edge_gate_pixel_parity() {
   };
 
   hs::random().seed(0x5EED);
-  const int clips[4][4] = {{0, H / 2, 0, W / 2},
-                           {H / 2, H, W / 2, W},
-                           {0, H, 10, 34},
-                           {0, H, 0, 8}};
+  const int clips[4][4] = {
+      {0, H / 2, 0, W / 2}, {H / 2, H, W / 2, W}, {0, H, 10, 34}, {0, H, 0, 8}};
   int lit_total = 0;
 
   MeshState posed;
@@ -1042,10 +1046,8 @@ inline void test_rasterize_column_cull_pixel_parity() {
   };
 
   hs::random().seed(0xC01C);
-  const int clips[4][4] = {{0, H / 2, 0, W / 2},
-                           {H / 2, H, W / 2, W},
-                           {0, H, 10, 34},
-                           {0, H, 0, 8}};
+  const int clips[4][4] = {
+      {0, H / 2, 0, W / 2}, {H / 2, H, W / 2, W}, {0, H, 10, 34}, {0, H, 0, 8}};
   int lit_total = 0;
 
   for (int trial = 0; trial < 50; ++trial) {
@@ -1200,8 +1202,8 @@ inline void test_raw_geodesic_edge_gate_parity() {
     const float ca = vector_to_theta<W>(a);
     const float cb = vector_to_theta<W>(b);
     const bool exact = exact_gate(cr, xc, band_len, ra, rb, ca, cb, a, b);
-    const auto raw = Plot::raw_geodesic_edge_gate<W, H>(
-        cr, xc, band_len, ra, rb, ca, cb, a, b);
+    const auto raw = Plot::raw_geodesic_edge_gate<W, H>(cr, xc, band_len, ra,
+                                                        rb, ca, cb, a, b);
     if (raw != Plot::RawGeodesicGateResult::EXACT_FALLBACK)
       HS_EXPECT_EQ(raw == Plot::RawGeodesicGateResult::VISIBLE, exact);
     return raw;
@@ -1228,12 +1230,8 @@ inline void test_raw_geodesic_edge_gate_parity() {
 
   hs::random().seed(0xC2055);
   const int clips[][4] = {
-      {0, H / 2, 0, W / 2},
-      {0, H / 2, W / 2, W},
-      {H / 2, H, 0, W / 2},
-      {H / 2, H, W / 2, W},
-      {24, 120, 250, W},
-      {0, H, 40, 112},
+      {0, H / 2, 0, W / 2}, {0, H / 2, W / 2, W}, {H / 2, H, 0, W / 2},
+      {H / 2, H, W / 2, W}, {24, 120, 250, W},    {0, H, 40, 112},
   };
   int raw_count = 0;
   int fallback_count = 0;
@@ -1257,8 +1255,7 @@ inline void test_raw_geodesic_edge_gate_parity() {
       } while (tangent.length() < 0.05f);
       tangent = tangent.normalized();
       const float angle = hs::rand_f(0.03f, PI_F - 0.03f);
-      const Vector q =
-          (p * cosf(angle) + tangent * sinf(angle)).normalized();
+      const Vector q = (p * cosf(angle) + tangent * sinf(angle)).normalized();
       const auto result = run(cr, p, q);
       if (result == Plot::RawGeodesicGateResult::EXACT_FALLBACK)
         ++fallback_count;
@@ -1277,8 +1274,7 @@ inline void test_raw_geodesic_edge_gate_parity() {
       if (tangent.length() < 1.0e-4f)
         tangent = cross(p, X_AXIS);
       tangent = tangent.normalized();
-      const Vector q =
-          (p * cosf(0.08f) + tangent * sinf(0.08f)).normalized();
+      const Vector q = (p * cosf(0.08f) + tangent * sinf(0.08f)).normalized();
       const auto result = run(cr, p, q);
       if (result == Plot::RawGeodesicGateResult::EXACT_FALLBACK)
         ++fallback_count;
@@ -1352,21 +1348,17 @@ inline void test_cartesian_quadrant_gate_classification() {
 
   const ClipRegion north_left = clip(0, H / 2, 0, W / 2);
   const ClipRegion south_right = clip(H / 2, H, W / 2, W);
-  HS_EXPECT_EQ(classify(north_left,
-                        {Vector(0.5f, -0.8f, 0.3f),
-                         Vector(0.51f, -0.79f, 0.31f)}),
+  HS_EXPECT_EQ(classify(north_left, {Vector(0.5f, -0.8f, 0.3f),
+                                     Vector(0.51f, -0.79f, 0.31f)}),
                Plot::CartesianTrailGateResult::LATITUDE_REJECT);
-  HS_EXPECT_EQ(classify(north_left,
-                        {Vector(0.3f, 0.5f, -0.8f),
-                         Vector(0.31f, 0.51f, -0.79f)}),
+  HS_EXPECT_EQ(classify(north_left, {Vector(0.3f, 0.5f, -0.8f),
+                                     Vector(0.31f, 0.51f, -0.79f)}),
                Plot::CartesianTrailGateResult::MERIDIAN_REJECT);
-  HS_EXPECT_EQ(classify(south_right,
-                        {Vector(0.5f, 0.8f, 0.3f),
-                         Vector(0.51f, 0.79f, 0.31f)}),
+  HS_EXPECT_EQ(classify(south_right, {Vector(0.5f, 0.8f, 0.3f),
+                                      Vector(0.51f, 0.79f, 0.31f)}),
                Plot::CartesianTrailGateResult::LATITUDE_REJECT);
-  HS_EXPECT_EQ(classify(south_right,
-                        {Vector(0.3f, -0.5f, 0.8f),
-                         Vector(0.31f, -0.51f, 0.79f)}),
+  HS_EXPECT_EQ(classify(south_right, {Vector(0.3f, -0.5f, 0.8f),
+                                      Vector(0.31f, -0.51f, 0.79f)}),
                Plot::CartesianTrailGateResult::MERIDIAN_REJECT);
 
   // Poles and both quadrant boundaries remain exact-fallback cases.
@@ -1381,15 +1373,13 @@ inline void test_cartesian_quadrant_gate_classification() {
 
   // Large and antipodal arcs retain enough slack to fall back; a tiny trail
   // well outside still takes the cheap rejection.
-  HS_EXPECT_EQ(classify(north_left,
-                        {Vector(0.6f, -0.8f, 0.0f),
-                         Vector(-0.6f, -0.8f, 0.0f)}),
+  HS_EXPECT_EQ(classify(north_left, {Vector(0.6f, -0.8f, 0.0f),
+                                     Vector(-0.6f, -0.8f, 0.0f)}),
                Plot::CartesianTrailGateResult::EXACT_FALLBACK);
   HS_EXPECT_EQ(classify(north_left, {X_AXIS, -X_AXIS}),
                Plot::CartesianTrailGateResult::EXACT_FALLBACK);
-  HS_EXPECT_EQ(classify(north_left,
-                        {Vector(0.0f, -1.0f, 0.001f),
-                         Vector(0.0f, -1.0f, 0.00101f)}),
+  HS_EXPECT_EQ(classify(north_left, {Vector(0.0f, -1.0f, 0.001f),
+                                     Vector(0.0f, -1.0f, 0.00101f)}),
                Plot::CartesianTrailGateResult::LATITUDE_REJECT);
 
   ClipRegion wedge = clip(0, H / 2, 10, 100);
@@ -1417,8 +1407,10 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
   };
 
   const int clips[][4] = {
-      {0, H / 2, 0, W / 2}, {0, H / 2, W / 2, W},
-      {H / 2, H, 0, W / 2}, {H / 2, H, W / 2, W},
+      {0, H / 2, 0, W / 2},
+      {0, H / 2, W / 2, W},
+      {H / 2, H, 0, W / 2},
+      {H / 2, H, W / 2, W},
   };
   int latitude_rejects = 0, meridian_rejects = 0;
   for (const auto &bounds : clips) {
@@ -1450,16 +1442,16 @@ inline void test_cartesian_quadrant_gate_is_conservative() {
         if (k == 2 && trial % 17 == 0)
           p = -p;
         else {
-          const float hop = trial % 5 == 0 ? 1e-5f :
-                            trial % 7 == 0 ? 2.7f : hs::rand_f(0.01f, 0.7f);
+          const float hop = trial % 5 == 0   ? 1e-5f
+                            : trial % 7 == 0 ? 2.7f
+                                             : hs::rand_f(0.01f, 0.7f);
           Vector tangent = next - p * dot(next, p);
           if (tangent.length() > 1e-4f)
             p = (p * cosf(hop) + tangent.normalized() * sinf(hop)).normalized();
         }
       }
 
-      const auto result =
-          Plot::cartesian_quadrant_trail_gate(cartesian, trail);
+      const auto result = Plot::cartesian_quadrant_trail_gate(cartesian, trail);
       if (result == Plot::CartesianTrailGateResult::EXACT_FALLBACK)
         continue;
       if (result == Plot::CartesianTrailGateResult::LATITUDE_REJECT)
@@ -1663,7 +1655,6 @@ inline void test_rasterize_gate_bits_pixel_parity() {
   HS_EXPECT_GT(lit_total, 200); // the sweep must actually light the bands
 }
 
-
 // ============================================================================
 // Plot::screen_step — adaptive-density sub-step
 // ============================================================================
@@ -1708,7 +1699,8 @@ inline void test_screen_step_matches_analytic_unclamped() {
   // The tangent must be perpendicular to pos (a genuine arc-length tangent), or
   // the geodesic oracle and screen_step's formula parametrize differently.
   const Vector pos_off(std::sqrt(0.75f), 0.5f, 0.0f);
-  const Vector raw(0.0f, 1.0f, 1.0f); // arbitrary; projected onto the tangent plane
+  const Vector raw(0.0f, 1.0f,
+                   1.0f); // arbitrary; projected onto the tangent plane
   const Vector tan_mixed = (raw - pos_off * dot(raw, pos_off)).normalized();
   // Equatorial longitudinal, off-equator longitudinal, and a mixed (colatitude +
   // longitude) tangent — all verified below to land inside the clamp window.
@@ -1810,12 +1802,12 @@ inline void test_antialiased_dot_clip_footprint() {
   auto xc = cr.x_clip();
 
   // A fractional dot just left of the cylindrical seam splats into column 0.
-  HS_EXPECT_TRUE((Plot::antialiased_dot_visible_in_clip<W, H>(
-      cr, xc, 10.25f, W - 0.25f)));
+  HS_EXPECT_TRUE(
+      (Plot::antialiased_dot_visible_in_clip<W, H>(cr, xc, 10.25f, W - 0.25f)));
   // An integral seam-neighbor emits only at W-1; its zero-weight x1 tap at 0
   // must not make the dot visible.
-  HS_EXPECT_FALSE((Plot::antialiased_dot_visible_in_clip<W, H>(
-      cr, xc, 10.0f, W - 1.0f)));
+  HS_EXPECT_FALSE(
+      (Plot::antialiased_dot_visible_in_clip<W, H>(cr, xc, 10.0f, W - 1.0f)));
 
   cr.y_start = H - 1;
   cr.y_end = H;
@@ -1824,10 +1816,10 @@ inline void test_antialiased_dot_clip_footprint() {
   xc = cr.x_clip();
   // AntiAlias renormalizes a splat straddling the physical bottom row onto the
   // in-range tap.
-  HS_EXPECT_TRUE((Plot::antialiased_dot_visible_in_clip<W, H>(
-      cr, xc, H - 0.25f, 20.0f)));
-  HS_EXPECT_FALSE((Plot::antialiased_dot_visible_in_clip<W, H>(
-      cr, xc, H - 2.0f, 20.0f)));
+  HS_EXPECT_TRUE(
+      (Plot::antialiased_dot_visible_in_clip<W, H>(cr, xc, H - 0.25f, 20.0f)));
+  HS_EXPECT_FALSE(
+      (Plot::antialiased_dot_visible_in_clip<W, H>(cr, xc, H - 2.0f, 20.0f)));
 }
 
 // ============================================================================
@@ -2065,9 +2057,8 @@ inline void test_distorted_ring_draw_culled_matches_closed() {
       Pipeline<W, H> filters;
       {
         Canvas c(fx);
-        Plot::DistortedRing::draw_culled<W, H>(filters, c, fx.clip(), b,
-                                               radius, shift, shade, reach,
-                                               bake_run);
+        Plot::DistortedRing::draw_culled<W, H>(filters, c, fx.clip(), b, radius,
+                                               shift, shade, reach, bake_run);
       }
       fx.advance_display();
       for (int y = 0; y < H; ++y)
@@ -2085,9 +2076,8 @@ inline void test_distorted_ring_draw_culled_matches_closed() {
       Pipeline<W, H> filters;
       {
         Canvas c(fx);
-        Plot::DistortedRing::draw_culled<W, H>(filters, c, fx.clip(), b,
-                                               radius, shift, shade, reach,
-                                               bake_run);
+        Plot::DistortedRing::draw_culled<W, H>(filters, c, fx.clip(), b, radius,
+                                               shift, shade, reach, bake_run);
       }
       fx.advance_display();
       int lit = 0, diff = 0;
@@ -2116,9 +2106,8 @@ inline void test_distorted_ring_draw_culled_matches_closed() {
     {
       Canvas c(fx);
       Basis axis_y = make_basis(Quaternion(1, 0, 0, 0), Vector(0, 1, 0));
-      Plot::DistortedRing::draw_culled<W, H>(filters, c, fx.clip(), axis_y,
-                                             0.3f, shift, shade, reach,
-                                             bake_run);
+      Plot::DistortedRing::draw_culled<W, H>(
+          filters, c, fx.clip(), axis_y, 0.3f, shift, shade, reach, bake_run);
     }
     fx.advance_display();
     HS_EXPECT_EQ(bake_calls, 0);
@@ -2211,8 +2200,8 @@ inline void test_distorted_ring_draw_culled_runs_phase_chunks() {
     HS_EXPECT_GT(runs.size(), (size_t)0);
     if (chunks_case == 0)
       HS_EXPECT_GT(runs.size(), (size_t)1);
-    HS_EXPECT_TRUE(!(runs.size() == 1 && runs[0].first == 0 &&
-                     runs[0].second == W));
+    HS_EXPECT_TRUE(
+        !(runs.size() == 1 && runs[0].first == 0 && runs[0].second == W));
     for (size_t k = 0; k < runs.size(); ++k) {
       HS_EXPECT_TRUE(runs[k].first >= 0 && runs[k].second <= W &&
                      runs[k].first < runs[k].second);
@@ -2262,9 +2251,9 @@ inline void test_spiral_sample_unit_length_and_monotone_arc() {
   HS_EXPECT_EQ(frags.size(), (size_t)N);
 
   float last_v1 = -1.0f;
-  float last_y = 2.0f;        // above any unit-sphere y, so the first compare passes
+  float last_y = 2.0f; // above any unit-sphere y, so the first compare passes
   float last_theta = 0.0f;
-  float winding = 0.0f;       // total absolute azimuthal travel (radians)
+  float winding = 0.0f; // total absolute azimuthal travel (radians)
   for (size_t i = 0; i < frags.size(); ++i) {
     const Vector &p = frags[i].pos;
     HS_EXPECT_NEAR(p.length(), 1.0f, 1e-3f);
@@ -2277,8 +2266,10 @@ inline void test_spiral_sample_unit_length_and_monotone_arc() {
     float theta = std::atan2(p.z, p.x);
     if (i > 0) {
       float d = theta - last_theta;
-      while (d > PI_F) d -= 2.0f * PI_F;
-      while (d < -PI_F) d += 2.0f * PI_F;
+      while (d > PI_F)
+        d -= 2.0f * PI_F;
+      while (d < -PI_F)
+        d += 2.0f * PI_F;
       winding += std::fabs(d);
     }
     last_theta = theta;
@@ -2305,9 +2296,12 @@ inline void test_multiline_sample_arclength_param() {
   Fragments verts;
   verts.bind(plot_arena(), 4);
   Fragment v;
-  v.pos = Vector(1, 0, 0);  verts.push_back(v);
-  v.pos = Vector(0, 1, 0);  verts.push_back(v);
-  v.pos = Vector(-1, 0, 0); verts.push_back(v);
+  v.pos = Vector(1, 0, 0);
+  verts.push_back(v);
+  v.pos = Vector(0, 1, 0);
+  verts.push_back(v);
+  v.pos = Vector(-1, 0, 0);
+  verts.push_back(v);
 
   Fragments points;
   points.bind(plot_arena(), 8);
@@ -2654,7 +2648,8 @@ inline void test_rasterize_planar_arc_registers_track_drawn_arc() {
   };
   {
     Canvas c(fx);
-    Plot::rasterize<W, H>(pipe, c, points, capture, /*close_loop=*/false, &basis);
+    Plot::rasterize<W, H>(pipe, c, points, capture, /*close_loop=*/false,
+                          &basis);
   }
   fx.advance_display();
 
@@ -2722,9 +2717,10 @@ struct StubParticle {
 
 /** @brief Minimal pool/active_count/max_life triple the draw concept reads. */
 struct StubSystem {
-  std::vector<StubParticle> pool; /**< Pool; pool[i] read for i < active_count. */
-  int active_count = 0;           /**< Live prefix length. */
-  uint16_t max_life = 0;          /**< Life normaliser for v3. */
+  std::vector<StubParticle>
+      pool;              /**< Pool; pool[i] read for i < active_count. */
+  int active_count = 0;  /**< Live prefix length. */
+  uint16_t max_life = 0; /**< Life normaliser for v3. */
   int active() const { return active_count; }
 };
 
@@ -2884,13 +2880,13 @@ inline void test_particle_system_draws_active_trails_with_registers() {
   float v2_lo = 1e9f, v2_hi = -1e9f, v3_lo = 1e9f, v3_hi = -1e9f;
   {
     Canvas c(fx);
-    Plot::ParticleSystem::draw<W, H>(
-        pipe, c, sys, [&](const Vector &, Fragment &f) {
-          v2_lo = std::min(v2_lo, f.v2);
-          v2_hi = std::max(v2_hi, f.v2);
-          v3_lo = std::min(v3_lo, f.v3);
-          v3_hi = std::max(v3_hi, f.v3);
-        });
+    Plot::ParticleSystem::draw<W, H>(pipe, c, sys,
+                                     [&](const Vector &, Fragment &f) {
+                                       v2_lo = std::min(v2_lo, f.v2);
+                                       v2_hi = std::max(v2_hi, f.v2);
+                                       v3_lo = std::min(v3_lo, f.v3);
+                                       v3_hi = std::max(v3_hi, f.v3);
+                                     });
   }
   fx.advance_display();
 
@@ -3216,8 +3212,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
   sys.active_count = NT;
 
   auto shade = [](const Vector &, Fragment &f) {
-    f.color =
-        Color4(Pixel(65535, 65535, 65535), hs::clamp(f.v3, 0.0f, 1.0f));
+    f.color = Color4(Pixel(65535, 65535, 65535), hs::clamp(f.v3, 0.0f, 1.0f));
   };
   auto position_pass = [](Fragment &f) { f.pos = f.pos * -1.0f; };
   auto deferred_pass = [](Fragment &f, const Vector &) { f.v3 *= 0.7f; };
@@ -3242,7 +3237,7 @@ inline void test_particle_system_gate_pixel_parity_random_trails() {
   }
 
   const int bands[][4] = {
-      {0, 24, 0, 48},  // quadrant; margin wraps rs past the seam
+      {0, 24, 0, 48},   // quadrant; margin wraps rs past the seam
       {12, 36, 48, 96}, // opposite half
       {0, 48, 20, 70},  // interior wedge
       {30, 48, 0, 96},  // y-only clip (XClip inactive)
@@ -3391,7 +3386,8 @@ inline void test_rasterize_cull_follows_filter_orientation() {
       pts.bind(plot_arena(), 4);
       Fragment a, b;
       a.pos = Vector(1, 0, 0); // equator (+X)
-      b.pos = Vector(0, 0, 1); // equator (+Z); 90° about X sends it to -Y (pole)
+      b.pos =
+          Vector(0, 0, 1); // equator (+Z); 90° about X sends it to -Y (pole)
       pts.push_back(a);
       pts.push_back(b);
       Canvas c(fx);
@@ -3408,10 +3404,11 @@ inline void test_rasterize_cull_follows_filter_orientation() {
     return lit;
   };
 
-  int full = band_lit(0, H);          // full canvas: rotated arc reaches the band
+  int full = band_lit(0, H); // full canvas: rotated arc reaches the band
   int banded = band_lit(H - BAND, H); // worker clipped to that band
   HS_EXPECT_GT(full, 0);
-  HS_EXPECT_EQ(banded, full); // routed cull keeps the edge; identical in the band
+  HS_EXPECT_EQ(banded,
+               full); // routed cull keeps the edge; identical in the band
 }
 
 // ============================================================================
@@ -3429,7 +3426,8 @@ inline void test_rasterize_cull_follows_filter_orientation() {
 inline Vector az_rand_unit() {
   for (;;) {
     Vector r(hs::rand_f(-1, 1), hs::rand_f(-1, 1), hs::rand_f(-1, 1));
-    if (r.length() > 0.1f) return r.normalized();
+    if (r.length() > 0.1f)
+      return r.normalized();
   }
 }
 
@@ -3472,7 +3470,8 @@ inline void test_azimuthal_project_radius_is_geodesic_angle() {
     auto proj = Plot::azimuthal_project(p, basis);
     float r = std::hypot(proj.first, proj.second);
     HS_EXPECT_NEAR(r, geo, 5e-3f * (geo + 1.0f));
-    if (geo > 0.3f && geo < PI_F - 0.3f) ++mid;
+    if (geo > 0.3f && geo < PI_F - 0.3f)
+      ++mid;
   }
   HS_EXPECT_GT(mid, 1000);
 }
@@ -3565,9 +3564,9 @@ inline void test_planar_arc_length_matches_fine_quadrature() {
     Vector prev = az_unproject_exact(p1.first, p1.second, basis);
     for (int i = 1; i <= N; ++i) {
       float t = static_cast<float>(i) / N;
-      Vector cur = az_unproject_exact(p1.first + (p2.first - p1.first) * t,
-                                      p1.second + (p2.second - p1.second) * t,
-                                      basis);
+      Vector cur =
+          az_unproject_exact(p1.first + (p2.first - p1.first) * t,
+                             p1.second + (p2.second - p1.second) * t, basis);
       fine += az_arc_exact(prev, cur);
       prev = cur;
     }
@@ -3648,8 +3647,8 @@ inline void test_planar_arc_cumul_monotone_and_endpoints() {
     auto p1 = Plot::azimuthal_project(a, basis);
     auto p2 = Plot::azimuthal_project(b, basis);
     std::array<float, Plot::PLANAR_LEN_SAMPLES + 1> cumul;
-    Plot::planar_arc_cumul(p1, p2.first - p1.first, p2.second - p1.second, basis,
-                           cumul);
+    Plot::planar_arc_cumul(p1, p2.first - p1.first, p2.second - p1.second,
+                           basis, cumul);
 
     HS_EXPECT_NEAR(cumul[0], 0.0f, 1e-6f);
     for (int k = 1; k <= Plot::PLANAR_LEN_SAMPLES; ++k)
@@ -3746,4 +3745,3 @@ inline int run_plot_scan_tests() {
 
 } // namespace plot_scan_tests
 } // namespace hs_test
-

@@ -45,8 +45,7 @@ namespace pov {
  * device); the release_req_/release_ack_ pair is the teardown handshake
  * (foreground bumps req, ISR acks); window_left_ is ISR-written, foreground-read.
  */
-template <class T>
-class EffectHandoff {
+template <class T> class EffectHandoff {
 public:
   /**
    * @brief An acquire-loaded (effect, generation) snapshot of the pending slot.
@@ -200,12 +199,18 @@ public:
 
 private:
   T *live_ = nullptr; /**< Effect the ISR renders; ISR-owned. */
-  std::atomic<T *> pending_effect_{nullptr}; /**< Next effect; fg-written (release), ISR-read (acquire). */
-  std::atomic<uint32_t> pending_gen_{0};     /**< Build generation of pending_effect_; fg-written. */
-  std::atomic<uint32_t> consumed_gen_{0};    /**< Build generation taken live; ISR-written. */
-  std::atomic<uint32_t> release_req_{0};     /**< Teardown request counter; fg-written. */
-  std::atomic<uint32_t> release_ack_{0};     /**< Teardown acknowledge counter; ISR-written. */
-  std::atomic<uint8_t> window_left_{1};      /**< ISR-written: 1 when the open window sweeps arm-A [0,W/2). */
+  std::atomic<T *> pending_effect_{
+      nullptr}; /**< Next effect; fg-written (release), ISR-read (acquire). */
+  std::atomic<uint32_t> pending_gen_{
+      0}; /**< Build generation of pending_effect_; fg-written. */
+  std::atomic<uint32_t> consumed_gen_{
+      0}; /**< Build generation taken live; ISR-written. */
+  std::atomic<uint32_t> release_req_{
+      0}; /**< Teardown request counter; fg-written. */
+  std::atomic<uint32_t> release_ack_{
+      0}; /**< Teardown acknowledge counter; ISR-written. */
+  std::atomic<uint8_t> window_left_{
+      1}; /**< ISR-written: 1 when the open window sweeps arm-A [0,W/2). */
 };
 
 } // namespace pov

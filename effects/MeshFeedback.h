@@ -31,8 +31,8 @@ public:
   static constexpr int GAMUT_ANGLE_STEPS = 256;
   static constexpr int GAMUT_L_STEPS = 128;
 
-  static constexpr float FADE_MIN = 0.0f,  FADE_MAX = 0.99f;
-  static constexpr float AMP_MIN = 0.0f,   AMP_MAX = 30.0f;
+  static constexpr float FADE_MIN = 0.0f, FADE_MAX = 0.99f;
+  static constexpr float AMP_MIN = 0.0f, AMP_MAX = 30.0f;
   static constexpr float FREQ_MIN = 0.01f, FREQ_MAX = 1.0f;
   static constexpr float SPEED_MIN = 0.0f, SPEED_MAX = 5.0f;
   static constexpr float SCALE_MIN = 0.1f, SCALE_MAX = 50.0f;
@@ -41,12 +41,12 @@ public:
   /** @brief True iff every preset-driven field of @p s lies within its
    *  registered slider range (see the range constants above). */
   static constexpr bool preset_in_ranges(const Style &s) {
-    return s.fade >= FADE_MIN && s.fade <= FADE_MAX &&
-           s.amplitude >= AMP_MIN && s.amplitude <= AMP_MAX &&
-           s.frequency >= FREQ_MIN && s.frequency <= FREQ_MAX &&
-           s.speed >= SPEED_MIN && s.speed <= SPEED_MAX &&
-           s.scale >= SCALE_MIN && s.scale <= SCALE_MAX &&
-           s.hue_shift >= HUE_SHIFT_MIN && s.hue_shift <= HUE_SHIFT_MAX;
+    return s.fade >= FADE_MIN && s.fade <= FADE_MAX && s.amplitude >= AMP_MIN &&
+           s.amplitude <= AMP_MAX && s.frequency >= FREQ_MIN &&
+           s.frequency <= FREQ_MAX && s.speed >= SPEED_MIN &&
+           s.speed <= SPEED_MAX && s.scale >= SCALE_MIN &&
+           s.scale <= SCALE_MAX && s.hue_shift >= HUE_SHIFT_MIN &&
+           s.hue_shift <= HUE_SHIFT_MAX;
   }
   static_assert(
       preset_in_ranges(Style::ArcingLightning()) &&
@@ -68,9 +68,10 @@ public:
    * init order).
    */
   HS_COLD_MEMBER MeshFeedback()
-      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}), noise_params(),
-        orientation(), timeline(),
-        palette(Palettes::PEACH_POP),
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
+        noise_params(), orientation(), timeline(), palette(Palettes::PEACH_POP),
         filters(Filter::World::Orient<W>(orientation),
                 Filter::Screen::AntiAlias<W, H>(),
                 Filter::Pixel::Feedback<W, H>(style)) {}
@@ -94,21 +95,23 @@ public:
     apply_params();
 
     {
-      PolyMesh poly = generate(persistent_arena, [&](Arena &target, Arena &a,
-                                                     Arena &b) {
-        return Solids::finalize_solid(Solids::Platonic::icosahedron(a, b),
-                                      target);
-      });
+      PolyMesh poly =
+          generate(persistent_arena, [&](Arena &target, Arena &a, Arena &b) {
+            return Solids::finalize_solid(Solids::Platonic::icosahedron(a, b),
+                                          target);
+          });
       MeshOps::compile(poly, mesh_, persistent_arena, scratch_arena_a);
     }
 
     register_animated_param("Fade", &style.fade, FADE_MIN, FADE_MAX);
     register_animated_param("Distort Amp", &style.amplitude, AMP_MIN, AMP_MAX);
-    register_animated_param("Distort Freq", &style.frequency, FREQ_MIN, FREQ_MAX);
-    register_animated_param("Distort Speed", &style.speed, SPEED_MIN, SPEED_MAX);
+    register_animated_param("Distort Freq", &style.frequency, FREQ_MIN,
+                            FREQ_MAX);
+    register_animated_param("Distort Speed", &style.speed, SPEED_MIN,
+                            SPEED_MAX);
     register_animated_param("Noise Scale", &style.scale, SCALE_MIN, SCALE_MAX);
     register_animated_param("Hue Shift", &style.hue_shift, HUE_SHIFT_MIN,
-                          HUE_SHIFT_MAX);
+                            HUE_SHIFT_MAX);
     register_param("Feedback", &feedback_enabled);
 
     filters.template get<Filter::Pixel::Feedback<W, H>>().init_storage(
@@ -142,15 +145,15 @@ public:
       // Feedback-buffer warp/tap + decay flush.
       HS_PROFILE(mf_feedback_flush);
       filters.flush(
-          canvas, [](float, float, float) { return Color4(0, 0, 0, 0); },
-          1.0f);
+          canvas, [](float, float, float) { return Color4(0, 0, 0, 0); }, 1.0f);
     }
 
     {
       HS_PROFILE(mf_mesh_draw);
       Color4 shade = palette.get(0.0f);
-      Plot::Mesh::draw<W, H>(filters, canvas, mesh_,
-                             [&](const Vector &, Fragment &f) { f.color = shade; });
+      Plot::Mesh::draw<W, H>(
+          filters, canvas, mesh_,
+          [&](const Vector &, Fragment &f) { f.color = shade; });
     }
 
     {
@@ -176,7 +179,8 @@ private:
    * @details Frozen while animations are paused.
    */
   void advance_transition() {
-    if (animations_paused()) return;
+    if (animations_paused())
+      return;
     if (++transition_frames_ < PRESET_FRAMES)
       return;
     transition_frames_ = 0;

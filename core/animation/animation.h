@@ -16,7 +16,7 @@
 #include "engine/generators.h"
 #include "math/geometry.h"
 #include "engine/concepts.h" // Canvas, PlotFn/ScalarFn/TimerFn
-#include "mesh/mesh.h"     // MeshOps
+#include "mesh/mesh.h"       // MeshOps
 #include "engine/memory.h"
 #include "mesh/spatial.h"
 #include "engine/static_circular_buffer.h"
@@ -228,8 +228,8 @@ protected:
    */
   static bool is_paused(const bool *flag) { return flag && *flag; }
 
-  int duration; /**< Total length of the animation in frames. */
-  bool repeat;  /**< Flag indicating if the animation should repeat. */
+  int duration;   /**< Total length of the animation in frames. */
+  bool repeat;    /**< Flag indicating if the animation should repeat. */
   uint32_t t = 0; /**< Internal frame counter. Finite animations bound it by
                      `duration`; perpetual ones (duration == -1) increment it
                      forever. Unsigned so `t++` and the `t >= next` trigger
@@ -272,11 +272,11 @@ constexpr size_t LARGEST_CONCRETE_ANIM_SIZE = largest_sizeof<
     Animation::RandomTimer, Animation::PeriodicTimer, Animation::Transition,
     Animation::Mutation, Animation::Driver, Animation::Lerp, Animation::Sprite,
     Animation::ColorWipe, Animation::MobiusFlow, Animation::MobiusWarp,
-    Animation::MobiusWarpCircular, Animation::MeshMorph,
-    Animation::ConwayMorph,
+    Animation::MobiusWarpCircular, Animation::MeshMorph, Animation::ConwayMorph,
     Animation::MobiusWarpEvolving, Animation::Ripple, Animation::Noise,
     Animation::BallDrop, Animation::NoiseProduct>();
-static_assert(LARGEST_CONCRETE_ANIM_SIZE <= TimelineEvent::MAX_ANIM_SIZE,
-              "A concrete animation type exceeds the TimelineEvent inline-storage "
-              "budget (on the 32-bit WASM/device build MAX_ANIM_SIZE is the "
-              "112-byte device budget); shrink the type or raise the budget.");
+static_assert(
+    LARGEST_CONCRETE_ANIM_SIZE <= TimelineEvent::MAX_ANIM_SIZE,
+    "A concrete animation type exceeds the TimelineEvent inline-storage "
+    "budget (on the 32-bit WASM/device build MAX_ANIM_SIZE is the "
+    "112-byte device budget); shrink the type or raise the budget.");

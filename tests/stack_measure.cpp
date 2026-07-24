@@ -52,7 +52,8 @@ __attribute__((noinline)) void paint(int chunks) {
     g_lo = lo;
   if (chunks > 1)
     paint(chunks - 1);
-  asm volatile("" ::"r"(lo) : "memory"); // defeat tail-call / dead-store elision
+  asm volatile("" ::"r"(lo)
+               : "memory"); // defeat tail-call / dead-store elision
 }
 
 // One effect through the smoke_one(test_effects.h) sequence.
@@ -97,8 +98,9 @@ template <typename Effect> size_t measure(const char *name) {
 } // namespace
 
 int main() {
-  std::printf("=== host stack high-water mark per effect (-Os, x86-64, %dx%d) ===\n",
-              W, H);
+  std::printf(
+      "=== host stack high-water mark per effect (-Os, x86-64, %dx%d) ===\n", W,
+      H);
   size_t worst = 0;
   const char *worst_name = "";
 #define HS_MEASURE_ONE(name)                                                   \
@@ -112,14 +114,16 @@ int main() {
   HS_EFFECT_LIST(HS_MEASURE_ONE)
 #undef HS_MEASURE_ONE
   if (g_measured != HS_EFFECT_COUNT) {
-    std::printf("measured %d effects but HS_EFFECT_COUNT = %d — roster empty or "
-                "measure() calls dropped\n",
-                g_measured, HS_EFFECT_COUNT);
+    std::printf(
+        "measured %d effects but HS_EFFECT_COUNT = %d — roster empty or "
+        "measure() calls dropped\n",
+        g_measured, HS_EFFECT_COUNT);
     return 1;
   }
   const bool over = worst > BUDGET_BYTES;
-  std::printf("\nWORST: %s = %zu B (%.1f KB)   budget %zu B   [%s]\n", worst_name,
-              worst, worst / 1024.0, BUDGET_BYTES, over ? "FAIL" : "PASS");
+  std::printf("\nWORST: %s = %zu B (%.1f KB)   budget %zu B   [%s]\n",
+              worst_name, worst, worst / 1024.0, BUDGET_BYTES,
+              over ? "FAIL" : "PASS");
   if (over)
     std::printf("  stack budget exceeded — a deep call chain grew; see "
                 "tests/stack_measure.cpp header.\n");

@@ -87,31 +87,38 @@ private:
   // Test seam: reaches the spawn-gap accumulator and hue-cursor wrap invariants.
   friend struct ::hs_test::effects_tests::PetalFlowWhiteBox;
 
-  static constexpr int MAX_RINGS = 64;        /**< Maximum number of concurrent rings. */
-  static constexpr float START_RHO = -3.75f;  /**< Rho at which rings are spawned (path start). */
-  static constexpr float END_RHO = 3.75f;     /**< Rho past which rings are retired (path end). */
-  static constexpr float SPACING = 0.3f;      /**< Base inter-ring spacing in rho units, before the Density scaling. */
+  static constexpr int MAX_RINGS =
+      64; /**< Maximum number of concurrent rings. */
+  static constexpr float START_RHO =
+      -3.75f; /**< Rho at which rings are spawned (path start). */
+  static constexpr float END_RHO =
+      3.75f; /**< Rho past which rings are retired (path end). */
+  static constexpr float SPACING =
+      0.3f; /**< Base inter-ring spacing in rho units, before the Density scaling. */
   /**
    * @brief Rho advanced per frame per unit of the Speed slider.
    * @details Converts the unitless Speed control to per-frame motion along the
    * path.
    */
   static constexpr float RHO_PER_SPEED = 0.009375f;
-  static constexpr float PETAL_LOBES = 3.0f;  /**< Petal lobe count per revolution for the radial wobble. */
-  static constexpr float PETAL_DEPTH = 0.6f;  /**< Petal wobble depth in rho units. */
-  static constexpr int NUM_SAMPLES = W / 2;   /**< Angular samples drawn per ring. */
+  static constexpr float PETAL_LOBES =
+      3.0f; /**< Petal lobe count per revolution for the radial wobble. */
+  static constexpr float PETAL_DEPTH =
+      0.6f; /**< Petal wobble depth in rho units. */
+  static constexpr int NUM_SAMPLES =
+      W / 2; /**< Angular samples drawn per ring. */
 
   /**
    * @brief One ring on the flow.
    * @details Inactive slots are free for reuse.
    */
   struct Ring {
-    float rho;    /**< Position along the log-radial path, in rho units. */
-    float hue;    /**< Palette hue selector in [0, 1). */
-    bool active;  /**< Whether this slot holds a live ring. */
+    float rho;   /**< Position along the log-radial path, in rho units. */
+    float hue;   /**< Palette hue selector in [0, 1). */
+    bool active; /**< Whether this slot holds a live ring. */
   };
 
-  Ring rings[MAX_RINGS];          /**< Fixed pool of ring slots, active or free. */
+  Ring rings[MAX_RINGS]; /**< Fixed pool of ring slots, active or free. */
 
   /**
    * @brief Per-sample exp(radial wobble), cached once in init().
@@ -120,18 +127,22 @@ private:
    * exp(rho) per ring instead of one exp per sample.
    */
   float exp_shift_[NUM_SAMPLES];
-  float gap_accumulator = 0.0f;   /**< Accumulated path travel awaiting the next spawn, in rho units. */
-  float next_hue = 0.0f;          /**< Per-instance hue cursor, advanced per spawn; reset in init() so hue assignment stays deterministic for the fixed-seed segmented driver. */
+  float gap_accumulator =
+      0.0f; /**< Accumulated path travel awaiting the next spawn, in rho units. */
+  float next_hue =
+      0.0f; /**< Per-instance hue cursor, advanced per spawn; reset in init() so hue assignment stays deterministic for the fixed-seed segmented driver. */
 
-  ProceduralPalette palette;      /**< Color palette sampled by ring hue. */
-  Orientation<> orientation;      /**< Shared orientation driven by the timeline rotation. */
+  ProceduralPalette palette; /**< Color palette sampled by ring hue. */
+  Orientation<>
+      orientation; /**< Shared orientation driven by the timeline rotation. */
 
   /** @brief Render pipeline: world-space orientation then screen-space anti-aliasing. */
   Pipeline<W, H, Filter::World::Orient<W>, Filter::Screen::AntiAlias<W, H>>
       filters;
 
-  Timeline timeline;                  /**< Schedules the orientation rotation and the spawner. */
-  Animation::PeriodicTimer spawner;   /**< Per-frame timer that triggers check_spawn(). */
+  Timeline timeline; /**< Schedules the orientation rotation and the spawner. */
+  Animation::PeriodicTimer
+      spawner; /**< Per-frame timer that triggers check_spawn(). */
 
   /**
    * @brief Precomputes the geometry-static exp(petal wobble) per sample.
@@ -141,7 +152,8 @@ private:
   HS_COLD_MEMBER void build_shift_table() {
     for (int i = 0; i < NUM_SAMPLES; ++i) {
       float t_norm = static_cast<float>(i) / NUM_SAMPLES;
-      float shift = PETAL_DEPTH * std::abs(fast_sinf(PETAL_LOBES * PI_F * t_norm));
+      float shift =
+          PETAL_DEPTH * std::abs(fast_sinf(PETAL_LOBES * PI_F * t_norm));
       exp_shift_[i] = expf(shift);
     }
   }
@@ -312,10 +324,13 @@ private:
    * @brief User-tunable controls, registered as sliders in init().
    */
   struct Params {
-    float twist_factor = 0.35f; /**< Swirl strength applied per unit of rho spacing. */
-    float speed = 2.5f;         /**< Unitless flow rate; scaled by RHO_PER_SPEED into per-frame motion. */
-    float alpha = 0.2f;         /**< Global opacity multiplier. */
-    float density = 1.0f;       /**< Ring packing; live spacing is SPACING / density. */
+    float twist_factor =
+        0.35f; /**< Swirl strength applied per unit of rho spacing. */
+    float speed =
+        2.5f; /**< Unitless flow rate; scaled by RHO_PER_SPEED into per-frame motion. */
+    float alpha = 0.2f; /**< Global opacity multiplier. */
+    float density =
+        1.0f; /**< Ring packing; live spacing is SPACING / density. */
   } params;
 };
 

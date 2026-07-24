@@ -149,8 +149,8 @@ public:
      */
     HarmonicField(int l1, int m1, int l2, int m2, float blend, Quaternion q)
         : l1(l1), m1(m1), l2(l2), m2(m2), blend(blend), orientation(q),
-          N1(SHMath::normalization(l1, m1)),
-          N2(SHMath::normalization(l2, m2)) {}
+          N1(SHMath::normalization(l1, m1)), N2(SHMath::normalization(l2, m2)) {
+    }
 
     /**
      * @brief Vertical scan bounds for the field.
@@ -214,7 +214,8 @@ public:
   /**
    * @brief Construct the visualizer with the display dimensions.
    */
-  HS_COLD_MEMBER SphericalHarmonics() : Effect(W, H, {.strobe = true}), filters() {}
+  HS_COLD_MEMBER SphericalHarmonics()
+      : Effect(W, H, {.strobe = true}), filters() {}
 
   /**
    * @brief One-time setup of params, palette, shape, spin, and first morph.
@@ -267,11 +268,11 @@ public:
       // Negative palette: recolor pos by swapping R<->B and dimming green so
       // negative SH lobes read distinct. A stylized polarity cue, not OKLCH.
       constexpr float NEG_LOBE_GREEN_SCALE = 0.8f;
-      Color4 neg = Color4(
-          Pixel(pos.color.b,
-                static_cast<uint16_t>(pos.color.g * NEG_LOBE_GREEN_SCALE + 0.5f),
-                pos.color.r),
-          pos.alpha);
+      Color4 neg = Color4(Pixel(pos.color.b,
+                                static_cast<uint16_t>(
+                                    pos.color.g * NEG_LOBE_GREEN_SCALE + 0.5f),
+                                pos.color.r),
+                          pos.alpha);
 
       // Narrow quintic-smoothed seam at the zero-crossing; `transition` is the
       // half-width (field units) of the anti-aliasing band. blend_t is inverted
@@ -325,13 +326,13 @@ private:
 #endif
     hs::log("Mode: %d/%d", next_idx, MAX_MODE_IDX);
 
-    timeline.add(
-        0, Animation::Transition(morph_alpha, 1.0f, 64, ease_linear, false, false)
-               .then([this]() {
-                 current_idx = next_idx;
-                 morph_alpha = 0.0f;
-                 start_morph();
-               }));
+    timeline.add(0, Animation::Transition(morph_alpha, 1.0f, 64, ease_linear,
+                                          false, false)
+                        .then([this]() {
+                          current_idx = next_idx;
+                          morph_alpha = 0.0f;
+                          start_morph();
+                        }));
   }
 
   /**
@@ -359,15 +360,17 @@ private:
                 "MAX_DEGREE too large: factorial(2*MAX_DEGREE) exceeds float "
                 "precision in normalization()");
   // Top flat index over those degrees: idx peaks at l = MAX_DEGREE, m = +MAX_DEGREE.
-  static constexpr int MAX_MODE_IDX = (MAX_DEGREE + 1) * (MAX_DEGREE + 1) - 1; // 24
+  static constexpr int MAX_MODE_IDX =
+      (MAX_DEGREE + 1) * (MAX_DEGREE + 1) - 1; // 24
   // Initial mode (l=2, m=0); the constant mode (idx 0) is excluded from the roll.
   static constexpr int SEED_MODE_IDX = 6;
   static_assert(SEED_MODE_IDX > 0 && SEED_MODE_IDX <= MAX_MODE_IDX,
                 "seed mode must be a valid, non-constant harmonic index");
 
-  int current_idx = 0;        /**< Flat index of the currently displayed mode. */
-  int next_idx = 0;           /**< Flat index of the mode being morphed toward. */
-  float morph_alpha = 0.0f;   /**< Morph progress in [0, 1] from current to next. */
+  int current_idx = 0; /**< Flat index of the currently displayed mode. */
+  int next_idx = 0;    /**< Flat index of the mode being morphed toward. */
+  float morph_alpha =
+      0.0f; /**< Morph progress in [0, 1] from current to next. */
 };
 
 #include "core/engine/effect_registry.h"

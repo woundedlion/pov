@@ -106,7 +106,7 @@ inline void test_functionref_function_pointer() {
  *          (a trivial two-pointer payload) keeps referring to the same callable.
  */
 inline void test_functionref_empty_and_copy() {
-  FunctionRef<int(int)> def;            // default -> empty
+  FunctionRef<int(int)> def; // default -> empty
   HS_EXPECT_FALSE((bool)def);
   FunctionRef<int(int)> null = nullptr; // nullptr ctor -> empty
   HS_EXPECT_FALSE((bool)null);
@@ -130,8 +130,9 @@ inline void test_functionref_empty_and_copy() {
  *          tripwire and a runtime-visible regression check.
  */
 inline void test_stored_functionref_rvalue_rejection() {
-  static_assert(std::is_constructible_v<StoredFunctionRef<int(int)>, DualCall &>,
-                "StoredFunctionRef must accept an lvalue callable");
+  static_assert(
+      std::is_constructible_v<StoredFunctionRef<int(int)>, DualCall &>,
+      "StoredFunctionRef must accept an lvalue callable");
   static_assert(
       !std::is_constructible_v<StoredFunctionRef<int(int)>, DualCall &&>,
       "StoredFunctionRef must reject an rvalue temporary (dangling-store guard)");
@@ -159,18 +160,16 @@ inline void test_callable_return_constraints() {
                                          const ReturnsIncompatible &>);
   static_assert(
       !std::is_constructible_v<FunctionRef<int(int)>, ReturnsIncompatible &&>);
-  static_assert(
-      !std::is_constructible_v<StoredFunctionRef<int(int)>,
-                               ReturnsIncompatible &>);
+  static_assert(!std::is_constructible_v<StoredFunctionRef<int(int)>,
+                                         ReturnsIncompatible &>);
   static_assert(!std::is_constructible_v<FunctionRef<int(int)>, ReturnsVoid &>);
   static_assert(std::is_constructible_v<FunctionRef<void(int)>, ReturnsInt &>);
 
-  static_assert(!std::is_constructible_v<Fn<int(int), 16>,
-                                         ReturnsIncompatible>);
+  static_assert(
+      !std::is_constructible_v<Fn<int(int), 16>, ReturnsIncompatible>);
   static_assert(!std::is_constructible_v<Fn<int(int), 16>, ReturnsVoid>);
   static_assert(std::is_constructible_v<Fn<void(int), 16>, ReturnsInt>);
-  static_assert(!std::is_assignable_v<Fn<int(int), 16> &,
-                                      ReturnsIncompatible>);
+  static_assert(!std::is_assignable_v<Fn<int(int), 16> &, ReturnsIncompatible>);
 
   ReturnsInt returns_int;
   FunctionRef<void(int)> borrowed = returns_int;

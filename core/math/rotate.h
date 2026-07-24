@@ -99,10 +99,10 @@ public:
      */
     int yi() { return static_cast<int>(y + 0.5f); }
 
-    float x;            /**< Pixel column coordinate. */
-    float y;            /**< Pixel row coordinate. */
-    float lambda;       /**< Longitude in [-PI, PI). */
-    float phi;          /**< Latitude in [-PI/2, PI/2]. */
+    float x;      /**< Pixel column coordinate. */
+    float y;      /**< Pixel row coordinate. */
+    float lambda; /**< Longitude in [-PI, PI). */
+    float phi;    /**< Latitude in [-PI/2, PI/2]. */
   };
 
   /** @brief Constructs an identity projection (no rotation applied). */
@@ -194,11 +194,11 @@ public:
   }
 
 private:
-  float delta_lambda = 0;          /**< Accumulated longitude offset in radians. */
-  float delta_phi = 0;             /**< Accumulated latitude offset in radians. */
-  float delta_gamma = 0;           /**< Accumulated roll offset in radians. */
-  float cos_dp = cosf(delta_phi);  /**< Cached cosine of delta_phi. */
-  float sin_dp = sinf(delta_phi);  /**< Cached sine of delta_phi. */
-  float cos_dg = cosf(delta_gamma);/**< Cached cosine of delta_gamma. */
-  float sin_dg = sinf(delta_gamma);/**< Cached sine of delta_gamma. */
+  float delta_lambda = 0; /**< Accumulated longitude offset in radians. */
+  float delta_phi = 0;    /**< Accumulated latitude offset in radians. */
+  float delta_gamma = 0;  /**< Accumulated roll offset in radians. */
+  float cos_dp = cosf(delta_phi);   /**< Cached cosine of delta_phi. */
+  float sin_dp = sinf(delta_phi);   /**< Cached sine of delta_phi. */
+  float cos_dg = cosf(delta_gamma); /**< Cached cosine of delta_gamma. */
+  float sin_dg = sinf(delta_gamma); /**< Cached sine of delta_gamma. */
 };

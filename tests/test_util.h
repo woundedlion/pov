@@ -87,7 +87,7 @@ inline void test_wrap_int() {
 inline void test_wrap_mixed_type() {
   static_assert(std::is_same_v<decltype(wrap(3, 2.5f)), float>,
                 "wrap(int, float) returns the common type (float)");
-  HS_EXPECT_NEAR(wrap(3, 2.5f), 0.5f, 1e-6f);  // fmod(3, 2.5) == 0.5
+  HS_EXPECT_NEAR(wrap(3, 2.5f), 0.5f, 1e-6f); // fmod(3, 2.5) == 0.5
   HS_EXPECT_NEAR(wrap(7, 2.5f), 2.0f, 1e-6f);
   HS_EXPECT_NEAR(wrap(-1, 2.5f), 1.5f, 1e-6f);
   HS_EXPECT_NEAR(wrap(7.5f, 5), 2.5f, 1e-6f);
@@ -149,16 +149,25 @@ inline void test_apply_if_changed() {
   int applied = -1;
   int call_count = 0;
 
-  apply_if_changed(5, last, [&](int v) { applied = v; ++call_count; });
+  apply_if_changed(5, last, [&](int v) {
+    applied = v;
+    ++call_count;
+  });
   HS_EXPECT_EQ(call_count, 0);
   HS_EXPECT_EQ(last, 5);
 
-  apply_if_changed(8, last, [&](int v) { applied = v; ++call_count; });
+  apply_if_changed(8, last, [&](int v) {
+    applied = v;
+    ++call_count;
+  });
   HS_EXPECT_EQ(call_count, 1);
   HS_EXPECT_EQ(applied, 8);
   HS_EXPECT_EQ(last, 8);
 
-  apply_if_changed(8, last, [&](int v) { applied = v; ++call_count; });
+  apply_if_changed(8, last, [&](int v) {
+    applied = v;
+    ++call_count;
+  });
   HS_EXPECT_EQ(call_count, 1);
   HS_EXPECT_EQ(last, 8);
 }

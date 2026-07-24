@@ -85,8 +85,10 @@ inline void test_fragment_lerp_midpoint() {
   Fragment a, b;
   a.pos = Vector(2, 4, 6);
   b.pos = Vector(8, 16, 24);
-  a.v0 = 0; b.v0 = 100;
-  a.v1 = -50; b.v1 = 50;
+  a.v0 = 0;
+  b.v0 = 100;
+  a.v1 = -50;
+  b.v1 = 50;
 
   Fragment mid = Fragment::lerp(a, b, 0.5f);
   HS_EXPECT_VEC(mid.pos, Vector(5, 10, 15), 1e-5f);
@@ -193,12 +195,12 @@ inline void test_y_to_phi_templated_LUT() {
  *          bottom row even further from the pole).
  */
 inline void test_y_to_phi_offset_injection_clips_no_double_apply() {
-  constexpr int H = 20;          // Holosphere hardware height
-  constexpr int OFF = 3;         // hardware H_OFFSET
+  constexpr int H = 20;           // Holosphere hardware height
+  constexpr int OFF = 3;          // hardware H_OFFSET
   constexpr int H_VIRT = H + OFF; // 23
   const float bottom_phys = static_cast<float>(H - 1); // y = 19
 
-  float correct = y_to_phi(bottom_phys, H_VIRT);          // 19*PI/22
+  float correct = y_to_phi(bottom_phys, H_VIRT); // 19*PI/22
   HS_EXPECT_NEAR(correct, bottom_phys * PI_F / (H_VIRT - 1), 1e-5f);
   HS_EXPECT_TRUE(correct < PI_F);
 
@@ -578,8 +580,10 @@ inline void test_fib_spiral_endpoints() {
 inline void test_fib_spiral_golden_angle() {
   const int n = 64;
   auto wrap_pi = [](float a) {
-    while (a > PI_F) a -= 2.0f * PI_F;
-    while (a <= -PI_F) a += 2.0f * PI_F;
+    while (a > PI_F)
+      a -= 2.0f * PI_F;
+    while (a <= -PI_F)
+      a += 2.0f * PI_F;
     return a;
   };
   const float step = wrap_pi(2.0f * PI_F * INV_PHI);
@@ -651,7 +655,8 @@ inline void test_random_vector_deterministic() {
   constexpr int N = 16;
   Vector first[N];
   hs::random().seed(1337);
-  for (int i = 0; i < N; ++i) first[i] = random_vector();
+  for (int i = 0; i < N; ++i)
+    first[i] = random_vector();
   hs::random().seed(1337);
   for (int i = 0; i < N; ++i) {
     Vector v = random_vector();
@@ -686,10 +691,15 @@ inline void test_random_vector_distribution() {
   for (int i = 0; i < N; ++i) {
     Vector v = random_vector();
     HS_EXPECT_NEAR(v.length(), 1.0f, 1e-3f);
-    sx += v.x; sy += v.y; sz += v.z;
-    if (v.x > 0.0f) ++posx;
-    if (v.y > 0.0f) ++posy;
-    if (v.z > 0.0f) ++posz;
+    sx += v.x;
+    sy += v.y;
+    sz += v.z;
+    if (v.x > 0.0f)
+      ++posx;
+    if (v.y > 0.0f)
+      ++posy;
+    if (v.z > 0.0f)
+      ++posz;
     for (float component : {v.x, v.y, v.z}) {
       const int bin = std::min(static_cast<int>(fabsf(component) * BIN_COUNT),
                                BIN_COUNT - 1);
@@ -994,4 +1004,3 @@ inline int run_geometry_tests() {
 
 } // namespace geometry
 } // namespace hs_test
-

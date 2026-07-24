@@ -24,7 +24,9 @@ public:
    *          Möbius transformer to the timeline.
    */
   HS_COLD_MEMBER GnomonicStars()
-      : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}),
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}),
         orientation(), timeline(), transformer(timeline) {}
 
   /**
@@ -131,17 +133,21 @@ private:
                 "GnomonicStars persistent footprint exceeds the default "
                 "partition; retune MAX_POINTS or carve arenas");
 
-  Orientation<> orientation;        /**< Current field orientation quaternion. */
-  FastNoiseLite noise;              /**< Noise source driving the RandomWalk. */
-  Timeline timeline;                /**< Animation timeline for warp and walk. */
-  Pipeline<W, H> filters;           /**< Render filter pipeline for star scan. */
+  Orientation<> orientation; /**< Current field orientation quaternion. */
+  FastNoiseLite noise;       /**< Noise source driving the RandomWalk. */
+  Timeline timeline;         /**< Animation timeline for warp and walk. */
+  Pipeline<W, H> filters;    /**< Render filter pipeline for star scan. */
 
-  Vector *spiral_cache_ = nullptr;  /**< Persistent base lattice, MAX_POINTS slots. */
-  int cached_points_ = 0;           /**< Point count the cache holds (0 = unbuilt). */
-  BakedPalette baked_palette;       /**< LUT-baked MANGO_PEEL sampled by the shader. */
+  Vector *spiral_cache_ =
+      nullptr;            /**< Persistent base lattice, MAX_POINTS slots. */
+  int cached_points_ = 0; /**< Point count the cache holds (0 = unbuilt). */
+  BakedPalette
+      baked_palette; /**< LUT-baked MANGO_PEEL sampled by the shader. */
 
-  MobiusWarpGnomonicTransformer<1> transformer; /**< Evolving Möbius warp applied per point. */
-  Animation::MobiusWarpEvolving *warp_ = nullptr; /**< Pinned warp handle; mirrors params.warp_speed each frame. */
+  MobiusWarpGnomonicTransformer<1>
+      transformer; /**< Evolving Möbius warp applied per point. */
+  Animation::MobiusWarpEvolving *warp_ =
+      nullptr; /**< Pinned warp handle; mirrors params.warp_speed each frame. */
 
   /**
    * @brief Live-tunable controls for the star field.
@@ -149,11 +155,13 @@ private:
    *          draws each star's bounding box for debugging.
    */
   struct Params {
-    float points = 600.0f;    /**< Number of stars scattered on the spiral. */
-    float star_radius = 0.02f; /**< Per-star radius in normalized sphere units. */
-    float star_sides = 4.0f;  /**< Polygon side count per star. */
-    float warp_speed = 0.035f; /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
-    bool debug_bb = false;    /**< When true, draws each star's bounding box. */
+    float points = 600.0f; /**< Number of stars scattered on the spiral. */
+    float star_radius =
+        0.02f;               /**< Per-star radius in normalized sphere units. */
+    float star_sides = 4.0f; /**< Polygon side count per star. */
+    float warp_speed =
+        0.035f; /**< Möbius warp evolution speed, mirrored into the pinned warp each frame. */
+    bool debug_bb = false; /**< When true, draws each star's bounding box. */
   } params;
 };
 

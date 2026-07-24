@@ -28,7 +28,10 @@ public:
   /**
    * @brief Constructs the effect at the templated canvas dimensions.
    */
-  HS_COLD_MEMBER RingShower() : Effect(W, H, {.strobe = true, .full_frame = decltype(filters)::any_crosses_segments}) {}
+  HS_COLD_MEMBER RingShower()
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(filters)::any_crosses_segments}) {}
 
   /**
    * @brief Registers parameters, bakes per-slot palette LUTs, and arms the
@@ -88,10 +91,14 @@ private:
    *          reallocating.
    */
   struct Ring {
-    static constexpr int FADE_IN_FRAMES = 4; /**< Fade-in span; opacity uses age+1 so the first draw starts one linear step in (0.25 at 4) rather than 0, then holds at full (no fade-out). */
-    static constexpr float RADIUS_MAX = 2.0f; /**< Maximum radius; the ring grows from 0 to this over its whole life. */
-    static constexpr int LIFE_MIN = 8;   /**< Minimum lifetime in frames (>0: guards the radius_at divisor). */
-    static constexpr int LIFE_SPAN = 72; /**< Width of the random lifetime range, in frames. */
+    static constexpr int FADE_IN_FRAMES =
+        4; /**< Fade-in span; opacity uses age+1 so the first draw starts one linear step in (0.25 at 4) rather than 0, then holds at full (no fade-out). */
+    static constexpr float RADIUS_MAX =
+        2.0f; /**< Maximum radius; the ring grows from 0 to this over its whole life. */
+    static constexpr int LIFE_MIN =
+        8; /**< Minimum lifetime in frames (>0: guards the radius_at divisor). */
+    static constexpr int LIFE_SPAN =
+        72; /**< Width of the random lifetime range, in frames. */
 
     Vector normal; /**< Plane normal fixing the ring's orientation. */
     /**
@@ -101,8 +108,9 @@ private:
      *          OKLCH evaluation (the palette is immutable after spawn).
      */
     BakedPalette palette;
-    int age = 0;  /**< Frames elapsed since (re)spawn. */
-    int life = 0; /**< Total visible frames; the slot is free once age >= life. */
+    int age = 0; /**< Frames elapsed since (re)spawn. */
+    int life =
+        0; /**< Total visible frames; the slot is free once age >= life. */
 
     /**
      * @brief Constructs a free slot with a random orientation.
@@ -189,8 +197,8 @@ private:
       if (rings[i].expired()) { // free slot
         Ring &ring = rings[i];
         ring.normal = random_vector();
-        ring.life = static_cast<int>(hs::rand_f() * Ring::LIFE_SPAN +
-                                     Ring::LIFE_MIN);
+        ring.life =
+            static_cast<int>(hs::rand_f() * Ring::LIFE_SPAN + Ring::LIFE_MIN);
         ring.age = 0;
         ring.palette.rebake(dot_keyed(make_palette()));
         return;
@@ -224,8 +232,9 @@ private:
 
   static constexpr size_t MAX_RINGS = 16; /**< Fixed pool of ring slots. */
   Ring rings[MAX_RINGS];                  /**< The recyclable ring slots. */
-  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>> filters; /**< Screen-space anti-alias pipeline. */
-  Timeline timeline;    /**< Drives the spawn timer. */
+  Pipeline<W, H, Filter::Screen::AntiAlias<W, H>>
+      filters;       /**< Screen-space anti-alias pipeline. */
+  Timeline timeline; /**< Drives the spawn timer. */
 
   /**
    * @brief User-tunable parameters for the effect.

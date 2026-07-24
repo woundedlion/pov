@@ -26,7 +26,8 @@ struct HopfWhiteBox;
  */
 template <int W, int H> class HopfFibration : public Effect {
 public:
-  static constexpr int TRAIL_LEN = 40; /**< Number of points retained per fiber trail. */
+  static constexpr int TRAIL_LEN =
+      40; /**< Number of points retained per fiber trail. */
 
   /**
    * @brief Constructs the effect and configures the trail pipeline.
@@ -34,7 +35,9 @@ public:
    * screen-space anti-alias filter sized to W x H.
    */
   HS_COLD_MEMBER HopfFibration()
-      : Effect(W, H, {.strobe = true, .full_frame = decltype(trail_pipeline)::any_crosses_segments}),
+      : Effect(W, H,
+               {.strobe = true,
+                .full_frame = decltype(trail_pipeline)::any_crosses_segments}),
         trail_pipeline(Filter::Screen::AntiAlias<W, H>()) {}
 
   /**
@@ -69,8 +72,8 @@ public:
     init_fibers();
     timeline.add(0, Animation::Rotation<W>(orientation, Y_AXIS, 2 * PI_F, 600,
                                            ease_linear, true));
-    timeline.add(0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE,
-                                      true));
+    timeline.add(
+        0, Animation::Driver(flow_offset, &params.flow_speed, FLOW_RATE, true));
     timeline.add(0, Animation::Driver(tumble_angle_x, &params.tumble_speed,
                                       TUMBLE_X_RATE, true));
     timeline.add(0, Animation::Driver(tumble_angle_y, &params.tumble_speed,
@@ -154,12 +157,12 @@ private:
   // back to radians at use, keeping the trig arguments bounded. tumble_angle_x
   // also feeds the half-angle fold_base term, so it wraps over 4pi to keep both
   // the full-angle and half-angle terms continuous.
-  static constexpr float FLOW_PERIOD     = 2 * PI_F;
+  static constexpr float FLOW_PERIOD = 2 * PI_F;
   static constexpr float TUMBLE_X_PERIOD = 4 * PI_F;
   static constexpr float TUMBLE_Y_PERIOD = 2 * PI_F;
 
   // Per-unit driver rates, in turns (radians-per-unit-speed / period).
-  static constexpr float FLOW_RATE     = (0.02f * 0.2f) / FLOW_PERIOD;
+  static constexpr float FLOW_RATE = (0.02f * 0.2f) / FLOW_PERIOD;
   static constexpr float TUMBLE_X_RATE = 0.003f / TUMBLE_X_PERIOD;
   static constexpr float TUMBLE_Y_RATE = 0.005f / TUMBLE_Y_PERIOD;
 
@@ -234,7 +237,8 @@ private:
     // Folding: amplitude gated by the Folding slider so it persists when tumble
     // is frozen, though its phase still tracks ty_rad.
     float eta = polar / 2.0f;
-    eta += fast_sinf(azimuth * 2.0f + ty_rad + fold_base) * 0.2f * params.folding;
+    eta +=
+        fast_sinf(azimuth * 2.0f + ty_rad + fold_base) * 0.2f * params.folding;
 
     // Twist
     azimuth += eta * params.twist;
@@ -361,10 +365,9 @@ private:
 
       {
         HS_PROFILE(hf_trail_raster);
-        Plot::rasterize<W, H>(trail_pipeline, canvas, points, shader, false,
-                              nullptr, false,
-                              clip_active ? &bits[i * STRIDE + first]
-                                          : nullptr);
+        Plot::rasterize<W, H>(
+            trail_pipeline, canvas, points, shader, false, nullptr, false,
+            clip_active ? &bits[i * STRIDE + first] : nullptr);
       }
     }
   }
@@ -376,8 +379,9 @@ private:
     float flow_speed = 10.0f;  /**< Flow phase advance rate, in tuning units. */
     float tumble_speed = 2.0f; /**< 4D tumble rate, in tuning units. */
     float folding = 0.2f;      /**< Fold modulation depth, dimensionless. */
-    float twist = 4.0f;        /**< Twist applied to azimuth per fold, dimensionless. */
-    float alpha = 1.0f;        /**< Global trail opacity multiplier in [0, 1]. */
+    float twist =
+        4.0f; /**< Twist applied to azimuth per fold, dimensionless. */
+    float alpha = 1.0f; /**< Global trail opacity multiplier in [0, 1]. */
   } params;
 };
 

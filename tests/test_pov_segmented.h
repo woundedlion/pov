@@ -43,8 +43,10 @@ static_assert(segment_id_strap_count(8) == 3);
 static_assert(decode_segment_id(0b010, 8) == 5);
 static_assert(segment_x_col(true, 0, 288) == 144);
 static_assert(segment_clip(segment_map(0, 288, 4), true, 288, 4, 288).x0 == 0);
-static_assert(segment_clip(segment_map(0, 288, 4), true, 288, 4, 288).x1 == 144);
-static_assert(segment_clip(segment_map(2, 288, 4), true, 288, 4, 288).x0 == 144);
+static_assert(segment_clip(segment_map(0, 288, 4), true, 288, 4, 288).x1 ==
+              144);
+static_assert(segment_clip(segment_map(2, 288, 4), true, 288, 4, 288).x0 ==
+              144);
 static_assert(segment_clip(segment_map(1, 288, 4), true, 288, 4, 288).y0 == 72);
 
 /**
@@ -229,8 +231,7 @@ inline void check_segment_clips(int S, int N, int w) {
       // Half the width, one segment's row band.
       HS_EXPECT_EQ(c.x1 - c.x0, w / 2);
       HS_EXPECT_EQ(c.y1 - c.y0, PPS);
-      const int EXPECTED_Y0 =
-          m.y_step > 0 ? m.y_base : m.y_base - (PPS - 1);
+      const int EXPECTED_Y0 = m.y_step > 0 ? m.y_base : m.y_base - (PPS - 1);
       HS_EXPECT_EQ(c.y0, EXPECTED_Y0);
       // Arm B paints the opposite column half from arm A in the same window.
       HS_EXPECT_EQ(c.x0 == 0, m.arm_b ? !arm_a_left : arm_a_left);

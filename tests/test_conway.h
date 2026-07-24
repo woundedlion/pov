@@ -30,9 +30,12 @@ namespace hs_test {
 namespace conway_tests {
 
 /** @brief Scratch arena for the Conway operator's primary output mesh. */
-inline uint8_t conway_target_buf[256 * 1024]; /**< Comfortable budget for cube-scale ops. */
+inline uint8_t
+    conway_target_buf[256 *
+                      1024]; /**< Comfortable budget for cube-scale ops. */
 /** @brief Scratch arena for the Conway operator's temporary/intermediate mesh. */
-inline uint8_t conway_temp_buf[256 * 1024]; /**< Comfortable budget for cube-scale ops. */
+inline uint8_t
+    conway_temp_buf[256 * 1024]; /**< Comfortable budget for cube-scale ops. */
 
 // build_solid(), check_all_unit_vertices(), check_face_counts_consistent(),
 // and check_indices_in_range() live in tests/mesh_test_util.h.
@@ -55,8 +58,7 @@ inline Vector face_newell_normal(const PolyMesh &m, size_t face_idx_offset,
   Vector n(0, 0, 0);
   for (int k = 0; k < count; ++k) {
     const Vector &curr = m.vertices[m.faces[face_idx_offset + k]];
-    const Vector &next =
-        m.vertices[m.faces[face_idx_offset + (k + 1) % count]];
+    const Vector &next = m.vertices[m.faces[face_idx_offset + (k + 1) % count]];
     n.x += (curr.y - next.y) * (curr.z + next.z);
     n.y += (curr.z - next.z) * (curr.x + next.x);
     n.z += (curr.x - next.x) * (curr.y + next.y);
@@ -96,7 +98,8 @@ inline int count_inward_winding(const PolyMesh &m) {
       Vector n = face_newell_normal(m, offset, count);
       Vector c = face_centroid_pos(m, offset, count);
       // Skip degenerate normals (colinear vertices).
-      if (n.length() > 1e-6f && dot(n, c) <= 0.0f) ++bad;
+      if (n.length() > 1e-6f && dot(n, c) <= 0.0f)
+        ++bad;
     }
     offset += count;
   }
@@ -113,7 +116,9 @@ inline int count_inward_winding(const PolyMesh &m) {
  */
 inline int count_same_direction_edge_violations(const PolyMesh &m) {
   /** @brief A single directed edge from source vertex u to destination v. */
-  struct DirEdge { uint16_t u, v; };
+  struct DirEdge {
+    uint16_t u, v;
+  };
   size_t total_edges = 0;
   for (size_t i = 0; i < m.face_counts.size(); ++i)
     total_edges += m.face_counts[i];
@@ -132,14 +137,14 @@ inline int count_same_direction_edge_violations(const PolyMesh &m) {
     offset += count;
   }
 
-  std::sort(edges.begin(), edges.end(),
-            [](const DirEdge &a, const DirEdge &b) {
-              return a.u != b.u ? a.u < b.u : a.v < b.v;
-            });
+  std::sort(edges.begin(), edges.end(), [](const DirEdge &a, const DirEdge &b) {
+    return a.u != b.u ? a.u < b.u : a.v < b.v;
+  });
 
   int dup = 0;
   for (size_t i = 1; i < edges.size(); ++i) {
-    if (edges[i].u == edges[i - 1].u && edges[i].v == edges[i - 1].v) ++dup;
+    if (edges[i].u == edges[i - 1].u && edges[i].v == edges[i - 1].v)
+      ++dup;
   }
   return dup;
 }
@@ -199,7 +204,8 @@ inline void check_euler_genus0(const PolyMesh &m) {
     for (int k = 0; k < count; ++k) {
       uint16_t u = m.faces[offset + k];
       uint16_t v = m.faces[offset + (k + 1) % count];
-      if (u > v) std::swap(u, v);
+      if (u > v)
+        std::swap(u, v);
       edges.push_back({u, v});
     }
     offset += count;
@@ -209,7 +215,8 @@ inline void check_euler_genus0(const PolyMesh &m) {
   int E = 0;
   for (size_t i = 0; i < edges.size();) {
     size_t j = i;
-    while (j < edges.size() && edges[j] == edges[i]) ++j;
+    while (j < edges.size() && edges[j] == edges[i])
+      ++j;
     HS_EXPECT_EQ((int)(j - i), 2); // each edge bounds exactly two faces
     ++E;
     i = j;
@@ -257,15 +264,14 @@ inline std::map<int, int> face_type_histogram(const PolyMesh &m) {
  *          pentagon-faced Platonic solids. Each op gets a fresh target/temp
  *          pair with the seed rebuilt into temp, mirroring the per-op tests.
  */
-template <typename Solid>
-inline void check_euler_for_seed() {
+template <typename Solid> inline void check_euler_for_seed() {
 #define HS_EULER_OP(CALL)                                                      \
   do {                                                                         \
-    Arena target(conway_target_buf, sizeof(conway_target_buf));               \
+    Arena target(conway_target_buf, sizeof(conway_target_buf));                \
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));                      \
     PolyMesh seed;                                                             \
-    build_solid<Solid>(seed, temp);                                           \
-    check_euler_genus0(MeshOps::CALL);                                        \
+    build_solid<Solid>(seed, temp);                                            \
+    check_euler_genus0(MeshOps::CALL);                                         \
   } while (0)
 
   {
@@ -347,9 +353,9 @@ inline void test_normalize_pushes_to_unit_sphere() {
   m.vertices.bind(arena, 3);
   m.face_counts.bind(arena, 1);
   m.faces.bind(arena, 3);
-  m.vertices.push_back(Vector(3, 4, 0));     // length 5
-  m.vertices.push_back(Vector(0, 0, 7));     // length 7
-  m.vertices.push_back(Vector(2, 2, 2));     // length √12
+  m.vertices.push_back(Vector(3, 4, 0)); // length 5
+  m.vertices.push_back(Vector(0, 0, 7)); // length 7
+  m.vertices.push_back(Vector(2, 2, 2)); // length √12
   m.face_counts.push_back(3);
   m.faces.push_back(0);
   m.faces.push_back(1);
@@ -522,7 +528,8 @@ inline void test_truncate_t_over_half_crossed_cuts() {
   HS_EXPECT_EQ(tr.faces.size(), (size_t)(6 * 8 + 8 * 3));
 
   // Each primary face is doubled to count*2 = 8 sides; the 8 vertex faces are 3.
-  for (size_t fi = 0; fi < 6; ++fi) HS_EXPECT_EQ((int)tr.face_counts[fi], 8);
+  for (size_t fi = 0; fi < 6; ++fi)
+    HS_EXPECT_EQ((int)tr.face_counts[fi], 8);
 }
 
 // ---------------------------------------------------------------------------
@@ -606,8 +613,7 @@ inline void test_relax_preserves_topology() {
  *          stable. This is the quantity relax() drives down by pulling every edge
  *          toward the mesh-wide mean length.
  */
-template <typename MeshT>
-inline float edge_length_variance(const MeshT &m) {
+template <typename MeshT> inline float edge_length_variance(const MeshT &m) {
   const auto *fc = m.get_face_counts_data();
   const auto *faces = m.get_faces_data();
   const size_t F = m.get_face_counts_size();
@@ -824,14 +830,14 @@ inline void test_conway_composition_polarity() {
   // Each even-length composed operator returns in `temp`.
 #define HS_POLARITY_COMPOSED(CALL)                                             \
   do {                                                                         \
-    Arena target(conway_target_buf, sizeof(conway_target_buf));               \
+    Arena target(conway_target_buf, sizeof(conway_target_buf));                \
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));                      \
     PolyMesh seed;                                                             \
     build_solid<Solids::Cube>(seed, temp);                                     \
     PolyMesh out = MeshOps::CALL;                                              \
-    check_basic_invariants(out);                                              \
-    HS_EXPECT_TRUE(ptr_in_buffer(&out.vertices[0], tmp, tmp_n));              \
-    HS_EXPECT_FALSE(ptr_in_buffer(&out.vertices[0], tgt, tgt_n));             \
+    check_basic_invariants(out);                                               \
+    HS_EXPECT_TRUE(ptr_in_buffer(&out.vertices[0], tmp, tmp_n));               \
+    HS_EXPECT_FALSE(ptr_in_buffer(&out.vertices[0], tgt, tgt_n));              \
   } while (0)
 
   HS_POLARITY_COMPOSED(gyro(seed, target, temp));
@@ -893,16 +899,23 @@ inline void test_meta_is_kis_dual_ambo() {
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
     PolyMesh cube;
     build_solid<Solids::Cube>(cube, temp);
-    kda_verts = collect_vertices(
-        Solids::SolidBuilder(std::move(cube), target, temp).ambo().dual().kis().build());
+    kda_verts =
+        collect_vertices(Solids::SolidBuilder(std::move(cube), target, temp)
+                             .ambo()
+                             .dual()
+                             .kis()
+                             .build());
   }
   {
     Arena target(conway_target_buf, sizeof(conway_target_buf));
     Arena temp(conway_temp_buf, sizeof(conway_temp_buf));
     PolyMesh cube;
     build_solid<Solids::Cube>(cube, temp);
-    ka_verts = collect_vertices(
-        Solids::SolidBuilder(std::move(cube), target, temp).ambo().kis().build());
+    ka_verts =
+        collect_vertices(Solids::SolidBuilder(std::move(cube), target, temp)
+                             .ambo()
+                             .kis()
+                             .build());
   }
   HS_EXPECT_NEAR(max_vertex_delta(meta_verts, kda_verts), 0.0f, 1e-5f);
   HS_EXPECT_TRUE(max_vertex_delta(meta_verts, ka_verts) > 0.1f);
@@ -929,9 +942,10 @@ inline void test_snub_cube_is_well_formed() {
   PolyMesh s = MeshOps::snub(cube, target, temp);
 
   check_basic_invariants(s);
-  HS_EXPECT_EQ(s.vertices.size(), (size_t)24);             // one per half-edge
-  HS_EXPECT_EQ(s.face_counts.size(), (size_t)38);          // 6 + 8 + 2*12
-  HS_EXPECT_EQ(s.faces.size(), (size_t)(6 * 4 + 32 * 3));  // 6 quads + 32 triangles
+  HS_EXPECT_EQ(s.vertices.size(), (size_t)24);    // one per half-edge
+  HS_EXPECT_EQ(s.face_counts.size(), (size_t)38); // 6 + 8 + 2*12
+  HS_EXPECT_EQ(s.faces.size(),
+               (size_t)(6 * 4 + 32 * 3)); // 6 quads + 32 triangles
 
   auto faces = face_type_histogram(s);
   HS_EXPECT_EQ(faces.size(), (size_t)2);
@@ -961,7 +975,8 @@ inline void test_snub_twist_rotates_primary_faces() {
     PolyMesh cube;
     build_solid<Solids::Cube>(cube, temp);
     PolyMesh s0 = MeshOps::snub(cube, target, temp, 0.5f, 0.0f);
-    for (size_t i = 0; i < s0.vertices.size(); ++i) base.push_back(s0.vertices[i]);
+    for (size_t i = 0; i < s0.vertices.size(); ++i)
+      base.push_back(s0.vertices[i]);
 
     // Primary faces are emitted first, one per input face (all well-formed here).
     size_t prim = cube.get_face_counts_size();
@@ -969,7 +984,8 @@ inline void test_snub_twist_rotates_primary_faces() {
     for (size_t fi = 0; fi < s0.face_counts.size() && fi < prim; ++fi) {
       int cnt = s0.face_counts[fi];
       std::vector<uint16_t> ids;
-      for (int k = 0; k < cnt; ++k) ids.push_back(s0.faces[off + k]);
+      for (int k = 0; k < cnt; ++k)
+        ids.push_back(s0.faces[off + k]);
       primary_faces.push_back(ids);
       off += cnt;
     }
@@ -982,7 +998,8 @@ inline void test_snub_twist_rotates_primary_faces() {
     PolyMesh cube;
     build_solid<Solids::Cube>(cube, temp);
     PolyMesh s1 = MeshOps::snub(cube, target, temp, 0.5f, twist);
-    for (size_t i = 0; i < s1.vertices.size(); ++i) twisted.push_back(s1.vertices[i]);
+    for (size_t i = 0; i < s1.vertices.size(); ++i)
+      twisted.push_back(s1.vertices[i]);
   }
 
   HS_EXPECT_EQ(base.size(), twisted.size());
@@ -1003,7 +1020,8 @@ inline void test_snub_twist_rotates_primary_faces() {
       Vector e_base = base[a1] - base[a0];
       Vector e_twist = twisted[a1] - twisted[a0];
       HS_EXPECT_NEAR(e_twist.length(), e_base.length(), 3e-3f);
-      float ang = std::atan2(dot(cross(e_base, e_twist), n), dot(e_base, e_twist));
+      float ang =
+          std::atan2(dot(cross(e_base, e_twist), n), dot(e_base, e_twist));
       HS_EXPECT_NEAR(ang, twist, 5e-3f);
     }
   }
@@ -1227,4 +1245,3 @@ inline int run_conway_tests() {
 
 } // namespace conway_tests
 } // namespace hs_test
-

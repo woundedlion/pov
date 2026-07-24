@@ -262,8 +262,7 @@ inline void test_mutation_applies_function_of_eased_time() {
  */
 inline void test_mutation_duration_zero_finite() {
   float v = 0.0f;
-  Animation::Mutation m(
-      v, [](float e) { return e; }, 0, ease_linear);
+  Animation::Mutation m(v, [](float e) { return e; }, 0, ease_linear);
   m.step(fake_canvas());
   HS_EXPECT_TRUE(std::isfinite(v));
   HS_EXPECT_NEAR(v, 1.0f, 1e-3f);
@@ -486,18 +485,18 @@ struct Lerpable {
     v = a.v + (b.v - a.v) * t;
   }
 };
-static_assert(std::is_constructible_v<Animation::Lerp, Lerpable &,
-                                      const Lerpable &, const Lerpable &, int,
-                                      EasingFn>,
-              "Lerp must accept lvalue (effect-owned) start/target");
-static_assert(!std::is_constructible_v<Animation::Lerp, Lerpable &,
-                                       const Lerpable &&, const Lerpable &, int,
-                                       EasingFn>,
-              "Lerp must REJECT a temporary start (would dangle)");
-static_assert(!std::is_constructible_v<Animation::Lerp, Lerpable &,
-                                       const Lerpable &, const Lerpable &&, int,
-                                       EasingFn>,
-              "Lerp must REJECT a temporary target (would dangle)");
+static_assert(
+    std::is_constructible_v<Animation::Lerp, Lerpable &, const Lerpable &,
+                            const Lerpable &, int, EasingFn>,
+    "Lerp must accept lvalue (effect-owned) start/target");
+static_assert(
+    !std::is_constructible_v<Animation::Lerp, Lerpable &, const Lerpable &&,
+                             const Lerpable &, int, EasingFn>,
+    "Lerp must REJECT a temporary start (would dangle)");
+static_assert(
+    !std::is_constructible_v<Animation::Lerp, Lerpable &, const Lerpable &,
+                             const Lerpable &&, int, EasingFn>,
+    "Lerp must REJECT a temporary target (would dangle)");
 
 static_assert(std::is_constructible_v<Animation::MobiusFlow, MobiusParams &,
                                       const float &, const float &, int>,
@@ -603,7 +602,8 @@ inline void test_timeline_sequences_events_by_start_frame() {
   Timeline tl;
   float a = 0.0f, b = 0.0f;
   tl.add(0, Animation::Transition(a, 10.0f, 2, ease_linear)); // starts now
-  tl.add(3, Animation::Transition(b, 20.0f, 2, ease_linear)); // delayed 3 frames
+  tl.add(3,
+         Animation::Transition(b, 20.0f, 2, ease_linear)); // delayed 3 frames
 
   tl.step(fake_canvas()); // t=1
   HS_EXPECT_GT(a, 0.0f);
@@ -701,9 +701,12 @@ inline void test_timeline_cancel_removes_repeating_animation() {
 inline void test_timeline_compaction_preserves_later_events() {
   Timeline tl;
   float a = 0.0f, b = 0.0f, c = 0.0f;
-  tl.add(0, Animation::Transition(a, 10.0f, 1, ease_linear));  // completes at t=1
-  tl.add(0, Animation::Transition(b, 100.0f, 5, ease_linear)); // in-flight survivor
-  tl.add(0, Animation::Transition(c, 200.0f, 5, ease_linear)); // in-flight survivor
+  tl.add(0,
+         Animation::Transition(a, 10.0f, 1, ease_linear)); // completes at t=1
+  tl.add(0, Animation::Transition(b, 100.0f, 5,
+                                  ease_linear)); // in-flight survivor
+  tl.add(0, Animation::Transition(c, 200.0f, 5,
+                                  ease_linear)); // in-flight survivor
   HS_EXPECT_EQ(global_timeline_num_events, 3);
 
   tl.step(fake_canvas()); // t=1: a done+removed; b,c step once and shift down
@@ -739,7 +742,7 @@ inline void test_timeline_then_chains_follow_up_event() {
 
   tl.step(fake_canvas()); // t=1: a completes -> callback adds b (gap-filled in)
   HS_EXPECT_NEAR(a, 10.0f, 1e-3f);
-  HS_EXPECT_NEAR(b, 0.0f, 1e-6f);              // b added this frame, not yet run
+  HS_EXPECT_NEAR(b, 0.0f, 1e-6f); // b added this frame, not yet run
   HS_EXPECT_EQ(global_timeline_num_events, 1);
 
   tl.step(fake_canvas()); // t=2: the chained event runs and completes
@@ -806,9 +809,9 @@ inline void test_timeline_full_guard_rejects_overflow() {
 
   // The overflow event has its own target so a silent enqueue would show up.
   float rejected = 0.0f;
-  tl.add(0, Animation::Transition(rejected, 42.0f, 10, ease_linear)); // past full
-  HS_EXPECT_EQ(global_timeline_num_events,
-               Timeline::MAX_EVENTS);
+  tl.add(0,
+         Animation::Transition(rejected, 42.0f, 10, ease_linear)); // past full
+  HS_EXPECT_EQ(global_timeline_num_events, Timeline::MAX_EVENTS);
 
   tl.step(fake_canvas());
   HS_EXPECT_NEAR(rejected, 0.0f, 1e-6f); // never ran
@@ -822,7 +825,7 @@ inline void test_timeline_full_guard_rejects_overflow() {
  * on.
  */
 inline void test_orientation_upsample_then_collapse() {
-  Orientation<8> o; // identity, 1 frame
+  Orientation<8> o;                        // identity, 1 frame
   o.push(make_rotation(Z_AXIS, PI_F / 2)); // 2 frames: identity, +90 about Z
   HS_EXPECT_EQ(o.length(), static_cast<size_t>(2));
 
@@ -885,7 +888,8 @@ inline void test_motion_repeating_does_not_drift() {
   for (int c = 0; c < cycles; ++c) {
     for (int fr = 1; fr <= duration; ++fr) {
       tl.step(fake_canvas());
-      if (c == cycles - 1) late_heads[fr] = o.orient(node_v);
+      if (c == cycles - 1)
+        late_heads[fr] = o.orient(node_v);
     }
   }
 
@@ -1093,12 +1097,12 @@ inline void test_particle_system_spawn_initializes_and_steps() {
   HS_EXPECT_NEAR(p.velocity.y, vel.y, 0.0f);
   HS_EXPECT_NEAR(p.velocity.z, vel.z, 0.0f);
   HS_EXPECT_EQ(static_cast<int>(p.color_seed), 42);
-  HS_EXPECT_EQ(static_cast<int>(p.life), 120);       // == system max_life
+  HS_EXPECT_EQ(static_cast<int>(p.life), 120); // == system max_life
   HS_EXPECT_EQ(static_cast<int>(p.history_length()), 0);
 
   ps.step(fake_canvas());
   HS_EXPECT_EQ(static_cast<int>(ps.active()), 1);
-  HS_EXPECT_EQ(static_cast<int>(ps.pool[0].life), 119);        // life-- per step
+  HS_EXPECT_EQ(static_cast<int>(ps.pool[0].life), 119); // life-- per step
   HS_EXPECT_GT(static_cast<int>(ps.pool[0].history_length()), 0);
 }
 
@@ -1130,7 +1134,7 @@ inline void test_particle_system_attractor_kill_radius_boundary() {
   };
 
   HS_EXPECT_FALSE(survives(kr - 0.01f)); // inside the radius → killed
-  HS_EXPECT_TRUE(survives(kr));          // exactly at the radius → survives (strict <)
+  HS_EXPECT_TRUE(survives(kr)); // exactly at the radius → survives (strict <)
   HS_EXPECT_TRUE(survives(kr + 0.01f));
 }
 
@@ -1192,10 +1196,10 @@ inline void test_particle_system_signed_axis_one_step_equivalence() {
     const auto &b = specialized.pool[i];
     HS_EXPECT_EQ(a.color_seed, b.color_seed);
     HS_EXPECT_EQ(a.life, b.life);
-    max_position_error =
-        std::max(max_position_error, max_component_delta(a.position, b.position));
-    max_velocity_error =
-        std::max(max_velocity_error, max_component_delta(a.velocity, b.velocity));
+    max_position_error = std::max(max_position_error,
+                                  max_component_delta(a.position, b.position));
+    max_velocity_error = std::max(max_velocity_error,
+                                  max_component_delta(a.velocity, b.velocity));
     max_angle_error =
         std::max(max_angle_error, angle_between(a.position, b.position));
     max_norm_drift =
@@ -1246,12 +1250,11 @@ inline void test_particle_system_signed_axis_boundaries() {
 
   constexpr float KILL = 0.003f;
   constexpr float HORIZON = 0.2f;
-  for (float distance : {std::nextafter(KILL, 0.0f), KILL,
-                         std::nextafter(KILL,
-                                        std::numeric_limits<float>::infinity()),
-                         std::nextafter(HORIZON, 0.0f), HORIZON,
-                         std::nextafter(HORIZON,
-                                        std::numeric_limits<float>::infinity())})
+  for (float distance :
+       {std::nextafter(KILL, 0.0f), KILL,
+        std::nextafter(KILL, std::numeric_limits<float>::infinity()),
+        std::nextafter(HORIZON, 0.0f), HORIZON,
+        std::nextafter(HORIZON, std::numeric_limits<float>::infinity())})
     compare(at_chord_distance(distance), Vector(), KILL, HORIZON);
 
   for (const Vector &position : {
@@ -1283,8 +1286,8 @@ inline void test_particle_system_signed_axis_trajectory() {
   const Vector cube[] = {
       Vector(-1, -1, -1).normalized(), Vector(1, -1, -1).normalized(),
       Vector(1, 1, -1).normalized(),   Vector(-1, 1, -1).normalized(),
-      Vector(-1, -1, 1).normalized(), Vector(1, -1, 1).normalized(),
-      Vector(1, 1, 1).normalized(),   Vector(-1, 1, 1).normalized(),
+      Vector(-1, -1, 1).normalized(),  Vector(1, -1, 1).normalized(),
+      Vector(1, 1, 1).normalized(),    Vector(-1, 1, 1).normalized(),
   };
   for (int i = 0; i < COUNT; ++i) {
     const Vector pos = cube[i % 8];
@@ -1312,14 +1315,14 @@ inline void test_particle_system_signed_axis_trajectory() {
           max_velocity_error, max_component_delta(a.velocity, b.velocity));
       max_angle_error =
           std::max(max_angle_error, angle_between(a.position, b.position));
-      max_norm_drift = std::max(
-          max_norm_drift, std::abs(dot(a.position, a.position) - 1.0f));
+      max_norm_drift = std::max(max_norm_drift,
+                                std::abs(dot(a.position, a.position) - 1.0f));
     }
   }
   std::printf("axis trajectory steps=%d particles=%u pos=%.9g vel=%.9g "
               "angle=%.9g norm=%.9g\n",
-              STEPS, reference.active(), max_position_error,
-              max_velocity_error, max_angle_error, max_norm_drift);
+              STEPS, reference.active(), max_position_error, max_velocity_error,
+              max_angle_error, max_norm_drift);
   HS_EXPECT_LE(max_position_error, 1e-5f);
   HS_EXPECT_LE(max_velocity_error, 1e-5f);
   HS_EXPECT_LE(max_angle_error, 1e-3f);
@@ -1339,9 +1342,8 @@ inline void test_particle_system_signed_axis_trajectory() {
 inline void test_sprite_fade_in_plateau_fade_out_envelope() {
   std::vector<float> ops;
   const int dur = 10, fade_in = 3, fade_out = 3;
-  Animation::Sprite s(
-      [&](Canvas &, float o) { ops.push_back(o); }, dur, fade_in, ease_linear,
-      fade_out, ease_linear);
+  Animation::Sprite s([&](Canvas &, float o) { ops.push_back(o); }, dur,
+                      fade_in, ease_linear, fade_out, ease_linear);
   for (int i = 0; i < dur; ++i)
     s.step(fake_canvas()); // observed at t = 1..10
 
@@ -1366,10 +1368,10 @@ inline void test_sprite_fade_in_plateau_fade_out_envelope() {
  */
 inline void test_sprite_overlapping_fades_stay_continuous() {
   std::vector<float> ops;
-  const int dur = 10, fade_in = 8, fade_out = 8; // 8 + 8 > 10 => overlap, scaled to 5 + 5
-  Animation::Sprite s(
-      [&](Canvas &, float o) { ops.push_back(o); }, dur, fade_in, ease_linear,
-      fade_out, ease_linear);
+  const int dur = 10, fade_in = 8,
+            fade_out = 8; // 8 + 8 > 10 => overlap, scaled to 5 + 5
+  Animation::Sprite s([&](Canvas &, float o) { ops.push_back(o); }, dur,
+                      fade_in, ease_linear, fade_out, ease_linear);
   for (int i = 0; i < dur; ++i)
     s.step(fake_canvas()); // observed at t = 1..10
 
@@ -1396,13 +1398,17 @@ inline void test_sprite_paused_holds_frame() {
   float last_op = -1.0f;
   // No fade in/out => held opacity is full.
   Animation::Sprite s(
-      [&](Canvas &, float o) { draws++; last_op = o; }, /*duration=*/3,
+      [&](Canvas &, float o) {
+        draws++;
+        last_op = o;
+      },
+      /*duration=*/3,
       /*fade_in=*/0, ease_linear, /*fade_out=*/0, ease_linear, &paused);
 
   for (int i = 0; i < 10; ++i)
     s.step(fake_canvas());
-  HS_EXPECT_FALSE(s.done());          // timer never advanced while paused
-  HS_EXPECT_EQ(draws, 10);            // but it kept drawing every frame
+  HS_EXPECT_FALSE(s.done()); // timer never advanced while paused
+  HS_EXPECT_EQ(draws, 10);   // but it kept drawing every frame
   HS_EXPECT_NEAR(last_op, 1.0f, 1e-6f);
 
   paused = false;
@@ -1692,8 +1698,8 @@ inline void test_shockwave_orders_by_distance_from_origin() {
   HS_EXPECT_NEAR(wave.face_offset(origin, 0, 0), 1.0f, 1e-2f);
   HS_EXPECT_NEAR(wave.face_offset(-origin, 0, 0), 0.0f, 1e-2f);
   // Equidistant ring sits mid-order.
-  HS_EXPECT_NEAR(wave.face_offset(cross(origin, X_AXIS).normalized(), 0, 0), 0.5f,
-                 2e-2f);
+  HS_EXPECT_NEAR(wave.face_offset(cross(origin, X_AXIS).normalized(), 0, 0),
+                 0.5f, 2e-2f);
 }
 
 /**
@@ -1750,7 +1756,8 @@ inline void test_spin_flip_warp_is_rigid() {
   HS_EXPECT_NEAR(dot(wa, wb), dot(a, b), 1e-3f);
   HS_EXPECT_NEAR(wa.length(), 1.0f, 1e-3f);
   HS_EXPECT_NEAR((spin.warp(a, 1.0f) - a).length(), 0.0f, 1e-3f);
-  HS_EXPECT_NEAR(spin.opacity(0.0f), 1.0f, 1e-6f); // never fades: blur hides the swap
+  HS_EXPECT_NEAR(spin.opacity(0.0f), 1.0f,
+                 1e-6f); // never fades: blur hides the swap
 }
 
 /**
@@ -1800,8 +1807,7 @@ inline void test_deep_tween_global_t_spans_unit_interval() {
   }
 
   std::vector<float> gts;
-  deep_tween(trail,
-             [&](const Quaternion &, float gt) { gts.push_back(gt); });
+  deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
 
   HS_EXPECT_EQ(gts.size(), static_cast<size_t>(M + (N - 1) * (M - 1)));
   HS_EXPECT_NEAR(gts.front(), 0.0f, 1e-6f);
@@ -1830,8 +1836,7 @@ inline void test_deep_tween_collapsed_newest_frame_reaches_one() {
   trail.record(still);
 
   std::vector<float> gts;
-  deep_tween(trail,
-             [&](const Quaternion &, float gt) { gts.push_back(gt); });
+  deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
 
   // The collapsed tail frame is dropped, so the count matches the two
   // contentful frames (M=3 sub-frames each): M + (contentful-1)*(M-1).
@@ -1858,8 +1863,7 @@ inline void test_deep_tween_all_collapsed_reaches_one() {
   }
 
   std::vector<float> gts;
-  deep_tween(trail,
-             [&](const Quaternion &, float gt) { gts.push_back(gt); });
+  deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
 
   HS_EXPECT_EQ(gts.size(), static_cast<size_t>(1));
   HS_EXPECT_NEAR(gts.back(), 1.0f, 1e-6f);
@@ -1883,9 +1887,8 @@ inline void test_deep_tween_frames_groups_flat_emission() {
   }
 
   std::vector<std::pair<Quaternion, float>> flat;
-  deep_tween(trail, [&](const Quaternion &q, float t) {
-    flat.emplace_back(q, t);
-  });
+  deep_tween(trail,
+             [&](const Quaternion &q, float t) { flat.emplace_back(q, t); });
 
   size_t idx = 0;
   int frames = 0;
@@ -1932,8 +1935,7 @@ inline void test_deep_tween_interior_motionless_frame_no_gap() {
   }
 
   std::vector<float> gts;
-  deep_tween(trail,
-             [&](const Quaternion &, float gt) { gts.push_back(gt); });
+  deep_tween(trail, [&](const Quaternion &, float gt) { gts.push_back(gt); });
 
   const float expected[] = {0.0f, 0.25f, 0.5f, 0.75f, 1.0f};
   HS_EXPECT_EQ(gts.size(), static_cast<size_t>(5));
@@ -2032,8 +2034,9 @@ inline void test_quantized_vector_trail_roundtrip_and_ring() {
 inline void build_octahedron(PolyMesh &mesh, Arena &arena) {
   static const Vector verts[6] = {{1, 0, 0},  {-1, 0, 0}, {0, 1, 0},
                                   {0, -1, 0}, {0, 0, 1},  {0, 0, -1}};
-  static const uint16_t tris[8][3] = {{0, 2, 4}, {2, 1, 4}, {1, 3, 4}, {3, 0, 4},
-                                      {2, 0, 5}, {1, 2, 5}, {3, 1, 5}, {0, 3, 5}};
+  static const uint16_t tris[8][3] = {{0, 2, 4}, {2, 1, 4}, {1, 3, 4},
+                                      {3, 0, 4}, {2, 0, 5}, {1, 2, 5},
+                                      {3, 1, 5}, {0, 3, 5}};
   mesh.vertices.bind(arena, 6);
   mesh.face_counts.bind(arena, 8);
   mesh.faces.bind(arena, 24);
@@ -2194,10 +2197,10 @@ inline GenerativePalette make_palette(CPixel ka, CPixel kb, CPixel kc) {
  * target keys at completion and reports done() only on the final frame.
  */
 inline void test_colorwipe_reaches_target_keys() {
-  GenerativePalette from = make_palette(CPixel(10, 20, 30), CPixel(40, 50, 60),
-                                        CPixel(70, 80, 90));
-  GenerativePalette to = make_palette(CPixel(200, 0, 0), CPixel(0, 200, 0),
-                                      CPixel(0, 0, 200));
+  GenerativePalette from =
+      make_palette(CPixel(10, 20, 30), CPixel(40, 50, 60), CPixel(70, 80, 90));
+  GenerativePalette to =
+      make_palette(CPixel(200, 0, 0), CPixel(0, 200, 0), CPixel(0, 0, 200));
   GenerativePalette::Snapshot target = to.snapshot();
 
   const int duration = 6;
@@ -2210,10 +2213,14 @@ inline void test_colorwipe_reaches_target_keys() {
 
   wipe.step(fake_canvas()); // t == duration: amount == 1 -> exact target keys
   HS_EXPECT_TRUE(wipe.done());
-  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.r), static_cast<int>(target.a.r));
-  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.g), static_cast<int>(target.a.g));
-  HS_EXPECT_EQ(static_cast<int>(from.snapshot().b.b), static_cast<int>(target.b.b));
-  HS_EXPECT_EQ(static_cast<int>(from.snapshot().c.r), static_cast<int>(target.c.r));
+  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.r),
+               static_cast<int>(target.a.r));
+  HS_EXPECT_EQ(static_cast<int>(from.snapshot().a.g),
+               static_cast<int>(target.a.g));
+  HS_EXPECT_EQ(static_cast<int>(from.snapshot().b.b),
+               static_cast<int>(target.b.b));
+  HS_EXPECT_EQ(static_cast<int>(from.snapshot().c.r),
+               static_cast<int>(target.c.r));
 }
 
 /**
@@ -2221,10 +2228,10 @@ inline void test_colorwipe_reaches_target_keys() {
  * construction: editing the source palette before the first step is honored.
  */
 inline void test_colorwipe_snapshots_on_first_step() {
-  GenerativePalette from = make_palette(CPixel(10, 10, 10), CPixel(10, 10, 10),
-                                        CPixel(10, 10, 10));
-  GenerativePalette to = make_palette(CPixel(250, 250, 250), CPixel(250, 250, 250),
-                                      CPixel(250, 250, 250));
+  GenerativePalette from =
+      make_palette(CPixel(10, 10, 10), CPixel(10, 10, 10), CPixel(10, 10, 10));
+  GenerativePalette to = make_palette(
+      CPixel(250, 250, 250), CPixel(250, 250, 250), CPixel(250, 250, 250));
   const int duration = 4;
   Animation::ColorWipe wipe(from, to, duration, ease_linear);
 
@@ -2281,7 +2288,8 @@ inline void test_mobiuswarp_bind_scale_reads_live() {
   Animation::MobiusWarp warp(params, /*scale=*/0.0f, duration, /*repeat=*/false,
                              ease_linear);
   warp.bind_scale(live);
-  warp.step(fake_canvas()); // captured scale is 0, so any motion comes from live
+  warp.step(
+      fake_canvas()); // captured scale is 0, so any motion comes from live
   HS_EXPECT_GT(std::abs(params.b.re) + std::abs(params.b.im), 1e-4f);
 }
 
@@ -2296,8 +2304,9 @@ inline void test_mobiuswarp_circular_traces_radius() {
   Animation::MobiusWarpCircular warp(params, scale, duration, /*repeat=*/false,
                                      ease_linear);
   warp.step(fake_canvas()); // |b| sits on the scale-radius circle every frame
-  HS_EXPECT_NEAR(std::sqrt(params.b.re * params.b.re + params.b.im * params.b.im),
-                 scale, 1e-4f);
+  HS_EXPECT_NEAR(
+      std::sqrt(params.b.re * params.b.re + params.b.im * params.b.im), scale,
+      1e-4f);
 
   for (int i = 1; i < duration; ++i)
     warp.step(fake_canvas());
@@ -2398,8 +2407,8 @@ inline void test_random_walk_stays_unit_and_travels() {
   Orientation<4> o; // identity
   FastNoiseLite noise;
   Animation::RandomWalk<288, 4> walk(
-      o, Y_AXIS, noise,
-      Animation::RandomWalk<288, 4>::Options::Energetic(), /*seed=*/1234);
+      o, Y_AXIS, noise, Animation::RandomWalk<288, 4>::Options::Energetic(),
+      /*seed=*/1234);
 
   const Vector probe = X_AXIS;
   Vector prev = o.orient(probe);
@@ -2459,9 +2468,9 @@ inline void test_random_timer_fires_within_range() {
     int frame = 0;
   } st; // one capture keeps the callback inside TimerFn's inplace budget
   tl.add(0, Animation::RandomTimer(3, 7, [&st](Canvas &) {
-              st.fires++;
-              st.fire_frame = st.frame;
-            }));
+           st.fires++;
+           st.fire_frame = st.frame;
+         }));
   for (st.frame = 1; st.frame <= 12; ++st.frame)
     tl.step(fake_canvas());
   HS_EXPECT_EQ(st.fires, 1);
@@ -2691,4 +2700,3 @@ inline int run_animation_tests() {
 
 } // namespace animation_tests
 } // namespace hs_test
-

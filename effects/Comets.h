@@ -30,7 +30,8 @@ struct CometsWhiteBox;
  */
 template <int W, int H> class Comets : public Effect {
 public:
-  static constexpr int TRAIL_LENGTH = 115; /**< Number of past orientations retained in the comet trail. */
+  static constexpr int TRAIL_LENGTH =
+      115; /**< Number of past orientations retained in the comet trail. */
 
   /**
    * @brief Comet head state: world orientation, recorded trail, and body axis.
@@ -39,9 +40,11 @@ public:
    *          body axis).
    */
   struct Node {
-    Orientation<16> orientation; /**< Current world orientation of the comet head. */
-    Animation::OrientationTrail<Orientation<16>, TRAIL_LENGTH> trail; /**< Recorded trail of past orientations. */
-    Vector v; /**< Local direction vector drawn as the comet body axis. */
+    Orientation<16>
+        orientation; /**< Current world orientation of the comet head. */
+    Animation::OrientationTrail<Orientation<16>, TRAIL_LENGTH>
+        trail; /**< Recorded trail of past orientations. */
+    Vector v;  /**< Local direction vector drawn as the comet body axis. */
 
     /**
      * @brief Constructs a node with its body axis aligned to the Y axis.
@@ -84,15 +87,14 @@ public:
     motion_ = timeline.add_get(
         0, Animation::Motion<W, 16>(node->orientation, path,
                                     (int)params.cycle_duration, true));
-    cycle_timer_ = timeline.add_get(
-        0, Animation::PeriodicTimer(
-               2 * (int)params.cycle_duration,
-               [this](Canvas &) {
-                 functions.next();
-                 update_path();
-                 update_palette();
-               },
-               true));
+    cycle_timer_ = timeline.add_get(0, Animation::PeriodicTimer(
+                                           2 * (int)params.cycle_duration,
+                                           [this](Canvas &) {
+                                             functions.next();
+                                             update_path();
+                                             update_palette();
+                                           },
+                                           true));
   }
 
   /**
@@ -212,7 +214,8 @@ private:
     wipe_pending_ = true;
   }
 
-  static constexpr int WIPE_FRAMES = 48; /**< Duration of a palette cross-fade ColorWipe, in frames. */
+  static constexpr int WIPE_FRAMES =
+      48; /**< Duration of a palette cross-fade ColorWipe, in frames. */
 
   // init() allocates the comet Node (holds the OrientationTrail) and one baked
   // palette LUT from the persistent arena.
@@ -226,11 +229,14 @@ private:
 
   FastNoiseLite noise; /**< Noise source driving the head's RandomWalk. */
   Timeline timeline; /**< Animation timeline owning all scheduled animations. */
-  Pipeline<W, H> filters; /**< Render filter pipeline applied to drawn fragments. */
+  Pipeline<W, H>
+      filters; /**< Render filter pipeline applied to drawn fragments. */
   ProceduralPath path; /**< Current path function the comet head traces. */
   Orientation<> orientation; /**< World orientation walked by the RandomWalk. */
-  GenerativePalette palette; /**< Active color palette (mutated by an in-flight ColorWipe). */
-  BakedPalette baked_palette; /**< LUT-baked copy of `palette` sampled by the shader. */
+  GenerativePalette
+      palette; /**< Active color palette (mutated by an in-flight ColorWipe). */
+  BakedPalette
+      baked_palette; /**< LUT-baked copy of `palette` sampled by the shader. */
   /** @brief Authored Lissajous parameter table backing `functions`.
    *  @details Each row is a LissajousParams {m1, m2, a, domain}: m1 axial (X/Z)
    *           frequency, m2 orbital (Y) frequency, a phase shift in radians,
@@ -253,22 +259,32 @@ private:
   /** @brief Cyclic selector over FUNCTIONS for the active path/palette entry. */
   Presets<LissajousParams, 12> functions{FUNCTIONS};
   Node *node = nullptr; /**< Arena-allocated comet head state. */
-  GenerativePalette next_palette_; /**< Target palette a ColorWipe fades toward. */
-  Animation::Motion<W, 16> *motion_ = nullptr; /**< Handle to the infinite Motion driving the head along `path`. */
-  Animation::PeriodicTimer *cycle_timer_ = nullptr; /**< Handle to the timer that rolls path/palette over. */
-  int last_cycle_dur_ = -1; /**< Last applied Cycle Dur, in frames; -1 forces a first apply. */
-  int wipe_frames_remaining_ = 0; /**< Frames left to rebake `palette` for the in-flight wipe. */
-  bool wipe_pending_ = false; /**< Wipe armed this frame; it first steps next frame. */
+  GenerativePalette
+      next_palette_; /**< Target palette a ColorWipe fades toward. */
+  Animation::Motion<W, 16> *motion_ =
+      nullptr; /**< Handle to the infinite Motion driving the head along `path`. */
+  Animation::PeriodicTimer *cycle_timer_ =
+      nullptr; /**< Handle to the timer that rolls path/palette over. */
+  int last_cycle_dur_ =
+      -1; /**< Last applied Cycle Dur, in frames; -1 forces a first apply. */
+  int wipe_frames_remaining_ =
+      0; /**< Frames left to rebake `palette` for the in-flight wipe. */
+  bool wipe_pending_ =
+      false; /**< Wipe armed this frame; it first steps next frame. */
 
   /**
    * @brief User-tunable parameters exposed as effect sliders.
    */
   struct Params {
     float alpha = 1.0f; /**< Overall trail opacity multiplier in [0, 1]. */
-    float thickness = 2.1f * 2 * PI_F / W; /**< Comet body half-width, in radians; default scaled to ≈2.1 px at this build's W for legibility. */
-    float cycle_duration = 80.0f; /**< Duration of one motion cycle, in frames. */
-    bool debug_bb = false; /**< When true, draws the fragment bounding box for debugging. */
-  } params; /**< Live parameter block bound to the registered sliders. */
+    float thickness =
+        2.1f * 2 * PI_F /
+        W; /**< Comet body half-width, in radians; default scaled to ≈2.1 px at this build's W for legibility. */
+    float cycle_duration =
+        80.0f; /**< Duration of one motion cycle, in frames. */
+    bool debug_bb =
+        false; /**< When true, draws the fragment bounding box for debugging. */
+  } params;    /**< Live parameter block bound to the registered sliders. */
 };
 
 #include "core/engine/effect_registry.h"

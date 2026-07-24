@@ -445,10 +445,10 @@ template <int H> static inline float y_to_screen_row(float y) {
  * (no axis) keeps the endpoint rows.
  */
 template <int W, int H>
-static __attribute__((always_inline)) inline void geodesic_row_span_rows(float ra, float rb, const Vector &a,
-                                          const Vector &b,
-                                          const GeodesicEdgeSpan &es,
-                                          float &row_lo, float &row_hi) {
+static __attribute__((always_inline)) inline void
+geodesic_row_span_rows(float ra, float rb, const Vector &a, const Vector &b,
+                       const GeodesicEdgeSpan &es, float &row_lo,
+                       float &row_hi) {
   row_lo = std::min(ra, rb);
   row_hi = std::max(ra, rb);
   if (!es.have_axis)
@@ -516,8 +516,7 @@ static inline void planar_row_span(const Vector &a, const Vector &b,
     row_lo = std::min(row_lo, r);
     row_hi = std::max(row_hi, r);
   }
-  float margin =
-      es.gap_arc * (static_cast<float>(H_VIRT - 1) / PI_F) + 1.0f;
+  float margin = es.gap_arc * (static_cast<float>(H_VIRT - 1) / PI_F) + 1.0f;
   row_lo -= margin;
   row_hi += margin;
 }
@@ -558,8 +557,8 @@ static inline void edge_row_span(const Vector &a, const Vector &b,
  * @param col_len Output: arc length in columns (may reach W = full width).
  */
 template <int W>
-static __attribute__((always_inline)) inline void finish_col_span(float s_f, float len_f, int &col_s,
-                                   int &col_len) {
+static __attribute__((always_inline)) inline void
+finish_col_span(float s_f, float len_f, int &col_s, int &col_len) {
   constexpr int COL_PAD = 2;
   const int lo = static_cast<int>(floorf(s_f)) - COL_PAD;
   const int hi = static_cast<int>(ceilf(s_f + len_f)) + COL_PAD;
@@ -682,9 +681,10 @@ static inline void finish_col_span_one_period(float start, float length,
  * @return Visibility, or EXACT_FALLBACK for numerically sensitive geometry.
  */
 template <int W, int H>
-static inline RawGeodesicGateResult raw_geodesic_edge_gate(
-    const ClipRegion &cr, const ClipRegion::XClip &xc, int band_len, float ra,
-    float rb, float ca, float cb, const Vector &a, const Vector &b) {
+static inline RawGeodesicGateResult
+raw_geodesic_edge_gate(const ClipRegion &cr, const ClipRegion::XClip &xc,
+                       int band_len, float ra, float rb, float ca, float cb,
+                       const Vector &a, const Vector &b) {
   constexpr float END_GUARD2 = 4.0e-6f;
   constexpr float AXIS_GUARD2 = 1.0e-4f;
   constexpr float TANGENT_GUARD2 = 1.0e-8f;
@@ -703,12 +703,10 @@ static inline RawGeodesicGateResult raw_geodesic_edge_gate(
   float row_hi = std::max(ra, rb);
   const float t0 = c.z * a.x - c.x * a.z;
   const float t1 = c.z * b.x - c.x * b.z;
-  if (t0 * t0 <= TANGENT_GUARD2 * L2 ||
-      t1 * t1 <= TANGENT_GUARD2 * L2)
+  if (t0 * t0 <= TANGENT_GUARD2 * L2 || t1 * t1 <= TANGENT_GUARD2 * L2)
     return RawGeodesicGateResult::EXACT_FALLBACK;
   if ((t0 > 0.0f) != (t1 > 0.0f)) {
-    const float peak =
-        sqrtf(std::max(0.0f, (L2 - cy2) / L2));
+    const float peak = sqrtf(std::max(0.0f, (L2 - cy2) / L2));
     const float rp = y_to_screen_row<H>(t0 > 0.0f ? peak : -peak);
     row_lo = std::min(row_lo, rp);
     row_hi = std::max(row_hi, rp);
@@ -773,7 +771,8 @@ static inline bool planar_col_span(const Vector &a, const Basis &planar_basis,
   float s_f, len_f;
 
   {
-    float min_sp2 = 1.0f - a.y * a.y; // squared sin(phi), minimized over samples
+    float min_sp2 =
+        1.0f - a.y * a.y; // squared sin(phi), minimized over samples
     float cum = 0.0f, cum_lo = 0.0f, cum_hi = 0.0f;
     float prev = ca;
     auto step = [&](const Vector &s) {
@@ -861,8 +860,8 @@ template <int W, int H>
 static inline float screen_step(const Vector &pos, const Vector &tan,
                                 float base_step) {
   constexpr int H_VIRT = H + hs::H_OFFSET;
-  const float KX = W / (2.0f * PI_F);     // columns per radian of longitude
-  const float KY = (H_VIRT - 1) / PI_F;   // rows per radian of colatitude
+  const float KX = W / (2.0f * PI_F);   // columns per radian of longitude
+  const float KY = (H_VIRT - 1) / PI_F; // rows per radian of colatitude
   // sin²φ = 1 - y²; floored so the pole (sin φ → 0) yields a finite, large
   // velocity (hence the min-clamped step) rather than a divide-by-zero.
   const float sin2 = std::max(1e-7f, 1.0f - pos.y * pos.y);
@@ -963,8 +962,9 @@ static constexpr uint8_t EDGE_CLASSIFIED = 1u << 2;
  * cutoff. The gate runs before shading, so it tests tap geometry only.
  */
 template <int W, int H>
-static inline bool antialiased_dot_visible_in_clip(
-    const ClipRegion &cr, const ClipRegion::XClip &xc, float row, float col) {
+static inline bool antialiased_dot_visible_in_clip(const ClipRegion &cr,
+                                                   const ClipRegion::XClip &xc,
+                                                   float row, float col) {
   const float y_floor = floorf(row);
   const int y0 = static_cast<int>(y_floor);
   const int y1 = y0 + 1;
@@ -990,10 +990,10 @@ static inline bool antialiased_dot_visible_in_clip(
   auto visible = [&](int x, int y, float weight) {
     return weight > 1e-8f && cr.contains_y(y) && !xc.clipped(x);
   };
-  return (y0_ok && (visible(x0, y0, (1.0f - xs) * wy0) ||
-                    visible(x1, y0, xs * wy0))) ||
-         (y1_ok && (visible(x0, y1, (1.0f - xs) * wy1) ||
-                    visible(x1, y1, xs * wy1)));
+  return (y0_ok &&
+          (visible(x0, y0, (1.0f - xs) * wy0) || visible(x1, y0, xs * wy0))) ||
+         (y1_ok &&
+          (visible(x0, y1, (1.0f - xs) * wy1) || visible(x1, y1, xs * wy1)));
 }
 
 /**
@@ -1015,11 +1015,10 @@ static inline bool antialiased_dot_visible_in_clip(
  * the deferred shader — both must agree exactly or the two paths diverge.
  */
 template <int W, int H, typename PipelineT>
-static inline bool edge_visible_in_clip(PipelineT &pipeline,
-                                        const ClipRegion &cr,
-                                        const ClipRegion::XClip &xc,
-                                        int band_len, const Vector &a,
-                                        const Vector &b, const Basis *pb) {
+static inline bool
+edge_visible_in_clip(PipelineT &pipeline, const ClipRegion &cr,
+                     const ClipRegion::XClip &xc, int band_len, const Vector &a,
+                     const Vector &b, const Basis *pb) {
   auto pred = [&](const Vector &ea, const Vector &eb, const Basis *bp) {
     float row_lo, row_hi;
     int col_s, col_len;
@@ -1051,9 +1050,10 @@ static inline bool edge_visible_in_clip(PipelineT &pipeline,
   } else {
     // A filter pipeline (has any_crosses_segments) must answer the clip
     // query; a signature drift would else silently fall back to raw culling.
-    static_assert(!requires { PipelineT::any_crosses_segments; },
-                  "pipeline exposes any_crosses_segments but not "
-                  "could_intersect_clip (signature drift)");
+    static_assert(
+        !requires { PipelineT::any_crosses_segments; },
+        "pipeline exposes any_crosses_segments but not "
+        "could_intersect_clip (signature drift)");
     return pred(a, b, pb);
   }
 }
@@ -1098,15 +1098,13 @@ static inline bool edge_visible_in_clip(PipelineT &pipeline,
  */
 HS_O3_BEGIN
 template <int W, int H, typename PipelineT = PipelineRef>
-static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
-                      const Fragments &points,
-                      FragmentShaderFn fragment_shader,
-                      bool close_loop = false,
-                      const Basis *planar_basis = nullptr,
-                      bool omit_end = false,
-                      const uint8_t *edge_visible = nullptr,
-                      const float *point_rows = nullptr,
-                      const float *point_cols = nullptr) {
+static void
+rasterize(PipelineT &source_pipeline, Canvas &canvas, const Fragments &points,
+          FragmentShaderFn fragment_shader, bool close_loop = false,
+          const Basis *planar_basis = nullptr, bool omit_end = false,
+          const uint8_t *edge_visible = nullptr,
+          const float *point_rows = nullptr,
+          const float *point_cols = nullptr) {
   if constexpr (!std::same_as<std::decay_t<PipelineT>, PipelineRef> &&
                 !pipeline_direct_raster_path<PipelineT>()) {
     PipelineRef erased(source_pipeline);
@@ -1162,8 +1160,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       const bool seam = dot(a, pcenter) < -COS_PLANAR_ANTIPODE ||
                         dot(b, pcenter) < -COS_PLANAR_ANTIPODE;
       seg_seam_cache.push_back(seam ? 1 : 0);
-      float seg = seam ? angle_between(a, b)
-                       : planar_arc_length(a, b, *planar_basis);
+      float seg =
+          seam ? angle_between(a, b) : planar_arc_length(a, b, *planar_basis);
       seg_arc_cache.push_back(seg);
       total_arc += seg;
     }
@@ -1228,8 +1226,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
         fl.color = Color4(0, 0, 0, 0);
         set_arc_uv(fl, total_dist);
         fragment_shader(next.pos, fl);
-        pipeline.plot(canvas, next.pos, fl.color.color, fl.age,
-                      fl.color.alpha);
+        pipeline.plot(canvas, next.pos, fl.color.color, fl.age, fl.color.alpha);
       }
       return;
     }
@@ -1288,8 +1285,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       pipeline.plot(canvas, start_pos, f.color.color, f.age, f.color.alpha);
     }
 
-    size_t loop_limit =
-        omitLast ? steps_cache.size() - 1 : steps_cache.size();
+    size_t loop_limit = omitLast ? steps_cache.size() - 1 : steps_cache.size();
     float current_dist = 0.0f;
 
     for (size_t j = 0; j < loop_limit; j++) {
@@ -1367,8 +1363,8 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
       const bool visible =
           edge_visible != nullptr
               ? (edge_visible[i] & EDGE_VISIBLE) != 0
-              : edge_visible_in_clip<W, H>(
-                    pipeline, cr, xc, band_len, curr.pos, next.pos,
+              : edge_visible_in_clip<W, H>(pipeline, cr, xc, band_len, curr.pos,
+                                           next.pos,
                                            use_planar ? planar_basis : nullptr);
       if (!visible)
         continue;
@@ -1379,8 +1375,7 @@ static void rasterize(PipelineT &source_pipeline, Canvas &canvas,
     // planar basis), so plot it without building the sampler. A predicate
     // false negative falls through and re-evaluates exactly.
     const bool one_dot =
-        edge_visible != nullptr &&
-                (edge_visible[i] & EDGE_CLASSIFIED) != 0
+        edge_visible != nullptr && (edge_visible[i] & EDGE_CLASSIFIED) != 0
             ? (edge_visible[i] & EDGE_ONE_DOT) != 0
             : edge_fits_one_dot<W, H>(curr.pos, next.pos);
     if (!override_uv && one_dot) {
@@ -1410,10 +1405,12 @@ HS_O3_END
  * so most primitives only spell out `.capacity`.
  */
 struct FragmentDrawParams {
-  size_t capacity;            /**< Fragment buffer reservation (per-primitive). */
-  bool close_loop = false;    /**< Passed to rasterize (closes last→first edge). */
-  bool omit_end = false;      /**< Skip the final endpoint plot of an open line, so abutting arcs tile without a double-plot. */
-  const Basis *planar_basis = nullptr; /**< Planar projection basis (null = geodesic). */
+  size_t capacity;         /**< Fragment buffer reservation (per-primitive). */
+  bool close_loop = false; /**< Passed to rasterize (closes last→first edge). */
+  bool omit_end =
+      false; /**< Skip the final endpoint plot of an open line, so abutting arcs tile without a double-plot. */
+  const Basis *planar_basis =
+      nullptr; /**< Planar projection basis (null = geodesic). */
 };
 
 /**
@@ -1949,7 +1946,8 @@ struct PlanarPolygon {
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides + 2),
-                          .close_loop = true, .planar_basis = &planar_basis},
+                          .close_loop = true,
+                          .planar_basis = &planar_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
                          });
@@ -2025,12 +2023,12 @@ struct SphericalPolygon {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
-                         {.capacity = static_cast<size_t>(num_sides + 2),
-                          .close_loop = true},
-                         [&](Fragments &points) {
-                           sample(points, basis, radius, num_sides, phase);
-                         });
+    draw_fragments<W, H>(
+        pipeline, canvas, vertex_shader, fragment_shader,
+        {.capacity = static_cast<size_t>(num_sides + 2), .close_loop = true},
+        [&](Fragments &points) {
+          sample(points, basis, radius, num_sides, phase);
+        });
   }
 
   /**
@@ -2416,8 +2414,8 @@ struct DistortedRing {
       while (c < CHUNKS && (vis & (1u << c)))
         ++c;
       bake_run(c0 * V, c * V);
-      draw_arc<W, H>(pipeline, canvas, basis, radius, shift_fn,
-                     fragment_shader, c0 * V, c * V, phase);
+      draw_arc<W, H>(pipeline, canvas, basis, radius, shift_fn, fragment_shader,
+                     c0 * V, c * V, phase);
     }
   }
 };
@@ -2556,11 +2554,13 @@ struct Star {
                    float radius, int num_sides,
                    FragmentShaderFn fragment_shader,
                    VertexShaderRef vertex_shader, float phase = 0) {
-    Basis planar_basis = planar_chart_basis(get_antipode(basis, radius).first.v);
+    Basis planar_basis =
+        planar_chart_basis(get_antipode(basis, radius).first.v);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),
-                          .close_loop = true, .planar_basis = &planar_basis},
+                          .close_loop = true,
+                          .planar_basis = &planar_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
                          });
@@ -2655,11 +2655,13 @@ struct Flower {
     // Center the chart on the antipode pole, opposite the petal ring: projecting
     // the constant-radius ring through the far-pole chart bows its straight edges
     // outward into petals.
-    Basis planar_basis = planar_chart_basis(get_antipode(basis, radius).first.v);
+    Basis planar_basis =
+        planar_chart_basis(get_antipode(basis, radius).first.v);
 
     draw_fragments<W, H>(pipeline, canvas, vertex_shader, fragment_shader,
                          {.capacity = static_cast<size_t>(num_sides * 2 + 2),
-                          .close_loop = true, .planar_basis = &planar_basis},
+                          .close_loop = true,
+                          .planar_basis = &planar_basis},
                          [&](Fragments &points) {
                            sample(points, basis, radius, num_sides, phase);
                          });
@@ -2706,8 +2708,8 @@ struct CartesianQuadrantClip {
  * @return Enabled thresholds only for the four hardware quadrant shapes.
  */
 template <int W, int H>
-static CartesianQuadrantClip make_cartesian_quadrant_clip(
-    const ClipRegion &cr) {
+static CartesianQuadrantClip
+make_cartesian_quadrant_clip(const ClipRegion &cr) {
   CartesianQuadrantClip q;
   if (cr.w != W || cr.h != H || cr.margin < 0 || W % 2 != 0 || H % 2 != 0 ||
       cr.x_end - cr.x_start != W / 2 ||
@@ -2731,9 +2733,9 @@ static CartesianQuadrantClip make_cartesian_quadrant_clip(
 
   // finish_col_span includes ceil's boundary column after its two-column pad.
   constexpr int COL_FOOTPRINT = 3;
-  const float half_width = PI_F * 0.5f +
-                           static_cast<float>(cr.margin + COL_FOOTPRINT) *
-                               (2.0f * PI_F / static_cast<float>(W));
+  const float half_width =
+      PI_F * 0.5f + static_cast<float>(cr.margin + COL_FOOTPRINT) *
+                        (2.0f * PI_F / static_cast<float>(W));
   if (half_width >= PI_F)
     return CartesianQuadrantClip{};
   q.meridian_sign = cr.x_start == 0 ? 1.0f : -1.0f;
@@ -2749,8 +2751,9 @@ static CartesianQuadrantClip make_cartesian_quadrant_clip(
  * @return Rejecting halfspace, or exact fallback for every uncertain case.
  */
 HS_O3_BEGIN
-static CartesianTrailGateResult cartesian_quadrant_trail_gate(
-    const CartesianQuadrantClip &clip, const Fragments &trail) {
+static CartesianTrailGateResult
+cartesian_quadrant_trail_gate(const CartesianQuadrantClip &clip,
+                              const Fragments &trail) {
   if (!clip.active || trail.size() < 2)
     return CartesianTrailGateResult::EXACT_FALLBACK;
 
@@ -2778,8 +2781,8 @@ static CartesianTrailGateResult cartesian_quadrant_trail_gate(
 }
 HS_O3_END
 
-static inline void count_cartesian_trail_gate_result(
-    CartesianTrailGateResult result) {
+static inline void
+count_cartesian_trail_gate_result(CartesianTrailGateResult result) {
 #if defined(HS_PROFILE_ENABLE) && defined(HS_PROFILE_CARTESIAN_COUNTS)
   static hs::CycleCounter latitude("plot_ps_cartesian_latitude_reject");
   static hs::CycleCounter meridian("plot_ps_cartesian_meridian_reject");
@@ -3126,9 +3129,10 @@ struct Mesh {
     // render chain, tight DTCM stack). Held in scratch_arena_b so the per-edge
     // scratch_arena_a scopes below keep their headroom.
     ScratchScope visited_guard(scratch_arena_b);
-    auto &visited = *new (scratch_arena_b.allocate(
-        sizeof(TriangularBitset<DEDUP_CAPACITY>),
-        alignof(TriangularBitset<DEDUP_CAPACITY>))) TriangularBitset<DEDUP_CAPACITY>();
+    auto &visited = *new (
+        scratch_arena_b.allocate(sizeof(TriangularBitset<DEDUP_CAPACITY>),
+                                 alignof(TriangularBitset<DEDUP_CAPACITY>)))
+                        TriangularBitset<DEDUP_CAPACITY>();
 
     for_each_unique_edge(mesh, visited, [&](int u, int v) {
       // mesh.vertices[] only asserts in bounds (stripped on device), so guard the
@@ -3178,9 +3182,10 @@ struct Mesh {
     // output `edges` lives in a separate persistent arena, so scratch_arena_b
     // cannot disturb it.
     ScratchScope visited_guard(scratch_arena_b);
-    auto &visited = *new (scratch_arena_b.allocate(
-        sizeof(TriangularBitset<DEDUP_CAPACITY>),
-        alignof(TriangularBitset<DEDUP_CAPACITY>))) TriangularBitset<DEDUP_CAPACITY>();
+    auto &visited = *new (
+        scratch_arena_b.allocate(sizeof(TriangularBitset<DEDUP_CAPACITY>),
+                                 alignof(TriangularBitset<DEDUP_CAPACITY>)))
+                        TriangularBitset<DEDUP_CAPACITY>();
 
     for_each_unique_edge(mesh, visited, [&](int u, int v) {
       edges.push_back({(uint16_t)u, (uint16_t)v});
@@ -3204,11 +3209,10 @@ struct Mesh {
    *        cost across the two meshes of a transition.
    */
   template <int W, int H, typename MeshT, typename PipelineT = PipelineRef>
-  static void draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
-                   const ArenaVector<Edge> &edges,
-                   FragmentShaderFn fragment_shader,
-                   VertexShaderRef vertex_shader = {},
-                   const PixelMask *mask = nullptr) {
+  static void
+  draw(PipelineT &pipeline, Canvas &canvas, const MeshT &mesh,
+       const ArenaVector<Edge> &edges, FragmentShaderFn fragment_shader,
+       VertexShaderRef vertex_shader = {}, const PixelMask *mask = nullptr) {
     for (size_t ei = 0; ei < edges.size(); ++ei) {
       if (mask && !mask->owns(edges[ei].u, edges[ei].v))
         continue;
@@ -3301,8 +3305,8 @@ struct ParticleSystem {
       {
         HS_PROFILE(plot_ps_tween);
         p.history.tween([&](const Vector &v, float t) {
-          trail.emplace_back(Fragment{v, t, 0.0f, v2, particle_life,
-                                      1.0f, 0.0f, Color4(0, 0, 0, 0)});
+          trail.emplace_back(Fragment{v, t, 0.0f, v2, particle_life, 1.0f, 0.0f,
+                                      Color4(0, 0, 0, 0)});
           if (deferred_shader)
             orig.push_back(v);
         });
@@ -3343,8 +3347,7 @@ struct ParticleSystem {
                 cartesian_quadrant_trail_gate(cartesian_clip, trail);
           }
           count_cartesian_trail_gate_result(cartesian_result);
-          if (cartesian_result !=
-              CartesianTrailGateResult::EXACT_FALLBACK)
+          if (cartesian_result != CartesianTrailGateResult::EXACT_FALLBACK)
             continue;
 
           // No stage re-emits edges, so the predicate sees the raw points:
@@ -3416,8 +3419,7 @@ struct ParticleSystem {
               int col_s, col_len;
               finish_col_span<W>(cols[0] + cum_lo, cum_hi - cum_lo, col_s,
                                  col_len);
-              if (!ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len,
-                                            W))
+              if (!ClipRegion::arcs_overlap(xc.rs, band_len, col_s, col_len, W))
                 continue;
             }
           }

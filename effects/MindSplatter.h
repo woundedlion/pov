@@ -31,8 +31,7 @@ public:
       : Effect(W, H,
                {.strobe = true,
                 .full_frame = decltype(filters)::any_crosses_segments}),
-        presets{PRESETS},
-        particle_system() {}
+        presets{PRESETS}, particle_system() {}
 
   /**
    * @brief Registers params, builds the particle system and presets timeline,
@@ -48,20 +47,20 @@ public:
     static constexpr size_t POOL_BYTES =
         sizeof(Animation::Particle<TRAIL_LEN>) * NUM_PARTICLES;
     static constexpr size_t AUX_RESERVE_BYTES = 6 * 1024;
-    static_assert(POOL_BYTES + AUX_RESERVE_BYTES <=
-                      DEVICE_ARENA_BYTES - SCRATCH_BYTES,
-                  "MindSplatter particle pool + palette/aux overflow the device "
-                  "persistent arena");
+    static_assert(
+        POOL_BYTES + AUX_RESERVE_BYTES <= DEVICE_ARENA_BYTES - SCRATCH_BYTES,
+        "MindSplatter particle pool + palette/aux overflow the device "
+        "persistent arena");
 
     register_animated_param("Friction", &params.friction, 0.5f, 1.0f);
     register_animated_param("Well Str", &params.well_strength, 0.0f, 20.0f);
     register_animated_param("Init Spd", &params.initial_speed, 0.0f, 0.1f);
     register_animated_param("Ang Spd", &params.angular_speed, 0.0f, 1.0f);
     register_readonly_param("Particles", &params.active_count, 0.0f,
-                          (float)NUM_PARTICLES);
+                            (float)NUM_PARTICLES);
 
-    timeline.add(
-        0, Animation::RandomWalk<W, 4, true>(orientation, Y_AXIS, noise));
+    timeline.add(0,
+                 Animation::RandomWalk<W, 4, true>(orientation, Y_AXIS, noise));
 
     auto preset_timer = Animation::PeriodicTimer(
         160,
@@ -138,8 +137,8 @@ private:
   typedef Solids::Octahedron AttractSolid;
 
   typedef Animation::ParticleSystem<W, NUM_PARTICLES, TRAIL_LEN,
-                                    EmitSolid::NUM_VERTS, AttractSolid::NUM_VERTS,
-                                    true>
+                                    EmitSolid::NUM_VERTS,
+                                    AttractSolid::NUM_VERTS, true>
       ParticleSystem;
 
   /**
@@ -148,11 +147,12 @@ private:
    *          are driven by the preset Lerp or by user input when paused.
    */
   struct Params {
-    float friction = 0.85f;       /**< Velocity retention per step in [0.5, 1]. */
-    float well_strength = 1.0f;   /**< Attractor pull strength in [0, 20]. */
+    float friction = 0.85f;     /**< Velocity retention per step in [0.5, 1]. */
+    float well_strength = 1.0f; /**< Attractor pull strength in [0, 20]. */
     float initial_speed = 0.025f; /**< Spawn speed in [0, 0.1] (units/step). */
-    float angular_speed = 0.2f;   /**< Emission phase rate in [0, 1] (rad/emit). */
-    float active_count = 0.0f;    /**< Live particle count (engine-written). */
+    float angular_speed =
+        0.2f;                  /**< Emission phase rate in [0, 1] (rad/emit). */
+    float active_count = 0.0f; /**< Live particle count (engine-written). */
 
     /**
      * @brief Linearly interpolates each field between two preset snapshots.
@@ -207,9 +207,9 @@ private:
                 "MindSplatter hole shader requires the six signed axes");
 
   static inline float octahedral_hole_alpha(const Vector &p,
-                                             float cos_event_horizon) {
-    const float m = std::max(
-        std::abs(p.x), std::max(std::abs(p.y), std::abs(p.z)));
+                                            float cos_event_horizon) {
+    const float m =
+        std::max(std::abs(p.x), std::max(std::abs(p.y), std::abs(p.z)));
     if (m < cos_event_horizon)
       return 1.0f;
     const float d = fast_acos(hs::clamp(m, -1.0f, 1.0f));
@@ -225,14 +225,11 @@ private:
       const float qx = q.v.x;
       const float qy = q.v.y;
       const float qz = q.v.z;
-      r0 = Vector(1.0f - 2.0f * (qy * qy + qz * qz),
-                  2.0f * (qx * qy - qr * qz),
+      r0 = Vector(1.0f - 2.0f * (qy * qy + qz * qz), 2.0f * (qx * qy - qr * qz),
                   2.0f * (qx * qz + qr * qy));
-      r1 = Vector(2.0f * (qx * qy + qr * qz),
-                  1.0f - 2.0f * (qx * qx + qz * qz),
+      r1 = Vector(2.0f * (qx * qy + qr * qz), 1.0f - 2.0f * (qx * qx + qz * qz),
                   2.0f * (qy * qz - qr * qx));
-      r2 = Vector(2.0f * (qx * qz - qr * qy),
-                  2.0f * (qy * qz + qr * qx),
+      r2 = Vector(2.0f * (qx * qz - qr * qy), 2.0f * (qy * qz + qr * qx),
                   1.0f - 2.0f * (qx * qx + qy * qy));
     }
 
@@ -271,10 +268,22 @@ private:
   // applies v <- friction*v + impulse, dragging velocity before the attractor
   // impulse.
   static constexpr std::array<PresetEntry<Params>, 4> PRESETS{{
-      {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.2f}},
-      {{.friction = 0.85f, .well_strength = 0.85f, .initial_speed = 0.025f, .angular_speed = 0.52f}},
-      {{.friction = 0.9645f, .well_strength = 16.280001f, .initial_speed = 0.1f, .angular_speed = 1.0f}},
-      {{.friction = 0.93f, .well_strength = 1.74f, .initial_speed = 0.1f, .angular_speed = 1.0f}},
+      {{.friction = 0.85f,
+        .well_strength = 0.85f,
+        .initial_speed = 0.025f,
+        .angular_speed = 0.2f}},
+      {{.friction = 0.85f,
+        .well_strength = 0.85f,
+        .initial_speed = 0.025f,
+        .angular_speed = 0.52f}},
+      {{.friction = 0.9645f,
+        .well_strength = 16.280001f,
+        .initial_speed = 0.1f,
+        .angular_speed = 1.0f}},
+      {{.friction = 0.93f,
+        .well_strength = 1.74f,
+        .initial_speed = 0.1f,
+        .angular_speed = 1.0f}},
   }};
   static_assert(preset_in_ranges(PRESETS[0].params) &&
                     preset_in_ranges(PRESETS[1].params) &&
@@ -312,8 +321,8 @@ private:
    */
   std::array<Basis, EmitSolid::NUM_VERTS> emitter_basis_;
 
-  MobiusParams mobius;      /**< Current Mobius warp parameters. */
-  float warp_scale = 0.6f;  /**< Magnitude of each warp animation. */
+  MobiusParams mobius;     /**< Current Mobius warp parameters. */
+  float warp_scale = 0.6f; /**< Magnitude of each warp animation. */
 #ifdef HS_TEST_BUILD
   bool reference_orientation = false;
   bool reference_color_seed_lookup = false;

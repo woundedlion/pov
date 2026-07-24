@@ -90,12 +90,12 @@ inline Pixel plain_fade(const Pixel &p, float fade, const Style &) {
  */
 struct Style {
   // --- Lerpable scalar params ---
-  float fade      = 0.95f;
+  float fade = 0.95f;
   float hue_shift = 0.0f;
   float amplitude = 0.5f;
   float frequency = 0.125f;
-  float speed     = 1.0f;
-  float scale     = 4.0f;
+  float speed = 1.0f;
+  float scale = 4.0f;
 
   // --- Function pointers (snap during lerp) ---
   SpaceFn space_fn = &noise_warp;
@@ -132,14 +132,14 @@ struct Style {
    * degrade noise_warp to identity).
    */
   void lerp(const Style &a, const Style &b, float t) {
-    fade      = hs::lerp(a.fade,      b.fade,      t);
+    fade = hs::lerp(a.fade, b.fade, t);
     hue_shift = hs::lerp(a.hue_shift, b.hue_shift, t);
     amplitude = hs::lerp(a.amplitude, b.amplitude, t);
     frequency = hs::lerp(a.frequency, b.frequency, t);
-    speed     = hs::lerp(a.speed,     b.speed,     t);
-    scale     = hs::lerp(a.scale,     b.scale,     t);
-    space_fn   = t < 0.5f ? a.space_fn   : b.space_fn;
-    color_fn   = t < 0.5f ? a.color_fn   : b.color_fn;
+    speed = hs::lerp(a.speed, b.speed, t);
+    scale = hs::lerp(a.scale, b.scale, t);
+    space_fn = t < 0.5f ? a.space_fn : b.space_fn;
+    color_fn = t < 0.5f ? a.color_fn : b.color_fn;
     downsample = t < 0.5f ? a.downsample : b.downsample;
   }
 
@@ -167,11 +167,12 @@ struct Style {
    * speed, and scale, then calls NoiseParams::sync().
    */
   void sync_noise() const {
-    if (!noise) return;
+    if (!noise)
+      return;
     noise->amplitude = amplitude;
     noise->frequency = frequency;
-    noise->speed     = speed;
-    noise->scale     = scale;
+    noise->speed = speed;
+    noise->scale = scale;
     noise->sync();
   }
 
@@ -191,8 +192,8 @@ struct Style {
    * @return The SlowFire preset Style.
    */
   static constexpr Style SlowFire() {
-    return {0.8732f, 0.0167f, 1.56f, 0.5297f, 0.1f, 50.0f, &noise_warp,
-            &hue_fade};
+    return {0.8732f, 0.0167f, 1.56f,       0.5297f,
+            0.1f,    50.0f,   &noise_warp, &hue_fade};
   }
 
   /**
@@ -200,8 +201,8 @@ struct Style {
    * @return The EnergeticFire preset Style.
    */
   static constexpr Style EnergeticFire() {
-    return {0.8732f, 0.0167f, 1.56f, 0.22087f, 0.9f, 50.0f, &noise_warp,
-            &hue_fade};
+    return {0.8732f, 0.0167f, 1.56f,       0.22087f,
+            0.9f,    50.0f,   &noise_warp, &hue_fade};
   }
 
   /**
@@ -210,7 +211,8 @@ struct Style {
    * @return The SlowTwist preset Style.
    */
   static constexpr Style SlowTwist() {
-    return {0.8158f, 0.041f, 6.36f, 0.21f, 0.0f, 2.1459f, &noise_warp, &hue_fade};
+    return {0.8158f, 0.041f,  6.36f,       0.21f,
+            0.0f,    2.1459f, &noise_warp, &hue_fade};
   }
 
   /**
@@ -234,8 +236,8 @@ struct Style {
    * @return The SlowDust preset Style.
    */
   static constexpr Style SlowDust() {
-    return {0.83952f, 0.0167f, 1.56f, 0.07237f, 0.6f, 50.0f, &noise_warp,
-            &hue_fade};
+    return {0.83952f, 0.0167f, 1.56f,       0.07237f,
+            0.6f,     50.0f,   &noise_warp, &hue_fade};
   }
 
   /**
@@ -243,8 +245,8 @@ struct Style {
    * @return The WavyTrails preset Style.
    */
   static constexpr Style WavyTrails() {
-    return {0.7257f, 0.0722f, 1.95f, 0.01f, 5.0f, 50.0f, &noise_warp,
-            &hue_fade};
+    return {0.7257f, 0.0722f, 1.95f,       0.01f,
+            5.0f,    50.0f,   &noise_warp, &hue_fade};
   }
 
   /**
@@ -294,7 +296,8 @@ struct Style {
    * @return The Melting preset Style.
    */
   static constexpr Style Melting() {
-    return {0.8158f, 0.0766f, 6.36f, 0.014f, 1.005f, 42.365f, &melt_warp, &hue_fade};
+    return {0.8158f, 0.0766f, 6.36f,      0.014f,
+            1.005f,  42.365f, &melt_warp, &hue_fade};
   }
 
   /**
@@ -302,7 +305,8 @@ struct Style {
    * @return The Swirling preset Style.
    */
   static constexpr Style Swirling() {
-    return {0.8158f, 0.0f, 6.36f, 0.014f, 1.465f, 42.365f, &melt_warp, &plain_fade};
+    return {0.8158f, 0.0f,    6.36f,      0.014f,
+            1.465f,  42.365f, &melt_warp, &plain_fade};
   }
 };
 
@@ -323,7 +327,8 @@ static_assert(Style::SlowTwist().fade == 0.8158f &&
 // --- Deferred inline definitions (Style is now complete) ----------------------
 
 inline Vector noise_warp(const Vector &v, const Style &s) {
-  if (!s.noise) return v;
+  if (!s.noise)
+    return v;
   return noise_transform(v, *s.noise);
 }
 
@@ -355,13 +360,15 @@ inline Vector melt_warp(const Vector &v, const Style &s) {
  * @details Single source for the built-in hue-fade color math so hue_fade() and
  *          the flush() fast path that bypasses it cannot drift.
  */
-HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g, float b) {
+HS_O3_FN inline Pixel hue_fade_apply(const float k[9], float r, float g,
+                                     float b) {
   LMS lms = linear_rgb_to_lms(r, g, b);
   float cl, cm, cs;
   fast_cbrt3(lms.l, lms.m, lms.s, cl, cm, cs);
   float rr, gg, bb;
   lms_cbrt_transform_rgb(k, cl, cm, cs, rr, gg, bb);
-  return Pixel(float_to_pixel16(rr), float_to_pixel16(gg), float_to_pixel16(bb));
+  return Pixel(float_to_pixel16(rr), float_to_pixel16(gg),
+               float_to_pixel16(bb));
 }
 
 /**

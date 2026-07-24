@@ -41,8 +41,7 @@ constexpr int DEFAULT_H = 144;
  *          write-by-name that round-trips to the same index without disturbing
  *          order. This is the core correctness check per effect.
  */
-template <template <int, int> class E>
-inline bool check_one(const char *) {
+template <template <int, int> class E> inline bool check_one(const char *) {
   reset_globals();
 
   E<DEFAULT_W, DEFAULT_H> effect;
@@ -109,7 +108,8 @@ inline bool check_one(const char *) {
   HS_EXPECT_EQ(views2.size(), views.size());
   HS_EXPECT_NEAR(views2[target].value, newv, 1e-3f);
   for (size_t k = 0; k < views2.size(); ++k)
-    HS_EXPECT_EQ(std::string_view(views2[k].name), std::string_view(views[k].name));
+    HS_EXPECT_EQ(std::string_view(views2[k].name),
+                 std::string_view(views[k].name));
   return true;
 }
 
@@ -200,15 +200,30 @@ inline void check_stability_one(std::vector<hs_wasm::ParamView> &views,
 inline void check_roster_order_pinned() {
   // Independent hand-maintained copy of the intended roster order. Must NOT be
   // generated from HS_EFFECT_LIST, or the comparison becomes a tautology.
-  static const char *const GOLDEN_ROSTER[] = {
-      "BZReactionDiffusion", "ChaoticStrings",      "Comets",
-      "DisplacementField",   "DreamBalls",          "Dynamo",
-      "Flyby",               "GnomonicStars",       "GSReactionDiffusion",
-      "HankinSolids",        "HopfFibration",       "IslamicStars",
-      "Liquid2D",            "MeshFeedback",        "MindSplatter",
-      "MobiusGrid",          "PetalFlow",           "Raymarch",
-      "RingShower",          "RingSpin",            "ShapeShifter",
-      "SphericalHarmonics",  "Thrusters",           "Voronoi"};
+  static const char *const GOLDEN_ROSTER[] = {"BZReactionDiffusion",
+                                              "ChaoticStrings",
+                                              "Comets",
+                                              "DisplacementField",
+                                              "DreamBalls",
+                                              "Dynamo",
+                                              "Flyby",
+                                              "GnomonicStars",
+                                              "GSReactionDiffusion",
+                                              "HankinSolids",
+                                              "HopfFibration",
+                                              "IslamicStars",
+                                              "Liquid2D",
+                                              "MeshFeedback",
+                                              "MindSplatter",
+                                              "MobiusGrid",
+                                              "PetalFlow",
+                                              "Raymarch",
+                                              "RingShower",
+                                              "RingSpin",
+                                              "ShapeShifter",
+                                              "SphericalHarmonics",
+                                              "Thrusters",
+                                              "Voronoi"};
   // Actual roster, expanded straight from the X-macro source of truth.
   static const char *const ACTUAL_ROSTER[] = {
 #define HS_EFFECT_NAME(name) #name,
@@ -234,7 +249,7 @@ inline int run_param_marshal_tests() {
 #define HS_PARAM_ONE(name)                                                     \
   do {                                                                         \
     ++rt_total;                                                                \
-    if (check_one<name>(#name))                                               \
+    if (check_one<name>(#name))                                                \
       ++rt_covered;                                                            \
   } while (0);
   HS_EFFECT_LIST(HS_PARAM_ONE)

@@ -103,9 +103,10 @@ constexpr int32_t circ_dist(int32_t a, int32_t b, int32_t w) {
  * keeps every difference far below the wrap period.
  */
 struct Config {
-  int32_t W = 288;                         /**< Columns per revolution. */
-  uint32_t cycles_per_half_rev = 37500000; /**< Timebase constant (spec §4.1). */
-  uint32_t glitch_filter_cycles = 60000;   /**< Min edge spacing (~100 µs). */
+  int32_t W = 288; /**< Columns per revolution. */
+  uint32_t cycles_per_half_rev =
+      37500000;                          /**< Timebase constant (spec §4.1). */
+  uint32_t glitch_filter_cycles = 60000; /**< Min edge spacing (~100 µs). */
 
   // Symbol wire (spec §5.2): pitches/timeouts in columns.
   int32_t pulse_pitch_cols = 2;  /**< Boundary-burst pulse pitch (> mask M). */
@@ -113,14 +114,15 @@ struct Config {
   int32_t gap_timeout_cols = 4;  /**< Quiet time that terminates a burst. */
 
   // Acceptance gate (spec §5.3).
-  int32_t gate_cols = 4;       /**< G: max plausible snap correction (LOCKED). */
+  int32_t gate_cols = 4; /**< G: max plausible snap correction (LOCKED). */
   int32_t reject_fallback = 4; /**< R: consecutive rejections before ACQUIRE. */
   int32_t acquire_quiet_cols = 16; /**< Quiet-before guard for ACQUIRE snaps. */
 
   // Content layer (spec §6).
-  uint32_t revs_per_effect = 960; /**< Effect duration in revolutions (120 s). */
-  int32_t epoch_repeats = 3;      /**< EPOCH redundancy repeats (spec §6.3). */
-  uint32_t refractory_revs = 16;  /**< EPOCH dedup window (spec §6.1). */
+  uint32_t revs_per_effect =
+      960;                       /**< Effect duration in revolutions (120 s). */
+  int32_t epoch_repeats = 3;     /**< EPOCH redundancy repeats (spec §6.3). */
+  uint32_t refractory_revs = 16; /**< EPOCH dedup window (spec §6.1). */
   /**
    * @brief K: the construction window, the last K revolutions before the
    * commit.
@@ -129,7 +131,7 @@ struct Config {
    * in lockstep with the full K-rev construction budget (spec §6.1, §6.3.1).
    */
   uint32_t commit_revs = 2;
-  uint32_t beacon_period_revs = 16;            /**< Beacon cadence (spec §6.4). */
+  uint32_t beacon_period_revs = 16; /**< Beacon cadence (spec §6.4). */
   int32_t beacon_interdigit_timeout_cols = 24; /**< Stale-frame reset bound. */
   int32_t effect_count = 1; /**< Roster length (epoch wraps mod this). */
   /**
@@ -234,14 +236,15 @@ struct Config {
    */
   constexpr bool valid() const {
     return W > 0 && W % 2 == 0 && cycles_per_half_rev > 0 && gate_cols > 0 &&
-           gate_cols < W / 4 && reject_fallback > 0 && glitch_filter_cycles > 0 &&
-           pulse_pitch_cols > 0 && gap_timeout_cols > pulse_pitch_cols &&
-           beacon_pitch_cols > 0 && gap_timeout_cols > beacon_pitch_cols &&
+           gate_cols < W / 4 && reject_fallback > 0 &&
+           glitch_filter_cycles > 0 && pulse_pitch_cols > 0 &&
+           gap_timeout_cols > pulse_pitch_cols && beacon_pitch_cols > 0 &&
+           gap_timeout_cols > beacon_pitch_cols &&
            // maybe_schedule_beacon emits only in [W/4, W/2), so the worst-case
            // beacon span must clear W/4 or no beacon is ever scheduled.
-           beacon_span_cols() < W / 4 &&
-           acquire_quiet_cols > 0 && beacon_interdigit_timeout_cols > 0 &&
-           effect_count > 0 && effect_count <= 64 && commit_revs > 0 &&
+           beacon_span_cols() < W / 4 && acquire_quiet_cols > 0 &&
+           beacon_interdigit_timeout_cols > 0 && effect_count > 0 &&
+           effect_count <= 64 && commit_revs > 0 &&
            // Gate epoch_repeats >= 0 first: a negative value casts to a huge
            // uint32_t and wraps the refractory bound below.
            epoch_repeats >= 0 &&
@@ -454,7 +457,8 @@ public:
    * device brackets this call in IRQ-off exactly as it did the split pair, but
    * the window can no longer be opened by an undisciplined caller.
    */
-  bool try_claim(uint32_t now, uint32_t gap_timeout_cycles, BurstSnapshot *out) {
+  bool try_claim(uint32_t now, uint32_t gap_timeout_cycles,
+                 BurstSnapshot *out) {
     if (count_ == 0 || (now - last_cycles_) < gap_timeout_cycles)
       return false;
     *out = BurstSnapshot{count_, first_cycles_, last_cycles_};
@@ -514,7 +518,8 @@ private:
   uint32_t count_ = 0;
   uint32_t first_cycles_ = 0;
   uint32_t last_cycles_ = 0;
-  uint32_t prior_cycles_ = 0; /**< Last accepted edge ever (glitch filter ref). */
+  uint32_t prior_cycles_ =
+      0; /**< Last accepted edge ever (glitch filter ref). */
   bool have_prior_ = false;
 };
 
@@ -531,16 +536,18 @@ struct Telemetry {
   uint32_t symbols_rejected_gate = 0;     /**< §5.3 plausibility rejections. */
   uint32_t symbols_discarded_invalid = 0; /**< Invalid pulse counts (§5.2). */
   uint32_t beacons_ok = 0;
-  uint32_t beacons_rejected = 0;          /**< Checksum/digit-count failures. */
-  uint32_t beacon_index_corrections = 0;  /**< Missed-epoch fixes (§6.3.2). */
+  uint32_t beacons_rejected = 0;         /**< Checksum/digit-count failures. */
+  uint32_t beacon_index_corrections = 0; /**< Missed-epoch fixes (§6.3.2). */
   uint32_t beacon_rev_mismatches = 0;
   uint32_t epochs_refractory_ignored = 0;
   uint32_t lock_transitions = 0; /**< ACQUIRE↔LOCKED edges. */
   uint32_t flips = 0;
-  uint32_t emit_censored = 0;    /**< Master skipped a late boundary symbol. */
-  uint32_t emit_aborted = 0;     /**< Master truncated a burst mid-emission. */
-  uint32_t beacons_overrun_dropped = 0; /**< Stale overrun beacon dropped at a boundary. */
-  uint32_t max_coast_halves = 0; /**< Longest run of half-revs without a snap. */
+  uint32_t emit_censored = 0; /**< Master skipped a late boundary symbol. */
+  uint32_t emit_aborted = 0;  /**< Master truncated a burst mid-emission. */
+  uint32_t beacons_overrun_dropped =
+      0; /**< Stale overrun beacon dropped at a boundary. */
+  uint32_t max_coast_halves =
+      0; /**< Longest run of half-revs without a snap. */
 };
 
 // ── Layer 1: the flywheel timebase (spec §4) ────────────────────────────────
@@ -554,7 +561,7 @@ enum class LockState : uint8_t { ACQUIRE, LOCKED };
  * @brief A locally-crossed boundary, reported by Flywheel::fold().
  */
 struct Crossing {
-  bool crossed = false;              /**< True if a boundary was crossed. */
+  bool crossed = false;               /**< True if a boundary was crossed. */
   Boundary boundary = Boundary::NONE; /**< Which boundary was crossed. */
   uint32_t at_cycles = 0; /**< The exact (timebase) instant of the boundary. */
 };
@@ -587,10 +594,11 @@ public:
     // position() reinterprets (at - epoch_cycles_) as int32, so the elapsed term
     // must never reach 2^31 cycles. Require at least MIN_SAFE_HALF_REVS half-revs
     // of coast to fit inside that window.
-    HS_CHECK(period_ > 0 &&
-                 period_ <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS,
-             "Flywheel: cycles_per_half_rev too large — position()'s int32 "
-             "elapsed window would overflow before MIN_SAFE_HALF_REVS of coast");
+    HS_CHECK(
+        period_ > 0 &&
+            period_ <= static_cast<uint32_t>(INT32_MAX) / MIN_SAFE_HALF_REVS,
+        "Flywheel: cycles_per_half_rev too large — position()'s int32 "
+        "elapsed window would overflow before MIN_SAFE_HALF_REVS of coast");
   }
 
   /**
@@ -626,10 +634,10 @@ public:
     // sized the int32 cast for. Check the unsigned magnitude before narrowing: a
     // forward elapsed past the window wraps to a spurious small-negative int32 that
     // would slip under a signed bound.
-    const uint32_t bound =
-        static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period_;
-    HS_CHECK(elapsed < bound || elapsed >= 0u - bound,
-             "Flywheel::position: unfolded coast — int32 elapsed cast overflowed");
+    const uint32_t bound = static_cast<uint32_t>(MIN_SAFE_HALF_REVS) * period_;
+    HS_CHECK(
+        elapsed < bound || elapsed >= 0u - bound,
+        "Flywheel::position: unfolded coast — int32 elapsed cast overflowed");
     const int64_t delta = static_cast<int32_t>(elapsed);
     const int64_t cols = floor_div(delta * (w_ / 2), period_);
     return floor_mod(boundary_column(boundary_, w_) + cols, w_);
@@ -738,7 +746,7 @@ private:
   // Min coast (in half-revs) position()'s int32 elapsed cast must survive.
   static constexpr uint32_t MIN_SAFE_HALF_REVS = 16;
 
-  uint32_t period_;       /**< cycles_per_half_rev (optionally trimmed). */
+  uint32_t period_; /**< cycles_per_half_rev (optionally trimmed). */
   int32_t w_;
   int32_t gate_cols_;
   int32_t reject_fallback_;
@@ -817,8 +825,8 @@ public:
   bool feed(const BurstSnapshot &s, const Config &cfg, BeaconFrame *out,
             bool *rejected) {
     *rejected = false;
-    if (n_ > 0 &&
-        (s.first_cycles - last_first_cycles_) > cfg.interdigit_timeout_cycles()) {
+    if (n_ > 0 && (s.first_cycles - last_first_cycles_) >
+                      cfg.interdigit_timeout_cycles()) {
       n_ = 0; // stale partial frame: a new frame may start with this burst
       *rejected = true;
     }
@@ -868,8 +876,9 @@ private:
  * deadline-scheduled epoch commit. Owned by the flywheel ISR via SyncBoard.
  */
 struct ContentTracker {
-  bool identity_known = false; /**< False until an epoch/beacon names the index. */
-  int32_t effect_index = 0;    /**< Currently displayed effect index. */
+  bool identity_known =
+      false;                /**< False until an epoch/beacon names the index. */
+  int32_t effect_index = 0; /**< Currently displayed effect index. */
   /**
    * @brief ZERO crossings since effect start.
    * @details For a beacon-joined board this starts from the beacon's mod-64
@@ -1153,8 +1162,7 @@ public:
    * @brief Constructs a board from protocol config.
    * @param cfg Protocol configuration.
    */
-  HS_COLD_MEMBER explicit SyncBoard(const Config &cfg)
-      : cfg_(cfg), fly_(cfg) {}
+  HS_COLD_MEMBER explicit SyncBoard(const Config &cfg) : cfg_(cfg), fly_(cfg) {}
 
   /**
    * @brief Reconstructs the board for a new protocol configuration.
@@ -1427,9 +1435,8 @@ private:
 
     // Any follow-up burst inside the interdigit window proves the pending
     // suspect (see below) was the head of a beacon data train: clear it.
-    if (suspect_pending_ &&
-        (s.first_cycles - suspect_last_cycles_) <=
-            cfg_.interdigit_timeout_cycles())
+    if (suspect_pending_ && (s.first_cycles - suspect_last_cycles_) <=
+                                cfg_.interdigit_timeout_cycles())
       suspect_pending_ = false;
 
     if (fly_.lock() == LockState::LOCKED) {
@@ -1443,9 +1450,8 @@ private:
         // A lone far burst is indistinguishable from a beacon's first digit
         // until a train follows: hold it as a suspect, and tick()'s timeout
         // converts it to a gate rejection if the wire stays silent.
-        const bool isolated =
-            !had_prev ||
-            (s.first_cycles - prev_end) >= cfg_.acquire_quiet_cycles();
+        const bool isolated = !had_prev || (s.first_cycles - prev_end) >=
+                                               cfg_.acquire_quiet_cycles();
         if (isolated && classify_count(s.count) != Symbol::INVALID) {
           suspect_pending_ = true;
           suspect_last_cycles_ = s.last_cycles;
@@ -1557,8 +1563,7 @@ private:
       if (epoch_emits_left_ == 0 && !content_.commit_pending &&
           content_.rev_in_effect >= cfg_.revs_per_effect) {
         epoch_emits_left_ = 1 + cfg_.epoch_repeats;
-        if (content_.on_epoch_symbol(cfg_) &&
-            content_.construction_opens(cfg_))
+        if (content_.on_epoch_symbol(cfg_) && content_.construction_opens(cfg_))
           publish_build((content_.effect_index + 1) % cfg_.effect_count);
       }
       if (epoch_emits_left_ > 0) {
@@ -1610,9 +1615,9 @@ private:
       return;
     beacon_done_this_rev_ = true;
     const uint32_t rev = content_.rev_in_effect;
-    const bool due = (rev % cfg_.beacon_period_revs) == 1u ||
-                     (rev >= 1u && rev <= static_cast<uint32_t>(
-                                              cfg_.epoch_repeats));
+    const bool due =
+        (rev % cfg_.beacon_period_revs) == 1u ||
+        (rev >= 1u && rev <= static_cast<uint32_t>(cfg_.epoch_repeats));
     if (!due)
       return;
     uint8_t digits[5];
@@ -1626,8 +1631,7 @@ private:
    */
   void publish_build(int32_t index) {
     ++build_gen_;
-    build_word_.store((build_gen_ << 8) |
-                          static_cast<uint32_t>(index & 0xFF),
+    build_word_.store((build_gen_ << 8) | static_cast<uint32_t>(index & 0xFF),
                       std::memory_order_relaxed);
   }
 
@@ -1647,13 +1651,14 @@ private:
   uint32_t halves_since_snap_ = 0;
   bool have_prev_burst_ = false;
   uint32_t prev_burst_end_ = 0;
-  bool suspect_pending_ = false;     /**< Lone far burst awaiting train/timeout. */
+  bool suspect_pending_ = false; /**< Lone far burst awaiting train/timeout. */
   uint32_t suspect_last_cycles_ = 0;
   uint32_t epoch_emits_left_ = 0;
   bool beacon_done_this_rev_ = false;
   uint32_t build_gen_ = 0;
   static_assert(std::atomic<uint32_t>::is_always_lock_free);
-  std::atomic<uint32_t> build_word_{0}; /**< (gen << 8) | index; foreground-read. */
+  std::atomic<uint32_t> build_word_{
+      0}; /**< (gen << 8) | index; foreground-read. */
 };
 
 } // namespace sync

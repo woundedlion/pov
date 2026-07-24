@@ -41,13 +41,13 @@ int missed_for(int sides, float rho, float phi, float spin) {
   std::vector<uint8_t> vis(static_cast<size_t>(W) * H, 0);
   int y_lo = face.y_min < 0 ? 0 : face.y_min;
   int y_hi = face.y_max > H - 1 ? H - 1 : face.y_max;
-  bool handled = face.get_horizontal_intervals<W, H>(y_lo, [&](float f1,
-                                                               float f2) {
-    int x1 = static_cast<int>(f1), x2 = static_cast<int>(f2);
-    for (int x = x1; x <= x2; ++x)
-      for (int y = y_lo; y <= y_hi; ++y)
-        vis[static_cast<size_t>(y) * W + ((x % W) + W) % W] = 1;
-  });
+  bool handled =
+      face.get_horizontal_intervals<W, H>(y_lo, [&](float f1, float f2) {
+        int x1 = static_cast<int>(f1), x2 = static_cast<int>(f2);
+        for (int x = x1; x <= x2; ++x)
+          for (int y = y_lo; y <= y_hi; ++y)
+            vis[static_cast<size_t>(y) * W + ((x % W) + W) % W] = 1;
+      });
   if (!handled)
     for (int y = y_lo; y <= y_hi; ++y)
       for (int x = 0; x < W; ++x)

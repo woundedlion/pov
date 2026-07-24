@@ -160,8 +160,7 @@ private:
  * @param callback The function to call for each frame: `void(const Quaternion&,
  * float t)`.
  */
-template <int CAP>
-void tween(const Orientation<CAP> &o, TweenFn callback) {
+template <int CAP> void tween(const Orientation<CAP> &o, TweenFn callback) {
   int len = o.length();
   int start = (len > 1) ? 1 : 0;
   for (int i = start; i < len; ++i) {

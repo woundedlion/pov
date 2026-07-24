@@ -143,7 +143,8 @@ inline void test_lerp16_full_range_correct() {
         Pixel16 pa(av, 0, 0), pb(bv, 0, 0);
         uint16_t got = pa.lerp16(pb, static_cast<uint16_t>(f)).r;
         uint16_t ref = lerp16_reference(av, bv, static_cast<uint16_t>(f));
-        HS_EXPECT_TRUE(std::abs(static_cast<int>(got) - static_cast<int>(ref)) <= 1);
+        HS_EXPECT_TRUE(
+            std::abs(static_cast<int>(got) - static_cast<int>(ref)) <= 1);
       }
 }
 
@@ -167,10 +168,11 @@ inline void test_blend_add_packed_lane_layout() {
     return (uint16_t)(s > 65535 ? 65535 : s);
   };
   const Pixel16 cases[][2] = {
-      {Pixel16(60000, 1000, 40000), Pixel16(10000, 200, 40000)}, // r,b sat; g not
-      {Pixel16(0, 65535, 0), Pixel16(65535, 0, 65535)},          // each lane to max
-      {Pixel16(123, 45678, 9000), Pixel16(40000, 30000, 50)},    // g sat only
-      {Pixel16(0, 0, 0), Pixel16(0, 0, 0)},                      // zero
+      {Pixel16(60000, 1000, 40000),
+       Pixel16(10000, 200, 40000)},                     // r,b sat; g not
+      {Pixel16(0, 65535, 0), Pixel16(65535, 0, 65535)}, // each lane to max
+      {Pixel16(123, 45678, 9000), Pixel16(40000, 30000, 50)}, // g sat only
+      {Pixel16(0, 0, 0), Pixel16(0, 0, 0)},                   // zero
   };
   for (const auto &c : cases) {
     Pixel16 got = pixel16_blend_add_packed(c[0], c[1]);
@@ -228,9 +230,9 @@ inline void test_color4_add_clamps_alpha_and_sums_color() {
     s *= 1.0f / N;
     acc += s;
   }
-  HS_EXPECT_EQ(acc.color.r, 10000); // 40000/4
-  HS_EXPECT_EQ(acc.color.g, 14000); // 56000/4
-  HS_EXPECT_EQ(acc.color.b, 18000); // 72000/4
+  HS_EXPECT_EQ(acc.color.r, 10000);        // 40000/4
+  HS_EXPECT_EQ(acc.color.g, 14000);        // 56000/4
+  HS_EXPECT_EQ(acc.color.b, 18000);        // 72000/4
   HS_EXPECT_NEAR(acc.alpha, 0.75f, 1e-6f); // (1+1+0.5+0.5)/4
   HS_EXPECT_LE(acc.alpha, 1.0f);
 }
@@ -543,8 +545,10 @@ inline void test_oklch_to_pixel_saturates_and_preserves_in_gamut() {
  * @return The equivalent difference in (-PI, PI].
  */
 inline float wrap_hue_delta(float dh) {
-  while (dh > PI_F) dh -= 2.0f * PI_F;
-  while (dh < -PI_F) dh += 2.0f * PI_F;
+  while (dh > PI_F)
+    dh -= 2.0f * PI_F;
+  while (dh < -PI_F)
+    dh += 2.0f * PI_F;
   return dh;
 }
 
@@ -576,7 +580,7 @@ inline void test_gamut_clip_preserves_hue() {
     OKLCH out = oklab_to_oklch(mapped);
     HS_EXPECT_NEAR(out.L, L, 1e-4f);
     HS_EXPECT_NEAR(wrap_hue_delta(out.h - h), 0.0f, 1e-3f);
-    HS_EXPECT_LT(out.C, C);   // chroma reduced...
+    HS_EXPECT_LT(out.C, C);    // chroma reduced...
     HS_EXPECT_GT(out.C, 0.0f); // ...but not crushed
   }
 }
@@ -679,8 +683,7 @@ inline void test_gamut_master_clip_lands_on_first_exit() {
         oklab_to_linear_rgb(mapped, r, g, b);
         HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
 
-        const float got =
-            std::sqrt(mapped.a * mapped.a + mapped.b * mapped.b);
+        const float got = std::sqrt(mapped.a * mapped.a + mapped.b * mapped.b);
         const float ref = (float)gamut_first_exit_ref(L, ad, bd, cin);
         if (ref - got > worst_deficit)
           worst_deficit = ref - got;
@@ -711,8 +714,8 @@ inline constexpr int TEST_GAMUT_L_STEPS = 128;
 inline void test_gamut_lut_clip_lands_on_first_exit() {
   const float DEFICIT_BOUND = 5e-3f;
   const double CHROMA_IN[3] = {0.6, 0.35, 0.25};
-  alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(
-      TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
+  alignas(uint16_t) static uint8_t
+      lut_buf[gamut_lut_bytes(TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
   init_gamut_lut(lut_arena, TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS);
 
@@ -754,8 +757,8 @@ inline void test_gamut_lut_clip_lands_on_first_exit() {
     for (int ih = 0; ih < 180; ++ih) {
       const float h = 6.28318531f * ih / 180.0f;
       for (float cin : {0.05f, 0.2f, 0.45f}) {
-        OKLab mapped =
-            gamut_clip_preserve_chroma({L, cin * std::cos(h), cin * std::sin(h)});
+        OKLab mapped = gamut_clip_preserve_chroma(
+            {L, cin * std::cos(h), cin * std::sin(h)});
         float r, g, b;
         oklab_to_linear_rgb(mapped, r, g, b);
         HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
@@ -777,8 +780,8 @@ inline void test_gamut_lut_clip_lands_on_first_exit() {
 inline void test_gamut_lut_downsample_preserves_bracket() {
   const int A = TEST_GAMUT_ANGLE_STEPS, NL = TEST_GAMUT_L_STEPS;
   const int sa = GAMUT_LUT_ANGLE_STEPS / A, sl = GAMUT_LUT_L_STEPS / NL;
-  alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(
-      TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
+  alignas(uint16_t) static uint8_t
+      lut_buf[gamut_lut_bytes(TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
   init_gamut_lut(lut_arena, A, NL);
   HS_EXPECT_TRUE(g_gamut_lut.angle_steps == A);
@@ -806,8 +809,8 @@ inline void test_gamut_lut_downsample_preserves_bracket() {
  *        that releasing the copy leaves the clip working off the flash master.
  */
 inline void test_gamut_lut_release_and_passthrough() {
-  alignas(uint16_t) static uint8_t lut_buf[gamut_lut_bytes(
-      TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
+  alignas(uint16_t) static uint8_t
+      lut_buf[gamut_lut_bytes(TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS)];
   Arena lut_arena(lut_buf, sizeof(lut_buf));
   init_gamut_lut(lut_arena, TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS);
 
@@ -834,7 +837,8 @@ inline void test_gamut_lut_release_and_passthrough() {
   HS_EXPECT_EQ(g_gamut_lut.l_steps, GAMUT_LUT_L_STEPS);
 
   // Off the master the clip still maps a past-cusp color in.
-  OKLab mapped = gamut_clip_preserve_chroma(oklch_to_oklab({0.65f, 0.4f, 1.2f}));
+  OKLab mapped =
+      gamut_clip_preserve_chroma(oklch_to_oklab({0.65f, 0.4f, 1.2f}));
   float r, g, b;
   oklab_to_linear_rgb(mapped, r, g, b);
   HS_EXPECT_TRUE(linear_rgb_in_gamut(r, g, b));
@@ -849,8 +853,7 @@ inline void test_gamut_lut_release_and_passthrough() {
  *          arms the grid cannot leak a stale pointer by forgetting to release.
  */
 inline void test_configure_arenas_releases_gamut_lut() {
-  init_gamut_lut(persistent_arena, TEST_GAMUT_ANGLE_STEPS,
-                 TEST_GAMUT_L_STEPS);
+  init_gamut_lut(persistent_arena, TEST_GAMUT_ANGLE_STEPS, TEST_GAMUT_L_STEPS);
   HS_EXPECT_TRUE(g_gamut_lut.table != GAMUT_LUT);
 
   configure_arenas_default();
@@ -933,12 +936,12 @@ inline void test_hue_rotate_preserves_gray() {
 inline void test_hue_rotate_full_turn_identity() {
   Color4 c(200, 60, 30, 1.0f);
   Color4 out = hue_rotate(c, 1.0f);
-  HS_EXPECT_NEAR(static_cast<float>(out.color.r),
-                 static_cast<float>(c.color.r), 12.0f);
-  HS_EXPECT_NEAR(static_cast<float>(out.color.g),
-                 static_cast<float>(c.color.g), 12.0f);
-  HS_EXPECT_NEAR(static_cast<float>(out.color.b),
-                 static_cast<float>(c.color.b), 12.0f);
+  HS_EXPECT_NEAR(static_cast<float>(out.color.r), static_cast<float>(c.color.r),
+                 12.0f);
+  HS_EXPECT_NEAR(static_cast<float>(out.color.g), static_cast<float>(c.color.g),
+                 12.0f);
+  HS_EXPECT_NEAR(static_cast<float>(out.color.b), static_cast<float>(c.color.b),
+                 12.0f);
 }
 
 /**
@@ -1103,7 +1106,8 @@ inline void test_gradient_in_range_valid_and_monotone() {
   uint16_t prev = 0;
   for (int i = 0; i <= 100; ++i) {
     float t = i / 100.0f;
-    if (t > 0.999f) t = 0.999f; // index = uint8_t(t*255); keep within [0,255]
+    if (t > 0.999f)
+      t = 0.999f; // index = uint8_t(t*255); keep within [0,255]
     Color4 c = grad.get(t);
     HS_EXPECT_GE(c.color.r, prev);
     prev = c.color.r;
@@ -1421,8 +1425,8 @@ inline void test_mutating_palette_blends_endpoints() {
 inline void test_generative_palette_deterministic() {
   auto make = [](int seed) {
     return GenerativePalette(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
-                             BrightnessProfile::FLAT, SaturationProfile::VIBRANT,
-                             seed);
+                             BrightnessProfile::FLAT,
+                             SaturationProfile::VIBRANT, seed);
   };
   GenerativePalette g1 = make(0), g2 = make(0), g3 = make(128);
   bool g3_differs = false;
@@ -1433,7 +1437,8 @@ inline void test_generative_palette_deterministic() {
     HS_EXPECT_EQ(a.color.r, b.color.r);
     HS_EXPECT_EQ(a.color.g, b.color.g);
     HS_EXPECT_EQ(a.color.b, b.color.b);
-    if (c.color.r != a.color.r || c.color.g != a.color.g) g3_differs = true;
+    if (c.color.r != a.color.r || c.color.g != a.color.g)
+      g3_differs = true;
   }
   HS_EXPECT_TRUE(g3_differs); // a different seed must change the palette
 }
@@ -1525,9 +1530,11 @@ inline void test_generative_palette_auto_seed_advances() {
  */
 inline void test_generative_palette_snapshot_lerp() {
   GenerativePalette from(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
-                         BrightnessProfile::FLAT, SaturationProfile::VIBRANT, 0);
+                         BrightnessProfile::FLAT, SaturationProfile::VIBRANT,
+                         0);
   GenerativePalette to(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
-                       BrightnessProfile::FLAT, SaturationProfile::VIBRANT, 128);
+                       BrightnessProfile::FLAT, SaturationProfile::VIBRANT,
+                       128);
   // Endpoints must be clearly distinct for the test to mean anything.
   HS_EXPECT_TRUE(std::abs(static_cast<int>(from.get(0.0f).color.r) -
                           static_cast<int>(to.get(0.0f).color.r)) > 4000 ||
@@ -1535,7 +1542,8 @@ inline void test_generative_palette_snapshot_lerp() {
                           static_cast<int>(to.get(0.0f).color.g)) > 4000);
 
   GenerativePalette mixed(GradientShape::STRAIGHT, HarmonyType::TRIADIC,
-                          BrightnessProfile::FLAT, SaturationProfile::VIBRANT, 0);
+                          BrightnessProfile::FLAT, SaturationProfile::VIBRANT,
+                          0);
   // amount 0 -> ~from, amount 1 -> ~to (OKLCH round-trip tolerance in linear).
   const float tol = 2500.0f;
   mixed.lerp(from.snapshot(), to.snapshot(), 0.0f);
@@ -1742,9 +1750,9 @@ inline void test_hue_spin_shade() {
   // Moving the driver refreshes the memoized matrix.
   amount = 0.5f;
   Color4 half = spin.shade(vivid, 0.5f);
-  HS_EXPECT_GT(std::abs(static_cast<int>(half.color.r) -
-                        static_cast<int>(spun.color.r)),
-               2000);
+  HS_EXPECT_GT(
+      std::abs(static_cast<int>(half.color.r) - static_cast<int>(spun.color.r)),
+      2000);
 }
 
 /**
@@ -1760,8 +1768,7 @@ inline void test_hue_wobble_shade() {
 
   for (float t : {0.0f, 0.25f, 0.6f}) {
     Color4 got = wobble.shade(vivid, t);
-    Color4 ref =
-        hue_rotate(vivid, 0.2f * fast_sinf(t * PI_F * 2.0f + phase));
+    Color4 ref = hue_rotate(vivid, 0.2f * fast_sinf(t * PI_F * 2.0f + phase));
     HS_EXPECT_EQ(got.color.r, ref.color.r);
     HS_EXPECT_EQ(got.color.g, ref.color.g);
     HS_EXPECT_EQ(got.color.b, ref.color.b);
@@ -1773,9 +1780,9 @@ inline void test_hue_wobble_shade() {
   HueWobbleShade sym(&phase0, 1.0f, 0.2f);
   Color4 up = sym.shade(vivid, 0.25f);
   Color4 down = sym.shade(vivid, 0.75f);
-  HS_EXPECT_GT(std::abs(static_cast<int>(up.color.g) -
-                        static_cast<int>(down.color.g)),
-               2000);
+  HS_EXPECT_GT(
+      std::abs(static_cast<int>(up.color.g) - static_cast<int>(down.color.g)),
+      2000);
 
   // Zero depth rotates by 0 turns: near-identity within fast-trig tolerance.
   HueWobbleShade flat(&phase0, 1.0f, 0.0f);
@@ -1921,7 +1928,8 @@ inline void test_iridescent_shade() {
     Pixel ref =
         Pixel(srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg)),
               srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + THIRD)),
-              srgb_to_linear_interp(0.5f + 0.5f * fast_cosf(arg + 2.0f * THIRD))) *
+              srgb_to_linear_interp(0.5f +
+                                    0.5f * fast_cosf(arg + 2.0f * THIRD))) *
         0.4f;
     Color4 got = sheen.shade(black, t);
     HS_EXPECT_EQ(got.color.r, ref.r);
@@ -1987,14 +1995,16 @@ inline void test_palette_wrappers() {
 
   // ReverseModifier: t -> 1-t, so t=0 samples the white end and t=1 the black.
   ReverseModifier rev;
-  StaticPalette<Gradient, Coords<ReverseModifier>, Colors<>, /*Wrap=*/false> revp;
+  StaticPalette<Gradient, Coords<ReverseModifier>, Colors<>, /*Wrap=*/false>
+      revp;
   revp.bind(&grad, &rev);
   HS_EXPECT_GT(revp.get(0.0f).color.r, 60000); // source's t=1 (white)
   HS_EXPECT_EQ(revp.get(1.0f).color.r, 0);     // source's t=0 (black)
 
   // MirrorModifier: [0,1] -> [0,1,0]; the midpoint reaches the far end.
   MirrorModifier mir;
-  StaticPalette<Gradient, Coords<MirrorModifier>, Colors<>, /*Wrap=*/false> mirp;
+  StaticPalette<Gradient, Coords<MirrorModifier>, Colors<>, /*Wrap=*/false>
+      mirp;
   mirp.bind(&grad, &mir);
   HS_EXPECT_EQ(mirp.get(0.0f).color.r, 0);
   HS_EXPECT_GT(mirp.get(0.5f).color.r, 60000);
@@ -2147,4 +2157,3 @@ inline int run_color_tests() {
 
 } // namespace color_tests
 } // namespace hs_test
-
