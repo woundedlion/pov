@@ -1446,7 +1446,8 @@ public:
     ScratchScope scope(scratch_arena_a);
     WarpField warp = select_warp_field(scope.get_arena(), grid, band);
     populate_warp_field(grid, band, warp);
-    composite_previous_frame(cv, alpha, grid, band, warp);
+    ::Pixel *filtered_row = scope.get_arena().allocate_n<::Pixel>(W);
+    composite_previous_frame(cv, alpha, grid, band, warp, filtered_row);
   }
 
 private:
@@ -1478,6 +1479,31 @@ private:
     int16_t *y_offsets;
     WarpControl *controls;
     bool needs_population;
+  };
+
+  struct PixelAccumulator {
+    uint32_t r = 0;
+    uint32_t g = 0;
+    uint32_t b = 0;
+
+    void add(const ::Pixel &pixel) {
+      r += pixel.r;
+      g += pixel.g;
+      b += pixel.b;
+    }
+
+    void remove(const ::Pixel &pixel) {
+      r -= pixel.r;
+      g -= pixel.g;
+      b -= pixel.b;
+    }
+
+    ::Pixel average(int width) const {
+      const uint32_t round = static_cast<uint32_t>(width / 2);
+      return ::Pixel(static_cast<uint16_t>((r + round) / width),
+                     static_cast<uint16_t>((g + round) / width),
+                     static_cast<uint16_t>((b + round) / width));
+    }
   };
 
   struct ColumnRun {
@@ -1630,18 +1656,13 @@ private:
           const auto longitude = grid.field.longitude_bounded(ring, x);
           const WarpControl a = warp.controls[longitude.left];
           WarpControl b = warp.controls[longitude.right];
-          float bx = ring.samples == 1
-                         ? static_cast<float>(a.x) - x * WARP_SCALE
-                         : static_cast<float>(b.x);
+          float bx = b.x;
           bx += (bx - a.x > HALF_WRAP_PERIOD)
                     ? -WRAP_PERIOD
                     : (bx - a.x < -HALF_WRAP_PERIOD ? WRAP_PERIOD : 0.0f);
           const int index = field_y * grid.columns + coarse_x;
-          warp.x_offsets[index] =
-              ring.samples == 1
-                  ? static_cast<int16_t>(bx)
-                  : static_cast<int16_t>(
-                        hs::lerp(static_cast<float>(a.x), bx, longitude.mix));
+          warp.x_offsets[index] = static_cast<int16_t>(
+              hs::lerp(static_cast<float>(a.x), bx, longitude.mix));
           warp.y_offsets[index] = static_cast<int16_t>(hs::lerp(
               static_cast<float>(a.y), static_cast<float>(b.y), longitude.mix));
         }
@@ -1651,7 +1672,8 @@ private:
 
   __attribute__((always_inline)) void
   composite_previous_frame(Canvas &cv, float alpha, const CoarseGrid &grid,
-                           const RenderBand &band, const WarpField &warp) {
+                           const RenderBand &band, const WarpField &warp,
+                           ::Pixel *filtered_row) {
     const int downsample = grid.downsample;
     const int coarse_columns = grid.columns;
     const int row_begin = band.y_begin;
@@ -1686,6 +1708,17 @@ private:
       constexpr bool PAIR_PIXELS = decltype(pair_pixels)::value;
       for (int y = row_begin; y < row_end; ++y) {
         const int row = y * W;
+        const int filter_width =
+            band.x_clip.active ? 1 : grid.field.longitude_filter_width(y);
+        const bool filter_output = filter_width > 1;
+        auto write_pixel = [&](int x, const ::Pixel &pixel) {
+          if (filter_output) {
+            filtered_row[x] = pixel;
+          } else {
+            ::Pixel &dst = current[row + x];
+            dst = opaque ? pixel : blend(dst, pixel);
+          }
+        };
         while (y > control_y1) {
           field_y0 = field_y1;
           control_y0 = control_y1;
@@ -1757,10 +1790,10 @@ private:
                 float sr0, sg0, sb0, sr1, sg1, sb1;
                 {
                   HS_PROFILE_DEEP(fb_comp_sample);
-                  sample_bilinear_prev(previous, north_pole, x + ddx0, y + ddy0,
-                                       sr0, sg0, sb0);
-                  sample_bilinear_prev(previous, north_pole, x + 1 + ddx1,
-                                       y + ddy1, sr1, sg1, sb1);
+                  sample_bilinear_prev(grid.field, previous, north_pole,
+                                       x + ddx0, y + ddy0, sr0, sg0, sb0);
+                  sample_bilinear_prev(grid.field, previous, north_pole,
+                                       x + 1 + ddx1, y + ddy1, sr1, sg1, sb1);
                 }
                 ::Pixel p0(0, 0, 0), p1(0, 0, 0);
                 {
@@ -1776,10 +1809,8 @@ private:
                 p1 = black1 ? ::Pixel(0, 0, 0) : p1;
 
                 HS_PROFILE_DEEP(fb_comp_write);
-                ::Pixel &dst0 = current[row + x];
-                dst0 = opaque ? p0 : blend(dst0, p0);
-                ::Pixel &dst1 = current[row + x + 1];
-                dst1 = opaque ? p1 : blend(dst1, p1);
+                write_pixel(x, p0);
+                write_pixel(x + 1, p1);
 
                 x += 2;
                 sub += 2;
@@ -1798,8 +1829,8 @@ private:
             float sr, sg, sb;
             {
               HS_PROFILE_DEEP(fb_comp_sample);
-              sample_bilinear_prev(previous, north_pole, x + ddx, y + ddy, sr,
-                                   sg, sb);
+              sample_bilinear_prev(grid.field, previous, north_pole, x + ddx,
+                                   y + ddy, sr, sg, sb);
             }
             ::Pixel p(0, 0, 0);
             if (!(black_skips_color && sr < NEAR_BLACK && sg < NEAR_BLACK &&
@@ -1810,8 +1841,7 @@ private:
 
             // Black must overwrite the stale double-buffer frame.
             HS_PROFILE_DEEP(fb_comp_write);
-            ::Pixel &dst = current[row + x];
-            dst = opaque ? p : blend(dst, p);
+            write_pixel(x, p);
 
             ++x;
             if (++sub == downsample) {
@@ -1819,6 +1849,14 @@ private:
               ++cx0;
             }
           }
+        }
+        if (filter_output) {
+          HS_PROFILE_DEEP(fb_comp_filter);
+          grid.field.template reconstruct_longitude_row<PixelAccumulator>(
+              filtered_row, y, [&](int x, const ::Pixel &pixel) {
+                ::Pixel &dst = current[row + x];
+                dst = opaque ? pixel : blend(dst, pixel);
+              });
         }
       }
     };
@@ -1944,64 +1982,42 @@ private:
 
   /**
    * @brief Bilinearly samples the Canvas front buffer (previous frame).
+   * @param field Spherical topology and interpolation policy.
    * @param prev Base of the previous-frame buffer, row-major with stride W.
    * @param north_pole Shared value for every aliased column of row zero.
-   * @param bx Fractional column in [-W, 2W) (producer contract); wrapped across
-   *   the longitude seam by the family's single-step fast_wrap.
-   * @param by Fractional row; out-of-range rows contribute black. Row zero
-   *   resolves to the shared physical north-pole sample.
+   * @param bx Fractional column in [-W, 2W).
+   * @param by Fractional row; north crossings reflect with a half-turn.
    * @param r Out: interpolated red on the [0, 65535] scale, unquantized.
    * @param g Out: interpolated green.
    * @param b Out: interpolated blue.
    */
   HS_O3_FN
-  void sample_bilinear_prev(const ::Pixel *prev, const ::Pixel &north_pole,
-                            float bx, float by, float &r, float &g,
-                            float &b) const {
-    float fy0 = std::floor(by);
-    int y0 = static_cast<int>(fy0);
-    int y1 = y0 + 1;
-
-    float fx0 = std::floor(bx);
-    int x0 = static_cast<int>(fx0);
-    float fx = bx - fx0;
-    float fy = by - fy0;
-
-    // Producer must keep bx in [-W, 2W); fast_wrap corrects only a single step.
-    // Derive x1 from the wrapped x0: a pre-wrap x0 == 2W-1 would form x1 == 2W,
-    // tripping fast_wrap's x < 2W assert (and returning column W in release).
-    x0 = fast_wrap(x0, W);
-    int x1 = fast_wrap(x0 + 1, W);
-
-    ::Pixel p00, p10, p01, p11;
-    if (y0 > 0 && y1 < H) {
-      p00 = prev[y0 * W + x0];
-      p10 = prev[y0 * W + x1];
-      p01 = prev[y1 * W + x0];
-      p11 = prev[y1 * W + x1];
-    } else {
-      auto load_row = [&](int y, ::Pixel &p0, ::Pixel &p1) {
-        if (y == 0) {
-          p0 = p1 = north_pole;
-        } else if (y > 0 && y < H) {
-          p0 = prev[y * W + x0];
-          p1 = prev[y * W + x1];
-        } else {
-          p0 = p1 = ::Pixel(0, 0, 0);
-        }
-      };
-      load_row(y0, p00, p10);
-      load_row(y1, p01, p11);
-    }
-
-    float w00 = (1.0f - fx) * (1.0f - fy);
-    float w10 = fx * (1.0f - fy);
-    float w01 = (1.0f - fx) * fy;
-    float w11 = fx * fy;
-
-    r = p00.r * w00 + p10.r * w10 + p01.r * w01 + p11.r * w11;
-    g = p00.g * w00 + p10.g * w10 + p01.g * w01 + p11.g * w11;
-    b = p00.b * w00 + p10.b * w10 + p01.b * w01 + p11.b * w11;
+  void sample_bilinear_prev(const SphereField &field, const ::Pixel *prev,
+                            const ::Pixel &north_pole, float bx, float by,
+                            float &r, float &g, float &b) const {
+    struct Sample {
+      float r;
+      float g;
+      float b;
+    };
+    const Sample pole{static_cast<float>(north_pole.r),
+                      static_cast<float>(north_pole.g),
+                      static_cast<float>(north_pole.b)};
+    const Sample sample = field.sample_bilinear(
+        bx, by, pole, Sample{0.0f, 0.0f, 0.0f},
+        [&](int x, int y) {
+          const ::Pixel &pixel = prev[y * W + x];
+          return Sample{static_cast<float>(pixel.r),
+                        static_cast<float>(pixel.g),
+                        static_cast<float>(pixel.b)};
+        },
+        [](const Sample &a, const Sample &b, float t) {
+          return Sample{hs::lerp(a.r, b.r, t), hs::lerp(a.g, b.g, t),
+                        hs::lerp(a.b, b.b, t)};
+        });
+    r = sample.r;
+    g = sample.g;
+    b = sample.b;
   }
 
   /** @brief Quantizes an unclamped [0, 65535]-scale channel to a Pixel
