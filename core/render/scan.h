@@ -4,6 +4,7 @@
  */
 #pragma once
 
+#include <type_traits>
 #include <utility>
 #include "render/sdf.h"
 #include "mesh/mesh_classes.h"
@@ -1310,13 +1311,14 @@ struct Mesh {
    *        it runs once before rasterizing the face and the shader is invoked
    *        directly without writing the face index to Fragment::v2.
    */
-  template <int W, int H, typename PipelineT = PipelineRef>
+  template <int W, int H, typename PipelineT = PipelineRef,
+            typename FaceShaderSetupT = std::nullptr_t>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
                    bool debug_bb = false,
                    const MeshOps::MeshClassBake *bake = nullptr,
                    const PixelMask *mask = nullptr,
-                   FunctionRef<void(size_t)> face_shader_setup = nullptr) {
+                   FaceShaderSetupT face_shader_setup = nullptr) {
     ScratchScope scope(scratch_arena);
     auto *scratch =
         static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
@@ -1373,10 +1375,11 @@ struct Mesh {
         fragment_shader(p, f_in);
       };
       FragmentShaderFn raster_shader = fragment_shader;
-      if (face_shader_setup)
-        face_shader_setup(i);
-      else
+      if constexpr (std::is_same_v<FaceShaderSetupT, std::nullptr_t>) {
         raster_shader = wrapper;
+      } else {
+        face_shader_setup(i);
+      }
 
       {
         HS_PROFILE(scan_mesh_raster);
