@@ -438,7 +438,7 @@ private:
         };
         Scan::Mesh::draw_specialized<W, H>(
             filters, canvas, transformed_state, fragment_shader,
-            scratch_arena_a, params.debug_bb, nullptr, nullptr, select_face);
+            scratch_arena_a, params.debug_bb, nullptr, select_face);
       } else {
         auto fragment_shader = [&](const Vector &, Fragment &frag) {
           const size_t fi = static_cast<size_t>(frag.v2);
@@ -492,7 +492,7 @@ private:
       // scratch_a, where its transformed copy already lives.
       Scan::Mesh::draw_specialized<W, H>(filters, canvas, mesh, fragment_shader,
                                          scratch_arena_b, params.debug_bb,
-                                         nullptr, nullptr, select_face);
+                                         nullptr, select_face);
     }
   }
 
