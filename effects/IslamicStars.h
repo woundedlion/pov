@@ -475,13 +475,15 @@ private:
       MeshOps::transform_in_place(mesh, ripple_gen, camera);
     }
     const SegueT &seg = carousel.segue();
+    const BakedPalette *face_palette = nullptr;
+
+    auto select_face = [&](size_t fi) {
+      HS_CHECK(fi < sh.faces, "IslamicStars: build shading face mismatch");
+      face_palette = &sh.ramps[sh.face_ramp[fi]];
+    };
 
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      int fi = static_cast<int>(frag.v2);
-      int ramp =
-          (fi >= 0 && fi < static_cast<int>(sh.faces)) ? sh.face_ramp[fi] : 0;
-      frag.color =
-          shade_mesh_topology(frag, sh.ramps[ramp], sh.gain, seg, 1.0f);
+      frag.color = shade_mesh_topology(frag, *face_palette, sh.gain, seg, 1.0f);
     };
 
     {
@@ -492,7 +494,8 @@ private:
       // op and compile temps have unwound). The sprite path scans from
       // scratch_a, where its transformed copy already lives.
       Scan::Mesh::draw<W, H>(filters, canvas, mesh, fragment_shader,
-                             scratch_arena_b, params.debug_bb);
+                             scratch_arena_b, params.debug_bb, nullptr, nullptr,
+                             select_face);
     }
   }
 
