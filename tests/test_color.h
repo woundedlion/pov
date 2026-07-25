@@ -1334,6 +1334,8 @@ inline void test_baked_palette_color_sampler_matches_get() {
   for (int i = -128; i <= 65663; ++i) {
     float t = static_cast<float>(i) / 65535.0f;
     HS_EXPECT_EQ(baked.get_color(t), baked.get(t).color);
+    if (i >= 0 && i <= 65535)
+      HS_EXPECT_EQ(baked.get_color_unit(t), baked.get(t).color);
   }
   const float nan = std::numeric_limits<float>::quiet_NaN();
   HS_EXPECT_EQ(baked.get_color(nan), baked.get(nan).color);
