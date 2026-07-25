@@ -489,14 +489,23 @@ private:
     }
     const SegueT &seg = carousel.segue();
     const BakedPalette *face_palette = nullptr;
+    float face_gain = 0.0f;
 
-    auto select_face = [&](size_t fi) {
+    auto select_face = [&](size_t fi, float size) {
       HS_CHECK(fi < sh.faces, "IslamicStars: build shading face mismatch");
       face_palette = &sh.ramps[sh.face_ramp[fi]];
+      face_gain = size > math::TOLERANCE ? sh.gain / size : 0.0f;
     };
 
     auto fragment_shader = [&](const Vector &, Fragment &frag) {
-      frag.color = shade_mesh_topology(frag, *face_palette, sh.gain, seg, 1.0f);
+      float t = hs::clamp(-frag.v1 * face_gain, 0.0f, 1.0f);
+      float cover = seg.fill(t, 1.0f);
+      if (cover <= 0.0f) {
+        frag.color = Color4();
+        return;
+      }
+      frag.color = seg.grade(face_palette->get(t), 1.0f);
+      frag.color.alpha = cover * seg.opacity(1.0f);
     };
 
     {
