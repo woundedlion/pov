@@ -1104,12 +1104,6 @@ struct RingSweep {
           seg > 1e-6f ? hs::clamp((theta - phis[lo]) / seg, -1.5f, 2.5f) : 0.0f;
       return static_cast<float>(lo) + f;
     };
-    const float idx_max =
-        n_pts >= 2 ? static_cast<float>(n_pts - 1) : std::max(span.steps, 1.0f);
-    auto count_in = [&](float i_lo, float i_hi) {
-      return std::max(0.0f, hs::clamp(i_hi, 0.0f, idx_max) -
-                                hs::clamp(i_lo, 0.0f, idx_max));
-    };
     auto t_of = [&](float fidx) {
       if (n_pts < 2)
         return hs::clamp(span.t0 + (span.t1 - span.t0) * fidx /
@@ -1180,21 +1174,27 @@ struct RingSweep {
           if (th_star < 0.0f)
             th_star += PI_F;
           const float m = std::sqrt(d0 * d0 + B * B);
-          // Smooth density = ring count over the in-span band window; the
-          // quintic truncation integral weights it, since band-edge rings
-          // contribute almost nothing.
+          // Exact discrete dwell: sum the quintic of each in-window control
+          // point's linearized ring distance. Any windowed density ESTIMATE
+          // is piecewise linear in theta and its kinks beat against the
+          // control-point grid as faint moire shading; the true sum is
+          // smooth because the kernel tapers to zero at the window edges.
+          // Ownership is half-open [0, n-1): the far boundary point belongs
+          // to the next span (the final span closes via head_cap).
           const float dth = th / (m + 1e-6f);
-          const float lo_c = hs::clamp(th_star - dth, 0.0f, theta_total);
-          const float hi_c = hs::clamp(th_star + dth, 0.0f, theta_total);
-          const float win = std::max(hi_c - lo_c, 1e-6f);
-          const float rho_s = count_in(idx_at(lo_c), idx_at(hi_c)) / win;
-          const float u_a = hs::clamp(th_star * m * inv_th, 0.0f, 1.0f);
-          const float u_d =
-              hs::clamp((theta_total - th_star) * m * inv_th, 0.0f, 1.0f);
-          float k_lin = rho_s * th *
-                        (1.0f - quintic_integral(1.0f - u_a) -
-                         quintic_integral(1.0f - u_d)) /
-                        (m + 1e-6f);
+          const int j_last = span.head_cap ? n_pts - 1 : n_pts - 2;
+          float k_lin = 0.0f;
+          if (n_pts >= 2) {
+            int j0 = static_cast<int>(std::max(0.0f, idx_at(th_star - dth)));
+            for (int j = j0; j <= j_last; ++j) {
+              if (phis[j] > th_star + dth)
+                break;
+              k_lin += quintic_kernel(std::max(
+                  0.0f, 1.0f - std::abs(phis[j] - th_star) * m * inv_th));
+            }
+          } else {
+            k_lin = std::max(span.steps, 1.0f) * inv_theta * th / (m + 1e-6f);
+          }
           emit(x, y, p, t_of(idx_at(th_star)), t_of(idx_at(th_star - dth)),
                t_of(idx_at(th_star + dth)), k_lin, 0.0f, 0.0f);
           continue;
@@ -1210,35 +1210,31 @@ struct RingSweep {
         // contributions. The final span's far end adds the discrete
         // head-ring sample legacy always draws.
         const float B = dot(p, b);
+        const int j_last = span.head_cap ? n_pts - 1 : n_pts - 2;
         float k_lin = 0.0f;
-        if (a0 < th) {
-          const float deriv = std::abs(B);
-          const float u = 1.0f - a0 * inv_th;
-          const float u_avail =
-              hs::clamp(theta_total * deriv * inv_th, 0.0f, 1.0f);
-          const float L = std::min((th - a0) / (deriv + 1e-6f), theta_total);
-          const float rho_s = count_in(0.0f, idx_at(L)) / std::max(L, 1e-6f);
-          k_lin += rho_s * th *
-                   (quintic_integral(u) -
-                    quintic_integral(std::max(0.0f, u - u_avail))) /
-                   (deriv + 1e-6f);
+        if (n_pts >= 2) {
+          if (a0 < th) {
+            const float deriv = std::abs(B);
+            for (int j = 0; j <= j_last; ++j) {
+              float q = 1.0f - (a0 + phis[j] * deriv) * inv_th;
+              if (q <= 0.0f)
+                break;
+              k_lin += quintic_kernel(q);
+            }
+          }
+          if (a1 < th) {
+            const float deriv = std::abs(B * cos_full - d0 * sin_full);
+            for (int j = j_last; j >= 0; --j) {
+              float q = 1.0f - (a1 + (theta_total - phis[j]) * deriv) * inv_th;
+              if (q <= 0.0f)
+                break;
+              k_lin += quintic_kernel(q);
+            }
+          }
+        } else if (std::min(a0, a1) < th) {
+          k_lin = quintic_kernel(1.0f - std::min(a0, a1) * inv_th);
         }
         float q_cap = 0.0f;
-        if (a1 < th) {
-          const float deriv = std::abs(B * cos_full - d0 * sin_full);
-          const float u = 1.0f - a1 * inv_th;
-          const float u_avail =
-              hs::clamp(theta_total * deriv * inv_th, 0.0f, 1.0f);
-          const float L = std::min((th - a1) / (deriv + 1e-6f), theta_total);
-          const float rho_s =
-              count_in(idx_at(theta_total - L), idx_max) / std::max(L, 1e-6f);
-          k_lin += rho_s * th *
-                   (quintic_integral(u) -
-                    quintic_integral(std::max(0.0f, u - u_avail))) /
-                   (deriv + 1e-6f);
-          if (span.head_cap)
-            q_cap = quintic_kernel(u);
-        }
         // Endpoint fringes convolve the palette too — a flat t_end next to a
         // convolved crossing region reads as a hue band at the boundary.
         const bool use_far = a1 < a0;
