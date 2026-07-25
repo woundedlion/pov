@@ -2709,8 +2709,9 @@ struct Face {
    * while edges stay exact. Rotational-symmetry ambiguity is harmless (the LUT
    * is invariant under the shape's symmetry group).
    */
-  bool bind_class_lut(const ClassLut *lut, const float *canon_xy,
-                      int vert_offset, bool reflected) {
+  HS_COLD_MEMBER bool bind_class_lut(const ClassLut *lut,
+                                     const float *canon_xy, int vert_offset,
+                                     bool reflected) {
     float mx = 0.0f, my = 0.0f;
     for (int i = 0; i < count; ++i) {
       mx += poly_2d[i].x;
