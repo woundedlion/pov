@@ -1003,15 +1003,32 @@ public:
     assert(lut_ != nullptr && "BakedPalette::get_color before bake()");
     float idx =
         hs::clamp(t * (LUT_SIZE - 1), 0.0f, static_cast<float>(LUT_SIZE - 1));
+    return sample_color_index(idx);
+  }
+
+  /**
+   * @brief Samples RGB for a coordinate already clamped to [0, 1].
+   * @param t Finite lookup coordinate in [0, 1].
+   * @return The same pixel as get(t).color.
+   */
+  __attribute__((always_inline)) Pixel get_color_unit(float t) const {
+    assert(lut_ != nullptr && "BakedPalette::get_color_unit before bake()");
+    return sample_color_index(t * (LUT_SIZE - 1));
+  }
+
+private:
+  __attribute__((always_inline)) Pixel sample_color_index(float idx) const {
     if (idx <= 0.0f)
       return lut_[0].color;
     int lo = static_cast<int>(idx);
     if (lo >= LUT_SIZE - 1)
       return lut_[LUT_SIZE - 1].color;
     float frac = idx - lo;
-    return lut_[lo].color.lerp16(lut_[lo + 1].color, frac_to_q16(frac));
+    uint16_t weight = static_cast<uint16_t>(frac * 65535.0f + 0.5f);
+    return lut_[lo].color.lerp16(lut_[lo + 1].color, weight);
   }
 
+public:
   /**
    * @brief Deep-copies the LUT from another BakedPalette into the given arena.
    * @param src Source palette to copy; must already be baked.

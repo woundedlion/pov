@@ -200,7 +200,7 @@ private:
                        ? (scale > math::TOLERANCE ? -frag.v1 / scale : 0.0f)
                        : -frag.v1 * scale;
       float t = hs::clamp(edge, 0.0f, 1.0f);
-      frag.color.color = palette->get_color(t);
+      frag.color.color = palette->get_color_unit(t);
       frag.color.alpha = alpha;
     }
   };
