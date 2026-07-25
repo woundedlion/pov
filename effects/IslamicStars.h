@@ -30,6 +30,14 @@ struct IslamicBuildProbe;
 template <int W, int H> class IslamicStars : public Effect {
 
 public:
+#ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
+  static_assert(
+      HS_ISLAMICSTARS_PROFILE_SHAPE >= 0 &&
+          HS_ISLAMICSTARS_PROFILE_SHAPE <
+              static_cast<int>(std::size(Solids::islamic_registry)),
+      "HS_ISLAMICSTARS_PROFILE_SHAPE is outside the Islamic solid registry");
+#endif
+
   /**
    * @brief Constructs the effect, binding the ripple generator to the timeline.
    */
@@ -81,6 +89,7 @@ public:
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
 
+#ifndef HS_ISLAMICSTARS_PROFILE_SHAPE
     // Open on a recipe entry so the op-by-op build is the first thing drawn;
     // spawn_shape pre-increments, so seed the index one before it.
     auto solids = Solids::Collections::get_islamic_solids();
@@ -90,6 +99,7 @@ public:
         break;
       }
     }
+#endif
 
     spawn_shape();
   }
@@ -605,7 +615,11 @@ private:
    */
   HS_COLD_MEMBER void spawn_shape() {
     auto solids = Solids::Collections::get_islamic_solids();
+#ifdef HS_ISLAMICSTARS_PROFILE_SHAPE
+    solid_idx = HS_ISLAMICSTARS_PROFILE_SHAPE;
+#else
     solid_idx = (solid_idx + 1) % solids.size();
+#endif
     int back = 1 - carousel.front_index();
     // The shape's shuffled palette order: birth cohorts consume it through
     // build_birth_counter_ (the spawned mesh below, newborn build faces
