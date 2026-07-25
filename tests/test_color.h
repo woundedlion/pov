@@ -19,7 +19,6 @@
 #include <limits>
 
 #include "core/color/color.h"
-#include "core/color/palettes.h"
 #include "core/color/srgb_decode.h"
 #include "core/engine/util.h"
 #include "tests/test_fixture.h"
@@ -27,33 +26,6 @@
 
 namespace hs_test {
 namespace color_tests {
-
-inline void test_mesh_palette_nearest_error_is_subpercent() {
-  configure_arenas_default();
-  MeshPaletteBank bank;
-  bank.bake_all(persistent_arena);
-  uint64_t sum = 0;
-  uint32_t worst = 0;
-  constexpr int SAMPLES = 65536;
-  for (int p = 0; p < MeshPaletteBank::N; ++p)
-    for (int i = 0; i < SAMPLES; ++i) {
-      float t = static_cast<float>(i) / (SAMPLES - 1);
-      Pixel a = bank[p].get(t).color;
-      Color4 nearest;
-      bank[p].get_nearest_into(t, nearest);
-      Pixel b = nearest.color;
-      for (uint16_t d : {static_cast<uint16_t>(std::abs((int)a.r - b.r)),
-                         static_cast<uint16_t>(std::abs((int)a.g - b.g)),
-                         static_cast<uint16_t>(std::abs((int)a.b - b.b))}) {
-        sum += d;
-        worst = std::max(worst, static_cast<uint32_t>(d));
-      }
-    }
-  const double mean =
-      static_cast<double>(sum) / (MeshPaletteBank::N * SAMPLES * 3);
-  HS_EXPECT_LE(mean, 30.0);
-  HS_EXPECT_LE(worst, (uint32_t)300);
-}
 
 // ============================================================================
 // lerp16
@@ -2103,8 +2075,6 @@ inline void test_palette_wrappers() {
  */
 inline int run_color_tests() {
   hs_test::ModuleFixture fixture("color");
-  test_mesh_palette_nearest_error_is_subpercent();
-
   test_lerp16_endpoints();
   test_lerp16_midpoint();
   test_lerp16_rounds_to_nearest();

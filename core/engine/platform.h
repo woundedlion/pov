@@ -1051,9 +1051,11 @@ inline unsigned long micros() { return hs::micros(); }
 #if defined(__GNUC__) && !defined(__clang__)
 #define HS_COLD FLASHMEM __attribute__((noinline, noclone))
 #define HS_COLD_MEMBER __attribute__((cold, noinline, noclone))
+#define HS_NOINLINE_NOCLONE __attribute__((noinline, noclone))
 #else
 #define HS_COLD FLASHMEM
 #define HS_COLD_MEMBER
+#define HS_NOINLINE_NOCLONE __attribute__((noinline))
 #endif
 
 // ---------------------------------------------------------------------------
