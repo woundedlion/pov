@@ -2007,6 +2007,111 @@ private:
     return u * u * (3.0f - 2.0f * u);
   }
 
+  struct BirthPalettes {
+    size_t first_face;
+    const uint8_t *face_palette;
+  };
+
+  __attribute__((always_inline)) static const int *resolve_target_topology(
+      Transients &tr, const PolyMesh &arrival, const PaletteHandoff &handoff,
+      const BookendClasses &bookend, Arena &arena, size_t survivors) {
+    const size_t total = tr.topo.size();
+    HS_CHECK(!bookend.topology || bookend.faces == total ||
+                 bookend.faces == survivors,
+             "OpLeg: bookend face count matches neither mapping");
+    if (!bookend.topology) {
+      tr.target_topo.clear();
+      return tr.topo.data();
+    }
+
+    const size_t landed = bookend.faces;
+    const bool immutable_closing =
+        handoff.immutable &&
+        handoff.correspondence == FaceCorrespondence::DUAL_CLOSING;
+    const Vector *arrival_centroid =
+        landed < total && !immutable_closing
+            ? face_centroids(arrival, scratch_arena_a)
+            : nullptr;
+    tr.target_topo.bind(arena, total);
+    for (size_t f = 0; f < total; ++f) {
+      if (f < landed) {
+        tr.target_topo.push_back(bookend.topology[f]);
+        continue;
+      }
+      if (immutable_closing) {
+        tr.target_topo.push_back(tr.topo[f]);
+        continue;
+      }
+      size_t host = 0;
+      float best_d = 1e9f;
+      for (size_t j = 0; j < landed; ++j) {
+        const Vector d = arrival_centroid[f] - arrival_centroid[j];
+        const float dsq = dot(d, d);
+        if (dsq < best_d) {
+          best_d = dsq;
+          host = j;
+        }
+      }
+      tr.target_topo.push_back(bookend.topology[host]);
+    }
+    return tr.target_topo.data();
+  }
+
+  __attribute__((always_inline)) static BirthPalettes assign_birth_palettes(
+      Transients &tr, const PolyMesh &arrival,
+      const PaletteHandoff &handoff, const int *target_topo,
+      const uint8_t *forced_from, const uint16_t *birth_sig,
+      size_t birth_start) {
+    const size_t total = tr.topo.size();
+    const size_t first =
+        birth_start == SIZE_MAX ? handoff.prev_faces : birth_start;
+    if (!handoff.immutable || !handoff.birth_counter || forced_from ||
+        first >= total)
+      return {first, nullptr};
+
+    const size_t births = total - first;
+    uint8_t *palette = scratch_arena_a.allocate_n<uint8_t>(births);
+    int *key = scratch_arena_a.allocate_n<int>(births);
+    const int *group = perceptual_groups(arrival, target_topo, first, total,
+                                         scratch_arena_a);
+    for (size_t i = 0; i < births; ++i)
+      key[i] = birth_sig
+                   ? ((group[i] << 16) | static_cast<int>(birth_sig[i]))
+                   : group[i];
+
+    int previous_key = -1;
+    for (;;) {
+      int next_key = -1;
+      for (size_t i = 0; i < births; ++i)
+        if (key[i] > previous_key &&
+            (next_key < 0 || key[i] < next_key))
+          next_key = key[i];
+      if (next_key < 0)
+        break;
+      const uint8_t assigned =
+          tr.landing.to_palette[(*handoff.birth_counter)++ % PALETTES];
+      for (size_t i = 0; i < births; ++i)
+        if (key[i] == next_key)
+          palette[i] = assigned;
+      previous_key = next_key;
+    }
+    return {first, palette};
+  }
+
+  __attribute__((always_inline)) static uint8_t
+  intern_palette_ramp(Transients &tr, uint8_t from, uint8_t to) {
+    for (int r = 0; r < tr.num_ramps; ++r)
+      if (tr.ramp_from[r] == from && tr.ramp_to[r] == to)
+        return static_cast<uint8_t>(r);
+
+    HS_CHECK(tr.num_ramps < MAX_BLEND_PAIRS,
+             "OpLeg: distinct palette pairs exceed the blend budget");
+    const int ramp = tr.num_ramps++;
+    tr.ramp_from[ramp] = from;
+    tr.ramp_to[ramp] = to;
+    return static_cast<uint8_t>(ramp);
+  }
+
   /**
    * @brief Builds the per-face from-palettes (leg-swap mapping, spec 2.5), the
    * shuffled target assignment (spec 2.6), and the distinct ramp-pair table.
@@ -2061,48 +2166,8 @@ private:
     // it collapses onto — the mirror of the newborn from-palette rule below,
     // which is what makes the leg's crossfade symmetric: a sliver closes into
     // its host's color instead of freezing in an unrelated target color.
-    HS_CHECK(!bookend.topology || bookend.faces == total ||
-                 bookend.faces == survivors,
-             "OpLeg: bookend face count matches neither mapping");
-    // Without a bookend grouping the target class is the swept class verbatim,
-    // so target_topo would only duplicate topo; alias it instead of allocating.
-    const int *target_topo;
-    if (bookend.topology) {
-      const size_t landed = bookend.faces;
-      const bool immutable_closing =
-          handoff.immutable &&
-          handoff.correspondence == FaceCorrespondence::DUAL_CLOSING;
-      const Vector *arrival_centroid =
-          landed < total && !immutable_closing
-              ? face_centroids(arrival, scratch_arena_a)
-              : nullptr;
-      tr.target_topo.bind(arena, total);
-      for (size_t f = 0; f < total; ++f) {
-        if (f < landed) {
-          tr.target_topo.push_back(bookend.topology[f]);
-          continue;
-        }
-        if (immutable_closing) {
-          tr.target_topo.push_back(tr.topo[f]);
-          continue;
-        }
-        size_t host = 0;
-        float best_d = 1e9f;
-        for (size_t j = 0; j < landed; ++j) {
-          const Vector d = arrival_centroid[f] - arrival_centroid[j];
-          const float dsq = dot(d, d);
-          if (dsq < best_d) {
-            best_d = dsq;
-            host = j;
-          }
-        }
-        tr.target_topo.push_back(bookend.topology[host]);
-      }
-      target_topo = tr.target_topo.data();
-    } else {
-      tr.target_topo.clear();
-      target_topo = tr.topo.data();
-    }
+    const int *target_topo = resolve_target_topology(
+        tr, arrival, handoff, bookend, arena, survivors);
     tr.landing.topology = target_topo;
 
     if (handoff.pinned_to) {
@@ -2148,35 +2213,9 @@ private:
     // different legs never collide on the order's first slots. The key is the
     // birth class's perceptual colour group, refined by the underlying
     // vertex's orbit signature on a vertex-orbit block (birth_sig).
-    const size_t births_from =
-        birth_start == SIZE_MAX ? handoff.prev_faces : birth_start;
-    uint8_t *birth_pal = nullptr; // one palette per newborn face
-    if (handoff.immutable && handoff.birth_counter && !forced_from &&
-        births_from < total) {
-      const size_t births = total - births_from;
-      birth_pal = scratch_arena_a.allocate_n<uint8_t>(births);
-      int *key = scratch_arena_a.allocate_n<int>(births);
-      const int *grp = perceptual_groups(arrival, target_topo, births_from,
-                                         total, scratch_arena_a);
-      for (size_t i = 0; i < births; ++i)
-        key[i] = birth_sig ? ((grp[i] << 16) | static_cast<int>(birth_sig[i]))
-                           : grp[i];
-      int prev_key = -1;
-      for (;;) {
-        int next = -1;
-        for (size_t i = 0; i < births; ++i)
-          if (key[i] > prev_key && (next < 0 || key[i] < next))
-            next = key[i];
-        if (next < 0)
-          break;
-        const uint8_t pal =
-            tr.landing.to_palette[(*handoff.birth_counter)++ % PALETTES];
-        for (size_t i = 0; i < births; ++i)
-          if (key[i] == next)
-            birth_pal[i] = pal;
-        prev_key = next;
-      }
-    }
+    const BirthPalettes births =
+        assign_birth_palettes(tr, arrival, handoff, target_topo, forced_from,
+                              birth_sig, birth_start);
 
     uint8_t *from_palette = arena.allocate_n<uint8_t>(total);
     tr.landing.from_palette = from_palette;
@@ -2184,10 +2223,10 @@ private:
     tr.face_ramp.bind(arena, total);
     for (size_t f = 0; f < total; ++f) {
       uint8_t to = tr.landing.to_palette[wrap(target_topo[f], PALETTES)];
-      if (birth_pal && f >= births_from)
-        to = birth_pal[f - births_from];
+      if (births.face_palette && f >= births.first_face)
+        to = births.face_palette[f - births.first_face];
       uint8_t from = to; // fallback: newborn faces skip the crossfade
-      if (birth_pal && f >= births_from) {
+      if (births.face_palette && f >= births.first_face) {
         // Births stay on their cohort palette even where an inheritance
         // mapping would apply (a dual swap's whole-list births).
       } else if (forced_from) {
@@ -2233,21 +2272,7 @@ private:
       HS_CHECK(from < PALETTES && to < PALETTES);
       from_palette[f] = from;
 
-      int ramp = -1;
-      for (int r = 0; r < tr.num_ramps; ++r) {
-        if (tr.ramp_from[r] == from && tr.ramp_to[r] == to) {
-          ramp = r;
-          break;
-        }
-      }
-      if (ramp < 0) {
-        HS_CHECK(tr.num_ramps < MAX_BLEND_PAIRS,
-                 "OpLeg: distinct palette pairs exceed the blend budget");
-        ramp = tr.num_ramps++;
-        tr.ramp_from[ramp] = from;
-        tr.ramp_to[ramp] = to;
-      }
-      tr.face_ramp.push_back(static_cast<uint8_t>(ramp));
+      tr.face_ramp.push_back(intern_palette_ramp(tr, from, to));
     }
   }
 
