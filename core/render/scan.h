@@ -1167,28 +1167,40 @@ struct RingSweep {
         }
         const float a0 = std::abs(d0);
         const float a1 = std::abs(d1);
-        const bool far_end = a1 < a0;
-        float dist = far_end ? a1 : a0;
-        if (dist >= th) {
+        if (std::min(a0, a1) >= th) {
           continue;
         }
-        // One-sided dwell truncated to the span length (a short reversal
-        // span holds only part of the approach); the final span's far end
-        // adds the discrete head-ring sample legacy always draws.
+        // One-sided dwell per in-band END, truncated to the span length (a
+        // short reversal span holds only part of the approach) — a short
+        // span's pixel can sit within the stroke of BOTH ends and gets both
+        // contributions. The final span's far end adds the discrete
+        // head-ring sample legacy always draws.
         const float B = dot(p, b);
-        const float deriv =
-            far_end ? std::abs(B * cos_full - d0 * sin_full) : std::abs(B);
-        const float u_near = 1.0f - dist * inv_th;
-        const float u_avail =
-            hs::clamp(theta_total * deriv * inv_th, 0.0f, 1.0f);
-        float k_lin = rho * th *
-                      (quintic_integral(u_near) -
-                       quintic_integral(std::max(0.0f, u_near - u_avail))) /
-                      (deriv + 1e-6f);
+        float k_lin = 0.0f;
+        if (a0 < th) {
+          const float deriv = std::abs(B);
+          const float u_near = 1.0f - a0 * inv_th;
+          const float u_avail =
+              hs::clamp(theta_total * deriv * inv_th, 0.0f, 1.0f);
+          k_lin += rho * th *
+                   (quintic_integral(u_near) -
+                    quintic_integral(std::max(0.0f, u_near - u_avail))) /
+                   (deriv + 1e-6f);
+        }
         float q_cap = 0.0f;
-        if (far_end && span.head_cap)
-          q_cap = quintic_kernel(1.0f - dist * inv_th);
-        emit(x, y, p, far_end ? span.t1 : span.t0, k_lin, q_cap, 1.0f);
+        if (a1 < th) {
+          const float deriv = std::abs(B * cos_full - d0 * sin_full);
+          const float u_near = 1.0f - a1 * inv_th;
+          const float u_avail =
+              hs::clamp(theta_total * deriv * inv_th, 0.0f, 1.0f);
+          k_lin += rho * th *
+                   (quintic_integral(u_near) -
+                    quintic_integral(std::max(0.0f, u_near - u_avail))) /
+                   (deriv + 1e-6f);
+          if (span.head_cap)
+            q_cap = quintic_kernel(1.0f - a1 * inv_th);
+        }
+        emit(x, y, p, a1 < a0 ? span.t1 : span.t0, k_lin, q_cap, 1.0f);
       }
     };
     auto run_clipped = [&](int x1, int x2, int y, float sp, float cp) {

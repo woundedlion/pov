@@ -252,6 +252,13 @@ private:
         }
 
         Scan::RingSweep::Span span;
+        // Spans must tile the polyline: an unextendable start (thickness-class
+        // edge) becomes a forced single-segment span, never a skipped segment
+        // — a dropped segment is a visible hole in the smear.
+        if (s1 == s0 && s0 + 1 < m) {
+          s1 = s0 + 1;
+          dev = 0.0f;
+        }
         if (s1 == s0) {
           span.n0 = span.n1 = normals[s0];
           span.t0 = span.t1 = tvals[s0];
@@ -266,7 +273,8 @@ private:
           span.ts = &tvals[s0];
           span.count = s1 - s0 + 1;
         }
-        span.thickness = th0 + dev;
+        // A forced segment can straddle a thickness-class edge; cover both.
+        span.thickness = std::max(th0, thickness_at(tvals[s1])) + dev;
         span.head_cap = s1 == m - 1;
         Scan::RingSweep::draw<W, H>(filters, canvas, span, shader);
         s0 = s1 == s0 ? s0 + 1 : s1;
