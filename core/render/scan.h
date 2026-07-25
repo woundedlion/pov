@@ -1306,13 +1306,17 @@ struct Mesh {
    *        class distance LUT is bound for the probe loop.
    * @param mask Optional dissolve ownership mask (see PixelMask); unowned
    *        pixels are skipped before the per-pixel SDF eval.
+   * @param face_shader_setup Optional per-face shader setup. When supplied,
+   *        it runs once before rasterizing the face and the shader is invoked
+   *        directly without writing the face index to Fragment::v2.
    */
   template <int W, int H, typename PipelineT = PipelineRef>
   static void draw(PipelineT &pipeline, Canvas &canvas, const MeshState &mesh,
                    FragmentShaderFn fragment_shader, Arena &scratch_arena,
                    bool debug_bb = false,
                    const MeshOps::MeshClassBake *bake = nullptr,
-                   const PixelMask *mask = nullptr) {
+                   const PixelMask *mask = nullptr,
+                   FunctionRef<void(size_t)> face_shader_setup = nullptr) {
     ScratchScope scope(scratch_arena);
     auto *scratch =
         static_cast<SDF::FaceScratchBuffer *>(scratch_arena.allocate(
@@ -1368,10 +1372,16 @@ struct Mesh {
         f_in.v2 = static_cast<float>(i);
         fragment_shader(p, f_in);
       };
+      FragmentShaderFn raster_shader = fragment_shader;
+      if (face_shader_setup)
+        face_shader_setup(i);
+      else
+        raster_shader = wrapper;
 
       {
         HS_PROFILE(scan_mesh_raster);
-        rasterize_face<W, H>(pipeline, canvas, shape, wrapper, debug_bb, mask);
+        rasterize_face<W, H>(pipeline, canvas, shape, raster_shader, debug_bb,
+                             mask);
       }
     }
   }
