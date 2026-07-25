@@ -826,12 +826,15 @@ struct Base {
 /**
  * @brief Opacity cross-fade between consecutive meshes.
  * @details Phase is opacity. Each transition is one fade-in/fade-out Sprite;
- * the returned delay starts the next transition one fade window before this
- * sprite ends, so the outgoing and incoming sprites overlap and both meshes
- * render during the fade — the cost of this segue is two rasterized meshes
- * per overlap frame. Every other segue is sequential (single mesh per frame).
+ * the returned delay starts the next transition `overlap` frames before this
+ * sprite ends, so the outgoing and incoming sprites coexist and both meshes
+ * render during those frames — the cost of this segue is two rasterized
+ * meshes per overlap frame. At overlap 0 the schedule is sequential (a fade
+ * through black) and a single mesh renders per frame.
  */
 struct Crossfade : Base {
+  int overlap = -1; /**< Frames consecutive sprites coexist; clamped to the
+                         fade window, negative selects the full window. */
   /**
    * @brief Schedules the incoming mesh's fading sprite.
    * @param timeline Timeline receiving the sprite.
@@ -839,13 +842,14 @@ struct Crossfade : Base {
    * @param duration Total frames the mesh is on screen.
    * @param window Requested fade length in frames; clamped to duration/2 so
    * the fade windows never overlap and sprites cannot pile up beyond two.
-   * @return Frames after which the next transition should begin.
+   * @return Frames after which the next transition should begin: duration
+   * minus the effective overlap.
    */
   int schedule(Timeline &timeline, SpriteFn draw_fn, int duration, int window) {
     int fade = std::min(window, duration / 2);
     timeline.add(0, Animation::Sprite(std::move(draw_fn), duration, fade,
                                       ease_linear, fade, ease_linear));
-    return duration - fade;
+    return duration - (overlap < 0 ? fade : std::min(overlap, fade));
   }
   float opacity(float phase) const { return phase; }
 };
