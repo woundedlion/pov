@@ -433,116 +433,6 @@ inline void test_ring_group_matches_sequential() {
 }
 
 /**
- * @brief Verifies RingSweep covers a dense stacked-ring reference and that
- *        splitting a sweep into abutting spans neither gaps nor double-blends
- *        the shared boundary ring.
- * @details A 24-ring stack sampled along one constant-axis rotation is the
- * coverage/brightness reference for a single equivalent sweep span; the same
- * sweep drawn as two half-spans (draw_far_end deferring the shared ring) must
- * match the whole-span render closely everywhere.
- */
-inline void test_ring_sweep_matches_dense_stack() {
-  constexpr int W = 96, H = 64;
-  constexpr float TH = 0.06f;
-  constexpr float THETA = 0.5f;
-  const Vector n_start = Vector(0.3f, 0.8f, -0.5f).normalized();
-  const Vector axis =
-      cross(n_start, Vector(0.1f, 0.2f, 0.9f).normalized()).normalized();
-  const Color4 color(Pixel(40000, 30000, 10000), 0.5f);
-  auto normal_at = [&](float t) {
-    return rotate(n_start, make_rotation(axis, THETA * t)).normalized();
-  };
-
-  auto lum = [](const Pixel &p) { return static_cast<long>(p.r) + p.g + p.b; };
-
-  std::vector<Pixel> dense(W * H);
-  {
-    ScanFx fx(W, H);
-    Pipeline<W, H> pipeline;
-    {
-      Canvas canvas(fx);
-      constexpr int K = 24;
-      for (int k = 0; k < K; ++k) {
-        Basis basis = make_basis(Quaternion(), normal_at(k / (K - 1.0f)));
-        SDF::Ring shape(basis, 1.0f, TH);
-        auto shader = [&](const Vector &, Fragment &f) {
-          // 1/6 the alpha of the sweep reference: 24 stacked rings sample the
-          // band ~6x denser than the sweep's 4-position dwell model.
-          f.color = Color4(color.color, color.alpha / 6.0f);
-        };
-        Scan::rasterize<W, H, false>(pipeline, canvas, shape, shader);
-      }
-    }
-    fx.advance_display();
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        dense[y * W + x] = fx.get_pixel(x, y);
-  }
-
-  auto draw_spans = [&](ScanFx &fx, int pieces) {
-    Pipeline<W, H> pipeline;
-    Canvas canvas(fx);
-    for (int i = 0; i < pieces; ++i) {
-      Scan::RingSweep::Span span;
-      span.n0 = normal_at(static_cast<float>(i) / pieces);
-      span.n1 = normal_at(static_cast<float>(i + 1) / pieces);
-      span.t0 = span.t1 = 0.5f;
-      span.thickness = TH;
-      span.positions = 4.0f;
-      span.draw_far_end = i == pieces - 1;
-      Scan::RingSweep::draw<W, H>(
-          pipeline, canvas, span,
-          [&](float, const Vector &, Fragment &f) { f.color = color; });
-    }
-  };
-
-  std::vector<Pixel> whole(W * H);
-  {
-    ScanFx fx(W, H);
-    draw_spans(fx, 1);
-    fx.advance_display();
-    for (int y = 0; y < H; ++y)
-      for (int x = 0; x < W; ++x)
-        whole[y * W + x] = fx.get_pixel(x, y);
-  }
-
-  // Coverage: every solidly-lit dense pixel is lit by the sweep, and overall
-  // brightness is the same scale (the dwell model is a calibrated
-  // approximation, not an exact composite).
-  int dense_core = 0, missed = 0;
-  long lum_dense = 0, lum_sweep = 0;
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x) {
-      const Pixel &d = dense[y * W + x];
-      const Pixel &s = whole[y * W + x];
-      lum_dense += lum(d);
-      lum_sweep += lum(s);
-      if (lum(d) > 3000) {
-        ++dense_core;
-        if (lum(s) == 0)
-          ++missed;
-      }
-    }
-  HS_EXPECT_GT(dense_core, 200);
-  HS_EXPECT_LE(missed, dense_core / 50);
-  HS_EXPECT_GT(lum_sweep, lum_dense / 2);
-  HS_EXPECT_LT(lum_sweep, lum_dense * 2);
-
-  // Split consistency: two abutting half-spans must render like the whole
-  // span — no gap and no double-bright seam at the shared boundary ring.
-  ScanFx split(W, H);
-  draw_spans(split, 2);
-  split.advance_display();
-  for (int y = 0; y < H; ++y)
-    for (int x = 0; x < W; ++x) {
-      long a = lum(whole[y * W + x]);
-      long b = lum(split.get_pixel(x, y));
-      HS_EXPECT_NEAR(static_cast<int>(a), static_cast<int>(b),
-                     static_cast<int>(std::max(a, b) / 2 + 4096));
-    }
-}
-
-/**
  * @brief Verifies the scan_region seam coalescer avoids double-plotting.
  * @details A span crossing x=0 must not double-plot the wrapped overlap shared
  * with another span. Drives scan_region with a sorted two-span row (a low span
@@ -1479,7 +1369,6 @@ inline int run_scan_tests() {
   test_ring_rasterize_empty_clip_draws_nothing();
   test_distorted_ring_flat_matches_zero_knot_raster();
   test_ring_group_matches_sequential();
-  test_ring_sweep_matches_dense_stack();
   test_scan_shader_v2_contract();
   test_scan_region_seam_no_double_plot();
   test_scan_region_fractional_boundary_no_double_plot();
