@@ -87,7 +87,6 @@ public:
     register_param("Ripp Dur", &ripple_duration, 30.0f,
                    (float)RIPPLE_DURATION_MAX);
     register_param("Trans Speed", &params.trans_speed, 1.0f, 8.0f);
-    register_param("Debug BB", &params.debug_bb);
 
     timeline.add(0, Animation::RandomWalk<W>(orientation, UP, noise));
 
@@ -436,9 +435,9 @@ private:
           fragment_shader.alpha = seg.opacity(face_phases[fi]);
           fragment_shader.scale = size;
         };
-        Scan::Mesh::draw_specialized<W, H>(
-            filters, canvas, transformed_state, fragment_shader,
-            scratch_arena_a, params.debug_bb, nullptr, select_face);
+        Scan::Mesh::draw_specialized<W, H>(filters, canvas, transformed_state,
+                                           fragment_shader, scratch_arena_a,
+                                           nullptr, select_face);
       } else {
         auto fragment_shader = [&](const Vector &, Fragment &frag) {
           const size_t fi = static_cast<size_t>(frag.v2);
@@ -446,8 +445,7 @@ private:
               frag, palette_bank_[face_palette[fi]], 1.0f, seg, phase);
         };
         Scan::Mesh::draw<W, H>(filters, canvas, transformed_state,
-                               fragment_shader, scratch_arena_a,
-                               params.debug_bb);
+                               fragment_shader, scratch_arena_a);
       }
     }
   }
@@ -491,8 +489,7 @@ private:
       // op and compile temps have unwound). The sprite path scans from
       // scratch_a, where its transformed copy already lives.
       Scan::Mesh::draw_specialized<W, H>(filters, canvas, mesh, fragment_shader,
-                                         scratch_arena_b, params.debug_bb,
-                                         nullptr, select_face);
+                                         scratch_arena_b, nullptr, select_face);
     }
   }
 
@@ -1543,7 +1540,6 @@ private:
         4.0f; /**< Ripples per burst; float-backed for register_param. */
     float trans_speed =
         1.0f; /**< Divides every per-shape stage length (fade, still holds, ripple span): 1 = shipping cadence, higher cycles shapes faster. */
-    bool debug_bb = false; /**< Whether to draw mesh bounding boxes. */
   } params;
 };
 
